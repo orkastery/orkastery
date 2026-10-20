@@ -307,16 +307,13 @@ export function tabelaDaDivida(
   raiz: string,
   filtro: { pack?: PackDeAuditoria; todos?: boolean } = {}
 ): string {
+  const m = msg().audit.divida;
   const board = lerBoard(raiz);
   const alvo = board
     .filter((a) => (filtro.pack ? a.pack === filtro.pack : true))
     .filter((a) => (filtro.todos ? true : a.estado !== 'descartado' && a.estado !== 'resolvido'));
   if (alvo.length === 0) {
-    return (
-      'Board de divida vazio' +
-      (filtro.pack ? ` para o pack ${filtro.pack}` : '') +
-      `.\nRode uma auditoria: ork audit run <pack>`
-    );
+    return m.vazia(filtro.pack);
   }
   const linhas = alvo.map((a) => [
     a.id,
@@ -326,29 +323,29 @@ export function tabelaDaDivida(
     a.claim.estado,
     a.estado,
     a.proposta.estimativa,
-    a.proposta.passoIrreversivel.toLowerCase() === 'nenhum' ? 'nao' : 'SIM',
+    a.proposta.passoIrreversivel.toLowerCase() === 'nenhum' ? m.nao : m.sim,
     `${a.arquivo}${a.linha !== null ? ':' + a.linha : ''}`,
     a.titulo,
   ]);
   const corpo = tabela(
-    ['ID', 'PACK', 'REGRA', 'SEVERIDADE', 'CLAIM', 'ESTADO', 'ESTIMATIVA', 'IRREVERSIVEL', 'EVIDENCIA', 'TITULO'],
+    [...m.cabecalho],
     linhas
   );
   const rec = recorrencias(alvo).filter((r) => r.ocorrencias > 1);
   const linhasRec =
     rec.length === 0
-      ? ['  (nenhuma regra recorrente ainda)']
-      : rec.map((r) => `  ${r.pack} ${r.regra}: ${r.ocorrencias}x -> promocao proposta: ${r.promocaoProposta} (${r.achados.join(', ')})`);
+      ? [m.nenhuma]
+      : rec.map((r) => m.item(r.pack, r.regra, r.ocorrencias, r.promocaoProposta, r.achados.join(', ')));
   return [
-    `Board de divida do projeto (${caminhoBoard(raiz)})`,
+    m.titulo(caminhoBoard(raiz)),
     '',
     corpo,
     '',
-    'Recorrencia (2 propoem controle, 3 propoem bloqueante; o `ork` nunca promove sozinho):',
+    m.recorrencia,
     ...linhasRec,
     '',
-    `abertos: ${abertos(alvo).length} | total listado: ${alvo.length}`,
-    'Achado vira thread com: ork thread new "<nome>" --from-finding <ID>',
+    m.resumo(abertos(alvo).length, alvo.length),
+    m.thread,
   ].join('\n');
 }
 

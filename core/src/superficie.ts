@@ -27,6 +27,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { EscopoDaRodada, SeveridadeDeAchado } from './types';
 import { exec, tabela } from './util';
+import { msg } from './locale';
 
 // ---------------------------------------------------------------------------
 // Regras novas do pack (SP8..SP12)
@@ -1512,8 +1513,9 @@ export function entradaBrutaDaSuperficie(a: AchadoDeSuperficie): EntradaBrutaDeS
 
 /** Tabela dos achados da varredura. */
 export function tabelaDaVarredura(r: ResultadoDaVarredura): string {
+  const m = msg().audit.superficie;
   if (r.achados.length === 0) {
-    return `Nenhum achado de superficie de ataque. ${r.detalhe}`;
+    return m.vazia(r.detalhe);
   }
   const linhas = r.achados.map((a) => [
     a.regra,
@@ -1524,33 +1526,32 @@ export function tabelaDaVarredura(r: ResultadoDaVarredura): string {
     `${a.arquivo}:${a.linha}`,
     a.titulo,
   ]);
-  return tabela(['REGRA', 'SEVERIDADE', 'CONFIANCA', 'FRAMEWORK', 'ROTA', 'EVIDENCIA', 'TITULO'], linhas);
+  return tabela([...m.cabecalho], linhas);
 }
 
 /** Texto completo de `ork audit surface`. */
 export function textoDaVarredura(r: ResultadoDaVarredura): string {
+  const m = msg().audit.superficie;
   const L: string[] = [];
-  L.push('Varredura deterministica da superficie de ataque de rede (pack security-privacy, SP8..SP12)');
+  L.push(m.titulo);
   L.push('');
-  L.push(`  raiz          ${r.raiz}`);
-  L.push(`  escopo        ${r.detalhe}`);
-  L.push(`  frameworks    ${r.frameworks.length > 0 ? r.frameworks.join(', ') : '(nenhum reconhecido)'}`);
-  L.push(`  teto          ${r.limitePorRegra} achado(s) por regra`);
+  L.push(m.campo(m.campos.raiz, r.raiz));
+  L.push(m.campo(m.campos.escopo, r.detalhe));
+  L.push(m.campo(m.campos.frameworks, r.frameworks.length > 0 ? r.frameworks.join(', ') : m.nenhumFramework));
+  L.push(m.campo(m.campos.teto, m.teto(r.limitePorRegra)));
   L.push('');
   L.push(tabelaDaVarredura(r));
   L.push('');
   for (const t of r.truncados) {
-    L.push(`  ATENCAO: ${t.ocultos} achado(s) de ${t.regra} ficaram fora do teto desta varredura.`);
+    L.push(m.truncado(t.ocultos, t.regra));
   }
   const baixas = r.achados.filter((a) => a.confianca === 'baixa').length;
   if (baixas > 0) {
-    L.push(
-      `  ${baixas} achado(s) sairam com confianca baixa: ${DESCRICAO_DA_CONFIANCA.baixa}`
-    );
+    L.push(m.baixa(baixas, DESCRICAO_DA_CONFIANCA.baixa));
   }
   L.push('');
-  L.push('Cada achado carrega o comando que o reexecuta no HEAD real (o auditor nao tem self-report).');
-  L.push('Para registrar no board de divida de uma rodada: ork audit surface --registrar <rodada>');
+  L.push(m.claims);
+  L.push(m.registrar);
   return L.join('\n');
 }
 

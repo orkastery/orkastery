@@ -3412,6 +3412,7 @@ function comandoEval(args: Args): number {
  */
 
 function comandoAudit(args: Args): number {
+  const m = msg().audit;
   if (args.posicionais[1] === 'process') {
     const r = auditarProcesso(exigirManifesto(), args.opcoes.registrar === true);
     console.log(JSON.stringify(r, null, 2));
@@ -3426,28 +3427,28 @@ function comandoAudit(args: Args): number {
     const bruto = texto(args.opcoes.estagio) ?? texto(args.opcoes.stage);
     const estagio = bruto ? parseEstagio(bruto) : carregado?.manifesto.project.stage;
     if (bruto && !estagio) {
-      console.error(`estagio invalido: "${bruto}". Use: nascente | crescendo | maduro`);
+      console.error(m.erro.estagio(bruto));
       return 2;
     }
     const pack = texto(args.opcoes.pack) ?? args.posicionais[2];
     if (pack) {
       const alvo = parsePack(pack);
       if (!alvo) {
-        console.error(`pack desconhecido: "${pack}". Use um de: ${ORDEM_DOS_PACKS.join(', ')}`);
+        console.error(m.erro.pack(pack, ORDEM_DOS_PACKS.join(', ')));
         return 2;
       }
       console.log(textoDoPack(alvo, estagio ?? undefined));
       return 0;
     }
     console.log(
-      `Packs de auditoria periodica${estagio ? ` (estagio declarado do projeto: ${estagio})` : ''}`
+      m.packs.titulo(estagio ?? undefined)
     );
     console.log('');
     console.log(tabelaDePacks(estagio ?? undefined));
     if (estagio) {
       console.log('');
-      console.log(`Ativos aqui e agora: ${packsAtivos(estagio).join(', ')}`);
-      console.log(`Postura: ${posturaDoPack(estagio)}`);
+      console.log(m.packs.ativo(packsAtivos(estagio).join(', ')));
+      console.log(m.packs.postura(posturaDoPack(estagio)));
     }
     return 0;
   }
@@ -3476,7 +3477,7 @@ function comandoAudit(args: Args): number {
   if (sub === 'run') {
     const pack = parsePack(args.posicionais[2]);
     if (!pack) {
-      console.error('uso: ork audit run <pack> [--profile P] [--since Nd]');
+      console.error(m.uso('run'));
       console.error(`  packs: ${ORDEM_DOS_PACKS.join(', ')}`);
       return 2;
     }
@@ -3554,7 +3555,7 @@ function comandoAudit(args: Args): number {
     if (sobra) return recusarSobraDoObjective(sobra);
     const id = args.posicionais[2];
     if (!id) {
-      console.error('uso: ork audit show <rodada> [--ledger]');
+      console.error(m.uso('show'));
       return 2;
     }
     if (args.opcoes.ledger === true) {
@@ -3568,7 +3569,7 @@ function comandoAudit(args: Args): number {
   if (sub === 'prompt') {
     const pack = parsePack(args.posicionais[2]);
     if (!pack) {
-      console.error('uso: ork audit prompt <pack> [--since Nd]');
+      console.error(m.uso('prompt'));
       console.error(`  packs: ${ORDEM_DOS_PACKS.join(', ')}`);
       return 2;
     }
@@ -3606,7 +3607,7 @@ function comandoAudit(args: Args): number {
     const id = args.posicionais[2];
     const arquivo = texto(args.opcoes.arquivo) ?? texto(args.opcoes.file);
     if (!id || !arquivo) {
-      console.error('uso: ork audit ingest <rodada> --arquivo <achados.json>');
+      console.error(m.uso('ingest'));
       return 2;
     }
     const r = ingerirAchados(carregado, id, arquivo);
@@ -3698,7 +3699,7 @@ function comandoAudit(args: Args): number {
   if (sub === 'verify') {
     const id = args.posicionais[2];
     if (!id) {
-      console.error('uso: ork audit verify <rodada>');
+      console.error(m.uso('verify'));
       return 2;
     }
     const v = verificarRodada(carregado, id);
@@ -3732,7 +3733,7 @@ function comandoAudit(args: Args): number {
   if (sub === 'report' || sub === 'relatorio') {
     const id = args.posicionais[2];
     if (!id) {
-      console.error('uso: ork audit report <rodada> [--publicar]');
+      console.error(m.uso('report'));
       return 2;
     }
     const r = relatorioDaRodada(carregado, id, { publicar: args.opcoes.publicar === true });
@@ -3746,7 +3747,7 @@ function comandoAudit(args: Args): number {
     const bruto = texto(args.opcoes.pack);
     const pack = bruto ? parsePack(bruto) : undefined;
     if (bruto && !pack) {
-      console.error(`pack desconhecido: "${bruto}". Use um de: ${ORDEM_DOS_PACKS.join(', ')}`);
+      console.error(m.erro.pack(bruto, ORDEM_DOS_PACKS.join(', ')));
       return 2;
     }
     console.log(
@@ -3765,14 +3766,14 @@ function comandoAudit(args: Args): number {
   if (sub === 'surface' || sub === 'superficie') {
     const bruta = texto(args.opcoes.regra);
     if (bruta && !(REGRAS_DE_SUPERFICIE as readonly string[]).includes(bruta.toUpperCase())) {
-      console.error(`regra desconhecida: "${bruta}". Use uma de: ${REGRAS_DE_SUPERFICIE.join(', ')}`);
+      console.error(m.erro.regra(bruta, REGRAS_DE_SUPERFICIE.join(', ')));
       return 2;
     }
     const regra = bruta ? (bruta.toUpperCase() as RegraDeSuperficie) : undefined;
     const limiteBruto = texto(args.opcoes.limite);
     const limite = limiteBruto ? Number(limiteBruto) : undefined;
     if (limite !== undefined && (!Number.isFinite(limite) || limite < 1)) {
-      console.error(`--limite invalido: "${limiteBruto}". Use um inteiro >= 1.`);
+      console.error(m.erro.limite(limiteBruto ?? ''));
       return 2;
     }
 
@@ -3809,7 +3810,7 @@ function comandoAudit(args: Args): number {
     return resultado.achados.length > 0 ? 1 : 0;
   }
 
-  console.error(`subcomando desconhecido: audit ${sub}`);
+  console.error(m.uso(sub));
   return 2;
 }
 
