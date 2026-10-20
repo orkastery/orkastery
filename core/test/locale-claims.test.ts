@@ -2,19 +2,21 @@
  * RM-061, fatia F3b: `ork claims add|conferir|verificar|retirar|ausente|list` em ingles. O texto, a tabela, os avisos e
  * as recusas saem pelo catalogo; o estado da claim e a regra do lint so se traduzem na impressao. A alegacao, o arquivo,
  * o comando e o motivo digitado sao dado. O `claims.jsonl` e o ledger ficam iguais nas duas linguas, e o `--json` do
- * `conferir` leva a recusa em pt-BR nas duas. Negativo: o lint do `ci prepare` segue em pt-BR. Os nomes comecam por
- * "locale en F3b claims:".
+ * `conferir` leva a recusa em pt-BR nas duas. Negativo: o lint que o `ci prepare` grava segue em pt-BR (a F3d levou o
+ * `ci` a lista, e so a impressao segue o locale). Os nomes comecam por "locale en F3b claims:" e "locale en F3d ci prepare:".
  */
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { cobreLocale, comLocale, ligarRemontagem, mensagemDoErro, msg } from '../src/locale';
+import { cobreLocale, comLocale, ligarRemontagem, mensagemDoErro, msg, remontar } from '../src/locale';
 import { conferirClaims, FabricaDeExecutor, textoDaConferencia } from '../src/claims-conferir';
 import { dirThread, novaThread } from '../src/thread';
 import { projetoTemporario } from './apoio';
 import { analisarComando, linhaDoLintDeClaim } from '../src/claim-lint';
+import { adicionarClaim, caminhoClaims, lerClaims } from '../src/claims';
+import { prepararBundleCi } from '../src/ci';
 import { cenario, EN, linhasEmPortugues, ork, PT } from './locale-apoio';
 
 /** O `claims.jsonl` e o ledger da thread sem horario, id de evento e o id da thread. */
@@ -96,14 +98,69 @@ test('locale en F3b claims: usos, recusas e a conferencia sem alvo saem em ingle
   } finally { c.limpar(); }
 });
 
-test('locale en F3b claims (negativo): o lint grava a correcao em pt-BR e o ci prepare segue em pt-BR', () => {
+test('locale en F3b claims (negativo): o lint grava a correcao em pt-BR, e o ci prepare grava o lint em pt-BR com o aviso no locale do comando (F3d)', () => {
   const [achado] = analisarComando('npm --prefix core test');
   assert.equal(achado.correcao, msg('pt-BR').claims.correcoesDoLint['suite-inteira']);
   assert.match(linhaDoLintDeClaim('C1', achado), /^C1 roda a suite inteira \(npm --prefix core test\); rode só o teste da claim /);
-  assert.equal(cobreLocale(['ci', 'prepare', 'x'], {}), false);
+  // F3d (GO-FIX 1, decisao registrada): o `ci` entrou na lista; o que o `ci prepare` grava segue em pt-BR (testes abaixo).
+  assert.equal(cobreLocale(['ci', 'prepare', 'x'], {}), true);
+  assert.equal(cobreLocale(['ci', 'prepare', 'x'], { json: true }), false);
   assert.equal(cobreLocale(['claims', 'conferir', 'x'], { json: true }), false);
   for (const sub of ['add', 'conferir', 'verificar', 'retirar', 'ausente', 'list']) assert.ok(cobreLocale(['claims', sub, 'x'], {}), sub);
   assert.ok(cobreLocale(['claims'], {}));
+});
+
+test('locale en F3d ci prepare: o lint do bundle nasce em pt-BR e se remonta em ingles, na recusa e na claim anterior ao lint', () => {
+  const p = projetoTemporario('locale-ci-lint');
+  ligarRemontagem(true);
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'lint', modo: 'auto' });
+    adicionarClaim(p.dir, thread.id, { arquivo: 'README.md', alegacao: 'tudo verde', verificar: ['npm --prefix core test'] });
+    let erro: unknown;
+    try { comLocale('pt-BR', () => prepararBundleCi(p.carregado, thread.id)); } catch (e) { erro = e; }
+    assert.match(mensagemDoErro(erro), /^claims\.lint: o bundle nao foi gerado; .*:\n {2}C1 roda a suite inteira \(npm --prefix core test\); /);
+    const recusa = comLocale('en', () => mensagemDoErro(erro));
+    assert.match(recusa, /^claims\.lint: the bundle was not generated; .*:\n {2}C1 runs the whole suite \(npm --prefix core test\); /);
+    assert.deepEqual(linhasEmPortugues(recusa, ['claims.lint']), [], recusa);
+    // A claim anterior ao lint (sem o campo) so avisa: a linha nasce em pt-BR e se remonta inteira em ingles.
+    const antigas = lerClaims(p.dir, thread.id).map(({ lint: _lint, ...resto }) => resto);
+    fs.writeFileSync(caminhoClaims(p.dir, thread.id), antigas.map((c) => JSON.stringify(c)).join('\n') + '\n');
+    const avisos: string[] = [];
+    comLocale('pt-BR', () => prepararBundleCi(p.carregado, thread.id, { aoAvisar: (l) => avisos.push(l) }));
+    assert.equal(avisos.length, 1);
+    assert.match(avisos[0], /^C1 roda a suite inteira .*\(claim anterior ao lint: so aviso\)$/);
+    const emIngles = comLocale('en', () => remontar(avisos[0]));
+    assert.match(emIngles, /^C1 runs the whole suite .*\(claim predates the lint: warning only\)$/);
+    assert.deepEqual(linhasEmPortugues(emIngles), [], emIngles);
+  } finally { ligarRemontagem(false); p.limpar(); }
+});
+
+test('locale en F3d ci prepare: o evento do lint no ledger e o bundle sao os mesmos nas duas linguas, e o aviso sai em ingles', () => {
+  const rodar = (locale: Record<string, string>, nome: string) => {
+    const c = cenario(nome, false);
+    try {
+      assert.equal(ork(c, PT, false, 'init', '--name', 'ork', '--abbrev', 'ork').status, 0);
+      assert.equal(ork(c, PT, false, 'thread', 'new', 'Lint', '--modo', 'auto', '--sem-worktree').status, 0);
+      assert.equal(ork(c, PT, false, 'claims', 'add', 'ork-lint', 'README.md', '--alegacao', 'fixa um sha', '--verificar', 'git show 1a2b3c4d').status, 0);
+      const r = ork(c, locale, false, 'ci', 'prepare', 'ork-lint');
+      const ledger = fs.readFileSync(path.join(c.dir, '.orkastery', 'threads', 'ork-lint', 'ledger.jsonl'), 'utf8');
+      const lint = ledger.split('\n').filter((l) => l.includes('"tipo":"claim_lint"'))
+        .map((l) => { const { recusas, avisos } = JSON.parse(l); return { recusas, avisos }; });
+      const bundle = fs.readFileSync(path.join(c.dir, '.ork-ci', 'ork-lint.json'), 'utf8').replace(/\d{4}-\d{2}-\d{2}T[0-9:.]+Z/g, '<ISO>');
+      return { r, lint, bundle, dir: c.dir };
+    } finally { c.limpar(); }
+  };
+  const pt = rodar(PT, 'ci-lint-pt'), en = rodar(EN, 'ci-lint-en');
+  assert.equal(pt.r.status, 0, pt.r.stderr);
+  assert.equal(en.r.status, 0, en.r.stderr);
+  assert.equal(en.lint.length, 1);
+  assert.deepEqual(en.lint, pt.lint);
+  assert.match(en.lint[0].avisos[0], /^C1 fixa um SHA intermediario \(1a2b3c4d\); /);
+  assert.equal(en.bundle, pt.bundle);
+  assert.match(pt.r.stdout, /^AVISO: C1 fixa um SHA intermediario \(1a2b3c4d\); /);
+  assert.match(en.r.stdout, /^WARNING: C1 pins an intermediate SHA \(1a2b3c4d\); anchor on the base /);
+  assert.match(en.r.stdout, /\nCI bundle: /);
+  assert.deepEqual(linhasEmPortugues(en.r.stdout, [en.dir]), [], en.r.stdout);
 });
 
 test('locale en F3b claims: o conferir --tarefa mostra a alegacao sintetica e o sandbox indisponivel em ingles, e o --json em pt-BR (GO-FIX 1)', () => {

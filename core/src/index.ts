@@ -2285,7 +2285,15 @@ function comandoCi(args: Args): number {
       console.error(m.usoPrepare);
       return 2;
     }
-    const arquivo = prepararBundleCi(carregado, thread, { aoAvisar: (linha) => console.log(m.aviso(linha)) });
+    // RM-061 (F3d, GO-FIX 1): o lint vai ao ledger e o bundle ao disco no escopo pt-BR, como antes do `ci` entrar na
+    // lista (D2); o aviso sai remontado no locale do comando, e a recusa, pela entrada do CLI.
+    const avisos: string[] = [];
+    let arquivo: string;
+    try {
+      arquivo = comLocale('pt-BR', () => prepararBundleCi(carregado, thread, { aoAvisar: (linha) => avisos.push(linha) }));
+    } finally {
+      for (const linha of avisos) console.log(m.aviso(remontar(linha)));
+    }
     console.log(m.bundle(arquivo));
     return 0;
   }

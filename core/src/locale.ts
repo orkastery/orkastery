@@ -663,6 +663,11 @@ const PT_BR = {
         usoStatus: 'uso: ork ci status --sha <sha de 40 caracteres> [--remoto origin]',
         status: (ok: boolean, detalhe: string) => `${ok ? 'CI VERDE' : 'CI NÃO LIBEROU'}: ${detalhe}`,
         desconhecido: (sub: string) => `subcomando desconhecido: ci ${sub}`,
+        // GO-FIX 1: o lint do bundle nasce em pt-BR, que e o que vai ao ledger, e a impressao o remonta no locale do comando.
+        anteriorAoLint: (linha: string) => `${linha} (claim anterior ao lint: so aviso)`,
+        worktreeSumiu: (worktree: string) => `a worktree ${worktree} da thread nao existe mais; o bundle vai para a raiz do projeto`,
+        lintRecusado: (recusas: string) =>
+          `claims.lint: o bundle nao foi gerado; retire a claim e registre de novo com o comando focado:\n  ${recusas}`,
       },
     },
   },
@@ -1107,6 +1112,10 @@ const EN: Mensagens = {
         usoStatus: 'usage: ork ci status --sha <40-character sha> [--remoto origin]',
         status: (ok, detail) => `${ok ? 'CI GREEN' : 'CI NOT CLEARED'}: ${detail}`,
         desconhecido: (sub) => `unknown subcommand: ci ${sub}`,
+        anteriorAoLint: (line) => `${line} (claim predates the lint: warning only)`,
+        worktreeSumiu: (worktree) => `the thread worktree ${worktree} no longer exists; the bundle goes to the project root`,
+        lintRecusado: (refusals) =>
+          `claims.lint: the bundle was not generated; withdraw the claim and register it again with the focused command:\n  ${refusals}`,
       },
     },
   },

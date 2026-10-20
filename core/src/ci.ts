@@ -27,7 +27,7 @@ import { analisarComandos, linhaDoLintDeClaim } from './claim-lint';
 import { TESTES_DE_INTEGRACAO_LOCAL } from './integracoes-locais';
 import { registrar, TIPOS_DE_EVENTO } from './ledger';
 import { dirThread, lerThread } from './thread';
-import { textoDoCatalogo, type Mensagens } from './locale';
+import { ErroDoCatalogo, montadorDe, textoDoCatalogo, type Mensagens } from './locale';
 
 export type EstadoCi = 'disabled' | 'success' | 'pending' | 'failure' | 'missing' | 'unavailable';
 
@@ -403,10 +403,16 @@ export function lintDoBundle(claims: readonly Claim[]): { recusas: string[]; avi
     for (const achado of analisarComandos(claim.verificar)) {
       const linha = linhaDoLintDeClaim(claim.id, achado);
       if (achado.regra === 'suite-inteira' && claim.lint !== undefined) recusas.push(linha);
-      else avisos.push(achado.regra === 'suite-inteira' ? `${linha} (claim anterior ao lint: so aviso)` : linha);
+      else avisos.push(achado.regra === 'suite-inteira' ? anteriorAoLint(linha) : linha);
     }
   }
   return { recusas, avisos };
+}
+
+/** RM-061 (F3d, GO-FIX 1): a linha da claim anterior ao lint, remontavel no locale do comando como a linha de dentro. */
+function anteriorAoLint(linha: string): string {
+  const montar = montadorDe(linha);
+  return textoDoCatalogo((m) => m.operacao.produto.ci.anteriorAoLint(montar(m)));
 }
 
 /**
@@ -437,14 +443,14 @@ export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string
   }
   for (const aviso of lint.avisos) opcoes.aoAvisar?.(aviso);
   if (lint.recusas.length) {
-    throw new Error(`claims.lint: o bundle nao foi gerado; retire a claim e registre de novo com o comando focado:\n  ` +
-      lint.recusas.join('\n  '));
+    const montadores = lint.recusas.map(montadorDe);
+    throw new ErroDoCatalogo((m) => m.operacao.produto.ci.lintRecusado(montadores.map((montar) => montar(m)).join('\n  ')));
   }
   const destino = destinoDoBundle(carregado, threadId);
   // Achado S8 do CHECK: a worktree registrada que sumiu nao e silencio; o bundle na raiz vem com aviso.
   const registrada = lerThread(carregado.raiz, threadId).worktree;
   if (registrada && destino !== registrada) {
-    opcoes.aoAvisar?.(`a worktree ${registrada} da thread nao existe mais; o bundle vai para a raiz do projeto`);
+    opcoes.aoAvisar?.(textoDoCatalogo((m) => m.operacao.produto.ci.worktreeSumiu(registrada)));
   }
   const classified = activeClaims.map((claim) => ({
     claim,

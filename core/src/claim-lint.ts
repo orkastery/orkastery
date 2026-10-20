@@ -16,7 +16,7 @@
  */
 
 import { AchadoDoLint, RegraDoLint } from './types';
-import { msg } from './locale';
+import { msg, textoDoCatalogo } from './locale';
 
 export type { AchadoDoLint, RegraDoLint };
 
@@ -70,7 +70,8 @@ export function analisarComandos(comandos: readonly string[]): AchadoDoLint[] {
 
 /** Uma linha por achado, para o terminal e para o ledger. */
 export function linhaDoLintDeClaim(claimId: string, a: AchadoDoLint): string {
-  // RM-061 (F3b): nome e correcao pela regra, no locale ativo (o `ci prepare` nao o ativa: sai em pt-BR, como antes).
-  const m = msg().claims;
-  return m.linhaDoLint(claimId, m.nomesDoLint[a.regra] ?? a.regra, a.trecho, m.correcoesDoLint[a.regra] ?? a.correcao);
+  // RM-061 (F3b): nome e correcao pela regra, no locale ativo. F3d (GO-FIX 1): o montador fica registrado, e o `ci prepare`,
+  // que grava a linha no ledger no escopo pt-BR, a remonta no locale do comando ao imprimir.
+  return textoDoCatalogo((m) => m.claims.linhaDoLint(claimId, m.claims.nomesDoLint[a.regra] ?? a.regra, a.trecho,
+    m.claims.correcoesDoLint[a.regra] ?? a.correcao));
 }
