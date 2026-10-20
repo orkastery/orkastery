@@ -10,15 +10,15 @@ atualizado_em: 2026-10-20T12:00:00-03:00
 estado:
   ciclo: Em validação
   documentacao: Em revisão
-  codigo: Branch criada
+  codigo: Mesclado
   testes: Aprovados
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
-    pr: null
+    commit: 6d9c0f5d
+    pr: 186
 sdlc:
   thread: null
   modo: null
@@ -32,7 +32,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em validação | Branch criada | Aprovados | Não implantado | Flag desligada |
+| Em validação | Mesclado | Aprovados | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -81,7 +81,7 @@ sdlc:
 ## Plano e decisões
 
 - **Prioridade / método / pontuação / justificativa / data:** pedido do mantenedor em 16/10/2026; sem pontuação RICE, decisão direta.
-- **Horizonte / alvo / previsão / confiança / marcos:** motor e catálogo, comando e relatório, gate do SHIP e doctor, skills do laço, o Orkastery contra si mesmo, integração com Docker real e prova ponta a ponta. Todos na branch; um PR só.
+- **Horizonte / alvo / previsão / confiança / marcos:** motor e catálogo, comando e relatório, gate do SHIP e doctor, skills do laço, o Orkastery contra si mesmo, integração com Docker real e prova ponta a ponta. Todos mesclados na `main` por um PR só (#186).
 - **Dependências e bloqueios (ID, owner, próxima revisão):** RM-012 (CI como CHECK independente), RM-061 (texto nas duas línguas). Nenhum bloqueio.
 - **Premissas / riscos / mitigação:**
   - Risco: o scan ficar lento no runner. Mitigação: cache da base por SHA e digest, prazo próprio por comando, medido de 162 a 270 s.
@@ -96,7 +96,7 @@ sdlc:
 
 ## Estado com evidências
 
-O código está na branch `forja/security-scan`, a caminho de um PR único para a `main`. A suíte, o scan do próprio repositório, a integração com Docker real e a prova ponta a ponta estão resumidos em [Evidências](#evidências).
+O código está na `main` desde o PR #186 (merge `6d9c0f5d`, cabeça da branch `34f019b1`), ainda sem release no npm: o workflow de publicação espera a aceitação dos pilotos do #Noctum. A suíte, o scan do próprio repositório, a integração com Docker real e a prova ponta a ponta estão resumidos em [Evidências](#evidências).
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -106,7 +106,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Em validação | — | 2026-10-20 | Paschoal |
 | Documentação | Em revisão | — | 2026-10-20 | Paschoal |
-| Código | Branch criada | — | 2026-10-20 | Paschoal |
+| Código | Mesclado | commit `6d9c0f5d` · PR #186 | 2026-10-20 | Paschoal |
 | Testes | Aprovados | — | 2026-10-20 | Paschoal |
 | Deploy | Não implantado | — | 2026-10-20 | Paschoal |
 | Exposição | Flag desligada | — | 2026-10-20 | Paschoal |
@@ -118,8 +118,9 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: Paschoal; A: Julio; C: nenhum; I: nenhum.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** agente de código na implementação, nas provas e nas revisões, com Paschoal no comando; revisor humano: Julio, no PR.
-- **Próxima ação, responsável e prazo:** abrir o PR e aguardar a revisão do mantenedor. Sem data definida.
+- **Próxima ação, responsável e prazo:** publicar o scan na próxima versão do npm, quando os pilotos do #Noctum forem aceitos. Responsável: Paschoal. Sem data definida.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-20 | Item criado com o scan implementado na branch | Pedido do mantenedor; suíte, integração real e prova ponta a ponta em [Evidências](#evidências) | Paschoal |
+| 2026-10-20 | Mesclado na main pelo PR #186 | Merge `6d9c0f5d` (cabeça da branch `34f019b1`); sem release no npm: a publicação espera a aceitação dos pilotos do #Noctum | Paschoal |
