@@ -136,7 +136,15 @@
       ],
       "requireKey": [
         "results"
-      ]
+      ],
+      "tolerate": {
+        "key": "errors",
+        "level": "warn",
+        "types": [
+          "Timeout",
+          "PartialParsing"
+        ]
+      }
     }
   },
   {

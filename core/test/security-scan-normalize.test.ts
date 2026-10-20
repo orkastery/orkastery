@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { NORMALIZERS } from '../src/security-scan/normalize';
+import { NORMALIZERS, partialOf } from '../src/security-scan/normalize';
 import { loadTools } from '../src/security-scan/tools';
 import type { RawFinding } from '../src/security-scan/types';
 import { fingerprintOf } from '../src/security-scan/compare';
@@ -170,6 +170,25 @@ test('expect contract: error keys and missing keys fail instead of reading as cl
   assert.throws(() => NORMALIZERS.semgrep(JSON.stringify({ errors: [] }), ROOT_CTX), /security-scan\.parse: semgrep/);
   assert.throws(() => NORMALIZERS['trivy-vuln']('{}', ROOT_CTX), /security-scan\.parse: trivy-vuln/);
   assert.throws(() => NORMALIZERS.govulncheck('', ROOT_CTX), /security-scan\.parse: govulncheck/);
+});
+
+test('semgrep: warn-level Timeout and PartialParsing are tolerated, the findings count and partialOf names them', () => {
+  const partial = read('semgrep.partial.json');
+  const out = run('semgrep', 'semgrep.partial.json');
+  assert.equal(out.length, 1);
+  assert.equal(out[0].severity, 'high');
+  assert.equal(partialOf('semgrep', partial), 'partial-timeout: 2, partial-parsing: 1');
+  assert.equal(partialOf('semgrep', read('semgrep.js.json')), undefined, 'no error, no partial reason');
+  assert.equal(partialOf('npm-audit', partial), undefined, 'a tool without tolerate never reports partial coverage');
+  assert.equal(partialOf('semgrep', 'not json'), undefined);
+});
+
+test('semgrep: an error outside the tolerance still fails, even next to tolerated ones', () => {
+  assert.throws(() => run('semgrep', 'semgrep.fatal.json'), /security-scan\.parse: semgrep: tool reported "errors": .*Rule parse error/);
+  const errorLevelTimeout = { results: [], errors: [{ code: 2, level: 'error', type: 'Timeout', message: 'x' }] };
+  assert.throws(() => NORMALIZERS.semgrep(JSON.stringify(errorLevelTimeout), ROOT_CTX), /security-scan\.parse: semgrep/);
+  const warnOther = { results: [], errors: [{ code: 3, level: 'warn', type: 'Syntax error', message: 'x' }] };
+  assert.throws(() => NORMALIZERS.semgrep(JSON.stringify(warnOther), ROOT_CTX), /security-scan\.parse: semgrep/);
 });
 
 test('unmapped severity falls back to medium instead of throwing', () => {

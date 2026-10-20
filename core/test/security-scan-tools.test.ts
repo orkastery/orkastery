@@ -94,6 +94,9 @@ test('failure contract: every tool declares expect, wrappers do not mask exit 1'
   const by = Object.fromEntries(loadTools().map(t => [t.name, t]));
   assert.deepEqual(by['npm-audit'].expect.failIfKey, ['error']);
   assert.deepEqual(by.semgrep.expect.failIfKey, ['errors']);
+  // Only Semgrep's non-fatal (warn) rule Timeout and PartialParsing are tolerated; no other tool tolerates anything.
+  assert.deepEqual(by.semgrep.expect.tolerate, { key: 'errors', level: 'warn', types: ['Timeout', 'PartialParsing'] });
+  assert.deepEqual(loadTools().filter(t => t.expect.tolerate).map(t => t.name), ['semgrep']);
   // npm audit and pip-audit exit 1 for findings and for errors: the wrapper must validate the JSON before accepting 1
   assert.match(by['npm-audit'].args.join(' '), /process\.exit\(3\)/);
   assert.match(by['pip-audit'].args.join(' '), /sys\.exit\(0 if "dependencies"/);

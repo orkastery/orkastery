@@ -417,6 +417,39 @@ test('an image that cannot be pulled falls back to the native binary', () => {
   assert.equal(tool(report, 'semgrep').reason, 'image-pull-failed');
 });
 
+/** A repository whose HEAD answers with the fake recordings of `kase` (the clean base answers `empty`). */
+function caseRepo(name: string, kase: string): Repo {
+  const r = repo(name, { origin: true });
+  fs.writeFileSync(path.join(r.dir, '.fake-case'), `${kase}\n`);
+  git(r.dir, 'add', '-A');
+  git(r.dir, 'commit', '-q', '-m', kase);
+  return { ...r, head: git(r.dir, 'rev-parse', 'HEAD') };
+}
+
+test('Semgrep with only warn-level Timeout/PartialParsing errors is ran with partial-* and its findings count', () => {
+  const r = caseRepo('secscan-semgrep-partial', 'partial');
+  fake = installFakeTools();
+  const report = runScan({ root: r.dir, stateRoot: r.dir });
+  const sg = tool(report, 'semgrep');
+  assert.equal(sg.state, 'ran');
+  assert.equal(sg.reason, 'partial-timeout: 2, partial-parsing: 1');
+  const found = report.findings.filter(f => f.tool === 'semgrep');
+  assert.equal(found.length, 1);
+  assert.equal(found[0].status, 'new');
+  assert.equal(found[0].loop, true, 'a high SAST finding of a partial run still enters the loop');
+});
+
+test('Semgrep with a fatal error next to tolerated ones is failed and contributes no finding', () => {
+  const r = caseRepo('secscan-semgrep-fatal', 'fatal');
+  fake = installFakeTools();
+  const report = runScan({ root: r.dir, stateRoot: r.dir });
+  const sg = tool(report, 'semgrep');
+  assert.equal(sg.state, 'failed');
+  assert.match(sg.reason!, /^security-scan\.parse: semgrep: tool reported "errors": .*Rule parse error/);
+  assert.doesNotMatch(sg.reason!, /Timeout/, 'the tolerated entries are not quoted as the cause');
+  assert.ok(report.findings.every(f => f.tool !== 'semgrep'));
+});
+
 test('a failure on the base side carries the base- prefix', () => {
   const r = repo('secscan-base-fail', { origin: true });
   fake = installFakeTools();

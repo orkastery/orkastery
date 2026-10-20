@@ -28,7 +28,10 @@ export type BaseMode = 'worktree' | 'native-baseline' | 'commit-range';
  * Failure contract (enforced by the executor in Task 7 and the normalizers in Task 6): a tool is `ran` only when the
  * process exits 0 AND every file in `expect.files` exists, parses as JSON of `expect.shape` ('stream' is a sequence of
  * JSON values, as govulncheck emits), carries every `expect.requireKey` and none of `expect.failIfKey` with a non-empty
- * value (npm audit `error`, Semgrep `errors`). Anything else is `failed`, never clean. Wrappers exit non-zero (3, or 4 for
+ * value (npm audit `error`, Semgrep `errors`). `expect.tolerate` lets entries of one `failIfKey` list through when every
+ * entry has that `level` and one of those `types` (Semgrep warn-level `Timeout` and `PartialParsing`: one rule or one
+ * fragment of one file was skipped, the rest was scanned); the tool is then `ran` with the reason `partial-<type>: <n>`
+ * and its findings count. Any other entry keeps the tool `failed`. Anything else is `failed`, never clean. Wrappers exit non-zero (3, or 4 for
  * "nothing to scan") instead of masking a tool's exit code 1 when the output is not the expected JSON.
  */
 export interface ToolSpec {
@@ -51,7 +54,10 @@ export interface ToolSpec {
   /** When set, the executor writes the tool stdout to `{out}/<stdoutFile>` instead of the tool doing it. */
   stdoutFile?: string;
   /** Output validity contract, see the failure contract above; file names are relative to {out}. */
-  expect: { files: string[]; shape: 'array' | 'object' | 'stream'; failIfKey?: string[]; requireKey?: string[] };
+  expect: {
+    files: string[]; shape: 'array' | 'object' | 'stream'; failIfKey?: string[]; requireKey?: string[];
+    tolerate?: { key: string; level: string; types: string[] };
+  };
 }
 export interface RawFinding {
   tool: string; rule: string; category: Category; severity: Severity; stack?: Stack;

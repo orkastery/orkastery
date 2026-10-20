@@ -24,6 +24,8 @@
  *   spent the remaining units are `failed`/`timeout` without running. A round killed by a signal is cleaned up by the
  *   reaper of guard.ts (worktrees, raw output dirs, the running container, the native process group).
  * - A failure on the base side carries the `base-` prefix (`base-timeout`, `base-exit-2: ...`).
+ * - Errors the catalog tolerates (`expect.tolerate`: Semgrep warn-level Timeout and PartialParsing) leave the tool
+ *   `ran` with the HEAD reason `partial-timeout: <n>` / `partial-parsing: <n>`; the findings obtained count.
  */
 import { spawnSync } from 'node:child_process';
 import * as crypto from 'node:crypto';
@@ -40,7 +42,7 @@ import {
   type InvocationResult, type Probe, type UnavailableReason,
 } from './executor';
 import { RoundGuard } from './guard';
-import { NORMALIZERS } from './normalize';
+import { NORMALIZERS, partialOf } from './normalize';
 import { loadTools, toolsFor } from './tools';
 import type { Executor, FindingStatus, RawFinding, ScanReport, Severity, Stack, ToolRun, ToolSpec } from './types';
 
@@ -58,7 +60,8 @@ export interface RunScanOptions {
 /** Version of the normalized cache content; bump when a normalizer or the RawFinding shape changes. */
 export const SCAN_CACHE_VERSION = 1;
 
-type Outcome = { kind: 'ran'; findings: RawFinding[] } | { kind: 'failed' | 'unavailable'; reason: string };
+/** `reason` on `ran` is the tolerated partial coverage (`partial-timeout: 2`), see `expect.tolerate`. */
+type Outcome = { kind: 'ran'; findings: RawFinding[]; reason?: string } | { kind: 'failed' | 'unavailable'; reason: string };
 interface Unit { stack?: Stack; dir: string }
 
 const STATUSES: FindingStatus[] = ['new', 'existing', 'dismissed'];
@@ -172,6 +175,7 @@ function scanTree(t: ToolSpec, executor: Executor, tree: string, unit: Unit, ctx
   if (rangeArgs.length && ctx.rangeCommits === null) return fail('failed', 'commit-range-unresolved');
   const argvs = [argvFor(t, unit.stack), ...(ctx.rangeCommits ? rangeArgs : [])];
   const lists: RawFinding[][] = [];
+  const partial: string[] = [];
   for (const argv of argvs) {
     const timeoutMs = Math.min(t.timeoutMs, remaining(ctx));
     if (timeoutMs <= 0) return fail('failed', 'timeout');
@@ -202,7 +206,10 @@ function scanTree(t: ToolSpec, executor: Executor, tree: string, unit: Unit, ctx
         if (!fs.existsSync(f)) return fail('failed', `missing-output: ${file}`);
         const nctx = { root: executor === 'docker' ? '/src' : tree, stackDir: unit.dir };
         try {
-          findings.push(...NORMALIZERS[t.name](fs.readFileSync(f, 'utf8'), nctx));
+          const content = fs.readFileSync(f, 'utf8');
+          findings.push(...NORMALIZERS[t.name](content, nctx));
+          const p = partialOf(t.name, content);
+          if (p) partial.push(p);
         } catch (e) {
           const msg = (e as Error).message;
           return fail('failed', msg.startsWith('security-scan.parse') || t.category !== 'secret' ? msg : 'security-scan.parse: unreadable output');
@@ -215,7 +222,8 @@ function scanTree(t: ToolSpec, executor: Executor, tree: string, unit: Unit, ctx
       ctx.guard.remove('outDirs', out);
     }
   }
-  return { outcome: { kind: 'ran', findings: lists.length > 1 ? mergeByFingerprint(lists) : lists.flat() }, lists };
+  const findings = lists.length > 1 ? mergeByFingerprint(lists) : lists.flat();
+  return { outcome: { kind: 'ran', findings, ...(partial.length ? { reason: partial.join('; ') } : {}) }, lists };
 }
 
 /** Base findings of one unit: cache, else the base worktree; "nothing to scan" on the base is an empty list. */
@@ -274,18 +282,22 @@ function scanTool(t: ToolSpec, units: Unit[], config: ScanConfig, ctx: Context):
     if (fs.existsSync(path.join(ctx.headTree, '.gitlab-ci.yml'))) return result('unavailable', executor, 'unsupported-ci' satisfies UnavailableReason);
     return result('ran', executor); // no CI workflow at all: nothing to scan, nothing found
   }
-  const outcomes: Outcome[] = []; const head: RawFinding[] = []; const base: RawFinding[] = [];
+  const outcomes: Outcome[] = []; const head: RawFinding[] = []; const base: RawFinding[] = []; const partial: string[] = [];
   for (const unit of units) {
     const h = scanTree(t, executor, ctx.headTree, unit, ctx, true);
     if (h.outcome.kind !== 'ran') { outcomes.push(h.outcome); continue; }
     let b: Outcome;
     try { b = scanBase(t, executor, unit, ctx, h.lists[0] ?? []); } catch (e) { b = { kind: 'failed', reason: firstLine((e as Error).message) }; }
-    if (b.kind === 'ran') { outcomes.push(h.outcome); head.push(...h.outcome.findings); base.push(...b.findings); }
+    if (b.kind === 'ran') {
+      outcomes.push(h.outcome); head.push(...h.outcome.findings); base.push(...b.findings);
+      // Partial coverage of the HEAD scan is reported; on the base it only makes HEAD findings `new` (stricter).
+      if (h.outcome.reason) partial.push(h.outcome.reason);
+    }
     else outcomes.push({ kind: b.kind, reason: `base-${b.reason}` });
   }
   const worst = outcomes.find(o => o.kind === 'failed') ?? outcomes.find(o => o.kind === 'unavailable');
   if (worst && worst.kind !== 'ran') return result(worst.kind, executor, worst.reason);
-  return result('ran', executor, undefined, head, base);
+  return result('ran', executor, partial.join('; ') || undefined, head, base);
 }
 
 const failedAll = (tools: ToolSpec[], config: ScanConfig, reason: string): ToolRun[] => tools.map(t => ({

@@ -12,6 +12,7 @@ import { zizmor } from './zizmor';
 import type { Normalizer } from './util';
 
 export type { NormalizeContext, Normalizer } from './util';
+export { partialOf } from './util';
 
 /** One normalizer per catalog tool (key = catalog name). Output that breaks the tool's `expect` contract throws `security-scan.parse`. */
 export const NORMALIZERS: Record<string, Normalizer> = {

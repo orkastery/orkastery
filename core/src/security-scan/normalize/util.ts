@@ -1,7 +1,7 @@
 import * as crypto from 'node:crypto';
 import * as path from 'node:path';
 import { loadTools as readCatalog } from '../tools';
-import type { RawFinding, Severity } from '../types';
+import type { RawFinding, Severity, ToolSpec } from '../types';
 
 /**
  * `root` is the path where the scanned tree was mounted inside the tool's container ('/src' in every catalog run);
@@ -48,11 +48,38 @@ function parseJsonStream(text: string): unknown[] {
 
 const nonEmpty = (v: unknown): boolean => Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== '' && v !== false;
 
+type Tolerate = NonNullable<ToolSpec['expect']['tolerate']>;
+/** The type of an error entry: Semgrep writes `"Timeout"` or `["PartialParsing", [locations]]`. */
+const typeOf = (e: unknown): string => {
+  const t = (e as { type?: unknown } | null)?.type;
+  return String(Array.isArray(t) ? t[0] : t ?? '');
+};
+const isTolerated = (e: unknown, tol: Tolerate): boolean =>
+  (e as { level?: unknown } | null)?.level === tol.level && tol.types.includes(typeOf(e));
+
+/**
+ * The non-fatal part of a tool report under the catalog `expect.tolerate` (Semgrep warn-level `Timeout` and
+ * `PartialParsing`): `partial-timeout: 2, partial-parsing: 1`, in the catalog order of the types; undefined when the
+ * tool has no `tolerate`, the output does not parse, or nothing was tolerated. `parseReport` already refused any entry
+ * outside the tolerance.
+ */
+export function partialOf(catalogName: string, output: string): string | undefined {
+  const tol = loadTools().find(t => t.name === catalogName)?.expect.tolerate;
+  if (!tol) return undefined;
+  let list: unknown;
+  try { list = (JSON.parse(output) as Record<string, unknown>)?.[tol.key]; } catch { return undefined; }
+  if (!Array.isArray(list)) return undefined;
+  const kebab = (t: string): string => t.replace(/^Partial/, '').replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+  const parts = tol.types.map(t => [t, list.filter(e => isTolerated(e, tol) && typeOf(e) === t).length] as const)
+    .filter(([, n]) => n > 0).map(([t, n]) => `partial-${kebab(t)}: ${n}`);
+  return parts.length ? parts.join(', ') : undefined;
+}
+
 /** Parses a tool report and enforces the catalog `expect` contract (shape, requireKey, failIfKey); throws security-scan.parse. */
 export function parseReport(tool: string, output: string, catalogName = tool): unknown {
   const spec = loadTools().find(t => t.name === catalogName);
   if (!spec) throw parseError(tool, 'not in the catalog');
-  const { shape, requireKey = [], failIfKey = [] } = spec.expect;
+  const { shape, requireKey = [], failIfKey = [], tolerate } = spec.expect;
   let value: unknown;
   try {
     if (shape === 'stream') {
@@ -73,7 +100,11 @@ export function parseReport(tool: string, output: string, catalogName = tool): u
   if (typeof value !== 'object' || value === null || Array.isArray(value)) throw parseError(tool, 'expected a JSON object');
   const obj = value as Record<string, unknown>;
   for (const k of requireKey) if (!(k in obj)) throw parseError(tool, `missing key "${k}"`);
-  for (const k of failIfKey) if (nonEmpty(obj[k])) throw parseError(tool, `tool reported "${k}": ${JSON.stringify(obj[k]).slice(0, 160)}`);
+  for (const k of failIfKey) {
+    // Entries the catalog tolerates (non-fatal, see partialOf) do not fail the tool; any other entry does.
+    const v = tolerate?.key === k && Array.isArray(obj[k]) ? (obj[k] as unknown[]).filter(e => !isTolerated(e, tolerate)) : obj[k];
+    if (nonEmpty(v)) throw parseError(tool, `tool reported "${k}": ${JSON.stringify(v).slice(0, 160)}`);
+  }
   return obj;
 }
 
