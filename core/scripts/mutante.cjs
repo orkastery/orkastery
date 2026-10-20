@@ -38,6 +38,40 @@ const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/;
 const MODULO = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const ARQUIVO = /^core\/(?:scripts\/[a-z0-9][a-z0-9.-]{0,63}\.c?js|dist-test\/test\/[a-z0-9][a-z0-9.-]{0,63}\.js)$/;
 
+function estaDentro(raiz, alvo) {
+  const relativo = path.relative(raiz, alvo);
+  return relativo !== '..' && !relativo.startsWith(`..${path.sep}`) && !path.isAbsolute(relativo);
+}
+
+/** Explica por que `relativo` não é um arquivo regular contido numa das duas raízes permitidas, ou devolve null. */
+function recusaDoAlvoArquivo(raiz, relativo) {
+  const componentes = relativo.split('/').filter(Boolean);
+  let atual = path.resolve(raiz);
+  try {
+    for (const [indice, componente] of componentes.entries()) {
+      atual = path.join(atual, componente);
+      const info = fs.lstatSync(atual);
+      if (info.isSymbolicLink()) {
+        return `o arquivo ${relativo} foi recusado: o componente ${componentes.slice(0, indice + 1).join('/')} é link simbólico; nenhuma escrita foi feita`;
+      }
+      if (indice === componentes.length - 1 && !info.isFile()) {
+        return `o arquivo ${relativo} foi recusado: o alvo não é arquivo regular; nenhuma escrita foi feita`;
+      }
+    }
+    const raizReal = fs.realpathSync(raiz);
+    const alvoReal = fs.realpathSync(atual);
+    const permitida = relativo.startsWith('core/scripts/') ? path.join(raiz, 'core', 'scripts')
+      : path.join(raiz, 'core', 'dist-test', 'test');
+    const permitidaReal = fs.realpathSync(permitida);
+    if (!estaDentro(raizReal, alvoReal) || !estaDentro(permitidaReal, alvoReal)) {
+      return `o arquivo ${relativo} foi recusado: o realpath sai da cópia ou das pastas permitidas; nenhuma escrita foi feita`;
+    }
+  } catch {
+    return `o arquivo ${relativo} foi recusado: o alvo não pôde ser conferido; nenhuma escrita foi feita`;
+  }
+  return null;
+}
+
 function falha(texto) {
   console.error(`mutante: ${texto}`);
   return 2;
@@ -78,6 +112,10 @@ function main(argv) {
   if (!alvos.some((a) => fs.existsSync(path.join(RAIZ, a)))) {
     return falha(porArquivo ? `o arquivo ${m.arquivo} não existe: rode o build:test` : `o módulo ${m.modulo} não está compilado: rode o build e o build:test`);
   }
+  if (porArquivo) {
+    const recusa = recusaDoAlvoArquivo(RAIZ, m.arquivo);
+    if (recusa) return falha(recusa);
+  }
   const teste = path.join('core', 'dist-test', 'test', `${m.teste}.test.js`);
   if (!fs.existsSync(path.join(RAIZ, teste))) return falha(`o teste ${teste} não está compilado`);
   // O trecho precisa aparecer exatamente uma vez em cada módulo compilado que existe, antes de qualquer rodada.
@@ -101,6 +139,10 @@ function main(argv) {
     copiar(copia, new Set(['dist', 'dist-test', ...presentes.map((a) => a.split(/[\\/]/)[1])]));
     for (const alvo of presentes) {
       const arquivo = path.join(copia, alvo);
+      if (porArquivo) {
+        const recusa = recusaDoAlvoArquivo(copia, alvo);
+        if (recusa) return falha(recusa);
+      }
       fs.writeFileSync(arquivo, fs.readFileSync(arquivo, 'utf8').replace(m.de, () => m.para));
     }
     const r = rodarTeste(copia, path.join(copia, teste), m.nome, env);
@@ -124,6 +166,6 @@ function rodarTeste(cwd, arquivo, nome, env) {
   return { rodaram, caidos: rodaram.filter((l) => l.startsWith('not ok')), erro: r.error ? r.error.message : `saída ${r.status}` };
 }
 
-module.exports = { main };
+module.exports = { main, recusaDoAlvoArquivo };
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
