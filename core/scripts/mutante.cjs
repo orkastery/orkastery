@@ -21,7 +21,10 @@
  * RM-037 (achado 2 do CHECK da ork-rm037defeit2): o isolamento que um teste prova pode morar fora do módulo compilado,
  * num roteiro de `core/scripts` ou no apoio compilado de `core/dist-test/test`. Nesse caso a especificação traz `arquivo`
  * (o caminho a partir da raiz) no lugar de `modulo`, e a troca vai só nele; a pasta dele é copiada, e não ligada, para a
- * troca nunca chegar ao checkout.
+ * troca nunca chegar ao checkout. Nos dois modos (GO-FIX 2 e CHECK 3 da ork-rm037defeit2), cada alvo precisa ser arquivo
+ * regular dentro da pasta dele (`core/scripts`, `core/dist-test/test`, `core/dist` ou `core/dist-test/src`), sem link
+ * simbólico no caminho, conferido antes da leitura no checkout e antes da escrita na cópia: o `fs.cpSync` copia o link
+ * como link, e a escrita pela cópia sairia dela.
  *
  * Precisa do `npm run build` e do `npm run build:test` (o preparo do `ork verify` e do runner do CI já os roda).
  */
@@ -37,15 +40,19 @@ const CONTRATO = 'ork.mutantes/v1';
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/;
 const MODULO = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const ARQUIVO = /^core\/(?:scripts\/[a-z0-9][a-z0-9.-]{0,63}\.c?js|dist-test\/test\/[a-z0-9][a-z0-9.-]{0,63}\.js)$/;
+/** As pastas onde um alvo pode morar: as duas do `arquivo` e as duas do `modulo` compilado. */
+const PASTAS_DO_ALVO = ['core/scripts/', 'core/dist-test/test/', 'core/dist/', 'core/dist-test/src/'];
 
 function estaDentro(raiz, alvo) {
   const relativo = path.relative(raiz, alvo);
   return relativo !== '..' && !relativo.startsWith(`..${path.sep}`) && !path.isAbsolute(relativo);
 }
 
-/** Explica por que `relativo` não é um arquivo regular contido numa das duas raízes permitidas, ou devolve null. */
+/** Explica por que `relativo` não é um arquivo regular contido na pasta permitida dele, ou devolve null. */
 function recusaDoAlvoArquivo(raiz, relativo) {
   const componentes = relativo.split('/').filter(Boolean);
+  const pasta = PASTAS_DO_ALVO.find((p) => relativo.startsWith(p));
+  if (!pasta) return `o arquivo ${relativo} foi recusado: está fora das pastas permitidas; nenhuma escrita foi feita`;
   let atual = path.resolve(raiz);
   try {
     for (const [indice, componente] of componentes.entries()) {
@@ -60,14 +67,21 @@ function recusaDoAlvoArquivo(raiz, relativo) {
     }
     const raizReal = fs.realpathSync(raiz);
     const alvoReal = fs.realpathSync(atual);
-    const permitida = relativo.startsWith('core/scripts/') ? path.join(raiz, 'core', 'scripts')
-      : path.join(raiz, 'core', 'dist-test', 'test');
-    const permitidaReal = fs.realpathSync(permitida);
+    const permitidaReal = fs.realpathSync(path.join(raiz, pasta));
     if (!estaDentro(raizReal, alvoReal) || !estaDentro(permitidaReal, alvoReal)) {
       return `o arquivo ${relativo} foi recusado: o realpath sai da cópia ou das pastas permitidas; nenhuma escrita foi feita`;
     }
   } catch {
     return `o arquivo ${relativo} foi recusado: o alvo não pôde ser conferido; nenhuma escrita foi feita`;
+  }
+  return null;
+}
+
+/** A primeira recusa entre os alvos que existem, nos dois modos, ou null. */
+function recusaDosAlvos(raiz, alvos) {
+  for (const alvo of alvos) {
+    const recusa = recusaDoAlvoArquivo(raiz, alvo);
+    if (recusa) return recusa;
   }
   return null;
 }
@@ -107,19 +121,16 @@ function main(argv) {
       typeof m.para !== 'string' || m.de === m.para || typeof m.nome !== 'string' || !m.nome) {
     return falha(`o mutante ${id} está fora do formato (id, modulo ou arquivo de core/scripts ou core/dist-test/test, de, para, teste e nome)`);
   }
-  const alvos = porArquivo ? [m.arquivo]
-    : [path.join('core', 'dist', `${m.modulo}.js`), path.join('core', 'dist-test', 'src', `${m.modulo}.js`)];
-  if (!alvos.some((a) => fs.existsSync(path.join(RAIZ, a)))) {
+  const alvos = porArquivo ? [m.arquivo] : [`core/dist/${m.modulo}.js`, `core/dist-test/src/${m.modulo}.js`];
+  const presentes = alvos.filter((a) => fs.existsSync(path.join(RAIZ, a)));
+  if (!presentes.length) {
     return falha(porArquivo ? `o arquivo ${m.arquivo} não existe: rode o build:test` : `o módulo ${m.modulo} não está compilado: rode o build e o build:test`);
   }
-  if (porArquivo) {
-    const recusa = recusaDoAlvoArquivo(RAIZ, m.arquivo);
-    if (recusa) return falha(recusa);
-  }
+  const recusa = recusaDosAlvos(RAIZ, presentes);
+  if (recusa) return falha(recusa);
   const teste = path.join('core', 'dist-test', 'test', `${m.teste}.test.js`);
   if (!fs.existsSync(path.join(RAIZ, teste))) return falha(`o teste ${teste} não está compilado`);
   // O trecho precisa aparecer exatamente uma vez em cada módulo compilado que existe, antes de qualquer rodada.
-  const presentes = alvos.filter((a) => fs.existsSync(path.join(RAIZ, a)));
   for (const alvo of presentes) {
     const vezes = fs.readFileSync(path.join(RAIZ, alvo), 'utf8').split(m.de).length - 1;
     if (vezes !== 1) return falha(`o trecho do mutante ${id} aparece ${vezes} vez(es) em ${alvo}: precisa ser exatamente uma`);
@@ -137,12 +148,10 @@ function main(argv) {
   const copia = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-mutante-'));
   try {
     copiar(copia, new Set(['dist', 'dist-test', ...presentes.map((a) => a.split(/[\\/]/)[1])]));
+    const recusaNaCopia = recusaDosAlvos(copia, presentes);
+    if (recusaNaCopia) return falha(recusaNaCopia);
     for (const alvo of presentes) {
       const arquivo = path.join(copia, alvo);
-      if (porArquivo) {
-        const recusa = recusaDoAlvoArquivo(copia, alvo);
-        if (recusa) return falha(recusa);
-      }
       fs.writeFileSync(arquivo, fs.readFileSync(arquivo, 'utf8').replace(m.de, () => m.para));
     }
     const r = rodarTeste(copia, path.join(copia, teste), m.nome, env);

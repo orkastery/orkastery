@@ -145,6 +145,15 @@
       "para": "void conducao;",
       "teste": "rm037-defeitos2010-dependencias",
       "nome": "^defeito 2 \\(CHECK 3\\): o preparo adiado que falha"
+    },
+    {
+      "id": "M17",
+      "descricao": "CHECK 3 (aviso 3): o executor volta a conferir só o alvo do campo arquivo, e o modulo compilado por link simbólico escreve fora da cópia",
+      "arquivo": "core/scripts/mutante.cjs",
+      "de": "function recusaDosAlvos(raiz, alvos) {",
+      "para": "function recusaDosAlvos(raiz, alvos) {\n  if (!alvos.some((a) => a.startsWith('core/scripts/') || a.startsWith('core/dist-test/test/'))) return null;",
+      "teste": "noctum-mutante",
+      "nome": "^QM9:"
     }
   ]
 }
