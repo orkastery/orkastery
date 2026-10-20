@@ -247,7 +247,7 @@
         "c=$(git log -1 --format=%H --grep='^ship(ork-rm058n3)' origin/main) && test -n \"$c\" && git merge-base --is-ancestor \"$c\" HEAD"
       ],
       "criadoEm": "2026-10-19T03:39:16.990Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1574,7 +1574,7 @@
         "node --test-reporter=tap --test-name-pattern='^AC25:' core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AC25:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-19T17:37:44.675Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
