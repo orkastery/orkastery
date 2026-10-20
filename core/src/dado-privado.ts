@@ -14,7 +14,6 @@
  *   `[omitido]` em todo lugar onde aparece (D8).
  */
 import * as fs from 'node:fs';
-import * as os from 'node:os';
 import * as path from 'node:path';
 import { exec } from './util';
 import { pastaDoUsuario } from './maquina';
@@ -52,17 +51,23 @@ export interface Achado {
 }
 
 export interface Excecao {
-  padrao: PadraoGenerico | '*';
+  padrao: PadraoGenerico;
   /** Glob relativo à raiz (`**` cruza pastas, `*` não). */
   caminho?: string;
-  /** O valor exato, sem diferença de caixa, ou com `*` como curinga. */
-  valor?: string;
+  /** O trecho exato, sem diferença de caixa, ou com `*` como curinga estreito. */
+  valor: string;
+  motivo: string;
+}
+
+export interface EmailPermitido {
+  /** Endereço exato. Curinga não é aceito. */
+  valor: string;
   motivo: string;
 }
 
 export interface ArquivoDeExcecoes {
   presente: boolean;
-  emailsPermitidos: string[];
+  emailsPermitidos: EmailPermitido[];
   excecoes: Excecao[];
 }
 
@@ -79,6 +84,8 @@ export interface ListaLocal {
   ignorados: number;
   /** Arquivos da lista que o git versiona dentro do repositório varrido (relativos à raiz). */
   versionados: string[];
+  /** Recusa segura da lista; nunca inclui caminho nem conteúdo. */
+  recusada: string | null;
 }
 
 export interface ContextoDaVarredura {
@@ -97,7 +104,7 @@ export type EscopoDaVarredura =
 export interface Varredura {
   schema: typeof CONTRATO_DA_VARREDURA;
   escopo: EscopoDaVarredura[];
-  /** Arquivos cujo conteúdo foi lido (binário só pelo nome). */
+  /** Arquivos cujo conteúdo foi lido, inclusive binários. */
   arquivos: number;
   /** Linhas lidas: as do arquivo inteiro na árvore; as acrescentadas no diff. */
   linhas: number;
@@ -126,9 +133,10 @@ const USUARIOS_GENERICOS = new Set(['user', 'usuario', 'usuário', 'username', '
 
 /**
  * E-mail: o endereço inteiro, com domínio de letras. O lookbehind tira o que vem logo depois de `\` (o `\n@app.get`
- * de um JSON), de `/` e de `@` (credencial de URL: `https://token@host`) e o meio de outro endereço.
+ * de um JSON), de `@` e do meio de outro endereço. `/` e `:` são prefixos válidos; credenciais de URL são
+ * reconhecidas pela autoridade completa, não pelo caractere anterior.
  */
-const EMAIL = /(?<![A-Za-z0-9._%+\-\\/@])([A-Za-z0-9._%+-]+)@((?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z]{2,63})(?![A-Za-z0-9-])/g;
+const EMAIL = /(?<![A-Za-z0-9._%+\-\\@])([A-Za-z0-9._%+-]+)@((?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z]{2,63})(?![A-Za-z0-9-])/g;
 /** RFC 2606 e RFC 6761: domínios reservados para exemplo e teste. */
 const DOMINIOS_DE_EXEMPLO = ['example.com', 'example.net', 'example.org'];
 const TLDS_DE_EXEMPLO = new Set(['example', 'invalid', 'test', 'localhost']);
@@ -183,11 +191,9 @@ function emailDeExemplo(dominio: string): boolean {
   return TLDS_DE_EXEMPLO.has(d.slice(d.lastIndexOf('.') + 1));
 }
 
-/** O começo do "token" que termina em `fim`: volta até espaço, aspas, parêntese, colchete, vírgula ou ponto e vírgula. */
-function prefixoDoToken(texto: string, fim: number): string {
-  let i = fim;
-  while (i > 0 && fim - i < 512 && !/[\s'"`(<[,;]/.test(texto[i - 1])) i -= 1;
-  return texto.slice(i, fim);
+/** O endereço começa na autoridade de uma URL, antes da primeira `/` do caminho. */
+function naAutoridadeDeUrl(texto: string, inicio: number): boolean {
+  return /[a-z][a-z0-9+.-]*:\/\/[^/\s]*$/i.test(texto.slice(Math.max(0, inicio - 512), inicio));
 }
 
 /** Os casamentos dos padrões genéricos e da lista local num texto, antes das exceções. */
@@ -203,10 +209,8 @@ function casamentos(texto: string, termos: readonly RegExp[]): Casamento[] {
   }
   for (const m of texto.matchAll(EMAIL)) {
     const inicio = m.index!;
-    // Depois de `:`, só o `mailto:` é endereço; o resto é a senha de uma credencial de URL (`https://u:senha@host`).
-    if (inicio > 0 && texto[inicio - 1] === ':' && !/mailto$/i.test(texto.slice(Math.max(0, inicio - 7), inicio - 1))) continue;
     // Na autoridade de uma URL (`ssh://x=u@host/`, `git+ssh://u:1#t@host/`), o `@` separa a credencial do host.
-    if (/[a-z][a-z0-9+.-]*:\/\/[^/\s]*$/i.test(prefixoDoToken(texto, inicio))) continue;
+    if (naAutoridadeDeUrl(texto, inicio)) continue;
     // `git@host` e `usuario@host:caminho` são remotos SSH, não o endereço de alguém.
     const depois = texto.slice(inicio + m[0].length, inicio + m[0].length + 2);
     if (m[1].toLowerCase() === 'git' || /^:[^\s]/.test(depois)) continue;
@@ -261,8 +265,17 @@ export function lerExcecoes(raiz: string): { ok: true; valor: ArquivoDeExcecoes 
   if (objeto.descricao !== undefined && typeof objeto.descricao !== 'string') return fora('"descricao" tem de ser texto');
   const emails = objeto.emailsPermitidos ?? [];
   if (!Array.isArray(emails)) return fora('"emailsPermitidos" tem de ser uma lista');
+  const emailsPermitidos: EmailPermitido[] = [];
   for (const [i, e] of emails.entries()) {
-    if (typeof e !== 'string' || !/^[^\s@]+@[^\s@]+$/.test(e)) return fora(`emailsPermitidos[${i}] não é endereço nem curinga de endereço`);
+    if (!e || typeof e !== 'object' || Array.isArray(e)) return fora(`emailsPermitidos[${i}] não é um objeto`);
+    const x = e as Record<string, unknown>;
+    const outras = Object.keys(x).filter((k) => !['valor', 'motivo'].includes(k));
+    if (outras.length) return fora(`emailsPermitidos[${i}] tem chave desconhecida: ${outras.join(', ')}`);
+    if (typeof x.valor !== 'string' || !/^[^\s@*]+@[^\s@*]+$/.test(x.valor)) {
+      return fora(`emailsPermitidos[${i}].valor tem de ser endereço exato, sem curinga`);
+    }
+    if (typeof x.motivo !== 'string' || !x.motivo.trim()) return fora(`emailsPermitidos[${i}] sem motivo`);
+    emailsPermitidos.push({ valor: x.valor, motivo: x.motivo.trim() });
   }
   const lista = objeto.excecoes ?? [];
   if (!Array.isArray(lista)) return fora('"excecoes" tem de ser uma lista');
@@ -272,8 +285,8 @@ export function lerExcecoes(raiz: string): { ok: true; valor: ArquivoDeExcecoes 
     const x = e as Record<string, unknown>;
     const outras = Object.keys(x).filter((k) => !['padrao', 'caminho', 'valor', 'motivo'].includes(k));
     if (outras.length) return fora(`excecoes[${i}] tem chave desconhecida: ${outras.join(', ')}`);
-    if (x.padrao !== '*' && !PADROES_GENERICOS.includes(x.padrao as PadraoGenerico)) {
-      return fora(`excecoes[${i}].padrao tem de ser ${PADROES_GENERICOS.join(', ')} ou *`);
+    if (!PADROES_GENERICOS.includes(x.padrao as PadraoGenerico)) {
+      return fora(`excecoes[${i}].padrao tem de ser ${PADROES_GENERICOS.join(', ')}`);
     }
     if (typeof x.motivo !== 'string' || !x.motivo.trim()) return fora(`excecoes[${i}] sem motivo`);
     for (const campo of ['caminho', 'valor'] as const) {
@@ -281,22 +294,24 @@ export function lerExcecoes(raiz: string): { ok: true; valor: ArquivoDeExcecoes 
         return fora(`excecoes[${i}].${campo} tem de ser texto não vazio`);
       }
     }
-    if (x.caminho === undefined && x.valor === undefined) return fora(`excecoes[${i}] sem caminho nem valor`);
-    excecoes.push({ padrao: x.padrao as Excecao['padrao'], motivo: (x.motivo as string).trim(),
-      ...(x.caminho !== undefined ? { caminho: x.caminho as string } : {}), ...(x.valor !== undefined ? { valor: x.valor as string } : {}) });
+    if (x.valor === undefined) return fora(`excecoes[${i}] sem valor/trecho`);
+    if (x.valor === '*') return fora(`excecoes[${i}].valor não pode ser curinga global`);
+    if (x.caminho === '**') return fora(`excecoes[${i}].caminho não pode ser curinga global`);
+    excecoes.push({ padrao: x.padrao as Excecao['padrao'], motivo: (x.motivo as string).trim(), valor: x.valor as string,
+      ...(x.caminho !== undefined ? { caminho: x.caminho as string } : {}) });
   }
-  return { ok: true, valor: { presente: true, emailsPermitidos: emails as string[], excecoes } };
+  return { ok: true, valor: { presente: true, emailsPermitidos, excecoes } };
 }
 
 /** O casamento genérico coberto pela lista de e-mails permitidos ou por uma exceção; marca o uso. */
 function coberto(c: Casamento, arquivo: string, excecoes: ArquivoDeExcecoes, uso: UsoDasExcecoes): boolean {
   if (c.padrao === 'lista-local') return false;
   if (c.padrao === 'email') {
-    const i = excecoes.emailsPermitidos.findIndex((e) => curingaCasa(e, c.valor));
+    const i = excecoes.emailsPermitidos.findIndex((e) => e.valor.toLowerCase() === c.valor.toLowerCase());
     if (i >= 0) { uso.emails.add(i); return true; }
   }
-  const j = excecoes.excecoes.findIndex((e) => (e.padrao === '*' || e.padrao === c.padrao)
-    && (e.caminho === undefined || globCasa(e.caminho, arquivo)) && (e.valor === undefined || curingaCasa(e.valor, c.valor)));
+  const j = excecoes.excecoes.findIndex((e) => e.padrao === c.padrao
+    && (e.caminho === undefined || globCasa(e.caminho, arquivo)) && curingaCasa(e.valor, c.valor));
   if (j >= 0) { uso.excecoes.add(j); return true; }
   return false;
 }
@@ -304,17 +319,6 @@ function coberto(c: Casamento, arquivo: string, excecoes: ArquivoDeExcecoes, uso
 // ---------------------------------------------------------------------------
 // A lista local (D5)
 // ---------------------------------------------------------------------------
-
-/** O caminho para mostrar: `~` no lugar da pasta pessoal, relativo à raiz do estado dentro dela. */
-function caminhoParaMostrar(caminho: string, raizDoEstado: string | null): string {
-  if (raizDoEstado) {
-    const rel = path.relative(raizDoEstado, caminho);
-    if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) return rel.split(path.sep).join('/');
-  }
-  const casa = os.homedir();
-  if (casa && (caminho === casa || caminho.startsWith(casa + path.sep))) return `~${caminho.slice(casa.length)}`;
-  return caminho;
-}
 
 /** O arquivo `dentro` da raiz `raiz`, relativo a ela; `null` fora dela. */
 function relativoDentro(raiz: string, dentro: string): string | null {
@@ -333,20 +337,40 @@ function relativoDentro(raiz: string, dentro: string): string | null {
 export function lerListaLocal(raizDoEstado: string | null, raiz: string | null = null,
   env: NodeJS.ProcessEnv = process.env): ListaLocal {
   const explicita = (env[VARIAVEL_DA_LISTA_LOCAL] ?? '').trim();
-  const candidatos = explicita ? [path.resolve(explicita)]
-    : [path.join(pastaDoUsuario(), ARQUIVO_DA_LISTA_LOCAL), ...(raizDoEstado ? [path.join(raizDoEstado, '.orkastery', ARQUIVO_DA_LISTA_LOCAL)] : [])];
-  const unicos = [...new Set(candidatos)];
+  const candidatos = explicita
+    ? [{ arquivo: path.resolve(explicita), rotulo: `arquivo indicado por ${VARIAVEL_DA_LISTA_LOCAL}` }]
+    : [{ arquivo: path.join(pastaDoUsuario(), ARQUIVO_DA_LISTA_LOCAL), rotulo: `~/.orkastery/${ARQUIVO_DA_LISTA_LOCAL}` },
+      ...(raizDoEstado ? [{ arquivo: path.join(raizDoEstado, '.orkastery', ARQUIVO_DA_LISTA_LOCAL),
+        rotulo: `.orkastery/${ARQUIVO_DA_LISTA_LOCAL}` }] : [])];
+  const unicos = [...new Map(candidatos.map((c) => [c.arquivo, c])).values()];
   const termos: string[] = [];
   const lidos: string[] = [];
   const versionados: string[] = [];
+  let recusada: string | null = null;
   let ignorados = 0;
-  for (const arquivo of unicos) {
+  for (const candidato of unicos) {
+    const { arquivo, rotulo } = candidato;
     let texto: string;
+    let fd: number | null = null;
     try {
-      if (!fs.statSync(arquivo).isFile()) continue;
-      texto = fs.readFileSync(arquivo, 'utf8');
-    } catch { continue; }
-    lidos.push(caminhoParaMostrar(arquivo, raizDoEstado));
+      const antes = fs.lstatSync(arquivo);
+      if (antes.isSymbolicLink()) { recusada = `${rotulo} foi recusado: link simbólico não é aceito`; break; }
+      fd = fs.openSync(arquivo, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+      const st = fs.fstatSync(fd);
+      const uid = typeof process.getuid === 'function' ? process.getuid() : null;
+      if (!st.isFile()) { recusada = `${rotulo} foi recusado: não é arquivo comum`; break; }
+      if (uid === null || st.uid !== uid) { recusada = `${rotulo} foi recusado: o dono não é o usuário atual`; break; }
+      if ((st.mode & 0o777) !== 0o600) { recusada = `${rotulo} foi recusado: a permissão tem de ser 0600`; break; }
+      texto = fs.readFileSync(fd, 'utf8');
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') continue;
+      recusada = `${rotulo} foi recusado: não foi possível abrir com segurança`;
+      break;
+    } finally {
+      if (fd !== null) fs.closeSync(fd);
+    }
+    lidos.push(rotulo);
     const rel = raiz ? relativoDentro(raiz, arquivo) : null;
     if (rel && exec('git', ['ls-files', '--error-unmatch', '--', rel], raiz!).ok) versionados.push(rel);
     for (const bruta of texto.split(/\r?\n/)) {
@@ -357,8 +381,8 @@ export function lerListaLocal(raizDoEstado: string | null, raiz: string | null =
       if (!termos.includes(termo)) termos.push(termo);
     }
   }
-  return { presente: lidos.length > 0, procurada: unicos.map((c) => caminhoParaMostrar(c, raizDoEstado)), lidos, termos,
-    ignorados, versionados };
+  return { presente: lidos.length > 0, procurada: unicos.map((c) => c.rotulo), lidos, termos,
+    ignorados, versionados, recusada };
 }
 
 // ---------------------------------------------------------------------------
@@ -371,8 +395,9 @@ export function contextoDaVarredura(raiz: string, raizDoEstado: string | null,
   const lista = lerListaLocal(raizDoEstado, raiz, env);
   const excecoes = lerExcecoes(raiz);
   if (!excecoes.ok) return { ok: false, erro: excecoes.erro, lista };
+  if (lista.recusada) return { ok: false, erro: lista.recusada, lista };
   if (lista.versionados.length) {
-    return { ok: false, lista, erro: `a lista local de termos privados está versionada (${lista.versionados.join(', ')}): ` +
+    return { ok: false, lista, erro: `a lista local de termos privados está versionada (${lista.versionados.length} arquivo(s)): ` +
       'tire-a do git; ela nunca vai ao repositório' };
   }
   return { ok: true, valor: { raiz, excecoes: excecoes.valor, lista } };
@@ -465,8 +490,8 @@ class Coletor {
     const { excecoes, lista } = this.contexto;
     const semUso = [
       ...excecoes.excecoes.flatMap((e, i) => this.uso.excecoes.has(i) ? []
-        : [`excecoes[${i}] ${e.padrao}${e.caminho ? ` caminho ${e.caminho}` : ''}${e.valor ? ` valor ${e.valor}` : ''}`]),
-      ...excecoes.emailsPermitidos.flatMap((e, i) => this.uso.emails.has(i) ? [] : [`emailsPermitidos[${i}] ${e}`]),
+        : [`excecoes[${i}] ${e.padrao}`]),
+      ...excecoes.emailsPermitidos.flatMap((_e, i) => this.uso.emails.has(i) ? [] : [`emailsPermitidos[${i}] email`]),
     ];
     return {
       schema: CONTRATO_DA_VARREDURA, escopo, arquivos: this.arquivos, linhas: this.linhas, nomes: this.nomes,
@@ -490,8 +515,8 @@ export function varreduraComErro(erro: string, lista: ListaLocal, escopo: Escopo
 }
 
 /**
- * O conteúdo de um arquivo do repositório, como texto; `null` no binário (byte nulo nos primeiros 8000, a regra do
- * git). O link simbólico é o alvo dele: o caminho para onde aponta também é conteúdo, e o link nunca é seguido.
+ * O conteúdo de um arquivo do repositório como texto, inclusive quando contém bytes nulos ou UTF-8 inválido. O link
+ * simbólico é o alvo dele: o caminho para onde aponta também é conteúdo, e o link nunca é seguido.
  */
 function conteudo(raiz: string, arquivo: string): string | null {
   const absoluto = path.join(raiz, arquivo);
@@ -499,9 +524,7 @@ function conteudo(raiz: string, arquivo: string): string | null {
   try { st = fs.lstatSync(absoluto); } catch { return null; }
   if (st.isSymbolicLink()) return fs.readlinkSync(absoluto);
   if (!st.isFile()) return null;
-  const bruto = fs.readFileSync(absoluto);
-  if (bruto.subarray(0, 8000).includes(0)) return null;
-  return bruto.toString('utf8');
+  return fs.readFileSync(absoluto).toString('utf8');
 }
 
 function listaZ(saida: string): string[] {
