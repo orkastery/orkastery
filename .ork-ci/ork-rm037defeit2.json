@@ -916,6 +916,20 @@
       "criadoEm": "2026-10-20T11:57:47.269Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C72",
+      "thread": "ork-rm037defeit2",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "GO-FIX 4, merge da main com a RM-062 F1 e F2: o detalhe do gate bloqueado do verify mantém as duas frentes do conflito em core/src/verify.ts. Com policy.violation, ele traz as violações da policy dado_privado (DV1); na falha cuja baseline não teve veredito, ele diz isso (defeito 1). Tirar qualquer uma das duas metades derruba o teste correspondente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^DV1:' core/dist-test/test/dado-privado-verify.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}' && node --test-reporter=tap --test-name-pattern='^defeito 1: o comando que estourou na baseline' core/dist-test/test/rm037-defeitos2010-baseline.test.js | awk '/^not ok/{f++} /^ok /{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-20T14:30:53.258Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
   "deferredClaims": [],
