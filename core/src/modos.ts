@@ -310,10 +310,11 @@ export function fasePausa(modo: ModoLegado, fase: Fase): boolean {
 
 /** Tabela dos modos VIVOS em texto, usada por `ork modos`. O numero vem da lista. */
 export function tabelaDeModos(): string {
+  const m = msg().operacao.modos;
   const linhas: string[] = [];
-  linhas.push('Modos de conducao (a #TAG vai no proprio pedido ao orquestrador)');
+  linhas.push(m.titulo);
   linhas.push('');
-  const cab = ['#TAG'.padEnd(10), 'BLOCOS'.padEnd(6), 'PAUSAS'.padEnd(7), 'CICLO'];
+  const cab = [m.cabecalho[0].padEnd(10), m.cabecalho[1].padEnd(6), m.cabecalho[2].padEnd(7), m.cabecalho[3]];
   linhas.push('  ' + cab.join(' '));
   linhas.push('  ' + '-'.repeat(78));
   for (const modo of ORDEM_DOS_MODOS) {
@@ -332,20 +333,20 @@ export function tabelaDeModos(): string {
     );
   }
   linhas.push('  ' + '-'.repeat(78));
-  linhas.push('  * = bloco que pausa e espera veredito humano');
+  linhas.push(`  ${m.marcaDaPausa}`);
   linhas.push('');
-  linhas.push('Detalhe por modo:');
+  linhas.push(m.detalhe);
   for (const modo of ORDEM_DOS_MODOS) {
     const def = MODOS[modo];
-    const pausas = def.blocos.filter((b) => b.pausa).map((b) => b.pausaSobre);
+    const pausas = def.blocos.filter((b) => b.pausa).map((b) => m.pausaSobre[b.pausaSobre] ?? b.pausaSobre);
     linhas.push(
-      `  ${def.tag.padEnd(10)} slug das sessoes: ${def.blocos.map((b) => b.slugFases).join(', ')}`
+      `  ${def.tag.padEnd(10)} ${m.slug}: ${def.blocos.map((b) => b.slugFases).join(', ')}`
     );
-    linhas.push(`             pausas: ${pausas.length > 0 ? pausas.join(', ') : 'nenhuma'}`);
-    linhas.push(`             uso: ${def.recomendadoPara}`);
+    linhas.push(`             ${m.pausas}: ${pausas.length > 0 ? pausas.join(', ') : m.nenhuma}`);
+    linhas.push(`             ${m.uso}: ${m.recomendado[modo] ?? def.recomendadoPara}`);
   }
   linhas.push('');
-  linhas.push('REGRA CENTRAL: o modo afrouxa a pausa, NUNCA a verificacao.');
-  for (const inv of INVARIANTES) linhas.push('  - ' + inv);
+  linhas.push(m.regra);
+  for (const inv of msg().prompts.invariantes) linhas.push('  - ' + inv);
   return linhas.join('\n');
 }

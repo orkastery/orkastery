@@ -112,7 +112,9 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'docs verificar', 'docs sincronizar', 'docs ?',
   'adapter list', 'adapter show', 'adapter install', 'adapter ?',
   'prompt list', 'prompt lint', 'prompt render', 'prompt ?',
-  'conhecimento listar', 'conhecimento mostrar', 'conhecimento colecoes', 'conhecimento verificar', 'conhecimento ?'];
+  'conhecimento listar', 'conhecimento mostrar', 'conhecimento colecoes', 'conhecimento verificar', 'conhecimento ?',
+  // F3d: familias restantes, acrescentadas somente quando a familia inteira entra no catalogo.
+  'modos', 'ciclos'];
 
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
@@ -488,6 +490,50 @@ const PT_BR = {
   prompts: PROMPTS_PT_BR,
   conhecimento: CONHECIMENTO_PT_BR,
   forja: FORJA_PT_BR,
+  operacao: {
+    modos: {
+      titulo: 'Modos de conducao (a #TAG vai no proprio pedido ao orquestrador)',
+      cabecalho: ['#TAG', 'BLOCOS', 'PAUSAS', 'CICLO'] as readonly string[],
+      marcaDaPausa: '* = bloco que pausa e espera veredito humano',
+      detalhe: 'Detalhe por modo:',
+      slug: 'slug das sessoes',
+      pausas: 'pausas',
+      nenhuma: 'nenhuma',
+      uso: 'uso',
+      pausaSobre: {
+        objetivo: 'objetivo', plano: 'plano', implementacao: 'implementacao', evidencias: 'evidencias',
+        push: 'push', score: 'score', premissas: 'premissas',
+        'evidencias, com autorizacao antecipada de push': 'evidencias, com autorizacao antecipada de push',
+      } as Record<string, string>,
+      recomendado: {
+        classic: 'O padrao: premissas delicadas com entrega confiavel',
+        maestro: 'Solucoes claras e ageis, sem muitos riscos ou tradeoffs',
+        auto: 'Solucoes menores, docs, estudos, pesquisas, configuracoes, auditorias, migracoes',
+        fast: 'Pedido pequeno e claro, de minutos: uma fase so (GO), sem cerimonia; o push pede autorizacao',
+      } as Record<string, string>,
+      regra: 'REGRA CENTRAL: o modo afrouxa a pausa, NUNCA a verificacao.',
+      migracao: {
+        nada: 'Nada a migrar: nenhum modo aposentado na configuracao deste projeto.',
+        simulacao: 'Simulacao (--dry-run), nada foi gravado.',
+        aplicada: 'Migracao aplicada.',
+        de: 'de', para: 'para', backup: 'backup',
+        historico: 'Nenhum historico foi tocado: thread, ledger e recibo em modo aposentado ficam como estao.',
+      },
+    },
+    ciclos: {
+      titulo: 'Variantes de ciclo (`ork thread new --ciclo <variante>`)',
+      descricoes: {
+        greenfield: 'Comeco do zero: worktree isolada obrigatoria, partindo da base do manifesto',
+        'merge-branch': 'Parte de uma branch que ja existe (`--branch`), sem criar branch nova',
+        'goal-plan': 'Funde GOAL e PLAN num bloco so: uma pausa a menos quando o modo os separava',
+        gap: 'Analise de lacuna: sem GO e sem SHIP, a lacuna e publicada como lacuna',
+        'feature-xl-faseada': 'Feature grande em fatias: o PLAN se compromete com N fatias verificaveis',
+      } as Record<string, string>,
+      worktree: 'worktree isolada',
+      exige: 'exige', nada: 'nada', muda: 'muda os blocos do modo', sim: 'sim', nao: 'nao',
+      fecho: 'A variante muda como a thread NASCE. Verificacao e gates nao mudam.',
+    },
+  },
   init: {
     foraDoRepositorio: (dir: string) => `init.fora-do-repositorio: ${dir} não está num repositório git; nada foi criado. ` +
       'Entre no repositório do projeto (ou crie um com git init e o primeiro commit) e rode ork init de novo.',
@@ -791,6 +837,50 @@ const EN: Mensagens = {
   prompts: PROMPTS_EN,
   conhecimento: CONHECIMENTO_EN,
   forja: FORJA_EN,
+  operacao: {
+    modos: {
+      titulo: 'Conduction modes (put the #TAG in the request to the orchestrator)',
+      cabecalho: ['#TAG', 'BLOCKS', 'PAUSES', 'CYCLE'],
+      marcaDaPausa: '* = block that pauses and waits for a human verdict',
+      detalhe: 'Details by mode:',
+      slug: 'session slugs',
+      pausas: 'pauses',
+      nenhuma: 'none',
+      uso: 'use',
+      pausaSobre: {
+        objetivo: 'goal', plano: 'plan', implementacao: 'implementation', evidencias: 'evidence',
+        push: 'push', score: 'score', premissas: 'assumptions',
+        'evidencias, com autorizacao antecipada de push': 'evidence, with push authorized in advance',
+      },
+      recomendado: {
+        classic: 'The default: careful assumptions with reliable delivery',
+        maestro: 'Clear, agile solutions without many risks or tradeoffs',
+        auto: 'Smaller solutions, docs, studies, research, configuration, audits, and migrations',
+        fast: 'A small, clear request measured in minutes: GO only, no ceremony; push still requires authorization',
+      },
+      regra: 'CENTRAL RULE: the mode loosens pauses, NEVER verification.',
+      migracao: {
+        nada: 'Nothing to migrate: this project configuration has no retired mode.',
+        simulacao: 'Simulation (`--dry-run`): nothing was written.',
+        aplicada: 'Migration applied.',
+        de: 'from', para: 'to', backup: 'backup',
+        historico: 'No history was changed: threads, ledgers, and receipts in a retired mode stay as they are.',
+      },
+    },
+    ciclos: {
+      titulo: 'Cycle variants (`ork thread new --ciclo <variant>`)',
+      descricoes: {
+        greenfield: 'Start from scratch: requires an isolated worktree based on the manifest base',
+        'merge-branch': 'Start from an existing branch (`--branch`) without creating a new branch',
+        'goal-plan': 'Merge GOAL and PLAN into one block: one less pause when the mode separates them',
+        gap: 'Gap analysis: no GO or SHIP; publish the gap as a gap',
+        'feature-xl-faseada': 'Large feature in slices: PLAN commits to N verifiable slices',
+      },
+      worktree: 'isolated worktree',
+      exige: 'requires', nada: 'nothing', muda: 'changes the mode blocks', sim: 'yes', nao: 'no',
+      fecho: 'The variant changes how the thread STARTS. Verification and gates do not change.',
+    },
+  },
   init: {
     foraDoRepositorio: (dir) => `init.fora-do-repositorio: ${dir} is not inside a git repository; nothing was created. ` +
       'Enter the project repository (or create one with `git init` and a first commit) and run `ork init` again.',
