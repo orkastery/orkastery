@@ -127,7 +127,7 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'fix open', 'fix list', 'fix reverify', 'fix ?', 'handoff export', 'handoff recall', 'handoff ?', 'recall',
   'lease list', 'lease acquire', 'lease take', 'lease release', 'lease ?',
   'board list', 'board plan', 'board plano', 'board reap', 'board ?',
-  'orquestracao status', 'orquestracao ?', 'monitor', 'licoes'];
+  'orquestracao status', 'orquestracao ?', 'monitor', 'licoes', 'demo'];
 
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */

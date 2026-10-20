@@ -286,6 +286,22 @@ export const OPERACAO_RESTANTE_PT_BR = {
     propostaNenhuma: '  nenhuma',
     fecho: 'Proposta nao bloqueia nada: vira policy so quando o dono a declara em `policies:` no orkastery.yaml.',
   },
+  demo: {
+    gitFalhou: (acao: string, detalhe: string) => `demo: git ${acao} falhou: ${detalhe}`,
+    dirNaoVazio: (dir: string) => `demo: ${dir} nao esta vazio; a demo cria o proprio repositorio`,
+    titulo: 'ork demo: a afirmacao do agente contra a prova',
+    passo1: '  1. O agente entrega soma.js e diz: "soma(2, 2) devolve 4. Pronto."',
+    passo2: '  2. O ork nao aceita relato: reexecuta a prova no commit real.',
+    vereditoAntes: (ok: boolean, motivos: string) =>
+      `     Veredito: ${ok ? 'VERDADE SUSTENTADA' : `REPROVADO (${motivos})`}. A funcao faz a - b.`,
+    passo3: '  3. O agente corrige soma.js e faz commit.',
+    passo4: '  4. O ork reexecuta a MESMA prova no commit novo.',
+    vereditoDepois: (ok: boolean, motivos: string) =>
+      `     Veredito: ${ok ? 'VERDADE SUSTENTADA' : `REPROVADO (${motivos})`}.`,
+    principio: 'Nenhuma afirmacao vale sem o comando que a julga, reexecutado no commit real.',
+    proximo: 'No seu projeto: ork init, depois ork thread new "<pedido>" --modo auto.',
+    mantido: (dir: string) => `(o repositorio da demo ficou em ${dir})`,
+  },
 };
 
 export const OPERACAO_RESTANTE_EN: typeof OPERACAO_RESTANTE_PT_BR = {
@@ -583,5 +599,20 @@ export const OPERACAO_RESTANTE_EN: typeof OPERACAO_RESTANTE_PT_BR = {
       `Policy proposals (the same failure in ${floor}+ threads over the last ${days} days):`,
     propostaNenhuma: '  none',
     fecho: 'A proposal blocks nothing: it becomes policy only when the owner declares it under `policies:` in orkastery.yaml.',
+  },
+  demo: {
+    gitFalhou: (action, detail) => `demo: git ${action} failed: ${detail}`,
+    dirNaoVazio: (dir) => `demo: ${dir} is not empty; the demo creates its own repository`,
+    titulo: 'ork demo: the agent\'s claim against the evidence',
+    passo1: '  1. The agent delivers soma.js and says: "soma(2, 2) returns 4. Done."',
+    passo2: '  2. ork does not accept self-reporting: it reruns the evidence on the real commit.',
+    vereditoAntes: (ok, reasons) =>
+      `     Verdict: ${ok ? 'CLAIM SUPPORTED' : `FAILED (${reasons})`}. The function computes a - b.`,
+    passo3: '  3. The agent fixes soma.js and commits it.',
+    passo4: '  4. ork reruns the SAME evidence on the new commit.',
+    vereditoDepois: (ok, reasons) => `     Verdict: ${ok ? 'CLAIM SUPPORTED' : `FAILED (${reasons})`}.`,
+    principio: 'No claim counts without the command that judges it, rerun on the real commit.',
+    proximo: 'In your project: ork init, then ork thread new "<request>" --modo auto.',
+    mantido: (dir) => `(the demo repository was kept at ${dir})`,
   },
 };

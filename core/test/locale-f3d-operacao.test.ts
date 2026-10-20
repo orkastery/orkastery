@@ -242,3 +242,15 @@ test('F3d: licoes injetadas no ciclo seguem a lingua sem traduzir evidencia', ()
   assert.match(en, /dado preservado/);
   assert.equal(cobreLocale(['licoes'], {}), true);
 });
+
+test('F3d: demo oferece a mesma narrativa nas duas linguas', () => {
+  const pt = comLocale('pt-BR', () => msg().operacao.restante.demo);
+  const en = comLocale('en', () => msg().operacao.restante.demo);
+  assert.match(pt.titulo, /afirmacao do agente/);
+  assert.match(pt.vereditoAntes(false, 'claims.failed'), /REPROVADO/);
+  assert.match(en.titulo, /agent's claim/);
+  assert.match(en.passo2, /does not accept self-reporting/);
+  assert.match(en.vereditoDepois(true, ''), /CLAIM SUPPORTED/);
+  assert.match(en.proximo, /In your project/);
+  assert.equal(cobreLocale(['demo'], {}), true);
+});
