@@ -159,7 +159,7 @@ test('GW6: o teste do reply do Hermes passa pelo unittest', { skip: !temPython }
   const r = spawnSync('python3', ['-m', 'unittest', 'discover', '-s', 'test', '-p', 'hitl_resposta_curta_test.py'], { cwd: HERMES, encoding: 'utf8',
     timeout: 60_000, env: { PATH: '/usr/bin:/bin', PYTHONDONTWRITEBYTECODE: '1' } });
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stderr, /Ran 9 tests/);
+  assert.match(r.stderr, /Ran 13 tests/);
   assert.doesNotMatch(r.stderr, /skipped=/);
 });
 
@@ -170,7 +170,7 @@ test('GW7: o teste do reply do OpenClaw passa', () => {
   const r = spawnSync(process.execPath, ['--test-reporter=tap', path.join(RAIZ, 'adapters/openclaw/test/hitl-resposta-curta.test.mjs')],
     { encoding: 'utf8', timeout: 120_000, env });
   assert.equal(r.status, 0, r.stdout + r.stderr);
-  assert.equal((r.stdout.match(/^ok \d+ - reply:/gm) ?? []).length, 5, r.stdout);
+  assert.equal((r.stdout.match(/^ok \d+ - reply:/gm) ?? []).length, 7, r.stdout);
   assert.doesNotMatch(r.stdout, /^not ok/m);
 });
 
@@ -194,7 +194,10 @@ function arcoEntregue(p: ReturnType<typeof projetoTemporario>, arco: string): { 
   return { sha, codigo, id: '5', texto: fs.readFileSync(saida, 'utf8') };
 }
 
-/** O driver do plugin real do Hermes: o dono responde `texto` em reply à mensagem `respondida` (id `idRespondida`) do bot. */
+/**
+ * O driver do plugin real do Hermes: o dono responde `texto` em reply à mensagem `respondida` (id `idRespondida`) do bot, ou
+ * de outra pessoa quando o passo diz o autor (GO-FIX 2), ou sem reply nenhum quando `respondida` é `null`.
+ */
 const DRIVER_DO_HERMES = [
   'import asyncio, importlib.util, json, sys',
   'from types import SimpleNamespace, ModuleType',
@@ -210,10 +213,10 @@ const DRIVER_DO_HERMES = [
   'sys.modules.update({"gateway": ModuleType("gateway"), "gateway.platforms": ModuleType("gateway.platforms"),',
   '                    "gateway.platforms.base": base, "telegram": telegram})',
   'enviadas = []',
-  'async def dono(texto, mid, respondida, id_respondida):',
+  'async def dono(texto, mid, respondida, id_respondida, autor=99):',
+  '    alvo = None if respondida is None else Message(text=respondida, message_id=id_respondida, from_user=SimpleNamespace(id=autor, is_bot=(autor == 99)))',
   '    msg = Message(text=texto, message_id=mid, from_user=SimpleNamespace(id=42, is_bot=False), chat=SimpleNamespace(id=-7),',
-  '                  date=datetime.now(timezone.utc),',
-  '                  reply_to_message=Message(text=respondida, message_id=id_respondida, from_user=SimpleNamespace(id=99, is_bot=True)))',
+  '                  date=datetime.now(timezone.utc), reply_to_message=alvo)',
   '    async def responder(t, **_):',
   '        enviadas.append(t)',
   '        return Message(message_id=mid + 100, chat=msg.chat, from_user=SimpleNamespace(id=99, is_bot=True), text=t)',
@@ -227,13 +230,13 @@ const DRIVER_DO_HERMES = [
   '    return ingresso._ingress(event=ev, gateway=gw)',
   'async def principal():',
   '    passos = json.loads(sys.argv[2])',
-  '    for texto, mid, respondida, id_respondida in passos:',
+  '    for texto, mid, respondida, id_respondida, *autor in passos:',
   '        if respondida == "@ultima": respondida, id_respondida = enviadas[-1], mid - 10 + 100',
-  '        status = await dono(texto, mid, respondida, id_respondida)',
+  '        status = await dono(texto, mid, respondida, id_respondida, *autor)',
   '        print(json.dumps({"texto": texto, "status": status, "bot": enviadas[-1] if enviadas else None}, ensure_ascii=False))',
   'asyncio.run(principal())', ''].join('\n');
 
-function rodarHermes(p: ReturnType<typeof projetoTemporario>, passos: Array<[string, number, string, number]>) {
+function rodarHermes(p: ReturnType<typeof projetoTemporario>, passos: Array<[string, number, string | null, number] | [string, number, string, number, number]>) {
   const driver = path.join(p.dir, 'driver-hermes-reply.py');
   fs.writeFileSync(driver, DRIVER_DO_HERMES);
   const r = spawnSync('python3', [driver, PLUGIN_HERMES, JSON.stringify(passos)], { cwd: p.dir, encoding: 'utf8', timeout: 120_000,
@@ -315,5 +318,40 @@ test('GW11: ponta a ponta pelo OpenClaw, o título da pergunta copiado por outro
     assert.equal(r.handled, true);
     assert.match(r.reply?.text ?? '', new RegExp(`não é a da pergunta ${a.codigo} como o Orkastery a entregou`), JSON.stringify(r));
     assert.equal(lerArco(p.dir, 'arco-gw11')!.autorizadoPor, null);
+  } finally { p.limpar(); }
+});
+
+// GO-FIX 2 (rodada 2 do CHECK, R1): a palavra solta em reply a uma mensagem que não é a pergunta nunca vira palavra solta.
+
+test('GW12: ponta a ponta pelo Hermes, "ok" em reply à confirmação de um gate e "sim" em reply a outra pessoa não autorizam; sem reply, autoriza', { skip: semKernel || !temPython }, () => {
+  // G1 e G1b do CHECK (rodada 2), invertidos: com a pergunta entregue e a janela aberta, o plugin real levava a palavra ao
+  // núcleo como palavra solta, e o arco era autorizado.
+  const p = projetoTemporario('noctum-gw12');
+  try {
+    const a = arcoEntregue(p, 'arco-gw12');
+    const [ok, sim] = rodarHermes(p, [['ok', 31, '✅ DE6H → a) Aprovo: o gate da thread exemplo-SIMULADA está aprovado.', 40],
+      ['sim', 32, 'Alguém revisa o PR de documentação hoje?', 41, 43]]);
+    for (const passo of [ok, sim]) {
+      assert.deepEqual([passo.status?.effect, passo.status?.confirmation], ['confirmed', 'sent'], JSON.stringify(passo));
+      assert.match(passo.bot ?? '', /A mensagem que você respondeu não é a de uma pergunta do Orkastery/, JSON.stringify(passo));
+      assert.ok((passo.bot ?? '').includes(a.codigo), 'a recusa diz o código da pergunta que espera');
+    }
+    assert.equal(lerArco(p.dir, 'arco-gw12')!.autorizadoPor, null);
+    const [semReply] = rodarHermes(p, [['ok', 33, null, 0]]);
+    assert.match(semReply.bot ?? '', /está autorizado/, JSON.stringify(semReply));
+    assert.equal(lerArco(p.dir, 'arco-gw12')!.envelopeSha256, a.sha);
+  } finally { p.limpar(); }
+});
+
+test('GW13: ponta a ponta pelo OpenClaw, "sim" em reply à mensagem de outra pessoa não autoriza, e o dono ouve por onde responder', { skip: semKernel }, () => {
+  // G1c do CHECK (rodada 2), invertido.
+  const p = projetoTemporario('noctum-gw13');
+  try {
+    const a = arcoEntregue(p, 'arco-gw13');
+    const r = rodarOpenClaw(p, 'sim', 'Bom dia, pessoal', '77');
+    assert.equal(r.handled, true);
+    assert.match(r.reply?.text ?? '', /A mensagem que você respondeu não é a de uma pergunta do Orkastery/, JSON.stringify(r));
+    assert.ok((r.reply?.text ?? '').includes(a.codigo));
+    assert.equal(lerArco(p.dir, 'arco-gw13')!.autorizadoPor, null);
   } finally { p.limpar(); }
 });

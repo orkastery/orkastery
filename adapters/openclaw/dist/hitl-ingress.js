@@ -52,6 +52,20 @@ export function replyReference(event) {
     const title = new RegExp(PULSE_REFERENCIA).exec(event.replyToBody.slice(0, 4096).split('\n', 1)[0]);
     return title ? `${title[1]}:${event.replyToId}` : null;
 }
+/**
+ * RM-057 (GO-FIX 2, CHECK finding R1): the mark of a reply to ANOTHER message, signed at the address `resposta:outra` and
+ * sent with --em-resposta-a outra. The bare word in reply to a message that is not the arc question (a gate confirmation,
+ * another group member's message, the assistant's) never becomes a bare word: the core refuses it and says where to
+ * answer. The code and the number name the question and go without the mark, as always.
+ */
+const PULSE_REPLY_A_OUTRA = 'outra';
+/**
+ * RM-057 (GO-FIX 2, R1): the owner's message replies to (or quotes) another message. The SDK only gives the reply when the
+ * group's context visibility shows it (`contextVisibility`, `all` by default), and it drops the forum topic opening.
+ */
+export function isReply(event) {
+    return [event.replyToBody, event.replyToId, event.replyToSender].some(v => typeof v === 'string' && v.length > 0) || event.replyToIsQuote === true;
+}
 /** The answer to ONE question (the bare word, the code with the answer or the number with the letter): only it goes in a reply. */
 function isAnswer(text) {
     return !text.includes('\0') && text.length <= PULSE_TETO && (PULSE_LIVRE.test(text) || PULSE_CONSENT.test(text) || PULSE_LOTE.test(text));
@@ -92,8 +106,13 @@ export function registerHitlIngress(api, bin) {
             return { handled: false };
         // RM-057 (short answer, D3): in reply to an arc question, the answer to it belongs to Orkastery even with the window
         // closed; the cadence tag, the list and the rest go on as always, without the reference.
-        const ref = event.content.startsWith('/ork ') || !isAnswer(event.content) ? null : replyReference(event);
-        const pulse = !event.content.startsWith('/ork ') && (isPulseAnswer(event.content) || ref !== null);
+        const answer = !event.content.startsWith('/ork ') && isAnswer(event.content);
+        let ref = answer ? replyReference(event) : null;
+        // GO-FIX 2 (R1): the bare word in reply to another message goes marked, and the core refuses it saying why; with the
+        // window closed it goes to the assistant, like every bare word.
+        if (answer && ref === null && PULSE_LIVRE.test(event.content) && isReply(event))
+            ref = PULSE_REPLY_A_OUTRA;
+        const pulse = !event.content.startsWith('/ork ') && (isPulseAnswer(event.content) || (ref !== null && ref !== PULSE_REPLY_A_OUTRA));
         if (!event.content.startsWith('/ork ') && !pulse)
             return { handled: false };
         const denied = { handled: true, reply: { text: 'Resposta HITL não confirmada. Confira ingresso e ledger do pedido.' } };
@@ -173,7 +192,7 @@ export function registerHitlIngress(api, bin) {
 async function pulseIngress(texto, m, denied, ref = null) {
     const canal = 'openclaw', conta = process.env.ORK_HITL_OPENCLAW_ACCOUNT ?? '';
     // RM-057: the reply says which question: the code and the replied message id go into the signed address, never into
-    // the owner's text.
+    // the owner's text. A reply to another message goes in the same way (`resposta:outra`).
     const endereco = ref ? `${PULSE_ENDERECO}:${ref}` : PULSE_ENDERECO;
     const envelope = { resposta: texto, canal, conta, origem: 'telegram', por: `telegram:${m.user}`,
         mensagem: `telegram:${m.chat}:${m.message}`, recebidoEm: new Date(m.timestamp).toISOString(), prova: '' };

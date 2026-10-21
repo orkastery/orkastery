@@ -52,6 +52,11 @@ PULSE_RATIFICACAO = re.compile(r'^[ \t]*ratificar(?:-lote)?(?:[ \t]+[A-Za-z0-9._
 # `resposta:<codigo>:<id>`, e vai ao nucleo por --em-resposta-a; o nucleo so a aceita quando o id e o da mensagem em que a
 # pergunta foi entregue.
 PULSE_REFERENCIA = re.compile(r'^🔔 (?:[1-9][0-9]?\. )?arco [a-z0-9][a-z0-9-]{0,62} · ((?=[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{0,2}[2-9])[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{3})$')
+# RM-057 (GO-FIX 2, R1 do CHECK): a marca do reply a OUTRA mensagem, assinada no endereco `resposta:outra` e mandada por
+# --em-resposta-a outra. A palavra solta em reply a uma mensagem que nao e a pergunta do arco (a confirmacao de um gate, a
+# mensagem de outra pessoa do grupo, a do assistente) nunca vira palavra solta: o nucleo a recusa e diz por onde
+# responder. O codigo e o numero dizem a pergunta e vao sem a marca, como sempre.
+PULSE_REPLY_A_OUTRA = 'outra'
 # Texto acima disto nunca e testado contra as formas: elas rodam antes da allowlist.
 PULSE_TETO = 300
 ESCUTA_TETO = 4096
@@ -125,6 +130,22 @@ def _referencia(event):
         return f'{titulo.group(1)}:{mid}' if titulo else None
     except Exception:
         return None
+
+
+def _em_reply(event):
+    """RM-057 (GO-FIX 2, R1): a mensagem do dono responde (reply) a outra mensagem, deste chat ou de outro. A abertura do
+    topico do forum, que o Telegram poe em reply_to_message de toda mensagem do topico, nao conta. Na duvida, e reply."""
+    try:
+        msg = getattr(event, 'raw_message', None)
+        if getattr(msg, 'external_reply', None) is not None:
+            return True
+        alvo = getattr(msg, 'reply_to_message', None)
+        if alvo is None or getattr(alvo, 'forum_topic_created', None) is not None:
+            return False
+        return not (getattr(msg, 'is_topic_message', None) is True
+                    and getattr(alvo, 'message_id', None) == getattr(msg, 'message_thread_id', None))
+    except Exception:
+        return True
 
 
 def _is_resposta(text):
@@ -205,8 +226,13 @@ def _ingress(*, event, gateway, **_kwargs):
         return None
     # RM-057 (resposta curta, D3): em reply a uma pergunta do arco, a resposta a ela e do Orkastery mesmo com a janela
     # fechada; a tag da cadencia, a lista e o resto seguem como sempre, sem a referencia.
-    referencia = None if text.startswith('/ork ') or not _is_resposta(text) else _referencia(event)
-    pulse = not text.startswith('/ork ') and (_is_pulse(text) or referencia is not None)
+    resposta = not text.startswith('/ork ') and _is_resposta(text)
+    referencia = _referencia(event) if resposta else None
+    # GO-FIX 2 (R1): a palavra solta em reply a outra mensagem vai marcada, e o nucleo a recusa dizendo por que; com a
+    # janela fechada ela segue ao assistente, como toda palavra solta.
+    if resposta and referencia is None and PULSE_LIVRE.fullmatch(text) and _em_reply(event):
+        referencia = PULSE_REPLY_A_OUTRA
+    pulse = not text.startswith('/ork ') and (_is_pulse(text) or referencia not in (None, PULSE_REPLY_A_OUTRA))
     if not text.startswith('/ork ') and not pulse:
         return None
     if getattr(getattr(event, 'source', None), 'platform', None) and event.source.platform.value != 'telegram':
@@ -238,7 +264,7 @@ def _ingress(*, event, gateway, **_kwargs):
             operation, thread, pedido, answer = 'pulse', PULSE_ALVO, PULSE_ENDERECO, text
             if referencia:
                 # O reply diz a qual pergunta: o codigo e o id da mensagem respondida entram no endereco assinado, nunca no
-                # texto do dono.
+                # texto do dono. O reply a outra mensagem entra do mesmo jeito (`resposta:outra`).
                 pedido = PULSE_ENDERECO + ':' + referencia
         else:
             match = COMMAND.fullmatch(text)

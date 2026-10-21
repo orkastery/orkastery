@@ -13,6 +13,10 @@
  * pergunta (S5), a mesma mensagem em outro arco (S6), a pergunta não entregue que conta para a ambiguidade (P3) e o código
  * em dois lugares (P5) viraram RC15 e RC17 a RC25. O reply à mensagem de um gate não registra nada: o lote não guarda o id.
  *
+ * GO-FIX 2 (rodada 2 do CHECK, R1): a palavra solta em reply a uma mensagem que não é a pergunta (a confirmação de um gate,
+ * a mensagem de outra pessoa do grupo) chega assinada em `resposta:outra` e nunca vira palavra solta: nada é gravado, e o
+ * dono ouve por onde responder (RC26 a RC28). O código e o número dizem a pergunta e seguem valendo.
+ *
  * Chaves, usuários, chats, transportes e mensagens SIMULADOS; nenhuma mensagem sai da máquina.
  */
 import { strict as assert } from 'node:assert';
@@ -485,5 +489,75 @@ test('RC25: o transporte que não diz o id entrega a pergunta, mas o reply a ela
     assert.deepEqual(idsDaEntrega('ok\n{"message_id": 9}'), ['9']);
     assert.deepEqual(idsDaEntrega('{"message_id": -3, "messageId": "x1"}'), []);
     assert.deepEqual(idsDaEntrega('não é json'), []);
+  } finally { c.limpar(); }
+});
+
+// GO-FIX 2 (rodada 2 do CHECK, R1): a palavra solta em reply a outra mensagem nunca vira palavra solta.
+
+test('RC26: o "ok" e o "sim" em reply a outra mensagem (a confirmação de um gate, a de outra pessoa) não gravam nada, e o dono ouve por onde responder', () => {
+  // G1 e G1b do CHECK, invertidos no núcleo: o gateway assina a palavra em reply a outra mensagem em resposta:outra.
+  const c = cenario('outra-mensagem');
+  try {
+    canalSimulado(c.p.dir, c.monitor);
+    const a = c.arco('arco-rc26');
+    for (const texto of ['ok', 'sim', 'a', 'autorizo']) {
+      const r = c.emReply(texto, 'outra');
+      assert.equal(r.registradas.length, 0, `${texto}: ${r.mensagem}`);
+      assert.deepEqual(r.recusas, [{ motivo: 'reply.outra-mensagem' }], texto);
+      assert.match(r.mensagem, /^⚠️ A mensagem que você respondeu não é a de uma pergunta do Orkastery.*nada foi registrado/, texto);
+      assert.ok(r.mensagem.includes(`${a.entrega!.numero} ou ${a.codigo}, com a letra`), r.mensagem);
+    }
+    assert.equal(lerArco(c.p.dir, 'arco-rc26', A)!.autorizadoPor, null);
+    // O reply está dentro da assinatura: sem a marca no argumento, ou com a marca que a assinatura não cobre, nada passa.
+    assert.throws(() => c.responder(dizer('ok', { referencia: 'outra' }), A), /não autenticada/);
+    assert.throws(() => c.responder(dizer('ok'), A, 'outra'), /não autenticada/);
+    assert.equal(lerArco(c.p.dir, 'arco-rc26', A)!.autorizadoPor, null);
+    // Controle (D3): sem reply, com uma só pergunta pendente no chat, a palavra solta vale.
+    assert.match(c.responder(dizer('sim')).mensagem, /está autorizado/);
+  } finally { c.limpar(); }
+});
+
+test('RC27: a palavra em reply à mensagem de um gate não registra o gate; o código dele segue valendo', () => {
+  const c = cenario('outra-gate');
+  try {
+    // Sem pergunta nenhuma esperando, a recusa diz isso, e nada é gravado.
+    const nada = c.emReply('ok', 'outra');
+    assert.match(nada.mensagem, /Não há pergunta esperando você agora\.$/);
+    assert.equal(nada.registradas.length, 0);
+    const { thread: t } = novaThread(c.p.carregado, { nome: 'gate da palavra em reply', modo: 'classic' });
+    registrar(dirThread(c.p.dir, t.id), t.id, 'phase_result', { fase: 'GOAL', evidencia: 'fixture simulada' });
+    const g = abrirPedidoGate(c.p.dir, t.id, 'human.pending', A) as { codigo: string; id: string };
+    const r = c.emReply('sim', 'outra');
+    assert.deepEqual([r.registradas.length, r.recusas], [0, [{ motivo: 'reply.outra-mensagem' }]], r.mensagem);
+    assert.ok(r.mensagem.includes(`${g.codigo} a (${t.id}`), r.mensagem);
+    assert.equal(lerLedger(dirThread(c.p.dir, t.id)).some(e => e.tipo === 'human_gate'), false);
+    assert.match(c.responder(dizer(`${g.codigo} a`)).mensagem, new RegExp(`${g.codigo} → a\\)`));
+  } finally { c.limpar(); }
+});
+
+test('RC28: o CLI recebe a marca do reply a outra mensagem (--em-resposta-a outra) e só ela, além de <código>:<id>', () => {
+  const c = cenario('cli-outra');
+  try {
+    canalSimulado(c.p.dir, c.monitor);
+    const agora = new Date().toISOString();
+    const atual = proporEnvelope(c.p.dir, { ...pedido('arco-rc28'), janela: { inicio: new Date(Date.now() - 3600_000).toISOString(),
+      fim: new Date(Date.now() + 7 * 3600_000).toISOString(), fuso: 'America/Sao_Paulo' } }, agora);
+    const q = perguntasDoArco(c.p.dir, 'arco-rc28', agora).find(x => x.codigo === atual.codigo)!;
+    entregarPerguntaDoArco(c.p.dir, q, { quando: agora, estadoDir: c.monitor });
+    const e = dizer('sim', { referencia: 'outra', recebidoEm: agora });
+    const argv = ['pulse', 'responder', '--resposta-stdin', '--origem', 'telegram', '--canal', 'hermes', '--por', e.por, '--mensagem', e.mensagem];
+    for (const errada of ['Outra', 'outra:5', 'outras']) {
+      const r = spawnSync(process.execPath, [CLI, ...argv, '--em-resposta-a', errada], { cwd: c.p.dir, input: JSON.stringify(e), encoding: 'utf8',
+        env: process.env });
+      assert.notEqual(r.status, 0, errada);
+      assert.match(r.stderr, /--em-resposta-a/, errada);
+    }
+    const certo = spawnSync(process.execPath, [CLI, ...argv, '--em-resposta-a', 'outra'], { cwd: c.p.dir, input: JSON.stringify(e),
+      encoding: 'utf8', env: process.env });
+    assert.equal(certo.status, 0, certo.stderr);
+    const recibo = JSON.parse(certo.stdout);
+    assert.deepEqual([recibo.contrato, recibo.registradas, recibo.recusas], ['ork.pulse-resposta/v1', [], [{ motivo: 'reply.outra-mensagem' }]]);
+    assert.match(recibo.mensagem, new RegExp(`não é a de uma pergunta do Orkastery.*${atual.codigo}, com a letra`));
+    assert.equal(lerArco(c.p.dir, 'arco-rc28')!.autorizadoPor, null);
   } finally { c.limpar(); }
 });

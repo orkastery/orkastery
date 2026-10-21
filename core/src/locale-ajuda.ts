@@ -120,6 +120,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   pulse responder --resposta-stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]
                                             Recebe o que o dono digitou no canal do resumo (P4EJ a, 1a 2c)
         [--em-resposta-a <codigo>:<id>]     o código da pergunta e o id da mensagem respondida (reply)
+        [--em-resposta-a outra]             a palavra solta em reply a outra mensagem: recusada, com o porquê
   pulse cadencia [<tag>] [--por P] [--json] Mostra ou troca a cadencia do resumo: OrkPulseOn, OrkPulseOn-15m,
                                             -30m, -60m ou OrkPulseOff; pergunta nova sai na hora (I-50)
   sessions hitl [--json] [--so-paradas]     Radar de sessoes que exigem acao humana AGORA:
@@ -532,6 +533,7 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
   pulse responder --resposta-stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]
                                             Receives what the owner typed in the summary channel (P4EJ a, 1a 2c)
         [--em-resposta-a <code>:<id>]       the question code and the id of the replied message (reply)
+        [--em-resposta-a outra]             the bare word in reply to another message: refused, with the reason
   pulse cadencia [<tag>] [--por P] [--json]  Shows or changes the summary cadence: OrkPulseOn, OrkPulseOn-15m,
                                             -30m, -60m or OrkPulseOff; a new question goes out at once (I-50)
   sessions hitl [--json] [--so-paradas]     Radar of sessions that need human action NOW:

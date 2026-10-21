@@ -83,7 +83,7 @@ import { devolverVagas, textoDoBoard, textoDoPlano, textoDoReap, planejar, threa
 import { textoDoRadar, varrerSessoes } from './hitl';
 import { filaDoDono, montarPulse, textoDoPulse } from './pulse';
 import { codigosEmUso, interpretarRespostaDoPulse, responderPeloPulse } from './pulse-resposta';
-import { lerReferenciaDoReply } from './pulse-consentimento';
+import { referenciaDoReplyValida } from './pulse-consentimento';
 import { CADENCIAS, gravarCadencia, inicioDaProximaJanela, lerCadencia, textoDaCadencia } from './pulse-cadencia';
 import { LIMIAR_DE_DECISOES_POR_FASE, placarDaThread, registrarDecisao, taxaDeReversao } from './decisao-autonoma';
 import { PedidoHitlQualquer, TipoDeCriterio, CAMPOS_DA_DECISAO_NO_CLI, recusaNaSuperficie } from './hitl-contract';
@@ -4548,8 +4548,9 @@ function executarComando(argvBruto: string[]): number {
         if (formato !== undefined && formato !== 'telegram' && formato !== 'terminal') throw new Error(msg().operacao.pulseCadencia.responderFormato);
         // RM-057 (resposta curta, D3; GO-FIX 1, achado 2): a mensagem respondida (reply), `<código>:<id>`, que o gateway
         // assinou no endereço do pulse; o núcleo só a aceita quando o id é o da mensagem em que a pergunta foi entregue.
+        // GO-FIX 2 (R1): `outra` é a palavra solta em reply a outra mensagem, que o núcleo recusa dizendo por quê.
         const referencia = args.opcoes['em-resposta-a'];
-        if (referencia !== undefined && !lerReferenciaDoReply(referencia)) {
+        if (referencia !== undefined && !referenciaDoReplyValida(referencia)) {
           throw new Error(msg().operacao.pulseCadencia.responderReferencia);
         }
         console.log(JSON.stringify(responderPeloPulse(carregado.raiz, envelope, { canal: formato ?? 'telegram',

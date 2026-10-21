@@ -3,6 +3,8 @@
  *
  * GO-FIX 1 (finding 2): the reference only comes from the arc question title and carries the replied message id; a
  * confirmation, a reminder, the owner's own message or a member's message never gives one, and only an answer goes with it.
+ * GO-FIX 2 (round 2, R1): the bare word in reply to any other message goes marked (`resposta:outra`), and the core refuses
+ * it; the code and the number name the question and go without the mark.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -10,7 +12,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createHmac } from 'node:crypto';
-import { registerHitlIngress, replyReference } from '../dist/hitl-ingress.js';
+import { isReply, registerHitlIngress, replyReference } from '../dist/hitl-ingress.js';
 
 const QUESTION = '🔔 7. arco arco-simulado · NX4K\n❓ Autorizar o arco arco-simulado (proposta 1)?\n↩️ Responda a, b ou c. Detalhes: NX4K detalhes.';
 const CONFIRMATION = 'NX4K → b) Adiar: nada muda, e a proposta vence às 22:10 se você não autorizar antes.';
@@ -94,4 +96,56 @@ test('reply: ordinary chat in a reply goes to the assistant, a non-answer goes w
     assert.match(r.reply.text, /não confirmada/);
     assert.equal(received(), null);
   });
+});
+
+/** Opens the core's listening window (ork.pulse-escuta/v1) in the simulated root. */
+function openWindow() {
+  const monitor = path.join(process.env.ORK_HITL_ROOT, '.orkastery', 'monitor');
+  fs.mkdirSync(monitor, { recursive: true });
+  fs.writeFileSync(path.join(monitor, 'pulse-escuta.json'), JSON.stringify({ contrato: 'ork.pulse-escuta/v1',
+    livreAte: new Date(Date.now() + 30 * 60_000).toISOString() }));
+}
+
+test('reply: window open, the bare word in reply to another message goes marked at resposta:outra; the code and the number go without the mark', async () => {
+  // G1c of the CHECK (round 2), inverted at the gateway: "sim" in reply to a member's message went as a plain bare word.
+  await withIngress(async ({ handler, event, ctx, received, key }) => {
+    openWindow();
+    const gateConfirmation = '✅ DE6H → a) Aprovo: o gate da thread exemplo-SIMULADA está aprovado.';
+    for (const [text, change] of [['sim', { replyToBody: 'Bom dia, pessoal', replyToId: '77', replyToSender: 'Membro SIMULADO' }],
+      ['ok', { replyToBody: gateConfirmation, replyToId: '40' }], ['a', { replyToBody: 'Quer que eu rode a suíte agora?', replyToId: '41' }],
+      ['sim', { replyToBody: QUESTION, replyToId: 'abc' }], ['autorizo', { replyToId: '42' }], ['ok', { replyToIsQuote: true }]]) {
+      fs.rmSync(path.join(process.env.ORK_HITL_ROOT, 'received.json'), { force: true });
+      const r = await handler(event(text, change), ctx);
+      assert.equal(r.handled, true, `${text}: ${JSON.stringify(change)}`);
+      const { args, envelope: e } = received();
+      assert.deepEqual(args.slice(-2), ['--em-resposta-a', 'outra'], JSON.stringify(change));
+      assert.equal(e.prova, createHmac('sha256', key).update(JSON.stringify(['ork.hitl-answer/v2', 'pulse', 'resposta:outra', 'openclaw',
+        'simulated', e.origem, e.por, e.mensagem, e.recebidoEm, e.resposta])).digest('hex'));
+    }
+    for (const text of ['DE6H a', '1a', '1. sim']) {
+      fs.rmSync(path.join(process.env.ORK_HITL_ROOT, 'received.json'), { force: true });
+      await handler(event(text, { replyToBody: 'Bom dia, pessoal', replyToId: '77' }), ctx);
+      const { args, envelope: e } = received();
+      assert.ok(!args.includes('--em-resposta-a'), text);
+      assert.equal(e.prova, createHmac('sha256', key).update(JSON.stringify(['ork.hitl-answer/v2', 'pulse', 'resposta', 'openclaw',
+        'simulated', e.origem, e.por, e.mensagem, e.recebidoEm, e.resposta])).digest('hex'), text);
+    }
+    // Without a reply, the bare word with the window open goes as always, without the mark.
+    fs.rmSync(path.join(process.env.ORK_HITL_ROOT, 'received.json'), { force: true });
+    await handler(event('sim'), ctx);
+    assert.ok(!received().args.includes('--em-resposta-a'));
+  });
+});
+
+test('reply: window closed, the bare word in reply to another message goes to the assistant; isReply sees reply, quote and the reply without text', async () => {
+  await withIngress(async ({ handler, event, ctx, received }) => {
+    assert.deepEqual(await handler(event('sim', { replyToBody: 'Bom dia, pessoal', replyToId: '77' }), ctx), { handled: false });
+    assert.equal(received(), null);
+  });
+  assert.equal(isReply({ replyToBody: 'Bom dia', replyToId: '77' }), true);
+  assert.equal(isReply({ replyToId: '77' }), true);
+  assert.equal(isReply({ replyToSender: 'Membro' }), true);
+  assert.equal(isReply({ replyToIsQuote: true }), true);
+  assert.equal(isReply({}), false);
+  assert.equal(isReply({ replyToBody: '', replyToId: '', replyToIsQuote: false }), false);
 });

@@ -45,7 +45,7 @@ import { lerLedger } from './ledger';
 import { dirThread, lerThread, listarIds } from './thread';
 import { EventoLedger } from './types';
 import { abrirConsentimento, ALVO_DO_PULSE, CandidatoDoLote, ENDERECO_DA_RESPOSTA, enderecoDoPulse, lerConsentimento,
-  lerReferenciaDoReply, marcarLoteEntregue, PedidoDeConsentimento, PRAZO_PADRAO_MIN, responderConsentimento } from './pulse-consentimento';
+  lerReferenciaDoReply, marcarLoteEntregue, PedidoDeConsentimento, PRAZO_PADRAO_MIN, REPLY_A_OUTRA, responderConsentimento } from './pulse-consentimento';
 import { codigosDosArcos, PerguntaNoLog, ProvaDaRespostaCurta } from './noctum-arco';
 import { alternativasDaPergunta, escolhaDaPergunta, fraseDaPergunta, PerguntaDoArco } from './noctum-pergunta';
 import { DesfechoDaRespostaAoArco, perguntasPendentes, perguntasPorCodigo, responderPerguntaDoArco, rotuloDaPergunta } from './noctum-resposta';
@@ -643,6 +643,24 @@ function responderEmReply(raiz: string, envelope: RespostaHumana, lido: Resposta
   return resultadoDoArco('codigo', q, d, envelope, numero);
 }
 
+/**
+ * RM-057 (GO-FIX 2, R1 do CHECK da ork-rm057respost): a palavra solta EM REPLY a uma mensagem que não é a pergunta do arco
+ * (a confirmação de um gate, a mensagem de outra pessoa do grupo, a do assistente). O dono respondeu àquela mensagem, e o
+ * Orkastery não adivinha que era à pergunta: a palavra nunca vira palavra solta, nada é gravado, e a resposta diz por
+ * onde responder. A palavra solta só vale sem reply, com uma só pergunta pendente no chat, ou em reply à mensagem da
+ * pergunta; o código e o número dizem a pergunta e o gateway os manda sem esta marca.
+ */
+function respostaAOutraMensagem(raiz: string, opcoes: { quando: string; canal: 'telegram' | 'terminal'; estadoDir?: string }): ResultadoDaRespostaDoPulse {
+  const tg = opcoes.canal === 'telegram';
+  let abertos: AbertoDoDono[] = [];
+  try { abertos = abertosDoDono(raiz, opcoes.quando, opcoes.estadoDir); } catch { /* a recusa não depende da lista */ }
+  const lista = abertos.slice(0, 5).map(a => a.rotulo).join('; ') + (abertos.length > 5 ? `; e mais ${abertos.length - 5}` : '');
+  return resultado('nao-entendida', `${tg ? '⚠️ ' : '! '}A mensagem que você respondeu não é a de uma pergunta do Orkastery, e em reply ` +
+    'a palavra solta só vale para a mensagem da pergunta; nada foi registrado. ' + (abertos.length
+      ? `Responda à mensagem da pergunta, ou pelo número ou pelo código: ${lista}.` : 'Não há pergunta esperando você agora.'),
+    { recusas: [{ motivo: 'reply.outra-mensagem' }] });
+}
+
 // ---------------------------------------------------------------------------
 // RM-048 (D4): a linha que o dono recebeu vale enquanto o gate esperar a mesma pergunta.
 // ---------------------------------------------------------------------------
@@ -1212,7 +1230,8 @@ export function responderPeloPulse(raiz: string, envelope: RespostaHumana, opcoe
   /**
    * RM-057 (resposta curta, D3 da ork-rm057respost; GO-FIX 1, achado 2): a mensagem a que o dono respondeu (reply), como
    * `<código>:<id>`. O gateway tira o código do título da pergunta respondida e o id da mensagem dela, e assina os dois no
-   * endereço (`resposta:<código>:<id>`); aqui eles só valem com a assinatura que os cobre e com o id da entrega.
+   * endereço (`resposta:<código>:<id>`); aqui eles só valem com a assinatura que os cobre e com o id da entrega. GO-FIX 2
+   * (R1): `outra` é a palavra solta em reply a uma mensagem que não é a pergunta, assinada em `resposta:outra`, e é recusada.
    */
   referencia?: string;
 } = {}): ResultadoDaRespostaDoPulse {
@@ -1231,6 +1250,8 @@ export function responderPeloPulse(raiz: string, envelope: RespostaHumana, opcoe
     const referencia = opcoes.referencia;
     return comLockDaConversa(estadoDir, () => {
       const r = ((): ResultadoDaRespostaDoPulse => { try {
+        // GO-FIX 2 (R1): em reply a outra mensagem, nada vira palavra solta; o dono ouve por onde responder.
+        if (referencia === REPLY_A_OUTRA) return respostaAOutraMensagem(raiz, { quando, canal, estadoDir });
         if (!['livre', 'consentimento', 'lote'].includes(lido.forma)) {
           return resultado('codigo', `${canal === 'telegram' ? '⚠️ ' : '! '}Em reply à pergunta, mande só a resposta a ela (a letra, ` +
             'o número com a letra ou o código com a letra). Nada foi registrado.', { recusas: [{ motivo: 'reply.outra-pergunta' }] });

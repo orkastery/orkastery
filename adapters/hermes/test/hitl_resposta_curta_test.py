@@ -2,6 +2,9 @@
 
 GO-FIX 1 (achado 2): a referencia so sai do titulo da pergunta do arco e leva o id da mensagem respondida; confirmacao,
 recusa, lembrete e conversa nunca dao referencia, e so a resposta a uma pergunta vai com ela.
+
+GO-FIX 2 (rodada 2 do CHECK, R1): a palavra solta em reply a qualquer outra mensagem vai marcada (`resposta:outra`), e o
+nucleo a recusa; o codigo e o numero dizem a pergunta e vao sem a marca; a abertura do topico do forum nao e reply.
 """
 import asyncio
 import hashlib
@@ -9,10 +12,12 @@ import hmac
 import importlib.util
 import json
 import os
+import tempfile
+from pathlib import Path
 from types import SimpleNamespace, ModuleType
 import unittest
 from unittest.mock import AsyncMock, patch
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from layout import plugin_directory
 
 spec = importlib.util.spec_from_file_location('ingress_resposta_curta', plugin_directory() / '__init__.py')
@@ -155,6 +160,81 @@ class RespostaCurtaTest(unittest.IsolatedAsyncioTestCase):
             argv, corpo = run.call_args.args[0], json.loads(run.call_args.kwargs['input'])
             self.assertNotIn('--em-resposta-a', argv)
             self.assertEqual(corpo['prova'], self.prova_esperada(corpo, 'resposta'))
+
+
+    # GO-FIX 2 (rodada 2 do CHECK, R1): a palavra solta em reply a outra mensagem nunca vira palavra solta.
+
+    def janela_aberta(self):
+        """A janela da palavra solta ABERTA numa raiz temporaria (ork.pulse-escuta/v1), como o nucleo a grava."""
+        raiz = tempfile.TemporaryDirectory()
+        self.addCleanup(raiz.cleanup)
+        monitor = Path(raiz.name) / '.orkastery' / 'monitor'
+        monitor.mkdir(parents=True)
+        ate = (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat().replace('+00:00', 'Z')
+        (monitor / 'pulse-escuta.json').write_text(json.dumps({'contrato': 'ork.pulse-escuta/v1', 'livreAte': ate}))
+        abrir = patch.dict(os.environ, {'ORK_HITL_ROOT': raiz.name})
+        abrir.start(); self.addCleanup(abrir.stop)
+
+    async def test_palavra_em_reply_a_outra_mensagem_vai_marcada_com_a_janela_aberta(self):
+        # G1 e G1b do CHECK, invertidos no gateway: o "ok" a confirmacao de um gate e o "sim" a mensagem de outra pessoa iam
+        # como palavra solta, e a janela aberta os levava a pergunta do arco.
+        self.janela_aberta()
+        gate = '✅ DE6H → a) Aprovo: o gate da thread exemplo-SIMULADA está aprovado.'
+        pergunta_de_gate = '🔔 1. exemplo-SIMULADA · GO · DE6H\n❓ Aprovar o gate?\n↩️ Responda a, b ou c.'
+        for texto, respondida, autor, bot in [('ok', gate, 99, True), ('sim', 'Alguém revisa o PR hoje?', 43, False),
+                                               ('a', 'Quer que eu rode a suíte agora?', 99, True), ('sim', pergunta_de_gate, 99, True),
+                                               ('autorizo', PERGUNTA, 43, False)]:
+            with self.subTest(texto=texto, respondida=respondida[:20]), patch.object(ingress.subprocess, 'run', return_value=recibo()) as run:
+                ingress._entries.clear()
+                _msg, evento = self.mensagem(texto, respondida=respondida, autor=autor, bot=bot)
+                self.assertIsNotNone(self.invocar(evento))
+                await self.terminar(evento)
+                argv, corpo = run.call_args.args[0], json.loads(run.call_args.kwargs['input'])
+                self.assertEqual(argv[-2:], ['--em-resposta-a', 'outra'])
+                self.assertEqual(corpo['prova'], self.prova_esperada(corpo, 'resposta:outra'))
+
+    async def test_codigo_e_numero_em_reply_a_outra_mensagem_vao_sem_a_marca(self):
+        self.janela_aberta()
+        for texto in ['DE6H a', '1a', '1. sim']:
+            with self.subTest(texto=texto), patch.object(ingress.subprocess, 'run', return_value=recibo()) as run:
+                ingress._entries.clear()
+                _msg, evento = self.mensagem(texto, respondida='Alguém revisa o PR hoje?', autor=43, bot=False)
+                self.invocar(evento)
+                await self.terminar(evento)
+                argv, corpo = run.call_args.args[0], json.loads(run.call_args.kwargs['input'])
+                self.assertNotIn('--em-resposta-a', argv)
+                self.assertEqual(corpo['prova'], self.prova_esperada(corpo, 'resposta'))
+
+    async def test_palavra_em_reply_a_outra_mensagem_com_a_janela_fechada_vai_ao_assistente(self):
+        for respondida, autor, bot in [('Alguém revisa o PR hoje?', 43, False), (CONFIRMACAO, 99, True)]:
+            with self.subTest(respondida=respondida[:20]), patch.object(ingress.subprocess, 'run') as run:
+                ingress._entries.clear()
+                _msg, evento = self.mensagem('sim', respondida=respondida, autor=autor, bot=bot)
+                self.assertIsNone(self.invocar(evento))
+                run.assert_not_called()
+
+    async def test_topico_do_forum_nao_e_reply_e_a_mensagem_de_outro_chat_e(self):
+        self.janela_aberta()
+        # No forum, toda mensagem do topico vem com a abertura dele em reply_to_message: nao e reply do dono.
+        with patch.object(ingress.subprocess, 'run', return_value=recibo()) as run:
+            msg, evento = self.mensagem('sim')
+            msg.is_topic_message, msg.message_thread_id = True, 3
+            msg.reply_to_message = Message(message_id=3, forum_topic_created=SimpleNamespace(name='Orkastery'), text=None,
+                                           from_user=SimpleNamespace(id=42, is_bot=False))
+            self.assertFalse(ingress._em_reply(evento))
+            self.invocar(evento)
+            await self.terminar(evento)
+            self.assertNotIn('--em-resposta-a', run.call_args.args[0])
+        msg, evento = self.mensagem('sim')
+        msg.is_topic_message, msg.message_thread_id = True, 3
+        msg.reply_to_message = Message(message_id=3, text=None, from_user=SimpleNamespace(id=42, is_bot=False))
+        self.assertFalse(ingress._em_reply(evento), 'a abertura do topico, pelo id, sem o campo do servico')
+        msg.reply_to_message = Message(message_id=11, text='outra mensagem do topico', from_user=SimpleNamespace(id=43, is_bot=False))
+        self.assertTrue(ingress._em_reply(evento), 'o reply a outra mensagem dentro do topico conta')
+        msg, evento = self.mensagem('sim')
+        msg.external_reply = SimpleNamespace(origin=SimpleNamespace(type='user'))
+        self.assertTrue(ingress._em_reply(evento), 'o reply a mensagem de outro chat conta')
+        self.assertFalse(ingress._em_reply(self.mensagem('sim')[1]), 'sem reply nenhum')
 
 
 if __name__ == '__main__':
