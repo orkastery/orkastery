@@ -7,7 +7,7 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | vps | ork-dsnforadoamb | #Auto | GO | claude-bg opus/max | — | — | 20/10 23:27 | viva |
 | vps | ork-grokbot | #Fast | GO | claude-bg sonnet/high | — | — | 20/10 23:27 | viva |
-| vps | ork-rm057respost | #Auto | GOAL | sem despacho | RM-057 | — | 20/10 23:27 | parada desde 23:27: nenhuma sessão despachada na fase GOAL |
+| vps | ork-rm057respost | #Auto | GOAL | claude-bg opus/max | RM-057 | — | 20/10 23:27 | viva |
 | vps | ork-rm058blocob | #Auto | GOAL | codex gpt-5.6-sol/xhigh | RM-058 | sim: a escada de recuperacao do runtime | 20/10 23:27 | parada desde 12:45: sessão 01a159ef caiu (runtime.unavailable) |
 
 Horários de Brasília.
