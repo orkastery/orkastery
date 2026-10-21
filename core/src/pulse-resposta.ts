@@ -44,8 +44,11 @@ import { CADENCIAS, extrairTagDoPulse, gravarCadencia, lerCadencia, TagDoPulse, 
 import { lerLedger } from './ledger';
 import { dirThread, lerThread, listarIds } from './thread';
 import { EventoLedger } from './types';
-import { abrirConsentimento, ALVO_DO_PULSE, CandidatoDoLote, ENDERECO_DA_RESPOSTA, lerConsentimento,
+import { abrirConsentimento, ALVO_DO_PULSE, CandidatoDoLote, ENDERECO_DA_RESPOSTA, enderecoDoPulse, lerConsentimento,
   marcarLoteEntregue, PedidoDeConsentimento, PRAZO_PADRAO_MIN, responderConsentimento } from './pulse-consentimento';
+import { codigosDosArcos, PerguntaNoLog, ProvaDaRespostaCurta } from './noctum-arco';
+import { alternativasDaPergunta, escolhaDaPergunta, fraseDaPergunta, PerguntaDoArco } from './noctum-pergunta';
+import { DesfechoDaRespostaAoArco, perguntasPendentes, perguntasPorCodigo, responderPerguntaDoArco, rotuloDaPergunta } from './noctum-resposta';
 
 export const CONTRATO_RESPOSTA_DO_PULSE = 'ork.pulse-resposta/v1' as const;
 export const CONTRATO_LOTE_SERVIDO = 'ork.pulse-lote-servido/v1' as const;
@@ -145,6 +148,11 @@ export interface PerguntaServida {
   prazo: string | null;
   servidaEm: string;
   respondida?: { letra: string; em: string; mensagem: string; estado: string };
+  /**
+   * RM-057 (resposta curta, D4 da ork-rm057respost): a pergunta de um arco #Noctum, servida sozinha no canal. O número
+   * vale como o das perguntas do lote ("1a"), e o chat de destino é o "canal" da palavra solta sem reply.
+   */
+  arco?: { arco: string; ato: 'autorizar' | 'revogar'; codigo: string; destino: string | null };
 }
 
 export interface LoteServido {
@@ -202,6 +210,8 @@ export function perguntaViva(p: PerguntaServida, quando: string): boolean {
  * guarda de 24 h desde que saiu: depois do prazo do pedido ela vai ao pedido renovado.
  */
 export function perguntaEmAberto(p: PerguntaServida, quando: string): boolean {
+  // RM-057 (resposta curta): a pergunta do arco não se renova; vencida, ela deixa de esperar o dono.
+  if (p.arco) return perguntaViva(p, quando);
   return !p.respondida && (perguntaViva(p, quando) || Date.parse(quando) - Date.parse(p.servidaEm) < GUARDA_DA_PERGUNTA_MS);
 }
 
@@ -456,6 +466,118 @@ function recomendadaDoRegistro(raiz: string, p: PerguntaServida): { letra: strin
 }
 
 // ---------------------------------------------------------------------------
+// RM-057 (resposta curta, ork-rm057respost): a pergunta do arco #Noctum no canal do pulse.
+// ---------------------------------------------------------------------------
+
+/** O número livre para UMA pergunta servida sozinha: o seguinte aos do registro, ou o menor livre quando passaria de 99. */
+function numeroLivreParaUma(servido: LoteServido): number {
+  const usados = new Set(servido.perguntas.map(p => p.numero));
+  const seguinte = Math.max(0, ...usados) + 1;
+  if (seguinte <= MAIOR_NUMERO) return seguinte;
+  for (let n = 1; n <= MAIOR_NUMERO; n++) if (!usados.has(n)) return n;
+  return 1;
+}
+
+/** O chat de um envelope do Telegram (`telegram:<chat>:<mensagem>`), ou de um destino (`telegram:<chat>[:<tópico>]`). */
+export function chatDoTelegram(ref: string | null | undefined): string | null {
+  const m = /^telegram:(-?\d+)(?::[^:]+)?$/.exec(String(ref ?? ''));
+  return m ? m[1] : null;
+}
+
+export interface PerguntaDoArcoServida { numero: number | null; entregue: boolean; jaServida: boolean; host: string | null; destino: string | null }
+
+/**
+ * Serve UMA pergunta do arco no canal, com número, sob o lock da conversa do pulse: o número é reservado, a mensagem sai
+ * pelo `entregar` (com o número no título) e o registro só acontece com o recibo do transporte. A mesma pergunta já
+ * servida e ainda em aberto não sai de novo. A janela da palavra solta acompanha.
+ */
+export function servirPerguntaDoArco(raiz: string, p: PerguntaDoArco, opcoes: {
+  quando: string; estadoDir?: string;
+  entregar: (numero: number) => { ok: boolean; host: string | null; destino: string | null };
+}): PerguntaDoArcoServida {
+  const estadoDir = opcoes.estadoDir ?? path.join(raizDoEstado(raiz), '.orkastery', 'monitor');
+  return comLockDaConversa(estadoDir, () => {
+    let servido = podar(lerLoteServido(raiz, estadoDir), opcoes.quando);
+    const ja = servido.perguntas.find(q => q.arco?.codigo === p.codigo && perguntaEmAberto(q, opcoes.quando));
+    if (ja) return { numero: ja.numero, entregue: false, jaServida: true, host: null, destino: ja.arco!.destino };
+    const numero = numeroLivreParaUma(servido);
+    const r = opcoes.entregar(numero);
+    if (!r.ok) return { numero: null, entregue: false, jaServida: false, host: r.host, destino: null };
+    const alternativas = alternativasDaPergunta(p);
+    const recomendada = alternativas.find(a => a.porque)!;
+    const nova: PerguntaServida = {
+      numero, thread: `arco:${p.arco}`, fase: null, pedidoId: `noctum:${p.arco}:${p.codigo}`,
+      pedidoSha256: sha(JSON.stringify([p.arco, p.ato, p.codigo, p.versao, p.envelopeSha256, p.prazo])),
+      letras: alternativas.map(a => a.letra), alternativas: alternativas.map(a => a.texto), consequencias: alternativas.map(a => a.consequencia),
+      recomendada: { letra: recomendada.letra, porque: recomendada.porque! }, desde: p.criadaEm,
+      pergunta: fraseDaPergunta(p), prazo: p.prazo, servidaEm: opcoes.quando,
+      arco: { arco: p.arco, ato: p.ato, codigo: p.codigo, destino: r.destino },
+    };
+    servido = { ...servido, perguntas: [...servido.perguntas, nova] };
+    gravarLoteServido(raiz, servido, estadoDir);
+    try { atualizarEscuta(raiz, opcoes.quando, estadoDir); } catch { /* dica de rota; a prova não depende dela */ }
+    return { numero, entregue: true, jaServida: false, host: r.host, destino: r.destino };
+  });
+}
+
+/**
+ * O que vem depois do código no texto do dono. Sem o código na frente (o reply, que traz o código pelo endereço), o texto
+ * inteiro é a resposta.
+ */
+export function restoDoCodigo(texto: string, codigo: string): string {
+  const t = texto.trim();
+  return t.toUpperCase().startsWith(codigo.toUpperCase()) && (t.length === codigo.length || /\s/.test(t[codigo.length]))
+    ? t.slice(codigo.length).trim() : t;
+}
+
+/** A prova do pulse para o ato do arco: o envelope como o gateway o assinou, o endereço e o hash do texto do dono. */
+function provaDoPulse(envelope: RespostaHumana, endereco: string): (r: { codigo: string; letra: 'a' | 'b' | 'c'; numero?: number }) => ProvaDaRespostaCurta {
+  return r => ({ via: 'pulse', envelope, endereco, pergunta: { ...r, respostaSha256: sha(envelope.resposta) } });
+}
+
+/** Marca a pergunta do arco servida como respondida, quando ela está no registro. */
+function marcarArcoRespondido(raiz: string, estadoDir: string | undefined, codigo: string, letra: string, quando: string, mensagem: string,
+  estado: string): void {
+  const servido = lerLoteServido(raiz, estadoDir);
+  if (!servido.perguntas.some(q => q.arco?.codigo === codigo && !q.respondida)) return;
+  gravarLoteServido(raiz, { ...servido, perguntas: servido.perguntas.map(q => q.arco?.codigo === codigo && !q.respondida
+    ? { ...q, respondida: { letra, em: quando, mensagem, estado } } : q) }, estadoDir);
+}
+
+/** O resultado do pulse para o desfecho da resposta à pergunta do arco. */
+function resultadoDoArco(tipo: ResultadoDaRespostaDoPulse['tipo'], p: PerguntaNoLog, d: DesfechoDaRespostaAoArco, envelope: RespostaHumana,
+  numero = 0): ResultadoDaRespostaDoPulse {
+  if (d.tipo === 'registrada') {
+    // `repetida` para o canal é a MESMA mensagem entregue de novo pelo gateway: aí ele não confirma de novo ao dono.
+    return resultado(tipo, d.mensagem, { repetida: d.mesmaProva,
+      registradas: [{ numero, thread: `arco:${p.arco}`, letra: 'a', estado: p.ato === 'autorizar' ? 'autorizado' : 'revogado', repetida: d.mesmaProva }] });
+  }
+  if (d.tipo === 'sem-efeito') return resultado(tipo, d.mensagem, { registradas: [{ numero, thread: `arco:${p.arco}`, letra: d.letra, estado: 'sem-efeito', repetida: false }] });
+  if (d.tipo === 'detalhe') return resultado(tipo, d.mensagem.slice(0, TETO_DA_MENSAGEM));
+  void envelope;
+  return resultado(tipo, d.mensagem, { recusas: [{ ...(numero ? { numero } : {}), motivo: d.motivo }] });
+}
+
+/**
+ * "<código> a" (ou o reply "a") a uma pergunta do arco: lê o resto, chama a resposta ao arco com a prova do pulse e
+ * marca a pergunta servida. Nunca escolhe pelo dono: fora do vocabulário, volta com as alternativas reais.
+ */
+function responderAoArcoPorCodigo(raiz: string, envelope: RespostaHumana, p: PerguntaNoLog, resto: string,
+  opcoes: { quando: string; canal: 'telegram' | 'terminal'; estadoDir?: string; endereco: string }): ResultadoDaRespostaDoPulse {
+  const { quando, canal } = opcoes, tg = canal === 'telegram';
+  const trecho = lerTrecho(resto) ?? (/^\?$/.test(resto) ? lerTrecho('detalhes') : null);
+  if (!trecho) {
+    return resultado('codigo', `${tg ? '⚠️ ' : '! '}Não entendi "${resto.slice(0, 40)}" para ${p.codigo}; nada foi registrado. ` +
+      `Responda com uma destas: ${alternativasDaPergunta(p).map(a => `${a.letra} (${a.texto})`).join(', ')}.`, { recusas: [{ motivo: 'nao-entendida' }] });
+  }
+  const d = responderPerguntaDoArco(raiz, p, trecho, { quando, canal, provar: provaDoPulse(envelope, opcoes.endereco) });
+  if (d.tipo === 'registrada' || d.tipo === 'sem-efeito') {
+    marcarArcoRespondido(raiz, opcoes.estadoDir, p.codigo, d.letra, quando, envelope.mensagem, d.tipo === 'registrada' ? 'registrada' : 'sem-efeito');
+  }
+  return resultadoDoArco('codigo', p, d, envelope);
+}
+
+// ---------------------------------------------------------------------------
 // RM-048 (D4): a linha que o dono recebeu vale enquanto o gate esperar a mesma pergunta.
 // ---------------------------------------------------------------------------
 
@@ -505,6 +627,8 @@ export function codigosEmUso(raiz: string, estadoDir?: string): string[] {
       }
     } catch { /* thread ilegivel nao contribui */ }
   }
+  // RM-057 (resposta curta): as perguntas dos arcos #Noctum também usam o alfabeto do código curto.
+  codigos.push(...codigosDosArcos(raiz));
   return codigos;
 }
 
@@ -532,7 +656,7 @@ export function opcoesReais(pedido: PedidoHitlQualquer, prefixo: string): string
  * aberto usa o codigo, para o chamador dizer isso com as palavras dele.
  */
 function responderPorCodigoDeGate(raiz: string, envelope: RespostaHumana, codigo: string,
-  opcoes: { quando: string; canal: 'telegram' | 'terminal' }): ResultadoDaRespostaDoPulse | undefined {
+  opcoes: { quando: string; canal: 'telegram' | 'terminal'; endereco?: string }): ResultadoDaRespostaDoPulse | undefined {
   const { quando, canal } = opcoes, tg = canal === 'telegram';
   const achados = pedidosComCodigo(raiz, codigo);
   if (!achados.length) return undefined;
@@ -547,7 +671,8 @@ function responderPorCodigoDeGate(raiz: string, envelope: RespostaHumana, codigo
     return resultado('codigo', `${codigo}: esta mensagem já estava registrada (${String(mesma.estado)}).`,
       { repetida: true, registradas: [{ numero: 0, thread, letra: '', estado: String(mesma.estado), repetida: true }] });
   }
-  const resto = envelope.resposta.trim().slice(codigo.length).trim();
+  // RM-057 (resposta curta): no reply, o código vem pelo endereço assinado e o texto inteiro é a resposta.
+  const resto = restoDoCodigo(envelope.resposta, codigo);
   if (/^(detalhes?|evid[eê]ncias?|\?)[.!]?$/i.test(resto)) return resultado('codigo', textoDoDetalhe(raiz, pedido, codigo, canal));
   const anterior = eventos.find(e => e.tipo === 'human_gate' && e.pedidoId === pedido.id);
   if (anterior && anterior.estado !== 'aguardando') {
@@ -570,7 +695,7 @@ function responderPorCodigoDeGate(raiz: string, envelope: RespostaHumana, codigo
         `Responda com a letra: ${opcoesReais(pedido, `${codigo} `)}.`, { recusas: [{ motivo: 'varios-pedidos-na-thread' }] });
     }
   }
-  return registrarPorCodigo(raiz, envelope, { thread, pedido, codigo, indice: r.indice, quando, canal,
+  return registrarPorCodigo(raiz, envelope, { thread, pedido, codigo, indice: r.indice, quando, canal, endereco: opcoes.endereco,
     rastroExtra: trecho!.tipo === 'intencao' ? { textoLivre: trecho!.palavra } : {} });
 }
 
@@ -578,6 +703,8 @@ function responderPorCodigoDeGate(raiz: string, envelope: RespostaHumana, codigo
 export function registrarPorCodigo(raiz: string, envelope: RespostaHumana, e: {
   thread: string; pedido: PedidoHitlQualquer; codigo: string; indice: number; quando: string; canal: 'telegram' | 'terminal';
   rastroExtra: Record<string, unknown>;
+  /** RM-057 (resposta curta, D3): o endereço que o gateway assinou (`resposta`, ou `resposta:<código>` no reply). */
+  endereco?: string;
 }): ResultadoDaRespostaDoPulse {
   const tg = e.canal === 'telegram';
   let vigente: PedidoHitlQualquer, renovadoDe: string | undefined;
@@ -607,7 +734,7 @@ export function registrarPorCodigo(raiz: string, envelope: RespostaHumana, e: {
   }
   const chave = chaveDaEscolha(vigente, e.indice + 1);
   const derivada: RespostaHumana = { ...envelope, resposta: chave };
-  const assinado: EnderecoAssinado = { alvo: ALVO_DO_PULSE, endereco: ENDERECO_DA_RESPOSTA, envelope,
+  const assinado: EnderecoAssinado = { alvo: ALVO_DO_PULSE, endereco: e.endereco ?? ENDERECO_DA_RESPOSTA, envelope,
     rastro: { contrato: CONTRATO_RESPOSTA_DO_PULSE, codigo: e.codigo, letra: chave, respostaDoDonoSha256: sha(envelope.resposta),
       ...(renovadoDe ? { renovadoDe } : {}), ...e.rastroExtra } };
   try {
@@ -668,6 +795,14 @@ function pedidoDaServida(raiz: string, p: PerguntaServida): PedidoHitlQualquer |
  */
 function letraDaPalavra(raiz: string, p: PerguntaServida, trecho: TrechoLivre, quando: string):
   { letra: string; palavra?: string } | { detalhe: PedidoHitlQualquer } | { recusa: string } {
+  if (p.arco) {
+    // RM-057 (resposta curta): a pergunta do arco não tem pedido de thread; a palavra casa pelas ações das alternativas dela.
+    const r = escolhaDaPergunta({ ato: p.arco.ato }, trecho);
+    const reais = p.letras.map((l, i) => `${p.numero}${l} (${p.alternativas[i]})`).join(', ');
+    if (r.tipo === 'detalhe') return { recusa: `o envelope da pergunta ${p.numero} sai com ${p.arco.codigo} detalhes.` };
+    if (r.tipo !== 'escolha') return { recusa: `para a pergunta ${p.numero}, mande uma destas: ${reais}.` };
+    return { letra: p.letras[r.indice], ...(trecho.tipo === 'intencao' ? { palavra: trecho.palavra } : {}) };
+  }
   const pedido = pedidoDaServida(raiz, p);
   if (!pedido) return { recusa: `não consegui ler a pergunta ${p.numero}; responda com o número e a letra.` };
   const acoes = escolhasDoPedido(pedido).map(o => o.acao);
@@ -686,7 +821,7 @@ function letraDaPalavra(raiz: string, p: PerguntaServida, trecho: TrechoLivre, q
 
 /** "1. B, 2. aprovo, 3 detalhes": cada item vira letra, detalhe ou recusa, e as letras seguem o lote. */
 function responderALista(raiz: string, envelope: RespostaHumana, itens: { numero: number; trecho: TrechoLivre }[],
-  opcoes: { quando: string; canal: 'telegram' | 'terminal'; estadoDir?: string }): ResultadoDaRespostaDoPulse {
+  opcoes: { quando: string; canal: 'telegram' | 'terminal'; estadoDir?: string; endereco?: string }): ResultadoDaRespostaDoPulse {
   const { quando, canal, estadoDir } = opcoes, tg = canal === 'telegram';
   const servido = lerLoteServido(raiz, estadoDir);
   const escolhas: { numero: number; letra: string; palavra?: string }[] = [], avisos: string[] = [], detalhes: string[] = [];
@@ -702,7 +837,7 @@ function responderALista(raiz: string, envelope: RespostaHumana, itens: { numero
     return resultado('lote', [...avisos, ...detalhes].join('\n\n') || 'Nada para registrar.',
       { recusas: avisos.map(motivo => ({ motivo })) });
   }
-  const r = responderAsPerguntas(raiz, envelope, escolhas, { quando, canal, estadoDir, avisos });
+  const r = responderAsPerguntas(raiz, envelope, escolhas, { quando, canal, estadoDir, avisos, endereco: opcoes.endereco });
   return detalhes.length ? { ...r, mensagem: [r.mensagem, ...detalhes].join('\n\n').slice(0, TETO_DA_MENSAGEM) } : r;
 }
 
@@ -714,7 +849,8 @@ function responderALista(raiz: string, envelope: RespostaHumana, itens: { numero
  * conta, porque o dono pode estar respondendo a qualquer um deles.
  */
 export interface AbertoDoDono {
-  tipo: 'consentimento' | 'pergunta' | 'pedido';
+  /** RM-057 (resposta curta): `arco` é a pergunta de um arco #Noctum que não saiu por este canal. */
+  tipo: 'consentimento' | 'pergunta' | 'pedido' | 'arco';
   rotulo: string;
   /** Saiu pelo nucleo ha menos de `JANELA_DO_TEXTO_LIVRE_MIN`. So assim a palavra solta vale. */
   recente: boolean;
@@ -736,6 +872,12 @@ export function abertosDoDono(raiz: string, quando: string, estadoDir?: string):
   const vistas = new Set<string>(estado && !estado.respondido
     ? estado.pedido.candidatos.map(c => `${c.thread}|g:${c.fase ?? ''}`) : []);
   for (const p of lerLoteServido(raiz, estadoDir).perguntas.filter(q => perguntaEmAberto(q, quando))) {
+    if (p.arco) {
+      vistas.add(`arco:${p.arco.codigo}`);
+      abertos.push({ tipo: 'pergunta', servida: p, codigo: p.arco.codigo,
+        rotulo: `${p.numero} com a letra (arco ${p.arco.arco}: ${p.arco.ato})`, recente: agora - Date.parse(p.servidaEm) < janela });
+      continue;
+    }
     const pedido = pedidoDaServida(raiz, p);
     if (pedido) vistas.add(chave(pedido));
     abertos.push({ tipo: 'pergunta', servida: p, rotulo: `${p.numero} com a letra (${[p.thread, p.fase].filter(Boolean).join(' · ')})`,
@@ -773,6 +915,13 @@ export function abertosDoDono(raiz: string, quando: string, estadoDir?: string):
       }
     } catch { /* thread ilegivel nao entra na conta; a palavra solta so fica mais cautelosa */ }
   }
+  // RM-057 (resposta curta): a pergunta do arco que espera o dono e não saiu por aqui também conta, para a palavra solta
+  // nunca cair numa pergunta quando há outra esperando.
+  for (const q of perguntasPendentes(raiz, quando)) {
+    if (vistas.has(`arco:${q.codigo}`)) continue;
+    vistas.add(`arco:${q.codigo}`);
+    abertos.push({ tipo: 'arco', codigo: q.codigo, rotulo: rotuloDaPergunta(q), recente: false });
+  }
   return abertos;
 }
 
@@ -781,7 +930,7 @@ export function abertosDoDono(raiz: string, quando: string, estadoDir?: string):
  * sem volta; senao devolve a pergunta com as opcoes reais. A prova ja foi conferida por quem chama.
  */
 function responderLivre(raiz: string, envelope: RespostaHumana, trecho: TrechoLivre,
-  opcoes: { quando: string; canal: 'telegram' | 'terminal'; estadoDir?: string }): ResultadoDaRespostaDoPulse {
+  opcoes: { quando: string; canal: 'telegram' | 'terminal'; estadoDir?: string; endereco?: string }): ResultadoDaRespostaDoPulse {
   const { quando, canal, estadoDir } = opcoes, tg = canal === 'telegram';
   const abertos = abertosDoDono(raiz, quando, estadoDir);
   const volta = (mensagem: string, motivo: string) => resultado('nao-entendida', mensagem, { recusas: [{ motivo }] });
@@ -804,6 +953,23 @@ function responderLivre(raiz: string, envelope: RespostaHumana, trecho: TrechoLi
     return responderAoResumo(raiz, envelope, unico.codigo!, { quando, canal, estadoDir, palavra: trecho });
   }
   const p = unico.servida!;
+  if (p.arco) {
+    // RM-057 (resposta curta, D3 e D4): "sem reply, vale se houver uma só pendente no canal". O canal é o chat em que a
+    // pergunta saiu: a palavra de outro chat volta como pergunta, com o código.
+    const destino = chatDoTelegram(p.arco.destino), chat = chatDoTelegram(envelope.mensagem);
+    if (destino && chat && destino !== chat) {
+      return volta(`A pergunta que espera você saiu por outro chat; palavra solta não registra. Responda: ${p.arco.codigo} a ` +
+        `(arco ${p.arco.arco}: ${p.arco.ato}), ou responda à mensagem dela.`, 'outro-chat');
+    }
+    const q = perguntasPorCodigo(raiz, p.arco.codigo, quando).find(x => x.arco === p.arco!.arco);
+    if (!q) return volta(`A pergunta ${p.numero} já não existe no arco ${p.arco.arco}; nada foi registrado.`, 'sem-pergunta-recente');
+    const d = responderPerguntaDoArco(raiz, q, trecho, { quando, canal, numero: p.numero,
+      provar: provaDoPulse(envelope, opcoes.endereco ?? ENDERECO_DA_RESPOSTA) });
+    if (d.tipo === 'registrada' || d.tipo === 'sem-efeito') {
+      marcarArcoRespondido(raiz, estadoDir, q.codigo, d.letra, quando, envelope.mensagem, d.tipo === 'registrada' ? 'registrada' : 'sem-efeito');
+    }
+    return resultadoDoArco('lote', q, d, envelope, p.numero);
+  }
   const pedido = pedidoDaServida(raiz, p);
   if (pedido && ehV2(pedido) && pedido.classe === 'pergunta' && pedido.irreversivel) {
     return volta(`${tg ? '🔒 ' : '! '}A pergunta ${p.numero} é sem volta; palavra solta não registra. Responda com o número e a letra: ` +
@@ -862,7 +1028,7 @@ export function atualizarEscuta(raiz: string, quando: string, estadoDir?: string
  * existe nao e trocada por este caminho; a aceita por omissao e, porque a nota do dono sobrescreve.
  */
 function responderNota(raiz: string, envelope: RespostaHumana, p: PedidoDeNota,
-  opcoes: { canal: 'telegram' | 'terminal'; estadoDir?: string }): ResultadoDaRespostaDoPulse {
+  opcoes: { canal: 'telegram' | 'terminal'; estadoDir?: string; endereco?: string }): ResultadoDaRespostaDoPulse {
   const tg = opcoes.canal === 'telegram';
   const nota = lerNota(envelope.resposta.trim().slice(p.codigo.length));
   if (!nota) {
@@ -879,8 +1045,8 @@ function responderNota(raiz: string, envelope: RespostaHumana, p: PedidoDeNota,
       const t = lerThread(raiz, p.thread);
       if (t.score && t.score.regime !== 'omissao' && autoriaHumana(t.score.avaliadoPor)) return t.score.valor;
       const prova = reciboDoCanal(raiz, envelope, { notaPedida: { contrato: CONTRATO_PEDIDO_DE_NOTA, pedidoId: p.pedidoId, codigo: p.codigo },
-        enderecoAssinado: { alvo: ALVO_DO_PULSE, endereco: ENDERECO_DA_RESPOSTA, contrato: CONTRATO_RESPOSTA_DO_PULSE, codigo: p.codigo,
-          respostaDoDonoSha256: sha(envelope.resposta) } }, opcoes.estadoDir);
+        enderecoAssinado: { alvo: ALVO_DO_PULSE, endereco: opcoes.endereco ?? ENDERECO_DA_RESPOSTA, contrato: CONTRATO_RESPOSTA_DO_PULSE,
+          codigo: p.codigo, respostaDoDonoSha256: sha(envelope.resposta) } }, opcoes.estadoDir);
       registrarMaster(raiz, p.thread, { score: nota.score, justificativa: nota.justificativa, por: envelope.por, refazer: !!t.score, prova });
       return undefined;
     });
@@ -898,11 +1064,11 @@ function responderNota(raiz: string, envelope: RespostaHumana, p: PedidoDeNota,
 
 /** O teclado do digest: a ratificacao da proposta, com o remetente autenticado e o recibo. */
 function responderRatificacao(raiz: string, envelope: RespostaHumana, texto: string,
-  opcoes: { canal: 'telegram' | 'terminal'; estadoDir?: string }): ResultadoDaRespostaDoPulse {
+  opcoes: { canal: 'telegram' | 'terminal'; estadoDir?: string; endereco?: string }): ResultadoDaRespostaDoPulse {
   const tg = opcoes.canal === 'telegram';
   const partes = texto.split(/\s+/);
   const prova = () => reciboDoCanal(raiz, envelope, { ratificacao: { contrato: CONTRATO_PEDIDO_DE_NOTA, texto },
-    enderecoAssinado: { alvo: ALVO_DO_PULSE, endereco: ENDERECO_DA_RESPOSTA, contrato: CONTRATO_RESPOSTA_DO_PULSE,
+    enderecoAssinado: { alvo: ALVO_DO_PULSE, endereco: opcoes.endereco ?? ENDERECO_DA_RESPOSTA, contrato: CONTRATO_RESPOSTA_DO_PULSE,
       respostaDoDonoSha256: sha(envelope.resposta) } }, opcoes.estadoDir);
   try {
     let feitas: { thread: string; score: number }[];
@@ -974,14 +1140,25 @@ export function responderPeloPulse(raiz: string, envelope: RespostaHumana, opcoe
   retomar?: (raiz: string, canal: string | null) => void;
   /** RM-063 (H2): o texto do `ork fabrica` desta maquina; os testes trocam. */
   fabrica?: (raiz: string) => string;
+  /**
+   * RM-057 (resposta curta, D3 da ork-rm057respost): o código da mensagem a que o dono respondeu (reply). O gateway o
+   * tira da mensagem do bot e o assina no endereço (`resposta:<código>`); aqui ele só vale com a assinatura que o cobre.
+   */
+  referencia?: string;
 } = {}): ResultadoDaRespostaDoPulse {
   const quando = opcoes.quando ?? new Date().toISOString();
   const canal = opcoes.canal ?? 'telegram';
-  autenticarResposta(ALVO_DO_PULSE, ENDERECO_DA_RESPOSTA, envelope, envelope.recebidoEm);
-  autenticarResposta(ALVO_DO_PULSE, ENDERECO_DA_RESPOSTA, envelope, quando);
+  const endereco = enderecoDoPulse(opcoes.referencia);
+  autenticarResposta(ALVO_DO_PULSE, endereco, envelope, envelope.recebidoEm);
+  autenticarResposta(ALVO_DO_PULSE, endereco, envelope, quando);
 
   const lido = interpretarRespostaDoPulse(envelope.resposta);
   if (lido.forma === 'desconhecida') return resultado('nao-entendida', `Não entendi. ${EXEMPLO}`);
+  // RM-057: o código digitado diferente do código da mensagem respondida não é escolhido pelo dono: nada é registrado.
+  if (opcoes.referencia && lido.forma === 'consentimento' && lido.codigo !== opcoes.referencia) {
+    return resultado('codigo', `Você respondeu com o código ${lido.codigo} à mensagem da pergunta ${opcoes.referencia}; nada foi registrado. ` +
+      'Responda à mensagem só com a letra, ou mande o código certo.', { recusas: [{ motivo: 'codigo.divergente' }] });
+  }
   if (lido.forma === 'cadencia') {
     // I-50: preferencia de entrega, nao decisao de gate. Grava quem mandou, pelo remetente autenticado.
     const repetida = lerCadencia(raiz, opcoes.estadoDir).gravada?.tag === lido.tag;
@@ -992,11 +1169,13 @@ export function responderPeloPulse(raiz: string, envelope: RespostaHumana, opcoe
   // A conversa do pulse tem dois escritores (a varredura e este receptor): um de cada vez.
   const estadoDir = opcoes.estadoDir ?? path.join(raizDoEstado(raiz), '.orkastery', 'monitor');
   return comLockDaConversa(estadoDir, () => {
-    const r = ((): ResultadoDaRespostaDoPulse => { try { return lido.forma === 'lote' ? responderAsPerguntas(raiz, envelope, lido.escolhas, { quando, canal, estadoDir })
-      : lido.forma === 'lista' ? responderALista(raiz, envelope, lido.itens, { quando, canal, estadoDir })
-        : lido.forma === 'livre' ? responderLivre(raiz, envelope, lido.trecho, { quando, canal, estadoDir })
-          : lido.forma === 'ratificacao' ? responderRatificacao(raiz, envelope, lido.texto, { canal, estadoDir })
-            : responderAoResumo(raiz, envelope, lido.codigo, { quando, canal, estadoDir });
+    const r = ((): ResultadoDaRespostaDoPulse => { try { return lido.forma === 'lote' ? responderAsPerguntas(raiz, envelope, lido.escolhas, { quando, canal, estadoDir, endereco })
+      : lido.forma === 'lista' ? responderALista(raiz, envelope, lido.itens, { quando, canal, estadoDir, endereco })
+        // RM-057 (resposta curta, D3): a palavra solta em reply responde à pergunta da mensagem respondida, pelo código dela.
+        : lido.forma === 'livre' && opcoes.referencia ? responderAoResumo(raiz, envelope, opcoes.referencia, { quando, canal, estadoDir, palavra: lido.trecho, endereco })
+          : lido.forma === 'livre' ? responderLivre(raiz, envelope, lido.trecho, { quando, canal, estadoDir, endereco })
+            : lido.forma === 'ratificacao' ? responderRatificacao(raiz, envelope, lido.texto, { canal, estadoDir, endereco })
+              : responderAoResumo(raiz, envelope, lido.codigo, { quando, canal, estadoDir, endereco });
     } catch (e) {
       // S3 do CHECK: estado ilegivel ou falha inesperada vira resposta util, nunca silencio nem erro cru.
       // O detalhe fica no stderr de quem chamou (o adaptador nao o repassa): caminho local e
@@ -1012,7 +1191,7 @@ export function responderPeloPulse(raiz: string, envelope: RespostaHumana, opcoe
 }
 
 function responderAoResumo(raiz: string, envelope: RespostaHumana, codigo: string,
-  opcoes: { quando: string; canal: 'telegram' | 'terminal'; estadoDir?: string; palavra?: TrechoLivre }): ResultadoDaRespostaDoPulse {
+  opcoes: { quando: string; canal: 'telegram' | 'terminal'; estadoDir?: string; palavra?: TrechoLivre; endereco?: string }): ResultadoDaRespostaDoPulse {
   const { quando, canal, estadoDir } = opcoes;
   const estado = lerConsentimento(raiz, estadoDir);
   if (!estado || estado.pedido.codigo !== codigo) {
@@ -1032,10 +1211,21 @@ function responderAoResumo(raiz: string, envelope: RespostaHumana, codigo: strin
       return resultado('codigo', `O código ${codigo} é de uma nota e de uma pergunta ao mesmo tempo; nada foi registrado. ` +
         'Responda a pergunta pelo número do lote e peça outro código de nota (ork master pedir).', { recusas: [{ motivo: 'codigo.ambiguo' }] });
     }
+    // RM-057 (resposta curta, D3 da ork-rm057respost): o código de uma pergunta do arco #Noctum ("NX4K a", ou "a" em
+    // reply). Código que também é de gate, de nota ou de duas perguntas é ambíguo: nada é escolhido pelo dono.
+    const doArco = perguntasPorCodigo(raiz, codigo, quando);
+    if (doArco.length && (nota || doArco.length > 1 || pedidosComCodigo(raiz, codigo).length)) {
+      return resultado('codigo', `O código ${codigo} está em mais de uma pergunta ao mesmo tempo; nada foi registrado. ` +
+        'Responda pelo número da pergunta, por exemplo 1a.', { recusas: [{ motivo: 'codigo.ambiguo' }] });
+    }
+    if (doArco.length === 1) {
+      return responderAoArcoPorCodigo(raiz, envelope, doArco[0], restoDoCodigo(envelope.resposta, codigo),
+        { quando, canal, estadoDir, endereco: opcoes.endereco ?? ENDERECO_DA_RESPOSTA });
+    }
     // RM-048 (D4): o codigo curto de um gate ("DE6H a") responde ao gate, pelo mesmo endereco assinado.
-    const peloGate = responderPorCodigoDeGate(raiz, envelope, codigo, { quando, canal });
+    const peloGate = responderPorCodigoDeGate(raiz, envelope, codigo, { quando, canal, endereco: opcoes.endereco });
     if (peloGate) return peloGate;
-    if (nota) return responderNota(raiz, envelope, nota, { canal, estadoDir });
+    if (nota) return responderNota(raiz, envelope, nota, { canal, estadoDir, endereco: opcoes.endereco });
     if (!estado) return resultado('consentimento', `Não reconheço o código ${codigo} agora: nenhum resumo ou pergunta aberta usa ele. ` +
       'Quando houver pergunta para você, o resumo avisa.');
     return resultado('consentimento', `O código ${codigo} não é o do resumo aberto nem de uma pergunta aberta. O resumo aberto usa ` +
@@ -1044,7 +1234,7 @@ function responderAoResumo(raiz: string, envelope: RespostaHumana, codigo: strin
   let r: ReturnType<typeof responderConsentimento>;
   try {
     // RM-048 (D5): o sim ao resumo mais recente vale depois do prazo; o lote reconfere cada gate.
-    r = responderConsentimento(raiz, { codigo, envelope, quando, estadoDir, aceitarVencido: true });
+    r = responderConsentimento(raiz, { codigo, envelope, quando, estadoDir, aceitarVencido: true, endereco: opcoes.endereco });
   } catch (e) {
     const m = (e as Error).message;
     if (!m.startsWith('consentimento do pulse: ')) throw e;
@@ -1102,7 +1292,7 @@ function motivoParaODono(p: PerguntaServida, letra: string, erro: Error, quando:
 }
 
 function responderAsPerguntas(raiz: string, envelope: RespostaHumana, escolhas: { numero: number; letra: string; palavra?: string }[],
-  opcoes: { quando: string; canal: 'telegram' | 'terminal'; estadoDir?: string; avisos?: string[] }): ResultadoDaRespostaDoPulse {
+  opcoes: { quando: string; canal: 'telegram' | 'terminal'; estadoDir?: string; avisos?: string[]; endereco?: string }): ResultadoDaRespostaDoPulse {
   const { quando, canal, estadoDir } = opcoes;
   let servido = lerLoteServido(raiz, estadoDir);
   if (!servido.perguntas.length) {
@@ -1134,6 +1324,26 @@ function responderAsPerguntas(raiz: string, envelope: RespostaHumana, escolhas: 
       const motivo = `a pergunta ${numero} vai de a até ${p.letras.at(-1)}; "${letra}" não é uma das alternativas.`;
       recusas.push({ numero, motivo }); linhas.push(`${telegram ? '⚠️ ' : '! '}${motivo}`); continue;
     }
+    if (p.arco) {
+      // RM-057 (resposta curta, D4): a pergunta do arco servida responde pelo número, com a prova do pulse. O ato confere a
+      // pergunta de agora, o prazo e a prova sob o lock do arco; a resposta repetida não grava de novo.
+      const q = perguntasPorCodigo(raiz, p.arco.codigo, quando).find(x => x.arco === p.arco!.arco);
+      if (!q) {
+        const motivo = `a pergunta ${numero} já não existe no arco ${p.arco.arco}.`;
+        recusas.push({ numero, motivo }); linhas.push(`${telegram ? '⚠️ ' : '! '}${motivo}`); continue;
+      }
+      const d = responderPerguntaDoArco(raiz, q, { tipo: 'letra', letra }, { quando, canal, numero,
+        provar: provaDoPulse(envelope, opcoes.endereco ?? ENDERECO_DA_RESPOSTA) });
+      if (d.tipo === 'recusada') { recusas.push({ numero, motivo: d.motivo }); linhas.push(d.mensagem); continue; }
+      linhas.push(d.mensagem);
+      if (d.tipo === 'detalhe') continue;
+      registradas.push({ numero, thread: p.thread, letra, estado: d.tipo === 'registrada' ? 'registrada' : 'sem-efeito',
+        repetida: d.tipo === 'registrada' && d.mesmaProva });
+      servido = { ...servido, perguntas: servido.perguntas.map(x => x.numero === numero
+        ? { ...x, respondida: { letra, em: quando, mensagem: envelope.mensagem, estado: d.tipo === 'registrada' ? 'registrada' : 'sem-efeito' } } : x) };
+      gravarLoteServido(raiz, servido, estadoDir);
+      continue;
+    }
     if (!p.respondida && !perguntaEmAberto(p, quando)) {
       const motivo = `a pergunta ${numero} saiu há mais de 24 h; ela volta no próximo resumo se ainda esperar você.`;
       recusas.push({ numero, motivo }); linhas.push(`${telegram ? '⚠️ ' : '! '}${motivo}`); continue;
@@ -1160,7 +1370,7 @@ function responderAsPerguntas(raiz: string, envelope: RespostaHumana, escolhas: 
       // pergunta e o contexto sao os mesmos. Respondido, segue o caminho de sempre (repetida).
       const { vigente, renovadoDe } = pedidoParaResponder(raiz, pedido, quando);
       const derivada: RespostaHumana = { ...envelope, resposta: chaveDaEscolha(vigente, indice + 1) };
-      const assinado: EnderecoAssinado = { alvo: ALVO_DO_PULSE, endereco: ENDERECO_DA_RESPOSTA, envelope,
+      const assinado: EnderecoAssinado = { alvo: ALVO_DO_PULSE, endereco: opcoes.endereco ?? ENDERECO_DA_RESPOSTA, envelope,
         rastro: { contrato: CONTRATO_RESPOSTA_DO_PULSE, numero, letra, respostaDoDonoSha256: sha(envelope.resposta),
           ...(renovadoDe ? { renovadoDe } : {}), ...(palavra ? { textoLivre: palavra } : {}) } };
       const r = responderGate(raiz, p.thread, vigente.id, derivada, quando, assinado);

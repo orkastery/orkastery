@@ -597,6 +597,7 @@ const PT_BR = {
       padrao: 'Nenhuma tag gravada: vale a cadência padrão.',
       responderUso: 'pulse responder exige --resposta-stdin e o envelope do ingresso autenticado',
       responderFormato: 'pulse responder: --formato telegram|terminal',
+      responderReferencia: 'pulse responder: --em-resposta-a recebe o código curto da mensagem respondida (por exemplo NX4K)',
     },
     ledger: {
       usoStats: 'uso: ork ledger stats --desde 7d [--ate ISO] [--thread T] [--modo M] [--runtime R] [--json]',
@@ -1052,6 +1053,7 @@ const EN: Mensagens = {
       padrao: 'No saved tag: the default cadence applies.',
       responderUso: 'pulse responder requires --resposta-stdin and the authenticated ingress envelope',
       responderFormato: 'pulse responder: --formato telegram|terminal',
+      responderReferencia: 'pulse responder: --em-resposta-a takes the short code of the replied message (for example NX4K)',
     },
     ledger: {
       usoStats: 'usage: ork ledger stats --desde 7d [--ate ISO] [--thread T] [--modo M] [--runtime R] [--json]',

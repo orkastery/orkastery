@@ -83,6 +83,7 @@ import { devolverVagas, textoDoBoard, textoDoPlano, textoDoReap, planejar, threa
 import { textoDoRadar, varrerSessoes } from './hitl';
 import { filaDoDono, montarPulse, textoDoPulse } from './pulse';
 import { codigosEmUso, interpretarRespostaDoPulse, responderPeloPulse } from './pulse-resposta';
+import { CODIGO_CURTO } from './pulse-consentimento';
 import { CADENCIAS, gravarCadencia, inicioDaProximaJanela, lerCadencia, textoDaCadencia } from './pulse-cadencia';
 import { LIMIAR_DE_DECISOES_POR_FASE, placarDaThread, registrarDecisao, taxaDeReversao } from './decisao-autonoma';
 import { PedidoHitlQualquer, TipoDeCriterio, CAMPOS_DA_DECISAO_NO_CLI, recusaNaSuperficie } from './hitl-contract';
@@ -4545,7 +4546,13 @@ function executarComando(argvBruto: string[]): number {
           origem: texto(args.opcoes.origem), canal: texto(args.opcoes.canal), conta: texto(args.opcoes.conta) });
         const formato = texto(args.opcoes.formato);
         if (formato !== undefined && formato !== 'telegram' && formato !== 'terminal') throw new Error(msg().operacao.pulseCadencia.responderFormato);
-        console.log(JSON.stringify(responderPeloPulse(carregado.raiz, envelope, { canal: formato ?? 'telegram' })));
+        // RM-057 (resposta curta, D3): o código da mensagem respondida (reply), que o gateway assinou no endereço do pulse.
+        const referencia = args.opcoes['em-resposta-a'];
+        if (referencia !== undefined && (typeof referencia !== 'string' || !CODIGO_CURTO.test(referencia))) {
+          throw new Error(msg().operacao.pulseCadencia.responderReferencia);
+        }
+        console.log(JSON.stringify(responderPeloPulse(carregado.raiz, envelope, { canal: formato ?? 'telegram',
+          ...(typeof referencia === 'string' ? { referencia } : {}) })));
         return 0;
       }
       if (args.posicionais[1] === 'cadencia') return comandoCadenciaDoPulse(args);
