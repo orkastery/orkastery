@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-20T23:06:21-03:00
+atualizado_em: 2026-10-21T11:00:00-03:00
 estado:
   ciclo: Discovery
   documentacao: Rascunho
@@ -26,7 +26,7 @@ sdlc:
 
 # RM-070: Grok Bot como camada de condução do Orkastery
 
-> **Em uma frase:** o Grok Bot (o agente da xAI) passa a conduzir o `ork` por conversa, como o Hermes e o OpenClaw fazem hoje: pede status, responde gate e HITL, recebe o pulse, despacha fase, sempre pelo ingresso autenticado.
+> **Em uma frase:** o Grok Bot (o agente da xAI) passa a conduzir o `ork` por conversa, de ponta a ponta, como o Hermes e o OpenClaw fazem hoje: pede status, recebe o pulse, despacha fase, entrega, e apresenta gate, HITL e a autorização do `#Noctum`, que só se registram com a prova de que foi o dono.
 
 <!-- ork-docs:relance:inicio -->
 
@@ -37,6 +37,8 @@ sdlc:
 <!-- ork-docs:relance:fim -->
 
 **Pedido do dono de 20/10/2026:** "Adicione também no roadmap incluir o Grok Bot como possível camada de orquestração do orkastery, podendo ser utilizado pra conduzir o ork." Esta página é só planejamento: nenhum código nem teste foi escrito, e os critérios de aceite abaixo são o que cada fatia terá de provar.
+
+**Decisão do dono de 21/10/2026 (D1 = a, com o escopo completo):** "2.a (não quero só leitura, quero completo)". O Grok conduz o `ork` pelo MCP do `ork` exposto por HTTP com autenticação, com a condução completa: status, pulse, gates e HITL, despacho de fase, entrega e a autorização do `#Noctum`. O que o dono pediu a mais que a alternativa a original (que era leitura primeiro) está nas fatias abaixo. O que **não** muda: o que exige prova de que foi o dono (aprovação de gate, autorização de arco) segue a regra da [RM-057](RM-057-hitl-por-alternativas.md), uma resposta curta presa à pergunta pendente, com a prova pelo canal; e o que o Grok ainda não oferece para essa prova continua dito como lacuna (H5), sem presumir.
 
 **Condução não é runtime.** Aqui o Grok é o **host condutor**: quem conversa com o dono e chama o `ork` (status, gate, despacho). Isso é diferente de ser o **runtime**, o agente CLI que executa uma fase dentro da worktree, tema da [RM-067](RM-067-grok-build-homologado.md) (o Grok Build). Os dois são independentes: dá para conduzir pelo Grok Bot com Codex ou Claude Code executando as fases, e dá para executar fases com o Grok Build conduzido pelo Telegram.
 
@@ -49,16 +51,16 @@ sdlc:
 - **Público e problema/oportunidade:** o dono que já conduz o `ork` por Telegram, OpenClaw, Claude Code ou Codex e quer, também, conduzi-lo a partir do assistente que usa no dia a dia, o Grok Bot. Hoje o `ork` só reconhece esses quatro canais e a lista é fechada: um host novo sem canal não compila em `core/src/hitl-canais.ts`, e um canal sem identidade, correlação e recibo "não pode responder".
 - **Evidências e fonte:** o pedido do dono de 20/10/2026; a leitura do código e das páginas citadas acima; a pesquisa de 20/10/2026 nas fontes da seção "Fontes", reconferidas na mesma data.
 - **Objetivo/OKR:** o dono acompanha e conduz o `ork` pelo Grok Bot com o mesmo contrato dos outros canais: nenhuma decisão sua é registrada sem prova do canal, e nenhum agente, o Grok inclusive, responde no lugar dele.
-- **Hipótese:** se o Orkastery expuser ao Grok um servidor MCP por HTTP, com autenticação e escopo enumerado de ferramentas, e mantiver o ingresso humano como a única via de decisão, então o Grok Bot conduz leitura, pulse e despacho sem enfraquecer nenhum gate, porque o MCP remoto do Grok cobre o transporte e o contrato do `ork` já separa quem chama de quem decide.
-- **Métrica principal / linha de base / meta / janela / fonte:** conversas de condução concluídas pelo Grok Bot (status, gate respondido, fase despachada) com o recibo do canal no ledger. Linha de base: zero, porque o `ork` não tem esse canal. Meta, janela e piloto: A definir pelo dono depois da decisão D1. Fonte: ledger.
+- **Hipótese:** se o Orkastery expuser ao Grok um servidor MCP por HTTP, com autenticação e escopo enumerado de ferramentas, e mantiver o ingresso humano como a única via de decisão, então o Grok Bot conduz status, pulse, despacho e entrega, e apresenta o gate, sem enfraquecer nenhum deles, porque o MCP remoto do Grok cobre o transporte e o contrato do `ork` já separa quem chama de quem decide.
+- **Métrica principal / linha de base / meta / janela / fonte:** conversas de condução concluídas pelo Grok Bot (status, gate respondido, fase despachada) com o recibo do canal no ledger. Linha de base: zero, porque o `ork` não tem esse canal. Meta, janela e piloto: A definir pelo dono (a D1 está decidida; falta a meta). Fonte: ledger.
 - **Métricas de proteção:** nenhum gate, HITL, autorização de `#Noctum` ou nota de MASTER registrado a partir de texto que o modelo escreveu; nenhum segredo do `ork` no repositório, na conversa ou na nuvem de terceiro; o contrato dos quatro canais atuais não muda; nenhuma ferramenta de escrita exposta sem escopo enumerado.
 
 ## Escopo e validação
 
-- **Incluído:** um servidor MCP do `ork` por HTTP com autenticação e escopo enumerado; a leitura de status e pulse; a resposta de gate e HITL por ingresso autenticado, se o Grok oferecer identidade provável; o despacho de fase; a autorização do `#Noctum` pelo mesmo ingresso; o ensaio real de homologação.
-- **Fora de escopo:** o Grok como runtime de fase (é a [RM-067](RM-067-grok-build-homologado.md)); trocar ou aposentar Telegram, OpenClaw, Claude Code ou Codex; qualquer aprovação de gate, nota ou autorização que o Grok dê em nome do dono; contornar a política de uso do fornecedor; comprar plano ou criar conta, que continua com o dono; rodar o `ork` dentro do computador na nuvem do Bot enquanto a decisão D1 não o autorizar.
+- **Incluído:** um servidor MCP do `ork` por HTTP com autenticação e escopo enumerado; a leitura de status e pulse; o despacho de fase e a entrega, com escopo enumerado e recusa tipada no servidor; a apresentação de gate e HITL e a resposta por ingresso autenticado, se o Grok oferecer identidade provável; a autorização do `#Noctum` pelo mesmo ingresso; o ensaio real de homologação.
+- **Fora de escopo:** o Grok como runtime de fase (é a [RM-067](RM-067-grok-build-homologado.md)); trocar ou aposentar Telegram, OpenClaw, Claude Code ou Codex; qualquer aprovação de gate, nota ou autorização que o Grok dê em nome do dono; contornar a política de uso do fornecedor; comprar plano ou criar conta, que continua com o dono; rodar o `ork` dentro do computador na nuvem do Bot (a decisão D1 de 21/10/2026 não o autorizou).
 - **Entregáveis e critérios de aceite:** as cinco fatias da seção "Plano e decisões", cada uma com a prova listada.
-- **Piloto, medição e critérios de expansão/interrupção:** A definir pelo dono, depois da decisão D1. Interrompe se a política de uso do fornecedor passar a proibir o modo escolhido ou se o Grok não oferecer identidade provável para F2.
+- **Piloto, medição e critérios de expansão/interrupção:** A definir pelo dono (a D1 está decidida; falta o piloto). Interrompe se a política de uso do fornecedor passar a proibir o modo escolhido. Se o Grok não oferecer identidade provável, F2 e F4 param e voltam ao dono, e a condução de F1 e F3 (status, pulse, despacho, entrega) segue, sem registrar decisão do dono.
 
 ### O que o Orkastery exige de um host condutor e o que o Grok oferece
 
@@ -82,39 +84,41 @@ O que **existe**: conector MCP próprio no Grok e na API; rotinas e Automations 
 ## Plano e decisões
 
 - **Prioridade / método / pontuação / justificativa / data:** A definir pelo dono. A posição no índice de prioridade do roadmap é decisão dele; esta página não a propõe.
-- **Horizonte / alvo / previsão / confiança / marcos:** sem data. As fatias abaixo são propostas, na ordem, e cada uma só começa depois da anterior mesclada e depois da decisão D1.
-- **Dependências e bloqueios (ID, owner, próxima revisão):** a decisão D1 (superfície), do dono, antes de F1; [RM-003](RM-003-hitl-bidirecional-telegram.md), [RM-048](RM-048-hitl-humano-no-centro.md) e [RM-057](RM-057-hitl-por-alternativas.md) (o contrato do ingresso e do HITL); [RM-036](RM-036-maestro-multicanal.md) (condução multicanal e lease); [RM-058](RM-058-modo-noctum.md) (o envelope e a autorização, para F4). Próxima revisão: Julio, após ler esta página.
+- **Horizonte / alvo / previsão / confiança / marcos:** sem data. As fatias abaixo são propostas, na ordem, e cada uma só começa depois da anterior mesclada. A D1 está decidida (21/10/2026), então a F1 pode começar quando o dono priorizar o item.
+- **Dependências e bloqueios (ID, owner, próxima revisão):** a decisão D1 (superfície), decidida pelo dono em 21/10/2026; [RM-003](RM-003-hitl-bidirecional-telegram.md), [RM-048](RM-048-hitl-humano-no-centro.md) e [RM-057](RM-057-hitl-por-alternativas.md) (o contrato do ingresso e do HITL); [RM-036](RM-036-maestro-multicanal.md) (condução multicanal e lease); [RM-058](RM-058-modo-noctum.md) (o envelope e a autorização, para F4). Próxima revisão: Julio, após ler esta página.
 
 ### Fatias propostas
 
 | Fatia | O que entrega | Critério de aceite (a provar) |
 | --- | --- | --- |
-| F1 Leitura de status e pulse | Servidor MCP do `ork` por HTTP com autenticação, só com ferramentas de leitura (estado da thread, panorama, roadmap, pedidos de HITL pendentes); a rotina do Bot que relê os pendentes e avisa o dono | Teste: chamada sem credencial ou com credencial inválida é recusada com erro tipado; a lista de ferramentas é exatamente a enumerada e uma ferramenta de escrita chamada pelo nome é recusada; o servidor não aceita outra raiz de projeto que a fixada; nenhum segredo no ledger nem na saída. Os testes do stdio passam sem alteração |
-| F2 Resposta de gate e HITL pelo ingresso autenticado | O Grok apresenta o gate no formato da [RM-057](RM-057-hitl-por-alternativas.md) (3 a 5 alternativas, uma recomendada); a decisão só é registrada com prova de origem humana do canal | Teste: uma chamada de ferramenta com a resposta escrita pelo modelo, sem a prova do canal, é recusada e não grava `human_gate` (o canário `fx-blanket-approve` vale para este host); só uma resposta com identidade, correlação e recibo no contrato `ork.hitl-canais/v1` registra. A fatia só começa se o Grok oferecer essa prova (H5), com o contrato de canal ampliado por decisão registrada |
-| F3 Despacho de fase | Ferramenta de despacho no escopo do servidor, com a mesma recusa tipada da [RM-036](RM-036-maestro-multicanal.md) | Teste: o canal `grok` é declarado sem autoridade (como o dos outros hosts); um segundo despacho na mesma worktree recebe `conducao.em-andamento` com as três ações; o mesmo pedido repetido não abre sessão nova; despacho sem escopo é recusado |
-| F4 Autorização do #Noctum | O envelope e a revogação do `#Noctum` pelo mesmo ingresso | Teste: um "autorizar" escrito pelo modelo não cria envelope; só o ingresso com o recibo `ork.noctum-ingresso/v1` cria. Nenhum arco é autorizado por esta fatia, e o modo segue sem habilitação |
-| F5 Homologação com ensaio real | Uma thread `#Fast` conduzida do pedido ao fecho pelo Grok Bot, com credencial que o dono autoriza | O ensaio fecha com o ledger sem auto-relato como prova, o recibo do canal em cada decisão do dono e o `ork verify` verde. Se o fornecedor não autorizar o modo, a fatia para e volta ao dono |
+| F1 Condução de status, pulse e despacho | Servidor MCP do `ork` por HTTP com autenticação e escopo enumerado, com as ferramentas de leitura (estado da thread, panorama, roadmap, pedidos de HITL pendentes) e a ferramenta de despacho de fase, com a mesma recusa tipada da [RM-036](RM-036-maestro-multicanal.md); a rotina do Bot que relê os pendentes e avisa o dono. Não é só leitura. As ferramentas de decisão (gate, HITL, `#Noctum`) ficam fora do escopo até F2 e F4 | Teste: chamada sem credencial ou com credencial inválida é recusada com erro tipado; a lista de ferramentas é exatamente a enumerada e uma ferramenta fora dela chamada pelo nome é recusada; o servidor não aceita outra raiz de projeto que a fixada; nenhum segredo no ledger nem na saída; o canal `grok` é declarado sem autoridade (como o dos outros hosts); um segundo despacho na mesma worktree recebe `conducao.em-andamento` com as três ações; o mesmo pedido repetido não abre sessão nova; despacho sem escopo é recusado. Os testes do stdio passam sem alteração |
+| F2 Resposta de gate e HITL pelo ingresso autenticado | O Grok apresenta o gate no formato da [RM-057](RM-057-hitl-por-alternativas.md) (3 a 5 alternativas, uma recomendada); a decisão só é registrada com prova de origem humana do canal: resposta curta presa à pergunta pendente, com a prova pelo canal, como na RM-057 | Teste: uma chamada de ferramenta com a resposta escrita pelo modelo, sem a prova do canal, é recusada e não grava `human_gate` (o canário `fx-blanket-approve` vale para este host); só uma resposta com identidade, correlação e recibo no contrato `ork.hitl-canais/v1` registra. A fatia só começa se o Grok oferecer essa prova (H5), com o contrato de canal ampliado por decisão registrada |
+| F3 Entrega | Ferramenta de entrega (`ork ship`) no escopo do servidor, com os HEADs de origem e destino conferidos pelo núcleo; o Grok conduz a entrega, o merge e o push seguem as regras do `ork` | Teste: entrega sem escopo é recusada; entrega com HEAD diferente do esperado é recusada com erro tipado; retorno `incomplete` não é repetido sem reconciliar estado e remoto; a mesma entrega repetida não duplica o merge; o canal `grok` não aprova gate por esta via |
+| F4 Autorização do #Noctum | O envelope e a revogação do `#Noctum` pelo mesmo ingresso, por resposta curta presa à pergunta pendente e com a prova pelo canal (regra da RM-057); começa só se o Grok oferecer essa prova (H5) | Teste: um "autorizar" escrito pelo modelo não cria envelope; só o ingresso com o recibo `ork.noctum-ingresso/v1` cria. Nenhum arco é autorizado por esta fatia, e o modo segue sem habilitação |
+| F5 Homologação com ensaio real | Uma thread `#Fast` conduzida do pedido ao fecho pelo Grok Bot, com credencial que o dono autoriza | O ensaio fecha com o ledger sem auto-relato como prova, o recibo do canal em cada decisão do dono e o `ork verify` verde. Se o Grok ainda não oferecer a prova de F2, o ensaio cobre só o que não é decisão do dono e a lacuna fica declarada no relatório do ensaio. Se o fornecedor não autorizar o modo, a fatia para e volta ao dono |
 
 - **Premissas / riscos / mitigação:**
-  - **Identidade sem prova (H5):** o maior risco. Se o Grok não entrega um evento humano assinado, ele só pode ser host de leitura e de pedido, nunca de decisão. Mitigação: F1 não depende disso, e F2 só começa com a prova.
-  - **Servidor público:** o conector exige URL pública (G9). Expor o `ork` à internet aumenta a superfície. Mitigação: escopo enumerado e leitura primeiro (F1), autenticação própria, nenhuma ferramenta de escrita sem o ingresso, e a [fronteira de confiança](../referencia/fronteira-de-confianca.md) como contrato.
+  - **Identidade sem prova (H5):** o maior risco. Se o Grok não entrega um evento humano assinado, ele conduz status, pulse, despacho e entrega, mas nunca registra decisão do dono. Mitigação: F1 e F3 não dependem disso, F2 e F4 só começam com a prova, e a lacuna segue dita enquanto a prova não existir.
+  - **Servidor público:** o conector exige URL pública (G9). Expor o `ork` à internet aumenta a superfície. Mitigação: escopo enumerado imposto no servidor, autenticação própria com rotação, recusa tipada e idempotência nas ferramentas de escrita (despacho e entrega), nenhuma ferramenta de decisão sem o ingresso, e a [fronteira de confiança](../referencia/fronteira-de-confianca.md) como contrato.
   - **Política de uso (H9):** o texto vigente não foi lido. Mitigação: a decisão é do dono, e F5 para se o fornecedor não autorizar.
   - **Produto novo e mutável (H10):** o produto é recente e o formato do conector não está confirmado. Mitigação: teste de contrato no servidor e recusa explícita do formato desconhecido.
   - **Computador compartilhado entre Bots:** "Do not use separate Bots as a security boundary" (G3, G6). Mitigação: nenhum segredo do `ork` e nenhuma worktree no computador do Bot.
   - **Lista de canais fechada:** acrescentar um canal muda o contrato de `hitl-canais.ts`. Mitigação: o contrato muda por decisão registrada, com teste que reprove canal sem os três atributos.
-- **Não-objetivos:** trocar o canal do dono; deixar o Grok aprovar gate, dar nota ou autorizar arco; rodar o `ork` na nuvem do Bot; prometer paridade de experiência com o Telegram.
+- **Não-objetivos:** só leitura (o dono pediu a condução completa); trocar o canal do dono; deixar o Grok aprovar gate, dar nota ou autorizar arco; rodar o `ork` na nuvem do Bot; prometer paridade de experiência com o Telegram.
 
-### Decisões que esperam o dono
+### Decisões
 
-**D1. Por qual superfície o Grok conduz o `ork`.** A fonte confirma o transporte (MCP remoto por HTTP) e não confirma a identidade assinada por mensagem (H5), que é o que decide se o Grok pode ser canal de decisão. Nada disso foi presumido.
+**D1. Por qual superfície o Grok conduz o `ork`. Decidida pelo dono em 21/10/2026: alternativa a, com a condução completa.** O texto do dono: "2.a (não quero só leitura, quero completo)". Consequência: a alternativa a deixa de ser "leitura primeiro" e passa a ser o MCP do `ork` por HTTP com autenticação e escopo enumerado conduzindo status, pulse, despacho, entrega, gate, HITL e `#Noctum`. A prova de que foi o dono continua exigida para gate e `#Noctum` (RM-057), e a lacuna H5 segue aberta. As alternativas b e c ficam como foram propostas, não escolhidas.
+
+Contexto da decisão, como estava quando foi pedida: A fonte confirma o transporte (MCP remoto por HTTP) e não confirma a identidade assinada por mensagem (H5), que é o que decide se o Grok pode ser canal de decisão. Nada disso foi presumido.
 
 | Alternativa | O que significa | Custo e risco |
 | --- | --- | --- |
-| **a (recomendada)** | O MCP do `ork` por HTTP com autenticação e escopo enumerado, leitura primeiro (F1). O Grok conduz status, pulse e pedidos. Gate, HITL e `#Noctum` seguem só pelo ingresso que já existe (Telegram, OpenClaw, host nativo). F2 em diante só se o Grok passar a oferecer identidade provável | Entrega valor sem tocar nenhuma decisão do dono. Custo: um servidor HTTP novo e a autenticação dele; o Grok não decide nada no início |
+| **a (escolhida pelo dono, com o escopo ampliado)** | O MCP do `ork` por HTTP com autenticação e escopo enumerado. Na proposta original, leitura primeiro (F1), com gate, HITL e `#Noctum` só pelo ingresso que já existe (Telegram, OpenClaw, host nativo) e F2 em diante só se o Grok passasse a oferecer identidade provável. O dono ampliou: condução completa | Custo: um servidor HTTP novo e a autenticação dele, e mais superfície exposta, porque o despacho e a entrega ficam no escopo. O Grok não decide nada pelo dono: gate e `#Noctum` só com a prova |
 | b | Um gateway próprio, como o do Hermes, que recebe o que o Grok enviar e assina o ingresso | Não há entrada documentada do Grok Bot para um gateway ouvir (API ou webhook, não confirmado), e um canal novo muda o contrato de `hitl-canais.ts`. Serviço público a construir e manter |
 | c | Esperar o recurso oficial: API ou webhook do Grok Bot com identidade assinada | Sem risco de segurança e sem custo agora. O Grok não conduz nada até lá; só esta página existe |
 
-**Decisão da condutora, registrada no ledger:** a página cita a [RM-067](RM-067-grok-build-homologado.md) só para separar condução de runtime, porque o pedido do dono pede essa distinção por escrito.
+**Decisão da condutora, registrada no ledger (20/10/2026):** a página cita a [RM-067](RM-067-grok-build-homologado.md) só para separar condução de runtime, porque o pedido do dono pede essa distinção por escrito.
 
 ## Estado com evidências
 
@@ -161,8 +165,9 @@ Pontos que a página não confirma: o esquema de autenticação do conector do G
 
 - **RACI (R / A / C / I):** R: condutor da thread `ork-grokbot`, só para esta página; A: Julio; C: A definir; I: A definir.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** a página foi redigida por agente em #Fast, a partir do pedido do dono e das fontes citadas; revisor humano: Julio. Nenhum código foi escrito.
-- **Próxima ação, responsável e prazo:** Julio decide D1 e a posição do item no índice de prioridade; sem prazo definido.
+- **Próxima ação, responsável e prazo:** Julio decide a posição do item no índice de prioridade e a meta e o piloto; a D1 está decidida; sem prazo definido.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-20 | Item criado em Discovery, com cinco fatias propostas e a decisão D1 aberta | Pedido do dono de 20/10/2026; fontes reconferidas na mesma data | Julio |
+| 2026-10-21 | D1 decidida: alternativa a com a condução completa, não só leitura; F1 passa a incluir o despacho, a entrega vira F3, e a prova de que foi o dono segue a RM-057 para gate e `#Noctum` | Resposta do dono no terminal ao resumo das 07h: "2.a (não quero só leitura, quero completo)". O item segue em Discovery, sem código nem teste | Julio |
