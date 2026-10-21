@@ -4,7 +4,8 @@
  *   ork noctum propor --arquivo <envelope.json> [--json]   o pedido de abertura vira proposta e pergunta ao dono; nada é autorizado
  *   ork noctum revogar <arco> [--json]                     a pergunta de revogação ao dono (RM-057); nada é revogado
  *   ork noctum responder <arco> --resposta-stdin ...       o envelope assinado do gateway (autorizar ou revogar)
- *   ork noctum terminal --hook-stdin                       o ingresso do terminal, que o hook UserPromptSubmit chama (RM-057)
+ *   ork noctum terminal --hook-stdin                       o ingresso do terminal, que o hook UserPromptSubmit chama (RM-057);
+ *                                                          desligado (D22): só devolve o aviso de por onde responder
  *   ork noctum status [<arco>] [--json]                    o retrato do arco, com as lacunas; sem arco, a lista
  *   ork noctum tique <arco> [--json]                       fechamento, passo e relatório: o que o cron do dono chama
  *   ork noctum relatorio <arco> [--json] [--reenviar C]    o relatório no terminal, ou o reenvio que o dono pede
@@ -213,7 +214,8 @@ export function comandoNoctum(args: ArgsDoNoctum): number {
     }
     if (sub === 'terminal') {
       // RM-057 (resposta curta, D5): o ingresso do terminal, que o hook UserPromptSubmit do plugin chama. Sai 0 sempre: a
-      // decisão (ignorar, gravar, perguntar, recusar ou encaminhar) vai em JSON, e o hook só a transporta.
+      // decisão vai em JSON, e o hook só a transporta. GO-FIX 2 (D22): o ingresso está desligado, e este comando nunca o
+      // liga; a resposta curta a uma pergunta que espera o dono volta recusada, com o aviso de por onde responder.
       if (args.opcoes['hook-stdin'] !== true || args.posicionais.length !== 2) { console.error(USO_DO_NOCTUM); return 2; }
       const entrada = lerEntradaDoHookStdin();
       let raiz: string | null = null;

@@ -3,6 +3,12 @@
 /**
  * Hook `UserPromptSubmit` do adaptador Claude Code: a resposta curta do dono no terminal (RM-057, ork-rm057respost).
  *
+ * GO-FIX 2 (D22): o ingresso do terminal esta DESLIGADO no nucleo. Quando o dono digita a resposta curta a uma pergunta
+ * que espera por ele, o nucleo nao grava nada e devolve so a recusa `noctum.terminal.desligado`, que este hook mostra ao
+ * dono (`systemMessage`): responda pelo Telegram (em reply a mensagem da pergunta, ou com o codigo) ou pela janela de
+ * confirmacao do Claude Code (o dialogo nativo). O transporte abaixo continua o mesmo, para quando uma fatia propria
+ * religar o ingresso.
+ *
  * O dono aprova onde estiver. Numa sessao interativa, ele responde a pergunta do arco #Noctum com "sim", "a" ou
  * "<codigo> a"; este hook leva o evento ao nucleo (`ork noctum terminal --hook-stdin`) e transporta a decisao dele:
  *

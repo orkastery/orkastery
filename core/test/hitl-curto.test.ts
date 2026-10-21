@@ -185,7 +185,8 @@ function doArco(numero?: number) {
 test('RM-057 resposta curta: a última linha diz "responda a, b ou c", sem linha para copiar, nos dois canais', () => {
   const tg = textoDoPedidoCurto(doArco(), 'telegram'), term = textoDoPedidoCurto(doArco(), 'terminal');
   assert.equal(tg.split('\n').at(-1), '↩️ Responda a, b ou c. Detalhes: NX4K detalhes.');
-  assert.equal(term.split('\n').at(-1), 'Responder: a, b ou c, aqui ou no Telegram. Detalhes: NX4K detalhes.');
+  // GO-FIX 2 (D22 da ork-rm057respost): o terminal não grava resposta; a linha manda ao Telegram ou à janela do host.
+  assert.equal(term.split('\n').at(-1), 'Responder: a, b ou c no Telegram, ou pela janela de confirmação do host. Detalhes: NX4K detalhes.');
   for (const t of [tg, term]) {
     assert.equal(/\/ork|autorizar [a-f0-9]{64}|[a-f0-9]{64}/.test(t), false, t);
     assert.equal(UUID.test(t), false);

@@ -6,7 +6,8 @@
  * (T7 da ork-rm058integra, D11): os cenários integrados (a cadeia ligada, o condutor que morre e a base que anda) e as marcas
  * de simulação que o aceite do piloto recusa. RM-057 (resposta curta, T8 da ork-rm057respost): os arcos do ensaio abrem pela
  * resposta curta do dono, e o cenário `resposta-curta` prova a pergunta no canal, o reply, o código, a palavra solta, o
- * número, o terminal e os negativos.
+ * número, o terminal e os negativos. GO-FIX 2 (D22): o terminal desligado não grava nada, nem com a origem perfeita, e a
+ * palavra solta em reply a outra mensagem não vira palavra solta.
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -204,7 +205,7 @@ test('EP11: o resultado do ensaio leva simulado e as marcas que o aceite do pilo
   assert.deepEqual([recorte.simulado, recorte.marcas], [true, json.marcas]);
 });
 
-test('EP12: o dono aprova onde estiver, com resposta curta: reply, código, palavra solta, número e terminal, com os negativos', { skip: semKernel }, () => {
+test('EP12: o dono aprova onde estiver, com resposta curta: reply, código, palavra solta, número e o terminal desligado, com os negativos', { skip: semKernel }, () => {
   const c = cenario('resposta-curta');
   assert.equal(c.ok, true, JSON.stringify(c.expectativas.filter(e => !e.ok)));
   provada(c, /^a proposta vira a pergunta ao dono: sai uma vez no canal, numerada, .* sem o hash e sem linha para copiar/);
@@ -216,10 +217,11 @@ test('EP12: o dono aprova onde estiver, com resposta curta: reply, código, pala
   provada(c, /^a palavra solta de outro chat autorizado não responde/);
   provada(c, /^o código vindo de um chat fora da lista do canal é recusado/);
   provada(c, /^o "ok" em reply à confirmação do "b\) Adiar" não autoriza/);
+  provada(c, /^o "ok" em reply a uma mensagem que não é a pergunta .* volta dizendo por onde responder, e nada é gravado/);
   provada(c, /^depois do prazo da pergunta, a resposta volta dizendo que ela venceu/);
-  provada(c, /^a sessão despachada pelo ork que digita "sim" no terminal é recusada pela origem da sessão/);
-  provada(c, /^na sessão do dono, o prompt que a tarefa agendada injeta é recusado/);
-  provada(c, /^na sessão interativa do dono, com a pergunta mostrada nela, o "sim" autoriza o arco com o recibo do terminal/);
+  provada(c, /^no terminal, a sessão despachada pelo ork que digita "sim" ouve que o ingresso do terminal está desligado/);
+  provada(c, /^na sessão do dono, o prompt que a tarefa agendada injeta também não grava/);
+  provada(c, /^na sessão interativa do dono, com a pergunta mostrada e a origem perfeita .* o "sim" não grava/);
   provada(c, /^o terminal puro segue recusado/);
   provada(c, /^ork noctum revogar só pergunta/);
   provada(c, /^o "a" em reply à pergunta de revogação revoga o arco/);

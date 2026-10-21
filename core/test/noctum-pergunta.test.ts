@@ -9,7 +9,9 @@
  *  - a pergunta que mudou, a vencida, a prova reaproveitada e o recibo adulterado não autorizam nada;
  *  - b e c não gravam nada no arco, e o diálogo nativo tem as três alternativas;
  *  - GO-FIX 1 (CHECK da ork-rm057respost): a prova do reply é da MESMA pergunta, a mensagem de antes da pergunta não
- *    responde a ela, uma mensagem responde a uma pergunta só (em qualquer arco), e as guardas do ato têm teste (NP18 a NP23).
+ *    responde a ela, uma mensagem responde a uma pergunta só (em qualquer arco), e as guardas do ato têm teste (NP18 a NP23);
+ *  - GO-FIX 2 (rodada 2 do CHECK, R4): o uso único e a mensagem de antes da pergunta também na revogação, e o registro de
+ *    uso único que confere a pergunta e o ato, e não só o arco (NP24 a NP26).
  *
  * Identidades, chaves, provas, sessões e valores SIMULADOS, em diretórios temporários; nenhum canal real.
  */
@@ -134,7 +136,7 @@ test('NP3: o texto da pergunta sai no padrão RM-057, sem hash e sem comando par
     assert.ok(linhas.some(l => /Autorizar o arco arco-a \(proposta 1\)\?/.test(l)));
     assert.ok(linhas.some(l => /^a\) Autorizo.*Recomendação/.test(l)), texto);
     assert.equal(linhas.filter(l => /Recomendação/.test(l)).length, 1);
-    assert.match(linhas.at(-1)!, canal === 'telegram' ? /^↩️ Responda a, b ou c\./ : /^Responder: a, b ou c, aqui ou no Telegram\./);
+    assert.match(linhas.at(-1)!, canal === 'telegram' ? /^↩️ Responda a, b ou c\./ : /^Responder: a, b ou c no Telegram, ou pela janela de confirmação do host\./);
     assert.equal(texto.includes(p.envelopeSha256), false, 'o hash fica na pergunta, nunca no texto');
     assert.equal(/\/ork|autorizar [a-f0-9]{64}/.test(texto), false);
   }
@@ -414,4 +416,42 @@ test('NP23: a mensagem de antes da pergunta não responde a ela, nem dentro da j
   recusa(() => autorizarPelaResposta(raiz, 'arco-a', p.codigo!, provaDoPulse(noPulse('sim'), p.codigo!), depoisDaMensagem),
     'noctum.origem.sem-prova');
   assert.equal(lerArco(raiz, 'arco-a', depoisDaMensagem)!.autorizadoPor, null);
+}));
+
+// GO-FIX 2 (rodada 2 do CHECK, R4): as guardas da revogação e do registro de uso único, uma a uma (mutantes X18, X19 e X20).
+
+test('NP24: a mesma mensagem assinada não revoga dois arcos: a segunda revogação é recusada dentro dos 60 s', () => comRaiz('revogar-uso-unico', raiz => {
+  const a = proporEnvelope(raiz, pedido('arco-a'), P), b = proporEnvelope(raiz, pedido('arco-b'), P);
+  autorizarPelaResposta(raiz, 'arco-a', a.codigo!, provaDoPulse(noPulse(`${a.codigo} a`), a.codigo!), A);
+  autorizarPelaResposta(raiz, 'arco-b', b.codigo!, provaDoPulse(noPulse(`${b.codigo} a`), b.codigo!), A);
+  const revA = pedirRevogacao(raiz, 'arco-a', A), revB = pedirRevogacao(raiz, 'arco-b', A);
+  const sim = noPulse('sim');
+  assert.equal(revogarPelaResposta(raiz, 'arco-a', revA.codigo, provaDoPulse(sim, revA.codigo), A).situacao, 'revogado');
+  const depois = '2026-10-13T00:31:30.000Z';
+  recusa(() => revogarPelaResposta(raiz, 'arco-b', revB.codigo, provaDoPulse(sim, revB.codigo), depois), 'noctum.origem.sem-prova');
+  assert.notEqual(lerArco(raiz, 'arco-b', depois)!.situacao, 'revogado');
+}));
+
+test('NP25: a mensagem de antes da pergunta de revogação não revoga, nem dentro da janela de 60 s', () => comRaiz('revogar-antes', raiz => {
+  const p = proporEnvelope(raiz, pedido('arco-a'), P);
+  autorizarPelaResposta(raiz, 'arco-a', p.codigo!, provaDoPulse(noPulse(`${p.codigo} a`), p.codigo!), A);
+  const depoisDaMensagem = '2026-10-13T00:31:20.000Z';
+  const rev = pedirRevogacao(raiz, 'arco-a', depoisDaMensagem);
+  recusa(() => revogarPelaResposta(raiz, 'arco-a', rev.codigo, provaDoPulse(noPulse('sim'), rev.codigo), depoisDaMensagem), 'noctum.origem.sem-prova');
+  assert.notEqual(lerArco(raiz, 'arco-a', depoisDaMensagem)!.situacao, 'revogado');
+}));
+
+test('NP26: a mensagem que respondeu a uma pergunta não responde a outra do MESMO arco, mesmo sem ter gravado ato nenhum', () => comRaiz('uso-unico-pergunta', raiz => {
+  // A primeira resposta reivindica a mensagem e não grava nada (a proposta 1 já foi trocada pela 2): o log do arco não tem a
+  // prova, e só o registro de uso único, que confere a pergunta e o ato e não só o arco, segura a mesma mensagem na 2.
+  const v1 = proporEnvelope(raiz, pedido('arco-a', 40), P);
+  const v2 = proporEnvelope(raiz, pedido('arco-a', 30), P);
+  assert.notEqual(v1.codigo, v2.codigo);
+  const sim = noPulse('sim');
+  recusa(() => autorizarPelaResposta(raiz, 'arco-a', v1.codigo!, provaDoPulse(sim, v1.codigo!), A), 'noctum.efeito.hash-antigo');
+  assert.equal(linhasDoLog(raiz, 'arco-a').filter(l => l.includes('"tipo":"autorizado"')).length, 0, 'nada gravado no log');
+  recusa(() => autorizarPelaResposta(raiz, 'arco-a', v2.codigo!, provaDoPulse(sim, v2.codigo!), A), 'noctum.origem.sem-prova');
+  assert.equal(lerArco(raiz, 'arco-a', A)!.autorizadoPor, null);
+  // Uma mensagem nova responde à pergunta de agora.
+  assert.equal(autorizarPelaResposta(raiz, 'arco-a', v2.codigo!, provaDoPulse(noPulse('sim'), v2.codigo!), A).envelopeSha256, v2.envelopeSha256);
 }));

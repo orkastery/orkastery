@@ -36,7 +36,8 @@
  * do arco, assinado pelo ingresso do Hermes e recebido pelo receptor do pulse. O cenário `resposta-curta` prova a pergunta
  * que sai no canal, o reply, o código, a palavra solta e o número, os negativos (outro chat, sem pergunta, duas pendentes,
  * depois do prazo, a mesma mensagem e a sessão despachada que digita "sim" no terminal), a revogação pela pergunta e a
- * sessão do dono no terminal, com a sessão e a cadeia de processos SIMULADAS.
+ * sessão do dono no terminal, com a sessão e a cadeia de processos SIMULADAS. GO-FIX 2 (D22): o ingresso do terminal está
+ * desligado, e o cenário prova que nada grava por ele; e a palavra solta em reply a outra mensagem não vira palavra solta.
  *
  * Exige Linux com `/usr/bin/flock` (o arco só despacha com a trava do kernel) e o `core/dist` compilado
  * (`npm --prefix core run build`). Sai 0 com todas as expectativas, 1 quando alguma falha e 2 em erro de uso ou de
@@ -690,8 +691,8 @@ function cenarioLigarOModo(c, a, n) {
 /**
  * RM-057 (resposta curta, T8 da ork-rm057respost): o dono aprova onde estiver, com resposta curta. A pergunta do arco sai
  * pelo transporte SIMULADO do pulse, e o dono responde pelo Telegram (o envelope que o ingresso do Hermes assina, entregue
- * ao `ork pulse responder`) ou pelo terminal (o evento do hook `UserPromptSubmit`, entregue ao ingresso do terminal); nunca
- * com o hash, nunca por um comando que autorize.
+ * ao `ork pulse responder`); nunca com o hash, nunca por um comando que autorize. O terminal (o evento do hook
+ * `UserPromptSubmit`, entregue ao ingresso do terminal) está desligado (D22): só diz ao dono por onde responder.
  */
 function cenarioRespostaCurta(c, a, n) {
   const proj = a.projeto('resposta-curta');
@@ -781,6 +782,12 @@ function cenarioRespostaCurta(c, a, n) {
     adiada.status === 0 && /b\) Adiar: nada muda/.test(b.recibo.mensagem ?? '') && okNaConfirmacao.status === 0 &&
       (okNaConfirmacao.recibo.registradas ?? []).length === 0 && arco('arco-adiado').situacao === 'proposto',
     `${okNaConfirmacao.status}: ${okNaConfirmacao.stdout}${okNaConfirmacao.stderr}`);
+  // GO-FIX 2 (R1): a palavra solta em reply a outra mensagem (o gateway a assina em resposta:outra) nunca vira palavra solta.
+  const okAOutra = dizer('ok', { referencia: 'outra' });
+  c.esperar('o "ok" em reply a uma mensagem que não é a pergunta (a de outra pessoa, a confirmação de um gate) volta dizendo por onde responder, e nada é gravado',
+    okAOutra.status === 0 && (okAOutra.recibo.registradas ?? []).length === 0 &&
+      (okAOutra.recibo.recusas ?? []).some((x) => x.motivo === 'reply.outra-mensagem') && arco('arco-adiado').situacao === 'proposto',
+    `${okAOutra.status}: ${okAOutra.stdout}${okAOutra.stderr}`);
 
   // O prazo.
   k += 1;
@@ -803,20 +810,22 @@ function cenarioRespostaCurta(c, a, n) {
   const despachada = a.ork(proj, ['noctum', 'terminal', '--hook-stdin'], evento('sim'),
     { ...limpo, ...doHook, ORK_DISPATCH_ID: 'despacho-SIMULADO', ORK_DISPATCH_THREAD: 'thread-SIMULADA' });
   const dd = a.json(despachada.stdout) ?? {};
-  c.esperar('a sessão despachada pelo ork que digita "sim" no terminal é recusada pela origem da sessão, e o arco segue só proposto',
-    despachada.status === 0 && dd.acao === 'recusada' && dd.motivo === 'noctum.terminal.sessao-despachada' && arco('arco-terminal').situacao === 'proposto',
+  // GO-FIX 2 (D22): o ingresso do terminal está desligado; nada grava por ele, nem com a origem perfeita.
+  c.esperar('no terminal, a sessão despachada pelo ork que digita "sim" ouve que o ingresso do terminal está desligado, e o arco segue só proposto',
+    despachada.status === 0 && dd.acao === 'recusada' && dd.motivo === 'noctum.terminal.desligado' && arco('arco-terminal').situacao === 'proposto',
     `${despachada.status}: ${despachada.stdout}${despachada.stderr}`);
   const cadeia = [{ pid: 4300, ppid: 4299, ambiente: doHook }, { pid: 4299, ppid: 4242, ambiente: doHook },
     { pid: 4242, ppid: 4000, ambiente: { TERM: 'xterm-256color' } }, { pid: 4000, ppid: 1, ambiente: { SHELL: '/bin/bash' } }];
   // GO-FIX 1 (achado 1): o prompt que a máquina injeta na sessão do dono (a tarefa agendada) não grava, nem com a pergunta mostrada.
   const injetado = n.terminal.responderPeloTerminal(proj.dir, JSON.parse(evento('sim', 'schedule_wakeup')), { env: doHook, ancestrais: () => cadeia });
-  c.esperar('na sessão do dono, o prompt que a tarefa agendada injeta é recusado: só o prompt que o dono digitou vale, e o arco segue só proposto',
-    injetado.acao === 'recusada' && injetado.motivo === 'noctum.terminal.prompt-injetado' && arco('arco-terminal').situacao === 'proposto',
+  c.esperar('na sessão do dono, o prompt que a tarefa agendada injeta também não grava, e o arco segue só proposto',
+    injetado.acao === 'recusada' && injetado.motivo === 'noctum.terminal.desligado' && arco('arco-terminal').situacao === 'proposto',
     JSON.stringify(injetado));
   const doDono = n.terminal.responderPeloTerminal(proj.dir, JSON.parse(evento('sim')), { env: doHook, ancestrais: () => cadeia });
-  const quem = arco('arco-terminal').autorizadoPor ?? {};
-  c.esperar('na sessão interativa do dono, com a pergunta mostrada nela, o "sim" autoriza o arco com o recibo do terminal (sessão e cadeia SIMULADAS)',
-    doDono.acao === 'registrada' && arco('arco-terminal').situacao === 'vigente' && quem.origem === 'terminal' && quem.sessao === sessao,
+  c.esperar('na sessão interativa do dono, com a pergunta mostrada e a origem perfeita (sessão e cadeia SIMULADAS), o "sim" não grava: o dono ouve que responda pelo Telegram ou pela janela de confirmação do Claude Code',
+    doDono.acao === 'recusada' && doDono.motivo === 'noctum.terminal.desligado' && doDono.presenca === true &&
+      /pelo Telegram, em reply à mensagem da pergunta .* ou pela janela de confirmação do Claude Code/.test(doDono.mensagem ?? '') &&
+      arco('arco-terminal').situacao === 'proposto' && !fs.existsSync(path.join(proj.dir, '.orkastery', 'noctum', 'arcos', 'arco-terminal', 'ingresso')),
     JSON.stringify(doDono));
   const puro = a.ork(proj, ['noctum', 'autorizar', 'arco-terminal', term.j.envelopeSha256 ?? '']);
   c.esperar('o terminal puro segue recusado: não existe comando que autorize o arco', puro.status === 2, `${puro.status}: ${puro.stdout}`);
@@ -1397,7 +1406,7 @@ function cenarioBaseQueAnda(c, a, n) {
 
 const CENARIOS = [
   { nome: 'ligar-o-modo', titulo: 'o transporte que liga o modo: proposta, ingresso assinado e #Noctum só com envelope vigente', fn: cenarioLigarOModo },
-  { nome: 'resposta-curta', titulo: 'o dono aprova onde estiver, com resposta curta: a pergunta no canal, o reply, o código, a palavra solta e o terminal',
+  { nome: 'resposta-curta', titulo: 'o dono aprova onde estiver, com resposta curta: a pergunta no canal, o reply, o código, a palavra solta e o terminal desligado',
     fn: cenarioRespostaCurta },
   { nome: 'arco-curto', titulo: 'o arco curto com falhas injetadas, do primeiro despacho ao relatório da manhã', fn: cenarioArcoCurto },
   { nome: 'prazo-e-fuso', titulo: 'o relatório no horário e no fuso do envelope, sem antecipar', fn: cenarioPrazoEFuso },

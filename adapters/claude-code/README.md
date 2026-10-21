@@ -98,40 +98,32 @@ mesmo usuário do sistema a contorna, e o limite está dito abaixo.
 
 ## A resposta curta do dono no terminal (RM-057)
 
-O dono aprova onde estiver. Numa sessão interativa do Claude Code, ele responde à pergunta de um arco
-#Noctum com `sim`, `a` ou `<código> a`, e o hook `UserPromptSubmit` (`hooks/ork-resposta.js`) leva o
-evento ao núcleo pelo `ork noctum terminal --hook-stdin`. Só texto com forma de resposta curta (o código
-com a resposta, o número com a letra, ou até duas palavras) chama o núcleo; conversa comum segue ao
-modelo sem nada. O prompt que a máquina escreveu (o campo `source` do evento diferente de `user`: a
-tarefa agendada, a volta do `/loop`, a mensagem de canal ou de outra sessão) nunca chega ao núcleo. O
-hook só transporta a decisão do núcleo:
+**Desligada.** Desde o GO-FIX 2 da RM-057, o núcleo não grava nada pelo terminal. Numa sessão interativa do
+Claude Code, quando o dono digita a resposta curta a uma pergunta que espera por ele (`sim`, `a` ou
+`<código> a`), o hook `UserPromptSubmit` (`hooks/ork-resposta.js`) leva o evento ao núcleo pelo
+`ork noctum terminal --hook-stdin`, e o núcleo só devolve a recusa `noctum.terminal.desligado`: com alguém
+presente, o dono vê um aviso (`systemMessage`) para responder pelo Telegram, em reply à mensagem da
+pergunta ou com o código e a letra, ou pela janela de confirmação do Claude Code (o diálogo nativo, um
+clique). O prompt segue ao modelo, e nada é gravado nem encaminhado, nem a resposta a um gate. Conversa
+comum nem chama o núcleo, e o prompt que a máquina escreveu (o campo `source` do evento diferente de
+`user`) também não.
 
-| Decisão do núcleo | O que o hook devolve ao Claude Code |
-|---|---|
-| Gravada, sem efeito (adiar, mudar algo), o detalhe ou a pergunta de volta | `decision: block` com a frase do núcleo: o prompt é substituído pela confirmação, e o "sim" não chega ao modelo |
-| Resposta a um gate | `additionalContext`: o condutor abre o diálogo nativo (`ork_request_decision`); o terminal não grava gate |
-| Recusa pela origem, com alguém presente | `systemMessage` com o porquê; o prompt segue ao modelo |
-| Nada a ver com o Orkastery | Nada |
+**Por que desligada:** o Claude Code instalado (2.1.306) ainda não manda o `source` do evento, e sem ele
+nada do dono gravaria. E o agente da própria sessão do dono, pela ferramenta Bash, troca o shell pelo
+núcleo com `exec`, tira a marca `AI_AGENT` e forja o evento com `source` igual a `user`: a cadeia de
+processos e o guard são lombadas, não prova. Ligado, o ingresso não serviria ao dono e serviria a quem
+forja o evento.
 
-Quem prova é o núcleo, pela origem do prompt e da sessão e nunca pelo texto: o prompt digitado pelo
-dono (`source` igual a `user`; sem o campo, que o Claude Code ainda está liberando, nada é gravado),
-presença (`CLAUDE_CODE_SESSION_ATTENDED=1`, que o Claude Code só põe numa sessão interativa), o id da
-sessão, nenhuma identidade de despacho do `ork` (`ORK_DISPATCH_ID`, `ORK_DISPATCH_THREAD`) nem pasta de
-job de segundo plano, ponto de entrada que não é o do SDK, o id fora do registro de despachos das
-threads, o `cwd` fora de worktree de thread e, no Linux, a cadeia de processos pelo `/proc`: todo
-processo entre o núcleo e a sessão (`CLAUDE_PID`) nasceu do hook dela, com o mesmo id, a presença e sem
-a marca `AI_AGENT` que o Claude Code põe no shell das ferramentas do agente (a sessão de segundo plano e
-a aninhada em outra sessão do Claude Code são recusadas; sem `/proc`, nada é gravado). O código digitado
-vale sempre; a palavra solta e a letra só logo depois da pergunta (a última linha da última mensagem do
-assistente traz o código dela), só para dizer "a" e uma vez, nunca depois de "b" ou "c": o resto segue
-ao modelo. O recibo fica ao lado do log do arco, com uma subchave da chave local do núcleo.
+**O que falta para voltar**, numa fatia própria: o Claude Code mandar a origem humana do evento
+(`source`); uma prova de que o evento veio do hook do harness, e não de um processo do mesmo usuário; e,
+para a palavra solta, a pergunta mostrada exigida como a linha que o núcleo monta para ela, ou só o código
+com a letra. O código do ingresso segue no núcleo atrás da chave `TERMINAL_LIGADO`, desligada; só os
+testes a ligam, e o CLI e o hook nunca.
 
-**Limite:** a fronteira é a conta do sistema. Um processo do mesmo usuário que abra uma sessão
-interativa nova do Claude Code fora da árvore de processos do agente (com `setsid` e um terminal virtual,
-por exemplo) e digite nela passa; o agente pela ferramenta Bash da própria sessão, não. No diálogo
-nativo, qualquer cliente MCP do mesmo usuário que declare o formulário passa, sem chave. Para separar o
-núcleo dos agentes, rode os agentes em outra conta ou sandbox. O hook novo só vale depois de reinstalar
-o plugin (`ork adapter install claude-code`) e do `ork` com o `noctum terminal`.
+**Limite:** a fronteira é a conta do sistema. No diálogo nativo, qualquer cliente MCP do mesmo usuário que
+declare o formulário passa, sem chave. Para separar o núcleo dos agentes, rode os agentes em outra conta
+ou sandbox. O aviso só aparece depois de reinstalar o plugin (`ork adapter install claude-code`) e do
+`ork` com o `noctum terminal`.
 
 ## Sensores de sessão
 

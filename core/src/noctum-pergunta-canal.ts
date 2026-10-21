@@ -25,13 +25,13 @@ export interface EntregaDaPerguntaDoArco extends PerguntaDoArcoServida {
  */
 export function comoResponderAoArco(p: PerguntaDoArco): string[] {
   const ato = p.ato === 'autorizar' ? 'autoriza' : 'revoga';
-  // GO-FIX 1 (achados 1 e 2): o reply vale só para a mensagem da pergunta, e o terminal só grava o que o Claude Code diz
-  // que o dono digitou; o texto ensina o que de fato vale.
+  // GO-FIX 1 (achados 1 e 2): o reply vale só para a mensagem da pergunta; o texto ensina o que de fato vale. GO-FIX 2
+  // (D22): o terminal não grava resposta nenhuma, e o texto diz isso em vez de ensinar a digitar lá.
   return [`Em reply à mensagem da pergunta ${p.codigo} no Telegram, responda com a letra (a ${ato}; b e c não mudam nada)`,
     `De qualquer chat autorizado do Telegram, mande ${p.codigo} a`,
-    `No terminal do Claude Code, ${p.codigo} a vale quando o Claude Code marca o prompt como digitado por você (o campo source do evento)`,
-    p.ato === 'autorizar' ? `No host com diálogo nativo: a ferramenta ork_noctum_autorizar com o arco ${p.arco}`
-      : `No host com diálogo nativo: a ferramenta ork_noctum_revogar com o arco ${p.arco}`];
+    p.ato === 'autorizar' ? `No Claude Code ou em outro host com diálogo nativo: a janela de confirmação, pela ferramenta ork_noctum_autorizar com o arco ${p.arco}`
+      : `No Claude Code ou em outro host com diálogo nativo: a janela de confirmação, pela ferramenta ork_noctum_revogar com o arco ${p.arco}`,
+    'Digitar a resposta no terminal não grava nada: o ingresso do terminal está desligado'];
 }
 
 const semEntrega = (detalhe: string): EntregaDaPerguntaDoArco =>

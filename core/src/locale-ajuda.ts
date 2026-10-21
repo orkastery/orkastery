@@ -130,11 +130,11 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   noctum propor --arquivo <envelope.json>   Propõe o envelope de um arco #Noctum (RM-058) e pergunta ao dono, com código
                                             curto e alternativas, também no canal dele; não autoriza nada
   noctum revogar <arco> [--json]            Pergunta ao dono se revoga o arco (RM-057); quem revoga é a resposta dele,
-                                            no terminal, no Telegram ou pelo diálogo do host
+                                            no Telegram ou pelo diálogo do host
   noctum responder <arco> --resposta-stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]
                                             Recebe a autorização ou a revogação assinada pelo gateway
-  noctum terminal --hook-stdin              O ingresso do terminal (RM-057): o hook UserPromptSubmit entrega o que o
-                                            dono digitou, e o núcleo confere a origem da sessão antes de gravar
+  noctum terminal --hook-stdin              O ingresso do terminal (RM-057), desligado: o hook UserPromptSubmit entrega
+                                            o que o dono digitou, e o núcleo só diz por onde responder; nada grava
   noctum status [<arco>] [--json]           Retrato do arco: situação, consumo medido, fila, fechamento e lacunas
   noctum tique <arco> [--json]              Fechamento, vigia e relatório do arco, nessa ordem (o cron do dono chama);
                                             o vigia reconcilia e, sem condutor vivo, dá o passo do despacho e o da entrega
@@ -543,11 +543,11 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
   noctum propor --arquivo <envelope.json>   Proposes the envelope of a #Noctum arc (RM-058) and asks the owner, with a short
                                             code and choices, also on the owner's channel; it authorizes nothing
   noctum revogar <arc> [--json]             Asks the owner whether to revoke the arc (RM-057); the owner's answer revokes,
-                                            in the terminal, on Telegram or through the host dialog
+                                            on Telegram or through the host dialog
   noctum responder <arc> --resposta-stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]
                                             Receives the authorization or revocation signed by the gateway
-  noctum terminal --hook-stdin              The terminal ingress (RM-057): the UserPromptSubmit hook delivers what the
-                                            owner typed, and the core checks the session origin before recording
+  noctum terminal --hook-stdin              The terminal ingress (RM-057), turned off: the UserPromptSubmit hook delivers
+                                            what the owner typed, and the core only says where to answer; nothing is recorded
   noctum status [<arc>] [--json]            Arc snapshot: situation, measured usage, queue, closing and gaps
   noctum tique <arc> [--json]               Closing, watcher and report of the arc, in that order (the owner cron calls it);
                                             the watcher reconciles and, with no live conductor, takes the dispatch and delivery step

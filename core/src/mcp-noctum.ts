@@ -46,14 +46,14 @@ export function registrarFerramentasDoNoctum(registrar: Registrar, o: OpcoesDoNo
   const exigirFormulario = () => {
     if (!o.temFormulario()) {
       throw Error('noctum.origem.sem-prova: este cliente não oferece o formulário nativo do host; o dono responde à pergunta do arco com a ' +
-        'letra no terminal do Claude Code ou em reply no Telegram, ou por um host com diálogo nativo');
+        'letra em reply no Telegram, com o código no Telegram, ou por um host com diálogo nativo');
     }
   };
   registrar('ork_noctum_propor', {
     description: 'Grava a proposta do envelope de um arco #Noctum (o pedido de abertura com os valores do dono: janela, destinos, ' +
       'orcamento, relatorio, trabalhos e capacidade) e devolve o resumo, o hash e a pergunta ao dono (codigo curto e alternativas), que sai ' +
-      'tambem pelo canal dele. Nao autoriza nada: quem autoriza e o dono, respondendo a pergunta com a letra (no terminal, em reply no ' +
-      'Telegram ou pelo dialogo nativo, ork_noctum_autorizar). Mostre a pergunta ao dono como ela vem; nunca responda por ele. Nunca ' +
+      'tambem pelo canal dele. Nao autoriza nada: quem autoriza e o dono, respondendo a pergunta com a letra (em reply no Telegram, com o ' +
+      'codigo no Telegram ou pelo dialogo nativo, ork_noctum_autorizar; o terminal nao grava resposta). Mostre a pergunta ao dono como ela vem; nunca responda por ele. Nunca ' +
       'invente valor do dono: campo que falta volta listado na recusa.',
     inputSchema: z.object({ pedido: z.record(z.unknown()) }).strict(),
     annotations: { readOnlyHint: false, destructiveHint: false },

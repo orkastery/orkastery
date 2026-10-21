@@ -98,40 +98,32 @@ same system user gets around it, and the limit is stated below.
 
 ## The owner's short answer in the terminal (RM-057)
 
-The owner approves wherever they are. In an interactive Claude Code session, the owner answers the question of a
-#Noctum arc with `sim`, `a` or `<código> a`, and the `UserPromptSubmit` hook (`hooks/ork-resposta.js`) takes the
-event to the core through `ork noctum terminal --hook-stdin`. Only text shaped like a short answer (the code
-with the answer, the number with the letter, or up to two words) calls the core; ordinary conversation goes to the
-model untouched. A prompt the machine wrote (the event's `source` field other than `user`: the
-scheduled task, the `/loop` wakeup, a channel message or one from another session) never reaches the core. The
-hook only carries the core's decision:
+**Turned off.** Since GO-FIX 2 of RM-057, the core records nothing through the terminal. In an interactive
+Claude Code session, when the owner types the short answer to a question waiting for them (`sim`, `a` or
+`<código> a`), the `UserPromptSubmit` hook (`hooks/ork-resposta.js`) takes the event to the core through
+`ork noctum terminal --hook-stdin`, and the core only returns the refusal `noctum.terminal.desligado`: with someone
+present, the owner sees a notice (`systemMessage`) to answer on Telegram, in reply to the question's
+message or with the code and the letter, or through the Claude Code confirmation window (the native dialog, one
+click). The prompt goes on to the model, and nothing is recorded or forwarded, not even an answer to a gate. Ordinary
+conversation does not even call the core, and neither does a prompt the machine wrote (the event's `source` field other than
+`user`).
 
-| Core decision | What the hook returns to Claude Code |
-|---|---|
-| Recorded, without effect (postpone, change something), the detail or the question back | `decision: block` with the core's sentence: the prompt is replaced by the confirmation, and the "sim" never reaches the model |
-| Answer to a gate | `additionalContext`: the conductor opens the native dialog (`ork_request_decision`); the terminal does not record gates |
-| Refusal by origin, with someone present | `systemMessage` with the reason; the prompt goes on to the model |
-| Nothing to do with Orkastery | Nothing |
+**Why it is off:** the installed Claude Code (2.1.306) does not send the event's `source` yet, and without it
+nothing from the owner would be recorded. And the agent of the owner's own session, through the Bash tool, swaps the shell for the
+core with `exec`, drops the `AI_AGENT` mark and forges the event with `source` equal to `user`: the process
+chain and the guard are speed bumps, not proof. Turned on, the ingress would not serve the owner and would serve whoever
+forges the event.
 
-The core is the one that proves it, by the origin of the prompt and of the session and never by the text: the prompt typed by the
-owner (`source` equal to `user`; without the field, which Claude Code is still rolling out, nothing is recorded),
-presence (`CLAUDE_CODE_SESSION_ATTENDED=1`, which Claude Code only sets in an interactive session), the
-session id, no `ork` dispatch identity (`ORK_DISPATCH_ID`, `ORK_DISPATCH_THREAD`) nor a background
-job folder, an entry point that is not the SDK's, the id outside the dispatch register of the
-threads, the `cwd` outside any thread worktree and, on Linux, the process chain through `/proc`: every
-process between the core and the session (`CLAUDE_PID`) was born from that session's hook, with the same id, presence and without
-the `AI_AGENT` mark that Claude Code puts on the shell of the agent's tools (the background session and
-the one nested in another Claude Code session are refused; without `/proc`, nothing is recorded). A typed code
-always counts; the bare word and the letter only right after the question (the last line of the assistant's last
-message carries its code), only to say "a" and once, never after "b" or "c": the rest goes on
-to the model. The receipt sits next to the arc log, with a subkey of the core's local key.
+**What is missing to turn it back on**, in a dedicated slice: Claude Code sending the human origin of the event
+(`source`); a proof that the event came from the harness hook, and not from a process of the same user; and,
+for the bare word, the question shown required to be the line the core builds for it, or only the code
+with the letter. The ingress code stays in the core behind the `TERMINAL_LIGADO` switch, off; only the
+tests turn it on, and the CLI and the hook never do.
 
-**Limit:** the boundary is the system account. A process of the same user that opens a new interactive
-Claude Code session outside the agent's process tree (with `setsid` and a pseudo-terminal,
-for example) and types in it gets through; the agent through the Bash tool of its own session does not. In the native
-dialog, any MCP client of the same user that declares the form gets through, without a key. To separate the
-core from the agents, run the agents under another account or sandbox. The new hook only takes effect after reinstalling
-the plugin (`ork adapter install claude-code`) and with an `ork` that has `noctum terminal`.
+**Limit:** the boundary is the system account. In the native dialog, any MCP client of the same user that
+declares the form gets through, without a key. To separate the core from the agents, run the agents under another account
+or sandbox. The notice only shows after reinstalling the plugin (`ork adapter install claude-code`) and with an
+`ork` that has `noctum terminal`.
 
 ## Session sensors
 

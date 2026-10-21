@@ -6,7 +6,9 @@
  * aviso ao dono). Erro do hook ou do núcleo nunca bloqueia. O guard do plugin barra o ingresso chamado pela ferramenta.
  * O núcleo aqui é um executável SIMULADO, menos nos casos de ponta a ponta, que usam o `ork` desta árvore numa raiz
  * descartável; sessões e ambientes SIMULADOS. GO-FIX 1 (achado 1): o prompt que a máquina escreveu (o `source` do evento
- * diferente de `user`) nunca chega ao núcleo (HK8).
+ * diferente de `user`) nunca chega ao núcleo (HK8). GO-FIX 2 (D22): com o ingresso do terminal desligado no núcleo, a
+ * resposta curta ponta a ponta só vira o aviso de por onde responder, e nada é gravado (HK7 e HK10); o prompt com quebra de
+ * linha no meio nem chama o núcleo (HK9, o mutante X23).
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -130,7 +132,7 @@ test('HK6: o hooks.json registra o UserPromptSubmit no hook da resposta, com pra
   assert.ok((fs.statSync(HOOK).mode & 0o111) !== 0, 'o hook sai executável');
 });
 
-test('HK7: de ponta a ponta com o ork desta árvore, a sessão despachada que responde é recusada e o arco segue sem autorização', () => {
+test('HK7: de ponta a ponta com o ork desta árvore, a sessão despachada que responde ouve que o terminal não grava, e o arco segue sem autorização', () => {
   const p = projetoTemporario('hk7');
   try {
     const agora = new Date().toISOString();
@@ -146,7 +148,7 @@ test('HK7: de ponta a ponta com o ork desta árvore, a sessão despachada que re
       ORK_DISPATCH_ID: 'despacho-SIMULADO' };
     const recusa = rodarHook(evento(`${r.codigo} a`, p.dir), env);
     assert.equal(recusa.status, 0, recusa.stderr);
-    assert.match(JSON.parse(recusa.stdout).systemMessage, /não registrou .* despachada pelo ork/);
+    assert.match(JSON.parse(recusa.stdout).systemMessage, /não registrou .* o ingresso do terminal está desligado/);
     assert.equal(lerArco(p.dir, 'arco-hk7')!.autorizadoPor, null);
     const conversa = rodarHook(evento('o que falta para o piloto?', p.dir), env);
     assert.deepEqual([conversa.status, conversa.stdout], [0, '']);
@@ -167,4 +169,43 @@ test('HK8: o prompt que a máquina escreveu (tarefa agendada, /loop, canal, outr
     assert.equal(JSON.parse(rodarHook(evento('NX4K a', dir, null), { ORK_SENSOR_CLI: n.bin }).stdout).decision, 'block');
     assert.deepEqual(n.chamadas().map(c => JSON.parse(c.entrada).source ?? null), ['user', null]);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('HK9: o prompt com quebra de linha no meio, mesmo começando pela resposta curta, nem chama o núcleo', () => {
+  // X23 do CHECK (rodada 2): a defesa do hook, além da do núcleo (TM23).
+  const dir = dirTemporario('hk9');
+  try {
+    const n = nucleoSimulado(dir, decisao({ acao: 'registrada', mensagem: 'nunca', repetida: false }));
+    for (const prompt of ['NX4K a\nmais uma linha', '1a\n2b', 'sim\nnão']) {
+      const r = rodarHook(evento(prompt, dir), { ORK_SENSOR_CLI: n.bin });
+      assert.deepEqual([r.status, r.stdout], [0, ''], JSON.stringify(prompt));
+    }
+    assert.equal(n.chamadas().length, 0);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('HK10: de ponta a ponta com o ork desta árvore, a sessão do dono com a origem perfeita ouve por onde responder, e nada é gravado', () => {
+  // GO-FIX 2 (D22): o ingresso do terminal está desligado; o hook só mostra ao dono o aviso do núcleo.
+  const p = projetoTemporario('hk10');
+  try {
+    const agora = new Date().toISOString();
+    const r = proporEnvelope(p.dir, { contrato: CONTRATO_ENVELOPE, arco: 'arco-hk10',
+      janela: { inicio: new Date(Date.now() - 3600_000).toISOString(), fim: new Date(Date.now() + 7 * 3600_000).toISOString(), fuso: 'America/Sao_Paulo' },
+      destinos: [{ repositorio: 'exemplo/produto', base: 'main', permissoes: ['push', 'pr'] }],
+      orcamento: { arco: { valor: 10, unidade: 'sessoes' }, porConta: [{ conta: 'perfil-a', teto: { valor: 5, unidade: 'sessoes' } }],
+        porRuntime: [{ runtime: 'claude-bg', teto: { valor: 5, unidade: 'sessoes' } }] },
+      relatorio: { horario: '07:30', canal: 'telegram' } }, agora);
+    const bin = path.join(p.dir, 'ork-desta-arvore');
+    fs.writeFileSync(bin, `#!/bin/sh\nexec "${process.execPath}" "${CLI}" "$@"\n`, { mode: 0o755 });
+    const env = { ORK_SENSOR_CLI: bin, HOME: process.env.HOME ?? '', CLAUDE_CODE_SESSION_ATTENDED: '1', CLAUDE_CODE_SESSION_ID: SESSAO,
+      CLAUDE_CODE_ENTRYPOINT: 'cli', CLAUDECODE: '1', ...(process.env.ORKASTERY_HOME ? { ORKASTERY_HOME: process.env.ORKASTERY_HOME } : {}) };
+    const aviso = rodarHook(evento(`${r.codigo} a`, p.dir), env);
+    assert.equal(aviso.status, 0, aviso.stderr);
+    const saida = JSON.parse(aviso.stdout) as Record<string, string>;
+    assert.deepEqual(Object.keys(saida), ['systemMessage'], 'só o aviso: o prompt não é bloqueado nem vira contexto');
+    assert.match(saida.systemMessage, new RegExp(`Responda pelo Telegram, em reply à mensagem da pergunta ou com ${r.codigo} e a letra, ` +
+      'ou pela janela de confirmação do Claude Code'));
+    assert.equal(lerArco(p.dir, 'arco-hk10')!.autorizadoPor, null);
+    assert.equal(fs.existsSync(path.join(p.dir, '.orkastery', 'noctum', 'arcos', 'arco-hk10', 'ingresso')), false);
+  } finally { p.limpar(); }
 });

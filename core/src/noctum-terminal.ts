@@ -1,9 +1,21 @@
 /**
  * RM-057 (resposta curta, D5 e D6 da ork-rm057respost): o ingresso do terminal do Claude Code.
  *
- * O dono decidiu que aprova onde estiver. No terminal do Claude Code, o hook `UserPromptSubmit` do plugin do `ork` leva
- * ao núcleo o que ele digitou numa sessão interativa; quando o texto é uma resposta curta a uma pergunta do arco #Noctum,
- * o núcleo confere a ORIGEM do prompt e da sessão, nunca o texto, e grava o ato com o recibo.
+ * DESLIGADO (GO-FIX 2, R2 e R3 do CHECK, decisão D22): o núcleo não grava nada pelo terminal. Quando o dono digita uma
+ * resposta curta a uma pergunta que espera por ele, o hook leva o evento ao núcleo, e o núcleo só devolve o aviso de
+ * responder pelo Telegram (em reply à mensagem da pergunta, ou com o código) ou pela janela de confirmação do Claude Code
+ * (o diálogo nativo). Por quê: o Claude Code instalado (2.1.306) não manda a origem humana do evento (`source`), então
+ * nada do dono gravaria; e o agente da própria sessão do dono forja o evento e passa a cadeia de processos, com `exec` e
+ * sem a marca `AI_AGENT` (S15 do CHECK). Hoje o ingresso não serviria ao dono e serviria a quem forja.
+ *
+ * O que falta para religar, numa fatia própria: o Claude Code mandar o `source` do evento, e uma prova de que o evento
+ * veio do hook do harness e não de um processo do mesmo usuário (a cadeia e o guard são lombadas, não prova); a pergunta
+ * mostrada exigida como a linha que o núcleo monta para ela, ou só o código (R3). Até lá, o código abaixo fica atrás da
+ * chave `TERMINAL_LIGADO`, desligada; só os testes a ligam, por `AmbienteDoTerminal.ligado`, e o CLI e o hook nunca.
+ *
+ * Com a chave ligada, o dono decidiu que aprova onde estiver. No terminal do Claude Code, o hook `UserPromptSubmit` do
+ * plugin do `ork` leva ao núcleo o que ele digitou numa sessão interativa; quando o texto é uma resposta curta a uma
+ * pergunta do arco #Noctum, o núcleo confere a ORIGEM do prompt e da sessão, nunca o texto, e grava o ato com o recibo.
  *
  * A origem (D5; GO-FIX 1, achados 1 e 5), conferida nesta ordem, cada passo com o motivo tipado de quando falha:
  *  - prompt digitado: o evento diz quem escreveu o prompt (`source`), e só `user`, o compositor interativo, vale. A tarefa
@@ -26,7 +38,9 @@
  * O limite que sobra, dito como o do diálogo nativo (A21 e NP14): a fronteira é a conta do sistema. Um processo do mesmo
  * usuário que abra uma sessão interativa nova do Claude Code fora da árvore de processos do agente (com `setsid` e um
  * terminal virtual, por exemplo) e digite nela passa, porque o núcleo e os agentes dividem a conta; o agente pela
- * ferramenta Bash da própria sessão, não. Separar de verdade é rodar os agentes em outra conta ou sandbox.
+ * ferramenta Bash da própria sessão também passa, se trocar o shell pelo núcleo com `exec`, tirar a marca `AI_AGENT` e
+ * forjar o evento com `source` igual a `user` (S15 do CHECK; o guard do plugin não vê o subcomando entre aspas). Separar
+ * de verdade é rodar os agentes em outra conta ou sandbox.
  *
  * A pergunta (D6; GO-FIX 1, achado 3): o código digitado ("K7QX a") vale sempre que a origem prova o dono. A palavra
  * solta, a letra e o número com a letra só valem logo depois da pergunta mostrada: a última linha da última mensagem do
@@ -49,6 +63,13 @@ import { interpretarRespostaDoPulse, lerLoteServido, pedidosComCodigo, PerguntaS
 import { lerThread, listarIds } from './thread';
 
 export const CONTRATO_DO_TERMINAL = 'ork.noctum-terminal/v1' as const;
+
+/**
+ * GO-FIX 2 (R2 e R3 do CHECK, D22): a chave do ingresso do terminal, DESLIGADA. Desligada, a resposta curta a uma pergunta
+ * que espera o dono volta como recusa (`noctum.terminal.desligado`) com o aviso de por onde responder, antes de conferir a
+ * origem, e nada é gravado. Só um teste (ou a fatia que religar, com o que falta dito no topo deste arquivo) a liga.
+ */
+export const TERMINAL_LIGADO: boolean = false;
 
 /** O que o hook `UserPromptSubmit` entrega, como o Claude Code o monta. */
 export interface EntradaDoHook {
@@ -77,6 +98,8 @@ export interface AmbienteDoTerminal {
   transcricao?: (arquivo: string) => string | null;
   /** O estado da conversa do pulse (o lote servido), quando não é o da raiz. */
   estadoDir?: string;
+  /** GO-FIX 2 (D22): liga o ingresso desligado. Só os testes passam isto; o CLI e o hook nunca. */
+  ligado?: boolean;
 }
 
 /** O corpo da decisão, sem o contrato. */
@@ -184,6 +207,7 @@ const dentro = (pai: string, filho: string): boolean => {
 };
 
 const MOTIVOS: Readonly<Record<string, string>> = Object.freeze({
+  'noctum.terminal.desligado': 'o ingresso do terminal está desligado até o Claude Code mandar a origem humana do evento',
   'noctum.terminal.origem-do-prompt-desconhecida': 'o evento do Claude Code não diz que foi você quem digitou (sem o campo source, o terminal não grava)',
   'noctum.terminal.prompt-injetado': 'o prompt não foi digitado por você (veio de tarefa agendada, /loop, canal, outra sessão ou programa)',
   'noctum.terminal.sem-presenca': 'a sessão não tem alguém presente (segundo plano ou execução por programa)',
@@ -289,8 +313,20 @@ function dizA(trecho: TrechoLivre): boolean {
 type Alvo =
   | { tipo: 'nada'; motivo: string }
   | { tipo: 'pergunta-de-volta'; mensagem: string }
-  | { tipo: 'gate'; contexto: string }
+  | { tipo: 'gate'; contexto: string; codigo: string }
   | { tipo: 'arco'; pergunta: PerguntaNoLog; trecho: TrechoLivre };
+
+/**
+ * GO-FIX 2 (D22): a resposta do terminal desligado. Nada é gravado nem encaminhado; com alguém presente, o dono vê por onde
+ * responder, e o prompt segue ao modelo.
+ */
+function desligado(texto: string, alvo: Exclude<Alvo, { tipo: 'nada' }>, env: NodeJS.ProcessEnv): DecisaoDoTerminal {
+  const codigo = alvo.tipo === 'arco' ? alvo.pergunta.codigo : alvo.tipo === 'gate' ? alvo.codigo : null;
+  return decisao({ acao: 'recusada', motivo: 'noctum.terminal.desligado', presenca: env.CLAUDE_CODE_SESSION_ATTENDED === '1',
+    mensagem: `O Orkastery não registrou "${texto.slice(0, 40)}"${codigo ? ` para a pergunta ${codigo}` : ''}: ` +
+      `${MOTIVOS['noctum.terminal.desligado']}. Responda pelo Telegram, em reply à mensagem da pergunta` +
+      `${codigo ? ` ou com ${codigo} e a letra` : ''}, ou pela janela de confirmação do Claude Code (o diálogo nativo).` });
+}
 
 /**
  * GO-FIX 1 (achado 3): a palavra solta e o número com a letra só valem para a pergunta que o dono viu por último, e só
@@ -321,6 +357,7 @@ function alvoMostradoPorUltimo(raiz: string, entrada: EntradaDoHook, amb: Ambien
 /**
  * O ingresso do terminal: lê o evento do hook, reconhece só a resposta curta, acha a pergunta (o código, ou a mostrada por
  * último para a palavra solta e o número), confere a origem (D5) e responde pela via do terminal. Nunca adivinha.
+ * Desligado (D22), devolve o aviso logo depois de achar a pergunta, sem conferir a origem e sem gravar nem encaminhar.
  */
 export function responderPeloTerminal(raiz: string | null, bruto: unknown, amb: AmbienteDoTerminal): DecisaoDoTerminal {
   const quando = amb.quando ?? new Date().toISOString();
@@ -345,7 +382,7 @@ export function responderPeloTerminal(raiz: string | null, bruto: unknown, amb: 
     const trecho = lerTrecho(resto) ?? (resto === '?' ? lerTrecho('detalhes') : null);
     alvo = doArco.length + gates.length > 1
       ? { tipo: 'pergunta-de-volta', mensagem: `O código ${lido.codigo} está em mais de uma pergunta; nada foi registrado. Responda pelo número da pergunta.` }
-      : gates.length === 1 ? { tipo: 'gate', contexto: contextoDoGate(lido.codigo, gates[0].thread, gates[0].pedido.id, texto) }
+      : gates.length === 1 ? { tipo: 'gate', contexto: contextoDoGate(lido.codigo, gates[0].thread, gates[0].pedido.id, texto), codigo: lido.codigo }
         : !doArco.length ? { tipo: 'nada', motivo: 'codigo-desconhecido' }
           : !trecho ? { tipo: 'pergunta-de-volta', mensagem: `Não entendi "${resto.slice(0, 40)}" para ${doArco[0].codigo}; nada foi registrado. Responda a, b ou c.` }
             : { tipo: 'arco', pergunta: doArco[0], trecho };
@@ -357,6 +394,8 @@ export function responderPeloTerminal(raiz: string | null, bruto: unknown, amb: 
       : { tipo: 'nada', motivo: 'nao-e-resposta-curta' };
   }
   if (alvo.tipo === 'nada') return decisao({ acao: 'ignorar', motivo: alvo.motivo });
+  // GO-FIX 2 (D22): desligado, nada é gravado nem encaminhado, e o dono ouve por onde responder.
+  if (!(amb.ligado ?? TERMINAL_LIGADO)) return desligado(texto, alvo, amb.env);
 
   // D5: a origem do prompt e da sessão, antes de qualquer gravação ou encaminhamento. A palavra do dono não prova nada.
   const origem = origemDoDono(raiz, entrada, amb);
