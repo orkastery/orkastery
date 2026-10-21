@@ -95,21 +95,6 @@
       "lint": []
     },
     {
-      "id": "C10",
-      "thread": "ork-dsnforadoamb",
-      "fase": "GOAL",
-      "arquivo": "core/src/memoria.ts",
-      "alegacao": "T3 (D5): o ork memory status em texto mostra, com a fonte de arquivo, o arquivo da base pelo rótulo e se a DSN está no arquivo, sem o valor; com a fonte de ambiente, as linhas de sempre (casos DR4 e DR9); os testes de degradação e de memória seguem verdes.",
-      "negativa": true,
-      "verificar": [
-        "grep -qF \"if (estado.fonteDaDsn === 'arquivo') {\" core/src/memoria.ts && grep -qF '  arquivo da base       ' core/src/memoria.ts",
-        "node --test-reporter=tap --test-name-pattern='^DR(4|9):' core/dist-test/test/dsn-da-memoria.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DR(4|9):/{p++} END{exit !(p==2 && f==0 && s==0)}' && node --test core/dist-test/test/degradacao.test.js core/dist-test/test/memoria.test.js"
-      ],
-      "criadoEm": "2026-10-20T16:20:14.783Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C11",
       "thread": "ork-dsnforadoamb",
       "fase": "GOAL",
@@ -365,22 +350,6 @@
       "lint": []
     },
     {
-      "id": "C33",
-      "thread": "ork-dsnforadoamb",
-      "fase": "GO",
-      "arquivo": "core/src/dsn-da-memoria.ts",
-      "alegacao": "GO-FIX 1, achado 1 (D17): o resolvedor nunca lê arquivo por link simbólico em nenhum componente do caminho: a pasta do usuário do ork, a pasta de segredos e o arquivo são conferidos pelo lstat antes de abrir, e o caminho real tem de ficar na pasta de segredos real; pasta de segredos com link para fora, pasta do usuário com link e pasta que não é pasta são recusadas com dsn.arquivo-invalido (causa pasta), sem a DSN e sem o caminho real (DM20 a DM22); o mutante M1, que volta ao lstat só do arquivo, morre.",
-      "negativa": true,
-      "verificar": [
-        "grep -qF 'const antes = conferirCaminho(pasta, nome);' core/src/dsn-da-memoria.ts && grep -qF 'for (const dir of [pasta, segredos]) {' core/src/dsn-da-memoria.ts && grep -qF 'if (fs.realpathSync(caminho) !== path.join(fs.realpathSync(pasta), PASTA_DE_SEGREDOS, nome)) {' core/src/dsn-da-memoria.ts && grep -qF 'if (st.dev !== antes.dev || st.ino !== antes.ino)' core/src/dsn-da-memoria.ts",
-        "node --test-reporter=tap --test-name-pattern='^DM2[0-2]:' core/dist-test/test/dsn-da-memoria.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DM2[0-2]:/{p++} END{exit !(p==3 && f==0 && s==0)}'",
-        "node core/scripts/mutante.cjs core/test/mutantes/dsn-da-memoria.json M1"
-      ],
-      "criadoEm": "2026-10-20T21:43:30.601Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C34",
       "thread": "ork-dsnforadoamb",
       "fase": "GO",
@@ -466,36 +435,6 @@
       "lint": []
     },
     {
-      "id": "C39",
-      "thread": "ork-dsnforadoamb",
-      "fase": "GO",
-      "arquivo": "core/test/mutantes/dsn-da-memoria.json",
-      "alegacao": "GO-FIX 1, achado 4: a especificação ork.mutantes/v1 do GO-FIX tem os mutantes M1 a M11, cada um com módulo, trecho, troca, teste e nome, e cada trecho aparece exatamente uma vez no módulo compilado de core/dist e de core/dist-test/src.",
-      "negativa": false,
-      "verificar": [
-        "node -e 'const fs=require(\"fs\");const s=require(\"./core/test/mutantes/dsn-da-memoria.json\");const ids=s.mutantes.map(m=>m.id);const ok=s.contrato===\"ork.mutantes/v1\"&&ids.join()===\"M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11\"&&s.mutantes.every(m=>m.modulo&&m.de&&m.para&&m.de!==m.para&&m.teste&&m.nome&&[\"core/dist/\",\"core/dist-test/src/\"].every(d=>fs.readFileSync(d+m.modulo+\".js\",\"utf8\").split(m.de).length===2));process.exit(ok?0:1)'"
-      ],
-      "criadoEm": "2026-10-20T21:43:59.156Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C40",
-      "thread": "ork-dsnforadoamb",
-      "fase": "GO",
-      "arquivo": "docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md",
-      "alegacao": "GO-FIX 1, item 5 (D22): fora do frontmatter e da tabela de estado que o gerador escreve, a página da RM-069 não tem nenhuma data exata além da data da decisão do dono (a linha da decisão e a linha dela no histórico); a página diz a regra nova do arquivo, a barreira de saída e as evidências DM1 a DM26, DD1 a DD13 e DS1 a DS5.",
-      "negativa": true,
-      "verificar": [
-        "node -e 'const t=require(\"fs\").readFileSync(\"docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md\",\"utf8\");const corpo=t.replace(/^---\\n[\\s\\S]*?\\n---\\n/,\"\").replace(/<!-- ork-docs:estado:inicio -->[\\s\\S]*?<!-- ork-docs:estado:fim -->/,\"\");const datas=corpo.split(\"\\n\").filter(l=>/\\b\\d{4}-\\d{2}-\\d{2}\\b|\\b\\d{1,2}\\/\\d{1,2}\\/\\d{4}\\b/.test(l));process.exit(datas.length===2&&datas.every(l=>/[Dd]ecisão (4a )?do dono/.test(l))?0:1)'",
-        "grep -qF 'resolvedor: core/test/dsn-da-memoria.test.ts (DM1 a DM26 e DR1 a DR9)' docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md && grep -qF 'saida: core/test/dsn-saida.test.ts (DS1 a DS5)' docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md && grep -qF '**Barreira de saída:**' docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md && grep -qF 'com permissão `0600` ou `0400` exata' docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md",
-        "core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md"
-      ],
-      "criadoEm": "2026-10-20T21:44:05.251Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C41",
       "thread": "ork-dsnforadoamb",
       "fase": "GO",
@@ -537,6 +476,131 @@
         "core/node_modules/.bin/markdownlint-cli2 CHANGELOG.md"
       ],
       "criadoEm": "2026-10-20T21:44:13.985Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GO",
+      "arquivo": "core/src/dsn-da-memoria.ts",
+      "alegacao": "GO-FIX 2, D24 (substitui a C33, que dizia mais que a D17 conferia): o resolvedor só lê o arquivo da DSN da casa do usuário para baixo. A casa (HOME) vale pelo caminho real, e o que fica acima dela não é conferido. A raiz vinda de ORK_USUARIO_DIR ou ORKASTERY_HOME relativa, com .. (mesmo voltando para dentro da casa), fora da casa ou igual a ela é recusada com dsn.arquivo-invalido (causa raiz), e a raiz de outro dono com dsn.arquivo-inseguro (causa dono-da-pasta), sem abrir nenhum arquivo (DM28, DM29). Link simbólico em qualquer pasta da casa ao arquivo, da raiz à de segredos, é recusado pela causa pasta sem abrir nada (DM20, DM21, DM27), e uma pasta que não é pasta também (DM22). Nenhuma recusa diz a DSN ou o caminho real. Os mutantes M1, M12, M13, M14 e M15 morrem.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'const raiz = raizDaPastaDoUsuario(env);' core/src/dsn-da-memoria.ts && grep -qF 'const antes = conferirCaminho(raiz, nome, uid);' core/src/dsn-da-memoria.ts && grep -qF 'if (fs.realpathSync(caminho) !== caminho)' core/src/dsn-da-memoria.ts && grep -qF 'temPontoPonto(declarada)' core/src/dsn-da-memoria.ts && grep -qF 'if (st.dev !== antes.arquivo.dev || st.ino !== antes.arquivo.ino)' core/src/dsn-da-memoria.ts && ! grep -qF 'path.resolve(pastaDoUsuario(env))' core/src/dsn-da-memoria.ts",
+        "node --test-reporter=tap --test-name-pattern='^DM(2[0-2]|2[7-9]):' core/dist-test/test/dsn-da-memoria.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DM(2[0-2]|2[7-9]):/{p++} END{exit !(p==6 && f==0 && s==0)}'",
+        "node core/scripts/mutante.cjs core/test/mutantes/dsn-da-memoria.json M1",
+        "node core/scripts/mutante.cjs core/test/mutantes/dsn-da-memoria.json M12",
+        "node core/scripts/mutante.cjs core/test/mutantes/dsn-da-memoria.json M13",
+        "node core/scripts/mutante.cjs core/test/mutantes/dsn-da-memoria.json M14",
+        "node core/scripts/mutante.cjs core/test/mutantes/dsn-da-memoria.json M15"
+      ],
+      "criadoEm": "2026-10-21T01:14:15.876Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/dsn-da-memoria.json",
+      "alegacao": "GO-FIX 2 (substitui a C39): a especificação ork.mutantes/v1 do GO-FIX tem os mutantes M1 a M15, cada um com módulo, trecho, troca, teste e nome, e cada trecho aparece exatamente uma vez no módulo compilado de core/dist e de core/dist-test/src.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\");const s=require(\"./core/test/mutantes/dsn-da-memoria.json\");const ids=s.mutantes.map(m=>m.id);const ok=s.contrato===\"ork.mutantes/v1\"&&ids.join()===\"M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15\"&&s.mutantes.every(m=>m.modulo&&m.de&&m.para&&m.de!==m.para&&m.teste&&m.nome&&[\"core/dist/\",\"core/dist-test/src/\"].every(d=>fs.readFileSync(d+m.modulo+\".js\",\"utf8\").split(m.de).length===2));process.exit(ok?0:1)'"
+      ],
+      "criadoEm": "2026-10-21T01:14:19.314Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md",
+      "alegacao": "GO-FIX 2 (substitui a C40): fora do frontmatter e da tabela de estado que o gerador escreve, a página da RM-069 não tem nenhuma data exata além da data da decisão do dono (a linha da decisão e a linha dela no histórico); a página diz a regra da raiz da D24 (a pasta do usuário pelo caminho real da casa; vinda do ambiente, absoluta, sem .., dentro da casa e do próprio usuário; fora disso, recusa sem abrir nada), o custo da D20 (com senha curta ou comum, o ork também recusa a resposta legítima que tiver o mesmo trecho), a barreira de saída, a permissão exata e as evidências DM1 a DM29, DS1 a DS5 e M1 a M15.",
+      "negativa": true,
+      "verificar": [
+        "node -e 'const t=require(\"fs\").readFileSync(\"docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md\",\"utf8\");const corpo=t.replace(/^---\\n[\\s\\S]*?\\n---\\n/,\"\").replace(/<!-- ork-docs:estado:inicio -->[\\s\\S]*?<!-- ork-docs:estado:fim -->/,\"\");const datas=corpo.split(\"\\n\").filter(l=>/\\b\\d{4}-\\d{2}-\\d{2}\\b|\\b\\d{1,2}\\/\\d{1,2}\\/\\d{4}\\b/.test(l));process.exit(datas.length===2&&datas.every(l=>/[Dd]ecisão (4a )?do dono/.test(l))?0:1)'",
+        "grep -qF 'resolvedor: core/test/dsn-da-memoria.test.ts (DM1 a DM29 e DR1 a DR9)' docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md && grep -qF 'saida: core/test/dsn-saida.test.ts (DS1 a DS5) e core/test/mutantes/dsn-da-memoria.json (M1 a M15)' docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md && grep -qF 'Custo (D20): com senha curta ou comum, o `ork` também recusa a resposta legítima que tiver o mesmo trecho' docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md && grep -qF 'vinda de `ORK_USUARIO_DIR` ou `ORKASTERY_HOME`, só vale como caminho absoluto sem `..`, dentro da casa e pasta do próprio usuário' docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md && grep -qF 'e fora dessa regra recusa sem abrir nada' docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md && grep -qF '**Barreira de saída:**' docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md && grep -qF 'com permissão `0600` ou `0400` exata' docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md"
+      ],
+      "criadoEm": "2026-10-21T01:18:45.198Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GO",
+      "arquivo": "docs/guias/memoria-e-handoff.md",
+      "alegacao": "GO-FIX 2 (D24): o guia da memória diz que a pasta do usuário do ork vinda de ORKASTERY_HOME ou ORK_USUARIO_DIR só vale como caminho absoluto sem .., dentro da casa do usuário (HOME) e pasta dele, ou o arquivo é recusado sem ser aberto, e que nenhuma pasta da casa até o arquivo pode ser link simbólico, com o que fica acima da casa pelo caminho real.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'Vinda dessas variáveis, ela só vale como caminho absoluto sem `..`, dentro da casa do usuário' docs/guias/memoria-e-handoff.md && grep -qF 'Nenhuma pasta da casa até o arquivo pode ser link simbólico (nem a pasta do usuário do `ork`,' docs/guias/memoria-e-handoff.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/guias/memoria-e-handoff.md"
+      ],
+      "criadoEm": "2026-10-21T01:18:48.503Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GO",
+      "arquivo": "docs/referencia/fronteira-de-confianca.md",
+      "alegacao": "GO-FIX 2 (D24): a linha de memory.database_url_file na fronteira de confiança diz que a pasta do usuário sai do caminho real da casa (HOME) e, vinda de ORK_USUARIO_DIR ou ORKASTERY_HOME, só vale como caminho absoluto sem .., dentro da casa e do próprio usuário, e que cada pasta entre a casa e a de segredos também é conferida sem link antes de abrir.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'a pasta do usuário sai do caminho real da casa (`HOME`) e, vinda de `ORK_USUARIO_DIR` ou `ORKASTERY_HOME`, só vale como caminho absoluto sem `..`, dentro da casa e do próprio usuário' docs/referencia/fronteira-de-confianca.md && grep -qF 'como cada pasta entre a casa e elas' docs/referencia/fronteira-de-confianca.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/referencia/fronteira-de-confianca.md"
+      ],
+      "criadoEm": "2026-10-21T01:18:51.838Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "GO-FIX 2 (D24): a linha da RM-069 em Não publicado diz que cada pasta da casa do usuário até o arquivo é conferida antes de abrir e que a pasta do usuário vinda de ORK_USUARIO_DIR ou ORKASTERY_HOME só vale dentro da casa, sem .. e do próprio usuário, sem anunciar versão.",
+      "negativa": false,
+      "verificar": [
+        "awk '/^## /{s=$0} /cada pasta da casa/{if (s==\"## Não publicado\") f=1} END{exit !f}' CHANGELOG.md && grep -qF '`ORKASTERY_HOME` só vale dentro da casa, sem `..` e do próprio usuário)' CHANGELOG.md",
+        "core/node_modules/.bin/markdownlint-cli2 CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-21T01:18:54.532Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GO",
+      "arquivo": "SECURITY.md",
+      "alegacao": "GO-FIX 2 (D24): a seção de segredos do SECURITY.md diz que o arquivo da DSN não é lido por link simbólico no caminho desde a casa do usuário e que a pasta do usuário vinda de ORK_USUARIO_DIR ou ORKASTERY_HOME precisa ficar dentro da casa (HOME), sem .., e ser do usuário, ou o arquivo é recusado sem ser aberto.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'link simbólico no caminho desde a casa do usuário (nem na pasta de segredos, nem na pasta do usuário' SECURITY.md && grep -qF 'de `ORK_USUARIO_DIR` ou `ORKASTERY_HOME` precisa ficar dentro da casa (`HOME`), sem `..`, e ser do' SECURITY.md",
+        "core/node_modules/.bin/markdownlint-cli2 SECURITY.md"
+      ],
+      "criadoEm": "2026-10-21T01:18:57.376Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-dsnforadoamb",
+      "fase": "GO",
+      "arquivo": "core/src/memoria.ts",
+      "alegacao": "Merge da main com a RM-061 F3d (substitui a C10): o ork memory status, com a fonte de arquivo, mostra o arquivo pelo rótulo e se a DSN está nele pelo catálogo da RM-061 (arquivo e dsnNoArquivo em core/src/locale-operacao-restante.ts), com o pt-BR igual ao de antes e o inglês sem pt-BR (DR4); com a fonte de ambiente, as linhas de sempre; nem o estado em JSON nem o texto trazem a DSN ou a senha (DR9); os testes de degradação e de memória e os retratos da F3d seguem verdes.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"if (estado.fonteDaDsn === 'arquivo') {\" core/src/memoria.ts && grep -qF 'linhas.push(m.arquivo(estado.arquivoDaDsn' core/src/memoria.ts && grep -qF 'linhas.push(m.dsnNoArquivo(estado.dsnPresente));' core/src/memoria.ts && grep -qF 'arquivo: (v: string) => `  arquivo da base       ${v}`,' core/src/locale-operacao-restante.ts && grep -qF 'arquivo: (v) => `  database file         ${v}`,' core/src/locale-operacao-restante.ts",
+        "node --test-reporter=tap --test-name-pattern='^DR(4|9):' core/dist-test/test/dsn-da-memoria.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - DR(4|9):/{p++} END{exit !(p==2 && f==0 && s==0)}' && node --test core/dist-test/test/degradacao.test.js core/dist-test/test/memoria.test.js core/dist-test/test/locale-f3d-snapshot.test.js core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-21T01:32:02.877Z",
       "estado": "verificado",
       "lint": []
     }
