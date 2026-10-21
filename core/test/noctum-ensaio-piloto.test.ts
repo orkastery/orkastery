@@ -215,8 +215,10 @@ test('EP12: o dono aprova onde estiver, com resposta curta: reply, código, pala
   provada(c, /^com duas perguntas esperando no chat, o "sim" solto volta perguntando qual/);
   provada(c, /^a palavra solta de outro chat autorizado não responde/);
   provada(c, /^o código vindo de um chat fora da lista do canal é recusado/);
+  provada(c, /^o "ok" em reply à confirmação do "b\) Adiar" não autoriza/);
   provada(c, /^depois do prazo da pergunta, a resposta volta dizendo que ela venceu/);
   provada(c, /^a sessão despachada pelo ork que digita "sim" no terminal é recusada pela origem da sessão/);
+  provada(c, /^na sessão do dono, o prompt que a tarefa agendada injeta é recusado/);
   provada(c, /^na sessão interativa do dono, com a pergunta mostrada nela, o "sim" autoriza o arco com o recibo do terminal/);
   provada(c, /^o terminal puro segue recusado/);
   provada(c, /^ork noctum revogar só pergunta/);

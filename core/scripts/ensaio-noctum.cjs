@@ -251,7 +251,8 @@ function montarApoio(raiz, n, sabotar) {
 
   /**
    * RM-057 (resposta curta): o que o ingresso do Hermes assina quando o dono digita `texto` no chat, em reply à mensagem da
-   * pergunta (`referencia`, o endereço `resposta:<código>`) ou não (o endereço do pulse).
+   * pergunta (`referencia`, `<código>:<id da mensagem respondida>`, no endereço `resposta:<código>:<id>`) ou não (o endereço
+   * do pulse).
    */
   function peloPulse(texto, recebidoEm, o = {}) {
     mensagens += 1;
@@ -278,7 +279,10 @@ function montarApoio(raiz, n, sabotar) {
   function canalDoPulse(proj) {
     const script = path.join(raiz, 'canal-do-pulse-simulado.cjs');
     if (!fs.existsSync(script)) {
-      fs.writeFileSync(script, "'use strict';\nrequire('node:fs').appendFileSync(process.argv[2], JSON.stringify({ mensagem: process.argv[3] }) + '\\n');\n");
+      // Como o transporte do Hermes depois do recibo: o id da mensagem entregue (500, 501...), que prende o reply do dono a ela.
+      fs.writeFileSync(script, "'use strict';\nconst fs = require('node:fs');\nfs.appendFileSync(process.argv[2], JSON.stringify({ mensagem: process.argv[3] }) + '\\n');\n" +
+        "const total = fs.readFileSync(process.argv[2], 'utf8').split('\\n').filter(Boolean).length;\n" +
+        "process.stdout.write(JSON.stringify({ success: true, message_id: 499 + total, platform: 'telegram' }));\n");
     }
     const saida = path.join(raiz, `${proj.nome}-pulse.jsonl`);
     const host = path.join(proj.dir, '.orkastery', 'monitor', 'pulse-host.json');
@@ -719,11 +723,13 @@ function cenarioRespostaCurta(c, a, n) {
       m1.startsWith(`🔔 ${q1.entrega.numero}. arco arco-reply · ${um.j.codigo}`) && m1.includes('Responda a, b ou c.') && m1.includes('Autorizo') &&
       !m1.includes(um.j.envelopeSha256) && !m1.includes('/ork noctum') && arco('arco-reply').situacao === 'proposto',
     `${um.status}: ${um.stderr}${m1}`);
-  const sim = dizer('sim', { referencia: um.j.codigo });
+  // O reply leva o código e o id da mensagem em que a pergunta saiu (o transporte o devolveu na entrega).
+  const ref1 = `${um.j.codigo}:${q1.entrega?.mensagens?.[0]}`;
+  const sim = dizer('sim', { referencia: ref1 });
   c.esperar('o "sim" em reply à mensagem da pergunta, assinado no endereço do reply, autoriza o arco com o envelope que a pergunta guardou',
     sim.status === 0 && sim.recibo.ok === true && arco('arco-reply').situacao === 'vigente' && arco('arco-reply').envelopeSha256 === um.j.envelopeSha256,
     `${sim.status}: ${sim.stderr}${sim.stdout}`);
-  const deNovo = entregar(sim.e, um.j.codigo);
+  const deNovo = entregar(sim.e, ref1);
   c.esperar('a mesma mensagem de novo não autoriza duas vezes: o recibo diz repetida, e o log tem uma autorização só',
     deNovo.status === 0 && deNovo.recibo.repetida === true && autorizacoes('arco-reply') === 1, `${deNovo.status}: ${deNovo.stdout}${deNovo.stderr}`);
   const semPergunta = dizer('sim');
@@ -766,6 +772,16 @@ function cenarioRespostaCurta(c, a, n) {
     if (chats === undefined) delete process.env.ORK_HITL_TELEGRAM_CHATS; else process.env.ORK_HITL_TELEGRAM_CHATS = chats;
   }
 
+  // GO-FIX 1 (achado 2): o reply só vale para a mensagem da pergunta; a confirmação do "b" nunca é pergunta.
+  const adiada = propor('arco-adiado');
+  const refAdiada = `${adiada.j.codigo}:${adiada.j.pergunta?.entrega?.mensagens?.[0]}`;
+  const b = dizer('b', { referencia: refAdiada });
+  const okNaConfirmacao = dizer('ok', { referencia: `${adiada.j.codigo}:900` });
+  c.esperar('o "ok" em reply à confirmação do "b) Adiar" não autoriza: a confirmação nunca foi a mensagem da pergunta, e nada é gravado',
+    adiada.status === 0 && /b\) Adiar: nada muda/.test(b.recibo.mensagem ?? '') && okNaConfirmacao.status === 0 &&
+      (okNaConfirmacao.recibo.registradas ?? []).length === 0 && arco('arco-adiado').situacao === 'proposto',
+    `${okNaConfirmacao.status}: ${okNaConfirmacao.stdout}${okNaConfirmacao.stderr}`);
+
   // O prazo.
   k += 1;
   const tv = a.threadDoTrabalho(proj, k, `RM-96${k}`);
@@ -780,7 +796,8 @@ function cenarioRespostaCurta(c, a, n) {
   const transcricao = path.join(path.dirname(proj.dir), 'sessao-SIMULADA.jsonl');
   fs.writeFileSync(transcricao, `${JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: term.j.pergunta?.texto ?? '' }] } })}\n`);
   const sessao = '7a1c0e42-5b3d-4f6e-8a9b-0c1d2e3f4a5b';
-  const evento = (prompt) => JSON.stringify({ hook_event_name: 'UserPromptSubmit', session_id: sessao, cwd: proj.dir, transcript_path: transcricao, prompt });
+  const evento = (prompt, source = 'user') => JSON.stringify({ hook_event_name: 'UserPromptSubmit', session_id: sessao, cwd: proj.dir,
+    transcript_path: transcricao, prompt, source });
   const doHook = { CLAUDECODE: '1', CLAUDE_CODE_SESSION_ATTENDED: '1', CLAUDE_CODE_SESSION_ID: sessao, CLAUDE_CODE_ENTRYPOINT: 'cli', CLAUDE_PID: '4242' };
   const limpo = Object.fromEntries(Object.entries(process.env).filter(([nome]) => !/^CLAUDE|^ORK_DISPATCH_/.test(nome)));
   const despachada = a.ork(proj, ['noctum', 'terminal', '--hook-stdin'], evento('sim'),
@@ -791,6 +808,11 @@ function cenarioRespostaCurta(c, a, n) {
     `${despachada.status}: ${despachada.stdout}${despachada.stderr}`);
   const cadeia = [{ pid: 4300, ppid: 4299, ambiente: doHook }, { pid: 4299, ppid: 4242, ambiente: doHook },
     { pid: 4242, ppid: 4000, ambiente: { TERM: 'xterm-256color' } }, { pid: 4000, ppid: 1, ambiente: { SHELL: '/bin/bash' } }];
+  // GO-FIX 1 (achado 1): o prompt que a máquina injeta na sessão do dono (a tarefa agendada) não grava, nem com a pergunta mostrada.
+  const injetado = n.terminal.responderPeloTerminal(proj.dir, JSON.parse(evento('sim', 'schedule_wakeup')), { env: doHook, ancestrais: () => cadeia });
+  c.esperar('na sessão do dono, o prompt que a tarefa agendada injeta é recusado: só o prompt que o dono digitou vale, e o arco segue só proposto',
+    injetado.acao === 'recusada' && injetado.motivo === 'noctum.terminal.prompt-injetado' && arco('arco-terminal').situacao === 'proposto',
+    JSON.stringify(injetado));
   const doDono = n.terminal.responderPeloTerminal(proj.dir, JSON.parse(evento('sim')), { env: doHook, ancestrais: () => cadeia });
   const quem = arco('arco-terminal').autorizadoPor ?? {};
   c.esperar('na sessão interativa do dono, com a pergunta mostrada nela, o "sim" autoriza o arco com o recibo do terminal (sessão e cadeia SIMULADAS)',
@@ -805,7 +827,7 @@ function cenarioRespostaCurta(c, a, n) {
   c.esperar('ork noctum revogar só pergunta: a pergunta de revogação sai no canal, e o arco segue vigente até a resposta',
     pedido.status === 0 && pr.entrega?.entregue === true && mensagens().some((m) => m.includes(`arco arco-reply · ${pr.codigo}`)) &&
       arco('arco-reply').situacao === 'vigente', `${pedido.status}: ${pedido.stdout}${pedido.stderr}`);
-  const revoga = dizer('a', { referencia: pr.codigo });
+  const revoga = dizer('a', { referencia: `${pr.codigo}:${pr.entrega?.mensagens?.[0]}` });
   c.esperar('o "a" em reply à pergunta de revogação revoga o arco', revoga.status === 0 && arco('arco-reply').situacao === 'revogado',
     `${revoga.status}: ${revoga.stdout}${revoga.stderr}`);
 }
