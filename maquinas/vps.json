@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-21T16:00:04.497Z",
+  "publicadoEm": "2026-10-21T16:35:12.091Z",
   "threads": [
     {
       "id": "ork-decisoes0700",
@@ -15,18 +15,14 @@
       "roadmap": null,
       "branch": "ork/ork-decisoes0700-go",
       "atualizadaEm": "2026-10-21T15:40:57.593Z",
-      "entregue": null,
+      "entregue": "e132e241",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
       "runtime": "claude-bg",
       "modelo": "sonnet",
       "esforco": "high",
-      "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
-      }
+      "sessao": null
     },
     {
       "id": "ork-rm057respost",
