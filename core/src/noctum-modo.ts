@@ -70,8 +70,9 @@ export function arcosVigentes(raiz: string, quando = new Date().toISOString()): 
   return { vigentes, ilegiveis };
 }
 
+// RM-057 (resposta curta, D9 da ork-rm057respost): a recusa diz como responder curto, nunca a linha com o hash.
 const COMO_ABRIR = 'abra um arco: proponha o envelope com ork noctum propor --arquivo <envelope.json> (ou a ferramenta ork_noctum_propor) ' +
-  'e autorize-o por ingresso autenticado, /ork noctum <arco> autorizar <sha256> no Telegram ou ork_noctum_autorizar no host';
+  'e o dono o autoriza respondendo à pergunta dele com a letra, no terminal do Claude Code, em reply no Telegram ou pelo diálogo do host';
 
 /** D1: o `#Noctum` só vale com algum arco vigente; sem nenhum, a recusa tipada diz como abrir um. */
 export function aceitarModoNoctum(raiz: string | null, quando = new Date().toISOString()): ArcoVigente[] {

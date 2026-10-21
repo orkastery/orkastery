@@ -1,8 +1,10 @@
 /**
  * RM-058, fatia N6 (D1, D12 e D13 da ork-rm058n6): o comando `ork noctum`, a porta do CLI para o arco.
  *
- *   ork noctum propor --arquivo <envelope.json> [--json]   o pedido de abertura vira proposta; nada é autorizado
+ *   ork noctum propor --arquivo <envelope.json> [--json]   o pedido de abertura vira proposta e pergunta ao dono; nada é autorizado
+ *   ork noctum revogar <arco> [--json]                     a pergunta de revogação ao dono (RM-057); nada é revogado
  *   ork noctum responder <arco> --resposta-stdin ...       o envelope assinado do gateway (autorizar ou revogar)
+ *   ork noctum terminal --hook-stdin                       o ingresso do terminal, que o hook UserPromptSubmit chama (RM-057)
  *   ork noctum status [<arco>] [--json]                    o retrato do arco, com as lacunas; sem arco, a lista
  *   ork noctum tique <arco> [--json]                       fechamento, passo e relatório: o que o cron do dono chama
  *   ork noctum relatorio <arco> [--json] [--reenviar C]    o relatório no terminal, ou o reenvio que o dono pede
@@ -21,7 +23,10 @@ import { aceiteDoPiloto, gravarAceite, Injecao, lerInjecoes, lerLimiares, Limiar
   sensiveisDoArco } from './noctum-aceite';
 import { formatarDataHora } from './horario';
 import { exigirManifesto, ManifestoCarregado } from './manifest';
-import { lerArco, proporEnvelope, SituacaoDoArco } from './noctum-arco';
+import { lerArco, pedirRevogacao, perguntasDoArco, proporEnvelope, SituacaoDoArco } from './noctum-arco';
+import { textoDaPerguntaDoArco } from './noctum-pergunta';
+import { comoResponderAoArco, entregarPerguntaDoArco, EntregaDaPerguntaDoArco } from './noctum-pergunta-canal';
+import { codigosEmUso } from './pulse-resposta';
 import { CANAIS_DO_RELATORIO, RecusaDoArco } from './noctum-envelope';
 import { listarArcos, responderAoArco, retratoDoArco, textoDoRetrato, tiqueDoArco } from './noctum-modo';
 import { CanalComTransporte, reenviarRelatorio, relatorioNoTerminal } from './noctum-relatorio';
@@ -32,9 +37,17 @@ import { CONTRATO_DO_TERMINAL, responderPeloTerminal } from './noctum-terminal';
 
 export interface ArgsDoNoctum { posicionais: string[]; opcoes: Record<string, string | boolean> }
 
-export const USO_DO_NOCTUM = 'uso: ork noctum propor --arquivo <envelope.json> | responder <arco> --resposta-stdin --origem O --canal C ' +
-  '--por P --mensagem M [--conta X] | status [<arco>] [--json] | tique <arco> [--json] | relatorio <arco> [--json] [--reenviar <canal>] | ' +
-  'conduzir <arco> [--json] | aceite <arco> [--json] [--injecoes <arquivo>] [--limiares <arquivo>] [--publicar <arquivo>]';
+export const USO_DO_NOCTUM = 'uso: ork noctum propor --arquivo <envelope.json> | revogar <arco> [--json] | responder <arco> --resposta-stdin ' +
+  '--origem O --canal C --por P --mensagem M [--conta X] | terminal --hook-stdin | status [<arco>] [--json] | tique <arco> [--json] | ' +
+  'relatorio <arco> [--json] [--reenviar <canal>] | conduzir <arco> [--json] | aceite <arco> [--json] [--injecoes <arquivo>] ' +
+  '[--limiares <arquivo>] [--publicar <arquivo>]';
+
+/** A linha da entrega da pergunta ao canal do dono, sem caminho de máquina. */
+function linhaDaEntrega(e: EntregaDaPerguntaDoArco): string {
+  if (e.entregue) return `A pergunta também saiu no canal do dono, como a pergunta ${e.numero} (${e.detalhe}).`;
+  if (e.jaServida) return `A pergunta já tinha saído no canal do dono como a pergunta ${e.numero}.`;
+  return `A pergunta não saiu no canal do dono: ${e.detalhe}.`;
+}
 
 /** RM-057 (resposta curta): a entrada do hook `UserPromptSubmit` tem teto, como o envelope do ingresso. */
 const TETO_DA_ENTRADA_DO_HOOK = 64 * 1024;
@@ -146,15 +159,40 @@ export function comandoNoctum(args: ArgsDoNoctum): number {
       try { pedido = JSON.parse(fs.readFileSync(arquivo, 'utf8')); }
       catch { console.error('noctum.envelope.invalido: o pedido de abertura não é JSON'); return 2; }
       const { raiz } = exigirManifesto();
-      const r = proporEnvelope(raiz, pedido);
+      const quando = new Date().toISOString();
+      const r = proporEnvelope(raiz, pedido, quando, codigosEmUso(raiz));
       const fuso = lerArco(raiz, r.arco)?.conteudo?.janela.fuso ?? (pedido as { janela?: { fuso?: string } })?.janela?.fuso;
-      const instrucoes = [`No Telegram: /ork noctum ${r.arco} autorizar ${r.envelopeSha256}`,
-        `No host (Claude Code ou Codex): a ferramenta ork_noctum_autorizar com o arco ${r.arco} e o hash, que abre o diálogo nativo`];
-      if (json) console.log(JSON.stringify({ ...r, autorizado: false, comoAutorizar: instrucoes }, null, 2));
-      else {
+      // RM-057 (resposta curta, D4 e D9): a proposta é a pergunta ao dono, que sai também pelo canal dele quando ele tem um.
+      const q = r.codigo ? perguntasDoArco(raiz, r.arco, quando).find(x => x.codigo === r.codigo && x.situacao === 'pendente') : undefined;
+      const entrega = q ? entregarPerguntaDoArco(raiz, q, { quando }) : null;
+      const textoDaPergunta = q ? textoDaPerguntaDoArco(q, 'terminal', { quando, ...(entrega?.numero ? { numero: entrega.numero } : {}) }) : null;
+      const instrucoes = q ? comoResponderAoArco(q) : [`O envelope ${r.envelopeSha256.slice(0, 12)} já vale no arco ${r.arco}: não há o que autorizar`];
+      if (json) {
+        console.log(JSON.stringify({ ...r, autorizado: false, comoAutorizar: instrucoes,
+          pergunta: q ? { codigo: q.codigo, prazo: q.prazo, texto: textoDaPergunta, entrega } : null }, null, 2));
+      } else {
         console.log([...r.resumo, '',
-          `Proposta ${r.versao} do arco ${r.arco}, hash ${r.envelopeSha256}, vale até ${formatarDataHora(r.prazo, { fuso, locale: 'pt-BR' })}.`,
-          'Nada foi autorizado: o dono autoriza por ingresso autenticado, nunca por silêncio nem por este comando.', ...instrucoes].join('\n'));
+          `Proposta ${r.versao} do arco ${r.arco}, vale até ${formatarDataHora(r.prazo, { fuso, locale: 'pt-BR' })}.`,
+          'Nada foi autorizado: o dono autoriza respondendo à pergunta, nunca por silêncio nem por este comando.',
+          ...(textoDaPergunta ? ['', textoDaPergunta, '', linhaDaEntrega(entrega!)] : instrucoes)].join('\n'));
+      }
+      return 0;
+    }
+    if (sub === 'revogar') {
+      // RM-057 (resposta curta, D10): abre a pergunta de revogação e a entrega; quem revoga é a resposta do dono.
+      const arco = args.posicionais[2];
+      if (!arco || args.posicionais.length !== 3) { console.error(USO_DO_NOCTUM); return 2; }
+      const { raiz } = exigirManifesto();
+      const quando = new Date().toISOString();
+      const r = pedirRevogacao(raiz, arco, quando, codigosEmUso(raiz));
+      const q = perguntasDoArco(raiz, arco, quando).find(x => x.codigo === r.codigo)!;
+      const entrega = entregarPerguntaDoArco(raiz, q, { quando });
+      const textoDaPergunta = textoDaPerguntaDoArco(q, 'terminal', { quando, ...(entrega.numero ? { numero: entrega.numero } : {}) });
+      if (json) {
+        console.log(JSON.stringify({ arco, revogado: false, comoRevogar: comoResponderAoArco(q),
+          pergunta: { codigo: q.codigo, prazo: q.prazo, nova: r.nova, texto: textoDaPergunta, entrega } }, null, 2));
+      } else {
+        console.log([textoDaPergunta, '', linhaDaEntrega(entrega), 'Nada foi revogado: o dono revoga respondendo à pergunta.'].join('\n'));
       }
       return 0;
     }

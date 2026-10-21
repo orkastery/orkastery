@@ -119,16 +119,21 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   pulse [--json] [--registrar]             Fila unificada de atenção humana e retry de órfãs
   pulse responder --resposta-stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]
                                             Recebe o que o dono digitou no canal do resumo (P4EJ a, 1a 2c)
+        [--em-resposta-a <codigo>]          o código da mensagem respondida (reply), assinado pelo gateway
   pulse cadencia [<tag>] [--por P] [--json] Mostra ou troca a cadencia do resumo: OrkPulseOn, OrkPulseOn-15m,
                                             -30m, -60m ou OrkPulseOff; pergunta nova sai na hora (I-50)
   sessions hitl [--json] [--so-paradas]     Radar de sessoes que exigem acao humana AGORA:
         [--atencao N] [--sem-logs]              classifica o estado de cada sessao do runtime,
         [--so-da-raiz] [--exigir-limpo]         le a pergunta que a sessao trava e diz o que
                                                 destrava (pega HITL de sessao SEM thread)
-  noctum propor --arquivo <envelope.json>   Propõe o envelope de um arco #Noctum (RM-058); não autoriza nada:
-                                            o dono autoriza por ingresso autenticado (gateway ou diálogo do host)
+  noctum propor --arquivo <envelope.json>   Propõe o envelope de um arco #Noctum (RM-058) e pergunta ao dono, com código
+                                            curto e alternativas, também no canal dele; não autoriza nada
+  noctum revogar <arco> [--json]            Pergunta ao dono se revoga o arco (RM-057); quem revoga é a resposta dele,
+                                            no terminal, no Telegram ou pelo diálogo do host
   noctum responder <arco> --resposta-stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]
                                             Recebe a autorização ou a revogação assinada pelo gateway
+  noctum terminal --hook-stdin              O ingresso do terminal (RM-057): o hook UserPromptSubmit entrega o que o
+                                            dono digitou, e o núcleo confere a origem da sessão antes de gravar
   noctum status [<arco>] [--json]           Retrato do arco: situação, consumo medido, fila, fechamento e lacunas
   noctum tique <arco> [--json]              Fechamento, vigia e relatório do arco, nessa ordem (o cron do dono chama);
                                             o vigia reconcilia e, sem condutor vivo, dá o passo do despacho e o da entrega
@@ -525,16 +530,21 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
   pulse [--json] [--registrar]             Unified queue of human attention and retry of orphans
   pulse responder --resposta-stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]
                                             Receives what the owner typed in the summary channel (P4EJ a, 1a 2c)
+        [--em-resposta-a <code>]            the code of the replied message (reply), signed by the gateway
   pulse cadencia [<tag>] [--por P] [--json]  Shows or changes the summary cadence: OrkPulseOn, OrkPulseOn-15m,
                                             -30m, -60m or OrkPulseOff; a new question goes out at once (I-50)
   sessions hitl [--json] [--so-paradas]     Radar of sessions that need human action NOW:
         [--atencao N] [--sem-logs]              classifies the state of each runtime session,
         [--so-da-raiz] [--exigir-limpo]         reads the question the session is stuck on and says what
                                                 unblocks it (catches HITL of sessions WITHOUT a thread)
-  noctum propor --arquivo <envelope.json>   Proposes the envelope of a #Noctum arc (RM-058); it authorizes nothing:
-                                            the owner authorizes through authenticated ingress (gateway or host dialog)
+  noctum propor --arquivo <envelope.json>   Proposes the envelope of a #Noctum arc (RM-058) and asks the owner, with a short
+                                            code and choices, also on the owner's channel; it authorizes nothing
+  noctum revogar <arc> [--json]             Asks the owner whether to revoke the arc (RM-057); the owner's answer revokes,
+                                            in the terminal, on Telegram or through the host dialog
   noctum responder <arc> --resposta-stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]
                                             Receives the authorization or revocation signed by the gateway
+  noctum terminal --hook-stdin              The terminal ingress (RM-057): the UserPromptSubmit hook delivers what the
+                                            owner typed, and the core checks the session origin before recording
   noctum status [<arc>] [--json]            Arc snapshot: situation, measured usage, queue, closing and gaps
   noctum tique <arc> [--json]               Closing, watcher and report of the arc, in that order (the owner cron calls it);
                                             the watcher reconciles and, with no live conductor, takes the dispatch and delivery step

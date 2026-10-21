@@ -19,6 +19,19 @@ export interface EntregaDaPerguntaDoArco extends PerguntaDoArcoServida {
   detalhe: string;
 }
 
+/**
+ * RM-057 (resposta curta, D9 da ork-rm057respost): como o dono responde à pergunta do arco, sem linha para copiar. O
+ * `/ork noctum <arco> autorizar <sha256>` dos gateways segue aceito, mas não é mais ensinado.
+ */
+export function comoResponderAoArco(p: PerguntaDoArco): string[] {
+  const ato = p.ato === 'autorizar' ? 'autoriza' : 'revoga';
+  return [`Responda à pergunta ${p.codigo} com a letra (a ${ato}; b e c não mudam nada): aqui no terminal do Claude Code, onde o hook do ` +
+      'plugin registra, ou em reply à mensagem dela no Telegram',
+    `De qualquer chat autorizado do Telegram, mande ${p.codigo} a`,
+    p.ato === 'autorizar' ? `No host com diálogo nativo: a ferramenta ork_noctum_autorizar com o arco ${p.arco}`
+      : `No host com diálogo nativo: a ferramenta ork_noctum_revogar com o arco ${p.arco}`];
+}
+
 const semEntrega = (detalhe: string): EntregaDaPerguntaDoArco =>
   ({ numero: null, entregue: false, jaServida: false, host: null, destino: null, detalhe });
 

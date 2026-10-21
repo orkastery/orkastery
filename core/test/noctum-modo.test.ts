@@ -149,8 +149,9 @@ test('MO6: ork noctum propor grava a proposta, diz como autorizar e não autoriz
     const r = cli(p.dir, ['noctum', 'propor', '--arquivo', arquivo]);
     assert.equal(r.status, 0, r.stderr);
     const sha = lerArco(p.dir, 'arco-mo6')!.propostaPendente!.envelopeSha256;
-    assert.match(r.stdout, /Nada foi autorizado: o dono autoriza por ingresso autenticado/);
-    assert.ok(r.stdout.includes(`/ork noctum arco-mo6 autorizar ${sha}`));
+    // RM-057 (resposta curta): o dono autoriza respondendo à pergunta; a linha com o hash não é mais ensinada.
+    assert.match(r.stdout, /Nada foi autorizado: o dono autoriza respondendo à pergunta/);
+    assert.ok(!r.stdout.includes(`autorizar ${sha}`));
     assert.equal(lerArco(p.dir, 'arco-mo6')!.situacao, 'proposto');
     const j = JSON.parse(cli(p.dir, ['noctum', 'propor', '--arquivo', arquivo, '--json']).stdout) as { autorizado: boolean; envelopeSha256: string };
     assert.deepEqual([j.autorizado, j.envelopeSha256], [false, sha], 'a mesma proposta devolve a pendente');

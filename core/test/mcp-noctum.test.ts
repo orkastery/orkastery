@@ -64,6 +64,12 @@ test('MN1: ork_noctum_propor grava a proposta com o resumo e o hash, e não auto
     assert.match(d.envelopeSha256, /^[a-f0-9]{64}$/);
     assert.ok(d.resumo.some((l: string) => l === `Hash do envelope: ${d.envelopeSha256}`));
     assert.equal(lerArco(p.dir, 'arco-mn1')!.situacao, 'proposto');
+    // RM-057 (resposta curta): a proposta volta como a pergunta ao dono, e o como responder não traz o hash.
+    assert.equal(d.pergunta.codigo, d.codigo);
+    assert.match(d.pergunta.texto, /Autorizar o arco arco-mn1 \(proposta 1\)\?/);
+    assert.equal(d.pergunta.entrega.entregue, false, 'sem transporte, a pergunta fica com quem propôs');
+    assert.ok(d.comoAutorizar.some((l: string) => l.includes(`${d.codigo} a`)));
+    assert.ok(d.comoAutorizar.every((l: string) => !l.includes(d.envelopeSha256) && !l.includes('/ork noctum')));
     const falta = await chamar(s, 'ork_noctum_propor', { pedido: { contrato: 'ork.noctum-envelope/v2', arco: 'arco-mn1b' } });
     assert.equal(falta.erro, true);
     assert.match(falta.texto, /noctum\.envelope\.valores-ausentes/);

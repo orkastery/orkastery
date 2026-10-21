@@ -610,9 +610,11 @@ function cenarioLigarOModo(c, a, n) {
   const proposta = a.ork(proj, ['noctum', 'propor', '--arquivo', arquivo, '--json']);
   const pj = a.json(proposta.stdout) ?? {};
   const sha = pj.envelopeSha256;
-  c.esperar('ork noctum propor grava a proposta e não autoriza nada: devolve o hash e diz como o dono autoriza (/ork noctum <arco> autorizar <sha256>)',
-    proposta.status === 0 && pj.autorizado === false && Array.isArray(pj.comoAutorizar) &&
-      pj.comoAutorizar.some((x) => x.includes(`/ork noctum arco-ligar autorizar ${sha}`)), `${proposta.status}: ${proposta.stderr}`);
+  // RM-057 (resposta curta): a proposta é a pergunta ao dono, com código curto; o como autorizar não traz o hash nem linha para copiar.
+  c.esperar('ork noctum propor grava a proposta e não autoriza nada: devolve a pergunta ao dono com código curto, e o como autorizar é a resposta curta, sem o hash',
+    proposta.status === 0 && pj.autorizado === false && typeof sha === 'string' && pj.pergunta?.codigo === pj.codigo &&
+      Array.isArray(pj.comoAutorizar) && pj.comoAutorizar.some((x) => x.includes(`${pj.codigo} a`)) &&
+      pj.comoAutorizar.every((x) => !x.includes(sha) && !x.includes('/ork noctum')), `${proposta.status}: ${proposta.stderr}`);
   const aindaSem = a.ork(proj, ['modos', '--do-pedido', '#Noctum seguir o roadmap']);
   c.esperar('a proposta sozinha não liga o modo: o #Noctum segue recusado até o dono autorizar', aindaSem.status === 2, aindaSem.stdout);
   const forjado = a.assinado('arco-ligar', n.arco.textoDeAutorizacao(sha), iso(Date.now()), 'chave-que-nao-e-a-do-canal-SIMULADA-0000000000');

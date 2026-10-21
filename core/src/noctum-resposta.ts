@@ -72,7 +72,7 @@ const marca = (canal: 'telegram' | 'terminal', tipo: 'ok' | 'aviso') => canal ==
 
 /** A frase de uma recusa tipada do arco, para o dono, sem caminho de máquina e sem mensagem interna crua. */
 function textoDaRecusa(raiz: string, p: PerguntaNoLog, e: RecusaDoArco, o: OpcoesDaRespostaAoArco): string {
-  const aviso = marca(o.canal, 'aviso'), hora = (iso: string) => formatarHora(iso, { fuso: p.conteudo?.janela.fuso, agora: o.quando });
+  const aviso = marca(o.canal, 'aviso');
   const nada = p.ato === 'autorizar' ? 'nada foi autorizado' : 'nada foi revogado';
   switch (e.motivo) {
     case 'noctum.efeito.hash-antigo': {
@@ -81,9 +81,11 @@ function textoDaRecusa(raiz: string, p: PerguntaNoLog, e: RecusaDoArco, o: Opcoe
         (agora ? ` A pergunta de agora é ${agora.codigo}: responda ${agora.codigo} a para a proposta ${agora.versao}.` : '');
     }
     case 'noctum.envelope.invalido':
-    case 'noctum.pergunta.vencida':
-      return `${aviso}A pergunta ${p.codigo} venceu às ${hora(p.prazo)}; ${nada}. ` +
+    case 'noctum.pergunta.vencida': {
+      const venceuAs = formatarHora(p.prazo, { fuso: p.conteudo?.janela.fuso, agora: o.quando });
+      return `${aviso}A pergunta ${p.codigo} venceu às ${venceuAs}; ${nada}. ` +
         (p.ato === 'autorizar' ? 'Para seguir, a proposta precisa sair de novo, com outra pergunta.' : 'Para revogar, peça a revogação de novo.');
+    }
     case 'noctum.pergunta.substituida':
       return `${aviso}A pergunta ${p.codigo} foi substituída por outra; ${nada}.`;
     case 'noctum.efeito.expirado':
