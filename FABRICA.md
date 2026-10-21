@@ -5,7 +5,7 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado | Sessão |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| vps | ork-rm057respost | #Auto | GOAL | claude-bg opus/max | RM-057 | — | 21/10 03:30 | viva |
-| vps | ork-rm058blocob | #Auto | GOAL | codex gpt-5.6-sol/xhigh | RM-058 | sim: a escada de recuperacao do runtime | 21/10 03:30 | parada desde 20/10 12:45: sessão 01a159ef caiu (runtime.unavailable) |
+| vps | ork-rm057respost | #Auto | CHECK | codex gpt-5.6-sol/xhigh | RM-057 | — | 21/10 03:49 | viva |
+| vps | ork-rm058blocob | #Auto | GOAL | codex gpt-5.6-sol/xhigh | RM-058 | sim: a escada de recuperacao do runtime | 21/10 03:49 | parada desde 20/10 12:45: sessão 01a159ef caiu (runtime.unavailable) |
 
 Horários de Brasília.
