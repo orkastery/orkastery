@@ -5,7 +5,8 @@
  * decisão do núcleo é transportada como o Claude Code a entende (bloquear o prompt com a frase, contexto ao modelo ou
  * aviso ao dono). Erro do hook ou do núcleo nunca bloqueia. O guard do plugin barra o ingresso chamado pela ferramenta.
  * O núcleo aqui é um executável SIMULADO, menos nos casos de ponta a ponta, que usam o `ork` desta árvore numa raiz
- * descartável; sessões e ambientes SIMULADOS.
+ * descartável; sessões e ambientes SIMULADOS. GO-FIX 1 (achado 1): o prompt que a máquina escreveu (o `source` do evento
+ * diferente de `user`) nunca chega ao núcleo (HK8).
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -38,8 +39,8 @@ function rodarHook(entrada: unknown, env: Record<string, string>): { status: num
   return { status: r.status, stdout: r.stdout, stderr: r.stderr };
 }
 
-const evento = (prompt: string, cwd: string) => ({ hook_event_name: 'UserPromptSubmit', session_id: SESSAO, cwd, prompt,
-  transcript_path: path.join(cwd, 'sessao-SIMULADA.jsonl') });
+const evento = (prompt: string, cwd: string, source: string | null = 'user') => ({ hook_event_name: 'UserPromptSubmit', session_id: SESSAO,
+  cwd, prompt, transcript_path: path.join(cwd, 'sessao-SIMULADA.jsonl'), ...(source === null ? {} : { source }) });
 const decisao = (d: Record<string, unknown>) => JSON.stringify({ contrato: 'ork.noctum-terminal/v1', ...d });
 
 test('HK1: conversa comum não chama o núcleo nem muda o prompt', () => {
@@ -150,4 +151,20 @@ test('HK7: de ponta a ponta com o ork desta árvore, a sessão despachada que re
     const conversa = rodarHook(evento('o que falta para o piloto?', p.dir), env);
     assert.deepEqual([conversa.status, conversa.stdout], [0, '']);
   } finally { p.limpar(); }
+});
+
+test('HK8: o prompt que a máquina escreveu (tarefa agendada, /loop, canal, outra sessão, SDK) nunca chega ao núcleo', () => {
+  // GO-FIX 1 (achado 1): o hook exige a origem humana do evento; sem o campo, quem decide e explica é o núcleo.
+  const dir = dirTemporario('hk8');
+  try {
+    const n = nucleoSimulado(dir, decisao({ acao: 'registrada', mensagem: '✅ NX4K → a) Autorizo: o arco está autorizado.', repetida: false }));
+    for (const source of ['schedule_wakeup', 'loop_wakeup', 'system', 'sdk', 'poll_event', 'qualquer_outro']) {
+      const r = rodarHook(evento('NX4K a', dir, source), { ORK_SENSOR_CLI: n.bin });
+      assert.deepEqual([r.status, r.stdout], [0, ''], source);
+    }
+    assert.equal(n.chamadas().length, 0);
+    assert.equal(JSON.parse(rodarHook(evento('NX4K a', dir, 'user'), { ORK_SENSOR_CLI: n.bin }).stdout).decision, 'block');
+    assert.equal(JSON.parse(rodarHook(evento('NX4K a', dir, null), { ORK_SENSOR_CLI: n.bin }).stdout).decision, 'block');
+    assert.deepEqual(n.chamadas().map(c => JSON.parse(c.entrada).source ?? null), ['user', null]);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

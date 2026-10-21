@@ -14,6 +14,11 @@
  *
  * Ele NAO tem regra de negocio: nao le ledger, nao conhece pergunta e nao prova nada; quem confere a origem da sessao e o
  * nucleo. So texto curto de uma linha chama o nucleo. Erro do hook ou do nucleo nunca bloqueia nem quebra a sessao.
+ *
+ * GO-FIX 1 (achado 1): o prompt que a maquina injeta na sessao do dono (a tarefa agendada, a volta do /loop, a mensagem
+ * de canal ou de outra sessao, o SDK) nunca chega ao nucleo: o evento diz quem o escreveu (`source`), e so `user`, o
+ * compositor interativo, passa. Sem o campo (versao do Claude Code que ainda nao o manda), o nucleo recebe o evento,
+ * recusa e diz ao dono por que; ele tambem exige `user`, para quem chamar o nucleo sem este hook.
  */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -54,6 +59,8 @@ function executar() {
   const h = lerEntrada();
   if (!h || h.hook_event_name !== 'UserPromptSubmit' || typeof h.prompt !== 'string' ||
       typeof h.cwd !== 'string' || !path.isAbsolute(h.cwd)) return;
+  // O prompt que a maquina escreveu nao e do dono: nao chega ao nucleo, e segue ao modelo como sempre.
+  if (h.source !== undefined && h.source !== 'user') return;
   if (!pareceRespostaCurta(h.prompt.trim())) return;
   const r = spawnSync(process.env.ORK_SENSOR_CLI || 'ork', ['noctum', 'terminal', '--hook-stdin'], {
     cwd: h.cwd, input: JSON.stringify(h), encoding: 'utf8', timeout: 8000, maxBuffer: 256 * 1024, windowsHide: true,

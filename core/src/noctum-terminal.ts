@@ -3,9 +3,12 @@
  *
  * O dono decidiu que aprova onde estiver. No terminal do Claude Code, o hook `UserPromptSubmit` do plugin do `ork` leva
  * ao núcleo o que ele digitou numa sessão interativa; quando o texto é uma resposta curta a uma pergunta do arco #Noctum,
- * o núcleo confere a ORIGEM da sessão, nunca o texto, e grava o ato com o recibo.
+ * o núcleo confere a ORIGEM do prompt e da sessão, nunca o texto, e grava o ato com o recibo.
  *
- * A origem (D5), conferida nesta ordem, cada passo com o motivo tipado de quando falha:
+ * A origem (D5; GO-FIX 1, achados 1 e 5), conferida nesta ordem, cada passo com o motivo tipado de quando falha:
+ *  - prompt digitado: o evento diz quem escreveu o prompt (`source`), e só `user`, o compositor interativo, vale. A tarefa
+ *    agendada, a volta do `/loop`, a mensagem de canal ou de outra sessão, o SDK e o evento de sondagem são recusados, e o
+ *    evento sem o campo também: sem como provar que o dono digitou, nada é gravado;
  *  - presença: o Claude Code marca os filhos de uma sessão com `CLAUDE_CODE_SESSION_ATTENDED=1` só quando há alguém
  *    nela; em segundo plano, em `daemon` e na execução por `-p` aninhada, vale `0`;
  *  - id: o `CLAUDE_CODE_SESSION_ID` do ambiente é o `session_id` do evento;
@@ -14,17 +17,24 @@
  *  - ponto de entrada: não é o do SDK (`sdk-*`);
  *  - registro: o id não é de sessão que o `ork` despachou ou adotou em thread nenhuma deste projeto;
  *  - worktree: o `cwd` não está em worktree de thread;
- *  - ancestralidade (Linux, pelo `/proc`): a sessão do Claude Code (`CLAUDE_PID`) é ancestral deste processo, o ambiente
- *    dela não é de segundo plano (`CLAUDE_CODE_SESSION_KIND`) e nenhuma outra sessão do Claude Code está acima dela.
+ *  - ancestralidade (Linux, pelo `/proc`): a sessão do Claude Code (`CLAUDE_PID`) é ancestral deste processo, e TODO
+ *    processo entre este e ela nasceu com o ambiente que o Claude Code dá ao hook dela: o mesmo id de sessão, o mesmo
+ *    `CLAUDE_PID`, a presença e nenhuma marca `AI_AGENT`, que o Claude Code põe no shell das ferramentas do agente e não
+ *    no hook. O ambiente de quando cada ancestral nasceu não se reescreve de baixo. O ambiente da sessão não é de segundo
+ *    plano (`CLAUDE_CODE_SESSION_KIND`) e nenhuma outra sessão do Claude Code está acima dela. Sem `/proc`, nada é gravado.
  *
- * O limite que sobra, dito como o do diálogo nativo (A21 e NP14): um processo do mesmo usuário do sistema que monte esse
- * ambiente e essa cadeia de processos à mão passa, porque o núcleo e os agentes dividem a conta. O que fica de fora é o
- * engano comum: a sessão despachada pelo `ork`, a de segundo plano, a de worktree de thread e a aninhada não respondem
- * pelo dono, nem digitando "sim". Separar de verdade é rodar os agentes em outra conta ou sandbox.
+ * O limite que sobra, dito como o do diálogo nativo (A21 e NP14): a fronteira é a conta do sistema. Um processo do mesmo
+ * usuário que abra uma sessão interativa nova do Claude Code fora da árvore de processos do agente (com `setsid` e um
+ * terminal virtual, por exemplo) e digite nela passa, porque o núcleo e os agentes dividem a conta; o agente pela
+ * ferramenta Bash da própria sessão, não. Separar de verdade é rodar os agentes em outra conta ou sandbox.
  *
- * A palavra solta (D6) só vale para a pergunta do arco cujo código apareceu no fim da transcrição desta sessão; o código
- * digitado vale sempre; com mais de uma, o núcleo pergunta qual. A resposta a um gate não é gravada aqui (D1): ela vai ao
- * condutor como contexto, para ele abrir o diálogo nativo.
+ * A pergunta (D6; GO-FIX 1, achado 3): o código digitado ("K7QX a") vale sempre que a origem prova o dono. A palavra
+ * solta, a letra e o número com a letra só valem logo depois da pergunta mostrada: a última linha da última mensagem do
+ * assistente, que é a última coisa da transcrição, traz o código dela (saída de ferramenta não conta). Só a alternativa
+ * "a" age por esse caminho: "b", "c", "não" e o resto seguem ao modelo, sem efeito, e nunca são engolidos. A pergunta já
+ * respondida, a que já ouviu "b" ou "c" e a que mudou (a proposta trocada) não aceitam a palavra solta: a primeira e a
+ * segunda deixam o prompt seguir ao modelo, e a terceira volta dizendo a pergunta de agora. A resposta a um gate não é
+ * gravada aqui (D1): ela vai ao condutor como contexto, para ele abrir o diálogo nativo, só com a origem provada.
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -33,7 +43,8 @@ import { raizDoEstado } from './estado-thread';
 import { lerTrecho, TrechoLivre } from './hitl-texto-livre';
 import { exigirManifesto } from './manifest';
 import { AtestadoDoTerminal, PerguntaNoLog } from './noctum-arco';
-import { DesfechoDaRespostaAoArco, perguntasPendentes, perguntasPorCodigo, responderPerguntaDoArco, rotuloDaPergunta } from './noctum-resposta';
+import { DesfechoDaRespostaAoArco, perguntasComRespostaSemEfeito, perguntasPorCodigo, responderPerguntaDoArco,
+  rotuloDaPergunta } from './noctum-resposta';
 import { interpretarRespostaDoPulse, lerLoteServido, pedidosComCodigo, PerguntaServida, restoDoCodigo } from './pulse-resposta';
 import { lerThread, listarIds } from './thread';
 
@@ -46,6 +57,12 @@ export interface EntradaDoHook {
   cwd: string;
   hook_event_name: string;
   prompt: string;
+  /**
+   * GO-FIX 1 (achado 1): quem escreveu o prompt, no esquema do evento: `user` (o compositor interativo), `sdk`, `system`
+   * (canal, outra sessão, aviso de tarefa), `loop_wakeup`, `schedule_wakeup` ou `poll_event`. O Claude Code ainda está
+   * liberando o campo: sem ele, o terminal não grava.
+   */
+  source?: string;
 }
 
 /** Um processo da cadeia, do atual até o topo, com o ambiente de quando ele começou (`null`: não se lê). */
@@ -81,6 +98,8 @@ const TETO_DO_PROMPT = 300;
 const TETO_DA_TRANSCRICAO = 512 * 1024;
 const ID_DE_SESSAO = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/;
 const KINDS_DE_FUNDO = ['bg', 'daemon', 'daemon-worker'];
+/** O código curto como palavra inteira, em maiúsculas: hash e identificador em minúsculas nunca casam. */
+const CODIGO_NA_LINHA = /(?<![A-Za-z0-9])(?=[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{0,2}[2-9])[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{3}(?![A-Za-z0-9])/g;
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 const decisao = (d: CorpoDaDecisaoDoTerminal): DecisaoDoTerminal => ({ contrato: CONTRATO_DO_TERMINAL, ...d });
 
@@ -120,6 +139,31 @@ export function fimDaTranscricao(arquivo: string): string | null {
   } catch { return null; }
 }
 
+/**
+ * GO-FIX 1 (achado 3): os códigos que o dono viu por último. A última entrada da conversa principal na transcrição (sem a
+ * de subagente e sem os registros que não são mensagem) tem de ser uma mensagem do assistente com texto, e os códigos são
+ * os da última linha desse texto (cerca de código não conta como linha). Se a última entrada é o resultado de uma
+ * ferramenta, um prompt (do dono ou injetado) ou uma mensagem sem texto, nada foi mostrado por último: a lista vem vazia.
+ */
+export function codigosMostradosPorUltimo(fim: string | null): string[] {
+  if (fim === null) return [];
+  const linhas = fim.split('\n');
+  for (let i = linhas.length - 1; i >= 0; i--) {
+    let e: unknown;
+    try { e = JSON.parse(linhas[i]); } catch { continue; }
+    if (!e || typeof e !== 'object' || Array.isArray(e)) continue;
+    const entrada = e as { type?: unknown; isSidechain?: unknown; message?: { content?: unknown } };
+    if ((entrada.type !== 'assistant' && entrada.type !== 'user') || entrada.isSidechain === true) continue;
+    if (entrada.type === 'user') return [];
+    const blocos = Array.isArray(entrada.message?.content) ? entrada.message!.content as unknown[] : [];
+    const texto = blocos.filter((b): b is { type: 'text'; text: string } => !!b && typeof b === 'object' &&
+      (b as { type?: unknown }).type === 'text' && typeof (b as { text?: unknown }).text === 'string').map(b => b.text).join('\n');
+    const ultima = texto.split('\n').map(l => l.trim()).filter(l => l && !/^(```|~~~)/.test(l)).at(-1) ?? '';
+    return [...new Set(ultima.match(CODIGO_NA_LINHA) ?? [])];
+  }
+  return [];
+}
+
 /** As sessões que o `ork` despachou ou adotou em alguma thread deste projeto, e as worktrees das threads. */
 function registroDoOrk(raiz: string): { sessoes: Set<string>; worktrees: string[] } {
   const sessoes = new Set<string>(), worktrees: string[] = [];
@@ -140,26 +184,35 @@ const dentro = (pai: string, filho: string): boolean => {
 };
 
 const MOTIVOS: Readonly<Record<string, string>> = Object.freeze({
+  'noctum.terminal.origem-do-prompt-desconhecida': 'o evento do Claude Code não diz que foi você quem digitou (sem o campo source, o terminal não grava)',
+  'noctum.terminal.prompt-injetado': 'o prompt não foi digitado por você (veio de tarefa agendada, /loop, canal, outra sessão ou programa)',
   'noctum.terminal.sem-presenca': 'a sessão não tem alguém presente (segundo plano ou execução por programa)',
   'noctum.terminal.sessao-divergente': 'o id da sessão do evento não é o do ambiente',
   'noctum.terminal.sessao-despachada': 'a sessão foi despachada pelo ork ou roda como job de segundo plano',
   'noctum.terminal.sessao-programatica': 'a sessão é do SDK, não do terminal',
   'noctum.terminal.sessao-do-ork': 'a sessão foi despachada ou adotada pelo ork numa thread',
   'noctum.terminal.worktree-de-thread': 'a sessão roda numa worktree de thread',
+  'noctum.terminal.sem-cadeia': 'a cadeia de processos não se lê nesta plataforma',
   'noctum.terminal.ancestral-divergente': 'a sessão do Claude Code não é ancestral deste processo',
-  'noctum.terminal.ancestral-ilegivel': 'o ambiente da sessão do Claude Code não se lê',
+  'noctum.terminal.ancestral-ilegivel': 'o ambiente de um processo da cadeia não se lê',
+  'noctum.terminal.cadeia-fora-do-hook': 'um processo entre este e a sessão não nasceu do hook dela',
+  'noctum.terminal.cadeia-do-agente': 'a chamada saiu de uma ferramenta do agente, não do hook',
   'noctum.terminal.sessao-em-segundo-plano': 'a sessão do Claude Code roda em segundo plano',
   'noctum.terminal.sessao-aninhada': 'a sessão está aninhada em outra sessão do Claude Code',
 });
 
 /**
- * D5: a origem da sessão, nesta ordem. Devolve as conferências que passaram, para o recibo, ou o primeiro motivo que
- * falhou. Nada aqui lê o texto do dono.
+ * D5: a origem do prompt e da sessão, nesta ordem. Devolve as conferências que passaram, para o recibo, ou o primeiro
+ * motivo que falhou. Nada aqui lê o texto do dono.
  */
 export function origemDoDono(raiz: string, entrada: EntradaDoHook, amb: AmbienteDoTerminal):
   { ok: true; atestado: Omit<AtestadoDoTerminal, 'recebidoEm'> } | { ok: false; motivo: string } {
   const env = amb.env, conferencias: string[] = [];
   const falha = (motivo: string) => ({ ok: false as const, motivo });
+  // GO-FIX 1 (achado 1): o prompt que a máquina injeta na sessão do dono não é o dono, e sem o campo não há como provar.
+  if (entrada.source === undefined) return falha('noctum.terminal.origem-do-prompt-desconhecida');
+  if (entrada.source !== 'user') return falha('noctum.terminal.prompt-injetado');
+  conferencias.push('prompt-digitado');
   if (env.CLAUDE_CODE_SESSION_ATTENDED !== '1') return falha('noctum.terminal.sem-presenca');
   conferencias.push('presenca');
   if (env.CLAUDE_CODE_SESSION_ID !== entrada.session_id) return falha('noctum.terminal.sessao-divergente');
@@ -176,18 +229,24 @@ export function origemDoDono(raiz: string, entrada: EntradaDoHook, amb: Ambiente
   const raizes = [...registro.worktrees, path.join(raizDoEstado(raiz), dirDasWorktrees)];
   if (raizes.some(w => dentro(w, entrada.cwd))) return falha('noctum.terminal.worktree-de-thread');
   conferencias.push('fora-de-worktree');
+  // GO-FIX 1 (achado 5): `CLAUDE_PID` não vale de qualquer ancestral. Cada processo entre este e a sessão tem de ter nascido
+  // do hook dela, e o agente não reescreve o ambiente de um ancestral que já está de pé.
   const cadeia = (amb.ancestrais ?? ancestraisPeloProc)();
-  if (cadeia === null) conferencias.push('ancestralidade-nao-conferida');
-  else {
-    const claudePid = Number(env.CLAUDE_PID);
-    const i = Number.isInteger(claudePid) ? cadeia.findIndex(a => a.pid === claudePid) : -1;
-    if (i < 0) return falha('noctum.terminal.ancestral-divergente');
-    const sessao = cadeia[i];
-    if (!sessao.ambiente) return falha('noctum.terminal.ancestral-ilegivel');
-    if (KINDS_DE_FUNDO.includes(sessao.ambiente.CLAUDE_CODE_SESSION_KIND ?? '')) return falha('noctum.terminal.sessao-em-segundo-plano');
-    if (cadeia.slice(i + 1).some(a => a.ambiente?.CLAUDECODE === '1')) return falha('noctum.terminal.sessao-aninhada');
-    conferencias.push('ancestralidade');
+  if (cadeia === null) return falha('noctum.terminal.sem-cadeia');
+  const claudePid = Number(env.CLAUDE_PID);
+  const i = Number.isInteger(claudePid) && claudePid > 1 ? cadeia.findIndex(a => a.pid === claudePid) : -1;
+  if (i < 1) return falha('noctum.terminal.ancestral-divergente');
+  for (const a of cadeia.slice(0, i)) {
+    if (!a.ambiente) return falha('noctum.terminal.ancestral-ilegivel');
+    if (a.ambiente.CLAUDE_CODE_SESSION_ID !== entrada.session_id || a.ambiente.CLAUDE_PID !== String(claudePid) ||
+        a.ambiente.CLAUDE_CODE_SESSION_ATTENDED !== '1') return falha('noctum.terminal.cadeia-fora-do-hook');
+    if (Object.prototype.hasOwnProperty.call(a.ambiente, 'AI_AGENT')) return falha('noctum.terminal.cadeia-do-agente');
   }
+  const sessao = cadeia[i];
+  if (!sessao.ambiente) return falha('noctum.terminal.ancestral-ilegivel');
+  if (KINDS_DE_FUNDO.includes(sessao.ambiente.CLAUDE_CODE_SESSION_KIND ?? '')) return falha('noctum.terminal.sessao-em-segundo-plano');
+  if (cadeia.slice(i + 1).some(a => a.ambiente?.CLAUDECODE === '1')) return falha('noctum.terminal.sessao-aninhada');
+  conferencias.push('ancestralidade');
   const entrypoint = typeof env.CLAUDE_CODE_ENTRYPOINT === 'string' && env.CLAUDE_CODE_ENTRYPOINT ? env.CLAUDE_CODE_ENTRYPOINT.slice(0, 64) : null;
   return { ok: true, atestado: { host: 'claude-code', sessao: entrada.session_id, entrypoint, conferencias } };
 }
@@ -198,14 +257,11 @@ export function lerEntradaDoHook(v: unknown): EntradaDoHook | null {
   const e = v as Record<string, unknown>;
   if (e.hook_event_name !== 'UserPromptSubmit' || typeof e.session_id !== 'string' || !ID_DE_SESSAO.test(e.session_id) ||
       typeof e.cwd !== 'string' || !path.isAbsolute(e.cwd) || typeof e.prompt !== 'string' ||
-      (e.transcript_path !== undefined && typeof e.transcript_path !== 'string')) return null;
+      (e.transcript_path !== undefined && typeof e.transcript_path !== 'string') ||
+      (e.source !== undefined && (typeof e.source !== 'string' || !/^[a-z_]{1,40}$/.test(e.source)))) return null;
   return { session_id: e.session_id, cwd: e.cwd, hook_event_name: e.hook_event_name, prompt: e.prompt,
-    ...(typeof e.transcript_path === 'string' ? { transcript_path: e.transcript_path } : {}) };
-}
-
-/** O código aparece no fim da transcrição desta sessão, como palavra inteira? */
-function mostradaNestaSessao(fim: string | null, codigo: string): boolean {
-  return fim !== null && new RegExp(`(?<![A-Za-z0-9])${codigo}(?![A-Za-z0-9])`).test(fim);
+    ...(typeof e.transcript_path === 'string' ? { transcript_path: e.transcript_path } : {}),
+    ...(typeof e.source === 'string' ? { source: e.source } : {}) };
 }
 
 /** A decisão para o desfecho da resposta à pergunta do arco. */
@@ -224,72 +280,98 @@ function contextoDoGate(codigo: string, thread: string, pedidoId: string, texto:
     `(threadId ${thread}, pedidoId ${pedidoId}) para o dono escolher lá; nunca passe a resposta nos argumentos.`;
 }
 
+/** A palavra solta, a letra ou o número com a letra que diz "a": só ela age sem o código (GO-FIX 1, achado 3). */
+function dizA(trecho: TrechoLivre): boolean {
+  return (trecho.tipo === 'letra' && trecho.letra === 'a') || (trecho.tipo === 'intencao' && trecho.intencao === 'afirmar');
+}
+
+/** O alvo da resposta antes da origem: nada, o que dizer de volta, o gate a encaminhar ou a pergunta do arco com a escolha. */
+type Alvo =
+  | { tipo: 'nada'; motivo: string }
+  | { tipo: 'pergunta-de-volta'; mensagem: string }
+  | { tipo: 'gate'; contexto: string }
+  | { tipo: 'arco'; pergunta: PerguntaNoLog; trecho: TrechoLivre };
+
 /**
- * O ingresso do terminal: lê o evento do hook, reconhece só a resposta curta, acha a pergunta (o código, o número servido
- * ou a única mostrada nesta sessão), confere a origem (D5) e responde pela via do terminal. Nunca adivinha.
+ * GO-FIX 1 (achado 3): a palavra solta e o número com a letra só valem para a pergunta que o dono viu por último, e só
+ * para dizer "a". Respondida, já com "b" ou "c", ou sem estar na última linha mostrada: o prompt segue ao modelo.
+ */
+function alvoMostradoPorUltimo(raiz: string, entrada: EntradaDoHook, amb: AmbienteDoTerminal, quando: string, trecho: TrechoLivre,
+  numero: number | null): Alvo {
+  const fim = entrada.transcript_path ? (amb.transcricao ?? fimDaTranscricao)(entrada.transcript_path) : null;
+  const doArco = codigosMostradosPorUltimo(fim).flatMap(c => perguntasPorCodigo(raiz, c, quando));
+  if (!doArco.length) return { tipo: 'nada', motivo: 'nenhuma-pergunta-mostrada-por-ultimo' };
+  if (doArco.length > 1) {
+    return { tipo: 'pergunta-de-volta', mensagem: `A última mensagem mostra ${doArco.length} perguntas do arco, e "${entrada.prompt.trim().slice(0, 40)}" ` +
+      `não diz qual; nada foi registrado. Responda pelo código: ${doArco.map(rotuloDaPergunta).join('; ')}.` };
+  }
+  const [p] = doArco;
+  if (numero !== null) {
+    let servida: PerguntaServida | undefined;
+    try { servida = lerLoteServido(raiz, amb.estadoDir).perguntas.find(q => q.numero === numero); } catch { servida = undefined; }
+    if (servida?.arco?.codigo !== p.codigo) return { tipo: 'nada', motivo: 'numero-de-outra-pergunta' };
+  }
+  if (!dizA(trecho)) return { tipo: 'nada', motivo: 'nao-diz-a' };
+  if (p.situacao === 'respondida') return { tipo: 'nada', motivo: 'pergunta-ja-respondida' };
+  const semEfeito = perguntasComRespostaSemEfeito(raiz);
+  if (semEfeito === null || semEfeito.has(p.codigo)) return { tipo: 'nada', motivo: 'pergunta-ja-ouviu-b-ou-c' };
+  return { tipo: 'arco', pergunta: p, trecho };
+}
+
+/**
+ * O ingresso do terminal: lê o evento do hook, reconhece só a resposta curta, acha a pergunta (o código, ou a mostrada por
+ * último para a palavra solta e o número), confere a origem (D5) e responde pela via do terminal. Nunca adivinha.
  */
 export function responderPeloTerminal(raiz: string | null, bruto: unknown, amb: AmbienteDoTerminal): DecisaoDoTerminal {
   const quando = amb.quando ?? new Date().toISOString();
   const entrada = lerEntradaDoHook(bruto);
   if (!entrada) return decisao({ acao: 'ignorar', motivo: 'entrada' });
   const texto = entrada.prompt.trim();
-  if (!texto || texto.length > TETO_DO_PROMPT || /[\r\n]/.test(texto)) return decisao({ acao: 'ignorar', motivo: 'nao-e-resposta-curta' });
+  // Uma linha só, conferida no prompt cru: a mensagem que a máquina embrulha (outra sessão, canal) vem em várias linhas, e
+  // nem a quebra no fim passa.
+  if (!texto || texto.length > TETO_DO_PROMPT || /[\r\n]/.test(entrada.prompt)) return decisao({ acao: 'ignorar', motivo: 'nao-e-resposta-curta' });
   const lido = interpretarRespostaDoPulse(texto);
   if (!['consentimento', 'lote', 'livre'].includes(lido.forma) || (lido.forma === 'lote' && lido.escolhas.length !== 1)) {
     return decisao({ acao: 'ignorar', motivo: 'nao-e-resposta-curta' });
   }
   if (raiz === null) return decisao({ acao: 'ignorar', motivo: 'sem-projeto' });
 
-  // A pergunta: pelo código digitado, pelo número servido ou pela única mostrada nesta sessão.
-  let pergunta: PerguntaNoLog | null = null, trecho: TrechoLivre | null = null;
+  // O alvo: pelo código digitado, ou pela pergunta mostrada por último (a palavra solta e o número com a letra).
+  let alvo: Alvo;
   if (lido.forma === 'consentimento') {
     const doArco = perguntasPorCodigo(raiz, lido.codigo, quando);
     const gates = pedidosComCodigo(raiz, lido.codigo);
-    if (doArco.length + gates.length > 1) {
-      return decisao({ acao: 'pergunta', mensagem: `O código ${lido.codigo} está em mais de uma pergunta; nada foi registrado. Responda pelo número da pergunta.` });
-    }
-    if (gates.length === 1) return decisao({ acao: 'encaminhar', contexto: contextoDoGate(lido.codigo, gates[0].thread, gates[0].pedido.id, texto) });
-    if (!doArco.length) return decisao({ acao: 'ignorar', motivo: 'codigo-desconhecido' });
-    pergunta = doArco[0];
     const resto = restoDoCodigo(texto, lido.codigo);
-    trecho = lerTrecho(resto) ?? (resto === '?' ? lerTrecho('detalhes') : null);
-    if (!trecho) {
-      return decisao({ acao: 'pergunta', mensagem: `Não entendi "${resto.slice(0, 40)}" para ${pergunta.codigo}; nada foi registrado. Responda a, b ou c.` });
-    }
+    const trecho = lerTrecho(resto) ?? (resto === '?' ? lerTrecho('detalhes') : null);
+    alvo = doArco.length + gates.length > 1
+      ? { tipo: 'pergunta-de-volta', mensagem: `O código ${lido.codigo} está em mais de uma pergunta; nada foi registrado. Responda pelo número da pergunta.` }
+      : gates.length === 1 ? { tipo: 'gate', contexto: contextoDoGate(lido.codigo, gates[0].thread, gates[0].pedido.id, texto) }
+        : !doArco.length ? { tipo: 'nada', motivo: 'codigo-desconhecido' }
+          : !trecho ? { tipo: 'pergunta-de-volta', mensagem: `Não entendi "${resto.slice(0, 40)}" para ${doArco[0].codigo}; nada foi registrado. Responda a, b ou c.` }
+            : { tipo: 'arco', pergunta: doArco[0], trecho };
   } else if (lido.forma === 'lote') {
     const { numero, letra } = lido.escolhas[0];
-    let servida: PerguntaServida | undefined;
-    try { servida = lerLoteServido(raiz, amb.estadoDir).perguntas.find(q => q.numero === numero); } catch { servida = undefined; }
-    if (!servida) return decisao({ acao: 'ignorar', motivo: 'numero-desconhecido' });
-    if (!servida.arco) {
-      return decisao({ acao: 'encaminhar', contexto: contextoDoGate(String(numero), servida.thread, servida.pedidoId, texto) });
-    }
-    pergunta = perguntasPorCodigo(raiz, servida.arco.codigo, quando).find(q => q.arco === servida!.arco!.arco) ?? null;
-    if (!pergunta) return decisao({ acao: 'ignorar', motivo: 'numero-desconhecido' });
-    trecho = { tipo: 'letra', letra };
-  } else if (lido.forma === 'livre') {
-    const fim = entrada.transcript_path ? (amb.transcricao ?? fimDaTranscricao)(entrada.transcript_path) : null;
-    const mostradas = perguntasPendentes(raiz, quando).filter(q => mostradaNestaSessao(fim, q.codigo));
-    if (mostradas.length > 1) {
-      return decisao({ acao: 'pergunta', mensagem: `Há ${mostradas.length} perguntas do arco nesta conversa, e "${texto.slice(0, 40)}" não diz qual; ` +
-        `nada foi registrado. Responda pelo código: ${mostradas.map(rotuloDaPergunta).join('; ')}.` });
-    }
-    if (!mostradas.length) return decisao({ acao: 'ignorar', motivo: 'nenhuma-pergunta-nesta-sessao' });
-    pergunta = mostradas[0];
-    trecho = lido.trecho;
+    alvo = alvoMostradoPorUltimo(raiz, entrada, amb, quando, { tipo: 'letra', letra }, numero);
+  } else {
+    alvo = lido.forma === 'livre' ? alvoMostradoPorUltimo(raiz, entrada, amb, quando, lido.trecho, null)
+      : { tipo: 'nada', motivo: 'nao-e-resposta-curta' };
   }
-  if (!pergunta || !trecho) return decisao({ acao: 'ignorar', motivo: 'nao-e-resposta-curta' });
+  if (alvo.tipo === 'nada') return decisao({ acao: 'ignorar', motivo: alvo.motivo });
 
-  // D5: a origem da sessão, antes de qualquer gravação. A palavra do dono não prova nada sozinha.
+  // D5: a origem do prompt e da sessão, antes de qualquer gravação ou encaminhamento. A palavra do dono não prova nada.
   const origem = origemDoDono(raiz, entrada, amb);
   if (!origem.ok) {
     const presenca = amb.env.CLAUDE_CODE_SESSION_ATTENDED === '1';
+    const sobre = alvo.tipo === 'arco' ? ` para a pergunta ${alvo.pergunta.codigo}` : '';
     return decisao({ acao: 'recusada', motivo: origem.motivo, presenca,
-      mensagem: `O Orkastery não registrou "${texto.slice(0, 40)}" para a pergunta ${pergunta.codigo}: ${MOTIVOS[origem.motivo] ?? origem.motivo}. ` +
+      mensagem: `O Orkastery não registrou "${texto.slice(0, 40)}"${sobre}: ${MOTIVOS[origem.motivo] ?? origem.motivo}. ` +
         'Responda pelo Telegram ou pelo diálogo do host.' });
   }
+  if (alvo.tipo === 'pergunta-de-volta') return decisao({ acao: 'pergunta', mensagem: alvo.mensagem });
+  if (alvo.tipo === 'gate') return decisao({ acao: 'encaminhar', contexto: alvo.contexto });
   const atestado: AtestadoDoTerminal = { ...origem.atestado, recebidoEm: quando };
-  const d = responderPerguntaDoArco(raiz, pergunta, trecho, { quando, canal: 'terminal',
+  const pergunta = alvo.pergunta;
+  const d = responderPerguntaDoArco(raiz, pergunta, alvo.trecho, { quando, canal: 'terminal',
     provar: r => ({ via: 'terminal', atestado, pergunta: { ...r, respostaSha256: sha(entrada.prompt) } }) });
   return decisaoDoDesfecho(pergunta, d);
 }

@@ -6,11 +6,13 @@
  * pela letra ou pela palavra do vocabulário fechado, chama o ato do arco com a prova e devolve a frase ao dono. Ele nunca
  * escolhe pelo dono: ambígua, fora do vocabulário ou sem pergunta, a resposta volta como pergunta e nada é gravado.
  *
- * As alternativas b (adiar) e c (mudar algo) não gravam nada no arco (D13): a pergunta segue pendente até o prazo.
+ * As alternativas b (adiar) e c (mudar algo) não gravam nada no arco (D13): a pergunta segue pendente até o prazo. Elas
+ * ficam só num registro à parte (GO-FIX 1, achado 3): depois de "b" ou "c", a palavra solta não responde mais àquela
+ * pergunta no terminal, e só o código dela vale.
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { raizDoEstado } from './estado-thread';
+import { exigirEstadoSemLink, raizDoEstado } from './estado-thread';
 import { formatarHora } from './horario';
 import { TrechoLivre } from './hitl-texto-livre';
 import { autorizarPelaResposta, InfoDaRespostaCurta, PerguntaNoLog, perguntasDoArco, ProvaDaRespostaCurta, RespostaAPergunta,
@@ -42,6 +44,36 @@ export function perguntasPendentes(raiz: string, quando: string): PerguntaNoLog[
 export function perguntasPorCodigo(raiz: string, codigo: string, quando: string): PerguntaNoLog[] {
   const alvo = codigo.trim().toUpperCase();
   return perguntasDosArcos(raiz, quando).filter(p => p.codigo === alvo);
+}
+
+const ARQUIVO_SEM_EFEITO = 'respostas-sem-efeito.jsonl';
+
+/**
+ * GO-FIX 1 (achado 3 da ork-rm057respost): as perguntas que já ouviram "b" ou "c" do dono, por qualquer canal. Não é prova
+ * nem ato do arco (D13 segue: b e c não gravam nada nele); é a regra de rota que tira a palavra solta do terminal dessas
+ * perguntas, para o "ok" dito depois de "adiar" nunca autorizar. `null` quando o registro existe e não se lê: quem lê
+ * trata como se todas tivessem ouvido (falha fechada).
+ */
+export function perguntasComRespostaSemEfeito(raiz: string): Set<string> | null {
+  const arquivo = path.join(raizDoEstado(raiz), '.orkastery', 'noctum', ARQUIVO_SEM_EFEITO);
+  let bruto: string;
+  try { bruto = fs.readFileSync(arquivo, 'utf8'); }
+  catch (e) { return (e as NodeJS.ErrnoException).code === 'ENOENT' ? new Set() : null; }
+  const codigos = new Set<string>();
+  for (const linha of bruto.split('\n').filter(Boolean)) {
+    try { const v = JSON.parse(linha) as { codigo?: unknown }; if (typeof v.codigo === 'string') codigos.add(v.codigo); }
+    catch { return null; }
+  }
+  return codigos;
+}
+
+function registrarSemEfeito(raiz: string, codigo: string, letra: string, canal: 'telegram' | 'terminal', quando: string): void {
+  const principal = raizDoEstado(raiz);
+  exigirEstadoSemLink(principal, ['.orkastery', 'noctum']);
+  const dir = path.join(principal, '.orkastery', 'noctum');
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  fs.appendFileSync(path.join(dir, ARQUIVO_SEM_EFEITO),
+    JSON.stringify({ contrato: 'ork.noctum-sem-efeito/v1', codigo, letra, canal, em: quando }) + '\n', { mode: 0o600 });
 }
 
 /** O rótulo da pergunta para a lista de "qual?": o código e a letra, com o arco e o ato. */
@@ -122,6 +154,8 @@ export function responderPerguntaDoArco(raiz: string, p: PerguntaNoLog, trecho: 
       ? (p.ato === 'autorizar' ? `nada muda, e a proposta vence às ${hora} se você não autorizar antes.` : 'nada muda; o arco segue até o fim da janela.')
       : (p.ato === 'autorizar' ? 'nada foi autorizado. Diga o que mudar, e uma proposta nova sai com outra pergunta.'
         : 'nada foi revogado. Diga o que mudar, e uma emenda é proposta.');
+    // Sem o registro, o "ok" seguinte poderia valer no terminal: a falha de gravação sobe, e o dono manda de novo.
+    registrarSemEfeito(raiz, p.codigo, alternativa.letra, o.canal, o.quando);
     return { tipo: 'sem-efeito', letra: alternativa.letra, mensagem: `${p.codigo} → ${alternativa.letra}) ${alternativa.texto}: ${seguir}` };
   }
   const info: InfoDaRespostaCurta = { repetida: false, mesmaProva: false };
