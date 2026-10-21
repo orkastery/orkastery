@@ -20,7 +20,7 @@ evidencias:
     commit: 7266df6
     pr: 49
 sdlc:
-  thread: ork-rm057regrada
+  thread: ork-rm057respost
   modo: "#Auto"
   fase: GOAL
   status: aberta
@@ -56,6 +56,7 @@ sdlc:
   - Os adaptadores e os prompts de condução passam a proibir o pedido de confirmação em texto livre e o pedido para colar texto.
   - Um pedido do dono que chega como texto colado, pedido pelo próprio fluxo, vale como instrução do dono, dentro da autorização que ele declara.
   - **Requisito de 12/10/2026, linguagem simples:** todo passo que depende do dono chega como pergunta com 3 alternativas e uma recomendada, em linguagem simples, nunca como lista de comandos crus nem com termo técnico sem explicação. O caso que motivou: "o comando da tag v0.5.5" mandado ao dono sem dizer o que é uma tag. A recomendada, quando possível, é a que o dono responde com uma palavra e a fábrica executa o resto com a autorização dele.
+  - **Requisito de 20/10/2026, o dono aprova onde estiver:** aprovar não depende de um canal nem de copiar uma linha. Toda pergunta que pede aprovação nasce com um código curto e alternativas, e o dono responde "a", "sim", "1a" ou "autorizo" em qualquer canal com prova de que foi ele: o Telegram (Hermes e OpenClaw), o terminal do Claude Code numa sessão interativa e o diálogo nativo do host. O núcleo resolve a resposta contra a pergunta pendente e, com mais de uma e a resposta ambígua, pergunta qual, sem adivinhar. A sessão que o `ork` despachou nunca vale como dono, e a prova vem da origem da sessão, não do texto. O caso que motivou: duas propostas do piloto do #Noctum venceram em 20/10/2026 porque autorizar exigia copiar `/ork noctum <arco> autorizar <sha256>` no Telegram.
 - **Fora de escopo:** a única exceção ao texto livre é a dependência técnica que a fábrica não consegue resolver sozinha com os runtimes disponíveis e que exige que o maestro humano rode um comando no terminal (um login interativo, por exemplo). Nesse caso o pedido traz o comando exato, pronto para copiar.
 - **Entregáveis e critérios de aceite:**
   - Contrato do HITL de condução com 3 a 5 alternativas e um selo "Recomendação" → teste que reprova um pedido com menos de 3 ou mais de 5 opções, ou com nenhuma ou mais de uma recomendada.
@@ -63,6 +64,19 @@ sdlc:
   - Exceção técnica → o pedido em texto só passa com o motivo tipado de dependência técnica e o comando a rodar.
   - Canário do incidente de 01/10 → um pedido colado com autorização explícita segue sem parar.
 - **Piloto, medição e critérios de expansão/interrupção:** piloto na condução do próprio Orkastery por 7 dias, medindo no ledger o tempo parado por HITL; expande para todos os hosts se nenhum HITL em texto livre passar fora da exceção.
+
+### Fatia 5: a resposta curta, onde o dono estiver
+
+Implementada na thread `ork-rm057respost` (modo #Auto), pelo requisito de 20/10/2026. O primeiro alvo é a pergunta que mais travou: a autorização e a revogação do arco do #Noctum ([RM-058](RM-058-modo-noctum.md#a-autorização-pela-resposta-curta-rm-057)).
+
+- **A pergunta:** o contrato curto (`ork.hitl-curto/v1`) ganha a última linha "Responda a, b ou c" (no terminal, "Responder: a, b ou c, aqui ou no Telegram"), com as letras reais e o detalhe a um pedido de distância (`<código> detalhes`), e o título com o número quando a pergunta foi servida no canal. A proposta do arco nasce como pergunta com código curto, três alternativas (a recomendada primeiro) e o hash guardado nela, nunca na resposta. O vocabulário fechado ganha "autorizo" (e as variações) para aprovar e "adiar" para esperar.
+- **No Telegram** (Hermes e OpenClaw): o dono responde em reply à mensagem da pergunta só com a letra ou a palavra, e o gateway assina o envelope no endereço `resposta:<código>` tirado da mensagem respondida, com `--em-resposta-a`; vale também o código com a letra de qualquer chat autorizado, o número com a letra e a palavra solta quando só uma pergunta espera no chat em que ela saiu. O reply também responde à mensagem curta de um gate, pelo mesmo `responderGate`.
+- **No terminal do Claude Code:** o hook `UserPromptSubmit` do plugin leva a resposta curta ao núcleo (`ork noctum terminal --hook-stdin`), que prova a origem da sessão (alguém presente, o id da sessão, sem a identidade de despacho do `ork`, fora do registro de sessões e de worktree de thread e a ancestralidade pelo `/proc`) antes de gravar o ato do arco com recibo. A palavra solta só vale para a pergunta mostrada nesta sessão. O guard do plugin recusa o ingresso do terminal chamado pela ferramenta Bash, e o terminal puro segue recusado: nenhum comando autoriza.
+- **Negativos provados:** a sessão despachada pelo `ork` que digita "sim", a resposta sem pergunta pendente, a ambígua com duas pendentes, a palavra solta de outro chat, o chat fora da lista, depois do prazo, a mesma mensagem de novo, outra chave, a referência trocada e a proposta que mudou; nenhum deles grava nada.
+- **Limites ditos:** no terminal, a fronteira é a conta do sistema, como no diálogo nativo: um processo do mesmo usuário que monte o ambiente e a cadeia do hook passa, e um teste fixa esse limite; no OpenClaw, o `inbound_claim` não prova quem escreveu a mensagem respondida, e a referência do reply vem só do texto dela; a resposta curta a um gate no terminal vai ao condutor como contexto, para abrir o diálogo nativo, sem gravar.
+- **Próxima fatia proposta (D1 da thread):** o canal `terminal` no registro fechado de canais (`ork.hitl-canais/v1` vira `v2`) e a origem nova na prova do gate, para o "sim" no terminal responder também a um gate. É contrato e pede a ratificação do dono.
+
+Evidência: `core/test/hitl-curto.test.ts` e `hitl-texto-livre.test.ts` (os testes "RM-057 resposta curta:"), `noctum-pergunta.test.ts` (NP1 a NP17), `noctum-resposta-curta.test.ts` (RC1 a RC16), `noctum-terminal.test.ts` (TM1 a TM17), `claude-hook-resposta.test.ts` (HK1 a HK7), `noctum-pergunta-cli.test.ts` (PQ1 a PQ6), `noctum-gateways.test.ts` (GW6 a GW9) e `noctum-ensaio-piloto.test.ts` (EP12), que rodam em `npm --prefix core test`, e os testes do reply dos dois gateways.
 
 ## Plano e decisões
 
@@ -94,7 +108,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: fábrica Orkastery / A: Julio / C: — / I: —
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** Claude Code redigiu o item a pedido do dono; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** depois do merge da fatia 3, o piloto de 7 dias na condução do próprio Orkastery, lendo o tempo parado no `ork pulse` e no `ork roadmap status` (`hitlDeConducao`, mediana de 7 dias) ou em `ork ledger stats --desde 7d`; a reinstalação da extensão do OpenClaw e da skill do Hermes nos hosts fica com o dono; responsável: Julio.
+- **Próxima ação, responsável e prazo:** depois do merge da fatia 3, o piloto de 7 dias na condução do próprio Orkastery, lendo o tempo parado no `ork pulse` e no `ork roadmap status` (`hitlDeConducao`, mediana de 7 dias) ou em `ork ledger stats --desde 7d`; a reinstalação da extensão do OpenClaw e da skill do Hermes nos hosts fica com o dono; responsável: Julio. Depois do merge da fatia 5, a reinstalação do plugin do Claude Code e dos dois gateways (`ork adapter install`) leva o hook da resposta curta e o reply aos hosts, e a D1 da thread `ork-rm057respost` é a próxima fatia proposta.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -106,3 +120,5 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-03 | Fatia 3 na thread ork-rm057fatia3t: o tempo parado por HITL de condução no `ork pulse` e no `ork roadmap status` (`hitlDeConducao`: abertas com há quanto tempo, mediana de 7 dias), com uma linha no resumo do pulse só acima da meta de 5 min | Recorte registrado com `ork decisao registrar` na thread; campo aditivo opcional nos contratos que já existem, sem contrato novo | Claude (agente, #Auto), revisão de Julio pendente |
 | 2026-10-03 | Fatia 4 na thread ork-rm057regrada, defeitos do ensaio isolado da reinstalação do OpenClaw: a regra também em `ork_network_roadmap` e `ork_network_status`, as únicas tools visíveis no perfil `coding` (o perfil não foi ampliado), e o `ork adapter install` apontando a extensão para o `ork` em execução, com aviso quando o do PATH é outro | Ensaio de 03/10: no `coding` o modelo do Telegram nunca lia a regra; pelo tarball, a extensão 0.5.2 chamava o `ork` 0.4.3 global. `tools.alsoAllow` fica como decisão do dono | Claude (agente, #Auto), revisão de Julio pendente |
 | 2026-10-12 | Requisito novo: todo passo que depende do dono chega como pergunta com 3 alternativas e uma recomendada, em linguagem simples, sem lista de comandos crus nem termo técnico sem explicação | Caso do dono: "o comando da tag v0.5.5" mandado sem dizer o que é uma tag; thread `ork-rm062privado` | Julio |
+| 2026-10-20 | Requisito novo: o dono aprova onde estiver, com resposta curta; aprovar não depende do Telegram nem de copiar uma linha | Decisão do dono de 20/10/2026, depois de duas propostas do piloto do #Noctum vencerem esperando a linha com o hash | Julio |
+| 2026-10-21 | Fatia 5 na thread ork-rm057respost: a resposta curta à pergunta do arco do #Noctum em qualquer canal com prova de que foi o dono (o Telegram do Hermes e do OpenClaw com o reply, o código, o número e a palavra solta; o terminal do Claude Code pelo hook `UserPromptSubmit`, com a origem da sessão provada; o diálogo nativo com três alternativas), a pergunta no padrão "responda a, b ou c" e o reply também para os gates no Telegram; o gate pelo terminal fica como a próxima fatia proposta (D1) | Decisões D1 a D13 registradas com `ork decisao registrar` na thread; os formatos do #Noctum seguem sem ratificação | Claude (agente, #Auto), revisão de Julio pendente |

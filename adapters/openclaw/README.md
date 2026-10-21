@@ -259,9 +259,13 @@ O gateway autenticado é a fronteira de confiança: conteúdo de conversa ou JSO
 
 Verificação: `sh adapters/openclaw/construir.sh && node --test adapters/openclaw/test/hitl-answer.test.mjs`.
 
-O ingresso do Telegram recebe também `/ork noctum <arco> autorizar <sha256>` e `/ork noctum <arco> revogar` (RM-058), com as mesmas conferências do `/ork gate` e a conta autorizada (`ORK_HITL_OPENCLAW_ACCOUNT`) dentro do corpo assinado no endereço `noctum` / `arco:<arco>`. O envelope vai pela entrada a `ork noctum responder <arco>`, e só o recibo tipado `ork.noctum-ingresso/v1` do mesmo arco vira resposta ao dono; o ato que já valia não ganha segunda confirmação. A gramática mora no núcleo (`GRAMATICA_DO_NOCTUM`), e o teste `noctum-gateways` do núcleo confere a fonte e o `dist`.
+O ingresso do Telegram recebe também `/ork noctum <arco> autorizar <sha256>` e `/ork noctum <arco> revogar` (RM-058), com as mesmas conferências do `/ork gate` e a conta autorizada (`ORK_HITL_OPENCLAW_ACCOUNT`) dentro do corpo assinado no endereço `noctum` / `arco:<arco>`. O envelope vai pela entrada a `ork noctum responder <arco>`, e só o recibo tipado `ork.noctum-ingresso/v1` do mesmo arco vira resposta ao dono; o ato que já valia não ganha segunda confirmação. A gramática mora no núcleo (`GRAMATICA_DO_NOCTUM`), e o teste `noctum-gateways` do núcleo confere a fonte e o `dist`. Desde a RM-057, a proposta chega ao dono como pergunta com código curto, respondida como no parágrafo seguinte; o `/ork noctum <arco> autorizar <sha256>` segue aceito, mas não é mais o caminho ensinado.
 
 Verificação: `sh adapters/openclaw/construir.sh && node --test adapters/openclaw/test/hitl-noctum.test.mjs`.
+
+**A resposta curta à pergunta (RM-057).** A pergunta ao dono (a do arco #Noctum e a mensagem curta de um gate) chega com código curto e alternativas e termina em "Responda a, b ou c". Pelo mesmo ingresso assinado do pulse (`inbound_claim`), o dono responde com o código e a letra (`K7QX a`) de qualquer chat autorizado, com o número da pergunta e a letra (`1a`), ou em reply à mensagem da pergunta só com a letra ou a palavra (`a`, `sim`, `autorizo`). No reply, a extensão tira o código do texto da mensagem respondida (`replyToBody`) quando ele traz um código só, assina no endereço `resposta:<código>` e manda `--em-resposta-a <código>` ao núcleo; a palavra em reply vale mesmo com a janela da palavra solta fechada. Conversa comum, mesmo em reply, segue ao assistente. **Limite:** o `inbound_claim` não prova quem escreveu a mensagem respondida (o `replyToSender` é um rótulo de exibição), então a referência vem só do texto dela; o núcleo só a aceita quando é uma pergunta em aberto, com a assinatura que a cobre, e confere o prazo, a repetição e o chat.
+
+Verificação: `sh adapters/openclaw/construir.sh && node --test adapters/openclaw/test/hitl-resposta-curta.test.mjs`.
 # Entrada Maestro
 
 O callback `inbound_claim` possui ingresso adicional `native` sem Telegram quando

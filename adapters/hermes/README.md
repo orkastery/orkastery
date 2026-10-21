@@ -182,9 +182,15 @@ Verificação: `python3 -m unittest discover -s adapters/hermes/test -p hitl_ans
 
 ## Arco #Noctum pelo Telegram (RM-058)
 
-O mesmo plugin `hitl-ingress/` recebe `/ork noctum <arco> autorizar <sha256>` e `/ork noctum <arco> revogar`, com as mesmas conferências do `/ork gate` (autorização do host, usuário, chat, bot, mensagem de até 60 s e a chave `ORK_HITL_INGRESS_KEY_HERMES`). O envelope é assinado no endereço `noctum` / `arco:<arco>`, que nenhum `/ork gate` alcança, e vai pela entrada a `ork noctum responder <arco>`. Só o recibo tipado `ork.noctum-ingresso/v1` do mesmo arco confirma ao dono, e o ato que já valia não ganha segunda confirmação. A proposta do envelope é `ork noctum propor --arquivo <envelope.json>`, e ela não autoriza nada. A gramática mora no núcleo (`GRAMATICA_DO_NOCTUM`), e o teste `noctum-gateways` do núcleo confere a cópia daqui.
+O mesmo plugin `hitl-ingress/` recebe `/ork noctum <arco> autorizar <sha256>` e `/ork noctum <arco> revogar`, com as mesmas conferências do `/ork gate` (autorização do host, usuário, chat, bot, mensagem de até 60 s e a chave `ORK_HITL_INGRESS_KEY_HERMES`). O envelope é assinado no endereço `noctum` / `arco:<arco>`, que nenhum `/ork gate` alcança, e vai pela entrada a `ork noctum responder <arco>`. Só o recibo tipado `ork.noctum-ingresso/v1` do mesmo arco confirma ao dono, e o ato que já valia não ganha segunda confirmação. A proposta do envelope é `ork noctum propor --arquivo <envelope.json>`, e ela não autoriza nada. A gramática mora no núcleo (`GRAMATICA_DO_NOCTUM`), e o teste `noctum-gateways` do núcleo confere a cópia daqui. Desde a RM-057, a proposta chega ao dono como pergunta com código curto, e ele a responde como está na seção seguinte; o `/ork noctum <arco> autorizar <sha256>` segue aceito, mas não é mais o caminho ensinado.
 
 Verificação: `python3 -m unittest discover -s adapters/hermes/test -p hitl_noctum_test.py -v`.
+
+## A resposta curta à pergunta (RM-057)
+
+A pergunta ao dono (a do arco #Noctum e a mensagem curta de um gate) chega com código curto e alternativas e termina em "Responda a, b ou c". Pelo mesmo ingresso assinado do pulse (`ork pulse responder`), o dono responde com o código e a letra (`K7QX a`) de qualquer chat autorizado, com o número da pergunta e a letra (`1a`), ou em reply à mensagem da pergunta só com a letra ou a palavra (`a`, `sim`, `autorizo`). No reply, o plugin tira o código da mensagem respondida só quando ela é do próprio bot (`ORK_HITL_TELEGRAM_BOT_ID`) e traz um código só, assina o envelope no endereço `resposta:<código>` e manda `--em-resposta-a <código>` ao núcleo; a palavra em reply vale mesmo com a janela da palavra solta fechada. Sem reply, a palavra solta só vale com uma pergunta esperando no chat em que ela saiu; com duas, o núcleo pergunta qual. Conversa comum, mesmo em reply, segue ao assistente. Quem decide é o núcleo: a pergunta de agora, o prazo, a mensagem repetida e o chat.
+
+Verificação: `python3 -m unittest discover -s adapters/hermes/test -p hitl_resposta_curta_test.py -v`.
 
 ## Confirmação pelo plugin nativo HITL
 

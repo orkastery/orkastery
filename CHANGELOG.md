@@ -8,6 +8,22 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **O dono aprova onde estiver, com resposta curta** ([RM-057](docs/roadmap/RM-057-hitl-por-alternativas.md), na
+  [RM-058](docs/roadmap/RM-058-modo-noctum.md)): a proposta do arco do #Noctum (`ork noctum propor` e
+  `ork_noctum_propor`) e a revogação pedida (`ork noctum revogar <arco>`, novo) viram a pergunta ao dono com código
+  curto, três alternativas e "Responda a, b ou c", que sai também no canal dele pelo transporte do pulse; o hash fica
+  na pergunta, nunca na resposta. O dono responde com a letra: no Telegram do Hermes e do OpenClaw, em reply à
+  mensagem da pergunta (o gateway assina no endereço `resposta:<código>` e passa `--em-resposta-a` ao `ork pulse
+  responder`), com o código, com o número ou com a palavra solta quando só uma pergunta espera no chat; no terminal do
+  Claude Code, pelo hook `UserPromptSubmit` do plugin e pelo `ork noctum terminal --hook-stdin` (novo), que provam a
+  origem da sessão antes de gravar e recusam a sessão despachada pelo `ork`; e no diálogo nativo, agora com três
+  alternativas. O reply também responde à mensagem curta de um gate no Telegram, e o vocabulário ganha "autorizo" e
+  "adiar". Com duas pendentes, a palavra solta volta perguntando qual; nada é gravado sem pergunta, depois do prazo,
+  de outro chat ou com a mesma mensagem. O `/ork noctum <arco> autorizar <sha256>` segue aceito, mas não é mais
+  ensinado. Formatos sem ratificação que mudam: o recibo `ork.noctum-ingresso/v1` ganha a `pergunta`, o endereço
+  assinado e a origem `terminal`, o log do arco ganha o `codigo` da proposta e o evento `revogacao_pedida`, e o
+  diálogo `ork.noctum-dialogo/v1` ganha as alternativas; o envelope do arco não muda. O ensaio do modo abre os arcos
+  pela resposta curta e ganha o cenário `resposta-curta`.
 - **Barreira de dado privado (RM-062, F1 e F2)**: `ork privado varrer` varre as linhas e os nomes de arquivo
   versionados atrás de caminho de home, e-mail fora da lista permitida, hostname no formato de máquina e os termos de
   uma lista local que fica fora do git (`termos-privados.txt` em `~/.orkastery/` e em `.orkastery/` do projeto, ou o
