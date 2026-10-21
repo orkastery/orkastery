@@ -215,15 +215,18 @@ memory:
   reprova o manifesto, e o `ork` nunca cai de uma fonte para a outra.
 - **Só a pasta de segredos.** A forma aceita é `~/.orkastery/segredos/<nome>`, sem subpasta. O
   `~/.orkastery` é a pasta do usuário do `ork`, que segue `ORKASTERY_HOME` (e `ORK_USUARIO_DIR`).
-  O manifesto vem do repositório e não escolhe outro arquivo do dono (veja a
+  Vinda dessas variáveis, ela só vale como caminho absoluto sem `..`, dentro da casa do usuário
+  (`HOME`) e pasta sua; fora disso, o arquivo é recusado sem ser aberto. O manifesto vem do
+  repositório e não escolhe outro arquivo do dono (veja a
   [fronteira de confiança](../referencia/fronteira-de-confianca.md)).
 - **A regra do arquivo.** Arquivo comum, do usuário que roda o `ork`, com permissão `0600` ou
   `0400` exata (setuid, setgid e sticky não passam), com até 4 KiB e uma linha só com a DSN
   (`esquema://...`, em UTF-8, sem espaço e sem caractere de controle), nunca a forma `NOME=valor`
   de um arquivo de ambiente. Só um fim de linha no fim e o espaço comum em volta são aparados.
-  Nem o arquivo, nem a pasta de segredos, nem a pasta do usuário do `ork` podem ser link
-  simbólico: o `ork` confere cada uma antes de abrir o arquivo. Cada uso lê o arquivo de novo:
-  trocar a DSN vale no próximo comando, inclusive no `ork mcp serve`, sem reiniciar.
+  Nenhuma pasta da casa até o arquivo pode ser link simbólico (nem a pasta do usuário do `ork`,
+  nem a de segredos), nem o arquivo: o `ork` confere cada uma antes de abrir o arquivo, e o que
+  fica acima da casa vale pelo caminho real. Cada uso lê o arquivo de novo: trocar a DSN vale no
+  próximo comando, inclusive no `ork mcp serve`, sem reiniciar.
 - **Degradação.** Arquivo ausente, inseguro ou inválido leva o regime a `files`, com
   `dsn.arquivo-ausente`, `dsn.arquivo-inseguro` ou `dsn.arquivo-invalido` e a correção. Nenhum
   erro, detalhe, ledger ou bundle repete o valor, e o arquivo sai sempre pelo caminho com `~`.

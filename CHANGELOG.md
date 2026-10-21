@@ -11,8 +11,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 - **DSN da memória fora do ambiente dos agentes (RM-069)**: `memory.database_url_file` declara a DSN da memória por
   um arquivo da pasta de segredos do `ork` (`~/.orkastery/segredos/<nome>`, que segue `ORKASTERY_HOME`), em vez da
   variável de `memory.database_url_env`; as duas fontes são exclusivas e o `ork` nunca cai de uma para a outra. O
-  arquivo só é lido como arquivo comum do usuário que roda o `ork`, sem link simbólico no caminho (a pasta do usuário
-  do `ork`, a de segredos e o arquivo são conferidos antes de abrir), com permissão `0600` ou `0400` exata, até 4 KiB
+  arquivo só é lido como arquivo comum do usuário que roda o `ork`, sem link simbólico no caminho (cada pasta da casa
+  do usuário até o arquivo é conferida antes de abrir, e a pasta do usuário vinda de `ORK_USUARIO_DIR` ou
+  `ORKASTERY_HOME` só vale dentro da casa, sem `..` e do próprio usuário), com permissão `0600` ou `0400` exata, até 4 KiB
   e uma linha só com a DSN (`esquema://...`); ausente, inseguro ou inválido, a memória degrada para `files` com
   `dsn.arquivo-ausente`, `dsn.arquivo-inseguro` ou `dsn.arquivo-invalido`. O driver do OrkMind, o cliente e a
   migração do Company Brain e o `ork doctor` leem a DSN pelo mesmo resolvedor, e ela continua indo só ao ambiente do
