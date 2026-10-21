@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-21T14:30:04.432Z",
+  "publicadoEm": "2026-10-21T15:07:06.867Z",
   "threads": [
     {
       "id": "ork-decisoes0700",
@@ -32,11 +32,11 @@
       "id": "ork-rm057respost",
       "nome": "rm057respostacurta",
       "modo": "#Auto",
-      "fase": "GO",
+      "fase": "CHECK",
       "status": "aberta",
       "roadmap": "RM-057",
       "branch": "ork/ork-rm057respost-full",
-      "atualizadaEm": "2026-10-21T13:35:45.480Z",
+      "atualizadaEm": "2026-10-21T15:07:06.331Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
