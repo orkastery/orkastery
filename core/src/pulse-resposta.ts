@@ -83,6 +83,10 @@ export const GRAMATICA_DO_PULSE = Object.freeze({
   // RM-063 (fatia 3, H2): os comandos de conducao do canal, sozinhos na mensagem: `#OrkRetomar` roda a batida da
   // conducao e responde o que voltou a andar; `#OrkFabrica` responde o `ork fabrica`. Comecam por `#`, como a cadencia.
   conducao: '^[ \\t]*#Ork(?:Retomar|Fabrica)[ \\t]*[.!]?[ \\t]*$',
+  // RM-057 (resposta curta, D3 da ork-rm057respost): o código curto na mensagem do bot a que o dono respondeu (reply). O
+  // gateway o tira dela só quando ela tem um código só, e o assina no endereço `resposta:<código>`. Em maiúsculas e entre
+  // limites de palavra: hash e identificador em minúsculas nunca casam. Não é forma de resposta: é a referência dela.
+  referencia: '(?<![A-Za-z0-9])[A-HJKMNP-TV-Z](?=[2-9A-HJKMNP-TV-Z]{0,2}[2-9])[2-9A-HJKMNP-TV-Z]{3}(?![A-Za-z0-9])',
 });
 const RATIFICACAO = new RegExp(GRAMATICA_DO_PULSE.ratificacao, 'i');
 const CONSENTIMENTO = new RegExp(GRAMATICA_DO_PULSE.consentimento, 'i');

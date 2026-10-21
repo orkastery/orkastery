@@ -150,3 +150,107 @@ test('GW5: ponta a ponta, a mensagem assinada pelo OpenClaw autoriza o arco no o
     assert.deepEqual([quem.canal, quem.conta], ['openclaw', 'conta-simulada']);
   } finally { p.limpar(); }
 });
+
+// RM-057 (resposta curta, ork-rm057respost): o reply à pergunta do arco nos dois ingressos do Telegram.
+
+test('GW6: o teste do reply do Hermes passa pelo unittest', { skip: !temPython }, () => {
+  const r = spawnSync('python3', ['-m', 'unittest', 'discover', '-s', 'test', '-p', 'hitl_resposta_curta_test.py'], { cwd: HERMES, encoding: 'utf8',
+    timeout: 60_000, env: { PATH: '/usr/bin:/bin', PYTHONDONTWRITEBYTECODE: '1' } });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stderr, /Ran 7 tests/);
+  assert.doesNotMatch(r.stderr, /skipped=/);
+});
+
+test('GW7: o teste do reply do OpenClaw passa', () => {
+  const env = { ...process.env };
+  delete env.FORCE_COLOR;
+  delete env.NODE_TEST_CONTEXT;
+  const r = spawnSync(process.execPath, ['--test-reporter=tap', path.join(RAIZ, 'adapters/openclaw/test/hitl-resposta-curta.test.mjs')],
+    { encoding: 'utf8', timeout: 120_000, env });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.equal((r.stdout.match(/^ok \d+ - reply:/gm) ?? []).length, 5, r.stdout);
+  assert.doesNotMatch(r.stdout, /^not ok/m);
+});
+
+/** A pergunta do arco como o bot a mandou, com o código dela no título. */
+const mensagemDaPergunta = (arco: string, codigo: string) =>
+  `🔔 1. arco ${arco} · ${codigo}\n❓ Autorizar o arco ${arco} (proposta 1)?\n↩️ Responda a, b ou c. Detalhes: ${codigo} detalhes.`;
+
+test('GW8: ponta a ponta, "sim" em reply à pergunta, assinado pelo Hermes, autoriza o arco no ork real', { skip: semKernel || !temPython }, () => {
+  const p = projetoTemporario('noctum-gw8');
+  try {
+    const sha = arcoProposto(p, 'arco-gw8');
+    const codigo = lerArco(p.dir, 'arco-gw8')!.propostaPendente!.codigo!;
+    const driver = path.join(p.dir, 'driver-hermes-reply.py');
+    fs.writeFileSync(driver, [
+      'import asyncio, importlib.util, json, sys',
+      'from types import SimpleNamespace, ModuleType',
+      'from datetime import datetime, timezone',
+      'from unittest.mock import AsyncMock',
+      'spec = importlib.util.spec_from_file_location("ingresso", sys.argv[1])',
+      'ingresso = importlib.util.module_from_spec(spec); spec.loader.exec_module(ingresso)',
+      'class Message(SimpleNamespace):',
+      '    def get_bot(self): return SimpleNamespace(id=99)',
+      'class MessageEvent(SimpleNamespace): pass',
+      'base, telegram = ModuleType("gateway.platforms.base"), ModuleType("telegram")',
+      'base.MessageEvent, telegram.Message = MessageEvent, Message',
+      'sys.modules.update({"gateway": ModuleType("gateway"), "gateway.platforms": ModuleType("gateway.platforms"),',
+      '                    "gateway.platforms.base": base, "telegram": telegram})',
+      'async def principal():',
+      '    msg = Message(text="sim", message_id=8, from_user=SimpleNamespace(id=42, is_bot=False), chat=SimpleNamespace(id=-7),',
+      '                  date=datetime.now(timezone.utc),',
+      '                  reply_to_message=Message(text=sys.argv[2], message_id=5, from_user=SimpleNamespace(id=99, is_bot=True)))',
+      '    async def responder(texto, **_):',
+      '        return Message(message_id=9, chat=msg.chat, from_user=SimpleNamespace(id=99, is_bot=True), text=texto)',
+      '    msg.reply_text = AsyncMock(side_effect=responder)',
+      '    ev = MessageEvent(text="sim", raw_message=msg, message_id="8",',
+      '                      source=SimpleNamespace(platform=SimpleNamespace(value="telegram"), user_id="42", chat_id="-7"))',
+      '    gw = SimpleNamespace(_is_user_authorized=lambda _: True)',
+      '    ingresso._ingress(event=ev, gateway=gw)',
+      '    await asyncio.gather(*list(ingresso._tasks))',
+      '    await asyncio.sleep(0)',
+      '    print(json.dumps(ingresso._ingress(event=ev, gateway=gw)))',
+      'asyncio.run(principal())', ''].join('\n'));
+    const r = spawnSync('python3', [driver, PLUGIN_HERMES, mensagemDaPergunta('arco-gw8', codigo)], { cwd: p.dir, encoding: 'utf8', timeout: 90_000,
+      env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1', ORK_HITL_ROOT: p.dir, ORK_BIN: orkReal(p.dir), ORK_HITL_TELEGRAM_BOT_ID: '99' } });
+    assert.equal(r.status, 0, r.stderr);
+    const status = JSON.parse(r.stdout.trim().split('\n').at(-1)!) as { effect: string; confirmation: string };
+    assert.deepEqual([status.effect, status.confirmation], ['confirmed', 'sent'], r.stdout);
+    const estado = lerArco(p.dir, 'arco-gw8')!;
+    assert.equal(estado.envelopeSha256, sha);
+    const quem = estado.autorizadoPor as unknown as { origem: string; canal: string; pergunta: { codigo: string; enderecoAssinado: unknown } };
+    assert.deepEqual([quem.origem, quem.canal, quem.pergunta.codigo], ['telegram', 'hermes', codigo]);
+    assert.deepEqual(quem.pergunta.enderecoAssinado, { alvo: 'pulse', endereco: `resposta:${codigo}` });
+  } finally { p.limpar(); }
+});
+
+test('GW9: ponta a ponta, "a" em reply à pergunta, assinado pelo OpenClaw, autoriza o arco no ork real, com a conta', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-gw9');
+  try {
+    const sha = arcoProposto(p, 'arco-gw9');
+    const codigo = lerArco(p.dir, 'arco-gw9')!.propostaPendente!.codigo!;
+    const driver = path.join(p.dir, 'driver-openclaw-reply.mjs');
+    fs.writeFileSync(driver, [
+      `import { registerHitlIngress } from ${JSON.stringify(pathToFileURL(DIST_OPENCLAW).href)};`,
+      'const [bin, pergunta] = process.argv.slice(2);',
+      'let handler;',
+      'registerHitlIngress({ on(_nome, fn) { handler = fn; } }, bin);',
+      "const event = { content: 'a', channel: 'telegram', commandAuthorized: true, accountId: 'conta-simulada', senderId: '42',",
+      "  conversationId: '-7', messageId: '9', timestamp: Date.now(), replyToBody: pergunta, replyToId: '5' };",
+      "const ctx = { channelId: 'telegram', accountId: 'conta-simulada', senderId: '42', conversationId: '-7', messageId: '9' };",
+      'console.log(JSON.stringify(await handler(event, ctx)));', ''].join('\n'));
+    const env: NodeJS.ProcessEnv = { ...process.env, ORK_HITL_ROOT: p.dir, ORK_HITL_TELEGRAM_BOT_ID: '99', ORK_HITL_OPENCLAW_ACCOUNT: 'conta-simulada',
+      ORK_HITL_INGRESS_KEY_OPENCLAW: CHAVE_OPENCLAW };
+    delete env.FORCE_COLOR;
+    const r = spawnSync(process.execPath, [driver, orkReal(p.dir), mensagemDaPergunta('arco-gw9', codigo)], { cwd: p.dir, encoding: 'utf8',
+      timeout: 90_000, env });
+    assert.equal(r.status, 0, r.stderr);
+    const resposta = JSON.parse(r.stdout.trim().split('\n').at(-1)!) as { handled: boolean; reply?: { text: string } };
+    assert.equal(resposta.handled, true);
+    assert.match(resposta.reply?.text ?? '', /está autorizado/);
+    const estado = lerArco(p.dir, 'arco-gw9')!;
+    assert.equal(estado.envelopeSha256, sha);
+    const quem = estado.autorizadoPor as unknown as { canal: string; conta: string; pergunta: { codigo: string } };
+    assert.deepEqual([quem.canal, quem.conta, quem.pergunta.codigo], ['openclaw', 'conta-simulada', codigo]);
+  } finally { p.limpar(); }
+});

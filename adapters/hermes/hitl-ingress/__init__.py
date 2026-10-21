@@ -45,6 +45,10 @@ PULSE_LIVRE = re.compile(r'^[ \t]*(?:[1-5]|(?:[a-e]|pode seguir|pode ir|pode|sim
 # RM-048 (item 8): a linha do teclado do digest ("ratificar <thread> <assinatura> <classe>") vai ao
 # nucleo pelo mesmo endereco assinado; o agente nao escreve mais `--por` em nome do dono.
 PULSE_RATIFICACAO = re.compile(r'^[ \t]*ratificar(?:-lote)?(?:[ \t]+[A-Za-z0-9._-]{1,80}){2,3}[ \t]*$', re.IGNORECASE)
+# RM-057 (resposta curta, D3): o codigo curto da mensagem do bot a que o dono respondeu (reply). A MESMA fonte vive no
+# nucleo (GRAMATICA_DO_PULSE.referencia) e um teste do nucleo confere que continuam iguais. So a mensagem do proprio bot,
+# com um codigo so, da referencia; ela e assinada no endereco `resposta:<codigo>` e vai ao nucleo por --em-resposta-a.
+PULSE_REFERENCIA = re.compile(r'(?<![A-Za-z0-9])[A-HJKMNP-TV-Z](?=[2-9A-HJKMNP-TV-Z]{0,2}[2-9])[2-9A-HJKMNP-TV-Z]{3}(?![A-Za-z0-9])')
 # Texto acima disto nunca e testado contra as formas: elas rodam antes da allowlist.
 PULSE_TETO = 300
 ESCUTA_TETO = 4096
@@ -100,6 +104,29 @@ def _is_pulse(text):
             or PULSE_LISTA.fullmatch(text) or PULSE_RATIFICACAO.fullmatch(text) or PULSE_CONDUCAO.fullmatch(text)):
         return True
     return bool(PULSE_LIVRE.fullmatch(text)) and _escuta_aberta(os.environ.get('ORK_HITL_ROOT', ''))
+
+
+def _referencia(event):
+    """RM-057: o codigo da mensagem do proprio bot a que o dono respondeu, quando ela tem um so; senao None."""
+    try:
+        alvo = getattr(getattr(event, 'raw_message', None), 'reply_to_message', None)
+        autor = getattr(alvo, 'from_user', None)
+        bot = os.environ.get('ORK_HITL_TELEGRAM_BOT_ID', '')
+        if (alvo is None or autor is None or not bot or str(getattr(autor, 'id', '')) != bot
+                or getattr(autor, 'is_bot', None) is not True):
+            return None
+        corpo = getattr(alvo, 'text', None) or getattr(alvo, 'caption', None)
+        if not isinstance(corpo, str):
+            return None
+        codigos = set(PULSE_REFERENCIA.findall(corpo[:4096]))
+        return codigos.pop() if len(codigos) == 1 else None
+    except Exception:
+        return None
+
+
+def _is_livre(text):
+    """A palavra solta, que em reply a uma pergunta do bot vai ao nucleo tambem com a janela fechada."""
+    return '\x00' not in text and len(text) <= PULSE_TETO and bool(PULSE_LIVRE.fullmatch(text))
 
 
 def _receipt_ok(receipt, operation, pedido, answer=None):
@@ -172,7 +199,9 @@ def _ingress(*, event, gateway, **_kwargs):
     text = getattr(event, 'text', '')
     if not isinstance(text, str):
         return None
-    pulse = not text.startswith('/ork ') and _is_pulse(text)
+    # RM-057 (resposta curta, D3): em reply a uma pergunta do bot, a palavra solta e do Orkastery mesmo com a janela fechada.
+    referencia = None if text.startswith('/ork ') else _referencia(event)
+    pulse = not text.startswith('/ork ') and (_is_pulse(text) or (referencia is not None and _is_livre(text)))
     if not text.startswith('/ork ') and not pulse:
         return None
     if getattr(getattr(event, 'source', None), 'platform', None) and event.source.platform.value != 'telegram':
@@ -202,6 +231,9 @@ def _ingress(*, event, gateway, **_kwargs):
             # O dono respondeu ao resumo ou ao lote. O texto inteiro e a resposta, e o endereco
             # assinado e o do pulse: este adaptador nao conhece pedido e nao escolhe nada.
             operation, thread, pedido, answer = 'pulse', PULSE_ALVO, PULSE_ENDERECO, text
+            if referencia:
+                # O reply diz a qual pergunta: o codigo entra no endereco assinado, nunca no texto do dono.
+                pedido = PULSE_ENDERECO + ':' + referencia
         else:
             match = COMMAND.fullmatch(text)
             noctum = None if match else NOCTUM.fullmatch(text)
@@ -235,6 +267,8 @@ def _ingress(*, event, gateway, **_kwargs):
             argv = [os.environ.get('ORK_BIN', 'ork'), 'pulse', 'responder', '--resposta-stdin',
                     '--origem', 'telegram', '--canal', CANAL,
                     '--por', envelope['por'], '--mensagem', envelope['mensagem']]
+            if referencia:
+                argv += ['--em-resposta-a', referencia]
         elif operation == 'noctum':
             argv = [os.environ.get('ORK_BIN', 'ork'), 'noctum', 'responder', pedido[len(NOCTUM_ENDERECO):],
                     '--resposta-stdin', '--origem', 'telegram', '--canal', CANAL,

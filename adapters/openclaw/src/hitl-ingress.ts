@@ -9,6 +9,8 @@ interface NativeEvent {
   content: string; channel: string; commandAuthorized?: boolean; accountId?: string;
   senderId?: string; conversationId?: string; messageId?: string; timestamp?: number;
   sessionKey?: string; senderIsOwner?: boolean;
+  /** RM-057: the replied message, as the installed SDK gives it (inbound_claim, OpenClaw 2026.7.1). */
+  replyToBody?: string; replyToId?: string; replyToSender?: string; replyToIsQuote?: boolean;
 }
 interface NativeContext { channelId: string; accountId?: string; senderId?: string; conversationId?: string; messageId?: string; sessionKey?: string }
 interface NativeApi { on: (name: 'inbound_claim', handler: (event: NativeEvent, ctx: NativeContext) => unknown) => void }
@@ -44,6 +46,26 @@ const PULSE_RATIFICACAO = new RegExp("^[ \\t]*ratificar(?:-lote)?(?:[ \\t]+[A-Za
 /** Text above this is never tested against the shapes: they run before the allowlist. */
 const PULSE_TETO = 300, ESCUTA_TETO = 4096;
 /**
+ * RM-057 (short answer, D3): the short code in the replied message (reply). The SAME source lives in the core
+ * (GRAMATICA_DO_PULSE.referencia) and a core test checks they stay equal. Only a replied message with exactly one code gives
+ * a reference; it is signed at the address `resposta:<code>` and goes to the core with --em-resposta-a. The SDK gives the
+ * replied sender only as a display label, so the author of the replied message is not proven here (limit stated in the
+ * README); the code only counts in the core if it is a pending question.
+ */
+const PULSE_REFERENCIA = "(?<![A-Za-z0-9])[A-HJKMNP-TV-Z](?=[2-9A-HJKMNP-TV-Z]{0,2}[2-9])[2-9A-HJKMNP-TV-Z]{3}(?![A-Za-z0-9])";
+
+/** The code of the replied message, when it has exactly one; otherwise null. */
+export function replyReference(event: Pick<NativeEvent, 'replyToBody'>): string | null {
+  if (typeof event.replyToBody !== 'string' || !event.replyToBody) return null;
+  const codes = new Set([...event.replyToBody.slice(0, 4096).matchAll(new RegExp(PULSE_REFERENCIA, 'g'))].map(m => m[0]));
+  return codes.size === 1 ? [...codes][0] : null;
+}
+
+/** The bare word, which in reply to a question goes to the core even with the listening window closed. */
+function isBareWord(text: string): boolean {
+  return !text.includes('\0') && text.length <= PULSE_TETO && PULSE_LIVRE.test(text);
+}
+/**
  * RM-058 N6 (D12): the owner's act on a #Noctum arc. The SAME source lives in the core (GRAMATICA_DO_NOCTUM,
  * core/src/noctum-modo.ts) and a core test checks they stay equal. The signed address is `noctum` / `arco:<arc>`:
  * the `:` keeps the arc out of reach of /ork gate and /ork session, and the other way around.
@@ -72,7 +94,9 @@ export function isPulseAnswer(text: string, root: string | undefined = process.e
 export function registerHitlIngress(api: NativeApi, bin: string): void {
   api.on('inbound_claim', async (event, ctx) => {
     if (typeof event.content !== 'string') return { handled: false };
-    const pulse = !event.content.startsWith('/ork ') && isPulseAnswer(event.content);
+    // RM-057 (short answer, D3): in reply to a question, the bare word belongs to Orkastery even with the window closed.
+    const ref = event.content.startsWith('/ork ') ? null : replyReference(event);
+    const pulse = !event.content.startsWith('/ork ') && (isPulseAnswer(event.content) || (ref !== null && isBareWord(event.content)));
     if (!event.content.startsWith('/ork ') && !pulse) return { handled: false };
     const denied = { handled: true, reply: { text: 'Resposta HITL não confirmada. Confira ingresso e ledger do pedido.' } };
     // The pulse summary goes out on Telegram; only there is an answer to it recognized.
@@ -94,7 +118,7 @@ export function registerHitlIngress(api: NativeApi, bin: string): void {
       // for the legacy v1 envelope only, which this adapter no longer produces.
       const key = env.ORK_HITL_INGRESS_KEY_OPENCLAW, root = env.ORK_HITL_ROOT;
       if ((!pulse && !match && !noctum) || event.content.includes('\0') || !key || Buffer.byteLength(key) < 32 || !root?.startsWith('/')) return denied;
-      if (pulse) return pulseIngress(event.content, { user, chat, message, key, root, bin, timestamp: Number(event.timestamp) }, denied);
+      if (pulse) return pulseIngress(event.content, { user, chat, message, key, root, bin, timestamp: Number(event.timestamp) }, denied, ref);
       if (noctum) return noctumIngress(noctum[1], noctum[2], { user, chat, message, key, root, bin, timestamp: Number(event.timestamp) }, denied);
       const [, operation, thread, pedido, resposta] = match!;
       const canal = 'openclaw';
@@ -139,14 +163,16 @@ export function registerHitlIngress(api: NativeApi, bin: string): void {
  * The reply is the text the core composed, transported as is.
  */
 async function pulseIngress(texto: string, m: { user: string; chat: string; message: string; key: string; root: string;
-  bin: string; timestamp: number }, denied: { handled: boolean; reply: { text: string } }) {
+  bin: string; timestamp: number }, denied: { handled: boolean; reply: { text: string } }, ref: string | null = null) {
   const canal = 'openclaw', conta = process.env.ORK_HITL_OPENCLAW_ACCOUNT ?? '';
+  // RM-057: the reply says which question: the code goes into the signed address, never into the owner's text.
+  const endereco = ref ? `${PULSE_ENDERECO}:${ref}` : PULSE_ENDERECO;
   const envelope = { resposta: texto, canal, conta, origem: 'telegram', por: `telegram:${m.user}`,
     mensagem: `telegram:${m.chat}:${m.message}`, recebidoEm: new Date(m.timestamp).toISOString(), prova: '' };
-  envelope.prova = createHmac('sha256', m.key).update(JSON.stringify(['ork.hitl-answer/v2', PULSE_ALVO, PULSE_ENDERECO, canal, conta,
+  envelope.prova = createHmac('sha256', m.key).update(JSON.stringify(['ork.hitl-answer/v2', PULSE_ALVO, endereco, canal, conta,
     envelope.origem, envelope.por, envelope.mensagem, envelope.recebidoEm, texto])).digest('hex');
   const args = ['pulse', 'responder', '--resposta-stdin', '--origem', 'telegram', '--canal', canal, '--conta', conta,
-    '--por', envelope.por, '--mensagem', envelope.mensagem];
+    '--por', envelope.por, '--mensagem', envelope.mensagem, ...(ref ? ['--em-resposta-a', ref] : [])];
   const receipt = await new Promise<any>(resolve => {
     const child = execFile(m.bin, args, { cwd: m.root, timeout: 10000, maxBuffer: 65536 }, (err, stdout) => {
       try { resolve(err ? null : JSON.parse(stdout)); } catch { resolve(null); }
