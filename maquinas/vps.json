@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-21T13:45:03.529Z",
+  "publicadoEm": "2026-10-21T13:50:31.379Z",
   "threads": [
     {
       "id": "ork-rm057respost",
@@ -36,18 +36,18 @@
       "status": "aberta",
       "roadmap": "RM-058",
       "branch": "ork/ork-rm058blocob-full",
-      "atualizadaEm": "2026-10-20T15:36:42.339Z",
+      "atualizadaEm": "2026-10-21T13:50:30.984Z",
       "entregue": null,
-      "esperaVoce": true,
-      "pergunta": "a escada de recuperacao do runtime",
-      "paradaDesde": "2026-10-20T16:00:38.464Z",
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh",
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": "claude-bg",
+      "modelo": "opus",
+      "esforco": "max",
       "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-20T15:45:23.786Z",
-        "motivo": "sessão 01a159ef caiu (runtime.unavailable)"
+        "viva": true,
+        "desdeEm": null,
+        "motivo": null
       }
     }
   ]
