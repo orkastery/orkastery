@@ -310,8 +310,9 @@ test('TM15: o código de um gate vira contexto ao condutor (D1), só com a orige
 
 test('TM16: limite conhecido: o evento, o ambiente e a cadeia montados à mão pelo mesmo usuário passam (fronteira da conta)', () => {
   // O ingresso confia no evento e no ambiente que o Claude Code monta para o hook e na cadeia do `/proc`; quem roda como o
-  // mesmo usuário e consegue uma cadeia que não passa por uma ferramenta do agente (uma sessão interativa nova, fora da
-  // árvore do agente) monta os três. Este teste fixa o limite dito na página da RM-058, como o A21 fixa o do diálogo nativo.
+  // mesmo usuário monta os três: uma sessão interativa nova, fora da árvore do agente, ou o próprio agente da sessão do dono,
+  // que troca o shell pelo núcleo com `exec` e tira a marca `AI_AGENT` (o S15 do CHECK, no TM29). Este teste fixa o limite
+  // dito na página da RM-058, como o A21 fixa o do diálogo nativo; por isso o ingresso está desligado no produto (D22).
   const c = cenario('limite');
   try {
     const a = c.arco('arco-tm16');
@@ -461,7 +462,7 @@ test('TM23: o prompt em mais de uma linha, até com a quebra só no fim, nunca c
 
 // GO-FIX 1 (achado 5): a cadeia entre o núcleo e a sessão nasceu do hook dela.
 
-test('TM24: o /proc de verdade: CLAUDE_PID no topo da cadeia, ou a cadeia que sai de uma ferramenta do agente, é recusado', { skip: !fs.existsSync('/proc/self/stat') }, () => {
+test('TM24: o /proc de verdade: CLAUDE_PID no topo da cadeia, ou o núcleo com a marca AI_AGENT no próprio ambiente, é recusado', { skip: !fs.existsSync('/proc/self/stat') }, () => {
   // S1 do CHECK, invertido, com uma cadeia real que o teste abre: final <- salto <- este processo <- quem roda a suíte.
   const real = ancestraisPeloProc();
   assert.ok(real && real.length >= 2, 'o /proc se lê');
