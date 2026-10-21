@@ -38,7 +38,12 @@ sdlc:
 
 **Pedido do dono de 20/10/2026:** "Adicione também no roadmap incluir o Grok Bot como possível camada de orquestração do orkastery, podendo ser utilizado pra conduzir o ork." Esta página é só planejamento: nenhum código nem teste foi escrito, e os critérios de aceite abaixo são o que cada fatia terá de provar.
 
-**Decisão do dono de 21/10/2026 (D1 = a, com o escopo completo):** "2.a (não quero só leitura, quero completo)". O Grok conduz o `ork` pelo MCP do `ork` exposto por HTTP com autenticação, com a condução completa: status, pulse, gates e HITL, despacho de fase, entrega e a autorização do `#Noctum`. O que o dono pediu a mais que a alternativa a original (que era leitura primeiro) está nas fatias abaixo. O que **não** muda: o que exige prova de que foi o dono (aprovação de gate, autorização de arco) segue a regra da [RM-057](RM-057-hitl-por-alternativas.md), uma resposta curta presa à pergunta pendente, com a prova pelo canal; e o que o Grok ainda não oferece para essa prova continua dito como lacuna (H5), sem presumir.
+**Decisão do dono de 21/10/2026 (D1 = a, com o escopo completo):** "2.a (não quero só leitura, quero completo)".
+
+- O Grok conduz o `ork` pelo MCP do `ork` exposto por HTTP com autenticação, com a condução completa: status, pulse, gates e HITL, despacho de fase, entrega e a autorização do `#Noctum`.
+- O que o dono pediu a mais que a alternativa a original (que era leitura primeiro) está nas fatias abaixo.
+- O que **não** muda: o que exige prova de que foi o dono (aprovação de gate, autorização de arco) segue a regra da [RM-057](RM-057-hitl-por-alternativas.md), uma resposta curta presa à pergunta pendente, com a prova pelo canal.
+- O que o Grok ainda não oferece para essa prova continua dito como lacuna (H5), sem presumir.
 
 **Condução não é runtime.** Aqui o Grok é o **host condutor**: quem conversa com o dono e chama o `ork` (status, gate, despacho). Isso é diferente de ser o **runtime**, o agente CLI que executa uma fase dentro da worktree, tema da [RM-067](RM-067-grok-build-homologado.md) (o Grok Build). Os dois são independentes: dá para conduzir pelo Grok Bot com Codex ou Claude Code executando as fases, e dá para executar fases com o Grok Build conduzido pelo Telegram.
 
