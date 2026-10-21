@@ -47,7 +47,28 @@ test('locale F2a catalogo: nenhuma mensagem vazia nem igual ao pt-BR por descuid
     'thread.colunasDaLista.0', 'thread.colunasDaLista.1', 'thread.colunasDaLista.4', 'claims.colunas.0', 'decisao.dentroDoLimiar', 'accounts.colunas.1',
     'accounts.colunasDosDespachos.2',
     // F3b: a prova de um pitfall que e so um comando, sem comentario a traduzir.
-    'adapter.hosts.codex.pitfalls.1.prova', 'adapter.hosts.codex.pitfalls.2.prova', 'adapter.hosts.hermes.pitfalls.0.prova']);
+    'adapter.hosts.codex.pitfalls.1.prova', 'adapter.hosts.codex.pitfalls.2.prova', 'adapter.hosts.hermes.pitfalls.0.prova',
+    // F3d (GO-FIX 1): rotulos de tabela, nomes de campo e valores tecnicos (estado, chave do manifesto, ferramenta) que sao
+    // a mesma palavra nas duas linguas, e duas recusas que sao so o comando com os valores aceitos; o pt-BR e o da base.
+    'retry.complementar.colunasFila.0', 'retry.complementar.colunasFila.1', 'prompts.memoria.grupos.roadmap', 'prompts.memoria.mandatory',
+    'grafo.indexar.campos.snapshot', 'grafo.indexar.campos.digest',
+    'audit.packs.cabecalho.0', 'audit.rodadas.cabecalho.1', 'audit.rodadas.cabecalho.4', 'audit.rodadas.cabecalho.7',
+    'audit.rodadas.campos.pack', 'audit.rodadas.campos.graphify', 'audit.rodadas.campos.runtime', 'audit.rodadas.campos.prompt',
+    'audit.rodadas.campos.status', 'audit.divida.cabecalho.0', 'audit.divida.cabecalho.1', 'audit.divida.cabecalho.4',
+    'audit.superficie.cabecalho.3', 'audit.superficie.campos.frameworks',
+    'operacao.restante.sessions.inventario.fonteEstado.ok', 'operacao.restante.sessions.inventario.colunas.0',
+    'operacao.restante.sessions.inventario.colunas.1', 'operacao.restante.sessions.inventario.desconhecido',
+    'operacao.restante.sessions.limpeza.colunas.0', 'operacao.restante.sessions.radar.colunas.0', 'operacao.restante.sessions.radar.colunas.6',
+    'operacao.restante.sessions.radar.log', 'operacao.restante.gate.formato', 'operacao.restante.fix.colunasLista.0',
+    'operacao.restante.fix.colunas.0', 'operacao.restante.board.colunasPlano.0', 'operacao.restante.board.colunasPlano.1',
+    'operacao.restante.board.colunas.1', 'operacao.restante.board.colunas.2', 'operacao.restante.board.colunas.5',
+    'operacao.restante.board.colunas.7', 'operacao.restante.board.colunas.8', 'operacao.restante.board.colunas.9',
+    'operacao.restante.monitor.colunas.1', 'operacao.restante.monitor.colunas.3', 'operacao.restante.fabrica.colunas.0',
+    'operacao.restante.fabrica.colunas.3', 'operacao.restante.fabrica.colunas.4', 'operacao.restante.eval.estados.unavailable',
+    'operacao.restante.eval.colunasSkills.0', 'operacao.restante.memory.embeddings.depsOk',
+    'operacao.modos.cabecalho.0', 'operacao.modos.pausaSobre.push', 'operacao.modos.pausaSobre.score', 'operacao.modos.migracao.backup',
+    'operacao.pulseCadencia.responderFormato', 'setup.tabela.cabecalho.2', 'setup.tabela.cabecalho.3', 'setup.tabela.cabecalho.4',
+    'setup.tabela.cabecalho.5', 'setup.tabela.default', 'projetos.cli.cabecalho.1']);
   en.forEach(({ k, tipo, v }, i) => {
     if (tipo !== 'string') return;
     assert.ok((v as string).trim(), `${k} vazia`);

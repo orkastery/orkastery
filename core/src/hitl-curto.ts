@@ -30,6 +30,7 @@ import { AcaoAoExpirar, AtoIrreversivel, ehV2, PedidoHitlQualquer, prazoDoPedido
   textoDoPedido, validarPedidoHitl } from './hitl-contract';
 import { formatarDesde, formatarHora } from './horario';
 import { EventoLedger } from './types';
+import { msg } from './locale';
 
 export const CONTRATO_PEDIDO_CURTO = 'ork.hitl-curto/v1' as const;
 
@@ -115,7 +116,7 @@ const linha = (texto: unknown, teto = TETO_DA_LINHA): string => {
 export function entradaDoPedido(pedido: PedidoHitlQualquer, desde?: string | null): EntradaDoPedidoCurto {
   validarPedidoHitl(pedido);
   if (!ehV2(pedido) || pedido.classe !== 'pergunta') {
-    throw new Error('pedido curto: só uma pergunta ork.hitl/v2 tem alternativas declaradas');
+    throw new Error(msg().decisao.curto.soPergunta);
   }
   const alvo = alvoDoPedido(pedido);
   return {
@@ -130,10 +131,11 @@ export function entradaDoPedido(pedido: PedidoHitlQualquer, desde?: string | nul
 
 /** O que acontece sem resposta, em meia linha. Expirar nunca autoriza. */
 function semResposta(e: EntradaDoPedidoCurto, agora: string): string {
-  const ate = e.prazo ? ` até ${formatarHora(e.prazo, { agora })}` : '';
-  if (e.expiracao === 'seguir-recomendada') return `Sem resposta${ate}, sigo com a recomendada.`;
-  if (e.expiracao === 'escalar') return `Sem resposta${ate}, o pedido é escalado.`;
-  return e.alvo?.tipo === 'session' ? 'Sem resposta, a sessão continua parada.' : 'Sem resposta, nada avança.';
+  const m = msg().decisao.curto;
+  const ate = e.prazo ? m.ate(formatarHora(e.prazo, { agora })) : '';
+  if (e.expiracao === 'seguir-recomendada') return m.semRespostaRecomendada(ate);
+  if (e.expiracao === 'escalar') return m.semRespostaEscala(ate);
+  return e.alvo?.tipo === 'session' ? m.semRespostaSessao : m.semRespostaGate;
 }
 
 /**
@@ -141,18 +143,19 @@ function semResposta(e: EntradaDoPedidoCurto, agora: string): string {
  * de duas alternativas, mais de cinco, ou recomendada diferente de exatamente uma.
  */
 export function montarPedidoCurto(e: EntradaDoPedidoCurto, opcoes: { quando: string; responder: ComoResponder }): PedidoCurto {
-  if (e.alternativas.length < 2 || e.alternativas.length > 5) throw new Error('pedido curto: de 2 a 5 alternativas');
-  if (e.alternativas.filter(a => a.recomendada).length !== 1) throw new Error('pedido curto: exatamente uma alternativa é recomendada');
+  const m = msg().decisao.curto;
+  if (e.alternativas.length < 2 || e.alternativas.length > 5) throw new Error(m.alternativas);
+  if (e.alternativas.filter(a => a.recomendada).length !== 1) throw new Error(m.umaRecomendada);
   const onde = e.alvo?.tipo === 'session'
-    ? `A sessão ${e.alvo.sessionId.slice(0, 8)} está parada esperando você`
-    : `${e.fase ? `A fase ${e.fase}` : 'A thread'} está parada esperando você`;
-  const desde = e.desde ? ` desde ${formatarDesde(e.desde, { agora: opcoes.quando })}` : '';
+    ? m.sessaoParada(e.alvo.sessionId.slice(0, 8))
+    : m.faseParada(e.fase);
+  const desde = e.desde ? m.desde(formatarDesde(e.desde, { agora: opcoes.quando })) : '';
   return {
     contrato: CONTRATO_PEDIDO_CURTO,
-    titulo: linha([e.thread, e.fase].filter(Boolean).join(' · ') || 'sem thread'),
+    titulo: linha([e.thread, e.fase].filter(Boolean).join(' · ') || m.semThread),
     pergunta: linha(e.pergunta),
     trava: linha(`${onde}${desde}. ${semResposta(e, opcoes.quando)}`),
-    ...(e.ato ? { semVolta: `Sem volta depois de feito: ${TEXTO_DO_ATO[e.ato]}.` } : {}),
+    ...(e.ato ? { semVolta: m.semVolta(m.atos[e.ato]) } : {}),
     corpo: (e.corpo ?? []).slice(0, TETO_DE_LINHAS_DO_CORPO).map(l => linha(l)).filter(Boolean),
     alternativas: e.alternativas.map(a => ({ chave: a.chave, texto: linha(a.texto, 140), consequencia: linha(a.consequencia, 140),
       ...(a.recomendada ? { recomendada: { porque: linha(a.recomendada.porque, 140) } } : {}) })),
@@ -163,13 +166,14 @@ export function montarPedidoCurto(e: EntradaDoPedidoCurto, opcoes: { quando: str
 /** A ultima linha: exatamente o que digitar, sem identificador longo. */
 export function linhaDeResposta(p: PedidoCurto, canal: CanalDoPedido): string | null {
   const r = p.responder, recomendada = p.alternativas.find(a => a.recomendada)!.chave;
+  const m = msg().decisao.curto;
   if (r.tipo === 'numero') return null;
-  if (r.tipo === 'texto') return `${canal === 'telegram' ? '↩️ ' : ''}Responda escrevendo o texto; ele é enviado como está.`;
-  if (r.tipo === 'terminal') return `${canal === 'telegram' ? '↩️ ' : 'Responder: '}feito o comando, ${recomendada}) é \`${r.comando}\`.`;
-  if (r.tipo === 'dialogo') return `${canal === 'telegram' ? '↩️ ' : ''}Responda selecionando a opção no diálogo; digitar a letra também vale.`;
+  if (r.tipo === 'texto') return `${canal === 'telegram' ? '↩️ ' : ''}${m.respostaTexto}`;
+  if (r.tipo === 'terminal') return `${canal === 'telegram' ? '↩️ ' : `${m.responder}: `}${m.respostaTerminal(recomendada, r.comando)}`;
+  if (r.tipo === 'dialogo') return `${canal === 'telegram' ? '↩️ ' : ''}${m.respostaDialogo}`;
   return canal === 'telegram'
-    ? `↩️ Responda: ${r.codigo} ${recomendada} (ou outra letra). Evidências: ${r.codigo} detalhes.`
-    : `Responda pelo Telegram: ${r.codigo} ${recomendada} (ou outra letra); aqui, pelo diálogo do host. Evidências: ${r.codigo} detalhes.`;
+    ? m.respostaTelegram(r.codigo, recomendada)
+    : m.respostaHost(r.codigo, recomendada);
 }
 
 /**
@@ -177,23 +181,24 @@ export function linhaDeResposta(p: PedidoCurto, canal: CanalDoPedido): string | 
  * nenhum dos dois passa de `TETO_DE_LINHAS_DO_PEDIDO` linhas.
  */
 export function textoDoPedidoCurto(p: PedidoCurto, canal: CanalDoPedido): string {
-  if (p.contrato !== CONTRATO_PEDIDO_CURTO) throw new Error('pedido curto: contrato inválido');
+  const m = msg().decisao.curto;
+  if (p.contrato !== CONTRATO_PEDIDO_CURTO) throw new Error(m.contratoInvalido);
   const tg = canal === 'telegram';
   const numero = p.responder.tipo === 'numero' ? `${p.responder.numero}. ` : '';
   const linhas = [
     `${tg && !numero ? '🔔 ' : ''}${numero}${tg || numero ? '' : 'Orkastery · '}${p.titulo}`,
-    `${tg ? '❓ ' : 'Pergunta: '}${p.pergunta}`,
-    `${tg ? '⏳ ' : 'Situação: '}${p.trava}`,
+    `${tg ? '❓ ' : `${m.pergunta}: `}${p.pergunta}`,
+    `${tg ? '⏳ ' : `${m.situacao}: `}${p.trava}`,
     ...(p.semVolta ? [`${tg ? '🔒 ' : '! '}${p.semVolta}`] : []),
     ...p.corpo.map(l => `${tg ? '• ' : '- '}${l}`),
     ...p.alternativas.flatMap(a => [
-      `${a.chave}) ${a.texto}${a.recomendada ? (tg ? ` ✅ ${SELO_DA_RECOMENDADA}` : ` [${SELO_DA_RECOMENDADA}]`) : ''}: ${a.consequencia}`,
-      ...(a.recomendada ? [`   porquê: ${a.recomendada.porque}`] : []),
+      `${a.chave}) ${a.texto}${a.recomendada ? (tg ? ` ✅ ${m.selo}` : ` [${m.selo}]`) : ''}: ${a.consequencia}`,
+      ...(a.recomendada ? [`   ${m.porque}: ${a.recomendada.porque}`] : []),
     ]),
   ];
   const resposta = linhaDeResposta(p, canal);
   if (resposta) linhas.push(resposta);
-  if (linhas.length > TETO_DE_LINHAS_DO_PEDIDO) throw new Error('pedido curto: acima do teto de linhas');
+  if (linhas.length > TETO_DE_LINHAS_DO_PEDIDO) throw new Error(m.acimaDoTeto);
   return linhas.join('\n');
 }
 

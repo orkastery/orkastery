@@ -30,6 +30,7 @@ import { dirEstado, NOME_MANIFESTO } from './manifest';
 import { registrar } from './ledger';
 import { MODOS_APOSENTADOS, ORDEM_DOS_MODOS, modoAposentado } from './modos';
 import { agora } from './util';
+import { msg } from './locale';
 
 /** Uma mudanca proposta ou aplicada, sempre com o antes e o depois visiveis. */
 export interface MudancaDeMigracao {
@@ -169,12 +170,13 @@ export function migrarModosAposentados(
 
 /** Texto do `ork modos migrar`, com o antes e o depois de cada campo. */
 export function textoDaMigracaoModos(r: ResultadoMigracaoModos): string {
+  const m = msg().operacao.modos.migracao;
   if (r.mudancas.length === 0) {
-    return 'Nada a migrar: nenhum modo aposentado na configuracao deste projeto.';
+    return m.nada;
   }
-  const linhas = [r.dryRun ? 'Simulacao (--dry-run), nada foi gravado.' : 'Migracao aplicada.'];
-  for (const m of r.mudancas) linhas.push(`  ${m.arquivo}  ${m.campo}`, `    de   ${m.de}`, `    para ${m.para}`);
-  if (r.backup) linhas.push(`  backup  ${r.backup}`);
-  linhas.push('', 'Nenhum historico foi tocado: thread, ledger e recibo em modo aposentado ficam como estao.');
+  const linhas = [r.dryRun ? m.simulacao : m.aplicada];
+  for (const mudanca of r.mudancas) linhas.push(`  ${mudanca.arquivo}  ${mudanca.campo}`, `    ${m.de.padEnd(4)} ${mudanca.de}`, `    ${m.para} ${mudanca.para}`);
+  if (r.backup) linhas.push(`  ${m.backup}  ${r.backup}`);
+  linhas.push('', m.historico);
   return linhas.join('\n');
 }

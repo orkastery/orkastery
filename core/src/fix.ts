@@ -38,6 +38,7 @@ import {
 import { agora, anexarJsonl, lerJsonl, proximoIdSequencial, shaCurto, tabela } from './util';
 import { ConducaoDoVerify, cwdDaThread, executar, ResultadoVerify, verificar } from './verify';
 import { canalDoProcesso, comConducao, identidadeDoAmbiente, prazoDaVerificacao } from './conducao';
+import { msg } from './locale';
 
 /** Veredito de UMA correcao no CHECK-REVERIFY. */
 export interface VereditoDeCorrecao {
@@ -514,34 +515,30 @@ export function rodadasGastas(raiz: string, threadId: string): number {
 
 /** Texto de `ork fix open`. */
 export function textoDaRodada(r: RodadaDeFix): string {
+  const m = msg().operacao.restante.fix;
   if (r.correcoes.length === 0) {
-    return (
-      `Thread ${r.thread}: o CHECK PASSOU no HEAD real, nao ha correcao a abrir.\n` +
-      '  (nenhum motivo tipado bloqueante em `ork verify`)'
-    );
+    return m.semCorrecoes(r.thread);
   }
   const linhas: string[] = [];
-  linhas.push(`GO-FIX aberto na thread ${r.thread} (rodada ${r.rodada})`);
-  linhas.push(`  veredito do CHECK   ${r.veredito}`);
-  linhas.push(`  motivos tipados     ${r.motivos.join(', ')}`);
-  linhas.push(
-    `  reexecucao          ${r.temTipoB ? 'COMPLETA obrigatoria (ha correcao tipo B)' : 'parcial permitida (rodada so de tipo A)'}`
-  );
+  linhas.push(m.aberto(r.thread, r.rodada));
+  linhas.push(m.veredito(m.vereditos[r.veredito] ?? r.veredito));
+  linhas.push(m.motivos(r.motivos.join(', ')));
+  linhas.push(m.reexecucao(r.temTipoB));
   linhas.push('');
   linhas.push(
     tabela(
-      ['ID', 'TIPO', 'MOTIVO', 'ALVO', 'JULGADO POR'],
+      [...m.colunas],
       r.correcoes.map((c) => [
         c.id,
         c.tipo,
         c.origem,
         c.alvo,
-        c.verificar.join(' && ') || '(verify completo)',
+        c.verificar.join(' && ') || m.verifyCompleto,
       ])
     )
   );
   linhas.push('');
-  linhas.push('Spec exata despachada ao GO-FIX:');
+  linhas.push(m.spec);
   linhas.push('');
   for (const l of r.spec.split('\n')) linhas.push(`  ${l}`);
   return linhas.join('\n');
@@ -549,33 +546,30 @@ export function textoDaRodada(r: RodadaDeFix): string {
 
 /** Texto de `ork fix reverify`. */
 export function textoDoReverify(r: ResultadoDoReverify): string {
+  const m = msg().operacao.restante.fix;
   const linhas: string[] = [];
-  linhas.push(`CHECK-REVERIFY da thread ${r.thread} (rodada ${r.rodada})`);
-  linhas.push(`  cobertura   ${r.cobertura}`);
-  linhas.push(`  rodadas     ${r.rodadas} de ${r.limite} antes da escalacao`);
+  linhas.push(m.reverify(r.thread, r.rodada));
+  linhas.push(m.cobertura(m.coberturas[r.cobertura] ?? r.cobertura));
+  linhas.push(m.rodadas(r.rodadas, r.limite));
   linhas.push('');
-  linhas.push('Veredito por correcao:');
+  linhas.push(m.porCorrecao);
   for (const v of r.vereditos) {
-    linhas.push(
-      `  ${v.correcao.id}  tipo ${v.correcao.tipo}  ${v.aprovada ? 'APROVADA' : 'REPROVADA'}  ${v.correcao.alvo}`
-    );
-    linhas.push(`      motivo de origem: ${v.correcao.origem}`);
+    linhas.push(m.correcao(v.correcao.id, v.correcao.tipo, v.aprovada, v.correcao.alvo));
+    linhas.push(m.origem(v.correcao.origem));
     linhas.push(`      ${v.detalhe}`);
     for (const e of v.execucoes) {
-      linhas.push(`      ${e.ok ? 'ok  ' : 'FALHOU'} ${e.comando}`);
+      linhas.push(m.execucao(e.ok, e.comando));
     }
   }
   if (r.verify) {
     linhas.push('');
-    linhas.push(
-      `Verify completo no HEAD ${shaCurto(r.verify.commit)}: ${r.verify.ok ? 'verde' : `reprovado (${r.verify.motivos.join(', ')})`}`
-    );
+    linhas.push(m.verify(shaCurto(r.verify.commit), r.verify.ok, r.verify.motivos.join(', ')));
   }
   linhas.push('');
-  linhas.push(`Veredito final: ${r.veredito}`);
+  linhas.push(m.final(m.vereditos[r.veredito] ?? r.veredito));
   linhas.push(`  ${r.razao}`);
   if (r.escalado) {
-    linhas.push('  ESCALADO PARA HUMANO: esta pausa vale em qualquer modo, inclusive #Auto.');
+    linhas.push(m.escalado);
   }
   return linhas.join('\n');
 }

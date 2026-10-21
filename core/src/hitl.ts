@@ -51,7 +51,7 @@ import { agora, tabela } from './util';
 import { duracaoCurta, duracaoRelativa } from './horario';
 import { carimbarSessoes } from './hitl-estado';
 import { redigirCredenciaisUrl } from './redacao-url';
-import { textoDoCatalogo } from './locale';
+import { msg, textoDoCatalogo } from './locale';
 import { PULSE_PT_BR } from './locale-pulse';
 
 /** Limite de atencao padrao, em minutos, igual ao do monitor de orquestracao. */
@@ -653,42 +653,37 @@ function dirCurto(cwd: string): string {
 
 /** Texto de `ork sessions hitl`. */
 export function textoDoRadar(r: RadarDeSessoes): string {
+  const m = msg().operacao.restante.sessions.radar;
   const L: string[] = [];
-  L.push(`Radar de sessoes do runtime (${r.resumo.total} sessao(oes) na maquina)`);
-  L.push(
-    `  precisam de humano: ${r.resumo.precisamDeHumano} (HITL vivo ${r.resumo.hitl}, ` +
-      `abandonada ${r.resumo.abandonadas}, falha ${r.resumo.falhas}, ` +
-      `estado desconhecido ${r.resumo.desconhecidas}) | ` +
-      `trabalhando: ${r.resumo.trabalhando} | fora do ork: ${r.resumo.foraDoOrk}`
-  );
-  L.push(
-    `  limite de atencao: ${r.atencaoMin} min (${r.resumo.acimaDoLimite} parada(s) acima, marcadas com !)`
-  );
+  L.push(m.titulo(r.resumo.total));
+  L.push(m.resumo(r.resumo.precisamDeHumano, r.resumo.hitl, r.resumo.abandonadas, r.resumo.falhas,
+    r.resumo.desconhecidas, r.resumo.trabalhando, r.resumo.foraDoOrk));
+  L.push(m.limite(r.atencaoMin, r.resumo.acimaDoLimite));
   if (!r.runtimeConsultado) {
-    L.push(`  [fail] ${r.runtimeDetalhe}: NAO da para saber quem esta parado`);
+    L.push(m.falha(r.runtimeDetalhe));
     return L.join('\n');
   }
   if (!r.logsLidos) {
-    L.push('  [warn] --sem-logs: o radar diz QUEM esta parado, mas nao O QUE cada sessao pergunta');
+    L.push(m.semLogs);
   }
   L.push('');
 
   if (r.sessoes.length === 0) {
-    L.push('  Nenhuma sessao na varredura.');
+    L.push(m.nenhuma);
     return L.join('\n');
   }
 
   L.push(
     tabela(
-      ['ID', 'NOME', 'CLASSE', 'ESTADO', 'TIPO', 'DIRETORIO', 'THREAD', 'IDADE'],
+      [...m.colunas],
       r.sessoes.map((s) => [
         s.id,
         s.nome,
         s.classe,
-        s.estadoBruto || '(vazio)',
+        s.estadoBruto || m.vazio,
         s.tipoDeHitl ?? '-',
         dirCurto(s.cwd),
-        s.thread ? `${s.thread.id}/${s.thread.fase}` : 'fora do ork',
+        s.thread ? `${s.thread.id}/${s.thread.fase}` : m.fora,
         `${duracaoRelativa(s.idadeMin)}${s.precisaDeHumano && s.acimaDoLimite ? ' !' : ''}`,
       ])
     )
@@ -697,45 +692,45 @@ export function textoDoRadar(r: RadarDeSessoes): string {
   const travadas = r.sessoes.filter((s) => s.precisaDeHumano);
   if (travadas.length === 0) {
     L.push('');
-    L.push('  Nenhuma sessao esperando o humano.');
+    L.push(m.nenhumaEsperando);
     return L.join('\n');
   }
 
   const vivas = travadas.filter((s) => s.classe !== 'abandonada');
   if (vivas.length > 0) {
     L.push('');
-    L.push('Esperando o HUMANO agora, com o job VIVO (responder destrava na hora):');
+    L.push(m.vivas);
     for (const s of vivas) {
       L.push(`  ${s.id}  ${s.nome}  [${s.classe}${s.tipoDeHitl ? '/' + s.tipoDeHitl : ''}]`);
       L.push(
-        `      onde     : ${s.cwd}` +
-          (s.thread ? ` (thread ${s.thread.id}, fase ${s.thread.fase})` : ' (sessao fora do ork)')
+        `      ${m.onde.padEnd(9)}: ${s.cwd}` +
+          ` (${s.thread ? m.thread(s.thread.id, s.thread.fase) : m.sessaoFora})`
       );
-      L.push(`      por que  : ${s.detalhe}`);
-      if (s.pergunta) L.push(`      pergunta : ${s.pergunta}`);
-      for (const linha of s.contextoLogs ?? []) L.push(`      log      : ${linha}`);
-      for (const a of s.alternativas) L.push(`      opcao    : ${a}`);
-      L.push(`      parada ha: ${s.paradaHaMin == null ? 'desconhecido; registre com --registrar' : duracaoRelativa(s.paradaHaMin) + ' (desde a primeira observação)'}`);
-      L.push(`      viva ha  : ${duracaoRelativa(s.idadeMin)} (idade da sessao)`);
-      L.push(`      ver      : ${s.comandos.logs}`);
-      L.push(`      responder: ${s.comandos.attach}`);
-      L.push(`      recomendo: ${s.recomendacao}`);
+      L.push(`      ${m.porque.padEnd(9)}: ${s.detalhe}`);
+      if (s.pergunta) L.push(`      ${m.pergunta.padEnd(9)}: ${s.pergunta}`);
+      for (const linha of s.contextoLogs ?? []) L.push(`      ${m.log.padEnd(9)}: ${linha}`);
+      for (const a of s.alternativas) L.push(`      ${m.opcao.padEnd(9)}: ${a}`);
+      L.push(`      ${m.parada.padEnd(9)}: ${s.paradaHaMin == null ? m.paradaDesconhecida : duracaoRelativa(s.paradaHaMin) + ` (${m.desdeObservacao})`}`);
+      L.push(`      ${m.viva.padEnd(9)}: ${duracaoRelativa(s.idadeMin)} (${m.idade})`);
+      L.push(`      ${m.ver.padEnd(9)}: ${s.comandos.logs}`);
+      L.push(`      ${m.responder.padEnd(9)}: ${s.comandos.attach}`);
+      L.push(`      ${m.recomendo.padEnd(9)}: ${s.recomendacao}`);
     }
   }
 
   const abandonadas = travadas.filter((s) => s.classe === 'abandonada');
   if (abandonadas.length > 0) {
     L.push('');
-    L.push('MORRERAM esperando resposta (job ja saiu: nao adianta responder, o trabalho parou):');
+    L.push(m.mortas);
     for (const s of abandonadas) {
       L.push(`  ${s.id}  ${s.nome}`);
       L.push(
-        `      onde     : ${s.cwd}` +
-          (s.thread ? ` (thread ${s.thread.id}, fase ${s.thread.fase})` : ' (sessao fora do ork)')
+        `      ${m.onde.padEnd(9)}: ${s.cwd}` +
+          ` (${s.thread ? m.thread(s.thread.id, s.thread.fase) : m.sessaoFora})`
       );
-      L.push(`      por que  : ${s.detalhe}`);
-      L.push(`      viva ha  : ${duracaoRelativa(s.idadeMin)} desde que a sessao comecou`);
-      L.push(`      recomendo: ${s.recomendacao}`);
+      L.push(`      ${m.porque.padEnd(9)}: ${s.detalhe}`);
+      L.push(`      ${m.viva.padEnd(9)}: ${duracaoRelativa(s.idadeMin)} ${m.desdeInicio}`);
+      L.push(`      ${m.recomendo.padEnd(9)}: ${s.recomendacao}`);
     }
   }
   return L.join('\n');

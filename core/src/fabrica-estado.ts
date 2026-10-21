@@ -37,6 +37,7 @@ import { VERSAO_DO_ORK } from './versao';
 import { valoresEmUmaLinha } from './saida-segura';
 import { LeituraDoRuntime, lerRuntime, paradaDesde, vidaDaThread, vidaDoRetrato } from './vida-da-thread';
 import { EventoLedger } from './types';
+import { msg } from './locale';
 
 export const CONTRATO_MAQUINA = 'ork.fabrica-maquina/v1' as const;
 export const BRANCH_DA_FABRICA = 'ork/fabrica-estado';
@@ -352,13 +353,14 @@ function sessaoNaFabrica(t: ThreadNaFabrica, teto: number): string {
 }
 
 function blocoDaMaquina(m: EstadoDaMaquina, eu: string): string[] {
+  const t = msg().operacao.restante.fabrica;
   const vivas = ativas(m), entregues = m.threads.length - vivas.length;
-  const cabeca = `${m.maquina}${m.maquina === eu ? ' (esta maquina)' : ''}, ${m.por}, publicado ${formatarDataHora(m.publicadoEm)}: ` +
-    `${vivas.length} thread(s) ativa(s)` + (entregues ? `, ${entregues} entregue(s) sem MASTER` : '');
+  const cabeca = t.maquina(m.maquina, m.maquina === eu ? t.estaMaquina : '', m.por,
+    formatarDataHora(m.publicadoEm), vivas.length, entregues);
   if (vivas.length === 0) return [cabeca];
-  return [cabeca, ...tabela(['THREAD', 'MODO', 'FASE', 'RUNTIME', 'ITEM', 'ESPERA VOCE', 'SESSAO'], vivas.map((t) => [
-    t.id, t.modo, t.fase, runtimeDaThread(t), t.roadmap ?? '-', t.esperaVoce ? `sim: ${curto(t.pergunta ?? 'veredito', 40)}` : '-',
-    sessaoNaFabrica(t, 70),
+  return [cabeca, ...tabela([...t.colunas], vivas.map((thread) => [
+    thread.id, thread.modo, thread.fase, runtimeDaThread(thread), thread.roadmap ?? '-',
+    thread.esperaVoce ? t.espera(curto(thread.pergunta ?? t.veredito, 40)) : '-', sessaoNaFabrica(thread, 70),
   ]))];
 }
 
@@ -368,11 +370,12 @@ function blocoDaMaquina(m: EstadoDaMaquina, eu: string): string[] {
  * que o terminal execute.
  */
 export function textoDaFabrica(painel: PainelDaFabrica, eu: string): string {
+  const t = msg().operacao.restante.fabrica;
   const p = valoresEmUmaLinha(painel);
   const linhas: string[] = [];
-  if (!p.atualizado) linhas.push('AVISO: sem leitura nova do remoto; esta e a ultima copia lida nesta maquina.', '');
+  if (!p.atualizado) linhas.push(t.copia, '');
   if (p.maquinas.length === 0) {
-    linhas.push(`Nenhuma maquina publicou ainda em ${BRANCH_DA_FABRICA}. Publique esta com: ork fabrica publicar`);
+    linhas.push(t.nenhuma(BRANCH_DA_FABRICA));
     return linhas.join('\n');
   }
   for (const m of p.maquinas) linhas.push(...blocoDaMaquina(m, eu), '');
@@ -382,11 +385,12 @@ export function textoDaFabrica(painel: PainelDaFabrica, eu: string): string {
 
 /** A secao de `ork board` com as outras maquinas, saneada como o `ork fabrica`. */
 export function textoDasOutrasMaquinas(painel: PainelDaFabrica, eu: string): string {
+  const t = msg().operacao.restante.fabrica;
   const p = valoresEmUmaLinha(painel);
   const outras = p.maquinas.filter((m) => m.maquina !== eu);
-  const origem = p.atualizado ? 'lido agora' : 'ultima copia local';
-  if (outras.length === 0) return `Outras maquinas (${BRANCH_DA_FABRICA}, ${origem}): nenhuma publicou ainda.`;
-  const linhas = [`Outras maquinas (${BRANCH_DA_FABRICA}, ${origem}):`];
+  const origem = p.atualizado ? t.origens.atual : t.origens.copia;
+  if (outras.length === 0) return t.outrasNenhuma(BRANCH_DA_FABRICA, origem);
+  const linhas = [t.outras(BRANCH_DA_FABRICA, origem)];
   for (const m of outras) linhas.push(...blocoDaMaquina(m, eu).map((l, i) => (i === 0 ? `  ${l}` : l)));
   return linhas.join('\n');
 }

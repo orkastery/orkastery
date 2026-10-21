@@ -295,13 +295,15 @@ export function podeReexecutar(motivo: MotivoGate): boolean {
 
 /** Tabela de `ork retry policy`. */
 export function tabelaDaPolitica(): string {
+  const m = msg().retry;
+  const c = m.complementar;
   const linhas = Object.values(POLITICA_DE_RETRY).map((p) => [
     p.motivo,
     p.acao,
-    p.automatica ? 'sim' : 'nao',
-    p.porque,
+    p.automatica ? c.sim : c.nao,
+    m.politica[p.motivo].porque,
   ]);
-  return tabela(['MOTIVO TIPADO', 'ACAO DE RETRY', 'AUTOMATICA', 'POR QUE'], linhas);
+  return tabela([...c.colunasPolitica], linhas);
 }
 
 /** A fase a que um evento de gate reprovado se refere. */
@@ -2052,18 +2054,19 @@ export function textoDoRetry(r: ResultadoDeRetry): string {
 
 /** Texto de `ork retry resume`. */
 export function textoDaRetomada(rs: ResultadoDaRetomada[]): string {
+  const m = msg().retry.complementar;
   if (rs.length === 0) {
-    return 'Nenhum pedido da fila de rate limit com a janela liberada agora.';
+    return m.retomadaVazia;
   }
   const linhas: string[] = [];
   for (const r of rs) {
-    linhas.push(`${r.pedido.id}  thread ${r.pedido.thread}  fase ${r.pedido.fase}`);
-    linhas.push(`  playbook    ${r.playbook}`);
-    linhas.push(`  slug        ${r.slug}`);
-    linhas.push(`  retomada    ${r.despachada ? `sim (sessao ${r.sessionId})` : 'nao'}`);
-    if (r.motivo) linhas.push(`  motivo      ${r.motivo}`);
-    linhas.push(`  detalhe     ${localizarTexto(r.detalhe)}`);
-    linhas.push(`  estado      ${r.pedido.estado}`);
+    linhas.push(m.retomadaCabecalho(r.pedido.id, r.pedido.thread, r.pedido.fase));
+    linhas.push(m.playbook(r.playbook));
+    linhas.push(m.slug(r.slug));
+    linhas.push(m.retomada(r.despachada, r.sessionId));
+    if (r.motivo) linhas.push(m.motivoRetomada(r.motivo));
+    linhas.push(m.detalhe(localizarTexto(r.detalhe)));
+    linhas.push(m.estado(m.estados[r.pedido.estado] ?? r.pedido.estado));
   }
   if (rs.some((r) => localizarTexto(r.detalhe) !== r.detalhe)) linhas.push(legendaDoFuso());
   return linhas.join('\n');

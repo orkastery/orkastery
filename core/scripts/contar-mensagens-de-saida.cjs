@@ -25,7 +25,7 @@ const ts = require('typescript');
 
 const CAMPOS_DE_TEXTO = new Set(['detalhe', 'correcao', 'mensagem', 'texto', 'titulo', 'resumo', 'aviso', 'erro', 'pergunta',
   'descricao', 'explicacao', 'razao', 'linha', 'dica', 'acao', 'proximoPasso', 'motivoTexto', 'causa']);
-const CATALOGO = /^locale(-[a-z]+)?\.ts$/;
+const CATALOGO = /^locale(?:-[a-z]+)*\.ts$/;
 /** Duas palavras de duas letras ou mais separadas por espaco (com pontuacao em volta): texto de pessoa. */
 const TEXTO_DE_PESSOA = /\p{L}{2,}[,;:.!?)"'`]*\s+[("'`]*\p{L}{2,}/u;
 

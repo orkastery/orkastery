@@ -20,6 +20,7 @@ import { raizDoEstado } from './estado-thread';
 import { COLECOES_DO_ORK, EMBED_MAX_CARACTERES, MODELO_DE_EMBEDDING, PedidoDeEmbedding, pertenceAoUniverso, RespostaDeEmbedding } from './orkmind';
 import { procurarSegredos } from './policies';
 import { ColecaoDoOrk, ConfigDeEmbedding, EntradaDeMemoria, ForaDaBusca, MotivoDeEmbeddings, UniversoDaBusca } from './types';
+import { msg } from './locale';
 
 export const CONTRATO_INDICE = 'ork.indice-vetorial/v1';
 /** D11: lote por chamada da ponte na indexacao. */
@@ -373,24 +374,25 @@ export function avisoDeCobertura(coerentes: number, entradas: readonly EntradaDe
 
 /** RM-038: a linha do que fica fora da busca, a mesma no `ork memory index` e no `ork memory status`. */
 export function textoForaDaBusca(f: ForaDaBusca | null): string {
-  return f ? `${f.injecao} com injection_risk e ${f.expiradas} expirada(s) (governanca da biblioteca), ` +
-    `${f.outrasColecoes} em outras colecoes (fora da busca do ork); nada disso vai ao embed` : 'nao medido nesta base';
+  const m = msg().operacao.restante.memory.indice;
+  return f ? m.foraMedido(f.injecao, f.expiradas, f.outrasColecoes) : m.foraNaoMedido;
 }
 
 /** Texto de `ork memory index`: de que universo, o que foi (ou seria) embedado e quanto custa estimado. */
 export function textoDoIndice(r: ResultadoDoIndice): string {
-  const custo = r.custoEstimadoUsd === null ? 'nao estimado' : `US$ ${r.custoEstimadoUsd.toFixed(8)}`;
+  const m = msg().operacao.restante.memory.indice;
+  const custo = r.custoEstimadoUsd === null ? m.custoNaoEstimado : `US$ ${r.custoEstimadoUsd.toFixed(8)}`;
   const colecoes = Object.entries(r.porColecao).map(([c, n]) => `${c} ${n}`).join(', ');
   return [
-    `Indice vetorial (${r.alvo}${r.dryRun ? ', --dry-run' : ''}): ${r.modelo ?? '(sem modelo)'}${r.dim ? ` / ${r.dim} dim` : ''}`,
-    `  universo da busca    ${r.universo} entrada(s): ${colecoes}; coerentes ${r.coerentes}`,
-    `  fora da busca        ${textoForaDaBusca(r.foraDaBusca)}`,
-    `  embedados            ${r.embedados} (reescritos ${r.reescritos}); removidos ${r.removidos}`,
-    `  fora do indice       ${r.recusados} recusada(s) por padrao de segredo, ${r.foraDoLimite} acima do limite`,
-    ...(r.truncados ? [`  truncados            ${r.truncados} acima do contexto do modelo local, embedados pelo comeco`] : []),
-    `  estimativa           ${r.tokensEstimados} token(s), ${custo}; chamadas ao provider ${r.chamadasAoProvider}`,
-    ...(r.arquivo ? [`  arquivo              ${r.arquivo}`] : []),
-    ...(r.motivo ? [`  motivo               ${r.motivo}: ${r.detalhe}`] : r.detalhe ? [`  ${r.detalhe}`] : []),
+    m.titulo(r.alvo, r.dryRun, r.modelo ?? m.semModelo, r.dim),
+    m.universo(r.universo, colecoes, r.coerentes),
+    m.fora(textoForaDaBusca(r.foraDaBusca)),
+    m.embedados(r.embedados, r.reescritos, r.removidos),
+    m.recusados(r.recusados, r.foraDoLimite),
+    ...(r.truncados ? [m.truncados(r.truncados)] : []),
+    m.estimativa(r.tokensEstimados, custo, r.chamadasAoProvider),
+    ...(r.arquivo ? [m.arquivo(r.arquivo)] : []),
+    ...(r.motivo ? [m.motivo(r.motivo, r.detalhe)] : r.detalhe ? [`  ${r.detalhe}`] : []),
   ].join('\n');
 }
 

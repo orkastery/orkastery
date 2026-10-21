@@ -15,6 +15,7 @@ import { exigirManifesto } from './manifest';
 import { novaThread } from './thread';
 import { exec } from './util';
 import { ResultadoVerify, verificar } from './verify';
+import { msg } from './locale';
 
 export interface ResultadoDaDemo {
   dir: string;
@@ -29,7 +30,7 @@ const PROVA = "node -e \"process.exit(require('./soma').soma(2, 2) === 4 ? 0 : 1
 
 function git(dir: string, args: string[]): void {
   const r = exec('git', args, dir);
-  if (!r.ok) throw new Error(`demo: git ${args[0]} falhou: ${r.stderr.trim().split('\n').pop() ?? ''}`);
+  if (!r.ok) throw new Error(msg().operacao.restante.demo.gitFalhou(args[0], r.stderr.trim().split('\n').pop() ?? ''));
 }
 
 function commit(dir: string, arquivo: string, conteudo: string, mensagem: string): void {
@@ -46,7 +47,7 @@ export function executarDemo(opcoes: { dir?: string; manter?: boolean; escrever?
   const diga = opcoes.escrever ?? (() => undefined);
   // Diretorio dado por quem roda: so vazio ou inexistente, e nunca e apagado no fim.
   if (opcoes.dir && fs.existsSync(opcoes.dir) && fs.readdirSync(opcoes.dir).length > 0) {
-    throw new Error(`demo: ${opcoes.dir} nao esta vazio; a demo cria o proprio repositorio`);
+    throw new Error(msg().operacao.restante.demo.dirNaoVazio(opcoes.dir));
   }
   const temporario = !opcoes.dir;
   const dir = opcoes.dir ? path.resolve(opcoes.dir) : fs.mkdtempSync(path.join(os.tmpdir(), 'ork-demo-'));
@@ -55,6 +56,7 @@ export function executarDemo(opcoes: { dir?: string; manter?: boolean; escrever?
   const publicarAntes = process.env.ORK_FABRICA_PUBLICAR;
   process.env.ORK_FABRICA_PUBLICAR = '0';
   try {
+    const m = msg().operacao.restante.demo;
     git(dir, ['init', '-q', '-b', 'main']);
     git(dir, ['config', 'user.name', 'ork demo']);
     git(dir, ['config', 'user.email', 'demo@orkastery.local']);
@@ -64,27 +66,27 @@ export function executarDemo(opcoes: { dir?: string; manter?: boolean; escrever?
     const carregado = exigirManifesto(dir);
     const { thread } = novaThread(carregado, { nome: 'demo', modo: 'auto' });
 
-    diga('ork demo: a afirmacao do agente contra a prova');
+    diga(m.titulo);
     diga('');
-    diga('  1. O agente entrega soma.js e diz: "soma(2, 2) devolve 4. Pronto."');
+    diga(m.passo1);
     adicionarClaim(dir, thread.id, { arquivo: 'soma.js', alegacao: 'soma(2, 2) devolve 4', verificar: [PROVA] });
-    diga('  2. O ork nao aceita relato: reexecuta a prova no commit real.');
+    diga(m.passo2);
     diga(`       ${PROVA}`);
     const antes = verificar(carregado, thread.id, { soClaims: true });
-    diga(`     Veredito: ${antes.ok ? 'VERDADE SUSTENTADA' : `REPROVADO (${antes.motivos.join(', ')})`}. A funcao faz a - b.`);
+    diga(m.vereditoAntes(antes.ok, antes.motivos.join(', ')));
 
-    diga('  3. O agente corrige soma.js e faz commit.');
+    diga(m.passo3);
     commit(dir, 'soma.js', '// Soma dois numeros.\nexports.soma = (a, b) => a + b;\n', 'corrige a soma');
-    diga('  4. O ork reexecuta a MESMA prova no commit novo.');
+    diga(m.passo4);
     const depois = verificar(carregado, thread.id, { soClaims: true });
-    diga(`     Veredito: ${depois.ok ? 'VERDADE SUSTENTADA' : `REPROVADO (${depois.motivos.join(', ')})`}.`);
+    diga(m.vereditoDepois(depois.ok, depois.motivos.join(', ')));
     diga('');
-    diga('Nenhuma afirmacao vale sem o comando que a julga, reexecutado no commit real.');
-    diga('No seu projeto: ork init, depois ork thread new "<pedido>" --modo auto.');
+    diga(m.principio);
+    diga(m.proximo);
 
     const ok = !antes.ok && antes.motivos.includes('claims.failed') && depois.ok;
     const mantido = !temporario || opcoes.manter === true;
-    if (mantido) diga(`(o repositorio da demo ficou em ${dir})`);
+    if (mantido) diga(m.mantido(dir));
     return { dir, antes, depois, ok, mantido };
   } finally {
     if (publicarAntes === undefined) delete process.env.ORK_FABRICA_PUBLICAR; else process.env.ORK_FABRICA_PUBLICAR = publicarAntes;

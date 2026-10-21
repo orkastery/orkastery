@@ -213,21 +213,22 @@ export function faltaPara(pedido: PedidoDeRetomada, quando: string = agora()): s
 /** Tabela de `ork retry list`. */
 export function tabelaDaFila(raiz: string, quando: string = agora()): string {
   const fila = lerFilaDeRetomada(raiz).sort((a, b) => a.id.localeCompare(b.id, 'en', { numeric: true }));
+  const m = msg().retry.complementar;
   if (fila.length === 0) {
-    return 'Fila de rate limit vazia: nenhuma fase morreu por limite de uso neste projeto.';
+    return m.filaVazia;
   }
   const linhas = fila.map((p) => [
     p.id,
     p.thread,
     p.fase,
-    p.estado,
+    m.estados[p.estado] ?? p.estado,
     formatarDataHora(p.liberaEm, { agora: quando }),
-    p.janelaEstimada ? `estimada (${p.sinal.fonte})` : `dita pelo runtime (${p.sinal.fonte})`,
+    p.janelaEstimada ? m.horaEstimada(p.sinal.fonte) : m.horaRuntime(p.sinal.fonte),
     p.estado === 'aguardando' ? faltaPara(p, quando) : '',
     String(p.tentativas),
   ]);
   return tabela(
-    ['ID', 'THREAD', 'FASE', 'ESTADO', 'LIBERA EM', 'ORIGEM DA HORA', 'FALTA', 'TENT'],
+    [...m.colunasFila],
     linhas
   ) + `\n${legendaDoFuso(undefined, quando)}`;
 }

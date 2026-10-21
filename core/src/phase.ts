@@ -374,11 +374,11 @@ export function montarPromptComMemoria(
   pedido: string,
   memoria: Memoria
 ): { prompt: string; injecao: InjecaoDeMemoria } {
-  const injecao = injecaoDaFase(carregado, memoria, thread, fase);
   // RM-061 F3c: o prompt despachado e dado (arquivo com sha256 no ledger). Segue a lingua declarada do dono
   // (`owner.language`), nunca o locale de quem despacha: sem ela, pt-BR, com qualquer LANG (contrato da F2a). A
   // dica do grafo fala a lingua do template que conduz a fase, como os valores.
   const locale = idiomaDoTemplate(templateDaFase(fase, carregado.raiz, linguaDeclaradaDoDono(carregado.manifesto.owner?.language)));
+  const injecao = injecaoDaFase(carregado, memoria, thread, fase, locale);
   // Mesma raiz usada pelo MCP e runtime-context; o manifesto da WT nao habilita a dica.
   const ligado = grafoLigado(exigirManifesto(raizDoEstado(carregado.raiz)).manifesto);
   return {

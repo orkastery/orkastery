@@ -31,13 +31,22 @@ test('locale en F3c network: o render puro preserva o preambulo contratual e tra
   const panorama: PanoramaDaRede = { contrato: CONTRATO_PANORAMA_DA_REDE, consultadoEm: '2026-10-12T15:30:00.000Z',
     maquina: 'pc-a', pedido: null, limiarSemBatidaMin: 30, fuso: 'America/Sao_Paulo', projetos: [], rede: null,
     naoConsultado: ['registro de projetos desta máquina (RM-052): ausente'],
-    lacunas: [{ tipo: 'rede.sem-projeto', parte: 'rede', detalhe: 'nenhum projeto conhecido nesta máquina',
-      correcao: 'peça o projeto por --projeto' }] };
+    lacunas: [
+      { tipo: 'rede.sem-projeto', parte: 'rede', detalhe: 'nenhum projeto conhecido nesta máquina',
+        correcao: 'peça o projeto por --projeto' },
+      { tipo: 'reservas.sem-leitura', parte: 'reservas', alvo: 'origin/ork/roadmap-reservas',
+        detalhe: 'sem leitura nova de origin/ork/roadmap-reservas (--sem-remoto); vale a última cópia desta máquina, commit abcdef1 de 12/10 09:00',
+        correcao: 'rode sem --sem-remoto para ler o remoto' },
+      { tipo: 'registro.invalido', parte: 'registro', alvo: 'projetos.json',
+        detalhe: 'o registro de projetos não é um JSON legível', correcao: 'confira o registro com ork projetos' },
+    ] };
   const pt = comLocale('pt-BR', () => textoDoPanoramaDaRede(panorama));
   const en = comLocale('en', () => textoDoPanoramaDaRede(panorama));
   assert.deepEqual(en.split('\n').slice(0, 3), pt.split('\n').slice(0, 3));
   assert.match(en, /\n• this machine's project registry was not read because it is absent\n/);
-  assert.match(en, /\nQuery gaps\n• rede\.sem-projeto: no project source was known to this query\. What to do: register the clone/);
+  assert.match(en, /\nQuery gaps\n• rede\.sem-projeto: no project is known on this machine: there is no manifest in the current directory and no registry entry\. What to do: register the clone/);
+  assert.match(en, /• reservas\.sem-leitura \(origin\/ork\/roadmap-reservas\): no fresh read of the reservations source; using this machine's last copy/);
+  assert.match(en, /• registro\.invalido \(projetos\.json\): the project registry is not readable JSON\. What to do: inspect the registry with `ork projetos`/);
   assert.deepEqual(linhasEmPortugues(en.split('\n').slice(3).join('\n')), []);
   assert.match(pt, /\nLacunas da consulta\n• rede\.sem-projeto: nenhum projeto conhecido nesta máquina\. O que fazer: peça o projeto por --projeto\./);
 });
@@ -136,9 +145,9 @@ test('locale en F3c network: network roadmap traduz o texto humano e preserva o 
       assert.match(en.stdout, new RegExp(`\\n${secao}\\n`), secao);
     }
     assert.match(pt.stdout, /\nThreads por máquina\n[\s\S]*\nReservas\n[\s\S]*\nFontes\n[\s\S]*\nLacunas\n/);
-    // A parte da lacuna sai em ingles no detalhe (o identificador fica no tipo e no --json).
-    assert.match(en.stdout, /\n• reservas\.sem-leitura \([^)]*\): the reservations source was not read for /);
-    assert.match(en.stdout, /\n• fabrica\.sem-leitura \([^)]*\): the factory source was not read for /);
+    // O detalhe especifico sai em ingles (o detalhe original continua em pt-BR no --json).
+    assert.match(en.stdout, /\n• reservas\.sem-leitura \([^)]*\): the reservations source was not read, and this machine has no local copy for /);
+    assert.match(en.stdout, /\n• fabrica\.sem-leitura \([^)]*\): the factory source was not read, and this machine has no local copy for /);
     assert.doesNotMatch(en.stdout, /the (?:projeto|reservas|fabrica|estado-local|forja|registro|rede) source/);
     assert.doesNotMatch(en.stdout, /\n(?:Rede por pessoa|Lacunas da consulta|Threads por máquina|Reservas|Fontes|Lacunas)\n/);
     const normalizar = (t: string) => t.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z/g, '<ISO>');

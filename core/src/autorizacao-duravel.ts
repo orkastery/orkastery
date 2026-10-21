@@ -24,6 +24,7 @@ import { nomeDaMaquina } from './maquina';
 import { rastreadoPeloGit } from './procedencia';
 import { ENV_IDENTIDADE_DE_DESPACHO, ENV_THREAD_DO_DESPACHO } from './runtime-ambiente';
 import { exec } from './util';
+import { msg } from './locale';
 
 export const CONTRATO_DA_AUTORIZACAO = 'ork.autorizacao-duravel/v1' as const;
 export const ARQUIVO_DA_AUTORIZACAO = 'autorizacao.json';
@@ -160,14 +161,15 @@ export function referenciaDaAutorizacao(leitura: LeituraDaAutorizacao): Record<s
 
 /** Uma linha para o `ork fabrica batida status` e para o pulse. */
 export function linhaDaAutorizacao(leitura: LeituraDaAutorizacao, agora: string = new Date().toISOString()): string {
+  const m = msg().conducao.autorizacao;
   if (leitura.valida) {
     const a = leitura.autorizacao;
-    return `autorização durável de ${a.por} até ${formatarDataHoraRotulada(a.ate, { agora })}: a varredura pode ${a.pode.join(', ')}`;
+    return m.linhaValida(a.por, formatarDataHoraRotulada(a.ate, { agora }), a.pode.join(', '));
   }
   if (leitura.motivo === 'autorizacao.ausente') {
-    return 'sem autorização durável: as ações da varredura viram itens da fila do pulse, com o comando pronto';
+    return m.linhaAusente;
   }
-  return `autorização durável sem valor (${leitura.motivo}: ${leitura.detalhe}); as ações da varredura viram itens da fila do pulse`;
+  return m.linhaInvalida(leitura.motivo, leitura.detalhe);
 }
 
 // ---------------------------------------------------------------------------
@@ -317,15 +319,12 @@ export function gravarAutorizacao(raiz: string, pedido: PedidoDeAutorizacao): Gr
 
 /** O texto do `ork conducao autorizacao`: a vigente, ou por que nao ha, e o que isso quer dizer para a batida. */
 export function textoDaAutorizacao(leitura: LeituraDaAutorizacao, agora: string = new Date().toISOString()): string {
+  const m = msg().conducao.autorizacao;
   if (!leitura.valida) {
-    return [`Sem autorização durável válida nesta máquina (${leitura.motivo}): ${leitura.detalhe}.`,
-      '  A batida da condução não age sozinha: cada ação vira item da fila do pulse, com o comando pronto.',
-      '  Para autorizar: ork conducao autorizar --ate <data> --pode merge,registrar,master,despachar [--por <seu nome>]'].join('\n');
+    return [m.sem(leitura.motivo, leitura.detalhe), m.semEfeito, m.autorizar].join('\n');
   }
   const a = leitura.autorizacao;
-  return [`Autorização durável de ${a.por} até ${formatarDataHoraRotulada(a.ate, { agora })}: a condução pode ${a.pode.join(', ')}.`,
-    `  concedida em ${formatarDataHoraRotulada(a.concedidaEm, { agora })} na máquina ${a.maquina}, projeto ${a.projeto}` +
-      (a.nota ? `; nota: ${a.nota}` : ''),
-    `  arquivo ${leitura.arquivo} (sha256 ${leitura.sha256.slice(0, 12)})`,
-    '  Tag e publicação nunca entram. O prazo é do dono: depois dele, nada é feito sozinho.'].join('\n');
+  return [m.valida(a.por, formatarDataHoraRotulada(a.ate, { agora }), a.pode.join(', ')),
+    m.concedida(formatarDataHoraRotulada(a.concedidaEm, { agora }), a.maquina, a.projeto, a.nota ?? ''),
+    m.arquivo(leitura.arquivo, leitura.sha256.slice(0, 12)), m.limite].join('\n');
 }

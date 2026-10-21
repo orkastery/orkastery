@@ -29,6 +29,7 @@ import {
 } from './prompts';
 import { exec, noPath, tabela } from './util';
 import { lerFusoDoDono, partesLocais, rotuloDoFuso } from './horario';
+import { msg } from './locale';
 import {
   DefinicaoDePack,
   Estagio,
@@ -470,9 +471,10 @@ export function packAtivo(pack: PackDeAuditoria, estagio: Estagio): boolean {
 
 /** Tabela de `ork audit packs`. */
 export function tabelaDePacks(estagio?: Estagio): string {
+  const m = msg().audit.packs;
   const linhas = ORDEM_DOS_PACKS.map((id) => {
     const p = PACKS[id];
-    const ativo = estagio ? (packAtivo(id, estagio) ? 'sim' : 'nao') : '-';
+    const ativo = estagio ? (packAtivo(id, estagio) ? m.sim : m.nao) : '-';
     return [
       p.id,
       p.estagioMinimo,
@@ -484,14 +486,14 @@ export function tabelaDePacks(estagio?: Estagio): string {
     ];
   });
   const cabecalho = tabela(
-    ['PACK', 'ATIVO A PARTIR DE', 'ATIVO AQUI', 'FONTE', 'REGRAS', 'POSTURA', 'TITULO'],
+    [...m.cabecalho],
     linhas
   );
-  const rodape: string[] = ['', 'Hardening por estagio (visao, secao 5.2):'];
+  const rodape: string[] = ['', m.hardening];
   for (const e of ORDEM_DOS_ESTAGIOS) {
     rodape.push(
       `  ${e.padEnd(10)} ${packsAtivos(e).join(', ')}` +
-        `\n  ${' '.repeat(10)} postura: ${DESCRICAO_DA_POSTURA[POSTURA_DO_ESTAGIO[e]]}`
+        `\n  ${' '.repeat(10)} ${m.posturaLinha(DESCRICAO_DA_POSTURA[POSTURA_DO_ESTAGIO[e]])}`
     );
   }
   return cabecalho + '\n' + rodape.join('\n');
@@ -500,22 +502,20 @@ export function tabelaDePacks(estagio?: Estagio): string {
 /** Detalhe de um pack: as regras e as evidencias que ele exige. */
 export function textoDoPack(pack: PackDeAuditoria, estagio?: Estagio): string {
   const p = PACKS[pack];
+  const m = msg().audit.packs.detalhe;
   const linhas: string[] = [];
-  linhas.push(`Pack ${p.id}: ${p.titulo}`);
+  linhas.push(m.titulo(p.id, p.titulo));
   linhas.push(`  ${p.objetivo}`);
-  linhas.push(`  ativo a partir do estagio: ${p.estagioMinimo}`);
-  linhas.push(`  fonte de evidencia: ${p.fonte === 'ledger' ? 'ledger e MASTER logs' : 'arvore de codigo'}`);
+  linhas.push(m.ativoDesde(p.estagioMinimo));
+  linhas.push(m.fonte(p.fonte === 'ledger' ? m.fonteLedger : m.fonteCodigo));
   if (estagio) {
-    linhas.push(
-      `  neste projeto (stage ${estagio}): ${packAtivo(pack, estagio) ? 'ATIVO' : 'inativo'}` +
-        (packAtivo(pack, estagio) ? `, postura ${posturaDoPack(estagio)}` : '')
-    );
+    linhas.push(m.nesteProjeto(estagio, packAtivo(pack, estagio), posturaDoPack(estagio)));
   }
   linhas.push('');
-  linhas.push('  Regras auditadas:');
+  linhas.push(m.regras);
   for (const r of p.regras) {
     linhas.push(`    ${r.id}  ${r.regra}`);
-    linhas.push(`         evidencia: ${r.evidencia}`);
+    linhas.push(m.evidencia(r.evidencia));
   }
   linhas.push('');
   linhas.push('  Evidencias da rodada:');

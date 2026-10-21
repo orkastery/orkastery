@@ -66,9 +66,11 @@ test('locale en F2b pulse: o pulse do CLI sai em ingles e o --json nao muda', ()
     const pt = ork(c, PT, false, 'pulse', '--sem-runtime', '--json'), en = ork(c, EN, false, 'pulse', '--sem-runtime', '--json');
     assert.equal(semRelogio(en.stdout), semRelogio(pt.stdout));
     assert.match(en.stdout, /"detalhe": "runtime não consultado por --sem-runtime"/);
-    // pulse cadencia segue pt-BR.
+    // A F3d levou `pulse cadencia` a lista (decisao registrada no GO-FIX 1): o texto segue o locale e nada se grava.
     const cpt = ork(c, PT, false, 'pulse', 'cadencia'), cen = ork(c, EN, false, 'pulse', 'cadencia');
-    assert.equal(cen.stdout, cpt.stdout);
+    assert.match(cpt.stdout, /^Pulse de hora em hora \(#OrkPulseOn-60m\)\. /);
+    assert.match(cen.stdout, /^Pulse hourly \(#OrkPulseOn-60m\)\. /);
+    assert.deepEqual(linhasEmPortugues(cen.stdout), [], cen.stdout);
     assert.equal(cen.stderr, cpt.stderr);
   } finally { c.limpar(); }
 });

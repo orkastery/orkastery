@@ -26,6 +26,7 @@ import { lerThread } from './thread';
 import { CanalDeConducao } from './types';
 import { exec } from './util';
 import { branchDaWorktree } from './worktree';
+import { msg } from './locale';
 
 export const CONTRATO_DA_ATUALIZACAO = 'ork.branch-atualizada/v1' as const;
 /** O teto do merge e do push juntos: a conducao da thread vale por isto, com folga. */
@@ -216,13 +217,11 @@ function mesclar(dir: string, branch: string, remoto: string, base: string, opco
 
 /** Uma linha para o terminal e para o resumo ao dono. */
 export function textoDaAtualizacao(r: ResultadoDaAtualizacao): string {
+  const m = msg().conducao.atualizacao;
   switch (r.acao) {
-    case 'ja-atualizada': return `${r.branch} já contém ${r.base}: nada a mesclar` + (r.enviada ? '; a branch foi empurrada e conferida no remoto.' : '.');
-    case 'mesclada': return `${r.base} mesclada na ${r.branch} (${r.sha.slice(0, 8)})` +
-      (r.changelog?.devolvidos ? `; ${r.changelog.devolvidos} item(ns) da thread de volta a "## Não publicado" do CHANGELOG` : '') +
-      (r.enviada ? '; branch empurrada e conferida no remoto' : '') + '.';
-    case 'conflito-em-codigo': return `o merge de ${r.base} na ${r.branch} conflita em código (${r.arquivos.join(', ')}): ` +
-      'abortado, e a resolução fica com o dono.';
-    default: return `atualização da ${r.branch} recusada (${r.motivo}): ${r.detalhe}.`;
+    case 'ja-atualizada': return m.atualizada(r.branch, r.base, r.enviada);
+    case 'mesclada': return m.mesclada(r.base, r.branch, r.sha.slice(0, 8), r.changelog?.devolvidos ?? 0, r.enviada);
+    case 'conflito-em-codigo': return m.conflito(r.base, r.branch, r.arquivos.join(', '));
+    default: return m.recusada(r.branch, r.motivo, r.detalhe);
   }
 }

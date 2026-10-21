@@ -29,6 +29,46 @@ export const CANDIDATOS_LISTADOS = 20;
 export const AVISO_DE_PARCIALIDADE =
   'parcial: so arestas que o extrator prova; chamada por despacho de tipo, import nao resolvido e as lacunas do relatorio de extracao ficam fora';
 
+/**
+ * RM-061 (F3d, GO-FIX 1): a redacao humana da resposta. A consulta e pura e nao importa o catalogo de mensagens
+ * (fronteira do KG3): o pt-BR mora aqui, e o CLI do grafo passa a do catalogo (`msg().grafo.consulta`), no locale
+ * do comando. Um teste confere que o pt-BR do catalogo e este.
+ */
+export interface TextosDaConsulta {
+  titulo: (repositorio: string, revisao: string, chave: string, snapshot: string) => string;
+  arvore: string;
+  fontes: (lista: string, resto: number) => string;
+  marca: string;
+  pagina: (pagina: number) => string;
+  extratores: (lista: string) => string;
+  semCaminho: (de: string, para: string, sentido: string, nos: number | null) => string;
+  caminho: (de: string, para: string, sentido: string, passos: number) => string;
+  contra: string;
+  todos: string;
+  resultado: (tipo: string, alvo: string, profundidade: number | null, filtro: string, arestas: number, nos: number) => string;
+  filtro: (sentido: string, tipos: string) => string;
+  truncado: (devolvidas: number, total: number) => string;
+  parcial: string;
+}
+
+export const TEXTOS_DA_CONSULTA: TextosDaConsulta = {
+  titulo: (repositorio, revisao, chave, snapshot) => `grafo de ${repositorio} na revisao ${revisao}, indice ${chave}, snapshot ${snapshot}`,
+  arvore: 'aviso: a arvore tem mudanca rastreada; a resposta e do HEAD, nao da arvore',
+  fontes: (lista, resto) => `fontes que mudaram na arvore: ${lista}${resto ? ` e mais ${resto}` : ''}`,
+  marca: '  [fonte modificada na arvore]',
+  pagina: (pagina) => `pagina ${pagina}`,
+  extratores: (lista) => `extratores: ${lista}`,
+  semCaminho: (de, para, sentido, nos) => `sem caminho de ${de} para ${para} (sentido ${sentido}): ${nos} nos explorados`,
+  caminho: (de, para, sentido, passos) => `caminho de ${de} para ${para} (sentido ${sentido}): ${passos} passo(s)`,
+  contra: '(contra a aresta) ',
+  todos: 'todos',
+  resultado: (tipo, alvo, profundidade, filtro, arestas, nos) =>
+    `${tipo} de ${alvo} (profundidade ${profundidade}${filtro}): ${arestas} aresta(s), ${nos} no(s)`,
+  filtro: (sentido, tipos) => `, sentido ${sentido}, tipos ${tipos}`,
+  truncado: (devolvidas, total) => `truncado: ${devolvidas} de ${total} arestas, as mais perto do alvo; use --limite`,
+  parcial: AVISO_DE_PARCIALIDADE,
+};
+
 export type Sentido = 'entrada' | 'saida' | 'ambos';
 export type TipoDeConsulta = 'vizinhos' | 'chamadores' | 'importadores' | 'caminho';
 export interface Concessao { tenant_id: string; acl_refs: readonly string[] }
@@ -390,50 +430,49 @@ export function jsonDaResposta(r: RespostaDeConsulta): string {
   return JSON.stringify(r, null, 2);
 }
 
-function linhasDaEvidencia(e: EvidenciaDaResposta): string {
+function linhasDaEvidencia(e: EvidenciaDaResposta, m: TextosDaConsulta): string {
   const s = e.span;
   const onde = s.type === 'text'
     ? `${e.path}:${s.line_start ?? '?'}${s.line_end !== null && s.line_end !== s.line_start ? `-${s.line_end}` : ''}`
-    : `${e.path} pagina ${s.page}`;
+    : `${e.path} ${m.pagina(s.page)}`;
   return `      ${e.extractor_id} ${e.extraction_method} ${onde} bytes ${s.byte_start}-${s.byte_end}`;
 }
 
 /** KG5 fatia 5 (D9): a aresta cuja fonte mudou diz isso na propria linha, como o JSON diz no campo `arvore`. */
-function linhasDaAresta(a: ArestaDaResposta, prefixo = '  '): string[] {
-  const marca = a.arvore === 'modificada' ? '  [fonte modificada na arvore]' : '';
-  return [`${prefixo}${a.kind}  ${a.from} -> ${a.to}${marca}`, ...a.evidencias.map(linhasDaEvidencia)];
+function linhasDaAresta(a: ArestaDaResposta, m: TextosDaConsulta, prefixo = '  '): string[] {
+  const marca = a.arvore === 'modificada' ? m.marca : '';
+  return [`${prefixo}${a.kind}  ${a.from} -> ${a.to}${marca}`, ...a.evidencias.map((e) => linhasDaEvidencia(e, m))];
 }
 
 /** KG5 fatia 5 (D9): ate cinco fontes que nao tem na arvore os bytes do indice, com a situacao de cada uma. */
-function linhaDasFontesMudadas(fontes: readonly FonteDaResposta[]): string[] {
+function linhaDasFontesMudadas(fontes: readonly FonteDaResposta[], m: TextosDaConsulta): string[] {
   const mudaram = fontes.filter((f) => f.arvore !== 'igual');
   if (!mudaram.length) return [];
-  const resto = mudaram.length > 5 ? ` e mais ${mudaram.length - 5}` : '';
-  return [`fontes que mudaram na arvore: ${mudaram.slice(0, 5).map((f) => `${f.path} (${f.arvore})`).join(', ')}${resto}`];
+  return [m.fontes(mudaram.slice(0, 5).map((f) => `${f.path} (${f.arvore})`).join(', '), Math.max(0, mudaram.length - 5))];
 }
 
-export function textoDaResposta(r: RespostaDeConsulta): string {
+export function textoDaResposta(r: RespostaDeConsulta, m: TextosDaConsulta = TEXTOS_DA_CONSULTA): string {
   const c = r.consulta, i = r.indice;
   const linhas = [
-    `grafo de ${i.repository_id} na revisao ${i.revision.slice(0, 12)}, indice ${i.chave.slice(0, 16)}, snapshot ${i.snapshot_id.slice(0, 17)}`,
+    m.titulo(i.repository_id, i.revision.slice(0, 12), i.chave.slice(0, 16), i.snapshot_id.slice(0, 17)),
   ];
-  if (i.arvore === 'modificada') linhas.push('aviso: a arvore tem mudanca rastreada; a resposta e do HEAD, nao da arvore');
-  linhas.push(...linhaDasFontesMudadas(r.fontes));
-  linhas.push(`extratores: ${i.extratores.map((e) => `${e.extractor_id} ${e.extractor_version}`).join(', ')}`);
+  if (i.arvore === 'modificada') linhas.push(m.arvore);
+  linhas.push(...linhaDasFontesMudadas(r.fontes, m));
+  linhas.push(m.extratores(i.extratores.map((e) => `${e.extractor_id} ${e.extractor_version}`).join(', ')));
   if (c.tipo === 'caminho') {
     const para = r.para as NoDaResposta;
     if (!r.caminho) {
-      linhas.push(`sem caminho de ${r.alvo.rotulo} para ${para.rotulo} (sentido ${c.sentido}): ${r.nos_explorados} nos explorados`);
+      linhas.push(m.semCaminho(r.alvo.rotulo, para.rotulo, c.sentido, r.nos_explorados));
     } else {
-      linhas.push(`caminho de ${r.alvo.rotulo} para ${para.rotulo} (sentido ${c.sentido}): ${r.caminho.length} passo(s)`);
-      r.caminho.forEach((p, n) => linhas.push(...linhasDaAresta(p.aresta, `  ${n + 1}. ${p.sentido === 'entrada' ? '(contra a aresta) ' : ''}`)));
+      linhas.push(m.caminho(r.alvo.rotulo, para.rotulo, c.sentido, r.caminho.length));
+      r.caminho.forEach((p, n) => linhas.push(...linhasDaAresta(p.aresta, m, `  ${n + 1}. ${p.sentido === 'entrada' ? m.contra : ''}`)));
     }
   } else {
-    const filtro = c.tipo === 'vizinhos' ? `, sentido ${c.sentido}, tipos ${c.tipos.length === TIPOS_DE_ARESTA.length ? 'todos' : c.tipos.join(',')}` : '';
-    linhas.push(`${c.tipo} de ${r.alvo.rotulo} (profundidade ${c.profundidade}${filtro}): ${r.total_arestas} aresta(s), ${r.total_nos - 1} no(s)`);
-    for (const a of r.arestas) linhas.push(...linhasDaAresta(a));
-    if (r.truncado) linhas.push(`truncado: ${r.arestas.length} de ${r.total_arestas} arestas, as mais perto do alvo; use --limite`);
+    const filtro = c.tipo === 'vizinhos' ? m.filtro(c.sentido, c.tipos.length === TIPOS_DE_ARESTA.length ? m.todos : c.tipos.join(',')) : '';
+    linhas.push(m.resultado(c.tipo, r.alvo.rotulo, c.profundidade, filtro, r.total_arestas, r.total_nos - 1));
+    for (const a of r.arestas) linhas.push(...linhasDaAresta(a, m));
+    if (r.truncado) linhas.push(m.truncado(r.arestas.length, r.total_arestas));
   }
-  linhas.push(r.parcial);
+  linhas.push(m.parcial);
   return linhas.join('\n');
 }

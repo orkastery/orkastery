@@ -9,6 +9,7 @@
 
 import { slugDasFases } from './modos';
 import { BlocoDeLoop, Fase, VarianteDeCiclo } from './types';
+import { msg } from './locale';
 
 export interface DefinicaoDeVariante {
   variante: VarianteDeCiclo;
@@ -149,19 +150,20 @@ export function aplicarVariante(
 
 /** Tabela das variantes de ciclo, usada por `ork ciclos`. */
 export function tabelaDeVariantes(): string {
-  const linhas: string[] = ['Variantes de ciclo (`ork thread new --ciclo <variante>`)', ''];
+  const m = msg().operacao.ciclos;
+  const linhas: string[] = [m.titulo, ''];
   for (const v of ORDEM_DAS_VARIANTES) {
     const def = VARIANTES[v];
     const exige: string[] = [];
     if (def.exigeBranch) exige.push('--branch <existente>');
-    if (def.exigeWorktree) exige.push('worktree isolada');
-    linhas.push(`  ${v.padEnd(20)} ${def.descricao}`);
+    if (def.exigeWorktree) exige.push(m.worktree);
+    linhas.push(`  ${v.padEnd(20)} ${m.descricoes[v] ?? def.descricao}`);
     linhas.push(
-      `  ${''.padEnd(20)} exige: ${exige.join(', ') || 'nada'} | ` +
-        `muda os blocos do modo: ${def.mudaBlocos ? 'sim' : 'nao'}`
+      `  ${''.padEnd(20)} ${m.exige}: ${exige.join(', ') || m.nada} | ` +
+        `${m.muda}: ${def.mudaBlocos ? m.sim : m.nao}`
     );
   }
   linhas.push('');
-  linhas.push('A variante muda como a thread NASCE. Verificacao e gates nao mudam.');
+  linhas.push(m.fecho);
   return linhas.join('\n');
 }

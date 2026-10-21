@@ -18,6 +18,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { formatarDataHoraRotulada, fusoDoDono, partesLocais } from './horario';
 import { raizDoEstado } from './estado-thread';
+import { msg } from './locale';
 
 export const CONTRATO_CADENCIA = 'ork.pulse-cadencia/v1' as const;
 const ARQUIVO_CADENCIA = 'pulse-cadencia.json';
@@ -75,9 +76,9 @@ export function lerCadencia(raiz: string, estadoDir?: string): DefinicaoDeCadenc
 /** Grava a tag do dono. `por` e quem mandou (o remetente autenticado do canal, ou o operador). */
 export function gravarCadencia(raiz: string, tag: TagDoPulse, origem: { por: string; canal: string; em?: string },
   estadoDir?: string): CadenciaGravada {
-  if (!Object.hasOwn(CADENCIAS, tag)) throw new Error(`pulse.cadencia: tag desconhecida ${tag}`);
+  if (!Object.hasOwn(CADENCIAS, tag)) throw new Error(msg().operacao.pulseCadencia.desconhecidaInterna(tag));
   const por = origem.por.trim();
-  if (!por) throw new Error('pulse.cadencia: informe quem trocou a cadencia');
+  if (!por) throw new Error(msg().operacao.pulseCadencia.trocaSemAutor);
   const gravada: CadenciaGravada = { contrato: CONTRATO_CADENCIA, tag, por, canal: origem.canal, em: origem.em ?? new Date().toISOString() };
   const dir = dirDoMonitor(raiz, estadoDir);
   fs.mkdirSync(dir, { recursive: true });
@@ -137,6 +138,7 @@ export function janelaAberta(def: Pick<DefinicaoDeCadencia, 'janelaMin' | 'ancor
 
 /** A confirmacao que volta ao dono pelo mesmo canal, no fuso dele. */
 export function textoDaCadencia(def: DefinicaoDeCadencia, quando: string): string {
-  return `Pulse ${def.descricao} (${def.tag}). Pergunta para você continua saindo na hora. ` +
-    `Próximo resumo com novidade a partir de ${formatarDataHoraRotulada(inicioDaProximaJanela(def, quando))}.`;
+  const m = msg().operacao.pulseCadencia;
+  return m.texto(m.descricoes[def.tag] ?? def.descricao, def.tag,
+    formatarDataHoraRotulada(inicioDaProximaJanela(def, quando)));
 }
