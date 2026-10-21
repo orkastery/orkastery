@@ -4,26 +4,8 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-21T04:26:06.431Z",
+  "publicadoEm": "2026-10-21T04:30:02.727Z",
   "threads": [
-    {
-      "id": "ork-dsnforadoamb",
-      "nome": "dsnforadoambiente",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-dsnforadoamb-full",
-      "atualizadaEm": "2026-10-21T04:26:05.976Z",
-      "entregue": "780eca01",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh",
-      "sessao": null
-    },
     {
       "id": "ork-grokbot",
       "nome": "grokbot",
