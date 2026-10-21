@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-21T15:45:02.817Z",
+  "publicadoEm": "2026-10-21T16:00:04.497Z",
   "threads": [
     {
       "id": "ork-decisoes0700",
@@ -67,9 +67,9 @@
       "modelo": "opus",
       "esforco": "max",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-10-21T15:47:32.420Z",
+        "motivo": "sessão 0d64fe5a encerrada (done)"
       }
     }
   ]
