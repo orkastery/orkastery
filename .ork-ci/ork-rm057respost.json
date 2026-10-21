@@ -1,0 +1,929 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm057respost",
+  "branch": "ork/ork-rm057respost-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/src/hitl-curto.ts",
+      "alegacao": "T1 (RM-057 resposta curta): o contrato curto ganha o responder 'letras' (a última linha diz \"Responda a, b ou c\" no Telegram e \"Responder: a, b ou c, aqui ou no Telegram\" no terminal, com as letras reais e o detalhe a um pedido), o título e a trava próprios da pergunta que não é fase parada e o número da pergunta servida na frente do título; sem hash, sem UUID e dentro das 15 linhas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/hitl-curto.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - RM-057 resposta curta:/{p++} END{exit !(p>=4 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T03:43:18.547Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/test/hitl-curto.test.ts",
+      "alegacao": "T1: os quatro testes \"RM-057 resposta curta:\" do contrato curto provam a linha \"responda a, b ou c\" nos dois canais (sem /ork, sem hash, sem UUID), o título e a trava próprios, o número servido no título e a moldura em inglês com as letras da pergunta.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/hitl-curto.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - RM-057 resposta curta:/{p++} END{exit !(p>=4 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T03:43:21.226Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-decisao.ts",
+      "alegacao": "T1: o catálogo de decisão traz, em pt-BR e em inglês, a lista das letras (\"a, b ou c\" / \"a, b or c\") e as linhas de resposta curta do Telegram e do terminal usadas pelo contrato curto.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/hitl-curto.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - RM-057 resposta curta:/{p++} END{exit !(p>=4 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T03:43:23.759Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/src/hitl-texto-livre.ts",
+      "alegacao": "T1 (D8): o vocabulário fechado ganha \"autorizo\", \"autorizado\", \"autorizada\", \"autorizar\" e \"autoriza\" em afirmar (casam a ação aprovar) e \"adiar\", \"adia\" e \"adio\" em esperar; \"não\" segue ambíguo e palavra fora da lista não é resposta.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/hitl-texto-livre.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - RM-057 resposta curta:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T03:43:26.415Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/test/hitl-texto-livre.test.ts",
+      "alegacao": "T1: o teste \"RM-057 resposta curta:\" do texto livre prova que as variações de \"autorizo\" escolhem a alternativa de aprovar, \"adiar\" a de esperar, \"não\" é ambíguo e \"autorizei\" (fora do vocabulário) não é resposta.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/hitl-texto-livre.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - RM-057 resposta curta:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T03:43:29.022Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "adapters/hermes/hitl-ingress/__init__.py",
+      "alegacao": "T1 (D8): a cópia da gramática do pulse no ingresso do Hermes é a mesma do núcleo, com as palavras novas do vocabulário (\"autorizo\" e \"adiar\"), conferida pelo teste da gramática do ingresso.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/pulse-gramatica-ingresso.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0)}' && grep -qF 'de acordo|autorizo|autorizado|autorizada|autorizar|autoriza|agora n' adapters/hermes/hitl-ingress/__init__.py"
+      ],
+      "criadoEm": "2026-10-21T03:43:31.797Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "adapters/openclaw/src/hitl-ingress.ts",
+      "alegacao": "T1 (D8): a cópia da gramática do pulse no ingresso do OpenClaw (fonte) é a mesma do núcleo, com as palavras novas do vocabulário, conferida pelo teste da gramática do ingresso.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/pulse-gramatica-ingresso.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0)}' && grep -qF 'de acordo|autorizo|autorizado|autorizada|autorizar|autoriza|agora n' adapters/openclaw/src/hitl-ingress.ts"
+      ],
+      "criadoEm": "2026-10-21T03:43:34.365Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "adapters/openclaw/dist/hitl-ingress.js",
+      "alegacao": "T1 (D8): a cópia da gramática do pulse no ingresso do OpenClaw (dist) é a mesma do núcleo, com as palavras novas do vocabulário, conferida pelo teste da gramática do ingresso.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/pulse-gramatica-ingresso.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0)}' && grep -qF 'de acordo|autorizo|autorizado|autorizada|autorizar|autoriza|agora n' adapters/openclaw/dist/hitl-ingress.js"
+      ],
+      "criadoEm": "2026-10-21T03:43:36.806Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-pergunta.ts",
+      "alegacao": "T2 (C1): a pergunta do arco ao dono no contrato curto: três alternativas (a autorizo, recomendada; b adiar; c mudar algo; e as de revogar), o texto RM-057 nos dois canais com o título \"arco <arco> · <código>\", duas linhas de contexto, sem hash e sem comando para copiar, o detalhe com o envelope inteiro e a escolha pela letra ou pela palavra do vocabulário.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-pergunta.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - NP[0-9]+:/{p++} END{exit !(p>=17 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T03:45:44.503Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-arco.ts",
+      "alegacao": "T2 (D2, D5, D7, D10): o código curto nasce com a proposta e o hash fica nela; pedirRevogacao abre a pergunta de revogação sem revogar; autorizarPelaResposta e revogarPelaResposta só agem com a prova do pulse (endereço resposta ou resposta:<código>, chave do canal, janela de 60 s, texto igual ao lido) ou o atestado do terminal, na pergunta de agora e no prazo, com o recibo (canal ou subchave local) que conferirAntesDoEfeito relê; o diálogo tem três alternativas e só a primeira age.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-pergunta.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - NP[0-9]+:/{p++} END{exit !(p>=17 && f==0 && s==0)}' && node --test-reporter=tap core/dist-test/test/noctum-arco.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - A[0-9]+:/{p++} END{exit !(p>=31 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-21T03:45:48.374Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-resposta.ts",
+      "alegacao": "T2: a resposta curta contra as perguntas dos arcos: as pendentes e as por código de todos os arcos, a escolha sem adivinhar (ambígua e fora do vocabulário voltam com as alternativas reais), b e c sem gravar nada (D13), o detalhe e a frase de cada recusa tipada (a pergunta que mudou diz o código novo; a vencida diz o prazo).",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-pergunta.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - NP[0-9]+:/{p++} END{exit !(p>=17 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T03:45:51.419Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-envelope.ts",
+      "alegacao": "T2: a lista fechada de recusas do arco ganha noctum.pergunta.desconhecida, noctum.pergunta.substituida e noctum.pergunta.vencida, usadas pela resposta curta.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && grep -qF \"'noctum.pergunta.desconhecida', 'noctum.pergunta.substituida', 'noctum.pergunta.vencida'\" core/src/noctum-envelope.ts && node --test-reporter=tap core/dist-test/test/noctum-pergunta.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - NP[0-9]+:/{p++} END{exit !(p>=17 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T03:45:54.193Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/src/pulse-consentimento.ts",
+      "alegacao": "T2 (D3): o domicílio do endereço do reply: CODIGO_CURTO, enderecoDoPulse (resposta:<código>) e enderecoDoPulseValido; responderConsentimento autentica no endereço que o gateway assinou (o do reply ao resumo, quando houver).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node -e \"const c=require('./core/dist/pulse-consentimento.js'); const ok=c.enderecoDoPulse()==='resposta' && c.enderecoDoPulse('NX4K')==='resposta:NX4K' && c.enderecoDoPulseValido('resposta:NX4K') && !c.enderecoDoPulseValido('resposta:nx4k') && !c.enderecoDoPulseValido('arco:x') && !c.enderecoDoPulseValido('resposta:NXXK'); let lancou=false; try { c.enderecoDoPulse('abc'); } catch { lancou=true; } process.exit(ok && lancou ? 0 : 1)\" && node --test-reporter=tap core/dist-test/test/noctum-pergunta.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - NP[0-9]+:/{p++} END{exit !(p>=17 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T03:45:58.511Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-pergunta.test.ts",
+      "alegacao": "T2: os testes NP1 a NP17 provam o código na proposta, a pergunta com hash, o texto RM-057, o detalhe, a autorização pelo pulse e pelo reply com recibo relido, as provas que não valem (texto diferente, outra chave, fora da janela, endereço trocado), o recibo adulterado, a proposta que mudou, o prazo, a prova que não serve a dois atos, a revogação pela pergunta, o terminal com recibo local, o limite da conta do sistema, b e c sem efeito e o diálogo com três alternativas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-pergunta.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - NP[0-9]+:/{p++} END{exit !(p>=17 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T03:46:02.087Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-arco.test.ts",
+      "alegacao": "T2: o A3 (o módulo do arco não exporta escritor de autorização sem prova) passa a listar autorizarPelaResposta e revogarPelaResposta (exigem a prova do pulse ou do terminal), pedirRevogacao (grava só a pergunta) e as leituras perguntasDoArco e codigosDosArcos; os A1 a A31 seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-arco.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - A3:/{a++} /^ *ok [0-9]+ - A[0-9]+:/{p++} END{exit !(a==1 && p>=31 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-21T03:46:05.111Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-server.ts",
+      "alegacao": "T2 (C8, D7): o diálogo nativo do arco pelo MCP mostra a pergunta no padrão RM-057 com o envelope inteiro abaixo dela (message:a.mensagem) e as três alternativas; os MN1 a MN8 seguem verdes (só a primeira autoriza ou revoga, resposta nos argumentos é recusada).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && grep -qF 'message:a.mensagem' core/src/mcp-server.ts && node --test-reporter=tap core/dist-test/test/mcp-noctum.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - MN[0-9]+:/{p++} END{exit !(p>=8 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T03:46:07.869Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/src/pulse-resposta.ts",
+      "alegacao": "T3 (C2, C3, D3, D4): o receptor do pulse resolve a resposta curta à pergunta do arco: \"<código> a\", o reply (a referência assinada em resposta:<código>), a palavra solta com uma só pendente no chat em que ela saiu, o número servido (\"1a\"); e recusa sem gravar: sem pergunta, duas pendentes (pergunta qual), outro chat, depois do prazo, a mesma mensagem (repetida), o código digitado diferente do reply, a proposta que mudou; a pergunta entregue entra no lote servido com número e destino.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-resposta-curta.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - RC[0-9]+:/{p++} END{exit !(p>=16 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T03:48:24.753Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/src/hitl-gates.ts",
+      "alegacao": "T3 (C10, D3): provaDaResposta aceita os dois endereços do pulse (resposta e resposta:<código>), e \"a\" em reply à mensagem curta de um gate registra o veredito no gate certo pelo mesmo responderGate, com o endereço do reply no rastro; os testes dos gates seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-resposta-curta.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - RC15:/{p++} END{exit !(p==1 && f==0)}' && node --test core/dist-test/test/hitl-gates.test.js core/dist-test/test/hitl-codigo-estavel.test.js"
+      ],
+      "criadoEm": "2026-10-21T03:48:27.625Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-pergunta-canal.ts",
+      "alegacao": "T3 (D4): a pergunta do arco sai pelo transporte do pulse (pulse-host.json) uma vez, com o número no título, e só entra no lote servido com o recibo do transporte; sem transporte, ela fica no terminal.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-resposta-curta.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - RC1:/{p++} /^ *ok [0-9]+ - RC4:/{q++} END{exit !(p==1 && q==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-21T03:48:30.118Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "T3 (D3): ork pulse responder recebe a referência do reply por --em-resposta-a <código>, conferida na forma do código curto antes de ler a entrada; a referência só vale com a assinatura que a cobre.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && grep -qF \"args.opcoes['em-resposta-a']\" core/src/index.ts && node --test-reporter=tap core/dist-test/test/noctum-resposta-curta.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - RC16:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-21T03:48:32.683Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "T3: o catálogo do CLI traz, em pt-BR e em inglês, a recusa da referência fora da forma do código curto em ork pulse responder --em-resposta-a.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && grep -qF 'responderReferencia:' core/src/locale.ts && node --test-reporter=tap core/dist-test/test/noctum-resposta-curta.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - RC16:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-21T03:48:34.953Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-resposta-curta.test.ts",
+      "alegacao": "T3: os testes RC1 a RC16 provam, pelo receptor do pulse com o envelope assinado do Hermes e um transporte SIMULADO, o código, o reply, a palavra solta, o número servido, os negativos (sem pergunta, duas pendentes, outro chat, prazo, repetida, outra chave, referência trocada, proposta que mudou), b, c e \"não\", a revogação, o detalhe, o reply a um gate e a flag do CLI.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-resposta-curta.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - RC[0-9]+:/{p++} END{exit !(p>=16 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T03:48:37.764Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-terminal.ts",
+      "alegacao": "T4 (C4, C5, D5, D6): o ingresso do terminal só grava o ato do arco depois de provar a origem da sessão (presença, id, sem despacho, ponto de entrada, fora do registro de despachos, fora de worktree e a ancestralidade pelo /proc, com a sessão de segundo plano e a aninhada recusadas); a palavra solta só vale para a pergunta mostrada na transcrição desta sessão, o código vale sempre, duas mostradas pedem qual, e o código de gate vira contexto ao condutor sem gravar nada; o limite da conta do sistema fica fixado.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-terminal.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - TM[0-9]+:/{p++} END{exit !(p>=17 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T03:49:50.022Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-cli.ts",
+      "alegacao": "T4 (D5): ork noctum terminal --hook-stdin lê a entrada do hook UserPromptSubmit (até 64 KB) e devolve a decisão em JSON, saindo 0; a sessão de fase que o chama é recusada pela origem, sem projeto nada acontece, e ork noctum autorizar não existe (sai 2).",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-terminal.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - TM17:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-21T03:49:52.774Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-terminal.test.ts",
+      "alegacao": "T4: os testes TM1 a TM17 provam, com sessões, ambientes, cadeias de processos e transcrições SIMULADOS, que o dono autoriza e revoga no terminal, que a sessão despachada, a sem presença, a do registro, a de worktree, a de segundo plano, a aninhada, a de id divergente e a do SDK são recusadas sem efeito, a palavra solta não mostrada vai ao modelo, duas mostradas pedem qual, o prazo, a repetição, o gate como contexto, o limite da conta do sistema e o CLI.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-terminal.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - TM[0-9]+:/{p++} END{exit !(p>=17 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T03:49:55.744Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/hooks/ork-resposta.js",
+      "alegacao": "T5 (C6): o hook UserPromptSubmit só chama o núcleo para texto com forma de resposta curta (código com resposta, número com letra, ou até duas palavras), transporta a decisão (block com a frase do núcleo, additionalContext do gate, systemMessage da recusa com presença) e nunca bloqueia nem quebra a sessão por erro próprio ou do núcleo; de ponta a ponta, a sessão despachada que responde é recusada.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/claude-hook-resposta.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - HK[0-9]+:/{p++} END{exit !(p>=7 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T04:03:21.923Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/hooks/hooks.json",
+      "alegacao": "T5: o plugin registra o UserPromptSubmit no hook da resposta curta, com prazo de 10 s, sem tirar o guard e os sensores.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/claude-hook-resposta.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - HK6:/{p++} END{exit !(p==1 && f==0)}' && node --test core/dist-test/test/claude-sensors.test.js"
+      ],
+      "criadoEm": "2026-10-21T04:03:24.131Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/hooks/ork-guard.js",
+      "alegacao": "T5 (D11): o guard PreToolUse recusa o ingresso da resposta do dono chamado pela ferramenta Bash (resposta-do-dono-por-ferramenta), antes da passagem livre do ork; os outros comandos do ork e os bloqueios de antes seguem iguais.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/claude-hook-resposta.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - HK5:/{p++} END{exit !(p==1 && f==0)}' && node --test core/dist-test/test/hosts.test.js"
+      ],
+      "criadoEm": "2026-10-21T04:03:26.871Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/README.md",
+      "alegacao": "T5: o README do adaptador diz o hook da resposta curta (o que ele transporta, a prova pela origem da sessão e o limite da conta do sistema, e a reinstalação) e a sétima classe do guard.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '## A resposta curta do dono no terminal (RM-057)' adapters/claude-code/README.md && grep -qF 'Ele bloqueia sete classes de comando' adapters/claude-code/README.md && grep -qF 'CLAUDE_CODE_SESSION_ATTENDED=1' adapters/claude-code/README.md && grep -qF '**Limite:**' adapters/claude-code/README.md"
+      ],
+      "criadoEm": "2026-10-21T04:03:29.472Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/test/claude-hook-resposta.test.ts",
+      "alegacao": "T5: os testes HK1 a HK7 provam, com um núcleo SIMULADO e o ork desta árvore, que conversa comum não chama o núcleo, que cada decisão vira a saída certa do UserPromptSubmit, que falha do núcleo nunca bloqueia, que o guard barra o ingresso pela ferramenta e que a sessão despachada é recusada de ponta a ponta.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/claude-hook-resposta.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - HK[0-9]+:/{p++} END{exit !(p>=7 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T04:03:32.368Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "T5: o retrato pt-BR F3b do adapter install acompanha o hook novo (187 arquivos, o sha do hooks.json, do guard e do README do claude-code) e o sha do ingresso do Hermes mexido na T1; nenhum outro caso mudou.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^locale pt-BR F3b:' core/dist-test/test/locale-f3b-snapshot.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - locale pt-BR F3b:/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-21T04:03:34.741Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "adapters/hermes/hitl-ingress/__init__.py",
+      "alegacao": "T6 (C7, D3): o ingresso do Hermes tira a referência só da mensagem do próprio bot a que o dono respondeu, com um código só, assina o envelope no endereço resposta:<código>, manda --em-resposta-a ao núcleo e leva a palavra solta em reply mesmo com a janela fechada; de ponta a ponta, \"sim\" em reply autoriza o arco no ork real.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && grep -qF \"argv += ['--em-resposta-a', referencia]\" adapters/hermes/hitl-ingress/__init__.py && node --test-reporter=tap core/dist-test/test/noctum-gateways.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - GW6:/{a++} /^ *ok [0-9]+ - GW8:/{b++} END{exit !(a==1 && b==1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T04:16:02.915Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "adapters/openclaw/src/hitl-ingress.ts",
+      "alegacao": "T6 (C7, D3): o ingresso do OpenClaw tira a referência do replyToBody do inbound_claim (um código só), assina no endereço resposta:<código>, manda --em-resposta-a e leva a palavra solta em reply com a janela fechada; de ponta a ponta, \"a\" em reply autoriza o arco no ork real com a conta.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && grep -qF 'export function replyReference' adapters/openclaw/src/hitl-ingress.ts && node --test-reporter=tap core/dist-test/test/noctum-gateways.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - GW7:/{a++} /^ *ok [0-9]+ - GW9:/{b++} END{exit !(a==1 && b==1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T04:16:05.947Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "adapters/openclaw/dist/hitl-ingress.js",
+      "alegacao": "T6: o dist do ingresso do OpenClaw é o que o construir.sh gera da fonte, com a referência do reply, o endereço resposta:<código> e --em-resposta-a; os testes do reply (GW7) e a ponta a ponta (GW9) rodam sobre ele.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && grep -qF 'export function replyReference' adapters/openclaw/dist/hitl-ingress.js && grep -qF \"...(ref ? ['--em-resposta-a', ref] : [])\" adapters/openclaw/dist/hitl-ingress.js && node --test-reporter=tap core/dist-test/test/noctum-gateways.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - GW7:/{a++} /^ *ok [0-9]+ - GW9:/{b++} END{exit !(a==1 && b==1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T04:16:09.355Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "adapters/hermes/test/hitl_resposta_curta_test.py",
+      "alegacao": "T6: os sete testes do reply do Hermes provam a assinatura em resposta:<código> com --em-resposta-a, o reply com a janela fechada, a palavra sem reply indo ao assistente, a mensagem que não é do bot e a de dois códigos sem referência, o código digitado em reply e a conversa comum em reply indo ao assistente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-gateways.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - GW6:/{p++} END{exit !(p==1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T04:16:12.195Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "adapters/openclaw/test/hitl-resposta-curta.test.mjs",
+      "alegacao": "T6: os cinco testes do reply do OpenClaw provam a assinatura em resposta:<código> com --em-resposta-a e a janela fechada, a palavra sem reply indo ao assistente, a referência que não sai de dois códigos ou de nenhum, o código digitado em reply e o remetente de fora que nunca chega ao núcleo.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-gateways.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - GW7:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-21T04:16:14.854Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-gateways.test.ts",
+      "alegacao": "T6: os testes dos gateways chegam a GW9: GW6 e GW7 rodam os testes do reply do Hermes e do OpenClaw, e GW8 e GW9 levam o reply assinado por cada um ao ork real numa raiz descartável, onde o arco é autorizado com a pergunta e o endereço do reply no recibo; GW1 a GW5 seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-gateways.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - GW[0-9]+:/{p++} END{exit !(p>=9 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T04:16:17.693Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/src/pulse-resposta.ts",
+      "alegacao": "T6 (D3): a gramática do pulse ganha a referência do reply (um código curto em maiúsculas entre limites de palavra), com domicílio no núcleo e as duas cópias dos gateways iguais a ela; hash e identificador em minúsculas não casam.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node -e \"const {GRAMATICA_DO_PULSE:g}=require('./core/dist/pulse-resposta.js'); const r=new RegExp(g.referencia,'g'); const de=(t)=>[...new Set([...t.matchAll(r)].map(m=>m[0]))]; process.exit(JSON.stringify(de('arco x · NX4K Detalhes: NX4K'))==='[\\\"NX4K\\\"]' && de('hash 3f2a9c1d ork-rm057respost').length===0 && de('K7QX e P4EJ').length===2 ? 0 : 1)\" && node --test-reporter=tap core/dist-test/test/pulse-gramatica-ingresso.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-21T04:16:21.476Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-cli.ts",
+      "alegacao": "T7 (D4, D9, D10): ork noctum propor grava a proposta e mostra a pergunta ao dono (código curto, as três alternativas e \"a, b ou c\"), entrega-a pelo transporte do canal uma vez e o --json traz a pergunta e o como autorizar sem o hash; ork noctum revogar só abre a pergunta de revogação e a entrega; nenhum dos dois autoriza ou revoga, e o uso errado e o arco sem autorização saem 2.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-pergunta-cli.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - PQ[0-9]+:/{p++} END{exit !(p>=6 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T04:49:00.383Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-pergunta-canal.ts",
+      "alegacao": "T7 (D9): comoResponderAoArco ensina a resposta curta à pergunta do arco (a letra no terminal ou em reply, \"<código> a\" de qualquer chat autorizado e a ferramenta do diálogo nativo), sem o hash e sem linha para copiar.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && grep -qF 'export function comoResponderAoArco' core/src/noctum-pergunta-canal.ts && node --test-reporter=tap core/dist-test/test/noctum-pergunta-cli.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - PQ2:/{a++} /^ *ok [0-9]+ - PQ4:/{b++} END{exit !(a==1 && b==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-21T04:49:03.038Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-resposta.ts",
+      "alegacao": "T7: a hora da pergunta vencida passa por formatarHora numa linha própria, no fuso do envelope, e o horario-lint segue verde; as frases das recusas não mudam.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/horario-lint.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - lint:/{p++} END{exit !(p>=4 && f==0)}' && node --test-reporter=tap core/dist-test/test/noctum-pergunta.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - NP[0-9]+:/{p++} END{exit !(p>=17 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T04:49:05.737Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-ajuda.ts",
+      "alegacao": "T7: a ajuda do ork, em pt-BR e em inglês, traz noctum revogar, o ingresso do terminal por --hook-stdin, o propor que pergunta ao dono e o --em-resposta-a do pulse responder; as duas línguas seguem com as mesmas linhas e flags.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && grep -qF 'noctum revogar <arco> [--json]' core/src/locale-ajuda.ts && grep -qF '[--em-resposta-a <codigo>]' core/src/locale-ajuda.ts && node --test-reporter=tap core/dist-test/test/locale-ajuda.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - locale en F2a ajuda:/{p++} END{exit !(p>=6 && f==0)}' && node --test-reporter=tap core/dist-test/test/locale-f2a-snapshot.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - locale pt-BR F2a:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-21T04:49:09.155Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-noctum.ts",
+      "alegacao": "T7 (D4, D9): ork_noctum_propor devolve a pergunta ao dono (código, prazo, texto e entrega) e o como autorizar pela resposta curta, sem o hash; a recusa sem formulário nativo não ensina mais a linha com o hash; MN1 a MN8 seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && grep -qF 'comoResponderAoArco(q)' core/src/mcp-noctum.ts && node --test-reporter=tap core/dist-test/test/mcp-noctum.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - MN[0-9]+:/{p++} END{exit !(p>=8 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T04:49:11.785Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-modo.ts",
+      "alegacao": "T7 (D9): sem arco vigente, a recusa tipada do #Noctum (noctum.modo.sem-envelope) ensina a propor e a autorizar pela resposta à pergunta, com a letra, sem a linha do hash.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-pergunta-cli.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - PQ6:/{p++} END{exit !(p==1 && f==0)}' && node --test-reporter=tap core/dist-test/test/noctum-modo.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - MO[0-9]+:/{p++} END{exit !(p>=12 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T04:49:14.649Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-pergunta-cli.test.ts",
+      "alegacao": "T7: os testes PQ1 a PQ6 provam pelo CLI real, com transporte e chaves SIMULADOS, a pergunta no propor sem e com transporte (uma entrega, número, lote servido, sem hash), a ponta a ponta do \"sim\" em reply que autoriza uma vez só, o revogar que só pergunta e revoga com o \"a\" em reply, as recusas tipadas do revogar e a recusa do modo que ensina a resposta curta.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-pergunta-cli.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - PQ[0-9]+:/{p++} END{exit !(p>=6 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T04:49:17.447Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-modo.test.ts",
+      "alegacao": "T7: o MO6 confere o texto novo do ork noctum propor (o dono autoriza respondendo à pergunta, e a linha com o hash não aparece); MO1 a MO12 seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-modo.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - MO6:/{a++} /^ *ok [0-9]+ - MO[0-9]+:/{p++} END{exit !(a==1 && p>=12 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T04:49:19.844Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/test/mcp-noctum.test.ts",
+      "alegacao": "T7: o MN1 confere que ork_noctum_propor devolve a pergunta com o código da proposta, sem entrega quando não há transporte, e o como autorizar pela resposta curta sem o hash nem /ork noctum.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/mcp-noctum.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - MN1:/{a++} /^ *ok [0-9]+ - MN[0-9]+:/{p++} END{exit !(a==1 && p>=8 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T04:49:22.301Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f2a-pt-BR.json",
+      "alegacao": "T7: o retrato pt-BR F2a da ajuda acompanha as linhas novas do noctum e do pulse responder nas cinco entradas \"ajuda cli\"; nenhum outro caso mudou.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/locale-f2a-snapshot.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - locale pt-BR F2a:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-21T04:49:24.498Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/ensaio-noctum.cjs",
+      "alegacao": "T7: no cenário ligar-o-modo do ensaio, o ork noctum propor devolve a pergunta com código curto e o como autorizar pela resposta curta, sem o hash; o cenário segue aprovado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/scripts/ensaio-noctum.cjs --cenario ligar-o-modo --resumo | grep -qF 'Ensaio aprovado: 1 cenário(s)'"
+      ],
+      "criadoEm": "2026-10-21T04:49:26.410Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "T7: a referência do CLI em pt-BR traz ork noctum revogar, o ingresso do terminal por --hook-stdin, o propor que pergunta ao dono, o --em-resposta-a do pulse responder e o parágrafo do #Noctum com a resposta curta; a paridade com o parser e com a versão em inglês segue verde.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && grep -qF '| `ork noctum revogar <arco> [--json]` |' docs/referencia/cli.md && grep -qF 'terminal --hook-stdin` |' docs/referencia/cli.md && grep -qF '[--em-resposta-a <código>]` |' docs/referencia/cli.md && node --test-reporter=tap core/dist-test/test/rm044-paridade-cli-md.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - RM-044:/{p++} END{exit !(p>=2 && f==0)}' && node --test-reporter=tap core/dist-test/test/locale-f3a-referencia.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - locale F3a referencia/{p++} END{exit !(p>=4 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-21T04:49:30.054Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "T7: a referência do CLI em inglês anda junto com a pt-BR: ork noctum revogar, o ingresso do terminal por --hook-stdin, o propor que pergunta ao dono e o --em-resposta-a do pulse responder.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && grep -qF '| `ork noctum revogar <arco> [--json]` |' docs/referencia/cli.en.md && grep -qF 'terminal --hook-stdin` |' docs/referencia/cli.en.md && node --test-reporter=tap core/dist-test/test/locale-f3a-referencia.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - locale F3a referencia/{p++} END{exit !(p>=4 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-21T04:49:32.679Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C52",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/ensaio-noctum.cjs",
+      "alegacao": "T8 (D12): os arcos do ensaio abrem pela resposta curta do dono (\"<código> a\" assinado pelo ingresso do Hermes e recebido pelo receptor do pulse), e o cenário resposta-curta prova, com canal, sessão e cadeia de processos SIMULADOS, a pergunta no canal sem hash, o reply, a mensagem repetida, o sim sem pergunta, a palavra solta, as duas pendentes, o código e o número, o outro chat, o chat fora da lista, o prazo, a sessão despachada no terminal, a sessão do dono no terminal, o terminal puro recusado e a revogação pela pergunta.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && grep -qF 'n.pulseResposta.responderPeloPulse(proj.dir, peloPulse(' core/scripts/ensaio-noctum.cjs && node core/scripts/ensaio-noctum.cjs --cenario resposta-curta --cenario arco-curto --json | node -e \"const r=JSON.parse(require('fs').readFileSync(0,'utf8')); const c=r.cenarios.find(x=>x.nome==='resposta-curta'); const a=r.cenarios.find(x=>x.nome==='arco-curto'); process.exit(r.ok && c && a && a.ok && c.expectativas.length>=17 && c.expectativas.every(e=>e.ok) ? 0 : 1)\""
+      ],
+      "criadoEm": "2026-10-21T05:00:02.359Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-ensaio-piloto.test.ts",
+      "alegacao": "T8: o EP1 roda os onze cenários do ensaio, com os arcos abertos pela resposta curta, o EP7 conta onze na lista e o EP12 confere as expectativas do cenário resposta-curta; EP1 a EP12 verdes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-ensaio-piloto.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - EP12:/{a++} /^ *ok [0-9]+ - EP[0-9]+:/{p++} END{exit !(a==1 && p>=12 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T05:00:05.701Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C54",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/src/pulse-resposta.ts",
+      "alegacao": "T8 (D9): com duas ou mais perguntas esperando, a recusa da palavra solta lista a pergunta servida do arco pelo número e pelo código (\"3 ou K7QX, com a letra\"), e nada é registrado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-resposta-curta.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - RC6:/{a++} /^ *ok [0-9]+ - RC[0-9]+:/{p++} END{exit !(a==1 && p>=16 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T05:00:07.154Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-resposta-curta.test.ts",
+      "alegacao": "T8: o RC6 confere o rótulo da pergunta servida do arco com o número e o código na recusa das duas pendentes; RC1 a RC16 verdes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/noctum-resposta-curta.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - RC[0-9]+:/{p++} END{exit !(p>=16 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T05:00:09.298Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C56",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-057-hitl-por-alternativas.md",
+      "alegacao": "T9: a página da RM-057 traz o requisito de 20/10/2026 (o dono aprova onde estiver), a fatia 5 com o que entrou, os negativos, os limites e a D1 como próxima fatia proposta, a linha no histórico e a thread ork-rm057respost no sdlc; o Markdown passa no escopo do CI.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '### Fatia 5: a resposta curta, onde o dono estiver' docs/roadmap/RM-057-hitl-por-alternativas.md && grep -qF '**Requisito de 20/10/2026, o dono aprova onde estiver:**' docs/roadmap/RM-057-hitl-por-alternativas.md && grep -qF '**Próxima fatia proposta (D1 da thread):**' docs/roadmap/RM-057-hitl-por-alternativas.md && grep -qF '  thread: ork-rm057respost' docs/roadmap/RM-057-hitl-por-alternativas.md && core/node_modules/.bin/markdownlint-cli2"
+      ],
+      "criadoEm": "2026-10-21T05:09:24.668Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C57",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-058-modo-noctum.md",
+      "alegacao": "T9: a página da RM-058 diz como o dono autoriza e revoga o arco agora (a pergunta com código curto, o Telegram, o terminal com a origem da sessão provada, o diálogo nativo, o terminal puro recusado, os recibos e contratos sem ratificação e os limites), com a evidência resposta-curta no frontmatter e a linha no histórico, sem anunciar o #Noctum como lançado, entregue, validado ou disponível.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && grep -qF '### A autorização pela resposta curta (RM-057)' docs/roadmap/RM-058-modo-noctum.md && grep -qF '    resposta-curta: core/test/noctum-pergunta.test.ts (NP1 a NP17)' docs/roadmap/RM-058-modo-noctum.md && grep -qF '**O terminal puro segue recusado:**' docs/roadmap/RM-058-modo-noctum.md && node core/scripts/checar-release-noctum.cjs --texto . && core/node_modules/.bin/markdownlint-cli2"
+      ],
+      "criadoEm": "2026-10-21T05:09:27.929Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C58",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "T9: o índice do roadmap, gerado pelo ork docs sincronizar, acompanha a data da RM-058, e a documentação passa no ork docs verificar sem achado nas páginas da RM-057 e da RM-058 (só a paridade com o git de outros itens, quando a main local está atrás da remota).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar --json | node -e \"const r=JSON.parse(require('fs').readFileSync(0,'utf8')); process.exit(Array.isArray(r.achados) && r.achados.every(a => a.regra==='docs.paridade.git' && a.id!=='RM-057' && a.id!=='RM-058') ? 0 : 1)\""
+      ],
+      "criadoEm": "2026-10-21T05:09:30.355Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C59",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "T9: o CHANGELOG ganha, em Não publicado, a linha da resposta curta do dono (a pergunta do arco, o Telegram com o reply, o terminal com a origem provada, o diálogo com três alternativas, ork noctum revogar e ork noctum terminal) com a evolução dos formatos sem ratificação, sem anunciar o #Noctum como lançado, entregue ou validado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && awk '/^## /{n++} n==1 && /O dono aprova onde estiver, com resposta curta/{f=1} END{exit !f}' CHANGELOG.md && grep -qF 'Formatos sem ratificação que mudam: o recibo `ork.noctum-ingresso/v1` ganha a `pergunta`' CHANGELOG.md && node core/scripts/checar-release-noctum.cjs --texto . && core/node_modules/.bin/markdownlint-cli2"
+      ],
+      "criadoEm": "2026-10-21T05:09:33.321Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "adapters/hermes/README.md",
+      "alegacao": "T9: o README do Hermes diz a resposta curta à pergunta: o código, o número, a palavra solta e o reply, com a referência tirada só da mensagem do próprio bot com um código só, assinada em resposta:<código>, e o comando de verificação dos testes do reply.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && grep -qF '## A resposta curta à pergunta (RM-057)' adapters/hermes/README.md && grep -qF 'hitl_resposta_curta_test.py' adapters/hermes/README.md && node --test-reporter=tap core/dist-test/test/noctum-gateways.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - GW6:/{p++} END{exit !(p==1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T05:09:36.061Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "adapters/openclaw/README.md",
+      "alegacao": "T9: o README do OpenClaw diz a resposta curta à pergunta, o reply pelo replyToBody com um código só, assinado em resposta:<código>, e o limite: o inbound_claim não prova quem escreveu a mensagem respondida.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && grep -qF '**A resposta curta à pergunta (RM-057).**' adapters/openclaw/README.md && grep -qF 'o `inbound_claim` não prova quem escreveu a mensagem respondida' adapters/openclaw/README.md && node --test-reporter=tap core/dist-test/test/noctum-gateways.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - GW7:/{p++} END{exit !(p==1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T05:09:38.816Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C62",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/claude-code/README.md",
+      "alegacao": "T10: a variante inglesa do README do Claude Code acompanha a T5, linha a linha: a sétima classe do guard, a exceção do ingresso da resposta e a seção da resposta curta do dono no terminal, com o limite; a estrutura bate com o original (D5 da RM-061).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && grep -qF \"## The owner's short answer in the terminal (RM-057)\" core/assets/adapters-en/claude-code/README.md && node --test-reporter=tap core/dist-test/test/locale-skills.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - locale en F3b skills/{p++} END{exit !(p>=4 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T05:36:32.765Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C63",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/hermes/README.md",
+      "alegacao": "T10: a variante inglesa do README do Hermes acompanha a T9, linha a linha: a frase da RM-057 no arco pelo Telegram e a seção da resposta curta à pergunta; a estrutura bate com o original (D5 da RM-061).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && grep -qF '## The short answer to the question (RM-057)' core/assets/adapters-en/hermes/README.md && node --test-reporter=tap core/dist-test/test/locale-skills.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - locale en F3b skills/{p++} END{exit !(p>=4 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T05:36:35.375Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C64",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/variantes-en.json",
+      "alegacao": "T10: o sha256 dos originais dos READMEs do Claude Code e do Hermes, de que as variantes inglesas foram traduzidas, acompanha a T5 e a T9.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/locale-skills.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - locale en F3b skills/{p++} END{exit !(p>=4 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T05:36:37.516Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C65",
+      "thread": "ork-rm057respost",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "T10: o retrato pt-BR F3b acompanha o sha do README do Hermes mexido na T9, só no caso do recibo do hermes; nenhum outro caso mudou.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^locale pt-BR F3b:' core/dist-test/test/locale-f3b-snapshot.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - locale pt-BR F3b:/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-21T05:36:39.897Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
