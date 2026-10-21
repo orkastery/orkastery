@@ -19,6 +19,7 @@ import {
   arquivoDaDsnValido, DsnDaMemoria, fragmentosDaDsn, LIMITE_DO_ARQUIVO_DA_DSN, resolverDsn, rotuloDoArquivoDaDsn,
   variaveisComDsn, variaveisComUrlComSenha,
 } from '../src/dsn-da-memoria';
+import { ativarLocale } from '../src/locale';
 import { carregarManifesto } from '../src/manifest';
 import { configDoManifesto, DriverCliOrkMind, DriverEmMemoria, resolverRegime } from '../src/orkmind';
 import { abrirMemoria, textoDoEstado } from '../src/memoria';
@@ -752,11 +753,20 @@ test('DR4: o ork memory status em texto mostra o arquivo com a fonte de arquivo 
   const p = pastaDoUsuario('dr4');
   try {
     gravar(p, DSN);
-    const arquivo = textoDoEstado(comPastaDoUsuario(p, () => resolverRegime(comMemoria(projeto), new DriverEmMemoria())).estado);
+    const estadoDoArquivo = comPastaDoUsuario(p, () => resolverRegime(comMemoria(projeto), new DriverEmMemoria())).estado;
+    const arquivo = textoDoEstado(estadoDoArquivo);
     assert.ok(arquivo.includes('  arquivo da base       ORK_USUARIO_DIR/segredos/teste.dsn\n'), arquivo);
     assert.ok(arquivo.includes('  DSN no arquivo        sim (valor nunca impresso)\n'), arquivo);
     assert.ok(!arquivo.includes('variavel da base'));
     semSegredo(arquivo, 'texto com arquivo');
+    // Em inglês, as duas linhas do arquivo saem do catálogo da RM-061, sem o pt-BR.
+    ativarLocale('en');
+    try {
+      const ingles = textoDoEstado(estadoDoArquivo);
+      assert.ok(ingles.includes('  database file         ORK_USUARIO_DIR/segredos/teste.dsn\n'), ingles);
+      assert.ok(ingles.includes('  DSN in file           yes (value never printed)\n'), ingles);
+      assert.ok(!ingles.includes('arquivo da base') && !ingles.includes('DSN no arquivo'), ingles);
+    } finally { ativarLocale(undefined); }
     const ambiente = textoDoEstado(resolverRegime(comMemoria(projeto,
       { database_url_file: undefined, database_url_env: 'ORKASTERY_TESTE_DSN_DR4_AUSENTE' }), null).estado);
     assert.ok(ambiente.includes('  variavel da base      ORKASTERY_TESTE_DSN_DR4_AUSENTE\n'), ambiente);
