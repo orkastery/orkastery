@@ -138,3 +138,21 @@ test('locale en F3c prompts: owner.language vence o ambiente na geracao', () => 
     p.limpar();
   }
 });
+
+test('locale en F3d prompts: o bloco de memoria injetada fala a lingua do prompt', () => {
+  const p = projetoTemporario('prompts-f3d-memoria');
+  ajustarManifesto(p, 'owner:\n', 'owner:\n  language: en-US\n');
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'memory prompt', modo: 'auto' });
+    thread.decisoes.push({ id: 'D1', texto: 'conteudo preservado', locked: true,
+      decididaEm: '2026-10-20T00:00:00.000Z', decididaPor: 'agent' });
+    const { prompt } = montarPromptComMemoria(p.carregado, thread, 'GO', 'Implement it.', abrirMemoria(p.carregado));
+    assert.match(prompt, /## Injected memory \(files regime\)/);
+    assert.match(prompt, /Deterministic retrieval by tag/);
+    assert.match(prompt, /### Closed decisions from this thread \(included in EVERY phase\) \(1\)/);
+    assert.match(prompt, /- Decision D1 \(closed by agent\)/);
+    assert.match(prompt, /  source: \.orkastery\/threads\/\S+\/thread\.json#json:decisoes\.D1/);
+    assert.match(prompt, /  conteudo preservado/);
+    assert.doesNotMatch(prompt, /Memoria injetada|Recuperacao deterministica|Decisoes fechadas|origem:/);
+  } finally { p.limpar(); }
+});

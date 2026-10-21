@@ -41,11 +41,16 @@ test('locale F2a infra: cobreLocale so com a entrada na lista e nunca com --json
   assert.ok(cobreLocale(['thread', 'new', 'x'], { 'from-finding': 'A1' }));
   assert.ok(cobreLocale(['thread', 'new', 'x'], { 'do-achado': 'A1' }));
   // A F2b (G3) cobre `verify`, `ship`, `pulse`, `master`, `retry plan|run` e `roadmap status`; aqui ficam so as
-  // rotas que seguem em pt-BR.
-  for (const fora of [['retry', 'list'], ['retry', 'policy'], ['pulse', 'cadencia'], ['master', 'classes'], ['master', 'x'],
-    // F3b: `docs` inteiro segue o locale (verificar, sincronizar, init e o desconhecido), e sai desta lista.
-    ['onboarding', 'sync'], ['experiencia', 'uninstall', 'codex'], ['projetos'], ['modos']]) {
+  // rotas que seguem em pt-BR. F3b: `docs` inteiro segue o locale e saiu desta lista.
+  for (const fora of [['onboarding', 'sync'], ['experiencia', 'uninstall', 'codex'], ['master', 'digest'], ['master', 'audit'],
+    ['master', 'migrar'], ['master', 'ratificar'], ['master', 'propor', 'x'], ['brain'], ['brain', 'status'], ['activation', 'status'],
+    ['mcp', 'serve']]) {
     assert.equal(cobreLocale(fora, {}), false, fora.join(' '));
+  }
+  // F3d (GO-FIX 1, decisao registrada): estas rotas eram a sonda do que segue em pt-BR e entraram na lista de proposito.
+  for (const dentro of [['retry', 'list'], ['retry', 'policy'], ['pulse', 'cadencia'], ['master', 'classes'], ['master', 'x'],
+    ['projetos'], ['modos']]) {
+    assert.ok(cobreLocale(dentro, {}), dentro.join(' '));
   }
 });
 

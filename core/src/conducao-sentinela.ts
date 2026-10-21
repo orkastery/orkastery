@@ -28,6 +28,7 @@ import { ArcoDoPasso, arcoDoPasso, lerArcosDaRaiz } from './noctum-guarda';
 import { CasoParado, entregasDoProjeto, EstadoDaEntrega, pendenciaDoDono } from './parado-no-condutor';
 import { dirThread, lerThread, pedidoDaThread } from './thread';
 import { EventoLedger, Fase, Thread } from './types';
+import { msg } from './locale';
 
 export { CANAL_DA_SENTINELA, CONTRATO_DA_SENTINELA, PRAZO_DA_PRESENCA_MS } from './conducao';
 
@@ -397,14 +398,13 @@ export function statusDaSentinela(carregado: ManifestoCarregado, opcoes: { agora
 
 /** O status em texto, para o terminal. */
 export function textoDoStatusDaSentinela(s: StatusDaSentinela): string {
+  const m = msg().conducao.sentinela;
   const linhas: string[] = [];
   const p = s.presenca;
-  linhas.push(!p ? `Sentinela: desligada na maquina ${s.maquina}; o condutor externo conduz.`
-    : p.ativa ? `Sentinela: ligada na maquina ${s.maquina}, canal ${p.canal}, sessao ${p.sessao.slice(0, 8)}; o condutor externo cede o despacho e o retry, menos a retomada por cota.`
-    : `Sentinela: a presenca da sessao ${p.sessao.slice(0, 8)} venceu; o condutor externo conduz.`);
-  if (s.threads.length === 0) linhas.push('  nenhuma thread aberta neste checkout');
+  linhas.push(!p ? m.desligada(s.maquina) : p.ativa ? m.ligada(s.maquina, p.canal, p.sessao.slice(0, 8)) : m.vencida(p.sessao.slice(0, 8)));
+  if (s.threads.length === 0) linhas.push(m.nenhuma);
   for (const t of s.threads) {
-    const acao = t.acao === 'despachar' ? `despachar ${t.fase}` : t.acao;
+    const acao = t.acao === 'despachar' ? m.despachar(t.fase) : t.acao;
     linhas.push(`  ${t.thread.padEnd(20)} ${t.modo.padEnd(8)} ${acao.padEnd(16)} ${t.porque}`);
   }
   return linhas.join('\n');

@@ -1,0 +1,3084 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm061f3d",
+  "branch": "ork/ork-rm061f3d-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-network.ts",
+      "alegacao": "O texto inglês de `ork network roadmap` distingue a causa específica das lacunas, enquanto o detalhe armazenado continua pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test && node --test --test-name-pattern='render puro' core/dist-test/test/locale-network.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:13:40.877Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-network.test.ts",
+      "alegacao": "A família network prova em pt-BR e inglês detalhes de projeto ausente, última cópia de reservas e registro JSON inválido.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='render puro' core/dist-test/test/locale-network.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:13:40.932Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-prompts.ts",
+      "alegacao": "O catálogo de prompts contém o bloco de memória injetada completo e tipado em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test && node --test --test-name-pattern='bloco de memoria injetada' core/dist-test/test/locale-prompts.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:16:06.965Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/memoria.ts",
+      "alegacao": "A memória injetada usa o locale do prompt para moldura e títulos, preservando conteúdo e proveniência.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test && node --test --test-name-pattern='bloco de memoria injetada' core/dist-test/test/locale-prompts.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:16:07.020Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/phase.ts",
+      "alegacao": "O despacho resolve a língua do template antes de montar a memória e usa a mesma língua no prompt inteiro.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test && node --test --test-name-pattern='bloco de memoria injetada' core/dist-test/test/locale-prompts.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:16:07.107Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-prompts.test.ts",
+      "alegacao": "O teste prova que um prompt inglês não conserva rótulos pt-BR no bloco de memória.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test && node --test --test-name-pattern='bloco de memoria injetada' core/dist-test/test/locale-prompts.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:16:07.202Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-decisao.ts",
+      "alegacao": "O catálogo de decisão cobre as recusas HITL v2 da classe pergunta e de seleção em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test && node --test --test-name-pattern='locale en F3d' core/dist-test/test/hitl-v2-pergunta.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:19:40.055Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/hitl-contract.ts",
+      "alegacao": "As recusas HITL v2 de pergunta usam o catálogo e preservam a classificação tipada `hitl.formato`.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test && node --test --test-name-pattern='locale en F3d' core/dist-test/test/hitl-v2-pergunta.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:19:40.113Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/hitl-v2-pergunta.test.ts",
+      "alegacao": "O teste prova em inglês pergunta, alternativas, corpo, código e irreversibilidade inválidos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test && node --test --test-name-pattern='locale en F3d' core/dist-test/test/hitl-v2-pergunta.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:19:40.189Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "O catálogo tipado ativa `modos` e `ciclos` somente depois de ambas as famílias estarem completas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:24:54.190Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/modos.ts",
+      "alegacao": "A tabela de modos preserva o texto pt-BR e monta rótulos, pausas, recomendações e invariantes em inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:24:54.279Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/modos-migracao.ts",
+      "alegacao": "O parecer da migração de modos sai no locale ativo sem mudar o resultado persistido.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:24:54.367Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/ciclos.ts",
+      "alegacao": "A tabela de variantes de ciclo tem descrições e rótulos equivalentes em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:24:54.449Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "O teste da F3d cobre as três superfícies em pt-BR e inglês e rejeita vocabulário pt-BR na saída inglesa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:24:54.563Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-setup.ts",
+      "alegacao": "A família `setup` possui catálogo tipado completo em pt-BR e inglês para tabelas, instruções e recusas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-setup.test.js",
+        "node --test core/dist-test/test/setup.test.js core/dist-test/test/i09-setup.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:34:49.900Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "A rota `setup` só ativa o locale depois da inclusão do catálogo completo da família.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-setup.test.js",
+        "node --test core/dist-test/test/setup.test.js core/dist-test/test/i09-setup.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:34:50.004Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/setup.ts",
+      "alegacao": "Renderizadores e validadores do setup consultam o catálogo sem mudar dados, limites ou persistência.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-setup.test.js",
+        "node --test core/dist-test/test/setup.test.js core/dist-test/test/i09-setup.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:34:50.098Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "Todas as mensagens montadas diretamente por `ork setup` usam o catálogo ativo.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-setup.test.js",
+        "node --test core/dist-test/test/setup.test.js core/dist-test/test/i09-setup.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:34:50.181Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-setup.test.ts",
+      "alegacao": "Testes focados provam a entrevista, a tabela e as recusas internas do setup nas duas línguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-setup.test.js",
+        "node --test core/dist-test/test/setup.test.js core/dist-test/test/i09-setup.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:34:50.257Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-projetos.ts",
+      "alegacao": "O registro e a seleção de projetos têm catálogo tipado para molduras, recusas e instruções em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-projetos.test.js",
+        "node core/dist-test/test/projeto-alvo.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:39:29.005Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "A família `projetos` ativa o locale apenas fora do contrato `--json`.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-projetos.test.js",
+        "node core/dist-test/test/projeto-alvo.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:39:29.068Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/projeto-alvo.ts",
+      "alegacao": "Erros e candidatos de projeto usam o catálogo sem alterar códigos, candidatos ou cabeçalhos contratuais da consulta.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-projetos.test.js",
+        "node core/dist-test/test/projeto-alvo.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:39:29.134Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "`ork projetos` localiza listagem, registro, remoção e uso sem mudar o JSON.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-projetos.test.js",
+        "node core/dist-test/test/projeto-alvo.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:39:29.197Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-projetos.test.ts",
+      "alegacao": "O teste focado cobre listagem, candidato, registro, remoção e recusa de projeto nas duas línguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-projetos.test.js",
+        "node core/dist-test/test/projeto-alvo.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:39:29.261Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "O catálogo cobre `pulse cadencia` e as recusas de `pulse responder` em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js",
+        "node --test --test-name-pattern='cadência gravada|janelas são' core/dist-test/test/pulse-cadencia.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:41:14.087Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/pulse-cadencia.ts",
+      "alegacao": "A confirmação da cadência traduz descrição e instrução sem alterar a tag nem o arquivo persistido.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js",
+        "node --test --test-name-pattern='cadência gravada|janelas são' core/dist-test/test/pulse-cadencia.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:41:14.171Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "A CLI usa o catálogo para validar e confirmar a cadência e o ingresso de respostas do pulse.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js",
+        "node --test --test-name-pattern='cadência gravada|janelas são' core/dist-test/test/pulse-cadencia.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:41:14.229Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "O teste focado prova cadência e recusas de resposta nas duas línguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js",
+        "node --test --test-name-pattern='cadência gravada|janelas são' core/dist-test/test/pulse-cadencia.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:41:14.295Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "O catálogo cobre as rotas `ledger stats` e `ledger estimate` em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js",
+        "node --test --test-name-pattern='agrega fatos|espera humana|parsePeriodo' core/dist-test/test/ledger-stats.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:43:12.446Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/ledger-stats.ts",
+      "alegacao": "O relatório textual do ledger localiza métricas, cobertura e HITL mantendo o JSON e as observações gravadas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js",
+        "node --test --test-name-pattern='agrega fatos|espera humana|parsePeriodo' core/dist-test/test/ledger-stats.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:43:12.524Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "Usos e confirmação de estimativa do `ork ledger` seguem o locale ativo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js",
+        "node --test --test-name-pattern='agrega fatos|espera humana|parsePeriodo' core/dist-test/test/ledger-stats.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:43:12.580Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "O teste focado prova relatório e estimativa do ledger nas duas línguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js",
+        "node --test --test-name-pattern='agrega fatos|espera humana|parsePeriodo' core/dist-test/test/ledger-stats.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:43:12.642Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "O catálogo cobre `portfolio`, `creation`, `objective` e `ci` sem alterar seus contratos JSON.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js",
+        "node core/dist-test/test/portfolio.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:45:14.202Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "Molduras, recusas e status textuais das quatro rotas usam o locale ativo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js",
+        "node core/dist-test/test/portfolio.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:45:14.267Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "O teste focado prova as quatro famílias em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js",
+        "node core/dist-test/test/portfolio.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:45:14.316Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-retry.ts",
+      "alegacao": "O catálogo de retry cobre também policy, parse, list, resume e cancel nas duas línguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:48:31.647Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "As tabelas de policy e retomada usam o catálogo sem mudar motivos, ações ou estado persistido.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:48:31.756Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/ratelimit.ts",
+      "alegacao": "A fila de rate limit localiza rótulos e estados mantendo o contrato de dados.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:48:31.844Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "As rotas complementares de `ork retry` usam o catálogo ativo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:48:31.934Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "O teste focado cobre policy, parse, fila, retomada e cancelamento em inglês e pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:48:32.022Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "As rotas complementares `retry policy`, `retry parse`, `retry list`, `retry resume` e `retry cancel` passam a resolver o locale solicitado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:50:20.379Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-retry.test.ts",
+      "alegacao": "A expectativa histórica que congelava as rotas complementares em pt-BR foi substituída por contrato bilíngue de catálogo e tabela.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:50:20.450Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-operacao-restante.ts",
+      "alegacao": "O catálogo F3d cobre a moldura humana de inventário, limpeza e radar de sessões em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:54:45.376Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "O catálogo principal expõe as mensagens operacionais restantes com paridade tipada entre as duas línguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:54:45.450Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/sessoes.ts",
+      "alegacao": "Inventário, localização e limpeza de sessões usam o locale ativo sem alterar os dados do runtime.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:54:45.511Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/hitl.ts",
+      "alegacao": "O radar HITL de sessões localiza títulos, rótulos e instruções mantendo perguntas e detalhes observados como dados.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:54:45.615Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "O teste focado prova inventário, limpeza e radar de sessões nas duas línguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:54:45.670Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "As validações e usos das rotas `ork sessions` consultam o catálogo ativo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:56:33.959Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "Todas as rotas públicas de `sessions`, inclusive a rota padrão e a desconhecida, ativam locale fora de `--json`.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:56:34.016Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-decisao.ts",
+      "alegacao": "O catálogo HITL cobre a moldura completa do pedido curto em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/hitl-curto.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:58:30.916Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/hitl-curto.ts",
+      "alegacao": "O pedido curto localiza instruções, situação, recomendação, expiração e irreversibilidade sem alterar o conteúdo do pedido.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/hitl-curto.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:58:30.967Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C52",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/hitl-curto.test.ts",
+      "alegacao": "O teste prova a moldura inglesa do contrato curto e mantém as expectativas pt-BR existentes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/hitl-curto.test.js"
+      ],
+      "criadoEm": "2026-10-20T03:58:31.019Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-operacao-restante.ts",
+      "alegacao": "O catálogo F3d cobre usos, recusas, autorização e parecer de tokens da família `gate`.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js",
+        "node core/dist-test/test/hitl-curto.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:01:34.075Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C54",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/tokens.ts",
+      "alegacao": "A apresentação de `gate next` localiza sua moldura e remonta detalhe e razão sem alterar o veredito gravado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js",
+        "node core/dist-test/test/hitl-curto.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:01:34.144Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "As mensagens diretas das rotas `ork gate` usam o catálogo ativo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js",
+        "node core/dist-test/test/hitl-curto.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:01:34.199Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C56",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "Todas as rotas públicas de `gate` ativam locale fora do contrato JSON.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js",
+        "node core/dist-test/test/hitl-curto.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:01:34.253Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C57",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "O teste focado prova o parecer de tokens e as rotas de gate nas duas línguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js",
+        "node core/dist-test/test/hitl-curto.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:01:34.309Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C58",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-operacao-restante.ts",
+      "alegacao": "O catálogo F3d contém molduras bilíngues para `fix`, `handoff` e `recall`.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:04:55.950Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C59",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/fix.ts",
+      "alegacao": "Os relatórios de GO-FIX e CHECK-REVERIFY localizam a moldura e preservam specs e evidências como dados.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:04:56.026Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/handoff.ts",
+      "alegacao": "A apresentação do handoff localiza tiers, proveniência e instruções de recuperação.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:04:56.093Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/recall.ts",
+      "alegacao": "A apresentação do recall localiza itens resolvidos, adiados e falhas sem alterar conteúdo recuperado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:04:56.153Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C62",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "O teste focado prova as molduras de fix, handoff e recall nas duas línguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:04:56.229Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C63",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-operacao-restante.ts",
+      "alegacao": "O catálogo F3d cobre usos e listagens diretas de `fix`, `handoff` e `recall`.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:06:32.010Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C64",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "As operações mutáveis de fix, handoff e recall permanecem em pt-BR como dado e são apresentadas no locale do comando.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:06:32.095Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C65",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "As rotas públicas de `fix`, `handoff` e `recall` ativam locale fora de JSON.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:06:32.183Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C66",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "O teste focado prova a ativação das rotas de fix, handoff e recall.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:06:32.272Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C67",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-operacao-restante.ts",
+      "alegacao": "O catálogo F3d cobre listagem, aquisição, fila e liberação de leases.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:08:40.957Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C68",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/leases.ts",
+      "alegacao": "A listagem de leases localiza estados, filas e diagnósticos sem mudar arquivos de lease.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:08:41.039Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C69",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "As rotas de lease usam moldura localizada e preservam motivo/detalhe persistidos em pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:08:41.146Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C70",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "As rotas list, acquire, take e release de lease ativam locale.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:08:41.199Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C71",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "O teste focado prova a listagem vazia de leases nas duas línguas e as rotas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:08:41.260Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C72",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-operacao-restante.ts",
+      "alegacao": "O catálogo F3d cobre board, plano do escalonador e reap em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:10:38.232Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C73",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/board.ts",
+      "alegacao": "As apresentações de board, plan e reap usam a moldura localizada sem mudar o estado do escalonador.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:10:38.288Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C74",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "As mensagens diretas de `ork board` usam o catálogo e reap grava dados em pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:10:38.352Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C75",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "As rotas list, plan, plano e reap de board ativam locale.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:10:38.410Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C76",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "O teste focado prova board plan e reap nas duas línguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:10:38.465Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C77",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-operacao-restante.ts",
+      "alegacao": "O catalogo operacional oferece em pt-BR e ingles toda a moldura de orquestracao e monitor.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:14:07.886Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C78",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/orquestracao.ts",
+      "alegacao": "A renderizacao do monitor usa o catalogo ativo sem alterar dados de runtime, ledger ou filas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:14:07.935Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C79",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "Os erros de uso e de atencao de orquestracao seguem o locale do comando.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:14:07.995Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C80",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "As entradas orquestracao status, erro de orquestracao e o alias monitor ativam locale, exceto em JSON.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:14:08.051Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C81",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "A familia orquestracao e seu alias possuem teste equivalente nas duas linguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:14:08.119Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C82",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-operacao-restante.ts",
+      "alegacao": "O catalogo operacional oferece a moldura de licoes em pt-BR e ingles.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:15:55.659Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C83",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/licoes.ts",
+      "alegacao": "O resumo de licoes usado pelo CLI e pelos prompts segue o locale ativo sem traduzir evidencias armazenadas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:15:55.707Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C84",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "O comando licoes ativa o locale fora de JSON.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:15:55.757Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C85",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "A familia licoes tem prova direta nas duas linguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:15:55.810Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C86",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-operacao-restante.ts",
+      "alegacao": "O catalogo operacional oferece toda a narrativa da demonstracao em pt-BR e ingles.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:17:01.985Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C87",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/demo.ts",
+      "alegacao": "A demonstracao e suas recusas seguem o locale ativo sem mudar a prova executada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:17:02.172Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C88",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "O comando demo ativa o locale.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:17:02.279Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C89",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "A narrativa da demonstracao tem teste direto nas duas linguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:17:02.572Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C90",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-operacao-restante.ts",
+      "alegacao": "O catalogo operacional oferece a leitura da fabrica e da batida em pt-BR e ingles.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:19:37.252Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C91",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/fabrica-estado.ts",
+      "alegacao": "Os paineis da fabrica e de outras maquinas seguem o locale ativo sem mudar o retrato.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:19:37.311Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C92",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/fabrica-batida.ts",
+      "alegacao": "O estado e o resultado da batida seguem o locale ativo sem mudar o crontab.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:19:37.376Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C93",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/maquina.ts",
+      "alegacao": "O aviso de adesao da fabrica segue o locale ativo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:19:37.433Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C94",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "A leitura vazia da fabrica e da batida tem teste direto nas duas linguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:19:37.499Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C95",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-operacao-restante.ts",
+      "alegacao": "O catalogo operacional oferece as operacoes da fabrica em pt-BR e ingles.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:21:45.478Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C96",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "As rotas publicar, entrar, sair, listar e batida da fabrica usam a moldura do locale.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:21:45.552Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C97",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "Todas as rotas publicas de fabrica ativam o locale fora de JSON.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:21:45.630Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C98",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "O teste da fabrica confere todas as rotas publicas no catalogo.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:21:45.699Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C99",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-operacao-restante.ts",
+      "alegacao": "O catalogo operacional oferece pareceres e diagnosticos de eval em pt-BR e ingles.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:29:35.001Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C100",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/evalrunner.ts",
+      "alegacao": "O corpus, os canarios e o parecer de eval seguem o locale ativo preservando codigos e valores observados.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:29:35.051Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C101",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "O comando eval ativa o locale quando a saida nao e JSON.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:29:35.088Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C102",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "O parecer de eval tem teste direto nas duas linguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:29:35.127Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C103",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-operacao-restante.ts",
+      "alegacao": "O catalogo operacional oferece estado, sincronizacao, indice e busca de memoria em pt-BR e ingles.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:33:22.560Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C104",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/memoria.ts",
+      "alegacao": "Os pareceres de estado, embeddings e sincronizacao da memoria seguem o locale ativo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:33:22.694Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C105",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/indice-vetorial.ts",
+      "alegacao": "O parecer do indice vetorial segue o locale ativo preservando codigos, modelos e medidas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:33:22.758Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C106",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/busca-semantica.ts",
+      "alegacao": "A busca por significado segue o locale ativo preservando resultados e medidas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:33:22.813Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C107",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "Estado, indice e busca de memoria tem teste direto nas duas linguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:33:22.916Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C108",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-operacao-restante.ts",
+      "alegacao": "O catalogo operacional oferece as operacoes publicas de memory em pt-BR e ingles.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:34:45.359Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C109",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "As rotas status, inventory, migrate, sync, search e index de memory usam o locale sem alterar JSON.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:34:45.410Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C110",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "Todas as rotas publicas de memory ativam o locale fora de JSON.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:34:45.471Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C111",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "O teste de memory confere todas as rotas publicas no catalogo.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:34:45.524Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C112",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-operacao-restante.ts",
+      "alegacao": "O catalogo operacional oferece recusas e molduras das rotas de memory em pt-BR e ingles.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:35:26.151Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C113",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "As operacoes de memory usam o catalogo e preservam em pt-BR o detalhe gravado da recusa de sync.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:35:26.209Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C114",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "As rotas status, inventory, migrate, sync, search e index de memory ativam o locale.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:35:26.264Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C115",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "O teste de memory confere a cobertura das rotas publicas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:35:26.315Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C116",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/contar-mensagens-de-saida.cjs",
+      "alegacao": "O contador reconhece qualquer catálogo `locale-*.ts` composto por segmentos minúsculos separados por hífen, incluindo `locale-operacao-restante.ts`.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/contar-mensagens-de-saida.cjs --json > /tmp/ork-rm061f3d-contador.json && grep -E '\"arquivo\": \"locale-operacao-restante.ts\"' /tmp/ork-rm061f3d-contador.json"
+      ],
+      "criadoEm": "2026-10-20T04:39:41.351Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C117",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/contador-mensagens.test.ts",
+      "alegacao": "A fixture do contador cobre explicitamente um catálogo com nome de família composto e mantém a contagem esperada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/contador-mensagens.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:39:41.401Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C118",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-operacao-restante.ts",
+      "alegacao": "O catálogo F3d contém a moldura bilíngue da instalação do MCP.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:42:19.196Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C119",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-install.ts",
+      "alegacao": "O resultado humano de `ork mcp install` segue o locale ativo sem alterar caminho nem estado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:42:19.254Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C120",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "Somente `mcp install`, e não o servidor MCP, ativa o locale do CLI.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:42:19.304Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C121",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "O uso e o prefixo de erro de `ork mcp install` saem pelo catálogo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:42:19.356Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C122",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "A instalação do MCP tem prova pt-BR e inglês, preservando os dados observados.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:42:19.409Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C123",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-master.ts",
+      "alegacao": "O catálogo de MASTER cobre classes, registro de score, recusas e orientação complementar nas duas línguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:44:28.034Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C124",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/master.ts",
+      "alegacao": "As tabelas de classes e o resumo do MASTER usam o catálogo sem alterar dados do log.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:44:28.077Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C125",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "As saídas humanas das rotas complementares de MASTER usam o catálogo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:44:28.116Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C126",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "As rotas humanas `master <thread>`, `master classes` e `master batch` ativam locale; rotas JSON permanecem fora.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:44:28.166Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C127",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "O MASTER complementar tem teste pt-BR e inglês sem resíduos da moldura portuguesa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:44:28.216Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C128",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-conducao.ts",
+      "alegacao": "O catálogo F3d define molduras pt-BR e inglês para todas as rotas públicas de condução.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:46:58.851Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C129",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "Todas as rotas públicas de `ork conducao` ativam locale fora de `--json`.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:46:58.901Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C130",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "Usos, recusas e confirmações montados pela borda de `ork conducao` usam o catálogo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:46:58.941Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C131",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "As rotas de condução e suas molduras principais têm prova direta nas duas línguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:46:58.986Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C132",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-conducao.ts",
+      "alegacao": "Cada rota pública de condução possui uma moldura em pt-BR e uma moldura equivalente em inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:47:04.393Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C133",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "As rotas públicas de `ork conducao` selecionam o catálogo do locale ativo em saída humana.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:47:04.476Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C134",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/conducao.ts",
+      "alegacao": "O status de condução usa o catálogo e sai integralmente em inglês no locale `en`",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node -e 'const l=require(\"./core/dist-test/src/locale\"),m=require(\"./core/dist-test/src/conducao\"); l.comLocale(\"en\",()=>{if(!/nobody is conducting/.test(m.textoDoStatusDaConducao(\"ork-x\",null)))process.exit(1)})'"
+      ],
+      "criadoEm": "2026-10-20T04:48:39.652Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C135",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/conducao-batida.ts",
+      "alegacao": "O resumo ocupado da batida de condução usa a moldura inglesa no locale `en`",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node -e 'const l=require(\"./core/dist-test/src/locale\"),m=require(\"./core/dist-test/src/conducao-batida\"); l.comLocale(\"en\",()=>{if(!/Another conduction heartbeat/.test(m.textoDaBatida({ocupada:true,detalhe:\"busy\"})))process.exit(1)})'"
+      ],
+      "criadoEm": "2026-10-20T04:48:39.711Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C136",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/autorizacao-duravel.ts",
+      "alegacao": "O texto da autorização durável usa a moldura inglesa no locale `en`",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node -e 'const l=require(\"./core/dist-test/src/locale\"),m=require(\"./core/dist-test/src/autorizacao-duravel\"); l.comLocale(\"en\",()=>{if(!/No valid durable authorization/.test(m.textoDaAutorizacao({valida:false,motivo:\"expired\",detalhe:\"detail\"})))process.exit(1)})'"
+      ],
+      "criadoEm": "2026-10-20T04:48:39.776Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C137",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/conducao-sentinela.ts",
+      "alegacao": "O status da Sentinela usa a moldura inglesa no locale `en`",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node -e 'const l=require(\"./core/dist-test/src/locale\"),m=require(\"./core/dist-test/src/conducao-sentinela\"); l.comLocale(\"en\",()=>{if(!/Sentinel: off/.test(m.textoDoStatusDaSentinela({maquina:\"box\",presenca:null,threads:[]})))process.exit(1)})'"
+      ],
+      "criadoEm": "2026-10-20T04:48:39.828Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C138",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/atualizar-branch.ts",
+      "alegacao": "O resumo de atualização da branch usa a moldura inglesa no locale `en`",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node -e 'const l=require(\"./core/dist-test/src/locale\"),m=require(\"./core/dist-test/src/atualizar-branch\"); l.comLocale(\"en\",()=>{if(!/already contains/.test(m.textoDaAtualizacao({acao:\"ja-atualizada\",branch:\"ork/x\",base:\"main\",enviada:false})))process.exit(1)})'"
+      ],
+      "criadoEm": "2026-10-20T04:48:39.885Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C139",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-conducao.ts",
+      "alegacao": "O catálogo de condução cobre a recusa estruturada, a linha da autorização e o detalhe da tomada de condução nas duas línguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:51:49.348Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C140",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/conducao.ts",
+      "alegacao": "A recusa estruturada e a tomada de condução usam o locale ativo na saída humana.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:51:49.392Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C141",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/autorizacao-duravel.ts",
+      "alegacao": "A linha e o resumo da autorização durável usam o locale ativo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:51:49.434Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C142",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "Os resumos, a autorização e a recusa de condução passam em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:51:49.475Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C143",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-grafo.ts",
+      "alegacao": "O catálogo do grafo contém uso, indexação, status, contexto, amostra, limpeza e consulta em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:54:51.844Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C144",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "A saída humana de `ork grafo` seleciona o catálogo ativo e `--json` preserva o contrato.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:54:51.892Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C145",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-cli.ts",
+      "alegacao": "A moldura humana e as recusas de uso do CLI do grafo usam o catálogo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:54:51.941Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C146",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-query.ts",
+      "alegacao": "A resposta humana das consultas do grafo usa o catálogo sem trocar o campo parcial do JSON.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:54:51.989Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C147",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "Uso e consulta do grafo têm prova direta em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:54:52.035Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C148",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-audit.ts",
+      "alegacao": "O catálogo F3d contém as molduras pt-BR e en da família audit.",
+      "negativa": false,
+      "verificar": [
+        "grep -E \"export const AUDIT_(PT_BR|EN)\" core/src/locale-audit.ts"
+      ],
+      "criadoEm": "2026-10-20T04:59:19.060Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C149",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "As rotas públicas de audit ativam o locale e o JSON continua fora da localização.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:59:19.104Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C150",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/auditoria.ts",
+      "alegacao": "As tabelas e detalhes dos packs de auditoria usam o catálogo ativo.",
+      "negativa": false,
+      "verificar": [
+        "grep -E \"msg\\(\\)\\.audit\\.packs|m\\.cabecalho|m\\.evidencia\" core/src/auditoria.ts"
+      ],
+      "criadoEm": "2026-10-20T04:59:19.157Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C151",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/auditrun.ts",
+      "alegacao": "Os renderizadores de rodadas, ledger e resumo do board usam o catálogo audit.",
+      "negativa": false,
+      "verificar": [
+        "grep -E \"msg\\(\\)\\.audit\\.rodadas|m\\.claimsPendentes|m\\.ledgerCabecalho\" core/src/auditrun.ts"
+      ],
+      "criadoEm": "2026-10-20T04:59:19.200Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C152",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "A família audit tem teste focado nas duas línguas e preserva o contrato JSON.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T04:59:19.243Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C153",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/divida.ts",
+      "alegacao": "A saída humana do board de dívida de audit usa o catálogo bilíngue.",
+      "negativa": false,
+      "verificar": [
+        "grep -E \"msg\\(\\)\\.audit\\.divida|m\\.recorrencia|m\\.thread\" core/src/divida.ts"
+      ],
+      "criadoEm": "2026-10-20T04:59:27.881Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C154",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/superficie.ts",
+      "alegacao": "A saída humana da varredura de superfície usa o catálogo bilíngue.",
+      "negativa": false,
+      "verificar": [
+        "grep -E \"msg\\(\\)\\.audit\\.superficie|m\\.claims|m\\.registrar\" core/src/superficie.ts"
+      ],
+      "criadoEm": "2026-10-20T04:59:27.924Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C155",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "A entrada do CLI localiza usos, erros e cabeçalho da família audit.",
+      "negativa": false,
+      "verificar": [
+        "grep -E \"const m = msg\\(\\)\\.audit|m\\.uso\\('run'\\)|m\\.erro\\.limite\" core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-20T04:59:27.965Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C156",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-audit.ts",
+      "alegacao": "A família audit localiza também o ciclo humano de lint, despacho, ingestão, verificação, relatório e superfície.",
+      "negativa": false,
+      "verificar": [
+        "grep -E \"lintTitulo|despachada|verifyTitulo|rodadaRegistrada\" core/src/locale-audit.ts"
+      ],
+      "criadoEm": "2026-10-20T05:01:07.430Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C157",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "Os fluxos humanos de audit consomem o catálogo sem alterar os caminhos JSON.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-20T05:01:07.478Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C158",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/evidencias/RM-061/cobertura-f3d.json",
+      "alegacao": "O recibo F3d registra o mesmo contador antes e depois, hashes pt-BR e pendências honestas.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const j=require('./docs/roadmap/evidencias/RM-061/cobertura-f3d.json'); if(j.antes.catalogo.entradas!==2157||j.depois.catalogo.entradas!==3367||j.depois.cobertura!==0.5935) process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-20T05:02:30.310Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C160",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG Não publicado registra a F3d sem anunciar publicação ou lançamento.",
+      "negativa": false,
+      "verificar": [
+        "grep -E \"CLI em inglês e pt-BR, fatia F3d|59,35%\" CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-20T05:02:30.458Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C161",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md",
+      "alegacao": "A página do RM-061 contém a tabela F3d, contratos preservados e superfícies derivadas pendentes; esta claim substitui C159, cujo comando continha expansão indevida de shell.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'F3d .*8520da95|59,35%|superfícies derivadas' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md"
+      ],
+      "criadoEm": "2026-10-20T05:02:54.311Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C162",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/evidencias/RM-061/cobertura-f3d.json",
+      "alegacao": "O recibo F3d registra sem ocultar o timeout da suíte, o EPERM e o veredito nativo vermelho.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const j=require('./docs/roadmap/evidencias/RM-061/cobertura-f3d.json'); if(j.testes.suiteIntegral.resultado.indexOf('timeout 124')<0||j.testes.verifyNativo.ok!==false) process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-20T05:47:27.368Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C163",
+      "thread": "ork-rm061f3d",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md",
+      "alegacao": "A página do RM-061 separa o teste focado verde da suíte e verify impedidos no sandbox.",
+      "negativa": false,
+      "verificar": [
+        "grep -E '22 de 22|timeout|EPERM|86 de 161' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md"
+      ],
+      "criadoEm": "2026-10-20T05:47:27.450Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C165",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/src/intelligence-graph-query.ts",
+      "alegacao": "GO-FIX 1: a consulta do grafo não importa o catálogo de locale; recebe a redação por parâmetro e guarda o pt-BR da família (TEXTOS_DA_CONSULTA), e o fechamento dela e o do contexto ficam na família.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/intelligence-kg1-boundary.test.js"
+      ],
+      "criadoEm": "2026-10-20T06:29:52.530Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C166",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/src/intelligence-graph-cli.ts",
+      "alegacao": "GO-FIX 1: o CLI do grafo só alcança a família e o Node; a redação humana vem da borda em ContextoDoCli.textos, com o pt-BR da família (TEXTOS_DO_GRAFO) como padrão.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/intelligence-kg1-boundary.test.js",
+        "node --test --test-name-pattern='GO-FIX 1' core/dist-test/test/locale-f3d-operacao.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:29:54.986Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C167",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/src/locale-grafo.ts",
+      "alegacao": "GO-FIX 1: o pt-BR do catálogo do grafo é o da família, folha por folha, e o campo do grafo indexar ocupa 13 colunas antes do valor, como na base.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='GO-FIX 1' core/dist-test/test/locale-f3d-operacao.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:29:57.097Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C168",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "GO-FIX 1: o teste confere a paridade do pt-BR do grafo entre catálogo e família e a recusa de uso do ork grafo nas duas línguas, com o --json igual.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='GO-FIX 1' core/dist-test/test/locale-f3d-operacao.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:29:59.310Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C169",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "GO-FIX 1: a borda do ork grafo passa ao CLI do grafo a redação do catálogo no locale do comando (textos: msg().grafo).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='ork grafo recusa o uso' core/dist-test/test/locale-f3d-operacao.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:30:01.364Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C170",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "GO-FIX 1: nenhum catálogo de locale leva travessão U+2014; o custo de referência do ork ledger troca o travessão da base por parênteses nas duas línguas.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='nenhuma mensagem vazia nem igual' core/dist-test/test/locale-dado.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'",
+        "node -e \"const fs=require('fs');const d='core/src';const r=fs.readdirSync(d).filter(n=>/^locale(-[a-z]+)*[.]ts$/.test(n)&&fs.readFileSync(d+'/'+n,'utf8').includes(String.fromCharCode(0x2014)));if(r.length){console.error(r.join(' '));process.exit(1)}\""
+      ],
+      "criadoEm": "2026-10-20T06:31:51.551Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C171",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-dado.test.ts",
+      "alegacao": "GO-FIX 1: o teste do catálogo aceita, uma a uma, só as 58 folhas da F3d que são a mesma palavra nas duas línguas (rótulo de tabela, valor técnico ou comando) e segue recusando mensagem vazia, igual por descuido e travessão.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/locale-dado.test.js"
+      ],
+      "criadoEm": "2026-10-20T06:31:53.266Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C172",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "GO-FIX 1: o ork ci prepare grava lint, ledger e bundle no escopo pt-BR em qualquer língua (D2) e imprime o aviso remontado no locale do comando.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='locale en F3d ci prepare' core/dist-test/test/locale-claims.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 2 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:37:35.825Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C173",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/src/ci.ts",
+      "alegacao": "GO-FIX 1: o lint do bundle (aviso, claim anterior ao lint, worktree que sumiu e recusa) nasce do catálogo, em pt-BR no escopo da gravação, e se remonta no locale do comando; o pt-BR é o de antes, byte a byte.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/claim-lint.test.js core/dist-test/test/rm037-ci-prepare-worktree.test.js",
+        "node --test --test-name-pattern='locale en F3d ci prepare: o lint do bundle' core/dist-test/test/locale-claims.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:37:38.505Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C174",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/src/claim-lint.ts",
+      "alegacao": "GO-FIX 1: a linha do lint de claim registra o montador do catálogo, e quem a grava em pt-BR a remonta no locale do comando ao imprimir.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/claim-lint.test.js",
+        "node --test --test-name-pattern='locale en F3d ci prepare: o lint do bundle' core/dist-test/test/locale-claims.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:37:40.917Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C175",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "GO-FIX 1: o catálogo do ci traz a claim anterior ao lint, a worktree que sumiu e a recusa do lint nas duas línguas, com o pt-BR igual ao texto de antes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/claim-lint.test.js core/dist-test/test/rm037-ci-prepare-worktree.test.js core/dist-test/test/locale-dado.test.js"
+      ],
+      "criadoEm": "2026-10-20T06:37:43.108Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C176",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-claims.test.ts",
+      "alegacao": "GO-FIX 1: o teste prova que o ci prepare grava o lint em pt-BR no ledger e o mesmo bundle nas duas línguas, com o aviso e a recusa em inglês sem resíduo pt-BR; o negativo do F3b passa a registrar o ci na lista.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-claims.test.js"
+      ],
+      "criadoEm": "2026-10-20T06:37:45.032Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C177",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f2a-infra.test.ts",
+      "alegacao": "GO-FIX 1: o teste lista como fora da lista só as rotas que seguem em pt-BR depois da F3d (onboarding sync, experiencia uninstall, master digest/audit/migrar/ratificar/propor, brain, activation, mcp serve) e prova que as que a F3d levou estão dentro.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='cobreLocale so com a entrada na lista' core/dist-test/test/locale-f2a-infra.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:42:35.390Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C178",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-cli.test.ts",
+      "alegacao": "GO-FIX 1: o negativo byte a byte usa master digest, que segue fora da lista, no lugar de modos, e compara stdout e stderr nas duas línguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='comando fora da prova de conceito segue em pt-BR' core/dist-test/test/locale-cli.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:42:37.648Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C179",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-doctor.test.ts",
+      "alegacao": "GO-FIX 1: o negativo do ork init usa brain status, que segue fora da lista, e confere o erro do manifesto em pt-BR com LANG inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='ork init fora do repositorio recusa em ingles' core/dist-test/test/locale-doctor.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:42:39.890Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C180",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-erros.test.ts",
+      "alegacao": "GO-FIX 1: o negativo dos erros usa brain, que segue fora da lista, no lugar de board, com o erro do manifesto em pt-BR byte a byte.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='em pt-BR e com --json as mensagens seguem as da base' core/dist-test/test/locale-erros.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:42:42.098Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C181",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-estado.test.ts",
+      "alegacao": "GO-FIX 1: o negativo do estado como link usa master audit, que segue fora da lista e lê o estado, no lugar de lease list, com o erro em pt-BR byte a byte.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='o erro de estado segue em pt-BR com LANG ingles' core/dist-test/test/locale-estado.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:42:44.130Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C182",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-master.test.ts",
+      "alegacao": "GO-FIX 1: o negativo do master compara nas duas línguas os --json e master digest, que seguem fora da lista; classes e a nota saíram porque a F3d os levou à lista.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='os --json e as rotas fora da lista seguem pt-BR' core/dist-test/test/locale-master.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:42:48.182Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C183",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-phase.test.ts",
+      "alegacao": "GO-FIX 1: o negativo da família phase compara nas duas línguas retry policy --json, retry list --json e master digest, que seguem fora da lista.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='o que fica fora da lista segue em pt-BR com LANG=en_US' core/dist-test/test/locale-phase.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:42:50.404Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C184",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-verify.test.ts",
+      "alegacao": "GO-FIX 1: o negativo da família verify compara saída, erro e código nas duas línguas em retry policy --json, retry list --json e master digest, que seguem fora da lista.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='ficam o --json e master digest' core/dist-test/test/locale-verify.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:42:52.653Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C185",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-pulse.test.ts",
+      "alegacao": "GO-FIX 1: com a F3d, o pulse cadencia sai em inglês sem resíduo pt-BR e segue em pt-BR com LANG pt-BR; o --json do pulse continua igual nas duas línguas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='o pulse do CLI sai em ingles e o --json nao muda' core/dist-test/test/locale-pulse.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:42:55.111Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C186",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-retry.test.ts",
+      "alegacao": "GO-FIX 1: o teste da F3d confere o cabeçalho real da tabela da política nas duas línguas, o título da rota no catálogo e a tabela inglesa sem resíduo pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='policy, parse, list, resume e cancel tem catalogo bilingue' core/dist-test/test/locale-retry.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T06:42:57.050Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C187",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/evidencias/RM-061/cobertura-f3d.json",
+      "alegacao": "GO-FIX 1: o recibo registra, no mesmo contador, a cobertura integrada (main 97c2a446 em 41,26%, F3d integrada em 58,63%) e a suíte inteira fora do sandbox antes (15 falhas em 5.341) e depois (0 falha em 5.345), sem apagar o registro da sessão anterior.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const j=require('./docs/roadmap/evidencias/RM-061/cobertura-f3d.json'); const i=j.integrada, g=j.goFix1; if(i.main.cobertura!==0.4126||i.comF3d.cobertura!==0.5863||i.comF3d.catalogo.entradas!==3391||g.antes.fail!==15||g.antes.tests!==5341||g.depois.fail!==0||g.depois.tests!==5345||j.testes.verifyNativo.ok!==false) process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-20T06:59:56.559Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C188",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md",
+      "alegacao": "GO-FIX 1: a página do RM-061 registra as 15 falhas da suíte inteira e as causas, a suíte depois com 0 falha em 5.345 testes e a cobertura integrada de 58,63% ao lado da main sozinha.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE 'GO-FIX 1:.*15 falhas em 5.341 testes' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md && grep -qE '0 falha em 5.345 testes' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md && grep -qE '\\| Cobertura \\| 41,5% \\| 59,35% \\| 41,26% \\| 58,63% \\|' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md"
+      ],
+      "criadoEm": "2026-10-20T06:59:59.519Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C189",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "GO-FIX 1: a entrada da F3d em Não publicado registra a cobertura integrada de 58,63% e as correções do grafo, do ci prepare e do custo do ork ledger, sem anunciar publicação.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE 'medida dá 58,63% \\(41,26% na `main` sozinha\\)' CHANGELOG.md && grep -qE 'o `ork ci prepare` grava o lint em pt-BR no ledger' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-20T07:00:01.644Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C190",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-rm061f3d.json",
+      "alegacao": "O bundle de CI da thread usa o schema esperado e passa na varredura pública do repositório (e-mail, caminho pessoal, chat id, IP privado e host interno), sem nenhum nome pessoal escrito no próprio comando; substitui a C164.",
+      "negativa": true,
+      "verificar": [
+        "node -e \"const scan=require('./core/scripts/checar-experiencia-publica.cjs'); const j=require('./.ork-ci/ork-rm061f3d.json'); const r=scan.varrer({arquivos:['.ork-ci/ork-rm061f3d.json']}); if(j.schema!=='ork.ci-bundle/v1'||j.thread!=='ork-rm061f3d'||!r.ok) process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-20T07:26:00.637Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C191",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/src/locale-conducao.ts",
+      "alegacao": "GO-FIX 2 (achado 4 do CHECK): em inglês, a opção de esperar a vez da recusa de condução é frase natural, com sujeito (\"Wait your turn: the command below repeats this request and proceeds on its own once the current conduction ends (waiting up to 30 min).\"), e o pt-BR segue igual byte a byte.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='GO-FIX 2' core/dist-test/test/locale-f3d-operacao.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'",
+        "grep -qF 'Wait your turn: the command below repeats this request and proceeds on its own once the current conduction ends (waiting up to 30 min).' core/src/locale-conducao.ts && grep -qF 'Esperar a vez: repete este pedido e segue sozinho quando a conducao atual terminar (ate 30 min).' core/src/locale-conducao.ts"
+      ],
+      "criadoEm": "2026-10-20T07:51:48.929Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C192",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "GO-FIX 2 (achado 4 do CHECK): o teste confere a frase inglesa da opção de esperar a vez e o pt-BR de antes, byte a byte, e que a frase sai logo acima do comando que descreve (ork phase run ... --esperar 30), nas duas línguas; com a frase antiga no código, ele reprova.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='GO-FIX 2' core/dist-test/test/locale-f3d-operacao.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'",
+        "node --test core/dist-test/test/locale-f3d-operacao.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T07:51:51.997Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C193",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md",
+      "alegacao": "GO-FIX 2 (achado 2 do CHECK): a página da RM-061 lista, na seção \"Seguem em pt-BR, para a F3e\", cada rota que o código mantém fora de COMANDOS_COM_LOCALE (os cinco subcomandos de master, onboarding sync, experiencia uninstall, mcp serve, brain, activation, doctor --modo, maestro e receipt-verifiers) e os resíduos do grafo e do projeto-alvo, com a F3e como fatia seguinte; a F3d deixa de dizer \"os demais comandos\" sem qualificação.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node -e 'const {cobreLocale}=require(\"./core/dist/locale.js\"); const p=require(\"fs\").readFileSync(\"docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md\",\"utf8\"); const i=p.indexOf(\"**Seguem em pt-BR, para a F3e:**\"), j=p.indexOf(\"**Fora da F3e:**\"); if (i<0||j<i) process.exit(1); const sec=p.slice(i,j); for (const r of [[\"master\",\"audit\"],[\"master\",\"digest\"],[\"master\",\"migrar\"],[\"master\",\"ratificar\"],[\"master\",\"propor\"],[\"onboarding\",\"sync\"],[\"experiencia\",\"uninstall\"],[\"mcp\",\"serve\"],[\"brain\"],[\"activation\"]]) { if (cobreLocale(r,{})) { console.error(\"na lista: \"+r.join(\" \")); process.exit(1) } const nome=r[0]===\"master\"&&r[1]!==\"audit\"?r.join(\" \"):\"ork \"+r.join(\" \"); if (!sec.includes(\"`\"+nome+\"`\")) { console.error(\"falta na pagina: \"+nome); process.exit(1) } } if (cobreLocale([\"doctor\"],{modo:\"fast\"})) process.exit(1); for (const t of [\"linhasDaExtracao\",\"grafo.indice.*\",\"grafo.consulta.*\",\"`ork doctor --modo`\",\"`ork maestro`\",\"`ork receipt-verifiers`\",\"ORK_PROJETO\"]) if (!sec.includes(t)) { console.error(\"falta: \"+t); process.exit(1) } if (p.includes(\"os demais comandos do CLI principal e as três lacunas\")||!p.includes(\"A F3 sai em cinco fatias\")) process.exit(1)'"
+      ],
+      "criadoEm": "2026-10-20T07:59:38.268Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C194",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "GO-FIX 2 (achado 2 do CHECK): a linha da F3d no CHANGELOG, em \"Não publicado\", diz as famílias que seguiam fora da lista em vez de \"comandos restantes\" e lista o que segue em pt-BR com o CLI em inglês para a F3e: os cinco subcomandos de master, as linhas de extração e as recusas do grafo, onboarding sync, experiencia uninstall, doctor --modo, maestro, mcp serve, os erros de brain, activation e receipt-verifiers e a recusa do projeto-alvo.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const s=require(\"fs\").readFileSync(\"CHANGELOG.md\",\"utf8\").replace(/\\s+/g,\" \"); for (const t of [\"fatia F3d** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): as famílias do CLI principal que seguiam fora da lista\",\"para a fatia F3e: `ork master audit`, `master digest`, `master migrar`, `master ratificar` e `master propor`\",\"as linhas de extração do `ork grafo indexar` e o detalhe das recusas tipadas\",\"`ork onboarding sync`, `ork experiencia uninstall`, `ork doctor --modo`, `ork maestro` e `ork mcp serve`\",\"mensagens de erro de `ork brain`, `ork activation` e `ork receipt-verifiers`\",\"a recusa do projeto-alvo, que sai antes de o comando ativar o locale\"]) if (!s.includes(t)) { console.error(\"falta: \"+t); process.exit(1) } if (s.includes(\"comandos restantes do CLI principal\")) process.exit(1)'"
+      ],
+      "criadoEm": "2026-10-20T07:59:42.850Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C195",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3d-snapshot.test.ts",
+      "alegacao": "GO-FIX 3 (achado 5 do CHECK): o snapshot pt-BR da F3d passa no HEAD. Oito grupos de casos, das famílias que a F3d levou ao catálogo, saem iguais byte a byte à fixture gerada pelos mesmos casos sobre a main antes da F3d (97c2a446); mudar uma mensagem pt-BR dessas famílias o reprova.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='locale pt-BR F3d' core/dist-test/test/locale-f3d-snapshot.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 9 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T10:13:12.621Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C196",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/src/locale-audit.ts",
+      "alegacao": "GO-FIX 3 (achado do snapshot pt-BR da F3d): `ork audit <subcomando>` com nome de membro do protótipo do objeto (`constructor`, `toString`, `__proto__`) recusa como subcomando desconhecido nas duas línguas, como a main fazia, em vez de imprimir o membro.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node -e \"const {comLocale,msg}=require('./core/dist/locale.js'); for (const l of ['pt-BR','en']) for (const s of ['constructor','toString','__proto__']) { const t=comLocale(l,()=>msg().audit.uso(s)); if (typeof t!=='string'||!t.endsWith('audit '+s)) process.exit(1) }\""
+      ],
+      "criadoEm": "2026-10-20T10:33:21.292Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C197",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/src/auditrun.ts",
+      "alegacao": "GO-FIX 3 (achado do snapshot pt-BR da F3d): o `ork audit show` volta a dizer `sessao` no pt-BR, como a main (em inglês, `session`), e os casos de rodada do grupo audit saem iguais à fixture gerada sobre a base.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='locale pt-BR F3d: audit igual' core/dist-test/test/locale-f3d-snapshot.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T10:33:25.174Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C198",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3d-casos-produto.ts",
+      "alegacao": "GO-FIX 3 (FX1): os casos do grupo `produto` do snapshot pt-BR da F3d (portfolio, creation, objective e ci) saem iguais byte a byte à fixture gerada pelos mesmos casos sobre a main antes da F3d.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='locale pt-BR F3d: produto igual' core/dist-test/test/locale-f3d-snapshot.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T10:33:29.121Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C199",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3d-casos-setup.ts",
+      "alegacao": "GO-FIX 3 (FX1): os casos do grupo `setup` do snapshot pt-BR da F3d (setup, projetos, modos e ciclos) saem iguais byte a byte à fixture gerada pelos mesmos casos sobre a main antes da F3d.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='locale pt-BR F3d: setup igual' core/dist-test/test/locale-f3d-snapshot.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T10:33:33.032Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C200",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3d-casos-sessoes.ts",
+      "alegacao": "GO-FIX 3 (FX1): os casos do grupo `sessoes` do snapshot pt-BR da F3d (sessions, gate, as recusas HITL v2 da classe pergunta, o pedido curto e a cadência do pulse) saem iguais byte a byte à fixture gerada pelos mesmos casos sobre a main antes da F3d.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='locale pt-BR F3d: sessoes igual' core/dist-test/test/locale-f3d-snapshot.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T10:33:37.692Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C201",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3d-casos-correcao.ts",
+      "alegacao": "GO-FIX 3 (FX1): os casos do grupo `correcao` do snapshot pt-BR da F3d (fix, handoff, recall, o complemento do retry e ledger) saem iguais byte a byte à fixture gerada pelos mesmos casos sobre a main antes da F3d.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='locale pt-BR F3d: correcao igual' core/dist-test/test/locale-f3d-snapshot.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T10:33:41.693Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C202",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3d-casos-conducao.ts",
+      "alegacao": "GO-FIX 3 (FX1): os casos do grupo `conducao` do snapshot pt-BR da F3d (conducao, lease, board e monitor) saem iguais byte a byte à fixture gerada pelos mesmos casos sobre a main antes da F3d.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='locale pt-BR F3d: conducao igual' core/dist-test/test/locale-f3d-snapshot.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T10:33:45.653Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C203",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3d-casos-memoria.ts",
+      "alegacao": "GO-FIX 3 (FX1): os casos do grupo `memoria` do snapshot pt-BR da F3d (memory, a memória injetada no prompt e grafo) saem iguais byte a byte à fixture gerada pelos mesmos casos sobre a main antes da F3d.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='locale pt-BR F3d: memoria igual' core/dist-test/test/locale-f3d-snapshot.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T10:33:49.536Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C204",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3d-casos-audit.ts",
+      "alegacao": "GO-FIX 3 (FX1): os casos do grupo `audit` do snapshot pt-BR da F3d (packs, rodadas, ledger da rodada, dívida, superfície e o CLI do `ork audit`) saem iguais byte a byte à fixture gerada pelos mesmos casos sobre a main antes da F3d.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='locale pt-BR F3d: audit igual' core/dist-test/test/locale-f3d-snapshot.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T10:33:53.669Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C205",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3d-casos-fabrica.ts",
+      "alegacao": "GO-FIX 3 (FX1): os casos do grupo `fabrica` do snapshot pt-BR da F3d (fabrica, eval, licoes, o complemento do master, mcp install e demo) saem iguais byte a byte à fixture gerada pelos mesmos casos sobre a main antes da F3d.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='locale pt-BR F3d: fabrica igual' core/dist-test/test/locale-f3d-snapshot.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T10:33:57.603Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C206",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3d-apoio.ts",
+      "alegacao": "GO-FIX 3 (FX1): a saída do snapshot pt-BR da F3d não depende do TMPDIR de quem roda: com um TMPDIR de outro comprimento, o grupo setup (cuja tabela do `ork projetos` alinha a coluna pelo caminho) segue igual à fixture, porque o apoio põe esses caminhos em pastas de comprimento fixo em /tmp.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && d=$(mktemp -d) && TMPDIR=\"$d\" node --test --test-name-pattern='locale pt-BR F3d: setup igual' core/dist-test/test/locale-f3d-snapshot.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'; r=$?; rmdir \"$d\"; exit $r"
+      ],
+      "criadoEm": "2026-10-20T10:34:02.280Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C207",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3d-casos.ts",
+      "alegacao": "GO-FIX 3 (FX1): a fixture do snapshot pt-BR da F3d tem exatamente os oito grupos de casos, na ordem de GRUPOS.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='a fixture tem os grupos dos casos' core/dist-test/test/locale-f3d-snapshot.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-20T10:34:06.141Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C208",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3d-pt-BR.json",
+      "alegacao": "GO-FIX 3 (FX1): a fixture do snapshot pt-BR da F3d tem os oito grupos e 612 casos e passa na varredura pública do repositório (e-mail, caminho pessoal, chat id, IP privado e host interno).",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const scan=require('./core/scripts/checar-experiencia-publica.cjs'); const r=scan.varrer({arquivos:['core/test/fixtures/locale-f3d-pt-BR.json']}); const j=require('./core/test/fixtures/locale-f3d-pt-BR.json'); const n=Object.values(j).reduce((a,g)=>a+Object.keys(g).length,0); if(!r.ok||Object.keys(j).join()!=='produto,setup,sessoes,correcao,conducao,memoria,audit,fabrica'||n!==612) process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-20T10:34:10.656Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C209",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md",
+      "alegacao": "GO-FIX 3 (FX1): a página da RM-061 registra o snapshot pt-BR próprio da F3d (612 casos em oito grupos, fixture gerada sobre a main antes da F3d, 1.078 das 1.090 folhas lidas), as duas regressões do audit corrigidas e o CHECK seguinte depois do GO-FIX 3.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '612 casos em oito grupos' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md && grep -qF 'Os casos leem 1.078 das 1.090 folhas pt-BR' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md && grep -qF 'refazer o CHECK independente da F3d depois do GO-FIX 3' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md"
+      ],
+      "criadoEm": "2026-10-20T10:34:35.313Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C212",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/evidencias/RM-061/cobertura-f3d.json",
+      "alegacao": "GO-FIX 4 (integração com a main): o recibo da cobertura registra em integrada.goFix4 a medida no mesmo contador na integração final, com a main em aa3681fe (o #186 e o #185): a F3d integrada com 3.444 entradas e 58,27%, cada cobertura igual a entradas / (entradas + literais de saída) nas quatro árvores do bloco, e o sha256 da fixture pt-BR da F3d regerada sobre a main.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const fs=require('fs'),c=require('crypto'); const g=require('./docs/roadmap/evidencias/RM-061/cobertura-f3d.json').integrada.goFix4; const f='core/test/fixtures/locale-f3d-pt-BR.json'; const h=c.createHash('sha256').update(fs.readFileSync(f)).digest('hex'); const ok=(m)=>/^[0-9a-f]{40}$/.test(m.arvore)&&m.cobertura===Math.round(m.catalogo.entradas/(m.catalogo.entradas+m.emPosicaoDeSaida)*1e4)/1e4; if(![g.main,g.comF3d,g.caminho.mainCom186,g.caminho.comF3dEm186].every(ok)||g.main.arvore!=='aa3681fe5159432ff7a148476c9de3b1a402f068'||g.comF3d.cobertura!==0.5827||g.comF3d.catalogo.entradas!==3444||g.snapshotsPtBR[f]!==h) process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-20T22:12:03.651Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C213",
+      "thread": "ork-rm061f3d",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md",
+      "alegacao": "GO-FIX 4 (integração com a main): a página da RM-061 registra o GO-FIX 4 (a queda do CI pela versão do Node na amostra do grafo, o caso que passa a escolher pelo rótulo e os merges do #186 e do #185) com as coberturas e contagens do bloco integrada.goFix4 do recibo, e põe na lista da F3e o que o security-scan deixa fora do catálogo: o detalhe de security-scan.config-invalid e os motivos security-scan.parse, em inglês também com o CLI em pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const p=require(\"fs\").readFileSync(\"docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md\",\"utf8\"); const g=require(\"./docs/roadmap/evidencias/RM-061/cobertura-f3d.json\").integrada.goFix4; const pct=(x)=>(x*100).toFixed(2).replace(\".\",\",\")+\"%\"; const mil=(n)=>String(n).replace(/\\B(?=(\\d{3})+(?!\\d))/g,\".\"); const i=p.indexOf(\"**Seguem em pt-BR, para a F3e:**\"), j=p.indexOf(\"**Fora da F3e:**\"); const sec=p.slice(i,j); const k=p.indexOf(\"- **GO-FIX 4:**\"); const b=k<0?\"\":p.slice(k,p.indexOf(\"\\n\",k)); if(i<0||j<i||!sec.includes(\"`security-scan.config-invalid`\")||!sec.includes(\"`security-scan.parse`\")||!sec.includes(mil(g.comF3d.emPosicaoDeSaida))||!b.includes(\"a aresta de menor rótulo da amostra inteira\")||!b.includes(\"#185\")||!b.includes(pct(g.main.cobertura))||!b.includes(pct(g.comF3d.cobertura))||!b.includes(mil(g.main.catalogo.entradas))||!b.includes(mil(g.comF3d.catalogo.entradas))||!b.includes(mil(g.comF3d.emPosicaoDeSaida))) process.exit(1)'"
+      ],
+      "criadoEm": "2026-10-20T22:12:09.364Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}

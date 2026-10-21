@@ -87,6 +87,32 @@ test('a recusa de forma do contrato vira o motivo tipado, e só ela', () => {
   assert.equal(motivoDaRecusaDeFormato(new Error('qualquer outra coisa')), null);
 });
 
+test('locale en F3d: recusas da classe pergunta e da seleção saem do catálogo', () => {
+  const erros: unknown[] = [];
+  const invalidos: Partial<PerguntaAoDono>[] = [
+    { pergunta: 'Two lines\nare refused?' },
+    { alternativas: [] },
+    { corpo: 'running prose' as never },
+    { codigo: 'too-long-code' },
+    { irreversivel: undefined },
+  ];
+  comLocale('en', () => {
+    for (const alteracao of invalidos) {
+      try { validarPedidoHitlV2(pergunta(alteracao)); } catch (e) { erros.push(e); }
+    }
+  });
+  const mensagens = erros.map(e => (e as Error).message);
+  assert.equal(mensagens.length, invalidos.length);
+  assert.ok(mensagens.every(m => m.startsWith('HITL v2 request: ')), mensagens.join('\n'));
+  assert.ok(mensagens.some(m => m.includes('question must be one sentence')));
+  assert.ok(mensagens.some(m => m.includes('expected 2 to 5 choices')));
+  assert.ok(mensagens.some(m => m.includes('body must be a list of lines')));
+  assert.ok(mensagens.some(m => m.includes('invalid short code')));
+  assert.ok(mensagens.some(m => m.includes('irreversibility must be declared')));
+  assert.ok(erros.every(e => motivoDaRecusaDeFormato(e) === 'hitl.formato'),
+    'the catalog error carries the pt-BR source used by typed classification');
+});
+
 test('o pedido bem formado não produz motivo nenhum', () => {
   assert.doesNotThrow(() => validarPedidoHitlV2(pergunta()));
 });

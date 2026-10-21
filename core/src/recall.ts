@@ -33,6 +33,7 @@ import {
   ResultadoDoRecall,
 } from './types';
 import { agora, lerJson } from './util';
+import { msg } from './locale';
 
 export interface OpcoesDeRecall {
   /** Momento pedido (`--fase CHECK`, ou um evento livre declarado no ponteiro). */
@@ -308,19 +309,17 @@ export function recallDaThread(
 
 /** Texto de `ork recall`. */
 export function textoDoRecall(r: ResultadoDoRecall, comConteudo = true): string {
+  const m = msg().operacao.restante.recall;
   const linhas: string[] = [];
-  linhas.push(
-    `Recall da thread ${r.thread} no momento ${r.momento ?? '(todos)'} ` +
-      `(regime efetivo ${r.regime}, handoff escrito em regime ${r.regimeDoHandoff})`
-  );
+  linhas.push(m.titulo(r.thread, r.momento ?? m.todos, r.regime, r.regimeDoHandoff));
   linhas.push('');
-  linhas.push(`RESOLVIDOS (${r.resolvidos.length}, entram no contexto agora):`);
+  linhas.push(m.resolvidos(r.resolvidos.length));
   for (const p of r.resolvidos) {
     linhas.push(`  ${p.id}  ${p.titulo}`);
-    linhas.push(`        via       ${p.via} (${p.metodo})`);
-    linhas.push(`        location  ${p.location}`);
+    linhas.push(m.via(p.via, p.metodo));
+    linhas.push(m.location(p.location));
     if (p.orkmind) linhas.push(`        orkmind   ${p.orkmind}`);
-    linhas.push(`        quando    ${p.retrieve_when}`);
+    linhas.push(m.quando(p.retrieve_when));
     if (comConteudo) {
       linhas.push('');
       for (const l of p.conteudo.split('\n')) linhas.push(`        | ${l}`);
@@ -328,20 +327,20 @@ export function textoDoRecall(r: ResultadoDoRecall, comConteudo = true): string 
     }
   }
   linhas.push('');
-  linhas.push(`ADIADOS (${r.adiados.length}, existem e NAO entram agora):`);
+  linhas.push(m.adiados(r.adiados.length));
   for (const p of r.adiados) {
     linhas.push(`  ${p.id}  ${p.titulo}`);
-    linhas.push(`        quando    ${p.retrieve_when}`);
-    linhas.push(`        onde      ${p.location}`);
-    linhas.push(`        recuperar ork recall ${r.thread} --fase ${p.retrieve_when}`);
+    linhas.push(m.quando(p.retrieve_when));
+    linhas.push(m.onde(p.location));
+    linhas.push(m.recuperar(r.thread, p.retrieve_when));
   }
   if (r.falhas.length > 0) {
     linhas.push('');
-    linhas.push(`FALHAS (${r.falhas.length}):`);
+    linhas.push(m.falhas(r.falhas.length));
     for (const p of r.falhas) {
       linhas.push(`  ${p.id}  ${p.titulo}`);
-      linhas.push(`        motivo    ${p.motivo}`);
-      linhas.push(`        detalhe   ${p.detalhe}`);
+      linhas.push(m.motivo(p.motivo));
+      linhas.push(m.detalhe(p.detalhe));
     }
   }
   return linhas.join('\n');

@@ -365,9 +365,45 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   vence o embutido, e o lint avisa o que não tem o par `.en`. As linhas de contrato do panorama da rede, os códigos
   HITL v2, o ledger, o `--json` e os snapshots pt-BR permanecem iguais; o prompt inglês conserva as seis fases, os
   cinco módulos, a `CENTRAL RULE` e o fecho obrigatório do GO.
+- **CLI em inglês e pt-BR, fatia F3d** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): as
+  famílias do CLI principal que seguiam fora da lista e as três lacunas da revisão da F3c passam pelo catálogo
+  tipado, com 3.367 entradas, 2.306 literais de saída ainda fora do catálogo e 59,35% de cobertura no mesmo
+  contador. Os
+  quatro snapshots pt-BR anteriores mantêm os hashes byte a byte; `--json`, ledger, ids, códigos, comandos e
+  flags continuam contratos não traduzidos. Mods, tools do OpenClaw e cópias dos marketplaces ficam para um
+  trabalho próprio de geração reproduzível e paridade, sem tradução parcial. Depois do merge da `main`, a mesma
+  medida dá 58,63% (41,26% na `main` sozinha). A família do grafo segue sem importar o catálogo (o `index.ts`
+  passa a redação no locale do comando), o `ork ci prepare` grava o lint em pt-BR no ledger em qualquer língua, e
+  o custo de referência do `ork ledger` troca o travessão por parênteses. Com o CLI em inglês, seguem em pt-BR,
+  para a fatia F3e: `ork master audit`, `master digest`, `master migrar`, `master ratificar` e `master propor`; as
+  linhas de extração do `ork grafo indexar` e o detalhe das recusas tipadas do índice e da consulta do grafo;
+  `ork onboarding sync`, `ork experiencia uninstall`, `ork doctor --modo`, `ork maestro` e `ork mcp serve`; as
+  mensagens de erro de `ork brain`, `ork activation` e `ork receipt-verifiers`, que imprimem JSON; e a recusa do
+  projeto-alvo, que sai antes de o comando ativar o locale. A lista, conferida no código, está na página do item.
 
 ### Corrigido
 
+- **Defeitos de condução de 19 e 20/10/2026** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): a
+  baseline (`ork verify --baseline`) roda com o mesmo prazo de cada comando do verify
+  (`verify.timeout_ms_por_comando`) e a mesma medida do steal, e o comando sem veredito nela (estouro, morte por sinal,
+  relógio sob steal, comando que não rodou, falta do código de saída) sai `SEM VEREDITO` e nunca vale como "já
+  falhava": só o término normal do próprio comando, com código de saída de 1 a 123, tem veredito, e a falha dele no
+  verify é falha sem baseline (`verify.failed`). O `core/scripts/mutante.cjs` aceita `arquivo` (um roteiro de
+  `core/scripts` ou um apoio compilado de `core/dist-test/test`) no lugar de `modulo`, mas recusa alvo ou componente
+  simbólico, alvo não regular e `realpath` fora da cópia ou dessas duas pastas, sem escrever no alvo recusado; o
+  `modulo` passou pela mesma conferência. Nova chave `worktree.dependencias` no manifesto: o `ork` roda o comando dentro de toda
+  worktree nova (`ork thread new`, `ork worktree ensure`, `ork_thread_new`), grava `worktree_dependencias` no ledger e,
+  se falhar, avisa com o comando exato sem desfazer a thread; a recusa `baseline.dependencia-ausente` diz esse
+  comando. No passo do arco do #Noctum, que abre a thread com a vez de despachar, o preparo fica pendente
+  (`worktree_dependencias_pendentes`) e roda fora da trava, antes do primeiro comando da baseline ou do verify, que
+  recusam (`baseline.dependencia-ausente`, `verify.dependencia-ausente`) enquanto ele falhar. A sessão claude-bg que
+  deu a resposta final e ficou ociosa no prompt (`working` com `status: idle`) por 5 min depois do Stop vira fim do
+  turno pela prova do `ork`, e a condução sai sem esperar os 60 min do runtime, mas só quando o Stop disse que nada
+  vai acordá-la: o hook do Stop manda ao `ork` as contagens de `background_tasks` e `session_crons` do Claude Code,
+  e com tarefa em segundo plano, despertar agendado (`CronCreate`, `ScheduleWakeup`, `/loop`) ou o Stop sem as
+  contagens, a sessão segue conduzindo. Os
+  testes `prova-ativacao-roteiro` e `projeto-alvo-cli` deixam de ler o registro de projetos e o runtime da máquina de
+  quem roda a suíte.
 - **Snapshot pt-BR estável com sha só de letras** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): o
   teste `locale pt-BR F3b` caía quando o commit gerado no teste saía só com letras (`aaeecea`, `ebcbadb`) em dois
   contextos que o normalizador não reconhecia, `branch <b> em <sha>` e `(<sha>, N tentativa(s))`. Os dois

@@ -13,10 +13,12 @@ fontes:
   codigo:
     - core/src/worktree.ts
     - core/src/leases.ts
+    - core/src/dependencias-da-worktree.ts
   testes:
     - core/test/worktree.test.ts
     - core/test/leases-b2.test.ts
     - core/test/rm036-leases-canonicos.test.ts
+    - core/test/rm037-defeitos2010-dependencias.test.ts
   simbolos:
     - core/src/worktree.ts#garantirWorktree
     - core/src/leases.ts#adquirirRegiao
@@ -42,7 +44,7 @@ fontes:
 - **Pré-condições e gatilho:** thread criada com `worktree.por_thread: true` (sem flag) ou com `--worktree auto`, ou depois por `ork worktree ensure`.
 - **Fluxo principal:**
 
-  1. A worktree nasce da base resolvida pelo `ork`.
+  1. A worktree nasce da base resolvida pelo `ork`; com `worktree.dependencias` no manifesto, o `ork` roda esse comando dentro dela (o que o git ignora, como o `node_modules`, não vem com o `git worktree add`), e a falha avisa com o comando exato sem desfazer a thread (RM-037).
   2. Escrita fora da worktree exige lease de região (`path:<glob>`).
   3. Lease ocupado entra na fila; vaga devolvida por estado real, não por tempo.
 
@@ -58,7 +60,7 @@ fontes:
 
 - **Entidades:** leases em `.orkastery/leases/` da raiz do projeto, com a fila por colisão em `fila.json`.
 - **APIs:** Não aplicável.
-- **Eventos:** `lease_acquired`, `lease_released`, `worktree_created`.
+- **Eventos:** `lease_acquired`, `lease_released`, `worktree_created`, `worktree_dependencias`.
 
 ## Operação e controle
 

@@ -58,12 +58,13 @@ test('contador F2a: cada regra do metodo conta o que deve e deixa de fora o rest
     fs.writeFileSync(path.join(dir, 'sub', 'a.ts'), FONTE);
     fs.writeFileSync(path.join(dir, 'locale.ts'), CATALOGO);
     fs.writeFileSync(path.join(dir, 'locale-familia.ts'), "export const FAMILIA_PT_BR = { x: 'um', y: 'dois' };\nexport const FAMILIA_EN = { x: 'one', y: 'two' };\n");
+    fs.writeFileSync(path.join(dir, 'locale-familia-composta.ts'), "export const COMPOSTA_EN = { x: 'three' };\n");
     fs.writeFileSync(path.join(dir, 'tipos.d.ts'), "export declare const x: 'nao entra na conta';\n");
     const r = medir('--json', dir);
     assert.equal(r.status, 0, r.stderr);
     const m = JSON.parse(r.stdout);
     assert.equal(m.schema, 'ork.locale-cobertura/v1');
-    assert.equal(m.arquivos, 3);
+    assert.equal(m.arquivos, 4);
     // Saida: console, write, push, Error, detalhe, chamada que vai ao return e os dois ramos da arrow.
     assert.equal(m.emPosicaoDeSaida, 8);
     // Com texto de pessoa, em qualquer posicao: os 8 de saida, a variavel solta e o campo de dado.
@@ -71,12 +72,16 @@ test('contador F2a: cada regra do metodo conta o que deve e deixa de fora o rest
     assert.deepEqual(m.porArquivo, [{ arquivo: 'sub/a.ts', saida: 8 }]);
     // Catalogo: texto, funcao, concatenacao, as duas folhas aninhadas e os dois itens da lista; numero,
     // referencia a outra familia (contada no arquivo dela) e objeto que nao e o ingles nao contam.
-    assert.deepEqual(m.catalogo.arquivos, [{ arquivo: 'locale-familia.ts', entradas: 2 }, { arquivo: 'locale.ts', entradas: 7 }]);
-    assert.equal(m.catalogo.entradas, 9);
-    assert.equal(m.cobertura, Number((9 / 17).toFixed(4)));
+    assert.deepEqual(m.catalogo.arquivos, [
+      { arquivo: 'locale-familia-composta.ts', entradas: 1 },
+      { arquivo: 'locale-familia.ts', entradas: 2 },
+      { arquivo: 'locale.ts', entradas: 7 },
+    ]);
+    assert.equal(m.catalogo.entradas, 10);
+    assert.equal(m.cobertura, Number((10 / 18).toFixed(4)));
     const texto = medir(dir);
-    assert.match(texto.stdout, /^Arquivos \.ts: 3\n/);
-    assert.match(texto.stdout, /\nCobertura: 52\.9%\n/);
+    assert.match(texto.stdout, /^Arquivos \.ts: 4\n/);
+    assert.match(texto.stdout, /\nCobertura: 55\.6%\n/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 

@@ -31,6 +31,7 @@ import { formatarDataHora, formatarDesde, legendaDoFuso } from './horario';
 import { conducaoDoLease, linhaDeConducao } from './conducao-texto';
 import { registrarSeExiste, TIPOS_DE_EVENTO } from './ledger';
 import { dirThread, lerThread } from './thread';
+import { msg } from './locale';
 
 /** Nome do lease que serializa o merge na base (visao, paridade 5). */
 export const LEASE_MAIN_TREE = 'main-tree';
@@ -933,26 +934,25 @@ export function adquirirRegiao(
 
 /** Texto de `ork lease list`: leases ativos, familias e a fila por colisao. */
 export function tabelaDeLeases(raiz: string): string {
+  const m = msg().operacao.restante.lease;
   const emDisco = leasesEmDisco(raiz);
   const fila = lerFila(raiz);
-  const linhas: string[] = ['Leases do projeto', ''];
+  const linhas: string[] = [m.titulo, ''];
   const principal = raizDoEstado(raiz);
 
   if (emDisco.length === 0) {
-    linhas.push('  Nenhum lease tomado. O merge na base esta liberado.');
+    linhas.push(m.nenhum);
   } else {
     for (const { lease: l, legado } of emDisco) {
-      const situacao = expirado(l) ? 'VENCIDO (tomavel)' : 'ativo';
-      linhas.push(
-        `  ${textoSeguro(l.nome).padEnd(28)} [${tipoDoLease(l.nome)}] thread ${textoSeguro(l.thread).padEnd(18)} ${situacao}`
-      );
-      linhas.push(`    desde ${formatarDataHora(l.adquiridoEm)} ate ${formatarDataHora(l.expiraEm)} (pid ${l.pid})`);
-      linhas.push(`    motivo: ${textoSeguro(l.motivo)}`);
+      const situacao = expirado(l) ? m.situacao.vencido : m.situacao.ativo;
+      linhas.push(m.item(textoSeguro(l.nome), tipoDoLease(l.nome), textoSeguro(l.thread), situacao));
+      linhas.push(m.periodo(formatarDataHora(l.adquiridoEm), formatarDataHora(l.expiraEm), l.pid));
+      linhas.push(m.motivo(textoSeguro(l.motivo)));
       // RM-036: a copia antiga e somente lida, ate vencer ou encerrar a janela.
       if (legado) {
         const relativo = path.relative(principal, legado);
         const onde = relativo && !relativo.startsWith('..') && !path.isAbsolute(relativo) ? relativo : legado;
-        linhas.push(`    legado: ${textoSeguro(onde)} (vale enquanto vivo, dentro da janela de 30 min da troca)`);
+        linhas.push(m.legado(textoSeguro(onde)));
       }
       // I-36: o lease de execucao diz quem conduz, com a mesma linha das outras superficies.
       const conducao = conducaoDoLease(l);
@@ -972,8 +972,8 @@ export function tabelaDeLeases(raiz: string): string {
       let nome: string;
       try { nome = decodeURIComponent(arquivo.slice(0, -5)); } catch { nome = arquivo.slice(0, -5); }
       if (tipoDoLease(nome) === 'exec') continue;
-      linhas.push(`  legado: ${textoSeguro(arquivo)} INVALIDO ou ILEGIVEL (ignorado)`);
-      linhas.push('    arquivo legado preservado; ignorado sem alterar o lease canonico');
+      linhas.push(m.legadoInvalido(textoSeguro(arquivo)));
+      linhas.push(m.legadoPreservado);
     }
   }
 
@@ -981,7 +981,7 @@ export function tabelaDeLeases(raiz: string): string {
   // Consulta nao recolhe candidatos: mostra a fila, inclusive sobras de SIGKILL.
   const pasta = dirLeases(raiz);
   const retomadas = fs.existsSync(pasta) ? fs.readdirSync(pasta).filter((n) => n.endsWith('.json.retomadas')).sort() : [];
-  linhas.push(`Fila de retomada: ${retomadas.length === 0 ? 'vazia' : `${retomadas.length} lease(s)`}`);
+  linhas.push(m.filaRetomada(retomadas.length));
   for (const nome of retomadas) {
     const dir = path.join(pasta, nome);
     linhas.push(`  ${textoSeguro(nome)}`);
@@ -991,25 +991,23 @@ export function tabelaDeLeases(raiz: string): string {
         const c = lerCandidatoRetomada(dir, entrada);
         if (!c) continue;
         const idade = Math.max(0, Date.now() - c.stat.mtimeMs), vencido = idade >= TTL_PADRAO_MS;
-        linhas.push(`    ${textoSeguro(c.nome)} pid ${c.pid} ${c.ticket === null ? 'temporario' : `ticket ${c.ticket}`} idade ${Math.floor(idade / 1000)}s`);
-        if (vencido) linhas.push('      lease.resume-unavailable: prazo de 30 min excedido; repita a aquisicao para recolher e consulte ork lease list');
+        linhas.push(m.candidato(textoSeguro(c.nome), c.pid, c.ticket, Math.floor(idade / 1000)));
+        if (vencido) linhas.push(m.prazo);
       }
     } catch {
-      linhas.push('    lease.resume-unavailable: fila ilegivel ou insegura; inspecione candidatos antes de repetir a aquisicao');
+      linhas.push(m.filaInsegura);
     }
   }
   const merge = fila.filter((p) => p.tipo === 'main-tree');
   const regiao = fila.filter((p) => p.tipo !== 'main-tree');
-  linhas.push(`Fila de merge (lease ${LEASE_MAIN_TREE}): ${merge.length === 0 ? 'vazia' : `${merge.length} na espera`}`);
+  linhas.push(m.filaMerge(merge.length));
   merge.forEach((p, i) => {
-    linhas.push(`  ${i + 1}. thread ${textoSeguro(p.thread)} desde ${formatarDesde(p.desdeEm)} (bloqueada por ${textoSeguro(p.bloqueadaPor)})`);
+    linhas.push(m.esperaMerge(i + 1, textoSeguro(p.thread), formatarDesde(p.desdeEm), textoSeguro(p.bloqueadaPor)));
   });
-  linhas.push(`Fila por colisao de regiao: ${regiao.length === 0 ? 'vazia' : `${regiao.length} na espera`}`);
+  linhas.push(m.filaRegiao(regiao.length));
   regiao.forEach((p, i) => {
-    linhas.push(
-      `  ${i + 1}. thread ${textoSeguro(p.thread)} quer ${textoSeguro(p.nome)}, colide com ${textoSeguro(p.colidiuCom)} ` +
-        `(thread ${textoSeguro(p.bloqueadaPor)}) desde ${formatarDesde(p.desdeEm)}`
-    );
+    linhas.push(m.esperaRegiao(i + 1, textoSeguro(p.thread), textoSeguro(p.nome), textoSeguro(p.colidiuCom),
+      textoSeguro(p.bloqueadaPor), formatarDesde(p.desdeEm)));
   });
   if (emDisco.length > 0 || fila.length > 0) linhas.push(legendaDoFuso());
   return linhas.map(textoSeguro).join('\n');

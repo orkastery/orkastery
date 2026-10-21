@@ -321,7 +321,7 @@ function validarComumV2(v: Record<string, unknown>): void {
   if (!identificador(v.id) || !identificador(v.thread) || !FASES.includes(v.fase as Fase) ||
       !(MODOS_LEGADOS as readonly string[]).includes(v.modo as string) || !iso(v.criadoEm) ||
       !['resumo', 'detalhada', 'profunda'].includes(v.profundidade as string)) {
-    throw new Error('pedido HITL v2: identificação, modo, instante ou profundidade inválidos');
+    throw new ErroDoCatalogo((m) => m.decisao.contratoComumInvalido);
   }
 }
 
@@ -388,77 +388,77 @@ function validarDecidido(v: Record<string, unknown>): void {
 function validarAlternativas(v: Record<string, unknown>): void {
   const alternativas = v.alternativas;
   if (!Array.isArray(alternativas) || alternativas.length < 2 || alternativas.length > LETRAS_DE_ALTERNATIVA.length) {
-    throw new Error('pedido HITL v2: de 2 a 5 alternativas, rotuladas de a a e');
+    throw new ErroDoCatalogo((m) => m.decisao.contratoAlternativas);
   }
   let recomendadas = 0;
   alternativas.forEach((bruta, i) => {
     if (!objeto(bruta) || bruta.letra !== LETRAS_DE_ALTERNATIVA[i]) {
-      throw new Error('pedido HITL v2: de 2 a 5 alternativas, rotuladas de a a e');
+      throw new ErroDoCatalogo((m) => m.decisao.contratoAlternativas);
     }
-    if (!linhaUnica(bruta.texto, TETOS_HITL_V2.alternativaTexto)) throw new Error('pedido HITL v2: alternativa sem texto');
+    if (!linhaUnica(bruta.texto, TETOS_HITL_V2.alternativaTexto)) throw new ErroDoCatalogo((m) => m.decisao.contratoAlternativaSemTexto);
     if (!['aprovar', 'recusar', 'responder', 'esperar'].includes(bruta.acao as string)) {
-      throw new Error('pedido HITL v2: alternativa sem ação explícita');
+      throw new ErroDoCatalogo((m) => m.decisao.contratoAlternativaSemAcao);
     }
     if (!linhaUnica(bruta.consequencia, TETOS_HITL_V2.consequencia)) {
-      throw new Error('pedido HITL v2: alternativa sem consequência em uma linha');
+      throw new ErroDoCatalogo((m) => m.decisao.contratoAlternativaSemConsequencia);
     }
     if (bruta.recomendada === undefined) {
-      if (bruta.porque !== undefined) throw new Error('pedido HITL v2: só a alternativa recomendada diz o porquê');
+      if (bruta.porque !== undefined) throw new ErroDoCatalogo((m) => m.decisao.contratoPorqueSoRecomendada);
       return;
     }
-    if (bruta.recomendada !== true) throw new Error('pedido HITL v2: recomendada só aceita true ou ausência');
+    if (bruta.recomendada !== true) throw new ErroDoCatalogo((m) => m.decisao.contratoRecomendadaBoolean);
     if (!linhaUnica(bruta.porque, TETOS_HITL_V2.porque)) {
-      throw new Error('pedido HITL v2: a alternativa recomendada precisa dizer o porquê em uma linha');
+      throw new ErroDoCatalogo((m) => m.decisao.contratoRecomendadaSemPorque);
     }
     recomendadas++;
   });
-  if (recomendadas !== 1) throw new Error('pedido HITL v2: exatamente uma alternativa é recomendada');
+  if (recomendadas !== 1) throw new ErroDoCatalogo((m) => m.decisao.contratoUmaRecomendada);
 }
 
 function validarPergunta(v: Record<string, unknown>): void {
   if (!linhaUnica(v.pergunta, TETOS_HITL_V2.pergunta)) {
-    throw new Error('pedido HITL v2: a pergunta é uma frase, sem quebra de linha');
+    throw new ErroDoCatalogo((m) => m.decisao.contratoPerguntaFrase);
   }
-  if (!texto(v.motivo, 100)) throw new Error('pedido HITL v2: motivo inválido');
+  if (!texto(v.motivo, 100)) throw new ErroDoCatalogo((m) => m.decisao.contratoMotivoInvalido);
   validarAlternativas(v);
   if (!Array.isArray(v.corpo) || v.corpo.length > TETOS_HITL_V2.corpoLinhas ||
       v.corpo.some(l => !linhaUnica(l, TETOS_HITL_V2.corpoLinha))) {
-    throw new Error('pedido HITL v2: o corpo é lista de linhas, nunca prosa corrida');
+    throw new ErroDoCatalogo((m) => m.decisao.contratoCorpoLinhas);
   }
-  if (!['objetiva', 'aberta'].includes(v.tipoDeResposta as string)) throw new Error('pedido HITL v2: tipo de resposta inválido');
-  if (!/^[0-9A-Za-z]{3,8}$/.test(String(v.codigo ?? ''))) throw new Error('pedido HITL v2: código curto inválido');
+  if (!['objetiva', 'aberta'].includes(v.tipoDeResposta as string)) throw new ErroDoCatalogo((m) => m.decisao.contratoTipoRespostaInvalido);
+  if (!/^[0-9A-Za-z]{3,8}$/.test(String(v.codigo ?? ''))) throw new ErroDoCatalogo((m) => m.decisao.contratoCodigoInvalido);
 
   const alvo = v.alvo;
   if (!objeto(alvo) || !(alvo.tipo === 'gate' && texto(alvo.sobre, 100) ||
       alvo.tipo === 'session' && identificador(alvo.sessionId) && ['claude-bg', 'codex'].includes(alvo.runtime as string))) {
-    throw new Error('pedido HITL v2: alvo inválido');
+    throw new ErroDoCatalogo((m) => m.decisao.contratoAlvoInvalido);
   }
   const aceita = v.respostaAceita;
   if (!objeto(aceita) || !['opcao', 'texto'].includes(aceita.tipo as string) ||
       !Number.isInteger(aceita.maxCaracteres) || Number(aceita.maxCaracteres) < 1 || Number(aceita.maxCaracteres) > 4096) {
-    throw new Error('pedido HITL v2: resposta aceita inválida');
+    throw new ErroDoCatalogo((m) => m.decisao.contratoRespostaInvalida);
   }
   if (!iso(v.prazo) || Date.parse(v.prazo as string) <= Date.parse(v.criadoEm as string) ||
       !['esperar', 'escalar', 'seguir-recomendada'].includes(v.acaoPadraoAoExpirar as string)) {
-    throw new Error('pedido HITL v2: prazo ou ação de expiração inválidos');
+    throw new ErroDoCatalogo((m) => m.decisao.contratoPrazoInvalido);
   }
   if (v.dependenciaTecnica !== undefined) {
     const d = v.dependenciaTecnica;
     if (!objeto(d) || !linhaUnica(d.comando, TETOS_HITL_V2.campoDaDecisao) || !linhaUnica(d.porque, TETOS_HITL_V2.porque)) {
-      throw new Error('pedido HITL v2: dependência técnica exige o comando exato e o porquê, uma linha cada');
+      throw new ErroDoCatalogo((m) => m.decisao.contratoDependenciaInvalida);
     }
   }
-  if (typeof v.irreversivel !== 'boolean') throw new Error('pedido HITL v2: irreversível precisa ser declarado');
+  if (typeof v.irreversivel !== 'boolean') throw new ErroDoCatalogo((m) => m.decisao.contratoIrreversivelAusente);
   if (v.irreversivel) {
     if (!(ATOS_IRREVERSIVEIS as readonly string[]).includes(String(v.ato))) {
-      throw new Error('pedido HITL v2: ato irreversível precisa nomear um da lista congelada');
+      throw new ErroDoCatalogo((m) => m.decisao.contratoAtoIrreversivelInvalido);
     }
     // D5, primeira das quatro barreiras: a combinacao nao chega a existir.
     if (v.acaoPadraoAoExpirar === 'seguir-recomendada') {
-      throw new Error('pedido HITL v2: ato irreversível nunca avança por expiração');
+      throw new ErroDoCatalogo((m) => m.decisao.contratoIrreversivelExpira);
     }
   } else if (v.ato !== undefined) {
-    throw new Error('pedido HITL v2: só pedido irreversível nomeia ato');
+    throw new ErroDoCatalogo((m) => m.decisao.contratoAtoSoIrreversivel);
   }
 }
 
@@ -499,32 +499,32 @@ export class SelecaoRecusada extends Error {
  */
 export function exigirSelecaoDeConducao(pedido: PedidoHitlQualquer): void {
   if (!ehV2(pedido)) {
-    throw new SelecaoRecusada('hitl.selecao.versao', 'o pedido de condução do ork sai em ork.hitl/v2, com alternativas declaradas');
+    throw new SelecaoRecusada('hitl.selecao.versao', msg().decisao.selecaoVersao);
   }
   if (pedido.classe === 'decidido') return;
   const n = pedido.alternativas.length;
   if (n < MINIMO_DE_ALTERNATIVAS_DE_CONDUCAO || n > MAXIMO_DE_ALTERNATIVAS_DE_CONDUCAO) {
     throw new SelecaoRecusada('hitl.selecao.fora-da-faixa',
-      `de ${MINIMO_DE_ALTERNATIVAS_DE_CONDUCAO} a ${MAXIMO_DE_ALTERNATIVAS_DE_CONDUCAO} alternativas, este traz ${n}`);
+      msg().decisao.selecaoFaixa(MINIMO_DE_ALTERNATIVAS_DE_CONDUCAO, MAXIMO_DE_ALTERNATIVAS_DE_CONDUCAO, n));
   }
   const recomendadas = pedido.alternativas.filter(a => a.recomendada).length;
   if (recomendadas !== 1) {
-    throw new SelecaoRecusada('hitl.selecao.recomendada', `exatamente uma alternativa com o selo Recomendação, este traz ${recomendadas}`);
+    throw new SelecaoRecusada('hitl.selecao.recomendada', msg().decisao.selecaoRecomendada(recomendadas));
   }
   const pedeTexto = pedido.tipoDeResposta === 'aberta' || pedido.respostaAceita.tipo === 'texto';
   if (pedeTexto && !pedido.dependenciaTecnica) {
     throw new SelecaoRecusada('hitl.selecao.texto-livre',
-      'resposta em texto só com dependência técnica tipada: o comando exato que o dono roda no terminal e o porquê');
+      msg().decisao.selecaoTextoLivre);
   }
 }
 
 /** Valida `ork.hitl/v2`. Nunca aceita um v1: quem julga v1 e o validador congelado. */
 export function validarPedidoHitlV2(v: unknown): asserts v is PedidoHitlV2 {
-  if (!objeto(v) || v.contrato !== CONTRATO_HITL_V2) throw new Error('pedido HITL v2: contrato inválido');
+  if (!objeto(v) || v.contrato !== CONTRATO_HITL_V2) throw new ErroDoCatalogo((m) => m.decisao.contratoDesconhecido);
   validarComumV2(v);
   if (v.classe === 'decidido') return validarDecidido(v);
   if (v.classe === 'pergunta') return validarPergunta(v);
-  throw new Error('pedido HITL v2: classe precisa ser decidido ou pergunta');
+  throw new ErroDoCatalogo((m) => m.decisao.contratoClasseInvalida);
 }
 
 /**

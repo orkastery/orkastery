@@ -924,9 +924,10 @@ export function relatorioDaRodada(
 
 /** Tabela de `ork audit list`. */
 export function tabelaDeRodadas(raiz: string): string {
+  const m = msg().audit.rodadas;
   const ids = listarRodadas(raiz);
   if (ids.length === 0) {
-    return 'Nenhuma rodada de auditoria em .orkastery/audits. Rode: ork audit run <pack>';
+    return m.vazia;
   }
   const linhas = ids.map((id) => {
     const r = lerRodada(raiz, id);
@@ -938,12 +939,12 @@ export function tabelaDeRodadas(raiz: string): string {
       r.status,
       r.motivo ?? '-',
       String(r.achados.length),
-      r.veredito ? (r.veredito.ok ? 'sustentado' : 'REPROVADO') : 'nao verificado',
+      r.veredito ? (r.veredito.ok ? m.sustentado : m.reprovado) : m.naoVerificado,
       r.escopo.since ?? 'total',
     ];
   });
   return tabela(
-    ['RODADA', 'PACK', 'PERFIL', 'ESTAGIO', 'STATUS', 'MOTIVO', 'ACHADOS', 'CLAIMS', 'ESCOPO'],
+    [...m.cabecalho],
     linhas
   );
 }
@@ -953,72 +954,71 @@ export function textoDaRodada(raiz: string, id: string): string {
   const r = lerRodada(raiz, id);
   const achados = achadosDaRodada(raiz, id);
   const L: string[] = [];
-  L.push(`Rodada de auditoria ${r.id}`);
-  L.push(`  pack        ${r.pack} (${PACKS[r.pack].titulo})`);
-  L.push(`  produto     ${r.produto} (perfil ${r.perfil})`);
-  L.push(`  estagio     ${r.estagio}, postura ${r.postura}`);
-  L.push(`  escopo      ${r.escopo.detalhe}`);
-  L.push(`  graphify    ${r.escopo.graphify}`);
-  L.push(`  custo       effort ${r.custo.effort}, model ${r.custo.model}`);
-  L.push(`  janela      ${r.custo.janela.detalhe}`);
-  if (r.custo.autorizadaPor) L.push(`  autorizada  fora da janela por ${r.custo.autorizadaPor}`);
-  L.push(`  runtime     ${r.runtime}, sessao ${r.sessionId ?? '(nao despachada)'}`);
-  L.push(`  prompt      ${r.promptPath} (sha256 ${r.promptSha256 || '(nao montado)'})`);
-  L.push(`  status      ${r.status}${r.motivo ? ` (motivo tipado: ${r.motivo})` : ''}`);
+  const m = msg().audit.rodadas;
+  L.push(m.titulo(r.id));
+  L.push(m.campo(m.campos.pack, `${r.pack} (${PACKS[r.pack].titulo})`));
+  L.push(m.campo(m.campos.produto, `${r.produto} ${m.perfil(r.perfil)}`));
+  L.push(m.campo(m.campos.estagio, `${r.estagio}, ${m.postura(r.postura)}`));
+  L.push(m.campo(m.campos.escopo, r.escopo.detalhe));
+  L.push(m.campo(m.campos.graphify, r.escopo.graphify));
+  L.push(m.campo(m.campos.custo, m.custo(r.custo.effort, r.custo.model)));
+  L.push(m.campo(m.campos.janela, r.custo.janela.detalhe));
+  if (r.custo.autorizadaPor) L.push(m.campo(m.campos.autorizada, m.autorizada(r.custo.autorizadaPor)));
+  L.push(m.campo(m.campos.runtime, `${r.runtime}, ${m.detalhes.sessao(r.sessionId ?? m.sessaoAusente)}`));
+  L.push(m.campo(m.campos.prompt, `${r.promptPath} (sha256 ${r.promptSha256 || m.promptAusente})`));
+  L.push(m.campo(m.campos.status, `${r.status}${r.motivo ? ` ${m.motivo(r.motivo)}` : ''}`));
   if (r.superficie) {
-    L.push(`  superficie  ${r.superficie.detalhe}`);
-    L.push(
-      `              registrados ${r.superficie.registrados}, a confirmar ${r.superficie.aConfirmar}, ` +
-        `frameworks: ${r.superficie.frameworks.join(', ') || '(nenhum reconhecido)'}`
-    );
+    L.push(m.campo(m.campos.superficie, r.superficie.detalhe));
+    L.push(`              ${m.superficieResumo(r.superficie.registrados, r.superficie.aConfirmar, r.superficie.frameworks.join(', ') || m.nenhumFramework)}`);
   }
-  if (r.detalhe) L.push(`  detalhe     ${r.detalhe}`);
+  if (r.detalhe) L.push(m.campo(m.campos.detalhe, r.detalhe));
   L.push('');
-  L.push(`  Achados (${achados.length}):`);
-  if (achados.length === 0) L.push('    (nenhum achado registrado nesta rodada ainda)');
+  L.push(m.achados(achados.length));
+  if (achados.length === 0) L.push(m.nenhumAchado);
   for (const a of achados) L.push(textoDoAchado(a));
   L.push('');
   if (r.veredito) {
     L.push(
-      `  Claims do auditor: ${r.veredito.ok ? 'SUSTENTADAS' : 'REPROVADAS'} ` +
-        `(motivos: ${r.veredito.motivos.join(', ') || 'nenhum'}) no HEAD ${shaCurto(r.veredito.commit)}`
+      m.claims(r.veredito.ok, r.veredito.motivos.join(', '), shaCurto(r.veredito.commit))
     );
   } else {
-    L.push(`  Claims do auditor: NAO verificadas. Rode: ork audit verify ${r.id}`);
+    L.push(m.claimsPendentes(r.id));
   }
   L.push('');
-  L.push(`  Relatorio com o bloco de propostas: ork audit report ${r.id}`);
+  L.push(m.relatorio(r.id));
   return L.join('\n');
 }
 
 /** Ledger de uma rodada, para `ork audit show --ledger`. */
 export function tabelaDoLedgerDaRodada(raiz: string, id: string): string {
+  const m = msg().audit.rodadas;
   lerRodada(raiz, id);
   const eventos = lerLedger(dirRodada(raiz, id));
-  if (eventos.length === 0) return `Ledger vazio para a rodada ${id}.`;
+  if (eventos.length === 0) return m.ledgerVazio(id);
   const linhas = eventos.map((e) => {
     const detalhe: string[] = [];
     if (e.pack) detalhe.push(String(e.pack));
-    if (e.achado) detalhe.push(`achado ${String(e.achado)}`);
-    if (e.motivo) detalhe.push(`motivo ${String(e.motivo)}`);
-    if (e.sessionId) detalhe.push(`sessao ${String(e.sessionId).slice(0, 8)}`);
-    if (e.veredito) detalhe.push(`veredito: ${String(e.veredito)}`);
-    if (e.destino) detalhe.push(`destino ${String(e.destino)}`);
+    if (e.achado) detalhe.push(m.detalhes.achado(String(e.achado)));
+    if (e.motivo) detalhe.push(m.detalhes.motivo(String(e.motivo)));
+    if (e.sessionId) detalhe.push(m.detalhes.sessao(String(e.sessionId).slice(0, 8)));
+    if (e.veredito) detalhe.push(m.detalhes.veredito(String(e.veredito)));
+    if (e.destino) detalhe.push(m.detalhes.destino(String(e.destino)));
     // `e.thread` e o dono do evento, que aqui e a propria rodada: so vale imprimir quando
     // for OUTRO id, que e o caso do evento finding_to_thread.
-    if (e.thread && e.thread !== id) detalhe.push(`thread ${String(e.thread)}`);
+    if (e.thread && e.thread !== id) detalhe.push(m.detalhes.thread(String(e.thread)));
     if (e.detalhe) detalhe.push(localizarTexto(String(e.detalhe)).slice(0, 90));
     return [formatarDataHora(e.ts, { segundos: true }), e.tipo, detalhe.join(' | ')];
   });
-  return `${tabela(['QUANDO', 'EVENTO', 'DETALHE'], linhas)}\n${legendaDoFuso()}`;
+  return `${tabela([...m.ledgerCabecalho], linhas)}\n${legendaDoFuso()}`;
 }
 
 /** Quantos achados abertos existem por pack, para o resumo do CLI. */
 export function resumoDoBoard(raiz: string): string {
+  const m = msg().audit.rodadas;
   const board = lerBoard(raiz);
-  if (board.length === 0) return 'board de divida vazio';
+  if (board.length === 0) return m.boardVazio;
   const abertos = board.filter((a) => a.estado === 'aberto').length;
-  return `${board.length} achado(s) no board de divida, ${abertos} aberto(s)`;
+  return m.board(board.length, abertos);
 }
 
 // ---------------------------------------------------------------------------

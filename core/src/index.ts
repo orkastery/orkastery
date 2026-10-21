@@ -144,7 +144,7 @@ import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoF
 import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta, validarPedidoDeEtapa } from './onboarding';
 import { resolverExperiencia } from './experiencia';
 import { desinstalarExperiencia } from './hosts';
-import { ativarLocale, cobreLocale, comLocale, ErroDoCatalogo, ligarRemontagem, linguaDeclaradaDoDono, Locale, localeAtivo, mensagemDoErro, msg, remontar, resolverLocale } from './locale';
+import { ativarLocale, cobreLocale, comLocale, ErroDoCatalogo, ligarRemontagem, linguaDeclaradaDoDono, Locale, localeAtivo, mensagemDoErro, msg, remontar, resolverLocale, textoDoCatalogo } from './locale';
 import { DadosDaAjuda } from './locale-ajuda';
 import {
   abrirMemoria,
@@ -248,7 +248,8 @@ import { jsonDaRede, lerRede, textoDaRede } from './rede-status';
 import { lerLedger } from './ledger';
 import { gateDeTokens, textoDoGateDeTokens } from './tokens';
 import { ClasseDeFalha, ColecaoDoOrk, Fase, FASES, FonteDeMedida, Modo, MotivoGate, UniversoDaBusca } from './types';
-import { ESPERA_DA_FILA_PESADA_MS, gravarBaseline, textoDoVerify, verificar } from './verify';
+import { PreparoDasDependencias, ultimaLinhaDoPreparo } from './dependencias-da-worktree';
+import { ESPERA_DA_FILA_PESADA_MS, gravarBaseline, linhasDaBaseline, textoDoVerify, verificar } from './verify';
 import { ErroDaFilaPesada, OcupanteDaFila } from './fila-pesada';
 import {
   auditarWorktree,
@@ -586,6 +587,7 @@ function comandoThread(args: Args): number {
     console.log(mt.slugEm3Partes(descreverSlug(thread.slug)));
     const linhaDaWorktreeNova = linhaDaWorktree(criada.worktreePor, gravada, variante);
     if (linhaDaWorktreeNova) console.log(linhaDaWorktreeNova);
+    relatarDependencias(criada.dependencias, thread.worktree ?? '');
     const avisoDaWorktreeNova = criada.worktreeFalharia ? avisoDeWorktreeQueFalharia(criada.worktreeFalharia)
       : avisoDaWorktree(pedido.origem, criada, carregado.manifesto);
     const avisoSemBase = avisoDeThreadSemBase(thread, gravada);
@@ -838,13 +840,14 @@ function comandoSetup(args: Args): number {
   const raiz = carregado.raiz;
   const modoBruto = args.posicionais[1];
   const por = texto(args.opcoes.por) ?? 'owner';
+  const ms = msg().setup.cli;
 
   if (modoBruto === 'versionar') {
     // I-52 (RM-047): o setup que vale agora vai para orkastery.setup.json, para entrar por PR.
     const r = versionarSetup(raiz, por);
     if (args.opcoes.json === true) { console.log(JSON.stringify({ caminho: r.caminho, setup: r.setup }, null, 2)); return 0; }
-    console.log(`Setup versionado em ${r.caminho}.`);
-    console.log('  Leve para o repositorio por PR: dali em diante ele vale em todas as maquinas, e ork setup <modo> --bloco N passa a editar este arquivo.');
+    console.log(ms.versionado(r.caminho));
+    console.log(ms.levePorPr);
     return 0;
   }
   if (modoBruto === 'worktree') {
@@ -854,17 +857,17 @@ function comandoSetup(args: Args): number {
     if (acao === 'confirmar') {
       const local = confirmarWorktreeLocal(raiz, carregado.manifesto, por, args.posicionais[3]);
       if (json) { console.log(JSON.stringify(local, null, 2)); return 0; }
-      console.log(`Pasta das worktrees "${local.dir}" confirmada nesta maquina para ${local.raiz}.`);
-      console.log(`  Gravada em .orkastery/private/${ARQUIVO_WORKTREE_LOCAL} (local, fora do git). Para desfazer: ork setup worktree revogar.`);
+      console.log(ms.worktreeConfirmada(local.dir, local.raiz));
+      console.log(ms.worktreeGravada(ARQUIVO_WORKTREE_LOCAL));
       return 0;
     }
     if (acao === 'revogar') {
       const havia = revogarWorktreeLocal(raiz);
       if (json) { console.log(JSON.stringify({ revogada: havia }, null, 2)); return 0; }
-      console.log(havia ? 'Confirmacao local da pasta das worktrees revogada.' : 'Nao havia confirmacao local da pasta das worktrees.');
+      console.log(havia ? ms.worktreeRevogada : ms.worktreeNaoHavia);
       return 0;
     }
-    if (acao !== undefined) { console.error(`subcomando desconhecido: setup worktree ${acao} (use confirmar [<dir>] ou revogar)`); return 2; }
+    if (acao !== undefined) { console.error(ms.worktreeSubcomando(acao)); return 2; }
     const pedida = pastaDasWorktreesPedida(raiz, carregado.manifesto);
     const local = lerWorktreeLocal(raiz);
     const recusa = recusaDePastaDasWorktrees(raiz, carregado.manifesto);
@@ -873,9 +876,9 @@ function comandoSetup(args: Args): number {
         confirmadaNestaMaquina: local.local?.dir ?? null, criacao: recusa === null ? 'permitida' : 'recusada' }, null, 2));
       return 0;
     }
-    console.log(`worktree.dir no orkastery.yaml: ${carregado.manifesto.worktree.dir} (${pedida.dir}, ${pedida.dentro ? 'dentro' : 'fora'} da raiz)`);
-    console.log(`confirmacao local desta maquina: ${local.local ? local.local.dir : `nenhuma (${local.motivo})`}`);
-    console.log(recusa === null ? 'criacao de worktree: permitida' : `criacao de worktree: recusada. ${COMANDO_CONFIRMAR_WORKTREE}`);
+    console.log(ms.worktreeManifesto(carregado.manifesto.worktree.dir, pedida.dir, pedida.dentro));
+    console.log(ms.confirmacaoLocal(local.local ? local.local.dir : ms.nenhumaConfirmacao(String(local.motivo))));
+    console.log(recusa === null ? ms.criacaoPermitida : ms.criacaoRecusada(COMANDO_CONFIRMAR_WORKTREE));
     return 0;
   }
   if (modoBruto === 'sandbox') {
@@ -884,20 +887,20 @@ function comandoSetup(args: Args): number {
     const json = args.opcoes.json === true;
     if (acao === 'confirmar') {
       const postura = args.posicionais[3];
-      if (!postura) { console.error('uso: ork setup sandbox confirmar <read-only|workspace-write|danger-full-access> [--por Q]'); return 2; }
+      if (!postura) { console.error(ms.sandboxUso); return 2; }
       const p = confirmarPosturaLocal(raiz, postura, por);
       if (json) { console.log(JSON.stringify(p, null, 2)); return 0; }
-      console.log(`Postura de sandbox "${p.sandbox}" confirmada nesta maquina para ${p.raiz}.`);
-      console.log(`  Gravada em ${caminhoDaPosturaLocal(raiz)} (local, fora do git). Para desfazer: ork setup sandbox revogar.`);
+      console.log(ms.sandboxConfirmada(p.sandbox, p.raiz));
+      console.log(ms.sandboxGravada(caminhoDaPosturaLocal(raiz)));
       return 0;
     }
     if (acao === 'revogar') {
       const havia = revogarPosturaLocal(raiz);
       if (json) { console.log(JSON.stringify({ revogada: havia }, null, 2)); return 0; }
-      console.log(havia ? 'Confirmacao local da postura de sandbox revogada.' : 'Nao havia confirmacao local de postura de sandbox.');
+      console.log(havia ? ms.sandboxRevogada : ms.sandboxNaoHavia);
       return 0;
     }
-    if (acao !== undefined) { console.error(`subcomando desconhecido: setup sandbox ${acao} (use confirmar <postura> ou revogar)`); return 2; }
+    if (acao !== undefined) { console.error(ms.sandboxSubcomando(acao)); return 2; }
     const pedida = carregado.manifesto.runtime.sandbox;
     const local = lerPosturaLocal(raiz);
     const recusa = recusaDePostura(raiz, carregado.manifesto, 'codex');
@@ -906,16 +909,16 @@ function comandoSetup(args: Args): number {
         confirmadaNestaMaquina: local.postura?.sandbox ?? null, despachoCodex: recusa === null ? 'permitido' : 'recusado' }, null, 2));
       return 0;
     }
-    console.log(`runtime.sandbox no orkastery.yaml: ${pedida}`);
-    console.log(`confirmacao local desta maquina: ${local.postura ? local.postura.sandbox : `nenhuma (${local.motivo})`}`);
-    console.log(recusa === null ? 'despacho pelo codex: permitido' : `despacho pelo codex: recusado. ${comandoDeConfirmacao(pedida)}`);
+    console.log(ms.sandboxManifesto(pedida));
+    console.log(ms.confirmacaoLocal(local.postura ? local.postura.sandbox : ms.nenhumaConfirmacao(String(local.motivo))));
+    console.log(recusa === null ? ms.despachoPermitido : ms.despachoRecusado(comandoDeConfirmacao(pedida)));
     return 0;
   }
   if (!modoBruto) {
     if (args.opcoes.reset === true) {
       resetarSetup(raiz, undefined, por);
       if (args.opcoes.json === true) { console.log(JSON.stringify(lerSetup(raiz), null, 2)); return 0; }
-      console.log('Setup resetado: todos os blocos de todos os modos voltaram ao default.');
+      console.log(ms.resetado);
       console.log(textoDaEntrevista(raiz));
       return 0;
     }
@@ -925,14 +928,14 @@ function comandoSetup(args: Args): number {
 
   const modo = parseModo(modoBruto);
   if (!modo) {
-    console.error(`modo de conducao desconhecido: "${modoBruto}" (aceitos: ${ORDEM_DOS_MODOS.join(', ')})`);
+    console.error(ms.modoDesconhecido(modoBruto, ORDEM_DOS_MODOS.join(', ')));
     return 2;
   }
 
   if (args.opcoes.reset === true) {
     resetarSetup(raiz, modo, por);
     if (args.opcoes.json === true) { console.log(JSON.stringify(lerSetup(raiz).modos[modo], null, 2)); return 0; }
-    console.log(`Setup do modo ${MODOS[modo].tag} resetado para o default.`);
+    console.log(ms.modoResetado(MODOS[modo].tag));
     console.log('');
     console.log(textoDoSetup(raiz, modo));
     return 0;
@@ -946,25 +949,23 @@ function comandoSetup(args: Args): number {
   const fallbackBruto = args.opcoes.fallback === true ? '' : texto(args.opcoes.fallback);
   const fallback = fallbackBruto === undefined ? undefined : fallbackBruto.split(',').map(s => s.trim()).filter(s => s !== '');
   if (bloco === undefined && (runtime !== undefined || model !== undefined || effort !== undefined || fallback !== undefined)) {
-    console.error('para editar, informe o bloco: ork setup <modo> --bloco N [--runtime R] [--model M] [--effort E] [--fallback R:M,...]');
+    console.error(ms.informeBloco);
     return 2;
   }
   if (bloco !== undefined) {
     if (runtime === undefined && model === undefined && effort === undefined && fallback === undefined) {
-      console.error('nada para editar: informe --runtime, --model, --effort e/ou --fallback junto de --bloco');
+      console.error(ms.nadaParaEditar);
       return 2;
     }
     const r = editarBloco(raiz, modo, Number(bloco), { runtime, model, effort, ...(fallback !== undefined ? { fallback } : {}) }, por);
     if (!r.ok) {
-      console.error(`edicao recusada: ${r.erro}`);
+      console.error(ms.edicaoRecusada(r.erro ?? ''));
       return 1;
     }
     if (args.opcoes.json === true) { console.log(JSON.stringify(r.setup.modos[modo], null, 2)); return 0; }
-    console.log(
-      `Bloco ${r.bloco} do modo ${MODOS[modo].tag}: ` +
-        `${r.de?.runtime}/${r.de?.model}/${r.de?.effort} -> ${r.para?.runtime}/${r.para?.model}/${r.para?.effort}`
-    );
-    console.log(`  gravado em ${r.caminho}; evento setup_configured no ledger do projeto`);
+    console.log(ms.blocoAlterado(r.bloco, MODOS[modo].tag,
+      `${r.de?.runtime}/${r.de?.model}/${r.de?.effort}`, `${r.para?.runtime}/${r.para?.model}/${r.para?.effort}`));
+    console.log(ms.gravado(r.caminho));
     console.log('');
     console.log(textoDoSetup(raiz, modo));
     return 0;
@@ -1097,9 +1098,10 @@ function comandoPhase(args: Args): number {
 function comandoLedger(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
+  const m = msg().operacao.ledger;
   if (sub === 'stats') {
     const desde = texto(args.opcoes.desde);
-    if (!desde) throw Error('uso: ork ledger stats --desde 7d [--ate ISO] [--thread T] [--modo M] [--runtime R] [--json]');
+    if (!desde) throw Error(m.usoStats);
     const r = coletarEstatisticas(carregado.raiz, { desde, ate: texto(args.opcoes.ate), thread: texto(args.opcoes.thread), modo: texto(args.opcoes.modo), runtime: texto(args.opcoes.runtime) });
     console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : textoDasEstatisticas(r));
     return 0;
@@ -1107,12 +1109,12 @@ function comandoLedger(args: Args): number {
   if (sub === 'estimate') {
     const thread = args.posicionais[2], semIa = Number(texto(args.opcoes['sem-ia'])), iaSemOrk = Number(texto(args.opcoes['ia-sem-ork']));
     const por = texto(args.opcoes.por), metodo = texto(args.opcoes.metodo), premissas = texto(args.opcoes.premissas);
-    if (!thread || !por || !metodo || !premissas) throw Error('uso: ork ledger estimate <thread-id> --sem-ia H --ia-sem-ork H --por Q --metodo M --premissas P [--incerteza I]');
+    if (!thread || !por || !metodo || !premissas) throw Error(m.usoEstimate);
     const e = registrarEstimativaPlano(carregado.raiz, thread, { semIaHoras: semIa, iaSemOrkHoras: iaSemOrk, por, metodo, premissas, incerteza: texto(args.opcoes.incerteza) });
-    console.log(args.opcoes.json === true ? JSON.stringify(e, null, 2) : `Estimativa PLAN registrada em ${thread}: sem IA ${semIa} h; IA sem Orkastery ${iaSemOrk} h.`);
+    console.log(args.opcoes.json === true ? JSON.stringify(e, null, 2) : m.estimativa(thread, semIa, iaSemOrk));
     return 0;
   }
-  throw Error('uso: ork ledger stats|estimate ...');
+  throw Error(m.uso);
 }
 
 /**
@@ -1127,10 +1129,11 @@ function comandoLedger(args: Args): number {
  * como falha acionavel, sem precisar interpretar texto.
  */
 function comandoSessionsHitl(args: Args, raiz: string): number {
+  const ms = msg().operacao.restante.sessions;
   const bruto = texto(args.opcoes.atencao);
   const atencaoMin = bruto === undefined ? undefined : Number(bruto);
   if (atencaoMin !== undefined && (!Number.isFinite(atencaoMin) || atencaoMin < 0)) {
-    console.error(`--atencao espera minutos (inteiro >= 0), recebeu "${bruto}"`);
+    console.error(ms.atencao(bruto ?? ''));
     return 2;
   }
   const radar = varrerSessoes({
@@ -1151,26 +1154,27 @@ function comandoSessionsHitl(args: Args, raiz: string): number {
 }
 
 function comandoSessions(args: Args): number {
+  const ms = msg().operacao.restante.sessions;
   const sub = args.posicionais[1];
   const carregado = carregarManifesto();
   const raiz = carregado?.raiz ?? diretorioDoProjeto();
   if (sub === 'watch') {
     const id = texto(args.opcoes.thread);
-    if (!carregado || !id) { console.error('uso: ork sessions watch --thread T [--sessao ID] [--once]'); return 2; }
+    if (!carregado || !id) { console.error(ms.usoWatch); return 2; }
     const thread = lerThread(raiz, id);
     const sessionId = texto(args.opcoes.sessao) ?? thread.sessoes.at(-1)?.sessionId;
-    if (!sessionId || !thread.sessoes.some(s => s.sessionId === sessionId)) throw new Error('sessão não pertence à thread');
+    if (!sessionId || !thread.sessoes.some(s => s.sessionId === sessionId)) throw new Error(ms.sessaoDaThread);
     console.log(JSON.stringify(args.opcoes.once === true ? observarSessao(carregado, sessionId) : { pid: iniciarWatcher(raiz, sessionId) }));
     return 0;
   }
   if (sub === 'event') {
     const tipo = texto(args.opcoes.tipo), sessao = texto(args.opcoes.sessao);
     if (!carregado || !tipo || !sessao) {
-      console.error('uso: ork sessions event --tipo <tipo> --sessao <id> < payload.json (máximo 16384 bytes)');
+      console.error(ms.usoEvent);
       return 2;
     }
     try { console.log(JSON.stringify(ingerirEvento(raiz, sessao, tipo, lerPayloadSensor()))); return 0; }
-    catch (e) { console.error(`evento recusado: ${(e as Error).message}`); return 1; }
+    catch (e) { console.error(ms.eventoRecusado((e as Error).message)); return 1; }
   }
   if (sub === undefined || sub === 'list') {
     const r = inventariarSessoes(raiz, { todas: args.opcoes.all === true, global: args.opcoes.global === true });
@@ -1178,7 +1182,7 @@ function comandoSessions(args: Args): number {
     return !r.ok || (args.opcoes['exigir-limpo'] === true && r.semThread > 0) ? 1 : 0;
   }
   if (sub === 'limpar-fantasmas') {
-    if (!carregado) { console.error('ork sessions limpar-fantasmas precisa de um projeto (orkastery.yaml)'); return 2; }
+    if (!carregado) { console.error(ms.exigeProjeto); return 2; }
     const r = limparFantasmas(raiz, { dryRun: args.opcoes['dry-run'] === true });
     console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : textoDaLimpeza(r));
     return r.ok ? 0 : 1;
@@ -1189,13 +1193,13 @@ function comandoSessions(args: Args): number {
   if (sub === 'request') {
     const id = args.posicionais[2], sessionId = args.posicionais[3];
     const fase = texto(args.opcoes.fase), runtime = texto(args.opcoes.runtime), pergunta = texto(args.opcoes.pergunta);
-    if (!id || !sessionId || !fase || !FASES.includes(fase as Fase) || !runtime) throw new Error('sessions request exige thread, UUID, --fase e --runtime; --pergunta só confere o conteúdo nativo');
+    if (!id || !sessionId || !fase || !FASES.includes(fase as Fase) || !runtime) throw new Error(ms.request);
     console.log(JSON.stringify(abrirPedidoSessao(raiz, id, sessionId, { fase: fase as Fase, runtime, pergunta, prazo: texto(args.opcoes.prazo) })));
     return 0;
   }
   if (sub === 'answer') {
     const id = args.posicionais[2], pedido = args.posicionais[3];
-    if (!id || !pedido || args.opcoes.stdin !== true) throw new Error('sessions answer exige thread, pedido e envelope autenticado em --stdin');
+    if (!id || !pedido || args.opcoes.stdin !== true) throw new Error(ms.answer);
     const r = lerRespostaStdin({ origem: texto(args.opcoes.origem), por: texto(args.opcoes.por),
       mensagem: texto(args.opcoes.mensagem), canal: texto(args.opcoes.canal), conta: texto(args.opcoes.conta) });
     console.log(JSON.stringify(responderSessao(raiz, id, pedido, r)));
@@ -1205,7 +1209,7 @@ function comandoSessions(args: Args): number {
     // FX3: fecha um envio pendente so com (thread, pedido). Nao reenvia e nao re-elicita:
     // pergunta ao receptor, pelo recibo correlacionado, se ele recebeu aquele envioId.
     const id = args.posicionais[2], pedido = args.posicionais[3];
-    if (!id || !pedido) throw new Error('sessions reconcile exige thread e pedido');
+    if (!id || !pedido) throw new Error(ms.reconcile);
     const r = reconciliarEnvioDeSessao(raiz, id, pedido);
     console.log(JSON.stringify(r));
     return r.estado === 'entregue' ? 0 : 1;
@@ -1213,13 +1217,13 @@ function comandoSessions(args: Args): number {
   if (sub === 'supersede') {
     const id = args.posicionais[2], sessionId = args.posicionais[3];
     const fase = texto(args.opcoes.fase), runtime = texto(args.opcoes.runtime);
-    if (!id || !sessionId || !fase || !FASES.includes(fase as Fase) || !runtime) throw new Error('sessions supersede exige thread, UUID, --fase e --runtime');
+    if (!id || !sessionId || !fase || !FASES.includes(fase as Fase) || !runtime) throw new Error(ms.supersede);
     console.log(JSON.stringify(superarSessao(raiz, id, sessionId, fase as Fase, runtime)));
     return 0;
   }
   const chave = args.posicionais[2];
   if (!chave) {
-    console.error(`uso: ork sessions ${sub} <sessao>`);
+    console.error(ms.usoSub(sub));
     return 2;
   }
   if (sub === 'adopt') {
@@ -1244,7 +1248,7 @@ function comandoSessions(args: Args): number {
     console.log(r.texto);
     return r.codigo;
   }
-  console.error(`subcomando desconhecido: sessions ${sub}`);
+  console.error(ms.desconhecido(sub));
   return 2;
 }
 
@@ -1310,13 +1314,14 @@ function comandoDecisao(args: Args): number {
  */
 function comandoCadenciaDoPulse(args: Args): number {
   const carregado = exigirManifesto();
-  if (args.posicionais.length > 3) throw new Error('pulse cadencia: uma tag por vez');
+  const m = msg().operacao.pulseCadencia;
+  if (args.posicionais.length > 3) throw new Error(m.umaTag);
   const bruta = args.posicionais[2];
   const agora = new Date().toISOString();
   if (bruta !== undefined) {
     const lido = interpretarRespostaDoPulse(bruta.trim().startsWith('#') ? bruta : `#${bruta.trim()}`);
     if (lido.forma !== 'cadencia') {
-      throw new Error(`pulse cadencia: tag desconhecida "${bruta}"; use ${Object.keys(CADENCIAS).join(', ')}`);
+      throw new Error(m.desconhecida(bruta, Object.keys(CADENCIAS).join(', ')));
     }
     gravarCadencia(carregado.raiz, lido.tag, { por: texto(args.opcoes.por) ?? userInfo().username,
       canal: texto(args.opcoes.canal) ?? 'terminal', em: agora });
@@ -1329,8 +1334,8 @@ function comandoCadenciaDoPulse(args: Args): number {
   }
   console.log(textoDaCadencia(vigente, agora));
   console.log(vigente.gravada
-    ? `Trocada por ${vigente.gravada.por} (${vigente.gravada.canal}) em ${formatarDataHoraRotulada(vigente.gravada.em)}.`
-    : 'Nenhuma tag gravada: vale a cadência padrão.');
+    ? m.trocada(vigente.gravada.por, vigente.gravada.canal, formatarDataHoraRotulada(vigente.gravada.em))
+    : m.padrao);
   return 0;
 }
 
@@ -1485,9 +1490,8 @@ function comandoVerify(args: Args): number {
     const b = comLocale('pt-BR', () => gravarBaseline(carregado, id, undefined, conducao));
     console.log(m.baselineGravada(id));
     console.log(m.baselineCommit(b.commit));
-    for (const c of b.comandos) {
-      console.log(m.baselineComando(c.nome, c.ok, c.code, c.comando));
-    }
+    // RM-037 (defeito 1 de 19 e 20/10/2026): o comando sem veredito nao sai como "ja falhava".
+    for (const linha of linhasDaBaseline(b, id)) console.log(linha);
     if (b.comandos.some((c) => !c.ok)) {
       // Ensaio de 03/10 (R7): "ja falhava" sem dizer onde ver a saida do comando.
       console.log(m.baselineSaida(caminhoThread(carregado.raiz, id), id));
@@ -1513,6 +1517,7 @@ function comandoVerify(args: Args): number {
  * `status --json` para ceder o despacho enquanto a presenca vale. Nada aqui despacha.
  */
 function comandoSentinela(carregado: ManifestoCarregado, args: Args): number {
+  const m = msg().conducao.cli;
   const acao = args.posicionais[2] ?? 'status';
   const json = args.opcoes.json === true;
   if (acao === 'status') {
@@ -1520,22 +1525,20 @@ function comandoSentinela(carregado: ManifestoCarregado, args: Args): number {
     console.log(json ? JSON.stringify(s, null, 2) : textoDoStatusDaSentinela(s));
     return 0;
   }
-  if (acao !== 'bater' && acao !== 'desligar') throw new Error('uso: ork conducao sentinela status|bater|desligar [--sessao <id>] [--json]');
+  if (acao !== 'bater' && acao !== 'desligar') throw new Error(m.sentinelaUso);
   const sessao = texto(args.opcoes.sessao);
-  if (!sessao) throw new Error(`uso: ork conducao sentinela ${acao} --sessao <id> [--json]`);
+  if (!sessao) throw new Error(m.sentinelaSessao(acao));
   if (acao === 'bater') {
     const r = baterSentinela(carregado.raiz, { sessao });
     const curta = r.presenca.sessao.slice(0, 8);
     console.log(json ? JSON.stringify(r, null, 2) : r.ok
-      ? `Sentinela ${r.ligou ? 'ligada' : 'renovada'} na maquina ${r.presenca.maquina} pela sessao ${curta}; vale 3 min sem batida.`
-      : `Outra sessao (${curta}) conduz pela Sentinela na maquina ${r.presenca.maquina}; esta fica so olhando.`);
+      ? m.sentinelaLigada(r.ligou, r.presenca.maquina, curta)
+      : m.sentinelaOutra(curta, r.presenca.maquina));
     return r.ok ? 0 : 3;
   }
   const motivo = texto(args.opcoes.motivo);
   const r = desligarSentinela(carregado.raiz, { sessao, ...(motivo ? { motivo } : {}) });
-  console.log(json ? JSON.stringify(r, null, 2) : r.desligada
-    ? 'Sentinela desligada nesta maquina; o condutor externo volta a conduzir.'
-    : 'Nada a desligar: a presenca nesta maquina nao e desta sessao.');
+  console.log(json ? JSON.stringify(r, null, 2) : r.desligada ? m.sentinelaOff : m.sentinelaNada);
   return 0;
 }
 
@@ -1544,41 +1547,43 @@ function comandoSentinela(carregado: ManifestoCarregado, args: Args): number {
  * (`ork.autorizacao-duravel/v1`, fora do git): o que a batida da conducao pode fazer sozinha e ate quando.
  */
 function comandoAutorizacao(carregado: ManifestoCarregado, args: Args, sub: 'autorizar' | 'autorizacao'): number {
+  const m = msg().conducao.cli;
   const json = args.opcoes.json === true;
   const projeto = carregado.manifesto.project.name;
   if (sub === 'autorizacao') {
-    if (args.posicionais.length > 2) throw new Error('uso: ork conducao autorizacao [--json]');
+    if (args.posicionais.length > 2) throw new Error(m.autorizacaoUso);
     const leitura = lerAutorizacao(carregado.raiz, { projeto });
     console.log(json ? JSON.stringify(leitura, null, 2) : textoDaAutorizacao(leitura));
     return 0;
   }
   const ate = texto(args.opcoes.ate), pode = texto(args.opcoes.pode);
   if (!ate || !pode || args.posicionais.length > 2) {
-    throw new Error('uso: ork conducao autorizar --ate <data> --pode merge,registrar,master,despachar [--por Q] [--nota N] [--json]');
+    throw new Error(m.autorizarUso);
   }
   const r = gravarAutorizacao(carregado.raiz, { ate, pode, por: texto(args.opcoes.por), nota: texto(args.opcoes.nota), projeto,
     fuso: fusoDoManifesto(carregado).fuso, canal: conducaoDoCli(args).canal });
   if (!r.ok) {
-    console.log(json ? JSON.stringify(r, null, 2) : `Autorização recusada (${r.motivo}): ${r.detalhe}`);
+    console.log(json ? JSON.stringify(r, null, 2) : m.autorizacaoRecusada(r.motivo, r.detalhe));
     return 1;
   }
   const a = r.anterior;
   console.log(json ? JSON.stringify({ ok: true, leitura: r.leitura, anterior: a }, null, 2) : [
-    `Autorização gravada. ${linhaDaAutorizacao(r.leitura)}.`,
-    ...(a ? [`  substitui a de ${a.por} até ${formatarDataHoraRotulada(a.ate)} (${a.pode.join(', ')})`] : []),
-    `  arquivo ${r.leitura.arquivo}, fora do git; para revogar, apague o arquivo.`].join('\n'));
+    m.autorizacaoGravada(linhaDaAutorizacao(r.leitura)),
+    ...(a ? [m.substitui(a.por, formatarDataHoraRotulada(a.ate), a.pode.join(', '))] : []),
+    m.arquivo(r.leitura.arquivo)].join('\n'));
   return 0;
 }
 
 function comandoConducao(args: Args): number {
   const carregado = exigirManifesto();
+  const m = msg().conducao.cli;
   const sub = args.posicionais[1];
   const id = args.posicionais[2];
   if (sub === 'sentinela') return comandoSentinela(carregado, args);
   if (sub === 'autorizar' || sub === 'autorizacao') return comandoAutorizacao(carregado, args, sub);
   if (sub === 'batida') {
     // RM-063 (F7): o passo deterministico da conducao, o mesmo que a varredura do cron roda depois do resumo.
-    if (args.posicionais.length > 2) throw new Error('uso: ork conducao batida [--entregar] [--json]');
+    if (args.posicionais.length > 2) throw new Error(m.batidaUso);
     const r = baterConducao(carregado, { canal: conducaoDoCli(args).canal });
     const textoDaRodada = textoDaBatida(r);
     console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : textoDaRodada);
@@ -1588,14 +1593,14 @@ function comandoConducao(args: Args): number {
       const mensagem = `🔁 Orkastery, retomada em ${nomeDaMaquina()}:\n${textoDaRodada}`.slice(0, 3900);
       try {
         const e = entregarPeloTransporte(carregado.raiz, mensagem, { oQue: 'a retomada' });
-        if (!e.ok) console.error('aviso: o transporte do pulse não confirmou a retomada (veja ork doctor)');
-      } catch (e) { console.error(`aviso: retomada sem transporte do pulse (${(e as Error).message})`); }
+        if (!e.ok) console.error(m.pulseAviso);
+      } catch (e) { console.error(m.pulseFalha((e as Error).message)); }
     }
     return r.ocupada ? 3 : 0;
   }
   if (sub === 'atualizar') {
     // RM-063 (F7): o merge da base remota na branch da thread, com a reconciliacao do CHANGELOG; conflito em codigo aborta.
-    if (!id || args.posicionais.length > 3) throw new Error('uso: ork conducao atualizar <thread-id> [--enviar] [--esperar [min]] [--json]');
+    if (!id || args.posicionais.length > 3) throw new Error(m.atualizarUso);
     lerThread(carregado.raiz, id);
     const doCli = conducaoDoCli(args);
     const r = atualizarBranchDaThread(carregado, id, { enviar: args.opcoes.enviar === true, canal: doCli.canal, correlacao: doCli.correlacao,
@@ -1604,7 +1609,7 @@ function comandoConducao(args: Args): number {
     return r.acao === 'mesclada' || r.acao === 'ja-atualizada' ? 0 : r.acao === 'recusada' && r.motivo === 'conduzida' ? 3 : 1;
   }
   if (sub === 'status') {
-    if (!id) throw new Error('uso: ork conducao status <thread-id> [--json]');
+    if (!id) throw new Error(m.statusUso);
     lerThread(carregado.raiz, id);
     liberarSeOrfa(carregado.raiz, id);
     const atual = conducaoDaThread(carregado.raiz, id);
@@ -1613,13 +1618,12 @@ function comandoConducao(args: Args): number {
   }
   if (sub === 'assumir') {
     const por = texto(args.opcoes.por), motivo = texto(args.opcoes.motivo);
-    if (!id || !por || !motivo) throw new Error('uso: ork conducao assumir <thread-id> --por <quem> --motivo "<por que>" [--canal C]');
+    if (!id || !por || !motivo) throw new Error(m.assumirUso);
     const r = assumirConducao(carregado.raiz, id, { por, motivo, canal: conducaoDoCli(args).canal });
-    console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : `${r.ok ? 'Conducao assumida.' : 'Handoff recusado.'} ${r.detalhe}`);
+    console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : m.assumida(r.ok, r.detalhe));
     return r.ok ? 0 : 3;
   }
-  throw new Error('uso: ork conducao status|assumir|atualizar <thread-id> | ork conducao autorizar|autorizacao|batida | ' +
-    'ork conducao sentinela status|bater|desligar');
+  throw new Error(m.uso);
 }
 
 /** RM-048 (D1): o gate aberto no contrato curto, com o codigo estavel e o "desde" do ledger. */
@@ -1635,11 +1639,12 @@ function textoDoGateCurto(raiz: string, pedido: PedidoHitlQualquer, canal: 'tele
 function comandoGate(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
+  const mg = msg().operacao.restante.gate;
   if (sub === 'context') {
     const id = args.posicionais[2], pedido = args.posicionais[3];
     if (!id || !pedido || args.posicionais.length !== 4 ||
         Object.entries(args.opcoes).some(([k, v]) => k !== 'native-offer-stdin' || v !== true))
-      throw Error('uso: ork gate context <thread> <pedido> [--native-offer-stdin]');
+      throw Error(mg.usoContext);
     const view = contextoDoPedidoNativo(carregado.raiz, id, pedido);
     const callback = args.opcoes['native-offer-stdin'] ? readNativeOfferStdin() : undefined;
     console.log(JSON.stringify({ ...view, canais: ofertaDoPedido(view.pedido, [],
@@ -1649,9 +1654,9 @@ function comandoGate(args: Args): number {
   }
   if (sub === 'request') {
     const id = args.posicionais[2];
-    if (!id) throw new Error('gate request exige thread');
+    if (!id) throw new Error(mg.requestThread);
     const formato = texto(args.opcoes.formato);
-    if (formato !== undefined && formato !== 'telegram' && formato !== 'terminal') throw new Error('gate request: --formato telegram|terminal');
+    if (formato !== undefined && formato !== 'telegram' && formato !== 'terminal') throw new Error(mg.formato);
     const pedido = abrirPedidoGate(carregado.raiz, id, texto(args.opcoes.motivo));
     // RM-048 (D1): com --formato, o que sai e o pedido no contrato curto, pronto para o canal, com
     // o codigo estavel na ultima linha. Sem ele, o JSON de sempre, para quem integra.
@@ -1660,7 +1665,7 @@ function comandoGate(args: Args): number {
   }
   if (sub === 'answer') {
     const id = args.posicionais[2], pedido = args.posicionais[3];
-    if (!id || !pedido || args.opcoes['resposta-stdin'] !== true || args.opcoes.resposta !== undefined) throw new Error('gate answer exige thread, pedido e --resposta-stdin');
+    if (!id || !pedido || args.opcoes['resposta-stdin'] !== true || args.opcoes.resposta !== undefined) throw new Error(mg.answer);
     const r = lerRespostaStdin({ por: texto(args.opcoes.por), mensagem: texto(args.opcoes.mensagem),
       origem: texto(args.opcoes.origem), canal: texto(args.opcoes.canal), conta: texto(args.opcoes.conta) });
     console.log(JSON.stringify(responderGate(carregado.raiz, id, pedido, r)));
@@ -1669,7 +1674,7 @@ function comandoGate(args: Args): number {
   if (sub === 'next') {
     const id = args.posicionais[2];
     if (!id) {
-      console.error('uso: ork gate next <thread-id> [--proximo FASE] [--ocupacao 0..1]');
+      console.error(mg.usoNext);
       return 2;
     }
     const thread = lerThread(carregado.raiz, id);
@@ -1693,18 +1698,18 @@ function comandoGate(args: Args): number {
     const sobre = args.posicionais[3];
     const por = texto(args.opcoes.por) ?? texto(args.opcoes.quem);
     if (!id || !sobre || !por) {
-      console.error('gate approve aposentado: aprovação sem pedido é recusada. Use ork gate request <thread-id> e responda pelo ingresso humano autenticado.');
+      console.error(mg.approveAposentado);
       return 2;
     }
     lerThread(carregado.raiz, id);
     const e = aprovarGateHumano(carregado.raiz, id, sobre, por, texto(args.opcoes.obs));
-    console.log(`Autorizacao humana registrada no ledger da thread ${id}.`);
-    console.log(`  sobre          ${sobre}`);
-    console.log(`  autorizado por ${por}`);
-    console.log(`  quando         ${formatarDataHoraRotulada(e.ts)}`);
+    console.log(mg.registrado(id));
+    console.log(mg.sobre(sobre));
+    console.log(mg.autorizado(por));
+    console.log(mg.quando(formatarDataHoraRotulada(e.ts)));
     return 0;
   }
-  console.error(`subcomando desconhecido: gate ${sub}`);
+  console.error(mg.desconhecido(sub));
   return 2;
 }
 
@@ -1717,46 +1722,45 @@ function comandoGate(args: Args): number {
  */
 function comandoRetry(args: Args): number {
   const sub = args.posicionais[1];
+  const mr = msg().retry, mc = mr.complementar;
 
   if (sub === 'policy') {
     const alvo = texto(args.opcoes.motivo);
     if (alvo) {
       const politica = POLITICA_DE_RETRY[alvo as keyof typeof POLITICA_DE_RETRY];
       if (!politica) {
-        console.error(`motivo tipado desconhecido: ${alvo}`);
-        console.error(`  conhecidos: ${Object.keys(POLITICA_DE_RETRY).join(', ')}`);
+        console.error(mc.motivoDesconhecido(alvo));
+        console.error(mc.conhecidos(Object.keys(POLITICA_DE_RETRY).join(', ')));
         return 2;
       }
       if (args.opcoes.json === true) {
         console.log(JSON.stringify(politica, null, 2));
         return 0;
       }
-      console.log(`motivo tipado: ${politica.motivo}`);
-      console.log(`  significado  ${DESCRICAO_DO_MOTIVO_DE_AUDITORIA[politica.motivo]}`);
-      console.log(`  acao         ${politica.acao}`);
-      console.log(`  automatica   ${politica.automatica ? 'sim' : 'nao'}`);
-      console.log(`  por que      ${politica.porque}`);
-      console.log(`  correcao     ${politica.correcao}`);
+      console.log(mc.motivo(politica.motivo));
+      console.log(mc.significado(localeAtivo() === 'en' ? mr.politica[politica.motivo].porque : DESCRICAO_DO_MOTIVO_DE_AUDITORIA[politica.motivo]));
+      console.log(mc.acao(politica.acao));
+      console.log(mc.automatica(politica.automatica ? mc.sim : mc.nao));
+      console.log(mc.porque(mr.politica[politica.motivo].porque));
+      console.log(mc.correcao(mr.politica[politica.motivo].correcao));
       return 0;
     }
     if (args.opcoes.json === true) {
       console.log(JSON.stringify(Object.values(POLITICA_DE_RETRY), null, 2));
       return 0;
     }
-    console.log('Politica de retry por motivo tipado de gate (bloco B3)');
+    console.log(mc.politicaTitulo);
     console.log('');
     console.log(tabelaDaPolitica());
     console.log('');
-    console.log('A politica e a MESMA em todos os modos: o modo afrouxa a pausa, nunca a');
-    console.log('verificacao. cost.violation nunca recebe retry automatico, e o limite de');
-    console.log('escalacao (retry.max_tentativas) pausa qualquer modo, inclusive #Auto.');
+    for (const linha of mc.politicaFecho) console.log(linha);
     return 0;
   }
 
   if (sub === 'parse') {
     const bruto = texto(args.opcoes.stderr) ?? args.posicionais.slice(2).join(' ');
     if (!bruto) {
-      console.error('uso: ork retry parse --stderr "<texto do stderr do adapter>"');
+      console.error(mc.usoParse);
       return 2;
     }
     const sinal = parseRateLimit(bruto);
@@ -1765,17 +1769,16 @@ function comandoRetry(args: Args): number {
       return sinal ? 0 : 1;
     }
     if (!sinal) {
-      console.log('Nenhum sinal de rate limit reconhecido neste texto.');
+      console.log(mc.semSinal);
       return 1;
     }
-    console.log('Sinal de rate limit reconhecido no stderr do runtime:');
-    console.log(`  fonte da hora  ${sinal.fonte}`);
-    console.log(`  reset em       ${sinal.resetEm ? formatarDataHoraRotulada(sinal.resetEm) : '(o runtime nao disse a hora)'}`);
-    console.log(`  trecho         ${sinal.trecho}`);
+    console.log(mc.sinal);
+    console.log(mc.fonte(sinal.fonte));
+    console.log(mc.reset(sinal.resetEm ? formatarDataHoraRotulada(sinal.resetEm) : mc.semHora));
+    console.log(mc.trecho(sinal.trecho));
     if (sinal.resetEm === null) {
       console.log('');
-      console.log('  Sem hora no texto, a fila usa retry.janela_padrao_min do manifesto e marca');
-      console.log('  o pedido como janela ESTIMADA. O `ork` nao inventa horario de reset.');
+      for (const linha of mc.estimada) console.log(linha);
     }
     return 0;
   }
@@ -1833,8 +1836,8 @@ function comandoRetry(args: Args): number {
     const espera = lerFilaDeRetomada(carregado.raiz).filter((p) => p.estado === 'aguardando');
     if (espera.length > 0) {
       console.log('');
-      console.log(`Proxima janela: ${formatarDataHora(espera[0].liberaEm)} (${faltaPara(espera[0])}).`);
-      console.log('Retome com: ork retry resume');
+      console.log(mc.proxima(formatarDataHora(espera[0].liberaEm), faltaPara(espera[0])));
+      console.log(mc.retome);
     }
     return 0;
   }
@@ -1865,18 +1868,18 @@ function comandoRetry(args: Args): number {
     const idPedido = args.posicionais[2];
     const motivo = texto(args.opcoes.motivo);
     if (!idPedido || !motivo) {
-      console.error('uso: ork retry cancel <id> --motivo "<motivo>"');
+      console.error(mc.usoCancel);
       return 2;
     }
     const p = cancelarPedido(carregado, idPedido, motivo);
-    console.log(`Pedido ${p.id} cancelado na fila de rate limit.`);
-    console.log(`  thread   ${p.thread}`);
-    console.log(`  fase     ${p.fase}`);
-    console.log(`  motivo   ${motivo}`);
+    console.log(mc.cancelado(p.id));
+    console.log(mc.thread(p.thread));
+    console.log(mc.fase(p.fase));
+    console.log(mc.motivoLinha(motivo));
     return 0;
   }
 
-  console.error(`subcomando desconhecido: retry ${sub ?? ''}`);
+  console.error(mc.desconhecido(sub ?? ''));
   return 2;
 }
 
@@ -1891,17 +1894,18 @@ function comandoFix(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
   const id = args.posicionais[2];
+  const mf = msg().operacao.restante.fix;
 
   if (sub === 'open') {
     if (!id) {
-      console.error('uso: ork fix open <thread-id> [--so-claims] [--reverify]');
+      console.error(mf.usoOpen);
       return 2;
     }
     const conducao = { ...conducaoDoCli(args), filaPesada: filaPesadaDoCli(args, 'verify', `ork fix open ${id} --esperar 30`) };
-    const rodada = abrirRodada(carregado, id, { soClaims: args.opcoes['so-claims'] === true, conducao });
+    const rodada = comLocale('pt-BR', () => abrirRodada(carregado, id, { soClaims: args.opcoes['so-claims'] === true, conducao }));
     const reverify =
       args.opcoes.reverify === true && rodada.correcoes.length > 0
-        ? reverificar(carregado, id, { rodada: rodada.rodada, conducao })
+        ? comLocale('pt-BR', () => reverificar(carregado, id, { rodada: rodada.rodada, conducao }))
         : null;
     if (args.opcoes.json === true) {
       console.log(JSON.stringify({ rodada, reverify }, null, 2));
@@ -1918,14 +1922,14 @@ function comandoFix(args: Args): number {
 
   if (sub === 'list') {
     if (!id) {
-      console.error('uso: ork fix list <thread-id> [--rodada N]');
+      console.error(mf.usoList);
       return 2;
     }
     lerThread(carregado.raiz, id);
     const rodadaBruta = texto(args.opcoes.rodada);
     const rodada = rodadaBruta ? Number(rodadaBruta) : ultimaRodada(carregado.raiz, id);
     if (rodada === 0) {
-      console.log(`A thread ${id} nao tem rodada de GO-FIX. Abra com: ork fix open ${id}`);
+      console.log(mf.semRodada(id));
       return 0;
     }
     const correcoes = correcoesDaRodada(carregado.raiz, id, rodada);
@@ -1933,18 +1937,18 @@ function comandoFix(args: Args): number {
       console.log(JSON.stringify(correcoes, null, 2));
       return 0;
     }
-    console.log(`Correcoes da rodada ${rodada} da thread ${id}`);
+    console.log(mf.lista(rodada, id));
     console.log('');
     console.log(
       tabela(
-        ['ID', 'TIPO', 'MOTIVO', 'ALVO', 'ESTADO', 'JULGADO POR'],
+        [...mf.colunasLista],
         correcoes.map((c) => [
           c.id,
           c.tipo,
           c.origem,
           c.alvo,
           c.estado,
-          c.verificar.join(' && ') || '(verify completo)',
+          c.verificar.join(' && ') || mf.verifyCompleto,
         ])
       )
     );
@@ -1953,15 +1957,15 @@ function comandoFix(args: Args): number {
 
   if (sub === 'reverify') {
     if (!id) {
-      console.error('uso: ork fix reverify <thread-id> [--rodada N] [--parcial]');
+      console.error(mf.usoReverify);
       return 2;
     }
     const rodadaBruta = texto(args.opcoes.rodada);
-    const r = reverificar(carregado, id, {
+    const r = comLocale('pt-BR', () => reverificar(carregado, id, {
       conducao: { ...conducaoDoCli(args), filaPesada: filaPesadaDoCli(args, 'verify', `ork fix reverify ${id} --esperar 30`) },
       rodada: rodadaBruta ? Number(rodadaBruta) : undefined,
       parcial: args.opcoes.parcial === true,
-    });
+    }));
     if (args.opcoes.json === true) {
       console.log(JSON.stringify(r, null, 2));
     } else {
@@ -1970,7 +1974,7 @@ function comandoFix(args: Args): number {
     return r.veredito === 'PASSOU' ? 0 : 1;
   }
 
-  console.error(`subcomando desconhecido: fix ${sub ?? ''}`);
+  console.error(mf.desconhecido(sub ?? ''));
   return 2;
 }
 
@@ -1978,40 +1982,39 @@ function comandoHandoff(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
   const id = args.posicionais[2];
+  const mh = msg().operacao.restante.handoff;
   if (sub === 'export') {
     if (!id) {
-      console.error('uso: ork handoff export <thread-id> [--proxima-fase FASE]');
+      console.error(mh.usoExport);
       return 2;
     }
     const thread = lerThread(carregado.raiz, id);
     const faseBruta = texto(args.opcoes['proxima-fase']) ?? texto(args.opcoes.fase);
-    const r = exportarHandoff(carregado, id, {
+    const r = comLocale('pt-BR', () => exportarHandoff(carregado, id, {
       proximaFase: faseBruta ? exigirFase(thread, faseBruta) : undefined,
       slugDestino: texto(args.opcoes.slug),
-    });
+    }));
     console.log(textoDoHandoff(r.handoff, r.caminho));
     console.log('');
-    console.log(`Historico: ${r.caminhoHistorico}`);
+    console.log(mh.historico(r.caminhoHistorico));
     return 0;
   }
   if (sub === 'recall') {
     const ponteiro = args.posicionais[3];
     if (!id || !ponteiro) {
-      console.error('uso: ork handoff recall <thread-id> <path#ancora>');
+      console.error(mh.usoRecall);
       return 2;
     }
-    const r = recall(carregado, id, ponteiro);
-    console.log(`Ponteiro resolvido: ${r.location}`);
-    console.log(`  metodo       ${r.metodo}`);
-    console.log(`  sha256       ${r.sha256}`);
-    console.log(
-      `  linhas       ${r.intervalo ? `${r.intervalo.inicio}-${r.intervalo.fim}` : '(nao aplicavel)'}`
-    );
+    const r = comLocale('pt-BR', () => recall(carregado, id, ponteiro));
+    console.log(mh.resolvido(r.location));
+    console.log(mh.metodo(r.metodo));
+    console.log(mh.sha(r.sha256));
+    console.log(mh.linhas(r.intervalo ? `${r.intervalo.inicio}-${r.intervalo.fim}` : mh.naoAplicavel));
     console.log('');
     console.log(r.conteudo);
     return 0;
   }
-  console.error(`subcomando desconhecido: handoff ${sub}`);
+  console.error(mh.desconhecido(sub));
   return 2;
 }
 
@@ -2170,23 +2173,17 @@ function comandoShip(args: Args): number {
 const SOBRAS_DO_OBJECTIVE = ['constraints', 'outcomes', 'threads', 'execution-runtime', 'validation-runtimes'];
 
 function recusarSobraDoObjective(opcao: string): number {
-  console.error(
-    `portfolio.opcao-aposentada: --${opcao} era do Objective Envelope, aposentado na I-43, e o\n` +
-    '  portfolio show nunca a leu. As duas vigas do envelope viraram propriedade de thread comum:\n' +
-    '    ork thread new "<nome>" --modo <MODO> --exige-runtime-diferente\n' +
-    '        o CHECK precisa de runtime que o GO nao usou\n' +
-    '    ork thread new "<nome>" --modo <MODO> --done "<criterio> :: <comando>"\n' +
-    '        criterio de pronto EXECUTAVEL, que vira claim e roda no ork verify'
-  );
+  console.error(msg().operacao.produto.portfolio.opcaoAposentada(opcao));
   return 2;
 }
 
 function comandoPortfolio(args: Args): number {
   const root = exigirManifesto().raiz;
   const sub = args.posicionais[1] ?? 'list';
+  const m = msg().operacao.produto.portfolio;
   if (sub === 'inspect') {
     const id = args.posicionais[2];
-    if (!id) { console.error('uso: ork portfolio inspect <id> --json'); return 2; }
+    if (!id) { console.error(m.usoInspect); return 2; }
     console.log(JSON.stringify(inspectPortfolio(root, id), null, 2));
     return 0;
   }
@@ -2195,26 +2192,26 @@ function comandoPortfolio(args: Args): number {
   if (sub === 'list') {
     const rawKind = args.posicionais[2];
     const kind = rawKind ? aliases[rawKind] : undefined;
-    if (rawKind && !kind) { console.error('tipo deve ser product, project ou initiative'); return 2; }
+    if (rawKind && !kind) { console.error(m.tipo); return 2; }
     const items = listEntities(root, kind, texto(args.opcoes.parent));
     console.log(args.opcoes.json === true ? JSON.stringify({ schema: 'ork.portfolio-list/v1', updatedAt: readPortfolio(root).updatedAt, items }, null, 2)
-      : items.length ? items.map((item) => `${item.id}\t${item.kind}\t${item.status}\t${item.title}`).join('\n') : 'Portfólio vazio.');
+      : items.length ? items.map((item) => `${item.id}\t${item.kind}\t${item.status}\t${item.title}`).join('\n') : m.vazio);
     return 0;
   }
   if (sub === 'show') {
     const sobra = SOBRAS_DO_OBJECTIVE.find((opcao) => args.opcoes[opcao] !== undefined);
     if (sobra) return recusarSobraDoObjective(sobra);
     const id = args.posicionais[2];
-    if (!id) { console.error('uso: ork portfolio show <id>'); return 2; }
+    if (!id) { console.error(m.usoShow); return 2; }
     const item = findEntity(root, id);
-    if (!item) { console.error(`entidade ${id} não encontrada`); return 1; }
-    console.log(args.opcoes.json === true ? JSON.stringify(item, null, 2) : `${item.id}\n${item.title}\nEstado: ${item.status}`);
+    if (!item) { console.error(m.naoEncontrada(id)); return 1; }
+    console.log(args.opcoes.json === true ? JSON.stringify(item, null, 2) : m.estado(item.id, item.title, item.status));
     return 0;
   }
   if (sub === 'create') {
     const kind = aliases[args.posicionais[2] ?? ''];
     const id = args.posicionais[3], title = texto(args.opcoes.title), parent = texto(args.opcoes.parent);
-    if (!kind || !id || !title) { console.error('uso: ork portfolio create <product|project|initiative> <id> --title T [--parent ID]'); return 2; }
+    if (!kind || !id || !title) { console.error(m.usoCreate); return 2; }
     const common = { id, title, description: texto(args.opcoes.description), ownerId: texto(args.opcoes.owner), status: texto(args.opcoes.status) as PortfolioStatus | undefined, acceptanceCriteria: split(texto(args.opcoes.acceptance), ';') };
     const item = kind === 'product' ? createProduct(root, common)
       : kind === 'project' ? createProject(root, { ...common, productId: parent ?? '', workspaceIds: split(texto(args.opcoes.workspaces)) })
@@ -2222,7 +2219,7 @@ function comandoPortfolio(args: Args): number {
     console.log(JSON.stringify({ schema: 'ork.portfolio-created/v1', item }, null, 2));
     return 0;
   }
-  console.error(`subcomando desconhecido: portfolio ${sub}`);
+  console.error(m.desconhecido(sub));
   return 2;
 }
 
@@ -2232,7 +2229,8 @@ function comandoCreation(args: Args): number {
   // Fachadas HTTP devem usar a API com principal e authorize autenticados no servidor.
   const actor: CreationActor = { principal: `local:uid:${userInfo().uid}`, authorize: () => {} };
   const sub = args.posicionais[1], id = args.posicionais[2];
-  if (args.opcoes.principal !== undefined || args.opcoes.por !== undefined) throw new Error('creation.identity: payload não escolhe principal');
+  const m = msg().operacao.produto.creation;
+  if (args.opcoes.principal !== undefined || args.opcoes.por !== undefined) throw new Error(m.identidade);
   let result: unknown;
   if (sub === 'session') {
     const portfolio = readPortfolio(loaded.raiz);
@@ -2244,20 +2242,20 @@ function comandoCreation(args: Args): number {
     };
   } else if (sub === 'start') {
     const file = texto(args.opcoes['input-file']);
-    if (!file) { console.error('uso: ork creation start --input-file F --json'); return 2; }
+    if (!file) { console.error(m.usoStart); return 2; }
     const content = fs.readFileSync(file, 'utf8');
-    if (Buffer.byteLength(content) > 100_000) throw new Error('creation.input: arquivo excede limite');
+    if (Buffer.byteLength(content) > 100_000) throw new Error(m.arquivoGrande);
     result = startCreation(loaded, actor, JSON.parse(content));
   } else if (sub === 'list') result = listCreationOperations(loaded.raiz, actor.principal);
-  else if (!id) { console.error('creation exige id'); return 2; }
+  else if (!id) { console.error(m.exigeId); return 2; }
   else if (sub === 'show' || sub === 'events') {
     const op = readCreationOperation(loaded.raiz, id, actor.principal);
     result = sub === 'events' ? { schema: 'ork.creation-events/v1', operationId: id, version: op.version, events: op.events } : op;
   } else if (sub === 'resume' || sub === 'compensate') {
     const version = Number(texto(args.opcoes['expected-version']));
-    if (!Number.isSafeInteger(version) || version < 1) { console.error('creation exige --expected-version inteiro positivo'); return 2; }
+    if (!Number.isSafeInteger(version) || version < 1) { console.error(m.versao); return 2; }
     result = sub === 'resume' ? resumeCreation(loaded, actor, id, version) : compensateCreation(loaded, actor, id, version);
-  } else { console.error('subcomando creation desconhecido'); return 2; }
+  } else { console.error(m.desconhecido); return 2; }
   console.log(JSON.stringify(result, null, 2));
   return 0;
 }
@@ -2282,17 +2280,7 @@ function comandoCreation(args: Args): number {
  */
 function comandoObjective(args: Args): number {
   const sub = args.posicionais[1] ?? 'list';
-  console.error(
-    `objective.aposentado: o Objective Envelope saiu do produto na I-43 (subcomando "${sub}").\n` +
-    '  Ele descrevia um gate que nao bloqueava nada: das 137 threads do projeto, zero\n' +
-    '  tinham creationOrigin, que era a unica via pela qual o despacho o consultava.\n' +
-    '  As duas vigas que ele guardava viraram propriedade de thread comum:\n' +
-    '    ork thread new "<nome>" --modo <MODO> --exige-runtime-diferente\n' +
-    '        o CHECK precisa de runtime que o GO nao usou\n' +
-    '    ork thread new "<nome>" --modo <MODO> --done "<criterio> :: <comando>"\n' +
-    '        criterio de pronto EXECUTAVEL, que vira claim e roda no ork verify\n' +
-    '  Os envelopes ja gravados continuam em .orkastery/objectives, intocados.'
-  );
+  console.error(msg().operacao.produto.objective(sub));
   return 2;
 }
 
@@ -2300,15 +2288,25 @@ function comandoObjective(args: Args): number {
 function comandoCi(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1] ?? 'status';
+  const m = msg().operacao.produto.ci;
   if (sub === 'prepare') {
     const thread = args.posicionais[2];
     if (!thread) {
-      console.error('uso: ork ci prepare <thread-id>');
+      console.error(m.usoPrepare);
       return 2;
     }
-    const arquivo = prepararBundleCi(carregado, thread, { aoAvisar: (linha) => console.log(`AVISO: ${linha}`),
-      aoInformar: (linha) => console.log(linha) });
-    console.log(`Bundle de CI: ${arquivo}`);
+    // RM-061 (F3d, GO-FIX 1): o lint vai ao ledger e o bundle ao disco no escopo pt-BR, como antes do `ci` entrar na
+    // lista (D2); o aviso sai remontado no locale do comando, e a recusa, pela entrada do CLI. As linhas da barreira de
+    // dado privado (RM-062) saem junto com os avisos, na ordem em que nascem.
+    const linhas: Array<{ aviso: boolean; linha: string }> = [];
+    let arquivo: string;
+    try {
+      arquivo = comLocale('pt-BR', () => prepararBundleCi(carregado, thread, { aoAvisar: (linha) => linhas.push({ aviso: true, linha }),
+        aoInformar: (linha) => linhas.push({ aviso: false, linha }) }));
+    } finally {
+      for (const { aviso, linha } of linhas) console.log(aviso ? m.aviso(remontar(linha)) : remontar(linha));
+    }
+    console.log(m.bundle(arquivo));
     return 0;
   }
   if (sub === 'run') {
@@ -2327,29 +2325,28 @@ function comandoCi(args: Args): number {
     }
     const thread = args.posicionais[2];
     if (!thread) {
-      console.error('uso: ork ci run <thread-id> [--json] | ork ci run --bundle <arquivo> | ork ci run --branch <branch>');
+      console.error(m.usoRun);
       return 2;
     }
     const result = executarCi(carregado, thread);
-    console.log(args.opcoes.json === true ? JSON.stringify(result, null, 2) : `${result.status.ok ? 'CI APROVADO' : 'CI REPROVADO'}: ${result.status.detail}`);
+    console.log(args.opcoes.json === true ? JSON.stringify(result, null, 2) : m.resultado(result.status.ok, result.status.detail));
     return result.status.ok ? 0 : 1;
   }
   if (sub === 'status') {
     const sha = texto(args.opcoes.sha) ?? args.posicionais[2] ?? exec('git', ['rev-parse', 'HEAD'], carregado.raiz).stdout.trim();
     if (!/^[0-9a-f]{40}$/.test(sha)) {
       // Ensaio de 03/10 (R4): `--sha HEAD` ou um sha curto respondiam so a linha de uso, sem dizer por que.
-      console.error('erro: ci status: --sha exige o sha completo, de 40 caracteres hexadecimais minusculos ' +
-        '(git rev-parse HEAD); o check e consultado no commit exato, nunca por ref nem prefixo');
-      console.error('uso: ork ci status --sha <sha de 40 caracteres> [--remoto origin]');
+      console.error(m.sha);
+      console.error(m.usoStatus);
       return 2;
     }
     // RM-047: recusa o `--remoto` que nao e nome de remoto mesmo com o gate de CI desligado.
     const remoto = exigirRemoto(args.opcoes.remoto === undefined ? 'origin' : args.opcoes.remoto, 'ci');
     const result = consultarCi(carregado, sha, remoto);
-    console.log(args.opcoes.json === true ? JSON.stringify(result, null, 2) : `${result.ok ? 'CI VERDE' : 'CI NÃO LIBEROU'}: ${result.detail}`);
+    console.log(args.opcoes.json === true ? JSON.stringify(result, null, 2) : m.status(result.ok, result.detail));
     return result.ok ? 0 : 1;
   }
-  console.error(`subcomando desconhecido: ci ${sub}`);
+  console.error(m.desconhecido(sub));
   return 2;
 }
 
@@ -2401,6 +2398,7 @@ function comandoPrivado(args: Args): number {
 function comandoLease(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
+  const ml = msg().operacao.restante.lease;
   if (sub === undefined || sub === 'list') {
     console.log(tabelaDeLeases(carregado.raiz));
     return 0;
@@ -2408,42 +2406,42 @@ function comandoLease(args: Args): number {
   if (sub === 'acquire' || sub === 'take') {
     const nome = args.posicionais[2];
     const thread = texto(args.opcoes.thread);
-    const motivo = texto(args.opcoes.motivo) ?? 'sem motivo declarado';
+    const motivo = texto(args.opcoes.motivo) ?? msg('pt-BR').operacao.restante.lease.semMotivo;
     if (!nome || !thread) {
-      console.error('uso: ork lease acquire <nome> --thread <thread-id> [--motivo "<motivo>"]');
+      console.error(ml.usoAcquire);
       return 2;
     }
     lerThread(carregado.raiz, thread);
-    const r = adquirirRegiao(carregado.raiz, nome, { thread, motivo });
+    const r = comLocale('pt-BR', () => adquirirRegiao(carregado.raiz, nome, { thread, motivo }));
     if (r.ok) {
-      console.log(`Lease ${r.nome} [${r.tipo}] adquirido pela thread ${thread}.`);
-      console.log(`  expira em ${formatarDataHoraRotulada(r.lease?.expiraEm)}`);
-      if (r.tomadoDeVencido) console.log('  (o lease anterior estava VENCIDO e foi tomado)');
+      console.log(ml.adquirido(r.nome, r.tipo, thread));
+      console.log(ml.expira(formatarDataHoraRotulada(r.lease?.expiraEm)));
+      if (r.tomadoDeVencido) console.log(ml.tomado);
       return 0;
     }
-    console.error(`Lease ${r.nome} NAO adquirido.`);
-    console.error(`  motivo tipado: ${r.motivo}`);
-    console.error(`  detalhe: ${localizarTextoRotulado(r.detalhe)}`);
-    console.error(`  posicao na fila: ${r.posicaoNaFila}`);
-    console.error(`  correcao: ${r.correcao}`);
+    console.error(ml.naoAdquirido(r.nome));
+    console.error(ml.motivoTipado(r.motivo));
+    console.error(ml.detalhe(localizarTextoRotulado(r.detalhe)));
+    console.error(ml.posicao(r.posicaoNaFila));
+    console.error(ml.correcao(r.correcao));
     return 1;
   }
   if (sub === 'release') {
     const nome = args.posicionais[2];
     if (!nome) {
-      console.error('uso: ork lease release <nome> [--thread <thread-id>] [--forcar]');
+      console.error(ml.usoRelease);
       return 2;
     }
-    const r = liberar(
+    const r = comLocale('pt-BR', () => liberar(
       carregado.raiz,
       nome,
       texto(args.opcoes.thread) ?? '',
       args.opcoes.forcar === true
-    );
+    ));
     console.log(r.detalhe);
     return r.ok ? 0 : 1;
   }
-  console.error(`subcomando desconhecido: lease ${sub}`);
+  console.error(ml.desconhecido(sub));
   return 2;
 }
 
@@ -2469,6 +2467,7 @@ function comandoBoard(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
   const todos = args.opcoes.all === true || args.opcoes.todos === true;
+  const mb = msg().operacao.restante.board;
   if (sub === 'plan' || sub === 'plano') {
     const plano = planejar(carregado);
     const consulta = consultaDoBoard(carregado, { plano: true, todos: false });
@@ -2477,14 +2476,14 @@ function comandoBoard(args: Args): number {
     return 0;
   }
   if (sub === 'reap') {
-    const devolvidas = devolverVagas(carregado, { por: texto(args.opcoes.por) });
+    const devolvidas = comLocale('pt-BR', () => devolverVagas(carregado, { por: texto(args.opcoes.por) }));
     if (args.opcoes.json === true) console.log(JSON.stringify(devolvidas, null, 2));
     else console.log(textoDoReap(devolvidas));
     return 0;
   }
   if (sub !== undefined && sub !== 'list') {
-    console.error(`subcomando desconhecido: board ${sub}`);
-    console.error('uso: ork board [list|plan|reap] [--all] [--por <quem>] [--json]');
+    console.error(mb.desconhecido(sub));
+    console.error(mb.uso);
     return 2;
   }
   const consulta = consultaDoBoard(carregado, { plano: false, todos });
@@ -2500,7 +2499,7 @@ function comandoBoard(args: Args): number {
     console.log('');
     // RM-052: sem o remoto, nada foi lido; dizer "nenhuma publicou" seria a frase do incidente de 29/09.
     if (consulta.projeto.remoto === null) {
-      console.log(`Outras maquinas: o projeto ${carregado.manifesto.project.name} nao tem o remoto ${carregado.manifesto.fabrica.remoto}; nada foi lido de ork/fabrica-estado.`);
+      console.log(mb.semRemoto(carregado.manifesto.project.name, carregado.manifesto.fabrica.remoto));
     } else {
       const painel = lerFabrica(carregado.raiz, { remoto: carregado.manifesto.fabrica.remoto,
         semRemoto: args.opcoes['sem-remoto'] === true });
@@ -2521,6 +2520,7 @@ const CONTRATO_DO_BOARD = 'ork.board/v1';
 function comandoFabrica(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
+  const mf = msg().operacao.restante.fabrica;
   // RM-063 (F1): a batida e do crontab desta maquina; nao le nem escreve o remoto.
   if (sub === 'batida') return comandoDaBatida(carregado, args);
   // RM-047: o remoto vem do manifesto de quem fez o repositorio; fora do formato, recusa antes do git.
@@ -2534,14 +2534,12 @@ function comandoFabrica(args: Args): number {
       if (silencioso) { registrarPublicacao(carregado.raiz, { ...r }); return 0; }
       if (args.opcoes.json === true) console.log(JSON.stringify(r, null, 2));
       else console.log(r.acao === 'publicou'
-        ? `Fabrica: ${r.maquina} publicou ${r.threads} thread(s) em ork/fabrica-estado (${r.commit?.slice(0, 7)}, ${r.tentativas} tentativa(s)).`
-        : r.acao === 'ocupado'
-          ? `Fabrica: outra publicacao desta maquina esta em andamento; tente de novo em instantes.`
-          : `Fabrica: retrato de ${r.maquina} igual ao ultimo publicado; nada a enviar (use --forcar para publicar mesmo assim).`);
+        ? mf.publicou(r.maquina, r.threads, r.commit?.slice(0, 7), r.tentativas)
+        : r.acao === 'ocupado' ? mf.ocupada : mf.igual(r.maquina));
       if (!fabricaCompartilhada(carregado.manifesto) && !silencioso) {
-        console.log('  esta maquina nao entrou na fabrica compartilhada: so publica quando voce pede (ork fabrica entrar liga).');
+        console.log(mf.soQuandoPede);
         // RM-047 (P5): o manifesto que pede a fabrica nao liga a publicacao desta maquina.
-        if (carregado.manifesto.fabrica.compartilhada) console.log('  o orkastery.yaml pede a fabrica compartilhada; quem liga e a maquina, com ork fabrica entrar.');
+        if (carregado.manifesto.fabrica.compartilhada) console.log(mf.manifestoPede);
       }
       return 0;
     } catch (e) {
@@ -2557,26 +2555,24 @@ function comandoFabrica(args: Args): number {
     // RM-052 (D7): a maquina que entra na fabrica deste projeto passa a conhece-lo pelo nome.
     const avisoDoRegistro = registrarProjetoEmSilencio(carregado.raiz, 'fabrica entrar');
     if (avisoDoRegistro) console.error(avisoDoRegistro);
-    console.log(`Fabrica: esta maquina entrou como ${config.nome}; publica ao criar thread, despachar fase, entregar e fechar,`);
-    console.log(`  e a cada batida do pulse. Primeiro retrato: ${r.threads} thread(s) em ork/fabrica-estado (${r.commit?.slice(0, 7)}).`);
+    console.log(mf.entrou(config.nome));
+    console.log(mf.primeiro(r.threads, r.commit?.slice(0, 7)));
     if (process.env.ORK_MAQUINA && process.env.ORK_MAQUINA.trim() !== config.nome) {
-      console.log(`  AVISO: ORK_MAQUINA=${process.env.ORK_MAQUINA} neste shell vence o arquivo; alinhe os dois.`);
+      console.log(mf.maquinaAmbiente(process.env.ORK_MAQUINA));
     }
     return 0;
   }
   if (sub === 'sair') {
     const config = gravarConfigDaMaquina({ fabricaCompartilhada: false });
     const r = removerMaquina(carregado, { remoto });
-    console.log(`Fabrica: ${nomeDaMaquina()} saiu; nada mais e publicado daqui.` +
-      (r ? ` Retrato removido de ork/fabrica-estado (${r.slice(0, 7)}).` : ' Nao havia retrato desta maquina na branch.'));
-    if (fabricaCompartilhada(carregado.manifesto)) console.log('  AVISO: ORK_FABRICA_COMPARTILHADA=1 neste shell ainda liga a fabrica aqui.');
+    console.log(mf.saiu(nomeDaMaquina(), r ? r.slice(0, 7) : null));
+    if (fabricaCompartilhada(carregado.manifesto)) console.log(mf.ambienteLiga);
     void config;
     return 0;
   }
   if (sub !== undefined && sub !== 'list') {
-    console.error(`subcomando desconhecido: fabrica ${sub}`);
-    console.error('uso: ork fabrica [--json] [--sem-remoto] | fabrica publicar [--forcar] [--json] | fabrica entrar [--maquina NOME] | fabrica sair' +
-      ' | fabrica batida [status|instalar|remover] [--por Q] [--json]');
+    console.error(mf.desconhecido(sub));
+    console.error(mf.uso);
     return 2;
   }
   // RM-052: a fabrica le a branch de UM projeto, no remoto dele; o cabecalho diz qual e o que ficou de fora.
@@ -2595,7 +2591,7 @@ function comandoFabrica(args: Args): number {
   }
   console.log([...linhasDaConsulta(consulta), ''].join('\n'));
   console.log(url === null
-    ? `Fabrica: o projeto ${carregado.manifesto.project.name} nao tem o remoto ${remoto}; nada foi lido de ork/fabrica-estado.`
+    ? mf.semRemoto(carregado.manifesto.project.name, remoto)
     : textoDaFabrica(painel, nomeDaMaquina()));
   // RM-047 (P5): o manifesto pede a fabrica, mas quem liga a publicacao e a maquina.
   const pedida = avisoDaFabricaPedida(carregado.manifesto);
@@ -2622,7 +2618,7 @@ function comandoDaBatida(carregado: ManifestoCarregado, args: Args): number {
     console.log(json ? JSON.stringify(r, null, 2) : textoDoResultadoDaBatida(r));
     return 0;
   }
-  console.error('uso: ork fabrica batida [status|instalar|remover] [--por Q] [--json]');
+  console.error(msg().operacao.restante.fabrica.batida.uso);
   return 2;
 }
 
@@ -2702,44 +2698,45 @@ function comandoNetwork(args: Args): number {
  */
 function comandoProjetos(args: Args, projeto: string | undefined): number {
   const sub = args.posicionais[1] ?? 'list';
+  const m = msg().projetos.cli;
   if (sub === 'list' || sub === 'listar') {
     const projetos = listarProjetos();
     if (args.opcoes.json === true) {
       console.log(JSON.stringify({ contrato: CONTRATO_PROJETOS, arquivo: caminhoDoRegistro(), projetos }, null, 2));
       return 0;
     }
-    console.log(`Projetos conhecidos desta maquina (${raizParaExibir(caminhoDoRegistro())})`);
+    console.log(m.titulo(raizParaExibir(caminhoDoRegistro())));
     console.log('');
     if (projetos.length === 0) {
-      console.log('  Nenhum ainda. ork init, ork thread new e ork fabrica entrar registram; ou: ork projetos registrar <caminho>');
+      console.log(m.nenhum);
       return 0;
     }
-    console.log(tabela(['NOME', 'ABBREV', 'RAIZ', 'REMOTO', 'NO DISCO', 'ATUALIZADO'], projetos.map((p) => [
-      p.nome, p.abbrev || '-', raizParaExibir(p.raiz), p.remoto ?? 'sem remoto', p.presente ? 'sim' : 'ausente',
+    console.log(tabela([...m.cabecalho], projetos.map((p) => [
+      p.nome, p.abbrev || '-', raizParaExibir(p.raiz), p.remoto ?? m.semRemoto, p.presente ? m.sim : m.ausente,
       formatarDataHora(p.atualizadoEm)])));
     console.log('');
-    console.log('Use --projeto <nome> em qualquer comando (ORK_PROJETO vale para o shell inteiro). ' + legendaDoFuso());
+    console.log(`${m.selecao} ${legendaDoFuso()}`);
     return 0;
   }
   if (sub === 'registrar') {
     const caminho = args.posicionais[2];
-    if (caminho !== undefined && projeto !== undefined) throw new Error('uso: ork projetos registrar [caminho] (um caminho ou --projeto, não os dois)');
+    if (caminho !== undefined && projeto !== undefined) throw new Error(m.usoRegistrar);
     const alvo = caminho === undefined ? resolverProjetoAlvo({ opcao: projeto ?? null }) : null;
     const p = registrarProjeto(caminho ?? alvo?.raiz ?? process.cwd(), 'projetos registrar');
     if (args.opcoes.json === true) { console.log(JSON.stringify(p, null, 2)); return 0; }
-    console.log(`Projeto ${p.nome} (${p.abbrev || '-'}) registrado: ${raizParaExibir(p.raiz)} · ${p.remoto ?? 'sem remoto'}`);
+    console.log(m.registrado(p.nome, p.abbrev || '-', raizParaExibir(p.raiz), p.remoto ?? m.semRemoto));
     return 0;
   }
   if (sub === 'esquecer') {
     const alvo = args.posicionais[2] ?? projeto;
-    if (!alvo) throw new Error('uso: ork projetos esquecer <nome|caminho>');
+    if (!alvo) throw new Error(m.usoEsquecer);
     const sairam = esquecerProjeto(alvo);
     if (args.opcoes.json === true) { console.log(JSON.stringify(sairam, null, 2)); return 0; }
-    for (const p of sairam) console.log(`Projeto ${p.nome} esquecido: ${raizParaExibir(p.raiz)} (nada no disco foi apagado)`);
+    for (const p of sairam) console.log(m.esquecido(p.nome, raizParaExibir(p.raiz)));
     return 0;
   }
-  console.error(`subcomando desconhecido: projetos ${sub}`);
-  console.error('uso: ork projetos [--json] | projetos registrar [caminho] | projetos esquecer <nome|caminho>');
+  console.error(m.desconhecido(sub));
+  console.error(m.uso);
   return 2;
 }
 
@@ -2754,15 +2751,16 @@ function comandoProjetos(args: Args, projeto: string | undefined): number {
 function comandoOrquestracao(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
+  const m = msg().operacao.restante.monitor;
   if (sub !== undefined && sub !== 'status') {
-    console.error(`subcomando desconhecido: orquestracao ${sub}`);
-    console.error('uso: ork orquestracao status [--all] [--json] [--atencao N] [--so-paradas]');
+    console.error(m.desconhecido(sub));
+    console.error(m.uso);
     return 2;
   }
   const bruto = texto(args.opcoes.atencao);
   const atencaoMin = bruto === undefined ? undefined : Number(bruto);
   if (atencaoMin !== undefined && (!Number.isFinite(atencaoMin) || atencaoMin < 0)) {
-    console.error(`--atencao espera minutos (inteiro >= 0), recebeu "${bruto}"`);
+    console.error(m.atencao(bruto ?? ''));
     return 2;
   }
   const monitor = montarMonitor(carregado, {
@@ -2780,6 +2778,17 @@ function comandoOrquestracao(args: Args): number {
     return monitor.resumo.aguardandoHumano + monitor.resumo.comImpedimento > 0 ? 1 : 0;
   }
   return 0;
+}
+
+/**
+ * RM-037 (defeito 2 de 19 e 20/10/2026): o preparo de `worktree.dependencias` na worktree nova, dito ao lado dela. A
+ * falha vai ao stderr com o comando exato e o diretorio, e a thread continua criada.
+ */
+function relatarDependencias(p: PreparoDasDependencias | null | undefined, dir: string): void {
+  if (!p) return;
+  const m = msg().worktree;
+  if (p.ok) console.log(m.dependenciasProntas(p.comando, Math.round(p.duracaoMs / 1000)));
+  else console.error(m.dependenciasFalharam(p.comando, p.code, p.causa === 'timeout', dir, ultimaLinhaDoPreparo(p)));
 }
 
 function comandoWorktree(args: Args): number {
@@ -2810,6 +2819,7 @@ function comandoWorktree(args: Args): number {
     console.log(m.linhaBranch(r.branch));
     console.log(m.linhaBase(r.base));
     console.log(`  ${remontar(r.detalhe)}`);
+    relatarDependencias(r.dependencias, r.dir);
     return 0;
   }
   if (sub === 'sync') {
@@ -2916,14 +2926,7 @@ function comandoMaster(args: Args): number {
   // mudou, e para onde ir. Desaparecer sem dizer nada seria o mesmo pecado da #TAG
   // aposentada virando default.
   if (args.opcoes.batch === true || primeiro === 'batch') {
-    console.error(
-      'master.fila-aposentada: a fila de ratificacao de score saiu na I-43. ' +
-      'Entregue e aceito, a menos que voce diga o contrario.\n' +
-      '  ork master                     as entregas, com o indice ja derivado do ledger\n' +
-      '  ork master <id> --aceitar-omissao   aceita so esta entrega, com indice e insumos no ledger\n' +
-      '  ork master --aceitar-omissao        aceita todas as entregues (--dry-run mostra quais)\n' +
-      '  ork master <id> --score <0-5> --justificativa "<por que>" --por <humano>   para reclamar'
-    );
+    console.error(msg().master.complementar.batchAposentado);
     return 2;
   }
   if (args.opcoes['aceitar-omissao'] !== undefined) {
@@ -2938,18 +2941,19 @@ function comandoMaster(args: Args): number {
   }
   const propor = primeiro === 'propor';
   const id = propor ? args.posicionais[2] : primeiro;
-  if (!id) throw new Error('informe a thread para propor MASTER');
+  const mm = msg().master.complementar;
+  if (!id) throw new Error(mm.informeThread);
   const brutoScore = texto(args.opcoes.score);
   const justificativa = texto(args.opcoes.justificativa) ?? texto(args.opcoes.porque);
   if (brutoScore === undefined) {
-    console.error('uso: ork master <thread-id> --score 0-5 --justificativa "<texto>" --por <seu-nome>');
-    console.error('  o score do MASTER e humano, de 0 a 5, e a justificativa e obrigatoria.');
+    console.error(mm.usoScore);
+    console.error(mm.scoreHumano);
     return 2;
   }
   if (!justificativa) {
-    console.error(`Score RECUSADO para a thread ${id}: falta --justificativa "<texto>".`);
-    console.error('  Score sem justificativa nao vira aprendizado; o `ork` nao o registra.');
-    console.error(`  ork master ${id} --score ${brutoScore} --justificativa "<por que este score>"`);
+    console.error(mm.justificativa(id));
+    console.error(mm.justificativaRazao);
+    console.error(mm.justificativaComando(id, brutoScore));
     return 2;
   }
   const brutasClasses = texto(args.opcoes.classe) ?? texto(args.opcoes.classes);
@@ -2957,8 +2961,8 @@ function comandoMaster(args: Args): number {
   for (const bruta of (brutasClasses ?? '').split(',').map((c) => c.trim()).filter(Boolean)) {
     const classe = parseClasse(bruta);
     if (!classe) {
-      console.error(`classe de falha invalida: "${bruta}".`);
-      console.error(`  classes fixas: ${ORDEM_DAS_CLASSES.join(', ')}`);
+      console.error(mm.classeInvalida(bruta));
+      console.error(mm.classesFixas(ORDEM_DAS_CLASSES.join(', ')));
       return 2;
     }
     classes.push(classe);
@@ -2986,12 +2990,12 @@ function comandoMaster(args: Args): number {
   // vai ao ledger do projeto uma vez por janela; virar policy continua sendo do dono.
   for (const p of registrarPropostasNovas(carregado.raiz)) {
     console.log('');
-    console.log(`Proposta de policy: ${p.chave} em ${p.threads.length} threads nos ultimos ${p.janelaDias} dias.`);
+    console.log(mm.proposta(p.chave, p.threads.length, p.janelaDias));
     console.log(`  ${p.sugestao}`);
-    console.log('  So proposta: vira policy quando voce a declara em policies: no orkastery.yaml (ork licoes).');
+    console.log(mm.soProposta);
   }
   console.log('');
-  console.log(`Proximo passo: ork board --all   |   entregas e indice: ork master`);
+  console.log(mm.proximo);
   return 0;
 }
 
@@ -3485,6 +3489,7 @@ function comandoEval(args: Args): number {
  */
 
 function comandoAudit(args: Args): number {
+  const m = msg().audit;
   if (args.posicionais[1] === 'process') {
     const r = auditarProcesso(exigirManifesto(), args.opcoes.registrar === true);
     console.log(JSON.stringify(r, null, 2));
@@ -3499,28 +3504,28 @@ function comandoAudit(args: Args): number {
     const bruto = texto(args.opcoes.estagio) ?? texto(args.opcoes.stage);
     const estagio = bruto ? parseEstagio(bruto) : carregado?.manifesto.project.stage;
     if (bruto && !estagio) {
-      console.error(`estagio invalido: "${bruto}". Use: nascente | crescendo | maduro`);
+      console.error(m.erro.estagio(bruto));
       return 2;
     }
     const pack = texto(args.opcoes.pack) ?? args.posicionais[2];
     if (pack) {
       const alvo = parsePack(pack);
       if (!alvo) {
-        console.error(`pack desconhecido: "${pack}". Use um de: ${ORDEM_DOS_PACKS.join(', ')}`);
+        console.error(m.erro.pack(pack, ORDEM_DOS_PACKS.join(', ')));
         return 2;
       }
       console.log(textoDoPack(alvo, estagio ?? undefined));
       return 0;
     }
     console.log(
-      `Packs de auditoria periodica${estagio ? ` (estagio declarado do projeto: ${estagio})` : ''}`
+      m.packs.titulo(estagio ?? undefined)
     );
     console.log('');
     console.log(tabelaDePacks(estagio ?? undefined));
     if (estagio) {
       console.log('');
-      console.log(`Ativos aqui e agora: ${packsAtivos(estagio).join(', ')}`);
-      console.log(`Postura: ${posturaDoPack(estagio)}`);
+      console.log(m.packs.ativo(packsAtivos(estagio).join(', ')));
+      console.log(m.packs.postura(posturaDoPack(estagio)));
     }
     return 0;
   }
@@ -3529,17 +3534,17 @@ function comandoAudit(args: Args): number {
     const raiz = carregarManifesto()?.raiz;
     const templates = carregarTemplatesDeAuditoria(raiz);
     const problemas = templates.flatMap((t) => lintTemplateDeAuditoria(t));
-    console.log(`Lint dos templates de auditoria${raiz ? ` (projeto ${raiz})` : ' (somente embutidos)'}`);
+    console.log(m.cli.lintTitulo(raiz));
     console.log('');
     for (const p of problemas) {
-      console.log(`  [${p.gravidade}] ${p.template} :: ${p.regra}`);
-      console.log(`           ${p.detalhe}`);
+      console.log(m.cli.lintItem(p.gravidade, p.template, p.regra));
+      console.log(m.cli.lintDetalhe(p.detalhe));
     }
-    if (problemas.length === 0) console.log(`  nenhum problema em ${templates.length} template(s)`);
+    if (problemas.length === 0) console.log(m.cli.lintOk(templates.length));
     console.log('');
     console.log(
-      `templates: ${templates.length} | erros: ${problemas.filter((p) => p.gravidade === 'erro').length} | ` +
-        `avisos: ${problemas.filter((p) => p.gravidade === 'aviso').length}`
+      m.cli.lintResumo(templates.length, problemas.filter((p) => p.gravidade === 'erro').length,
+        problemas.filter((p) => p.gravidade === 'aviso').length)
     );
     return problemas.some((p) => p.gravidade === 'erro') ? 2 : 0;
   }
@@ -3549,8 +3554,8 @@ function comandoAudit(args: Args): number {
   if (sub === 'run') {
     const pack = parsePack(args.posicionais[2]);
     if (!pack) {
-      console.error('uso: ork audit run <pack> [--profile P] [--since Nd]');
-      console.error(`  packs: ${ORDEM_DOS_PACKS.join(', ')}`);
+      console.error(m.uso('run'));
+      console.error(m.cli.packs(ORDEM_DOS_PACKS.join(', ')));
       return 2;
     }
     const autorizar = args.opcoes.agora;
@@ -3565,15 +3570,15 @@ function comandoAudit(args: Args): number {
       forcar: args.opcoes.forcar === true || args.opcoes.force === true,
     });
     if (r.status === 'bloqueada') {
-      console.error(`Rodada de auditoria ${r.id} BLOQUEADA.`);
+      console.error(m.cli.bloqueada(r.id));
       console.error(`  ${DESCRICAO_DO_MOTIVO_DE_AUDITORIA[r.motivo ?? 'runtime.unavailable']}`);
-      console.error(`  motivo tipado: ${r.motivo}`);
-      console.error(`  detalhe: ${r.detalhe}`);
-      console.error(`  estado da rodada: .orkastery/audits/${r.id}/run.json`);
+      console.error(m.cli.motivo(String(r.motivo)));
+      console.error(m.cli.detalhe(r.detalhe));
+      console.error(m.cli.estado(r.id));
       return 1;
     }
     if (r.status === 'ensaio') {
-      console.log(`Simulacao (--dry-run) da rodada ${r.id}: nada foi despachado.`);
+      console.log(m.cli.ensaio(r.id));
       console.log(`  pack        ${r.pack} (postura ${r.postura} no estagio ${r.estagio})`);
       console.log(`  escopo      ${r.escopo.detalhe}`);
       console.log(`  graphify    ${r.escopo.graphify}`);
@@ -3585,12 +3590,12 @@ function comandoAudit(args: Args): number {
       if (r.superficie) {
         console.log(`  superficie  ${r.superficie.detalhe}`);
         console.log(
-          `              nada registrado no board (--dry-run). Para gravar: ork audit surface --registrar ${r.id}`
+          m.cli.superficieDry(r.id)
         );
       }
       return 0;
     }
-    console.log(`Rodada de auditoria ${r.id} despachada pelo runtime adapter ${r.runtime}.`);
+    console.log(m.cli.despachada(r.id, r.runtime));
     console.log(`  pack        ${r.pack} (${PACKS[r.pack].titulo})`);
     console.log(`  produto     ${r.produto} (perfil ${r.perfil}), estagio ${r.estagio}, postura ${r.postura}`);
     console.log(`  escopo      ${r.escopo.detalhe}`);
@@ -3599,26 +3604,23 @@ function comandoAudit(args: Args): number {
     console.log(`  janela      ${r.custo.janela.detalhe}`);
     console.log(`  sessionId   ${r.sessionId}`);
     console.log(`  prompt      ${r.promptPath} (sha256 ${r.promptSha256})`);
-    console.log(`  verificada no runtime: ${r.verificada ? 'sim' : 'NAO (confira `ork sessions`)'}`);
+    console.log(m.cli.verificada(r.verificada));
     if (r.superficie) {
       console.log(`  superficie  ${r.superficie.detalhe}`);
       console.log(
-        `              ${r.superficie.registrados} achado(s) de superficie ja no board de divida` +
-          (r.superficie.aConfirmar > 0
-            ? `, ${r.superficie.aConfirmar} com confianca baixa (pedem confirmacao humana)`
-            : '')
+        m.cli.superficieBoard(r.superficie.registrados, r.superficie.aConfirmar)
       );
     }
     console.log('');
-    console.log('A rodada termina em PROPOSTA para o roadmap, nunca em correcao aplicada.');
-    console.log(`Depois dos achados: ork audit verify ${r.id} && ork audit report ${r.id}`);
+    console.log(m.cli.proposta);
+    console.log(m.cli.depois(r.id));
     return r.verificada ? 0 : 1;
   }
 
   if (sub === 'list') {
     console.log(tabelaDeRodadas(carregado.raiz));
     console.log('');
-    console.log(`Board de divida: ${resumoDoBoard(carregado.raiz)}`);
+    console.log(m.cli.board(resumoDoBoard(carregado.raiz)));
     return 0;
   }
 
@@ -3627,7 +3629,7 @@ function comandoAudit(args: Args): number {
     if (sobra) return recusarSobraDoObjective(sobra);
     const id = args.posicionais[2];
     if (!id) {
-      console.error('uso: ork audit show <rodada> [--ledger]');
+      console.error(m.uso('show'));
       return 2;
     }
     if (args.opcoes.ledger === true) {
@@ -3641,8 +3643,8 @@ function comandoAudit(args: Args): number {
   if (sub === 'prompt') {
     const pack = parsePack(args.posicionais[2]);
     if (!pack) {
-      console.error('uso: ork audit prompt <pack> [--since Nd]');
-      console.error(`  packs: ${ORDEM_DOS_PACKS.join(', ')}`);
+      console.error(m.uso('prompt'));
+      console.error(m.cli.packs(ORDEM_DOS_PACKS.join(', ')));
       return 2;
     }
     const { raiz, manifesto } = carregado;
@@ -3679,16 +3681,16 @@ function comandoAudit(args: Args): number {
     const id = args.posicionais[2];
     const arquivo = texto(args.opcoes.arquivo) ?? texto(args.opcoes.file);
     if (!id || !arquivo) {
-      console.error('uso: ork audit ingest <rodada> --arquivo <achados.json>');
+      console.error(m.uso('ingest'));
       return 2;
     }
     const r = ingerirAchados(carregado, id, arquivo);
-    console.log(`Ingestao da rodada ${r.rodada}: ${r.registrados.length} achado(s) no board de divida.`);
+    console.log(m.cli.ingestao(r.rodada, r.registrados.length));
     // Bloco B6: cada proposta enderecada ao roadmap tambem vai para a colecao `roadmap`.
     if (r.registrados.length > 0) {
       const naMemoria = publicarPropostas(carregado, r.registrados);
       if (naMemoria.regime === 'orkmind') {
-        console.log(`Memoria (orkmind): propostas na colecao roadmap, ${naMemoria.detalhe}.`);
+        console.log(m.cli.memoriaMuitas(naMemoria.detalhe));
       }
     }
     for (const a of r.registrados) {
@@ -3697,19 +3699,18 @@ function comandoAudit(args: Args): number {
     if (r.duplicados.length > 0) {
       console.log('');
       console.log(
-        'Ja registrados nesta rodada, ignorados (a ingestao e idempotente): ' +
-          r.duplicados.map((a) => a.id).join(', ')
+        m.cli.duplicados(r.duplicados.map((a) => a.id).join(', '))
       );
     }
     if (r.recusados.length > 0) {
       console.log('');
-      console.error(`RECUSADOS (${r.recusados.length}):`);
+      console.error(m.cli.recusados(r.recusados.length));
       for (const rec of r.recusados) {
-        console.error(`  achado #${rec.indice + 1}: ${rec.erro}`);
+        console.error(m.cli.recusado(rec.indice + 1, rec.erro));
       }
     }
     console.log('');
-    console.log(`Prove os achados antes de qualquer thread: ork audit verify ${r.rodada}`);
+    console.log(m.cli.prove(r.rodada));
     return r.recusados.length > 0 ? 1 : 0;
   }
 
@@ -3737,11 +3738,11 @@ function comandoAudit(args: Args): number {
         irreversivel: texto(args.opcoes.irreversivel) ?? 'nenhum',
         estimativa: texto(args.opcoes.estimativa),
       });
-      console.log(`Achado ${achado.id} registrado no board de divida da rodada ${id}.`);
+      console.log(m.cli.achadoRegistrado(achado.id, id));
       console.log(textoDoAchado(achado));
       const naMemoria = publicarPropostas(carregado, [achado]);
       if (naMemoria.regime === 'orkmind') {
-        console.log(`Memoria (orkmind): proposta na colecao roadmap, ${naMemoria.detalhe}.`);
+        console.log(m.cli.memoriaUma(naMemoria.detalhe));
       }
       return 0;
     }
@@ -3755,49 +3756,49 @@ function comandoAudit(args: Args): number {
         return 2;
       }
       if (estado === 'virou-thread') {
-        console.error('o estado `virou-thread` e carimbado pelo proprio `ork thread new --from-finding`.');
+        console.error(m.cli.estadoReservado);
         return 2;
       }
       const achado = exigirAchado(carregado.raiz, id);
       const atualizado = carimbarAchado(carregado.raiz, achado, { estado });
-      console.log(`Achado ${atualizado.id} agora esta ${atualizado.estado}.`);
+      console.log(m.cli.achadoEstado(atualizado.id, atualizado.estado));
       console.log(textoDoAchado(atualizado));
       return 0;
     }
-    console.error(`subcomando desconhecido: audit finding ${acao ?? ''}`);
+    console.error(m.cli.findingDesconhecido(acao ?? ''));
     return 2;
   }
 
   if (sub === 'verify') {
     const id = args.posicionais[2];
     if (!id) {
-      console.error('uso: ork audit verify <rodada>');
+      console.error(m.uso('verify'));
       return 2;
     }
     const v = verificarRodada(carregado, id);
-    console.log(`Claims dos achados da rodada ${v.rodada}, reexecutadas no HEAD real.`);
-    console.log(`  HEAD real   ${v.commit}`);
-    console.log(`  diretorio   ${v.cwd}`);
+    console.log(m.cli.verifyTitulo(v.rodada));
+    console.log(m.cli.verifyHead(v.commit));
+    console.log(m.cli.verifyDir(v.cwd));
     console.log('');
     if (v.resultados.length === 0) {
-      console.log('  (nenhum achado aberto nesta rodada)');
+      console.log(m.cli.verifyVazio);
     }
     for (const r of v.resultados) {
-      console.log(`  ${r.claim.id}  verificado: ${r.verificado ? 'sim' : 'NAO'}  ${r.claim.alegacao}`);
-      console.log(`      arquivo: ${r.claim.arquivo}`);
+      console.log(m.cli.verifyClaim(r.claim.id, r.verificado, r.claim.alegacao));
+      console.log(m.cli.arquivo(r.claim.arquivo));
       console.log(
-        `      ${r.claim.verificar.length > 0 ? `comando(s): ${r.claim.verificar.join(' && ')}` : 'sem comando de verificacao'}`
+        r.claim.verificar.length > 0 ? m.cli.comandos(r.claim.verificar.join(' && ')) : m.cli.semComando
       );
-      if (!r.verificado) console.log(`      motivo tipado: ${r.motivo} (${r.detalhe})`);
+      if (!r.verificado) console.log(m.cli.motivoDetalhe(String(r.motivo), r.detalhe));
     }
     console.log('');
     console.log(
       v.ok
-        ? 'Veredito: ACHADOS SUSTENTADOS (o auditor provou o que alegou).'
-        : `Veredito: REPROVADO. Motivos tipados: ${v.motivos.join(', ')}`
+        ? m.cli.vereditoOk
+        : m.cli.vereditoRuim(v.motivos.join(', '))
     );
     if (v.motivos.includes('claims.unverifiable')) {
-      console.log('  aviso: achado sem comando de verificacao avisa e nao bloqueia (regra do gate do B1).');
+      console.log(m.cli.unverifiable);
     }
     return v.ok ? 0 : 1;
   }
@@ -3805,13 +3806,13 @@ function comandoAudit(args: Args): number {
   if (sub === 'report' || sub === 'relatorio') {
     const id = args.posicionais[2];
     if (!id) {
-      console.error('uso: ork audit report <rodada> [--publicar]');
+      console.error(m.uso('report'));
       return 2;
     }
     const r = relatorioDaRodada(carregado, id, { publicar: args.opcoes.publicar === true });
     console.log(r.texto);
-    console.log(`(relatorio gravado em ${r.caminho})`);
-    if (r.publicado) console.log(`(publicado em ${r.publicado})`);
+    console.log(m.cli.relatorio(r.caminho));
+    if (r.publicado) console.log(m.cli.publicado(r.publicado));
     return 0;
   }
 
@@ -3819,7 +3820,7 @@ function comandoAudit(args: Args): number {
     const bruto = texto(args.opcoes.pack);
     const pack = bruto ? parsePack(bruto) : undefined;
     if (bruto && !pack) {
-      console.error(`pack desconhecido: "${bruto}". Use um de: ${ORDEM_DOS_PACKS.join(', ')}`);
+      console.error(m.erro.pack(bruto, ORDEM_DOS_PACKS.join(', ')));
       return 2;
     }
     console.log(
@@ -3838,14 +3839,14 @@ function comandoAudit(args: Args): number {
   if (sub === 'surface' || sub === 'superficie') {
     const bruta = texto(args.opcoes.regra);
     if (bruta && !(REGRAS_DE_SUPERFICIE as readonly string[]).includes(bruta.toUpperCase())) {
-      console.error(`regra desconhecida: "${bruta}". Use uma de: ${REGRAS_DE_SUPERFICIE.join(', ')}`);
+      console.error(m.erro.regra(bruta, REGRAS_DE_SUPERFICIE.join(', ')));
       return 2;
     }
     const regra = bruta ? (bruta.toUpperCase() as RegraDeSuperficie) : undefined;
     const limiteBruto = texto(args.opcoes.limite);
     const limite = limiteBruto ? Number(limiteBruto) : undefined;
     if (limite !== undefined && (!Number.isFinite(limite) || limite < 1)) {
-      console.error(`--limite invalido: "${limiteBruto}". Use um inteiro >= 1.`);
+      console.error(m.erro.limite(limiteBruto ?? ''));
       return 2;
     }
 
@@ -3854,16 +3855,16 @@ function comandoAudit(args: Args): number {
       const r = varrerSuperficieDaRodada(carregado, rodadaAlvo, { registrar: true, limitePorRegra: limite });
       console.log(textoDaVarredura(r.resultado));
       console.log('');
-      console.log(`Rodada ${r.rodada}: ${r.registrados.length} achado(s) registrado(s) no board de divida.`);
+      console.log(m.cli.rodadaRegistrada(r.rodada, r.registrados.length));
       for (const a of r.registrados) console.log(`  ${a.id}  ${a.regra}  ${a.arquivo}:${a.linha}  ${a.titulo}`);
       if (r.duplicados.length > 0) {
-        console.log(`  ja registrados nesta rodada: ${r.duplicados.map((a) => a.id).join(', ')}`);
+        console.log(m.cli.jaRegistrados(r.duplicados.map((a) => a.id).join(', ')));
       }
       for (const rec of r.recusados) {
-        console.error(`  RECUSADO ${rec.achado.regra} ${rec.achado.arquivo}:${rec.achado.linha}: ${rec.erro}`);
+        console.error(m.cli.recusadoSuperficie(rec.achado.regra, rec.achado.arquivo, rec.achado.linha, rec.erro));
       }
       console.log('');
-      console.log(`Prove os achados antes de qualquer thread: ork audit verify ${r.rodada}`);
+      console.log(m.cli.prove(r.rodada));
       if (r.recusados.length > 0) return 1;
       return r.registrados.length > 0 ? 1 : 0;
     }
@@ -3882,7 +3883,7 @@ function comandoAudit(args: Args): number {
     return resultado.achados.length > 0 ? 1 : 0;
   }
 
-  console.error(`subcomando desconhecido: audit ${sub}`);
+  console.error(m.uso(sub));
   return 2;
 }
 
@@ -3922,19 +3923,19 @@ function comandoRecall(args: Args): number {
   const carregado = memoryState(exigirManifesto()).loaded;
   const id = args.posicionais[1];
   if (!id) {
-    console.error('uso: ork recall <thread-id> [--fase FASE] [--id ptr-N] [--todos] [--forcar]');
+    console.error(msg().operacao.restante.recall.uso);
     return 2;
   }
   const thread = lerThread(carregado.raiz, id);
   const faseBruta = texto(args.opcoes.fase) ?? texto(args.opcoes.momento);
   const momento = faseBruta ? exigirFase(thread, faseBruta) : undefined;
   const memoria = abrirMemoria(carregado, { leituraRestrita: { thread: id, limite: limiteDeLeitura(args.opcoes.janela) } });
-  const r = recallDaThread(carregado, memoria, id, {
+  const r = comLocale('pt-BR', () => recallDaThread(carregado, memoria, id, {
     momento,
     id: texto(args.opcoes.id),
     todos: args.opcoes.todos === true,
     forcar: args.opcoes.forcar === true,
-  });
+  }));
   if (args.opcoes.json === true) {
     console.log(JSON.stringify(r, null, 2));
   } else {
@@ -3949,13 +3950,14 @@ function comandoMemory(args: Args): number {
   const candidate = exigirManifesto();
   const carregado = memoryState(candidate).loaded;
   const sub = args.posicionais[1] ?? 'status';
+  const mm = msg().operacao.restante.memory.cli;
   const escopo = texto(args.opcoes.escopo)?.split(',').map(s => s.trim());
   if (sub === 'inventory' || (sub === 'migrate' && args.opcoes['dry-run'] === true)) {
     const r = inventariarHandoffs(carregado, escopo);
     if (args.opcoes.json === true) console.log(JSON.stringify(r, null, 2));
     else {
-      console.log(`Inventario do tenant ${r.tenant}: ${r.incluidos} incluidos, ${r.excluidos} excluidos.`);
-      for (const f of r.fontes) console.log(`  ${f.incluir ? 'incluir' : 'excluir'} ${f.arquivo}: ${f.motivo}`);
+      console.log(mm.inventario(r.tenant, r.incluidos, r.excluidos));
+      for (const f of r.fontes) console.log(mm.fonte(f.incluir, f.arquivo, f.motivo));
     }
     return r.fontes.some(f => f.bloqueante) ? 1 : 0;
   }
@@ -3969,7 +3971,7 @@ function comandoMemory(args: Args): number {
     const r = migrarHandoffs(carregado, { operadora, escopo });
     if (args.opcoes.json === true) console.log(JSON.stringify(r, null, 2));
     else {
-      console.log(`Migracao do tenant ${r.inventario.tenant}: ${r.resultados.filter(i => i.ok).length} confirmados, ${r.falhas} falhas, ${r.inventario.excluidos} excluidos.`);
+      console.log(mm.migracao(r.inventario.tenant, r.resultados.filter(i => i.ok).length, r.falhas, r.inventario.excluidos));
       for (const item of r.resultados) console.log(`  ${item.arquivo}: ${item.ok ? item.gravacao?.id : item.erro}`);
     }
     return r.ok ? 0 : 1;
@@ -4006,12 +4008,12 @@ function comandoMemory(args: Args): number {
         const motivo = error instanceof Error
           ? /^(?:write\.activation|scope|memory)\.[a-z.-]+/.exec(error.message)?.[0] ?? 'write.activation.invalid'
           : 'write.activation.invalid';
-        const detalhe = 'sync nao executado; colisao legada nao foi reavaliada';
+        const detalhe = comLocale('pt-BR', () => textoDoCatalogo(m => m.operacao.restante.memory.cli.syncDetalhe));
         if (args.opcoes.json === true) console.log(JSON.stringify({
           regime: memoria.regime, estado: memoria.estado, thread: threadId ?? null, perfil,
           publicacao: { estado: 'pendente', motivo }, falhas: 1, gravadas: [], erro: motivo, detalhe,
         }, null, 2));
-        console.error(`${motivo}: ${detalhe}`);
+        console.error(`${motivo}: ${remontar(detalhe)}`);
         return 1;
       }
     }
@@ -4035,16 +4037,14 @@ function comandoMemory(args: Args): number {
     const janela = limiteDeLeitura(args.opcoes.janela);
     const tagsBrutas = texto(args.opcoes.tags);
     if (!tagsBrutas) {
-      console.error(
-        'uso: ork memory search --tags \'{"project":["orkastery"],"skill":["orkastery-decision"]}\''
-      );
+      console.error(mm.tagsUso);
       return 2;
     }
     let tags: Record<string, string[]>;
     try {
       tags = JSON.parse(tagsBrutas) as Record<string, string[]>;
     } catch (e) {
-      console.error(`--tags nao e JSON valido: ${(e as Error).message}`);
+      console.error(mm.tagsInvalidas((e as Error).message));
       return 2;
     }
     const colecao = texto(args.opcoes.colecao) ?? texto(args.opcoes.collection);
@@ -4059,16 +4059,16 @@ function comandoMemory(args: Args): number {
       tags,
       limite,
     });
-    if (threadId && memoria.regime === 'files') console.error(`memory.query.files: ${memoria.estado.motivo}; resultado nao comprova ausencia na memoria semantica`);
+    if (threadId && memoria.regime === 'files') console.error(mm.files(`${memoria.estado.motivo}`));
     if (args.opcoes.json === true) {
       console.log(JSON.stringify(entradas, null, 2));
       return 0;
     }
-    console.log(`Busca deterministica por tag (regime ${memoria.regime})`);
+    console.log(mm.buscaTag(memoria.regime));
     console.log('');
     if (memoria.regime === 'files') {
       console.log(`  ${memoria.estado.detalhe}`);
-      console.log(`  correcao: ${memoria.estado.correcao}`);
+      console.log(mm.correcao(memoria.estado.correcao));
       return 0;
     }
     for (const e of entradas) {
@@ -4076,21 +4076,21 @@ function comandoMemory(args: Args): number {
       console.log(`      ${e.content.split('\n')[0].slice(0, 100)}`);
     }
     console.log('');
-    console.log(`  ${entradas.length} entrada(s)`);
+    console.log(mm.entradas(entradas.length));
     return 0;
   }
 
   if (sub === 'index') {
     const modelo = texto(args.opcoes.modelo) ?? 'primario';
     if (!['primario', 'fallback', 'todos'].includes(modelo)) {
-      console.error('uso: ork memory index [--modelo primario|fallback|todos] [--dry-run] [--json]');
+      console.error(mm.indexUso);
       return 2;
     }
     const memoria = abrirMemoria(carregado);
     if (!memoria.ativo) {
       const falha = { motivo: memoria.estado.motivo, detalhe: memoria.estado.detalhe, correcao: memoria.estado.correcao };
       if (args.opcoes.json === true) console.log(JSON.stringify(falha, null, 2));
-      else console.error(`memory.index: regime ${memoria.regime} (${memoria.estado.motivo}); ${memoria.estado.correcao}`);
+      else console.error(mm.indexFalha(memoria.regime, `${memoria.estado.motivo}`, memoria.estado.correcao));
       return 1;
     }
     const config = configDeEmbedding(carregado.manifesto);
@@ -4100,9 +4100,9 @@ function comandoMemory(args: Args): number {
     let universo: UniversoDaBusca;
     try { universo = universoDaBusca(memoria, memoria.estado.tenant); } catch (erro) {
       const motivo = codigoDaFalha(erro);
-      const detalhe = 'o universo da busca nao foi lido inteiro; nada foi embedado';
+      const detalhe = mm.universoDetalhe;
       if (args.opcoes.json === true) console.log(JSON.stringify({ motivo, detalhe }, null, 2));
-      else console.error(`memory.index: ${motivo}; ${detalhe}`);
+      else console.error(mm.universoFalhou(motivo, detalhe));
       return 1;
     }
     const alvos: AlvoDeEmbedding[] = modelo === 'todos' ? ['primario', 'fallback'] : [modelo as AlvoDeEmbedding];
@@ -4120,7 +4120,7 @@ function comandoMemory(args: Args): number {
     return resultados.some(r => !r.dryRun && r.motivo) ? 1 : 0;
   }
 
-  console.error(`subcomando desconhecido: memory ${sub}`);
+  console.error(mm.desconhecido(sub));
   return 2;
 }
 
@@ -4136,10 +4136,11 @@ export function avisoRoadmapSemAssociacao(nome: string, roadmap?: string): strin
  * Nao combina com --tags nem com a leitura restrita por thread nesta versao (erro tipado).
  */
 function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
+  const mm = msg().operacao.restante.memory.cli;
   const frase = texto(args.opcoes.texto);
   if (args.opcoes.tags !== undefined || args.opcoes.thread !== undefined || args.opcoes.restrito !== undefined ||
       args.opcoes.janela !== undefined) {
-    console.error('memory.search.texto-exclusivo: --texto nao combina com --tags, --thread, --restrito nem --janela');
+    console.error(mm.textoExclusivo);
     return 2;
   }
   const modo = (texto(args.opcoes.modo) ?? 'hibrido') as ModoDeBusca;
@@ -4149,7 +4150,7 @@ function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
   if (!textoDeBuscaValido(frase) || !MODOS_DE_BUSCA.includes(modo) ||
       (colecao !== undefined && !COLECOES_DO_ORK.includes(colecao as ColecaoDoOrk)) ||
       !Number.isInteger(limite) || limite < 1 || limite > LIMITE_MAXIMO_DA_BUSCA) {
-    console.error(`uso: ork memory search --texto "<frase>" [--modo ${MODOS_DE_BUSCA.join('|')}] [--colecao ${COLECOES_DO_ORK.join('|')}] [--limite 1..${LIMITE_MAXIMO_DA_BUSCA}] [--json]`);
+    console.error(mm.textoUso(MODOS_DE_BUSCA.join('|'), COLECOES_DO_ORK.join('|'), LIMITE_MAXIMO_DA_BUSCA));
     return 2;
   }
   const memoria = abrirMemoria(carregado);
@@ -4166,7 +4167,7 @@ function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
     r = { ...vazio, motivo: memoria.estado.motivo, detalhe: `${memoria.estado.detalhe}; correcao: ${memoria.estado.correcao}` };
   } else if (!universo) {
     // RM-038: sem o universo inteiro nao ha busca; o motivo tipado sai, nunca um resultado parcial.
-    r = { ...vazio, motivo: falhaDoUniverso, detalhe: 'o universo da busca nao foi lido inteiro; nada foi buscado' };
+    r = { ...vazio, motivo: falhaDoUniverso, detalhe: mm.buscaUniversoDetalhe };
   } else {
     const driver = configDoManifesto(carregado.manifesto);
     const transporte = new DriverCliOrkMind(driver);
@@ -4356,13 +4357,13 @@ function executarComando(argvBruto: string[]): number {
           (args.opcoes['ship-transport']!==undefined && typeof args.opcoes['ship-transport']!=='string') ||
           (args.opcoes.thread!==undefined && (!threadId || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/.test(threadId))) ||
           (args.opcoes['dry-run']!==undefined && args.opcoes['dry-run']!==true))
-        throw new Error('uso: ork mcp serve|install --project <raiz absoluta> --host codex|claude-code [--ship-transport github-ssh|forja-ssh|forja-https|bare-local] [--ssh-fingerprint SHA256:... somente install forja-ssh] [--child-permissions interactive|worktree] [--owner-permissions interactive|orchestrate somente install Codex] [--dry-run somente install]');
+        throw new Error(msg().operacao.restante.mcp.uso);
       if(acao==='install') {
         void import('./mcp-install').then(({instalarMcp,textoInstalacaoMcp})=>
           console.log(textoInstalacaoMcp(instalarMcp({projeto,host,dryRun:args.opcoes['dry-run']===true,
             transporteShip:transporteDado===undefined?undefined:transporteShip as TransporteShipMcp,impressaoSsh,
             permissoesFilho:permissoesFilho as 'interactive'|'worktree',permissoesDono:permissoesDono as 'interactive'|'orchestrate'|undefined}))))
-          .catch(e=>{console.error(`mcp: ${(e as Error).message}`);process.exitCode=1;});
+          .catch(e=>{console.error(msg().operacao.restante.mcp.erro((e as Error).message));process.exitCode=1;});
         return 0;
       }
       void import('./mcp-server').then(({servirMcp})=>servirMcp({projeto,host,threadId,dispatchId,nomesProviderHerdados:nomesHerdados,transporteShip:transporteShip as TransporteShipMcp,permissoesFilho:permissoesFilho as 'interactive'|'worktree'})).catch(e=>{console.error(`mcp: ${(e as Error).message}`);process.exitCode=1;});
@@ -4537,13 +4538,13 @@ function executarComando(argvBruto: string[]): number {
         // I-41 (GO-FIX 1, B1 e B2): o caminho de volta do resumo. So o ingresso autenticado chama;
         // argv traz identificadores e o envelope assinado vem por stdin, como no `gate answer`.
         if (args.opcoes['resposta-stdin'] !== true || args.opcoes.resposta !== undefined || args.posicionais.length !== 2) {
-          throw new Error('pulse responder exige --resposta-stdin e o envelope do ingresso autenticado');
+          throw new Error(msg().operacao.pulseCadencia.responderUso);
         }
         const carregado = exigirManifesto();
         const envelope = lerRespostaStdin({ por: texto(args.opcoes.por), mensagem: texto(args.opcoes.mensagem),
           origem: texto(args.opcoes.origem), canal: texto(args.opcoes.canal), conta: texto(args.opcoes.conta) });
         const formato = texto(args.opcoes.formato);
-        if (formato !== undefined && formato !== 'telegram' && formato !== 'terminal') throw new Error('pulse responder: --formato telegram|terminal');
+        if (formato !== undefined && formato !== 'telegram' && formato !== 'terminal') throw new Error(msg().operacao.pulseCadencia.responderFormato);
         console.log(JSON.stringify(responderPeloPulse(carregado.raiz, envelope, { canal: formato ?? 'telegram' })));
         return 0;
       }
@@ -4592,6 +4593,8 @@ function executarComando(argvBruto: string[]): number {
       return executarGrafo(argv.slice(argv.indexOf('grafo') + 1),
         { raiz: carregado.raiz, estado: raizDoEstado(carregado.raiz), repositorio: carregado.manifesto.project.name, versao: VERSAO_DO_ORK,
           contextoDaThread: (id) => lerEntradaDaThread(carregado.raiz, id),
+          // RM-061 (F3d): a familia do grafo nao importa o catalogo (fronteira do KG3); a redacao vem daqui, no locale do comando.
+          textos: msg().grafo,
           escrever: (texto) => console.log(texto) });
     }
     case 'security-scan': {

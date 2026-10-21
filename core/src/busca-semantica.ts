@@ -20,6 +20,7 @@ import {
   impressaoDaBase, lerIndice, vetoresCoerentes,
 } from './indice-vetorial';
 import { ColecaoDoOrk, ConfigDeEmbedding, EntradaDeMemoria, MotivoDeEmbeddings, UniversoDaBusca } from './types';
+import { msg } from './locale';
 
 export type ModoDeBusca = 'hibrido' | 'vetor' | 'fts';
 export type OrigemDaBusca = 'primario' | 'fallback' | 'fts' | 'nenhum';
@@ -200,15 +201,16 @@ export function buscarPorSignificado(o: OpcoesDaBusca): ResultadoDaBuscaSemantic
  * id do FTS fora do universo e o aviso de cobertura vivem nele, e o texto os perdia na busca que deu certo.
  */
 export function textoDaBuscaPorSignificado(r: ResultadoDaBuscaSemantica): string {
-  const linhas = [`Busca por significado (NAO deterministica; modo ${r.modo}, origem ${r.origem}${r.modeloUsado ? ` ${r.modeloUsado}` : ''})`];
-  if (r.motivo) linhas.push(`  motivo: ${r.motivo}${r.detalhe ? `; ${r.detalhe}` : ''}`);
-  else if (r.detalhe) linhas.push(`  detalhe: ${r.detalhe}`);
+  const m = msg().operacao.restante.memory.busca;
+  const linhas = [m.titulo(r.modo, r.origem, r.modeloUsado ?? '')];
+  if (r.motivo) linhas.push(m.motivo(r.motivo, r.detalhe));
+  else if (r.detalhe) linhas.push(m.detalhe(r.detalhe));
   linhas.push('');
   r.resultados.forEach((e, i) => {
-    const sim = e.similaridade === null ? '' : `  similaridade ${e.similaridade}`;
+    const sim = e.similaridade === null ? '' : m.similaridade(e.similaridade);
     linhas.push(`  ${i + 1}. [${e.collection}] ${e.id}  score ${e.score}  ${e.fontes.join('+')}${sim}`);
     linhas.push(`      ${e.resumo}`);
   });
-  linhas.push('', `  ${r.resultados.length} resultado(s); busca por tag continua em ork memory search --tags`);
+  linhas.push('', m.resumo(r.resultados.length));
   return linhas.join('\n');
 }

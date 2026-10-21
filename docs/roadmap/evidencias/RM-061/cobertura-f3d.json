@@ -1,0 +1,237 @@
+{
+  "schema": "ork.locale-cobertura-evidencia/v1",
+  "item": "RM-061",
+  "fatia": "F3d",
+  "thread": "ork-rm061f3d",
+  "contador": "core/scripts/contar-mensagens-de-saida.cjs",
+  "metodo": "o mesmo das fatias anteriores: literais com texto de pessoa em posicao de saida, fora do catalogo, e folhas do catalogo ingles; cobertura = entradas / (entradas + literais de saida)",
+  "comando": "node core/scripts/contar-mensagens-de-saida.cjs --json",
+  "antes": {
+    "arvore": "79d3ebf9421d5726440fae6b95e2aaa8292e790b",
+    "descricao": "base carimbada da F3d, com F1 a F3c integradas",
+    "arquivos": 306,
+    "literaisComTexto": 5573,
+    "emPosicaoDeSaida": 3041,
+    "catalogo": {
+      "entradas": 2157
+    },
+    "cobertura": 0.415
+  },
+  "depois": {
+    "arvore": "8520da9557570ed9f6a8b8fece44f021a617d409",
+    "descricao": "F3d: comandos restantes do CLI principal e tres lacunas da revisao da F3c na lingua do dono",
+    "schema": "ork.locale-cobertura/v1",
+    "arquivos": 312,
+    "literaisComTexto": 4691,
+    "emPosicaoDeSaida": 2306,
+    "arquivosComSaida": 189,
+    "catalogo": {
+      "entradas": 3367,
+      "familiasNovasOuAmpliadas": [
+        "locale-audit.ts",
+        "locale-conducao.ts",
+        "locale-grafo.ts",
+        "locale-master.ts",
+        "locale-network.ts",
+        "locale-operacao-restante.ts",
+        "locale-projetos.ts",
+        "locale-prompts.ts",
+        "locale-retry.ts",
+        "locale-setup.ts",
+        "locale.ts"
+      ]
+    },
+    "cobertura": 0.5935
+  },
+  "lacunasDaRevisaoF3c": {
+    "networkRoadmap": "o detalhe das lacunas humanas segue o locale; tipo, codigo e JSON permanecem estaveis",
+    "memoriaInjetada": "a moldura da memoria injetada no prompt segue a lingua declarada do dono",
+    "recusasPergunta": "as recusas HITL v2 da classe pergunta usam o mesmo catalogo tipado das demais recusas"
+  },
+  "snapshotsPtBR": {
+    "nota": "iguais byte a byte aos snapshots da base integrada",
+    "core/test/fixtures/locale-f2a-pt-BR.json": "3c5592b9553235ba98f3a01c81369cdc9403ea3ab052c4142c50e0573926775f",
+    "core/test/fixtures/locale-f2b-pt-BR.json": "2ed8a595fb69394c3c3ecc33a1e7890fb0c50198df1d33a97108554d40e74024",
+    "core/test/fixtures/locale-f3a-pt-BR.json": "40fe60a9346b19bbca1fb5d9b68c0a2409542d41e5fa6a3271bc5cda753ee3cc",
+    "core/test/fixtures/locale-f3b-pt-BR.json": "278230a01c1cf41145de97e38c5d12a78e5cc5915ae6ecc79e2374045eda81ae"
+  },
+  "testes": {
+    "focado": {
+      "comando": "npm --prefix core run build:test && node core/dist-test/test/locale-f3d-operacao.test.js",
+      "resultado": "22 testes aprovados"
+    },
+    "contador": {
+      "comando": "node core/scripts/contar-mensagens-de-saida.cjs --json",
+      "resultado": "medicao concluida"
+    },
+    "suiteIntegral": {
+      "comando": "timeout 2400 npm --prefix core test",
+      "resultado": "timeout 124; 16 arquivos chegaram a concluir antes do travamento, 7 aprovados e 9 reprovados; a suite nao produziu resumo final",
+      "impedimentoDoSandbox": "spawnSync /bin/sh devolveu EPERM; testes que reexecutam comandos nao provaram seus resultados neste runtime"
+    },
+    "verifyNativo": {
+      "commit": "ecc5caf0c190c4d32423285b12bef12d30a176b8",
+      "ok": false,
+      "motivos": [
+        "claims.failed",
+        "verify.regression",
+        "verify.sem-veredito"
+      ],
+      "claims": {
+        "total": 161,
+        "verificadas": 86
+      },
+      "executor": "codex-sandbox",
+      "prazoTotalMs": 180000
+    }
+  },
+  "pendencias": [
+    {
+      "superficies": [
+        "mods",
+        "tools do OpenClaw",
+        "copias dos marketplaces"
+      ],
+      "motivo": "artefatos derivados precisam de catalogo de origem, geracao reproduzivel e fixtures de paridade proprias; uma traducao parcial quebraria o contrato de copia intacta"
+    }
+  ],
+  "integrada": {
+    "descricao": "a F3d com o GO-FIX 1 depois do merge da origin/main (97c2a446), no mesmo contador: a main sozinha, a main com a F3d antes do GO-FIX 1 e com ele. O merge trouxe 21 entradas ao catalogo e literais novos da main; o GO-FIX 1 somou tres textos do ci ao catalogo e devolveu o pt-BR do grafo a familia (fronteira do KG3), que o contador conta como literal de saida",
+    "main": {
+      "arvore": "97c2a446b94aa2fdd5db2767ee3bb46378c4f251",
+      "arquivos": 309,
+      "literaisComTexto": 5729,
+      "emPosicaoDeSaida": 3101,
+      "arquivosComSaida": 195,
+      "catalogo": {
+        "entradas": 2178
+      },
+      "cobertura": 0.4126
+    },
+    "comF3dAntesDoGoFix": {
+      "arvore": "5713b3fc5e2164190a6d6018241ad19f7b7127d8",
+      "arquivos": 315,
+      "literaisComTexto": 4847,
+      "emPosicaoDeSaida": 2366,
+      "arquivosComSaida": 191,
+      "catalogo": {
+        "entradas": 3388
+      },
+      "cobertura": 0.5888
+    },
+    "comF3d": {
+      "arvore": "bad54969567e293410717062a3334d6be16c27c0",
+      "arquivos": 315,
+      "literaisComTexto": 4885,
+      "emPosicaoDeSaida": 2393,
+      "arquivosComSaida": 192,
+      "catalogo": {
+        "entradas": 3391
+      },
+      "cobertura": 0.5863
+    },
+    "snapshotsPtBR": {
+      "nota": "iguais byte a byte aos da main integrada (97c2a446); o F2a mudou na main pela ork-rm058integra (981558bb), nao pela F3d",
+      "core/test/fixtures/locale-f2a-pt-BR.json": "6925f6e1c41faa1fd1cdfe31d761d9ccccdbfd7ac04ba4c73a6912c8ec2d3d00",
+      "core/test/fixtures/locale-f2b-pt-BR.json": "2ed8a595fb69394c3c3ecc33a1e7890fb0c50198df1d33a97108554d40e74024",
+      "core/test/fixtures/locale-f3a-pt-BR.json": "40fe60a9346b19bbca1fb5d9b68c0a2409542d41e5fa6a3271bc5cda753ee3cc",
+      "core/test/fixtures/locale-f3b-pt-BR.json": "278230a01c1cf41145de97e38c5d12a78e5cc5915ae6ecc79e2374045eda81ae",
+      "core/test/fixtures/locale-f3c-pt-BR.json": "012f91eb89f2f016cc8d3edaeec927b316d1d536c1d0398e2245a435b3e51f27"
+    },
+    "goFix4": {
+      "descricao": "a F3d depois dos merges da origin/main no GO-FIX 4, no mesmo contador, o script desta thread sobre o core/src de cada arvore: a main em aa3681fe sozinha e com a F3d (o merge 060ebc56; depois dele o core/src nao muda, o resto do GO-FIX 4 e teste, fixture, docs e bundle). No caminho, a F3d no merge da RM-062 do GO-FIX 3 (2718eed9), a main com o #186 (ce102584) e a F3d no merge dele (e5fef1cc). O #186 trouxe 37 entradas ao catalogo (28 do locale-security-scan.ts, 4 do doctor em locale.ts, 4 do ship e 1 do yaml do init) e 15 literais de saida fora dele (10 em security-scan/normalize/util.ts, 4 em security-scan/config.ts e 1 em security-scan/run.ts). O #185 (aa3681fe), que entrou na main durante o GO-FIX 4, trouxe 5 entradas (3 do verify e 2 do worktree) e 10 literais fora: 8 do watcher e dos eventos de sessao, 2 do verify e 1 do manifesto, com 1 a menos no handoff",
+      "comando": "node core/scripts/contar-mensagens-de-saida.cjs --json <arvore>/core/src",
+      "main": {
+        "arvore": "aa3681fe5159432ff7a148476c9de3b1a402f068",
+        "arquivos": 335,
+        "literaisComTexto": 5827,
+        "emPosicaoDeSaida": 3174,
+        "arquivosComSaida": 199,
+        "catalogo": {
+          "entradas": 2231
+        },
+        "cobertura": 0.4128
+      },
+      "comF3d": {
+        "arvore": "060ebc56644aa38c0ddb25c7447498e953b590e4",
+        "arquivos": 341,
+        "literaisComTexto": 4983,
+        "emPosicaoDeSaida": 2466,
+        "arquivosComSaida": 196,
+        "catalogo": {
+          "entradas": 3444
+        },
+        "cobertura": 0.5827
+      },
+      "caminho": {
+        "comF3dNoGoFix3": {
+          "arvore": "2718eed9941e1732e03f568b4769e310fc541086",
+          "arquivos": 316,
+          "literaisComTexto": 4952,
+          "emPosicaoDeSaida": 2441,
+          "arquivosComSaida": 193,
+          "catalogo": {
+            "entradas": 3402
+          },
+          "cobertura": 0.5822
+        },
+        "mainCom186": {
+          "arvore": "ce10258464b699bf78250677a5e4effed26ccaa3",
+          "arquivos": 334,
+          "literaisComTexto": 5813,
+          "emPosicaoDeSaida": 3164,
+          "arquivosComSaida": 199,
+          "catalogo": {
+            "entradas": 2226
+          },
+          "cobertura": 0.413
+        },
+        "comF3dEm186": {
+          "arvore": "e5fef1ccb318e84ca073a3e513755abcd9ac386d",
+          "arquivos": 340,
+          "literaisComTexto": 4969,
+          "emPosicaoDeSaida": 2456,
+          "arquivosComSaida": 196,
+          "catalogo": {
+            "entradas": 3439
+          },
+          "cobertura": 0.5834
+        }
+      },
+      "snapshotsPtBR": {
+        "nota": "F2a a F3c regerados pelos casos de cada fatia no merge 060ebc56 saem iguais byte a byte aos da main em aa3681fe; F2a, F3a e F3b mudaram na main pelo #186, e o F3b tambem pelo #185 (o hash do hook que ele alterou), nao pela F3d. O F3d saiu dos casos sobre a main sem a F3d, em ce102584 e de novo em aa3681fe, com o mesmo sha256; difere do anterior so no caso cli grafo: amostra reprovada, que passou a escolher as arestas pelo rotulo e nao pelo edge_id, que leva a versao do Node",
+        "core/test/fixtures/locale-f2a-pt-BR.json": "f306bfa8f7ddfb7cfd1711dc0c3e59ec8ea1558c7866ef0103a3dc4ce32f789e",
+        "core/test/fixtures/locale-f2b-pt-BR.json": "2ed8a595fb69394c3c3ecc33a1e7890fb0c50198df1d33a97108554d40e74024",
+        "core/test/fixtures/locale-f3a-pt-BR.json": "edf96176b1fb6279d4de69a132098e60c5bbfe34f761fb111906a5cf89a244b0",
+        "core/test/fixtures/locale-f3b-pt-BR.json": "57976afd3e80d0da951b15363a7849005cc989ef8b779b98f6850a6b33c1c419",
+        "core/test/fixtures/locale-f3c-pt-BR.json": "012f91eb89f2f016cc8d3edaeec927b316d1d536c1d0398e2245a435b3e51f27",
+        "core/test/fixtures/locale-f3d-pt-BR.json": "6a8a21511d69ce0b3ea9b8394e3ef65c74f0cdb3922685f727fcc32c43341bcc"
+      }
+    }
+  },
+  "goFix1": {
+    "descricao": "a suite inteira fora do sandbox, com a saida em arquivo, antes e depois das correcoes do GO-FIX 1; o verify oficial chamou as 15 falhas de pre-existentes porque a baseline da thread gravou o test estourado em 600 s",
+    "comando": "timeout 2400 npm --prefix core test > arquivo 2>&1",
+    "antes": {
+      "arvore": "5713b3fc5e2164190a6d6018241ad19f7b7127d8",
+      "tests": 5341,
+      "pass": 5325,
+      "fail": 15,
+      "skipped": 1
+    },
+    "causas": {
+      "fronteiraDoGrafo": "a consulta e o CLI do grafo importavam o catalogo de locale (KG3 e KG5); o pt-BR volta a familia e o index.ts passa a redacao no locale do comando, com teste de paridade",
+      "catalogo": "um travessao U+2014 no custo de referencia do ork ledger e 58 folhas inglesas iguais ao pt-BR sem a declaracao do teste",
+      "ciPrepare": "o lint do bundle ia ao ledger na lingua do comando; agora grava em pt-BR e imprime no locale do comando",
+      "sondasNegativas": "nove testes negativos usavam como sonda uma rota que a F3d levou a lista de proposito",
+      "testeDaF3d": "o teste do retry esperava um titulo que a tabela da politica nunca teve"
+    },
+    "depois": {
+      "arvore": "bad54969567e293410717062a3334d6be16c27c0",
+      "tests": 5345,
+      "pass": 5344,
+      "fail": 0,
+      "skipped": 1
+    }
+  }
+}

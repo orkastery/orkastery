@@ -101,7 +101,11 @@ const configClaude = process.env.CLAUDE_CONFIG_DIR || path.join(home, '.claude')
 // B11: o Codex usa o login nativo do CODEX_HOME de quem roda (um perfil de `ork accounts`, por exemplo).
 const codexHome = process.env.CODEX_HOME || path.join(home, '.codex');
 function alvosGlobais() {
-  const alvos = { 'orkastery:projetos.json': () => hashArquivo(path.join(process.env.ORK_USUARIO_DIR || path.join(home, '.orkastery'), 'projetos.json')) };
+  // RM-037 (defeito 3 de 19 e 20/10/2026): a pasta do usuário pela regra do núcleo (`ORK_USUARIO_DIR`, depois
+  // `ORKASTERY_HOME`, depois `~/.orkastery`). Só com o `ORK_USUARIO_DIR`, a casa que o `npm test` define ficava de fora e a
+  // prova fotografava o registro de `~/.orkastery`, que outras sessões da máquina regravam no meio dela.
+  const { pastaDoUsuario } = require(path.join(repo, 'core/dist/maquina'));
+  const alvos = { 'orkastery:projetos.json': () => hashArquivo(path.join(pastaDoUsuario(), 'projetos.json')) };
   if (op.host === 'claude-code') {
     for (const f of ['settings.json', 'plugins/installed_plugins.json', 'plugins/known_marketplaces.json']) {
       alvos[`claude:${f}`] = () => hashArquivo(path.join(configClaude, f));

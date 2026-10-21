@@ -32,7 +32,7 @@ import { passosDoCondutor, presencaDaSentinela, PassoDoCondutor } from './conduc
 import { mergeDaEntrega } from './entrega-pr';
 import { raizDoEstado } from './estado-thread';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
-import { textoDoCatalogo } from './locale';
+import { msg, textoDoCatalogo } from './locale';
 import { ManifestoCarregado } from './manifest';
 import { nomeDaMaquina } from './maquina';
 import { adquirirLockMonitor } from './monitor-lock';
@@ -684,22 +684,22 @@ function ehBloqueio(motivo: string | null): boolean {
 
 /** O texto do `ork conducao batida` e da resposta ao `#OrkRetomar`: o que voltou a andar e o que ficou com o dono. */
 export function textoDaBatida(r: RodadaDaBatida): string {
-  if (r.ocupada) return `Outra batida da condução está agindo nesta máquina agora (${r.detalhe}); o resultado dela sai no próximo resumo.`;
+  const m = msg().conducao.batida;
+  if (r.ocupada) return m.ocupada(r.detalhe);
   const linhas: string[] = [];
   const a = r.autorizacao;
-  linhas.push(a.valida ? `Autorização durável de ${a.por} até ${a.ate}: a condução pode ${a.pode.join(', ')}.`
-    : `Sem autorização durável válida (${a.motivo}): nada foi feito sozinho; o que andaria ficou com você.`);
-  if (r.sentinela) linhas.push('A Sentinela conduz as fases nesta máquina agora; a batida manteve apenas a reação a cota.');
-  if (r.forja && !r.forja.ok) linhas.push(`PRs não lidos: ${r.forja.detalhe}.`);
-  if (r.busca && !r.busca.ok) linhas.push(`Base não trazida: ${r.busca.detalhe}.`);
+  linhas.push(a.valida ? m.autorizada(a.por ?? '-', a.ate ?? '-', a.pode.join(', ')) : m.semAutorizacao(a.motivo ?? '-'));
+  if (r.sentinela) linhas.push(m.sentinela);
+  if (r.forja && !r.forja.ok) linhas.push(m.prs(r.forja.detalhe));
+  if (r.busca && !r.busca.ok) linhas.push(m.base(r.busca.detalhe));
   const andou = r.feitas;
-  linhas.push(andou.length ? `Voltou a andar: ${andou.length}` : 'Nada voltou a andar nesta batida.');
-  for (const f of andou) linhas.push(`  ${f.thread}: ${f.acao}${f.pr ? ` do PR #${f.pr}` : ''}; ${f.detalhe}`);
+  linhas.push(andou.length ? m.voltou(andou.length) : m.nada);
+  for (const f of andou) linhas.push(m.item(f.thread, f.acao, f.pr ?? null, f.detalhe));
   const espera = r.pendentes.filter((p) => p.resultado === 'espera');
-  if (espera.length) linhas.push(`Espera a próxima batida: ${espera.length}`);
-  for (const p of espera) linhas.push(`  ${p.thread}: ${p.acao}${p.pr ? ` do PR #${p.pr}` : ''}; ${p.detalhe}`);
+  if (espera.length) linhas.push(m.espera(espera.length));
+  for (const p of espera) linhas.push(m.item(p.thread, p.acao, p.pr ?? null, p.detalhe));
   const dono = r.pendentes.filter((p) => p.resultado === 'dono');
-  if (dono.length) linhas.push(`Com você: ${dono.length}`);
-  for (const p of dono) linhas.push(`  ${p.thread}: ${p.acao}${p.pr ? ` do PR #${p.pr}` : ''} (${p.motivo}); ${p.detalhe}. Responder: ${p.comando}`);
+  if (dono.length) linhas.push(m.comVoce(dono.length));
+  for (const p of dono) linhas.push(m.itemDono(p.thread, p.acao, p.pr ?? null, p.motivo ?? '-', p.detalhe, p.comando));
   return linhas.join('\n');
 }

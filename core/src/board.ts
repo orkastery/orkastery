@@ -41,7 +41,7 @@ import { agora, tabela } from './util';
 import { ehRegistroDeAdocao } from './sessoes-adopt';
 import { formatarDesde, legendaDoFuso, localizarTexto } from './horario';
 import { conducaoDaThread, dormir } from './conducao';
-import { textoDoCatalogo } from './locale';
+import { msg, textoDoCatalogo } from './locale';
 import { linhaDeConducao } from './conducao-texto';
 
 /** Um perfil de board: um diretorio de threads com um nome. */
@@ -502,39 +502,39 @@ export function devolverVagas(
 
 /** Texto de `ork board reap`. */
 export function textoDoReap(devolvidas: VagaDevolvida[]): string {
+  const m = msg().operacao.restante.board;
   if (devolvidas.length === 0) {
-    return 'Nenhuma vaga a devolver: toda thread aberta tem procura ativa ou esta pronta para rodar.';
+    return m.reapVazio;
   }
   // I-35: o ledger guarda o ISO; o texto ao dono sai no fuso dele, rotulado uma vez.
-  const linhas = [`Vagas devolvidas por falta de procura ativa: ${devolvidas.length}. ${legendaDoFuso()}`, ''];
+  const linhas = [m.reapTitulo(devolvidas.length, legendaDoFuso()), ''];
   for (const d of devolvidas) {
-    const marca = d.registrada ? 'slot_released gravado no ledger' : 'ja registrado antes (idempotente)';
+    const marca = d.registrada ? m.reapMarca.gravada : m.reapMarca.anterior;
     linhas.push(`  ${d.thread.padEnd(20)} [${d.motivo}] ${marca}`);
-    linhas.push(`    detalhe  : ${localizarTexto(d.detalhe)}`);
-    linhas.push(`    evidencia: ${localizarTexto(d.evidencia)}`);
+    linhas.push(m.detalhe(localizarTexto(d.detalhe)));
+    linhas.push(m.evidencia(localizarTexto(d.evidencia)));
   }
   return linhas.join('\n');
 }
 
 function linhaDeFila(p: PedidoNaFila, i: number, agora: string): string {
-  return `  ${i + 1}. ${p.thread} quer ${p.nome} (colide com ${p.colidiuCom}, thread ${p.bloqueadaPor}) desde ${formatarDesde(p.desdeEm, { agora })}`;
+  return msg().operacao.restante.board.filaItem(i + 1, p.thread, p.nome, p.colidiuCom, p.bloqueadaPor,
+    formatarDesde(p.desdeEm, { agora }));
 }
 
 /** Texto de `ork board plan`. */
 export function textoDoPlano(plano: PlanoDoEscalonador): string {
+  const m = msg().operacao.restante.board;
   const linhas: string[] = [];
-  linhas.push(`Escalonador por maquina. ${legendaDoFuso(undefined, plano.decididoEm)}`);
-  linhas.push(
-    `  limite de paralelismo: ${plano.maxParalelas} (concurrency.max_parallel_threads) | ` +
-      `em andamento agora (procura ativa): ${plano.emAndamento}`
-  );
+  linhas.push(m.planoTitulo(legendaDoFuso(undefined, plano.decididoEm)));
+  linhas.push(m.limite(plano.maxParalelas, plano.emAndamento));
   linhas.push('');
   if (plano.vagas.length === 0) {
-    linhas.push('  Nenhuma thread no projeto.');
+    linhas.push(m.nenhumaThread);
   } else {
     linhas.push(
       tabela(
-        ['THREAD', 'SLUG', 'MODO', 'FASE', 'SITUACAO', 'MOTIVO', 'DETALHE'],
+        [...m.colunasPlano],
         plano.vagas.map((v) => [
           v.thread,
           v.slug,
@@ -549,21 +549,21 @@ export function textoDoPlano(plano: PlanoDoEscalonador): string {
     const comCorrecao = plano.vagas.filter((v) => v.correcao !== '');
     if (comCorrecao.length > 0) {
       linhas.push('');
-      linhas.push('  Correcoes acionaveis:');
+      linhas.push(m.correcoes);
       for (const v of comCorrecao) linhas.push(`    ${v.thread}: ${localizarTexto(v.correcao, { agora: plano.decididoEm })}`);
     }
   }
   linhas.push('');
-  linhas.push(`Merge queue (lease ${LEASE_MAIN_TREE}, o unico gate de merge)`);
+  linhas.push(m.merge);
   if (plano.filaDeMerge.length === 0) {
-    linhas.push('  vazia: nenhuma thread esperando para mergear');
+    linhas.push(m.mergeVazia);
   } else {
     plano.filaDeMerge.forEach((p, i) => linhas.push(linhaDeFila(p, i, plano.decididoEm)));
   }
   linhas.push('');
-  linhas.push('Fila por colisao de regiao');
+  linhas.push(m.regiao);
   if (plano.filaDeRegiao.length === 0) {
-    linhas.push('  vazia: nenhuma colisao de path, board ou porta');
+    linhas.push(m.regiaoVazia);
   } else {
     plano.filaDeRegiao.forEach((p, i) => linhas.push(linhaDeFila(p, i, plano.decididoEm)));
   }
@@ -572,22 +572,20 @@ export function textoDoPlano(plano: PlanoDoEscalonador): string {
 
 /** Texto de `ork board [--all]`: a visao unica das threads. */
 export function textoDoBoard(carregado: ManifestoCarregado, todos: boolean): string {
+  const m = msg().operacao.restante.board;
   const itens = threadsDeTodosOsPerfis(carregado, todos);
   const perfis = todos ? perfisDetectados(carregado) : perfisDetectados(carregado).slice(0, 1);
   const linhas: string[] = [];
-  linhas.push(
-    `Board do Orkastery, projeto ${carregado.manifesto.project.name} ` +
-      `(${itens.length} thread(s) em ${perfis.length} perfil(is): ${perfis.map((p) => p.nome).join(', ')})`
-  );
+  linhas.push(m.titulo(carregado.manifesto.project.name, itens.length, perfis.length, perfis.map((p) => p.nome).join(', ')));
   linhas.push('');
   if (itens.length === 0) {
-    linhas.push('  Nenhuma thread ainda. Crie uma com: ork thread new "<nome>" --modo default');
+    linhas.push(m.vazio);
     return linhas.join('\n');
   }
 
   linhas.push(
     tabela(
-      ['PERFIL', 'ID', 'SLUG', 'MODO', 'FASE', 'STATUS', 'PAUSAS', 'SCORE', 'WORKTREE', 'LEASES'],
+      [...m.colunas],
       itens.map((i) => [
         i.perfil,
         i.thread.id,
@@ -607,14 +605,14 @@ export function textoDoBoard(carregado: ManifestoCarregado, todos: boolean): str
   const conduzidas = itens.map((i) => ({ id: i.thread.id, c: conducaoDaThread(i.raiz, i.thread.id) })).filter((x) => x.c);
   if (conduzidas.length > 0) {
     linhas.push('');
-    linhas.push('Conducao agora');
+    linhas.push(m.conducao);
     for (const x of conduzidas) linhas.push(`  ${x.id}: ${linhaDeConducao(x.c!)}`);
   }
 
   const comVariante = itens.filter((i) => i.thread.variante);
   if (comVariante.length > 0) {
     linhas.push('');
-    linhas.push('  Variantes de ciclo em uso:');
+    linhas.push(m.variantes);
     for (const i of comVariante) linhas.push(`    ${i.thread.id}: --ciclo ${i.thread.variante}`);
   }
 
@@ -624,8 +622,8 @@ export function textoDoBoard(carregado: ManifestoCarregado, todos: boolean): str
   const semScore = itens.filter((i) => !i.thread.score && i.thread.faseAtual === 'MASTER');
   if (semScore.length > 0) {
     linhas.push('');
-    linhas.push(`Fila de batch scoring: ${semScore.length} thread(s) esperando score humano`);
-    linhas.push('  veja em: ork master (com o indice derivado do ledger)');
+    linhas.push(m.batch(semScore.length));
+    linhas.push(m.batchVeja);
   }
   return linhas.join('\n');
 }

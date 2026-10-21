@@ -24,6 +24,7 @@ import * as path from 'node:path';
 import { CANARIOS, canarioPorId, gitDisponivel, Observado } from './canarios';
 import { skillsDoCatalogo } from './catalogo';
 import { tabela } from './util';
+import { msg } from './locale';
 
 // ---------------------------------------------------------------------------
 // Contratos do corpus
@@ -204,7 +205,7 @@ export function lerCasos(catalogo: string): { arquivos: ArquivoDeCasos[]; falhas
     try {
       const lido = JSON.parse(fs.readFileSync(caminho, 'utf8')) as ArquivoDeCasos;
       if (!lido.skill || !Array.isArray(lido.casos)) {
-        falhas.push({ codigo: 'fixture-invalida', detalhe: `${nome}: esperado { skill, casos[] }` });
+        falhas.push({ codigo: 'fixture-invalida', detalhe: msg().operacao.restante.eval.fixtureFormato(nome) });
         continue;
       }
       arquivos.push(lido);
@@ -221,6 +222,7 @@ function avaliarSkill(
   vistos: Set<string>
 ): { linha: LinhaDeSkill; falhas: Falha[] } {
   const falhas: Falha[] = [];
+  const m = msg().operacao.restante.eval;
   const skill = arquivo.skill;
   const tabelaDeDesculpas = intervaloDaTabelaDeDesculpas(textoDaSkill);
   let assercoes = 0;
@@ -229,18 +231,18 @@ function avaliarSkill(
     falhas.push({
       codigo: 'cobertura-minima',
       skill,
-      detalhe: `${arquivo.casos.length} caso(s); o minimo do catalogo e ${MINIMO_DE_CASOS}`,
+      detalhe: m.casosMinimos(arquivo.casos.length, MINIMO_DE_CASOS),
     });
   }
   for (const tipo of TIPOS_DE_CASO) {
     if (!arquivo.casos.some((c) => c.tipo === tipo)) {
-      falhas.push({ codigo: 'tipo-faltando', skill, detalhe: `nenhum caso do tipo "${tipo}"` });
+      falhas.push({ codigo: 'tipo-faltando', skill, detalhe: m.tipoFaltando(tipo) });
     }
   }
 
   for (const caso of arquivo.casos) {
     if (vistos.has(caso.id)) {
-      falhas.push({ codigo: 'id-duplicado', skill, caso: caso.id, detalhe: 'id repetido no corpus' });
+      falhas.push({ codigo: 'id-duplicado', skill, caso: caso.id, detalhe: m.idRepetido });
     }
     vistos.add(caso.id);
     if (!caso.id.startsWith(`${skill}/`)) {
@@ -248,7 +250,7 @@ function avaliarSkill(
         codigo: 'id-sem-prefixo',
         skill,
         caso: caso.id,
-        detalhe: `o id precisa comecar com "${skill}/"`,
+        detalhe: m.idPrefixo(skill),
       });
     }
     if (caso.tipo === 'racionalizacao' && !(caso.racionalizacao ?? '').trim()) {
@@ -256,7 +258,7 @@ function avaliarSkill(
         codigo: 'racionalizacao-sem-desculpa',
         skill,
         caso: caso.id,
-        detalhe: 'caso de racionalizacao sem o campo `racionalizacao` com a desculpa',
+        detalhe: m.racionalizacao,
       });
     }
 
@@ -268,7 +270,7 @@ function avaliarSkill(
           codigo: 'assercao-sem-porque',
           skill,
           caso: caso.id,
-          detalhe: `assercao "${a.valor}" sem o campo \`porque\``,
+          detalhe: m.assercaoPorque(a.valor),
         });
       }
       let posicoes: number[];
@@ -279,7 +281,7 @@ function avaliarSkill(
           codigo: 'padrao-invalido',
           skill,
           caso: caso.id,
-          detalhe: `padrao "${a.valor}" invalido: ${(e as Error).message}`,
+          detalhe: m.padraoInvalido(a.valor, (e as Error).message),
         });
         continue;
       }
@@ -289,7 +291,7 @@ function avaliarSkill(
             codigo: 'assercao',
             skill,
             caso: caso.id,
-            detalhe: `"${a.valor}" deveria estar AUSENTE da skill e aparece ${posicoes.length}x`,
+            detalhe: m.deveriaAusente(a.valor, posicoes.length),
           });
         }
         continue;
@@ -299,7 +301,7 @@ function avaliarSkill(
           codigo: 'assercao',
           skill,
           caso: caso.id,
-          detalhe: `"${a.valor}" nao existe em skills/.../${skill}/SKILL.md (${a.porque})`,
+          detalhe: m.naoExiste(a.valor, skill, a.porque),
         });
         continue;
       }
@@ -316,8 +318,7 @@ function avaliarSkill(
         codigo: 'ancora-fora-da-tabela',
         skill,
         caso: caso.id,
-        detalhe:
-          'todas as ancoras deste caso estao dentro da tabela de racionalizacoes: a skill lista a desculpa mas nao carrega a regra que responde a ela',
+        detalhe: m.ancora,
       });
     }
   }
@@ -360,15 +361,16 @@ export function rodarCanarios(
   const dir = dirDeFixtures(catalogo);
   const resultados: ResultadoDeCanario[] = [];
   const falhas: Falha[] = [];
+  const m = msg().operacao.restante.eval;
   const temGit = gitDisponivel();
   const nomes = fs.existsSync(dir) ? fs.readdirSync(dir).sort() : [];
 
   if (filtro && filtro.length === 0) {
-    falhas.push({ codigo: 'fixture-invalida', detalhe: 'filtro de canários vazio: nenhuma prova foi executada' });
+    falhas.push({ codigo: 'fixture-invalida', detalhe: m.filtroVazio });
   }
   for (const id of new Set(filtro ?? [])) {
     if (!nomes.includes(id) || !canarioPorId(id)) {
-      falhas.push({ codigo: 'canario-sem-executor', caso: id, detalhe: `canário solicitado ausente: ${id}` });
+      falhas.push({ codigo: 'canario-sem-executor', caso: id, detalhe: m.canarioAusente(id) });
     }
   }
 
@@ -377,7 +379,7 @@ export function rodarCanarios(
     if (filtro && !filtro.includes(nome)) continue;
     const caminho = path.join(dir, nome, 'caso.json');
     if (!fs.existsSync(caminho)) {
-      falhas.push({ codigo: 'fixture-invalida', detalhe: `${nome}: falta caso.json` });
+      falhas.push({ codigo: 'fixture-invalida', detalhe: m.casoAusente(nome) });
       continue;
     }
     let fixture: FixtureDeCanario;
@@ -389,13 +391,13 @@ export function rodarCanarios(
     }
     const canario = canarioPorId(fixture.id ?? nome);
     if (fixture.id !== nome) {
-      falhas.push({ codigo: 'fixture-invalida', caso: nome, detalhe: 'id da fixture diverge do canário solicitado' });
+      falhas.push({ codigo: 'fixture-invalida', caso: nome, detalhe: m.fixtureDiverge });
       continue;
     }
     if (!canario) {
       falhas.push({
         codigo: 'canario-sem-executor',
-        detalhe: `${nome}: nenhum executor registrado para o canario "${fixture.id ?? nome}"`,
+        detalhe: m.semExecutor(nome, fixture.id ?? nome),
       });
       continue;
     }
@@ -405,7 +407,7 @@ export function rodarCanarios(
         sobre: canario.sobre,
         estado: 'unavailable',
         divergencias: [],
-        motivo: 'git nao esta nesta maquina: o canario sai unavailable, nunca passing',
+        motivo: m.semGit,
         observado: {},
       });
       continue;
@@ -425,7 +427,7 @@ export function rodarCanarios(
         falhas.push({
           codigo: 'canario',
           caso: `${canario.id}/${d.chave}`,
-          detalhe: `esperado ${JSON.stringify(d.esperado)}, observado ${JSON.stringify(d.observado)}`,
+          detalhe: m.divergencia(JSON.stringify(d.esperado), JSON.stringify(d.observado)),
         });
       }
     } catch (e) {
@@ -449,7 +451,7 @@ export function rodarCanarios(
         falhas.push({
           codigo: 'fixture-invalida',
           caso: c.id,
-          detalhe: `o canario ${c.id} existe no codigo e nao tem eval/fixtures/${c.id}/caso.json`,
+          detalhe: m.canarioSemFixture(c.id),
         });
       }
     }
@@ -490,7 +492,7 @@ export function rodarEval(opcoes: OpcoesDoEval): ResultadoDoEval {
         falhas.push({
           codigo: 'skill-sem-eval',
           skill: skill.nome,
-          detalhe: `skill sem eval nao entra no catalogo: falta eval/casos/${skill.nome}.json`,
+          detalhe: msg().operacao.restante.eval.skillSemEval(skill.nome),
         });
       }
     }
@@ -502,7 +504,7 @@ export function rodarEval(opcoes: OpcoesDoEval): ResultadoDoEval {
         falhas.push({
           codigo: 'eval-sem-skill',
           skill: arquivo.skill,
-          detalhe: 'ha casos para uma skill que nao existe no catalogo',
+          detalhe: msg().operacao.restante.eval.evalSemSkill,
         });
         continue;
       }
@@ -529,28 +531,29 @@ export function rodarEval(opcoes: OpcoesDoEval): ResultadoDoEval {
 
 /** Texto de `ork eval`. */
 export function textoDoEval(r: ResultadoDoEval): string {
+  const m = msg().operacao.restante.eval;
   const linhas: string[] = [];
-  linhas.push(`ork eval, catalogo em ${r.catalogo}`);
+  linhas.push(m.titulo(r.catalogo));
   linhas.push('');
 
   if (r.canarios.length > 0) {
-    linhas.push('Canarios (comportamento real do nucleo, contra git de verdade)');
+    linhas.push(m.canarios);
     linhas.push('');
     linhas.push(
       tabela(
-        ['CANARIO', 'ESTADO', 'SOBRE'],
-        r.canarios.map((c) => [c.id, c.estado, c.estado === 'passou' ? c.sobre : c.motivo || c.sobre])
+        [...m.colunasCanarios],
+        r.canarios.map((c) => [c.id, m.estados[c.estado] ?? c.estado, c.estado === 'passou' ? c.sobre : c.motivo || c.sobre])
       )
     );
     linhas.push('');
   }
 
   if (r.skills.length > 0) {
-    linhas.push('Corpus das skills (a metade estatica: as regras que precisam existir no arquivo)');
+    linhas.push(m.skills);
     linhas.push('');
     linhas.push(
       tabela(
-        ['SKILL', 'CASOS', 'ASSERCOES', 'FALHAS'],
+        [...m.colunasSkills],
         r.skills.map((s) => [s.skill, String(s.casos), String(s.assercoes), String(s.falhas)])
       )
     );
@@ -558,7 +561,7 @@ export function textoDoEval(r: ResultadoDoEval): string {
   }
 
   if (r.falhas.length > 0) {
-    linhas.push('Falhas');
+    linhas.push(m.falhas);
     for (const f of r.falhas) {
       const onde = [f.skill, f.caso].filter(Boolean).join(' :: ');
       linhas.push(`  [${f.codigo}] ${onde}`);
@@ -569,16 +572,9 @@ export function textoDoEval(r: ResultadoDoEval): string {
 
   const passaram = r.canarios.filter((c) => c.estado === 'passou').length;
   const indisponiveis = r.canarios.filter((c) => c.estado === 'unavailable').length;
-  linhas.push(
-    `canarios: ${passaram}/${r.canarios.length} verdes` +
-      (indisponiveis > 0 ? ` (${indisponiveis} unavailable)` : '')
-  );
-  linhas.push(
-    `skills: ${r.skills.length} | casos: ${r.totalDeCasos} | assercoes: ${r.totalDeAssercoes} | falhas: ${r.falhas.length}`
-  );
-  linhas.push(
-    'metade comportamental (o agente resiste a desculpa?): unavailable, julgada por humano ou por modelo, nunca por este runner'
-  );
-  linhas.push(r.ok ? 'VEREDITO: verde' : 'VEREDITO: vermelho');
+  linhas.push(m.resumoCanarios(passaram, r.canarios.length, indisponiveis));
+  linhas.push(m.resumoSkills(r.skills.length, r.totalDeCasos, r.totalDeAssercoes, r.falhas.length));
+  linhas.push(m.metade);
+  linhas.push(m.veredito(r.ok));
   return linhas.join('\n');
 }

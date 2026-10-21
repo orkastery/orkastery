@@ -84,6 +84,12 @@ import { ADAPTER_EN, ADAPTER_PT_BR } from './locale-adapter';
 import { PROMPTS_EN, PROMPTS_PT_BR } from './locale-prompts';
 import { CONHECIMENTO_EN, CONHECIMENTO_PT_BR } from './locale-conhecimento';
 import { FORJA_EN, FORJA_PT_BR } from './locale-forja';
+import { SETUP_EN, SETUP_PT_BR } from './locale-setup';
+import { PROJETOS_EN, PROJETOS_PT_BR } from './locale-projetos';
+import { OPERACAO_RESTANTE_EN, OPERACAO_RESTANTE_PT_BR } from './locale-operacao-restante';
+import { CONDUCAO_EN, CONDUCAO_PT_BR } from './locale-conducao';
+import { GRAFO_EN, GRAFO_PT_BR } from './locale-grafo';
+import { AUDIT_EN, AUDIT_PT_BR } from './locale-audit';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
@@ -100,7 +106,9 @@ export const LOCALE_PADRAO: Locale = 'pt-BR';
 export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboarding show', 'onboarding set', 'onboarding reset',
   'onboarding ?', 'experiencia show', 'experiencia ?', 'thread new', 'thread status', 'thread ?',
   'phase list', 'phase run', 'phase ?', 'verify', 'ship', 'ship registrar-pr', 'retry plan', 'retry run',
-  'master', 'master aceitar-omissao', 'master pedir', 'pulse', 'roadmap status', 'docs init',
+  'retry policy', 'retry parse', 'retry list', 'retry resume', 'retry cancel', 'retry ?',
+  'master', 'master <thread>', 'master aceitar-omissao', 'master pedir', 'master classes', 'master batch',
+  'pulse', 'roadmap status', 'docs init',
   // F3b (D1): o resto do CLI, na ordem do pedido.
   'thread list', 'thread close', 'thread entrega', 'worktree ensure', 'worktree sync', 'worktree audit', 'worktree release', 'worktree ?',
   'claims add', 'claims conferir', 'claims verificar', 'claims retirar', 'claims ausente', 'claims list', 'claims ?',
@@ -113,7 +121,25 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'docs verificar', 'docs sincronizar', 'docs ?',
   'adapter list', 'adapter show', 'adapter install', 'adapter ?',
   'prompt list', 'prompt lint', 'prompt render', 'prompt ?',
-  'conhecimento listar', 'conhecimento mostrar', 'conhecimento colecoes', 'conhecimento verificar', 'conhecimento ?', 'security-scan'];
+  'conhecimento listar', 'conhecimento mostrar', 'conhecimento colecoes', 'conhecimento verificar', 'conhecimento ?', 'security-scan',
+  // F3d: familias restantes, acrescentadas somente quando a familia inteira entra no catalogo.
+  'modos', 'ciclos', 'setup', 'projetos', 'pulse cadencia', 'pulse responder', 'ledger',
+  'portfolio', 'creation', 'objective', 'ci',
+  'sessions watch', 'sessions event', 'sessions list', 'sessions limpar-fantasmas', 'sessions hitl',
+  'sessions request', 'sessions answer', 'sessions reconcile', 'sessions supersede', 'sessions adopt',
+  'sessions logs', 'sessions stop', 'sessions attach', 'sessions ?',
+  'gate context', 'gate request', 'gate answer', 'gate next', 'gate approve', 'gate ?',
+  'fix open', 'fix list', 'fix reverify', 'fix ?', 'handoff export', 'handoff recall', 'handoff ?', 'recall',
+  'lease list', 'lease acquire', 'lease take', 'lease release', 'lease ?',
+  'board list', 'board plan', 'board plano', 'board reap', 'board ?',
+  'orquestracao status', 'orquestracao ?', 'monitor', 'licoes', 'demo',
+  'fabrica list', 'fabrica publicar', 'fabrica entrar', 'fabrica sair', 'fabrica batida', 'fabrica ?', 'eval',
+  'memory status', 'memory inventory', 'memory migrate', 'memory sync', 'memory search', 'memory index', 'memory ?',
+  'mcp install', 'conducao status', 'conducao assumir', 'conducao atualizar', 'conducao autorizar',
+  'conducao autorizacao', 'conducao batida', 'conducao sentinela', 'conducao ?', 'grafo',
+  'audit packs', 'audit pack', 'audit lint', 'audit run', 'audit list', 'audit show', 'audit prompt',
+  'audit ingest', 'audit finding', 'audit achado', 'audit verify', 'audit report', 'audit relatorio',
+  'audit divida', 'audit board', 'audit surface', 'audit superficie', 'audit ?'];
 
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
@@ -133,6 +159,19 @@ const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonl
   ['adapter', { padrao: 'list', conhecidos: ['list', 'show', 'install'] }],
   ['prompt', { padrao: 'list', conhecidos: ['list', 'lint', 'render'] }],
   ['conhecimento', { padrao: 'listar', conhecidos: ['listar', 'mostrar', 'colecoes', 'verificar'] }],
+  ['sessions', { padrao: 'list', conhecidos: ['watch', 'event', 'list', 'limpar-fantasmas', 'hitl', 'request', 'answer',
+    'reconcile', 'supersede', 'adopt', 'logs', 'stop', 'attach'] }],
+  ['gate', { padrao: null, conhecidos: ['context', 'request', 'answer', 'next', 'approve'] }],
+  ['fix', { padrao: null, conhecidos: ['open', 'list', 'reverify'] }],
+  ['handoff', { padrao: null, conhecidos: ['export', 'recall'] }],
+  ['lease', { padrao: 'list', conhecidos: ['list', 'acquire', 'take', 'release'] }],
+  ['board', { padrao: 'list', conhecidos: ['list', 'plan', 'plano', 'reap'] }],
+  ['orquestracao', { padrao: 'status', conhecidos: ['status'] }],
+  ['fabrica', { padrao: 'list', conhecidos: ['list', 'publicar', 'entrar', 'sair', 'batida'] }],
+  ['memory', { padrao: 'status', conhecidos: ['status', 'inventory', 'migrate', 'sync', 'search', 'index'] }],
+  ['mcp', { padrao: null, conhecidos: ['install', 'serve'] }],
+  ['conducao', { padrao: null, conhecidos: ['status', 'assumir', 'atualizar', 'autorizar', 'autorizacao', 'batida', 'sentinela'] }],
+  ['audit', { padrao: 'packs', conhecidos: ['packs', 'pack', 'lint', 'run', 'list', 'show', 'prompt', 'ingest', 'finding', 'achado', 'verify', 'report', 'relatorio', 'divida', 'board', 'surface', 'superficie'] }],
 ]);
 
 /** A entrada de `COMANDOS_COM_LOCALE` que a linha de comando pede, com o subcomando padrao de cada um. */
@@ -543,7 +582,153 @@ const PT_BR = {
   adapter: ADAPTER_PT_BR,
   prompts: PROMPTS_PT_BR,
   conhecimento: CONHECIMENTO_PT_BR,
+  conducao: CONDUCAO_PT_BR,
+  grafo: GRAFO_PT_BR,
+  audit: AUDIT_PT_BR,
   forja: FORJA_PT_BR,
+  operacao: {
+    restante: OPERACAO_RESTANTE_PT_BR,
+    modos: {
+      titulo: 'Modos de conducao (a #TAG vai no proprio pedido ao orquestrador)',
+      cabecalho: ['#TAG', 'BLOCOS', 'PAUSAS', 'CICLO'] as readonly string[],
+      marcaDaPausa: '* = bloco que pausa e espera veredito humano',
+      detalhe: 'Detalhe por modo:',
+      slug: 'slug das sessoes',
+      pausas: 'pausas',
+      nenhuma: 'nenhuma',
+      uso: 'uso',
+      pausaSobre: {
+        objetivo: 'objetivo', plano: 'plano', implementacao: 'implementacao', evidencias: 'evidencias',
+        push: 'push', score: 'score', premissas: 'premissas',
+        'evidencias, com autorizacao antecipada de push': 'evidencias, com autorizacao antecipada de push',
+      } as Record<string, string>,
+      recomendado: {
+        classic: 'O padrao: premissas delicadas com entrega confiavel',
+        maestro: 'Solucoes claras e ageis, sem muitos riscos ou tradeoffs',
+        auto: 'Solucoes menores, docs, estudos, pesquisas, configuracoes, auditorias, migracoes',
+        fast: 'Pedido pequeno e claro, de minutos: uma fase so (GO), sem cerimonia; o push pede autorizacao',
+      } as Record<string, string>,
+      regra: 'REGRA CENTRAL: o modo afrouxa a pausa, NUNCA a verificacao.',
+      migracao: {
+        nada: 'Nada a migrar: nenhum modo aposentado na configuracao deste projeto.',
+        simulacao: 'Simulacao (--dry-run), nada foi gravado.',
+        aplicada: 'Migracao aplicada.',
+        de: 'de', para: 'para', backup: 'backup',
+        historico: 'Nenhum historico foi tocado: thread, ledger e recibo em modo aposentado ficam como estao.',
+      },
+    },
+    ciclos: {
+      titulo: 'Variantes de ciclo (`ork thread new --ciclo <variante>`)',
+      descricoes: {
+        greenfield: 'Comeco do zero: worktree isolada obrigatoria, partindo da base do manifesto',
+        'merge-branch': 'Parte de uma branch que ja existe (`--branch`), sem criar branch nova',
+        'goal-plan': 'Funde GOAL e PLAN num bloco so: uma pausa a menos quando o modo os separava',
+        gap: 'Analise de lacuna: sem GO e sem SHIP, a lacuna e publicada como lacuna',
+        'feature-xl-faseada': 'Feature grande em fatias: o PLAN se compromete com N fatias verificaveis',
+      } as Record<string, string>,
+      worktree: 'worktree isolada',
+      exige: 'exige', nada: 'nada', muda: 'muda os blocos do modo', sim: 'sim', nao: 'nao',
+      fecho: 'A variante muda como a thread NASCE. Verificacao e gates nao mudam.',
+    },
+    pulseCadencia: {
+      umaTag: 'pulse cadencia: uma tag por vez',
+      desconhecida: (tag: string, aceitas: string) => `pulse cadencia: tag desconhecida "${tag}"; use ${aceitas}`,
+      trocaSemAutor: 'pulse.cadencia: informe quem trocou a cadencia',
+      desconhecidaInterna: (tag: string) => `pulse.cadencia: tag desconhecida ${tag}`,
+      descricoes: {
+        '#OrkPulseOff': 'de 8 em 8 horas, as 08h, 16h e 00h', '#OrkPulseOn': 'de 2 em 2 horas',
+        '#OrkPulseOn-15m': 'de 15 em 15 minutos', '#OrkPulseOn-30m': 'de 30 em 30 minutos',
+        '#OrkPulseOn-60m': 'de hora em hora',
+      } as Record<string, string>,
+      texto: (descricao: string, tag: string, proxima: string) =>
+        `Pulse ${descricao} (${tag}). Pergunta para você continua saindo na hora. Próximo resumo com novidade a partir de ${proxima}.`,
+      trocada: (por: string, canal: string, quando: string) => `Trocada por ${por} (${canal}) em ${quando}.`,
+      padrao: 'Nenhuma tag gravada: vale a cadência padrão.',
+      responderUso: 'pulse responder exige --resposta-stdin e o envelope do ingresso autenticado',
+      responderFormato: 'pulse responder: --formato telegram|terminal',
+    },
+    ledger: {
+      usoStats: 'uso: ork ledger stats --desde 7d [--ate ISO] [--thread T] [--modo M] [--runtime R] [--json]',
+      usoEstimate: 'uso: ork ledger estimate <thread-id> --sem-ia H --ia-sem-ork H --por Q --metodo M --premissas P [--incerteza I]',
+      uso: 'uso: ork ledger stats|estimate ...',
+      estimativa: (thread: string, semIa: number, ia: number) =>
+        `Estimativa PLAN registrada em ${thread}: sem IA ${semIa} h; IA sem Orkastery ${ia} h.`,
+      periodo: (desde: string, ate: string, intervalo: string) => `Ledger stats  ${desde} ate ${ate} ${intervalo}`,
+      sessoes: (threads: number, concluidas: number, despachos: number) =>
+        `  threads/sessoes  ${threads} / ${concluidas} concluidas (${despachos} despachos)`,
+      throughput: (ships: number, retries: number) => `  throughput       ${ships} ship(s); ${retries} retry(ies)`,
+      execucao: (horas: string, medidas: number, ausentes: number) =>
+        `  execucao         ${horas} h (${medidas} medidas; ${ausentes} ausentes)`,
+      tokens: (total: number, input: number, cached: number, output: number) =>
+        `  tokens           ${total} total; input ${input} (cached ${cached}); output ${output}`,
+      semCobertura: 'sem cobertura',
+      // GO-FIX 1: o travessao da base vira parenteses nas duas linguas (o catalogo nao leva U+2014).
+      custo: (valor: string) => `  custo referencia ${valor} (estimativa por tarifa publica, nao gasto/fatura)`,
+      espera: (horas: string, abertas: number) => `  espera humana    ${horas} h; ${abertas} aberta(s)`,
+      semResposta: 'sem resposta medida',
+      metaDentro: ' (dentro da meta de 5 min)', metaFora: ' (acima da meta de 5 min)',
+      hitl: (pedidos: number, horas: string, mediana: string, meta: string, abertas: number, fora: number) =>
+        `  HITL de conducao ${pedidos} pergunta(s); parado ${horas} h; mediana ${mediana}${meta}; ${abertas} aberta(s); texto fora da excecao ${fora}`,
+      riscos: (total: number) => `  riscos evitados  ${total} gate(s) preventivo(s)`,
+      estimativas: (total: number) => `  estimativas PLAN ${total} amostra(s)`,
+      cobertura: (texto: string) => `  cobertura         ${texto}`,
+      observacao: (texto: string) => texto,
+    },
+    produto: {
+      portfolio: {
+        opcaoAposentada: (opcao: string) => `portfolio.opcao-aposentada: --${opcao} era do Objective Envelope, aposentado na I-43, e o\n` +
+          '  portfolio show nunca a leu. As duas vigas do envelope viraram propriedade de thread comum:\n' +
+          '    ork thread new "<nome>" --modo <MODO> --exige-runtime-diferente\n' +
+          '        o CHECK precisa de runtime que o GO nao usou\n' +
+          '    ork thread new "<nome>" --modo <MODO> --done "<criterio> :: <comando>"\n' +
+          '        criterio de pronto EXECUTAVEL, que vira claim e roda no ork verify',
+        usoInspect: 'uso: ork portfolio inspect <id> --json',
+        tipo: 'tipo deve ser product, project ou initiative',
+        vazio: 'Portfólio vazio.',
+        usoShow: 'uso: ork portfolio show <id>',
+        naoEncontrada: (id: string) => `entidade ${id} não encontrada`,
+        estado: (id: string, titulo: string, estado: string) => `${id}\n${titulo}\nEstado: ${estado}`,
+        usoCreate: 'uso: ork portfolio create <product|project|initiative> <id> --title T [--parent ID]',
+        desconhecido: (sub: string) => `subcomando desconhecido: portfolio ${sub}`,
+      },
+      creation: {
+        identidade: 'creation.identity: payload não escolhe principal',
+        usoStart: 'uso: ork creation start --input-file F --json',
+        arquivoGrande: 'creation.input: arquivo excede limite',
+        exigeId: 'creation exige id',
+        versao: 'creation exige --expected-version inteiro positivo',
+        desconhecido: 'subcomando creation desconhecido',
+      },
+      objective: (sub: string) =>
+        `objective.aposentado: o Objective Envelope saiu do produto na I-43 (subcomando "${sub}").\n` +
+        '  Ele descrevia um gate que nao bloqueava nada: das 137 threads do projeto, zero\n' +
+        '  tinham creationOrigin, que era a unica via pela qual o despacho o consultava.\n' +
+        '  As duas vigas que ele guardava viraram propriedade de thread comum:\n' +
+        '    ork thread new "<nome>" --modo <MODO> --exige-runtime-diferente\n' +
+        '        o CHECK precisa de runtime que o GO nao usou\n' +
+        '    ork thread new "<nome>" --modo <MODO> --done "<criterio> :: <comando>"\n' +
+        '        criterio de pronto EXECUTAVEL, que vira claim e roda no ork verify\n' +
+        '  Os envelopes ja gravados continuam em .orkastery/objectives, intocados.',
+      ci: {
+        usoPrepare: 'uso: ork ci prepare <thread-id>', aviso: (linha: string) => `AVISO: ${linha}`,
+        bundle: (arquivo: string) => `Bundle de CI: ${arquivo}`,
+        usoRun: 'uso: ork ci run <thread-id> [--json] | ork ci run --bundle <arquivo> | ork ci run --branch <branch>',
+        resultado: (ok: boolean, detalhe: string) => `${ok ? 'CI APROVADO' : 'CI REPROVADO'}: ${detalhe}`,
+        sha: 'erro: ci status: --sha exige o sha completo, de 40 caracteres hexadecimais minusculos ' +
+          '(git rev-parse HEAD); o check e consultado no commit exato, nunca por ref nem prefixo',
+        usoStatus: 'uso: ork ci status --sha <sha de 40 caracteres> [--remoto origin]',
+        status: (ok: boolean, detalhe: string) => `${ok ? 'CI VERDE' : 'CI NÃO LIBEROU'}: ${detalhe}`,
+        desconhecido: (sub: string) => `subcomando desconhecido: ci ${sub}`,
+        // GO-FIX 1: o lint do bundle nasce em pt-BR, que e o que vai ao ledger, e a impressao o remonta no locale do comando.
+        anteriorAoLint: (linha: string) => `${linha} (claim anterior ao lint: so aviso)`,
+        worktreeSumiu: (worktree: string) => `a worktree ${worktree} da thread nao existe mais; o bundle vai para a raiz do projeto`,
+        lintRecusado: (recusas: string) =>
+          `claims.lint: o bundle nao foi gerado; retire a claim e registre de novo com o comando focado:\n  ${recusas}`,
+      },
+    },
+  },
+  setup: SETUP_PT_BR,
+  projetos: PROJETOS_PT_BR,
   init: {
     foraDoRepositorio: (dir: string) => `init.fora-do-repositorio: ${dir} não está num repositório git; nada foi criado. ` +
       'Entre no repositório do projeto (ou crie um com git init e o primeiro commit) e rode ork init de novo.',
@@ -901,7 +1086,152 @@ const EN: Mensagens = {
   adapter: ADAPTER_EN,
   prompts: PROMPTS_EN,
   conhecimento: CONHECIMENTO_EN,
+  conducao: CONDUCAO_EN,
+  grafo: GRAFO_EN,
+  audit: AUDIT_EN,
   forja: FORJA_EN,
+  operacao: {
+    restante: OPERACAO_RESTANTE_EN,
+    modos: {
+      titulo: 'Conduction modes (put the #TAG in the request to the orchestrator)',
+      cabecalho: ['#TAG', 'BLOCKS', 'PAUSES', 'CYCLE'],
+      marcaDaPausa: '* = block that pauses and waits for a human verdict',
+      detalhe: 'Details by mode:',
+      slug: 'session slugs',
+      pausas: 'pauses',
+      nenhuma: 'none',
+      uso: 'use',
+      pausaSobre: {
+        objetivo: 'goal', plano: 'plan', implementacao: 'implementation', evidencias: 'evidence',
+        push: 'push', score: 'score', premissas: 'assumptions',
+        'evidencias, com autorizacao antecipada de push': 'evidence, with push authorized in advance',
+      },
+      recomendado: {
+        classic: 'The default: careful assumptions with reliable delivery',
+        maestro: 'Clear, agile solutions without many risks or tradeoffs',
+        auto: 'Smaller solutions, docs, studies, research, configuration, audits, and migrations',
+        fast: 'A small, clear request measured in minutes: GO only, no ceremony; push still requires authorization',
+      },
+      regra: 'CENTRAL RULE: the mode loosens pauses, NEVER verification.',
+      migracao: {
+        nada: 'Nothing to migrate: this project configuration has no retired mode.',
+        simulacao: 'Simulation (`--dry-run`): nothing was written.',
+        aplicada: 'Migration applied.',
+        de: 'from', para: 'to', backup: 'backup',
+        historico: 'No history was changed: threads, ledgers, and receipts in a retired mode stay as they are.',
+      },
+    },
+    ciclos: {
+      titulo: 'Cycle variants (`ork thread new --ciclo <variant>`)',
+      descricoes: {
+        greenfield: 'Start from scratch: requires an isolated worktree based on the manifest base',
+        'merge-branch': 'Start from an existing branch (`--branch`) without creating a new branch',
+        'goal-plan': 'Merge GOAL and PLAN into one block: one less pause when the mode separates them',
+        gap: 'Gap analysis: no GO or SHIP; publish the gap as a gap',
+        'feature-xl-faseada': 'Large feature in slices: PLAN commits to N verifiable slices',
+      },
+      worktree: 'isolated worktree',
+      exige: 'requires', nada: 'nothing', muda: 'changes the mode blocks', sim: 'yes', nao: 'no',
+      fecho: 'The variant changes how the thread STARTS. Verification and gates do not change.',
+    },
+    pulseCadencia: {
+      umaTag: 'pulse cadencia: provide one tag at a time',
+      desconhecida: (tag, allowed) => `pulse cadencia: unknown tag "${tag}"; use ${allowed}`,
+      trocaSemAutor: 'pulse.cadencia: provide who changed the cadence',
+      desconhecidaInterna: (tag) => `pulse.cadencia: unknown tag ${tag}`,
+      descricoes: {
+        '#OrkPulseOff': 'every 8 hours, at 08:00, 16:00, and 00:00', '#OrkPulseOn': 'every 2 hours',
+        '#OrkPulseOn-15m': 'every 15 minutes', '#OrkPulseOn-30m': 'every 30 minutes',
+        '#OrkPulseOn-60m': 'hourly',
+      },
+      texto: (description, tag, next) =>
+        `Pulse ${description} (${tag}). Questions for you still go out immediately. Next summary with news starts at ${next}.`,
+      trocada: (by, channel, when) => `Changed by ${by} (${channel}) at ${when}.`,
+      padrao: 'No saved tag: the default cadence applies.',
+      responderUso: 'pulse responder requires --resposta-stdin and the authenticated ingress envelope',
+      responderFormato: 'pulse responder: --formato telegram|terminal',
+    },
+    ledger: {
+      usoStats: 'usage: ork ledger stats --desde 7d [--ate ISO] [--thread T] [--modo M] [--runtime R] [--json]',
+      usoEstimate: 'usage: ork ledger estimate <thread-id> --sem-ia H --ia-sem-ork H --por Q --metodo M --premissas P [--incerteza I]',
+      uso: 'usage: ork ledger stats|estimate ...',
+      estimativa: (thread, noAi, aiWithoutOrk) =>
+        `PLAN estimate recorded in ${thread}: no AI ${noAi} h; AI without Orkastery ${aiWithoutOrk} h.`,
+      periodo: (from, to, interval) => `Ledger stats  ${from} to ${to} ${interval}`,
+      sessoes: (threads, completed, dispatches) =>
+        `  threads/sessions ${threads} / ${completed} completed (${dispatches} dispatches)`,
+      throughput: (ships, retries) => `  throughput       ${ships} ship(s); ${retries} retry(ies)`,
+      execucao: (hours, measured, missing) => `  execution        ${hours} h (${measured} measured; ${missing} missing)`,
+      tokens: (total, input, cached, output) => `  tokens           ${total} total; input ${input} (cached ${cached}); output ${output}`,
+      semCobertura: 'no coverage',
+      custo: (value) => `  reference cost   ${value} (estimate from public rates, not spend or billing)`,
+      espera: (hours, open) => `  human wait       ${hours} h; ${open} open`,
+      semResposta: 'no measured response',
+      metaDentro: ' (within the 5 min target)', metaFora: ' (above the 5 min target)',
+      hitl: (requests, hours, median, target, open, outside) =>
+        `  conduction HITL ${requests} question(s); stopped ${hours} h; median ${median}${target}; ${open} open; text outside exception ${outside}`,
+      riscos: (total) => `  risks prevented  ${total} preventive gate(s)`,
+      estimativas: (total) => `  PLAN estimates   ${total} sample(s)`,
+      cobertura: (text) => `  coverage         ${text}`,
+      observacao: (text) => text
+        .replace(/sessao\(oes\) sem medicao de tokens$/, 'session(s) without token measurement')
+        .replace(/sessao\(oes\) com tokens, mas sem tarifa de referencia$/, 'session(s) with tokens but no reference rate')
+        .replace(/linha\(s\) de ledger corrompida\(s\) ignorada\(s\)$/, 'corrupt ledger line(s) ignored'),
+    },
+    produto: {
+      portfolio: {
+        opcaoAposentada: (option) => `portfolio.opcao-aposentada: --${option} belonged to the Objective Envelope, retired in I-43, and\n` +
+          '  portfolio show never read it. The envelope\'s two beams became regular thread properties:\n' +
+          '    ork thread new "<name>" --modo <MODE> --exige-runtime-diferente\n' +
+          '        CHECK requires a runtime that GO did not use\n' +
+          '    ork thread new "<name>" --modo <MODE> --done "<criterion> :: <command>"\n' +
+          '        an EXECUTABLE done criterion that becomes a claim and runs in ork verify',
+        usoInspect: 'usage: ork portfolio inspect <id> --json',
+        tipo: 'type must be product, project, or initiative',
+        vazio: 'Portfolio is empty.',
+        usoShow: 'usage: ork portfolio show <id>',
+        naoEncontrada: (id) => `entity ${id} not found`,
+        estado: (id, title, status) => `${id}\n${title}\nStatus: ${status}`,
+        usoCreate: 'usage: ork portfolio create <product|project|initiative> <id> --title T [--parent ID]',
+        desconhecido: (sub) => `unknown subcommand: portfolio ${sub}`,
+      },
+      creation: {
+        identidade: 'creation.identity: payload cannot choose the principal',
+        usoStart: 'usage: ork creation start --input-file F --json',
+        arquivoGrande: 'creation.input: file exceeds the limit',
+        exigeId: 'creation requires an id',
+        versao: 'creation requires a positive integer --expected-version',
+        desconhecido: 'unknown creation subcommand',
+      },
+      objective: (sub) =>
+        `objective.aposentado: the Objective Envelope left the product in I-43 (subcommand "${sub}").\n` +
+        '  It described a gate that blocked nothing: of the project\'s 137 threads, zero\n' +
+        '  had creationOrigin, the only path through which dispatch consulted it.\n' +
+        '  Its two beams became regular thread properties:\n' +
+        '    ork thread new "<name>" --modo <MODE> --exige-runtime-diferente\n' +
+        '        CHECK requires a runtime that GO did not use\n' +
+        '    ork thread new "<name>" --modo <MODE> --done "<criterion> :: <command>"\n' +
+        '        an EXECUTABLE done criterion that becomes a claim and runs in ork verify\n' +
+        '  Existing envelopes remain untouched in .orkastery/objectives.',
+      ci: {
+        usoPrepare: 'usage: ork ci prepare <thread-id>', aviso: (line) => `WARNING: ${line}`,
+        bundle: (file) => `CI bundle: ${file}`,
+        usoRun: 'usage: ork ci run <thread-id> [--json] | ork ci run --bundle <file> | ork ci run --branch <branch>',
+        resultado: (ok, detail) => `${ok ? 'CI PASSED' : 'CI FAILED'}: ${detail}`,
+        sha: 'error: ci status: --sha requires the full 40-character lowercase hexadecimal SHA ' +
+          '(git rev-parse HEAD); the check is queried at the exact commit, never by ref or prefix',
+        usoStatus: 'usage: ork ci status --sha <40-character sha> [--remoto origin]',
+        status: (ok, detail) => `${ok ? 'CI GREEN' : 'CI NOT CLEARED'}: ${detail}`,
+        desconhecido: (sub) => `unknown subcommand: ci ${sub}`,
+        anteriorAoLint: (line) => `${line} (claim predates the lint: warning only)`,
+        worktreeSumiu: (worktree) => `the thread worktree ${worktree} no longer exists; the bundle goes to the project root`,
+        lintRecusado: (refusals) =>
+          `claims.lint: the bundle was not generated; withdraw the claim and register it again with the focused command:\n  ${refusals}`,
+      },
+    },
+  },
+  setup: SETUP_EN,
+  projetos: PROJETOS_EN,
   init: {
     foraDoRepositorio: (dir) => `init.fora-do-repositorio: ${dir} is not inside a git repository; nothing was created. ` +
       'Enter the project repository (or create one with `git init` and a first commit) and run `ork init` again.',

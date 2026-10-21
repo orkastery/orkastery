@@ -408,24 +408,75 @@ export const NETWORK_EN: MensagensDeNetwork = {
     projetos: (projetos) => `projects: ${projetos}`,
     nenhumProjeto: 'no project declared here',
     lacuna: (tipo, alvo, detalhe, correcao) => `• ${tipo}${alvo}: ${detalhe}. What to do: ${correcao}.`,
-    lacunaDetalhe: (tipo, idDaParte, alvo) => {
+    lacunaDetalhe: (tipo, idDaParte, alvo, detalhe) => {
       const alvoSeguro = alvo ? ` for ${alvo}` : '';
       const parte = PARTES_EN[idDaParte] ?? idDaParte;
-      if (tipo === 'maquina.sem-batida') return `the machine has no recent heartbeat${alvoSeguro}`;
-      if (tipo === 'maquina.sem-fabrica') return `the machine is in the person network but its project factory snapshot was not read${alvoSeguro}`;
-      if (tipo === 'rede.sem-projeto') return 'no project source was known to this query';
-      if (tipo.includes('sem-branch') || tipo.includes('sem-base')) return `the required branch does not exist${alvoSeguro}`;
-      if (tipo.includes('sem-leitura') || tipo === 'forja.nao-consultada') return `the ${parte} source was not read${alvoSeguro}`;
+      const texto = detalhe.toLowerCase();
+      if (tipo === 'rede.sem-projeto') return texto.includes('registro está vazio')
+        ? 'no project is known on this machine: the registry is empty, and the host directory does not count as a project'
+        : 'no project is known on this machine: there is no manifest in the current directory and no registry entry';
+      if (tipo === 'registro.invalido') {
+        if (texto.includes('não é um json')) return 'the project registry is not readable JSON';
+        if (texto.includes('não está no contrato')) return 'the project registry does not follow the `ork.projetos/v1` contract';
+        if (texto.includes('não traz a lista')) return 'the project registry has no project list';
+        if (texto.includes('sem clone')) return `a project registry entry has no clone on this machine and no recognized forge remote${alvoSeguro}`;
+        return `the project registry entry is invalid${alvoSeguro}`;
+      }
+      if (tipo === 'projeto.remoto-invalido') return `the manifest's fabrica.remoto is not a Git remote name, so Git read nothing${alvoSeguro}`;
+      if (tipo === 'projeto.base-invalida') return `the manifest's worktree.base_branch is not a branch name, so Git read nothing${alvoSeguro}`;
+      if (tipo === 'projeto.sem-clone') return `the project has no clone on this machine; it was read from the forge in read-only mode${alvoSeguro}`;
+      if (tipo === 'projeto.sem-fonte') return `the project has neither a clone on this machine nor a recognized forge remote${alvoSeguro}`;
+      if (tipo === 'projeto.sem-leitura') return `reading the project stopped; its other sources were not read${alvoSeguro}`;
+      if (tipo === 'roadmap.sem-base') return `the configured base branch does not exist${alvoSeguro}`;
+      if (tipo === 'reservas.sem-branch') return `no reservation has been made yet: the reservations branch does not exist${alvoSeguro}`;
+      if (tipo === 'fabrica.sem-branch') return `no machine has published yet: the factory branch does not exist${alvoSeguro}`;
+      if (tipo === 'roadmap.sem-itens') return `no roadmap item page exists in ${DIR_ROADMAP_LITERAL} on the selected base${alvoSeguro}`;
+      if (tipo === 'roadmap.pagina-invalida') return texto.includes('binária')
+        ? `the roadmap page is binary or too large to read and was left out${alvoSeguro}`
+        : `the roadmap page is invalid and was left out${alvoSeguro}`;
+      if (tipo === 'roadmap.entregas-parciais') return texto.includes('começo do dia')
+        ? `commits since the start of the project owner's day were not read, so "Delivered today" may be incomplete${alvoSeguro}`
+        : `the base has more commits today than the forge returned, so "Delivered today" may be incomplete${alvoSeguro}`;
+      if (tipo === 'reserva.invalida') return `the reservation is unreadable or follows another contract and was left out${alvoSeguro}`;
+      if (tipo === 'retrato.invalido') return `the machine snapshot is unreadable or follows another contract and was left out${alvoSeguro}`;
+      if (tipo === 'maquina.sem-batida') return `the machine has no recent heartbeat, so its threads may have moved${alvoSeguro}`;
+      if (tipo === 'maquina.sem-fabrica') return `the machine is in the person network and declares this project, but has no factory snapshot; its project threads were not read${alvoSeguro}`;
+      if (tipo === 'estado-local.sem-leitura') return texto.includes('threads legíveis')
+        ? `the complete local snapshot could not be built; readable threads were included and unreadable threads were left out${alvoSeguro}`
+        : `the local state could not be read; the published snapshot is used when available${alvoSeguro}`;
+      if (tipo === 'forja.nao-consultada') return `the forge was not queried because of \`--sem-remoto\`, and this machine has no clone${alvoSeguro}`;
+      if (tipo === 'forja.leitura-parcial') return `the forge limited the listing to 100 files, so the rest of the ${parte} source was not read${alvoSeguro}`;
+      if (tipo === 'roadmap.sem-leitura' || tipo === 'reservas.sem-leitura' || tipo === 'fabrica.sem-leitura') {
+        if (texto.includes('última cópia')) return `no fresh read of the ${parte} source; using this machine's last copy${alvoSeguro}`;
+        if (texto.includes('não tem cópia')) return `the ${parte} source was not read, and this machine has no local copy${alvoSeguro}`;
+        return `the ${parte} source was not read${alvoSeguro}`;
+      }
+      if (tipo.startsWith('forja.')) return `the forge could not read the ${parte} source${alvoSeguro}`;
+      if (tipo.startsWith('rede.')) return `the person network could not read the ${parte} source${alvoSeguro}`;
       if (tipo.includes('invalida') || tipo.includes('invalido')) return `the ${parte} source is invalid${alvoSeguro}`;
-      if (tipo.includes('sem-itens')) return `no roadmap item page was read${alvoSeguro}`;
-      if (tipo.includes('parcial')) return `the ${parte} source was read only partially${alvoSeguro}`;
       return `the ${parte} source has a typed query gap${alvoSeguro}`;
     },
     lacunaCorrecao: (tipo) => {
       if (tipo === 'maquina.sem-batida') return 'check that machine and its pulse heartbeat';
       if (tipo === 'maquina.sem-fabrica') return 'run `ork fabrica entrar` in the project clone on that machine';
       if (tipo === 'rede.sem-projeto') return 'register the clone or request the project by forge reference';
+      if (tipo === 'registro.invalido') return 'inspect the registry with `ork projetos`, or request the project with `--projeto`';
+      if (tipo === 'projeto.remoto-invalido') return 'fix fabrica.remoto in `orkastery.yaml` (default: origin)';
+      if (tipo === 'projeto.base-invalida' || tipo === 'roadmap.sem-base') return 'fix worktree.base_branch in `orkastery.yaml` (default: main)';
+      if (tipo === 'projeto.sem-clone') return 'work in a project clone to include this machine\'s threads';
+      if (tipo === 'projeto.sem-fonte') return 'request the project as `github:owner/repo` or `gitlab:group/repo`';
+      if (tipo === 'roadmap.sem-itens') return 'initialize roadmap as code with `ork docs init`';
+      if (tipo === 'roadmap.pagina-invalida') return 'run `ork docs verificar` in the project and fix the named page';
+      if (tipo === 'roadmap.entregas-parciais') return 'check today\'s deliveries in the project clone';
+      if (tipo === 'reservas.sem-branch') return 'the first `ork roadmap pegar RM-NNN` creates the branch';
+      if (tipo === 'fabrica.sem-branch') return 'run `ork fabrica entrar` on each machine that should publish';
+      if (tipo === 'reserva.invalida') return 'inspect the ork/roadmap-reservas branch';
+      if (tipo === 'retrato.invalido') return 'republish the machine with `ork fabrica publicar --forcar`';
+      if (tipo === 'estado-local.sem-leitura') return 'inspect this machine\'s threads with `ork thread list` and fix the unreadable thread.json';
+      if (tipo === 'forja.nao-consultada') return 'run again without `--sem-remoto`';
+      if (tipo === 'forja.leitura-parcial') return 'read through the project clone, which has no 100-file limit';
       if (tipo.startsWith('forja.') || tipo.startsWith('rede.')) return 'check the forge login and run `ork network status`';
+      if (tipo.endsWith('.sem-leitura')) return 'check network access and query the source again';
       return 'inspect the named source in its project and query again';
     },
   },

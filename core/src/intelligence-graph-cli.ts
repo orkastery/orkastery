@@ -25,8 +25,9 @@ import {
 } from './intelligence-graph-index';
 import { carregarAnalisadores, versoesDosAnalisadores, type VersoesDosAnalisadores } from './intelligence-graph-parsers';
 import {
-  CONSULTA_SCHEMA, ErroDeConsulta, TUDO_IGUAL, caminho, chamadores, filtrarGrafo, importadores, jsonDaResposta, prepararConsulta, textoDaResposta, vizinhos,
-  type CabecalhoDoIndice, type RespostaDeConsulta, type Sentido, type SituacaoDaFonte, type SituacaoNaArvore,
+  CONSULTA_SCHEMA, ErroDeConsulta, TEXTOS_DA_CONSULTA, TUDO_IGUAL, caminho, chamadores, filtrarGrafo, importadores, jsonDaResposta, prepararConsulta,
+  textoDaResposta, vizinhos, type CabecalhoDoIndice, type RespostaDeConsulta, type Sentido, type SituacaoDaFonte, type SituacaoNaArvore,
+  type TextosDaConsulta,
 } from './intelligence-graph-query';
 import { headsDasArvores, revisaoDaArvore } from './intelligence-graph-repo';
 import { CONTEXTO_SCHEMA, pacoteDeContexto, type EntradaDoContexto } from './intelligence-graph-contexto';
@@ -114,6 +115,112 @@ export const USO_DO_GRAFO = [
   '     ork grafo limpar [--tudo] [--json]',
 ].join('\n');
 
+/**
+ * RM-061 (F3d, GO-FIX 1): a redacao humana do `ork grafo`. A familia do grafo nao importa o catalogo de mensagens
+ * (fronteira do KG3): o pt-BR mora aqui e na consulta (`TEXTOS_DA_CONSULTA`), e o `index.ts` passa a do catalogo
+ * (`msg().grafo`), no locale do comando, em `ContextoDoCli.textos`. Um teste confere que o pt-BR do catalogo e este.
+ */
+export interface TextosDoGrafo {
+  uso: readonly string[];
+  erroUso: (motivo: string) => string;
+  motivos: {
+    semSub: string; desconhecido: (sub: string) => string; repetida: (nome: string) => string; semValor: (nome: string) => string;
+    exigeValor: (nome: string) => string; opcao: (sub: string, valor: string) => string;
+    argumentos: (sub: string, esperados: number, recebidos: number) => string; inteiro: (nome: string) => string;
+    tipo: (tipo: string, lista: string) => string; sentido: (valor: string) => string; tetoJson: string; tetoMin: string;
+    amostraExclusiva: string; estratoMin: string;
+  };
+  indexar: {
+    titulo: (repositorio: string, estado: string) => string;
+    campo: (nome: string, valor: string) => string;
+    campos: Record<'revisao' | 'chave' | 'snapshot' | 'digest' | 'conferencia' | 'nos' | 'arestas' | 'lugar' | 'motivo' | 'tempo', string>;
+    conferencia: (fontes: number, evidencias: number) => string;
+    determinismo: (ordem: string, digest: string, relatorio: string, unidades: string, igual: boolean) => string;
+    incremental: (base: string, igual: boolean) => string;
+    naoConferido: (motivo: string) => string;
+    aprovado: string;
+    semBase: string;
+  };
+  status: {
+    titulo: (head: string, arvore: string) => string; indice: (chave: string, estado: string) => string; ausente: string;
+    semAnalisadores: string; semChave: string; analisadores: (versoes: string) => string; correcao: (correcao: string) => string;
+    pasta: (dir: string, indices: number, tamanho: string) => string; semCommit: string; indisponivel: string; naoCriada: string;
+    sobras: (sobras: string) => string;
+  };
+  contexto: {
+    titulo: (thread: string, revisao: string) => string;
+    resumo: (sementes: number, total: number, arestas: number, ligacoes: number, bytes: number) => string;
+    tamanho: (bytes: number) => string; diff: (diff: string) => string; mudadas: (n: number) => string;
+    final: (truncado: boolean, arvore: string) => string;
+  };
+  amostra: {
+    titulo: (arestas: number, estratos: number, revisao: string | null) => string; vereditos: (vereditos: string) => string;
+    conferidas: (ok: number, total: number) => string; falha: (falha: string) => string; reprovado: (n: number) => string;
+    aprovado: string;
+  };
+  limpar: (removidos: number, tamanho: string) => string;
+  consulta: TextosDaConsulta;
+}
+
+export const TEXTOS_DO_GRAFO: TextosDoGrafo = {
+  uso: USO_DO_GRAFO.split('\n'),
+  erroUso: (motivo) => `grafo.uso: ${motivo}`,
+  motivos: {
+    semSub: 'falta o subcomando', desconhecido: (sub) => `subcomando desconhecido: ${sub}`,
+    repetida: (nome) => `--${nome} repetida`, semValor: (nome) => `--${nome} nao leva valor`,
+    exigeValor: (nome) => `--${nome} exige valor`, opcao: (sub, valor) => `opcao desconhecida para ${sub}: ${valor}`,
+    argumentos: (sub, esperados, recebidos) => `${sub} pede ${esperados} argumento(s), veio ${recebidos}`,
+    inteiro: (nome) => `--${nome} precisa ser inteiro`, tipo: (tipo, lista) => `--tipo desconhecido: ${tipo} (use ${lista})`,
+    sentido: (valor) => `--sentido desconhecido: ${valor}`, tetoJson: '--teto-bytes exige --json', tetoMin: '--teto-bytes precisa ser ao menos 1',
+    amostraExclusiva: '--conferir e --por-estrato nao combinam', estratoMin: '--por-estrato precisa ser ao menos 1',
+  },
+  indexar: {
+    titulo: (repositorio, estado) => `indice do grafo de ${repositorio}: ${estado}`,
+    // O rotulo ocupa 13 colunas antes do valor, como na base: 12 do nome e um espaco.
+    campo: (nome, valor) => `  ${nome.padEnd(12)} ${valor}`,
+    campos: { revisao: 'revisao', chave: 'chave', snapshot: 'snapshot', digest: 'digest', conferencia: 'conferencia',
+      nos: 'nos', arestas: 'arestas', lugar: 'lugar', motivo: 'motivo', tempo: 'tempo' },
+    conferencia: (fontes, evidencias) => `conferirFontes verificada: ${fontes} fontes e ${evidencias} evidencias contra os bytes`,
+    determinismo: (ordem, digest, relatorio, unidades, igual) =>
+      `  determinismo ${ordem}: digest ${digest}, relatorio ${relatorio}, unidades ${unidades}, ${igual ? 'igual' : 'DIFERENTE'}`,
+    incremental: (base, igual) => `  incremental  a partir do indice de ${base}: ${igual ? 'igual a completa nos quatro arquivos' : 'DIFERENTE'}`,
+    naoConferido: (motivo) => `  incremental  nao conferido: ${motivo}`,
+    aprovado: 'aprovado',
+    semBase: 'sem base',
+  },
+  status: {
+    titulo: (head, arvore) => `grafo: HEAD ${head}, arvore ${arvore}`,
+    indice: (chave, estado) => `  indice do HEAD  ${chave} ${estado}`,
+    ausente: '(ausente: rode ork grafo indexar)',
+    semAnalisadores: '(sem os analisadores nesta instalacao, nem a consulta nem o indexar rodam)',
+    semChave: '(sem a chave do indice: o erro esta na linha de baixo)',
+    analisadores: (versoes) => `  analisadores    ${versoes}`,
+    correcao: (correcao) => `  correcao        ${correcao}`,
+    pasta: (dir, indices, tamanho) => `  pasta           ${dir} (${indices} indice(s), ${tamanho})`,
+    semCommit: 'sem commit', indisponivel: 'indisponivel', naoCriada: 'ainda nao criada',
+    sobras: (sobras) => `  sobras          ${sobras}`,
+  },
+  contexto: {
+    titulo: (thread, revisao) => `Contexto ${thread} @ ${revisao}`,
+    resumo: (sementes, total, arestas, ligacoes, bytes) =>
+      `  ${sementes}/${total} sementes, ${arestas}/${ligacoes} ligacoes agregadas; ${bytes} bytes JSON`,
+    tamanho: (bytes) => `  tamanho dos arquivos no pacote (nao descoberta): ${bytes} bytes (revisao indexada); tokens: unavailable`,
+    diff: (diff) => `  diff: ${diff}`,
+    mudadas: (n) => `  ligacoes com fonte modificada na arvore: ${n}`,
+    final: (truncado, arvore) => `  truncado: ${truncado}; arvore: ${arvore}; use --json para nos e evidencias`,
+  },
+  amostra: {
+    titulo: (arestas, estratos, revisao) => `amostra: ${arestas} arestas em ${estratos} estratos, auditada na revisao ${revisao}`,
+    vereditos: (vereditos) => `  vereditos ${vereditos}`,
+    conferidas: (ok, total) => `  conferidas contra o indice do HEAD: ${ok} de ${total}`,
+    falha: (falha) => `FALHA ${falha}`,
+    reprovado: (n) => `reprovado: ${n} falha(s)`,
+    aprovado: 'aprovado',
+  },
+  limpar: (removidos, tamanho) => `grafo limpar: ${removidos} removido(s), ${tamanho}`,
+  consulta: TEXTOS_DA_CONSULTA,
+};
+
 /** KG5 (D5): a correcao das recusas de indice que a proxima indexacao resolve. */
 export const CORRECAO_DO_INDICE = 'ork grafo indexar' as const;
 /** KG5 (D5): o estado do indice do HEAD que cada recusa declara no JSON, ao lado da correcao. */
@@ -129,8 +236,12 @@ export interface ContextoDoCli extends ContextoDoIndice {
   contextoDaThread?: (id: string) => { raiz: string; head: string; entrada: EntradaDoContexto };
   /** RM-031: a versao do `ork` que roda, para a correcao do `status` sem os analisadores (o `index.ts` passa). */
   versao?: string;
+  /** RM-061 (F3d): a redacao humana no locale do comando (o `index.ts` passa a do catalogo); sem ela, o pt-BR da familia. */
+  textos?: TextosDoGrafo;
   escrever: (texto: string) => void;
 }
+
+const textosDe = (ctx: ContextoDoCli): TextosDoGrafo => ctx.textos ?? TEXTOS_DO_GRAFO;
 
 interface Especificacao { posicionais: number; bandeiras: readonly string[]; valores: readonly string[] }
 const SUBCOMANDOS: Readonly<Record<string, Especificacao>> = Object.freeze({
@@ -147,15 +258,15 @@ const SUBCOMANDOS: Readonly<Record<string, Especificacao>> = Object.freeze({
 
 interface Pedido { sub: string; posicionais: string[]; bandeiras: Set<string>; valores: Map<string, string> }
 
-function uso(motivo: string): never {
-  throw new Error(`grafo.uso: ${motivo}\n${USO_DO_GRAFO}`);
+function uso(motivo: string, t: TextosDoGrafo): never {
+  throw new Error(`${t.erroUso(motivo)}\n${t.uso.join('\n')}`);
 }
 
-export function lerPedido(argv: readonly string[]): Pedido {
+export function lerPedido(argv: readonly string[], t: TextosDoGrafo = TEXTOS_DO_GRAFO): Pedido {
   const [sub, ...resto] = argv;
-  if (!sub) uso('falta o subcomando');
+  if (!sub) uso(t.motivos.semSub, t);
   const esp = SUBCOMANDOS[sub];
-  if (!Object.prototype.hasOwnProperty.call(SUBCOMANDOS, sub) || !esp) uso(`subcomando desconhecido: ${sub}`);
+  if (!Object.prototype.hasOwnProperty.call(SUBCOMANDOS, sub) || !esp) uso(t.motivos.desconhecido(sub), t);
   const posicionais: string[] = [], bandeiras = new Set<string>(), valores = new Map<string, string>();
   for (let i = 0; i < resto.length; i++) {
     const a = resto[i];
@@ -165,49 +276,49 @@ export function lerPedido(argv: readonly string[]): Pedido {
     }
     const igual = a.indexOf('=');
     const nome = igual > 0 ? a.slice(2, igual) : a.slice(2);
-    if (bandeiras.has(nome) || valores.has(nome)) uso(`--${nome} repetida`);
+    if (bandeiras.has(nome) || valores.has(nome)) uso(t.motivos.repetida(nome), t);
     if (esp.bandeiras.includes(nome)) {
-      if (igual > 0) uso(`--${nome} nao leva valor`);
+      if (igual > 0) uso(t.motivos.semValor(nome), t);
       bandeiras.add(nome);
     } else if (esp.valores.includes(nome)) {
       const valor = igual > 0 ? a.slice(igual + 1) : resto[++i];
-      if (valor === undefined || valor === '' || (igual < 0 && valor.startsWith('--'))) uso(`--${nome} exige valor`);
+      if (valor === undefined || valor === '' || (igual < 0 && valor.startsWith('--'))) uso(t.motivos.exigeValor(nome), t);
       valores.set(nome, valor);
     } else {
-      uso(`opcao desconhecida para ${sub}: ${a}`);
+      uso(t.motivos.opcao(sub, a), t);
     }
   }
-  if (posicionais.length !== esp.posicionais) uso(`${sub} pede ${esp.posicionais} argumento(s), veio ${posicionais.length}`);
+  if (posicionais.length !== esp.posicionais) uso(t.motivos.argumentos(sub, esp.posicionais, posicionais.length), t);
   return { sub, posicionais, bandeiras, valores };
 }
 
-function inteiro(p: Pedido, nome: string): number | undefined {
+function inteiro(p: Pedido, nome: string, t: TextosDoGrafo): number | undefined {
   const v = p.valores.get(nome);
   if (v === undefined) return undefined;
-  if (!/^[0-9]{1,6}$/.test(v)) uso(`--${nome} precisa ser inteiro`);
+  if (!/^[0-9]{1,6}$/.test(v)) uso(t.motivos.inteiro(nome), t);
   return Number(v);
 }
 
-function tipos(p: Pedido): TipoDeAresta[] | undefined {
+function tipos(p: Pedido, t: TextosDoGrafo): TipoDeAresta[] | undefined {
   const v = p.valores.get('tipo');
   if (v === undefined) return undefined;
   const lista = v.split(',');
-  for (const t of lista) if (!(TIPOS_DE_ARESTA as readonly string[]).includes(t)) uso(`--tipo desconhecido: ${t} (use ${TIPOS_DE_ARESTA.join(',')})`);
+  for (const x of lista) if (!(TIPOS_DE_ARESTA as readonly string[]).includes(x)) uso(t.motivos.tipo(x, TIPOS_DE_ARESTA.join(',')), t);
   return lista as TipoDeAresta[];
 }
 
-function sentido(p: Pedido): Sentido | undefined {
+function sentido(p: Pedido, t: TextosDoGrafo): Sentido | undefined {
   const v = p.valores.get('sentido');
-  if (v !== undefined && !['entrada', 'saida', 'ambos'].includes(v)) uso(`--sentido desconhecido: ${v}`);
+  if (v !== undefined && !['entrada', 'saida', 'ambos'].includes(v)) uso(t.motivos.sentido(v), t);
   return v as Sentido | undefined;
 }
 
 /** KG5 (D4): o teto vale para o JSON, que e o que vai ao contexto de quem consulta. */
-function tetoDeBytes(p: Pedido): number | undefined {
-  const teto = inteiro(p, 'teto-bytes');
+function tetoDeBytes(p: Pedido, t: TextosDoGrafo): number | undefined {
+  const teto = inteiro(p, 'teto-bytes', t);
   if (teto === undefined) return undefined;
-  if (!p.bandeiras.has('json')) uso('--teto-bytes exige --json');
-  if (teto < 1) uso('--teto-bytes precisa ser ao menos 1');
+  if (!p.bandeiras.has('json')) uso(t.motivos.tetoJson, t);
+  if (teto < 1) uso(t.motivos.tetoMin, t);
   return teto;
 }
 
@@ -242,26 +353,23 @@ function indexar(ctx: ContextoDoCli, p: Pedido): number {
     return 0;
   }
   const m = r.manifesto;
+  const mi = textosDe(ctx).indexar;
   const linhas = [
-    `indice do grafo de ${m.repository_id}: ${r.estado}`,
-    `  revisao      ${m.revision}`,
-    `  chave        ${r.chave}`,
-    `  snapshot     ${m.snapshot_id}`,
-    `  digest       ${m.graph_digest}`,
-    `  conferencia  conferirFontes verificada: ${m.conferencia.fontes} fontes e ${m.conferencia.evidencias} evidencias contra os bytes`,
-    `  nos          ${contagem(m.contagens.nos)}`,
-    `  arestas      ${contagem(m.contagens.arestas)}`,
-    `  lugar        ${r.dir} (${mb(m.graph_bytes + m.report_bytes + m.units_bytes)})`,
+    mi.titulo(m.repository_id, r.estado), mi.campo(mi.campos.revisao, m.revision), mi.campo(mi.campos.chave, r.chave),
+    mi.campo(mi.campos.snapshot, m.snapshot_id), mi.campo(mi.campos.digest, m.graph_digest),
+    mi.campo(mi.campos.conferencia, mi.conferencia(m.conferencia.fontes, m.conferencia.evidencias)),
+    mi.campo(mi.campos.nos, contagem(m.contagens.nos)), mi.campo(mi.campos.arestas, contagem(m.contagens.arestas)),
+    mi.campo(mi.campos.lugar, `${r.dir} (${mb(m.graph_bytes + m.report_bytes + m.units_bytes)})`),
     ...linhasDaExtracao(r),
   ];
-  if (r.motivo) linhas.push(`  motivo       ${r.motivo}`);
+  if (r.motivo) linhas.push(mi.campo(mi.campos.motivo, r.motivo));
   for (const d of r.determinismo ?? []) {
-    linhas.push(`  determinismo ${d.ordem}: digest ${d.digest.slice(0, 16)}, relatorio ${d.relatorio.slice(0, 16)}, unidades ${d.unidades.slice(0, 16)}, ${d.igual ? 'igual' : 'DIFERENTE'}`);
+    linhas.push(mi.determinismo(d.ordem, d.digest.slice(0, 16), d.relatorio.slice(0, 16), d.unidades.slice(0, 16), d.igual));
   }
-  if (r.incremental) linhas.push(`  incremental  a partir do indice de ${r.incremental.base.slice(0, 12)}: ${r.incremental.igual ? 'igual a completa nos quatro arquivos' : 'DIFERENTE'}`);
-  else if (r.determinismo) linhas.push(`  incremental  nao conferido: ${r.motivo_completo ?? 'sem base'}`);
-  linhas.push(`  tempo        ${r.ms} ms`);
-  if (r.determinismo) linhas.push('aprovado');
+  if (r.incremental) linhas.push(mi.incremental(r.incremental.base.slice(0, 12), r.incremental.igual));
+  else if (r.determinismo) linhas.push(mi.naoConferido(r.motivo_completo ?? mi.semBase));
+  linhas.push(mi.campo(mi.campos.tempo, `${r.ms} ms`));
+  if (r.determinismo) linhas.push(mi.aprovado);
   ctx.escrever(linhas.join('\n'));
   return 0;
 }
@@ -291,20 +399,21 @@ function status(ctx: ContextoDoCli, p: Pedido): number {
     ctx.escrever(JSON.stringify(r, null, 2));
     return 0;
   }
+  const ms = textosDe(ctx).status;
   const linhas = [
-    `grafo: HEAD ${arvore.head ? arvore.head.slice(0, 12) : 'sem commit'}, arvore ${r.arvore}`,
-    `  indice do HEAD  ${chave ?? 'indisponivel'} ${r.indice_do_head === 'ausente' ? '(ausente: rode ork grafo indexar)'
+    ms.titulo(arvore.head ? arvore.head.slice(0, 12) : ms.semCommit, r.arvore),
+    ms.indice(chave ?? ms.indisponivel, r.indice_do_head === 'ausente' ? ms.ausente
       : r.indice_do_head === 'indisponivel'
-        ? (correcao ? '(sem os analisadores nesta instalacao, nem a consulta nem o indexar rodam)' : '(sem a chave do indice: o erro esta na linha de baixo)')
-        : `(${r.indice_do_head})`}`,
-    `  analisadores    ${erro ?? descreverVersoes(analisadores as VersoesDosAnalisadores)}`,
-    ...(correcao ? [`  correcao        ${correcao}`] : []),
-    `  pasta           ${estado.dir ?? 'ainda nao criada'} (${estado.indices.length} indice(s), ${mb(estado.bytes)})`,
+        ? (correcao ? ms.semAnalisadores : ms.semChave)
+        : `(${r.indice_do_head})`),
+    ms.analisadores(erro ?? descreverVersoes(analisadores as VersoesDosAnalisadores)),
+    ...(correcao ? [ms.correcao(correcao)] : []),
+    ms.pasta(estado.dir ?? ms.naoCriada, estado.indices.length, mb(estado.bytes)),
   ];
   for (const i of estado.indices) {
     linhas.push(`  ${i.chave.slice(0, 20)}  ${i.revision ? i.revision.slice(0, 12) : '?'}  ${i.repository_id ?? '?'}  ${mb(i.bytes)}  ${i.problema ?? 'ok'}`);
   }
-  if (estado.sobras.length) linhas.push(`  sobras          ${estado.sobras.join(', ')}`);
+  if (estado.sobras.length) linhas.push(ms.sobras(estado.sobras.join(', ')));
   ctx.escrever(linhas.join('\n'));
   return 0;
 }
@@ -381,7 +490,7 @@ function consultavel(ctx: ContextoDoCli): {
 }
 
 function responder(ctx: ContextoDoCli, p: Pedido, r: RespostaDeConsulta): number {
-  ctx.escrever(p.bandeiras.has('json') ? jsonDaResposta(r) : textoDaResposta(r));
+  ctx.escrever(p.bandeiras.has('json') ? jsonDaResposta(r) : textoDaResposta(r, textosDe(ctx).consulta));
   return 0;
 }
 
@@ -420,8 +529,8 @@ function respostaComTeto(perguntar: (limite: number | undefined) => RespostaDeCo
 
 function consultar(ctx: ContextoDoCli, p: Pedido): number {
   // As opcoes sao conferidas antes de carregar o indice: erro de uso nao custa a leitura do grafo.
-  const [a, b] = p.posicionais;
-  const profundidade = inteiro(p, 'profundidade'), limite = inteiro(p, 'limite'), s = sentido(p), t = tipos(p), teto = tetoDeBytes(p);
+  const [a, b] = p.posicionais, x = textosDe(ctx);
+  const profundidade = inteiro(p, 'profundidade', x), limite = inteiro(p, 'limite', x), s = sentido(p, x), t = tipos(p, x), teto = tetoDeBytes(p, x);
   const { g, cabecalho, situacao } = consultavel(ctx);
   // A busca binaria do teto pergunta de novo com outro limite; a situacao guarda o que ja leu da arvore.
   const perguntar = (lim: number | undefined): RespostaDeConsulta => {
@@ -436,7 +545,7 @@ function consultar(ctx: ContextoDoCli, p: Pedido): number {
 }
 
 function contexto(ctx: ContextoDoCli, p: Pedido): number {
-  const teto = tetoDeBytes(p);
+  const teto = tetoDeBytes(p, textosDe(ctx));
   if (teto !== undefined && (teto < 4096 || teto > 65536))
     throw new ErroDeConsulta('grafo.contexto.teto-invalido', 'teto deve ser inteiro de 4096 a 65536 bytes');
   if (!ctx.contextoDaThread) throw new ErroDeConsulta('grafo.contexto.indisponivel', 'borda sem leitor da thread');
@@ -449,12 +558,11 @@ function contexto(ctx: ContextoDoCli, p: Pedido): number {
     const r = JSON.parse(json);
     // KG5 fatia 5 (D9): o resumo conta as ligacoes cuja fonte mudou na arvore, como o JSON marca.
     const mudadas = (r.arestas as { arvore?: string }[]).filter((a) => a.arvore === 'modificada').length;
-    ctx.escrever([`Contexto ${r.thread} @ ${r.indice.revision}`,
-      `  ${r.sementes.length}/${r.total_sementes} sementes, ${r.arestas.length}/${r.total_ligacoes} ligacoes agregadas; ${r.medida.pacote_bytes} bytes JSON`,
-      `  tamanho dos arquivos no pacote (nao descoberta): ${r.medida.leitura_crua_bytes} bytes (revisao indexada); tokens: unavailable`,
-      `  diff: ${r.fontes.diff}`,
-      ...(mudadas ? [`  ligacoes com fonte modificada na arvore: ${mudadas}`] : []),
-      `  truncado: ${r.truncado}; arvore: ${r.indice.arvore}; use --json para nos e evidencias`, json].join('\n'));
+    const mc = textosDe(ctx).contexto;
+    ctx.escrever([mc.titulo(r.thread, r.indice.revision),
+      mc.resumo(r.sementes.length, r.total_sementes, r.arestas.length, r.total_ligacoes, r.medida.pacote_bytes),
+      mc.tamanho(r.medida.leitura_crua_bytes), mc.diff(r.fontes.diff), ...(mudadas ? [mc.mudadas(mudadas)] : []),
+      mc.final(r.truncado, r.indice.arvore), json].join('\n'));
   }
   return 0;
 }
@@ -594,7 +702,8 @@ interface ItemDaAmostra {
 }
 
 /** Confere a amostra auditada contra o indice do HEAD: aresta, trecho pelo hash, veredito com nota. */
-function conferirAmostra(grafo: GrafoCodigo, ler: (p: string) => Buffer, arquivo: string): { linhas: string[]; falhas: string[] } {
+function conferirAmostra(grafo: GrafoCodigo, ler: (p: string) => Buffer, arquivo: string,
+  ma: TextosDoGrafo['amostra']): { linhas: string[]; falhas: string[] } {
   const amostra = JSON.parse(fs.readFileSync(arquivo, 'utf8')) as { schema: string; revision: string | null; revision_unavailable_reason: string | null; arestas: ItemDaAmostra[] };
   if (amostra.schema !== AMOSTRA_SCHEMA || !Array.isArray(amostra.arestas)) return { linhas: [], falhas: [`schema da amostra: ${amostra.schema}`] };
   if (!amostra.arestas.length) return { linhas: [], falhas: ['amostra vazia: nada para conferir'] };
@@ -619,30 +728,30 @@ function conferirAmostra(grafo: GrafoCodigo, ler: (p: string) => Buffer, arquivo
       && e.extraction_method === ev.extraction_method && sha256(trecho(ler, e)) === ev.trecho_sha256);
     if (!bate) falhas.push(`${chave}: nenhuma evidencia com o trecho auditado`);
   }
-  const linhas = [
-    `amostra: ${amostra.arestas.length} arestas em ${estratos.size} estratos, auditada na revisao ${amostra.revision ?? amostra.revision_unavailable_reason}`,
-    `  vereditos ${Object.entries(vereditos).sort(([x], [y]) => compararUtf8(x, y)).map(([k, v]) => `${k}=${v}`).join(' ')}`,
-    `  conferidas contra o indice do HEAD: ${amostra.arestas.length - falhas.length} de ${amostra.arestas.length}`,
-  ];
+  const linhas = [ma.titulo(amostra.arestas.length, estratos.size, amostra.revision ?? amostra.revision_unavailable_reason),
+    ma.vereditos(Object.entries(vereditos).sort(([x], [y]) => compararUtf8(x, y)).map(([k, v]) => `${k}=${v}`).join(' ')),
+    ma.conferidas(amostra.arestas.length - falhas.length, amostra.arestas.length)];
   return { linhas, falhas };
 }
 
 function amostra(ctx: ContextoDoCli, p: Pedido): number {
-  if (p.valores.has('conferir') && p.valores.has('por-estrato')) uso('--conferir e --por-estrato nao combinam');
+  const t = textosDe(ctx);
+  if (p.valores.has('conferir') && p.valores.has('por-estrato')) uso(t.motivos.amostraExclusiva, t);
   const { grafo, raiz, cabecalho } = consultavel(ctx);
   const ler = leitorDaArvore(raiz, grafo);
   const arquivo = p.valores.get('conferir');
   if (arquivo === undefined) {
-    const n = inteiro(p, 'por-estrato') ?? 3;
-    if (n < 1) uso('--por-estrato precisa ser ao menos 1');
+    const n = inteiro(p, 'por-estrato', t) ?? 3;
+    if (n < 1) uso(t.motivos.estratoMin, t);
     ctx.escrever(JSON.stringify(amostrar(grafo, ler, n, cabecalho.graph_digest), null, 2));
     return 0;
   }
-  const { linhas, falhas } = conferirAmostra(grafo, ler, arquivo);
+  const { linhas, falhas } = conferirAmostra(grafo, ler, arquivo, t.amostra);
   if (p.bandeiras.has('json')) {
     ctx.escrever(JSON.stringify({ schema: AMOSTRA_SCHEMA, conferencia: linhas, falhas, aprovado: falhas.length === 0 }, null, 2));
   } else {
-    ctx.escrever([...linhas, ...falhas.map((f) => `FALHA ${f}`), falhas.length ? `reprovado: ${falhas.length} falha(s)` : 'aprovado'].join('\n'));
+    const ma = t.amostra;
+    ctx.escrever([...linhas, ...falhas.map((f) => ma.falha(f)), falhas.length ? ma.reprovado(falhas.length) : ma.aprovado].join('\n'));
   }
   return falhas.length ? 1 : 0;
 }
@@ -657,7 +766,7 @@ function limpar(ctx: ContextoDoCli, p: Pedido): number {
   }
   const r = limparIndices(ctx, { manter, manterRevisoes, tudo: p.bandeiras.has('tudo') });
   if (p.bandeiras.has('json')) ctx.escrever(JSON.stringify({ schema: STATUS_SCHEMA, manter, manter_revisoes: manterRevisoes, ...r }, null, 2));
-  else ctx.escrever([`grafo limpar: ${r.removidos.length} removido(s), ${mb(r.bytes)}`, ...r.removidos.map((x) => `  ${x.nome} ${mb(x.bytes)}`)].join('\n'));
+  else ctx.escrever([textosDe(ctx).limpar(r.removidos.length, mb(r.bytes)), ...r.removidos.map((x) => `  ${x.nome} ${mb(x.bytes)}`)].join('\n'));
   return 0;
 }
 
@@ -680,7 +789,7 @@ export function executarGrafo(argv: readonly string[], ctx: ContextoDoCli): numb
   const compacto = argv[0] === 'contexto' || argv.some((a) => a === '--teto-bytes' || a.startsWith('--teto-bytes='));
   let p: Pedido;
   try {
-    p = lerPedido(argv);
+    p = lerPedido(argv, textosDe(ctx));
   } catch (e) {
     // Com `--json` no argv, tambem o erro de uso sai como objeto, como os demais.
     if (argv.includes('--json')) return erroEmJson(ctx, e, compacto, schema);

@@ -26,6 +26,7 @@ import { slugDaSessao } from './phase';
 import { dirThread, gravarThread, lerThread } from './thread';
 import { Fase, FonteDeMedida, MedidaDeJanela, Thread, VereditoDeTokens } from './types';
 import { agora } from './util';
+import { msg } from './locale';
 
 /**
  * Janela nominal usada na estimativa por transcript.
@@ -206,25 +207,25 @@ export function gateDeTokens(
 
 /** Texto de `ork gate next`. */
 export function textoDoGateDeTokens(v: VereditoDeTokens): string {
+  const m = msg().operacao.restante.gate.tokens;
+  const detalhe = m.localizarDetalhe(v.medida.fonte, v.medida.detalhe);
+  const razao = m.localizarRazao(v.medida.ocupacao, v.limiares.rotate_above, v.limiares.force_rotate_above,
+    v.passoPesado, v.razao.includes('refazer fase reprovada'), v.proximoPasso, v.razao);
   const linhas: string[] = [];
-  linhas.push(`ork gate next: thread ${v.thread}`);
-  linhas.push(
-    `  ocupacao       ${v.medida.ocupacao === null ? 'nao medivel' : `${(v.medida.ocupacao * 100).toFixed(1)}%`}`
-  );
-  linhas.push(`  fonte          ${v.medida.fonte}`);
-  linhas.push(`                 ${v.medida.detalhe}`);
-  linhas.push(
-    `  limiares       rotate_above ${v.limiares.rotate_above} | force_rotate_above ${v.limiares.force_rotate_above}`
-  );
-  linhas.push(`  proximo passo  ${v.proximoPasso} (${v.passoPesado ? 'pesado' : 'leve'})`);
+  linhas.push(m.titulo(v.thread));
+  linhas.push(m.ocupacao(v.medida.ocupacao === null ? m.naoMedivel : `${(v.medida.ocupacao * 100).toFixed(1)}%`));
+  linhas.push(m.fonte(v.medida.fonte));
+  linhas.push(m.detalhe(detalhe));
+  linhas.push(m.limiares(v.limiares.rotate_above, v.limiares.force_rotate_above));
+  linhas.push(m.proximo(v.proximoPasso, v.passoPesado ? m.pesado : m.leve));
   linhas.push('');
-  linhas.push(`VEREDITO: ${v.veredito}  (decidido por ${v.decididoPor})`);
-  linhas.push(`  razao: ${v.razao}`);
+  linhas.push(m.veredito(v.veredito, v.decididoPor));
+  linhas.push(m.razao(razao));
   if (v.slugSugerido) {
-    linhas.push(`  slug da nova sessao: ${v.slugSugerido}`);
-    linhas.push(`  proximo passo: ork handoff export ${v.thread} --proxima-fase ${v.proximoPasso}`);
+    linhas.push(m.slug(v.slugSugerido));
+    linhas.push(m.handoff(v.thread, v.proximoPasso));
   }
   linhas.push('');
-  linhas.push(`Registrado no ledger como token_gate: ork phase list ${v.thread}`);
+  linhas.push(m.ledger(v.thread));
   return linhas.join('\n');
 }

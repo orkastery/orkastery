@@ -18,7 +18,18 @@ export interface PayloadSensor {
   commit?: string;
   /** RM-064 T1: o hook envia somente o motivo tipado; a fala bruta nunca entra no ledger. */
   accountFailure?: 'runtime.quota-exhausted';
+  /**
+   * RM-037 (CHECK 3 da ork-rm037defeit2): só no `stop`, as contagens que o hook tira de `background_tasks` (Bash, subagente,
+   * monitor ou tarefa MCP em curso) e `session_crons` (despertar do `CronCreate`, do `ScheduleWakeup` ou do `/loop`) da
+   * entrada do Stop do Claude Code. Ausentes quando o runtime não as manda.
+   */
+  backgroundTasks?: number;
+  sessionCrons?: number;
 }
+
+/** As contagens de trabalho pendente que o Stop aceita, cada uma um inteiro de 0 a `LIMITE_CONTAGEM_DO_STOP`. */
+const CONTAGENS_DO_STOP = ['backgroundTasks', 'sessionCrons'];
+const LIMITE_CONTAGEM_DO_STOP = 10000;
 
 /** Sessão com despacho provado: é nesse instante que os sensores se ancoram. */
 export type SessaoDespachada = SessaoDaThread & { despachadaEm: string };
@@ -63,8 +74,12 @@ function validarPayload(bruto: string, tipo: TipoSensor, agoraMs: number): Paylo
   if (!p || typeof p !== 'object' || Array.isArray(p)) throw new Error('payload deve ser objeto JSON');
   const campos = ['observedAt', 'eventId', 'notificationType', 'commit', 'accountFailure'];
   for (const [k, v] of Object.entries(p)) {
-    if (!campos.includes(k) || typeof v !== 'string') throw new Error(`campo de payload inválido: ${k}`);
+    const valido = CONTAGENS_DO_STOP.includes(k)
+      ? Number.isSafeInteger(v) && (v as number) >= 0 && (v as number) <= LIMITE_CONTAGEM_DO_STOP
+      : campos.includes(k) && typeof v === 'string';
+    if (!valido) throw new Error(`campo de payload inválido: ${k}`);
   }
+  if (tipo !== 'stop' && CONTAGENS_DO_STOP.some((k) => k in p)) throw new Error('contagem de trabalho pendente só vale no stop');
   const payload = p as PayloadSensor;
   if (payload.observedAt !== undefined && (!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(payload.observedAt) ||
       !Number.isFinite(Date.parse(payload.observedAt)) || new Date(payload.observedAt).toISOString() !== payload.observedAt ||
@@ -141,6 +156,9 @@ export function ingerirEvento(raiz: string, sessionId: string, tipoBruto: string
       // I-34: a notificação de ociosidade depois do Stop não é atividade; sem o tipo gravado,
       // o observador claude-bg não teria como distingui-la e trataria o Stop como superado.
       ...(tipo === 'notification' && payload.notificationType ? { notificationType: payload.notificationType } : {}),
+      // RM-037 (CHECK 3 da ork-rm037defeit2): sem as contagens gravadas, o observador não toma a ociosidade por fim do turno.
+      ...(payload.backgroundTasks !== undefined ? { backgroundTasks: payload.backgroundTasks } : {}),
+      ...(payload.sessionCrons !== undefined ? { sessionCrons: payload.sessionCrons } : {}),
       ...(payload.accountFailure ? { motivo: payload.accountFailure,
         falhaDeConta: { motivo: payload.accountFailure, resetEm: null, fonte: 'hook', trecho: 'sinal tipado do hook' } } : {}),
       ...(bloqueio ? { tipoDeHitl: 'permissao', pergunta: null, estadoRuntime: 'blocked' } : {}) };
