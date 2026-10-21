@@ -1,0 +1,84 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-relatoriosdl",
+  "branch": "ork/ork-relatoriosdl-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-relatoriosdl",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O indice do roadmap lista a RM-071 uma vez, em Discovery, e a tabela de prioridade nao menciona a RM-071.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -cE '^\\| \\[RM-071\\]\\(RM-071-relatorio-da-esteira-do-sdlc.md\\) \\| Relatório da esteira do SDLC no status do roadmap \\| Discovery \\|' docs/roadmap/README.md)\" = 1",
+        "test \"$(grep -c 'RM-071' docs/roadmap/README.md)\" = 1"
+      ],
+      "criadoEm": "2026-10-21T03:06:09.478Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-relatoriosdl",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-071-relatorio-da-esteira-do-sdlc.md",
+      "alegacao": "A pagina RM-071 existe em Discovery, com testes nao iniciados e a decisao do dono em aberto com a alternativa recomendada.",
+      "negativa": false,
+      "verificar": [
+        "grep -E '^  ciclo: Discovery$' docs/roadmap/RM-071-relatorio-da-esteira-do-sdlc.md && grep -E '^  testes: Não iniciados$' docs/roadmap/RM-071-relatorio-da-esteira-do-sdlc.md",
+        "grep -E 'Só quando pedido \\(recomendada\\)' docs/roadmap/RM-071-relatorio-da-esteira-do-sdlc.md"
+      ],
+      "criadoEm": "2026-10-21T03:06:13.969Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-relatoriosdl",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-071-relatorio-da-esteira-do-sdlc.md",
+      "alegacao": "A pagina RM-071 traz a tabela do dado com a fonte no nucleo e a lacuna, e as cinco fatias F1 a F5 com criterio de aceite.",
+      "negativa": false,
+      "verificar": [
+        "grep -E '^### O dado, onde o núcleo já o tem e o que falta medir$' docs/roadmap/RM-071-relatorio-da-esteira-do-sdlc.md",
+        "test \"$(grep -cE '^\\| F[1-5] \\|' docs/roadmap/RM-071-relatorio-da-esteira-do-sdlc.md)\" = 5"
+      ],
+      "criadoEm": "2026-10-21T03:06:15.630Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-relatoriosdl",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-071-relatorio-da-esteira-do-sdlc.md",
+      "alegacao": "A pagina RM-071 nao tem travessao fora da tabela de estado gerada, nem caminho de maquina.",
+      "negativa": false,
+      "verificar": [
+        "! grep -vE '^\\| (Ciclo do item|Documentação|Código|Testes|Deploy|Exposição|Habilitação) \\|' docs/roadmap/RM-071-relatorio-da-esteira-do-sdlc.md | grep -q \"$(printf '\\342\\200\\224')\"",
+        "! grep -qE '/home/|/Users/' docs/roadmap/RM-071-relatorio-da-esteira-do-sdlc.md"
+      ],
+      "criadoEm": "2026-10-21T04:21:09.358Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C6",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
