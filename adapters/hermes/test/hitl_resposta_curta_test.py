@@ -226,6 +226,10 @@ class RespostaCurtaTest(unittest.IsolatedAsyncioTestCase):
             await self.terminar(evento)
             self.assertNotIn('--em-resposta-a', run.call_args.args[0])
         msg, evento = self.mensagem('sim')
+        msg.reply_to_message = Message(message_id=3, forum_topic_created=SimpleNamespace(name='Orkastery'), text=None,
+                                       from_user=SimpleNamespace(id=42, is_bot=False))
+        self.assertFalse(ingress._em_reply(evento), 'a abertura do topico, pelo campo do servico, sem a marca do topico na mensagem')
+        msg, evento = self.mensagem('sim')
         msg.is_topic_message, msg.message_thread_id = True, 3
         msg.reply_to_message = Message(message_id=3, text=None, from_user=SimpleNamespace(id=42, is_bot=False))
         self.assertFalse(ingress._em_reply(evento), 'a abertura do topico, pelo id, sem o campo do servico')
