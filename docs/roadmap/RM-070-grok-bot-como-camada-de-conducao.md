@@ -20,13 +20,13 @@ evidencias:
     commit: null
     pr: null
 sdlc:
-  thread: ork-grokbot
-  modo: "#Fast"
+  thread: null
+  modo: null
 ---
 
 # RM-070: Grok Bot como camada de condução do Orkastery
 
-> **Em uma frase:** o Grok Bot (o agente da xAI) passa a conduzir o `ork` por conversa, de ponta a ponta, como o Hermes e o OpenClaw fazem hoje: pede status, recebe o pulse, despacha fase, entrega, e apresenta gate, HITL e a autorização do `#Noctum`, que só se registram com a prova de que foi o dono.
+> **Em uma frase:** o Grok Bot (o agente da xAI) conduz o `ork` por conversa, de ponta a ponta, como o Hermes e o OpenClaw: status, pulse, despacho, entrega, gate, HITL e autorização do `#Noctum`, esta só com a prova de que foi o dono.
 
 <!-- ork-docs:relance:inicio -->
 
@@ -128,13 +128,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-10-20 | Julio |
-| Documentação | Rascunho | — | 2026-10-20 | Julio |
-| Código | Não iniciado | — | 2026-10-20 | Julio |
-| Testes | Não iniciados | — | 2026-10-20 | Julio |
-| Deploy | Não implantado | — | 2026-10-20 | Julio |
-| Exposição | Flag desligada | — | 2026-10-20 | Julio |
-| Habilitação | Pendente | — | 2026-10-20 | Julio |
+| Ciclo do item | Discovery | — | 2026-10-21 | Julio |
+| Documentação | Rascunho | — | 2026-10-21 | Julio |
+| Código | Não iniciado | — | 2026-10-21 | Julio |
+| Testes | Não iniciados | — | 2026-10-21 | Julio |
+| Deploy | Não implantado | — | 2026-10-21 | Julio |
+| Exposição | Flag desligada | — | 2026-10-21 | Julio |
+| Habilitação | Pendente | — | 2026-10-21 | Julio |
 
 <!-- ork-docs:estado:fim -->
 

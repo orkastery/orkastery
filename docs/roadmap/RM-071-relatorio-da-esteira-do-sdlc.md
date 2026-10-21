@@ -10,7 +10,7 @@ atualizado_em: 2026-10-21T11:00:00-03:00
 estado:
   ciclo: Discovery
   documentacao: Rascunho
-  codigo: Branch criada
+  codigo: Não iniciado
   testes: Não iniciados
   deploy: Não implantado
   exposicao: Flag desligada
@@ -20,21 +20,19 @@ evidencias:
     commit: null
     pr: null
 sdlc:
-  thread: ork-relatoriosdl
-  modo: "#Fast"
-  fase: GO
-  status: aberta
+  thread: null
+  modo: null
 ---
 
 # RM-071: Relatório da esteira do SDLC no status do roadmap
 
-> **Em uma frase:** quando o maestro pede o status do roadmap, o agente pergunta se ele quer o relatório padrão ou o relatório com a esteira do SDLC, com tokens, contas, tempo, testes, rodadas e bugs por fase, tudo medido no ledger e nos runtimes. Além do pedido, o relatório da esteira sai sozinho toda segunda-feira às 07h, no fuso e no canal do dono.
+> **Em uma frase:** no pedido de status do roadmap, o agente oferece o relatório padrão ou o da esteira do SDLC (tokens, contas, tempo, testes, rodadas e bugs por fase, medidos no ledger); o da esteira também sai toda segunda às 07h.
 
 <!-- ork-docs:relance:inicio -->
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Discovery | Branch criada | Não iniciados | Não implantado | Flag desligada |
+| Discovery | Não iniciado | Não iniciados | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -135,7 +133,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Discovery | — | 2026-10-21 | Julio |
 | Documentação | Rascunho | — | 2026-10-21 | Julio |
-| Código | Branch criada | — | 2026-10-21 | Julio |
+| Código | Não iniciado | — | 2026-10-21 | Julio |
 | Testes | Não iniciados | — | 2026-10-21 | Julio |
 | Deploy | Não implantado | — | 2026-10-21 | Julio |
 | Exposição | Flag desligada | — | 2026-10-21 | Julio |
