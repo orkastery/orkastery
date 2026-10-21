@@ -4,8 +4,30 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-21T13:50:31.379Z",
+  "publicadoEm": "2026-10-21T13:58:36.014Z",
   "threads": [
+    {
+      "id": "ork-decisoes0700",
+      "nome": "decisoes0700",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-decisoes0700-go",
+      "atualizadaEm": "2026-10-21T13:58:35.526Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-21T13:58:35.546Z",
+        "motivo": "nenhuma sessão despachada na fase GO"
+      }
+    },
     {
       "id": "ork-rm057respost",
       "nome": "rm057respostacurta",
