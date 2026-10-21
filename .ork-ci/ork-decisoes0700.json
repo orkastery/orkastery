@@ -1,0 +1,94 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-decisoes0700",
+  "branch": "ork/ork-decisoes0700-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-decisoes0700",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-070-grok-bot-como-camada-de-conducao.md",
+      "alegacao": "A RM-070 registra a D1 decidida pelo dono em 21/10/2026, com o texto dele e a condução completa.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE 'não quero só leitura, quero completo' docs/roadmap/RM-070-grok-bot-como-camada-de-conducao.md",
+        "grep -qE '^atualizado_em: 2026-10-21' docs/roadmap/RM-070-grok-bot-como-camada-de-conducao.md"
+      ],
+      "criadoEm": "2026-10-21T14:01:29.574Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-decisoes0700",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-070-grok-bot-como-camada-de-conducao.md",
+      "alegacao": "A RM-070 deixa a F1 de ser só leitura e mantém a lacuna H5 e a regra da RM-057 para o que exige prova do dono.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE 'F1 Condução de status, pulse e despacho' docs/roadmap/RM-070-grok-bot-como-camada-de-conducao.md",
+        "grep -qE 'a lacuna H5 segue aberta' docs/roadmap/RM-070-grok-bot-como-camada-de-conducao.md"
+      ],
+      "criadoEm": "2026-10-21T14:01:31.099Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-decisoes0700",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-071-relatorio-da-esteira-do-sdlc.md",
+      "alegacao": "A RM-071 registra a decisão do dono de 21/10/2026 com a cadência semanal de segunda-feira às 07h.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE 'um report semanal toda segunda feira 7h da manhã' docs/roadmap/RM-071-relatorio-da-esteira-do-sdlc.md",
+        "grep -qE '^atualizado_em: 2026-10-21' docs/roadmap/RM-071-relatorio-da-esteira-do-sdlc.md"
+      ],
+      "criadoEm": "2026-10-21T14:01:32.519Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-decisoes0700",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-071-relatorio-da-esteira-do-sdlc.md",
+      "alegacao": "A RM-071 tem a fatia F6 da entrega semanal com critério de aceite que cobre recibo do canal e medida incompleta.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE '^\\| F6 \\|.*segunda-feira às 07h00 gera exatamente um envio e o recibo do canal' docs/roadmap/RM-071-relatorio-da-esteira-do-sdlc.md",
+        "grep -qE 'Medida incompleta.*lacuna: <motivo>' docs/roadmap/RM-071-relatorio-da-esteira-do-sdlc.md"
+      ],
+      "criadoEm": "2026-10-21T14:01:34.023Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-decisoes0700",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-decisoes0700.json",
+      "alegacao": "O bundle de CI da thread ork-decisoes0700 existe e declara a thread.",
+      "negativa": false,
+      "verificar": [
+        "test -f .ork-ci/ork-decisoes0700.json",
+        "grep -qE 'ork-decisoes0700' .ork-ci/ork-decisoes0700.json"
+      ],
+      "criadoEm": "2026-10-21T15:40:57.592Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}

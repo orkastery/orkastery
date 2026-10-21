@@ -6,19 +6,19 @@ categoria: melhoria
 pai: null
 features: [FEAT-017]
 owner: Julio
-atualizado_em: 2026-10-20T18:37:41-03:00
+atualizado_em: 2026-10-21T13:01:20-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
-  codigo: Branch criada
-  testes: Em execução
+  codigo: Mesclado
+  testes: Aprovados
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
-    pr: null
+    commit: 780eca0
+    pr: "#189"
   testes:
     resolvedor: core/test/dsn-da-memoria.test.ts (DM1 a DM29 e DR1 a DR9)
     doctor: core/test/dsn-doctor.test.ts (DD1 a DD13)
@@ -26,8 +26,8 @@ evidencias:
 sdlc:
   thread: ork-dsnforadoamb
   modo: "#Auto"
-  fase: GO
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-069: DSN com senha fora do ambiente dos agentes
@@ -38,7 +38,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Aprovados | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -113,13 +113,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-20 | Julio |
-| Documentação | Em revisão | — | 2026-10-20 | Julio |
-| Código | Branch criada | — | 2026-10-20 | Julio |
-| Testes | Em execução | resolvedor: core/test/dsn-da-memoria.test.ts (DM1 a DM29 e DR1 a DR9) · doctor: core/test/dsn-doctor.test.ts (DD1 a DD13) · saida: core/test/dsn-saida.test.ts (DS1 a DS5) e core/test/mutantes/dsn-da-memoria.json (M1 a M15) | 2026-10-20 | Julio |
-| Deploy | Não implantado | — | 2026-10-20 | Julio |
-| Exposição | Flag desligada | — | 2026-10-20 | Julio |
-| Habilitação | Pendente | — | 2026-10-20 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-21 | Julio |
+| Documentação | Em revisão | — | 2026-10-21 | Julio |
+| Código | Mesclado | commit `780eca0` · PR ##189 | 2026-10-21 | Julio |
+| Testes | Aprovados | resolvedor: core/test/dsn-da-memoria.test.ts (DM1 a DM29 e DR1 a DR9) · doctor: core/test/dsn-doctor.test.ts (DD1 a DD13) · saida: core/test/dsn-saida.test.ts (DS1 a DS5) e core/test/mutantes/dsn-da-memoria.json (M1 a M15) | 2026-10-21 | Julio |
+| Deploy | Não implantado | — | 2026-10-21 | Julio |
+| Exposição | Flag desligada | — | 2026-10-21 | Julio |
+| Habilitação | Pendente | — | 2026-10-21 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
