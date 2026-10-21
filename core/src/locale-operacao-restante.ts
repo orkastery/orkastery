@@ -433,6 +433,9 @@ export const OPERACAO_RESTANTE_PT_BR = {
       efetivo: (v: string) => `  regime efetivo        ${v}`, tenant: (v: string) => `  tenant                ${v}`,
       variavel: (v: string) => `  variavel da base      ${v || '(nao declarada)'}`,
       dsn: (sim: boolean) => `  DSN no ambiente       ${sim ? 'sim (valor nunca impresso)' : 'nao'}`,
+      // RM-069 (D5): com a fonte de arquivo, o arquivo pelo rotulo com `~` e se a DSN esta nele, nunca o valor.
+      arquivo: (v: string) => `  arquivo da base       ${v}`,
+      dsnNoArquivo: (sim: boolean) => `  DSN no arquivo        ${sim ? 'sim (valor nunca impresso)' : 'nao'}`,
       cli: (v: string) => `  cli do OrkMind        ${v}`, degradacao: (v: string) => `  degradacao: ${v}`,
       correcao: (v: string) => `    correcao: ${v}`,
       continua1: '  O ciclo NAO para por isso: em regime files o handoff continua triado em 3 niveis,',
@@ -941,6 +944,8 @@ export const OPERACAO_RESTANTE_EN: typeof OPERACAO_RESTANTE_PT_BR = {
       efetivo: (v) => `  effective regime      ${v}`, tenant: (v) => `  tenant                ${v}`,
       variavel: (v) => `  database variable     ${v || '(not declared)'}`,
       dsn: (yes) => `  DSN in environment    ${yes ? 'yes (value never printed)' : 'no'}`,
+      arquivo: (v) => `  database file         ${v}`,
+      dsnNoArquivo: (yes) => `  DSN in file           ${yes ? 'yes (value never printed)' : 'no'}`,
       cli: (v) => `  OrkMind CLI           ${v}`, degradacao: (v) => `  degradation: ${v}`,
       correcao: (v) => `    fix: ${v}`,
       continua1: '  The cycle does NOT stop because of this: in files regime the handoff remains sorted into 3 tiers,',
