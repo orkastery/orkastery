@@ -72,11 +72,11 @@ project; the receipt carries the sha256 of the global files before and after. De
 | `/ork` | Panel: doctor, board, scheduler, modos, score queue |
 
 Plus six subagents (`ork-goal`, `ork-plan`, `ork-go`, `ork-check`, `ork-ship`, `ork-master`) to
-isolate the context of each phase, and the `PreToolUse` guard.
+isolate the context of each phase, the `PreToolUse` guard and the `UserPromptSubmit` hook for the owner's short answer.
 
 ## The PreToolUse guard
 
-One hook, on `Bash`, calling `hooks/ork-guard.js`. It blocks six classes of command:
+One hook, on `Bash`, calling `hooks/ork-guard.js`. It blocks seven classes of command:
 
 | Block | Why |
 |---|---|
@@ -86,12 +86,44 @@ One hook, on `Bash`, calling `hooks/ork-guard.js`. It blocks six classes of comm
 | `git push` | A manual push is not proven: delivery goes through `ork ship` |
 | `git reset --hard`, `git clean -fd`, `git checkout -- .` | Mass discard without a trace |
 | `rm -rf` with a broad or variable target | Deletes what nobody asked for |
+| `ork noctum terminal` and the answer hook called by the tool | The owner's answer in the terminal comes from the hook of the owner's own session; the agent that calls this ingress poses as the owner (RM-057) |
 
 **The guard has no business rule.** It does not read the ledger, does not know who authorized what and does not
 know any thread: it recognizes the shape of the command and sends the agent down the path that `ork`
 verifies. A command that starts with `ork` goes straight through, because the one that proves the push and serializes the merge is
-the core. And if the guard itself breaks, it **fails open**: a hook that takes down the session over its own bug
-is worse than no hook.
+the core; the exception is the owner's answer ingress (`ork noctum terminal`), blocked before that
+pass-through. And if the guard itself breaks, it **fails open**: a hook that takes down the session over its own bug
+is worse than no hook. The block on the answer ingress is a speed bump, not proof: whoever runs as the
+same system user gets around it, and the limit is stated below.
+
+## The owner's short answer in the terminal (RM-057)
+
+The owner approves wherever they are. In an interactive Claude Code session, the owner answers the question of a
+#Noctum arc with `sim`, `a` or `<código> a`, and the `UserPromptSubmit` hook (`hooks/ork-resposta.js`) takes the
+event to the core through `ork noctum terminal --hook-stdin`. Only text shaped like a short answer (the code
+with the answer, the number with the letter, or up to two words) calls the core; ordinary conversation goes to the
+model untouched. The hook only carries the core's decision:
+
+| Core decision | What the hook returns to Claude Code |
+|---|---|
+| Recorded, without effect (postpone, change something), the detail or the question back | `decision: block` with the core's sentence: the prompt is replaced by the confirmation, and the "sim" never reaches the model |
+| Answer to a gate | `additionalContext`: the conductor opens the native dialog (`ork_request_decision`); the terminal does not record gates |
+| Refusal by origin, with someone present | `systemMessage` with the reason; the prompt goes on to the model |
+| Nothing to do with Orkastery | Nothing |
+
+The core is the one that proves it, by the origin of the session and never by the text: presence
+(`CLAUDE_CODE_SESSION_ATTENDED=1`, which Claude Code only sets in an interactive session), the session id,
+no `ork` dispatch identity (`ORK_DISPATCH_ID`, `ORK_DISPATCH_THREAD`) nor a background job
+folder, an entry point that is not the SDK's, the id outside the dispatch register of the threads, the
+`cwd` outside any thread worktree and, on Linux, the ancestry through `/proc` (the background session and
+the one nested in another Claude Code session are refused). The bare word only counts for the question whose
+code appeared in this session; a typed code always counts. The receipt sits next to the arc log, with
+a subkey of the core's local key.
+
+**Limit:** a process of the same system user that builds this environment and this process chain by
+hand gets through, as does whoever holds the local key in the native dialog. To separate the core from the agents, run
+the agents under another account or sandbox. The new hook only takes effect after reinstalling the plugin
+(`ork adapter install claude-code`) and with an `ork` that has `noctum terminal`.
 
 ## Session sensors
 

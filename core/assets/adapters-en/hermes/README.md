@@ -182,9 +182,15 @@ Verification: `python3 -m unittest discover -s adapters/hermes/test -p hitl_answ
 
 ## #Noctum arc through Telegram (RM-058)
 
-The same `hitl-ingress/` plugin receives `/ork noctum <arco> autorizar <sha256>` and `/ork noctum <arco> revogar`, with the same checks as `/ork gate` (host authorization, user, chat, bot, a message of up to 60 s and the `ORK_HITL_INGRESS_KEY_HERMES` key). The envelope is signed at the `noctum` / `arco:<arco>` address, which no `/ork gate` reaches, and goes over stdin to `ork noctum responder <arco>`. Only the typed receipt `ork.noctum-ingresso/v1` of the same arc confirms to the owner, and an act that was already in force gets no second confirmation. The envelope proposal is `ork noctum propor --arquivo <envelope.json>`, and it authorizes nothing. The grammar lives in the core (`GRAMATICA_DO_NOCTUM`), and the core's `noctum-gateways` test checks the copy here.
+The same `hitl-ingress/` plugin receives `/ork noctum <arco> autorizar <sha256>` and `/ork noctum <arco> revogar`, with the same checks as `/ork gate` (host authorization, user, chat, bot, a message of up to 60 s and the `ORK_HITL_INGRESS_KEY_HERMES` key). The envelope is signed at the `noctum` / `arco:<arco>` address, which no `/ork gate` reaches, and goes over stdin to `ork noctum responder <arco>`. Only the typed receipt `ork.noctum-ingresso/v1` of the same arc confirms to the owner, and an act that was already in force gets no second confirmation. The envelope proposal is `ork noctum propor --arquivo <envelope.json>`, and it authorizes nothing. The grammar lives in the core (`GRAMATICA_DO_NOCTUM`), and the core's `noctum-gateways` test checks the copy here. Since RM-057, the proposal reaches the owner as a question with a short code, and the owner answers it as described in the next section; `/ork noctum <arco> autorizar <sha256>` is still accepted, but it is no longer the path taught.
 
 Verification: `python3 -m unittest discover -s adapters/hermes/test -p hitl_noctum_test.py -v`.
+
+## The short answer to the question (RM-057)
+
+The question to the owner (the #Noctum arc one and the short message of a gate) arrives with a short code and choices and ends in "Responda a, b ou c". Through the same signed pulse ingress (`ork pulse responder`), the owner answers with the code and the letter (`K7QX a`) from any authorized chat, with the question number and the letter (`1a`), or in reply to the question message with just the letter or the word (`a`, `sim`, `autorizo`). On a reply, the plugin takes the code from the replied message only when it is from the bot itself (`ORK_HITL_TELEGRAM_BOT_ID`) and carries a single code, signs the envelope at the `resposta:<código>` address and sends `--em-resposta-a <código>` to the core; the word in a reply counts even with the bare-word window closed. Without a reply, the bare word only counts with a single question waiting in the chat it went out to; with two, the core asks which. Ordinary conversation, even in a reply, goes on to the assistant. The core decides: the current question, the deadline, the repeated message and the chat.
+
+Verification: `python3 -m unittest discover -s adapters/hermes/test -p hitl_resposta_curta_test.py -v`.
 
 ## Confirmation through the native HITL plugin
 
