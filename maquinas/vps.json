@@ -4,26 +4,8 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-21T19:15:15.058Z",
+  "publicadoEm": "2026-10-21T19:30:06.466Z",
   "threads": [
-    {
-      "id": "ork-rm057respost",
-      "nome": "rm057respostacurta",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-057",
-      "branch": "ork/ork-rm057respost-full",
-      "atualizadaEm": "2026-10-21T19:15:14.558Z",
-      "entregue": "b16c5be8",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "max",
-      "sessao": null
-    },
     {
       "id": "ork-rm058blocob",
       "nome": "rm058blocob",
