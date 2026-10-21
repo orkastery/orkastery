@@ -36,6 +36,9 @@ import { nativeBinding, nativeContextSchema, nativeKey } from './hitl-native';
 import { publicBindingMatches, publicReceiptAuthority, signPublicReceipt, verifyPublicReceipt } from './hitl-public-receipt';
 import { avaliarEfeito, avaliarJanela, canonico, ConteudoDoEnvelope, CONTRATO_ENVELOPE_V3, envelopeComTrabalhos, hashDoEnvelope, ID_DO_ARCO,
   PedidoDeEfeito, RecusaDoArco, recusaDeExclusao, resumoDoEnvelope, shaDoPedido, Teto, validarPedidoDeAbertura } from './noctum-envelope';
+import { alternativasDaPergunta, AtoDaPergunta, CONTRATO_PERGUNTA_DO_ARCO, LetraDaPergunta, PerguntaDoArco,
+  textoDoDialogoDoArco } from './noctum-pergunta';
+import { ALVO_DO_PULSE, CODIGO_CURTO, enderecoDoPulseValido, gerarCodigo } from './pulse-consentimento';
 import { lerThread, listarIds, pedidoDaThread } from './thread';
 import { Fase, Thread } from './types';
 
@@ -59,22 +62,67 @@ export const PRAZO_PARA_AUTORIZAR_MIN = 60;
 /** O diálogo do host espera no máximo isto, e nunca além do prazo da proposta. */
 const ESPERA_DO_DIALOGO_MS = 300000;
 
+/**
+ * RM-057 (resposta curta, ork-rm057respost): a pergunta que a resposta curta respondeu. O texto que o dono digitou
+ * nunca entra no log: só o hash dele, e a letra que o núcleo leu.
+ */
+export interface RespostaAPergunta {
+  codigo: string;
+  letra: LetraDaPergunta;
+  /** O número do lote servido, quando o dono respondeu por ele ("1a"). */
+  numero?: number;
+  respostaSha256: string;
+}
+
+/** A resposta curta pelo canal: a pergunta e o endereço do pulse que o gateway assinou (`resposta` ou `resposta:<código>`). */
+type PerguntaRespondida = RespostaAPergunta & { enderecoAssinado: { alvo: string; endereco: string } };
+
 /** O que o envelope assinado provou. O corpo assinado nunca entra: só o hash da prova. */
 type IngressoAssinado =
   | { origem: 'telegram'; canal: string | null; conta: string | null; por: string; mensagem: string;
-    recebidoEm: string; recibo: string }
+    recebidoEm: string; recibo: string; pergunta?: PerguntaRespondida }
   | { origem: 'native'; canal: string | null; conta: string | null; por: string; mensagem: string;
     recebidoEm: string; recibo: string; native: Record<string, string> };
 
 /**
+ * RM-057 (resposta curta, D5 da ork-rm057respost): o que o ingresso do terminal provou sobre a origem da sessão
+ * interativa do Claude Code em que o dono digitou. Quem confere é `noctum-terminal.ts`; aqui ele só é guardado.
+ */
+export interface AtestadoDoTerminal {
+  host: 'claude-code';
+  /** O id da sessão interativa, que o hook entregou e o ambiente da sessão confirmou. */
+  sessao: string;
+  entrypoint: string | null;
+  /** As conferências da origem que passaram, na ordem em que rodaram. */
+  conferencias: string[];
+  recebidoEm: string;
+}
+
+type IngressoDoTerminal = AtestadoDoTerminal & { origem: 'terminal'; solicitacao: string; por: string; pergunta: RespostaAPergunta };
+
+/** O ingresso do Telegram, o único que a resposta curta pelo canal produz. */
+type IngressoDoTelegram = Extract<IngressoAssinado, { origem: 'telegram' }>;
+
+/**
  * Quem autorizou ou revogou, e por qual ingresso. O envelope assinado aponta o recibo durável que a
  * conferência antes do efeito relê; o diálogo do host fica atestado pela linha do log, com a chave
- * local, como o recibo local do HITL.
+ * local, como o recibo local do HITL. RM-057: o terminal deixa um recibo com a subchave local, que a
+ * conferência relê; a fronteira dele é a conta do sistema, como a do diálogo.
  */
 export type IngressoDoDono =
   | (IngressoAssinado & { evidencia: string; evidenciaSha256: string; semRecibo?: string })
   | { origem: 'mcp-local'; host: 'claude-code' | 'codex'; conexao: string; solicitacao: string; por: string;
-    recebidoEm: string; respostaSha256: string };
+    recebidoEm: string; respostaSha256: string }
+  | (IngressoDoTerminal & { evidencia: string; evidenciaSha256: string; semRecibo?: string });
+
+/**
+ * RM-057 (resposta curta): a prova que acompanha a resposta curta. Pelo canal, o envelope assinado no endereço do pulse,
+ * com o texto que o dono digitou; pelo terminal, o atestado da origem da sessão. Em nenhuma das duas o hash do envelope
+ * vem da resposta: ele mora na pergunta.
+ */
+export type ProvaDaRespostaCurta =
+  | { via: 'pulse'; envelope: RespostaHumana; endereco: string; pergunta: RespostaAPergunta }
+  | { via: 'terminal'; atestado: AtestadoDoTerminal; pergunta: RespostaAPergunta };
 
 type Ato = 'autorizar' | 'revogar';
 
@@ -157,14 +205,18 @@ export interface EncerramentoDoArco {
 }
 
 type EventoDoArco =
-  | { tipo: 'proposto'; versao: number; envelopeSha256: string; conteudo: ConteudoDoEnvelope; prazo: string }
+  // RM-057 (resposta curta, D2 da ork-rm057respost): o código curto da pergunta nasce com a proposta. Proposta gravada
+  // antes dele não tem código, e só se autoriza pelo caminho assinado de antes.
+  | { tipo: 'proposto'; versao: number; envelopeSha256: string; conteudo: ConteudoDoEnvelope; prazo: string; codigo?: string }
   | { tipo: 'autorizado'; versao: number; envelopeSha256: string; ingresso: IngressoDoDono }
   | { tipo: 'revogado'; ingresso: IngressoDoDono }
   | { tipo: 'decisao_enfileirada'; decisao: DecisaoEmLote }
   | { tipo: 'despacho_reservado'; reserva: ReservaDeDespacho }
   | { tipo: 'despacho_concluido'; reserva: number; thread: string; sessionId: string | null; idempotente: boolean }
   | { tipo: 'despacho_recusado'; reserva: number; motivo: string }
-  | { tipo: 'encerrado'; motivo: MotivoDeEncerramento; detalhe: string };
+  | { tipo: 'encerrado'; motivo: MotivoDeEncerramento; detalhe: string }
+  // RM-057 (resposta curta, D10): a pergunta de revogação ao dono. Não revoga nada: quem revoga é a resposta dele.
+  | { tipo: 'revogacao_pedida'; codigo: string; prazo: string };
 
 interface DadosDaLinha {
   contrato: typeof CONTRATO_ARCO;
@@ -189,13 +241,15 @@ export interface EstadoDoArco {
   autorizadoPor: IngressoDoDono | null;
   revogadoPor: IngressoDoDono | null;
   /** Proposta mais nova que ainda espera o dono, quando há uma. */
-  propostaPendente: { versao: number; envelopeSha256: string; prazo: string } | null;
+  propostaPendente: { versao: number; envelopeSha256: string; prazo: string; codigo?: string } | null;
   decisoes: DecisaoEmLote[];
   /** RM-058 N2: os despachos do arco, na ordem do log, e o consumo que eles reservaram. */
   despachos: DespachoDoArco[];
   consumo: ConsumoDoArco;
   /** RM-058 N6: o fechamento, quando o arco já fechou. Terminal: nada reabre o arco. */
   encerramento: EncerramentoDoArco | null;
+  /** RM-057 (resposta curta, D10): a pergunta de revogação que ainda espera o dono, quando há uma. */
+  revogacaoPedida?: { codigo: string; prazo: string; pedidaEm: string } | null;
 }
 
 export interface ConferenciaDoEfeito {
@@ -367,7 +421,7 @@ async function comLockDoArcoAssincrono<T>(raiz: string, arco: string, executar: 
   }
 }
 
-interface Proposta { versao: number; envelopeSha256: string; conteudo: ConteudoDoEnvelope; prazo: string }
+interface Proposta { versao: number; envelopeSha256: string; conteudo: ConteudoDoEnvelope; prazo: string; codigo?: string; em: string }
 interface Derivado {
   propostas: Map<number, Proposta>;
   ultima: Proposta | null;
@@ -380,13 +434,22 @@ interface Derivado {
   despachos: Map<number, DespachoDoArco>;
   /** RM-058 N6: o fechamento do arco. */
   encerramento: EncerramentoDoArco | null;
+  /** RM-057 (resposta curta): as perguntas de revogação, na ordem do log; só a última pode estar pendente. */
+  revogacoesPedidas: Array<{ codigo: string; prazo: string; em: string }>;
+}
+
+/** A identidade de uma prova do dono: cada uma vale para um ato só. */
+function chaveDaProva(i: IngressoDoDono | IngressoAssinado | IngressoDoTerminal): string {
+  if (i.origem === 'mcp-local') return `mcp-local:${i.solicitacao}`;
+  if (i.origem === 'terminal') return `terminal:${i.solicitacao}`;
+  return `${i.origem}:${i.mensagem}`;
 }
 
 function derivar(linhas: DadosDaLinha[]): Derivado {
   const d: Derivado = { propostas: new Map(), ultima: null, autorizacao: null, revogacao: null, decisoes: [], usadas: new Set(),
-    despachos: new Map(), encerramento: null };
+    despachos: new Map(), encerramento: null, revogacoesPedidas: [] };
   const usar = (i: IngressoDoDono) => {
-    const prova = i.origem === 'mcp-local' ? `mcp-local:${i.solicitacao}` : `${i.origem}:${i.mensagem}`;
+    const prova = chaveDaProva(i);
     // Uma prova do dono vale para um ato só: reaproveitada noutra linha, o log foi emendado à mão.
     if (d.usadas.has(prova)) throw adulterado('a mesma prova do dono aparece em dois atos do log');
     d.usadas.add(prova);
@@ -412,8 +475,15 @@ function derivar(linhas: DadosDaLinha[]): Derivado {
       d.encerramento = { motivo: e.motivo, detalhe: e.detalhe, em, versao: d.autorizacao.versao, envelopeSha256: d.autorizacao.envelopeSha256 };
       continue;
     }
+    if (e.tipo === 'revogacao_pedida') {
+      // Pergunta de revogação sem autorização antes dela só existe num log emendado à mão.
+      if (!d.autorizacao) throw adulterado('pergunta de revogação sem autorização');
+      d.revogacoesPedidas.push({ codigo: e.codigo, prazo: e.prazo, em });
+      continue;
+    }
     if (e.tipo === 'proposto') {
-      const p = { versao: e.versao, envelopeSha256: e.envelopeSha256, conteudo: e.conteudo, prazo: e.prazo };
+      const p: Proposta = { versao: e.versao, envelopeSha256: e.envelopeSha256, conteudo: e.conteudo, prazo: e.prazo, em,
+        ...(typeof e.codigo === 'string' ? { codigo: e.codigo } : {}) };
       if (hashDoEnvelope(p.conteudo) !== p.envelopeSha256) throw adulterado(`proposta ${p.versao} com hash que não confere`);
       d.propostas.set(p.versao, p);
       d.ultima = p;
@@ -444,11 +514,17 @@ function estadoDe(arco: string, d: Derivado, quando: string): EstadoDoArco {
   const vigente = d.autorizacao ? d.propostas.get(d.autorizacao.versao)! : null;
   const pendente = d.ultima && !d.revogacao && !d.encerramento && d.ultima.versao !== d.autorizacao?.versao &&
     Date.parse(quando) < Date.parse(d.ultima.prazo) ? d.ultima : null;
-  return { contrato: CONTRATO_ARCO, arco, situacao: situacao(d, quando), versao: vigente?.versao ?? null,
+  const sit = situacao(d, quando);
+  // RM-057 (resposta curta): só a última pergunta de revogação espera o dono, e só com o arco ainda de pé.
+  const rev = d.revogacoesPedidas.at(-1);
+  const revogacaoPedida = rev && (sit === 'vigente' || sit === 'agendado') && Date.parse(quando) < Date.parse(rev.prazo)
+    ? { codigo: rev.codigo, prazo: rev.prazo, pedidaEm: rev.em } : null;
+  return { contrato: CONTRATO_ARCO, arco, situacao: sit, versao: vigente?.versao ?? null,
     envelopeSha256: vigente?.envelopeSha256 ?? null, conteudo: vigente?.conteudo ?? null,
     autorizadoPor: d.autorizacao?.ingresso ?? null, revogadoPor: d.revogacao,
-    propostaPendente: pendente ? { versao: pendente.versao, envelopeSha256: pendente.envelopeSha256, prazo: pendente.prazo } : null,
-    decisoes: d.decisoes, despachos: [...d.despachos.values()], consumo: consumoDe(d), encerramento: d.encerramento };
+    propostaPendente: pendente ? { versao: pendente.versao, envelopeSha256: pendente.envelopeSha256, prazo: pendente.prazo,
+      ...(pendente.codigo ? { codigo: pendente.codigo } : {}) } : null,
+    decisoes: d.decisoes, despachos: [...d.despachos.values()], consumo: consumoDe(d), encerramento: d.encerramento, revogacaoPedida };
 }
 
 /** D12 da ork-rm058n2: a reserva consome uma sessão até ser recusada; a concluída e a pendente contam. */
@@ -469,8 +545,8 @@ function consumoDe(d: Derivado): ConsumoDoArco {
  * A mesma proposta repetida devolve a que está pendente. Proposta nova sobre um envelope já
  * autorizado é emenda: o vigente continua valendo até o dono autorizar a nova versão.
  */
-export function proporEnvelope(raiz: string, pedido: unknown, quando = new Date().toISOString()):
-  { arco: string; versao: number; envelopeSha256: string; prazo: string; resumo: string[] } {
+export function proporEnvelope(raiz: string, pedido: unknown, quando = new Date().toISOString(), emUso: readonly string[] = []):
+  { arco: string; versao: number; envelopeSha256: string; prazo: string; resumo: string[]; codigo?: string } {
   const conteudo = validarPedidoDeAbertura(pedido);
   const envelopeSha256 = hashDoEnvelope(conteudo);
   if (!(Date.parse(quando) < Date.parse(conteudo.janela.fim))) {
@@ -490,9 +566,86 @@ export function proporEnvelope(raiz: string, pedido: unknown, quando = new Date(
     exigirEmendaSemProrrogar(d, conteudo, quando);
     const versao = (d.ultima?.versao ?? 0) + 1;
     const prazo = new Date(Date.parse(quando) + PRAZO_PARA_AUTORIZAR_MIN * 60000).toISOString();
-    anexar(raiz, conteudo.arco, log, { tipo: 'proposto', versao, envelopeSha256, conteudo, prazo }, quando);
-    return { arco: conteudo.arco, versao, envelopeSha256, prazo, resumo };
+    // RM-057 (resposta curta, D2): a pergunta nasce com a proposta, com um código que nenhuma outra pergunta usa agora.
+    const codigo = gerarCodigo([...emUso, ...codigosDosArcos(raiz)]);
+    anexar(raiz, conteudo.arco, log, { tipo: 'proposto', versao, envelopeSha256, conteudo, prazo, codigo }, quando);
+    return { arco: conteudo.arco, versao, envelopeSha256, prazo, resumo, codigo };
   });
+}
+
+/**
+ * RM-057 (resposta curta): os códigos das perguntas de todos os arcos desta raiz, para um código novo nunca repetir um
+ * deles. Arco que não se lê não contribui (a resolução por código recusa o ambíguo de qualquer jeito).
+ */
+export function codigosDosArcos(raiz: string): string[] {
+  let nomes: string[];
+  try { nomes = fs.readdirSync(path.join(raizDoEstado(raiz), '.orkastery', 'noctum', 'arcos')).filter(n => ID_DO_ARCO.test(n)); }
+  catch { return []; }
+  const codigos: string[] = [];
+  for (const arco of nomes) {
+    try {
+      const d = derivar(lerLog(raiz, arco).linhas);
+      for (const p of d.propostas.values()) if (p.codigo) codigos.push(p.codigo);
+      for (const r of d.revogacoesPedidas) codigos.push(r.codigo);
+    } catch { /* arco ilegível não empresta código */ }
+  }
+  return codigos;
+}
+
+/**
+ * RM-057 (resposta curta, D10 da ork-rm057respost): abre a pergunta de revogação ao dono. Não revoga nada: quem revoga é
+ * a resposta dele, pela prova do canal ou do terminal. A pergunta que ainda espera o dono é devolvida, em vez de outra.
+ */
+export function pedirRevogacao(raiz: string, arco: string, quando = new Date().toISOString(), emUso: readonly string[] = []):
+  { arco: string; codigo: string; prazo: string; versao: number; envelopeSha256: string; nova: boolean } {
+  return comLockDoArco(raiz, arco, false, () => {
+    const log = lerLog(raiz, arco), d = derivar(log.linhas);
+    if (d.revogacao) throw new RecusaDoArco('noctum.efeito.revogado', `o arco ${arco} já foi revogado`);
+    if (d.encerramento) throw new RecusaDoArco('noctum.efeito.encerrado', `arco ${arco} encerrado (${d.encerramento.motivo}) é terminal`);
+    if (!d.autorizacao) {
+      throw new RecusaDoArco('noctum.efeito.sem-autorizacao', `o arco ${arco} nunca foi autorizado: não há o que revogar, e a proposta vence sozinha`);
+    }
+    const estado = estadoDe(arco, d, quando);
+    if (estado.situacao === 'expirado') throw new RecusaDoArco('noctum.efeito.expirado', `o arco ${arco} já terminou; não há o que revogar`);
+    const base = { arco, versao: d.autorizacao.versao, envelopeSha256: d.autorizacao.envelopeSha256 };
+    if (estado.revogacaoPedida) return { ...base, codigo: estado.revogacaoPedida.codigo, prazo: estado.revogacaoPedida.prazo, nova: false };
+    const codigo = gerarCodigo([...emUso, ...codigosDosArcos(raiz)]);
+    const prazo = new Date(Date.parse(quando) + PRAZO_PARA_AUTORIZAR_MIN * 60000).toISOString();
+    anexar(raiz, arco, log, { tipo: 'revogacao_pedida', codigo, prazo }, quando);
+    return { ...base, codigo, prazo, nova: true };
+  });
+}
+
+/** RM-057 (resposta curta): a situação de uma pergunta do arco no instante dado. */
+export type SituacaoDaPergunta = 'pendente' | 'respondida' | 'vencida' | 'substituida' | 'arco-terminal';
+
+export interface PerguntaNoLog extends PerguntaDoArco { situacao: SituacaoDaPergunta }
+
+/**
+ * RM-057 (resposta curta): as perguntas do arco ao dono, derivadas do log a cada leitura, com a situação de cada uma.
+ * Só a `pendente` aceita resposta; as outras existem para a resposta atrasada ouvir o porquê, nunca para valer.
+ */
+export function perguntasDoArco(raiz: string, arco: string, quando = new Date().toISOString()): PerguntaNoLog[] {
+  const d = derivar(lerLog(raiz, arco).linhas);
+  const estado = estadoDe(arco, d, quando);
+  const terminal = d.revogacao !== null || d.encerramento !== null;
+  const perguntas: PerguntaNoLog[] = [];
+  for (const p of d.propostas.values()) {
+    if (!p.codigo) continue;
+    const situacao: SituacaoDaPergunta = d.autorizacao?.versao === p.versao ? 'respondida'
+      : d.ultima?.versao !== p.versao ? 'substituida' : terminal ? 'arco-terminal'
+        : estado.propostaPendente?.versao === p.versao && Date.parse(quando) < Date.parse(p.conteudo.janela.fim) ? 'pendente' : 'vencida';
+    perguntas.push({ contrato: CONTRATO_PERGUNTA_DO_ARCO, arco, ato: 'autorizar', codigo: p.codigo, versao: p.versao,
+      envelopeSha256: p.envelopeSha256, criadaEm: p.em, prazo: p.prazo, conteudo: p.conteudo, situacao });
+  }
+  const vigente = d.autorizacao ? d.propostas.get(d.autorizacao.versao) ?? null : null;
+  d.revogacoesPedidas.forEach((r, i) => {
+    const situacao: SituacaoDaPergunta = d.revogacao ? 'respondida' : i < d.revogacoesPedidas.length - 1 ? 'substituida'
+      : d.encerramento ? 'arco-terminal' : estado.revogacaoPedida?.codigo === r.codigo ? 'pendente' : 'vencida';
+    perguntas.push({ contrato: CONTRATO_PERGUNTA_DO_ARCO, arco, ato: 'revogar', codigo: r.codigo, versao: vigente?.versao ?? null,
+      envelopeSha256: vigente?.envelopeSha256 ?? null, criadaEm: r.em, prazo: r.prazo, conteudo: vigente?.conteudo ?? null, situacao });
+  });
+  return perguntas;
 }
 
 /**
@@ -568,7 +721,9 @@ function dadosDoRecibo(arco: string, ato: Ato, envelopeSha256: string | null, ve
   i: IngressoAssinado): Record<string, unknown> {
   return { contrato: 'ork.noctum-ingresso/v1', arco, endereco: enderecoDoArco(arco), ato, envelopeSha256, versao,
     origem: i.origem, canal: i.canal, conta: i.conta, por: i.por, mensagem: i.mensagem, recebidoEm: i.recebidoEm,
-    recibo: i.recibo, ...(i.origem === 'native' ? { native: i.native } : {}) };
+    recibo: i.recibo, ...(i.origem === 'native' ? { native: i.native } : {}),
+    // RM-057 (resposta curta, D7): a pergunta e o endereço que o gateway assinou entram no MAC do canal.
+    ...(i.origem === 'telegram' && i.pergunta ? { pergunta: i.pergunta } : {}) };
 }
 
 function lerPrivado(file: string): Buffer {
@@ -617,6 +772,7 @@ function gravarRecibo(raiz: string, arco: string, ato: Ato, envelopeSha256: stri
 function reciboConfere(raiz: string, arco: string, ato: Ato, envelopeSha256: string | null, versao: number | null,
   i: IngressoDoDono): 'ok' | 'sem-verificador' | 'falhou' {
   if (i.origem === 'mcp-local') return 'ok';
+  if (i.origem === 'terminal') return reciboDoTerminalConfere(raiz, arco, ato, envelopeSha256, versao, i);
   try {
     const nome = nomeDoRecibo(i);
     if (i.evidencia !== `.orkastery/noctum/arcos/${arco}/ingresso/${nome}`) return 'falhou';
@@ -715,15 +871,210 @@ export function revogarPeloIngresso(raiz: string, arco: string, envelope: Respos
   }, true);
 }
 
-/** O que o diálogo nativo do host mostra ao dono. Só identificadores e o resumo; nenhuma resposta. */
+// ---------------------------------------------------------------------------
+// RM-057 (resposta curta, ork-rm057respost): os atos do dono pela resposta curta à pergunta do arco.
+// ---------------------------------------------------------------------------
+
+/** O domínio da subchave local que assina o recibo do terminal: o mesmo segredo do recibo local, separado por domínio. */
+const DOMINIO_DO_RECIBO_DO_TERMINAL = 'ork.noctum-terminal/v1';
+
+/** A resposta curta já lida pelo núcleo: o código da pergunta, a letra e o hash do texto do dono. */
+function validarRespostaAPergunta(r: unknown): RespostaAPergunta {
+  if (!objeto(r) || typeof r.codigo !== 'string' || !CODIGO_CURTO.test(r.codigo) || !['a', 'b', 'c'].includes(String(r.letra)) ||
+      typeof r.respostaSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(r.respostaSha256) ||
+      (r.numero !== undefined && (!Number.isInteger(r.numero) || (r.numero as number) < 1 || (r.numero as number) > 99))) {
+    throw semProva('a resposta curta chegou malformada');
+  }
+  return { codigo: r.codigo, letra: r.letra as LetraDaPergunta, respostaSha256: r.respostaSha256,
+    ...(r.numero !== undefined ? { numero: r.numero as number } : {}) };
+}
+
+/**
+ * A prova da resposta curta. Pelo canal, a MESMA `autenticarResposta` do HITL, no endereço do pulse que o gateway assinou
+ * (`resposta`, ou `resposta:<código>` no reply), no instante do envelope e no de agora, com o texto assinado igual ao que o
+ * núcleo leu. Pelo terminal, o atestado da origem da sessão, conferido por `noctum-terminal.ts` (D5): a fronteira dele é
+ * a conta do sistema, como a do diálogo nativo.
+ */
+function provarRespostaCurta(prova: ProvaDaRespostaCurta, quando: string): IngressoDoTelegram | IngressoDoTerminal {
+  if (!objeto(prova)) throw semProva('a resposta curta precisa de prova');
+  const pergunta = validarRespostaAPergunta(prova.pergunta);
+  if (prova.via === 'pulse') {
+    const e = prova.envelope;
+    if (!objeto(e) || e.origem !== 'telegram') throw semProva('a resposta curta pelo canal precisa do envelope assinado do Telegram');
+    if (typeof prova.endereco !== 'string' || !enderecoDoPulseValido(prova.endereco)) throw semProva('endereço assinado fora do pulse');
+    try {
+      autenticarResposta(ALVO_DO_PULSE, prova.endereco, e, e.recebidoEm);
+      autenticarResposta(ALVO_DO_PULSE, prova.endereco, e, quando);
+    } catch (x) { throw semProva(`ingresso não autenticado (${(x as Error).message})`); }
+    if (typeof e.resposta !== 'string' || sha(e.resposta) !== pergunta.respostaSha256) {
+      throw semProva('o texto assinado não é a resposta que o núcleo leu');
+    }
+    return { origem: 'telegram', canal: e.canal ?? null, conta: e.conta ?? null, por: e.por, mensagem: e.mensagem,
+      recebidoEm: e.recebidoEm, recibo: sha(e.prova), pergunta: { ...pergunta, enderecoAssinado: { alvo: ALVO_DO_PULSE, endereco: prova.endereco } } };
+  }
+  if (prova.via === 'terminal') {
+    const a = prova.atestado;
+    const idade = objeto(a) ? Date.parse(quando) - Date.parse(String(a.recebidoEm)) : NaN;
+    if (!objeto(a) || a.host !== 'claude-code' || typeof a.sessao !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(a.sessao) ||
+        (a.entrypoint !== null && (typeof a.entrypoint !== 'string' || a.entrypoint.length > 64)) || !Array.isArray(a.conferencias) ||
+        !a.conferencias.length || a.conferencias.some(c => typeof c !== 'string' || c.length > 80) ||
+        !Number.isFinite(idade) || idade < 0 || idade > 60000) {
+      throw semProva('o atestado do terminal chegou malformado ou fora da janela de 60 s');
+    }
+    return { origem: 'terminal', host: 'claude-code', sessao: a.sessao, entrypoint: a.entrypoint, conferencias: [...a.conferencias],
+      recebidoEm: a.recebidoEm, solicitacao: randomUUID(), por: 'terminal:claude-code', pergunta };
+  }
+  throw semProva('a resposta curta chegou por uma via desconhecida');
+}
+
+/** A subchave do recibo do terminal. */
+function chaveDoTerminal(raiz: string, criar: boolean): Buffer {
+  return createHmac('sha256', chaveLocal(raiz, criar)).update(DOMINIO_DO_RECIBO_DO_TERMINAL).digest();
+}
+
+const nomeDoReciboDoTerminal = (i: { solicitacao: string }): string => `${sha(`terminal:${i.solicitacao}`)}.json`;
+
+function dadosDoReciboDoTerminal(arco: string, ato: Ato, envelopeSha256: string | null, versao: number | null,
+  i: IngressoDoTerminal): Record<string, unknown> {
+  return { contrato: 'ork.noctum-ingresso/v1', arco, endereco: enderecoDoArco(arco), ato, envelopeSha256, versao, origem: 'terminal',
+    host: i.host, sessao: i.sessao, entrypoint: i.entrypoint, conferencias: i.conferencias, solicitacao: i.solicitacao, por: i.por,
+    recebidoEm: i.recebidoEm, pergunta: i.pergunta };
+}
+
+/** O recibo do terminal, com a subchave local: a conferência antes do efeito o relê, como relê o do canal. */
+function gravarReciboDoTerminal(raiz: string, arco: string, ato: Ato, envelopeSha256: string | null, versao: number | null,
+  i: IngressoDoTerminal): { evidencia: string; evidenciaSha256: string } {
+  const dir = path.join(dirDoArco(raiz, arco), 'ingresso');
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const nome = nomeDoReciboDoTerminal(i), file = path.join(dir, nome);
+  const dados = dadosDoReciboDoTerminal(arco, ato, envelopeSha256, versao, i);
+  const bytes = JSON.stringify({ dados, assinatura: createHmac('sha256', chaveDoTerminal(raiz, true)).update(JSON.stringify(dados)).digest('hex') });
+  const temp = path.join(dir, `${randomUUID()}.tmp`);
+  const fd = fs.openSync(temp, 'wx', 0o600);
+  try { fs.writeFileSync(fd, bytes); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+  try { fs.linkSync(temp, file); }
+  catch (e) { if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e; }
+  finally { fs.unlinkSync(temp); }
+  if (lerPrivado(file).toString('utf8') !== bytes) throw adulterado('recibo do terminal já existe com outro conteúdo');
+  return { evidencia: `.orkastery/noctum/arcos/${arco}/ingresso/${nome}`, evidenciaSha256: sha(bytes) };
+}
+
+/** Reconfere o recibo do terminal: o arquivo privado, o hash, os dados iguais aos da linha e o MAC da subchave local. */
+function reciboDoTerminalConfere(raiz: string, arco: string, ato: Ato, envelopeSha256: string | null, versao: number | null,
+  i: IngressoDoTerminal & { evidencia: string; evidenciaSha256: string; semRecibo?: string }): 'ok' | 'falhou' {
+  try {
+    const nome = nomeDoReciboDoTerminal(i);
+    if (i.evidencia !== `.orkastery/noctum/arcos/${arco}/ingresso/${nome}`) return 'falhou';
+    const bytes = lerPrivado(path.join(dirDoArco(raiz, arco), 'ingresso', nome));
+    if (sha(bytes) !== i.evidenciaSha256) return 'falhou';
+    const v = JSON.parse(bytes.toString('utf8')) as unknown;
+    const { evidencia: _evidencia, evidenciaSha256: _sha, semRecibo: _sem, ...atestado } = i;
+    if (!objeto(v) || Object.keys(v).sort().join(',') !== 'assinatura,dados' || typeof v.assinatura !== 'string' ||
+        !/^[a-f0-9]{64}$/.test(v.assinatura) || canonico(v.dados) !== canonico(dadosDoReciboDoTerminal(arco, ato, envelopeSha256, versao, atestado))) {
+      return 'falhou';
+    }
+    return timingSafeEqual(Buffer.from(v.assinatura, 'hex'), createHmac('sha256', chaveDoTerminal(raiz, false)).update(JSON.stringify(v.dados)).digest())
+      ? 'ok' : 'falhou';
+  } catch { return 'falhou'; }
+}
+
+/** O ingresso do dono com o recibo durável da via (o do canal ou o do terminal). */
+function comRecibo(raiz: string, arco: string, ato: Ato, envelopeSha256: string | null, versao: number | null,
+  provado: IngressoDoTelegram | IngressoDoTerminal): IngressoDoDono {
+  return provado.origem === 'terminal'
+    ? { ...provado, ...gravarReciboDoTerminal(raiz, arco, ato, envelopeSha256, versao, provado) }
+    : { ...provado, ...gravarRecibo(raiz, arco, ato, envelopeSha256, versao, provado) };
+}
+
+/** O que a resposta curta encontrou: se o ato já valia e se foi esta mesma prova que o fez valer. */
+export interface InfoDaRespostaCurta { repetida: boolean; mesmaProva: boolean }
+
+/**
+ * RM-057 (resposta curta): autoriza a proposta pela resposta curta do dono à pergunta dela. O hash vem da pergunta (a
+ * proposta com este código), nunca da resposta. Sob o lock do arco: a pergunta tem de ser a de agora (a proposta mais
+ * nova, no prazo e na janela), a prova não pode ter servido a outro ato, e o ato só volta com sucesso relido do disco.
+ */
+export function autorizarPelaResposta(raiz: string, arco: string, codigo: string, prova: ProvaDaRespostaCurta,
+  quando = new Date().toISOString(), info?: InfoDaRespostaCurta): EstadoDoArco {
+  return comLockDoArco(raiz, arco, false, () => {
+    const log = lerLog(raiz, arco), d = derivar(log.linhas);
+    const proposta = [...d.propostas.values()].find(p => p.codigo === codigo);
+    if (!proposta) throw new RecusaDoArco('noctum.pergunta.desconhecida', `o arco ${arco} não tem a pergunta ${codigo}`);
+    const provado = provarRespostaCurta(prova, quando);
+    if (provado.pergunta?.codigo !== codigo) throw semProva('a prova responde a outra pergunta');
+    if (d.autorizacao?.envelopeSha256 === proposta.envelopeSha256 && d.autorizacao.versao === proposta.versao && !d.revogacao) {
+      const atual = estadoDe(arco, d, quando);
+      if (atual.situacao === 'encerrado') {
+        throw new RecusaDoArco('noctum.efeito.encerrado', `arco ${arco} encerrado (${d.encerramento?.motivo ?? 'fechado'}) é terminal; abra outro arco`);
+      }
+      if (atual.situacao === 'expirado') {
+        throw new RecusaDoArco('noctum.efeito.expirado', `o arco ${arco} terminou em ${atual.conteudo?.janela.fim ?? 'o fim da janela'}; abra outro arco`);
+      }
+      if (info) { info.repetida = true; info.mesmaProva = chaveDaProva(d.autorizacao.ingresso) === chaveDaProva(provado); }
+      return atual;
+    }
+    if (d.usadas.has(chaveDaProva(provado))) throw semProva('esta mensagem já provou outro ato neste arco');
+    // A pergunta respondida é a de agora: a proposta mais nova, no prazo e na janela (a recusa diz por que não).
+    const autorizavel = propostaAutorizavel(d, proposta.envelopeSha256, quando);
+    const ingresso = comRecibo(raiz, arco, 'autorizar', autorizavel.envelopeSha256, autorizavel.versao, provado);
+    anexar(raiz, arco, log, { tipo: 'autorizado', versao: autorizavel.versao, envelopeSha256: autorizavel.envelopeSha256, ingresso }, quando);
+    return confirmado(raiz, arco, quando, e => e.envelopeSha256 === autorizavel.envelopeSha256 && e.situacao !== 'revogado', 'autorização');
+  });
+}
+
+/**
+ * RM-057 (resposta curta, D10): revoga o arco pela resposta curta do dono à pergunta de revogação. Terminal, como a
+ * revogação assinada. A pergunta tem de ser a última de revogação, no prazo; o recibo é auditoria e nunca segura o ato.
+ */
+export function revogarPelaResposta(raiz: string, arco: string, codigo: string, prova: ProvaDaRespostaCurta,
+  quando = new Date().toISOString(), info?: InfoDaRespostaCurta): EstadoDoArco {
+  return comLockDoArco(raiz, arco, false, () => {
+    const log = lerLog(raiz, arco), d = derivar(log.linhas);
+    const pedida = d.revogacoesPedidas.find(r => r.codigo === codigo);
+    if (!pedida) throw new RecusaDoArco('noctum.pergunta.desconhecida', `o arco ${arco} não tem a pergunta ${codigo}`);
+    const provado = provarRespostaCurta(prova, quando);
+    if (provado.pergunta?.codigo !== codigo) throw semProva('a prova responde a outra pergunta');
+    if (d.revogacao) {
+      if (info) { info.repetida = true; info.mesmaProva = chaveDaProva(d.revogacao) === chaveDaProva(provado); }
+      return estadoDe(arco, d, quando);
+    }
+    if (d.revogacoesPedidas.at(-1)?.codigo !== codigo) {
+      throw new RecusaDoArco('noctum.pergunta.substituida', `a pergunta ${codigo} foi substituída por outra de revogação`);
+    }
+    if (!(Date.parse(quando) < Date.parse(pedida.prazo))) {
+      throw new RecusaDoArco('noctum.pergunta.vencida', `a pergunta ${codigo} venceu em ${formatarDataHora(pedida.prazo)}; peça a revogação de novo`);
+    }
+    if (d.usadas.has(chaveDaProva(provado))) throw semProva('esta mensagem já provou outro ato neste arco');
+    let recibo: { evidencia: string; evidenciaSha256: string; semRecibo?: string };
+    try {
+      const comProva = comRecibo(raiz, arco, 'revogar', null, null, provado) as { evidencia: string; evidenciaSha256: string };
+      recibo = { evidencia: comProva.evidencia, evidenciaSha256: comProva.evidenciaSha256 };
+    } catch (e) { recibo = { evidencia: '', evidenciaSha256: '', semRecibo: e instanceof RecusaDoArco ? e.motivo : 'noctum.recibo.nao-gravado' }; }
+    anexar(raiz, arco, log, { tipo: 'revogado', ingresso: { ...provado, ...recibo } as IngressoDoDono }, quando);
+    return confirmado(raiz, arco, quando, e => e.situacao === 'revogado', 'revogação');
+  }, true);
+}
+
+/**
+ * O que o diálogo nativo do host mostra ao dono. Só identificadores, a pergunta e o resumo; nenhuma resposta. RM-057
+ * (resposta curta, D7 da ork-rm057respost): a pergunta no contrato curto, com as três alternativas e a recomendada, e o
+ * envelope inteiro logo abaixo dela (o dono autoriza só o que leu).
+ */
 export interface ApresentacaoDoArco {
   contrato: 'ork.noctum-dialogo/v1';
   arco: string;
   ato: 'autorizar' | 'revogar';
   envelopeSha256: string | null;
   resumo: string[];
-  /** A primeira opção executa o ato; a segunda não faz nada. */
-  opcoes: [string, string];
+  /** A mensagem do diálogo: a pergunta no padrão RM-057 e o resumo do envelope. */
+  mensagem: string;
+  /** Uma por alternativa, na ordem: só a primeira (a recomendada) executa o ato; as outras não fazem nada. */
+  opcoes: string[];
+}
+
+/** As opções do diálogo, uma por alternativa da pergunta, com o selo na recomendada. */
+function opcoesDoDialogo(ato: AtoDaPergunta): string[] {
+  return alternativasDaPergunta({ ato }).map(a => `${a.letra}) ${a.texto}${a.porque ? ' (Recomendação)' : ''}`);
 }
 
 export interface RespostaDoDialogo {
@@ -751,6 +1102,7 @@ export function criarDialogoDoArco(raiz: string, origem: { host: 'claude-code' |
     try {
       const cancelar = new Promise<RespostaDoDialogo>(r => controller.signal.addEventListener('abort', () => r({ action: 'cancel' }), { once: true }));
       const r = await Promise.race([elicitar(JSON.parse(JSON.stringify(a)), controller.signal), cancelar]);
+      // Só a primeira alternativa (a recomendada) age; adiar e mudar algo não fazem nada (D13 da ork-rm057respost).
       if (!objeto(r) || r.action !== 'accept' || !objeto(r.content) || Object.keys(r.content).length !== 1 ||
           r.content.opcao !== a.opcoes[0]) throw semProva('o dono não confirmou pelo diálogo nativo do host');
       return { requestId, recebidoEm: new Date().toISOString() };
@@ -765,8 +1117,11 @@ export function criarDialogoDoArco(raiz: string, origem: { host: 'claude-code' |
         const d = derivar(lerLog(raiz, arco).linhas);
         return propostaAutorizavel(d, envelopeSha256, new Date().toISOString());
       });
-      const a: ApresentacaoDoArco = { contrato: 'ork.noctum-dialogo/v1', arco, ato: 'autorizar', envelopeSha256,
-        resumo: resumoDoEnvelope(antes.conteudo, envelopeSha256), opcoes: ['Autorizar este envelope', 'Não autorizar'] };
+      const resumo = resumoDoEnvelope(antes.conteudo, envelopeSha256), quando = new Date().toISOString();
+      const pergunta: PerguntaDoArco = { contrato: CONTRATO_PERGUNTA_DO_ARCO, arco, ato: 'autorizar', codigo: antes.codigo ?? '',
+        versao: antes.versao, envelopeSha256, criadaEm: antes.em, prazo: antes.prazo, conteudo: antes.conteudo };
+      const a: ApresentacaoDoArco = { contrato: 'ork.noctum-dialogo/v1', arco, ato: 'autorizar', envelopeSha256, resumo,
+        mensagem: [textoDoDialogoDoArco(pergunta, quando), '', ...resumo].join('\n'), opcoes: opcoesDoDialogo('autorizar') };
       const { requestId, recebidoEm } = await perguntar(a, antes.prazo);
       // O mundo pode ter mudado enquanto o dono lia: tudo é conferido de novo sob o lock.
       return comLockDoArcoAssincrono(raiz, arco, () => {
@@ -782,9 +1137,13 @@ export function criarDialogoDoArco(raiz: string, origem: { host: 'claude-code' |
       // Leitura sem lock (o log é lido inteiro e conferido): revogar não pode falhar antes de perguntar ao dono.
       const atual = lerArco(raiz, arco);
       if (!atual) throw new RecusaDoArco('noctum.efeito.sem-autorizacao', `arco ${arco} sem proposta`);
-      const a: ApresentacaoDoArco = { contrato: 'ork.noctum-dialogo/v1', arco, ato: 'revogar', envelopeSha256: atual.envelopeSha256,
-        resumo: [`Revogar o arco ${arco}: nenhum efeito novo passa depois disto, e o arco não reabre`],
-        opcoes: ['Revogar o arco', 'Manter o arco'] };
+      const resumo = [`Revogar o arco ${arco}: nenhum efeito novo passa depois disto, e o arco não reabre`];
+      const quando = new Date().toISOString();
+      const pergunta: PerguntaDoArco = { contrato: CONTRATO_PERGUNTA_DO_ARCO, arco, ato: 'revogar', codigo: atual.revogacaoPedida?.codigo ?? '',
+        versao: atual.versao, envelopeSha256: atual.envelopeSha256, criadaEm: quando,
+        prazo: atual.revogacaoPedida?.prazo ?? new Date(Date.parse(quando) + ESPERA_DO_DIALOGO_MS).toISOString(), conteudo: atual.conteudo };
+      const a: ApresentacaoDoArco = { contrato: 'ork.noctum-dialogo/v1', arco, ato: 'revogar', envelopeSha256: atual.envelopeSha256, resumo,
+        mensagem: [textoDoDialogoDoArco(pergunta, quando), '', ...resumo].join('\n'), opcoes: opcoesDoDialogo('revogar') };
       const { requestId, recebidoEm } = await perguntar(a, undefined);
       return comLockDoArcoAssincrono(raiz, arco, () => {
         const log = lerLog(raiz, arco), d = derivar(log.linhas);

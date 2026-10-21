@@ -334,7 +334,8 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
   // RM-058 N6 (D12): o arco #Noctum no host do dono, com o dialogo nativo deste servidor; nunca na sessao de fase.
   if(!opcoes.threadId) registrarFerramentasDoNoctum(registrarTool,{raiz,carregar,host:opcoes.host as 'claude-code'|'codex',conexao:conexaoLocal,
     elicitar:async (a,signal) => {
-      const r = await server.elicitInput({ mode:'form', message:a.resumo.join('\n'),
+      // RM-057 (resposta curta, D7 da ork-rm057respost): a pergunta no contrato curto e o envelope inteiro abaixo dela.
+      const r = await server.elicitInput({ mode:'form', message:a.mensagem,
         requestedSchema:{type:'object',properties:{opcao:{type:'string',title:'Sua decisão',oneOf:a.opcoes.map(x=>({const:x,title:x}))}},
           required:['opcao']} },{signal,timeout:300000});
       return r.action === 'accept' ? {action:'accept',content:r.content as {opcao:string}} : {action:r.action};

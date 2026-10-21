@@ -113,6 +113,9 @@ export const MOTIVOS_DE_RECUSA = [
   'noctum.integracao.base-nao-provada',
   // RM-058 N6 (D1 e D2 da ork-rm058n6): o arco encerrado e o #Noctum pedido sem envelope vigente ou como modo de thread.
   'noctum.efeito.encerrado', 'noctum.modo.sem-envelope', 'noctum.modo.lista-fechada',
+  // RM-057 (resposta curta, ork-rm057respost): a resposta curta a uma pergunta que o arco não tem, que outra substituiu ou
+  // que venceu. Nenhuma delas autoriza nem revoga nada.
+  'noctum.pergunta.desconhecida', 'noctum.pergunta.substituida', 'noctum.pergunta.vencida',
 ] as const;
 export type MotivoDeRecusaDoArco = typeof MOTIVOS_DE_RECUSA[number];
 
