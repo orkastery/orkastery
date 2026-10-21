@@ -4,26 +4,8 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-21T06:02:47.769Z",
+  "publicadoEm": "2026-10-21T06:15:04.325Z",
   "threads": [
-    {
-      "id": "ork-grokbot",
-      "nome": "grokbot",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-grokbot-go",
-      "atualizadaEm": "2026-10-21T02:07:15.971Z",
-      "entregue": "aca62b77",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "sonnet",
-      "esforco": "high",
-      "sessao": null
-    },
     {
       "id": "ork-relatoriosdl",
       "nome": "relatoriosdlc",
