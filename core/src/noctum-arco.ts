@@ -38,7 +38,7 @@ import { avaliarEfeito, avaliarJanela, canonico, ConteudoDoEnvelope, CONTRATO_EN
   PedidoDeEfeito, RecusaDoArco, recusaDeExclusao, resumoDoEnvelope, shaDoPedido, Teto, validarPedidoDeAbertura } from './noctum-envelope';
 import { alternativasDaPergunta, AtoDaPergunta, CONTRATO_PERGUNTA_DO_ARCO, LetraDaPergunta, PerguntaDoArco,
   textoDoDialogoDoArco } from './noctum-pergunta';
-import { ALVO_DO_PULSE, CODIGO_CURTO, enderecoDoPulseValido, gerarCodigo } from './pulse-consentimento';
+import { ALVO_DO_PULSE, CODIGO_CURTO, ENDERECO_DA_RESPOSTA, gerarCodigo, lerReferenciaDoReply } from './pulse-consentimento';
 import { lerThread, listarIds, pedidoDaThread } from './thread';
 import { Fase, Thread } from './types';
 
@@ -901,7 +901,13 @@ function provarRespostaCurta(prova: ProvaDaRespostaCurta, quando: string): Ingre
   if (prova.via === 'pulse') {
     const e = prova.envelope;
     if (!objeto(e) || e.origem !== 'telegram') throw semProva('a resposta curta pelo canal precisa do envelope assinado do Telegram');
-    if (typeof prova.endereco !== 'string' || !enderecoDoPulseValido(prova.endereco)) throw semProva('endereço assinado fora do pulse');
+    // GO-FIX 1 (achado 4): o endereço assinado é o do pulse ou o do reply à MESMA pergunta, `resposta:<código dela>:<id>`;
+    // o recibo nunca diz uma pergunta e autoriza outra.
+    const ref = typeof prova.endereco === 'string' && prova.endereco.startsWith(`${ENDERECO_DA_RESPOSTA}:`)
+      ? lerReferenciaDoReply(prova.endereco.slice(ENDERECO_DA_RESPOSTA.length + 1)) : null;
+    if (prova.endereco !== ENDERECO_DA_RESPOSTA && ref?.codigo !== pergunta.codigo) {
+      throw semProva('o endereço assinado não é o do pulse nem o do reply a esta pergunta');
+    }
     try {
       autenticarResposta(ALVO_DO_PULSE, prova.endereco, e, e.recebidoEm);
       autenticarResposta(ALVO_DO_PULSE, prova.endereco, e, quando);
@@ -978,6 +984,39 @@ function reciboDoTerminalConfere(raiz: string, arco: string, ato: Ato, envelopeS
   } catch { return 'falhou'; }
 }
 
+/** GO-FIX 1 (achado 6 da ork-rm057respost): a resposta não é de antes da pergunta; a mensagem velha não responde à nova. */
+function exigirDepoisDaPergunta(provado: IngressoDoTelegram | IngressoDoTerminal, criadaEm: string): void {
+  if (!(Date.parse(provado.recebidoEm) >= Date.parse(criadaEm))) throw semProva('a mensagem é de antes da pergunta que ela diz responder');
+}
+
+/**
+ * GO-FIX 1 (achado 6 da ork-rm057respost): uma mensagem assinada do dono responde a UMA pergunta. A conferência de "uma
+ * prova, um ato" do log vale por arco; esta vale para todos: a mensagem é reivindicada num arquivo privado por mensagem,
+ * criado de uma vez (link exclusivo) antes do ato. A mesma mensagem de novo, para a mesma pergunta e o mesmo ato, segue ao
+ * caminho de sempre (repetida); para outra pergunta, de qualquer arco, é recusada antes de gravar, mesmo dentro dos 60 s
+ * da assinatura (a reentrega do gateway depois de reiniciar, ou um processo que reapresente o envelope).
+ */
+function reivindicarMensagem(raiz: string, chave: string, alvo: { arco: string; codigo: string; ato: Ato }, quando: string): void {
+  const principal = raizDoEstado(raiz);
+  exigirEstadoSemLink(principal, ['.orkastery', 'noctum', 'mensagens-usadas']);
+  const dir = path.join(principal, '.orkastery', 'noctum', 'mensagens-usadas');
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const file = path.join(dir, `${sha(chave)}.json`);
+  const dados = JSON.stringify({ contrato: 'ork.noctum-mensagem-usada/v1', mensagemSha256: sha(chave), ...alvo, em: quando });
+  const temp = path.join(dir, `${randomUUID()}.tmp`);
+  const fd = fs.openSync(temp, 'wx', 0o600);
+  try { fs.writeFileSync(fd, dados); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+  try { fs.linkSync(temp, file); return; }
+  catch (e) { if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e; }
+  finally { fs.unlinkSync(temp); }
+  let antes: unknown;
+  try { antes = JSON.parse(lerPrivado(file).toString('utf8')); }
+  catch { throw semProva('o registro desta mensagem não se lê; nada foi gravado'); }
+  if (!objeto(antes) || antes.arco !== alvo.arco || antes.codigo !== alvo.codigo || antes.ato !== alvo.ato) {
+    throw semProva('esta mensagem já respondeu a outra pergunta; mande outra');
+  }
+}
+
 /** O ingresso do dono com o recibo durável da via (o do canal ou o do terminal). */
 function comRecibo(raiz: string, arco: string, ato: Ato, envelopeSha256: string | null, versao: number | null,
   provado: IngressoDoTelegram | IngressoDoTerminal): IngressoDoDono {
@@ -1002,6 +1041,8 @@ export function autorizarPelaResposta(raiz: string, arco: string, codigo: string
     if (!proposta) throw new RecusaDoArco('noctum.pergunta.desconhecida', `o arco ${arco} não tem a pergunta ${codigo}`);
     const provado = provarRespostaCurta(prova, quando);
     if (provado.pergunta?.codigo !== codigo) throw semProva('a prova responde a outra pergunta');
+    exigirDepoisDaPergunta(provado, proposta.em);
+    if (provado.origem === 'telegram') reivindicarMensagem(raiz, chaveDaProva(provado), { arco, codigo, ato: 'autorizar' }, quando);
     if (d.autorizacao?.envelopeSha256 === proposta.envelopeSha256 && d.autorizacao.versao === proposta.versao && !d.revogacao) {
       const atual = estadoDe(arco, d, quando);
       if (atual.situacao === 'encerrado') {
@@ -1034,6 +1075,8 @@ export function revogarPelaResposta(raiz: string, arco: string, codigo: string, 
     if (!pedida) throw new RecusaDoArco('noctum.pergunta.desconhecida', `o arco ${arco} não tem a pergunta ${codigo}`);
     const provado = provarRespostaCurta(prova, quando);
     if (provado.pergunta?.codigo !== codigo) throw semProva('a prova responde a outra pergunta');
+    exigirDepoisDaPergunta(provado, pedida.em);
+    if (provado.origem === 'telegram') reivindicarMensagem(raiz, chaveDaProva(provado), { arco, codigo, ato: 'revogar' }, quando);
     if (d.revogacao) {
       if (info) { info.repetida = true; info.mesmaProva = chaveDaProva(d.revogacao) === chaveDaProva(provado); }
       return estadoDe(arco, d, quando);

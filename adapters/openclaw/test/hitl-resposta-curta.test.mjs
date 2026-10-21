@@ -1,4 +1,9 @@
-/** RM-057 (short answer): the reply to a question on the Telegram ingress. Hooks, identities and credentials are SIMULATED; the CLI is a local subprocess. */
+/**
+ * RM-057 (short answer): the reply to a question on the Telegram ingress. Hooks, identities and credentials are SIMULATED; the CLI is a local subprocess.
+ *
+ * GO-FIX 1 (finding 2): the reference only comes from the arc question title and carries the replied message id; a
+ * confirmation, a reminder, the owner's own message or a member's message never gives one, and only an answer goes with it.
+ */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -8,6 +13,7 @@ import { createHmac } from 'node:crypto';
 import { registerHitlIngress, replyReference } from '../dist/hitl-ingress.js';
 
 const QUESTION = '🔔 7. arco arco-simulado · NX4K\n❓ Autorizar o arco arco-simulado (proposta 1)?\n↩️ Responda a, b ou c. Detalhes: NX4K detalhes.';
+const CONFIRMATION = 'NX4K → b) Adiar: nada muda, e a proposta vence às 22:10 se você não autorizar antes.';
 const NAMES = ['ORK_HITL_OPENCLAW_ACCOUNT', 'ORK_HITL_TELEGRAM_BOT_ID', 'ORK_HITL_TELEGRAM_USERS', 'ORK_HITL_TELEGRAM_CHATS', 'ORK_HITL_INGRESS_KEY_OPENCLAW', 'ORK_HITL_ROOT'];
 
 /** A simulated `ork` that records argv and the envelope and answers with the pulse receipt. The listening window is CLOSED. */
@@ -33,15 +39,15 @@ async function withIngress(body) {
   }
 }
 
-test('reply: "sim" in reply to a question is signed at resposta:<code> and goes with --em-resposta-a, window closed', async () => {
+test('reply: "sim" in reply to a question is signed at resposta:<code>:<id> and goes with --em-resposta-a, window closed', async () => {
   await withIngress(async ({ handler, event, ctx, received, key }) => {
     const r = await handler(event('sim', { replyToBody: QUESTION, replyToId: '5' }), ctx);
     assert.equal(r.reply.text, '✅ NX4K → a) Autorizo: o arco está autorizado.');
     const { args, envelope: e } = received();
     assert.deepEqual(args, ['pulse', 'responder', '--resposta-stdin', '--origem', 'telegram', '--canal', 'openclaw', '--conta', 'simulated',
-      '--por', 'telegram:42', '--mensagem', 'telegram:-7:8', '--em-resposta-a', 'NX4K']);
+      '--por', 'telegram:42', '--mensagem', 'telegram:-7:8', '--em-resposta-a', 'NX4K:5']);
     assert.equal(e.resposta, 'sim');
-    assert.equal(e.prova, createHmac('sha256', key).update(JSON.stringify(['ork.hitl-answer/v2', 'pulse', 'resposta:NX4K', 'openclaw',
+    assert.equal(e.prova, createHmac('sha256', key).update(JSON.stringify(['ork.hitl-answer/v2', 'pulse', 'resposta:NX4K:5', 'openclaw',
       'simulated', e.origem, e.por, e.mensagem, e.recebidoEm, e.resposta])).digest('hex'));
   });
 });
@@ -53,29 +59,38 @@ test('reply: without a reply and with the window closed, the bare word goes to t
   });
 });
 
-test('reply: a replied message with two codes or none gives no reference', async () => {
-  assert.equal(replyReference({ replyToBody: `${QUESTION}\nOutra: DE6H a` }), null);
-  assert.equal(replyReference({ replyToBody: 'resumo sem pergunta' }), null);
-  assert.equal(replyReference({ replyToBody: 'hash 3f2a9c1d em minusculas, thread ork-rm057respost' }), null);
+test('reply: a confirmation, a reminder, the owner\'s own message or a member\'s message gives no reference', async () => {
+  // S8 of the CHECK, inverted: the reference came out of any replied text with one code.
+  for (const body of ['NX4K b', CONFIRMATION, 'lembrete: NX4K', 'resumo sem pergunta', 'hash 3f2a9c1d em minusculas, thread ork-rm057respost',
+    `antes\n${QUESTION}`]) {
+    assert.equal(replyReference({ replyToBody: body, replyToId: '5' }), null, body);
+  }
+  assert.equal(replyReference({ replyToBody: QUESTION }), null, 'no replied message id');
+  assert.equal(replyReference({ replyToBody: QUESTION, replyToId: 'abc' }), null);
   assert.equal(replyReference({}), null);
-  assert.equal(replyReference({ replyToBody: QUESTION }), 'NX4K');
+  assert.equal(replyReference({ replyToBody: QUESTION, replyToId: '5' }), 'NX4K:5');
   await withIngress(async ({ handler, event, ctx, received }) => {
-    assert.deepEqual(await handler(event('a', { replyToBody: `${QUESTION}\nOutra: DE6H a` }), ctx), { handled: false });
+    assert.deepEqual(await handler(event('ok', { replyToBody: CONFIRMATION, replyToId: '9' }), ctx), { handled: false });
     assert.equal(received(), null);
   });
 });
 
-test('reply: the typed code in a reply also carries the reference; the core decides', async () => {
+test('reply: the typed code and the number in a reply also carry the reference; the core decides', async () => {
   await withIngress(async ({ handler, event, ctx, received }) => {
-    await handler(event('NX4K a', { replyToBody: QUESTION }), ctx);
-    assert.deepEqual(received().args.slice(-2), ['--em-resposta-a', 'NX4K']);
+    await handler(event('NX4K a', { replyToBody: QUESTION, replyToId: '5' }), ctx);
+    assert.deepEqual(received().args.slice(-2), ['--em-resposta-a', 'NX4K:5']);
+    await handler(event('7a', { replyToBody: QUESTION, replyToId: '5' }), ctx);
+    assert.deepEqual(received().args.slice(-2), ['--em-resposta-a', 'NX4K:5']);
   });
 });
 
-test('reply: ordinary chat in a reply goes to the assistant, and a foreign sender never reaches the core', async () => {
+test('reply: ordinary chat in a reply goes to the assistant, a non-answer goes without the reference, and a foreign sender never reaches the core', async () => {
   await withIngress(async ({ handler, event, ctx, received }) => {
-    assert.deepEqual(await handler(event('pode me explicar o envelope antes?', { replyToBody: QUESTION }), ctx), { handled: false });
-    const r = await handler(event('sim', { replyToBody: QUESTION, senderId: '43' }), ctx);
+    assert.deepEqual(await handler(event('pode me explicar o envelope antes?', { replyToBody: QUESTION, replyToId: '5' }), ctx), { handled: false });
+    await handler(event('#OrkPulseOn', { replyToBody: QUESTION, replyToId: '5' }), ctx);
+    assert.ok(!received().args.includes('--em-resposta-a'), 'the cadence tag is not an answer to the question');
+    fs.rmSync(path.join(process.env.ORK_HITL_ROOT, 'received.json'), { force: true });
+    const r = await handler(event('sim', { replyToBody: QUESTION, replyToId: '5', senderId: '43' }), ctx);
     assert.match(r.reply.text, /não confirmada/);
     assert.equal(received(), null);
   });

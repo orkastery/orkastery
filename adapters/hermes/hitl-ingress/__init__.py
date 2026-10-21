@@ -45,10 +45,13 @@ PULSE_LIVRE = re.compile(r'^[ \t]*(?:[1-5]|(?:[a-e]|pode seguir|pode ir|pode|sim
 # RM-048 (item 8): a linha do teclado do digest ("ratificar <thread> <assinatura> <classe>") vai ao
 # nucleo pelo mesmo endereco assinado; o agente nao escreve mais `--por` em nome do dono.
 PULSE_RATIFICACAO = re.compile(r'^[ \t]*ratificar(?:-lote)?(?:[ \t]+[A-Za-z0-9._-]{1,80}){2,3}[ \t]*$', re.IGNORECASE)
-# RM-057 (resposta curta, D3): o codigo curto da mensagem do bot a que o dono respondeu (reply). A MESMA fonte vive no
-# nucleo (GRAMATICA_DO_PULSE.referencia) e um teste do nucleo confere que continuam iguais. So a mensagem do proprio bot,
-# com um codigo so, da referencia; ela e assinada no endereco `resposta:<codigo>` e vai ao nucleo por --em-resposta-a.
-PULSE_REFERENCIA = re.compile(r'(?<![A-Za-z0-9])[A-HJKMNP-TV-Z](?=[2-9A-HJKMNP-TV-Z]{0,2}[2-9])[2-9A-HJKMNP-TV-Z]{3}(?![A-Za-z0-9])')
+# RM-057 (resposta curta, D3; GO-FIX 1, achado 2): o titulo da pergunta do arco, a primeira linha da mensagem do bot a
+# que o dono respondeu (reply). A MESMA fonte vive no nucleo (GRAMATICA_DO_PULSE.referencia) e um teste do nucleo confere
+# que continuam iguais. So a mensagem do proprio bot com este titulo da a referencia: confirmacao, recusa, lembrete e
+# conversa nunca o tem. A referencia leva o codigo e o id da mensagem respondida, assinados no endereco
+# `resposta:<codigo>:<id>`, e vai ao nucleo por --em-resposta-a; o nucleo so a aceita quando o id e o da mensagem em que a
+# pergunta foi entregue.
+PULSE_REFERENCIA = re.compile(r'^🔔 (?:[1-9][0-9]?\. )?arco [a-z0-9][a-z0-9-]{0,62} · ((?=[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{0,2}[2-9])[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{3})$')
 # Texto acima disto nunca e testado contra as formas: elas rodam antes da allowlist.
 PULSE_TETO = 300
 ESCUTA_TETO = 4096
@@ -107,7 +110,7 @@ def _is_pulse(text):
 
 
 def _referencia(event):
-    """RM-057: o codigo da mensagem do proprio bot a que o dono respondeu, quando ela tem um so; senao None."""
+    """RM-057: `<codigo>:<id>` da pergunta do arco, a mensagem do proprio bot a que o dono respondeu; senao None."""
     try:
         alvo = getattr(getattr(event, 'raw_message', None), 'reply_to_message', None)
         autor = getattr(alvo, 'from_user', None)
@@ -115,18 +118,19 @@ def _referencia(event):
         if (alvo is None or autor is None or not bot or str(getattr(autor, 'id', '')) != bot
                 or getattr(autor, 'is_bot', None) is not True):
             return None
-        corpo = getattr(alvo, 'text', None) or getattr(alvo, 'caption', None)
-        if not isinstance(corpo, str):
+        corpo, mid = getattr(alvo, 'text', None), getattr(alvo, 'message_id', None)
+        if not isinstance(corpo, str) or type(mid) is not int or mid <= 0:
             return None
-        codigos = set(PULSE_REFERENCIA.findall(corpo[:4096]))
-        return codigos.pop() if len(codigos) == 1 else None
+        titulo = PULSE_REFERENCIA.match(corpo[:4096].split('\n', 1)[0])
+        return f'{titulo.group(1)}:{mid}' if titulo else None
     except Exception:
         return None
 
 
-def _is_livre(text):
-    """A palavra solta, que em reply a uma pergunta do bot vai ao nucleo tambem com a janela fechada."""
-    return '\x00' not in text and len(text) <= PULSE_TETO and bool(PULSE_LIVRE.fullmatch(text))
+def _is_resposta(text):
+    """A resposta a UMA pergunta (a palavra solta, o codigo com a resposta ou o numero com a letra): so ela vai em reply."""
+    return ('\x00' not in text and len(text) <= PULSE_TETO
+            and bool(PULSE_LIVRE.fullmatch(text) or PULSE_CONSENT.fullmatch(text) or PULSE_LOTE.fullmatch(text)))
 
 
 def _receipt_ok(receipt, operation, pedido, answer=None):
@@ -199,9 +203,10 @@ def _ingress(*, event, gateway, **_kwargs):
     text = getattr(event, 'text', '')
     if not isinstance(text, str):
         return None
-    # RM-057 (resposta curta, D3): em reply a uma pergunta do bot, a palavra solta e do Orkastery mesmo com a janela fechada.
-    referencia = None if text.startswith('/ork ') else _referencia(event)
-    pulse = not text.startswith('/ork ') and (_is_pulse(text) or (referencia is not None and _is_livre(text)))
+    # RM-057 (resposta curta, D3): em reply a uma pergunta do arco, a resposta a ela e do Orkastery mesmo com a janela
+    # fechada; a tag da cadencia, a lista e o resto seguem como sempre, sem a referencia.
+    referencia = None if text.startswith('/ork ') or not _is_resposta(text) else _referencia(event)
+    pulse = not text.startswith('/ork ') and (_is_pulse(text) or referencia is not None)
     if not text.startswith('/ork ') and not pulse:
         return None
     if getattr(getattr(event, 'source', None), 'platform', None) and event.source.platform.value != 'telegram':
@@ -232,7 +237,8 @@ def _ingress(*, event, gateway, **_kwargs):
             # assinado e o do pulse: este adaptador nao conhece pedido e nao escolhe nada.
             operation, thread, pedido, answer = 'pulse', PULSE_ALVO, PULSE_ENDERECO, text
             if referencia:
-                # O reply diz a qual pergunta: o codigo entra no endereco assinado, nunca no texto do dono.
+                # O reply diz a qual pergunta: o codigo e o id da mensagem respondida entram no endereco assinado, nunca no
+                # texto do dono.
                 pedido = PULSE_ENDERECO + ':' + referencia
         else:
             match = COMMAND.fullmatch(text)

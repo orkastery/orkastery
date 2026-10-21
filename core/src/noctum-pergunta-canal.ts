@@ -25,15 +25,17 @@ export interface EntregaDaPerguntaDoArco extends PerguntaDoArcoServida {
  */
 export function comoResponderAoArco(p: PerguntaDoArco): string[] {
   const ato = p.ato === 'autorizar' ? 'autoriza' : 'revoga';
-  return [`Responda à pergunta ${p.codigo} com a letra (a ${ato}; b e c não mudam nada): aqui no terminal do Claude Code, onde o hook do ` +
-      'plugin registra, ou em reply à mensagem dela no Telegram',
+  // GO-FIX 1 (achados 1 e 2): o reply vale só para a mensagem da pergunta, e o terminal só grava o que o Claude Code diz
+  // que o dono digitou; o texto ensina o que de fato vale.
+  return [`Em reply à mensagem da pergunta ${p.codigo} no Telegram, responda com a letra (a ${ato}; b e c não mudam nada)`,
     `De qualquer chat autorizado do Telegram, mande ${p.codigo} a`,
+    `No terminal do Claude Code, ${p.codigo} a vale quando o Claude Code marca o prompt como digitado por você (o campo source do evento)`,
     p.ato === 'autorizar' ? `No host com diálogo nativo: a ferramenta ork_noctum_autorizar com o arco ${p.arco}`
       : `No host com diálogo nativo: a ferramenta ork_noctum_revogar com o arco ${p.arco}`];
 }
 
 const semEntrega = (detalhe: string): EntregaDaPerguntaDoArco =>
-  ({ numero: null, entregue: false, jaServida: false, host: null, destino: null, detalhe });
+  ({ numero: null, entregue: false, jaServida: false, host: null, destino: null, mensagens: [], detalhe });
 
 /** Entrega a pergunta ao canal do dono, uma vez, com o número no título; a mesma pergunta em aberto não sai de novo. */
 export function entregarPerguntaDoArco(raiz: string, p: PerguntaDoArco, opcoes: { quando?: string; estadoDir?: string } = {}): EntregaDaPerguntaDoArco {
@@ -49,7 +51,8 @@ export function entregarPerguntaDoArco(raiz: string, p: PerguntaDoArco, opcoes: 
   try {
     const r = servirPerguntaDoArco(raiz, p, { quando, estadoDir: dir, entregar: numero => {
       const e = entregarPeloTransporte(raiz, textoDaPerguntaDoArco(p, 'telegram', { quando, numero }), { dir, oQue: 'noctum-pergunta', quando });
-      return { ok: e.ok, host: e.host, destino: destinoDo(e.host) };
+      // GO-FIX 1 (achado 2): os ids da mensagem entregue prendem o reply do dono a ESTA mensagem, e a nenhuma outra.
+      return { ok: e.ok, host: e.host, destino: destinoDo(e.host), mensagens: e.mensagens };
     } });
     return { ...r, detalhe: r.entregue ? `entregue pelo ${r.host}` : r.jaServida ? `já tinha saído como a pergunta ${r.numero}`
       : 'o transporte do canal não confirmou a entrega' };

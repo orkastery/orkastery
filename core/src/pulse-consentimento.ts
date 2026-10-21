@@ -59,13 +59,28 @@ export const ENDERECO_DA_RESPOSTA = 'resposta';
 export const CODIGO_CURTO = /^(?=[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{0,2}[2-9])[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{3}$/;
 
 /**
+ * RM-057 (resposta curta, D3; GO-FIX 1, achado 2): a referência do reply, `<código>:<id>`. O código vem do título da
+ * pergunta do arco que o dono respondeu, e o id é o da mensagem respondida no Telegram. O núcleo só aceita o reply quando
+ * esse id é o da mensagem em que a pergunta foi entregue, gravado na entrega: confirmação, recusa e conversa nunca são
+ * a pergunta, mesmo quando trazem o código.
+ */
+export const REFERENCIA_DO_REPLY = /^((?=[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{0,2}[2-9])[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{3}):([1-9][0-9]{0,19})$/;
+
+/** O código e o id da mensagem respondida, ou `null` quando a referência não tem a forma. */
+export function lerReferenciaDoReply(referencia: unknown): { codigo: string; mensagem: string } | null {
+  const m = typeof referencia === 'string' ? REFERENCIA_DO_REPLY.exec(referencia) : null;
+  return m ? { codigo: m[1], mensagem: m[2] } : null;
+}
+
+/**
  * RM-057 (resposta curta, D3): o endereço que o gateway assina quando o dono responde EM REPLY à mensagem de uma pergunta.
- * O código da mensagem respondida entra na posição de pedido do corpo assinado (`resposta:<código>`), dentro do HMAC, e
- * o texto do dono continua na posição de resposta, como ele digitou. Sem reply, o endereço é o de sempre.
+ * A referência (`<código>:<id da mensagem respondida>`) entra na posição de pedido do corpo assinado
+ * (`resposta:<código>:<id>`), dentro do HMAC, e o texto do dono continua na posição de resposta, como ele digitou. Sem
+ * reply, o endereço é o de sempre.
  */
 export function enderecoDoPulse(referencia?: string | null): string {
   if (referencia === undefined || referencia === null) return ENDERECO_DA_RESPOSTA;
-  if (!CODIGO_CURTO.test(referencia)) throw new Error('resposta do pulse: referência do reply fora da forma do código curto');
+  if (!lerReferenciaDoReply(referencia)) throw new Error('resposta do pulse: referência do reply fora da forma <código>:<mensagem>');
   return `${ENDERECO_DA_RESPOSTA}:${referencia}`;
 }
 
@@ -73,7 +88,7 @@ export function enderecoDoPulse(referencia?: string | null): string {
 export function enderecoDoPulseValido(endereco: unknown): endereco is string {
   if (endereco === ENDERECO_DA_RESPOSTA) return true;
   return typeof endereco === 'string' && endereco.startsWith(`${ENDERECO_DA_RESPOSTA}:`) &&
-    CODIGO_CURTO.test(endereco.slice(ENDERECO_DA_RESPOSTA.length + 1));
+    lerReferenciaDoReply(endereco.slice(ENDERECO_DA_RESPOSTA.length + 1)) !== null;
 }
 
 /** Uma hora, a mesma janela do resumo pedido em 20/09. Vencido nao nega: so deixa de valer. */
@@ -268,8 +283,6 @@ export function responderConsentimento(raiz: string, entrada: {
    * codigo. O padrao continua estrito para quem chama sem pedir isto.
    */
   aceitarVencido?: boolean;
-  /** RM-057 (resposta curta, D3): o endereço que o gateway assinou; no reply ao resumo, `resposta:<código>`. */
-  endereco?: string;
 }): { resposta: RespostaDoConsentimento; repetida: boolean; pedido: PedidoDeConsentimento; respondido: ConsentimentoRespondido } {
   const quando = entrada.quando ?? new Date().toISOString();
   const estado = lerConsentimento(raiz, entrada.estadoDir);
@@ -279,11 +292,9 @@ export function responderConsentimento(raiz: string, entrada: {
     throw new Error('consentimento do pulse: código não confere com o pedido aberto');
   }
 
-  // Proveniencia primeiro, pelo caminho de sempre, no endereco do pulse (o do reply, quando o dono respondeu em reply).
-  const endereco = entrada.endereco ?? ENDERECO_DA_RESPOSTA;
-  if (!enderecoDoPulseValido(endereco)) throw new Error('consentimento do pulse: endereço assinado fora do pulse');
-  autenticarResposta(ALVO_DO_PULSE, endereco, entrada.envelope, entrada.envelope.recebidoEm);
-  autenticarResposta(ALVO_DO_PULSE, endereco, entrada.envelope, quando);
+  // Proveniencia primeiro, pelo caminho de sempre, no endereco do pulse.
+  autenticarResposta(ALVO_DO_PULSE, ENDERECO_DA_RESPOSTA, entrada.envelope, entrada.envelope.recebidoEm);
+  autenticarResposta(ALVO_DO_PULSE, ENDERECO_DA_RESPOSTA, entrada.envelope, quando);
 
   const resposta = interpretarResposta(entrada.envelope.resposta, pedido.codigo);
   const recibo = sha(entrada.envelope.prova);

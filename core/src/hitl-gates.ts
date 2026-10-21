@@ -7,7 +7,7 @@ import { AlternativaHitlV2, alvoDoPedido, atoDaPausa, CONTRATO_HITL_V2,
   exigirSelecaoDeConducao, PedidoHitlQualquer, PerguntaAoDono, profundidadeDoPedido, TETOS_HITL_V2, validarPedidoHitl,
   validarRespostaHitl, vereditoDoGate } from './hitl-contract';
 import { CONSEQUENCIA_DA_ACAO } from './hitl-lote';
-import { ALVO_DO_PULSE, enderecoDoPulseValido, gerarCodigo } from './pulse-consentimento';
+import { ALVO_DO_PULSE, ENDERECO_DA_RESPOSTA, gerarCodigo } from './pulse-consentimento';
 import { exigirManifesto } from './manifest';
 import { dirThread, lerThread, blocoDaThread, pausaNaThread } from './thread';
 import { lerLedger, registrar } from './ledger';
@@ -445,9 +445,7 @@ function provaDaResposta(id: string, pedidoId: string, resposta: RespostaHumana,
   // So o endereco do pulse e aceito. Um envelope assinado para OUTRO pedido nunca serve de prova
   // para este: sem esta porta, quem tivesse um envelope legitimo de um gate poderia aponta-lo
   // para outro pedido, e a assinatura continuaria batendo com o endereco que ela de fato cobre.
-  // RM-057 (resposta curta, D3): o reply assina `resposta:<codigo>`, o codigo da mensagem respondida; o nucleo traduz o
-  // codigo no pedido como traduz o "DE6H a" digitado, e a assinatura cobre o endereco inteiro.
-  if (assinado.alvo !== ALVO_DO_PULSE || !enderecoDoPulseValido(assinado.endereco)) {
+  if (assinado.alvo !== ALVO_DO_PULSE || assinado.endereco !== ENDERECO_DA_RESPOSTA) {
     throw new Error('endereço assinado fora do pulse não prova resposta a outro pedido');
   }
   if (envelope.origem !== 'telegram' || resposta.native !== undefined || envelope.native !== undefined ||

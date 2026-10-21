@@ -36,11 +36,14 @@ const pedido = (arco: string): Record<string, unknown> => ({
 });
 
 let n = 0;
-/** O que o ingresso do Hermes assina quando o dono responde `texto` em reply à mensagem da pergunta `referencia`. */
-function emReply(texto: string, referencia: string): RespostaHumana {
+/**
+ * O que o ingresso do Hermes assina quando o dono responde `texto` em reply à mensagem da pergunta (`referencia`, o código e
+ * o id da mensagem respondida), ou sem reply (`referencia` ausente).
+ */
+function emReply(texto: string, referencia?: string): RespostaHumana {
   n += 1;
   const r = { resposta: texto, canal: 'hermes' as const, origem: 'telegram' as const, por: 'telegram:42',
-    mensagem: `telegram:-7:pq-${process.pid}-${n}`, recebidoEm: new Date().toISOString() };
+    mensagem: `telegram:-7:${7000 + n}`, recebidoEm: new Date().toISOString() };
   return { ...r, prova: assinaturaDaResposta(ALVO_DO_PULSE, enderecoDoPulse(referencia), r, CHAVE_SIMULADA) };
 }
 
@@ -49,10 +52,12 @@ function cenario(nome: string) {
   const monitor = path.join(p.dir, '.orkastery', 'monitor');
   const cli = (args: string[], entrada?: string) =>
     spawnSync(process.execPath, [CLI, ...args], { cwd: p.dir, encoding: 'utf8', input: entrada, env: process.env, timeout: 60_000 });
-  /** O transporte SIMULADO do canal: grava cada mensagem num arquivo e sai 0, como o do Hermes depois do recibo. */
+  /** O transporte SIMULADO do canal: grava cada mensagem num arquivo e responde como o do Hermes, com o id da mensagem (500, 501...). */
   const canal = (): (() => string[]) => {
     const saida = path.join(p.dir, 'canal-simulado.jsonl'), script = path.join(p.dir, 'canal-simulado.cjs');
-    fs.writeFileSync(script, `require('fs').appendFileSync(${JSON.stringify(saida)}, JSON.stringify({ mensagem: process.argv[2] }) + '\\n');\n`);
+    fs.writeFileSync(script, `const fs = require('fs'); fs.appendFileSync(${JSON.stringify(saida)}, JSON.stringify({ mensagem: process.argv[2] }) + '\\n');\n` +
+      `const total = fs.readFileSync(${JSON.stringify(saida)}, 'utf8').split('\\n').filter(Boolean).length;\n` +
+      "process.stdout.write(JSON.stringify({ success: true, message_id: 499 + total, platform: 'telegram' }));\n");
     fs.mkdirSync(monitor, { recursive: true });
     fs.writeFileSync(path.join(monitor, 'pulse-host.json'), JSON.stringify({ host: 'hermes', destino: 'telegram:-7', executavel: process.execPath,
       argumentos: [script, '{{mensagem}}'] }), { mode: 0o600 });
@@ -64,8 +69,8 @@ function cenario(nome: string) {
     if (!fs.existsSync(arquivo)) fs.writeFileSync(arquivo, JSON.stringify(pedido(arco)));
     return arquivo;
   };
-  const responder = (e: RespostaHumana, referencia: string) => cli(['pulse', 'responder', '--resposta-stdin', '--origem', 'telegram', '--canal',
-    'hermes', '--por', e.por, '--mensagem', e.mensagem, '--em-resposta-a', referencia], JSON.stringify(e));
+  const responder = (e: RespostaHumana, referencia?: string) => cli(['pulse', 'responder', '--resposta-stdin', '--origem', 'telegram', '--canal',
+    'hermes', '--por', e.por, '--mensagem', e.mensagem, ...(referencia ? ['--em-resposta-a', referencia] : [])], JSON.stringify(e));
   return { p, monitor, cli, canal, envelope, responder, limpar: () => { restaurar(); p.limpar(); } };
 }
 
@@ -74,7 +79,8 @@ function proporJson(c: ReturnType<typeof cenario>, arco: string) {
   const r = c.cli(['noctum', 'propor', '--arquivo', c.envelope(arco), '--json']);
   assert.equal(r.status, 0, r.stderr);
   return JSON.parse(r.stdout) as { autorizado: boolean; envelopeSha256: string; codigo: string; comoAutorizar: string[];
-    pergunta: { codigo: string; prazo: string; texto: string; entrega: { entregue: boolean; jaServida: boolean; numero: number | null } } | null };
+    pergunta: { codigo: string; prazo: string; texto: string; entrega: { entregue: boolean; jaServida: boolean; numero: number | null;
+      mensagens: string[] } } | null };
 }
 
 test('PQ1: propor sem transporte mostra a pergunta com código e alternativas, sem hash na resposta, e não autoriza nada', () => {
@@ -129,15 +135,17 @@ test('PQ3: ponta a ponta, o "sim" em reply à pergunta autoriza o arco; a mesma 
   try {
     const mensagens = c.canal();
     const j = proporJson(c, 'arco-pq3');
-    const e = emReply('sim', j.codigo);
-    const r = c.responder(e, j.codigo);
+    const ref = `${j.codigo}:${j.pergunta!.entrega.mensagens[0]}`;
+    assert.equal(ref, `${j.codigo}:500`, 'o id da mensagem entregue volta no --json');
+    const e = emReply('sim', ref);
+    const r = c.responder(e, ref);
     assert.equal(r.status, 0, r.stderr);
     const recibo = JSON.parse(r.stdout) as { ok: boolean; mensagem: string; repetida: boolean };
     assert.equal(recibo.ok, true, r.stdout);
     assert.match(recibo.mensagem, new RegExp(`${j.codigo}.*Autorizo`));
     const arco = lerArco(c.p.dir, 'arco-pq3')!;
     assert.deepEqual([arco.situacao === 'vigente' || arco.situacao === 'agendado', arco.envelopeSha256], [true, j.envelopeSha256]);
-    const repetida = c.responder(e, j.codigo);
+    const repetida = c.responder(e, ref);
     assert.equal(repetida.status, 0, repetida.stderr);
     assert.equal(JSON.parse(repetida.stdout).repetida, true, repetida.stdout);
     const log = fs.readFileSync(path.join(c.p.dir, '.orkastery', 'noctum', 'arcos', 'arco-pq3', 'arco.jsonl'), 'utf8');
@@ -154,11 +162,12 @@ test('PQ4: ork noctum revogar só abre a pergunta e a entrega uma vez; o "a" em 
   try {
     const mensagens = c.canal();
     const j = proporJson(c, 'arco-pq4');
-    assert.equal(c.responder(emReply('a', j.codigo), j.codigo).status, 0);
+    const ref = `${j.codigo}:${j.pergunta!.entrega.mensagens[0]}`;
+    assert.equal(c.responder(emReply('a', ref), ref).status, 0);
     const r = c.cli(['noctum', 'revogar', 'arco-pq4', '--json']);
     assert.equal(r.status, 0, r.stderr);
     const q = JSON.parse(r.stdout) as { revogado: boolean; comoRevogar: string[]; pergunta: { codigo: string; nova: boolean; texto: string;
-      entrega: { entregue: boolean; numero: number | null } } };
+      entrega: { entregue: boolean; numero: number | null; mensagens: string[] } } };
     assert.deepEqual([q.revogado, q.pergunta.nova, q.pergunta.entrega.entregue], [false, true, true]);
     assert.notEqual(q.pergunta.codigo, j.codigo);
     assert.match(q.pergunta.texto, /Revogar o arco arco-pq4\?/);
@@ -173,7 +182,9 @@ test('PQ4: ork noctum revogar só abre a pergunta e a entrega uma vez; o "a" em 
     const texto = c.cli(['noctum', 'revogar', 'arco-pq4']);
     assert.match(texto.stdout, /Nada foi revogado: o dono revoga respondendo à pergunta\./);
     assert.doesNotMatch(texto.stdout, HASH);
-    const resposta = c.responder(emReply('a', q.pergunta.codigo), q.pergunta.codigo);
+    const refRev = `${q.pergunta.codigo}:${q.pergunta.entrega.mensagens[0]}`;
+    assert.equal(refRev, `${q.pergunta.codigo}:501`);
+    const resposta = c.responder(emReply('a', refRev), refRev);
     assert.equal(resposta.status, 0, resposta.stderr);
     assert.equal(lerArco(c.p.dir, 'arco-pq4')!.situacao, 'revogado');
   } finally { c.limpar(); }
@@ -189,9 +200,10 @@ test('PQ5: ork noctum revogar recusa tipado o arco sem autorização, o revogado
     assert.match(c.cli(['noctum', 'revogar', 'arco-que-nao-existe']).stderr, /noctum\.efeito\.sem-autorizacao/);
     assert.equal(c.cli(['noctum', 'revogar']).status, 2);
     assert.match(c.cli(['noctum', 'revogar', 'arco-pq5', 'sobra']).stderr, /uso: ork noctum .*revogar <arco> \[--json\]/);
-    c.responder(emReply('a', j.codigo), j.codigo);
+    // Sem transporte, sem mensagem entregue: o dono responde pelo código, de qualquer chat autorizado.
+    c.responder(emReply(`${j.codigo} a`));
     const q = JSON.parse(c.cli(['noctum', 'revogar', 'arco-pq5', '--json']).stdout) as { pergunta: { codigo: string } };
-    c.responder(emReply('a', q.pergunta.codigo), q.pergunta.codigo);
+    c.responder(emReply(`${q.pergunta.codigo} a`));
     assert.equal(lerArco(c.p.dir, 'arco-pq5')!.situacao, 'revogado');
     const revogado = c.cli(['noctum', 'revogar', 'arco-pq5']);
     assert.equal(revogado.status, 2);

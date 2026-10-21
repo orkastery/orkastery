@@ -7,7 +7,9 @@
  *  - a resposta curta autoriza e revoga pela prova do canal (o endereço do pulse) ou pelo atestado do terminal, com o
  *    recibo que a conferência antes do efeito relê;
  *  - a pergunta que mudou, a vencida, a prova reaproveitada e o recibo adulterado não autorizam nada;
- *  - b e c não gravam nada no arco, e o diálogo nativo tem as três alternativas.
+ *  - b e c não gravam nada no arco, e o diálogo nativo tem as três alternativas;
+ *  - GO-FIX 1 (CHECK da ork-rm057respost): a prova do reply é da MESMA pergunta, a mensagem de antes da pergunta não
+ *    responde a ela, uma mensagem responde a uma pergunta só (em qualquer arco), e as guardas do ato têm teste (NP18 a NP23).
  *
  * Identidades, chaves, provas, sessões e valores SIMULADOS, em diretórios temporários; nenhum canal real.
  */
@@ -167,18 +169,24 @@ test('NP5: a resposta curta pelo pulse autoriza, com o recibo do canal que a con
   assert.equal(JSON.stringify(recibo).includes(e.resposta), false, 'o texto do dono nunca entra no recibo');
 }));
 
-test('NP6: o reply assina resposta:<código>; endereço trocado e envelope do endereço do arco não provam', () => comRaiz('reply', raiz => {
+test('NP6: o reply assina resposta:<código>:<id> da MESMA pergunta; endereço trocado, de outra pergunta ou do arco não prova', () => comRaiz('reply', raiz => {
   const p = proporEnvelope(raiz, pedido('arco-a'), P);
   const assinadoSemReply = noPulse('sim');
-  recusa(() => autorizarPelaResposta(raiz, 'arco-a', p.codigo!, provaDoPulse(assinadoSemReply, p.codigo!, { referencia: p.codigo }), A),
+  recusa(() => autorizarPelaResposta(raiz, 'arco-a', p.codigo!, provaDoPulse(assinadoSemReply, p.codigo!, { referencia: `${p.codigo}:5` }), A),
     'noctum.origem.sem-prova');
   recusa(() => autorizarPelaResposta(raiz, 'arco-a', p.codigo!, provaDoPulse(assinadoSemReply, p.codigo!, { endereco: `arco:arco-a` }), A),
     'noctum.origem.sem-prova');
-  const emReply = noPulse('sim', { referencia: p.codigo });
-  const estado = autorizarPelaResposta(raiz, 'arco-a', p.codigo!, provaDoPulse(emReply, p.codigo!, { referencia: p.codigo }), A);
+  // GO-FIX 1 (achado 4): o reply assinado à mensagem de OUTRA pergunta não prova a resposta a esta, mesmo autêntico.
+  const outra = p.codigo === 'K7QX' ? 'M3PQ' : 'K7QX';
+  const aOutra = noPulse('1a', { referencia: `${outra}:9` });
+  recusa(() => autorizarPelaResposta(raiz, 'arco-a', p.codigo!, provaDoPulse(aOutra, p.codigo!, { referencia: `${outra}:9` }), A),
+    'noctum.origem.sem-prova');
+  const emReply = noPulse('sim', { referencia: `${p.codigo}:5` });
+  const estado = autorizarPelaResposta(raiz, 'arco-a', p.codigo!, provaDoPulse(emReply, p.codigo!, { referencia: `${p.codigo}:5` }), A);
   assert.equal(estado.envelopeSha256, p.envelopeSha256);
   assert.deepEqual((estado.autorizadoPor as unknown as { pergunta: { enderecoAssinado: unknown } }).pergunta.enderecoAssinado,
-    { alvo: 'pulse', endereco: `resposta:${p.codigo}` });
+    { alvo: 'pulse', endereco: `resposta:${p.codigo}:5` });
+  assert.throws(() => enderecoDoPulse(p.codigo), /<código>:<mensagem>/, 'o reply sem o id da mensagem respondida não tem endereço');
 }));
 
 test('NP7: texto que não é o lido, outra chave e envelope fora da janela de 60 s não autorizam', () => comRaiz('prova', raiz => {
@@ -238,7 +246,8 @@ test('NP11: a mesma prova não serve a dois atos, e a resposta repetida não gra
   autorizarPelaResposta(raiz, 'arco-a', p.codigo!, provaDoPulse(e, p.codigo!), A, info);
   assert.deepEqual(info, { repetida: true, mesmaProva: true });
   const outra = { repetida: false, mesmaProva: false };
-  autorizarPelaResposta(raiz, 'arco-a', p.codigo!, provaDoPulse(noPulse('autorizo', { referencia: p.codigo }), p.codigo!, { referencia: p.codigo }), A, outra);
+  autorizarPelaResposta(raiz, 'arco-a', p.codigo!, provaDoPulse(noPulse('autorizo', { referencia: `${p.codigo}:5` }), p.codigo!,
+    { referencia: `${p.codigo}:5` }), A, outra);
   assert.deepEqual(outra, { repetida: true, mesmaProva: false });
   assert.equal(linhasDoLog(raiz, 'arco-a').length, linhas, 'nenhuma linha nova');
   const rev = pedirRevogacao(raiz, 'arco-a', A);
@@ -256,8 +265,8 @@ test('NP12: a pergunta de revogação só no arco autorizado, a pendente é reap
   assert.deepEqual(pedirRevogacao(raiz, 'arco-a', A), { ...rev, nova: false });
   assert.equal(lerArco(raiz, 'arco-a', A)!.revogacaoPedida?.codigo, rev.codigo);
   assert.equal(lerArco(raiz, 'arco-a', A)!.situacao, 'agendado', 'pedir a revogação não revoga nada');
-  const estado = revogarPelaResposta(raiz, 'arco-a', rev.codigo, provaDoPulse(noPulse('sim', { referencia: rev.codigo }), rev.codigo,
-    { referencia: rev.codigo }), A);
+  const estado = revogarPelaResposta(raiz, 'arco-a', rev.codigo, provaDoPulse(noPulse('sim', { referencia: `${rev.codigo}:6` }), rev.codigo,
+    { referencia: `${rev.codigo}:6` }), A);
   assert.equal(estado.situacao, 'revogado');
   assert.deepEqual(perguntasDoArco(raiz, 'arco-a', A).map(q => [q.ato, q.situacao]), [['autorizar', 'respondida'], ['revogar', 'respondida']]);
   recusa(() => pedirRevogacao(raiz, 'arco-a', A), 'noctum.efeito.revogado');
@@ -307,7 +316,7 @@ test('NP16: a resposta curta pela resposta ao arco (noctum-resposta) autoriza e 
   const p = proporEnvelope(raiz, pedido('arco-a'), P);
   const [q] = perguntasDoArco(raiz, 'arco-a', A);
   const r = responderPerguntaDoArco(raiz, q, lerTrecho('autorizo')!, { quando: A, canal: 'telegram',
-    provar: x => provaDoPulse(noPulse('autorizo', { referencia: x.codigo }), x.codigo, { referencia: x.codigo }) });
+    provar: x => provaDoPulse(noPulse('autorizo', { referencia: `${x.codigo}:5` }), x.codigo, { referencia: `${x.codigo}:5` }) });
   assert.equal(r.tipo, 'registrada');
   assert.match(r.mensagem, new RegExp(`^✅ ${p.codigo} → a\\) Autorizo: o arco arco-a está autorizado \\(agendado\\), até `));
 }));
@@ -335,3 +344,74 @@ test('NP17: o diálogo nativo mostra a pergunta RM-057 com as três alternativas
     void p;
   });
 });
+
+// GO-FIX 1 (CHECK da ork-rm057respost): as guardas do ato pela resposta curta, uma a uma (mutantes A3, A5, A6b e A7).
+
+test('NP18: a prova que diz responder a outra pergunta não autoriza esta, mesmo autêntica e do mesmo arco', () => comRaiz('outra-pergunta', raiz => {
+  const v1 = proporEnvelope(raiz, pedido('arco-a', 40), P);
+  const v2 = proporEnvelope(raiz, pedido('arco-a', 400), P);
+  assert.notEqual(v1.codigo, v2.codigo);
+  const e = noPulse(`${v1.codigo} a`);
+  recusa(() => autorizarPelaResposta(raiz, 'arco-a', v2.codigo!, provaDoPulse(e, v1.codigo!), A), 'noctum.origem.sem-prova');
+  assert.equal(lerArco(raiz, 'arco-a', A)!.autorizadoPor, null, 'o recibo nunca diz uma pergunta e autoriza outra');
+}));
+
+test('NP19: a prova que já autorizou a proposta 1 não autoriza a emenda, mesmo sem o registro das mensagens, e o arco segue legível', () => comRaiz('prova-usada', raiz => {
+  const v1 = proporEnvelope(raiz, pedido('arco-a', 40), P);
+  const e = noPulse(`${v1.codigo} a`);
+  autorizarPelaResposta(raiz, 'arco-a', v1.codigo!, provaDoPulse(e, v1.codigo!), A);
+  const v2 = proporEnvelope(raiz, pedido('arco-a', 30), A);
+  // O registro das mensagens usadas some (estado perdido): a conferência do log do arco, uma prova para um ato, segura sozinha.
+  fs.rmSync(path.join(raiz, '.orkastery', 'noctum', 'mensagens-usadas'), { recursive: true, force: true });
+  recusa(() => autorizarPelaResposta(raiz, 'arco-a', v2.codigo!, provaDoPulse(e, v2.codigo!), A), 'noctum.origem.sem-prova');
+  const estado = lerArco(raiz, 'arco-a', A)!;
+  assert.deepEqual([estado.versao, estado.envelopeSha256], [1, v1.envelopeSha256], 'nada foi gravado, e o log não ficou inutilizado');
+}));
+
+test('NP20: a resposta à pergunta de revogação depois do prazo dela não revoga', () => comRaiz('revogar-prazo', raiz => {
+  const p = proporEnvelope(raiz, pedido('arco-a'), P);
+  autorizarPelaResposta(raiz, 'arco-a', p.codigo!, provaDoPulse(noPulse(`${p.codigo} a`), p.codigo!), A);
+  const rev = pedirRevogacao(raiz, 'arco-a', A);
+  const depois = new Date(Date.parse(rev.prazo) + 30_000).toISOString();
+  recusa(() => revogarPelaResposta(raiz, 'arco-a', rev.codigo, provaDoPulse(noPulse(`${rev.codigo} a`, { recebidoEm: depois }), rev.codigo), depois),
+    'noctum.pergunta.vencida');
+  assert.notEqual(lerArco(raiz, 'arco-a', depois)!.situacao, 'revogado');
+}));
+
+test('NP21: a resposta à pergunta de revogação substituída não revoga, mesmo dentro do prazo dela', () => comRaiz('revogar-substituida', raiz => {
+  const p = proporEnvelope(raiz, pedido('arco-a'), P);
+  autorizarPelaResposta(raiz, 'arco-a', p.codigo!, provaDoPulse(noPulse(`${p.codigo} a`), p.codigo!), A);
+  const rev1 = pedirRevogacao(raiz, 'arco-a', A);
+  const rev2 = pedirRevogacao(raiz, 'arco-a', new Date(Date.parse(rev1.prazo) + 60_000).toISOString());
+  assert.notEqual(rev2.codigo, rev1.codigo);
+  // O relógio de quem responde está atrás: dentro do prazo da primeira, que já foi substituída no log.
+  const dentroDaPrimeira = '2026-10-13T00:41:00.000Z';
+  recusa(() => revogarPelaResposta(raiz, 'arco-a', rev1.codigo, provaDoPulse(noPulse(`${rev1.codigo} a`, { recebidoEm: dentroDaPrimeira }), rev1.codigo),
+    dentroDaPrimeira), 'noctum.pergunta.substituida');
+  assert.notEqual(lerArco(raiz, 'arco-a', dentroDaPrimeira)!.situacao, 'revogado');
+}));
+
+test('NP22: a mesma mensagem assinada não responde a duas perguntas: o segundo arco é recusado dentro dos 60 s', () => comRaiz('uso-unico', raiz => {
+  // S6 do CHECK, invertido no núcleo do arco: o mesmo envelope autorizava arco-b 30 s depois de autorizar arco-a.
+  const a = proporEnvelope(raiz, pedido('arco-a'), P), b = proporEnvelope(raiz, pedido('arco-b'), P);
+  const sim = noPulse('sim');
+  autorizarPelaResposta(raiz, 'arco-a', a.codigo!, provaDoPulse(sim, a.codigo!), A);
+  const depois = '2026-10-13T00:31:30.000Z';
+  recusa(() => autorizarPelaResposta(raiz, 'arco-b', b.codigo!, provaDoPulse(sim, b.codigo!), depois), 'noctum.origem.sem-prova');
+  assert.equal(lerArco(raiz, 'arco-b', depois)!.autorizadoPor, null);
+  // A mesma mensagem de novo para a MESMA pergunta segue o caminho de sempre: já valia, nada novo no log.
+  const info = { repetida: false, mesmaProva: false };
+  autorizarPelaResposta(raiz, 'arco-a', a.codigo!, provaDoPulse(sim, a.codigo!), depois, info);
+  assert.deepEqual(info, { repetida: true, mesmaProva: true });
+  const registro = fs.readdirSync(path.join(raiz, '.orkastery', 'noctum', 'mensagens-usadas'));
+  assert.equal(registro.length, 1);
+  assert.equal((fs.statSync(path.join(raiz, '.orkastery', 'noctum', 'mensagens-usadas', registro[0])).mode & 0o077), 0, 'arquivo privado');
+}));
+
+test('NP23: a mensagem de antes da pergunta não responde a ela, nem dentro da janela de 60 s', () => comRaiz('antes', raiz => {
+  const depoisDaMensagem = '2026-10-13T00:31:20.000Z';
+  const p = proporEnvelope(raiz, pedido('arco-a'), depoisDaMensagem);
+  recusa(() => autorizarPelaResposta(raiz, 'arco-a', p.codigo!, provaDoPulse(noPulse('sim'), p.codigo!), depoisDaMensagem),
+    'noctum.origem.sem-prova');
+  assert.equal(lerArco(raiz, 'arco-a', depoisDaMensagem)!.autorizadoPor, null);
+}));

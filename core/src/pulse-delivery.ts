@@ -91,7 +91,30 @@ function gravarCache(file:string,vistas:Record<string,string>): void {
   const tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.stringify({versao:1,vistas})+'\n',{mode:0o600});fs.renameSync(tmp,file);
 }
 
-export interface EntregaPeloTransporte { ok: boolean; host: string | null; tentativas: TentativaDoTransporte[] }
+export interface EntregaPeloTransporte {
+  ok: boolean; host: string | null; tentativas: TentativaDoTransporte[];
+  /**
+   * RM-057 (GO-FIX 1, achado 2 da ork-rm057respost): os ids das mensagens que o transporte entregou, como ele os imprime
+   * (`message_id` e `message_ids` no do Hermes, `messageId` no `--json` do OpenClaw). É com eles que o reply do dono se
+   * prende à mensagem da pergunta; transporte que não diz o id entrega, mas o reply àquela mensagem não vale.
+   */
+  mensagens: string[];
+}
+
+/** Os ids de mensagem que o transporte imprimiu ao entregar: só inteiros positivos do Telegram, no máximo dez. */
+export function idsDaEntrega(saida: string): string[] {
+  const texto = String(saida ?? '').trim();
+  let j: unknown = null;
+  for (const candidato of [texto, texto.split('\n').filter(Boolean).at(-1) ?? '']) {
+    try { j = JSON.parse(candidato); break; } catch { j = null; }
+  }
+  if (!j || typeof j !== 'object' || Array.isArray(j)) return [];
+  const o = j as Record<string, unknown>;
+  const brutos = [...(Array.isArray(o.message_ids) ? o.message_ids : []), o.message_id, o.messageId];
+  const ids = brutos.map(v => (typeof v === 'number' && Number.isSafeInteger(v) && v > 0) ? String(v)
+    : typeof v === 'string' && /^[1-9][0-9]{0,19}$/.test(v) ? v : null).filter((v): v is string => v !== null);
+  return [...new Set(ids)].slice(0, 10);
+}
 
 /**
  * RM-063 (fatia 3, H4): entrega a mensagem pelo transporte do pulse e, quando ele falha, pelos outros hosts configurados
@@ -108,7 +131,7 @@ export function entregarPeloTransporte(raiz: string, mensagem: string,
   if (!transporteValido(config)) throw new Error('transporte requer executavel e argumentos com {{mensagem}}');
   const todos = [config, ...(Array.isArray(config.alternativos) ? config.alternativos.filter(transporteValido) : [])];
   const tentativas: TentativaDoTransporte[] = [];
-  let entregue: string | null = null;
+  let entregue: string | null = null, mensagens: string[] = [];
   for (const t of todos) {
     const host = hostDoTransporte(t);
     const r = spawnSync(t.executavel, t.argumentos.map((a) => a.replaceAll('{{mensagem}}', () => mensagem)),
@@ -116,14 +139,14 @@ export function entregarPeloTransporte(raiz: string, mensagem: string,
     const ok = r.status === 0;
     tentativas.push({ host, ok, codigo: r.status, detalhe: ok ? '' : redigirSegredos(`${r.error ? r.error.message : ''} ${r.stderr ?? ''}`)
       .replace(/\s+/g, ' ').trim().slice(0, 200) });
-    if (ok) { entregue = host; break; }
+    if (ok) { entregue = host; mensagens = idsDaEntrega(r.stdout ?? ''); break; }
   }
   try {
     fs.mkdirSync(dir, { recursive: true });
     fs.appendFileSync(path.join(dir, ARQUIVO_DO_TRANSPORTE), JSON.stringify({ ts: opcoes.quando ?? new Date().toISOString(),
       tipo: 'transporte_entrega', oQue: opcoes.oQue, ok: entregue !== null, host: entregue, tentativas }) + '\n', { mode: 0o600 });
   } catch { /* o log e do doctor; a entrega vale sem ele */ }
-  return { ok: entregue !== null, host: entregue, tentativas };
+  return { ok: entregue !== null, host: entregue, tentativas, mensagens };
 }
 
 /**
