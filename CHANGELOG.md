@@ -8,6 +8,22 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **DSN da memória fora do ambiente dos agentes (RM-069)**: `memory.database_url_file` declara a DSN da memória por
+  um arquivo da pasta de segredos do `ork` (`~/.orkastery/segredos/<nome>`, que segue `ORKASTERY_HOME`), em vez da
+  variável de `memory.database_url_env`; as duas fontes são exclusivas e o `ork` nunca cai de uma para a outra. O
+  arquivo só é lido como arquivo comum do usuário que roda o `ork`, sem link simbólico no caminho (cada pasta da casa
+  do usuário até o arquivo é conferida antes de abrir, e a pasta do usuário vinda de `ORK_USUARIO_DIR` ou
+  `ORKASTERY_HOME` só vale dentro da casa, sem `..` e do próprio usuário), com permissão `0600` ou `0400` exata, até 4 KiB
+  e uma linha só com a DSN (`esquema://...`); ausente, inseguro ou inválido, a memória degrada para `files` com
+  `dsn.arquivo-ausente`, `dsn.arquivo-inseguro` ou `dsn.arquivo-invalido`. O driver do OrkMind, o cliente e a
+  migração do Company Brain e o `ork doctor` leem a DSN pelo mesmo resolvedor, e ela continua indo só ao ambiente do
+  processo filho. A resposta do filho que repita a DSN ou a senha dela, de qualquer tamanho, é recusada inteira, nas
+  duas fontes, com `brain.transport.secret`, `brain.migration.secret` ou `memory.transport.secret`, sem o valor. O
+  `ork doctor` ganha os checks "fonte da DSN" (a variável pelo nome ou o arquivo pelo caminho com `~`, nunca o valor)
+  e "DSN no ambiente" (numa sessão despachada, os nomes das variáveis com a DSN do projeto ou com URL com senha), e o
+  `ork memory status` mostra o arquivo. O erro de `memory.database_url_env` inválido deixa de repetir o valor. O
+  agente roda com o mesmo usuário e pode ler o arquivo: o ganho é a senha fora de `env`, da transcrição e do contexto
+  do modelo.
 - **O dono aprova onde estiver, com resposta curta** ([RM-057](docs/roadmap/RM-057-hitl-por-alternativas.md), na
   [RM-058](docs/roadmap/RM-058-modo-noctum.md)): a proposta do arco do #Noctum (`ork noctum propor` e
   `ork_noctum_propor`) e a revogação pedida (`ork noctum revogar <arco>`, novo) viram a pergunta ao dono com código

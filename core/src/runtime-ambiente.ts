@@ -25,6 +25,11 @@ export function nomesDeProviderAtivos(base: NodeJS.ProcessEnv = process.env): st
 export const ENV_IDENTIDADE_DE_DESPACHO = 'ORK_DISPATCH_ID';
 export const ENV_THREAD_DO_DESPACHO = 'ORK_DISPATCH_THREAD';
 
+/** O processo roda numa sessao despachada pelo `ork`: a identidade ou a thread do despacho estao no ambiente. */
+export function sessaoDespachada(env: NodeJS.ProcessEnv = process.env): boolean {
+  return (env[ENV_IDENTIDADE_DE_DESPACHO] ?? '').trim() !== '' || (env[ENV_THREAD_DO_DESPACHO] ?? '').trim() !== '';
+}
+
 /** Copia, sem alterar o ambiente em que as policies ainda precisam ser avaliadas. */
 export function ambienteDeAssinatura(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   const env = { ...base };
