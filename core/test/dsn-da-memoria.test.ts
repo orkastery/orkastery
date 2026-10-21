@@ -3,13 +3,14 @@
  *
  * Os casos `DM` provam o resolvedor (`core/src/dsn-da-memoria.ts`) e a chave `memory.database_url_file` do manifesto
  * (T2); os casos `DR`, os consumidores pelo resolvedor e a degradação tipada (T3). Os casos `DM20` a `DM26` vêm do GO-FIX 1
- * (CHECK independente): o caminho conferido componente a componente (D17), a permissão exata (D18) e o contrato inteiro do
- * conteúdo (D19); os mutantes de `core/test/mutantes/dsn-da-memoria.json` desfazem cada correção. Toda DSN é inventada, a
- * pasta do usuário do `ork` é temporária (`ORK_USUARIO_DIR` no ambiente injetado, ou no do processo, restaurado no
- * `finally`) e nenhum caso lê, compara ou imprime o ambiente de quem roda a suíte.
+ * (CHECK independente): o caminho conferido componente a componente, a permissão exata (D18) e o contrato inteiro do
+ * conteúdo (D19); os casos `DM27` a `DM29`, do GO-FIX 2: a raiz da pasta do usuário pelo caminho real da casa (D24). Os
+ * mutantes de `core/test/mutantes/dsn-da-memoria.json` desfazem cada correção. Toda DSN é inventada, a casa do usuário e
+ * a pasta do usuário do `ork` são temporárias (`HOME` e `ORK_USUARIO_DIR` no ambiente injetado, ou no do processo,
+ * restaurado no `finally`) e nenhum caso lê, compara ou imprime o ambiente de quem roda a suíte.
  */
 
-import { test } from 'node:test';
+import { test, TestContext } from 'node:test';
 import { strict as assert } from 'node:assert';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -33,23 +34,31 @@ const DSN = 'postgres://usuario:senha-de-teste-inventada@localhost/teste';
 const SENHA_INVENTADA = 'senha-de-teste-inventada';
 const ARQUIVO = '~/.orkastery/segredos/teste.dsn';
 
-interface PastaDoUsuario { dir: string; env: NodeJS.ProcessEnv; segredos: string; limpar: () => void }
+interface PastaDoUsuario { casa: string; dir: string; env: NodeJS.ProcessEnv; segredos: string; limpar: () => void }
 
-/** Pasta do usuário temporária com a pasta de segredos já criada (0700). */
-function pastaDoUsuario(nome: string): PastaDoUsuario {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `ork-dsn-${nome}-`)));
+/**
+ * A casa do usuário temporária (`HOME`) com a pasta do usuário do `ork` dentro e a de segredos já criada (0700): a pasta
+ * `ork` dada por `ORK_USUARIO_DIR` ou, com `padrao`, a `.orkastery` da casa, sem variável (D24).
+ */
+function pastaDoUsuario(nome: string, padrao = false): PastaDoUsuario {
+  const casa = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `ork-dsn-${nome}-`)));
+  const dir = path.join(casa, padrao ? '.orkastery' : 'ork');
   const segredos = path.join(dir, 'segredos');
-  fs.mkdirSync(segredos, { mode: 0o700 });
-  return { dir, env: { ORK_USUARIO_DIR: dir }, segredos,
-    limpar: () => fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }) };
+  fs.mkdirSync(segredos, { recursive: true, mode: 0o700 });
+  return { casa, dir, env: padrao ? { HOME: casa } : { HOME: casa, ORK_USUARIO_DIR: dir }, segredos,
+    limpar: () => fs.rmSync(casa, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }) };
 }
 
-/** Grava o arquivo da DSN com o modo pedido (o `chmod` depois do `write` não depende da umask). */
-function gravar(p: PastaDoUsuario, conteudo: string | Buffer, modo = 0o600, nome = 'teste.dsn'): string {
-  const arquivo = path.join(p.segredos, nome);
+/** Grava o arquivo da DSN na pasta de segredos dada, com o modo pedido (o `chmod` depois do `write` não depende da umask). */
+function gravarEm(segredos: string, conteudo: string | Buffer, modo = 0o600, nome = 'teste.dsn'): string {
+  const arquivo = path.join(segredos, nome);
   fs.writeFileSync(arquivo, conteudo);
   fs.chmodSync(arquivo, modo);
   return arquivo;
+}
+
+function gravar(p: PastaDoUsuario, conteudo: string | Buffer, modo = 0o600, nome = 'teste.dsn'): string {
+  return gravarEm(p.segredos, conteudo, modo, nome);
 }
 
 function semValor(r: DsnDaMemoria): void {
@@ -168,7 +177,8 @@ test('DM7: 0640, 0644 e 0700 são inseguros e dizem a permissão', () => {
 });
 
 test('DM8: arquivo de outro dono é inseguro, e sem conferência de dono também', () => {
-  const p = pastaDoUsuario('dm8');
+  // Na `.orkastery` da casa, sem variável: a raiz vinda do ambiente pede antes a pasta do próprio usuário (DM29).
+  const p = pastaDoUsuario('dm8', true);
   try {
     gravar(p, DSN);
     const uid = typeof process.getuid === 'function' ? process.getuid() : 0;
@@ -287,7 +297,7 @@ test('DM16: o rótulo segue a pasta do usuário e nunca é caminho absoluto (D2)
     for (const modo of [0o600, 0o644]) {
       gravar(p, DSN, modo);
       const r = resolverDsn(comArquivo(), { env: p.env });
-      assert.ok(!JSON.stringify(r).includes(p.dir), 'o caminho real não sai');
+      assert.ok(!JSON.stringify(r).includes(p.casa), 'o caminho real não sai');
     }
     const forma = resolverDsn(comArquivo({ database_url_file: '/etc/orkastery/teste.dsn' }), { env: p.env });
     assert.equal(forma.falha, 'dsn.arquivo-invalido');
@@ -345,13 +355,13 @@ test('DM19: fim de linha \\r\\n e espaço em volta são aparados', () => {
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
-// GO-FIX 1: o caminho conferido componente a componente (D17), a permissão exata (D18) e o contrato do conteúdo (D19)
+// GO-FIX 1 e 2: o caminho conferido componente a componente desde a casa (D24), a permissão exata (D18) e o contrato do
+// conteúdo (D19)
 
-/** Uma pasta temporária fora da pasta do usuário, com um arquivo da DSN 0600 dentro: o alvo de um link. */
+/** Uma pasta temporária fora da casa do usuário, com um arquivo da DSN 0600 dentro: o alvo de um link. */
 function pastaDeFora(nome: string): { dir: string; limpar: () => void } {
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `ork-dsn-${nome}-fora-`)));
-  fs.writeFileSync(path.join(dir, 'teste.dsn'), `${DSN}\n`);
-  fs.chmodSync(path.join(dir, 'teste.dsn'), 0o600);
+  gravarEm(dir, `${DSN}\n`);
   return { dir, limpar: () => fs.rmSync(dir, { recursive: true, force: true }) };
 }
 
@@ -365,49 +375,79 @@ function recusadoPelaPasta(r: DsnDaMemoria, rotulo: string, caminhos: readonly s
   for (const c of caminhos) assert.ok(!JSON.stringify(r).includes(c), `${rotulo}: o caminho real não sai`);
 }
 
+/** A recusa pela raiz (D24): inválido, a causa `raiz`, sem a DSN e sem nenhum dos caminhos reais pedidos. */
+function recusadoPelaRaiz(r: DsnDaMemoria, rotulo: string, caminhos: readonly string[] = []): void {
+  assert.equal(r.falha, 'dsn.arquivo-invalido', rotulo);
+  assert.equal(r.causa, 'raiz', rotulo);
+  assert.equal(r.dsn, '', rotulo);
+  assert.match(r.detalhe, /: a pasta do usuário do ork precisa ser caminho absoluto sem \.\., dentro da casa do usuário \(HOME\)$/, rotulo);
+  semValor(r);
+  for (const c of caminhos) assert.ok(!JSON.stringify(r).includes(c), `${rotulo}: o caminho real não sai`);
+}
+
+/**
+ * D24, "sem ler nada": espia `openSync`, `readSync` e `readFileSync` do `fs` no teste `t` e devolve quantas aberturas e
+ * leituras `fn` fez. A recusa da raiz e do caminho vem antes de abrir qualquer arquivo.
+ */
+function espiarLeituras(t: TestContext): <T>(fn: () => T) => { valor: T; aberturas: number } {
+  const real = require('node:fs') as typeof import('node:fs');
+  let contando = false;
+  let aberturas = 0;
+  for (const nome of ['openSync', 'readSync', 'readFileSync'] as const) {
+    const original = real[nome] as (...args: unknown[]) => unknown;
+    t.mock.method(real, nome, (...args: unknown[]) => {
+      if (contando) aberturas++;
+      return Reflect.apply(original, real, args);
+    });
+  }
+  return (fn) => {
+    contando = true;
+    aberturas = 0;
+    try {
+      const valor = fn();
+      return { valor, aberturas };
+    } finally { contando = false; }
+  };
+}
+
 test('DM20: a pasta de segredos que é link simbólico para fora é recusada pela pasta, sem a DSN de lá', () => {
   const p = pastaDoUsuario('dm20');
   const fora = pastaDeFora('dm20');
   try {
     fs.rmSync(p.segredos, { recursive: true });
     fs.symlinkSync(fora.dir, p.segredos);
-    recusadoPelaPasta(resolverDsn(comArquivo(), { env: p.env }), 'segredos com link para fora', [fora.dir, p.dir]);
+    recusadoPelaPasta(resolverDsn(comArquivo(), { env: p.env }), 'segredos com link para fora', [fora.dir, p.casa]);
   } finally { fora.limpar(); p.limpar(); }
 });
 
 test('DM21: a pasta do usuário do ork que é link simbólico também é recusada; pelo caminho real, o mesmo arquivo vale', () => {
   const p = pastaDoUsuario('dm21');
-  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ork-dsn-dm21-link-')));
   try {
     gravar(p, `${DSN}\n`);
-    const ligacao = path.join(base, 'casa-do-ork');
+    const ligacao = path.join(p.casa, 'casa-do-ork');
     fs.symlinkSync(p.dir, ligacao);
-    recusadoPelaPasta(resolverDsn(comArquivo(), { env: { ORK_USUARIO_DIR: ligacao } }), 'ORK_USUARIO_DIR com link', [p.dir, base]);
-    recusadoPelaPasta(resolverDsn(comArquivo(), { env: { ORKASTERY_HOME: ligacao } }), 'ORKASTERY_HOME com link', [p.dir, base]);
+    recusadoPelaPasta(resolverDsn(comArquivo(), { env: { HOME: p.casa, ORK_USUARIO_DIR: ligacao } }), 'ORK_USUARIO_DIR com link', [p.casa]);
+    recusadoPelaPasta(resolverDsn(comArquivo(), { env: { HOME: p.casa, ORKASTERY_HOME: ligacao } }), 'ORKASTERY_HOME com link', [p.casa]);
+    // Sem variável, a `.orkastery` da casa que é link também é recusada.
+    const outraCasa = path.join(p.casa, 'outra-casa');
+    fs.mkdirSync(outraCasa);
+    fs.symlinkSync(p.dir, path.join(outraCasa, '.orkastery'));
+    recusadoPelaPasta(resolverDsn(comArquivo(), { env: { HOME: outraCasa } }), '~/.orkastery com link', [p.casa]);
     assert.equal(resolverDsn(comArquivo(), { env: p.env }).dsn, DSN, 'controle: pela pasta real, o arquivo vale');
-  } finally { fs.rmSync(base, { recursive: true, force: true }); p.limpar(); }
+  } finally { p.limpar(); }
 });
 
-test('DM22: a pasta de segredos ou a do usuário que não é pasta é recusada; link acima da pasta do usuário não conta (D17)', () => {
+test('DM22: a pasta de segredos ou a do usuário que não é pasta é recusada', () => {
   const p = pastaDoUsuario('dm22');
-  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ork-dsn-dm22-')));
   try {
     fs.rmSync(p.segredos, { recursive: true });
     fs.writeFileSync(p.segredos, `${DSN}\n`);
-    recusadoPelaPasta(resolverDsn(comArquivo(), { env: p.env }), 'segredos é arquivo');
-    const arquivo = path.join(base, 'arquivo-no-lugar-da-pasta');
+    recusadoPelaPasta(resolverDsn(comArquivo(), { env: p.env }), 'segredos é arquivo', [p.casa]);
+    const arquivo = path.join(p.casa, 'arquivo-no-lugar-da-pasta');
     fs.writeFileSync(arquivo, `${DSN}\n`);
-    recusadoPelaPasta(resolverDsn(comArquivo(), { env: { ORK_USUARIO_DIR: arquivo } }), 'pasta do usuário é arquivo', [base]);
-    // O link acima da pasta do usuário é do sistema de quem roda o `ork`, não do manifesto: o caminho real ainda fecha.
-    const segredos = path.join(base, 'real', 'casa', 'segredos');
-    fs.mkdirSync(segredos, { recursive: true, mode: 0o700 });
-    fs.writeFileSync(path.join(segredos, 'teste.dsn'), `${DSN}\n`);
-    fs.chmodSync(path.join(segredos, 'teste.dsn'), 0o600);
-    fs.symlinkSync(path.join(base, 'real'), path.join(base, 'atalho'));
-    const acima = resolverDsn(comArquivo(), { env: { ORK_USUARIO_DIR: path.join(base, 'atalho', 'casa') } });
-    assert.equal(acima.falha, null);
-    assert.equal(acima.dsn, DSN);
-  } finally { fs.rmSync(base, { recursive: true, force: true }); p.limpar(); }
+    recusadoPelaPasta(resolverDsn(comArquivo(), { env: { HOME: p.casa, ORK_USUARIO_DIR: arquivo } }), 'pasta do usuário é arquivo',
+      [p.casa]);
+  } finally { p.limpar(); }
 });
 
 test('DM23: a permissão vale exata, com os bits especiais: setuid, setgid e sticky sobre 0600 ou 0400 são inseguros', () => {
@@ -511,14 +551,115 @@ test('DM26: o limite de 4 KiB conta o fim de linha: 4096 bytes passam, 4097 não
   } finally { p.limpar(); }
 });
 
+test('DM27: link simbólico em qualquer pasta entre a casa do usuário e a raiz é recusado sem abrir nada; acima da casa, o caminho real vale (D24)', (t) => {
+  const p = pastaDoUsuario('dm27');
+  const acima = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ork-dsn-dm27-acima-')));
+  try {
+    // A árvore real, com o arquivo válido, e dois atalhos para ela dentro da casa: logo abaixo da casa e mais fundo.
+    const real = path.join(p.casa, 'real', 'fundo');
+    fs.mkdirSync(path.join(real, 'ork', 'segredos'), { recursive: true, mode: 0o700 });
+    gravarEm(path.join(real, 'ork', 'segredos'), `${DSN}\n`);
+    fs.symlinkSync(path.join(p.casa, 'real'), path.join(p.casa, 'atalho'));
+    fs.symlinkSync(real, path.join(p.casa, 'real', 'atalho-fundo'));
+    const espiar = espiarLeituras(t);
+    const casos: Array<[string, string]> = [
+      ['ORK_USUARIO_DIR', path.join(p.casa, 'atalho', 'fundo', 'ork')],
+      ['ORKASTERY_HOME', path.join(p.casa, 'atalho', 'fundo', 'ork')],
+      ['ORK_USUARIO_DIR', path.join(p.casa, 'real', 'atalho-fundo', 'ork')],
+    ];
+    for (const [variavel, raiz] of casos) {
+      const rotulo = `${variavel} por ${path.relative(p.casa, raiz)}`;
+      const { valor, aberturas } = espiar(() => resolverDsn(comArquivo(), { env: { HOME: p.casa, [variavel]: raiz } }));
+      recusadoPelaPasta(valor, rotulo, [p.casa]);
+      assert.equal(aberturas, 0, `${rotulo}: nada é aberto antes da recusa`);
+    }
+    assert.equal(resolverDsn(comArquivo(), { env: { HOME: p.casa, ORK_USUARIO_DIR: path.join(real, 'ork') } }).dsn, DSN,
+      'controle: pelo caminho real, o mesmo arquivo vale');
+    // Acima da casa é do sistema de quem roda o `ork`: a casa por um link vale pelo caminho real, com a raiz escrita pelo
+    // link ou pelo caminho real, e a `.orkastery` sem variável também.
+    const casaPorLink = path.join(acima, 'casa');
+    fs.symlinkSync(p.casa, casaPorLink);
+    fs.mkdirSync(path.join(p.casa, '.orkastery', 'segredos'), { recursive: true, mode: 0o700 });
+    gravarEm(path.join(p.casa, '.orkastery', 'segredos'), `${DSN}\n`);
+    for (const env of [{ HOME: casaPorLink, ORK_USUARIO_DIR: path.join(casaPorLink, 'real', 'fundo', 'ork') },
+      { HOME: casaPorLink, ORKASTERY_HOME: path.join(real, 'ork') }, { HOME: casaPorLink }]) {
+      const r = resolverDsn(comArquivo(), { env });
+      assert.equal(r.falha, null, `${JSON.stringify(Object.keys(env))}: ${r.detalhe}`);
+      assert.equal(r.dsn, DSN);
+    }
+  } finally { fs.rmSync(acima, { recursive: true, force: true }); p.limpar(); }
+});
+
+test('DM28: a raiz vinda do ambiente com .. ou relativa é recusada pela raiz sem abrir nada, mesmo quando o .. volta para dentro da casa (D24)', (t) => {
+  const p = pastaDoUsuario('dm28');
+  try {
+    gravar(p, `${DSN}\n`);
+    fs.mkdirSync(path.join(p.casa, 'outra'));
+    const espiar = espiarLeituras(t);
+    const casos: Array<[string, string]> = [
+      ['ORK_USUARIO_DIR', `${p.dir}/../ork`],
+      ['ORKASTERY_HOME', `${p.casa}/outra/../ork`],
+      ['ORK_USUARIO_DIR', `${p.casa}/../${path.basename(p.casa)}/ork`],
+      ['ORK_USUARIO_DIR', 'ork'],
+      ['ORKASTERY_HOME', './ork'],
+    ];
+    for (const [variavel, raiz] of casos) {
+      const { valor, aberturas } = espiar(() => resolverDsn(comArquivo(), { env: { HOME: p.casa, [variavel]: raiz } }));
+      recusadoPelaRaiz(valor, `${variavel} com ${raiz.replace(p.casa, '<casa>')}`, [p.casa]);
+      assert.equal(aberturas, 0, `${variavel}: nada é aberto antes da recusa`);
+    }
+    assert.equal(resolverDsn(comArquivo(), { env: p.env }).dsn, DSN, 'controle: a mesma raiz, sem .., vale');
+  } finally { p.limpar(); }
+});
+
+test('DM29: a raiz vinda do ambiente fora da casa do usuário, na própria casa ou de outro dono é recusada sem abrir nada (D24)', (t) => {
+  const p = pastaDoUsuario('dm29');
+  const fora = pastaDoUsuario('dm29-fora');
+  try {
+    gravar(p, `${DSN}\n`);
+    gravar(fora, `${DSN}\n`);
+    // A casa com a pasta de segredos direto nela: a raiz igual à casa não vale.
+    fs.mkdirSync(path.join(p.casa, 'segredos'), { mode: 0o700 });
+    gravarEm(path.join(p.casa, 'segredos'), `${DSN}\n`);
+    const espiar = espiarLeituras(t);
+    const casos: Array<[string, string]> = [
+      ['ORK_USUARIO_DIR', fora.dir],
+      ['ORKASTERY_HOME', fora.dir],
+      ['ORK_USUARIO_DIR', p.casa],
+      ['ORKASTERY_HOME', path.parse(p.casa).root],
+    ];
+    for (const [variavel, raiz] of casos) {
+      const { valor, aberturas } = espiar(() => resolverDsn(comArquivo(), { env: { HOME: p.casa, [variavel]: raiz } }));
+      recusadoPelaRaiz(valor, `${variavel} fora da casa`, [p.casa, fora.casa]);
+      assert.equal(aberturas, 0, `${variavel}: nada é aberto antes da recusa`);
+    }
+    // A raiz de outro dono: o uid que conta não é o dono da pasta do usuário do `ork`.
+    const uid = typeof process.getuid === 'function' ? process.getuid() : 0;
+    const { valor: outro, aberturas } = espiar(() => resolverDsn(comArquivo(), { env: p.env, uid: uid + 1 }));
+    assert.equal(outro.falha, 'dsn.arquivo-inseguro');
+    assert.equal(outro.causa, 'dono-da-pasta');
+    assert.equal(outro.detalhe, 'ORK_USUARIO_DIR/segredos/teste.dsn: a pasta do usuário do ork não é do usuário que roda o ork');
+    assert.equal(outro.dsn, '');
+    semValor(outro);
+    assert.equal(aberturas, 0, 'a pasta de outro dono: nada é aberto antes da recusa');
+    assert.equal(resolverDsn(comArquivo(), { env: fora.env }).dsn, DSN, 'controle: a pasta de fora vale com a casa dela');
+    assert.equal(resolverDsn(comArquivo(), { env: p.env }).dsn, DSN, 'controle: a raiz dentro da casa vale');
+  } finally { fora.limpar(); p.limpar(); }
+});
+
 // ---------------------------------------------------------------------------------------------------------------------
 // T3: os consumidores pelo resolvedor e a degradação tipada (casos DR)
 
-/** Roda `fn` com a pasta do usuário do `ork` no ambiente do processo (os consumidores leem `process.env`). */
+/** Roda `fn` com a casa e a pasta do usuário do `ork` no ambiente do processo (os consumidores leem `process.env`). */
 function comPastaDoUsuario<T>(p: PastaDoUsuario, fn: () => T): T {
-  const antes = process.env.ORK_USUARIO_DIR;
+  const antes = { HOME: process.env.HOME, ORK_USUARIO_DIR: process.env.ORK_USUARIO_DIR };
+  process.env.HOME = p.casa;
   process.env.ORK_USUARIO_DIR = p.dir;
-  try { return fn(); } finally { if (antes === undefined) delete process.env.ORK_USUARIO_DIR; else process.env.ORK_USUARIO_DIR = antes; }
+  try { return fn(); } finally {
+    for (const [nome, valor] of Object.entries(antes)) {
+      if (valor === undefined) delete process.env[nome]; else process.env[nome] = valor;
+    }
+  }
 }
 
 /** O manifesto do projeto de teste com `orkmind` e a fonte de arquivo (ou o que `memoria` pedir). */

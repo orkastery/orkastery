@@ -953,11 +953,11 @@ function correcaoDe(motivo: MotivoDeDegradacao, config: ReturnType<typeof config
     case 'dsn.arquivo-ausente':
       return `grave a DSN da base propria do tenant em ${config.rotuloDaDsn}, numa linha e com permissao 0600 (o ork nao adivinha base)`;
     case 'dsn.arquivo-inseguro':
-      return `deixe ${config.rotuloDaDsn} como arquivo do usuario que roda o ork, com chmod 600 ` +
+      return `deixe ${config.rotuloDaDsn} como arquivo do usuario que roda o ork, numa pasta dele, com chmod 600 ` +
         '(DSN que outro usuario pode ler nao e lida)';
     case 'dsn.arquivo-invalido':
-      return `regrave ${config.rotuloDaDsn} como arquivo comum numa pasta de segredos comum (sem link simbolico no caminho), ` +
-        'so com a DSN (esquema://...), numa linha e sem NOME= na frente';
+      return `regrave ${config.rotuloDaDsn} como arquivo comum numa pasta de segredos comum, dentro da casa do usuario e ` +
+        'sem link simbolico no caminho, so com a DSN (esquema://...), numa linha e sem NOME= na frente';
     case 'cli.ausente':
       return `instale o OrkMind e garanta "${config.cli}" no PATH`;
     case 'orkmind.indisponivel':

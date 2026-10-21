@@ -24,14 +24,16 @@ const DSN = 'postgres://usuario:senha-de-teste-inventada@localhost/teste';
 const SENHA_INVENTADA = 'senha-de-teste-inventada';
 const ARQUIVO = '~/.orkastery/segredos/teste.dsn';
 
-interface PastaDoUsuario { dir: string; env: NodeJS.ProcessEnv; segredos: string; limpar: () => void }
+interface PastaDoUsuario { casa: string; dir: string; env: NodeJS.ProcessEnv; segredos: string; limpar: () => void }
 
+/** A casa do usuário temporária (`HOME`) com a pasta do usuário do `ork` (`ORK_USUARIO_DIR`) e a de segredos dentro. */
 function pastaDoUsuario(nome: string): PastaDoUsuario {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `ork-dsn-doctor-${nome}-`)));
+  const casa = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `ork-dsn-doctor-${nome}-`)));
+  const dir = path.join(casa, 'ork');
   const segredos = path.join(dir, 'segredos');
-  fs.mkdirSync(segredos, { mode: 0o700 });
-  return { dir, env: { ORK_USUARIO_DIR: dir }, segredos,
-    limpar: () => fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }) };
+  fs.mkdirSync(segredos, { recursive: true, mode: 0o700 });
+  return { casa, dir, env: { HOME: casa, ORK_USUARIO_DIR: dir }, segredos,
+    limpar: () => fs.rmSync(casa, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }) };
 }
 
 function gravar(segredos: string, conteudo: string, modo = 0o600): void {
@@ -111,8 +113,17 @@ test('DD4: arquivo com falha é aviso com o motivo, a causa e a correção do mo
       assert.equal(c?.nivel, 'warn', String(detalhe));
       assert.match(c?.detalhe ?? '', detalhe);
       assert.match(c?.correcao ?? '', correcao);
-      semSegredo(texto(c), String(detalhe), [p.dir]);
+      semSegredo(texto(c), String(detalhe), [p.casa]);
     }
+    // D24: a pasta do usuário vinda do ambiente fora da casa é recusada pela raiz, sem o caminho real.
+    gravar(p.segredos, DSN);
+    fs.mkdirSync(path.join(p.casa, 'outra'));
+    const fora = checarFonteDaDsn(carregadoCom(projeto, { database_url_file: ARQUIVO }), { ...p.env, HOME: path.join(p.casa, 'outra') });
+    assert.equal(fora?.nivel, 'warn');
+    assert.equal(fora?.detalhe, 'arquivo ORK_USUARIO_DIR/segredos/teste.dsn recusado (dsn.arquivo-invalido): a pasta do usuário do ork ' +
+      'precisa ser caminho absoluto sem .., dentro da casa do usuário (HOME); a memória cai para files, sem outra fonte');
+    assert.match(fora?.correcao ?? '', /numa pasta de segredos comum, dentro da casa do usuário e sem link simbólico no caminho/);
+    semSegredo(texto(fora), 'raiz fora da casa', [p.casa]);
   } finally { p.limpar(); projeto.limpar(); }
 });
 

@@ -26,22 +26,29 @@ const SENHA_CURTA = 'curta9';
 const DSN = `postgres://usuario:${SENHA_CURTA}@localhost/teste`;
 const ARQUIVO = '~/.orkastery/segredos/teste.dsn';
 
-interface PastaDoUsuario { dir: string; segredos: string; limpar: () => void }
+interface PastaDoUsuario { casa: string; dir: string; segredos: string; limpar: () => void }
 
+/** A casa do usuário temporária com a pasta do usuário do `ork` dentro e o arquivo da DSN válido na de segredos. */
 function pastaDoUsuario(nome: string): PastaDoUsuario {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `ork-dsn-saida-${nome}-`)));
+  const casa = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `ork-dsn-saida-${nome}-`)));
+  const dir = path.join(casa, 'ork');
   const segredos = path.join(dir, 'segredos');
-  fs.mkdirSync(segredos, { mode: 0o700 });
+  fs.mkdirSync(segredos, { recursive: true, mode: 0o700 });
   fs.writeFileSync(path.join(segredos, 'teste.dsn'), `${DSN}\n`);
   fs.chmodSync(path.join(segredos, 'teste.dsn'), 0o600);
-  return { dir, segredos, limpar: () => fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }) };
+  return { casa, dir, segredos, limpar: () => fs.rmSync(casa, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }) };
 }
 
-/** Roda `fn` com a pasta do usuário do `ork` no ambiente do processo (os consumidores leem `process.env`). */
+/** Roda `fn` com a casa e a pasta do usuário do `ork` no ambiente do processo (os consumidores leem `process.env`). */
 function comPastaDoUsuario<T>(p: PastaDoUsuario, fn: () => T): T {
-  const antes = process.env.ORK_USUARIO_DIR;
+  const antes = { HOME: process.env.HOME, ORK_USUARIO_DIR: process.env.ORK_USUARIO_DIR };
+  process.env.HOME = p.casa;
   process.env.ORK_USUARIO_DIR = p.dir;
-  try { return fn(); } finally { if (antes === undefined) delete process.env.ORK_USUARIO_DIR; else process.env.ORK_USUARIO_DIR = antes; }
+  try { return fn(); } finally {
+    for (const [nome, valor] of Object.entries(antes)) {
+      if (valor === undefined) delete process.env[nome]; else process.env[nome] = valor;
+    }
+  }
 }
 
 function comMemoria(projeto: ProjetoDeTeste, memoria: Partial<Manifesto['memory']> = {}): Manifesto {

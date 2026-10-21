@@ -1,13 +1,13 @@
 {
   "contrato": "ork.mutantes/v1",
-  "descricao": "RM-069, GO-FIX 1 da ork-dsnforadoamb: cada mutante desfaz uma correção do resolvedor da DSN ou da barreira de saída. Cada claim Mutante roda um deles pelo core/scripts/mutante.cjs.",
+  "descricao": "RM-069, GO-FIX 1 e 2 da ork-dsnforadoamb: cada mutante desfaz uma correção do resolvedor da DSN ou da barreira de saída. Cada claim Mutante roda um deles pelo core/scripts/mutante.cjs.",
   "mutantes": [
     {
       "id": "M1",
       "descricao": "o caminho deixa de ser conferido componente a componente: volta o lstat só do arquivo, que segue a pasta com link",
       "modulo": "dsn-da-memoria",
-      "de": "const antes = conferirCaminho(pasta, nome);",
-      "para": "const antes = fs.lstatSync(caminho);",
+      "de": "const antes = conferirCaminho(raiz, nome, uid);",
+      "para": "const antes = { caminho: path.join(raiz.pasta, 'segredos', nome), arquivo: fs.lstatSync(path.join(raiz.pasta, 'segredos', nome)) };",
       "teste": "dsn-da-memoria",
       "nome": "^DM2[01]:"
     },
@@ -100,6 +100,42 @@
       "para": "return false;",
       "teste": "dsn-saida",
       "nome": "^DS1:"
+    },
+    {
+      "id": "M12",
+      "descricao": "a conferência volta a começar na pasta do usuário (D17): o link numa pasta entre a casa e a raiz é seguido",
+      "modulo": "dsn-da-memoria",
+      "de": "return { casa: real, partes, pasta: path.join(real, ...partes), daVariavel };",
+      "para": "return { casa: fs.realpathSync(path.dirname(alvo)), partes: [path.basename(alvo)], pasta: path.join(fs.realpathSync(path.dirname(alvo)), path.basename(alvo)), daVariavel };",
+      "teste": "dsn-da-memoria",
+      "nome": "^DM27:"
+    },
+    {
+      "id": "M13",
+      "descricao": "o .. na raiz vinda do ambiente volta a ser resolvido pelo texto (path.resolve)",
+      "modulo": "dsn-da-memoria",
+      "de": "temPontoPonto(declarada)",
+      "para": "false",
+      "teste": "dsn-da-memoria",
+      "nome": "^DM28:"
+    },
+    {
+      "id": "M14",
+      "descricao": "a raiz vinda do ambiente deixa de ficar dentro da casa: qualquer pasta vale, subindo da casa pelo ..",
+      "modulo": "dsn-da-memoria",
+      "de": "return relativo && relativo !== '..' && !relativo.startsWith(`..${path.sep}`) && !path.isAbsolute(relativo)",
+      "para": "return relativo",
+      "teste": "dsn-da-memoria",
+      "nome": "^DM29:"
+    },
+    {
+      "id": "M15",
+      "descricao": "a raiz vinda do ambiente deixa de ser conferida como pasta do próprio usuário",
+      "modulo": "dsn-da-memoria",
+      "de": "raiz.daVariavel && pasta === raiz.pasta && uid !== null && st.uid !== uid",
+      "para": "false",
+      "teste": "dsn-da-memoria",
+      "nome": "^DM29:"
     }
   ]
 }

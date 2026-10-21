@@ -4,12 +4,15 @@
  * `memory.database_url_file`), de como o arquivo é lido e de como o `ork doctor` procura DSN no ambiente sem imprimir
  * valor.
  *
- * As regras (G2 a G4 do GOAL da ork-dsnforadoamb, D17 a D21 do GO-FIX 1):
+ * As regras (G2 a G4 do GOAL da ork-dsnforadoamb, D18 a D21 do GO-FIX 1, D24 do GO-FIX 2):
  *  - uma fonte só: com `database_url_file`, só o arquivo vale, e o `ork` nunca cai para a variável;
  *  - o manifesto vem do repositório, então só nomeia arquivo da pasta de segredos (`~/.orkastery/segredos/<nome>`):
  *    ele não escolhe outro arquivo do dono para mandar ao `memory.cli` (P6 da fronteira de confiança);
- *  - o caminho é conferido antes de abrir: a pasta do usuário do `ork` e a de segredos são pastas comuns, sem link
- *    simbólico, e o caminho real do arquivo é o da pasta de segredos real;
+ *  - a raiz da pasta do usuário do `ork` sai do caminho real da casa do usuário (`HOME`): vinda de `ORK_USUARIO_DIR`
+ *    ou `ORKASTERY_HOME`, é um caminho absoluto sem `..`, dentro da casa, e uma pasta do próprio usuário; fora disso,
+ *    a recusa vem antes de abrir qualquer coisa;
+ *  - o caminho é conferido antes de abrir: cada pasta da casa até a de segredos é pasta comum, sem link simbólico, e o
+ *    caminho real do arquivo é o próprio caminho;
  *  - o arquivo é comum, do usuário que roda o `ork`, sem link simbólico, com permissão 0600 ou 0400 exata (os bits
  *    especiais contam), até 4 KiB e uma linha só com a DSN (`esquema://...`), e é lido a cada uso;
  *  - nenhum detalhe repete o valor, e o caminho sai com `~` ou com o nome da variável da pasta do usuário;
@@ -20,6 +23,7 @@
  */
 
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { pastaDoUsuario } from './maquina';
 import type { FonteDaDsn } from './types';
@@ -48,21 +52,23 @@ export type FalhaDaDsn =
  * Por que o arquivo da DSN foi recusado. O texto pt-BR de cada causa mora em `textoDaCausa`; o catálogo do `ork doctor`
  * o repete nas duas línguas, e um teste confere que o pt-BR dos dois é o mesmo.
  */
-export type CausaDaDsn = 'forma' | 'nao-existe' | 'nao-abre' | 'pasta' | 'link' | 'nao-e-arquivo' | 'plataforma' |
-  'dono' | 'permissao' | 'tamanho' | 'vazio' | 'codificacao' | 'linhas' | 'controle' | 'nome-valor' | 'esquema' |
-  'espaco' | 'leitura';
+export type CausaDaDsn = 'forma' | 'raiz' | 'nao-existe' | 'nao-abre' | 'pasta' | 'dono-da-pasta' | 'link' |
+  'nao-e-arquivo' | 'plataforma' | 'dono' | 'permissao' | 'tamanho' | 'vazio' | 'codificacao' | 'linhas' | 'controle' |
+  'nome-valor' | 'esquema' | 'espaco' | 'leitura';
 
-export const CAUSAS_DA_DSN: readonly CausaDaDsn[] = ['forma', 'nao-existe', 'nao-abre', 'pasta', 'link', 'nao-e-arquivo',
-  'plataforma', 'dono', 'permissao', 'tamanho', 'vazio', 'codificacao', 'linhas', 'controle', 'nome-valor', 'esquema',
-  'espaco', 'leitura'];
+export const CAUSAS_DA_DSN: readonly CausaDaDsn[] = ['forma', 'raiz', 'nao-existe', 'nao-abre', 'pasta', 'dono-da-pasta',
+  'link', 'nao-e-arquivo', 'plataforma', 'dono', 'permissao', 'tamanho', 'vazio', 'codificacao', 'linhas', 'controle',
+  'nome-valor', 'esquema', 'espaco', 'leitura'];
 
 /** O texto pt-BR da causa, sem o valor; `permissao` só entra na causa `permissao`. */
 export function textoDaCausa(causa: CausaDaDsn, permissao = ''): string {
   switch (causa) {
     case 'forma': return `memory.database_url_file fora da forma ${PREFIXO_DO_ARQUIVO_DA_DSN}<nome> (valor omitido)`;
+    case 'raiz': return 'a pasta do usuário do ork precisa ser caminho absoluto sem .., dentro da casa do usuário (HOME)';
     case 'nao-existe': return 'não existe';
     case 'nao-abre': return 'não foi possível abrir para leitura';
     case 'pasta': return 'o caminho da pasta de segredos tem link simbólico ou algo que não é pasta';
+    case 'dono-da-pasta': return 'a pasta do usuário do ork não é do usuário que roda o ork';
     case 'link': return 'link simbólico não é aceito';
     case 'nao-e-arquivo': return 'não é arquivo comum';
     case 'plataforma': return 'esta plataforma não confere dono nem permissão';
@@ -107,14 +113,17 @@ export function arquivoDaDsnValido(valor: string): boolean {
   return valor.startsWith(PREFIXO_DO_ARQUIVO_DA_DSN) && NOME_DO_ARQUIVO.test(valor.slice(PREFIXO_DO_ARQUIVO_DA_DSN.length));
 }
 
+/** A variável que dá a pasta do usuário do `ork`, na regra de `pastaDoUsuario`; sem nenhuma, a pasta é `~/.orkastery`. */
+function variavelDaPastaDoUsuario(env: NodeJS.ProcessEnv): 'ORK_USUARIO_DIR' | 'ORKASTERY_HOME' | null {
+  return (env.ORK_USUARIO_DIR ?? '').trim() ? 'ORK_USUARIO_DIR' : (env.ORKASTERY_HOME ?? '').trim() ? 'ORKASTERY_HOME' : null;
+}
+
 /**
  * O rótulo do arquivo (D2), na regra da pasta do usuário (`pastaDoUsuario`): `ORK_USUARIO_DIR` vence
  * `ORKASTERY_HOME`, que vence `~/.orkastery`. É o que vai a saída, ledger e bundle no lugar do caminho real.
  */
 export function rotuloDoArquivoDaDsn(nome: string, env: NodeJS.ProcessEnv = process.env): string {
-  const pasta = (env.ORK_USUARIO_DIR ?? '').trim() ? 'ORK_USUARIO_DIR'
-    : (env.ORKASTERY_HOME ?? '').trim() ? 'ORKASTERY_HOME' : '~/.orkastery';
-  return `${pasta}/${PASTA_DE_SEGREDOS}/${nome}`;
+  return `${variavelDaPastaDoUsuario(env) ?? '~/.orkastery'}/${PASTA_DE_SEGREDOS}/${nome}`;
 }
 
 function uidDoProcesso(): number | null {
@@ -145,32 +154,88 @@ export function resolverDsn(memory: { database_url_env?: string; database_url_fi
     detalhe: 'nenhuma fonte declarada (memory.database_url_file ou memory.database_url_env)' };
 }
 
+/** Por que o caminho do arquivo foi recusado antes de abrir. */
+interface RecusaDoCaminho { falha: FalhaDaDsn; causa: CausaDaDsn }
+
+/** A raiz da pasta do usuário do `ork` pelo caminho real (D24). */
+interface RaizDaPastaDoUsuario {
+  /** O caminho real da casa do usuário, onde a conferência começa. */
+  casa: string;
+  /** As pastas da raiz abaixo da casa, em ordem. */
+  partes: string[];
+  /** A raiz: a casa real e as partes. */
+  pasta: string;
+  /** A raiz veio de `ORK_USUARIO_DIR` ou de `ORKASTERY_HOME`, e não é a `.orkastery` da casa. */
+  daVariavel: boolean;
+}
+
+function ausente(e: unknown): RecusaDoCaminho {
+  return { falha: 'dsn.arquivo-ausente', causa: ['ENOENT', 'ENOTDIR'].includes(codigoDoErro(e)) ? 'nao-existe' : 'nao-abre' };
+}
+
+/** Um componente `..`, nos dois separadores: o `path.resolve` o tira pelo texto, sem seguir o link que venha antes. */
+function temPontoPonto(caminho: string): boolean {
+  return caminho.split(/[\\/]/).includes('..');
+}
+
+/** As pastas de `caminho` abaixo de `pasta`, quando ele fica dentro dela sem ser ela; senão, `null`. */
+function partesAbaixo(pasta: string, caminho: string): string[] | null {
+  const relativo = path.relative(pasta, caminho);
+  return relativo && relativo !== '..' && !relativo.startsWith(`..${path.sep}`) && !path.isAbsolute(relativo)
+    ? relativo.split(path.sep) : null;
+}
+
 /**
- * D17: o caminho do arquivo conferido componente a componente pelo `lstat`, sem seguir link e antes de abrir qualquer
- * coisa: a pasta do usuário do `ork` e a de segredos são pastas comuns, o arquivo é arquivo comum, e o caminho real do
- * arquivo é o da pasta de segredos real com o nome. O que fica acima da pasta do usuário (a casa de quem roda o `ork`,
- * por exemplo) é do sistema dele, não do manifesto, e não é conferido. Devolve o `lstat` do arquivo, ou a falha.
+ * D24: a raiz da pasta do usuário do `ork`, canonizada pelo caminho real antes de qualquer leitura. A casa do usuário
+ * (`HOME`) vale pelo caminho real: o que fica acima dela é do sistema de quem roda o `ork` e não é conferido. Sem
+ * variável, a raiz é a `.orkastery` da casa, como em `pastaDoUsuario`. Vinda de `ORK_USUARIO_DIR` ou de
+ * `ORKASTERY_HOME`, é um caminho absoluto, sem `..`, abaixo da casa (escrita como o ambiente a escreve, ou pelo caminho
+ * real) e sem ser ela. Fora disso, a causa `raiz`, sem abrir nada; as pastas abaixo da casa, `conferirCaminho` confere.
  */
-function conferirCaminho(pasta: string, nome: string): fs.Stats | { falha: FalhaDaDsn; causa: CausaDaDsn } {
-  const segredos = path.join(pasta, PASTA_DE_SEGREDOS);
-  const caminho = path.join(segredos, nome);
-  const ausente = (e: unknown): { falha: FalhaDaDsn; causa: CausaDaDsn } =>
-    ({ falha: 'dsn.arquivo-ausente', causa: ['ENOENT', 'ENOTDIR'].includes(codigoDoErro(e)) ? 'nao-existe' : 'nao-abre' });
-  for (const dir of [pasta, segredos]) {
-    let st: fs.Stats;
-    try { st = fs.lstatSync(dir); } catch (e) { return ausente(e); }
-    if (st.isSymbolicLink() || !st.isDirectory()) return { falha: 'dsn.arquivo-invalido', causa: 'pasta' };
+function raizDaPastaDoUsuario(env: NodeJS.ProcessEnv): RaizDaPastaDoUsuario | RecusaDoCaminho {
+  const casa = (env.HOME ?? '').trim() || os.homedir();
+  const daVariavel = variavelDaPastaDoUsuario(env) !== null;
+  const declarada = daVariavel ? pastaDoUsuario(env) : '';
+  if (!path.isAbsolute(casa) || (daVariavel && (!path.isAbsolute(declarada) || temPontoPonto(declarada)))) {
+    return { falha: 'dsn.arquivo-invalido', causa: 'raiz' };
   }
+  let real: string;
+  try { real = fs.realpathSync(casa); } catch (e) { return ausente(e); }
+  if (!daVariavel) return { casa: real, partes: ['.orkastery'], pasta: path.join(real, '.orkastery'), daVariavel };
+  const alvo = path.resolve(declarada);
+  // A casa como o ambiente a escreve só vale sem `..`, que o `path.resolve` tiraria pelo texto; a real vale sempre.
+  const partes = (temPontoPonto(casa) ? null : partesAbaixo(path.resolve(casa), alvo)) ?? partesAbaixo(real, alvo);
+  if (!partes) return { falha: 'dsn.arquivo-invalido', causa: 'raiz' };
+  return { casa: real, partes, pasta: path.join(real, ...partes), daVariavel };
+}
+
+/**
+ * D24: o caminho do arquivo conferido componente a componente pelo `lstat`, da casa real ao arquivo, sem seguir link e
+ * antes de abrir qualquer coisa: cada pasta da raiz e a de segredos são pastas comuns, a raiz vinda do ambiente é do
+ * usuário que roda o `ork`, o arquivo é arquivo comum, e o caminho real do arquivo é o próprio caminho (a segunda prova,
+ * contra troca no meio). Devolve o caminho e o `lstat` do arquivo, ou a falha.
+ */
+function conferirCaminho(raiz: RaizDaPastaDoUsuario, nome: string, uid: number | null)
+  : { caminho: string; arquivo: fs.Stats } | RecusaDoCaminho {
+  let pasta = raiz.casa;
+  for (const parte of [...raiz.partes, PASTA_DE_SEGREDOS]) {
+    pasta = path.join(pasta, parte);
+    let st: fs.Stats;
+    try { st = fs.lstatSync(pasta); } catch (e) { return ausente(e); }
+    if (st.isSymbolicLink() || !st.isDirectory()) return { falha: 'dsn.arquivo-invalido', causa: 'pasta' };
+    if (raiz.daVariavel && pasta === raiz.pasta && uid !== null && st.uid !== uid) {
+      return { falha: 'dsn.arquivo-inseguro', causa: 'dono-da-pasta' };
+    }
+  }
+  const caminho = path.join(pasta, nome);
   let arquivo: fs.Stats;
   try { arquivo = fs.lstatSync(caminho); } catch (e) { return ausente(e); }
   if (arquivo.isSymbolicLink()) return { falha: 'dsn.arquivo-invalido', causa: 'link' };
   if (!arquivo.isFile()) return { falha: 'dsn.arquivo-invalido', causa: 'nao-e-arquivo' };
   try {
-    if (fs.realpathSync(caminho) !== path.join(fs.realpathSync(pasta), PASTA_DE_SEGREDOS, nome)) {
-      return { falha: 'dsn.arquivo-invalido', causa: 'pasta' };
-    }
+    if (fs.realpathSync(caminho) !== caminho) return { falha: 'dsn.arquivo-invalido', causa: 'pasta' };
   } catch (e) { return ausente(e); }
-  return arquivo;
+  return { caminho, arquivo };
 }
 
 /**
@@ -198,8 +263,8 @@ function dsnDoConteudo(bruto: Buffer): { dsn: string } | { causa: CausaDaDsn } {
 }
 
 /**
- * G4 (D17 a D19): confere o caminho, abre o arquivo sem seguir link, confere o descritor aberto (o mesmo arquivo do
- * `lstat`, comum, do usuário, permissão exata, tamanho) e só então lê, até o limite, pelo contrato inteiro.
+ * G4 (D18, D19, D24): confere a raiz e o caminho, abre o arquivo sem seguir link, confere o descritor aberto (o mesmo
+ * arquivo do `lstat`, comum, do usuário, permissão exata, tamanho) e só então lê, até o limite, pelo contrato inteiro.
  */
 function lerArquivoDaDsn(declarado: string, env: NodeJS.ProcessEnv, uid: number | null): DsnDaMemoria {
   if (!arquivoDaDsnValido(declarado)) {
@@ -208,17 +273,17 @@ function lerArquivoDaDsn(declarado: string, env: NodeJS.ProcessEnv, uid: number 
   }
   const nome = declarado.slice(PREFIXO_DO_ARQUIVO_DA_DSN.length);
   const rotulo = rotuloDoArquivoDaDsn(nome, env);
-  const pasta = path.resolve(pastaDoUsuario(env));
-  const caminho = path.join(pasta, PASTA_DE_SEGREDOS, nome);
   const falhou = (falha: FalhaDaDsn, causa: CausaDaDsn, permissao?: string): DsnDaMemoria =>
     ({ fonte: 'arquivo', rotulo, dsn: '', falha, detalhe: `${rotulo}: ${textoDaCausa(causa, permissao)}`, causa,
       ...(permissao ? { permissao } : {}) });
-  const antes = conferirCaminho(pasta, nome);
+  const raiz = raizDaPastaDoUsuario(env);
+  if ('falha' in raiz) return falhou(raiz.falha, raiz.causa);
+  const antes = conferirCaminho(raiz, nome, uid);
   if ('falha' in antes) return falhou(antes.falha, antes.causa);
   let fd: number | null = null;
   try {
     try {
-      fd = fs.openSync(caminho, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+      fd = fs.openSync(antes.caminho, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
     } catch (e) {
       const codigo = codigoDoErro(e);
       return codigo === 'ELOOP' ? falhou('dsn.arquivo-invalido', 'link')
@@ -227,7 +292,7 @@ function lerArquivoDaDsn(declarado: string, env: NodeJS.ProcessEnv, uid: number 
     const st = fs.fstatSync(fd);
     if (!st.isFile()) return falhou('dsn.arquivo-invalido', 'nao-e-arquivo');
     // O descritor aberto é o arquivo que o `lstat` conferiu: nada foi trocado entre a conferência e a abertura.
-    if (st.dev !== antes.dev || st.ino !== antes.ino) return falhou('dsn.arquivo-ausente', 'nao-abre');
+    if (st.dev !== antes.arquivo.dev || st.ino !== antes.arquivo.ino) return falhou('dsn.arquivo-ausente', 'nao-abre');
     const modo = st.mode & 0o7777;
     const permissao = modo.toString(8).padStart(4, '0');
     if (uid === null) return falhou('dsn.arquivo-inseguro', 'plataforma', permissao);

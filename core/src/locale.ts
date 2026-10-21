@@ -400,9 +400,11 @@ const PT_BR = {
     // O mesmo texto de `textoDaCausa` (dsn-da-memoria.ts); o teste DD11 confere causa por causa.
     dsnCausa: (causa: string, permissao: string) => (({
       forma: 'memory.database_url_file fora da forma ~/.orkastery/segredos/<nome> (valor omitido)',
+      raiz: 'a pasta do usuário do ork precisa ser caminho absoluto sem .., dentro da casa do usuário (HOME)',
       'nao-existe': 'não existe',
       'nao-abre': 'não foi possível abrir para leitura',
       pasta: 'o caminho da pasta de segredos tem link simbólico ou algo que não é pasta',
+      'dono-da-pasta': 'a pasta do usuário do ork não é do usuário que roda o ork',
       link: 'link simbólico não é aceito',
       'nao-e-arquivo': 'não é arquivo comum',
       plataforma: 'esta plataforma não confere dono nem permissão',
@@ -422,9 +424,9 @@ const PT_BR = {
       ? `grave a DSN da base própria do tenant em ${rotulo}, numa linha e com permissão 0600, sem passar pelo histórico do shell: ` +
         `(umask 077; cat > ${rotulo})`
       : motivo === 'dsn.arquivo-inseguro'
-        ? `deixe ${rotulo} como arquivo do usuário que roda o ork, com chmod 600 ${rotulo}`
-        : `regrave ${rotulo} como arquivo comum numa pasta de segredos comum (sem link simbólico no caminho), só com a DSN ` +
-          '(esquema://...), numa linha e sem NOME= na frente',
+        ? `deixe ${rotulo} como arquivo do usuário que roda o ork, numa pasta dele, com chmod 600 ${rotulo}`
+        : `regrave ${rotulo} como arquivo comum numa pasta de segredos comum, dentro da casa do usuário e sem link simbólico ` +
+          'no caminho, só com a DSN (esquema://...), numa linha e sem NOME= na frente',
     dsnNaSessao: (doProjeto: readonly string[], comSenha: readonly string[]) =>
       `no ambiente desta sessão despachada, o agente lê com env: ${[...doProjeto.map((n) => `${n} (DSN do projeto)`),
         ...comSenha.map((n) => `${n} (URL com senha)`)].join(', ')} (valor nunca impresso)`,
@@ -768,9 +770,11 @@ const EN: Mensagens = {
       `file \`${rotulo}\` refused (\`${motivo}\`): ${causa}; memory falls back to files, with no other source`,
     dsnCausa: (causa, permissao) => (({
       forma: '`memory.database_url_file` outside the form `~/.orkastery/segredos/<name>` (value omitted)',
+      raiz: 'the ork user folder must be an absolute path without `..`, inside the user home (`HOME`)',
       'nao-existe': 'does not exist',
       'nao-abre': 'could not be opened for reading',
       pasta: 'the path to the secrets folder has a symbolic link or something that is not a folder',
+      'dono-da-pasta': 'the ork user folder is not owned by the user running ork',
       link: 'symbolic link not accepted',
       'nao-e-arquivo': 'not a regular file',
       plataforma: 'this platform checks neither owner nor permission',
@@ -790,9 +794,9 @@ const EN: Mensagens = {
       ? `write the DSN of the tenant's own database to \`${rotulo}\`, on one line and with permission 0600, without the shell history: ` +
         `\`(umask 077; cat > ${rotulo})\``
       : motivo === 'dsn.arquivo-inseguro'
-        ? `make \`${rotulo}\` a file owned by the user running ork, with \`chmod 600 ${rotulo}\``
-        : `rewrite \`${rotulo}\` as a regular file in a regular secrets folder (no symbolic link on the path), with only the ` +
-          'DSN (`scheme://...`), on one line and without a NAME= prefix',
+        ? `make \`${rotulo}\` a file owned by the user running ork, in a folder of theirs, with \`chmod 600 ${rotulo}\``
+        : `rewrite \`${rotulo}\` as a regular file in a regular secrets folder, inside the user home and with no symbolic ` +
+          'link on the path, with only the DSN (`scheme://...`), on one line and without a NAME= prefix',
     dsnNaSessao: (doProjeto, comSenha) =>
       `in this dispatched session's environment, the agent reads with \`env\`: ${[...doProjeto.map((n) => `${n} (project DSN)`),
         ...comSenha.map((n) => `${n} (URL with password)`)].join(', ')} (value never printed)`,
