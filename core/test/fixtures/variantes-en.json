@@ -24,7 +24,7 @@
   "references-en/security-checklist.md": "2f203ad4997ac5ba3e05ced23d8e31a56d09e76a1548afb1b8834cfc9883103e",
   "references-en/testing-patterns.md": "67fa7e604e2e483216b09f79dce3ab807e3aeebbb1fa027e5e12ae73d5f6da0a",
   "adapters-en/claude-code/ACTIVATION.md": "42e3a201c5e5db2e60b555bf6576d8d6206efa94fd1e2e60236124288ebffe12",
-  "adapters-en/claude-code/README.md": "37d1a19f3aad5bda7578d8246c4bb1543b167749cc5e0bde5c41be17d012c6e1",
+  "adapters-en/claude-code/README.md": "8e1dcf366b97224fbb3d8596790fe3b1f7b413aab4ef0fed2cf0a462b0ae10f1",
   "adapters-en/claude-code/agents/ork-check.md": "647d1365e73225939b39a380515dffbf647d9b3b37a43889511d53a85d1a7feb",
   "adapters-en/claude-code/agents/ork-go.md": "242d1f4dbaadfe0125b06e248a9041a35c263d524165e103e4ae81d143341d98",
   "adapters-en/claude-code/agents/ork-goal.md": "a2f0d4718a4c84d707452de67c4ddf56867f126c2e2d031ffeb171356cc8b98f",
@@ -40,7 +40,7 @@
   "adapters-en/claude-code/commands/plan.md": "715fde71074cca15ab8f1d3ef9d06c30d9e87e959098cce63e581a1c9d5ee2a1",
   "adapters-en/claude-code/commands/ship.md": "94a90536081c1e481a40a44cd4a258a770579a34abbce53466e4575a20c9a18b",
   "adapters-en/codex/skills/ork/SKILL.md": "4cdb49b40946d14e2c6574940cb51075dd6543ad1e4a0594bcb455901e7bfc3d",
-  "adapters-en/hermes/README.md": "545b642f21893d24c3d17f929e9bf16994b6babe2976249a32588d2bc10cc058",
+  "adapters-en/hermes/README.md": "1ec2d5a9f8d2a7d4b5ff32b99de2adf9edf75fd4d1054ff0eff248510298af04",
   "adapters-en/hermes/skills/orkastery-devmaster/SKILL.md": "0b5acccbac932f6d8443a9c0d36e412957eeb6b7594aa14c535e252a02b90958",
   "skills-en/phases/security-remediation/SKILL.md": "744c70a8e3f8fe059a11dd01a848f76ef0d2be2d453fd74afe260491a0698bde"
 }

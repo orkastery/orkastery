@@ -24,6 +24,33 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `ork memory status` mostra o arquivo. O erro de `memory.database_url_env` inválido deixa de repetir o valor. O
   agente roda com o mesmo usuário e pode ler o arquivo: o ganho é a senha fora de `env`, da transcrição e do contexto
   do modelo.
+- **O dono aprova onde estiver, com resposta curta** ([RM-057](docs/roadmap/RM-057-hitl-por-alternativas.md), na
+  [RM-058](docs/roadmap/RM-058-modo-noctum.md)): a proposta do arco do #Noctum (`ork noctum propor` e
+  `ork_noctum_propor`) e a revogação pedida (`ork noctum revogar <arco>`, novo) viram a pergunta ao dono com código
+  curto, três alternativas e "Responda a, b ou c", que sai também no canal dele pelo transporte do pulse; o hash fica
+  na pergunta, nunca na resposta. O dono responde com a letra: no Telegram do Hermes e do OpenClaw, em reply à
+  mensagem da pergunta (só a mensagem em que ela foi entregue vale: o transporte devolve o id dela, e o gateway assina
+  o código do título e o id da mensagem respondida no endereço `resposta:<código>:<id>`, passado ao
+  `ork pulse responder` por `--em-resposta-a`), com o código, com o número ou com a palavra solta sem reply quando só
+  uma pergunta espera no chat; em reply a qualquer outra mensagem (a confirmação de um gate, a mensagem de outra
+  pessoa do grupo), a palavra solta vai ao núcleo marcada (`resposta:outra`, `--em-resposta-a outra`) e é recusada
+  com o porquê, sem gravar nada; e no diálogo nativo, agora com três alternativas. No terminal do Claude Code, o hook
+  `UserPromptSubmit` do plugin e o `ork noctum terminal --hook-stdin` (novo) não gravam nada por enquanto: o
+  ingresso do terminal está desligado até o Claude Code mandar a origem humana do evento (o 2.1.306 instalado não
+  manda o campo `source`) e haver prova de que o evento veio do hook, e não do agente da própria sessão; quem
+  responde lá ouve que responda pelo Telegram ou pela janela de confirmação do Claude Code. A confirmação do "b"
+  nunca é pergunta, uma mensagem responde a uma pergunta só, e o vocabulário ganha "autorizo" e "adiar". Com duas
+  pendentes, a palavra solta volta perguntando qual; nada é gravado sem pergunta, depois do prazo, de outro chat ou
+  com a mesma mensagem. O `/ork noctum <arco> autorizar <sha256>` segue aceito, mas não é mais ensinado.
+  Formatos sem ratificação que mudam: o recibo `ork.noctum-ingresso/v1` ganha a `pergunta`, o endereço assinado e a
+  origem `terminal`; o log do arco ganha o `codigo` da proposta e o evento `revogacao_pedida`; o diálogo `ork.noctum-dialogo/v1` ganha as alternativas; nascem
+  a decisão do hook e o domínio da subchave do recibo do terminal (`ork.noctum-terminal/v1`, com a recusa
+  `noctum.terminal.desligado`), a pergunta do arco
+  (`ork.noctum-pergunta/v1`) e os registros das mensagens usadas (`ork.noctum-mensagem-usada/v1`) e das respostas b e c
+  (`ork.noctum-sem-efeito/v1`); o lote servido (`ork.pulse-lote-servido/v1`) ganha a pergunta do arco, com o destino e
+  os ids da entrega; o texto do contrato curto (`ork.hitl-curto/v1`) ganha a última linha "Responda a, b ou c"; e o
+  endereço assinado do pulse ganha a forma do reply e a marca do reply a outra mensagem. O envelope do arco e a prova
+  dos gates não mudam. O ensaio do modo abre os arcos pela resposta curta e ganha o cenário `resposta-curta`.
 - **Barreira de dado privado (RM-062, F1 e F2)**: `ork privado varrer` varre as linhas e os nomes de arquivo
   versionados atrás de caminho de home, e-mail fora da lista permitida, hostname no formato de máquina e os termos de
   uma lista local que fica fora do git (`termos-privados.txt` em `~/.orkastery/` e em `.orkastery/` do projeto, ou o

@@ -62,7 +62,13 @@ export type ComoResponder =
    * RM-055: o impedimento do despacho que so o dono resolve. Ele roda o comando da pausa no terminal e a
    * recomendada vira o comando que devolve a fase ao runtime, sem reescrever o pedido.
    */
-  | { tipo: 'terminal'; comando: string };
+  | { tipo: 'terminal'; comando: string }
+  /**
+   * RM-057 (resposta curta, ork-rm057respost): a pergunta que o dono responde so com a letra ("a", "sim", em reply ou
+   * no terminal). O codigo fica no titulo, para o reply e para quem prefere digita-lo; o numero, quando a pergunta foi
+   * servida no lote, vai na frente do titulo ("1a" tambem vale).
+   */
+  | { tipo: 'letras'; codigo: string; numero?: number };
 
 export interface AlternativaCurta {
   /** O que o dono digita: a letra no v2. */
@@ -86,6 +92,10 @@ export interface EntradaDoPedidoCurto {
   prazo?: string | null;
   /** Desde quando o dono e esperado nesta pergunta (o primeiro pedido com o mesmo codigo). */
   desde?: string | null;
+  /** RM-057 (resposta curta): o titulo da pergunta que nao e de thread e fase (a do arco #Noctum). */
+  titulo?: string;
+  /** RM-057 (resposta curta): o que esta parado e o que acontece sem resposta, quando nao e uma fase parada. */
+  trava?: string;
 }
 
 export interface PedidoCurto {
@@ -152,9 +162,9 @@ export function montarPedidoCurto(e: EntradaDoPedidoCurto, opcoes: { quando: str
   const desde = e.desde ? m.desde(formatarDesde(e.desde, { agora: opcoes.quando })) : '';
   return {
     contrato: CONTRATO_PEDIDO_CURTO,
-    titulo: linha([e.thread, e.fase].filter(Boolean).join(' · ') || m.semThread),
+    titulo: linha(e.titulo ?? ([e.thread, e.fase].filter(Boolean).join(' · ') || m.semThread)),
     pergunta: linha(e.pergunta),
-    trava: linha(`${onde}${desde}. ${semResposta(e, opcoes.quando)}`),
+    trava: linha(e.trava ?? `${onde}${desde}. ${semResposta(e, opcoes.quando)}`),
     ...(e.ato ? { semVolta: m.semVolta(m.atos[e.ato]) } : {}),
     corpo: (e.corpo ?? []).slice(0, TETO_DE_LINHAS_DO_CORPO).map(l => linha(l)).filter(Boolean),
     alternativas: e.alternativas.map(a => ({ chave: a.chave, texto: linha(a.texto, 140), consequencia: linha(a.consequencia, 140),
@@ -171,6 +181,11 @@ export function linhaDeResposta(p: PedidoCurto, canal: CanalDoPedido): string | 
   if (r.tipo === 'texto') return `${canal === 'telegram' ? '↩️ ' : ''}${m.respostaTexto}`;
   if (r.tipo === 'terminal') return `${canal === 'telegram' ? '↩️ ' : `${m.responder}: `}${m.respostaTerminal(recomendada, r.comando)}`;
   if (r.tipo === 'dialogo') return `${canal === 'telegram' ? '↩️ ' : ''}${m.respostaDialogo}`;
+  if (r.tipo === 'letras') {
+    // RM-057: as letras reais da pergunta, nunca uma linha para copiar; o detalhe fica a um pedido de distancia.
+    const letras = m.listaDeLetras(p.alternativas.map(a => a.chave));
+    return canal === 'telegram' ? `↩️ ${m.respostaLetras(letras, r.codigo)}` : `${m.responder}: ${m.respostaLetrasHost(letras, r.codigo)}`;
+  }
   return canal === 'telegram'
     ? m.respostaTelegram(r.codigo, recomendada)
     : m.respostaHost(r.codigo, recomendada);
@@ -185,8 +200,10 @@ export function textoDoPedidoCurto(p: PedidoCurto, canal: CanalDoPedido): string
   if (p.contrato !== CONTRATO_PEDIDO_CURTO) throw new Error(m.contratoInvalido);
   const tg = canal === 'telegram';
   const numero = p.responder.tipo === 'numero' ? `${p.responder.numero}. ` : '';
+  // RM-057 (resposta curta): a pergunta servida sozinha leva o numero do lote, para "1a" tambem valer.
+  const servida = p.responder.tipo === 'letras' && p.responder.numero ? `${p.responder.numero}. ` : '';
   const linhas = [
-    `${tg && !numero ? '🔔 ' : ''}${numero}${tg || numero ? '' : 'Orkastery · '}${p.titulo}`,
+    `${tg && !numero ? '🔔 ' : ''}${numero || servida}${tg || numero ? '' : 'Orkastery · '}${p.titulo}`,
     `${tg ? '❓ ' : `${m.pergunta}: `}${p.pergunta}`,
     `${tg ? '⏳ ' : `${m.situacao}: `}${p.trava}`,
     ...(p.semVolta ? [`${tg ? '🔒 ' : '! '}${p.semVolta}`] : []),

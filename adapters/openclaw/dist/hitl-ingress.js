@@ -28,12 +28,48 @@ const PULSE_ALVO = 'pulse', PULSE_ENDERECO = 'resposta';
  * listening window is open: outside it, the word goes to the assistant, as it always did. The
  * window is a routing hint, not proof: the message still goes through the signature and the core rule.
  */
-const PULSE_LISTA = new RegExp("^[ \\t]*[0-9]{1,2}(?:[ \\t]*[.):-])?[ \\t]*(?:[a-e]|pode seguir|pode ir|pode|sim|s|ok|aprovo|aprovado|aprovada|aprovar|aprova|segue|siga|seguir|manda|confirmo|confirmado|de acordo|agora n[aã]o|n[aã]o|n|recuso|recusado|recusar|reprovo|reprovado|revisar|revis[aã]o|refazer|volta|voltar|esperar|espera|aguardar|aguarda|aguarde|depois|mais tarde|detalhes?|evid[eê]ncias?)(?:[ \\t\\r\\n,;]*[0-9]{1,2}(?:[ \\t]*[.):-])?[ \\t]*(?:[a-e]|pode seguir|pode ir|pode|sim|s|ok|aprovo|aprovado|aprovada|aprovar|aprova|segue|siga|seguir|manda|confirmo|confirmado|de acordo|agora n[aã]o|n[aã]o|n|recuso|recusado|recusar|reprovo|reprovado|revisar|revis[aã]o|refazer|volta|voltar|esperar|espera|aguardar|aguarda|aguarde|depois|mais tarde|detalhes?|evid[eê]ncias?))*[ \\t]*(?:[.!][ \\t]*)?$", 'i');
-const PULSE_LIVRE = new RegExp("^[ \\t]*(?:[1-5]|(?:[a-e]|pode seguir|pode ir|pode|sim|s|ok|aprovo|aprovado|aprovada|aprovar|aprova|segue|siga|seguir|manda|confirmo|confirmado|de acordo|agora n[aã]o|n[aã]o|n|recuso|recusado|recusar|reprovo|reprovado|revisar|revis[aã]o|refazer|volta|voltar|esperar|espera|aguardar|aguarda|aguarde|depois|mais tarde|detalhes?|evid[eê]ncias?))[ \\t]*(?:[.!]+[ \\t]*)?$", 'i');
+const PULSE_LISTA = new RegExp("^[ \\t]*[0-9]{1,2}(?:[ \\t]*[.):-])?[ \\t]*(?:[a-e]|pode seguir|pode ir|pode|sim|s|ok|aprovo|aprovado|aprovada|aprovar|aprova|segue|siga|seguir|manda|confirmo|confirmado|de acordo|autorizo|autorizado|autorizada|autorizar|autoriza|agora n[aã]o|n[aã]o|n|recuso|recusado|recusar|reprovo|reprovado|revisar|revis[aã]o|refazer|volta|voltar|esperar|espera|aguardar|aguarda|aguarde|depois|mais tarde|adiar|adia|adio|detalhes?|evid[eê]ncias?)(?:[ \\t\\r\\n,;]*[0-9]{1,2}(?:[ \\t]*[.):-])?[ \\t]*(?:[a-e]|pode seguir|pode ir|pode|sim|s|ok|aprovo|aprovado|aprovada|aprovar|aprova|segue|siga|seguir|manda|confirmo|confirmado|de acordo|autorizo|autorizado|autorizada|autorizar|autoriza|agora n[aã]o|n[aã]o|n|recuso|recusado|recusar|reprovo|reprovado|revisar|revis[aã]o|refazer|volta|voltar|esperar|espera|aguardar|aguarda|aguarde|depois|mais tarde|adiar|adia|adio|detalhes?|evid[eê]ncias?))*[ \\t]*(?:[.!][ \\t]*)?$", 'i');
+const PULSE_LIVRE = new RegExp("^[ \\t]*(?:[1-5]|(?:[a-e]|pode seguir|pode ir|pode|sim|s|ok|aprovo|aprovado|aprovada|aprovar|aprova|segue|siga|seguir|manda|confirmo|confirmado|de acordo|autorizo|autorizado|autorizada|autorizar|autoriza|agora n[aã]o|n[aã]o|n|recuso|recusado|recusar|reprovo|reprovado|revisar|revis[aã]o|refazer|volta|voltar|esperar|espera|aguardar|aguarda|aguarde|depois|mais tarde|adiar|adia|adio|detalhes?|evid[eê]ncias?))[ \\t]*(?:[.!]+[ \\t]*)?$", 'i');
 /** RM-048 (item 8): the digest keyboard line goes to the core at the same signed address. */
 const PULSE_RATIFICACAO = new RegExp("^[ \\t]*ratificar(?:-lote)?(?:[ \\t]+[A-Za-z0-9._-]{1,80}){2,3}[ \\t]*$", 'i');
 /** Text above this is never tested against the shapes: they run before the allowlist. */
 const PULSE_TETO = 300, ESCUTA_TETO = 4096;
+/**
+ * RM-057 (short answer, D3; GO-FIX 1, finding 2): the title of the arc question, the first line of the replied message
+ * (reply). The SAME source lives in the core (GRAMATICA_DO_PULSE.referencia) and a core test checks they stay equal. Only a
+ * replied message with this title gives a reference: a confirmation, a refusal, a reminder or a member's message never has
+ * it. The reference carries the code and the id of the replied message, signed at the address `resposta:<code>:<id>`, and
+ * goes to the core with --em-resposta-a. The SDK gives the replied sender only as a display label, so the author is not
+ * proven here; the core only accepts the reply when the id is the one the question was delivered in.
+ */
+const PULSE_REFERENCIA = "^🔔 (?:[1-9][0-9]?\\. )?arco [a-z0-9][a-z0-9-]{0,62} · ((?=[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{0,2}[2-9])[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{3})$";
+/** `<code>:<id>` of the replied arc question, when the replied message has the question title and a message id; otherwise null. */
+export function replyReference(event) {
+    if (typeof event.replyToBody !== 'string' || !event.replyToBody)
+        return null;
+    if (typeof event.replyToId !== 'string' || !/^[1-9][0-9]{0,19}$/.test(event.replyToId))
+        return null;
+    const title = new RegExp(PULSE_REFERENCIA).exec(event.replyToBody.slice(0, 4096).split('\n', 1)[0]);
+    return title ? `${title[1]}:${event.replyToId}` : null;
+}
+/**
+ * RM-057 (GO-FIX 2, CHECK finding R1): the mark of a reply to ANOTHER message, signed at the address `resposta:outra` and
+ * sent with --em-resposta-a outra. The bare word in reply to a message that is not the arc question (a gate confirmation,
+ * another group member's message, the assistant's) never becomes a bare word: the core refuses it and says where to
+ * answer. The code and the number name the question and go without the mark, as always.
+ */
+const PULSE_REPLY_A_OUTRA = 'outra';
+/**
+ * RM-057 (GO-FIX 2, R1): the owner's message replies to (or quotes) another message. The SDK only gives the reply when the
+ * group's context visibility shows it (`contextVisibility`, `all` by default), and it drops the forum topic opening.
+ */
+export function isReply(event) {
+    return [event.replyToBody, event.replyToId, event.replyToSender].some(v => typeof v === 'string' && v.length > 0) || event.replyToIsQuote === true;
+}
+/** The answer to ONE question (the bare word, the code with the answer or the number with the letter): only it goes in a reply. */
+function isAnswer(text) {
+    return !text.includes('\0') && text.length <= PULSE_TETO && (PULSE_LIVRE.test(text) || PULSE_CONSENT.test(text) || PULSE_LOTE.test(text));
+}
 /**
  * RM-058 N6 (D12): the owner's act on a #Noctum arc. The SAME source lives in the core (GRAMATICA_DO_NOCTUM,
  * core/src/noctum-modo.ts) and a core test checks they stay equal. The signed address is `noctum` / `arco:<arc>`:
@@ -68,7 +104,15 @@ export function registerHitlIngress(api, bin) {
     api.on('inbound_claim', async (event, ctx) => {
         if (typeof event.content !== 'string')
             return { handled: false };
-        const pulse = !event.content.startsWith('/ork ') && isPulseAnswer(event.content);
+        // RM-057 (short answer, D3): in reply to an arc question, the answer to it belongs to Orkastery even with the window
+        // closed; the cadence tag, the list and the rest go on as always, without the reference.
+        const answer = !event.content.startsWith('/ork ') && isAnswer(event.content);
+        let ref = answer ? replyReference(event) : null;
+        // GO-FIX 2 (R1): the bare word in reply to another message goes marked, and the core refuses it saying why; with the
+        // window closed it goes to the assistant, like every bare word.
+        if (answer && ref === null && PULSE_LIVRE.test(event.content) && isReply(event))
+            ref = PULSE_REPLY_A_OUTRA;
+        const pulse = !event.content.startsWith('/ork ') && (isPulseAnswer(event.content) || (ref !== null && ref !== PULSE_REPLY_A_OUTRA));
         if (!event.content.startsWith('/ork ') && !pulse)
             return { handled: false };
         const denied = { handled: true, reply: { text: 'Resposta HITL não confirmada. Confira ingresso e ledger do pedido.' } };
@@ -95,7 +139,7 @@ export function registerHitlIngress(api, bin) {
             if ((!pulse && !match && !noctum) || event.content.includes('\0') || !key || Buffer.byteLength(key) < 32 || !root?.startsWith('/'))
                 return denied;
             if (pulse)
-                return pulseIngress(event.content, { user, chat, message, key, root, bin, timestamp: Number(event.timestamp) }, denied);
+                return pulseIngress(event.content, { user, chat, message, key, root, bin, timestamp: Number(event.timestamp) }, denied, ref);
             if (noctum)
                 return noctumIngress(noctum[1], noctum[2], { user, chat, message, key, root, bin, timestamp: Number(event.timestamp) }, denied);
             const [, operation, thread, pedido, resposta] = match;
@@ -145,14 +189,17 @@ export function registerHitlIngress(api, bin) {
  * answer and the signed address is the pulse's; this adapter knows no request and picks nothing.
  * The reply is the text the core composed, transported as is.
  */
-async function pulseIngress(texto, m, denied) {
+async function pulseIngress(texto, m, denied, ref = null) {
     const canal = 'openclaw', conta = process.env.ORK_HITL_OPENCLAW_ACCOUNT ?? '';
+    // RM-057: the reply says which question: the code and the replied message id go into the signed address, never into
+    // the owner's text. A reply to another message goes in the same way (`resposta:outra`).
+    const endereco = ref ? `${PULSE_ENDERECO}:${ref}` : PULSE_ENDERECO;
     const envelope = { resposta: texto, canal, conta, origem: 'telegram', por: `telegram:${m.user}`,
         mensagem: `telegram:${m.chat}:${m.message}`, recebidoEm: new Date(m.timestamp).toISOString(), prova: '' };
-    envelope.prova = createHmac('sha256', m.key).update(JSON.stringify(['ork.hitl-answer/v2', PULSE_ALVO, PULSE_ENDERECO, canal, conta,
+    envelope.prova = createHmac('sha256', m.key).update(JSON.stringify(['ork.hitl-answer/v2', PULSE_ALVO, endereco, canal, conta,
         envelope.origem, envelope.por, envelope.mensagem, envelope.recebidoEm, texto])).digest('hex');
     const args = ['pulse', 'responder', '--resposta-stdin', '--origem', 'telegram', '--canal', canal, '--conta', conta,
-        '--por', envelope.por, '--mensagem', envelope.mensagem];
+        '--por', envelope.por, '--mensagem', envelope.mensagem, ...(ref ? ['--em-resposta-a', ref] : [])];
     const receipt = await new Promise(resolve => {
         const child = execFile(m.bin, args, { cwd: m.root, timeout: 10000, maxBuffer: 65536 }, (err, stdout) => {
             try {

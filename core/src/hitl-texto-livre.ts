@@ -29,11 +29,13 @@ export type IntencaoLivre = 'afirmar' | 'negar' | 'revisar' | 'esperar' | 'detal
  * com teste, e nunca efeito colateral de alguem achar que "entendeu" o dono.
  */
 export const VOCABULARIO_LIVRE: Readonly<Record<IntencaoLivre, readonly string[]>> = Object.freeze({
+  // RM-057 (resposta curta, D8 da ork-rm057respost): "autorizo" e as variações, que o dono usa para o arco #Noctum.
   afirmar: ['sim', 's', 'ok', 'pode', 'pode seguir', 'pode ir', 'segue', 'siga', 'seguir', 'manda', 'aprovo', 'aprovado',
-    'aprovada', 'aprovar', 'aprova', 'confirmo', 'confirmado', 'de acordo'],
+    'aprovada', 'aprovar', 'aprova', 'confirmo', 'confirmado', 'de acordo', 'autorizo', 'autorizado', 'autorizada', 'autorizar',
+    'autoriza'],
   negar: ['nao', 'n'],
   revisar: ['recuso', 'recusado', 'recusar', 'reprovo', 'reprovado', 'revisar', 'revisao', 'refazer', 'volta', 'voltar'],
-  esperar: ['esperar', 'espera', 'aguardar', 'aguarda', 'aguarde', 'depois', 'mais tarde', 'agora nao'],
+  esperar: ['esperar', 'espera', 'aguardar', 'aguarda', 'aguarde', 'depois', 'mais tarde', 'agora nao', 'adiar', 'adia', 'adio'],
   detalhe: ['detalhe', 'detalhes', 'evidencia', 'evidencias'],
 });
 
@@ -57,8 +59,9 @@ export const JANELA_DO_TEXTO_LIVRE_MIN = 60;
  * formas `lista` e `livre` de `GRAMATICA_DO_PULSE`, que os adaptadores copiam texto a texto.
  */
 const PALAVRAS_DA_FORMA = 'pode seguir|pode ir|pode|sim|s|ok|aprovo|aprovado|aprovada|aprovar|aprova|segue|siga|seguir|manda|' +
-  'confirmo|confirmado|de acordo|agora n[aã]o|n[aã]o|n|recuso|recusado|recusar|reprovo|reprovado|revisar|revis[aã]o|refazer|' +
-  'volta|voltar|esperar|espera|aguardar|aguarda|aguarde|depois|mais tarde|detalhes?|evid[eê]ncias?';
+  'confirmo|confirmado|de acordo|autorizo|autorizado|autorizada|autorizar|autoriza|agora n[aã]o|n[aã]o|n|recuso|recusado|recusar|' +
+  'reprovo|reprovado|revisar|revis[aã]o|refazer|volta|voltar|esperar|espera|aguardar|aguarda|aguarde|depois|mais tarde|adiar|adia|' +
+  'adio|detalhes?|evid[eê]ncias?';
 
 /** Uma resposta: letra, ou palavra do vocabulario. */
 const RESPOSTA_DA_FORMA = `(?:[a-e]|${PALAVRAS_DA_FORMA})`;

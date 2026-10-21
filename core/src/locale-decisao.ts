@@ -100,6 +100,11 @@ export const DECISAO_PT_BR = {
       `↩️ Responda: ${codigo} ${recomendada} (ou outra letra). Evidências: ${codigo} detalhes.`,
     respostaHost: (codigo: string, recomendada: string) =>
       `Responda pelo Telegram: ${codigo} ${recomendada} (ou outra letra); aqui, pelo diálogo do host. Evidências: ${codigo} detalhes.`,
+    // RM-057 (resposta curta): as letras reais da pergunta, e o detalhe a um pedido de distância.
+    listaDeLetras: (letras: readonly string[]) => letras.length < 2 ? letras.join('') : `${letras.slice(0, -1).join(', ')} ou ${letras.at(-1)}`,
+    respostaLetras: (letras: string, codigo: string) => `Responda ${letras}. Detalhes: ${codigo} detalhes.`,
+    // GO-FIX 2 (D22 da ork-rm057respost): o terminal não grava resposta; o dono responde no Telegram ou na janela do host.
+    respostaLetrasHost: (letras: string, codigo: string) => `${letras} no Telegram, ou pela janela de confirmação do host. Detalhes: ${codigo} detalhes.`,
     contratoInvalido: 'pedido curto: contrato inválido',
     pergunta: 'Pergunta', situacao: 'Situação', porque: 'porquê', responder: 'Responder',
     acimaDoTeto: 'pedido curto: acima do teto de linhas',
@@ -200,6 +205,9 @@ export const DECISAO_EN: MensagensDeDecisao = {
       `↩️ Reply: ${code} ${recommended} (or another letter). Evidence: ${code} details.`,
     respostaHost: (code, recommended) =>
       `Reply on Telegram: ${code} ${recommended} (or another letter); here, use the host dialog. Evidence: ${code} details.`,
+    listaDeLetras: (letters) => letters.length < 2 ? letters.join('') : `${letters.slice(0, -1).join(', ')} or ${letters.at(-1)}`,
+    respostaLetras: (letters, code) => `Reply ${letters}. Details: ${code} detalhes.`,
+    respostaLetrasHost: (letters, code) => `${letters} on Telegram, or through the host's confirmation window. Details: ${code} detalhes.`,
     contratoInvalido: 'short request: invalid contract',
     pergunta: 'Question', situacao: 'Situation', porque: 'why', responder: 'Answer',
     acimaDoTeto: 'short request: above the line limit',

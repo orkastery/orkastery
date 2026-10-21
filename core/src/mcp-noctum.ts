@@ -15,7 +15,10 @@
 import { z } from 'zod';
 import { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 import { ManifestoCarregado } from './manifest';
-import { ApresentacaoDoArco, criarDialogoDoArco, lerArco, proporEnvelope, RespostaDoDialogo } from './noctum-arco';
+import { ApresentacaoDoArco, criarDialogoDoArco, lerArco, perguntasDoArco, proporEnvelope, RespostaDoDialogo } from './noctum-arco';
+import { textoDaPerguntaDoArco } from './noctum-pergunta';
+import { comoResponderAoArco, entregarPerguntaDoArco } from './noctum-pergunta-canal';
+import { codigosEmUso } from './pulse-resposta';
 import { ID_DO_ARCO } from './noctum-envelope';
 import { listarArcos, retratoDoArco } from './noctum-modo';
 
@@ -42,21 +45,29 @@ export function registrarFerramentasDoNoctum(registrar: Registrar, o: OpcoesDoNo
   const dialogo = criarDialogoDoArco(o.raiz, { host: o.host, connectionId: o.conexao }, o.elicitar);
   const exigirFormulario = () => {
     if (!o.temFormulario()) {
-      throw Error('noctum.origem.sem-prova: este cliente não oferece o formulário nativo do host; o dono autoriza pelo gateway assinado ' +
-        '(/ork noctum <arco> autorizar <sha256> no Telegram) ou por um host com diálogo nativo');
+      throw Error('noctum.origem.sem-prova: este cliente não oferece o formulário nativo do host; o dono responde à pergunta do arco com a ' +
+        'letra em reply no Telegram, com o código no Telegram, ou por um host com diálogo nativo');
     }
   };
   registrar('ork_noctum_propor', {
     description: 'Grava a proposta do envelope de um arco #Noctum (o pedido de abertura com os valores do dono: janela, destinos, ' +
-      'orcamento, relatorio, trabalhos e capacidade) e devolve o resumo e o hash. Nao autoriza nada: quem autoriza e o dono, pelo ' +
-      'dialogo nativo (ork_noctum_autorizar) ou pelo gateway assinado. Nunca invente valor do dono: campo que falta volta listado na recusa.',
+      'orcamento, relatorio, trabalhos e capacidade) e devolve o resumo, o hash e a pergunta ao dono (codigo curto e alternativas), que sai ' +
+      'tambem pelo canal dele. Nao autoriza nada: quem autoriza e o dono, respondendo a pergunta com a letra (em reply no Telegram, com o ' +
+      'codigo no Telegram ou pelo dialogo nativo, ork_noctum_autorizar; o terminal nao grava resposta). Mostre a pergunta ao dono como ela vem; nunca responda por ele. Nunca ' +
+      'invente valor do dono: campo que falta volta listado na recusa.',
     inputSchema: z.object({ pedido: z.record(z.unknown()) }).strict(),
     annotations: { readOnlyHint: false, destructiveHint: false },
   }, async ({ pedido }) => {
     o.carregar();
-    const r = proporEnvelope(o.raiz, pedido);
-    return resposta({ ...r, autorizado: false, comoAutorizar: [`ork_noctum_autorizar com o arco ${r.arco} e o hash ${r.envelopeSha256}`,
-      `no Telegram: /ork noctum ${r.arco} autorizar ${r.envelopeSha256}`] });
+    // RM-057 (resposta curta, D4 e D9): a proposta é a pergunta ao dono, e ela sai também pelo canal dele quando ele tem um.
+    const quando = new Date().toISOString();
+    const r = proporEnvelope(o.raiz, pedido, quando, codigosEmUso(o.raiz));
+    const q = r.codigo ? perguntasDoArco(o.raiz, r.arco, quando).find(x => x.codigo === r.codigo && x.situacao === 'pendente') : undefined;
+    const entrega = q ? entregarPerguntaDoArco(o.raiz, q, { quando }) : null;
+    return resposta({ ...r, autorizado: false,
+      comoAutorizar: q ? comoResponderAoArco(q) : [`o envelope já vale no arco ${r.arco}: não há o que autorizar`],
+      pergunta: q ? { codigo: q.codigo, prazo: q.prazo, entrega,
+        texto: textoDaPerguntaDoArco(q, 'terminal', { quando, ...(entrega?.numero ? { numero: entrega.numero } : {}) }) } : null });
   });
   registrar('ork_noctum_autorizar', {
     description: 'Apresenta ao dono, pelo dialogo nativo do host, o envelope proposto do arco para autorizar. Somente o arco e o hash; ' +

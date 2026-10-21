@@ -144,10 +144,14 @@ test('A3: o módulo não exporta escritor de autorização sem prova; o diálogo
   // RM-058 N3: versoesAutorizadas só lê o log, para a coordenação conferir registros de versões anteriores.
   // RM-058 N6: encerrarArco grava o fechamento, terminal, nunca autorização (o EC1 prova que depois dele nada passa).
   // RM-058 integração: lerArcoComProposta só lê o log, para a guarda das threads do arco ver a lista da proposta no prazo.
+  // RM-057 (resposta curta, ork-rm057respost): autorizarPelaResposta e revogarPelaResposta exigem a prova do pulse ou o
+  // atestado do terminal (NP5 a NP14); pedirRevogacao grava só a pergunta, que não revoga nada (NP12); perguntasDoArco e
+  // codigosDosArcos só leem o log.
   assert.deepEqual(Object.keys(arcoMod).sort(), ['ALVO_DO_NOCTUM', 'CONTRATO_ARCO', 'MOTIVOS_DE_ENCERRAMENTO', 'PRAZO_PARA_AUTORIZAR_MIN',
-    'TEXTO_DE_REVOGACAO', 'autorizarPeloIngresso', 'concluirDespacho', 'conferirAntesDoEfeito', 'contextoDoArco', 'criarDialogoDoArco',
-    'encerrarArco', 'enderecoDoArco', 'enfileirarDecisao', 'hashDaRevogacao', 'idDaDecisao', 'lerArco', 'lerArcoComProposta', 'proporEnvelope',
-    'reservarDespacho', 'revogarPeloIngresso', 'textoDeAutorizacao', 'versoesAutorizadas']);
+    'TEXTO_DE_REVOGACAO', 'autorizarPelaResposta', 'autorizarPeloIngresso', 'codigosDosArcos', 'concluirDespacho', 'conferirAntesDoEfeito',
+    'contextoDoArco', 'criarDialogoDoArco', 'encerrarArco', 'enderecoDoArco', 'enfileirarDecisao', 'hashDaRevogacao', 'idDaDecisao', 'lerArco',
+    'lerArcoComProposta', 'pedirRevogacao', 'perguntasDoArco', 'proporEnvelope', 'reservarDespacho', 'revogarPelaResposta', 'revogarPeloIngresso',
+    'textoDeAutorizacao', 'versoesAutorizadas']);
 });
 
 test('A4: autorização com prova vale dentro da janela e registra quem e por qual ingresso', () => comRaiz('autoriza', raiz => {

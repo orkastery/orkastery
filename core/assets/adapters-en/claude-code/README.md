@@ -72,11 +72,11 @@ project; the receipt carries the sha256 of the global files before and after. De
 | `/ork` | Panel: doctor, board, scheduler, modos, score queue |
 
 Plus six subagents (`ork-goal`, `ork-plan`, `ork-go`, `ork-check`, `ork-ship`, `ork-master`) to
-isolate the context of each phase, and the `PreToolUse` guard.
+isolate the context of each phase, the `PreToolUse` guard and the `UserPromptSubmit` hook for the owner's short answer.
 
 ## The PreToolUse guard
 
-One hook, on `Bash`, calling `hooks/ork-guard.js`. It blocks six classes of command:
+One hook, on `Bash`, calling `hooks/ork-guard.js`. It blocks seven classes of command:
 
 | Block | Why |
 |---|---|
@@ -86,12 +86,44 @@ One hook, on `Bash`, calling `hooks/ork-guard.js`. It blocks six classes of comm
 | `git push` | A manual push is not proven: delivery goes through `ork ship` |
 | `git reset --hard`, `git clean -fd`, `git checkout -- .` | Mass discard without a trace |
 | `rm -rf` with a broad or variable target | Deletes what nobody asked for |
+| `ork noctum terminal` and the answer hook called by the tool | The owner's answer in the terminal comes from the hook of the owner's own session; the agent that calls this ingress poses as the owner (RM-057) |
 
 **The guard has no business rule.** It does not read the ledger, does not know who authorized what and does not
 know any thread: it recognizes the shape of the command and sends the agent down the path that `ork`
 verifies. A command that starts with `ork` goes straight through, because the one that proves the push and serializes the merge is
-the core. And if the guard itself breaks, it **fails open**: a hook that takes down the session over its own bug
-is worse than no hook.
+the core; the exception is the owner's answer ingress (`ork noctum terminal`), blocked before that
+pass-through. And if the guard itself breaks, it **fails open**: a hook that takes down the session over its own bug
+is worse than no hook. The block on the answer ingress is a speed bump, not proof: whoever runs as the
+same system user gets around it, and the limit is stated below.
+
+## The owner's short answer in the terminal (RM-057)
+
+**Turned off.** Since GO-FIX 2 of RM-057, the core records nothing through the terminal. In an interactive
+Claude Code session, when the owner types the short answer to a question waiting for them (`sim`, `a` or
+`<código> a`), the `UserPromptSubmit` hook (`hooks/ork-resposta.js`) takes the event to the core through
+`ork noctum terminal --hook-stdin`, and the core only returns the refusal `noctum.terminal.desligado`: with someone
+present, the owner sees a notice (`systemMessage`) to answer on Telegram, in reply to the question's
+message or with the code and the letter, or through the Claude Code confirmation window (the native dialog, one
+click). The prompt goes on to the model, and nothing is recorded or forwarded, not even an answer to a gate. Ordinary
+conversation does not even call the core, and neither does a prompt the machine wrote (the event's `source` field other than
+`user`).
+
+**Why it is off:** the installed Claude Code (2.1.306) does not send the event's `source` yet, and without it
+nothing from the owner would be recorded. And the agent of the owner's own session, through the Bash tool, swaps the shell for the
+core with `exec`, drops the `AI_AGENT` mark and forges the event with `source` equal to `user`: the process
+chain and the guard are speed bumps, not proof. Turned on, the ingress would not serve the owner and would serve whoever
+forges the event.
+
+**What is missing to turn it back on**, in a dedicated slice: Claude Code sending the human origin of the event
+(`source`); a proof that the event came from the harness hook, and not from a process of the same user; and,
+for the bare word, the question shown required to be the line the core builds for it, or only the code
+with the letter. The ingress code stays in the core behind the `TERMINAL_LIGADO` switch, off; only the
+tests turn it on, and the CLI and the hook never do.
+
+**Limit:** the boundary is the system account. In the native dialog, any MCP client of the same user that
+declares the form gets through, without a key. To separate the core from the agents, run the agents under another account
+or sandbox. The notice only shows after reinstalling the plugin (`ork adapter install claude-code`) and with an
+`ork` that has `noctum terminal`.
 
 ## Session sensors
 

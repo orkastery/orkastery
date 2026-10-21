@@ -52,6 +52,58 @@ const LETRAS_DO_CODIGO = 'ABCDEFGHJKMNPQRSTVWXYZ';
 export const ALVO_DO_PULSE = 'pulse';
 export const ENDERECO_DA_RESPOSTA = 'resposta';
 
+/**
+ * RM-057 (resposta curta, D3 da ork-rm057respost): a forma de um código curto, como `gerarCodigo` o faz (letra na frente
+ * e ao menos um dígito), em maiúsculas.
+ */
+export const CODIGO_CURTO = /^(?=[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{0,2}[2-9])[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{3}$/;
+
+/**
+ * RM-057 (resposta curta, D3; GO-FIX 1, achado 2): a referência do reply, `<código>:<id>`. O código vem do título da
+ * pergunta do arco que o dono respondeu, e o id é o da mensagem respondida no Telegram. O núcleo só aceita o reply quando
+ * esse id é o da mensagem em que a pergunta foi entregue, gravado na entrega: confirmação, recusa e conversa nunca são
+ * a pergunta, mesmo quando trazem o código.
+ */
+export const REFERENCIA_DO_REPLY = /^((?=[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{0,2}[2-9])[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{3}):([1-9][0-9]{0,19})$/;
+
+/** O código e o id da mensagem respondida, ou `null` quando a referência não tem a forma. */
+export function lerReferenciaDoReply(referencia: unknown): { codigo: string; mensagem: string } | null {
+  const m = typeof referencia === 'string' ? REFERENCIA_DO_REPLY.exec(referencia) : null;
+  return m ? { codigo: m[1], mensagem: m[2] } : null;
+}
+
+/**
+ * RM-057 (GO-FIX 2, R1 do CHECK da ork-rm057respost): a marca do reply a OUTRA mensagem. Quando o dono responde com a
+ * palavra solta em reply a uma mensagem que não é a pergunta do arco (a confirmação de um gate, a mensagem de outra pessoa
+ * do grupo, a do assistente), o gateway assina `resposta:outra`: a palavra nunca vira palavra solta, e o núcleo a recusa
+ * dizendo por quê. Nenhuma prova aceita este endereço.
+ */
+export const REPLY_A_OUTRA = 'outra';
+
+/** A referência que o gateway pode assinar: a da pergunta respondida (`<código>:<id>`) ou a marca do reply a outra mensagem. */
+export function referenciaDoReplyValida(referencia: unknown): referencia is string {
+  return referencia === REPLY_A_OUTRA || lerReferenciaDoReply(referencia) !== null;
+}
+
+/**
+ * RM-057 (resposta curta, D3): o endereço que o gateway assina quando o dono responde EM REPLY à mensagem de uma pergunta.
+ * A referência (`<código>:<id da mensagem respondida>`) entra na posição de pedido do corpo assinado
+ * (`resposta:<código>:<id>`), dentro do HMAC, e o texto do dono continua na posição de resposta, como ele digitou. A
+ * palavra solta em reply a outra mensagem vai em `resposta:outra` (GO-FIX 2). Sem reply, o endereço é o de sempre.
+ */
+export function enderecoDoPulse(referencia?: string | null): string {
+  if (referencia === undefined || referencia === null) return ENDERECO_DA_RESPOSTA;
+  if (!referenciaDoReplyValida(referencia)) throw new Error('resposta do pulse: referência do reply fora da forma <código>:<mensagem> (ou outra)');
+  return `${ENDERECO_DA_RESPOSTA}:${referencia}`;
+}
+
+/** Os dois endereços do pulse que provam resposta: o de sempre e o do reply. */
+export function enderecoDoPulseValido(endereco: unknown): endereco is string {
+  if (endereco === ENDERECO_DA_RESPOSTA) return true;
+  return typeof endereco === 'string' && endereco.startsWith(`${ENDERECO_DA_RESPOSTA}:`) &&
+    lerReferenciaDoReply(endereco.slice(ENDERECO_DA_RESPOSTA.length + 1)) !== null;
+}
+
 /** Uma hora, a mesma janela do resumo pedido em 20/09. Vencido nao nega: so deixa de valer. */
 export const PRAZO_PADRAO_MIN = 60;
 
