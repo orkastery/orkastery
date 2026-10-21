@@ -693,3 +693,19 @@ test('TM30: atrás da chave, o prompt do dono em blocos, "1a 2b", a cadeia sem p
     assert.equal(lerArco(c.p.dir, 'arco-tm30', A)!.autorizadoPor, null);
   } finally { c.limpar(); }
 });
+
+test('TM31: o T1 do CHECK: o "ok" depois do aviso do agente com o código não grava no produto; com a chave ligada grava (o R3, condição para religar)', () => {
+  // T1 do CHECK (rodada 2): a "pergunta mostrada" é qualquer última linha do assistente com o código, até um aviso que o
+  // próprio agente escreve. Desligado, o terminal não grava nada; ligado, o R3 segue aberto, e este teste fixa o limite:
+  // religar pede a linha que o núcleo monta para a pergunta, ou só o código (dito na página e no README).
+  const c = cenario('t1');
+  try {
+    const a = c.arco('arco-tm31');
+    c.assistente(`Rodei o ork noctum propor para a noite.\nProposta do arco noturno enviada ao Telegram (pergunta ${a.codigo}).`);
+    const produto = c.responder('ok', { ligado: false });
+    assert.deepEqual([produto.acao, motivo(produto)], ['recusada', 'noctum.terminal.desligado']);
+    assert.equal(lerArco(c.p.dir, 'arco-tm31', A)!.autorizadoPor, null);
+    const ligado = c.responder('ok');
+    assert.equal(ligado.acao, 'registrada', 'o R3: com a chave ligada, o aviso do agente vale como pergunta mostrada');
+  } finally { c.limpar(); }
+});
