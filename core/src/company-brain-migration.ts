@@ -6,18 +6,23 @@ import { readPortfolio } from './portfolio';
 import { portfolioHistory, SourceScope, readSourceFile } from './company-brain-source';
 import { bytesHash, readJournal } from './company-brain-journal';
 import { digest, validateContract } from './company-brain-contract';
+import { contemFragmentoDaDsn, resolverDsn } from './dsn-da-memoria';
 export type AdminTransport=(operation:'plan'|'apply'|'rollback',payload:unknown)=>any;
 export function brainAdmin(c:ManifestoCarregado):AdminTransport{
   const config=memoryState(c).loaded.manifesto.memory;
   return(operation,payload)=>{
-    const dsn=config.database_url_env?process.env[config.database_url_env]:undefined;
+    // RM-069: a DSN pelo resolvedor unico (a variavel ou o arquivo da pasta de segredos).
+    const dsn=resolverDsn(config).dsn;
     if(config.mode!=='orkmind'||!dsn)throw Error('brain.configuration.missing');
     // RM-047: cwd fora do clone; um nome de interpretador em memory.cli não acha arquivo do repositório.
     const r=spawnSync(config.cli,['brain','migration'],{cwd:os.homedir(),shell:false,encoding:'utf8',timeout:Math.min(config.timeout_ms,15000),maxBuffer:2*1024*1024,
       input:JSON.stringify({schema:'orkmind.company-brain-admin/v1',operation,payload}),
       env:{PATH:process.env.PATH??'/usr/bin:/bin',PYTHONDONTWRITEBYTECODE:'1',ORKMIND_DATABASE_URL:dsn,ORKMIND_BRAIN_TENANT:config.tenant}});
-    try{const response=JSON.parse(r.stdout);if(r.status!==0||response.state!=='ok')throw Error();return response.result;}
-    catch{throw Error('brain.migration.unconfirmed');}
+    let response:any;try{response=JSON.parse(r.stdout);}catch{throw Error('brain.migration.unconfirmed');}
+    // RM-069 (D21): a resposta que repete a DSN ou a senha dela nunca sai da migracao; recusada inteira, sem o valor.
+    if(contemFragmentoDaDsn(response,dsn))throw Error('brain.migration.secret');
+    if(r.status!==0||response?.state!=='ok')throw Error('brain.migration.unconfirmed');
+    return response.result;
   };
 }
 export function reconcileBrain(c:ManifestoCarregado,scope:SourceScope,batch:string,transport:AdminTransport=brainAdmin(c)){

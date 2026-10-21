@@ -1,0 +1,141 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-069, GO-FIX 1 e 2 da ork-dsnforadoamb: cada mutante desfaz uma correção do resolvedor da DSN ou da barreira de saída. Cada claim Mutante roda um deles pelo core/scripts/mutante.cjs.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "o caminho deixa de ser conferido componente a componente: volta o lstat só do arquivo, que segue a pasta com link",
+      "modulo": "dsn-da-memoria",
+      "de": "const antes = conferirCaminho(raiz, nome, uid);",
+      "para": "const antes = { caminho: path.join(raiz.pasta, 'segredos', nome), arquivo: fs.lstatSync(path.join(raiz.pasta, 'segredos', nome)) };",
+      "teste": "dsn-da-memoria",
+      "nome": "^DM2[01]:"
+    },
+    {
+      "id": "M2",
+      "descricao": "a permissão volta a ignorar os bits especiais (só o bit fora de 0600 conta)",
+      "modulo": "dsn-da-memoria",
+      "de": "if (!PERMISSOES_ACEITAS.includes(modo))",
+      "para": "if ((modo & 0o177) !== 0)",
+      "teste": "dsn-da-memoria",
+      "nome": "^DM23:"
+    },
+    {
+      "id": "M3",
+      "descricao": "o conteúdo volta a ser aparado antes das guardas de linha e de controle",
+      "modulo": "dsn-da-memoria",
+      "de": "const linha = texto.endsWith('\\r\\n') ? texto.slice(0, -2) : texto.endsWith('\\n') ? texto.slice(0, -1) : texto;",
+      "para": "const linha = texto.trim();",
+      "teste": "dsn-da-memoria",
+      "nome": "^DM24:"
+    },
+    {
+      "id": "M4",
+      "descricao": "o conteúdo deixa de exigir uma DSN com esquema",
+      "modulo": "dsn-da-memoria",
+      "de": "if (!DSN_COM_ESQUEMA.test(dsn))",
+      "para": "if (false)",
+      "teste": "dsn-da-memoria",
+      "nome": "^DM25:"
+    },
+    {
+      "id": "M5",
+      "descricao": "o conteúdo volta a ser lido como UTF-8 sem conferir os bytes",
+      "modulo": "dsn-da-memoria",
+      "de": "texto = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bruto);",
+      "para": "texto = bruto.toString('utf8');",
+      "teste": "dsn-da-memoria",
+      "nome": "^DM25:"
+    },
+    {
+      "id": "M6",
+      "descricao": "a senha curta deixa de ser fragmento (volta o piso de 12 caracteres): o driver do OrkMind passa a resposta com ela",
+      "modulo": "dsn-da-memoria",
+      "de": "for (const senha of senhasDaDsn(texto))",
+      "para": "for (const senha of senhasDaDsn(texto).filter((s) => s.length >= 12))",
+      "teste": "dsn-saida",
+      "nome": "^DS3:"
+    },
+    {
+      "id": "M7",
+      "descricao": "a senha curta deixa de ser fragmento (volta o piso de 12 caracteres): o ork memory status a imprime",
+      "modulo": "dsn-da-memoria",
+      "de": "for (const senha of senhasDaDsn(texto))",
+      "para": "for (const senha of senhasDaDsn(texto).filter((s) => s.length >= 12))",
+      "teste": "dsn-saida",
+      "nome": "^DS4:"
+    },
+    {
+      "id": "M8",
+      "descricao": "o cliente do Company Brain devolve a resposta do filho sem a barreira",
+      "modulo": "company-brain-client",
+      "de": "if ((0, dsn_da_memoria_1.contemFragmentoDaDsn)(response, dsn))",
+      "para": "if (false)",
+      "teste": "dsn-saida",
+      "nome": "^DS1:"
+    },
+    {
+      "id": "M9",
+      "descricao": "a migração do Company Brain devolve a resposta do filho sem a barreira",
+      "modulo": "company-brain-migration",
+      "de": "if ((0, dsn_da_memoria_1.contemFragmentoDaDsn)(response, dsn))",
+      "para": "if (false)",
+      "teste": "dsn-saida",
+      "nome": "^DS2:"
+    },
+    {
+      "id": "M10",
+      "descricao": "a barreira deixa de olhar as chaves dos objetos da resposta",
+      "modulo": "dsn-da-memoria",
+      "de": "examinar(k) || examinar(v)",
+      "para": "examinar(v)",
+      "teste": "dsn-saida",
+      "nome": "^DS1:"
+    },
+    {
+      "id": "M11",
+      "descricao": "a barreira deixa de olhar as listas da resposta",
+      "modulo": "dsn-da-memoria",
+      "de": "return x.some(examinar);",
+      "para": "return false;",
+      "teste": "dsn-saida",
+      "nome": "^DS1:"
+    },
+    {
+      "id": "M12",
+      "descricao": "a conferência volta a começar na pasta do usuário (D17): o link numa pasta entre a casa e a raiz é seguido",
+      "modulo": "dsn-da-memoria",
+      "de": "return { casa: real, partes, pasta: path.join(real, ...partes), daVariavel };",
+      "para": "return { casa: fs.realpathSync(path.dirname(alvo)), partes: [path.basename(alvo)], pasta: path.join(fs.realpathSync(path.dirname(alvo)), path.basename(alvo)), daVariavel };",
+      "teste": "dsn-da-memoria",
+      "nome": "^DM27:"
+    },
+    {
+      "id": "M13",
+      "descricao": "o .. na raiz vinda do ambiente volta a ser resolvido pelo texto (path.resolve)",
+      "modulo": "dsn-da-memoria",
+      "de": "temPontoPonto(declarada)",
+      "para": "false",
+      "teste": "dsn-da-memoria",
+      "nome": "^DM28:"
+    },
+    {
+      "id": "M14",
+      "descricao": "a raiz vinda do ambiente deixa de ficar dentro da casa: qualquer pasta vale, subindo da casa pelo ..",
+      "modulo": "dsn-da-memoria",
+      "de": "return relativo && relativo !== '..' && !relativo.startsWith(`..${path.sep}`) && !path.isAbsolute(relativo)",
+      "para": "return relativo",
+      "teste": "dsn-da-memoria",
+      "nome": "^DM29:"
+    },
+    {
+      "id": "M15",
+      "descricao": "a raiz vinda do ambiente deixa de ser conferida como pasta do próprio usuário",
+      "modulo": "dsn-da-memoria",
+      "de": "raiz.daVariavel && pasta === raiz.pasta && uid !== null && st.uid !== uid",
+      "para": "false",
+      "teste": "dsn-da-memoria",
+      "nome": "^DM29:"
+    }
+  ]
+}

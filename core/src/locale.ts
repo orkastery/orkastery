@@ -426,6 +426,55 @@ const PT_BR = {
     fonteDaMemoria: (fonte: string, divergente: boolean) => `${fonte}${divergente ? ' (cópia da worktree divergente preservada)' : ''}`,
     regimeDegradado: (motivo: string | null, detalhe: string) => `pedido orkmind, efetivo files (${motivo}): ${detalhe}`,
     regimeOrkmind: (tenant: string | null, variavel: string | null) => `orkmind ativo no tenant "${tenant}" pela variavel ${variavel}`,
+    // RM-069: a fonte da DSN e a DSN no ambiente, pelo nome da variavel ou pelo rotulo do arquivo, nunca o valor.
+    regimeOrkmindPorArquivo: (tenant: string | null, arquivo: string) => `orkmind ativo no tenant "${tenant}" pelo arquivo ${arquivo}`,
+    dsnDaVariavel: (variavel: string) => `variável de ambiente ${variavel}, presente (valor nunca impresso)`,
+    dsnVariavelAusente: (variavel: string) => `variável de ambiente ${variavel} ausente: a memória cai para files`,
+    dsnVariavelAusenteCorrecao: (variavel: string) => `exporte ${variavel} com a DSN da base própria do tenant, ` +
+      'ou passe-a por memory.database_url_file (arquivo 0600 em ~/.orkastery/segredos/)',
+    dsnDoArquivo: (rotulo: string, permissao: string) =>
+      `arquivo ${rotulo}, do usuário que roda o ork, permissão ${permissao}, uma linha (valor nunca impresso)`,
+    dsnArquivoFalhou: (rotulo: string, motivo: string, causa: string) =>
+      `arquivo ${rotulo} recusado (${motivo}): ${causa}; a memória cai para files, sem outra fonte`,
+    // O mesmo texto de `textoDaCausa` (dsn-da-memoria.ts); o teste DD11 confere causa por causa.
+    dsnCausa: (causa: string, permissao: string) => (({
+      forma: 'memory.database_url_file fora da forma ~/.orkastery/segredos/<nome> (valor omitido)',
+      raiz: 'a pasta do usuário do ork precisa ser caminho absoluto sem .., dentro da casa do usuário (HOME)',
+      'nao-existe': 'não existe',
+      'nao-abre': 'não foi possível abrir para leitura',
+      pasta: 'o caminho da pasta de segredos tem link simbólico ou algo que não é pasta',
+      'dono-da-pasta': 'a pasta do usuário do ork não é do usuário que roda o ork',
+      link: 'link simbólico não é aceito',
+      'nao-e-arquivo': 'não é arquivo comum',
+      plataforma: 'esta plataforma não confere dono nem permissão',
+      dono: 'o dono não é o usuário que roda o ork',
+      permissao: `permissão ${permissao}, diferente de 0600 e de 0400`,
+      tamanho: 'maior que 4 KiB',
+      vazio: 'vazio',
+      codificacao: 'não é texto UTF-8',
+      linhas: 'mais de uma linha',
+      controle: 'caractere de controle',
+      'nome-valor': 'formato NOME=valor de arquivo de ambiente; grave só a DSN',
+      esquema: 'não é DSN com esquema (como postgresql://)',
+      espaco: 'espaço dentro da DSN',
+      leitura: 'não foi possível ler',
+    }) as Record<string, string>)[causa] ?? causa,
+    dsnArquivoCorrecao: (motivo: string, rotulo: string) => motivo === 'dsn.arquivo-ausente'
+      ? `grave a DSN da base própria do tenant em ${rotulo}, numa linha e com permissão 0600, sem passar pelo histórico do shell: ` +
+        `(umask 077; cat > ${rotulo})`
+      : motivo === 'dsn.arquivo-inseguro'
+        ? `deixe ${rotulo} como arquivo do usuário que roda o ork, numa pasta dele, com chmod 600 ${rotulo}`
+        : `regrave ${rotulo} como arquivo comum numa pasta de segredos comum, dentro da casa do usuário e sem link simbólico ` +
+          'no caminho, só com a DSN (esquema://...), numa linha e sem NOME= na frente',
+    dsnNaSessao: (doProjeto: readonly string[], comSenha: readonly string[]) =>
+      `no ambiente desta sessão despachada, o agente lê com env: ${[...doProjeto.map((n) => `${n} (DSN do projeto)`),
+        ...comSenha.map((n) => `${n} (URL com senha)`)].join(', ')} (valor nunca impresso)`,
+    dsnNoProcesso: (nomes: readonly string[]) =>
+      `a DSN do arquivo também está no ambiente deste processo, em ${nomes.join(', ')}: quem herda este ambiente a vê (valor nunca impresso)`,
+    dsnSessaoLimpa: 'nenhuma DSN nem URL com senha no ambiente desta sessão despachada',
+    dsnProcessoLimpo: 'a DSN do arquivo não está no ambiente deste processo',
+    dsnNoAmbienteCorrecao: 'tire essas variáveis do ambiente que o host repassa aos agentes (no Hermes, ~/.hermes/.env), com backup, ' +
+      'e passe a DSN do projeto por memory.database_url_file',
     filaEscaladoCorrecao: 'pedido escalado alem do limite de retry.max_tentativas: ork retry list e ork gate request <thread>',
     filaEsperaCorrecao: 'ork retry resume retoma o que ja liberou',
     governanca: (g: { usuario: string; total: number; semThread: number; ambiguas: number; ok: boolean; ausentes: readonly string[] }) =>
@@ -736,6 +785,8 @@ const EN: Mensagens = {
       'provider efetivo da fabrica': 'effective factory provider',
       'fonte da memoria': 'memory source',
       'regime de memoria': 'memory regime',
+      'fonte da DSN': 'DSN source',
+      'DSN no ambiente': 'DSN in environment',
       'chave de embedding': 'embedding key',
       'fila de rate limit': 'rate limit queue',
       'estado do projeto': 'project state',
@@ -893,6 +944,53 @@ const EN: Mensagens = {
     fonteDaMemoria: (fonte, divergente) => `${fonte}${divergente ? ' (divergent worktree copy kept)' : ''}`,
     regimeDegradado: (motivo, detalhe) => `orkmind requested, files in effect (${motivo}): ${detalhe}`,
     regimeOrkmind: (tenant, variavel) => `orkmind active in tenant "${tenant}" through the variable ${variavel}`,
+    regimeOrkmindPorArquivo: (tenant, arquivo) => `orkmind active in tenant "${tenant}" through the file \`${arquivo}\``,
+    dsnDaVariavel: (variavel) => `environment variable ${variavel}, present (value never printed)`,
+    dsnVariavelAusente: (variavel) => `environment variable ${variavel} missing: memory falls back to files`,
+    dsnVariavelAusenteCorrecao: (variavel) => `export ${variavel} with the DSN of the tenant's own database, ` +
+      'or pass it through `memory.database_url_file` (a 0600 file in `~/.orkastery/segredos/`)',
+    dsnDoArquivo: (rotulo, permissao) =>
+      `file \`${rotulo}\`, owned by the user running ork, permission ${permissao}, one line (value never printed)`,
+    dsnArquivoFalhou: (rotulo, motivo, causa) =>
+      `file \`${rotulo}\` refused (\`${motivo}\`): ${causa}; memory falls back to files, with no other source`,
+    dsnCausa: (causa, permissao) => (({
+      forma: '`memory.database_url_file` outside the form `~/.orkastery/segredos/<name>` (value omitted)',
+      raiz: 'the ork user folder must be an absolute path without `..`, inside the user home (`HOME`)',
+      'nao-existe': 'does not exist',
+      'nao-abre': 'could not be opened for reading',
+      pasta: 'the path to the secrets folder has a symbolic link or something that is not a folder',
+      'dono-da-pasta': 'the ork user folder is not owned by the user running ork',
+      link: 'symbolic link not accepted',
+      'nao-e-arquivo': 'not a regular file',
+      plataforma: 'this platform checks neither owner nor permission',
+      dono: 'the owner is not the user running ork',
+      permissao: `permission ${permissao}, neither 0600 nor 0400`,
+      tamanho: 'larger than 4 KiB',
+      vazio: 'empty',
+      codificacao: 'not UTF-8 text',
+      linhas: 'more than one line',
+      controle: 'control character',
+      'nome-valor': 'NAME=value environment file format; write only the DSN',
+      esquema: 'not a DSN with a scheme (such as `postgresql://`)',
+      espaco: 'whitespace inside the DSN',
+      leitura: 'could not be read',
+    }) as Record<string, string>)[causa] ?? causa,
+    dsnArquivoCorrecao: (motivo, rotulo) => motivo === 'dsn.arquivo-ausente'
+      ? `write the DSN of the tenant's own database to \`${rotulo}\`, on one line and with permission 0600, without the shell history: ` +
+        `\`(umask 077; cat > ${rotulo})\``
+      : motivo === 'dsn.arquivo-inseguro'
+        ? `make \`${rotulo}\` a file owned by the user running ork, in a folder of theirs, with \`chmod 600 ${rotulo}\``
+        : `rewrite \`${rotulo}\` as a regular file in a regular secrets folder, inside the user home and with no symbolic ` +
+          'link on the path, with only the DSN (`scheme://...`), on one line and without a NAME= prefix',
+    dsnNaSessao: (doProjeto, comSenha) =>
+      `in this dispatched session's environment, the agent reads with \`env\`: ${[...doProjeto.map((n) => `${n} (project DSN)`),
+        ...comSenha.map((n) => `${n} (URL with password)`)].join(', ')} (value never printed)`,
+    dsnNoProcesso: (nomes) =>
+      `the file's DSN is also in this process environment, in ${nomes.join(', ')}: whoever inherits this environment sees it (value never printed)`,
+    dsnSessaoLimpa: 'no DSN and no URL with password in this dispatched session environment',
+    dsnProcessoLimpo: "the file's DSN is not in this process environment",
+    dsnNoAmbienteCorrecao: 'remove these variables from the environment the host passes to agents (in Hermes, `~/.hermes/.env`), ' +
+      'with a backup, and pass the project DSN through `memory.database_url_file`',
     filaEscaladoCorrecao: 'request escalated past the retry.max_tentativas limit: `ork retry list` and `ork gate request <thread>`',
     filaEsperaCorrecao: '`ork retry resume` picks up what is already released',
     governanca: (g) =>
