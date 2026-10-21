@@ -878,8 +878,9 @@ export function abertosDoDono(raiz: string, quando: string, estadoDir?: string):
   for (const p of lerLoteServido(raiz, estadoDir).perguntas.filter(q => perguntaEmAberto(q, quando))) {
     if (p.arco) {
       vistas.add(`arco:${p.arco.codigo}`);
+      // A pergunta do arco sempre tem código: o rótulo dá os dois jeitos de dizer qual (D9 da ork-rm057respost).
       abertos.push({ tipo: 'pergunta', servida: p, codigo: p.arco.codigo,
-        rotulo: `${p.numero} com a letra (arco ${p.arco.arco}: ${p.arco.ato})`, recente: agora - Date.parse(p.servidaEm) < janela });
+        rotulo: `${p.numero} ou ${p.arco.codigo}, com a letra (arco ${p.arco.arco}: ${p.arco.ato})`, recente: agora - Date.parse(p.servidaEm) < janela });
       continue;
     }
     const pedido = pedidoDaServida(raiz, p);

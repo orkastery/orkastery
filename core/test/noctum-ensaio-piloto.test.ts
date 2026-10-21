@@ -4,7 +4,9 @@
  * teste: o relógio controlado prova prazo e fuso, o teto com sessões em voo, a ausência de recibo e o reenvio sem
  * duplicação, e a correção explícita; a sabotagem prova que o ensaio reprova quando o canal duplica. RM-058, integração
  * (T7 da ork-rm058integra, D11): os cenários integrados (a cadeia ligada, o condutor que morre e a base que anda) e as marcas
- * de simulação que o aceite do piloto recusa.
+ * de simulação que o aceite do piloto recusa. RM-057 (resposta curta, T8 da ork-rm057respost): os arcos do ensaio abrem pela
+ * resposta curta do dono, e o cenário `resposta-curta` prova a pergunta no canal, o reply, o código, a palavra solta, o
+ * número, o terminal e os negativos.
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -52,13 +54,13 @@ function provada(c: Cenario, padrao: RegExp): void {
   assert.equal(e.ok, true, `${c.nome}: ${e.texto}\n${e.detalhe ?? ''}`);
 }
 
-test('EP1: o ensaio inteiro sai 0 com todas as expectativas dos dez cenários, e a pasta descartável some no fim', { skip: semKernel }, () => {
+test('EP1: o ensaio inteiro sai 0 com todas as expectativas dos onze cenários, e a pasta descartável some no fim', { skip: semKernel }, () => {
   const { status, json, stderr } = ensaioCompleto();
   assert.equal(status, 0, stderr + JSON.stringify(json.cenarios.flatMap(c => c.expectativas.filter(e => !e.ok))));
   assert.equal(json.contrato, 'ork.noctum-ensaio/v1');
   assert.equal(json.ok, true);
-  assert.deepEqual(json.cenarios.map(c => c.nome), ['ligar-o-modo', 'arco-curto', 'prazo-e-fuso', 'teto-com-sessoes-em-voo', 'teto-medido',
-    'sem-recibo-e-reenvio', 'correcao-explicita', 'cadeia-ligada', 'condutor-morto', 'base-que-anda']);
+  assert.deepEqual(json.cenarios.map(c => c.nome), ['ligar-o-modo', 'resposta-curta', 'arco-curto', 'prazo-e-fuso', 'teto-com-sessoes-em-voo',
+    'teto-medido', 'sem-recibo-e-reenvio', 'correcao-explicita', 'cadeia-ligada', 'condutor-morto', 'base-que-anda']);
   for (const c of json.cenarios) {
     assert.equal(c.ok, true, c.nome);
     assert.ok(c.expectativas.length >= 7, `${c.nome}: ${c.expectativas.length} expectativas`);
@@ -154,7 +156,7 @@ test('EP7: o ensaio reprova quando o canal duplica (sabotagem), e o uso errado s
   assert.equal(sabotagem.status, 2);
   const lista = ensaio(['--listar']);
   assert.equal(lista.status, 0);
-  assert.equal(lista.stdout.trim().split('\n').length, 10);
+  assert.equal(lista.stdout.trim().split('\n').length, 11);
 });
 
 test('EP8: a cadeia ligada vai do pedido do dono à integração na base, ao MASTER por omissão e ao relatório, pelo vigia e pelo condutor', { skip: semKernel }, () => {
@@ -200,4 +202,23 @@ test('EP11: o resultado do ensaio leva simulado e as marcas que o aceite do pilo
   assert.equal(r.status, 0, r.stderr);
   const recorte = JSON.parse(r.stdout) as Resultado;
   assert.deepEqual([recorte.simulado, recorte.marcas], [true, json.marcas]);
+});
+
+test('EP12: o dono aprova onde estiver, com resposta curta: reply, código, palavra solta, número e terminal, com os negativos', { skip: semKernel }, () => {
+  const c = cenario('resposta-curta');
+  assert.equal(c.ok, true, JSON.stringify(c.expectativas.filter(e => !e.ok)));
+  provada(c, /^a proposta vira a pergunta ao dono: sai uma vez no canal, numerada, .* sem o hash e sem linha para copiar/);
+  provada(c, /^o "sim" em reply à mensagem da pergunta, assinado no endereço do reply, autoriza o arco/);
+  provada(c, /^a mesma mensagem de novo não autoriza duas vezes/);
+  provada(c, /^sem pergunta pendente, o "sim" solto não grava nada/);
+  provada(c, /^sem reply, a palavra solta vale quando só uma pergunta espera no chat em que ela saiu/);
+  provada(c, /^com duas perguntas esperando no chat, o "sim" solto volta perguntando qual/);
+  provada(c, /^a palavra solta de outro chat autorizado não responde/);
+  provada(c, /^o código vindo de um chat fora da lista do canal é recusado/);
+  provada(c, /^depois do prazo da pergunta, a resposta volta dizendo que ela venceu/);
+  provada(c, /^a sessão despachada pelo ork que digita "sim" no terminal é recusada pela origem da sessão/);
+  provada(c, /^na sessão interativa do dono, com a pergunta mostrada nela, o "sim" autoriza o arco com o recibo do terminal/);
+  provada(c, /^o terminal puro segue recusado/);
+  provada(c, /^ork noctum revogar só pergunta/);
+  provada(c, /^o "a" em reply à pergunta de revogação revoga o arco/);
 });

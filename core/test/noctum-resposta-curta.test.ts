@@ -150,8 +150,8 @@ test('RC6: duas pendentes e "sim" sem referência: o núcleo pergunta qual, com 
     const a = c.arco('arco-rc6a'), b = c.arco('arco-rc6b');
     const r = c.responder(dizer('sim'));
     assert.match(r.mensagem, /Há 2 perguntas esperando você/);
-    assert.ok(r.mensagem.includes(`${a.entrega!.numero} com a letra (arco arco-rc6a: autorizar)`), r.mensagem);
-    assert.ok(r.mensagem.includes(`${b.entrega!.numero} com a letra (arco arco-rc6b: autorizar)`), r.mensagem);
+    assert.ok(r.mensagem.includes(`${a.entrega!.numero} ou ${a.codigo}, com a letra (arco arco-rc6a: autorizar)`), r.mensagem);
+    assert.ok(r.mensagem.includes(`${b.entrega!.numero} ou ${b.codigo}, com a letra (arco arco-rc6b: autorizar)`), r.mensagem);
     assert.equal(lerArco(c.p.dir, 'arco-rc6a', A)!.autorizadoPor, null);
     assert.equal(lerArco(c.p.dir, 'arco-rc6b', A)!.autorizadoPor, null);
   } finally { c.limpar(); }
