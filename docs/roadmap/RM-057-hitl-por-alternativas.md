@@ -6,7 +6,7 @@ categoria: melhoria
 pai: RM-048
 features: []
 owner: Julio
-atualizado_em: 2026-10-03T07:20:00+00:00
+atualizado_em: 2026-10-21T06:01:38-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -22,7 +22,7 @@ evidencias:
 sdlc:
   thread: ork-rm057respost
   modo: "#Auto"
-  fase: GOAL
+  fase: GO
   status: aberta
 ---
 
@@ -67,16 +67,16 @@ sdlc:
 
 ### Fatia 5: a resposta curta, onde o dono estiver
 
-Implementada na thread `ork-rm057respost` (modo #Auto), pelo requisito de 20/10/2026. O primeiro alvo é a pergunta que mais travou: a autorização e a revogação do arco do #Noctum ([RM-058](RM-058-modo-noctum.md#a-autorização-pela-resposta-curta-rm-057)).
+Implementada na thread `ork-rm057respost` (modo #Auto), pelo requisito de 20/10/2026, e corrigida pelo GO-FIX 1 depois do CHECK independente, que mostrou a resposta curta casando com a pergunta errada ou vindo de quem não era o dono. O primeiro alvo é a pergunta que mais travou: a autorização e a revogação do arco do #Noctum ([RM-058](RM-058-modo-noctum.md#a-autorização-pela-resposta-curta-rm-057)).
 
 - **A pergunta:** o contrato curto (`ork.hitl-curto/v1`) ganha a última linha "Responda a, b ou c" (no terminal, "Responder: a, b ou c, aqui ou no Telegram"), com as letras reais e o detalhe a um pedido de distância (`<código> detalhes`), e o título com o número quando a pergunta foi servida no canal. A proposta do arco nasce como pergunta com código curto, três alternativas (a recomendada primeiro) e o hash guardado nela, nunca na resposta. O vocabulário fechado ganha "autorizo" (e as variações) para aprovar e "adiar" para esperar.
-- **No Telegram** (Hermes e OpenClaw): o dono responde em reply à mensagem da pergunta só com a letra ou a palavra, e o gateway assina o envelope no endereço `resposta:<código>` tirado da mensagem respondida, com `--em-resposta-a`; vale também o código com a letra de qualquer chat autorizado, o número com a letra e a palavra solta quando só uma pergunta espera no chat em que ela saiu. O reply também responde à mensagem curta de um gate, pelo mesmo `responderGate`.
-- **No terminal do Claude Code:** o hook `UserPromptSubmit` do plugin leva a resposta curta ao núcleo (`ork noctum terminal --hook-stdin`), que prova a origem da sessão (alguém presente, o id da sessão, sem a identidade de despacho do `ork`, fora do registro de sessões e de worktree de thread e a ancestralidade pelo `/proc`) antes de gravar o ato do arco com recibo. A palavra solta só vale para a pergunta mostrada nesta sessão. O guard do plugin recusa o ingresso do terminal chamado pela ferramenta Bash, e o terminal puro segue recusado: nenhum comando autoriza.
-- **Negativos provados:** a sessão despachada pelo `ork` que digita "sim", a resposta sem pergunta pendente, a ambígua com duas pendentes, a palavra solta de outro chat, o chat fora da lista, depois do prazo, a mesma mensagem de novo, outra chave, a referência trocada e a proposta que mudou; nenhum deles grava nada.
-- **Limites ditos:** no terminal, a fronteira é a conta do sistema, como no diálogo nativo: um processo do mesmo usuário que monte o ambiente e a cadeia do hook passa, e um teste fixa esse limite; no OpenClaw, o `inbound_claim` não prova quem escreveu a mensagem respondida, e a referência do reply vem só do texto dela; a resposta curta a um gate no terminal vai ao condutor como contexto, para abrir o diálogo nativo, sem gravar.
+- **No Telegram** (Hermes e OpenClaw): o dono responde em reply à mensagem da pergunta só com a letra ou a palavra. O reply só vale para a mensagem em que a pergunta foi entregue: o transporte do canal devolve o id dela, o núcleo o guarda com a pergunta servida, e o gateway assina no endereço `resposta:<código>:<id>` o código, tirado do título da pergunta (`🔔 N. arco <arco> · <código>`), e o id da mensagem respondida, passados por `--em-resposta-a`. A confirmação do "b", a recusa, o lembrete e a mensagem de outra pessoa nunca são a pergunta, mesmo com o código, e em reply a resposta vale só para a pergunta respondida: a letra, a palavra que cai numa alternativa dela, o código ou o número dela. Vale também o código com a letra de qualquer chat autorizado, o número com a letra e a palavra solta quando só uma pergunta espera no chat em que ela saiu, nunca com a mensagem de antes de ela sair. Uma mensagem assinada responde a uma pergunta só, em qualquer arco. O reply à mensagem curta de um gate não vale: o lote sai como resposta do gateway, e o núcleo não guarda o id dela; o gate segue pelo número e pelo código.
+- **No terminal do Claude Code:** o hook `UserPromptSubmit` do plugin leva a resposta curta ao núcleo (`ork noctum terminal --hook-stdin`), que grava o ato do arco com recibo só depois de provar a origem: o prompt digitado pelo dono (o campo `source` do evento vale `user`; a tarefa agendada, a volta do `/loop`, a mensagem de canal ou de outra sessão e o evento sem o campo são recusados), alguém presente, o id da sessão, sem a identidade de despacho do `ork`, fora do registro de sessões e de worktree de thread, e a cadeia de processos pelo `/proc`, em que todo processo entre o núcleo e a sessão nasceu do hook dela. O código com a letra vale sempre; a palavra solta e a letra só logo depois da pergunta (a última linha da última mensagem do assistente traz o código dela), só para dizer "a" e uma vez, nunca depois de "b" ou "c", e o resto segue ao modelo. O guard do plugin recusa o ingresso do terminal chamado pela ferramenta Bash, e o terminal puro segue recusado: nenhum comando autoriza.
+- **Negativos provados:** a sessão despachada pelo `ork` que digita "sim", o prompt injetado pela máquina na sessão do dono, a resposta sem pergunta pendente, a ambígua com duas pendentes, a palavra solta de outro chat, o chat fora da lista, depois do prazo, a mesma mensagem de novo ou em outro arco, a mensagem de antes da pergunta, outra chave, a referência trocada, a proposta que mudou, o "ok" em reply à confirmação do "b", o "1a" em reply à mensagem de outra pergunta e o "sim" dito ao modelo depois de outra pergunta dele; nenhum deles grava nada.
+- **Limites ditos:** o Claude Code ainda está liberando o campo `source` do evento, e enquanto ele não vier, o terminal não grava nada e diz ao dono que responda pelo Telegram ou pelo diálogo. A fronteira do terminal e do diálogo nativo é a conta do sistema: no terminal, um processo do mesmo usuário que abra uma sessão interativa nova do Claude Code fora da árvore de processos do agente (com `setsid` e um terminal virtual, por exemplo) e digite nela passa, e o agente pela ferramenta Bash da sessão não passa; no diálogo nativo, qualquer cliente MCP do mesmo usuário que declare o formulário passa, sem chave. Um teste fixa cada limite. Fora do Linux, sem `/proc`, o terminal não grava. As recusas na borda do Hermes (usuário ou chat fora da lista, mensagem de mais de 60 s ou que volta com outro texto) saem caladas, de propósito: o bot não conversa com quem não é o dono nem responde a mensagem atrasada. A resposta curta a um gate no terminal vai ao condutor como contexto, para abrir o diálogo nativo, sem gravar.
 - **Próxima fatia proposta (D1 da thread):** o canal `terminal` no registro fechado de canais (`ork.hitl-canais/v1` vira `v2`) e a origem nova na prova do gate, para o "sim" no terminal responder também a um gate. É contrato e pede a ratificação do dono.
 
-Evidência: `core/test/hitl-curto.test.ts` e `hitl-texto-livre.test.ts` (os testes "RM-057 resposta curta:"), `noctum-pergunta.test.ts` (NP1 a NP17), `noctum-resposta-curta.test.ts` (RC1 a RC16), `noctum-terminal.test.ts` (TM1 a TM17), `claude-hook-resposta.test.ts` (HK1 a HK7), `noctum-pergunta-cli.test.ts` (PQ1 a PQ6), `noctum-gateways.test.ts` (GW6 a GW9) e `noctum-ensaio-piloto.test.ts` (EP12), que rodam em `npm --prefix core test`, e os testes do reply dos dois gateways.
+Evidência: `core/test/hitl-curto.test.ts` e `hitl-texto-livre.test.ts` (os testes "RM-057 resposta curta:"), `noctum-pergunta.test.ts` (NP1 a NP23), `noctum-resposta-curta.test.ts` (RC1 a RC25), `noctum-terminal.test.ts` (TM1 a TM27), `claude-hook-resposta.test.ts` (HK1 a HK8), `noctum-pergunta-cli.test.ts` (PQ1 a PQ6), `noctum-gateways.test.ts` (GW6 a GW11) e `noctum-ensaio-piloto.test.ts` (EP12), que rodam em `npm --prefix core test`, e os testes do reply dos dois gateways. As reproduções do CHECK viraram testes, e as guardas da correção têm mutante que os testes matam.
 
 ## Plano e decisões
 
@@ -94,13 +94,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-03 | Julio |
-| Documentação | Em revisão | — | 2026-10-03 | Julio |
-| Código | Mesclado | commit `7266df6` · PR #49 | 2026-10-03 | Julio |
-| Testes | Em execução | — | 2026-10-03 | Julio |
-| Deploy | Não implantado | — | 2026-10-03 | Julio |
-| Exposição | Flag desligada | — | 2026-10-03 | Julio |
-| Habilitação | Pendente | — | 2026-10-03 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-21 | Julio |
+| Documentação | Em revisão | — | 2026-10-21 | Julio |
+| Código | Mesclado | commit `7266df6` · PR #49 | 2026-10-21 | Julio |
+| Testes | Em execução | — | 2026-10-21 | Julio |
+| Deploy | Não implantado | — | 2026-10-21 | Julio |
+| Exposição | Flag desligada | — | 2026-10-21 | Julio |
+| Habilitação | Pendente | — | 2026-10-21 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -122,3 +122,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-12 | Requisito novo: todo passo que depende do dono chega como pergunta com 3 alternativas e uma recomendada, em linguagem simples, sem lista de comandos crus nem termo técnico sem explicação | Caso do dono: "o comando da tag v0.5.5" mandado sem dizer o que é uma tag; thread `ork-rm062privado` | Julio |
 | 2026-10-20 | Requisito novo: o dono aprova onde estiver, com resposta curta; aprovar não depende do Telegram nem de copiar uma linha | Decisão do dono de 20/10/2026, depois de duas propostas do piloto do #Noctum vencerem esperando a linha com o hash | Julio |
 | 2026-10-21 | Fatia 5 na thread ork-rm057respost: a resposta curta à pergunta do arco do #Noctum em qualquer canal com prova de que foi o dono (o Telegram do Hermes e do OpenClaw com o reply, o código, o número e a palavra solta; o terminal do Claude Code pelo hook `UserPromptSubmit`, com a origem da sessão provada; o diálogo nativo com três alternativas), a pergunta no padrão "responda a, b ou c" e o reply também para os gates no Telegram; o gate pelo terminal fica como a próxima fatia proposta (D1) | Decisões D1 a D13 registradas com `ork decisao registrar` na thread; os formatos do #Noctum seguem sem ratificação | Claude (agente, #Auto), revisão de Julio pendente |
+| 2026-10-21 | GO-FIX 1 da fatia 5, depois do CHECK independente: o terminal só grava o prompt que o dono digitou (`source` igual a `user`), logo depois da pergunta mostrada, só para dizer "a", e com a cadeia de processos nascida do hook; o reply do Telegram só vale para a mensagem em que a pergunta foi entregue, e só para ela; uma mensagem responde a uma pergunta só; o reply a um gate deixa de valer; os limites dos dois canais locais ficam ditos como são | CHECK da thread (achados 1 a 10), testes NP18 a NP23, RC15 a RC25, TM18 a TM27, HK8 e GW10 a GW11, e os mutantes da correção mortos | Claude (agente, #Auto), revisão de Julio pendente |

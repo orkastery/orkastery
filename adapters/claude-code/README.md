@@ -102,7 +102,9 @@ O dono aprova onde estiver. Numa sessão interativa do Claude Code, ele responde
 #Noctum com `sim`, `a` ou `<código> a`, e o hook `UserPromptSubmit` (`hooks/ork-resposta.js`) leva o
 evento ao núcleo pelo `ork noctum terminal --hook-stdin`. Só texto com forma de resposta curta (o código
 com a resposta, o número com a letra, ou até duas palavras) chama o núcleo; conversa comum segue ao
-modelo sem nada. O hook só transporta a decisão do núcleo:
+modelo sem nada. O prompt que a máquina escreveu (o campo `source` do evento diferente de `user`: a
+tarefa agendada, a volta do `/loop`, a mensagem de canal ou de outra sessão) nunca chega ao núcleo. O
+hook só transporta a decisão do núcleo:
 
 | Decisão do núcleo | O que o hook devolve ao Claude Code |
 |---|---|
@@ -111,19 +113,25 @@ modelo sem nada. O hook só transporta a decisão do núcleo:
 | Recusa pela origem, com alguém presente | `systemMessage` com o porquê; o prompt segue ao modelo |
 | Nada a ver com o Orkastery | Nada |
 
-Quem prova é o núcleo, pela origem da sessão e nunca pelo texto: presença
-(`CLAUDE_CODE_SESSION_ATTENDED=1`, que o Claude Code só põe numa sessão interativa), o id da sessão,
-nenhuma identidade de despacho do `ork` (`ORK_DISPATCH_ID`, `ORK_DISPATCH_THREAD`) nem pasta de job de
-segundo plano, ponto de entrada que não é o do SDK, o id fora do registro de despachos das threads, o
-`cwd` fora de worktree de thread e, no Linux, a ancestralidade pelo `/proc` (a sessão de segundo plano e
-a aninhada em outra sessão do Claude Code são recusadas). A palavra solta só vale para a pergunta cujo
-código apareceu nesta sessão; o código digitado vale sempre. O recibo fica ao lado do log do arco, com
-uma subchave da chave local do núcleo.
+Quem prova é o núcleo, pela origem do prompt e da sessão e nunca pelo texto: o prompt digitado pelo
+dono (`source` igual a `user`; sem o campo, que o Claude Code ainda está liberando, nada é gravado),
+presença (`CLAUDE_CODE_SESSION_ATTENDED=1`, que o Claude Code só põe numa sessão interativa), o id da
+sessão, nenhuma identidade de despacho do `ork` (`ORK_DISPATCH_ID`, `ORK_DISPATCH_THREAD`) nem pasta de
+job de segundo plano, ponto de entrada que não é o do SDK, o id fora do registro de despachos das
+threads, o `cwd` fora de worktree de thread e, no Linux, a cadeia de processos pelo `/proc`: todo
+processo entre o núcleo e a sessão (`CLAUDE_PID`) nasceu do hook dela, com o mesmo id, a presença e sem
+a marca `AI_AGENT` que o Claude Code põe no shell das ferramentas do agente (a sessão de segundo plano e
+a aninhada em outra sessão do Claude Code são recusadas; sem `/proc`, nada é gravado). O código digitado
+vale sempre; a palavra solta e a letra só logo depois da pergunta (a última linha da última mensagem do
+assistente traz o código dela), só para dizer "a" e uma vez, nunca depois de "b" ou "c": o resto segue
+ao modelo. O recibo fica ao lado do log do arco, com uma subchave da chave local do núcleo.
 
-**Limite:** um processo do mesmo usuário do sistema que monte esse ambiente e essa cadeia de processos à
-mão passa, como passa quem tem a chave local no diálogo nativo. Para separar o núcleo dos agentes, rode
-os agentes em outra conta ou sandbox. O hook novo só vale depois de reinstalar o plugin
-(`ork adapter install claude-code`) e do `ork` com o `noctum terminal`.
+**Limite:** a fronteira é a conta do sistema. Um processo do mesmo usuário que abra uma sessão
+interativa nova do Claude Code fora da árvore de processos do agente (com `setsid` e um terminal virtual,
+por exemplo) e digite nela passa; o agente pela ferramenta Bash da própria sessão, não. No diálogo
+nativo, qualquer cliente MCP do mesmo usuário que declare o formulário passa, sem chave. Para separar o
+núcleo dos agentes, rode os agentes em outra conta ou sandbox. O hook novo só vale depois de reinstalar
+o plugin (`ork adapter install claude-code`) e do `ork` com o `noctum terminal`.
 
 ## Sensores de sessão
 
