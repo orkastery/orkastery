@@ -72,11 +72,11 @@ descartável; o recibo traz o sha256 dos arquivos globais antes e depois. Modelo
 | `/ork` | Painel: doctor, board, escalonador, modos, fila de score |
 
 Mais seis subagentes (`ork-goal`, `ork-plan`, `ork-go`, `ork-check`, `ork-ship`, `ork-master`) para
-isolar o contexto de cada fase, e o guard `PreToolUse`.
+isolar o contexto de cada fase, o guard `PreToolUse` e o hook `UserPromptSubmit` da resposta curta do dono.
 
 ## O guard PreToolUse
 
-Um hook, em `Bash`, chamando `hooks/ork-guard.js`. Ele bloqueia seis classes de comando:
+Um hook, em `Bash`, chamando `hooks/ork-guard.js`. Ele bloqueia sete classes de comando:
 
 | Bloqueio | Por que |
 |---|---|
@@ -86,12 +86,44 @@ Um hook, em `Bash`, chamando `hooks/ork-guard.js`. Ele bloqueia seis classes de 
 | `git push` | Push na mao nao e provado: a entrega passa por `ork ship` |
 | `git reset --hard`, `git clean -fd`, `git checkout -- .` | Descarte em massa sem rastro |
 | `rm -rf` com alvo amplo ou variavel | Apaga o que ninguem pediu |
+| `ork noctum terminal` e o hook da resposta chamados pela ferramenta | A resposta do dono no terminal vem do hook da sessão dele; o agente que chama esse ingresso se passa pelo dono (RM-057) |
 
 **O guard nao tem regra de negocio.** Ele nao le ledger, nao sabe quem autorizou o que e nao
 conhece thread nenhuma: ele reconhece a forma do comando e manda o agente pelo caminho que o `ork`
 verifica. Comando que comeca com `ork` passa direto, porque quem prova o push e serializa o merge e
-o nucleo. E se o proprio guard quebrar, ele **libera**: um hook que derruba a sessao por bug proprio
-e pior que nenhum hook.
+o nucleo; a exceção é o ingresso da resposta do dono (`ork noctum terminal`), barrado antes dessa
+passagem. E se o proprio guard quebrar, ele **libera**: um hook que derruba a sessao por bug proprio
+e pior que nenhum hook. A barreira do ingresso da resposta é lombada, não prova: quem roda como o
+mesmo usuário do sistema a contorna, e o limite está dito abaixo.
+
+## A resposta curta do dono no terminal (RM-057)
+
+O dono aprova onde estiver. Numa sessão interativa do Claude Code, ele responde à pergunta de um arco
+#Noctum com `sim`, `a` ou `<código> a`, e o hook `UserPromptSubmit` (`hooks/ork-resposta.js`) leva o
+evento ao núcleo pelo `ork noctum terminal --hook-stdin`. Só texto com forma de resposta curta (o código
+com a resposta, o número com a letra, ou até duas palavras) chama o núcleo; conversa comum segue ao
+modelo sem nada. O hook só transporta a decisão do núcleo:
+
+| Decisão do núcleo | O que o hook devolve ao Claude Code |
+|---|---|
+| Gravada, sem efeito (adiar, mudar algo), o detalhe ou a pergunta de volta | `decision: block` com a frase do núcleo: o prompt é substituído pela confirmação, e o "sim" não chega ao modelo |
+| Resposta a um gate | `additionalContext`: o condutor abre o diálogo nativo (`ork_request_decision`); o terminal não grava gate |
+| Recusa pela origem, com alguém presente | `systemMessage` com o porquê; o prompt segue ao modelo |
+| Nada a ver com o Orkastery | Nada |
+
+Quem prova é o núcleo, pela origem da sessão e nunca pelo texto: presença
+(`CLAUDE_CODE_SESSION_ATTENDED=1`, que o Claude Code só põe numa sessão interativa), o id da sessão,
+nenhuma identidade de despacho do `ork` (`ORK_DISPATCH_ID`, `ORK_DISPATCH_THREAD`) nem pasta de job de
+segundo plano, ponto de entrada que não é o do SDK, o id fora do registro de despachos das threads, o
+`cwd` fora de worktree de thread e, no Linux, a ancestralidade pelo `/proc` (a sessão de segundo plano e
+a aninhada em outra sessão do Claude Code são recusadas). A palavra solta só vale para a pergunta cujo
+código apareceu nesta sessão; o código digitado vale sempre. O recibo fica ao lado do log do arco, com
+uma subchave da chave local do núcleo.
+
+**Limite:** um processo do mesmo usuário do sistema que monte esse ambiente e essa cadeia de processos à
+mão passa, como passa quem tem a chave local no diálogo nativo. Para separar o núcleo dos agentes, rode
+os agentes em outra conta ou sandbox. O hook novo só vale depois de reinstalar o plugin
+(`ork adapter install claude-code`) e do `ork` com o `noctum terminal`.
 
 ## Sensores de sessão
 

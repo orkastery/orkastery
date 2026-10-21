@@ -62,11 +62,24 @@ const BLOQUEIOS = [
   },
 ];
 
+/**
+ * RM-057 (resposta curta, D11 da ork-rm057respost): a resposta do dono no terminal vem do hook `UserPromptSubmit` da
+ * sessao dele. Um agente que chama esse ingresso pela ferramenta se passa pelo dono, e por isso esta regra roda ANTES da
+ * passagem livre do `ork`. E lombada, nao prova: quem roda como o mesmo usuario contorna (o limite dito na RM-058).
+ */
+const RESPOSTA_DO_DONO = {
+  nome: 'resposta-do-dono-por-ferramenta',
+  regex: /\bnoctum\s+terminal\b|ork-resposta\.js/,
+  motivo: 'a resposta do dono no terminal vem do hook UserPromptSubmit da sessao dele; o agente que chama esse ingresso se passa pelo dono',
+  caminho: 'mostre a pergunta ao dono e espere a resposta dele, aqui, no Telegram ou pelo dialogo do host; nunca responda por ele',
+};
+
 function decidir(entrada) {
   const nome = entrada && entrada.tool_name;
   if (nome !== 'Bash') return null;
   const comando = String((entrada.tool_input && entrada.tool_input.command) || '');
   if (comando.trim() === '') return null;
+  if (RESPOSTA_DO_DONO.regex.test(comando)) return RESPOSTA_DO_DONO;
   // Comando do proprio `ork` passa: quem verifica o push provado e o merge serializado e ele.
   if (/^\s*(?:[A-Za-z0-9_]+=\S*\s+)*(?:\S*\/)?ork\s/.test(comando)) return null;
   for (const b of BLOQUEIOS) {
@@ -127,4 +140,4 @@ process.stdin.on('end', () => {
   process.exitCode = codigo;
 });
 
-module.exports = { BLOQUEIOS, decidir };
+module.exports = { BLOQUEIOS, RESPOSTA_DO_DONO, decidir };
