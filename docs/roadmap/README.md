@@ -94,6 +94,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-067](RM-067-grok-build-homologado.md) | Grok Build homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-19 |
 | [RM-068](RM-068-security-scan-no-check.md) | Security scan no CHECK | Em validação | Mesclado | Aprovados | Não implantado | 2026-10-20 |
 | [RM-069](RM-069-dsn-fora-do-ambiente-dos-agentes.md) | DSN com senha fora do ambiente dos agentes | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-10-20 |
+| [RM-070](RM-070-grok-bot-como-camada-de-conducao.md) | Grok Bot como camada de condução do Orkastery | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-20 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->
