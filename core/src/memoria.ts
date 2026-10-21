@@ -1235,8 +1235,14 @@ export function textoDoEstado(estado: EstadoDaMemoria): string {
   linhas.push(m.pedido(estado.pedido));
   linhas.push(m.efetivo(estado.efetivo));
   linhas.push(m.tenant(estado.tenant));
-  linhas.push(m.variavel(estado.variavel));
-  linhas.push(m.dsn(estado.dsnPresente));
+  // RM-069 (D5): com a fonte de arquivo, o arquivo pelo rotulo com `~`; com ambiente, as linhas de sempre.
+  if (estado.fonteDaDsn === 'arquivo') {
+    linhas.push(m.arquivo(estado.arquivoDaDsn ?? ''));
+    linhas.push(m.dsnNoArquivo(estado.dsnPresente));
+  } else {
+    linhas.push(m.variavel(estado.variavel));
+    linhas.push(m.dsn(estado.dsnPresente));
+  }
   linhas.push(m.cli(estado.cli));
   linhas.push('');
   if (estado.motivo) {
