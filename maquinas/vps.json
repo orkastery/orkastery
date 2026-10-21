@@ -4,26 +4,8 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-21T06:24:32.276Z",
+  "publicadoEm": "2026-10-21T06:30:03.003Z",
   "threads": [
-    {
-      "id": "ork-relatoriosdl",
-      "nome": "relatoriosdlc",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-relatoriosdl-go",
-      "atualizadaEm": "2026-10-21T05:22:57.620Z",
-      "entregue": "87eb1da8",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "sonnet",
-      "esforco": "high",
-      "sessao": null
-    },
     {
       "id": "ork-rm057respost",
       "nome": "rm057respostacurta",
