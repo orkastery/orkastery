@@ -215,3 +215,15 @@ test('a janela de escuta acompanha o que espera o dono, e a prova vem antes de q
     assert.equal(atualizarEscuta(c.p.dir, depois(5), c.monitor).livreAte, null, 'respondida, a janela fecha');
   } finally { c.limpar(); }
 });
+
+test('RM-057 resposta curta: "autorizo" casa aprovar, "adiar" casa esperar, e "não" segue ambíguo', () => {
+  const acoes = ['aprovar', 'esperar', 'recusar'], letras = ['a', 'b', 'c'];
+  for (const palavra of ['autorizo', 'Autorizado', 'autorizada', 'autorizar', 'autoriza', 'autorizo!']) {
+    assert.deepEqual(resolverTrecho(lerTrecho(palavra)!, acoes, letras), { tipo: 'escolha', indice: 0 }, palavra);
+  }
+  for (const palavra of ['adiar', 'adia', 'adio', 'depois']) {
+    assert.deepEqual(resolverTrecho(lerTrecho(palavra)!, acoes, letras), { tipo: 'escolha', indice: 1 }, palavra);
+  }
+  assert.equal(resolverTrecho(lerTrecho('não')!, acoes, letras).tipo, 'ambigua');
+  assert.equal(lerTrecho('autorizei'), null, 'fora do vocabulário fechado não é resposta');
+});

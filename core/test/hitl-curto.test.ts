@@ -166,3 +166,53 @@ test('RM-061 F3d: o contrato curto localiza a moldura em ingles e preserva o con
   assert.match(texto, /No undo after completion: pushes to the protected base/);
   assert.match(texto, /Reply on Telegram: DE6H b/);
 });
+
+/** RM-057 (resposta curta, ork-rm057respost): a pergunta que não é de fase, com o título e a trava dela. */
+function doArco(numero?: number) {
+  return montarPedidoCurto({
+    thread: null, fase: null, titulo: 'arco piloto-simulado · NX4K', pergunta: 'Autorizar o arco piloto-simulado (proposta 1)?',
+    trava: 'A proposta vale até 23:40. Sem resposta, nada é autorizado.',
+    corpo: ['6 h, de 00:00 a 06:00 (America/Sao_Paulo); push e pr em exemplo/produto (main)', 'teto do arco: 10 sessoes; 2 trabalhos'],
+    alternativas: [
+      { chave: 'a', texto: 'Autorizo', consequencia: 'o arco passa a valer na janela, com este envelope',
+        recomendada: { porque: 'é a proposta pedida; revogar segue valendo a qualquer hora' } },
+      { chave: 'b', texto: 'Adiar', consequencia: 'nada muda; a proposta vence no prazo dela' },
+      { chave: 'c', texto: 'Mudar algo', consequencia: 'nada é autorizado; diga o que mudar' },
+    ],
+  }, { quando: QUANDO, responder: { tipo: 'letras', codigo: 'NX4K', ...(numero ? { numero } : {}) } });
+}
+
+test('RM-057 resposta curta: a última linha diz "responda a, b ou c", sem linha para copiar, nos dois canais', () => {
+  const tg = textoDoPedidoCurto(doArco(), 'telegram'), term = textoDoPedidoCurto(doArco(), 'terminal');
+  assert.equal(tg.split('\n').at(-1), '↩️ Responda a, b ou c. Detalhes: NX4K detalhes.');
+  assert.equal(term.split('\n').at(-1), 'Responder: a, b ou c, aqui ou no Telegram. Detalhes: NX4K detalhes.');
+  for (const t of [tg, term]) {
+    assert.equal(/\/ork|autorizar [a-f0-9]{64}|[a-f0-9]{64}/.test(t), false, t);
+    assert.equal(UUID.test(t), false);
+    assert.ok(t.split('\n').length <= TETO_DE_LINHAS_DO_PEDIDO);
+  }
+});
+
+test('RM-057 resposta curta: título e trava próprios, para a pergunta que não é fase parada', () => {
+  const tg = textoDoPedidoCurto(doArco(), 'telegram').split('\n'), term = textoDoPedidoCurto(doArco(), 'terminal').split('\n');
+  assert.equal(tg[0], '🔔 arco piloto-simulado · NX4K');
+  assert.equal(term[0], 'Orkastery · arco piloto-simulado · NX4K');
+  assert.equal(tg[2], '⏳ A proposta vale até 23:40. Sem resposta, nada é autorizado.');
+  assert.equal(term[2], 'Situação: A proposta vale até 23:40. Sem resposta, nada é autorizado.');
+  assert.ok(tg.includes('a) Autorizo ✅ Recomendação: o arco passa a valer na janela, com este envelope'), tg.join('\n'));
+  assert.equal(tg.filter(l => /Recomendação/.test(l)).length, 1);
+});
+
+test('RM-057 resposta curta: a pergunta servida leva o número na frente do título, para "1a" também valer', () => {
+  assert.equal(textoDoPedidoCurto(doArco(7), 'telegram').split('\n')[0], '🔔 7. arco piloto-simulado · NX4K');
+  assert.equal(textoDoPedidoCurto(doArco(7), 'terminal').split('\n')[0], '7. Orkastery · arco piloto-simulado · NX4K');
+});
+
+test('RM-057 resposta curta: em inglês, a moldura muda e as letras seguem as da pergunta', () => {
+  const t = comLocale('en', () => textoDoPedidoCurto(doArco(), 'telegram'));
+  assert.equal(t.split('\n').at(-1), '↩️ Reply a, b or c. Details: NX4K detalhes.');
+  const duas = montarPedidoCurto({ thread: 't', fase: 'GO', pergunta: 'p?', alternativas: [
+    { chave: 'a', texto: 'x', consequencia: 'y', recomendada: { porque: 'z' } }, { chave: 'b', texto: 'x', consequencia: 'y' }] },
+  { quando: QUANDO, responder: { tipo: 'letras', codigo: 'K7QX' } });
+  assert.equal(textoDoPedidoCurto(duas, 'telegram').split('\n').at(-1), '↩️ Responda a ou b. Detalhes: K7QX detalhes.');
+});
