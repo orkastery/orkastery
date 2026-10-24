@@ -42,6 +42,8 @@ export interface ProcessoDoGrupo {
   stderr: string;
   duracaoMs: number;
   comGrupo: boolean;
+  /** O auxiliar morreu antes de gravar o resultado: o comando nao tem veredito (pode ter rodado pela metade). */
+  semResultado?: boolean;
 }
 
 interface Especificacao { itens: ItemParalelo[]; dir: string; maxParalelo?: number }
@@ -143,7 +145,7 @@ export function rodarEmParalelo(itens: ItemParalelo[], ambiente: NodeJS.ProcessE
         // O auxiliar morreu antes de gravar: o comando nao tem veredito, e a causa vai junto.
         const motivo = r.error ? (r.error as NodeJS.ErrnoException).code ?? r.error.message : `auxiliar saiu ${r.status ?? r.signal}`;
         return { nome: item.nome, ok: false, code: -1, signal: r.signal ?? null, error: motivo, stdout: ler('out'),
-          stderr: `${ler('err')}${r.stderr ?? ''}`, duracaoMs: 0, comGrupo: fs.existsSync(TIMEOUT_BIN) };
+          stderr: `${ler('err')}${r.stderr ?? ''}`, duracaoMs: 0, comGrupo: fs.existsSync(TIMEOUT_BIN), semResultado: true };
       }
       return { nome: item.nome, ok: t.code === 0, code: t.code ?? -1, signal: t.signal, ...(t.error ? { error: t.error } : {}),
         stdout: ler('out'), stderr: ler('err'), duracaoMs: t.duracaoMs, comGrupo: t.comGrupo };

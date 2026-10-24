@@ -5,9 +5,10 @@
  *
  *   - o preparo do Agile (`check.agile.preparo`, como o `tsgo` deste projeto) e, se ele falhar ou nao existir, o
  *     `verify.preparo`, com a peca `preparo` em fallback;
- *   - as claims, uma por vez, contra o produto do preparo: a claim com passos do `verify.preparo` na cadeia de `&&` roda
- *     sem eles quando a guarda vale (o preparo passou, a arvore e a mesma do fim do preparo e o hash dos caminhos de
- *     `check.agile.produto` tambem); qualquer divergencia roda o comando inteiro, e o motivo vai ao ledger;
+ *   - as claims, uma por vez, contra o produto do preparo: a claim que comeca pelos passos do `verify.preparo` roda sem
+ *     eles quando a guarda vale (o preparo passou, a arvore e a mesma do fim do preparo e o hash dos caminhos de
+ *     `check.agile.produto` tambem); qualquer divergencia roda o comando inteiro, e o motivo vai ao ledger. Passo no meio
+ *     da cadeia fica: o que vem antes dele pode mudar a entrada do build (o mutante que edita o fonte e compila);
  *   - o `build` que e so passos do preparo, com a guarda valendo, sai do preparo desta rodada sem rodar de novo;
  *   - `typecheck`, as lanes de `test` (`check.agile.test`, ou o `verify.test`) e o `security_scan` num grupo paralelo, so
  *     com a guarda valendo; sem ela, em serie, como o Classic, com a peca `grupo` em fallback. O grupo nao passa da CPU
@@ -22,6 +23,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { ENV_RELATORIO_DO_CHECK } from './check-modo';
+import { redigirCredenciaisUrl } from './redacao-url';
 import { CausaDoComando, Manifesto, ResultadoDeComando } from './types';
 
 /** Uma peca do Agile e o que aconteceu com ela; `fallback` diz o equivalente do Classic que rodou no lugar. */
@@ -71,7 +73,8 @@ const SEPARADOR = ' && ';
 
 /** Os passos de um comando encadeado por `&&` no nivel do texto (o preparo e escrito assim no manifesto). */
 export function passosDoComando(comando: string): string[] {
-  return comando.split(SEPARADOR).map((p) => p.trim()).filter(Boolean);
+  // O leitor de aspas quando ele le o comando (`&&` dentro de aspas nao separa); senao, o texto cru.
+  return (elosDoComando(comando) ?? comando.split(SEPARADOR)).map((p) => p.trim()).filter(Boolean);
 }
 
 /**
@@ -106,19 +109,11 @@ export function elosDoComando(comando: string): string[] | null {
 }
 
 /**
- * Tira do comando os passos do preparo, na frente (`passo && resto`) ou no meio da cadeia de `&&` de nivel de topo
- * (`antes && passo && depois`). `&&` e `||` tem a mesma precedencia e associam a esquerda, entao `X && passo` vale o mesmo
- * que `X` quando o passo passa sem mudar nada, e e isso que a guarda confere antes. So o texto exato do elo conta: um passo
- * escrito de outro jeito (outra opcao, outro espaco, com redirecionamento) fica. O comando que `elosDoComando` nao le so
- * perde os passos da frente, onde o texto e sempre de nivel de topo.
+ * Tira da frente do comando os passos que sao passos do preparo, na forma `passo && resto`. So o texto exato conta: um
+ * passo escrito de outro jeito (outra opcao, outro espaco) fica, e o comando roda inteiro. So a frente: no meio da cadeia
+ * (`antes && passo && depois`), o `antes` pode mudar a entrada do build, e a guarda so confere a arvore antes do comando.
  */
 export function tirarPassosDoPreparo(comando: string, passosDoPreparo: readonly string[]): { passos: string[]; resto: string } {
-  const elos = elosDoComando(comando);
-  if (elos && elos.every((e) => e !== '')) {
-    const passos = elos.filter((e) => passosDoPreparo.includes(e));
-    if (passos.length === 0) return { passos, resto: comando.trim() };
-    return { passos, resto: elos.filter((e) => !passosDoPreparo.includes(e)).join(SEPARADOR) };
-  }
   let resto = comando.trim();
   const passos: string[] = [];
   for (;;) {
@@ -189,14 +184,17 @@ export function prepararNoAgile(manifesto: Manifesto, cwd: string, executor: Exe
   if (!doAgile) return { resultado: doVerify ? executor('preparo', doVerify, cwd) : null, pecas: [] };
   const r = executor('preparo', doAgile, cwd);
   if (r.ok) return { resultado: r, pecas: [{ peca: 'preparo', estado: 'agile' }] };
-  const motivo = `${r.causa === 'timeout' ? 'estourou o prazo' : `saiu com codigo ${r.code}`}: ${r.comando}`;
+  const motivo = `${r.causa === 'timeout' ? 'estourou o prazo' : `saiu com codigo ${r.code}`}: ${redigirCredenciaisUrl(r.comando)}`;
   if (!doVerify) return { resultado: r, pecas: [{ peca: 'preparo', estado: 'fallback', motivo, fallback: 'nenhum (sem verify.preparo)' }] };
   return { resultado: executor('preparo', doVerify, cwd), pecas: [{ peca: 'preparo', estado: 'fallback', motivo, fallback: 'verify.preparo' }] };
 }
 
-/** O resultado de um comando que e so passos do preparo desta rodada (D4, D5): o veredito e o do preparo. */
+/**
+ * O resultado de um comando que e so passos do preparo desta rodada (D4, D5): o veredito e o do preparo. O resumo diz o
+ * preparo que rodou de fato (o do Agile, como o `tsgo`, ou o `verify.preparo` do fallback), nao so os passos tirados.
+ */
 function doPreparo(nome: string, comando: string, preparo: ResultadoDeComando, passos: string[]): ResultadoDeComando {
-  return { nome, comando, ok: preparo.ok, code: preparo.code, resumo: `reaproveitado do preparo desta rodada (${passos.join(SEPARADOR)})`,
+  return { nome, comando, ok: preparo.ok, code: preparo.code, resumo: `reaproveitado do preparo desta rodada (${redigirCredenciaisUrl(preparo.comando)})`,
     causa: preparo.causa, prazoMs: preparo.prazoMs, duracaoMs: 0, executado: true, preparo: { reaproveitado: true, passos } };
 }
 
@@ -219,25 +217,38 @@ export function executorDaClaimNoAgile(manifesto: Manifesto, executor: ExecutorU
 
 const PIOR_CAUSA: CausaDoComando[] = ['timeout', 'sinal', 'nao-encontrado', 'exit'];
 
-/** O `test` das lanes (D4): ok so com todas ok; a evidencia de quem caiu; a parede e a da lane mais longa. */
+/** A lane caiu de verdade: terminou, nao estourou, nao morreu por sinal e nao caiu so em teste de relogio sob steal. */
+function caiuDeVerdade(r: ResultadoDeComando): boolean {
+  return !r.ok && r.executado !== false && r.causa !== 'timeout' && r.causa !== 'sinal' && r.causa !== 'nao-encontrado'
+    && !(r.relogioSobSteal?.length);
+}
+
+/**
+ * O `test` das lanes (D4): ok so com todas ok; a evidencia de quem caiu; a parede e a da lane mais longa. A falha de
+ * verdade de uma lane manda, como num comando so do Classic: o estouro ou o relogio sob steal de outra lane nao a esconde.
+ * O relogio sob steal so vale quando toda lane que caiu caiu so nele, e a pior causa so vale sem falha de verdade.
+ */
 export function testDasLanes(lanes: Array<{ lane: string; resultado: ResultadoDeComando }>): ResultadoDeComando {
   const caidas = lanes.filter((l) => !l.resultado.ok);
+  const deVerdade = caidas.filter((l) => caiuDeVerdade(l.resultado));
   const juntar = <T>(f: (r: ResultadoDeComando) => T[] | undefined): T[] => lanes.flatMap((l) => f(l.resultado) ?? []);
   const causas = lanes.map((l) => l.resultado.causa).filter((c): c is CausaDoComando => !!c);
+  const causa = deVerdade.length ? deVerdade[0].resultado.causa ?? 'exit' : PIOR_CAUSA.find((c) => causas.includes(c));
+  const soRelogio = caidas.length > 0 && caidas.every((l) => (l.resultado.relogioSobSteal?.length ?? 0) > 0);
   const testes = juntar((r) => r.testeQueCaiu).slice(0, 10);
   const falhas = juntar((r) => r.falhasDeTeste);
-  const relogio = juntar((r) => r.relogioSobSteal);
+  const relogio = soRelogio ? juntar((r) => r.relogioSobSteal) : [];
   const trechos = caidas.map((l) => l.resultado.trecho).filter((t): t is string => !!t);
   return {
     nome: 'test',
     comando: lanes.map((l) => `${l.lane}: ${l.resultado.comando}`).join('; '),
     ok: caidas.length === 0,
-    code: caidas[0]?.resultado.code ?? 0,
+    code: (deVerdade[0] ?? caidas[0])?.resultado.code ?? 0,
     resumo: (caidas.length ? caidas : lanes).map((l) => `[${l.lane}] ${l.resultado.resumo}`).join('\n').slice(-800),
-    ...(causas.length ? { causa: PIOR_CAUSA.find((c) => causas.includes(c)) } : {}),
+    ...(causa ? { causa } : {}),
     prazoMs: Math.max(...lanes.map((l) => l.resultado.prazoMs ?? 0)),
     duracaoMs: Math.max(...lanes.map((l) => l.resultado.duracaoMs ?? 0)),
-    executado: lanes.every((l) => l.resultado.executado !== false),
+    executado: deVerdade.length > 0 || lanes.every((l) => l.resultado.executado !== false),
     ...(testes.length ? { testeQueCaiu: testes } : {}),
     ...(falhas.length ? { falhasDeTeste: falhas } : {}),
     ...(trechos.length ? { trecho: trechos.join('\n').slice(0, 1024) } : {}),
@@ -316,6 +327,9 @@ export function comandosNoAgile(manifesto: Manifesto, cwd: string, lista: { nome
   return { comandos: lista.map((c) => porNome.get(c.nome)!), pecas, paralelo: itens.length > 1, lanes: lanes.map((l) => l.lane) };
 }
 
+/** O teto da leitura do relatorio da rodada. */
+export const TETO_DO_RELATORIO_BYTES = 4 * 1024 * 1024;
+
 /** O arquivo do relatorio das pecas de uma rodada (D8), e a leitura dele no fim. */
 export class RelatorioDoCheck {
   readonly arquivo: string;
@@ -332,8 +346,16 @@ export class RelatorioDoCheck {
 
   /** As linhas que as pecas escreveram; linha que nao abre fica de fora (o relatorio e evidencia, nao veredito). */
   ler(): Array<Record<string, unknown>> {
+    // Teto de tamanho: qualquer comando da rodada pode escrever no arquivo; a linha cortada no teto nao abre e fica de fora.
     let bruto = '';
-    try { bruto = fs.readFileSync(this.arquivo, 'utf8'); } catch { return []; }
+    try {
+      const fd = fs.openSync(this.arquivo, 'r');
+      try {
+        const buf = Buffer.alloc(Math.min(fs.fstatSync(fd).size, TETO_DO_RELATORIO_BYTES));
+        fs.readSync(fd, buf, 0, buf.length, 0);
+        bruto = buf.toString('utf8');
+      } finally { fs.closeSync(fd); }
+    } catch { return []; }
     return bruto.split('\n').filter(Boolean).flatMap((l) => {
       try { const v = JSON.parse(l) as unknown; return v && typeof v === 'object' && !Array.isArray(v) ? [v as Record<string, unknown>] : []; }
       catch { return []; }
@@ -344,6 +366,23 @@ export class RelatorioDoCheck {
     fs.rmSync(this.dir, { recursive: true, force: true });
   }
 }
+
+/**
+ * As pecas que os comandos da rodada contaram no relatorio (D8), cada uma uma vez (dois processos que relatam o mesmo).
+ * Linha que nao e peca, ou peca com estado desconhecido, fica de fora: o relatorio e evidencia, nao veredito.
+ */
+export function pecasDoRelatorio(linhas: Array<Record<string, unknown>>): PecaDoAgile[] {
+  const vistas = new Set<string>();
+  return linhas.filter((l) => l.tipo === 'peca' && typeof l.peca === 'string' && (l.estado === 'agile' || l.estado === 'fallback'))
+    .map((l) => ({ peca: l.peca as string, estado: l.estado as 'agile' | 'fallback',
+      ...(typeof l.motivo === 'string' ? { motivo: l.motivo } : {}), ...(typeof l.fallback === 'string' ? { fallback: l.fallback } : {}) }))
+    .filter((p) => { const chave = JSON.stringify(p); if (vistas.has(chave)) return false; vistas.add(chave); return true; });
+}
+
+/** A peca de quem roda com executor injetado (MCP, testes): o ambiente da rodada nao chega aos comandos (A6 do CHECK). */
+export const PECA_SEM_RELATORIO: PecaDoAgile = { peca: 'relatorio', estado: 'fallback',
+  motivo: 'executor injetado (MCP ou teste): o ambiente da rodada nao chega aos comandos',
+  fallback: 'sem as pecas do preparo e da varredura e sem as listas das lanes no ledger' };
 
 /** A lista de arquivos de cada lane, como o relatorio contou (D8): contagem e sha256 da lista ordenada. */
 export function listasDasLanes(linhas: Array<Record<string, unknown>>): Array<{ lane: string; arquivos: string[]; sha256: string }> {
