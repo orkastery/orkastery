@@ -132,18 +132,20 @@ test('TL9: a hermetica roda as CPUs menos duas (no minimo um arquivo), a integra
   assert.doesNotMatch(texto, /setPriority/, 'o nice baixava so o processo do teste, nunca os containers dele');
 });
 
-test('TL10: o teste da lane nao herda o modo nem o relatorio da rodada, e a lane ainda grava a lista no relatorio', () => {
+test('TL10: o teste da lane nao herda o modo nem o relatorio da rodada, herda o resto (ORK_TESTE_EXIGE_AMBIENTE) e a lane grava a lista', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-tl10-'));
   try {
     const visto = path.join(dir, 'visto.json');
     fs.writeFileSync(path.join(dir, 've.test.js'), "const { test } = require('node:test'); test('ve', () => { require('fs').writeFileSync(" +
-      `${JSON.stringify(visto)}, JSON.stringify({ modo: process.env.ORK_CHECK_MODO ?? null, relatorio: process.env.ORK_CHECK_RELATORIO ?? null })); });\n`);
+      `${JSON.stringify(visto)}, JSON.stringify({ modo: process.env.ORK_CHECK_MODO ?? null, relatorio: process.env.ORK_CHECK_RELATORIO ?? null, ` +
+      `exige: process.env.ORK_TESTE_EXIGE_AMBIENTE ?? null })); });\n`);
     const relatorio = path.join(dir, 'relatorio.jsonl');
     const env = { ...process.env, ORK_LANES_DIR: dir, ORK_LANES_INTEGRACAO: '', XDG_CACHE_HOME: path.join(dir, 'cache'),
-      ORK_CHECK_MODO: 'agile', ORK_CHECK_RELATORIO: relatorio };
+      ORK_CHECK_MODO: 'agile', ORK_CHECK_RELATORIO: relatorio, ORK_TESTE_EXIGE_AMBIENTE: '1' };
     const r = spawnSync(process.execPath, [SCRIPT, 'hermetica'], { encoding: 'utf8', env });
     assert.equal(r.status, 0, r.stderr + r.stdout);
-    assert.deepEqual(JSON.parse(fs.readFileSync(visto, 'utf8')), { modo: null, relatorio: null });
+    assert.deepEqual(JSON.parse(fs.readFileSync(visto, 'utf8')), { modo: null, relatorio: null, exige: '1' },
+      'quem exporta ORK_TESTE_EXIGE_AMBIENTE exige as dependencias nos dois modos, como no npm test');
     assert.ok(fs.readFileSync(relatorio, 'utf8').split('\n').filter(Boolean).some((l) => (JSON.parse(l) as { tipo: string }).tipo === 'lista'));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

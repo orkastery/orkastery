@@ -95,15 +95,13 @@ test('MC5: a copia nasce no cache do usuario, fora de pasta temporaria e sem seq
   assert.ok(!medir.pastaDasCopias('/srv/u/.cache', '/srv/u').startsWith('/tmp'));
 });
 
-test('MC6: as claims representativas existem no repositorio e cobrem o preparo na frente e no meio da cadeia', () => {
+test('MC6: as claims representativas existem no repositorio: duas com o preparo na frente (reaproveitado) e uma com o build no meio (inteira)', () => {
   const preparo = passosDoComando('npm --prefix core run build && npm --prefix core run build:test');
   assert.equal(medir.CLAIMS_REPRESENTATIVAS.length, 3);
-  for (const c of medir.CLAIMS_REPRESENTATIVAS) {
-    assert.ok(fs.existsSync(path.join(RAIZ, c.arquivo)), c.arquivo);
-    assert.deepEqual(tirarPassosDoPreparo(c.verificar, preparo).passos, preparo, c.arquivo);
-  }
-  const naFrente = medir.CLAIMS_REPRESENTATIVAS.filter((c) => c.verificar.startsWith(preparo[0] + ' && '));
-  assert.equal(naFrente.length, 2, 'duas com o preparo na frente e uma com ele no meio');
+  for (const c of medir.CLAIMS_REPRESENTATIVAS) assert.ok(fs.existsSync(path.join(RAIZ, c.arquivo)), c.arquivo);
+  const tirados = medir.CLAIMS_REPRESENTATIVAS.map((c) => tirarPassosDoPreparo(c.verificar, preparo).passos);
+  assert.equal(tirados.filter((p) => p.length === preparo.length).length, 2, 'duas reaproveitam o preparo');
+  assert.equal(tirados.filter((p) => p.length === 0).length, 1, 'a do build no meio roda inteira (A1 do CHECK)');
 });
 
 test('MC7: a rodada reprovada guarda o porque (teste que caiu, trecho, falha sem baseline e o resumo da barreira), para ser lida depois da copia', () => {

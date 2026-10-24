@@ -8,8 +8,8 @@
  * `src/integracoes-locais.ts` (Docker, OrkMind, sandbox real). A uniao das duas e o glob do `npm test`, e a lista de cada
  * uma vai ao relatorio do CHECK (`ORK_CHECK_RELATORIO`), que o verify grava.
  *
- * O ambiente e o do `npm test`: a casa do `ork` temporaria (como `casa-temporaria.cjs`) e nenhum `ORK_TESTE_EXIGE_AMBIENTE`
- * (essa variavel e do CI hospedado). As duas lanes juntas nao passam da CPU da maquina: a `hermetica` roda dois arquivos a
+ * O ambiente e o do `npm test`: a casa do `ork` temporaria (como `casa-temporaria.cjs`) e o resto como vem de quem chama
+ * (inclusive `ORK_TESTE_EXIGE_AMBIENTE`, que o CI hospedado liga). As duas lanes juntas nao passam da CPU da maquina: a `hermetica` roda dois arquivos a
  * menos que as CPUs (a varredura e a `integracao`, que o verify encadeia depois dela, correm ao lado), e a `integracao`, dois
  * arquivos por vez, na prioridade de sempre (o `nice` so baixava o processo do teste, nunca os containers dele).
  *
@@ -148,8 +148,9 @@ function rodarLane(lane) {
   const orcamento = Number(process.env.ORK_CHECK_ORCAMENTO_MS) > 0 ? Number(process.env.ORK_CHECK_ORCAMENTO_MS) : ORCAMENTO_PADRAO_MS;
   relatar({ tipo: 'lista', lane, arquivos: [...listas[lane]] });
 
+  // O ambiente e o de quem chama, como no `npm test`: quem exporta ORK_TESTE_EXIGE_AMBIENTE exige as dependencias nos dois
+  // modos (S4 do CHECK).
   const env = { ...process.env };
-  delete env.ORK_TESTE_EXIGE_AMBIENTE;
   // A lane e sempre uma rodada de topo: sob outro `node --test`, o pai marca o filho com NODE_TEST_CONTEXT e o `node
   // --test` da lane falaria o protocolo do runner, sem o TAP e sem o reporter das duracoes.
   delete env.NODE_TEST_CONTEXT;
