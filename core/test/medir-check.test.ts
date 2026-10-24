@@ -5,6 +5,7 @@
  * nomes comecam por "MCn:".
  */
 import { strict as assert } from 'node:assert';
+import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { test } from 'node:test';
@@ -30,6 +31,7 @@ const medir = require(path.join(RAIZ, 'core', 'scripts', 'medir-check.cjs')) as 
   rssDaArvore: (raiz: number, processos: Map<number, { ppid: number; rss: number }>) => number;
   picoAgregado: (amostras: Array<{ arvore: number; containers: number }>) => { bytes: number; amostra: number; arvore: number; containers: number };
   pastaDasCopias: (cache: string, home?: string) => string;
+  encerrarArvore: (raiz: number, sinal?: NodeJS.Signals) => number;
   CLAIMS_REPRESENTATIVAS: Array<{ arquivo: string; alegacao: string; verificar: string }>;
 };
 
@@ -119,4 +121,16 @@ test('MC7: a rodada reprovada guarda o porque (teste que caiu, trecho, falha sem
   assert.equal(r.regressoes, undefined, 'lista vazia nao entra');
   assert.deepEqual(r.dadoPrivado, { policy: 'block', achados: 0, padroes: [], onde: [] });
   assert.deepEqual(r.claims, [{ id: 'C2', duracaoMs: 10, verificado: false, motivo: 'claims.failed' }]);
+});
+
+test('MC8: a parada encerra o processo e os descendentes dele, como o verify e as lanes em grupo proprio', async () => {
+  const filho = spawn(process.execPath, ['-e', "const n = require('child_process').spawn('sleep', ['30'], { stdio: 'ignore' }); " +
+    "console.log(n.pid); setInterval(() => {}, 1000);"], { stdio: ['ignore', 'pipe', 'ignore'] });
+  const neto = await new Promise<number>((ok) => filho.stdout!.once('data', (d) => ok(Number(String(d).trim()))));
+  const vivo = (pid: number): boolean => { try { process.kill(pid, 0); return true; } catch { return false; } };
+  assert.ok(vivo(filho.pid!) && vivo(neto));
+  assert.ok(medir.encerrarArvore(filho.pid!) >= 2);
+  await new Promise((ok) => filho.once('exit', ok));
+  for (let i = 0; i < 100 && vivo(neto); i++) await new Promise((ok) => setTimeout(ok, 20));
+  assert.equal(vivo(neto), false, 'o neto tambem recebeu o sinal');
 });

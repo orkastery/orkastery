@@ -13,9 +13,10 @@
  * `origin/main` dela apontam para a base da thread (o merge-base do HEAD com o `origin/<base>` da worktree), para a
  * varredura e a barreira de dado privado lerem o mesmo diff da thread. A copia tem `HOME`, `.orkastery` e `TMPDIR`
  * proprios, sem `ORKASTERY_HOME` (como numa maquina de verdade: a casa do `ork` sai do `HOME`, e o `npm test` e as lanes
- * criam a casa temporaria de cada rodada), e `XDG_CACHE_HOME` proprio sem `--cache-compartilhado` (a primeira rodada do
- * Agile paga o cache frio); nenhuma variavel `ORK_*` desta sessao passa. Com `--saida`, o log de cada rodada vai para a
- * pasta `<saida>.d/`.
+ * criam a casa temporaria de cada rodada), `TMPDIR` curto em `/tmp/ork-mc-*` (texto que corta caminho longo cortaria o
+ * comando junto, como numa maquina de verdade nao corta) e `XDG_CACHE_HOME` proprio sem `--cache-compartilhado` (a primeira
+ * rodada do Agile paga o cache frio); nenhuma variavel `ORK_*` desta sessao passa. Com `--saida`, o log de cada rodada vai
+ * para a pasta `<saida>.d/`. Parada por prazo ou por sinal encerra a arvore do verify, os containers da copia e as pastas.
  *
  * A duracao de cada rodada sai do `verify_run` do ledger da copia. O pico de memoria e a maior soma, numa amostra por
  * segundo, do RSS da arvore de processos do verify com a memoria dos containers da varredura (`ork-security-scan-*`,
@@ -168,6 +169,39 @@ function memoriaDosContainers() {
   return total;
 }
 
+/** Encerra um processo e todos os descendentes dele (as lanes rodam em grupos proprios do `timeout(1)`). */
+function encerrarArvore(raiz, sinal = 'SIGTERM') {
+  const filhos = new Map();
+  for (const [pid, p] of lerProcessos()) {
+    if (!filhos.has(p.ppid)) filhos.set(p.ppid, []);
+    filhos.get(p.ppid).push(pid);
+  }
+  const todos = [];
+  const pilha = [raiz];
+  while (pilha.length) {
+    const pid = pilha.pop();
+    if (todos.includes(pid)) continue;
+    todos.push(pid);
+    pilha.push(...(filhos.get(pid) ?? []));
+  }
+  for (const pid of todos.reverse()) { try { process.kill(pid, sinal); } catch { /* ja acabou */ } }
+  return todos.length;
+}
+
+/** Remove os containers da varredura que montam as pastas da copia (a parada no meio deixa os que estavam rodando). */
+function removerContainersDaCopia(pastas) {
+  const r = spawnSync('docker', ['ps', '--no-trunc', '--filter', `name=${PREFIXO_DOS_CONTAINERS}`, '--format', '{{.ID}}'],
+    { encoding: 'utf8', timeout: 5000 });
+  if (r.status !== 0) return;
+  for (const id of r.stdout.split('\n').filter(Boolean)) {
+    const montagens = spawnSync('docker', ['inspect', '--format', '{{range .Mounts}}{{.Source}} {{end}}', id], { encoding: 'utf8', timeout: 5000 });
+    if (montagens.stdout.split(' ').some((m) => pastas.some((p) => m.startsWith(p)))) spawnSync('docker', ['rm', '-f', id], { timeout: 15000 });
+  }
+}
+
+/** O verify que esta rodando agora, para a parada por sinal encerrar a arvore dele. */
+let verifyEmCurso = null;
+
 function git(cwd, ...args) {
   const r = spawnSync('git', args, { cwd, encoding: 'utf8' });
   if (r.status !== 0) throw new Error(`git ${args.join(' ')}: ${r.stderr}`);
@@ -186,11 +220,13 @@ function rodada(copia, env, thread, modo, log, prazoMs) {
     const fd = fs.openSync(log, 'w');
     const inicio = Date.now();
     const p = spawn(process.execPath, [CLI, 'verify', thread, '--check', modo], { cwd: copia, env, stdio: ['ignore', fd, fd] });
+    verifyEmCurso = p.pid;
     const amostras = [];
     const amostrar = () => { try { amostras.push({ arvore: rssDaArvore(p.pid, lerProcessos()), containers: memoriaDosContainers() }); } catch { /* segue */ } };
     const relogio = setInterval(amostrar, 1000);
-    const prazo = setTimeout(() => { p.kill('SIGTERM'); setTimeout(() => p.kill('SIGKILL'), 10000).unref(); }, prazoMs);
+    const prazo = setTimeout(() => { encerrarArvore(p.pid); setTimeout(() => encerrarArvore(p.pid, 'SIGKILL'), 10000).unref(); }, prazoMs);
     p.on('close', (code, sinal) => {
+      verifyEmCurso = null;
       clearInterval(relogio);
       clearTimeout(prazo);
       fs.closeSync(fd);
@@ -216,11 +252,26 @@ async function principal(args) {
   const copia = path.join(base, 'projeto');
   const env = {};
   for (const [k, v] of Object.entries(process.env)) if (!/^(ORK_|ORKASTERY_|NODE_TEST_CONTEXT$)/.test(k)) env[k] = v;
-  for (const d of ['tmp', 'home', 'cache']) fs.mkdirSync(path.join(base, d));
-  Object.assign(env, { TMPDIR: path.join(base, 'tmp'), HOME: path.join(base, 'home'),
+  for (const d of ['home', 'cache']) fs.mkdirSync(path.join(base, d));
+  const tmp = fs.realpathSync(fs.mkdtempSync('/tmp/ork-mc-'));
+  Object.assign(env, { TMPDIR: tmp, HOME: path.join(base, 'home'),
     XDG_CACHE_HOME: o.compartilhado ? cacheDeVerdade : path.join(base, 'cache') });
   const logs = o.saida ? `${o.saida}.d` : null;
   if (logs) fs.mkdirSync(logs, { recursive: true });
+  const limpar = () => {
+    removerContainersDaCopia([base, tmp]);
+    fs.rmSync(tmp, { recursive: true, force: true });
+    if (o.manter) process.stderr.write(`medir-check: copia mantida em ${base}\n`);
+    else fs.rmSync(base, { recursive: true, force: true });
+  };
+  const parar = (sinal) => {
+    process.stderr.write(`medir-check: ${sinal}, encerrando o verify em curso e a copia\n`);
+    if (verifyEmCurso) encerrarArvore(verifyEmCurso);
+    limpar();
+    process.exit(sinal === 'SIGINT' ? 130 : 143);
+  };
+  process.once('SIGTERM', parar);
+  process.once('SIGINT', parar);
   try {
     const branch = git(RAIZ, 'rev-parse', '--abbrev-ref', 'HEAD');
     const { carregarManifesto } = require(path.join(RAIZ, 'core', 'dist', 'manifest.js'));
@@ -270,12 +321,13 @@ async function principal(args) {
     process.stdout.write(texto);
     return 0;
   } finally {
-    if (o.manter) process.stderr.write(`medir-check: copia mantida em ${base}\n`);
-    else fs.rmSync(base, { recursive: true, force: true });
+    process.removeListener('SIGTERM', parar);
+    process.removeListener('SIGINT', parar);
+    limpar();
   }
 }
 
-module.exports = { lerRodadas, tresConsecutivas, rssDaArvore, picoAgregado, pastaDasCopias, CLAIMS_REPRESENTATIVAS };
+module.exports = { lerRodadas, tresConsecutivas, rssDaArvore, picoAgregado, pastaDasCopias, encerrarArvore, CLAIMS_REPRESENTATIVAS };
 
 if (require.main === module) {
   principal(process.argv.slice(2)).then((c) => process.exit(c), (e) => { process.stderr.write(`medir-check: ${e.message}\n`); process.exit(1); });
