@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-24T21:30:02.205Z",
+  "publicadoEm": "2026-10-24T21:45:03.110Z",
   "threads": [
     {
       "id": "ork-check5x",
@@ -14,7 +14,7 @@
       "status": "aberta",
       "roadmap": "RM-072",
       "branch": "ork/ork-check5x-full",
-      "atualizadaEm": "2026-10-24T21:29:11.945Z",
+      "atualizadaEm": "2026-10-24T21:31:06.668Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
