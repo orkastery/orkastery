@@ -42,6 +42,7 @@ import { medidoParaReserva, medirArco, MedicaoDoArco, precisaMedir } from './noc
 import { CoordenacaoDaFila, DecisaoDaFila, DecisoesDaSupervisao, FatosDaFila, fatosDaFila, FilaDoArco, LeitorDeReservas, montarFila,
   MOTIVO_DO_ERRO_NO_DESPACHO } from './noctum-fila';
 import { pedidoDoArco } from './noctum-guarda';
+import { OcupanteDaEspera } from './noctum-supervisao';
 import { OpcoesRun, resolverDespacho, ResultadoRun, rodarFase } from './phase';
 import { lerPerfis, perfilDisponivel } from './runtime-profiles';
 import { configDoBloco, lerSetup } from './setup';
@@ -92,7 +93,8 @@ export type ResultadoDoPasso =
     idempotente: boolean; reserva: number; fila: FilaDoArco }
   | { acao: 'recusado'; trabalho: string; thread: string | null; fase: Fase; motivo: string; detalhe: string; reserva: number | null;
     fila: FilaDoArco }
-  | { acao: 'aguardar'; ate: string; motivo: string; detalhe: string; fila: FilaDoArco | null }
+  | { acao: 'aguardar'; ate: string; motivo: string; detalhe: string; fila: FilaDoArco | null;
+    ocupantes?: OcupanteDaEspera[] }
   | { acao: 'encerrar'; motivo: 'fila-vazia' | 'arco-encerrado'; fila: FilaDoArco };
 
 const pausa = new Int32Array(new SharedArrayBuffer(4));
@@ -266,7 +268,8 @@ export function passoDoArco(carregado: ManifestoCarregado, arco: string, opcoes:
       // Sem vaga para ninguém, espera a vaga; sem vaga por erro de candidato, diz o erro.
       if (doCandidato && !recusa) return doCandidato;
       return { acao: 'aguardar', ate: new Date(Math.min(Date.parse(quando) + 5 * 60_000, Date.parse(conteudo.janela.fim))).toISOString(),
-        motivo: recusa?.motivo ?? 'capacidade', detalhe: recusa?.detalhe ?? 'nenhum candidato coube', fila };
+        motivo: recusa?.motivo ?? 'capacidade', detalhe: recusa?.detalhe ?? 'nenhum candidato coube', fila,
+        ocupantes: capacidade.ocupantes.map(o => ({ origem: o.origem, runtime: o.runtime, revisao: o.revisao })) };
     }
   } finally { fs.closeSync(fd); }
   return baselineForaDaTrava(carregado, arco, pendente, cadencia, opcoes);
@@ -370,4 +373,3 @@ function despacharCandidato(carregado: ManifestoCarregado, arco: string, fila: F
     detalhe: `${r.erro ?? 'o núcleo não abriu sessão'}; a sessão pode ter aberto${idDaFalha ? ` (${idDaFalha})` : ''}, e a reserva fica ` +
       'pendente e contada até a N4 reconciliar', reserva, fila };
 }
-

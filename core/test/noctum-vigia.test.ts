@@ -16,7 +16,8 @@ import { kernelDisponivel, tentarTravaExclusiva } from '../src/fila-pesada';
 import { lerLedger, registrar } from '../src/ledger';
 import { concluirDespacho, EstadoDoArco, lerArco, reservarDespacho } from '../src/noctum-arco';
 import { ParadaDeSessao } from '../src/noctum-reconciliacao';
-import { ConteudoV2, contasDoArco, correlacaoDoArco, gravarNaSupervisao, lerSupervisao, parametrosDoArco, retomadasDe } from '../src/noctum-supervisao';
+import { ConteudoV2, contasDoArco, correlacaoDoArco, eventosDaSupervisao, gravarNaSupervisao, lerSupervisao, parametrosDoArco,
+  retomadasDe } from '../src/noctum-supervisao';
 import { conduzirArco, PAUSA_DEPOIS_DA_RECUSA_MS, passoConduzido, recusasSeguidas, ResultadoDoTique, vigiarArco } from '../src/noctum-vigia';
 import { editarBloco } from '../src/setup';
 import { ResultadoRun } from '../src/phase';
@@ -693,5 +694,38 @@ test('G23: o erro antes de lançar que a fila da N2 bloqueia depois de três seg
     assert.equal(tarde.isolados, 1);
     assert.equal(lerSupervisao(p.dir, 'arco-g23').isolados.get('a')?.motivo, 'erro-repetido');
     assert.equal(registro.length, 0, 'a fila da N2 já não despachava o trabalho');
+  } finally { p.limpar(); }
+});
+
+test('G24: condutor e vigia gravam só a mudança da espera, com motivo tipado e ocupantes sem dados privados', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-g24');
+  try {
+    abrirArco(p.dir, 'arco-g24a', { trabalhos: [AC[0]], maquina: 2, revisao: 1, contas: DUAS });
+    vigiaPresente(p, 'arco-g24a');
+    const runtime = runtimeSimulado(p.dir);
+    const alheia = '00000000-0000-4000-8000-000000009024';
+    runtime.registrar(alheia, 'perfil-a');
+    const opcoes = opcoesSimuladas(p.dir, ITENS);
+    const c = conduzirArco(p.carregado, 'arco-g24a', { ...opcoes, maxPassos: 2, dormir: () => undefined });
+    assert.ok(c.acao === 'saiu' && c.ultimo?.acao === 'aguardar' && c.ultimo.motivo === 'capacidade.revisao', JSON.stringify(c));
+    const esperas = eventosDaSupervisao(p.dir, 'arco-g24a').filter(x => x.evento.tipo === 'passo_em_espera');
+    assert.equal(esperas.length, 1, 'a mesma razão em duas cadências é gravada uma vez');
+    assert.deepEqual(esperas[0].evento, { tipo: 'passo_em_espera', papel: 'condutor', motivo: 'capacidade.revisao',
+      ocupantes: [{ origem: 'runtime', runtime: 'claude-bg', revisao: false }] });
+    assert.doesNotMatch(linhasDoLog(p.dir, 'arco-g24a').join('\n'), new RegExp(`${alheia}|perfil-a`),
+      'a espera não grava id de sessão nem conta');
+
+    runtime.estado(alheia, 'idle');
+    const retomou = conduzirArco(p.carregado, 'arco-g24a', { ...opcoes, maxPassos: 1, dormir: () => undefined });
+    assert.ok(retomou.acao === 'saiu' && retomou.ultimo?.acao === 'despachou', JSON.stringify(retomou));
+    assert.equal(lerSupervisao(p.dir, 'arco-g24a').espera, null);
+    assert.equal(eventosDaSupervisao(p.dir, 'arco-g24a').filter(x => x.evento.tipo === 'passo_retomado').length, 1);
+
+    abrirArco(p.dir, 'arco-g24b', { trabalhos: [AC[1]], maquina: 2, revisao: 1, contas: DUAS });
+    const v = tique(vigiarArco(p.carregado, 'arco-g24b', opcoes));
+    assert.ok(v.passo?.acao === 'aguardar' && v.passo.motivo === 'capacidade.revisao', JSON.stringify(v.passo));
+    const esperaDoVigia = eventosDaSupervisao(p.dir, 'arco-g24b').find(x => x.evento.tipo === 'passo_em_espera');
+    assert.ok(esperaDoVigia?.evento.tipo === 'passo_em_espera');
+    assert.equal(esperaDoVigia.evento.papel, 'vigia');
   } finally { p.limpar(); }
 });
