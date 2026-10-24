@@ -144,6 +144,9 @@ function rodarLane(lane) {
 
   const env = { ...process.env };
   delete env.ORK_TESTE_EXIGE_AMBIENTE;
+  // A lane e sempre uma rodada de topo: sob outro `node --test`, o pai marca o filho com NODE_TEST_CONTEXT e o `node
+  // --test` da lane falaria o protocolo do runner, sem o TAP e sem o reporter das duracoes.
+  delete env.NODE_TEST_CONTEXT;
   let casa = null;
   if (!(env.ORKASTERY_HOME || '').trim()) { casa = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-casa-')); env.ORKASTERY_HOME = casa; }
   try {

@@ -66,8 +66,11 @@ test('TL6: o reporter de duracoes soma, por arquivo, os testes de nivel zero del
       "test('um', async () => { await new Promise((r) => setTimeout(r, 150)); });\ntest('dois', async () => { await new Promise((r) => setTimeout(r, 150)); });\n");
     fs.writeFileSync(path.join(dir, 'b.test.js'), "const { describe, it } = require('node:test');\ndescribe('s', () => { it('x', () => {}); });\n");
     const saida = path.join(dir, 'duracoes.json');
+    // Sob `node --test` com varios arquivos, o pai marca este processo com NODE_TEST_CONTEXT, e o neto ignoraria o reporter.
+    const env: NodeJS.ProcessEnv = { ...process.env };
+    delete env.NODE_TEST_CONTEXT;
     const r = spawnSync(process.execPath, ['--test', `--test-reporter=${lanes.REPORTER}`, `--test-reporter-destination=${saida}`,
-      path.join(dir, 'a.test.js'), path.join(dir, 'b.test.js')], { encoding: 'utf8' });
+      path.join(dir, 'a.test.js'), path.join(dir, 'b.test.js')], { encoding: 'utf8', env });
     assert.equal(r.status, 0, r.stderr);
     const d = lanes.lerDuracoesDoReporter(saida);
     assert.deepEqual(Object.keys(d).sort(), ['a.test.js', 'b.test.js']);
