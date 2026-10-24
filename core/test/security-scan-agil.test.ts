@@ -13,6 +13,8 @@ import { dirTemporario } from './apoio';
 import { installFakeTools, type FakeTools } from './security-scan-docker-falso';
 import { runScanAgil } from '../src/security-scan/agil';
 import { runScan } from '../src/security-scan/run';
+import { loadTools } from '../src/security-scan/tools';
+import { comCacheNoHost } from '../src/security-scan/trabalhador';
 import type { ScanReport } from '../src/security-scan/types';
 
 const FIXTURE_JS = path.resolve(__dirname, '..', '..', '..', 'eval', 'fixtures', 'security-scan', 'js');
@@ -53,7 +55,7 @@ let cache: string;
 let fake: FakeTools | undefined;
 const salvos: Record<string, string | undefined> = {};
 const CHAVES = ['XDG_CACHE_HOME', 'ORK_FAKE_DOCKER_SLEEP_MS', 'ORK_FAKE_DOCKER_FAIL', 'ORK_CHECK_RELATORIO', 'ORK_CHECK_MODO',
-  'ORK_CHECK_VARREDURA_PARALELA'];
+  'ORK_CHECK_VARREDURA_PARALELA', 'ORK_FAKE_DOCKER_FAIL_COM_CACHE'];
 const limpezas: Array<() => void> = [];
 
 beforeEach(() => {
@@ -216,4 +218,27 @@ test('SA10: com ORK_CHECK_VARREDURA_PARALELA (o grupo do verify), a varredura ro
   const sozinha = runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base });
   assert.deepEqual(sozinha.check!.pecas[0], { peca: 'varredura-paralela', estado: 'agile' }, 'sozinha, todas juntas e sem teto');
   assert.deepEqual(sozinha.findings.map(f => f.fingerprint).sort(), umaPorVez.findings.map(f => f.fingerprint).sort());
+});
+
+test('SA11: a ferramenta que cai so no Agile (o cache do Trivy disputado) roda pelo caminho do Classic, com a peca em fallback', () => {
+  const r = repo('sa11');
+  const classic = runScan({ root: r.dir, stateRoot: r.dir, base: r.base });
+  fs.rmSync(path.join(cache, 'orkastery'), { recursive: true, force: true });
+  process.env.ORK_FAKE_DOCKER_FAIL_COM_CACHE = 'trivy-vuln';
+  const agile = runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base });
+  const vuln = agile.tools.find(t => t.name === 'trivy-vuln')!;
+  assert.equal(vuln.state, 'ran', JSON.stringify(vuln));
+  const peca = agile.check!.pecas.find(p => p.peca === 'classic-trivy-vuln');
+  assert.ok(peca && peca.estado === 'fallback' && peca.fallback === 'a ferramenta pelo caminho do Classic', JSON.stringify(agile.check!.pecas));
+  assert.match(String(peca!.motivo), /^no Agile: /);
+  assert.deepEqual(agile.findings.map(f => f.fingerprint).sort(), classic.findings.map(f => f.fingerprint).sort(), 'a mesma cobertura do Classic');
+});
+
+test('SA12: o binario nativo do Agile usa o cache por usuario que o Docker monta, nao o /tmp compartilhado do catalogo', () => {
+  const t = loadTools().find(x => x.name === 'trivy-vuln')!;
+  assert.ok(t.args.includes('/tmp/trivy-cache'), 'o catalogo usa o /tmp no container');
+  const host = path.join(cache, 'orkastery', 'security-scan', 'cache', 'trivy-vuln');
+  const nativo = comCacheNoHost({ ...t, cacheMounts: [{ host, container: '/tmp/trivy-cache' }] });
+  assert.ok(nativo.args.includes(host) && !nativo.args.includes('/tmp/trivy-cache'), nativo.args.join(' '));
+  assert.equal(comCacheNoHost(t), t, 'sem montagem de cache, nada muda');
 });

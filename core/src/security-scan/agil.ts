@@ -20,7 +20,7 @@ import { classify } from './compare';
 import { loadConfig, loadDismissals } from './config';
 import { RoundGuard } from './guard';
 import {
-  cacheRoot, checkout, emptyCounts, failedAll, git, resolveBase, stackPairs, unitsOf,
+  cacheRoot, checkout, emptyCounts, failedAll, git, resolveBase, scanTool, stackPairs, unitsOf,
   type RunScanOptions, type ToolResult, type TrabalhoDaFerramenta,
 } from './run';
 import { defaultProbe, type Probe } from './executor';
@@ -92,13 +92,20 @@ function relatar(pecas: PecaDaVarredura[]): void {
  */
 function eslintDoAgile(t: ToolSpec, prazoMs: number, pecas: PecaDaVarredura[]): ToolSpec {
   if (t.name !== 'eslint' || !t.install?.length) return t;
-  const imagem = garantirImagemDeLint(t, prazoMs);
+  // A4 do CHECK: o build roda antes dos trabalhadores; com teto curto, um link lento nao consome o prazo da varredura toda.
+  const imagem = garantirImagemDeLint(t, Math.min(prazoMs, PRAZO_DO_BUILD_DA_IMAGEM_MS));
   const comImagem = 'tag' in imagem ? eslintComImagem(t, imagem.tag) : null;
   if (comImagem) { pecas.push({ peca: 'imagem-de-lint', estado: 'agile' }); return comImagem; }
   pecas.push({ peca: 'imagem-de-lint', estado: 'fallback', motivo: 'motivo' in imagem ? imagem.motivo : 'script do catalogo sem o npm install esperado',
     fallback: 'eslint do catalogo, com npm install no container' });
   return t;
 }
+
+/** O teto do build da imagem de lint (A4 do CHECK): estourou, o `eslint` do catalogo, com a peca em fallback. */
+export const PRAZO_DO_BUILD_DA_IMAGEM_MS = 180_000;
+
+/** O prazo minimo que sobra para a ferramenta que caiu no Agile rodar pelo caminho do Classic (A5 do CHECK). */
+export const PRAZO_MINIMO_DO_CLASSIC_MS = 30_000;
 
 /** RM-072 (D12): o binario nativo na versao do catalogo, quando a ferramenta o declara e nao instala pacote no container. */
 function nativoDisponivel(t: ToolSpec, probe: Probe): boolean {
@@ -212,6 +219,19 @@ export function runScanAgil(opts: RunScanOptions): ScanReport {
         const motivo = (p.stderr.split('\n').filter(l => l.trim()).pop() ?? '').slice(0, 160);
         r = { run: { name: t.name, category: t.category, version: t.version, executor: null, state: 'failed',
           reason: `agile-worker-${p.code}${motivo && t.category !== 'secret' ? `: ${motivo}` : ''}`, counts: emptyCounts() }, head: [], base: [] };
+      }
+      // A5 do CHECK: a ferramenta que caiu por uma peca do Agile (o trabalhador que morreu, o nativo que falhou, o cache do
+      // Trivy disputado por outra rodada) roda uma vez pelo caminho do Classic, Docker primeiro e sem cache, dentro do prazo.
+      // Estouro de prazo nao repete: o Classic estouraria igual.
+      if (r.run.state === 'failed' && !/timeout/.test(r.run.reason ?? '')) {
+        const motivo = `no Agile: ${r.run.reason ?? 'falhou'}`.slice(0, 200);
+        if (deadline === null || deadline - Date.now() >= PRAZO_MINIMO_DO_CLASSIC_MS) {
+          r = scanTool(t, unitsOf(t, pairs), config, { headTree, mainRoot, base, head, rangeCommits: count === null ? null : Number(count),
+            deadline: deadline ?? Infinity, probe, guard, images: new Map(), ...(baseTree ? { baseTree } : {}) });
+          pecas.push({ peca: `classic-${t.name}`, estado: 'fallback', motivo, fallback: 'a ferramenta pelo caminho do Classic' });
+        } else {
+          pecas.push({ peca: `classic-${t.name}`, estado: 'fallback', motivo, fallback: 'nenhum: sem prazo para o caminho do Classic' });
+        }
       }
       if (r.run.state === 'ran') {
         const c = classify(r.head, r.base, dismissals, config.exclude);

@@ -22,6 +22,8 @@
  *   ORK_FAKE_DOCKER_GARBAGE         catalog tool name whose report file is not JSON
  *   ORK_FAKE_DOCKER_ZERO_COMMITS=1  Gitleaks `git` reports 0 commits scanned whatever the range holds
  *   ORK_FAKE_DOCKER_BUILD=fails     `docker build` exits 1 (RM-072: the Agile lint image cannot be built)
+ *   ORK_FAKE_DOCKER_FAIL_COM_CACHE  catalog tool name that exits 2 only when the run mounts the Trivy cache
+ *                                   (RM-072: the Agile run of the tool fails, the Classic run without the cache works)
  *   ORK_FAKE_NATIVE_WRONG_VERSION   catalog tool name whose native shim answers a version outside the catalog pattern
  *
  * RM-072 (Agile Check): `docker build -t <tag> -` reads the Dockerfile from stdin, keeps it in `ultimo-dockerfile` next to
@@ -193,6 +195,10 @@ function main(): number {
       if (!found) { process.stderr.write(`fake docker: no catalog tool for ${run.image}\n`); return 125; }
       const src = run.mounts.get('/src');
       if (!src) { process.stderr.write('fake docker: /src not mounted\n'); return 125; }
+      if (process.env.ORK_FAKE_DOCKER_FAIL_COM_CACHE === found.tool.name && run.mounts.has('/tmp/trivy-cache')) {
+        process.stderr.write('cache may be in use by another process\n');
+        return 2;
+      }
       return emulate(found.tool, found.file, found.outArg && toHost(found.outArg, run.mounts), run.args, src, false);
     }
     default: process.stderr.write(`fake docker: unknown command ${argv[0]}\n`); return 1;
