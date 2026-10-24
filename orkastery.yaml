@@ -61,6 +61,19 @@ verify:
     # O prazo e 3x o maior, arredondado ao minuto; no runner hospedado o pull frio das imagens soma 1 a 2 min.
     security_scan: 840000
 
+check:
+  # RM-072 (D2 do dono): Agile Check (padrao) ou Classic Check (o CHECK de sempre); `ork verify --check` vence.
+  mode: agile
+  agile:
+    # Guarda de hash: claims e build reaproveitam o preparo enquanto a arvore e estes caminhos nao mudam.
+    produto:
+      - "core/dist"
+      - "core/dist-test"
+    # As lanes juntas no lugar do verify.test: o conjunto do test:ci e as integracoes locais (integracoes-locais.ts).
+    test:
+      hermetica: "npm --prefix core run test:hermetica"
+      integracao: "npm --prefix core run test:integracao"
+
 ci:
   # O SHIP consulta o check obrigatório no SHA candidato antes de tomar o lease da base.
   required_for_ship: true
