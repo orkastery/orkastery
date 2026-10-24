@@ -1,0 +1,183 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-noctumvaga",
+  "branch": "ork/ork-noctumvaga-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-noctumvaga",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-capacidade.ts",
+      "alegacao": "Sessões do runtime sem vínculo com condução ou despacho desta raiz só ocupam capacidade nos estados working, running ou busy.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/noctum-capacidade.test.js"
+      ],
+      "criadoEm": "2026-10-24T16:59:44.727Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-noctumvaga",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-capacidade.test.ts",
+      "alegacao": "A suíte cobre sessões sem vínculo idle, aguardando humano e sem estado que não ocupam, e working/running/busy que ocupam.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/noctum-capacidade.test.js"
+      ],
+      "criadoEm": "2026-10-24T16:59:44.784Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-noctumvaga",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-execucao.ts",
+      "alegacao": "A espera por capacidade leva uma lista de ocupantes reduzida a origem, runtime e reserva de revisão.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/noctum-vigia.test.js"
+      ],
+      "criadoEm": "2026-10-24T17:09:24.781Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-noctumvaga",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-supervisao.ts",
+      "alegacao": "O log da supervisão deriva a espera atual a partir de eventos tipados de início e retomada, sem dados privados dos ocupantes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/noctum-vigia.test.js"
+      ],
+      "criadoEm": "2026-10-24T17:09:24.851Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-noctumvaga",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-vigia.ts",
+      "alegacao": "Condutor e vigia registram uma espera apenas quando seu motivo muda e limpam a espera quando o passo volta a avançar.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/noctum-vigia.test.js"
+      ],
+      "criadoEm": "2026-10-24T17:09:24.916Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-noctumvaga",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-vigia.test.ts",
+      "alegacao": "A suíte cobre condutor e vigia, deduplicação do mesmo motivo, retomada e ausência de conta e id de sessão no evento.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/noctum-vigia.test.js"
+      ],
+      "criadoEm": "2026-10-24T17:09:24.984Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-noctumvaga",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-relatorio.ts",
+      "alegacao": "O relatório mostra motivo, duração e ocupação anonimizada da espera atual e inclui ação do dono para motivos acionáveis.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test --test-name-pattern RL20 core/dist-test/test/noctum-relatorio.test.js"
+      ],
+      "criadoEm": "2026-10-24T17:12:00.514Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-noctumvaga",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-relatorio.test.ts",
+      "alegacao": "O teste cobre arco sem despachos por capacidade.revisao durante seis horas e impede que a seção do dono diga nada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test --test-name-pattern RL20 core/dist-test/test/noctum-relatorio.test.js"
+      ],
+      "criadoEm": "2026-10-24T17:12:00.660Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-noctumvaga",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-cli.ts",
+      "alegacao": "ork noctum propor inclui avisos não bloqueantes no texto e no JSON para conta sem login, trust não comprovado e uma única vaga de execução.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/noctum-propor-avisos.test.js"
+      ],
+      "criadoEm": "2026-10-24T17:14:30.694Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-noctumvaga",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-propor-avisos.test.ts",
+      "alegacao": "A suíte cobre os três avisos juntos e a ausência deles quando login, trust e duas vagas de execução estão prontos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/noctum-propor-avisos.test.js"
+      ],
+      "criadoEm": "2026-10-24T17:14:30.786Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-noctumvaga",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O changelog registra em uma linha a correção do piloto noturno RM-058.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"Piloto noturno sem despacho (RM-058)\" CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-24T17:14:30.850Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
