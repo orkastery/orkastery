@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-24T14:07:29.156Z",
+  "publicadoEm": "2026-10-24T14:10:25.454Z",
   "threads": [
     {
       "id": "ork-check5x",
@@ -48,6 +48,28 @@
         "viva": false,
         "desdeEm": "2026-10-21T15:47:32.420Z",
         "motivo": "sessão 0d64fe5a encerrada (done)"
+      }
+    },
+    {
+      "id": "ork-tiposdomotor",
+      "nome": "tiposdomotor",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": "RM-037",
+      "branch": "ork/ork-tiposdomotor-go",
+      "atualizadaEm": "2026-10-24T14:10:17.444Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-24T14:10:21.803Z",
+        "motivo": "nenhuma sessão despachada na fase GO"
       }
     }
   ]
