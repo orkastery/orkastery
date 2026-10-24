@@ -231,7 +231,7 @@ function lerAgile(v: ValorYaml | undefined, erros: string[], avisos: string[]): 
     erros.push(`check.agile precisa ser um mapa (recebido ${exibir(v)})`);
     return undefined;
   }
-  const conhecidas = ['produto', 'preparo', 'test', 'osv_scanner', 'oxlint'];
+  const conhecidas = ['produto', 'preparo', 'test', 'apos_a_varredura', 'osv_scanner', 'oxlint'];
   for (const chave of Object.keys(v)) {
     if (!conhecidas.includes(chave)) avisos.push(`check.agile.${chave} desconhecida; o bloco check.agile tem ${conhecidas.join(', ')}`);
   }
@@ -264,6 +264,14 @@ function lerAgile(v: ValorYaml | undefined, erros: string[], avisos: string[]): 
       }
       if (Object.keys(lanes).length) agile.test = lanes;
     }
+  }
+  if (v.apos_a_varredura !== undefined && v.apos_a_varredura !== null) {
+    const validas: string[] = [];
+    for (const item of Array.isArray(v.apos_a_varredura) ? v.apos_a_varredura : [v.apos_a_varredura]) {
+      if (typeof item === 'string' && agile.test && Object.hasOwn(agile.test, item)) validas.push(item);
+      else erros.push(`check.agile.apos_a_varredura: ${exibir(item)} precisa ser uma lane de check.agile.test`);
+    }
+    if (validas.length) agile.apos_a_varredura = validas;
   }
   for (const chave of ['osv_scanner', 'oxlint'] as const) {
     const valor = v[chave];

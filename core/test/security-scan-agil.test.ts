@@ -52,7 +52,8 @@ const estados = (r: ScanReport): string[] => r.tools.map(t => `${t.name}:${t.sta
 let cache: string;
 let fake: FakeTools | undefined;
 const salvos: Record<string, string | undefined> = {};
-const CHAVES = ['XDG_CACHE_HOME', 'ORK_FAKE_DOCKER_SLEEP_MS', 'ORK_FAKE_DOCKER_FAIL', 'ORK_CHECK_RELATORIO', 'ORK_CHECK_MODO'];
+const CHAVES = ['XDG_CACHE_HOME', 'ORK_FAKE_DOCKER_SLEEP_MS', 'ORK_FAKE_DOCKER_FAIL', 'ORK_CHECK_RELATORIO', 'ORK_CHECK_MODO',
+  'ORK_CHECK_VARREDURA_PARALELA'];
 const limpezas: Array<() => void> = [];
 
 beforeEach(() => {
@@ -197,4 +198,22 @@ test('SA9: o Semgrep do Agile roda com 30 s por regra (o padrao dele e 5 s), e o
     assert.equal(c.args[i + 1], '30');
     assert.equal(c.args.length - i, 3, 'antes do diretorio da stack, o ultimo argumento');
   }
+});
+
+test('SA10: com ORK_CHECK_VARREDURA_PARALELA (o grupo do verify), a varredura roda no maximo essas ferramentas juntas e a peca diz o teto', () => {
+  const r = repo('sa10');
+  process.env.ORK_FAKE_DOCKER_SLEEP_MS = '150';
+  process.env.ORK_CHECK_VARREDURA_PARALELA = '1';
+  const t0 = Date.now();
+  const umaPorVez = runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base });
+  const ms = Date.now() - t0;
+  assert.ok(ms >= 18 * 150, `uma ferramenta por vez (HEAD e base de cada uma): ${ms} ms`);
+  assert.deepEqual(umaPorVez.check!.pecas[0], { peca: 'varredura-paralela', estado: 'agile',
+    motivo: 'ate 1 ferramenta(s) ao mesmo tempo, ao lado das lanes do verify' });
+  assert.ok(umaPorVez.tools.every(t => t.state === 'ran'), umaPorVez.tools.map(t => `${t.name}:${t.state}`).join(','));
+  delete process.env.ORK_CHECK_VARREDURA_PARALELA;
+  fs.rmSync(path.join(cache, 'orkastery'), { recursive: true, force: true });
+  const sozinha = runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base });
+  assert.deepEqual(sozinha.check!.pecas[0], { peca: 'varredura-paralela', estado: 'agile' }, 'sozinha, todas juntas e sem teto');
+  assert.deepEqual(sozinha.findings.map(f => f.fingerprint).sort(), umaPorVez.findings.map(f => f.fingerprint).sort());
 });

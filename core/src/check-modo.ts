@@ -27,6 +27,11 @@ export const ENV_MODO_DO_CHECK = 'ORK_CHECK_MODO';
 
 /** O arquivo onde as pecas do Agile (varredura, lanes) contam o que rodaram, em linhas JSON. */
 export const ENV_RELATORIO_DO_CHECK = 'ORK_CHECK_RELATORIO';
+/**
+ * RM-072: quantas ferramentas a varredura do Agile roda ao mesmo tempo quando corre no grupo do verify, ao lado das
+ * lanes de teste (sozinha, ela roda todas juntas).
+ */
+export const ENV_VARREDURA_PARALELA_DO_CHECK = 'ORK_CHECK_VARREDURA_PARALELA';
 
 /** O modo resolvido de uma rodada, como vai ao ledger. */
 export interface ModoResolvido {

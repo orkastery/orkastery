@@ -10,7 +10,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { adicionarClaim } from '../src/claims';
-import { elosDoComando, GuardaDoProduto, hashDoProduto, passosDoComando, testDasLanes, tirarPassosDoPreparo } from '../src/check-agil';
+import { elosDoComando, GuardaDoProduto, hashDoProduto, paralelismoDaVarreduraNoGrupo, passosDoComando, testDasLanes, tirarPassosDoPreparo } from '../src/check-agil';
 import { rodarEmParalelo } from '../src/check-paralelo';
 import { lerLedger } from '../src/ledger';
 import { carregarManifesto } from '../src/manifest';
@@ -410,5 +410,97 @@ test('AG20: a claim com o build no meio roda sem ele contra o produto do preparo
     assert.deepEqual(c1.preparo, { reaproveitado: true, passos: ['echo passo-a', 'echo passo-b'] });
     assert.equal(c3.comandoExecutado, undefined, 'rodou inteiro');
     assert.deepEqual(c3.preparo, { reaproveitado: false, motivo: 'produto-mudou' });
+  } finally { p.limpar(); }
+});
+
+test('AG21: a lane de apos_a_varredura entra no grupo depois do security_scan, e o test agregado guarda a ordem do manifesto', () => {
+  const p = projetoTemporario('ag21');
+  try {
+    comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      i: "echo i"\n      h: "echo h"\n    apos_a_varredura: ["i"]',
+      { scan: 'echo s' });
+    const { thread: t } = novaThread(p.carregado, { nome: 'encadeada', modo: 'auto' });
+    const g = gravador();
+    const r = verificar(p.carregado, t.id, { executor: g.executor });
+    assert.equal(r.ok, true, r.motivos.join(','));
+    assert.deepEqual(g.lista.slice(1), [['test:h', 'echo h'], ['security_scan', 'echo s'], ['test:i', 'echo i']]);
+    assert.deepEqual(r.comandos.map((c) => c.nome), ['build', 'test', 'security_scan']);
+    assert.deepEqual(r.comandos[1].lanes?.map((l) => l.lane), ['i', 'h'], 'as lanes na ordem do manifesto');
+    // Sem security_scan no manifesto, nada espera.
+    const sem = projetoTemporario('ag21-sem');
+    try {
+      comAgile(sem, '  agile:\n    produto:\n      - "README.md"\n    test:\n      i: "echo i"\n      h: "echo h"\n    apos_a_varredura: ["i"]');
+      const { thread: t2 } = novaThread(sem.carregado, { nome: 'sem scan', modo: 'auto' });
+      const g2 = gravador();
+      verificar(sem.carregado, t2.id, { executor: g2.executor });
+      assert.deepEqual(g2.lista.slice(1), [['test:i', 'echo i'], ['test:h', 'echo h']]);
+    } finally { sem.limpar(); }
+  } finally { p.limpar(); }
+});
+
+test('AG22: no auxiliar real, o item com apos so comeca quando o outro termina, e maxParalelo limita quantos rodam juntos', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag22-'));
+  try {
+    // Sentinelas, sem relogio: cada item marca o inicio, conta quantos outros estao no meio (inicio sem fim) e marca o fim.
+    const item = (nome: string, extra: Partial<{ apos: string[] }> = {}) => ({ nome, cwd: dir, prazoMs: 10000, ...extra,
+      comando: `touch ${nome}.ini && sleep 0.2 && n=0 && for f in *.ini; do [ -f "\${f%.ini}.fim" ] || n=$((n+1)); done && ` +
+        `echo $((n-1)) > ${nome}.outros && sleep 0.2 && touch ${nome}.fim` });
+    const outros = (nome: string): number => Number(fs.readFileSync(path.join(dir, `${nome}.outros`), 'utf8').trim());
+    const [a, b] = rodarEmParalelo([item('a'), item('b', { apos: ['a'] })]);
+    assert.ok(a.ok && b.ok, `${a.stderr}${b.stderr}`);
+    assert.equal(outros('b'), 0, 'b comecou depois do fim de a');
+    rodarEmParalelo([item('u0'), item('u1'), item('u2')], process.env, { maxParalelo: 1 });
+    assert.deepEqual(['u0', 'u1', 'u2'].map(outros), [0, 0, 0], 'com uma vaga, um por vez');
+    rodarEmParalelo([item('j0'), item('j1'), item('j2')]);
+    assert.ok(['j0', 'j1', 'j2'].some((n) => outros(n) > 0), 'sem teto, os tres correm juntos');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('AG23: check.agile.apos_a_varredura aceita lanes de check.agile.test e recusa o resto', () => {
+  const p = projetoTemporario('ag23');
+  try {
+    fs.appendFileSync(path.join(p.dir, 'orkastery.yaml'), '\ncheck:\n  agile:\n    test:\n      i: "echo i"\n    apos_a_varredura: ["i", "x", 3]\n');
+    const m = carregarManifesto(p.dir)!;
+    assert.deepEqual(m.erros, [
+      'check.agile.apos_a_varredura: "x" precisa ser uma lane de check.agile.test',
+      'check.agile.apos_a_varredura: 3 precisa ser uma lane de check.agile.test',
+    ]);
+    assert.deepEqual(m.manifesto.check?.agile?.apos_a_varredura, ['i']);
+  } finally { p.limpar(); }
+});
+
+test('AG24: no grupo real, so a varredura recebe o teto de ferramentas, e a lane encadeada comeca depois dela', () => {
+  const p = projetoTemporario('ag24');
+  try {
+    const arq = (n: string): string => path.join(p.dir, n);
+    const grava = (n: string): string => `echo $ORK_CHECK_VARREDURA_PARALELA > ${arq(n)}`;
+    // Sentinela, sem relogio: a lane encadeada anota se a varredura ja tinha terminado quando ela comecou.
+    const ordem = `if test -f ${arq('s-fim')}; then echo depois > ${arq('i.txt')}; else echo antes > ${arq('i.txt')}; fi`;
+    comAgile(p, `  agile:\n    produto:\n      - "README.md"\n    test:\n      h: "${grava('h.txt')}"\n      i: "${ordem}"\n` +
+      '    apos_a_varredura: ["i"]', { scan: `${grava('s.txt')} && sleep 0.3 && touch ${arq('s-fim')}` });
+    fs.appendFileSync(path.join(p.dir, '.git', 'info', 'exclude'), '*.txt\ns-fim\n');
+    const { thread: t } = novaThread(p.carregado, { nome: 'grupo real', modo: 'auto' });
+    const r = verificar(p.carregado, t.id, {});
+    assert.equal(r.ok, true, r.motivos.join(',') + JSON.stringify(r.comandos));
+    assert.equal(fs.readFileSync(arq('s.txt'), 'utf8').trim(), String(paralelismoDaVarreduraNoGrupo()));
+    assert.equal(fs.readFileSync(arq('h.txt'), 'utf8').trim(), '', 'a lane nao recebe o teto da varredura');
+    assert.equal(fs.readFileSync(arq('i.txt'), 'utf8').trim(), 'depois', 'a lane encadeada comecou depois da varredura');
+    assert.equal(paralelismoDaVarreduraNoGrupo(7), 2);
+    assert.equal(paralelismoDaVarreduraNoGrupo(16), 5);
+    assert.equal(paralelismoDaVarreduraNoGrupo(1), 2);
+  } finally { p.limpar(); }
+});
+
+test('AG25: a peca que dois processos da rodada relatam igual entra uma vez no verify_run', () => {
+  const p = projetoTemporario('ag25');
+  try {
+    const peca = 'echo \'{"tipo":"peca","peca":"cache-semgrep","estado":"fallback","motivo":"m","fallback":"f"}\' >> $ORK_CHECK_RELATORIO';
+    comAgile(p, `  agile:\n    produto:\n      - "README.md"\n    test:\n      h: "${peca}"`, { scan: `${peca} && ${peca}` });
+    const { thread: t } = novaThread(p.carregado, { nome: 'peca repetida', modo: 'auto' });
+    const r = verificar(p.carregado, t.id, {});
+    assert.equal(r.ok, true, r.motivos.join(','));
+    const pecas = (ultimoVerify(p, t.id).agile as { pecas: Array<Record<string, unknown>> }).pecas;
+    assert.equal(pecas.filter((x) => x.peca === 'cache-semgrep').length, 1, JSON.stringify(pecas));
+    const texto = textoDoVerify(r);
+    assert.equal(texto.split('\n').filter((l) => /^ {2}fallback {4}cache-semgrep:/.test(l)).length, 1, 'uma linha de fallback no texto');
   } finally { p.limpar(); }
 });

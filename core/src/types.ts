@@ -753,6 +753,8 @@ export interface ConfigDoAgile {
   preparo?: string;
   /** As lanes que substituem o `verify.test`, por nome, rodando juntas com a guarda valendo. */
   test?: Record<string, string>;
+  /** As lanes de `test` que so comecam quando o `security_scan` do grupo termina (as que sobem containers). */
+  apos_a_varredura?: string[];
   /** `osv-scanner` no lugar de `trivy-vuln` e `npm-audit` (D13); desligado por padrao. */
   osv_scanner?: boolean;
   /** `oxlint` como primeiro passe de lint, antes do `eslint` (D13); desligado por padrao. */

@@ -14,7 +14,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { rodarEmParalelo } from '../check-paralelo';
-import { ENV_RELATORIO_DO_CHECK } from '../check-modo';
+import { ENV_RELATORIO_DO_CHECK, ENV_VARREDURA_PARALELA_DO_CHECK } from '../check-modo';
 import { raizDoEstado } from '../estado-thread';
 import { classify } from './compare';
 import { loadConfig, loadDismissals } from './config';
@@ -198,7 +198,11 @@ export function runScanAgil(opts: RunScanOptions): ScanReport {
       fs.writeFileSync(arquivo, JSON.stringify(trabalho), { mode: 0o600 });
       return { nome: t.name, comando: `${aspas(process.execPath)} ${aspas(TRABALHADOR)} ${aspas(arquivo)}`, cwd: root, prazoMs: prazo };
     });
-    const processos = rodarEmParalelo(trabalhos);
+    // RM-072: no grupo do verify, ao lado das lanes, a varredura roda poucas ferramentas por vez; sozinha, todas juntas.
+    const teto = Number(process.env[ENV_VARREDURA_PARALELA_DO_CHECK]);
+    const maxParalelo = Number.isInteger(teto) && teto > 0 ? teto : undefined;
+    if (maxParalelo) pecas[0] = { ...pecas[0], motivo: `ate ${maxParalelo} ferramenta(s) ao mesmo tempo, ao lado das lanes do verify` };
+    const processos = rodarEmParalelo(trabalhos, process.env, maxParalelo ? { maxParalelo } : {});
     const excluded = new Set<string>();
     tools.forEach((t, i) => {
       const p = processos[i];

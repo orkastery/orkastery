@@ -21,6 +21,7 @@ const lanes = require(SCRIPT) as {
   lerDuracoesDoReporter: (arquivo: string) => Record<string, number>;
   REPORTER: string;
   globDoNpmTest: () => string[];
+  concorrenciaDaLane: (lane: string, cpus?: number) => number;
 };
 
 test('TL1: a uniao das lanes e todo arquivo de teste compilado, sem arquivo nas duas', () => {
@@ -119,5 +120,30 @@ test('TL8: teste que falha numa lane faz a lane sair diferente de zero, com o TA
     assert.notEqual(r.status, 0);
     assert.match(r.stdout, /^not ok 1 - cai$/m);
     assert.match(r.stdout, /location: '.*cai\.test\.js:1:\d+'/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('TL9: a hermetica roda as CPUs menos duas (no minimo um arquivo), a integracao dois por vez, e nenhuma muda a prioridade', () => {
+  assert.equal(lanes.concorrenciaDaLane('hermetica', 7), 5);
+  assert.equal(lanes.concorrenciaDaLane('hermetica', 2), 1);
+  assert.equal(lanes.concorrenciaDaLane('integracao', 7), 2);
+  const texto = fs.readFileSync(SCRIPT, 'utf8');
+  assert.match(texto, /`--test-concurrency=\$\{concorrenciaDaLane\(lane\)\}`/, 'as duas lanes passam a concorrencia ao node --test');
+  assert.doesNotMatch(texto, /setPriority/, 'o nice baixava so o processo do teste, nunca os containers dele');
+});
+
+test('TL10: o teste da lane nao herda o modo nem o relatorio da rodada, e a lane ainda grava a lista no relatorio', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-tl10-'));
+  try {
+    const visto = path.join(dir, 'visto.json');
+    fs.writeFileSync(path.join(dir, 've.test.js'), "const { test } = require('node:test'); test('ve', () => { require('fs').writeFileSync(" +
+      `${JSON.stringify(visto)}, JSON.stringify({ modo: process.env.ORK_CHECK_MODO ?? null, relatorio: process.env.ORK_CHECK_RELATORIO ?? null })); });\n`);
+    const relatorio = path.join(dir, 'relatorio.jsonl');
+    const env = { ...process.env, ORK_LANES_DIR: dir, ORK_LANES_INTEGRACAO: '', XDG_CACHE_HOME: path.join(dir, 'cache'),
+      ORK_CHECK_MODO: 'agile', ORK_CHECK_RELATORIO: relatorio };
+    const r = spawnSync(process.execPath, [SCRIPT, 'hermetica'], { encoding: 'utf8', env });
+    assert.equal(r.status, 0, r.stderr + r.stdout);
+    assert.deepEqual(JSON.parse(fs.readFileSync(visto, 'utf8')), { modo: null, relatorio: null });
+    assert.ok(fs.readFileSync(relatorio, 'utf8').split('\n').filter(Boolean).some((l) => (JSON.parse(l) as { tipo: string }).tipo === 'lista'));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

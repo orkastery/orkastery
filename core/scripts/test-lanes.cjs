@@ -9,7 +9,9 @@
  * uma vai ao relatorio do CHECK (`ORK_CHECK_RELATORIO`), que o verify grava.
  *
  * O ambiente e o do `npm test`: a casa do `ork` temporaria (como `casa-temporaria.cjs`) e nenhum `ORK_TESTE_EXIGE_AMBIENTE`
- * (essa variavel e do CI hospedado). A lane de integracao roda com prioridade menor (nice 10) e dois arquivos por vez.
+ * (essa variavel e do CI hospedado). As duas lanes juntas nao passam da CPU da maquina: a `hermetica` roda dois arquivos a
+ * menos que as CPUs (a varredura e a `integracao`, que o verify encadeia depois dela, correm ao lado), e a `integracao`, dois
+ * arquivos por vez, na prioridade de sempre (o `nice` so baixava o processo do teste, nunca os containers dele).
  *
  * Orcamento por arquivo: os arquivos rodam do mais longo para o mais curto pela ultima duracao medida (a cauda comeca
  * cedo e corre junto do resto). A duracao de cada arquivo vem do reporter `reporter-duracoes.mjs`, ao lado do TAP, e
@@ -36,7 +38,11 @@ const LANES = ['hermetica', 'integracao'];
 const ORCAMENTO_PADRAO_MS = 120000;
 const REPORTER = path.join(__dirname, 'reporter-duracoes.mjs');
 const CONCORRENCIA_DA_INTEGRACAO = 2;
-const PRIORIDADE_DA_INTEGRACAO = 10;
+
+/** Quantos arquivos a lane roda ao mesmo tempo: dois na `integracao`; na `hermetica`, as CPUs menos duas (no minimo um). */
+function concorrenciaDaLane(lane, cpus = os.availableParallelism()) {
+  return lane === 'integracao' ? CONCORRENCIA_DA_INTEGRACAO : Math.max(1, cpus - 2);
+}
 const MINIMO_DA_HERMETICA = 100;
 
 /** A pasta dos testes e a lista de integracao: as do nucleo, ou as do ambiente nos testes do script. */
@@ -147,6 +153,10 @@ function rodarLane(lane) {
   // A lane e sempre uma rodada de topo: sob outro `node --test`, o pai marca o filho com NODE_TEST_CONTEXT e o `node
   // --test` da lane falaria o protocolo do runner, sem o TAP e sem o reporter das duracoes.
   delete env.NODE_TEST_CONTEXT;
+  // O modo e o relatorio sao da rodada do verify, nao dos testes: o teste que roda a varredura gravaria pecas no
+  // relatorio da rodada, e o que confia no modo padrao rodaria no modo do verify.
+  delete env.ORK_CHECK_MODO;
+  delete env.ORK_CHECK_RELATORIO;
   let casa = null;
   if (!(env.ORKASTERY_HOME || '').trim()) { casa = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-casa-')); env.ORKASTERY_HOME = casa; }
   try {
@@ -155,13 +165,10 @@ function rodarLane(lane) {
   } catch (e) {
     relatar({ tipo: 'peca', peca: 'compile-cache', estado: 'fallback', motivo: String(e.code || e.message), fallback: 'sem cache de compilacao' });
   }
-  if (lane === 'integracao') {
-    try { os.setPriority(PRIORIDADE_DA_INTEGRACAO); } catch { /* sem permissao para mudar a prioridade: roda na de sempre */ }
-  }
   const arquivoDoReporter = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ork-lanes-')), 'duracoes.json');
   const args = ['--test', '--test-reporter=tap', '--test-reporter-destination=stdout',
     `--test-reporter=${REPORTER}`, `--test-reporter-destination=${arquivoDoReporter}`,
-    ...(lane === 'integracao' ? [`--test-concurrency=${CONCORRENCIA_DA_INTEGRACAO}`] : []),
+    `--test-concurrency=${concorrenciaDaLane(lane)}`,
     ...arquivos.map((n) => (process.env.ORK_LANES_DIR ? path.join(dir, n) : path.join('dist-test', 'test', n)))];
   return new Promise((resolve) => {
     const filho = spawn(process.execPath, args, { cwd: CORE, env, stdio: ['ignore', 'pipe', 'inherit'] });
@@ -183,7 +190,7 @@ function rodarLane(lane) {
   });
 }
 
-module.exports = { listasDasLanes, ordenarPorDuracao, lerDuracoesDoReporter, globDoNpmTest, LANES, REPORTER };
+module.exports = { listasDasLanes, ordenarPorDuracao, lerDuracoesDoReporter, globDoNpmTest, concorrenciaDaLane, LANES, REPORTER };
 
 if (require.main === module) {
   const [alvo] = process.argv.slice(2);

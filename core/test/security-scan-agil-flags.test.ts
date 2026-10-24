@@ -53,7 +53,8 @@ let fake: FakeTools | undefined;
 const salvos: Record<string, string | undefined> = {};
 const limpar: string[] = [];
 beforeEach(() => {
-  for (const k of ['XDG_CACHE_HOME', 'ORK_CHECK_RELATORIO']) { salvos[k] = process.env[k]; delete process.env[k]; }
+  // ORK_CHECK_MODO vem do verify que roda a suite (classic no npm test do Classic) e mudaria o modo padrao do SF7.
+  for (const k of ['XDG_CACHE_HOME', 'ORK_CHECK_RELATORIO', 'ORK_CHECK_MODO']) { salvos[k] = process.env[k]; delete process.env[k]; }
   cache = dirTemporario('scan-agil-flags-cache');
   process.env.XDG_CACHE_HOME = cache;
   fake = installFakeTools(['docker']);

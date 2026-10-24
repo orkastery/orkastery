@@ -47,10 +47,10 @@ import { canalDoProcesso, comConducao, ConducaoTomada, identidadeDoAmbiente, pra
 import { diretorioDaThread } from './procedencia';
 import { BarreiraDaThread, barreiraDaThread, resumoNoLedger } from './dado-privado';
 import { avisos as avisosDePolicy, bloqueantes as bloqueantesDePolicy } from './policies';
-import { ENV_MODO_DO_CHECK, ModoDoCheck, ModoResolvido, NOME_DO_MODO, resolverModo } from './check-modo';
+import { ENV_MODO_DO_CHECK, ENV_VARREDURA_PARALELA_DO_CHECK, ModoDoCheck, ModoResolvido, NOME_DO_MODO, resolverModo } from './check-modo';
 import { comandosNoAgile, ComandosDoAgile, executorDaClaimNoAgile, ExecutorDeGrupo, GuardaDoProduto, listasDasLanes, PecaDoAgile,
-  prepararNoAgile, RelatorioDoCheck } from './check-agil';
-import { rodarEmParalelo } from './check-paralelo';
+  paralelismoDaVarreduraNoGrupo, prepararNoAgile, RelatorioDoCheck } from './check-agil';
+import { esperaDoGrupo, rodarEmParalelo } from './check-paralelo';
 
 /** Teto de tempo de um comando de verificacao (build e suite completa cabem). */
 export const TIMEOUT_VERIFY_MS = 10 * 60 * 1000;
@@ -401,12 +401,16 @@ function executorDoGrupo(manifesto: Manifesto, ambienteDaRodada: Record<string, 
   const relogio = testesDeRelogioVigentes(instabilidade);
   return (itens, cwd) => {
     const prazos = itens.map((i) => prazoDaExecucao(manifesto, i.nome, i.comando));
-    conducao.renovar(Math.max(...prazos));
-    const janela = abrirJanela(leitor);
-    const processos = rodarEmParalelo(itens.map((i, k) => ({ nome: i.nome, comando: i.comando, cwd, prazoMs: prazos[k],
-      ...(i.nice ? { nice: i.nice } : {}),
+    const paraOAuxiliar = itens.map((i, k) => ({ nome: i.nome, comando: i.comando, cwd, prazoMs: prazos[k],
+      ...(i.nice ? { nice: i.nice } : {}), ...(i.apos?.length ? { apos: i.apos } : {}),
       ambiente: { ...ambienteDaRodada, ...(ehComandoDoScan(manifesto, i.nome, i.comando)
-        ? { ORK_SECURITY_SCAN_DEADLINE_MS: String(prazoInternoDoScan(prazos[k])) } : {}) } })), ambienteDoVerify());
+        // RM-072: ao lado das lanes, a varredura roda poucas ferramentas por vez, para o grupo nao passar da CPU.
+        ? { ORK_SECURITY_SCAN_DEADLINE_MS: String(prazoInternoDoScan(prazos[k])),
+          ...(itens.length > 1 ? { [ENV_VARREDURA_PARALELA_DO_CHECK]: String(paralelismoDaVarreduraNoGrupo()) } : {}) } : {}) } }));
+    // A conducao cobre o grupo inteiro: com a lane encadeada, a varredura e a lane somam.
+    conducao.renovar(esperaDoGrupo(paraOAuxiliar));
+    const janela = abrirJanela(leitor);
+    const processos = rodarEmParalelo(paraOAuxiliar, ambienteDoVerify());
     const stealPct = janela.fechar();
     return processos.map((p, k) => {
       const r: ResultadoDeComando = { ...resultadoDoProcesso(itens[k].nome, itens[k].comando, p, p.comGrupo, p.duracaoMs, prazos[k]), stealPct };
@@ -440,9 +444,12 @@ function agileNoLedger(raiz: string, threadId: string, commit: string, pecasDoVe
   guarda: GuardaDoProduto, relatorio: RelatorioDoCheck, claims: ResultadoDeClaim[]): ResumoDoAgile {
   const linhas = relatorio.ler();
   relatorio.fechar();
+  // A mesma peca contada duas vezes (dois processos da rodada que relatam o mesmo) entra uma vez.
+  const vistas = new Set<string>();
   const doRelatorio = linhas.filter((l) => l.tipo === 'peca' && typeof l.peca === 'string' && (l.estado === 'agile' || l.estado === 'fallback'))
     .map((l) => ({ peca: l.peca as string, estado: l.estado as 'agile' | 'fallback',
-      ...(typeof l.motivo === 'string' ? { motivo: l.motivo } : {}), ...(typeof l.fallback === 'string' ? { fallback: l.fallback } : {}) }));
+      ...(typeof l.motivo === 'string' ? { motivo: l.motivo } : {}), ...(typeof l.fallback === 'string' ? { fallback: l.fallback } : {}) }))
+    .filter((p) => { const chave = JSON.stringify(p); if (vistas.has(chave)) return false; vistas.add(chave); return true; });
   const listas = listasDasLanes(linhas);
   const usos = claims.flatMap((c) => c.execucoes.map((e) => e.preparo).filter((u): u is NonNullable<typeof u> => !!u));
   const resumo: ResumoDoAgile = {

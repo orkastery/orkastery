@@ -76,6 +76,8 @@ check:
     test:
       hermetica: "npm --prefix core run test:hermetica"
       integracao: "npm --prefix core run test:integracao"
+    # A integracao sobe containers (scan real, PostgreSQL): so comeca quando a varredura do grupo termina.
+    apos_a_varredura: ["integracao"]
 
 ci:
   # O SHIP consulta o check obrigatório no SHA candidato antes de tomar o lease da base.

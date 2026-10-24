@@ -10,7 +10,9 @@
  *     `check.agile.produto` tambem); qualquer divergencia roda o comando inteiro, e o motivo vai ao ledger;
  *   - o `build` que e so passos do preparo, com a guarda valendo, sai do preparo desta rodada sem rodar de novo;
  *   - `typecheck`, as lanes de `test` (`check.agile.test`, ou o `verify.test`) e o `security_scan` num grupo paralelo, so
- *     com a guarda valendo; sem ela, em serie, como o Classic, com a peca `grupo` em fallback.
+ *     com a guarda valendo; sem ela, em serie, como o Classic, com a peca `grupo` em fallback. O grupo nao passa da CPU
+ *     da maquina: a lane de `check.agile.apos_a_varredura` so comeca quando o `security_scan` termina (as duas sobem
+ *     containers), e a varredura roda ate `paralelismoDaVarreduraNoGrupo()` ferramentas ao mesmo tempo.
  *
  * O resultado volta na ordem canonica dos comandos do manifesto, com as lanes dentro do `test` (que fica ok so com todas
  * ok e e o nome que a baseline compara). Nada aqui decide veredito: a classificacao e a do verify.
@@ -47,6 +49,16 @@ export interface ItemDoGrupo {
   comando: string;
   /** Prioridade menor (nice) no processo auxiliar. */
   nice?: number;
+  /** Os itens do grupo (pelo nome, antes deste na lista) que precisam terminar antes de este comecar. */
+  apos?: string[];
+}
+
+/**
+ * Quantas ferramentas a varredura roda ao mesmo tempo dentro do grupo, ao lado das lanes: um terco das CPUs que sobram
+ * de uma, e no minimo duas. Numa maquina de 7 CPUs, duas.
+ */
+export function paralelismoDaVarreduraNoGrupo(cpus = os.availableParallelism()): number {
+  return Math.max(2, Math.floor((cpus - 1) / 3));
 }
 
 /** Roda os comandos do grupo e devolve os resultados na mesma ordem. */
@@ -275,17 +287,27 @@ export function comandosNoAgile(manifesto: Manifesto, cwd: string, lista: { nome
   }
   const resto = lista.filter((c) => c.nome !== 'build');
   const itens: ItemDoGrupo[] = [];
+  // A lane que sobe containers espera a varredura, que tambem sobe: o grupo nao junta as duas cargas.
+  const depoisDaVarredura = new Set<string>(resto.some((c) => c.nome === 'security_scan') ? manifesto.check?.agile?.apos_a_varredura ?? [] : []);
+  const encadeados: ItemDoGrupo[] = [];
   for (const c of resto) {
     if (c.nome === 'test' && lanesDeclaradas.length > 0) {
-      for (const [lane, comando] of lanesDeclaradas) itens.push({ nome: `test:${lane}`, comando });
+      for (const [lane, comando] of lanesDeclaradas) {
+        if (depoisDaVarredura.has(lane)) encadeados.push({ nome: `test:${lane}`, comando, apos: ['security_scan'] });
+        else itens.push({ nome: `test:${lane}`, comando });
+      }
     } else itens.push({ nome: c.nome, comando: c.comando });
   }
+  itens.push(...encadeados);
   const resultados = itens.length > 1 ? grupo(itens, cwd) : itens.map((i) => executor(i.nome, i.comando, cwd));
   const lanes: Array<{ lane: string; resultado: ResultadoDeComando }> = [];
   itens.forEach((item, i) => {
     if (item.nome.startsWith('test:')) lanes.push({ lane: item.nome.slice('test:'.length), resultado: resultados[i] });
     else porNome.set(item.nome, resultados[i]);
   });
+  // As lanes voltam na ordem do manifesto, mesmo com a encadeada no fim do grupo.
+  const ordem = (lane: string): number => lanesDeclaradas.findIndex(([nome]) => nome === lane);
+  lanes.sort((a, b) => ordem(a.lane) - ordem(b.lane));
   if (lanes.length > 0) {
     porNome.set('test', testDasLanes(lanes));
     pecas.push({ peca: 'lanes', estado: 'agile' });
