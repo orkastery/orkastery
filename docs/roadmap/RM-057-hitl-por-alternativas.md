@@ -6,7 +6,7 @@ categoria: melhoria
 pai: RM-048
 features: []
 owner: Julio
-atualizado_em: 2026-10-21T06:01:38-03:00
+atualizado_em: 2026-10-24T10:46:22-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -22,8 +22,8 @@ evidencias:
 sdlc:
   thread: ork-rm057respost
   modo: "#Auto"
-  fase: GO
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-057 — HITL de condução por alternativas: de 3 a 5 opções, uma recomendada, nunca texto colado
@@ -96,13 +96,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-21 | Julio |
-| Documentação | Em revisão | — | 2026-10-21 | Julio |
-| Código | Mesclado | commit `7266df6` · PR #49 | 2026-10-21 | Julio |
-| Testes | Em execução | — | 2026-10-21 | Julio |
-| Deploy | Não implantado | — | 2026-10-21 | Julio |
-| Exposição | Flag desligada | — | 2026-10-21 | Julio |
-| Habilitação | Pendente | — | 2026-10-21 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-24 | Julio |
+| Documentação | Em revisão | — | 2026-10-24 | Julio |
+| Código | Mesclado | commit `7266df6` · PR #49 | 2026-10-24 | Julio |
+| Testes | Em execução | — | 2026-10-24 | Julio |
+| Deploy | Não implantado | — | 2026-10-24 | Julio |
+| Exposição | Flag desligada | — | 2026-10-24 | Julio |
+| Habilitação | Pendente | — | 2026-10-24 | Julio |
 
 <!-- ork-docs:estado:fim -->
 

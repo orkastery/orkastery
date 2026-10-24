@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-017]
 owner: Julio
-atualizado_em: 2026-10-10T18:20:00-03:00
+atualizado_em: 2026-10-24T10:46:22-03:00
 estado:
   ciclo: Em validação
   documentacao: Em revisão
@@ -17,7 +17,7 @@ estado:
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: 3d77e53
+    commit: e252b17
     pr: 79
     universo: "888770c0, PR #68"
     avisos: "3d77e53b, PR #79"
@@ -28,8 +28,8 @@ evidencias:
 sdlc:
   thread: ork-rm038busca3
   modo: "#Auto"
-  fase: GO
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-038 — Busca semântica na memória
@@ -99,13 +99,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em validação | — | 2026-10-10 | Julio |
-| Documentação | Em revisão | — | 2026-10-10 | Julio |
-| Código | Mesclado | commit `3d77e53` · PR #79 · universo: 888770c0, PR #68 · avisos: 3d77e53b, PR #79 | 2026-10-10 | Julio |
-| Testes | Aprovados | ci: verde no push do merge (run 36667583455) e no da v0.5.0 (run 36815186450) | 2026-10-10 | Julio |
-| Deploy | Produção | release: v0.5.0, @orkastery/cli 0.5.0 no npm | 2026-10-10 | Julio |
-| Exposição | Flag desligada | — | 2026-10-10 | Julio |
-| Habilitação | Pendente | — | 2026-10-10 | Julio |
+| Ciclo do item | Em validação | — | 2026-10-24 | Julio |
+| Documentação | Em revisão | — | 2026-10-24 | Julio |
+| Código | Mesclado | commit `e252b17` · PR #79 · universo: 888770c0, PR #68 · avisos: 3d77e53b, PR #79 | 2026-10-24 | Julio |
+| Testes | Aprovados | ci: verde no push do merge (run 36667583455) e no da v0.5.0 (run 36815186450) | 2026-10-24 | Julio |
+| Deploy | Produção | release: v0.5.0, @orkastery/cli 0.5.0 no npm | 2026-10-24 | Julio |
+| Exposição | Flag desligada | — | 2026-10-24 | Julio |
+| Habilitação | Pendente | — | 2026-10-24 | Julio |
 
 <!-- ork-docs:estado:fim -->
 

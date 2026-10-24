@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-024]
 owner: Julio
-atualizado_em: 2026-10-03T04:36:32+00:00
+atualizado_em: 2026-10-24T10:46:21-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -27,7 +27,7 @@ sdlc:
   thread: ork-rm025modocon
   modo: "#Auto"
   fase: MASTER
-  status: aberta
+  status: fechada
 ---
 
 # RM-025 — Company Brain: fundação
@@ -88,13 +88,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-03 | Julio |
-| Documentação | Em revisão | — | 2026-10-03 | Julio |
-| Código | Mesclado | commit `5678875` · PR #64 | 2026-10-03 | Julio |
-| Testes | Aprovados | ci: verde no push do merge (run 36563382672) e no da v0.5.0 (run 36815186450) | 2026-10-03 | Julio |
-| Deploy | Produção | release: v0.5.0, @orkastery/cli 0.5.0 no npm | 2026-10-03 | Julio |
-| Exposição | Parcial | — | 2026-10-03 | Julio |
-| Habilitação | Em andamento | — | 2026-10-03 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-24 | Julio |
+| Documentação | Em revisão | — | 2026-10-24 | Julio |
+| Código | Mesclado | commit `5678875` · PR #64 | 2026-10-24 | Julio |
+| Testes | Aprovados | ci: verde no push do merge (run 36563382672) e no da v0.5.0 (run 36815186450) | 2026-10-24 | Julio |
+| Deploy | Produção | release: v0.5.0, @orkastery/cli 0.5.0 no npm | 2026-10-24 | Julio |
+| Exposição | Parcial | — | 2026-10-24 | Julio |
+| Habilitação | Em andamento | — | 2026-10-24 | Julio |
 
 <!-- ork-docs:estado:fim -->
 

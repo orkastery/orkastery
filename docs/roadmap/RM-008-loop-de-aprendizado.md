@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-006, FEAT-028]
 owner: Julio
-atualizado_em: 2026-10-03T04:00:00+00:00
+atualizado_em: 2026-10-24T10:46:21-03:00
 estado:
   ciclo: Piloto
   documentacao: Em revisão
@@ -17,7 +17,7 @@ estado:
   habilitacao: Em andamento
 evidencias:
   codigo:
-    commit: 7af7a92
+    commit: 96a0e1c
     pr: null
 sdlc:
   thread: ork-claimsemprov
@@ -78,13 +78,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Piloto | — | 2026-10-03 | Julio |
-| Documentação | Em revisão | — | 2026-10-03 | Julio |
-| Código | Mesclado | commit `7af7a92` | 2026-10-03 | Julio |
-| Testes | Aprovados | — | 2026-10-03 | Julio |
-| Deploy | Produção | — | 2026-10-03 | Julio |
-| Exposição | Parcial | — | 2026-10-03 | Julio |
-| Habilitação | Em andamento | — | 2026-10-03 | Julio |
+| Ciclo do item | Piloto | — | 2026-10-24 | Julio |
+| Documentação | Em revisão | — | 2026-10-24 | Julio |
+| Código | Mesclado | commit `96a0e1c` | 2026-10-24 | Julio |
+| Testes | Aprovados | — | 2026-10-24 | Julio |
+| Deploy | Produção | — | 2026-10-24 | Julio |
+| Exposição | Parcial | — | 2026-10-24 | Julio |
+| Habilitação | Em andamento | — | 2026-10-24 | Julio |
 
 <!-- ork-docs:estado:fim -->
 

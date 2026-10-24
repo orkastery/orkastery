@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-004, FEAT-014]
 owner: Julio
-atualizado_em: 2026-10-20T04:00:00-03:00
+atualizado_em: 2026-10-24T10:46:21-03:00
 estado:
   ciclo: Piloto
   documentacao: Em revisão
@@ -27,8 +27,8 @@ evidencias:
 sdlc:
   thread: ork-rm037defeit2
   modo: "#Auto"
-  fase: GOAL
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-037 — Verify rápido e confiável
@@ -145,13 +145,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Piloto | — | 2026-10-20 | Julio |
-| Documentação | Em revisão | — | 2026-10-20 | Julio |
-| Código | Mesclado | commit `36def09` · PR #34 · anteriores: baf065e (PR #28), a61e1e4 (PR #18), 10ca416 (Orkastery 0.3.0) | 2026-10-20 | Julio |
-| Testes | Aprovados | ci: verde no push dos merges (runs 36560460823, 36663174203 e 36725816649) e no da v0.5.0 (run 36815186450) | 2026-10-20 | Julio |
-| Deploy | Produção | release: v0.5.0 (PR #28 e #34) e v0.4.3 (PR #18), @orkastery/cli no npm | 2026-10-20 | Julio |
-| Exposição | Parcial | — | 2026-10-20 | Julio |
-| Habilitação | Em andamento | — | 2026-10-20 | Julio |
+| Ciclo do item | Piloto | — | 2026-10-24 | Julio |
+| Documentação | Em revisão | — | 2026-10-24 | Julio |
+| Código | Mesclado | commit `36def09` · PR #34 · anteriores: baf065e (PR #28), a61e1e4 (PR #18), 10ca416 (Orkastery 0.3.0) | 2026-10-24 | Julio |
+| Testes | Aprovados | ci: verde no push dos merges (runs 36560460823, 36663174203 e 36725816649) e no da v0.5.0 (run 36815186450) | 2026-10-24 | Julio |
+| Deploy | Produção | release: v0.5.0 (PR #28 e #34) e v0.4.3 (PR #18), @orkastery/cli no npm | 2026-10-24 | Julio |
+| Exposição | Parcial | — | 2026-10-24 | Julio |
+| Habilitação | Em andamento | — | 2026-10-24 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
