@@ -410,6 +410,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Piloto noturno sem despacho (RM-058)**: sessões ociosas sem vínculo deixam de ocupar vaga, a espera passa a registrar motivo e ocupação anonimizada para o relatório da manhã, e `ork noctum propor` avisa sem bloquear sobre login, trust e capacidade com uma única vaga de execução.
 - **Defeitos de condução de 19 e 20/10/2026** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): a
   baseline (`ork verify --baseline`) roda com o mesmo prazo de cada comando do verify
   (`verify.timeout_ms_por_comando`) e a mesma medida do steal, e o comando sem veredito nela (estouro, morte por sinal,
