@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-24T16:38:04.284Z",
+  "publicadoEm": "2026-10-24T16:43:31.023Z",
   "threads": [
     {
       "id": "ork-check5x",
@@ -81,18 +81,14 @@
       "roadmap": "RM-037",
       "branch": "ork/ork-tiposdomotor-go",
       "atualizadaEm": "2026-10-24T16:09:40.116Z",
-      "entregue": null,
+      "entregue": "cca7f904",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
       "runtime": "codex",
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
-      "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-24T15:00:37.853Z",
-        "motivo": "sessão 01a16e59 encerrada (completed)"
-      }
+      "sessao": null
     }
   ]
 }
