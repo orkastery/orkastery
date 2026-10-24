@@ -164,8 +164,8 @@ test('SA7: as pecas do Agile vao ao relatorio (check.pecas) e ao ORK_CHECK_RELAT
   process.env.ORK_CHECK_RELATORIO = relatorio;
   const agile = runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base });
   const pecas = agile.check!.pecas.map(p => `${p.peca}:${p.estado}`);
-  assert.deepEqual(pecas, ['varredura-paralela:agile', 'cache-semgrep:fallback', 'cache-trivy-vuln:agile', 'cache-trivy-config:agile',
-    'cache-trivy-license:agile']);
+  assert.deepEqual(pecas, ['varredura-paralela:agile', 'cache-semgrep:fallback', 'binarios-nativos:fallback', 'cache-trivy-vuln:agile',
+    'cache-trivy-config:agile', 'imagem-de-lint:agile', 'cache-trivy-license:agile']);
   assert.equal(agile.check!.pecas.find(p => p.peca === 'cache-semgrep')!.fallback, 'regras do registro a cada rodada, como no Classic');
   const linhas = fs.readFileSync(relatorio, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l) as Record<string, unknown>);
   assert.deepEqual(linhas.map(l => `${String(l.tipo)}:${String(l.peca)}:${String(l.estado)}`), pecas.map(p => `peca:${p}`));

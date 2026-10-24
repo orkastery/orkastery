@@ -23,6 +23,8 @@ import {
   cacheRoot, checkout, emptyCounts, failedAll, git, resolveBase, stackPairs, unitsOf,
   type RunScanOptions, type ToolResult, type TrabalhoDaFerramenta,
 } from './run';
+import { defaultProbe, type Probe } from './executor';
+import { eslintComImagem, garantirImagemDeLint } from './imagem-de-lint';
 import { loadTools, toolsFor } from './tools';
 import type { PecaDaVarredura, ScanReport, ToolSpec } from './types';
 
@@ -64,6 +66,27 @@ function relatar(pecas: PecaDaVarredura[]): void {
   try {
     fs.appendFileSync(arquivo, pecas.map((p) => JSON.stringify({ tipo: 'peca', ...p })).join('\n') + '\n');
   } catch { /* o relatorio e evidencia do verify, nao condicao da varredura */ }
+}
+
+/**
+ * RM-072 (D11): o `eslint` com a imagem de lint pre-montada; sem ela (build que falhou, sem rede, catalogo mudou), o do
+ * catalogo, com a peca em fallback.
+ */
+function eslintDoAgile(t: ToolSpec, prazoMs: number, pecas: PecaDaVarredura[]): ToolSpec {
+  if (t.name !== 'eslint' || !t.install?.length) return t;
+  const imagem = garantirImagemDeLint(t, prazoMs);
+  const comImagem = 'tag' in imagem ? eslintComImagem(t, imagem.tag) : null;
+  if (comImagem) { pecas.push({ peca: 'imagem-de-lint', estado: 'agile' }); return comImagem; }
+  pecas.push({ peca: 'imagem-de-lint', estado: 'fallback', motivo: 'motivo' in imagem ? imagem.motivo : 'script do catalogo sem o npm install esperado',
+    fallback: 'eslint do catalogo, com npm install no container' });
+  return t;
+}
+
+/** RM-072 (D12): o binario nativo na versao do catalogo, quando a ferramenta o declara e nao instala pacote no container. */
+function nativoDisponivel(t: ToolSpec, probe: Probe): boolean {
+  if (!t.native || t.install) return false;
+  const saida = probe.nativeVersion(t.native.bin, t.native.versionArgs);
+  return saida !== null && new RegExp(t.native.versionPattern, 'm').test(saida);
 }
 
 /** A rodada do Agile: as mesmas regras do `runScan`, com as ferramentas em paralelo e os caches de banco. */
@@ -116,8 +139,20 @@ export function runScanAgil(opts: RunScanOptions): ScanReport {
     const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ork-security-scan-agil-')));
     guard.add('outDirs', dir);
     const prazo = deadline === null ? Math.max(...tools.map(t => t.timeoutMs)) * 2 + FOLGA_MS : Math.max(1000, deadline - Date.now() + FOLGA_MS);
+    // RM-072 (D12): quem tem o binario nativo na versao do catalogo roda sem o Docker; a peca diz quem faltou.
+    const probe = opts.probe ?? defaultProbe();
+    const comNativo = tools.filter(t => t.native && !t.install);
+    const nativos = new Set(comNativo.filter(t => nativoDisponivel(t, probe)).map(t => t.name));
+    if (comNativo.length > 0) {
+      const faltam = comNativo.filter(t => !nativos.has(t.name)).map(t => t.name);
+      pecas.push(nativos.size > 0
+        ? { peca: 'binarios-nativos', estado: 'agile', motivo: `nativos: ${[...nativos].join(', ')}${faltam.length ? `; sem binario: ${faltam.join(', ')}` : ''}` }
+        : { peca: 'binarios-nativos', estado: 'fallback', motivo: `sem binario nativo na versao do catalogo: ${faltam.join(', ')}`, fallback: 'Docker, como no Classic' });
+    }
     const trabalhos = tools.map((t, i) => {
-      const trabalho: TrabalhoDaFerramenta = { tool: especificacaoDoAgile(t, pecas), units: unitsOf(t, pairs), config,
+      const restante = deadline === null ? t.timeoutMs : Math.min(t.timeoutMs, deadline - Date.now());
+      const trabalho: TrabalhoDaFerramenta = { tool: eslintDoAgile(especificacaoDoAgile(t, pecas), restante, pecas), units: unitsOf(t, pairs), config,
+        ...(nativos.has(t.name) ? { nativoPrimeiro: true } : {}),
         ctx: { headTree, mainRoot, base, head, rangeCommits: count === null ? null : Number(count), deadline, ...(baseTree ? { baseTree } : {}) } };
       const arquivo = path.join(dir, `${i}.json`);
       fs.writeFileSync(arquivo, JSON.stringify(trabalho), { mode: 0o600 });

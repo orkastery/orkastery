@@ -283,6 +283,8 @@ export interface ToolResult { run: ToolRun; head: RawFinding[]; base: RawFinding
  */
 export interface TrabalhoDaFerramenta {
   tool: ToolSpec; units: Unit[]; config: ScanConfig;
+  /** RM-072 (D12): o binario nativo desta ferramenta esta na maquina com a versao do catalogo; o Agile o usa antes do Docker. */
+  nativoPrimeiro?: boolean;
   ctx: Omit<Context, 'probe' | 'guard' | 'images' | 'deadline' | 'rangePatch'> & { deadline: number | null };
 }
 

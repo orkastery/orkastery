@@ -21,6 +21,13 @@
  *                                   (`semgrep@empty` fails on the clean base and runs on the fixture HEAD)
  *   ORK_FAKE_DOCKER_GARBAGE         catalog tool name whose report file is not JSON
  *   ORK_FAKE_DOCKER_ZERO_COMMITS=1  Gitleaks `git` reports 0 commits scanned whatever the range holds
+ *   ORK_FAKE_DOCKER_BUILD=fails     `docker build` exits 1 (RM-072: the Agile lint image cannot be built)
+ *   ORK_FAKE_NATIVE_WRONG_VERSION   catalog tool name whose native shim answers a version outside the catalog pattern
+ *
+ * RM-072 (Agile Check): `docker build -t <tag> -` reads the Dockerfile from stdin, keeps it in `ultimo-dockerfile` next to
+ * the call log and records the tag in `imagens-construidas`; `image inspect` of an `orkastery-eslint-agil:` tag answers
+ * only after that build, and `run` of that tag is the eslint tool. A native shim called with the tool's `versionArgs`
+ * prints the catalog version (the probe of the Agile native-first choice).
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -134,6 +141,12 @@ function emulate(tool: ToolSpec, file: string, outHost: string | undefined, args
   return 0;
 }
 
+/** The tags `docker build` made in this fake (RM-072). */
+function construidas(): string[] {
+  const arquivo = path.join(path.dirname(process.env.ORK_FAKE_DOCKER_LOG ?? ''), 'imagens-construidas');
+  return fs.existsSync(arquivo) ? fs.readFileSync(arquivo, 'utf8').split('\n').filter(Boolean) : [];
+}
+
 function main(): number {
   const as = process.env.ORK_FAKE_AS ?? 'docker';
   const argv = process.argv.slice(2);
@@ -141,6 +154,11 @@ function main(): number {
   const tools = JSON.parse(fs.readFileSync(CATALOG, 'utf8')) as ToolSpec[];
   const mode = process.env.ORK_FAKE_DOCKER_MODE ?? '';
   if (as !== 'docker') {
+    const declarada = tools.find(t => t.native?.bin === as && JSON.stringify(t.native.versionArgs) === JSON.stringify(argv));
+    if (declarada) {
+      process.stdout.write(`${as} ${process.env.ORK_FAKE_NATIVE_WRONG_VERSION === declarada.name ? '0.0.1' : declarada.version}\n`);
+      return 0;
+    }
     const found = identify(tools.filter(t => t.native?.bin === as || t.args[0] === as), argv);
     if (!found) { process.stderr.write(`fake ${as}: unknown call\n`); return 9; }
     return emulate(found.tool, found.file, found.outArg, argv, process.cwd(), true);
@@ -150,12 +168,26 @@ function main(): number {
     case 'info':
       if (mode === 'daemon-down') { process.stderr.write('Cannot connect to the Docker daemon\n'); return 1; }
       process.stdout.write('29.0.0-fake\n'); return 0;
-    case 'image': return mode === 'pull-fails' ? 1 : 0;
+    case 'image': {
+      const ref = argv[argv.length - 1] ?? '';
+      if (ref.startsWith('orkastery-eslint-agil:')) return construidas().includes(ref) ? 0 : 1;
+      return mode === 'pull-fails' ? 1 : 0;
+    }
+    case 'build': {
+      const tag = argv[argv.indexOf('-t') + 1];
+      const dockerfile = fs.readFileSync(0, 'utf8');
+      if (process.env.ORK_FAKE_DOCKER_BUILD === 'fails') { process.stderr.write('npm ERR! network unreachable\n'); return 1; }
+      const dir = path.dirname(process.env.ORK_FAKE_DOCKER_LOG ?? '');
+      fs.writeFileSync(path.join(dir, 'ultimo-dockerfile'), dockerfile);
+      fs.appendFileSync(path.join(dir, 'imagens-construidas'), `${tag}\n`);
+      process.stdout.write('sha256:fake\n');
+      return 0;
+    }
     case 'pull': if (mode === 'pull-fails') { process.stderr.write('pull access denied\n'); return 1; } return 0;
     case 'rm': case 'kill': return 0;
     case 'run': {
       const run = parseRun(argv.slice(1));
-      const found = identify(tools.filter(t => t.image === run.image), run.args);
+      const found = identify(tools.filter(t => t.image === run.image || (run.image.startsWith('orkastery-eslint-agil:') && t.name === 'eslint')), run.args);
       if (!found) { process.stderr.write(`fake docker: no catalog tool for ${run.image}\n`); return 125; }
       const src = run.mounts.get('/src');
       if (!src) { process.stderr.write('fake docker: /src not mounted\n'); return 125; }
