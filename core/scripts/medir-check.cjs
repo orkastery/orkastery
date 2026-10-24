@@ -5,15 +5,22 @@
  *   node core/scripts/medir-check.cjs [--agile N] [--classic N] [--saida <arquivo.json>] [--prazo-min M]
  *                                     [--cache-compartilhado] [--manter]
  *
- * Clona o HEAD da worktree numa pasta temporaria sem sequencia hexadecimal de 8 caracteres no caminho, liga o
- * `node_modules` do core por link, abre uma thread sem worktree com tres claims representativas desta thread e roda o
- * `ork verify` da worktree (`core/dist/index.js`) com `--check agile` N vezes seguidas (3 por padrao) e `--check classic`
- * N vezes (1). A copia tem `.orkastery`, `ORKASTERY_HOME` e `TMPDIR` proprios, e `XDG_CACHE_HOME` proprio sem
- * `--cache-compartilhado` (a primeira rodada do Agile paga o cache frio); nenhuma variavel `ORK_*` desta sessao passa.
+ * Clona o HEAD da worktree, na mesma branch, numa pasta descartavel sem sequencia hexadecimal de 8 caracteres no caminho e
+ * fora de pasta temporaria (`$XDG_CACHE_HOME/orkastery/medir-check/`: a suite trata `/tmp` e o `TMPDIR` como efemeros),
+ * liga o `node_modules` do core por link, abre uma thread sem worktree com tres claims representativas desta thread e
+ * roda o `ork verify` da worktree (`core/dist/index.js`) com `--check agile` N vezes seguidas (3 por padrao) e
+ * `--check classic` N vezes (1). A copia nao tem remoto (nada dela chega ao repositorio de verdade); o `main` e o
+ * `origin/main` dela apontam para a base da thread (o merge-base do HEAD com o `origin/<base>` da worktree), para a
+ * varredura e a barreira de dado privado lerem o mesmo diff da thread. A copia tem `HOME`, `.orkastery` e `TMPDIR`
+ * proprios, sem `ORKASTERY_HOME` (como numa maquina de verdade: a casa do `ork` sai do `HOME`, e o `npm test` e as lanes
+ * criam a casa temporaria de cada rodada), e `XDG_CACHE_HOME` proprio sem `--cache-compartilhado` (a primeira rodada do
+ * Agile paga o cache frio); nenhuma variavel `ORK_*` desta sessao passa. Com `--saida`, o log de cada rodada vai para a
+ * pasta `<saida>.d/`.
  *
  * A duracao de cada rodada sai do `verify_run` do ledger da copia. O pico de memoria e a maior soma, numa amostra por
  * segundo, do RSS da arvore de processos do verify com a memoria dos containers da varredura (`ork-security-scan-*`,
- * pelo `memory.current` do cgroup); RSS soma pagina compartilhada mais de uma vez, entao o numero e um teto. Sai 0 com
+ * como o `docker stats` conta: `memory.current` menos o cache de arquivo inativo); RSS soma pagina compartilhada mais de
+ * uma vez, entao o numero e um teto. Sai 0 com
  * todas as rodadas medidas, mesmo que o verify reprove (o veredito vai no resumo).
  */
 'use strict';
@@ -39,9 +46,13 @@ const CLAIMS_REPRESENTATIVAS = [
     verificar: "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/check-agil.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AG[0-9]+:/{p++} END{exit !(p>=20 && f==0 && s==0)}'" },
 ];
 
-/** A pasta temporaria de base: a do sistema, ou `/tmp` quando ela tem sequencia hexadecimal de 8 (o id de um job). */
-function pastaDeBase(tmpdir) {
-  return /[0-9a-f]{8}/i.test(tmpdir) ? '/tmp' : tmpdir;
+/**
+ * Onde as copias nascem: no cache do usuario, fora de pasta temporaria (a suite trata `/tmp` e o `TMPDIR` como efemeros, e o
+ * projeto de verdade nao mora la). Caminho com sequencia hexadecimal de 8 (o id de um job) vira o cache padrao do `HOME`.
+ */
+function pastaDasCopias(cache, home = os.homedir()) {
+  const pasta = path.join(cache, 'orkastery', 'medir-check');
+  return /[0-9a-f]{8}/i.test(pasta) ? path.join(home, '.cache', 'orkastery', 'medir-check') : pasta;
 }
 
 /** As rodadas do ledger da copia: cada `verify_run`, com o modo, o veredito e as duracoes. */
@@ -60,9 +71,17 @@ function lerRodadas(texto) {
       duracaoMs: typeof e.duracaoMs === 'number' ? e.duracaoMs : null,
       preparoMs: e.preparo && typeof e.preparo.duracaoMs === 'number' ? e.preparo.duracaoMs : null,
       comandos: Array.isArray(e.comandos) ? e.comandos.map((c) => ({ nome: c.nome, ok: c.ok === true,
-        duracaoMs: typeof c.duracaoMs === 'number' ? c.duracaoMs : null, ...(Array.isArray(c.lanes) ? { lanes: c.lanes } : {}) })) : [],
-      claims: Array.isArray(e.claims) ? e.claims.map((c) => ({ id: c.id, duracaoMs: typeof c.duracaoMs === 'number' ? c.duracaoMs : null })) : [],
+        duracaoMs: typeof c.duracaoMs === 'number' ? c.duracaoMs : null, ...(Array.isArray(c.lanes) ? { lanes: c.lanes } : {}),
+        // O comando que reprova leva o porque, para a rodada ser lida depois de a copia sumir.
+        ...(c.ok === true ? {} : { causa: c.causa ?? null, testeQueCaiu: Array.isArray(c.testeQueCaiu) ? c.testeQueCaiu.slice(0, 10) : [],
+          trecho: typeof c.trecho === 'string' ? c.trecho.slice(0, 600) : null }) })) : [],
+      claims: Array.isArray(e.claims) ? e.claims.map((c) => ({ id: c.id, duracaoMs: typeof c.duracaoMs === 'number' ? c.duracaoMs : null,
+        ...(c.verificado === false ? { verificado: false, motivo: c.motivo ?? null } : {}) })) : [],
       pecas: e.agile && Array.isArray(e.agile.pecas) ? e.agile.pecas : [],
+      ...(Array.isArray(e.falhasSemBaseline) && e.falhasSemBaseline.length ? { falhasSemBaseline: e.falhasSemBaseline } : {}),
+      ...(Array.isArray(e.regressoes) && e.regressoes.length ? { regressoes: e.regressoes } : {}),
+      // O resumo da barreira de dado privado ja vem sem o valor casado e sem o termo da lista local.
+      ...(e.dadoPrivado ? { dadoPrivado: e.dadoPrivado } : {}),
     });
   }
   return rodadas;
@@ -129,14 +148,22 @@ function lerProcessos() {
   return tabela;
 }
 
-/** A memoria dos containers da varredura em execucao, pelo cgroup de cada um. */
+/**
+ * A memoria dos containers da varredura em execucao, como o `docker stats` a conta: o `memory.current` do cgroup de cada um
+ * menos o cache de arquivo inativo (o banco do Trivy lido do disco nao e memoria do processo).
+ */
 function memoriaDosContainers() {
   const r = spawnSync('docker', ['ps', '--no-trunc', '--filter', `name=${PREFIXO_DOS_CONTAINERS}`, '--format', '{{.ID}}'],
     { encoding: 'utf8', timeout: 5000 });
   if (r.status !== 0) return 0;
   let total = 0;
   for (const id of r.stdout.split('\n').filter(Boolean)) {
-    try { total += Number(fs.readFileSync(`/sys/fs/cgroup/system.slice/docker-${id}.scope/memory.current`, 'utf8')); } catch { /* acabou */ }
+    const dir = `/sys/fs/cgroup/system.slice/docker-${id}.scope`;
+    try {
+      const atual = Number(fs.readFileSync(`${dir}/memory.current`, 'utf8'));
+      const inativo = Number(/^inactive_file (\d+)$/m.exec(fs.readFileSync(`${dir}/memory.stat`, 'utf8'))?.[1] ?? 0);
+      total += Math.max(0, atual - inativo);
+    } catch { /* o container acabou entre a lista e a leitura */ }
   }
   return total;
 }
@@ -181,18 +208,35 @@ function opcoes(args) {
 async function principal(args) {
   const o = opcoes(args);
   const head = git(RAIZ, 'rev-parse', 'HEAD');
-  const base = fs.realpathSync(fs.mkdtempSync(path.join(pastaDeBase(os.tmpdir()), 'ork-medir-check-')));
+  const cacheDeVerdade = process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache');
+  const copias = pastaDasCopias(cacheDeVerdade);
+  fs.mkdirSync(copias, { recursive: true, mode: 0o700 });
+  const base = fs.realpathSync(fs.mkdtempSync(path.join(copias, 'ork-medir-check-')));
   if (/[0-9a-f]{8}/i.test(base)) throw new Error(`a pasta da medicao tem sequencia hexadecimal de 8: ${base}`);
   const copia = path.join(base, 'projeto');
   const env = {};
   for (const [k, v] of Object.entries(process.env)) if (!/^(ORK_|ORKASTERY_|NODE_TEST_CONTEXT$)/.test(k)) env[k] = v;
-  for (const d of ['tmp', 'casa', 'cache']) fs.mkdirSync(path.join(base, d));
-  Object.assign(env, { TMPDIR: path.join(base, 'tmp'), ORKASTERY_HOME: path.join(base, 'casa') });
-  if (!o.compartilhado) env.XDG_CACHE_HOME = path.join(base, 'cache');
+  for (const d of ['tmp', 'home', 'cache']) fs.mkdirSync(path.join(base, d));
+  Object.assign(env, { TMPDIR: path.join(base, 'tmp'), HOME: path.join(base, 'home'),
+    XDG_CACHE_HOME: o.compartilhado ? cacheDeVerdade : path.join(base, 'cache') });
+  const logs = o.saida ? `${o.saida}.d` : null;
+  if (logs) fs.mkdirSync(logs, { recursive: true });
   try {
+    const branch = git(RAIZ, 'rev-parse', '--abbrev-ref', 'HEAD');
+    const { carregarManifesto } = require(path.join(RAIZ, 'core', 'dist', 'manifest.js'));
+    const baseBranch = carregarManifesto(RAIZ)?.manifesto.worktree.base_branch || 'main';
+    // A base da thread: o merge-base com o `origin/<base>`, senao com a branch local, senao o proprio HEAD (checkout raso).
+    const baseDaThread = [`origin/${baseBranch}`, baseBranch].map((ref) => {
+      try { return git(RAIZ, 'merge-base', 'HEAD', ref); } catch { return null; }
+    }).find(Boolean) ?? head;
     git(base, 'clone', '--quiet', '--no-checkout', RAIZ, copia);
-    git(copia, 'checkout', '--quiet', '--detach', head);
+    git(copia, 'checkout', '--quiet', ...(branch === 'HEAD' ? ['--detach', head] : ['-B', branch, head]));
+    git(copia, 'remote', 'remove', 'origin');
+    git(copia, 'update-ref', `refs/heads/${baseBranch}`, baseDaThread);
+    git(copia, 'update-ref', `refs/remotes/origin/${baseBranch}`, baseDaThread);
     fs.symlinkSync(path.join(RAIZ, 'core', 'node_modules'), path.join(copia, 'core', 'node_modules'));
+    // O `.gitignore` casa `node_modules/` so como pasta; o link sujaria a arvore e levaria o destino dele ao diff da thread.
+    fs.appendFileSync(path.join(copia, '.git', 'info', 'exclude'), '\n/core/node_modules\n');
     ork(copia, env, 'thread', 'new', 'medicao do check', '--modo', 'auto', '--sem-worktree');
     const threads = fs.readdirSync(path.join(copia, '.orkastery', 'threads'))
       .filter((n) => fs.existsSync(path.join(copia, '.orkastery', 'threads', n, 'thread.json')));
@@ -203,7 +247,9 @@ async function principal(args) {
     const resultado = [];
     const fila = [...Array(o.agile).fill('agile'), ...Array(o.classic).fill('classic')];
     for (const [i, modo] of fila.entries()) {
-      const r = await rodada(copia, env, thread, modo, path.join(base, `rodada-${i + 1}-${modo}.log`), o.prazoMs);
+      const log = path.join(base, `rodada-${i + 1}-${modo}.log`);
+      const r = await rodada(copia, env, thread, modo, log, o.prazoMs);
+      if (logs) fs.copyFileSync(log, path.join(logs, path.basename(log)));
       const doLedger = lerRodadas(fs.existsSync(ledger) ? fs.readFileSync(ledger, 'utf8') : '');
       const ultima = doLedger.length > resultado.length ? doLedger[doLedger.length - 1] : null;
       resultado.push({ n: i + 1, pedido: modo, saida: r.code, sinal: r.sinal, paredeMs: r.paredeMs, picoBytes: r.pico.bytes,
@@ -212,7 +258,7 @@ async function principal(args) {
         `pico ${(r.pico.bytes / 1024 ** 3).toFixed(2)} GiB, saida ${r.code}\n`);
     }
     const resumo = {
-      contrato: 'ork.medir-check/v1', head, cache: o.compartilhado ? 'compartilhado' : 'isolado',
+      contrato: 'ork.medir-check/v1', head, branch, base: baseDaThread, cache: o.compartilhado ? 'compartilhado' : 'isolado',
       maquina: { cpus: os.availableParallelism(), memoriaBytes: os.totalmem() },
       rodadas: resultado,
       tresConsecutivas: { tetoMs: TETO_DA_RODADA_MS, ...tresConsecutivas(resultado, TETO_DA_RODADA_MS) },
@@ -229,7 +275,7 @@ async function principal(args) {
   }
 }
 
-module.exports = { lerRodadas, tresConsecutivas, rssDaArvore, picoAgregado, pastaDeBase, CLAIMS_REPRESENTATIVAS };
+module.exports = { lerRodadas, tresConsecutivas, rssDaArvore, picoAgregado, pastaDasCopias, CLAIMS_REPRESENTATIVAS };
 
 if (require.main === module) {
   principal(process.argv.slice(2)).then((c) => process.exit(c), (e) => { process.stderr.write(`medir-check: ${e.message}\n`); process.exit(1); });

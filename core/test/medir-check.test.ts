@@ -29,7 +29,7 @@ const medir = require(path.join(RAIZ, 'core', 'scripts', 'medir-check.cjs')) as 
   tresConsecutivas: (rodadas: Array<Pick<Rodada, 'modo' | 'ok' | 'duracaoMs'>>, tetoMs: number) => { ok: boolean; rodadas: number[] };
   rssDaArvore: (raiz: number, processos: Map<number, { ppid: number; rss: number }>) => number;
   picoAgregado: (amostras: Array<{ arvore: number; containers: number }>) => { bytes: number; amostra: number; arvore: number; containers: number };
-  pastaDeBase: (tmpdir: string) => string;
+  pastaDasCopias: (cache: string, home?: string) => string;
   CLAIMS_REPRESENTATIVAS: Array<{ arquivo: string; alegacao: string; verificar: string }>;
 };
 
@@ -87,11 +87,10 @@ test('MC4: o pico agregado e a maior soma da arvore com os containers numa mesma
   assert.deepEqual(medir.picoAgregado([]), { bytes: 0, amostra: -1, arvore: 0, containers: 0 });
 });
 
-test('MC5: a pasta da copia foge do TMPDIR com sequencia hexadecimal de 8 (o id de um job), que os retratos normalizam', () => {
-  assert.equal(medir.pastaDeBase('/var/lib/jobs/a1b2c3d4/tmp'), '/tmp');
-  assert.equal(medir.pastaDeBase('/var/tmp/x-deadbeef0'), '/tmp');
-  assert.equal(medir.pastaDeBase('/tmp'), '/tmp');
-  assert.equal(medir.pastaDeBase('/var/tmp/medicao'), '/var/tmp/medicao');
+test('MC5: a copia nasce no cache do usuario, fora de pasta temporaria e sem sequencia hexadecimal de 8 (o id de um job)', () => {
+  assert.equal(medir.pastaDasCopias('/srv/u/.cache', '/srv/u'), '/srv/u/.cache/orkastery/medir-check');
+  assert.equal(medir.pastaDasCopias('/var/lib/jobs/a1b2c3d4/cache', '/srv/u'), '/srv/u/.cache/orkastery/medir-check');
+  assert.ok(!medir.pastaDasCopias('/srv/u/.cache', '/srv/u').startsWith('/tmp'));
 });
 
 test('MC6: as claims representativas existem no repositorio e cobrem o preparo na frente e no meio da cadeia', () => {
@@ -103,4 +102,21 @@ test('MC6: as claims representativas existem no repositorio e cobrem o preparo n
   }
   const naFrente = medir.CLAIMS_REPRESENTATIVAS.filter((c) => c.verificar.startsWith(preparo[0] + ' && '));
   assert.equal(naFrente.length, 2, 'duas com o preparo na frente e uma com ele no meio');
+});
+
+test('MC7: a rodada reprovada guarda o porque (teste que caiu, trecho, falha sem baseline e o resumo da barreira), para ser lida depois da copia', () => {
+  const linha = JSON.stringify({ tipo: 'verify_run', veredito: 'reprovado', motivos: ['verify.failed'], check: { modo: 'agile', origem: 'opcao' },
+    duracaoMs: 800000, falhasSemBaseline: ['test'], regressoes: [],
+    dadoPrivado: { policy: 'block', achados: 0, padroes: [], onde: [] },
+    comandos: [{ nome: 'test', ok: false, causa: 'exit', duracaoMs: 700000, testeQueCaiu: Array.from({ length: 12 }, (_, i) => `t${i}`), trecho: 'x'.repeat(900) }],
+    claims: [{ id: 'C2', verificado: false, motivo: 'claims.failed', duracaoMs: 10 }] });
+  const [r] = medir.lerRodadas(linha) as unknown as Array<Rodada & { falhasSemBaseline?: string[]; regressoes?: string[]; dadoPrivado?: unknown }>;
+  const test = r.comandos[0] as Rodada['comandos'][number] & { causa: string; testeQueCaiu: string[]; trecho: string };
+  assert.equal(test.causa, 'exit');
+  assert.equal(test.testeQueCaiu.length, 10);
+  assert.equal(test.trecho.length, 600);
+  assert.deepEqual(r.falhasSemBaseline, ['test']);
+  assert.equal(r.regressoes, undefined, 'lista vazia nao entra');
+  assert.deepEqual(r.dadoPrivado, { policy: 'block', achados: 0, padroes: [], onde: [] });
+  assert.deepEqual(r.claims, [{ id: 'C2', duracaoMs: 10, verificado: false, motivo: 'claims.failed' }]);
 });
