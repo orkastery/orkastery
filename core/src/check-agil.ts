@@ -5,8 +5,8 @@
  *
  *   - o preparo do Agile (`check.agile.preparo`, como o `tsgo` deste projeto) e, se ele falhar ou nao existir, o
  *     `verify.preparo`, com a peca `preparo` em fallback;
- *   - as claims, uma por vez, contra o produto do preparo: a claim que comeca pelos passos do `verify.preparo` roda sem
- *     eles quando a guarda vale (o preparo passou, a arvore e a mesma do fim do preparo e o hash dos caminhos de
+ *   - as claims, uma por vez, contra o produto do preparo: a claim com passos do `verify.preparo` na cadeia de `&&` roda
+ *     sem eles quando a guarda vale (o preparo passou, a arvore e a mesma do fim do preparo e o hash dos caminhos de
  *     `check.agile.produto` tambem); qualquer divergencia roda o comando inteiro, e o motivo vai ao ledger;
  *   - o `build` que e so passos do preparo, com a guarda valendo, sai do preparo desta rodada sem rodar de novo;
  *   - `typecheck`, as lanes de `test` (`check.agile.test`, ou o `verify.test`) e o `security_scan` num grupo paralelo, so
@@ -63,10 +63,50 @@ export function passosDoComando(comando: string): string[] {
 }
 
 /**
- * Tira da frente do comando os passos que sao passos do preparo, na forma `passo && resto`. So o texto exato conta: um
- * passo escrito de outro jeito (outra opcao, outro espaco) fica, e o comando roda inteiro.
+ * Os elos de nivel de topo de um comando encadeado por `&&`, ou `null` quando o comando tem o que este leitor nao acompanha
+ * com seguranca: subshell, chave, crase, substituicao, heredoc, comentario, quebra de linha, `$'...'` ou aspas abertas.
+ * Aspas simples, aspas duplas e a barra invertida sao respeitadas: `&&` dentro delas nao separa.
+ */
+export function elosDoComando(comando: string): string[] | null {
+  const elos: string[] = [];
+  let atual = '';
+  let aspas: '"' | "'" | null = null;
+  for (let i = 0; i < comando.length; i++) {
+    const c = comando[i];
+    const proximo = comando[i + 1] ?? '';
+    if (aspas === "'") { atual += c; if (c === "'") aspas = null; continue; }
+    if (c === '\\') { atual += c + proximo; i++; continue; }
+    if (aspas === '"') {
+      if (c === '`' || (c === '$' && (proximo === '(' || proximo === '{'))) return null;
+      atual += c;
+      if (c === '"') aspas = null;
+      continue;
+    }
+    if (c === "'" || c === '"') { aspas = c; atual += c; continue; }
+    if ('(){}`\n\r'.includes(c) || (c === '<' && proximo === '<') || (c === '$' && proximo === "'")) return null;
+    if (c === '#' && (atual === '' || /\s$/.test(atual))) return null;
+    if (c === '&' && proximo === '&') { elos.push(atual.trim()); atual = ''; i++; continue; }
+    atual += c;
+  }
+  if (aspas) return null;
+  elos.push(atual.trim());
+  return elos;
+}
+
+/**
+ * Tira do comando os passos do preparo, na frente (`passo && resto`) ou no meio da cadeia de `&&` de nivel de topo
+ * (`antes && passo && depois`). `&&` e `||` tem a mesma precedencia e associam a esquerda, entao `X && passo` vale o mesmo
+ * que `X` quando o passo passa sem mudar nada, e e isso que a guarda confere antes. So o texto exato do elo conta: um passo
+ * escrito de outro jeito (outra opcao, outro espaco, com redirecionamento) fica. O comando que `elosDoComando` nao le so
+ * perde os passos da frente, onde o texto e sempre de nivel de topo.
  */
 export function tirarPassosDoPreparo(comando: string, passosDoPreparo: readonly string[]): { passos: string[]; resto: string } {
+  const elos = elosDoComando(comando);
+  if (elos && elos.every((e) => e !== '')) {
+    const passos = elos.filter((e) => passosDoPreparo.includes(e));
+    if (passos.length === 0) return { passos, resto: comando.trim() };
+    return { passos, resto: elos.filter((e) => !passosDoPreparo.includes(e)).join(SEPARADOR) };
+  }
   let resto = comando.trim();
   const passos: string[] = [];
   for (;;) {
@@ -149,7 +189,7 @@ function doPreparo(nome: string, comando: string, preparo: ResultadoDeComando, p
 }
 
 /**
- * O executor das claims no Agile (D5): tira os passos do `verify.preparo` da frente do comando quando a guarda vale. O
+ * O executor das claims no Agile (D5): tira os passos do `verify.preparo` da cadeia do comando quando a guarda vale. O
  * comando gravado continua o inteiro, e o que rodou de fato fica em `comandoExecutado`.
  */
 export function executorDaClaimNoAgile(manifesto: Manifesto, executor: ExecutorUnico, guarda: GuardaDoProduto,

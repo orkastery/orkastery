@@ -69,6 +69,9 @@ check:
     produto:
       - "core/dist"
       - "core/dist-test"
+    # D14: o tsgo (TypeScript 7 nativo) emite dist e dist-test na arvore fria; com o build incremental do tsc presente,
+    # roda o preparo do Classic. Paridade com o tsc 5.9.3 em core/scripts/tsgo-paridade.cjs; sem ela, comente a linha.
+    preparo: "npm --prefix core run preparo:tsgo"
     # As lanes juntas no lugar do verify.test: o conjunto do test:ci e as integracoes locais (integracoes-locais.ts).
     test:
       hermetica: "npm --prefix core run test:hermetica"

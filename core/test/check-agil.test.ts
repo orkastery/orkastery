@@ -1,8 +1,8 @@
 /**
  * RM-072 (D3 a D8, T3 da ork-check5x): o motor do Agile Check no verify. O reaproveitamento do preparo com a guarda do
- * produto, o `build` que sai do preparo, o preparo do Agile com fallback, as lanes no lugar do `verify.test`, o grupo
- * paralelo pelo processo auxiliar, o relatorio das pecas e o Agile sem `check.agile`, que roda os mesmos comandos do
- * Classic. Os nomes comecam por "AGn:".
+ * produto (os passos saem da frente e, desde a T8, do meio da cadeia de `&&`), o `build` que sai do preparo, o preparo do
+ * Agile com fallback, as lanes no lugar do `verify.test`, o grupo paralelo pelo processo auxiliar, o relatorio das pecas e
+ * o Agile sem `check.agile`, que roda os mesmos comandos do Classic. Os nomes comecam por "AGn:".
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -10,7 +10,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { adicionarClaim } from '../src/claims';
-import { GuardaDoProduto, hashDoProduto, passosDoComando, testDasLanes, tirarPassosDoPreparo } from '../src/check-agil';
+import { elosDoComando, GuardaDoProduto, hashDoProduto, passosDoComando, testDasLanes, tirarPassosDoPreparo } from '../src/check-agil';
 import { rodarEmParalelo } from '../src/check-paralelo';
 import { lerLedger } from '../src/ledger';
 import { carregarManifesto } from '../src/manifest';
@@ -359,5 +359,56 @@ test('AG18: o texto do verify diz o reaproveitamento, o grupo e cada peca em fal
     const ingles = comLocale('en', () => textoDoVerify(r));
     assert.match(ingles, /\n {2}agile {7}1 claim command\(s\) against the prepared product, 0 in full; parallel group with lanes h\n/);
     assert.match(ingles, /\n {2}fallback {4}preparo: saiu com codigo 127: echo rapido; ran verify\.preparo\n/);
+  } finally { p.limpar(); }
+});
+
+test('AG19: os passos do preparo saem tambem do meio da cadeia de && de nivel de topo, e so de la', () => {
+  const preparo = passosDoComando('npm --prefix core run build && npm --prefix core run build:test');
+  const [build, buildTest] = preparo;
+  const tirar = (c: string): { passos: string[]; resto: string } => tirarPassosDoPreparo(c, preparo);
+  assert.deepEqual(tirar(`grep -q x f && ${build} && ${buildTest} && node --test y.js`), { passos: preparo, resto: 'grep -q x f && node --test y.js' });
+  assert.deepEqual(tirar(`node -e "a && ${build}" && ${buildTest} && z`), { passos: [buildTest], resto: `node -e "a && ${build}" && z` },
+    'dentro de aspas nao e elo');
+  assert.deepEqual(tirar(`awk '/x/{f++} END{exit f}' f && ${build} && z`), { passos: [build], resto: "awk '/x/{f++} END{exit f}' f && z" },
+    'chave dentro de aspas simples nao atrapalha');
+  assert.deepEqual(tirar(`a || b && ${build} && c`), { passos: [build], resto: 'a || b && c' }, '(a || b) && build && c vale (a || b) && c');
+  assert.deepEqual(tirar(`a || ${build} && c`), { passos: [], resto: `a || ${build} && c` }, 'passo dentro do braco do || fica');
+  assert.deepEqual(tirar(`${build} | tee log && c`), { passos: [], resto: `${build} | tee log && c` }, 'passo com pipe nao e o passo');
+  assert.deepEqual(tirar(`${build} > /dev/null && c`), { passos: [], resto: `${build} > /dev/null && c` }, 'com redirecionamento tambem nao');
+  assert.deepEqual(tirar(`echo a \\&\\& ${build} && c`), { passos: [], resto: `echo a \\&\\& ${build} && c` }, '&& escapado nao separa');
+  // O que o leitor nao acompanha so perde os passos da frente.
+  for (const meio of ['echo $(date)', 'echo `date`', '(cd x)', '{ x; }', 'echo "${X:-"a && b"}"', "echo $'a\\'b'", 'x # comentario', 'cat <<FIM']) {
+    assert.equal(elosDoComando(`${build} && ${meio} && ${buildTest} && c`), null, meio);
+    assert.deepEqual(tirar(`${build} && ${meio} && ${buildTest} && c`), { passos: [build], resto: `${meio} && ${buildTest} && c` }, meio);
+  }
+  assert.equal(elosDoComando('echo "aberta && x'), null, 'aspas abertas');
+  assert.deepEqual(elosDoComando('a&&b &&  c'), ['a', 'b', 'c']);
+  assert.deepEqual(tirar(`${build}&&c`), { passos: [build], resto: 'c' });
+});
+
+test('AG20: a claim com o build no meio roda sem ele contra o produto do preparo; com o produto mudado, inteira', () => {
+  const p = projetoTemporario('ag20');
+  try {
+    fs.mkdirSync(path.join(p.dir, 'out'));
+    fs.writeFileSync(path.join(p.dir, 'out', 'p.js'), 'v1');
+    comAgile(p, '  agile:\n    produto:\n      - "out"');
+    fs.appendFileSync(path.join(p.dir, '.git', 'info', 'exclude'), 'out/\n');
+    const { thread: t } = novaThread(p.carregado, { nome: 'meio', modo: 'auto' });
+    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'meio', verificar: ['grep -q x README.md && echo passo-a && echo passo-b && echo c1'] });
+    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'mexe', verificar: ['echo v2'] });
+    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'depois', verificar: ['grep -q x README.md && echo passo-a && echo c3'] });
+    const g = gravador((_nome, comando) => {
+      if (comando === 'echo v2') fs.writeFileSync(path.join(p.dir, 'out', 'p.js'), 'v2');
+      return {};
+    });
+    const r = verificar(p.carregado, t.id, { executor: g.executor });
+    assert.deepEqual(g.lista.slice(0, 4), [['preparo', 'echo passo-a && echo passo-b'], ['C1.1', 'grep -q x README.md && echo c1'],
+      ['C2.1', 'echo v2'], ['C3.1', 'grep -q x README.md && echo passo-a && echo c3']]);
+    const [c1, , c3] = r.claims.map((c) => c.execucoes[0]);
+    assert.equal(c1.comando, 'grep -q x README.md && echo passo-a && echo passo-b && echo c1', 'o comando gravado e o inteiro');
+    assert.equal(c1.comandoExecutado, 'grep -q x README.md && echo c1');
+    assert.deepEqual(c1.preparo, { reaproveitado: true, passos: ['echo passo-a', 'echo passo-b'] });
+    assert.equal(c3.comandoExecutado, undefined, 'rodou inteiro');
+    assert.deepEqual(c3.preparo, { reaproveitado: false, motivo: 'produto-mudou' });
   } finally { p.limpar(); }
 });

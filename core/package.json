@@ -59,6 +59,7 @@
     "test:ci": "npm run build && npm run build:test && node scripts/test-ci.js",
     "test:hermetica": "node scripts/test-lanes.cjs hermetica",
     "test:integracao": "node scripts/test-lanes.cjs integracao",
+    "preparo:tsgo": "node scripts/preparo-tsgo.cjs",
     "ork": "node dist/index.js",
     "prepack": "npm run build && node scripts/preparar-pacote.js",
     "postpack": "node scripts/preparar-pacote.js --limpar"
@@ -68,6 +69,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "markdownlint-cli2": "^0.22.1"
   },
   "dependencies": {
