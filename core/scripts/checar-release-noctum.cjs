@@ -7,7 +7,7 @@
  * `ork.noctum-aceite/v1`) e confere cada piloto exigido (o arquivo publicável na mesma pasta, o sha256 dele, `simulado:
  * false` sem marcas e o veredito `aprovado`) e a ratificação do dono, com a referência do recibo do ingresso tipado e a
  * data, que não vem antes do fim do último piloto. O alcance é toda
- * versão (`ALCANCE`), como decidido no item 8 do pacote de decisões da RM-058; para a próxima versão, o item 10 exige
+ * versão (`ALCANCE`): o item 8 do pacote de decisões da RM-058 segue sem resposta do dono e vale a alternativa recomendada; para a próxima versão, o item 10 exige
  * somente o primeiro piloto real (`PILOTOS_EXIGIDOS`).
  *
  * Cada piloto exigido tem o arquivo, o sha256 e o arco dele (sem espaço nem caixa), distintos dos outros, e a janela de ao menos as horas do plano
