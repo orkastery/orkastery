@@ -286,9 +286,11 @@ check:
     oxlint: false
 ```
 
-- `produto`: os caminhos que o preparo gera. A claim com passos do `verify.preparo` na cadeia de `&&` roda sem eles
-  enquanto a árvore e o hash desses caminhos forem os do fim do preparo; qualquer divergência roda o comando inteiro e
-  grava o motivo. Sem `produto`, nada é reaproveitado.
+- `produto`: os caminhos que o preparo gera. A claim que começa pelos passos do `verify.preparo` roda sem eles enquanto
+  a árvore e o hash desses caminhos forem os do fim do preparo; qualquer divergência roda o comando inteiro e grava o
+  motivo. Passo no meio da cadeia fica, porque o que vem antes dele pode mudar a entrada do build (o mutante que edita
+  o fonte e compila). Quando uma claim compila de novo e muda o produto sem mudar a árvore, o preparo roda outra vez
+  antes do grupo. Sem `produto`, nada é reaproveitado.
 - `preparo`: o preparo do Agile; se ele falhar, roda o `verify.preparo`, com a peça `preparo` em fallback. Aqui ele usa
   o `tsgo` (o TypeScript 7 nativo) na árvore fria e o preparo do Classic quando o build incremental do `tsc` já existe;
   `core/scripts/tsgo-paridade.cjs` confere o mesmo typecheck e o mesmo JavaScript do `tsc` 5.9.3.

@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-24T17:53:26-03:00
+atualizado_em: 2026-10-24T20:09:33-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -76,7 +76,9 @@ Medido na thread `ork-check5x`, numa máquina de 8 vCPU e 31 GB (cota de 7,2 CPU
 
 O Agile fica 1,4 a 1,5 vez mais rápido que o Classic no mesmo commit, com três rodadas seguidas aprovadas, e longe dos 3 min. O ganho vem do preparo com o `tsgo` na árvore fria, da varredura ao lado dos testes e das claims contra o produto do preparo; a suíte em si leva o mesmo tempo nos dois modos, porque é presa em CPU. O pico do Agile passa dos 4 GB por 0,5 a 0,9 GiB; o do Classic ficou em 3,98 GiB.
 
-A rodada do Classic reprovou no teste de integração que varre a fixture js com Docker real: ele passa sozinho e passou na baseline, mas sob a carga do `npm test` inteiro o Semgrep do catálogo estoura os 5 s por regra. No Agile, a lane de integração só começa depois da varredura do grupo (`check.agile.apos_a_varredura`), e as três rodadas passaram.
+A medição rodou antes de o CHECK voltar a tirar só os passos do preparo da frente das claims: hoje, na árvore fria, a claim com o build no meio da cadeia roda inteira e paga uma vez o build frio do `tsc`, e o grupo refaz o preparo antes de rodar, ainda em paralelo.
+
+A rodada do Classic reprovou no teste de integração que varre a fixture js com Docker real. Ele passa sozinho, e o condutor registra que já falhava na linha de base de 24/10 (a baseline da thread, gravada mais tarde no mesmo dia, passou): sob a carga do `npm test` inteiro, o Semgrep do catálogo estoura os 5 s por regra. No Agile, a lane de integração só começa depois da varredura do grupo (`check.agile.apos_a_varredura`), e as três rodadas passaram.
 
 | Frente do Agile | Medição | Paridade |
 | --- | --- | --- |
@@ -104,8 +106,8 @@ O paralelismo do grupo também tem teto: com a lane hermética, a de integraçã
   - as nove ferramentas de varredura continuam rodando no Agile, comparadas por impressão digital: zero achado novo ou desaparecido em relação à base;
   - `tsgo` só entra ligado no Agile se o typecheck for idêntico ao do `tsc` 5.9.3 no mesmo commit (mesmo conjunto de erros e nenhum erro novo);
   - `oxlint` só substitui o `eslint` no que ele cobre; regra type-aware continua coberta por quem a cobre hoje;
-  - o Agile Check completo fica em no máximo 3 min de parede em três rodadas consecutivas, medido pelo ledger, com o build da worktree numa cópia descartável do projeto;
-  - a máquina não passa de 4 GB de pico agregado no CHECK.
+  - o Agile Check completo fica em no máximo 3 min de parede em três rodadas consecutivas, medido pelo ledger, com o build da worktree numa cópia descartável do projeto (não atingido: 13 min 35 s a 14 min 25 s; vai para uma RM nova, pela D3);
+  - a máquina não passa de 4 GB de pico agregado no CHECK (não atingido: 4,5 a 4,9 GiB no Agile; aceito pelo condutor nesta máquina de 31 GB e levado para a RM nova, pela D3).
 - **Piloto, medição e critérios de expansão/interrupção:** piloto nas threads do próprio Orkastery por três rodadas de CHECK. Interrompe e volta ao dono se algum critério de paridade falhar, se o typecheck divergir do `tsc`, ou se a meta de 3 min não for atingida na fatia 2 (nesse caso a fatia 3 vira necessária e a meta é renegociada com o dono, sem reduzir cobertura). Frente sem paridade não entra no Agile por padrão: fica atrás de flag, e o desvio é registrado.
 
 ## Plano e decisões
@@ -146,6 +148,12 @@ O paralelismo do grupo também tem teto: com a lane hermética, a de integraçã
 7. A prova de que o Classic ficou intacto: um teste compara a lista de comandos e de ferramentas do Classic com a da base `b16c5be8` (mesma lista, mesma ordem), e uma rodada real do Classic no mesmo commit dá os mesmos resultados de teste e de varredura da linha de base.
 8. A documentação é esta página, o guia de configuração (`docs/guias/verificacao.md`, seção "Classic Check e Agile Check") e o CHANGELOG; a divulgação no site e no npm não é desta thread.
 
+**D3. Lançar com F1 e F2; os 3 min vão para uma RM nova. Decidida pelo dono em 24/10/2026, às 13:23 (resposta 3a no Telegram, transmitida pelo condutor).** Diante da medição do GO, o dono escolheu lançar o ganho medido em vez de segurar a entrega. Consequências:
+
+1. O Agile Check entra como padrão com as fatias 1 e 2, e o Classic Check continua disponível por `check.mode: classic` ou `--check classic`.
+2. A meta de 3 min fica registrada como não atingida (o Agile mediu de 13 min 35 s a 14 min 25 s, contra 20 min 37 s do Classic no mesmo commit) e vai para uma RM nova, com a fatia 3 (seletividade) e o piso de CPU da suíte (518 s de parede com 7,2 CPUs).
+3. O pico de 4,5 a 4,9 GiB do Agile fica registrado como não atingido contra os 4 GB e foi aceito pelo condutor nesta máquina de 31 GB; o teto de uma ferramenta por vez na varredura do grupo fica para a mesma RM nova.
+
 ## Fontes
 
 - Medição de 24/10/2026 numa máquina de 8 vCPU e 31 GB, com outras cargas rodando em paralelo, sobre o checkout do projeto na versão 0.5.6: `npm test` (15 min 22 s, 4.023 s de CPU, 1,52 GB de pico, 5.718 testes), `tsc --build` (16,9 s), `tsc --build tsconfig.test.json` (35,2 s, 2,16 GB), `ork security-scan` (2 min 27 s, 23.422 achados), `docker run` com imagem quente (0,62 s).
@@ -176,10 +184,11 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: condutor da thread `ork-check5x`; A: Julio; C: A definir; I: A definir.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** análise e medição da linha de base feitas por Hermes em 24/10/2026 a pedido do dono; a implementação vai pela thread `#Auto` `ork-check5x`; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** o dono escolhe o que fazer com o alvo de tempo e o de memória diante da medição (seguir com o Agile como padrão e o ganho medido, ou pedir a fatia 3); depois, CHECK da `ork-check5x`, com o modo da rodada no parecer, e SHIP com o merge na `main`; a versão no npm também é decisão do dono; responsável pela condução: a sessão condutora da thread; prazo: o mais rápido possível, por pedido do dono.
+- **Próxima ação, responsável e prazo:** CHECK da `ork-check5x`, com o modo da rodada no parecer, SHIP com o merge na `main` e MASTER; abrir a RM nova da D3 (os 3 min, a fatia 3, o piso de CPU da suíte e o pico de memória); a versão no npm é decisão do dono; responsável pela condução: a sessão condutora da thread; prazo: o mais rápido possível, por pedido do dono.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-24 | Item criado em Discovery com F1, F2 e F3 propostas, e D1 já decidida pela alternativa B | Medição de 24/10/2026 e pedido do dono de executar agora em `#Auto` | Julio |
 | 2026-10-24 | D2: o Classic Check fica como o CHECK de hoje e o Agile Check, novo, vira o padrão; título e frase de abertura passam a dizer os dois modos | Pedido do dono de 24/10/2026, na abertura da `ork-check5x` | Julio |
 | 2026-10-24 | GO da `ork-check5x`: Agile Check com as fatias 1 e 2, três rodadas seguidas aprovadas entre 13 min 35 s e 14 min 25 s contra 20 min 37 s do Classic; `osv-scanner` e `oxlint` atrás de flag; o alvo de 3 min e o de 4 GB voltam ao dono | Seção "Medição do GO" | Condutor da thread |
+| 2026-10-24 | D3: lançar com F1 e F2; o alvo de 3 min e o de 4 GB ficam não atingidos e vão para uma RM nova, com a fatia 3 e o piso de CPU da suíte | Resposta 3a do dono no Telegram (24/10, 13:23) e decisão do condutor sobre a memória | Julio |
