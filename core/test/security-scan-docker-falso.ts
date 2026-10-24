@@ -16,6 +16,7 @@
  *   ORK_FAKE_DOCKER_LOG             file where each call is appended as a JSON line {as, args}
  *   ORK_FAKE_DOCKER_MODE            `daemon-down` (info fails) or `pull-fails` (image absent and pull fails)
  *   ORK_FAKE_DOCKER_SLEEP           catalog tool name that sleeps 60 s before answering
+ *   ORK_FAKE_DOCKER_SLEEP_MS        every tool run sleeps this many ms first (RM-072: proves the Agile scan overlaps runs)
  *   ORK_FAKE_DOCKER_FAIL            catalog tool name that exits 2 without output; `<tool>@<case>` only for that case
  *                                   (`semgrep@empty` fails on the clean base and runs on the fixture HEAD)
  *   ORK_FAKE_DOCKER_GARBAGE         catalog tool name whose report file is not JSON
@@ -100,6 +101,8 @@ function identify(candidates: ToolSpec[], args: string[]): { tool: ToolSpec; fil
 /** Emulates one tool run; `src` is the host path of the scanned tree, `out` maps an out arg to a host path. */
 function emulate(tool: ToolSpec, file: string, outHost: string | undefined, args: string[], src: string, native: boolean): number {
   if (process.env.ORK_FAKE_DOCKER_SLEEP === tool.name) sleep(60000);
+  const espera = Number(process.env.ORK_FAKE_DOCKER_SLEEP_MS);
+  if (Number.isFinite(espera) && espera > 0) sleep(espera);
   const stackDir = (() => {
     // Per-stack wrappers pass {stackDir} as a positional parameter; Semgrep and Ruff as the last argument.
     const last = args[args.length - 1];

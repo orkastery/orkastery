@@ -4618,7 +4618,8 @@ function executarComando(argvBruto: string[]): number {
       // Relatorio por SHA no estado da arvore principal; o argv cru depois do comando (o parser e estrito).
       const carregado = exigirManifesto();
       return executarSecurityScan(argv.slice(argv.indexOf('security-scan') + 1),
-        { raiz: carregado.raiz, estado: raizDoEstado(carregado.raiz), escrever: (texto) => console.log(texto) });
+        { raiz: carregado.raiz, estado: raizDoEstado(carregado.raiz), escrever: (texto) => console.log(texto),
+          ...(carregado.manifesto.check?.mode ? { modoDoManifesto: carregado.manifesto.check.mode } : {}) });
     }
     case 'ship':
       return comandoShip(args);

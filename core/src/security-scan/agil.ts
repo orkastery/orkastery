@@ -1,0 +1,151 @@
+/**
+ * RM-072 (D9, D10 da ork-check5x): a varredura do Agile Check.
+ *
+ * A rodada e a mesma do Classic (`runScan`): a arvore do HEAD por worktree destacada, a base resolvida igual, as mesmas
+ * ferramentas do catalogo e a mesma classificacao contra a base. O que muda e o empacotamento: a arvore da base sai uma
+ * vez, antes, e cada ferramenta roda num trabalhador proprio (`trabalhador.ts`), ao mesmo tempo, chamando o mesmo
+ * `scanTool` do Classic; o relatorio sai na ordem do catalogo. As ferramentas do Trivy montam um diretorio persistente
+ * por ferramenta no `/tmp/trivy-cache` do catalogo, para o banco nao descer a cada rodada (cache de banco, nunca de
+ * resultado: o HEAD e sempre varrido de novo, e a base usa o cache por SHA que o `scanBase` ja tem, com a chave da
+ * especificacao do Agile). Cada peca do Agile que nao pode rodar cai para o equivalente do Classic e vai ao relatorio
+ * (`check.pecas`) e ao `ORK_CHECK_RELATORIO` do verify.
+ */
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { rodarEmParalelo } from '../check-paralelo';
+import { ENV_RELATORIO_DO_CHECK } from '../check-modo';
+import { raizDoEstado } from '../estado-thread';
+import { classify } from './compare';
+import { loadConfig, loadDismissals } from './config';
+import { RoundGuard } from './guard';
+import {
+  cacheRoot, checkout, emptyCounts, failedAll, git, resolveBase, stackPairs, unitsOf,
+  type RunScanOptions, type ToolResult, type TrabalhoDaFerramenta,
+} from './run';
+import { loadTools, toolsFor } from './tools';
+import type { PecaDaVarredura, ScanReport, ToolSpec } from './types';
+
+const TRABALHADOR = path.join(__dirname, 'trabalhador.js');
+/** Sem prazo da rodada, o trabalhador ganha o maior prazo do catalogo para a HEAD e para a base, com folga. */
+const FOLGA_MS = 60_000;
+
+const aspas = (s: string): string => `'${s.replace(/'/g, `'\\''`)}'`;
+
+/**
+ * O Semgrep baixa as regras do registro (`p/typescript`, ...) a cada rodada, e nao tem cache delas. Regra lida de arquivo
+ * local ganha outro `check_id` (o prefixo do caminho), o que muda a impressao digital de todo achado: o cache de regras
+ * fica de fora, declarado como peca em fallback.
+ */
+export const SEMGREP_SEM_CACHE: PecaDaVarredura = { peca: 'cache-semgrep', estado: 'fallback',
+  motivo: 'regra lida de arquivo local troca o check_id e a impressao digital', fallback: 'regras do registro a cada rodada, como no Classic' };
+
+/**
+ * A especificacao da ferramenta no Agile: as do Trivy montam o cache persistente dela no `/tmp/trivy-cache` que o
+ * catalogo ja usa. Sem o diretorio, a do catalogo, com a peca em fallback.
+ */
+export function especificacaoDoAgile(t: ToolSpec, pecas: PecaDaVarredura[]): ToolSpec {
+  if (!t.name.startsWith('trivy-') || !t.args.includes('/tmp/trivy-cache')) return t;
+  const host = path.join(cacheRoot(), 'cache', t.name);
+  try {
+    fs.mkdirSync(host, { recursive: true, mode: 0o700 });
+    pecas.push({ peca: `cache-${t.name}`, estado: 'agile' });
+    return { ...t, cacheMounts: [{ host, container: '/tmp/trivy-cache' }] };
+  } catch (e) {
+    pecas.push({ peca: `cache-${t.name}`, estado: 'fallback', motivo: (e as NodeJS.ErrnoException).code ?? (e as Error).message,
+      fallback: 'cache efemero do catalogo' });
+    return t;
+  }
+}
+
+function relatar(pecas: PecaDaVarredura[]): void {
+  const arquivo = process.env[ENV_RELATORIO_DO_CHECK];
+  if (!arquivo) return;
+  try {
+    fs.appendFileSync(arquivo, pecas.map((p) => JSON.stringify({ tipo: 'peca', ...p })).join('\n') + '\n');
+  } catch { /* o relatorio e evidencia do verify, nao condicao da varredura */ }
+}
+
+/** A rodada do Agile: as mesmas regras do `runScan`, com as ferramentas em paralelo e os caches de banco. */
+export function runScanAgil(opts: RunScanOptions): ScanReport {
+  const start = path.resolve(opts.root);
+  const root = git(start, ['rev-parse', '--show-toplevel']) ?? start;
+  const generatedAt = (opts.now ?? (() => new Date()))().toISOString();
+  const head = git(root, ['rev-parse', 'HEAD']) ?? '';
+  let mainRoot = root;
+  try { mainRoot = raizDoEstado(root); } catch { /* not a linked worktree git understands: use the root itself */ }
+  const pecas: PecaDaVarredura[] = [{ peca: 'varredura-paralela', estado: 'agile' }];
+  const report: ScanReport = { schema: 'ork.security-scan/v1', base: '', head, generatedAt, stacks: [], tools: [], excluded: [], findings: [],
+    check: { modo: 'agile', pecas } };
+  const catalog = opts.tools ?? loadTools();
+  if (!head) {
+    const config = loadConfig(root);
+    const pairs = stackPairs(root, config);
+    report.stacks = [...new Set(pairs.map(p => p.stack))];
+    report.tools = failedAll(toolsFor(report.stacks, catalog).filter(t => unitsOf(t, pairs).length > 0), config, 'base-unresolved');
+    relatar(pecas);
+    return report;
+  }
+  const guard = new RoundGuard(mainRoot);
+  try {
+    let headTree: string;
+    try { headTree = checkout(mainRoot, head, guard); } catch (e) {
+      const config = loadConfig(root);
+      const pairs = stackPairs(root, config);
+      report.stacks = [...new Set(pairs.map(p => p.stack))];
+      report.tools = failedAll(toolsFor(report.stacks, catalog).filter(t => unitsOf(t, pairs).length > 0), config,
+        `head-${((e as Error).message.split('\n')[0] ?? '').slice(0, 200)}`);
+      return report;
+    }
+    const config = loadConfig(headTree);
+    const dismissals = loadDismissals(headTree);
+    const pairs = stackPairs(headTree, config);
+    report.stacks = [...new Set(pairs.map(p => p.stack))];
+    const tools = toolsFor(report.stacks, catalog).filter(t => unitsOf(t, pairs).length > 0);
+    const base = resolveBase(root, path.resolve(opts.stateRoot), opts.base);
+    if (!base) { report.tools = failedAll(tools, config, 'base-unresolved'); return report; }
+    report.base = base;
+    if (tools.some(t => t.name === 'semgrep')) pecas.push(SEMGREP_SEM_CACHE);
+    const count = git(root, ['rev-list', '--count', `${base}..${head}`]);
+    const deadline = opts.deadlineMs === undefined ? null : Date.now() + opts.deadlineMs;
+    // A arvore da base sai uma vez, aqui, e os trabalhadores a dividem (cada um varre a sua ferramenta nela).
+    let baseTree: string | undefined = base === head ? headTree : undefined;
+    if (!baseTree) {
+      try { baseTree = checkout(mainRoot, base, guard); } catch { /* cada trabalhador tenta de novo e falha com base-worktree-failed */ }
+    }
+    const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ork-security-scan-agil-')));
+    guard.add('outDirs', dir);
+    const prazo = deadline === null ? Math.max(...tools.map(t => t.timeoutMs)) * 2 + FOLGA_MS : Math.max(1000, deadline - Date.now() + FOLGA_MS);
+    const trabalhos = tools.map((t, i) => {
+      const trabalho: TrabalhoDaFerramenta = { tool: especificacaoDoAgile(t, pecas), units: unitsOf(t, pairs), config,
+        ctx: { headTree, mainRoot, base, head, rangeCommits: count === null ? null : Number(count), deadline, ...(baseTree ? { baseTree } : {}) } };
+      const arquivo = path.join(dir, `${i}.json`);
+      fs.writeFileSync(arquivo, JSON.stringify(trabalho), { mode: 0o600 });
+      return { nome: t.name, comando: `${aspas(process.execPath)} ${aspas(TRABALHADOR)} ${aspas(arquivo)}`, cwd: root, prazoMs: prazo };
+    });
+    const processos = rodarEmParalelo(trabalhos);
+    const excluded = new Set<string>();
+    tools.forEach((t, i) => {
+      const p = processos[i];
+      let r: ToolResult | null = null;
+      try { r = JSON.parse(p.stdout) as ToolResult; } catch { r = null; }
+      if (!r || !r.run) {
+        const motivo = (p.stderr.split('\n').filter(l => l.trim()).pop() ?? '').slice(0, 160);
+        r = { run: { name: t.name, category: t.category, version: t.version, executor: null, state: 'failed',
+          reason: `agile-worker-${p.code}${motivo && t.category !== 'secret' ? `: ${motivo}` : ''}`, counts: emptyCounts() }, head: [], base: [] };
+      }
+      if (r.run.state === 'ran') {
+        const c = classify(r.head, r.base, dismissals, config.exclude);
+        for (const f of c.findings) r.run.counts[f.status][f.severity]++;
+        report.findings.push(...c.findings);
+        c.excluded.forEach(e => excluded.add(e));
+      }
+      report.tools.push(r.run);
+    });
+    report.excluded = [...excluded].sort();
+    return report;
+  } finally {
+    guard.close();
+    relatar(pecas);
+  }
+}

@@ -53,6 +53,11 @@ export interface ToolSpec {
   env?: Record<string, string>;
   /** When set, the executor writes the tool stdout to `{out}/<stdoutFile>` instead of the tool doing it. */
   stdoutFile?: string;
+  /**
+   * RM-072 (D10): persistent cache directories mounted read-write in the container (the Trivy database), set only by the
+   * Agile Check spec (`agil.ts`); the catalog never carries it, so the Classic container keeps the tmpfs-only `/tmp`.
+   */
+  cacheMounts?: Array<{ host: string; container: string }>;
   /** Output validity contract, see the failure contract above; file names are relative to {out}. */
   expect: {
     files: string[]; shape: 'array' | 'object' | 'stream'; failIfKey?: string[]; requireKey?: string[];
@@ -71,7 +76,12 @@ export interface ToolRun {
 export interface ScanReport {
   schema: 'ork.security-scan/v1'; base: string; head: string; generatedAt: string;
   stacks: Stack[]; tools: ToolRun[]; excluded: string[]; findings: Finding[];
+  /** RM-072 (D9): only in an Agile Check round, the mode and each Agile piece (ran, or fell back to the Classic one). */
+  check?: { modo: 'agile'; pecas: PecaDaVarredura[] };
 }
+
+/** RM-072 (D8, D9): one piece of the Agile scan and what happened to it; `fallback` names the Classic equivalent that ran. */
+export interface PecaDaVarredura { peca: string; estado: 'agile' | 'fallback'; motivo?: string; fallback?: string }
 
 /** Categories where any new finding enters the loop. */
 export const LOOP_CATEGORIES_ANY: readonly Category[] = ['secret'];
