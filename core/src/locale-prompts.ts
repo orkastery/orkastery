@@ -77,7 +77,8 @@ export const PROMPTS_PT_BR: MensagensDePrompts = {
     GOAL: 'GOAL (F1): objetivo verificavel, impact map, criterios de sucesso e claims com comando de verificacao. Nao implementa.',
     PLAN: 'PLAN (F2): plano com tarefas, touch_paths, decisoes D1..Dn com domicilio unico e verify executavel por tarefa. Nao implementa.',
     GO: 'GO (F3): implementacao slice por slice, um commit atomico por tarefa, dentro da worktree da thread.',
-    CHECK: 'CHECK (F4): verificacao contra a baseline (regressao versus divida pre-existente), review de codigo, testes, seguranca e performance.',
+    CHECK: 'CHECK (F4): verificacao contra a baseline (regressao versus divida pre-existente), review de codigo, testes, seguranca e performance; ' +
+      'o parecer diz o modo do CHECK da rodada (Agile Check ou Classic Check, da linha `check` do `ork verify`).',
     SHIP: 'SHIP (F5): merge serializado, push provado por comando, roadmap atualizado e plano de rollback.',
     MASTER: 'MASTER (F6): MASTER log com postmortem tipado, licoes e o score humano de 0 a 5. Uma entrega sem MASTER log nao aconteceu.',
   },
@@ -108,7 +109,8 @@ export const PROMPTS_PT_BR: MensagensDePrompts = {
     '',
     `Antes de encerrar o bloco com GO, rode \`ork verify ${t}\` e o build declarado no manifesto, ambos em primeiro plano.`,
     `Gere o bundle com \`ork ci prepare ${t}\` e faça o commit atômico final \`ci(${t}): bundle ...\`.`,
-    `Grave \`.orkastery/threads/${t}/pr-body.md\` curto, no idioma do projeto; se o perfil não puder gravá-lo pelo transporte autorizado, devolva o corpo completo no resumo final.`,
+    `Grave \`.orkastery/threads/${t}/pr-body.md\` curto, no idioma do projeto, com o modo do CHECK da rodada (Agile Check ou Classic Check, da linha \`check\` do \`ork verify\`); ` +
+      'se o perfil não puder gravá-lo pelo transporte autorizado, devolva o corpo completo no resumo final.',
     'O rito é idêntico em Claude Code e Codex. Ele fecha o GO, mas não autoriza SHIP, push, PR ou merge.',
   ].join('\n'),
   contextoDoGrafo: (thread) => '\n\n## Contexto do grafo (opcional)\n' +
@@ -170,7 +172,8 @@ export const PROMPTS_EN: MensagensDePrompts = {
     GOAL: 'GOAL (F1): verifiable objective, impact map, success criteria, and claims with verification commands. Does not implement.',
     PLAN: 'PLAN (F2): sliced tasks, queryable touch_paths, D1..Dn decisions with one home, and executable verify per task. Does not implement.',
     GO: 'GO (F3): implement slice by slice, one atomic commit per task, inside the thread worktree.',
-    CHECK: 'CHECK (F4): verify against the baseline (regressions versus pre-existing debt), then review code, tests, security, and performance.',
+    CHECK: 'CHECK (F4): verify against the baseline (regressions versus pre-existing debt), then review code, tests, security, and performance; ' +
+      'the verdict names the CHECK mode of the round (Agile Check or Classic Check, from the `check` line of `ork verify`).',
     SHIP: 'SHIP (F5): serialized merge, command-proven push, updated roadmap, and rollback plan.',
     MASTER: 'MASTER (F6): typed POSTMORTEM, MASTER log, lessons, and a human score from 0 to 5. A delivery without a MASTER log did not happen.',
   },
@@ -200,7 +203,8 @@ export const PROMPTS_EN: MensagensDePrompts = {
     '',
     `Before ending a block that includes GO, run \`ork verify ${t}\` and the build declared in the manifest, both in the foreground.`,
     `Generate the bundle with \`ork ci prepare ${t}\` and make the final atomic commit \`ci(${t}): bundle ...\`.`,
-    `Write a short \`.orkastery/threads/${t}/pr-body.md\` in the project language; if the profile cannot write it through the authorized transport, return the full body in the final summary.`,
+    `Write a short \`.orkastery/threads/${t}/pr-body.md\` in the project language, naming the CHECK mode of the round (Agile Check or Classic Check, from the \`check\` line of \`ork verify\`); ` +
+      'if the profile cannot write it through the authorized transport, return the full body in the final summary.',
     'The ritual is identical in Claude Code and Codex. It closes GO, but it does not authorize SHIP, push, PR, or merge.',
   ].join('\n'),
   contextoDoGrafo: (thread) => '\n\n## Graph context (optional)\n' +
