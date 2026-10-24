@@ -5,8 +5,8 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado | Sessão |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| vps | ork-check5x | #Auto | GOAL | claude-bg opus/max | RM-072 | — | 24/10 13:43 | viva |
-| vps | ork-noctumvaga | #Fast | GO | sem despacho | — | — | 24/10 13:43 | parada desde 13:38: nenhuma sessão despachada na fase GO |
-| vps | ork-rm058blocob | #Auto | PLAN | codex gpt-5.6-sol/xhigh | RM-058 | — | 24/10 13:43 | parada desde 13:35: sessão 01a16ec1 encerrada (completed) |
+| vps | ork-check5x | #Auto | GOAL | claude-bg opus/max | RM-072 | — | 24/10 16:43 | viva |
+| vps | ork-noctumvaga | #Fast | GO | sem despacho | — | — | 24/10 16:43 | parada desde 16:38: nenhuma sessão despachada na fase GO |
+| vps | ork-rm058blocob | #Auto | PLAN | codex gpt-5.6-sol/xhigh | RM-058 | — | 24/10 16:43 | parada desde 16:35: sessão 01a16ec1 encerrada (completed) |
 
-Horários de Brasília.
+Horários em UTC.
