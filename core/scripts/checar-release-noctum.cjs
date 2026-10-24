@@ -197,31 +197,34 @@ function afirmacoes(raiz) {
   return achados;
 }
 
-function main(argv) {
+/** Executa o contrato sem depender de processo filho; a CLI só transporta stdout, stderr e status. */
+function executar(argv) {
   const texto = argv.includes('--texto');
   const resto = argv.filter((x) => x !== '--texto');
   if (resto.some((x) => x.startsWith('-')) || resto.length > 1) {
-    process.stderr.write('uso: node core/scripts/checar-release-noctum.cjs [--texto] [raiz]\n');
-    return 2;
+    return { status: 2, stdout: '', stderr: 'uso: node core/scripts/checar-release-noctum.cjs [--texto] [raiz]\n' };
   }
   const raiz = path.resolve(resto[0] ?? path.join(__dirname, '..', '..'));
   let aceite = null, recusa = null;
   try { aceite = conferirAceite(raiz); }
   catch (e) { if (!(e instanceof Recusa)) throw e; recusa = e; }
   if (!texto) {
-    if (recusa) { process.stderr.write(`${recusa.message}\n`); return 1; }
-    process.stdout.write(`release.noctum: o aceite confere: pilotos ${aceite.pilotos.join(', ')} aprovados, ratificados por ${aceite.por}\n`);
-    return 0;
+    if (recusa) return { status: 1, stdout: '', stderr: `${recusa.message}\n` };
+    return { status: 0, stdout: `release.noctum: o aceite confere: pilotos ${aceite.pilotos.join(', ')} aprovados, ratificados por ${aceite.por}\n`, stderr: '' };
   }
-  if (aceite) { process.stdout.write('release.noctum: o aceite confere, e o texto pode anunciar o #Noctum\n'); return 0; }
+  if (aceite) return { status: 0, stdout: 'release.noctum: o aceite confere, e o texto pode anunciar o #Noctum\n', stderr: '' };
   const achados = afirmacoes(raiz);
   if (achados.length) {
-    process.stderr.write(`release.noctum.texto-sem-aceite: ${achados.length} trecho(s) anunciam o #Noctum sem o aceite dos pilotos ` +
-      `(${recusa.motivo}); diga o que é verdade hoje (ainda não validado) ou espere o aceite:\n${achados.map((x) => `  ${x}`).join('\n')}\n`);
-    return 1;
+    return { status: 1, stdout: '', stderr: `release.noctum.texto-sem-aceite: ${achados.length} trecho(s) anunciam o #Noctum sem o aceite dos pilotos ` +
+      `(${recusa.motivo}); diga o que é verdade hoje (ainda não validado) ou espere o aceite:\n${achados.map((x) => `  ${x}`).join('\n')}\n` };
   }
-  process.stdout.write('release.noctum: nenhum texto anuncia o #Noctum como lançado, entregue, validado ou disponível\n');
-  return 0;
+  return { status: 0, stdout: 'release.noctum: nenhum texto anuncia o #Noctum como lançado, entregue, validado ou disponível\n', stderr: '' };
 }
 
-process.exitCode = main(process.argv.slice(2));
+module.exports = { executar };
+if (require.main === module) {
+  const resultado = executar(process.argv.slice(2));
+  process.stdout.write(resultado.stdout);
+  process.stderr.write(resultado.stderr);
+  process.exitCode = resultado.status;
+}

@@ -8,7 +8,6 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { dirTemporario } from './apoio';
 
@@ -16,7 +15,8 @@ const SCRIPT = path.resolve(__dirname, '../../scripts/checar-release-noctum.cjs'
 const RAIZ_DO_REPO = path.resolve(__dirname, '../../..');
 const PASTA = 'docs/roadmap/evidencias/RM-058';
 
-const rodar = (raiz: string, ...args: string[]) => spawnSync(process.execPath, [SCRIPT, ...args, raiz], { encoding: 'utf8', timeout: 60_000 });
+const { executar } = require(SCRIPT) as { executar: (argv: string[]) => { status: number; stdout: string; stderr: string } };
+const rodar = (raiz: string, ...args: string[]) => executar([...args, raiz]);
 
 interface Piloto { id: string; arquivo: string; sha256: string; simulado: boolean; veredito: string }
 
