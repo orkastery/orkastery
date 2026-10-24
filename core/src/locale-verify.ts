@@ -53,6 +53,12 @@ export const VERIFY_PT_BR = {
       : 'padrao: o manifesto nao declara check.mode'})`,
   baseline: (sha: string, quando: string) => `  baseline    ${sha} de ${quando}`,
   semBaseline: '  baseline    (nao gravada: falha nao pode ser chamada de regressao)',
+  // RM-072 (D8): o que o Agile fez na rodada, e cada peca que caiu para o equivalente do Classic.
+  agile: (reaproveitadas: number, inteiras: number, paralelo: boolean, lanes: string[]) =>
+    `  agile       ${reaproveitadas} comando(s) de claim contra o produto do preparo, ${inteiras} inteiro(s); ` +
+    `${paralelo ? `grupo em paralelo${lanes.length ? ` com as lanes ${lanes.join(', ')}` : ''}` : 'comandos do manifesto em serie'}`,
+  agileFallback: (peca: string, motivo: string, fallback: string) =>
+    `  fallback    ${peca}: ${motivo || 'sem motivo dito'}; rodou ${fallback || 'o equivalente do Classic'}`,
   preparo: (situacao: string, segundos: number, alterado: boolean) => `  preparo     ${situacao} em ` +
     `${segundos} s, uma vez para a rodada; produto ` +
     `${alterado ? 'MUDOU no meio da rodada: nenhum veredito vale' : 'conferido do preparo ao fim'}`,
@@ -158,6 +164,10 @@ export const VERIFY_EN: typeof VERIFY_PT_BR = {
     : origem === 'manifesto' ? `manifest: check.mode: ${modo}` : 'default: the manifest does not declare check.mode'})`,
   baseline: (sha, quando) => `  baseline    ${sha} from ${quando}`,
   semBaseline: '  baseline    (not recorded: a failure cannot be called a regression)',
+  agile: (reaproveitadas, inteiras, paralelo, lanes) =>
+    `  agile       ${reaproveitadas} claim command(s) against the prepared product, ${inteiras} in full; ` +
+    `${paralelo ? `parallel group${lanes.length ? ` with lanes ${lanes.join(', ')}` : ''}` : 'manifest commands in series'}`,
+  agileFallback: (peca, motivo, fallback) => `  fallback    ${peca}: ${motivo || 'no reason given'}; ran ${fallback || 'the Classic equivalent'}`,
   preparo: (situacao, segundos, alterado) => `  prepare     ${situacao} in ${segundos} s, once for the run; product ` +
     `${alterado ? 'CHANGED during the run: no verdict counts' : 'checked from prepare to end'}`,
   stealMedido: (pct, fonte, limiar) =>

@@ -6,7 +6,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { lerYaml, ValorYaml } from './yaml';
-import { ConfigDeEmbedding, Manifesto, Modo } from './types';
+import { ConfigDeEmbedding, ConfigDoAgile, Manifesto, Modo } from './types';
 import { modoAposentado, ORDEM_DOS_MODOS, parseModo, substitutosVivos } from './modos';
 import { ORDEM_DOS_RUNTIMES, RUNTIME_PADRAO, runtimeConhecido } from './runtimes';
 import { SANDBOX_PADRAO, SANDBOXES_DO_CODEX } from './adapters/codex';
@@ -212,7 +212,66 @@ function lerCheck(v: ValorYaml | undefined, erros: string[], avisos: string[]): 
     if (modo) check.mode = modo;
     else erros.push(`check.mode invalido: ${exibir(v.mode)} (aceitos: ${MODOS_DO_CHECK.join(', ')})`);
   }
+  const agile = lerAgile(v.agile, erros, avisos);
+  if (agile) check.agile = agile;
   return check;
+}
+
+/** Nome de lane: o que vira `test:<lane>` no ledger. */
+const NOME_DE_LANE = /^[a-z0-9][a-z0-9-]{0,31}$/;
+
+/**
+ * RM-072 (D3): o bloco `check.agile`. Cada chave liga uma peca do Agile; tipo errado e erro do manifesto, porque uma
+ * peca mal escrita que sumisse em silencio mudaria o que o CHECK roda. `produto` so aceita caminho relativo dentro da
+ * raiz, fora do estado do `ork` e do `.git` (o hash da guarda le esses arquivos).
+ */
+function lerAgile(v: ValorYaml | undefined, erros: string[], avisos: string[]): ConfigDoAgile | undefined {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== 'object' || Array.isArray(v)) {
+    erros.push(`check.agile precisa ser um mapa (recebido ${exibir(v)})`);
+    return undefined;
+  }
+  const conhecidas = ['produto', 'preparo', 'test', 'osv_scanner', 'oxlint'];
+  for (const chave of Object.keys(v)) {
+    if (!conhecidas.includes(chave)) avisos.push(`check.agile.${chave} desconhecida; o bloco check.agile tem ${conhecidas.join(', ')}`);
+  }
+  const agile: ConfigDoAgile = {};
+  if (v.produto !== undefined && v.produto !== null) {
+    const lista = Array.isArray(v.produto) ? v.produto : [v.produto];
+    const validos: string[] = [];
+    for (const item of lista) {
+      const caminho = typeof item === 'string' ? item.trim().replace(/\/+$/, '') : '';
+      const normal = caminho ? path.posix.normalize(caminho) : '';
+      if (!caminho || path.isAbsolute(caminho) || normal.startsWith('..') || /^(\.orkastery|\.git)(\/|$)/.test(normal)) {
+        erros.push(`check.agile.produto: ${exibir(item)} precisa ser um caminho relativo dentro da raiz, fora de .orkastery e .git`);
+      } else validos.push(normal);
+    }
+    if (validos.length) agile.produto = validos;
+  }
+  if (v.preparo !== undefined && v.preparo !== null) {
+    if (typeof v.preparo === 'string' && v.preparo.trim()) agile.preparo = v.preparo.trim();
+    else erros.push(`check.agile.preparo precisa ser o comando, em texto (recebido ${exibir(v.preparo)})`);
+  }
+  if (v.test !== undefined && v.test !== null) {
+    if (typeof v.test !== 'object' || Array.isArray(v.test)) {
+      erros.push(`check.agile.test precisa ser um mapa de lane para comando (recebido ${exibir(v.test)})`);
+    } else {
+      const lanes: Record<string, string> = {};
+      for (const [lane, comando] of Object.entries(v.test)) {
+        if (!NOME_DE_LANE.test(lane)) erros.push(`check.agile.test.${lane}: nome de lane aceita [a-z0-9-], ate 32 caracteres`);
+        else if (typeof comando !== 'string' || !comando.trim()) erros.push(`check.agile.test.${lane} precisa ser o comando, em texto`);
+        else lanes[lane] = comando.trim();
+      }
+      if (Object.keys(lanes).length) agile.test = lanes;
+    }
+  }
+  for (const chave of ['osv_scanner', 'oxlint'] as const) {
+    const valor = v[chave];
+    if (valor === undefined || valor === null) continue;
+    if (typeof valor === 'boolean') agile[chave] = valor;
+    else erros.push(`check.agile.${chave} precisa ser true ou false (recebido ${exibir(valor)})`);
+  }
+  return agile;
 }
 
 /** RM-059 (T10.4): os limites dos tetos de agent teams, os mesmos que o Portao de Tarefas aceita do ambiente. */
