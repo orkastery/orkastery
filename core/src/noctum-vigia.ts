@@ -43,7 +43,7 @@ import { OpcoesDaEntrega, passoDaEntrega, ResultadoDaEntrega } from './noctum-en
 import { decidirPedidos, decidirReservas, decidirSessoes, efeitosAbertos, LeitorDoRemoto, LeituraDoRuntime, listagemCompleta, ParadaDeSessao,
   paradaPorAmbiente, provaDaSessao, reconciliarEfeito, recusaDeAmbiente, retomadaPendente } from './noctum-reconciliacao';
 import { alvosDaFase, assumirConducao, ConteudoV2, contasDoArco, dirDaSupervisao, EstadoDaSupervisao, gravarComEstado,
-  gravarNaSupervisao, Instancia, lerSupervisao, MotivoDaRetomada, MotivoDoIsolamento, observarContas, parametrosDoArco,
+  gravarNaSupervisao, Instancia, lerSupervisao, MotivoDaRetomada, MotivoDoIsolamento, MotivoDoPassoEmEspera, observarContas, parametrosDoArco,
   ParametrosDaSupervisao } from './noctum-supervisao';
 import { raizDoEstado } from './estado-thread';
 import { cancelarPedido } from './retry';
@@ -210,6 +210,20 @@ const fezEfeito = (e: ResultadoDaEntrega | null | undefined): boolean => !!e && 
 /** A instância ainda tem a geração do arco? O vigia, pela geração de qualquer vigia; o condutor, pela dele (D4). */
 function daGeracaoDe(sup: EstadoDaSupervisao, quem: Instancia): boolean {
   return quem.papel === 'vigia' ? sup.geracao?.quem.papel === 'vigia' : sup.geracao?.quem.instancia === quem.instancia;
+}
+
+/** Registra só a transição da espera; repetição do mesmo motivo não cresce o log a cada cadência. */
+function gravarEsperaDoPasso(carregado: ManifestoCarregado, arco: string, quem: Instancia, resultado: ResultadoConduzido,
+  quando: string): void {
+  gravarComEstado(carregado, arco, (s) => {
+    if (resultado.acao === 'aguardar') {
+      if (s.espera?.motivo === resultado.motivo) return [];
+      return [{ tipo: 'passo_em_espera', papel: quem.papel, motivo: resultado.motivo as MotivoDoPassoEmEspera,
+        ocupantes: resultado.ocupantes ?? [] }];
+    }
+    if (s.espera && ['despachou', 'recusado', 'encerrar'].includes(resultado.acao)) return [{ tipo: 'passo_retomado', papel: quem.papel }];
+    return [];
+  }, quando);
 }
 
 /**
@@ -397,6 +411,7 @@ export function vigiarArco(carregado: ManifestoCarregado, arco: string, opcoes: 
               passo: { ...opcoes.passo, gravarBaseline: (k, thread) => baselineFicaParaOCondutor(k, thread) },
               // RM-058, integração (T4, D8): no tique, nada espera a fila pesada nem a trava de despacho, e o verify fica para o condutor.
               entrega: { ...opcoes.entrega, esperarMs: 0, verificar: (k, thread) => verifyFicaParaOCondutor(k, thread) } });
+            gravarEsperaDoPasso(carregado, arco, quem, passo, quando);
             if (passo.falhaDaEntrega) lacunas.push(`a entrega lançou: ${passo.falhaDaEntrega}`);
           } catch (e) {
             // S7 do CHECK: o passo que lança (o adaptador do runtime, por exemplo) é lacuna do tique, e não queda do vigia.
@@ -554,6 +569,7 @@ export function conduzirArco(carregado: ManifestoCarregado, arco: string,
       const quando = relogio();
       gravarNaSupervisao(carregado, arco, [{ tipo: 'batida', quem, geracao }], quando);
       ultimo = passoConduzido(carregado, arco, quem, { ...opcoes, quando });
+      gravarEsperaDoPasso(carregado, arco, quem, ultimo, quando);
       // RM-058, integração (D8): a fila vazia só tira o condutor quando a entrega também não fez efeito no passo.
       if ((ultimo.acao === 'encerrar' && !fezEfeito(ultimo.entrega)) || ultimo.acao === 'parado' || ultimo.acao === 'geracao-vencida') {
         passos += 1;

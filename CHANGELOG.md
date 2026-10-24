@@ -517,6 +517,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **`ork-verify` no head exato do PR**: o job `ork-verify` do GitHub Actions faz o checkout do commit head do PR, não do
   commit de merge temporário (`refs/pull/N/merge`), então o check que o `ork` lê no head é a prova daquele head.
+- **Piloto noturno sem despacho (RM-058)**: sessões ociosas sem vínculo deixam de ocupar vaga, a espera passa a registrar motivo e ocupação anonimizada para o relatório da manhã, e `ork noctum propor` avisa sem bloquear sobre login, trust e capacidade com uma única vaga de execução.
 
 ## [0.5.6] - 2026-10-12
 

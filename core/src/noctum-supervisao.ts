@@ -26,7 +26,8 @@ import { formatarDataHora } from './horario';
 import { lerLedger } from './ledger';
 import { ManifestoCarregado } from './manifest';
 import { EstadoDoArco } from './noctum-arco';
-import { Capacidade, ConteudoDoEnvelope, ID_DO_ARCO, shaDoPedido, Trabalho } from './noctum-envelope';
+import { MotivoDaCapacidade } from './noctum-capacidade';
+import { Capacidade, ConteudoDoEnvelope, ID_DO_ARCO, MotivoDeRecusaDoArco, shaDoPedido, Trabalho } from './noctum-envelope';
 import { CADENCIA_MS } from './noctum-fila';
 import { CARENCIA_DO_TURNO_ENCERRADO_MIN } from './ocupacao';
 import { StoreDePerfis } from './runtime-profiles';
@@ -103,6 +104,26 @@ export type Papel = 'condutor' | 'vigia';
 /** Quem escreve: o papel, a instância (um uuid por processo), o pid e a máquina. */
 export interface Instancia { papel: Papel; instancia: string; pid: number; maquina: string }
 
+/** Razões fechadas pelas quais o passo do arco espera, preservadas no log sem texto livre. */
+export type MotivoDoPassoEmEspera = MotivoDaCapacidade | MotivoDeRecusaDoArco
+  | 'em-curso' | 'bloqueada' | 'fonte-indisponivel' | 'agendado' | 'sem-autorizacao'
+  | 'sem-trava-do-kernel' | 'despacho-em-curso' | 'capacidade' | 'baseline-pendente' | 'baseline-gravada'
+  | 'vigia-ausente';
+
+/** Quem ocupa a vaga, sem id de sessão, conta, thread, máquina, caminho ou outro dado privado. */
+export interface OcupanteDaEspera {
+  origem: 'conducao' | 'despacho' | 'runtime';
+  runtime: string | null;
+  revisao: boolean;
+}
+
+export interface EsperaDoPasso {
+  motivo: MotivoDoPassoEmEspera;
+  desde: string;
+  papel: Papel;
+  ocupantes: OcupanteDaEspera[];
+}
+
 export type MotivoDaRetomada = 'sessao-morta' | 'fim-de-turno-sem-resultado' | 'sem-avanco' | 'sem-primeiro-turno' | 'despacho-falho' |
   'limite-de-uso';
 /** As contas que o arco tira da seleção (D13). Subteto, perfil ausente e desativado são relidos a cada passo, sem linha. */
@@ -130,6 +151,8 @@ export type EventoDaSupervisao =
   | { tipo: 'parametros'; parametros: ParametrosDaSupervisao }
   | { tipo: 'conducao_assumida'; geracao: number; quem: Instancia; prova: string }
   | { tipo: 'batida'; quem: Instancia; geracao: number | null }
+  | { tipo: 'passo_em_espera'; papel: Papel; motivo: MotivoDoPassoEmEspera; ocupantes: OcupanteDaEspera[] }
+  | { tipo: 'passo_retomado'; papel: Papel }
   | { tipo: 'tique_iniciado'; quem: Instancia }
   | { tipo: 'tique_concluido'; quem: Instancia; resumo: string }
   | { tipo: 'vigia_interrompido'; interrompido: string; prova: string }
@@ -146,7 +169,8 @@ export type EventoDaSupervisao =
   | { tipo: 'efeito_reconciliado'; id: string; desfecho: DesfechoDoEfeito; prova: string }
   | { tipo: 'pedido_tratado'; pedido: string; thread: string; acao: 'retomada-autorizada' | 'cancelado'; motivo: string };
 
-const TIPOS: readonly EventoDaSupervisao['tipo'][] = ['parametros', 'conducao_assumida', 'batida', 'tique_iniciado', 'tique_concluido',
+const TIPOS: readonly EventoDaSupervisao['tipo'][] = ['parametros', 'conducao_assumida', 'batida', 'passo_em_espera', 'passo_retomado',
+  'tique_iniciado', 'tique_concluido',
   'vigia_interrompido', 'retomada_autorizada', 'sessao_parada', 'conta_fora', 'isolado', 'recusa_de_ambiente', 'parada',
   'efeito_incerto', 'efeito_reconciliado', 'pedido_tratado'];
 
@@ -180,6 +204,8 @@ export interface EstadoDaSupervisao {
   /** A geração vigente: quem conduz o arco nesta máquina desde quando, e por qual prova. */
   geracao: { numero: number; quem: Instancia; desde: string; prova: string } | null;
   batidas: { condutor: { em: string; quem: Instancia } | null; vigia: { em: string; quem: Instancia } | null };
+  /** A espera atual do passo; `desde` é a primeira observação deste motivo. */
+  espera: EsperaDoPasso | null;
   /** O último tique do vigia que começou e não terminou, quando há. */
   tiqueAberto: { quem: Instancia; em: string } | null;
   /** Tiques interrompidos registrados desde o último tique concluído. */
@@ -391,7 +417,7 @@ export function eventosDaSupervisao(raiz: string, arco: string): Array<{ em: str
 
 function derivar(arco: string, linhas: readonly DadosDaLinha[]): EstadoDaSupervisao {
   const s: EstadoDaSupervisao = { contrato: CONTRATO_SUPERVISAO, arco, linhas: linhas.length, parametros: null, geracao: null,
-    batidas: { condutor: null, vigia: null }, tiqueAberto: null, interrupcoesSeguidas: 0, retomadas: [], sessoesParadas: [],
+    batidas: { condutor: null, vigia: null }, espera: null, tiqueAberto: null, interrupcoesSeguidas: 0, retomadas: [], sessoesParadas: [],
     contasFora: new Map(), isolados: new Map(), recusasDeAmbiente: [], parada: null, efeitos: new Map(), pedidos: new Map() };
   for (const { evento: e, em } of linhas) {
     switch (e.tipo) {
@@ -404,6 +430,10 @@ function derivar(arco: string, linhas: readonly DadosDaLinha[]): EstadoDaSupervi
       case 'batida':
         s.batidas[e.quem.papel] = { em, quem: e.quem };
         break;
+      case 'passo_em_espera':
+        s.espera = { motivo: e.motivo, desde: em, papel: e.papel, ocupantes: e.ocupantes };
+        break;
+      case 'passo_retomado': s.espera = null; break;
       case 'tique_iniciado':
         s.tiqueAberto = { quem: e.quem, em };
         s.batidas.vigia = { em, quem: e.quem };

@@ -38,7 +38,7 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { raizDoEstado } from './estado-thread';
 import { redigirSegredos } from './hitl';
-import { formatarDataHora, formatarHora, instanteNoFuso, partesLocais } from './horario';
+import { duracaoRelativa, formatarDataHora, formatarHora, instanteNoFuso, partesLocais } from './horario';
 import { lerLedger, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
 import { AlternativaDoLote, EstadoDoArco, lerArco, SituacaoDoArco } from './noctum-arco';
@@ -47,7 +47,7 @@ import { lerFechamento, textoDaParada, trabalhosDoArco } from './noctum-fechamen
 import { fatosDaFila, FilaDoArco, LeitorDeReservas } from './noctum-fila';
 import { ConsumoNaUnidade, consumoDoEscopoNaUnidade, MedicaoDoArco, medirArco, precisaMedir, textoDoConsumo } from './noctum-medicao';
 import { comRegistro, lerRegistro, LinhaDoRegistro, RecusaDoRegistro } from './noctum-registro';
-import { contaForaAgora, lerSupervisao, RecusaDaSupervisao } from './noctum-supervisao';
+import { contaForaAgora, EsperaDoPasso, lerSupervisao, RecusaDaSupervisao } from './noctum-supervisao';
 import { exigirHostLocal } from './procedencia';
 import { dirThread } from './thread';
 import { EventoLedger } from './types';
@@ -86,6 +86,7 @@ export interface FatosDaSupervisao {
   retomadas?: string[];
   sessoesParadas?: string[];
   parada?: string | null;
+  espera?: EsperaDoPasso | null;
 }
 
 /** As contas fora, em palavras: o motivo tipado da supervisão vira o que aconteceu com a conta. */
@@ -107,6 +108,7 @@ export function fatosDaSupervisao(raiz: string, arco: string, quando = new Date(
     sessoesParadas: s.sessoesParadas.map(x => `sessão ${x.sessionId} (${x.trabalho}): ${x.confirmada ? 'parada confirmada' : 'parada não confirmada'} ` +
       `(${x.motivo})`),
     parada: s.parada ? `${s.parada.motivo}: ${s.parada.detalhe}` : null,
+    espera: s.espera,
   };
 }
 
@@ -134,6 +136,7 @@ export interface FatosDoRelatorio {
   retomadas: string[];
   sessoesParadas: string[];
   paradaDaSupervisao: string | null;
+  esperaDoPasso: EsperaDoPasso | null;
   correcoes: Correcao[];
   precisaDeVoce: PedidoAoDono[];
   /** O trabalho que espera o dono fora do lote do arco (a pendência da própria thread): sem id do lote, sem `#HITL`. */
@@ -354,6 +357,7 @@ export function fatosDoRelatorio(carregado: ManifestoCarregado, arco: string, op
     paradas: (fechamento?.paradas ?? []).map(p => textoDaParada(p, fechamento!.conferencias)),
     contasFora: (supervisao?.contasFora ?? []).map(c => `a conta ${c.conta} saiu do arco: ${c.motivo}`),
     retomadas: supervisao?.retomadas ?? [], sessoesParadas: supervisao?.sessoesParadas ?? [], paradaDaSupervisao: supervisao?.parada ?? null,
+    esperaDoPasso: supervisao?.espera ?? null,
     correcoes: [],
     precisaDeVoce: estado.decisoes.map(d => ({ id: d.id, thread: d.thread, pergunta: d.pergunta, alternativas: d.alternativas })), foraDoLote,
     proximo: candidato ? `${candidato.id} (${candidato.item}), ${candidato.estado === 'abrir' ? 'abre a thread pelo GOAL' : `fase ${candidato.fase}`}` +
@@ -365,6 +369,13 @@ export function fatosDoRelatorio(carregado: ManifestoCarregado, arco: string, op
 /** As linhas do relatório: os sete grupos, na ordem e com os ícones da página, iguais em todo canal. */
 export function linhasDoRelatorio(f: FatosDoRelatorio, versao: number): string[] {
   const hora = (iso: string) => formatarHora(iso, { fuso: f.fuso, agora: f.quando, locale: 'pt-BR' });
+  const ha = (iso: string) => duracaoRelativa(Math.max(0, Math.floor((Date.parse(f.quando) - Date.parse(iso)) / 60_000)));
+  const ocupante = (o: EsperaDoPasso['ocupantes'][number]): string => `${o.origem === 'runtime' ? 'sessão do runtime sem vínculo' :
+    o.origem === 'conducao' ? 'condução desta raiz' : 'despacho desta raiz'}${o.runtime ? ` no ${o.runtime}` : ''} ` +
+    `(${o.revisao ? 'revisão' : 'execução'})`;
+  const espera = f.esperaDoPasso;
+  const textoDaEspera = espera ? `o passo do arco espera há ${ha(espera.desde)} por ${espera.motivo}; ocupação: ` +
+    (espera.ocupantes.length ? espera.ocupantes.map(ocupante).join(', ') : 'nenhum ocupante identificado') : null;
   const nada = ['• nada'];
   const l: string[] = [`Relatório da manhã do arco ${f.arco}, versão ${versao} (${formatarDataHora(f.quando, { fuso: f.fuso, agora: f.quando, locale: 'pt-BR' })})`,
     `Horários em ${f.fuso}.`];
@@ -382,7 +393,9 @@ export function linhasDoRelatorio(f: FatosDoRelatorio, versao: number): string[]
   // A parada da supervisão que ainda não fechou o arco (o fechamento a lê no tique seguinte) vai ao Impedido, com alcance do arco.
   const parada = f.paradaDaSupervisao && f.encerramento?.motivo !== 'supervisao'
     ? [`• o arco: parado pela supervisão (${f.paradaDaSupervisao}); alcance: arco`] : [];
-  l.push('', '⏸️ Impedido', ...(f.impedidos.length || parada.length ? [...parada, ...f.impedidos.map(i => `• ${i.trabalho} (${i.item}): ${i.causa} (${i.detalhe}); ` +
+  const linhaDaEspera = textoDaEspera ? [`• ${textoDaEspera}; alcance: arco`] : [];
+  l.push('', '⏸️ Impedido', ...(f.impedidos.length || parada.length || linhaDaEspera.length ? [...parada, ...linhaDaEspera,
+    ...f.impedidos.map(i => `• ${i.trabalho} (${i.item}): ${i.causa} (${i.detalhe}); ` +
     `alcance: ${i.alcance}; tentativas: ${i.tentativas}${i.hitl ? `; ${i.hitl} #HITL` : ''}`)] : nada));
   const decisoes = f.decisoes.slice(0, 10);
   l.push('', '🧭 Decidi no envelope', ...(decisoes.length ? [...decisoes.map(d => `• ${d.thread}: ${frase(d.decidido)} Porque: ${frase(d.porque)} ` +
@@ -397,9 +410,27 @@ export function linhasDoRelatorio(f: FatosDoRelatorio, versao: number): string[]
     '• Assinatura não é uso ilimitado: o teto vale também para a conta de assinatura.');
   l.push('', '📝 Correções', ...(f.correcoes.length ? f.correcoes.map(c => `• Foi informado: ${c.informado}. Fato confirmado agora: ` +
     `${c.confirmado}. Fonte: ${c.fonte}. Impacto: ${c.impacto}.`) : nada));
+  const acaoDoDono: Readonly<Record<string, string>> = Object.freeze({
+    'capacidade.revisao': 'encerre uma sessão de execução que esteja trabalhando ou emende a capacidade do envelope',
+    'capacidade.maquina': 'encerre uma sessão que esteja trabalhando ou emende a capacidade do envelope',
+    'capacidade.conta': 'libere a conta ocupada ou emende seu limite no envelope',
+    'capacidade.runtime': 'libere o runtime ocupado ou emende seu limite no envelope',
+    'capacidade.projeto': 'libere uma condução do projeto ou ajuste a concorrência do projeto',
+    'capacidade.conta-nao-autorizada': 'corrija o login/perfil da conta ou emende as contas do envelope',
+    'capacidade.runtime-nao-autorizado': 'corrija o runtime da fase ou emende os runtimes do envelope',
+    'capacidade.fonte-indisponivel': 'restabeleça a leitura das sessões do runtime',
+    'fonte-indisponivel': 'restabeleça a fonte que o passo não conseguiu ler',
+    'vigia-ausente': 'restabeleça o tique do vigia do arco',
+    'sem-trava-do-kernel': 'instale ou restabeleça a trava flock exigida pelo núcleo',
+    'sem-autorizacao': 'autorize o envelope do arco pela pergunta pendente',
+    'noctum.coordenacao.exige-passo-da-maquina': 'restabeleça o passo da máquina que coordena este arco',
+  });
+  const esperaDoDono = espera && acaoDoDono[espera.motivo]
+    ? [`• O passo não despacha por ${espera.motivo} há ${ha(espera.desde)}. Para destravar: ${acaoDoDono[espera.motivo]}.`] : [];
   const doDono = [...f.precisaDeVoce.flatMap(p => [`• ${p.id} (${p.thread}): ${p.pergunta} #HITL`,
     ...p.alternativas.map(a => `  ${a.letra}) ${a.texto}: ${a.consequencia}${a.recomendada ? ` (Recomendação: ${a.porque})` : ''}`)]),
-    ...f.foraDoLote.map(x => `• ${x.trabalho} (thread ${x.thread}) espera o dono fora do lote do arco: ${frase(x.detalhe)} A resposta vai pela pendência da própria thread.`)];
+    ...f.foraDoLote.map(x => `• ${x.trabalho} (thread ${x.thread}) espera o dono fora do lote do arco: ${frase(x.detalhe)} A resposta vai pela pendência da própria thread.`),
+    ...esperaDoDono];
   l.push('', '👤 O que precisa de você', ...(doDono.length ? doDono : nada),
     ...(f.proximo ? [`• Próximo trabalho elegível: ${f.proximo}`] : []));
   return l.map(x => redigirSegredos(x));

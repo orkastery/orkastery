@@ -20,6 +20,7 @@
 import * as fs from 'node:fs';
 import { kernelDisponivel } from './fila-pesada';
 import { lerRespostaStdin } from './hitl-gates';
+import { impedimentoResolvido } from './impedimento';
 import { aceiteDoPiloto, gravarAceite, Injecao, lerInjecoes, lerLimiares, Limiares, publicavel, RecusaDoAceite, ResultadoDoAceite,
   sensiveisDoArco } from './noctum-aceite';
 import { formatarDataHora } from './horario';
@@ -28,12 +29,13 @@ import { lerArco, pedirRevogacao, perguntasDoArco, proporEnvelope, SituacaoDoArc
 import { textoDaPerguntaDoArco } from './noctum-pergunta';
 import { comoResponderAoArco, entregarPerguntaDoArco, EntregaDaPerguntaDoArco } from './noctum-pergunta-canal';
 import { codigosEmUso } from './pulse-resposta';
-import { CANAIS_DO_RELATORIO, RecusaDoArco } from './noctum-envelope';
+import { CANAIS_DO_RELATORIO, ConteudoDoEnvelope, envelopeComTrabalhos, RecusaDoArco } from './noctum-envelope';
 import { listarArcos, responderAoArco, retratoDoArco, textoDoRetrato, tiqueDoArco } from './noctum-modo';
 import { CanalComTransporte, reenviarRelatorio, relatorioNoTerminal } from './noctum-relatorio';
 import { RecusaDoRegistro } from './noctum-registro';
 import { lerSupervisao, RecusaDaSupervisao } from './noctum-supervisao';
 import { conduzirArco, OpcoesDoVigia, ResultadoDoCondutor } from './noctum-vigia';
+import { lerPerfisComContas, PerfilDeRuntime, StoreDePerfis } from './runtime-profiles';
 import { CONTRATO_DO_TERMINAL, responderPeloTerminal } from './noctum-terminal';
 
 export interface ArgsDoNoctum { posicionais: string[]; opcoes: Record<string, string | boolean> }
@@ -69,6 +71,49 @@ function lerEntradaDoHookStdin(): unknown {
 const TETO_DO_ARQUIVO_DO_ENVELOPE = 64 * 1024;
 
 const texto = (v: string | boolean | undefined): string | undefined => typeof v === 'string' ? v : undefined;
+
+export type MotivoDoAvisoDaProposta = 'noctum.proposta.conta-sem-login' | 'noctum.proposta.workspace-untrusted'
+  | 'noctum.proposta.vaga-de-execucao-unica' | 'noctum.proposta.contas-sem-leitura';
+export interface AvisoDaProposta { motivo: MotivoDoAvisoDaProposta; detalhe: string; correcao: string }
+
+/**
+ * Pré-voo informativo da proposta: antecipa três causas que fariam o arco esperar, mas não autoriza nem bloqueia nada.
+ * As dependências opcionais deixam os testes usar perfis e trust simulados sem ler contas reais.
+ */
+export function avisosDaProposta(carregado: ManifestoCarregado, conteudo: ConteudoDoEnvelope, opcoes: {
+  store?: StoreDePerfis;
+  confianca?: (raiz: string, perfil: PerfilDeRuntime) => boolean | null;
+} = {}): AvisoDaProposta[] {
+  if (!envelopeComTrabalhos(conteudo)) return [];
+  const avisos: AvisoDaProposta[] = [];
+  let store: StoreDePerfis;
+  try { store = opcoes.store ?? lerPerfisComContas(carregado.raiz); }
+  catch {
+    return [{ motivo: 'noctum.proposta.contas-sem-leitura', detalhe: 'as contas do envelope não puderam ser conferidas',
+      correcao: 'rode ork accounts check e proponha de novo depois de corrigir a leitura' }];
+  }
+  const confiar = opcoes.confianca ?? ((raiz: string, p: PerfilDeRuntime) => impedimentoResolvido('runtime.workspace-untrusted',
+    { cwd: raiz, runtime: p.runtime, configDir: p.runtime === 'claude-bg' ? p.configDir : p.codexHome }));
+  for (const { conta } of conteudo.capacidade.porConta) {
+    const p = store.perfis.find(x => x.id === conta);
+    if (!p || p.estado === 'sem-auth') {
+      avisos.push({ motivo: 'noctum.proposta.conta-sem-login',
+        detalhe: `a conta ${conta} do envelope está sem login de assinatura conferido`,
+        correcao: `refaça o login da conta ${conta} pelo próprio CLI e rode ork accounts check ${conta}` });
+    }
+    if (p?.runtime === 'claude-bg' && confiar(carregado.raiz, p) !== true) {
+      avisos.push({ motivo: 'noctum.proposta.workspace-untrusted',
+        detalhe: `a conta ${conta} não tem o trust da pasta do projeto aceito no runtime; o despacho cairia em runtime.workspace-untrusted`,
+        correcao: `abra o runtime da conta ${conta} na pasta do projeto e aceite a confiança` });
+    }
+  }
+  if (conteudo.capacidade.maquina - conteudo.capacidade.revisao === 1) {
+    avisos.push({ motivo: 'noctum.proposta.vaga-de-execucao-unica',
+      detalhe: `a capacidade da máquina (${conteudo.capacidade.maquina}) menos a revisão (${conteudo.capacidade.revisao}) deixa uma vaga de execução`,
+      correcao: 'confirme que uma única sessão de execução por vez é suficiente ou emende a capacidade' });
+  }
+  return avisos;
+}
 
 /**
  * RM-058, integração (T5, D9): o código de saída do `ork noctum conduzir`. 0: o arco terminou ou parou (também quando já
@@ -159,20 +204,24 @@ export function comandoNoctum(args: ArgsDoNoctum): number {
       let pedido: unknown;
       try { pedido = JSON.parse(fs.readFileSync(arquivo, 'utf8')); }
       catch { console.error('noctum.envelope.invalido: o pedido de abertura não é JSON'); return 2; }
-      const { raiz } = exigirManifesto();
+      const carregado = exigirManifesto();
+      const { raiz } = carregado;
       const quando = new Date().toISOString();
       const r = proporEnvelope(raiz, pedido, quando, codigosEmUso(raiz));
-      const fuso = lerArco(raiz, r.arco)?.conteudo?.janela.fuso ?? (pedido as { janela?: { fuso?: string } })?.janela?.fuso;
+      const conteudo = lerArco(raiz, r.arco)?.conteudo;
+      const fuso = conteudo?.janela.fuso ?? (pedido as { janela?: { fuso?: string } })?.janela?.fuso;
+      const avisos = conteudo ? avisosDaProposta(carregado, conteudo) : [];
       // RM-057 (resposta curta, D4 e D9): a proposta é a pergunta ao dono, que sai também pelo canal dele quando ele tem um.
       const q = r.codigo ? perguntasDoArco(raiz, r.arco, quando).find(x => x.codigo === r.codigo && x.situacao === 'pendente') : undefined;
       const entrega = q ? entregarPerguntaDoArco(raiz, q, { quando }) : null;
       const textoDaPergunta = q ? textoDaPerguntaDoArco(q, 'terminal', { quando, ...(entrega?.numero ? { numero: entrega.numero } : {}) }) : null;
       const instrucoes = q ? comoResponderAoArco(q) : [`O envelope ${r.envelopeSha256.slice(0, 12)} já vale no arco ${r.arco}: não há o que autorizar`];
       if (json) {
-        console.log(JSON.stringify({ ...r, autorizado: false, comoAutorizar: instrucoes,
+        console.log(JSON.stringify({ ...r, autorizado: false, avisos, comoAutorizar: instrucoes,
           pergunta: q ? { codigo: q.codigo, prazo: q.prazo, texto: textoDaPergunta, entrega } : null }, null, 2));
       } else {
         console.log([...r.resumo, '',
+          ...(avisos.length ? ['Avisos (não bloqueiam a proposta):', ...avisos.map(a => `• ${a.motivo}: ${a.detalhe}. Correção: ${a.correcao}.`), ''] : []),
           `Proposta ${r.versao} do arco ${r.arco}, vale até ${formatarDataHora(r.prazo, { fuso, locale: 'pt-BR' })}.`,
           'Nada foi autorizado: o dono autoriza respondendo à pergunta, nunca por silêncio nem por este comando.',
           ...(textoDaPergunta ? ['', textoDaPergunta, '', linhaDaEntrega(entrega!)] : instrucoes)].join('\n'));
