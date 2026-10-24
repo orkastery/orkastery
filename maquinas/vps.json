@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-24T16:32:38.789Z",
+  "publicadoEm": "2026-10-24T16:38:04.284Z",
   "threads": [
     {
       "id": "ork-check5x",
@@ -29,6 +29,28 @@
       }
     },
     {
+      "id": "ork-noctumvaga",
+      "nome": "noctumvaga",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-noctumvaga-go",
+      "atualizadaEm": "2026-10-24T16:38:00.147Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-24T16:38:03.877Z",
+        "motivo": "nenhuma sessão despachada na fase GO"
+      }
+    },
+    {
       "id": "ork-rm058blocob",
       "nome": "rm058blocob",
       "modo": "#Auto",
@@ -45,9 +67,9 @@
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-10-24T16:35:38.701Z",
+        "motivo": "sessão 01a16ec1 encerrada (completed)"
       }
     },
     {
