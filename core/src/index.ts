@@ -4619,7 +4619,9 @@ function executarComando(argvBruto: string[]): number {
       const carregado = exigirManifesto();
       return executarSecurityScan(argv.slice(argv.indexOf('security-scan') + 1),
         { raiz: carregado.raiz, estado: raizDoEstado(carregado.raiz), escrever: (texto) => console.log(texto),
-          ...(carregado.manifesto.check?.mode ? { modoDoManifesto: carregado.manifesto.check.mode } : {}) });
+          ...(carregado.manifesto.check?.mode ? { modoDoManifesto: carregado.manifesto.check.mode } : {}),
+          ...(carregado.manifesto.check?.agile ? { agile: { osv_scanner: carregado.manifesto.check.agile.osv_scanner,
+            oxlint: carregado.manifesto.check.agile.oxlint } } : {}) });
     }
     case 'ship':
       return comandoShip(args);

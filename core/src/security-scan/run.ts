@@ -55,6 +55,8 @@ export interface RunScanOptions {
   tools?: ToolSpec[];
   /** Total time budget of the round in ms (the CLI reads ORK_SECURITY_SCAN_DEADLINE_MS); unbounded when absent. */
   deadlineMs?: number;
+  /** RM-072 (D13): the Agile-only tools behind the manifest flags; `runScan` (Classic) never reads it. */
+  agile?: { osv_scanner?: boolean; oxlint?: boolean };
 }
 
 /** Version of the normalized cache content; bump when a normalizer or the RawFinding shape changes. */

@@ -25,7 +25,7 @@ import {
 } from './run';
 import { defaultProbe, type Probe } from './executor';
 import { eslintComImagem, garantirImagemDeLint } from './imagem-de-lint';
-import { loadTools, toolsFor } from './tools';
+import { loadAgileTools, loadTools, toolsFor } from './tools';
 import type { PecaDaVarredura, ScanReport, ToolSpec } from './types';
 
 const TRABALHADOR = path.join(__dirname, 'trabalhador.js');
@@ -107,6 +107,28 @@ function nativoDisponivel(t: ToolSpec, probe: Probe): boolean {
   return saida !== null && new RegExp(t.native.versionPattern, 'm').test(saida);
 }
 
+/**
+ * RM-072 (D13): o catalogo do Agile com as duas chaves: `osv_scanner` troca `trivy-vuln` e `npm-audit` pelo `osv-scanner`
+ * (no lugar do `trivy-vuln`), e `oxlint` acrescenta o primeiro passe antes do `eslint`, sem tirar o `eslint`. Desligadas,
+ * o catalogo do Classic.
+ */
+export function catalogoDoAgile(catalogo: ToolSpec[], agile: RunScanOptions['agile'], pecas: PecaDaVarredura[]): ToolSpec[] {
+  if (!agile?.osv_scanner && !agile?.oxlint) return catalogo;
+  const extras = loadAgileTools();
+  const osv = extras.find(t => t.name === 'osv-scanner')!;
+  const ox = extras.find(t => t.name === 'oxlint')!;
+  const lista: ToolSpec[] = [];
+  for (const t of catalogo) {
+    if (agile.osv_scanner && t.name === 'trivy-vuln') { lista.push(osv); continue; }
+    if (agile.osv_scanner && t.name === 'npm-audit') continue;
+    if (agile.oxlint && t.name === 'eslint') lista.push(ox);
+    lista.push(t);
+  }
+  if (agile.osv_scanner) pecas.push({ peca: 'osv-scanner', estado: 'agile', motivo: 'no lugar de trivy-vuln e npm-audit (check.agile.osv_scanner)' });
+  if (agile.oxlint) pecas.push({ peca: 'oxlint', estado: 'agile', motivo: 'primeiro passe antes do eslint, sem tirar regra dele (check.agile.oxlint)' });
+  return lista;
+}
+
 /** A rodada do Agile: as mesmas regras do `runScan`, com as ferramentas em paralelo e os caches de banco. */
 export function runScanAgil(opts: RunScanOptions): ScanReport {
   const start = path.resolve(opts.root);
@@ -118,7 +140,7 @@ export function runScanAgil(opts: RunScanOptions): ScanReport {
   const pecas: PecaDaVarredura[] = [{ peca: 'varredura-paralela', estado: 'agile' }];
   const report: ScanReport = { schema: 'ork.security-scan/v1', base: '', head, generatedAt, stacks: [], tools: [], excluded: [], findings: [],
     check: { modo: 'agile', pecas } };
-  const catalog = opts.tools ?? loadTools();
+  const catalog = catalogoDoAgile(opts.tools ?? loadTools(), opts.agile, pecas);
   if (!head) {
     const config = loadConfig(root);
     const pairs = stackPairs(root, config);

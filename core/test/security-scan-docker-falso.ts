@@ -36,6 +36,8 @@ import type { ToolSpec } from '../src/security-scan/types';
 
 export const RECORDED = path.resolve(__dirname, '../../test/fixtures/security-scan');
 const CATALOG = path.resolve(__dirname, '../../assets/security-scan/tools.json');
+/** RM-072 (D13): the Agile-only catalog (osv-scanner, oxlint), answered like the main one. */
+const CATALOGO_DO_AGILE = path.resolve(__dirname, '../../assets/security-scan/tools-agil.json');
 
 export interface FakeTools {
   dir: string;
@@ -151,7 +153,7 @@ function main(): number {
   const as = process.env.ORK_FAKE_AS ?? 'docker';
   const argv = process.argv.slice(2);
   if (process.env.ORK_FAKE_DOCKER_LOG) fs.appendFileSync(process.env.ORK_FAKE_DOCKER_LOG, `${JSON.stringify({ as, args: argv })}\n`);
-  const tools = JSON.parse(fs.readFileSync(CATALOG, 'utf8')) as ToolSpec[];
+  const tools = [...JSON.parse(fs.readFileSync(CATALOG, 'utf8')) as ToolSpec[], ...JSON.parse(fs.readFileSync(CATALOGO_DO_AGILE, 'utf8')) as ToolSpec[]];
   const mode = process.env.ORK_FAKE_DOCKER_MODE ?? '';
   if (as !== 'docker') {
     const declarada = tools.find(t => t.native?.bin === as && JSON.stringify(t.native.versionArgs) === JSON.stringify(argv));

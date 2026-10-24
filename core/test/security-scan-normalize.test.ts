@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { NORMALIZERS, partialOf } from '../src/security-scan/normalize';
-import { loadTools } from '../src/security-scan/tools';
+import { loadAgileTools, loadTools } from '../src/security-scan/tools';
 import type { RawFinding } from '../src/security-scan/types';
 import { fingerprintOf } from '../src/security-scan/compare';
 
@@ -21,11 +21,12 @@ const count = (fs_: RawFinding[], key: 'severity' | 'category' | 'rule'): Record
 const FAKE_SECRET = /apiKey: '([^']+)'/.exec(fs.readFileSync(path.join(SRC, 'js', 'src', 'config.js'), 'utf8'))![1];
 
 test('every catalog tool has a normalizer', () => {
-  assert.deepEqual(Object.keys(NORMALIZERS).sort(), loadTools().map(t => t.name).sort());
+  // RM-072 (D13): the Agile-only catalog (tools-agil.json) has its normalizers too.
+  assert.deepEqual(Object.keys(NORMALIZERS).sort(), [...loadTools(), ...loadAgileTools()].map(t => t.name).sort());
 });
 
 test('empty recordings normalize to nothing, without throwing', () => {
-  for (const t of loadTools()) {
+  for (const t of [...loadTools(), ...loadAgileTools()]) {
     const files = t.name === 'gitleaks' ? ['gitleaks-dir.empty.json', 'gitleaks-git.empty.json'] : [`${t.name}.empty.json`];
     for (const f of files) assert.deepEqual(run(t.name, f), [], f);
   }

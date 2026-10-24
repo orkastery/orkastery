@@ -16,7 +16,9 @@ import { runScan } from './run';
 
 export interface ScanCliContext { raiz: string; estado: string; escrever: (t: string) => void;
   /** RM-072 (D9): the manifest `check.mode`, when declared. */
-  modoDoManifesto?: ModoDoCheck }
+  modoDoManifesto?: ModoDoCheck;
+  /** RM-072 (D13): the manifest `check.agile.osv_scanner` and `check.agile.oxlint`, used only by the Agile round. */
+  agile?: { osv_scanner?: boolean; oxlint?: boolean } }
 
 export function executarSecurityScan(argv: string[], ctx: ScanCliContext): number {
   const m = msg().securityScan;
@@ -42,7 +44,7 @@ export function executarSecurityScan(argv: string[], ctx: ScanCliContext): numbe
   try {
     const modo = check ?? lerModo(process.env[ENV_MODO_DO_CHECK]) ?? ctx.modoDoManifesto ?? MODO_PADRAO;
     const opcoes = { root: ctx.raiz, stateRoot: ctx.estado, base, deadlineMs: Number.isFinite(deadline) && deadline > 0 ? deadline : undefined };
-    report = modo === 'agile' ? runScanAgil(opcoes) : runScan(opcoes);
+    report = modo === 'agile' ? runScanAgil({ ...opcoes, ...(ctx.agile ? { agile: ctx.agile } : {}) }) : runScan(opcoes);
   } catch (e) {
     const message = (e as Error).message;
     if (!/^security-scan\.(config-invalid|dismissal-invalid)/.test(message)) throw e;

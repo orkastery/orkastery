@@ -1,6 +1,6 @@
 import * as crypto from 'node:crypto';
 import * as path from 'node:path';
-import { loadTools as readCatalog } from '../tools';
+import { loadAgileTools, loadTools as readCatalog } from '../tools';
 import type { RawFinding, Severity, ToolSpec } from '../types';
 
 /**
@@ -13,7 +13,8 @@ export type Normalizer = (output: string, ctx: NormalizeContext) => RawFinding[]
 
 let catalog: ReturnType<typeof readCatalog> | undefined;
 /** The catalog is read once per process: normalizers look a tool up for every finding. */
-const loadTools = (): ReturnType<typeof readCatalog> => (catalog ??= readCatalog());
+// RM-072 (D13): as entradas do catalogo do Agile entram so pelo nome delas, que o Classic nao usa.
+const loadTools = (): ReturnType<typeof readCatalog> => (catalog ??= [...readCatalog(), ...loadAgileTools()]);
 
 const DEFAULT_SEVERITY: Severity = 'medium';
 
