@@ -410,6 +410,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Tipos gerados pelo Claude Code (RM-037)**: o despacho aceita o `.gitignore`, os links `.d.ts` comprovados pelo `INSTALADO.json` e o `tsconfig.json` exato que o motor grava nos mods, sem liberar links externos nem arquivos sem recibo.
 - **Defeitos de condução de 19 e 20/10/2026** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): a
   baseline (`ork verify --baseline`) roda com o mesmo prazo de cada comando do verify
   (`verify.timeout_ms_por_comando`) e a mesma medida do steal, e o comando sem veredito nela (estouro, morte por sinal,

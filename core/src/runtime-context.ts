@@ -259,15 +259,37 @@ function dependenciasDoManifesto(texto: string): string[] {
   });
 }
 
-/** Os tipos que o proprio Claude Code escreve na pasta do mod que ele carrega: declaracoes, nunca codigo. */
-function tipoDoMotor(relativo: string): boolean {
-  return relativo.startsWith('.claude-plugin/types/') && (relativo.endsWith('.d.ts') || path.posix.basename(relativo) === 'tsconfig.json');
+/** Os arquivos comuns que o proprio Claude Code escreve na pasta do mod que ele carrega: declaracoes, nunca codigo. */
+function arquivoDoMotor(raiz: string, arquivo: string, relativo: string): boolean {
+  if (relativo === '.claude-plugin/types/.gitignore') return true;
+  if (relativo.startsWith('.claude-plugin/types/') &&
+      (relativo.endsWith('.d.ts') || path.posix.basename(relativo) === 'tsconfig.json')) return true;
+  if (relativo !== 'tsconfig.json') return false;
+  try {
+    const config = objeto(JSON.parse(ler(raiz, arquivo, 4096).toString('utf8')));
+    return Object.keys(config).length === 1 && config.extends === './.claude-plugin/types/tsconfig.json';
+  } catch { return false; }
+}
+
+/** Link de tipos gerado pelo Claude Code: o alvo real continua preso a um .d.ts comprovado pelo recibo. */
+function linkDeTipoDoMotor(instalacao: string, arquivo: string, relativo: string,
+  arquivos: ReadonlyMap<string, string>): boolean {
+  if (!relativo.startsWith('.claude-plugin/types/') || !relativo.endsWith('.d.ts')) return false;
+  let alvo: string;
+  try { alvo = fs.realpathSync(arquivo); } catch { return false; }
+  const relativoAoRecibo = path.relative(instalacao, alvo).split(path.sep).join('/');
+  if (!/^mods\/[^/]+\/types\/[^/]+\.d\.ts$/.test(relativoAoRecibo)) return false;
+  const comprovado = arquivos.get(relativoAoRecibo);
+  if (!comprovado) return false;
+  try { return fs.realpathSync(comprovado) === alvo && fs.statSync(alvo).isFile(); }
+  catch { return false; }
 }
 
 /**
  * RM-059 (T0.7, D1): a pasta instalada de um mod de fase tem exatamente os arquivos do recibo. O
  * `--plugin-dir` carrega o que estiver nela (comandos, agentes e skills sao descobertos), entao arquivo
- * fora do recibo entraria na sessao de fase sem prova. Link e arquivo especial recusam sempre.
+ * fora do recibo entraria na sessao de fase sem prova. So o link de tipos gerado pelo motor conserva
+ * a prova pelo alvo real; outro link e arquivo especial recusam sempre.
  */
 function conferirPastaDoMod(raiz: string, instalacao: string, nome: string, arquivos: ReadonlyMap<string, string>): string {
   const dir = path.join(instalacao, 'mods', nome);
@@ -277,10 +299,14 @@ function conferirPastaDoMod(raiz: string, instalacao: string, nome: string, arqu
   const visitar = (atual: string, prefixo: string): void => {
     for (const entrada of fs.readdirSync(atual, { withFileTypes: true })) {
       const relativo = prefixo ? `${prefixo}/${entrada.name}` : entrada.name;
-      if (entrada.isSymbolicLink()) throw recusa(`link em ${relativo}`);
+      const arquivo = path.join(atual, entrada.name);
+      if (entrada.isSymbolicLink()) {
+        if (linkDeTipoDoMotor(instalacao, arquivo, relativo, arquivos)) continue;
+        throw recusa(`link em ${relativo}`);
+      }
       if (entrada.isDirectory()) { visitar(path.join(atual, entrada.name), relativo); continue; }
       if (!entrada.isFile()) throw recusa(`arquivo especial em ${relativo}`);
-      if (!arquivos.has(`mods/${nome}/${relativo}`) && !tipoDoMotor(relativo)) {
+      if (!arquivos.has(`mods/${nome}/${relativo}`) && !arquivoDoMotor(raiz, arquivo, relativo)) {
         throw recusa(`arquivo fora do INSTALADO.json (${relativo})`, 'se ele saiu do catalogo, ork adapter install claude-code o tira da copia; ' +
           `se foi editado ou acrescentado a mao, apague ${path.join(dir, relativo)}`);
       }
