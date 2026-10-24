@@ -164,8 +164,8 @@ test('SA7: as pecas do Agile vao ao relatorio (check.pecas) e ao ORK_CHECK_RELAT
   process.env.ORK_CHECK_RELATORIO = relatorio;
   const agile = runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base });
   const pecas = agile.check!.pecas.map(p => `${p.peca}:${p.estado}`);
-  assert.deepEqual(pecas, ['varredura-paralela:agile', 'cache-semgrep:fallback', 'binarios-nativos:fallback', 'cache-trivy-vuln:agile',
-    'cache-trivy-config:agile', 'imagem-de-lint:agile', 'cache-trivy-license:agile']);
+  assert.deepEqual(pecas, ['varredura-paralela:agile', 'cache-semgrep:fallback', 'binarios-nativos:fallback', 'semgrep-prazo-por-regra:agile',
+    'cache-trivy-vuln:agile', 'cache-trivy-config:agile', 'imagem-de-lint:agile', 'cache-trivy-license:agile']);
   assert.equal(agile.check!.pecas.find(p => p.peca === 'cache-semgrep')!.fallback, 'regras do registro a cada rodada, como no Classic');
   const linhas = fs.readFileSync(relatorio, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l) as Record<string, unknown>);
   assert.deepEqual(linhas.map(l => `${String(l.tipo)}:${String(l.peca)}:${String(l.estado)}`), pecas.map(p => `peca:${p}`));
@@ -180,4 +180,21 @@ test('SA8: sem diretorio de cache, o Trivy do Agile cai para o cache efemero do 
   assert.equal(trivy.estado, 'fallback');
   assert.equal(trivy.fallback, 'cache efemero do catalogo');
   assert.equal(agile.tools.find(t => t.name === 'trivy-vuln')!.state, 'ran');
+});
+
+test('SA9: o Semgrep do Agile roda com 30 s por regra (o padrao dele e 5 s), e o do Classic sem a opcao', () => {
+  const r = repo('sa9');
+  runScan({ root: r.dir, stateRoot: r.dir, base: r.base });
+  const semgrep = () => fake!.calls().filter(c => c.args[0] === 'run' && c.args.some(a => a.startsWith('ork-security-scan-semgrep-')));
+  const doClassic = semgrep();
+  assert.ok(doClassic.length > 0 && doClassic.every(c => !c.args.includes('--timeout')));
+  runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base });
+  const doAgile = semgrep().slice(doClassic.length);
+  assert.ok(doAgile.length > 0);
+  for (const c of doAgile) {
+    const i = c.args.indexOf('--timeout');
+    assert.ok(i > 0, 'com --timeout');
+    assert.equal(c.args[i + 1], '30');
+    assert.equal(c.args.length - i, 3, 'antes do diretorio da stack, o ultimo argumento');
+  }
 });

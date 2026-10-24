@@ -43,10 +43,28 @@ export const SEMGREP_SEM_CACHE: PecaDaVarredura = { peca: 'cache-semgrep', estad
   motivo: 'regra lida de arquivo local troca o check_id e a impressao digital', fallback: 'regras do registro a cada rodada, como no Classic' };
 
 /**
+ * O prazo por regra e arquivo do Semgrep no Agile, em segundos. O padrao dele e 5 s; com as ferramentas juntas (e, no
+ * verify, junto das lanes de teste) a disputa de CPU fazia uma regra estourar (`partial-timeout` medido na primeira
+ * rodada real), e regra que estoura pode deixar de achar. O prazo maior nao troca regra nem arquivo varrido.
+ */
+export const PRAZO_POR_REGRA_DO_SEMGREP_S = 30;
+
+/** O Semgrep do Agile com o prazo por regra maior, antes do diretorio da stack (o ultimo argumento). */
+function semgrepDoAgile(t: ToolSpec, pecas: PecaDaVarredura[]): ToolSpec {
+  if (!t.argsByStack) return t;
+  const comPrazo = (args: string[]): string[] => args.length === 0 || args.includes('--timeout') ? args
+    : [...args.slice(0, -1), '--timeout', String(PRAZO_POR_REGRA_DO_SEMGREP_S), args[args.length - 1]];
+  pecas.push({ peca: 'semgrep-prazo-por-regra', estado: 'agile',
+    motivo: `${PRAZO_POR_REGRA_DO_SEMGREP_S} s por regra e arquivo (o padrao do semgrep e 5 s), para a disputa de CPU nao derrubar regra` });
+  return { ...t, argsByStack: Object.fromEntries(Object.entries(t.argsByStack).map(([stack, args]) => [stack, comPrazo(args ?? [])])) };
+}
+
+/**
  * A especificacao da ferramenta no Agile: as do Trivy montam o cache persistente dela no `/tmp/trivy-cache` que o
- * catalogo ja usa. Sem o diretorio, a do catalogo, com a peca em fallback.
+ * catalogo ja usa (sem o diretorio, a do catalogo, com a peca em fallback); o Semgrep ganha o prazo por regra maior.
  */
 export function especificacaoDoAgile(t: ToolSpec, pecas: PecaDaVarredura[]): ToolSpec {
+  if (t.name === 'semgrep') return semgrepDoAgile(t, pecas);
   if (!t.name.startsWith('trivy-') || !t.args.includes('/tmp/trivy-cache')) return t;
   const host = path.join(cacheRoot(), 'cache', t.name);
   try {
