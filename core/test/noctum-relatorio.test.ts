@@ -21,6 +21,7 @@ import { CanalComTransporte, entregarRelatorioSeDevido, enviarPeloTransporte, fa
   reenviarRelatorio, relatorioNoTerminal, ResultadoDoEnvio, retratoDoRelatorio, TETO_DA_PAGINA, transporteDoCanal,
   vencimentoDoRelatorio } from '../src/noctum-relatorio';
 import { comRegistro, lerRegistro } from '../src/noctum-registro';
+import { gravarNaSupervisao } from '../src/noctum-supervisao';
 import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
 
 prepararIngressoSimulado();
@@ -462,5 +463,23 @@ test('RL19: a pendência do dono fora do lote vai ao grupo dele sem #HITL, e o #
     assert.doesNotMatch(texto, /#HITL/, 'sem id do lote, nada de #HITL');
     assert.ok(texto.includes(`👤 O que precisa de você\n• t1 (thread ${ids[0]}) espera o dono fora do lote do arco: `), texto);
     assert.match(texto, /A resposta vai pela pendência da própria thread\./);
+  } finally { p.limpar(); }
+});
+
+test('RL20: sem despacho, o relatório diz motivo, duração, ocupação sem dado privado e a ação do dono', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-rl20');
+  try {
+    const { trabalhos, ids } = threads(p, 1);
+    const a = abrir(p, 'arco-rl20', trabalhos, 'telegram', ids);
+    gravarNaSupervisao(p.carregado, 'arco-rl20', [{ tipo: 'passo_em_espera', papel: 'condutor', motivo: 'capacidade.revisao',
+      ocupantes: [{ origem: 'runtime', runtime: 'claude-bg', revisao: false }] }], depois(a.vencimento, -6 * HORA));
+    const fatos = fatosDoRelatorio(p.carregado, 'arco-rl20', { ...base, quando: a.vencimento })!;
+    assert.equal(fatos.sessoesDespachadas, 0);
+    const texto = linhasDoRelatorio(fatos, 1).join('\n');
+    assert.match(texto, /⏸️ Impedido\n• o passo do arco espera há 6h00 por capacidade\.revisao; ocupação: sessão do runtime sem vínculo no claude-bg \(execução\); alcance: arco/);
+    assert.match(texto, /👤 O que precisa de você\n• O passo não despacha por capacidade\.revisao há 6h00\. Para destravar: encerre uma sessão de execução que esteja trabalhando ou emende a capacidade do envelope\./);
+    const linhaDaEspera = texto.split('\n').find(l => l.includes('o passo do arco espera'))!;
+    assert.doesNotMatch(linhaDaEspera, /perfil-a|00000000-0000-4000/, 'nem conta nem id de sessão entram na espera');
+    assert.doesNotMatch(texto, /👤 O que precisa de você\n• nada/);
   } finally { p.limpar(); }
 });

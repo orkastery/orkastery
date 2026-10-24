@@ -45,6 +45,8 @@ function catalogoCom(mods: ModDoCatalogo[]): string {
       fs.renameSync(path.join(alvo, 'hooks', 'register.js'), path.join(alvo, 'hooks', m.modulo));
       fs.writeFileSync(path.join(alvo, 'hooks', 'hooks.json'), JSON.stringify({ modules: [`./${m.modulo}`] }, null, 2) + '\n');
     }
+    fs.mkdirSync(path.join(alvo, 'types'));
+    fs.writeFileSync(path.join(alvo, 'types', 'index.d.ts'), `export type ${m.nome.replaceAll('-', '_')} = unknown;\n`);
     fs.writeFileSync(path.join(alvo, 'orkastery-mod.json'),
       JSON.stringify({ formato: 'ork.mod/v1', papeis: m.papeis, claudeCodeMinimo: m.minimo ?? '2.1.287' }) + '\n');
   }
@@ -122,16 +124,104 @@ test('S3 arquivo fora do recibo, link e arquivo especial no mod de fase recusam 
   } finally { f.limpar(); }
 });
 
-test('S4 os tipos que o Claude Code escreve em .claude-plugin/types ficam fora da conta; outro arquivo ali, nao', () => {
-  const f = preparar('mods-tipos', [{ nome: 'ork-exemplo', papeis: ['fase'] }]);
+test('S4 o .gitignore que o Claude Code escreve em .claude-plugin/types e aceito', () => {
+  const f = preparar('mods-tipos-gitignore', [{ nome: 'ork-exemplo', papeis: ['fase'] }]);
+  try {
+    const tipos = path.join(f.instalado.destino, 'mods', 'ork-exemplo', '.claude-plugin', 'types');
+    fs.mkdirSync(tipos, { recursive: true });
+    fs.writeFileSync(path.join(tipos, '.gitignore'), '*\n');
+    assert.equal(pastasDePlugin(f.comando()).length, 2);
+  } finally { f.limpar(); }
+});
+
+test('S4.1 link .d.ts do motor para types de outro mod na mesma instalacao e no recibo e aceito', () => {
+  const f = preparar('mods-tipos-link', [{ nome: 'ork-exemplo', papeis: ['fase'] }, { nome: 'ork-ponte', papeis: ['fase'] }]);
+  try {
+    const dir = path.join(f.instalado.destino, 'mods', 'ork-exemplo', '.claude-plugin', 'types', 'ork-ponte');
+    const alvo = path.join(f.instalado.destino, 'mods', 'ork-ponte', 'types', 'index.d.ts');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.symlinkSync(path.relative(dir, alvo), path.join(dir, 'index.d.ts'));
+    assert.equal(pastasDePlugin(f.comando()).length, 3);
+  } finally { f.limpar(); }
+});
+
+test('S4.2 tsconfig da raiz com o extends exato do motor e aceito como JSON', () => {
+  const f = preparar('mods-tipos-tsconfig', [{ nome: 'ork-exemplo', papeis: ['fase'] }]);
+  try {
+    const mod = path.join(f.instalado.destino, 'mods', 'ork-exemplo');
+    fs.writeFileSync(path.join(mod, 'tsconfig.json'), '{\n  "extends": "./.claude-plugin/types/tsconfig.json"\n}\n');
+    assert.equal(pastasDePlugin(f.comando()).length, 2);
+  } finally { f.limpar(); }
+});
+
+test('S4.3 link de tipos para fora da instalacao continua recusado', () => {
+  const f = preparar('mods-tipos-link-externo', [{ nome: 'ork-exemplo', papeis: ['fase'] }]);
+  const externo = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-test-tipo-externo-'));
+  try {
+    const dir = path.join(f.instalado.destino, 'mods', 'ork-exemplo', '.claude-plugin', 'types', 'fora');
+    const alvo = path.join(externo, 'index.d.ts');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(alvo, 'export type Fora = unknown;\n');
+    fs.symlinkSync(alvo, path.join(dir, 'index.d.ts'));
+    assert.throws(() => f.comando(), /link em \.claude-plugin\/types\/fora\/index\.d\.ts/);
+  } finally { f.limpar(); fs.rmSync(externo, { recursive: true, force: true }); }
+});
+
+test('S4.4 link de tipos para arquivo da instalacao fora do recibo continua recusado', () => {
+  const f = preparar('mods-tipos-link-sem-recibo', [
+    { nome: 'ork-exemplo', papeis: ['fase'] }, { nome: 'ork-ponte', papeis: ['dono'] },
+  ]);
+  try {
+    const dir = path.join(f.instalado.destino, 'mods', 'ork-exemplo', '.claude-plugin', 'types', 'ork-ponte');
+    const alvo = path.join(f.instalado.destino, 'mods', 'ork-ponte', 'types', 'extra.d.ts');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(alvo, 'export type Extra = unknown;\n');
+    fs.symlinkSync(path.relative(dir, alvo), path.join(dir, 'index.d.ts'));
+    assert.throws(() => f.comando(), /link em \.claude-plugin\/types\/ork-ponte\/index\.d\.ts/);
+  } finally { f.limpar(); }
+});
+
+test('S4.5 link do motor que nao termina em .d.ts continua recusado', () => {
+  const f = preparar('mods-tipos-link-extensao', [{ nome: 'ork-exemplo', papeis: ['fase'] }, { nome: 'ork-ponte', papeis: ['fase'] }]);
+  try {
+    const dir = path.join(f.instalado.destino, 'mods', 'ork-exemplo', '.claude-plugin', 'types', 'ork-ponte');
+    const alvo = path.join(f.instalado.destino, 'mods', 'ork-ponte', 'types', 'index.d.ts');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.symlinkSync(path.relative(dir, alvo), path.join(dir, 'index.js'));
+    assert.throws(() => f.comando(), /link em \.claude-plugin\/types\/ork-ponte\/index\.js/);
+  } finally { f.limpar(); }
+});
+
+test('S4.6 tsconfig da raiz com qualquer outro conteudo continua recusado', () => {
+  const f = preparar('mods-tipos-tsconfig-invalido', [{ nome: 'ork-exemplo', papeis: ['fase'] }]);
+  try {
+    const arquivo = path.join(f.instalado.destino, 'mods', 'ork-exemplo', 'tsconfig.json');
+    for (const conteudo of ['{}\n', '{"extends":"./outro.json"}\n',
+      '{"extends":"./.claude-plugin/types/tsconfig.json","compilerOptions":{}}\n', 'nao e json\n']) {
+      fs.writeFileSync(arquivo, conteudo);
+      assert.throws(() => f.comando(), /arquivo fora do INSTALADO\.json \(tsconfig\.json\)/);
+    }
+  } finally { f.limpar(); }
+});
+
+test('S4.7 qualquer outro arquivo fora do recibo continua recusado', () => {
+  const f = preparar('mods-tipos-outro', [{ nome: 'ork-exemplo', papeis: ['fase'] }]);
+  try {
+    const tipos = path.join(f.instalado.destino, 'mods', 'ork-exemplo', '.claude-plugin', 'types');
+    fs.mkdirSync(tipos, { recursive: true });
+    fs.writeFileSync(path.join(tipos, 'gancho.js'), 'export const y = 2\n');
+    assert.throws(() => f.comando(), /arquivo fora do INSTALADO\.json \(\.claude-plugin\/types\/gancho\.js\)/);
+  } finally { f.limpar(); }
+});
+
+test('S4.8 declaracoes e tsconfig dentro de .claude-plugin/types continuam aceitos', () => {
+  const f = preparar('mods-tipos-legado', [{ nome: 'ork-exemplo', papeis: ['fase'] }]);
   try {
     const tipos = path.join(f.instalado.destino, 'mods', 'ork-exemplo', '.claude-plugin', 'types');
     fs.mkdirSync(path.join(tipos, 'claude-code'), { recursive: true });
     fs.writeFileSync(path.join(tipos, 'claude-code', 'index.d.ts'), 'export type X = 1;\n');
     fs.writeFileSync(path.join(tipos, 'tsconfig.json'), '{}\n');
     assert.equal(pastasDePlugin(f.comando()).length, 2);
-    fs.writeFileSync(path.join(tipos, 'gancho.js'), 'export const y = 2\n');
-    assert.throws(() => f.comando(), /arquivo fora do INSTALADO\.json \(\.claude-plugin\/types\/gancho\.js\)/);
   } finally { f.limpar(); }
 });
 
