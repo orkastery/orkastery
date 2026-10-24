@@ -45,6 +45,7 @@ import { canalDoProcesso, comConducao, ConducaoTomada, identidadeDoAmbiente, pra
 import { diretorioDaThread } from './procedencia';
 import { BarreiraDaThread, barreiraDaThread, resumoNoLedger } from './dado-privado';
 import { avisos as avisosDePolicy, bloqueantes as bloqueantesDePolicy } from './policies';
+import { ENV_MODO_DO_CHECK, ModoDoCheck, ModoResolvido, NOME_DO_MODO, resolverModo } from './check-modo';
 
 /** Teto de tempo de um comando de verificacao (build e suite completa cabem). */
 export const TIMEOUT_VERIFY_MS = 10 * 60 * 1000;
@@ -107,14 +108,17 @@ export function prazoDaExecucao(manifesto: Manifesto, nome: string, comando: str
   return prazoDoComando(manifesto, ehComandoDoScan(manifesto, nome, comando) ? 'security_scan' : nome);
 }
 
-/** O executor resolvido pelo manifesto: prazo de cada comando e, no scan, o prazo interno no ambiente. */
-export function executorDoManifesto(manifesto: Manifesto): ExecutorVerify {
+/**
+ * O executor resolvido pelo manifesto: prazo de cada comando e, no scan, o prazo interno no ambiente. RM-072 (D2):
+ * `ambienteDaRodada` e o que a rodada passa a todo comando dela (o modo do CHECK); o CI hospedado nao passa nada.
+ */
+export function executorDoManifesto(manifesto: Manifesto, ambienteDaRodada?: Record<string, string>): ExecutorVerify {
   return (nome, comando, cwd) => {
     const prazo = prazoDaExecucao(manifesto, nome, comando);
     const extra = ehComandoDoScan(manifesto, nome, comando)
       ? { ORK_SECURITY_SCAN_DEADLINE_MS: String(prazoInternoDoScan(prazo)) }
       : undefined;
-    return executar(nome, comando, cwd, prazo, extra);
+    return executar(nome, comando, cwd, prazo, ambienteDaRodada || extra ? { ...ambienteDaRodada, ...extra } : undefined);
   };
 }
 
@@ -234,7 +238,8 @@ export function causaDoEncerramento(r: { code: number; signal: string | null; er
 
 /** I-37 (D8): o que o ledger grava de um comando. Sucesso e o codigo 0; falha leva a evidencia. */
 export function comandoNoLedger(c: ResultadoDeComando): Record<string, unknown> {
-  if (c.ok) return { nome: c.nome, ok: true, code: c.code };
+  // RM-072 (D2): a duracao vai tambem no comando que passa, para a meta do CHECK ser medida pelo ledger.
+  if (c.ok) return { nome: c.nome, ok: true, code: c.code, ...(c.duracaoMs !== undefined ? { duracaoMs: c.duracaoMs } : {}) };
   return {
     nome: c.nome, comando: redigirCredenciaisUrl(c.comando), ok: false, code: c.code,
     ...(c.causa ? { causa: c.causa } : {}),
@@ -345,8 +350,18 @@ export type OrigemDaBaseline = 'cli' | 'phase.run';
  * falhava" com o manifesto dando 2400 s.
  */
 export function executorDaRodada(manifesto: Manifesto, instabilidade: RegistroLido, base?: ExecutorVerify,
-  leitor: LeitorProcStat = lerProcStat): ExecutorVerify {
-  return executorComSteal(base ?? executorDoManifesto(manifesto), leitor, testesDeRelogioVigentes(instabilidade));
+  leitor: LeitorProcStat = lerProcStat, ambienteDaRodada?: Record<string, string>): ExecutorVerify {
+  return executorComSteal(base ?? executorDoManifesto(manifesto, ambienteDaRodada), leitor, testesDeRelogioVigentes(instabilidade));
+}
+
+/** RM-072 (D2): o que a rodada passa a todo comando dela, nos dois modos: o modo do CHECK. */
+export function ambienteDoModo(check: ModoResolvido): Record<string, string> {
+  return { [ENV_MODO_DO_CHECK]: check.modo };
+}
+
+/** RM-072 (D1, D2): o modo da rodada, como vai ao ledger. */
+function checkNoLedger(check: ModoResolvido): Record<string, unknown> {
+  return { modo: check.modo, origem: check.origem, nome: check.nome };
 }
 
 /** O que um comando da baseline prova sobre o codigo do HEAD em que ela foi gravada. */
@@ -400,19 +415,23 @@ function exigirDependenciasDaWorktree(carregado: ManifestoCarregado, threadId: s
 
 /** `ork verify --baseline`: grava o estado do mundo ANTES do GO. Sem `executor`, o da rodada (`executorDaRodada`). */
 export function gravarBaseline(carregado: ManifestoCarregado, threadId: string, executor?: ExecutorVerify,
-  conducao: ConducaoDoVerify = {}, origem: OrigemDaBaseline = 'cli', leitor: LeitorProcStat = lerProcStat): Baseline {
+  conducao: ConducaoDoVerify = {}, origem: OrigemDaBaseline = 'cli', leitor: LeitorProcStat = lerProcStat,
+  modo?: ModoDoCheck): Baseline {
   const pedido = pedidoDoVerify(carregado, threadId, 'baseline', comandosDoManifesto(carregado.manifesto).length, conducao);
   return comConducao(carregado.raiz, threadId, pedido, (tomada) => naFilaPesada(carregado, threadId, 'baseline', conducao,
-    () => gravarBaselineSobConducao(carregado, threadId, executor, tomada, origem, leitor)));
+    () => gravarBaselineSobConducao(carregado, threadId, executor, tomada, origem, leitor, modo)));
 }
 
 function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: string, base: ExecutorVerify | undefined,
-  tomada: ConducaoTomada, origem: OrigemDaBaseline, leitor: LeitorProcStat): Baseline {
+  tomada: ConducaoTomada, origem: OrigemDaBaseline, leitor: LeitorProcStat, modo: ModoDoCheck | undefined): Baseline {
   const { raiz, manifesto } = carregado;
   const thread = lerThread(raiz, threadId);
   const cwd = cwdDaThread(raiz, thread);
   exigirDependenciasDaWorktree(carregado, threadId, cwd, 'baseline', tomada, base);
-  const executor = executorSobConducao(executorDaRodada(manifesto, lerRegistroDeInstabilidade(cwd), base, leitor), manifesto, tomada);
+  // RM-072 (D1, D2): a baseline roda e grava no modo da rodada, como o verify.
+  const check = resolverModo(manifesto.check?.mode, modo);
+  const executor = executorSobConducao(executorDaRodada(manifesto, lerRegistroDeInstabilidade(cwd), base, leitor,
+    ambienteDoModo(check)), manifesto, tomada);
   const comandos = comandosDoManifesto(manifesto).map((c) => executor(c.nome, c.comando, cwd));
   const naoEncontrado = comandos.find((c) => c.causa === 'nao-encontrado');
   if (naoEncontrado) {
@@ -421,7 +440,7 @@ function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: stri
     throw new ErroDoCatalogo((m) => m.verify.baselineDependenciaAusente(
       naoEncontrado.nome, naoEncontrado.code, redigirCredenciaisUrl(naoEncontrado.comando), manifesto.worktree.dependencias ?? null));
   }
-  const baseline: Baseline = { commit: commitReal(cwd), gravadaEm: agora(), comandos };
+  const baseline: Baseline = { commit: commitReal(cwd), gravadaEm: agora(), comandos, check: { modo: check.modo, origem: check.origem } };
 
   thread.baseline = baseline;
   gravarThread(raiz, thread);
@@ -429,7 +448,8 @@ function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: stri
     commit: baseline.commit,
     cwd,
     comandos: comandos.map((c) => ({ nome: c.nome, comando: c.comando, ok: c.ok, code: c.code, prazoMs: c.prazoMs ?? null,
-      ...(c.ok ? {} : { causa: c.causa ?? null }) })),
+      ...(c.duracaoMs !== undefined ? { duracaoMs: c.duracaoMs } : {}), ...(c.ok ? {} : { causa: c.causa ?? null }) })),
+    check: checkNoLedger(check),
     // RM-037 (defeito 1 de 19 e 20/10/2026): o que a baseline nao provou fica dito no proprio evento.
     semVeredito: comandos.filter((c) => vereditoDaBaseline(c) === 'sem-veredito').map((c) => c.nome),
     fonte: 'execucao real no HEAD, nao relatorio de fase',
@@ -463,6 +483,10 @@ export interface ResultadoVerify {
   filaPesada: UsoDaFilaPesada;
   /** RM-062 (F2): a barreira de dado privado do diff da thread; `null` sem a policy `dado_privado` no manifesto. */
   dadoPrivado?: BarreiraDaThread | null;
+  /** RM-072 (D1): o modo do CHECK da rodada e de onde ele veio. */
+  check: ModoResolvido;
+  /** RM-072 (D2): a parede da rodada, do inicio sob a conducao ao `verify_run`. */
+  duracaoMs: number;
   motivos: MotivoGate[];
   /** True quando nenhum motivo BLOQUEANTE apareceu. */
   ok: boolean;
@@ -497,6 +521,8 @@ export interface OpcoesVerify {
   lerProcStat?: LeitorProcStat;
   /** RM-037 (fatia 6): o relogio da vigencia do registro de instabilidade. */
   agoraMs?: number;
+  /** RM-072 (D1): o modo pedido pela opcao `--check`; vence o `check.mode` do manifesto. */
+  check?: ModoDoCheck;
 }
 
 /**
@@ -575,11 +601,14 @@ function verificarSobConducao(
   filaPesada: UsoDaFilaPesada
 ): ResultadoVerify {
   const { raiz, manifesto } = carregado;
+  const inicioDaRodada = Date.now();
   const thread = lerThread(raiz, threadId);
   const cwd = cwdDaThread(raiz, thread);
   exigirDependenciasDaWorktree(carregado, threadId, cwd, 'verify', conducao, opcoes.executor);
   const commit = commitReal(cwd);
   const dir = dirThread(raiz, threadId);
+  // RM-072 (D1): o modo da rodada; a opcao vence o manifesto, que vence o padrao.
+  const check = resolverModo(manifesto.check?.mode, opcoes.check);
 
   // I-43 (D4, viga b): os criterios de pronto da thread viram claims do nucleo ANTES
   // da reexecucao, para entrarem no MESMO veredito das demais alegacoes. Idempotente:
@@ -594,8 +623,8 @@ function verificarSobConducao(
 
   // I-37 (D2, D3): o prazo de cada comando sai do manifesto carregado no inicio da rodada;
   // editar o manifesto no meio dela nao muda o teto de quem ainda vai rodar.
-  const executor: ExecutorVerify = executorSobConducao(executorDaRodada(manifesto, instabilidade, opcoes.executor, leitor),
-    manifesto, conducao);
+  const executor: ExecutorVerify = executorSobConducao(executorDaRodada(manifesto, instabilidade, opcoes.executor, leitor,
+    ambienteDoModo(check)), manifesto, conducao);
 
   // I-54 (D10): o preparo roda UMA vez, antes das claims. Ele nunca e condicao para uma claim
   // passar (cada uma roda o proprio comando inteiro); ele so deixa pronta a compilacao. A
@@ -676,6 +705,7 @@ function verificarSobConducao(
 
   const bloqueantes = motivos.filter((m) => m !== 'claims.unverifiable');
   const ok = bloqueantes.length === 0;
+  const duracaoMs = Date.now() - inicioDaRodada;
 
   registrar(dir, threadId, TIPOS_DE_EVENTO.verificacao, {
     commit,
@@ -687,6 +717,8 @@ function verificarSobConducao(
         verificado: c.verificado,
         motivo: c.motivo,
         detalhe: c.detalhe,
+        // RM-072 (D2): a soma da parede dos comandos da claim.
+        duracaoMs: c.execucoes.reduce((t, e) => t + (e.duracaoMs ?? 0), 0),
         ...(falhou ? { execucao: comandoNoLedger(falhou) } : {}),
       };
     }),
@@ -706,6 +738,9 @@ function verificarSobConducao(
       identidade: preparo.identidade.slice(0, 16), identidadeFinal: identidadeFinal!.slice(0, 16), produtoAlterado } } : {}),
     motivos,
     veredito: ok ? 'verdade sustentada' : 'reprovado',
+    // RM-072 (D1, D2): o modo do CHECK e de onde ele veio, e a parede da rodada inteira.
+    check: checkNoLedger(check),
+    duracaoMs,
     // I-36: por qual canal a verificacao chegou; a reentrada da sessao que conduz aparece aqui.
     canal,
     conducao: { identidade: conducao.identidade, reentrada: conducao.reentrada },
@@ -764,6 +799,9 @@ function verificarSobConducao(
     });
   }
 
+  // RM-072 (D17): o ultimo modo do CHECK fica na thread, para o status mostrar.
+  registrarModoNaThread(raiz, threadId, check, commit);
+
   return {
     thread: threadId,
     commit,
@@ -780,9 +818,21 @@ function verificarSobConducao(
     instabilidade,
     filaPesada,
     dadoPrivado,
+    check,
+    duracaoMs,
     motivos,
     ok,
   };
+}
+
+/**
+ * RM-072 (D17): grava o modo do ultimo `verify_run` no `thread.json`. A thread e relida na hora, para nao devolver ao
+ * disco uma copia lida no comeco da rodada; o status mostra a linha so quando o campo existe.
+ */
+function registrarModoNaThread(raiz: string, threadId: string, check: ModoResolvido, commit: string): void {
+  const atual = lerThread(raiz, threadId);
+  atual.check = { modo: check.modo, origem: check.origem, commit, em: agora() };
+  gravarThread(raiz, atual);
 }
 
 /** `FALHOU (codigo 1)`, ou `ESTOUROU O PRAZO (600 s, rodou 612 s)`: a causa e dita pelo nome. */
@@ -803,6 +853,8 @@ function situacaoDoComando(c: ResultadoDeComando): string {
 export function linhasDaBaseline(b: Baseline, id: string): string[] {
   const m = msg().verify;
   const linhas = b.comandos.map((c) => m.baselineComando(c.nome, vereditoDaBaseline(c), c.code, c.comando, situacaoDoComando(c)));
+  // RM-072 (D1): o modo que gravou a baseline (a baseline anterior a RM-072 nao tem o campo).
+  if (b.check) linhas.unshift(m.baselineCheck(NOME_DO_MODO[b.check.modo], b.check.modo, b.check.origem));
   const semVeredito = b.comandos.filter((c) => vereditoDaBaseline(c) === 'sem-veredito').map((c) => c.nome);
   if (semVeredito.length > 0) linhas.push(m.baselineSemVeredito(semVeredito.join(', '), id));
   return linhas;
@@ -815,6 +867,7 @@ export function textoDoVerify(r: ResultadoVerify): string {
   linhas.push(m.titulo(r.thread));
   linhas.push(m.head(r.commit));
   linhas.push(m.diretorio(r.cwd));
+  linhas.push(m.check(r.check.nome, r.check.modo, r.check.origem));
   linhas.push(r.baseline ? m.baseline(shaCurto(r.baseline.commit), formatarDataHoraRotulada(r.baseline.gravadaEm)) : m.semBaseline);
   if (r.preparo) {
     const p = r.preparo;

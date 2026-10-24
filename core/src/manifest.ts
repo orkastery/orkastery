@@ -21,6 +21,7 @@ import { arquivoDaDsnValido, PREFIXO_DO_ARQUIVO_DA_DSN } from './dsn-da-memoria'
 import { ErroDoCatalogo } from './locale';
 import { TIPOS_DE_FORJA, TipoDeForja } from './forja/contrato';
 import { branchValida } from './branch-de-estado';
+import { lerModo, MODOS_DO_CHECK } from './check-modo';
 
 export const NOME_MANIFESTO = 'orkastery.yaml';
 export const NOME_MANIFESTO_LEGADO = 'devmaster.yaml';
@@ -189,6 +190,29 @@ function lerGrafo(v: ValorYaml | undefined, avisos: string[]): Manifesto['grafo'
   if (mcp === undefined || mcp === null || typeof mcp === 'boolean') return { mcp: mcp === true };
   avisos.push(`grafo.mcp deve ser true ou false; vale false (${mostrar(mcp)} nao reconhecido)`);
   return { mcp: false };
+}
+
+/**
+ * RM-072 (D1 da ork-check5x): o bloco `check`. `mode` aceita `agile` e `classic` (sem diferenca de caixa); outro valor e
+ * erro do manifesto com os dois valores aceitos, porque um modo mal escrito que caisse no padrao em silencio mudaria o
+ * CHECK sem ninguem saber. Ausente, `mode` vale o padrao na hora da rodada. Chave desconhecida so avisa.
+ */
+function lerCheck(v: ValorYaml | undefined, erros: string[], avisos: string[]): Manifesto['check'] {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== 'object' || Array.isArray(v)) {
+    erros.push(`check precisa ser um mapa com mode: ${MODOS_DO_CHECK.join(' ou ')} (recebido ${exibir(v)})`);
+    return undefined;
+  }
+  for (const chave of Object.keys(v)) {
+    if (!['mode', 'agile'].includes(chave)) avisos.push(`check.${chave} desconhecida; o bloco check tem mode e agile`);
+  }
+  const check: NonNullable<Manifesto['check']> = {};
+  if (v.mode !== undefined && v.mode !== null) {
+    const modo = lerModo(v.mode);
+    if (modo) check.mode = modo;
+    else erros.push(`check.mode invalido: ${exibir(v.mode)} (aceitos: ${MODOS_DO_CHECK.join(', ')})`);
+  }
+  return check;
 }
 
 /** RM-059 (T10.4): os limites dos tetos de agent teams, os mesmos que o Portao de Tarefas aceita do ambiente. */
@@ -670,6 +694,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
     avisos.push(`lendo ${NOME_MANIFESTO_LEGADO} como fallback; migre para ${NOME_MANIFESTO}`);
   }
   const conhecimento = lerBlocoConhecimento(dados.conhecimento, avisos);
+  const check = lerCheck(dados.check, erros, avisos);
 
   const manifesto: Manifesto = {
     project: {
@@ -720,6 +745,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
       // I-54 (RM-037, D10): o preparo unico da rodada de verify, quando declarado.
       ...(typeof verify.preparo === 'string' && verify.preparo.trim() ? { preparo: verify.preparo.trim() } : {}),
     },
+    ...(check ? { check } : {}),
     ci: {
       required_for_ship: booleano(ci.required_for_ship, false),
       context: texto(ci.context, 'ork-verify'),

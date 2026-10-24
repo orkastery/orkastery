@@ -6,6 +6,7 @@
  */
 
 import type { TipoDeForja } from './forja/contrato';
+import type { ModoDoCheck, OrigemDoModo } from './check-modo';
 
 /** As 6 fases canonicas do ciclo Orkastery. */
 export type Fase = 'GOAL' | 'PLAN' | 'GO' | 'CHECK' | 'SHIP' | 'MASTER';
@@ -208,6 +209,11 @@ export interface Manifesto {
      */
     preparo?: string;
   };
+  /**
+   * RM-072 (D2 do dono): o modo do CHECK deste projeto. `mode` ausente vale o padrao (`agile`); `classic` e o CHECK de
+   * sempre. A opcao `--check` do `ork verify` vence esta chave.
+   */
+  check?: { mode?: ModoDoCheck };
   /** I-12: check publicado por runner independente antes do SHIP. */
   ci: {
     required_for_ship: boolean;
@@ -459,6 +465,8 @@ export interface Thread {
   score?: ScoreHumano | null;
   score_proposto?: ScoreProposto | null;
   fechamentoAdmin?: { motivo: MotivoFechamentoAdmin; por: string; justificativa: string; fechadoEm: string };
+  /** RM-072 (D17 da ork-check5x): o modo do ultimo `verify_run` da thread, que o status mostra. */
+  check?: { modo: ModoDoCheck; origem: OrigemDoModo; commit: string; em: string };
 }
 
 /** RM-059 (T6.0): onde o pedido guardado mora e os bytes que ele tinha na criacao. */
@@ -730,6 +738,8 @@ export interface Baseline {
   commit: string;
   gravadaEm: string;
   comandos: ResultadoDeComando[];
+  /** RM-072 (D2 do dono): o modo do CHECK que gravou a baseline. Ausente na baseline anterior a RM-072. */
+  check?: { modo: ModoDoCheck; origem: OrigemDoModo };
 }
 
 /** Resultado da reexecucao de uma claim no HEAD real. */
