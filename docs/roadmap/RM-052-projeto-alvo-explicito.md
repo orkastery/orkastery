@@ -6,7 +6,7 @@ categoria: melhoria
 pai: null
 features: [FEAT-030, FEAT-020, FEAT-014, FEAT-027]
 owner: Julio
-atualizado_em: 2026-10-10T04:05:00-03:00
+atualizado_em: 2026-10-24T10:46:22-03:00
 estado:
   ciclo: Em validação
   documentacao: Em revisão
@@ -17,7 +17,7 @@ estado:
   habilitacao: Em andamento
 evidencias:
   codigo:
-    commit: a24a187
+    commit: afacfc5
     pr: 24
   testes:
     ci: verde no push do merge (run 36659111443) e no da v0.5.0 (run 36815186450)
@@ -27,8 +27,8 @@ evidencias:
 sdlc:
   thread: ork-rm052projet2
   modo: "#Auto"
-  fase: PLAN
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-052 — Projeto-alvo explícito e resposta honesta nos hosts
@@ -113,13 +113,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em validação | — | 2026-10-10 | Julio |
-| Documentação | Em revisão | — | 2026-10-10 | Julio |
-| Código | Mesclado | commit `a24a187` · PR #24 | 2026-10-10 | Julio |
-| Testes | Aprovados | ci: verde no push do merge (run 36659111443) e no da v0.5.0 (run 36815186450) | 2026-10-10 | Julio |
-| Deploy | Produção | release: v0.5.0, @orkastery/cli 0.5.0 no npm · gateway: Extensão OpenClaw 0.5.0+ instalada, conforme confirmação da condução; piloto no Telegram pendente | 2026-10-10 | Julio |
-| Exposição | Parcial | — | 2026-10-10 | Julio |
-| Habilitação | Em andamento | — | 2026-10-10 | Julio |
+| Ciclo do item | Em validação | — | 2026-10-24 | Julio |
+| Documentação | Em revisão | — | 2026-10-24 | Julio |
+| Código | Mesclado | commit `afacfc5` · PR #24 | 2026-10-24 | Julio |
+| Testes | Aprovados | ci: verde no push do merge (run 36659111443) e no da v0.5.0 (run 36815186450) | 2026-10-24 | Julio |
+| Deploy | Produção | release: v0.5.0, @orkastery/cli 0.5.0 no npm · gateway: Extensão OpenClaw 0.5.0+ instalada, conforme confirmação da condução; piloto no Telegram pendente | 2026-10-24 | Julio |
+| Exposição | Parcial | — | 2026-10-24 | Julio |
+| Habilitação | Em andamento | — | 2026-10-24 | Julio |
 
 <!-- ork-docs:estado:fim -->
 

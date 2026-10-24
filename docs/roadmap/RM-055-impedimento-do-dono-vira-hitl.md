@@ -6,7 +6,7 @@ categoria: melhoria
 pai: RM-048
 features: []
 owner: Julio
-atualizado_em: 2026-10-10T06:54:46+00:00
+atualizado_em: 2026-10-24T10:46:22-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -17,13 +17,13 @@ estado:
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: 7ab4932
+    commit: 1bc1e29
     pr: null
 sdlc:
   thread: ork-rm055impedi2
   modo: "#Auto"
-  fase: GO
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-055 — Impedimento que só o dono resolve vira pedido a ele
@@ -87,13 +87,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-10 | Julio |
-| Documentação | Em revisão | — | 2026-10-10 | Julio |
-| Código | Mesclado | commit `7ab4932` | 2026-10-10 | Julio |
-| Testes | Em execução | — | 2026-10-10 | Julio |
-| Deploy | Não implantado | — | 2026-10-10 | Julio |
-| Exposição | Flag desligada | — | 2026-10-10 | Julio |
-| Habilitação | Pendente | — | 2026-10-10 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-24 | Julio |
+| Documentação | Em revisão | — | 2026-10-24 | Julio |
+| Código | Mesclado | commit `1bc1e29` | 2026-10-24 | Julio |
+| Testes | Em execução | — | 2026-10-24 | Julio |
+| Deploy | Não implantado | — | 2026-10-24 | Julio |
+| Exposição | Flag desligada | — | 2026-10-24 | Julio |
+| Habilitação | Pendente | — | 2026-10-24 | Julio |
 
 <!-- ork-docs:estado:fim -->
 

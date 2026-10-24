@@ -6,7 +6,7 @@ categoria: melhoria
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-20T15:46:52-03:00
+atualizado_em: 2026-10-24T10:46:22-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -25,8 +25,8 @@ evidencias:
 sdlc:
   thread: ork-rm062barreir
   modo: "#Auto"
-  fase: GO
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-062 — Repositório público sem dado privado
@@ -138,13 +138,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-20 | Julio |
-| Documentação | Em revisão | — | 2026-10-20 | Julio |
-| Código | Mesclado | commit `f5c8db2` | 2026-10-20 | Julio |
-| Testes | Em execução | f1: core/test/dado-privado.test.ts (DP1 a DP19) e core/test/dado-privado-cli.test.ts (DC1 a DC4) · f2: core/test/dado-privado-verify.test.ts (DV1 a DV5 e DB1 a DB7) | 2026-10-20 | Julio |
-| Deploy | Não implantado | — | 2026-10-20 | Julio |
-| Exposição | Flag desligada | — | 2026-10-20 | Julio |
-| Habilitação | Pendente | — | 2026-10-20 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-24 | Julio |
+| Documentação | Em revisão | — | 2026-10-24 | Julio |
+| Código | Mesclado | commit `f5c8db2` | 2026-10-24 | Julio |
+| Testes | Em execução | f1: core/test/dado-privado.test.ts (DP1 a DP19) e core/test/dado-privado-cli.test.ts (DC1 a DC4) · f2: core/test/dado-privado-verify.test.ts (DV1 a DV5 e DB1 a DB7) | 2026-10-24 | Julio |
+| Deploy | Não implantado | — | 2026-10-24 | Julio |
+| Exposição | Flag desligada | — | 2026-10-24 | Julio |
+| Habilitação | Pendente | — | 2026-10-24 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
