@@ -34,17 +34,17 @@
       "lint": []
     },
     {
-      "id": "C3",
+      "id": "C4",
       "thread": "ork-tiposdomotor",
       "fase": "GO",
       "arquivo": "CHANGELOG.md",
       "alegacao": "O changelog registra a correcao dos tipos gerados pelo Claude Code em RM-037.",
       "negativa": false,
       "verificar": [
-        "rg -n 'Tipos gerados pelo Claude Code \\(RM-037\\)' CHANGELOG.md"
+        "grep -n \"Tipos gerados pelo Claude Code (RM-037)\" CHANGELOG.md"
       ],
-      "criadoEm": "2026-10-24T14:43:52.434Z",
-      "estado": "verificado",
+      "criadoEm": "2026-10-24T16:09:40.115Z",
+      "estado": "pendente",
       "lint": []
     }
   ],
