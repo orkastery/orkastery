@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-24T23:00:04.895Z",
+  "publicadoEm": "2026-10-24T23:15:03.607Z",
   "threads": [
     {
       "id": "ork-check5x",
@@ -16,9 +16,9 @@
       "branch": "ork/ork-check5x-full",
       "atualizadaEm": "2026-10-24T22:58:18.732Z",
       "entregue": null,
-      "esperaVoce": true,
-      "pergunta": "autorizacao da retomada",
-      "paradaDesde": "2026-10-24T22:04:19.678Z",
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
       "runtime": "claude-bg",
       "modelo": "opus",
       "esforco": "max",
@@ -58,7 +58,7 @@
       "status": "aberta",
       "roadmap": "RM-058",
       "branch": "ork/ork-portaop1-go",
-      "atualizadaEm": "2026-10-24T22:37:53.125Z",
+      "atualizadaEm": "2026-10-24T23:01:45.318Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -67,9 +67,9 @@
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-10-24T23:09:05.861Z",
+        "motivo": "sessão 01a1700c encerrada (completed)"
       }
     },
     {
