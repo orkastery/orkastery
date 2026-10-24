@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-24T22:15:18.767Z",
+  "publicadoEm": "2026-10-24T22:30:04.034Z",
   "threads": [
     {
       "id": "ork-check5x",
@@ -34,9 +34,9 @@
       "modo": "#Fast",
       "fase": "GO",
       "status": "aberta",
-      "roadmap": null,
+      "roadmap": "RM-073",
       "branch": "ork/ork-modelosdecis-go",
-      "atualizadaEm": "2026-10-24T22:12:02.342Z",
+      "atualizadaEm": "2026-10-24T22:18:16.277Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
