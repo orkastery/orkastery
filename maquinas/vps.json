@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-24T16:43:40.545Z",
+  "publicadoEm": "2026-10-24T16:57:22.421Z",
   "threads": [
     {
       "id": "ork-check5x",
@@ -36,18 +36,18 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-noctumvaga-go",
-      "atualizadaEm": "2026-10-24T16:38:00.147Z",
+      "atualizadaEm": "2026-10-24T16:57:22.029Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null,
+      "runtime": "codex",
+      "modelo": "gpt-5.6-sol",
+      "esforco": "xhigh",
       "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-24T16:38:03.877Z",
-        "motivo": "nenhuma sessão despachada na fase GO"
+        "viva": true,
+        "desdeEm": null,
+        "motivo": null
       }
     },
     {
