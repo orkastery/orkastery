@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-24T22:12:02.991Z",
+  "publicadoEm": "2026-10-24T22:15:18.767Z",
   "threads": [
     {
       "id": "ork-check5x",
@@ -48,6 +48,28 @@
         "viva": true,
         "desdeEm": null,
         "motivo": null
+      }
+    },
+    {
+      "id": "ork-portaop1",
+      "nome": "portaop1",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": "RM-058",
+      "branch": "ork/ork-portaop1-go",
+      "atualizadaEm": "2026-10-24T22:15:12.891Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-24T22:15:15.846Z",
+        "motivo": "nenhuma sessão despachada na fase GO"
       }
     },
     {
