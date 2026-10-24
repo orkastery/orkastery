@@ -8,6 +8,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Portão de release do #Noctum (RM-058)**: por decisão do dono, a próxima versão exige somente o P1 real de 6 h, aprovado e ratificado depois do piloto; o alcance continua em toda versão, e P2, P3 e P4 ficam para versões seguintes.
 - **DSN da memória fora do ambiente dos agentes (RM-069)**: `memory.database_url_file` declara a DSN da memória por
   um arquivo da pasta de segredos do `ork` (`~/.orkastery/segredos/<nome>`, que segue `ORKASTERY_HOME`), em vez da
   variável de `memory.database_url_env`; as duas fontes são exclusivas e o `ork` nunca cai de uma para a outra. O

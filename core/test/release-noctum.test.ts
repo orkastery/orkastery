@@ -20,12 +20,12 @@ const rodar = (raiz: string, ...args: string[]) => spawnSync(process.execPath, [
 
 interface Piloto { id: string; arquivo: string; sha256: string; simulado: boolean; veredito: string }
 
-/** O aceite de fixture: os quatro pilotos publicáveis, aprovados, e a ratificação; `mexer` o estraga do jeito do caso. */
+/** O aceite de fixture: o P1 publicável, aprovado e ratificado; `mexer` o estraga do jeito do caso. */
 function aceite(raiz: string, mexer: (a: { contrato: string; pilotos: Piloto[]; ratificacao?: Record<string, string> }) => void = () => {}): void {
   fs.mkdirSync(path.join(raiz, PASTA), { recursive: true });
-  const pilotos = ['P1', 'P2', 'P3', 'P4'].map((id, i) => {
+  const pilotos = ['P1'].map((id, i) => {
     const arquivo = `piloto-${i + 1}.json`;
-    const horas = [6, 12, 6, 12][i];
+    const horas = 6;
     const inicio = Date.parse(`2025-12-0${i + 1}T00:00:00.000Z`);
     const janela = { inicio: new Date(inicio).toISOString(), fim: new Date(inicio + horas * 3_600_000).toISOString(), horas };
     const texto = `${JSON.stringify({ contrato: 'ork.noctum-piloto/v1', arco: `arco-piloto-${i + 1}`, janela,
@@ -48,34 +48,34 @@ test('RG1: sem o aceite dos pilotos, a tag não publica: sai 1 com o motivo e a 
     const r = rodar(raiz);
     assert.equal(r.status, 1);
     assert.match(r.stderr, /^release\.noctum\.aceite-ausente: docs\/roadmap\/evidencias\/RM-058\/aceite\.json não existe: a regra do dono \(toda-versao\)/);
-    assert.match(r.stderr, /pilotos P1, P2, P3, P4 aprovados e ratificados/);
+    assert.match(r.stderr, /pilotos P1 aprovados e ratificados/);
   });
 });
 
 test('RG2: o aceite com um piloto simulado (o ensaio) recusa, pelo aceite ou pelo arquivo publicável', () => {
   emPasta('rg2', (raiz) => {
-    aceite(raiz, (a) => { a.pilotos[1].simulado = true; });
-    assert.match(rodar(raiz).stderr, /^release\.noctum\.piloto-simulado: o piloto P2 é simulado/);
+    aceite(raiz, (a) => { a.pilotos[0].simulado = true; });
+    assert.match(rodar(raiz).stderr, /^release\.noctum\.piloto-simulado: o piloto P1 é simulado/);
     aceite(raiz);
-    const arquivo = path.join(raiz, PASTA, 'piloto-3.json');
+    const arquivo = path.join(raiz, PASTA, 'piloto-1.json');
     const texto = fs.readFileSync(arquivo, 'utf8').replace('"simulado": false', '"simulado": true');
     fs.writeFileSync(arquivo, texto);
     const a = JSON.parse(fs.readFileSync(path.join(raiz, PASTA, 'aceite.json'), 'utf8'));
-    a.pilotos[2].sha256 = createHash('sha256').update(texto).digest('hex');
+    a.pilotos[0].sha256 = createHash('sha256').update(texto).digest('hex');
     fs.writeFileSync(path.join(raiz, PASTA, 'aceite.json'), JSON.stringify(a));
     const r = rodar(raiz);
     assert.equal(r.status, 1);
-    assert.match(r.stderr, /^release\.noctum\.piloto-simulado: o piloto P3 é simulado/);
+    assert.match(r.stderr, /^release\.noctum\.piloto-simulado: o piloto P1 é simulado/);
   });
 });
 
 test('RG3: o piloto exigido que falta recusa, no aceite ou no disco', () => {
   emPasta('rg3', (raiz) => {
-    aceite(raiz, (a) => { a.pilotos = a.pilotos.filter(p => p.id !== 'P4'); });
-    assert.match(rodar(raiz).stderr, /^release\.noctum\.piloto-faltando: o piloto P4 não está no aceite \(exigidos: P1, P2, P3, P4\)/);
+    aceite(raiz, (a) => { a.pilotos = []; });
+    assert.match(rodar(raiz).stderr, /^release\.noctum\.piloto-faltando: o piloto P1 não está no aceite \(exigidos: P1\)/);
     aceite(raiz);
-    fs.rmSync(path.join(raiz, PASTA, 'piloto-2.json'));
-    assert.match(rodar(raiz).stderr, /^release\.noctum\.piloto-faltando: o arquivo piloto-2\.json do piloto P2 não existe/);
+    fs.rmSync(path.join(raiz, PASTA, 'piloto-1.json'));
+    assert.match(rodar(raiz).stderr, /^release\.noctum\.piloto-faltando: o arquivo piloto-1\.json do piloto P1 não existe/);
   });
 });
 
@@ -105,7 +105,7 @@ test('RG6: o aceite de fixture válido sai 0, e com ele o texto pode anunciar o 
     aceite(raiz);
     const r = rodar(raiz);
     assert.equal(r.status, 0, r.stderr);
-    assert.match(r.stdout, /^release\.noctum: o aceite confere: pilotos P1, P2, P3, P4 aprovados, ratificados por dono-do-projeto/);
+    assert.match(r.stdout, /^release\.noctum: o aceite confere: pilotos P1 aprovados, ratificados por dono-do-projeto/);
     fs.writeFileSync(path.join(raiz, 'README.md'), '# Produto\n\nO #Noctum foi validado pelos pilotos.\n');
     assert.equal(rodar(raiz, '--texto').status, 0);
   });
@@ -151,7 +151,7 @@ test('RG10: a árvore desta thread passa no --texto, o alcance é toda versão, 
   assert.equal(r.status, 0, r.stderr);
   const fonte = fs.readFileSync(SCRIPT, 'utf8');
   assert.match(fonte, /^const ALCANCE = 'toda-versao';$/m);
-  assert.match(fonte, /^const PILOTOS_EXIGIDOS = \['P1', 'P2', 'P3', 'P4'\];$/m);
+  assert.match(fonte, /^const PILOTOS_EXIGIDOS = \['P1'\];$/m);
   assert.doesNotMatch(fonte, /require\('node:(?:https?|net|child_process)'\)|core\/dist/, 'o portão só lê arquivos');
   assert.match(fs.readFileSync(path.join(RAIZ_DO_REPO, '.github/workflows/publicar.yml'), 'utf8'),
     /run: node core\/scripts\/checar-release-noctum\.cjs\n[\s\S]*run: npm publish/);
@@ -159,20 +159,16 @@ test('RG10: a árvore desta thread passa no --texto, o alcance é toda versão, 
   assert.equal(rodar(RAIZ_DO_REPO, '--outra').status, 2);
 });
 
-test('RG11: o mesmo piloto não vale por quatro, e o piloto de 12 h com janela curta recusa', () => {
+test('RG11: o P1 com janela menor que 6 h recusa', () => {
   emPasta('rg11', (raiz) => {
-    aceite(raiz, (a) => { for (const p of a.pilotos) { p.arquivo = a.pilotos[0].arquivo; p.sha256 = a.pilotos[0].sha256; } });
-    const r = rodar(raiz);
-    assert.equal(r.status, 1);
-    assert.match(r.stderr, /^release\.noctum\.piloto-repetido: os pilotos P1 e P2 têm o mesmo arquivo/);
     aceite(raiz);
-    const arquivo = path.join(raiz, PASTA, 'piloto-2.json');
-    const texto = fs.readFileSync(arquivo, 'utf8').replace('"horas": 12', '"horas": 6');
+    const arquivo = path.join(raiz, PASTA, 'piloto-1.json');
+    const texto = fs.readFileSync(arquivo, 'utf8').replace('"horas": 6', '"horas": 5');
     fs.writeFileSync(arquivo, texto);
     const a = JSON.parse(fs.readFileSync(path.join(raiz, PASTA, 'aceite.json'), 'utf8'));
-    a.pilotos[1].sha256 = createHash('sha256').update(texto).digest('hex');
+    a.pilotos[0].sha256 = createHash('sha256').update(texto).digest('hex');
     fs.writeFileSync(path.join(raiz, PASTA, 'aceite.json'), JSON.stringify(a));
-    assert.match(rodar(raiz).stderr, /^release\.noctum\.piloto-curto: o piloto P2 pede ao menos 12 h de janela, e o arquivo piloto-2\.json diz 6/);
+    assert.match(rodar(raiz).stderr, /^release\.noctum\.piloto-curto: o piloto P1 pede ao menos 6 h de janela, e o arquivo piloto-1\.json diz 5/);
   });
 });
 
@@ -224,20 +220,11 @@ test('RG13: o nome em Markdown, a vírgula e a negação longe do nome não esco
   });
 });
 
-test('RG14: o sha256 repetido e o arco repetido recusam, cada um pelo seu campo', () => {
+test('RG14: o P1 sem arco recusa', () => {
   emPasta('rg14', (raiz) => {
-    // O mesmo arquivo com outro nome: o mesmo sha256.
-    aceite(raiz, (a) => { a.pilotos[2].sha256 = a.pilotos[0].sha256; });
-    fs.copyFileSync(path.join(raiz, PASTA, 'piloto-1.json'), path.join(raiz, PASTA, 'piloto-3.json'));
-    assert.match(rodar(raiz).stderr, /^release\.noctum\.piloto-repetido: os pilotos P1 e P3 têm o mesmo sha256/);
-    // O mesmo piloto com um espaço a mais: outro sha256, o mesmo arco.
     aceite(raiz);
-    const texto = `${fs.readFileSync(path.join(raiz, PASTA, 'piloto-1.json'), 'utf8')} `;
-    fs.writeFileSync(path.join(raiz, PASTA, 'piloto-3.json'), texto);
-    const a = JSON.parse(fs.readFileSync(path.join(raiz, PASTA, 'aceite.json'), 'utf8'));
-    a.pilotos[2].sha256 = createHash('sha256').update(texto).digest('hex');
-    fs.writeFileSync(path.join(raiz, PASTA, 'aceite.json'), JSON.stringify(a));
-    assert.match(rodar(raiz).stderr, /^release\.noctum\.piloto-repetido: os pilotos P1 e P3 têm o mesmo arco \(arco-piloto-1\)/);
+    mexerNoPublicavel(raiz, 0, (r) => { r.arco = ' '; });
+    assert.match(rodar(raiz).stderr, /^release\.noctum\.aceite-invalido: piloto-1\.json não diz o arco do piloto P1/);
   });
 });
 
@@ -279,8 +266,8 @@ test('RG16: o arquivo publicável que não diz aprovado ou não é o publicável
   emPasta('rg16', (raiz) => {
     aceite(raiz);
     assert.equal(rodar(raiz).status, 0, 'o aceite de fixture confere');
-    mexerNoPublicavel(raiz, 1, (r) => { r.veredito = 'reprovado'; });
-    assert.match(rodar(raiz).stderr, /^release\.noctum\.piloto-nao-aprovado: o piloto P2 tem o veredito reprovado/);
+    mexerNoPublicavel(raiz, 0, (r) => { r.veredito = 'reprovado'; });
+    assert.match(rodar(raiz).stderr, /^release\.noctum\.piloto-nao-aprovado: o piloto P1 tem o veredito reprovado/);
     aceite(raiz);
     mexerNoPublicavel(raiz, 0, (r) => { r.publicavel = false; });
     assert.match(rodar(raiz).stderr, /^release\.noctum\.aceite-invalido: piloto-1\.json não é o aceite publicável/);
@@ -309,21 +296,18 @@ test('RG17: o anúncio em qualquer caixa recusa, e o link por referência ou com
   });
 });
 
-test('RG18: as marcas da simulação, o arco repetido com espaço ou caixa e a ratificação anterior ao fim dos pilotos recusam', () => {
-  // M2 do CHECK 4: o script lia só o booleano da simulação, comparava o arco cru e aceitava a ratificação de antes dos pilotos.
+test('RG18: as marcas da simulação, a janela ausente e a ratificação anterior ao fim do P1 recusam', () => {
+  // M2 do CHECK 4: o script lia só o booleano da simulação e aceitava a ratificação de antes dos pilotos.
   emPasta('rg18', (raiz) => {
     aceite(raiz);
-    mexerNoPublicavel(raiz, 2, (r) => { (r.simulacao as { marcas: string[] }).marcas = ['a máquina do ensaio conduziu o arco']; });
-    assert.match(rodar(raiz).stderr, /^release\.noctum\.piloto-simulado: o piloto P3 é simulado/);
-    aceite(raiz);
-    mexerNoPublicavel(raiz, 3, (r) => { r.arco = 'Arco-Piloto-1 '; });
-    assert.match(rodar(raiz).stderr, /^release\.noctum\.piloto-repetido: os pilotos P1 e P4 têm o mesmo arco/);
+    mexerNoPublicavel(raiz, 0, (r) => { (r.simulacao as { marcas: string[] }).marcas = ['a máquina do ensaio conduziu o arco']; });
+    assert.match(rodar(raiz).stderr, /^release\.noctum\.piloto-simulado: o piloto P1 é simulado/);
     aceite(raiz);
     mexerNoPublicavel(raiz, 0, (r) => { delete r.janela; });
     assert.match(rodar(raiz).stderr, /^release\.noctum\.aceite-invalido: piloto-1\.json não diz quando o piloto P1 acabou/);
-    aceite(raiz, (a) => { a.ratificacao = { por: 'dono-do-projeto', recibo: 'ingresso:telegram:SIMULADO-1', em: '2025-12-04T11:00:00.000Z' }; });
-    assert.match(rodar(raiz).stderr, /^release\.noctum\.sem-ratificacao: a ratificação \(2025-12-04T11:00:00\.000Z\) é anterior ao fim dos pilotos \(2025-12-04T12:00:00\.000Z\)/);
-    aceite(raiz, (a) => { a.ratificacao = { por: 'dono-do-projeto', recibo: 'ingresso:telegram:SIMULADO-1', em: '2025-12-04T12:00:00.000Z' }; });
+    aceite(raiz, (a) => { a.ratificacao = { por: 'dono-do-projeto', recibo: 'ingresso:telegram:SIMULADO-1', em: '2025-12-01T05:59:59.000Z' }; });
+    assert.match(rodar(raiz).stderr, /^release\.noctum\.sem-ratificacao: a ratificação \(2025-12-01T05:59:59\.000Z\) é anterior ao fim dos pilotos \(2025-12-01T06:00:00\.000Z\)/);
+    aceite(raiz, (a) => { a.ratificacao = { por: 'dono-do-projeto', recibo: 'ingresso:telegram:SIMULADO-1', em: '2025-12-01T06:00:00.000Z' }; });
     assert.equal(rodar(raiz).status, 0, 'ratificado no fim do último piloto, confere');
   });
 });

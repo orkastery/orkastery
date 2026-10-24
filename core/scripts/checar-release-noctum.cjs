@@ -7,8 +7,8 @@
  * `ork.noctum-aceite/v1`) e confere cada piloto exigido (o arquivo publicável na mesma pasta, o sha256 dele, `simulado:
  * false` sem marcas e o veredito `aprovado`) e a ratificação do dono, com a referência do recibo do ingresso tipado e a
  * data, que não vem antes do fim do último piloto. O alcance é toda
- * versão (`ALCANCE`), até o dono responder o item 8 do pacote de decisões da RM-058; os pilotos exigidos são os quatro do
- * plano (`PILOTOS_EXIGIDOS`), até ele responder o item 10.
+ * versão (`ALCANCE`), como decidido no item 8 do pacote de decisões da RM-058; para a próxima versão, o item 10 exige
+ * somente o primeiro piloto real (`PILOTOS_EXIGIDOS`).
  *
  * Cada piloto exigido tem o arquivo, o sha256 e o arco dele (sem espaço nem caixa), distintos dos outros, e a janela de ao menos as horas do plano
  * (`HORAS_MINIMAS`): o mesmo piloto não vale por quatro.
@@ -39,8 +39,8 @@ const CONTRATO_PILOTO = 'ork.noctum-piloto/v1';
 const PASTA = 'docs/roadmap/evidencias/RM-058';
 /** Item 8 do pacote de decisões da RM-058, alternativa recomendada: nenhuma versão sai antes do aceite. */
 const ALCANCE = 'toda-versao';
-/** Item 10, alternativa recomendada: os quatro pilotos do plano (uma máquina 6 h e 12 h, duas máquinas 6 h e 12 h). */
-const PILOTOS_EXIGIDOS = ['P1', 'P2', 'P3', 'P4'];
+/** Item 10, decisão do dono em 24/10/2026, alternativa iv.a: só P1; P2, P3 e P4 voltam a ser exigidos por decisão futura dele. */
+const PILOTOS_EXIGIDOS = ['P1'];
 /** As horas mínimas da janela de cada piloto, as do plano. */
 const HORAS_MINIMAS = { P1: 6, P2: 12, P3: 6, P4: 12 };
 /** Os arquivos de texto público da raiz e do pacote. */
