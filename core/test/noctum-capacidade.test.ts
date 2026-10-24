@@ -237,3 +237,22 @@ test('C10: a sessão sem perfil no lease conta na conta que o runtime atribui a 
     assert.equal(pedido.ok === false && pedido.motivo, 'capacidade.conta', 'a sessão já roda na perfil-a, que só tem uma vaga');
   } finally { p.limpar(); }
 });
+
+test('C11: sem vínculo nesta raiz, só sessão trabalhando ocupa a máquina', () => {
+  const p = projetoTemporario('noctum-c11');
+  try {
+    const r = fatosDeCapacidade(p.carregado, { consultar: () => leitura([
+      { sessionId: '00000000-0000-4000-8000-000000000051', state: 'idle' },
+      { sessionId: '00000000-0000-4000-8000-000000000052', state: 'blocked' },
+      { sessionId: '00000000-0000-4000-8000-000000000053', state: '' },
+      { sessionId: '00000000-0000-4000-8000-000000000054', state: 'working' },
+      { sessionId: '00000000-0000-4000-8000-000000000055', state: 'running' },
+      { sessionId: '00000000-0000-4000-8000-000000000056', state: 'busy' },
+    ]) });
+    assert.deepEqual(r.ocupantes.map(o => o.sessionId), [
+      '00000000-0000-4000-8000-000000000054',
+      '00000000-0000-4000-8000-000000000055',
+      '00000000-0000-4000-8000-000000000056',
+    ], 'idle, espera humana e estado desconhecido de outro projeto não ocupam; trabalho ocupa');
+  } finally { p.limpar(); }
+});

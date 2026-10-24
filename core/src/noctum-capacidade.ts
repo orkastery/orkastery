@@ -3,10 +3,11 @@
  *
  * Ocupação são as sessões que trabalham agora: as conduções `exec:<thread>` de sessão desta raiz de estado, pela mesma
  * regra de vaga do `ork phase run` (`sessaoLivreDaVaga`), mais os despachos em curso, unidas às sessões vivas do runtime
- * em todas as contas que o `ork` conhece (inclusive de outros projetos desta máquina), sem repetir sessão. A sessão que
- * o runtime prova encerrada na própria conta sai da conta, mesmo com o lease de pé (aprendizado 2 de 12/10); a que o
- * runtime mostra trabalhando conta, mesmo quando o ledger já a soltou da vaga. Fonte que falha não vira zero: vira
- * lacuna, e com lacuna nada é admitido.
+ * em todas as contas que o `ork` conhece (inclusive de outros projetos desta máquina), sem repetir sessão. Sem vínculo
+ * com uma condução ou despacho desta raiz, só a sessão que o runtime mostra trabalhando ocupa vaga; parada, esperando
+ * humano ou sem estado conhecido não ocupa. A sessão que o runtime prova encerrada na própria conta sai da conta,
+ * mesmo com o lease de pé (aprendizado 2 de 12/10). Fonte que falha não vira zero: vira lacuna, e com lacuna nada é
+ * admitido.
  *
  * `admitir` é puro: o projeto (o mesmo portão de vaga do `phase run`), a máquina, a conta, o runtime e a margem de
  * revisão do envelope ao mesmo tempo. Nada aqui despacha nem grava.
@@ -112,7 +113,8 @@ export function fatosDeCapacidade(carregado: ManifestoCarregado, opcoes: { quand
       revisao: atual.fase === 'CHECK', origem: 'conducao' });
   }
   for (const s of leitura.sessoes) {
-    if (!s.viva || contadas.has(s.sessionId) || soltas.has(s.sessionId) || encerradasPeloRuntime.includes(s.sessionId)) continue;
+    if (!s.viva || !TRABALHANDO.includes(estadoDe(s)) || contadas.has(s.sessionId) || soltas.has(s.sessionId) ||
+        encerradasPeloRuntime.includes(s.sessionId)) continue;
     contadas.add(s.sessionId);
     ocupantes.push({ sessionId: s.sessionId, thread: null, runtime: s.runtime, conta: s.perfil, revisao: false, origem: 'runtime' });
   }
