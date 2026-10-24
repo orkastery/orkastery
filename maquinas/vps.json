@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-24T14:38:40.507Z",
+  "publicadoEm": "2026-10-24T14:45:03.438Z",
   "threads": [
     {
       "id": "ork-check5x",
@@ -58,7 +58,7 @@
       "status": "aberta",
       "roadmap": "RM-037",
       "branch": "ork/ork-tiposdomotor-go",
-      "atualizadaEm": "2026-10-24T14:38:39.993Z",
+      "atualizadaEm": "2026-10-24T14:43:52.434Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
