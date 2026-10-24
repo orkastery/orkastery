@@ -410,7 +410,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
-- **Piloto noturno sem despacho (RM-058)**: sessões ociosas sem vínculo deixam de ocupar vaga, a espera passa a registrar motivo e ocupação anonimizada para o relatório da manhã, e `ork noctum propor` avisa sem bloquear sobre login, trust e capacidade com uma única vaga de execução.
+- **Tipos gerados pelo Claude Code (RM-037)**: o despacho aceita o `.gitignore`, os links `.d.ts` comprovados pelo `INSTALADO.json` e o `tsconfig.json` exato que o motor grava nos mods, sem liberar links externos nem arquivos sem recibo.
 - **Defeitos de condução de 19 e 20/10/2026** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): a
   baseline (`ork verify --baseline`) roda com o mesmo prazo de cada comando do verify
   (`verify.timeout_ms_por_comando`) e a mesma medida do steal, e o comando sem veredito nela (estouro, morte por sinal,
@@ -517,6 +517,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **`ork-verify` no head exato do PR**: o job `ork-verify` do GitHub Actions faz o checkout do commit head do PR, não do
   commit de merge temporário (`refs/pull/N/merge`), então o check que o `ork` lê no head é a prova daquele head.
+- **Piloto noturno sem despacho (RM-058)**: sessões ociosas sem vínculo deixam de ocupar vaga, a espera passa a registrar motivo e ocupação anonimizada para o relatório da manhã, e `ork noctum propor` avisa sem bloquear sobre login, trust e capacidade com uma única vaga de execução.
 
 ## [0.5.6] - 2026-10-12
 
