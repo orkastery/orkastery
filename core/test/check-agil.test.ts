@@ -548,11 +548,11 @@ test('AG27: na juncao das lanes a falha de verdade manda; o relogio sob steal so
   assert.equal(juntar(real, { ...real, testeQueCaiu: ['outro'] }).executado, true, 'so falhas de verdade: o test tem veredito');
 });
 
-test('AG28: as claims recebem o modo e nunca o relatorio da rodada; a lane do grupo recebe os dois', () => {
+test('AG28: as claims recebem o modo e nunca o relatorio da rodada; a lane recebe os dois', () => {
   const p = projetoTemporario('ag28');
   try {
     const arq = (n: string): string => path.join(p.dir, n);
-    comAgile(p, `  agile:\n    produto:\n      - "README.md"\n    test:\n      h: "echo rel=$ORK_CHECK_RELATORIO > ${arq('lane.txt')}"`);
+    comAgile(p, `  agile:\n    produto:\n      - "README.md"\n    test:\n      h: "echo modo=$ORK_CHECK_MODO rel=$ORK_CHECK_RELATORIO > ${arq('lane.txt')}"`);
     fs.appendFileSync(path.join(p.dir, '.git', 'info', 'exclude'), '*.txt\n');
     const { thread: t } = novaThread(p.carregado, { nome: 'ambiente', modo: 'auto' });
     adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'le o ambiente',
@@ -560,7 +560,7 @@ test('AG28: as claims recebem o modo e nunca o relatorio da rodada; a lane do gr
     const r = verificar(p.carregado, t.id, {});
     assert.equal(r.ok, true, r.motivos.join(','));
     assert.equal(fs.readFileSync(arq('claim.txt'), 'utf8').trim(), 'modo=agile rel=');
-    assert.match(fs.readFileSync(arq('lane.txt'), 'utf8'), /^rel=\/.+pecas\.jsonl$/m);
+    assert.match(fs.readFileSync(arq('lane.txt'), 'utf8'), /^modo=agile rel=\/.+pecas\.jsonl$/m);
   } finally { p.limpar(); }
 });
 
@@ -625,6 +625,21 @@ test('AG31: falha de verdade numa lane com outra sem veredito deixa o test sem v
       assert.equal(vereditoDaBaseline(testDasLanes([{ lane: 'b', resultado: outra }, { lane: 'a', resultado: real }])), esperado, `${code} ${causa} (ordem)`);
     }
   }
+  // N6 do CHECK 4: sem falha de verdade, uma lane so de relogio com qualquer outra caida da `sem-veredito` nas duas ordens;
+  // a lane sozinha sem veredito tambem, e o estouro e o relogio sozinhos seguem como sem veredito por tempo.
+  const soRelogio: ResultadoDeComando = { ...base, ok: false, code: 1, relogioSobSteal: ['prazo de 15 s'] };
+  for (const code of [1, 2, 123, 124, 125, 126, 127, 128, 137, 143, 160, 255]) {
+    for (const causa of ['exit', undefined] as const) {
+      const outra: ResultadoDeComando = { ...base, ok: false, code, causa };
+      assert.equal(vereditoDaBaseline(testDasLanes([{ lane: 'a', resultado: soRelogio }, { lane: 'b', resultado: outra }])), 'sem-veredito', `${code} ${causa}`);
+      assert.equal(vereditoDaBaseline(testDasLanes([{ lane: 'b', resultado: outra }, { lane: 'a', resultado: soRelogio }])), 'sem-veredito', `${code} ${causa} (ordem)`);
+    }
+  }
+  const sozinha = testDasLanes([{ lane: 'a', resultado: { ...base, ok: false, code: 124, causa: 'exit' } }, { lane: 'b', resultado: base }]);
+  assert.equal(sozinha.executado, false, 'a lane que sai com 124 antes do prazo de fora fica sem veredito');
+  const estourou = testDasLanes([{ lane: 'a', resultado: { ...base, ok: false, code: 124, causa: 'timeout' } }, { lane: 'b', resultado: base }]);
+  assert.equal(estourou.executado, true);
+  assert.equal(semVereditoPorTempo(estourou), true, 'o estouro sozinho segue como sem veredito por tempo');
 
   // No verify: a baseline com as duas lanes caidas de verdade (`ja-falhava`) nao esconde a lane que agora estourou.
   const p = projetoTemporario('ag31');

@@ -278,14 +278,20 @@ function caiuDeVerdade(r: ResultadoDeComando): boolean {
  * O `test` das lanes (D4): ok so com todas ok; a evidencia de quem caiu; a parede e a da lane mais longa. A falha de
  * verdade de uma lane manda, como num comando so do Classic: o estouro ou o relogio sob steal de outra lane nao a esconde.
  * O relogio sob steal so vale quando toda lane que caiu caiu so nele, e a pior causa so vale sem falha de verdade. N1 do
- * CHECK 2: com falha de verdade numa lane e outra lane sem veredito, o `test` nao tem veredito inteiro (`executado`
- * falso): no verify ele bloqueia como sem veredito, mesmo com a baseline `ja-falhava`, e na baseline ele e
- * `sem-veredito`; a causa, os testes e o trecho continuam os da falha de verdade.
+ * CHECK 2 e N6 do CHECK 4: com uma lane caida sem veredito (fora o caso em que todas as caidas estouraram ou cairam so
+ * no relogio, que o agregado ja diz por tempo), o `test` nao tem veredito inteiro (`executado` falso): no verify ele
+ * bloqueia como sem veredito, mesmo com a baseline `ja-falhava`, e na baseline ele e `sem-veredito`, em qualquer ordem das
+ * lanes; com falha de verdade junto, a causa, os testes e o trecho continuam os dela. A lane sozinha que sai com 124 antes
+ * do prazo de fora fica sem veredito, mais estrita que o comando unico do Classic, que a compara com a baseline.
  */
 export function testDasLanes(lanes: Array<{ lane: string; resultado: ResultadoDeComando }>): ResultadoDeComando {
   const caidas = lanes.filter((l) => !l.resultado.ok);
   const deVerdade = caidas.filter((l) => caiuDeVerdade(l.resultado));
-  const semVeredito = caidas.length - deVerdade.length;
+  const semVeredito = caidas.filter((l) => !caiuDeVerdade(l.resultado));
+  // N6 do CHECK 4: so o estouro e o relogio sob steal ja dizem "sem veredito" pelo agregado (a causa ou o relogio dele);
+  // qualquer outra lane sem veredito deixa o `test` sem veredito inteiro, em qualquer ordem das lanes.
+  const soPorTempo = deVerdade.length === 0 && semVeredito.length > 0
+    && semVeredito.every((l) => l.resultado.causa === 'timeout' || (l.resultado.relogioSobSteal?.length ?? 0) > 0);
   const juntar = <T>(f: (r: ResultadoDeComando) => T[] | undefined): T[] => lanes.flatMap((l) => f(l.resultado) ?? []);
   const causas = lanes.map((l) => l.resultado.causa).filter((c): c is CausaDoComando => !!c);
   const causa = deVerdade.length ? deVerdade[0].resultado.causa ?? 'exit' : PIOR_CAUSA.find((c) => causas.includes(c));
@@ -303,7 +309,7 @@ export function testDasLanes(lanes: Array<{ lane: string; resultado: ResultadoDe
     ...(causa ? { causa } : {}),
     prazoMs: Math.max(...lanes.map((l) => l.resultado.prazoMs ?? 0)),
     duracaoMs: Math.max(...lanes.map((l) => l.resultado.duracaoMs ?? 0)),
-    executado: deVerdade.length > 0 ? semVeredito === 0 : lanes.every((l) => l.resultado.executado !== false),
+    executado: semVeredito.length === 0 || soPorTempo ? lanes.every((l) => l.resultado.executado !== false) : false,
     ...(testes.length ? { testeQueCaiu: testes } : {}),
     ...(falhas.length ? { falhasDeTeste: falhas } : {}),
     ...(trechos.length ? { trecho: trechos.join('\n').slice(0, 1024) } : {}),
