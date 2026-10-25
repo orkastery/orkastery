@@ -290,9 +290,9 @@ check:
   a árvore e o hash desses caminhos forem os do fim do preparo; qualquer divergência roda o comando inteiro e grava o
   motivo. Passo no meio da cadeia fica, porque o que vem antes dele pode mudar a entrada do build (o mutante que edita
   o fonte e compila). Quando uma claim compila de novo e muda o produto sem mudar a árvore, o preparo roda outra vez
-  antes da claim seguinte que o reaproveitaria e antes do grupo, até três vezes por rodada, com a peça
-  `preparo-refeito` no ledger; depois disso, ou com o preparo refeito reprovado, o resto roda inteiro. Sem `produto`,
-  nada é reaproveitado.
+  antes da claim seguinte que o reaproveitaria, até três vezes por rodada, e uma vez antes do grupo, com a peça
+  `preparo-refeito` no ledger; depois do teto, a claim roda inteira, e com o preparo refeito reprovado o resto da
+  rodada roda inteiro, em série. Sem `produto`, nada é reaproveitado.
 - `preparo`: o preparo do Agile; se ele falhar, roda o `verify.preparo`, com a peça `preparo` em fallback. Aqui ele usa
   o `tsgo` (o TypeScript 7 nativo) na árvore fria e o preparo do Classic quando o build incremental do `tsc` já existe;
   `core/scripts/tsgo-paridade.cjs` confere o mesmo typecheck e o mesmo JavaScript do `tsc` 5.9.3.

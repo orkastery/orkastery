@@ -76,7 +76,7 @@ Medido na thread `ork-check5x`, numa máquina de 8 vCPU e 31 GB (cota de 7,2 CPU
 
 O Agile fica 1,4 a 1,5 vez mais rápido que o Classic no mesmo commit, com três rodadas seguidas aprovadas, e longe dos 3 min. O ganho vem do preparo com o `tsgo` na árvore fria, da varredura ao lado dos testes e das claims contra o produto do preparo; a suíte em si leva o mesmo tempo nos dois modos, porque é presa em CPU. O pico do Agile passa dos 4 GB por 0,5 a 0,9 GiB; o do Classic ficou em 3,98 GiB.
 
-A medição rodou antes de o CHECK voltar a tirar só os passos do preparo da frente das claims: hoje, na árvore fria, a claim com o build no meio da cadeia roda inteira e paga uma vez o build frio do `tsc`, e o preparo roda de novo antes da claim seguinte e antes do grupo, que continua em paralelo; as claims seguintes voltam a reaproveitar o preparo.
+A medição rodou antes de o CHECK voltar a tirar só os passos do preparo da frente das claims: hoje, na árvore fria, a claim com o build no meio da cadeia roda inteira e paga uma vez o build frio do `tsc`, e o preparo roda de novo antes da claim seguinte que o reaproveitaria (ou, sem ela, antes do grupo, que continua em paralelo); as claims seguintes voltam a reaproveitar o preparo.
 
 A rodada do Classic reprovou no teste de integração que varre a fixture js com Docker real. Ele passa sozinho, e o condutor registra que já falhava na linha de base de 24/10 (a baseline da thread, gravada mais tarde no mesmo dia, passou): sob a carga do `npm test` inteiro, o Semgrep do catálogo estoura os 5 s por regra. No Agile, a lane de integração só começa depois da varredura do grupo (`check.agile.apos_a_varredura`), e as três rodadas passaram.
 
