@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-25T00:45:03.439Z",
+  "publicadoEm": "2026-10-25T01:15:02.139Z",
   "threads": [
     {
       "id": "ork-check5x",
@@ -16,9 +16,9 @@
       "branch": "ork/ork-check5x-full",
       "atualizadaEm": "2026-10-25T00:33:32.158Z",
       "entregue": null,
-      "esperaVoce": true,
-      "pergunta": "autorizacao da retomada",
-      "paradaDesde": "2026-10-24T22:04:19.678Z",
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
       "runtime": "claude-bg",
       "modelo": "opus",
       "esforco": "max",
