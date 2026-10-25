@@ -264,14 +264,29 @@ test('SA14: o trabalhador sem relatorio vira falha dele, estourada so pelo prazo
   // O detector de segredo nunca leva o stderr ao motivo.
   assert.equal(resultadoDoTrabalhador(segredo, { stdout: '', stderr: 'chave=abc\n', code: 1, duracaoMs: 900 }, 60_000).r.run.reason,
     'agile-worker-1');
-  // S-k do CHECK 3: a credencial sai antes do corte, e a URL que o corte deixou pela metade antes do `@` tambem.
-  // O corte de 160 cai no meio do login: sem redigir antes, sobraria "usuario:senha-l".
+  // S-k do CHECK 3 e N7 do CHECK 4: nenhum login de URL chega ao ledger, venha a URL inteira, cortada antes do texto
+  // chegar (o motivo do Classic vem cortado em 200 sem redigir) ou cortada pelo teto da peca.
   const longo = `falhou ao baixar ${'x'.repeat(120)} https://usuario:senha-longa@registro.exemplo/banco`;
   const r = resultadoDoTrabalhador(vuln, { stdout: '', stderr: `${longo}\n`, code: 1, duracaoMs: 900 }, 60_000).r.run.reason ?? '';
   assert.ok(!r.includes('senha') && !r.includes('usuario'), r);
-  assert.equal(motivoSemCredencial('no Agile: exit-1: erro em https://usuario:senha@host/x', 200), 'no Agile: exit-1: erro em https://[credencial redigida]@host/x');
-  assert.equal(motivoSemCredencial('no Agile: exit-1: erro em https://usuario:senha-cortad', 200), 'no Agile: exit-1: erro em <url cortada>');
+  const prefixo = 'no Agile: exit-1: erro em';
+  // Inteira no meio do texto: o redator tira o login e o resto fica.
+  assert.equal(motivoSemCredencial(`${prefixo} https://usuario:senha@host/x ao baixar`, 200), `${prefixo} https://[credencial redigida]@host/x ao baixar`);
+  // Cortada antes do `@`: sem barra, com barra ou interrogacao no login, com dois `@` cortada entre eles, com espaco no fim.
+  for (const cortada of ['https://usuario:senha-cortad', 'https://usuario:wJalrXUtnFEMI/K7MD', 'https://usuario:ab?cd#e',
+    'https://joao@empresa.exemplo:senh', 'postgres://dono:segredo-cortad ']) {
+    assert.equal(motivoSemCredencial(`${prefixo} ${cortada}`, 200), `${prefixo} <url cortada>`, cortada);
+  }
+  // A URL inteira no fim tambem sai (a troca e a favor de nao vazar login), e o texto sem URL fica igual.
+  assert.equal(motivoSemCredencial(`${prefixo} https://usuario:senha@host/x`, 200), `${prefixo} <url cortada>`);
   assert.equal(motivoSemCredencial('no Agile: exit-1: erro comum, sem url', 200), 'no Agile: exit-1: erro comum, sem url');
+  // O teto da peca corta no meio do login da URL do meio: em qualquer ordem entre redigir e cortar, nada do login sobra.
+  const noMeio = `${'x'.repeat(150)} https://usuario:senha-longa@host/caminho e mais texto`;
+  for (const teto of [155, 160, 165, 170, 175, 180]) {
+    const m = motivoSemCredencial(noMeio, teto);
+    assert.ok(m.length <= teto && !/usuario|senha/.test(m), `${teto}: ${m}`);
+  }
+  assert.ok(motivoSemCredencial(`${'a'.repeat(196)} x://`, 200).length <= 200, 'a marca nunca passa do teto');
 });
 
 test('SA12: o binario nativo do Agile usa o cache por usuario que o Docker monta, nao o /tmp compartilhado do catalogo', () => {

@@ -121,15 +121,21 @@ export function estourouNoAgile(motivo: string | undefined, trabalhador?: { dura
   return MOTIVOS_DE_ESTOURO.has(motivo ?? '');
 }
 
-/** A URL cortada no fim do texto antes do `@` (o login pode estar nela pela metade, e o redator so a acha com o `@`). */
-const URL_CORTADA_NO_FIM = /[a-z][a-z0-9+.-]*:\/\/[^\s/?#@]*$/i;
+/**
+ * A URL que vai ate o fim do texto, do esquema em diante e sem espaco. Cortada, o login dela pode ter ficado pela metade,
+ * com `/`, `?`, `#` ou um segundo `@` que o redator so reconheceria inteiro; por isso ela sai toda, cortada ou nao. A URL
+ * legitima no fim tambem sai: o motivo e diagnostico, e a troca e a favor de nao vazar login.
+ */
+const URL_NO_FIM = /[a-z][a-z0-9+.-]*:\/\/\S*$/i;
 
 /**
- * S-k do CHECK 3: o texto que vai ao ledger sem credencial de URL, redigido antes do corte e sem a URL que o corte deixou
- * pela metade no fim.
+ * S-k do CHECK 3 e N7 do CHECK 4: o texto que vai ao ledger sem credencial de URL. A URL que chega ate o fim sai inteira
+ * antes da redacao (o texto pode ter vindo cortado, como o motivo do Classic, cortado em 200 sem redigir); o resto e
+ * redigido antes do corte, e o que o corte deixar de URL no fim tambem sai. O resultado nunca passa do teto.
  */
 export function motivoSemCredencial(texto: string, teto: number): string {
-  return redigirCredenciaisUrl(texto).slice(0, teto).replace(URL_CORTADA_NO_FIM, '<url cortada>');
+  const semUrlNoFim = (t: string): string => t.trimEnd().replace(URL_NO_FIM, '<url cortada>');
+  return semUrlNoFim(redigirCredenciaisUrl(semUrlNoFim(texto)).slice(0, teto)).slice(0, teto);
 }
 
 /**
