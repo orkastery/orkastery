@@ -181,39 +181,47 @@ Cada fatia é um PR com teste hermético e uma linha no `CHANGELOG.md`. Nenhuma 
 
 ### Decisões do dono
 
-Cada decisão traz três alternativas e uma recomendada, no formato da RM-057. Nenhuma foi tomada: o item está em Discovery e espera o dono.
+Cada decisão traz três alternativas e uma recomendada, no formato da RM-057. **Decididas pelo dono em 25/10/2026, no terminal do Claude Code:** D1 a D5 pelas alternativas recomendadas, e a D6, abaixo, acrescentada por ele.
 
-**D1. Limiar de falso negativo para trocar teste ou bateria (frentes 1 e 5).**
+**D1. Limiar de falso negativo para trocar teste ou bateria (frentes 1 e 5).** Decidida: alternativa recomendada.
 
 1. Um nível só e rígido: zero falso negativo em pelo menos 300 comparações, em tudo.
 2. **Dois níveis (recomendada).** Rodada intermediária: até 2% observado, com limite superior de 95% até 5%, porque a suíte completa ainda roda no gate. Troca de bateria: zero falso negativo em pelo menos 300 comparações, porque ali o modelo substitui um teste.
 3. Só rodada intermediária nesta onda; nenhuma bateria é trocada, e a F5 só emite sinal consultivo.
 
-**D2. O que sai para provedor externo.**
+**D2. O que sai para provedor externo.** Decidida: alternativa recomendada.
 
 1. Só metadados e texto sem código: nomes de arquivo, estatística do diff, nomes de teste, resultados do ledger. Serve as frentes 1, 2 e 4; limita a 3 e anula a 5.
 2. **Código e prints com opt-in do projeto e barreira da RM-062 (recomendada).** É o que o pedido autoriza: com opt-in o diff e as telas saem, sem opt-in vale a alternativa 1, e a política de dados do modelo é conferida na M0 antes de ligar.
 3. Só modelos de peso aberto rodando na infraestrutura do dono: nada sai, mas exige infraestrutura e abre mão dos modelos maiores.
 
-**D3. Ordem das fatias depois da M0.**
+**D3. Ordem das fatias depois da M0.** Decidida: alternativa recomendada.
 
 1. **F4, F3, depois F2, F1 e F5 (recomendada).** Começa pelas que não tocam o gate e já têm rótulo no ledger (2.520 decisões autônomas, notas e classes). A F1 espera o resultado da RM-072, cujo ganho define quanto sobra para cortar; a F2 espera os tokens da RM-071; a F5 vem por último, pelo risco maior.
 2. F1 primeiro, porque o CHECK de cerca de 20 minutos é a maior dor medida hoje; depende da F3 da RM-072.
 3. As cinco em sombra ao mesmo tempo: mede tudo cedo, ao custo de mais gasto e de dispersão do piloto.
 
-**D4. Tetos de custo (a revisar com a M0).**
+**D4. Tetos de custo (a revisar com a M0).** Decidida: alternativa recomendada.
 
 1. **US$ 1 por dia e US$ 0,25 por arco (recomendada).** Cerca de 470 chamadas de 50.000 tokens por dia no Jev, pelo preço publicado; teto baixo até a M0 medir o gasto real.
 2. US$ 5 por dia e US$ 1 por arco: cerca de 2.380 chamadas de 50.000 tokens por dia no Jev.
 3. US$ 20 por dia e US$ 5 por arco: folga para medir tudo em sombra, com o risco de gasto sem ganho.
 
-**D5. Modelos da bancada M0.**
+**D5. Modelos da bancada M0.** Decidida: alternativa recomendada.
 
 1. **Os três do pedido (recomendada):** `typesafe/jev-1.14`, `perplexity/pplx-decider-v1.2` e `openai/gpt-6-luna-decisions`, mais o `pplx-decider-flash-v1.2` como referência barata. Cobrem três fabricantes e texto com imagem. Pelo preço publicado, 1.500 chamadas de 50.000 tokens custam da ordem de US$ 5 (cálculo, não medida).
 2. Um por família de fabricante entre os 30 do catálogo, para descobrir se há modelo melhor ou mais barato; custa mais e alarga o piloto.
 3. Só um modelo, o Jev 1.14: mais simples, mas sem comparação e com dependência de um fornecedor.
 
-- **Decisões, alternativas e ADRs (ID, decisor, data, link):** D1 a D5 acima, pendentes do dono. Decisão tomada nesta thread, registrada no ledger como decidida pela sessão: não fazer chamadas de teste sem chave do cofre.
+**D6. Quando o avaliador de telas (frente 5) pode ser usado.** Decidida pelo dono em 25/10/2026: só em teste de escopo pequeno e pontual, de baixa criticidade e que possa ser validado olhando o print da tela. Todas as condições juntas:
+
+- **Escopo pequeno e pontual:** a mudança toca só a apresentação de uma tela ou de um componente (texto, layout, estilo, elemento presente ou ausente), com diff pequeno e sem lógica nova.
+- **Baixa criticidade:** não toca autenticação e permissões, pagamento, dados gravados e migrações, segurança e segredos, API pública, comportamento da CLI nem o próprio gate de teste e publicação.
+- **Verificável pelo print:** o critério de aceite é visual; fluxo de vários passos, desempenho e dado correto no banco ficam fora.
+- **Quem decide a elegibilidade:** o PLAN marca a tarefa como visual, com os caminhos que ela toca, e o núcleo confere por regra fixa (caminhos de interface, nenhum arquivo de área crítica). O próprio modelo nunca decide que pode ser usado.
+- **Por cima disso:** a paridade da D1 (zero falso negativo em pelo menos 300 comparações antes de trocar uma bateria), a flag que desliga tudo e o opt-in com a barreira da RM-062 para o print sair. Falhou qualquer condição, a tarefa roda os testes de sempre (Classic ou Agile Check).
+
+- **Decisões, alternativas e ADRs (ID, decisor, data, link):** D1 a D6 acima, decididas pelo dono em 25/10/2026. Decisão tomada nesta thread, registrada no ledger como decidida pela sessão: não fazer chamadas de teste sem chave do cofre.
 
 ## Estado com evidências
 
@@ -237,8 +245,9 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: sessão condutora da thread; A: Julio; C: quem conduz RM-072 e RM-071; I: quem usa o ork.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** uma sessão do Claude Code em modo #Fast escreveu esta página e fez a pesquisa pública, sem código; revisor humano: Julio, pendente.
-- **Próxima ação, responsável e prazo:** o dono responde D1 a D5 e coloca a chave do provedor no cofre; sem prazo.
+- **Próxima ação, responsável e prazo:** a chave do provedor já está no cofre do projeto (arquivo `0600` fora do ambiente dos agentes, o padrão da RM-069), então a M0 pode ser despachada; prioridade e data com o dono.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-24 | Item criado em Discovery, só página e pesquisa | Pedido do dono; catálogo e documentação públicos do OpenRouter lidos; linha de base contada nos ledgers locais | Julio |
+| 2026-10-25 | D1 a D5 decididas pelas recomendadas; D6 nova (avaliador de telas só para mudança pequena, de baixa criticidade e verificável pelo print); chave do provedor no cofre | Respostas do dono no terminal do Claude Code | Julio |
