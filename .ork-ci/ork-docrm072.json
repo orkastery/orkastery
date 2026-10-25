@@ -1,0 +1,18 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-docrm072",
+  "branch": "ork/ork-docrm072-go",
+  "base": "main",
+  "claims": [],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
