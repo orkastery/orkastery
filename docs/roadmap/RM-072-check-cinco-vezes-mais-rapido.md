@@ -158,12 +158,15 @@ O paralelismo do grupo também tem teto: com a lane hermética, a de integraçã
 
 O CHECK da `ork-check5x` teve quatro rodadas com GO-FIX e, a partir da quinta, o critério da RM-057, decidido pelo condutor: zero bloqueador é PASSOU, e aviso que sobrar vira dívida registrada aqui e no ledger. Vai para a RM nova da D3 ou para um follow-up:
 
-- o motivo cru de cada ferramenta (a última linha do stderr, cortada em 200 caracteres sem redação) ainda chega ao relatório da varredura nos dois modos; no Agile, só o motivo das peças e do trabalhador passa pela redação;
-- a lane sozinha que sai com 124 antes do prazo de fora fica sem veredito no Agile, mais estrita que o comando único do Classic, que a compara com a baseline;
+- o motivo cru de cada ferramenta (a última linha do stderr, cortada em 200 caracteres sem redação) ainda chega ao relatório da varredura e às linhas de "não rodou" do `ork security-scan`, que vão ao trecho do ledger quando a varredura falha, nos dois modos; no Agile, o motivo da peça `classic-<ferramenta>` e o do trabalhador passam pela redação, e o da peça `imagem-de-lint` (a última linha do `docker build`) ainda não;
+- a lane caída sem veredito que não seja por tempo (124, 125, 126 ou de 128 em diante antes do prazo de fora, sinal, lane que não rodou) deixa o `test` sem veredito no Agile, mais estrito que o comando único do Classic, que a compara com a baseline;
 - o texto do gate do `test` sem veredito inteiro não diz qual lane ficou sem veredito nem por quê;
-- a URL legítima no fim do motivo de uma peça também sai, junto com a que poderia levar login;
-- faltam casos para o teto de 180 s do build da imagem de lint, para a ligação do cache por usuário no trabalhador nativo e para a evidência das lanes com a raiz do estado diferente da worktree;
-- o trabalhador da varredura recebe a especificação por arquivo e roda por string de shell, sem risco hoje; o caso com Docker real do `runScanAgil` só existe nas rodadas da medição;
+- a URL legítima no fim do motivo de uma peça também sai, junto com a que poderia levar login, e a expressão que acha essa URL percorre a linha inteira do stderr antes do corte;
+- o snapshot pt-BR F3c tem datas sem ano, que passam a sair com o ano em 01/01/2027 e o deixam vermelho para todos nesse dia (anterior a esta thread);
+- o caso de janeiro da legenda do fuso espera `GMT+0`, que o Node 20.20.2 e o 22.23.2 escrevem; um ICU antigo que escreva `GMT` o derrubaria;
+- faltam casos para o teto de 180 s do build da imagem de lint, para o teto dos trabalhadores contado depois desse build, para a ligação do cache por usuário no trabalhador nativo, para a evidência das lanes com a raiz do estado diferente da worktree e para o `executado` do ramo do relógio na junção das lanes;
+- o trabalhador da varredura recebe a especificação por arquivo e roda por string de shell, sem risco hoje; o caso com Docker real do `runScanAgil` só existe nas rodadas da medição; restam as limpezas de manutenção apontadas na rodada 1;
+- a paridade do `tsgo` com o `tsc` é conferida a cada rodada nesta thread pela C70; em outro projeto que ligue o preparo com o `tsgo`, sem uma claim assim, não é;
 - a tabela de estado gerada pelo `ork docs sincronizar` usa travessão nas células vazias.
 
 ## Fontes
