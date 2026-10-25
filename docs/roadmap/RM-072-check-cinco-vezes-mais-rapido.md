@@ -154,6 +154,18 @@ O paralelismo do grupo também tem teto: com a lane hermética, a de integraçã
 2. A meta de 3 min fica registrada como não atingida (o Agile mediu de 13 min 35 s a 14 min 25 s, contra 20 min 37 s do Classic no mesmo commit) e vai para uma RM nova, com a fatia 3 (seletividade) e o piso de CPU da suíte (518 s de parede com 7,2 CPUs).
 3. O pico de 4,5 a 4,9 GiB do Agile fica registrado como não atingido contra os 4 GB e foi aceito pelo condutor nesta máquina de 31 GB; o teto de uma ferramenta por vez na varredura do grupo fica para a mesma RM nova.
 
+### Dívida aceita no CHECK
+
+O CHECK da `ork-check5x` teve quatro rodadas com GO-FIX e, a partir da quinta, o critério da RM-057, decidido pelo condutor: zero bloqueador é PASSOU, e aviso que sobrar vira dívida registrada aqui e no ledger. Vai para a RM nova da D3 ou para um follow-up:
+
+- o motivo cru de cada ferramenta (a última linha do stderr, cortada em 200 caracteres sem redação) ainda chega ao relatório da varredura nos dois modos; no Agile, só o motivo das peças e do trabalhador passa pela redação;
+- a lane sozinha que sai com 124 antes do prazo de fora fica sem veredito no Agile, mais estrita que o comando único do Classic, que a compara com a baseline;
+- o texto do gate do `test` sem veredito inteiro não diz qual lane ficou sem veredito nem por quê;
+- a URL legítima no fim do motivo de uma peça também sai, junto com a que poderia levar login;
+- faltam casos para o teto de 180 s do build da imagem de lint, para a ligação do cache por usuário no trabalhador nativo e para a evidência das lanes com a raiz do estado diferente da worktree;
+- o trabalhador da varredura recebe a especificação por arquivo e roda por string de shell, sem risco hoje; o caso com Docker real do `runScanAgil` só existe nas rodadas da medição;
+- a tabela de estado gerada pelo `ork docs sincronizar` usa travessão nas células vazias.
+
 ## Fontes
 
 - Medição de 24/10/2026 numa máquina de 8 vCPU e 31 GB, com outras cargas rodando em paralelo, sobre o checkout do projeto na versão 0.5.6: `npm test` (15 min 22 s, 4.023 s de CPU, 1,52 GB de pico, 5.718 testes), `tsc --build` (16,9 s), `tsc --build tsconfig.test.json` (35,2 s, 2,16 GB), `ork security-scan` (2 min 27 s, 23.422 achados), `docker run` com imagem quente (0,62 s).
