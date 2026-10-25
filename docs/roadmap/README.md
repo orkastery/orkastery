@@ -82,7 +82,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-055](RM-055-impedimento-do-dono-vira-hitl.md) | Impedimento que só o dono resolve vira pedido a ele | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-10 |
 | [RM-056](RM-056-perfil-por-thread-e-carga.md) | Perfil por thread, rodízio por carga e sessões dos perfis | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-02 |
 | [RM-057](RM-057-hitl-por-alternativas.md) | HITL de condução por alternativas: de 3 a 5 opções, uma recomendada, nunca texto colado | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-21 |
-| [RM-058](RM-058-modo-noctum.md) | Modo #Noctum: arcos autônomos de muitas threads e máquinas | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-21 |
+| [RM-058](RM-058-modo-noctum.md) | Modo #Noctum: arcos autônomos de muitas threads e máquinas | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-24 |
 | [RM-059](RM-059-conducao-dentro-do-claude-code.md) | Condução dentro do Claude Code: dez mods para ver, decidir, destravar, entregar e pontuar sem sair do terminal | Em desenvolvimento | Mesclado | Não iniciados | Não implantado | 2026-10-12 |
 | [RM-060](RM-060-site-como-produto.md) | Site como produto: os dois sites públicos com o mesmo rigor do núcleo | Em desenvolvimento | Mesclado | Não iniciados | Não implantado | 2026-10-12 |
 | [RM-061](RM-061-cli-em-ingles-e-pt-br.md) | CLI em inglês e pt-BR | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-12 |
@@ -97,6 +97,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-070](RM-070-grok-bot-como-camada-de-conducao.md) | Grok Bot como camada de condução do Orkastery | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-21 |
 | [RM-071](RM-071-relatorio-da-esteira-do-sdlc.md) | Relatório da esteira do SDLC no status do roadmap | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-21 |
 | [RM-072](RM-072-check-cinco-vezes-mais-rapido.md) | Agile Check e Classic Check: o CHECK rápido como padrão, sem perder cobertura | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-10-24 |
+| [RM-073](RM-073-modelos-de-decisao-no-ork-e-no-orkmind.md) | Modelos de decisão no ork e no OrkMind | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-24 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->

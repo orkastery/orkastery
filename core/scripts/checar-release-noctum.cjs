@@ -7,8 +7,8 @@
  * `ork.noctum-aceite/v1`) e confere cada piloto exigido (o arquivo publicável na mesma pasta, o sha256 dele, `simulado:
  * false` sem marcas e o veredito `aprovado`) e a ratificação do dono, com a referência do recibo do ingresso tipado e a
  * data, que não vem antes do fim do último piloto. O alcance é toda
- * versão (`ALCANCE`), até o dono responder o item 8 do pacote de decisões da RM-058; os pilotos exigidos são os quatro do
- * plano (`PILOTOS_EXIGIDOS`), até ele responder o item 10.
+ * versão (`ALCANCE`): o item 8 do pacote de decisões da RM-058 segue sem resposta do dono e vale a alternativa recomendada; para a próxima versão, o item 10 exige
+ * somente o primeiro piloto real (`PILOTOS_EXIGIDOS`).
  *
  * Cada piloto exigido tem o arquivo, o sha256 e o arco dele (sem espaço nem caixa), distintos dos outros, e a janela de ao menos as horas do plano
  * (`HORAS_MINIMAS`): o mesmo piloto não vale por quatro.
@@ -39,8 +39,8 @@ const CONTRATO_PILOTO = 'ork.noctum-piloto/v1';
 const PASTA = 'docs/roadmap/evidencias/RM-058';
 /** Item 8 do pacote de decisões da RM-058, alternativa recomendada: nenhuma versão sai antes do aceite. */
 const ALCANCE = 'toda-versao';
-/** Item 10, alternativa recomendada: os quatro pilotos do plano (uma máquina 6 h e 12 h, duas máquinas 6 h e 12 h). */
-const PILOTOS_EXIGIDOS = ['P1', 'P2', 'P3', 'P4'];
+/** Item 10, decisão do dono em 24/10/2026, alternativa iv.a: só P1; P2, P3 e P4 voltam a ser exigidos por decisão futura dele. */
+const PILOTOS_EXIGIDOS = ['P1'];
 /** As horas mínimas da janela de cada piloto, as do plano. */
 const HORAS_MINIMAS = { P1: 6, P2: 12, P3: 6, P4: 12 };
 /** Os arquivos de texto público da raiz e do pacote. */
@@ -197,31 +197,34 @@ function afirmacoes(raiz) {
   return achados;
 }
 
-function main(argv) {
+/** Executa o contrato sem depender de processo filho; a CLI só transporta stdout, stderr e status. */
+function executar(argv) {
   const texto = argv.includes('--texto');
   const resto = argv.filter((x) => x !== '--texto');
   if (resto.some((x) => x.startsWith('-')) || resto.length > 1) {
-    process.stderr.write('uso: node core/scripts/checar-release-noctum.cjs [--texto] [raiz]\n');
-    return 2;
+    return { status: 2, stdout: '', stderr: 'uso: node core/scripts/checar-release-noctum.cjs [--texto] [raiz]\n' };
   }
   const raiz = path.resolve(resto[0] ?? path.join(__dirname, '..', '..'));
   let aceite = null, recusa = null;
   try { aceite = conferirAceite(raiz); }
   catch (e) { if (!(e instanceof Recusa)) throw e; recusa = e; }
   if (!texto) {
-    if (recusa) { process.stderr.write(`${recusa.message}\n`); return 1; }
-    process.stdout.write(`release.noctum: o aceite confere: pilotos ${aceite.pilotos.join(', ')} aprovados, ratificados por ${aceite.por}\n`);
-    return 0;
+    if (recusa) return { status: 1, stdout: '', stderr: `${recusa.message}\n` };
+    return { status: 0, stdout: `release.noctum: o aceite confere: pilotos ${aceite.pilotos.join(', ')} aprovados, ratificados por ${aceite.por}\n`, stderr: '' };
   }
-  if (aceite) { process.stdout.write('release.noctum: o aceite confere, e o texto pode anunciar o #Noctum\n'); return 0; }
+  if (aceite) return { status: 0, stdout: 'release.noctum: o aceite confere, e o texto pode anunciar o #Noctum\n', stderr: '' };
   const achados = afirmacoes(raiz);
   if (achados.length) {
-    process.stderr.write(`release.noctum.texto-sem-aceite: ${achados.length} trecho(s) anunciam o #Noctum sem o aceite dos pilotos ` +
-      `(${recusa.motivo}); diga o que é verdade hoje (ainda não validado) ou espere o aceite:\n${achados.map((x) => `  ${x}`).join('\n')}\n`);
-    return 1;
+    return { status: 1, stdout: '', stderr: `release.noctum.texto-sem-aceite: ${achados.length} trecho(s) anunciam o #Noctum sem o aceite dos pilotos ` +
+      `(${recusa.motivo}); diga o que é verdade hoje (ainda não validado) ou espere o aceite:\n${achados.map((x) => `  ${x}`).join('\n')}\n` };
   }
-  process.stdout.write('release.noctum: nenhum texto anuncia o #Noctum como lançado, entregue, validado ou disponível\n');
-  return 0;
+  return { status: 0, stdout: 'release.noctum: nenhum texto anuncia o #Noctum como lançado, entregue, validado ou disponível\n', stderr: '' };
 }
 
-process.exitCode = main(process.argv.slice(2));
+module.exports = { executar };
+if (require.main === module) {
+  const resultado = executar(process.argv.slice(2));
+  process.stdout.write(resultado.stdout);
+  process.stderr.write(resultado.stderr);
+  process.exitCode = resultado.status;
+}
