@@ -4,26 +4,8 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-25T07:30:53.088Z",
+  "publicadoEm": "2026-10-25T07:45:02.384Z",
   "threads": [
-    {
-      "id": "ork-docrm072",
-      "nome": "docrm072",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-docrm072-go",
-      "atualizadaEm": "2026-10-25T06:43:47.742Z",
-      "entregue": "c4489efb",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null,
-      "sessao": null
-    },
     {
       "id": "ork-rm058blocob",
       "nome": "rm058blocob",
