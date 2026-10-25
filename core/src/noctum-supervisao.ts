@@ -124,6 +124,15 @@ export interface EsperaDoPasso {
   ocupantes: OcupanteDaEspera[];
 }
 
+/** A recusa corrente do passo. O detalhe já nasce sem texto do adaptador, conta, sessão ou caminho local. */
+export interface RecusaDoPasso {
+  trabalho: string;
+  motivo: string;
+  detalhe: string;
+  desde: string;
+  papel: Papel;
+}
+
 export type MotivoDaRetomada = 'sessao-morta' | 'fim-de-turno-sem-resultado' | 'sem-avanco' | 'sem-primeiro-turno' | 'despacho-falho' |
   'limite-de-uso';
 /** As contas que o arco tira da seleção (D13). Subteto, perfil ausente e desativado são relidos a cada passo, sem linha. */
@@ -152,6 +161,7 @@ export type EventoDaSupervisao =
   | { tipo: 'conducao_assumida'; geracao: number; quem: Instancia; prova: string }
   | { tipo: 'batida'; quem: Instancia; geracao: number | null }
   | { tipo: 'passo_em_espera'; papel: Papel; motivo: MotivoDoPassoEmEspera; ocupantes: OcupanteDaEspera[] }
+  | { tipo: 'passo_recusado'; papel: Papel; trabalho: string; motivo: string; detalhe: string }
   | { tipo: 'passo_retomado'; papel: Papel }
   | { tipo: 'tique_iniciado'; quem: Instancia }
   | { tipo: 'tique_concluido'; quem: Instancia; resumo: string }
@@ -169,7 +179,7 @@ export type EventoDaSupervisao =
   | { tipo: 'efeito_reconciliado'; id: string; desfecho: DesfechoDoEfeito; prova: string }
   | { tipo: 'pedido_tratado'; pedido: string; thread: string; acao: 'retomada-autorizada' | 'cancelado'; motivo: string };
 
-const TIPOS: readonly EventoDaSupervisao['tipo'][] = ['parametros', 'conducao_assumida', 'batida', 'passo_em_espera', 'passo_retomado',
+const TIPOS: readonly EventoDaSupervisao['tipo'][] = ['parametros', 'conducao_assumida', 'batida', 'passo_em_espera', 'passo_recusado', 'passo_retomado',
   'tique_iniciado', 'tique_concluido',
   'vigia_interrompido', 'retomada_autorizada', 'sessao_parada', 'conta_fora', 'isolado', 'recusa_de_ambiente', 'parada',
   'efeito_incerto', 'efeito_reconciliado', 'pedido_tratado'];
@@ -206,6 +216,8 @@ export interface EstadoDaSupervisao {
   batidas: { condutor: { em: string; quem: Instancia } | null; vigia: { em: string; quem: Instancia } | null };
   /** A espera atual do passo; `desde` é a primeira observação deste motivo. */
   espera: EsperaDoPasso | null;
+  /** A recusa atual; `desde` é a primeira observação deste motivo, sem repetir a cada cadência. */
+  recusaDoPasso: RecusaDoPasso | null;
   /** O último tique do vigia que começou e não terminou, quando há. */
   tiqueAberto: { quem: Instancia; em: string } | null;
   /** Tiques interrompidos registrados desde o último tique concluído. */
@@ -417,7 +429,7 @@ export function eventosDaSupervisao(raiz: string, arco: string): Array<{ em: str
 
 function derivar(arco: string, linhas: readonly DadosDaLinha[]): EstadoDaSupervisao {
   const s: EstadoDaSupervisao = { contrato: CONTRATO_SUPERVISAO, arco, linhas: linhas.length, parametros: null, geracao: null,
-    batidas: { condutor: null, vigia: null }, espera: null, tiqueAberto: null, interrupcoesSeguidas: 0, retomadas: [], sessoesParadas: [],
+    batidas: { condutor: null, vigia: null }, espera: null, recusaDoPasso: null, tiqueAberto: null, interrupcoesSeguidas: 0, retomadas: [], sessoesParadas: [],
     contasFora: new Map(), isolados: new Map(), recusasDeAmbiente: [], parada: null, efeitos: new Map(), pedidos: new Map() };
   for (const { evento: e, em } of linhas) {
     switch (e.tipo) {
@@ -432,8 +444,13 @@ function derivar(arco: string, linhas: readonly DadosDaLinha[]): EstadoDaSupervi
         break;
       case 'passo_em_espera':
         s.espera = { motivo: e.motivo, desde: em, papel: e.papel, ocupantes: e.ocupantes };
+        s.recusaDoPasso = null;
         break;
-      case 'passo_retomado': s.espera = null; break;
+      case 'passo_recusado':
+        s.espera = null;
+        s.recusaDoPasso = { trabalho: e.trabalho, motivo: e.motivo, detalhe: e.detalhe, desde: em, papel: e.papel };
+        break;
+      case 'passo_retomado': s.espera = null; s.recusaDoPasso = null; break;
       case 'tique_iniciado':
         s.tiqueAberto = { quem: e.quem, em };
         s.batidas.vigia = { em, quem: e.quem };
