@@ -4,26 +4,8 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-25T04:54:42.798Z",
+  "publicadoEm": "2026-10-25T04:56:56.501Z",
   "threads": [
-    {
-      "id": "ork-check5x",
-      "nome": "check5x",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-072",
-      "branch": "ork/ork-check5x-full",
-      "atualizadaEm": "2026-10-25T04:54:42.447Z",
-      "entregue": "90032a5b",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "max",
-      "sessao": null
-    },
     {
       "id": "ork-rm058blocob",
       "nome": "rm058blocob",
