@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-25T03:45:03.202Z",
+  "publicadoEm": "2026-10-25T04:00:03.269Z",
   "threads": [
     {
       "id": "ork-check5x",
@@ -45,9 +45,9 @@
       "modelo": "opus",
       "esforco": "max",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-10-25T02:50:28.461Z",
+        "motivo": "sessão 59482a30 sem processo (fantasma)"
       }
     }
   ]
