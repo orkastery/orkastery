@@ -8,7 +8,9 @@
  *   - as claims, uma por vez, contra o produto do preparo: a claim que comeca pelos passos do `verify.preparo` roda sem
  *     eles quando a guarda vale (o preparo passou, a arvore e a mesma do fim do preparo e o hash dos caminhos de
  *     `check.agile.produto` tambem); qualquer divergencia roda o comando inteiro, e o motivo vai ao ledger. Passo no meio
- *     da cadeia fica: o que vem antes dele pode mudar a entrada do build (o mutante que edita o fonte e compila);
+ *     da cadeia fica: o que vem antes dele pode mudar a entrada do build (o mutante que edita o fonte e compila). Quando
+ *     so o produto mudou (a claim anterior compilou de novo no meio da cadeia), o preparo roda de novo antes da proxima
+ *     claim e antes do grupo, ate `MAXIMO_DE_PREPAROS_REFEITOS` vezes, com a peca `preparo-refeito`;
  *   - o `build` que e so passos do preparo, com a guarda valendo, sai do preparo desta rodada sem rodar de novo;
  *   - `typecheck`, as lanes de `test` (`check.agile.test`, ou o `verify.test`) e o `security_scan` num grupo paralelo, so
  *     com a guarda valendo; sem ela, em serie, como o Classic, com a peca `grupo` em fallback. O grupo nao passa da CPU
@@ -198,21 +200,59 @@ function doPreparo(nome: string, comando: string, preparo: ResultadoDeComando, p
     causa: preparo.causa, prazoMs: preparo.prazoMs, duracaoMs: 0, executado: true, preparo: { reaproveitado: true, passos } };
 }
 
+/** O preparo que vale agora na rodada e a guarda tomada no fim dele; o preparo refeito troca os dois (A1 e S-d do CHECK). */
+export interface PreparoVigente {
+  guarda: GuardaDoProduto;
+  preparo: ResultadoDeComando | null;
+}
+
 /**
- * O executor das claims no Agile (D5): tira os passos do `verify.preparo` da cadeia do comando quando a guarda vale. O
- * comando gravado continua o inteiro, e o que rodou de fato fica em `comandoExecutado`.
+ * Refaz o preparo quando so o produto mudou (a arvore e a mesma): devolve se refez. `quando` diz o que vem depois
+ * ("antes da claim C2.1", "antes do grupo"), para a peca no ledger.
  */
-export function executorDaClaimNoAgile(manifesto: Manifesto, executor: ExecutorUnico, guarda: GuardaDoProduto,
-  preparo: ResultadoDeComando | null): ExecutorUnico {
+export type RefazerPreparo = (quando: string) => boolean;
+
+/**
+ * O executor das claims no Agile (D5): tira os passos do `verify.preparo` da frente do comando quando a guarda vale. O
+ * comando gravado continua o inteiro, e o que rodou de fato fica em `comandoExecutado`. S-d do CHECK: quando so o
+ * produto mudou (a claim anterior compilou de novo no meio da cadeia), o preparo roda de novo antes desta claim e a guarda
+ * nova decide; sem isso, toda claim seguinte rodaria inteira.
+ */
+export function executorDaClaimNoAgile(manifesto: Manifesto, executor: ExecutorUnico, vigente: PreparoVigente,
+  refazer?: RefazerPreparo): ExecutorUnico {
   const passosDoPreparo = manifesto.verify.preparo ? passosDoComando(manifesto.verify.preparo) : [];
   return (nome, comando, cwd) => {
     const { passos, resto } = tirarPassosDoPreparo(comando, passosDoPreparo);
     if (passos.length === 0) return executor(nome, comando, cwd);
-    const motivo = guarda.conferir();
+    let motivo = vigente.guarda.conferir();
+    if (motivo === 'produto-mudou' && refazer?.(nome)) motivo = vigente.guarda.conferir();
     if (motivo) return { ...executor(nome, comando, cwd), preparo: { reaproveitado: false, motivo } };
-    if (resto === '') return doPreparo(nome, comando, preparo!, passos);
+    if (resto === '') return doPreparo(nome, comando, vigente.preparo!, passos);
     return { ...executor(nome, resto, cwd), comando, comandoExecutado: resto, preparo: { reaproveitado: true, passos } };
   };
+}
+
+/** Quantas vezes uma rodada refaz o preparo; depois disso, o comando roda inteiro, como sem a guarda. */
+export const MAXIMO_DE_PREPAROS_REFEITOS = 3;
+
+/**
+ * O preparo refeito (A1, S-a e S-d do CHECK): roda o preparo do Agile de novo, toma a guarda nova e devolve a peca com o
+ * estado real. Falhou, a guarda nova nasce `preparo-falhou` e o resto da rodada roda inteiro, em serie.
+ */
+export function refazerPreparo(manifesto: Manifesto, cwd: string, executor: ExecutorUnico, vigente: PreparoVigente,
+  novaGuarda: (preparo: ResultadoDeComando | null) => GuardaDoProduto, quando: string): PecaDoAgile[] {
+  const deNovo = prepararNoAgile(manifesto, cwd, executor);
+  vigente.preparo = deNovo.resultado;
+  vigente.guarda = novaGuarda(deNovo.resultado);
+  const r = deNovo.resultado;
+  const oQue = `o produto mudou sem mudar a arvore; o preparo rodou de novo ${quando}`;
+  const peca: PecaDoAgile = r?.ok
+    ? { peca: 'preparo-refeito', estado: 'agile', motivo: `${oQue} (${Math.round((r.duracaoMs ?? 0) / 1000)} s)` }
+    : { peca: 'preparo-refeito', estado: 'fallback',
+      motivo: `${oQue} e ${!r ? 'nao havia preparo' : r.causa === 'timeout' ? 'estourou o prazo' : `saiu com codigo ${r.code}`}`
+        + (r ? `: ${redigirCredenciaisUrl(r.comando)}` : ''),
+      fallback: 'os comandos inteiros, em serie' };
+  return [peca, ...deNovo.pecas.filter((x) => x.estado === 'fallback')];
 }
 
 const PIOR_CAUSA: CausaDoComando[] = ['timeout', 'sinal', 'nao-encontrado', 'exit'];
@@ -226,11 +266,15 @@ function caiuDeVerdade(r: ResultadoDeComando): boolean {
 /**
  * O `test` das lanes (D4): ok so com todas ok; a evidencia de quem caiu; a parede e a da lane mais longa. A falha de
  * verdade de uma lane manda, como num comando so do Classic: o estouro ou o relogio sob steal de outra lane nao a esconde.
- * O relogio sob steal so vale quando toda lane que caiu caiu so nele, e a pior causa so vale sem falha de verdade.
+ * O relogio sob steal so vale quando toda lane que caiu caiu so nele, e a pior causa so vale sem falha de verdade. N1 do
+ * CHECK 2: com falha de verdade numa lane e outra lane sem veredito, o `test` nao tem veredito inteiro (`executado`
+ * falso): no verify ele bloqueia como sem veredito, mesmo com a baseline `ja-falhava`, e na baseline ele e
+ * `sem-veredito`; a causa, os testes e o trecho continuam os da falha de verdade.
  */
 export function testDasLanes(lanes: Array<{ lane: string; resultado: ResultadoDeComando }>): ResultadoDeComando {
   const caidas = lanes.filter((l) => !l.resultado.ok);
   const deVerdade = caidas.filter((l) => caiuDeVerdade(l.resultado));
+  const semVeredito = caidas.length - deVerdade.length;
   const juntar = <T>(f: (r: ResultadoDeComando) => T[] | undefined): T[] => lanes.flatMap((l) => f(l.resultado) ?? []);
   const causas = lanes.map((l) => l.resultado.causa).filter((c): c is CausaDoComando => !!c);
   const causa = deVerdade.length ? deVerdade[0].resultado.causa ?? 'exit' : PIOR_CAUSA.find((c) => causas.includes(c));
@@ -248,7 +292,7 @@ export function testDasLanes(lanes: Array<{ lane: string; resultado: ResultadoDe
     ...(causa ? { causa } : {}),
     prazoMs: Math.max(...lanes.map((l) => l.resultado.prazoMs ?? 0)),
     duracaoMs: Math.max(...lanes.map((l) => l.resultado.duracaoMs ?? 0)),
-    executado: deVerdade.length > 0 || lanes.every((l) => l.resultado.executado !== false),
+    executado: deVerdade.length > 0 ? semVeredito === 0 : lanes.every((l) => l.resultado.executado !== false),
     ...(testes.length ? { testeQueCaiu: testes } : {}),
     ...(falhas.length ? { falhasDeTeste: falhas } : {}),
     ...(trechos.length ? { trecho: trechos.join('\n').slice(0, 1024) } : {}),
@@ -348,18 +392,26 @@ export class RelatorioDoCheck {
   ler(): Array<Record<string, unknown>> {
     // Teto de tamanho: qualquer comando da rodada pode escrever no arquivo; a linha cortada no teto nao abre e fica de fora.
     let bruto = '';
+    let tamanho = 0;
     try {
       const fd = fs.openSync(this.arquivo, 'r');
       try {
-        const buf = Buffer.alloc(Math.min(fs.fstatSync(fd).size, TETO_DO_RELATORIO_BYTES));
+        tamanho = fs.fstatSync(fd).size;
+        const buf = Buffer.alloc(Math.min(tamanho, TETO_DO_RELATORIO_BYTES));
         fs.readSync(fd, buf, 0, buf.length, 0);
         bruto = buf.toString('utf8');
       } finally { fs.closeSync(fd); }
     } catch { return []; }
-    return bruto.split('\n').filter(Boolean).flatMap((l) => {
+    const linhas = bruto.split('\n').filter(Boolean).flatMap((l) => {
       try { const v = JSON.parse(l) as unknown; return v && typeof v === 'object' && !Array.isArray(v) ? [v as Record<string, unknown>] : []; }
       catch { return []; }
     });
+    // S-g do CHECK 2: o corte no teto vai ao ledger, nao some calado.
+    if (tamanho > TETO_DO_RELATORIO_BYTES) {
+      linhas.push({ tipo: 'peca', peca: 'relatorio', estado: 'fallback',
+        motivo: `o relatorio da rodada passou do teto de ${TETO_DO_RELATORIO_BYTES} bytes (${tamanho} bytes)`, fallback: 'so as linhas ate o teto' });
+    }
+    return linhas;
   }
 
   fechar(): void {

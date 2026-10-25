@@ -1,8 +1,9 @@
 /**
  * RM-072 (D3 a D8, T3 da ork-check5x): o motor do Agile Check no verify. O reaproveitamento do preparo com a guarda do
- * produto (os passos saem da frente e, desde a T8, do meio da cadeia de `&&`), o `build` que sai do preparo, o preparo do
- * Agile com fallback, as lanes no lugar do `verify.test`, o grupo paralelo pelo processo auxiliar, o relatorio das pecas e
- * o Agile sem `check.agile`, que roda os mesmos comandos do Classic. Os nomes comecam por "AGn:".
+ * produto (os passos saem so da frente da cadeia de `&&`, e o preparo e refeito quando so o produto mudou), o `build` que
+ * sai do preparo, o preparo do Agile com fallback, as lanes no lugar do `verify.test`, o grupo paralelo pelo processo
+ * auxiliar, o relatorio das pecas e o Agile sem `check.agile`, que roda os mesmos comandos do Classic. Os nomes comecam
+ * por "AGn:".
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -10,13 +11,14 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { adicionarClaim } from '../src/claims';
-import { elosDoComando, GuardaDoProduto, hashDoProduto, paralelismoDaVarreduraNoGrupo, passosDoComando, PECA_SEM_RELATORIO, testDasLanes,
-  tirarPassosDoPreparo } from '../src/check-agil';
+import { elosDoComando, GuardaDoProduto, hashDoProduto, MAXIMO_DE_PREPAROS_REFEITOS, paralelismoDaVarreduraNoGrupo, passosDoComando,
+  PECA_SEM_RELATORIO, RelatorioDoCheck, testDasLanes, TETO_DO_RELATORIO_BYTES, tirarPassosDoPreparo } from '../src/check-agil';
 import { rodarEmParalelo } from '../src/check-paralelo';
 import { lerLedger } from '../src/ledger';
 import { carregarManifesto } from '../src/manifest';
 import { dirThread, novaThread } from '../src/thread';
-import { gravarBaseline, identidadeDoProduto, semVereditoPorTempo, textoDoVerify, verificar, ExecutorVerify } from '../src/verify';
+import { gravarBaseline, identidadeDoProduto, semVereditoPorTempo, textoDoVerify, vereditoDaBaseline, verificar,
+  ExecutorVerify } from '../src/verify';
 import { comLocale } from '../src/locale';
 import type { ResultadoDeComando } from '../src/types';
 import { ajustarManifesto, commitar, projetoTemporario } from './apoio';
@@ -106,6 +108,8 @@ test('AG3: com a guarda valendo, a claim roda sem os passos do preparo e o build
     assert.deepEqual(exec.preparo, { reaproveitado: true, passos: ['echo passo-a', 'echo passo-b'] });
     assert.equal(r.comandos[0].nome, 'build');
     assert.deepEqual(r.comandos[0].preparo, { reaproveitado: true, passos: ['echo passo-a'] });
+    // A7 do CHECK: o resumo diz o preparo que rodou, nao so os passos tirados.
+    assert.equal(r.comandos[0].resumo, 'reaproveitado do preparo desta rodada (echo passo-a && echo passo-b)');
     const e = ultimoVerify(p, t.id);
     assert.deepEqual((e.claims as Array<Record<string, unknown>>)[0].preparo, [{ reaproveitado: true, passos: ['echo passo-a', 'echo passo-b'] }]);
     assert.deepEqual((e.comandos as Array<Record<string, unknown>>)[0].preparo, { reaproveitado: true, passos: ['echo passo-a'] });
@@ -116,7 +120,7 @@ test('AG3: com a guarda valendo, a claim roda sem os passos do preparo e o build
   } finally { p.limpar(); }
 });
 
-test('AG4: produto mudado entre o preparo e a claim recompila (comando inteiro) e grava o motivo', () => {
+test('AG4: produto mudado entre o preparo e a claim faz o preparo rodar de novo antes dela, que reaproveita o preparo novo', () => {
   const p = projetoTemporario('ag4');
   try {
     fs.mkdirSync(path.join(p.dir, 'out'));
@@ -132,8 +136,12 @@ test('AG4: produto mudado entre o preparo e a claim recompila (comando inteiro) 
     };
     const r = verificar(p.carregado, t.id, { executor: real });
     const exec = r.claims[1].execucoes[0];
-    assert.equal(exec.comandoExecutado, undefined, 'rodou inteiro');
-    assert.deepEqual(exec.preparo, { reaproveitado: false, motivo: 'produto-mudou' });
+    // S-d do CHECK 2: o preparo roda de novo antes da claim, e a guarda nova vale; depois do teto, roda inteira (AG33).
+    assert.equal(exec.comandoExecutado, 'echo c2', 'sem os passos do preparo, que rodou de novo antes dela');
+    assert.deepEqual(exec.preparo, { reaproveitado: true, passos: ['echo passo-a', 'echo passo-b'] });
+    const pecas = (ultimoVerify(p, t.id).agile as { pecas: Array<Record<string, unknown>> }).pecas;
+    assert.ok(pecas.some((x) => x.peca === 'preparo-refeito' && x.estado === 'agile' && /antes da claim C2\.1/.test(String(x.motivo))),
+      JSON.stringify(pecas));
   } finally { p.limpar(); }
 });
 
@@ -511,7 +519,7 @@ test('AG26: a claim que muda o produto sem mudar a arvore faz o preparo rodar de
     assert.equal(r.ok, true, r.motivos.join(','));
     assert.deepEqual(g.lista.map(([n]) => n), ['preparo', 'C1.1', 'preparo', 'test:h', 'security_scan']);
     const pecas = (ultimoVerify(p, t.id).agile as { pecas: Array<Record<string, unknown>> }).pecas;
-    assert.ok(pecas.some((x) => x.peca === 'preparo' && x.estado === 'agile' && /rodou de novo antes do grupo/.test(String(x.motivo))),
+    assert.ok(pecas.some((x) => x.peca === 'preparo-refeito' && x.estado === 'agile' && /rodou de novo antes do grupo/.test(String(x.motivo))),
       JSON.stringify(pecas));
     assert.ok(pecas.some((x) => x.peca === 'grupo' && x.estado === 'agile') && !pecas.some((x) => x.peca === 'grupo' && x.estado === 'fallback'));
   } finally { p.limpar(); }
@@ -537,7 +545,7 @@ test('AG27: na juncao das lanes a falha de verdade manda; o relogio sob steal so
   const t4 = juntar(estouro, relogio);
   assert.equal(t4.causa, 'timeout');
   assert.equal(semVereditoPorTempo(t4), true);
-  assert.equal(juntar({ ...base, ok: false, code: -1, executado: false, causa: 'nao-encontrado' }, real).executado, true);
+  assert.equal(juntar(real, { ...real, testeQueCaiu: ['outro'] }).executado, true, 'so falhas de verdade: o test tem veredito');
 });
 
 test('AG28: as claims recebem o modo e nunca o relatorio da rodada; o grupo recebe os dois', () => {
@@ -587,4 +595,145 @@ test('AG30: o auxiliar que morre sem gravar o resultado deixa os comandos sem ve
     assert.ok(r.motivos.includes('verify.sem-veredito'), r.motivos.join(','));
     assert.ok(!r.motivos.includes('verify.regression'));
   } finally { p.limpar(); }
+});
+
+test('AG31: falha de verdade numa lane com outra sem veredito deixa o test sem veredito inteiro: bloqueia no verify e e sem-veredito na baseline', () => {
+  const base: ResultadoDeComando = { nome: 'x', comando: 'c', ok: true, code: 0, resumo: '', causa: 'exit', prazoMs: 1000, duracaoMs: 1, executado: true };
+  const real: ResultadoDeComando = { ...base, ok: false, code: 1, testeQueCaiu: ['quebrou'] };
+  const semVeredito: ResultadoDeComando[] = [
+    { ...base, ok: false, code: 124, causa: 'timeout' },
+    { ...base, ok: false, code: 1, relogioSobSteal: ['prazo de 15 s'] },
+    { ...base, ok: false, code: 137, causa: 'sinal' },
+    { ...base, ok: false, code: 127, causa: 'nao-encontrado' },
+    { ...base, ok: false, code: -1, executado: false },
+  ];
+  for (const outra of semVeredito) {
+    const t = testDasLanes([{ lane: 'a', resultado: real }, { lane: 'b', resultado: outra }]);
+    assert.equal(t.executado, false, JSON.stringify(outra));
+    assert.equal(t.causa, 'exit', 'a causa e a da falha de verdade');
+    assert.deepEqual(t.testeQueCaiu, ['quebrou']);
+    assert.equal(vereditoDaBaseline(t), 'sem-veredito', JSON.stringify(outra));
+  }
+  assert.equal(vereditoDaBaseline(testDasLanes([{ lane: 'a', resultado: real }, { lane: 'b', resultado: real }])), 'ja-falhava');
+
+  // No verify: a baseline com as duas lanes caidas de verdade (`ja-falhava`) nao esconde a lane que agora estourou.
+  const p = projetoTemporario('ag31');
+  try {
+    comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      a: "echo a"\n      b: "echo b"');
+    const { thread: t } = novaThread(p.carregado, { nome: 'lanes mistas', modo: 'auto' });
+    gravarBaseline(p.carregado, t.id, gravador((nome) => (nome.startsWith('test:') ? { ok: false, code: 1 } : {})).executor);
+    const r = verificar(p.carregado, t.id, { executor: gravador((nome) => nome === 'test:a' ? { ok: false, code: 1 }
+      : nome === 'test:b' ? { ok: false, code: 124, causa: 'timeout' } : {}).executor });
+    assert.equal(r.ok, false);
+    assert.ok(r.motivos.includes('verify.sem-veredito'), r.motivos.join(','));
+  } finally { p.limpar(); }
+});
+
+test('AG32: a lane que sai com 127 na baseline e dependencia ausente, como o comando so do Classic, mesmo com outra lane caida de verdade', () => {
+  const p = projetoTemporario('ag32');
+  try {
+    comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      a: "echo a"\n      b: "ferramenta-que-nao-existe"');
+    const { thread: t } = novaThread(p.carregado, { nome: 'lane sem dependencia', modo: 'auto' });
+    const g = gravador((nome) => nome === 'test:b' ? { ok: false, code: 127, causa: 'nao-encontrado' }
+      : nome === 'test:a' ? { ok: false, code: 1 } : {});
+    assert.throws(() => comLocale('pt-BR', () => gravarBaseline(p.carregado, t.id, g.executor)),
+      /baseline\.dependencia-ausente: test:b .*codigo 127.*ferramenta-que-nao-existe/);
+  } finally { p.limpar(); }
+});
+
+test('AG33: o produto que muda numa claim faz o preparo rodar de novo antes da claim seguinte, que volta a reaproveitar, ate o teto da rodada', () => {
+  const p = projetoTemporario('ag33');
+  try {
+    fs.mkdirSync(path.join(p.dir, 'out'));
+    fs.writeFileSync(path.join(p.dir, 'out', 'p.js'), 'v0');
+    comAgile(p, '  agile:\n    produto:\n      - "out"\n    test:\n      h: "echo h"', { scan: 'echo s' });
+    fs.appendFileSync(path.join(p.dir, '.git', 'info', 'exclude'), 'out/\n');
+    const { thread: t } = novaThread(p.carregado, { nome: 'refaz antes da claim', modo: 'auto' });
+    const n = MAXIMO_DE_PREPAROS_REFEITOS + 2;
+    for (let i = 1; i <= n; i++) {
+      adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: `mexe ${i}`, verificar: [`echo passo-a && echo passo-b && echo mexe-${i}`] });
+    }
+    let versao = 0;
+    const g = gravador((_nome, comando) => {
+      if (/echo mexe-\d+$/.test(comando)) fs.writeFileSync(path.join(p.dir, 'out', 'p.js'), `v${++versao}`);
+      return {};
+    });
+    const r = verificar(p.carregado, t.id, { executor: g.executor });
+    assert.equal(r.ok, true, r.motivos.join(','));
+    // O preparo do comeco e mais um antes de cada claim seguinte, ate o teto; depois, a claim roda inteira e o grupo cai para a serie.
+    assert.equal(g.lista.filter(([nome]) => nome === 'preparo').length, 1 + MAXIMO_DE_PREPAROS_REFEITOS);
+    for (let i = 1; i <= MAXIMO_DE_PREPAROS_REFEITOS + 1; i++) {
+      assert.deepEqual(r.claims[i - 1].execucoes[0].preparo, { reaproveitado: true, passos: ['echo passo-a', 'echo passo-b'] }, `C${i}`);
+    }
+    assert.deepEqual(r.claims[n - 1].execucoes[0].preparo, { reaproveitado: false, motivo: 'produto-mudou' });
+    const pecas = (ultimoVerify(p, t.id).agile as { pecas: Array<Record<string, unknown>> }).pecas;
+    const refeitos = pecas.filter((x) => x.peca === 'preparo-refeito');
+    assert.equal(refeitos.length, MAXIMO_DE_PREPAROS_REFEITOS, JSON.stringify(pecas));
+    assert.ok(refeitos.every((x) => x.estado === 'agile'));
+    assert.match(String(refeitos[0].motivo), /antes da claim C2\.1/);
+    assert.ok(pecas.some((x) => x.peca === 'grupo' && x.estado === 'fallback' && x.motivo === 'produto-mudou'), JSON.stringify(pecas));
+  } finally { p.limpar(); }
+});
+
+test('AG34: o preparo refeito que falha fica em fallback no ledger, e o resto da rodada roda inteiro, em serie', () => {
+  const p = projetoTemporario('ag34');
+  try {
+    fs.mkdirSync(path.join(p.dir, 'out'));
+    fs.writeFileSync(path.join(p.dir, 'out', 'p.js'), 'v0');
+    comAgile(p, '  agile:\n    produto:\n      - "out"\n    test:\n      h: "echo h"', { scan: 'echo s' });
+    fs.appendFileSync(path.join(p.dir, '.git', 'info', 'exclude'), 'out/\n');
+    const { thread: t } = novaThread(p.carregado, { nome: 'refeito falha', modo: 'auto' });
+    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'recompila', verificar: ['echo recompila'] });
+    let preparos = 0;
+    const g = gravador((nome, comando) => {
+      if (comando === 'echo recompila') fs.writeFileSync(path.join(p.dir, 'out', 'p.js'), 'v1');
+      if (nome === 'preparo' && ++preparos === 2) return { ok: false, code: 2 };
+      return {};
+    });
+    const r = verificar(p.carregado, t.id, { executor: g.executor });
+    assert.equal(r.ok, true, r.motivos.join(','));
+    const pecas = (ultimoVerify(p, t.id).agile as { pecas: Array<Record<string, unknown>> }).pecas;
+    assert.ok(pecas.some((x) => x.peca === 'preparo-refeito' && x.estado === 'fallback' && /saiu com codigo 2/.test(String(x.motivo))
+      && x.fallback === 'os comandos inteiros, em serie'), JSON.stringify(pecas));
+    assert.ok(pecas.some((x) => x.peca === 'grupo' && x.estado === 'fallback' && x.motivo === 'preparo-falhou'), JSON.stringify(pecas));
+    assert.deepEqual(g.lista.slice(-3).map(([nome]) => nome), ['build', 'test', 'security_scan'], 'em serie, com os comandos do Classic');
+  } finally { p.limpar(); }
+});
+
+test('AG35: as variaveis de outra rodada nao chegam aos comandos; sem a guarda, o verify.test em serie roda sem o relatorio e a varredura com ele', () => {
+  const p = projetoTemporario('ag35');
+  const antes = process.env.ORK_CHECK_RELATORIO;
+  try {
+    const arq = (n: string): string => path.join(p.dir, n);
+    comAgile(p, '  agile:\n    preparo: "echo agil"', { test: `echo rel=$ORK_CHECK_RELATORIO > ${arq('test.txt')}`,
+      scan: `echo rel=$ORK_CHECK_RELATORIO > ${arq('scan.txt')}` });
+    fs.appendFileSync(path.join(p.dir, '.git', 'info', 'exclude'), '*.txt\n*.jsonl\n');
+    const { thread: t } = novaThread(p.carregado, { nome: 'sem vazamento', modo: 'auto' });
+    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'le o ambiente', verificar: [`echo rel=$ORK_CHECK_RELATORIO > ${arq('claim.txt')}`] });
+    process.env.ORK_CHECK_RELATORIO = arq('de-outra-rodada.jsonl');
+    const r = verificar(p.carregado, t.id, {});
+    assert.equal(r.ok, true, r.motivos.join(','));
+    assert.equal(fs.readFileSync(arq('claim.txt'), 'utf8').trim(), 'rel=');
+    assert.equal(fs.readFileSync(arq('test.txt'), 'utf8').trim(), 'rel=', 'o verify.test em serie roda sem o relatorio');
+    const scan = fs.readFileSync(arq('scan.txt'), 'utf8');
+    assert.match(scan, /^rel=\/.+pecas\.jsonl$/m);
+    assert.ok(!scan.includes('de-outra-rodada'), scan);
+  } finally {
+    if (antes === undefined) delete process.env.ORK_CHECK_RELATORIO; else process.env.ORK_CHECK_RELATORIO = antes;
+    p.limpar();
+  }
+});
+
+test('AG36: o relatorio da rodada e lido ate o teto, e o corte vira peca em fallback', () => {
+  const relatorio = new RelatorioDoCheck();
+  try {
+    const linha = JSON.stringify({ tipo: 'peca', peca: 'x', estado: 'agile' }) + '\n';
+    const n = Math.ceil(TETO_DO_RELATORIO_BYTES / linha.length) + 10;
+    fs.writeFileSync(relatorio.arquivo, linha.repeat(n));
+    const linhas = relatorio.ler();
+    assert.ok(linhas.length < n, 'o que passa do teto fica de fora');
+    assert.ok(linhas.length >= Math.floor(TETO_DO_RELATORIO_BYTES / linha.length) - 1);
+    assert.deepEqual(linhas.at(-1), { tipo: 'peca', peca: 'relatorio', estado: 'fallback',
+      motivo: `o relatorio da rodada passou do teto de ${TETO_DO_RELATORIO_BYTES} bytes (${linha.length * n} bytes)`, fallback: 'so as linhas ate o teto' });
+  } finally { relatorio.fechar(); }
 });

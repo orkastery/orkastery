@@ -48,9 +48,11 @@ import { canalDoProcesso, comConducao, ConducaoTomada, identidadeDoAmbiente, pra
 import { diretorioDaThread } from './procedencia';
 import { BarreiraDaThread, barreiraDaThread, resumoNoLedger } from './dado-privado';
 import { avisos as avisosDePolicy, bloqueantes as bloqueantesDePolicy } from './policies';
-import { ENV_MODO_DO_CHECK, ENV_VARREDURA_PARALELA_DO_CHECK, ModoDoCheck, ModoResolvido, NOME_DO_MODO, resolverModo } from './check-modo';
-import { comandosNoAgile, ComandosDoAgile, executorDaClaimNoAgile, ExecutorDeGrupo, GuardaDoProduto, listasDasLanes, PecaDoAgile,
-  paralelismoDaVarreduraNoGrupo, PECA_SEM_RELATORIO, pecasDoRelatorio, prepararNoAgile, RelatorioDoCheck } from './check-agil';
+import { ENV_MODO_DO_CHECK, ENV_RELATORIO_DO_CHECK, ENV_VARREDURA_PARALELA_DO_CHECK, ModoDoCheck, ModoResolvido, NOME_DO_MODO,
+  resolverModo } from './check-modo';
+import { comandosNoAgile, ComandosDoAgile, executorDaClaimNoAgile, ExecutorDeGrupo, GuardaDoProduto, listasDasLanes,
+  MAXIMO_DE_PREPAROS_REFEITOS, PecaDoAgile, paralelismoDaVarreduraNoGrupo, PECA_SEM_RELATORIO, pecasDoRelatorio,
+  prepararNoAgile, PreparoVigente, refazerPreparo, RefazerPreparo, RelatorioDoCheck } from './check-agil';
 import { esperaDoGrupo, rodarEmParalelo } from './check-paralelo';
 
 /** Teto de tempo de um comando de verificacao (build e suite completa cabem). */
@@ -77,8 +79,15 @@ const TIMEOUT_BIN = '/usr/bin/timeout';
  */
 export const PREFIXO_BLOQUEADO_NO_VERIFY = 'ORK_HITL_';
 
+/**
+ * RM-072 (S-b do CHECK 2): as variaveis de uma rodada do Agile. Cada rodada poe as suas onde precisa; herdadas de outra
+ * rodada (o verify que roda dentro de um comando de outro verify), elas levariam pecas ao relatorio errado.
+ */
+const VARIAVEIS_DA_RODADA: ReadonlySet<string> = new Set([ENV_RELATORIO_DO_CHECK, ENV_VARREDURA_PARALELA_DO_CHECK]);
+
 export function ambienteDoVerify(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  return Object.fromEntries(Object.entries(base).filter(([chave]) => !chave.startsWith(PREFIXO_BLOQUEADO_NO_VERIFY)));
+  return Object.fromEntries(Object.entries(base).filter(([chave]) => !chave.startsWith(PREFIXO_BLOQUEADO_NO_VERIFY)
+    && !VARIAVEIS_DA_RODADA.has(chave)));
 }
 
 /** I-37 (D2): o prazo de um comando, resolvido uma vez por rodada (D3). */
@@ -393,6 +402,15 @@ function guardaDoPreparo(manifesto: Manifesto, cwd: string, preparo: ResultadoDe
 }
 
 /**
+ * RM-072 (S-b do CHECK 2): no Agile, so quem escreve no relatorio da rodada o recebe, a varredura e as lanes; o `build`,
+ * o `typecheck` e o `verify.test` em serie (sem a guarda) recebem so o modo, como as claims. O teste que roda a varredura
+ * dentro do `verify.test` gravaria pecas de fixture no relatorio da rodada.
+ */
+function soAVarreduraEAsLanesComRelatorio(comRelatorio: ExecutorVerify, semRelatorio: ExecutorVerify): ExecutorVerify {
+  return (nome, comando, cwd) => (nome === 'security_scan' || nome.startsWith('test:') ? comRelatorio : semRelatorio)(nome, comando, cwd);
+}
+
+/**
  * RM-072 (D6): o executor do grupo do Agile. Sem executor injetado, o processo auxiliar roda os comandos ao mesmo tempo,
  * cada um com o prazo e o ambiente que o `executorDoManifesto` daria a ele (o do scan com o prazo interno), o steal medido
  * na janela do grupo e a conducao renovada com o maior prazo. Com executor injetado (MCP, testes), um por vez, por ele.
@@ -542,6 +560,11 @@ function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: stri
   const ambienteDaRodada = { ...ambienteDoModo(check), ...relatorio?.ambiente() };
   const instabilidade = lerRegistroDeInstabilidade(cwd);
   const executor = executorSobConducao(executorDaRodada(manifesto, instabilidade, base, leitor, ambienteDaRodada), manifesto, tomada);
+  // RM-072 (S-b do CHECK 2): fora do preparo, so a varredura e as lanes recebem o relatorio.
+  const executorDosComandos = relatorio
+    ? soAVarreduraEAsLanesComRelatorio(executor,
+      executorSobConducao(executorDaRodada(manifesto, instabilidade, base, leitor, ambienteDoModo(check)), manifesto, tomada))
+    : executor;
   // RM-072 (D4): no Agile com o produto declarado, o preparo, a guarda e o mesmo grupo do verify; sem o produto, nada
   // seria reaproveitado e os comandos rodam como no Classic.
   // RM-072 (A6 do CHECK): as pecas do preparo, do grupo e do relatorio vao ao `baseline_recorded`, como no `verify_run`.
@@ -550,19 +573,22 @@ function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: stri
     ? (() => {
       const p = prepararNoAgile(manifesto, cwd, executor);
       pecasDaBaseline.push(...p.pecas);
-      const r = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executor,
+      const r = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executorDosComandos,
         executorDoGrupo(manifesto, ambienteDaRodada, instabilidade, leitor, tomada, base ? executor : undefined),
         guardaDoPreparo(manifesto, cwd, p.resultado), p.resultado);
       pecasDaBaseline.push(...r.pecas);
       return r.comandos;
     })()
-    : comandosDoManifesto(manifesto).map((c) => executor(c.nome, c.comando, cwd));
+    : comandosDoManifesto(manifesto).map((c) => executorDosComandos(c.nome, c.comando, cwd));
   if (relatorio) {
     if (base) pecasDaBaseline.push(PECA_SEM_RELATORIO);
     pecasDaBaseline.push(...pecasDoRelatorio(relatorio.ler()));
     relatorio.fechar();
   }
-  const naoEncontrado = comandos.find((c) => c.causa === 'nao-encontrado');
+  // N1 do CHECK 2: a lane que saiu com 127 tambem e dependencia ausente, como o comando so do Classic.
+  const naoEncontrado = comandos.find((c) => c.causa === 'nao-encontrado')
+    ?? comandos.flatMap((c) => (c.lanes ?? []).filter((l) => l.causa === 'nao-encontrado')
+      .map((l) => ({ nome: `${c.nome}:${l.lane}`, code: l.code, comando: l.comando })))[0];
   if (naoEncontrado) {
     // Uma dependencia ausente nao e divida do codigo: o comando nem chegou a existir. Gravar isso
     // como "ja falhava" faria todo verify futuro aceitar a falta da ferramenta como baseline.
@@ -767,6 +793,8 @@ function verificarSobConducao(
   const executorDasClaims: ExecutorVerify = relatorio
     ? executorSobConducao(executorDaRodada(manifesto, instabilidade, opcoes.executor, leitor, ambienteDoModo(check)), manifesto, conducao)
     : executor;
+  // RM-072 (S-b do CHECK 2): fora do preparo, so a varredura e as lanes recebem o relatorio.
+  const executorDosComandos = relatorio ? soAVarreduraEAsLanesComRelatorio(executor, executorDasClaims) : executor;
 
   // I-54 (D10): o preparo roda UMA vez, antes das claims. Ele nunca e condicao para uma claim
   // passar (cada uma roda o proprio comando inteiro); ele so deixa pronta a compilacao. A
@@ -786,10 +814,24 @@ function verificarSobConducao(
   // RM-072 (A6 do CHECK): com executor injetado (MCP, testes), o ambiente da rodada nao chega aos comandos; o ledger diz.
   if (agil && opcoes.executor) pecas.push(PECA_SEM_RELATORIO);
   // RM-072 (D5): a guarda do produto, tomada no fim do preparo.
-  const guarda = agil ? guardaDoPreparo(manifesto, cwd, preparo?.resultado ?? null) : null;
+  const vigente: PreparoVigente | null = agil
+    ? { guarda: guardaDoPreparo(manifesto, cwd, preparo?.resultado ?? null), preparo: preparo?.resultado ?? null }
+    : null;
+  // RM-072 (A1, S-a e S-d do CHECK): a claim que compilou de novo (o build no meio da cadeia) muda o produto sem mudar a
+  // arvore; o preparo roda de novo antes da claim seguinte que o reaproveitaria e antes do grupo, ate
+  // MAXIMO_DE_PREPAROS_REFEITOS vezes na rodada, e a peca diz o que aconteceu.
+  let preparosRefeitos = 0;
+  const refazer: RefazerPreparo = (quando) => {
+    if (!vigente || preparosRefeitos >= MAXIMO_DE_PREPAROS_REFEITOS) return false;
+    preparosRefeitos++;
+    pecas.push(...refazerPreparo(manifesto, cwd, executor, vigente, (p) => guardaDoPreparo(manifesto, cwd, p), quando));
+    return true;
+  };
 
   // Claim retirada sai do gate: o historico guarda a alegacao e o motivo da retirada.
-  const executorDaClaim = guarda ? executorDaClaimNoAgile(manifesto, executorDasClaims, guarda, preparo?.resultado ?? null) : executorDasClaims;
+  const executorDaClaim = vigente
+    ? executorDaClaimNoAgile(manifesto, executorDasClaims, vigente, (nome) => refazer(`antes da claim ${nome}`))
+    : executorDasClaims;
   const claims = lerClaims(raiz, threadId)
     .filter((c) => c.estado !== 'retirada')
     .map((c) => verificarClaim(c, cwd, executorDaClaim));
@@ -804,29 +846,20 @@ function verificarSobConducao(
     if (r.claim.estado !== estado) carimbarEstado(raiz, r.claim, estado);
   }
 
-  // RM-072 (A1 do CHECK): a claim que compilou de novo (o build no meio da cadeia, a suite inteira) muda o produto sem mudar
-  // a arvore; o preparo roda de novo uma vez, a guarda e tomada outra vez e o grupo segue em paralelo, com o motivo no ledger.
-  let guardaDoGrupo = guarda;
-  let preparoDoGrupo = preparo?.resultado ?? null;
-  if (guarda && !opcoes.soClaims && guarda.conferir() === 'produto-mudou') {
-    const deNovo = prepararNoAgile(manifesto, cwd, executor);
-    preparoDoGrupo = deNovo.resultado;
-    guardaDoGrupo = guardaDoPreparo(manifesto, cwd, deNovo.resultado);
-    pecas.push({ peca: 'preparo', estado: 'agile', motivo: 'o produto mudou durante as claims; o preparo rodou de novo antes do grupo' },
-      ...deNovo.pecas.filter((x) => x.estado === 'fallback'));
-  }
+  // RM-072 (A1 do CHECK): o produto que mudou durante as claims tem o preparo refeito antes do grupo, que segue em paralelo.
+  if (vigente && !opcoes.soClaims && vigente.guarda.conferir() === 'produto-mudou') refazer('antes do grupo');
 
   // RM-072 (D4, D6): no Agile, build do preparo e o resto no grupo paralelo, com a guarda valendo.
   let doAgile: ComandosDoAgile | null = null;
   const comandos = opcoes.soClaims
     ? []
-    : guardaDoGrupo
-      ? (doAgile = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executor,
+    : vigente
+      ? (doAgile = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executorDosComandos,
         executorDoGrupo(manifesto, ambienteDaRodada, instabilidade, leitor, conducao, opcoes.executor ? executor : undefined),
-        guardaDoGrupo, preparoDoGrupo)).comandos
+        vigente.guarda, vigente.preparo)).comandos
       : comandosDoManifesto(manifesto).map((c) => executor(c.nome, c.comando, cwd));
   if (doAgile) pecas.push(...doAgile.pecas);
-  const resumoDoAgile = agil ? agileNoLedger(raiz, threadId, commit, pecas, doAgile, guardaDoGrupo!, relatorio!, claims) : null;
+  const resumoDoAgile = vigente ? agileNoLedger(raiz, threadId, commit, pecas, doAgile, vigente.guarda, relatorio!, claims) : null;
 
   // RM-062 (F2): a barreira de dado privado no diff da thread, so com a policy `dado_privado` no manifesto.
   const dadoPrivado = barreiraDaThread(carregado, thread, cwd, 'verify');
