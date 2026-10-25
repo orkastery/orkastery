@@ -402,12 +402,16 @@ function guardaDoPreparo(manifesto: Manifesto, cwd: string, preparo: ResultadoDe
 }
 
 /**
- * RM-072 (S-b do CHECK 2): no Agile, so quem escreve no relatorio da rodada o recebe, a varredura e as lanes; o `build`,
- * o `typecheck` e o `verify.test` em serie (sem a guarda) recebem so o modo, como as claims. O teste que roda a varredura
- * dentro do `verify.test` gravaria pecas de fixture no relatorio da rodada.
+ * RM-072 (S-b do CHECK 2, N5 do CHECK 3): no Agile, so quem escreve no relatorio da rodada o recebe, a varredura e as
+ * lanes; o `build`, o `typecheck` e o `verify.test` (em serie ou no grupo) recebem so o modo, como as claims. O teste que
+ * roda a varredura dentro do `verify.test` gravaria pecas de fixture no relatorio da rodada.
  */
+function recebeORelatorio(nome: string): boolean {
+  return nome === 'security_scan' || nome.startsWith('test:');
+}
+
 function soAVarreduraEAsLanesComRelatorio(comRelatorio: ExecutorVerify, semRelatorio: ExecutorVerify): ExecutorVerify {
-  return (nome, comando, cwd) => (nome === 'security_scan' || nome.startsWith('test:') ? comRelatorio : semRelatorio)(nome, comando, cwd);
+  return (nome, comando, cwd) => (recebeORelatorio(nome) ? comRelatorio : semRelatorio)(nome, comando, cwd);
 }
 
 /**
@@ -419,11 +423,13 @@ function executorDoGrupo(manifesto: Manifesto, ambienteDaRodada: Record<string, 
   leitor: LeitorProcStat, conducao: ConducaoTomada, injetado?: ExecutorVerify): ExecutorDeGrupo {
   if (injetado) return (itens, cwd) => itens.map((i) => injetado(i.nome, i.comando, cwd));
   const relogio = testesDeRelogioVigentes(instabilidade);
+  // N5 do CHECK 3: no grupo, como em serie, so a varredura e as lanes recebem o relatorio da rodada.
+  const { [ENV_RELATORIO_DO_CHECK]: _relatorio, ...semRelatorio } = ambienteDaRodada;
   return (itens, cwd) => {
     const prazos = itens.map((i) => prazoDaExecucao(manifesto, i.nome, i.comando));
     const paraOAuxiliar = itens.map((i, k) => ({ nome: i.nome, comando: i.comando, cwd, prazoMs: prazos[k],
       ...(i.nice ? { nice: i.nice } : {}), ...(i.apos?.length ? { apos: i.apos } : {}),
-      ambiente: { ...ambienteDaRodada, ...(ehComandoDoScan(manifesto, i.nome, i.comando)
+      ambiente: { ...(recebeORelatorio(i.nome) ? ambienteDaRodada : semRelatorio), ...(ehComandoDoScan(manifesto, i.nome, i.comando)
         // RM-072: ao lado das lanes, a varredura roda poucas ferramentas por vez, para o grupo nao passar da CPU.
         ? { ORK_SECURITY_SCAN_DEADLINE_MS: String(prazoInternoDoScan(prazos[k])),
           ...(itens.length > 1 ? { [ENV_VARREDURA_PARALELA_DO_CHECK]: String(paralelismoDaVarreduraNoGrupo()) } : {}) } : {}) } }));
@@ -817,21 +823,22 @@ function verificarSobConducao(
   const vigente: PreparoVigente | null = agil
     ? { guarda: guardaDoPreparo(manifesto, cwd, preparo?.resultado ?? null), preparo: preparo?.resultado ?? null }
     : null;
-  // RM-072 (A1, S-a e S-d do CHECK): a claim que compilou de novo (o build no meio da cadeia) muda o produto sem mudar a
-  // arvore; o preparo roda de novo antes da claim seguinte que o reaproveitaria e antes do grupo, ate
-  // MAXIMO_DE_PREPAROS_REFEITOS vezes na rodada, e a peca diz o que aconteceu.
+  // RM-072 (A1, S-a, S-d e S-h do CHECK): a claim que compilou de novo (o build no meio da cadeia) muda o produto sem mudar
+  // a arvore; o preparo roda de novo antes da claim seguinte que o reaproveitaria, ate MAXIMO_DE_PREPAROS_REFEITOS vezes,
+  // e uma vez antes do grupo, e a peca diz o que aconteceu.
+  const refazer = (quando: string): void => {
+    pecas.push(...refazerPreparo(manifesto, cwd, executor, vigente!, (p) => guardaDoPreparo(manifesto, cwd, p), quando));
+  };
   let preparosRefeitos = 0;
-  const refazer: RefazerPreparo = (quando) => {
+  const refazerAntesDaClaim: RefazerPreparo = (nome) => {
     if (!vigente || preparosRefeitos >= MAXIMO_DE_PREPAROS_REFEITOS) return false;
     preparosRefeitos++;
-    pecas.push(...refazerPreparo(manifesto, cwd, executor, vigente, (p) => guardaDoPreparo(manifesto, cwd, p), quando));
+    refazer(`antes da claim ${nome}`);
     return true;
   };
 
   // Claim retirada sai do gate: o historico guarda a alegacao e o motivo da retirada.
-  const executorDaClaim = vigente
-    ? executorDaClaimNoAgile(manifesto, executorDasClaims, vigente, (nome) => refazer(`antes da claim ${nome}`))
-    : executorDasClaims;
+  const executorDaClaim = vigente ? executorDaClaimNoAgile(manifesto, executorDasClaims, vigente, refazerAntesDaClaim) : executorDasClaims;
   const claims = lerClaims(raiz, threadId)
     .filter((c) => c.estado !== 'retirada')
     .map((c) => verificarClaim(c, cwd, executorDaClaim));
@@ -847,6 +854,7 @@ function verificarSobConducao(
   }
 
   // RM-072 (A1 do CHECK): o produto que mudou durante as claims tem o preparo refeito antes do grupo, que segue em paralelo.
+  // S-h do CHECK 3: o grupo tem a vaga dele, fora do teto das claims.
   if (vigente && !opcoes.soClaims && vigente.guarda.conferir() === 'produto-mudou') refazer('antes do grupo');
 
   // RM-072 (D4, D6): no Agile, build do preparo e o resto no grupo paralelo, com a guarda valendo.

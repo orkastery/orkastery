@@ -548,7 +548,7 @@ test('AG27: na juncao das lanes a falha de verdade manda; o relogio sob steal so
   assert.equal(juntar(real, { ...real, testeQueCaiu: ['outro'] }).executado, true, 'so falhas de verdade: o test tem veredito');
 });
 
-test('AG28: as claims recebem o modo e nunca o relatorio da rodada; o grupo recebe os dois', () => {
+test('AG28: as claims recebem o modo e nunca o relatorio da rodada; a lane do grupo recebe os dois', () => {
   const p = projetoTemporario('ag28');
   try {
     const arq = (n: string): string => path.join(p.dir, n);
@@ -615,6 +615,16 @@ test('AG31: falha de verdade numa lane com outra sem veredito deixa o test sem v
     assert.equal(vereditoDaBaseline(t), 'sem-veredito', JSON.stringify(outra));
   }
   assert.equal(vereditoDaBaseline(testDasLanes([{ lane: 'a', resultado: real }, { lane: 'b', resultado: real }])), 'ja-falhava');
+  // N4 do CHECK 3: a lane sai com o codigo de quem nao a deixou terminar (o `timeout` de dentro, o shell, o sinal) com causa
+  // `exit`: o test so e `ja-falhava` quando a outra lane tambem seria, e nas duas ordens das lanes.
+  for (const code of [1, 2, 123, 124, 125, 126, 127, 128, 137, 143, 160, 255]) {
+    for (const causa of ['exit', undefined] as const) {
+      const outra: ResultadoDeComando = { ...base, ok: false, code, causa };
+      const esperado = vereditoDaBaseline(outra) === 'ja-falhava' ? 'ja-falhava' : 'sem-veredito';
+      assert.equal(vereditoDaBaseline(testDasLanes([{ lane: 'a', resultado: real }, { lane: 'b', resultado: outra }])), esperado, `${code} ${causa}`);
+      assert.equal(vereditoDaBaseline(testDasLanes([{ lane: 'b', resultado: outra }, { lane: 'a', resultado: real }])), esperado, `${code} ${causa} (ordem)`);
+    }
+  }
 
   // No verify: a baseline com as duas lanes caidas de verdade (`ja-falhava`) nao esconde a lane que agora estourou.
   const p = projetoTemporario('ag31');
@@ -660,18 +670,21 @@ test('AG33: o produto que muda numa claim faz o preparo rodar de novo antes da c
     });
     const r = verificar(p.carregado, t.id, { executor: g.executor });
     assert.equal(r.ok, true, r.motivos.join(','));
-    // O preparo do comeco e mais um antes de cada claim seguinte, ate o teto; depois, a claim roda inteira e o grupo cai para a serie.
-    assert.equal(g.lista.filter(([nome]) => nome === 'preparo').length, 1 + MAXIMO_DE_PREPAROS_REFEITOS);
+    // O preparo do comeco, mais um antes de cada claim seguinte ate o teto e, S-h do CHECK 3, mais um so do grupo: a claim
+    // depois do teto roda inteira, e o grupo continua em paralelo.
+    assert.equal(g.lista.filter(([nome]) => nome === 'preparo').length, 2 + MAXIMO_DE_PREPAROS_REFEITOS);
     for (let i = 1; i <= MAXIMO_DE_PREPAROS_REFEITOS + 1; i++) {
       assert.deepEqual(r.claims[i - 1].execucoes[0].preparo, { reaproveitado: true, passos: ['echo passo-a', 'echo passo-b'] }, `C${i}`);
     }
     assert.deepEqual(r.claims[n - 1].execucoes[0].preparo, { reaproveitado: false, motivo: 'produto-mudou' });
     const pecas = (ultimoVerify(p, t.id).agile as { pecas: Array<Record<string, unknown>> }).pecas;
     const refeitos = pecas.filter((x) => x.peca === 'preparo-refeito');
-    assert.equal(refeitos.length, MAXIMO_DE_PREPAROS_REFEITOS, JSON.stringify(pecas));
+    assert.equal(refeitos.length, MAXIMO_DE_PREPAROS_REFEITOS + 1, JSON.stringify(pecas));
     assert.ok(refeitos.every((x) => x.estado === 'agile'));
     assert.match(String(refeitos[0].motivo), /antes da claim C2\.1/);
-    assert.ok(pecas.some((x) => x.peca === 'grupo' && x.estado === 'fallback' && x.motivo === 'produto-mudou'), JSON.stringify(pecas));
+    assert.match(String(refeitos.at(-1)!.motivo), /antes do grupo/);
+    assert.ok(pecas.some((x) => x.peca === 'grupo' && x.estado === 'agile') && !pecas.some((x) => x.peca === 'grupo' && x.estado === 'fallback'),
+      JSON.stringify(pecas));
   } finally { p.limpar(); }
 });
 
@@ -702,26 +715,74 @@ test('AG34: o preparo refeito que falha fica em fallback no ledger, e o resto da
 
 test('AG35: as variaveis de outra rodada nao chegam aos comandos; sem a guarda, o verify.test em serie roda sem o relatorio e a varredura com ele', () => {
   const p = projetoTemporario('ag35');
-  const antes = process.env.ORK_CHECK_RELATORIO;
+  const antes = { rel: process.env.ORK_CHECK_RELATORIO, teto: process.env.ORK_CHECK_VARREDURA_PARALELA };
   try {
     const arq = (n: string): string => path.join(p.dir, n);
-    comAgile(p, '  agile:\n    preparo: "echo agil"', { test: `echo rel=$ORK_CHECK_RELATORIO > ${arq('test.txt')}`,
-      scan: `echo rel=$ORK_CHECK_RELATORIO > ${arq('scan.txt')}` });
+    const eco = (n: string): string => `echo rel=$ORK_CHECK_RELATORIO teto=$ORK_CHECK_VARREDURA_PARALELA > ${arq(n)}`;
+    comAgile(p, '  agile:\n    preparo: "echo agil"', { test: eco('test.txt'), scan: eco('scan.txt') });
     fs.appendFileSync(path.join(p.dir, '.git', 'info', 'exclude'), '*.txt\n*.jsonl\n');
     const { thread: t } = novaThread(p.carregado, { nome: 'sem vazamento', modo: 'auto' });
-    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'le o ambiente', verificar: [`echo rel=$ORK_CHECK_RELATORIO > ${arq('claim.txt')}`] });
+    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'le o ambiente', verificar: [eco('claim.txt')] });
     process.env.ORK_CHECK_RELATORIO = arq('de-outra-rodada.jsonl');
+    process.env.ORK_CHECK_VARREDURA_PARALELA = '1';
     const r = verificar(p.carregado, t.id, {});
     assert.equal(r.ok, true, r.motivos.join(','));
-    assert.equal(fs.readFileSync(arq('claim.txt'), 'utf8').trim(), 'rel=');
-    assert.equal(fs.readFileSync(arq('test.txt'), 'utf8').trim(), 'rel=', 'o verify.test em serie roda sem o relatorio');
+    assert.equal(fs.readFileSync(arq('claim.txt'), 'utf8').trim(), 'rel= teto=');
+    assert.equal(fs.readFileSync(arq('test.txt'), 'utf8').trim(), 'rel= teto=', 'o verify.test em serie roda sem o relatorio');
     const scan = fs.readFileSync(arq('scan.txt'), 'utf8');
-    assert.match(scan, /^rel=\/.+pecas\.jsonl$/m);
+    assert.match(scan, /^rel=\/.+pecas\.jsonl teto=$/m, 'a varredura em serie tem o relatorio desta rodada e nenhum teto herdado');
     assert.ok(!scan.includes('de-outra-rodada'), scan);
   } finally {
-    if (antes === undefined) delete process.env.ORK_CHECK_RELATORIO; else process.env.ORK_CHECK_RELATORIO = antes;
+    if (antes.rel === undefined) delete process.env.ORK_CHECK_RELATORIO; else process.env.ORK_CHECK_RELATORIO = antes.rel;
+    if (antes.teto === undefined) delete process.env.ORK_CHECK_VARREDURA_PARALELA; else process.env.ORK_CHECK_VARREDURA_PARALELA = antes.teto;
     p.limpar();
   }
+});
+
+test('AG37: no grupo paralelo, so a varredura e as lanes recebem o relatorio da rodada; o verify.test sem lanes, nao', () => {
+  const p = projetoTemporario('ag37');
+  try {
+    const arq = (n: string): string => path.join(p.dir, n);
+    comAgile(p, '  agile:\n    produto:\n      - "README.md"', { test: `echo rel=$ORK_CHECK_RELATORIO > ${arq('test.txt')}`,
+      scan: `echo rel=$ORK_CHECK_RELATORIO > ${arq('scan.txt')}` });
+    fs.appendFileSync(path.join(p.dir, '.git', 'info', 'exclude'), '*.txt\n');
+    const { thread: t } = novaThread(p.carregado, { nome: 'grupo sem relatorio', modo: 'auto' });
+    const r = verificar(p.carregado, t.id, {});
+    assert.equal(r.ok, true, r.motivos.join(','));
+    const pecas = (ultimoVerify(p, t.id).agile as { pecas: Array<Record<string, unknown>> }).pecas;
+    assert.ok(pecas.some((x) => x.peca === 'grupo' && x.estado === 'agile'), JSON.stringify(pecas));
+    assert.equal(fs.readFileSync(arq('test.txt'), 'utf8').trim(), 'rel=');
+    assert.match(fs.readFileSync(arq('scan.txt'), 'utf8'), /^rel=\/.+pecas\.jsonl$/m);
+  } finally { p.limpar(); }
+});
+
+test('AG38: o preparo refeito que falha antes de uma claim fica em fallback, e a claim roda inteira com o motivo', () => {
+  const p = projetoTemporario('ag38');
+  try {
+    fs.mkdirSync(path.join(p.dir, 'out'));
+    fs.writeFileSync(path.join(p.dir, 'out', 'p.js'), 'v0');
+    comAgile(p, '  agile:\n    produto:\n      - "out"\n    test:\n      h: "echo h"', { scan: 'echo s' });
+    fs.appendFileSync(path.join(p.dir, '.git', 'info', 'exclude'), 'out/\n');
+    const { thread: t } = novaThread(p.carregado, { nome: 'refeito falha na claim', modo: 'auto' });
+    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'recompila', verificar: ['echo recompila'] });
+    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'depois', verificar: ['echo passo-a && echo passo-b && echo c2'] });
+    let preparos = 0;
+    const g = gravador((nome, comando) => {
+      if (comando === 'echo recompila') fs.writeFileSync(path.join(p.dir, 'out', 'p.js'), 'v1');
+      if (nome === 'preparo' && ++preparos === 2) return { ok: false, code: 2 };
+      return {};
+    });
+    const r = verificar(p.carregado, t.id, { executor: g.executor });
+    assert.equal(r.ok, true, r.motivos.join(','));
+    const exec = r.claims[1].execucoes[0];
+    assert.equal(exec.comandoExecutado, undefined, 'rodou inteira');
+    assert.deepEqual(exec.preparo, { reaproveitado: false, motivo: 'preparo-falhou' });
+    const pecas = (ultimoVerify(p, t.id).agile as { pecas: Array<Record<string, unknown>> }).pecas;
+    assert.ok(pecas.some((x) => x.peca === 'preparo-refeito' && x.estado === 'fallback' && /antes da claim C2\.1 e saiu com codigo 2/.test(String(x.motivo))),
+      JSON.stringify(pecas));
+    assert.equal(preparos, 2, 'sem outro preparo antes do grupo: a guarda diz preparo-falhou, nao produto-mudou');
+    assert.ok(pecas.some((x) => x.peca === 'grupo' && x.estado === 'fallback' && x.motivo === 'preparo-falhou'), JSON.stringify(pecas));
+  } finally { p.limpar(); }
 });
 
 test('AG36: o relatorio da rodada e lido ate o teto, e o corte vira peca em fallback', () => {

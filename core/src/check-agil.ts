@@ -10,7 +10,8 @@
  *     `check.agile.produto` tambem); qualquer divergencia roda o comando inteiro, e o motivo vai ao ledger. Passo no meio
  *     da cadeia fica: o que vem antes dele pode mudar a entrada do build (o mutante que edita o fonte e compila). Quando
  *     so o produto mudou (a claim anterior compilou de novo no meio da cadeia), o preparo roda de novo antes da proxima
- *     claim e antes do grupo, ate `MAXIMO_DE_PREPAROS_REFEITOS` vezes, com a peca `preparo-refeito`;
+ *     claim que o reaproveitaria, ate `MAXIMO_DE_PREPAROS_REFEITOS` vezes, e uma vez antes do grupo, com a peca
+ *     `preparo-refeito`;
  *   - o `build` que e so passos do preparo, com a guarda valendo, sai do preparo desta rodada sem rodar de novo;
  *   - `typecheck`, as lanes de `test` (`check.agile.test`, ou o `verify.test`) e o `security_scan` num grupo paralelo, so
  *     com a guarda valendo; sem ela, em serie, como o Classic, com a peca `grupo` em fallback. O grupo nao passa da CPU
@@ -206,11 +207,8 @@ export interface PreparoVigente {
   preparo: ResultadoDeComando | null;
 }
 
-/**
- * Refaz o preparo quando so o produto mudou (a arvore e a mesma): devolve se refez. `quando` diz o que vem depois
- * ("antes da claim C2.1", "antes do grupo"), para a peca no ledger.
- */
-export type RefazerPreparo = (quando: string) => boolean;
+/** Refaz o preparo antes da claim `nome` (como C2.1) quando so o produto mudou (a arvore e a mesma): devolve se refez. */
+export type RefazerPreparo = (nome: string) => boolean;
 
 /**
  * O executor das claims no Agile (D5): tira os passos do `verify.preparo` da frente do comando quando a guarda vale. O
@@ -232,7 +230,10 @@ export function executorDaClaimNoAgile(manifesto: Manifesto, executor: ExecutorU
   };
 }
 
-/** Quantas vezes uma rodada refaz o preparo; depois disso, o comando roda inteiro, como sem a guarda. */
+/**
+ * Quantas vezes as claims de uma rodada refazem o preparo; depois disso, a claim roda inteira, como sem a guarda. O grupo
+ * tem uma vaga a mais, so dele (S-h do CHECK 3).
+ */
 export const MAXIMO_DE_PREPAROS_REFEITOS = 3;
 
 /**
@@ -257,10 +258,20 @@ export function refazerPreparo(manifesto: Manifesto, cwd: string, executor: Exec
 
 const PIOR_CAUSA: CausaDoComando[] = ['timeout', 'sinal', 'nao-encontrado', 'exit'];
 
-/** A lane caiu de verdade: terminou, nao estourou, nao morreu por sinal e nao caiu so em teste de relogio sob steal. */
+/**
+ * O maior codigo de saida que e da propria lane: o mesmo `MAIOR_CODIGO_DO_COMANDO` da baseline (verify.ts). De 124 em
+ * diante fala quem nao a deixou terminar (o `timeout` de dentro, o shell, o comando que nao existe, o sinal).
+ */
+const MAIOR_CODIGO_DA_LANE = 123;
+
+/**
+ * A lane caiu de verdade: terminou sozinha com o codigo dela (de 1 a 123, com causa `exit` ou nenhuma), rodou e nao caiu
+ * so em teste de relogio sob steal. N4 do CHECK 3: e o mesmo criterio do "ja falhava" da baseline, para a juncao nao
+ * depender da ordem das lanes.
+ */
 function caiuDeVerdade(r: ResultadoDeComando): boolean {
-  return !r.ok && r.executado !== false && r.causa !== 'timeout' && r.causa !== 'sinal' && r.causa !== 'nao-encontrado'
-    && !(r.relogioSobSteal?.length);
+  return !r.ok && r.executado !== false && (r.causa === undefined || r.causa === 'exit') && Number.isInteger(r.code)
+    && r.code >= 1 && r.code <= MAIOR_CODIGO_DA_LANE && !(r.relogioSobSteal?.length);
 }
 
 /**
