@@ -47,7 +47,7 @@ import { lerFechamento, textoDaParada, trabalhosDoArco } from './noctum-fechamen
 import { fatosDaFila, FilaDoArco, LeitorDeReservas } from './noctum-fila';
 import { ConsumoNaUnidade, consumoDoEscopoNaUnidade, MedicaoDoArco, medirArco, precisaMedir, textoDoConsumo } from './noctum-medicao';
 import { comRegistro, lerRegistro, LinhaDoRegistro, RecusaDoRegistro } from './noctum-registro';
-import { contaForaAgora, EsperaDoPasso, lerSupervisao, RecusaDaSupervisao } from './noctum-supervisao';
+import { contaForaAgora, EsperaDoPasso, lerSupervisao, RecusaDaSupervisao, RecusaDoPasso } from './noctum-supervisao';
 import { exigirHostLocal } from './procedencia';
 import { dirThread } from './thread';
 import { EventoLedger } from './types';
@@ -87,6 +87,7 @@ export interface FatosDaSupervisao {
   sessoesParadas?: string[];
   parada?: string | null;
   espera?: EsperaDoPasso | null;
+  recusaDoPasso?: RecusaDoPasso | null;
 }
 
 /** As contas fora, em palavras: o motivo tipado da supervisão vira o que aconteceu com a conta. */
@@ -109,6 +110,7 @@ export function fatosDaSupervisao(raiz: string, arco: string, quando = new Date(
       `(${x.motivo})`),
     parada: s.parada ? `${s.parada.motivo}: ${s.parada.detalhe}` : null,
     espera: s.espera,
+    recusaDoPasso: s.recusaDoPasso,
   };
 }
 
@@ -137,6 +139,7 @@ export interface FatosDoRelatorio {
   sessoesParadas: string[];
   paradaDaSupervisao: string | null;
   esperaDoPasso: EsperaDoPasso | null;
+  recusaDoPasso: RecusaDoPasso | null;
   correcoes: Correcao[];
   precisaDeVoce: PedidoAoDono[];
   /** O trabalho que espera o dono fora do lote do arco (a pendência da própria thread): sem id do lote, sem `#HITL`. */
@@ -357,7 +360,7 @@ export function fatosDoRelatorio(carregado: ManifestoCarregado, arco: string, op
     paradas: (fechamento?.paradas ?? []).map(p => textoDaParada(p, fechamento!.conferencias)),
     contasFora: (supervisao?.contasFora ?? []).map(c => `a conta ${c.conta} saiu do arco: ${c.motivo}`),
     retomadas: supervisao?.retomadas ?? [], sessoesParadas: supervisao?.sessoesParadas ?? [], paradaDaSupervisao: supervisao?.parada ?? null,
-    esperaDoPasso: supervisao?.espera ?? null,
+    esperaDoPasso: supervisao?.espera ?? null, recusaDoPasso: supervisao?.recusaDoPasso ?? null,
     correcoes: [],
     precisaDeVoce: estado.decisoes.map(d => ({ id: d.id, thread: d.thread, pergunta: d.pergunta, alternativas: d.alternativas })), foraDoLote,
     proximo: candidato ? `${candidato.id} (${candidato.item}), ${candidato.estado === 'abrir' ? 'abre a thread pelo GOAL' : `fase ${candidato.fase}`}` +
@@ -374,8 +377,10 @@ export function linhasDoRelatorio(f: FatosDoRelatorio, versao: number): string[]
     o.origem === 'conducao' ? 'condução desta raiz' : 'despacho desta raiz'}${o.runtime ? ` no ${o.runtime}` : ''} ` +
     `(${o.revisao ? 'revisão' : 'execução'})`;
   const espera = f.esperaDoPasso;
+  const recusa = f.recusaDoPasso;
   const textoDaEspera = espera ? `o passo do arco espera há ${ha(espera.desde)} por ${espera.motivo}; ocupação: ` +
     (espera.ocupantes.length ? espera.ocupantes.map(ocupante).join(', ') : 'nenhum ocupante identificado') : null;
+  const textoDaRecusa = recusa ? `${recusa.trabalho}: o passo foi recusado há ${ha(recusa.desde)} por ${recusa.motivo} (${recusa.detalhe})` : null;
   const nada = ['• nada'];
   const l: string[] = [`Relatório da manhã do arco ${f.arco}, versão ${versao} (${formatarDataHora(f.quando, { fuso: f.fuso, agora: f.quando, locale: 'pt-BR' })})`,
     `Horários em ${f.fuso}.`];
@@ -394,7 +399,8 @@ export function linhasDoRelatorio(f: FatosDoRelatorio, versao: number): string[]
   const parada = f.paradaDaSupervisao && f.encerramento?.motivo !== 'supervisao'
     ? [`• o arco: parado pela supervisão (${f.paradaDaSupervisao}); alcance: arco`] : [];
   const linhaDaEspera = textoDaEspera ? [`• ${textoDaEspera}; alcance: arco`] : [];
-  l.push('', '⏸️ Impedido', ...(f.impedidos.length || parada.length || linhaDaEspera.length ? [...parada, ...linhaDaEspera,
+  const linhaDaRecusa = textoDaRecusa ? [`• ${textoDaRecusa}; alcance: trabalho`] : [];
+  l.push('', '⏸️ Impedido', ...(f.impedidos.length || parada.length || linhaDaEspera.length || linhaDaRecusa.length ? [...parada, ...linhaDaEspera, ...linhaDaRecusa,
     ...f.impedidos.map(i => `• ${i.trabalho} (${i.item}): ${i.causa} (${i.detalhe}); ` +
     `alcance: ${i.alcance}; tentativas: ${i.tentativas}${i.hitl ? `; ${i.hitl} #HITL` : ''}`)] : nada));
   const decisoes = f.decisoes.slice(0, 10);
@@ -427,10 +433,28 @@ export function linhasDoRelatorio(f: FatosDoRelatorio, versao: number): string[]
   });
   const esperaDoDono = espera && acaoDoDono[espera.motivo]
     ? [`• O passo não despacha por ${espera.motivo} há ${ha(espera.desde)}. Para destravar: ${acaoDoDono[espera.motivo]}.`] : [];
+  const acaoDaRecusaDoDono = (motivo: string): string | null => {
+    if (motivo === 'noctum.origem.sem-prova') {
+      return 'configure no cron do condutor e do tique o ORK_RECEIPT_VERIFIERS com o material público gerado por publicHitlVerifiers; ' +
+        'nunca coloque a chave de ingresso no ambiente dos agentes';
+    }
+    if (['noctum.efeito.sem-autorizacao', 'noctum.efeito.hash-antigo', 'noctum.coordenacao.versao-nao-autorizada'].includes(motivo)) {
+      return 'responda à pergunta pendente para autorizar o envelope vigente';
+    }
+    if (motivo.startsWith('noctum.envelope.') || ['noctum.modo.sem-envelope', 'noctum.modo.lista-fechada',
+      'noctum.despacho.fora-do-envelope', 'noctum.coordenacao.fora-do-envelope'].includes(motivo)) {
+      return 'corrija o envelope, proponha a nova versão e autorize-a pela pergunta';
+    }
+    return null;
+  };
+  const acaoDaRecusa = recusa ? acaoDaRecusaDoDono(recusa.motivo) : null;
+  const recusaDoDono = recusa && acaoDaRecusa
+    ? [`• ${recusa.trabalho}: o passo não despacha por ${recusa.motivo} há ${ha(recusa.desde)}. Motivo: ${frase(recusa.detalhe)} ` +
+      `Para destravar: ${acaoDaRecusa}.`] : [];
   const doDono = [...f.precisaDeVoce.flatMap(p => [`• ${p.id} (${p.thread}): ${p.pergunta} #HITL`,
     ...p.alternativas.map(a => `  ${a.letra}) ${a.texto}: ${a.consequencia}${a.recomendada ? ` (Recomendação: ${a.porque})` : ''}`)]),
     ...f.foraDoLote.map(x => `• ${x.trabalho} (thread ${x.thread}) espera o dono fora do lote do arco: ${frase(x.detalhe)} A resposta vai pela pendência da própria thread.`),
-    ...esperaDoDono];
+    ...esperaDoDono, ...recusaDoDono];
   l.push('', '👤 O que precisa de você', ...(doDono.length ? doDono : nada),
     ...(f.proximo ? [`• Próximo trabalho elegível: ${f.proximo}`] : []));
   return l.map(x => redigirSegredos(x));
