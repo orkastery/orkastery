@@ -674,6 +674,17 @@ test('rede: cada projeto no fuso do dono dele', () => {
   } finally { fs.rmSync(vazio, { recursive: true, force: true }); definirFusoDoDono(undefined); }
 });
 
+test('rede: a legenda do fuso do projeto e a da hora da leitura, nao a de agora (o horario de verao muda o deslocamento)', () => {
+  const panorama = (consultadoEm: string): PanoramaDaRede => ({ contrato: CONTRATO_PANORAMA_DA_REDE, consultadoEm, maquina: 'pc-a', pedido: null,
+    limiarSemBatidaMin: 30, fuso: 'America/Sao_Paulo', rede: null, naoConsultado: [], lacunas: [],
+    projetos: [{ projeto: { nome: 'b', forja: null, clone: null, base: null, origem: 'rede', fuso: 'Europe/Lisbon' },
+      roadmap: null, reservas: [], maquinas: [], fontes: [], lacunas: [] }] }) as unknown as PanoramaDaRede;
+  const legenda = (quando: string): string | undefined =>
+    textoDoPanoramaDaRede(panorama(quando)).split('\n').find((l) => l.startsWith('Neste projeto:'));
+  assert.equal(legenda('2026-07-15T12:00:00.000Z'), 'Neste projeto: Horários em Europe/Lisbon, GMT+1.');
+  assert.equal(legenda('2026-01-15T12:00:00.000Z'), 'Neste projeto: Horários em Europe/Lisbon, GMT+0.');
+});
+
 test('rede: espera voce igual no roadmap e nas maquinas', () => {
   const r = rede('rede-espera-igual');
   try {
