@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-25T11:15:03.208Z",
+  "publicadoEm": "2026-10-25T11:30:03.009Z",
   "threads": [
     {
       "id": "ork-docrm073",
@@ -36,7 +36,7 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-noctumrecusa-go",
-      "atualizadaEm": "2026-10-25T11:11:46.693Z",
+      "atualizadaEm": "2026-10-25T11:15:58.511Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -45,9 +45,9 @@
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-10-25T11:17:01.798Z",
+        "motivo": "sessão 01a172b8 encerrada (completed)"
       }
     },
     {
