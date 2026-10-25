@@ -239,6 +239,82 @@ test('...', { skip: semPostgres() }, () => { /* ... */ });
 Os atalhos são `semCodexSandbox()`, `semOrkMind()` e `semPostgres()`, em
 [ambiente-de-teste.ts](../../core/test/ambiente-de-teste.ts).
 
+### Classic Check e Agile Check (RM-072)
+
+O `ork verify` tem dois modos de CHECK, com a mesma cobertura e o mesmo veredito:
+
+| Modo | O que roda | Quando escolher |
+| --- | --- | --- |
+| `agile`, o **Agile Check** (padrão) | O preparo uma vez, as claims contra o produto dele com a guarda de hash, as lanes de teste e a varredura em paralelo, com cache do banco do Trivy e a imagem de lint pré-montada | O dia a dia: a mesma verificação com menos repetição e menos espera em série |
+| `classic`, o **Classic Check** | O CHECK de sempre: os mesmos comandos, na mesma ordem, cada claim com o próprio build e a varredura em série | Para comparar quando uma peça do Agile estiver sob suspeita, ou num projeto que prefere o caminho conhecido |
+
+Onde mudar: a chave `check.mode` do `orkastery.yaml` vale para o projeto inteiro (`check.mode: classic` volta ao CHECK
+de sempre), e a opção `--check` da rodada vence o manifesto.
+
+```yaml
+check:
+  mode: classic   # ou agile; sem a chave, vale agile
+```
+
+```bash
+ork verify <thread> --check classic            # só esta rodada
+ork verify <thread> --baseline --check agile   # a baseline no modo pedido
+```
+
+Valor que não seja `agile` nem `classic` torna o manifesto inválido, com os dois valores aceitos na mensagem. Todo
+`verify_run` diz o modo da rodada e de onde ele veio (`opcao`, `manifesto` ou `padrao`), a linha `check` do texto do
+`ork verify` mostra o nome do modo, e o `ork thread status` mostra o do último verify. Nos dois modos, o `verify_run`
+grava a duração de cada comando (inclusive os que passam), de cada claim e da rodada inteira.
+
+O Agile nunca reduz cobertura em silêncio: a peça indisponível cai para o equivalente do Classic, e o `verify_run`
+registra a peça, o motivo e o que rodou no lugar (`agile.pecas`, e a linha `fallback` no texto). Sem o bloco
+`check.agile`, o Agile roda os mesmos comandos do Classic.
+
+O bloco `check.agile` diz ao Agile o que ele pode reaproveitar, como neste repositório:
+
+```yaml
+check:
+  mode: agile
+  agile:
+    produto: ["core/dist", "core/dist-test"]
+    preparo: "npm --prefix core run preparo:tsgo"
+    test:
+      hermetica: "npm --prefix core run test:hermetica"
+      integracao: "npm --prefix core run test:integracao"
+    apos_a_varredura: ["integracao"]
+    osv_scanner: false
+    oxlint: false
+```
+
+- `produto`: os caminhos que o preparo gera. A claim que começa pelos passos do `verify.preparo` roda sem eles enquanto
+  a árvore e o hash desses caminhos forem os do fim do preparo; qualquer divergência roda o comando inteiro e grava o
+  motivo. Passo no meio da cadeia fica, porque o que vem antes dele pode mudar a entrada do build (o mutante que edita
+  o fonte e compila). Quando uma claim compila de novo e muda o produto sem mudar a árvore, o preparo roda outra vez
+  antes da claim seguinte que o reaproveitaria, até três vezes por rodada, e uma vez antes do grupo, com a peça
+  `preparo-refeito` no ledger; depois do teto, a claim roda inteira, e com o preparo refeito reprovado o resto da
+  rodada roda inteiro, em série. Sem `produto`, nada é reaproveitado.
+- `preparo`: o preparo do Agile; se ele falhar, roda o `verify.preparo`, com a peça `preparo` em fallback. Aqui ele usa
+  o `tsgo` (o TypeScript 7 nativo) na árvore fria e o preparo do Classic quando o build incremental do `tsc` já existe;
+  `core/scripts/tsgo-paridade.cjs` confere o mesmo typecheck e o mesmo JavaScript do `tsc` 5.9.3.
+- `test`: as lanes, juntas no lugar do `verify.test`. O `test` do `verify_run` fica ok só com todas ok, e a lista de
+  arquivos de cada lane vai ao ledger.
+- `apos_a_varredura`: as lanes que só começam quando o `security_scan` do grupo termina. É para a lane que sobe containers
+  (aqui, a de integração, com o scan real e o PostgreSQL): junto da varredura, as duas cargas disputam a CPU, e teste com
+  prazo cai por falta de máquina, não por defeito.
+- `osv_scanner` e `oxlint`: desligados por padrão, só no Agile e só depois da comparação por impressão digital
+  (`core/scripts/check-paridade-scan.cjs`). Ligado, o `osv-scanner` entra no lugar de `trivy-vuln` e `npm-audit`, e o
+  `oxlint` roda antes do `eslint`, sem tirar regra dele. Neste repositório o `osv-scanner` não teve paridade e fica
+  desligado.
+
+O grupo do Agile não passa da CPU da máquina: a lane encadeada espera a varredura; dentro do grupo, a varredura roda no
+máximo um terço das CPUs que sobram de uma ferramentas ao mesmo tempo (no mínimo duas); e a lane `hermetica` deste
+repositório roda duas CPUs a menos que a máquina. Os testes das lanes não herdam o modo nem o relatório da rodada.
+
+O `ork security-scan` segue o mesmo modo: `--check`, depois o modo da rodada do verify, depois `check.mode`, depois o
+padrão. O Classic roda as ferramentas do catálogo uma depois da outra, Docker primeiro; o Agile roda as mesmas
+ferramentas ao mesmo tempo, com o banco do Trivy em cache, a imagem de lint pré-montada e o binário nativo primeiro
+quando o catálogo declara `native` e a versão confere.
+
 ---
 
 ## 3. Os motivos tipados de gate

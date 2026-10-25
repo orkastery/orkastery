@@ -1,0 +1,1699 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-check5x",
+  "branch": "ork/ork-check5x-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-modo.ts",
+      "alegacao": "T1: o modo do CHECK (agile ou classic, padrao agile) e resolvido da opcao, do manifesto e do padrao, e os 12 casos CM passam com os testes vizinhos do verify",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/check-modo.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - CM[0-9]+:/{p++} END{exit !(p>=12 && f==0 && s==0)}' && node --test core/dist-test/test/verify.test.js core/dist-test/test/verify-compilacao-unica.test.js core/dist-test/test/locale-verify.test.js core/dist-test/test/rm044-paridade-cli-md.test.js core/dist-test/test/locale-ajuda.test.js"
+      ],
+      "criadoEm": "2026-10-24T15:21:58.542Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "T1: check.mode aceita agile e classic; outro valor torna o manifesto invalido com os dois valores aceitos; check que nao e mapa e erro e chave desconhecida so avisa",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^CM(1|2|3|12):' core/dist-test/test/check-modo.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - CM[0-9]+:/{p++} END{exit !(p>=4 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T15:22:00.696Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "T1: o verify_run e a baseline gravam o modo, a origem e a duracao de todo comando, claim e rodada nos dois modos, e os comandos recebem ORK_CHECK_MODO",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^CM(4|5|6|7|8|11):' core/dist-test/test/check-modo.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - CM[0-9]+:/{p++} END{exit !(p>=6 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T15:22:04.678Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "T1: ork verify --check classic|agile vence o manifesto; valor fora da lista ou sem valor sai com 2 e os dois valores aceitos; o uso ensina a opcao",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^CM(9|10):' core/dist-test/test/check-modo.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - CM[0-9]+:/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T15:22:06.733Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-verify.ts",
+      "alegacao": "T1: a linha check do texto do verify e da baseline e o erro da opcao --check saem nas duas linguas, e o verify em ingles segue sem linha em portugues",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-verify.test.js && node --test-reporter=tap --test-name-pattern='^CM8:' core/dist-test/test/check-modo.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - CM8:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T15:22:08.942Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/thread.ts",
+      "alegacao": "T1: o status da thread mostra o ultimo modo do CHECK, e so depois do primeiro verify",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^CM11:' core/dist-test/test/check-modo.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - CM11:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T15:22:10.791Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-thread.ts",
+      "alegacao": "T1: o rotulo e o texto do modo no status existem nas duas linguas, com o rotulo check permitido igual",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-dado.test.js && node --test-reporter=tap --test-name-pattern='^CM11:' core/dist-test/test/check-modo.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - CM11:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T15:22:12.889Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/check-modo.test.ts",
+      "alegacao": "T1: os 12 casos CM do modo do CHECK passam sem skip",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/check-modo.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - CM[0-9]+:/{p++} END{exit !(p>=12 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-24T15:22:14.749Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-verify.test.ts",
+      "alegacao": "T1: o verify em ingles mostra a linha check e o uso com --check",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-verify.test.js"
+      ],
+      "criadoEm": "2026-10-24T15:22:16.090Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f2b-casos.ts",
+      "alegacao": "T1: os casos pt-BR F2b do verify trazem o modo do CHECK e conferem byte a byte com o retrato",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f2b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-24T15:22:17.584Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f2b-pt-BR.json",
+      "alegacao": "T1: o retrato pt-BR F2b muda so na linha check (nove casos) e no uso com --check",
+      "negativa": false,
+      "verificar": [
+        "node -e \"JSON.parse(require('fs').readFileSync('core/test/fixtures/locale-f2b-pt-BR.json','utf8'))\" && test \"$(grep -c 'Agile Check (padrao: o manifesto nao declara check.mode)' core/test/fixtures/locale-f2b-pt-BR.json)\" = 9 && grep -q '\\[--check classic|agile\\]' core/test/fixtures/locale-f2b-pt-BR.json"
+      ],
+      "criadoEm": "2026-10-24T15:22:19.901Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-dado.test.ts",
+      "alegacao": "T1: o catalogo inteiro segue sem mensagem vazia nem igual por descuido, com o rotulo check permitido",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-dado.test.js"
+      ],
+      "criadoEm": "2026-10-24T15:22:21.334Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "T1: a referencia do CLI documenta ork verify --check classic|agile e o modo no verify_run",
+      "negativa": false,
+      "verificar": [
+        "grep -q -- '--check classic\\\\|agile' docs/referencia/cli.md && grep -q 'Agile Check (padrão)' docs/referencia/cli.md && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm044-paridade-cli-md.test.js"
+      ],
+      "criadoEm": "2026-10-24T15:22:23.202Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "T1: a referencia do CLI em ingles documenta ork verify --check classic|agile, e as duas passam no markdownlint",
+      "negativa": false,
+      "verificar": [
+        "grep -q -- '--check classic\\\\|agile' docs/referencia/cli.en.md && grep -q 'Agile Check (default)' docs/referencia/cli.en.md && node core/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs docs/referencia/cli.md docs/referencia/cli.en.md"
+      ],
+      "criadoEm": "2026-10-24T15:22:24.975Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/retrato-do-classic.cjs",
+      "alegacao": "T2: o retrato do Classic desta arvore (comandos do verify e chamadas ao Docker da varredura) e igual ao da base b16c5be8, e o mutante de ordem e acusado",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/check-classic-intacto.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - CL[0-9]+:/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-24T15:26:46.566Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/check-classic-intacto.test.ts",
+      "alegacao": "T2: os tres casos CL (lista do verify, lista do scan e mutante de prova) passam sem skip",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/check-classic-intacto.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - CL[0-9]+:/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-24T15:26:48.677Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/classic-retrato-b16c5be8.json",
+      "alegacao": "T2: o retrato da base tem os 8 comandos do verify na ordem canonica e as 25 chamadas ao Docker das 9 ferramentas, e o HEAD no Classic confere com ele",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const r=JSON.parse(require('fs').readFileSync('core/test/fixtures/classic-retrato-b16c5be8.json','utf8')); if(r.contrato!=='ork.retrato-do-classic/v1'||r.verify.length!==8||r.scan.length!==25) process.exit(1)\" && npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^CL(1|2):' core/dist-test/test/check-classic-intacto.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - CL[0-9]+:/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T15:26:51.535Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-agil.ts",
+      "alegacao": "T3: o motor do Agile (preparo com fallback, claims e build contra o produto do preparo com a guarda de hash, lanes e grupo paralelo, relatorio das pecas) passa nos casos AG e nos testes vizinhos do verify e do retrato do Classic",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/check-agil.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AG[0-9]+:/{p++} END{exit !(p>=14 && f==0 && s==0)}' && node --test core/dist-test/test/check-modo.test.js core/dist-test/test/check-classic-intacto.test.js core/dist-test/test/verify.test.js core/dist-test/test/verify-timeout.test.js core/dist-test/test/verify-compilacao-unica.test.js core/dist-test/test/rm037-fatia6-steal-no-verify.test.js core/dist-test/test/fila-pesada-verify.test.js"
+      ],
+      "criadoEm": "2026-10-24T15:42:06.398Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-paralelo.ts",
+      "alegacao": "T3: o processo auxiliar roda o grupo ao mesmo tempo, com o prazo, a saida e a duracao de cada comando, e o estouro de um nao derruba os outros",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^AG(10|11):' core/dist-test/test/check-agil.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - AG[0-9]+:/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T15:42:08.543Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "T3: no Agile, o verify reaproveita o preparo com a guarda (e recompila com motivo), tira o build do preparo, roda as lanes e o grupo, cai para o Classic sem a guarda e grava as pecas, as lanes e a lista no verify_run",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^AG(3|4|5|6|7|8|9|12|13|14|16|18):' core/dist-test/test/check-agil.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - AG[0-9]+:/{p++} END{exit !(p>=12 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T15:42:10.986Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "T3: o manifesto ganha check.agile (produto, preparo, lanes e as chaves das pecas) e o resultado de comando ganha o uso do preparo e as lanes, e o nucleo compila",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && grep -q 'export interface ConfigDoAgile' core/src/types.ts && grep -q 'preparo?: { reaproveitado: boolean; passos?: string\\[\\]; motivo?: string };' core/src/types.ts"
+      ],
+      "criadoEm": "2026-10-24T15:42:12.896Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "T3: check.agile valida cada chave (caminho fora da raiz, lane com nome ruim e tipo errado sao erro; chave desconhecida avisa)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^AG17:' core/dist-test/test/check-agil.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - AG17:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T15:42:14.906Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-verify.ts",
+      "alegacao": "T3: as linhas agile e fallback do texto do verify saem nas duas linguas, com o catalogo ingles na mesma ordem de chaves do pt-BR",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-dado.test.js core/dist-test/test/locale-cli.test.js && node --test-reporter=tap --test-name-pattern='^AG18:' core/dist-test/test/check-agil.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - AG18:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T15:42:17.245Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/check-agil.test.ts",
+      "alegacao": "T3: os 18 casos AG do motor do Agile passam sem skip",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/check-agil.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AG[0-9]+:/{p++} END{exit !(p>=18 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-24T15:42:18.935Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/test-lanes.cjs",
+      "alegacao": "T4: as lanes hermetica e integracao cobrem exatamente o glob do npm test (a hermetica e o conjunto do test:ci), ordenam pela duracao guardada, acusam quem passa do orcamento sem reprovar e contam a lista ao relatorio",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/test-lanes.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - TL[0-9]+:/{p++} END{exit !(p>=7 && f==0 && s==0)}' && node core/scripts/test-lanes.cjs --conferir"
+      ],
+      "criadoEm": "2026-10-24T15:45:37.331Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/reporter-duracoes.mjs",
+      "alegacao": "T4: o reporter de duracoes soma por arquivo os testes de nivel zero, e a lane usa essa soma para o orcamento e a ordem",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^TL(6|7):' core/dist-test/test/test-lanes.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - TL[0-9]+:/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T15:45:39.456Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/package.json",
+      "alegacao": "T4: o core ganha os scripts test:hermetica e test:integracao, as duas lanes do Agile, sem build dentro",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const s=require('./core/package.json').scripts; if(s['test:hermetica']!=='node scripts/test-lanes.cjs hermetica'||s['test:integracao']!=='node scripts/test-lanes.cjs integracao'||!s['test:ci'].includes('test-ci.js')) process.exit(1)\" && node core/scripts/test-lanes.cjs --conferir"
+      ],
+      "criadoEm": "2026-10-24T15:45:41.437Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "orkastery.yaml",
+      "alegacao": "T4: o manifesto deste projeto declara check.mode agile, o produto do preparo (core/dist e core/dist-test) e as lanes hermetica e integracao, sem erro",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node -e \"const {carregarManifesto}=require('./core/dist/manifest.js'); const m=carregarManifesto(process.cwd()); const c=m.manifesto.check; if(m.erros.length||c.mode!=='agile'||c.agile.produto.join()!=='core/dist,core/dist-test'||Object.keys(c.agile.test).join()!=='hermetica,integracao') process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-24T15:45:43.636Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/test-lanes.test.ts",
+      "alegacao": "T4: os 8 casos TL das lanes passam sem skip",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/test-lanes.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - TL[0-9]+:/{p++} END{exit !(p>=8 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-24T15:45:45.333Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/agil.ts",
+      "alegacao": "T5: a varredura do Agile da os mesmos achados do Classic por impressao digital, roda as ferramentas ao mesmo tempo, monta o cache do Trivy, reaproveita a base e declara as pecas, com os testes da varredura do Classic e o retrato verdes",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/security-scan-agil.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - SA[0-9]+:/{p++} END{exit !(p>=8 && f==0 && s==0)}' && node --test core/dist-test/test/security-scan-run.test.js core/dist-test/test/security-scan-deadline.test.js core/dist-test/test/security-scan-guard.test.js core/dist-test/test/security-scan-report.test.js core/dist-test/test/check-classic-intacto.test.js"
+      ],
+      "criadoEm": "2026-10-24T15:57:59.873Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/trabalhador.ts",
+      "alegacao": "T5: o trabalhador roda o mesmo scanTool do Classic por ferramenta, e o resultado (achados e falhas) sai igual nos dois modos",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^SA(1|5):' core/dist-test/test/security-scan-agil.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SA[0-9]+:/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T15:58:02.087Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/run.ts",
+      "alegacao": "T5: o run.ts so expoe ao trabalhador o que ele chama, e a varredura do Classic segue chamando o Docker igual a base",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/security-scan-run.test.js && node --test-reporter=tap --test-name-pattern='^CL2:' core/dist-test/test/check-classic-intacto.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - CL2:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T15:58:04.219Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/executor.ts",
+      "alegacao": "T5: o runDocker monta o cache persistente so quando a especificacao do Agile o traz, e o Classic chama o Docker igual a base",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^SA3:' core/dist-test/test/security-scan-agil.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SA3:/{p++} END{exit !(p>=1 && f==0)}' && node --test-reporter=tap --test-name-pattern='^CL2:' core/dist-test/test/check-classic-intacto.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - CL2:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T15:58:06.942Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/cli.ts",
+      "alegacao": "T5: o ork security-scan escolhe o modo por --check, depois ORK_CHECK_MODO, depois check.mode, depois o padrao agile, e recusa --check fora da lista com 2",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^SA6:' core/dist-test/test/security-scan-agil.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SA6:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T15:58:09.026Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/types.ts",
+      "alegacao": "T5: a especificacao ganha cacheMounts (so do Agile) e o relatorio ganha o bloco check com as pecas, e o nucleo compila",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && grep -q 'cacheMounts?: Array<{ host: string; container: string }>;' core/src/security-scan/types.ts && grep -q 'export interface PecaDaVarredura' core/src/security-scan/types.ts && ! grep -q cacheMounts core/assets/security-scan/tools.json"
+      ],
+      "criadoEm": "2026-10-24T15:58:10.974Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-security-scan.ts",
+      "alegacao": "T5: o uso do ork security-scan ensina --check e o erro do valor fora da lista existe nas duas linguas",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-dado.test.js && grep -q 'uso: ork security-scan \\[--base <ref>\\] \\[--json\\] \\[--check classic|agile\\]' core/src/locale-security-scan.ts && grep -q 'usage: ork security-scan \\[--base <ref>\\] \\[--json\\] \\[--check classic|agile\\]' core/src/locale-security-scan.ts"
+      ],
+      "criadoEm": "2026-10-24T15:58:13.270Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "T5: o CLI passa o check.mode do manifesto ao ork security-scan, e o manifesto em classic faz a varredura do Classic",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^SA6:' core/dist-test/test/security-scan-agil.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SA6:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T15:58:15.218Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/security-scan-agil.test.ts",
+      "alegacao": "T5: os 8 casos SA da varredura do Agile passam sem skip",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/security-scan-agil.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - SA[0-9]+:/{p++} END{exit !(p>=8 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-24T15:58:17.129Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/security-scan-docker-falso.ts",
+      "alegacao": "T5: o falso Docker ganha a espera curta por ferramenta (ORK_FAKE_DOCKER_SLEEP_MS) e segue servindo os testes da varredura do Classic",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/security-scan-run.test.js && node --test-reporter=tap --test-name-pattern='^SA2:' core/dist-test/test/security-scan-agil.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SA2:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T15:58:19.425Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "T5: a referencia do CLI documenta ork security-scan --check classic|agile e o que o Agile muda na varredura",
+      "negativa": false,
+      "verificar": [
+        "grep -qF -- 'ork security-scan [--base <ref>] [--json] [--check classic\\|agile]' docs/referencia/cli.md && grep -q 'as ferramentas rodam ao mesmo tempo' docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-10-24T15:58:21.177Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "T5: a referencia do CLI em ingles documenta ork security-scan --check classic|agile",
+      "negativa": false,
+      "verificar": [
+        "grep -qF -- 'ork security-scan [--base <ref>] [--json] [--check classic\\|agile]' docs/referencia/cli.en.md && grep -q 'the tools run at the same time' docs/referencia/cli.en.md && node core/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs docs/referencia/cli.md docs/referencia/cli.en.md"
+      ],
+      "criadoEm": "2026-10-24T15:58:22.995Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/imagem-de-lint.ts",
+      "alegacao": "T6: a imagem de lint do Agile sai uma vez do digest e do install do catalogo, e o eslint roda o mesmo script com o node_modules dela, sem npm install e sem rede; build que falha cai para o catalogo",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/security-scan-agil-lint.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - SL[0-9]+:/{p++} END{exit !(p>=6 && f==0 && s==0)}' && node --test core/dist-test/test/security-scan-agil.test.js core/dist-test/test/security-scan-run.test.js"
+      ],
+      "criadoEm": "2026-10-24T16:06:49.121Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/agil.ts",
+      "alegacao": "T6: a varredura do Agile usa a imagem de lint e o binario nativo na versao do catalogo, e declara as duas pecas (com o fallback quando faltam)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^SL(2|3|4|5):' core/dist-test/test/security-scan-agil-lint.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SL[0-9]+:/{p++} END{exit !(p>=4 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T16:06:51.314Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/trabalhador.ts",
+      "alegacao": "T6: o trabalhador usa o binario nativo antes do Docker quando o Agile o achou na versao do catalogo",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^SL(4|5):' core/dist-test/test/security-scan-agil-lint.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SL[0-9]+:/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T16:06:53.412Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/security-scan-agil-lint.test.ts",
+      "alegacao": "T6: os 7 casos SL da imagem de lint e do nativo primeiro passam sem skip",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/security-scan-agil-lint.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - SL[0-9]+:/{p++} END{exit !(p>=7 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-24T16:06:55.411Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/security-scan-docker-falso.ts",
+      "alegacao": "T6: o falso Docker monta a imagem local pelo Dockerfile da entrada, responde a tag so depois do build e responde a versao do binario nativo",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^SL(1|3|4|5):' core/dist-test/test/security-scan-agil-lint.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SL[0-9]+:/{p++} END{exit !(p>=4 && f==0)}' && node --test core/dist-test/test/security-scan-run.test.js"
+      ],
+      "criadoEm": "2026-10-24T16:06:57.574Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/agil.ts",
+      "alegacao": "T5 (rodada real): o Semgrep do Agile roda com 30 s por regra e arquivo, antes do diretorio da stack, e o do Classic segue sem a opcao, para a disputa de CPU nao derrubar regra",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^SA(7|9):' core/dist-test/test/security-scan-agil.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SA[0-9]+:/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T16:16:59.939Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/assets/security-scan/tools-agil.json",
+      "alegacao": "T7: o catalogo so do Agile traz osv-scanner e oxlint pelo digest, e o tools.json do Classic segue sem eles",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const a=require('./core/assets/security-scan/tools-agil.json'), c=require('./core/assets/security-scan/tools.json'); if(a.map(t=>t.name).join()!=='osv-scanner,oxlint'||!a.every(t=>/@sha256:[0-9a-f]{64}$/.test(t.image))||c.some(t=>t.name==='osv-scanner'||t.name==='oxlint')) process.exit(1)\" && npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^SF5:' core/dist-test/test/security-scan-agil-flags.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SF5:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T16:28:40.694Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/normalize/osv-scanner.ts",
+      "alegacao": "T7: o normalizador do osv-scanner da um achado por grupo de aliases, com a severidade do CVSS do grupo, sobre a saida real gravada",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^SF1:' core/dist-test/test/security-scan-agil-flags.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SF1:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T16:28:42.854Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/normalize/oxlint.ts",
+      "alegacao": "T7: o normalizador do oxlint le regra, linha e arquivo relativo a stack da saida real gravada",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^SF2:' core/dist-test/test/security-scan-agil-flags.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SF2:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T16:28:44.935Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C52",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/normalize/index.ts",
+      "alegacao": "T7: toda ferramenta dos dois catalogos tem normalizador, e as gravacoes vazias dao nada",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/security-scan-normalize.test.js"
+      ],
+      "criadoEm": "2026-10-24T16:28:46.488Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/normalize/util.ts",
+      "alegacao": "T7: o contrato de saida e a severidade valem tambem para as ferramentas do catalogo do Agile, sem mudar as do Classic",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/security-scan-normalize.test.js && node --test-reporter=tap --test-name-pattern='^SF(1|2):' core/dist-test/test/security-scan-agil-flags.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SF[0-9]+:/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T16:28:48.779Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C54",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/tools.ts",
+      "alegacao": "T7: o catalogo do Agile e lido ao lado do tools.json, e so quando uma das chaves esta ligada",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^SF(3|4|5):' core/dist-test/test/security-scan-agil-flags.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SF[0-9]+:/{p++} END{exit !(p>=3 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T16:28:50.881Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/check-paridade-scan.cjs",
+      "alegacao": "T7: o script de paridade compara dois relatorios por impressao digital (achado novo, desaparecido, estado da ferramenta) e, com --dependencias, pelo conjunto de vulnerabilidades",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^SF6:' core/dist-test/test/security-scan-agil-flags.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SF6:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T16:28:53.152Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C56",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/security-scan-agil-flags.test.ts",
+      "alegacao": "T7: os 7 casos SF de osv-scanner e oxlint atras de flag passam sem skip",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/security-scan-agil-flags.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - SF[0-9]+:/{p++} END{exit !(p>=7 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-24T16:28:55.230Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C57",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/security-scan-normalize.test.ts",
+      "alegacao": "T7: o teste dos normalizadores cobre os dois catalogos",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/security-scan-normalize.test.js && grep -q 'loadAgileTools()' core/test/security-scan-normalize.test.ts"
+      ],
+      "criadoEm": "2026-10-24T16:28:56.879Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C58",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/security-scan/osv-scanner.js.json",
+      "alegacao": "T7: a saida real do osv-scanner sobre a fixture js, aparada so nos campos que o normalizador nao le, normaliza nos grupos de aliases",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const r=require('./core/test/fixtures/security-scan/osv-scanner.js.json'); if(!r.results.length||!r.results[0].packages.length) process.exit(1)\" && npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^SF(1|3):' core/dist-test/test/security-scan-agil-flags.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SF[0-9]+:/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T16:28:59.533Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C59",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/security-scan/osv-scanner.empty.json",
+      "alegacao": "T7: a saida do osv-scanner sem fonte de pacote (o wrapper troca o 128 por resultados vazios) normaliza em nada",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const r=require('./core/test/fixtures/security-scan/osv-scanner.empty.json'); if(!Array.isArray(r.results)||r.results.length) process.exit(1)\" && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/security-scan-normalize.test.js"
+      ],
+      "criadoEm": "2026-10-24T16:29:01.648Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/security-scan/oxlint.js.json",
+      "alegacao": "T7: a saida real do oxlint sobre a fixture js tem o no-eval de src/server.js",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const r=require('./core/test/fixtures/security-scan/oxlint.js.json'); if(r.diagnostics.length!==1||r.diagnostics[0].code!=='eslint(no-eval)') process.exit(1)\" && npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^SF(2|4):' core/dist-test/test/security-scan-agil-flags.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SF[0-9]+:/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T16:29:04.280Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/security-scan/oxlint.empty.json",
+      "alegacao": "T7: a saida real do oxlint numa arvore sem arquivo, sem a frase que vem antes do JSON, normaliza em nada",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const r=require('./core/test/fixtures/security-scan/oxlint.empty.json'); if(!Array.isArray(r.diagnostics)||r.diagnostics.length) process.exit(1)\" && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/security-scan-normalize.test.js"
+      ],
+      "criadoEm": "2026-10-24T16:29:06.386Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C62",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/agil.ts",
+      "alegacao": "T7: com check.agile.osv_scanner o osv-scanner entra no lugar de trivy-vuln e npm-audit, e com check.agile.oxlint o primeiro passe roda antes do eslint, sem tira-lo",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^SF(3|4):' core/dist-test/test/security-scan-agil-flags.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SF[0-9]+:/{p++} END{exit !(p>=2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T16:29:08.735Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C63",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/cli.ts",
+      "alegacao": "T7: o ork security-scan passa as chaves check.agile do manifesto so para a rodada do Agile",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^SF7:' core/dist-test/test/security-scan-agil-flags.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SF7:/{p++} END{exit !(p>=1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T16:29:10.486Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C64",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/test-lanes.cjs",
+      "alegacao": "T4 (correcao): a lane apaga o NODE_TEST_CONTEXT antes do proprio node --test, entao roda com o TAP e o reporter das duracoes mesmo sob outro node --test (o npm test e o test:ci rodam assim); os 8 casos TL passam com o arquivo de teste dentro de um node --test",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap core/dist-test/test/test-lanes.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - TL[0-9]+:/{p++} END{exit !(p>=8 && f==0 && s==0)}' && grep -q 'delete env.NODE_TEST_CONTEXT' core/scripts/test-lanes.cjs"
+      ],
+      "criadoEm": "2026-10-24T16:59:12.806Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C65",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/test-lanes.test.ts",
+      "alegacao": "T4 (correcao): o TL6 chama o node --test com o reporter das duracoes sem o NODE_TEST_CONTEXT herdado, e os casos TL6 a TL8 passam tanto no arquivo sozinho quanto dentro de um node --test com outros arquivos",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap core/dist-test/test/test-lanes.test.js core/dist-test/test/check-modo.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - TL[678]:/{p++} END{exit !(p>=3 && f==0 && s==0)}' && node --test-reporter=tap core/dist-test/test/test-lanes.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - TL[678]:/{p++} END{exit !(p>=3 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T16:59:15.805Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C66",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/package.json",
+      "alegacao": "T8: o core ganha o @typescript/native-preview 7.0.0-dev.20260707.2 fixado (o tsgo, com binario proprio) e o script preparo:tsgo; o tsc do Classic segue o 5.9.3 no .bin/tsc e os scripts build e build:test sao os de sempre",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^TG1:' core/dist-test/test/tsgo-paridade.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - TG1:/{p++} END{exit !(p==1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-24T17:02:56.320Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C67",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/package-lock.json",
+      "alegacao": "T8: o lockfile do core fixa o @typescript/native-preview 7.0.0-dev.20260707.2 como dependencia de desenvolvimento, com integridade sha512, e mantem o typescript 5.9.3",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const p=require('./core/package-lock.json').packages; const n=p['node_modules/@typescript/native-preview'], t=p['node_modules/typescript']; if(!n||n.version!=='7.0.0-dev.20260707.2'||!/^sha512-/.test(n.integrity||'')||n.dev!==true||!t||t.version!=='5.9.3'||p[''].devDependencies['@typescript/native-preview']!=='7.0.0-dev.20260707.2') process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-24T17:02:58.990Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C68",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/tsconfig.tsgo.json",
+      "alegacao": "T8: tsconfig.tsgo.json estende o tsconfig.json do Classic so com moduleResolution bundler e sem incremental, e o tsgo checa o src deste commit com zero erro por ele",
+      "negativa": true,
+      "verificar": [
+        "node core/node_modules/@typescript/native-preview/bin/tsgo -p core/tsconfig.tsgo.json --noEmit --pretty false && npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^TG1:' core/dist-test/test/tsgo-paridade.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - TG1:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T17:03:01.600Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C69",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/tsconfig.tsgo.test.json",
+      "alegacao": "T8: tsconfig.tsgo.test.json estende o tsconfig.test.json do Classic so com moduleResolution bundler e sem incremental, e o tsgo checa src e test deste commit com zero erro por ele",
+      "negativa": true,
+      "verificar": [
+        "node core/node_modules/@typescript/native-preview/bin/tsgo -p core/tsconfig.tsgo.test.json --noEmit --pretty false && npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^TG1:' core/dist-test/test/tsgo-paridade.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - TG1:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T17:03:04.099Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C70",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/tsgo-paridade.cjs",
+      "alegacao": "T8: o contrato de paridade da o mesmo typecheck (arvore limpa e sete mutantes acusados) e o mesmo emit token a token do tsgo e do tsc 5.9.3 neste commit, e cai com diagnostico a mais, a menos e token diferente nas arvores pequenas (TG2 a TG4)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^TG[234]:' core/dist-test/test/tsgo-paridade.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - TG[234]:/{p++} END{exit !(p==3 && f==0 && s==0)}' && node core/scripts/tsgo-paridade.cjs --resumo"
+      ],
+      "criadoEm": "2026-10-24T17:03:06.977Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C71",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/preparo-tsgo.cjs",
+      "alegacao": "T8: o preparo do Agile usa o tsgo so na arvore fria (emite dist e dist-test, apaga o .tsbuildinfo que sobra e relata a peca agile), roda o preparo do Classic com o estado incremental do tsc (peca em fallback), sai 127 sem o tsgo, sai com o codigo do compilador no erro de tipo e chega ao verify_run (TG5 a TG8)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^TG[5678]:' core/dist-test/test/tsgo-paridade.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - TG[5678]:/{p++} END{exit !(p==4 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-24T17:03:09.889Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C72",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/tsgo-paridade.test.ts",
+      "alegacao": "T8: os 8 casos TG passam (binarios, paridade numa arvore pequena, deteccao de diferenca, comparacao do emit, preparo frio, morno, sem tsgo e com erro, e a peca no verify_run)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/tsgo-paridade.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - TG[0-9]+:/{p++} END{exit !(p>=8 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-24T17:03:12.439Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C75",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "orkastery.yaml",
+      "alegacao": "T8: o manifesto deste projeto liga check.agile.preparo no npm --prefix core run preparo:tsgo, mantem o verify.preparo do Classic e carrega sem erro nem aviso",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node -e \"const {carregarManifesto}=require('./core/dist/manifest.js'); const m=carregarManifesto(process.cwd()); if(m.erros.length||m.avisos.length||m.manifesto.check.agile.preparo!=='npm --prefix core run preparo:tsgo'||m.manifesto.verify.preparo!=='npm --prefix core run build && npm --prefix core run build:test') process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-24T17:03:19.384Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C76",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-prompts.ts",
+      "alegacao": "T9: o contrato do CHECK pede o modo da rodada (Agile Check ou Classic Check, da linha check do ork verify) no parecer, e o fecho do GO pede o mesmo modo no pr-body.md, nas duas linguas; o lint dos templates de prompt passa",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/check-modo-prompts.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - CP[0-9]+:/{p++} END{exit !(p>=3 && f==0 && s==0)}' && node core/dist/index.js prompt lint"
+      ],
+      "criadoEm": "2026-10-24T17:12:43.424Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C77",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/check-modo-prompts.test.ts",
+      "alegacao": "T9: os 3 casos CP passam (o contrato do CHECK e o fecho do GO com o modo, nas duas linguas e no prompt montado)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/check-modo-prompts.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - CP[0-9]+:/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-24T17:12:45.544Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C78",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f3c-pt-BR.json",
+      "alegacao": "T9: o retrato pt-BR F3c traz o contrato do CHECK e o fecho do GO com o modo da rodada (e o sha256 dos prompts que os levam), e o snapshot F3c passa byte a byte",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/locale-f3c-snapshot.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - locale pt-BR F3c:/{p++} END{exit !(p>=1 && f==0)}' && grep -q 'o parecer diz o modo do CHECK da rodada' core/test/fixtures/locale-f3c-pt-BR.json && grep -q 'com o modo do CHECK da rodada' core/test/fixtures/locale-f3c-pt-BR.json"
+      ],
+      "criadoEm": "2026-10-24T17:12:48.438Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C79",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "T9: o retrato pt-BR F3b do ork prompt render traz o contrato do CHECK e o fecho do GO com o modo da rodada, e os casos do snapshot F3b passam byte a byte",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/locale-f3b-snapshot.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - locale pt-BR F3b:/{p++} END{exit !(p>=2 && f==0)}' && grep -q 'o parecer diz o modo do CHECK da rodada' core/test/fixtures/locale-f3b-pt-BR.json"
+      ],
+      "criadoEm": "2026-10-24T17:12:50.830Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C80",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "alegacao": "T11: a medicao clona o HEAD numa pasta sem sequencia hexadecimal de 8, com .orkastery, ORKASTERY_HOME, TMPDIR e cache proprios e sem as variaveis ORK_* da sessao, abre a thread com as tres claims representativas e le a duracao e o pico de cada verify_run (MC1 a MC6); a montagem da copia sem rodada devolve o resumo ork.medir-check/v1",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/medir-check.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - MC[0-9]+:/{p++} END{exit !(p>=6 && f==0 && s==0)}' && node core/scripts/medir-check.cjs --agile 0 --classic 0 | node -e \"let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const r=JSON.parse(s); if(r.contrato!=='ork.medir-check/v1'||r.rodadas.length!==0||r.cache!=='isolado'||!/^[0-9a-f]{40}$/.test(r.head)) process.exit(1)})\""
+      ],
+      "criadoEm": "2026-10-24T17:21:23.041Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C81",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/medir-check.test.ts",
+      "alegacao": "T11: os 6 casos MC passam (leitura do verify_run, tres rodadas consecutivas, RSS da arvore, pico agregado, pasta sem sequencia hexadecimal e claims representativas)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/medir-check.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - MC[0-9]+:/{p++} END{exit !(p>=6 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-24T17:21:25.051Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C82",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/horario-entradas.test.ts",
+      "alegacao": "T3 e T5 (correcao): os auxiliares do Agile (check-paralelo e o trabalhador da varredura) entram na lista das entradas de processo, com a razao de nao mostrarem horario a pessoas, e o teste das entradas passa",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='entradas de processo registram o fuso do dono' core/dist-test/test/horario-entradas.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - entradas de processo registram/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T19:19:36.220Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C83",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "O manifesto tem check com mode e o bloco agile (com apos_a_varredura), a thread e a baseline guardam o modo e a origem, e a validacao de apos_a_varredura passa (AG23)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && grep -q 'check?: { mode?: ModoDoCheck; agile?: ConfigDoAgile };' core/src/types.ts && grep -q 'check?: { modo: ModoDoCheck; origem: OrigemDoModo; commit: string; em: string };' core/src/types.ts && grep -q 'apos_a_varredura?: string\\[\\];' core/src/types.ts && node --test-reporter=tap --test-name-pattern='^AG23:' core/dist-test/test/check-agil.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - AG23:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T19:19:37.993Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C84",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-paralelo.ts",
+      "alegacao": "No auxiliar do grupo, o item com apos so comeca quando o nomeado termina, maxParalelo limita quantos rodam juntos e, sem teto, os itens comecam juntos (AG22, pelos instantes de inicio e fim)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^AG22:' core/dist-test/test/check-agil.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - AG22:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T19:19:40.417Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C85",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-agil.ts",
+      "alegacao": "O grupo do Agile nao passa da CPU: a lane de apos_a_varredura entra depois do security_scan (sem varredura, nada espera), o test agregado guarda a ordem do manifesto, e o teto da varredura no grupo e um terco das CPUs que sobram de uma, no minimo dois (AG21, AG24)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^AG2[14]:' core/dist-test/test/check-agil.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - AG2[14]:/{p++} END{exit !(p==2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T19:19:43.154Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C86",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-modo.ts",
+      "alegacao": "ORK_CHECK_VARREDURA_PARALELA e a variavel com que o verify passa o teto de ferramentas so a varredura do grupo, que a le (AG24, SA10)",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"ENV_VARREDURA_PARALELA_DO_CHECK = 'ORK_CHECK_VARREDURA_PARALELA'\" core/src/check-modo.ts && npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^AG24:' core/dist-test/test/check-agil.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - AG24:/{p++} END{exit !(p==1 && f==0)}' && node --test-reporter=tap --test-name-pattern='^SA10:' core/dist-test/test/security-scan-agil.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SA10:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T19:19:46.648Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C87",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "No grupo real do verify, so a varredura recebe o teto de ferramentas, a lane encadeada comeca depois dela, a conducao cobre o grupo inteiro, e a peca relatada duas vezes entra uma vez no verify_run e no texto (AG24, AG25)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^AG2[45]:' core/dist-test/test/check-agil.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - AG2[45]:/{p++} END{exit !(p==2 && f==0)}' && grep -q 'conducao.renovar(esperaDoGrupo(paraOAuxiliar));' core/src/verify.ts"
+      ],
+      "criadoEm": "2026-10-24T19:19:49.487Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C88",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "check.agile.apos_a_varredura aceita so lanes declaradas em check.agile.test e recusa o resto com a mensagem que cita a lane (AG23)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^AG(17|23):' core/dist-test/test/check-agil.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - AG(17|23):/{p++} END{exit !(p==2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T19:19:51.722Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C89",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/agil.ts",
+      "alegacao": "Com ORK_CHECK_VARREDURA_PARALELA, a varredura do Agile roda no maximo essas ferramentas juntas, com os mesmos achados e a peca que diz o teto; sozinha, todas juntas e sem teto (SA10), e as ferramentas seguem em paralelo contra o Classic (SA2)",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^SA(2|10):' core/dist-test/test/security-scan-agil.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SA(2|10):/{p++} END{exit !(p==2 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T19:19:54.657Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C90",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/test-lanes.cjs",
+      "alegacao": "A lane hermetica roda as CPUs menos duas, a de integracao dois arquivos por vez sem mudar a prioridade, e o teste da lane nao herda ORK_CHECK_MODO nem ORK_CHECK_RELATORIO, enquanto a lane ainda grava a lista no relatorio (TL9, TL10)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap --test-name-pattern='^TL(9|10):' core/dist-test/test/test-lanes.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - TL(9|10):/{p++} END{exit !(p==2 && f==0)}' && node core/scripts/test-lanes.cjs --conferir"
+      ],
+      "criadoEm": "2026-10-24T19:19:57.363Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C91",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "orkastery.yaml",
+      "alegacao": "O manifesto deste projeto declara a lane integracao em check.agile.apos_a_varredura e carrega sem erro nem aviso",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node -e \"const {carregarManifesto}=require('./core/dist/manifest.js'); const m=carregarManifesto(process.cwd()); const a=m.manifesto.check.agile; if(m.erros.length||m.avisos.length||JSON.stringify(a.apos_a_varredura)!=='[\\\"integracao\\\"]'||!a.test.integracao) process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-24T19:19:59.718Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C92",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/check-agil.test.ts",
+      "alegacao": "Os 25 casos AG passam (do preparo com fallback ao grupo que nao passa da CPU e a peca que entra uma vez)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/check-agil.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AG[0-9]+:/{p++} END{exit !(p>=25 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-24T19:20:02.297Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C93",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/test-lanes.test.ts",
+      "alegacao": "Os 10 casos TL passam dentro de um node --test, como a suite os roda",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap core/dist-test/test/test-lanes.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - TL[0-9]+:/{p++} END{exit !(p>=10 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-24T19:20:04.717Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C94",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/security-scan-agil.test.ts",
+      "alegacao": "Os 10 casos SA passam, inclusive o teto de ferramentas que o verify passa a varredura do grupo",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/security-scan-agil.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - SA[0-9]+:/{p++} END{exit !(p>=10 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-24T19:20:06.165Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C95",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/security-scan-agil-flags.test.ts",
+      "alegacao": "Os casos SF passam tambem com ORK_CHECK_MODO=classic herdado, como dentro do npm test de uma rodada Classic: o SF7 limpa o modo herdado",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && ORK_CHECK_MODO=classic node --test-reporter=tap core/dist-test/test/security-scan-agil-flags.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - SF[0-9]+:/{p++} END{exit !(p>=7 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-24T19:20:08.627Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C96",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "alegacao": "T11 (correcao): a copia da medicao nasce no cache do usuario, fora de pasta temporaria, na mesma branch, sem remoto, com o main e o origin/main na base da thread, HOME proprio e sem ORKASTERY_HOME, e a rodada reprovada guarda o porque (MC1 a MC7); a montagem sem rodada devolve a branch e a base",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/medir-check.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - MC[0-9]+:/{p++} END{exit !(p>=7 && f==0 && s==0)}' && node core/scripts/medir-check.cjs --agile 0 --classic 0 | node -e \"let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const r=JSON.parse(s); if(r.contrato!=='ork.medir-check/v1'||!/^[0-9a-f]{40}$/.test(r.base)||!r.branch||r.rodadas.length!==0) process.exit(1)})\""
+      ],
+      "criadoEm": "2026-10-24T19:20:12.482Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C97",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/medir-check.test.ts",
+      "alegacao": "Os 7 casos MC passam (leitura do verify_run com o porque da reprovacao, tres rodadas consecutivas, RSS da arvore, pico agregado, pasta fora de temporaria e claims representativas)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/medir-check.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - MC[0-9]+:/{p++} END{exit !(p>=7 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-24T19:20:14.585Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C98",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "alegacao": "T11 (correcao): a copia usa TMPDIR curto em /tmp/ork-mc-* (texto que corta caminho longo nao corta o comando), e a parada por prazo ou sinal encerra o verify e todos os descendentes, remove os containers que montam as pastas da copia e apaga as pastas (MC8)",
+      "negativa": true,
+      "verificar": [
+        "grep -q \"mkdtempSync('/tmp/ork-mc-')\" core/scripts/medir-check.cjs && grep -q \"process.once('SIGTERM', parar)\" core/scripts/medir-check.cjs && npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^MC8:' core/dist-test/test/medir-check.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - MC8:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T19:48:02.194Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C99",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md",
+      "alegacao": "T10: a pagina da RM-072 traz a D2 do dono, titulo e frase de abertura com os dois modos, a medicao da linha de base sem nome de maquina, caminho de home ou outro produto, a medicao do GO (tres rodadas do Agile aprovadas e uma do Classic) e o estado da thread; passa no markdownlint e na varredura de dado privado",
+      "negativa": false,
+      "verificar": [
+        "P=docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md && grep -q '^titulo: \"Agile Check e Classic Check' $P && grep -q 'Classic Check' $P && grep -q '^\\*\\*D2\\. Dois modos de CHECK' $P && grep -q 'máquina de 8 vCPU e 31 GB, com outras cargas rodando em paralelo' $P && grep -q 'checkout do projeto na versão 0.5.6' $P && grep -q '^## Medição do GO' $P && grep -q '| 3 | Agile Check | aprovada |' $P && grep -q 'thread: ork-check5x' $P && node core/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs $P && npm --prefix core run build && node core/dist/index.js privado varrer"
+      ],
+      "criadoEm": "2026-10-24T20:53:54.735Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C100",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "T10: o indice do roadmap ganha uma linha so da RM-072, com o titulo dos dois modos e o estado do frontmatter, gerada pelo ork docs sincronizar",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -c '^| \\[RM-072\\](RM-072-check-cinco-vezes-mais-rapido.md) | Agile Check e Classic Check' docs/roadmap/README.md)\" = 1 && node core/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-10-24T20:53:57.115Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C101",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/verificacao.md",
+      "alegacao": "T10: o guia de verificacao ganha a secao Classic Check e Agile Check: onde mudar (check.mode e --check), os dois valores, o padrao, quando escolher cada um, o bloco check.agile com apos_a_varredura e a regra do grupo que nao passa da CPU",
+      "negativa": false,
+      "verificar": [
+        "G=docs/guias/verificacao.md && grep -q '^### Classic Check e Agile Check (RM-072)' $G && grep -q 'check.mode: classic' $G && grep -q 'ork verify <thread> --check classic' $G && grep -q 'apos_a_varredura' $G && grep -q 'O grupo do Agile não passa da CPU da máquina' $G && node core/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs $G"
+      ],
+      "criadoEm": "2026-10-24T20:53:59.914Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C102",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "T10: o CHANGELOG diz em uma linha que o CHECK padrao passou a ser o Agile Check e como voltar ao de sempre (check.mode: classic), e descreve os dois modos no que nao foi publicado",
+      "negativa": true,
+      "verificar": [
+        "grep -q '^- \\*\\*O CHECK padrão passa a ser o Agile Check\\*\\*.*check.mode: classic' CHANGELOG.md && grep -q '^- \\*\\*Agile Check e Classic Check\\*\\*' CHANGELOG.md && node core/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-24T20:54:02.125Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C104",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-check5x.json",
+      "alegacao": "T12: o bundle do CI da thread lista as claims ativas (no maximo a do proprio bundle adiada, por nascer antes de ele ser versionado) e os comandos do CI hospedado: o test:ci e a varredura obrigatoria (ORK_SECURITY_SCAN_REQUIRED=1)",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const b=require('./.ork-ci/ork-check5x.json'); if(b.schema!=='ork.ci-bundle/v1'||b.thread!=='ork-check5x'||b.branch!=='ork/ork-check5x-full'||b.claims.length<100||b.deferredClaims.length>1||!b.deferredClaims.every(d=>d.reason==='artifact-not-in-checkout')||!b.commands.some(c=>c.name==='ci'&&c.command==='npm --prefix core run test:ci')||!b.commands.some(c=>c.name==='security_scan'&&/ORK_SECURITY_SCAN_REQUIRED=1/.test(c.command))) process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-24T21:31:06.667Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C105",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md",
+      "alegacao": "A pagina da RM-072 registra a D3 do dono (resposta 3a, 24/10 13:23): lancar com F1 e F2, a meta de 3 min e o pico de 4 GB como nao atingidos e levados para uma RM nova, com a fatia 3 e o piso de CPU da suite",
+      "negativa": false,
+      "verificar": [
+        "P=docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md && grep -q '^\\*\\*D3\\. Lançar com F1 e F2; os 3 min vão para uma RM nova\\.' $P && test \"$(grep -c '(não atingido' $P)\" = 2 && grep -q 'D3: lançar com F1 e F2' $P && node core/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs $P"
+      ],
+      "criadoEm": "2026-10-24T22:09:15.987Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C106",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-agil.ts",
+      "alegacao": "GO-FIX do CHECK (A1, A2, A7, S3, S8): so os passos da frente saem (o build no meio da cadeia roda inteiro); na juncao das lanes a falha de verdade manda sobre o estouro e o relogio sob steal de outra lane; o reaproveitamento diz o preparo que rodou; o motivo do fallback sai redigido; o preparo se le pelo leitor de aspas",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^AG(19|20|27):' core/dist-test/test/check-agil.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AG(19|20|27):/{p++} END{exit !(p==3 && f==0 && s==0)}' && grep -q 'reaproveitado do preparo desta rodada (${redigirCredenciaisUrl(preparo.comando)})' core/src/check-agil.ts"
+      ],
+      "criadoEm": "2026-10-24T22:57:58.176Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C108",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "GO-FIX do CHECK (A1, A3, A6, S1, S3, S10): as claims recebem o modo e nunca o relatorio da rodada; o preparo roda de novo antes do grupo quando so o produto mudou; o executor injetado e a baseline deixam as pecas no ledger; o auxiliar que morre deixa o comando sem veredito; o comando das lanes sai redigido; a evidencia das lanes vai relativa a raiz do estado",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^AG(14|26|28|29|30):' core/dist-test/test/check-agil.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AG(14|26|28|29|30):/{p++} END{exit !(p==5 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-24T22:57:59.995Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C109",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-paralelo.ts",
+      "alegacao": "GO-FIX do CHECK (S1): quando o auxiliar do grupo morre antes de gravar o resultado, cada processo sai marcado sem resultado, e o verify o trata como sem veredito, nunca como regressao (AG30)",
+      "negativa": true,
+      "verificar": [
+        "grep -q 'semResultado: true' core/src/check-paralelo.ts && npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^AG30:' core/dist-test/test/check-agil.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - AG30:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T22:58:02.655Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C110",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/agil.ts",
+      "alegacao": "GO-FIX do CHECK (A4, A5): o build da imagem de lint tem teto de 180 s antes dos trabalhadores; a ferramenta que cai no Agile por peca propria (trabalhador, nativo, cache do Trivy disputado) roda uma vez pelo caminho do Classic dentro do prazo, com a peca em fallback e a mesma cobertura (SA11)",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'PRAZO_DO_BUILD_DA_IMAGEM_MS = 180_000' core/src/security-scan/agil.ts && grep -q 'Math.min(prazoMs, PRAZO_DO_BUILD_DA_IMAGEM_MS)' core/src/security-scan/agil.ts && npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^SA11:' core/dist-test/test/security-scan-agil.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SA11:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T22:58:06.258Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C111",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/trabalhador.ts",
+      "alegacao": "GO-FIX do CHECK (S6): o binario nativo do Agile usa o cache por usuario que o Docker monta, nao o /tmp compartilhado do catalogo (SA12)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^SA12:' core/dist-test/test/security-scan-agil.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SA12:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T22:58:08.566Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C113",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/security-scan-docker-falso.ts",
+      "alegacao": "O falso Docker ganha ORK_FAKE_DOCKER_FAIL_COM_CACHE: a ferramenta falha so quando a rodada monta o cache do Trivy (a do Agile), e a do Classic, sem o cache, roda (SA11)",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'ORK_FAKE_DOCKER_FAIL_COM_CACHE' core/test/security-scan-docker-falso.ts && npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^SA11:' core/dist-test/test/security-scan-agil.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SA11:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T22:58:13.817Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C114",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/test-lanes.cjs",
+      "alegacao": "GO-FIX do CHECK (S4): a lane nao apaga ORK_TESTE_EXIGE_AMBIENTE, como o npm test: quem a exporta exige as dependencias nos dois modos, e o teste da lane segue sem o modo e sem o relatorio da rodada (TL10)",
+      "negativa": false,
+      "verificar": [
+        "! grep -q 'delete env.ORK_TESTE_EXIGE_AMBIENTE' core/scripts/test-lanes.cjs && npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap --test-name-pattern='^TL10:' core/dist-test/test/test-lanes.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - TL10:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-24T22:58:16.792Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C115",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/medir-check.test.ts",
+      "alegacao": "Os 8 casos MC passam, com as claims representativas cobrindo o preparo na frente (reaproveitado) e o build no meio (a claim roda inteira)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/medir-check.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - MC[0-9]+:/{p++} END{exit !(p>=8 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-24T22:58:18.732Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C121",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/security-scan-docker-falso.ts",
+      "alegacao": "O falso Docker imprime, na trava do cache do Trivy, a ultima linha do Trivy real, que termina em timeout sem ser estouro do prazo, e o SA11 prova que a nova tentativa pelo caminho do Classic roda",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'cache may be in use by another process: timeout' core/test/security-scan-docker-falso.ts && npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^SA11:' core/dist-test/test/security-scan-agil.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - SA11:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-25T00:33:27.718Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C124",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-agil.ts",
+      "alegacao": "GO-FIX dos CHECK 2 e 3 no motor (N1, N4, S-a, S-d, S-g): a lane so cai de verdade com codigo de 1 a 123 e causa exit, o mesmo criterio do ja falhava da baseline, e a juncao nao depende da ordem das lanes; com falha de verdade numa lane e outra sem veredito, o test fica sem veredito inteiro; o preparo e refeito antes da claim seguinte que o reaproveitaria, ate tres vezes, com a peca preparo-refeito e o estado real; o corte do relatorio no teto vira peca",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'MAXIMO_DE_PREPAROS_REFEITOS = 3' core/src/check-agil.ts && grep -q 'MAIOR_CODIGO_DA_LANE = 123' core/src/check-agil.ts && npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^AG(4|31|33|34|36|38):' core/dist-test/test/check-agil.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AG(4|31|33|34|36|38):/{p++} END{exit !(p==6 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-25T01:16:52.966Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C125",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "GO-FIX dos CHECK 2 e 3 no verify (N1, N5, S-b, S-d, S-h): a juncao mista das lanes bloqueia no verify mesmo com a baseline ja-falhava; a lane com 127 na baseline recusa como dependencia ausente; as variaveis de outra rodada (o relatorio e o teto da varredura) nao chegam aos comandos; fora do preparo, so a varredura e as lanes recebem o relatorio, em serie e no grupo paralelo; o preparo e refeito antes de cada claim que o reaproveitaria, ate o teto, e o grupo tem uma vaga propria",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^AG(31|32|33|35|37):' core/dist-test/test/check-agil.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AG(31|32|33|35|37):/{p++} END{exit !(p==5 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-25T01:16:56.161Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C127",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/check-agil.test.ts",
+      "alegacao": "Os casos AG passam todos, sem pular nenhum (38 no GO-FIX do CHECK 3): a juncao das lanes pelo codigo nas duas ordens, o preparo refeito antes da claim com a vaga propria do grupo, o refeito que falha antes da claim e antes do grupo, o relatorio so para a varredura e as lanes em serie e no grupo, e o teto do relatorio",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/check-agil.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AG[0-9]+:/{p++} END{exit !(p>=38 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-25T01:17:01.988Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C128",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/security-scan-agil.test.ts",
+      "alegacao": "Os casos SA passam todos, sem pular nenhum (14 no GO-FIX do CHECK 3), inclusive a decisao do trabalhador sem relatorio, estourado so pelo prazo, e a redacao do motivo antes do corte (SA14)",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/security-scan-agil.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - SA[0-9]+:/{p++} END{exit !(p>=14 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-25T01:17:04.268Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C129",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/verificacao.md",
+      "alegacao": "O guia diz que o preparo e refeito antes da claim seguinte que o reaproveitaria, ate tres vezes por rodada, e uma vez antes do grupo, com a peca preparo-refeito, e que com o refeito reprovado o resto da rodada roda inteiro, em serie",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'preparo-refeito' docs/guias/verificacao.md && grep -q 'até três vezes por rodada, e uma vez antes do grupo' docs/guias/verificacao.md && node core/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs docs/guias/verificacao.md"
+      ],
+      "criadoEm": "2026-10-25T01:17:06.567Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C130",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md",
+      "alegacao": "A pagina da RM-072 diz que, na arvore fria, a claim com o build no meio da cadeia roda inteira uma vez, o preparo roda de novo antes da claim seguinte que o reaproveitaria (ou, sem ela, antes do grupo) e as claims seguintes voltam a reaproveitar o preparo",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'que o reaproveitaria (ou, sem ela, antes do grupo' docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md && grep -q 'as claims seguintes voltam a reaproveitar o preparo' docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md && node core/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md"
+      ],
+      "criadoEm": "2026-10-25T01:17:09.301Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C133",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/network-roadmap.ts",
+      "alegacao": "A legenda do fuso do panorama da rede e a da hora da leitura, como os horarios dele, e nao a de agora: com a de agora, o fim do horario de verao de Lisboa em 25/10/2026 mudou o texto e deixou o snapshot F3c e a suite vermelhos",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'legendaDoFuso(fuso, p.consultadoEm)' core/src/network-roadmap.ts && grep -q 'legendaDoFuso(p.fuso, p.consultadoEm)' core/src/network-roadmap.ts && npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^locale pt-BR F3c:' core/dist-test/test/locale-f3c-snapshot.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - locale pt-BR F3c:/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-25T02:19:23.675Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C134",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/test/network-roadmap.test.ts",
+      "alegacao": "O caso da legenda do fuso pela hora da leitura passa com uma leitura em julho (Lisboa em GMT+1) e outra em janeiro (GMT+0), em qualquer data em que rode",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^rede: a legenda do fuso do projeto e a da hora da leitura' core/dist-test/test/network-roadmap.test.js | awk '/^ *not ok/{f++} /^ *ok [0-9]+ - rede: a legenda do fuso do projeto/{p++} END{exit !(p==1 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-25T02:19:25.786Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C135",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/agil.ts",
+      "alegacao": "GO-FIX dos CHECK 2 a 4 na varredura (N2, N7, S-c, S-j, S-k): a nova tentativa pelo caminho do Classic decide pelo estouro tipado da rodada ou pelo trabalhador cortado no prazo, nunca pelo texto do stderr; no motivo da peca classic-<ferramenta> e no do trabalhador nenhum login de URL chega ao ledger: o redator tira o login da URL inteira, e a URL que vai ate o fim do motivo sai toda, cortada ou nao, antes e depois do corte, sem passar do teto",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap --test-name-pattern='^SA1[134]:' core/dist-test/test/security-scan-agil.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - SA1[134]:/{p++} END{exit !(p==3 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-25T03:04:00.833Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C136",
+      "thread": "ork-check5x",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md",
+      "alegacao": "A pagina da RM-072 tem a secao Divida aceita no CHECK, com o criterio da RM-057 decidido pelo condutor e os avisos aceitos da rodada 5 na lista: o motivo da peca imagem-de-lint sem redacao, o motivo cru nas linhas de nao rodou do ork security-scan e as datas sem ano do snapshot F3c",
+      "negativa": false,
+      "verificar": [
+        "grep -q '^### Dívida aceita no CHECK$' docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md && grep -qF 'o da peça `imagem-de-lint` (a última linha do `docker build`) ainda não' docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md && grep -qF 'passam a sair com o ano em 01/01/2027' docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md && grep -qF 'às linhas de \"não rodou\" do `ork security-scan`' docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md && grep -qF 'o critério da RM-057, decidido pelo condutor' docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md && node core/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md"
+      ],
+      "criadoEm": "2026-10-25T03:04:05.308Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}

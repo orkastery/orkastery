@@ -41,8 +41,10 @@ test('locale en F2b verify: baseline, relatorio, classificacao e veredito saem e
     assert.equal(l[0], `ork verify for thread ${id}`);
     assert.match(l[1], /^ {2}real HEAD {3}[0-9a-f]{40}$/);
     assert.equal(l[2], `  directory   ${c.dir}`);
-    assert.match(l[3], /^ {2}baseline {4}[0-9a-f]{8} from \d{4}-\d{2}-\d{2} \d{2}:\d{2} \(America\/New_York, E[SD]T\)$/);
-    assert.match(l[4], /^ {2}steal {7}(\S+% in the run \(\/proc\/stat; above 40%, a failing clock-bound test gets no verdict\)|not measured .*)$/);
+    // RM-072 (D1): todo CHECK diz o modo e a origem; o nome de produto e o mesmo nas duas linguas.
+    assert.equal(l[3], '  check       Agile Check (default: the manifest does not declare check.mode)');
+    assert.match(l[4], /^ {2}baseline {4}[0-9a-f]{8} from \d{4}-\d{2}-\d{2} \d{2}:\d{2} \(America\/New_York, E[SD]T\)$/);
+    assert.match(l[5], /^ {2}steal {7}(\S+% in the run \(\/proc\/stat; above 40%, a failing clock-bound test gets no verdict\)|not measured .*)$/);
     assert.ok(r.stdout.includes('\nClaims rerun on the real HEAD:\n  C1  verified: yes  o readme existe\n      file: README.md\n' +
       '      command(s): test -f README.md\n  C2  verified: NO  reprova sempre\n'), r.stdout);
     assert.ok(r.stdout.includes('      typed reason: claims.failed (command "false" exited with code 1)\n'), r.stdout);
@@ -58,7 +60,7 @@ test('locale en F2b verify: baseline, relatorio, classificacao e veredito saem e
     // Uso e verde, tambem em ingles.
     const uso = ork(c, EN, false, 'verify');
     assert.equal(uso.status, 2);
-    assert.equal(uso.stderr, 'usage: ork verify <thread-id> [--baseline] [--so-claims] [--canal C] [--esperar [min]]\n');
+    assert.equal(uso.stderr, 'usage: ork verify <thread-id> [--baseline] [--so-claims] [--check classic|agile] [--canal C] [--esperar [min]]\n');
   } finally { c.limpar(); }
 });
 

@@ -1,0 +1,159 @@
+/**
+ * RM-072 (D11, D12, T6 da ork-check5x): a imagem de lint pre-montada e o binario nativo primeiro, so no Agile Check. A
+ * imagem sai uma vez, do digest e do `install` do catalogo; o `eslint` do Agile roda o mesmo script com o `node_modules`
+ * da imagem, sem `npm install` e sem rede; build que falha cai para o `eslint` do catalogo; o binario nativo na versao do
+ * catalogo roda no lugar do Docker, e o Classic segue Docker primeiro. Os nomes comecam por "SLn:".
+ */
+import { strict as assert } from 'node:assert';
+import { spawnSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { afterEach, beforeEach, test } from 'node:test';
+import { dirTemporario } from './apoio';
+import { installFakeTools, type FakeTools } from './security-scan-docker-falso';
+import { runScanAgil } from '../src/security-scan/agil';
+import { dockerfileDeLint, eslintComImagem, tagDaImagemDeLint } from '../src/security-scan/imagem-de-lint';
+import { runScan } from '../src/security-scan/run';
+import { loadTools } from '../src/security-scan/tools';
+
+const FIXTURE_JS = path.resolve(__dirname, '..', '..', '..', 'eval', 'fixtures', 'security-scan', 'js');
+const ESLINT = loadTools().find(t => t.name === 'eslint')!;
+
+const git = (cwd: string, ...args: string[]): string => {
+  const r = spawnSync('git', ['-c', 'user.email=t@example.invalid', '-c', 'user.name=t', '-c', 'commit.gpgsign=false', ...args],
+    { cwd, encoding: 'utf8' });
+  if (r.status !== 0) throw new Error(`git ${args.join(' ')}: ${r.stderr}`);
+  return r.stdout.trim();
+};
+
+function repositorio(nome: string): { dir: string; base: string } {
+  const dir = dirTemporario(nome);
+  git(dir, 'init', '-q', '-b', 'main');
+  fs.writeFileSync(path.join(dir, 'package.json'), '{ "name": "clean-js", "version": "1.0.0", "private": true, "license": "MIT" }\n');
+  fs.writeFileSync(path.join(dir, 'package-lock.json'), '{ "name": "clean-js", "version": "1.0.0", "lockfileVersion": 3, ' +
+    '"requires": true, "packages": { "": { "name": "clean-js", "version": "1.0.0" } } }\n');
+  git(dir, 'add', '-A');
+  git(dir, 'commit', '-q', '-m', 'base');
+  const base = git(dir, 'rev-parse', 'HEAD');
+  git(dir, 'checkout', '-q', '-b', 'feat');
+  fs.cpSync(FIXTURE_JS, dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, '.fake-case'), 'js\n');
+  git(dir, 'add', '-A');
+  git(dir, 'commit', '-q', '-m', 'head');
+  return { dir, base };
+}
+
+let cache: string;
+let fake: FakeTools | undefined;
+const salvos: Record<string, string | undefined> = {};
+const CHAVES = ['XDG_CACHE_HOME', 'ORK_FAKE_DOCKER_BUILD', 'ORK_FAKE_NATIVE_WRONG_VERSION', 'ORK_CHECK_RELATORIO'];
+const limpar: string[] = [];
+
+beforeEach(() => {
+  for (const k of CHAVES) { salvos[k] = process.env[k]; delete process.env[k]; }
+  cache = dirTemporario('scan-agil-lint-cache');
+  process.env.XDG_CACHE_HOME = cache;
+});
+afterEach(() => {
+  fake?.restore();
+  fake = undefined;
+  for (const k of CHAVES) { if (salvos[k] === undefined) delete process.env[k]; else process.env[k] = salvos[k]; }
+  for (const d of [cache, ...limpar.splice(0)]) fs.rmSync(d, { recursive: true, force: true });
+});
+
+function repo(nome: string): { dir: string; base: string } { const r = repositorio(nome); limpar.push(r.dir); return r; }
+const runsDo = (ferramenta: string) => fake!.calls().filter(c => c.args[0] === 'run' && c.args.some(a => a.startsWith(`ork-security-scan-${ferramenta}-`)));
+
+test('SL1: a imagem de lint sai uma vez, do digest e do install do catalogo, e a segunda rodada nao monta de novo', () => {
+  fake = installFakeTools(['docker']);
+  const r = repo('sl1');
+  runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base });
+  const builds = () => fake!.calls().filter(c => c.args[0] === 'build');
+  assert.equal(builds().length, 1);
+  assert.deepEqual(builds()[0].args, ['build', '--quiet', '-t', tagDaImagemDeLint(ESLINT), '-']);
+  const dockerfile = fs.readFileSync(path.join(fake!.dir, 'ultimo-dockerfile'), 'utf8');
+  assert.equal(dockerfile, dockerfileDeLint(ESLINT));
+  assert.ok(dockerfile.startsWith(`FROM ${ESLINT.image}\n`), 'o digest do node do catalogo');
+  for (const pacote of ESLINT.install!) assert.ok(dockerfile.includes(pacote), pacote);
+  assert.ok(dockerfile.includes('--ignore-scripts'));
+  runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base });
+  assert.equal(builds().length, 1, 'a imagem ja existe na segunda rodada');
+});
+
+test('SL2: o eslint do Agile roda na imagem local, sem npm install e sem rede, com o resto dos argumentos do catalogo', () => {
+  fake = installFakeTools(['docker']);
+  const r = repo('sl2');
+  const agile = runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base });
+  const run = runsDo('eslint')[0].args;
+  const tag = tagDaImagemDeLint(ESLINT);
+  assert.ok(run.includes(tag));
+  assert.equal(run[run.indexOf('--network') + 1], 'none');
+  const script = run[run.indexOf(tag) + 2];
+  assert.ok(!script.includes('npm install'), 'sem npm install');
+  assert.ok(script.includes('ln -s /opt/lint/node_modules /tmp/lint/node_modules'));
+  assert.equal(script, ESLINT.args[2].replace('npm install --prefix /tmp/lint --ignore-scripts --no-audit --no-fund --no-save {install} >&2',
+    'ln -s /opt/lint/node_modules /tmp/lint/node_modules'), 'o mesmo script, so a instalacao trocada');
+  const eslint = agile.tools.find(t => t.name === 'eslint')!;
+  assert.equal(eslint.state, 'ran');
+  assert.equal(eslint.version, ESLINT.version);
+  assert.deepEqual(agile.check!.pecas.find(p => p.peca === 'imagem-de-lint'), { peca: 'imagem-de-lint', estado: 'agile' });
+});
+
+test('SL3: build que falha cai para o eslint do catalogo (npm install no container), com a peca e o motivo', () => {
+  fake = installFakeTools(['docker']);
+  process.env.ORK_FAKE_DOCKER_BUILD = 'fails';
+  const r = repo('sl3');
+  const agile = runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base });
+  const run = runsDo('eslint')[0].args;
+  assert.ok(run.includes(ESLINT.image), 'a imagem do catalogo');
+  assert.ok(run.some(a => a.includes('npm install --prefix /tmp/lint')), 'com o npm install do catalogo');
+  const peca = agile.check!.pecas.find(p => p.peca === 'imagem-de-lint')!;
+  assert.equal(peca.estado, 'fallback');
+  assert.match(peca.motivo!, /^docker build saiu 1: npm ERR! network unreachable$/);
+  assert.equal(peca.fallback, 'eslint do catalogo, com npm install no container');
+  assert.equal(agile.tools.find(t => t.name === 'eslint')!.state, 'ran');
+});
+
+test('SL4: com o binario nativo na versao do catalogo, o Agile roda o nativo em vez do Docker', () => {
+  fake = installFakeTools(['docker', 'zizmor']);
+  const r = repo('sl4');
+  const agile = runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base });
+  assert.equal(agile.tools.find(t => t.name === 'zizmor')!.executor, 'native');
+  assert.equal(runsDo('zizmor').length, 0, 'nenhum container do zizmor');
+  assert.ok(fake!.calls().some(c => c.as === 'zizmor' && c.args.includes('--format')), 'o nativo varreu');
+  assert.equal(agile.tools.find(t => t.name === 'gitleaks')!.executor, 'docker', 'quem nao tem o nativo segue no Docker');
+  const peca = agile.check!.pecas.find(p => p.peca === 'binarios-nativos')!;
+  assert.equal(peca.estado, 'agile');
+  assert.match(peca.motivo!, /^nativos: zizmor; sem binario: /);
+});
+
+test('SL5: binario nativo com outra versao nao entra: o Docker roda, e a peca diz que faltou', () => {
+  fake = installFakeTools(['docker', 'zizmor']);
+  process.env.ORK_FAKE_NATIVE_WRONG_VERSION = 'zizmor';
+  const r = repo('sl5');
+  const agile = runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base });
+  assert.equal(agile.tools.find(t => t.name === 'zizmor')!.executor, 'docker');
+  assert.ok(runsDo('zizmor').length > 0);
+  const peca = agile.check!.pecas.find(p => p.peca === 'binarios-nativos')!;
+  assert.equal(peca.estado, 'fallback');
+  assert.match(peca.motivo!, /zizmor/);
+  assert.equal(peca.fallback, 'Docker, como no Classic');
+});
+
+test('SL6: o Classic segue Docker primeiro, mesmo com o binario nativo na maquina', () => {
+  fake = installFakeTools(['docker', 'zizmor']);
+  const r = repo('sl6');
+  const classic = runScan({ root: r.dir, stateRoot: r.dir, base: r.base });
+  assert.equal(classic.tools.find(t => t.name === 'zizmor')!.executor, 'docker');
+  assert.ok(runsDo('zizmor').length > 0);
+  assert.equal(fake!.calls().filter(c => c.args[0] === 'build').length, 0, 'o Classic nao monta imagem');
+  assert.ok(runsDo('eslint').every(c => c.args.includes(ESLINT.image)), 'o eslint do Classic e o do catalogo');
+});
+
+test('SL7: a tag muda com o install e a versao, e catalogo sem o trecho esperado nao troca o eslint', () => {
+  const outra = { ...ESLINT, install: [...ESLINT.install!, 'extra@1.0.0'] };
+  assert.notEqual(tagDaImagemDeLint(outra), tagDaImagemDeLint(ESLINT));
+  assert.notEqual(tagDaImagemDeLint({ ...ESLINT, version: '99.0.0' }), tagDaImagemDeLint(ESLINT));
+  assert.match(tagDaImagemDeLint(ESLINT), /^orkastery-eslint-agil:[0-9a-f]{16}$/);
+  assert.equal(eslintComImagem({ ...ESLINT, args: ['sh', '-c', 'eslint .', 'sh'] }, 'x:y'), null);
+});

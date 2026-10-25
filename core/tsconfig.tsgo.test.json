@@ -1,0 +1,9 @@
+// RM-072 (D14): o typecheck e o emit de src e test com o TypeScript 7 (tsgo), no preparo do Agile Check.
+{
+  "extends": "./tsconfig.test.json",
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "incremental": false,
+    "tsBuildInfoFile": null
+  }
+}

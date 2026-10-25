@@ -5,6 +5,7 @@ import { CONSULTAS_DO_CONHECIMENTO, consultaRespondeu, consultarConhecimento, Pe
 import { raizDoEstado } from './estado-thread';
 import { checarAnalisadoresDoGrafo, executarGrafo } from './intelligence-graph-cli';
 import { executarSecurityScan } from './security-scan/cli';
+import { lerModo } from './check-modo';
 import { lerEntradaDaThread } from './mcp-grafo';
 import { runMaestroCli } from './maestro-cli';
 import { publicHitlVerifiers } from './hitl-public-receipt';
@@ -1479,6 +1480,13 @@ function comandoVerify(args: Args): number {
     console.error(m.uso);
     return 2;
   }
+  // RM-072 (D1): `--check classic|agile` vence o `check.mode` do manifesto; outro valor sai com 2 e os dois aceitos.
+  const brutoDoCheck = args.opcoes.check;
+  const check = brutoDoCheck === undefined ? undefined : lerModo(brutoDoCheck);
+  if (check === null) {
+    console.error(m.checkInvalido(typeof brutoDoCheck === 'string' ? brutoDoCheck : null));
+    return 2;
+  }
   // RM-058 N2 (D10): enquanto a fila de recursos pesados nao da a vez, o CLI diz uma vez por quem espera.
   const aoEsperar = (ocupantes: OcupanteDaFila[]) => console.error(m.filaPesadaEsperando(args.opcoes.baseline === true ? 'baseline' : 'verify',
     ocupantes.map((o) => m.filaPesadaOcupante(o.operacao, o.thread, formatarDataHora(o.desde))).join('; ')));
@@ -1488,7 +1496,7 @@ function comandoVerify(args: Args): number {
     comandoDeEsperar: `ork verify ${id}${args.opcoes.baseline === true ? ' --baseline' : ''} --esperar 120` } };
   if (args.opcoes.baseline === true) {
     // RM-061 (F2b, G2): a baseline e o ledger sao gravados em pt-BR; so a impressao segue o locale.
-    const b = comLocale('pt-BR', () => gravarBaseline(carregado, id, undefined, conducao));
+    const b = comLocale('pt-BR', () => gravarBaseline(carregado, id, undefined, conducao, 'cli', undefined, check));
     console.log(m.baselineGravada(id));
     console.log(m.baselineCommit(b.commit));
     // RM-037 (defeito 1 de 19 e 20/10/2026): o comando sem veredito nao sai como "ja falhava".
@@ -1503,7 +1511,7 @@ function comandoVerify(args: Args): number {
     }
     return 0;
   }
-  const r = comLocale('pt-BR', () => verificar(carregado, id, { soClaims: args.opcoes['so-claims'] === true, conducao }));
+  const r = comLocale('pt-BR', () => verificar(carregado, id, { soClaims: args.opcoes['so-claims'] === true, conducao, check }));
   console.log(textoDoVerify(r));
   return r.ok ? 0 : 1;
 }
@@ -4610,7 +4618,10 @@ function executarComando(argvBruto: string[]): number {
       // Relatorio por SHA no estado da arvore principal; o argv cru depois do comando (o parser e estrito).
       const carregado = exigirManifesto();
       return executarSecurityScan(argv.slice(argv.indexOf('security-scan') + 1),
-        { raiz: carregado.raiz, estado: raizDoEstado(carregado.raiz), escrever: (texto) => console.log(texto) });
+        { raiz: carregado.raiz, estado: raizDoEstado(carregado.raiz), escrever: (texto) => console.log(texto),
+          ...(carregado.manifesto.check?.mode ? { modoDoManifesto: carregado.manifesto.check.mode } : {}),
+          ...(carregado.manifesto.check?.agile ? { agile: { osv_scanner: carregado.manifesto.check.agile.osv_scanner,
+            oxlint: carregado.manifesto.check.agile.oxlint } } : {}) });
     }
     case 'ship':
       return comandoShip(args);

@@ -1225,8 +1225,9 @@ export function textoDoPanoramaDaRede(p: PanoramaDaRede): string {
     linhas.push('', m.reservas, ...linhasDasReservas(x, fuso));
     linhas.push('', m.fontes, ...(x.fontes.length ? x.fontes.map((f) => linhaDaFonte(f, p.consultadoEm, fuso)) : [m.nenhumaFonte]));
     linhas.push('', m.lacunas, ...(x.lacunas.length ? x.lacunas.map(linhaDaLacuna) : [m.nenhumaLacuna]));
-    if (fuso !== p.fuso) linhas.push('', m.nesteProjeto(legendaDoFuso(fuso)));
+    // A legenda e a da hora da leitura, como os horarios do panorama: com a de agora, o horario de verao mudava o texto.
+    if (fuso !== p.fuso) linhas.push('', m.nesteProjeto(legendaDoFuso(fuso, p.consultadoEm)));
   }
-  linhas.push('', legendaDoFuso(p.fuso));
+  linhas.push('', legendaDoFuso(p.fuso, p.consultadoEm));
   return linhas.join('\n');
 }

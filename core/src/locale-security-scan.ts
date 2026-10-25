@@ -5,7 +5,9 @@
  */
 
 export const SECURITY_SCAN_PT_BR = {
-  usage: 'uso: ork security-scan [--base <ref>] [--json]',
+  usage: 'uso: ork security-scan [--base <ref>] [--json] [--check classic|agile]',
+  // RM-072 (D9): o modo da varredura aceita so os dois valores.
+  checkInvalido: (valor: string | null) => `--check inválido: ${valor === null ? '(sem valor)' : JSON.stringify(valor)} (aceitos: classic, agile)`,
   unknownFlag: (flag: string) => `opção desconhecida: ${flag}`,
   // report.md
   title: 'Varredura de segurança',
@@ -40,7 +42,8 @@ export const SECURITY_SCAN_PT_BR = {
 export type MensagensDeSecurityScan = typeof SECURITY_SCAN_PT_BR;
 
 export const SECURITY_SCAN_EN: MensagensDeSecurityScan = {
-  usage: 'usage: ork security-scan [--base <ref>] [--json]',
+  usage: 'usage: ork security-scan [--base <ref>] [--json] [--check classic|agile]',
+  checkInvalido: (valor) => `invalid --check: ${valor === null ? '(no value)' : JSON.stringify(valor)} (accepted: classic, agile)`,
   unknownFlag: (flag) => `unknown option: ${flag}`,
   title: 'Security scan',
   headBase: (head, base) => `HEAD \`${head.slice(0, 12)}\`, base \`${base ? base.slice(0, 12) : '(unresolved)'}\``,

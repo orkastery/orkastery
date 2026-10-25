@@ -8,6 +8,17 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Agile Check e Classic Check** ([RM-072](docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md)): o `ork verify`
+  ganha dois modos de CHECK com a mesma cobertura, escolhidos por `check.mode: agile | classic` no `orkastery.yaml` ou
+  por `ork verify <thread> --check classic|agile` na rodada, que vence o manifesto. O Classic Check é o CHECK de sempre:
+  os mesmos comandos, a mesma ordem e as mesmas ferramentas. O Agile Check roda o preparo uma vez e as claims contra o
+  produto dele, com guarda de hash, e as lanes de teste e a varredura em paralelo sem passar da CPU da máquina (a lane
+  que sobe containers espera a varredura, por `check.agile.apos_a_varredura`), com o banco do Trivy em cache, a imagem
+  de lint pré-montada, o binário nativo primeiro e, neste repositório, o `tsgo` no preparo da árvore fria; a peça
+  indisponível cai para o equivalente do Classic e fica registrada no `verify_run`. Nos dois modos, o
+  `verify_run` grava o modo, de onde ele veio e a duração de cada comando, claim e rodada, e o parecer do CHECK e o
+  `pr-body.md` dizem o modo da rodada. `osv-scanner` e `oxlint` ficam atrás de `check.agile.osv_scanner` e
+  `check.agile.oxlint`, desligados.
 - **Portão de release do #Noctum (RM-058)**: por decisão do dono, a próxima versão exige somente o P1 real de 6 h, aprovado e ratificado depois do piloto; o alcance continua em toda versão, e P2, P3 e P4 ficam para versões seguintes.
 - **DSN da memória fora do ambiente dos agentes (RM-069)**: `memory.database_url_file` declara a DSN da memória por
   um arquivo da pasta de segredos do `ork` (`~/.orkastery/segredos/<nome>`, que segue `ORKASTERY_HOME`), em vez da
@@ -408,6 +419,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `ork onboarding sync`, `ork experiencia uninstall`, `ork doctor --modo`, `ork maestro` e `ork mcp serve`; as
   mensagens de erro de `ork brain`, `ork activation` e `ork receipt-verifiers`, que imprimem JSON; e a recusa do
   projeto-alvo, que sai antes de o comando ativar o locale. A lista, conferida no código, está na página do item.
+
+### Alterado
+
+- **O CHECK padrão passa a ser o Agile Check** ([RM-072](docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md)): projeto sem `check.mode` roda o Agile; para voltar ao CHECK de sempre, declare `check.mode: classic` no `orkastery.yaml` (ou rode `ork verify <thread> --check classic`).
 
 ### Corrigido
 
