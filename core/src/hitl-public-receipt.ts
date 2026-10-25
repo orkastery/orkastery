@@ -66,6 +66,14 @@ export function publicHitlVerifiers(env: NodeJS.ProcessEnv = process.env): strin
   }
   return Object.keys(verifiers).length ? JSON.stringify({ schema: 'ork.hitl-verifiers/v1', verifiers }) : undefined;
 }
+
+/** O processo consegue reconferir este slot com a chave local ou com o material público herdado, sem expor nenhum dos dois. */
+export function canVerifyPublicReceipt(canal: string | null, native: boolean, env: NodeJS.ProcessEnv = process.env): boolean {
+  try {
+    const bundle = publicHitlVerifiers(env);
+    return !!bundleSchema.parse(JSON.parse(bundle ?? '{}')).verifiers[slotFor(canal, native)];
+  } catch { return false; }
+}
 export function publicReceiptAuthority(canal: string | null, native: boolean): Verifier | undefined {
   return inherited(process.env)[slotFor(canal, native)];
 }

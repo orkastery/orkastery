@@ -5,6 +5,7 @@ import { projetoTemporario } from './apoio';
 import { pedidoV2 } from './noctum-apoio';
 import { avisosDaProposta } from '../src/noctum-cli';
 import { validarPedidoDeAbertura } from '../src/noctum-envelope';
+import { ENV_HITL_VERIFIERS, publicHitlVerifiers } from '../src/hitl-public-receipt';
 import { PerfilDeRuntime, StoreDePerfis } from '../src/runtime-profiles';
 
 const perfil = (id: string, estado: PerfilDeRuntime['estado']): PerfilDeRuntime => ({ id, runtime: 'claude-bg', configDir: `/contas/${id}`,
@@ -37,5 +38,29 @@ test('PA2: contas com login e trust e duas vagas de execução não geram aviso'
     }));
     const store: StoreDePerfis = { contrato: 'ork.runtime-profiles/v1', perfis: [perfil('perfil-a', 'ativo')] };
     assert.deepEqual(avisosDaProposta(p.carregado, conteudo, { store, confianca: () => true }), []);
+  } finally { p.limpar(); }
+});
+
+test('PA3: propor avisa sem bloquear quando o canal do dono não pode ser reconferido, e cala com chave ou verificador público', () => {
+  const p = projetoTemporario('noctum-pa3');
+  try {
+    const conteudo = validarPedidoDeAbertura(pedidoV2('arco-pa3', {
+      trabalhos: [{ id: 'a', item: 'RM-901', prioridade: 1, dependeDe: [], pedido: 'SIMULADO' }], maquina: 3, revisao: 1,
+    }));
+    const store: StoreDePerfis = { contrato: 'ork.runtime-profiles/v1', perfis: [perfil('perfil-a', 'ativo')] };
+    const opcoes = { store, confianca: () => true, hostDoDono: 'hermes' as const };
+    const semAutoridade = avisosDaProposta(p.carregado, conteudo, { ...opcoes, env: {} });
+    const aviso = semAutoridade.find(a => a.motivo === 'noctum.proposta.sem-verificador-do-canal');
+    assert.ok(aviso);
+    assert.match(aviso.correcao, /cron do condutor e do tique.*ORK_RECEIPT_VERIFIERS.*publicHitlVerifiers/);
+    assert.match(aviso.correcao, /chave de ingresso nunca deve ir ao ambiente dos agentes/);
+
+    const fixture = { ORK_HITL_INGRESS_KEY_HERMES: 'chave-de-fixture-hermes-com-mais-de-trinta-e-dois-bytes' };
+    const materialPublico = publicHitlVerifiers(fixture)!;
+    assert.ok(materialPublico);
+    for (const env of [fixture, { [ENV_HITL_VERIFIERS]: materialPublico }]) {
+      assert.equal(avisosDaProposta(p.carregado, conteudo, { ...opcoes, env })
+        .some(a => a.motivo === 'noctum.proposta.sem-verificador-do-canal'), false);
+    }
   } finally { p.limpar(); }
 });
