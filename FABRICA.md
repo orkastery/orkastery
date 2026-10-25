@@ -5,6 +5,6 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado | Sessão |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| vps | ork-rm058blocob | #Auto | GO | claude-bg opus/max | RM-058 | — | 25/10 15:15 | parada desde 02:50: sessão 59482a30 sem processo (fantasma) |
+| vps | ork-rm058blocob | #Auto | GO | claude-bg opus/max | RM-058 | — | 25/10 13:30 | parada desde 24/10 23:50: sessão 59482a30 sem processo (fantasma) |
 
-Horários em UTC.
+Horários de Brasília.
