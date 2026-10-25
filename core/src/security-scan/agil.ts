@@ -16,6 +16,7 @@ import * as path from 'node:path';
 import { rodarEmParalelo } from '../check-paralelo';
 import { ENV_RELATORIO_DO_CHECK, ENV_VARREDURA_PARALELA_DO_CHECK } from '../check-modo';
 import { raizDoEstado } from '../estado-thread';
+import { redigirCredenciaisUrl } from '../redacao-url';
 import { classify } from './compare';
 import { loadConfig, loadDismissals } from './config';
 import { RoundGuard } from './guard';
@@ -107,6 +108,19 @@ export const PRAZO_DO_BUILD_DA_IMAGEM_MS = 180_000;
 /** O prazo minimo que sobra para a ferramenta que caiu no Agile rodar pelo caminho do Classic (A5 do CHECK). */
 export const PRAZO_MINIMO_DO_CLASSIC_MS = 30_000;
 
+/** Os motivos tipados de estouro que o `scanTool` grava: o prazo da HEAD e o da base. */
+const MOTIVOS_DE_ESTOURO: ReadonlySet<string> = new Set(['timeout', 'base-timeout']);
+
+/**
+ * N2 do CHECK 2: a ferramenta estourou o prazo, e o caminho do Classic estouraria igual. Decide pelo motivo tipado da
+ * rodada ou pelo trabalhador cortado no prazo dele, nunca pelo texto do stderr: o erro de trava do cache do Trivy termina
+ * em `timeout` ("cache may be in use by another process: timeout") e e justamente a peca do Agile que o Classic cobre.
+ */
+export function estourouNoAgile(motivo: string | undefined, trabalhador?: { duracaoMs: number; prazoMs: number }): boolean {
+  if (trabalhador) return trabalhador.duracaoMs >= trabalhador.prazoMs;
+  return MOTIVOS_DE_ESTOURO.has(motivo ?? '');
+}
+
 /** RM-072 (D12): o binario nativo na versao do catalogo, quando a ferramenta o declara e nao instala pacote no container. */
 function nativoDisponivel(t: ToolSpec, probe: Probe): boolean {
   if (!t.native || t.install) return false;
@@ -185,7 +199,6 @@ export function runScanAgil(opts: RunScanOptions): ScanReport {
     }
     const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ork-security-scan-agil-')));
     guard.add('outDirs', dir);
-    const prazo = deadline === null ? Math.max(...tools.map(t => t.timeoutMs)) * 2 + FOLGA_MS : Math.max(1000, deadline - Date.now() + FOLGA_MS);
     // RM-072 (D12): quem tem o binario nativo na versao do catalogo roda sem o Docker; a peca diz quem faltou.
     const probe = opts.probe ?? defaultProbe();
     const comNativo = tools.filter(t => t.native && !t.install);
@@ -196,15 +209,18 @@ export function runScanAgil(opts: RunScanOptions): ScanReport {
         ? { peca: 'binarios-nativos', estado: 'agile', motivo: `nativos: ${[...nativos].join(', ')}${faltam.length ? `; sem binario: ${faltam.join(', ')}` : ''}` }
         : { peca: 'binarios-nativos', estado: 'fallback', motivo: `sem binario nativo na versao do catalogo: ${faltam.join(', ')}`, fallback: 'Docker, como no Classic' });
     }
-    const trabalhos = tools.map((t, i) => {
+    const montados = tools.map((t, i) => {
       const restante = deadline === null ? t.timeoutMs : Math.min(t.timeoutMs, deadline - Date.now());
       const trabalho: TrabalhoDaFerramenta = { tool: eslintDoAgile(especificacaoDoAgile(t, pecas), restante, pecas), units: unitsOf(t, pairs), config,
         ...(nativos.has(t.name) ? { nativoPrimeiro: true } : {}),
         ctx: { headTree, mainRoot, base, head, rangeCommits: count === null ? null : Number(count), deadline, ...(baseTree ? { baseTree } : {}) } };
       const arquivo = path.join(dir, `${i}.json`);
       fs.writeFileSync(arquivo, JSON.stringify(trabalho), { mode: 0o600 });
-      return { nome: t.name, comando: `${aspas(process.execPath)} ${aspas(TRABALHADOR)} ${aspas(arquivo)}`, cwd: root, prazoMs: prazo };
+      return { nome: t.name, comando: `${aspas(process.execPath)} ${aspas(TRABALHADOR)} ${aspas(arquivo)}`, cwd: root };
     });
+    // S-f do CHECK 2: o teto dos trabalhadores e contado depois de todos montados, com o build da imagem de lint ja feito.
+    const prazo = deadline === null ? Math.max(...tools.map(t => t.timeoutMs)) * 2 + FOLGA_MS : Math.max(1000, deadline - Date.now() + FOLGA_MS);
+    const trabalhos = montados.map((m) => ({ ...m, prazoMs: prazo }));
     // RM-072: no grupo do verify, ao lado das lanes, a varredura roda poucas ferramentas por vez; sozinha, todas juntas.
     const teto = Number(process.env[ENV_VARREDURA_PARALELA_DO_CHECK]);
     const maxParalelo = Number.isInteger(teto) && teto > 0 ? teto : undefined;
@@ -215,16 +231,19 @@ export function runScanAgil(opts: RunScanOptions): ScanReport {
       const p = processos[i];
       let r: ToolResult | null = null;
       try { r = JSON.parse(p.stdout) as ToolResult; } catch { r = null; }
+      let estourou: boolean;
       if (!r || !r.run) {
         const motivo = (p.stderr.split('\n').filter(l => l.trim()).pop() ?? '').slice(0, 160);
         r = { run: { name: t.name, category: t.category, version: t.version, executor: null, state: 'failed',
           reason: `agile-worker-${p.code}${motivo && t.category !== 'secret' ? `: ${motivo}` : ''}`, counts: emptyCounts() }, head: [], base: [] };
-      }
+        estourou = estourouNoAgile(r.run.reason, { duracaoMs: p.duracaoMs, prazoMs: trabalhos[i].prazoMs });
+      } else estourou = estourouNoAgile(r.run.reason);
       // A5 do CHECK: a ferramenta que caiu por uma peca do Agile (o trabalhador que morreu, o nativo que falhou, o cache do
       // Trivy disputado por outra rodada) roda uma vez pelo caminho do Classic, Docker primeiro e sem cache, dentro do prazo.
       // Estouro de prazo nao repete: o Classic estouraria igual.
-      if (r.run.state === 'failed' && !/timeout/.test(r.run.reason ?? '')) {
-        const motivo = `no Agile: ${r.run.reason ?? 'falhou'}`.slice(0, 200);
+      if (r.run.state === 'failed' && !estourou) {
+        // S-c do CHECK 2: o motivo vem do stderr da ferramenta e vai ao ledger; credencial em URL sai redigida.
+        const motivo = `no Agile: ${redigirCredenciaisUrl(r.run.reason ?? 'falhou')}`.slice(0, 200);
         if (deadline === null || deadline - Date.now() >= PRAZO_MINIMO_DO_CLASSIC_MS) {
           r = scanTool(t, unitsOf(t, pairs), config, { headTree, mainRoot, base, head, rangeCommits: count === null ? null : Number(count),
             deadline: deadline ?? Infinity, probe, guard, images: new Map(), ...(baseTree ? { baseTree } : {}) });

@@ -11,7 +11,7 @@ import * as path from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
 import { dirTemporario } from './apoio';
 import { installFakeTools, type FakeTools } from './security-scan-docker-falso';
-import { runScanAgil } from '../src/security-scan/agil';
+import { estourouNoAgile, runScanAgil } from '../src/security-scan/agil';
 import { runScan } from '../src/security-scan/run';
 import { loadTools } from '../src/security-scan/tools';
 import { comCacheNoHost } from '../src/security-scan/trabalhador';
@@ -230,8 +230,19 @@ test('SA11: a ferramenta que cai so no Agile (o cache do Trivy disputado) roda p
   assert.equal(vuln.state, 'ran', JSON.stringify(vuln));
   const peca = agile.check!.pecas.find(p => p.peca === 'classic-trivy-vuln');
   assert.ok(peca && peca.estado === 'fallback' && peca.fallback === 'a ferramenta pelo caminho do Classic', JSON.stringify(agile.check!.pecas));
-  assert.match(String(peca!.motivo), /^no Agile: /);
+  // N2 do CHECK 2: a mensagem real do Trivy termina em `timeout` e nao e estouro do prazo; a nova tentativa roda igual.
+  assert.match(String(peca!.motivo), /^no Agile: exit-1: .*cache may be in use by another process: timeout$/);
   assert.deepEqual(agile.findings.map(f => f.fingerprint).sort(), classic.findings.map(f => f.fingerprint).sort(), 'a mesma cobertura do Classic');
+});
+
+test('SA13: o estouro que nao repete pelo Classic e o tipado da rodada ou o trabalhador cortado no prazo, nunca o texto do stderr', () => {
+  assert.equal(estourouNoAgile('timeout'), true);
+  assert.equal(estourouNoAgile('base-timeout'), true);
+  assert.equal(estourouNoAgile('exit-1: FATAL init error: cache may be in use by another process: timeout'), false);
+  assert.equal(estourouNoAgile('agile-worker-1: timeout ao ler'), false);
+  assert.equal(estourouNoAgile(undefined), false);
+  assert.equal(estourouNoAgile('agile-worker-124', { duracaoMs: 61_000, prazoMs: 60_000 }), true);
+  assert.equal(estourouNoAgile('agile-worker-1: timeout', { duracaoMs: 900, prazoMs: 60_000 }), false);
 });
 
 test('SA12: o binario nativo do Agile usa o cache por usuario que o Docker monta, nao o /tmp compartilhado do catalogo', () => {
