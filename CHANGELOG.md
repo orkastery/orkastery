@@ -20,6 +20,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `pr-body.md` dizem o modo da rodada. `osv-scanner` e `oxlint` ficam atrás de `check.agile.osv_scanner` e
   `check.agile.oxlint`, desligados.
 - **Portão de release do #Noctum (RM-058)**: por decisão do dono, a próxima versão exige somente o P1 real de 6 h, aprovado e ratificado depois do piloto; o alcance continua em toda versão, e P2, P3 e P4 ficam para versões seguintes.
+- **Recusas visíveis no #Noctum (RM-058)**: a supervisão e o relatório da manhã mostram a recusa que impediu o despacho, e `ork noctum propor` avisa quando o cron não poderá reconferir a prova pública do dono.
 - **DSN da memória fora do ambiente dos agentes (RM-069)**: `memory.database_url_file` declara a DSN da memória por
   um arquivo da pasta de segredos do `ork` (`~/.orkastery/segredos/<nome>`, que segue `ORKASTERY_HOME`), em vez da
   variável de `memory.database_url_env`; as duas fontes são exclusivas e o `ork` nunca cai de uma para a outra. O
