@@ -6,24 +6,24 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-24T20:09:33-03:00
+atualizado_em: 2026-10-25T03:44:10-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
-  codigo: Branch criada
-  testes: Em execução
+  codigo: Mesclado
+  testes: Aprovados
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
-    pr: null
+    commit: 90032a5
+    pr: "#200"
 sdlc:
   thread: ork-check5x
   modo: "#Auto"
-  fase: GOAL
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-072: Agile Check e Classic Check, o CHECK rápido como padrão sem perder cobertura
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Aprovados | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -185,13 +185,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-24 | Julio |
-| Documentação | Em revisão | — | 2026-10-24 | Julio |
-| Código | Branch criada | — | 2026-10-24 | Julio |
-| Testes | Em execução | — | 2026-10-24 | Julio |
-| Deploy | Não implantado | — | 2026-10-24 | Julio |
-| Exposição | Flag desligada | — | 2026-10-24 | Julio |
-| Habilitação | Pendente | — | 2026-10-24 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-25 | Julio |
+| Documentação | Em revisão | — | 2026-10-25 | Julio |
+| Código | Mesclado | commit `90032a5` · PR ##200 | 2026-10-25 | Julio |
+| Testes | Aprovados | — | 2026-10-25 | Julio |
+| Deploy | Não implantado | — | 2026-10-25 | Julio |
+| Exposição | Flag desligada | — | 2026-10-25 | Julio |
+| Habilitação | Pendente | — | 2026-10-25 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
