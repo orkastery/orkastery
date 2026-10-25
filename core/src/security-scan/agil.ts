@@ -121,6 +121,33 @@ export function estourouNoAgile(motivo: string | undefined, trabalhador?: { dura
   return MOTIVOS_DE_ESTOURO.has(motivo ?? '');
 }
 
+/** A URL cortada no fim do texto antes do `@` (o login pode estar nela pela metade, e o redator so a acha com o `@`). */
+const URL_CORTADA_NO_FIM = /[a-z][a-z0-9+.-]*:\/\/[^\s/?#@]*$/i;
+
+/**
+ * S-k do CHECK 3: o texto que vai ao ledger sem credencial de URL, redigido antes do corte e sem a URL que o corte deixou
+ * pela metade no fim.
+ */
+export function motivoSemCredencial(texto: string, teto: number): string {
+  return redigirCredenciaisUrl(texto).slice(0, teto).replace(URL_CORTADA_NO_FIM, '<url cortada>');
+}
+
+/**
+ * O resultado de um trabalhador da varredura e se ele estourou (N2 do CHECK 2, S-j do CHECK 3): o relatorio que ele
+ * gravou ou, sem ele, a falha do proprio trabalhador, com a ultima linha do stderr (nunca a de um detector de segredo) e o
+ * estouro pelo prazo dele.
+ */
+export function resultadoDoTrabalhador(t: ToolSpec, p: { stdout: string; stderr: string; code: number; duracaoMs: number },
+  prazoMs: number): { r: ToolResult; estourou: boolean } {
+  let lido: ToolResult | null = null;
+  try { lido = JSON.parse(p.stdout) as ToolResult; } catch { lido = null; }
+  if (lido && lido.run) return { r: lido, estourou: estourouNoAgile(lido.run.reason) };
+  const motivo = motivoSemCredencial(p.stderr.split('\n').filter(l => l.trim()).pop() ?? '', 160);
+  const r: ToolResult = { run: { name: t.name, category: t.category, version: t.version, executor: null, state: 'failed',
+    reason: `agile-worker-${p.code}${motivo && t.category !== 'secret' ? `: ${motivo}` : ''}`, counts: emptyCounts() }, head: [], base: [] };
+  return { r, estourou: estourouNoAgile(r.run.reason, { duracaoMs: p.duracaoMs, prazoMs }) };
+}
+
 /** RM-072 (D12): o binario nativo na versao do catalogo, quando a ferramenta o declara e nao instala pacote no container. */
 function nativoDisponivel(t: ToolSpec, probe: Probe): boolean {
   if (!t.native || t.install) return false;
@@ -228,22 +255,14 @@ export function runScanAgil(opts: RunScanOptions): ScanReport {
     const processos = rodarEmParalelo(trabalhos, process.env, maxParalelo ? { maxParalelo } : {});
     const excluded = new Set<string>();
     tools.forEach((t, i) => {
-      const p = processos[i];
-      let r: ToolResult | null = null;
-      try { r = JSON.parse(p.stdout) as ToolResult; } catch { r = null; }
-      let estourou: boolean;
-      if (!r || !r.run) {
-        const motivo = (p.stderr.split('\n').filter(l => l.trim()).pop() ?? '').slice(0, 160);
-        r = { run: { name: t.name, category: t.category, version: t.version, executor: null, state: 'failed',
-          reason: `agile-worker-${p.code}${motivo && t.category !== 'secret' ? `: ${motivo}` : ''}`, counts: emptyCounts() }, head: [], base: [] };
-        estourou = estourouNoAgile(r.run.reason, { duracaoMs: p.duracaoMs, prazoMs: trabalhos[i].prazoMs });
-      } else estourou = estourouNoAgile(r.run.reason);
+      const trabalhador = resultadoDoTrabalhador(t, processos[i], trabalhos[i].prazoMs);
+      let r = trabalhador.r;
       // A5 do CHECK: a ferramenta que caiu por uma peca do Agile (o trabalhador que morreu, o nativo que falhou, o cache do
       // Trivy disputado por outra rodada) roda uma vez pelo caminho do Classic, Docker primeiro e sem cache, dentro do prazo.
       // Estouro de prazo nao repete: o Classic estouraria igual.
-      if (r.run.state === 'failed' && !estourou) {
-        // S-c do CHECK 2: o motivo vem do stderr da ferramenta e vai ao ledger; credencial em URL sai redigida.
-        const motivo = `no Agile: ${redigirCredenciaisUrl(r.run.reason ?? 'falhou')}`.slice(0, 200);
+      if (r.run.state === 'failed' && !trabalhador.estourou) {
+        // S-c do CHECK 2 e S-k do CHECK 3: o motivo vem do stderr da ferramenta e vai ao ledger sem credencial de URL.
+        const motivo = motivoSemCredencial(`no Agile: ${r.run.reason ?? 'falhou'}`, 200);
         if (deadline === null || deadline - Date.now() >= PRAZO_MINIMO_DO_CLASSIC_MS) {
           r = scanTool(t, unitsOf(t, pairs), config, { headTree, mainRoot, base, head, rangeCommits: count === null ? null : Number(count),
             deadline: deadline ?? Infinity, probe, guard, images: new Map(), ...(baseTree ? { baseTree } : {}) });

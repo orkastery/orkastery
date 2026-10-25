@@ -11,7 +11,7 @@ import * as path from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
 import { dirTemporario } from './apoio';
 import { installFakeTools, type FakeTools } from './security-scan-docker-falso';
-import { estourouNoAgile, runScanAgil } from '../src/security-scan/agil';
+import { estourouNoAgile, motivoSemCredencial, resultadoDoTrabalhador, runScanAgil } from '../src/security-scan/agil';
 import { runScan } from '../src/security-scan/run';
 import { loadTools } from '../src/security-scan/tools';
 import { comCacheNoHost } from '../src/security-scan/trabalhador';
@@ -243,6 +243,35 @@ test('SA13: o estouro que nao repete pelo Classic e o tipado da rodada ou o trab
   assert.equal(estourouNoAgile(undefined), false);
   assert.equal(estourouNoAgile('agile-worker-124', { duracaoMs: 61_000, prazoMs: 60_000 }), true);
   assert.equal(estourouNoAgile('agile-worker-1: timeout', { duracaoMs: 900, prazoMs: 60_000 }), false);
+});
+
+test('SA14: o trabalhador sem relatorio vira falha dele, estourada so pelo prazo, e o motivo vai ao ledger sem credencial de URL', () => {
+  const vuln = loadTools().find(x => x.name === 'trivy-vuln')!;
+  const segredo = loadTools().find(x => x.category === 'secret')!;
+  const relatorio = (reason: string): string => JSON.stringify({ run: { name: vuln.name, category: vuln.category, version: vuln.version,
+    executor: 'docker', state: 'failed', reason, counts: {} }, head: [], base: [] });
+  // Com relatorio, vale o motivo tipado dele.
+  assert.equal(resultadoDoTrabalhador(vuln, { stdout: relatorio('timeout'), stderr: '', code: 0, duracaoMs: 10 }, 60_000).estourou, true);
+  assert.equal(resultadoDoTrabalhador(vuln, { stdout: relatorio('exit-1: cache may be in use by another process: timeout'), stderr: '',
+    code: 0, duracaoMs: 10 }, 60_000).estourou, false);
+  // Sem relatorio: o trabalhador cortado no prazo estourou; o que morreu antes nao.
+  const cortado = resultadoDoTrabalhador(vuln, { stdout: '', stderr: 'algo\n', code: 124, duracaoMs: 60_000 }, 60_000);
+  assert.equal(cortado.estourou, true);
+  assert.equal(cortado.r.run.state, 'failed');
+  assert.equal(cortado.r.run.reason, 'agile-worker-124: algo');
+  const morto = resultadoDoTrabalhador(vuln, { stdout: '', stderr: 'boom: timeout\n', code: 1, duracaoMs: 900 }, 60_000);
+  assert.equal(morto.estourou, false, 'o texto do stderr nao decide');
+  // O detector de segredo nunca leva o stderr ao motivo.
+  assert.equal(resultadoDoTrabalhador(segredo, { stdout: '', stderr: 'chave=abc\n', code: 1, duracaoMs: 900 }, 60_000).r.run.reason,
+    'agile-worker-1');
+  // S-k do CHECK 3: a credencial sai antes do corte, e a URL que o corte deixou pela metade antes do `@` tambem.
+  // O corte de 160 cai no meio do login: sem redigir antes, sobraria "usuario:senha-l".
+  const longo = `falhou ao baixar ${'x'.repeat(120)} https://usuario:senha-longa@registro.exemplo/banco`;
+  const r = resultadoDoTrabalhador(vuln, { stdout: '', stderr: `${longo}\n`, code: 1, duracaoMs: 900 }, 60_000).r.run.reason ?? '';
+  assert.ok(!r.includes('senha') && !r.includes('usuario'), r);
+  assert.equal(motivoSemCredencial('no Agile: exit-1: erro em https://usuario:senha@host/x', 200), 'no Agile: exit-1: erro em https://[credencial redigida]@host/x');
+  assert.equal(motivoSemCredencial('no Agile: exit-1: erro em https://usuario:senha-cortad', 200), 'no Agile: exit-1: erro em <url cortada>');
+  assert.equal(motivoSemCredencial('no Agile: exit-1: erro comum, sem url', 200), 'no Agile: exit-1: erro comum, sem url');
 });
 
 test('SA12: o binario nativo do Agile usa o cache por usuario que o Docker monta, nao o /tmp compartilhado do catalogo', () => {
