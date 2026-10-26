@@ -27,7 +27,7 @@ import { raizDoEstado } from './estado-thread';
 import { registrar } from './ledger';
 import { dirEstado, validarOptInPlaybook } from './manifest';
 import { definicaoDoModo, MODOS, ORDEM_DOS_MODOS } from './modos';
-import { ORDEM_DOS_RUNTIMES, RUNTIME_PADRAO, runtimeConhecido } from './runtimes';
+import { ORDEM_DOS_RUNTIMES, RUNTIME_PADRAO, runtimeConhecido, runtimeDeBloco } from './runtimes';
 import {
   AtividadeDoPrazo, ConfigDeBloco, ConsumoDoPrazo, IdentidadeDoPrazo,
   LimitesDeBloco, Manifesto, Modo, ModoLegado, PrazoDeBloco, SetupDeConducao, SetupDeModo,
@@ -74,7 +74,9 @@ export function validarFallback(lista: readonly string[], principal: string): st
   return lista.map((item) => {
     const m = ENTRADA_DE_FALLBACK.exec(item.trim());
     if (!m) throw new Error(msg().setup.fallbackInvalido(item));
-    if (!runtimeConhecido(m[1])) throw new Error(msg().setup.fallbackDesconhecido(m[1], ORDEM_DOS_RUNTIMES.join(', ')));
+    // RM-067 (D1 da ork-grokbuild): o runtime so de despacho explicito nunca entra na ordem de fallback.
+    if (runtimeConhecido(m[1]) && !runtimeDeBloco(m[1])) throw new Error(msg().setup.fallbackSoPorPedido(m[1], ORDEM_DOS_RUNTIMES.join(', ')));
+    if (!runtimeDeBloco(m[1])) throw new Error(msg().setup.fallbackDesconhecido(m[1], ORDEM_DOS_RUNTIMES.join(', ')));
     if (vistos.has(m[1])) throw new Error(msg().setup.fallbackRepetido(m[1]));
     vistos.add(m[1]);
     return item.trim();
@@ -88,7 +90,7 @@ export function normalizarFallback(valor: unknown, principal: string): string[] 
   const saida: string[] = [];
   for (const item of valor) {
     const m = typeof item === 'string' ? ENTRADA_DE_FALLBACK.exec(item) : null;
-    if (!m || !runtimeConhecido(m[1]) || vistos.has(m[1])) continue;
+    if (!m || !runtimeDeBloco(m[1]) || vistos.has(m[1])) continue;
     vistos.add(m[1]);
     saida.push(item as string);
   }
@@ -136,7 +138,7 @@ export function validarLimitesDeBloco(valor: unknown): LimitesDeBloco {
 function validarConfigComLimites(config: Record<string, unknown>): void {
   if (!Object.hasOwn(config, 'limites')) return;
   validarLimitesDeBloco(config.limites);
-  if (typeof config.runtime !== 'string' || !runtimeConhecido(config.runtime) ||
+  if (typeof config.runtime !== 'string' || !runtimeDeBloco(config.runtime) ||
       typeof config.model !== 'string' || config.model.trim() === '' ||
       typeof config.effort !== 'string' || config.effort.trim() === '') {
     throw new Error(msg().setup.blocoComLimites);
@@ -254,7 +256,7 @@ export function lerSetup(raiz: string): SetupDeConducao {
         if (doArquivo[i] === undefined) return blocoPadraoDoModo(modo);
         const b = doArquivo[i];
         const runtime =
-          typeof b.runtime === 'string' && runtimeConhecido(b.runtime)
+          typeof b.runtime === 'string' && runtimeDeBloco(b.runtime)
             ? b.runtime
             : doModo.runtime;
         return {
@@ -534,10 +536,13 @@ export function editarBloco(
       erro: msg().setup.blocoInexistente(bloco, def.tag, def.blocos.length),
     };
   }
-  if (edicao.runtime !== undefined && !runtimeConhecido(edicao.runtime)) {
+  if (edicao.runtime !== undefined && !runtimeDeBloco(edicao.runtime)) {
+    // RM-067 (D1 da ork-grokbuild): o runtime so de despacho explicito tem recusa propria, com o comando que o usa.
+    const lista = ORDEM_DOS_RUNTIMES.join(', ');
     return {
       ...base,
-      erro: msg().setup.runtimeDesconhecido(edicao.runtime, ORDEM_DOS_RUNTIMES.join(', ')),
+      erro: runtimeConhecido(edicao.runtime) ? msg().setup.runtimeSoPorPedido(edicao.runtime, lista)
+        : msg().setup.runtimeDesconhecido(edicao.runtime, lista),
     };
   }
   const atual = setup.modos[modo].blocos[bloco - 1];

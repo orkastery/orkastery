@@ -9,6 +9,9 @@
  *              `claude agents --json` (homologado em 02/09/2026).
  *   codex      o segundo runtime: `codex exec` headless desanexado, sessao verificada no
  *              rollout que o proprio Codex grava (homologado em 06/09/2026).
+ *   grok       RM-067 (F1 e F2): o Grok Build headless, `grok -p` com `streaming-json`, sessao
+ *              verificada na pasta que o proprio runtime grava. So por pedido explicito
+ *              (`--runtime grok`): nunca padrao de bloco nem alvo de fallback (D1 da ork-grokbuild).
  *
  * Paridade sem downgrade: o contrato do claude-bg nao muda com a chegada do codex, e todo
  * runtime novo entra por aqui com o MESMO contrato de despacho (dry-run, rate limit
@@ -17,6 +20,7 @@
 
 import * as claudeBg from './adapters/claude-bg';
 import * as codex from './adapters/codex';
+import * as grok from './adapters/grok';
 import type { ContextoRuntime } from './runtime-context';
 import { prepararRecibosParaDespacho } from './hitl-ingress-receipt';
 import type { PerfilDeDespacho } from './runtime-profiles';
@@ -107,21 +111,43 @@ export const RUNTIMES: Readonly<Record<string, RuntimeAdapter>> = {
     montarComando: (p) => codex.montarComando(p),
     despachar: (p) => comRecibosPublicos(p, codex.despachar),
   },
+  grok: {
+    nome: grok.NOME_ADAPTER,
+    fonteVerificacao: grok.FONTE_VERIFICACAO,
+    disponivel: () => grok.disponivel(),
+    versao: grok.versao,
+    montarComando: (p) => grok.montarComando(p),
+    despachar: (p) => comRecibosPublicos(p, grok.despachar),
+  },
 };
 
-/** Os runtimes na ordem de maturidade (o padrao primeiro). */
+/**
+ * Os runtimes de bloco, na ordem de maturidade (o padrao primeiro): os unicos que o setup aceita
+ * como runtime ou fallback de bloco e o manifesto aceita em `runtime.adapter`.
+ */
 export const ORDEM_DOS_RUNTIMES: readonly string[] = ['claude-bg', 'codex'];
 
-/** O nome e de um runtime homologado? */
+/**
+ * RM-067 (D1 da ork-grokbuild): homologados so para despacho explicito (`ork phase run --runtime`). Resolvem por nome,
+ * mas nao sao padrao de bloco, nem fallback, nem `runtime.adapter`.
+ */
+export const RUNTIMES_SO_POR_PEDIDO: readonly string[] = ['grok'];
+
+/** O nome e de um runtime homologado (resolve por nome no despacho)? */
 export function runtimeConhecido(nome: string): boolean {
   return Object.prototype.hasOwnProperty.call(RUNTIMES, nome);
 }
 
+/** O runtime pode ser runtime de bloco, fallback ou `runtime.adapter` do manifesto? */
+export function runtimeDeBloco(nome: string): boolean {
+  return ORDEM_DOS_RUNTIMES.includes(nome);
+}
+
 /** Resolve o adapter pelo nome, com erro tipado quando o runtime nao existe. */
 export function resolverRuntime(nome: string): RuntimeAdapter {
-  const adapter = RUNTIMES[nome];
+  const adapter = runtimeConhecido(nome) ? RUNTIMES[nome] : undefined;
   if (!adapter) {
-    throw new ErroDoCatalogo((m) => m.phase.runtimeDesconhecido(nome, ORDEM_DOS_RUNTIMES.join(', ')));
+    throw new ErroDoCatalogo((m) => m.phase.runtimeDesconhecido(nome, [...ORDEM_DOS_RUNTIMES, ...RUNTIMES_SO_POR_PEDIDO].join(', ')));
   }
   return adapter;
 }

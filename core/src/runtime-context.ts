@@ -153,11 +153,19 @@ export function capacidadeDoRuntimeNoProjeto(projeto: string, runtime: string): 
     return { runtime, host, preparado: true, capaz: false, motivo: (erro as Error).message };
   }
 }
+/**
+ * RM-067 (D15 da ork-grokbuild): runtimes homologados que ainda nao tem host MCP do Orkastery. A sessao filha deles
+ * despacha sem contexto, como num projeto sem entrada MCP, ate o host existir (F4 da RM-067). A capacidade de rotacao
+ * (`capacidadeDoRuntimeNoProjeto`) nao muda: num projeto preparado, eles seguem fora dos destinos automaticos.
+ */
+export const RUNTIMES_SEM_HOST_MCP: readonly string[] = ['grok'];
+
 /** Projeto sem entrada MCP Orkastery continua com o contrato legado. Nao instala nem altera arquivos. */
 export function contextoDoProjeto(projeto: string, runtime: string, cwd: string, threadId?: string): ContextoRuntime | undefined {
   const raiz = raizCanonica(projeto);
   const perfil=preparado(raiz);
   if (!perfil) return undefined;
+  if (RUNTIMES_SEM_HOST_MCP.includes(runtime)) return undefined;
   const host = hostDoRuntime(runtime);
   if (!threadId) throw Error('runtime.context.invalid: thread obrigatoria para sessao filha');
   const contexto: ContextoRuntime = { projeto: raiz, host, threadId, transporteShip:perfil.transporteShip, permissoesFilho:perfil.permissoesFilho };
