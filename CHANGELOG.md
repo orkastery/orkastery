@@ -6,6 +6,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+## [0.6.0] - 2026-10-26
+
+O CHECK padrão passou a ser o **Agile Check**; para voltar ao Classic, use `check.mode: classic` no `orkastery.yaml` ou `ork verify --check classic`.
+
+O #Noctum segue **em desenvolvimento, não anunciado** e ainda não validado.
+
 ### Adicionado
 
 - **Agile Check e Classic Check** ([RM-072](docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md)): o `ork verify`
@@ -19,7 +25,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `verify_run` grava o modo, de onde ele veio e a duração de cada comando, claim e rodada, e o parecer do CHECK e o
   `pr-body.md` dizem o modo da rodada. `osv-scanner` e `oxlint` ficam atrás de `check.agile.osv_scanner` e
   `check.agile.oxlint`, desligados.
-- **Portão de release do #Noctum (RM-058)**: por decisão do dono, a próxima versão exige somente o P1 real de 6 h, aprovado e ratificado depois do piloto; o alcance continua em toda versão, e P2, P3 e P4 ficam para versões seguintes.
+- **Portão de release do #Noctum (RM-058)**: por decisão do dono, somente a versão que anuncia o produto exige o P1 real de 6 h, aprovado e ratificado depois do piloto; o alcance `toda-versao` só volta por decisão futura dele, e P2, P3 e P4 ficam para versões seguintes.
 - **Recusas visíveis no #Noctum (RM-058)**: a supervisão e o relatório da manhã mostram a recusa que impediu o despacho, e `ork noctum propor` avisa quando o cron não poderá reconferir a prova pública do dono.
 - **DSN da memória fora do ambiente dos agentes (RM-069)**: `memory.database_url_file` declara a DSN da memória por
   um arquivo da pasta de segredos do `ork` (`~/.orkastery/segredos/<nome>`, que segue `ORKASTERY_HOME`), em vez da
@@ -201,7 +207,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   (`ork.noctum-piloto/v1`), contando só a entrega do arco e a reversão dela pela data do commit que reverte, com a
   evidência simulada (também o despacho sem sessão confirmada pelo runtime) nunca aprovada e o arquivo publicável sem
   dado pessoal. Com `ci.contexts` no manifesto, a prova do CI da entrega exige todos os contextos verdes. O ensaio
-  ganha a cadeia ligada, o condutor que morre e a base que anda. Muda para quem publica: a tag só publica com o aceite dos pilotos do #Noctum em
+  ganha a cadeia ligada, o condutor que morre e a base que anda. Muda para quem publica: a tag que anuncia o #Noctum só publica com o aceite dos pilotos em
   `docs/roadmap/evidencias/RM-058/aceite.json`, e o CI de documentação recusa o texto que anuncia o #Noctum como lançado,
   entregue, validado ou disponível sem esse aceite, em qualquer caixa de letra; o piloto com marca de simulação e a
   ratificação anterior ao fim dos pilotos não passam no portão. Nenhum piloto rodou: o #Noctum ainda não foi validado.

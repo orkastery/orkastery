@@ -18,7 +18,7 @@ spec:
       default: node:22
     versao_do_ork:
       description: "A versao do @orkastery/cli que roda o CHECK (a que traz o suporte a GitLab e a proxima publicada, no minimo)"
-      default: "0.5.6"
+      default: "0.6.0"
       regex: ^\d+\.\d+\.\d+$
 ---
 "$[[ inputs.contexto ]]":
