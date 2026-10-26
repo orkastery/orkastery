@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-26T00:40:00-03:00
+atualizado_em: 2026-10-26T01:08:00-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -143,7 +143,7 @@ As provas usam um `grok` simulado: um binário falso em `sh` no PATH e o stream 
 - **Credencial e sandbox:** o filho roda sem `XAI_API_KEY` e sem as variáveis de provider pago, até a D1. Sem a chave, o despacho real autentica pelo login que o próprio `grok` guardou no `GROK_HOME`, o da assinatura: é a alternativa b da D1, em zona cinza da política de uso, então nenhuma conta real deve despachar antes da decisão do dono. O perfil de sandbox é `workspace` (o piso da E7), e `read-only` com `runtime.sandbox: read-only` e no PLAN que fecha o próprio bloco (no `#Auto`, de bloco único, o PLAN segue a postura do manifesto); nunca `--yolo`.
 - **Só explícito:** o `grok` resolve por nome no despacho, mas não é runtime de bloco, nem fallback, nem `runtime.adapter`: o `ork setup` e o manifesto recusam com a mensagem do despacho explícito, e a leitura do `setup.json` o descarta.
 - **F2, fim da sessão e watcher** (`core/src/session-watcher-grok.ts`): o fim vem do evento `end` do stream e do recibo de saída do supervisor, com um único `phase_result` por despacho, e a condução da thread solta com ele.
-- **Classificação:** `end_turn` com saída 0 só conclui com a prova do `ork` (a mesma do `claude-bg`); a saída 1 com objeto `error` vira parada tipada (`runtime.auth-missing` pela frase do runtime, senão `runtime.unavailable`); 130, 143, SIGINT, SIGTERM e `cancelled` (com qualquer saída) vão ao dono (`human.pending`) com a retomada `grok -p continue -r <id>`, e o `end` válido seguido de outra saída sem `error` também; o stream sem `end` e sem processo vira `runtime.unavailable` depois do `LIMITE_MORTE_MS`.
+- **Classificação:** `end_turn` com saída 0 só conclui com a prova do `ork` (a mesma do `claude-bg`); a saída 1 com objeto `error` vira parada tipada (`runtime.auth-missing` pela frase do runtime, senão `runtime.unavailable`); 130, 143, SIGINT, SIGTERM e `cancelled` sem objeto `error` (com qualquer saída) vão ao dono (`human.pending`) com a retomada `grok -p continue -r <id>`, e o `end` válido seguido de outra saída sem `error` também; com o `error` e saída diferente de zero, a parada tipada vence o `cancelled`; o stream sem `end` e sem processo vira `runtime.unavailable` depois do `LIMITE_MORTE_MS`.
 - **Paridade:** o comando, o registro e os testes do `claude-bg` e do `codex` não mudaram, e os testes deles seguem verdes.
 
 ### O que falta
