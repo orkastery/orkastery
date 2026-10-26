@@ -46,6 +46,9 @@ test('GR2: paridade sem downgrade: os comandos de claude-bg e codex saem pelo re
   assert.deepEqual(RUNTIMES['claude-bg'].montarComando(pedido),
     ['claude', '--bg', 'Mapear o objetivo', '--name', 'ork-x-full', '--model', 'opus', '--effort', 'high']);
   assert.deepEqual(RUNTIMES.codex.montarComando(pedido), codex.montarComando(pedido));
+  // O literal do codex dá dente ao caso: comparar a função com ela mesma não pegaria uma mudança no adaptador.
+  assert.deepEqual(RUNTIMES.codex.montarComando(pedido), ['codex', 'exec', '--sandbox', 'workspace-write', '-c', 'approval_policy=never',
+    '--skip-git-repo-check', '-C', '/tmp', '--json', '-m', 'opus', '-c', 'model_reasoning_effort="high"', 'Mapear o objetivo']);
   assert.deepEqual(RUNTIMES.grok.montarComando(pedido), grok.montarComando(pedido));
   assert.equal(RUNTIMES['claude-bg'].fonteVerificacao, 'claude agents --json');
   assert.equal(RUNTIMES.codex.fonteVerificacao, 'rollout do codex em $CODEX_HOME/sessions');
