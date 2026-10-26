@@ -1,8 +1,8 @@
 /**
  * RM-058, integração (T9 da ork-rm058integra, D13): o portão de release do #Noctum (`core/scripts/checar-release-noctum.cjs`).
- * Na tag, a versão só sai com o aceite dos pilotos exigidos, aprovados, não simulados e ratificados pelo dono; no CI de
- * documentação, nenhum texto anuncia o #Noctum como lançado, entregue, validado ou disponível sem esse aceite. Os nomes
- * começam por RG. Os aceites e os textos são de fixture, numa pasta descartável.
+ * Na tag, só a versão que anuncia o #Noctum exige o aceite dos pilotos aprovados, não simulados e ratificados pelo dono;
+ * no CI de documentação, nenhum texto anuncia o produto como lançado, entregue, validado ou disponível sem esse aceite.
+ * Os nomes começam por RG. Os aceites e os textos são de fixture, numa pasta descartável.
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -43,12 +43,11 @@ function emPasta<T>(nome: string, fn: (raiz: string) => T): T {
   try { return fn(raiz); } finally { fs.rmSync(raiz, { recursive: true, force: true }); }
 }
 
-test('RG1: sem o aceite dos pilotos, a tag não publica: sai 1 com o motivo e a regra', () => {
+test('RG1: sem o aceite e sem anúncio do #Noctum, a tag passa', () => {
   emPasta('rg1', (raiz) => {
     const r = rodar(raiz);
-    assert.equal(r.status, 1);
-    assert.match(r.stderr, /^release\.noctum\.aceite-ausente: docs\/roadmap\/evidencias\/RM-058\/aceite\.json não existe: a regra do dono \(toda-versao\)/);
-    assert.match(r.stderr, /pilotos P1 aprovados e ratificados/);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /^release\.noctum: nenhum texto anuncia o #Noctum como lançado, entregue, validado ou disponível; a versão pode sair sem o aceite/);
   });
 });
 
@@ -116,6 +115,10 @@ test('RG7: sem o aceite, "o #Noctum foi lançado" no README recusa o texto, com 
     fs.writeFileSync(path.join(raiz, 'README.md'), '# Produto\n\nNovidade: o #Noctum foi lançado nesta versão.\n');
     fs.mkdirSync(path.join(raiz, 'docs', 'guias'), { recursive: true });
     fs.writeFileSync(path.join(raiz, 'docs', 'guias', 'noite.md'), '# Noite\n\nHoje o Noctum está disponível para todos.\n');
+    const tag = rodar(raiz);
+    assert.equal(tag.status, 1);
+    assert.match(tag.stderr, /^release\.noctum\.texto-sem-aceite: 2 trecho\(s\) anunciam o #Noctum sem o aceite dos pilotos/);
+    assert.match(tag.stderr, /README\.md:3: #Noctum foi lançado/);
     const r = rodar(raiz, '--texto');
     assert.equal(r.status, 1);
     assert.match(r.stderr, /^release\.noctum\.texto-sem-aceite: 2 trecho\(s\) anunciam o #Noctum sem o aceite dos pilotos \(release\.noctum\.aceite-ausente\)/);
@@ -146,11 +149,12 @@ test('RG9: em inglês, "Noctum is released" recusa, e "Noctum is not released" p
   });
 });
 
-test('RG10: a árvore desta thread passa no --texto, o alcance é toda versão, e os workflows chamam o portão', () => {
+test('RG10: a árvore desta thread não anuncia o produto, o alcance é a versão que anuncia, e os workflows chamam o portão', () => {
   const r = rodar(RAIZ_DO_REPO, '--texto');
   assert.equal(r.status, 0, r.stderr);
+  assert.equal(rodar(RAIZ_DO_REPO).status, 0, 'a tag sem aceite passa porque esta árvore não anuncia o #Noctum');
   const fonte = fs.readFileSync(SCRIPT, 'utf8');
-  assert.match(fonte, /^const ALCANCE = 'toda-versao';$/m);
+  assert.match(fonte, /^const ALCANCE = 'versao-que-anuncia';$/m);
   assert.match(fonte, /^const PILOTOS_EXIGIDOS = \['P1'\];$/m);
   assert.doesNotMatch(fonte, /require\('node:(?:https?|net|child_process)'\)|core\/dist/, 'o portão só lê arquivos');
   assert.match(fs.readFileSync(path.join(RAIZ_DO_REPO, '.github/workflows/publicar.yml'), 'utf8'),
