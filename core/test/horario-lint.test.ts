@@ -140,6 +140,7 @@ const EXCECOES: { arquivo: string; trecho: string; razao: string }[] = [
   { arquivo: 'liveness.ts', trecho: 'phase_dispatch ${d.ts} sessão', razao: 'evidência de máquina do liveness' },
   { arquivo: 'liveness.ts', trecho: 'chave = `${d.ts}|', razao: 'chave de deduplicação' },
   { arquivo: 'session-watcher.ts', trecho: 'heartbeat:${cursor.crescimentoEm}', razao: 'identificador do heartbeat' },
+  { arquivo: 'session-watcher-grok.ts', trecho: 'heartbeat:${cursor.progressoEm}', razao: 'identificador do heartbeat do grok (RM-067), chave de maquina' },
   { arquivo: 'session-watcher.ts', trecho: "update(sessionId + '|' + sessao.despachadaEm)", razao: 'entrada do hash que identifica o watcher da sessão' },
   { arquivo: 'conducao.ts', trecho: "update(dono.sessionId + '|' + sessao.despachadaEm)", razao: 'entrada do mesmo hash do watcher para localizar a fonte fixada; não é texto para pessoa' },
   { arquivo: 'handoff.ts', trecho: 'em ${b.gravadaEm}', razao: 'documento para a próxima sessão de agente (D12)' },
