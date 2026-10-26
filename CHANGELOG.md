@@ -20,6 +20,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `runtime.adapter`, e ainda despacha sem o MCP do `ork`; perfis de conta, login e cota (F3, que espera a decisão D1
   do dono), setup, MCP e onboarding (F4) e o ensaio real (F5) ficam para depois. O `claude-bg` e o `codex` não mudam.
 
+### Corrigido
+
+- **O `ork retry run` guarda a conta pedida com `--perfil`:** o despacho barrado antes de abrir a sessão agora grava
+  o perfil pedido no ledger (`perfilPedido`), e o retry e a retomada da fila voltam a ele. Se ele estiver sem login,
+  esgotado ou for de outro runtime, recusam com motivo tipado e a correção, em vez de redespachar em outra conta sem
+  avisar. A rotação por falha da própria conta e o despacho sem `--perfil` seguem como antes.
+
 ## [0.6.0] - 2026-10-26
 
 O CHECK padrão passou a ser o **Agile Check**; para voltar ao Classic, use `check.mode: classic` no `orkastery.yaml` ou `ork verify --check classic`.
