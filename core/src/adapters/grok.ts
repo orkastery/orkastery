@@ -18,7 +18,7 @@ import { PerfilDeDespacho } from '../runtime-profiles';
 import { exec as executar, noPath } from '../util';
 import { DespachoResultado, parseFalhaDeConta, parseRateLimit } from './claude-bg';
 import { estadoProcesso, iniciarSupervisor, ProcessoCodex, ReciboCodex } from './codex-runner';
-import { falhaDoErroGrok, lerStreamGrok, redigirErroGrok } from './grok-events';
+import { falhaDoErroGrok, lerStreamGrok, redigirTextoGrok } from './grok-events';
 
 export const NOME_ADAPTER = 'grok';
 
@@ -49,6 +49,8 @@ export const ESPERA_PADRAO_MS = 60_000;
 const ID_DE_SESSAO = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const LIMITE_METADADO_BYTES = 65536;
 const LIMITE_STDERR_BYTES = 4096;
+/** O stderr do resultado: o despacho grava os primeiros 500 caracteres dele no ledger. */
+const LIMITE_STDERR_NO_RESULTADO = 500;
 
 export interface DespachoGrokPedido {
   prompt: string;
@@ -194,7 +196,10 @@ function lerMetadado<T>(arquivo: string): T | null {
   finally { fs.closeSync(fd); }
 }
 
-/** A cauda do stderr do filho, redigida; ausente vira vazio. */
+/**
+ * A cauda do stderr do filho, redigida e sem corte; ausente vira vazio. GO-FIX 1 (A4): a janela começa no meio de uma
+ * linha, e esse pedaço sai inteiro antes da redação, para nenhum segredo cortado perder o prefixo que a redação reconhece.
+ */
 function caudaDoStderr(arquivo: string): string {
   let fd: number;
   try { fd = fs.openSync(arquivo, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK); }
@@ -204,7 +209,12 @@ function caudaDoStderr(arquivo: string): string {
     if (!st.isFile()) return '';
     const n = Math.min(st.size, LIMITE_STDERR_BYTES), bytes = Buffer.alloc(n);
     fs.readSync(fd, bytes, 0, n, st.size - n);
-    return redigirErroGrok(bytes.toString('utf8'));
+    let texto = bytes.toString('utf8');
+    if (st.size > n) {
+      const quebra = texto.indexOf('\n');
+      texto = quebra < 0 ? '' : texto.slice(quebra + 1);
+    }
+    return redigirTextoGrok(texto);
   } finally { fs.closeSync(fd); }
 }
 
@@ -259,11 +269,13 @@ export function despachar(pedido: DespachoGrokPedido): DespachoGrokResultado {
 function falhaAntesDaSessao(recibo: ReciboCodex, sessionId: string,
     base: { comando: string[]; logPath: string; processoPath: string; reciboPath: string }): DespachoGrokResultado {
   const estado = lerStreamGrok(base.logPath, sessionId);
-  const stderr = caudaDoStderr(`${base.logPath}.stderr`);
+  const cauda = caudaDoStderr(`${base.logPath}.stderr`);
   const mensagem = estado?.erro?.mensagem ?? '';
-  const texto = [mensagem, stderr].filter(Boolean).join('\n');
-  const falhaDeConta = falhaDoErroGrok(estado?.erro ?? null) ?? (stderr ? parseFalhaDeConta(stderr) : null);
+  const texto = [mensagem, cauda].filter(Boolean).join('\n');
+  const falhaDeConta = falhaDoErroGrok(estado?.erro ?? null) ?? (cauda ? parseFalhaDeConta(cauda) : null);
   const rateLimit = falhaDeConta ? null : parseRateLimit(texto);
+  // Ao ledger vai o fim da cauda, onde o erro mora; quem grava corta pelo começo.
+  const stderr = Array.from(cauda).slice(-LIMITE_STDERR_NO_RESULTADO).join('');
   // O erro de spawn (o binário sumiu entre a conferência e o supervisor) vem antes do código, que o Node dá negativo.
   const codigo = recibo.erro ?? recibo.exitCode ?? recibo.signal ?? 'sem codigo';
   const erro = falhaDeConta ? `${falhaDeConta.motivo}: ${falhaDeConta.trecho}`

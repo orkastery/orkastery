@@ -55,15 +55,19 @@ const STOP = /^[a-z][a-z0-9_]{0,39}$/;
 const ID = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/;
 
 /**
- * D7: a mensagem de erro do runtime pronta para o ledger: os segredos que o núcleo já conhece, a chave da xAI
- * (`xai-...`), sem controle e até `LIMITE_ERRO_GROK` caracteres, sem partir par substituto.
+ * D7: um texto do runtime pronto para o ledger, sem corte: os segredos que o núcleo já conhece, a chave da xAI
+ * (`xai-...`) e sem controle. GO-FIX 1 (A4): quem corta, corta depois de redigir, para nenhum segredo perder o prefixo.
  */
-export function redigirErroGrok(texto: unknown): string {
+export function redigirTextoGrok(texto: unknown): string {
   if (typeof texto !== 'string') return '';
-  const limpo = redigirSegredos(texto)
+  return redigirSegredos(texto)
     .replace(/\bxai-[A-Za-z0-9_-]{16,}/g, '[redigido]')
     .replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim();
-  return Array.from(limpo).slice(0, LIMITE_ERRO_GROK).join('');
+}
+
+/** D7: a mensagem de erro do runtime, redigida e até `LIMITE_ERRO_GROK` caracteres, sem partir par substituto. */
+export function redigirErroGrok(texto: unknown): string {
+  return Array.from(redigirTextoGrok(texto)).slice(0, LIMITE_ERRO_GROK).join('');
 }
 
 const tokensIndisponiveis = (): TokensCodex => ({ disponivel: false, input: null, cachedInput: null, output: null,

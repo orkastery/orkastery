@@ -5,7 +5,7 @@
  *   - grava cada chamada (um argumento por linha) e a presença, nunca o valor, de `XAI_API_KEY`;
  *   - cria a pasta da sessão do `-s` (ou do `-r`) em `$GROK_HOME/sessions/<cwd com / trocada por ->/<id>/updates.jsonl`;
  *   - grava o artefato pedido, como uma sessão que escreveu o documento da fase;
- *   - escreve no stdout a fixture do stream, com `<SESSAO>` trocado pelo id;
+ *   - escreve no stderr o texto pedido e, no stdout, a fixture do stream, com `<SESSAO>` trocado pelo id;
  *   - espera, se mandado, e sai com o código pedido, ou se mata com o sinal pedido.
  *
  * O `GROK_HOME` é sempre uma pasta temporária: nenhum teste toca a casa real do `grok`.
@@ -42,6 +42,7 @@ fi
 if [ -f "$DIR/artefato" ]; then
   A=$(cat "$DIR/artefato"); mkdir -p "$(dirname "$A")"; printf '# artefato do grok falso\\n' > "$A"
 fi
+if [ -f "$DIR/stderr" ]; then cat "$DIR/stderr" >&2; fi
 if [ -f "$DIR/stream" ]; then sed "s/<SESSAO>/$ID/g" "$DIR/stream"; fi
 if [ -f "$DIR/espera" ]; then sleep "$(cat "$DIR/espera")"; fi
 if [ -f "$DIR/sinal" ]; then kill -"$(cat "$DIR/sinal")" $$; fi
@@ -58,6 +59,8 @@ export interface GrokFalso {
   stream: (fixture: string) => void;
   /** O stream exato que o stub escreve (vazio: nenhum evento). */
   streamTexto: (texto: string) => void;
+  /** O texto que o stub escreve no stderr. */
+  stderr: (texto: string) => void;
   saida: (codigo: number) => void;
   sinal: (nome: 'TERM' | 'INT') => void;
   /** O stub não cria a pasta da sessão. */
@@ -87,6 +90,7 @@ export function grokFalso(nome: string): GrokFalso {
     casa,
     stream: (fixture) => fs.copyFileSync(path.join(RAIZ, 'core/test/fixtures/grok', fixture), path.join(dir, 'stream')),
     streamTexto: (texto) => gravar('stream', texto),
+    stderr: (texto) => gravar('stderr', texto),
     saida: (codigo) => gravar('saida', String(codigo)),
     sinal: (nome) => gravar('sinal', nome),
     semSessao: () => gravar('sem-sessao', ''),

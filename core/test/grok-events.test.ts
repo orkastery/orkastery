@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
-  falhaDoErroGrok, LIMITE_ERRO_GROK, LIMITE_LINHA_GROK, lerStreamGrok, ParserGrok, redigirErroGrok, tokensDoFim,
+  falhaDoErroGrok, LIMITE_ERRO_GROK, LIMITE_LINHA_GROK, lerStreamGrok, ParserGrok, redigirErroGrok, redigirTextoGrok, tokensDoFim,
 } from '../src/adapters/grok-events';
 import { dirTemporario } from './apoio';
 
@@ -180,4 +180,14 @@ test('GE9: o estado serializado retoma a leitura, e o stream curto e lido sem se
     fs.writeFileSync(arquivo, '{"type":"text","data":"cortado no mei');
     assert.equal(lerStreamGrok(arquivo, SESSAO)?.invalido, true, 'a ultima linha incompleta de processo encerrado e invalida');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('GE10: o texto do runtime e redigido sem corte, e a mensagem de erro corta so depois de redigir', () => {
+  const chave = ['xai', 'W'.repeat(30)].join('-');
+  const longo = `${'a'.repeat(400)} fim com a chave ${chave}`;
+  const inteiro = redigirTextoGrok(longo);
+  assert.ok(inteiro.endsWith('fim com a chave [redigido]'), inteiro.slice(-40));
+  assert.equal(inteiro.includes('WWWWW'), false);
+  assert.equal(Array.from(redigirErroGrok(longo)).length, LIMITE_ERRO_GROK);
+  assert.equal(redigirTextoGrok(42), '');
 });

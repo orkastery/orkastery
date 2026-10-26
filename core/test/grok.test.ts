@@ -214,3 +214,25 @@ test('GK12: a versao e a disponibilidade vem do proprio grok no PATH', () => {
     assert.equal(disponivel(), path.join(stub.dir, 'grok'));
   } finally { stub.restaurar(); }
 });
+
+test('GK13: a cauda longa do stderr descarta a linha cortada pela janela, acha a frase de login no fim e nao vaza a chave', () => {
+  const c = cenario('stderr-longo');
+  try {
+    const chave = ['xai', 'K'.repeat(60)].join('-');
+    const primeira = `partida do grok com api_key=${chave}\n`;
+    const ultima = 'Not logged in: run grok login\n';
+    // A janela de 4096 bytes do fim comeca 30 bytes antes do fim da primeira linha, no meio da chave, e o meio e so
+    // espaco em branco: normalizado, ele some e deixaria o pedaco da chave colado na frase do fim.
+    const meio = ' \n'.repeat((4096 - 30 - Buffer.byteLength(ultima)) / 2);
+    c.stub.stderr(primeira + meio + ultima);
+    c.stub.streamTexto('');
+    c.stub.semSessao();
+    c.stub.saida(1);
+    const r = despachar({ ...PEDIDO, sessionId: undefined, cwd: c.wt, logDir: c.logs, esperaMs: 30000 });
+    assert.equal(r.ok, false);
+    assert.equal(r.falhaDeConta?.motivo, 'runtime.auth-missing', 'a frase do fim da cauda classifica a falha');
+    assert.equal(JSON.stringify(r).includes('KKKKK'), false, 'nenhum pedaco da chave cortada sai do adaptador');
+    assert.ok(r.stderr.endsWith('Not logged in: run grok login'), r.stderr.slice(-80));
+    assert.ok(Array.from(r.stderr).length <= 500);
+  } finally { c.limpar(); }
+});
