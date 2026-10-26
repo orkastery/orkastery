@@ -47,15 +47,29 @@ export interface FonteGrok {
   origem?: string;
 }
 
-/** D8: a fonte do despacho; o artefato é lido no registro, como no claude-bg, e o HEAD vem de antes do despacho. */
-export function fonteGrokDoDespacho(raiz: string, threadId: string, fase: string, cwd: string,
-    sensores: { logPath: string; processoPath: string; reciboPath: string }, grokHome: string, head?: string | null): FonteGrok {
-  if (!path.isAbsolute(cwd)) throw new Error('despacho grok sem cwd absoluto');
+/**
+ * D8: a base do artefato da fase, lida ANTES do despacho, como o HEAD do GO. O despacho do grok espera a pasta da
+ * sessão, e a sessão pode gravar o documento antes do registro da fonte: a base lida depois seria o próprio documento.
+ * `null` quando a fase não entrega artefato.
+ */
+export function baseDoArtefato(raiz: string, threadId: string, fase: string): { arquivo: string; sha256: string | null } | null {
   const arquivo = ARTEFATO_DA_FASE[fase];
+  return arquivo ? { arquivo, sha256: estadoDoArtefato(raiz, threadId, arquivo).sha256 } : null;
+}
+
+/**
+ * D8: a fonte do despacho, com a base do artefato e o HEAD do GO lidos antes dele (`noDespacho`); sem a base, ela é
+ * lida agora, como no claude-bg.
+ */
+export function fonteGrokDoDespacho(raiz: string, threadId: string, fase: string, cwd: string,
+    sensores: { logPath: string; processoPath: string; reciboPath: string }, grokHome: string,
+    noDespacho: { head?: string | null; artefato?: { arquivo: string; sha256: string | null } | null } = {}): FonteGrok {
+  if (!path.isAbsolute(cwd)) throw new Error('despacho grok sem cwd absoluto');
+  const artefato = noDespacho.artefato !== undefined ? noDespacho.artefato : baseDoArtefato(raiz, threadId, fase);
   return { grok: 'streaming-json', logPath: sensores.logPath, processoPath: sensores.processoPath, reciboPath: sensores.reciboPath,
     cwd, grokHome,
-    ...(arquivo ? { artefato: { arquivo, sha256: estadoDoArtefato(raiz, threadId, arquivo).sha256 } } : {}),
-    ...(fase === 'GO' ? { head: head ?? null } : {}) };
+    ...(artefato ? { artefato } : {}),
+    ...(fase === 'GO' ? { head: noDespacho.head ?? null } : {}) };
 }
 
 /** D8: confere a fonte do `grok` contra o despacho e o diretório de sessões da thread. */
