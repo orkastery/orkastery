@@ -17,6 +17,7 @@ import { marcarContaDaFalha } from './ratelimit';
 import { SinalDeFalhaDeConta } from './types';
 import { ConsultaAgentesNativos } from './adapters/claude-bg';
 import { eventosDoIntervalo, garantirFonteClaude, INTERVALO_WATCH_CLAUDE_MS, observarClaudeSobLock, THREAD_REMOVIDA, validarFonteClaude } from './session-watcher-claude';
+import { observarGrokSobLock, validarFonteGrok } from './session-watcher-grok';
 import { reconciliarContaEsgotada } from './conta-esgotada';
 import { caminhoDoTrabalho, gravarRespostaFinalDaSessao } from './trabalho-thread';
 
@@ -83,9 +84,12 @@ interface Cursor {
   schema: 'ork.session-cursor/v1'; sessionId: string; despachoEm: string;
   crescimentoEm: number; progressoEm?: number; esperaDesde?: number; heartbeatEm: number; fontes: Record<string, FonteCursor>;
 }
-/** Três variantes exclusivas: log supervisionado (histórica), controller do despacho ou nativa claude-bg (I-34). */
+/**
+ * Variantes exclusivas: log supervisionado (histórica), controller do despacho, nativa claude-bg (I-34) ou o stream
+ * supervisionado do grok (RM-067, `grok: 'streaming-json'`, com os mesmos sufixos do log supervisionado).
+ */
 interface RegistroSensor { logPath?: string; processoPath?: string; reciboPath?: string; controlador?: string; cwd?: string;
-  nativo?: string; artefato?: { arquivo: string; sha256: string | null } }
+  nativo?: string; artefato?: { arquivo: string; sha256: string | null }; grok?: string; grokHome?: string; head?: string | null }
 function lerJson<T>(file: string): T | null {
   if (!fs.existsSync(file)) return null;
   if (fs.statSync(file).size > 65536) throw new Error('metadado de sensor excessivo');
@@ -213,7 +217,7 @@ function conferirRegistro(dir: string, registro: RegistroSensor): void {
  * com o dono da remoção.
  */
 function desfazerNaThreadRemovida(pasta: string, criadas: readonly string[]): void {
-  for (const cursor of ['cursor.json', 'cursor-claude.json']) {
+  for (const cursor of ['cursor.json', 'cursor-claude.json', 'cursor-grok.json']) {
     try { fs.rmSync(path.join(pasta, cursor), { force: true }); } catch { /* pasta já removida */ }
   }
   for (const nivel of [...criadas].reverse()) {
@@ -331,7 +335,7 @@ export function reconciliarSessaoSemWatcher(carregado: ManifestoCarregado, threa
   const ignorada = (detalhe: string): ResultadoReconciliacaoWatcher => ({ thread: threadId,
     sessionId: sessao?.sessionId ?? null, estado: 'ignorada', detalhe });
   if (thread.status === 'fechada' || !sessao || sessao.verificada !== true ||
-      !['codex', 'claude-bg'].includes(sessao.runtime) || typeof sessao.despachadaEm !== 'string')
+      !['codex', 'claude-bg', 'grok'].includes(sessao.runtime) || typeof sessao.despachadaEm !== 'string')
     return ignorada('sem sessão despachada e verificada que o watcher possa reconciliar');
   const dir = dirThread(carregado.raiz, threadId);
   let eventos = lerLedger(dir);
@@ -427,7 +431,8 @@ export function reconciliarSessaoSemWatcher(carregado: ManifestoCarregado, threa
 function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: string,
   { thread, sessao: registrada }: ReturnType<typeof resolverSessao>, opcoes: OpcoesObservacao): ResultadoWatcher {
   const sessao = exigirSessaoDespachada(registrada, sessionId);
-  if (sessao.runtime !== 'codex' && sessao.runtime !== 'claude-bg') throw new Error('watch requer sessão Codex ou claude-bg registrada');
+  if (sessao.runtime !== 'codex' && sessao.runtime !== 'claude-bg' && sessao.runtime !== 'grok')
+    throw new Error('watch requer sessão Codex ou claude-bg ou grok registrada');
   const now = opcoes.agoraMs ?? Date.now();
   if (!Number.isFinite(now)) throw new Error('relógio inválido');
   const dir = dirThread(carregado.raiz, thread.id);
@@ -451,6 +456,12 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
     if (sessao.runtime === 'claude-bg') {
       const r = comLockWatcher(pasta, () => observarClaudeSobLock({ raiz: carregado.raiz,
         thread, sessao, dir, pasta, chave, agoraMs: now, limiteMs: LIMITE_MORTE_MS, consulta: opcoes.consultaClaude, carregado })) ?? { ...base, ocupado: true };
+      return threadPresente(dir) ? r : desfazer();
+    }
+    // RM-067 (F2): o grok tem observador próprio (stream, recibo do supervisor e pasta da sessão), no mesmo lock.
+    if (sessao.runtime === 'grok') {
+      const r = comLockWatcher(pasta, () => observarGrokSobLock({ raiz: carregado.raiz, thread, sessao, dir, pasta, chave,
+        agoraMs: now, limiteMs: LIMITE_MORTE_MS, relogioReal: opcoes.agoraMs === undefined })) ?? { ...base, ocupado: true };
       return threadPresente(dir) ? r : desfazer();
     }
     let contaParaReconciliar: { perfil: NonNullable<ReturnType<typeof perfilDoRegistro>>; falha: SinalDeFalhaDeConta;
@@ -698,6 +709,10 @@ export function validarRegistroWatcher(raiz: string, sessionId: string, fonte?: 
     throw new Error('fonte nativa claude-agents em sessão de outro runtime');
   if (registro.controlador && sessao.runtime !== 'codex')
     throw new Error('fonte do controller Codex em sessão de outro runtime');
+  if (registro.grok !== undefined && sessao.runtime !== 'grok')
+    throw new Error('fonte do grok em sessão de outro runtime');
+  if (sessao.runtime === 'grok' && registro.grok === undefined)
+    throw new Error('sessão grok sem a fonte do grok');
   return { thread, sessao, dir, eventos, registro };
 }
 
@@ -706,6 +721,10 @@ export function validarFonteWatcher(raiz: string, sessionId: string, fonte?: Reg
   const { thread, sessao, dir, eventos, registro } = validarRegistroWatcher(raiz, sessionId, fonte);
   if (registro.nativo !== undefined) {
     validarFonteClaude(eventos, sessionId, registro as Parameters<typeof validarFonteClaude>[2]);
+    return;
+  }
+  if (registro.grok !== undefined) {
+    validarFonteGrok(eventos, sessionId, registro as Parameters<typeof validarFonteGrok>[2], dir);
     return;
   }
   if (registro.controlador) {
