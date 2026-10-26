@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-26T17:15:02.407Z",
+  "publicadoEm": "2026-10-26T17:30:05.148Z",
   "threads": [
     {
       "id": "ork-orkcheck3min",
@@ -91,7 +91,7 @@
       "sessao": {
         "viva": false,
         "desdeEm": "2026-10-25T02:50:28.461Z",
-        "motivo": "runtime claude-bg sem resposta (claude agents --json --all (perfil jcpgyn): claude agents falhou (código 143)); a sessão 59482a30 não foi verificada"
+        "motivo": "sessão 59482a30 sem processo (fantasma)"
       }
     }
   ]
