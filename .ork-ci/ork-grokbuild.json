@@ -1,0 +1,950 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-grokbuild",
+  "branch": "ork/ork-grokbuild-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/conferir-casos.cjs",
+      "alegacao": "T1: o conferidor de casos das claims roda o node --test com TAP num arquivo so e sai 0 apenas com o minimo de casos do prefixo passando, nenhum caindo e nenhum pulado; sai 1 com falta, queda, skip ou filtro que nao casa nada, e 2 com o uso errado",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/conferir-casos.test.js && node core/scripts/conferir-casos.cjs core/dist-test/test/conferir-casos.test.js CC 4"
+      ],
+      "criadoEm": "2026-10-26T02:13:34.181Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/test/conferir-casos.test.ts",
+      "alegacao": "T1: os 4 casos CC do conferidor (passa, faltam casos ou caso caindo, caso pulado e uso errado, filtro do nome) passam sem skip",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/conferir-casos.test.js CC 4"
+      ],
+      "criadoEm": "2026-10-26T02:13:35.957Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/grok-events.ts",
+      "alegacao": "T2: o parser do streaming-json do grok guarda o end (stopReason, sessionId, turnos, tokens do usage e custo so quando informado), o ultimo error com a mensagem redigida (inclusive chave xai-) e limitada a 300 caracteres, marca a sessao divergente quando o end vem sem o id despachado ou com outro, ignora tipo desconhecido e invalida linha que nao e evento, linha longa e end ou error depois do end",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/grok-events.test.js GE 9"
+      ],
+      "criadoEm": "2026-10-26T02:15:45.437Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/test/grok-events.test.ts",
+      "alegacao": "T2: os 9 casos GE do parser do stream do grok passam sem skip, com as fixtures escritas do formato do guia headless",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/grok-events.test.js GE 9"
+      ],
+      "criadoEm": "2026-10-26T02:15:47.184Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/grok/fim-normal.jsonl",
+      "alegacao": "T2: as fixtures do stream do grok (fim normal, erro de login, erro de rede, cortado, cancelado e limite) sao NDJSON valido, uma linha por evento com type, e o fim normal termina no end end_turn com o marcador da sessao",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const fs=require('fs');const d='core/test/fixtures/grok/';const n=['fim-normal','erro-login','erro-rede','cortado','cancelado','limite'];for(const f of n){const l=fs.readFileSync(d+f+'.jsonl','utf8').split('\\n').filter(Boolean).map(x=>JSON.parse(x));if(!l.length||!l.every(e=>typeof e.type==='string'))process.exit(1)}const fim=fs.readFileSync(d+'fim-normal.jsonl','utf8').trim().split('\\n').map(x=>JSON.parse(x)).at(-1);if(fim.type!=='end'||fim.stopReason!=='end_turn'||fim.sessionId!=='<SESSAO>')process.exit(1)\"",
+        "grep -q '\"stopReason\":\"cancelled\"' core/test/fixtures/grok/cancelado.jsonl && grep -q '\"type\":\"error\"' core/test/fixtures/grok/erro-login.jsonl"
+      ],
+      "criadoEm": "2026-10-26T02:15:51.484Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/grok/erro-login.jsonl",
+      "alegacao": "T2: a fixture do erro de login tem so o objeto error do runtime, com a frase de login ausente",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const fs=require('fs');const l=f=>fs.readFileSync('core/test/fixtures/grok/'+f,'utf8').trim().split('\\n').map(x=>JSON.parse(x)); const e=l('erro-login.jsonl');if(e.length!==1||e[0].type!=='error'||!/not logged in/i.test(e[0].message))process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-26T02:16:22.216Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/grok/erro-rede.jsonl",
+      "alegacao": "T2: a fixture do erro de rede termina no objeto error com a falha de rede e nao tem end",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const fs=require('fs');const l=f=>fs.readFileSync('core/test/fixtures/grok/'+f,'utf8').trim().split('\\n').map(x=>JSON.parse(x)); const e=l('erro-rede.jsonl');if(e.at(-1).type!=='error'||!/network error/.test(e.at(-1).message)||e.some(x=>x.type==='end'))process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-26T02:16:24.473Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/grok/cortado.jsonl",
+      "alegacao": "T2: a fixture do stream cortado nao tem end e para numa chamada de ferramenta em andamento",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const fs=require('fs');const l=f=>fs.readFileSync('core/test/fixtures/grok/'+f,'utf8').trim().split('\\n').map(x=>JSON.parse(x)); const e=l('cortado.jsonl');if(e.some(x=>x.type==='end')||e.at(-1).type!=='tool_call'||e.at(-1).status!=='in_progress')process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-26T02:16:26.702Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/grok/cancelado.jsonl",
+      "alegacao": "T2: a fixture do turno cancelado termina no end com stopReason cancelled e o marcador da sessao",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const fs=require('fs');const l=f=>fs.readFileSync('core/test/fixtures/grok/'+f,'utf8').trim().split('\\n').map(x=>JSON.parse(x)); const e=l('cancelado.jsonl');const f=e.at(-1);if(f.type!=='end'||f.stopReason!=='cancelled'||f.sessionId!=='<SESSAO>')process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-26T02:16:28.897Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/grok/limite.jsonl",
+      "alegacao": "T2: a fixture do fim por limite tem max_turns_reached e termina no end com stopReason max_turn_requests e o marcador da sessao",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const fs=require('fs');const l=f=>fs.readFileSync('core/test/fixtures/grok/'+f,'utf8').trim().split('\\n').map(x=>JSON.parse(x)); const e=l('limite.jsonl');const f=e.at(-1);if(e[0].type!=='max_turns_reached'||f.type!=='end'||f.stopReason!=='max_turn_requests'||f.sessionId!=='<SESSAO>')process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-26T02:16:31.127Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/grok.ts",
+      "alegacao": "T3: o comando do grok sai na ordem do contrato (-p com o prompt no argumento 2, --output-format streaming-json, -s com o id, --cwd da worktree, -m, --effort, --sandbox com workspace de piso e read-only no PLAN, --no-auto-update), sem --yolo, --always-approve nem --permission-mode",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/grok.test.js GK 3 '^GK(1|2|3):'"
+      ],
+      "criadoEm": "2026-10-26T02:18:40.425Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/grok.ts",
+      "alegacao": "T3: o ambiente do filho do grok sai sem XAI_API_KEY e sem as variaveis de provider pago, com o GROK_HOME do processo, e o pedido com perfil de conta recusa ate a F3; no despacho real o grok nao recebe a chave",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/grok.test.js GK 2 '^GK(5|8):'"
+      ],
+      "criadoEm": "2026-10-26T02:18:42.460Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/grok.ts",
+      "alegacao": "T3: o despacho real do grok roda pelo supervisor destacado (log, process.json e exit.json na pasta de logs da thread) e so fica verificado pela pasta da sessao do id que o ork escolheu, gravada pelo runtime, achada um nivel abaixo de sessions sem link e sem ambiguidade; o ensaio monta o comando e nao roda nada",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/grok.test.js GK 3 '^GK(6|8|11):'"
+      ],
+      "criadoEm": "2026-10-26T02:18:45.071Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/grok.ts",
+      "alegacao": "T3: o grok fora do PATH, a saida 1 sem error, o rate limit e o despacho sem a pasta de logs recusam com erro tipado; a saida 1 com o error de login vira runtime.auth-missing pela frase do runtime, sem a chave no resultado",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/grok.test.js GK 3 '^GK(7|9|10):'"
+      ],
+      "criadoEm": "2026-10-26T02:18:47.316Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/grok.ts",
+      "alegacao": "T3: a retomada do grok deriva do comando do despacho (mascarado ou nao), troca o prompt por continue e o -s pelo -r com o mesmo id, mantem cwd, modelo, esforco e sandbox, e recusa comando de outro runtime ou sem o id",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/grok.test.js GK 1 '^GK4:'"
+      ],
+      "criadoEm": "2026-10-26T02:18:49.515Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/test/grok.test.ts",
+      "alegacao": "T3: os 12 casos GK do adaptador do grok passam sem skip, e os testes do codex, do supervisor, do despacho por perfil e da higiene de runtime seguem verdes sem alteracao",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/grok.test.js GK 12 && node --test core/dist-test/test/codex.test.js core/dist-test/test/codex-runner.test.js core/dist-test/test/despacho-perfil.test.js core/dist-test/test/runtime-higiene.test.js"
+      ],
+      "criadoEm": "2026-10-26T02:18:51.903Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/test/grok-falso.ts",
+      "alegacao": "T3: o grok falso dos testes roda no PATH com GROK_HOME temporario, grava cada chamada e so a presenca da chave, cria a pasta da sessao do id e responde a versao",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/grok.test.js GK 2 '^GK(8|12):' && grep -q 'xai-visto' core/test/grok-falso.ts && grep -q 'process.env.GROK_HOME = casa' core/test/grok-falso.ts"
+      ],
+      "criadoEm": "2026-10-26T02:18:54.264Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/runtimes.ts",
+      "alegacao": "T4: o grok resolve por nome no registro (fonte: a pasta da sessao), fica fora de ORDEM_DOS_RUNTIMES, que segue claude-bg e codex, e do padrao claude-bg; o comando do claude-bg e do codex sai igual pelo registro; nome desconhecido recusa listando os tres; trocar para o grok exige o modelo dele",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/runtimes-grok.test.js GR 4 '^GR(1|2|3|6):' && node --test core/dist-test/test/runtimes.test.js"
+      ],
+      "criadoEm": "2026-10-26T02:24:33.221Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/setup.ts",
+      "alegacao": "T4: o setup recusa o grok como runtime de bloco e na ordem de fallback, com a recusa do despacho explicito, e a leitura do setup.json descarta o grok do bloco e do fallback; os testes de setup e o retrato pt-BR do setup seguem verdes",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/runtimes-grok.test.js GR 1 '^GR4:' && node --test core/dist-test/test/setup.test.js core/dist-test/test/setup-fallback.test.js core/dist-test/test/setup-versionado.test.js core/dist-test/test/locale-f3d-setup.test.js"
+      ],
+      "criadoEm": "2026-10-26T02:24:35.860Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "T4: runtime.adapter grok torna o manifesto invalido com a recusa do despacho explicito, e o runtime desconhecido segue com a recusa de antes",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/runtimes-grok.test.js GR 1 '^GR5:' && node --test core/dist-test/test/manifesto-modos.test.js"
+      ],
+      "criadoEm": "2026-10-26T02:24:37.917Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/runtime-context.ts",
+      "alegacao": "T4: num projeto com o MCP do Orkastery, o grok despacha sem contexto MCP (o ensaio do phase run sai com o comando do grok, sem --mcp-config) e a capacidade de rotacao dele segue nao capaz; o contexto do claude-bg e do codex nao muda",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/runtimes-grok.test.js GR 1 '^GR7:' && node --test core/dist-test/test/runtime-context.test.js"
+      ],
+      "criadoEm": "2026-10-26T02:24:40.208Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-setup.ts",
+      "alegacao": "T4: as recusas runtimeSoPorPedido e fallbackSoPorPedido existem em pt-BR e em ingles, e o catalogo segue com as mesmas chaves nas duas linguas, sem mensagem vazia nem travessao",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-dado.test.js && node core/scripts/conferir-casos.cjs core/dist-test/test/runtimes-grok.test.js GR 1 '^GR4:' && grep -q 'runtimeSoPorPedido: (runtime, allowed)' core/src/locale-setup.ts"
+      ],
+      "criadoEm": "2026-10-26T02:24:42.644Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/test/runtimes-grok.test.ts",
+      "alegacao": "T4: os 7 casos GR do grok no registro, no setup, no manifesto e no contexto passam sem skip",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/runtimes-grok.test.js GR 7"
+      ],
+      "criadoEm": "2026-10-26T02:24:44.361Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-erros.test.ts",
+      "alegacao": "T4: a recusa de runtime desconhecido no phase run lista claude-bg, codex e grok nas duas linguas",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-erros.test.js && grep -q 'homologados: claude-bg, codex, grok' core/test/locale-erros.test.ts && grep -q 'supported: claude-bg, codex, grok' core/test/locale-erros.test.ts"
+      ],
+      "criadoEm": "2026-10-26T02:24:46.256Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher-grok.ts",
+      "alegacao": "T5: o end_turn com saida 0 vira um unico phase_result por despacho: fase_concluida com a prova do ork e, sem ela, artifact.missing no PLAN e human.pending no GO e com pausa prevista; o end sem recibo com o processo ausente conclui pelo end sem alegar a saida; o resultado gravado por outra fonte impede o segundo",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/session-watcher-grok.test.js GW 4 '^GW(1|2|10|12):'"
+      ],
+      "criadoEm": "2026-10-26T02:32:56.945Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher-grok.ts",
+      "alegacao": "T5: a saida 1 com o objeto error do runtime vira parada tipada (runtime.auth-missing pela frase de login, runtime.unavailable na falha de rede, com o erro do runtime no resultado), e a saida 1 sem error vira runtime.unavailable",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/session-watcher-grok.test.js GW 2 '^GW(3|4):'"
+      ],
+      "criadoEm": "2026-10-26T02:32:59.179Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher-grok.ts",
+      "alegacao": "T5: as saidas 130 e 143, os sinais SIGINT e SIGTERM e o end cancelled viram interrupcao com human.pending e a retomada grok -p continue -r <id> derivada do comando do despacho; o fim por max_turn_requests ou refusal vai ao humano com o motivo e a mesma retomada",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/session-watcher-grok.test.js GW 2 '^GW(5|6):'"
+      ],
+      "criadoEm": "2026-10-26T02:33:01.560Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher-grok.ts",
+      "alegacao": "T5: o stream cortado sem end, sem recibo e sem processo so vira runtime.unavailable, com sessao_morta, no limite LIMITE_MORTE_MS e nunca um milissegundo antes; o processo vivo nao morre por silencio, e o progresso vira no maximo um runtime_heartbeat por minuto",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/session-watcher-grok.test.js GW 2 '^GW(7|9):'"
+      ],
+      "criadoEm": "2026-10-26T02:33:03.879Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher-grok.ts",
+      "alegacao": "T5: a saida 0 sem o evento end, o end com o id de outra sessao, a linha invalida e a linha final incompleta depois do recibo viram runtime.unavailable, sem alegar conclusao",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/session-watcher-grok.test.js GW 1 '^GW8:'"
+      ],
+      "criadoEm": "2026-10-26T02:33:06.098Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher.ts",
+      "alegacao": "T5: o session-watcher observa a sessao grok pelo observador proprio sob o mesmo lock, aceita a fonte do grok so em sessao grok, dentro de sessoes e com o cwd do despacho, e os testes existentes do watcher (codex, claude-bg, controller, thread removida e watcher longo) seguem verdes sem alteracao",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/session-watcher-grok.test.js GW 1 '^GW11:' && node --test core/dist-test/test/session-watcher.test.js core/dist-test/test/session-watcher-claude.test.js core/dist-test/test/session-watcher-controller.test.js core/dist-test/test/watcher-thread-removida.test.js core/dist-test/test/rm036-watcher-longo.test.js"
+      ],
+      "criadoEm": "2026-10-26T02:33:09.125Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/test/session-watcher-grok.test.ts",
+      "alegacao": "T5: os 12 casos GW do observador do grok passam sem skip",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/session-watcher-grok.test.js GW 12"
+      ],
+      "criadoEm": "2026-10-26T02:33:10.627Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/phase.ts",
+      "alegacao": "T6: o ork phase run com --runtime grok e --model despacha pelo adaptador com o prompt mascarado no ledger, verifica a sessao pela pasta do runtime, registra a fonte do grok com a base do artefato e o HEAD do GO lidos antes do despacho e inicia o watcher, que grava o phase_result e solta a conducao; o ensaio nao despacha, e sem o grok no PATH o gate runtime.unavailable fica com o prompt gravado",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/despacho-grok.test.js GD 4 '^GD(1|2|3|5):' && node --test core/dist-test/test/despacho-claude-watcher.test.js core/dist-test/test/runtimes.test.js core/dist-test/test/runtime-cruzado.test.js"
+      ],
+      "criadoEm": "2026-10-26T02:37:50.059Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "T6: o redespacho do retry pelo grok leva os sensores do supervisor ao registro e inicia o watcher, sem mudar o caminho do codex e do claude-bg; a interrupcao real do grok fica com o humano e o retry nao a reexecuta sozinho",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/despacho-grok.test.js GD 2 '^GD(4|6):' && node --test core/dist-test/test/retry.test.js core/dist-test/test/rm063-escada.test.js core/dist-test/test/rm063-retry-prompt.test.js"
+      ],
+      "criadoEm": "2026-10-26T02:37:52.677Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher-grok.ts",
+      "alegacao": "T6: a base do artefato da fonte do grok e lida antes do despacho, e o documento que a sessao grava logo no inicio conta como produzido",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/despacho-grok.test.js GD 1 '^GD3:'"
+      ],
+      "criadoEm": "2026-10-26T02:37:54.717Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/test/despacho-grok.test.ts",
+      "alegacao": "T6: os 6 casos GD do grok de ponta a ponta (ensaio, ausente, despacho real ate o phase_result, retry, GO com o HEAD e interrupcao real) passam sem skip",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/despacho-grok.test.js GD 6"
+      ],
+      "criadoEm": "2026-10-26T02:37:56.629Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-067-grok-build-homologado.md",
+      "alegacao": "T7: a pagina da RM-067 diz F1 e F2 entregues na thread ork-grokbuild com o grok simulado e o que falta (a D1, F3 a F5 e as lacunas), com o frontmatter em desenvolvimento e a thread no sdlc, e o docs verificar nao tem achado nela",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'F1 e F2 entregues' docs/roadmap/RM-067-grok-build-homologado.md && grep -q '### O que falta' docs/roadmap/RM-067-grok-build-homologado.md && grep -q 'thread: ork-grokbuild' docs/roadmap/RM-067-grok-build-homologado.md && grep -q 'ciclo: Em desenvolvimento' docs/roadmap/RM-067-grok-build-homologado.md",
+        "npm --prefix core run build && node core/dist/index.js docs verificar --pr --json | node -e \"let t='';process.stdin.on('data',d=>t+=d).on('end',()=>{const r=JSON.parse(t);const a=(r.achados||[]).filter(x=>x.id==='RM-067'||String(x.arquivo||'').includes('RM-067'));if(!Array.isArray(r.achados)||a.length)process.exit(1)})\""
+      ],
+      "criadoEm": "2026-10-26T02:41:05.300Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "T7: a referencia da CLI documenta o --runtime grok no ork phase run (despacho explicito, sem MCP ate a F4, sem XAI_API_KEY, sandbox workspace, fim pelo end e pelo recibo, interrupcao com a retomada), e a paridade dela com o parser segue verde",
+      "negativa": false,
+      "verificar": [
+        "grep -q -- '--runtime grok --model <modelo>' docs/referencia/cli.md && grep -q 'grok -p continue -r <id>' docs/referencia/cli.md && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm044-paridade-cli-md.test.js"
+      ],
+      "criadoEm": "2026-10-26T02:41:07.737Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "T7: a referencia da CLI em ingles documenta o --runtime grok e anda junto com a de pt-BR (mesmas invocacoes ork, linhas de tabela, codigo e titulos), sem portugues e sem travessao",
+      "negativa": false,
+      "verificar": [
+        "grep -q -- '--runtime grok --model <model>' docs/referencia/cli.en.md && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f3a-referencia.test.js"
+      ],
+      "criadoEm": "2026-10-26T02:41:09.903Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "T7: o CHANGELOG ganha em Nao publicado a linha do Grok Build por despacho explicito (RM-067, F1 e F2), com o que fica para F3 a F5, e o markdownlint segue limpo",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const t=require('fs').readFileSync('CHANGELOG.md','utf8');const s=t.slice(t.indexOf('## Não publicado'));const secao=s.slice(0,s.indexOf('\\n## ',5));if(!secao.includes('Grok Build por despacho explícito')||!secao.includes('RM-067'))process.exit(1)\" && node core/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs CHANGELOG.md docs/roadmap/RM-067-grok-build-homologado.md docs/referencia/cli.md docs/referencia/cli.en.md"
+      ],
+      "criadoEm": "2026-10-26T02:41:12.741Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "T7: o indice do roadmap, gerado pelo ork docs sincronizar, mostra a RM-067 em desenvolvimento, com a branch criada e os testes aprovados",
+      "negativa": false,
+      "verificar": [
+        "grep -q '| \\[RM-067\\](RM-067-grok-build-homologado.md) | Grok Build homologado ao lado de Codex e Claude Code | Em desenvolvimento | Branch criada | Aprovados |' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-10-26T02:41:14.638Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/test/horario-lint.test.ts",
+      "alegacao": "T5: o lint de horario segue verde com a excecao de maquina do identificador do heartbeat do grok, justificada como a do codex, e nenhum instante cru vai a texto para pessoa no codigo novo",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/horario-lint.test.js && grep -q \"arquivo: 'session-watcher-grok.ts', trecho: 'heartbeat:\" core/test/horario-lint.test.ts"
+      ],
+      "criadoEm": "2026-10-26T03:01:39.090Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/phase.ts",
+      "alegacao": "GO-FIX 1 (A1): o rate limit do grok antes da sessao vai a fila com o runtime grok, e a retomada forcada redespacha pelo grok com o modelo dele, nunca pelo runtime do bloco; o pedido dos outros runtimes segue como antes",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/despacho-grok.test.js GD 1 '^GD7:'"
+      ],
+      "criadoEm": "2026-10-26T03:19:18.122Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "GO-FIX 1 (A3): no PLAN que fecha o proprio bloco o grok roda com --sandbox read-only pelo phase run e pelo redespacho do retry; no #Auto, em que o PLAN nao fecha o bloco, vale a postura do manifesto",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/despacho-grok.test.js GD 1 '^GD8:'"
+      ],
+      "criadoEm": "2026-10-26T03:19:20.231Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/test/despacho-grok.test.ts",
+      "alegacao": "GO-FIX 1: os 8 casos GD do grok de ponta a ponta passam sem skip, inclusive o rate limit que volta pelo grok e o PLAN em read-only no retry",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/despacho-grok.test.js GD 8"
+      ],
+      "criadoEm": "2026-10-26T03:19:22.118Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher-grok.ts",
+      "alegacao": "GO-FIX 1 (A2, A5, S1, S4): o recibo e lido antes do stream; com saida diferente de zero e sem error, o end cancelado vira interrupcao e o end valido vai ao humano, e o error do runtime vence o end; o erro de spawn vira runtime.unavailable tipado; a batida observa a sessao grok; cada evento do fim sai uma vez; a retomada no detalhe sai com aspas",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/session-watcher-grok.test.js GW 5 '^GW(13|14|15|16|17):'"
+      ],
+      "criadoEm": "2026-10-26T03:24:10.800Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/test/session-watcher-grok.test.ts",
+      "alegacao": "GO-FIX 1: os 17 casos GW do observador do grok passam sem skip, com o mtime do stream e da pasta da sessao explicito onde o prazo importa, sem depender do relogio da maquina",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/session-watcher-grok.test.js GW 17"
+      ],
+      "criadoEm": "2026-10-26T03:24:12.878Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/grok.ts",
+      "alegacao": "GO-FIX 1 (A4): a cauda do stderr do grok descarta a linha cortada pela janela, e redigida antes de qualquer corte e guarda o fim; a frase de login do fim classifica a falha da conta, e nenhum pedaco de chave cortada sai do adaptador",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/grok.test.js GK 1 '^GK13:'"
+      ],
+      "criadoEm": "2026-10-26T03:27:35.307Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/grok-events.ts",
+      "alegacao": "GO-FIX 1 (A4): redigirTextoGrok redige o texto do runtime sem cortar, e a mensagem de erro corta so depois de redigir",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/grok-events.test.js GE 1 '^GE10:'"
+      ],
+      "criadoEm": "2026-10-26T03:27:37.246Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/test/grok.test.ts",
+      "alegacao": "GO-FIX 1: os 13 casos GK do adaptador do grok passam sem skip, inclusive a cauda longa do stderr com a chave cortada pela janela",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/grok.test.js GK 13"
+      ],
+      "criadoEm": "2026-10-26T03:27:39.107Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/test/grok-events.test.ts",
+      "alegacao": "GO-FIX 1: os 10 casos GE do parser do stream do grok passam sem skip, inclusive a redacao sem corte",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/grok-events.test.js GE 10"
+      ],
+      "criadoEm": "2026-10-26T03:27:40.798Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C52",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/test/runtimes-grok.test.ts",
+      "alegacao": "GO-FIX 1 (S6): a paridade do GR2 compara o comando do codex pelo registro com o literal de sempre, alem do claude-bg, e os 7 casos GR passam",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/runtimes-grok.test.js GR 7 && grep -q \"'--skip-git-repo-check', '-C', '/tmp', '--json', '-m', 'opus'\" core/test/runtimes-grok.test.ts"
+      ],
+      "criadoEm": "2026-10-26T03:28:10.663Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-067-grok-build-homologado.md",
+      "alegacao": "GO-FIX 1 (A6, A3, S2, S3, S7): a pagina avisa que, sem a chave, o despacho real autentica pelo login da assinatura e nenhuma conta real deve despachar antes da D1; o read-only vale no PLAN que fecha o proprio bloco; as lacunas listam a prova de vida do retry, o binario do impedimento do dono e a prova sob o lock",
+      "negativa": true,
+      "verificar": [
+        "grep -q 'nenhuma conta real deve despachar antes da decisão do dono' docs/roadmap/RM-067-grok-build-homologado.md && grep -q 'no PLAN que fecha o próprio bloco' docs/roadmap/RM-067-grok-build-homologado.md && grep -q 'a prova de vida do retry ainda não leem a sessão `grok`' docs/roadmap/RM-067-grok-build-homologado.md && grep -q 'o pedido de impedimento do dono ainda manda o binário `claude`' docs/roadmap/RM-067-grok-build-homologado.md"
+      ],
+      "criadoEm": "2026-10-26T03:29:35.517Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C54",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "GO-FIX 1 (A6): a linha do CHANGELOG avisa que, sem a chave, o despacho real autentica pelo login da assinatura, a alternativa da D1 em zona cinza da politica de uso",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'zona cinza da política de uso' CHANGELOG.md && node core/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-26T03:29:37.355Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "GO-FIX 1 (A3, A6): a referencia da CLI diz que o read-only vale no PLAN que fecha o proprio bloco e que, ate a D1, o despacho real usa o login da assinatura guardado no GROK_HOME",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'no PLAN que fecha o próprio bloco' docs/referencia/cli.md && grep -q 'o despacho real usa o login da assinatura que o `grok` guardou no `GROK_HOME`' docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-10-26T03:29:39.363Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C56",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "GO-FIX 1 (A3, A6): a referencia em ingles diz o mesmo que a de pt-BR sobre o PLAN que fecha o bloco e o login da assinatura ate a D1, e as duas seguem lado a lado",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'in a PLAN that closes its own block' docs/referencia/cli.en.md && grep -q 'a real dispatch uses the subscription login that `grok` stored in `GROK_HOME`' docs/referencia/cli.en.md && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f3a-referencia.test.js"
+      ],
+      "criadoEm": "2026-10-26T03:29:41.709Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C57",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher-grok.ts",
+      "alegacao": "GO-FIX 2 (N1, com o A2 do GO-FIX 1): o observador le a vida do processo antes do recibo e o recibo antes do stream; o supervisor que grava o recibo e sai no meio da observacao nunca fecha a fase sem a saida, e o end gravado junto com o recibo entra na mesma volta",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/session-watcher-grok.test.js GW 1 '^GW18:'"
+      ],
+      "criadoEm": "2026-10-26T04:03:28.902Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C58",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/test/session-watcher-grok.test.ts",
+      "alegacao": "GO-FIX 2 (N1, N4, N5): os 18 casos GW do observador do grok passam sem skip; o GW18 mata o supervisor de verdade no meio da observacao, o GW15 confere a chave do observador e o GW16 nao depende de o relogio da maquina estar adiante da data do despacho",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/session-watcher-grok.test.js GW 18 && grep -q 'Math.max(Date.now(), inicio) + LIMITE_MORTE_MS' core/test/session-watcher-grok.test.ts && grep -q 'assert.equal(c.resultados()\\[0\\].sensorResultId, id)' core/test/session-watcher-grok.test.ts"
+      ],
+      "criadoEm": "2026-10-26T04:03:31.683Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C59",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/grok.ts",
+      "alegacao": "GO-FIX 2 (N3, N6): com log de verdade antes da frase de login, a cauda do stderr classifica a falha da conta pela frase do fim, e o resultado guarda o fim em ate 500 unidades UTF-16, a unidade do corte de quem grava no ledger, sem comecar na metade baixa de um par substituto",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/grok.test.js GK 1 '^GK14:'"
+      ],
+      "criadoEm": "2026-10-26T04:05:59.217Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/test/grok.test.ts",
+      "alegacao": "GO-FIX 2: os 14 casos GK do adaptador do grok passam sem skip, inclusive a cauda com log de verdade e caractere fora do plano basico",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/grok.test.js GK 14"
+      ],
+      "criadoEm": "2026-10-26T04:06:00.832Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/test/despacho-grok.test.ts",
+      "alegacao": "GO-FIX 2 (N7): o GD7 poe claude e codex falsos na frente do PATH, e numa regressao da retomada nenhum binario de verdade roda na maquina do teste; os 8 casos GD passam sem skip e nenhum outro runtime e chamado",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/despacho-grok.test.js GD 8 && grep -q \"for (const nome of \\['claude', 'codex'\\])\" core/test/despacho-grok.test.ts"
+      ],
+      "criadoEm": "2026-10-26T04:06:54.234Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C62",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-067-grok-build-homologado.md",
+      "alegacao": "GO-FIX 2 (N2): a pagina diz que so o cancelled sem objeto error vai ao dono com qualquer saida, e que com o error e saida diferente de zero a parada tipada vence o cancelled, como o observador faz",
+      "negativa": true,
+      "verificar": [
+        "grep -q '`cancelled` sem objeto `error` (com qualquer saída) vão ao dono' docs/roadmap/RM-067-grok-build-homologado.md && grep -q 'a parada tipada vence o `cancelled`' docs/roadmap/RM-067-grok-build-homologado.md && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/session-watcher-grok.test.js GW 1 '^GW13:'"
+      ],
+      "criadoEm": "2026-10-26T04:08:01.997Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C63",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "GO-FIX 2 (N2): a referencia da CLI diz que o cancelled sem objeto error vira human.pending com qualquer saida",
+      "negativa": false,
+      "verificar": [
+        "grep -q '`cancelled` sem objeto `error` (com qualquer saída) viram `human.pending`' docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-10-26T04:08:03.705Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C64",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "GO-FIX 2 (N2): a referencia em ingles diz o mesmo sobre o cancelled sem objeto error, e as duas seguem lado a lado",
+      "negativa": false,
+      "verificar": [
+        "grep -q '`cancelled` without an `error` object (with any exit) become `human.pending`' docs/referencia/cli.en.md && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f3a-referencia.test.js"
+      ],
+      "criadoEm": "2026-10-26T04:08:05.665Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C65",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "GO-FIX 2 (N2): a linha do CHANGELOG diz que o cancelled sem objeto error vai ao dono com a retomada",
+      "negativa": false,
+      "verificar": [
+        "grep -q '`cancelled` sem objeto `error` vão ao dono' CHANGELOG.md && node core/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-26T04:08:07.405Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C67",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-067-grok-build-homologado.md",
+      "alegacao": "GO-FIX 3: a pagina diz que a parada tipada do error so vence o cancelled com saida diferente de 0, 130 e 143 e sem SIGINT nem SIGTERM, porque a interrupcao vem antes do error no observador",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'com o `error` e uma saída diferente de 0, 130 e 143, sem SIGINT nem SIGTERM, a parada tipada vence o `cancelled`' docs/roadmap/RM-067-grok-build-homologado.md && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/session-watcher-grok.test.js GW 2 '^GW(5|13):'"
+      ],
+      "criadoEm": "2026-10-26T04:34:37.136Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C68",
+      "thread": "ork-grokbuild",
+      "fase": "GOAL",
+      "arquivo": "core/test/session-watcher-grok.test.ts",
+      "alegacao": "GO-FIX 3 (substitui a C66, retirada pelo comando quebrado): o GW18 faz o supervisor terminar logo depois de a observacao procurar o recibo e nao o achar, e assim cai com a vida lida depois do recibo em qualquer ponto; o sleep do supervisor nasce dentro do try, com prazo longo que o limpar sempre encerra; os 18 casos GW passam sem skip",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/session-watcher-grok.test.js GW 18 && grep -q \"'depois', () => { k.recibo(0); morto = s.matar(); }\" core/test/session-watcher-grok.test.ts && grep -q \"spawn('sleep', \\['600'\\]\" core/test/session-watcher-grok.test.ts"
+      ],
+      "criadoEm": "2026-10-26T04:35:23.612Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C41",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
