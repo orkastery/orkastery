@@ -172,6 +172,12 @@ test('GD6: a interrupcao real (SIGTERM) vira human.pending com a retomada, e o r
 test('GD7: o rate limit do grok antes da sessao vai a fila com o runtime grok, e a retomada volta pelo grok com o modelo dele', () => {
   const c = cenario('rate');
   try {
+    // Numa regressão, a retomada sairia pelo runtime do bloco: os falsos na frente do PATH impedem que um binário de
+    // verdade rode na máquina do teste e deixam a marca da chamada.
+    for (const nome of ['claude', 'codex']) {
+      fs.writeFileSync(path.join(c.stub!.dir, nome), `#!/bin/sh\nprintf '%s\\n' "$@" >> "$(dirname "$0")/${nome}-chamado"\nexit 1\n`,
+        { mode: 0o755 });
+    }
     c.stub!.streamTexto(`${JSON.stringify({ type: 'error', message: '429 Too Many Requests, retry after 30 seconds' })}\n`);
     c.stub!.semSessao();
     c.stub!.saida(1);
@@ -189,6 +195,8 @@ test('GD7: o rate limit do grok antes da sessao vai a fila com o runtime grok, e
     assert.equal(chamadas.length, 2, 'a retomada chamou o grok');
     assert.equal(chamadas[1][chamadas[1].indexOf('-m') + 1], 'grok-modelo');
     assert.equal(c.eventos().filter((e) => e.tipo === 'phase_dispatch').at(-1)?.runtime, 'grok');
+    assert.deepEqual(['claude', 'codex'].filter((nome) => fs.existsSync(path.join(c.stub!.dir, `${nome}-chamado`))), [],
+      'nenhum outro runtime foi chamado');
   } finally { c.limpar(); }
 });
 
