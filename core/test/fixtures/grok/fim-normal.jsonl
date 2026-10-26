@@ -1,0 +1,8 @@
+{"type":"available_commands","tools":["read_file","edit_file","bash"],"commands":["/help","/compact"]}
+{"type":"plan","entries":[{"content":"Ler o pedido da fase","priority":"high","status":"completed"},{"content":"Gravar o artefato","priority":"high","status":"in_progress"}]}
+{"type":"thought","data":"Vou ler o pedido da fase."}
+{"type":"tool_call","toolCallId":"call_1","title":"Read","kind":"read","status":"in_progress","toolName":"read_file","rawInput":{"path":"README.md"},"content":[],"locations":[{"path":"README.md"}]}
+{"type":"tool_call_update","toolCallId":"call_1","status":"completed","content":[{"type":"content","content":{"type":"text","text":"# projeto"}}],"rawOutput":"# projeto","locations":[{"path":"README.md"}]}
+{"type":"usage","messageId":"msg_1","stopReason":"tool_use","usage":{"input_tokens":900,"output_tokens":40},"signature":"assinatura-opaca"}
+{"type":"text","data":"Here's a summary"}
+{"type":"end","stopReason":"end_turn","sessionId":"<SESSAO>","requestId":"xyz789","usage":{"input_tokens":1200,"cache_read_input_tokens":800,"cache_creation_input_tokens":0,"output_tokens":340,"reasoning_tokens":120,"total_tokens":1540},"num_turns":7,"modelUsage":{"grok-modelo":{"inputTokens":1200,"outputTokens":340,"cacheReadInputTokens":800,"modelCalls":7}}}

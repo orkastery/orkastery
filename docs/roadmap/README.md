@@ -91,7 +91,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-064](RM-064-conta-esgotada-nao-para-a-fase.md) | Conta esgotada não para a fase | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-19 |
 | [RM-065](RM-065-gitlab-com-paridade-ao-github.md) | GitLab com paridade ao GitHub | Em validação | PR aberto | Aprovados | Não implantado | 2026-10-14 |
 | [RM-066](RM-066-google-antigravity-homologado.md) | Google Antigravity homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-19 |
-| [RM-067](RM-067-grok-build-homologado.md) | Grok Build homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-19 |
+| [RM-067](RM-067-grok-build-homologado.md) | Grok Build homologado ao lado de Codex e Claude Code | Em desenvolvimento | Branch criada | Aprovados | Não implantado | 2026-10-26 |
 | [RM-068](RM-068-security-scan-no-check.md) | Security scan no CHECK | Em validação | Mesclado | Aprovados | Não implantado | 2026-10-20 |
 | [RM-069](RM-069-dsn-fora-do-ambiente-dos-agentes.md) | DSN com senha fora do ambiente dos agentes | Em desenvolvimento | Mesclado | Aprovados | Não implantado | 2026-10-21 |
 | [RM-070](RM-070-grok-bot-como-camada-de-conducao.md) | Grok Bot como camada de condução do Orkastery | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-21 |

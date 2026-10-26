@@ -16,6 +16,8 @@ import { esperarVaga, vagaDoDespacho, VagaRecusada } from './board';
 import { ConducaoDoVerify, gravarBaseline } from './verify';
 import { iniciarWatcher, prepararFonteWatcher } from './session-watcher';
 import { fonteClaudeDoDespacho, headDaWorktree } from './session-watcher-claude';
+import { baseDoArtefato, fonteGrokDoDespacho } from './session-watcher-grok';
+import { casaDoGrok } from './adapters/grok';
 import { ManifestoCarregado, exigirManifesto } from './manifest';
 import { grafoLigado } from './mcp-grafo';
 import { PedidoDeDespacho, ResultadoDeDespacho, resolverRuntime, runtimeConhecido } from './runtimes';
@@ -486,6 +488,8 @@ export interface ContextoDeDespacho {
   perfil?: PerfilDeDespacho;
   /** I-33 (N1): HEAD da worktree lido ANTES do despacho do GO codex; `null` quando o git nao respondeu. */
   headNoDespacho?: string | null;
+  /** RM-067 (D8): base do artefato da fase lida ANTES do despacho do grok; `null` quando a fase nao entrega artefato. */
+  artefatoNoDespacho?: { arquivo: string; sha256: string | null } | null;
   /** I-36 (T10): canal de origem do despacho e a conversa/mensagem que o originou. */
   canal?: CanalDeConducao;
   correlacao?: string | null;
@@ -606,7 +610,7 @@ export function concluirDespacho(
   vincularConducaoDaSessao(ctx, sessionId);
   // I-51 (RM-047): as outras maquinas veem a fase nova; so com a fabrica compartilhada.
   publicarEmSegundoPlano(ctx.raiz);
-  if (ctx.runtime === 'codex' || ctx.runtime === 'claude-bg') registrarObservacao(ctx, sessao, dir, controlador, sensores);
+  if (ctx.runtime === 'codex' || ctx.runtime === 'claude-bg' || ctx.runtime === 'grok') registrarObservacao(ctx, sessao, dir, controlador, sensores);
   return sessao;
 }
 
@@ -641,7 +645,13 @@ function registrarObservacao(ctx: ContextoDeDespacho, sessao: SessaoDaThread, di
     // I-34: claude-bg observa pela fonte nativa; no PLAN o registro guarda o sha de base do artefato.
     // I-33 (N1): o GO codex registra o HEAD do despacho, como a fonte claude-bg; ele revela commit pelo shell no checkpoint.
     const head = ctx.runtime === 'codex' && ctx.fase === 'GO' ? { head: ctx.headNoDespacho ?? null } : {};
-    const fonte = ctx.runtime === 'claude-bg' ? fonteClaudeDoDespacho(ctx.raiz, ctx.thread.id, ctx.fase, ctx.cwd)
+    // RM-067 (F2, D8): o grok observa o stream e os recibos do supervisor; o HEAD do GO vem de antes do despacho.
+    const fonte = ctx.runtime === 'grok' ? (sensores?.logPath && sensores.processoPath && sensores.reciboPath
+      ? fonteGrokDoDespacho(ctx.raiz, ctx.thread.id, ctx.fase, ctx.cwd,
+        { logPath: sensores.logPath, processoPath: sensores.processoPath, reciboPath: sensores.reciboPath }, casaDoGrok(),
+        { head: ctx.headNoDespacho, ...(ctx.artefatoNoDespacho !== undefined ? { artefato: ctx.artefatoNoDespacho } : {}) })
+      : null)
+      : ctx.runtime === 'claude-bg' ? fonteClaudeDoDespacho(ctx.raiz, ctx.thread.id, ctx.fase, ctx.cwd)
       : sensores?.logPath ? { logPath: sensores.logPath, processoPath: sensores.processoPath, reciboPath: sensores.reciboPath, ...head }
       : controlador ? { controlador, cwd: ctx.cwd, ...head } : null;
     if (!fonte) return;
@@ -1076,8 +1086,10 @@ function rodarFaseSobLock(
     const claimsSchema = fase === 'GO' && runtime === 'codex'
       ? schemaDeClaimsDoPacote()
       : undefined;
-    // I-33 (N1): lido antes de a sessao existir; depois dela, um commit rapido ja estaria no HEAD.
-    const headNoDespacho = fase === 'GO' && runtime === 'codex' && !opcoes.dryRun ? headDaWorktree(cwd) : undefined;
+    // I-33 (N1): lido antes de a sessao existir; depois dela, um commit rapido ja estaria no HEAD. RM-067: o grok tambem.
+    const headNoDespacho = fase === 'GO' && (runtime === 'codex' || runtime === 'grok') && !opcoes.dryRun ? headDaWorktree(cwd) : undefined;
+    // RM-067 (D8): a base do artefato do grok tambem sai antes do despacho, que espera a pasta da sessao.
+    const artefatoNoDespacho = runtime === 'grok' && !opcoes.dryRun ? baseDoArtefato(raiz, thread.id, fase) : undefined;
     const pedidoAoRuntime: PedidoDeDespacho = {
       prompt,
       nome: slug,
@@ -1119,6 +1131,7 @@ function rodarFaseSobLock(
       origem: 'phase.run',
       ...(perfil ? { perfil } : {}),
       ...(headNoDespacho !== undefined ? { headNoDespacho } : {}),
+      ...(artefatoNoDespacho !== undefined ? { artefatoNoDespacho } : {}),
     };
     let resultado: ResultadoDeDespacho;
     try { resultado = rt.despachar(pedidoAoRuntime); }
@@ -1211,6 +1224,8 @@ function rodarFaseSobLock(
           detalhe: erro,
           // RM-058 N4 (D17 da ork-rm058n4): o pedido do despacho do arco é do vigia do arco, e o `ork retry resume` não o retoma.
           ...(opcoes.correlacao ? { correlacao: opcoes.correlacao } : {}),
+          // RM-067 (GO-FIX 1, A1): o pedido do grok volta pelo grok, com o modelo dele; o dos outros runtimes segue como antes.
+          ...(runtime === 'grok' ? { runtime } : {}),
         });
         registrar(dir, thread.id, TIPOS_DE_EVENTO.rateLimitEnfileirado, {
           fase,

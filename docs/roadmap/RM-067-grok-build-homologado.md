@@ -6,12 +6,12 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-19T23:50:00-03:00
+atualizado_em: 2026-10-26T01:34:00-03:00
 estado:
-  ciclo: Discovery
-  documentacao: Rascunho
-  codigo: Não iniciado
-  testes: Não iniciados
+  ciclo: Em desenvolvimento
+  documentacao: Em revisão
+  codigo: Branch criada
+  testes: Aprovados
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
@@ -20,8 +20,10 @@ evidencias:
     commit: null
     pr: null
 sdlc:
-  thread: null
-  modo: null
+  thread: ork-grokbuild
+  modo: "#Auto"
+  fase: GOAL
+  status: aberta
 ---
 
 # RM-067: Grok Build homologado ao lado de Codex e Claude Code
@@ -32,11 +34,13 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Discovery | Não iniciado | Não iniciados | Não implantado | Flag desligada |
+| Em desenvolvimento | Branch criada | Aprovados | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
-**Pedido do dono de 19/10/2026:** "e também adicione o Grok Build, o agente CLI do Grok". Esta página é só planejamento: nenhum código nem teste foi escrito, e os critérios de aceite abaixo são o que cada fatia terá de provar.
+**Pedido do dono de 19/10/2026:** "e também adicione o Grok Build, o agente CLI do Grok". Prioridade do dono em 25/10/2026: "Priorize RM-067 Grok Build além das que já estão em andamento".
+
+**Estado:** F1 e F2 entregues na thread `ork-grokbuild`, com testes sobre um `grok` simulado, porque a máquina não tem o runtime. F3 a F5 ficam para depois, e a F3 espera a decisão D1 do dono. O que existe e o que falta estão em "Estado com evidências".
 
 **Decisão de condução:** uma página por runtime, porque cada um avança no próprio ritmo. O Google Antigravity tem a [RM-066](RM-066-google-antigravity-homologado.md).
 
@@ -44,7 +48,7 @@ sdlc:
 
 ## Problema e resultado
 
-- **Público e problema/oportunidade:** o dono que já conduz fases pelo `claude-bg` e pelo `codex` e quer um terceiro runtime, de outro fornecedor, para o rodízio de contas e para o fallback quando uma cota acaba ([RM-064](RM-064-conta-esgotada-nao-para-a-fase.md)). Hoje o `ork` só despacha por dois runtimes: `RUNTIMES` em `core/src/runtimes.ts` tem duas entradas.
+- **Público e problema/oportunidade:** o dono que já conduz fases pelo `claude-bg` e pelo `codex` e quer um terceiro runtime, de outro fornecedor, para o rodízio de contas e para o fallback quando uma cota acaba ([RM-064](RM-064-conta-esgotada-nao-para-a-fase.md)). Até a thread `ork-grokbuild`, o `ork` só despachava por dois runtimes; com F1 e F2, o `grok` entra no registro `RUNTIMES` (`core/src/runtimes.ts`) só por despacho explícito.
 - **Evidências e fonte:** o pedido do dono de 19/10/2026 e a pesquisa de 19/10/2026 sobre o `grok`, com as fontes na seção "Fontes" abaixo, reconferidas na mesma data.
 - **Objetivo/OKR:** o `grok` aparece em `ork phase run --runtime` e em `ork setup` como runtime homologado, com o mesmo contrato de despacho: `dry-run`, verificação externa da sessão e nenhum auto-relato como prova.
 - **Hipótese:** se o adaptador do `grok` reaproveitar o contrato `RuntimeAdapter` e ler o fim da sessão de uma fonte que o próprio runtime grava (o evento `end` do `streaming-json` e o `updates.jsonl` da sessão), então ele entra no rodízio sem mudar o contrato dos outros dois, porque o `grok` já tem modo headless com saída de máquina, códigos de saída documentados e transcrição em JSONL.
@@ -119,15 +123,36 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-10-19 | Julio |
-| Documentação | Rascunho | — | 2026-10-19 | Julio |
-| Código | Não iniciado | — | 2026-10-19 | Julio |
-| Testes | Não iniciados | — | 2026-10-19 | Julio |
-| Deploy | Não implantado | — | 2026-10-19 | Julio |
-| Exposição | Flag desligada | — | 2026-10-19 | Julio |
-| Habilitação | Pendente | — | 2026-10-19 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-26 | Julio |
+| Documentação | Em revisão | — | 2026-10-26 | Julio |
+| Código | Branch criada | — | 2026-10-26 | Julio |
+| Testes | Aprovados | — | 2026-10-26 | Julio |
+| Deploy | Não implantado | — | 2026-10-26 | Julio |
+| Exposição | Flag desligada | — | 2026-10-26 | Julio |
+| Habilitação | Pendente | — | 2026-10-26 | Julio |
 
 <!-- ork-docs:estado:fim -->
+
+### F1 e F2 entregues (thread `ork-grokbuild`)
+
+As provas usam um `grok` simulado: um binário falso em `sh` no PATH e o stream `streaming-json` escrito a partir do formato do guia headless (G4), em `core/test/fixtures/grok/`. O ensaio com o runtime real é a F5.
+
+- **F1, adaptador e despacho headless** (`core/src/adapters/grok.ts`): `ork phase run <thread> <FASE> --runtime grok --model <modelo>` monta `grok -p <prompt> --output-format streaming-json -s <id> --cwd <worktree> -m <modelo> --effort <esforço> --sandbox <perfil> --no-auto-update` e roda pelo supervisor destacado, com o log do stream e os recibos de processo e de saída.
+- **Prova de existência:** o id da sessão é do `ork` (`-s`), e a sessão só fica verificada pela pasta `<GROK_HOME>/sessions/<grupo>/<id>/` com o `updates.jsonl`, que o runtime grava. O `ork` lista nomes e lê o tamanho desse arquivo, nunca o conteúdo, e nunca abre o `auth.json`.
+- **Ensaio e ausência:** `--dry-run` monta o comando e não despacha; sem o `grok` no PATH, o despacho recusa com `runtime.unavailable` tipado e deixa o prompt gravado para o `ork retry`. O rate limit de janela curta antes da sessão vai à fila com o runtime `grok`, e a retomada volta por ele, com o modelo dele.
+- **Credencial e sandbox:** o filho roda sem `XAI_API_KEY` e sem as variáveis de provider pago, até a D1. Sem a chave, o despacho real autentica pelo login que o próprio `grok` guardou no `GROK_HOME`, o da assinatura: é a alternativa b da D1, em zona cinza da política de uso, então nenhuma conta real deve despachar antes da decisão do dono. O perfil de sandbox é `workspace` (o piso da E7), e `read-only` com `runtime.sandbox: read-only` e no PLAN que fecha o próprio bloco (no `#Auto`, de bloco único, o PLAN segue a postura do manifesto); nunca `--yolo`.
+- **Só explícito:** o `grok` resolve por nome no despacho, mas não é runtime de bloco, nem fallback, nem `runtime.adapter`: o `ork setup` e o manifesto recusam com a mensagem do despacho explícito, e a leitura do `setup.json` o descarta.
+- **F2, fim da sessão e watcher** (`core/src/session-watcher-grok.ts`): o fim vem do evento `end` do stream e do recibo de saída do supervisor, com um único `phase_result` por despacho, e a condução da thread solta com ele.
+- **Classificação:** `end_turn` com saída 0 só conclui com a prova do `ork` (a mesma do `claude-bg`); a saída 1 com objeto `error` vira parada tipada (`runtime.auth-missing` pela frase do runtime, senão `runtime.unavailable`); 130, 143, SIGINT, SIGTERM e `cancelled` sem objeto `error` (com qualquer saída) vão ao dono (`human.pending`) com a retomada `grok -p continue -r <id>`, e o `end` válido seguido de outra saída sem `error` também; com o `error` e uma saída diferente de 0, 130 e 143, sem SIGINT nem SIGTERM, a parada tipada vence o `cancelled`; o stream sem `end` e sem processo vira `runtime.unavailable` depois do `LIMITE_MORTE_MS`.
+- **Paridade:** o comando, o registro e os testes do `claude-bg` e do `codex` não mudaram, e os testes deles seguem verdes.
+
+### O que falta
+
+- **D1 do dono:** o modo de autenticação. Sem ela, a F3 não começa, e o filho segue sem `XAI_API_KEY`.
+- **F3:** perfis com `GROK_HOME` por conta, login pelo próprio CLI, sinal tipado de cota esgotada (o formato do erro de cota não é documentado) e entrada na escada e no fallback.
+- **F4:** `ork setup` com o `grok`, o sandbox `off` e `strict` com a confirmação local, o host do MCP do `ork` (inclusive o `ork_phase_run` pelo MCP), as regras `--allow` e `--deny`, a confiança da worktree, o playbook e o onboarding. Sem o MCP, a sessão `grok` não grava o artefato da fase nem registra commit pelo núcleo, então a prova do `ork` ainda não fecha uma fase real.
+- **F5:** o ensaio real de homologação, que também confirma o `-s` com o id do `ork`, o formato do stream e o comportamento sem aprovação automática.
+- **Lacunas menores:** a retomada automática pelo `ork retry` com `-r`; o inventário de sessões vivas (`ork sessions`), o status do roadmap e a prova de vida do retry ainda não leem a sessão `grok` (quem impede a segunda sessão na worktree é o lease da condução, que só solta com o resultado); o pedido de impedimento do dono ainda manda o binário `claude` para o `grok`; com o MCP da F4, a prova do `ork` do `grok` precisa reler os eventos sob o lock da sessão, como o `claude-bg`; a medição de consumo do #Noctum.
 
 ### Fontes
 
@@ -149,10 +174,11 @@ Pontos que a página não confirma: a GA; a mensagem e o formato do CLI na cota 
 
 ## Responsabilidades e histórico
 
-- **RACI (R / A / C / I):** R: condutor da thread `ork-runtimesnovo`, só para esta página; A: Julio; C: A definir; I: A definir.
-- **Agentes envolvidos, atuação, autonomia e revisor humano:** a página foi redigida por agente em #Fast, a partir do pedido do dono e das fontes citadas; revisor humano: Julio. Nenhum código foi escrito.
-- **Próxima ação, responsável e prazo:** Julio decide D1 e a posição do item no índice de prioridade; sem prazo definido.
+- **RACI (R / A / C / I):** R: condutor da thread `ork-runtimesnovo` para a página e da thread `ork-grokbuild` para F1 e F2; A: Julio; C: A definir; I: A definir.
+- **Agentes envolvidos, atuação, autonomia e revisor humano:** a página foi redigida por agente em #Fast, a partir do pedido do dono e das fontes citadas; F1 e F2 foram implementadas por agente em #Auto na thread `ork-grokbuild`, com testes sobre o `grok` simulado; revisor humano: Julio.
+- **Próxima ação, responsável e prazo:** Julio decide D1; com ela, a F3 pode começar. Sem prazo definido.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-19 | Item criado em Discovery, com cinco fatias propostas e a decisão D1 aberta | Pedido do dono de 19/10/2026; fontes reconferidas na mesma data | Julio |
+| 2026-10-25 | F1 e F2 entregues na thread `ork-grokbuild`, com o `grok` simulado; F3 a F5 seguem propostas, e a F3 espera a D1 | Prioridade do dono de 25/10/2026; testes do adaptador, do stream, do registro, do watcher e de ponta a ponta | Julio |

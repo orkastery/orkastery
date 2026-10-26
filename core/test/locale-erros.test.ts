@@ -44,7 +44,7 @@ test('locale en F2a erros: manifesto ausente, --slug, --roadmap, --runtime e o m
     const antes = fs.readFileSync(ledger, 'utf8');
     const runtime = ork(c, EN, true, 'phase', 'run', 'loc-rt', 'GOAL', '--prompt', 'x', '--runtime', 'bogus');
     assert.equal(runtime.status, 1);
-    assert.equal(runtime.stderr, 'error: unknown dispatch runtime: "bogus" (supported: claude-bg, codex)\n');
+    assert.equal(runtime.stderr, 'error: unknown dispatch runtime: "bogus" (supported: claude-bg, codex, grok)\n');
     const modelo = ork(c, EN, true, 'phase', 'run', 'loc-rt', 'GOAL', '--prompt', 'x', '--runtime', 'codex');
     assert.equal(modelo.status, 1);
     assert.equal(modelo.stderr, 'error: setup.model.required: switching the runtime from claude-bg to codex needs a model; ' +
@@ -127,7 +127,7 @@ test('locale en F2a erros: em pt-BR e com --json as mensagens seguem as da base'
     }
     assert.equal(ork(c, PT, false, 'thread', 'new', 'Rt', '--modo', 'auto', '--sem-worktree').status, 0);
     assert.equal(ork(c, PT, true, 'phase', 'run', 'loc-rt', 'GOAL', '--prompt', 'x', '--runtime', 'bogus').stderr,
-      'erro: runtime de despacho desconhecido: "bogus" (homologados: claude-bg, codex)\n');
+      'erro: runtime de despacho desconhecido: "bogus" (homologados: claude-bg, codex, grok)\n');
     assert.equal(ork(c, PT, true, 'phase', 'run', 'loc-rt', 'GOAL', '--prompt', 'x', '--runtime', 'codex').stderr,
       'erro: setup.model.required: ao trocar runtime de claude-bg para codex, informe --runtime codex --model <modelo> para este despacho; ' +
       'o setup do projeto permanece intacto.\n');

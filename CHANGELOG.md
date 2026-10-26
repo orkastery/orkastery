@@ -6,6 +6,20 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Adicionado
+
+- **Grok Build por despacho explícito** ([RM-067](docs/roadmap/RM-067-grok-build-homologado.md), F1 e F2):
+  `ork phase run <thread> <FASE> --runtime grok --model <modelo>` despacha a fase pelo Grok Build headless (`grok -p`
+  com `--output-format streaming-json`), com o id da sessão escolhido pelo `ork`, a sessão conferida na pasta que o
+  runtime grava, o filho sem `XAI_API_KEY` e o sandbox `workspace` de piso. O watcher fecha a fase pelo evento `end` do
+  stream e pelo recibo de saída do supervisor: `end_turn` só conclui com a prova do `ork`, a saída 1 com objeto `error`
+  vira parada tipada, 130, 143 e `cancelled` sem objeto `error` vão ao dono com a retomada `grok -p continue -r <id>`,
+  e o stream sem `end` vira `runtime.unavailable` depois do prazo. Sem a chave, o despacho real autentica pelo login
+  da assinatura que o `grok` guardou no `GROK_HOME`, a alternativa da D1 em zona cinza da política de uso: nenhuma
+  conta real deve despachar antes da decisão do dono. O `grok` não é padrão de bloco, nem fallback, nem
+  `runtime.adapter`, e ainda despacha sem o MCP do `ork`; perfis de conta, login e cota (F3, que espera a decisão D1
+  do dono), setup, MCP e onboarding (F4) e o ensaio real (F5) ficam para depois. O `claude-bg` e o `codex` não mudam.
+
 ## [0.6.0] - 2026-10-26
 
 O CHECK padrão passou a ser o **Agile Check**; para voltar ao Classic, use `check.mode: classic` no `orkastery.yaml` ou `ork verify --check classic`.

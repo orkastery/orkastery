@@ -45,6 +45,7 @@ import { avaliarPolicies, bloqueantes, motivoDominante } from './policies';
 import { aguardando, arcoDoPedido, enfileirar, exigirPedido, gravarPedido, janelaPadraoMs, lerFilaDeRetomada, marcarContaDaFalha,
   PedidoComPerfil, vencidos } from './ratelimit';
 import { eventosDoIntervalo, fonteRegistrada, headDaWorktree, saidaDoArtefato } from './session-watcher-claude';
+import { baseDoArtefato } from './session-watcher-grok';
 import {
   lerPerfis, lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDoRegistro, perfisDisponiveis, perfisDoRuntime,
   PoliticaDeRotacao, politicaDeRotacao, prazoDaFila, prazoDoRuntime, proximoPerfilDisponivel,
@@ -795,8 +796,10 @@ function redespacharSobLock(
         sinal: prazo ? { resetEm: prazo, fonte: 'iso', trecho: `menor esgotadoAte dos perfis ${runtime}` } : null };
     }
     const perfil = escolha.perfil ?? undefined;
-    // I-33 (N1): o HEAD do GO codex sai antes do despacho, como no `ork phase run`.
-    const headNoDespacho = fase === 'GO' && runtime === 'codex' && !opcoes.dryRun ? headDaWorktree(cwd) : undefined;
+    // I-33 (N1): o HEAD do GO codex sai antes do despacho, como no `ork phase run`. RM-067: o grok tambem.
+    const headNoDespacho = fase === 'GO' && (runtime === 'codex' || runtime === 'grok') && !opcoes.dryRun ? headDaWorktree(cwd) : undefined;
+    // RM-067 (D8): a base do artefato do grok tambem sai antes do redespacho, como no `ork phase run`.
+    const artefatoNoDespacho = runtime === 'grok' && !opcoes.dryRun ? baseDoArtefato(raiz, thread.id, fase) : undefined;
     const resultado = rt.despachar({
       prompt,
       nome: slug,
@@ -810,7 +813,8 @@ function redespacharSobLock(
       ...(perfil ? { perfil } : {}),
       // RM-037 (defeito 2): o modo plano segue a mesma regra do `ork phase run`, pelo bloco.
       contextoRuntime,
-      ...(runtime === 'claude-bg' && modoDaSessaoDoBloco(thread, fase).plano ? { colaboracao: 'plan' as const } : {}),
+      // RM-067 (GO-FIX 1, A3): o grok tambem; no PLAN que fecha o bloco, ele roda em read-only.
+      ...((runtime === 'claude-bg' || runtime === 'grok') && modoDaSessaoDoBloco(thread, fase).plano ? { colaboracao: 'plan' as const } : {}),
       // I-36 (D4): a sessao retomada herda a identidade do despacho e o canal, como no `ork phase run`.
       ambienteExtra: ambienteDaConducao(identidade.dispatchId, thread.id, canal),
     });
@@ -891,8 +895,12 @@ function redespacharSobLock(
       origem: opcoes.origem ?? 'retry',
       ...(perfil ? { perfil } : {}),
       ...(headNoDespacho !== undefined ? { headNoDespacho } : {}),
+      ...(artefatoNoDespacho !== undefined ? { artefatoNoDespacho } : {}),
     };
-    concluirDespacho(ctx, resultado.sessionId, resultado.verificada, resultado.comando, rt.fonteVerificacao, resultado.controlador);
+    // RM-067 (D14 da ork-grokbuild): o redespacho do grok leva os sensores do supervisor ao registro do watcher; o caminho
+    // do codex e do claude-bg segue sem eles, como antes.
+    concluirDespacho(ctx, resultado.sessionId, resultado.verificada, resultado.comando, rt.fonteVerificacao, resultado.controlador,
+      runtime === 'grok' ? { logPath: resultado.logPath, processoPath: resultado.processoPath, reciboPath: resultado.reciboPath } : undefined);
 
     return {
       ok: true,

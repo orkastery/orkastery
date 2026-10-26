@@ -1,0 +1,296 @@
+/**
+ * RM-067 (F1 da ork-grokbuild): runtime `grok`, o Grok Build headless da xAI, homologado só para despacho explícito
+ * (`ork phase run --runtime grok`): nunca padrão de bloco nem alvo de fallback nesta versão (D1).
+ *
+ * O despacho roda `grok -p <prompt> --output-format streaming-json -s <id>` desanexado, pelo supervisor do `codex-runner`
+ * (D6): o log do stream, o `.process.json` com a identidade do filho e o `.exit.json` com o código e o sinal do `close`
+ * real. O id da sessão é escolhido pelo `ork` (D5), e a prova de que ela existe é a pasta
+ * `<GROK_HOME>/sessions/<grupo>/<id>/` com o `updates.jsonl`, que o próprio runtime grava. O `ork` só lista nomes e lê o
+ * tamanho e o mtime desse arquivo, nunca o conteúdo, e nunca abre o `auth.json`. O fim da sessão é do watcher
+ * (`session-watcher-grok.ts`), pelo `end` do stream e pelo recibo do supervisor.
+ */
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { ambienteDeAssinatura, ENVS_DE_PROVIDER_PAGO } from '../runtime-ambiente';
+import { PerfilDeDespacho } from '../runtime-profiles';
+import { exec as executar, noPath } from '../util';
+import { DespachoResultado, parseFalhaDeConta, parseRateLimit } from './claude-bg';
+import { estadoProcesso, iniciarSupervisor, ProcessoCodex, ReciboCodex } from './codex-runner';
+import { falhaDoErroGrok, lerStreamGrok, redigirTextoGrok } from './grok-events';
+
+export const NOME_ADAPTER = 'grok';
+
+/** De onde vem a prova de que a sessão existe (vai ao `phase_dispatch_verified`). */
+export const FONTE_VERIFICACAO = 'pasta da sessao em $GROK_HOME/sessions';
+
+/**
+ * D4: o ambiente do filho é o da assinatura, sem as variáveis de provider pago e sem `XAI_API_KEY`, até a D1 do dono
+ * decidir o modo de autenticação (F3). Tirar a variável do ambiente do filho não lê nem copia a credencial.
+ */
+export const ENVS_REMOVIDAS_DO_DESPACHO = [...ENVS_DE_PROVIDER_PAGO, 'XAI_API_KEY'] as const;
+
+/**
+ * D3: a postura de sandbox do manifesto (vocabulário do Codex) no perfil do `grok` (`--sandbox`). `workspace` é o piso
+ * (E7 da RM-067): o `danger-full-access` existe pelo bubblewrap do Codex, e o `grok` usa Landlock. `off` e `strict`
+ * ficam para a F4, com a confirmação local da máquina.
+ */
+export const PERFIL_DE_SANDBOX_DO_GROK: Readonly<Record<string, string>> = Object.freeze({
+  'read-only': 'read-only',
+  'workspace-write': 'workspace',
+  'danger-full-access': 'workspace',
+});
+export const PERFIL_DE_SANDBOX_PADRAO = 'workspace';
+
+/** D6: quanto o despacho espera a pasta da sessão ou o recibo do supervisor. */
+export const ESPERA_PADRAO_MS = 60_000;
+
+const ID_DE_SESSAO = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+const LIMITE_METADADO_BYTES = 65536;
+const LIMITE_STDERR_BYTES = 4096;
+/** O stderr do resultado: o despacho grava os primeiros 500 caracteres dele no ledger. */
+const LIMITE_STDERR_NO_RESULTADO = 500;
+
+export interface DespachoGrokPedido {
+  prompt: string;
+  /** Nome da sessão no Ork; o `grok` não tem `--name`, o id é que vincula. */
+  nome: string;
+  /** A worktree da thread: vai em `--cwd` e é o cwd do processo. */
+  cwd: string;
+  model?: string;
+  effort?: string;
+  /** A postura de sandbox do manifesto (`runtime.sandbox`). */
+  sandbox?: string;
+  /** PLAN que termina no próprio bloco: o `grok` roda em `read-only`, porque o PLAN não implementa. */
+  colaboracao?: 'plan' | 'default';
+  /** Diretório dos logs do despacho (`<thread>/sessoes`); obrigatório no despacho real. */
+  logDir?: string;
+  dryRun?: boolean;
+  /** O id da sessão (`-s`); sem ele, o despacho gera um. */
+  sessionId?: string;
+  /** Espera máxima pela prova de existência, em ms (padrão `ESPERA_PADRAO_MS`). */
+  esperaMs?: number;
+  /** Perfis de conta do `grok` são da F3: pedido com perfil recusa. */
+  perfil?: PerfilDeDespacho;
+  /** I-36 (D4): identidade, thread e canal do despacho no ambiente da sessão filha. */
+  ambienteExtra?: Record<string, string>;
+}
+
+export interface DespachoGrokResultado extends DespachoResultado {
+  logPath?: string;
+  processoPath?: string;
+  reciboPath?: string;
+}
+
+/** D4: o ambiente do despacho, sem provider pago e sem `XAI_API_KEY`; o `GROK_HOME` do processo fica. */
+export function ambienteDoDespacho(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const env = ambienteDeAssinatura(base);
+  for (const nome of ENVS_REMOVIDAS_DO_DESPACHO) delete env[nome];
+  return env;
+}
+
+/** O ambiente do filho: o do despacho com o contexto da condução por cima. Perfil recusa até a F3. */
+export function ambienteDoFilho(pedido: Pick<DespachoGrokPedido, 'perfil' | 'ambienteExtra'>,
+    base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  if (pedido.perfil) throw new Error('runtime.profiles.invalid: o grok ainda nao tem perfil de conta (F3 da RM-067)');
+  return { ...ambienteDoDespacho(base), ...(pedido.ambienteExtra ?? {}) };
+}
+
+/** O runtime está disponível? No PATH do ambiente informado (o do filho, no despacho). */
+export function disponivel(env: NodeJS.ProcessEnv = process.env): string | null {
+  return noPath('grok', env);
+}
+
+/** Versão do runtime, para quem lista os runtimes. */
+export function versao(): string | null {
+  const r = executar('grok', ['--version'], undefined, 30000, ambienteDoDespacho());
+  return r.ok ? r.stdout.trim() : null;
+}
+
+/** A casa do `grok`: o `GROK_HOME` do ambiente ou `~/.grok`, como o guia de sessões diz. */
+export function casaDoGrok(env: NodeJS.ProcessEnv = process.env): string {
+  const valor = (env.GROK_HOME ?? '').trim();
+  return valor !== '' ? valor : path.join(os.homedir(), '.grok');
+}
+
+/** D3: o perfil de sandbox do `grok` para a postura; fora da tabela, recusa tipada. */
+export function perfilDeSandbox(sandbox: string | undefined, colaboracao?: 'plan' | 'default'): string {
+  if (colaboracao === 'plan') return 'read-only';
+  if (sandbox === undefined) return PERFIL_DE_SANDBOX_PADRAO;
+  if (!Object.hasOwn(PERFIL_DE_SANDBOX_DO_GROK, sandbox)) {
+    throw new Error(`runtime.unavailable: sandbox ${sandbox} sem perfil do grok`);
+  }
+  return PERFIL_DE_SANDBOX_DO_GROK[sandbox];
+}
+
+/**
+ * D2: a linha de comando exata do despacho (usada também pelo `--dry-run`). O prompt fica no argumento 2, que o ledger
+ * mascara. Nunca `--yolo`, `--always-approve` nem `--permission-mode`.
+ */
+export function montarComando(pedido: DespachoGrokPedido): string[] {
+  const args = ['-p', pedido.prompt, '--output-format', 'streaming-json'];
+  if (pedido.sessionId) args.push('-s', pedido.sessionId);
+  args.push('--cwd', pedido.cwd);
+  if (pedido.model) args.push('-m', pedido.model);
+  if (pedido.effort) args.push('--effort', pedido.effort);
+  args.push('--sandbox', perfilDeSandbox(pedido.sandbox, pedido.colaboracao), '--no-auto-update');
+  return ['grok', ...args];
+}
+
+/**
+ * D11: a retomada de uma sessão interrompida, derivada do comando do despacho (o do ledger tem o prompt mascarado): o
+ * argumento 2 vira o texto da retomada e `-s <id>` vira `-r <id>`; o resto (cwd, modelo, esforço, sandbox) fica. O guia
+ * diz que a sessão interrompida guarda o estado até a última ferramenta concluída. Comando que não é do `grok`, ou sem
+ * `-s <id>`, devolve `null`.
+ */
+export function montarComandoDeRetomada(comando: readonly string[], sessionId: string, texto = 'continue'): string[] | null {
+  if (comando[0] !== 'grok' || comando[1] !== '-p' || comando.length < 3) return null;
+  const i = comando.indexOf('-s', 3);
+  if (i < 0 || comando[i + 1] !== sessionId) return null;
+  return [...comando.slice(0, 2), texto, ...comando.slice(3, i), '-r', sessionId, ...comando.slice(i + 2)];
+}
+
+/** A pasta da sessão no disco do runtime e o tamanho do `updates.jsonl`. */
+export interface SessaoGrokEmDisco { dir: string; updates: string; tamanho: number; mtimeMs: number }
+
+/**
+ * D5: a pasta `<casa>/sessions/<grupo>/<id>/` com `updates.jsonl` arquivo comum. A codificação do cwd no nome do grupo
+ * não é documentada, então a busca olha o id um nível abaixo de `sessions/`, sem seguir link. Exatamente um grupo com a
+ * sessão, ou `null`: o id que aparece em dois grupos não prova qual é a sessão despachada.
+ */
+export function acharSessaoGrok(sessionId: string, casa: string = casaDoGrok()): SessaoGrokEmDisco | null {
+  if (!ID_DE_SESSAO.test(sessionId)) return null;
+  const raiz = path.join(casa, 'sessions');
+  let grupos: fs.Dirent[];
+  try {
+    if (!fs.lstatSync(raiz).isDirectory()) return null;
+    grupos = fs.readdirSync(raiz, { withFileTypes: true });
+  } catch { return null; }
+  const achadas: SessaoGrokEmDisco[] = [];
+  for (const grupo of grupos) {
+    if (!grupo.isDirectory()) continue;
+    const dir = path.join(raiz, grupo.name, sessionId);
+    try {
+      if (!fs.lstatSync(dir).isDirectory()) continue;
+      const updates = path.join(dir, 'updates.jsonl');
+      const st = fs.lstatSync(updates);
+      if (st.isFile()) achadas.push({ dir, updates, tamanho: st.size, mtimeMs: st.mtimeMs });
+    } catch { /* o grupo não tem a sessão */ }
+  }
+  return achadas.length === 1 ? achadas[0] : null;
+}
+
+/** JSON pequeno de metadado do supervisor, sem seguir link; ausente ou ilegível vira `null`. */
+function lerMetadado<T>(arquivo: string): T | null {
+  let fd: number;
+  try { fd = fs.openSync(arquivo, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK); }
+  catch { return null; }
+  try {
+    const st = fs.fstatSync(fd);
+    if (!st.isFile() || st.size > LIMITE_METADADO_BYTES) return null;
+    const bytes = Buffer.alloc(st.size);
+    fs.readSync(fd, bytes, 0, st.size, 0);
+    return JSON.parse(bytes.toString('utf8')) as T;
+  } catch { return null; }
+  finally { fs.closeSync(fd); }
+}
+
+/**
+ * A cauda do stderr do filho, redigida e sem corte; ausente vira vazio. GO-FIX 1 (A4): a janela começa no meio de uma
+ * linha, e esse pedaço sai inteiro antes da redação, para nenhum segredo cortado perder o prefixo que a redação reconhece.
+ */
+function caudaDoStderr(arquivo: string): string {
+  let fd: number;
+  try { fd = fs.openSync(arquivo, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK); }
+  catch { return ''; }
+  try {
+    const st = fs.fstatSync(fd);
+    if (!st.isFile()) return '';
+    const n = Math.min(st.size, LIMITE_STDERR_BYTES), bytes = Buffer.alloc(n);
+    fs.readSync(fd, bytes, 0, n, st.size - n);
+    let texto = bytes.toString('utf8');
+    if (st.size > n) {
+      const quebra = texto.indexOf('\n');
+      texto = quebra < 0 ? '' : texto.slice(quebra + 1);
+    }
+    return redigirTextoGrok(texto);
+  } finally { fs.closeSync(fd); }
+}
+
+/**
+ * GO-FIX 2 (N6): o fim do texto em até `limite` unidades UTF-16, a mesma unidade do `slice` de quem grava no ledger, que
+ * assim não tira nada; o corte não começa na metade baixa de um par substituto.
+ */
+function fimDoTexto(texto: string, limite: number): string {
+  if (texto.length <= limite) return texto;
+  const fim = texto.slice(-limite);
+  const primeira = fim.charCodeAt(0);
+  return primeira >= 0xdc00 && primeira <= 0xdfff ? fim.slice(1) : fim;
+}
+
+const pausa = new Int32Array(new SharedArrayBuffer(4));
+
+/**
+ * D6: despacha a fase e confere no disco do runtime que a sessão existe. Nunca self-report: o id é do `ork`, a pasta é
+ * do `grok`, e a falha antes da sessão vem do recibo do supervisor e do objeto `error` do stream.
+ */
+export function despachar(pedido: DespachoGrokPedido): DespachoGrokResultado {
+  const sessionId = pedido.sessionId ?? randomUUID();
+  const falha = (erro: string, extra: Partial<DespachoGrokResultado> = {}): DespachoGrokResultado =>
+    ({ ok: false, comando: [], sessionId: null, verificada: false, stdout: '', stderr: '', erro, ...extra });
+  let comando: string[];
+  let ambiente: NodeJS.ProcessEnv;
+  try { comando = montarComando({ ...pedido, sessionId }); ambiente = ambienteDoFilho(pedido); }
+  catch (e) { return falha((e as Error).message); }
+  if (pedido.dryRun) return { ok: true, comando, sessionId: null, verificada: false, stdout: '', stderr: '' };
+  if (!disponivel(ambiente)) return falha('runtime.unavailable: binario grok nao encontrado no PATH', { comando });
+  // O log nunca vai para a worktree: a prova do GO exige a worktree limpa.
+  if (!pedido.logDir || !path.isAbsolute(pedido.logDir)) {
+    return falha('runtime.unavailable: despacho grok sem o diretorio de logs da thread', { comando });
+  }
+  const logPath = path.join(pedido.logDir, `${sessionId}.grok.jsonl`);
+  let sensores: { processoPath: string; reciboPath: string };
+  try { sensores = iniciarSupervisor(comando, pedido.cwd, logPath, ambiente); }
+  catch (e) { return falha(`runtime.unavailable: o supervisor do grok nao iniciou (${(e as NodeJS.ErrnoException).code ?? 'erro'})`, { comando }); }
+  const base = { comando, logPath, ...sensores };
+  const casa = casaDoGrok(ambiente);
+  const prazo = Date.now() + (pedido.esperaMs ?? ESPERA_PADRAO_MS);
+  for (;;) {
+    if (acharSessaoGrok(sessionId, casa)) return { ok: true, sessionId, verificada: true, stdout: '', stderr: '', ...base };
+    const recibo = lerMetadado<ReciboCodex>(sensores.reciboPath);
+    if (recibo) return falhaAntesDaSessao(recibo, sessionId, base);
+    if (Date.now() >= prazo) break;
+    Atomics.wait(pausa, 0, 0, 100);
+  }
+  const recibo = lerMetadado<ReciboCodex>(sensores.reciboPath);
+  if (recibo) return falhaAntesDaSessao(recibo, sessionId, base);
+  // Filho vivo sem a pasta no prazo: a sessão segue, sem prova de existência ainda; o watcher a acompanha.
+  const processo = lerMetadado<ProcessoCodex>(sensores.processoPath);
+  if (processo?.filho && estadoProcesso(processo.filho) === 'vivo') {
+    return { ok: true, sessionId, verificada: false, stdout: '', stderr: '', ...base };
+  }
+  return falha('runtime.unavailable: o supervisor do grok nao registrou o processo vivo no prazo', base);
+}
+
+/**
+ * O processo terminou antes de a sessão existir. A falha da conta vem do objeto `error` do stream e, sem ele, do stderr
+ * do próprio runtime; o rate limit de janela curta volta tipado para a fila; o resto é `runtime.unavailable` com o código.
+ */
+function falhaAntesDaSessao(recibo: ReciboCodex, sessionId: string,
+    base: { comando: string[]; logPath: string; processoPath: string; reciboPath: string }): DespachoGrokResultado {
+  const estado = lerStreamGrok(base.logPath, sessionId);
+  const cauda = caudaDoStderr(`${base.logPath}.stderr`);
+  const mensagem = estado?.erro?.mensagem ?? '';
+  const texto = [mensagem, cauda].filter(Boolean).join('\n');
+  const falhaDeConta = falhaDoErroGrok(estado?.erro ?? null) ?? (cauda ? parseFalhaDeConta(cauda) : null);
+  const rateLimit = falhaDeConta ? null : parseRateLimit(texto);
+  // Ao ledger vai o fim da cauda, onde o erro mora; quem grava corta pelo começo.
+  const stderr = fimDoTexto(cauda, LIMITE_STDERR_NO_RESULTADO);
+  // O erro de spawn (o binário sumiu entre a conferência e o supervisor) vem antes do código, que o Node dá negativo.
+  const codigo = recibo.erro ?? recibo.exitCode ?? recibo.signal ?? 'sem codigo';
+  const erro = falhaDeConta ? `${falhaDeConta.motivo}: ${falhaDeConta.trecho}`
+    : rateLimit ? `limite de uso do runtime atingido: ${rateLimit.trecho}`
+    : `runtime.unavailable: o grok saiu ${codigo} antes de criar a sessao${mensagem ? `: ${mensagem}` : ''}`;
+  return { ok: false, sessionId: null, verificada: false, stdout: '', stderr, erro, falhaDeConta, rateLimit, ...base };
+}
