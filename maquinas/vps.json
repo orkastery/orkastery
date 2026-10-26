@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-26T04:45:03.758Z",
+  "publicadoEm": "2026-10-26T05:00:03.704Z",
   "threads": [
     {
       "id": "ork-grokbuild",
@@ -14,7 +14,7 @@
       "status": "aberta",
       "roadmap": "RM-067",
       "branch": "ork/ork-grokbuild-full",
-      "atualizadaEm": "2026-10-26T04:35:23.612Z",
+      "atualizadaEm": "2026-10-26T04:51:13.159Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
