@@ -1,0 +1,91 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-orkretryperf",
+  "branch": "ork/ork-orkretryperf-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-orkretryperf",
+      "fase": "GO",
+      "arquivo": "core/src/phase.ts",
+      "alegacao": "phase_prompt_recorded, phase_dispatch_failed e os gate_blocked do despacho carregam `perfilPedido` com id/runtime quando `--perfil` foi informado.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const s=require(\"fs\").readFileSync(\"core/src/phase.ts\",\"utf8\"); if(!(s.includes(\"const perfilPedido = opcoes.perfil\")&&s.includes(\"TIPOS_DE_EVENTO.promptGravado\")&&s.includes(\"perfilPedido ? { perfilPedido }\"))) process.exit(1)'"
+      ],
+      "criadoEm": "2026-10-26T10:34:02.680Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-orkretryperf",
+      "fase": "GO",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "retry e redespacho reconhecem `perfilPedido`, reutilizam id/runtime e registram recusa tipada com correção quando o perfil pedido está indisponível.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const s=require(\"fs\").readFileSync(\"core/src/retry.ts\",\"utf8\"); if(!(s.includes(\"perfilPedidoDoDespacho\")&&s.includes(\"redespacharNoPerfilPedido\")&&s.includes(\"correcaoDoPerfilPedido\"))) process.exit(1)'"
+      ],
+      "criadoEm": "2026-10-26T10:34:02.795Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-orkretryperf",
+      "fase": "GO",
+      "arquivo": "core/src/ratelimit.ts",
+      "alegacao": "A fila durável persiste o marcador `perfilPedido` separadamente do destino calculado.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const s=require(\"fs\").readFileSync(\"core/src/ratelimit.ts\",\"utf8\"); if(!(s.includes(\"perfilPedido?: { id: string; runtime: string }\")&&s.includes(\"{ perfilPedido: novo.perfilPedido }\"))) process.exit(1)'"
+      ],
+      "criadoEm": "2026-10-26T10:34:02.881Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-orkretryperf",
+      "fase": "GO",
+      "arquivo": "core/src/locale-retry.ts",
+      "alegacao": "A recusa e a correção do perfil pedido estão no catálogo pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "node -e 'const {msg}=require(\"./core/dist/locale.js\"); const p=msg(\"pt-BR\").retry.perfilPedidoRecusado(\"perfil\",\"codex\",\"runtime.auth-missing\",\"sem login\"); const e=msg(\"en\").retry.perfilPedidoRecusado(\"profile\",\"codex\",\"runtime.auth-missing\",\"not signed in\"); if(!p.includes(\"perfil pedido\")||!e.includes(\"requested profile\")) process.exit(1)'"
+      ],
+      "criadoEm": "2026-10-26T10:34:02.974Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-orkretryperf",
+      "fase": "GO",
+      "arquivo": "core/test/rm056-perfil-explicito.test.ts",
+      "alegacao": "Os testes de regressão provam retry no mesmo perfil após bloqueio pré-despacho, recusa sem troca quando falta login, retomada no mesmo perfil e comportamento anterior sem `--perfil`.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/rm056-perfil-explicito.test.js"
+      ],
+      "criadoEm": "2026-10-26T10:34:03.080Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
