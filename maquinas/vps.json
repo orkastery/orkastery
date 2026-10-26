@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-26T08:45:57.872Z",
+  "publicadoEm": "2026-10-26T09:00:02.876Z",
   "threads": [
     {
       "id": "ork-orkcheck3min",
@@ -12,9 +12,9 @@
       "modo": "#Fast",
       "fase": "GO",
       "status": "aberta",
-      "roadmap": null,
+      "roadmap": "RM-074",
       "branch": "ork/ork-orkcheck3min-go",
-      "atualizadaEm": "2026-10-26T08:45:57.484Z",
+      "atualizadaEm": "2026-10-26T08:54:54.447Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
