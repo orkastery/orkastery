@@ -317,9 +317,11 @@ export function observarGrokSobLock(ctx: ContextoObservacaoGrok): ResultadoObser
   const cursor: CursorGrok = lido ?? { schema: CONTRATO_CURSOR_GROK, sessionId: sessao.sessionId, despachoEm: sessao.despachadaEm,
     ino: null, offset: 0, parser: new ParserGrok(sessao.sessionId).estado, progressoEm: Date.parse(sessao.despachadaEm),
     heartbeatEm: 0, updatesBytes: null };
-  // GO-FIX 1 (A2): o recibo antes do stream. O supervisor grava o recibo depois do `close` do filho, então o stream lido
-  // depois dele já está inteiro: um `end` gravado entre as duas leituras nunca fica de fora da classificação.
+  // A ordem das leituras é a do supervisor ao contrário: ele grava o recibo depois do `close` do filho e só então sai.
+  // GO-FIX 2 (N1): a vida antes do recibo; o supervisor visto ausente já deixou no disco o recibo que gravaria.
+  // GO-FIX 1 (A2): o recibo antes do stream; com o recibo no disco, o stream lido em seguida está inteiro.
   const processo = lerJson<ProcessoCodex>(fonte.processoPath);
+  const vida = { filho: estadoProcesso(processo?.filho ?? null), supervisor: estadoProcesso(processo?.supervisor ?? null) };
   const recibo = lerJson<ReciboCodex>(fonte.reciboPath);
   if (recibo) conferirRecibo(recibo, processo, ctx.relogioReal ? Date.now() : agoraMs);
   const leitura = lerStream(fonte.logPath, cursor, sessao.sessionId);
@@ -339,8 +341,8 @@ export function observarGrokSobLock(ctx: ContextoObservacaoGrok): ResultadoObser
   const c: ClassificacaoGrok = leitura.backlog ? { terminal: false, espera: 'stream com bytes ainda não lidos' }
     : classificarSessaoGrok({ estado: cursor.parser,
       recibo: recibo ? { exitCode: recibo.exitCode, signal: recibo.signal, erro: recibo.erro, duracaoMs: recibo.duracaoMs } : null,
-      filho: recibo ? 'ausente' : estadoProcesso(processo?.filho ?? null),
-      supervisor: recibo ? 'ausente' : estadoProcesso(processo?.supervisor ?? null),
+      filho: recibo ? 'ausente' : vida.filho,
+      supervisor: recibo ? 'ausente' : vida.supervisor,
       progressoEm: cursor.progressoEm, agoraMs, limiteMs: ctx.limiteMs, pausaAoFim: pausaNaThread(thread, sessao.fase),
       prova: () => prova ??= provaDoOrk(raiz, thread.id, sessao, eventos, fonte) });
   gravarAtomico(arquivoCursor, cursor);

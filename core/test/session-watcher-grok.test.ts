@@ -9,12 +9,14 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
+import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { dirTemporario, projetoTemporario } from './apoio';
 import { dirThread, gravarThread, novaThread } from '../src/thread';
 import { lerLedger, registrar } from '../src/ledger';
 import { LIMITE_MORTE_MS, observarSessao, reconciliarSessaoSemWatcher, validarFonteWatcher } from '../src/session-watcher';
 import { classificarSessaoGrok, HEARTBEAT_GROK_MS } from '../src/session-watcher-grok';
-import { identidadeProcesso } from '../src/adapters/codex-runner';
+import { estadoProcesso, identidadeProcesso, IdentidadeProcesso } from '../src/adapters/codex-runner';
 import { montarComando } from '../src/adapters/grok';
 import { ParserGrok } from '../src/adapters/grok-events';
 import { Fase } from '../src/types';
@@ -29,7 +31,9 @@ function fixture(nome: string): string {
 
 interface Opcoes { fase?: Fase; filhoVivo?: boolean; supervisorVivo?: boolean; runtime?: string; registroGrok?: boolean;
   /** O `--cwd` do comando do despacho, quando difere do cwd da fixture (aspas da retomada). */
-  comandoCwd?: string }
+  comandoCwd?: string;
+  /** Um processo de verdade no papel do supervisor, que o caso mata no meio da observação. */
+  supervisor?: IdentidadeProcesso }
 
 function cenario(nome: string, o: Opcoes = {}) {
   const fase = o.fase ?? 'PLAN';
@@ -47,7 +51,7 @@ function cenario(nome: string, o: Opcoes = {}) {
   const vivo = identidadeProcesso(process.pid)!;
   const morto = { ...vivo, inicio: '0' };
   const processo = { schema: 'ork.codex-process/v1', iniciadoEm: despachadaEm,
-    supervisor: o.supervisorVivo ? vivo : morto, filho: o.filhoVivo ? vivo : morto };
+    supervisor: o.supervisor ?? (o.supervisorVivo ? vivo : morto), filho: o.filhoVivo ? vivo : morto };
   fs.writeFileSync(`${log}.process.json`, JSON.stringify(processo));
   const comando = montarComando({ prompt: '<prompt:abcd1234>', nome: t.slug, cwd: o.comandoCwd ?? p.dir, model: 'grok-modelo', effort: 'high',
     sandbox: 'workspace-write', sessionId: SID });
@@ -384,6 +388,8 @@ test('GW15: o evento da classificacao gravado antes de uma queda nao se repete, 
     c.observar(1000);
     assert.equal(c.eventos().filter((e) => e.tipo === 'gate_blocked' && e.sensorResultId === id).length, 1);
     assert.equal(c.resultados().length, 1);
+    // A chave montada aqui é a do observador; se ela mudar, o evento gravado antes deixa de casar e o caso não testaria nada.
+    assert.equal(c.resultados()[0].sensorResultId, id);
   } finally { c.limpar(); }
 });
 
@@ -399,7 +405,9 @@ test('GW16: a batida sem watcher observa a sessao grok pelo mesmo observador e, 
     const [res] = c.resultados();
     assert.equal(res.runtime, 'grok');
     assert.equal(res.classificacao, 'fase_concluida');
-    const parada = reconciliarSessaoSemWatcher(semFonte.p.carregado, semFonte.t.id, Date.now() + LIMITE_MORTE_MS + 60000);
+    // O erro do watcher é gravado com o relógio real; o prazo conta dele ou do despacho fixo, o que vier depois, e assim
+    // o caso não depende de a máquina estar adiante da data do despacho.
+    const parada = reconciliarSessaoSemWatcher(semFonte.p.carregado, semFonte.t.id, Math.max(Date.now(), inicio) + LIMITE_MORTE_MS + 60000);
     assert.equal(parada.estado, 'parada', parada.detalhe);
     const [res2] = semFonte.resultados();
     assert.equal(res2.motivo, 'runtime.unavailable');
@@ -418,4 +426,71 @@ test('GW17: a retomada no detalhe sai pronta para colar, com aspas no caminho qu
     assert.equal(comando[comando.indexOf('--cwd') + 1], '/srv/minha worktree');
     assert.ok(String(res.detalhe).includes("--cwd '/srv/minha worktree'"), String(res.detalhe));
   } finally { c.limpar(); }
+});
+
+/** Um `sleep` no papel do supervisor. Morto no meio da observação, vira zumbi, e a prova de vida já o lê ausente. */
+function supervisorDescartavel() {
+  const filho = spawn('sleep', ['60'], { stdio: 'ignore' });
+  const id = identidadeProcesso(filho.pid!)!;
+  return {
+    id,
+    matar: () => {
+      process.kill(id.pid, 'SIGKILL');
+      const limite = Date.now() + 5000;
+      while (estadoProcesso(id) !== 'ausente' && Date.now() < limite) { /* o zumbi aparece em microssegundos */ }
+      return estadoProcesso(id) === 'ausente';
+    },
+    limpar: () => { try { process.kill(id.pid, 'SIGKILL'); } catch { /* já saiu */ } },
+  };
+}
+
+/** Roda `acao` uma vez, logo antes de a observação abrir `alvo`: o instante em que o supervisor termina. */
+function comGancho<T>(alvo: string, acao: () => void, corpo: () => T): T {
+  const fsReal = createRequire(__filename)('node:fs') as typeof fs;
+  const abrir = fsReal.openSync;
+  let feito = false;
+  fsReal.openSync = ((arquivo: fs.PathLike, ...resto: unknown[]) => {
+    if (!feito && String(arquivo) === alvo) { feito = true; acao(); }
+    return (abrir as (...a: unknown[]) => number)(arquivo, ...resto);
+  }) as typeof fs.openSync;
+  try { return corpo(); } finally { fsReal.openSync = abrir; }
+}
+
+test('GW18: o supervisor que termina no meio da observacao nunca fecha a fase sem a saida: vida, recibo e stream nessa ordem', () => {
+  // GO-FIX 2 (N1): o supervisor grava o recibo e sai enquanto a observação abre o stream. Com a vida lida antes do
+  // recibo, esta volta ainda o vê vivo e espera; a seguinte acha o recibo e fecha com a saída 0.
+  const sup = supervisorDescartavel();
+  const c = cenario('vida-antes', { supervisor: sup.id });
+  try {
+    c.stream(fixture('fim-normal.jsonl'));
+    c.plano();
+    let morto = false;
+    const r = comGancho(c.log, () => { c.recibo(0); morto = sup.matar(); }, () => c.observar(1000));
+    assert.equal(morto, true, 'o supervisor saiu dentro da observacao');
+    assert.equal(r.concluido, false, 'sem o recibo lido, a volta espera');
+    assert.equal(r.espera, 'processo do grok encerrado; aguardando o recibo do supervisor');
+    assert.equal(c.observar(2000).classificacao, 'fase_concluida');
+    const [res] = c.resultados();
+    assert.equal(res.exitCode, 0);
+    assert.equal(res.exitCodeFonte, 'supervisor.close');
+    assert.equal(res.ok, true);
+  } finally { sup.limpar(); c.limpar(); }
+  // GO-FIX 1 (A2): o grok grava o `end` e sai, e o supervisor grava o recibo enquanto a observação abre o recibo. Com o
+  // recibo lido antes do stream, o `end` entra na mesma volta, e a saída 0 não vira "sem o evento end".
+  const sup2 = supervisorDescartavel();
+  const d = cenario('recibo-antes', { supervisor: sup2.id });
+  try {
+    const linhas = fixture('fim-normal.jsonl').split('\n').filter(Boolean);
+    d.stream(linhas.slice(0, -1).map((l) => `${l}\n`).join(''));
+    d.plano();
+    let morto = false;
+    const r = comGancho(`${d.log}.exit.json`, () => { d.stream(`${linhas.at(-1)}\n`); d.recibo(0); morto = sup2.matar(); },
+      () => d.observar(1000));
+    assert.equal(morto, true, 'o supervisor saiu dentro da observacao');
+    assert.equal(r.classificacao, 'fase_concluida');
+    const [res] = d.resultados();
+    assert.equal(res.stopReason, 'end_turn');
+    assert.equal(res.exitCode, 0);
+    assert.equal(res.ok, true);
+  } finally { sup2.limpar(); d.limpar(); }
 });
