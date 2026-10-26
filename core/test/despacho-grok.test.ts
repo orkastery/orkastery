@@ -15,7 +15,7 @@ import { grokFalso } from './grok-falso';
 import { dirThread, lerThread, novaThread } from '../src/thread';
 import { lerLedger } from '../src/ledger';
 import { rodarFase } from '../src/phase';
-import { planejarRetry, redespachar } from '../src/retry';
+import { planejarRetry, redespachar, retomarPedido } from '../src/retry';
 import { conducaoDaThread } from '../src/conducao';
 import { noPath, exec } from '../src/util';
 import { Fase } from '../src/types';
@@ -23,10 +23,10 @@ import { Fase } from '../src/types';
 const PROMPT = 'Fatia de fixture SIMULADA para o despacho grok';
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
 
-function cenario(nome: string, comStub = true) {
+function cenario(nome: string, comStub = true, modo: 'auto' | 'classic' = 'auto') {
   const stub = comStub ? grokFalso(nome) : null;
   const p = projetoTemporario(`grok-desp-${nome}`);
-  const t = novaThread(p.carregado, { nome, modo: 'auto', criarWorktree: true }).thread;
+  const t = novaThread(p.carregado, { nome, modo, criarWorktree: true }).thread;
   const dir = dirThread(p.dir, t.id);
   return { stub, p, t, dir, wt: lerThread(p.dir, t.id).worktree!, eventos: () => lerLedger(dir),
     limpar: () => { p.limpar(); stub?.restaurar(); } };
@@ -167,4 +167,47 @@ test('GD6: a interrupcao real (SIGTERM) vira human.pending com a retomada, e o r
     assert.equal(retomada.includes('-s'), false);
     assert.equal(planejarRetry(c.p.carregado, c.t.id).automatica, false, 'a interrupcao nao e reexecutada sozinha');
   } finally { c.limpar(); }
+});
+
+test('GD7: o rate limit do grok antes da sessao vai a fila com o runtime grok, e a retomada volta pelo grok com o modelo dele', () => {
+  const c = cenario('rate');
+  try {
+    c.stub!.streamTexto(`${JSON.stringify({ type: 'error', message: '429 Too Many Requests, retry after 30 seconds' })}\n`);
+    c.stub!.semSessao();
+    c.stub!.saida(1);
+    const r = despachar(c, 'GOAL');
+    assert.equal(r.motivo, 'runtime.rate-limited');
+    assert.equal((r.naFila as { runtime?: string } | null | undefined)?.runtime, 'grok', 'o pedido guarda o runtime explicito');
+    assert.equal(r.naFila?.model, 'grok-modelo');
+    // A retomada forcada redespacha pelo grok, nunca pelo runtime do bloco com o modelo do grok.
+    c.stub!.stream('fim-normal.jsonl');
+    c.stub!.saida(0);
+    fs.rmSync(path.join(c.stub!.dir, 'sem-sessao'));
+    const retomada = retomarPedido(c.p.carregado, r.naFila!, { forcar: true });
+    assert.equal(retomada.despachada, true, retomada.detalhe);
+    const chamadas = c.stub!.chamadas();
+    assert.equal(chamadas.length, 2, 'a retomada chamou o grok');
+    assert.equal(chamadas[1][chamadas[1].indexOf('-m') + 1], 'grok-modelo');
+    assert.equal(c.eventos().filter((e) => e.tipo === 'phase_dispatch').at(-1)?.runtime, 'grok');
+  } finally { c.limpar(); }
+});
+
+test('GD8: no PLAN que fecha o bloco, o grok vai em read-only pelo phase run e pelo redespacho do retry', () => {
+  const sandbox = (comando: string[]) => comando[comando.indexOf('--sandbox') + 1];
+  const c = cenario('plano', true, 'classic');
+  const auto = cenario('plano-auto');
+  try {
+    const r = rodarFase(c.p.carregado, c.t.id, { fase: 'PLAN', prompt: PROMPT, runtime: 'grok', model: 'grok-modelo', dryRun: true });
+    assert.equal(r.bloqueado, false, r.erro);
+    assert.equal(sandbox(r.comando), 'read-only');
+    const prompt = path.join(c.dir, 'prompt-plano.md');
+    fs.writeFileSync(prompt, PROMPT);
+    const sha = createHash('sha256').update(PROMPT).digest('hex');
+    const red = redespachar(c.p.carregado, lerThread(c.p.dir, c.t.id), 'PLAN', prompt, sha,
+      { runtime: 'grok', model: 'grok-modelo', dryRun: true });
+    assert.equal(sandbox(red.comando), 'read-only', red.detalhe);
+    // No #Auto o PLAN nao fecha o bloco: vale o perfil da postura do manifesto.
+    const a = rodarFase(auto.p.carregado, auto.t.id, { fase: 'PLAN', prompt: PROMPT, runtime: 'grok', model: 'grok-modelo', dryRun: true });
+    assert.equal(sandbox(a.comando), 'workspace');
+  } finally { c.limpar(); auto.limpar(); }
 });

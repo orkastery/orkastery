@@ -1224,6 +1224,8 @@ function rodarFaseSobLock(
           detalhe: erro,
           // RM-058 N4 (D17 da ork-rm058n4): o pedido do despacho do arco é do vigia do arco, e o `ork retry resume` não o retoma.
           ...(opcoes.correlacao ? { correlacao: opcoes.correlacao } : {}),
+          // RM-067 (GO-FIX 1, A1): o pedido do grok volta pelo grok, com o modelo dele; o dos outros runtimes segue como antes.
+          ...(runtime === 'grok' ? { runtime } : {}),
         });
         registrar(dir, thread.id, TIPOS_DE_EVENTO.rateLimitEnfileirado, {
           fase,

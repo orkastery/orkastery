@@ -813,7 +813,8 @@ function redespacharSobLock(
       ...(perfil ? { perfil } : {}),
       // RM-037 (defeito 2): o modo plano segue a mesma regra do `ork phase run`, pelo bloco.
       contextoRuntime,
-      ...(runtime === 'claude-bg' && modoDaSessaoDoBloco(thread, fase).plano ? { colaboracao: 'plan' as const } : {}),
+      // RM-067 (GO-FIX 1, A3): o grok tambem; no PLAN que fecha o bloco, ele roda em read-only.
+      ...((runtime === 'claude-bg' || runtime === 'grok') && modoDaSessaoDoBloco(thread, fase).plano ? { colaboracao: 'plan' as const } : {}),
       // I-36 (D4): a sessao retomada herda a identidade do despacho e o canal, como no `ork phase run`.
       ambienteExtra: ambienteDaConducao(identidade.dispatchId, thread.id, canal),
     });
