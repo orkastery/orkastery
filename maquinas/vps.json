@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-26T01:36:30.745Z",
+  "publicadoEm": "2026-10-26T01:36:37.172Z",
   "threads": [
     {
       "id": "ork-grokbuild",
@@ -48,6 +48,28 @@
         "viva": false,
         "desdeEm": "2026-10-25T02:50:28.461Z",
         "motivo": "sessão 59482a30 sem processo (fantasma)"
+      }
+    },
+    {
+      "id": "ork-versao060",
+      "nome": "versao060",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-versao060-go",
+      "atualizadaEm": "2026-10-26T01:36:33.638Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-26T01:36:36.767Z",
+        "motivo": "nenhuma sessão despachada na fase GO"
       }
     }
   ]
