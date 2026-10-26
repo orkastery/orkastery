@@ -428,9 +428,12 @@ test('GW17: a retomada no detalhe sai pronta para colar, com aspas no caminho qu
   } finally { c.limpar(); }
 });
 
-/** Um `sleep` no papel do supervisor. Morto no meio da observação, vira zumbi, e a prova de vida já o lê ausente. */
+/**
+ * Um `sleep` no papel do supervisor. Morto no meio da observação, vira zumbi, e a prova de vida já o lê ausente. O prazo
+ * longo é folga para a montagem sob carga; o `limpar` sempre o encerra.
+ */
 function supervisorDescartavel() {
-  const filho = spawn('sleep', ['60'], { stdio: 'ignore' });
+  const filho = spawn('sleep', ['600'], { stdio: 'ignore' });
   const id = identidadeProcesso(filho.pid!)!;
   return {
     id,
@@ -444,53 +447,63 @@ function supervisorDescartavel() {
   };
 }
 
-/** Roda `acao` uma vez, logo antes de a observação abrir `alvo`: o instante em que o supervisor termina. */
-function comGancho<T>(alvo: string, acao: () => void, corpo: () => T): T {
+/**
+ * Roda `acao` uma vez, no instante em que o supervisor termina: logo antes de a observação abrir `alvo`, ou logo depois,
+ * quando a abertura falhou ou já leu o que havia.
+ */
+function comGancho<T>(alvo: string, quando: 'antes' | 'depois', acao: () => void, corpo: () => T): T {
   const fsReal = createRequire(__filename)('node:fs') as typeof fs;
-  const abrir = fsReal.openSync;
+  const abrir = fsReal.openSync as (...a: unknown[]) => number;
   let feito = false;
   fsReal.openSync = ((arquivo: fs.PathLike, ...resto: unknown[]) => {
-    if (!feito && String(arquivo) === alvo) { feito = true; acao(); }
-    return (abrir as (...a: unknown[]) => number)(arquivo, ...resto);
+    if (feito || String(arquivo) !== alvo) return abrir(arquivo, ...resto);
+    feito = true;
+    if (quando === 'antes') { acao(); return abrir(arquivo, ...resto); }
+    try { return abrir(arquivo, ...resto); } finally { acao(); }
   }) as typeof fs.openSync;
-  try { return corpo(); } finally { fsReal.openSync = abrir; }
+  try { return corpo(); } finally { fsReal.openSync = abrir as typeof fs.openSync; }
 }
 
 test('GW18: o supervisor que termina no meio da observacao nunca fecha a fase sem a saida: vida, recibo e stream nessa ordem', () => {
-  // GO-FIX 2 (N1): o supervisor grava o recibo e sai enquanto a observação abre o stream. Com a vida lida antes do
-  // recibo, esta volta ainda o vê vivo e espera; a seguinte acha o recibo e fecha com a saída 0.
-  const sup = supervisorDescartavel();
-  const c = cenario('vida-antes', { supervisor: sup.id });
+  // GO-FIX 2 (N1) e GO-FIX 3: o supervisor grava o recibo e sai logo depois de a observação procurar o recibo e não o
+  // achar. Com a vida lida antes do recibo, esta volta ainda o vê vivo e espera; a seguinte acha o recibo e fecha com a
+  // saída 0. Lida a vida depois do recibo, em qualquer ponto, ela já sai ausente e a fase fecharia sem a saída.
+  let sup: ReturnType<typeof supervisorDescartavel> | undefined;
+  let c: ReturnType<typeof cenario> | undefined;
   try {
-    c.stream(fixture('fim-normal.jsonl'));
-    c.plano();
+    const s = sup = supervisorDescartavel();
+    const k = c = cenario('vida-antes', { supervisor: s.id });
+    k.stream(fixture('fim-normal.jsonl'));
+    k.plano();
     let morto = false;
-    const r = comGancho(c.log, () => { c.recibo(0); morto = sup.matar(); }, () => c.observar(1000));
+    const r = comGancho(`${k.log}.exit.json`, 'depois', () => { k.recibo(0); morto = s.matar(); }, () => k.observar(1000));
     assert.equal(morto, true, 'o supervisor saiu dentro da observacao');
     assert.equal(r.concluido, false, 'sem o recibo lido, a volta espera');
     assert.equal(r.espera, 'processo do grok encerrado; aguardando o recibo do supervisor');
-    assert.equal(c.observar(2000).classificacao, 'fase_concluida');
-    const [res] = c.resultados();
+    assert.equal(k.observar(2000).classificacao, 'fase_concluida');
+    const [res] = k.resultados();
     assert.equal(res.exitCode, 0);
     assert.equal(res.exitCodeFonte, 'supervisor.close');
     assert.equal(res.ok, true);
-  } finally { sup.limpar(); c.limpar(); }
+  } finally { sup?.limpar(); c?.limpar(); }
   // GO-FIX 1 (A2): o grok grava o `end` e sai, e o supervisor grava o recibo enquanto a observação abre o recibo. Com o
   // recibo lido antes do stream, o `end` entra na mesma volta, e a saída 0 não vira "sem o evento end".
-  const sup2 = supervisorDescartavel();
-  const d = cenario('recibo-antes', { supervisor: sup2.id });
+  let sup2: ReturnType<typeof supervisorDescartavel> | undefined;
+  let d: ReturnType<typeof cenario> | undefined;
   try {
+    const s = sup2 = supervisorDescartavel();
+    const k = d = cenario('recibo-antes', { supervisor: s.id });
     const linhas = fixture('fim-normal.jsonl').split('\n').filter(Boolean);
-    d.stream(linhas.slice(0, -1).map((l) => `${l}\n`).join(''));
-    d.plano();
+    k.stream(linhas.slice(0, -1).map((l) => `${l}\n`).join(''));
+    k.plano();
     let morto = false;
-    const r = comGancho(`${d.log}.exit.json`, () => { d.stream(`${linhas.at(-1)}\n`); d.recibo(0); morto = sup2.matar(); },
-      () => d.observar(1000));
+    const r = comGancho(`${k.log}.exit.json`, 'antes', () => { k.stream(`${linhas.at(-1)}\n`); k.recibo(0); morto = s.matar(); },
+      () => k.observar(1000));
     assert.equal(morto, true, 'o supervisor saiu dentro da observacao');
     assert.equal(r.classificacao, 'fase_concluida');
-    const [res] = d.resultados();
+    const [res] = k.resultados();
     assert.equal(res.stopReason, 'end_turn');
     assert.equal(res.exitCode, 0);
     assert.equal(res.ok, true);
-  } finally { sup2.limpar(); d.limpar(); }
+  } finally { sup2?.limpar(); d?.limpar(); }
 });
