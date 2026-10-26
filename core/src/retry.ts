@@ -685,7 +685,7 @@ function redespacharSobLock(
   const promptExecutadoPath = retomada?.promptPath ?? absoluto;
   const promptExecutadoSha = retomada?.promptSha256 ?? sha;
 
-    const violacoes = bloqueantes(avaliarPolicies(manifesto, { gate: 'phase.dispatch', prompt }));
+  const violacoes = bloqueantes(avaliarPolicies(manifesto, { gate: 'phase.dispatch', prompt }));
   if (violacoes.length > 0) {
     const motivo = motivoDominante(violacoes);
     const detalhe = violacoes.map((v) => `${v.policy}: ${v.detalhe}`).join('; ');
