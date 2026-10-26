@@ -76,6 +76,8 @@ export interface PedidoNovo {
   /** I-33 (R3): runtime e perfil da retomada; ausentes, a retomada escolhe como hoje. */
   runtime?: string;
   perfil?: string | null;
+  /** Perfil imposto pelo `--perfil`; a fila nao pode substitui-lo por outro destino. */
+  perfilPedido?: { id: string; runtime: string };
   /** I-33: motivo que levou a fila (`runtime.rate-limited` quando ausente). */
   motivo?: MotivoGate;
   /** RM-058 N4 (D17 da ork-rm058n4): a correlação do despacho; `noctum:<arco>` faz do pedido uma retomada do arco. */
@@ -83,7 +85,8 @@ export interface PedidoNovo {
 }
 
 /** I-33 (R3): pedido da fila com os campos opcionais de perfil; RM-058 N4, com a correlação do despacho. */
-export type PedidoComPerfil = PedidoDeRetomada & { runtime?: string; perfil?: string | null; motivo?: MotivoGate; correlacao?: string };
+export type PedidoComPerfil = PedidoDeRetomada & { runtime?: string; perfil?: string | null;
+  perfilPedido?: { id: string; runtime: string }; motivo?: MotivoGate; correlacao?: string };
 
 /** RM-058 N4 (D17): o arco #Noctum do pedido, quando o despacho que caiu no limite de uso era dele. */
 export function arcoDoPedido(pedido: PedidoDeRetomada): string | null {
@@ -128,6 +131,7 @@ export function enfileirar(
     detalhe: novo.detalhe,
     ...(novo.runtime !== undefined ? { runtime: novo.runtime } : {}),
     ...(novo.perfil !== undefined ? { perfil: novo.perfil } : {}),
+    ...(novo.perfilPedido ? { perfilPedido: novo.perfilPedido } : {}),
     ...(novo.motivo !== undefined ? { motivo: novo.motivo } : {}),
     ...(novo.correlacao ? { correlacao: novo.correlacao } : {}),
   } as PedidoComPerfil;
