@@ -36,10 +36,14 @@ const env = { ...process.env };
 delete env.NODE_TEST_CONTEXT;
 const args = ['--test', '--test-reporter=tap', ...(padrao ? [`--test-name-pattern=${padrao}`] : []), arquivo];
 const r = spawnSync(process.execPath, args, { env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-const tap = r.stdout ?? '';
-const passaram = (tap.match(new RegExp(`^\\s*ok \\d+ - ${prefixo}\\d+:`, 'gm')) ?? []).length;
-const cairam = tap.split('\n').filter((l) => /^\s*not ok \d+/.test(l));
-const pulados = (tap.match(/^\s*(?:not )?ok \d+ .*# (?:SKIP|TODO)\b/gim) ?? []).length;
+// No Node 20, o caso que o `--test-name-pattern` deixa de fora sai como `ok N - nome # SKIP test name does not match
+// pattern`; no 22 ele nem sai. Fora do filtro não é caso rodado: não passa nem conta como pulado.
+const linhas = (r.stdout ?? '').split('\n')
+  .filter((l) => !(padrao && /# SKIP test name does not match pattern\s*$/.test(l)));
+const passou = new RegExp(`^\\s*ok \\d+ - ${prefixo}\\d+:`);
+const passaram = linhas.filter((l) => passou.test(l)).length;
+const cairam = linhas.filter((l) => /^\s*not ok \d+/.test(l));
+const pulados = linhas.filter((l) => /^\s*(?:not )?ok \d+ .*# (?:SKIP|TODO)\b/i.test(l)).length;
 const saida = r.status === 0 ? '' : `, node --test saiu ${r.status ?? r.signal ?? r.error?.message ?? 'sem codigo'}`;
 const ok = r.status === 0 && passaram >= minimo && cairam.length === 0 && pulados === 0;
 process.stdout.write(`${arquivo}: ${passaram} caso(s) ${prefixo} passaram (minimo ${minimo}), ${cairam.length} caindo, ` +
