@@ -236,3 +236,25 @@ test('GK13: a cauda longa do stderr descarta a linha cortada pela janela, acha a
     assert.ok(Array.from(r.stderr).length <= 500);
   } finally { c.limpar(); }
 });
+
+test('GK14: a cauda com log de verdade e caractere fora do plano basico classifica pela frase do fim e cabe nas 500 unidades do ledger', () => {
+  // GO-FIX 2 (N3 e N6): o meio da cauda é log de verdade, então a cauda normalizada passa de 500 caracteres. A última
+  // linha repete um emoji antes da frase, e as 500 unidades UTF-16 do fim começariam na metade baixa de um par.
+  const c = cenario('stderr-log');
+  try {
+    const emoji = String.fromCodePoint(0x1f600);
+    const log = Array.from({ length: 80 }, (_, i) => `inicio do grok: modulo ${i} carregado\n`).join('');
+    c.stub.stderr(`${log}${emoji.repeat(300)} Not logged in: run grok login.\n`);
+    c.stub.streamTexto('');
+    c.stub.semSessao();
+    c.stub.saida(1);
+    const r = despachar({ ...PEDIDO, sessionId: undefined, cwd: c.wt, logDir: c.logs, esperaMs: 30000 });
+    assert.equal(r.ok, false);
+    assert.equal(r.falhaDeConta?.motivo, 'runtime.auth-missing', 'a frase do fim classifica, com log de verdade antes dela');
+    assert.ok(r.stderr.endsWith('Not logged in: run grok login.'), r.stderr.slice(-80));
+    assert.ok(r.stderr.length <= 500, `${r.stderr.length} unidades: quem grava corta 500 pelo comeco e tiraria o fim`);
+    const primeira = r.stderr.charCodeAt(0);
+    assert.ok(primeira < 0xdc00 || primeira > 0xdfff, 'o corte nao comeca na metade baixa de um par');
+    assert.equal(r.stderr.codePointAt(0), 0x1f600, 'o primeiro caractere e o emoji inteiro');
+  } finally { c.limpar(); }
+});

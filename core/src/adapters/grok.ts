@@ -218,6 +218,17 @@ function caudaDoStderr(arquivo: string): string {
   } finally { fs.closeSync(fd); }
 }
 
+/**
+ * GO-FIX 2 (N6): o fim do texto em até `limite` unidades UTF-16, a mesma unidade do `slice` de quem grava no ledger, que
+ * assim não tira nada; o corte não começa na metade baixa de um par substituto.
+ */
+function fimDoTexto(texto: string, limite: number): string {
+  if (texto.length <= limite) return texto;
+  const fim = texto.slice(-limite);
+  const primeira = fim.charCodeAt(0);
+  return primeira >= 0xdc00 && primeira <= 0xdfff ? fim.slice(1) : fim;
+}
+
 const pausa = new Int32Array(new SharedArrayBuffer(4));
 
 /**
@@ -275,7 +286,7 @@ function falhaAntesDaSessao(recibo: ReciboCodex, sessionId: string,
   const falhaDeConta = falhaDoErroGrok(estado?.erro ?? null) ?? (cauda ? parseFalhaDeConta(cauda) : null);
   const rateLimit = falhaDeConta ? null : parseRateLimit(texto);
   // Ao ledger vai o fim da cauda, onde o erro mora; quem grava corta pelo começo.
-  const stderr = Array.from(cauda).slice(-LIMITE_STDERR_NO_RESULTADO).join('');
+  const stderr = fimDoTexto(cauda, LIMITE_STDERR_NO_RESULTADO);
   // O erro de spawn (o binário sumiu entre a conferência e o supervisor) vem antes do código, que o Node dá negativo.
   const codigo = recibo.erro ?? recibo.exitCode ?? recibo.signal ?? 'sem codigo';
   const erro = falhaDeConta ? `${falhaDeConta.motivo}: ${falhaDeConta.trecho}`
