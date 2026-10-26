@@ -19,6 +19,7 @@ import { lerLedger, registrarSeExiste, threadPresente } from './ledger';
 import { pausaNaThread } from './thread';
 import { EventoLedger, MotivoGate, SinalDeFalhaDeConta, Thread } from './types';
 import { ARTEFATO_DA_FASE, estadoDoArtefato, provaDoOrk, ProvaOrk, saidaDoArtefato, THREAD_REMOVIDA } from './session-watcher-claude';
+import { citarNoShell } from './doctor-pulse-cron';
 
 /** D12: no máximo um `runtime_heartbeat` por minuto; o stream do `grok` emite um evento por pedaço de texto. */
 export const HEARTBEAT_GROK_MS = 60_000;
@@ -145,6 +146,8 @@ const RETOMADA = 'o estado da sessão ficou salvo até a última ferramenta conc
 /**
  * D9: a tabela de classificação, pura sobre as entradas. A ordem importa: sem recibo, o processo vivo espera; o recibo
  * de interrupção vem antes do código; a saída 0 só conclui pelo `end`; a outra saída só é tipada pelo `error` do runtime.
+ * GO-FIX 1 (A5): com outra saída e sem `error`, o `end` válido vai ao humano, e o `cancelled` vale como interrupção: o
+ * turno parou, e o `runtime.unavailable` que a batida reexecuta refaria a fase sobre a worktree já alterada.
  */
 export function classificarSessaoGrok(e: EntradaGrok): ClassificacaoGrok {
   const { estado, recibo } = e;
@@ -201,6 +204,14 @@ export function classificarSessaoGrok(e: EntradaGrok): ClassificacaoGrok {
     return bloqueio(conta?.motivo ?? 'runtime.unavailable', `saida ${codigo} com o objeto error do runtime: ${estado.erro.mensagem}`,
       { erroDoRuntime: estado.erro.mensagem, ...(conta ? { falhaDeConta: conta } : {}) });
   }
+  if (estado.fim && valido) {
+    if (estado.fim.stopReason === STOP_CANCELADO) {
+      return interrupcao(recibo.exitCode, recibo.signal, `end com stopReason cancelled e saida ${codigo}`);
+    }
+    return bloqueio('human.pending', `saida ${codigo} depois do end com stopReason ${estado.fim.stopReason}, sem o objeto error`,
+      { retomar: true, diagnostico: `o grok saiu ${codigo} depois de encerrar o turno (${estado.fim.stopReason}), sem o objeto error: ` +
+        `a fase pode ter terminado; ${RETOMADA}` });
+  }
   return bloqueio('runtime.unavailable', `saida ${codigo} sem o objeto error no stream`);
 }
 
@@ -223,12 +234,16 @@ function lerJson<T>(arquivo: string): T | null {
   } finally { fs.closeSync(fd); }
 }
 
-/** O recibo do supervisor só vale inteiro e do mesmo processo do `.process.json`, como no codex. */
+/**
+ * O recibo do supervisor só vale inteiro e do mesmo processo do `.process.json`, como no codex. GO-FIX 1: o código
+ * negativo só vale com o erro de spawn, que o Node entrega como o errno negativo no `close` (`-2` com `ENOENT`).
+ */
 function conferirRecibo(recibo: ReciboCodex, processo: ProcessoCodex | null, agoraMs: number): void {
+  const erroDeSpawn = typeof recibo.erro === 'string' && recibo.erro !== '';
   if (!processo || recibo.schema !== 'ork.codex-process/v1' || recibo.iniciadoEm !== processo.iniciadoEm ||
       JSON.stringify(recibo.filho) !== JSON.stringify(processo.filho) || !Number.isFinite(Date.parse(recibo.terminadoEm)) ||
       Date.parse(recibo.terminadoEm) > agoraMs || !Number.isFinite(recibo.duracaoMs) || recibo.duracaoMs < 0 ||
-      (recibo.exitCode !== null && (!Number.isInteger(recibo.exitCode) || recibo.exitCode < 0)) ||
+      (recibo.exitCode !== null && (!Number.isInteger(recibo.exitCode) || (recibo.exitCode < 0 && !erroDeSpawn))) ||
       (recibo.signal !== null && typeof recibo.signal !== 'string') ||
       (recibo.erro !== null && typeof recibo.erro !== 'string')) throw new Error('recibo de processo inválido');
 }
@@ -302,24 +317,24 @@ export function observarGrokSobLock(ctx: ContextoObservacaoGrok): ResultadoObser
   const cursor: CursorGrok = lido ?? { schema: CONTRATO_CURSOR_GROK, sessionId: sessao.sessionId, despachoEm: sessao.despachadaEm,
     ino: null, offset: 0, parser: new ParserGrok(sessao.sessionId).estado, progressoEm: Date.parse(sessao.despachadaEm),
     heartbeatEm: 0, updatesBytes: null };
+  // GO-FIX 1 (A2): o recibo antes do stream. O supervisor grava o recibo depois do `close` do filho, então o stream lido
+  // depois dele já está inteiro: um `end` gravado entre as duas leituras nunca fica de fora da classificação.
+  const processo = lerJson<ProcessoCodex>(fonte.processoPath);
+  const recibo = lerJson<ReciboCodex>(fonte.reciboPath);
+  if (recibo) conferirRecibo(recibo, processo, ctx.relogioReal ? Date.now() : agoraMs);
   const leitura = lerStream(fonte.logPath, cursor, sessao.sessionId);
   let progrediu = false;
   if (leitura.eventos > 0 && leitura.mtimeMs !== null) {
     progrediu = true; cursor.progressoEm = Math.max(cursor.progressoEm, Math.min(agoraMs, leitura.mtimeMs));
   }
+  // O processo terminou e a última linha não terminou: ela nunca vai se completar.
+  if (recibo && leitura.parcial) cursor.parser = { ...cursor.parser, invalido: true };
   // A pasta da sessão é do runtime: só o tamanho do `updates.jsonl` conta como progresso, nunca o conteúdo.
   const emDisco = acharSessaoGrok(sessao.sessionId, fonte.grokHome);
   if (emDisco && (cursor.updatesBytes === null || emDisco.tamanho > cursor.updatesBytes)) {
     progrediu = true; cursor.progressoEm = Math.max(cursor.progressoEm, Math.min(agoraMs, emDisco.mtimeMs));
   }
   if (emDisco) cursor.updatesBytes = emDisco.tamanho;
-  const processo = lerJson<ProcessoCodex>(fonte.processoPath);
-  const recibo = lerJson<ReciboCodex>(fonte.reciboPath);
-  if (recibo) {
-    conferirRecibo(recibo, processo, ctx.relogioReal ? Date.now() : agoraMs);
-    // O processo terminou e a última linha não terminou: ela nunca vai se completar.
-    if (leitura.parcial) cursor.parser = { ...cursor.parser, invalido: true };
-  }
   let prova: ProvaOrk | undefined;
   const c: ClassificacaoGrok = leitura.backlog ? { terminal: false, espera: 'stream com bytes ainda não lidos' }
     : classificarSessaoGrok({ estado: cursor.parser,
@@ -349,8 +364,9 @@ export function observarGrokSobLock(ctx: ContextoObservacaoGrok): ResultadoObser
     const retomada = c.retomar ? montarComandoDeRetomada(comando, sessao.sessionId) : null;
     const artefato = saidaDoArtefato(raiz, thread.id, sessao, fonte, eventos);
     const fim = cursor.parser.fim;
+    // GO-FIX 1 (S4): o comando da retomada vai pronto para colar, com aspas no argumento que precisa delas.
     const detalhe = c.diagnostico === null ? null
-      : retomada ? `${c.diagnostico}; retomada: ${retomada.join(' ')}` : c.diagnostico;
+      : retomada ? `${c.diagnostico}; retomada: ${retomada.map(citarNoShell).join(' ')}` : c.diagnostico;
     const dados = { fase: sessao.fase, sessionId: sessao.sessionId, despachoEm: sessao.despachadaEm, sensorResultId: resultadoId,
       classificacao: c.classificacao, motivo: c.motivo, runtime: 'grok', fonte: c.fonte,
       stopReason: fim?.stopReason ?? null, numTurnos: fim?.numTurnos ?? null, tokens: fim?.tokens ?? tokensIndisponiveis(),
@@ -371,8 +387,13 @@ export function observarGrokSobLock(ctx: ContextoObservacaoGrok): ResultadoObser
       diagnostico: c.diagnostico, ...(detalhe ? { detalhe } : {}),
       observadoEm: new Date(agoraMs).toISOString(), gate: 'phase.dispatch', origem: 'sessions.watch',
       morteLatenciaMs: c.morte ? agoraMs - cursor.progressoEm : null };
-    if (c.morte) gravar('sessao_morta', dados);
-    gravar(c.classificacao, dados);
+    // GO-FIX 1 (S1): cada evento do fim uma vez por despacho, como nos outros observadores; o processo que morre entre as
+    // gravações não repete o `gate_blocked` na volta seguinte.
+    const gravarUmaVez = (tipo: string) => {
+      if (!atuais.some(e => e.tipo === tipo && e.sensorResultId === resultadoId)) gravar(tipo, dados);
+    };
+    if (c.morte) gravarUmaVez('sessao_morta');
+    gravarUmaVez(c.classificacao);
     gravar('phase_result', dados);
     return { ...base, bytesLidos: leitura.bytes, concluido: true, classificacao: c.classificacao };
   });

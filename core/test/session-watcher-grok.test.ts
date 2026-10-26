@@ -8,10 +8,11 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { createHash } from 'node:crypto';
 import { dirTemporario, projetoTemporario } from './apoio';
 import { dirThread, gravarThread, novaThread } from '../src/thread';
 import { lerLedger, registrar } from '../src/ledger';
-import { LIMITE_MORTE_MS, observarSessao, validarFonteWatcher } from '../src/session-watcher';
+import { LIMITE_MORTE_MS, observarSessao, reconciliarSessaoSemWatcher, validarFonteWatcher } from '../src/session-watcher';
 import { classificarSessaoGrok, HEARTBEAT_GROK_MS } from '../src/session-watcher-grok';
 import { identidadeProcesso } from '../src/adapters/codex-runner';
 import { montarComando } from '../src/adapters/grok';
@@ -26,7 +27,9 @@ function fixture(nome: string): string {
   return fs.readFileSync(path.join(RAIZ, 'core/test/fixtures/grok', nome), 'utf8').replaceAll('<SESSAO>', SID);
 }
 
-interface Opcoes { fase?: Fase; filhoVivo?: boolean; supervisorVivo?: boolean; runtime?: string; registroGrok?: boolean }
+interface Opcoes { fase?: Fase; filhoVivo?: boolean; supervisorVivo?: boolean; runtime?: string; registroGrok?: boolean;
+  /** O `--cwd` do comando do despacho, quando difere do cwd da fixture (aspas da retomada). */
+  comandoCwd?: string }
 
 function cenario(nome: string, o: Opcoes = {}) {
   const fase = o.fase ?? 'PLAN';
@@ -46,7 +49,7 @@ function cenario(nome: string, o: Opcoes = {}) {
   const processo = { schema: 'ork.codex-process/v1', iniciadoEm: despachadaEm,
     supervisor: o.supervisorVivo ? vivo : morto, filho: o.filhoVivo ? vivo : morto };
   fs.writeFileSync(`${log}.process.json`, JSON.stringify(processo));
-  const comando = montarComando({ prompt: '<prompt:abcd1234>', nome: t.slug, cwd: p.dir, model: 'grok-modelo', effort: 'high',
+  const comando = montarComando({ prompt: '<prompt:abcd1234>', nome: t.slug, cwd: o.comandoCwd ?? p.dir, model: 'grok-modelo', effort: 'high',
     sandbox: 'workspace-write', sessionId: SID });
   registrar(dir, t.id, 'phase_dispatch', { fase, slug: t.slug, runtime: 'grok', model: 'grok-modelo', effort: 'high', cwd: p.dir,
     sessionId: SID, comando });
@@ -55,15 +58,21 @@ function cenario(nome: string, o: Opcoes = {}) {
       logPath: log, processoPath: `${log}.process.json`, reciboPath: `${log}.exit.json`, cwd: p.dir, grokHome: casa,
       ...(fase === 'PLAN' ? { artefato: { arquivo: 'docs/plan.md', sha256: null } } : {}), ...(fase === 'GO' ? { head: null } : {}) });
   }
-  const recibo = (exitCode: number | null, signal: string | null = null) => fs.writeFileSync(`${log}.exit.json`, JSON.stringify({
-    ...processo, terminadoEm: new Date(inicio + 100).toISOString(), exitCode, signal, duracaoMs: 100, erro: null }));
+  const recibo = (exitCode: number | null, signal: string | null = null, erro: string | null = null) =>
+    fs.writeFileSync(`${log}.exit.json`, JSON.stringify({
+      ...processo, terminadoEm: new Date(inicio + 100).toISOString(), exitCode, signal, duracaoMs: 100, erro }));
   return {
     p, t, dir, log, casa, comando, recibo,
-    stream: (texto: string) => fs.appendFileSync(log, texto),
-    sessaoNoDisco: (linhas = 1) => {
+    stream: (texto: string, ms?: number) => {
+      fs.appendFileSync(log, texto);
+      if (ms !== undefined) fs.utimesSync(log, (inicio + ms) / 1000, (inicio + ms) / 1000);
+    },
+    sessaoNoDisco: (linhas = 1, ms?: number) => {
       const pasta = path.join(casa, 'sessions', '-grupo', SID);
       fs.mkdirSync(pasta, { recursive: true });
-      fs.appendFileSync(path.join(pasta, 'updates.jsonl'), '{"sessionUpdate":"x"}\n'.repeat(linhas));
+      const updates = path.join(pasta, 'updates.jsonl');
+      fs.appendFileSync(updates, '{"sessionUpdate":"x"}\n'.repeat(linhas));
+      if (ms !== undefined) fs.utimesSync(updates, (inicio + ms) / 1000, (inicio + ms) / 1000);
     },
     plano: () => { fs.mkdirSync(path.join(dir, 'docs'), { recursive: true }); fs.writeFileSync(path.join(dir, 'docs/plan.md'), '# plano\n'); },
     observar: (ms: number) => observarSessao(p.carregado, SID, { agoraMs: inicio + ms }),
@@ -214,8 +223,8 @@ test('GW6: o fim por limite ou recusa do runtime vai ao humano com o motivo dito
 test('GW7: o stream cortado sem end, sem recibo e sem processo vira runtime.unavailable so no limite de estabilidade', () => {
   const c = cenario('cortado');
   try {
-    c.stream(fixture('cortado.jsonl'));
-    c.sessaoNoDisco();
+    c.stream(fixture('cortado.jsonl'), 1000);
+    c.sessaoNoDisco(1, 1000);
     assert.equal(c.observar(1000).concluido, false);
     assert.equal(c.observar(1000 + LIMITE_MORTE_MS - 1).concluido, false, 'um milissegundo antes do limite');
     assert.equal(c.resultados().length, 0);
@@ -257,13 +266,13 @@ test('GW8: saida 0 sem end, end de outra sessao, linha invalida e linha final in
 test('GW9: o processo vivo sem recibo espera sem resultado, e o progresso vira no maximo um heartbeat por minuto', () => {
   const c = cenario('vivo', { filhoVivo: true, supervisorVivo: true });
   try {
-    c.stream(fixture('cortado.jsonl'));
+    c.stream(fixture('cortado.jsonl'), 1000);
     const r = c.observar(1000);
     assert.equal(r.concluido, false);
     assert.equal(r.espera, 'sessão trabalhando');
-    c.stream(`${JSON.stringify({ type: 'text', data: 'mais texto' })}\n`);
+    c.stream(`${JSON.stringify({ type: 'text', data: 'mais texto' })}\n`, 1000 + HEARTBEAT_GROK_MS - 1);
     c.observar(1000 + HEARTBEAT_GROK_MS - 1);
-    c.sessaoNoDisco();
+    c.sessaoNoDisco(1, 1000 + HEARTBEAT_GROK_MS);
     c.observar(1000 + HEARTBEAT_GROK_MS);
     const batidas = c.eventos().filter((e) => e.tipo === 'runtime_heartbeat' && e.sessionId === SID);
     assert.equal(batidas.length, 2, 'a primeira e a do minuto seguinte');
@@ -325,5 +334,88 @@ test('GW12: com o phase_result do despacho gravado por outra fonte, o observador
     assert.equal(r.concluido, true);
     assert.equal(r.classificacao, 'gate_blocked');
     assert.equal(c.resultados().length, 1);
+  } finally { c.limpar(); }
+});
+
+test('GW13: com saida diferente de zero e sem error, o end cancelado e interrupcao e o end valido vai ao humano; o error vence o end', () => {
+  const casos: Array<[string, string, number | null, string | null, string, string]> = [
+    ['cancel-1', fixture('cancelado.jsonl'), 1, null, 'human.pending', 'end com stopReason cancelled e saida 1'],
+    ['fim-1', fixture('fim-normal.jsonl'), 1, null, 'human.pending', 'saida 1 depois do end com stopReason end_turn, sem o objeto error'],
+    ['kill', fixture('cortado.jsonl'), null, 'SIGKILL', 'runtime.unavailable', 'saida SIGKILL sem o objeto error no stream'],
+    ['erro-e-cancel', `${fixture('erro-login.jsonl')}${fixture('cancelado.jsonl')}`, 1, null, 'runtime.auth-missing',
+      'saida 1 com o objeto error do runtime'],
+  ];
+  for (const [nome, stream, codigo, sinal, motivo, fonte] of casos) {
+    const c = cenario(nome);
+    try {
+      c.stream(stream);
+      c.recibo(codigo, sinal);
+      c.observar(1000);
+      const [res] = c.resultados();
+      assert.equal(res.motivo, motivo, nome);
+      assert.ok(String(res.fonte).startsWith(fonte), `${nome}: ${String(res.fonte)}`);
+      if (motivo === 'human.pending') assert.deepEqual((res.retomada as { comando: string[] }).comando, RETOMADA(c.comando), nome);
+    } finally { c.limpar(); }
+  }
+});
+
+test('GW14: o recibo com o erro de spawn (codigo negativo do Node) vira runtime.unavailable tipado, sem derrubar o observador', () => {
+  const c = cenario('spawn');
+  const torto = cenario('spawn-torto');
+  try {
+    c.recibo(-2, null, 'ENOENT');
+    assert.equal(c.observar(1000).classificacao, 'gate_blocked');
+    const [res] = c.resultados();
+    assert.equal(res.motivo, 'runtime.unavailable');
+    assert.equal(res.fonte, 'o supervisor não iniciou o grok (ENOENT)');
+    torto.recibo(-2);
+    assert.throws(() => torto.observar(1000), /recibo de processo inválido/, 'codigo negativo sem erro de spawn segue invalido');
+  } finally { c.limpar(); torto.limpar(); }
+});
+
+test('GW15: o evento da classificacao gravado antes de uma queda nao se repete, e o phase_result sai uma vez', () => {
+  const c = cenario('queda');
+  try {
+    const despachoEm = new Date(inicio).toISOString();
+    const id = `grok:${createHash('sha256').update(`${SID}|${despachoEm}`).digest('hex')}`;
+    registrar(c.dir, c.t.id, 'gate_blocked', { fase: 'PLAN', sessionId: SID, despachoEm, sensorResultId: id, motivo: 'runtime.unavailable' });
+    c.stream(fixture('erro-rede.jsonl'));
+    c.recibo(1);
+    c.observar(1000);
+    assert.equal(c.eventos().filter((e) => e.tipo === 'gate_blocked' && e.sensorResultId === id).length, 1);
+    assert.equal(c.resultados().length, 1);
+  } finally { c.limpar(); }
+});
+
+test('GW16: a batida sem watcher observa a sessao grok pelo mesmo observador e, sem a fonte, para depois do limite', () => {
+  const c = cenario('batida');
+  const semFonte = cenario('batida-sem-fonte', { registroGrok: false });
+  try {
+    c.stream(fixture('fim-normal.jsonl'));
+    c.plano();
+    c.recibo(0);
+    const r = reconciliarSessaoSemWatcher(c.p.carregado, c.t.id, inicio + 1000);
+    assert.equal(r.estado, 'concluida', r.detalhe);
+    const [res] = c.resultados();
+    assert.equal(res.runtime, 'grok');
+    assert.equal(res.classificacao, 'fase_concluida');
+    const parada = reconciliarSessaoSemWatcher(semFonte.p.carregado, semFonte.t.id, Date.now() + LIMITE_MORTE_MS + 60000);
+    assert.equal(parada.estado, 'parada', parada.detalhe);
+    const [res2] = semFonte.resultados();
+    assert.equal(res2.motivo, 'runtime.unavailable');
+    assert.equal(res2.runtime, 'grok');
+  } finally { c.limpar(); semFonte.limpar(); }
+});
+
+test('GW17: a retomada no detalhe sai pronta para colar, com aspas no caminho que tem espaco', () => {
+  const c = cenario('aspas', { comandoCwd: '/srv/minha worktree' });
+  try {
+    c.stream(fixture('cortado.jsonl'));
+    c.recibo(143);
+    c.observar(1000);
+    const [res] = c.resultados();
+    const comando = (res.retomada as { comando: string[] }).comando;
+    assert.equal(comando[comando.indexOf('--cwd') + 1], '/srv/minha worktree');
+    assert.ok(String(res.detalhe).includes("--cwd '/srv/minha worktree'"), String(res.detalhe));
   } finally { c.limpar(); }
 });

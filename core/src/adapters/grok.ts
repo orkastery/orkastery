@@ -264,7 +264,8 @@ function falhaAntesDaSessao(recibo: ReciboCodex, sessionId: string,
   const texto = [mensagem, stderr].filter(Boolean).join('\n');
   const falhaDeConta = falhaDoErroGrok(estado?.erro ?? null) ?? (stderr ? parseFalhaDeConta(stderr) : null);
   const rateLimit = falhaDeConta ? null : parseRateLimit(texto);
-  const codigo = recibo.exitCode ?? recibo.signal ?? recibo.erro ?? 'sem codigo';
+  // O erro de spawn (o binário sumiu entre a conferência e o supervisor) vem antes do código, que o Node dá negativo.
+  const codigo = recibo.erro ?? recibo.exitCode ?? recibo.signal ?? 'sem codigo';
   const erro = falhaDeConta ? `${falhaDeConta.motivo}: ${falhaDeConta.trecho}`
     : rateLimit ? `limite de uso do runtime atingido: ${rateLimit.trecho}`
     : `runtime.unavailable: o grok saiu ${codigo} antes de criar a sessao${mensagem ? `: ${mensagem}` : ''}`;
