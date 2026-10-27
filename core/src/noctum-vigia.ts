@@ -52,6 +52,7 @@ import { ambienteDoPerfil } from './adapters/claude-bg';
 import { lerPerfis, lerPerfisComContas, perfilDeDespacho, StoreDePerfis } from './runtime-profiles';
 import { consultarContas } from './sessoes-contas';
 import { sessoesEmVooDoArco } from './noctum-sessoes-em-voo';
+import { OrdemCanceladaLocal, retomadaNaRede } from './noctum-retomada-rede';
 import { dirThread } from './thread';
 import { EventoLedger } from './types';
 import { exec } from './util';
@@ -405,9 +406,13 @@ export function vigiarArco(carregado: ManifestoCarregado, arco: string, opcoes: 
     const estado = lerArco(raiz, arco, quando)!;
     const conteudo = v2(estado);
     if (conteudo) {
+      const retomada = retomadaNaRede(carregado, arco, { ...opcoes.coordenacao, quando,
+        maquina: opcoes.maquina ?? opcoes.passo?.maquina });
+      if (retomada.lacuna) lacunas.push(`retomada na rede: ${retomada.lacuna.motivo}: ${retomada.lacuna.detalhe}`);
       const store = (opcoes.lerStore ?? storePadrao(raiz))();
       aplicarContas(carregado, arco, conteudo, store, quando, contagem);
-      reconciliarSobATravaDeDespacho(carregado, arco, conteudo, parametros, quando, opcoes, lacunas, contagem);
+      reconciliarSobATravaDeDespacho(carregado, arco, conteudo, parametros, quando, opcoes, lacunas, contagem,
+        retomada.canceladasLocais);
       for (const d of decidirPedidos(raiz, arco, lerArco(raiz, arco, quando)!)) {
         cancelarPedido(carregado, d.pedido, d.motivo);
         gravarNaSupervisao(carregado, arco, [{ tipo: 'pedido_tratado', pedido: d.pedido, thread: d.thread, acao: 'cancelado', motivo: d.motivo.slice(0, 200) }], quando);
@@ -468,7 +473,8 @@ export function vigiarArco(carregado: ManifestoCarregado, arco: string, opcoes: 
  * vigente e sem parada (A5), as sessões e as recusas repetidas. Com a trava ocupada, tudo fica para o tique seguinte.
  */
 function reconciliarSobATravaDeDespacho(carregado: ManifestoCarregado, arco: string, conteudo: ConteudoV2, parametros: ParametrosDaSupervisao,
-  quando: string, opcoes: OpcoesDoVigia, lacunas: string[], contagem: { reservas: number; retomadas: number; isolados: number }): void {
+  quando: string, opcoes: OpcoesDoVigia, lacunas: string[], contagem: { reservas: number; retomadas: number; isolados: number },
+  ordensCanceladas: readonly OrdemCanceladaLocal[] = []): void {
   const { raiz } = carregado;
   const noctum = path.join(raizDoEstado(raiz), '.orkastery', 'noctum');
   const fd = tentarTravaExclusiva(path.join(noctum, 'despacho.lock'));
@@ -497,7 +503,7 @@ function reconciliarSobATravaDeDespacho(carregado: ManifestoCarregado, arco: str
       return;
     }
     if (estado.situacao !== 'vigente' || sup.parada) return;
-    aplicarSessoes(carregado, arco, conteudo, leitura, quando, opcoes, lacunas, contagem, consultar);
+    aplicarSessoes(carregado, arco, conteudo, leitura, quando, opcoes, lacunas, contagem, consultar, ordensCanceladas);
     // B4 do CHECK: o trabalho que o núcleo recusa seguidas vezes pelo mesmo tipo de motivo (a árvore, a policy, o erro
     // antes de lançar) não volta a noite toda: no teto, e com a série durando ao menos uma cadência, é isolado. O soluço
     // mais curto que a cadência (a conferência de login inconclusiva da A14, que o núcleo refaz a cada despacho) não isola.
@@ -527,7 +533,8 @@ function aplicarContas(carregado: ManifestoCarregado, arco: string, conteudo: Co
  * trabalho é isolado). Confirmada, ou já morta, a sessão vira `sessao_morta` no ledger da thread e a retomada é autorizada.
  */
 function aplicarSessoes(carregado: ManifestoCarregado, arco: string, conteudo: ConteudoV2, leitura: LeituraDoRuntime, quando: string,
-  opcoes: OpcoesDoVigia, lacunas: string[], contagem: { retomadas: number; isolados: number }, consultar: () => LeituraDeSessoes): void {
+  opcoes: OpcoesDoVigia, lacunas: string[], contagem: { retomadas: number; isolados: number }, consultar: () => LeituraDeSessoes,
+  ordensCanceladas: readonly OrdemCanceladaLocal[] = []): void {
   const { raiz } = carregado;
   const sup = lerSupervisao(raiz, arco);
   const parametros = sup.parametros!;
@@ -545,7 +552,14 @@ function aplicarSessoes(carregado: ManifestoCarregado, arco: string, conteudo: C
     if (confirmada) registrarMorte(raiz, p.thread, p, prova);
     return confirmada ? prova : null;
   };
-  for (const d of decidirSessoes(raiz, arco, conteudo, lerArco(raiz, arco, quando)!, sup, leitura, quando)) {
+  const cancelados = new Set(ordensCanceladas.map(o => o.trabalho));
+  for (const s of sessoesEmVooDoArco(raiz, lerArco(raiz, arco, quando)!).filter(s => cancelados.has(s.trabalho))) {
+    if (!s.sessionId || !s.thread) { lacunas.push(`trabalho ${s.trabalho}: a ordem foi cancelada, mas a sessão em voo não está identificada`); continue; }
+    const prova = pararEConferir({ sessionId: s.sessionId, runtime: s.runtime, perfil: s.conta, thread: s.thread },
+      'ordem-cancelada', s.trabalho);
+    if (!prova) lacunas.push(`${s.thread}: a parada da sessão ${s.sessionId} da ordem cancelada não foi confirmada pelo runtime`);
+  }
+  for (const d of decidirSessoes(raiz, arco, conteudo, lerArco(raiz, arco, quando)!, sup, leitura, quando, cancelados)) {
     if (d.acao === 'aguardar') { lacunas.push(`${d.thread}: ${d.detalhe}`); continue; }
     if (d.acao === 'isolar') {
       if (d.parar) pararEConferir(d.parar, d.motivo === 'sem-primeiro-turno' ? 'sem-primeiro-turno' : 'sem-avanco', d.trabalho);
