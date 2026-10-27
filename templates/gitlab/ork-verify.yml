@@ -26,7 +26,7 @@ ork-verify:
     GIT_DEPTH: "0"
     # A versao do ork que roda o CHECK (>= a que traz `ci run --branch`). O suporte a GitLab chega na proxima versao
     # publicada: ate la, instale o tarball gerado do repositorio (npm pack em core/) no lugar do pacote do npm.
-    ORK_VERSAO: "0.6.0"
+    ORK_VERSAO: "0.6.1"
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH
