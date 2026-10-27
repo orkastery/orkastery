@@ -576,8 +576,9 @@ test('GW22: com o MCP do ork, a retomada pronta para colar avisa que parte da co
   try {
     for (const c of [comMcp, semMcp]) { c.stream(fixture('cortado.jsonl')); c.recibo(143); c.observar(1000); }
     const [com] = comMcp.resultados(), [sem] = semMcp.resultados();
-    // A regra vai entre aspas simples, pronta para colar, e o aviso vem logo depois do comando.
-    assert.match(String(com.detalhe), / --allow 'MCPTool\(orkastery__ork_thread_status\)'; a retomada parte do \.grok\/config\.toml da worktree como esta/);
+    // GO-FIX N4: o aviso vem antes do comando, que as telas cortam no fim; a regra vai entre aspas simples, pronta para colar.
+    assert.match(String(com.detalhe), /; a retomada parte do \.grok\/config\.toml da worktree como esta, .*; retomada: GROK_CLAUDE_MCPS_ENABLED=0 /);
+    assert.match(String(com.detalhe), / --allow 'MCPTool\(orkastery__ork_thread_status\)'$/);
     assert.equal(String(sem.detalhe).includes('.grok/config.toml'), false, 'sem o MCP, a retomada nao fala da config');
   } finally { comMcp.limpar(); semMcp.limpar(); }
 });

@@ -383,9 +383,10 @@ export function observarGrokSobLock(ctx: ContextoObservacaoGrok): ResultadoObser
     // com as variáveis do filho na frente, para a sessão retomada também não carregar o MCP de outros clientes. GO-FIX A3: com
     // o MCP do ork, a retomada parte da config que a sessão podia escrever, e o detalhe diz isso.
     const ambiente = Object.entries(AMBIENTE_SEM_MCP_DE_OUTROS_CLIENTES).map(([nome, valor]) => `${nome}=${valor}`);
+    // GO-FIX N4: o aviso vem antes do comando, que pode levar uma dezena de regras e as telas cortam o detalhe no fim.
     const comMcp = retomada?.some((a) => a.startsWith('MCPTool(orkastery__')) ? `; ${AVISO_DA_RETOMADA_COM_MCP}` : '';
     const detalhe = c.diagnostico === null ? null
-      : retomada ? `${c.diagnostico}; retomada: ${[...ambiente, ...retomada.map(citarNoShell)].join(' ')}${comMcp}` : c.diagnostico;
+      : retomada ? `${c.diagnostico}${comMcp}; retomada: ${[...ambiente, ...retomada.map(citarNoShell)].join(' ')}` : c.diagnostico;
     const dados = { fase: sessao.fase, sessionId: sessao.sessionId, despachoEm: sessao.despachadaEm, sensorResultId: resultadoId,
       classificacao: c.classificacao, motivo: c.motivo, runtime: 'grok', fonte: c.fonte,
       stopReason: fim?.stopReason ?? null, numTurnos: fim?.numTurnos ?? null, tokens: fim?.tokens ?? tokensIndisponiveis(),

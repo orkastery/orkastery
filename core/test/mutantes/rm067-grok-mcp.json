@@ -1,6 +1,6 @@
 {
   "contrato": "ork.mutantes/v1",
-  "descricao": "RM-067, F4b da ork-rm067f4bhost: cada mutante desfaz uma parte do host MCP do grok fora de adapters/ (o mutante.cjs nao alcanca adapters/). Cada claim Mutante roda um deles pelo core/scripts/mutante.cjs; M5 a M7 vem do GO-FIX da revisao independente.",
+  "descricao": "RM-067, F4b da ork-rm067f4bhost: cada mutante desfaz uma parte do host MCP do grok fora de adapters/ (o mutante.cjs nao alcanca adapters/). Cada claim Mutante roda um deles pelo core/scripts/mutante.cjs; M5 a M8 vem dos GO-FIX da revisao independente.",
   "mutantes": [
     {
       "id": "M1",
@@ -64,6 +64,15 @@
       "para": "if (host !== 'grok' || quem === undefined || quem === 'grok' || process.env.ORK_MUTANTE_NUNCA !== 'x')",
       "teste": "rm067-grok-mcp",
       "nome": "^GM14:"
+    },
+    {
+      "id": "M8",
+      "descricao": "sem outro host preparado, a falha da entrada orkastery do grok volta a ser engolida, e o claude-bg despacharia como num projeto legado",
+      "modulo": "runtime-context",
+      "de": "if (falhaDoGrok !== null && encontrado === undefined && podeTerEntradaDoOrk(raiz))",
+      "para": "if (falhaDoGrok !== null && encontrado === undefined && podeTerEntradaDoOrk(raiz) && process.env.ORK_MUTANTE_NUNCA === 'x')",
+      "teste": "rm067-grok-mcp",
+      "nome": "^GM15:"
     }
   ]
 }

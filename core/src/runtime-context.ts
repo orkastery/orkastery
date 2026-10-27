@@ -53,14 +53,16 @@ interface PerfilPreparado {transporteShip:TransporteShipMcp;permissoesFilho:Perm
 function perfilDoHost(raiz: string, host: HostMcp, encontrado: PerfilPreparado | undefined): PerfilPreparado | undefined {
   const file = arquivoDoHostMcp(raiz, host), toml = host !== 'claude-code';
   if (!fs.existsSync(file)) return encontrado;
-  const text = ler(raiz, file, 262144).toString('utf8');
   let config: Record<string, unknown>;
-  try { config = objeto(toml ? parse(text) : JSON.parse(text)); }
-  catch (erro) {
-    // RM-067 (F4b, GO-FIX A4): o motivo tipado do grok leva so a primeira linha do erro, sem o trecho do arquivo do time.
+  try {
+    const text = ler(raiz, file, 262144).toString('utf8');
+    config = objeto(toml ? parse(text) : JSON.parse(text));
+  } catch (erro) {
+    // RM-067 (F4b, GO-FIX A4 e N2): o motivo tipado do grok leva o codigo do erro de sistema ou a primeira linha do parser,
+    // sem o trecho do arquivo do time nem o caminho da maquina.
     if (host !== 'grok') throw erro;
-    throw Error(`runtime.context.conflict: .grok/config.toml do projeto ilegivel (${(erro as Error).message.split('\n')[0]}); ` +
-      'conserte o arquivo ou tire dele a entrada orkastery');
+    const causa = (erro as NodeJS.ErrnoException).code ?? (erro as Error).message.split('\n')[0];
+    throw Error(`runtime.context.conflict: .grok/config.toml do projeto ilegivel (${causa}); conserte o arquivo ou tire dele a entrada orkastery`);
   }
   const chave = toml ? 'mcp_servers' : 'mcpServers';
   if (config[chave] === undefined) return encontrado;
@@ -91,15 +93,27 @@ function perfilDoHost(raiz: string, host: HostMcp, encontrado: PerfilPreparado |
 /**
  * O perfil da instalacao MCP do projeto. RM-067 (F4b, GO-FIX A4): o `.grok/config.toml` tambem prepara, em TOML como o do
  * codex, mas ele e a config do proprio grok, que o time pode manter: para quem nao e o grok (`quem`), a falha de leitura,
- * de parse ou de conferencia dele nao derruba a preparacao dos outros hosts, e a entrada dele fica de fora.
+ * de parse ou de conferencia dele nao derruba a preparacao dos outros hosts, e a entrada dele fica de fora. GO-FIX N1: sem
+ * outro host preparado, a entrada `orkastery` do grok e a preparacao do projeto, e engolir a falha dela faria o claude-bg
+ * e o codex despacharem como num projeto legado, sem o MCP; a falha volta, e so a config do time sem a entrada fica de fora.
  */
 function preparado(raiz: string, quem?: string): PerfilPreparado | undefined {
   let encontrado:PerfilPreparado|undefined;
+  let falhaDoGrok: unknown = null;
   for (const host of HOSTS_MCP) {
     try { encontrado = perfilDoHost(raiz, host, encontrado); }
-    catch (erro) { if (host !== 'grok' || quem === undefined || quem === 'grok') throw erro; }
+    catch (erro) {
+      if (host !== 'grok' || quem === undefined || quem === 'grok') throw erro;
+      falhaDoGrok = erro;
+    }
   }
+  if (falhaDoGrok !== null && encontrado === undefined && podeTerEntradaDoOrk(raiz)) throw falhaDoGrok;
   return encontrado;
+}
+/** O `.grok/config.toml` do projeto tem, ou pode ter, a entrada `orkastery`; o que nao se le conta como se tivesse. */
+function podeTerEntradaDoOrk(raiz: string): boolean {
+  try { return ler(raiz, arquivoDoHostMcp(raiz, 'grok'), 262144).toString('utf8').includes('orkastery'); }
+  catch { return true; }
 }
 function raizCanonica(projeto: string): string {
   if (!path.isAbsolute(projeto)) throw Error('runtime.context.invalid: projeto absoluto obrigatorio');

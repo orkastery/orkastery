@@ -395,13 +395,15 @@ test('GM12: a tela do setup e as recusas de runtime e de fallback desconhecido l
   } finally { p.limpar(); }
 });
 
-test('GM13: a thread sem worktree propria recusa o grok com o MCP, e a config do projeto fica intocada', () => {
-  // GO-FIX B1: na raiz, a config da sessao viraria a entrada do host grok do projeto e derrubaria a preparacao.
+test('GM13: a thread sem worktree propria recusa o grok com o MCP, e a preparacao do projeto fica intocada', () => {
+  // GO-FIX B1: na raiz, a config da sessao viraria a entrada do host grok do projeto e derrubaria a preparacao. O cenario
+  // e o que corrompia: projeto preparado pelo claude-code, sem a entrada do grok, e a thread na raiz.
   const stub = grokFalso('gm13-raiz');
   const p = projetoTemporario('gm13-raiz');
   try {
-    instalarMcp({ projeto: p.dir, host: 'grok' });
-    const doProjeto = fs.readFileSync(grokDe(fs.realpathSync(p.dir)));
+    instalarAdaptador('claude-code', { projeto: p.dir });
+    instalarMcp({ projeto: p.dir, host: 'claude-code' });
+    assert.equal(capacidadeDoRuntimeNoProjeto(p.dir, 'claude-bg').capaz, true);
     const t = novaThread(p.carregado, { nome: 'gm13', modo: 'auto', criarWorktree: false }).thread;
     assert.throws(() => contextoDoProjeto(p.dir, 'grok', fs.realpathSync(p.dir), t.id), /runtime\.context\.worktree: o grok com o MCP do ork exige a worktree propria/);
     stub.stream('fim-normal.jsonl');
@@ -410,8 +412,8 @@ test('GM13: a thread sem worktree propria recusa o grok com o MCP, e a config do
     assert.equal(r.motivo, 'runtime.unavailable');
     assert.match(String(r.erro), /runtime\.context\.worktree/);
     assert.deepEqual(stub.chamadas(), [], 'o grok nao rodou');
-    assert.deepEqual(fs.readFileSync(grokDe(fs.realpathSync(p.dir))), doProjeto, 'a entrada do projeto nao mudou');
-    assert.equal(fs.existsSync(path.join(p.dir, '.grok', '.gitignore')), false);
+    assert.equal(fs.existsSync(path.join(p.dir, '.grok')), false, 'nada nasceu na raiz');
+    assert.equal(capacidadeDoRuntimeNoProjeto(p.dir, 'claude-bg').capaz, true, 'a preparacao dos outros hosts fica');
   } finally { p.limpar(); stub.restaurar(); }
 });
 
@@ -432,5 +434,36 @@ test('GM14: o .grok/config.toml ilegivel do time recusa so o grok, com motivo ti
     assert.match(String(grok.motivo), /^runtime\.context\.conflict: \.grok\/config\.toml do projeto ilegivel \(/);
     assert.throws(() => contextoDoProjeto(p.dir, 'grok', t.worktree!, t.id), /runtime\.context\.conflict: \.grok\/config\.toml do projeto ilegivel/);
     assert.equal(String(grok.motivo).includes('[permission'), false, 'o motivo nao repete o arquivo do time');
+  } finally { p.limpar(); }
+});
+
+test('GM15: no projeto preparado so pelo grok, a falha da entrada orkastery dele recusa o claude-bg, sem despacho legado em silencio', () => {
+  // GO-FIX N1: sem outro host preparado, a entrada do grok e a preparacao do projeto; a config do time sem ela segue de fora.
+  const p = projetoTemporario('gm15-so-grok');
+  try {
+    instalarAdaptador('claude-code', { projeto: p.dir });
+    instalarMcp({ projeto: p.dir, host: 'grok' });
+    const t = novaThread(p.carregado, { nome: 'gm15', modo: 'auto', criarWorktree: true }).thread;
+    assert.equal(contextoDoProjeto(p.dir, 'claude-bg', t.worktree!, t.id)?.host, 'claude-code', 'a entrada do grok prepara o projeto');
+    const arquivo = grokDe(fs.realpathSync(p.dir));
+    const instalada = fs.readFileSync(arquivo, 'utf8');
+    fs.writeFileSync(arquivo, instalada.replace('[mcp_servers.orkastery]', '[mcp_servers.orkastery'));
+    assert.throws(() => contextoDoProjeto(p.dir, 'claude-bg', t.worktree!, t.id), /\.grok\/config\.toml do projeto ilegivel/,
+      'ilegivel com a entrada: recusa, nunca projeto legado');
+    assert.equal(capacidadeDoRuntimeNoProjeto(p.dir, 'claude-bg').capaz, false);
+    fs.writeFileSync(arquivo, instalada.replace(/^command = .*$/m, 'command = "/outro/node"'));
+    assert.throws(() => contextoDoProjeto(p.dir, 'claude-bg', t.worktree!, t.id), /MCP Orkastery divergente/, 'divergente: recusa');
+    // GO-FIX N2: o link no lugar do arquivo, para um alvo dentro do projeto, sai tipado, com o codigo do erro e sem caminho.
+    fs.rmSync(arquivo);
+    const alvo = path.join(p.dir, 'alvo-da-config.toml');
+    fs.writeFileSync(alvo, instalada);
+    fs.symlinkSync(alvo, arquivo);
+    const motivo = String(capacidadeDoRuntimeNoProjeto(p.dir, 'grok').motivo);
+    assert.match(motivo, /^runtime\.context\.conflict: \.grok\/config\.toml do projeto ilegivel \(ELOOP\)/);
+    assert.equal(motivo.includes(fs.realpathSync(p.dir)), false, 'o motivo nao leva o caminho da maquina');
+    // A config do time sem a entrada do ork, ilegivel, num projeto que nada preparou: o claude-bg segue o legado.
+    fs.rmSync(arquivo);
+    fs.writeFileSync(arquivo, '[permission\nallow = [\n');
+    assert.equal(contextoDoProjeto(p.dir, 'claude-bg', t.worktree!, t.id), undefined, 'sem preparacao, o despacho legado de sempre');
   } finally { p.limpar(); }
 });
