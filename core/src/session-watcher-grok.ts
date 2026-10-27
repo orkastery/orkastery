@@ -23,13 +23,13 @@ import { citarNoShell } from './doctor-pulse-cron';
 
 /**
  * RM-067 (F4b, GO-FIX A3; F4c, D10): a retomada manual parte do `.grok/config.toml` da worktree como ele está, e a sessão
- * podia escrever nele no perfil `workspace`. Desde a F4c, o servidor do `ork` morre com a sessão e o token dele some: a
- * retomada manual não alcança o MCP do `ork`, nem o servidor de outra sessão que pegue a mesma porta (o token apagado falha
- * a requisição antes de ela sair, G16); o `ork retry` sobe outro servidor e reescreve a config antes de redespachar.
+ * podia escrever nele no perfil `workspace`. Desde a F4c, o servidor do `ork` morre com a sessão, e o token dele só existia
+ * no ambiente dela (`bearer_token_env_var`): a retomada manual não alcança o MCP do `ork`, nem o servidor de outra sessão que
+ * pegue a mesma porta, que recusa sem o token dela; o `ork retry` sobe outro servidor e reescreve a config antes de redespachar.
  */
-export const AVISO_DA_RETOMADA_COM_MCP = 'o servidor MCP do ork terminou com a sessao e o token dele foi apagado, entao a ' +
-  'retomada manual roda sem o MCP do ork e parte do .grok/config.toml da worktree como a sessao o deixou: para retomar com o ' +
-  'MCP, redespache pelo ork retry, que sobe outro servidor e reescreve a config';
+export const AVISO_DA_RETOMADA_COM_MCP = 'o servidor MCP do ork terminou com a sessao, e o token dele so existia no ambiente ' +
+  'dela, entao a retomada manual roda sem o MCP do ork e parte do .grok/config.toml da worktree como a sessao o deixou: para ' +
+  'retomar com o MCP, redespache pelo ork retry, que sobe outro servidor e reescreve a config';
 
 /** D12: no máximo um `runtime_heartbeat` por minuto; o stream do `grok` emite um evento por pedaço de texto. */
 export const HEARTBEAT_GROK_MS = 60_000;

@@ -2,7 +2,8 @@
  * RM-067 (F1 da ork-grokbuild): runtime `grok`, o Grok Build headless da xAI. Nasceu só para despacho explícito
  * (`ork phase run --runtime grok`, D1); desde a F4, é runtime de bloco no setup, nunca o padrão do projeto, e desde a F4b
  * leva o MCP do `ork` pela config que o despacho grava na worktree (`gravarConfigDaWorktree`). Desde a F4c, o servidor
- * dessa config é um processo do `ork`, fora do sandbox do `grok` (`grok-mcp.ts`), e o `grok` se conecta a ele por `url`.
+ * dessa config é um processo do `ork`, fora do sandbox do `grok` (`grok-mcp.ts`), e o `grok` se conecta a ele por `url`, com o
+ * token do despacho só no ambiente (`bearer_token_env_var`).
  *
  * O despacho roda `grok -p <prompt> --output-format streaming-json -s <id>` desanexado, pelo supervisor do `codex-runner`
  * (D6): o log do stream, o `.process.json` com a identidade do filho e o `.exit.json` com o código e o sinal do `close`
@@ -24,7 +25,7 @@ import { exec as executar, noPath } from '../util';
 import { CONSULTAS_MCP, DespachoResultado, MUTACOES_WORKTREE, parseRateLimit, StatusDeAuth } from './claude-bg';
 import { estadoProcesso, iniciarSupervisor, ProcessoCodex, ReciboCodex } from './codex-runner';
 import { falhaDeContaDoTextoGrok, falhaDoErroGrok, lerStreamGrok, redigirTextoGrok } from './grok-events';
-import { iniciarServidorDoGrok, ServidorDoGrokIniciado } from './grok-mcp';
+import { ENV_DO_TOKEN_DO_SERVIDOR_GROK, iniciarServidorDoGrok, ServidorDoGrokIniciado } from './grok-mcp';
 import { TOOLS_DO_GRAFO } from '../mcp-grafo';
 import type { PermissoesFilhoMcp } from '../mcp-install';
 
@@ -229,7 +230,12 @@ function contextoDoDespacho(pedido: DespachoGrokPedido): ContextoDoGrok | null {
   return validarContextoDoGrok(pedido.contextoRuntime, pedido.cwd);
 }
 
-function comandoDoDespacho(pedido: DespachoGrokPedido, contexto: ContextoDoGrok | null): string[] {
+/** RM-067 (F4b, G2; F4c, D4): as ferramentas que o despacho libera, a mesma lista para o `--allow` e para o servidor do `ork`. */
+function ferramentasDoDespacho(pedido: DespachoGrokPedido, contexto: ContextoDoGrok | null): string[] {
+  return contexto ? ferramentasDoGrok(contexto.permissoesFilho, pedido.colaboracao === 'plan', contexto.grafoMcp) : [];
+}
+
+function comandoDoDespacho(pedido: DespachoGrokPedido, ferramentas: readonly string[]): string[] {
   const args = ['-p', pedido.prompt, '--output-format', 'streaming-json'];
   if (pedido.sessionId) args.push('-s', pedido.sessionId);
   args.push('--cwd', pedido.cwd, '--trust');
@@ -238,10 +244,7 @@ function comandoDoDespacho(pedido: DespachoGrokPedido, contexto: ContextoDoGrok 
   args.push('--sandbox', perfilDeSandbox(pedido.sandbox, pedido.colaboracao), '--no-auto-update');
   // RM-067 (F4b, G2): com o MCP do ork, uma regra por ferramenta liberada, no fim, para o despacho sem contexto ficar igual
   // e a retomada (que guarda o que vem depois do `-s`) levar as mesmas regras.
-  if (contexto) {
-    for (const ferramenta of ferramentasDoGrok(contexto.permissoesFilho, pedido.colaboracao === 'plan', contexto.grafoMcp))
-      args.push('--allow', `MCPTool(orkastery__${ferramenta})`);
-  }
+  for (const ferramenta of ferramentas) args.push('--allow', `MCPTool(orkastery__${ferramenta})`);
   return ['grok', ...args];
 }
 
@@ -259,7 +262,7 @@ function comandoDoDespacho(pedido: DespachoGrokPedido, contexto: ContextoDoGrok 
  * ferramenta do MCP do `ork` que o caso libera (`ferramentasDoGrok`), e nenhuma outra regra.
  */
 export function montarComando(pedido: DespachoGrokPedido): string[] {
-  return comandoDoDespacho(pedido, contextoDoDespacho(pedido));
+  return comandoDoDespacho(pedido, ferramentasDoDespacho(pedido, contextoDoDespacho(pedido)));
 }
 
 /** RM-067 (F4b, G3): a primeira linha da config que o `ork` grava na worktree; sem ela, o arquivo não é do `ork`. */
@@ -271,34 +274,36 @@ export const MARCA_DA_CONFIG_DO_FILHO = '# Gerado pelo ork para a sessao filha d
 export const IGNORADOS_DA_CONFIG_DO_FILHO = '/config.toml\n/.gitignore\n/.ork-*.tmp\n';
 const LIMITE_DA_CONFIG_BYTES = 65536;
 
-/** RM-067 (F4c, D7): como a sessão filha alcança o servidor do `ork`: a URL do loopback e o arquivo do token. */
-export interface ConexaoDoFilhoGrok { url: string; bearerTokenFile: string }
+/** RM-067 (F4c, D7): como a sessão filha alcança o servidor do `ork`: a URL do loopback e a variável com o token. */
+export interface ConexaoDoFilhoGrok { url: string; bearerTokenEnvVar: string }
 
 /** D1 da F4c: a única URL que a config da worktree aceita, a do servidor do `ork` no loopback. */
 const URL_DO_SERVIDOR_DO_ORK = /^http:\/\/127\.0\.0\.1:[1-9][0-9]{0,4}\/mcp$/;
+/** D2 da F4c: o nome da variável do token, sem nada que o `grok` expandisse. */
+const NOME_DE_VARIAVEL = /^[A-Z_][A-Z0-9_]{0,63}$/;
 
 /**
  * RM-067 (F4b, G3 e G7; F4c, D7): o `.grok/config.toml` da worktree, com o servidor do `ork` vinculado à thread e ao
  * despacho. Desde a F4c, a entrada é a forma `url` do guia oficial (G16): a URL do servidor do `ork` no loopback e o
- * `bearer_token_file`, que o `grok` lê a cada requisição; nada de `command`, `args` ou `env`, porque o servidor não é mais
- * filho do `grok`. O `grok` expande `${VAR}` na `url` e no `bearer_token_file` (G16): valor com `$` recusa, porque o
- * servidor alcançado seria outro. O texto volta pelo parser de TOML e o documento inteiro tem de ser exatamente a entrada
- * pedida (GO-FIX S2).
+ * `bearer_token_env_var` (G5), o nome da variável com o token, que o despacho põe só no ambiente do `grok`; nada de
+ * `command`, `args` ou `env`, porque o servidor não é mais filho do `grok`, e nada de token em arquivo, que a sessão de outra
+ * thread leria (GO-FIX 1, achado 1). O `grok` expande `${VAR}` na `url` (G16): valor com `$` recusa, porque o servidor
+ * alcançado seria outro. O texto volta pelo parser de TOML e o documento inteiro tem de ser exatamente a entrada pedida
+ * (GO-FIX S2).
  */
 export function configDoFilho(conexao: ConexaoDoFilhoGrok, threadId: string): string {
-  const campos: [string, string][] = [['url', conexao.url], ['bearer_token_file', conexao.bearerTokenFile]];
-  const comCifrao = campos.find(([, valor]) => valor.includes('$'));
-  if (comCifrao) throw new Error(`runtime.context.conflict: ${comCifrao[0]} do servidor do ork tem $, que o grok expandiria; use um caminho sem $`);
+  if (conexao.url.includes('$'))
+    throw new Error('runtime.context.conflict: url do servidor do ork tem $, que o grok expandiria; use uma url sem $');
   if (!URL_DO_SERVIDOR_DO_ORK.test(conexao.url))
     throw new Error('runtime.context.conflict: a url do servidor do ork nao e a do loopback local (http://127.0.0.1:<porta>/mcp)');
-  if (!path.isAbsolute(conexao.bearerTokenFile))
-    throw new Error('runtime.context.conflict: o bearer_token_file do servidor do ork nao e um caminho absoluto');
+  if (!NOME_DE_VARIAVEL.test(conexao.bearerTokenEnvVar))
+    throw new Error('runtime.context.conflict: o bearer_token_env_var do servidor do ork nao e um nome de variavel');
   const texto = [MARCA_DA_CONFIG_DO_FILHO, `# thread ${threadId}`, '[mcp_servers.orkastery]',
-    `url = ${JSON.stringify(conexao.url)}`, `bearer_token_file = ${JSON.stringify(conexao.bearerTokenFile)}`].join('\n') + '\n';
+    `url = ${JSON.stringify(conexao.url)}`, `bearer_token_env_var = ${JSON.stringify(conexao.bearerTokenEnvVar)}`].join('\n') + '\n';
   let lido: string;
   try { lido = JSON.stringify(parse(texto)); }
   catch { throw new Error('runtime.context.conflict: a config do servidor do ork nao sai como TOML valido'); }
-  const esperado = JSON.stringify({ mcp_servers: { orkastery: { url: conexao.url, bearer_token_file: conexao.bearerTokenFile } } });
+  const esperado = JSON.stringify({ mcp_servers: { orkastery: { url: conexao.url, bearer_token_env_var: conexao.bearerTokenEnvVar } } });
   if (lido !== esperado) throw new Error('runtime.context.conflict: a config do servidor do ork nao volta igual pelo TOML');
   return texto;
 }
@@ -521,7 +526,8 @@ export function despachar(pedido: DespachoGrokPedido): DespachoGrokResultado {
   let contexto: ContextoDoGrok | null;
   try { contexto = contextoDoDespacho(pedido); }
   catch (e) { return falha(`runtime.unavailable: ${(e as Error).message}`); }
-  try { comando = comandoDoDespacho({ ...pedido, sessionId }, contexto); ambiente = ambienteDoFilho(pedido); }
+  const ferramentas = ferramentasDoDespacho(pedido, contexto);
+  try { comando = comandoDoDespacho({ ...pedido, sessionId }, ferramentas); ambiente = ambienteDoFilho(pedido); }
   catch (e) { return falha((e as Error).message); }
   if (pedido.dryRun) return { ok: true, comando, sessionId: null, verificada: false, stdout: '', stderr: '' };
   if (!disponivel(ambiente)) return falha('runtime.unavailable: binario grok nao encontrado no PATH', { comando });
@@ -532,7 +538,7 @@ export function despachar(pedido: DespachoGrokPedido): DespachoGrokResultado {
   const logPath = path.join(pedido.logDir, `${sessionId}.grok.jsonl`);
   // RM-067 (F4c, D6 e D7): com o MCP, o servidor do ork sobe antes de tudo, fora do sandbox do grok, com as ferramentas do
   // --allow deste despacho; a config da worktree aponta para ele e vai antes do supervisor, porque o grok a lê na partida,
-  // com a pasta confiada (F4b, G3). Toda falha depois de o servidor subir o encerra.
+  // com a pasta confiada (F4b, G3). O token vai só ao ambiente do grok (D2). Toda falha depois de o servidor subir o encerra.
   let servidor: ServidorDoGrokIniciado | null = null;
   if (contexto) {
     const especificacao = contexto.servidor;
@@ -541,14 +547,19 @@ export function despachar(pedido: DespachoGrokPedido): DespachoGrokResultado {
     try {
       servidor = iniciarServidorDoGrok({ projeto: especificacao.projeto, threadId: especificacao.threadId,
         dispatchId: especificacao.dispatchId, permissoesFilho: especificacao.permissoesFilho, transporteShip: especificacao.transporteShip,
-        ferramentas: ferramentasDoGrok(contexto.permissoesFilho, pedido.colaboracao === 'plan', contexto.grafoMcp), logPath },
-      pedido.cwd, { ...ambiente, ...(especificacao.env ?? {}) });
-    } catch (e) { return falha((e as Error).message, { comando }); }
-    try { gravarConfigDaWorktree(pedido.cwd, configDoFilho({ url: servidor.url, bearerTokenFile: servidor.tokenPath }, contexto.threadId)); }
-    catch (e) { servidor.encerrar(); return falha(`runtime.unavailable: ${(e as Error).message}`, { comando }); }
+        ferramentas, logPath }, pedido.cwd, { ...ambiente, ...(especificacao.env ?? {}) });
+    } catch (e) {
+      // GO-FIX 1 (achado 7): o erro de sistema (mkdir, open, spawn) também volta tipado.
+      const motivo = (e as Error).message;
+      return falha(motivo.startsWith('runtime.unavailable:') ? motivo : `runtime.unavailable: ${motivo}`, { comando });
+    }
+    try {
+      gravarConfigDaWorktree(pedido.cwd, configDoFilho({ url: servidor.url, bearerTokenEnvVar: ENV_DO_TOKEN_DO_SERVIDOR_GROK }, contexto.threadId));
+    } catch (e) { servidor.encerrar(); return falha(`runtime.unavailable: ${(e as Error).message}`, { comando }); }
   }
+  const ambienteDoGrok = servidor ? { ...ambiente, [ENV_DO_TOKEN_DO_SERVIDOR_GROK]: servidor.token } : ambiente;
   let sensores: { processoPath: string; reciboPath: string };
-  try { sensores = iniciarSupervisor(comando, pedido.cwd, logPath, ambiente); }
+  try { sensores = iniciarSupervisor(comando, pedido.cwd, logPath, ambienteDoGrok); }
   catch (e) {
     servidor?.encerrar();
     return falha(`runtime.unavailable: o supervisor do grok nao iniciou (${(e as NodeJS.ErrnoException).code ?? 'erro'})`, { comando });
@@ -559,12 +570,12 @@ export function despachar(pedido: DespachoGrokPedido): DespachoGrokResultado {
   for (;;) {
     if (acharSessaoGrok(sessionId, casa)) return { ok: true, sessionId, verificada: true, stdout: '', stderr: '', ...base };
     const recibo = lerMetadado<ReciboCodex>(sensores.reciboPath);
-    if (recibo) return falhaAntesDaSessao(recibo, sessionId, base);
+    if (recibo) { servidor?.encerrar(); return falhaAntesDaSessao(recibo, sessionId, base); }
     if (Date.now() >= prazo) break;
     Atomics.wait(pausa, 0, 0, 100);
   }
   const recibo = lerMetadado<ReciboCodex>(sensores.reciboPath);
-  if (recibo) return falhaAntesDaSessao(recibo, sessionId, base);
+  if (recibo) { servidor?.encerrar(); return falhaAntesDaSessao(recibo, sessionId, base); }
   // Filho vivo sem a pasta no prazo: a sessão segue, sem prova de existência ainda; o watcher a acompanha.
   const processo = lerMetadado<ProcessoCodex>(sensores.processoPath);
   if (processo?.filho && estadoProcesso(processo.filho) === 'vivo') {

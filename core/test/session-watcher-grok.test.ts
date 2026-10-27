@@ -578,7 +578,7 @@ test('GW22: com o MCP do ork, a retomada pronta para colar avisa que o servidor 
     const [com] = comMcp.resultados(), [sem] = semMcp.resultados();
     // GO-FIX N4: o aviso vem antes do comando, que as telas cortam no fim; a regra vai entre aspas simples, pronta para colar.
     // RM-067 (F4c, D10): o servidor do ork terminou com a sessao; a retomada manual roda sem ele, e o ork retry sobe outro.
-    assert.match(String(com.detalhe), new RegExp('; o servidor MCP do ork terminou com a sessao e o token dele foi apagado, .* parte do ' +
+    assert.match(String(com.detalhe), new RegExp('; o servidor MCP do ork terminou com a sessao, e o token dele so existia no ambiente dela, .* parte do ' +
       '\\.grok/config\\.toml da worktree como a sessao o deixou: .*ork retry, que sobe outro servidor e reescreve a config; ' +
       'retomada: GROK_CLAUDE_MCPS_ENABLED=0 '));
     assert.match(String(com.detalhe), / --allow 'MCPTool\(orkastery__ork_thread_status\)'$/);

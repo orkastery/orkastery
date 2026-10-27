@@ -45,8 +45,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 - **MCP do `ork` fora do sandbox do Grok Build** ([RM-067](docs/roadmap/RM-067-grok-build-homologado.md), F4c): o
   sandbox do `grok` vale para ele e os filhos, e o servidor MCP do `ork` que ele subia lia o estado sem gravar. Agora,
   com o MCP do `ork`, o despacho `--runtime grok` sobe antes do `grok` um servidor do próprio `ork`, fora do sandbox:
-  Streamable HTTP só em `127.0.0.1`, porta efêmera, token de 256 bits por despacho no `bearer_token_file` da config da
-  worktree, só as ferramentas do `--allow` daquele despacho, e o servidor morre com a sessão. A sessão `grok` no piso
+  Streamable HTTP só em `127.0.0.1`, porta efêmera, token de 256 bits por despacho só no ambiente do servidor e do
+  `grok` (`bearer_token_env_var`), nunca em arquivo, só as ferramentas do `--allow` daquele despacho, e o servidor
+  morre com a sessão. A sessão `grok` no piso
   `workspace` grava o ledger, os artefatos e o git da worktree pelo núcleo, e o `grok` volta a ser destino de fallback
   de um projeto com o MCP. O `grok` segue no `workspace`, sem `danger-full-access`, `--yolo` ou `bypassPermissions`, e
   a retomada manual avisa que roda sem o MCP do `ork`. O `claude-bg` e o `codex` não mudam.

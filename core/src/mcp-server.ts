@@ -97,7 +97,9 @@ export interface OpcoesServidorMcp { projeto: string; host: HostMcp;threadId?:st
   /** Opção de instalação confiável para bare físico; nunca argumento de ferramenta. */
   transporteShip?:TransporteShipMcp;permissoesFilho?:'interactive'|'worktree';nomesProviderHerdados?:string[];
   /** RM-067 (F4c, D4): o servidor externo do grok lista so as ferramentas do --allow do despacho, nunca a uniao do perfil. */
-  ferramentas?: readonly string[] }
+  ferramentas?: readonly string[];
+  /** RM-067 (F4c, D5): avisa o inicio (+1) e o fim (-1) de cada ferramenta, para o servidor externo do grok nao cortar uma no fecho. */
+  emCurso?: (delta: 1 | -1) => void }
 
 /** Factory publica para compor transporte nativo ou testes; nao executa ferramentas no startup. */
 export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
@@ -303,13 +305,14 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
   }
   server.setRequestHandler(ListToolsRequestSchema,async()=>({tools:[...ferramentas.values()].map(f=>f.tool)}));
   server.setRequestHandler(CallToolRequestSchema,async(request,extra)=>{
+    opcoes.emCurso?.(1);
     try {
       const f=ferramentas.get(request.params.name);if(!f) throw Error('mcp.tool.unknown');
       return await f.executar(request.params.arguments??{},extra);
     } catch(e) {
       if(e instanceof ErroDeProjeto) return {...resposta(e.recusa),isError:true};
       return {...resposta({erro:(e as Error).message}),isError:true};
-    }
+    } finally { opcoes.emCurso?.(-1); }
   });
   const conexaoLocal=randomUUID();
   // RM-059 (F9, G3): a caixa de saida do Mensageiro de Sessoes so existe no servidor do dono do Claude Code, na memoria:

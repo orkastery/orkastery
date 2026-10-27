@@ -10,8 +10,9 @@
  *   - RM-067 (F4b): grava os valores de `GROK_CLAUDE_MCPS_ENABLED` e `GROK_CURSOR_MCPS_ENABLED` de cada chamada (não são
  *     segredo) e, com `--trust`, a cópia do `.grok/config.toml` do `--cwd`, a config de MCP que o filho carregaria;
  *   - RM-067 (F4c): grava o próprio pid e o do pai de cada chamada e, com `--trust`, a config da worktree e um roteiro na
- *     pasta do stub, roda um cliente MCP como o do `grok` (G16): na forma `url`, relê o `bearer_token_file` a cada
- *     requisição e manda `Authorization: Bearer <conteúdo>`; na forma `command`, sobe o servidor stdio como filho dele;
+ *     pasta do stub, roda um cliente MCP como o do `grok` (G16, G5): na forma `url`, lê o token da variável do
+ *     `bearer_token_env_var` (ou relê o `bearer_token_file`) a cada requisição e manda `Authorization: Bearer <token>`, e
+ *     guarda o token que viu, para o teste procurar vazamento dele; na forma `command`, sobe o servidor stdio como filho dele;
  *   - RM-067 (F4c, D11): se mandado, roda confinado pelo Landlock do kernel como o perfil `workspace` (escrita só nas pastas
  *     pedidas), pelo lançador de `fixtures/grok/landlock.py`, e os filhos herdam o confinamento; uma sonda tenta criar um
  *     arquivo fora delas e grava se conseguiu;
@@ -32,6 +33,8 @@ export interface ChamadaMcp { nome: string; argumentos: Record<string, unknown> 
 export interface ResultadoMcp {
   ferramentas: string[];
   chamadas: { nome: string; isError: boolean; texto: string }[];
+  /** O token que o cliente mandou (só da fixture: o teste procura vazamento dele no disco). */
+  token?: string;
   erro?: string;
 }
 
@@ -55,9 +58,12 @@ const { StdioClientTransport } = require(${r('@modelcontextprotocol/sdk/client/s
   const resultado = { ferramentas: [], chamadas: [] };
   let transporte;
   if (entrada.url) {
+    const token = () => entrada.bearer_token_env_var ? (process.env[entrada.bearer_token_env_var] || '')
+      : fs.readFileSync(entrada.bearer_token_file, 'utf8').trim();
+    resultado.token = token();
     const comToken = (url, init = {}) => {
       const cabecalhos = new Headers(init.headers);
-      cabecalhos.set('Authorization', 'Bearer ' + fs.readFileSync(entrada.bearer_token_file, 'utf8').trim());
+      cabecalhos.set('Authorization', 'Bearer ' + token());
       return fetch(url, { ...init, headers: cabecalhos });
     };
     transporte = new StreamableHTTPClientTransport(new URL(entrada.url), { fetch: comToken });

@@ -18,7 +18,7 @@ import { criarServidorMcp } from '../src/mcp-server';
 import { CONSULTAS_MCP, MUTACOES_WORKTREE, montarComando as comandoDoClaude } from '../src/adapters/claude-bg';
 import { configDoFilho, ferramentasDoGrok, ferramentasServidasAoGrok, gravarConfigDaWorktree, IGNORADOS_DA_CONFIG_DO_FILHO,
   MARCA_DA_CONFIG_DO_FILHO, montarComando as comandoDoGrok } from '../src/adapters/grok';
-import { arquivosDoServidorGrok, lerReciboServidorGrok } from '../src/adapters/grok-mcp';
+import { arquivosDoServidorGrok, ENV_DO_TOKEN_DO_SERVIDOR_GROK, lerReciboServidorGrok } from '../src/adapters/grok-mcp';
 import { instalarAdaptador } from '../src/hosts';
 import { rodarFase } from '../src/phase';
 import { exec } from '../src/util';
@@ -283,11 +283,11 @@ test('GM9: o despacho real grava a config da worktree vinculada a thread e ao de
     const config = fs.readFileSync(path.join(wt, '.grok', 'config.toml'), 'utf8');
     assert.ok(config.startsWith(`${MARCA_DA_CONFIG_DO_FILHO}\n`), 'a marca do ork na primeira linha');
     const dispatchId = (lerLedger(dirThread(p.dir, t.id)).find((e) => e.tipo === 'phase_prompt_recorded')?.identidade as { dispatchId: string }).dispatchId;
-    // RM-067 (F4c, D7): a forma url do guia (G16), com o servidor do ork no loopback e o token fora da worktree.
+    // RM-067 (F4c, D7): a forma url do guia (G16), com o servidor do ork no loopback e o token so no ambiente (G5).
     const entrada = entradaDe(config);
-    assert.deepEqual(Object.keys(entrada).sort(), ['bearer_token_file', 'url'], 'sem command: o servidor nao e filho do grok');
+    assert.deepEqual(Object.keys(entrada).sort(), ['bearer_token_env_var', 'url'], 'sem command: o servidor nao e filho do grok');
     const arquivos = arquivosDoServidorGrok(path.join(dirThread(p.dir, t.id), 'sessoes', `${sid}.grok.jsonl`));
-    assert.equal(entrada.bearer_token_file, arquivos.tokenPath);
+    assert.equal(entrada.bearer_token_env_var, ENV_DO_TOKEN_DO_SERVIDOR_GROK);
     const recibo = lerReciboServidorGrok(arquivos.reciboPath);
     assert.equal(entrada.url, recibo?.url);
     assert.match(String(entrada.url), /^http:\/\/127\.0\.0\.1:\d+\/mcp$/);
@@ -310,18 +310,18 @@ test('GM10: a config da worktree recusa versionada, sem a marca, link, cifrao e 
   const stub = grokFalso('gm10-recusas');
   const p = projetoTemporario('gm10-recusas');
   try {
-    // RM-067 (F4c, D7): a entrada e a forma url, com o servidor do ork no loopback e o arquivo do token.
-    const conexao = { url: 'http://127.0.0.1:41234/mcp', bearerTokenFile: '/srv/ork/sessoes/sessao.grok-mcp.token' };
+    // RM-067 (F4c, D7): a entrada e a forma url, com o servidor do ork no loopback e o nome da variavel do token.
+    const conexao = { url: 'http://127.0.0.1:41234/mcp', bearerTokenEnvVar: ENV_DO_TOKEN_DO_SERVIDOR_GROK };
     const texto = configDoFilho(conexao, 'ork-fixture');
-    assert.throws(() => configDoFilho({ ...conexao, bearerTokenFile: '/srv/$HOME/token' }, 'ork-fixture'),
-      /bearer_token_file do servidor do ork tem \$/);
+    assert.equal(texto.includes('bearer_token_file'), false, 'nenhum token em arquivo (GO-FIX 1)');
     assert.throws(() => configDoFilho({ ...conexao, url: 'http://127.0.0.1:41234/mcp${X}' }, 'ork-fixture'), /url do servidor do ork tem \$/);
     for (const url of ['http://0.0.0.0:41234/mcp', 'http://localhost:41234/mcp', 'https://mcp.example.com/mcp', 'http://127.0.0.1:41234/outro'])
       assert.throws(() => configDoFilho({ ...conexao, url }, 'ork-fixture'), /nao e a do loopback local/, url);
-    assert.throws(() => configDoFilho({ ...conexao, bearerTokenFile: 'sessoes/token' }, 'ork-fixture'), /nao e um caminho absoluto/);
+    for (const nome of ['${OUTRA}', 'ork-token', 'COM ESPACO', ''])
+      assert.throws(() => configDoFilho({ ...conexao, bearerTokenEnvVar: nome }, 'ork-fixture'), /nao e um nome de variavel/, nome);
     // GO-FIX S2: o documento inteiro volta pelo parser; uma tabela a mais, por qualquer campo, recusa.
     assert.throws(() => configDoFilho(conexao, 'ork-x\n[mcp_servers.outro]\ncommand = "y"'), /nao volta igual pelo TOML/);
-    assert.throws(() => configDoFilho({ ...conexao, bearerTokenFile: '/srv/\u007f' }, 'ork-fixture'), /nao sai como TOML valido|nao volta igual/);
+    assert.throws(() => configDoFilho(conexao, 'ork-\u007f'), /nao sai como TOML valido|nao volta igual/);
     const pasta = path.join(p.dir, '.grok'), arquivo = path.join(pasta, 'config.toml');
     // Arquivo de outra pessoa, sem a marca: fica como estava, e nada nasce ao lado.
     fs.mkdirSync(pasta);

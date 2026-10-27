@@ -1,7 +1,7 @@
 /**
  * RM-067 (F4c, thread ork-rm067f4cmcpd): o servidor MCP do `ork` da sessao filha do `grok`, fora do sandbox dele. O
  * despacho o lanca antes do `grok`, como processo do proprio `ork`, e o `grok` se conecta pela forma `url` do guia oficial
- * (G16), com o token do `bearer_token_file`. Os casos sobem o servidor de verdade (`iniciarServidorDoGrok`) e falam com ele
+ * (G16), com o token so no ambiente (`bearer_token_env_var`, G5). Os casos sobem o servidor de verdade (`iniciarServidorDoGrok`) e falam com ele
  * pelo cliente Streamable HTTP do SDK e por HTTP cru; o `grok` e o falso de `grok-falso.ts`, ou um `sleep` no lugar do
  * processo dele, porque a maquina nao tem o runtime instalado.
  */
@@ -20,8 +20,9 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { criarServidorMcp } from '../src/mcp-server';
 import { instalarMcp } from '../src/mcp-install';
 import { ferramentasDoGrok } from '../src/adapters/grok';
-import { arquivosDoServidorGrok, iniciarServidorDoGrok, lerReciboServidorGrok, ServidorDoGrokIniciado } from '../src/adapters/grok-mcp';
-import { LIMITE_DO_CORPO_BYTES } from '../src/adapters/grok-mcp-servidor';
+import { arquivosDoServidorGrok, ENV_DO_TOKEN_DO_SERVIDOR_GROK, iniciarServidorDoGrok, lerReciboServidorGrok,
+  ServidorDoGrokIniciado } from '../src/adapters/grok-mcp';
+import { LIMITE_DE_SESSOES_MCP, LIMITE_DO_CORPO_BYTES } from '../src/adapters/grok-mcp-servidor';
 import { estadoProcesso, gravarAtomico, identidadeProcesso, ProcessoCodex } from '../src/adapters/codex-runner';
 import { dirThread, novaThread } from '../src/thread';
 import { lerLedger } from '../src/ledger';
@@ -37,6 +38,20 @@ const FONTE = (arquivo: string) => fs.readFileSync(path.join(RAIZ, 'core/src', a
 
 const textoDe = (r: unknown) => JSON.parse(((r as { content: { text: string }[] }).content[0]).text) as Record<string, unknown>;
 const ordenadas = (nomes: readonly string[]) => [...nomes].sort();
+
+/** Os arquivos comuns sob estas pastas (sem seguir link) que contem o texto: o token nunca pode aparecer em nenhum. */
+function arquivosCom(texto: string, pastas: string[]): string[] {
+  const achados: string[] = [];
+  const visitar = (pasta: string) => {
+    for (const e of fs.readdirSync(pasta, { withFileTypes: true })) {
+      const caminho = path.join(pasta, e.name);
+      if (e.isDirectory()) visitar(caminho);
+      else if (e.isFile() && fs.readFileSync(caminho).includes(texto)) achados.push(caminho);
+    }
+  };
+  for (const pasta of pastas) visitar(pasta);
+  return achados;
+}
 
 /** Espera assincrona, para quando o proprio processo do teste precisa receber dados enquanto espera. */
 async function esperarAte(f: () => boolean, ms: number): Promise<void> {
@@ -78,8 +93,7 @@ function bancada(nome: string, opcoes: { perfil?: 'interactive' | 'worktree'; pl
   const s = iniciarServidorDoGrok({ projeto: fs.realpathSync(p.dir), threadId: t.id, dispatchId, permissoesFilho: perfil,
     transporteShip: 'github-ssh', ferramentas, logPath, ...(opcoes.prazoDaPartidaMs ? { prazoDaPartidaMs: opcoes.prazoDaPartidaMs } : {}) },
   t.worktree!, process.env);
-  const token = fs.readFileSync(s.tokenPath, 'utf8');
-  return { p, threadId: t.id, dispatchId, logPath, s, token, ferramentas, grok,
+  return { p, threadId: t.id, dispatchId, logPath, s, token: s.token, ferramentas, grok,
     limpar: () => {
       s.encerrar();
       grok.kill('SIGKILL');
@@ -88,7 +102,7 @@ function bancada(nome: string, opcoes: { perfil?: 'interactive' | 'worktree'; pl
     } };
 }
 
-/** Um cliente MCP de verdade, pelo Streamable HTTP, com o cabecalho que o `grok` monta do `bearer_token_file`. */
+/** Um cliente MCP de verdade, pelo Streamable HTTP, com o cabecalho que o `grok` monta do `bearer_token_env_var`. */
 async function comCliente<T>(url: string, token: string, corpo: (c: Client) => Promise<T>): Promise<T> {
   const client = new Client({ name: 'fixture-grok-SIMULADO', version: '1' }, { capabilities: {} });
   const transporte = new StreamableHTTPClientTransport(new URL(url), { requestInit: { headers: { Authorization: `Bearer ${token}` } } });
@@ -128,7 +142,7 @@ function conectar(host: string, porta: number): Promise<string> {
 async function conferirFim(b: Bancada, motivo: string): Promise<void> {
   esperarCondicao(() => lerReciboServidorGrok(b.s.reciboPath)?.estado === 'encerrado' && estadoProcesso(b.s.processo) === 'ausente', 20000);
   assert.equal(lerReciboServidorGrok(b.s.reciboPath)?.motivo, motivo);
-  assert.equal(fs.existsSync(b.s.tokenPath), false, 'o token some com o servidor');
+  assert.deepEqual(arquivosCom(b.token, [b.p.dir]), [], 'o token nunca foi a arquivo');
   assert.equal(await conectar('127.0.0.1', b.s.porta), 'ECONNREFUSED', 'a porta fica sem ninguem');
 }
 
@@ -144,9 +158,10 @@ test('GX1: o servidor do grok escuta so no loopback, com token 0600 fora da work
     assert.equal(recibo.threadId, go.threadId);
     assert.equal(recibo.dispatchId, go.dispatchId);
     assert.match(go.token, /^[a-f0-9]{64}$/, '256 bits em hexadecimal');
-    assert.equal(fs.statSync(go.s.tokenPath).mode & 0o777, 0o600);
-    assert.equal(go.s.tokenPath.startsWith(dirThread(go.p.dir, go.threadId) + path.sep), true, 'o token mora no estado da thread');
     assert.notEqual(go.token, plano.token, 'um token por despacho');
+    // D2 (GO-FIX 1): o token nao vai a arquivo nenhum nem ao argv do servidor; so ao ambiente dele, que ele esvazia na partida.
+    assert.deepEqual(arquivosCom(go.token, [go.p.dir]), [], 'nenhum arquivo do projeto tem o token: recibo, log, estado');
+    assert.equal(fs.readFileSync(`/proc/${go.s.processo.pid}/cmdline`, 'utf8').includes(go.token), false, 'nem o argv do servidor');
 
     const doGo = await comCliente(go.s.url, go.token, async (c) => (await c.listTools()).tools.map((x) => x.name));
     assert.deepEqual(ordenadas(doGo), ordenadas(ferramentasDoGrok('worktree', false, false)), 'o GO do worktree: o --allow dele');
@@ -251,7 +266,12 @@ test('GX3: o servidor morre com a sessao: recibo do supervisor, grok ausente, se
       corpo.slice(0, 10));
     await new Promise((r) => setTimeout(r, 3000));
     gravarAtomico(`${emCurso.logPath}.exit.json`, { simulado: true });
-    await esperarAte(() => !fs.existsSync(emCurso.s.tokenPath), 10000);
+    // O fecho comecou quando a porta deixa de aceitar conexao nova.
+    const prazo = Date.now() + 10000;
+    while (await conectar('127.0.0.1', emCurso.s.porta) !== 'ECONNREFUSED') {
+      if (Date.now() > prazo) throw new Error('a porta seguiu aberta depois do recibo');
+      await new Promise((r) => setTimeout(r, 100));
+    }
     await new Promise((r) => setTimeout(r, 1000));
     assert.equal(estadoProcesso(emCurso.s.processo), 'vivo', 'a requisicao em andamento segura o processo');
     assert.equal(await conectar('127.0.0.1', emCurso.s.porta), 'ECONNREFUSED', 'conexao nova recusada no fecho');
@@ -296,11 +316,6 @@ test('GX4: o despacho real sobe o servidor fora do grok, e o filho no workspace 
     assert.ok(r.sessionId, r.erro);
     const sid = r.sessionId!;
     const arquivos = doDespacho(p, t.id, sid);
-    // O token existe enquanto a sessao vive, e so no arquivo 0600 do estado do ork.
-    const token = fs.readFileSync(arquivos.tokenPath, 'utf8');
-    assert.match(token, /^[a-f0-9]{64}$/);
-    assert.equal(arquivos.tokenPath.startsWith(wt + path.sep), false, 'o token fica fora da worktree');
-    assert.equal(r.comando.some((a) => a.includes(token)), false, 'o token nao vai ao argv');
 
     // O grok segue no piso workspace, sem nada que aprove tudo.
     assert.equal(r.comando[r.comando.indexOf('--sandbox') + 1], 'workspace');
@@ -308,9 +323,8 @@ test('GX4: o despacho real sobe o servidor fora do grok, e o filho no workspace 
       assert.equal(r.comando.includes(proibido), false, proibido);
     const config = fs.readFileSync(path.join(wt, '.grok', 'config.toml'), 'utf8');
     const entrada = (parse(config) as { mcp_servers: Record<string, Record<string, unknown>> }).mcp_servers.orkastery;
-    assert.deepEqual(Object.keys(entrada).sort(), ['bearer_token_file', 'url']);
-    assert.equal(entrada.bearer_token_file, arquivos.tokenPath);
-    assert.equal(config.includes(token), false, 'o token nao vai a config');
+    assert.deepEqual(Object.keys(entrada).sort(), ['bearer_token_env_var', 'url'], 'a forma url, com o token so no ambiente (G5)');
+    assert.equal(entrada.bearer_token_env_var, ENV_DO_TOKEN_DO_SERVIDOR_GROK);
 
     // O despacho soltou a trava da thread: a sessao chama as ferramentas.
     stub.liberarMcp();
@@ -319,6 +333,11 @@ test('GX4: o despacho real sobe o servidor fora do grok, e o filho no workspace 
     assert.equal((resultado.provaOrk as { ok: boolean }).ok, true);
     const mcp = stub.mcpResultado();
     assert.ok(mcp && !mcp.erro, JSON.stringify(mcp));
+    // D2 (GO-FIX 1): o filho mandou o token do ambiente, e ele nao esta no argv nem em arquivo nenhum do projeto.
+    const token = mcp!.token!;
+    assert.match(token, /^[a-f0-9]{64}$/);
+    assert.equal(r.comando.some((a) => a.includes(token)), false, 'o token nao vai ao argv');
+    assert.deepEqual(arquivosCom(token, [p.dir]), [], 'nem a config, o ledger, as claims, os recibos ou os logs');
     assert.deepEqual(ordenadas(mcp!.ferramentas), ordenadas(ferramentasDoGrok('worktree', false, false)), 'a lista do --allow deste despacho');
     assert.deepEqual(mcp!.chamadas.map((c) => [c.nome, c.isError]),
       [['ork_decision_record', false], ['ork_claim_add', false], ['ork_artifact_write', false]], JSON.stringify(mcp!.chamadas));
@@ -331,7 +350,6 @@ test('GX4: o despacho real sobe o servidor fora do grok, e o filho no workspace 
     assert.deepEqual([decisao?.origem, decisao?.decisao], ['mcp', 'Fixture SIMULADA de decisao pelo servidor externo']);
     assert.match(fs.readFileSync(path.join(dirThread(p.dir, t.id), 'claims.jsonl'), 'utf8'), /Fixture SIMULADA de claim pelo servidor externo/);
     assert.equal(fs.readFileSync(path.join(dirThread(p.dir, t.id), 'docs', 'goal.md'), 'utf8'), '# GOAL SIMULADO pelo grok falso\n');
-    assert.equal(fs.readFileSync(path.join(dirThread(p.dir, t.id), 'ledger.jsonl'), 'utf8').includes(token), false, 'o token nao vai ao ledger');
 
     // O servidor e irmao do grok, filho do processo que despachou: o sandbox do grok, que vale para ele e os filhos, nao o alcanca.
     const recibo = lerReciboServidorGrok(arquivos.reciboPath)!;
@@ -343,7 +361,6 @@ test('GX4: o despacho real sobe o servidor fora do grok, e o filho no workspace 
     assert.notEqual(recibo.pai, grok.pid);
     esperarCondicao(() => lerReciboServidorGrok(arquivos.reciboPath)?.estado === 'encerrado' && estadoProcesso(recibo.processo) === 'ausente', 20000);
     assert.equal(lerReciboServidorGrok(arquivos.reciboPath)?.motivo, 'recibo', 'o servidor sai com o recibo do supervisor');
-    assert.equal(fs.existsSync(arquivos.tokenPath), false);
   } finally { p.limpar(); stub.restaurar(); }
 });
 
@@ -394,7 +411,7 @@ test('GX6: a config que ficaria visivel ao git recusa depois de o servidor subir
     const recibo = lerReciboServidorGrok(recibos[0])!;
     assert.equal(recibo.motivo, 'sinal', 'encerrado pelo despacho');
     esperarCondicao(() => estadoProcesso(recibo.processo) === 'ausente', 20000);
-    assert.deepEqual(fs.readdirSync(sessoes).filter((f) => f.endsWith('.grok-mcp.token')), [], 'nenhum token sobra');
+    assert.deepEqual(fs.readdirSync(sessoes).filter((f) => f.includes('token')), [], 'nenhum arquivo de token');
   } finally { p.limpar(); stub.restaurar(); }
 });
 
@@ -419,9 +436,29 @@ test('GX7: a sessao com o MCP interrompida vai ao dono com a retomada, e o aviso
     // O servidor terminou com a sessao: a config que a retomada manual reusa aponta para um token que nao existe mais.
     const arquivos = doDespacho(p, t.id, r.sessionId!);
     esperarCondicao(() => lerReciboServidorGrok(arquivos.reciboPath)?.estado === 'encerrado', 20000);
-    assert.equal(fs.existsSync(arquivos.tokenPath), false);
     const entrada = (parse(fs.readFileSync(path.join(t.worktree!, '.grok', 'config.toml'), 'utf8')) as
       { mcp_servers: Record<string, Record<string, unknown>> }).mcp_servers.orkastery;
-    assert.equal(entrada.bearer_token_file, arquivos.tokenPath, 'a retomada manual so acha o caminho do token apagado');
+    assert.deepEqual(Object.keys(entrada).sort(), ['bearer_token_env_var', 'url'], 'a config so nomeia a variavel do token');
+    assert.equal(entrada.bearer_token_env_var, ENV_DO_TOKEN_DO_SERVIDOR_GROK, 'que so existia no ambiente da sessao encerrada');
   } finally { p.limpar(); stub.restaurar(); }
+});
+
+test('GX8: a sessao MCP que passa do limite despeja a usada ha mais tempo, sem recusar o cliente que reabre o initialize', async () => {
+  const b = bancada('gx8-sessoes');
+  try {
+    const autorizado = { Authorization: `Bearer ${b.token}` };
+    const ids: string[] = [];
+    for (let i = 0; i <= LIMITE_DE_SESSOES_MCP; i++) {
+      const r = await pedir(b.s.porta, { cabecalhos: autorizado });
+      assert.equal(r.status, 200, r.corpo);
+      ids.push(String(r.cabecalhos['mcp-session-id']));
+    }
+    assert.equal(new Set(ids).size, LIMITE_DE_SESSOES_MCP + 1);
+    const lista = JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
+    const versao = { 'Mcp-Protocol-Version': '2025-06-18' };
+    const naPrimeira = await pedir(b.s.porta, { cabecalhos: { ...autorizado, ...versao, 'Mcp-Session-Id': ids[0] }, corpo: lista });
+    assert.equal(naPrimeira.status, 404, 'a mais antiga saiu');
+    const naUltima = await pedir(b.s.porta, { cabecalhos: { ...autorizado, ...versao, 'Mcp-Session-Id': ids.at(-1)! }, corpo: lista });
+    assert.equal(naUltima.status, 200, naUltima.corpo);
+  } finally { b.limpar(); }
 });

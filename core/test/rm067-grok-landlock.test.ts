@@ -2,7 +2,9 @@
  * RM-067 (F4c, D11, thread ork-rm067f4cmcpd): a prova com o confinamento de verdade. O `grok` falso roda pelo Landlock do
  * kernel como o perfil `workspace` do `grok` (G7 e G17 da RM-067): escrita so na worktree, na casa do `grok` e na pasta do
  * stub, e os filhos herdam. Com a config stdio da F4b, o servidor MCP do `ork` e filho dele e nao grava o ledger, o limite
- * que a pagina documentou; pelo despacho da F4c, o servidor e do `ork`, fora do confinamento, e a fase fecha com prova.
+ * que a pagina documentou; pelo despacho da F4c, o servidor e do `ork`, fora do confinamento, e a fase fecha com prova. E a
+ * sessao de outra thread, confinada no proprio dominio, nao acha o token desta: ele nao esta em arquivo, e o Landlock nega a
+ * ela o `environ` do `grok` e o do supervisor (GO-FIX 1, achado 1 da revisao).
  *
  * Integracao local (`core/src/integracoes-locais.ts`): o runner hospedado nao garante Landlock nem `python3`. Sem eles o caso
  * pula com o motivo tipado, `ORK_TESTE_EXIGE_AMBIENTE=1` o reprova, e a claim (pelo `conferir-casos.cjs`) reprova o pulado.
@@ -15,13 +17,28 @@ import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { configuracaoServidorMcp, instalarMcp } from '../src/mcp-install';
 import { MARCA_DA_CONFIG_DO_FILHO } from '../src/adapters/grok';
+import { ENV_DO_TOKEN_DO_SERVIDOR_GROK } from '../src/adapters/grok-mcp';
 import { dirThread, novaThread } from '../src/thread';
 import { lerLedger } from '../src/ledger';
 import { rodarFase } from '../src/phase';
-import { projetoTemporario } from './apoio';
+import { dirTemporario, projetoTemporario } from './apoio';
 import { esperarCondicao } from './controller-simulado';
 import { grokFalso } from './grok-falso';
-import { semLandlock } from './ambiente-de-teste';
+import { LANCADOR_DO_LANDLOCK, semLandlock } from './ambiente-de-teste';
+
+/** Os arquivos comuns sob estas pastas (sem seguir link) que contem o texto. */
+function arquivosCom(texto: string, pastas: string[]): string[] {
+  const achados: string[] = [];
+  const visitar = (pasta: string) => {
+    for (const e of fs.readdirSync(pasta, { withFileTypes: true })) {
+      const caminho = path.join(pasta, e.name);
+      if (e.isDirectory()) visitar(caminho);
+      else if (e.isFile() && fs.readFileSync(caminho).includes(texto)) achados.push(caminho);
+    }
+  };
+  for (const pasta of pastas) visitar(pasta);
+  return achados;
+}
 
 const decisao = (threadId: string, decidido: string) => ({ nome: 'ork_decision_record', argumentos: { threadId, decidido,
   porque: 'Conferir o servidor MCP do ork sob o confinamento do workspace', comoMudar: 'Nao se aplica', custoAgora: 'Nenhum',
@@ -94,4 +111,37 @@ test('GL2: com o mesmo confinamento, pelo despacho da F4c o filho grava decisao,
     assert.match(fs.readFileSync(path.join(dirThread(p.dir, t.id), 'claims.jsonl'), 'utf8'), /Fixture SIMULADA de claim sob o Landlock/);
     assert.equal(fs.readFileSync(path.join(dirThread(p.dir, t.id), 'docs', 'goal.md'), 'utf8'), '# GOAL SIMULADO sob o Landlock\n');
   } finally { p.limpar(); stub.restaurar(); }
+});
+
+test('GL3: a sessao de outra thread, confinada no proprio dominio, nao acha o token desta: nenhum arquivo o tem, e o environ do grok e do supervisor lhe e negado', { skip: semLandlock() }, () => {
+  const stub = grokFalso('gl3-irma');
+  const p = projetoTemporario('gl3-irma');
+  const irma = dirTemporario('gl3-irma-confinada');
+  try {
+    instalarMcp({ projeto: p.dir, host: 'grok', permissoesFilho: 'worktree' });
+    const t = novaThread(p.carregado, { nome: 'gl3', modo: 'auto', criarWorktree: true }).thread;
+    stub.confinar([t.worktree!, stub.casa, stub.dir]);
+    stub.stream('fim-normal.jsonl');
+    stub.mcp([{ nome: 'ork_thread_status', argumentos: { threadId: t.id } }], { esperar: true });
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'Fixture SIMULADA da sessao irma', runtime: 'grok', model: 'grok-modelo' });
+    assert.ok(r.sessionId, r.erro);
+    const sid = r.sessionId!;
+    // O grok desta thread esta vivo, esperando a liberacao. O processo do teste, sem confinamento, ve o token no environ dele.
+    const [grok] = stub.pids();
+    const environ = fs.readFileSync(`/proc/${grok.pid}/environ`, 'utf8');
+    const token = environ.split('\0').find((v) => v.startsWith(`${ENV_DO_TOKEN_DO_SERVIDOR_GROK}=`))?.slice(ENV_DO_TOKEN_DO_SERVIDOR_GROK.length + 1);
+    assert.match(String(token), /^[a-f0-9]{64}$/, 'o controle: o token esta no ambiente do grok');
+    assert.deepEqual(arquivosCom(token!, [p.dir]), [], 'nenhum arquivo do projeto tem o token: recibo, config, log, estado');
+    // A sessao irma: outro dominio do Landlock, com escrita so na pasta dela, como a sessao grok de outra thread.
+    const lista = path.join(irma, 'pastas');
+    fs.writeFileSync(lista, `${irma}\n`);
+    for (const [quem, pid] of [['grok', grok.pid], ['supervisor', grok.pai]] as const) {
+      const leitura = spawnSync('python3', ['-I', LANCADOR_DO_LANDLOCK, lista, '/bin/cat', `/proc/${pid}/environ`], { encoding: 'utf8', timeout: 60000 });
+      assert.notEqual(leitura.status, 0, `a irma confinada nao le o environ do ${quem}`);
+      assert.equal(leitura.stdout.includes(token!), false);
+    }
+    stub.liberarMcp();
+    esperarCondicao(() => lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.sessionId === sid), 60000);
+    assert.deepEqual(stub.mcpResultado()?.chamadas.map((c) => c.isError), [false], 'e a sessao desta thread segue com o MCP');
+  } finally { p.limpar(); stub.restaurar(); fs.rmSync(irma, { recursive: true, force: true }); }
 });
