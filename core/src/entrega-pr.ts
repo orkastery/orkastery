@@ -31,7 +31,7 @@ import { exec } from './util';
 import { rodarCli } from './forja/executor';
 import { adaptadorDaForja, exigirCapacidade } from './forja/registro';
 import { ErroDoCatalogo, remontar, textoDoCatalogo } from './locale';
-import { mergesDasEntregasNaBase } from './merge-da-entrega';
+import { branchRegistradaDaEntrega, mergesDasEntregasNaBase } from './merge-da-entrega';
 import { branchDaWorktree } from './worktree';
 
 export interface EntregaPorPr {
@@ -58,7 +58,7 @@ export interface EntregaPorPr {
 /** O merge da entrega mais recente na base remota, com o head do PR (segundo pai). */
 export function mergeDaEntrega(raiz: string, thread: string, remoto: string, base: string): { mergeSha: string; headSha: string | null } | null {
   let branch: string;
-  try { branch = branchDaWorktree(lerThread(raiz, thread)); } catch { return null; }
+  try { branch = branchRegistradaDaEntrega(raiz, thread) ?? branchDaWorktree(lerThread(raiz, thread)); } catch { return null; }
   const merge = mergesDasEntregasNaBase(raiz, `refs/remotes/${remoto}/${base}`, base, [{ thread, branch }]).get(thread)?.[0];
   return merge ? { mergeSha: merge.mergeSha, headSha: merge.headSha } : null;
 }

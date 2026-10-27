@@ -1,8 +1,11 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { mergesDaThreadNoGit } from '../src/docs';
+import { registrarEntregasPorPr } from '../src/entrega-pr';
 import { mergesDasEntregasNaBase } from '../src/merge-da-entrega';
+import { novaThread } from '../src/thread';
 import { exec } from '../src/util';
+import { branchDaWorktree } from '../src/worktree';
 import { commitar, projetoTemporario } from './apoio';
 
 interface Caso {
@@ -75,5 +78,21 @@ test('preserva o candidato ship de um pai para a recusa entrega.sem-vinculo', ()
     const sha = git(p.dir, 'rev-parse', 'HEAD');
     const merge = mergesDasEntregasNaBase(p.dir, 'main', 'main', [{ thread, branch: 'ork/ork-squash-go' }]).get(thread)?.[0];
     assert.deepEqual(merge && [merge.mergeSha, merge.headSha], [sha, null]);
+  } finally { p.limpar(); }
+});
+
+test('--todas reconhece o merge padrao pela branch registrada no ledger', () => {
+  const p = projetoTemporario('merge-padrao-todas', true);
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'entrega padrão', modo: 'auto' });
+    const branch = branchDaWorktree(thread);
+    git(p.dir, 'checkout', '-q', '-b', branch);
+    commitar(p.dir, 'entrega.txt', 'pronta\n', `feat(${thread.id}): entrega`);
+    git(p.dir, 'checkout', '-q', 'main');
+    git(p.dir, 'merge', '-q', '--no-ff', branch, '-m', `Merge pull request #210 from orkastery/${branch}`);
+    git(p.dir, 'push', '-q', 'origin', 'main');
+
+    const r = registrarEntregasPorPr(p.carregado, { dryRun: true });
+    assert.deepEqual(r.map((x) => [x.thread, x.acao]), [[thread.id, 'registraria']]);
   } finally { p.limpar(); }
 });

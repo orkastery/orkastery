@@ -27,7 +27,7 @@ import * as path from 'node:path';
 import { autorizada, LeituraDaAutorizacao, lerAutorizacao, referenciaDaAutorizacao } from './autorizacao-duravel';
 import { conducaoDaThread } from './conducao';
 import { registrarEntregaPorPr } from './entrega-pr';
-import { mergesDasEntregasNaBase } from './merge-da-entrega';
+import { branchRegistradaDaEntrega, mergesDasEntregasNaBase } from './merge-da-entrega';
 import { raizDoEstado } from './estado-thread';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { comLocale, textoDoCatalogo } from './locale';
@@ -172,7 +172,7 @@ function mergesDaBase(raiz: string, remoto: string, base: string, threads: Threa
   Map<string, { mergeSha: string; headSha: string | null; em: string | null }> {
   const mapa = new Map<string, { mergeSha: string; headSha: string | null; em: string | null }>();
   const reconhecidos = mergesDasEntregasNaBase(raiz, `refs/remotes/${remoto}/${base}`, base,
-    threads.map((t) => ({ thread: t.id, branch: branchDaWorktree(t) })));
+    threads.map((t) => ({ thread: t.id, branch: branchRegistradaDaEntrega(raiz, t.id) ?? branchDaWorktree(t) })));
   for (const t of threads) {
     const merge = reconhecidos.get(t.id)?.[0];
     if (merge) mapa.set(t.id, merge);
