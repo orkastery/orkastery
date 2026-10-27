@@ -5,11 +5,8 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado | Sessão |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| vps | ork-orkcheck3min | #Fast | GO | claude-bg sonnet/high | — | — | 27/10 07:16 | parada desde 26/10 06:29: sessão eb78020e sem processo (fantasma) |
-| vps | ork-orkdocrm067 | #Fast | GO | sem despacho | — | — | 27/10 07:16 | parada desde 26/10 02:45: nenhuma sessão despachada na fase GO |
-| vps | ork-orkretryperf | #Fast | GO | codex gpt-5.6-sol/xhigh | — | — | 27/10 07:16 | parada desde 26/10 08:22: sessão 01a177ba encerrada (completed) |
-| vps | ork-rm058blocob | #Auto | GO | codex gpt-5.6-sol/xhigh | RM-058 | — | 27/10 07:16 | viva |
-| vps | ork-rm074f4divid | #Fast | GO | claude-bg opus/high | RM-074 | — | 27/10 07:16 | viva |
-| vps | ork-rm074m0banca | #Fast | GO | claude-bg opus/high | RM-074 | — | 27/10 07:16 | viva |
+| vps | ork-rm058blocob | #Auto | GO | codex gpt-5.6-sol/xhigh | RM-058 | — | 27/10 07:18 | viva |
+| vps | ork-rm074f4divid | #Fast | GO | claude-bg opus/high | RM-074 | — | 27/10 07:18 | viva |
+| vps | ork-rm074m0banca | #Fast | GO | claude-bg opus/high | RM-074 | — | 27/10 07:18 | viva |
 
 Horários de Brasília.
