@@ -6,15 +6,15 @@ categoria: melhoria
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-20T15:46:52-03:00
+atualizado_em: 2026-10-27T00:52:46-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
   codigo: Mesclado
   testes: Em execução
-  deploy: Não implantado
-  exposicao: Flag desligada
-  habilitacao: Pendente
+  deploy: Produção
+  exposicao: Parcial
+  habilitacao: Em andamento
 evidencias:
   codigo:
     commit: f5c8db2
@@ -22,11 +22,13 @@ evidencias:
   testes:
     f1: core/test/dado-privado.test.ts (DP1 a DP19) e core/test/dado-privado-cli.test.ts (DC1 a DC4)
     f2: core/test/dado-privado-verify.test.ts (DV1 a DV5 e DB1 a DB7)
+  deploy:
+    release: v0.6.0 (F1 e F2), @orkastery/cli no npm
 sdlc:
   thread: ork-rm062barreir
   modo: "#Auto"
-  fase: GO
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-062 — Repositório público sem dado privado
@@ -37,7 +39,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Em execução | Produção | Parcial |
 
 <!-- ork-docs:relance:fim -->
 
@@ -132,19 +134,21 @@ Os aceites acima são o que cada fatia terá de provar; não são provas já exe
 
 ## Estado com evidências
 
+- Em produção na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026): a F1 e a F2, com o `ork privado varrer`, a policy `dado_privado` no `ork verify` e no `ork ci prepare` e o passo do CI do núcleo; a F3, a F4 e a barreira no CI dos sites seguem.
+
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
 <!-- ork-docs:estado:inicio -->
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-20 | Julio |
-| Documentação | Em revisão | — | 2026-10-20 | Julio |
-| Código | Mesclado | commit `f5c8db2` | 2026-10-20 | Julio |
-| Testes | Em execução | f1: core/test/dado-privado.test.ts (DP1 a DP19) e core/test/dado-privado-cli.test.ts (DC1 a DC4) · f2: core/test/dado-privado-verify.test.ts (DV1 a DV5 e DB1 a DB7) | 2026-10-20 | Julio |
-| Deploy | Não implantado | — | 2026-10-20 | Julio |
-| Exposição | Flag desligada | — | 2026-10-20 | Julio |
-| Habilitação | Pendente | — | 2026-10-20 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-27 | Julio |
+| Documentação | Em revisão | — | 2026-10-27 | Julio |
+| Código | Mesclado | commit `f5c8db2` | 2026-10-27 | Julio |
+| Testes | Em execução | f1: core/test/dado-privado.test.ts (DP1 a DP19) e core/test/dado-privado-cli.test.ts (DC1 a DC4) · f2: core/test/dado-privado-verify.test.ts (DV1 a DV5 e DB1 a DB7) | 2026-10-27 | Julio |
+| Deploy | Produção | release: v0.6.0 (F1 e F2), @orkastery/cli no npm | 2026-10-27 | Julio |
+| Exposição | Parcial | — | 2026-10-27 | Julio |
+| Habilitação | Em andamento | — | 2026-10-27 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -152,9 +156,10 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: fábrica Orkastery nas fatias; A: Julio; C: —; I: quem contribui com o repositório.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** agente Claude Code redigiu esta página e fez a correção dos nomes em #Fast, restrito à documentação e aos nomes de arquivo. Revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** CHECK independente da F1 e da F2 da `ork-rm062barreir`; depois, a barreira no CI dos sites, a F3 e a F4; responsável: fábrica; sem data definida nesta página.
+- **Próxima ação, responsável e prazo:** a barreira no CI dos sites, a F3 e a F4 (a F1 e a F2 saíram na versão 0.6.0); responsável: fábrica; sem data definida nesta página.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-12 | Item criado em Desenvolvimento, com F1 a F4; arquivo de evidência da RM-040 renomeado para nome genérico | Decisão do dono de 12/10/2026 (item 5.a); o nome antigo continua nos commits anteriores | Julio |
 | 2026-10-20 | F1 (CI do núcleo) e F2 (`ork verify` e `ork ci prepare`) levadas à branch `ork-rm062barreir` para revisão; policy `dado_privado` de `warn` a `block` com a árvore em zero achado; três dados reais corrigidos | Pedido do dono para a thread #Auto; decisões D3 a D12 no ledger da thread; testes DP, DV, DB e DC | Julio |
+| 2026-10-27 | F1 e F2 em produção na 0.6.0; exposição Parcial e habilitação Em andamento, porque a F3 e a F4 seguem | Tag `v0.6.0`, com o merge `f5c8db2` (PR #184) na tag; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |

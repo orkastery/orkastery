@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-004, FEAT-014]
 owner: Julio
-atualizado_em: 2026-10-20T04:00:00-03:00
+atualizado_em: 2026-10-27T00:52:46-03:00
 estado:
   ciclo: Piloto
   documentacao: Em revisão
@@ -23,12 +23,12 @@ evidencias:
   testes:
     ci: verde no push dos merges (runs 36560460823, 36663174203 e 36725816649) e no da v0.5.0 (run 36815186450)
   deploy:
-    release: "v0.5.0 (PR #28 e #34) e v0.4.3 (PR #18), @orkastery/cli no npm"
+    release: v0.6.0 (as esperas, a saída completa, os defeitos de 19 e 20/10 e os tipos do motor), v0.5.0 (PR
 sdlc:
   thread: ork-rm037defeit2
   modo: "#Auto"
-  fase: GOAL
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-037 — Verify rápido e confiável
@@ -48,7 +48,7 @@ sdlc:
 
 ## Problema e resultado
 
-- **Problema:** o verify local reprova por tempo quando a VPS perde 67% a 92% da CPU para o hipervisor (sar, 23 e 24/09/2026): a mesma suíte leva 3,4 min com CPU livre e 24 a 30 min com steal alto.
+- **Problema:** o verify local reprova por tempo quando a VPS perde 67% a 92% da CPU para o hipervisor (sar, 23 e 24/09/2026): com steal alto, a mesma suíte leva de 7 a 9 vezes o tempo que leva com CPU livre.
 - **Métrica:** verify local com o mesmo veredito do CI em 10 de 10 rodadas.
 - **Linha de base:** A definir — agente da thread, no PLAN revisado.
 
@@ -138,6 +138,7 @@ sdlc:
 - Fatia 5 (thread `ork-rm037fatia5p`, 02/10/2026): A1, A3 e A5 da rodada 5 do CHECK da fatia 4 e o rodízio no limite de gasto entraram com decisões no ledger e testes `rm037-fatia5-*`; PR a abrir.
 - Fatia das esperas (thread `ork-rm037esperas`, 12/10/2026): a regra das esperas no prompt, na skill e nos guias, o teste do pulse sem o relógio e o portão de vaga que ouve o runtime, com decisões D1 a D10 no ledger e testes `rm037-esperas`; PR a abrir pela condutora.
 - Lote de 19 e 20/10/2026 (thread `ork-rm037defeit2`): os quatro defeitos de condução com testes `rm037-defeitos2010-*` e os mutantes M1 a M17, com os achados de três CHECKs independentes, decisões no ledger; PR a abrir pela condutora.
+- Em produção na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026): a fatia das esperas (PR #158), a saída completa no `ork verify` (PR #170), os testes instáveis de 13/10, o snapshot pt-BR com sha só de letras (PRs #179 e #182), os defeitos de condução de 19 e 20/10 (PR #185) e os tipos que o Claude Code grava nos mods (PR #195).
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -145,13 +146,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Piloto | — | 2026-10-20 | Julio |
-| Documentação | Em revisão | — | 2026-10-20 | Julio |
-| Código | Mesclado | commit `36def09` · PR #34 · anteriores: baf065e (PR #28), a61e1e4 (PR #18), 10ca416 (Orkastery 0.3.0) | 2026-10-20 | Julio |
-| Testes | Aprovados | ci: verde no push dos merges (runs 36560460823, 36663174203 e 36725816649) e no da v0.5.0 (run 36815186450) | 2026-10-20 | Julio |
-| Deploy | Produção | release: v0.5.0 (PR #28 e #34) e v0.4.3 (PR #18), @orkastery/cli no npm | 2026-10-20 | Julio |
-| Exposição | Parcial | — | 2026-10-20 | Julio |
-| Habilitação | Em andamento | — | 2026-10-20 | Julio |
+| Ciclo do item | Piloto | — | 2026-10-27 | Julio |
+| Documentação | Em revisão | — | 2026-10-27 | Julio |
+| Código | Mesclado | commit `36def09` · PR #34 · anteriores: baf065e (PR #28), a61e1e4 (PR #18), 10ca416 (Orkastery 0.3.0) | 2026-10-27 | Julio |
+| Testes | Aprovados | ci: verde no push dos merges (runs 36560460823, 36663174203 e 36725816649) e no da v0.5.0 (run 36815186450) | 2026-10-27 | Julio |
+| Deploy | Produção | release: v0.6.0 (as esperas, a saída completa, os defeitos de 19 e 20/10 e os tipos do motor), v0.5.0 (PR | 2026-10-27 | Julio |
+| Exposição | Parcial | — | 2026-10-27 | Julio |
+| Habilitação | Em andamento | — | 2026-10-27 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -183,3 +184,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-12 | fatia das esperas: regra das esperas no prompt, na skill e nos guias; o teste do pulse sem o relógio; o portão de vaga do `ork phase run` ouve o runtime | thread `ork-rm037esperas`, decisões D1 a D10 no ledger, testes `rm037-esperas` e o novo de `locale-pulse`, PR a abrir | Julio |
 | 2026-10-20 | defeitos de condução de 19 e 20/10: prazo da baseline, dependências da worktree nova, dois testes herméticos e a sessão ociosa depois do Stop | thread `ork-rm037defeit2`, decisões no ledger, testes `rm037-defeitos2010-*` e mutantes M1 a M17, PR a abrir | Julio |
 | 2026-10-03 | teste instável do lease da sucessora (B-1 de `rm037-baseline-no-despacho`, run 37096532937 no Node 22): corrida com o watcher destacado, reproduzida com atraso injetado e consertada lendo a identidade no lease depois do fim da sessão; 50 rodadas seguidas sob carga na claim | thread `ork-rm037testede`, decisões e claims no ledger | Julio |
+| 2026-10-27 | Esperas, saída completa, testes instáveis, snapshot com sha só de letras, defeitos de 19 e 20/10 e tipos do motor em produção na 0.6.0; o ciclo segue Piloto | Tag `v0.6.0`, com os merges `08cbd5ff` (#158), `927f9daf` (#170), `6abb3ba3`, `f0396f69` (#179), `69f40775` (#182), `aa3681fe` (#185) e `cca7f904` (#195) na tag; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |

@@ -137,7 +137,7 @@ worktree:
 ### Steal da CPU: a máquina julgada antes do código (RM-037)
 
 Numa VPS, o hipervisor pode tomar a CPU: em 23 e 24/09/2026 a máquina de referência perdeu de 67% a
-92% dela (sar), e a suíte que leva 3,4 min levou de 24 a 30. Teste que mede relógio reprova nessa
+92% dela (sar), e a suíte levou de 7 a 9 vezes o tempo que leva com a CPU livre. Teste que mede relógio reprova nessa
 hora sem que o código tenha mudado.
 
 O `ork verify` mede o steal do `/proc/stat` na rodada inteira e na janela de cada comando, e grava a

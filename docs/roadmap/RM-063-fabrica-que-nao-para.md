@@ -6,19 +6,21 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-13T02:59:00+00:00
+atualizado_em: 2026-10-27T00:50:00-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
   codigo: Mesclado
   testes: Em execução
-  deploy: Não implantado
-  exposicao: Flag desligada
-  habilitacao: Pendente
+  deploy: Produção
+  exposicao: Parcial
+  habilitacao: Em andamento
 evidencias:
   codigo:
     commit: adc973d
     pr: 144
+  deploy:
+    release: v0.6.0 (F4, F6, F7 e H1 a H4), @orkastery/cli no npm
 sdlc:
   thread: ork-rm062fabrica
   modo: auto
@@ -34,7 +36,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Em execução | Produção | Parcial |
 
 <!-- ork-docs:relance:fim -->
 
@@ -108,19 +110,21 @@ Proposta para a VPS incluir na RM-059 ou conduzir aqui, o que o dono decidir:
 
 ## Estado com evidências
 
+- Em produção na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026): a fatia 2 (F4, a escada de recuperação do runtime; F6, a máquina ociosa; e a varredura que age) e a fatia 3 (F7, o condutor autônomo na autorização durável, e os hosts H1 a H4); a fatia 1 já estava no código da `v0.5.6`. Os mods M1 a M5 seguem.
+
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
 <!-- ork-docs:estado:inicio -->
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-13 | Julio |
-| Documentação | Em revisão | — | 2026-10-13 | Julio |
-| Código | Mesclado | commit `adc973d` · PR #144 | 2026-10-13 | Julio |
-| Testes | Em execução | — | 2026-10-13 | Julio |
-| Deploy | Não implantado | — | 2026-10-13 | Julio |
-| Exposição | Flag desligada | — | 2026-10-13 | Julio |
-| Habilitação | Pendente | — | 2026-10-13 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-27 | Julio |
+| Documentação | Em revisão | — | 2026-10-27 | Julio |
+| Código | Mesclado | commit `adc973d` · PR #144 | 2026-10-27 | Julio |
+| Testes | Em execução | — | 2026-10-27 | Julio |
+| Deploy | Produção | release: v0.6.0 (F4, F6, F7 e H1 a H4), @orkastery/cli no npm | 2026-10-27 | Julio |
+| Exposição | Parcial | — | 2026-10-27 | Julio |
+| Habilitação | Em andamento | — | 2026-10-27 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -128,7 +132,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: condutor do maquina-b (núcleo e hosts) e VPS (mods, se o dono decidir); A: Julio; C: —; I: —.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** condutor do maquina-b (#Auto), merge pela X1.a até 18/10/2026; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** merge do PR da fatia 3 (F7 e os hosts H1 a H4) e, com ele na base, `ork ship registrar-pr ork-rm062fabrica` e o MASTER da thread; depois, atos do dono nesta máquina: a autorização durável pelo `ork conducao autorizar --ate <data> --pode merge,registrar,master,despachar`, o canal do dono pelo onboarding (`ork onboarding set maestro` com o `canal`) e a automação de 30 min do OpenClaw (ou o agendador do Hermes) com o `bin/ork-vigia-batida`. Os mods M1 a M5 seguem a decisão do dono sobre quem conduz. Responsável: condutor do maquina-b; prazo: 15/10/2026.
+- **Próxima ação, responsável e prazo:** a fatia 3 (F7 e os hosts H1 a H4) já está na `main` e na versão 0.6.0; a thread `ork-rm062fabrica` segue aberta no `sdlc` desta página, com o `ork ship registrar-pr` e o MASTER dela; depois, atos do dono nesta máquina: a autorização durável pelo `ork conducao autorizar --ate <data> --pode merge,registrar,master,despachar`, o canal do dono pelo onboarding (`ork onboarding set maestro` com o `canal`) e a automação de 30 min do OpenClaw (ou o agendador do Hermes) com o `bin/ork-vigia-batida`. Os mods M1 a M5 seguem a decisão do dono sobre quem conduz. Responsável: condutor do maquina-b; prazo: 15/10/2026.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -140,3 +144,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-13 | Fatia 3, GO-FIX da revisão independente (11 achados confirmados, 1 bloqueante, e 2 plausíveis): o merge da batida exige o CHECK aprovado depois do último commit de produto do PR, não passa por cima da pendência do dono nem da branch local com trabalho que o PR não tem (a atualização não empurra esse trabalho); a autorização não vem de host de agente e vale até 31 dias; a reconciliação do CHANGELOG aborta em vez de perder linha da thread e não reescreve o que não é dela; o push da atualização não leva tag; o comando do merge dado ao dono põe o título entre aspas; a espera de mais de 2 h vira item do dono | Testes novos em `core/test/rm063-conducao-batida.test.ts`, `rm063-changelog-reconciliacao.test.ts`, `rm063-conducao-autorizar.test.ts`, `rm063-hosts-canal.test.ts` e `rm063-hosts-nucleo.test.ts`, cada um reprovado no código anterior (`17dc6785`) | condutor do maquina-b (#Auto) |
 | 2026-10-13 | Fatia 3, prova ao vivo no projeto real e merge da `main` feito pelo próprio `ork conducao atualizar`: a batida confere o estado do PR antes da autorização, e o dono só recebe "pronto" do PR que está pronto (o PR sem CHECK chega como `check-pendente`); a sessão despachada que conduz a thread reentra no `ork conducao atualizar` pela identidade de despacho, como no `ork verify` | Testes novos em `core/test/rm063-conducao-batida.test.ts` e `rm063-changelog-reconciliacao.test.ts`, reprovados no código anterior (`faef452c` e `b829673b`) | condutor do maquina-b (#Auto) |
 | 2026-10-12 | Item renumerado de RM-062 para RM-063; a thread segue `ork-rm062fabrica` | A RM-062 "Repositório público sem dado privado" nasceu em paralelo (thread `ork-rm062privado`), sem reserva de nenhuma das duas, e já estava na `main` e na branch da versão 0.5.5; a renumeração desta, ainda sem merge, é a troca barata. Decisão no ledger da thread | condutor do maquina-b (#Auto) |
+| 2026-10-27 | Fatias 2 e 3 em produção na 0.6.0; exposição Parcial e habilitação Em andamento, porque os mods M1 a M5 seguem | Tag `v0.6.0`, com os merges `babe9d48` (#154) e `45ecc51a` (#163) na tag; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |

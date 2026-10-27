@@ -851,8 +851,8 @@ Não publicada no npm; o conteúdo saiu na 0.5.6.
   A recomendada, quando possível, é a que o dono responde com uma palavra e a fábrica executa o resto com a autorização dele.
 - **Teto dos testes no verify deste repositório** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
   o `orkastery.yaml` do projeto passa a dar 40 min ao comando `test`, teto que o comando hermético do CI
-  herda ao rodar `test:ci`, porque a suíte mede 3,6 min com CPU livre e 24 a 30 min quando o hipervisor rouba
-  CPU. O `build` e os outros comandos seguem no prazo padrão.
+  herda ao rodar `test:ci`, porque a suíte leva de 7 a 8 vezes o tempo que leva com CPU livre quando o hipervisor
+  rouba CPU. O `build` e os outros comandos seguem no prazo padrão.
 - **No #Fast, o ship sem `--autorizar-push` não desconta o índice** ([RM-049](docs/roadmap/RM-049-lancamento.md), EN8):
   o `ship_blocked` com `human.pending` de uma thread #Fast é a pausa prevista do modo, como o `ork ship --dry-run`
   barrado, e deixa de entrar no índice derivado do MASTER (era 4.75/5, `ship_blocked x1`). Fora do #Fast, ou com
