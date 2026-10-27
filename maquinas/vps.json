@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.0",
-  "publicadoEm": "2026-10-27T10:15:04.472Z",
+  "publicadoEm": "2026-10-27T10:16:22.664Z",
   "threads": [
     {
       "id": "ork-docsda060emp",
@@ -15,18 +15,14 @@
       "roadmap": null,
       "branch": "ork/ork-docsda060emp-go",
       "atualizadaEm": "2026-10-27T04:42:12.040Z",
-      "entregue": null,
+      "entregue": "6402399a",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
       "runtime": "claude-bg",
       "modelo": "opus",
       "esforco": "high",
-      "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-27T04:44:48.900Z",
-        "motivo": "sessão ae27eab8 sem processo (fantasma)"
-      }
+      "sessao": null
     },
     {
       "id": "ork-orkcheck3min",
@@ -103,18 +99,14 @@
       "roadmap": null,
       "branch": "ork/ork-registrarprr-go",
       "atualizadaEm": "2026-10-27T06:48:45.376Z",
-      "entregue": null,
+      "entregue": "7f48a560",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
       "runtime": "codex",
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
-      "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-27T06:29:27.144Z",
-        "motivo": "sessão 01a17be0 encerrada (completed)"
-      }
+      "sessao": null
     },
     {
       "id": "ork-rm058blocob",
@@ -147,18 +139,14 @@
       "roadmap": "RM-067",
       "branch": "ork/ork-rm067f3perfi-go",
       "atualizadaEm": "2026-10-27T05:01:24.844Z",
-      "entregue": null,
+      "entregue": "b6b4e4ba",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
       "runtime": "claude-bg",
       "modelo": "opus",
       "esforco": "high",
-      "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-27T05:07:14.791Z",
-        "motivo": "sessão 9fdda983 encerrada (done)"
-      }
+      "sessao": null
     },
     {
       "id": "ork-rm067f4bhost",
@@ -169,18 +157,14 @@
       "roadmap": "RM-067",
       "branch": "ork/ork-rm067f4bhost-full",
       "atualizadaEm": "2026-10-27T09:20:31.316Z",
-      "entregue": null,
+      "entregue": "406188c6",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
       "runtime": "claude-bg",
       "modelo": "opus",
       "esforco": "max",
-      "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-27T09:24:44.744Z",
-        "motivo": "sessão 06119cd3 encerrada (done)"
-      }
+      "sessao": null
     },
     {
       "id": "ork-rm067f4setup",
@@ -191,18 +175,14 @@
       "roadmap": "RM-067",
       "branch": "ork/ork-rm067f4setup-go",
       "atualizadaEm": "2026-10-27T06:25:08.823Z",
-      "entregue": null,
+      "entregue": "cf78c30d",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
       "runtime": "claude-bg",
       "modelo": "opus",
       "esforco": "high",
-      "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-27T06:27:42.726Z",
-        "motivo": "sessão 3ff57124 encerrada (done)"
-      }
+      "sessao": null
     },
     {
       "id": "ork-rm074f4divid",
@@ -212,7 +192,7 @@
       "status": "aberta",
       "roadmap": "RM-074",
       "branch": "ork/ork-rm074f4divid-go",
-      "atualizadaEm": "2026-10-27T10:13:13.965Z",
+      "atualizadaEm": "2026-10-27T10:15:47.177Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
