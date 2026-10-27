@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.0",
-  "publicadoEm": "2026-10-27T10:16:22.664Z",
+  "publicadoEm": "2026-10-27T10:16:27.607Z",
   "threads": [
     {
       "id": "ork-docsda060emp",
@@ -89,24 +89,6 @@
         "desdeEm": "2026-10-26T11:22:47.474Z",
         "motivo": "sessão 01a177ba encerrada (completed)"
       }
-    },
-    {
-      "id": "ork-registrarprr",
-      "nome": "mergepadrao",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-registrarprr-go",
-      "atualizadaEm": "2026-10-27T06:48:45.376Z",
-      "entregue": "7f48a560",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh",
-      "sessao": null
     },
     {
       "id": "ork-rm058blocob",
