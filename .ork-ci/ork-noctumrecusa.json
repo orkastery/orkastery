@@ -1,0 +1,159 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-noctumrecusa",
+  "branch": "ork/ork-noctumrecusa-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-noctumrecusa",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-supervisao.ts",
+      "alegacao": "A supervisão deriva a recusa corrente do passo, com motivo, trabalho, detalhe seguro e instante inicial.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"passo_recusado\\|recusaDoPasso\" core/src/noctum-supervisao.ts"
+      ],
+      "criadoEm": "2026-10-25T11:07:06.320Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-noctumrecusa",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-vigia.ts",
+      "alegacao": "O passo grava a recusa apenas quando o motivo muda e nunca copia o detalhe livre do adaptador para esse evento.",
+      "negativa": true,
+      "verificar": [
+        "grep -n \"detalheSeguroDaRecusa\\|s.recusaDoPasso?.motivo\" core/src/noctum-vigia.ts"
+      ],
+      "criadoEm": "2026-10-25T11:07:06.379Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-noctumrecusa",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-vigia.test.ts",
+      "alegacao": "G25 cobre uma gravação para recusas repetidas, nova gravação para motivo novo e ausência dos detalhes privados de fixture.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/noctum-vigia.test.js"
+      ],
+      "criadoEm": "2026-10-25T11:07:06.428Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-noctumrecusa",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-relatorio.ts",
+      "alegacao": "O relatório mostra a recusa corrente no grupo Impedido e, para prova, autorização ou envelope do dono, informa motivo, duração e ação de destrave em O que precisa de você.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"acaoDaRecusaDoDono\\|recusaDoPasso\" core/src/noctum-relatorio.ts"
+      ],
+      "criadoEm": "2026-10-25T11:09:48.023Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-noctumrecusa",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-relatorio.test.ts",
+      "alegacao": "RL20 e RL21 cobrem espera e recusa sem despacho, incluindo a recusa noctum.origem.sem-prova sem o falso nada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --experimental-test-isolation=none --test-name-pattern='RL20|RL21' core/dist-test/test/noctum-relatorio.test.js"
+      ],
+      "criadoEm": "2026-10-25T11:09:48.081Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-noctumrecusa",
+      "fase": "GO",
+      "arquivo": "core/src/hitl-public-receipt.ts",
+      "alegacao": "canVerifyPublicReceipt confere o slot derivado da chave local ou do bundle público sem devolver o material.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"function canVerifyPublicReceipt\\|publicHitlVerifiers(env)\" core/src/hitl-public-receipt.ts"
+      ],
+      "criadoEm": "2026-10-25T11:11:33.021Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-noctumrecusa",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-cli.ts",
+      "alegacao": "ork noctum propor emite aviso não bloqueante quando o host do canal do dono não tem autoridade de reconferência neste processo.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"sem-verificador-do-canal\\|cron do condutor e do tique\" core/src/noctum-cli.ts"
+      ],
+      "criadoEm": "2026-10-25T11:11:33.083Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-noctumrecusa",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-propor-avisos.test.ts",
+      "alegacao": "PA3 cobre aviso presente sem autoridade e ausente com chave de fixture ou ORK_RECEIPT_VERIFIERS público.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --experimental-test-isolation=none core/dist-test/test/noctum-propor-avisos.test.js"
+      ],
+      "criadoEm": "2026-10-25T11:11:33.153Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-noctumrecusa",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O changelog não publicado registra a visibilidade das recusas e o aviso de reconferência da prova pública no #Noctum.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"Recusas visíveis no #Noctum\" CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-25T11:11:46.693Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-noctumrecusa",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-noctumrecusa.json",
+      "alegacao": "O bundle do CI e o desta thread, no schema ork.ci-bundle/v1, com as claims da correcao.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const b=require('./.ork-ci/ork-noctumrecusa.json'); if(b.schema!=='ork.ci-bundle/v1'||b.thread!=='ork-noctumrecusa'||b.claims.length<9) process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-25T12:28:15.854Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}

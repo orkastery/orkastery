@@ -45,10 +45,11 @@ import { avaliarPolicies, bloqueantes, motivoDominante } from './policies';
 import { aguardando, arcoDoPedido, enfileirar, exigirPedido, gravarPedido, janelaPadraoMs, lerFilaDeRetomada, marcarContaDaFalha,
   PedidoComPerfil, vencidos } from './ratelimit';
 import { eventosDoIntervalo, fonteRegistrada, headDaWorktree, saidaDoArtefato } from './session-watcher-claude';
+import { baseDoArtefato } from './session-watcher-grok';
 import {
   lerPerfis, lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDoRegistro, perfisDisponiveis, perfisDoRuntime,
   PoliticaDeRotacao, politicaDeRotacao, prazoDaFila, prazoDoRuntime, proximoPerfilDisponivel,
-  validarPerfilDeDespacho,
+  validarIdDePerfil, validarPerfilDeDespacho,
 } from './runtime-profiles';
 import { MODOS } from './modos';
 import { blocoDaThread, dirThread, lerThread } from './thread';
@@ -541,6 +542,8 @@ export interface OpcoesDeRedespacho {
   runtime?: string | null;
   /** I-33: perfil explicito do store; sem ele, o primeiro disponivel do runtime (com login conferido). */
   perfil?: string | null;
+  /** Pedido original do dono; alvos calculados pelo rodizio nao preenchem este campo. */
+  perfilPedido?: { id: string; runtime: string };
   slug?: string;
   model?: string | null;
   effort?: string | null;
@@ -696,6 +699,7 @@ function redespacharSobLock(
       slug,
       origem: opcoes.origem ?? 'retry',
       evidencia: `prompt sha256 ${promptExecutadoSha} (origem ${sha}; retomada recusada antes de despachar)`,
+      ...(opcoes.perfilPedido ? { perfilPedido: opcoes.perfilPedido } : {}),
     });
     return { ...vazio, ok: false, motivo, detalhe, dryRun: opcoes.dryRun === true };
   }
@@ -779,6 +783,15 @@ function redespacharSobLock(
     try { contextoRuntime = contextoDoProjeto(raiz, runtime, cwd, thread.id); }
     catch (e) {
       const erro = (e as Error).message;
+      if (!opcoes.dryRun && opcoes.perfilPedido) registrarGateBloqueado(dirThread(raiz, thread.id), thread.id, {
+        gate: 'phase.dispatch', motivo: 'runtime.unavailable', modo: thread.modo,
+        detalhe: textoDoCatalogo((m) => m.retry.perfilPedidoRecusado(opcoes.perfilPedido!.id,
+          opcoes.perfilPedido!.runtime, 'runtime.unavailable', erro)),
+        correcao: textoDoCatalogo((m) => m.retry.correcaoDoPerfilPedido(opcoes.perfilPedido!.id,
+          opcoes.perfilPedido!.runtime, 'runtime.unavailable', thread.id)),
+        fase, slug, origem: opcoes.origem ?? 'retry', promptPath: promptExecutadoPath,
+        promptSha256: promptExecutadoSha, perfilPedido: opcoes.perfilPedido,
+      });
       return { ...vazio, ok: false, motivo: 'runtime.unavailable',
         detalhe: textoDoCatalogo((m) => m.retry.runtimeIndisponivel(erro)), dryRun: opcoes.dryRun === true };
     }
@@ -791,12 +804,23 @@ function redespacharSobLock(
     if (escolha.erro) {
       const motivo = escolha.motivo ?? 'runtime.unavailable';
       const prazo = motivo === 'runtime.quota-exhausted' ? prazoDoRuntime(lerPerfisComContas(raiz), runtime, politicaDeRotacao(manifesto)) : null;
-      return { ...vazio, ok: false, motivo, detalhe: `${motivo}: ${escolha.erro}`, dryRun: opcoes.dryRun === true,
+      const detalhe = opcoes.perfilPedido
+        ? textoDoCatalogo((m) => m.retry.perfilPedidoRecusado(opcoes.perfilPedido!.id, opcoes.perfilPedido!.runtime, motivo, escolha.erro!))
+        : `${motivo}: ${escolha.erro}`;
+      if (!opcoes.dryRun && opcoes.perfilPedido) registrarGateBloqueado(dirThread(raiz, thread.id), thread.id, {
+        gate: 'phase.dispatch', motivo, modo: thread.modo, detalhe,
+        correcao: textoDoCatalogo((m) => m.retry.correcaoDoPerfilPedido(opcoes.perfilPedido!.id,
+          opcoes.perfilPedido!.runtime, motivo, thread.id)), fase, slug, origem: opcoes.origem ?? 'retry',
+        promptPath: promptExecutadoPath, promptSha256: promptExecutadoSha, perfilPedido: opcoes.perfilPedido,
+      });
+      return { ...vazio, ok: false, motivo, detalhe, dryRun: opcoes.dryRun === true,
         sinal: prazo ? { resetEm: prazo, fonte: 'iso', trecho: `menor esgotadoAte dos perfis ${runtime}` } : null };
     }
     const perfil = escolha.perfil ?? undefined;
-    // I-33 (N1): o HEAD do GO codex sai antes do despacho, como no `ork phase run`.
-    const headNoDespacho = fase === 'GO' && runtime === 'codex' && !opcoes.dryRun ? headDaWorktree(cwd) : undefined;
+    // I-33 (N1): o HEAD do GO codex sai antes do despacho, como no `ork phase run`. RM-067: o grok tambem.
+    const headNoDespacho = fase === 'GO' && (runtime === 'codex' || runtime === 'grok') && !opcoes.dryRun ? headDaWorktree(cwd) : undefined;
+    // RM-067 (D8): a base do artefato do grok tambem sai antes do redespacho, como no `ork phase run`.
+    const artefatoNoDespacho = runtime === 'grok' && !opcoes.dryRun ? baseDoArtefato(raiz, thread.id, fase) : undefined;
     const resultado = rt.despachar({
       prompt,
       nome: slug,
@@ -810,7 +834,8 @@ function redespacharSobLock(
       ...(perfil ? { perfil } : {}),
       // RM-037 (defeito 2): o modo plano segue a mesma regra do `ork phase run`, pelo bloco.
       contextoRuntime,
-      ...(runtime === 'claude-bg' && modoDaSessaoDoBloco(thread, fase).plano ? { colaboracao: 'plan' as const } : {}),
+      // RM-067 (GO-FIX 1, A3): o grok tambem; no PLAN que fecha o bloco, ele roda em read-only.
+      ...((runtime === 'claude-bg' || runtime === 'grok') && modoDaSessaoDoBloco(thread, fase).plano ? { colaboracao: 'plan' as const } : {}),
       // I-36 (D4): a sessao retomada herda a identidade do despacho e o canal, como no `ork phase run`.
       ambienteExtra: ambienteDaConducao(identidade.dispatchId, thread.id, canal),
     });
@@ -839,7 +864,7 @@ function redespacharSobLock(
         ...(retomada ? { promptOriginalPath: absoluto, promptOriginalSha256: sha } : {}),
         controlador: resultado.controlador, model, effort,
         erro: resultado.erro ?? 'runtime.unavailable: sem sessionId', stderr: (resultado.stderr ?? '').slice(0, 500),
-        origem: 'retry', ...(perfil ? { perfil } : {}), ...daSessao });
+        origem: 'retry', ...(perfil ? { perfil } : {}), ...(opcoes.perfilPedido ? { perfilPedido: opcoes.perfilPedido } : {}), ...daSessao });
       const sinal = resultado.rateLimit ?? null;
       // RM-055: o redespacho recusado pelo que so o dono resolve reabre a pausa dele, com o mesmo comando.
       const impedimento = !resultado.falhaDeConta && !sinal
@@ -890,9 +915,14 @@ function redespacharSobLock(
       effort,
       origem: opcoes.origem ?? 'retry',
       ...(perfil ? { perfil } : {}),
+      ...(opcoes.perfilPedido ? { perfilPedido: opcoes.perfilPedido } : {}),
       ...(headNoDespacho !== undefined ? { headNoDespacho } : {}),
+      ...(artefatoNoDespacho !== undefined ? { artefatoNoDespacho } : {}),
     };
-    concluirDespacho(ctx, resultado.sessionId, resultado.verificada, resultado.comando, rt.fonteVerificacao, resultado.controlador);
+    // RM-067 (D14 da ork-grokbuild): o redespacho do grok leva os sensores do supervisor ao registro do watcher; o caminho
+    // do codex e do claude-bg segue sem eles, como antes.
+    concluirDespacho(ctx, resultado.sessionId, resultado.verificada, resultado.comando, rt.fonteVerificacao, resultado.controlador,
+      runtime === 'grok' ? { logPath: resultado.logPath, processoPath: resultado.processoPath, reciboPath: resultado.reciboPath } : undefined);
 
     return {
       ok: true,
@@ -1069,6 +1099,7 @@ export function retomarPedido(
       slug,
       runtime: alvo.runtime,
       perfil: alvo.perfil ?? doPedido.perfil ?? null,
+      ...(doPedido.perfilPedido ? { perfilPedido: doPedido.perfilPedido } : {}),
       model: alvo.model,
       effort: alvo.effort,
       cwd: pedido.cwd,
@@ -1195,6 +1226,8 @@ interface AlvoDaRetomada {
 function alvoDaRetomada(carregado: ManifestoCarregado, thread: Thread, pedido: PedidoComPerfil): AlvoDaRetomada {
   const { raiz, manifesto } = carregado;
   const original = { runtime: pedido.runtime ?? null, model: pedido.model, effort: pedido.effort };
+  if (pedido.perfilPedido) return { runtime: pedido.perfilPedido.runtime, perfil: pedido.perfilPedido.id,
+    model: pedido.model, effort: pedido.effort, destino: true, runtimes: [pedido.perfilPedido.runtime], contas: false };
   if (pedido.motivo !== 'runtime.quota-exhausted' && pedido.motivo !== 'runtime.auth-missing')
     return { ...original, destino: true, runtimes: original.runtime ? [original.runtime] : [], contas: false };
   const doBloco = configDoBloco(lerSetup(raiz), thread.modo, pedido.fase);
@@ -1354,6 +1387,35 @@ function despachoDaFalha(eventos: readonly EventoLedger[], gate: EventoLedger | 
 
 function perfilDoEvento(e: EventoLedger | null): PerfilDeDespacho | null {
   return e && e.perfil !== undefined && e.perfil !== null ? validarPerfilDeDespacho(e.perfil) : null;
+}
+
+type PerfilPedido = { id: string; runtime: string };
+
+/** O marcador distinto do destino efetivo: ausente em despacho sem `--perfil` e em rotacao interna. */
+function perfilPedidoDoEvento(e: EventoLedger | null | undefined): PerfilPedido | null {
+  if (!e || e.perfilPedido === undefined || e.perfilPedido === null) return null;
+  if (typeof e.perfilPedido !== 'object' || Array.isArray(e.perfilPedido)) return null;
+  const p = e.perfilPedido as Record<string, unknown>;
+  if (typeof p.runtime !== 'string' || p.runtime.length === 0 || p.runtime.length > 64) return null;
+  try { return { id: validarIdDePerfil(p.id), runtime: p.runtime }; } catch { return null; }
+}
+
+/** Recupera o pedido do mesmo prompt; eventos antigos sem o campo preservam o comportamento anterior. */
+function perfilPedidoDoDespacho(eventos: readonly EventoLedger[], fase: Fase,
+  despacho: EventoLedger | null, gate: EventoLedger | null): PerfilPedido | null {
+  for (const e of [gate, despacho]) {
+    const p = perfilPedidoDoEvento(e);
+    if (p) return p;
+  }
+  const sha = typeof despacho?.promptSha256 === 'string' ? despacho.promptSha256
+    : typeof gate?.promptSha256 === 'string' ? gate.promptSha256 : null;
+  for (let i = eventos.length - 1; i >= 0; i--) {
+    const e = eventos[i];
+    if (e.fase !== fase || (sha !== null && e.promptSha256 !== sha)) continue;
+    const p = perfilPedidoDoEvento(e);
+    if (p) return p;
+  }
+  return null;
 }
 
 /** O perfil ja esta fora do rodizio por esta falha (cota com prazo futuro, ou sem login)? */
@@ -1595,7 +1657,29 @@ export function executarRetry(
     return { ...vazio, executada: rodada.correcoes.length > 0, rodada, reverify, detalhe };
   }
 
+  const redespacharNoPerfilPedido = (falho: EventoLedger, pedido: PerfilPedido): ResultadoDeRetry => {
+    const r = redespachar(carregado, thread, plano.fase as Fase, String(falho.promptPath), String(falho.promptSha256), {
+      runtime: pedido.runtime,
+      perfil: pedido.id,
+      perfilPedido: pedido,
+      model: typeof falho.model === 'string' ? falho.model : null,
+      effort: plano.effort ?? (typeof falho.effort === 'string' ? falho.effort : null),
+      origem: 'retry.run',
+      dryRun: opcoes.dryRun,
+    });
+    registrarTentativa(r.ok, r.detalhe, { perfilPedido: pedido, ...(!r.ok ? { conta: false } : {}) });
+    return { ...vazio, executada: r.ok, redespacho: r, detalhe: r.detalhe };
+  };
+
   if (plano.motivo === 'runtime.quota-exhausted' || plano.motivo === 'runtime.auth-missing') {
+    const eventos = lerLedger(dir);
+    const gate = ultimaReprovacao(raiz, threadId);
+    const falho = despachoParaRedespachar(eventos, plano.fase as Fase, gate);
+    const pedido = perfilPedidoDoDespacho(eventos, plano.fase as Fase, falho, gate);
+    // Falha observada na propria conta continua na rotacao I-33 D5/RM-064 T3. A indisponibilidade
+    // detectada antes de abrir a conta preserva o pedido do dono e nunca escolhe outra em silencio.
+    if (pedido && gate?.falhaDeConta === undefined && falho && typeof falho.promptPath === 'string' &&
+        typeof falho.promptSha256 === 'string') return redespacharNoPerfilPedido(falho, pedido);
     return rotacionarConta(carregado, thread, plano, opcoes, vazio, registrarTentativa);
   }
   if (plano.motivo === 'runtime.model-unavailable') {
@@ -1614,6 +1698,7 @@ export function executarRetry(
     registrarTentativa(false, detalhe);
     return { ...vazio, detalhe };
   }
+  const perfilPedidoDoRetry = perfilPedidoDoDespacho(lerLedger(dir), plano.fase as Fase, falho, gateDoPlano);
   // RM-055: o impedimento do dono com prova local (confianca do diretorio) so volta ao runtime depois de
   // resolvido. Sem a prova, nada e despachado e a tentativa nao conta: a pausa do dono continua aberta.
   if (plano.motivo && ehImpedimentoDoDono(plano.motivo) && typeof falho.cwd === 'string') {
@@ -1639,6 +1724,7 @@ export function executarRetry(
     try { perfilFalho = perfilDoEvento(falho); } catch { perfilFalho = null; }
     // O destino de origem e o do pedido novo que abriu o episodio; o despacho do gate completa o que faltar.
     const origem = destinoDoEpisodio(lerLedger(dir), plano.fase as Fase);
+    const perfilPedido = perfilPedidoDoDespacho(lerLedger(dir), plano.fase as Fase, falho, gateDoPlano);
     const sha = falho.promptSha256;
     // GO-FIX (achado 10): o caminho do ledger e relativo a quem despachou; o absoluto e o que o dono roda de qualquer lugar.
     const promptPath = localizarPromptGravado(raiz, threadId, falho.promptPath, sha) ?? falho.promptPath;
@@ -1669,6 +1755,7 @@ export function executarRetry(
       }
       return { ...vazio, detalhe };
     }
+    if (perfilPedido) return redespacharNoPerfilPedido(falho, perfilPedido);
     const saida = subirAEscada({
       carregado, thread, fase: plano.fase as Fase, despacho,
       tentativas: plano.tentativas, limite: plano.limite, dryRun: opcoes.dryRun, daemon: opcoes.daemon, daemonJaReerguido,
@@ -1696,8 +1783,9 @@ export function executarRetry(
     falho.promptSha256,
     {
       effort: plano.effort,
-      runtime: typeof falho.runtime === 'string' ? falho.runtime : null,
+      runtime: perfilPedidoDoRetry?.runtime ?? (typeof falho.runtime === 'string' ? falho.runtime : null),
       model: typeof falho.model === 'string' ? falho.model : null,
+      ...(perfilPedidoDoRetry ? { perfil: perfilPedidoDoRetry.id, perfilPedido: perfilPedidoDoRetry } : {}),
       origem: 'retry.run',
       dryRun: opcoes.dryRun,
     }

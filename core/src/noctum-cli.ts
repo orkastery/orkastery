@@ -22,6 +22,7 @@
 import * as fs from 'node:fs';
 import { kernelDisponivel } from './fila-pesada';
 import { lerRespostaStdin } from './hitl-gates';
+import { canVerifyPublicReceipt } from './hitl-public-receipt';
 import { impedimentoResolvido } from './impedimento';
 import { aceiteDoPiloto, gravarAceite, Injecao, lerInjecoes, lerLimiares, Limiares, publicavel, RecusaDoAceite, ResultadoDoAceite,
   sensiveisDoArco } from './noctum-aceite';
@@ -42,6 +43,7 @@ import { conduzirArco, OpcoesDoVigia, ResultadoDoCondutor } from './noctum-vigia
 import { nomeDaMaquina } from './maquina';
 import { lerPerfisComContas, PerfilDeRuntime, StoreDePerfis } from './runtime-profiles';
 import { CONTRATO_DO_TERMINAL, responderPeloTerminal } from './noctum-terminal';
+import { caminhoDoPulseHost, hostDoTransporte, HostDoCanal, HOSTS_DO_CANAL, TransportePulse, transporteValido } from './transporte-do-canal';
 
 export interface ArgsDoNoctum { posicionais: string[]; opcoes: Record<string, string | boolean> }
 
@@ -80,7 +82,7 @@ const texto = (v: string | boolean | undefined): string | undefined => typeof v 
 
 export type MotivoDoAvisoDaProposta = 'noctum.proposta.conta-sem-login' | 'noctum.proposta.workspace-untrusted'
   | 'noctum.proposta.vaga-de-execucao-unica' | 'noctum.proposta.contas-sem-leitura' | 'noctum.proposta.maquina-ausente'
-  | 'noctum.proposta.maquina-outra-chave';
+  | 'noctum.proposta.maquina-outra-chave' | 'noctum.proposta.sem-verificador-do-canal';
 export interface AvisoDaProposta { motivo: MotivoDoAvisoDaProposta; detalhe: string; correcao: string }
 
 /**
@@ -109,35 +111,55 @@ export function avisosDaProposta(carregado: ManifestoCarregado, conteudo: Conteu
   confianca?: (raiz: string, perfil: PerfilDeRuntime) => boolean | null;
   /** O nome e a chave pública desta máquina; sem ela, os desta raiz (`identidadeDaMaquina`), lidos só no `v3`. */
   identidade?: () => { nome: string; chave: string };
+  /** Testes podem fixar o host e o ambiente sem ler nem copiar credenciais reais. `undefined` usa o transporte local. */
+  hostDoDono?: HostDoCanal | null;
+  env?: NodeJS.ProcessEnv;
 } = {}): AvisoDaProposta[] {
   if (!envelopeComTrabalhos(conteudo)) return [];
   const avisos: AvisoDaProposta[] = envelopeMultimaquina(conteudo)
     ? avisosDaMaquina(conteudo.maquinas, (opcoes.identidade ?? (() => identidadeDaMaquina(carregado.raiz)))()) : [];
-  let store: StoreDePerfis;
+  let store: StoreDePerfis | null = null;
   try { store = opcoes.store ?? lerPerfisComContas(carregado.raiz); }
   catch {
-    return [...avisos, { motivo: 'noctum.proposta.contas-sem-leitura', detalhe: 'as contas do envelope não puderam ser conferidas',
-      correcao: 'rode ork accounts check e proponha de novo depois de corrigir a leitura' }];
+    avisos.push({ motivo: 'noctum.proposta.contas-sem-leitura', detalhe: 'as contas do envelope não puderam ser conferidas',
+      correcao: 'rode ork accounts check e proponha de novo depois de corrigir a leitura' });
   }
   const confiar = opcoes.confianca ?? ((raiz: string, p: PerfilDeRuntime) => impedimentoResolvido('runtime.workspace-untrusted',
     { cwd: raiz, runtime: p.runtime, configDir: p.runtime === 'claude-bg' ? p.configDir : p.codexHome }));
-  for (const { conta } of conteudo.capacidade.porConta) {
-    const p = store.perfis.find(x => x.id === conta);
-    if (!p || p.estado === 'sem-auth') {
-      avisos.push({ motivo: 'noctum.proposta.conta-sem-login',
-        detalhe: `a conta ${conta} do envelope está sem login de assinatura conferido`,
-        correcao: `refaça o login da conta ${conta} pelo próprio CLI e rode ork accounts check ${conta}` });
-    }
-    if (p?.runtime === 'claude-bg' && confiar(carregado.raiz, p) !== true) {
-      avisos.push({ motivo: 'noctum.proposta.workspace-untrusted',
-        detalhe: `a conta ${conta} não tem o trust da pasta do projeto aceito no runtime; o despacho cairia em runtime.workspace-untrusted`,
-        correcao: `abra o runtime da conta ${conta} na pasta do projeto e aceite a confiança` });
+  if (store) {
+    for (const { conta } of conteudo.capacidade.porConta) {
+      const p = store.perfis.find(x => x.id === conta);
+      if (!p || p.estado === 'sem-auth') {
+        avisos.push({ motivo: 'noctum.proposta.conta-sem-login',
+          detalhe: `a conta ${conta} do envelope está sem login de assinatura conferido`,
+          correcao: `refaça o login da conta ${conta} pelo próprio CLI e rode ork accounts check ${conta}` });
+      }
+      if (p?.runtime === 'claude-bg' && confiar(carregado.raiz, p) !== true) {
+        avisos.push({ motivo: 'noctum.proposta.workspace-untrusted',
+          detalhe: `a conta ${conta} não tem o trust da pasta do projeto aceito no runtime; o despacho cairia em runtime.workspace-untrusted`,
+          correcao: `abra o runtime da conta ${conta} na pasta do projeto e aceite a confiança` });
+      }
     }
   }
   if (conteudo.capacidade.maquina - conteudo.capacidade.revisao === 1) {
     avisos.push({ motivo: 'noctum.proposta.vaga-de-execucao-unica',
       detalhe: `a capacidade da máquina (${conteudo.capacidade.maquina}) menos a revisão (${conteudo.capacidade.revisao}) deixa uma vaga de execução`,
       correcao: 'confirme que uma única sessão de execução por vez é suficiente ou emende a capacidade' });
+  }
+  const hostLocal = (): HostDoCanal | null => {
+    try {
+      const lido = JSON.parse(fs.readFileSync(caminhoDoPulseHost(carregado.raiz), 'utf8')) as TransportePulse;
+      if (!transporteValido(lido)) return null;
+      const host = hostDoTransporte(lido);
+      return (HOSTS_DO_CANAL as readonly string[]).includes(host) ? host as HostDoCanal : null;
+    } catch { return null; }
+  };
+  const host = opcoes.hostDoDono === undefined ? hostLocal() : opcoes.hostDoDono;
+  if (host && !canVerifyPublicReceipt(host, false, opcoes.env ?? process.env)) {
+    avisos.push({ motivo: 'noctum.proposta.sem-verificador-do-canal',
+      detalhe: `este processo não consegue reconferir a prova do dono recebida pelo ${host}`,
+      correcao: 'o cron do condutor e do tique precisa de ORK_RECEIPT_VERIFIERS com o verificador público gerado por publicHitlVerifiers; ' +
+        'a chave de ingresso nunca deve ir ao ambiente dos agentes' });
   }
   return avisos;
 }

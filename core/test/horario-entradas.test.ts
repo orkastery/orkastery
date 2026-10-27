@@ -124,6 +124,8 @@ const ENTRADAS: { arquivo: string; registra?: 'no main' | 'na entrada'; razao?: 
   { arquivo: 'core/src/adapters/codex-controller-worker.ts', razao: 'servidor e cliente JSON-RPC do controller do codex' },
   { arquivo: 'monitor/pulse-scope.cjs', razao: 'imprime a allowlist de threads do escopo do pulse' },
   { arquivo: 'core/src/security-scan/guard.ts', razao: 'reaper e lançador do security-scan: limpam worktrees, containers e grupos de processo, sem imprimir texto' },
+  { arquivo: 'core/src/check-paralelo.ts', razao: 'auxiliar do grupo paralelo do Agile Check: roda os comandos e grava a saída de cada um em arquivo, sem texto para pessoa' },
+  { arquivo: 'core/src/security-scan/trabalhador.ts', razao: 'trabalhador da varredura do Agile Check: roda uma ferramenta e grava o resultado em JSON (dado de máquina)' },
 ];
 
 function entradasDoRepositorio(): string[] {

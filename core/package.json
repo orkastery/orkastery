@@ -1,6 +1,6 @@
 {
   "name": "@orkastery/cli",
-  "version": "0.5.6",
+  "version": "0.6.0",
   "description": "A software factory of AI agents that proves its work: parallel threads, verified results, and short decisions only when they matter.",
   "license": "MIT",
   "homepage": "https://github.com/orkastery/orkastery#readme",
@@ -57,6 +57,9 @@
     "build:test": "tsc --build tsconfig.test.json",
     "test": "npm run build && npm run build:test && node scripts/casa-temporaria.cjs node --test dist-test/test/*.test.js",
     "test:ci": "npm run build && npm run build:test && node scripts/test-ci.js",
+    "test:hermetica": "node scripts/test-lanes.cjs hermetica",
+    "test:integracao": "node scripts/test-lanes.cjs integracao",
+    "preparo:tsgo": "node scripts/preparo-tsgo.cjs",
     "ork": "node dist/index.js",
     "prepack": "npm run build && node scripts/preparar-pacote.js",
     "postpack": "node scripts/preparar-pacote.js --limpar"
@@ -66,6 +69,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "markdownlint-cli2": "^0.22.1"
   },
   "dependencies": {

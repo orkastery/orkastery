@@ -16,6 +16,8 @@ import { esperarVaga, vagaDoDespacho, VagaRecusada } from './board';
 import { ConducaoDoVerify, gravarBaseline } from './verify';
 import { iniciarWatcher, prepararFonteWatcher } from './session-watcher';
 import { fonteClaudeDoDespacho, headDaWorktree } from './session-watcher-claude';
+import { baseDoArtefato, fonteGrokDoDespacho } from './session-watcher-grok';
+import { casaDoGrok } from './adapters/grok';
 import { ManifestoCarregado, exigirManifesto } from './manifest';
 import { grafoLigado } from './mcp-grafo';
 import { PedidoDeDespacho, ResultadoDeDespacho, resolverRuntime, runtimeConhecido } from './runtimes';
@@ -30,7 +32,7 @@ import { conferirAuth as authCodex } from './adapters/codex';
 import { abrirMemoria, injecaoDaFase, Memoria } from './memoria';
 import { idiomaDoTemplate, pedidoComDicaDoGrafo, renderizar, templateDaFase } from './prompts';
 import { montarSlug, parseSlug, proximaRotacao } from './slug';
-import { ErroDoCatalogo, linguaDeclaradaDoDono, localeAtivo, Locale, msg } from './locale';
+import { ErroDoCatalogo, linguaDeclaradaDoDono, localeAtivo, Locale, msg, textoDoCatalogo } from './locale';
 import { PROMPTS_EN, PROMPTS_PT_BR } from './locale-prompts';
 import { blocoDaThread, dirThread, gravarThread, lerThread, pausaNaThread } from './thread';
 import {
@@ -484,8 +486,12 @@ export interface ContextoDeDespacho {
   origem: string;
   /** I-33 (D4): perfil de conta do despacho; vai ao ledger e ao registro da sessao. */
   perfil?: PerfilDeDespacho;
+  /** Perfil que o dono pediu com `--perfil`; distinto do destino calculado pelo rodizio. */
+  perfilPedido?: { id: string; runtime: string };
   /** I-33 (N1): HEAD da worktree lido ANTES do despacho do GO codex; `null` quando o git nao respondeu. */
   headNoDespacho?: string | null;
+  /** RM-067 (D8): base do artefato da fase lida ANTES do despacho do grok; `null` quando a fase nao entrega artefato. */
+  artefatoNoDespacho?: { arquivo: string; sha256: string | null } | null;
   /** I-36 (T10): canal de origem do despacho e a conversa/mensagem que o originou. */
   canal?: CanalDeConducao;
   correlacao?: string | null;
@@ -525,6 +531,7 @@ export function dadosDoDespacho(ctx: ContextoDeDespacho, comando: string[]): Rec
     ...(ctx.identidade ? { identidade: ctx.identidade } : {}),
     // I-33 (D4): so identidade e diretorio do perfil; o store guarda o resto e nada e segredo.
     ...(ctx.perfil ? { perfil: ctx.perfil } : {}),
+    ...(ctx.perfilPedido ? { perfilPedido: ctx.perfilPedido } : {}),
     comando: comandoMascarado(comando, ctx.promptSha256),
   };
 }
@@ -606,7 +613,7 @@ export function concluirDespacho(
   vincularConducaoDaSessao(ctx, sessionId);
   // I-51 (RM-047): as outras maquinas veem a fase nova; so com a fabrica compartilhada.
   publicarEmSegundoPlano(ctx.raiz);
-  if (ctx.runtime === 'codex' || ctx.runtime === 'claude-bg') registrarObservacao(ctx, sessao, dir, controlador, sensores);
+  if (ctx.runtime === 'codex' || ctx.runtime === 'claude-bg' || ctx.runtime === 'grok') registrarObservacao(ctx, sessao, dir, controlador, sensores);
   return sessao;
 }
 
@@ -641,7 +648,13 @@ function registrarObservacao(ctx: ContextoDeDespacho, sessao: SessaoDaThread, di
     // I-34: claude-bg observa pela fonte nativa; no PLAN o registro guarda o sha de base do artefato.
     // I-33 (N1): o GO codex registra o HEAD do despacho, como a fonte claude-bg; ele revela commit pelo shell no checkpoint.
     const head = ctx.runtime === 'codex' && ctx.fase === 'GO' ? { head: ctx.headNoDespacho ?? null } : {};
-    const fonte = ctx.runtime === 'claude-bg' ? fonteClaudeDoDespacho(ctx.raiz, ctx.thread.id, ctx.fase, ctx.cwd)
+    // RM-067 (F2, D8): o grok observa o stream e os recibos do supervisor; o HEAD do GO vem de antes do despacho.
+    const fonte = ctx.runtime === 'grok' ? (sensores?.logPath && sensores.processoPath && sensores.reciboPath
+      ? fonteGrokDoDespacho(ctx.raiz, ctx.thread.id, ctx.fase, ctx.cwd,
+        { logPath: sensores.logPath, processoPath: sensores.processoPath, reciboPath: sensores.reciboPath }, casaDoGrok(),
+        { head: ctx.headNoDespacho, ...(ctx.artefatoNoDespacho !== undefined ? { artefato: ctx.artefatoNoDespacho } : {}) })
+      : null)
+      : ctx.runtime === 'claude-bg' ? fonteClaudeDoDespacho(ctx.raiz, ctx.thread.id, ctx.fase, ctx.cwd)
       : sensores?.logPath ? { logPath: sensores.logPath, processoPath: sensores.processoPath, reciboPath: sensores.reciboPath, ...head }
       : controlador ? { controlador, cwd: ctx.cwd, ...head } : null;
     if (!fonte) return;
@@ -999,6 +1012,9 @@ function rodarFaseSobLock(
       }
     }
     const cwd = diretorioDaThread(raiz, thread);
+    // O pedido explicito precisa sobreviver mesmo quando o despacho para antes de escolher ou abrir a conta.
+    // `perfil` continua sendo o destino efetivo; misturar os dois quebraria a rotacao por falha da propria conta.
+    const perfilPedido = opcoes.perfil !== undefined ? { id: opcoes.perfil, runtime } : undefined;
     // RM-063 (F3): o prompt vai ao disco e ao ledger, com o sha256, ANTES do contexto do runtime e do adaptador. No
     // incidente de 12/10/2026 a fase morreu no despacho e o `ork retry run` saiu com "nao ha despacho falho registrado
     // em GO com prompt gravado"; daqui em diante, toda tentativa deixa o prompt que o retry redespacha sem pedir o texto.
@@ -1006,7 +1022,8 @@ function rodarFaseSobLock(
     const promptNoLedger = { promptPath: path.relative(raiz, promptPath), promptSha256: sha };
     if (!opcoes.dryRun) {
       registrar(dir, thread.id, TIPOS_DE_EVENTO.promptGravado, { fase, slug, modo: thread.modo, runtime, model, effort, cwd,
-        ...promptNoLedger, origem: 'phase.run', canal, ...(opcoes.correlacao ? { correlacao: opcoes.correlacao } : {}), identidade });
+        ...promptNoLedger, origem: 'phase.run', canal, ...(opcoes.correlacao ? { correlacao: opcoes.correlacao } : {}), identidade,
+        ...(perfilPedido ? { perfilPedido } : {}) });
     }
     const correcaoDoRetry = `ork retry run ${thread.id} redespacha o mesmo prompt (sha256 ${sha.slice(0, 12)})`;
     let contextoRuntime: ContextoRuntime | undefined;
@@ -1014,7 +1031,8 @@ function rodarFaseSobLock(
     catch (e) {
       const erro = `runtime.unavailable: ${(e as Error).message}`;
       registrarGateBloqueado(dir, thread.id, { gate: 'phase.dispatch', motivo: 'runtime.unavailable',
-        modo: thread.modo, detalhe: erro, fase, slug, ...(opcoes.dryRun ? {} : { ...promptNoLedger, correcao: correcaoDoRetry }) });
+        modo: thread.modo, detalhe: erro, fase, slug, ...(opcoes.dryRun ? {} : { ...promptNoLedger, correcao: correcaoDoRetry }),
+        ...(perfilPedido ? { perfilPedido } : {}) });
       return { thread, slug, promptPath, promptSha256: sha, comando: [], sessionId: null,
         verificada: false, pausaAoFim: pausaNaThread(thread, fase), dryRun: opcoes.dryRun === true,
         runtime, model, effort, bloqueado: true, motivo: 'runtime.unavailable', violacoes, erro };
@@ -1028,16 +1046,20 @@ function rodarFaseSobLock(
     catch (e) { escolha = { perfil: null, configurados: 0, erro: (e as Error).message }; }
     if (escolha.erro) {
       const motivo = escolha.motivo ?? 'runtime.unavailable';
-      const erro = `${motivo}: ${escolha.erro}`;
+      const erro = perfilPedido
+        ? textoDoCatalogo((m) => m.retry.perfilPedidoRecusado(perfilPedido.id, perfilPedido.runtime, motivo, escolha.erro!))
+        : `${motivo}: ${escolha.erro}`;
       if (!opcoes.dryRun) {
         const semPerfil: ContextoDeDespacho = { identidade, raiz, thread, fase, slug, promptPath, promptSha256: sha, runtime, cwd, model, effort,
-          origem: 'phase.run', canal, correlacao: opcoes.correlacao ?? null };
+          origem: 'phase.run', canal, correlacao: opcoes.correlacao ?? null, ...(perfilPedido ? { perfilPedido } : {}) };
         registrar(dir, thread.id, TIPOS_DE_EVENTO.despachoFalhou, { ...dadosDoDespacho(semPerfil, []), erro });
         registrarGateBloqueado(dir, thread.id, { gate: 'phase.dispatch', motivo, modo: thread.modo, detalhe: erro,
-          correcao: motivo === 'cost.violation'
-            ? 'refaca o login do perfil pela assinatura (claude auth login --claudeai ou codex login com ChatGPT) e rode ork accounts check; perfil de provider pago nunca despacha'
-            : 'ork accounts list mostra o estado de cada perfil; ork retry run segue pela ordem de fallback ou pela fila',
-          fase, slug, runtime, origem: 'phase.run' });
+          correcao: perfilPedido
+            ? textoDoCatalogo((m) => m.retry.correcaoDoPerfilPedido(perfilPedido.id, perfilPedido.runtime, motivo, thread.id))
+            : motivo === 'cost.violation'
+              ? 'refaca o login do perfil pela assinatura (claude auth login --claudeai ou codex login com ChatGPT) e rode ork accounts check; perfil de provider pago nunca despacha'
+              : 'ork accounts list mostra o estado de cada perfil; ork retry run segue pela ordem de fallback ou pela fila',
+          fase, slug, runtime, origem: 'phase.run', ...promptNoLedger, ...(perfilPedido ? { perfilPedido } : {}) });
       }
       return { thread, slug, promptPath, promptSha256: sha, comando: [], sessionId: null,
         verificada: false, pausaAoFim: pausaNaThread(thread, fase), dryRun: opcoes.dryRun === true,
@@ -1076,8 +1098,10 @@ function rodarFaseSobLock(
     const claimsSchema = fase === 'GO' && runtime === 'codex'
       ? schemaDeClaimsDoPacote()
       : undefined;
-    // I-33 (N1): lido antes de a sessao existir; depois dela, um commit rapido ja estaria no HEAD.
-    const headNoDespacho = fase === 'GO' && runtime === 'codex' && !opcoes.dryRun ? headDaWorktree(cwd) : undefined;
+    // I-33 (N1): lido antes de a sessao existir; depois dela, um commit rapido ja estaria no HEAD. RM-067: o grok tambem.
+    const headNoDespacho = fase === 'GO' && (runtime === 'codex' || runtime === 'grok') && !opcoes.dryRun ? headDaWorktree(cwd) : undefined;
+    // RM-067 (D8): a base do artefato do grok tambem sai antes do despacho, que espera a pasta da sessao.
+    const artefatoNoDespacho = runtime === 'grok' && !opcoes.dryRun ? baseDoArtefato(raiz, thread.id, fase) : undefined;
     const pedidoAoRuntime: PedidoDeDespacho = {
       prompt,
       nome: slug,
@@ -1118,7 +1142,9 @@ function rodarFaseSobLock(
       effort,
       origem: 'phase.run',
       ...(perfil ? { perfil } : {}),
+      ...(perfilPedido ? { perfilPedido } : {}),
       ...(headNoDespacho !== undefined ? { headNoDespacho } : {}),
+      ...(artefatoNoDespacho !== undefined ? { artefatoNoDespacho } : {}),
     };
     let resultado: ResultadoDeDespacho;
     try { resultado = rt.despachar(pedidoAoRuntime); }
@@ -1130,6 +1156,7 @@ function rodarFaseSobLock(
         registrar(dir, thread.id, TIPOS_DE_EVENTO.despachoFalhou, { ...dadosDoDespacho(ctx, []), erro });
         registrarGateBloqueado(dir, thread.id, { gate: 'phase.dispatch', motivo: 'runtime.unavailable', modo: thread.modo,
           detalhe: erro, correcao: correcaoDoRetry, fase, slug, runtime, origem: 'phase.run', ...promptNoLedger,
+          ...(perfilPedido ? { perfilPedido } : {}),
           evidencia: 'excecao real do runtime adapter no despacho, nao relato do agente' });
       }
       throw e;
@@ -1179,6 +1206,7 @@ function rodarFaseSobLock(
         registrarGateBloqueado(dir, thread.id, { gate: 'phase.dispatch', motivo: falha.motivo, modo: thread.modo, detalhe: erro,
           correcao: 'ork retry run rotaciona para o proximo perfil, para o runtime de fallback ou para a fila', fase, slug,
           runtime, origem: 'phase.run', falhaDeConta: falha, ...(perfil ? { perfil } : {}),
+          ...(perfilPedido ? { perfilPedido } : {}),
           evidencia: 'saida real do runtime adapter no despacho, nao relato do agente' });
         return { thread, slug, promptPath, promptSha256: sha, comando: resultado.comando, controlador: resultado.controlador,
           sessionId: null, verificada: false, pausaAoFim, dryRun: false, runtime, model, effort, bloqueado: false,
@@ -1211,6 +1239,9 @@ function rodarFaseSobLock(
           detalhe: erro,
           // RM-058 N4 (D17 da ork-rm058n4): o pedido do despacho do arco é do vigia do arco, e o `ork retry resume` não o retoma.
           ...(opcoes.correlacao ? { correlacao: opcoes.correlacao } : {}),
+          // RM-067 (GO-FIX 1, A1): o pedido do grok volta pelo grok, com o modelo dele; o dos outros runtimes segue como antes.
+          ...(runtime === 'grok' ? { runtime } : {}),
+          ...(perfilPedido ? { runtime, perfil: perfilPedido.id, perfilPedido } : {}),
         });
         registrar(dir, thread.id, TIPOS_DE_EVENTO.rateLimitEnfileirado, {
           fase,
@@ -1258,6 +1289,7 @@ function rodarFaseSobLock(
       // a registrava: o `ork retry plan` nao a via e a fase ficava parada sem ninguem saber.
       registrarGateBloqueado(dir, thread.id, { gate: 'phase.dispatch', motivo: 'runtime.unavailable', modo: thread.modo,
         detalhe: erro, correcao: correcaoDoRetry, fase, slug, runtime, origem: 'phase.run', ...promptNoLedger, ...daSessao,
+        ...(perfilPedido ? { perfilPedido } : {}),
         evidencia: 'saida real do runtime adapter no despacho, nao relato do agente' });
       return {
         thread,

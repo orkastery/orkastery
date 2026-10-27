@@ -8,7 +8,10 @@
  */
 
 export const VERIFY_PT_BR = {
-  uso: 'uso: ork verify <thread-id> [--baseline] [--so-claims] [--canal C] [--esperar [min]]',
+  uso: 'uso: ork verify <thread-id> [--baseline] [--so-claims] [--check classic|agile] [--canal C] [--esperar [min]]',
+  // RM-072 (D1): a opcao --check aceita so os dois modos, e o erro diz quais.
+  checkInvalido: (valor: string | null) =>
+    `ork verify: --check invalido: ${valor === null ? '(sem valor)' : JSON.stringify(valor)} (aceitos: classic, agile)`,
   // ork verify --baseline
   baselineGravada: (id: string) => `Baseline gravada para a thread ${id}.`,
   // RM-037 (defeito 2 de 19 e 20/10/2026): a recusa diz o comando exato do preparo, ou como declara-lo.
@@ -25,6 +28,10 @@ export const VERIFY_PT_BR = {
     `${operacao === 'baseline' ? 'a baseline nao foi gravada' : 'o verify nao rodou'} sem as dependencias. Rode na worktree ` +
     `cd ${dir} && ${comando}; ${operacao === 'baseline' ? 'a proxima baseline' : 'o proximo verify'} repete o preparo antes dos comandos`,
   baselineCommit: (commit: string) => `  commit ${commit}`,
+  // RM-072 (D1): o modo do CHECK que gravou a baseline; o nome de produto e o mesmo nas duas linguas.
+  baselineCheck: (nome: string, modo: string, origem: 'opcao' | 'manifesto' | 'padrao') => `  ${'check'.padEnd(10)} ${nome} (` +
+    `${origem === 'opcao' ? `opcao --check ${modo}` : origem === 'manifesto' ? `manifesto: check.mode: ${modo}`
+      : 'padrao: o manifesto nao declara check.mode'})`,
   // RM-037 (defeito 1 de 19 e 20/10/2026): o comando sem veredito (estouro, sinal, relogio sob steal, nao rodou) nao vale
   // como "ja falhava"; `situacao` e a do comando, no locale da impressao.
   baselineComando: (nome: string, veredito: 'passava' | 'ja-falhava' | 'sem-veredito', code: number, comando: string,
@@ -40,8 +47,18 @@ export const VERIFY_PT_BR = {
   titulo: (id: string) => `ork verify da thread ${id}`,
   head: (commit: string) => `  HEAD real   ${commit}`,
   diretorio: (cwd: string) => `  diretorio   ${cwd}`,
+  // RM-072 (D1, D17): todo CHECK diz o modo que rodou e de onde ele veio.
+  check: (nome: string, modo: string, origem: 'opcao' | 'manifesto' | 'padrao') => `  check       ${nome} (` +
+    `${origem === 'opcao' ? `opcao --check ${modo}` : origem === 'manifesto' ? `manifesto: check.mode: ${modo}`
+      : 'padrao: o manifesto nao declara check.mode'})`,
   baseline: (sha: string, quando: string) => `  baseline    ${sha} de ${quando}`,
   semBaseline: '  baseline    (nao gravada: falha nao pode ser chamada de regressao)',
+  // RM-072 (D8): o que o Agile fez na rodada, e cada peca que caiu para o equivalente do Classic.
+  agile: (reaproveitadas: number, inteiras: number, paralelo: boolean, lanes: string[]) =>
+    `  agile       ${reaproveitadas} comando(s) de claim contra o produto do preparo, ${inteiras} inteiro(s); ` +
+    `${paralelo ? `grupo em paralelo${lanes.length ? ` com as lanes ${lanes.join(', ')}` : ''}` : 'comandos do manifesto em serie'}`,
+  agileFallback: (peca: string, motivo: string, fallback: string) =>
+    `  fallback    ${peca}: ${motivo || 'sem motivo dito'}; rodou ${fallback || 'o equivalente do Classic'}`,
   preparo: (situacao: string, segundos: number, alterado: boolean) => `  preparo     ${situacao} em ` +
     `${segundos} s, uma vez para a rodada; produto ` +
     `${alterado ? 'MUDOU no meio da rodada: nenhum veredito vale' : 'conferido do preparo ao fim'}`,
@@ -115,7 +132,8 @@ export const VERIFY_PT_BR = {
 };
 
 export const VERIFY_EN: typeof VERIFY_PT_BR = {
-  uso: 'usage: ork verify <thread-id> [--baseline] [--so-claims] [--canal C] [--esperar [min]]',
+  uso: 'usage: ork verify <thread-id> [--baseline] [--so-claims] [--check classic|agile] [--canal C] [--esperar [min]]',
+  checkInvalido: (valor) => `ork verify: invalid --check: ${valor === null ? '(no value)' : JSON.stringify(valor)} (accepted: classic, agile)`,
   baselineGravada: (id) => `Baseline recorded for thread ${id}.`,
   baselineDependenciaAusente: (nome, code, comando, preparo) =>
     `baseline.missing-dependency: ${nome} did not run because the command does not exist (exit ${code}): ${comando}; ` +
@@ -129,6 +147,8 @@ export const VERIFY_EN: typeof VERIFY_PT_BR = {
     `worktree \`cd ${dir} && ${comando}\`; ${operacao === 'baseline' ? 'the next baseline' : 'the next verify'} repeats the ` +
     'preparation before the commands',
   baselineCommit: (commit) => `  commit ${commit}`,
+  baselineCheck: (nome, modo, origem) => `  ${'check'.padEnd(10)} ${nome} (${origem === 'opcao' ? `option --check ${modo}`
+    : origem === 'manifesto' ? `manifest: check.mode: ${modo}` : 'default: the manifest does not declare check.mode'})`,
   baselineComando: (nome, veredito, code, comando, situacao) => `  ${nome.padEnd(10)} ${veredito === 'passava' ? 'passed'
     : veredito === 'ja-falhava' ? `already failing (exit ${code})` : `NO VERDICT, ${situacao}: does not count as "already failing"`}  ${comando}`,
   baselineSemVeredito: (nomes, id) => `  no verdict in the baseline: ${nomes}; in verify, their failure is reported as a ` +
@@ -140,8 +160,14 @@ export const VERIFY_EN: typeof VERIFY_PT_BR = {
   titulo: (id) => `ork verify for thread ${id}`,
   head: (commit) => `  real HEAD   ${commit}`,
   diretorio: (cwd) => `  directory   ${cwd}`,
+  check: (nome, modo, origem) => `  check       ${nome} (${origem === 'opcao' ? `option --check ${modo}`
+    : origem === 'manifesto' ? `manifest: check.mode: ${modo}` : 'default: the manifest does not declare check.mode'})`,
   baseline: (sha, quando) => `  baseline    ${sha} from ${quando}`,
   semBaseline: '  baseline    (not recorded: a failure cannot be called a regression)',
+  agile: (reaproveitadas, inteiras, paralelo, lanes) =>
+    `  agile       ${reaproveitadas} claim command(s) against the prepared product, ${inteiras} in full; ` +
+    `${paralelo ? `parallel group${lanes.length ? ` with lanes ${lanes.join(', ')}` : ''}` : 'manifest commands in series'}`,
+  agileFallback: (peca, motivo, fallback) => `  fallback    ${peca}: ${motivo || 'no reason given'}; ran ${fallback || 'the Classic equivalent'}`,
   preparo: (situacao, segundos, alterado) => `  prepare     ${situacao} in ${segundos} s, once for the run; product ` +
     `${alterado ? 'CHANGED during the run: no verdict counts' : 'checked from prepare to end'}`,
   stealMedido: (pct, fonte, limiar) =>

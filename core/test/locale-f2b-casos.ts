@@ -198,7 +198,9 @@ const SEM_INSTABILIDADE = { arquivo: 'core/test/instabilidade.json', presente: f
 function resultadoVerify(extra: Partial<ResultadoVerify>): ResultadoVerify {
   return { thread: 'loc-x', commit: SHA_A, cwd: '/repo/loc', claims: [], comandos: [], baseline: null, regressoes: [],
     preExistentes: [], falhasSemBaseline: [], estouros: [], preparo: null, steal: STEAL_MEDIDO as never,
-    instabilidade: SEM_INSTABILIDADE as never, motivos: [], ok: true, ...extra } as ResultadoVerify;
+    instabilidade: SEM_INSTABILIDADE as never, motivos: [], ok: true,
+    // RM-072 (D1): todo resultado de verify traz o modo do CHECK; o caso usa o padrao.
+    check: { modo: 'agile', origem: 'padrao', nome: 'Agile Check' }, duracaoMs: 0, ...extra } as ResultadoVerify;
 }
 
 function casosDoVerify(casos: Record<string, string>): void {

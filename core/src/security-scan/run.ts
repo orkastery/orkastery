@@ -55,6 +55,8 @@ export interface RunScanOptions {
   tools?: ToolSpec[];
   /** Total time budget of the round in ms (the CLI reads ORK_SECURITY_SCAN_DEADLINE_MS); unbounded when absent. */
   deadlineMs?: number;
+  /** RM-072 (D13): the Agile-only tools behind the manifest flags; `runScan` (Classic) never reads it. */
+  agile?: { osv_scanner?: boolean; oxlint?: boolean };
 }
 
 /** Version of the normalized cache content; bump when a normalizer or the RawFinding shape changes. */
@@ -63,23 +65,23 @@ export const SCAN_CACHE_VERSION = 1;
 /** `reason` on `ran` is the tolerated partial coverage (`partial-timeout: 2`), see `expect.tolerate`. */
 type Outcome = { kind: 'ran'; findings: RawFinding[]; reason?: string } | { kind: 'failed' | 'unavailable'; reason: string };
 /** `forced`: the pair comes from `config.stacks.add` (root, no manifest needed), not from detection. */
-interface Unit { stack?: Stack; dir: string; forced?: boolean }
+export interface Unit { stack?: Stack; dir: string; forced?: boolean }
 
 const STATUSES: FindingStatus[] = ['new', 'existing', 'dismissed'];
 const SEVERITIES: Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
 const GIT_TIMEOUT_MS = 60000;
 
-function git(cwd: string, args: string[]): string | null {
+export function git(cwd: string, args: string[]): string | null {
   const r = spawnSync('git', args, { cwd, encoding: 'utf8', timeout: GIT_TIMEOUT_MS });
   return r.error || r.status !== 0 ? null : r.stdout.trim();
 }
 
-function emptyCounts(): ToolRun['counts'] {
+export function emptyCounts(): ToolRun['counts'] {
   return Object.fromEntries(STATUSES.map(s => [s, Object.fromEntries(SEVERITIES.map(v => [v, 0]))])) as ToolRun['counts'];
 }
 
 /** Base sha: `--base`, else merge-base with `<remote>/<base_branch>`, else with the local branch; null when unresolved. */
-function resolveBase(root: string, stateRoot: string, ref: string | undefined): string | null {
+export function resolveBase(root: string, stateRoot: string, ref: string | undefined): string | null {
   const commit = (r: string): string | null => git(root, ['rev-parse', '--verify', '--quiet', `${r}^{commit}`]);
   if (ref !== undefined) return commit(ref);
   let branch = 'main'; let remote = 'origin';
@@ -96,7 +98,7 @@ function resolveBase(root: string, stateRoot: string, ref: string | undefined): 
 }
 
 /** Detected (stack, dir) pairs adjusted by `config.stacks`: `remove` drops a stack, `add` forces it at the root. */
-function stackPairs(root: string, config: ScanConfig): Array<StackDir & { forced?: boolean }> {
+export function stackPairs(root: string, config: ScanConfig): Array<StackDir & { forced?: boolean }> {
   const pairs: Array<StackDir & { forced?: boolean }> = detectStacks(root).filter(p => !config.stacks.remove.includes(p.stack));
   for (const s of config.stacks.add) if (!pairs.some(p => p.stack === s)) pairs.push({ stack: s, dir: '.', forced: true });
   return pairs;
@@ -105,7 +107,7 @@ function stackPairs(root: string, config: ScanConfig): Array<StackDir & { forced
 const usesStackDir = (t: ToolSpec): boolean => !!t.argsByStack || t.args.some(a => a.includes('{stackDir}'));
 const argvFor = (t: ToolSpec, stack?: Stack): string[] => (stack && t.argsByStack?.[stack]) || t.args;
 
-function unitsOf(t: ToolSpec, pairs: Array<StackDir & { forced?: boolean }>): Unit[] {
+export function unitsOf(t: ToolSpec, pairs: Array<StackDir & { forced?: boolean }>): Unit[] {
   if (!usesStackDir(t)) return [{ dir: '.' }];
   return pairs.filter(p => (t.stacks === 'all' || t.stacks.includes(p.stack)) && argvFor(t, p.stack).length > 0)
     .map(p => ({ stack: p.stack, dir: p.dir, ...(p.forced ? { forced: true } : {}) }));
@@ -132,7 +134,7 @@ export function commitsScanned(stderr: string): number | null {
 }
 
 /** A detached worktree of `sha` from the main repository, registered in the guard (removed by `guard.close()`). */
-function checkout(mainRoot: string, sha: string, guard: RoundGuard): string {
+export function checkout(mainRoot: string, sha: string, guard: RoundGuard): string {
   const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ork-security-scan-tree-')));
   const tree = path.join(tmp, 'tree');
   guard.add('worktrees', tree);
@@ -141,7 +143,7 @@ function checkout(mainRoot: string, sha: string, guard: RoundGuard): string {
   return tree;
 }
 
-function cacheRoot(): string {
+export function cacheRoot(): string {
   const xdg = process.env.XDG_CACHE_HOME;
   return path.join(xdg && path.isAbsolute(xdg) ? xdg : path.join(os.homedir(), '.cache'), 'orkastery', 'security-scan');
 }
@@ -149,7 +151,7 @@ function cacheRoot(): string {
 const sha256 = (text: string): string => crypto.createHash('sha256').update(text).digest('hex');
 const slug = (dir: string): string => (dir === '.' ? 'root' : dir.replace(/[^A-Za-z0-9._-]/g, '_'));
 
-interface Context {
+export interface Context {
   /** Detached worktree of the HEAD commit, where every HEAD scan runs. */
   headTree: string; mainRoot: string; base: string; head: string;
   /** Commits in base..HEAD; null when git could not count them. */
@@ -274,11 +276,23 @@ function scanBase(t: ToolSpec, executor: Executor, unit: Unit, ctx: Context, hea
   return outcome;
 }
 
-interface ToolResult { run: ToolRun; head: RawFinding[]; base: RawFinding[] }
+export interface ToolResult { run: ToolRun; head: RawFinding[]; base: RawFinding[] }
+
+/**
+ * RM-072 (D9): o trabalho de uma ferramenta na varredura do Agile, como vai ao trabalhador em JSON: a ferramenta, as
+ * unidades, a config e o contexto sem o que nao atravessa processo (o probe, o guarda e o mapa de imagens), com o prazo
+ * absoluto (`null` sem prazo).
+ */
+export interface TrabalhoDaFerramenta {
+  tool: ToolSpec; units: Unit[]; config: ScanConfig;
+  /** RM-072 (D12): o binario nativo desta ferramenta esta na maquina com a versao do catalogo; o Agile o usa antes do Docker. */
+  nativoPrimeiro?: boolean;
+  ctx: Omit<Context, 'probe' | 'guard' | 'images' | 'deadline' | 'rangePatch'> & { deadline: number | null };
+}
 
 const DOCKER_OFF = (p: Probe): Probe => ({ ...p, dockerCli: () => false, dockerDaemon: () => false });
 
-function scanTool(t: ToolSpec, units: Unit[], config: ScanConfig, ctx: Context): ToolResult {
+export function scanTool(t: ToolSpec, units: Unit[], config: ScanConfig, ctx: Context): ToolResult {
   const result = (state: ToolRun['state'], executor: Executor | null, reason?: string, head: RawFinding[] = [], base: RawFinding[] = []): ToolResult => ({
     run: { name: t.name, category: t.category, version: executor === 'native' ? nativeVersionOf(t, ctx.probe) : t.version, executor, state, ...(reason ? { reason } : {}), counts: emptyCounts() },
     head, base,
@@ -320,7 +334,7 @@ function scanTool(t: ToolSpec, units: Unit[], config: ScanConfig, ctx: Context):
   return result('ran', executor, partial.join('; ') || undefined, head, base);
 }
 
-const failedAll = (tools: ToolSpec[], config: ScanConfig, reason: string): ToolRun[] => tools.map(t => ({
+export const failedAll = (tools: ToolSpec[], config: ScanConfig, reason: string): ToolRun[] => tools.map(t => ({
   name: t.name, category: t.category, version: t.version, executor: null,
   state: config.tools[t.name]?.disabled ? 'unavailable' : 'failed', reason: config.tools[t.name]?.disabled ? 'disabled' : reason, counts: emptyCounts(),
 }));

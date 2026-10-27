@@ -1,0 +1,2 @@
+{"type":"max_turns_reached","maxTurns":3}
+{"type":"end","stopReason":"max_turn_requests","sessionId":"<SESSAO>","requestId":"req-limite","usage":{"input_tokens":50,"output_tokens":5,"total_tokens":55},"num_turns":3}

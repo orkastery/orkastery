@@ -1,0 +1,10 @@
+// RM-072 (D14): o typecheck e o emit do src com o TypeScript 7 (tsgo), no preparo do Agile Check. O 7 removeu
+// moduleResolution node10; bundler com module CommonJS da o mesmo resultado (scripts/tsgo-paridade.cjs).
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "incremental": false,
+    "tsBuildInfoFile": null
+  }
+}

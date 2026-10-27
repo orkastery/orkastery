@@ -26,7 +26,7 @@ export const THREAD_PT_BR = {
   /** Largura do rotulo no resumo (`  id        valor`). */
   largura: 9,
   rotulos: { id: 'id', slug: 'slug', nome: 'nome', modo: 'modo', ciclo: 'ciclo', fase: 'fase', status: 'status', base: 'base',
-    worktree: 'worktree', conducao: 'conducao', score: 'score' },
+    worktree: 'worktree', conducao: 'conducao', score: 'score', check: 'check' },
   modo: (tag: string, pausas: number) => `${tag} (${pausas} pausas humanas previstas)`,
   cicloPadrao: 'padrao do modo',
   status: (status: string) => status,
@@ -35,6 +35,10 @@ export const THREAD_PT_BR = {
   validacao: '  validacao CHECK em runtime diferente do GO (exigido pela thread)',
   prontoQuando: (n: number) => `  pronto quando (${n} criterio(s) executaveis)`,
   score: (valor: number, por: string, regime: string, quando: string) => `${valor}/5 por ${por} (${regime}) em ${quando}`,
+  /** RM-072 (D17): o modo do ultimo `verify_run`; o nome de produto ("Agile Check", "Classic Check") e o mesmo nas duas linguas. */
+  check: (nome: string, origem: 'opcao' | 'manifesto' | 'padrao', quando: string, sha: string) =>
+    `${nome}, ${origem === 'opcao' ? 'pela opcao --check' : origem === 'manifesto' ? 'pelo manifesto' : 'pelo padrao'}, ` +
+    `no verify de ${quando} (${sha})`,
   blocosPrevistos: '  blocos previstos',
   pausaPrevista: (sobre: string) => `pausa prevista: ${sobre}`,
   pausaSobre: (sobre: string) => sobre,
@@ -237,7 +241,7 @@ export const THREAD_PT_BR = {
 export const THREAD_EN: typeof THREAD_PT_BR = {
   largura: 10,
   rotulos: { id: 'id', slug: 'slug', nome: 'name', modo: 'mode', ciclo: 'cycle', fase: 'phase', status: 'status', base: 'base',
-    worktree: 'worktree', conducao: 'conduction', score: 'score' },
+    worktree: 'worktree', conducao: 'conduction', score: 'score', check: 'check' },
   modo: (tag, pausas) => `${tag} (${pausas} planned human pause${pausas === 1 ? '' : 's'})`,
   cicloPadrao: 'default for the mode',
   status: (status) => STATUS_EN[status] ?? status,
@@ -246,6 +250,8 @@ export const THREAD_EN: typeof THREAD_PT_BR = {
   validacao: '  validation CHECK on a runtime other than the GO one (required by the thread)',
   prontoQuando: (n) => `  done when (${n} executable criteri${n === 1 ? 'on' : 'a'})`,
   score: (valor, por, regime, quando) => `${valor}/5 by ${por} (${regime}) on ${quando}`,
+  check: (nome, origem, quando, sha) => `${nome}, ${origem === 'opcao' ? 'by the --check option' : origem === 'manifesto'
+    ? 'by the manifest' : 'by default'}, in the verify of ${quando} (${sha})`,
   blocosPrevistos: '  planned blocks',
   pausaPrevista: (sobre) => `planned pause: ${sobre}`,
   pausaSobre: (sobre) => PAUSA_SOBRE_EN[sobre] ?? sobre,

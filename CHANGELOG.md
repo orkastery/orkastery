@@ -8,7 +8,46 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
-- **Portão de release do #Noctum (RM-058)**: por decisão do dono, a próxima versão exige somente o P1 real de 6 h, aprovado e ratificado depois do piloto; o alcance continua em toda versão, e P2, P3 e P4 ficam para versões seguintes.
+- **Grok Build por despacho explícito** ([RM-067](docs/roadmap/RM-067-grok-build-homologado.md), F1 e F2):
+  `ork phase run <thread> <FASE> --runtime grok --model <modelo>` despacha a fase pelo Grok Build headless (`grok -p`
+  com `--output-format streaming-json`), com o id da sessão escolhido pelo `ork`, a sessão conferida na pasta que o
+  runtime grava, o filho sem `XAI_API_KEY` e o sandbox `workspace` de piso. O watcher fecha a fase pelo evento `end` do
+  stream e pelo recibo de saída do supervisor: `end_turn` só conclui com a prova do `ork`, a saída 1 com objeto `error`
+  vira parada tipada, 130, 143 e `cancelled` sem objeto `error` vão ao dono com a retomada `grok -p continue -r <id>`,
+  e o stream sem `end` vira `runtime.unavailable` depois do prazo. Sem a chave, o despacho real autentica pelo login
+  da assinatura que o `grok` guardou no `GROK_HOME`, a alternativa da D1 em zona cinza da política de uso: nenhuma
+  conta real deve despachar antes da decisão do dono. O `grok` não é padrão de bloco, nem fallback, nem
+  `runtime.adapter`, e ainda despacha sem o MCP do `ork`; perfis de conta, login e cota (F3, que espera a decisão D1
+  do dono), setup, MCP e onboarding (F4) e o ensaio real (F5) ficam para depois. O `claude-bg` e o `codex` não mudam.
+
+### Corrigido
+
+- **O `ork retry run` guarda a conta pedida com `--perfil`:** o despacho barrado antes de abrir a sessão agora grava
+  o perfil pedido no ledger (`perfilPedido`), e o retry e a retomada da fila voltam a ele. Se ele estiver sem login,
+  esgotado ou for de outro runtime, recusam com motivo tipado e a correção, em vez de redespachar em outra conta sem
+  avisar. A rotação por falha da própria conta e o despacho sem `--perfil` seguem como antes.
+
+## [0.6.0] - 2026-10-26
+
+O CHECK padrão passou a ser o **Agile Check**; para voltar ao Classic, use `check.mode: classic` no `orkastery.yaml` ou `ork verify --check classic`.
+
+O #Noctum segue **em desenvolvimento, não anunciado** e ainda não validado.
+
+### Adicionado
+
+- **Agile Check e Classic Check** ([RM-072](docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md)): o `ork verify`
+  ganha dois modos de CHECK com a mesma cobertura, escolhidos por `check.mode: agile | classic` no `orkastery.yaml` ou
+  por `ork verify <thread> --check classic|agile` na rodada, que vence o manifesto. O Classic Check é o CHECK de sempre:
+  os mesmos comandos, a mesma ordem e as mesmas ferramentas. O Agile Check roda o preparo uma vez e as claims contra o
+  produto dele, com guarda de hash, e as lanes de teste e a varredura em paralelo sem passar da CPU da máquina (a lane
+  que sobe containers espera a varredura, por `check.agile.apos_a_varredura`), com o banco do Trivy em cache, a imagem
+  de lint pré-montada, o binário nativo primeiro e, neste repositório, o `tsgo` no preparo da árvore fria; a peça
+  indisponível cai para o equivalente do Classic e fica registrada no `verify_run`. Nos dois modos, o
+  `verify_run` grava o modo, de onde ele veio e a duração de cada comando, claim e rodada, e o parecer do CHECK e o
+  `pr-body.md` dizem o modo da rodada. `osv-scanner` e `oxlint` ficam atrás de `check.agile.osv_scanner` e
+  `check.agile.oxlint`, desligados.
+- **Portão de release do #Noctum (RM-058)**: por decisão do dono, somente a versão que anuncia o produto exige o P1 real de 6 h, aprovado e ratificado depois do piloto; o alcance `toda-versao` só volta por decisão futura dele, e P2, P3 e P4 ficam para versões seguintes.
+- **Recusas visíveis no #Noctum (RM-058)**: a supervisão e o relatório da manhã mostram a recusa que impediu o despacho, e `ork noctum propor` avisa quando o cron não poderá reconferir a prova pública do dono.
 - **DSN da memória fora do ambiente dos agentes (RM-069)**: `memory.database_url_file` declara a DSN da memória por
   um arquivo da pasta de segredos do `ork` (`~/.orkastery/segredos/<nome>`, que segue `ORKASTERY_HOME`), em vez da
   variável de `memory.database_url_env`; as duas fontes são exclusivas e o `ork` nunca cai de uma para a outra. O
@@ -189,7 +228,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   (`ork.noctum-piloto/v1`), contando só a entrega do arco e a reversão dela pela data do commit que reverte, com a
   evidência simulada (também o despacho sem sessão confirmada pelo runtime) nunca aprovada e o arquivo publicável sem
   dado pessoal. Com `ci.contexts` no manifesto, a prova do CI da entrega exige todos os contextos verdes. O ensaio
-  ganha a cadeia ligada, o condutor que morre e a base que anda. Muda para quem publica: a tag só publica com o aceite dos pilotos do #Noctum em
+  ganha a cadeia ligada, o condutor que morre e a base que anda. Muda para quem publica: a tag que anuncia o #Noctum só publica com o aceite dos pilotos em
   `docs/roadmap/evidencias/RM-058/aceite.json`, e o CI de documentação recusa o texto que anuncia o #Noctum como lançado,
   entregue, validado ou disponível sem esse aceite, em qualquer caixa de letra; o piloto com marca de simulação e a
   ratificação anterior ao fim dos pilotos não passam no portão. Nenhum piloto rodou: o #Noctum ainda não foi validado.
@@ -408,6 +447,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `ork onboarding sync`, `ork experiencia uninstall`, `ork doctor --modo`, `ork maestro` e `ork mcp serve`; as
   mensagens de erro de `ork brain`, `ork activation` e `ork receipt-verifiers`, que imprimem JSON; e a recusa do
   projeto-alvo, que sai antes de o comando ativar o locale. A lista, conferida no código, está na página do item.
+
+### Alterado
+
+- **O CHECK padrão passa a ser o Agile Check** ([RM-072](docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md)): projeto sem `check.mode` roda o Agile; para voltar ao CHECK de sempre, declare `check.mode: classic` no `orkastery.yaml` (ou rode `ork verify <thread> --check classic`).
 
 ### Corrigido
 

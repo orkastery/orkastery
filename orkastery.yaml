@@ -61,6 +61,24 @@ verify:
     # O prazo e 3x o maior, arredondado ao minuto; no runner hospedado o pull frio das imagens soma 1 a 2 min.
     security_scan: 840000
 
+check:
+  # RM-072 (D2 do dono): Agile Check (padrao) ou Classic Check (o CHECK de sempre); `ork verify --check` vence.
+  mode: agile
+  agile:
+    # Guarda de hash: claims e build reaproveitam o preparo enquanto a arvore e estes caminhos nao mudam.
+    produto:
+      - "core/dist"
+      - "core/dist-test"
+    # D14: o tsgo (TypeScript 7 nativo) emite dist e dist-test na arvore fria; com o build incremental do tsc presente,
+    # roda o preparo do Classic. Paridade com o tsc 5.9.3 em core/scripts/tsgo-paridade.cjs; sem ela, comente a linha.
+    preparo: "npm --prefix core run preparo:tsgo"
+    # As lanes juntas no lugar do verify.test: o conjunto do test:ci e as integracoes locais (integracoes-locais.ts).
+    test:
+      hermetica: "npm --prefix core run test:hermetica"
+      integracao: "npm --prefix core run test:integracao"
+    # A integracao sobe containers (scan real, PostgreSQL): so comeca quando a varredura do grupo termina.
+    apos_a_varredura: ["integracao"]
+
 ci:
   # O SHIP consulta o check obrigatório no SHA candidato antes de tomar o lease da base.
   required_for_ship: true

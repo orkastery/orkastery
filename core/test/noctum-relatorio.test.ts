@@ -483,3 +483,23 @@ test('RL20: sem despacho, o relatório diz motivo, duração, ocupação sem dad
     assert.doesNotMatch(texto, /👤 O que precisa de você\n• nada/);
   } finally { p.limpar(); }
 });
+
+test('RL21: a recusa por prova do dono aparece com duração e ação exata, nunca como nada', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-rl21');
+  try {
+    const { trabalhos, ids } = threads(p, 1);
+    const a = abrir(p, 'arco-rl21', trabalhos, 'telegram', ids);
+    gravarNaSupervisao(p.carregado, 'arco-rl21', [{ tipo: 'passo_recusado', papel: 'condutor', trabalho: 't1',
+      motivo: 'noctum.origem.sem-prova',
+      detalhe: 'a prova do dono não pode ser reconferida neste processo: falta a chave ou o verificador público do canal' }],
+    depois(a.vencimento, -6 * HORA));
+    const fatos = fatosDoRelatorio(p.carregado, 'arco-rl21', { ...base, quando: a.vencimento })!;
+    assert.equal(fatos.sessoesDespachadas, 0);
+    const texto = linhasDoRelatorio(fatos, 1).join('\n');
+    assert.match(texto, /⏸️ Impedido\n• t1: o passo foi recusado há 6h00 por noctum\.origem\.sem-prova/);
+    assert.match(texto, /👤 O que precisa de você\n• t1: o passo não despacha por noctum\.origem\.sem-prova há 6h00\./);
+    assert.match(texto, /configure no cron do condutor e do tique o ORK_RECEIPT_VERIFIERS com o material público gerado por publicHitlVerifiers/);
+    assert.match(texto, /nunca coloque a chave de ingresso no ambiente dos agentes/);
+    assert.doesNotMatch(texto, /👤 O que precisa de você\n• nada/);
+  } finally { p.limpar(); }
+});

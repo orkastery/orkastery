@@ -15,6 +15,7 @@ import { instancia, linhasDoLog, opcoesSimuladas, parametrosDoTeste, runtimeSimu
 import { kernelDisponivel, tentarTravaExclusiva } from '../src/fila-pesada';
 import { lerLedger, registrar } from '../src/ledger';
 import { concluirDespacho, EstadoDoArco, lerArco, reservarDespacho } from '../src/noctum-arco';
+import { RecusaDoArco } from '../src/noctum-envelope';
 import { ParadaDeSessao } from '../src/noctum-reconciliacao';
 import { ConteudoV2, contasDoArco, correlacaoDoArco, eventosDaSupervisao, gravarNaSupervisao, lerSupervisao, parametrosDoArco,
   retomadasDe } from '../src/noctum-supervisao';
@@ -727,5 +728,34 @@ test('G24: condutor e vigia gravam só a mudança da espera, com motivo tipado e
     const esperaDoVigia = eventosDaSupervisao(p.dir, 'arco-g24b').find(x => x.evento.tipo === 'passo_em_espera');
     assert.ok(esperaDoVigia?.evento.tipo === 'passo_em_espera');
     assert.equal(esperaDoVigia.evento.papel, 'vigia');
+  } finally { p.limpar(); }
+});
+
+test('G25: a recusa do passo é gravada uma vez enquanto o motivo não muda, sem copiar detalhe privado', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-g25');
+  try {
+    abrirArco(p.dir, 'arco-g25', { trabalhos: [AC[0]], contas: DUAS });
+    vigiaPresente(p, 'arco-g25');
+    const recusar = (motivo: 'noctum.origem.sem-prova' | 'noctum.efeito.sem-autorizacao', detalhe: string) =>
+      opcoesSimuladas(p.dir, ITENS, [], { passo: { reservar: () => { throw new RecusaDoArco(motivo, detalhe); } } });
+    const semProva = conduzirArco(p.carregado, 'arco-g25', {
+      ...recusar('noctum.origem.sem-prova', 'detalhe-privado-SIMULADO'), maxPassos: 3, dormir: () => undefined,
+    });
+    assert.ok(semProva.acao === 'saiu' && semProva.ultimo?.acao === 'recusado', JSON.stringify(semProva));
+    let recusas = eventosDaSupervisao(p.dir, 'arco-g25').filter(x => x.evento.tipo === 'passo_recusado');
+    assert.equal(recusas.length, 1, 'três passos com o mesmo motivo deixam um marco');
+    assert.deepEqual(lerSupervisao(p.dir, 'arco-g25').recusaDoPasso && {
+      trabalho: lerSupervisao(p.dir, 'arco-g25').recusaDoPasso!.trabalho,
+      motivo: lerSupervisao(p.dir, 'arco-g25').recusaDoPasso!.motivo,
+    }, { trabalho: 'a', motivo: 'noctum.origem.sem-prova' });
+    assert.doesNotMatch(linhasDoLog(p.dir, 'arco-g25').join('\n'), /detalhe-privado-SIMULADO/);
+
+    conduzirArco(p.carregado, 'arco-g25', {
+      ...recusar('noctum.efeito.sem-autorizacao', 'outro-detalhe-privado-SIMULADO'), maxPassos: 1, dormir: () => undefined,
+    });
+    recusas = eventosDaSupervisao(p.dir, 'arco-g25').filter(x => x.evento.tipo === 'passo_recusado');
+    assert.equal(recusas.length, 2, 'um motivo novo deixa outro marco');
+    assert.equal(lerSupervisao(p.dir, 'arco-g25').recusaDoPasso?.motivo, 'noctum.efeito.sem-autorizacao');
+    assert.doesNotMatch(linhasDoLog(p.dir, 'arco-g25').join('\n'), /outro-detalhe-privado-SIMULADO/);
   } finally { p.limpar(); }
 });

@@ -1,0 +1,87 @@
+[
+  {
+    "name": "osv-scanner",
+    "category": "dependency",
+    "stacks": "all",
+    "image": "ghcr.io/google/osv-scanner@sha256:fca9be4446310094be881b63f6862879282647f121ad3326e91dd90afbf8ef50",
+    "version": "2.2.3",
+    "native": {
+      "bin": "osv-scanner",
+      "versionArgs": [
+        "--version"
+      ],
+      "versionPattern": "\\b2\\.2\\.\\d+\\b"
+    },
+    "network": "default",
+    "baseMode": "worktree",
+    "timeoutMs": 300000,
+    "severityMap": {
+      "CRITICAL": "critical",
+      "HIGH": "high",
+      "MODERATE": "medium",
+      "MEDIUM": "medium",
+      "LOW": "low"
+    },
+    "args": [
+      "sh",
+      "-c",
+      "bin=$(command -v osv-scanner || echo /osv-scanner); \"$bin\" scan source --recursive --format json --output \"$1\" \"$2\"; rc=$?; if [ $rc -eq 128 ]; then printf '{\"results\":[]}\\n' > \"$1\"; exit 0; fi; [ $rc -le 1 ] || exit $rc",
+      "sh",
+      "{out}/osv-scanner.json",
+      "{src}"
+    ],
+    "env": {
+      "HOME": "/tmp"
+    },
+    "expect": {
+      "files": [
+        "osv-scanner.json"
+      ],
+      "shape": "object",
+      "requireKey": [
+        "results"
+      ]
+    }
+  },
+  {
+    "name": "oxlint",
+    "category": "quality",
+    "stacks": [
+      "js"
+    ],
+    "image": "node@sha256:6f08a523443ddedf52941874c203475b0ad503e859ad70cb26ab8be9a517dbd5",
+    "version": "1.89.0",
+    "network": "default",
+    "baseMode": "worktree",
+    "timeoutMs": 300000,
+    "severityMap": {
+      "error": "medium",
+      "warning": "low"
+    },
+    "install": [
+      "oxlint@1.89.0"
+    ],
+    "args": [
+      "sh",
+      "-c",
+      "mkdir -p /tmp/ox && npm install --prefix /tmp/ox --ignore-scripts --no-audit --no-fund --no-save {install} >&2 && cd \"$2\" && /tmp/ox/node_modules/.bin/oxlint --format json . > /tmp/ox/saida.txt; rc=$?; [ $rc -le 1 ] || exit $rc; node -e 'const fs=require(\"fs\");const t=fs.readFileSync(\"/tmp/ox/saida.txt\",\"utf8\");const i=t.indexOf(\"{\");if(i<0)process.exit(3);const j=JSON.parse(t.slice(i));if(!Array.isArray(j.diagnostics))process.exit(3);fs.writeFileSync(process.argv[1],JSON.stringify(j))' \"$1\" || exit 3",
+      "sh",
+      "{out}/oxlint.json",
+      "{stackDir}"
+    ],
+    "env": {
+      "HOME": "/tmp",
+      "npm_config_cache": "/tmp/npm-cache",
+      "npm_config_update_notifier": "false"
+    },
+    "expect": {
+      "files": [
+        "oxlint.json"
+      ],
+      "shape": "object",
+      "requireKey": [
+        "diagnostics"
+      ]
+    }
+  }
+]

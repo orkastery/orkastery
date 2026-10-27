@@ -2,12 +2,12 @@
 /**
  * RM-058, integração (T9 da ork-rm058integra, D13): o portão de release do #Noctum.
  *
- * A regra do dono: a próxima versão do pacote só sai com o #Noctum validado por pilotos reais. Na tag, o job que publica
- * roda este checador antes do `npm publish`: ele lê `docs/roadmap/evidencias/RM-058/aceite.json` (contrato
+ * A regra do dono: só a versão que anuncia o #Noctum exige a validação por pilotos reais. Na tag, o job que publica roda
+ * este checador antes do `npm publish`: ele lê `docs/roadmap/evidencias/RM-058/aceite.json` (contrato
  * `ork.noctum-aceite/v1`) e confere cada piloto exigido (o arquivo publicável na mesma pasta, o sha256 dele, `simulado:
  * false` sem marcas e o veredito `aprovado`) e a ratificação do dono, com a referência do recibo do ingresso tipado e a
- * data, que não vem antes do fim do último piloto. O alcance é toda
- * versão (`ALCANCE`): o item 8 do pacote de decisões da RM-058 segue sem resposta do dono e vale a alternativa recomendada; para a próxima versão, o item 10 exige
+ * data, que não vem antes do fim do último piloto. Sem aceite, a tag aplica a mesma leitura do modo `--texto`: a versão
+ * passa se não anuncia o #Noctum e para com os trechos se anuncia. Para a próxima versão que o anunciar, o item 10 exige
  * somente o primeiro piloto real (`PILOTOS_EXIGIDOS`).
  *
  * Cada piloto exigido tem o arquivo, o sha256 e o arco dele (sem espaço nem caixa), distintos dos outros, e a janela de ao menos as horas do plano
@@ -37,8 +37,8 @@ const { createHash } = require('node:crypto');
 const CONTRATO_ACEITE = 'ork.noctum-aceite/v1';
 const CONTRATO_PILOTO = 'ork.noctum-piloto/v1';
 const PASTA = 'docs/roadmap/evidencias/RM-058';
-/** Item 8 do pacote de decisões da RM-058, alternativa recomendada: nenhuma versão sai antes do aceite. */
-const ALCANCE = 'toda-versao';
+/** Item 8, decisão do dono em 25/10/2026, resposta "12 a": só a versão que anuncia; 'toda-versao' volta por decisão futura dele. */
+const ALCANCE = 'versao-que-anuncia';
 /** Item 10, decisão do dono em 24/10/2026, alternativa iv.a: só P1; P2, P3 e P4 voltam a ser exigidos por decisão futura dele. */
 const PILOTOS_EXIGIDOS = ['P1'];
 /** As horas mínimas da janela de cada piloto, as do plano. */
@@ -209,8 +209,10 @@ function executar(argv) {
   try { aceite = conferirAceite(raiz); }
   catch (e) { if (!(e instanceof Recusa)) throw e; recusa = e; }
   if (!texto) {
-    if (recusa) return { status: 1, stdout: '', stderr: `${recusa.message}\n` };
-    return { status: 0, stdout: `release.noctum: o aceite confere: pilotos ${aceite.pilotos.join(', ')} aprovados, ratificados por ${aceite.por}\n`, stderr: '' };
+    if (aceite) return { status: 0, stdout: `release.noctum: o aceite confere: pilotos ${aceite.pilotos.join(', ')} aprovados, ratificados por ${aceite.por}\n`, stderr: '' };
+    // O alcance novo libera só a ausência de aceite. Um aceite presente mas inválido continua recusando a tag, para não
+    // transformar uma prova quebrada numa declaração silenciosa de que a versão não anuncia o produto.
+    if (recusa.motivo !== 'release.noctum.aceite-ausente') return { status: 1, stdout: '', stderr: `${recusa.message}\n` };
   }
   if (aceite) return { status: 0, stdout: 'release.noctum: o aceite confere, e o texto pode anunciar o #Noctum\n', stderr: '' };
   const achados = afirmacoes(raiz);
@@ -218,7 +220,7 @@ function executar(argv) {
     return { status: 1, stdout: '', stderr: `release.noctum.texto-sem-aceite: ${achados.length} trecho(s) anunciam o #Noctum sem o aceite dos pilotos ` +
       `(${recusa.motivo}); diga o que é verdade hoje (ainda não validado) ou espere o aceite:\n${achados.map((x) => `  ${x}`).join('\n')}\n` };
   }
-  return { status: 0, stdout: 'release.noctum: nenhum texto anuncia o #Noctum como lançado, entregue, validado ou disponível\n', stderr: '' };
+  return { status: 0, stdout: `release.noctum: nenhum texto anuncia o #Noctum como lançado, entregue, validado ou disponível${texto ? '' : '; a versão pode sair sem o aceite'}\n`, stderr: '' };
 }
 
 module.exports = { executar };

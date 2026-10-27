@@ -6,6 +6,7 @@
  */
 
 import type { TipoDeForja } from './forja/contrato';
+import type { ModoDoCheck, OrigemDoModo } from './check-modo';
 
 /** As 6 fases canonicas do ciclo Orkastery. */
 export type Fase = 'GOAL' | 'PLAN' | 'GO' | 'CHECK' | 'SHIP' | 'MASTER';
@@ -208,6 +209,11 @@ export interface Manifesto {
      */
     preparo?: string;
   };
+  /**
+   * RM-072 (D2 do dono): o modo do CHECK deste projeto. `mode` ausente vale o padrao (`agile`); `classic` e o CHECK de
+   * sempre. A opcao `--check` do `ork verify` vence esta chave.
+   */
+  check?: { mode?: ModoDoCheck; agile?: ConfigDoAgile };
   /** I-12: check publicado por runner independente antes do SHIP. */
   ci: {
     required_for_ship: boolean;
@@ -459,6 +465,8 @@ export interface Thread {
   score?: ScoreHumano | null;
   score_proposto?: ScoreProposto | null;
   fechamentoAdmin?: { motivo: MotivoFechamentoAdmin; por: string; justificativa: string; fechadoEm: string };
+  /** RM-072 (D17 da ork-check5x): o modo do ultimo `verify_run` da thread, que o status mostra. */
+  check?: { modo: ModoDoCheck; origem: OrigemDoModo; commit: string; em: string };
 }
 
 /** RM-059 (T6.0): onde o pedido guardado mora e os bytes que ele tinha na criacao. */
@@ -723,6 +731,34 @@ export interface ResultadoDeComando {
    * verify trata como `verify.timeout` (sem veredito, o retry reexecuta), nunca como regressao.
    */
   relogioSobSteal?: string[];
+  /**
+   * RM-072 (D5): no Agile, o que a guarda do produto fez com o comando: os passos do preparo tirados da frente, ou o
+   * motivo de ter rodado inteiro. Ausente no Classic e em comando sem passos do preparo.
+   */
+  preparo?: { reaproveitado: boolean; passos?: string[]; motivo?: string };
+  /** RM-072 (D5): o que rodou de fato quando os passos do preparo sairam da frente; `comando` segue o inteiro. */
+  comandoExecutado?: string;
+  /** RM-072 (D4): as lanes que compuseram o `test` do Agile. */
+  lanes?: Array<{ lane: string; comando: string; ok: boolean; code: number; causa?: CausaDoComando; duracaoMs: number }>;
+}
+
+/**
+ * RM-072 (D3 da ork-check5x): a configuracao do Agile Check no manifesto. Sem ela, o Agile roda os mesmos comandos do
+ * manifesto; cada chave so liga uma peca, e peca que nao pode rodar cai para o equivalente do Classic.
+ */
+export interface ConfigDoAgile {
+  /** Os caminhos que o preparo gera (relativos a raiz), entrada da guarda de hash; sem eles, nada e reaproveitado. */
+  produto?: string[];
+  /** O preparo do Agile; falhou ou nao existe, vale o `verify.preparo`. */
+  preparo?: string;
+  /** As lanes que substituem o `verify.test`, por nome, rodando juntas com a guarda valendo. */
+  test?: Record<string, string>;
+  /** As lanes de `test` que so comecam quando o `security_scan` do grupo termina (as que sobem containers). */
+  apos_a_varredura?: string[];
+  /** `osv-scanner` no lugar de `trivy-vuln` e `npm-audit` (D13); desligado por padrao. */
+  osv_scanner?: boolean;
+  /** `oxlint` como primeiro passe de lint, antes do `eslint` (D13); desligado por padrao. */
+  oxlint?: boolean;
 }
 
 /** Baseline gravada antes do GO: separa regressao de divida pre-existente. */
@@ -730,6 +766,8 @@ export interface Baseline {
   commit: string;
   gravadaEm: string;
   comandos: ResultadoDeComando[];
+  /** RM-072 (D2 do dono): o modo do CHECK que gravou a baseline. Ausente na baseline anterior a RM-072. */
+  check?: { modo: ModoDoCheck; origem: OrigemDoModo };
 }
 
 /** Resultado da reexecucao de uma claim no HEAD real. */

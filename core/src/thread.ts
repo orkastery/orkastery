@@ -22,6 +22,7 @@ import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { estadoCanonico, raizDoEstado, vincularEstado } from './estado-thread';
 import { readCreationOperation, withCreationLock, writeCreationJson } from './creation-operation-store';
 import { formatarDataHoraRotulada } from './horario';
+import { NOME_DO_MODO } from './check-modo';
 import { nomeDaMaquina } from './maquina';
 import { linhaDeConducao } from './conducao-texto';
 import { ErroDoCatalogo, msg } from './locale';
@@ -811,6 +812,11 @@ export function resumoDaThread(thread: Thread, conducao?: ConducaoAtual | null):
   if (thread.score) {
     linhas.push(campo(r.score, m.score(thread.score.valor, thread.score.avaliadoPor, thread.score.regime,
       formatarDataHoraRotulada(thread.score.avaliadoEm))));
+  }
+  // RM-072 (D17): o modo do ultimo CHECK, so quando a thread ja teve verify.
+  if (thread.check) {
+    linhas.push(campo(r.check, m.check(NOME_DO_MODO[thread.check.modo], thread.check.origem, formatarDataHoraRotulada(thread.check.em),
+      shaCurto(thread.check.commit))));
   }
   linhas.push(m.blocosPrevistos);
   for (const b of thread.blocos) {

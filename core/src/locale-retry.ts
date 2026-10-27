@@ -213,6 +213,21 @@ export const RETRY_PT_BR = {
     `${n} correcao(oes) na rodada ${rodada}` + (veredito !== null ? `; CHECK-REVERIFY: ${veredito}` : ''),
   semDespachoFalho: (fase: string | null, thread: string) => `nao ha despacho falho registrado em ${fase} com prompt gravado: ` +
     `rode a fase de novo com \`ork phase run ${thread} ${fase} --prompt "..."\``,
+  perfilPedidoRecusado: (id: string, runtime: string, motivo: string, detalhe: string) =>
+    `perfil pedido "${id}" (${runtime}) preservado, mas indisponivel por ${motivo}: ${detalhe}. ` +
+    'Nenhuma outra conta foi usada.',
+  correcaoDoPerfilPedido: (id: string, runtime: string, motivo: string, thread: string) => {
+    if (motivo === 'runtime.auth-missing') return `refaca o login de assinatura do perfil "${id}" no ${runtime}, rode ` +
+      `\`ork accounts check ${id}\` e repita \`ork retry run ${thread}\``;
+    if (motivo === 'runtime.quota-exhausted') return `aguarde o perfil "${id}" voltar a ativo em \`ork accounts list\` e ` +
+      `repita \`ork retry run ${thread}\`; para autorizar outra conta, rode a fase novamente sem \`--perfil\``;
+    if (motivo === 'runtime.profile-invalid') return `rode \`ork accounts list\` e restaure o perfil "${id}" no runtime ${runtime}, ` +
+      'ou rode a fase novamente com um perfil valido ou sem `--perfil`';
+    if (motivo === 'cost.violation') return `refaca o login de assinatura do perfil "${id}", rode ` +
+      `\`ork accounts check ${id}\` e repita \`ork retry run ${thread}\`; perfil de provider pago nunca despacha`;
+    return `confira o runtime ${runtime} e o perfil "${id}" com \`ork accounts check ${id}\`; depois repita ` +
+      `\`ork retry run ${thread}\``;
+  },
   semConfianca: (motivo: string, cwd: string, thread: string) => `${motivo}: o runtime ainda nao confia em ${cwd}; nada foi despachado. ` +
     `Rode \`cd ${cwd} && claude\`, aceite a confianca e repita \`ork retry run ${thread}\``,
   /** RM-063 (F3): a sessao viva na thread; redespachar abriria a segunda na mesma worktree. */
@@ -479,6 +494,21 @@ export const RETRY_EN: typeof RETRY_PT_BR = {
   correcoesNaRodada: (n, rodada, veredito) => `${n} fix(es) in round ${rodada}` + (veredito !== null ? `; CHECK-REVERIFY: ${veredito}` : ''),
   semDespachoFalho: (fase, thread) => `no failed dispatch with a written prompt is recorded in ${fase}: ` +
     `run the phase again with \`ork phase run ${thread} ${fase} --prompt "..."\``,
+  perfilPedidoRecusado: (id, runtime, motivo, detalhe) =>
+    `requested profile "${id}" (${runtime}) was preserved but is unavailable because of ${motivo}: ${detalhe}. ` +
+    'No other account was used.',
+  correcaoDoPerfilPedido: (id, runtime, motivo, thread) => {
+    if (motivo === 'runtime.auth-missing') return `sign profile "${id}" back in to its ${runtime} subscription, run ` +
+      `\`ork accounts check ${id}\`, and repeat \`ork retry run ${thread}\``;
+    if (motivo === 'runtime.quota-exhausted') return `wait until profile "${id}" is active again in \`ork accounts list\`, then ` +
+      `repeat \`ork retry run ${thread}\`; to authorize another account, run the phase again without \`--perfil\``;
+    if (motivo === 'runtime.profile-invalid') return `run \`ork accounts list\` and restore profile "${id}" under runtime ${runtime}, ` +
+      'or run the phase again with a valid profile or without `--perfil`';
+    if (motivo === 'cost.violation') return `sign profile "${id}" back in through the subscription, run ` +
+      `\`ork accounts check ${id}\`, and repeat \`ork retry run ${thread}\`; a paid-provider profile is never dispatched`;
+    return `check runtime ${runtime} and profile "${id}" with \`ork accounts check ${id}\`; then repeat ` +
+      `\`ork retry run ${thread}\``;
+  },
   semConfianca: (motivo, cwd, thread) => `${motivo}: the runtime does not trust ${cwd} yet; nothing was dispatched. ` +
     `Run \`cd ${cwd} && claude\`, accept the trust and repeat \`ork retry run ${thread}\``,
   sessaoAindaViva: (sessao, thread) => `session ${sessao} is still working on the thread in the runtime; nothing was ` +

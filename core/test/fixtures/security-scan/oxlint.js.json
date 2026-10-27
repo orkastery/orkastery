@@ -1,0 +1,26 @@
+{
+ "diagnostics": [
+  {
+   "message": "eval can be harmful.",
+   "code": "eslint(no-eval)",
+   "severity": "warning",
+   "url": "https://oxc.rs/docs/guide/usage/linter/rules/eslint/no-eval.html",
+   "help": "Avoid eval(). For JSON parsing use JSON.parse(); for dynamic property access use bracket notation (obj[key]); for other cases refactor to avoid evaluating strings as code.",
+   "filename": "src/server.js",
+   "labels": [
+    {
+     "span": {
+      "offset": 405,
+      "length": 4,
+      "line": 14,
+      "column": 19
+     }
+    }
+   ]
+  }
+ ],
+ "number_of_files": 3,
+ "number_of_rules": 96,
+ "threads_count": 8,
+ "start_time": 0.023515714
+}

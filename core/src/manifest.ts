@@ -6,9 +6,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { lerYaml, ValorYaml } from './yaml';
-import { ConfigDeEmbedding, Manifesto, Modo } from './types';
+import { ConfigDeEmbedding, ConfigDoAgile, Manifesto, Modo } from './types';
 import { modoAposentado, ORDEM_DOS_MODOS, parseModo, substitutosVivos } from './modos';
-import { ORDEM_DOS_RUNTIMES, RUNTIME_PADRAO, runtimeConhecido } from './runtimes';
+import { ORDEM_DOS_RUNTIMES, RUNTIME_PADRAO, runtimeConhecido, runtimeDeBloco } from './runtimes';
 import { SANDBOX_PADRAO, SANDBOXES_DO_CODEX } from './adapters/codex';
 import { validarAbbrev } from './slug';
 import { exec, subirAte } from './util';
@@ -21,6 +21,7 @@ import { arquivoDaDsnValido, PREFIXO_DO_ARQUIVO_DA_DSN } from './dsn-da-memoria'
 import { ErroDoCatalogo } from './locale';
 import { TIPOS_DE_FORJA, TipoDeForja } from './forja/contrato';
 import { branchValida } from './branch-de-estado';
+import { lerModo, MODOS_DO_CHECK } from './check-modo';
 
 export const NOME_MANIFESTO = 'orkastery.yaml';
 export const NOME_MANIFESTO_LEGADO = 'devmaster.yaml';
@@ -189,6 +190,96 @@ function lerGrafo(v: ValorYaml | undefined, avisos: string[]): Manifesto['grafo'
   if (mcp === undefined || mcp === null || typeof mcp === 'boolean') return { mcp: mcp === true };
   avisos.push(`grafo.mcp deve ser true ou false; vale false (${mostrar(mcp)} nao reconhecido)`);
   return { mcp: false };
+}
+
+/**
+ * RM-072 (D1 da ork-check5x): o bloco `check`. `mode` aceita `agile` e `classic` (sem diferenca de caixa); outro valor e
+ * erro do manifesto com os dois valores aceitos, porque um modo mal escrito que caisse no padrao em silencio mudaria o
+ * CHECK sem ninguem saber. Ausente, `mode` vale o padrao na hora da rodada. Chave desconhecida so avisa.
+ */
+function lerCheck(v: ValorYaml | undefined, erros: string[], avisos: string[]): Manifesto['check'] {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== 'object' || Array.isArray(v)) {
+    erros.push(`check precisa ser um mapa com mode: ${MODOS_DO_CHECK.join(' ou ')} (recebido ${exibir(v)})`);
+    return undefined;
+  }
+  for (const chave of Object.keys(v)) {
+    if (!['mode', 'agile'].includes(chave)) avisos.push(`check.${chave} desconhecida; o bloco check tem mode e agile`);
+  }
+  const check: NonNullable<Manifesto['check']> = {};
+  if (v.mode !== undefined && v.mode !== null) {
+    const modo = lerModo(v.mode);
+    if (modo) check.mode = modo;
+    else erros.push(`check.mode invalido: ${exibir(v.mode)} (aceitos: ${MODOS_DO_CHECK.join(', ')})`);
+  }
+  const agile = lerAgile(v.agile, erros, avisos);
+  if (agile) check.agile = agile;
+  return check;
+}
+
+/** Nome de lane: o que vira `test:<lane>` no ledger. */
+const NOME_DE_LANE = /^[a-z0-9][a-z0-9-]{0,31}$/;
+
+/**
+ * RM-072 (D3): o bloco `check.agile`. Cada chave liga uma peca do Agile; tipo errado e erro do manifesto, porque uma
+ * peca mal escrita que sumisse em silencio mudaria o que o CHECK roda. `produto` so aceita caminho relativo dentro da
+ * raiz, fora do estado do `ork` e do `.git` (o hash da guarda le esses arquivos).
+ */
+function lerAgile(v: ValorYaml | undefined, erros: string[], avisos: string[]): ConfigDoAgile | undefined {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== 'object' || Array.isArray(v)) {
+    erros.push(`check.agile precisa ser um mapa (recebido ${exibir(v)})`);
+    return undefined;
+  }
+  const conhecidas = ['produto', 'preparo', 'test', 'apos_a_varredura', 'osv_scanner', 'oxlint'];
+  for (const chave of Object.keys(v)) {
+    if (!conhecidas.includes(chave)) avisos.push(`check.agile.${chave} desconhecida; o bloco check.agile tem ${conhecidas.join(', ')}`);
+  }
+  const agile: ConfigDoAgile = {};
+  if (v.produto !== undefined && v.produto !== null) {
+    const lista = Array.isArray(v.produto) ? v.produto : [v.produto];
+    const validos: string[] = [];
+    for (const item of lista) {
+      const caminho = typeof item === 'string' ? item.trim().replace(/\/+$/, '') : '';
+      const normal = caminho ? path.posix.normalize(caminho) : '';
+      if (!caminho || path.isAbsolute(caminho) || normal.startsWith('..') || /^(\.orkastery|\.git)(\/|$)/.test(normal)) {
+        erros.push(`check.agile.produto: ${exibir(item)} precisa ser um caminho relativo dentro da raiz, fora de .orkastery e .git`);
+      } else validos.push(normal);
+    }
+    if (validos.length) agile.produto = validos;
+  }
+  if (v.preparo !== undefined && v.preparo !== null) {
+    if (typeof v.preparo === 'string' && v.preparo.trim()) agile.preparo = v.preparo.trim();
+    else erros.push(`check.agile.preparo precisa ser o comando, em texto (recebido ${exibir(v.preparo)})`);
+  }
+  if (v.test !== undefined && v.test !== null) {
+    if (typeof v.test !== 'object' || Array.isArray(v.test)) {
+      erros.push(`check.agile.test precisa ser um mapa de lane para comando (recebido ${exibir(v.test)})`);
+    } else {
+      const lanes: Record<string, string> = {};
+      for (const [lane, comando] of Object.entries(v.test)) {
+        if (!NOME_DE_LANE.test(lane)) erros.push(`check.agile.test.${lane}: nome de lane aceita [a-z0-9-], ate 32 caracteres`);
+        else if (typeof comando !== 'string' || !comando.trim()) erros.push(`check.agile.test.${lane} precisa ser o comando, em texto`);
+        else lanes[lane] = comando.trim();
+      }
+      if (Object.keys(lanes).length) agile.test = lanes;
+    }
+  }
+  if (v.apos_a_varredura !== undefined && v.apos_a_varredura !== null) {
+    const validas: string[] = [];
+    for (const item of Array.isArray(v.apos_a_varredura) ? v.apos_a_varredura : [v.apos_a_varredura]) {
+      if (typeof item === 'string' && agile.test && Object.hasOwn(agile.test, item)) validas.push(item);
+      else erros.push(`check.agile.apos_a_varredura: ${exibir(item)} precisa ser uma lane de check.agile.test`);
+    }
+    if (validas.length) agile.apos_a_varredura = validas;
+  }
+  for (const chave of ['osv_scanner', 'oxlint'] as const) {
+    const valor = v[chave];
+    if (valor === undefined || valor === null) continue;
+    if (typeof valor === 'boolean') agile[chave] = valor;
+    else erros.push(`check.agile.${chave} precisa ser true ou false (recebido ${exibir(valor)})`);
+  }
+  return agile;
 }
 
 /** RM-059 (T10.4): os limites dos tetos de agent teams, os mesmos que o Portao de Tarefas aceita do ambiente. */
@@ -588,7 +679,13 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
   // Runtime de despacho: so os homologados passam. Um typo aqui viraria erro apenas na
   // hora do despacho, com a thread ja aberta; reprovar no manifesto e mais barato.
   const adapterDeRuntime = texto(runtime.adapter, RUNTIME_PADRAO);
-  if (!runtimeConhecido(adapterDeRuntime)) {
+  if (runtimeConhecido(adapterDeRuntime) && !runtimeDeBloco(adapterDeRuntime)) {
+    // RM-067 (D1 da ork-grokbuild): homologado so para despacho explicito, nunca o padrao do projeto.
+    erros.push(
+      `runtime.adapter so por despacho explicito: "${adapterDeRuntime}" entra por ork phase run --runtime ${adapterDeRuntime} ` +
+      `(o padrao aceita: ${ORDEM_DOS_RUNTIMES.join(', ')})`
+    );
+  } else if (!runtimeDeBloco(adapterDeRuntime)) {
     erros.push(
       `runtime.adapter desconhecido: "${adapterDeRuntime}" (homologados: ${ORDEM_DOS_RUNTIMES.join(', ')})`
     );
@@ -670,6 +767,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
     avisos.push(`lendo ${NOME_MANIFESTO_LEGADO} como fallback; migre para ${NOME_MANIFESTO}`);
   }
   const conhecimento = lerBlocoConhecimento(dados.conhecimento, avisos);
+  const check = lerCheck(dados.check, erros, avisos);
 
   const manifesto: Manifesto = {
     project: {
@@ -720,6 +818,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
       // I-54 (RM-037, D10): o preparo unico da rodada de verify, quando declarado.
       ...(typeof verify.preparo === 'string' && verify.preparo.trim() ? { preparo: verify.preparo.trim() } : {}),
     },
+    ...(check ? { check } : {}),
     ci: {
       required_for_ship: booleano(ci.required_for_ship, false),
       context: texto(ci.context, 'ork-verify'),

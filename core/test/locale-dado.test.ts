@@ -68,7 +68,9 @@ test('locale F2a catalogo: nenhuma mensagem vazia nem igual ao pt-BR por descuid
     'operacao.restante.eval.colunasSkills.0', 'operacao.restante.memory.embeddings.depsOk',
     'operacao.modos.cabecalho.0', 'operacao.modos.pausaSobre.push', 'operacao.modos.pausaSobre.score', 'operacao.modos.migracao.backup',
     'operacao.pulseCadencia.responderFormato', 'setup.tabela.cabecalho.2', 'setup.tabela.cabecalho.3', 'setup.tabela.cabecalho.4',
-    'setup.tabela.cabecalho.5', 'setup.tabela.default', 'projetos.cli.cabecalho.1']);
+    'setup.tabela.cabecalho.5', 'setup.tabela.default', 'projetos.cli.cabecalho.1',
+    // RM-072 (D17): o rotulo do modo do CHECK no status e a mesma palavra nas duas linguas.
+    'thread.rotulos.check']);
   en.forEach(({ k, tipo, v }, i) => {
     if (tipo !== 'string') return;
     assert.ok((v as string).trim(), `${k} vazia`);

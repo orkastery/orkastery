@@ -129,6 +129,7 @@ export function runDocker(inv: Invocation): InvocationResult {
     '-v', `${inv.srcHost}:${CONTAINER.src}:ro`, '-v', `${inv.outHost}:${CONTAINER.out}`,
     ...(inv.configHost ? ['-v', `${inv.configHost}:${configCtr}:ro`] : []),
     ...(inv.sameMounts ?? []).flatMap(m => ['-v', `${m}:${m}:ro`]),
+    ...(tool.cacheMounts ?? []).flatMap(m => ['-v', `${m.host}:${m.container}`]),
     '-w', CONTAINER.src,
     ...Object.entries(tool.env ?? {}).flatMap(([k, v]) => ['-e', `${k}=${v}`]),
     '--entrypoint', tool.containerBin ?? inv.argv[0], tool.image,

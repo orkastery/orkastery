@@ -16,10 +16,21 @@
  *   ORK_FAKE_DOCKER_LOG             file where each call is appended as a JSON line {as, args}
  *   ORK_FAKE_DOCKER_MODE            `daemon-down` (info fails) or `pull-fails` (image absent and pull fails)
  *   ORK_FAKE_DOCKER_SLEEP           catalog tool name that sleeps 60 s before answering
+ *   ORK_FAKE_DOCKER_SLEEP_MS        every tool run sleeps this many ms first (RM-072: proves the Agile scan overlaps runs)
  *   ORK_FAKE_DOCKER_FAIL            catalog tool name that exits 2 without output; `<tool>@<case>` only for that case
  *                                   (`semgrep@empty` fails on the clean base and runs on the fixture HEAD)
  *   ORK_FAKE_DOCKER_GARBAGE         catalog tool name whose report file is not JSON
  *   ORK_FAKE_DOCKER_ZERO_COMMITS=1  Gitleaks `git` reports 0 commits scanned whatever the range holds
+ *   ORK_FAKE_DOCKER_BUILD=fails     `docker build` exits 1 (RM-072: the Agile lint image cannot be built)
+ *   ORK_FAKE_DOCKER_FAIL_COM_CACHE  catalog tool name that exits 1 with the real Trivy cache-lock message (it ends in
+ *                                   `timeout`) only when the run mounts the Trivy cache (RM-072: the Agile run of the tool
+ *                                   fails, the Classic run without the cache works)
+ *   ORK_FAKE_NATIVE_WRONG_VERSION   catalog tool name whose native shim answers a version outside the catalog pattern
+ *
+ * RM-072 (Agile Check): `docker build -t <tag> -` reads the Dockerfile from stdin, keeps it in `ultimo-dockerfile` next to
+ * the call log and records the tag in `imagens-construidas`; `image inspect` of an `orkastery-eslint-agil:` tag answers
+ * only after that build, and `run` of that tag is the eslint tool. A native shim called with the tool's `versionArgs`
+ * prints the catalog version (the probe of the Agile native-first choice).
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -28,6 +39,8 @@ import type { ToolSpec } from '../src/security-scan/types';
 
 export const RECORDED = path.resolve(__dirname, '../../test/fixtures/security-scan');
 const CATALOG = path.resolve(__dirname, '../../assets/security-scan/tools.json');
+/** RM-072 (D13): the Agile-only catalog (osv-scanner, oxlint), answered like the main one. */
+const CATALOGO_DO_AGILE = path.resolve(__dirname, '../../assets/security-scan/tools-agil.json');
 
 export interface FakeTools {
   dir: string;
@@ -100,6 +113,8 @@ function identify(candidates: ToolSpec[], args: string[]): { tool: ToolSpec; fil
 /** Emulates one tool run; `src` is the host path of the scanned tree, `out` maps an out arg to a host path. */
 function emulate(tool: ToolSpec, file: string, outHost: string | undefined, args: string[], src: string, native: boolean): number {
   if (process.env.ORK_FAKE_DOCKER_SLEEP === tool.name) sleep(60000);
+  const espera = Number(process.env.ORK_FAKE_DOCKER_SLEEP_MS);
+  if (Number.isFinite(espera) && espera > 0) sleep(espera);
   const stackDir = (() => {
     // Per-stack wrappers pass {stackDir} as a positional parameter; Semgrep and Ruff as the last argument.
     const last = args[args.length - 1];
@@ -131,13 +146,24 @@ function emulate(tool: ToolSpec, file: string, outHost: string | undefined, args
   return 0;
 }
 
+/** The tags `docker build` made in this fake (RM-072). */
+function construidas(): string[] {
+  const arquivo = path.join(path.dirname(process.env.ORK_FAKE_DOCKER_LOG ?? ''), 'imagens-construidas');
+  return fs.existsSync(arquivo) ? fs.readFileSync(arquivo, 'utf8').split('\n').filter(Boolean) : [];
+}
+
 function main(): number {
   const as = process.env.ORK_FAKE_AS ?? 'docker';
   const argv = process.argv.slice(2);
   if (process.env.ORK_FAKE_DOCKER_LOG) fs.appendFileSync(process.env.ORK_FAKE_DOCKER_LOG, `${JSON.stringify({ as, args: argv })}\n`);
-  const tools = JSON.parse(fs.readFileSync(CATALOG, 'utf8')) as ToolSpec[];
+  const tools = [...JSON.parse(fs.readFileSync(CATALOG, 'utf8')) as ToolSpec[], ...JSON.parse(fs.readFileSync(CATALOGO_DO_AGILE, 'utf8')) as ToolSpec[]];
   const mode = process.env.ORK_FAKE_DOCKER_MODE ?? '';
   if (as !== 'docker') {
+    const declarada = tools.find(t => t.native?.bin === as && JSON.stringify(t.native.versionArgs) === JSON.stringify(argv));
+    if (declarada) {
+      process.stdout.write(`${as} ${process.env.ORK_FAKE_NATIVE_WRONG_VERSION === declarada.name ? '0.0.1' : declarada.version}\n`);
+      return 0;
+    }
     const found = identify(tools.filter(t => t.native?.bin === as || t.args[0] === as), argv);
     if (!found) { process.stderr.write(`fake ${as}: unknown call\n`); return 9; }
     return emulate(found.tool, found.file, found.outArg, argv, process.cwd(), true);
@@ -147,15 +173,34 @@ function main(): number {
     case 'info':
       if (mode === 'daemon-down') { process.stderr.write('Cannot connect to the Docker daemon\n'); return 1; }
       process.stdout.write('29.0.0-fake\n'); return 0;
-    case 'image': return mode === 'pull-fails' ? 1 : 0;
+    case 'image': {
+      const ref = argv[argv.length - 1] ?? '';
+      if (ref.startsWith('orkastery-eslint-agil:')) return construidas().includes(ref) ? 0 : 1;
+      return mode === 'pull-fails' ? 1 : 0;
+    }
+    case 'build': {
+      const tag = argv[argv.indexOf('-t') + 1];
+      const dockerfile = fs.readFileSync(0, 'utf8');
+      if (process.env.ORK_FAKE_DOCKER_BUILD === 'fails') { process.stderr.write('npm ERR! network unreachable\n'); return 1; }
+      const dir = path.dirname(process.env.ORK_FAKE_DOCKER_LOG ?? '');
+      fs.writeFileSync(path.join(dir, 'ultimo-dockerfile'), dockerfile);
+      fs.appendFileSync(path.join(dir, 'imagens-construidas'), `${tag}\n`);
+      process.stdout.write('sha256:fake\n');
+      return 0;
+    }
     case 'pull': if (mode === 'pull-fails') { process.stderr.write('pull access denied\n'); return 1; } return 0;
     case 'rm': case 'kill': return 0;
     case 'run': {
       const run = parseRun(argv.slice(1));
-      const found = identify(tools.filter(t => t.image === run.image), run.args);
+      const found = identify(tools.filter(t => t.image === run.image || (run.image.startsWith('orkastery-eslint-agil:') && t.name === 'eslint')), run.args);
       if (!found) { process.stderr.write(`fake docker: no catalog tool for ${run.image}\n`); return 125; }
       const src = run.mounts.get('/src');
       if (!src) { process.stderr.write('fake docker: /src not mounted\n'); return 125; }
+      if (process.env.ORK_FAKE_DOCKER_FAIL_COM_CACHE === found.tool.name && run.mounts.has('/tmp/trivy-cache')) {
+        // N2 do CHECK 2: a ultima linha do Trivy real na trava do cache termina em `timeout`, sem ser estouro do prazo.
+        process.stderr.write('FATAL\tFatal error\tinit error: cache error: unable to initialize fs cache: cache may be in use by another process: timeout\n');
+        return 1;
+      }
       return emulate(found.tool, found.file, found.outArg && toHost(found.outArg, run.mounts), run.args, src, false);
     }
     default: process.stderr.write(`fake docker: unknown command ${argv[0]}\n`); return 1;
