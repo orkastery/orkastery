@@ -10,7 +10,7 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { acharSessaoGrok, montarComandoDeRetomada } from './adapters/grok';
+import { acharSessaoGrok, AMBIENTE_SEM_MCP_DE_OUTROS_CLIENTES, montarComandoDeRetomada } from './adapters/grok';
 import { EstadoParserGrok, falhaDoErroGrok, LIMITE_LINHA_GROK, ParserGrok, STOP_CANCELADO, STOP_FIM_NORMAL } from './adapters/grok-events';
 import { TokensCodex } from './adapters/codex-events';
 import { estadoProcesso, gravarAtomico, ProcessoCodex, ReciboCodex } from './adapters/codex-runner';
@@ -361,14 +361,24 @@ export function observarGrokSobLock(ctx: ContextoObservacaoGrok): ResultadoObser
     if (!c.terminal) return { ...base, bytesLidos: leitura.bytes, espera: c.espera };
     const ja = resultadoDoDespacho(atuais, sessao);
     if (ja) return { ...base, bytesLidos: leitura.bytes, concluido: true, classificacao: String(ja.classificacao) };
+    // RM-067 (F4b, G8 e D6): com o MCP, a sessão grava commit, artefato e verify pelo núcleo até o fim, e o ledger da prova
+    // foi lido antes do recibo. A prova é refeita sobre o ledger relido sob o lock; se mudou, a decisão fica para a próxima
+    // volta, como a do Stop no claude-bg. Converge: a prova só muda com evento novo do intervalo.
+    if (prova !== undefined) {
+      const reconferida = provaDoOrk(raiz, thread.id, sessao, atuais, fonte);
+      if (reconferida.ok !== prova.ok || reconferida.motivo !== prova.motivo || reconferida.fonte !== prova.fonte)
+        return { ...base, bytesLidos: leitura.bytes, espera: 'evento do núcleo gravado durante a observação; reavaliar na próxima volta' };
+    }
     const despacho = atuais.filter(e => e.tipo === 'phase_dispatch' && e.sessionId === sessao.sessionId).at(-1);
     const comando = Array.isArray(despacho?.comando) && despacho.comando.every(a => typeof a === 'string') ? despacho.comando as string[] : [];
     const retomada = c.retomar ? montarComandoDeRetomada(comando, sessao.sessionId) : null;
     const artefato = saidaDoArtefato(raiz, thread.id, sessao, fonte, eventos);
     const fim = cursor.parser.fim;
-    // GO-FIX 1 (S4): o comando da retomada vai pronto para colar, com aspas no argumento que precisa delas.
+    // GO-FIX 1 (S4): o comando da retomada vai pronto para colar, com aspas no argumento que precisa delas. RM-067 (F4b, D5):
+    // com as variáveis do filho na frente, para a sessão retomada também não carregar o MCP de outros clientes.
+    const ambiente = Object.entries(AMBIENTE_SEM_MCP_DE_OUTROS_CLIENTES).map(([nome, valor]) => `${nome}=${valor}`);
     const detalhe = c.diagnostico === null ? null
-      : retomada ? `${c.diagnostico}; retomada: ${retomada.map(citarNoShell).join(' ')}` : c.diagnostico;
+      : retomada ? `${c.diagnostico}; retomada: ${[...ambiente, ...retomada.map(citarNoShell)].join(' ')}` : c.diagnostico;
     const dados = { fase: sessao.fase, sessionId: sessao.sessionId, despachoEm: sessao.despachadaEm, sensorResultId: resultadoId,
       classificacao: c.classificacao, motivo: c.motivo, runtime: 'grok', fonte: c.fonte,
       stopReason: fim?.stopReason ?? null, numTurnos: fim?.numTurnos ?? null, tokens: fim?.tokens ?? tokensIndisponiveis(),

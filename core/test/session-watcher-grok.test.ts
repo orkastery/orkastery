@@ -507,3 +507,39 @@ test('GW18: o supervisor que termina no meio da observacao nunca fecha a fase se
     assert.equal(res.ok, true);
   } finally { sup2?.limpar(); d?.limpar(); }
 });
+
+test('GW19: o evento do nucleo gravado entre a primeira leitura do ledger e o recibo adia a decisao, e a volta seguinte conclui pela prova', () => {
+  // RM-067 (F4b, G8): com o MCP, o `ship_done` (como o commit ou o verify) chega pelo nucleo ate o fim da sessao. Aqui ele
+  // entra no instante em que a observacao abre o recibo, depois da primeira leitura do ledger: a prova refeita sob o lock
+  // muda, e a decisao fica para a volta seguinte, que conclui. Sem a reconferencia, esta volta gravaria human.pending.
+  const c = cenario('prova-sob-lock', { fase: 'SHIP' });
+  try {
+    c.stream(fixture('fim-normal.jsonl'));
+    c.sessaoNoDisco();
+    c.recibo(0);
+    const r1 = comGancho(`${c.log}.exit.json`, 'antes',
+      () => { registrar(c.dir, c.t.id, 'ship_done', { fase: 'SHIP', origem: 'mcp.ship' }); }, () => c.observar(1000));
+    assert.equal(r1.concluido, false, 'a prova mudou sob o lock: nada gravado nesta volta');
+    assert.match(String(r1.espera), /reavaliar na próxima volta/);
+    assert.equal(c.resultados().length, 0);
+    const r2 = c.observar(2000);
+    assert.equal(r2.classificacao, 'fase_concluida');
+    const [res] = c.resultados();
+    assert.equal((res.provaOrk as { ok: boolean }).ok, true);
+    assert.match((res.provaOrk as { fonte: string }).fonte, /ship_done registrado no intervalo do despacho/);
+    c.observar(3000);
+    assert.equal(c.resultados().length, 1, 'um unico phase_result');
+  } finally { c.limpar(); }
+});
+
+test('GW20: a retomada pronta para colar leva as duas variaveis do filho na frente, e o retomada.comando segue o argv', () => {
+  const c = cenario('retomada-ambiente');
+  try {
+    c.stream(fixture('cortado.jsonl'));
+    c.recibo(143);
+    c.observar(1000);
+    const [res] = c.resultados();
+    assert.match(String(res.detalhe), /; retomada: GROK_CLAUDE_MCPS_ENABLED=0 GROK_CURSOR_MCPS_ENABLED=0 grok -p continue /);
+    assert.deepEqual((res.retomada as { comando: string[] }).comando, RETOMADA(c.comando));
+  } finally { c.limpar(); }
+});

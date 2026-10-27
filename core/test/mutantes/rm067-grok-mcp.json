@@ -1,0 +1,42 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-067, F4b da ork-rm067f4bhost: cada mutante desfaz uma parte do host MCP do grok fora de adapters/ (o mutante.cjs nao alcanca adapters/). Cada claim Mutante roda um deles pelo core/scripts/mutante.cjs.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "o watcher do grok deixa de refazer a prova do ork com o ledger relido sob o lock da sessao",
+      "modulo": "session-watcher-grok",
+      "de": "if (prova !== undefined) {",
+      "para": "if (prova !== undefined && process.env.ORK_MUTANTE_NUNCA === 'x') {",
+      "teste": "session-watcher-grok",
+      "nome": "^GW19:"
+    },
+    {
+      "id": "M2",
+      "descricao": "o servidor --host grok volta a listar todas as ferramentas da sessao filha, fora as do perfil",
+      "modulo": "mcp-server",
+      "de": "if (doGrok && !doGrok.has(nome))",
+      "para": "if (doGrok && !doGrok.has(nome) && process.env.ORK_MUTANTE_NUNCA === 'x')",
+      "teste": "rm067-grok-mcp",
+      "nome": "^GM4:"
+    },
+    {
+      "id": "M3",
+      "descricao": "o servidor --host grok deixa de recusar o startup sem --thread",
+      "modulo": "mcp-server",
+      "de": "if (opcoes.host === 'grok' && opcoes.threadId === undefined)",
+      "para": "if (opcoes.host === 'grok' && opcoes.threadId === undefined && process.env.ORK_MUTANTE_NUNCA === 'x')",
+      "teste": "rm067-grok-mcp",
+      "nome": "^GM[34]:"
+    },
+    {
+      "id": "M4",
+      "descricao": "a capacidade do grok volta a exigir o adaptador instalado, que o grok nao tem",
+      "modulo": "runtime-context",
+      "de": "if (host !== 'grok')",
+      "para": "if (host !== 'grok' || process.env.ORK_MUTANTE_NUNCA !== 'x')",
+      "teste": "rm067-grok-mcp",
+      "nome": "^GM7:"
+    }
+  ]
+}
