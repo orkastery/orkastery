@@ -202,21 +202,23 @@ export const RUNTIMES_SEM_HOST_MCP: readonly string[] = [];
 export const MOTIVO_SEM_HOST_MCP = 'runtime.context.no-host: runtime sem host MCP do Orkastery; a sessao despacha sem o contexto do projeto';
 
 /**
- * RM-067 (F4b, GO-FIX A5): runtimes com o host MCP que, num projeto preparado, ficam fora dos destinos automaticos (o
- * fallback do retry e a escada). O sandbox do grok vale para o processo inteiro e os filhos (G17 da RM-067), e o servidor
- * MCP do ork e filho dele: no piso `workspace`, ele le o estado, mas nao grava o ledger, os artefatos nem o git da
- * worktree, e a fase que chega por fallback para sem prova. O despacho pedido (`--runtime grok`) leva o contexto, e a
- * troca de conta dentro do grok segue; a lista sai daqui quando a F5 confirmar a gravacao com o sandbox ligado.
+ * RM-067 (F4b, GO-FIX A5; F4c, D9): runtimes com o host MCP que, num projeto preparado, ficam fora dos destinos
+ * automaticos (o fallback do retry e a escada), porque o servidor MCP do ork nao grava o estado na sessao deles e a fase
+ * que chega por fallback pararia sem prova. O grok ficou aqui da F4b a F4c: o sandbox dele vale para o processo inteiro e
+ * os filhos (G17 da RM-067), e o servidor stdio era filho dele. Desde a F4c o servidor e um processo do ork, fora do
+ * sandbox (`adapters/grok-mcp.ts`), e a fase do grok no piso `workspace` fecha com prova; a lista fica vazia, para o
+ * proximo runtime cujo MCP nao grave o estado, como `RUNTIMES_SEM_HOST_MCP`.
  */
-export const RUNTIMES_FORA_DOS_DESTINOS_AUTOMATICOS: readonly string[] = ['grok'];
-export const MOTIVO_FORA_DOS_DESTINOS_AUTOMATICOS = 'runtime.context.sandbox: o sandbox do grok vale tambem para o servidor MCP do ' +
-  'ork, que no piso workspace nao grava o estado; como destino automatico num projeto preparado, o grok fica fora ate a F5';
+export const RUNTIMES_FORA_DOS_DESTINOS_AUTOMATICOS: readonly string[] = [];
+export const MOTIVO_FORA_DOS_DESTINOS_AUTOMATICOS = 'runtime.context.sandbox: o sandbox do runtime vale tambem para o servidor MCP do ' +
+  'ork, que nao grava o estado; como destino automatico num projeto preparado, o runtime fica fora';
 
 /**
  * RM-067 (F4): a capacidade de um runtime para a rotacao do retry. A troca de perfil DENTRO do runtime em que a thread ja
- * despachou (`mesmoRuntime`) vale para o runtime sem host MCP e, desde a F4b, para o que fica fora dos destinos
- * automaticos: a sessao dele ja roda como rodava, e a outra conta nao muda isso, entao o `ork retry` troca o perfil do
- * grok como troca o dos outros runtimes. Como alvo de fallback num projeto preparado, ele segue incapaz.
+ * despachou (`mesmoRuntime`) vale para o runtime sem host MCP e para o que fica fora dos destinos automaticos: a sessao
+ * dele ja roda como rodava, e a outra conta nao muda isso, entao o `ork retry` troca o perfil dele como troca o dos outros
+ * runtimes. Como alvo de fallback num projeto preparado, ele segue incapaz. Desde a F4c, nenhum runtime homologado esta
+ * nas duas listas, e o grok e capaz nos dois papeis.
  */
 export function capacidadeDaRotacao(projeto: string, runtime: string, mesmoRuntime: boolean): CapacidadeDoRuntime {
   const capacidade = capacidadeDoRuntimeNoProjeto(projeto, runtime);

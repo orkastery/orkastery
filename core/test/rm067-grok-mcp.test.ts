@@ -26,8 +26,8 @@ import { editarBloco, textoDoSetup, validarFallback } from '../src/setup';
 import { comLocale } from '../src/locale';
 import { TOOLS_DO_GRAFO } from '../src/mcp-grafo';
 import { dirThread, novaThread } from '../src/thread';
-import { capacidadeDaRotacao, capacidadeDoRuntimeNoProjeto, contextoDoProjeto, MOTIVO_FORA_DOS_DESTINOS_AUTOMATICOS,
-  novaIdentidadeDeDespacho, validarContextoDoGrok, validarContextoRuntime } from '../src/runtime-context';
+import { capacidadeDaRotacao, capacidadeDoRuntimeNoProjeto, contextoDoProjeto, novaIdentidadeDeDespacho,
+  RUNTIMES_FORA_DOS_DESTINOS_AUTOMATICOS, validarContextoDoGrok, validarContextoRuntime } from '../src/runtime-context';
 import { lerLedger } from '../src/ledger';
 import { commitar, projetoTemporario } from './apoio';
 import { esperarCondicao } from './controller-simulado';
@@ -199,17 +199,17 @@ test('GM6: o ork_phase_run do MCP aceita o runtime grok, como o --runtime do CLI
   } finally { p.limpar(); }
 });
 
-test('GM7: num projeto preparado, o grok recebe o contexto do host grok, com o servidor vinculado a thread e ao despacho', () => {
+test('GM7: num projeto preparado, o grok recebe o contexto do host grok, com o servidor vinculado a thread e ao despacho, e volta a ser destino de fallback', () => {
   const p = projetoTemporario('gm7-contexto');
   try {
     instalarMcp({ projeto: p.dir, host: 'grok', permissoesFilho: 'worktree' });
     const t = novaThread(p.carregado, { nome: 'gm7', modo: 'auto', criarWorktree: true }).thread;
     const wt = t.worktree!;
-    // GO-FIX A5: como destino automatico (fallback e escada) o grok fica fora, pelo sandbox; a troca de conta dentro dele vale.
-    assert.deepEqual(capacidadeDoRuntimeNoProjeto(p.dir, 'grok'),
-      { runtime: 'grok', host: 'grok', preparado: true, capaz: false, motivo: MOTIVO_FORA_DOS_DESTINOS_AUTOMATICOS });
+    // RM-067 (F4c, D9): com o servidor do ork fora do sandbox, o grok e destino automatico (fallback e escada) tambem aqui.
+    assert.deepEqual(capacidadeDoRuntimeNoProjeto(p.dir, 'grok'), { runtime: 'grok', host: 'grok', preparado: true, capaz: true, motivo: null });
     assert.equal(capacidadeDaRotacao(p.dir, 'grok', true).capaz, true, 'a troca de conta dentro do grok vale');
-    assert.equal(capacidadeDaRotacao(p.dir, 'grok', false).capaz, false, 'como alvo de fallback, nao');
+    assert.equal(capacidadeDaRotacao(p.dir, 'grok', false).capaz, true, 'e como alvo de fallback tambem');
+    assert.deepEqual(RUNTIMES_FORA_DOS_DESTINOS_AUTOMATICOS, [], 'nenhum runtime homologado fica fora pelo sandbox');
     assert.equal(capacidadeDoRuntimeNoProjeto(p.dir, 'claude-bg').capaz, false, 'o claude-bg segue exigindo o adaptador dele');
     const ctx = contextoDoProjeto(p.dir, 'grok', wt, t.id)!;
     assert.equal(ctx.host, 'grok');
