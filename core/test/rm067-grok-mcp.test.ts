@@ -19,6 +19,8 @@ import { CONSULTAS_MCP, MUTACOES_WORKTREE } from '../src/adapters/claude-bg';
 import { ferramentasDoGrok, ferramentasServidasAoGrok } from '../src/adapters/grok';
 import { TOOLS_DO_GRAFO } from '../src/mcp-grafo';
 import { dirThread, novaThread } from '../src/thread';
+import { capacidadeDoRuntimeNoProjeto, contextoDoProjeto, novaIdentidadeDeDespacho, validarContextoDoGrok,
+  validarContextoRuntime } from '../src/runtime-context';
 import { lerLedger } from '../src/ledger';
 import { projetoTemporario } from './apoio';
 
@@ -185,5 +187,32 @@ test('GM6: o ork_phase_run do MCP aceita o runtime grok, como o --runtime do CLI
       assert.equal(semModelo.isError, true);
       assert.match(JSON.stringify(semModelo), /setup\.model\.required/);
     });
+  } finally { p.limpar(); }
+});
+
+test('GM7: num projeto preparado, o grok recebe o contexto do host grok, com o servidor vinculado a thread e ao despacho', () => {
+  const p = projetoTemporario('gm7-contexto');
+  try {
+    instalarMcp({ projeto: p.dir, host: 'grok', permissoesFilho: 'worktree' });
+    const t = novaThread(p.carregado, { nome: 'gm7', modo: 'auto', criarWorktree: true }).thread;
+    const wt = t.worktree!;
+    assert.deepEqual(capacidadeDoRuntimeNoProjeto(p.dir, 'grok'), { runtime: 'grok', host: 'grok', preparado: true, capaz: true, motivo: null });
+    assert.equal(capacidadeDoRuntimeNoProjeto(p.dir, 'claude-bg').capaz, false, 'o claude-bg segue exigindo o adaptador dele');
+    const ctx = contextoDoProjeto(p.dir, 'grok', wt, t.id)!;
+    assert.equal(ctx.host, 'grok');
+    assert.equal(ctx.permissoesFilho, 'worktree');
+    const identidade = novaIdentidadeDeDespacho(t.id, 'GO');
+    const v = validarContextoDoGrok({ ...ctx, identidade }, wt);
+    assert.equal(v.permissoesFilho, 'worktree');
+    assert.equal(v.grafoMcp, false);
+    const args = v.servidor.args;
+    assert.equal(args[args.indexOf('--host') + 1], 'grok');
+    assert.deepEqual(args.slice(-6), ['--child-permissions', 'worktree', '--thread', t.id, '--dispatch', identidade.dispatchId]);
+    assert.throws(() => validarContextoRuntime({ ...ctx, identidade }, wt), /runtime\.context\.invalid: host desconhecido/,
+      'o host grok nao passa pela validacao do adaptador instalado dos outros hosts');
+    assert.throws(() => validarContextoDoGrok({ ...ctx, host: 'codex' }, wt), /host grok esperado/);
+    // Um segundo host com outro perfil filho deixa o projeto em conflito, como entre o codex e o claude-code.
+    instalarMcp({ projeto: p.dir, host: 'claude-code' });
+    assert.throws(() => contextoDoProjeto(p.dir, 'grok', wt, t.id), /perfis de filho divergentes entre hosts/);
   } finally { p.limpar(); }
 });

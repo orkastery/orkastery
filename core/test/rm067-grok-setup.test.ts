@@ -22,7 +22,7 @@ import { hashDoPrompt, rodarFase } from '../src/phase';
 import { redespachar } from '../src/retry';
 import { confirmarPosturaLocal, revogarPosturaLocal } from '../src/postura-local';
 import { proximoAlvo } from '../src/retry';
-import { capacidadeDaRotacao, capacidadeDoRuntimeNoProjeto, MOTIVO_SEM_HOST_MCP } from '../src/runtime-context';
+import { capacidadeDaRotacao, capacidadeDoRuntimeNoProjeto } from '../src/runtime-context';
 import { instalarAdaptador } from '../src/hosts';
 import { instalarMcp } from '../src/mcp-install';
 import { adicionarPerfil, lerPerfis, marcarFalhaDePerfil, POLITICA_PADRAO, validarPerfilDeDespacho } from '../src/runtime-profiles';
@@ -138,7 +138,7 @@ function perfilGrok(p: ProjetoDeTeste, stubDir: string, id: string): string {
   return casa;
 }
 
-test('GS5: num projeto com o MCP do ork, o retry troca o perfil do grok, e o grok segue fora do fallback de quem tem o MCP', () => {
+test('GS5: num projeto com o MCP do ork, o grok tem o host dele: o retry troca o perfil do grok, e ele vale como fallback de quem tem o MCP', () => {
   const stub = grokFalso('gs5-rotacao');
   const p = projetoTemporario('gs5-rotacao');
   try {
@@ -146,10 +146,11 @@ test('GS5: num projeto com o MCP do ork, o retry troca o perfil do grok, e o gro
     instalarMcp({ projeto: p.dir, host: 'claude-code' });
     const t = novaThread(p.carregado, { nome: 'gs5', modo: 'auto', criarWorktree: true }).thread;
     const casaA = perfilGrok(p, stub.dir, 'a'), casaB = perfilGrok(p, stub.dir, 'b');
+    // RM-067 (F4b, D7): com o host grok, a sessao leva o contexto do MCP, e o grok e capaz sem adaptador instalavel.
     assert.deepEqual(capacidadeDoRuntimeNoProjeto(p.dir, 'grok'),
-      { runtime: 'grok', host: null, preparado: true, capaz: false, motivo: MOTIVO_SEM_HOST_MCP });
+      { runtime: 'grok', host: 'grok', preparado: true, capaz: true, motivo: null });
     assert.equal(capacidadeDaRotacao(p.dir, 'grok', true).capaz, true, 'a troca de conta dentro do grok vale');
-    assert.equal(capacidadeDaRotacao(p.dir, 'grok', false).capaz, false, 'como alvo de fallback, nao');
+    assert.equal(capacidadeDaRotacao(p.dir, 'grok', false).capaz, true, 'como alvo de fallback tambem, porque leva o contexto');
     assert.equal(capacidadeDaRotacao(p.dir, 'codex', true).capaz, false, 'o codex sem adaptador instalado segue incapaz');
 
     marcarFalhaDePerfil(p.dir, 'a', { estado: 'esgotado', esgotadoAte: new Date(Date.now() + 3600_000).toISOString(),
@@ -171,10 +172,10 @@ test('GS5: num projeto com o MCP do ork, o retry troca o perfil do grok, e o gro
     const sid = r.sessionId!;
     esperarCondicao(() => lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.sessionId === sid), 60000);
 
-    // Um claude-bg sem conta livre nao cai no grok do fallback: a sessao perderia o contexto do MCP.
-    const semDestino = proximoAlvo(p.dir, { runtime: 'claude-bg', perfil: null }, [{ runtime: 'grok', model: 'grok-modelo' }],
+    // Um claude-bg sem conta livre vai ao grok do fallback, que leva o contexto do MCP, no perfil que segue livre.
+    const comDestino = proximoAlvo(p.dir, { runtime: 'claude-bg', perfil: null }, [{ runtime: 'grok', model: 'grok-modelo' }],
       { perfis: [], runtimesImplicitos: [] }, POLITICA_PADRAO);
-    assert.equal(semDestino, null);
+    assert.deepEqual(comDestino, { runtime: 'grok', perfil: { id: 'b', runtime: 'grok', grokHome: casaB }, model: 'grok-modelo', effort: null });
   } finally { p.limpar(); stub.restaurar(); }
 });
 
