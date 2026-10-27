@@ -12,11 +12,11 @@ import { registrar } from '../src/ledger';
 import { concluirDespacho, encerrarArco, EstadoDoArco, lerArco, reservarDespacho } from '../src/noctum-arco';
 import { RecusaDoArco } from '../src/noctum-envelope';
 import { condicaoDeFechamento, fecharSeDevido, lerFechamento, OpcoesDoFechamento, SessaoEmVoo, textoDaParada } from '../src/noctum-fechamento';
-import { FilaDoArco } from '../src/noctum-fila';
+import { fatosDaFila, FilaDoArco, montarFila } from '../src/noctum-fila';
 import { MedicaoDoArco } from '../src/noctum-medicao';
 import { lerRegistro } from '../src/noctum-registro';
-import { dirThread, novaThread } from '../src/thread';
-import { pedidoV3 } from './noctum-maquinas-apoio';
+import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
+import { chaveSimulada, pedidoV3 } from './noctum-maquinas-apoio';
 import { identidadeDaMaquina } from '../src/noctum-transporte';
 import { CONTRATO_REDE_DO_ARCO, RedeDoArco } from '../src/noctum-rede';
 
@@ -109,12 +109,20 @@ test('FE1: no fim do envelope o arco fecha por hora, pede a parada de cada sess�
 test('FE16: fila local vazia não fecha com trabalho vivo em outra máquina', { skip: semKernel }, () => {
   const p = projetoTemporario('noctum-fe16');
   try {
-    arcoV3(p, 'arco-fe16');
+    const t = threads(p, 1);
+    autorizarPedido(p.dir, 'arco-fe16', pedidoV3('arco-fe16', { trabalhos: t.trabalhos,
+      maquinas: [identidadeDaMaquina(p.dir, MAQUINA), { nome: 'maquina-b', chave: chaveSimulada('fe16-b') }], tetoDoArco: 10,
+      maquina: 10, contas: [{ conta: 'perfil-a', sessoes: 10 }], global: [{ conta: 'perfil-a', sessoes: 10 }] }));
+    gravarThread(p.dir, { ...lerThread(p.dir, t.ids[0]), status: 'fechada' });
+    const soLocal = montarFila(fatosDaFila(p.carregado, 'arco-fe16',
+      { maquina: MAQUINA, lerReservas: () => ({ leitura: 'copia-local', reservas: [] }) }));
+    assert.deepEqual([soLocal.situacao, soLocal.decisao], ['vazia', { acao: 'encerrar', motivo: 'fila-vazia' }],
+      'sem a coordenação, a thread antiga fechada faria a fila local encerrar');
     const r = fecharSeDevido(p.carregado, 'arco-fe16', simuladas([], { projecaoDaRede: rede('arco-fe16', [
-      { id: 't1', estado: 'em-execucao', maquina: 'maquina-b', maquinaPresa: MAQUINA,
+      { id: 't1', estado: 'em-execucao', maquina: 'maquina-b', maquinaPresa: null,
         ordem: { ordem: 'O-t1-1', numero: 1, maquina: 'maquina-b', estado: 'aceita', emitidaEm: new Date().toISOString() }, entrega: null },
     ]) }));
-    assert.equal(r.fechado, false);
+    assert.deepEqual([r.fechado, r.motivo], [false, null], 'a ordem viva na outra máquina impede o fechamento v3');
   } finally { p.limpar(); }
 });
 
