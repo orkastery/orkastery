@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.0",
-  "publicadoEm": "2026-10-27T10:16:32.449Z",
+  "publicadoEm": "2026-10-27T10:16:37.494Z",
   "threads": [
     {
       "id": "ork-orkcheck3min",
@@ -93,24 +93,6 @@
         "desdeEm": null,
         "motivo": null
       }
-    },
-    {
-      "id": "ork-rm067f3perfi",
-      "nome": "grokperfis",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": "RM-067",
-      "branch": "ork/ork-rm067f3perfi-go",
-      "atualizadaEm": "2026-10-27T05:01:24.844Z",
-      "entregue": "b6b4e4ba",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "high",
-      "sessao": null
     },
     {
       "id": "ork-rm067f4bhost",
