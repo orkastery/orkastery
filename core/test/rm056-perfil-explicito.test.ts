@@ -4,15 +4,17 @@
  * login recusa antes de abrir sessao, com motivo tipado, e nunca troca de perfil sozinho.
  */
 import { strict as assert } from 'node:assert';
-import { test } from 'node:test';
+import { mock, test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { projetoTemporario, runtimePorConta } from './apoio';
 import { lerLedger } from '../src/ledger';
 import { perfilPedido, rodarFase } from '../src/phase';
-import { POLITICA_DE_RETRY } from '../src/retry';
+import { POLITICA_DE_RETRY, executarRetry, retomarPorId } from '../src/retry';
 import { adicionarPerfil, lerPerfis, marcarFalhaDePerfil } from '../src/runtime-profiles';
+import { RUNTIMES } from '../src/runtimes';
 import { dirThread, novaThread } from '../src/thread';
+import { msg } from '../src/locale';
 
 const PROMPT = 'RM-056: despacho pelo perfil pedido';
 
@@ -82,5 +84,128 @@ test('C1: perfil pedido esgotado ou sem login recusa pelo motivo da conta e nao 
     const store = lerPerfis(p.dir);
     assert.equal(store.perfis.find(q => q.id === 'b')?.estado, 'sem-auth');
     assert.equal(perfilPedido(store, 'claude-bg', 'b').motivo, 'runtime.auth-missing');
+  } finally { claude.restaurar(); p.limpar(); }
+});
+
+test('perfil pedido fica no prompt e no gate; retry do bloqueio anterior ao despacho usa a mesma conta', (t) => {
+  const p = projetoTemporario('perfil-pedido-retry');
+  const claude = runtimePorConta('perfil-pedido-retry');
+  const falha = mock.method(RUNTIMES['claude-bg'], 'despachar', () => ({
+    ok: false, comando: [], sessionId: null, verificada: false, stdout: '',
+    stderr: 'runtime indisponivel antes da sessao (simulado)', erro: 'runtime indisponivel antes da sessao (simulado)',
+  }));
+  t.after(() => { falha.mock.restore(); claude.restaurar(); p.limpar(); });
+  try {
+    const solicitado = claude.conta(p.dir, 'solicitado');
+    claude.conta(p.dir, 'alternativo');
+    const thread = novaThread(p.carregado, { nome: 'perfil pedido retry', modo: 'auto' }).thread;
+    const dir = dirThread(p.dir, thread.id);
+
+    const primeira = rodarFase(p.carregado, thread.id,
+      { fase: 'GOAL', prompt: PROMPT, runtime: 'claude-bg', perfil: 'solicitado' });
+    assert.equal(primeira.motivo, 'runtime.unavailable');
+    const antes = lerLedger(dir);
+    const marcador = { id: 'solicitado', runtime: 'claude-bg' };
+    assert.deepEqual(antes.find(e => e.tipo === 'phase_prompt_recorded')?.perfilPedido, marcador);
+    assert.deepEqual(antes.find(e => e.tipo === 'gate_blocked')?.perfilPedido, marcador);
+
+    falha.mock.restore();
+    const retry = executarRetry(p.carregado, thread.id);
+    assert.equal(retry.executada, true, retry.detalhe);
+    const despacho = lerLedger(dir).filter(e => e.tipo === 'phase_dispatch').at(-1);
+    assert.equal((despacho?.perfil as { id?: string } | undefined)?.id, 'solicitado');
+    assert.deepEqual(despacho?.perfilPedido, marcador);
+    assert.ok(claude.envs().includes(`--bg ${solicitado}`));
+    assert.equal(claude.envs().some(l => l.startsWith('--bg ') && !l.endsWith(solicitado)), false,
+      'o retry nao usou a conta alternativa');
+  } finally {
+    falha.mock.restore();
+  }
+});
+
+test('retry recusa perfil pedido sem login com motivo e correcao bilingues, sem trocar de conta', () => {
+  const p = projetoTemporario('perfil-pedido-sem-login');
+  const claude = runtimePorConta('perfil-pedido-sem-login');
+  try {
+    claude.conta(p.dir, 'solicitado', { logado: false });
+    claude.conta(p.dir, 'alternativo');
+    const thread = novaThread(p.carregado, { nome: 'perfil sem login', modo: 'auto' }).thread;
+    const dir = dirThread(p.dir, thread.id);
+
+    const primeira = rodarFase(p.carregado, thread.id,
+      { fase: 'GOAL', prompt: PROMPT, runtime: 'claude-bg', perfil: 'solicitado' });
+    assert.equal(primeira.motivo, 'runtime.auth-missing');
+    const retry = executarRetry(p.carregado, thread.id);
+    assert.equal(retry.executada, false);
+    assert.equal(retry.redespacho?.motivo, 'runtime.auth-missing');
+    assert.match(retry.detalhe, /Nenhuma outra conta foi usada/);
+    const gate = lerLedger(dir).filter(e => e.tipo === 'gate_blocked').at(-1);
+    assert.equal(gate?.motivo, 'runtime.auth-missing');
+    assert.deepEqual(gate?.perfilPedido, { id: 'solicitado', runtime: 'claude-bg' });
+    assert.match(String(gate?.correcao), /ork accounts check solicitado/);
+    assert.equal(lerLedger(dir).some(e => e.tipo === 'phase_dispatch'), false);
+    assert.equal(lerLedger(dir).filter(e => e.tipo === 'runtime_profile_rotated')
+      .some(e => (e.para as { perfil?: string } | null)?.perfil === 'alternativo'), false);
+
+    const pt = msg('pt-BR').retry.perfilPedidoRecusado('solicitado', 'claude-bg', 'runtime.auth-missing', 'sem login');
+    const en = msg('en').retry.perfilPedidoRecusado('solicitado', 'claude-bg', 'runtime.auth-missing', 'not signed in');
+    assert.match(pt, /perfil pedido/);
+    assert.match(en, /requested profile/);
+    assert.notEqual(msg('pt-BR').retry.correcaoDoPerfilPedido('solicitado', 'claude-bg', 'runtime.auth-missing', thread.id),
+      msg('en').retry.correcaoDoPerfilPedido('solicitado', 'claude-bg', 'runtime.auth-missing', thread.id));
+  } finally { claude.restaurar(); p.limpar(); }
+});
+
+test('retomada da fila preserva o perfil pedido em vez de escolher outra conta', (t) => {
+  const p = projetoTemporario('perfil-pedido-retomada');
+  const claude = runtimePorConta('perfil-pedido-retomada');
+  const falha = mock.method(RUNTIMES['claude-bg'], 'despachar', () => ({
+    ok: false, comando: [], sessionId: null, verificada: false, stdout: '', stderr: 'rate limit simulado',
+    erro: 'rate limit simulado', rateLimit: {
+      resetEm: new Date(Date.now() + 60_000).toISOString(), fonte: 'iso' as const, trecho: 'rate limit simulado',
+    },
+  }));
+  t.after(() => { falha.mock.restore(); claude.restaurar(); p.limpar(); });
+  try {
+    const solicitado = claude.conta(p.dir, 'solicitado');
+    claude.conta(p.dir, 'alternativo');
+    const thread = novaThread(p.carregado, { nome: 'perfil pedido retomada', modo: 'auto' }).thread;
+    const primeira = rodarFase(p.carregado, thread.id,
+      { fase: 'GOAL', prompt: PROMPT, runtime: 'claude-bg', perfil: 'solicitado' });
+    assert.equal(primeira.motivo, 'runtime.rate-limited');
+    assert.ok(primeira.naFila);
+    assert.deepEqual((primeira.naFila as { perfilPedido?: unknown }).perfilPedido,
+      { id: 'solicitado', runtime: 'claude-bg' });
+
+    falha.mock.restore();
+    const retomada = retomarPorId(p.carregado, primeira.naFila!.id, { forcar: true });
+    assert.equal(retomada.despachada, true, retomada.detalhe);
+    const despacho = lerLedger(dirThread(p.dir, thread.id)).filter(e => e.tipo === 'phase_dispatch').at(-1);
+    assert.equal((despacho?.perfil as { id?: string } | undefined)?.id, 'solicitado');
+    assert.deepEqual(despacho?.perfilPedido, { id: 'solicitado', runtime: 'claude-bg' });
+    assert.ok(claude.envs().includes(`--bg ${solicitado}`));
+    assert.equal(claude.envs().some(l => l.startsWith('--bg ') && !l.endsWith(solicitado)), false);
+  } finally {
+    falha.mock.restore();
+  }
+});
+
+test('despacho sem --perfil conserva a escolha automatica atual e nao grava perfilPedido', () => {
+  const p = projetoTemporario('perfil-automatico');
+  const claude = runtimePorConta('perfil-automatico');
+  try {
+    claude.conta(p.dir, 'indisponivel', { logado: false });
+    const disponivel = claude.conta(p.dir, 'disponivel');
+    const thread = novaThread(p.carregado, { nome: 'perfil automatico', modo: 'auto' }).thread;
+    const dir = dirThread(p.dir, thread.id);
+
+    const resultado = rodarFase(p.carregado, thread.id, { fase: 'GOAL', prompt: PROMPT, runtime: 'claude-bg' });
+    assert.equal(resultado.bloqueado, false, resultado.erro);
+    const eventos = lerLedger(dir);
+    assert.equal(eventos.find(e => e.tipo === 'phase_prompt_recorded')?.perfilPedido, undefined);
+    const despacho = eventos.filter(e => e.tipo === 'phase_dispatch').at(-1);
+    assert.equal((despacho?.perfil as { id?: string } | undefined)?.id, 'disponivel');
+    assert.equal(despacho?.perfilPedido, undefined);
+    assert.ok(claude.envs().includes(`--bg ${disponivel}`));
   } finally { claude.restaurar(); p.limpar(); }
 });
