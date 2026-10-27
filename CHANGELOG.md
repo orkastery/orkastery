@@ -33,7 +33,18 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   vira o sandbox `off` do `grok` só com `ork setup sandbox confirmar`, senão o despacho recusa com
   `runtime.sandbox-nao-confirmado`; o comando confia a worktree (`--trust`), e o `AGENTS.md` dela entra na partida. O
   `ork retry` troca o perfil do `grok` também num projeto com o MCP do `ork`, e o `ork sessions` lista as sessões dele.
-  O host MCP do `grok` fica para uma thread com CHECK. O `claude-bg` e o `codex` não mudam.
+  O `claude-bg` e o `codex` não mudam.
+- **Host MCP do Grok Build** ([RM-067](docs/roadmap/RM-067-grok-build-homologado.md), F4b): `ork mcp install --project
+  <raiz> --host grok` grava a entrada `orkastery` no `.grok/config.toml` do projeto, com o perfil filho, e recusa a
+  entrada divergente como os outros hosts. O `ork mcp serve --host grok` só serve a sessão filha (sem `--thread`, recusa
+  com `mcp.host.child-only`) e lista só as ferramentas do perfil filho, as que o `--allowedTools` do `claude-bg` libera.
+  Num projeto preparado, o despacho `--runtime grok` de uma thread com worktree própria grava nela, fora do git, a config
+  com o servidor vinculado à thread e ao despacho, leva um `--allow MCPTool(orkastery__<ferramenta>)` por ferramenta
+  liberada e roda o filho sem o MCP do Claude e do Cursor. O `ork_phase_run` do MCP aceita o `grok`, a tela do setup o
+  lista, e o watcher refaz a prova do `ork` sob o lock da sessão. O sandbox do `grok` vale também para o servidor MCP do
+  `ork`: com `workspace` ou `read-only`, ele só lê, e as mutações gravam só com a postura `danger-full-access`
+  confirmada, até o ensaio real; por isso o `grok` segue fora do fallback automático de um projeto com o MCP. O
+  `claude-bg` e o `codex` não mudam.
 
 ### Corrigido
 

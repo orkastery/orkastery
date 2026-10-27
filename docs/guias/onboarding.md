@@ -157,7 +157,8 @@ O onboarding não escolhe runtime: o padrão do projeto é o `runtime.adapter` d
 O modo do `grok` é a decisão D1 do dono, alternativa b de 27/10/2026: a assinatura agora, com o risco aceito de a
 política de uso da xAI ser lida contra o uso automatizado. Seguem abertas, na
 [RM-067](../roadmap/RM-067-grok-build-homologado.md): o formato da cota esgotada do `grok` (até o ensaio real, a escada
-nunca troca a conta dele), a conferência de login sem ler a credencial, o MCP do `ork` na sessão `grok` e o ensaio
+nunca troca a conta dele), a conferência de login sem ler a credencial, a gravação pelo MCP do `ork` com o sandbox do
+`grok` ligado (desde a F4b a sessão `grok` recebe o MCP, mas o sandbox dela vale também para o servidor) e o ensaio
 real de homologação.
 
 ## Verificação e lacunas
