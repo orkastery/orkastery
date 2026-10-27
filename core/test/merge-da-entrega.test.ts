@@ -86,11 +86,9 @@ test('preserva o candidato ship de um pai para a recusa entrega.sem-vinculo', ()
 test('--todas reconhece o merge padrao pela branch registrada no ledger', () => {
   const p = projetoTemporario('merge-padrao-todas', true);
   try {
-    const { thread } = novaThread(p.carregado, { nome: 'entrega padrão', modo: 'auto' });
+    const { thread } = novaThread(p.carregado, { nome: 'entrega padrão', modo: 'auto', criarWorktree: true });
     const branch = branchDaWorktree(thread);
-    git(p.dir, 'checkout', '-q', '-b', branch);
-    commitar(p.dir, 'entrega.txt', 'pronta\n', `feat(${thread.id}): entrega`);
-    git(p.dir, 'checkout', '-q', 'main');
+    commitar(thread.worktree as string, 'entrega.txt', 'pronta\n', `feat(${thread.id}): entrega`);
     git(p.dir, 'merge', '-q', '--no-ff', branch, '-m', `Merge pull request #210 from orkastery/${branch}`);
     git(p.dir, 'push', '-q', 'origin', 'main');
 
