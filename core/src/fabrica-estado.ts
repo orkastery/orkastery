@@ -162,9 +162,9 @@ export function entregasNaBase(raiz: string, base: string, remoto = 'origin'): M
     thread: t.id,
     branch: branchRegistradaDaEntrega(raiz, t.id) ?? branchDaWorktree(t),
   })));
-  for (const t of threads) {
-    const merge = reconhecidas.get(t.id)?.[0];
-    if (merge) entregas.set(t.id, merge.mergeSha.slice(0, 7));
+  for (const [thread, merges] of reconhecidas) {
+    const merge = merges[0];
+    if (merge) entregas.set(thread, merge.mergeSha.slice(0, 7));
   }
   return entregas;
 }

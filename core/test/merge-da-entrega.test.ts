@@ -99,3 +99,21 @@ test('--todas reconhece o merge padrao pela branch registrada no ledger', () => 
     assert.match(estado?.resumo ?? '', /^merge [0-9a-f]{7} na base, falta registrar a entrega/);
   } finally { p.limpar(); }
 });
+
+test('fabrica reconhece ship de outra maquina sem estado e merge padrao com branch conhecida', () => {
+  const p = projetoTemporario('merge-padrao-fabrica', true);
+  try {
+    const outraMaquina = 'ork-outra-maquina';
+    commitar(p.dir, 'outra-maquina.txt', 'entregue\n', `ship(${outraMaquina}): entrega sem estado local`);
+
+    const { thread } = novaThread(p.carregado, { nome: 'merge com estado', modo: 'auto', criarWorktree: true });
+    const branch = branchDaWorktree(thread);
+    commitar(thread.worktree as string, 'com-estado.txt', 'entregue\n', `feat(${thread.id}): entrega`);
+    git(p.dir, 'merge', '-q', '--no-ff', branch, '-m', `Merge pull request #211 from orkastery/${branch}`);
+    git(p.dir, 'push', '-q', 'origin', 'main');
+
+    const entregas = entregasNaBase(p.dir, 'main');
+    assert.match(entregas.get(outraMaquina) ?? '', /^[0-9a-f]{7}$/);
+    assert.match(entregas.get(thread.id) ?? '', /^[0-9a-f]{7}$/);
+  } finally { p.limpar(); }
+});

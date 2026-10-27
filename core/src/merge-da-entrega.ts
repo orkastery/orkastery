@@ -44,16 +44,17 @@ const branchConvencionalDaThread = (branch: string, thread: string): boolean => 
   return branch === prefixo || branch.startsWith(`${prefixo}-`);
 };
 
-function assuntoDaEntrega(assunto: string, entrega: IdentidadeDaEntrega, base: string): boolean {
-  if (assunto.startsWith(`ship(${entrega.thread})`)) return true;
+function threadDoAssunto(assunto: string, entregas: readonly IdentidadeDaEntrega[], base: string): string | null {
+  const ship = /^ship\(([^)]+)\)/.exec(assunto);
+  if (ship?.[1]) return ship[1];
 
   const github = /^Merge pull request #[1-9][0-9]* from [^/\s]+\/(\S+)$/.exec(assunto);
   const gitlab = /^Merge branch '(.+)' into '(.+)'$/.exec(assunto);
   const branch = github?.[1] ?? (gitlab?.[2] === base ? gitlab[1] : null);
-  if (!branch) return false;
-  return entrega.branch === null
+  if (!branch) return null;
+  return entregas.find((entrega) => entrega.branch === null
     ? branchConvencionalDaThread(branch, entrega.thread)
-    : branch === entrega.branch;
+    : branch === entrega.branch)?.thread ?? null;
 }
 
 /**
@@ -66,7 +67,7 @@ function assuntoDaEntrega(assunto: string, entrega: IdentidadeDaEntrega, base: s
 export function mergesDasEntregasNaBase(raiz: string, refBase: string, base: string,
   entregas: readonly IdentidadeDaEntrega[], reverse = false): Map<string, MergeReconhecido[]> {
   const saida = new Map(entregas.map((e) => [e.thread, [] as MergeReconhecido[]]));
-  if (!branchValida(refBase) || !branchValida(base) || entregas.length === 0) return saida;
+  if (!branchValida(refBase) || !branchValida(base)) return saida;
   const args = ['log', refBase, '--first-parent', '--format=%H%x09%P%x09%cI%x09%s', ...(reverse ? ['--reverse'] : []), '--'];
   const r = exec('git', args, raiz, 60000);
   if (!r.ok) return saida;
@@ -74,15 +75,17 @@ export function mergesDasEntregasNaBase(raiz: string, refBase: string, base: str
   for (const linha of r.stdout.split('\n')) {
     const [sha, pais, em, assunto] = linha.split('\t');
     if (!shaValido(sha) || typeof assunto !== 'string') continue;
-    const entrega = entregas.find((e) => assuntoDaEntrega(assunto, e, base));
-    if (!entrega) continue;
+    const thread = threadDoAssunto(assunto, entregas, base);
+    if (!thread) continue;
     const segundo = (pais ?? '').split(' ')[1] ?? null;
     const ms = Date.parse(em ?? '');
-    saida.get(entrega.thread)?.push({
+    const merges = saida.get(thread) ?? [];
+    merges.push({
       mergeSha: sha,
       headSha: segundo && shaValido(segundo) ? segundo : null,
       em: Number.isFinite(ms) ? new Date(ms).toISOString() : null,
     });
+    saida.set(thread, merges);
   }
   return saida;
 }
