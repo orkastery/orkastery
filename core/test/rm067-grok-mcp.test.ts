@@ -15,14 +15,20 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { configuracaoServidorMcp, instalarMcp } from '../src/mcp-install';
 import { criarServidorMcp } from '../src/mcp-server';
-import { CONSULTAS_MCP, MUTACOES_WORKTREE } from '../src/adapters/claude-bg';
-import { ferramentasDoGrok, ferramentasServidasAoGrok } from '../src/adapters/grok';
+import { CONSULTAS_MCP, MUTACOES_WORKTREE, montarComando as comandoDoClaude } from '../src/adapters/claude-bg';
+import { configDoFilho, ferramentasDoGrok, ferramentasServidasAoGrok, gravarConfigDaWorktree, MARCA_DA_CONFIG_DO_FILHO,
+  montarComando as comandoDoGrok } from '../src/adapters/grok';
+import { instalarAdaptador } from '../src/hosts';
+import { rodarFase } from '../src/phase';
+import { exec } from '../src/util';
 import { TOOLS_DO_GRAFO } from '../src/mcp-grafo';
 import { dirThread, novaThread } from '../src/thread';
 import { capacidadeDoRuntimeNoProjeto, contextoDoProjeto, novaIdentidadeDeDespacho, validarContextoDoGrok,
   validarContextoRuntime } from '../src/runtime-context';
 import { lerLedger } from '../src/ledger';
-import { projetoTemporario } from './apoio';
+import { commitar, projetoTemporario } from './apoio';
+import { esperarCondicao } from './controller-simulado';
+import { grokFalso } from './grok-falso';
 
 const CLI = path.resolve(__dirname, '../src/index.js');
 const grokDe = (raiz: string) => path.join(raiz, '.grok', 'config.toml');
@@ -215,4 +221,134 @@ test('GM7: num projeto preparado, o grok recebe o contexto do host grok, com o s
     instalarMcp({ projeto: p.dir, host: 'claude-code' });
     assert.throws(() => contextoDoProjeto(p.dir, 'grok', wt, t.id), /perfis de filho divergentes entre hosts/);
   } finally { p.limpar(); }
+});
+
+/** As ferramentas do ork que o comando do grok libera, na ordem do comando. */
+const liberadasNoGrok = (comando: string[]) => comando.flatMap((a, i) => (a === '--allow' ? [comando[i + 1]] : []));
+/** As ferramentas do ork no --allowedTools do claude-bg, sem as regras de arquivo. */
+const liberadasNoClaude = (comando: string[]) => comando[comando.indexOf('--allowedTools') + 1].split(',')
+  .filter((r) => r.startsWith('mcp__orkastery__')).map((r) => `MCPTool(orkastery__${r.slice('mcp__orkastery__'.length)})`);
+
+test('GM8: o --allow do grok e o --allowedTools do claude-bg sem o prefixo, no PLAN, no worktree e no interactive; sem contexto, nenhum', () => {
+  const interativo = projetoTemporario('gm8-interactive'), worktree = projetoTemporario('gm8-worktree');
+  try {
+    for (const [p, perfil] of [[interativo, 'interactive'], [worktree, 'worktree']] as const) {
+      instalarAdaptador('claude-code', { projeto: p.dir });
+      instalarMcp({ projeto: p.dir, host: 'claude-code', permissoesFilho: perfil });
+      const t = novaThread(p.carregado, { nome: `gm8-${perfil}`, modo: 'auto', criarWorktree: true }).thread;
+      const wt = t.worktree!;
+      for (const colaboracao of ['plan', 'default'] as const) {
+        const claude = comandoDoClaude({ prompt: 'p', nome: t.slug, cwd: wt, colaboracao, versaoClaude: null,
+          contextoRuntime: contextoDoProjeto(p.dir, 'claude-bg', wt, t.id)! });
+        const grok = comandoDoGrok({ prompt: 'p', nome: t.slug, cwd: wt, colaboracao, sessionId: '0193c4a2-7b1e-7c3d-9f00-1234567890ab',
+          contextoRuntime: contextoDoProjeto(p.dir, 'grok', wt, t.id)! });
+        assert.deepEqual(liberadasNoGrok(grok), liberadasNoClaude(claude), `${perfil} ${colaboracao}`);
+        assert.deepEqual(grok.slice(-2 * liberadasNoGrok(grok).length).filter((_, i) => i % 2 === 0).every((a) => a === '--allow'), true,
+          'as regras vao no fim do comando');
+        assert.equal(grok.some((a) => /^(--always-approve|--yolo|--permission-mode)$/.test(a)), false);
+      }
+      const doPlano = liberadasNoGrok(comandoDoGrok({ prompt: 'p', nome: t.slug, cwd: wt, colaboracao: 'plan',
+        contextoRuntime: contextoDoProjeto(p.dir, 'grok', wt, t.id)! }));
+      assert.ok(doPlano.includes('MCPTool(orkastery__ork_artifact_write)') && !doPlano.includes('MCPTool(orkastery__ork_git_commit)'),
+        'o PLAN grava o artefato e nao commita, em qualquer perfil');
+    }
+    const semContexto = comandoDoGrok({ prompt: 'p', nome: 'x', cwd: interativo.dir });
+    assert.equal(semContexto.includes('--allow'), false, 'sem o MCP do ork, nenhuma regra');
+  } finally { interativo.limpar(); worktree.limpar(); }
+});
+
+test('GM9: o despacho real grava a config da worktree vinculada a thread e ao despacho, fora do git, e o filho a carrega', () => {
+  const stub = grokFalso('gm9-despacho');
+  const p = projetoTemporario('gm9-despacho');
+  try {
+    instalarMcp({ projeto: p.dir, host: 'grok', permissoesFilho: 'worktree' });
+    const t = novaThread(p.carregado, { nome: 'gm9', modo: 'auto', criarWorktree: true }).thread;
+    const wt = t.worktree!;
+    stub.stream('fim-normal.jsonl');
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'Fixture SIMULADA do despacho com o MCP', runtime: 'grok', model: 'grok-modelo' });
+    assert.ok(r.sessionId, r.erro);
+    const sid = r.sessionId!;
+    const config = fs.readFileSync(path.join(wt, '.grok', 'config.toml'), 'utf8');
+    assert.ok(config.startsWith(`${MARCA_DA_CONFIG_DO_FILHO}\n`), 'a marca do ork na primeira linha');
+    const dispatchId = (lerLedger(dirThread(p.dir, t.id)).find((e) => e.tipo === 'phase_prompt_recorded')?.identidade as { dispatchId: string }).dispatchId;
+    const args = entradaDe(config).args as string[];
+    assert.equal(args[args.indexOf('--host') + 1], 'grok');
+    assert.deepEqual(args.slice(-6), ['--child-permissions', 'worktree', '--thread', t.id, '--dispatch', dispatchId],
+      'o servidor da worktree e o da thread e do despacho');
+    assert.equal(fs.readFileSync(path.join(wt, '.grok', '.gitignore'), 'utf8'), '*\n');
+    assert.equal(exec('git', ['status', '--porcelain', '--untracked-files=all'], wt).stdout, '', 'a worktree segue limpa');
+    assert.equal(stub.configCarregada(), config, 'o filho carregou a config da worktree na partida confiada');
+    assert.deepEqual(liberadasNoGrok(r.comando), [...CONSULTAS, 'ork_git_status', ...MUTACOES].map((f) => `MCPTool(orkastery__${f})`));
+    assert.deepEqual(stub.compat(), [['0', '0']], 'o filho nao carrega o MCP do Claude nem o do Cursor');
+    esperarCondicao(() => lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.sessionId === sid), 60000);
+  } finally { p.limpar(); stub.restaurar(); }
+});
+
+test('GM10: a config da worktree recusa versionada, sem a marca, link, cifrao e .gitignore que a deixaria visivel, sem escrever', () => {
+  const stub = grokFalso('gm10-recusas');
+  const p = projetoTemporario('gm10-recusas');
+  try {
+    const texto = configDoFilho({ command: '/srv/node', args: ['ork', 'mcp', 'serve'] }, 'ork-fixture');
+    assert.throws(() => configDoFilho({ command: '/srv/node', args: ['ork', '$HOME/x'] }, 'ork-fixture'), /args\[1\] do servidor do ork tem \$/);
+    assert.throws(() => configDoFilho({ command: '/srv/node', args: [], env: { CHAVE: '${OUTRA}' } }, 'ork-fixture'), /env\.CHAVE do servidor do ork tem \$/);
+    const pasta = path.join(p.dir, '.grok'), arquivo = path.join(pasta, 'config.toml');
+    // Arquivo de outra pessoa, sem a marca: fica como estava, e nada nasce ao lado.
+    fs.mkdirSync(pasta);
+    fs.writeFileSync(arquivo, '[mcp_servers.dela]\ncommand = "x"\n');
+    assert.throws(() => gravarConfigDaWorktree(p.dir, texto), /nao e do ork/);
+    assert.equal(fs.readFileSync(arquivo, 'utf8'), '[mcp_servers.dela]\ncommand = "x"\n');
+    assert.equal(fs.existsSync(path.join(pasta, '.gitignore')), false);
+    // A config do ork e reescrita a cada despacho.
+    fs.rmSync(arquivo);
+    gravarConfigDaWorktree(p.dir, texto);
+    const outro = configDoFilho({ command: '/srv/node', args: ['ork', 'mcp', 'serve', '--thread', 'ork-outra'] }, 'ork-outra');
+    gravarConfigDaWorktree(p.dir, outro);
+    assert.equal(fs.readFileSync(arquivo, 'utf8'), outro);
+    // Um .gitignore que nao ignora a config: a escrita volta atras e recusa.
+    fs.writeFileSync(path.join(pasta, '.gitignore'), 'outro-arquivo\n');
+    assert.throws(() => gravarConfigDaWorktree(p.dir, texto), /ficaria visivel ao git/);
+    assert.equal(fs.readFileSync(arquivo, 'utf8'), outro, 'a config anterior do ork volta');
+    assert.equal(fs.readFileSync(path.join(pasta, '.gitignore'), 'utf8'), 'outro-arquivo\n', 'o .gitignore de outro fica');
+    // Versionada: recusa antes de escrever.
+    fs.rmSync(pasta, { recursive: true });
+    commitar(p.dir, '.grok/config.toml', '[mcp_servers.time]\ncommand = "x"\n', 'config versionada do time');
+    assert.throws(() => gravarConfigDaWorktree(p.dir, texto), /\.grok\/config\.toml versionado na worktree/);
+    assert.equal(fs.readFileSync(arquivo, 'utf8'), '[mcp_servers.time]\ncommand = "x"\n');
+    // Link no lugar da pasta: recusa, e o alvo fica intocado.
+    const q = projetoTemporario('gm10-link');
+    try {
+      const alvo = path.join(q.dir, 'alvo');
+      fs.mkdirSync(alvo);
+      fs.symlinkSync(alvo, path.join(q.dir, '.grok'));
+      assert.throws(() => gravarConfigDaWorktree(q.dir, texto), /runtime\.context\.worktree: \.grok da worktree e link/);
+      assert.deepEqual(fs.readdirSync(alvo), []);
+    } finally { q.limpar(); }
+    // Pelo despacho: a recusa vira o gate tipado, e o grok nao roda.
+    instalarMcp({ projeto: p.dir, host: 'grok' });
+    const t = novaThread(p.carregado, { nome: 'gm10', modo: 'auto', criarWorktree: true }).thread;
+    commitar(t.worktree!, '.grok/config.toml', '[mcp_servers.time]\ncommand = "x"\n', 'config versionada na branch');
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'Fixture SIMULADA da recusa', runtime: 'grok', model: 'grok-modelo' });
+    assert.equal(r.sessionId, null);
+    assert.equal(r.motivo, 'runtime.unavailable');
+    assert.match(String(r.erro), /^runtime\.unavailable: runtime\.context\.conflict: \.grok\/config\.toml versionado na worktree/);
+    assert.deepEqual(stub.chamadas(), [], 'o grok nao rodou');
+    const gate = lerLedger(dirThread(p.dir, t.id)).find((e) => e.tipo === 'gate_blocked');
+    assert.equal(gate?.motivo, 'runtime.unavailable');
+  } finally { p.limpar(); stub.restaurar(); }
+});
+
+test('GM11: sem o MCP do ork, o filho do grok tambem roda sem o MCP do Claude e do Cursor, e a worktree nao ganha .grok', () => {
+  const stub = grokFalso('gm11-sem-mcp');
+  const p = projetoTemporario('gm11-sem-mcp');
+  try {
+    const t = novaThread(p.carregado, { nome: 'gm11', modo: 'auto', criarWorktree: true }).thread;
+    stub.stream('fim-normal.jsonl');
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'Fixture SIMULADA sem o MCP', runtime: 'grok', model: 'grok-modelo' });
+    assert.ok(r.sessionId, r.erro);
+    const sid = r.sessionId!;
+    assert.deepEqual(stub.compat(), [['0', '0']]);
+    assert.equal(r.comando.includes('--allow'), false);
+    assert.equal(fs.existsSync(path.join(t.worktree!, '.grok')), false);
+    esperarCondicao(() => lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.sessionId === sid), 60000);
+  } finally { p.limpar(); stub.restaurar(); }
 });
