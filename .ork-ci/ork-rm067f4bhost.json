@@ -15,7 +15,7 @@
         "grep -q \"'codex' | 'grok' | 'mcp'\" core/src/types.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/conducao-lease.test.js"
       ],
       "criadoEm": "2026-10-27T07:42:18.449Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -29,7 +29,7 @@
         "grep -q 'servidor MCP iniciado com --host grok, so na sessao filha' core/src/conducao.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/conducao-lease.test.js"
       ],
       "criadoEm": "2026-10-27T07:42:20.380Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -43,7 +43,7 @@
         "grep -q 'os sete canais' core/test/conducao-lease.test.ts && grep -q \"validarCanal('grok'), 'grok'\" core/test/conducao-lease.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/conducao-lease.test.js"
       ],
       "criadoEm": "2026-10-27T07:42:22.089Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -57,7 +57,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 2 '^GM[12]:' && node --test core/dist-test/test/mcp-install.test.js"
       ],
       "criadoEm": "2026-10-27T07:44:29.315Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -71,7 +71,7 @@
         "grep -q \"^test('GM1:\" core/test/rm067-grok-mcp.test.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 2 '^GM[12]:'"
       ],
       "criadoEm": "2026-10-27T07:44:31.017Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -85,7 +85,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 4 '^GM[3-6]:'"
       ],
       "criadoEm": "2026-10-27T07:46:19.076Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -99,7 +99,7 @@
         "grep -q \"host!=='grok'\" core/src/index.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 1 '^GM3:'"
       ],
       "criadoEm": "2026-10-27T07:46:20.934Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -113,7 +113,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 2 '^GM[45]:'"
       ],
       "criadoEm": "2026-10-27T07:46:22.847Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -127,7 +127,7 @@
         "grep -q '^export const CONSULTAS_MCP = ' core/src/adapters/claude-bg.ts && grep -q '^export const MUTACOES_WORKTREE = ' core/src/adapters/claude-bg.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/claude-bg-mods.test.js core/dist-test/test/claude-bg-teams.test.js core/dist-test/test/runtimes.test.js && node core/scripts/conferir-casos.cjs core/dist-test/test/runtimes-grok.test.js GR 1 '^GR2:'"
       ],
       "criadoEm": "2026-10-27T07:46:25.391Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -141,7 +141,7 @@
         "grep -q 'o grok recebe o contexto do host grok' core/test/runtimes-grok.test.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/runtimes-grok.test.js GR 8"
       ],
       "criadoEm": "2026-10-27T07:48:38.567Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -155,7 +155,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 4 '^GM(8|9|10|11):' && node --test core/dist-test/test/grok.test.js core/dist-test/test/despacho-grok.test.js"
       ],
       "criadoEm": "2026-10-27T07:50:34.137Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -169,7 +169,7 @@
         "grep -q 'config-carregada' core/test/grok-falso.ts && grep -q 'GROK_CURSOR_MCPS_ENABLED-ausente' core/test/grok-falso.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 2 '^GM(9|11):'"
       ],
       "criadoEm": "2026-10-27T07:50:36.425Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -183,7 +183,7 @@
         "git diff --quiet \"$(git merge-base origin/main HEAD)\" -- core/test/claude-bg-mods.test.ts core/test/claude-bg-teams.test.ts core/test/codex.test.ts core/test/codex-controller-params.test.ts core/test/codex-runner.test.ts core/test/codex-events.test.ts core/test/runtimes.test.ts core/test/despacho-perfil.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/claude-bg-mods.test.js core/dist-test/test/claude-bg-teams.test.js core/dist-test/test/codex.test.js core/dist-test/test/codex-controller-params.test.js core/dist-test/test/codex-runner.test.js core/dist-test/test/codex-events.test.js core/dist-test/test/runtimes.test.js core/dist-test/test/despacho-perfil.test.js"
       ],
       "criadoEm": "2026-10-27T07:51:07.510Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -197,7 +197,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/session-watcher-grok.test.js GW 20"
       ],
       "criadoEm": "2026-10-27T07:53:17.818Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -211,7 +211,7 @@
         "grep -q \"^test('GW19:\" core/test/session-watcher-grok.test.ts && grep -q \"^test('GW20:\" core/test/session-watcher-grok.test.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/session-watcher-grok.test.js GW 2 '^GW(19|20):'"
       ],
       "criadoEm": "2026-10-27T07:53:19.945Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -225,7 +225,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm067-grok-mcp.json M1"
       ],
       "criadoEm": "2026-10-27T07:53:21.737Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -239,7 +239,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm067-grok-mcp.json M2"
       ],
       "criadoEm": "2026-10-27T07:53:23.633Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -253,7 +253,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm067-grok-mcp.json M3"
       ],
       "criadoEm": "2026-10-27T07:53:25.510Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -267,7 +267,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm067-grok-mcp.json M4"
       ],
       "criadoEm": "2026-10-27T07:53:27.101Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -281,7 +281,7 @@
         "! grep -q 'SoPorPedido' core/src/setup.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 1 '^GM12:' && node --test core/dist-test/test/setup.test.js core/dist-test/test/setup-fallback.test.js"
       ],
       "criadoEm": "2026-10-27T08:01:02.489Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -295,7 +295,7 @@
         "! grep -q 'SoPorPedido' core/src/locale-setup.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 1 '^GM12:' && node --test core/dist-test/test/locale-f3d-setup.test.js"
       ],
       "criadoEm": "2026-10-27T08:01:04.274Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -309,7 +309,7 @@
         "grep -q 'runtimes: claude-bg, codex, grok' core/src/locale-ajuda.ts && grep -q 'grok so na sessao filha, com --thread' core/src/locale-ajuda.ts && grep -q 'grok only in the child session, with --thread' core/src/locale-ajuda.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f2a-snapshot.test.js core/dist-test/test/locale-ajuda.test.js core/dist-test/test/rm044-paridade-cli-md.test.js"
       ],
       "criadoEm": "2026-10-27T08:01:07.030Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -323,7 +323,7 @@
         "grep -c 'host codex|claude-code|grok' core/src/locale-operacao-restante.ts | grep -qx 2 && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f3d-snapshot.test.js"
       ],
       "criadoEm": "2026-10-27T08:01:08.920Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -337,7 +337,7 @@
         "grep -q 'runtimes: claude-bg, codex, grok' core/test/fixtures/locale-f2a-pt-BR.json && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f2a-snapshot.test.js"
       ],
       "criadoEm": "2026-10-27T08:01:10.819Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -351,7 +351,7 @@
         "grep -q 'Runtimes homologados: claude-bg, codex, grok' core/test/fixtures/locale-f3d-pt-BR.json && grep -q 'host codex|claude-code|grok' core/test/fixtures/locale-f3d-pt-BR.json && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f3d-snapshot.test.js"
       ],
       "criadoEm": "2026-10-27T08:01:13.058Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -365,7 +365,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 12"
       ],
       "criadoEm": "2026-10-27T08:01:14.466Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -379,7 +379,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 3 '^GM(7|13|14):' && node --test core/dist-test/test/runtime-context.test.js core/dist-test/test/hitl-dispatch-transport.test.js"
       ],
       "criadoEm": "2026-10-27T08:23:05.585Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -393,7 +393,7 @@
         "grep -q 'ele segue fora do fallback de quem tem o MCP' core/test/rm067-grok-setup.test.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-setup.test.js GS 6"
       ],
       "criadoEm": "2026-10-27T08:23:08.723Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -407,7 +407,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/session-watcher-grok.test.js GW 2 '^GW(21|22):'"
       ],
       "criadoEm": "2026-10-27T08:23:10.645Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -421,7 +421,7 @@
         "grep -q \"^test('GW21:\" core/test/session-watcher-grok.test.ts && grep -q \"^test('GW22:\" core/test/session-watcher-grok.test.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/session-watcher-grok.test.js GW 22"
       ],
       "criadoEm": "2026-10-27T08:23:13.154Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -435,7 +435,7 @@
         "grep -q \"IGNORADOS_DA_CONFIG_DO_FILHO = '/config.toml\" core/src/adapters/grok.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 2 '^GM(9|10):'"
       ],
       "criadoEm": "2026-10-27T08:23:16.039Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -449,7 +449,7 @@
         "grep -q \"^test('GM13:\" core/test/rm067-grok-mcp.test.ts && grep -q \"^test('GM14:\" core/test/rm067-grok-mcp.test.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 14"
       ],
       "criadoEm": "2026-10-27T08:23:17.195Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -463,7 +463,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm067-grok-mcp.json M5"
       ],
       "criadoEm": "2026-10-27T08:23:23.556Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -477,7 +477,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm067-grok-mcp.json M6"
       ],
       "criadoEm": "2026-10-27T08:23:25.181Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -491,7 +491,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm067-grok-mcp.json M7"
       ],
       "criadoEm": "2026-10-27T08:23:26.545Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -505,7 +505,7 @@
         "grep -q 'F4b entregue (thread .ork-rm067f4bhost.)' docs/roadmap/RM-067-grok-build-homologado.md && grep -q 'Limite do sandbox (G17)' docs/roadmap/RM-067-grok-build-homologado.md && grep -q 'MCP com o sandbox ligado' docs/roadmap/RM-067-grok-build-homologado.md && grep -q 'Config da worktree entre partidas' docs/roadmap/RM-067-grok-build-homologado.md && npm --prefix core run build && node core/dist/index.js docs verificar --pr"
       ],
       "criadoEm": "2026-10-27T08:26:38.595Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -519,7 +519,7 @@
         "grep -q 'só na sessão filha, com o .--thread.' docs/referencia/cli.md && grep -q 'A tela do setup e as recusas listam .claude-bg., .codex. e .grok.' docs/referencia/cli.md && grep -q 'o retry não manda a thread ao .grok. do fallback, porque o sandbox dele' docs/referencia/cli.md && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f3a-referencia.test.js core/dist-test/test/rm044-paridade-cli-md.test.js"
       ],
       "criadoEm": "2026-10-27T08:26:41.135Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -533,7 +533,7 @@
         "grep -q 'only in the child session, with the .--thread.' docs/referencia/cli.en.md && grep -q 'The setup screen and its refusals list .claude-bg., .codex. and .grok.' docs/referencia/cli.en.md && grep -q 'because its sandbox does not let the MCP write' docs/referencia/cli.en.md && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f3a-referencia.test.js"
       ],
       "criadoEm": "2026-10-27T08:26:43.666Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -547,7 +547,7 @@
         "grep -q 'Sandbox e MCP' docs/referencia/contratos/playbook-runtimes-i09.md && grep -q 'desde a F4b, .ork mcp install --host grok. grava' docs/referencia/contratos/playbook-runtimes-i09.md && ! grep -q 'Até lá,' docs/referencia/contratos/playbook-runtimes-i09.md && core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/playbook-runtimes-i09.md"
       ],
       "criadoEm": "2026-10-27T08:26:46.838Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -561,7 +561,7 @@
         "grep -q 'desde a F4b a sessão .grok. recebe o MCP' docs/guias/onboarding.md && core/node_modules/.bin/markdownlint-cli2 docs/guias/onboarding.md"
       ],
       "criadoEm": "2026-10-27T08:26:48.223Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -575,16 +575,109 @@
         "grep -q 'Host MCP do Grok Build' CHANGELOG.md && grep -q 'segue fora do fallback automático de um projeto com o MCP' CHANGELOG.md && node core/scripts/checar-changelog.cjs --base origin/main"
       ],
       "criadoEm": "2026-10-27T08:26:49.684Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-rm067f4bhost.json",
+      "alegacao": "F4b: o bundle de CI da thread leva as claims ativas dela, no maximo uma adiada (a propria, artifact-not-in-checkout), e a varredura de dado privado do checar-experiencia-publica nao acha nada nele",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const d=JSON.parse(require('fs').readFileSync('.ork-ci/ork-rm067f4bhost.json','utf8'));const a=d.deferredClaims||[];if(d.thread!=='ork-rm067f4bhost'||d.claims.length<40||a.length>1||a.some(c=>c.reason!=='artifact-not-in-checkout'))process.exit(1)\" && node -e \"const r=require('./core/scripts/checar-experiencia-publica.cjs').varrer({arquivos:['.ork-ci/ork-rm067f4bhost.json']});process.exit(r.ok?0:1)\""
+      ],
+      "criadoEm": "2026-10-27T08:28:03.980Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/src/runtime-context.ts",
+      "alegacao": "F4b (GO-FIX 2 N1, N2): no projeto preparado so pelo grok, a falha da entrada orkastery dele recusa o claude-bg e o codex, nunca despacho legado em silencio; a config do time sem a entrada segue de fora; e o motivo tipado do grok sai sem o caminho da maquina",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 2 '^GM1[35]:' && node --test core/dist-test/test/runtime-context.test.js"
+      ],
+      "criadoEm": "2026-10-27T08:54:41.475Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/src/runtime-escada.ts",
+      "alegacao": "F4b: o comentario da escada diz que o grok, como alvo de fallback, fica fora no projeto preparado, pelo sandbox, e os testes da escada passam",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'no preparado, a capacidade o deixa fora, pelo sandbox' core/src/runtime-escada.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm063-escada.test.js"
+      ],
+      "criadoEm": "2026-10-27T08:54:43.741Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm067-grok-mcp.test.ts",
+      "alegacao": "F4b (GO-FIX 2): o GM15 cobre o projeto preparado so pelo grok e o link no lugar da config, o GM13 cobre o cenario do claude-code com a thread na raiz, e os 15 casos GM passam",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"^test('GM15:\" core/test/rm067-grok-mcp.test.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 15"
+      ],
+      "criadoEm": "2026-10-27T08:54:45.618Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher-grok.ts",
+      "alegacao": "F4b (GO-FIX 2 N4): com o MCP, o aviso da retomada vem antes do comando, que as telas cortam no fim",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'o aviso vem antes do comando' core/src/session-watcher-grok.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/session-watcher-grok.test.js GW 1 '^GW22:'"
+      ],
+      "criadoEm": "2026-10-27T08:54:47.625Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm067-grok-mcp.json",
+      "alegacao": "Mutante M8 da F4b: engolindo a falha da entrada orkastery do grok quando ela e a unica preparacao, o claude-bg despacharia como num projeto legado e o GM15 cai",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm067-grok-mcp.json M8"
+      ],
+      "criadoEm": "2026-10-27T08:54:49.424Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-067-grok-build-homologado.md",
+      "alegacao": "F4b (GO-FIX 2): a pagina diz que a falha da config do grok so conta para o claude-bg e o codex quando a entrada orkastery dele e a unica preparacao do projeto, e o ork docs verificar segue sem erro",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'a falha dele só conta quando a entrada .orkastery. dele é a única preparação do projeto' docs/roadmap/RM-067-grok-build-homologado.md && npm --prefix core run build && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-10-27T08:54:51.430Z",
       "estado": "pendente",
       "lint": []
     }
   ],
-  "deferredClaims": [
-    {
-      "id": "C45",
-      "reason": "artifact-not-in-checkout"
-    }
-  ],
+  "deferredClaims": [],
   "commands": [
     {
       "name": "ci",
