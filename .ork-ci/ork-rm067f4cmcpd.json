@@ -495,20 +495,6 @@
       "lint": []
     },
     {
-      "id": "C56",
-      "thread": "ork-rm067f4cmcpd",
-      "fase": "GOAL",
-      "arquivo": "docs/roadmap/RM-067-grok-build-homologado.md",
-      "alegacao": "F4c (GO-FIX 3): a pagina diz que valem so pelo token o perfil off e o grok nao despejavel, registra como risco aceito o retransmissor que a propria sessao suba na arvore dela, e poe no ensaio real se o grok deixa ler os proprios descritores",
-      "negativa": false,
-      "verificar": [
-        "grep -qF 'Valem só pelo token o perfil `off`' docs/roadmap/RM-067-grok-build-homologado.md && grep -qF 'Fica como risco aceito o retransmissor que a própria sessão suba na árvore dela' docs/roadmap/RM-067-grok-build-homologado.md && grep -qF 'e se ele deixa ler os próprios descritores' docs/roadmap/RM-067-grok-build-homologado.md && core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-067-grok-build-homologado.md"
-      ],
-      "criadoEm": "2026-10-27T13:52:10.119Z",
-      "estado": "pendente",
-      "lint": []
-    },
-    {
       "id": "C57",
       "thread": "ork-rm067f4cmcpd",
       "fase": "GOAL",
@@ -523,16 +509,86 @@
       "lint": []
     },
     {
-      "id": "C58",
+      "id": "C59",
+      "thread": "ork-rm067f4cmcpd",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/grok-mcp-servidor.ts",
+      "alegacao": "F4c (GO-FIX 4): a conferencia da arvore nunca rejeita: o erro dela (um EMFILE ao listar o /proc, ou um erro sem codigo, com a primeira linha da mensagem) recusa so aquela conexao, sem derrubar o servidor; a recusa vem com Connection: close, e o log das recusas tem teto por minuto; o pedido em pipeline que fica sem resposta solta a conta no fecho do socket e nao segura o fecho do servidor; com o grok nao despejavel, o servidor procura o socket entre os processos do mesmo usuario que se leem, cedendo o event loop, e recusa o dono legivel de fora da arvore",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'export const LIMITE_DE_RECUSAS_NO_LOG = 20;' core/src/adapters/grok-mcp-servidor.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp-externo.test.js GX 3 '^GX(11|12|13):'"
+      ],
+      "criadoEm": "2026-10-27T14:29:04.850Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-rm067f4cmcpd",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-067-grok-build-homologado.md",
+      "alegacao": "F4c (GO-FIX 4): a pagina diz que a conferencia nunca rejeita, que a recusa fecha a conexao e o log tem teto, que com o grok nao despejavel o servidor recusa o de fora da arvore que segura o socket e aceita so pelo token o dono que nao se le, e registra como riscos aceitos o retransmissor da propria sessao e o processo de fora que tambem se marque nao despejavel",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'a conferência nunca rejeita' docs/roadmap/RM-067-grok-build-homologado.md && grep -qF 'recusa o de fora da árvore que o segura' docs/roadmap/RM-067-grok-build-homologado.md && grep -qF 'Ficam como riscos aceitos, porque os dois precisam do token vazado' docs/roadmap/RM-067-grok-build-homologado.md && grep -qF 'e se ele deixa ler os próprios descritores' docs/roadmap/RM-067-grok-build-homologado.md && core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-067-grok-build-homologado.md"
+      ],
+      "criadoEm": "2026-10-27T14:29:08.888Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C61",
       "thread": "ork-rm067f4cmcpd",
       "fase": "GOAL",
       "arquivo": "docs/referencia/contratos/playbook-runtimes-i09.md",
-      "alegacao": "F4c (GO-FIX 3): o playbook diz que, sem os descritores do grok e no perfil off, a conexao com o servidor do ork vale so pelo token",
+      "alegacao": "F4c (GO-FIX 4): o playbook diz que, sem os descritores do grok, o servidor do ork recusa o dono legivel de fora da arvore e aceita o ilegivel so pelo token, e que no perfil off vale so o token",
       "negativa": false,
       "verificar": [
-        "grep -qF '(quando ele deixa ler os descritores; sem isso, e no perfil `off`, vale só o token)' docs/referencia/contratos/playbook-runtimes-i09.md && core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/playbook-runtimes-i09.md"
+        "grep -qF '(quando ele deixa ler os descritores; sem isso, recusa o dono legível de fora da árvore e aceita o ilegível só pelo token; no perfil `off`, vale só o token)' docs/referencia/contratos/playbook-runtimes-i09.md && core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/playbook-runtimes-i09.md"
       ],
-      "criadoEm": "2026-10-27T13:52:14.301Z",
+      "criadoEm": "2026-10-27T14:29:10.882Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C62",
+      "thread": "ork-rm067f4cmcpd",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm067-grok-mcp-externo.test.ts",
+      "alegacao": "F4c (GO-FIX 4): GX11 prova, com o preload que faz o /proc falhar no processo do servidor (EMFILE e erro sem codigo), que a conferencia que falha recusa so a conexao, com o motivo no log, e o servidor segue de pe; GX12 prova que a recusa fecha a conexao keep-alive e que o log das recusas para no teto, com uma linha so dizendo que ha mais; GX13 prova que os pedidos em pipeline depois da recusa nao seguram o fecho; os treze casos GX passam",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"^test('GX13:\" core/test/rm067-grok-mcp-externo.test.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp-externo.test.js GX 13"
+      ],
+      "criadoEm": "2026-10-27T14:29:30.114Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C63",
+      "thread": "ork-rm067f4cmcpd",
+      "fase": "GOAL",
+      "arquivo": "core/test/proc-sem-leitura.ts",
+      "alegacao": "F4c (GO-FIX 4): o preload de teste so muda o processo com ORK_TESTE_PROC_SEM_LEITURA: com 1, listar o /proc ou as tarefas de um processo lanca EMFILE; com sem-codigo, lanca um TypeError sem codigo; sem a variavel, nada muda",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node -e 'require(\"./core/dist-test/test/proc-sem-leitura.js\"); require(\"fs\").readdirSync(\"/proc\")' && ORK_TESTE_PROC_SEM_LEITURA=1 node -e 'require(\"./core/dist-test/test/proc-sem-leitura.js\"); try { require(\"fs\").readdirSync(\"/proc\"); process.exit(1) } catch (e) { process.exit(e.code === \"EMFILE\" ? 0 : 1) }' && ORK_TESTE_PROC_SEM_LEITURA=sem-codigo node -e 'require(\"./core/dist-test/test/proc-sem-leitura.js\"); try { require(\"fs\").readdirSync(\"/proc\"); process.exit(1) } catch (e) { process.exit(e instanceof TypeError && e.code === undefined ? 0 : 1) }' && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp-externo.test.js GX 1 '^GX11:'"
+      ],
+      "criadoEm": "2026-10-27T14:29:33.774Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C65",
+      "thread": "ork-rm067f4cmcpd",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/grok-mcp-servidor.ts",
+      "alegacao": "F4c (GO-FIX 5): o servidor poe um ouvinte de close so por socket, que solta os pedidos pendentes dele: doze pedidos em pipeline depois da recusa nao levam o aviso de ouvintes demais do Node ao log, e nao seguram o fecho",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'const pendentesPorSocket = new WeakMap' core/src/adapters/grok-mcp-servidor.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp-externo.test.js GX 1 '^GX13:'"
+      ],
+      "criadoEm": "2026-10-27T14:37:46.745Z",
       "estado": "pendente",
       "lint": []
     }
@@ -563,7 +619,7 @@
       "reason": "local-integration-required"
     },
     {
-      "id": "C55",
+      "id": "C64",
       "reason": "local-integration-required"
     }
   ],
