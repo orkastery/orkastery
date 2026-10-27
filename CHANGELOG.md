@@ -20,10 +20,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `runtime.adapter`, e ainda despacha sem o MCP do `ork`; perfis de conta, login e cota (F3, que espera a decisão D1
   do dono), setup, MCP e onboarding (F4) e o ensaio real (F5) ficam para depois. O `claude-bg` e o `codex` não mudam.
 
-- **A máquina no envelope do #Noctum (RM-058)**: `ork noctum maquina [--json]` dá a entrada desta máquina em
-  `maquinas` do envelope `v3` (o nome, a chave pública Ed25519 desta raiz e a impressão dela, sem material
-  privado), e o `ork noctum propor` de um `v3` avisa, sem recusar, quando esta máquina falta no envelope ou está
-  nele com outra chave. O #Noctum segue em desenvolvimento, não anunciado.
+- **Preparação dos pilotos em duas máquinas do #Noctum (RM-058)**: `ork noctum maquina [--json]` dá nome, chave
+  pública e impressão para o envelope `v3`; o passo supervisionado usa a coordenação da máquina, a retomada exige o
+  recibo de fim antes de transferir trabalho, e fila, fechamento, relatório, guarda e entrega consideram a rede e a
+  vez global. O aceite combina os arquivos das demais máquinas por `--outra-maquina`, P3 e P4 exigem ao menos duas
+  máquinas quando forem conferidos, e o cenário `duas-maquinas` exercita F10 e F11 apenas em fixture simulada.
+  Nenhum piloto em duas máquinas rodou; o #Noctum segue em desenvolvimento, não anunciado.
 
 ### Corrigido
 
