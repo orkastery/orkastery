@@ -1,7 +1,8 @@
 /**
  * RM-067 (F1 da ork-grokbuild): runtime `grok`, o Grok Build headless da xAI. Nasceu só para despacho explícito
  * (`ork phase run --runtime grok`, D1); desde a F4, é runtime de bloco no setup, nunca o padrão do projeto, e desde a F4b
- * leva o MCP do `ork` pela config que o despacho grava na worktree (`gravarConfigDaWorktree`).
+ * leva o MCP do `ork` pela config que o despacho grava na worktree (`gravarConfigDaWorktree`). Desde a F4c, o servidor
+ * dessa config é um processo do `ork`, fora do sandbox do `grok` (`grok-mcp.ts`), e o `grok` se conecta a ele por `url`.
  *
  * O despacho roda `grok -p <prompt> --output-format streaming-json -s <id>` desanexado, pelo supervisor do `codex-runner`
  * (D6): o log do stream, o `.process.json` com a identidade do filho e o `.exit.json` com o código e o sinal do `close`
@@ -16,13 +17,14 @@ import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { parse } from 'smol-toml';
 import { ambienteDeAssinatura, ENVS_DE_PROVIDER_PAGO } from '../runtime-ambiente';
-import { ContextoRuntime, ServidorDoFilhoGrok, validarContextoDoGrok } from '../runtime-context';
+import { ContextoRuntime, validarContextoDoGrok } from '../runtime-context';
 import { ambienteComPerfil, PerfilDeDespacho } from '../runtime-profiles';
 import { SessaoRuntime } from '../types';
 import { exec as executar, noPath } from '../util';
 import { CONSULTAS_MCP, DespachoResultado, MUTACOES_WORKTREE, parseRateLimit, StatusDeAuth } from './claude-bg';
 import { estadoProcesso, iniciarSupervisor, ProcessoCodex, ReciboCodex } from './codex-runner';
 import { falhaDeContaDoTextoGrok, falhaDoErroGrok, lerStreamGrok, redigirTextoGrok } from './grok-events';
+import { iniciarServidorDoGrok, ServidorDoGrokIniciado } from './grok-mcp';
 import { TOOLS_DO_GRAFO } from '../mcp-grafo';
 import type { PermissoesFilhoMcp } from '../mcp-install';
 
@@ -269,25 +271,34 @@ export const MARCA_DA_CONFIG_DO_FILHO = '# Gerado pelo ork para a sessao filha d
 export const IGNORADOS_DA_CONFIG_DO_FILHO = '/config.toml\n/.gitignore\n/.ork-*.tmp\n';
 const LIMITE_DA_CONFIG_BYTES = 65536;
 
+/** RM-067 (F4c, D7): como a sessão filha alcança o servidor do `ork`: a URL do loopback e o arquivo do token. */
+export interface ConexaoDoFilhoGrok { url: string; bearerTokenFile: string }
+
+/** D1 da F4c: a única URL que a config da worktree aceita, a do servidor do `ork` no loopback. */
+const URL_DO_SERVIDOR_DO_ORK = /^http:\/\/127\.0\.0\.1:[1-9][0-9]{0,4}\/mcp$/;
+
 /**
- * RM-067 (F4b, G3 e G7): o `.grok/config.toml` da worktree, com o servidor do `ork` vinculado à thread e ao despacho. O
- * `grok` expande `${VAR}` em `command`, `args` e `env` (G16): valor com `$` recusa, porque o servidor que subiria seria
- * outro. O texto volta pelo parser de TOML e o documento inteiro tem de ser exatamente o servidor pedido (GO-FIX S2).
+ * RM-067 (F4b, G3 e G7; F4c, D7): o `.grok/config.toml` da worktree, com o servidor do `ork` vinculado à thread e ao
+ * despacho. Desde a F4c, a entrada é a forma `url` do guia oficial (G16): a URL do servidor do `ork` no loopback e o
+ * `bearer_token_file`, que o `grok` lê a cada requisição; nada de `command`, `args` ou `env`, porque o servidor não é mais
+ * filho do `grok`. O `grok` expande `${VAR}` na `url` e no `bearer_token_file` (G16): valor com `$` recusa, porque o
+ * servidor alcançado seria outro. O texto volta pelo parser de TOML e o documento inteiro tem de ser exatamente a entrada
+ * pedida (GO-FIX S2).
  */
-export function configDoFilho(servidor: ServidorDoFilhoGrok, threadId: string): string {
-  const env = Object.entries(servidor.env ?? {});
-  const campos: [string, string][] = [['command', servidor.command],
-    ...servidor.args.map((a, i): [string, string] => [`args[${i}]`, a]), ...env.map(([k, v]): [string, string] => [`env.${k}`, v])];
+export function configDoFilho(conexao: ConexaoDoFilhoGrok, threadId: string): string {
+  const campos: [string, string][] = [['url', conexao.url], ['bearer_token_file', conexao.bearerTokenFile]];
   const comCifrao = campos.find(([, valor]) => valor.includes('$'));
   if (comCifrao) throw new Error(`runtime.context.conflict: ${comCifrao[0]} do servidor do ork tem $, que o grok expandiria; use um caminho sem $`);
+  if (!URL_DO_SERVIDOR_DO_ORK.test(conexao.url))
+    throw new Error('runtime.context.conflict: a url do servidor do ork nao e a do loopback local (http://127.0.0.1:<porta>/mcp)');
+  if (!path.isAbsolute(conexao.bearerTokenFile))
+    throw new Error('runtime.context.conflict: o bearer_token_file do servidor do ork nao e um caminho absoluto');
   const texto = [MARCA_DA_CONFIG_DO_FILHO, `# thread ${threadId}`, '[mcp_servers.orkastery]',
-    `command = ${JSON.stringify(servidor.command)}`, `args = ${JSON.stringify(servidor.args)}`,
-    ...(env.length ? [`env = { ${env.map(([k, v]) => `${k} = ${JSON.stringify(v)}`).join(', ')} }`] : [])].join('\n') + '\n';
+    `url = ${JSON.stringify(conexao.url)}`, `bearer_token_file = ${JSON.stringify(conexao.bearerTokenFile)}`].join('\n') + '\n';
   let lido: string;
   try { lido = JSON.stringify(parse(texto)); }
   catch { throw new Error('runtime.context.conflict: a config do servidor do ork nao sai como TOML valido'); }
-  const esperado = JSON.stringify({ mcp_servers: { orkastery: { command: servidor.command, args: servidor.args,
-    ...(env.length ? { env: servidor.env } : {}) } } });
+  const esperado = JSON.stringify({ mcp_servers: { orkastery: { url: conexao.url, bearer_token_file: conexao.bearerTokenFile } } });
   if (lido !== esperado) throw new Error('runtime.context.conflict: a config do servidor do ork nao volta igual pelo TOML');
   return texto;
 }
@@ -518,15 +529,30 @@ export function despachar(pedido: DespachoGrokPedido): DespachoGrokResultado {
   if (!pedido.logDir || !path.isAbsolute(pedido.logDir)) {
     return falha('runtime.unavailable: despacho grok sem o diretorio de logs da thread', { comando });
   }
-  // RM-067 (F4b, G3): a config do MCP vai à worktree antes do supervisor; o grok a lê na partida, com a pasta confiada.
-  if (contexto) {
-    try { gravarConfigDaWorktree(pedido.cwd, configDoFilho(contexto.servidor, contexto.threadId)); }
-    catch (e) { return falha(`runtime.unavailable: ${(e as Error).message}`, { comando }); }
-  }
   const logPath = path.join(pedido.logDir, `${sessionId}.grok.jsonl`);
+  // RM-067 (F4c, D6 e D7): com o MCP, o servidor do ork sobe antes de tudo, fora do sandbox do grok, com as ferramentas do
+  // --allow deste despacho; a config da worktree aponta para ele e vai antes do supervisor, porque o grok a lê na partida,
+  // com a pasta confiada (F4b, G3). Toda falha depois de o servidor subir o encerra.
+  let servidor: ServidorDoGrokIniciado | null = null;
+  if (contexto) {
+    const especificacao = contexto.servidor;
+    if (!especificacao.dispatchId)
+      return falha('runtime.unavailable: runtime.context.identity: o grok com o MCP do ork exige a identidade do despacho', { comando });
+    try {
+      servidor = iniciarServidorDoGrok({ projeto: especificacao.projeto, threadId: especificacao.threadId,
+        dispatchId: especificacao.dispatchId, permissoesFilho: especificacao.permissoesFilho, transporteShip: especificacao.transporteShip,
+        ferramentas: ferramentasDoGrok(contexto.permissoesFilho, pedido.colaboracao === 'plan', contexto.grafoMcp), logPath },
+      pedido.cwd, { ...ambiente, ...(especificacao.env ?? {}) });
+    } catch (e) { return falha((e as Error).message, { comando }); }
+    try { gravarConfigDaWorktree(pedido.cwd, configDoFilho({ url: servidor.url, bearerTokenFile: servidor.tokenPath }, contexto.threadId)); }
+    catch (e) { servidor.encerrar(); return falha(`runtime.unavailable: ${(e as Error).message}`, { comando }); }
+  }
   let sensores: { processoPath: string; reciboPath: string };
   try { sensores = iniciarSupervisor(comando, pedido.cwd, logPath, ambiente); }
-  catch (e) { return falha(`runtime.unavailable: o supervisor do grok nao iniciou (${(e as NodeJS.ErrnoException).code ?? 'erro'})`, { comando }); }
+  catch (e) {
+    servidor?.encerrar();
+    return falha(`runtime.unavailable: o supervisor do grok nao iniciou (${(e as NodeJS.ErrnoException).code ?? 'erro'})`, { comando });
+  }
   const base = { comando, logPath, ...sensores };
   const casa = casaDoGrok(ambiente);
   const prazo = Date.now() + (pedido.esperaMs ?? ESPERA_PADRAO_MS);
@@ -544,6 +570,7 @@ export function despachar(pedido: DespachoGrokPedido): DespachoGrokResultado {
   if (processo?.filho && estadoProcesso(processo.filho) === 'vivo') {
     return { ok: true, sessionId, verificada: false, stdout: '', stderr: '', ...base };
   }
+  servidor?.encerrar();
   return falha('runtime.unavailable: o supervisor do grok nao registrou o processo vivo no prazo', base);
 }
 

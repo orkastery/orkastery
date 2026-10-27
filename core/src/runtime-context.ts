@@ -296,13 +296,23 @@ export function validarContextoRuntime(contexto: ContextoRuntime, cwd: string) {
   return { projeto: raiz, instalacao, bootstrap, permissoesFilho, permiteEditarProduto, grafoMcp, servidor, modsDeFase, agentTeams };
 }
 
-/** RM-067 (F4b): o servidor MCP do `ork` que a sessao filha do grok sobe, pela config da worktree. */
-export interface ServidorDoFilhoGrok { command: string; args: string[]; env?: Record<string, string> }
+/**
+ * RM-067 (F4c, D8): o servidor MCP do `ork` que o despacho do grok sobe fora do sandbox dele, vinculado a thread e ao
+ * despacho. Ate a F4b era o comando stdio que o proprio grok subia, e o sandbox dele valia tambem para o servidor (G17).
+ */
+export interface ServidorDoFilhoGrok {
+  projeto: string; threadId: string;
+  /** A identidade do despacho (I-36); o despacho real sem ela recusa. */
+  dispatchId: string | null;
+  permissoesFilho: PermissoesFilhoMcp; transporteShip: TransporteShipMcp;
+  /** Os verificadores HITL publicos, que o servidor stdio recebia no `env` da config da worktree. */
+  env?: Record<string, string>;
+}
 
 /**
  * RM-067 (F4b, D2): o contexto do grok, revalidado no despacho. O vinculo e o mesmo dos outros hosts; nao ha adaptador
- * instalado a conferir (o grok nao tem plugin, skills nem mods do Orkastery). Devolve o que o comando e a config da
- * worktree usam: o perfil filho, a flag do grafo da raiz e o servidor vinculado a thread e ao despacho.
+ * instalado a conferir (o grok nao tem plugin, skills nem mods do Orkastery). Devolve o que o comando e o despacho usam:
+ * o perfil filho, a flag do grafo da raiz e, desde a F4c, a especificacao do servidor externo vinculado a thread e ao despacho.
  */
 export function validarContextoDoGrok(contexto: ContextoRuntime, cwd: string):
     { projeto: string; threadId: string; permissoesFilho: PermissoesFilhoMcp; grafoMcp: boolean; servidor: ServidorDoFilhoGrok } {
@@ -313,8 +323,8 @@ export function validarContextoDoGrok(contexto: ContextoRuntime, cwd: string):
     throw Error('runtime.context.worktree: o grok com o MCP do ork exige a worktree propria da thread; a config da sessao nunca vai a raiz do projeto');
   const grafoMcp = grafoLigado(exigirManifesto(raiz).manifesto);
   const publicVerifiers = publicHitlVerifiers();
-  const servidor: ServidorDoFilhoGrok = {
-    ...configuracaoServidorMcp(raiz, 'grok', contexto.threadId, transporteShip, permissoesFilho, contexto.identidade?.dispatchId),
+  const servidor: ServidorDoFilhoGrok = { projeto: raiz, threadId: contexto.threadId,
+    dispatchId: contexto.identidade?.dispatchId ?? null, permissoesFilho, transporteShip,
     ...(publicVerifiers ? { env: { [ENV_HITL_VERIFIERS]: publicVerifiers } } : {}) };
   return { projeto: raiz, threadId: contexto.threadId, permissoesFilho, grafoMcp, servidor };
 }

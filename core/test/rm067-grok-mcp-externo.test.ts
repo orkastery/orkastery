@@ -13,17 +13,26 @@ import * as net from 'node:net';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { ChildProcess, spawn } from 'node:child_process';
+import { ChildProcess, execFileSync, spawn } from 'node:child_process';
+import { parse } from 'smol-toml';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { criarServidorMcp } from '../src/mcp-server';
+import { instalarMcp } from '../src/mcp-install';
 import { ferramentasDoGrok } from '../src/adapters/grok';
-import { iniciarServidorDoGrok, lerReciboServidorGrok, ServidorDoGrokIniciado } from '../src/adapters/grok-mcp';
+import { arquivosDoServidorGrok, iniciarServidorDoGrok, lerReciboServidorGrok, ServidorDoGrokIniciado } from '../src/adapters/grok-mcp';
 import { LIMITE_DO_CORPO_BYTES } from '../src/adapters/grok-mcp-servidor';
-import { estadoProcesso, gravarAtomico, identidadeProcesso } from '../src/adapters/codex-runner';
+import { estadoProcesso, gravarAtomico, identidadeProcesso, ProcessoCodex } from '../src/adapters/codex-runner';
 import { dirThread, novaThread } from '../src/thread';
+import { lerLedger } from '../src/ledger';
+import { rodarFase } from '../src/phase';
+import { adicionarPerfil } from '../src/runtime-profiles';
 import { projetoTemporario, ProjetoDeTeste } from './apoio';
 import { esperarCondicao } from './controller-simulado';
+import { grokFalso } from './grok-falso';
+
+const RAIZ = path.resolve(__dirname, '../../..');
+const FONTE = (arquivo: string) => fs.readFileSync(path.join(RAIZ, 'core/src', arquivo), 'utf8');
 
 const textoDe = (r: unknown) => JSON.parse(((r as { content: { text: string }[] }).content[0]).text) as Record<string, unknown>;
 const ordenadas = (nomes: readonly string[]) => [...nomes].sort();
@@ -252,4 +261,138 @@ test('GX3: o servidor morre com a sessao: recibo do supervisor, grok ausente, se
     assert.match(texto, /"serverInfo"/, 'a requisicao em andamento recebeu a resposta inteira');
     await conferirFim(emCurso, 'recibo');
   } finally { for (const b of [recibo, ausente, semPartida, encerrado, emCurso]) b.limpar(); }
+});
+
+/** O `phase_result` do despacho, quando o watcher o grava. */
+function resultadoDaFase(p: ProjetoDeTeste, threadId: string, sessionId: string): Record<string, unknown> {
+  esperarCondicao(() => lerLedger(dirThread(p.dir, threadId)).some((e) => e.tipo === 'phase_result' && e.sessionId === sessionId), 60000);
+  return lerLedger(dirThread(p.dir, threadId)).find((e) => e.tipo === 'phase_result' && e.sessionId === sessionId) as Record<string, unknown>;
+}
+
+/** Os arquivos do servidor do despacho, ao lado do log do supervisor. */
+const doDespacho = (p: ProjetoDeTeste, threadId: string, sessionId: string) =>
+  ({ logPath: path.join(dirThread(p.dir, threadId), 'sessoes', `${sessionId}.grok.jsonl`),
+    ...arquivosDoServidorGrok(path.join(dirThread(p.dir, threadId), 'sessoes', `${sessionId}.grok.jsonl`)) });
+
+test('GX4: o despacho real sobe o servidor fora do grok, e o filho no workspace grava decisao, claim e artefato pelo MCP externo; a fase fecha com prova', () => {
+  const stub = grokFalso('gx4-despacho');
+  const p = projetoTemporario('gx4-despacho');
+  try {
+    instalarMcp({ projeto: p.dir, host: 'grok', permissoesFilho: 'worktree' });
+    const t = novaThread(p.carregado, { nome: 'gx4', modo: 'auto', criarWorktree: true }).thread;
+    const wt = t.worktree!;
+    stub.stream('fim-normal.jsonl');
+    stub.mcp([
+      { nome: 'ork_decision_record', argumentos: { threadId: t.id, decidido: 'Fixture SIMULADA de decisao pelo servidor externo',
+        porque: 'Conferir que o filho no workspace grava o ledger', comoMudar: 'Nao se aplica', custoAgora: 'Nenhum', custoDepois: 'Nenhum',
+        criterio: { tipo: 'medicao', referencia: 'core/test/rm067-grok-mcp-externo.test.ts (GX4)' }, quemDecidiu: 'sessao grok SIMULADA',
+        evidencia: 'teste' } },
+      { nome: 'ork_claim_add', argumentos: { threadId: t.id, arquivo: 'README.md', alegacao: 'Fixture SIMULADA de claim pelo servidor externo',
+        verificar: ['true'] } },
+      { nome: 'ork_artifact_write', argumentos: { threadId: t.id, tipo: 'goal', conteudo: '# GOAL SIMULADO pelo grok falso\n', expectedSha256: null } },
+    ], { esperar: true });
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'Fixture SIMULADA do MCP externo', runtime: 'grok', model: 'grok-modelo' });
+    assert.ok(r.sessionId, r.erro);
+    const sid = r.sessionId!;
+    const arquivos = doDespacho(p, t.id, sid);
+    // O token existe enquanto a sessao vive, e so no arquivo 0600 do estado do ork.
+    const token = fs.readFileSync(arquivos.tokenPath, 'utf8');
+    assert.match(token, /^[a-f0-9]{64}$/);
+    assert.equal(arquivos.tokenPath.startsWith(wt + path.sep), false, 'o token fica fora da worktree');
+    assert.equal(r.comando.some((a) => a.includes(token)), false, 'o token nao vai ao argv');
+
+    // O grok segue no piso workspace, sem nada que aprove tudo.
+    assert.equal(r.comando[r.comando.indexOf('--sandbox') + 1], 'workspace');
+    for (const proibido of ['off', 'danger-full-access', '--yolo', '--always-approve', '--permission-mode', 'bypassPermissions'])
+      assert.equal(r.comando.includes(proibido), false, proibido);
+    const config = fs.readFileSync(path.join(wt, '.grok', 'config.toml'), 'utf8');
+    const entrada = (parse(config) as { mcp_servers: Record<string, Record<string, unknown>> }).mcp_servers.orkastery;
+    assert.deepEqual(Object.keys(entrada).sort(), ['bearer_token_file', 'url']);
+    assert.equal(entrada.bearer_token_file, arquivos.tokenPath);
+    assert.equal(config.includes(token), false, 'o token nao vai a config');
+
+    // O despacho soltou a trava da thread: a sessao chama as ferramentas.
+    stub.liberarMcp();
+    const resultado = resultadoDaFase(p, t.id, sid);
+    assert.equal(resultado.classificacao, 'fase_concluida', JSON.stringify(resultado.provaOrk));
+    assert.equal((resultado.provaOrk as { ok: boolean }).ok, true);
+    const mcp = stub.mcpResultado();
+    assert.ok(mcp && !mcp.erro, JSON.stringify(mcp));
+    assert.deepEqual(ordenadas(mcp!.ferramentas), ordenadas(ferramentasDoGrok('worktree', false, false)), 'a lista do --allow deste despacho');
+    assert.deepEqual(mcp!.chamadas.map((c) => [c.nome, c.isError]),
+      [['ork_decision_record', false], ['ork_claim_add', false], ['ork_artifact_write', false]], JSON.stringify(mcp!.chamadas));
+
+    const eventos = lerLedger(dirThread(p.dir, t.id));
+    const dispatchId = (eventos.find((e) => e.tipo === 'phase_prompt_recorded')?.identidade as { dispatchId: string }).dispatchId;
+    const { eventId } = JSON.parse(mcp!.chamadas[0].texto) as { eventId: string };
+    const decisao = eventos.find((e) => e.tipo === 'autonomous_decision' && e.eventId === eventId);
+    assert.deepEqual([decisao?.host, decisao?.canal, decisao?.despacho], ['grok', 'grok', dispatchId], 'o ledger, gravado pelo servidor do despacho');
+    assert.deepEqual([decisao?.origem, decisao?.decisao], ['mcp', 'Fixture SIMULADA de decisao pelo servidor externo']);
+    assert.match(fs.readFileSync(path.join(dirThread(p.dir, t.id), 'claims.jsonl'), 'utf8'), /Fixture SIMULADA de claim pelo servidor externo/);
+    assert.equal(fs.readFileSync(path.join(dirThread(p.dir, t.id), 'docs', 'goal.md'), 'utf8'), '# GOAL SIMULADO pelo grok falso\n');
+    assert.equal(fs.readFileSync(path.join(dirThread(p.dir, t.id), 'ledger.jsonl'), 'utf8').includes(token), false, 'o token nao vai ao ledger');
+
+    // O servidor e irmao do grok, filho do processo que despachou: o sandbox do grok, que vale para ele e os filhos, nao o alcanca.
+    const recibo = lerReciboServidorGrok(arquivos.reciboPath)!;
+    const supervisor = JSON.parse(fs.readFileSync(`${arquivos.logPath}.process.json`, 'utf8')) as ProcessoCodex;
+    const [grok] = stub.pids();
+    assert.equal(recibo.pai, process.pid);
+    assert.equal(grok.pai, supervisor.supervisor?.pid, 'o grok e filho do supervisor');
+    assert.notEqual(recibo.processo?.pid, grok.pid);
+    assert.notEqual(recibo.pai, grok.pid);
+    esperarCondicao(() => lerReciboServidorGrok(arquivos.reciboPath)?.estado === 'encerrado' && estadoProcesso(recibo.processo) === 'ausente', 20000);
+    assert.equal(lerReciboServidorGrok(arquivos.reciboPath)?.motivo, 'recibo', 'o servidor sai com o recibo do supervisor');
+    assert.equal(fs.existsSync(arquivos.tokenPath), false);
+  } finally { p.limpar(); stub.restaurar(); }
+});
+
+test('GX5: o despacho com o servidor externo nunca abre o auth.json do perfil: um FIFO no lugar dele nao trava nada', () => {
+  const stub = grokFalso('gx5-fifo');
+  const p = projetoTemporario('gx5-fifo');
+  try {
+    instalarMcp({ projeto: p.dir, host: 'grok' });
+    // O auth.json do perfil e um FIFO: quem o abrisse para ler ficaria preso, e o despacho e o servidor nao terminariam.
+    const casa = path.join(stub.dir, 'casa-f');
+    fs.mkdirSync(casa, { mode: 0o700 });
+    execFileSync('mkfifo', ['-m', '600', path.join(casa, 'auth.json')]);
+    adicionarPerfil(p.dir, { id: 'f', runtime: 'grok', dir: casa });
+    const t = novaThread(p.carregado, { nome: 'gx5', modo: 'auto', criarWorktree: true }).thread;
+    stub.stream('fim-normal.jsonl');
+    stub.mcp([{ nome: 'ork_thread_status', argumentos: { threadId: t.id } }]);
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'Fixture SIMULADA do FIFO', runtime: 'grok', model: 'grok-modelo', perfil: 'f' });
+    assert.ok(r.sessionId, r.erro);
+    resultadoDaFase(p, t.id, r.sessionId!);
+    assert.deepEqual(stub.mcpResultado()?.chamadas.map((c) => c.isError), [false], JSON.stringify(stub.mcpResultado()));
+    assert.equal(fs.statSync(path.join(casa, 'auth.json')).isFIFO(), true, 'o FIFO segue no lugar, sem copia');
+    // Os modulos novos nao tem caminho de codigo que leia o auth.json: o nome so poderia aparecer em comentario.
+    for (const arquivo of ['adapters/grok-mcp.ts', 'adapters/grok-mcp-servidor.ts']) {
+      const codigo = FONTE(arquivo).split('\n').filter((l) => !/^\s*(\*|\/\/|\/\*)/.test(l)).join('\n');
+      assert.equal(/auth\.json|GROK_HOME/.test(codigo.replace(/\/\/.*$/gm, '')), false, arquivo);
+    }
+  } finally { p.limpar(); stub.restaurar(); }
+});
+
+test('GX6: a config que ficaria visivel ao git recusa depois de o servidor subir, e o despacho o encerra sem deixar o token', () => {
+  const stub = grokFalso('gx6-falha');
+  const p = projetoTemporario('gx6-falha');
+  try {
+    instalarMcp({ projeto: p.dir, host: 'grok' });
+    const t = novaThread(p.carregado, { nome: 'gx6', modo: 'auto', criarWorktree: true }).thread;
+    // Um .gitignore de .grok que nao ignora a config: a escrita volta atras e recusa (F4b, D3).
+    fs.mkdirSync(path.join(t.worktree!, '.grok'));
+    fs.writeFileSync(path.join(t.worktree!, '.grok', '.gitignore'), 'outro-arquivo\n');
+    stub.stream('fim-normal.jsonl');
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'Fixture SIMULADA da falha', runtime: 'grok', model: 'grok-modelo' });
+    assert.equal(r.sessionId, null);
+    assert.match(String(r.erro), /^runtime\.unavailable: runtime\.context\.conflict: a config da sessao ficaria visivel ao git/);
+    assert.deepEqual(stub.chamadas(), [], 'o grok nao rodou');
+    const sessoes = path.join(dirThread(p.dir, t.id), 'sessoes');
+    const recibos = fs.readdirSync(sessoes).filter((f) => f.endsWith('.grok-mcp.json')).map((f) => path.join(sessoes, f));
+    assert.equal(recibos.length, 1, 'o servidor deste despacho chegou a subir');
+    esperarCondicao(() => lerReciboServidorGrok(recibos[0])?.estado === 'encerrado', 20000);
+    const recibo = lerReciboServidorGrok(recibos[0])!;
+    assert.equal(recibo.motivo, 'sinal', 'encerrado pelo despacho');
+    esperarCondicao(() => estadoProcesso(recibo.processo) === 'ausente', 20000);
+    assert.deepEqual(fs.readdirSync(sessoes).filter((f) => f.endsWith('.grok-mcp.token')), [], 'nenhum token sobra');
+  } finally { p.limpar(); stub.restaurar(); }
 });
