@@ -28,6 +28,15 @@
       "para": "...naoExecutados.map((c) => `${c.nome} nao foi executado`),",
       "teste": "check-agil",
       "nome": "^AG40:"
+    },
+    {
+      "id": "M4",
+      "descricao": "item 3: a sigla volta a sair como o ICU escreve, e o ICU antigo deixa a legenda de janeiro com GMT sem o +0",
+      "modulo": "horario",
+      "de": "return valor === 'GMT' ? 'GMT+0' : valor;",
+      "para": "return valor;",
+      "teste": "network-roadmap",
+      "nome": "^rede: a legenda de janeiro diz GMT\\+0"
     }
   ]
 }
