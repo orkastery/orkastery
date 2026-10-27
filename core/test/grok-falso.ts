@@ -12,6 +12,9 @@
  *   - RM-067 (F4c): grava o próprio pid e o do pai de cada chamada e, com `--trust`, a config da worktree e um roteiro na
  *     pasta do stub, roda um cliente MCP como o do `grok` (G16): na forma `url`, relê o `bearer_token_file` a cada
  *     requisição e manda `Authorization: Bearer <conteúdo>`; na forma `command`, sobe o servidor stdio como filho dele;
+ *   - RM-067 (F4c, D11): se mandado, roda confinado pelo Landlock do kernel como o perfil `workspace` (escrita só nas pastas
+ *     pedidas), pelo lançador de `fixtures/grok/landlock.py`, e os filhos herdam o confinamento; uma sonda tenta criar um
+ *     arquivo fora delas e grava se conseguiu;
  *   - escreve no stderr o texto pedido e, no stdout, a fixture do stream, com `<SESSAO>` trocado pelo id;
  *   - espera, se mandado, e sai com o código pedido, ou se mata com o sinal pedido.
  *
@@ -79,14 +82,24 @@ const { StdioClientTransport } = require(${r('@modelcontextprotocol/sdk/client/s
 `;
 }
 
+/** RM-067 (F4c, D11): o lançador que confina o filho como o perfil `workspace`, com o Landlock do kernel. */
+const LANDLOCK = path.join(RAIZ, 'core/test/fixtures/grok/landlock.py');
+
 function script(dir: string): string {
   return `#!/bin/sh
 DIR='${dir}'
 NODE='${process.execPath}'
 if [ "$1" = "--version" ]; then echo "grok 1.0.62"; exit 0; fi
+if [ -f "$DIR/landlock" ] && [ -z "\${ORK_GROK_FALSO_CONFINADO:-}" ]; then
+  export ORK_GROK_FALSO_CONFINADO=1
+  exec python3 -I '${LANDLOCK}' "$DIR/landlock" "$0" "$@"
+fi
 N=$(ls "$DIR" | grep -c '^chamada-')
 for a in "$@"; do printf '%s\\n' "$a"; done > "$DIR/chamada-$N"
 printf '%s\\n%s\\n' "$$" "$PPID" > "$DIR/pid-$N"
+if [ -f "$DIR/sonda" ]; then
+  if touch "$(cat "$DIR/sonda")" 2> "$DIR/sonda.erro"; then echo gravou > "$DIR/sonda.resultado"; else echo recusada > "$DIR/sonda.resultado"; fi
+fi
 if [ -n "\${XAI_API_KEY:-}" ]; then : > "$DIR/xai-visto"; fi
 printf '%s\\n%s\\n' "\${GROK_CLAUDE_MCPS_ENABLED-ausente}" "\${GROK_CURSOR_MCPS_ENABLED-ausente}" > "$DIR/compat-$N"
 SESSAO=""; RETOMA=""; CWD=""; CONFIA=""
@@ -166,6 +179,12 @@ export interface GrokFalso {
   mcpResultado: () => ResultadoMcp | null;
   /** RM-067 (F4c): o pid e o pai de cada chamada, na ordem. */
   pids: () => { pid: number; pai: number }[];
+  /** RM-067 (F4c, D11): o filho roda confinado pelo Landlock, com escrita só nestas pastas, como o perfil `workspace`. */
+  confinar: (pastas: string[]) => void;
+  /** RM-067 (F4c, D11): o filho, já confinado, tenta criar este arquivo antes de tudo. */
+  sonda: (caminho: string) => void;
+  /** RM-067 (F4c, D11): se a sonda criou o arquivo, ou `null` se ela não rodou. */
+  sondaResultado: () => 'gravou' | 'recusada' | null;
   restaurar: () => void;
 }
 
@@ -206,6 +225,10 @@ export function grokFalso(nome: string): GrokFalso {
       ? JSON.parse(fs.readFileSync(path.join(dir, 'mcp-resultado.json'), 'utf8')) as ResultadoMcp : null,
     pids: () => fs.readdirSync(dir).filter((f) => f.startsWith('pid-')).sort((a, b) => Number(a.slice(4)) - Number(b.slice(4)))
       .map((f) => { const [pid, pai] = fs.readFileSync(path.join(dir, f), 'utf8').split('\n').map(Number); return { pid, pai }; }),
+    confinar: (pastas) => gravar('landlock', pastas.join('\n') + '\n'),
+    sonda: (caminho) => gravar('sonda', caminho),
+    sondaResultado: () => fs.existsSync(path.join(dir, 'sonda.resultado'))
+      ? fs.readFileSync(path.join(dir, 'sonda.resultado'), 'utf8').trim() as 'gravou' | 'recusada' : null,
     restaurar: () => {
       for (const [k, v] of Object.entries(anterior)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
       fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
