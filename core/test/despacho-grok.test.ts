@@ -47,7 +47,7 @@ test('GD1: o ensaio do --runtime grok mostra o comando e nao despacha, e trocar 
     assert.equal(r.dryRun, true);
     assert.equal(r.runtime, 'grok');
     assert.equal(r.comando[0], 'grok');
-    assert.deepEqual(r.comando.slice(-9), ['--cwd', c.wt, '-m', 'grok-modelo', '--effort', 'high', '--sandbox', 'workspace',
+    assert.deepEqual(r.comando.slice(-10), ['--cwd', c.wt, '--trust', '-m', 'grok-modelo', '--effort', 'high', '--sandbox', 'workspace',
       '--no-auto-update']);
     assert.deepEqual(c.stub!.chamadas(), [], 'o grok nao rodou');
     assert.equal(c.eventos().some((e) => e.tipo === 'phase_dispatch' || e.tipo === 'phase_prompt_recorded'), false);

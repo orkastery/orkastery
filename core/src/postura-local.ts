@@ -113,12 +113,17 @@ export function lerPosturaLocal(raiz: string): { postura: PosturaLocal | null; m
 }
 
 /**
+ * Os runtimes que recebem a postura de sandbox do manifesto: o Codex e, desde a F4 da RM-067, o `grok`, em que a postura
+ * mais frouxa vira o perfil `off` (sem sandbox). O `claude-bg` não recebe a postura.
+ */
+export const RUNTIMES_COM_POSTURA: readonly string[] = ['codex', 'grok'];
+
+/**
  * A recusa do despacho: `null` quando a postura do manifesto vale nesta máquina (não afrouxa, ou
  * foi confirmada localmente com o mesmo valor); senão o erro tipado com o comando que confirma.
- * Só o Codex recebe a postura de sandbox do manifesto.
  */
 export function recusaDePostura(raiz: string, manifesto: Pick<Manifesto, 'runtime'>, runtime: string): string | null {
-  if (runtime !== 'codex') return null;
+  if (!RUNTIMES_COM_POSTURA.includes(runtime)) return null;
   const postura = posturaAfrouxada(manifesto);
   if (!postura) return null;
   const { postura: local, motivo } = lerPosturaLocal(raiz);

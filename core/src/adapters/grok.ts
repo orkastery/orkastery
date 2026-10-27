@@ -33,14 +33,17 @@ export const FONTE_VERIFICACAO = 'pasta da sessao em $GROK_HOME/sessions';
 export const ENVS_REMOVIDAS_DO_DESPACHO = [...ENVS_DE_PROVIDER_PAGO, 'XAI_API_KEY'] as const;
 
 /**
- * D3: a postura de sandbox do manifesto (vocabulário do Codex) no perfil do `grok` (`--sandbox`). `workspace` é o piso
- * (E7 da RM-067): o `danger-full-access` existe pelo bubblewrap do Codex, e o `grok` usa Landlock. `off` e `strict`
- * ficam para a F4, com a confirmação local da máquina.
+ * D3 e F4 (E7 da RM-067): a postura de sandbox do manifesto (vocabulário do Codex) no perfil do `grok` (`--sandbox`).
+ * `workspace` é o piso, o perfil de toda postura que não afrouxa (o `grok` usa Landlock, não o bubblewrap do Codex). A
+ * postura mais frouxa (`danger-full-access`) vira `off`, sem sandbox, e só despacha com `ork setup sandbox confirmar`
+ * nesta máquina: sem a confirmação, o `ork phase run` e o `ork retry` recusam com `runtime.sandbox-nao-confirmado`
+ * (`postura-local.ts`) antes de montar o comando. O `strict` do `grok` não tem postura do Orkastery que o peça. Nenhuma
+ * postura aprova tudo: nunca `--yolo`, `--always-approve` nem `--permission-mode bypassPermissions`.
  */
 export const PERFIL_DE_SANDBOX_DO_GROK: Readonly<Record<string, string>> = Object.freeze({
   'read-only': 'read-only',
   'workspace-write': 'workspace',
-  'danger-full-access': 'workspace',
+  'danger-full-access': 'off',
 });
 export const PERFIL_DE_SANDBOX_PADRAO = 'workspace';
 
@@ -170,11 +173,17 @@ export function perfilDeSandbox(sandbox: string | undefined, colaboracao?: 'plan
 /**
  * D2: a linha de comando exata do despacho (usada também pelo `--dry-run`). O prompt fica no argumento 2, que o ledger
  * mascara. Nunca `--yolo`, `--always-approve` nem `--permission-mode`.
+ *
+ * RM-067 (F4, E8): `--trust` confia a pasta do `--cwd`, a worktree da thread, que é o checkout do próprio projeto. O guia
+ * de regras de projeto do `grok` diz que o `AGENTS.md` só carrega na partida com a pasta confiada (`--trust` ou a
+ * concessão interativa, que o headless não tem), e o de permissões diz que a partida headless com instruções do projeto
+ * exige `--trust`. A confiança também liga, nessa pasta, as regras de permissão do projeto e os hooks de projeto que o
+ * `grok` lê; não aprova ferramenta nenhuma.
  */
 export function montarComando(pedido: DespachoGrokPedido): string[] {
   const args = ['-p', pedido.prompt, '--output-format', 'streaming-json'];
   if (pedido.sessionId) args.push('-s', pedido.sessionId);
-  args.push('--cwd', pedido.cwd);
+  args.push('--cwd', pedido.cwd, '--trust');
   if (pedido.model) args.push('-m', pedido.model);
   if (pedido.effort?.trim()) args.push('--effort', esforcoDoGrok(pedido.effort));
   args.push('--sandbox', perfilDeSandbox(pedido.sandbox, pedido.colaboracao), '--no-auto-update');
