@@ -9,6 +9,7 @@
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import './sem-aviso-mocktimers';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { gerarCasos } from './locale-f3c-casos';
