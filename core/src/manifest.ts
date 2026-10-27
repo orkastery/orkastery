@@ -8,7 +8,7 @@ import * as path from 'node:path';
 import { lerYaml, ValorYaml } from './yaml';
 import { ConfigDeEmbedding, ConfigDoAgile, Manifesto, Modo } from './types';
 import { modoAposentado, ORDEM_DOS_MODOS, parseModo, substitutosVivos } from './modos';
-import { ORDEM_DOS_RUNTIMES, RUNTIME_PADRAO, runtimeConhecido, runtimeDeBloco } from './runtimes';
+import { ORDEM_DOS_RUNTIMES, RUNTIME_PADRAO, runtimeConhecido, runtimeDoManifesto } from './runtimes';
 import { SANDBOX_PADRAO, SANDBOXES_DO_CODEX } from './adapters/codex';
 import { validarAbbrev } from './slug';
 import { exec, subirAte } from './util';
@@ -679,13 +679,13 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
   // Runtime de despacho: so os homologados passam. Um typo aqui viraria erro apenas na
   // hora do despacho, com a thread ja aberta; reprovar no manifesto e mais barato.
   const adapterDeRuntime = texto(runtime.adapter, RUNTIME_PADRAO);
-  if (runtimeConhecido(adapterDeRuntime) && !runtimeDeBloco(adapterDeRuntime)) {
-    // RM-067 (D1 da ork-grokbuild): homologado so para despacho explicito, nunca o padrao do projeto.
+  if (runtimeConhecido(adapterDeRuntime) && !runtimeDoManifesto(adapterDeRuntime)) {
+    // RM-067 (F4): runtime de bloco no setup, nunca o padrao do projeto.
     erros.push(
-      `runtime.adapter so por despacho explicito: "${adapterDeRuntime}" entra por ork phase run --runtime ${adapterDeRuntime} ` +
-      `(o padrao aceita: ${ORDEM_DOS_RUNTIMES.join(', ')})`
+      `runtime.adapter fora do padrao do projeto: "${adapterDeRuntime}" entra por ork setup <modo> --bloco N --runtime ` +
+      `${adapterDeRuntime} --model <modelo> ou por ork phase run --runtime ${adapterDeRuntime} (o padrao aceita: ${ORDEM_DOS_RUNTIMES.join(', ')})`
     );
-  } else if (!runtimeDeBloco(adapterDeRuntime)) {
+  } else if (!runtimeDoManifesto(adapterDeRuntime)) {
     erros.push(
       `runtime.adapter desconhecido: "${adapterDeRuntime}" (homologados: ${ORDEM_DOS_RUNTIMES.join(', ')})`
     );

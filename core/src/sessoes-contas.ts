@@ -7,6 +7,10 @@
  * perfil do store, sem repetir diretorio, e cada sessao volta com o id do perfil dela (nunca o
  * diretorio nem nada de dentro dele).
  *
+ * RM-067 (F4): o `grok` entra com a pasta `sessions/` que o proprio runtime grava em cada casa (`GROK_HOME`), lida so
+ * pelos nomes e pelo mtime do `updates.jsonl`. A conta do processo dele so entra quando essa pasta existe: maquina sem o
+ * `grok` nao ganha fonte nova.
+ *
  * Fantasma (D5): sessao claude-bg com estado nao terminal sem pid, ou com pid sem processo. O
  * `claude agents` guarda o registro, mas nao ha quem trabalhe: ela nao ocupa vaga, e
  * `ork sessions limpar-fantasmas` solta o vinculo do `ork` sem tocar no runtime.
@@ -15,8 +19,9 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { ambienteDoPerfil, consultarSessoes } from './adapters/claude-bg';
 import { consultarRollouts } from './adapters/codex';
+import { consultarSessoesGrok } from './adapters/grok';
 import {
-  diretorioImplicito, lerPerfis, perfilDeDespacho, PerfilDeDespacho, RUNTIMES_COM_PERFIL, RuntimeComPerfil,
+  diretorioDoPerfil, diretorioImplicito, lerPerfis, perfilDeDespacho, PerfilDeDespacho, RUNTIMES_COM_INVENTARIO, RuntimeComPerfil,
 } from './runtime-profiles';
 import { SessaoRuntime } from './types';
 
@@ -84,13 +89,21 @@ export function contasDeSessoes(raiz: string | null, env: NodeJS.ProcessEnv = pr
     try {
       for (const p of lerPerfis(raiz).perfis) {
         const d = perfilDeDespacho(p);
-        incluir(d.runtime, d, (d.configDir ?? d.codexHome) as string);
+        if (RUNTIMES_DAS_SESSOES.includes(d.runtime)) incluir(d.runtime, d, diretorioDoPerfil(d));
       }
     } catch (e) { fontes.push({ origem: 'perfis de conta (ork accounts)', ok: false, detalhe: (e as Error).message }); }
   }
-  for (const runtime of RUNTIMES_COM_PERFIL) incluir(runtime, null, diretorioImplicito(runtime, env));
+  for (const runtime of RUNTIMES_COM_INVENTARIO) incluir(runtime, null, diretorioImplicito(runtime, env));
+  const casaGrok = diretorioImplicito('grok', env);
+  if (fs.existsSync(path.join(casaGrok, 'sessions'))) incluir('grok', null, casaGrok);
   return { contas, fontes };
 }
+
+/**
+ * RM-067 (F4): os runtimes cujas sessoes o `ork sessions` lista por conta. O grok entra aqui, e nao em
+ * `RUNTIMES_COM_INVENTARIO`, que tambem diz os runtimes de assinatura do #Noctum (a medicao dele segue sem o grok).
+ */
+export const RUNTIMES_DAS_SESSOES: readonly RuntimeComPerfil[] = [...RUNTIMES_COM_INVENTARIO, 'grok'];
 
 const rotulo = (c: ContaDeSessoes): string => c.perfil ? `perfil ${c.perfil.id}` : 'conta do processo';
 
@@ -125,7 +138,7 @@ export function consultarContas(raiz: string | null, opcoes: { todas?: boolean; 
         const fantasma = ehFantasma('claude-bg', s);
         sessoes.push({ ...s, runtime: 'claude-bg', perfil, fantasma, viva: !fantasma && !TERMINAIS.includes(estadoDe(s)) });
       }
-    } else {
+    } else if (conta.runtime === 'codex') {
       const r = consultarRollouts(opcoes.todas, conta.dir);
       // A conta do processo segue com o caminho de antes; a do perfil vai pelo id, nunca pela pasta.
       fontes.push(...(conta.perfil ? r.resultadosFontes.map(f => ({ ...f,
@@ -133,6 +146,16 @@ export function consultarContas(raiz: string | null, opcoes: { todas?: boolean; 
       for (const s of r.sessoes) {
         const recente = typeof s.atividadeEm === 'number' && agoraMs - s.atividadeEm <= janelaMs;
         sessoes.push({ ...s, runtime: 'codex', perfil, fantasma: false, viva: estadoDe(s) !== 'completed' && recente });
+      }
+    } else if (conta.runtime === 'grok') {
+      // RM-067 (F4): a pasta da sessao que o runtime grava; viva e a escrita recente no updates.jsonl, como no codex.
+      const r = consultarSessoesGrok(conta.dir);
+      const origem = `grok sessions (${rotulo(conta)})`;
+      fontes.push(r.ausente ? { origem, ok: true, ausente: true, detalhe: 'nenhuma sessao grok nesta conta ainda' }
+        : { origem, ok: r.ok, detalhe: r.detalhe });
+      for (const s of r.sessoes) {
+        const recente = typeof s.atividadeEm === 'number' && agoraMs - s.atividadeEm <= janelaMs;
+        sessoes.push({ ...s, runtime: 'grok', perfil, fantasma: false, viva: recente });
       }
     }
   }
@@ -148,9 +171,11 @@ export function consultarContas(raiz: string | null, opcoes: { todas?: boolean; 
 export function estadosNasContas(raiz: string | null, opcoes: { staleMin?: number; agoraMs?: number } = {}): Map<string, string> | null {
   const r = consultarContas(raiz, opcoes);
   const claude = r.fontes.filter(f => f.origem.startsWith('claude agents'));
-  if (claude.length > 0 && !claude.some(f => f.ok) && !r.sessoes.some(s => s.runtime === 'codex')) return null;
+  if (claude.length > 0 && !claude.some(f => f.ok) && !r.sessoes.some(s => s.runtime === 'codex' || s.runtime === 'grok')) return null;
+  // RM-067 (F4): a sessao grok sem escrita recente fica `idle`; o runtime nao grava estado terminal que o ork leia sem o conteudo.
   return new Map(r.sessoes.map(s => [s.sessionId,
-    s.fantasma ? 'fantasma' : s.runtime === 'codex' ? (s.viva ? 'working' : estadoDe(s)) : estadoDe(s)] as const));
+    s.fantasma ? 'fantasma' : s.runtime === 'codex' ? (s.viva ? 'working' : estadoDe(s))
+      : s.runtime === 'grok' ? (s.viva ? 'working' : 'idle') : estadoDe(s)] as const));
 }
 
 /**

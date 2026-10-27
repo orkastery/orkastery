@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-003, FEAT-026, FEAT-027]
 owner: Julio
-atualizado_em: 2026-10-03T06:52:15-03:00
+atualizado_em: 2026-10-27T00:50:00-03:00
 estado:
   ciclo: Piloto
   documentacao: Em revisão
@@ -21,7 +21,7 @@ evidencias:
     pr: null
     fatias: "bab72d2 (PR #28), b491861 (PR #34), 5c064e3 (PR #35)"
   deploy:
-    release: Reservas, visão compartilhada e setup no npm, inclusive nas versões 0.5.0 e 0.5.1; validação do remoto em Não publicado
+    release: Reservas, visão compartilhada e setup no npm desde a 0.4.1; validação do remoto na 0.5.3; baseline sem dependência e worktree da base remota na v0.6.0
 sdlc:
   thread: ork-i52setupporb
   modo: "#Auto"
@@ -79,8 +79,9 @@ sdlc:
 - Fatia 2 na thread `ork-i51fabricaem` (27/09/2026): visão compartilhada provada com dois clones do mesmo remoto, board e resumo do pulse mostrando a outra máquina, e pergunta de outra máquina saindo na hora.
 - Fatia 2 mesclada (PR #34, merge `b491861`) e em uso: a instalação de referência entrou na fábrica, com 13 threads ativas e 25 entregues no primeiro retrato.
 - Fatia 3 mesclada (PR #35) e em produção: o setup que o dono já usava foi versionado em `orkastery.setup.json`, e a worktree de produção passou a aplicá-lo (antes caía no default).
-- As três fatias estão no npm desde a versão 0.4.1 (28/09/2026): o código `10ca416` está na tag (`git merge-base --is-ancestor 10ca416 v0.4.1`). As versões 0.5.0 e 0.5.1 também estão publicadas no npm, conforme confirmação da condução; publicar essas fatias não é uma pendência. A validação do remoto, de 03/10/2026, ainda está em "Não publicado" no [CHANGELOG](../../CHANGELOG.md).
+- As três fatias estão no npm desde a versão 0.4.1 (28/09/2026): o código `10ca416` está na tag (`git merge-base --is-ancestor 10ca416 v0.4.1`). As versões 0.5.0 e 0.5.1 também estão publicadas no npm, conforme confirmação da condução; publicar essas fatias não é uma pendência. A validação do remoto, de 03/10/2026, saiu na versão 0.5.3 do [CHANGELOG](../../CHANGELOG.md).
 - Falta para Geral: as outras máquinas entrarem (`ork fabrica entrar`).
+- Na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026): a baseline recusa dependência ausente na worktree, e a worktree nova sai da base remota atual.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -88,13 +89,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Piloto | — | 2026-10-03 | Julio |
-| Documentação | Em revisão | — | 2026-10-03 | Julio |
-| Código | Mesclado | commit `10ca416` · fatias: bab72d2 (PR #28), b491861 (PR #34), 5c064e3 (PR #35) | 2026-10-03 | Julio |
-| Testes | Aprovados | — | 2026-10-03 | Julio |
-| Deploy | Produção | release: Reservas, visão compartilhada e setup no npm, inclusive nas versões 0.5.0 e 0.5.1; validação do remoto em Não publicado | 2026-10-03 | Julio |
-| Exposição | Parcial | — | 2026-10-03 | Julio |
-| Habilitação | Em andamento | — | 2026-10-03 | Julio |
+| Ciclo do item | Piloto | — | 2026-10-27 | Julio |
+| Documentação | Em revisão | — | 2026-10-27 | Julio |
+| Código | Mesclado | commit `10ca416` · fatias: bab72d2 (PR #28), b491861 (PR #34), 5c064e3 (PR #35) | 2026-10-27 | Julio |
+| Testes | Aprovados | — | 2026-10-27 | Julio |
+| Deploy | Produção | release: Reservas, visão compartilhada e setup no npm desde a 0.4.1; validação do remoto na 0.5.3; baseline sem dependência e worktree da base remota na v0.6.0 | 2026-10-27 | Julio |
+| Exposição | Parcial | — | 2026-10-27 | Julio |
+| Habilitação | Em andamento | — | 2026-10-27 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -117,3 +118,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-03 | o texto deixa de dizer que falta o npm | o código `10ca416` está na `v0.4.1` (`git merge-base --is-ancestor 10ca416 v0.4.1`); thread `ork-b3fatosdoroa`, item B3 | Claude (agente, #Auto) |
 | 2026-10-03 | Auditoria da fronteira de confiança do repositório clonado em `core/src`: git com dado do ledger e do manifesto, `memory.cli`, links em `.orkastery/` e id de rodada corrigidos; matriz e pendentes do dono em `docs/referencia/fronteira-de-confianca.md` | fecha a classe das três threads anteriores no núcleo inteiro; thread `ork-rm047frontei`, teste `fronteira-de-confianca` | claude-maquina-b (#Auto) |
 | 2026-10-03 | Publicação das três fatias concluída; adesão de outras máquinas continua pendente | `bab72d2` (PR #28), `b491861` (PR #34), `5c064e3` (PR #35); versões 0.5.0 (`2418a4e7`, PR #36) e 0.5.1 (`681cb413`) no npm, conforme confirmação da condução | Codex (agente, #Fast), revisão pendente |
+| 2026-10-27 | Baseline sem dependência e worktree da base remota em produção na 0.6.0; o texto deixa de dizer que a validação do remoto está em "Não publicado", porque ela saiu na 0.5.3 | Tag `v0.6.0`, com o merge `84f5fa15` na tag; seções 0.6.0 e 0.5.3 do CHANGELOG | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |

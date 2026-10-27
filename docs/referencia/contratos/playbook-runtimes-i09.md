@@ -30,6 +30,39 @@ comum, com as ferramentas de arquivo negadas e o artefato gravado pelo núcleo; 
 que termina sem `docs/plan.md` novo vira `gate_blocked` `artifact.missing`. O arquivo do
 agente `ork-plan` não mudou.
 
+### Grok Build (`grok`), RM-067 (27/10/2026)
+
+O `grok` não entra na matriz acima: a matriz de capacidades (`core/src/playbook-capabilities.ts`) só ganha um runtime
+com o ensaio real da homologação, que é a F5 da [RM-067](../../roadmap/RM-067-grok-build-homologado.md). O que vale
+desde a F4 e a F4b:
+
+| Capacidade | O que o `ork` faz com o `grok` |
+| --- | --- |
+| Despacho | `grok -p` headless com `--output-format streaming-json`, pedido por `ork phase run --runtime grok --model <modelo>` ou pelo setup do bloco; nunca o `runtime.adapter` do projeto |
+| Setup e fallback | runtime de bloco e entrada `grok:<modelo>[:esforço]` do fallback, sempre com o modelo do dono (não há modelo padrão); o esforço vai ao `--effort` com o mesmo nome, e o `eco` vira `minimal`; o nível que o modelo não anuncia é recusado pelo próprio `grok` |
+| Sandbox | `workspace` é o piso; `read-only` com `runtime.sandbox: read-only` e no PLAN que fecha o bloco; `danger-full-access` vira `off` só com `ork setup sandbox confirmar`, senão `runtime.sandbox-nao-confirmado`; nunca `--yolo`, `--always-approve` nem `--permission-mode` |
+| Instruções do projeto | `--trust` na pasta do `--cwd` (a worktree da thread), para o `AGENTS.md` carregar na partida headless |
+| Conta | perfis de `ork accounts add --runtime grok`, cada um com o seu `GROK_HOME`; login do próprio CLI (`grok login` ou `grok login --device-auth`), pela assinatura (D1 = b do dono); o filho roda sem `XAI_API_KEY`, e o `ork` nunca lê nem copia o `auth.json` |
+| Retry | a troca de perfil dentro do `grok` vale também num projeto com o MCP do `ork`; como alvo de fallback de quem tem o MCP, ele fica fora, porque o sandbox dele não deixa o MCP gravar no piso `workspace` (F4b); a escada automática segue sem trocar a conta dele |
+| MCP do `ork` | desde a F4b, `ork mcp install --host grok` grava a entrada no `.grok/config.toml` do projeto; o despacho grava na worktree, fora do git, a config com o servidor vinculado à thread e ao despacho, que só lista as ferramentas do perfil filho, e o comando leva um `--allow MCPTool(orkastery__<ferramenta>)` por ferramenta, as que o `--allowedTools` do `claude-bg` libera; o filho roda com `GROK_CLAUDE_MCPS_ENABLED=0` e `GROK_CURSOR_MCPS_ENABLED=0` |
+| Inventário | `ork sessions` lê a pasta `sessions/` de cada `GROK_HOME`, só pelos nomes e pelo mtime do `updates.jsonl` |
+
+Lacunas que seguem abertas:
+
+- **Cota esgotada:** o formato do erro de cota do `grok` não está confirmado. Nenhum texto do `grok` vira
+  `runtime.quota-exhausted`, e a escada de recuperação nunca troca a conta dele (`cota-sem-sinal-tipado`) até o
+  ensaio real (F5) ler o formato estruturado.
+- **Conferência de login:** o `grok` não documenta um comando de status do login; o perfil entra no rodízio sem
+  conferência prévia, e o erro de login do despacho o tira (`runtime.auth-missing`).
+- **Sandbox e MCP:** o sandbox do `grok` vale para o processo inteiro e os filhos, e o servidor MCP do `ork` é filho
+  dele: com `workspace` ou `read-only`, o servidor lê o estado, mas não grava o ledger, os artefatos nem o git da
+  worktree, que ficam fora dela. Só o perfil `off` (a postura `danger-full-access` confirmada) deixa as mutações
+  gravarem, até o ensaio real (F5) ou um MCP do `ork` fora do sandbox.
+- **`.mcp.json` do projeto:** a fonte oficial não dá variável que o desligue. O `orkastery` da config da worktree vence
+  pelo nome, nenhuma ferramenta de outro servidor entra no `--allow`, e o ensaio real confirma se o headless recusa a
+  ferramenta fora dele.
+- **Medição:** o #Noctum ainda não mede o consumo do `grok`.
+
 ## Instruções persistentes
 
 `ork init` cria ou atualiza somente o trecho entre `<!-- orkastery:begin -->` e

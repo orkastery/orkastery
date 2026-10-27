@@ -1,6 +1,7 @@
 /**
- * RM-067 (F1 da ork-grokbuild): runtime `grok`, o Grok Build headless da xAI, homologado só para despacho explícito
- * (`ork phase run --runtime grok`): nunca padrão de bloco nem alvo de fallback nesta versão (D1).
+ * RM-067 (F1 da ork-grokbuild): runtime `grok`, o Grok Build headless da xAI. Nasceu só para despacho explícito
+ * (`ork phase run --runtime grok`, D1); desde a F4, é runtime de bloco no setup, nunca o padrão do projeto, e desde a F4b
+ * leva o MCP do `ork` pela config que o despacho grava na worktree (`gravarConfigDaWorktree`).
  *
  * O despacho roda `grok -p <prompt> --output-format streaming-json -s <id>` desanexado, pelo supervisor do `codex-runner`
  * (D6): o log do stream, o `.process.json` com a identidade do filho e o `.exit.json` com o código e o sinal do `close`
@@ -13,12 +14,17 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { parse } from 'smol-toml';
 import { ambienteDeAssinatura, ENVS_DE_PROVIDER_PAGO } from '../runtime-ambiente';
-import { PerfilDeDespacho } from '../runtime-profiles';
+import { ContextoRuntime, ServidorDoFilhoGrok, validarContextoDoGrok } from '../runtime-context';
+import { ambienteComPerfil, PerfilDeDespacho } from '../runtime-profiles';
+import { SessaoRuntime } from '../types';
 import { exec as executar, noPath } from '../util';
-import { DespachoResultado, parseFalhaDeConta, parseRateLimit } from './claude-bg';
+import { CONSULTAS_MCP, DespachoResultado, MUTACOES_WORKTREE, parseRateLimit, StatusDeAuth } from './claude-bg';
 import { estadoProcesso, iniciarSupervisor, ProcessoCodex, ReciboCodex } from './codex-runner';
-import { falhaDoErroGrok, lerStreamGrok, redigirTextoGrok } from './grok-events';
+import { falhaDeContaDoTextoGrok, falhaDoErroGrok, lerStreamGrok, redigirTextoGrok } from './grok-events';
+import { TOOLS_DO_GRAFO } from '../mcp-grafo';
+import type { PermissoesFilhoMcp } from '../mcp-install';
 
 export const NOME_ADAPTER = 'grok';
 
@@ -26,22 +32,77 @@ export const NOME_ADAPTER = 'grok';
 export const FONTE_VERIFICACAO = 'pasta da sessao em $GROK_HOME/sessions';
 
 /**
- * D4: o ambiente do filho é o da assinatura, sem as variáveis de provider pago e sem `XAI_API_KEY`, até a D1 do dono
- * decidir o modo de autenticação (F3). Tirar a variável do ambiente do filho não lê nem copia a credencial.
+ * D4: o ambiente do filho é o da assinatura, sem as variáveis de provider pago e sem `XAI_API_KEY`. A D1 da RM-067 foi
+ * decidida pelo dono em 27/10/2026 pela alternativa b (a assinatura agora): o filho autentica pelo login que o próprio
+ * `grok` guardou no `GROK_HOME` do perfil, nunca pela chave. Tirar a variável do ambiente não lê nem copia a credencial.
  */
 export const ENVS_REMOVIDAS_DO_DESPACHO = [...ENVS_DE_PROVIDER_PAGO, 'XAI_API_KEY'] as const;
 
 /**
- * D3: a postura de sandbox do manifesto (vocabulário do Codex) no perfil do `grok` (`--sandbox`). `workspace` é o piso
- * (E7 da RM-067): o `danger-full-access` existe pelo bubblewrap do Codex, e o `grok` usa Landlock. `off` e `strict`
- * ficam para a F4, com a confirmação local da máquina.
+ * RM-067 (F4b, G4 e D5): o filho do `grok` nunca carrega o MCP de outros clientes. Por padrão, o `grok` lê a config de MCP
+ * do Claude e a do Cursor (G16); as duas variáveis desligam essa leitura (`false` ou `0`, G5), com ou sem o MCP do `ork`.
+ */
+export const AMBIENTE_SEM_MCP_DE_OUTROS_CLIENTES: Readonly<Record<string, string>> = Object.freeze({
+  GROK_CLAUDE_MCPS_ENABLED: '0', GROK_CURSOR_MCPS_ENABLED: '0',
+});
+
+/**
+ * D3 e F4 (E7 da RM-067): a postura de sandbox do manifesto (vocabulário do Codex) no perfil do `grok` (`--sandbox`).
+ * `workspace` é o piso, o perfil de toda postura que não afrouxa (o `grok` usa Landlock, não o bubblewrap do Codex). A
+ * postura mais frouxa (`danger-full-access`) vira `off`, sem sandbox, e só despacha com `ork setup sandbox confirmar`
+ * nesta máquina: sem a confirmação, o `ork phase run` e o `ork retry` recusam com `runtime.sandbox-nao-confirmado`
+ * (`postura-local.ts`) antes de montar o comando. O `strict` do `grok` não tem postura do Orkastery que o peça. Nenhuma
+ * postura aprova tudo: nunca `--yolo`, `--always-approve` nem `--permission-mode bypassPermissions`.
  */
 export const PERFIL_DE_SANDBOX_DO_GROK: Readonly<Record<string, string>> = Object.freeze({
   'read-only': 'read-only',
   'workspace-write': 'workspace',
-  'danger-full-access': 'workspace',
+  'danger-full-access': 'off',
 });
 export const PERFIL_DE_SANDBOX_PADRAO = 'workspace';
+
+/**
+ * RM-067 (F4, E6): o esforço do Orkastery nos níveis canônicos do `grok` (`none`, `minimal`, `low`, `medium`, `high`,
+ * `xhigh`, `max`, no guia headless). O `eco` vira `minimal`, para a escada de esforço (`eco` antes de `low`) seguir com
+ * degraus distintos; os outros cinco têm o mesmo nome. Cada modelo só aceita os níveis que o próprio menu anuncia, e esse
+ * menu só o runtime conhece (`grok models`): o nível que o modelo não anuncia é recusado pelo próprio `grok` no despacho.
+ * Valor fora da tabela vai como veio, porque o `grok` também aceita o id de uma opção do menu do modelo.
+ */
+export const ESFORCO_DO_GROK: Readonly<Record<string, string>> = Object.freeze({
+  eco: 'minimal', low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', max: 'max',
+});
+
+/** O nível do `--effort` do `grok` para o esforço do Orkastery (E6). */
+export function esforcoDoGrok(effort: string): string {
+  const chave = effort.trim().toLowerCase();
+  return Object.hasOwn(ESFORCO_DO_GROK, chave) ? ESFORCO_DO_GROK[chave] : effort.trim();
+}
+
+/** O prefixo das ferramentas do servidor `orkastery` no `--allowedTools` do `claude-bg`. */
+const PREFIXO_DO_CLAUDE = 'mcp__orkastery__';
+
+/**
+ * RM-067 (F4b, G2 e D1): as ferramentas do MCP do `ork` que um despacho do `grok` libera, as mesmas do `--allowedTools` do
+ * `claude-bg` no mesmo caso, sem o prefixo: no PLAN que fecha o bloco, as consultas, `ork_artifact_write` e
+ * `ork_decision_record`, em qualquer perfil; fora dele, as consultas e, no perfil `worktree`, `ork_git_status` e as seis
+ * mutações. As consultas do grafo entram com a flag do manifesto da raiz. Montada na chamada, como no `claude-bg`: no
+ * ciclo de imports, o valor importado pode ainda não existir quando este módulo carrega.
+ */
+export function ferramentasDoGrok(perfil: PermissoesFilhoMcp, plano: boolean, grafo: boolean): string[] {
+  const semPrefixo = (nomes: readonly string[]) => nomes.map((n) => n.slice(PREFIXO_DO_CLAUDE.length));
+  const consultas = [...semPrefixo(CONSULTAS_MCP), ...(grafo ? TOOLS_DO_GRAFO : [])];
+  if (plano) return [...consultas, 'ork_artifact_write', 'ork_decision_record'];
+  return perfil === 'worktree' ? [...consultas, 'ork_git_status', ...semPrefixo(MUTACOES_WORKTREE)] : consultas;
+}
+
+/**
+ * RM-067 (F4b, G1): o que o servidor `--host grok` lista, para o perfil filho da instalação: a união dos dois casos de
+ * `ferramentasDoGrok` (o PLAN e o resto do bloco). O headless não aprova ferramenta em diálogo, então o servidor não lista
+ * nada que o `--allow` de algum despacho desse perfil não libere.
+ */
+export function ferramentasServidasAoGrok(perfil: PermissoesFilhoMcp, grafo: boolean): string[] {
+  return [...new Set([...ferramentasDoGrok(perfil, false, grafo), ...ferramentasDoGrok(perfil, true, grafo)])];
+}
 
 /** D6: quanto o despacho espera a pasta da sessão ou o recibo do supervisor. */
 export const ESPERA_PADRAO_MS = 60_000;
@@ -71,10 +132,14 @@ export interface DespachoGrokPedido {
   sessionId?: string;
   /** Espera máxima pela prova de existência, em ms (padrão `ESPERA_PADRAO_MS`). */
   esperaMs?: number;
-  /** Perfis de conta do `grok` são da F3: pedido com perfil recusa. */
+  /** RM-067 (F3): o perfil de conta do despacho (`grokHome`); ausente, vale o `GROK_HOME` do processo. */
   perfil?: PerfilDeDespacho;
   /** I-36 (D4): identidade, thread e canal do despacho no ambiente da sessão filha. */
   ambienteExtra?: Record<string, string>;
+  /** RM-067 (F4b): o contexto do MCP do projeto preparado; sem ele, o despacho fica como num projeto sem entrada MCP. */
+  contextoRuntime?: ContextoRuntime;
+  /** A thread do despacho, que o contexto tem de repetir. */
+  vinculo?: { thread: string };
 }
 
 export interface DespachoGrokResultado extends DespachoResultado {
@@ -90,11 +155,38 @@ export function ambienteDoDespacho(base: NodeJS.ProcessEnv = process.env): NodeJ
   return env;
 }
 
-/** O ambiente do filho: o do despacho com o contexto da condução por cima. Perfil recusa até a F3. */
+/**
+ * O ambiente do filho: o do despacho, com o `GROK_HOME` do perfil (F3) e o contexto da condução por cima. Perfil de outro
+ * runtime, ou sem `grokHome`, recusa: cair para a casa do processo seria despachar pela conta errada. RM-067 (F4b): as
+ * duas variáveis que desligam o MCP de outros clientes vão por último, para nada as desfazer.
+ */
 export function ambienteDoFilho(pedido: Pick<DespachoGrokPedido, 'perfil' | 'ambienteExtra'>,
     base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  if (pedido.perfil) throw new Error('runtime.profiles.invalid: o grok ainda nao tem perfil de conta (F3 da RM-067)');
-  return { ...ambienteDoDespacho(base), ...(pedido.ambienteExtra ?? {}) };
+  if (pedido.perfil && (pedido.perfil.runtime !== 'grok' || !pedido.perfil.grokHome))
+    throw new Error('runtime.profiles.invalid: perfil sem grokHome no despacho grok');
+  return { ...ambienteComPerfil(ambienteDoDespacho(base), pedido.perfil), ...(pedido.ambienteExtra ?? {}),
+    ...AMBIENTE_SEM_MCP_DE_OUTROS_CLIENTES };
+}
+
+/**
+ * RM-067 (F3): o login do perfil é sempre do próprio CLI, com o `GROK_HOME` do perfil: `grok login` pelo navegador ou
+ * `grok login --device-auth` pelo código de dispositivo (G3, G4 da página). O `ork` nunca abre o `auth.json` que o
+ * `grok` grava.
+ */
+export function comandoDeLogin(codigoDeDispositivo = false): string[] {
+  return ['grok', 'login', ...(codigoDeDispositivo ? ['--device-auth'] : [])];
+}
+
+/**
+ * RM-067 (F3): a conferência de login do perfil. O `grok` não documenta um comando de status do login (fontes da página),
+ * e o `ork` nunca lê o `auth.json`: a conferência fica sem medida (`semConferencia`), o perfil segue no rodízio e quem
+ * prova o login é o próprio despacho, cujo erro de login do runtime vira `runtime.auth-missing` e tira o perfil.
+ */
+export function conferirAuth(perfil?: PerfilDeDespacho | null): StatusDeAuth {
+  try { ambienteDoFilho({ perfil: perfil ?? undefined }); }
+  catch (e) { return { ok: false, detalhe: (e as Error).message }; }
+  return { ok: true, semConferencia: true,
+    detalhe: 'o grok nao documenta conferencia de login; o despacho prova o login (erro de login do runtime vira runtime.auth-missing)' };
 }
 
 /** O runtime está disponível? No PATH do ambiente informado (o do filho, no despacho). */
@@ -124,18 +216,144 @@ export function perfilDeSandbox(sandbox: string | undefined, colaboracao?: 'plan
   return PERFIL_DE_SANDBOX_DO_GROK[sandbox];
 }
 
+/** RM-067 (F4b): o contexto do MCP já validado no receptor do despacho. */
+type ContextoDoGrok = ReturnType<typeof validarContextoDoGrok>;
+
+/** O contexto do MCP do despacho, revalidado aqui como nos outros adaptadores; sem ele, `null`. */
+function contextoDoDespacho(pedido: DespachoGrokPedido): ContextoDoGrok | null {
+  if (!pedido.contextoRuntime) return null;
+  if (pedido.vinculo && pedido.contextoRuntime.threadId !== pedido.vinculo.thread)
+    throw new Error('runtime.context.scope: thread do contexto difere do despacho');
+  return validarContextoDoGrok(pedido.contextoRuntime, pedido.cwd);
+}
+
+function comandoDoDespacho(pedido: DespachoGrokPedido, contexto: ContextoDoGrok | null): string[] {
+  const args = ['-p', pedido.prompt, '--output-format', 'streaming-json'];
+  if (pedido.sessionId) args.push('-s', pedido.sessionId);
+  args.push('--cwd', pedido.cwd, '--trust');
+  if (pedido.model) args.push('-m', pedido.model);
+  if (pedido.effort?.trim()) args.push('--effort', esforcoDoGrok(pedido.effort));
+  args.push('--sandbox', perfilDeSandbox(pedido.sandbox, pedido.colaboracao), '--no-auto-update');
+  // RM-067 (F4b, G2): com o MCP do ork, uma regra por ferramenta liberada, no fim, para o despacho sem contexto ficar igual
+  // e a retomada (que guarda o que vem depois do `-s`) levar as mesmas regras.
+  if (contexto) {
+    for (const ferramenta of ferramentasDoGrok(contexto.permissoesFilho, pedido.colaboracao === 'plan', contexto.grafoMcp))
+      args.push('--allow', `MCPTool(orkastery__${ferramenta})`);
+  }
+  return ['grok', ...args];
+}
+
 /**
  * D2: a linha de comando exata do despacho (usada também pelo `--dry-run`). O prompt fica no argumento 2, que o ledger
  * mascara. Nunca `--yolo`, `--always-approve` nem `--permission-mode`.
+ *
+ * RM-067 (F4, E8): `--trust` confia a pasta do `--cwd`, a worktree da thread, que é o checkout do próprio projeto. O guia
+ * de regras de projeto do `grok` diz que o `AGENTS.md` só carrega na partida com a pasta confiada (`--trust` ou a
+ * concessão interativa, que o headless não tem), e o de permissões diz que a partida headless com instruções do projeto
+ * exige `--trust`. A confiança também liga, nessa pasta, as regras de permissão do projeto e os hooks de projeto que o
+ * `grok` lê; não aprova ferramenta nenhuma.
+ *
+ * RM-067 (F4b, G2): num projeto preparado, o comando leva no fim um `--allow MCPTool(orkastery__<ferramenta>)` por
+ * ferramenta do MCP do `ork` que o caso libera (`ferramentasDoGrok`), e nenhuma outra regra.
  */
 export function montarComando(pedido: DespachoGrokPedido): string[] {
-  const args = ['-p', pedido.prompt, '--output-format', 'streaming-json'];
-  if (pedido.sessionId) args.push('-s', pedido.sessionId);
-  args.push('--cwd', pedido.cwd);
-  if (pedido.model) args.push('-m', pedido.model);
-  if (pedido.effort) args.push('--effort', pedido.effort);
-  args.push('--sandbox', perfilDeSandbox(pedido.sandbox, pedido.colaboracao), '--no-auto-update');
-  return ['grok', ...args];
+  return comandoDoDespacho(pedido, contextoDoDespacho(pedido));
+}
+
+/** RM-067 (F4b, G3): a primeira linha da config que o `ork` grava na worktree; sem ela, o arquivo não é do `ork`. */
+export const MARCA_DA_CONFIG_DO_FILHO = '# Gerado pelo ork para a sessao filha do grok; o ork reescreve este arquivo a cada despacho.';
+/**
+ * RM-067 (F4b, GO-FIX A2): o `.gitignore` da pasta `.grok` só esconde o que o `ork` grava nela, pelo nome. Regra ou arquivo
+ * novo que a sessão deixe em `.grok/` (o `grok` lê `.grok/rules/` na partida) segue visível ao git e à prova do GO.
+ */
+export const IGNORADOS_DA_CONFIG_DO_FILHO = '/config.toml\n/.gitignore\n/.ork-*.tmp\n';
+const LIMITE_DA_CONFIG_BYTES = 65536;
+
+/**
+ * RM-067 (F4b, G3 e G7): o `.grok/config.toml` da worktree, com o servidor do `ork` vinculado à thread e ao despacho. O
+ * `grok` expande `${VAR}` em `command`, `args` e `env` (G16): valor com `$` recusa, porque o servidor que subiria seria
+ * outro. O texto volta pelo parser de TOML e o documento inteiro tem de ser exatamente o servidor pedido (GO-FIX S2).
+ */
+export function configDoFilho(servidor: ServidorDoFilhoGrok, threadId: string): string {
+  const env = Object.entries(servidor.env ?? {});
+  const campos: [string, string][] = [['command', servidor.command],
+    ...servidor.args.map((a, i): [string, string] => [`args[${i}]`, a]), ...env.map(([k, v]): [string, string] => [`env.${k}`, v])];
+  const comCifrao = campos.find(([, valor]) => valor.includes('$'));
+  if (comCifrao) throw new Error(`runtime.context.conflict: ${comCifrao[0]} do servidor do ork tem $, que o grok expandiria; use um caminho sem $`);
+  const texto = [MARCA_DA_CONFIG_DO_FILHO, `# thread ${threadId}`, '[mcp_servers.orkastery]',
+    `command = ${JSON.stringify(servidor.command)}`, `args = ${JSON.stringify(servidor.args)}`,
+    ...(env.length ? [`env = { ${env.map(([k, v]) => `${k} = ${JSON.stringify(v)}`).join(', ')} }`] : [])].join('\n') + '\n';
+  let lido: string;
+  try { lido = JSON.stringify(parse(texto)); }
+  catch { throw new Error('runtime.context.conflict: a config do servidor do ork nao sai como TOML valido'); }
+  const esperado = JSON.stringify({ mcp_servers: { orkastery: { command: servidor.command, args: servidor.args,
+    ...(env.length ? { env: servidor.env } : {}) } } });
+  if (lido !== esperado) throw new Error('runtime.context.conflict: a config do servidor do ork nao volta igual pelo TOML');
+  return texto;
+}
+
+/** O texto de um arquivo comum e pequeno, sem seguir link; ausente vira `null`, e o resto recusa. */
+function textoDaWorktree(arquivo: string): string | null {
+  let fd: number;
+  try { fd = fs.openSync(arquivo, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK); }
+  catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw new Error(`runtime.context.conflict: .grok/${path.basename(arquivo)} da worktree e link ou ilegivel; o ork nao escreve por cima`);
+  }
+  try {
+    const st = fs.fstatSync(fd);
+    if (!st.isFile() || st.size > LIMITE_DA_CONFIG_BYTES)
+      throw new Error(`runtime.context.conflict: .grok/${path.basename(arquivo)} da worktree nao e arquivo comum pequeno`);
+    return fs.readFileSync(fd, 'utf8');
+  } finally { fs.closeSync(fd); }
+}
+
+/** Grava um arquivo pequeno por temporário e `rename`, na mesma pasta. */
+function gravarNaWorktree(arquivo: string, texto: string): void {
+  const temp = path.join(path.dirname(arquivo), `.ork-${randomUUID()}.tmp`);
+  try { fs.writeFileSync(temp, texto, { flag: 'wx', mode: 0o600 }); fs.renameSync(temp, arquivo); }
+  finally { fs.rmSync(temp, { force: true }); }
+}
+
+/**
+ * RM-067 (F4b, G3 e D3): grava a config da sessão filha na worktree, fora do git e sem apagar arquivo de ninguém. Recusa
+ * antes de escrever: `.grok` que é link ou não é pasta, `config.toml` ou `.gitignore` versionados, link no lugar de
+ * arquivo e config sem a marca do `ork`. O `.gitignore` com os nomes dos arquivos do `ork` só nasce quando falta (nunca
+ * reescreve o de outro), e o `git status` dos dois arquivos tem de sair vazio depois; se não sair, desfaz o que gravou e
+ * recusa.
+ */
+export function gravarConfigDaWorktree(cwd: string, texto: string): void {
+  const pasta = path.join(cwd, '.grok'), arquivo = path.join(pasta, 'config.toml'), ignorar = path.join(pasta, '.gitignore');
+  const st = fs.lstatSync(pasta, { throwIfNoEntry: false });
+  if (st && (st.isSymbolicLink() || !st.isDirectory()))
+    throw new Error('runtime.context.worktree: .grok da worktree e link ou nao e pasta; o ork nao grava a config da sessao por ele');
+  const git = (args: string[]): string => {
+    const r = executar('git', args, cwd, 30000);
+    if (!r.ok) throw new Error(`runtime.context.conflict: git ${args[0]} da worktree falhou`);
+    return r.stdout.trim();
+  };
+  const versionados = git(['ls-files', '--', '.grok/config.toml', '.grok/.gitignore']);
+  if (versionados) {
+    throw new Error(`runtime.context.conflict: ${versionados.split('\n').join(', ')} versionado na worktree; ` +
+      'o ork grava o servidor da sessao num arquivo fora do git');
+  }
+  const anterior = textoDaWorktree(arquivo);
+  if (anterior !== null && !anterior.startsWith(`${MARCA_DA_CONFIG_DO_FILHO}\n`))
+    throw new Error('runtime.context.conflict: .grok/config.toml da worktree nao e do ork; mova o arquivo para o ork gravar o servidor da sessao');
+  const ignorarAntes = textoDaWorktree(ignorar);
+  if (!st) fs.mkdirSync(pasta, { mode: 0o700 });
+  try {
+    if (ignorarAntes === null) gravarNaWorktree(ignorar, IGNORADOS_DA_CONFIG_DO_FILHO);
+    gravarNaWorktree(arquivo, texto);
+    if (git(['status', '--porcelain', '--untracked-files=all', '--', '.grok/config.toml', '.grok/.gitignore']))
+      throw new Error('runtime.context.conflict: a config da sessao ficaria visivel ao git na worktree; confira o .gitignore de .grok');
+  } catch (e) {
+    // Desfaz só o que este despacho gravou: a config anterior do ork volta, e o que nasceu agora sai.
+    if (anterior !== null) gravarNaWorktree(arquivo, anterior); else fs.rmSync(arquivo, { force: true });
+    if (ignorarAntes === null) fs.rmSync(ignorar, { force: true });
+    if (!st) { try { fs.rmdirSync(pasta); } catch { /* sobrou arquivo que não é deste despacho */ } }
+    throw e;
+  }
 }
 
 /**
@@ -179,6 +397,54 @@ export function acharSessaoGrok(sessionId: string, casa: string = casaDoGrok()):
     } catch { /* o grupo não tem a sessão */ }
   }
   return achadas.length === 1 ? achadas[0] : null;
+}
+
+/** RM-067 (F4): o que o inventário leu de uma conta do `grok`. */
+export interface ConsultaDeSessoesGrok {
+  ok: boolean;
+  /** A pasta `sessions/` da casa ainda não existe: a conta nunca abriu sessão nesta máquina. */
+  ausente: boolean;
+  sessoes: SessaoRuntime[];
+  detalhe: string;
+}
+
+/**
+ * RM-067 (F4): as sessões de uma casa do `grok` para o inventário (`ork sessions`), pela fonte que o próprio runtime grava:
+ * cada pasta `<casa>/sessions/<grupo>/<id>/` com o `updates.jsonl`. Como na prova de existência (D5), o `ork` lista nomes
+ * e lê o mtime e o tamanho do arquivo, nunca o conteúdo; a atividade é o mtime. O grupo é o cwd codificado, cuja
+ * codificação o guia não documenta, então o cwd da sessão fica sem valor. Link e entrada estranha deixam a consulta
+ * parcial (`ok: false`), nunca "zero sessões".
+ */
+export function consultarSessoesGrok(casa: string = casaDoGrok()): ConsultaDeSessoesGrok {
+  const raiz = path.join(casa, 'sessions');
+  let grupos: fs.Dirent[];
+  try {
+    const st = fs.lstatSync(raiz);
+    if (!st.isDirectory()) return { ok: false, ausente: false, sessoes: [], detalhe: 'sessions nao e pasta comum' };
+    grupos = fs.readdirSync(raiz, { withFileTypes: true });
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return { ok: true, ausente: true, sessoes: [], detalhe: 'sem a pasta sessions' };
+    return { ok: false, ausente: false, sessoes: [], detalhe: 'pasta sessions inacessivel' };
+  }
+  const sessoes: SessaoRuntime[] = [];
+  let parcial = false;
+  for (const grupo of grupos) {
+    if (!grupo.isDirectory()) { parcial ||= grupo.isSymbolicLink(); continue; }
+    let ids: fs.Dirent[];
+    try { ids = fs.readdirSync(path.join(raiz, grupo.name), { withFileTypes: true }); }
+    catch { parcial = true; continue; }
+    for (const id of ids) {
+      if (!ID_DE_SESSAO.test(id.name)) continue;
+      if (!id.isDirectory()) { parcial ||= id.isSymbolicLink(); continue; }
+      try {
+        const st = fs.lstatSync(path.join(raiz, grupo.name, id.name, 'updates.jsonl'));
+        if (st.isFile()) sessoes.push({ sessionId: id.name, kind: 'grok', atividadeEm: st.mtimeMs });
+        else parcial = true;
+      } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') parcial = true; }
+    }
+  }
+  return { ok: !parcial, ausente: false, sessoes,
+    detalhe: parcial ? 'inventario parcial; a pasta sessions tem link ou entrada ilegivel' : '' };
 }
 
 /** JSON pequeno de metadado do supervisor, sem seguir link; ausente ou ilegível vira `null`. */
@@ -241,13 +507,21 @@ export function despachar(pedido: DespachoGrokPedido): DespachoGrokResultado {
     ({ ok: false, comando: [], sessionId: null, verificada: false, stdout: '', stderr: '', erro, ...extra });
   let comando: string[];
   let ambiente: NodeJS.ProcessEnv;
-  try { comando = montarComando({ ...pedido, sessionId }); ambiente = ambienteDoFilho(pedido); }
+  let contexto: ContextoDoGrok | null;
+  try { contexto = contextoDoDespacho(pedido); }
+  catch (e) { return falha(`runtime.unavailable: ${(e as Error).message}`); }
+  try { comando = comandoDoDespacho({ ...pedido, sessionId }, contexto); ambiente = ambienteDoFilho(pedido); }
   catch (e) { return falha((e as Error).message); }
   if (pedido.dryRun) return { ok: true, comando, sessionId: null, verificada: false, stdout: '', stderr: '' };
   if (!disponivel(ambiente)) return falha('runtime.unavailable: binario grok nao encontrado no PATH', { comando });
   // O log nunca vai para a worktree: a prova do GO exige a worktree limpa.
   if (!pedido.logDir || !path.isAbsolute(pedido.logDir)) {
     return falha('runtime.unavailable: despacho grok sem o diretorio de logs da thread', { comando });
+  }
+  // RM-067 (F4b, G3): a config do MCP vai à worktree antes do supervisor; o grok a lê na partida, com a pasta confiada.
+  if (contexto) {
+    try { gravarConfigDaWorktree(pedido.cwd, configDoFilho(contexto.servidor, contexto.threadId)); }
+    catch (e) { return falha(`runtime.unavailable: ${(e as Error).message}`, { comando }); }
   }
   const logPath = path.join(pedido.logDir, `${sessionId}.grok.jsonl`);
   let sensores: { processoPath: string; reciboPath: string };
@@ -283,7 +557,7 @@ function falhaAntesDaSessao(recibo: ReciboCodex, sessionId: string,
   const cauda = caudaDoStderr(`${base.logPath}.stderr`);
   const mensagem = estado?.erro?.mensagem ?? '';
   const texto = [mensagem, cauda].filter(Boolean).join('\n');
-  const falhaDeConta = falhaDoErroGrok(estado?.erro ?? null) ?? (cauda ? parseFalhaDeConta(cauda) : null);
+  const falhaDeConta = falhaDoErroGrok(estado?.erro ?? null) ?? (cauda ? falhaDeContaDoTextoGrok(cauda) : null);
   const rateLimit = falhaDeConta ? null : parseRateLimit(texto);
   // Ao ledger vai o fim da cauda, onde o erro mora; quem grava corta pelo começo.
   const stderr = fimDoTexto(cauda, LIMITE_STDERR_NO_RESULTADO);

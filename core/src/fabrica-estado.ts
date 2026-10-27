@@ -30,7 +30,7 @@ import { tagDoModo } from './modos';
 import { montarMonitor } from './orquestracao';
 import { esperaDoCondutor } from './parado-no-condutor';
 import { quemSouEu, reservasLocais } from './roadmap-reservas';
-import { dirThread } from './thread';
+import { dirThread, lerThread, listarIds } from './thread';
 import { Thread } from './types';
 import { agora as agoraIso } from './util';
 import { VERSAO_DO_ORK } from './versao';
@@ -38,6 +38,8 @@ import { valoresEmUmaLinha } from './saida-segura';
 import { LeituraDoRuntime, lerRuntime, paradaDesde, vidaDaThread, vidaDoRetrato } from './vida-da-thread';
 import { EventoLedger } from './types';
 import { msg } from './locale';
+import { branchRegistradaDaEntrega, mergesDasEntregasNaBase } from './merge-da-entrega';
+import { branchDaWorktree } from './worktree';
 
 export const CONTRATO_MAQUINA = 'ork.fabrica-maquina/v1' as const;
 export const BRANCH_DA_FABRICA = 'ork/fabrica-estado';
@@ -143,8 +145,8 @@ export function arquivoDaMaquina(maquina: string): string {
 }
 
 /**
- * As entregas que ja estao na base: `ship(<thread>): ...` e o assunto do merge que o fluxo de
- * entrega usa, o mesmo fato que o `ork docs sincronizar` le. Um `git log` so, para todas.
+ * As entregas que ja estao na base, pelo mesmo reconhecedor do registro do PR e da paridade de docs.
+ * Um `git log` so, para todas as threads deste checkout.
  */
 export function entregasNaBase(raiz: string, base: string, remoto = 'origin'): Map<string, string> {
   // A base vem do manifesto: a ref vai sempre qualificada (`refs/...`), e um valor como
@@ -152,14 +154,17 @@ export function entregasNaBase(raiz: string, base: string, remoto = 'origin'): M
   // Na ordem: a copia remota da base, a branch local, e a base escrita como remota (`origin/main`).
   const candidatas = [`refs/remotes/${remoto}/${base}`, `refs/heads/${base}`, `refs/remotes/${base}`];
   const ref = candidatas.find((c) => git(raiz, ['rev-parse', '--verify', '--quiet', c]).ok) ?? candidatas[1];
-  // Regex basica do git: o `(` e literal.
-  const r = git(raiz, ['log', ref, '--format=%h%x09%s', '--grep=^ship(']);
   const entregas = new Map<string, string>();
-  if (!r.ok) return entregas;
-  for (const linha of r.stdout.split('\n')) {
-    const m = /^([0-9a-f]+)\tship\(([A-Za-z0-9._-]+)\)/.exec(linha);
-    // O log vem do mais novo para o mais velho: a primeira entrega de cada thread e a que vale.
-    if (m && !entregas.has(m[2])) entregas.set(m[2], m[1]);
+  const threads: Thread[] = [];
+  for (const id of listarIds(raiz)) { try { threads.push(lerThread(raiz, id)); } catch { /* thread ilegivel fica de fora */ } }
+  const destino = base.startsWith(`${remoto}/`) ? base.slice(remoto.length + 1) : base;
+  const reconhecidas = mergesDasEntregasNaBase(raiz, ref, destino, threads.map((t) => ({
+    thread: t.id,
+    branch: branchRegistradaDaEntrega(raiz, t.id) ?? branchDaWorktree(t),
+  })));
+  for (const [thread, merges] of reconhecidas) {
+    const merge = merges[0];
+    if (merge) entregas.set(thread, merge.mergeSha.slice(0, 7));
   }
   return entregas;
 }

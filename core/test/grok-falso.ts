@@ -5,6 +5,10 @@
  *   - grava cada chamada (um argumento por linha) e a presença, nunca o valor, de `XAI_API_KEY`;
  *   - cria a pasta da sessão do `-s` (ou do `-r`) em `$GROK_HOME/sessions/<cwd com / trocada por ->/<id>/updates.jsonl`;
  *   - grava o artefato pedido, como uma sessão que escreveu o documento da fase;
+ *   - RM-067 (F4): com `--trust`, lê o `AGENTS.md` do `--cwd` e guarda a cópia do que carregou; sem ele, não lê, como o
+ *     guia de regras de projeto diz da partida headless (o carregamento na partida exige a pasta confiada);
+ *   - RM-067 (F4b): grava os valores de `GROK_CLAUDE_MCPS_ENABLED` e `GROK_CURSOR_MCPS_ENABLED` de cada chamada (não são
+ *     segredo) e, com `--trust`, a cópia do `.grok/config.toml` do `--cwd`, a config de MCP que o filho carregaria;
  *   - escreve no stderr o texto pedido e, no stdout, a fixture do stream, com `<SESSAO>` trocado pelo id;
  *   - espera, se mandado, e sai com o código pedido, ou se mata com o sinal pedido.
  *
@@ -23,15 +27,19 @@ if [ "$1" = "--version" ]; then echo "grok 1.0.62"; exit 0; fi
 N=$(ls "$DIR" | grep -c '^chamada-')
 for a in "$@"; do printf '%s\\n' "$a"; done > "$DIR/chamada-$N"
 if [ -n "\${XAI_API_KEY:-}" ]; then : > "$DIR/xai-visto"; fi
-SESSAO=""; RETOMA=""; CWD=""
+printf '%s\\n%s\\n' "\${GROK_CLAUDE_MCPS_ENABLED-ausente}" "\${GROK_CURSOR_MCPS_ENABLED-ausente}" > "$DIR/compat-$N"
+SESSAO=""; RETOMA=""; CWD=""; CONFIA=""
 while [ $# -gt 0 ]; do
   case "$1" in
     -s) SESSAO="$2"; shift 2 ;;
     -r) RETOMA="$2"; shift 2 ;;
     --cwd) CWD="$2"; shift 2 ;;
+    --trust) CONFIA=1; shift ;;
     *) shift ;;
   esac
 done
+if [ -n "$CONFIA" ] && [ -f "$CWD/AGENTS.md" ]; then cp "$CWD/AGENTS.md" "$DIR/agents-carregado"; fi
+if [ -n "$CONFIA" ] && [ -f "$CWD/.grok/config.toml" ]; then cp "$CWD/.grok/config.toml" "$DIR/config-carregada"; fi
 ID="\${SESSAO:-$RETOMA}"
 CASA="\${GROK_HOME:-$DIR/casa-padrao}"
 if [ -n "$ID" ] && [ ! -f "$DIR/sem-sessao" ]; then
@@ -73,6 +81,12 @@ export interface GrokFalso {
   chamadas: () => string[][];
   /** O filho recebeu `XAI_API_KEY` no ambiente? */
   xaiVisto: () => boolean;
+  /** RM-067 (F4): o `AGENTS.md` que o filho carregou na partida (só com `--trust`), ou `null`. */
+  agentsCarregado: () => string | null;
+  /** RM-067 (F4b): os valores de `GROK_CLAUDE_MCPS_ENABLED` e `GROK_CURSOR_MCPS_ENABLED` de cada chamada (`ausente` sem ela). */
+  compat: () => string[][];
+  /** RM-067 (F4b): o `.grok/config.toml` do `--cwd` na última partida com `--trust`, ou `null`. */
+  configCarregada: () => string | null;
   restaurar: () => void;
 }
 
@@ -99,6 +113,10 @@ export function grokFalso(nome: string): GrokFalso {
     chamadas: () => fs.readdirSync(dir).filter((f) => f.startsWith('chamada-')).sort((a, b) => Number(a.slice(8)) - Number(b.slice(8)))
       .map((f) => fs.readFileSync(path.join(dir, f), 'utf8').split('\n').slice(0, -1)),
     xaiVisto: () => fs.existsSync(path.join(dir, 'xai-visto')),
+    agentsCarregado: () => fs.existsSync(path.join(dir, 'agents-carregado')) ? fs.readFileSync(path.join(dir, 'agents-carregado'), 'utf8') : null,
+    compat: () => fs.readdirSync(dir).filter((f) => f.startsWith('compat-')).sort((a, b) => Number(a.slice(7)) - Number(b.slice(7)))
+      .map((f) => fs.readFileSync(path.join(dir, f), 'utf8').split('\n').slice(0, -1)),
+    configCarregada: () => fs.existsSync(path.join(dir, 'config-carregada')) ? fs.readFileSync(path.join(dir, 'config-carregada'), 'utf8') : null,
     restaurar: () => {
       for (const [k, v] of Object.entries(anterior)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
       fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });

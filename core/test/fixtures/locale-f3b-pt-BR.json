@@ -109,7 +109,7 @@
   "cli decisao: registrar em thread fechada": "[saida 1]\n[stderr]\nerro: decisão informada: thread fechada não decide mais nada\n",
   "cli decisao: ledger": "autonomous_decision: razao=menos carga",
   "cli accounts: list vazio": "[saida 0]\nNenhum perfil configurado: cada runtime despacha pelo ambiente do processo.\n",
-  "cli accounts: add sem argumentos": "[saida 2]\n[stderr]\nuso: ork accounts add <id> --runtime claude-bg|codex --dir <diretorio> [--sem-login]\n",
+  "cli accounts: add sem argumentos": "[saida 2]\n[stderr]\nuso: ork accounts add <id> --runtime claude-bg|codex|grok --dir <diretorio> [--sem-login] [--device-auth (so grok)]\n",
   "cli accounts: add com runtime invalido": "[saida 1]\n[stderr]\nperfil recusado: runtime.profiles.invalid: runtime \"gpt\" nao aceita perfil\n",
   "cli accounts: add": "[saida 0]\nLogin pendente: rode CLAUDE_CONFIG_DIR='<PERFIL1>' claude auth login --claudeai e depois ork accounts check p1\nPerfil p1 (claude-bg) em <PERFIL1>: login de assinatura conferido\n",
   "cli accounts: add sem login": "[saida 0]\nLogin pendente: rode CLAUDE_CONFIG_DIR='<PERFIL2>' claude auth login --claudeai e depois ork accounts check p2\nPerfil p2 (claude-bg) em <PERFIL2>: sem login (claude auth status: loggedIn false); fora do rodizio\n",

@@ -31,6 +31,8 @@ import { exec } from './util';
 import { rodarCli } from './forja/executor';
 import { adaptadorDaForja, exigirCapacidade } from './forja/registro';
 import { ErroDoCatalogo, remontar, textoDoCatalogo } from './locale';
+import { branchRegistradaDaEntrega, mergesDasEntregasNaBase } from './merge-da-entrega';
+import { branchDaWorktree } from './worktree';
 
 export interface EntregaPorPr {
   thread: string;
@@ -53,17 +55,12 @@ export interface EntregaPorPr {
   docsPendentes: DocPendente[];
 }
 
-/** O merge `ship(<thread>)` mais recente na base remota, com o head do PR (segundo pai). */
+/** O merge da entrega mais recente na base remota, com o head do PR (segundo pai). */
 export function mergeDaEntrega(raiz: string, thread: string, remoto: string, base: string): { mergeSha: string; headSha: string | null } | null {
-  const r = exec('git', ['log', `refs/remotes/${remoto}/${base}`, '--first-parent', '--format=%H%x09%P%x09%s', `--grep=^ship(${thread})`], raiz);
-  if (!r.ok) return null;
-  for (const linha of r.stdout.split('\n')) {
-    const [sha, pais, assunto] = linha.split('\t');
-    if (!sha || !assunto || !assunto.startsWith(`ship(${thread})`)) continue;
-    const segundo = (pais ?? '').split(' ')[1] ?? null;
-    return { mergeSha: sha, headSha: segundo };
-  }
-  return null;
+  let branch: string;
+  try { branch = branchRegistradaDaEntrega(raiz, thread) ?? branchDaWorktree(lerThread(raiz, thread)); } catch { return null; }
+  const merge = mergesDasEntregasNaBase(raiz, `refs/remotes/${remoto}/${base}`, base, [{ thread, branch }]).get(thread)?.[0];
+  return merge ? { mergeSha: merge.mergeSha, headSha: merge.headSha } : null;
 }
 
 /**

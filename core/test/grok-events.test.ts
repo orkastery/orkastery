@@ -142,10 +142,11 @@ test('GE7: o uso fora do formato deixa os tokens indisponiveis, e o custo so val
   assert.equal(custoNegativo.estado.fim?.custoUsd, null);
 });
 
-test('GE8: a falha da conta sai da frase do proprio runtime no error, e o resto fica sem motivo de conta', () => {
+test('GE8: a falha da conta sai da frase do proprio runtime no error, a cota nunca sai de texto, e o resto fica sem motivo de conta', () => {
   assert.equal(falhaDoErroGrok({ mensagem: 'Not logged in: run grok login' })?.motivo, 'runtime.auth-missing');
   assert.equal(falhaDoErroGrok({ mensagem: '401 Unauthorized' })?.motivo, 'runtime.auth-missing');
-  assert.equal(falhaDoErroGrok({ mensagem: 'usage_limit_exceeded: weekly pool used' })?.motivo, 'runtime.quota-exhausted');
+  // RM-067 (F3): o formato da cota esgotada do grok nao esta confirmado; a frase nao tipa a cota nem marca o perfil.
+  assert.equal(falhaDoErroGrok({ mensagem: 'usage_limit_exceeded: weekly pool used' }), null);
   assert.equal(falhaDoErroGrok({ mensagem: 'network error: connection reset by peer' }), null);
   assert.equal(falhaDoErroGrok(null), null);
   const login = new ParserGrok(SESSAO);

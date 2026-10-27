@@ -42,12 +42,12 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   experiencia uninstall <host> [--dry-run] [--json]
                                             Remove o bloco de Claude Code/Codex; sem --dry-run aplica a remoção
   setup <modo>                              Config atual de cada bloco do modo
-  setup <modo> --bloco N [--runtime R]      Edita o bloco (runtimes: claude-bg, codex);
+  setup <modo> --bloco N [--runtime R]      Edita o bloco (runtimes: claude-bg, codex, grok);
         [--model M] [--effort E] [--por Q]       evento setup_configured no ledger do projeto
         [--fallback R:M[:E],...]                  ordem de fallback de runtime do bloco (I-33)
   accounts list [--json]                    Perfis de conta por runtime, sem segredo (I-33)
   accounts add <id> --runtime R --dir D     Cria o perfil e roda o login do proprio CLI com o env
-        [--sem-login]                            do perfil (nunca copia credencial)
+        [--sem-login] [--device-auth]            do perfil (nunca copia credencial; codigo de dispositivo so no grok)
   accounts remove <id>                      Desativa o perfil (diretorio e login ficam onde estao)
   accounts check [<id>]                     Confere o login de cada perfil e marca o store
   accounts esgotamentos [--desde 7d] [--json]
@@ -363,7 +363,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
                                              o padrao e o item dela; --todos volta a todo item (RM-037)
   docs init                                 Cria padroes, modelos, indices e o lint de Markdown no projeto
 
-  mcp serve --project RAIZ --host HOST       Servidor MCP stdio deste projeto (codex|claude-code)
+  mcp serve --project RAIZ --host HOST       Servidor MCP stdio deste projeto (codex|claude-code; grok so na sessao filha, com --thread)
   mcp install --project RAIZ --host HOST     Prepara MCP; aceita --dry-run, --ship-transport, --child-permissions e --owner-permissions (Codex)
 
   adapter list                              Adaptadores de host (Camada 1) e o destino de cada um
@@ -457,12 +457,12 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
   experiencia uninstall <host> [--dry-run] [--json]
                                             Removes the Claude Code/Codex block; without --dry-run it applies the removal
   setup <mode>                              Current config of each block of the mode
-  setup <mode> --bloco N [--runtime R]      Edits the block (runtimes: claude-bg, codex);
+  setup <mode> --bloco N [--runtime R]      Edits the block (runtimes: claude-bg, codex, grok);
         [--model M] [--effort E] [--por Q]       setup_configured event in the project ledger
         [--fallback R:M[:E],...]                  runtime fallback order of the block (I-33)
   accounts list [--json]                    Account profiles per runtime, without secrets (I-33)
   accounts add <id> --runtime R --dir D     Creates the profile and runs the CLI's own login with the profile
-        [--sem-login]                            env (never copies a credential)
+        [--sem-login] [--device-auth]            env (never copies a credential; device code only for grok)
   accounts remove <id>                      Deactivates the profile (directory and login stay where they are)
   accounts check [<id>]                     Checks the login of each profile and marks the store
   accounts esgotamentos [--desde 7d] [--json]
@@ -778,7 +778,7 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
                                              the default is its item; --todos goes back to every item (RM-037)
   docs init                                 Creates standards, templates, indexes and the Markdown lint in the project
 
-  mcp serve --project ROOT --host HOST       stdio MCP server of this project (codex|claude-code)
+  mcp serve --project ROOT --host HOST       stdio MCP server of this project (codex|claude-code; grok only in the child session, with --thread)
   mcp install --project ROOT --host HOST     Prepares MCP; accepts --dry-run, --ship-transport, --child-permissions and --owner-permissions (Codex)
 
   adapter list                              Host adapters (Layer 1) and the target of each one

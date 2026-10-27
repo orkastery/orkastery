@@ -7,7 +7,7 @@ import { exigirManifesto } from './manifest';
 import { dirThread, lerThread, blocoDaThread } from './thread';
 import { HOSTS } from './hosts';
 import { branchDaWorktree,worktreesDoGit } from './worktree';
-import { configuracaoServidorMcp, TransporteShipMcp, PermissoesFilhoMcp, politicasFilhoCodex } from './mcp-install';
+import { arquivoDoHostMcp, configuracaoServidorMcp, HOSTS_MCP, HostMcp, TransporteShipMcp, PermissoesFilhoMcp, politicasFilhoCodex } from './mcp-install';
 import { grafoLigado } from './mcp-grafo';
 import { ehTransporteShipMcp } from './mcp-transportes';
 import { ENV_HITL_VERIFIERS, publicHitlVerifiers } from './hitl-public-receipt';
@@ -16,10 +16,10 @@ export interface IdentidadeDeDespacho {
   schema: 'ork.dispatch-identity/v1'; dispatchId: string; threadId: string;
   role: 'executor' | 'reviewer';
 }
-export interface ContextoRuntime { projeto: string; host: 'claude-code' | 'codex'; threadId: string; transporteShip?: TransporteShipMcp; permissoesFilho?: PermissoesFilhoMcp; identidade?: IdentidadeDeDespacho }
+export interface ContextoRuntime { projeto: string; host: HostMcp; threadId: string; transporteShip?: TransporteShipMcp; permissoesFilho?: PermissoesFilhoMcp; identidade?: IdentidadeDeDespacho }
 export interface CapacidadeDoRuntime {
   runtime: string;
-  host: 'claude-code' | 'codex' | null;
+  host: HostMcp | null;
   preparado: boolean;
   capaz: boolean;
   motivo: string | null;
@@ -49,40 +49,71 @@ function ler(raiz: string, file: string, limite: number): Buffer {
   } finally { fs.closeSync(fd); }
 }
 interface PerfilPreparado {transporteShip:TransporteShipMcp;permissoesFilho:PermissoesFilhoMcp;politicasCodex?:Record<string,unknown>}
-function preparado(raiz: string): PerfilPreparado | undefined {
-  let encontrado:PerfilPreparado|undefined;
-  for (const host of ['claude-code', 'codex'] as const) {
-    const file = path.join(raiz, host === 'codex' ? '.codex/config.toml' : '.mcp.json');
-    if (!fs.existsSync(file)) continue;
+/** A entrada `orkastery` de um host, conferida contra o perfil ja achado nos hosts anteriores; sem entrada, o perfil fica. */
+function perfilDoHost(raiz: string, host: HostMcp, encontrado: PerfilPreparado | undefined): PerfilPreparado | undefined {
+  const file = arquivoDoHostMcp(raiz, host), toml = host !== 'claude-code';
+  if (!fs.existsSync(file)) return encontrado;
+  let config: Record<string, unknown>;
+  try {
     const text = ler(raiz, file, 262144).toString('utf8');
-    const config = objeto(host === 'codex' ? parse(text) : JSON.parse(text));
-    const chave = host === 'codex' ? 'mcp_servers' : 'mcpServers';
-    if (config[chave] === undefined) continue;
-    const servidores = objeto(config[chave]);
-    if (!Object.hasOwn(servidores, 'orkastery')) continue;
-    const entrada = objeto(servidores.orkastery), padrao = configuracaoServidorMcp(raiz, host);
-    const legado=padrao.args.slice(0,-2);
-    let transporte:TransporteShipMcp='github-ssh';
-    let argv=entrada.args;
-    let permissoesFilho:PermissoesFilhoMcp='interactive';
-    if(Array.isArray(argv) && argv[argv.length-2]==='--child-permissions') {
-      if(!['interactive','worktree'].includes(argv[argv.length-1]))throw Error('runtime.context.conflict: perfil de filho invalido');
-      permissoesFilho=argv[argv.length-1] as PermissoesFilhoMcp;argv=argv.slice(0,-2);
-    }
-    if(JSON.stringify(argv)!==JSON.stringify(legado)) {
-      if(!Array.isArray(argv) || argv.length!==padrao.args.length ||
-          argv[argv.length-2]!=='--ship-transport' || !ehTransporteShipMcp(argv[argv.length-1]))
-        throw Error('runtime.context.conflict: MCP Orkastery divergente; transporte invalido ou argumentos extras');
-      transporte=argv[argv.length-1] as TransporteShipMcp;
-    }
-    const esperado=configuracaoServidorMcp(raiz,host,undefined,transporte);
-    if(entrada.command!==esperado.command || (JSON.stringify(argv)!==JSON.stringify(esperado.args) && JSON.stringify(argv)!==JSON.stringify(legado)))
-      throw Error('runtime.context.conflict: MCP Orkastery divergente; repare a instalacao do projeto');
-    if(encontrado!==undefined && encontrado.transporteShip!==transporte)throw Error('runtime.context.conflict: transportes SHIP divergentes entre hosts');
-    if(encontrado!==undefined && encontrado.permissoesFilho!==permissoesFilho)throw Error('runtime.context.conflict: perfis de filho divergentes entre hosts');
-    encontrado={...encontrado,transporteShip:transporte,permissoesFilho,...(host==='codex'?{politicasCodex:entrada}:{})};
+    config = objeto(toml ? parse(text) : JSON.parse(text));
+  } catch (erro) {
+    // RM-067 (F4b, GO-FIX A4 e N2): o motivo tipado do grok leva o codigo do erro de sistema ou a primeira linha do parser,
+    // sem o trecho do arquivo do time nem o caminho da maquina.
+    if (host !== 'grok') throw erro;
+    const causa = (erro as NodeJS.ErrnoException).code ?? (erro as Error).message.split('\n')[0];
+    throw Error(`runtime.context.conflict: .grok/config.toml do projeto ilegivel (${causa}); conserte o arquivo ou tire dele a entrada orkastery`);
   }
+  const chave = toml ? 'mcp_servers' : 'mcpServers';
+  if (config[chave] === undefined) return encontrado;
+  const servidores = objeto(config[chave]);
+  if (!Object.hasOwn(servidores, 'orkastery')) return encontrado;
+  const entrada = objeto(servidores.orkastery), padrao = configuracaoServidorMcp(raiz, host);
+  const legado=padrao.args.slice(0,-2);
+  let transporte:TransporteShipMcp='github-ssh';
+  let argv=entrada.args;
+  let permissoesFilho:PermissoesFilhoMcp='interactive';
+  if(Array.isArray(argv) && argv[argv.length-2]==='--child-permissions') {
+    if(!['interactive','worktree'].includes(argv[argv.length-1]))throw Error('runtime.context.conflict: perfil de filho invalido');
+    permissoesFilho=argv[argv.length-1] as PermissoesFilhoMcp;argv=argv.slice(0,-2);
+  }
+  if(JSON.stringify(argv)!==JSON.stringify(legado)) {
+    if(!Array.isArray(argv) || argv.length!==padrao.args.length ||
+        argv[argv.length-2]!=='--ship-transport' || !ehTransporteShipMcp(argv[argv.length-1]))
+      throw Error('runtime.context.conflict: MCP Orkastery divergente; transporte invalido ou argumentos extras');
+    transporte=argv[argv.length-1] as TransporteShipMcp;
+  }
+  const esperado=configuracaoServidorMcp(raiz,host,undefined,transporte);
+  if(entrada.command!==esperado.command || (JSON.stringify(argv)!==JSON.stringify(esperado.args) && JSON.stringify(argv)!==JSON.stringify(legado)))
+    throw Error('runtime.context.conflict: MCP Orkastery divergente; repare a instalacao do projeto');
+  if(encontrado!==undefined && encontrado.transporteShip!==transporte)throw Error('runtime.context.conflict: transportes SHIP divergentes entre hosts');
+  if(encontrado!==undefined && encontrado.permissoesFilho!==permissoesFilho)throw Error('runtime.context.conflict: perfis de filho divergentes entre hosts');
+  return {...encontrado,transporteShip:transporte,permissoesFilho,...(host==='codex'?{politicasCodex:entrada}:{})};
+}
+/**
+ * O perfil da instalacao MCP do projeto. RM-067 (F4b, GO-FIX A4): o `.grok/config.toml` tambem prepara, em TOML como o do
+ * codex, mas ele e a config do proprio grok, que o time pode manter: para quem nao e o grok (`quem`), a falha de leitura,
+ * de parse ou de conferencia dele nao derruba a preparacao dos outros hosts, e a entrada dele fica de fora. GO-FIX N1: sem
+ * outro host preparado, a entrada `orkastery` do grok e a preparacao do projeto, e engolir a falha dela faria o claude-bg
+ * e o codex despacharem como num projeto legado, sem o MCP; a falha volta, e so a config do time sem a entrada fica de fora.
+ */
+function preparado(raiz: string, quem?: string): PerfilPreparado | undefined {
+  let encontrado:PerfilPreparado|undefined;
+  let falhaDoGrok: unknown = null;
+  for (const host of HOSTS_MCP) {
+    try { encontrado = perfilDoHost(raiz, host, encontrado); }
+    catch (erro) {
+      if (host !== 'grok' || quem === undefined || quem === 'grok') throw erro;
+      falhaDoGrok = erro;
+    }
+  }
+  if (falhaDoGrok !== null && encontrado === undefined && podeTerEntradaDoOrk(raiz)) throw falhaDoGrok;
   return encontrado;
+}
+/** O `.grok/config.toml` do projeto tem, ou pode ter, a entrada `orkastery`; o que nao se le conta como se tivesse. */
+function podeTerEntradaDoOrk(raiz: string): boolean {
+  try { return ler(raiz, arquivoDoHostMcp(raiz, 'grok'), 262144).toString('utf8').includes('orkastery'); }
+  catch { return true; }
 }
 function raizCanonica(projeto: string): string {
   if (!path.isAbsolute(projeto)) throw Error('runtime.context.invalid: projeto absoluto obrigatorio');
@@ -93,9 +124,10 @@ function raizCanonica(projeto: string): string {
   return raiz;
 }
 
-function hostDoRuntime(runtime: string): 'claude-code' | 'codex' {
+function hostDoRuntime(runtime: string): HostMcp {
   if (runtime === 'claude-bg') return 'claude-code';
   if (runtime === 'codex') return 'codex';
+  if (runtime === 'grok') return 'grok';
   throw Error('runtime.context.invalid: runtime desconhecido');
 }
 
@@ -141,13 +173,18 @@ function conferirInstalacaoDoHost(raiz: string, host: 'claude-code' | 'codex'): 
  * Projeto legado, sem entrada MCP do Orkastery, conserva a selecao anterior.
  */
 export function capacidadeDoRuntimeNoProjeto(projeto: string, runtime: string): CapacidadeDoRuntime {
-  let host: 'claude-code' | 'codex' | null = null;
+  let host: HostMcp | null = null;
   try {
     const raiz = raizCanonica(projeto);
-    const perfil = preparado(raiz);
+    const perfil = preparado(raiz, runtime);
     if (!perfil) return { runtime, host: null, preparado: false, capaz: true, motivo: null };
+    if (RUNTIMES_SEM_HOST_MCP.includes(runtime))
+      return { runtime, host: null, preparado: true, capaz: false, motivo: MOTIVO_SEM_HOST_MCP };
     host = hostDoRuntime(runtime);
-    conferirInstalacaoDoHost(raiz, host);
+    // RM-067 (F4b, G6): o grok nao tem adaptador instalavel (plugin, skills, mods); o contexto dele e so o MCP.
+    if (host !== 'grok') conferirInstalacaoDoHost(raiz, host);
+    if (RUNTIMES_FORA_DOS_DESTINOS_AUTOMATICOS.includes(runtime))
+      return { runtime, host, preparado: true, capaz: false, motivo: MOTIVO_FORA_DOS_DESTINOS_AUTOMATICOS };
     return { runtime, host, preparado: true, capaz: true, motivo: null };
   } catch (erro) {
     return { runtime, host, preparado: true, capaz: false, motivo: (erro as Error).message };
@@ -155,30 +192,62 @@ export function capacidadeDoRuntimeNoProjeto(projeto: string, runtime: string): 
 }
 /**
  * RM-067 (D15 da ork-grokbuild): runtimes homologados que ainda nao tem host MCP do Orkastery. A sessao filha deles
- * despacha sem contexto, como num projeto sem entrada MCP, ate o host existir (F4 da RM-067). A capacidade de rotacao
+ * despacha sem contexto, como num projeto sem entrada MCP, ate o host existir. A capacidade de rotacao
  * (`capacidadeDoRuntimeNoProjeto`) nao muda: num projeto preparado, eles seguem fora dos destinos automaticos.
+ * RM-067 (F4b, G6): o grok saiu daqui com o host `grok`; a lista fica para o proximo runtime sem host.
  */
-export const RUNTIMES_SEM_HOST_MCP: readonly string[] = ['grok'];
+export const RUNTIMES_SEM_HOST_MCP: readonly string[] = [];
+
+/** RM-067 (F4): o motivo tipado de um runtime sem host MCP num projeto preparado. */
+export const MOTIVO_SEM_HOST_MCP = 'runtime.context.no-host: runtime sem host MCP do Orkastery; a sessao despacha sem o contexto do projeto';
+
+/**
+ * RM-067 (F4b, GO-FIX A5): runtimes com o host MCP que, num projeto preparado, ficam fora dos destinos automaticos (o
+ * fallback do retry e a escada). O sandbox do grok vale para o processo inteiro e os filhos (G17 da RM-067), e o servidor
+ * MCP do ork e filho dele: no piso `workspace`, ele le o estado, mas nao grava o ledger, os artefatos nem o git da
+ * worktree, e a fase que chega por fallback para sem prova. O despacho pedido (`--runtime grok`) leva o contexto, e a
+ * troca de conta dentro do grok segue; a lista sai daqui quando a F5 confirmar a gravacao com o sandbox ligado.
+ */
+export const RUNTIMES_FORA_DOS_DESTINOS_AUTOMATICOS: readonly string[] = ['grok'];
+export const MOTIVO_FORA_DOS_DESTINOS_AUTOMATICOS = 'runtime.context.sandbox: o sandbox do grok vale tambem para o servidor MCP do ' +
+  'ork, que no piso workspace nao grava o estado; como destino automatico num projeto preparado, o grok fica fora ate a F5';
+
+/**
+ * RM-067 (F4): a capacidade de um runtime para a rotacao do retry. A troca de perfil DENTRO do runtime em que a thread ja
+ * despachou (`mesmoRuntime`) vale para o runtime sem host MCP e, desde a F4b, para o que fica fora dos destinos
+ * automaticos: a sessao dele ja roda como rodava, e a outra conta nao muda isso, entao o `ork retry` troca o perfil do
+ * grok como troca o dos outros runtimes. Como alvo de fallback num projeto preparado, ele segue incapaz.
+ */
+export function capacidadeDaRotacao(projeto: string, runtime: string, mesmoRuntime: boolean): CapacidadeDoRuntime {
+  const capacidade = capacidadeDoRuntimeNoProjeto(projeto, runtime);
+  if (capacidade.capaz || !mesmoRuntime) return capacidade;
+  const soComoDestino = (RUNTIMES_SEM_HOST_MCP.includes(runtime) && capacidade.motivo === MOTIVO_SEM_HOST_MCP) ||
+    (RUNTIMES_FORA_DOS_DESTINOS_AUTOMATICOS.includes(runtime) && capacidade.motivo === MOTIVO_FORA_DOS_DESTINOS_AUTOMATICOS);
+  return soComoDestino ? { ...capacidade, capaz: true } : capacidade;
+}
 
 /** Projeto sem entrada MCP Orkastery continua com o contrato legado. Nao instala nem altera arquivos. */
 export function contextoDoProjeto(projeto: string, runtime: string, cwd: string, threadId?: string): ContextoRuntime | undefined {
   const raiz = raizCanonica(projeto);
-  const perfil=preparado(raiz);
+  const perfil=preparado(raiz, runtime);
   if (!perfil) return undefined;
   if (RUNTIMES_SEM_HOST_MCP.includes(runtime)) return undefined;
   const host = hostDoRuntime(runtime);
   if (!threadId) throw Error('runtime.context.invalid: thread obrigatoria para sessao filha');
   const contexto: ContextoRuntime = { projeto: raiz, host, threadId, transporteShip:perfil.transporteShip, permissoesFilho:perfil.permissoesFilho };
-  validarContextoRuntime(contexto, cwd);
+  if (host === 'grok') validarContextoDoGrok(contexto, cwd); else validarContextoRuntime(contexto, cwd);
   return contexto;
 }
-/** Revalida no receptor do despacho, incluindo bytes instalados e escopo real do cwd. */
-export function validarContextoRuntime(contexto: ContextoRuntime, cwd: string) {
-  if (!contexto || !['claude-code', 'codex'].includes(contexto.host)) throw Error('runtime.context.invalid: host desconhecido');
+/**
+ * A conferencia do vinculo, comum a todo host: projeto preparado, perfil e transporte iguais aos da instalacao, cwd e
+ * thread da sessao filha, identidade do despacho e, no perfil worktree, a worktree propria da thread. RM-067 (F4b, D2):
+ * saiu de `validarContextoRuntime` sem mudar a ordem das conferencias, para o contexto do grok usar a mesma.
+ */
+function conferirVinculo(contexto: ContextoRuntime, cwd: string) {
   if(contexto.transporteShip!==undefined && !ehTransporteShipMcp(contexto.transporteShip))throw Error('runtime.context.invalid: transporte desconhecido');
   const raiz = raizCanonica(contexto.projeto);
   if(contexto.permissoesFilho!==undefined && !['interactive','worktree'].includes(contexto.permissoesFilho))throw Error('runtime.context.invalid: perfil de filho desconhecido');
-  const perfil=preparado(raiz);
+  const perfil=preparado(raiz, contexto.host);
   if (!perfil) throw Error('runtime.context.missing: projeto nao preparado pelo instalador MCP');
   const {transporteShip,permissoesFilho}=perfil;
   if((contexto.permissoesFilho??'interactive')!==permissoesFilho)throw Error('runtime.context.conflict: perfil de filho difere da instalacao');
@@ -200,6 +269,13 @@ export function validarContextoRuntime(contexto: ContextoRuntime, cwd: string) {
     if(!worktreesDoGit(raiz).some(w=>w.dir===cwd && w.branch===branchDaWorktree(thread)))
       throw Error('runtime.context.worktree: worktree nao registrada na branch da thread');
   }
+  return { raiz, perfil, transporteShip, permissoesFilho, thread };
+}
+
+/** Revalida no receptor do despacho, incluindo bytes instalados e escopo real do cwd. */
+export function validarContextoRuntime(contexto: ContextoRuntime, cwd: string) {
+  if (!contexto || (contexto.host !== 'claude-code' && contexto.host !== 'codex')) throw Error('runtime.context.invalid: host desconhecido');
+  const { raiz, perfil, transporteShip, permissoesFilho, thread } = conferirVinculo(contexto, cwd);
   const { instalacao, arquivos, conferidos, bootstrap } = conferirInstalacaoDoHost(raiz, contexto.host);
   const modsDeFase = contexto.host === 'claude-code' ? modsDeFaseInstalados(raiz, instalacao, arquivos, conferidos) : [];
   // Capacidade derivada do bloco atual, nunca aceita como entrada do modelo.
@@ -218,6 +294,29 @@ export function validarContextoRuntime(contexto: ContextoRuntime, cwd: string) {
     ...(publicVerifiers ? { env: { [ENV_HITL_VERIFIERS]: publicVerifiers } } : {}),
     ...(contexto.host==='codex' && permissoesFilho==='worktree'?politicasFilhoCodex(perfil.politicasCodex??{}):{})};
   return { projeto: raiz, instalacao, bootstrap, permissoesFilho, permiteEditarProduto, grafoMcp, servidor, modsDeFase, agentTeams };
+}
+
+/** RM-067 (F4b): o servidor MCP do `ork` que a sessao filha do grok sobe, pela config da worktree. */
+export interface ServidorDoFilhoGrok { command: string; args: string[]; env?: Record<string, string> }
+
+/**
+ * RM-067 (F4b, D2): o contexto do grok, revalidado no despacho. O vinculo e o mesmo dos outros hosts; nao ha adaptador
+ * instalado a conferir (o grok nao tem plugin, skills nem mods do Orkastery). Devolve o que o comando e a config da
+ * worktree usam: o perfil filho, a flag do grafo da raiz e o servidor vinculado a thread e ao despacho.
+ */
+export function validarContextoDoGrok(contexto: ContextoRuntime, cwd: string):
+    { projeto: string; threadId: string; permissoesFilho: PermissoesFilhoMcp; grafoMcp: boolean; servidor: ServidorDoFilhoGrok } {
+  if (!contexto || contexto.host !== 'grok') throw Error('runtime.context.invalid: host grok esperado');
+  const { raiz, transporteShip, permissoesFilho, thread } = conferirVinculo(contexto, cwd);
+  // RM-067 (F4b, GO-FIX B1): a config da sessao vai no cwd; na raiz do projeto ela viraria a entrada do host grok.
+  if (!thread.worktree || thread.worktree === raiz || cwd === raiz)
+    throw Error('runtime.context.worktree: o grok com o MCP do ork exige a worktree propria da thread; a config da sessao nunca vai a raiz do projeto');
+  const grafoMcp = grafoLigado(exigirManifesto(raiz).manifesto);
+  const publicVerifiers = publicHitlVerifiers();
+  const servidor: ServidorDoFilhoGrok = {
+    ...configuracaoServidorMcp(raiz, 'grok', contexto.threadId, transporteShip, permissoesFilho, contexto.identidade?.dispatchId),
+    ...(publicVerifiers ? { env: { [ENV_HITL_VERIFIERS]: publicVerifiers } } : {}) };
+  return { projeto: raiz, threadId: contexto.threadId, permissoesFilho, grafoMcp, servidor };
 }
 
 /**

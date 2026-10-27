@@ -27,7 +27,7 @@ import { raizDoEstado } from './estado-thread';
 import { registrar } from './ledger';
 import { dirEstado, validarOptInPlaybook } from './manifest';
 import { definicaoDoModo, MODOS, ORDEM_DOS_MODOS } from './modos';
-import { ORDEM_DOS_RUNTIMES, RUNTIME_PADRAO, runtimeConhecido, runtimeDeBloco } from './runtimes';
+import { RUNTIME_PADRAO, RUNTIMES_DE_BLOCO, runtimeDeBloco } from './runtimes';
 import {
   AtividadeDoPrazo, ConfigDeBloco, ConsumoDoPrazo, IdentidadeDoPrazo,
   LimitesDeBloco, Manifesto, Modo, ModoLegado, PrazoDeBloco, SetupDeConducao, SetupDeModo,
@@ -74,9 +74,8 @@ export function validarFallback(lista: readonly string[], principal: string): st
   return lista.map((item) => {
     const m = ENTRADA_DE_FALLBACK.exec(item.trim());
     if (!m) throw new Error(msg().setup.fallbackInvalido(item));
-    // RM-067 (D1 da ork-grokbuild): o runtime so de despacho explicito nunca entra na ordem de fallback.
-    if (runtimeConhecido(m[1]) && !runtimeDeBloco(m[1])) throw new Error(msg().setup.fallbackSoPorPedido(m[1], ORDEM_DOS_RUNTIMES.join(', ')));
-    if (!runtimeDeBloco(m[1])) throw new Error(msg().setup.fallbackDesconhecido(m[1], ORDEM_DOS_RUNTIMES.join(', ')));
+    // RM-067 (F4b, G9): desde a F4 todo runtime do registro e de bloco; a recusa lista os que o fallback aceita.
+    if (!runtimeDeBloco(m[1])) throw new Error(msg().setup.fallbackDesconhecido(m[1], RUNTIMES_DE_BLOCO.join(', ')));
     if (vistos.has(m[1])) throw new Error(msg().setup.fallbackRepetido(m[1]));
     vistos.add(m[1]);
     return item.trim();
@@ -537,13 +536,8 @@ export function editarBloco(
     };
   }
   if (edicao.runtime !== undefined && !runtimeDeBloco(edicao.runtime)) {
-    // RM-067 (D1 da ork-grokbuild): o runtime so de despacho explicito tem recusa propria, com o comando que o usa.
-    const lista = ORDEM_DOS_RUNTIMES.join(', ');
-    return {
-      ...base,
-      erro: runtimeConhecido(edicao.runtime) ? msg().setup.runtimeSoPorPedido(edicao.runtime, lista)
-        : msg().setup.runtimeDesconhecido(edicao.runtime, lista),
-    };
+    // RM-067 (F4b, G9): a recusa lista os runtimes que o bloco aceita, o grok entre eles desde a F4.
+    return { ...base, erro: msg().setup.runtimeDesconhecido(edicao.runtime, RUNTIMES_DE_BLOCO.join(', ')) };
   }
   const atual = setup.modos[modo].blocos[bloco - 1];
   if (edicao.runtime !== undefined && edicao.runtime !== atual.runtime && !edicao.model?.trim())
@@ -655,7 +649,8 @@ export function textoDoSetup(raiz: string, modo: Modo): string {
   saida.push(m.fallback(modo));
   const padrao = blocoPadraoDoModo(modo);
   saida.push(m.resetar(modo, `${padrao.runtime}/${padrao.model}/${padrao.effort}`));
-  saida.push(m.runtimes(ORDEM_DOS_RUNTIMES.join(', ')));
+  // RM-067 (F4b, G9): a tela lista os runtimes de bloco, os que o `--runtime` e o `--fallback` do setup aceitam.
+  saida.push(m.runtimes(RUNTIMES_DE_BLOCO.join(', ')));
   saida.push('');
   saida.push(linhaDaOrigemDoSetup(raiz));
   return saida.join('\n');

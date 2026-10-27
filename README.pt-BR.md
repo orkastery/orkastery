@@ -185,6 +185,10 @@ ork adapter install claude-code --dry-run
 | Modo `#Fast`: uma fase, prova mínima, sem push sozinho | **funciona** desde 27/09/2026 ([RM-042](docs/roadmap/RM-042-modo-fast.md)) |
 | Reservas de item do roadmap entre máquinas | **funciona** desde 27/09/2026 ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)); o estado das threads ainda é por máquina |
 | Grafo determinístico de código | **funciona** na CLI (`ork grafo`: índice, atualização incremental, consultas e contexto da thread, com a proveniência de cada aresta), em quem instala pelo npm desde a 0.5.3; as tools MCP e a dica no pedido da fase ficam atrás da flag `grafo.mcp`, desligada por padrão ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)) |
+| Agile Check (o CHECK padrão) e Classic Check | **funciona** desde a 0.6.0: `check.mode: agile \| classic` no `orkastery.yaml` ou `ork verify --check`, com a mesma cobertura nos dois ([RM-072](docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md)) |
+| Varredura de segurança e de qualidade de código no CHECK | **funciona** desde a 0.6.0: `ork security-scan`, que o `ork verify` roda quando o manifesto declara `verify.security_scan` ([RM-068](docs/roadmap/RM-068-security-scan-no-check.md)) |
+| GitLab com paridade ao GitHub | **funciona** desde a 0.6.0: CI como CHECK independente, pulse, rede, entrega por MR e o SHIP do MCP ([RM-065](docs/roadmap/RM-065-gitlab-com-paridade-ao-github.md)) |
+| Barreira de dado privado para repositório público | **funciona** desde a 0.6.0: `ork privado varrer` e a policy `dado_privado` no `ork verify` e no `ork ci prepare` ([RM-062](docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md)) |
 
 O quadro completo, item por item e com evidência do git, está no [índice do roadmap](docs/roadmap/README.md).
 

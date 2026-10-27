@@ -10,7 +10,7 @@
  */
 
 /**
- * O detalhe da conferencia de login que o proprio ork escreve (`conferirAuth` do claude e do codex) e dado: vai ao store
+ * O detalhe da conferencia de login que o proprio ork escreve (`conferirAuth` do claude, do codex e do grok) e dado: vai ao store
  * em pt-BR e so a impressao o traduz, pela frase exata. A saida do CLI que vem dentro dele (o trecho do `codex`) segue
  * como veio.
  */
@@ -27,6 +27,10 @@ const DETALHES_DO_LOGIN_EN: ReadonlyArray<[RegExp, (...g: string[]) => string]> 
   [/^codex login status: login por API key \(provider pago\)$/, () => 'codex login status: API key login (paid provider)'],
   [/^codex login status: login sem assinatura ChatGPT comprovada \(tratado como provider pago\)$/,
     () => 'codex login status: login without a proven ChatGPT subscription (treated as a paid provider)'],
+  [/^o grok nao documenta conferencia de login; o despacho prova o login \(erro de login do runtime vira runtime\.auth-missing\)$/,
+    () => 'grok documents no login check; the dispatch proves the login (a runtime login error becomes runtime.auth-missing)'],
+  [/^runtime\.profiles\.invalid: perfil sem grokHome no despacho grok$/,
+    () => 'runtime.profiles.invalid: profile without grokHome in the grok dispatch'],
 ];
 
 const ESTADOS_EN: Readonly<Record<string, string>> = {
@@ -39,7 +43,7 @@ export const ACCOUNTS_PT_BR = {
   /** O estado gravado no store, como o texto o mostra. */
   estado: (estado: string) => estado,
   falhaEm: (motivo: string, quando: string) => `${motivo} em ${quando}`,
-  usoAdd: 'uso: ork accounts add <id> --runtime claude-bg|codex --dir <diretorio> [--sem-login]',
+  usoAdd: 'uso: ork accounts add <id> --runtime claude-bg|codex|grok --dir <diretorio> [--sem-login] [--device-auth (so grok)]',
   reativado: (id: string) => `Perfil ${id} reativado: mesmo id, runtime e diretorio do perfil desativado.`,
   recusado: (erro: string) => `perfil recusado: ${erro}`,
   loginPendente: (variavel: string, dir: string, comando: string, id: string) =>
@@ -49,6 +53,7 @@ export const ACCOUNTS_PT_BR = {
   /** O detalhe da conferencia de login (dado do store), como a impressao o mostra. */
   detalheDoLogin: (detalhe: string) => detalhe,
   inconclusivaAdd: (detalhe: string) => `conferencia de login inconclusiva (${detalhe}); o proximo despacho confere de novo`,
+  semConferenciaAdd: (detalhe: string) => `login sem conferencia previa (${detalhe}); o perfil entra no rodizio`,
   pagoAdd: (detalhe: string) => `provider pago (${detalhe}); nunca recebe despacho`,
   semLoginAdd: (detalhe: string) => `sem login (${detalhe}); fora do rodizio`,
   usoRemove: 'uso: ork accounts remove <id>',
@@ -56,6 +61,7 @@ export const ACCOUNTS_PT_BR = {
   perfilAtivoNaoExiste: (alvo: string) => `perfil ativo "${alvo}" nao existe (veja: ork accounts list)`,
   resultadoCheck: (id: string, runtime: string, situacao: string) => `${id} (${runtime}): ${situacao}`,
   inconclusivaCheck: (detalhe: string) => `conferencia de login inconclusiva, estado mantido (${detalhe})`,
+  semConferenciaCheck: (detalhe: string) => `login sem conferencia previa, estado mantido (${detalhe})`,
   pagoCheck: (detalhe: string) => `provider pago, nunca despacha (${detalhe})`,
   semLoginCheck: (detalhe: string) => `sem login (${detalhe})`,
   tipoDeLimite: (tipo: string) => ({ sessao: 'sessao', semanal: 'semanal', 'gasto-admin': 'gasto definido pelo admin',
@@ -138,7 +144,7 @@ export const ACCOUNTS_EN: MensagensDeAccounts = {
   colunas: ['PROFILE', 'RUNTIME', 'DIRECTORY', 'STATE', 'EXHAUSTED UNTIL', 'LAST USE', 'LAST FAILURE'],
   estado: (estado) => ESTADOS_EN[estado] ?? estado,
   falhaEm: (motivo, quando) => `${motivo} at ${quando}`,
-  usoAdd: 'usage: ork accounts add <id> --runtime claude-bg|codex --dir <directory> [--sem-login]',
+  usoAdd: 'usage: ork accounts add <id> --runtime claude-bg|codex|grok --dir <directory> [--sem-login] [--device-auth (grok only)]',
   reativado: (id) => `Profile ${id} reactivated: same id, runtime and directory as the disabled profile.`,
   recusado: (erro) => `profile refused: ${erro}`,
   loginPendente: (variavel, dir, comando, id) => `Login pending: run \`${variavel}=${dir} ${comando}\`, then \`ork accounts check ${id}\``,
@@ -149,6 +155,7 @@ export const ACCOUNTS_EN: MensagensDeAccounts = {
     return regra ? regra[1](...(regra[0].exec(detalhe) ?? []).slice(1)) : detalhe;
   },
   inconclusivaAdd: (detalhe) => `login check inconclusive (${detalhe}); the next dispatch checks again`,
+  semConferenciaAdd: (detalhe) => `login without a prior check (${detalhe}); the profile joins the rotation`,
   pagoAdd: (detalhe) => `paid provider (${detalhe}); never receives a dispatch`,
   semLoginAdd: (detalhe) => `no login (${detalhe}); out of the rotation`,
   usoRemove: 'usage: ork accounts remove <id>',
@@ -156,6 +163,7 @@ export const ACCOUNTS_EN: MensagensDeAccounts = {
   perfilAtivoNaoExiste: (alvo) => `active profile "${alvo}" does not exist (see: \`ork accounts list\`)`,
   resultadoCheck: (id, runtime, situacao) => `${id} (${runtime}): ${situacao}`,
   inconclusivaCheck: (detalhe) => `login check inconclusive, state kept (${detalhe})`,
+  semConferenciaCheck: (detalhe) => `login without a prior check, state kept (${detalhe})`,
   pagoCheck: (detalhe) => `paid provider, never dispatches (${detalhe})`,
   semLoginCheck: (detalhe) => `no login (${detalhe})`,
   tipoDeLimite: (tipo) => ({ sessao: 'session', semanal: 'weekly', 'gasto-admin': 'admin-defined spend',

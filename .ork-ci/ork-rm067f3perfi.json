@@ -1,0 +1,397 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm067f3perfi",
+  "branch": "ork/ork-rm067f3perfi-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "core/src/adapters/grok-events.ts",
+      "alegacao": "F3: nenhum texto do grok (mensagem do objeto error ou stderr) vira runtime.quota-exhausted, porque o formato da cota nao esta confirmado; o login e o modelo seguem tipados pela frase, como na F2",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/grok-events.test.js GE 10 && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-perfis.test.js GP 1 GP3"
+      ],
+      "criadoEm": "2026-10-27T04:20:18.792Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "core/test/grok-events.test.ts",
+      "alegacao": "F3: os 10 casos GE do stream do grok passam sem skip, e o GE8 confere que a frase de cota no error nao tipa a cota esgotada",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/grok-events.test.js GE 10 && grep -q \"usage_limit_exceeded: weekly pool used' }), null\" core/test/grok-events.test.ts"
+      ],
+      "criadoEm": "2026-10-27T04:20:21.314Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "core/src/runtime-escada.ts",
+      "alegacao": "F3: o degrau 3 da escada de recuperacao (outro perfil) pula o runtime so de despacho explicito (grok) com runtime-so-por-pedido, e a comparacao do diretorio do perfil usa o campo do runtime; os casos da escada da RM-063 seguem verdes",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-perfis.test.js GP 1 GP3 && node --test core/dist-test/test/rm063-escada.test.js"
+      ],
+      "criadoEm": "2026-10-27T04:20:23.509Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "core/src/locale-retry.ts",
+      "alegacao": "F3: o pulo runtime-so-por-pedido da escada tem frase em pt-BR e em ingles no catalogo do retry, e os testes do locale do retry seguem verdes",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"'runtime-so-por-pedido': 'o runtime so despacha por pedido explicito\" core/src/locale-retry.ts && grep -q \"'runtime-so-por-pedido': 'the runtime only dispatches on explicit request\" core/src/locale-retry.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-retry.test.js"
+      ],
+      "criadoEm": "2026-10-27T04:20:25.700Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "core/src/runtime-profiles.ts",
+      "alegacao": "F3: o store de perfis aceita o runtime grok com o diretorio em grokHome (GROK_HOME do filho, ~/.grok de padrao), cada runtime com o campo dele, e o inventario de sessoes por conta (RUNTIMES_COM_INVENTARIO) segue so com claude-bg e codex",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-perfis.test.js GP 1 GP1 && node --test core/dist-test/test/runtime-profiles.test.js && node --test core/dist-test/test/accounts-p3.test.js"
+      ],
+      "criadoEm": "2026-10-27T04:20:37.136Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "core/src/adapters/grok.ts",
+      "alegacao": "F3: o filho do grok roda com o GROK_HOME do perfil e sem XAI_API_KEY (D1 b, a assinatura), perfil de outro runtime recusa, o login e grok login ou grok login --device-auth, e a conferencia do login fica sem medida (semConferencia) sem abrir o auth.json",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/grok.test.js GK 14 && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-perfis.test.js GP 4"
+      ],
+      "criadoEm": "2026-10-27T04:20:39.849Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "core/src/phase.ts",
+      "alegacao": "F3: o despacho --runtime grok escolhe o perfil da vez, pula perfil esgotado, sem login, pago ou desativado, passa pelo preflight do grok sem conferencia previa, e registra a casa do perfil para o watcher achar a sessao",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-perfis.test.js GP 1 GP2 && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-perfis.test.js GP 1 GP3 && node --test core/dist-test/test/despacho-perfil.test.js"
+      ],
+      "criadoEm": "2026-10-27T04:20:42.665Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "core/src/adapters/claude-bg.ts",
+      "alegacao": "F3: o StatusDeAuth ganha so o campo opcional semConferencia, para o runtime sem conferencia de login; o contrato do claude-bg nao muda e os testes dele passam sem alteracao",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'semConferencia?: boolean;' core/src/adapters/claude-bg.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/despacho-perfil.test.js && node --test core/dist-test/test/perfil-pago.test.js"
+      ],
+      "criadoEm": "2026-10-27T04:20:44.978Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "core/src/preflight.ts",
+      "alegacao": "F3: a conferencia de login padrao do preflight e do doctor manda o perfil grok ao conferirAuth do grok, nunca ao do codex",
+      "negativa": true,
+      "verificar": [
+        "grep -q \"p.runtime==='grok'?authGrok(p)\" core/src/preflight.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/doctor-perfis.test.js"
+      ],
+      "criadoEm": "2026-10-27T04:20:46.904Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "core/src/doctor.ts",
+      "alegacao": "F3: a separacao da conducao acha o perfil pelo diretorio do campo do runtime (diretorioDoPerfil), e os casos de perfis do doctor seguem verdes",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'real(diretorioDoPerfil(perfilDeDespacho(x))) === real(dirAtual)' core/src/doctor.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/doctor-perfis.test.js"
+      ],
+      "criadoEm": "2026-10-27T04:20:49.038Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "core/src/sessoes-contas.ts",
+      "alegacao": "F3: as contas consultadas para sessoes vivas sao so as de claude-bg e codex; o perfil grok nao vira consulta de rollouts do codex, e os casos das sessoes dos perfis seguem verdes",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-perfis.test.js GP 1 GP1 && node --test core/dist-test/test/rm056-sessoes-dos-perfis.test.js"
+      ],
+      "criadoEm": "2026-10-27T04:20:51.320Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-envelope.ts",
+      "alegacao": "F3: o subteto por runtime do envelope do #Noctum aceita so os runtimes com inventario (claude-bg e codex), porque o consumo do grok ainda nao e medido; os casos do envelope seguem verdes",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'RUNTIMES_COM_INVENTARIO as readonly string' core/src/noctum-envelope.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/noctum-envelope.test.js"
+      ],
+      "criadoEm": "2026-10-27T04:20:53.436Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-cli.ts",
+      "alegacao": "F3: a confianca da pasta no aviso da proposta do #Noctum le o diretorio do perfil pelo campo do runtime (diretorioDoPerfil)",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'configDir: diretorioDoPerfil(p) }' core/src/noctum-cli.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/noctum-envelope-v3.test.js"
+      ],
+      "criadoEm": "2026-10-27T04:20:55.500Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "F3: ork accounts add --runtime grok cria o perfil e roda grok login (grok login --device-auth com --device-auth, so no grok) com o GROK_HOME do perfil, ou imprime o comando sem TTY; add e check dizem que o login fica sem conferencia previa e o check nunca reativa perfil reprovado",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-perfis.test.js GP 1 GP4 && node --test core/dist-test/test/accounts-p3.test.js"
+      ],
+      "criadoEm": "2026-10-27T04:20:58.084Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "core/src/locale-accounts.ts",
+      "alegacao": "F3: o uso do accounts add lista claude-bg, codex e grok com --device-auth (so grok), as frases da conferencia sem medida existem em pt-BR e em ingles, e as frases do conferirAuth do grok saem traduzidas",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-accounts.test.js && node --test core/dist-test/test/locale-f3b-snapshot.test.js && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-perfis.test.js GP 1 GP4"
+      ],
+      "criadoEm": "2026-10-27T04:21:00.679Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "core/src/locale-ajuda.ts",
+      "alegacao": "F3: a ajuda do accounts add mostra --device-auth, so no grok, em pt-BR e em ingles, e o retrato pt-BR da ajuda confere byte a byte",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'codigo de dispositivo so no grok' core/src/locale-ajuda.ts && grep -q 'device code only for grok' core/src/locale-ajuda.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f2a-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-27T04:21:02.790Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f2a-pt-BR.json",
+      "alegacao": "F3: o retrato pt-BR da ajuda traz a linha do --device-auth do accounts add, e o snapshot F2a confere",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'sem-login] \\[--device-auth]            do perfil (nunca copia credencial; codigo de dispositivo so no grok)' core/test/fixtures/locale-f2a-pt-BR.json && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f2a-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-27T04:21:05.114Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "F3: o retrato pt-BR do accounts add sem argumentos traz o uso com grok e --device-auth, e o snapshot F3b confere",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'claude-bg|codex|grok --dir <diretorio> \\[--sem-login] \\[--device-auth (so grok)]' core/test/fixtures/locale-f3b-pt-BR.json && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f3b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-27T04:21:07.353Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "core/test/grok.test.ts",
+      "alegacao": "F3: os 14 casos GK do adaptador grok passam sem skip, e o GK5 confere o GROK_HOME do perfil no filho, sem XAI_API_KEY, e a recusa do perfil de outro runtime",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/grok.test.js GK 14 && grep -q \"assert.equal(doPerfil.GROK_HOME, '/srv/perfil-g1')\" core/test/grok.test.ts"
+      ],
+      "criadoEm": "2026-10-27T04:21:09.555Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "core/test/locale-accounts.test.ts",
+      "alegacao": "F3: o caso do uso em ingles do accounts add confere o texto com grok e --device-auth, e os 4 casos do locale do accounts passam",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'claude-bg|codex|grok --dir <directory> \\[--sem-login] \\[--device-auth (grok only)]' core/test/locale-accounts.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-accounts.test.js"
+      ],
+      "criadoEm": "2026-10-27T04:21:11.663Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "core/test/rm067-grok-perfis.test.ts",
+      "alegacao": "F3: os 4 casos GP passam sem skip: store com grokHome; dois perfis simulados, esgotar o primeiro move a thread para o segundo; perfil de outro estado nao recebe despacho e a frase de cota nao marca; ork accounts com o grok sem abrir o auth.json",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-perfis.test.js GP 4"
+      ],
+      "criadoEm": "2026-10-27T04:21:13.622Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-067-grok-build-homologado.md",
+      "alegacao": "F3: a pagina registra a D1 do dono de 27/10/2026 (alternativa b, a assinatura agora, com o risco da politica de uso aceito), a D1 deixa de bloquear nas dependencias, os nao-objetivos perdem o uso da assinatura sem a D1, e a F3 entregue diz que o grok fica fora da escada automatica e do fallback ate o formato da cota",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-067-grok-build-homologado.md; grep -q 'Decisão do dono, 27/10/2026, no terminal (resposta \"3.b\"): alternativa b, a assinatura agora.' $f && grep -q 'possível suspensão da conta' $f && grep -q 'foi tomada pelo dono em 27/10/2026 e não bloqueia mais nenhuma fatia' $f && ! grep -q 'usar a assinatura sem a confirmação da decisão D1' $f && grep -q '### F3 entregue (thread' $f && grep -q 'fica fora da escada automática' $f && grep -q 'thread: ork-rm067f3perfi' $f"
+      ],
+      "criadoEm": "2026-10-27T04:21:27.414Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "F3: o indice do roadmap, regerado por ork docs sincronizar --so RM-067, traz a RM-067 atualizada em 2026-10-27",
+      "negativa": false,
+      "verificar": [
+        "grep -q '| \\[RM-067\\](RM-067-grok-build-homologado.md) | Grok Build homologado ao lado de Codex e Claude Code | Em desenvolvimento | Mesclado | Aprovados | Não implantado | 2026-10-27 |' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-10-27T04:21:29.486Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/playbook-runtimes-i09.md",
+      "alegacao": "F3: o playbook dos runtimes tem a secao do grok: perfis com GROK_HOME, login pelo proprio CLI sem ler o auth.json, nenhum texto vira cota esgotada e o grok fica fora da escada automatica e do fallback ate a F5",
+      "negativa": true,
+      "verificar": [
+        "f=docs/referencia/contratos/playbook-runtimes-i09.md; grep -q '### Grok Build (' $f && grep -q 'fora da escada automática' $f && grep -q 'e do fallback' $f && grep -q 'grok login --device-auth' $f && grep -q 'auth.json' $f"
+      ],
+      "criadoEm": "2026-10-27T04:21:32.029Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "F3: a referencia do CLI em ingles documenta o accounts add com grok login e --device-auth, o check sem conferencia previa do grok e o despacho pela assinatura do perfil (D1 b)",
+      "negativa": false,
+      "verificar": [
+        "f=docs/referencia/cli.en.md; grep -q 'ork accounts add <id> --runtime R --dir D \\[--sem-login\\] \\[--device-auth\\]' $f && grep -q 'grok login --device-auth' $f && grep -q 'grok. documents no login check' $f && grep -q 'alternative b of 2026-10-27' $f"
+      ],
+      "criadoEm": "2026-10-27T04:21:36.808Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "F3: o CHANGELOG traz em Nao publicado a linha dos perfis de conta do Grok Build, e o checador do CHANGELOG aprova contra a origin/main",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'Perfis de conta do Grok Build' CHANGELOG.md && node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-10-27T04:21:38.391Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm067f3perfi",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "F3: a referencia do CLI em pt-BR documenta o accounts add com grok login e --device-auth, o check sem conferencia previa do grok e o despacho pela assinatura do perfil (D1 b)",
+      "negativa": false,
+      "verificar": [
+        "f=docs/referencia/cli.md; grep -q 'ork accounts add <id> --runtime R --dir D \\[--sem-login\\] \\[--device-auth\\]' $f && grep -q 'grok login --device-auth' $f && grep -q 'o .grok. não documenta conferência de login' $f && grep -q 'alternativa b de 27/10/2026' $f"
+      ],
+      "criadoEm": "2026-10-27T04:30:05.829Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}

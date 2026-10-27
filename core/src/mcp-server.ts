@@ -40,6 +40,8 @@ import { registrarDecisao } from './decisao-autonoma';
 import { linhaDeConducao } from './conducao-texto';
 import {criarPerfilShipMcp,PerfilShipMcp,shipMcp} from './mcp-ship';
 import type { TransporteShipMcp } from './mcp-transportes';
+import type { HostMcp } from './mcp-install';
+import { ferramentasServidasAoGrok } from './adapters/grok';
 import { registerBrainTools } from './company-brain-mcp';
 import { ambienteDoPerfil, RegistroAgenteClaude } from './adapters/claude-bg';
 import { classificarSessaoClaude, comFalhaDeConta, falhaDeContaDaTranscricao, fonteRegistrada, processoNativo, provaDoOrk,
@@ -77,7 +79,8 @@ const modoDeConducao = z.string().trim().min(1).max(40)
 const nova = z.object({ nome: z.string().trim().min(1).max(200),
   modo: modoDeConducao.optional() }).strict();
 const fase = daThread.extend({ fase: z.enum(['GOAL','PLAN','GO','CHECK','SHIP','MASTER']),
-  prompt: z.string().min(1).max(65536), runtime: z.enum(['claude-bg','codex']).optional(),
+  // RM-067 (F4b): o grok tambem, como o --runtime do CLI, sempre com o model dele.
+  prompt: z.string().min(1).max(65536), runtime: z.enum(['claude-bg','codex','grok']).optional(),
   model: z.string().trim().min(1).max(200).optional(),
   effort: z.enum(['low','medium','high','xhigh','max']).optional(),
   // RM-056 (D1): o perfil pedido, validado contra o store pelo mesmo caminho do CLI.
@@ -86,7 +89,7 @@ const fase = daThread.extend({ fase: z.enum(['GOAL','PLAN','GO','CHECK','SHIP','
 const converterSchema=zodToJsonSchema as unknown as (schema:z.ZodTypeAny, opcoes:{$refStrategy:'none'})=>Record<string,unknown>;
 const resposta = (valor: unknown) => ({ content: [{ type: 'text' as const, text: JSON.stringify(valor) }] });
 
-export interface OpcoesServidorMcp { projeto: string; host: 'claude-code' | 'codex';threadId?:string;
+export interface OpcoesServidorMcp { projeto: string; host: HostMcp;threadId?:string;
   /** I-36 (D4): identidade do despacho da sessao filha; so com `threadId`. */
   dispatchId?:string;
   /** Exact trusted startup grants; not inferred from worktree/interactive. */
@@ -97,7 +100,10 @@ export interface OpcoesServidorMcp { projeto: string; host: 'claude-code' | 'cod
 /** Factory publica para compor transporte nativo ou testes; nao executa ferramentas no startup. */
 export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
   if (!path.isAbsolute(opcoes.projeto)) throw Error('mcp.project.invalid: raiz absoluta obrigatoria');
-  if (!['claude-code','codex'].includes(opcoes.host)) throw Error('mcp.host.invalid');
+  if (!['claude-code','codex','grok'].includes(opcoes.host)) throw Error('mcp.host.invalid');
+  // RM-067 (F4b, G1): o servidor do grok so serve a sessao filha; o despacho grava --thread na config da worktree.
+  if (opcoes.host==='grok' && opcoes.threadId===undefined)
+    throw Error('mcp.host.child-only: --host grok serve so a sessao filha vinculada a uma thread (--thread), que o despacho do ork grava na config da worktree');
   if(opcoes.permissoesFilho!==undefined && !['interactive','worktree'].includes(opcoes.permissoesFilho))throw Error('mcp.child-permissions.invalid');
   if(opcoes.threadId!==undefined) identidade.parse(opcoes.threadId);
   if(opcoes.dispatchId!==undefined && (opcoes.threadId===undefined || !/^[a-f0-9-]{36}$/.test(opcoes.dispatchId)))
@@ -142,6 +148,9 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     return t;
   };
   if(opcoes.threadId) thread(opcoes.threadId);
+  // RM-067 (F4b, G1): o servidor do grok lista so as ferramentas do perfil filho; o headless nao aprova outra em dialogo.
+  const doGrok=opcoes.host==='grok'
+    ? new Set(ferramentasServidasAoGrok(opcoes.permissoesFilho??'interactive',grafoLigado(exigirManifesto(raiz).manifesto))) : null;
   const pendencias = (id: string) => {
     const t=thread(id), eventos=lerLedger(dirThread(raiz,id)), contexto=contextoHitl(raiz,id);
     const pedidos=[pedidoHitlAberto(raiz,id,t.faseAtual,null),
@@ -150,7 +159,7 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     // e so ele. Nenhum outro canal mcp-local sai `disponivel` daqui por suposicao.
     return pedidos.filter(p=>p && eventos.some(e=>e.tipo==='hitl_requested' && e.contexto===contexto &&
       (e.pedido as {id?:string})?.id===p.id)).map(p=>({pedido:p!,estado:estadoDoPedido(p!),
-        canais:ofertaDoPedido(p!,[opcoes.host]),prazoLocal:prazoLocalDoPedido(p!)}));
+        canais:ofertaDoPedido(p!,opcoes.host==='grok'?[]:[opcoes.host]),prazoLocal:prazoLocalDoPedido(p!)}));
   };
   const fases = (id:string) => {
     thread(id);
@@ -272,6 +281,7 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     config:{description:string;inputSchema:S;annotations:Tool['annotations']},
     executar:(args:z.infer<S>,extra:{signal:AbortSignal})=>Promise<CallToolResult>) {
     if(opcoes.threadId && ['ork_thread_new','ork_phase_run','ork_request_decision','ork_request_master_note','ork_preflight'].includes(nome)) return;
+    if(doGrok && !doGrok.has(nome)) return;
     const entrada=config.inputSchema.extend({projeto:campoProjeto.optional()});
     const schema=converterSchema(entrada,{$refStrategy:'none'});
     ferramentas.set(nome,{tool:{name:nome,description:config.description,annotations:config.annotations,
@@ -296,7 +306,8 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
   // RM-059 (F9, G3): a caixa de saida do Mensageiro de Sessoes so existe no servidor do dono do Claude Code, na memoria:
   // a resposta a uma sessao claude-bg que entra pelo dialogo deste servidor sai por ela, e o texto nunca vai a disco.
   const caixa = opcoes.host==='claude-code' && !opcoes.threadId ? novaCaixaDeSaida() : null;
-  const ingresso = criarIngressoLocal(raiz,{host:opcoes.host,connectionId:conexaoLocal},async (pedido,signal) => {
+  // RM-067 (F4b, G5): o headless do grok nao tem dialogo, e a sessao filha nao pede decisao nem nota: sem ingresso local.
+  const ingresso = opcoes.host==='grok' ? null : criarIngressoLocal(raiz,{host:opcoes.host,connectionId:conexaoLocal},async (pedido,signal) => {
     carregar(); thread(pedido.thread);
     // D12: pergunta nativa que aceita texto NAO vira menu. Um menu sobre pergunta aberta
     // muda a pergunta, e a resposta que chega a sessao deixa de ser a do humano.
@@ -319,13 +330,13 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
   },{caixa});
   // RM-059 (fatia F8, T8.1): a nota do MASTER pelo mesmo ingresso local. O formulario e fixo (a nota de 0 a 5 e o
   // porque); sem a capacidade de formulario no cliente, a recusa vem antes de qualquer escrita.
-  const ingressoDaNota = criarIngressoDaNota(raiz,{host:opcoes.host,connectionId:conexaoLocal},async (apresentacao,signal) => {
+  const ingressoDaNota = opcoes.host==='grok' ? null : criarIngressoDaNota(raiz,{host:opcoes.host,connectionId:conexaoLocal},async (apresentacao,signal) => {
     carregar(); thread(apresentacao.thread);
     const r = await server.elicitInput({ mode:'form', message:apresentacao.mensagem,
       requestedSchema:apresentacao.esquema },{signal,timeout:300000});
     return r.action === 'accept' ? {action:'accept',content:r.content} : {action:r.action};
   },()=>Boolean(server.getClientCapabilities()?.elicitation?.form));
-  server.onclose = () => { ingresso.fechar(); ingressoDaNota.fechar(); };
+  server.onclose = () => { ingresso?.fechar(); ingressoDaNota?.fechar(); };
   registerBrainTools(registrarTool,carregar,thread,opcoes.brainWrites??[]);
   registrarConsultasExperiencia(registrarTool, { raiz, carregar, transporte: opcoes.transporteShip ?? 'github-ssh' });
   // RM-026 K7 (fatia 2): o conhecimento escrito, só leitura, do projeto fixado; também na sessão filha vinculada.
@@ -495,11 +506,11 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     annotations:{readOnlyHint:false,destructiveHint:false}},async({threadId,motivo})=>{
       thread(threadId); livre(threadId); return resposta(abrirPedidoGate(raiz,threadId,motivo));
     });
-  registrarTool('ork_request_decision',{description:'Apresenta pedido existente ao dono por dialogo nativo. Somente IDs; nunca forneca resposta nos argumentos.',
+  if(ingresso) registrarTool('ork_request_decision',{description:'Apresenta pedido existente ao dono por dialogo nativo. Somente IDs; nunca forneca resposta nos argumentos.',
     inputSchema:daDecisao,annotations:{readOnlyHint:false,destructiveHint:false}},async ({threadId,pedidoId},extra) => {
       thread(threadId); return resposta(await ingresso.solicitar(threadId,pedidoId,extra.signal));
     });
-  registrarTool('ork_request_master_note',{description:'Pede ao dono, pelo dialogo nativo do host, a nota de 0 a 5 e o porque de uma entrega. Somente o threadId; nunca forneca nota nem porque nos argumentos.',
+  if(ingressoDaNota) registrarTool('ork_request_master_note',{description:'Pede ao dono, pelo dialogo nativo do host, a nota de 0 a 5 e o porque de uma entrega. Somente o threadId; nunca forneca nota nem porque nos argumentos.',
     inputSchema:daThread,annotations:{readOnlyHint:false,destructiveHint:false}},async ({threadId},extra) => {
       thread(threadId); return resposta(await ingressoDaNota.solicitar(threadId,extra.signal));
     });

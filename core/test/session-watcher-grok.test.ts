@@ -33,7 +33,9 @@ interface Opcoes { fase?: Fase; filhoVivo?: boolean; supervisorVivo?: boolean; r
   /** O `--cwd` do comando do despacho, quando difere do cwd da fixture (aspas da retomada). */
   comandoCwd?: string;
   /** Um processo de verdade no papel do supervisor, que o caso mata no meio da observação. */
-  supervisor?: IdentidadeProcesso }
+  supervisor?: IdentidadeProcesso;
+  /** RM-067 (F4b): o comando do despacho leva a regra de uma ferramenta do MCP do ork, como o despacho com o contexto. */
+  comMcp?: boolean }
 
 function cenario(nome: string, o: Opcoes = {}) {
   const fase = o.fase ?? 'PLAN';
@@ -53,14 +55,15 @@ function cenario(nome: string, o: Opcoes = {}) {
   const processo = { schema: 'ork.codex-process/v1', iniciadoEm: despachadaEm,
     supervisor: o.supervisor ?? (o.supervisorVivo ? vivo : morto), filho: o.filhoVivo ? vivo : morto };
   fs.writeFileSync(`${log}.process.json`, JSON.stringify(processo));
-  const comando = montarComando({ prompt: '<prompt:abcd1234>', nome: t.slug, cwd: o.comandoCwd ?? p.dir, model: 'grok-modelo', effort: 'high',
-    sandbox: 'workspace-write', sessionId: SID });
+  const comando = [...montarComando({ prompt: '<prompt:abcd1234>', nome: t.slug, cwd: o.comandoCwd ?? p.dir, model: 'grok-modelo', effort: 'high',
+    sandbox: 'workspace-write', sessionId: SID }), ...(o.comMcp ? ['--allow', 'MCPTool(orkastery__ork_thread_status)'] : [])];
   registrar(dir, t.id, 'phase_dispatch', { fase, slug: t.slug, runtime: 'grok', model: 'grok-modelo', effort: 'high', cwd: p.dir,
     sessionId: SID, comando });
   if (o.registroGrok !== false) {
     registrar(dir, t.id, 'session_sensor_registered', { fase, sessionId: SID, despachoEm: despachadaEm, grok: 'streaming-json',
       logPath: log, processoPath: `${log}.process.json`, reciboPath: `${log}.exit.json`, cwd: p.dir, grokHome: casa,
-      ...(fase === 'PLAN' ? { artefato: { arquivo: 'docs/plan.md', sha256: null } } : {}), ...(fase === 'GO' ? { head: null } : {}) });
+      ...(fase === 'PLAN' ? { artefato: { arquivo: 'docs/plan.md', sha256: null } } : {}),
+      ...(fase === 'CHECK' ? { artefato: { arquivo: 'docs/check.md', sha256: null } } : {}), ...(fase === 'GO' ? { head: null } : {}) });
   }
   const recibo = (exitCode: number | null, signal: string | null = null, erro: string | null = null) =>
     fs.writeFileSync(`${log}.exit.json`, JSON.stringify({
@@ -79,6 +82,8 @@ function cenario(nome: string, o: Opcoes = {}) {
       if (ms !== undefined) fs.utimesSync(updates, (inicio + ms) / 1000, (inicio + ms) / 1000);
     },
     plano: () => { fs.mkdirSync(path.join(dir, 'docs'), { recursive: true }); fs.writeFileSync(path.join(dir, 'docs/plan.md'), '# plano\n'); },
+    parecer: () => { fs.mkdirSync(path.join(dir, 'docs'), { recursive: true });
+      fs.writeFileSync(path.join(dir, 'docs/check.md'), '# parecer\n\nVeredito: PASSOU\n'); },
     observar: (ms: number) => observarSessao(p.carregado, SID, { agoraMs: inicio + ms }),
     eventos: () => lerLedger(dir),
     resultados: () => lerLedger(dir).filter((e) => e.tipo === 'phase_result'),
@@ -506,4 +511,74 @@ test('GW18: o supervisor que termina no meio da observacao nunca fecha a fase se
     assert.equal(res.exitCode, 0);
     assert.equal(res.ok, true);
   } finally { sup2?.limpar(); d?.limpar(); }
+});
+
+test('GW19: o evento do nucleo gravado entre a primeira leitura do ledger e o recibo adia a decisao, e a volta seguinte conclui pela prova', () => {
+  // RM-067 (F4b, G8): com o MCP, o `ship_done` (como o commit ou o verify) chega pelo nucleo ate o fim da sessao. Aqui ele
+  // entra no instante em que a observacao abre o recibo, depois da primeira leitura do ledger: a prova refeita sob o lock
+  // muda, e a decisao fica para a volta seguinte, que conclui. Sem a reconferencia, esta volta gravaria human.pending.
+  const c = cenario('prova-sob-lock', { fase: 'SHIP' });
+  try {
+    c.stream(fixture('fim-normal.jsonl'));
+    c.sessaoNoDisco();
+    c.recibo(0);
+    const r1 = comGancho(`${c.log}.exit.json`, 'antes',
+      () => { registrar(c.dir, c.t.id, 'ship_done', { fase: 'SHIP', origem: 'mcp.ship' }); }, () => c.observar(1000));
+    assert.equal(r1.concluido, false, 'a prova mudou sob o lock: nada gravado nesta volta');
+    assert.match(String(r1.espera), /reavaliar na próxima volta/);
+    assert.equal(c.resultados().length, 0);
+    const r2 = c.observar(2000);
+    assert.equal(r2.classificacao, 'fase_concluida');
+    const [res] = c.resultados();
+    assert.equal((res.provaOrk as { ok: boolean }).ok, true);
+    assert.match((res.provaOrk as { fonte: string }).fonte, /ship_done registrado no intervalo do despacho/);
+    c.observar(3000);
+    assert.equal(c.resultados().length, 1, 'um unico phase_result');
+  } finally { c.limpar(); }
+});
+
+test('GW20: a retomada pronta para colar leva as duas variaveis do filho na frente, e o retomada.comando segue o argv', () => {
+  const c = cenario('retomada-ambiente');
+  try {
+    c.stream(fixture('cortado.jsonl'));
+    c.recibo(143);
+    c.observar(1000);
+    const [res] = c.resultados();
+    assert.match(String(res.detalhe), /; retomada: GROK_CLAUDE_MCPS_ENABLED=0 GROK_CURSOR_MCPS_ENABLED=0 grok -p continue /);
+    assert.deepEqual((res.retomada as { comando: string[] }).comando, RETOMADA(c.comando));
+  } finally { c.limpar(); }
+});
+
+test('GW21: o verify_run gravado entre as leituras do CHECK adia a decisao, e o phase_result leva o verify da prova refeita', () => {
+  // RM-067 (F4b, GO-FIX A1): a prova inteira e comparada sob o lock. O texto da prova do CHECK nao muda com o verify, mas o
+  // phase_result grava o `verify` dela, que o #Noctum usa como o SHA revisado; sem a comparacao inteira, ele sairia nulo.
+  const c = cenario('verify-sob-lock', { fase: 'CHECK' });
+  try {
+    c.stream(fixture('fim-normal.jsonl'));
+    c.sessaoNoDisco();
+    c.parecer();
+    c.recibo(0);
+    const commit = 'a'.repeat(40);
+    const r1 = comGancho(`${c.log}.exit.json`, 'antes',
+      () => { registrar(c.dir, c.t.id, 'verify_run', { fase: 'CHECK', commit, ok: true }); }, () => c.observar(1000));
+    assert.equal(r1.concluido, false, 'a prova mudou sob o lock: nada gravado nesta volta');
+    assert.equal(c.resultados().length, 0);
+    const r2 = c.observar(2000);
+    assert.equal(r2.classificacao, 'fase_concluida');
+    const [res] = c.resultados();
+    assert.equal((res.provaOrk as { verify: { commit: string } | null }).verify?.commit, commit, 'o verify da prova refeita vai ao resultado');
+  } finally { c.limpar(); }
+});
+
+test('GW22: com o MCP do ork, a retomada pronta para colar avisa que parte da config da worktree como ela esta', () => {
+  const comMcp = cenario('retomada-com-mcp', { comMcp: true });
+  const semMcp = cenario('retomada-sem-mcp');
+  try {
+    for (const c of [comMcp, semMcp]) { c.stream(fixture('cortado.jsonl')); c.recibo(143); c.observar(1000); }
+    const [com] = comMcp.resultados(), [sem] = semMcp.resultados();
+    // GO-FIX N4: o aviso vem antes do comando, que as telas cortam no fim; a regra vai entre aspas simples, pronta para colar.
+    assert.match(String(com.detalhe), /; a retomada parte do \.grok\/config\.toml da worktree como esta, .*; retomada: GROK_CLAUDE_MCPS_ENABLED=0 /);
+    assert.match(String(com.detalhe), / --allow 'MCPTool\(orkastery__ork_thread_status\)'$/);
+    assert.equal(String(sem.detalhe).includes('.grok/config.toml'), false, 'sem o MCP, a retomada nao fala da config');
+  } finally { comMcp.limpar(); semMcp.limpar(); }
 });
