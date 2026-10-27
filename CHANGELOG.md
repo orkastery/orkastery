@@ -6,6 +6,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+## [0.6.1] - 2026-10-27
+
+O Grok Build entra por despacho explícito (`--runtime grok`), com perfis de conta e MCP, ainda sem homologação real: o ensaio real (F5) falta.
+
+O #Noctum segue **em desenvolvimento, não anunciado** e ainda não validado.
+
 ### Adicionado
 
 - **Grok Build por despacho explícito** ([RM-067](docs/roadmap/RM-067-grok-build-homologado.md), F1 e F2):
