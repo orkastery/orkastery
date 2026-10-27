@@ -6,19 +6,21 @@ categoria: iniciativa
 pai: null
 features: [FEAT-041]
 owner: Paschoal
-atualizado_em: 2026-10-20T12:00:00-03:00
+atualizado_em: 2026-10-27T00:50:00-03:00
 estado:
-  ciclo: Em validação
+  ciclo: Disponível
   documentacao: Em revisão
   codigo: Mesclado
   testes: Aprovados
-  deploy: Não implantado
-  exposicao: Flag desligada
-  habilitacao: Pendente
+  deploy: Produção
+  exposicao: Geral
+  habilitacao: Concluída
 evidencias:
   codigo:
     commit: 6d9c0f5d
     pr: 186
+  deploy:
+    release: v0.6.0, @orkastery/cli no npm (ork security-scan e verify.security_scan)
 sdlc:
   thread: null
   modo: null
@@ -32,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em validação | Mesclado | Aprovados | Não implantado | Flag desligada |
+| Disponível | Mesclado | Aprovados | Produção | Geral |
 
 <!-- ork-docs:relance:fim -->
 
@@ -96,7 +98,7 @@ sdlc:
 
 ## Estado com evidências
 
-O código está na `main` desde o PR #186 (merge `6d9c0f5d`, cabeça da branch `34f019b1`), ainda sem release no npm: o workflow de publicação espera a aceitação dos pilotos do #Noctum. A suíte, o scan do próprio repositório, a integração com Docker real e a prova ponta a ponta estão resumidos em [Evidências](#evidências).
+O código está na `main` desde o PR #186 (merge `6d9c0f5d`, cabeça da branch `34f019b1`) e em produção na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026). A suíte, o scan do próprio repositório, a integração com Docker real e a prova ponta a ponta estão resumidos em [Evidências](#evidências).
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -104,13 +106,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em validação | — | 2026-10-20 | Paschoal |
-| Documentação | Em revisão | — | 2026-10-20 | Paschoal |
-| Código | Mesclado | commit `6d9c0f5d` · PR #186 | 2026-10-20 | Paschoal |
-| Testes | Aprovados | — | 2026-10-20 | Paschoal |
-| Deploy | Não implantado | — | 2026-10-20 | Paschoal |
-| Exposição | Flag desligada | — | 2026-10-20 | Paschoal |
-| Habilitação | Pendente | — | 2026-10-20 | Paschoal |
+| Ciclo do item | Disponível | — | 2026-10-27 | Paschoal |
+| Documentação | Em revisão | — | 2026-10-27 | Paschoal |
+| Código | Mesclado | commit `6d9c0f5d` · PR #186 | 2026-10-27 | Paschoal |
+| Testes | Aprovados | — | 2026-10-27 | Paschoal |
+| Deploy | Produção | release: v0.6.0, @orkastery/cli no npm (ork security-scan e verify.security_scan) | 2026-10-27 | Paschoal |
+| Exposição | Geral | — | 2026-10-27 | Paschoal |
+| Habilitação | Concluída | — | 2026-10-27 | Paschoal |
 
 <!-- ork-docs:estado:fim -->
 
@@ -118,9 +120,10 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: Paschoal; A: Julio; C: nenhum; I: nenhum.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** agente de código na implementação, nas provas e nas revisões, com Paschoal no comando; revisor humano: Julio, no PR.
-- **Próxima ação, responsável e prazo:** publicar o scan na próxima versão do npm, quando os pilotos do #Noctum forem aceitos. Responsável: Paschoal. Sem data definida.
+- **Próxima ação, responsável e prazo:** nenhuma de publicação: o scan saiu na versão 0.6.0. Responsável: Paschoal. Sem data definida.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-20 | Item criado com o scan implementado na branch | Pedido do mantenedor; suíte, integração real e prova ponta a ponta em [Evidências](#evidências) | Paschoal |
 | 2026-10-20 | Mesclado na main pelo PR #186 | Merge `6d9c0f5d` (cabeça da branch `34f019b1`); sem release no npm: a publicação espera a aceitação dos pilotos do #Noctum | Paschoal |
+| 2026-10-27 | Em produção na 0.6.0: ciclo Disponível, exposição Geral (o scan roda em todo projeto com `verify.security_scan`) e habilitação Concluída (o guia de verificação e a referência do CLI saíram com a versão) | Tag `v0.6.0`, com o merge `6d9c0f5d` (PR #186) na tag; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |

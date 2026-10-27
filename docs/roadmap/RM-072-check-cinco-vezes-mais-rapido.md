@@ -6,19 +6,21 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-25T03:44:10-03:00
+atualizado_em: 2026-10-27T00:50:00-03:00
 estado:
-  ciclo: Em desenvolvimento
+  ciclo: Disponível
   documentacao: Em revisão
   codigo: Mesclado
   testes: Aprovados
-  deploy: Não implantado
-  exposicao: Flag desligada
-  habilitacao: Pendente
+  deploy: Produção
+  exposicao: Geral
+  habilitacao: Concluída
 evidencias:
   codigo:
     commit: 90032a5
     pr: "#200"
+  deploy:
+    release: v0.6.0, @orkastery/cli no npm (o Agile Check como CHECK padrão; o Classic com check.mode classic)
 sdlc:
   thread: ork-check5x
   modo: "#Auto"
@@ -34,7 +36,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Mesclado | Aprovados | Não implantado | Flag desligada |
+| Disponível | Mesclado | Aprovados | Produção | Geral |
 
 <!-- ork-docs:relance:fim -->
 
@@ -179,19 +181,21 @@ O CHECK da `ork-check5x` teve quatro rodadas com GO-FIX e, a partir da quinta, o
 
 ## Estado com evidências
 
+- Em produção na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026): o Agile Check é o CHECK padrão, e o Classic Check volta com `check.mode: classic` no `orkastery.yaml` ou com `ork verify --check classic`. A meta de desempenho e a de memória seguem na [RM-074](RM-074-agile-check-em-3-minutos.md), pela D3.
+
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
 <!-- ork-docs:estado:inicio -->
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-25 | Julio |
-| Documentação | Em revisão | — | 2026-10-25 | Julio |
-| Código | Mesclado | commit `90032a5` · PR ##200 | 2026-10-25 | Julio |
-| Testes | Aprovados | — | 2026-10-25 | Julio |
-| Deploy | Não implantado | — | 2026-10-25 | Julio |
-| Exposição | Flag desligada | — | 2026-10-25 | Julio |
-| Habilitação | Pendente | — | 2026-10-25 | Julio |
+| Ciclo do item | Disponível | — | 2026-10-27 | Julio |
+| Documentação | Em revisão | — | 2026-10-27 | Julio |
+| Código | Mesclado | commit `90032a5` · PR ##200 | 2026-10-27 | Julio |
+| Testes | Aprovados | — | 2026-10-27 | Julio |
+| Deploy | Produção | release: v0.6.0, @orkastery/cli no npm (o Agile Check como CHECK padrão; o Classic com check.mode classic) | 2026-10-27 | Julio |
+| Exposição | Geral | — | 2026-10-27 | Julio |
+| Habilitação | Concluída | — | 2026-10-27 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -207,3 +211,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-24 | D2: o Classic Check fica como o CHECK de hoje e o Agile Check, novo, vira o padrão; título e frase de abertura passam a dizer os dois modos | Pedido do dono de 24/10/2026, na abertura da `ork-check5x` | Julio |
 | 2026-10-24 | GO da `ork-check5x`: Agile Check com as fatias 1 e 2, três rodadas seguidas aprovadas entre 13 min 35 s e 14 min 25 s contra 20 min 37 s do Classic; `osv-scanner` e `oxlint` atrás de flag; o alvo de 3 min e o de 4 GB voltam ao dono | Seção "Medição do GO" | Condutor da thread |
 | 2026-10-24 | D3: lançar com F1 e F2; o alvo de 3 min e o de 4 GB ficam não atingidos e vão para uma RM nova, com a fatia 3 e o piso de CPU da suíte | Resposta 3a do dono no Telegram (24/10, 13:23) e decisão do condutor sobre a memória | Julio |
+| 2026-10-27 | Em produção na 0.6.0: ciclo Disponível, exposição Geral e habilitação Concluída (o guia `docs/guias/verificacao.md` e o CHANGELOG saíram com a versão); a meta de desempenho e a de memória seguem na RM-074 | Tag `v0.6.0` (merge `7a282d80`, PR #204), com o merge `90032a5` (PR #200) na tag; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |

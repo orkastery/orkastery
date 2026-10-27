@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-020]
 owner: Julio
-atualizado_em: 2026-09-27T23:46:57-03:00
+atualizado_em: 2026-10-27T00:50:00-03:00
 estado:
   ciclo: Concluído
   documentacao: Em revisão
@@ -19,6 +19,8 @@ evidencias:
   codigo:
     commit: 10ca416
     pr: null
+  deploy:
+    release: código desde o Orkastery 0.3.0 (10ca416); o fecho do GO igual no Codex e no Claude Code na v0.6.0, @orkastery/cli no npm
 sdlc:
   thread: ork-i16experienc
   modo: "#Auto"
@@ -58,6 +60,7 @@ sdlc:
 ## Estado com evidências
 
 - Merge `85eb2bb` (12/09/2026).
+- Na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026): o Codex e o Claude Code fecham o GO com os mesmos artefatos.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -65,13 +68,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Concluído | — | 2026-09-27 | Julio |
-| Documentação | Em revisão | — | 2026-09-27 | Julio |
-| Código | Mesclado | commit `10ca416` | 2026-09-27 | Julio |
-| Testes | Aprovados | — | 2026-09-27 | Julio |
-| Deploy | Produção | — | 2026-09-27 | Julio |
-| Exposição | Geral | — | 2026-09-27 | Julio |
-| Habilitação | Concluída | — | 2026-09-27 | Julio |
+| Ciclo do item | Concluído | — | 2026-10-27 | Julio |
+| Documentação | Em revisão | — | 2026-10-27 | Julio |
+| Código | Mesclado | commit `10ca416` | 2026-10-27 | Julio |
+| Testes | Aprovados | — | 2026-10-27 | Julio |
+| Deploy | Produção | release: código desde o Orkastery 0.3.0 (10ca416); o fecho do GO igual no Codex e no Claude Code na v0.6.0, @orkastery/cli no npm | 2026-10-27 | Julio |
+| Exposição | Geral | — | 2026-10-27 | Julio |
+| Habilitação | Concluída | — | 2026-10-27 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -83,3 +86,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-09-12 | entregue | merge `85eb2bb` | Julio |
+| 2026-10-27 | O fecho do GO igual no Codex e no Claude Code em produção na 0.6.0 | Tag `v0.6.0`, com o merge `84f5fa15` na tag; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |

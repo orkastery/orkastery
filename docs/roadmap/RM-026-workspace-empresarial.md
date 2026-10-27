@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-024, FEAT-033, FEAT-038]
 owner: Julio
-atualizado_em: 2026-10-13T01:32:41+00:00
+atualizado_em: 2026-10-27T00:50:00-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -24,7 +24,7 @@ evidencias:
   testes:
     ci: verde no push dos merges do K7 (runs 38280864197 e 38326268400), do K3.1 (run 36662685901) e da v0.5.0 (run 36815186450)
   deploy:
-    release: v0.5.6 (K7, fatia 1) e v0.5.0 (contexto citável e K3.1), @orkastery/cli no npm
+    release: v0.6.0 (K7, fatias 2 e 3), v0.5.6 (K7, fatia 1) e v0.5.0 (contexto citável e K3.1), @orkastery/cli no npm
 sdlc:
   thread: ork-rm026k7conhe
   modo: "#Auto"
@@ -135,8 +135,8 @@ O GO segue em três fatias:
    e o `verificar` rodam o `memory.cli` do manifesto, a P6 (decisões D17 a D21). O item
    ganha a página [FEAT-038](../produto/FEAT-038-conhecimento-escrito.md).
 
-**Estado do K7:** fechado no código com as três fatias, a terceira por PR. A 0.5.6 publicada leva só a fatia 1 (o
-contrato e a leitura); o comando, as tools e os hosts saem na próxima versão. No OpenClaw e no Hermes do dono, o
+**Estado do K7:** fechado no código com as três fatias, a terceira por PR. A 0.5.6 levou só a fatia 1 (o
+contrato e a leitura); o comando, as tools e os hosts saíram na 0.6.0. No OpenClaw e no Hermes do dono, o
 conhecimento chega depois de reinstalar a extensão e a skill, ato do dono, com os comandos na
 [FEAT-038](../produto/FEAT-038-conhecimento-escrito.md). Fica de fora: escrever documento por tool (é commit numa
 thread, com PR), a allowlist da sessão filha do `claude-bg` e a P6 da
@@ -149,6 +149,7 @@ thread, com PR), a allowlist da sessão filha do `claude-bg` e a P6 da
 - Dossiê de decisão (K3.1) na `main` pelo PR #27 (merge `46220bc`), com o CI verde no push do merge (run 36662685901).
 - Os dois em produção na versão 0.5.0: tag `v0.5.0` (merge `2418a4e`, PR #36), `@orkastery/cli` 0.5.0 no npm, CI verde no push da versão (run 36815186450).
 - K7 na `main`: a fatia 1 pelo PR #143 (merge `1079f47`, CI verde no push, run 38280864197), publicada na 0.5.6 (tag `v0.5.6`, `@orkastery/cli` 0.5.6 no npm); a fatia 2 pelo PR #153 (merge `89e934a`, run 38326268400); a fatia 3 por PR.
+- K7, fatias 2 e 3, em produção na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026): o K7 inteiro está em produção.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -156,13 +157,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-13 | Julio |
-| Documentação | Em revisão | — | 2026-10-13 | Julio |
-| Código | Mesclado | commit `1079f47` · PR #143 · anteriores: 46220bc (PR #27, dossiê K3.1); a17ff88 (PR #21, contexto citável) · seguintes: 89e934a (PR #153, K7 fatia 2) | 2026-10-13 | Julio |
-| Testes | Aprovados | ci: verde no push dos merges do K7 (runs 38280864197 e 38326268400), do K3.1 (run 36662685901) e da v0.5.0 (run 36815186450) | 2026-10-13 | Julio |
-| Deploy | Produção | release: v0.5.6 (K7, fatia 1) e v0.5.0 (contexto citável e K3.1), @orkastery/cli no npm | 2026-10-13 | Julio |
-| Exposição | Parcial | — | 2026-10-13 | Julio |
-| Habilitação | Em andamento | — | 2026-10-13 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-27 | Julio |
+| Documentação | Em revisão | — | 2026-10-27 | Julio |
+| Código | Mesclado | commit `1079f47` · PR #143 · anteriores: 46220bc (PR #27, dossiê K3.1); a17ff88 (PR #21, contexto citável) · seguintes: 89e934a (PR #153, K7 fatia 2) | 2026-10-27 | Julio |
+| Testes | Aprovados | ci: verde no push dos merges do K7 (runs 38280864197 e 38326268400), do K3.1 (run 36662685901) e da v0.5.0 (run 36815186450) | 2026-10-27 | Julio |
+| Deploy | Produção | release: v0.6.0 (K7, fatias 2 e 3), v0.5.6 (K7, fatia 1) e v0.5.0 (contexto citável e K3.1), @orkastery/cli no npm | 2026-10-27 | Julio |
+| Exposição | Parcial | — | 2026-10-27 | Julio |
+| Habilitação | Em andamento | — | 2026-10-27 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -187,3 +188,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-12 | K7, fatia 2: a CLI `ork conhecimento` e as tools MCP `ork_conhecimento_*`, com os ids do Brain conferidos por `get` | thread `ork-rm026k7conhe`, por PR, decisões D11 a D14 no ledger | thread `ork-rm026k7conhe` (#Auto) |
 | 2026-10-12 | K7, fatias 1 e 2 mescladas na `main`; a fatia 1 em produção na 0.5.6 | PR #143 (merge `1079f47`), PR #153 (merge `89e934a`), tag `v0.5.6` | Julio |
 | 2026-10-12 | K7, fatia 3: as tools do conhecimento no OpenClaw e no Hermes, e a página de produto FEAT-038 | thread `ork-rm026k7conhe`, por PR, decisões D17 a D19 no ledger | thread `ork-rm026k7conhe` (#Auto) |
+| 2026-10-27 | K7, fatias 2 e 3, em produção na 0.6.0; o item segue Em desenvolvimento e com exposição Parcial, porque faltam o resto do K3 e o K4 a K6 | Tag `v0.6.0`, com os merges `89e934a` (#153) e `69dc0ff6` (#161) na tag; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |
