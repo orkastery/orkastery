@@ -17,9 +17,11 @@ import { ambienteDeAssinatura, ENVS_DE_PROVIDER_PAGO } from '../runtime-ambiente
 import { ambienteComPerfil, PerfilDeDespacho } from '../runtime-profiles';
 import { SessaoRuntime } from '../types';
 import { exec as executar, noPath } from '../util';
-import { DespachoResultado, parseRateLimit, StatusDeAuth } from './claude-bg';
+import { CONSULTAS_MCP, DespachoResultado, MUTACOES_WORKTREE, parseRateLimit, StatusDeAuth } from './claude-bg';
 import { estadoProcesso, iniciarSupervisor, ProcessoCodex, ReciboCodex } from './codex-runner';
 import { falhaDeContaDoTextoGrok, falhaDoErroGrok, lerStreamGrok, redigirTextoGrok } from './grok-events';
+import { TOOLS_DO_GRAFO } from '../mcp-grafo';
+import type { PermissoesFilhoMcp } from '../mcp-install';
 
 export const NOME_ADAPTER = 'grok';
 
@@ -63,6 +65,32 @@ export const ESFORCO_DO_GROK: Readonly<Record<string, string>> = Object.freeze({
 export function esforcoDoGrok(effort: string): string {
   const chave = effort.trim().toLowerCase();
   return Object.hasOwn(ESFORCO_DO_GROK, chave) ? ESFORCO_DO_GROK[chave] : effort.trim();
+}
+
+/** O prefixo das ferramentas do servidor `orkastery` no `--allowedTools` do `claude-bg`. */
+const PREFIXO_DO_CLAUDE = 'mcp__orkastery__';
+
+/**
+ * RM-067 (F4b, G2 e D1): as ferramentas do MCP do `ork` que um despacho do `grok` libera, as mesmas do `--allowedTools` do
+ * `claude-bg` no mesmo caso, sem o prefixo: no PLAN que fecha o bloco, as consultas, `ork_artifact_write` e
+ * `ork_decision_record`, em qualquer perfil; fora dele, as consultas e, no perfil `worktree`, `ork_git_status` e as seis
+ * mutações. As consultas do grafo entram com a flag do manifesto da raiz. Montada na chamada, como no `claude-bg`: no
+ * ciclo de imports, o valor importado pode ainda não existir quando este módulo carrega.
+ */
+export function ferramentasDoGrok(perfil: PermissoesFilhoMcp, plano: boolean, grafo: boolean): string[] {
+  const semPrefixo = (nomes: readonly string[]) => nomes.map((n) => n.slice(PREFIXO_DO_CLAUDE.length));
+  const consultas = [...semPrefixo(CONSULTAS_MCP), ...(grafo ? TOOLS_DO_GRAFO : [])];
+  if (plano) return [...consultas, 'ork_artifact_write', 'ork_decision_record'];
+  return perfil === 'worktree' ? [...consultas, 'ork_git_status', ...semPrefixo(MUTACOES_WORKTREE)] : consultas;
+}
+
+/**
+ * RM-067 (F4b, G1): o que o servidor `--host grok` lista, para o perfil filho da instalação: a união dos dois casos de
+ * `ferramentasDoGrok` (o PLAN e o resto do bloco). O headless não aprova ferramenta em diálogo, então o servidor não lista
+ * nada que o `--allow` de algum despacho desse perfil não libere.
+ */
+export function ferramentasServidasAoGrok(perfil: PermissoesFilhoMcp, grafo: boolean): string[] {
+  return [...new Set([...ferramentasDoGrok(perfil, false, grafo), ...ferramentasDoGrok(perfil, true, grafo)])];
 }
 
 /** D6: quanto o despacho espera a pasta da sessão ou o recibo do supervisor. */

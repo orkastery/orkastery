@@ -4359,8 +4359,9 @@ function executarComando(argvBruto: string[]): number {
       const permissoesFilho=texto(args.opcoes['child-permissions'])??'interactive';
       const permissoesDono=texto(args.opcoes['owner-permissions']);
       const acao=args.posicionais[1];
+      // RM-067 (F4b): o grok e host do install e do serve; o servidor dele recusa sem --thread (so a sessao filha).
       if(args.posicionais.length!==2 || !['serve','install'].includes(acao) || !projeto ||
-          (host!=='codex' && host!=='claude-code') ||
+          (host!=='codex' && host!=='claude-code' && host!=='grok') ||
           Object.keys(args.opcoes).some(k=>!['project','host','ship-transport','child-permissions',...(acao==='install'?['dry-run','owner-permissions','ssh-fingerprint']:['thread','dispatch'])].includes(k)) ||
           (args.opcoes.dispatch!==undefined && (!threadId || !dispatchId || !/^[a-f0-9-]{36}$/.test(dispatchId))) ||
           argv.filter(a=>a==='--ship-transport' || a.startsWith('--ship-transport=')).length>1 ||
