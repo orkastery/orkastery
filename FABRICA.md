@@ -12,6 +12,6 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | vps | ork-registrarprr | #Fast | GO | codex gpt-5.6-sol/xhigh | — | — | 27/10 01:45 | viva |
 | vps | ork-rm058blocob | #Auto | GO | claude-bg opus/max | RM-058 | — | 27/10 01:45 | parada desde 24/10 23:50: sessão 59482a30 sem processo (fantasma) |
 | vps | ork-rm067f3perfi | #Fast | GO | claude-bg opus/high | RM-067 | — | 27/10 01:45 | viva |
-| vps | ork-rm074m0banca | #Fast | GO | sem despacho | RM-074 | — | 27/10 01:45 | parada desde 01:45: nenhuma sessão despachada na fase GO |
+| vps | ork-rm074m0banca | #Fast | GO | claude-bg opus/high | RM-074 | — | 27/10 01:45 | viva |
 
 Horários de Brasília.

@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.0",
-  "publicadoEm": "2026-10-27T04:45:26.980Z",
+  "publicadoEm": "2026-10-27T04:45:40.969Z",
   "threads": [
     {
       "id": "ork-docsda060emp",
@@ -168,18 +168,18 @@
       "status": "aberta",
       "roadmap": "RM-074",
       "branch": "ork/ork-rm074m0banca-go",
-      "atualizadaEm": "2026-10-27T04:45:20.926Z",
+      "atualizadaEm": "2026-10-27T04:45:40.361Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null,
+      "runtime": "claude-bg",
+      "modelo": "opus",
+      "esforco": "high",
       "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-27T04:45:23.974Z",
-        "motivo": "nenhuma sessão despachada na fase GO"
+        "viva": true,
+        "desdeEm": null,
+        "motivo": null
       }
     }
   ]
