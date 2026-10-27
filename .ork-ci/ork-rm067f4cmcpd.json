@@ -271,20 +271,6 @@
       "lint": []
     },
     {
-      "id": "C32",
-      "thread": "ork-rm067f4cmcpd",
-      "fase": "GOAL",
-      "arquivo": "core/src/adapters/grok-mcp-servidor.ts",
-      "alegacao": "F4c (D1 a D5, GO-FIX 1): o servidor escuta so em 127.0.0.1, porta efemera, caminho /mcp; o token de 256 bits do despacho chega so pelo ambiente e sai dele na partida, nunca em arquivo; recusa sem token, com token errado ou de outro despacho (401), Host diferente ou Origin (403), outro caminho (404), outro metodo (405) e corpo acima do teto (413); passado o limite de sessoes MCP, despeja a usada ha mais tempo; e morre com a sessao (recibo do supervisor, grok ausente, prazo da partida, sinal), com o fecho a prova de excecao, esperando a requisicao e a ferramenta em andamento",
-      "negativa": true,
-      "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp-externo.test.js GX 4 '^GX(1|2|3|8):'"
-      ],
-      "criadoEm": "2026-10-27T12:48:47.344Z",
-      "estado": "pendente",
-      "lint": []
-    },
-    {
       "id": "C33",
       "thread": "ork-rm067f4cmcpd",
       "fase": "GOAL",
@@ -295,7 +281,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp-externo.test.js GX 2 '^GX(4|6):' && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 2 '^GM(9|10):'"
       ],
       "criadoEm": "2026-10-27T12:48:50.720Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -309,7 +295,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp-externo.test.js GX 1 '^GX7:' && node core/scripts/conferir-casos.cjs core/dist-test/test/session-watcher-grok.test.js GW 1 '^GW22:'"
       ],
       "criadoEm": "2026-10-27T12:48:55.906Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -323,7 +309,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp-externo.test.js GX 1 '^GX4:'"
       ],
       "criadoEm": "2026-10-27T12:48:58.490Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -337,7 +323,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 15"
       ],
       "criadoEm": "2026-10-27T12:49:00.464Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -351,7 +337,7 @@
         "grep -q \"^test('GX8:\" core/test/rm067-grok-mcp-externo.test.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp-externo.test.js GX 5 '^GX[4-8]:'"
       ],
       "criadoEm": "2026-10-27T12:49:03.399Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -365,7 +351,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/runtimes-grok.test.js GR 8"
       ],
       "criadoEm": "2026-10-27T12:49:08.117Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -379,7 +365,7 @@
         "grep -qF 'o despacho gera um token de 256 bits e o passa só pelo ambiente' docs/roadmap/RM-067-grok-build-homologado.md && grep -qF 'Thread sem worktree própria no fallback' docs/roadmap/RM-067-grok-build-homologado.md && core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-067-grok-build-homologado.md"
       ],
       "criadoEm": "2026-10-27T12:49:10.803Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -393,7 +379,7 @@
         "grep -qF 'token de 256 bits por despacho só no ambiente do servidor e do `grok`, nunca em arquivo' docs/referencia/contratos/playbook-runtimes-i09.md && grep -qF 'por `url` e `bearer_token_env_var`' docs/referencia/contratos/playbook-runtimes-i09.md && core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/playbook-runtimes-i09.md"
       ],
       "criadoEm": "2026-10-27T12:49:13.542Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -407,20 +393,146 @@
         "grep -qF '`grok` (`bearer_token_env_var`), nunca em arquivo' CHANGELOG.md && node core/scripts/checar-changelog.cjs --base origin/main"
       ],
       "criadoEm": "2026-10-27T12:49:15.188Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm067f4cmcpd",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/grok.ts",
+      "alegacao": "F4c (D2, GO-FIX 2): o despacho do grok liga a conferencia da arvore de processos quando o grok roda no sandbox e a desliga no perfil off, e o ambiente do despacho tira um ORK_GROK_MCP_TOKEN herdado de outra sessao",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node -e \"const g=require('./core/dist/adapters/grok.js');const e=g.ambienteDoDespacho({PATH:'/usr/bin:/bin',ORK_GROK_MCP_TOKEN:'herdado'});process.exit(e.ORK_GROK_MCP_TOKEN===undefined?0:1)\" && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp-externo.test.js GX 1 '^GX4:'"
+      ],
+      "criadoEm": "2026-10-27T13:22:05.105Z",
       "estado": "pendente",
       "lint": []
     },
     {
-      "id": "C44",
+      "id": "C47",
+      "thread": "ork-rm067f4cmcpd",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm067-grok-mcp-externo.test.ts",
+      "alegacao": "F4c (GO-FIX 2): GX9 prova que, com a conferencia ligada, o token certo de um processo fora da arvore do grok recebe 403, que um descendente do grok entra e que, sem a conferencia, vale so o token; e GX8 prova que o despejo poupa a sessao com pedido em curso, mesmo sendo a usada ha mais tempo",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"^test('GX9:\" core/test/rm067-grok-mcp-externo.test.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp-externo.test.js GX 2 '^GX(8|9):'"
+      ],
+      "criadoEm": "2026-10-27T13:22:07.715Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm067f4cmcpd",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-067-grok-build-homologado.md",
+      "alegacao": "F4c (GO-FIX 2): a pagina diz que, com o grok no sandbox, a conexao tem de vir da arvore de processos do grok do despacho e que o despejo nunca leva a sessao com pedido ou ferramenta em curso",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'a conexão tem de vir da árvore de processos do `grok` daquele despacho' docs/roadmap/RM-067-grok-build-homologado.md && grep -qF 'nunca a que tem pedido ou ferramenta em curso' docs/roadmap/RM-067-grok-build-homologado.md && core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-067-grok-build-homologado.md"
+      ],
+      "criadoEm": "2026-10-27T13:22:13.173Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm067f4cmcpd",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/playbook-runtimes-i09.md",
+      "alegacao": "F4c (GO-FIX 2): o playbook diz que, com o sandbox, o servidor do ork so aceita a conexao da arvore de processos do grok do despacho",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'a conexão só da árvore de processos do `grok` do despacho' docs/referencia/contratos/playbook-runtimes-i09.md && core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/playbook-runtimes-i09.md"
+      ],
+      "criadoEm": "2026-10-27T13:22:15.417Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C52",
       "thread": "ork-rm067f4cmcpd",
       "fase": "GOAL",
       "arquivo": ".ork-ci/ork-rm067f4cmcpd.json",
-      "alegacao": "F4c (GO-FIX 1): o bundle de CI da thread leva as claims ativas dela; as adiadas sao as seis da integracao local (C4 e C34, o servidor MCP de sempre; C19, C20, C21 e C39, o Landlock do kernel) e no maximo a propria (artifact-not-in-checkout), e a varredura de dado privado do checar-experiencia-publica nao acha nada nele",
+      "alegacao": "F4c: o bundle de CI da thread leva as claims ativas dela; toda adiada e da integracao local (o servidor MCP de sempre e o Landlock do kernel), fora no maximo a propria (artifact-not-in-checkout), e a varredura de dado privado do checar-experiencia-publica nao acha nada nele",
       "negativa": true,
       "verificar": [
-        "node -e \"const d=JSON.parse(require('fs').readFileSync('.ork-ci/ork-rm067f4cmcpd.json','utf8'));const a=d.deferredClaims||[];const locais=['C4','C19','C20','C21','C34','C39'];const ok=d.thread==='ork-rm067f4cmcpd'&&d.claims.length>=29&&locais.every(id=>a.some(c=>c.id===id&&c.reason==='local-integration-required'))&&a.every(c=>locais.includes(c.id)||c.reason==='artifact-not-in-checkout')&&a.filter(c=>c.reason==='artifact-not-in-checkout').length<=1;process.exit(ok?0:1)\" && node -e \"const r=require('./core/scripts/checar-experiencia-publica.cjs').varrer({arquivos:['.ork-ci/ork-rm067f4cmcpd.json']});process.exit(r.ok?0:1)\""
+        "node -e \"const d=JSON.parse(require('fs').readFileSync('.ork-ci/ork-rm067f4cmcpd.json','utf8'));const a=d.deferredClaims||[];const locais=a.filter(c=>c.reason==='local-integration-required');const ok=d.thread==='ork-rm067f4cmcpd'&&d.claims.length>=29&&locais.length>=4&&a.every(c=>c.reason==='local-integration-required'||c.reason==='artifact-not-in-checkout')&&a.filter(c=>c.reason==='artifact-not-in-checkout').length<=1;process.exit(ok?0:1)\" && node -e \"const r=require('./core/scripts/checar-experiencia-publica.cjs').varrer({arquivos:['.ork-ci/ork-rm067f4cmcpd.json']});process.exit(r.ok?0:1)\""
       ],
-      "criadoEm": "2026-10-27T12:50:20.600Z",
+      "criadoEm": "2026-10-27T13:23:16.883Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm067f4cmcpd",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/grok-mcp-servidor.ts",
+      "alegacao": "F4c (D1 a D5, GO-FIX 1, 2 e 3): o servidor escuta so em 127.0.0.1, porta efemera, caminho /mcp; o token de 256 bits do despacho chega so pelo ambiente, nunca em arquivo; com o grok no sandbox, a conexao tem de vir da arvore de processos do grok do despacho, achada pelo /proc/net/tcp ou pelo tcp6 (cliente IPv6 no endereco v4-mapeado) e pelos descritores do grok e dos descendentes (403 mcp.grok.process de fora dela, com o motivo no log do servidor, sem o token); so o aceite fica guardado por conexao, e a recusa so vem depois de ler o .process.json do supervisor, esperado ate o prazo da partida; recusa sem token, com token errado ou de outro despacho (401), Host diferente ou Origin (403), outro caminho (404), outro metodo (405) e corpo acima do teto (413); passado o limite de sessoes MCP, despeja a ociosa usada ha mais tempo, depois que a nova inicializa, e nunca a ocupada, contando so o pedido que passou pela conferencia; e morre com a sessao, com o fecho a prova de excecao, esperando a requisicao e a ferramenta em andamento",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"['/proc/net/tcp6', enderecoMapeadoDoProc(portaDoCliente)\" core/src/adapters/grok-mcp-servidor.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp-externo.test.js GX 6 '^GX(1|2|3|8|9|10):'"
+      ],
+      "criadoEm": "2026-10-27T13:52:02.156Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C54",
+      "thread": "ork-rm067f4cmcpd",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm067-grok-mcp-externo.test.ts",
+      "alegacao": "F4c (GO-FIX 3): GX9 prova tambem que o cliente IPv6 da arvore do grok, no endereco v4-mapeado, entra onde a maquina tem socket IPv6, e que o processo recusado deixa o motivo no log do servidor sem o token; GX10 prova que a conexao que chega antes do .process.json do supervisor espera por ele e entra, e que o aceite segue na mesma conexao e em outra",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"^test('GX10:\" core/test/rm067-grok-mcp-externo.test.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp-externo.test.js GX 2 '^GX(9|10):'"
+      ],
+      "criadoEm": "2026-10-27T13:52:05.733Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C56",
+      "thread": "ork-rm067f4cmcpd",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-067-grok-build-homologado.md",
+      "alegacao": "F4c (GO-FIX 3): a pagina diz que valem so pelo token o perfil off e o grok nao despejavel, registra como risco aceito o retransmissor que a propria sessao suba na arvore dela, e poe no ensaio real se o grok deixa ler os proprios descritores",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'Valem só pelo token o perfil `off`' docs/roadmap/RM-067-grok-build-homologado.md && grep -qF 'Fica como risco aceito o retransmissor que a própria sessão suba na árvore dela' docs/roadmap/RM-067-grok-build-homologado.md && grep -qF 'e se ele deixa ler os próprios descritores' docs/roadmap/RM-067-grok-build-homologado.md && core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-067-grok-build-homologado.md"
+      ],
+      "criadoEm": "2026-10-27T13:52:10.119Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C57",
+      "thread": "ork-rm067f4cmcpd",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "F4c (GO-FIX 3): a linha da F4c no CHANGELOG diz que, com o sandbox, a conexao com o servidor do ork so vale da arvore de processos do grok do despacho, quando ele deixa ler os descritores",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'com o sandbox a conexão só da árvore de processos do `grok` do' CHANGELOG.md && grep -qF 'despacho (quando ele deixa ler os descritores), só as ferramentas' CHANGELOG.md && node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-10-27T13:52:12.222Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C58",
+      "thread": "ork-rm067f4cmcpd",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/playbook-runtimes-i09.md",
+      "alegacao": "F4c (GO-FIX 3): o playbook diz que, sem os descritores do grok e no perfil off, a conexao com o servidor do ork vale so pelo token",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '(quando ele deixa ler os descritores; sem isso, e no perfil `off`, vale só o token)' docs/referencia/contratos/playbook-runtimes-i09.md && core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/playbook-runtimes-i09.md"
+      ],
+      "criadoEm": "2026-10-27T13:52:14.301Z",
       "estado": "pendente",
       "lint": []
     }
@@ -447,7 +559,11 @@
       "reason": "local-integration-required"
     },
     {
-      "id": "C39",
+      "id": "C48",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C55",
       "reason": "local-integration-required"
     }
   ],
