@@ -37,6 +37,24 @@
       "para": "return valor;",
       "teste": "network-roadmap",
       "nome": "^rede: a legenda de janeiro diz GMT\\+0"
+    },
+    {
+      "id": "M5",
+      "descricao": "datas sem ano do F3c: o retrato da maquina volta a omitir o ano pelo relogio de quem le, e o texto muda na virada do ano",
+      "modulo": "network-roadmap",
+      "de": "rm.retrato((0, horario_1.formatarDataHora)(m.publicadoEm, { fuso, agora: quando })",
+      "para": "rm.retrato((0, horario_1.formatarDataHora)(m.publicadoEm, { fuso })",
+      "teste": "locale-f3c-snapshot",
+      "nome": "^locale pt-BR F3c: o mesmo retrato com o relogio em 01/01/2027"
+    },
+    {
+      "id": "M6",
+      "descricao": "datas sem ano do F3c: a maquina da rede por pessoa volta a omitir o ano pelo relogio de quem le",
+      "modulo": "network-roadmap",
+      "de": "x.membro(m.maquina, m.estaMaquina ? x.estaMaquina : '', (0, horario_1.formatarDataHora)(m.publicadoEm, { fuso, agora: quando })",
+      "para": "x.membro(m.maquina, m.estaMaquina ? x.estaMaquina : '', (0, horario_1.formatarDataHora)(m.publicadoEm, { fuso })",
+      "teste": "locale-f3c-snapshot",
+      "nome": "^locale pt-BR F3c: o mesmo retrato com o relogio em 01/01/2027"
     }
   ]
 }
