@@ -46,7 +46,7 @@ function repositorio(nome: string): { dir: string; base: string } {
 let cache: string;
 let fake: FakeTools | undefined;
 const salvos: Record<string, string | undefined> = {};
-const CHAVES = ['XDG_CACHE_HOME', 'ORK_FAKE_DOCKER_BUILD', 'ORK_FAKE_NATIVE_WRONG_VERSION', 'ORK_CHECK_RELATORIO'];
+const CHAVES = ['XDG_CACHE_HOME', 'ORK_FAKE_DOCKER_BUILD', 'ORK_FAKE_DOCKER_BUILD_STDERR', 'ORK_FAKE_NATIVE_WRONG_VERSION', 'ORK_CHECK_RELATORIO'];
 const limpar: string[] = [];
 
 beforeEach(() => {
@@ -112,6 +112,24 @@ test('SL3: build que falha cai para o eslint do catalogo (npm install no contain
   assert.match(peca.motivo!, /^docker build saiu 1: npm ERR! network unreachable$/);
   assert.equal(peca.fallback, 'eslint do catalogo, com npm install no container');
   assert.equal(agile.tools.find(t => t.name === 'eslint')!.state, 'ran');
+});
+
+test('SL8: o motivo da peca imagem-de-lint chega ao relatorio sem o login da URL do registro (RM-074 F4)', () => {
+  fake = installFakeTools(['docker']);
+  process.env.ORK_FAKE_DOCKER_BUILD = 'fails';
+  process.env.ORK_FAKE_DOCKER_BUILD_STDERR = 'npm ERR! 401 https://usuario:senha-do-registro@registro.exemplo/npm/eslint fora do ar';
+  const r = repo('sl8');
+  const relatorio = path.join(cache, 'relatorio-do-check.jsonl');
+  process.env.ORK_CHECK_RELATORIO = relatorio;
+  const agile = runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base });
+  const peca = agile.check!.pecas.find(p => p.peca === 'imagem-de-lint')!;
+  assert.equal(peca.estado, 'fallback');
+  assert.ok(!peca.motivo!.includes('senha-do-registro'), peca.motivo);
+  assert.equal(peca.motivo, 'docker build saiu 1: npm ERR! 401 https://[credencial redigida]@registro.exemplo/npm/eslint fora do ar');
+  // O relatorio da rodada e o que o verify leva ao `verify_run` do ledger.
+  const linhas = fs.readFileSync(relatorio, 'utf8').trim().split('\n').map((l) => JSON.parse(l) as { peca?: string; motivo?: string });
+  assert.equal(linhas.find((l) => l.peca === 'imagem-de-lint')?.motivo, peca.motivo);
+  assert.ok(!fs.readFileSync(relatorio, 'utf8').includes('senha-do-registro'));
 });
 
 test('SL4: com o binario nativo na versao do catalogo, o Agile roda o nativo em vez do Docker', () => {

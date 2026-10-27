@@ -97,7 +97,9 @@ function eslintDoAgile(t: ToolSpec, prazoMs: number, pecas: PecaDaVarredura[]): 
   const imagem = garantirImagemDeLint(t, Math.min(prazoMs, PRAZO_DO_BUILD_DA_IMAGEM_MS));
   const comImagem = 'tag' in imagem ? eslintComImagem(t, imagem.tag) : null;
   if (comImagem) { pecas.push({ peca: 'imagem-de-lint', estado: 'agile' }); return comImagem; }
-  pecas.push({ peca: 'imagem-de-lint', estado: 'fallback', motivo: 'motivo' in imagem ? imagem.motivo : 'script do catalogo sem o npm install esperado',
+  // RM-074 (F4): a ultima linha do `docker build` vem do registro do npm e pode trazer login na URL; vai ao ledger redigida.
+  pecas.push({ peca: 'imagem-de-lint', estado: 'fallback',
+    motivo: 'motivo' in imagem ? motivoSemCredencial(imagem.motivo, 200) : 'script do catalogo sem o npm install esperado',
     fallback: 'eslint do catalogo, com npm install no container' });
   return t;
 }
