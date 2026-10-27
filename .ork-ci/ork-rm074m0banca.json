@@ -78,20 +78,6 @@
       "lint": []
     },
     {
-      "id": "C10",
-      "thread": "ork-rm074m0banca",
-      "fase": "GO",
-      "arquivo": ".ork-ci/ork-rm074m0banca.json",
-      "alegacao": "O bundle de CI da M0 é desta thread e desta branch e leva claims, o build e o test.",
-      "negativa": false,
-      "verificar": [
-        "node -e 'const d=require(\"./.ork-ci/ork-rm074m0banca.json\");process.exit(d.schema===\"ork.ci-bundle/v1\"&&d.thread===\"ork-rm074m0banca\"&&d.branch===\"ork/ork-rm074m0banca-go\"&&d.claims.length>0&&d.commands.some(c=>c.name===\"build\")&&d.commands.some(c=>c.name===\"test\")?0:1)'"
-      ],
-      "criadoEm": "2026-10-27T22:18:56.760Z",
-      "estado": "pendente",
-      "lint": []
-    },
-    {
       "id": "C11",
       "thread": "ork-rm074m0banca",
       "fase": "GO",
