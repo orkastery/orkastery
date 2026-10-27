@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.0",
-  "publicadoEm": "2026-10-27T11:30:02.806Z",
+  "publicadoEm": "2026-10-27T11:45:02.882Z",
   "threads": [
     {
       "id": "ork-rm058blocob",
@@ -14,7 +14,7 @@
       "status": "aberta",
       "roadmap": "RM-058",
       "branch": "ork/ork-rm058blocob-full",
-      "atualizadaEm": "2026-10-27T10:11:06.800Z",
+      "atualizadaEm": "2026-10-27T11:40:36.050Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -23,9 +23,9 @@
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-10-27T11:41:17.356Z",
+        "motivo": "sessão 01a17cd7 encerrada (completed)"
       }
     },
     {
@@ -36,7 +36,7 @@
       "status": "aberta",
       "roadmap": "RM-067",
       "branch": "ork/ork-rm067f4cmcpd-full",
-      "atualizadaEm": "2026-10-27T11:26:26.359Z",
+      "atualizadaEm": "2026-10-27T11:38:38.387Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -102,7 +102,7 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-versao061-go",
-      "atualizadaEm": "2026-10-27T11:06:30.211Z",
+      "atualizadaEm": "2026-10-27T11:33:14.077Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -111,9 +111,9 @@
       "modelo": "sonnet",
       "esforco": "high",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-10-27T11:34:56.948Z",
+        "motivo": "sessão 79626b3f encerrada (done)"
       }
     }
   ]
