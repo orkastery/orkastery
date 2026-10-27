@@ -17,7 +17,6 @@ import { ConducaoDoVerify, gravarBaseline } from './verify';
 import { iniciarWatcher, prepararFonteWatcher } from './session-watcher';
 import { fonteClaudeDoDespacho, headDaWorktree } from './session-watcher-claude';
 import { baseDoArtefato, fonteGrokDoDespacho } from './session-watcher-grok';
-import { casaDoGrok } from './adapters/grok';
 import { ManifestoCarregado, exigirManifesto } from './manifest';
 import { grafoLigado } from './mcp-grafo';
 import { PedidoDeDespacho, ResultadoDeDespacho, resolverRuntime, runtimeConhecido } from './runtimes';
@@ -29,6 +28,7 @@ import { enfileirar, marcarContaDaFalha } from './ratelimit';
 import { registrarImpedimentoDoDono } from './impedimento';
 import { conferirAuth as authClaude } from './adapters/claude-bg';
 import { conferirAuth as authCodex } from './adapters/codex';
+import { casaDoGrok, conferirAuth as authGrok } from './adapters/grok';
 import { abrirMemoria, injecaoDaFase, Memoria } from './memoria';
 import { idiomaDoTemplate, pedidoComDicaDoGrafo, renderizar, templateDaFase } from './prompts';
 import { montarSlug, parseSlug, proximaRotacao } from './slug';
@@ -53,7 +53,7 @@ import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { raizDoEstado, vincularEstado } from './estado-thread';
 import { formatarDataHora, legendaDoFuso, localizarTexto } from './horario';
 import {
-  lerPerfisComContas, marcarFalhaDePerfil, StoreDePerfis, perfilDeDespacho, PerfilDeDespacho, perfilDisponivel, perfisDoRuntime, POLITICA_PADRAO,
+  diretorioDoPerfil, lerPerfisComContas, marcarFalhaDePerfil, StoreDePerfis, perfilDeDespacho, PerfilDeDespacho, perfilDisponivel, perfisDoRuntime, POLITICA_PADRAO,
   PoliticaDeRotacao, politicaDeRotacao, proximoPerfilDisponivel, proximoPerfilPorCarga, registrarConferenciaInconclusiva,
   registrarUsoDePerfil, runtimeComPerfil,
 } from './runtime-profiles';
@@ -160,8 +160,9 @@ export function perfilParaDespacho(carregado: ManifestoCarregado, thread: Thread
   for (;;) {
     const escolha = escolherPerfil(raiz, runtime, { perfil: opcoes.perfil, excluir, politica, carga });
     if (escolha.erro || !escolha.perfil || opcoes.dryRun) return escolha;
+    // RM-067 (F3): o grok nao tem conferencia de login sem ler a credencial; o despacho prova o login (semConferencia).
     const auth = runtime === 'claude-bg' ? authClaude(escolha.perfil) : runtime === 'codex' ? authCodex(escolha.perfil)
-      : { ok: false, detalhe: `runtime ${runtime} sem conferencia de login` };
+      : runtime === 'grok' ? authGrok(escolha.perfil) : { ok: false, detalhe: `runtime ${runtime} sem conferencia de login` };
     if (auth.ok) return escolha;
     let motivo: MotivoGate, razao: string;
     if (auth.transitorio) {
@@ -649,9 +650,11 @@ function registrarObservacao(ctx: ContextoDeDespacho, sessao: SessaoDaThread, di
     // I-33 (N1): o GO codex registra o HEAD do despacho, como a fonte claude-bg; ele revela commit pelo shell no checkpoint.
     const head = ctx.runtime === 'codex' && ctx.fase === 'GO' ? { head: ctx.headNoDespacho ?? null } : {};
     // RM-067 (F2, D8): o grok observa o stream e os recibos do supervisor; o HEAD do GO vem de antes do despacho.
+    // RM-067 (F3): a pasta da sessao mora na casa do perfil do despacho; sem perfil, na do processo.
     const fonte = ctx.runtime === 'grok' ? (sensores?.logPath && sensores.processoPath && sensores.reciboPath
       ? fonteGrokDoDespacho(ctx.raiz, ctx.thread.id, ctx.fase, ctx.cwd,
-        { logPath: sensores.logPath, processoPath: sensores.processoPath, reciboPath: sensores.reciboPath }, casaDoGrok(),
+        { logPath: sensores.logPath, processoPath: sensores.processoPath, reciboPath: sensores.reciboPath },
+        ctx.perfil ? diretorioDoPerfil(ctx.perfil) : casaDoGrok(),
         { head: ctx.headNoDespacho, ...(ctx.artefatoNoDespacho !== undefined ? { artefato: ctx.artefatoNoDespacho } : {}) })
       : null)
       : ctx.runtime === 'claude-bg' ? fonteClaudeDoDespacho(ctx.raiz, ctx.thread.id, ctx.fase, ctx.cwd)

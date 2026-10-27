@@ -14,11 +14,11 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { ambienteDeAssinatura, ENVS_DE_PROVIDER_PAGO } from '../runtime-ambiente';
-import { PerfilDeDespacho } from '../runtime-profiles';
+import { ambienteComPerfil, PerfilDeDespacho } from '../runtime-profiles';
 import { exec as executar, noPath } from '../util';
-import { DespachoResultado, parseFalhaDeConta, parseRateLimit } from './claude-bg';
+import { DespachoResultado, parseRateLimit, StatusDeAuth } from './claude-bg';
 import { estadoProcesso, iniciarSupervisor, ProcessoCodex, ReciboCodex } from './codex-runner';
-import { falhaDoErroGrok, lerStreamGrok, redigirTextoGrok } from './grok-events';
+import { falhaDeContaDoTextoGrok, falhaDoErroGrok, lerStreamGrok, redigirTextoGrok } from './grok-events';
 
 export const NOME_ADAPTER = 'grok';
 
@@ -26,8 +26,9 @@ export const NOME_ADAPTER = 'grok';
 export const FONTE_VERIFICACAO = 'pasta da sessao em $GROK_HOME/sessions';
 
 /**
- * D4: o ambiente do filho é o da assinatura, sem as variáveis de provider pago e sem `XAI_API_KEY`, até a D1 do dono
- * decidir o modo de autenticação (F3). Tirar a variável do ambiente do filho não lê nem copia a credencial.
+ * D4: o ambiente do filho é o da assinatura, sem as variáveis de provider pago e sem `XAI_API_KEY`. A D1 da RM-067 foi
+ * decidida pelo dono em 27/10/2026 pela alternativa b (a assinatura agora): o filho autentica pelo login que o próprio
+ * `grok` guardou no `GROK_HOME` do perfil, nunca pela chave. Tirar a variável do ambiente não lê nem copia a credencial.
  */
 export const ENVS_REMOVIDAS_DO_DESPACHO = [...ENVS_DE_PROVIDER_PAGO, 'XAI_API_KEY'] as const;
 
@@ -71,7 +72,7 @@ export interface DespachoGrokPedido {
   sessionId?: string;
   /** Espera máxima pela prova de existência, em ms (padrão `ESPERA_PADRAO_MS`). */
   esperaMs?: number;
-  /** Perfis de conta do `grok` são da F3: pedido com perfil recusa. */
+  /** RM-067 (F3): o perfil de conta do despacho (`grokHome`); ausente, vale o `GROK_HOME` do processo. */
   perfil?: PerfilDeDespacho;
   /** I-36 (D4): identidade, thread e canal do despacho no ambiente da sessão filha. */
   ambienteExtra?: Record<string, string>;
@@ -90,11 +91,36 @@ export function ambienteDoDespacho(base: NodeJS.ProcessEnv = process.env): NodeJ
   return env;
 }
 
-/** O ambiente do filho: o do despacho com o contexto da condução por cima. Perfil recusa até a F3. */
+/**
+ * O ambiente do filho: o do despacho, com o `GROK_HOME` do perfil (F3) e o contexto da condução por cima. Perfil de outro
+ * runtime, ou sem `grokHome`, recusa: cair para a casa do processo seria despachar pela conta errada.
+ */
 export function ambienteDoFilho(pedido: Pick<DespachoGrokPedido, 'perfil' | 'ambienteExtra'>,
     base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  if (pedido.perfil) throw new Error('runtime.profiles.invalid: o grok ainda nao tem perfil de conta (F3 da RM-067)');
-  return { ...ambienteDoDespacho(base), ...(pedido.ambienteExtra ?? {}) };
+  if (pedido.perfil && (pedido.perfil.runtime !== 'grok' || !pedido.perfil.grokHome))
+    throw new Error('runtime.profiles.invalid: perfil sem grokHome no despacho grok');
+  return { ...ambienteComPerfil(ambienteDoDespacho(base), pedido.perfil), ...(pedido.ambienteExtra ?? {}) };
+}
+
+/**
+ * RM-067 (F3): o login do perfil é sempre do próprio CLI, com o `GROK_HOME` do perfil: `grok login` pelo navegador ou
+ * `grok login --device-auth` pelo código de dispositivo (G3, G4 da página). O `ork` nunca abre o `auth.json` que o
+ * `grok` grava.
+ */
+export function comandoDeLogin(codigoDeDispositivo = false): string[] {
+  return ['grok', 'login', ...(codigoDeDispositivo ? ['--device-auth'] : [])];
+}
+
+/**
+ * RM-067 (F3): a conferência de login do perfil. O `grok` não documenta um comando de status do login (fontes da página),
+ * e o `ork` nunca lê o `auth.json`: a conferência fica sem medida (`semConferencia`), o perfil segue no rodízio e quem
+ * prova o login é o próprio despacho, cujo erro de login do runtime vira `runtime.auth-missing` e tira o perfil.
+ */
+export function conferirAuth(perfil?: PerfilDeDespacho | null): StatusDeAuth {
+  try { ambienteDoFilho({ perfil: perfil ?? undefined }); }
+  catch (e) { return { ok: false, detalhe: (e as Error).message }; }
+  return { ok: true, semConferencia: true,
+    detalhe: 'o grok nao documenta conferencia de login; o despacho prova o login (erro de login do runtime vira runtime.auth-missing)' };
 }
 
 /** O runtime está disponível? No PATH do ambiente informado (o do filho, no despacho). */
@@ -283,7 +309,7 @@ function falhaAntesDaSessao(recibo: ReciboCodex, sessionId: string,
   const cauda = caudaDoStderr(`${base.logPath}.stderr`);
   const mensagem = estado?.erro?.mensagem ?? '';
   const texto = [mensagem, cauda].filter(Boolean).join('\n');
-  const falhaDeConta = falhaDoErroGrok(estado?.erro ?? null) ?? (cauda ? parseFalhaDeConta(cauda) : null);
+  const falhaDeConta = falhaDoErroGrok(estado?.erro ?? null) ?? (cauda ? falhaDeContaDoTextoGrok(cauda) : null);
   const rateLimit = falhaDeConta ? null : parseRateLimit(texto);
   // Ao ledger vai o fim da cauda, onde o erro mora; quem grava corta pelo começo.
   const stderr = fimDoTexto(cauda, LIMITE_STDERR_NO_RESULTADO);

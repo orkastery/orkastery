@@ -775,6 +775,11 @@ export interface StatusDeAuth {
    * login perdido: o perfil fica fora so deste despacho e e conferido de novo no proximo.
    */
   transitorio?: boolean;
+  /**
+   * RM-067 (F3): o runtime nao tem conferencia de login que o `ork` possa rodar sem ler a credencial (o `grok`). O perfil
+   * segue no rodizio sem medida, e o proprio despacho prova o login; nunca reativa perfil que o runtime ja reprovou.
+   */
+  semConferencia?: boolean;
 }
 
 export interface CotaExposta {

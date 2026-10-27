@@ -2,7 +2,7 @@
  * I-33 (D3): perfis de conta por runtime, contrato `ork.runtime-profiles/v1`.
  *
  * Um perfil aponta o DIRETORIO onde o proprio CLI do runtime guarda configuracao e login
- * (`CLAUDE_CONFIG_DIR` no claude-bg, `CODEX_HOME` no codex). O `ork` nunca le, copia nem
+ * (`CLAUDE_CONFIG_DIR` no claude-bg, `CODEX_HOME` no codex, `GROK_HOME` no grok). O `ork` nunca le, copia nem
  * migra o que o CLI grava la dentro: o login e feito pelo proprio CLI com o env do perfil, e
  * o store guarda so identidade, diretorio e estado de uso. Nenhum segredo entra aqui.
  *
@@ -24,9 +24,21 @@ export const CONTRATO_PERFIS = 'ork.runtime-profiles/v1';
 export const ARQUIVO_PERFIS = 'runtime-profiles.json';
 
 /** Runtimes homologados que aceitam perfil, e a variavel que cada um le. */
-export const VARIAVEL_DO_PERFIL = { 'claude-bg': 'CLAUDE_CONFIG_DIR', codex: 'CODEX_HOME' } as const;
+export const VARIAVEL_DO_PERFIL = { 'claude-bg': 'CLAUDE_CONFIG_DIR', codex: 'CODEX_HOME', grok: 'GROK_HOME' } as const;
 export type RuntimeComPerfil = keyof typeof VARIAVEL_DO_PERFIL;
 export const RUNTIMES_COM_PERFIL = Object.keys(VARIAVEL_DO_PERFIL) as RuntimeComPerfil[];
+/** O campo do perfil que guarda o diretorio de cada runtime (o store e o despacho usam o mesmo nome). */
+export const CAMPO_DO_PERFIL = { 'claude-bg': 'configDir', codex: 'codexHome', grok: 'grokHome' } as const;
+type CampoDoPerfil = typeof CAMPO_DO_PERFIL[RuntimeComPerfil];
+const CAMPOS_DE_DIRETORIO = Object.values(CAMPO_DO_PERFIL) as CampoDoPerfil[];
+/** O diretorio padrao de cada CLI na HOME, quando o processo nao informa a variavel. */
+const PASTA_PADRAO = { 'claude-bg': '.claude', codex: '.codex', grok: '.grok' } as const;
+/**
+ * RM-067 (F3): runtimes cujas sessoes o `ork` inventaria por conta (`claude agents`, rollouts do codex). O `grok` tem
+ * perfil, mas o inventario de sessoes vivas dele ainda nao existe (lacuna da pagina da RM-067): a carga, o `ork sessions`
+ * e a medicao do #Noctum seguem so com estes.
+ */
+export const RUNTIMES_COM_INVENTARIO: readonly RuntimeComPerfil[] = ['claude-bg', 'codex'];
 
 /**
  * I-33 (D13): `provider-pago` e o perfil cujo proprio CLI diz que o login e por API key,
@@ -46,6 +58,8 @@ export interface PerfilDeRuntime {
   configDir?: string;
   /** codex: vira `CODEX_HOME` do filho. */
   codexHome?: string;
+  /** grok: vira `GROK_HOME` do filho (RM-067, F3). */
+  grokHome?: string;
   estado: EstadoDePerfil;
   /** Ate quando o perfil fica fora do rodizio por cota esgotada; `null` sem prazo. */
   esgotadoAte: string | null;
@@ -57,7 +71,7 @@ export interface PerfilDeRuntime {
 export interface StoreDePerfis { contrato: typeof CONTRATO_PERFIS; perfis: PerfilDeRuntime[] }
 
 /** O que vai ao despacho e ao registro da sessao: identidade e diretorio, nunca estado de uso. */
-export interface PerfilDeDespacho { id: string; runtime: RuntimeComPerfil; configDir?: string; codexHome?: string }
+export interface PerfilDeDespacho { id: string; runtime: RuntimeComPerfil; configDir?: string; codexHome?: string; grokHome?: string }
 
 const ID_DE_PERFIL = /^[a-z0-9][a-z0-9._-]{0,62}$/i;
 const LIMITE_STORE_BYTES = 256 * 1024;
@@ -89,8 +103,12 @@ export function validarIdDePerfil(id: unknown): string {
 
 /** Diretorio do perfil, pelo campo do seu runtime. */
 export function diretorioDoPerfil(p: PerfilDeDespacho): string {
-  const dir = p.runtime === 'claude-bg' ? p.configDir : p.codexHome;
-  return validarDiretorioDePerfil(dir);
+  return validarDiretorioDePerfil(p[CAMPO_DO_PERFIL[p.runtime]]);
+}
+
+/** O perfil de despacho com o diretorio no campo do seu runtime. */
+function comDiretorio(id: string, runtime: RuntimeComPerfil, dir: string): PerfilDeDespacho {
+  return { id, runtime, [CAMPO_DO_PERFIL[runtime]]: dir };
 }
 
 /** Valida um perfil de despacho vindo do ledger, do thread.json ou do pedido da fila. */
@@ -99,17 +117,14 @@ export function validarPerfilDeDespacho(v: unknown): PerfilDeDespacho {
   const o = v as Record<string, unknown>;
   const runtime = o.runtime;
   if (typeof runtime !== 'string' || !runtimeComPerfil(runtime)) throw new ErroDoCatalogo((m) => m.accounts.runtimeDesconhecido);
-  const campo = runtime === 'claude-bg' ? 'configDir' : 'codexHome';
-  const outro = runtime === 'claude-bg' ? 'codexHome' : 'configDir';
-  if (o[outro] !== undefined || Object.keys(o).some(k => !['id', 'runtime', campo].includes(k)))
+  const campo = CAMPO_DO_PERFIL[runtime];
+  if (Object.keys(o).some(k => !['id', 'runtime', campo].includes(k)))
     throw new ErroDoCatalogo((m) => m.accounts.despachoComCampo);
-  const id = validarIdDePerfil(o.id), dir = validarDiretorioDePerfil(o[campo]);
-  return runtime === 'claude-bg' ? { id, runtime, configDir: dir } : { id, runtime, codexHome: dir };
+  return comDiretorio(validarIdDePerfil(o.id), runtime, validarDiretorioDePerfil(o[campo]));
 }
 
 export function perfilDeDespacho(p: PerfilDeRuntime): PerfilDeDespacho {
-  return p.runtime === 'claude-bg' ? { id: p.id, runtime: p.runtime, configDir: diretorioDoPerfil(p) }
-    : { id: p.id, runtime: p.runtime, codexHome: diretorioDoPerfil(p) };
+  return comDiretorio(p.id, p.runtime, diretorioDoPerfil(p));
 }
 
 /**
@@ -118,7 +133,7 @@ export function perfilDeDespacho(p: PerfilDeRuntime): PerfilDeDespacho {
  */
 export function diretorioImplicito(runtime: RuntimeComPerfil, env: NodeJS.ProcessEnv = process.env): string {
   const valor = (env[VARIAVEL_DO_PERFIL[runtime]] ?? '').trim();
-  return valor !== '' ? valor : path.join(os.homedir(), runtime === 'claude-bg' ? '.claude' : '.codex');
+  return valor !== '' ? valor : path.join(os.homedir(), PASTA_PADRAO[runtime]);
 }
 
 /** Diretorio efetivo: o do perfil registrado, ou o implicito quando a sessao nao tem perfil. */
@@ -201,8 +216,8 @@ function validarPerfil(v: unknown): PerfilDeRuntime {
   if (!v || typeof v !== 'object' || Array.isArray(v)) throw new ErroDoCatalogo((m) => m.accounts.perfilInvalido);
   const o = v as Record<string, unknown>;
   const despacho = validarPerfilDeDespacho({ id: o.id, runtime: o.runtime,
-    ...(o.configDir !== undefined ? { configDir: o.configDir } : {}), ...(o.codexHome !== undefined ? { codexHome: o.codexHome } : {}) });
-  const permitidos = ['id', 'runtime', 'configDir', 'codexHome', 'estado', 'esgotadoAte', 'ultimaFalha', 'ultimoUso', 'criadoEm'];
+    ...Object.fromEntries(CAMPOS_DE_DIRETORIO.filter(c => o[c] !== undefined).map(c => [c, o[c]])) });
+  const permitidos = ['id', 'runtime', ...CAMPOS_DE_DIRETORIO, 'estado', 'esgotadoAte', 'ultimaFalha', 'ultimoUso', 'criadoEm'];
   if (Object.keys(o).some(k => !permitidos.includes(k))) throw new ErroDoCatalogo((m) => m.accounts.campoInesperado);
   if (!ESTADOS_DE_PERFIL.includes(o.estado as EstadoDePerfil)) throw new ErroDoCatalogo((m) => m.accounts.estadoDesconhecido);
   let ultimaFalha: FalhaDePerfil | null = null;
@@ -398,8 +413,7 @@ export function adicionarPerfil(raiz: string, novo: { id: string; runtime: strin
   if (!runtimeComPerfil(novo.runtime)) throw new ErroDoCatalogo((m) => m.accounts.runtimeSemPerfil(novo.runtime));
   const runtime = novo.runtime;
   const dir = validarDiretorioDePerfil(novo.dir);
-  const perfil: PerfilDeRuntime = { id: validarIdDePerfil(novo.id), runtime,
-    ...(runtime === 'claude-bg' ? { configDir: dir } : { codexHome: dir }),
+  const perfil: PerfilDeRuntime = { ...comDiretorio(validarIdDePerfil(novo.id), runtime, dir),
     estado: 'ativo', esgotadoAte: null, ultimaFalha: null, ultimoUso: null, criadoEm: agoraIso };
   return atualizarPerfis(raiz, store => {
     const existente = store.perfis.find(p => p.id === perfil.id);

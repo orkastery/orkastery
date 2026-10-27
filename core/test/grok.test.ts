@@ -72,7 +72,7 @@ test('GK4: a retomada troca o prompt pelo texto e o -s pelo -r, do comando do de
   assert.equal(montarComandoDeRetomada(comando, 'outra-sessao'), null, 'id de outra sessao');
 });
 
-test('GK5: o ambiente do filho sai sem XAI_API_KEY nem provider pago, com GROK_HOME, e perfil recusa ate a F3', () => {
+test('GK5: o ambiente do filho sai sem XAI_API_KEY nem provider pago, com o GROK_HOME do perfil, e perfil de outro runtime recusa', () => {
   const base: NodeJS.ProcessEnv = { PATH: '/usr/bin', GROK_HOME: '/srv/casa-grok', XAI_API_KEY: 'x', OPENAI_API_KEY: 'x',
     ANTHROPIC_API_KEY: 'x', ORK_HITL_TOKEN: 'x', ORK_DISPATCH_ID: 'herdado' };
   const env = ambienteDoDespacho(base);
@@ -85,7 +85,11 @@ test('GK5: o ambiente do filho sai sem XAI_API_KEY nem provider pago, com GROK_H
   assert.ok((ENVS_REMOVIDAS_DO_DESPACHO as readonly string[]).includes('XAI_API_KEY'));
   assert.equal(ambienteDoFilho({ ambienteExtra: { ORK_DISPATCH_ID: 'deste-despacho' } }, base).ORK_DISPATCH_ID, 'deste-despacho');
   assert.throws(() => ambienteDoFilho({ perfil: { id: 'p1', runtime: 'codex', codexHome: '/srv/c' } }, base),
-    /runtime\.profiles\.invalid: o grok ainda nao tem perfil de conta/);
+    /runtime\.profiles\.invalid: perfil sem grokHome no despacho grok/);
+  // RM-067 (F3): o perfil do grok troca a casa do filho, e a chave continua fora.
+  const doPerfil = ambienteDoFilho({ perfil: { id: 'g1', runtime: 'grok', grokHome: '/srv/perfil-g1' } }, base);
+  assert.equal(doPerfil.GROK_HOME, '/srv/perfil-g1');
+  assert.equal(doPerfil.XAI_API_KEY, undefined);
   assert.equal(casaDoGrok({ GROK_HOME: ' /srv/casa ' }), '/srv/casa');
   assert.ok(casaDoGrok({}).endsWith(`${path.sep}.grok`));
 });

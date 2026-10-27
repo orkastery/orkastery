@@ -36,7 +36,7 @@ import { CanalComTransporte, reenviarRelatorio, relatorioNoTerminal } from './no
 import { RecusaDoRegistro } from './noctum-registro';
 import { lerSupervisao, RecusaDaSupervisao } from './noctum-supervisao';
 import { conduzirArco, OpcoesDoVigia, ResultadoDoCondutor } from './noctum-vigia';
-import { lerPerfisComContas, PerfilDeRuntime, StoreDePerfis } from './runtime-profiles';
+import { diretorioDoPerfil, lerPerfisComContas, PerfilDeRuntime, StoreDePerfis } from './runtime-profiles';
 import { CONTRATO_DO_TERMINAL, responderPeloTerminal } from './noctum-terminal';
 import { caminhoDoPulseHost, hostDoTransporte, HostDoCanal, HOSTS_DO_CANAL, TransportePulse, transporteValido } from './transporte-do-canal';
 
@@ -98,7 +98,7 @@ export function avisosDaProposta(carregado: ManifestoCarregado, conteudo: Conteu
       correcao: 'rode ork accounts check e proponha de novo depois de corrigir a leitura' });
   }
   const confiar = opcoes.confianca ?? ((raiz: string, p: PerfilDeRuntime) => impedimentoResolvido('runtime.workspace-untrusted',
-    { cwd: raiz, runtime: p.runtime, configDir: p.runtime === 'claude-bg' ? p.configDir : p.codexHome }));
+    { cwd: raiz, runtime: p.runtime, configDir: diretorioDoPerfil(p) }));
   if (store) {
     for (const { conta } of conteudo.capacidade.porConta) {
       const p = store.perfis.find(x => x.id === conta);

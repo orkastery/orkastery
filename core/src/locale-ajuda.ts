@@ -47,7 +47,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
         [--fallback R:M[:E],...]                  ordem de fallback de runtime do bloco (I-33)
   accounts list [--json]                    Perfis de conta por runtime, sem segredo (I-33)
   accounts add <id> --runtime R --dir D     Cria o perfil e roda o login do proprio CLI com o env
-        [--sem-login]                            do perfil (nunca copia credencial)
+        [--sem-login] [--device-auth]            do perfil (nunca copia credencial; codigo de dispositivo so no grok)
   accounts remove <id>                      Desativa o perfil (diretorio e login ficam onde estao)
   accounts check [<id>]                     Confere o login de cada perfil e marca o store
   accounts esgotamentos [--desde 7d] [--json]
@@ -460,7 +460,7 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
         [--fallback R:M[:E],...]                  runtime fallback order of the block (I-33)
   accounts list [--json]                    Account profiles per runtime, without secrets (I-33)
   accounts add <id> --runtime R --dir D     Creates the profile and runs the CLI's own login with the profile
-        [--sem-login]                            env (never copies a credential)
+        [--sem-login] [--device-auth]            env (never copies a credential; device code only for grok)
   accounts remove <id>                      Deactivates the profile (directory and login stay where they are)
   accounts check [<id>]                     Checks the login of each profile and marks the store
   accounts esgotamentos [--desde 7d] [--json]

@@ -16,7 +16,7 @@ import * as path from 'node:path';
 import { ambienteDoPerfil, consultarSessoes } from './adapters/claude-bg';
 import { consultarRollouts } from './adapters/codex';
 import {
-  diretorioImplicito, lerPerfis, perfilDeDespacho, PerfilDeDespacho, RUNTIMES_COM_PERFIL, RuntimeComPerfil,
+  diretorioDoPerfil, diretorioImplicito, lerPerfis, perfilDeDespacho, PerfilDeDespacho, RUNTIMES_COM_INVENTARIO, RuntimeComPerfil,
 } from './runtime-profiles';
 import { SessaoRuntime } from './types';
 
@@ -84,11 +84,12 @@ export function contasDeSessoes(raiz: string | null, env: NodeJS.ProcessEnv = pr
     try {
       for (const p of lerPerfis(raiz).perfis) {
         const d = perfilDeDespacho(p);
-        incluir(d.runtime, d, (d.configDir ?? d.codexHome) as string);
+        // RM-067 (F3): o perfil do grok fica fora, porque o inventario de sessoes dele ainda nao existe.
+        if (RUNTIMES_COM_INVENTARIO.includes(d.runtime)) incluir(d.runtime, d, diretorioDoPerfil(d));
       }
     } catch (e) { fontes.push({ origem: 'perfis de conta (ork accounts)', ok: false, detalhe: (e as Error).message }); }
   }
-  for (const runtime of RUNTIMES_COM_PERFIL) incluir(runtime, null, diretorioImplicito(runtime, env));
+  for (const runtime of RUNTIMES_COM_INVENTARIO) incluir(runtime, null, diretorioImplicito(runtime, env));
   return { contas, fontes };
 }
 
@@ -125,7 +126,7 @@ export function consultarContas(raiz: string | null, opcoes: { todas?: boolean; 
         const fantasma = ehFantasma('claude-bg', s);
         sessoes.push({ ...s, runtime: 'claude-bg', perfil, fantasma, viva: !fantasma && !TERMINAIS.includes(estadoDe(s)) });
       }
-    } else {
+    } else if (conta.runtime === 'codex') {
       const r = consultarRollouts(opcoes.todas, conta.dir);
       // A conta do processo segue com o caminho de antes; a do perfil vai pelo id, nunca pela pasta.
       fontes.push(...(conta.perfil ? r.resultadosFontes.map(f => ({ ...f,
