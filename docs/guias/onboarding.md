@@ -142,6 +142,24 @@ Hermes recebe a rota na skill devmaster, Claude Code recebe `/onboarding` e Open
 O teste do OpenClaw carrega o plugin instalado com um SDK falso e executa um CLI temporário:
 comprova argv, instalação e erro de processo, sem alegar homologação no host operacional.
 
+## Runtimes de despacho
+
+O onboarding não escolhe runtime: o padrão do projeto é o `runtime.adapter` do manifesto, e o setup de cada bloco
+(`ork setup <modo> --bloco N --runtime R --model M`) troca por bloco. Cada runtime autentica pela própria conta, com
+`ork accounts add <id> --runtime R --dir D`, que roda o login do próprio CLI; o `ork` nunca lê a credencial.
+
+| Runtime | Papel | Autenticação |
+| --- | --- | --- |
+| `claude-bg` | padrão do projeto, de bloco e de fallback | assinatura do Claude (`claude auth login --claudeai`) |
+| `codex` | padrão do projeto, de bloco e de fallback | assinatura do ChatGPT (`codex login`) |
+| `grok` | de bloco e de fallback, sempre com `--model`; nunca o padrão do projeto | assinatura do Grok (`grok login` ou `grok login --device-auth`), sem `XAI_API_KEY` no filho |
+
+O modo do `grok` é a decisão D1 do dono, alternativa b de 27/10/2026: a assinatura agora, com o risco aceito de a
+política de uso da xAI ser lida contra o uso automatizado. Seguem abertas, na
+[RM-067](../roadmap/RM-067-grok-build-homologado.md): o formato da cota esgotada do `grok` (até o ensaio real, a escada
+nunca troca a conta dele), a conferência de login sem ler a credencial, o MCP do `ork` na sessão `grok` e o ensaio
+real de homologação.
+
 ## Verificação e lacunas
 
 Medição desta implementação: 366 testes passaram, 0 falharam; 10 canários verdes;

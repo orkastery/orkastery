@@ -32,24 +32,31 @@ agente `ork-plan` não mudou.
 
 ### Grok Build (`grok`), RM-067 (27/10/2026)
 
-O `grok` não entra na matriz acima: ele é homologado só para despacho explícito
-(`ork phase run --runtime grok`), sem MCP do `ork` até a F4 da
-[RM-067](../../roadmap/RM-067-grok-build-homologado.md). O que vale desde a F3:
+O `grok` não entra na matriz acima: a matriz de capacidades (`core/src/playbook-capabilities.ts`) só ganha um runtime
+com o ensaio real da homologação, que é a F5 da [RM-067](../../roadmap/RM-067-grok-build-homologado.md). O que vale
+desde a F4:
 
-- **Conta:** perfis de `ork accounts add --runtime grok`, cada um com o seu `GROK_HOME`. O
-  login é do próprio CLI (`grok login` ou `grok login --device-auth`), pela assinatura, como
-  a D1 do dono decidiu; o filho roda sem `XAI_API_KEY`, e o `ork` nunca lê nem copia o
-  `auth.json`. O `grok` não documenta conferência de login: o perfil entra no rodízio sem
-  conferência prévia, e o erro de login do próprio despacho o tira (`runtime.auth-missing`).
-- **Cota esgotada:** o formato do erro de cota do `grok` não está confirmado. Nenhum texto
-  do `grok` vira `runtime.quota-exhausted`; até o ensaio real (F5) ler o formato
-  estruturado, o `grok` fica **fora da escada automática** (a escada de recuperação nunca
-  troca a conta dele) **e do fallback** (ele nunca é alvo de `--fallback`). O perfil marcado
-  esgotado no store sai do rodízio: o próximo despacho da thread vai ao próximo perfil
-  `grok` disponível, e o `ork retry` faz a mesma troca nos projetos sem o MCP do `ork` (com
-  ele, o `grok` segue fora dos destinos automáticos até a F4).
-- **Sem inventário:** as sessões `grok` ainda não entram no `ork sessions`, na carga por
-  conta nem na medição do #Noctum.
+| Capacidade | O que o `ork` faz com o `grok` |
+| --- | --- |
+| Despacho | `grok -p` headless com `--output-format streaming-json`, pedido por `ork phase run --runtime grok --model <modelo>` ou pelo setup do bloco; nunca o `runtime.adapter` do projeto |
+| Setup e fallback | runtime de bloco e entrada `grok:<modelo>[:esforço]` do fallback, sempre com o modelo do dono (não há modelo padrão); o esforço vai ao `--effort` com o mesmo nome, e o `eco` vira `minimal`; o nível que o modelo não anuncia é recusado pelo próprio `grok` |
+| Sandbox | `workspace` é o piso; `read-only` com `runtime.sandbox: read-only` e no PLAN que fecha o bloco; `danger-full-access` vira `off` só com `ork setup sandbox confirmar`, senão `runtime.sandbox-nao-confirmado`; nunca `--yolo`, `--always-approve` nem `--permission-mode` |
+| Instruções do projeto | `--trust` na pasta do `--cwd` (a worktree da thread), para o `AGENTS.md` carregar na partida headless |
+| Conta | perfis de `ork accounts add --runtime grok`, cada um com o seu `GROK_HOME`; login do próprio CLI (`grok login` ou `grok login --device-auth`), pela assinatura (D1 = b do dono); o filho roda sem `XAI_API_KEY`, e o `ork` nunca lê nem copia o `auth.json` |
+| Retry | a troca de perfil dentro do `grok` vale também num projeto com o MCP do `ork`; como alvo de fallback de quem tem o MCP, ele fica fora, porque despacharia sem o contexto |
+| Inventário | `ork sessions` lê a pasta `sessions/` de cada `GROK_HOME`, só pelos nomes e pelo mtime do `updates.jsonl` |
+
+Lacunas que seguem abertas:
+
+- **Cota esgotada:** o formato do erro de cota do `grok` não está confirmado. Nenhum texto do `grok` vira
+  `runtime.quota-exhausted`, e a escada de recuperação nunca troca a conta dele (`cota-sem-sinal-tipado`) até o
+  ensaio real (F5) ler o formato estruturado.
+- **Conferência de login:** o `grok` não documenta um comando de status do login; o perfil entra no rodízio sem
+  conferência prévia, e o erro de login do despacho o tira (`runtime.auth-missing`).
+- **MCP do `ork`:** o host `grok` do `ork mcp install` e do `ork mcp serve`, e o `grok` no `ork_phase_run` do MCP,
+  mudam o contrato público do servidor MCP (`core/src/mcp-server.ts`) e esperam uma thread com PLAN e CHECK. Até lá,
+  a sessão `grok` despacha sem o MCP do `ork`.
+- **Medição:** o #Noctum ainda não mede o consumo do `grok`.
 
 ## Instruções persistentes
 
