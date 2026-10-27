@@ -95,7 +95,9 @@ export interface OpcoesServidorMcp { projeto: string; host: HostMcp;threadId?:st
   /** Exact trusted startup grants; not inferred from worktree/interactive. */
   brainWrites?: readonly string[];
   /** Opção de instalação confiável para bare físico; nunca argumento de ferramenta. */
-  transporteShip?:TransporteShipMcp;permissoesFilho?:'interactive'|'worktree';nomesProviderHerdados?:string[] }
+  transporteShip?:TransporteShipMcp;permissoesFilho?:'interactive'|'worktree';nomesProviderHerdados?:string[];
+  /** RM-067 (F4c, D4): o servidor externo do grok lista so as ferramentas do --allow do despacho, nunca a uniao do perfil. */
+  ferramentas?: readonly string[] }
 
 /** Factory publica para compor transporte nativo ou testes; nao executa ferramentas no startup. */
 export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
@@ -151,6 +153,13 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
   // RM-067 (F4b, G1): o servidor do grok lista so as ferramentas do perfil filho; o headless nao aprova outra em dialogo.
   const doGrok=opcoes.host==='grok'
     ? new Set(ferramentasServidasAoGrok(opcoes.permissoesFilho??'interactive',grafoLigado(exigirManifesto(raiz).manifesto))) : null;
+  // RM-067 (F4c, D4): a lista do despacho e um subconjunto da uniao do perfil filho; fora dela, ou sem o host grok, recusa.
+  if(opcoes.ferramentas!==undefined) {
+    const pedidas=opcoes.ferramentas;
+    if(!doGrok || pedidas.some(n=>!doGrok.has(n)) || new Set(pedidas).size!==pedidas.length)
+      throw Error('mcp.tools.invalid: a lista do despacho sai do perfil filho do grok');
+    for(const nome of [...doGrok]) if(!pedidas.includes(nome)) doGrok.delete(nome);
+  }
   const pendencias = (id: string) => {
     const t=thread(id), eventos=lerLedger(dirThread(raiz,id)), contexto=contextoHitl(raiz,id);
     const pedidos=[pedidoHitlAberto(raiz,id,t.faseAtual,null),
