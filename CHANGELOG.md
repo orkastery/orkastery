@@ -19,6 +19,14 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   conta real deve despachar antes da decisão do dono. O `grok` não é padrão de bloco, nem fallback, nem
   `runtime.adapter`, e ainda despacha sem o MCP do `ork`; perfis de conta, login e cota (F3, que espera a decisão D1
   do dono), setup, MCP e onboarding (F4) e o ensaio real (F5) ficam para depois. O `claude-bg` e o `codex` não mudam.
+- **Perfis de conta do Grok Build** ([RM-067](docs/roadmap/RM-067-grok-build-homologado.md), F3): com a D1 decidida pelo
+  dono em 27/10/2026 (a assinatura agora, com o risco da política de uso aceito), `ork accounts add <id> --runtime grok
+  --dir <dir>` cria o perfil com o `GROK_HOME` dele e roda `grok login` (ou `grok login --device-auth`, com
+  `--device-auth`); o `ork` nunca lê nem copia o `auth.json`. O despacho `--runtime grok` sai pelo perfil da vez, e o
+  perfil esgotado, sem login, pago ou desativado não recebe despacho. O `grok` não documenta conferência de login: o
+  perfil entra sem conferência prévia, e o erro de login do despacho o tira. O formato da cota esgotada do `grok` não
+  está confirmado: nenhum texto dele vira cota esgotada, e o `grok` fica fora da escada automática e do fallback até o
+  ensaio real (F5). O `claude-bg` e o `codex` não mudam.
 
 ### Corrigido
 

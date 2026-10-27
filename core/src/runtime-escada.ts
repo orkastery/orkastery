@@ -27,10 +27,11 @@ import { textoDoCatalogo } from './locale';
 import { ManifestoCarregado } from './manifest';
 import { MODOS } from './modos';
 import {
-  diretorioEfetivo, lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfisDisponiveis, perfisDoRuntime, runtimeComPerfil,
+  diretorioDoPerfil, diretorioEfetivo, lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfisDisponiveis, perfisDoRuntime, runtimeComPerfil,
   validarPerfilDeDespacho,
 } from './runtime-profiles';
 import { alvosDaOrdemDeFallback, configDoBloco, lerSetup } from './setup';
+import { RUNTIMES_SO_POR_PEDIDO } from './runtimes';
 import { capacidadeDoRuntimeNoProjeto } from './runtime-context';
 import { dirThread } from './thread';
 import { EventoLedger, Fase, ModoLegado, Thread } from './types';
@@ -46,7 +47,7 @@ export type NumeroDoDegrau = 1 | 2 | 3;
  */
 export type ResultadoDoDegrau = 'redespachada' | 'falhou' | 'pulado' | 'interrompido';
 /** Por que um degrau nao tinha para onde mandar o prompt. */
-export type MotivoDoPulo = 'sem-fallback' | 'adaptador-ausente' | 'fallback-sem-destino' | 'sem-outro-perfil';
+export type MotivoDoPulo = 'sem-fallback' | 'adaptador-ausente' | 'fallback-sem-destino' | 'sem-outro-perfil' | 'runtime-so-por-pedido';
 
 export interface DestinoDoDegrau { runtime: string; perfil: string | null; model: string | null; effort: string | null }
 
@@ -193,6 +194,9 @@ export function planoDoDegrau(carregado: ManifestoCarregado, thread: Thread, fas
     }
     return { pulo: 'fallback-sem-destino' };
   }
+  // RM-067 (F3): o runtime so de despacho explicito (o grok) fica fora da escada automatica: a escada nunca troca a conta
+  // dele, ate o formato da cota esgotada ser confirmado no ensaio real.
+  if (RUNTIMES_SO_POR_PEDIDO.includes(despacho.runtime)) return { pulo: 'runtime-so-por-pedido' };
   // Degrau 3: outra conta do runtime que falhou. O diretorio de cada conta e o que separa um daemon do outro. Os perfis
   // tentados sao os efetivos (o redespacho sem perfil pedido escolhe um, e e ele que falhou); o despacho que nasceu sem
   // perfil (o runtime caiu antes da escolha) tem como conta de origem a que o degrau 1 de fato usou.
@@ -210,7 +214,7 @@ export function planoDoDegrau(carregado: ManifestoCarregado, thread: Thread, fas
   const outro = perfisDisponiveis(store, despacho.runtime, agoraMs).find((p) => {
     if (p.id === contaDeOrigem?.id || jaTentados.has(p.id)) return false;
     const d = perfilDeDespacho(p);
-    return !dirOriginal || (d.configDir ?? d.codexHome) !== dirOriginal;
+    return !dirOriginal || diretorioDoPerfil(d) !== dirOriginal;
   });
   return outro ? { destino: { ...original, perfil: outro.id } } : { pulo: 'sem-outro-perfil' };
 }

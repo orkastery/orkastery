@@ -30,6 +30,27 @@ comum, com as ferramentas de arquivo negadas e o artefato gravado pelo núcleo; 
 que termina sem `docs/plan.md` novo vira `gate_blocked` `artifact.missing`. O arquivo do
 agente `ork-plan` não mudou.
 
+### Grok Build (`grok`), RM-067 (27/10/2026)
+
+O `grok` não entra na matriz acima: ele é homologado só para despacho explícito
+(`ork phase run --runtime grok`), sem MCP do `ork` até a F4 da
+[RM-067](../../roadmap/RM-067-grok-build-homologado.md). O que vale desde a F3:
+
+- **Conta:** perfis de `ork accounts add --runtime grok`, cada um com o seu `GROK_HOME`. O
+  login é do próprio CLI (`grok login` ou `grok login --device-auth`), pela assinatura, como
+  a D1 do dono decidiu; o filho roda sem `XAI_API_KEY`, e o `ork` nunca lê nem copia o
+  `auth.json`. O `grok` não documenta conferência de login: o perfil entra no rodízio sem
+  conferência prévia, e o erro de login do próprio despacho o tira (`runtime.auth-missing`).
+- **Cota esgotada:** o formato do erro de cota do `grok` não está confirmado. Nenhum texto
+  do `grok` vira `runtime.quota-exhausted`; até o ensaio real (F5) ler o formato
+  estruturado, o `grok` fica **fora da escada automática** (a escada de recuperação nunca
+  troca a conta dele) **e do fallback** (ele nunca é alvo de `--fallback`). O perfil marcado
+  esgotado no store sai do rodízio: o próximo despacho da thread vai ao próximo perfil
+  `grok` disponível, e o `ork retry` faz a mesma troca nos projetos sem o MCP do `ork` (com
+  ele, o `grok` segue fora dos destinos automáticos até a F4).
+- **Sem inventário:** as sessões `grok` ainda não entram no `ork sessions`, na carga por
+  conta nem na medição do #Noctum.
+
 ## Instruções persistentes
 
 `ork init` cria ou atualiza somente o trecho entre `<!-- orkastery:begin -->` e

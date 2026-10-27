@@ -21,7 +21,7 @@
  */
 import { createHash, createPublicKey } from 'node:crypto';
 import { FUSO_DE_BRASILIA, normalizarFuso } from './horario';
-import { RUNTIMES_COM_PERFIL } from './runtime-profiles';
+import { RUNTIMES_COM_INVENTARIO } from './runtime-profiles';
 
 export const CONTRATO_ENVELOPE = 'ork.noctum-envelope/v1' as const;
 export const CONTRATO_ENVELOPE_V2 = 'ork.noctum-envelope/v2' as const;
@@ -377,7 +377,7 @@ function lerOrcamento(v: unknown, p: Problemas): Orcamento | undefined {
   const porConta = lerSubtetos(v.porConta, 'conta', 'orcamento.porConta', x => ID_DE_CONTA.test(x),
     'id de perfil de conta já autenticado', p);
   const porRuntime = lerSubtetos(v.porRuntime, 'runtime', 'orcamento.porRuntime',
-    x => (RUNTIMES_COM_PERFIL as readonly string[]).includes(x), `runtime de assinatura: ${RUNTIMES_COM_PERFIL.join(', ')}`, p);
+    x => (RUNTIMES_COM_INVENTARIO as readonly string[]).includes(x), `runtime de assinatura: ${RUNTIMES_COM_INVENTARIO.join(', ')}`, p);
   // Subteto acima do teto do arco, na mesma unidade, não limita nada: é teto do arco disfarçado.
   for (const [nome, teto] of [...(porConta ?? []).map(s => [`conta ${s.conta}`, s.teto] as const),
     ...(porRuntime ?? []).map(s => [`runtime ${s.runtime}`, s.teto] as const)]) {

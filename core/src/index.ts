@@ -201,6 +201,7 @@ import {
 } from './runtime-profiles';
 import { ambienteDoPerfil as ambienteDoPerfilClaude, conferirAuth as conferirAuthClaude } from './adapters/claude-bg';
 import { ambienteDoDespacho as ambienteDoDespachoCodex, conferirAuth as conferirAuthCodex } from './adapters/codex';
+import { ambienteDoFilho as ambienteDoFilhoGrok, comandoDeLogin as comandoDeLoginGrok, conferirAuth as conferirAuthGrok } from './adapters/grok';
 import {
   assumirConducao, canalDoProcesso, conducaoDaThread, ErroDeConducao, ESPERA_PADRAO_MS, esperarConducaoLivre, liberarSeOrfa,
   textoDoPedidoRepetido, textoDoStatusDaConducao,
@@ -705,8 +706,9 @@ function comandoOnboarding(args: Args): number {
 
 /**
  * I-33 (D8): `ork accounts list|add|remove|check`. O login e sempre do proprio CLI com o env do
- * perfil (`claude auth login`, `codex login`); o `ork` so guarda identidade, diretorio e estado,
- * nunca le, copia ou migra o que o CLI grava. A lista nao tem segredo porque o store nao tem.
+ * perfil (`claude auth login`, `codex login`, `grok login [--device-auth]`); o `ork` so guarda identidade,
+ * diretorio e estado, nunca le, copia ou migra o que o CLI grava (o `auth.json` do grok inclusive). A lista
+ * nao tem segredo porque o store nao tem.
  */
 /** A8: valor citado para colar no shell: aspas simples, e a aspa simples do proprio valor fechada e reaberta. */
 function aspasDeShell(valor: string): string {
@@ -727,7 +729,8 @@ function comandoAccounts(args: Args): number {
   const raiz = carregado.raiz;
   const sub = args.posicionais[1] ?? 'list';
   // RM-061 (F3b, GO-FIX 1): a conferencia roda no escopo pt-BR (o detalhe vai ao store), e a impressao o traduz.
-  const conferir = (p: PerfilDeDespacho) => comLocale('pt-BR', () => p.runtime === 'claude-bg' ? conferirAuthClaude(p) : conferirAuthCodex(p));
+  const conferir = (p: PerfilDeDespacho) => comLocale('pt-BR', () => p.runtime === 'claude-bg' ? conferirAuthClaude(p)
+    : p.runtime === 'grok' ? conferirAuthGrok(p) : conferirAuthCodex(p));
   const detalhe = (auth: { detalhe: string }) => ma.detalheDoLogin(remontar(auth.detalhe));
   // RM-061 (F3b, D3): o texto pelo catalogo; o que se grava (store de perfis, registro de contas) roda no escopo pt-BR,
   // e o id, o runtime, o diretorio, o motivo tipado e o detalhe que o CLI do runtime devolve saem como vieram.
@@ -744,7 +747,9 @@ function comandoAccounts(args: Args): number {
   if (sub === 'list') { imprimir(); return 0; }
   if (sub === 'add') {
     const id = args.posicionais[2], runtime = texto(args.opcoes.runtime), dirBruto = texto(args.opcoes.dir);
-    if (!id || !runtime || !dirBruto) {
+    // RM-067 (F3): o codigo de dispositivo e do login do grok; nos outros runtimes, a opcao e recusada.
+    const dispositivo = args.opcoes['device-auth'] === true;
+    if (!id || !runtime || !dirBruto || (dispositivo && runtime !== 'grok')) {
       console.error(ma.usoAdd);
       return 2;
     }
@@ -760,10 +765,13 @@ function comandoAccounts(args: Args): number {
     const despacho = perfilDeDespacho(perfil);
     const variavel = VARIAVEL_DO_PERFIL[perfil.runtime];
     // D13: o login do claude e fixado na assinatura (`--claudeai`), nunca no Console de API.
-    const comando = perfil.runtime === 'claude-bg' ? ['claude', 'auth', 'login', '--claudeai'] : ['codex', 'login'];
+    // RM-067 (F3, D1 b): o grok entra pela assinatura, no login do proprio CLI (navegador ou codigo de dispositivo).
+    const comando = perfil.runtime === 'claude-bg' ? ['claude', 'auth', 'login', '--claudeai']
+      : perfil.runtime === 'grok' ? comandoDeLoginGrok(dispositivo) : ['codex', 'login'];
     if (args.opcoes['sem-login'] !== true && process.stdin.isTTY && process.stdout.isTTY) {
       // Login interativo do proprio CLI, com o env do perfil sobre a assinatura higienizada.
-      const env = perfil.runtime === 'claude-bg' ? ambienteDoPerfilClaude(despacho) : ambienteDoDespachoCodex(process.env, despacho);
+      const env = perfil.runtime === 'claude-bg' ? ambienteDoPerfilClaude(despacho)
+        : perfil.runtime === 'grok' ? ambienteDoFilhoGrok({ perfil: despacho }) : ambienteDoDespachoCodex(process.env, despacho);
       spawnSync(comando[0], comando.slice(1), { stdio: 'inherit', env });
     } else {
       console.log(ma.loginPendente(variavel, aspasDeShell(dir), comando.join(' '), id));
@@ -773,7 +781,7 @@ function comandoAccounts(args: Args): number {
     if (!auth.ok && !auth.transitorio) comLocale('pt-BR', () => marcarFalhaDePerfil(raiz, id, auth.pago
       ? { estado: 'provider-pago', esgotadoAte: null, motivo: 'cost.violation', detalhe: auth.detalhe }
       : { estado: 'sem-auth', esgotadoAte: null, motivo: 'runtime.auth-missing', detalhe: auth.detalhe }));
-    console.log(ma.resultadoAdd(id, perfil.runtime, dir, auth.ok ? ma.conferido
+    console.log(ma.resultadoAdd(id, perfil.runtime, dir, auth.semConferencia ? ma.semConferenciaAdd(detalhe(auth)) : auth.ok ? ma.conferido
       : auth.transitorio ? ma.inconclusivaAdd(detalhe(auth))
       : auth.pago ? ma.pagoAdd(detalhe(auth)) : ma.semLoginAdd(detalhe(auth))));
     return 0;
@@ -795,7 +803,8 @@ function comandoAccounts(args: Args): number {
     for (const p of perfis) {
       const auth = conferir(perfilDeDespacho(p));
       comLocale('pt-BR', () => {
-        if (auth.ok && (p.estado === 'sem-auth' || p.estado === 'provider-pago')) reativarPerfil(raiz, p.id);
+        // RM-067 (F3): sem conferencia (grok), o estado fica: so o login que o proprio CLI confere devolve o perfil.
+        if (auth.ok && !auth.semConferencia && (p.estado === 'sem-auth' || p.estado === 'provider-pago')) reativarPerfil(raiz, p.id);
         if (!auth.ok && auth.transitorio) registrarConferenciaInconclusiva(raiz, p.id, auth.detalhe);
         else if (!auth.ok) {
           marcarFalhaDePerfil(raiz, p.id, auth.pago
@@ -817,7 +826,7 @@ function comandoAccounts(args: Args): number {
         volta ? ma.voltaEm(formatarDataHoraRotulada(volta)) : ma.voltaSemMedida,
         ...(expirados.has(p.id) ? [ma.marcaExpirada] : []),
       ].join('; ');
-      console.log(`${ma.resultadoCheck(p.id, p.runtime, auth.ok ? ma.conferido
+      console.log(`${ma.resultadoCheck(p.id, p.runtime, auth.semConferencia ? ma.semConferenciaCheck(detalhe(auth)) : auth.ok ? ma.conferido
         : auth.transitorio ? ma.inconclusivaCheck(detalhe(auth))
         : auth.pago ? ma.pagoCheck(detalhe(auth)) : ma.semLoginCheck(detalhe(auth)))}; ${operacional}`);
     }

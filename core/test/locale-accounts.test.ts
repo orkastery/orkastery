@@ -74,7 +74,7 @@ test('locale en F3b accounts: list, add, check, remove e esgotamentos saem em in
     assert.match(esg.stdout, /\n {2}dispatches on an account marked by another project: 0\n {2}limit: the registry only keeps live marks /);
     assert.equal(ork(c, EN, true, 'accounts', 'esgotamentos', '--desde', 'ontem').stderr,
       'ledger.period.invalid: ontem (use `--desde` 7d, 24h, 30m or an ISO date)\n');
-    assert.equal(ork(c, EN, true, 'accounts', 'add', 'p4').stderr, 'usage: ork accounts add <id> --runtime claude-bg|codex --dir <directory> [--sem-login]\n');
+    assert.equal(ork(c, EN, true, 'accounts', 'add', 'p4').stderr, 'usage: ork accounts add <id> --runtime claude-bg|codex|grok --dir <directory> [--sem-login] [--device-auth (grok only)]\n');
     assert.equal(ork(c, EN, true, 'accounts', 'voar').stderr, 'unknown subcommand: accounts voar (use list, add, remove, check or esgotamentos)\n');
     const tudo = [lista, check, esg].map((s) => s.stdout).join('\n').split(com).join('<DIR_A>').split(sem).join('<DIR_B>');
     assert.deepEqual(linhasEmPortugues(tudo, ['[desde,ate)']), []);

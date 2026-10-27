@@ -30,7 +30,7 @@ import { memoryState } from './project-state';
 import { ENVS_DE_PROVIDER_PAGO, nomesDeProviderAtivos, sessaoDespachada } from './runtime-ambiente';
 import { resolverDsn, variaveisComDsn, variaveisComUrlComSenha } from './dsn-da-memoria';
 import { StatusDeAuth } from './adapters/claude-bg';
-import { lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDisponivel, RUNTIMES_COM_PERFIL } from './runtime-profiles';
+import { diretorioDoPerfil, lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDisponivel, RUNTIMES_COM_PERFIL } from './runtime-profiles';
 import { sondasDeAmbiente } from './preflight';
 import { configDoBloco, ConfigDeBlocoComFallback, lerSetup } from './setup';
 import { batidaNoDoctor, BatidaNoDoctor, checarCronDoPulse, checarTransporteDoPulse, LeitorDoCrontab, lerCrontabDoSistema } from './doctor-pulse-cron';
@@ -55,7 +55,7 @@ export function checarSeparacaoDaConducao(raiz: string, inventario: InventarioDe
   try {
     if (dirAtual) {
       const p = lerPerfisComContas(raiz).perfis.find((x) => x.runtime === runtime &&
-        real((perfilDeDespacho(x).configDir ?? perfilDeDespacho(x).codexHome) as string) === real(dirAtual));
+        real(diretorioDoPerfil(perfilDeDespacho(x))) === real(dirAtual));
       perfil = p?.id ?? null;
     }
   } catch { /* o check de contas relata o store inválido; aqui não inventamos perfil */ }
