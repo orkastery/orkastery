@@ -6,19 +6,21 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-12T20:23:00-03:00
+atualizado_em: 2026-10-27T00:50:00-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
   codigo: Mesclado
   testes: Em execução
-  deploy: Não implantado
-  exposicao: Flag desligada
+  deploy: Produção
+  exposicao: Parcial
   habilitacao: Em andamento
 evidencias:
   codigo:
     commit: 4a889fc
     pr: 113
+  deploy:
+    release: v0.6.0 (F3b, F3c e F3d), @orkastery/cli no npm
 sdlc:
   thread: null
   modo: null
@@ -32,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Em execução | Produção | Parcial |
 
 <!-- ork-docs:relance:fim -->
 
@@ -128,19 +130,21 @@ São estimativas do #113, não medidas desta página. Cada fatia as reconfere an
 
 ## Estado com evidências
 
+- Em produção na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026): a F3b, a F3c e a F3d; a F1, a F2 e a F3a já estavam no código da `v0.5.6`. A F3e e as superfícies de fora do CLI seguem.
+
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
 <!-- ork-docs:estado:inicio -->
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-12 | Julio |
-| Documentação | Em revisão | — | 2026-10-12 | Julio |
-| Código | Mesclado | commit `4a889fc` · PR #113 | 2026-10-12 | Julio |
-| Testes | Em execução | — | 2026-10-12 | Julio |
-| Deploy | Não implantado | — | 2026-10-12 | Julio |
-| Exposição | Flag desligada | — | 2026-10-12 | Julio |
-| Habilitação | Em andamento | — | 2026-10-12 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-27 | Julio |
+| Documentação | Em revisão | — | 2026-10-27 | Julio |
+| Código | Mesclado | commit `4a889fc` · PR #113 | 2026-10-27 | Julio |
+| Testes | Em execução | — | 2026-10-27 | Julio |
+| Deploy | Produção | release: v0.6.0 (F3b, F3c e F3d), @orkastery/cli no npm | 2026-10-27 | Julio |
+| Exposição | Parcial | — | 2026-10-27 | Julio |
+| Habilitação | Em andamento | — | 2026-10-27 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -257,3 +261,4 @@ A F3d mede no mesmo contador, com o recibo em [`cobertura-f3d.json`](evidencias/
 | 2026-10-15 | A F3c leva à língua do dono o `.orkastery/.gitignore`, `decisao registrar`, `network roadmap`, `thread new --from-finding` e os prompts de fase, com o fecho do GO em inglês depois do merge da `main`; os demais comandos, mods, tools do OpenClaw e marketplaces ficam para a F3d | Thread `ork-rm061f3c` e o recibo `cobertura-f3c.json` | Fábrica, pelo pedido do dono |
 | 2026-10-20 | A F3d leva ao catálogo as famílias do CLI principal que seguiam fora da lista e as três lacunas da revisão da F3c; o GO-FIX 1 corrige as 15 falhas que a suíte inteira mostrou depois do merge da `main`; mods, tools do OpenClaw e marketplaces ficam pendentes | Thread `ork-rm061f3d` e o recibo `cobertura-f3d.json` | Fábrica, pelo pedido do dono |
 | 2026-10-20 | O GO-FIX 2 da F3d lista o que segue em pt-BR com o CLI em inglês e cria a F3e para levar essa lista ao catálogo | CHECK independente da F3d (achado 2) e a lista de `core/src/locale.ts` conferida contra `core/src/index.ts` | Fábrica, pelo pedido do dono |
+| 2026-10-27 | F3b, F3c e F3d em produção na 0.6.0; exposição Parcial, porque a F3e segue | Tag `v0.6.0`, com os merges `a6c70768`, `a95a4667` (#177) e `15351f3d` (#187) na tag; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |

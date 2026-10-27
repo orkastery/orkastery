@@ -1,0 +1,520 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-docsda060emp",
+  "branch": "ork/ork-docsda060emp-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md",
+      "alegacao": "A RM-072 ganha o estado da produção da 0.6.0: deploy Produção, ciclo Disponível, exposição Geral e habilitação Concluída, com a evidência da release v0.6.0 e uma linha no histórico; o merge 90032a5 está na tag v0.6.0.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md; grep -q '^  deploy: Produção$' $f && grep -q '^  ciclo: Disponível$' $f && grep -q '^  exposicao: Geral$' $f && grep -q '^  habilitacao: Concluída$' $f && grep -q '^    release: v0\\.6\\.0, @orkastery/cli no npm' $f && grep -q '^| 2026-10-27 | Em produção na 0.6.0' $f && git merge-base --is-ancestor 90032a5 v0.6.0"
+      ],
+      "criadoEm": "2026-10-27T03:54:43.507Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md",
+      "alegacao": "A RM-069 ganha o estado da produção da 0.6.0 (memory.database_url_file): deploy Produção, ciclo Disponível, exposição Geral, habilitação Concluída, release v0.6.0 e linha no histórico; o merge 780eca0 está na tag.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-069-dsn-fora-do-ambiente-dos-agentes.md; grep -q '^  deploy: Produção$' $f && grep -q '^  ciclo: Disponível$' $f && grep -q '^  exposicao: Geral$' $f && grep -q '^  habilitacao: Concluída$' $f && grep -q '^    release: v0\\.6\\.0.*database_url_file' $f && grep -q '^| 2026-10-27 | Em produção na 0.6.0' $f && git merge-base --is-ancestor 780eca0 v0.6.0"
+      ],
+      "criadoEm": "2026-10-27T03:54:48.983Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-068-security-scan-no-check.md",
+      "alegacao": "A RM-068 ganha o estado da produção da 0.6.0 (ork security-scan): deploy Produção, ciclo Disponível, exposição Geral, habilitação Concluída, release v0.6.0, linha no histórico, e o texto deixa de dizer que espera release; o merge 6d9c0f5d está na tag.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-068-security-scan-no-check.md; grep -q '^  deploy: Produção$' $f && grep -q '^  ciclo: Disponível$' $f && grep -q '^  exposicao: Geral$' $f && grep -q '^    release: v0\\.6\\.0' $f && grep -q '^| 2026-10-27 | Em produção na 0.6.0' $f && ! grep -q 'ainda sem release no npm: o workflow' $f && git merge-base --is-ancestor 6d9c0f5d v0.6.0"
+      ],
+      "criadoEm": "2026-10-27T03:54:52.013Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-065-gitlab-com-paridade-ao-github.md",
+      "alegacao": "A RM-065 passa a código Mesclado pelo PR #175 (merge 1e88a932, na main e na tag v0.6.0) e ganha o estado da produção: deploy Produção, ciclo Disponível, exposição Geral, release v0.6.0 e linha no histórico.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-065-gitlab-com-paridade-ao-github.md; grep -q '^  codigo: Mesclado$' $f && grep -q '^    commit: 1e88a932$' $f && grep -q '^    pr: 175$' $f && grep -q '^  deploy: Produção$' $f && grep -q '^  ciclo: Disponível$' $f && grep -q '^    release: v0\\.6\\.0' $f && grep -q '^| 2026-10-27 | Mesclado pelo PR #175' $f && git merge-base --is-ancestor 1e88a932 v0.6.0 && git merge-base --is-ancestor 1e88a932 origin/main"
+      ],
+      "criadoEm": "2026-10-27T03:54:55.311Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "1e88a932",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C5",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md",
+      "alegacao": "A RM-062 ganha deploy Produção com exposição Parcial (F1 e F2 na 0.6.0; F3 e F4 seguem), release v0.6.0 e linha no histórico; o merge f5c8db2 está na tag.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md; grep -q '^  deploy: Produção$' $f && grep -q '^  exposicao: Parcial$' $f && grep -q '^    release: v0\\.6\\.0 (F1 e F2)' $f && grep -q '^| 2026-10-27 | F1 e F2 em produção na 0.6.0' $f && git merge-base --is-ancestor f5c8db2 v0.6.0"
+      ],
+      "criadoEm": "2026-10-27T03:54:57.975Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md",
+      "alegacao": "A RM-064 ganha deploy Produção com exposição Parcial (fatias 1 a 3 na 0.6.0; T6 segue), release v0.6.0 e linha no histórico; os três merges estão na tag.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md; grep -q '^  deploy: Produção$' $f && grep -q '^  exposicao: Parcial$' $f && grep -q '^    release: v0\\.6\\.0 (fatias 1, 2 e 3)' $f && grep -q '^| 2026-10-27 | Fatias 1, 2 e 3 em produção na 0.6.0' $f && for c in 9975486e 8d37c75f fe590b66; do git merge-base --is-ancestor $c v0.6.0 || exit 1; done"
+      ],
+      "criadoEm": "2026-10-27T03:55:00.981Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "9975486e",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C7",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-059-conducao-dentro-do-claude-code.md",
+      "alegacao": "A RM-059 ganha deploy Produção com exposição Parcial (Mensageiro de Sessões e Ritual do MASTER na 0.6.0), release v0.6.0 e linha no histórico; os merges d9c5ca6c e 22fbf9bf estão na tag.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-059-conducao-dentro-do-claude-code.md; grep -q '^  deploy: Produção$' $f && grep -q '^  exposicao: Parcial$' $f && grep -q '^    release: v0\\.6\\.0 (Mensageiro' $f && grep -q '^| 2026-10-27 | Em produção na 0.6.0' $f && git merge-base --is-ancestor d9c5ca6c v0.6.0 && git merge-base --is-ancestor 22fbf9bf v0.6.0"
+      ],
+      "criadoEm": "2026-10-27T03:55:04.101Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md",
+      "alegacao": "A RM-061 ganha deploy Produção com exposição Parcial (F3b, F3c e F3d na 0.6.0; F3e segue), release v0.6.0 e linha no histórico; os merges estão na tag.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md; grep -q '^  deploy: Produção$' $f && grep -q '^  exposicao: Parcial$' $f && grep -q '^    release: v0\\.6\\.0 (F3b, F3c e F3d)' $f && grep -q '^| 2026-10-27 | F3b, F3c e F3d em produção na 0.6.0' $f && for c in a6c70768 a95a4667 15351f3d; do git merge-base --is-ancestor $c v0.6.0 || exit 1; done"
+      ],
+      "criadoEm": "2026-10-27T03:55:06.681Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "a6c70768",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C9",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-063-fabrica-que-nao-para.md",
+      "alegacao": "A RM-063 ganha deploy Produção com exposição Parcial (fatias 2 e 3 na 0.6.0; M1 a M5 seguem), release v0.6.0 e linha no histórico; os merges babe9d48 e 45ecc51a estão na tag.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-063-fabrica-que-nao-para.md; grep -q '^  deploy: Produção$' $f && grep -q '^  exposicao: Parcial$' $f && grep -q '^    release: v0\\.6\\.0 (F4, F6, F7 e H1 a H4)' $f && grep -q '^| 2026-10-27 | Fatias 2 e 3 em produção na 0.6.0' $f && git merge-base --is-ancestor babe9d48 v0.6.0 && git merge-base --is-ancestor 45ecc51a v0.6.0"
+      ],
+      "criadoEm": "2026-10-27T03:55:09.808Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-026-workspace-empresarial.md",
+      "alegacao": "A RM-026 registra as fatias 2 e 3 do K7 em produção na 0.6.0, na evidência de deploy, no estado com evidências e no histórico; os merges 89e934a e 69dc0ff6 estão na tag.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-026-workspace-empresarial.md; grep -q '^    release: v0\\.6\\.0 (K7, fatias 2 e 3), v0\\.5\\.6' $f && grep -q '^- K7, fatias 2 e 3, em produção na versão 0.6.0' $f && grep -q '^| 2026-10-27 | K7, fatias 2 e 3, em produção na 0.6.0' $f && ! grep -q 'saem na próxima versão' $f && git merge-base --is-ancestor 89e934a v0.6.0 && git merge-base --is-ancestor 69dc0ff6 v0.6.0"
+      ],
+      "criadoEm": "2026-10-27T03:55:12.824Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-037-verify-rapido-e-confiavel.md",
+      "alegacao": "A RM-037 registra na evidência de deploy, no estado e no histórico o que a 0.6.0 levou dela; os sete merges citados estão na tag.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-037-verify-rapido-e-confiavel.md; grep -q '^    release: v0\\.6\\.0 (as esperas' $f && grep -q '^- Em produção na versão 0.6.0' $f && grep -q '^| 2026-10-27 | Esperas, saída completa' $f && for c in 08cbd5ff 927f9daf 6abb3ba3 f0396f69 69f40775 aa3681fe cca7f904; do git merge-base --is-ancestor $c v0.6.0 || exit 1; done"
+      ],
+      "criadoEm": "2026-10-27T03:55:15.945Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "08cbd5ff",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C12",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-047-fabrica-em-varias-maquinas.md",
+      "alegacao": "A RM-047 registra na evidência de deploy e no histórico a baseline sem dependência e a worktree da base remota da 0.6.0, e deixa de dizer que a validação do remoto está em Não publicado (saiu na 0.5.3); o merge 84f5fa15 está na tag.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-047-fabrica-em-varias-maquinas.md; grep -q '^    release: .*validação do remoto na 0\\.5\\.3.*v0\\.6\\.0$' $f && ! grep -q 'ainda está em \"Não publicado\"' $f && grep -q '^| 2026-10-27 | Baseline sem dependência' $f && git merge-base --is-ancestor 84f5fa15 v0.6.0 && awk '/^## \\[0\\.5\\.3\\]/{f=1} /^## \\[0\\.5\\.2\\]/{f=0} f' CHANGELOG.md | grep -q 'Remoto da fábrica validado antes do git'"
+      ],
+      "criadoEm": "2026-10-27T03:55:19.234Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-016-experiencia-do-builder.md",
+      "alegacao": "A RM-016 registra na evidência de deploy, no estado e no histórico o fecho do GO igual no Codex e no Claude Code, publicado na 0.6.0; o merge 84f5fa15 está na tag.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-016-experiencia-do-builder.md; grep -q '^    release: código desde o Orkastery 0\\.3\\.0 (10ca416); o fecho do GO igual no Codex e no Claude Code na v0\\.6\\.0' $f && grep -q '^| 2026-10-27 | O fecho do GO igual' $f && git merge-base --is-ancestor 84f5fa15 v0.6.0"
+      ],
+      "criadoEm": "2026-10-27T03:55:21.560Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "10ca416",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C14",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice do roadmap, gerado por ork docs sincronizar, mostra as páginas da 0.6.0 em Produção, e o ork docs verificar passa sem erro numa cópia com a main igual à origin/main (a main local velha acusa merges que já estão na origin/main).",
+      "negativa": false,
+      "verificar": [
+        "grep -q '^| \\[RM-072\\](RM-072-check-cinco-vezes-mais-rapido.md) | .* | Disponível | Mesclado | Aprovados | Produção |' docs/roadmap/README.md && grep -q '^| \\[RM-069\\](RM-069-dsn-fora-do-ambiente-dos-agentes.md) | .* | Disponível | Mesclado | Aprovados | Produção |' docs/roadmap/README.md && grep -q '^| \\[RM-065\\](RM-065-gitlab-com-paridade-ao-github.md) | .* | Disponível | Mesclado | Aprovados | Produção |' docs/roadmap/README.md",
+        "w=$PWD; d=$(mktemp -d) && git init -q -b vazio \"$d/c\" && git rev-parse --path-format=absolute --git-common-dir | sed 's|$|/objects|' > \"$d/c/.git/objects/info/alternates\" && git -C \"$d/c\" fetch -q \"$w\" +HEAD:refs/heads/alvo +refs/remotes/origin/main:refs/heads/main && git -C \"$d/c\" checkout -q alvo && cd \"$d/c\" && node \"$w/core/dist/index.js\" docs verificar 2>&1 | tail -3 | grep -q '^OK: nenhum erro de paridade'"
+      ],
+      "criadoEm": "2026-10-27T03:55:32.407Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-058-modo-noctum.md",
+      "alegacao": "Negativa: esta thread não muda a página da RM-058 (#Noctum) nem as evidências dela, e o checador do portão do #Noctum passa nos dois modos (tag e --texto): nenhum texto anuncia o #Noctum.",
+      "negativa": true,
+      "verificar": [
+        "git diff --quiet \"$(git merge-base origin/main HEAD)\" HEAD -- docs/roadmap/RM-058-modo-noctum.md docs/roadmap/evidencias/RM-058",
+        "node core/scripts/checar-release-noctum.cjs && node core/scripts/checar-release-noctum.cjs --texto"
+      ],
+      "criadoEm": "2026-10-27T03:55:52.543Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/produto/FEAT-041-security-scan-no-check.md",
+      "alegacao": "A FEAT-041 passa a vigente, publicada na 0.6.0, e deixa de dizer que a publicação espera release; o merge 6d9c0f5d está na tag v0.6.0.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/produto/FEAT-041-security-scan-no-check.md; grep -q '^estado: vigente$' $f && grep -q 'publicada na 0.6.0' $f && ! grep -q 'Sem release no npm' $f && grep -q '^| 2026-10-27 | vigente: publicada na 0.6.0' $f && git merge-base --is-ancestor 6d9c0f5d v0.6.0"
+      ],
+      "criadoEm": "2026-10-27T03:57:28.516Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/produto/FEAT-039-gitlab-com-paridade-ao-github.md",
+      "alegacao": "A FEAT-039 passa a vigente na versão main@1e88a932 (PR #175), publicada na 0.6.0, e deixa de dizer \"ainda sem release\"; o merge está na main e na tag.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/produto/FEAT-039-gitlab-com-paridade-ao-github.md; grep -q '^estado: vigente$' $f && grep -q '^versao: main@1e88a932$' $f && ! grep -q 'Ainda sem release' $f && grep -q '^| 2026-10-27 | vigente: mesclada pelo PR #175' $f && git merge-base --is-ancestor 1e88a932 v0.6.0 && git merge-base --is-ancestor 1e88a932 origin/main"
+      ],
+      "criadoEm": "2026-10-27T03:57:32.261Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "1e88a932",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C19",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/produto/FEAT-038-conhecimento-escrito.md",
+      "alegacao": "A FEAT-038 passa a vigente na versão main@69dc0ff6 (fatia 3, PR #161), com as três fatias publicadas na 0.6.0, e deixa de dizer que o comando espera a próxima versão; os merges estão na tag.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/produto/FEAT-038-conhecimento-escrito.md; grep -q '^estado: vigente$' $f && grep -q '^versao: main@69dc0ff6$' $f && ! grep -q 'esperam a próxima versão' $f && grep -q '^| 2026-10-27 | vigente: as três fatias publicadas na 0.6.0' $f && git merge-base --is-ancestor 89e934a v0.6.0 && git merge-base --is-ancestor 69dc0ff6 v0.6.0"
+      ],
+      "criadoEm": "2026-10-27T03:57:34.318Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "69dc0ff6",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C20",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/produto/README.md",
+      "alegacao": "O índice de produto, gerado por ork docs sincronizar, mostra FEAT-038, FEAT-039 e FEAT-041 como vigentes, verificadas em 27/10/2026.",
+      "negativa": false,
+      "verificar": [
+        "for f in 'FEAT-038\\](FEAT-038-conhecimento-escrito.md) | Conhecimento escrito | feature | vigente | MOD-05 | 2026-10-27' 'FEAT-039\\](FEAT-039-gitlab-com-paridade-ao-github.md) | GitLab com paridade ao GitHub | feature | vigente | MOD-02 | 2026-10-27' 'FEAT-041\\](FEAT-041-security-scan-no-check.md) | Security scan no CHECK | feature | vigente | MOD-02 | 2026-10-27'; do grep -q \"^| \\[$f |\" docs/produto/README.md || exit 1; done"
+      ],
+      "criadoEm": "2026-10-27T03:57:37.026Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "README.md",
+      "alegacao": "A tabela \"What exists today\" do README ganha os recursos da 0.6.0 que o CHANGELOG traz (Agile e Classic Check, security scan, GitLab e barreira de dado privado), cada um com o link da página do roadmap, sem número de desempenho.",
+      "negativa": false,
+      "verificar": [
+        "for r in 'Agile Check (the default CHECK) and Classic Check | \\*\\*works\\*\\* since 0.6.0' 'Security and code-quality scan in the CHECK | \\*\\*works\\*\\* since 0.6.0' 'GitLab with parity to GitHub | \\*\\*works\\*\\* since 0.6.0' 'Private-data barrier for a public repository | \\*\\*works\\*\\* since 0.6.0'; do grep -q \"^| $r\" README.md || exit 1; done; ! grep -E '^\\| (Agile|Security and|GitLab with|Private-data)' README.md | grep -qE '[0-9]+ ?(min|s\\b|x\\b)'"
+      ],
+      "criadoEm": "2026-10-27T03:57:40.353Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "README.pt-BR.md",
+      "alegacao": "O espelho pt-BR do README ganha as mesmas quatro linhas da 0.6.0 na tabela \"O que existe hoje\", com os mesmos links.",
+      "negativa": false,
+      "verificar": [
+        "for r in 'Agile Check (o CHECK padrão) e Classic Check | \\*\\*funciona\\*\\* desde a 0.6.0' 'Varredura de segurança e de qualidade de código no CHECK | \\*\\*funciona\\*\\* desde a 0.6.0' 'GitLab com paridade ao GitHub | \\*\\*funciona\\*\\* desde a 0.6.0' 'Barreira de dado privado para repositório público | \\*\\*funciona\\*\\* desde a 0.6.0'; do grep -q \"^| $r\" README.pt-BR.md || exit 1; done; test \"$(grep -c 'since 0.6.0' README.md)\" -eq \"$(grep -c 'desde a 0.6.0' README.pt-BR.md)\""
+      ],
+      "criadoEm": "2026-10-27T03:57:43.378Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md",
+      "alegacao": "Pela regra do dono de 27/10/2026, a RM-072 não dá mais tempo do CHECK em minutos (meta, critério, resultado ou fonte): as medições viram razão contra o Classic (1,43 a 1,52 vez) e percentuais, com o verify_run.duracaoMs do ledger como fonte, e uma linha no histórico registra a troca.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md; ! sed 's/([^)]*\\.md[^)]*)//g' $f | grep -nE '[0-9]+([,.][0-9]+)? ?min\\b|minutos?\\b|[0-9]+ min [0-9]+ s|[0-9]+([,.][0-9]+)? s de (CPU|parede)' && grep -q '1,43 a 1,52 vez mais rápido que o Classic' $f && grep -q 'verify_run.duracaoMs' $f && grep -q 'eficiência de paralelismo de 54,5%' $f && grep -q '^| 2026-10-27 | Medições e metas da página em tempo de parede passam a razão' $f"
+      ],
+      "criadoEm": "2026-10-27T04:02:42.113Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-073-modelos-de-decisao-no-ork-e-no-orkmind.md",
+      "alegacao": "A RM-073 deixa de dar o tempo do CHECK em minutos: o CHECK aparece como razão contra o GO e o PLAN, o Agile em razão contra o Classic e a meta da rodada intermediária em percentual; a dependência da RM-072 aponta a página dela, em produção na 0.6.0, e a meta na RM-074; uma linha no histórico.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-073-modelos-de-decisao-no-ork-e-no-orkmind.md; ! grep -nE 'cerca de 20 minutos|19 a 20 min|15 min 22 s|20,2 min|17,1 min|abaixo de 90 s|meta de minutos|CHECK completo a 3 minutos|o minuto do Agile' $f && grep -q 'CHECK 1,18 (19)' $f && grep -q '1,43 a 1,52 vez mais rápido que o Classic Check' $f && grep -q '^| \\[RM-072\\](RM-072-check-cinco-vezes-mais-rapido.md) (Agile Check) |' $f && grep -q '^| 2026-10-27 | O tempo de parede do CHECK passa a razão' $f"
+      ],
+      "criadoEm": "2026-10-27T04:02:46.454Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/guias/verificacao.md",
+      "alegacao": "O guia de verificação dá o efeito do steal na suíte como razão (de 7 a 9 vezes o tempo com CPU livre), sem minutos.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/guias/verificacao.md; grep -q 'a suíte levou de 7 a 9 vezes o tempo que leva com a CPU livre' $f && ! grep -q 'leva 3,4 min' $f"
+      ],
+      "criadoEm": "2026-10-27T04:02:48.510Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A linha do CHANGELOG sobre o teto dos testes (RM-037) dá o efeito do steal como razão (de 7 a 8 vezes o tempo com CPU livre), sem minutos de suíte; a seção 0.6.0 não muda.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'a suíte leva de 7 a 8 vezes o tempo que leva com CPU livre quando o hipervisor' CHANGELOG.md && ! grep -q 'a suíte mede 3,6 min' CHANGELOG.md && b=\"$(git merge-base origin/main HEAD)\" && test \"$(git show \"$b\":CHANGELOG.md | awk '/^## \\[0\\.6\\.0\\]/{f=1} /^## \\[0\\.5\\.6\\]/{f=0} f' | sha256sum)\" = \"$(awk '/^## \\[0\\.6\\.0\\]/{f=1} /^## \\[0\\.5\\.6\\]/{f=0} f' CHANGELOG.md | sha256sum)\""
+      ],
+      "criadoEm": "2026-10-27T04:02:52.110Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-037-verify-rapido-e-confiavel.md",
+      "alegacao": "A RM-037 dá o efeito do steal na suíte como razão (de 7 a 9 vezes o tempo com CPU livre), sem minutos.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-037-verify-rapido-e-confiavel.md; grep -q 'com steal alto, a mesma suíte leva de 7 a 9 vezes o tempo que leva com CPU livre' $f && ! grep -q 'leva 3,4 min com CPU livre' $f"
+      ],
+      "criadoEm": "2026-10-27T04:02:54.357Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-068-security-scan-no-check.md",
+      "alegacao": "A RM-068 dá o custo do scan no CI como fração da rodada do Classic Check (um quarto, pela medição do GO da RM-072), sem minutos.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-068-security-scan-no-check.md; grep -q 'que no Classic Check ocupa um quarto da parede da rodada' $f && ! grep -q '3 a 4,5 minutos' $f && grep -q '| 4 | Classic Check | .* | 25% da parede |' docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md"
+      ],
+      "criadoEm": "2026-10-27T04:02:56.790Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice do roadmap mostra a RM-073 com a data de atualização de 27/10/2026, gerada por ork docs sincronizar depois da troca dos minutos por razão.",
+      "negativa": false,
+      "verificar": [
+        "grep -q '^| \\[RM-073\\](RM-073-modelos-de-decisao-no-ork-e-no-orkmind.md) | .* | 2026-10-27 |$' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-10-27T04:03:46.582Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+      "alegacao": "A D1 da RM-074 está decidida pelo dono (gate completo, em razão contra o Classic na mesma máquina) e saiu das pendentes; D2, D3 e D4 seguem pendentes, cada uma com três alternativas, exatamente uma recomendada e o que mudou na recomendação; a D2 recomenda teto declarado por máquina com padrão que protege a máquina pequena.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md; grep -q '^\\*\\*D1\\. O que a meta mede\\. Decidida pelo dono em 27/10/2026' $f && ! grep -q '^\\*\\*D1\\..*Pendente' $f && test \"$(grep -c '^\\*\\*D[234]\\. .*Pendente\\.\\*\\*' $f)\" -eq 3 && test \"$(grep -c '^2\\. \\*\\*.*(recomendada)\\.\\*\\*' $f)\" -eq 3 && test \"$(grep -c '(recomendada)' $f)\" -eq 3 && test \"$(grep -c '^O que mudou na recomendação:' $f)\" -eq 3 && grep -q '^2\\. \\*\\*Teto declarado por máquina, com um padrão que protege a máquina pequena (recomendada)\\.\\*\\*' $f && for d in D2 D3 D4; do awk -v d=\"$d\" 'index($0,\"**\" d \". \")==1{f=1;next} /^\\*\\*D[1-4]\\. /{f=0} /^## /{f=0} f && /^[123]\\. /{n++} END{exit n!=3}' $f || exit 1; done"
+      ],
+      "criadoEm": "2026-10-27T04:11:33.639Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+      "alegacao": "A seção \"O piso do gate\" da RM-074 refaz a aritmética em termos relativos (frações da parede do Classic, corte percentual da CPU e eficiência de paralelismo), com a tabela de corte necessário para 3 vezes e sem tempo absoluto; a página tem a linha de 27/10/2026 no histórico.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md; s=$(awk '/^## O piso do gate/{f=1} /^## Escopo e validação/{f=0} f' $f); echo \"$s\" | grep -q '0,42 W' && echo \"$s\" | grep -q '^| 65% (a de hoje) | 49% | 74% |$' && echo \"$s\" | grep -q '^| 100% | 22% | 45% |$' && echo \"$s\" | grep -q 'de 0,36 W (cache quente) a 0,46 W (cache frio)' && ! echo \"$s\" | grep -qE '[0-9]+ s\\b|[0-9] ?min\\b|minutos' && grep -q '^| 2026-10-27 | D1 decidida: a meta é o Agile Check completo pelo menos 3 vezes' $f"
+      ],
+      "criadoEm": "2026-10-27T04:11:37.755Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice do roadmap lista a RM-074 pelo nome novo do arquivo e pelo título sem minutos, gerado por ork docs sincronizar.",
+      "negativa": false,
+      "verificar": [
+        "grep -q '^| \\[RM-074\\](RM-074-agile-check-tres-vezes-mais-rapido.md) | Agile Check três vezes mais rápido que o Classic | Discovery |' docs/roadmap/README.md && ! grep -q 'em 3 minutos' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-10-27T04:11:43.103Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-docsda060emp",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+      "alegacao": "A RM-074 tem a meta do dono (Agile Check completo pelo menos 3 vezes mais rápido que o Classic na mesma máquina e no mesmo commit, em três rodadas seguidas pelo ledger), com título, titulo do frontmatter e frase de abertura sem minutos, e as medições antigas em minutos e segundos fora da página.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md; grep -q '^id: RM-074$' $f && grep -qE '^titulo: \"?Agile Check três vezes mais rápido que o Classic\"?$' $f && ! grep -E '^(titulo:|# RM-074|> \\*\\*Em uma frase)' $f | grep -qiE 'minut|[0-9] ?min\\b' && grep -q 'pelo menos 3 vezes mais rápido que o Classic Check na mesma máquina e no mesmo commit, em três rodadas seguidas pelo ledger' $f && ! grep -nE '13 min 35 s|14 min 25 s|20 min 37 s|518 s|3\\.729 s|3 min 55 s|80,9 s|[0-9]+ s de CPU|no máximo 3 min|abaixo de 90 s|4\\.586 s' $f"
+      ],
+      "criadoEm": "2026-10-27T04:12:27.367Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C33",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C36",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
