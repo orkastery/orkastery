@@ -399,6 +399,7 @@ export function vigiarArco(carregado: ManifestoCarregado, arco: string, opcoes: 
     opcoes.depoisDeIniciar?.();
     const lacunas: string[] = [];
     const contagem = { reservas: 0, retomadas: 0, isolados: 0, contas: 0 };
+    let passoTerminal: ResultadoConduzido | null = null;
     if (sup.interrupcoesSeguidas >= parametros.interrupcoesQueParam && !sup.parada) {
       sup = gravarComEstado(carregado, arco, (s) => s.parada ? [] : [{ tipo: 'parada', motivo: 'supervisor-falhou',
         detalhe: `${s.interrupcoesSeguidas} tiques do vigia interrompidos em série (o limite é ${parametros.interrupcoesQueParam})` }], quando);
@@ -409,6 +410,15 @@ export function vigiarArco(carregado: ManifestoCarregado, arco: string, opcoes: 
       const retomada = retomadaNaRede(carregado, arco, { ...opcoes.coordenacao, quando,
         maquina: opcoes.maquina ?? opcoes.passo?.maquina });
       if (retomada.lacuna) lacunas.push(`retomada na rede: ${retomada.lacuna.motivo}: ${retomada.lacuna.detalhe}`);
+      if (estado.conteudo && envelopeMultimaquina(estado.conteudo) && estado.situacao !== 'vigente' && estado.situacao !== 'agendado') {
+        const daMaquina = passoDaMaquina(carregado, arco, { ...opcoes.coordenacao, quando,
+          maquina: opcoes.maquina ?? opcoes.passo?.maquina, consultarSessoes: opcoes.passo?.consultarSessoes ?? opcoes.consultarRuntime,
+          n2: opcoes.passo });
+        passoTerminal = daMaquina.acao === 'aguardar'
+          ? { acao: 'aguardar', ate: new Date(Date.parse(quando) + parametros.cadenciaMs).toISOString(), motivo: daMaquina.motivo,
+            fila: null, detalhe: daMaquina.detalhe, maquina: daMaquina.relatorio }
+          : { ...daMaquina.passo, ...(daMaquina.acao === 'passo' ? { maquina: daMaquina.relatorio } : {}) };
+      }
       const store = (opcoes.lerStore ?? storePadrao(raiz))();
       aplicarContas(carregado, arco, conteudo, store, quando, contagem);
       reconciliarSobATravaDeDespacho(carregado, arco, conteudo, parametros, quando, opcoes, lacunas, contagem,
@@ -428,7 +438,7 @@ export function vigiarArco(carregado: ManifestoCarregado, arco: string, opcoes: 
     sup = lerSupervisao(raiz, arco);
     // D5: com a trava do condutor livre, este tique conduz: a geração do vigia, com a prova, e um passo.
     let condutor: ResultadoDoTique['condutor'] = 'sem-passo';
-    let passo: ResultadoConduzido | null = null;
+    let passo: ResultadoConduzido | null = passoTerminal;
     const vigente = lerArco(raiz, arco, quando)!.situacao === 'vigente';
     if (!sup.parada && vigente && conteudo) {
       const fdCondutor = tentarTravaExclusiva(path.join(dir, ARQUIVO_DO_CONDUTOR));

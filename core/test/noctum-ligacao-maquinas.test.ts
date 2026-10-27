@@ -12,6 +12,12 @@ import { abrirArco, prepararIngressoSimulado } from './noctum-apoio';
 import { projetoTemporario } from './apoio';
 import { condutorDaMaquinaSimulado, duasMaquinas } from './noctum-maquinas-apoio';
 import { instancia, opcoesSimuladas } from './noctum-supervisao-apoio';
+import { assumirAutoridade, bater, emitirOrdem, lerCoordenacao, responderOrdem } from '../src/noctum-coordenacao';
+import { encerrarArco } from '../src/noctum-arco';
+import { passoDaMaquina } from '../src/noctum-maquinas';
+import { retomadaNaRede } from '../src/noctum-retomada-rede';
+import { tiqueDoArco } from '../src/noctum-modo';
+import { CONTRATO_REDE_DO_ARCO, RedeDoArco } from '../src/noctum-rede';
 
 prepararIngressoSimulado();
 const semKernel = !kernelDisponivel();
@@ -98,5 +104,51 @@ test('LM6: duas ordens aceitas produzem no máximo um despacho por passo', { ski
     assert.equal(registro.length <= 2, true);
     assert.notEqual(r1.acao === 'despachou' && r2.acao === 'despachou' ? r1.trabalho : null,
       r1.acao === 'despachou' && r2.acao === 'despachou' ? r2.trabalho : null);
+  } finally { m.limpar(); }
+});
+
+test('LM7: máquina encerrada recusa ordem emitida, encerra a aceita sem sessão e não bate', { skip: semKernel }, () => {
+  const m = cenario('noctum-lm7');
+  try {
+    assumirAutoridade(m.a.carregado, m.arco, { maquina: m.a.nome });
+    bater(m.b.carregado, m.arco, { maquina: m.b.nome });
+    const aceita = emitirOrdem(m.a.carregado, m.arco, { trabalho: 'a', maquina: m.b.nome }, { maquina: m.a.nome });
+    responderOrdem(m.b.carregado, m.arco, aceita, 'aceita', 'SIMULADO', { maquina: m.b.nome });
+    const emitida = emitirOrdem(m.a.carregado, m.arco, { trabalho: 'c', maquina: m.b.nome }, { maquina: m.a.nome });
+    const antes = lerCoordenacao(m.a.carregado, m.arco, { maquina: m.a.nome }).batidas.get(m.b.nome);
+    encerrarArco(m.b.dir, m.arco, { motivo: 'hora', detalhe: 'SIMULADO: fim local' });
+    passoDaMaquina(m.b.carregado, m.arco, { maquina: m.b.nome, consultarSessoes: () => ({ sessoes: [], fontes: [], contas: [] }) });
+    const estado = lerCoordenacao(m.a.carregado, m.arco, { maquina: m.a.nome });
+    assert.equal(estado.ordens.get(aceita)!.estado, 'encerrada');
+    assert.equal(estado.ordens.get(emitida)!.estado, 'recusada');
+    assert.equal(estado.batidas.get(m.b.nome), antes, 'o passo terminal não grava batida');
+  } finally { m.limpar(); }
+});
+
+test('LM8: autoridade encerrada cede a vez e a outra máquina assume', { skip: semKernel }, () => {
+  const m = cenario('noctum-lm8');
+  try {
+    assumirAutoridade(m.b.carregado, m.arco, { maquina: m.b.nome });
+    bater(m.a.carregado, m.arco, { maquina: m.a.nome });
+    encerrarArco(m.b.dir, m.arco, { motivo: 'hora', detalhe: 'SIMULADO: fim local' });
+    const cedeu = retomadaNaRede(m.b.carregado, m.arco, { maquina: m.b.nome });
+    assert.match(cedeu.acoes.join(','), /autoridade-cedida:maquina-a/);
+    const assumiu = retomadaNaRede(m.a.carregado, m.arco, { maquina: m.a.nome });
+    assert.match(assumiu.acoes.join(','), /autoridade-assumida-por-cessao/);
+  } finally { m.limpar(); }
+});
+
+test('LM9: tique terminal não fica quieto enquanto há obrigação desta máquina na rede', { skip: semKernel }, () => {
+  const m = cenario('noctum-lm9');
+  try {
+    encerrarArco(m.a.dir, m.arco, { motivo: 'hora', detalhe: 'SIMULADO: fim local' });
+    const projecao: RedeDoArco = { contrato: CONTRATO_REDE_DO_ARCO, arco: m.arco, multimaquina: true, maquina: m.a.nome,
+      envelopeSha256: m.hash, lidaEm: new Date().toISOString(), autoridade: null, revogada: null, maquinas: [], trabalhos: [],
+      consumo: { arco: 0, porConta: {}, porRuntime: {} }, obrigacoes: { ordens: ['O-a-1'], vagas: [], vezes: [] }, lacuna: null };
+    let tiques = 0;
+    tiqueDoArco(m.a.carregado, m.arco, { maquina: m.a.nome, projecaoDaRede: projecao,
+      vigia: () => { tiques += 1; return { acao: 'sem-arco', detalhe: 'SIMULADO' }; },
+      enviar: () => ({ estado: 'confirmado', referencia: null }) });
+    assert.equal(tiques, 1);
   } finally { m.limpar(); }
 });

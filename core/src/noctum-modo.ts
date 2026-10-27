@@ -27,7 +27,7 @@ import { RespostaHumana } from './hitl-gates';
 import { ManifestoCarregado } from './manifest';
 import { MODOS_LEGADOS } from './modos';
 import { autorizarPeloIngresso, EstadoDoArco, lerArco, revogarPeloIngresso, SituacaoDoArco } from './noctum-arco';
-import { ID_DO_ARCO, RecusaDoArco, Unidade } from './noctum-envelope';
+import { envelopeMultimaquina, ID_DO_ARCO, RecusaDoArco, Unidade } from './noctum-envelope';
 import { OpcoesDoPasso, ResultadoDoPasso } from './noctum-execucao';
 import { fecharSeDevido, lerFechamento, OpcoesDoFechamento, ResultadoDoFechamento, textoDaParada, trabalhosDoArco } from './noctum-fechamento';
 import { fatosDaFila, LeitorDeReservas } from './noctum-fila';
@@ -37,6 +37,7 @@ import { entregarRelatorioSeDevido, FatosDaSupervisao, fatosDaSupervisao, JANELA
 import { RecusaDoRegistro } from './noctum-registro';
 import { RecusaDaSupervisao } from './noctum-supervisao';
 import { OpcoesDoVigia, ResultadoDoVigia, vigiarArco } from './noctum-vigia';
+import { lerRede, RedeDoArco } from './noctum-rede';
 
 export const CONTRATO_INGRESSO_DO_ARCO = 'ork.noctum-ingresso/v1' as const;
 export const CONTRATO_RETRATO_DO_ARCO = 'ork.noctum-retrato/v1' as const;
@@ -266,9 +267,13 @@ export interface ResultadoDoTique {
  * vencimento) acabada, quando o relatório não tenta mais (A3 do CHECK: o canal sem transporte, o terminal nunca mostrado).
  * O vigia não roda mais, e o log dele não cresce.
  */
-function terminalQuieto(carregado: ManifestoCarregado, arco: string, estado: EstadoDoArco, quando: string): boolean {
+function terminalQuieto(carregado: ManifestoCarregado, arco: string, estado: EstadoDoArco, quando: string, rede: RedeDoArco | null): boolean {
   if (!['expirado', 'revogado', 'encerrado'].includes(estado.situacao)) return false;
   if (estado.despachos.some(d => d.desfecho === 'pendente')) return false;
+  if (estado.conteudo && envelopeMultimaquina(estado.conteudo)) {
+    if (!rede || rede.lacuna) return false;
+    if (rede.obrigacoes.ordens.length || rede.obrigacoes.vagas.length || rede.obrigacoes.vezes.length) return false;
+  }
   try {
     const r = retratoDoRelatorio(carregado.raiz, arco, estado.conteudo, quando);
     if (r.versoes.at(-1)?.entregue === true) return true;
@@ -293,8 +298,12 @@ export function tiqueDoArco(carregado: ManifestoCarregado, arco: string, opcoes:
   if (!estado?.autorizadoPor) {
     throw new RecusaDoArco('noctum.modo.sem-envelope', `o arco ${arco} nunca foi autorizado pelo dono: o #Noctum não vale; ${COMO_ABRIR}`);
   }
+  const rede = estado.conteudo && envelopeMultimaquina(estado.conteudo)
+    ? opcoes.projecaoDaRede ?? lerRede(carregado, arco,
+      { quando, maquina: opcoes.maquina, remoto: opcoes.remoto, rede: opcoes.redeDaCoordenacao }) : null;
   const deFechamento: OpcoesDoFechamento = { quando, maquina: opcoes.maquina, lerReservas: opcoes.lerReservas, medir: opcoes.medir,
-    parar: opcoes.parar, listarSessoes: opcoes.listarSessoes, git: opcoes.git };
+    parar: opcoes.parar, listarSessoes: opcoes.listarSessoes, git: opcoes.git, projecaoDaRede: rede ?? undefined,
+    remoto: opcoes.remoto, redeDaCoordenacao: opcoes.redeDaCoordenacao };
   const falhas: FalhaDoTique[] = [];
   let erro: unknown = null;
   const isolada = <T>(etapa: FalhaDoTique['etapa'], fn: () => T): T | null => {
@@ -321,8 +330,10 @@ export function tiqueDoArco(carregado: ManifestoCarregado, arco: string, opcoes:
       passo = isolada('passo', () => opcoes.passo!(carregado, arco, quando));
       if (passo?.acao === 'encerrar') fechamento = isolada('fechamento', () => fecharSeDevido(carregado, arco, deFechamento)) ?? queFalhou();
     }
-  } else if (agora && agora.situacao !== 'agendado' && !terminalQuieto(carregado, arco, agora, quando)) {
+  } else if (agora && agora.situacao !== 'agendado' && !terminalQuieto(carregado, arco, agora, quando, rede)) {
     const deVigia: OpcoesDoVigia = { ...opcoes.opcoesDoVigia, quando, maquina: opcoes.maquina ?? opcoes.opcoesDoVigia?.maquina,
+      coordenacao: { remoto: opcoes.remoto ?? opcoes.opcoesDoVigia?.coordenacao?.remoto,
+        rede: opcoes.redeDaCoordenacao ?? opcoes.opcoesDoVigia?.coordenacao?.rede },
       passo: { maquina: opcoes.maquina, lerReservas: opcoes.lerReservas, ...opcoes.opcoesDoPasso, ...opcoes.opcoesDoVigia?.passo } };
     vigia = isolada('vigia', () => (opcoes.vigia ?? vigiarArco)(carregado, arco, deVigia));
     const doVigia = vigia?.acao === 'tique' ? vigia.passo : null;
