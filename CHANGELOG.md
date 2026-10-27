@@ -48,6 +48,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Agile Check agenda o grupo pela CPU da máquina:** a lane hermética, a varredura e a integração dividem a mesma
+  conta de CPUs, e todo contêiner recebe `--cpus` com a sua cota. Se carga ou steal indicarem saturação, o `verify`
+  executa hermética, varredura e integração na ordem do Classic, registra peça e motivo no `verify_run` e usa uma CPU
+  a menos; arquivos de teste, categorias e ferramentas de varredura permanecem os mesmos.
 - **A entrega por PR reconhece a mensagem padrão da forja:** `ork ship registrar-pr`, `--todas`, a paridade de docs,
   o condutor e `ork ship publicar` aceitam tanto `ship(<thread>)` quanto os merges padrão do GitHub e do GitLab,
   vinculados pela branch exata da thread. Revert, citação só no corpo e branch de outra thread com prefixo parecido
