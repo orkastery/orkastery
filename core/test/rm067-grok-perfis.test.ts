@@ -195,7 +195,7 @@ test('GP3: perfil de outro estado nao recebe despacho, a frase de cota nao marca
     const despacho = { promptPath: 'p.md', promptSha256: 'x'.repeat(64), runtime: 'grok',
       perfil: { id: 'd', runtime: 'grok' as const, grokHome: path.join(c.stub.dir, 'casa-d') }, model: 'grok-modelo', effort: null };
     assert.deepEqual(planoDoDegrau(c.p.carregado, lerThread(c.p.dir, c.t.id), 'GOAL', 3, despacho, []),
-      { pulo: 'runtime-so-por-pedido' });
+      { pulo: 'cota-sem-sinal-tipado' });
   } finally { c.limpar(); }
 });
 

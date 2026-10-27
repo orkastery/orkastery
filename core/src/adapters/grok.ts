@@ -44,6 +44,23 @@ export const PERFIL_DE_SANDBOX_DO_GROK: Readonly<Record<string, string>> = Objec
 });
 export const PERFIL_DE_SANDBOX_PADRAO = 'workspace';
 
+/**
+ * RM-067 (F4, E6): o esforço do Orkastery nos níveis canônicos do `grok` (`none`, `minimal`, `low`, `medium`, `high`,
+ * `xhigh`, `max`, no guia headless). O `eco` vira `minimal`, para a escada de esforço (`eco` antes de `low`) seguir com
+ * degraus distintos; os outros cinco têm o mesmo nome. Cada modelo só aceita os níveis que o próprio menu anuncia, e esse
+ * menu só o runtime conhece (`grok models`): o nível que o modelo não anuncia é recusado pelo próprio `grok` no despacho.
+ * Valor fora da tabela vai como veio, porque o `grok` também aceita o id de uma opção do menu do modelo.
+ */
+export const ESFORCO_DO_GROK: Readonly<Record<string, string>> = Object.freeze({
+  eco: 'minimal', low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', max: 'max',
+});
+
+/** O nível do `--effort` do `grok` para o esforço do Orkastery (E6). */
+export function esforcoDoGrok(effort: string): string {
+  const chave = effort.trim().toLowerCase();
+  return Object.hasOwn(ESFORCO_DO_GROK, chave) ? ESFORCO_DO_GROK[chave] : effort.trim();
+}
+
 /** D6: quanto o despacho espera a pasta da sessão ou o recibo do supervisor. */
 export const ESPERA_PADRAO_MS = 60_000;
 
@@ -159,7 +176,7 @@ export function montarComando(pedido: DespachoGrokPedido): string[] {
   if (pedido.sessionId) args.push('-s', pedido.sessionId);
   args.push('--cwd', pedido.cwd);
   if (pedido.model) args.push('-m', pedido.model);
-  if (pedido.effort) args.push('--effort', pedido.effort);
+  if (pedido.effort?.trim()) args.push('--effort', esforcoDoGrok(pedido.effort));
   args.push('--sandbox', perfilDeSandbox(pedido.sandbox, pedido.colaboracao), '--no-auto-update');
   return ['grok', ...args];
 }

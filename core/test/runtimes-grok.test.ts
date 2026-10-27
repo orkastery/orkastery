@@ -1,8 +1,8 @@
 /**
- * RM-067 (F1 da ork-grokbuild, D1 e D15): o `grok` no registro de runtimes, só por pedido explícito. Ele resolve por nome
- * no despacho (`--runtime grok`), mas não é padrão de bloco, nem fallback, nem `runtime.adapter` do manifesto; a ordem e
- * o padrão dos runtimes de bloco não mudam, e o comando do `claude-bg` e do `codex` sai igual pelo registro (paridade
- * sem downgrade). Num projeto com o MCP do Orkastery, o `grok` despacha sem contexto MCP até a F4.
+ * RM-067 (F1 da ork-grokbuild, D1 e D15; F4 da ork-rm067f4setup): o `grok` no registro de runtimes. Ele resolve por nome
+ * no despacho (`--runtime grok`) e, desde a F4, é runtime de bloco e de fallback no setup, sempre com o modelo dado pelo
+ * dono; nunca o `runtime.adapter` do manifesto. O padrão dos runtimes de bloco não muda, e o comando do `claude-bg` e do
+ * `codex` sai igual pelo registro (paridade sem downgrade).
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -12,7 +12,8 @@ import * as claudeBg from '../src/adapters/claude-bg';
 import * as codex from '../src/adapters/codex';
 import * as grok from '../src/adapters/grok';
 import {
-  ORDEM_DOS_RUNTIMES, resolverRuntime, RUNTIME_PADRAO, RUNTIMES, RUNTIMES_SO_POR_PEDIDO, runtimeConhecido, runtimeDeBloco,
+  ORDEM_DOS_RUNTIMES, resolverRuntime, RUNTIME_PADRAO, RUNTIMES, RUNTIMES_DE_BLOCO, RUNTIMES_SEM_COTA_TIPADA, runtimeConhecido,
+  runtimeDeBloco, runtimeDoManifesto,
 } from '../src/runtimes';
 import { alvosDaOrdemDeFallback, caminhoSetup, editarBloco, lerSetup, normalizarFallback, validarFallback } from '../src/setup';
 import { carregarManifesto } from '../src/manifest';
@@ -26,14 +27,16 @@ import { projetoTemporario, semAutoridadeHitlNoAmbiente } from './apoio';
 // A forma da entrada MCP do filho descreve um host sem credencial HITL provisionada (como no runtime-context.test).
 semAutoridadeHitlNoAmbiente();
 
-test('GR1: o grok resolve por nome com a fonte da prova, e a ordem e o padrao dos runtimes de bloco nao mudam', () => {
+test('GR1: o grok resolve por nome com a fonte da prova, e e runtime de bloco, nunca o padrao do projeto', () => {
   const rt = resolverRuntime('grok');
   assert.equal(rt.nome, 'grok');
   assert.equal(rt.fonteVerificacao, 'pasta da sessao em $GROK_HOME/sessions');
   assert.equal(runtimeConhecido('grok'), true);
-  assert.equal(runtimeDeBloco('grok'), false);
-  assert.deepEqual([...RUNTIMES_SO_POR_PEDIDO], ['grok']);
-  assert.deepEqual([...ORDEM_DOS_RUNTIMES], ['claude-bg', 'codex']);
+  assert.equal(runtimeDeBloco('grok'), true);
+  assert.equal(runtimeDoManifesto('grok'), false);
+  assert.deepEqual([...RUNTIMES_DE_BLOCO], ['claude-bg', 'codex', 'grok']);
+  assert.deepEqual([...ORDEM_DOS_RUNTIMES], ['claude-bg', 'codex'], 'o padrao do projeto nao muda');
+  assert.deepEqual([...RUNTIMES_SEM_COTA_TIPADA], ['grok']);
   assert.equal(RUNTIME_PADRAO, 'claude-bg');
   assert.equal(runtimeDeBloco('claude-bg') && runtimeDeBloco('codex'), true);
   assert.equal(runtimeConhecido('toString'), false, 'nome herdado do Object nao e runtime');
@@ -58,31 +61,46 @@ test('GR3: a recusa de runtime desconhecido lista os tres homologados, sem fallb
   assert.throws(() => resolverRuntime('gemini'), /runtime de despacho desconhecido: "gemini" \(homologados: claude-bg, codex, grok\)/);
 });
 
-test('GR4: o setup recusa o grok no bloco e no fallback, e a leitura do setup.json o descarta', () => {
+test('GR4: o setup aceita o grok no bloco e no fallback, sempre com o modelo dado pelo dono', () => {
   const p = projetoTemporario('grok-setup');
   try {
-    assert.throws(() => validarFallback(['grok:grok-modelo'], 'claude-bg'),
-      /fallback com runtime so de despacho explicito: "grok" entra por ork phase run --runtime grok; o fallback aceita: claude-bg, codex/);
+    assert.deepEqual(validarFallback(['grok:grok-modelo'], 'claude-bg'), ['grok:grok-modelo']);
+    assert.throws(() => validarFallback(['grok'], 'claude-bg'), /fallback invalido: "grok" \(use runtime:modelo\[:esforco\]/,
+      'sem modelo, o fallback do grok recusa: nao ha modelo padrao');
     assert.throws(() => validarFallback(['gemini:x'], 'claude-bg'), /fallback com runtime desconhecido: "gemini"/);
-    assert.deepEqual(normalizarFallback(['grok:grok-modelo', 'codex:gpt-5.5'], 'claude-bg'), ['codex:gpt-5.5']);
-    assert.deepEqual(alvosDaOrdemDeFallback(['grok:grok-modelo:high'], 'claude-bg'), []);
-    const bloco = editarBloco(p.dir, 'auto', 1, { runtime: 'grok', model: 'grok-modelo' });
-    assert.equal(bloco.ok, false);
-    assert.equal(bloco.erro, 'runtime so de despacho explicito: "grok" entra por ork phase run --runtime grok; o bloco aceita: claude-bg, codex');
-    const fallback = editarBloco(p.dir, 'auto', 1, { fallback: ['grok:grok-modelo'] });
-    assert.equal(fallback.ok, false);
-    assert.match(fallback.erro ?? '', /so de despacho explicito/);
-    assert.equal(fs.existsSync(caminhoSetup(p.dir)), false, 'nada gravado');
+    assert.deepEqual(normalizarFallback(['grok:grok-modelo', 'codex:gpt-5.5'], 'claude-bg'), ['grok:grok-modelo', 'codex:gpt-5.5']);
+    assert.deepEqual(alvosDaOrdemDeFallback(['grok:grok-modelo:high'], 'claude-bg'), [{ runtime: 'grok', model: 'grok-modelo', effort: 'high' }]);
+    const semModelo = editarBloco(p.dir, 'auto', 1, { runtime: 'grok' });
+    assert.equal(semModelo.ok, false);
+    assert.match(semModelo.erro ?? '', /^setup\.model\.required: para mudar o runtime do bloco, informe --runtime e --model juntos/);
+    assert.equal(fs.existsSync(caminhoSetup(p.dir)), false, 'nada gravado sem o modelo');
+    const bloco = editarBloco(p.dir, 'auto', 1, { runtime: 'grok', model: 'grok-modelo', effort: 'xhigh', fallback: ['claude-bg:opus:high'] });
+    assert.equal(bloco.ok, true, bloco.erro);
+    assert.deepEqual(bloco.para, { runtime: 'grok', model: 'grok-modelo', effort: 'xhigh', fallback: ['claude-bg:opus:high'] });
+    const fallback = editarBloco(p.dir, 'auto', 1, { runtime: 'codex', model: 'gpt-5.5', fallback: ['grok:grok-modelo:max'] });
+    assert.equal(fallback.ok, true, fallback.erro);
+    const lido = lerSetup(p.dir).modos.auto.blocos[0] as { runtime: string; model: string; fallback?: string[] };
+    assert.deepEqual([lido.runtime, lido.model, lido.fallback], ['codex', 'gpt-5.5', ['grok:grok-modelo:max']]);
     const setup = JSON.parse(JSON.stringify(lerSetup(p.dir)));
-    setup.modos.auto.blocos[0] = { runtime: 'grok', model: 'grok-modelo', effort: 'high', fallback: ['grok:grok-modelo', 'codex:gpt-5.5'] };
+    setup.modos.auto.blocos[0] = { runtime: 'grok', model: '', effort: 'high' };
     fs.writeFileSync(caminhoSetup(p.dir), JSON.stringify(setup));
-    const lido = lerSetup(p.dir).modos.auto.blocos[0] as { runtime: string; fallback?: string[] };
-    assert.equal(lido.runtime, 'claude-bg', 'bloco do arquivo com grok volta ao padrao do modo');
-    assert.deepEqual(lido.fallback, ['codex:gpt-5.5'], 'o grok sai da ordem de fallback lida');
+    const semModeloNoArquivo = lerSetup(p.dir).modos.auto.blocos[0];
+    assert.equal(semModeloNoArquivo.runtime, 'grok');
+    assert.equal(semModeloNoArquivo.model, '', 'o modelo do claude-bg nunca vira o do grok: fica pendente');
   } finally { p.limpar(); }
 });
 
-test('GR5: o manifesto com runtime.adapter grok e invalido, com a recusa do despacho explicito', () => {
+test('GR8: o esforco do Orkastery vira o nivel canonico do grok (E6), e o id de menu passa como veio', () => {
+  assert.deepEqual(Object.entries(grok.ESFORCO_DO_GROK),
+    [['eco', 'minimal'], ['low', 'low'], ['medium', 'medium'], ['high', 'high'], ['xhigh', 'xhigh'], ['max', 'max']]);
+  assert.equal(grok.esforcoDoGrok('ECO'), 'minimal');
+  assert.equal(grok.esforcoDoGrok('deep'), 'deep');
+  const cmd = grok.montarComando({ prompt: 'x', nome: 'n', cwd: '/tmp', model: 'grok-modelo', effort: 'eco' });
+  assert.equal(cmd[cmd.indexOf('--effort') + 1], 'minimal');
+  assert.equal(grok.montarComando({ prompt: 'x', nome: 'n', cwd: '/tmp', model: 'grok-modelo', effort: ' ' }).includes('--effort'), false);
+});
+
+test('GR5: o manifesto com runtime.adapter grok e invalido: o grok entra pelo setup do bloco, nunca como padrao', () => {
   const p = projetoTemporario('grok-manifesto');
   try {
     // O `ajustarManifesto` recarrega com `exigirManifesto`, que lança no manifesto inválido: aqui o arquivo muda direto.
@@ -91,8 +109,8 @@ test('GR5: o manifesto com runtime.adapter grok e invalido, com a recusa do desp
     assert.match(original, /adapter: claude-bg/);
     fs.writeFileSync(caminho, original.replace(/adapter: claude-bg/, 'adapter: grok'));
     const m = carregarManifesto(p.dir)!;
-    assert.ok(m.erros.some((e) => e === 'runtime.adapter so por despacho explicito: "grok" entra por ork phase run --runtime grok ' +
-      '(o padrao aceita: claude-bg, codex)'), JSON.stringify(m.erros));
+    assert.ok(m.erros.some((e) => e === 'runtime.adapter fora do padrao do projeto: "grok" entra por ork setup <modo> --bloco N ' +
+      '--runtime grok --model <modelo> ou por ork phase run --runtime grok (o padrao aceita: claude-bg, codex)'), JSON.stringify(m.erros));
     fs.writeFileSync(caminho, original.replace(/adapter: claude-bg/, 'adapter: gemini'));
     assert.ok(carregarManifesto(p.dir)!.erros.some((e) => e.startsWith('runtime.adapter desconhecido: "gemini"')));
     fs.writeFileSync(caminho, original);
