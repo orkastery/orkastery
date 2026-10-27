@@ -2,7 +2,9 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { mergesDaThreadNoGit } from '../src/docs';
 import { registrarEntregasPorPr } from '../src/entrega-pr';
+import { entregasNaBase } from '../src/fabrica-estado';
 import { mergesDasEntregasNaBase } from '../src/merge-da-entrega';
+import { entregasDoProjeto } from '../src/parado-no-condutor';
 import { novaThread } from '../src/thread';
 import { exec } from '../src/util';
 import { branchDaWorktree } from '../src/worktree';
@@ -94,5 +96,8 @@ test('--todas reconhece o merge padrao pela branch registrada no ledger', () => 
 
     const r = registrarEntregasPorPr(p.carregado, { dryRun: true });
     assert.deepEqual(r.map((x) => [x.thread, x.acao]), [[thread.id, 'registraria']]);
+    assert.equal(entregasNaBase(p.dir, 'main').has(thread.id), true);
+    const estado = entregasDoProjeto(p.carregado, { quando: new Date().toISOString() }).estados.find((x) => x.thread === thread.id);
+    assert.match(estado?.resumo ?? '', /^merge [0-9a-f]{7} na base, falta registrar a entrega/);
   } finally { p.limpar(); }
 });
