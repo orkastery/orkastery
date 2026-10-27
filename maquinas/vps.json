@@ -3,8 +3,8 @@
   "maquina": "vps",
   "por": "Julio Pessoa",
   "projeto": "orkastery",
-  "versaoOrk": "0.5.6",
-  "publicadoEm": "2026-10-27T03:00:03.886Z",
+  "versaoOrk": "0.6.0",
+  "publicadoEm": "2026-10-27T03:23:48.821Z",
   "threads": [
     {
       "id": "ork-orkcheck3min",
@@ -92,6 +92,28 @@
         "viva": false,
         "desdeEm": "2026-10-25T02:50:28.461Z",
         "motivo": "sessão 59482a30 sem processo (fantasma)"
+      }
+    },
+    {
+      "id": "ork-rm067f3perfi",
+      "nome": "grokperfis",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": "RM-067",
+      "branch": "ork/ork-rm067f3perfi-go",
+      "atualizadaEm": "2026-10-27T03:23:42.553Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-27T03:23:45.894Z",
+        "motivo": "nenhuma sessão despachada na fase GO"
       }
     }
   ]
