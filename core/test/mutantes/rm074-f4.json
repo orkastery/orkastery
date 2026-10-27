@@ -55,6 +55,24 @@
       "para": "x.membro(m.maquina, m.estaMaquina ? x.estaMaquina : '', (0, horario_1.formatarDataHora)(m.publicadoEm, { fuso })",
       "teste": "locale-f3c-snapshot",
       "nome": "^locale pt-BR F3c: o mesmo retrato com o relogio em 01/01/2027"
+    },
+    {
+      "id": "M7",
+      "descricao": "item 4: a evidencia das lanes volta a ir relativa a worktree de onde o verify rodou, e nao a raiz do estado",
+      "modulo": "verify",
+      "de": "resumo.evidencia = path.relative((0, estado_thread_1.raizDoEstado)(raiz), arquivo);",
+      "para": "resumo.evidencia = path.relative(raiz, arquivo);",
+      "teste": "check-agil",
+      "nome": "^AG41:"
+    },
+    {
+      "id": "M8",
+      "descricao": "item 4: no ramo do relogio sob steal a juncao das lanes perde o veredito por tempo (executado falso)",
+      "modulo": "check-agil",
+      "de": "executado: !tempoComFalha && lanes.every((l) => l.resultado.executado !== false),",
+      "para": "executado: semVeredito.length === 0 && lanes.every((l) => l.resultado.executado !== false),",
+      "teste": "check-agil",
+      "nome": "^AG42:"
     }
   ]
 }

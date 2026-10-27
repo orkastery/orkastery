@@ -21,6 +21,7 @@ import { gravarBaseline, identidadeDoProduto, semVereditoPorTempo, textoDoVerify
   ExecutorVerify } from '../src/verify';
 import { comLocale } from '../src/locale';
 import type { ResultadoDeComando } from '../src/types';
+import { exec } from '../src/util';
 import { ajustarManifesto, commitar, projetoTemporario } from './apoio';
 
 type Projeto = ReturnType<typeof projetoTemporario>;
@@ -875,5 +876,60 @@ test('AG40: o texto do gate do test sem veredito diz qual lane ficou sem veredit
       ? { ok: false, code: 124, causa: 'timeout' } : {}).executor });
     assert.ok(r.motivos.includes('verify.timeout'), r.motivos.join(','));
     assert.match(String(gates().filter((g) => g.motivo === 'verify.timeout').at(-1)!.detalhe), /: test \(lane integracao: estourou o prazo\)$/);
+  } finally { p.limpar(); }
+});
+
+test('AG41: com a raiz do estado diferente da worktree de onde o verify roda, a evidencia das lanes vai relativa a raiz do estado (RM-074 F4)', () => {
+  const p = projetoTemporario('ag41');
+  const wt = `${p.dir}-wt`;
+  try {
+    const lista = 'echo \'{"tipo":"lista","lane":"h","arquivos":["a.test.js"]}\' >> $ORK_CHECK_RELATORIO';
+    comAgile(p, `  agile:\n    produto:\n      - "README.md"\n    test:\n      h: "${lista}"`);
+    commitar(p.dir, 'orkastery.yaml', fs.readFileSync(path.join(p.dir, 'orkastery.yaml'), 'utf8'), 'agile');
+    const { thread: t } = novaThread(p.carregado, { nome: 'evidencia na raiz do estado', modo: 'auto' });
+    const r0 = exec('git', ['worktree', 'add', '-q', '--detach', wt], p.dir);
+    assert.ok(r0.ok, r0.stderr);
+    const daWorktree = carregarManifesto(wt)!;
+    assert.equal(fs.realpathSync(daWorktree.raiz), fs.realpathSync(wt), 'o verify roda da worktree ligada');
+    const r = verificar(daWorktree, t.id, {});
+    assert.equal(r.ok, true, r.motivos.join(','));
+    const agile = ultimoVerify(p, t.id).agile as Record<string, unknown>;
+    const evidencia = String(agile.evidencia);
+    assert.match(evidencia, new RegExp(`^\\.orkastery/threads/${t.id}/check/[0-9a-f]{12}-lanes\\.json$`));
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(p.dir, evidencia), 'utf8')).lanes[0].arquivos, ['a.test.js']);
+    assert.equal(fs.existsSync(path.join(wt, evidencia)), false, 'nada na worktree de onde rodou');
+  } finally {
+    exec('git', ['worktree', 'remove', '--force', wt], p.dir);
+    fs.rmSync(wt, { recursive: true, force: true });
+    p.limpar();
+  }
+});
+
+test('AG42: no ramo do relogio sob steal a juncao das lanes fica com veredito por tempo (executado verdadeiro); a lane que nao rodou tira o veredito (RM-074 F4)', () => {
+  const base: ResultadoDeComando = { nome: 'x', comando: 'c', ok: true, code: 0, resumo: '', causa: 'exit', prazoMs: 1000, duracaoMs: 1, executado: true };
+  const relogio: ResultadoDeComando = { ...base, ok: false, code: 1, relogioSobSteal: ['prazo de 15 s'] };
+  const estouro: ResultadoDeComando = { ...base, ok: false, code: 124, causa: 'timeout' };
+  const naoRodou: ResultadoDeComando = { ...base, ok: false, code: -1, executado: false };
+  const juntar = (a: ResultadoDeComando, b: ResultadoDeComando): ResultadoDeComando =>
+    testDasLanes([{ lane: 'a', resultado: a }, { lane: 'b', resultado: b }]);
+  for (const [nome, t] of [['relogio e relogio', juntar(relogio, { ...relogio, relogioSobSteal: ['outro'] })],
+    ['relogio e ok', juntar(relogio, base)], ['ok e relogio', juntar(base, relogio)],
+    ['estouro e relogio', juntar(estouro, relogio)], ['relogio e estouro', juntar(relogio, estouro)]] as const) {
+    assert.equal(t.executado, true, nome);
+    assert.equal(semVereditoPorTempo(t), true, nome);
+    assert.equal(vereditoDaBaseline(t), 'sem-veredito', nome);
+  }
+  for (const t of [juntar(relogio, naoRodou), juntar(naoRodou, relogio)]) assert.equal(t.executado, false);
+
+  // No verify: as duas lanes caidas so no relogio dao `verify.timeout`, nunca sem veredito inteiro nem regressao.
+  const p = projetoTemporario('ag42');
+  try {
+    comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      a: "echo a"\n      b: "echo b"');
+    const { thread: t } = novaThread(p.carregado, { nome: 'ramo do relogio', modo: 'auto' });
+    gravarBaseline(p.carregado, t.id, gravador().executor);
+    const r = verificar(p.carregado, t.id, { executor: gravador((nome) => nome.startsWith('test:')
+      ? { ok: false, code: 1, relogioSobSteal: [`prazo de ${nome}`] } : {}).executor });
+    assert.deepEqual(r.motivos.filter((m) => m.startsWith('verify.')), ['verify.timeout']);
+    assert.equal(r.comandos.find((c) => c.nome === 'test')!.executado, true);
   } finally { p.limpar(); }
 });
