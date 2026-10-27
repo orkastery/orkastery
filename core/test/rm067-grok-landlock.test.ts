@@ -4,7 +4,8 @@
  * stub, e os filhos herdam. Com a config stdio da F4b, o servidor MCP do `ork` e filho dele e nao grava o ledger, o limite
  * que a pagina documentou; pelo despacho da F4c, o servidor e do `ork`, fora do confinamento, e a fase fecha com prova. E a
  * sessao de outra thread, confinada no proprio dominio, nao acha o token desta: ele nao esta em arquivo, e o Landlock nega a
- * ela o `environ` do `grok` e o do supervisor (GO-FIX 1, achado 1 da revisao).
+ * ela o `environ` do `grok` e o do supervisor (GO-FIX 1, achado 1 da revisao); e o token que vazasse nao serve fora da
+ * arvore de processos do `grok` (GO-FIX 2, R1).
  *
  * Integracao local (`core/src/integracoes-locais.ts`): o runner hospedado nao garante Landlock nem `python3`. Sem eles o caso
  * pula com o motivo tipado, `ORK_TESTE_EXIGE_AMBIENTE=1` o reprova, e a claim (pelo `conferir-casos.cjs`) reprova o pulado.
@@ -12,12 +13,13 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
+import * as http from 'node:http';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { configuracaoServidorMcp, instalarMcp } from '../src/mcp-install';
 import { MARCA_DA_CONFIG_DO_FILHO } from '../src/adapters/grok';
-import { ENV_DO_TOKEN_DO_SERVIDOR_GROK } from '../src/adapters/grok-mcp';
+import { arquivosDoServidorGrok, ENV_DO_TOKEN_DO_SERVIDOR_GROK, lerReciboServidorGrok } from '../src/adapters/grok-mcp';
 import { dirThread, novaThread } from '../src/thread';
 import { lerLedger } from '../src/ledger';
 import { rodarFase } from '../src/phase';
@@ -113,7 +115,7 @@ test('GL2: com o mesmo confinamento, pelo despacho da F4c o filho grava decisao,
   } finally { p.limpar(); stub.restaurar(); }
 });
 
-test('GL3: a sessao de outra thread, confinada no proprio dominio, nao acha o token desta: nenhum arquivo o tem, e o environ do grok e do supervisor lhe e negado', { skip: semLandlock() }, () => {
+test('GL3: a sessao de outra thread, confinada no proprio dominio, nao acha o token desta: nenhum arquivo o tem, e o environ do grok e do supervisor lhe e negado; o token vazado nao serve fora da arvore do grok', { skip: semLandlock() }, async () => {
   const stub = grokFalso('gl3-irma');
   const p = projetoTemporario('gl3-irma');
   const irma = dirTemporario('gl3-irma-confinada');
@@ -140,6 +142,17 @@ test('GL3: a sessao de outra thread, confinada no proprio dominio, nao acha o to
       assert.notEqual(leitura.status, 0, `a irma confinada nao le o environ do ${quem}`);
       assert.equal(leitura.stdout.includes(token!), false);
     }
+    // GO-FIX 2 (R1): mesmo vazado, por exemplo pela saida de uma ferramenta num log, o token nao serve fora da arvore do grok.
+    const recibo = lerReciboServidorGrok(arquivosDoServidorGrok(path.join(dirThread(p.dir, t.id), 'sessoes', `${sid}.grok.jsonl`)).reciboPath)!;
+    assert.equal(recibo.conferirProcesso, true);
+    const status = await new Promise<number>((resolve, reject) => {
+      const req = http.request({ host: '127.0.0.1', port: recibo.porta, method: 'POST', path: '/mcp', headers: { 'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream', Authorization: `Bearer ${token}` } }, (res) => { res.resume(); resolve(res.statusCode ?? 0); });
+      req.on('error', reject);
+      req.end(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize',
+        params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'irma-SIMULADA', version: '1' } } }));
+    });
+    assert.equal(status, 403, 'o token certo, de um processo fora da arvore do grok, recusa');
     stub.liberarMcp();
     esperarCondicao(() => lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.sessionId === sid), 60000);
     assert.deepEqual(stub.mcpResultado()?.chamadas.map((c) => c.isError), [false], 'e a sessao desta thread segue com o MCP');

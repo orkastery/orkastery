@@ -20,10 +20,12 @@ export const CONTRATO_DO_SERVIDOR_GROK = 'ork.grok-mcp/v1';
 export const ENDERECO_DO_SERVIDOR_GROK = '127.0.0.1';
 export const CAMINHO_DO_SERVIDOR_GROK = '/mcp';
 /**
- * D2 (GO-FIX 1, achado 1 da revisão): o token do despacho mora só no ambiente do servidor e no do `grok`, nesta variável,
- * que a config da worktree nomeia em `bearer_token_env_var` (G5). Num arquivo, a sessão `grok` de outra thread, que no
- * `workspace` lê em qualquer lugar, acharia o token e a porta; o `environ` de outro processo ela não lê, porque o Landlock
- * nega o ptrace, e a leitura do `/proc/<pid>/environ`, a quem não está num domínio aninhado ao dela.
+ * D2 (GO-FIX 1, achado 1 da revisão): o token do despacho mora só no ambiente do servidor e no da sessão (o supervisor e o
+ * `grok`, com os filhos dele), nesta variável, que a config da worktree nomeia em `bearer_token_env_var` (G5). Num arquivo,
+ * a sessão `grok` de outra thread, que no `workspace` lê em qualquer lugar, acharia o token e a porta; o `environ` de outro
+ * processo ela não lê, porque o Landlock nega o ptrace, e a leitura do `/proc/<pid>/environ`, a quem não está num domínio
+ * aninhado ao dela. E, como a saída de uma ferramenta da sessão pode levar o token a um log, o servidor também confere que a
+ * conexão vem da árvore de processos do `grok` (GO-FIX 2, R1).
  */
 export const ENV_DO_TOKEN_DO_SERVIDOR_GROK = 'ORK_GROK_MCP_TOKEN';
 /** D6: quanto o despacho espera o recibo `pronto` do servidor. */
@@ -43,6 +45,11 @@ export interface PedidoServidorGrok {
   transporteShip: TransporteShipMcp;
   /** D4: as ferramentas do `--allow` deste despacho (`ferramentasDoGrok`). */
   ferramentas: string[];
+  /**
+   * D2 (GO-FIX 2, R1): conferir que a conexão vem da árvore de processos do `grok` deste despacho. O despacho liga com o
+   * `grok` no sandbox, em que o agente roda no próprio processo (G17); no perfil `off`, o guia não diz quem conecta.
+   */
+  conferirProcesso: boolean;
   /** O log do supervisor do `grok`: o servidor vigia `<logPath>.process.json` e `<logPath>.exit.json`. */
   logPath: string;
   /** O recibo do servidor: `pronto` com a porta, depois `encerrado` com o motivo. */
@@ -61,6 +68,8 @@ export interface ReciboServidorGrok {
   pai: number;
   threadId: string;
   dispatchId: string;
+  /** Se a conexão é conferida pela árvore de processos do `grok` (D2). */
+  conferirProcesso: boolean;
   iniciadoEm: string;
   encerradoEm?: string;
   /** `recibo`, `grok-ausente`, `sem-partida`, `sinal` ou `erro`. */

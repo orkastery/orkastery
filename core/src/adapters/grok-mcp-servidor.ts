@@ -4,7 +4,9 @@
  * pela forma `url` do guia oficial (G16), e o sandbox dele, que vale para ele e os filhos (G17), não chega aqui.
  *
  *   - D1: Streamable HTTP do SDK, com sessão e resposta JSON, só em 127.0.0.1, porta efêmera, caminho `/mcp`;
- *   - D2: token de 256 bits do despacho, que chega só no ambiente e sai dele na partida, para nenhum filho o herdar;
+ *   - D2: token de 256 bits do despacho, que chega só no ambiente; e, com o `grok` no sandbox, a conexão tem de vir da
+ *     árvore de processos do `grok` deste despacho (GO-FIX 2, R1): o token vazado pela saída de uma ferramenta não serve
+ *     a outro processo;
  *   - D3: endereço, caminho, `Host`, `Origin`, token e método conferidos antes de tudo (`recusaDaRequisicao`);
  *   - D4: só as ferramentas do `--allow` deste despacho, pela opção `ferramentas` de `criarServidorMcp`;
  *   - D5: o servidor morre com a sessão (o recibo do supervisor, o processo do `grok`, o prazo da partida ou um sinal) e,
@@ -26,15 +28,17 @@ import { CAMINHO_DO_SERVIDOR_GROK, CONTRATO_DO_SERVIDOR_GROK, ENDERECO_DO_SERVID
 /** D3: o maior corpo de `POST` aceito; o `ork_artifact_write` leva até 131072 caracteres. */
 export const LIMITE_DO_CORPO_BYTES = 4 * 1024 * 1024;
 /**
- * D3: sessões MCP abertas ao mesmo tempo. A sessão do `grok` usa uma, e os subagentes herdam a dela (G16); a que passa do
- * limite despeja a usada há mais tempo (GO-FIX 1, achado 4), para o cliente que reabre o `initialize` sem `DELETE` não
- * perder o MCP no resto do despacho.
+ * D3: sessões MCP abertas ao mesmo tempo. A sessão do `grok` usa uma, e os subagentes herdam a dela (G16). Passado o
+ * limite, o `initialize` novo despeja a sessão ociosa usada há mais tempo (GO-FIX 1, achado 4), depois que a nova
+ * inicializa, e nunca a que tem pedido ou ferramenta em curso (GO-FIX 2, R2); sem ociosa, 503.
  */
 export const LIMITE_DE_SESSOES_MCP = 4;
 /** D5: o teto da espera pela requisição e pela ferramenta em andamento no fecho (o `ork_verify` tem prazo de três minutos). */
 export const PRAZO_DO_FECHO_MS = 10 * 60_000;
 /** D5: o intervalo da vigia sobre os recibos do supervisor. */
 export const INTERVALO_DA_VIGIA_MS = 250;
+/** D2: quanto a conferência da conexão espera o `.process.json` do supervisor, que nasce logo depois do `grok`. */
+const ESPERA_DO_PROCESSO_MS = 2000;
 
 const absoluto = z.string().min(1).max(4096).refine((v) => path.isAbsolute(v), 'caminho absoluto');
 const esquemaDoPedido = z.object({
@@ -45,6 +49,7 @@ const esquemaDoPedido = z.object({
   permissoesFilho: z.enum(['interactive', 'worktree']),
   transporteShip: z.string().refine(ehTransporteShipMcp, 'transporte SHIP desconhecido'),
   ferramentas: z.array(z.string().regex(/^[a-z][a-z0-9_]{0,63}$/)).min(1).max(64),
+  conferirProcesso: z.boolean(),
   logPath: absoluto,
   reciboPath: absoluto,
   prazoDaPartidaMs: z.number().int().min(1000).max(600_000).optional(),
@@ -81,6 +86,64 @@ export function recusaDaRequisicao(req: RequisicaoConferida, porta: number, espe
   if (req.method !== 'POST' && req.method !== 'DELETE')
     return { status: 405, motivo: 'mcp.grok.method: o servidor do grok aceita POST e DELETE' };
   return null;
+}
+
+/** O endereço `127.0.0.1:<porta>` como o `/proc/net/tcp` o escreve, nas duas ordens de byte. */
+function enderecoDoProc(porta: number): string[] {
+  const p = porta.toString(16).toUpperCase().padStart(4, '0');
+  return [`0100007F:${p}`, `7F000001:${p}`];
+}
+
+/** O inode do socket do lado do cliente de uma conexão local: a linha cujo endereço local é a porta do cliente. */
+function inodeDoCliente(portaDoCliente: number, portaDoServidor: number): string | null {
+  const local = enderecoDoProc(portaDoCliente), remoto = enderecoDoProc(portaDoServidor);
+  let texto: string;
+  try { texto = fs.readFileSync('/proc/net/tcp', 'utf8'); } catch { return null; }
+  for (const linha of texto.split('\n').slice(1)) {
+    const c = linha.trim().split(/\s+/);
+    if (local.includes(c[1]) && remoto.includes(c[2]) && /^[1-9]\d*$/.test(c[9] ?? '')) return c[9];
+  }
+  return null;
+}
+
+/** O processo e os descendentes dele, pelo pai de cada processo em `/proc/<pid>/stat`. */
+function arvoreDoProcesso(raiz: number): Set<number> {
+  const filhos = new Map<number, number[]>();
+  for (const nome of fs.readdirSync('/proc')) {
+    if (!/^\d+$/.test(nome)) continue;
+    try {
+      const stat = fs.readFileSync(`/proc/${nome}/stat`, 'utf8');
+      const pai = Number(stat.slice(stat.lastIndexOf(')') + 2).split(' ')[1]);
+      filhos.set(pai, [...(filhos.get(pai) ?? []), Number(nome)]);
+    } catch { /* o processo saiu durante a leitura */ }
+  }
+  const arvore = new Set<number>([raiz]);
+  for (const pid of arvore) for (const filho of filhos.get(pid) ?? []) arvore.add(filho);
+  return arvore;
+}
+
+/** O processo segura este socket entre os descritores dele? */
+function seguraOSocket(pid: number, inode: string): boolean {
+  const alvo = `socket:[${inode}]`;
+  let descritores: string[];
+  try { descritores = fs.readdirSync(`/proc/${pid}/fd`); } catch { return false; }
+  return descritores.some((fd) => { try { return fs.readlinkSync(`/proc/${pid}/fd/${fd}`) === alvo; } catch { return false; } });
+}
+
+/**
+ * D2 (GO-FIX 2, R1): a conexão vem da árvore de processos do `grok` deste despacho? O `grok` vivo sai do `.process.json` do
+ * supervisor (pid, início e boot); o socket do cliente, do `/proc/net/tcp`; e o dono dele, dos descritores da árvore. O
+ * cliente MCP do `grok` roda no próprio processo dele (G16: a forma `url` não abre subprocesso), e o agente com sandbox
+ * roda em processo, sem o líder compartilhado (G17). O token vazado pela saída de uma ferramenta da sessão chega a outro
+ * processo, mas a conexão dele não sai dessa árvore.
+ */
+export function conexaoDaSessao(portaDoCliente: number, portaDoServidor: number, logPath: string): boolean {
+  const processo = lerJsonPequeno<ProcessoCodex>(`${logPath}.process.json`);
+  if (!processo?.filho || estadoProcesso(processo.filho) !== 'vivo') return false;
+  const inode = inodeDoCliente(portaDoCliente, portaDoServidor);
+  if (!inode) return false;
+  for (const pid of arvoreDoProcesso(processo.filho.pid)) if (seguraOSocket(pid, inode)) return true;
+  return false;
 }
 
 function responder(res: http.ServerResponse, status: number, motivo: string, cabecalhos: Record<string, string> = {}): void {
@@ -127,8 +190,8 @@ export interface ServidorGrokEmCurso {
   fechado: Promise<string>;
 }
 
-/** Uma sessão MCP aberta e quando ela foi usada pela última vez (D3: despejo da mais antiga). */
-interface SessaoMcp { transporte: StreamableHTTPServerTransport; usadaEm: number }
+/** Uma sessão MCP: o transporte, o último uso e o que há em curso nela (pedidos HTTP e ferramentas), para o despejo. */
+interface SessaoMcp { transporte: StreamableHTTPServerTransport; usadaEm: number; emCurso: number }
 
 /**
  * Sobe o servidor do pedido com o token do despacho: confere o projeto, a thread e a lista criando um servidor MCP antes de
@@ -140,12 +203,29 @@ export async function servirGrok(pedido: PedidoServidorGrok, token: string): Pro
   // D5 (GO-FIX 1, achado 2): conta a requisição até a resposta fechar (enviada ou com a conexão caída) e, à parte, a
   // ferramenta até ela assentar; a cancelada que nunca responde não segura o fecho, e o commit em curso não é cortado.
   let emAndamento = 0, fechando = false;
-  const fabricar = () => criarServidorMcp({ projeto: pedido.projeto, host: 'grok', threadId: pedido.threadId,
-    dispatchId: pedido.dispatchId, permissoesFilho: pedido.permissoesFilho, transporteShip: pedido.transporteShip,
-    ferramentas: pedido.ferramentas, emCurso: (delta) => { emAndamento += delta; } });
-  await fabricar().close();
+  const fabricar = (sessao: SessaoMcp | null) => criarServidorMcp({ projeto: pedido.projeto, host: 'grok',
+    threadId: pedido.threadId, dispatchId: pedido.dispatchId, permissoesFilho: pedido.permissoesFilho,
+    transporteShip: pedido.transporteShip, ferramentas: pedido.ferramentas,
+    emCurso: (delta) => { emAndamento += delta; if (sessao) sessao.emCurso += delta; } });
+  await fabricar(null).close();
   const sessoes = new Map<string, SessaoMcp>();
   const esperado = Buffer.from(`Bearer ${token}`, 'utf8');
+  // D2 (GO-FIX 2, R1): o veredito de cada conexão, uma vez por socket; a espera curta cobre o `.process.json` que ainda nasce.
+  const daSessao = new WeakMap<object, Promise<boolean>>();
+  const conferirConexao = (socket: { remotePort?: number; localPort?: number }): Promise<boolean> => {
+    const pronto = daSessao.get(socket);
+    if (pronto) return pronto;
+    const veredito = (async () => {
+      const limite = Date.now() + ESPERA_DO_PROCESSO_MS;
+      for (;;) {
+        if (conexaoDaSessao(socket.remotePort ?? 0, socket.localPort ?? 0, pedido.logPath)) return true;
+        if (Date.now() >= limite || lerJsonPequeno<ProcessoCodex>(`${pedido.logPath}.process.json`)) return false;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+    })();
+    daSessao.set(socket, veredito);
+    return veredito;
+  };
   let porta = 0;
   const servidor = http.createServer((req, res) => { void atender(req, res); });
   async function atender(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
@@ -156,9 +236,16 @@ export async function servirGrok(pedido: PedidoServidorGrok, token: string): Pro
       return;
     }
     if (fechando) { responder(res, 503, 'mcp.grok.closing: a sessao do grok terminou'); return; }
+    const id = req.headers['mcp-session-id'];
+    const sessao = typeof id === 'string' ? sessoes.get(id) : undefined;
     emAndamento++;
-    res.once('close', () => { emAndamento--; });
+    if (sessao) { sessao.emCurso++; sessao.usadaEm = Date.now(); }
+    res.once('close', () => { emAndamento--; if (sessao) sessao.emCurso--; });
     try {
+      if (pedido.conferirProcesso && !(await conferirConexao(req.socket))) {
+        responder(res, 403, 'mcp.grok.process: conexao de processo fora da sessao do grok deste despacho');
+        return;
+      }
       let corpo: unknown;
       if (req.method === 'POST') {
         const lido = await lerCorpo(req, LIMITE_DO_CORPO_BYTES);
@@ -166,26 +253,33 @@ export async function servirGrok(pedido: PedidoServidorGrok, token: string): Pro
         try { corpo = JSON.parse(lido.toString('utf8')); }
         catch { responder(res, 400, 'mcp.grok.body: corpo nao e JSON'); return; }
       }
-      const id = req.headers['mcp-session-id'];
       if (typeof id === 'string') {
-        const sessao = sessoes.get(id);
         if (!sessao) { responder(res, 404, 'mcp.grok.session: sessao MCP desconhecida'); return; }
-        sessao.usadaEm = Date.now();
         await sessao.transporte.handleRequest(req, res, corpo);
         return;
       }
       if (req.method !== 'POST' || !isInitializeRequest(corpo)) { responder(res, 400, 'mcp.grok.session: pedido sem sessao MCP'); return; }
+      // D3 (GO-FIX 2, R2): a vítima é a ociosa usada há mais tempo, e o despejo só vem depois que a nova inicializa.
+      let vitima: string | null = null;
       if (sessoes.size >= LIMITE_DE_SESSOES_MCP) {
-        const antiga = [...sessoes.entries()].sort((a, b) => a[1].usadaEm - b[1].usadaEm)[0];
-        sessoes.delete(antiga[0]);
-        void antiga[1].transporte.close().catch(() => undefined);
+        const ociosas = [...sessoes.entries()].filter(([, s]) => s.emCurso === 0).sort((a, b) => a[1].usadaEm - b[1].usadaEm);
+        if (!ociosas.length) { responder(res, 503, 'mcp.grok.session: limite de sessoes MCP, todas com pedido em curso'); return; }
+        vitima = ociosas[0][0];
       }
       const transporte: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(), enableJsonResponse: true,
-        onsessioninitialized: (novo) => { sessoes.set(novo, { transporte, usadaEm: Date.now() }); },
+        onsessioninitialized: (novo) => {
+          sessoes.set(novo, nova);
+          const despejada = vitima === null ? undefined : sessoes.get(vitima);
+          if (vitima !== null && despejada && despejada.emCurso === 0) {
+            sessoes.delete(vitima);
+            void despejada.transporte.close().catch(() => undefined);
+          }
+        },
       });
-      transporte.onclose = () => { if (transporte.sessionId && sessoes.get(transporte.sessionId)?.transporte === transporte) sessoes.delete(transporte.sessionId); };
-      await fabricar().connect(transporte);
+      const nova: SessaoMcp = { transporte, usadaEm: Date.now(), emCurso: 0 };
+      transporte.onclose = () => { if (transporte.sessionId && sessoes.get(transporte.sessionId) === nova) sessoes.delete(transporte.sessionId); };
+      await fabricar(nova).connect(transporte);
       await transporte.handleRequest(req, res, corpo);
     } catch {
       responder(res, 500, 'mcp.grok.internal: erro no servidor do grok');
@@ -199,7 +293,7 @@ export async function servirGrok(pedido: PedidoServidorGrok, token: string): Pro
   const url = `http://${ENDERECO_DO_SERVIDOR_GROK}:${porta}${CAMINHO_DO_SERVIDOR_GROK}`;
   const recibo: ReciboServidorGrok = { schema: CONTRATO_DO_SERVIDOR_GROK, estado: 'pronto', url, porta,
     processo: identidadeProcesso(process.pid), pai: process.ppid, threadId: pedido.threadId, dispatchId: pedido.dispatchId,
-    iniciadoEm: new Date().toISOString() };
+    conferirProcesso: pedido.conferirProcesso, iniciadoEm: new Date().toISOString() };
   gravarAtomico(pedido.reciboPath, recibo);
 
   let encerrado: (motivo: string) => void = () => undefined;
@@ -234,7 +328,8 @@ export async function servirGrok(pedido: PedidoServidorGrok, token: string): Pro
 
 /** O processo lançado por `iniciarServidorDoGrok`: o pedido vem no descritor 0, o token no ambiente, e o fim é o do servidor. */
 async function principal(): Promise<void> {
-  // D2: o token sai do ambiente antes de tudo, para nenhum processo que este servidor lance (o worker do commit, o verify) o herdar.
+  // D2: o token sai do `process.env` antes de tudo, para nenhum processo que este servidor lance (o worker do commit, o
+  // verify) o herdar. O `/proc/<pid>/environ` deste processo guarda o valor de partida, que o Landlock nega à sessão irmã.
   const token = process.env[ENV_DO_TOKEN_DO_SERVIDOR_GROK] ?? '';
   delete process.env[ENV_DO_TOKEN_DO_SERVIDOR_GROK];
   let emCurso: ServidorGrokEmCurso | null = null;

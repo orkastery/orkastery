@@ -38,8 +38,10 @@ export const FONTE_VERIFICACAO = 'pasta da sessao em $GROK_HOME/sessions';
  * D4: o ambiente do filho é o da assinatura, sem as variáveis de provider pago e sem `XAI_API_KEY`. A D1 da RM-067 foi
  * decidida pelo dono em 27/10/2026 pela alternativa b (a assinatura agora): o filho autentica pelo login que o próprio
  * `grok` guardou no `GROK_HOME` do perfil, nunca pela chave. Tirar a variável do ambiente não lê nem copia a credencial.
+ * RM-067 (F4c, GO-FIX 2, R3): o token do servidor do `ork` herdado de uma sessão (o `ork` rodado no shell dela) também sai;
+ * o despacho com o MCP põe o token dele por cima.
  */
-export const ENVS_REMOVIDAS_DO_DESPACHO = [...ENVS_DE_PROVIDER_PAGO, 'XAI_API_KEY'] as const;
+export const ENVS_REMOVIDAS_DO_DESPACHO = [...ENVS_DE_PROVIDER_PAGO, 'XAI_API_KEY', ENV_DO_TOKEN_DO_SERVIDOR_GROK] as const;
 
 /**
  * RM-067 (F4b, G4 e D5): o filho do `grok` nunca carrega o MCP de outros clientes. Por padrão, o `grok` lê a config de MCP
@@ -547,7 +549,8 @@ export function despachar(pedido: DespachoGrokPedido): DespachoGrokResultado {
     try {
       servidor = iniciarServidorDoGrok({ projeto: especificacao.projeto, threadId: especificacao.threadId,
         dispatchId: especificacao.dispatchId, permissoesFilho: especificacao.permissoesFilho, transporteShip: especificacao.transporteShip,
-        ferramentas, logPath }, pedido.cwd, { ...ambiente, ...(especificacao.env ?? {}) });
+        ferramentas, logPath, conferirProcesso: perfilDeSandbox(pedido.sandbox, pedido.colaboracao) !== 'off' },
+      pedido.cwd, { ...ambiente, ...(especificacao.env ?? {}) });
     } catch (e) {
       // GO-FIX 1 (achado 7): o erro de sistema (mkdir, open, spawn) também volta tipado.
       const motivo = (e as Error).message;

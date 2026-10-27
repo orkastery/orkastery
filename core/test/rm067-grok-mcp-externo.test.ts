@@ -13,7 +13,7 @@ import * as net from 'node:net';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { ChildProcess, execFileSync, spawn } from 'node:child_process';
+import { ChildProcess, execFileSync, spawn, spawnSync } from 'node:child_process';
 import { parse } from 'smol-toml';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
@@ -70,33 +70,38 @@ interface Bancada {
   s: ServidorDoGrokIniciado;
   token: string;
   ferramentas: string[];
-  /** O processo no papel do `grok`, registrado no `.process.json` como o supervisor faria. */
-  grok: ChildProcess;
+  /** O `sleep` no papel do `grok`, quando a bancada nao usa o proprio processo do teste. */
+  grok: ChildProcess | null;
   limpar: () => void;
 }
 
-/** Um projeto com thread, um processo no papel do `grok` e o servidor do despacho de pe. */
+/**
+ * Um projeto com thread, um processo no papel do `grok` e o servidor do despacho de pe. Por padrao o `grok` e o proprio
+ * processo do teste, para as conexoes dele virem da arvore que o servidor confere (D2, GO-FIX 2); com `grok: 'sleep'`, um
+ * `sleep` faz o papel, para o caso do `grok` morto e para a conexao de fora da arvore.
+ */
 function bancada(nome: string, opcoes: { perfil?: 'interactive' | 'worktree'; plano?: boolean; prazoDaPartidaMs?: number;
-    semPartida?: boolean } = {}): Bancada {
+    semPartida?: boolean; grok?: 'teste' | 'sleep'; conferirProcesso?: boolean } = {}): Bancada {
   const p = projetoTemporario(nome);
   const t = novaThread(p.carregado, { nome, modo: 'auto', criarWorktree: true }).thread;
   const logPath = path.join(dirThread(p.dir, t.id), 'sessoes', `${randomUUID()}.grok.jsonl`);
   fs.mkdirSync(path.dirname(logPath), { recursive: true });
   const perfil = opcoes.perfil ?? 'worktree';
   const ferramentas = ferramentasDoGrok(perfil, opcoes.plano ?? false, false);
-  const grok = spawn('sleep', ['600'], { stdio: 'ignore' });
+  const grok = opcoes.grok === 'sleep' ? spawn('sleep', ['600'], { stdio: 'ignore' }) : null;
   if (!opcoes.semPartida) {
     gravarAtomico(`${logPath}.process.json`, { schema: 'ork.codex-process/v1', iniciadoEm: new Date().toISOString(),
-      supervisor: identidadeProcesso(process.pid), filho: identidadeProcesso(grok.pid!) });
+      supervisor: identidadeProcesso(process.pid), filho: identidadeProcesso(grok ? grok.pid! : process.pid) });
   }
   const dispatchId = randomUUID();
   const s = iniciarServidorDoGrok({ projeto: fs.realpathSync(p.dir), threadId: t.id, dispatchId, permissoesFilho: perfil,
-    transporteShip: 'github-ssh', ferramentas, logPath, ...(opcoes.prazoDaPartidaMs ? { prazoDaPartidaMs: opcoes.prazoDaPartidaMs } : {}) },
+    transporteShip: 'github-ssh', ferramentas, logPath, conferirProcesso: opcoes.conferirProcesso ?? true,
+    ...(opcoes.prazoDaPartidaMs ? { prazoDaPartidaMs: opcoes.prazoDaPartidaMs } : {}) },
   t.worktree!, process.env);
   return { p, threadId: t.id, dispatchId, logPath, s, token: s.token, ferramentas, grok,
     limpar: () => {
       s.encerrar();
-      grok.kill('SIGKILL');
+      grok?.kill('SIGKILL');
       esperarCondicao(() => estadoProcesso(s.processo) === 'ausente', 15000);
       p.limpar();
     } };
@@ -189,7 +194,7 @@ test('GX1: o servidor do grok escuta so no loopback, com token 0600 fora da work
       ferramentas: ['ork_git_commit'] }), /mcp\.tools\.invalid/, 'o interactive nao commita');
     const logPath = path.join(dirThread(go.p.dir, go.threadId), 'sessoes', `${randomUUID()}.grok.jsonl`);
     assert.throws(() => iniciarServidorDoGrok({ projeto: fs.realpathSync(go.p.dir), threadId: go.threadId, dispatchId: randomUUID(),
-      permissoesFilho: 'worktree', transporteShip: 'github-ssh', ferramentas: ['ork_phase_run'], logPath }, go.p.dir, process.env),
+      permissoesFilho: 'worktree', transporteShip: 'github-ssh', ferramentas: ['ork_phase_run'], logPath, conferirProcesso: true }, go.p.dir, process.env),
     /runtime\.unavailable: o servidor MCP do ork para o grok saiu antes de ficar pronto \(grok-mcp: mcp\.tools\.invalid/);
   } finally { go.limpar(); plano.limpar(); }
 });
@@ -235,7 +240,7 @@ test('GX2: o canal recusa outro processo e outra sessao: token ausente, errado o
 
 test('GX3: o servidor morre com a sessao: recibo do supervisor, grok ausente, sem partida, encerrar do despacho e a requisicao em andamento', async () => {
   const recibo = bancada('gx3-recibo');
-  const ausente = bancada('gx3-ausente');
+  const ausente = bancada('gx3-ausente', { grok: 'sleep' });
   const semPartida = bancada('gx3-sem-partida', { semPartida: true, prazoDaPartidaMs: 1500 });
   const encerrado = bancada('gx3-encerrar');
   const emCurso = bancada('gx3-em-curso');
@@ -243,7 +248,7 @@ test('GX3: o servidor morre com a sessao: recibo do supervisor, grok ausente, se
     gravarAtomico(`${recibo.logPath}.exit.json`, { simulado: true });
     await conferirFim(recibo, 'recibo');
 
-    ausente.grok.kill('SIGKILL');
+    ausente.grok!.kill('SIGKILL');
     await conferirFim(ausente, 'grok-ausente');
 
     await conferirFim(semPartida, 'sem-partida');
@@ -353,6 +358,7 @@ test('GX4: o despacho real sobe o servidor fora do grok, e o filho no workspace 
 
     // O servidor e irmao do grok, filho do processo que despachou: o sandbox do grok, que vale para ele e os filhos, nao o alcanca.
     const recibo = lerReciboServidorGrok(arquivos.reciboPath)!;
+    assert.equal(recibo.conferirProcesso, true, 'no workspace, a conexao tem de vir da arvore do grok');
     const supervisor = JSON.parse(fs.readFileSync(`${arquivos.logPath}.process.json`, 'utf8')) as ProcessoCodex;
     const [grok] = stub.pids();
     assert.equal(recibo.pai, process.pid);
@@ -457,8 +463,54 @@ test('GX8: a sessao MCP que passa do limite despeja a usada ha mais tempo, sem r
     const lista = JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
     const versao = { 'Mcp-Protocol-Version': '2025-06-18' };
     const naPrimeira = await pedir(b.s.porta, { cabecalhos: { ...autorizado, ...versao, 'Mcp-Session-Id': ids[0] }, corpo: lista });
-    assert.equal(naPrimeira.status, 404, 'a mais antiga saiu');
+    assert.equal(naPrimeira.status, 404, 'a mais antiga, ociosa, saiu');
     const naUltima = await pedir(b.s.porta, { cabecalhos: { ...autorizado, ...versao, 'Mcp-Session-Id': ids.at(-1)! }, corpo: lista });
     assert.equal(naUltima.status, 200, naUltima.corpo);
+
+    // GO-FIX 2 (R2): a sessao com pedido em curso nao e despejada, mesmo sendo a usada ha mais tempo.
+    const resposta: Buffer[] = [];
+    let fechou = false;
+    const sock = net.connect({ host: '127.0.0.1', port: b.s.porta });
+    sock.on('data', (parte: Buffer) => resposta.push(parte));
+    sock.on('close', () => { fechou = true; });
+    sock.on('error', () => { fechou = true; });
+    await new Promise<void>((r) => sock.once('connect', () => r()));
+    sock.write(`POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:${b.s.porta}\r\nAuthorization: Bearer ${b.token}\r\nContent-Type: application/json\r\n` +
+      `Accept: application/json, text/event-stream\r\nMcp-Session-Id: ${ids[1]}\r\nMcp-Protocol-Version: 2025-06-18\r\n` +
+      `Content-Length: ${Buffer.byteLength(lista)}\r\nConnection: close\r\n\r\n${lista.slice(0, 5)}`);
+    await new Promise((r) => setTimeout(r, 1500));
+    // As outras tres sao usadas depois: a ocupada fica com o uso mais antigo de todas.
+    for (const outra of ids.slice(2))
+      assert.equal((await pedir(b.s.porta, { cabecalhos: { ...autorizado, ...versao, 'Mcp-Session-Id': outra }, corpo: lista })).status, 200);
+    const sexta = await pedir(b.s.porta, { cabecalhos: autorizado });
+    assert.equal(sexta.status, 200, sexta.corpo);
+    assert.equal((await pedir(b.s.porta, { cabecalhos: { ...autorizado, ...versao, 'Mcp-Session-Id': ids[2] }, corpo: lista })).status, 404,
+      'saiu a ociosa seguinte, nao a ocupada');
+    sock.write(lista.slice(5));
+    await esperarAte(() => fechou, 20000);
+    assert.match(Buffer.concat(resposta).toString('utf8'), /^HTTP\/1\.1 200 /, 'a sessao ocupada seguiu de pe e respondeu');
   } finally { b.limpar(); }
+});
+
+test('GX9: no sandbox, a conexao tem de vir da arvore de processos do grok do despacho: o token certo de fora dela recusa', async () => {
+  const fora = bancada('gx9-fora', { grok: 'sleep' });
+  const semConferir = bancada('gx9-sem-conferir', { grok: 'sleep', conferirProcesso: false });
+  const dentro = bancada('gx9-dentro');
+  try {
+    // O "grok" e um sleep: o processo do teste, com o token certo, esta fora da arvore dele.
+    const recusada = await pedir(fora.s.porta, { cabecalhos: { Authorization: `Bearer ${fora.token}` } });
+    assert.equal(recusada.status, 403);
+    assert.match(recusada.corpo, /mcp\.grok\.process/);
+    assert.equal(lerReciboServidorGrok(fora.s.reciboPath)?.conferirProcesso, true);
+    // Sem a conferencia (o perfil off, em que o guia nao diz quem conecta), vale so o token.
+    assert.equal((await pedir(semConferir.s.porta, { cabecalhos: { Authorization: `Bearer ${semConferir.token}` } })).status, 200);
+    assert.equal(lerReciboServidorGrok(semConferir.s.reciboPath)?.conferirProcesso, false);
+    // Um descendente do "grok" (aqui, um filho do processo do teste) e da sessao e entra.
+    const filho = spawnSync(process.execPath, ['-e', `
+      const req = require('node:http').request({ host: '127.0.0.1', port: ${dentro.s.porta}, method: 'POST', path: '/mcp',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', Authorization: 'Bearer ${dentro.token}' } },
+        (res) => { process.stdout.write(String(res.statusCode)); res.resume(); });
+      req.end(${JSON.stringify(JSON.stringify(INICIO))});`], { encoding: 'utf8', timeout: 30000 });
+    assert.equal(filho.stdout, '200', filho.stderr);
+  } finally { fora.limpar(); semConferir.limpar(); dentro.limpar(); }
 });
