@@ -42,6 +42,11 @@ export const INTERVALO_DA_VIGIA_MS = 250;
  * cada ferramenta (o padrão do Node, 5 s, a derrubava).
  */
 const CONEXAO_OCIOSA_MS = 60_000;
+/** D2 (GO-FIX 4): as recusas da conferência da árvore que vão ao stderr por minuto; depois delas, uma linha só diz que há mais. */
+export const LIMITE_DE_RECUSAS_NO_LOG = 20;
+const JANELA_DO_LOG_MS = 60_000;
+/** D2 (GO-FIX 4): a varredura dos donos legíveis cede o event loop a cada tantos processos lidos. */
+const PROCESSOS_POR_VEZ = 16;
 
 const absoluto = z.string().min(1).max(4096).refine((v) => path.isAbsolute(v), 'caminho absoluto');
 const esquemaDoPedido = z.object({
@@ -166,23 +171,45 @@ function seguraOSocket(pid: number, inode: string): boolean | null {
 /** O veredito da conferência da árvore, com o motivo da recusa para o log do servidor. */
 export type VereditoDaConexao = { aceita: true; soToken?: true } | { aceita: false; motivo: string };
 
+const FORA_DA_ARVORE: VereditoDaConexao = { aceita: false, motivo: 'conexao de processo fora da arvore do grok' };
+
 /**
- * D2 (GO-FIX 2, R1; GO-FIX 3): a conexão vem da árvore de processos do `grok` deste despacho? O `grok` vivo sai do
+ * D2 (GO-FIX 2, R1; GO-FIX 3 e 4): a conexão vem da árvore de processos do `grok` deste despacho? O `grok` vivo sai do
  * `.process.json` do supervisor, já lido por quem chama (pid, início e boot); o socket do cliente, do `/proc/net/tcp` ou do
  * `tcp6`; e o dono dele, dos descritores do `grok` primeiro (o caso esperado: a forma `url` não abre subprocesso, G16, e o
  * agente com sandbox roda no próprio processo, G17) e depois dos descendentes. O token vazado pela saída de uma ferramenta
  * da sessão chega a outro processo, mas a conexão dele não sai dessa árvore. Se o próprio `grok` não deixa ler os
- * descritores (não despejável), a árvore não se confere: vale só o token, e o veredito diz isso para o log.
+ * descritores (não despejável), o socket se procura entre os outros processos que se leem (GO-FIX 4): o de fora da árvore
+ * que o segura é recusado; sem dono legível, vale só o token, e o veredito diz isso para o log.
  */
-export function conferirArvore(processo: ProcessoCodex, portaDoCliente: number, portaDoServidor: number): VereditoDaConexao {
+export async function conferirArvore(processo: ProcessoCodex, portaDoCliente: number, portaDoServidor: number): Promise<VereditoDaConexao> {
   if (!processo.filho || estadoProcesso(processo.filho) !== 'vivo') return { aceita: false, motivo: 'processo do grok ausente' };
   const inode = inodeDoCliente(portaDoCliente, portaDoServidor);
   if (!inode) return { aceita: false, motivo: 'socket do cliente fora do /proc/net/tcp e do tcp6' };
-  const doGrok = seguraOSocket(processo.filho.pid, inode);
-  if (doGrok === null) return { aceita: true, soToken: true };
+  const grok = processo.filho.pid;
+  const doGrok = seguraOSocket(grok, inode);
   if (doGrok) return { aceita: true };
-  for (const pid of descendentes(processo.filho.pid)) if (seguraOSocket(pid, inode)) return { aceita: true };
-  return { aceita: false, motivo: 'conexao de processo fora da arvore do grok' };
+  const arvore = descendentes(grok);
+  if (arvore.some((pid) => seguraOSocket(pid, inode))) return { aceita: true };
+  if (doGrok === false) return FORA_DA_ARVORE;
+  return (await donoLegivelDeFora(inode, new Set([grok, ...arvore]))) ? FORA_DA_ARVORE : { aceita: true, soToken: true };
+}
+
+/**
+ * D2 (GO-FIX 4): com o `grok` não despejável, algum processo do mesmo usuário, fora da árvore, segura o socket? A varredura
+ * cede o event loop a cada `PROCESSOS_POR_VEZ` processos lidos, para a conexão nova não travar as respostas da sessão, e
+ * pula sem ler o processo de outro dono (o não despejável tem o `/proc/<pid>` do root, e os descritores dele não se leem).
+ */
+async function donoLegivelDeFora(inode: string, naArvore: Set<number>): Promise<boolean> {
+  const usuario = process.getuid?.();
+  let lidos = 0;
+  for (const nome of fs.readdirSync('/proc')) {
+    if (!/^\d+$/.test(nome) || naArvore.has(Number(nome))) continue;
+    try { if (usuario !== undefined && fs.statSync(`/proc/${nome}`).uid !== usuario) continue; } catch { continue; }
+    if (seguraOSocket(Number(nome), inode)) return true;
+    if (++lidos % PROCESSOS_POR_VEZ === 0) await new Promise((r) => setImmediate(r));
+  }
+  return false;
 }
 
 function responder(res: http.ServerResponse, status: number, motivo: string, cabecalhos: Record<string, string> = {}): void {
@@ -253,27 +280,44 @@ export async function servirGrok(pedido: PedidoServidorGrok, token: string): Pro
   // uma conferência que viu o `.process.json`, que o supervisor grava logo depois do `grok`, esperado até o prazo da partida.
   const aceitas = new WeakMap<object, Promise<boolean>>();
   let avisouSoToken = false;
+  // GO-FIX 4: o log das recusas tem teto por minuto, para quem tem o token vazado não encher o stderr abrindo conexões
+  // nem calar de vez a recusa que vier depois.
+  let recusas = 0, janelaDesde = Date.now();
+  const anotarRecusa = (motivo: string) => {
+    if (Date.now() - janelaDesde >= JANELA_DO_LOG_MS) { recusas = 0; janelaDesde = Date.now(); }
+    recusas++;
+    if (recusas <= LIMITE_DE_RECUSAS_NO_LOG) process.stderr.write(`grok-mcp: conexao recusada: ${motivo}\n`);
+    else if (recusas === LIMITE_DE_RECUSAS_NO_LOG + 1) process.stderr.write('grok-mcp: mais conexoes recusadas neste minuto, sem log\n');
+  };
   const conferirConexao = (socket: { remotePort?: number; localPort?: number }): Promise<boolean> => {
     const pendente = aceitas.get(socket);
     if (pendente) return pendente;
+    // GO-FIX 4: a conferência nunca rejeita; o erro dela (um EMFILE na leitura do `/proc`) recusa só esta conexão, sem a
+    // exceção não tratada derrubar o servidor da sessão.
     const veredito = (async () => {
-      const limite = Date.now() + (pedido.prazoDaPartidaMs ?? PRAZO_DA_PARTIDA_MS);
-      let processo = lerJsonPequeno<ProcessoCodex>(`${pedido.logPath}.process.json`);
-      while (!processo && Date.now() < limite) {
-        await new Promise((r) => setTimeout(r, 100));
-        processo = lerJsonPequeno<ProcessoCodex>(`${pedido.logPath}.process.json`);
+      try {
+        const limite = Date.now() + (pedido.prazoDaPartidaMs ?? PRAZO_DA_PARTIDA_MS);
+        let processo = lerJsonPequeno<ProcessoCodex>(`${pedido.logPath}.process.json`);
+        while (!processo && Date.now() < limite) {
+          await new Promise((r) => setTimeout(r, 100));
+          processo = lerJsonPequeno<ProcessoCodex>(`${pedido.logPath}.process.json`);
+        }
+        if (!processo) { anotarRecusa('sem o .process.json do supervisor no prazo'); return false; }
+        const v = await conferirArvore(processo, socket.remotePort ?? 0, socket.localPort ?? 0);
+        if (!v.aceita) { anotarRecusa(v.motivo); return false; }
+        if (v.soToken && !avisouSoToken) {
+          avisouSoToken = true;
+          process.stderr.write('grok-mcp: o grok nao deixa ler os descritores dele; a conexao vale so pelo token\n');
+        }
+        return true;
+      } catch (e) {
+        const erro = e as NodeJS.ErrnoException | undefined;
+        anotarRecusa(`erro na conferencia (${erro?.code ?? String(erro?.message ?? e).split('\n')[0].slice(0, 200)})`);
+        return false;
       }
-      if (!processo) { process.stderr.write('grok-mcp: conexao recusada: sem o .process.json do supervisor no prazo\n'); return false; }
-      const v = conferirArvore(processo, socket.remotePort ?? 0, socket.localPort ?? 0);
-      if (!v.aceita) { process.stderr.write(`grok-mcp: conexao recusada: ${v.motivo}\n`); return false; }
-      if (v.soToken && !avisouSoToken) {
-        avisouSoToken = true;
-        process.stderr.write('grok-mcp: o grok nao deixa ler os descritores dele; a conexao vale so pelo token\n');
-      }
-      return true;
     })();
     aceitas.set(socket, veredito);
-    void veredito.then((aceita) => { if (!aceita) aceitas.delete(socket); });
+    void veredito.then((aceita) => { if (!aceita) aceitas.delete(socket); }, () => { aceitas.delete(socket); });
     return veredito;
   };
   let porta = 0;
@@ -289,19 +333,32 @@ export async function servirGrok(pedido: PedidoServidorGrok, token: string): Pro
     }
     if (fechando) { responder(res, 503, 'mcp.grok.closing: a sessao do grok terminou'); return; }
     const id = req.headers['mcp-session-id'];
+    // GO-FIX 4: o pedido conta até a resposta fechar ou, no pipeline cuja resposta nunca ganha o socket (depois de um
+    // `Connection: close`, ou com o cliente caindo no meio), até o socket fechar; uma vez só, na sessão também.
+    let contada: SessaoMcp | undefined;
+    let descontado = false;
+    const descontar = () => {
+      if (descontado) return;
+      descontado = true;
+      emAndamento--;
+      if (contada) contada.emCurso--;
+      req.socket.off('close', descontar);
+    };
     emAndamento++;
-    res.once('close', () => { emAndamento--; });
+    res.once('close', descontar);
+    req.socket.once('close', descontar);
     try {
+      // GO-FIX 4: a recusa fecha a conexão, e cada nova tentativa custa outra conexão e outra conferência.
       if (pedido.conferirProcesso && !(await conferirConexao(req.socket))) {
-        responder(res, 403, 'mcp.grok.process: conexao de processo fora da sessao do grok deste despacho');
+        responder(res, 403, 'mcp.grok.process: conexao de processo fora da sessao do grok deste despacho', { Connection: 'close' });
         return;
       }
       // GO-FIX 3: a sessão só conta o pedido que passou pela conferência; o recusado não mexe no despejo dela.
       const sessao = typeof id === 'string' ? sessoes.get(id) : undefined;
-      if (sessao) {
+      if (sessao && !descontado) {
+        contada = sessao;
         sessao.emCurso++;
         sessao.usadaEm = Date.now();
-        res.once('close', () => { sessao.emCurso--; });
       }
       let corpo: unknown;
       if (req.method === 'POST') {

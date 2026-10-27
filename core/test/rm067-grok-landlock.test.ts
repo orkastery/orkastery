@@ -160,7 +160,19 @@ test('GL3: a sessao de outra thread, confinada no proprio dominio, nao acha o to
   } finally { p.limpar(); stub.restaurar(); fs.rmSync(irma, { recursive: true, force: true }); }
 });
 
-test('GL4: o grok que nao deixa ler os descritores (nao despejavel) nao trava o MCP: a conexao vale so pelo token, e o log diz isso', { skip: semLandlock() }, async () => {
+/** Um cliente MCP que tambem se marca nao despejavel antes de conectar: o servidor nao acha o dono do socket dele. */
+const CLIENTE_NAO_DESPEJAVEL = [
+  'import ctypes, http.client, json, os, sys',
+  'ctypes.CDLL(None).prctl(4, 0, 0, 0, 0)',
+  'c = http.client.HTTPConnection("127.0.0.1", int(sys.argv[1]), timeout=20)',
+  'inicio = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18", "capabilities": {},',
+  '  "clientInfo": {"name": "fixture-SIMULADA", "version": "1"}}}',
+  'c.request("POST", "/mcp", body=json.dumps(inicio), headers={"Content-Type": "application/json",',
+  '  "Accept": "application/json, text/event-stream", "Authorization": "Bearer " + os.environ["ORK_TESTE_TOKEN"]})',
+  'print(c.getresponse().status)',
+].join('\n');
+
+test('GL4: com o grok nao despejavel, o dono legivel de fora da arvore recusa, e o dono que tambem nao se le vale so pelo token, com aviso no log', { skip: semLandlock() }, async () => {
   const p = projetoTemporario('gl4-nao-despejavel');
   // Um processo que se marca nao despejavel, como um CLI que guarda credencial: o /proc/<pid>/fd dele fica negado.
   const grok = spawn('python3', ['-I', '-c', 'import ctypes,time; ctypes.CDLL(None).prctl(4,0,0,0,0); time.sleep(120)'], { stdio: 'ignore' });
@@ -174,15 +186,22 @@ test('GL4: o grok que nao deixa ler os descritores (nao despejavel) nao trava o 
     const s = iniciarServidorDoGrok({ projeto: fs.realpathSync(p.dir), threadId: t.id, dispatchId: randomUUID(), permissoesFilho: 'worktree',
       transporteShip: 'github-ssh', ferramentas: ['ork_thread_status'], logPath, conferirProcesso: true }, t.worktree!, process.env);
     try {
-      const status = await new Promise<number>((resolve, reject) => {
+      // GO-FIX 4: sem os descritores do grok, o servidor procura o socket entre os processos que se leem. O processo do
+      // teste se le e esta fora da arvore do "grok": o token certo dele recusa.
+      const doTeste = await new Promise<number>((resolve, reject) => {
         const req = http.request({ host: '127.0.0.1', port: s.porta, method: 'POST', path: '/mcp', headers: { 'Content-Type': 'application/json',
           Accept: 'application/json, text/event-stream', Authorization: `Bearer ${s.token}` } }, (res) => { res.resume(); resolve(res.statusCode ?? 0); });
         req.on('error', reject);
         req.end(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize',
           params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'fixture-SIMULADA', version: '1' } } }));
       });
-      assert.equal(status, 200, 'sem os descritores do grok, a conexao vale pelo token');
-      const log = fs.readFileSync(logPath.replace(/\.grok\.jsonl$/, '.grok-mcp.log'), 'utf8');
+      assert.equal(doTeste, 403, 'o dono legivel de fora da arvore recusa, mesmo com o token certo');
+      // O cliente que tambem nao se le, como o proprio grok nao despejavel: vale so o token, e o log diz isso.
+      const cliente = spawnSync('python3', ['-I', '-c', CLIENTE_NAO_DESPEJAVEL, String(s.porta)],
+        { encoding: 'utf8', timeout: 30000, env: { ...process.env, ORK_TESTE_TOKEN: s.token } });
+      assert.equal(cliente.stdout.trim(), '200', cliente.stderr);
+      const log = fs.readFileSync(arquivosDoServidorGrok(logPath).stderrPath, 'utf8');
+      assert.match(log, /conexao recusada: conexao de processo fora da arvore do grok/);
       assert.match(log, /o grok nao deixa ler os descritores dele; a conexao vale so pelo token/);
     } finally { s.encerrar(); esperarCondicao(() => estadoProcesso(s.processo) === 'ausente', 15000); }
   } finally { grok.kill('SIGKILL'); p.limpar(); }

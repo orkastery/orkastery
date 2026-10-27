@@ -22,7 +22,7 @@ import { instalarMcp } from '../src/mcp-install';
 import { ferramentasDoGrok } from '../src/adapters/grok';
 import { arquivosDoServidorGrok, ENV_DO_TOKEN_DO_SERVIDOR_GROK, iniciarServidorDoGrok, lerReciboServidorGrok,
   ServidorDoGrokIniciado } from '../src/adapters/grok-mcp';
-import { LIMITE_DE_SESSOES_MCP, LIMITE_DO_CORPO_BYTES } from '../src/adapters/grok-mcp-servidor';
+import { LIMITE_DE_RECUSAS_NO_LOG, LIMITE_DE_SESSOES_MCP, LIMITE_DO_CORPO_BYTES } from '../src/adapters/grok-mcp-servidor';
 import { estadoProcesso, gravarAtomico, identidadeProcesso, ProcessoCodex } from '../src/adapters/codex-runner';
 import { dirThread, novaThread } from '../src/thread';
 import { lerLedger } from '../src/ledger';
@@ -78,10 +78,10 @@ interface Bancada {
 /**
  * Um projeto com thread, um processo no papel do `grok` e o servidor do despacho de pe. Por padrao o `grok` e o proprio
  * processo do teste, para as conexoes dele virem da arvore que o servidor confere (D2, GO-FIX 2); com `grok: 'sleep'`, um
- * `sleep` faz o papel, para o caso do `grok` morto e para a conexao de fora da arvore.
+ * `sleep` faz o papel, para o caso do `grok` morto e para a conexao de fora da arvore. O `env` vai ao processo do servidor.
  */
 function bancada(nome: string, opcoes: { perfil?: 'interactive' | 'worktree'; plano?: boolean; prazoDaPartidaMs?: number;
-    semPartida?: boolean; grok?: 'teste' | 'sleep'; conferirProcesso?: boolean } = {}): Bancada {
+    semPartida?: boolean; grok?: 'teste' | 'sleep'; conferirProcesso?: boolean; env?: NodeJS.ProcessEnv } = {}): Bancada {
   const p = projetoTemporario(nome);
   const t = novaThread(p.carregado, { nome, modo: 'auto', criarWorktree: true }).thread;
   const logPath = path.join(dirThread(p.dir, t.id), 'sessoes', `${randomUUID()}.grok.jsonl`);
@@ -97,7 +97,7 @@ function bancada(nome: string, opcoes: { perfil?: 'interactive' | 'worktree'; pl
   const s = iniciarServidorDoGrok({ projeto: fs.realpathSync(p.dir), threadId: t.id, dispatchId, permissoesFilho: perfil,
     transporteShip: 'github-ssh', ferramentas, logPath, conferirProcesso: opcoes.conferirProcesso ?? true,
     ...(opcoes.prazoDaPartidaMs ? { prazoDaPartidaMs: opcoes.prazoDaPartidaMs } : {}) },
-  t.worktree!, process.env);
+  t.worktree!, { ...process.env, ...opcoes.env });
   return { p, threadId: t.id, dispatchId, logPath, s, token: s.token, ferramentas, grok,
     limpar: () => {
       s.encerrar();
@@ -133,6 +133,9 @@ function pedir(porta: number, opcoes: { metodo?: string; caminho?: string; cabec
   });
 }
 
+/** O stderr do servidor da bancada, onde vao as recusas da conferencia da arvore. */
+const logDoServidor = (b: Bancada) => fs.readFileSync(arquivosDoServidorGrok(b.logPath).stderrPath, 'utf8');
+
 /** O codigo da tentativa de conexao TCP (`ECONNREFUSED` quando ninguem escuta). */
 function conectar(host: string, porta: number): Promise<string> {
   return new Promise((resolve) => {
@@ -151,7 +154,7 @@ async function conferirFim(b: Bancada, motivo: string): Promise<void> {
   assert.equal(await conectar('127.0.0.1', b.s.porta), 'ECONNREFUSED', 'a porta fica sem ninguem');
 }
 
-test('GX1: o servidor do grok escuta so no loopback, com token 0600 fora da worktree, e lista exatamente as ferramentas do despacho', async () => {
+test('GX1: o servidor do grok escuta so no loopback, com o token do despacho fora de todo arquivo e do argv, e lista exatamente as ferramentas do despacho', async () => {
   const go = bancada('gx1-go');
   const plano = bancada('gx1-plano', { plano: true });
   try {
@@ -449,8 +452,10 @@ test('GX7: a sessao com o MCP interrompida vai ao dono com a retomada, e o aviso
   } finally { p.limpar(); stub.restaurar(); }
 });
 
-test('GX8: a sessao MCP que passa do limite despeja a usada ha mais tempo, sem recusar o cliente que reabre o initialize', async () => {
+test('GX8: a sessao MCP que passa do limite despeja a ociosa usada ha mais tempo, sem recusar o cliente que reabre o initialize', async () => {
   const b = bancada('gx8-sessoes');
+  // O pedido pela metade segura o fecho do servidor: se uma assercao cair no meio, o socket sai antes do limpar, para o caso nao travar.
+  let sock: net.Socket | undefined;
   try {
     const autorizado = { Authorization: `Bearer ${b.token}` };
     const ids: string[] = [];
@@ -470,11 +475,11 @@ test('GX8: a sessao MCP que passa do limite despeja a usada ha mais tempo, sem r
     // GO-FIX 2 (R2): a sessao com pedido em curso nao e despejada, mesmo sendo a usada ha mais tempo.
     const resposta: Buffer[] = [];
     let fechou = false;
-    const sock = net.connect({ host: '127.0.0.1', port: b.s.porta });
+    sock = net.connect({ host: '127.0.0.1', port: b.s.porta });
     sock.on('data', (parte: Buffer) => resposta.push(parte));
     sock.on('close', () => { fechou = true; });
     sock.on('error', () => { fechou = true; });
-    await new Promise<void>((r) => sock.once('connect', () => r()));
+    await new Promise<void>((r) => sock!.once('connect', () => r()));
     sock.write(`POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:${b.s.porta}\r\nAuthorization: Bearer ${b.token}\r\nContent-Type: application/json\r\n` +
       `Accept: application/json, text/event-stream\r\nMcp-Session-Id: ${ids[1]}\r\nMcp-Protocol-Version: 2025-06-18\r\n` +
       `Content-Length: ${Buffer.byteLength(lista)}\r\nConnection: close\r\n\r\n${lista.slice(0, 5)}`);
@@ -489,7 +494,7 @@ test('GX8: a sessao MCP que passa do limite despeja a usada ha mais tempo, sem r
     sock.write(lista.slice(5));
     await esperarAte(() => fechou, 20000);
     assert.match(Buffer.concat(resposta).toString('utf8'), /^HTTP\/1\.1 200 /, 'a sessao ocupada seguiu de pe e respondeu');
-  } finally { b.limpar(); }
+  } finally { sock?.destroy(); b.limpar(); }
 });
 
 test('GX9: no sandbox, a conexao tem de vir da arvore de processos do grok do despacho: o token certo de fora dela recusa', async (t) => {
@@ -542,4 +547,73 @@ test('GX10: a conexao que chega antes do .process.json do supervisor espera por 
     // Na mesma conexao reaproveitada e em conexao nova, o aceite segue.
     assert.equal((await pedir(b.s.porta, { cabecalhos: { Authorization: `Bearer ${b.token}` } })).status, 200);
   } finally { b.limpar(); }
+});
+
+test('GX11: a conferencia que falha (EMFILE ao listar o /proc, ou erro sem codigo) recusa so aquela conexao, sem derrubar o servidor', async () => {
+  // O "grok" e um sleep: a conferencia passa pelos descendentes e pela varredura do /proc, que o preload faz falhar.
+  const preload = `--require "${path.resolve(__dirname, 'proc-sem-leitura.js')}"`;
+  for (const [modo, motivo] of [['1', 'EMFILE'], ['sem-codigo', 'falha simulada da conferencia']]) {
+    const b = bancada(`gx11-erro-${modo}`, { grok: 'sleep', env: { NODE_OPTIONS: preload, ORK_TESTE_PROC_SEM_LEITURA: modo } });
+    try {
+      for (let i = 0; i < 2; i++) {
+        const r = await pedir(b.s.porta, { cabecalhos: { Authorization: `Bearer ${b.token}` } });
+        assert.equal(r.status, 403, r.corpo);
+        assert.match(r.corpo, /mcp\.grok\.process/);
+      }
+      assert.equal(estadoProcesso(b.s.processo), 'vivo', 'o servidor segue de pe');
+      assert.equal(lerReciboServidorGrok(b.s.reciboPath)?.estado, 'pronto');
+      assert.ok(logDoServidor(b).includes(`grok-mcp: conexao recusada: erro na conferencia (${motivo})`), logDoServidor(b));
+    } finally { b.limpar(); }
+  }
+});
+
+test('GX12: a recusa da conferencia fecha a conexao, e o log das recusas tem teto por minuto', async () => {
+  const b = bancada('gx12-teto', { grok: 'sleep' });
+  let sock: net.Socket | undefined;
+  try {
+    // Na conexao keep-alive, a recusa vem com Connection: close, e o servidor fecha a conexao: cada tentativa custa outra.
+    const partes: Buffer[] = [];
+    let fechou = false;
+    sock = net.connect({ host: '127.0.0.1', port: b.s.porta });
+    sock.on('data', (parte: Buffer) => partes.push(parte));
+    sock.on('close', () => { fechou = true; });
+    sock.on('error', () => { fechou = true; });
+    await new Promise<void>((r) => sock!.once('connect', () => r()));
+    const corpo = JSON.stringify(INICIO);
+    sock.write(`POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:${b.s.porta}\r\nAuthorization: Bearer ${b.token}\r\nContent-Type: application/json\r\n` +
+      `Accept: application/json, text/event-stream\r\nConnection: keep-alive\r\nContent-Length: ${Buffer.byteLength(corpo)}\r\n\r\n${corpo}`);
+    await esperarAte(() => fechou, 20000);
+    const resposta = Buffer.concat(partes).toString('utf8');
+    assert.match(resposta, /^HTTP\/1\.1 403 /);
+    assert.match(resposta, /\r\nConnection: close\r\n/i);
+    // Mais recusas que o teto: o log guarda as primeiras e uma linha so diz que ha mais.
+    for (let i = 1; i < LIMITE_DE_RECUSAS_NO_LOG + 5; i++)
+      assert.equal((await pedir(b.s.porta, { cabecalhos: { Authorization: `Bearer ${b.token}` } })).status, 403);
+    const linhas = logDoServidor(b).split('\n');
+    assert.equal(linhas.filter((l) => l.startsWith('grok-mcp: conexao recusada: ')).length, LIMITE_DE_RECUSAS_NO_LOG);
+    assert.equal(linhas.filter((l) => l === 'grok-mcp: mais conexoes recusadas neste minuto, sem log').length, 1);
+  } finally { sock?.destroy(); b.limpar(); }
+});
+
+test('GX13: o pedido em pipeline que fica sem resposta, depois da recusa com Connection: close, nao segura o fecho do servidor', async () => {
+  const b = bancada('gx13-pipeline', { grok: 'sleep' });
+  let sock: net.Socket | undefined;
+  try {
+    let fechou = false;
+    sock = net.connect({ host: '127.0.0.1', port: b.s.porta });
+    sock.on('data', () => undefined);
+    sock.on('close', () => { fechou = true; });
+    sock.on('error', () => { fechou = true; });
+    await new Promise<void>((r) => sock!.once('connect', () => r()));
+    const corpo = JSON.stringify(INICIO);
+    const pedido = `POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:${b.s.porta}\r\nAuthorization: Bearer ${b.token}\r\nContent-Type: application/json\r\n` +
+      `Accept: application/json, text/event-stream\r\nContent-Length: ${Buffer.byteLength(corpo)}\r\n\r\n${corpo}`;
+    // Tres pedidos de uma vez: o primeiro recebe o 403 com Connection: close, e as respostas dos outros nunca ganham o socket.
+    sock.write(pedido + pedido + pedido);
+    await esperarAte(() => fechou, 20000);
+    // O despacho encerra o servidor: sem pedido preso na conta, ele sai na hora, sem o teto de 10 min do fecho.
+    b.s.encerrar();
+    esperarCondicao(() => lerReciboServidorGrok(b.s.reciboPath)?.estado === 'encerrado', 15000);
+    assert.equal(lerReciboServidorGrok(b.s.reciboPath)?.motivo, 'sinal');
+  } finally { sock?.destroy(); b.limpar(); }
 });
