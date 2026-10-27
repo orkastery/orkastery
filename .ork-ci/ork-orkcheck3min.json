@@ -1,0 +1,96 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-orkcheck3min",
+  "branch": "ork/ork-orkcheck3min-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-orkcheck3min",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-074-agile-check-em-3-minutos.md",
+      "alegacao": "A página da RM-074 existe em Discovery, só página e pesquisa, com o título pedido e as dependências RM-072, RM-073 e RM-071 citadas com link.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-074-agile-check-em-3-minutos.md; grep -q '^id: RM-074$' $f && grep -q '^  ciclo: Discovery$' $f && grep -q '^titulo: \"Agile Check em 3 minutos: seletividade e CPU da suíte\"$' $f && grep -q '(RM-072-check-cinco-vezes-mais-rapido.md)' $f && grep -q '(RM-073-modelos-de-decisao-no-ork-e-no-orkmind.md)' $f && grep -q '(RM-071-relatorio-da-esteira-do-sdlc.md)' $f && test -z \"$(git diff --name-only origin/main...HEAD -- core src)\""
+      ],
+      "criadoEm": "2026-10-26T08:54:29.278Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-orkcheck3min",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-074-agile-check-em-3-minutos.md",
+      "alegacao": "A página traz as decisões D1 a D4 do dono, cada uma com três alternativas numeradas e exatamente uma recomendada, e as quatro frentes pedidas mais a M0 como fatias com critério de aceite.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-074-agile-check-em-3-minutos.md; for d in D1 D2 D3 D4; do grep -q \"^\\*\\*$d\\. \" $f || exit 1; done; test \"$(grep -c '^2\\. \\*\\*.*(recomendada)' $f)\" -eq 4 && test \"$(grep -c '^| F[1-4] ' $f)\" -eq 4 && grep -q '^| M0 ' $f"
+      ],
+      "criadoEm": "2026-10-26T08:54:32.996Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-orkcheck3min",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-074-agile-check-em-3-minutos.md",
+      "alegacao": "Os números de partida da RM-072 citados na RM-074 existem na página da RM-072, sem alteração.",
+      "negativa": false,
+      "verificar": [
+        "a=docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md; b=docs/roadmap/RM-074-agile-check-em-3-minutos.md; for n in '13 min 35 s' '14 min 25 s' '20 min 37 s' '3.729' '518 s' '4,47' '4,88' '3,98 GiB' '3 min 55 s' '80,9 s' '5.718' '628'; do grep -q -F \"$n\" $a && grep -q -F \"$n\" $b || { echo \"falta: $n\"; exit 1; }; done"
+      ],
+      "criadoEm": "2026-10-26T08:54:35.067Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-orkcheck3min",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-074-agile-check-em-3-minutos.md",
+      "alegacao": "A página não traz caminho de home, e-mail, nome de máquina nem travessão fora da tabela de estado gerada, e o ork docs verificar não aponta erro nem aviso para a RM-074.",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-074-agile-check-em-3-minutos.md; ! grep -n -E '/home/|/Users/|[A-Za-z0-9._-]+@[A-Za-z0-9-]+\\.[a-z]{2,}|\\bvps\\b' $f && ! sed '/^<!-- ork-docs:estado:inicio -->/,/^<!-- ork-docs:estado:fim -->/d' $f | grep -n '—'",
+        "node core/dist/index.js docs verificar 2>&1 | { ! grep -E '^ +RM-074 '; }"
+      ],
+      "criadoEm": "2026-10-26T08:54:37.307Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-orkcheck3min",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice do roadmap lista a RM-074 em Discovery, na linha gerada por ork docs sincronizar, e o sincronizar não aponta diferença para a RM-074.",
+      "negativa": false,
+      "verificar": [
+        "grep -q '^| \\[RM-074\\](RM-074-agile-check-em-3-minutos.md) | Agile Check em 3 minutos: seletividade e CPU da suíte | Discovery |' docs/roadmap/README.md",
+        "node core/dist/index.js docs sincronizar --so RM-074 2>&1 | grep -q 'a documentação já bate com o ledger e o git'"
+      ],
+      "criadoEm": "2026-10-26T08:54:54.447Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C7",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
