@@ -34,9 +34,9 @@ const CAMPOS_DE_DIRETORIO = Object.values(CAMPO_DO_PERFIL) as CampoDoPerfil[];
 /** O diretorio padrao de cada CLI na HOME, quando o processo nao informa a variavel. */
 const PASTA_PADRAO = { 'claude-bg': '.claude', codex: '.codex', grok: '.grok' } as const;
 /**
- * RM-067 (F3): runtimes cujas sessoes o `ork` inventaria por conta (`claude agents`, rollouts do codex). O `grok` tem
- * perfil, mas o inventario de sessoes vivas dele ainda nao existe (lacuna da pagina da RM-067): a carga, o `ork sessions`
- * e a medicao do #Noctum seguem so com estes.
+ * RM-067 (F3, F4): runtimes de assinatura que o #Noctum mede e cuja conta do processo o inventario sempre consulta
+ * (`claude agents`, rollouts do codex). Desde a F4, o `ork sessions` e a carga do rodizio leem tambem o `grok`, pela
+ * pasta de sessoes que ele grava (`RUNTIMES_DAS_SESSOES` em `sessoes-contas.ts`); a medicao do #Noctum segue sem ele.
  */
 export const RUNTIMES_COM_INVENTARIO: readonly RuntimeComPerfil[] = ['claude-bg', 'codex'];
 

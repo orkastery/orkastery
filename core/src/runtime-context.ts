@@ -146,6 +146,8 @@ export function capacidadeDoRuntimeNoProjeto(projeto: string, runtime: string): 
     const raiz = raizCanonica(projeto);
     const perfil = preparado(raiz);
     if (!perfil) return { runtime, host: null, preparado: false, capaz: true, motivo: null };
+    if (RUNTIMES_SEM_HOST_MCP.includes(runtime))
+      return { runtime, host: null, preparado: true, capaz: false, motivo: MOTIVO_SEM_HOST_MCP };
     host = hostDoRuntime(runtime);
     conferirInstalacaoDoHost(raiz, host);
     return { runtime, host, preparado: true, capaz: true, motivo: null };
@@ -159,6 +161,21 @@ export function capacidadeDoRuntimeNoProjeto(projeto: string, runtime: string): 
  * (`capacidadeDoRuntimeNoProjeto`) nao muda: num projeto preparado, eles seguem fora dos destinos automaticos.
  */
 export const RUNTIMES_SEM_HOST_MCP: readonly string[] = ['grok'];
+
+/** RM-067 (F4): o motivo tipado de um runtime sem host MCP num projeto preparado. */
+export const MOTIVO_SEM_HOST_MCP = 'runtime.context.no-host: runtime sem host MCP do Orkastery; a sessao despacha sem o contexto do projeto';
+
+/**
+ * RM-067 (F4): a capacidade de um runtime para a rotacao do retry. A troca de perfil DENTRO do runtime em que a thread ja
+ * despachou (`mesmoRuntime`) vale para o runtime sem host MCP: a sessao dele ja roda sem o contexto do MCP, e a outra
+ * conta nao muda isso, entao o `ork retry` troca o perfil do grok como troca o dos outros runtimes. Como alvo de fallback
+ * num projeto preparado, ele segue incapaz: a thread que saiu de um runtime com o MCP perderia o contexto.
+ */
+export function capacidadeDaRotacao(projeto: string, runtime: string, mesmoRuntime: boolean): CapacidadeDoRuntime {
+  const capacidade = capacidadeDoRuntimeNoProjeto(projeto, runtime);
+  if (capacidade.capaz || !mesmoRuntime || !RUNTIMES_SEM_HOST_MCP.includes(runtime)) return capacidade;
+  return capacidade.motivo === MOTIVO_SEM_HOST_MCP ? { ...capacidade, capaz: true } : capacidade;
+}
 
 /** Projeto sem entrada MCP Orkastery continua com o contrato legado. Nao instala nem altera arquivos. */
 export function contextoDoProjeto(projeto: string, runtime: string, cwd: string, threadId?: string): ContextoRuntime | undefined {

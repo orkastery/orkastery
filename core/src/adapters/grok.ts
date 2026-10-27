@@ -15,6 +15,7 @@ import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { ambienteDeAssinatura, ENVS_DE_PROVIDER_PAGO } from '../runtime-ambiente';
 import { ambienteComPerfil, PerfilDeDespacho } from '../runtime-profiles';
+import { SessaoRuntime } from '../types';
 import { exec as executar, noPath } from '../util';
 import { DespachoResultado, parseRateLimit, StatusDeAuth } from './claude-bg';
 import { estadoProcesso, iniciarSupervisor, ProcessoCodex, ReciboCodex } from './codex-runner';
@@ -231,6 +232,54 @@ export function acharSessaoGrok(sessionId: string, casa: string = casaDoGrok()):
     } catch { /* o grupo não tem a sessão */ }
   }
   return achadas.length === 1 ? achadas[0] : null;
+}
+
+/** RM-067 (F4): o que o inventário leu de uma conta do `grok`. */
+export interface ConsultaDeSessoesGrok {
+  ok: boolean;
+  /** A pasta `sessions/` da casa ainda não existe: a conta nunca abriu sessão nesta máquina. */
+  ausente: boolean;
+  sessoes: SessaoRuntime[];
+  detalhe: string;
+}
+
+/**
+ * RM-067 (F4): as sessões de uma casa do `grok` para o inventário (`ork sessions`), pela fonte que o próprio runtime grava:
+ * cada pasta `<casa>/sessions/<grupo>/<id>/` com o `updates.jsonl`. Como na prova de existência (D5), o `ork` lista nomes
+ * e lê o mtime e o tamanho do arquivo, nunca o conteúdo; a atividade é o mtime. O grupo é o cwd codificado, cuja
+ * codificação o guia não documenta, então o cwd da sessão fica sem valor. Link e entrada estranha deixam a consulta
+ * parcial (`ok: false`), nunca "zero sessões".
+ */
+export function consultarSessoesGrok(casa: string = casaDoGrok()): ConsultaDeSessoesGrok {
+  const raiz = path.join(casa, 'sessions');
+  let grupos: fs.Dirent[];
+  try {
+    const st = fs.lstatSync(raiz);
+    if (!st.isDirectory()) return { ok: false, ausente: false, sessoes: [], detalhe: 'sessions nao e pasta comum' };
+    grupos = fs.readdirSync(raiz, { withFileTypes: true });
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return { ok: true, ausente: true, sessoes: [], detalhe: 'sem a pasta sessions' };
+    return { ok: false, ausente: false, sessoes: [], detalhe: 'pasta sessions inacessivel' };
+  }
+  const sessoes: SessaoRuntime[] = [];
+  let parcial = false;
+  for (const grupo of grupos) {
+    if (!grupo.isDirectory()) { parcial ||= grupo.isSymbolicLink(); continue; }
+    let ids: fs.Dirent[];
+    try { ids = fs.readdirSync(path.join(raiz, grupo.name), { withFileTypes: true }); }
+    catch { parcial = true; continue; }
+    for (const id of ids) {
+      if (!ID_DE_SESSAO.test(id.name)) continue;
+      if (!id.isDirectory()) { parcial ||= id.isSymbolicLink(); continue; }
+      try {
+        const st = fs.lstatSync(path.join(raiz, grupo.name, id.name, 'updates.jsonl'));
+        if (st.isFile()) sessoes.push({ sessionId: id.name, kind: 'grok', atividadeEm: st.mtimeMs });
+        else parcial = true;
+      } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') parcial = true; }
+    }
+  }
+  return { ok: !parcial, ausente: false, sessoes,
+    detalhe: parcial ? 'inventario parcial; a pasta sessions tem link ou entrada ilegivel' : '' };
 }
 
 /** JSON pequeno de metadado do supervisor, sem seguir link; ausente ou ilegível vira `null`. */

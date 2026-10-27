@@ -39,7 +39,7 @@ import { DAEMON_DO_CLAUDE } from './adapters/claude-bg';
 import { ManifestoCarregado } from './manifest';
 import { hashDoPrompt, concluirDespacho, ContextoDeDespacho, EscolhaDePerfil, perfilParaDespacho, resolverDespacho, slugDaSessao,
   baselineDoDespachoNecessaria, estadoParaDespacho, garantirBaselineDoDespacho, modoDaSessaoDoBloco, prazoDaSessao } from './phase';
-import { capacidadeDoRuntimeNoProjeto, ContextoRuntime, contextoDoProjeto, novaIdentidadeDeDespacho } from './runtime-context';
+import { capacidadeDaRotacao, capacidadeDoRuntimeNoProjeto, ContextoRuntime, contextoDoProjeto, novaIdentidadeDeDespacho } from './runtime-context';
 import { proximaRotacao } from './slug';
 import { avaliarPolicies, bloqueantes, motivoDominante } from './policies';
 import { aguardando, arcoDoPedido, enfileirar, exigirPedido, gravarPedido, janelaPadraoMs, lerFilaDeRetomada, marcarContaDaFalha,
@@ -1235,7 +1235,8 @@ function alvoDaRetomada(carregado: ManifestoCarregado, thread: Thread, pedido: P
   const candidatos = [{ runtime: principal, model: pedido.model, effort: pedido.effort },
     ...alvosDeFallback(doBloco, doBloco?.runtime ?? manifesto.runtime.adapter).filter(f => f.runtime !== principal)
       .map(f => ({ runtime: f.runtime, model: f.model as string | null, effort: f.effort ?? pedido.effort }))]
-    .filter(c => capacidadeDoRuntimeNoProjeto(raiz, c.runtime).capaz);
+    // RM-067 (F4): a troca de conta do runtime principal vale tambem para o runtime sem host MCP (o grok).
+    .filter(c => capacidadeDaRotacao(raiz, c.runtime, c.runtime === principal).capaz);
   const runtimes = candidatos.map(c => c.runtime);
   const store = lerPerfisComContas(raiz), politica = politicaDeRotacao(manifesto);
   for (const c of candidatos) {
@@ -1320,7 +1321,7 @@ export function proximoAlvo(raiz: string, atual: { runtime: string; perfil: Perf
   politica: PoliticaDeRotacao, agoraMs = Date.now()): AlvoDaRotacao | null {
   const store = lerPerfisComContas(raiz, agoraMs);
   const perfis = [...excluir.perfis, ...(atual.perfil ? [atual.perfil.id] : [])];
-  const mesmo = capacidadeDoRuntimeNoProjeto(raiz, atual.runtime).capaz
+  const mesmo = capacidadeDaRotacao(raiz, atual.runtime, true).capaz
     ? proximoPerfilDisponivel(store, atual.runtime, politica, { excluir: perfis, agoraMs }) : null;
   if (mesmo) return { runtime: atual.runtime, perfil: perfilDeDespacho(mesmo), model: null, effort: null };
   for (const f of fallback) {
@@ -1975,7 +1976,7 @@ function destinosQueRecusaramOModelo(eventos: readonly EventoLedger[], fase: Fas
 function proximoDestinoDoModelo(raiz: string, runtime: string, model: string | null, fallback: readonly AlvoDeFallback[],
     recusados: ReadonlySet<string>): AlvoDaRotacao | null {
   const store = lerPerfisComContas(raiz);
-  const mesmo = capacidadeDoRuntimeNoProjeto(raiz, runtime).capaz
+  const mesmo = capacidadeDaRotacao(raiz, runtime, true).capaz
     ? perfisDisponiveis(store, runtime).find(p => !recusados.has(chaveDoModelo(runtime, p.id, model))) : null;
   if (mesmo) return { runtime, perfil: perfilDeDespacho(mesmo), model, effort: null };
   for (const f of fallback) {
