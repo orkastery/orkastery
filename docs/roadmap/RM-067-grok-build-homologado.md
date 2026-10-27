@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-27T01:17:26-03:00
+atualizado_em: 2026-10-27T02:53:47-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -20,7 +20,7 @@ evidencias:
     commit: c3801f4
     pr: "#205"
 sdlc:
-  thread: ork-rm067f3perfi
+  thread: ork-rm067f4setup
   modo: "#Fast"
   fase: GO
   status: aberta
@@ -40,7 +40,7 @@ sdlc:
 
 **Pedido do dono de 19/10/2026:** "e também adicione o Grok Build, o agente CLI do Grok". Prioridade do dono em 25/10/2026: "Priorize RM-067 Grok Build além das que já estão em andamento".
 
-**Estado:** F1 e F2 entregues na thread `ork-grokbuild` e F3 na thread `ork-rm067f3perfi`, com testes sobre um `grok` simulado, porque a máquina não tem o runtime. A D1 foi decidida pelo dono em 27/10/2026 (alternativa b, a assinatura agora). F4 e F5 ficam para depois; meta, janela e piloto continuam a definir pelo dono. O que existe e o que falta estão em "Estado com evidências".
+**Estado:** F1 e F2 entregues na thread `ork-grokbuild`, F3 na thread `ork-rm067f3perfi` e a F4 em parte na thread `ork-rm067f4setup`, com testes sobre um `grok` simulado, porque a máquina não tem o runtime. A D1 foi decidida pelo dono em 27/10/2026 (alternativa b, a assinatura agora). Da F4, o host MCP do `grok` ficou de fora, porque muda contrato público e pede PLAN e CHECK; ele e a F5 ficam para depois, e meta, janela e piloto continuam a definir pelo dono. O que existe e o que falta estão em "Estado com evidências".
 
 **Decisão de condução:** uma página por runtime, porque cada um avança no próprio ritmo. O Google Antigravity tem a [RM-066](RM-066-google-antigravity-homologado.md).
 
@@ -75,7 +75,7 @@ As colunas "o que o runtime oferece" citam a fonte entre parênteses (lista em "
 | E5 | Cota esgotada não para a fase (RM-064, RM-063 F4): `runtime.quota-exhausted` só de erro estruturado do runtime (`core/src/conta-esgotada.ts`, `core/src/retry.ts`, `core/src/runtime-escada.ts`) | Cada assento pago tem um pool semanal; passado o incluído, o uso vira "Additional Usage", pago com créditos e com tetos de gasto, e a página de uso mostra a próxima renovação (G14) | A mensagem e o formato do CLI na cota esgotada: não confirmado. Sem o formato estruturado o sinal não é tipado e o `ork` não pode marcar o perfil. Desde a F3, nenhum texto do `grok` vira cota esgotada, e o `grok` fica fora da escada automática e do fallback até a F5 ler o formato |
 | E6 | `ork setup <modo> --bloco N --runtime R --model M --effort E` e fallback `runtime:modelo[:esforco]` (`core/src/setup.ts`); o modelo de um runtime não serve a outro | `-m` escolhe o modelo e `grok models` os lista; `--effort` aceita níveis de `none` a `max`, e cada modelo só aceita os que o próprio menu anuncia (G3, G4) | Mapear o esforço do Orkastery aos níveis aceitos por modelo e definir o modelo padrão do runtime, que o dono confirma |
 | E7 | Postura de sandbox (RM-047): o `runtime.sandbox` mais frouxo só despacha depois de `ork setup sandbox confirmar` (`docs/referencia/cli.md`); o filho nunca amplia o que a worktree permite | `--sandbox` com os perfis `off` (padrão), `workspace`, `read-only` e `strict`; Landlock no Linux (G7). Permissões por `--allow` e `--deny`; `--yolo` e `--permission-mode bypassPermissions` aprovam tudo (G4) | Escolher o mapeamento entre a postura do Orkastery e os perfis do `grok`, com `workspace` como piso e sem `--yolo` por padrão |
-| E8 | MCP do `ork` vinculado à thread e pacote de experiência (RM-016, RM-051): `ork mcp install --host` aceita hoje `claude-code` e `codex` (`core/src/mcp-install.ts`) | `grok mcp list`, `add`, `remove` e `doctor` (G3). Lê `AGENTS.md`, `CLAUDE.md` e `.grok/rules/` (G4); lê hooks de `.claude/settings.json` (G8) | Novo `host` no instalador do MCP, com o perfil filho e as ferramentas enumeradas. O local do arquivo de MCP do `grok` não foi lido nesta consulta. O `grok` só carrega o `AGENTS.md` da partida com a pasta confiada (`--trust`) (G4): a worktree da thread precisa dessa confiança |
+| E8 | MCP do `ork` vinculado à thread e pacote de experiência (RM-016, RM-051): `ork mcp install --host` aceita hoje `claude-code` e `codex` (`core/src/mcp-install.ts`) | `grok mcp list`, `add`, `remove` e `doctor` (G3). Lê `AGENTS.md`, `CLAUDE.md` e `.grok/rules/` (G4); lê hooks de `.claude/settings.json` (G8) | Novo `host` no instalador do MCP, com o perfil filho e as ferramentas enumeradas. O local do MCP, lido em 27/10/2026: `[mcp_servers.<nome>]` em `$GROK_HOME/config.toml` (padrão `~/.grok/config.toml`) ou em `.grok/config.toml` do projeto, procurado do cwd até a raiz do git (G5, G16); o headless não tem flag de MCP por sessão (G2, G4). O `grok` só carrega o `AGENTS.md` da partida com a pasta confiada (`--trust`) (G4, G17): entregue na F4 |
 | E9 | Playbook dos runtimes (RM-009): `core/src/playbook-capabilities.ts` descreve capacidades por runtime (`codex` ou `claude`) | Capacidades das linhas E1 a E8 | Acrescentar o `grok` ao playbook, com as lacunas acima marcadas |
 | E10 | Medição de consumo por runtime no #Noctum (RM-058 N6; `core/src/noctum-medicao.ts`): só o que o runtime gravou, nunca estimativa | `usage`, `num_turns` e `modelUsage` no `json` e no `end`. O custo (`total_cost_usd`) só aparece quando o servidor o informa por completo, hoje para tráfego de chave de API; pelo pool da assinatura costuma faltar (G4). `grok usage` mostra totais por turno (G4) | Percentual da cota: não confirmado. Sem medida estruturada o `ork` registra a lacuna da cota da sessão, como o `core/src/noctum-medicao.ts` já faz quando o runtime não a grava |
 
@@ -160,13 +160,27 @@ As provas usam o mesmo `grok` simulado da F1 e da F2, com um `GROK_HOME` tempor�
 - **Fora da F3:** as sessões `grok` não entram no inventário por conta (`ork sessions`, a carga do rodízio por carga, a medição do #Noctum); num projeto com o MCP do `ork`, o `ork retry` não rota o `grok` até a F4.
 - **Paridade:** os testes do `claude-bg` e do `codex` passam sem alteração.
 
+### F4 entregue em parte (thread `ork-rm067f4setup`)
+
+As provas usam o mesmo `grok` simulado (`core/test/rm067-grok-setup.test.ts`, `core/test/runtimes-grok.test.ts`, `core/test/grok.test.ts`).
+
+- **Setup (E6):** o `grok` é runtime de bloco e entra no fallback `grok:<modelo>[:esforço]` do `ork setup` (`RUNTIMES_DE_BLOCO` em `core/src/runtimes.ts`), sempre com o modelo dado pelo dono: trocar o runtime do bloco sem `--model` recusa, e o modelo do `claude-bg` nunca vira o do `grok`. O padrão do projeto (`runtime.adapter`) segue `claude-bg` e `codex`, e o manifesto com `adapter: grok` recusa. O modelo padrão do `grok` continua a definir pelo dono.
+- **Esforço:** o esforço do Orkastery vai ao `--effort` do `grok` com o mesmo nome (`low`, `medium`, `high`, `xhigh`, `max`, níveis canônicos do guia headless), e o `eco` vira `minimal`, para a escada de esforço seguir com degraus distintos. O menu de cada modelo só o runtime conhece (`grok models`): o nível que o modelo não anuncia é recusado pelo próprio `grok` no despacho.
+- **Sandbox (E7):** `workspace` é o piso; `read-only` vem de `runtime.sandbox: read-only` e do PLAN que fecha o bloco; `danger-full-access` vira `off` (sem sandbox) só com `ork setup sandbox confirmar danger-full-access` nesta máquina. Sem a confirmação, `ork phase run` e `ork retry` recusam com `runtime.sandbox-nao-confirmado`, como no `codex`. Nenhuma postura leva `--yolo`, `--always-approve` nem `--permission-mode`. O `strict` do `grok` não tem postura do Orkastery que o peça.
+- **Confiança da worktree (E8):** o comando leva `--trust` logo depois do `--cwd` da worktree da thread, e o `AGENTS.md` dela entra na partida headless (G4, G17). A confiança também liga, nessa pasta, as regras de permissão e os hooks de projeto que o `grok` lê; não aprova ferramenta nenhuma.
+- **Retry:** num projeto com o MCP do `ork`, o `grok` tem capacidade tipada `runtime.context.no-host`; a troca de perfil dentro do `grok` vale (`capacidadeDaRotacao` em `core/src/runtime-context.ts`), e o `ork retry` troca a conta dele como troca a dos outros runtimes. Como alvo de fallback de uma thread que tem o MCP, ele fica de fora, porque a sessão perderia o contexto.
+- **Inventário:** o `ork sessions` e a carga do rodízio leem as sessões `grok` pela pasta `sessions/` de cada `GROK_HOME`, só pelos nomes e pelo mtime do `updates.jsonl`, nunca o conteúdo; viva é a escrita nos últimos 30 min. A conta do processo do `grok` só entra quando essa pasta existe.
+- **Playbook e onboarding (E9):** a seção do `grok` em `docs/referencia/contratos/playbook-runtimes-i09.md` e a tabela de runtimes em `docs/guias/onboarding.md`, com a assinatura (D1 = b) e as lacunas.
+- **Paridade:** os testes do `claude-bg` e do `codex` passam sem alteração; o `ORDEM_DOS_RUNTIMES` (o padrão do projeto) não mudou.
+- **Fora desta thread:** o host MCP do `grok` (`ork mcp install --host grok` e `ork mcp serve --host grok`) e o `grok` no `ork_phase_run` do MCP. Os dois mudam `core/src/mcp-server.ts`, e listar o `grok` na tela do setup muda `core/src/setup.ts`; os dois arquivos são contrato público (`core/src/contrato-publico.ts`), que uma thread `#Fast` não commita. A decisão está no ledger da thread, e a F4b pede uma thread com PLAN e CHECK.
+
 ### O que falta
 
 - **Cota esgotada tipada:** o formato estruturado do erro de cota do `grok`, lido no ensaio real (F5); só com ele o `grok` entra na escada automática.
 - **Conferência de login:** um comando do próprio `grok` que diga o login sem o `ork` ler o `auth.json`, se o fornecedor documentar um.
-- **F4:** `ork setup` com o `grok`, o sandbox `off` e `strict` com a confirmação local, o host do MCP do `ork` (inclusive o `ork_phase_run` pelo MCP), as regras `--allow` e `--deny`, a confiança da worktree, o playbook e o onboarding. Sem o MCP, a sessão `grok` não grava o artefato da fase nem registra commit pelo núcleo, então a prova do `ork` ainda não fecha uma fase real.
+- **F4b, host MCP do `grok`:** `ork mcp install --host grok` grava `[mcp_servers.orkastery]` no `.grok/config.toml` do projeto (G5, G16), com o perfil filho; `ork mcp serve --host grok` só para a sessão filha, com as ferramentas enumeradas (as consultas, o `ork_git_status` e as mutações do filho, como no `claude-bg`); o `grok` no `ork_phase_run` do MCP; a lista de runtimes na tela do setup. Como o headless não tem flag de MCP por sessão, o servidor vinculado à thread vai num `.grok/config.toml` da worktree, fora do git, com `--allow MCPTool(orkastery__<ferramenta>)` só para as enumeradas, e o filho com `GROK_CLAUDE_MCPS_ENABLED=0` e `GROK_CURSOR_MCPS_ENABLED=0`, porque o `grok` também carrega, por padrão, o `.mcp.json` do projeto e o MCP do Claude e do Cursor (G5, G16). O MCP que a pessoa pôs no `config.toml` do próprio `GROK_HOME` segue carregando no filho, e o `ork` não edita esse arquivo. Sem o MCP, a sessão `grok` não grava o artefato da fase nem registra commit pelo núcleo, então a prova do `ork` ainda não fecha uma fase real.
 - **F5:** o ensaio real de homologação, que também confirma o `-s` com o id do `ork`, o formato do stream e o comportamento sem aprovação automática.
-- **Lacunas menores:** a retomada automática pelo `ork retry` com `-r`; o inventário de sessões vivas (`ork sessions`), o status do roadmap e a prova de vida do retry ainda não leem a sessão `grok` (quem impede a segunda sessão na worktree é o lease da condução, que só solta com o resultado); o pedido de impedimento do dono ainda manda o binário `claude` para o `grok`; com o MCP da F4, a prova do `ork` do `grok` precisa reler os eventos sob o lock da sessão, como o `claude-bg`; a medição de consumo do #Noctum.
+- **Lacunas menores:** a retomada automática pelo `ork retry` com `-r`; o status do roadmap e a prova de vida do retry ainda não leem a sessão `grok` (quem impede a segunda sessão na worktree é o lease da condução, que só solta com o resultado); o pedido de impedimento do dono ainda manda o binário `claude` para o `grok`; com o MCP da F4, a prova do `ork` do `grok` precisa reler os eventos sob o lock da sessão, como o `claude-bg`; a medição de consumo do #Noctum.
 
 ### Fontes
 
@@ -181,16 +195,18 @@ Consultadas em 19/10/2026.
 - G7: <https://docs.x.ai/build/features/sandbox>
 - G8: <https://docs.x.ai/build/features/hooks>
 - G14: <https://docs.x.ai/x-subscription/usage-limits>
+- G16: o guia `07-mcp-servers` do repositório oficial (`crates/codegen/xai-grok-pager/docs/user-guide/07-mcp-servers.md` em <https://github.com/xai-org/grok-build>) e <https://docs.x.ai/build/features/mcp-servers>, consultados em 27/10/2026
+- G17: os guias `12-project-rules`, `18-sandbox` e `22-permissions-and-safety` do mesmo repositório, consultados em 27/10/2026
 - G15: <https://x.ai/legal/acceptable-use-policy;> a página oficial devolveu acesso negado ao leitor automático, e a cláusula foi lida numa cópia do arquivo da web (`web.archive.org`) da mesma página
 - npm: <https://registry.npmjs.org/@xai-official/grok/latest>
 
-Pontos que a página não confirma: a GA; a mensagem e o formato do CLI na cota esgotada; o local do arquivo de MCP; se o login de assinatura num orquestrador de terceiros é "autorizado".
+Pontos que a página não confirma: a GA; a mensagem e o formato do CLI na cota esgotada; o menu de esforço de cada modelo; se a confiança dada por `--trust` com o sandbox ligado é só da sessão (o guia de sandbox diz que o arquivo de confiança fica só leitura sob os perfis com sandbox); se o login de assinatura num orquestrador de terceiros é "autorizado".
 
 ## Responsabilidades e histórico
 
-- **RACI (R / A / C / I):** R: condutor da thread `ork-runtimesnovo` para a página, da thread `ork-grokbuild` para F1 e F2 e da thread `ork-rm067f3perfi` para F3; A: Julio; C: A definir; I: A definir.
-- **Agentes envolvidos, atuação, autonomia e revisor humano:** a página foi redigida por agente em #Fast, a partir do pedido do dono e das fontes citadas; F1 e F2 foram implementadas por agente em #Auto na thread `ork-grokbuild`, e F3 em #Fast na thread `ork-rm067f3perfi`, com testes sobre o `grok` simulado; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** Julio define meta, janela e piloto; a F4 pode começar. Sem prazo definido.
+- **RACI (R / A / C / I):** R: condutor da thread `ork-runtimesnovo` para a página, da thread `ork-grokbuild` para F1 e F2, da thread `ork-rm067f3perfi` para F3 e da thread `ork-rm067f4setup` para a F4; A: Julio; C: A definir; I: A definir.
+- **Agentes envolvidos, atuação, autonomia e revisor humano:** a página foi redigida por agente em #Fast, a partir do pedido do dono e das fontes citadas; F1 e F2 foram implementadas por agente em #Auto na thread `ork-grokbuild`, F3 em #Fast na thread `ork-rm067f3perfi` e a F4 em #Fast na thread `ork-rm067f4setup`, com testes sobre o `grok` simulado; revisor humano: Julio.
+- **Próxima ação, responsável e prazo:** Julio define meta, janela e piloto, o modelo padrão do `grok` e quando abrir a thread da F4b (host MCP, com PLAN e CHECK). Sem prazo definido.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -198,3 +214,4 @@ Pontos que a página não confirma: a GA; a mensagem e o formato do CLI na cota 
 | 2026-10-25 | F1 e F2 entregues na thread `ork-grokbuild`, com o `grok` simulado; F3 a F5 seguem propostas, e a F3 espera a D1 | Prioridade do dono de 25/10/2026; testes do adaptador, do stream, do registro, do watcher e de ponta a ponta | Julio |
 | 2026-10-27 | D1 decidida: alternativa b, a assinatura agora, com o risco da política de uso aceito; a D1 deixa de bloquear | Resposta "3.b" do dono no terminal, em 27/10/2026 | Julio |
 | 2026-10-27 | F3 entregue na thread `ork-rm067f3perfi`, com o `grok` simulado; o `grok` fica fora da escada automática e do fallback até a F5 confirmar o formato da cota | Pedido do dono de 27/10/2026; `core/test/rm067-grok-perfis.test.ts` | Julio |
+| 2026-10-27 | F4 entregue em parte na thread `ork-rm067f4setup`: setup de bloco e fallback, esforço, sandbox com confirmação, `--trust`, troca de perfil no retry, inventário, playbook e onboarding; o host MCP do `grok` vira F4b, porque muda contrato público | Pedido do dono de 27/10/2026; `core/test/rm067-grok-setup.test.ts`; recusa `mcp.git.contract.protected` do commit `#Fast` | Julio |

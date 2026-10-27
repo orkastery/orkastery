@@ -27,6 +27,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   perfil entra sem conferência prévia, e o erro de login do despacho o tira. O formato da cota esgotada do `grok` não
   está confirmado: nenhum texto dele vira cota esgotada, e o `grok` fica fora da escada automática e do fallback até o
   ensaio real (F5). O `claude-bg` e o `codex` não mudam.
+- **Grok Build no setup do bloco** ([RM-067](docs/roadmap/RM-067-grok-build-homologado.md), F4): `ork setup <modo>
+  --bloco N --runtime grok --model <modelo>` e o fallback `grok:<modelo>[:esforço]` aceitam o `grok`, sempre com o
+  modelo do dono e nunca como `runtime.adapter`; o `eco` vira `minimal` no `--effort`. A postura `danger-full-access`
+  vira o sandbox `off` do `grok` só com `ork setup sandbox confirmar`, senão o despacho recusa com
+  `runtime.sandbox-nao-confirmado`; o comando confia a worktree (`--trust`), e o `AGENTS.md` dela entra na partida. O
+  `ork retry` troca o perfil do `grok` também num projeto com o MCP do `ork`, e o `ork sessions` lista as sessões dele.
+  O host MCP do `grok` fica para uma thread com CHECK. O `claude-bg` e o `codex` não mudam.
 
 ### Corrigido
 

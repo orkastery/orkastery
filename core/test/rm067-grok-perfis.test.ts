@@ -2,7 +2,7 @@
  * RM-067 (F3 da ork-rm067f3perfi): perfis de conta do `grok`, login pelo proprio CLI e cota esgotada. A maquina nao tem o
  * `grok` (P1 da F1): tudo roda com o `grok` falso de `grok-falso.ts`, cada perfil com o seu `GROK_HOME` temporario.
  *
- *   - GP1: o store aceita o perfil `grok` com `grokHome`, e o inventario de sessoes por conta segue sem ele;
+ *   - GP1: o store aceita o perfil `grok` com `grokHome`, e desde a F4 o inventario de sessoes consulta a conta dele;
  *   - GP2: com dois perfis simulados, esgotar o primeiro move a thread para o segundo, e o `auth.json` nao sai do perfil;
  *   - GP3: perfil de outro estado nao recebe despacho, a frase de cota do `grok` nao marca o perfil e a escada nao troca a
  *     conta do `grok`;
@@ -73,7 +73,7 @@ function arquivos(raiz: string): string[] {
   return achados;
 }
 
-test('GP1: o store aceita o perfil grok com grokHome, e o inventario de sessoes por conta segue sem ele', () => {
+test('GP1: o store aceita o perfil grok com grokHome, e o inventario de sessoes consulta a conta dele (F4)', () => {
   const c = cenario('store');
   try {
     const casa = c.perfil('g1');
@@ -85,9 +85,10 @@ test('GP1: o store aceita o perfil grok com grokHome, e o inventario de sessoes 
     assert.throws(() => adicionarPerfil(c.p.dir, { id: 'g2', runtime: 'grok', dir: casa }), /ja ha|mesmo diretorio/i);
     assert.equal(diretorioImplicito('grok', { GROK_HOME: '/srv/casa-grok' }), '/srv/casa-grok');
     assert.ok(diretorioImplicito('grok', {}).endsWith(`${path.sep}.grok`));
-    assert.deepEqual([...RUNTIMES_COM_INVENTARIO], ['claude-bg', 'codex']);
-    assert.equal(contasDeSessoes(c.p.dir).contas.some((x) => x.runtime === 'grok'), false,
-      'o inventario de sessoes do grok ainda nao existe: a conta dele nao vira consulta de outro runtime');
+    assert.deepEqual([...RUNTIMES_COM_INVENTARIO], ['claude-bg', 'codex'], 'o #Noctum segue medindo so estes');
+    const grok = contasDeSessoes(c.p.dir).contas.filter((x) => x.runtime === 'grok');
+    assert.deepEqual(grok.map((x) => [x.perfil?.id, x.dir]), [['g1', casa]],
+      'a conta do perfil grok e consultada como grok, nunca como consulta de outro runtime');
   } finally { c.limpar(); }
 });
 
@@ -195,7 +196,7 @@ test('GP3: perfil de outro estado nao recebe despacho, a frase de cota nao marca
     const despacho = { promptPath: 'p.md', promptSha256: 'x'.repeat(64), runtime: 'grok',
       perfil: { id: 'd', runtime: 'grok' as const, grokHome: path.join(c.stub.dir, 'casa-d') }, model: 'grok-modelo', effort: null };
     assert.deepEqual(planoDoDegrau(c.p.carregado, lerThread(c.p.dir, c.t.id), 'GOAL', 3, despacho, []),
-      { pulo: 'runtime-so-por-pedido' });
+      { pulo: 'cota-sem-sinal-tipado' });
   } finally { c.limpar(); }
 });
 

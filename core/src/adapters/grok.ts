@@ -15,6 +15,7 @@ import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { ambienteDeAssinatura, ENVS_DE_PROVIDER_PAGO } from '../runtime-ambiente';
 import { ambienteComPerfil, PerfilDeDespacho } from '../runtime-profiles';
+import { SessaoRuntime } from '../types';
 import { exec as executar, noPath } from '../util';
 import { DespachoResultado, parseRateLimit, StatusDeAuth } from './claude-bg';
 import { estadoProcesso, iniciarSupervisor, ProcessoCodex, ReciboCodex } from './codex-runner';
@@ -33,16 +34,36 @@ export const FONTE_VERIFICACAO = 'pasta da sessao em $GROK_HOME/sessions';
 export const ENVS_REMOVIDAS_DO_DESPACHO = [...ENVS_DE_PROVIDER_PAGO, 'XAI_API_KEY'] as const;
 
 /**
- * D3: a postura de sandbox do manifesto (vocabulário do Codex) no perfil do `grok` (`--sandbox`). `workspace` é o piso
- * (E7 da RM-067): o `danger-full-access` existe pelo bubblewrap do Codex, e o `grok` usa Landlock. `off` e `strict`
- * ficam para a F4, com a confirmação local da máquina.
+ * D3 e F4 (E7 da RM-067): a postura de sandbox do manifesto (vocabulário do Codex) no perfil do `grok` (`--sandbox`).
+ * `workspace` é o piso, o perfil de toda postura que não afrouxa (o `grok` usa Landlock, não o bubblewrap do Codex). A
+ * postura mais frouxa (`danger-full-access`) vira `off`, sem sandbox, e só despacha com `ork setup sandbox confirmar`
+ * nesta máquina: sem a confirmação, o `ork phase run` e o `ork retry` recusam com `runtime.sandbox-nao-confirmado`
+ * (`postura-local.ts`) antes de montar o comando. O `strict` do `grok` não tem postura do Orkastery que o peça. Nenhuma
+ * postura aprova tudo: nunca `--yolo`, `--always-approve` nem `--permission-mode bypassPermissions`.
  */
 export const PERFIL_DE_SANDBOX_DO_GROK: Readonly<Record<string, string>> = Object.freeze({
   'read-only': 'read-only',
   'workspace-write': 'workspace',
-  'danger-full-access': 'workspace',
+  'danger-full-access': 'off',
 });
 export const PERFIL_DE_SANDBOX_PADRAO = 'workspace';
+
+/**
+ * RM-067 (F4, E6): o esforço do Orkastery nos níveis canônicos do `grok` (`none`, `minimal`, `low`, `medium`, `high`,
+ * `xhigh`, `max`, no guia headless). O `eco` vira `minimal`, para a escada de esforço (`eco` antes de `low`) seguir com
+ * degraus distintos; os outros cinco têm o mesmo nome. Cada modelo só aceita os níveis que o próprio menu anuncia, e esse
+ * menu só o runtime conhece (`grok models`): o nível que o modelo não anuncia é recusado pelo próprio `grok` no despacho.
+ * Valor fora da tabela vai como veio, porque o `grok` também aceita o id de uma opção do menu do modelo.
+ */
+export const ESFORCO_DO_GROK: Readonly<Record<string, string>> = Object.freeze({
+  eco: 'minimal', low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', max: 'max',
+});
+
+/** O nível do `--effort` do `grok` para o esforço do Orkastery (E6). */
+export function esforcoDoGrok(effort: string): string {
+  const chave = effort.trim().toLowerCase();
+  return Object.hasOwn(ESFORCO_DO_GROK, chave) ? ESFORCO_DO_GROK[chave] : effort.trim();
+}
 
 /** D6: quanto o despacho espera a pasta da sessão ou o recibo do supervisor. */
 export const ESPERA_PADRAO_MS = 60_000;
@@ -153,13 +174,19 @@ export function perfilDeSandbox(sandbox: string | undefined, colaboracao?: 'plan
 /**
  * D2: a linha de comando exata do despacho (usada também pelo `--dry-run`). O prompt fica no argumento 2, que o ledger
  * mascara. Nunca `--yolo`, `--always-approve` nem `--permission-mode`.
+ *
+ * RM-067 (F4, E8): `--trust` confia a pasta do `--cwd`, a worktree da thread, que é o checkout do próprio projeto. O guia
+ * de regras de projeto do `grok` diz que o `AGENTS.md` só carrega na partida com a pasta confiada (`--trust` ou a
+ * concessão interativa, que o headless não tem), e o de permissões diz que a partida headless com instruções do projeto
+ * exige `--trust`. A confiança também liga, nessa pasta, as regras de permissão do projeto e os hooks de projeto que o
+ * `grok` lê; não aprova ferramenta nenhuma.
  */
 export function montarComando(pedido: DespachoGrokPedido): string[] {
   const args = ['-p', pedido.prompt, '--output-format', 'streaming-json'];
   if (pedido.sessionId) args.push('-s', pedido.sessionId);
-  args.push('--cwd', pedido.cwd);
+  args.push('--cwd', pedido.cwd, '--trust');
   if (pedido.model) args.push('-m', pedido.model);
-  if (pedido.effort) args.push('--effort', pedido.effort);
+  if (pedido.effort?.trim()) args.push('--effort', esforcoDoGrok(pedido.effort));
   args.push('--sandbox', perfilDeSandbox(pedido.sandbox, pedido.colaboracao), '--no-auto-update');
   return ['grok', ...args];
 }
@@ -205,6 +232,54 @@ export function acharSessaoGrok(sessionId: string, casa: string = casaDoGrok()):
     } catch { /* o grupo não tem a sessão */ }
   }
   return achadas.length === 1 ? achadas[0] : null;
+}
+
+/** RM-067 (F4): o que o inventário leu de uma conta do `grok`. */
+export interface ConsultaDeSessoesGrok {
+  ok: boolean;
+  /** A pasta `sessions/` da casa ainda não existe: a conta nunca abriu sessão nesta máquina. */
+  ausente: boolean;
+  sessoes: SessaoRuntime[];
+  detalhe: string;
+}
+
+/**
+ * RM-067 (F4): as sessões de uma casa do `grok` para o inventário (`ork sessions`), pela fonte que o próprio runtime grava:
+ * cada pasta `<casa>/sessions/<grupo>/<id>/` com o `updates.jsonl`. Como na prova de existência (D5), o `ork` lista nomes
+ * e lê o mtime e o tamanho do arquivo, nunca o conteúdo; a atividade é o mtime. O grupo é o cwd codificado, cuja
+ * codificação o guia não documenta, então o cwd da sessão fica sem valor. Link e entrada estranha deixam a consulta
+ * parcial (`ok: false`), nunca "zero sessões".
+ */
+export function consultarSessoesGrok(casa: string = casaDoGrok()): ConsultaDeSessoesGrok {
+  const raiz = path.join(casa, 'sessions');
+  let grupos: fs.Dirent[];
+  try {
+    const st = fs.lstatSync(raiz);
+    if (!st.isDirectory()) return { ok: false, ausente: false, sessoes: [], detalhe: 'sessions nao e pasta comum' };
+    grupos = fs.readdirSync(raiz, { withFileTypes: true });
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return { ok: true, ausente: true, sessoes: [], detalhe: 'sem a pasta sessions' };
+    return { ok: false, ausente: false, sessoes: [], detalhe: 'pasta sessions inacessivel' };
+  }
+  const sessoes: SessaoRuntime[] = [];
+  let parcial = false;
+  for (const grupo of grupos) {
+    if (!grupo.isDirectory()) { parcial ||= grupo.isSymbolicLink(); continue; }
+    let ids: fs.Dirent[];
+    try { ids = fs.readdirSync(path.join(raiz, grupo.name), { withFileTypes: true }); }
+    catch { parcial = true; continue; }
+    for (const id of ids) {
+      if (!ID_DE_SESSAO.test(id.name)) continue;
+      if (!id.isDirectory()) { parcial ||= id.isSymbolicLink(); continue; }
+      try {
+        const st = fs.lstatSync(path.join(raiz, grupo.name, id.name, 'updates.jsonl'));
+        if (st.isFile()) sessoes.push({ sessionId: id.name, kind: 'grok', atividadeEm: st.mtimeMs });
+        else parcial = true;
+      } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') parcial = true; }
+    }
+  }
+  return { ok: !parcial, ausente: false, sessoes,
+    detalhe: parcial ? 'inventario parcial; a pasta sessions tem link ou entrada ilegivel' : '' };
 }
 
 /** JSON pequeno de metadado do supervisor, sem seguir link; ausente ou ilegível vira `null`. */

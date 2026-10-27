@@ -279,8 +279,8 @@ export const RETRY_PT_BR = {
       'adaptador-ausente': 'nenhum fallback tem adaptador instalado neste projeto',
       'fallback-sem-destino': 'nenhum alvo do fallback do bloco tem perfil disponivel',
       'sem-outro-perfil': 'o runtime nao tem outro perfil disponivel',
-      'runtime-so-por-pedido': 'o runtime so despacha por pedido explicito e fica fora da troca automatica de conta' } as
-      Record<'sem-fallback' | 'adaptador-ausente' | 'fallback-sem-destino' | 'sem-outro-perfil' | 'runtime-so-por-pedido', string>,
+      'cota-sem-sinal-tipado': 'o runtime ainda nao tipa a cota esgotada e fica fora da troca automatica de conta' } as
+      Record<'sem-fallback' | 'adaptador-ausente' | 'fallback-sem-destino' | 'sem-outro-perfil' | 'cota-sem-sinal-tipado', string>,
     resultados: { redespachada: 'redespachada', falhou: 'falhou', pulado: 'pulado', interrompido: 'interrompido' } as
       Record<'redespachada' | 'falhou' | 'pulado' | 'interrompido', string>,
     linhaDoDegrau: (n: number, tipo: string, resultado: string, motivo: string | null) =>
@@ -555,7 +555,7 @@ export const RETRY_EN: typeof RETRY_PT_BR = {
     pulos: { 'sem-fallback': 'the block has no runtime fallback', 'adaptador-ausente': 'no fallback has an adapter installed in this project',
       'fallback-sem-destino': 'no target of the block fallback has an available profile',
       'sem-outro-perfil': 'the runtime has no other available profile',
-      'runtime-so-por-pedido': 'the runtime only dispatches on explicit request and stays out of the automatic account switch' },
+      'cota-sem-sinal-tipado': 'the runtime does not type the exhausted quota yet and stays out of the automatic account switch' },
     resultados: { redespachada: 'dispatched again', falhou: 'failed', pulado: 'skipped', interrompido: 'interrupted' },
     linhaDoDegrau: (n, tipo, resultado, motivo) => `step ${n} (${tipo}): ${resultado}${motivo ? ` (${motivo})` : ''}`,
     noPlano: (n, tipo) => `  ladder          step ${n} of 3, ${tipo}`,

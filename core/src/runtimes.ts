@@ -10,8 +10,9 @@
  *   codex      o segundo runtime: `codex exec` headless desanexado, sessao verificada no
  *              rollout que o proprio Codex grava (homologado em 06/09/2026).
  *   grok       RM-067 (F1 e F2): o Grok Build headless, `grok -p` com `streaming-json`, sessao
- *              verificada na pasta que o proprio runtime grava. So por pedido explicito
- *              (`--runtime grok`): nunca padrao de bloco nem alvo de fallback (D1 da ork-grokbuild).
+ *              verificada na pasta que o proprio runtime grava. Desde a F4, runtime de bloco e de
+ *              fallback no `ork setup`, sempre com o modelo dado pelo dono; nunca o padrao do projeto
+ *              (`runtime.adapter`), que segue com o claude-bg e o codex.
  *
  * Paridade sem downgrade: o contrato do claude-bg nao muda com a chegada do codex, e todo
  * runtime novo entra por aqui com o MESMO contrato de despacho (dry-run, rate limit
@@ -122,24 +123,36 @@ export const RUNTIMES: Readonly<Record<string, RuntimeAdapter>> = {
 };
 
 /**
- * Os runtimes de bloco, na ordem de maturidade (o padrao primeiro): os unicos que o setup aceita
- * como runtime ou fallback de bloco e o manifesto aceita em `runtime.adapter`.
+ * Os runtimes que podem ser o padrao do projeto (`runtime.adapter` do manifesto), na ordem de maturidade (o padrao
+ * primeiro). RM-067 (F4): o grok fica fora, porque fazer dele o runtime padrao esta fora do escopo da RM-067 e ele nao tem
+ * modelo padrao.
  */
 export const ORDEM_DOS_RUNTIMES: readonly string[] = ['claude-bg', 'codex'];
 
 /**
- * RM-067 (D1 da ork-grokbuild): homologados so para despacho explicito (`ork phase run --runtime`). Resolvem por nome,
- * mas nao sao padrao de bloco, nem fallback, nem `runtime.adapter`.
+ * Os runtimes que o setup aceita como runtime ou fallback de bloco. RM-067 (F4): os do padrao e o grok, este sempre com o
+ * modelo dado pelo dono (o setup exige `--model` ao trocar o runtime, e a entrada de fallback e `runtime:modelo[:esforco]`).
  */
-export const RUNTIMES_SO_POR_PEDIDO: readonly string[] = ['grok'];
+export const RUNTIMES_DE_BLOCO: readonly string[] = [...ORDEM_DOS_RUNTIMES, 'grok'];
+
+/**
+ * RM-067 (F3): runtimes cuja cota esgotada ainda nao vem tipada do proprio runtime. A escada automatica nunca troca a conta
+ * deles: sem o sinal tipado, nada prova que o perfil esgotou. O grok sai daqui quando a F5 ler o formato estruturado.
+ */
+export const RUNTIMES_SEM_COTA_TIPADA: readonly string[] = ['grok'];
 
 /** O nome e de um runtime homologado (resolve por nome no despacho)? */
 export function runtimeConhecido(nome: string): boolean {
   return Object.prototype.hasOwnProperty.call(RUNTIMES, nome);
 }
 
-/** O runtime pode ser runtime de bloco, fallback ou `runtime.adapter` do manifesto? */
+/** O runtime pode ser runtime de bloco ou fallback no setup? */
 export function runtimeDeBloco(nome: string): boolean {
+  return RUNTIMES_DE_BLOCO.includes(nome);
+}
+
+/** O runtime pode ser o `runtime.adapter` do manifesto? */
+export function runtimeDoManifesto(nome: string): boolean {
   return ORDEM_DOS_RUNTIMES.includes(nome);
 }
 
@@ -147,7 +160,7 @@ export function runtimeDeBloco(nome: string): boolean {
 export function resolverRuntime(nome: string): RuntimeAdapter {
   const adapter = runtimeConhecido(nome) ? RUNTIMES[nome] : undefined;
   if (!adapter) {
-    throw new ErroDoCatalogo((m) => m.phase.runtimeDesconhecido(nome, [...ORDEM_DOS_RUNTIMES, ...RUNTIMES_SO_POR_PEDIDO].join(', ')));
+    throw new ErroDoCatalogo((m) => m.phase.runtimeDesconhecido(nome, RUNTIMES_DE_BLOCO.join(', ')));
   }
   return adapter;
 }
