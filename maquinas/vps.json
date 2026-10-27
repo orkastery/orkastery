@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.0",
-  "publicadoEm": "2026-10-27T10:16:37.494Z",
+  "publicadoEm": "2026-10-27T10:16:42.696Z",
   "threads": [
     {
       "id": "ork-orkcheck3min",
@@ -98,11 +98,11 @@
       "id": "ork-rm067f4bhost",
       "nome": "rm067f4b",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": "RM-067",
       "branch": "ork/ork-rm067f4bhost-full",
-      "atualizadaEm": "2026-10-27T09:20:31.316Z",
+      "atualizadaEm": "2026-10-27T10:16:42.263Z",
       "entregue": "406188c6",
       "esperaVoce": false,
       "pergunta": null,
@@ -110,24 +110,6 @@
       "runtime": "claude-bg",
       "modelo": "opus",
       "esforco": "max",
-      "sessao": null
-    },
-    {
-      "id": "ork-rm067f4setup",
-      "nome": "rm067f4",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": "RM-067",
-      "branch": "ork/ork-rm067f4setup-go",
-      "atualizadaEm": "2026-10-27T06:25:08.823Z",
-      "entregue": "cf78c30d",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "high",
       "sessao": null
     },
     {
