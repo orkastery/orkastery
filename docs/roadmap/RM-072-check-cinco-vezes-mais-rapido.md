@@ -47,7 +47,7 @@ sdlc:
 - **Os dois modos (D2):** o Classic Check fica como o CHECK de hoje, com os mesmos comandos, a mesma ordem e as mesmas ferramentas, e só ganha medição; o Agile Check, novo e padrão a partir do lançamento, leva tudo das fatias 1 e 2. Onde esta página diz "no lugar de", vale "no Agile Check, em vez de".
 - **Objetivo/OKR:** a fase CHECK deixa de ser o gargalo do ciclo, e o `ork` entrega uma versão a mais por dia sem aumentar o consumo de CPU da máquina.
 - **Hipótese:** se o Agile Check separar as lanes de teste, parar de recompilar por claim, rodar a varredura em paralelo com cache persistente e trocar as peças caras por equivalentes nativos, então o mesmo gate fecha cinco vezes mais rápido mantendo 100% dos arquivos de teste e das categorias de varredura, porque o custo hoje é redundância (o scan roda duas vezes, o build até cinco) e empacotamento ruim (eficiência de paralelismo de 54,5%, 436% de 800% de CPU), não trabalho útil.
-- **Métrica principal / linha de base / meta / janela / fonte:** a razão entre a parede do Classic Check e a do Agile Check num `ork verify` completo, na mesma máquina e no mesmo commit. Linha de base: o Classic Check (razão 1). Meta desta página: 5 vezes, com a mesma cobertura; a primeira versão a escreveu em tempo de parede contra a linha de base de 24/10/2026. Não atingida (1,43 a 1,52 vez): pela D3, a meta seguiu para a [RM-074](RM-074-agile-check-em-3-minutos.md), que o dono fixou em 27/10/2026 em pelo menos 3 vezes o Classic. Janela: três rodadas consecutivas do Agile Check depois da fatia 2. Fonte: `verify_run` no ledger, que grava `duracaoMs` por comando, por claim e da rodada nos dois modos desde a thread `ork-check5x`. Pela regra do dono de 27/10/2026, a duração absoluta fica no ledger como evidência bruta, e o texto diz razão e percentual, que não dependem da máquina.
+- **Métrica principal / linha de base / meta / janela / fonte:** a razão entre a parede do Classic Check e a do Agile Check num `ork verify` completo, na mesma máquina e no mesmo commit. Linha de base: o Classic Check (razão 1). Meta desta página: 5 vezes, com a mesma cobertura; a primeira versão a escreveu em tempo de parede contra a linha de base de 24/10/2026. Não atingida (1,43 a 1,52 vez): pela D3, a meta seguiu para a [RM-074](RM-074-agile-check-tres-vezes-mais-rapido.md), que o dono fixou em 27/10/2026 em pelo menos 3 vezes o Classic. Janela: três rodadas consecutivas do Agile Check depois da fatia 2. Fonte: `verify_run` no ledger, que grava `duracaoMs` por comando, por claim e da rodada nos dois modos desde a thread `ork-check5x`. Pela regra do dono de 27/10/2026, a duração absoluta fica no ledger como evidência bruta, e o texto diz razão e percentual, que não dependem da máquina.
 - **Métricas de proteção:** o gate executa os mesmos arquivos de teste da linha de base (628 no glob do `npm test` na base `b16c5be8`, 608 na lane hermética e 20 na de integração) e o mesmo conjunto de testes; as nove ferramentas de varredura continuam declaradas e comparadas por impressão digital contra a base; nenhum achado novo ou desaparecido além do que a linha de base já registra; nenhuma ferramenta sai do catálogo sem substituto de cobertura equivalente; a suíte de CI hermética (`test:ci`) continua com o mesmo conjunto de arquivos. A primeira versão desta página dizia 350 arquivos; a contagem do glob na base é 628.
 
 ## Medição da linha de base (24/10/2026)
@@ -110,8 +110,8 @@ O paralelismo do grupo também tem teto: com a lane hermética, a de integraçã
   - as nove ferramentas de varredura continuam rodando no Agile, comparadas por impressão digital: zero achado novo ou desaparecido em relação à base;
   - `tsgo` só entra ligado no Agile se o typecheck for idêntico ao do `tsc` 5.9.3 no mesmo commit (mesmo conjunto de erros e nenhum erro novo);
   - `oxlint` só substitui o `eslint` no que ele cobre; regra type-aware continua coberta por quem a cobre hoje;
-  - o Agile Check completo fica 5 vezes mais rápido que a linha de base em três rodadas consecutivas, medido pelo ledger, com o build da worktree numa cópia descartável do projeto (não atingido: 1,43 a 1,52 vez o Classic no mesmo commit; segue na [RM-074](RM-074-agile-check-em-3-minutos.md), pela D3, com a meta de pelo menos 3 vezes o Classic na mesma máquina, decidida pelo dono em 27/10/2026);
-  - a máquina não passa de 4 GB de pico agregado no CHECK (não atingido: o pico do Agile ficou de 12% a 23% acima do do Classic, de 4,5 a 4,9 GiB; aceito pelo condutor nesta máquina de 31 GB e levado para a [RM-074](RM-074-agile-check-em-3-minutos.md), pela D3).
+  - o Agile Check completo fica 5 vezes mais rápido que a linha de base em três rodadas consecutivas, medido pelo ledger, com o build da worktree numa cópia descartável do projeto (não atingido: 1,43 a 1,52 vez o Classic no mesmo commit; segue na [RM-074](RM-074-agile-check-tres-vezes-mais-rapido.md), pela D3, com a meta de pelo menos 3 vezes o Classic na mesma máquina, decidida pelo dono em 27/10/2026);
+  - a máquina não passa de 4 GB de pico agregado no CHECK (não atingido: o pico do Agile ficou de 12% a 23% acima do do Classic, de 4,5 a 4,9 GiB; aceito pelo condutor nesta máquina de 31 GB e levado para a [RM-074](RM-074-agile-check-tres-vezes-mais-rapido.md), pela D3).
 - **Piloto, medição e critérios de expansão/interrupção:** piloto nas threads do próprio Orkastery por três rodadas de CHECK. Interrompe e volta ao dono se algum critério de paridade falhar, se o typecheck divergir do `tsc`, ou se a meta de 5 vezes não for atingida na fatia 2 (nesse caso a fatia 3 vira necessária e a meta é renegociada com o dono, sem reduzir cobertura). Frente sem paridade não entra no Agile por padrão: fica atrás de flag, e o desvio é registrado.
 
 ## Plano e decisões
@@ -155,7 +155,7 @@ O paralelismo do grupo também tem teto: com a lane hermética, a de integraçã
 **D3. Lançar com F1 e F2; a meta de tempo vai para uma RM nova. Decidida pelo dono em 24/10/2026, às 13:23 (resposta 3a no Telegram, transmitida pelo condutor).** Diante da medição do GO, o dono escolheu lançar o ganho medido em vez de segurar a entrega. Consequências:
 
 1. O Agile Check entra como padrão com as fatias 1 e 2, e o Classic Check continua disponível por `check.mode: classic` ou `--check classic`.
-2. A meta de tempo fica registrada como não atingida (o Agile mediu de 1,43 a 1,52 vez o Classic no mesmo commit) e vai para uma RM nova, a [RM-074](RM-074-agile-check-em-3-minutos.md), com a fatia 3 (seletividade) e o piso de CPU da suíte (com paralelismo perfeito, 42% da parede do Classic).
+2. A meta de tempo fica registrada como não atingida (o Agile mediu de 1,43 a 1,52 vez o Classic no mesmo commit) e vai para uma RM nova, a [RM-074](RM-074-agile-check-tres-vezes-mais-rapido.md), com a fatia 3 (seletividade) e o piso de CPU da suíte (com paralelismo perfeito, 42% da parede do Classic).
 3. O pico de 4,5 a 4,9 GiB do Agile fica registrado como não atingido contra os 4 GB e foi aceito pelo condutor nesta máquina de 31 GB; o teto de uma ferramenta por vez na varredura do grupo fica para a mesma RM nova.
 
 ### Dívida aceita no CHECK
@@ -183,7 +183,7 @@ O CHECK da `ork-check5x` teve quatro rodadas com GO-FIX e, a partir da quinta, o
 
 ## Estado com evidências
 
-- Em produção na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026): o Agile Check é o CHECK padrão, e o Classic Check volta com `check.mode: classic` no `orkastery.yaml` ou com `ork verify --check classic`. A meta de desempenho e a de memória seguem na [RM-074](RM-074-agile-check-em-3-minutos.md), pela D3.
+- Em produção na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026): o Agile Check é o CHECK padrão, e o Classic Check volta com `check.mode: classic` no `orkastery.yaml` ou com `ork verify --check classic`. A meta de desempenho e a de memória seguem na [RM-074](RM-074-agile-check-tres-vezes-mais-rapido.md), pela D3.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -205,7 +205,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: condutor da thread `ork-check5x`; A: Julio; C: A definir; I: A definir.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** análise e medição da linha de base feitas por Hermes em 24/10/2026 a pedido do dono; a implementação vai pela thread `#Auto` `ork-check5x`; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** nenhuma de entrega nesta página: o Agile Check está na versão 0.6.0, e a meta de desempenho e a de memória seguem na [RM-074](RM-074-agile-check-em-3-minutos.md); responsável: Julio; sem data definida.
+- **Próxima ação, responsável e prazo:** nenhuma de entrega nesta página: o Agile Check está na versão 0.6.0, e a meta de desempenho e a de memória seguem na [RM-074](RM-074-agile-check-tres-vezes-mais-rapido.md); responsável: Julio; sem data definida.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |

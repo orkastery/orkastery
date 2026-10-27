@@ -157,7 +157,7 @@ Cada fatia é um PR com teste hermético e uma linha no `CHANGELOG.md`. Nenhuma 
 
 | Item | Por que | Estado e bloqueio |
 | --- | --- | --- |
-| [RM-072](RM-072-check-cinco-vezes-mais-rapido.md) (Agile Check) | A F1 liga à F3 dela (mapa de impacto de teste por arquivo e lanes), que seguiu para a [RM-074](RM-074-agile-check-em-3-minutos.md). Se o CHECK completo chegar à meta da RM-074 (pelo menos 3 vezes o Classic na mesma máquina), o ganho da F1 diminui, e a medição dela é a régua | Em produção na 0.6.0, com o Agile Check como CHECK padrão. Bloqueio: nenhum para a M0 |
+| [RM-072](RM-072-check-cinco-vezes-mais-rapido.md) (Agile Check) | A F1 liga à F3 dela (mapa de impacto de teste por arquivo e lanes), que seguiu para a [RM-074](RM-074-agile-check-tres-vezes-mais-rapido.md). Se o CHECK completo chegar à meta da RM-074 (pelo menos 3 vezes o Classic na mesma máquina), o ganho da F1 diminui, e a medição dela é a régua | Em produção na 0.6.0, com o Agile Check como CHECK padrão. Bloqueio: nenhum para a M0 |
 | [RM-071](RM-071-relatorio-da-esteira-do-sdlc.md) | A F2 precisa dos tokens, minutos e conta por fase (F2 da RM-071) | Em Discovery. Bloqueia a F2, não as outras |
 | [RM-048](RM-048-hitl-humano-no-centro.md) e [RM-057](RM-057-hitl-por-alternativas.md) | O formato da pergunta ao dono (curta, com recomendação, 3 a 5 alternativas) é o contrato da F4 | Em validação e em desenvolvimento. Nenhum bloqueio |
 | [RM-058](RM-058-modo-noctum.md) | O arco do #Noctum é a unidade do teto de custo por arco e consome as decisões de esforço e de HITL | Em desenvolvimento. Nenhum bloqueio |
