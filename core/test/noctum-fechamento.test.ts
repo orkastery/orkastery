@@ -110,7 +110,9 @@ test('FE16: fila local vazia não fecha com trabalho vivo em outra máquina', { 
   const p = projetoTemporario('noctum-fe16');
   try {
     const t = threads(p, 1);
-    autorizarPedido(p.dir, 'arco-fe16', pedidoV3('arco-fe16', { trabalhos: t.trabalhos,
+    const trabalhos = [{ id: 't1', item: 'RM-901', prioridade: 1, dependeDe: [],
+      pedido: 'Trabalho 1 SIMULADO do fechamento.' }];
+    autorizarPedido(p.dir, 'arco-fe16', pedidoV3('arco-fe16', { trabalhos,
       maquinas: [identidadeDaMaquina(p.dir, MAQUINA), { nome: 'maquina-b', chave: chaveSimulada('fe16-b') }], tetoDoArco: 10,
       maquina: 10, contas: [{ conta: 'perfil-a', sessoes: 10 }], global: [{ conta: 'perfil-a', sessoes: 10 }] }));
     gravarThread(p.dir, { ...lerThread(p.dir, t.ids[0]), status: 'fechada' });
