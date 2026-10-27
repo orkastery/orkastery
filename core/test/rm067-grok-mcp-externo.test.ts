@@ -27,6 +27,7 @@ import { dirThread, novaThread } from '../src/thread';
 import { lerLedger } from '../src/ledger';
 import { rodarFase } from '../src/phase';
 import { adicionarPerfil } from '../src/runtime-profiles';
+import { AVISO_DA_RETOMADA_COM_MCP } from '../src/session-watcher-grok';
 import { projetoTemporario, ProjetoDeTeste } from './apoio';
 import { esperarCondicao } from './controller-simulado';
 import { grokFalso } from './grok-falso';
@@ -394,5 +395,33 @@ test('GX6: a config que ficaria visivel ao git recusa depois de o servidor subir
     assert.equal(recibo.motivo, 'sinal', 'encerrado pelo despacho');
     esperarCondicao(() => estadoProcesso(recibo.processo) === 'ausente', 20000);
     assert.deepEqual(fs.readdirSync(sessoes).filter((f) => f.endsWith('.grok-mcp.token')), [], 'nenhum token sobra');
+  } finally { p.limpar(); stub.restaurar(); }
+});
+
+test('GX7: a sessao com o MCP interrompida vai ao dono com a retomada, e o aviso diz que o servidor terminou com ela', () => {
+  const stub = grokFalso('gx7-retomada');
+  const p = projetoTemporario('gx7-retomada');
+  try {
+    instalarMcp({ projeto: p.dir, host: 'grok' });
+    const t = novaThread(p.carregado, { nome: 'gx7', modo: 'auto', criarWorktree: true }).thread;
+    stub.stream('cortado.jsonl');
+    stub.sinal('TERM');
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'Fixture SIMULADA da interrupcao', runtime: 'grok', model: 'grok-modelo' });
+    assert.ok(r.sessionId, r.erro);
+    const resultado = resultadoDaFase(p, t.id, r.sessionId!);
+    assert.equal(resultado.motivo, 'human.pending');
+    const detalhe = String(resultado.detalhe);
+    const aviso = detalhe.indexOf(AVISO_DA_RETOMADA_COM_MCP);
+    assert.ok(aviso >= 0, detalhe);
+    assert.ok(aviso < detalhe.indexOf('; retomada: '), 'o aviso vem antes do comando, que as telas cortam no fim');
+    assert.match(AVISO_DA_RETOMADA_COM_MCP, /servidor MCP do ork terminou com a sessao/);
+    assert.match(AVISO_DA_RETOMADA_COM_MCP, /ork retry, que sobe outro servidor e reescreve a config/);
+    // O servidor terminou com a sessao: a config que a retomada manual reusa aponta para um token que nao existe mais.
+    const arquivos = doDespacho(p, t.id, r.sessionId!);
+    esperarCondicao(() => lerReciboServidorGrok(arquivos.reciboPath)?.estado === 'encerrado', 20000);
+    assert.equal(fs.existsSync(arquivos.tokenPath), false);
+    const entrada = (parse(fs.readFileSync(path.join(t.worktree!, '.grok', 'config.toml'), 'utf8')) as
+      { mcp_servers: Record<string, Record<string, unknown>> }).mcp_servers.orkastery;
+    assert.equal(entrada.bearer_token_file, arquivos.tokenPath, 'a retomada manual so acha o caminho do token apagado');
   } finally { p.limpar(); stub.restaurar(); }
 });
