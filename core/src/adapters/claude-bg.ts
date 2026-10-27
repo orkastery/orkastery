@@ -43,8 +43,8 @@ export function semContextoDeDespacho(base: NodeJS.ProcessEnv, contexto?: Record
   return env;
 }
 
-/** Consultas do perfil interactive; gates e respostas humanas nunca recebem grant. */
-const CONSULTAS_MCP = [
+/** Consultas do perfil interactive; gates e respostas humanas nunca recebem grant. RM-067 (F4b): o grok usa as mesmas. */
+export const CONSULTAS_MCP = [
   'mcp__orkastery__ork_thread_status',
   'mcp__orkastery__ork_phase_list',
   'mcp__orkastery__ork_hitl_pending',
@@ -53,7 +53,7 @@ const CONSULTAS_MCP = [
   'mcp__orkastery__ork_claims_list',
 ] as const;
 // RM-037 (defeito 1): a decisao autonoma pelo MCP tem o mesmo grant nos dois runtimes.
-const MUTACOES_WORKTREE = [
+export const MUTACOES_WORKTREE = [
   'mcp__orkastery__ork_artifact_write', 'mcp__orkastery__ork_claim_add', 'mcp__orkastery__ork_decision_record',
   'mcp__orkastery__ork_git_commit', 'mcp__orkastery__ork_verify', 'mcp__orkastery__ork_ship',
 ] as const;

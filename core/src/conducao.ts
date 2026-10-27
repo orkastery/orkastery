@@ -58,6 +58,11 @@ export const CANAIS_DE_CONDUCAO: Readonly<Record<CanalDeConducao, { origem: stri
     origem: 'sessao do Codex',
     declaracao: 'servidor MCP iniciado com --host codex',
   },
+  // RM-067 (F4b, G5): o servidor do grok so serve a sessao filha; o canal e o do host dele, como no codex.
+  grok: {
+    origem: 'sessao filha do Grok Build',
+    declaracao: 'servidor MCP iniciado com --host grok, so na sessao filha vinculada a thread',
+  },
   mcp: {
     origem: 'cliente MCP sem host homologado',
     declaracao: 'reservado: o servidor MCP atual exige host homologado e declara o canal dele',

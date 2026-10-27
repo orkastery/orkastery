@@ -102,10 +102,12 @@ test('o prazo vem do teto da operacao e e renovado com a operacao viva, com even
   } finally { p.limpar(); }
 });
 
-test('o registro de canais e fechado: os seis canais, e canal fora dele e recusado com motivo tipado', () => {
+test('o registro de canais e fechado: os sete canais, e canal fora dele e recusado com motivo tipado', () => {
   // Exaustividade em tempo de compilacao: canal novo no tipo sem entrada aqui nao compila.
-  const todos: Record<CanalDeConducao, true> = { 'claude-code': true, hermes: true, openclaw: true, codex: true, mcp: true, cli: true };
+  // RM-067 (F4b): o grok e o setimo, o do servidor MCP da sessao filha do Grok Build.
+  const todos: Record<CanalDeConducao, true> = { 'claude-code': true, hermes: true, openclaw: true, codex: true, grok: true, mcp: true, cli: true };
   assert.deepEqual(Object.keys(CANAIS_DE_CONDUCAO).sort(), Object.keys(todos).sort());
+  assert.equal(validarCanal('grok'), 'grok');
   assert.throws(() => validarCanal('telegram'), new RegExp(ERRO_CANAL_DESCONHECIDO));
   assert.equal(canalDoProcesso(undefined, {}), 'cli');
   assert.equal(canalDoProcesso(undefined, { ORK_CANAL: 'openclaw' }), 'openclaw');

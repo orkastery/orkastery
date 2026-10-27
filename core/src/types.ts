@@ -793,9 +793,10 @@ export interface Lease {
 
 /**
  * I-36 (D5): os canais por onde o UNICO Maestro conduz a fabrica. Registro fechado: canal fora
- * dele e recusado, nunca inferido. Canal descreve a porta e NAO concede autoridade.
+ * dele e recusado, nunca inferido. Canal descreve a porta e NAO concede autoridade. RM-067 (F4b): o `grok` e o
+ * canal do servidor MCP da sessao filha do Grok Build.
  */
-export type CanalDeConducao = 'claude-code' | 'hermes' | 'openclaw' | 'codex' | 'mcp' | 'cli';
+export type CanalDeConducao = 'claude-code' | 'hermes' | 'openclaw' | 'codex' | 'grok' | 'mcp' | 'cli';
 
 /** I-36: a operacao que segura o lease de execucao. */
 export type OperacaoDeConducao =

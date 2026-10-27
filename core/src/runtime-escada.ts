@@ -195,7 +195,8 @@ export function planoDoDegrau(carregado: ManifestoCarregado, thread: Thread, fas
     return { pulo: 'fallback-sem-destino' };
   }
   // RM-067 (F3, F4): o runtime sem cota esgotada tipada (o grok) fica fora do degrau "outra conta": a escada nunca troca a
-  // conta dele, ate o formato da cota esgotada ser confirmado no ensaio real. Como alvo de fallback ele vale (degrau 2).
+  // conta dele, ate o formato da cota esgotada ser confirmado no ensaio real. Como alvo de fallback ele vale no projeto sem o
+  // MCP do ork (degrau 2); no preparado, a capacidade o deixa fora, pelo sandbox (RM-067, F4b).
   if (RUNTIMES_SEM_COTA_TIPADA.includes(despacho.runtime)) return { pulo: 'cota-sem-sinal-tipado' };
   // Degrau 3: outra conta do runtime que falhou. O diretorio de cada conta e o que separa um daemon do outro. Os perfis
   // tentados sao os efetivos (o redespacho sem perfil pedido escolhe um, e e ele que falhou); o despacho que nasceu sem
