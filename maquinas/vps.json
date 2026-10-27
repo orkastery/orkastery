@@ -4,8 +4,30 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.0",
-  "publicadoEm": "2026-10-27T03:23:55.797Z",
+  "publicadoEm": "2026-10-27T03:28:01.643Z",
   "threads": [
+    {
+      "id": "ork-docsda060emp",
+      "nome": "docs060",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-docsda060emp-go",
+      "atualizadaEm": "2026-10-27T03:27:55.906Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-27T03:28:01.087Z",
+        "motivo": "nenhuma sessão despachada na fase GO"
+      }
+    },
     {
       "id": "ork-orkcheck3min",
       "nome": "ork-check3min",
@@ -90,7 +112,7 @@
       "esforco": null,
       "sessao": {
         "viva": false,
-        "desdeEm": "2026-10-27T03:23:55.405Z",
+        "desdeEm": "2026-10-27T03:24:32.180Z",
         "motivo": "nenhuma sessão despachada na fase GO"
       }
     },
@@ -134,7 +156,7 @@
       "esforco": null,
       "sessao": {
         "viva": false,
-        "desdeEm": "2026-10-27T03:23:45.894Z",
+        "desdeEm": "2026-10-27T03:24:04.981Z",
         "motivo": "nenhuma sessão despachada na fase GO"
       }
     }

@@ -5,11 +5,12 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado | Sessão |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| vps | ork-orkcheck3min | #Fast | GO | claude-bg sonnet/high | RM-074 | — | 27/10 00:23 | parada desde 26/10 06:29: sessão eb78020e sem processo (fantasma) |
-| vps | ork-orkdocrm067 | #Fast | GO | sem despacho | — | — | 27/10 00:23 | parada desde 26/10 02:45: nenhuma sessão despachada na fase GO |
-| vps | ork-orkretryperf | #Fast | GO | codex gpt-5.6-sol/xhigh | — | — | 27/10 00:23 | parada desde 26/10 08:22: sessão 01a177ba encerrada (completed) |
-| vps | ork-registrarprr | #Fast | GO | sem despacho | — | — | 27/10 00:23 | parada desde 00:23: nenhuma sessão despachada na fase GO |
-| vps | ork-rm058blocob | #Auto | GO | claude-bg opus/max | RM-058 | — | 27/10 00:23 | parada desde 24/10 23:50: sessão 59482a30 sem processo (fantasma) |
-| vps | ork-rm067f3perfi | #Fast | GO | sem despacho | RM-067 | — | 27/10 00:23 | parada desde 00:23: nenhuma sessão despachada na fase GO |
+| vps | ork-docsda060emp | #Fast | GO | sem despacho | — | — | 27/10 00:28 | parada desde 00:28: nenhuma sessão despachada na fase GO |
+| vps | ork-orkcheck3min | #Fast | GO | claude-bg sonnet/high | RM-074 | — | 27/10 00:28 | parada desde 26/10 06:29: sessão eb78020e sem processo (fantasma) |
+| vps | ork-orkdocrm067 | #Fast | GO | sem despacho | — | — | 27/10 00:28 | parada desde 26/10 02:45: nenhuma sessão despachada na fase GO |
+| vps | ork-orkretryperf | #Fast | GO | codex gpt-5.6-sol/xhigh | — | — | 27/10 00:28 | parada desde 26/10 08:22: sessão 01a177ba encerrada (completed) |
+| vps | ork-registrarprr | #Fast | GO | sem despacho | — | — | 27/10 00:28 | parada desde 00:24: nenhuma sessão despachada na fase GO |
+| vps | ork-rm058blocob | #Auto | GO | claude-bg opus/max | RM-058 | — | 27/10 00:28 | parada desde 24/10 23:50: sessão 59482a30 sem processo (fantasma) |
+| vps | ork-rm067f3perfi | #Fast | GO | sem despacho | RM-067 | — | 27/10 00:28 | parada desde 00:24: nenhuma sessão despachada na fase GO |
 
 Horários de Brasília.
