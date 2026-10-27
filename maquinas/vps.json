@@ -4,26 +4,8 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.0",
-  "publicadoEm": "2026-10-27T10:16:27.607Z",
+  "publicadoEm": "2026-10-27T10:16:32.449Z",
   "threads": [
-    {
-      "id": "ork-docsda060emp",
-      "nome": "docs060",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-docsda060emp-go",
-      "atualizadaEm": "2026-10-27T04:42:12.040Z",
-      "entregue": "6402399a",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "high",
-      "sessao": null
-    },
     {
       "id": "ork-orkcheck3min",
       "nome": "ork-check3min",
