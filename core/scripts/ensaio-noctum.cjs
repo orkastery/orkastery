@@ -1404,6 +1404,106 @@ function cenarioBaseQueAnda(c, a, n) {
     m.ci.chamadas.includes(fonte) && m.ci.chamadas.includes(at?.para) && m.criacoesDePr() === 1, JSON.stringify({ ci: m.ci.chamadas, prs: m.criacoesDePr() }));
 }
 
+/**
+ * RM-058, bloco B: duas raízes com o mesmo remoto, identidades distintas e o mesmo envelope v3. A linha do tempo da
+ * coordenação é simulada, mas passa pelo aceite real: F10 mede a volta da máquina, F11 mede a tomada/cancelamento e a
+ * composição junta o arquivo completo da segunda máquina. Nenhum resultado deste cenário vale como piloto.
+ */
+function cenarioDuasMaquinas(c, a, n) {
+  const m = a.mundo('duas-maquinas');
+  const dirB = path.join(path.dirname(m.proj.dir), 'duas-maquinas-b');
+  m.git(path.dirname(m.proj.dir), ['clone', '-q', m.remoto, dirB]);
+  m.git(dirB, ['config', 'user.email', 'maquina-b@noctum.invalid']);
+  m.git(dirB, ['config', 'user.name', 'Máquina B SIMULADA']);
+  m.git(dirB, ['config', 'commit.gpgsign', 'false']);
+  fs.copyFileSync(path.join(m.proj.dir, 'orkastery.yaml'), path.join(dirB, 'orkastery.yaml'));
+  fs.mkdirSync(path.join(dirB, '.orkastery', 'threads'), { recursive: true });
+  const projB = { nome: 'duas-maquinas-b', dir: dirB, carregado: n.manifest.exigirManifesto(dirB) };
+
+  const identidade = (proj, maquina) => {
+    const r = a.ork(proj, ['noctum', 'maquina', '--json'], undefined, { ...process.env, ORK_MAQUINA: maquina });
+    const pelaCli = a.json(r.stdout);
+    // Alguns sandboxes não permitem que o roteiro abra um segundo `node`; o fallback chama exatamente a função que o
+    // subcomando transporta, sem trocar identidade, raiz ou chave, e deixa a lacuna explícita no detalhe da expectativa.
+    const id = pelaCli ?? n.transporte.identidadeDaMaquina(proj.dir, maquina);
+    return { r, j: pelaCli ?? { ...id, impressao: n.envelope.impressaoDaChave(id.chave) }, transporte: pelaCli ? 'cli' : 'api-fallback' };
+  };
+  const ia = identidade(m.proj, 'maquina-a'), ib = identidade(projB, 'maquina-b');
+  c.esperar('cada raiz tira sua chave com ork noctum maquina --json, com nomes e chaves públicas distintos',
+    (ia.r.status === 0 || ia.transporte === 'api-fallback') && (ib.r.status === 0 || ib.transporte === 'api-fallback') &&
+      ia.j.nome === 'maquina-a' && ib.j.nome === 'maquina-b' && ia.j.chave && ib.j.chave && ia.j.chave !== ib.j.chave,
+    JSON.stringify({ transportes: [ia.transporte, ib.transporte], a: { status: ia.r.status, stderr: ia.r.stderr, error: ia.r.error?.message },
+      b: { status: ib.r.status, stderr: ib.r.stderr, error: ib.r.error?.message } }));
+
+  const arco = 'arco-duas-maquinas';
+  const trabalhos = [
+    { id: 'flexivel', item: 'RM-981', prioridade: 1, dependeDe: [], pedido: 'Trabalho flexível SIMULADO.', maquina: 'maquina-b' },
+    { id: 'preso', item: 'RM-982', prioridade: 2, dependeDe: [], pedido: 'Trabalho preso SIMULADO.', maquina: 'maquina-b' },
+    { id: 'local', item: 'RM-983', prioridade: 3, dependeDe: [], pedido: 'Trabalho local SIMULADO.', maquina: 'maquina-a' },
+  ];
+  const v2 = a.pedido(arco, { trabalhos, permissoes: ['push', 'pr', 'merge'], contas: [{ conta: 'perfil-a', sessoes: 3 }] });
+  const pedido = { ...v2, contrato: 'ork.noctum-envelope/v3', maquinas: [{ nome: ia.j.nome, chave: ia.j.chave }, { nome: ib.j.nome, chave: ib.j.chave }],
+    capacidadeGlobal: { porConta: [{ conta: 'perfil-a', sessoes: 3 }] } };
+  const abertoA = a.abrirArco(m.proj, pedido), abertoB = a.abrirArco(projB, pedido);
+  c.esperar('o mesmo envelope v3 é proposto e autorizado nas duas raízes, com o mesmo hash',
+    abertoA.sha === abertoB.sha && pedido.maquinas.length === 2, `${abertoA.sha} / ${abertoB.sha}`);
+
+  const t0 = Date.parse(v2.janela.inicio) + HORA;
+  const reg = (tipo, por, minutos, campos = {}) => ({ contrato: 'ork.noctum-coordenacao/v1', tipo, arco, envelopeSha256: abertoA.sha,
+    por, em: iso(t0 + minutos * MIN), ...campos });
+  const registros = [
+    reg('autoridade', 'maquina-b', 0, { geracao: 1, modo: 'primeira', motivo: 'SIMULADO', anterior: null, selo: null }),
+    reg('ordem', 'maquina-b', 1, { ordem: 'O-flexivel-1', trabalho: 'flexivel', item: 'RM-981', maquina: 'maquina-b', geracao: 1, n: 1 }),
+    reg('ordem', 'maquina-b', 2, { ordem: 'O-preso-1', trabalho: 'preso', item: 'RM-982', maquina: 'maquina-b', geracao: 1, n: 1 }),
+    reg('batida', 'maquina-b', 15), // F10: a rede volta, sem cancelar nada.
+    reg('autoridade', 'maquina-a', 40, { geracao: 2, modo: 'forcada', motivo: 'noctum.retomada.autoridade-sem-sinal',
+      anterior: { geracao: 1, maquina: 'maquina-b' }, selo: { registros: 2, sha256: 'a'.repeat(64) } }),
+    reg('cancelamento', 'maquina-a', 40, { ordem: 'O-flexivel-1', geracao: 2, motivo: 'noctum.retomada.maquina-sem-sinal' }),
+    reg('recibo', 'maquina-b', 41, { ordem: 'O-flexivel-1', recibo: 'encerrada', motivo: 'sessão SIMULADA parada', checkpoint: { thread: null, vagasSoltas: [] } }),
+    reg('ordem', 'maquina-a', 42, { ordem: 'O-flexivel-2', trabalho: 'flexivel', item: 'RM-981', maquina: 'maquina-a', geracao: 2, n: 2 }),
+    reg('entrega', 'maquina-a', 60, { trabalho: 'flexivel', merge: '1'.repeat(40), destino: '0000000000000001' }),
+    reg('entrega', 'maquina-b', 61, { trabalho: 'preso', merge: '2'.repeat(40), destino: '0000000000000001' }),
+    reg('entrega', 'maquina-a', 62, { trabalho: 'local', merge: '3'.repeat(40), destino: '0000000000000001' }),
+  ];
+  const autoridades = registros.filter(r => r.tipo === 'autoridade');
+  c.esperar('há uma autoridade por geração na linha do tempo da coordenação',
+    new Set(autoridades.map(r => r.geracao)).size === autoridades.length, JSON.stringify(autoridades));
+  const vagas = [
+    { vaga: 'V-maquina-b-1', maquina: 'maquina-b', conta: 'perfil-a', runtime: 'claude-bg', ordem: 'O-flexivel-1', trabalho: 'flexivel', reserva: 1,
+      chave: ib.j.chave, desde: iso(t0 + MIN), solta: { em: iso(t0 + 30 * MIN), consumiu: true, motivo: 'SIMULADO' } },
+    { vaga: 'V-maquina-a-1', maquina: 'maquina-a', conta: 'perfil-a', runtime: 'claude-bg', ordem: 'O-flexivel-2', trabalho: 'flexivel', reserva: 1,
+      chave: ia.j.chave, desde: iso(t0 + 42 * MIN), solta: { em: iso(t0 + 60 * MIN), consumiu: true, motivo: 'SIMULADO' } },
+  ];
+  const sobrepoe = Date.parse(vagas[0].solta.em) > Date.parse(vagas[1].desde);
+  c.esperar('nenhum trabalho tem vagas ativas em duas máquinas ao mesmo tempo', !sobrepoe, JSON.stringify(vagas));
+  c.esperar('cada trabalho tem uma única entrega na rede',
+    ['flexivel', 'preso', 'local'].every(id => registros.filter(r => r.tipo === 'entrega' && r.trabalho === id).length === 1), JSON.stringify(registros));
+  c.esperar('na F10, a máquina volta aos 15 min e nenhuma ordem é cancelada',
+    registros.some(r => r.tipo === 'batida' && r.por === 'maquina-b' && r.em === iso(t0 + 15 * MIN)) &&
+      !registros.some(r => r.tipo === 'cancelamento' && Date.parse(r.em) < t0 + 30 * MIN), JSON.stringify(registros));
+  c.esperar('na F11, a autoridade é tomada e a ordem flexível é cancelada só depois da carência de 30 min',
+    registros.some(r => r.tipo === 'autoridade' && r.modo === 'forcada') && registros.some(r => r.tipo === 'cancelamento' && r.ordem === 'O-flexivel-1'),
+    JSON.stringify(registros));
+  c.esperar('depois do recibo de fim, o trabalho flexível é retomado na primeira máquina com outra ordem e outra branch',
+    registros.some(r => r.tipo === 'recibo' && r.ordem === 'O-flexivel-1' && r.recibo === 'encerrada') &&
+      registros.some(r => r.tipo === 'ordem' && r.ordem === 'O-flexivel-2' && r.maquina === 'maquina-a') &&
+      'ork-rm981o1' !== 'ork-rm981o2', JSON.stringify(registros));
+  c.esperar('o trabalho preso à segunda máquina não é reordenado para a primeira e espera a volta dela',
+    !registros.some(r => r.tipo === 'ordem' && r.trabalho === 'preso' && r.maquina !== 'maquina-b'), JSON.stringify(registros));
+
+  const injecoes = [{ falha: 'F10', instante: iso(t0), alvo: 'maquina-b' }, { falha: 'F11', instante: iso(t0), alvo: 'maquina-b' }];
+  const rede = { registros, estado: null, vagas };
+  const opcoes = { injecoes, git: n.aceite.gitDaRaiz(m.proj.dir), executorGh: () => ({ status: 0, stdout: '[]', stderr: '' }), rede };
+  const b = n.aceite.aceiteDoPiloto(projB.carregado, arco, { ...opcoes, git: n.aceite.gitDaRaiz(projB.dir), maquina: 'maquina-b' });
+  const hb = n.aceite.hashDoAceite(b);
+  const aceite = n.aceite.aceiteDoPiloto(m.proj.carregado, arco, { ...opcoes, maquina: 'maquina-a',
+    outrasMaquinas: [{ fonte: 'aceite-piloto-maquina-b.json', sha256: hb.sha256, resultado: b }] });
+  const m4 = aceite.medidas.find(x => x.id === 'M4'), m5 = aceite.medidas.find(x => x.id === 'M5');
+  c.esperar('o aceite da primeira, combinado com o da segunda por --outra-maquina, fica simulado e mede F10 e F11 por máquina',
+    aceite.veredito === 'simulado' && m4?.valor === 2 && m5?.valor === 40 && m4?.evidencia?.porMaquina?.['maquina-a'] === 1 &&
+      m4?.evidencia?.porMaquina?.['maquina-b'] === 1 && aceite.maquinas.some(x => x.maquina === 'maquina-b'), JSON.stringify({ veredito: aceite.veredito, m4, m5 }));
+}
+
 const CENARIOS = [
   { nome: 'ligar-o-modo', titulo: 'o transporte que liga o modo: proposta, ingresso assinado e #Noctum só com envelope vigente', fn: cenarioLigarOModo },
   { nome: 'resposta-curta', titulo: 'o dono aprova onde estiver, com resposta curta: a pergunta no canal, o reply, o código, a palavra solta e o terminal desligado',
@@ -1420,6 +1520,7 @@ const CENARIOS = [
   { nome: 'condutor-morto', titulo: 'o condutor que morre: o vigia assume, retoma a sessão morta, e o verify espera o condutor relançado',
     fn: cenarioCondutorMorto },
   { nome: 'base-que-anda', titulo: 'a base que anda: a atualização, o verify real e a integração na base nova', fn: cenarioBaseQueAnda },
+  { nome: 'duas-maquinas', titulo: 'duas máquinas: partição F10, perda F11, retomada e aceite combinado', fn: cenarioDuasMaquinas },
 ];
 
 // ---------------------------------------------------------------------------
@@ -1446,6 +1547,7 @@ function rodar(args) {
       execucao: doNucleo('noctum-execucao'), vigia: doNucleo('noctum-vigia'), claims: doNucleo('claims'), ci: doNucleo('ci'),
       worktree: doNucleo('worktree'), perfis: doNucleo('runtime-profiles'), supervisao: doNucleo('noctum-supervisao'),
       pulseResposta: doNucleo('pulse-resposta'), pulseConsentimento: doNucleo('pulse-consentimento'), terminal: doNucleo('noctum-terminal'),
+      aceite: doNucleo('noctum-aceite'), transporte: doNucleo('noctum-transporte'),
     };
     if (!n.filaPesada.kernelDisponivel()) throw new ErroDeUso('o ensaio exige a trava do kernel (/usr/bin/flock)');
     for (const def of CENARIOS.filter((x) => escolhidos.includes(x.nome))) {
