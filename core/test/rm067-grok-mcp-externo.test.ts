@@ -595,7 +595,7 @@ test('GX12: a recusa da conferencia fecha a conexao, e o log das recusas tem tet
   } finally { sock?.destroy(); b.limpar(); }
 });
 
-test('GX13: o pedido em pipeline que fica sem resposta, depois da recusa com Connection: close, nao segura o fecho do servidor', async () => {
+test('GX13: os pedidos em pipeline que ficam sem resposta, depois da recusa com Connection: close, nao seguram o fecho nem enchem o log', async () => {
   const b = bancada('gx13-pipeline', { grok: 'sleep' });
   let sock: net.Socket | undefined;
   try {
@@ -608,12 +608,14 @@ test('GX13: o pedido em pipeline que fica sem resposta, depois da recusa com Con
     const corpo = JSON.stringify(INICIO);
     const pedido = `POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:${b.s.porta}\r\nAuthorization: Bearer ${b.token}\r\nContent-Type: application/json\r\n` +
       `Accept: application/json, text/event-stream\r\nContent-Length: ${Buffer.byteLength(corpo)}\r\n\r\n${corpo}`;
-    // Tres pedidos de uma vez: o primeiro recebe o 403 com Connection: close, e as respostas dos outros nunca ganham o socket.
-    sock.write(pedido + pedido + pedido);
+    // Doze pedidos de uma vez: o primeiro recebe o 403 com Connection: close, e as respostas dos outros nunca ganham o socket.
+    sock.write(pedido.repeat(12));
     await esperarAte(() => fechou, 20000);
     // O despacho encerra o servidor: sem pedido preso na conta, ele sai na hora, sem o teto de 10 min do fecho.
     b.s.encerrar();
     esperarCondicao(() => lerReciboServidorGrok(b.s.reciboPath)?.estado === 'encerrado', 15000);
     assert.equal(lerReciboServidorGrok(b.s.reciboPath)?.motivo, 'sinal');
+    // GO-FIX 5: um ouvinte de close por socket, e nao um por pedido: o aviso de ouvintes demais do Node nao vai ao log.
+    assert.equal(logDoServidor(b).includes('MaxListenersExceededWarning'), false, logDoServidor(b));
   } finally { sock?.destroy(); b.limpar(); }
 });

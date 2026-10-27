@@ -320,6 +320,21 @@ export async function servirGrok(pedido: PedidoServidorGrok, token: string): Pro
     void veredito.then((aceita) => { if (!aceita) aceitas.delete(socket); }, () => { aceitas.delete(socket); });
     return veredito;
   };
+  // GO-FIX 5: um ouvinte de `close` por socket, que solta os pedidos pendentes dele, e não um por pedido: com dez ou mais
+  // pedidos em pipeline, o aviso de ouvintes demais do Node iria ao log por fora do teto das recusas.
+  const pendentesPorSocket = new WeakMap<object, Set<() => void>>();
+  const aoFecharOSocket = (socket: NodeJS.EventEmitter, soltar: () => void): (() => void) => {
+    let pendentes = pendentesPorSocket.get(socket);
+    if (!pendentes) {
+      const novos = new Set<() => void>();
+      pendentesPorSocket.set(socket, novos);
+      socket.once('close', () => { for (const f of [...novos]) f(); });
+      pendentes = novos;
+    }
+    const doSocket = pendentes;
+    doSocket.add(soltar);
+    return () => { doSocket.delete(soltar); };
+  };
   let porta = 0;
   const servidor = http.createServer((req, res) => { void atender(req, res); });
   servidor.keepAliveTimeout = CONEXAO_OCIOSA_MS;
@@ -337,16 +352,17 @@ export async function servirGrok(pedido: PedidoServidorGrok, token: string): Pro
     // `Connection: close`, ou com o cliente caindo no meio), até o socket fechar; uma vez só, na sessão também.
     let contada: SessaoMcp | undefined;
     let descontado = false;
+    let largarDoSocket: () => void = () => undefined;
     const descontar = () => {
       if (descontado) return;
       descontado = true;
       emAndamento--;
       if (contada) contada.emCurso--;
-      req.socket.off('close', descontar);
+      largarDoSocket();
     };
     emAndamento++;
     res.once('close', descontar);
-    req.socket.once('close', descontar);
+    largarDoSocket = aoFecharOSocket(req.socket, descontar);
     try {
       // GO-FIX 4: a recusa fecha a conexão, e cada nova tentativa custa outra conexão e outra conferência.
       if (pedido.conferirProcesso && !(await conferirConexao(req.socket))) {
