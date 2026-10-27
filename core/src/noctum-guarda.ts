@@ -31,7 +31,7 @@ import { exigirManifesto } from './manifest';
 import { ArcoComProposta, EstadoDoArco, lerArcoComProposta, SituacaoDoArco } from './noctum-arco';
 import { sessoesEmVooDoArco } from './noctum-sessoes-em-voo';
 import { ConteudoDoEnvelope, envelopeMultimaquina, ID_DO_ARCO, RecusaDoArco, shaDoPedido, Trabalho } from './noctum-envelope';
-import { lerRede, RedeDoArco } from './noctum-rede';
+import type { RedeDoArco } from './noctum-rede';
 import { dirThread, lerThread } from './thread';
 import { EventoLedger } from './types';
 
@@ -155,6 +155,15 @@ function redeDoArco(arco: string, arcos: ArcosDaRaiz, ler: (arco: string) => Red
 }
 
 /**
+ * A fila carrega a Sentinela, que carrega esta guarda. Resolver a projeção só quando uma thread de arco v3 encerrado
+ * realmente precisar dela evita o ciclo de inicialização fila -> guarda -> rede -> coordenação -> fila.
+ */
+function lerRedePadrao(raiz: string, arco: string, quando: string): RedeDoArco {
+  const { lerRede } = require('./noctum-rede') as typeof import('./noctum-rede');
+  return lerRede(exigirManifesto(raiz), arco, { quando });
+}
+
+/**
  * Os vínculos da thread com os arcos lidos, um por arco, na ordem das origens: a lista do envelope vigente, a da proposta
  * no prazo, o log de despachos e a correlação do último despacho (`ultimo`, quando o chamador já a leu).
  */
@@ -217,7 +226,7 @@ export function guardaDaThread(raiz: string, thread: string, quando = new Date()
       if (!lido?.estado.conteudo || !envelopeMultimaquina(lido.estado.conteudo)) continue;
       const trabalho = trabalhoDaThread(lido.estado, thread, dados);
       if (!trabalho) continue;
-      const rede = redeDoArco(t.arco, arcos, opcoes.lerRede ?? ((arco) => lerRede(exigirManifesto(raiz), arco, { quando: arcos.quando })));
+      const rede = redeDoArco(t.arco, arcos, opcoes.lerRede ?? ((arco) => lerRedePadrao(raiz, arco, arcos.quando)));
       if (typeof rede === 'string' || rede.lacuna) {
         const falha = typeof rede === 'string' ? rede : `${rede.lacuna!.motivo}: ${rede.lacuna!.detalhe}`;
         return recusa(MOTIVO_DA_REDE_ILEGIVEL, thread, t.arco, t.situacao, 'rede',
