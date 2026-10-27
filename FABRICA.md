@@ -9,6 +9,6 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | vps | ork-rm067f4cmcpd | #Auto | GOAL | claude-bg opus/max | RM-067 | — | 27/10 07:57 | viva |
 | vps | ork-rm074f4divid | #Fast | GO | claude-bg opus/high | RM-074 | — | 27/10 07:57 | parada desde 07:57: sessão 070253bf encerrada (done) |
 | vps | ork-rm074m0banca | #Fast | GO | claude-bg opus/high | RM-074 | — | 27/10 07:57 | viva |
-| vps | ork-versao061 | #Fast | GO | sem despacho | — | — | 27/10 07:57 | parada desde 07:57: nenhuma sessão despachada na fase GO |
+| vps | ork-versao061 | #Fast | GO | claude-bg sonnet/high | — | — | 27/10 07:57 | viva |
 
 Horários de Brasília.
