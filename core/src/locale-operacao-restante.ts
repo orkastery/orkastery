@@ -503,7 +503,7 @@ export const OPERACAO_RESTANTE_PT_BR = {
     },
   },
   mcp: {
-    uso: 'uso: ork mcp serve|install --project <raiz absoluta> --host codex|claude-code [--ship-transport github-ssh|forja-ssh|forja-https|bare-local] [--ssh-fingerprint SHA256:... somente install forja-ssh] [--child-permissions interactive|worktree] [--owner-permissions interactive|orchestrate somente install Codex] [--dry-run somente install]',
+    uso: 'uso: ork mcp serve|install --project <raiz absoluta> --host codex|claude-code|grok [--ship-transport github-ssh|forja-ssh|forja-https|bare-local] [--ssh-fingerprint SHA256:... somente install forja-ssh] [--child-permissions interactive|worktree] [--owner-permissions interactive|orchestrate somente install Codex] [--dry-run somente install]',
     erro: (detalhe: string) => `mcp: ${detalhe}`,
     simulacao: 'Simulacao: nenhuma escrita.',
     preparada: 'Configuracao MCP preparada.',
@@ -1009,7 +1009,7 @@ export const OPERACAO_RESTANTE_EN: typeof OPERACAO_RESTANTE_PT_BR = {
     },
   },
   mcp: {
-    uso: 'usage: ork mcp serve|install --project <absolute root> --host codex|claude-code [--ship-transport github-ssh|forja-ssh|forja-https|bare-local] [--ssh-fingerprint SHA256:... only for install with forja-ssh] [--child-permissions interactive|worktree] [--owner-permissions interactive|orchestrate only for Codex install] [--dry-run only for install]',
+    uso: 'usage: ork mcp serve|install --project <absolute root> --host codex|claude-code|grok [--ship-transport github-ssh|forja-ssh|forja-https|bare-local] [--ssh-fingerprint SHA256:... only for install with forja-ssh] [--child-permissions interactive|worktree] [--owner-permissions interactive|orchestrate only for Codex install] [--dry-run only for install]',
     erro: (detail) => `mcp: ${detail}`,
     simulacao: 'Simulation: no writes.',
     preparada: 'MCP configuration prepared.',

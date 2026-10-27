@@ -21,6 +21,8 @@ import { configDoFilho, ferramentasDoGrok, ferramentasServidasAoGrok, gravarConf
 import { instalarAdaptador } from '../src/hosts';
 import { rodarFase } from '../src/phase';
 import { exec } from '../src/util';
+import { editarBloco, textoDoSetup, validarFallback } from '../src/setup';
+import { comLocale } from '../src/locale';
 import { TOOLS_DO_GRAFO } from '../src/mcp-grafo';
 import { dirThread, novaThread } from '../src/thread';
 import { capacidadeDoRuntimeNoProjeto, contextoDoProjeto, novaIdentidadeDeDespacho, validarContextoDoGrok,
@@ -351,4 +353,18 @@ test('GM11: sem o MCP do ork, o filho do grok tambem roda sem o MCP do Claude e 
     assert.equal(fs.existsSync(path.join(t.worktree!, '.grok')), false);
     esperarCondicao(() => lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.sessionId === sid), 60000);
   } finally { p.limpar(); stub.restaurar(); }
+});
+
+test('GM12: a tela do setup e as recusas de runtime e de fallback desconhecido listam os tres runtimes de bloco, nas duas linguas', () => {
+  const p = projetoTemporario('gm12-setup');
+  try {
+    assert.match(textoDoSetup(p.dir, 'auto'), /^Runtimes homologados: claude-bg, codex, grok$/m);
+    assert.throws(() => validarFallback(['gemini:x'], 'claude-bg'), /fallback com runtime desconhecido: "gemini" \(homologados: claude-bg, codex, grok\)/);
+    assert.equal(editarBloco(p.dir, 'auto', 1, { runtime: 'gemini', model: 'x' }).erro, 'runtime desconhecido: "gemini" (homologados: claude-bg, codex, grok)');
+    comLocale('en', () => {
+      assert.match(textoDoSetup(p.dir, 'auto'), /^Supported runtimes: claude-bg, codex, grok$/m);
+      assert.throws(() => validarFallback(['gemini:x'], 'claude-bg'), /fallback uses unknown runtime: "gemini" \(supported: claude-bg, codex, grok\)/);
+      assert.equal(editarBloco(p.dir, 'auto', 1, { runtime: 'gemini', model: 'x' }).erro, 'unknown runtime: "gemini" (supported: claude-bg, codex, grok)');
+    });
+  } finally { p.limpar(); }
 });
