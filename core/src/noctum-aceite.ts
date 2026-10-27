@@ -20,9 +20,11 @@ import { repositorioGitHub } from './ci';
 import { formatarDataHora } from './horario';
 import { lerLedger, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
+import { nomeDaMaquina } from './maquina';
 import { autoriaHumana } from './master';
 import { EstadoDoArco, lerArco, versoesAutorizadas } from './noctum-arco';
-import { ConteudoDoEnvelope, RecusaDoArco, Unidade } from './noctum-envelope';
+import { ConteudoDoEnvelope, envelopeMultimaquina, RecusaDoArco, Unidade } from './noctum-envelope';
+import { derivarCoordenacao, EstadoDaCoordenacao } from './noctum-coordenacao';
 import { CADENCIA_MS } from './noctum-fila';
 import { consumoDoEscopoNaUnidade, MedicaoDoArco, medirArco } from './noctum-medicao';
 import { lerRegistro, RecusaDoRegistro } from './noctum-registro';
@@ -33,6 +35,8 @@ import { ExecutorDoGh, ghPadrao } from './parado-no-condutor';
 import { raizDoEstado } from './estado-thread';
 import { dirThread, lerThread } from './thread';
 import { EventoLedger } from './types';
+import { conferirCoordenacao } from './noctum-coordenacao';
+import { DadosDoRegistro, lerRamo } from './noctum-transporte';
 import { exec } from './util';
 import { branchDaWorktree } from './worktree';
 
@@ -75,6 +79,10 @@ export interface ResultadoDoAceite {
   envelope: { contrato: string | null; versao: number | null; sha256: string | null };
   janela: { inicio: string; fim: string; fuso: string; horas: number } | null;
   encerramento: { motivo: string; em: string } | null;
+  /** A máquina que compôs este resultado; em v1/v2 também identifica a fonte local. */
+  maquina: string;
+  /** As fontes locais combinadas no resultado. */
+  maquinas: Array<{ maquina: string; fonte: string; sha256: string; veredito: VereditoDoPiloto }>;
   simulacao: { simulado: boolean; marcas: string[] };
   medidas: MedidaDoPiloto[];
   criterios: CriterioDoPiloto[];
@@ -119,10 +127,18 @@ export interface OpcoesDoAceite {
   git?: LeitorDoGit;
   executorGh?: ExecutorDoGh;
   medir?: (raiz: string, estado: EstadoDoArco, quando: string) => MedicaoDoArco;
+  /** Identidade desta composição; os testes fixam o nome sem tocar a identidade persistente. */
+  maquina?: string;
+  /** Aceites completos vindos de `--outra-maquina`, com o hash dos bytes lidos. */
+  outrasMaquinas?: Array<{ fonte: string; sha256: string; resultado: unknown }>;
+  /** Leitura já conferida da coordenação; seam dos testes, sem transporte Git. */
+  rede?: { registros: DadosDoRegistro[]; estado: EstadoDaCoordenacao | null; ordensIsoladas?: Array<{ maquina: string; trabalho: string }>;
+    vagas?: EstadoDaCoordenacao['vagas'] };
 }
 
 export class RecusaDoAceite extends Error {
-  constructor(readonly motivo: 'noctum.aceite.sem-arco' | 'noctum.aceite.limiares-invalidos' | 'noctum.aceite.injecoes-invalidas', detalhe: string) {
+  constructor(readonly motivo: 'noctum.aceite.sem-arco' | 'noctum.aceite.limiares-invalidos' | 'noctum.aceite.injecoes-invalidas' |
+    'noctum.aceite.outra-maquina-invalida', detalhe: string) {
     super(`${motivo}: ${detalhe}`);
     this.name = 'RecusaDoAceite';
   }
@@ -165,8 +181,9 @@ export function remotoLocal(url: string): boolean {
 }
 
 /** Os limiares da proposta, pela janela do piloto. */
-export function limiaresDaProposta(horas: number): Limiares {
-  return { m1MinimoHoras: arred(horas), m5MaximoMin: 15, entregasMinimas: horas < 12 ? 2 : 4, margemDoTeto: 0, atrasoDoRelatorioMin: CADENCIA_MS / MIN };
+export function limiaresDaProposta(horas: number, multimaquina = false): Limiares {
+  return { m1MinimoHoras: arred(horas), m5MaximoMin: multimaquina ? 25 : 15, entregasMinimas: horas < 12 ? 2 : 4,
+    margemDoTeto: 0, atrasoDoRelatorioMin: CADENCIA_MS / MIN };
 }
 
 /** As chaves dos limiares do dono, no contrato `ork.noctum-limiares/v1`. */
@@ -221,7 +238,7 @@ interface Entrega {
 }
 
 /** O primeiro instante, depois da injeção, de um evento que a falha deve provocar; e o evento, como fonte. */
-function sinalDe(eventos: ReadonlyArray<{ em: string; fonte: string }>, desde: number): { em: string; fonte: string } | null {
+function sinalDe<T extends { em: string; fonte: string }>(eventos: ReadonlyArray<T>, desde: number): T | null {
   return eventos.filter(e => Date.parse(e.em) >= desde).sort((a, b) => Date.parse(a.em) - Date.parse(b.em))[0] ?? null;
 }
 
@@ -239,11 +256,26 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
   }
   if (!estado?.conteudo || !estado.autorizadoPor) throw new RecusaDoAceite('noctum.aceite.sem-arco', `o arco ${arco} nunca foi autorizado pelo dono`);
   const conteudo: ConteudoDoEnvelope = estado.conteudo;
+  const multimaquina = envelopeMultimaquina(conteudo);
+  const maquinaAtual = nomeDaMaquina(opcoes.maquina);
+  let rede: NonNullable<OpcoesDoAceite['rede']> | null = null;
+  let erroDaRede: string | null = null;
+  if (multimaquina) {
+    try {
+      if (opcoes.rede) rede = opcoes.rede;
+      else {
+        const leitura = lerRamo(carregado, arco, { remoto: opcoes.remoto, maquina: maquinaAtual }, conferirCoordenacao);
+        rede = { registros: leitura.registros.map(r => r.dados), estado: derivarCoordenacao(leitura) };
+      }
+    } catch (e) {
+      erroDaRede = `a coordenação não se lê (${e instanceof RecusaDoArco ? e.motivo : (e as Error).message.slice(0, 120)})`;
+    }
+  }
   const janela = conteudo.janela;
   // A condução começa no início da janela ou na primeira autorização, o que vier depois; as autorizações seguintes, dentro
   // da janela, são emendas do dono.
-  let autorizacoes: Array<{ versao: number; autorizadoEm: string }> = [];
-  try { autorizacoes = versoesAutorizadas(raiz, arco).map(v => ({ versao: v.versao, autorizadoEm: v.autorizadoEm })); }
+  let autorizacoes: Array<{ versao: number; autorizadoEm: string; envelopeSha256: string }> = [];
+  try { autorizacoes = versoesAutorizadas(raiz, arco).map(v => ({ versao: v.versao, autorizadoEm: v.autorizadoEm, envelopeSha256: v.envelopeSha256 })); }
   catch (e) { if (!(e instanceof RecusaDoArco)) throw e; }
   const primeiraAutorizacao = autorizacoes[0]?.autorizadoEm ?? estado.autorizadoPor.recebidoEm;
   const inicioMs = Math.max(Date.parse(janela.inicio), Date.parse(primeiraAutorizacao));
@@ -252,6 +284,21 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
   const horasDaJanela = (Date.parse(janela.fim) - Date.parse(janela.inicio)) / HORA;
   const git = opcoes.git ?? gitDaRaiz(raiz);
   const remoto = opcoes.remoto ?? carregado.manifesto.fabrica?.remoto ?? 'origin';
+
+  const outras: Array<{ fonte: string; sha256: string; resultado: ResultadoDoAceite }> = [];
+  for (const outra of opcoes.outrasMaquinas ?? []) {
+    const r = outra.resultado;
+    const envelope = objeto(r) && objeto(r.envelope) ? r.envelope : null;
+    const maquina = objeto(r) && typeof r.maquina === 'string' ? r.maquina : null;
+    const valida = objeto(r) && r.contrato === CONTRATO_PILOTO && r.arco === arco && envelope && typeof envelope.sha256 === 'string' &&
+      autorizacoes.some(v => v.envelopeSha256 === envelope.sha256) && maquina && multimaquina && conteudo.maquinas.some(m => m.nome === maquina) &&
+      Array.isArray(r.medidas) && Array.isArray(r.criterios) && typeof r.veredito === 'string';
+    if (!valida) {
+      throw new RecusaDoAceite('noctum.aceite.outra-maquina-invalida',
+        `${outra.fonte}: o arquivo precisa ser um ${CONTRATO_PILOTO} completo do arco ${arco}, de uma máquina e envelope autorizados aqui`);
+    }
+    outras.push({ ...outra, resultado: r as unknown as ResultadoDoAceite });
+  }
 
   // As leituras: a supervisão, o relatório e os ledgers das threads do arco.
   let supervisao: Array<{ em: string; evento: EventoDaSupervisao }> | null = null;
@@ -310,6 +357,9 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
 
   const medidas: MedidaDoPiloto[] = [];
   const medida = (m: MedidaDoPiloto) => { medidas.push(m); return m; };
+  const nomesDasMaquinas = multimaquina ? conteudo.maquinas.map(m => m.nome) : [maquinaAtual];
+  const porMaquina = <T>(valor: (maquina: string) => T): Record<string, T> =>
+    Object.fromEntries(nomesDasMaquinas.map(maquina => [maquina, valor(maquina)]));
 
   /**
    * I1 do CHECK 2: a entrega do arco é o `ship_done` que a entrega dele gravou (o arco na evidência), e não a reconciliação
@@ -424,7 +474,8 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
   const semLeitura = entregas.some(e => e.provada === null) || ilegiveis.length > 0;
   medida({ id: 'M2', nome: 'Entregas com prova', valor: semLeitura ? null : provadas.length, unidade: `entregas provadas de ${entregas.length} alegadas`,
     fonte: 'ship_done dos ledgers, ponta da base pelo git ls-remote e ancestralidade do merge', lacunas: lacunasDaEntrega,
-    evidencia: { alegadas: entregas.length, entregas: entregas.map(e => ({ trabalho: e.trabalho, thread: e.thread, provada: e.provada, motivo: e.motivo })) } });
+    evidencia: { alegadas: entregas.length, entregas: entregas.map(e => ({ trabalho: e.trabalho, thread: e.thread, provada: e.provada, motivo: e.motivo })),
+      ...(multimaquina ? { porMaquina: porMaquina(maquina => (rede?.registros ?? []).filter(r => r.tipo === 'entrega' && r.por === maquina).length) } : {}) } });
   medida({ id: 'M3', nome: 'MASTER por omissão', valor: semLeitura ? null : provadas.filter(e => e.master).length, unidade: `entregas com MASTER de ${provadas.length} provadas`,
     fonte: 'aceite_por_omissao com o arco na evidência, antes do fim do arco, e a thread fechada', lacunas: semLeitura ? ['as entregas não se provaram todas'] : [],
     evidencia: { semMaster: provadas.filter(e => !e.master).map(e => e.thread) } });
@@ -438,7 +489,30 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
     .map(l => ({ em: l.em, fonte: `supervisão: ${l.evento.tipo}`, alvos: alvosDe(l.evento as Record<string, unknown>) }));
   const dosLedgers = (tipos: string[]) => eventosDasThreads.filter(e => tipos.includes(e.tipo))
     .map(e => ({ em: e.ts, fonte: `ledger da ${e.threadDoArco}: ${e.tipo}`, alvos: [e.threadDoArco, ...[...porTrabalho].filter(([, t]) => t === e.threadDoArco).map(([w]) => w)] }));
-  const SINAIS: Record<string, () => Array<{ em: string; fonte: string; alvos: string[] }> | string> = {
+  const ordensDaRede = new Map((rede?.registros ?? []).filter(r => r.tipo === 'ordem' && typeof r.ordem === 'string')
+    .map(r => [String(r.ordem), { maquina: String(r.maquina), trabalho: String(r.trabalho) }]));
+  const vezesDaRede = new Map((rede?.registros ?? []).filter(r => r.tipo === 'vez' && typeof r.chave === 'string' && typeof r.n === 'number')
+    .map(r => [`${String(r.chave)}/${String(r.n)}`, { maquina: String(r.por), trabalho: ordensDaRede.get(String(r.ordem))?.trabalho ?? '' }]));
+  const daRede = (i: Injecao, falha: 'F10' | 'F11'): Array<{ em: string; fonte: string; alvos: string[]; maquina: string }> | string => {
+    if (!i.alvo) return `${falha} exige o alvo (a máquina afetada) na agenda`;
+    if (erroDaRede) return erroDaRede;
+    if (!rede) return 'a coordenação da rede não foi lida';
+    if (falha === 'F10') {
+      return rede.registros.filter(r => r.por === i.alvo)
+        .map(r => ({ em: r.em, fonte: `coordenação: ${r.tipo} assinado por ${r.por}`, alvos: [i.alvo!], maquina: r.por }));
+    }
+    const isoladas = rede.ordensIsoladas?.filter(o => o.maquina === i.alvo) ??
+      [...(rede.estado?.ordens.values() ?? [])].filter(o => o.maquina === i.alvo && o.estado === 'isolada');
+    if (isoladas.length) return [];
+    return rede.registros.filter(r => {
+      if (r.por === i.alvo) return false;
+      if (r.tipo === 'autoridade' && r.modo === 'forcada') return objeto(r.anterior) && r.anterior.maquina === i.alvo;
+      if (r.tipo === 'cancelamento') return ordensDaRede.get(String(r.ordem))?.maquina === i.alvo;
+      if (r.tipo === 'vez-fim' && r.desfecho === 'abandonada') return vezesDaRede.get(`${String(r.chave)}/${String(r.n)}`)?.maquina === i.alvo;
+      return false;
+    }).map(r => ({ em: r.em, fonte: `coordenação: ${r.tipo} de ${i.alvo} por ${r.por}`, alvos: [i.alvo!], maquina: r.por }));
+  };
+  const SINAIS: Record<string, (i: Injecao) => Array<{ em: string; fonte: string; alvos: string[]; maquina?: string }> | string> = {
     F1: () => erroDaSupervisao ?? daSupervisao(['retomada_autorizada']),
     F2: () => erroDaSupervisao ?? daSupervisao(['conducao_assumida']),
     F3: () => erroDaSupervisao ?? daSupervisao(['vigia_interrompido']),
@@ -448,25 +522,32 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
     F7: () => erroDoRelatorio ?? confirmacoesAutomaticas.map(l => ({ em: l.em, fonte: 'relatório: envio_confirmado', alvos: [] as string[] })),
     F8: () => erroDaSupervisao ?? daSupervisao(['efeito_reconciliado']),
     F9: () => erroDaSupervisao ?? daSupervisao(['tique_concluido']),
-    F10: () => 'a partição entre máquinas é medida com a coordenação da N3 (bloco B)',
-    F11: () => 'a máquina perdida é medida com a coordenação da N3 (bloco B)',
+    F10: (i) => daRede(i, 'F10'),
+    F11: (i) => daRede(i, 'F11'),
   };
   const injecoes = opcoes.injecoes ?? null;
   const recuperacoes = (injecoes ?? []).map(i => {
-    const fontes = SINAIS[i.falha]?.() ?? `falha desconhecida: ${i.falha}`;
+    const fontes = SINAIS[i.falha]?.(i) ?? `falha desconhecida: ${i.falha}`;
     if (typeof fontes === 'string') return { ...i, lacuna: fontes, sinal: null as { em: string; fonte: string } | null };
     const doAlvo = i.alvo ? fontes.filter(f => !f.alvos.length || f.alvos.includes(i.alvo!)) : fontes;
     const sinal = sinalDe(doAlvo, Date.parse(i.instante));
-    return { ...i, lacuna: null as string | null, sinal: sinal ? { em: sinal.em, fonte: sinal.fonte } : null };
+    return { ...i, lacuna: null as string | null, sinal: sinal ? { em: sinal.em, fonte: sinal.fonte, ...(sinal.maquina ? { maquina: sinal.maquina } : {}) } : null };
   });
   // A agenda vazia não prova recuperação nenhuma: é lacuna, como a agenda que falta.
   const lacunasDaAgenda = injecoes === null ? ['sem a agenda de injeções (--injecoes)']
     : !injecoes.length ? ['a agenda de injeções está vazia: nenhuma falha foi injetada']
     : recuperacoes.filter(r => r.lacuna).map(r => `${r.falha}: ${r.lacuna}`);
   const recuperadas = recuperacoes.filter(r => r.sinal);
+  const aguardamRecibo = (rede?.ordensIsoladas ?? [...(rede?.estado?.ordens.values() ?? [])]
+    .filter(o => o.estado === 'isolada').map(o => ({ maquina: o.maquina, trabalho: o.trabalho })))
+    .filter(o => (injecoes ?? []).some(i => i.falha === 'F11' && i.alvo === o.maquina));
+  const retomados = [...(rede?.estado?.trabalhos.values() ?? [])].filter(t => t.ordem && t.estado !== 'isolado' &&
+    (injecoes ?? []).some(i => i.falha === 'F11' && i.alvo && t.ordem!.maquina !== i.alvo)).map(t => t.trabalho);
   medida({ id: 'M4', nome: 'Falhas recuperadas', valor: lacunasDaAgenda.length ? null : recuperadas.length, unidade: `recuperadas de ${recuperacoes.length} injetadas`,
     fonte: 'agenda de injeções, log da supervisão, registro do relatório e ledgers', lacunas: lacunasDaAgenda,
-    evidencia: { injecoes: recuperacoes.map(r => ({ falha: r.falha, instante: r.instante, sinal: r.sinal, lacuna: r.lacuna })) } });
+    evidencia: { injecoes: recuperacoes.map(r => ({ falha: r.falha, instante: r.instante, sinal: r.sinal, lacuna: r.lacuna })),
+      ...(multimaquina ? { porMaquina: porMaquina(maquina => recuperadas.filter(r => r.sinal && 'maquina' in r.sinal && r.sinal.maquina === maquina).length),
+        retomados, aguardamRecibo } : {}) } });
   // M5 é das falhas que o plano mede pelo tempo (a sessão morta, o condutor morto e a máquina perdida); as outras, como o
   // tique parado de propósito por 20 min, contam só em M4.
   const tempos = recuperadas.filter(r => FALHAS_DO_M5.includes(r.falha)).map(r => (Date.parse(r.sinal!.em) - Date.parse(r.instante)) / MIN)
@@ -475,7 +556,12 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
   medida({ id: 'M5', nome: 'Tempo de recuperação', valor: lacunasDaAgenda.length || !tempos.length ? null : arred(tempos.at(-1)!), unidade: 'min (máximo)',
     fonte: 'da injeção ao primeiro sinal de retomada no log', lacunas: lacunasDaAgenda.length ? lacunasDaAgenda : tempos.length ? []
       : [`nenhuma falha recuperada de ${FALHAS_DO_M5.join(', ')} para medir`],
-    evidencia: { mediana: mediana === null ? null : arred(mediana), maximo: tempos.length ? arred(tempos.at(-1)!) : null } });
+    evidencia: { mediana: mediana === null ? null : arred(mediana), maximo: tempos.length ? arred(tempos.at(-1)!) : null,
+      ...(multimaquina ? { porMaquina: porMaquina(maquina => {
+        const t = recuperadas.filter(r => FALHAS_DO_M5.includes(r.falha) && r.sinal && 'maquina' in r.sinal && r.sinal.maquina === maquina)
+          .map(r => arred((Date.parse(r.sinal!.em) - Date.parse(r.instante)) / MIN));
+        return t.length ? Math.max(...t) : null;
+      }) } : {}) } });
 
   // M6: violações do envelope.
   const contas = new Set([...conteudo.orcamento.porConta.map(c => c.conta), ...(comTrabalhos ? (conteudo as ConteudoV2).capacidade.porConta.map(c => c.conta) : [])]);
@@ -516,6 +602,21 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
     paginas.set(chave, (paginas.get(chave) ?? 0) + 1);
   }
   for (const [chave, n] of paginas) if (n > 1) duplicados.push(`${n} envios confirmados da ${chave}`);
+  const vagasSobrepostas: Array<{ trabalho: string; maquinas: [string, string]; vagas: [string, string] }> = [];
+  const vagasDaRede = rede?.vagas ?? rede?.estado?.vagas ?? [];
+  for (let i = 0; i < vagasDaRede.length; i++) {
+    for (let j = i + 1; j < vagasDaRede.length; j++) {
+      const a = vagasDaRede[i], b = vagasDaRede[j];
+      if (a.trabalho !== b.trabalho || a.maquina === b.maquina) continue;
+      const inicio = Math.max(Date.parse(a.desde), Date.parse(b.desde));
+      const fimA = a.solta ? Date.parse(a.solta.em) : Number.POSITIVE_INFINITY;
+      const fimB = b.solta ? Date.parse(b.solta.em) : Number.POSITIVE_INFINITY;
+      if (inicio < Math.min(fimA, fimB)) {
+        vagasSobrepostas.push({ trabalho: a.trabalho, maquinas: [a.maquina, b.maquina], vagas: [a.vaga, b.vaga] });
+        duplicados.push(`o trabalho ${a.trabalho} teve vagas ativas ao mesmo tempo em ${a.maquina} e ${b.maquina}`);
+      }
+    }
+  }
   const lacunasDaForja: string[] = [];
   const repositorio = urlDoRemoto && !remotoLocal(urlDoRemoto) ? repositorioGitHub(urlDoRemoto) : null;
   if (repositorio) {
@@ -535,7 +636,9 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
   }
   const lacunasDoM7 = [...(erroDoRelatorio ? [erroDoRelatorio] : []), ...lacunasDaForja, ...ilegiveis];
   medida({ id: 'M7', nome: 'Efeitos duplicados', valor: lacunasDoM7.length && !duplicados.length ? null : duplicados.length, unidade: 'efeitos duplicados',
-    fonte: 'ledgers (ship_done e ship_published), log do arco, registro do relatório e PRs da forja', lacunas: lacunasDoM7, evidencia: { duplicados } });
+    fonte: 'ledgers (ship_done e ship_published), log do arco, registro do relatório, coordenação e PRs da forja', lacunas: lacunasDoM7,
+    evidencia: { duplicados, ...(multimaquina ? { vagasSobrepostas, porMaquina: porMaquina(maquina =>
+      vagasSobrepostas.filter(v => v.maquinas.includes(maquina)).length) } : {}) } });
 
   // M8: evidência perdida.
   const perdidas: string[] = [...ilegiveis, ...(erroDaSupervisao ? [erroDaSupervisao] : []), ...(erroDoRelatorio ? [erroDoRelatorio] : [])];
@@ -571,7 +674,9 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
   const lacunasDoTeto = tetos.filter(t => t.lacuna).map(t => `${t.escopo}: ${t.lacuna}`);
   const acima = tetos.filter(t => t.consumo !== null && t.consumo > t.teto);
   medida({ id: 'M9', nome: 'Consumo contra o teto', valor: lacunasDoTeto.length ? null : acima.length, unidade: 'escopos acima do teto',
-    fonte: 'consumo do log do arco e a medição das unidades', lacunas: lacunasDoTeto, evidencia: { tetos } });
+    fonte: 'consumo do log do arco, da coordenação e a medição das unidades', lacunas: lacunasDoTeto,
+    evidencia: { tetos, ...(multimaquina ? { porMaquina: porMaquina(maquina => (rede?.vagas ?? rede?.estado?.vagas ?? [])
+      .filter(v => v.maquina === maquina && (!v.solta || v.solta.consumiu)).length) } : {}) } });
 
   // M10: o relatório da manhã.
   const lacunasDoRelatorio: string[] = erroDoRelatorio ? [erroDoRelatorio] : [];
@@ -609,8 +714,38 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
     fonte: 'registro do relatório do arco', lacunas: lacunasDoRelatorio,
     evidencia: { vencimento, versao1: v1 ? { compostoEm: v1.em, paginas: paginasDaV1, recibos: recibos.size } : null, falhas: falhasDoRelatorio } });
 
+  // No v3, cinco medidas são a composição dos aceites completos de todas as máquinas. A ausência de uma fonte é lacuna,
+  // nunca zero. As demais já trazem em `evidencia.porMaquina` a divisão derivada do ramo conferido.
+  const porFonte = new Map<string, MedidaDoPiloto[]>([[maquinaAtual, medidas]]);
+  for (const outra of outras) {
+    if (porFonte.has(outra.resultado.maquina)) {
+      throw new RecusaDoAceite('noctum.aceite.outra-maquina-invalida', `${outra.fonte}: a máquina ${outra.resultado.maquina} apareceu mais de uma vez`);
+    }
+    porFonte.set(outra.resultado.maquina, outra.resultado.medidas);
+  }
+  if (multimaquina) {
+    const ausentes = conteudo.maquinas.map(m => m.nome).filter(m => !porFonte.has(m));
+    const combinadas = new Set<IdDaMedida>(['M1', 'M3', 'M6', 'M8', 'M10']);
+    for (const medidaLocal of medidas.filter(m => combinadas.has(m.id))) {
+      const valores = Object.fromEntries(conteudo.maquinas.map(({ nome }) => [nome,
+        porFonte.get(nome)?.find(m => m.id === medidaLocal.id)?.valor ?? null])) as Record<string, number | null>;
+      medidaLocal.evidencia = { ...medidaLocal.evidencia, porMaquina: valores };
+      if (ausentes.length) {
+        medidaLocal.valor = null;
+        medidaLocal.lacunas.push(`sem o aceite completo da(s) máquina(s): ${ausentes.join(', ')}`);
+      } else if (Object.values(valores).some(v => v === null)) {
+        medidaLocal.valor = null;
+        medidaLocal.lacunas.push('ao menos uma máquina deixou a medida como lacuna');
+      } else {
+        const vs = Object.values(valores) as number[];
+        medidaLocal.valor = medidaLocal.id === 'M1' ? Math.min(...vs) : medidaLocal.id === 'M10' ? (vs.every(v => v === 1) ? 1 : 0)
+          : vs.reduce((a, b) => a + b, 0);
+      }
+    }
+  }
+
   // Os critérios.
-  const proposta = limiaresDaProposta(horasDaJanela);
+  const proposta = limiaresDaProposta(horasDaJanela, multimaquina);
   const doDono = opcoes.limiares ?? {};
   const limiar = <K extends keyof Limiares>(k: K): { valor: number; origem: 'dono' | 'proposta' } =>
     doDono[k] !== undefined ? { valor: doDono[k]!, origem: 'dono' } : { valor: proposta[k], origem: 'proposta' };
@@ -653,11 +788,17 @@ export function aceiteDoPiloto(carregado: ManifestoCarregado, arco: string, opco
 
   const veredito: VereditoDoPiloto = marcas.length ? 'simulado' : criterios.some(c => c.veredito === 'reprovado') ? 'reprovado'
     : criterios.some(c => c.veredito === 'incompleto') ? 'incompleto' : 'aprovado';
+  const maquinasDoResultado = [
+    { maquina: maquinaAtual, fonte: 'estado local', sha256: sha256(JSON.stringify({ arco, maquina: maquinaAtual, medidas })), veredito },
+    ...outras.map(o => ({ maquina: o.resultado.maquina, fonte: o.fonte, sha256: o.sha256, veredito: o.resultado.veredito })),
+  ];
   return {
     contrato: CONTRATO_PILOTO, arco,
     envelope: { contrato: conteudo.contrato ?? null, versao: estado.versao, sha256: estado.envelopeSha256 },
     janela: { inicio: janela.inicio, fim: janela.fim, fuso: janela.fuso, horas: arred(horasDaJanela) },
     encerramento: estado.encerramento ? { motivo: estado.encerramento.motivo, em: estado.encerramento.em } : null,
+    maquina: maquinaAtual,
+    maquinas: maquinasDoResultado,
     simulacao: { simulado: marcas.length > 0, marcas },
     medidas, criterios, veredito,
     lacunas: medidas.flatMap(x => x.lacunas.map(l => `${x.id}: ${l}`)),
@@ -708,7 +849,7 @@ export function publicavel(r: ResultadoDoAceite, sha256DoCompleto: string, sensi
     return x;
   };
   const andar = (v: unknown): unknown => typeof v === 'string' ? limpar(v) : Array.isArray(v) ? v.map(andar)
-    : objeto(v) ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, andar(x)])) : v;
+    : objeto(v) ? Object.fromEntries(Object.entries(v).map(([k, x]) => [limpar(k), andar(x)])) : v;
   return { ...(andar(r) as ResultadoDoAceite), publicavel: true, sha256DoCompleto };
 }
 
@@ -720,6 +861,7 @@ export function sensiveisDoArco(carregado: ManifestoCarregado, arco: string): { 
   const maquinas = new Set<string>();
   const repositorios = new Set<string>();
   for (const c of conteudo?.orcamento.porConta ?? []) contas.add(c.conta);
+  if (conteudo && envelopeMultimaquina(conteudo)) for (const m of conteudo.maquinas) maquinas.add(m.nome);
   for (const d of estado?.despachos ?? []) contas.add(d.conta);
   for (const d of conteudo?.destinos ?? []) { repositorios.add(d.repositorio); repositorios.add(d.repositorio.split('/')[0]); }
   try {

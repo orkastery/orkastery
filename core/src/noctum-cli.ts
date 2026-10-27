@@ -20,6 +20,7 @@
  * aqui pelo `responder`, ou o diálogo nativo do host pelo MCP). Recusa tipada sai na saída de erro, com código 2.
  */
 import * as fs from 'node:fs';
+import { createHash } from 'node:crypto';
 import { kernelDisponivel } from './fila-pesada';
 import { lerRespostaStdin } from './hitl-gates';
 import { canVerifyPublicReceipt } from './hitl-public-receipt';
@@ -51,7 +52,7 @@ export const USO_DO_NOCTUM = 'uso: ork noctum propor --arquivo <envelope.json> |
   'responder <arco> --resposta-stdin ' +
   '--origem O --canal C --por P --mensagem M [--conta X] | terminal --hook-stdin | status [<arco>] [--json] | tique <arco> [--json] | ' +
   'relatorio <arco> [--json] [--reenviar <canal>] | conduzir <arco> [--json] | aceite <arco> [--json] [--injecoes <arquivo>] ' +
-  '[--limiares <arquivo>] [--publicar <arquivo>]';
+  '[--limiares <arquivo>] [--outra-maquina <arquivo>[,<arquivo>]] [--publicar <arquivo>]';
 
 /** A linha da entrega da pergunta ao canal do dono, sem caminho de máquina. */
 function linhaDaEntrega(e: EntregaDaPerguntaDoArco): string {
@@ -413,12 +414,19 @@ export function comandoNoctum(args: ArgsDoNoctum): number {
     if (sub === 'aceite') {
       const arco = args.posicionais[2];
       const arquivo = (nome: string): string | null | false => args.opcoes[nome] === undefined ? null : texto(args.opcoes[nome]) ?? false;
-      const [injecoes, limiares, publicar] = [arquivo('injecoes'), arquivo('limiares'), arquivo('publicar')];
-      if (!arco || args.posicionais.length !== 3 || injecoes === false || limiares === false || publicar === false) { console.error(USO_DO_NOCTUM); return 2; }
+      const [injecoes, limiares, outraMaquina, publicar] = [arquivo('injecoes'), arquivo('limiares'), arquivo('outra-maquina'), arquivo('publicar')];
+      if (!arco || args.posicionais.length !== 3 || injecoes === false || limiares === false || outraMaquina === false || publicar === false) {
+        console.error(USO_DO_NOCTUM); return 2;
+      }
       let agenda: Injecao[] | null = null, doDono: Partial<Limiares> | null = null;
+      const outrasMaquinas: Array<{ fonte: string; sha256: string; resultado: unknown }> = [];
       try {
         if (injecoes) agenda = lerInjecoes(fs.readFileSync(injecoes, 'utf8'));
         if (limiares) doDono = lerLimiares(JSON.parse(fs.readFileSync(limiares, 'utf8')));
+        for (const fonte of (outraMaquina ? outraMaquina.split(',') : []).map(x => x.trim()).filter(Boolean)) {
+          const bruto = fs.readFileSync(fonte, 'utf8');
+          outrasMaquinas.push({ fonte, sha256: createHash('sha256').update(bruto).digest('hex'), resultado: JSON.parse(bruto) });
+        }
       } catch (e) {
         if (e instanceof RecusaDoAceite) throw e;
         console.error(`noctum.aceite.arquivo: ${(e as Error).message.slice(0, 200)}`);
@@ -426,7 +434,7 @@ export function comandoNoctum(args: ArgsDoNoctum): number {
       }
       const carregado = exigirManifesto();
       // RM-058, integração (T8, D12): o arquivo completo fica no estado; o publicável vai aonde o dono pedir.
-      const r = aceiteDoPiloto(carregado, arco, { injecoes: agenda, limiares: doDono });
+      const r = aceiteDoPiloto(carregado, arco, { injecoes: agenda, limiares: doDono, outrasMaquinas });
       const gravado = gravarAceite(carregado.raiz, r);
       if (publicar) fs.writeFileSync(publicar, `${JSON.stringify(publicavel(r, gravado.sha256, sensiveisDoArco(carregado, arco)), null, 2)}\n`);
       if (json) console.log(JSON.stringify({ ...r, sha256: gravado.sha256, arquivo: gravado.arquivo }, null, 2));
