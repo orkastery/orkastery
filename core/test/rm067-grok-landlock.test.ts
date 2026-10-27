@@ -16,10 +16,11 @@ import * as fs from 'node:fs';
 import * as http from 'node:http';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { configuracaoServidorMcp, instalarMcp } from '../src/mcp-install';
 import { MARCA_DA_CONFIG_DO_FILHO } from '../src/adapters/grok';
-import { arquivosDoServidorGrok, ENV_DO_TOKEN_DO_SERVIDOR_GROK, lerReciboServidorGrok } from '../src/adapters/grok-mcp';
+import { arquivosDoServidorGrok, ENV_DO_TOKEN_DO_SERVIDOR_GROK, iniciarServidorDoGrok, lerReciboServidorGrok } from '../src/adapters/grok-mcp';
+import { estadoProcesso, gravarAtomico, identidadeProcesso } from '../src/adapters/codex-runner';
 import { dirThread, novaThread } from '../src/thread';
 import { lerLedger } from '../src/ledger';
 import { rodarFase } from '../src/phase';
@@ -157,4 +158,32 @@ test('GL3: a sessao de outra thread, confinada no proprio dominio, nao acha o to
     esperarCondicao(() => lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.sessionId === sid), 60000);
     assert.deepEqual(stub.mcpResultado()?.chamadas.map((c) => c.isError), [false], 'e a sessao desta thread segue com o MCP');
   } finally { p.limpar(); stub.restaurar(); fs.rmSync(irma, { recursive: true, force: true }); }
+});
+
+test('GL4: o grok que nao deixa ler os descritores (nao despejavel) nao trava o MCP: a conexao vale so pelo token, e o log diz isso', { skip: semLandlock() }, async () => {
+  const p = projetoTemporario('gl4-nao-despejavel');
+  // Um processo que se marca nao despejavel, como um CLI que guarda credencial: o /proc/<pid>/fd dele fica negado.
+  const grok = spawn('python3', ['-I', '-c', 'import ctypes,time; ctypes.CDLL(None).prctl(4,0,0,0,0); time.sleep(120)'], { stdio: 'ignore' });
+  try {
+    const t = novaThread(p.carregado, { nome: 'gl4', modo: 'auto', criarWorktree: true }).thread;
+    const logPath = path.join(dirThread(p.dir, t.id), 'sessoes', `${randomUUID()}.grok.jsonl`);
+    fs.mkdirSync(path.dirname(logPath), { recursive: true });
+    esperarCondicao(() => { try { fs.readdirSync(`/proc/${grok.pid}/fd`); return false; } catch { return true; } }, 10000);
+    gravarAtomico(`${logPath}.process.json`, { schema: 'ork.codex-process/v1', iniciadoEm: new Date().toISOString(),
+      supervisor: identidadeProcesso(process.pid), filho: identidadeProcesso(grok.pid!) });
+    const s = iniciarServidorDoGrok({ projeto: fs.realpathSync(p.dir), threadId: t.id, dispatchId: randomUUID(), permissoesFilho: 'worktree',
+      transporteShip: 'github-ssh', ferramentas: ['ork_thread_status'], logPath, conferirProcesso: true }, t.worktree!, process.env);
+    try {
+      const status = await new Promise<number>((resolve, reject) => {
+        const req = http.request({ host: '127.0.0.1', port: s.porta, method: 'POST', path: '/mcp', headers: { 'Content-Type': 'application/json',
+          Accept: 'application/json, text/event-stream', Authorization: `Bearer ${s.token}` } }, (res) => { res.resume(); resolve(res.statusCode ?? 0); });
+        req.on('error', reject);
+        req.end(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize',
+          params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'fixture-SIMULADA', version: '1' } } }));
+      });
+      assert.equal(status, 200, 'sem os descritores do grok, a conexao vale pelo token');
+      const log = fs.readFileSync(logPath.replace(/\.grok\.jsonl$/, '.grok-mcp.log'), 'utf8');
+      assert.match(log, /o grok nao deixa ler os descritores dele; a conexao vale so pelo token/);
+    } finally { s.encerrar(); esperarCondicao(() => estadoProcesso(s.processo) === 'ausente', 15000); }
+  } finally { grok.kill('SIGKILL'); p.limpar(); }
 });

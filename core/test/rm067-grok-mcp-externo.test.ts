@@ -492,7 +492,7 @@ test('GX8: a sessao MCP que passa do limite despeja a usada ha mais tempo, sem r
   } finally { b.limpar(); }
 });
 
-test('GX9: no sandbox, a conexao tem de vir da arvore de processos do grok do despacho: o token certo de fora dela recusa', async () => {
+test('GX9: no sandbox, a conexao tem de vir da arvore de processos do grok do despacho: o token certo de fora dela recusa', async (t) => {
   const fora = bancada('gx9-fora', { grok: 'sleep' });
   const semConferir = bancada('gx9-sem-conferir', { grok: 'sleep', conferirProcesso: false });
   const dentro = bancada('gx9-dentro');
@@ -512,5 +512,34 @@ test('GX9: no sandbox, a conexao tem de vir da arvore de processos do grok do de
         (res) => { process.stdout.write(String(res.statusCode)); res.resume(); });
       req.end(${JSON.stringify(JSON.stringify(INICIO))});`], { encoding: 'utf8', timeout: 30000 });
     assert.equal(filho.stdout, '200', filho.stderr);
+    // GO-FIX 3: o cliente da arvore com socket IPv6, no endereco v4-mapeado, aparece no /proc/net/tcp6 e tambem entra.
+    const v6 = await new Promise<number | string>((resolve) => {
+      const req = http.request({ host: '::ffff:127.0.0.1', family: 6, port: dentro.s.porta, method: 'POST', path: '/mcp',
+        headers: { Host: `127.0.0.1:${dentro.s.porta}`, 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream',
+          Authorization: `Bearer ${dentro.token}` } }, (res) => { res.resume(); resolve(res.statusCode ?? 0); });
+      req.on('error', (e) => resolve((e as NodeJS.ErrnoException).code ?? 'erro'));
+      req.end(JSON.stringify(INICIO));
+    });
+    if (typeof v6 === 'number') assert.equal(v6, 200, 'o cliente IPv6 da arvore entra');
+    else t.diagnostic(`sem socket IPv6 nesta maquina (${v6}): o caminho do tcp6 fica sem o caso`);
+    // O recusado deixa o motivo no log do servidor, sem o token.
+    const log = fs.readFileSync(path.join(path.dirname(fora.logPath), path.basename(fora.logPath).replace(/\.grok\.jsonl$/, '.grok-mcp.log')), 'utf8');
+    assert.match(log, /conexao recusada: conexao de processo fora da arvore do grok/);
+    assert.equal(log.includes(fora.token), false);
   } finally { fora.limpar(); semConferir.limpar(); dentro.limpar(); }
+});
+
+test('GX10: a conexao que chega antes do .process.json do supervisor espera por ele e entra; a recusa so vem depois de ve-lo', async () => {
+  const b = bancada('gx10-corrida', { semPartida: true, prazoDaPartidaMs: 20000 });
+  try {
+    const pedido = pedir(b.s.porta, { cabecalhos: { Authorization: `Bearer ${b.token}` } });
+    await new Promise((r) => setTimeout(r, 1500));
+    // O supervisor grava o .process.json depois: o "grok" e o proprio processo do teste.
+    gravarAtomico(`${b.logPath}.process.json`, { schema: 'ork.codex-process/v1', iniciadoEm: new Date().toISOString(),
+      supervisor: identidadeProcesso(process.pid), filho: identidadeProcesso(process.pid) });
+    const r = await pedido;
+    assert.equal(r.status, 200, r.corpo);
+    // Na mesma conexao reaproveitada e em conexao nova, o aceite segue.
+    assert.equal((await pedir(b.s.porta, { cabecalhos: { Authorization: `Bearer ${b.token}` } })).status, 200);
+  } finally { b.limpar(); }
 });

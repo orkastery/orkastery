@@ -46,11 +46,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   sandbox do `grok` vale para ele e os filhos, e o servidor MCP do `ork` que ele subia lia o estado sem gravar. Agora,
   com o MCP do `ork`, o despacho `--runtime grok` sobe antes do `grok` um servidor do próprio `ork`, fora do sandbox:
   Streamable HTTP só em `127.0.0.1`, porta efêmera, token de 256 bits por despacho só no ambiente do servidor e do
-  `grok` (`bearer_token_env_var`), nunca em arquivo, a conexão só da árvore de processos do `grok` do despacho, só as
-  ferramentas do `--allow` daquele despacho, e o servidor morre com a sessão. A sessão `grok` no piso
-  `workspace` grava o ledger, os artefatos e o git da worktree pelo núcleo, e o `grok` volta a ser destino de fallback
-  de um projeto com o MCP. O `grok` segue no `workspace`, sem `danger-full-access`, `--yolo` ou `bypassPermissions`, e
-  a retomada manual avisa que roda sem o MCP do `ork`. O `claude-bg` e o `codex` não mudam.
+  `grok` (`bearer_token_env_var`), nunca em arquivo, com o sandbox a conexão só da árvore de processos do `grok` do
+  despacho (quando ele deixa ler os descritores), só as ferramentas do `--allow` daquele despacho, e o servidor morre
+  com a sessão. A sessão `grok` no piso `workspace` grava o ledger, os artefatos e o git da worktree pelo núcleo, e o
+  `grok` volta a ser destino de fallback de um projeto com o MCP. O `grok` segue no `workspace`, sem
+  `danger-full-access`, `--yolo` ou `bypassPermissions`, e a retomada manual avisa que roda sem o MCP do `ork`. O
+  `claude-bg` e o `codex` não mudam.
 
 ### Corrigido
 
