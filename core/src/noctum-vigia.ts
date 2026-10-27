@@ -36,9 +36,10 @@ import { ManifestoCarregado } from './manifest';
 import { nomeDaMaquina } from './maquina';
 import { concluirDespacho, EstadoDoArco, lerArco, SituacaoDoArco } from './noctum-arco';
 import { LeituraDeSessoes } from './noctum-capacidade';
-import { envelopeComTrabalhos } from './noctum-envelope';
+import { envelopeComTrabalhos, envelopeMultimaquina } from './noctum-envelope';
 import { MOTIVO_DA_BASELINE_FALHA, OpcoesDoPasso, passoDoArco, ResultadoDoPasso } from './noctum-execucao';
 import { DecisoesDaSupervisao } from './noctum-fila';
+import { OpcoesDoPassoDaMaquina, passoDaMaquina, RelatorioDaMaquina } from './noctum-maquinas';
 import { OpcoesDaEntrega, passoDaEntrega, ResultadoDaEntrega } from './noctum-entrega';
 import { decidirPedidos, decidirReservas, decidirSessoes, efeitosAbertos, LeitorDoRemoto, LeituraDoRuntime, listagemCompleta, ParadaDeSessao,
   paradaPorAmbiente, provaDaSessao, reconciliarEfeito, recusaDeAmbiente, retomadaPendente } from './noctum-reconciliacao';
@@ -70,6 +71,8 @@ export interface OpcoesDoVigia {
   lerRemoto?: LeitorDoRemoto;
   /** As dependências do passo da N2 (os testes injetam o despacho e as leituras). */
   passo?: OpcoesDoPasso;
+  /** O remoto e as opções de rede do ramo de coordenação; fixtures podem apontar para um remoto local. */
+  coordenacao?: Pick<OpcoesDoPassoDaMaquina, 'remoto' | 'rede'>;
   /** RM-058, integração (T4, D8): as dependências do passo da entrega da N5 (a forja, o CI, o despacho do CHECK, o verify). */
   entrega?: OpcoesDaEntrega;
   /** O passo da entrega; em produção, `passoDaEntrega`. */
@@ -86,7 +89,7 @@ export interface EntregaDoPasso { entrega?: ResultadoDaEntrega | null; falhaDaEn
 
 export type ResultadoConduzido = (ResultadoDoPasso
   | { acao: 'parado'; motivo: string; detalhe: string }
-  | { acao: 'geracao-vencida'; detalhe: string }) & EntregaDoPasso;
+  | { acao: 'geracao-vencida'; detalhe: string }) & EntregaDoPasso & { maquina?: RelatorioDaMaquina };
 
 export interface ResultadoDoTique {
   acao: 'tique';
@@ -279,10 +282,22 @@ export function passoConduzido(carregado: ManifestoCarregado, arco: string, quem
     gravarComEstado(carregado, arco, (s) => s.parada ? [] : [{ tipo: 'parada', motivo: visao.parada!.motivo, detalhe: visao.parada!.detalhe }], quando);
     return { acao: 'parado', motivo: visao.parada.motivo, detalhe: visao.parada.detalhe };
   }
-  const r = passoDoArco(carregado, arco, { ...opcoes.passo, quando, maquina: opcoes.maquina ?? opcoes.passo?.maquina,
+  const opcoesDaN2: OpcoesDoPasso = { ...opcoes.passo, quando, maquina: opcoes.maquina ?? opcoes.passo?.maquina,
     ...(visao ? { perfis: () => visao.perfis } : {}),
     ...(conteudo && estado ? { alvos: (fase, runtime, modo) => alvosDaFase(carregado, conteudo, estado, fase, runtime, modo) } : {}),
-    supervisao: decisoesDaSupervisao(sup, estado) } as OpcoesDoPasso);
+    supervisao: decisoesDaSupervisao(sup, estado) };
+  let r: ResultadoConduzido;
+  if (estado?.conteudo && envelopeMultimaquina(estado.conteudo)) {
+    const daMaquina = passoDaMaquina(carregado, arco, { ...opcoes.coordenacao, quando, maquina: opcoesDaN2.maquina,
+      consultarSessoes: opcoesDaN2.consultarSessoes ?? opcoes.consultarRuntime, n2: opcoesDaN2 });
+    if (daMaquina.acao === 'aguardar') {
+      r = { acao: 'aguardar', ate: cadencia, motivo: daMaquina.motivo, fila: null, detalhe: daMaquina.detalhe, maquina: daMaquina.relatorio };
+    } else {
+      r = { ...daMaquina.passo, ...(daMaquina.acao === 'passo' ? { maquina: daMaquina.relatorio } : {}) };
+    }
+  } else {
+    r = passoDoArco(carregado, arco, opcoesDaN2);
+  }
   gravarEstadoDoPasso(carregado, arco, quem, r, quando);
   // N1 do CHECK 2: a baseline do trabalho que falhou sem ser espera isola o trabalho, com a causa: os outros seguem, e o
   // tique e o relatório dizem por quê.

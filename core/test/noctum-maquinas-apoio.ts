@@ -13,11 +13,14 @@ import { BRANCH_DE_COORDENACAO, identidadeDaMaquina } from '../src/noctum-transp
 import { registrarConducaoDaSessao } from '../src/conducao';
 import { registrar } from '../src/ledger';
 import { OpcoesDoPasso } from '../src/noctum-execucao';
+import { OpcoesDoVigia } from '../src/noctum-vigia';
 import { ResultadoRun } from '../src/phase';
 import { dirThread } from '../src/thread';
+import { gravarNaSupervisao, Instancia } from '../src/noctum-supervisao';
 import { exec } from '../src/util';
 import { commitar, dirTemporario, projetoTemporario } from './apoio';
 import { abrirComBaseline, autorizarPedido, OpcoesDoArco, pedidoV2, TrabalhoSimulado } from './noctum-apoio';
+import { opcoesSimuladas } from './noctum-supervisao-apoio';
 
 /** Uma chave pública Ed25519 SIMULADA e estável, derivada só do nome dado (SPKI DER em base64). */
 export function chaveSimulada(semente: string): string {
@@ -104,6 +107,18 @@ export function duasMaquinas(nome: string, o: Omit<OpcoesDoArcoV3, 'maquinas'> &
     remoto: p.remoto as string, arco, hash, pedido,
     limpar: () => { p.limpar(); fs.rmSync(path.dirname(b), { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); },
   };
+}
+
+/** Um condutor simulado com vigia presente, pronto para chamar `passoConduzido` nesta raiz. */
+export function condutorDaMaquinaSimulado(m: MaquinaDeTeste, arco: string, trabalhos: Array<{ item: string }>, registro: string[] = [], n = 1):
+  { quem: Instancia; opcoes: OpcoesDoVigia } {
+  const quem: Instancia = { papel: 'condutor', instancia: `condutor-${n}-SIMULADO`, pid: process.pid, maquina: m.nome };
+  const vigia: Instancia = { papel: 'vigia', instancia: `vigia-${n}-SIMULADO`, pid: process.pid, maquina: m.nome };
+  gravarNaSupervisao(m.carregado, arco, [{ tipo: 'conducao_assumida', geracao: 1, quem, prova: 'SIMULADO: condutor da máquina' },
+    { tipo: 'tique_iniciado', quem: vigia }, { tipo: 'tique_concluido', quem: vigia, resumo: 'SIMULADO: vigia presente' }]);
+  const n2 = n2Simulada(registro);
+  return { quem, opcoes: opcoesSimuladas(m.dir, trabalhos.map(t => t.item), registro,
+    { maquina: m.nome, coordenacao: { remoto: 'origin' }, passo: { ...n2, maquina: m.nome } }) };
 }
 
 /** Grava no ramo de coordenação sem passar pelo núcleo: é o que um agente com push faria à mão. */
