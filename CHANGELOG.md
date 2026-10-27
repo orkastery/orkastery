@@ -46,6 +46,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   confirmada, até o ensaio real; por isso o `grok` segue fora do fallback automático de um projeto com o MCP. O
   `claude-bg` e o `codex` não mudam.
 
+- **Bancada de medição do CHECK** ([RM-074](docs/roadmap/README.md), M0): `node core/scripts/medir-check.cjs --bancada`
+  roda, numa cópia descartável e no mesmo commit, pares de Agile Check e Classic Check e um passe que mede cada arquivo
+  de teste sozinho (`user`, `sys`, parede, pico de memória e testes), espera a máquina quieta antes de cada rodada,
+  grava o roubo de CPU e calcula a razão entre os modos, a eficiência de paralelismo por lane e o corte de CPU contra a
+  linha de base. A linha de base da M0 está em `docs/roadmap/evidencias/RM-074/`. O Classic Check e o Agile Check não
+  mudam.
+
 ### Corrigido
 
 - **A entrega por PR reconhece a mensagem padrão da forja:** `ork ship registrar-pr`, `--todas`, a paridade de docs,
