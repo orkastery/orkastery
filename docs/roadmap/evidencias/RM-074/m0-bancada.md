@@ -18,8 +18,8 @@ vezes mais rápido. O roubo de CPU é o `steal` observado durante cada rodada.
 | 3 | 0,971 vez | 52,4% | 40,7% | ambos saíram 1 |
 
 Nas duas primeiras rodadas Classic, a saída 1 ocorreu enquanto o Agile do mesmo par
-aprovou. O terceiro Classic também saiu 1, e o Agile do terceiro par igualmente saiu
-1. Assim, nenhum par teve os dois modos aprovados. As duas primeiras falhas Classic
+aprovou. O terceiro Classic também saiu 1, e o Agile do terceiro par igualmente saiu 1.
+Assim, nenhum par teve os dois modos aprovados. As duas primeiras falhas Classic
 impedem usar suas razões como comparação limpa entre modos; a falha compartilhada do
 terceiro par impede até atribuir a reprovação daquele par a um modo específico.
 

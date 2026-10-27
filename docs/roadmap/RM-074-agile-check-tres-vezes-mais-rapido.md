@@ -60,8 +60,8 @@ e a [leitura das sondas](evidencias/RM-074/m0-bancada.md) são a evidência da f
 A coleta da M0 está concluída; a razão de produto continua sem linha de base confiável.
 
 A razão observada `Classic ÷ Agile` foi de 0,693, 0,926 e 0,971 vez. Nas duas
-primeiras, o Agile aprovou e o Classic saiu 1; no terceiro par, os dois modos saíram
-1. O roubo de CPU foi de 14,2%, 24,6% e 52,4% no Agile e de 9,3%, 25,9% e 40,7%
+primeiras, o Agile aprovou e o Classic saiu 1; no terceiro par, os dois modos saíram 1.
+O roubo de CPU foi de 14,2%, 24,6% e 52,4% no Agile e de 9,3%, 25,9% e 40,7%
 no Classic. Portanto, a M0 prova que a bancada coleta as grandezas e aponta contenção
 material, mas não prova vantagem ou desvantagem de um modo, nem permite corrigir a
 razão, extrapolá-la ou fechar a meta de três vezes.
