@@ -1,0 +1,33 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-074, fatia F4 (a dívida da RM-072): cada mutante devolve o comportamento de antes da correção, e o caso do item o mata. Cada claim Mutante roda um deles pelo core/scripts/mutante.cjs.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "item 2: a lane sem veredito fora do tempo volta a tirar o veredito do test inteiro, mais estrito que o Classic",
+      "modulo": "check-agil",
+      "de": "executado: !tempoComFalha && lanes.every((l) => l.resultado.executado !== false),",
+      "para": "executado: foraDoTempo.length === 0 && !tempoComFalha && lanes.every((l) => l.resultado.executado !== false),",
+      "teste": "check-agil",
+      "nome": "^AG39:"
+    },
+    {
+      "id": "M2",
+      "descricao": "item 2: o test volta a levar o codigo da falha de verdade, e a baseline com uma lane morta por sinal vale como ja falhava",
+      "modulo": "check-agil",
+      "de": "code: (foraDoTempo[0] ?? deVerdade[0] ?? caidas[0])?.resultado.code ?? 0,",
+      "para": "code: (deVerdade[0] ?? caidas[0])?.resultado.code ?? 0,",
+      "teste": "check-agil",
+      "nome": "^AG31:"
+    },
+    {
+      "id": "M3",
+      "descricao": "item 2: o texto do gate do test sem veredito volta a dizer so que o test nao foi executado",
+      "modulo": "verify",
+      "de": "...naoExecutados.map((c) => (0, check_agil_1.porQueDasLanes)(c) ? `${c.nome} sem veredito (${(0, check_agil_1.porQueDasLanes)(c)})` : `${c.nome} nao foi executado`),",
+      "para": "...naoExecutados.map((c) => `${c.nome} nao foi executado`),",
+      "teste": "check-agil",
+      "nome": "^AG40:"
+    }
+  ]
+}
