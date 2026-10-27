@@ -185,6 +185,10 @@ ork adapter install claude-code --dry-run
 | Stable local verify on a machine whose CPU the hypervisor steals | **does not exist**: on such a machine, the reliable proof is CI ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)) |
 | A `runtime_reported` measurement of the context window | **does not exist**: `claude-bg` does not expose context usage, and the gate says `unavailable` |
 | Deterministic code graph | **works** in the CLI (`ork grafo`: index, incremental update, queries and thread context, with each edge's provenance), for npm installs since 0.5.3; the MCP tools and the hint in the phase request stay behind the `grafo.mcp` flag, off by default ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)) |
+| Agile Check (the default CHECK) and Classic Check | **works** since 0.6.0: `check.mode: agile \| classic` in `orkastery.yaml` or `ork verify --check`, with the same coverage in both ([RM-072](docs/roadmap/RM-072-check-cinco-vezes-mais-rapido.md)) |
+| Security and code-quality scan in the CHECK | **works** since 0.6.0: `ork security-scan`, run by `ork verify` when the manifest declares `verify.security_scan` ([RM-068](docs/roadmap/RM-068-security-scan-no-check.md)) |
+| GitLab with parity to GitHub | **works** since 0.6.0: CI as the independent CHECK, pulse, network, delivery by MR and the MCP SHIP ([RM-065](docs/roadmap/RM-065-gitlab-com-paridade-ao-github.md)) |
+| Private-data barrier for a public repository | **works** since 0.6.0: `ork privado varrer`, and the `dado_privado` policy in `ork verify` and `ork ci prepare` ([RM-062](docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md)) |
 
 The full picture, item by item and with git evidence, is in the [roadmap index](docs/roadmap/README.md).
 

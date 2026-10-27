@@ -2,13 +2,13 @@
 id: FEAT-038
 tipo: feature
 titulo: Conhecimento escrito
-estado: em desenvolvimento
+estado: vigente
 pai: MOD-05
 roadmap: [RM-026]
 owner: Julio
 aprovador: Julio
-verificado_em: 2026-10-12T22:31:00-03:00
-versao: ork/ork-rm026k7conhe-full@a84dd7a
+verificado_em: 2026-10-27T00:50:00-03:00
+versao: main@69dc0ff6
 fontes:
   codigo:
     - core/src/conhecimento.ts
@@ -48,7 +48,7 @@ fontes:
 
 > **Em uma frase:** Um agente lista, lê e cita os documentos escritos da empresa (política, especificação, guia) pela CLI, pelo MCP, pelo OpenClaw e pelo Hermes, com a versão e a fonte, e o que não confere chega como lacuna tipada.
 
-- **Estado:** em desenvolvimento · **Verificado em:** 2026-10-12 · **Versão:** ork/ork-rm026k7conhe-full@a84dd7a (fatia 3, por PR); na `main`, as fatias 1 (PR #143) e 2 (PR #153); a 0.5.6 publicada leva só a fatia 1, sem comando
+- **Estado:** vigente · **Verificado em:** 2026-10-27 · **Versão:** main@69dc0ff6 (fatia 3, PR #161); as fatias 1 (PR #143) e 2 (PR #153) antes dela; a 0.5.6 levou só a fatia 1, e a 0.6.0 leva as três
 - **Onde fica:** [PLAT-01](PLAT-01-orkastery.md) > [SYS-01](SYS-01-nucleo-ork.md) > [MOD-05](MOD-05-memoria-e-registro.md)
 - **Roadmap:** [RM-026](../roadmap/RM-026-workspace-empresarial.md), pacote K7
 - **Dono da página / aprovador:** Julio / Julio
@@ -111,7 +111,7 @@ fontes:
   - A resposta não tem teto próprio. No OpenClaw, o texto da tool corta em 16 MiB, com `[ork saiu com ERR_CHILD_PROCESS_STDIO_MAXBUFFER]`: o `verificar` de uma pasta enorme com o Brain fora do ar chega lá. Nesse caso, use o `ork conhecimento verificar` no terminal.
   - O prazo de 60 s da conferência é conferido entre um `get` e outro: um `memory.cli` que ignora o SIGTERM segura a consulta além dele, e a tool que o host aborta deixa o `memory.cli` rodando até ele sair.
 - **Dependências e rollback:** o Company Brain ([RM-025](../roadmap/RM-025-company-brain-fundacao.md)) para a conferência. Rollback: reverter o merge e reinstalar os adaptadores; nada a migrar.
-- **Código, PR, testes e release:** fatia 1 no PR #143 (merge `1079f47`), fatia 2 no PR #153 (merge `89e934a`), fatia 3 por PR da thread `ork-rm026k7conhe`. A 0.5.6 levou só a fatia 1 (o contrato e a leitura, sem comando); o comando, as tools e os hosts esperam a próxima versão.
+- **Código, PR, testes e release:** fatia 1 no PR #143 (merge `1079f47`), fatia 2 no PR #153 (merge `89e934a`), fatia 3 no PR #161 (merge `69dc0ff6`). A 0.5.6 levou só a fatia 1 (o contrato e a leitura, sem comando); o comando, as tools e os hosts saíram na versão 0.6.0 (tag `v0.6.0`, `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026).
 - **Próxima ação do dono:** reinstalar a extensão do OpenClaw e a skill do Hermes nos hosts, depois do merge da fatia 3. O agente não faz isso. O `ork` que roda a instalação é o que as tools chamam (no Hermes, salvo um `ORK_BIN` no ambiente dele), e ele precisa ter o K7.
 
   ```bash
@@ -135,3 +135,4 @@ fontes:
 | Data | Mudança | Autor/revisor | Evidência ou decisão |
 | --- | --- | --- | --- |
 | 2026-10-12 | página criada com a fatia 3 do K7: as tools nos hosts OpenClaw e Hermes | Claude (agente) / Julio, revisão pendente | RM-026, thread `ork-rm026k7conhe`, decisões D17 a D19 |
+| 2026-10-27 | vigente: as três fatias publicadas na 0.6.0 | Claude (agente, thread `ork-docsda060emp`) / Julio, revisão pendente | merges `89e934a` e `69dc0ff6` na tag `v0.6.0` |
