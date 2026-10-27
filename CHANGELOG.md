@@ -22,6 +22,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **A entrega por PR reconhece a mensagem padrão da forja:** `ork ship registrar-pr`, `--todas`, a paridade de docs,
+  o condutor e `ork ship publicar` aceitam tanto `ship(<thread>)` quanto os merges padrão do GitHub e do GitLab,
+  vinculados pela branch exata da thread. Revert, citação só no corpo e branch de outra thread com prefixo parecido
+  continuam fora; com CI obrigatória, squash/rebase sem segundo pai segue recusado por `entrega.sem-vinculo`.
 - **O `ork retry run` guarda a conta pedida com `--perfil`:** o despacho barrado antes de abrir a sessão agora grava
   o perfil pedido no ledger (`perfilPedido`), e o retry e a retomada da fila voltam a ele. Se ele estiver sem login,
   esgotado ou for de outro runtime, recusam com motivo tipado e a correção, em vez de redespachar em outra conta sem
