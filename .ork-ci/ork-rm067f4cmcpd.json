@@ -407,7 +407,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node -e \"const g=require('./core/dist/adapters/grok.js');const e=g.ambienteDoDespacho({PATH:'/usr/bin:/bin',ORK_GROK_MCP_TOKEN:'herdado'});process.exit(e.ORK_GROK_MCP_TOKEN===undefined?0:1)\" && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp-externo.test.js GX 1 '^GX4:'"
       ],
       "criadoEm": "2026-10-27T13:22:05.105Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -421,7 +421,7 @@
         "grep -q \"^test('GX9:\" core/test/rm067-grok-mcp-externo.test.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp-externo.test.js GX 2 '^GX(8|9):'"
       ],
       "criadoEm": "2026-10-27T13:22:07.715Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -435,7 +435,7 @@
         "grep -qF 'a conexão tem de vir da árvore de processos do `grok` daquele despacho' docs/roadmap/RM-067-grok-build-homologado.md && grep -qF 'nunca a que tem pedido ou ferramenta em curso' docs/roadmap/RM-067-grok-build-homologado.md && core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-067-grok-build-homologado.md"
       ],
       "criadoEm": "2026-10-27T13:22:13.173Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -449,7 +449,7 @@
         "grep -qF 'a conexão só da árvore de processos do `grok` do despacho' docs/referencia/contratos/playbook-runtimes-i09.md && core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/playbook-runtimes-i09.md"
       ],
       "criadoEm": "2026-10-27T13:22:15.417Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -463,7 +463,7 @@
         "node -e \"const d=JSON.parse(require('fs').readFileSync('.ork-ci/ork-rm067f4cmcpd.json','utf8'));const a=d.deferredClaims||[];const locais=a.filter(c=>c.reason==='local-integration-required');const ok=d.thread==='ork-rm067f4cmcpd'&&d.claims.length>=29&&locais.length>=4&&a.every(c=>c.reason==='local-integration-required'||c.reason==='artifact-not-in-checkout')&&a.filter(c=>c.reason==='artifact-not-in-checkout').length<=1;process.exit(ok?0:1)\" && node -e \"const r=require('./core/scripts/checar-experiencia-publica.cjs').varrer({arquivos:['.ork-ci/ork-rm067f4cmcpd.json']});process.exit(r.ok?0:1)\""
       ],
       "criadoEm": "2026-10-27T13:23:16.883Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -477,7 +477,7 @@
         "grep -qF \"['/proc/net/tcp6', enderecoMapeadoDoProc(portaDoCliente)\" core/src/adapters/grok-mcp-servidor.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp-externo.test.js GX 6 '^GX(1|2|3|8|9|10):'"
       ],
       "criadoEm": "2026-10-27T13:52:02.156Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -491,7 +491,7 @@
         "grep -q \"^test('GX10:\" core/test/rm067-grok-mcp-externo.test.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp-externo.test.js GX 2 '^GX(9|10):'"
       ],
       "criadoEm": "2026-10-27T13:52:05.733Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -505,7 +505,7 @@
         "grep -qF 'com o sandbox a conexão só da árvore de processos do `grok` do' CHANGELOG.md && grep -qF 'despacho (quando ele deixa ler os descritores), só as ferramentas' CHANGELOG.md && node core/scripts/checar-changelog.cjs --base origin/main"
       ],
       "criadoEm": "2026-10-27T13:52:12.222Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -519,7 +519,7 @@
         "grep -qF 'export const LIMITE_DE_RECUSAS_NO_LOG = 20;' core/src/adapters/grok-mcp-servidor.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp-externo.test.js GX 3 '^GX(11|12|13):'"
       ],
       "criadoEm": "2026-10-27T14:29:04.850Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -533,7 +533,7 @@
         "grep -qF 'a conferência nunca rejeita' docs/roadmap/RM-067-grok-build-homologado.md && grep -qF 'recusa o de fora da árvore que o segura' docs/roadmap/RM-067-grok-build-homologado.md && grep -qF 'Ficam como riscos aceitos, porque os dois precisam do token vazado' docs/roadmap/RM-067-grok-build-homologado.md && grep -qF 'e se ele deixa ler os próprios descritores' docs/roadmap/RM-067-grok-build-homologado.md && core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-067-grok-build-homologado.md"
       ],
       "criadoEm": "2026-10-27T14:29:08.888Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -547,7 +547,7 @@
         "grep -qF '(quando ele deixa ler os descritores; sem isso, recusa o dono legível de fora da árvore e aceita o ilegível só pelo token; no perfil `off`, vale só o token)' docs/referencia/contratos/playbook-runtimes-i09.md && core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/playbook-runtimes-i09.md"
       ],
       "criadoEm": "2026-10-27T14:29:10.882Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -561,7 +561,7 @@
         "grep -q \"^test('GX13:\" core/test/rm067-grok-mcp-externo.test.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp-externo.test.js GX 13"
       ],
       "criadoEm": "2026-10-27T14:29:30.114Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -575,7 +575,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node -e 'require(\"./core/dist-test/test/proc-sem-leitura.js\"); require(\"fs\").readdirSync(\"/proc\")' && ORK_TESTE_PROC_SEM_LEITURA=1 node -e 'require(\"./core/dist-test/test/proc-sem-leitura.js\"); try { require(\"fs\").readdirSync(\"/proc\"); process.exit(1) } catch (e) { process.exit(e.code === \"EMFILE\" ? 0 : 1) }' && ORK_TESTE_PROC_SEM_LEITURA=sem-codigo node -e 'require(\"./core/dist-test/test/proc-sem-leitura.js\"); try { require(\"fs\").readdirSync(\"/proc\"); process.exit(1) } catch (e) { process.exit(e instanceof TypeError && e.code === undefined ? 0 : 1) }' && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp-externo.test.js GX 1 '^GX11:'"
       ],
       "criadoEm": "2026-10-27T14:29:33.774Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -589,6 +589,20 @@
         "grep -qF 'const pendentesPorSocket = new WeakMap' core/src/adapters/grok-mcp-servidor.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp-externo.test.js GX 1 '^GX13:'"
       ],
       "criadoEm": "2026-10-27T14:37:46.745Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C66",
+      "thread": "ork-rm067f4cmcpd",
+      "fase": "GOAL",
+      "arquivo": "core/test/horario-entradas.test.ts",
+      "alegacao": "F4c (GO-FIX 6): o servidor externo do grok, entrada de processo nova (require.main com --run), fica declarado no registro das entradas: o fuso do dono vem do criarServidorMcp, pelo projeto servido, e o recibo e o stderr do servidor nao mostram horario a pessoa; os testes das entradas passam",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"{ arquivo: 'core/src/adapters/grok-mcp-servidor.ts', razao: '--run serve o MCP do ork\" core/test/horario-entradas.test.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/horario-entradas.test.js"
+      ],
+      "criadoEm": "2026-10-27T15:04:14.282Z",
       "estado": "pendente",
       "lint": []
     }
