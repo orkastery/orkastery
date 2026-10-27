@@ -5,6 +5,7 @@ import { carregarManifesto } from './manifest';
 import { raizDoEstado } from './estado-thread';
 import { conferirAuth as authClaude, StatusDeAuth } from './adapters/claude-bg';
 import { conferirAuth as authCodex } from './adapters/codex';
+import { conferirAuth as authGrok } from './adapters/grok';
 import { lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDisponivel, perfisDoRuntime } from './runtime-profiles';
 import { MODOS, ORDEM_DOS_MODOS } from './modos';
 import { lerSetup, configDoBloco } from './setup';
@@ -25,7 +26,7 @@ export interface SensoresPreflight {
   /** I-33 (D7): login do perfil conferido pelo proprio CLI com o env dele. */
   auth?(perfil:PerfilDeDespacho):StatusDeAuth;
 }
-const authPadrao=(p:PerfilDeDespacho):StatusDeAuth=>p.runtime==='claude-bg'?authClaude(p):authCodex(p);
+const authPadrao=(p:PerfilDeDespacho):StatusDeAuth=>p.runtime==='claude-bg'?authClaude(p):p.runtime==='grok'?authGrok(p):authCodex(p);
 const sensoresPadrao:SensoresPreflight={
   runtime:nome=>!!resolverRuntime(nome).disponivel(),
   sandboxCodex:()=>sondarSandbox().ok,

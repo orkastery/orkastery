@@ -2,13 +2,13 @@
 id: FEAT-039
 tipo: feature
 titulo: GitLab com paridade ao GitHub
-estado: em desenvolvimento
+estado: vigente
 pai: MOD-02
 roadmap: [RM-065]
 owner: Julio
 aprovador: Julio
-verificado_em: 2026-10-14T12:50:00-03:00
-versao: forja/gitlab@2626938
+verificado_em: 2026-10-27T00:50:00-03:00
+versao: main@1e88a932
 fontes:
   codigo:
     - core/src/forja/adaptador.ts
@@ -86,7 +86,7 @@ fontes:
 
 > **Em uma frase:** o `ork` lê a CI, os MRs e a rede de um GitLab, abre MR e entrega pelo MCP, com o mesmo comportamento do GitHub, por uma porta de forja em que cada plataforma é um adaptador com capacidades.
 
-- **Estado:** em desenvolvimento · **Verificado em:** 2026-10-14 · **Versão:** forja/gitlab@2626938, por PR
+- **Estado:** vigente · **Verificado em:** 2026-10-27 · **Versão:** main@1e88a932 (PR #175), publicada na 0.6.0
 - **Onde fica:** [PLAT-01](PLAT-01-orkastery.md) > [SYS-01](SYS-01-nucleo-ork.md) > [MOD-02](MOD-02-verdade-e-entrega.md)
 - **Roadmap:** [RM-065](../roadmap/RM-065-gitlab-com-paridade-ao-github.md)
 - **Dono da página / aprovador:** Julio / Julio
@@ -156,10 +156,11 @@ fontes:
 - **Acesso, privacidade e conformidade:** o `ork` nunca lê nem passa token; o corpo de requisição nunca vai a argv; todo detalhe de erro passa pelo redator (tokens do GitHub e do GitLab, JWT, `Authorization`, `PRIVATE-TOKEN`, credencial em URL). O transporte `forja-https` recusa o binário da CLI numa pasta com escrita de grupo.
 - **Limites conhecidos:** a lista "O que não é suportado" do [contrato](../referencia/contratos/forja.md#o-que-não-é-suportado) e os achados fora do escopo na [RM-065](../roadmap/RM-065-gitlab-com-paridade-ao-github.md#achados-fora-do-escopo-deste-item).
 - **Dependências e rollback:** a CLI da forja (`gh`, `glab`) com login. Rollback: reverter o merge; o bloco `forja:` e o `ci.produtor` são opcionais, e quem instalou `forja-ssh` ou `forja-https` reinstala o MCP com `github-ssh` ou `bare-local`.
-- **Código, PR, testes e release:** branch `forja/gitlab`, por um PR único para a `main`; respostas gravadas do GitHub e do GitLab CE 16.11, 17.0, 18.11, 19.2, 19.3 e 19.4 em `core/test/fixtures/forja/`, regravadas por `core/scripts/forja-contrato.cjs`. Ainda sem release.
+- **Código, PR, testes e release:** branch `forja/gitlab`, mesclada pelo PR #175 (merge `1e88a932`); respostas gravadas do GitHub e do GitLab CE 16.11, 17.0, 18.11, 19.2, 19.3 e 19.4 em `core/test/fixtures/forja/`, regravadas por `core/scripts/forja-contrato.cjs`. Release: versão 0.6.0 (tag `v0.6.0`, `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026).
 
 ## Histórico
 
 | Data | Mudança | Autor/revisor | Evidência ou decisão |
 | --- | --- | --- | --- |
 | 2026-10-14 | página criada com as fatias 0 a 7 do suporte a GitLab | Claude (agente) / Julio, revisão pendente | RM-065, piloto num GitLab CE 19.3.5 próprio |
+| 2026-10-27 | vigente: mesclada pelo PR #175 e publicada na 0.6.0 | Claude (agente, thread `ork-docsda060emp`) / Julio, revisão pendente | merge `1e88a932` na tag `v0.6.0` |

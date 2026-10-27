@@ -6,19 +6,21 @@ categoria: iniciativa
 pai: null
 features: [FEAT-039]
 owner: Julio
-atualizado_em: 2026-10-14T12:50:00-03:00
+atualizado_em: 2026-10-27T00:50:00-03:00
 estado:
-  ciclo: Em validação
+  ciclo: Disponível
   documentacao: Em revisão
-  codigo: PR aberto
+  codigo: Mesclado
   testes: Aprovados
-  deploy: Não implantado
-  exposicao: Flag desligada
-  habilitacao: Pendente
+  deploy: Produção
+  exposicao: Geral
+  habilitacao: Concluída
 evidencias:
   codigo:
-    commit: null
-    pr: null
+    commit: 1e88a932
+    pr: 175
+  deploy:
+    release: v0.6.0, @orkastery/cli no npm (a porta da forja e o GitLab)
 sdlc:
   thread: null
   modo: null
@@ -32,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em validação | PR aberto | Aprovados | Não implantado | Flag desligada |
+| Disponível | Mesclado | Aprovados | Produção | Geral |
 
 <!-- ork-docs:relance:fim -->
 
@@ -143,7 +145,7 @@ Defeitos do núcleo que o piloto achou e que não são do suporte a GitLab. Vale
 
 ## Estado com evidências
 
-O código está na branch `forja/gitlab`, a caminho de um PR único para a `main`. A suíte cobre cada capacidade dos dois adaptadores contra as respostas gravadas; o piloto e as provas em docker estão resumidos em [Evidências](#evidências).
+O código entrou na `main` pelo PR #175 (merge `1e88a932`) e está em produção na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026). A suíte cobre cada capacidade dos dois adaptadores contra as respostas gravadas; o piloto e as provas em docker estão resumidos em [Evidências](#evidências).
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -151,13 +153,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em validação | — | 2026-10-14 | Julio |
-| Documentação | Em revisão | — | 2026-10-14 | Julio |
-| Código | PR aberto | — | 2026-10-14 | Julio |
-| Testes | Aprovados | — | 2026-10-14 | Julio |
-| Deploy | Não implantado | — | 2026-10-14 | Julio |
-| Exposição | Flag desligada | — | 2026-10-14 | Julio |
-| Habilitação | Pendente | — | 2026-10-14 | Julio |
+| Ciclo do item | Disponível | — | 2026-10-27 | Julio |
+| Documentação | Em revisão | — | 2026-10-27 | Julio |
+| Código | Mesclado | commit `1e88a932` · PR #175 | 2026-10-27 | Julio |
+| Testes | Aprovados | — | 2026-10-27 | Julio |
+| Deploy | Produção | release: v0.6.0, @orkastery/cli no npm (a porta da forja e o GitLab) | 2026-10-27 | Julio |
+| Exposição | Geral | — | 2026-10-27 | Julio |
+| Habilitação | Concluída | — | 2026-10-27 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -165,8 +167,9 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: contribuidor da branch `forja/gitlab`; A: owner do item; C: —; I: —.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** agente de código na implementação e nas provas, com o contribuidor no comando; revisor humano: o owner, no PR.
-- **Próxima ação, responsável e prazo:** revisão e decisão de merge do PR pelo owner; depois do merge, `ork docs sincronizar --escrever` grava o commit e o PR. Sem data definida.
+- **Próxima ação, responsável e prazo:** os achados de "Achados fora do escopo deste item" ficam para itens próprios; responsável: Julio. Sem data definida.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-14 | Item criado com as fatias 0 a 7 implementadas na branch | Pedido do mantenedor; matriz CE 16.11 a 19.4, provas em docker e piloto num GitLab CE 19.3.5 próprio | Julio |
+| 2026-10-27 | Mesclado pelo PR #175 e em produção na 0.6.0: ciclo Disponível, exposição Geral e habilitação Concluída (o contrato da forja e a FEAT-039 saíram com a versão) | Merge `1e88a932` (PR #175) na `main` e na tag `v0.6.0`; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |

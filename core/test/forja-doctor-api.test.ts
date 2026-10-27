@@ -14,7 +14,7 @@ import { cliGithub, cliGitlab, linha, projeto, sondas } from './forja-doctor-apo
 const NOMES = ['forja identidade', 'forja alcance', 'forja tls', 'forja cli', 'forja login', 'forja servidor', 'forja escopo',
   'forja projeto', 'forja capacidades'];
 
-test('GitLab CE 19.2 gravado: CLI, login, servidor testada, escopo api, aviso da mensagem de merge padrão e as capacidades sem aviso', () => {
+test('GitLab CE 19.2 gravado: CLI, login, servidor testado, escopo api e mensagem de merge padrão aceita', () => {
   const cli = cliGitlab('19.2');
   const checks = checarForja(projeto({ exigida: true }), sondas({ rodar: cli.rodar }));
   assert.deepEqual(checks.map((c) => c.nome), NOMES);
@@ -23,9 +23,8 @@ test('GitLab CE 19.2 gravado: CLI, login, servidor testada, escopo api, aviso da
   assert.equal(linha(checks, 'forja servidor')!.detalhe, '19.2.7 CE, faixa testada');
   assert.equal(linha(checks, 'forja escopo')!.detalhe, 'escopos do token: api');
   const p = linha(checks, 'forja projeto')!;
-  assert.equal(p.nivel, 'warn');
-  assert.equal(p.detalhe, 'merge merge; squash default_off; merged results não disponível nesta edição; merge train não disponível ' +
-    'nesta edição; a mensagem de merge padrão (Merge branch …) não começa por ship(<thread>)');
+  assert.equal(p.nivel, 'ok');
+  assert.equal(p.detalhe, 'merge merge; squash default_off; merged results não disponível nesta edição; merge train não disponível nesta edição');
   const cap = linha(checks, 'forja capacidades')!;
   assert.equal(cap.nivel, 'ok', 'o checksNoCommit é do executor do gh; o GitLab lê a CI pelo estadoDeCi');
   assert.match(cap.detalhe, /estadoDeCi, pedidoMesclado, branchPadrao, pontaDaBranch, comparar, pedidosDaBranch, abrirPedido, metadados, pedidosAbertos, donoDaRede$/);
@@ -101,14 +100,14 @@ test('escopo: token sem api nem read_api reprova; token sem self (OAuth) não é
   assert.match(n.detalhe, /^não medível: forja\.nao-achei/);
 });
 
-test('projeto: fast-forward e squash sempre avisam; modelo que começa por %{title} não avisa; projeto não lido reprova', () => {
+test('projeto: fast-forward e squash sempre avisam; mensagem padrão ou %{title} não avisa; projeto não lido reprova', () => {
   const base = gravado('gitlab/19.2/projeto') as Record<string, unknown>;
   const com = (projetoGravado: Record<string, unknown>) => linha(checarForja(projeto({ exigida: true }), sondas({ rodar: cliGitlab('19.2',
     [{ quando: api('projects/root%2Fmatriz'), responde: http(200, projetoGravado) }]).rodar })), 'forja projeto')!;
   const ff = com({ ...base, merge_method: 'ff' });
   assert.match(ff.detalhe, /fast-forward/);
-  assert.doesNotMatch(ff.detalhe, /mensagem de merge padrão/);
   assert.match(com({ ...base, squash_option: 'always', merge_commit_template: '%{title}\n\n%{description}' }).detalhe, /squash always: /);
+  assert.equal(com({ ...base, merge_commit_template: null }).nivel, 'ok');
   const certo = com({ ...base, merge_commit_template: '%{title}\n\nSee merge request %{reference}' });
   assert.equal(certo.nivel, 'ok');
   const privado = checarForja(projeto({ exigida: true }), sondas({ rodar: cliGitlab('19.2',

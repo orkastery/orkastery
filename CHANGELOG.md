@@ -19,9 +19,39 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   conta real deve despachar antes da decisão do dono. O `grok` não é padrão de bloco, nem fallback, nem
   `runtime.adapter`, e ainda despacha sem o MCP do `ork`; perfis de conta, login e cota (F3, que espera a decisão D1
   do dono), setup, MCP e onboarding (F4) e o ensaio real (F5) ficam para depois. O `claude-bg` e o `codex` não mudam.
+- **Perfis de conta do Grok Build** ([RM-067](docs/roadmap/RM-067-grok-build-homologado.md), F3): com a D1 decidida pelo
+  dono em 27/10/2026 (a assinatura agora, com o risco da política de uso aceito), `ork accounts add <id> --runtime grok
+  --dir <dir>` cria o perfil com o `GROK_HOME` dele e roda `grok login` (ou `grok login --device-auth`, com
+  `--device-auth`); o `ork` nunca lê nem copia o `auth.json`. O despacho `--runtime grok` sai pelo perfil da vez, e o
+  perfil esgotado, sem login, pago ou desativado não recebe despacho. O `grok` não documenta conferência de login: o
+  perfil entra sem conferência prévia, e o erro de login do despacho o tira. O formato da cota esgotada do `grok` não
+  está confirmado: nenhum texto dele vira cota esgotada, e o `grok` fica fora da escada automática e do fallback até o
+  ensaio real (F5). O `claude-bg` e o `codex` não mudam.
+- **Grok Build no setup do bloco** ([RM-067](docs/roadmap/RM-067-grok-build-homologado.md), F4): `ork setup <modo>
+  --bloco N --runtime grok --model <modelo>` e o fallback `grok:<modelo>[:esforço]` aceitam o `grok`, sempre com o
+  modelo do dono e nunca como `runtime.adapter`; o `eco` vira `minimal` no `--effort`. A postura `danger-full-access`
+  vira o sandbox `off` do `grok` só com `ork setup sandbox confirmar`, senão o despacho recusa com
+  `runtime.sandbox-nao-confirmado`; o comando confia a worktree (`--trust`), e o `AGENTS.md` dela entra na partida. O
+  `ork retry` troca o perfil do `grok` também num projeto com o MCP do `ork`, e o `ork sessions` lista as sessões dele.
+  O `claude-bg` e o `codex` não mudam.
+- **Host MCP do Grok Build** ([RM-067](docs/roadmap/RM-067-grok-build-homologado.md), F4b): `ork mcp install --project
+  <raiz> --host grok` grava a entrada `orkastery` no `.grok/config.toml` do projeto, com o perfil filho, e recusa a
+  entrada divergente como os outros hosts. O `ork mcp serve --host grok` só serve a sessão filha (sem `--thread`, recusa
+  com `mcp.host.child-only`) e lista só as ferramentas do perfil filho, as que o `--allowedTools` do `claude-bg` libera.
+  Num projeto preparado, o despacho `--runtime grok` de uma thread com worktree própria grava nela, fora do git, a config
+  com o servidor vinculado à thread e ao despacho, leva um `--allow MCPTool(orkastery__<ferramenta>)` por ferramenta
+  liberada e roda o filho sem o MCP do Claude e do Cursor. O `ork_phase_run` do MCP aceita o `grok`, a tela do setup o
+  lista, e o watcher refaz a prova do `ork` sob o lock da sessão. O sandbox do `grok` vale também para o servidor MCP do
+  `ork`: com `workspace` ou `read-only`, ele só lê, e as mutações gravam só com a postura `danger-full-access`
+  confirmada, até o ensaio real; por isso o `grok` segue fora do fallback automático de um projeto com o MCP. O
+  `claude-bg` e o `codex` não mudam.
 
 ### Corrigido
 
+- **A entrega por PR reconhece a mensagem padrão da forja:** `ork ship registrar-pr`, `--todas`, a paridade de docs,
+  o condutor e `ork ship publicar` aceitam tanto `ship(<thread>)` quanto os merges padrão do GitHub e do GitLab,
+  vinculados pela branch exata da thread. Revert, citação só no corpo e branch de outra thread com prefixo parecido
+  continuam fora; com CI obrigatória, squash/rebase sem segundo pai segue recusado por `entrega.sem-vinculo`.
 - **O `ork retry run` guarda a conta pedida com `--perfil`:** o despacho barrado antes de abrir a sessão agora grava
   o perfil pedido no ledger (`perfilPedido`), e o retry e a retomada da fila voltam a ele. Se ele estiver sem login,
   esgotado ou for de outro runtime, recusam com motivo tipado e a correção, em vez de redespachar em outra conta sem
@@ -843,8 +873,8 @@ Não publicada no npm; o conteúdo saiu na 0.5.6.
   A recomendada, quando possível, é a que o dono responde com uma palavra e a fábrica executa o resto com a autorização dele.
 - **Teto dos testes no verify deste repositório** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
   o `orkastery.yaml` do projeto passa a dar 40 min ao comando `test`, teto que o comando hermético do CI
-  herda ao rodar `test:ci`, porque a suíte mede 3,6 min com CPU livre e 24 a 30 min quando o hipervisor rouba
-  CPU. O `build` e os outros comandos seguem no prazo padrão.
+  herda ao rodar `test:ci`, porque a suíte leva de 7 a 8 vezes o tempo que leva com CPU livre quando o hipervisor
+  rouba CPU. O `build` e os outros comandos seguem no prazo padrão.
 - **No #Fast, o ship sem `--autorizar-push` não desconta o índice** ([RM-049](docs/roadmap/RM-049-lancamento.md), EN8):
   o `ship_blocked` com `human.pending` de uma thread #Fast é a pausa prevista do modo, como o `ork ship --dry-run`
   barrado, e deixa de entrar no índice derivado do MASTER (era 4.75/5, `ship_blocked x1`). Fora do #Fast, ou com

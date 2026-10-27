@@ -5,9 +5,6 @@ export const SETUP_PT_BR = {
   fallbackInvalido: (item: string) => `fallback invalido: "${item}" (use runtime:modelo[:esforco], por exemplo codex:gpt-5.5)`,
   fallbackDesconhecido: (runtime: string, homologados: string) =>
     `fallback com runtime desconhecido: "${runtime}" (homologados: ${homologados})`,
-  // RM-067 (D1 da ork-grokbuild): o runtime que resolve por nome, mas so entra por despacho explicito.
-  fallbackSoPorPedido: (runtime: string, homologados: string) =>
-    `fallback com runtime so de despacho explicito: "${runtime}" entra por ork phase run --runtime ${runtime}; o fallback aceita: ${homologados}`,
   fallbackRepetido: (runtime: string) => `fallback repete o runtime ${runtime} (o runtime do bloco e cada fallback aparecem uma vez)`,
   limiteInvalido: (campo: string, positivo: boolean) =>
     `limites.${campo} deve ser inteiro ${positivo ? 'positivo' : 'nao negativo'}, finito e representavel`,
@@ -38,8 +35,6 @@ export const SETUP_PT_BR = {
     `bloco ${bloco} nao existe no modo ${tag}: ele tem ${total} bloco(s)`,
   runtimeDesconhecido: (runtime: string, homologados: string) =>
     `runtime desconhecido: "${runtime}" (homologados: ${homologados})`,
-  runtimeSoPorPedido: (runtime: string, homologados: string) =>
-    `runtime so de despacho explicito: "${runtime}" entra por ork phase run --runtime ${runtime}; o bloco aceita: ${homologados}`,
   modeloComRuntime: 'setup.model.required: para mudar o runtime do bloco, informe --runtime e --model juntos; nenhuma configuracao foi gravada.',
   modeloPendente: 'setup.model.required: modelo pendente neste bloco; informe --model antes de salvar.',
   origem: {
@@ -110,8 +105,6 @@ export const SETUP_EN: typeof SETUP_PT_BR = {
   camposExatos: (field, fields) => `${field} must contain only ${fields}`,
   fallbackInvalido: (item) => `invalid fallback: "${item}" (use runtime:model[:effort], for example codex:gpt-5.5)`,
   fallbackDesconhecido: (runtime, allowed) => `fallback uses unknown runtime: "${runtime}" (supported: ${allowed})`,
-  fallbackSoPorPedido: (runtime, allowed) =>
-    `fallback uses a runtime for explicit dispatch only: "${runtime}" runs through ork phase run --runtime ${runtime}; a fallback accepts: ${allowed}`,
   fallbackRepetido: (runtime) => `fallback repeats runtime ${runtime} (the block runtime and each fallback may appear only once)`,
   limiteInvalido: (field, positive) => `limites.${field} must be a ${positive ? 'positive' : 'non-negative'} finite representable integer`,
   blocoComLimites: 'a block with limits requires a known runtime and explicit valid model and effort',
@@ -138,8 +131,6 @@ export const SETUP_EN: typeof SETUP_PT_BR = {
   prazoReduzido: 'shortened deadline has already expired',
   blocoInexistente: (block, tag, total) => `block ${block} does not exist in mode ${tag}: it has ${total} block(s)`,
   runtimeDesconhecido: (runtime, allowed) => `unknown runtime: "${runtime}" (supported: ${allowed})`,
-  runtimeSoPorPedido: (runtime, allowed) =>
-    `runtime for explicit dispatch only: "${runtime}" runs through ork phase run --runtime ${runtime}; a block accepts: ${allowed}`,
   modeloComRuntime: 'setup.model.required: to change the block runtime, provide --runtime and --model together; no configuration was written.',
   modeloPendente: 'setup.model.required: this block has a pending model; provide --model before saving.',
   origem: {

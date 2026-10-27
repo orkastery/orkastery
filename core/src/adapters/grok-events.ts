@@ -146,12 +146,24 @@ export class ParserGrok {
 }
 
 /**
- * D7: a falha da CONTA dita pelo próprio runtime no objeto `error` do stream (login, cota, modelo), pelo critério
- * único da D16 (`parseFalhaDeConta`). O formato do erro de cota do `grok` não é documentado: o que a frase não diz
- * fica `null`, e a parada segue tipada como `runtime.unavailable`.
+ * D7 e RM-067 (F3): a falha da CONTA dita por um texto do `grok` (a mensagem do `error` ou o stderr), pelo critério único
+ * da D16 (`parseFalhaDeConta`), sem a cota. O formato do erro de cota esgotada do `grok` não está confirmado (E5 da página
+ * da RM-067): a fonte não diz o campo nem a mensagem. O sinal tipado de cota só pode vir de erro estruturado do runtime, e
+ * uma frase parecida marcaria o perfil e tiraria a conta do rodízio por suposição; até o ensaio real (F5) ler o formato,
+ * nenhum texto do `grok` vira `runtime.quota-exhausted`, e o `grok` fica fora da escada automática e do fallback por
+ * cota. O login e o modelo seguem pela frase, como na F2.
+ */
+export function falhaDeContaDoTextoGrok(texto: string, agoraMs = Date.now()): SinalDeFalhaDeConta | null {
+  const falha = parseFalhaDeConta(texto, agoraMs);
+  return falha?.motivo === 'runtime.quota-exhausted' ? null : falha;
+}
+
+/**
+ * D7: a falha da CONTA dita pelo próprio runtime no objeto `error` do stream (login, modelo), sem a cota
+ * (`falhaDeContaDoTextoGrok`): o que a frase não tipa fica `null`, e a parada segue tipada como `runtime.unavailable`.
  */
 export function falhaDoErroGrok(erro: ErroGrok | null, agoraMs = Date.now()): SinalDeFalhaDeConta | null {
-  return erro ? parseFalhaDeConta(erro.mensagem, agoraMs) : null;
+  return erro ? falhaDeContaDoTextoGrok(erro.mensagem, agoraMs) : null;
 }
 
 /**

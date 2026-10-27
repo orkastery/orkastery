@@ -32,23 +32,26 @@ function cenario(nome: string) {
 
 test('GK1: o comando completo sai na ordem do contrato, com o prompt no argumento 2', () => {
   assert.deepEqual(montarComando(PEDIDO), ['grok', '-p', PEDIDO.prompt, '--output-format', 'streaming-json', '-s', SESSAO,
-    '--cwd', '/srv/wt', '-m', 'grok-modelo', '--effort', 'high', '--sandbox', 'workspace', '--no-auto-update']);
+    '--cwd', '/srv/wt', '--trust', '-m', 'grok-modelo', '--effort', 'high', '--sandbox', 'workspace', '--no-auto-update']);
   assert.equal(montarComando(PEDIDO)[2], PEDIDO.prompt, 'o ledger mascara o argumento 2');
 });
 
 test('GK2: sem modelo, esforco e id as opcoes somem, e nenhuma aprovacao automatica entra', () => {
   assert.deepEqual(montarComando({ prompt: 'x', nome: 'n', cwd: '/srv/wt' }),
-    ['grok', '-p', 'x', '--output-format', 'streaming-json', '--cwd', '/srv/wt', '--sandbox', 'workspace', '--no-auto-update']);
+    ['grok', '-p', 'x', '--output-format', 'streaming-json', '--cwd', '/srv/wt', '--trust', '--sandbox', 'workspace', '--no-auto-update']);
   const comando = montarComando(PEDIDO);
-  for (const proibida of ['--yolo', '--always-approve', '--permission-mode', 'bypassPermissions', '--trust']) {
+  for (const proibida of ['--yolo', '--always-approve', '--permission-mode', 'bypassPermissions']) {
     assert.equal(comando.includes(proibida), false, proibida);
   }
+  // RM-067 (F4): a confiança é da pasta do --cwd, e vem logo depois dela.
+  assert.equal(comando[comando.indexOf('--cwd') + 2], '--trust');
 });
 
-test('GK3: a postura do manifesto vira o perfil de sandbox do grok, com workspace de piso e read-only no PLAN', () => {
+test('GK3: a postura do manifesto vira o perfil de sandbox do grok, com workspace de piso, off so na postura frouxa e read-only no PLAN', () => {
   assert.equal(perfilDeSandbox('read-only'), 'read-only');
   assert.equal(perfilDeSandbox('workspace-write'), 'workspace');
-  assert.equal(perfilDeSandbox('danger-full-access'), 'workspace');
+  // RM-067 (F4, E7): a postura mais frouxa vira off; quem recusa sem a confirmacao local e o despacho (rm067-grok-setup).
+  assert.equal(perfilDeSandbox('danger-full-access'), 'off');
   assert.equal(perfilDeSandbox(undefined), 'workspace');
   assert.equal(perfilDeSandbox('workspace-write', 'plan'), 'read-only');
   assert.throws(() => perfilDeSandbox('off'), /^Error: runtime\.unavailable: sandbox off sem perfil do grok$/);
@@ -62,7 +65,7 @@ test('GK3: a postura do manifesto vira o perfil de sandbox do grok, com workspac
 
 test('GK4: a retomada troca o prompt pelo texto e o -s pelo -r, do comando do despacho mascarado ou nao', () => {
   const comando = montarComando(PEDIDO);
-  const esperada = ['grok', '-p', 'continue', '--output-format', 'streaming-json', '-r', SESSAO, '--cwd', '/srv/wt',
+  const esperada = ['grok', '-p', 'continue', '--output-format', 'streaming-json', '-r', SESSAO, '--cwd', '/srv/wt', '--trust',
     '-m', 'grok-modelo', '--effort', 'high', '--sandbox', 'workspace', '--no-auto-update'];
   assert.deepEqual(montarComandoDeRetomada(comando, SESSAO), esperada);
   assert.deepEqual(montarComandoDeRetomada(comando.map((c, i) => (i === 2 ? '<prompt:abcd1234>' : c)), SESSAO), esperada);
@@ -72,7 +75,7 @@ test('GK4: a retomada troca o prompt pelo texto e o -s pelo -r, do comando do de
   assert.equal(montarComandoDeRetomada(comando, 'outra-sessao'), null, 'id de outra sessao');
 });
 
-test('GK5: o ambiente do filho sai sem XAI_API_KEY nem provider pago, com GROK_HOME, e perfil recusa ate a F3', () => {
+test('GK5: o ambiente do filho sai sem XAI_API_KEY nem provider pago, com o GROK_HOME do perfil, e perfil de outro runtime recusa', () => {
   const base: NodeJS.ProcessEnv = { PATH: '/usr/bin', GROK_HOME: '/srv/casa-grok', XAI_API_KEY: 'x', OPENAI_API_KEY: 'x',
     ANTHROPIC_API_KEY: 'x', ORK_HITL_TOKEN: 'x', ORK_DISPATCH_ID: 'herdado' };
   const env = ambienteDoDespacho(base);
@@ -85,7 +88,11 @@ test('GK5: o ambiente do filho sai sem XAI_API_KEY nem provider pago, com GROK_H
   assert.ok((ENVS_REMOVIDAS_DO_DESPACHO as readonly string[]).includes('XAI_API_KEY'));
   assert.equal(ambienteDoFilho({ ambienteExtra: { ORK_DISPATCH_ID: 'deste-despacho' } }, base).ORK_DISPATCH_ID, 'deste-despacho');
   assert.throws(() => ambienteDoFilho({ perfil: { id: 'p1', runtime: 'codex', codexHome: '/srv/c' } }, base),
-    /runtime\.profiles\.invalid: o grok ainda nao tem perfil de conta/);
+    /runtime\.profiles\.invalid: perfil sem grokHome no despacho grok/);
+  // RM-067 (F3): o perfil do grok troca a casa do filho, e a chave continua fora.
+  const doPerfil = ambienteDoFilho({ perfil: { id: 'g1', runtime: 'grok', grokHome: '/srv/perfil-g1' } }, base);
+  assert.equal(doPerfil.GROK_HOME, '/srv/perfil-g1');
+  assert.equal(doPerfil.XAI_API_KEY, undefined);
   assert.equal(casaDoGrok({ GROK_HOME: ' /srv/casa ' }), '/srv/casa');
   assert.ok(casaDoGrok({}).endsWith(`${path.sep}.grok`));
 });

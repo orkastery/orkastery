@@ -27,6 +27,7 @@ import * as path from 'node:path';
 import { autorizada, LeituraDaAutorizacao, lerAutorizacao, referenciaDaAutorizacao } from './autorizacao-duravel';
 import { conducaoDaThread } from './conducao';
 import { registrarEntregaPorPr } from './entrega-pr';
+import { branchRegistradaDaEntrega, mergesDasEntregasNaBase } from './merge-da-entrega';
 import { raizDoEstado } from './estado-thread';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { comLocale, textoDoCatalogo } from './locale';
@@ -167,20 +168,14 @@ function commitsDepois(raiz: string, t: Thread, sha: string): number | null {
  * novo de cada thread, com o head do PR (o segundo pai) e o instante do commit. E a mesma busca do `ork ship
  * registrar-pr` (`mergeDaEntrega`).
  */
-function mergesDaBase(raiz: string, remoto: string, base: string):
+function mergesDaBase(raiz: string, remoto: string, base: string, threads: Thread[]):
   Map<string, { mergeSha: string; headSha: string | null; em: string | null }> {
   const mapa = new Map<string, { mergeSha: string; headSha: string | null; em: string | null }>();
-  const r = exec('git', ['log', `refs/remotes/${remoto}/${base}`, '--first-parent', '--format=%H%x09%P%x09%cI%x09%s', '--grep=^ship(',
-    '--'], raiz, 60000);
-  if (!r.ok) return mapa;
-  for (const linha of r.stdout.split('\n')) {
-    const [sha, pais, em, assunto] = linha.split('\t');
-    const m = /^ship\(([A-Za-z0-9._-]+)\)/.exec(assunto ?? '');
-    if (!m || !sha || !SHA.test(sha) || mapa.has(m[1])) continue;
-    const segundo = (pais ?? '').split(' ')[1] ?? null;
-    const ms = Date.parse(em ?? '');
-    mapa.set(m[1], { mergeSha: sha, headSha: segundo && SHA.test(segundo) ? segundo : null,
-      em: Number.isFinite(ms) ? new Date(ms).toISOString() : null });
+  const reconhecidos = mergesDasEntregasNaBase(raiz, `refs/remotes/${remoto}/${base}`, base,
+    threads.map((t) => ({ thread: t.id, branch: branchRegistradaDaEntrega(raiz, t.id) ?? branchDaWorktree(t) })));
+  for (const t of threads) {
+    const merge = reconhecidos.get(t.id)?.[0];
+    if (merge) mapa.set(t.id, merge);
   }
   return mapa;
 }
@@ -215,7 +210,7 @@ function pendentesDeRegistrar(carregado: ManifestoCarregado, threads: Thread[], 
   const remoto = manifesto.fabrica.remoto, base = manifesto.worktree.base_branch;
   const saida: AcaoPendente[] = [];
   const abertas = threads.filter((t) => t.status !== 'fechada' && branchDaWorktree(t).startsWith('ork/'));
-  const merges = abertas.length ? mergesDaBase(raiz, remoto, base)
+  const merges = abertas.length ? mergesDaBase(raiz, remoto, base, abertas)
     : new Map<string, { mergeSha: string; headSha: string | null; em: string | null }>();
   for (const t of abertas) {
     const merge = merges.get(t.id);

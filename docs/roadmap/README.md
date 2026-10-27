@@ -50,18 +50,18 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-012](RM-012-ci-check-independente.md) | CI como CHECK independente | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-013](RM-013-maestro-objetivo.md) | Maestro Mode B7: objetivo e envelope | Descontinuado | Mesclado | Aprovados | Não implantado | 2026-09-24 |
 | [RM-015](RM-015-onboarding-do-nucleo.md) | Onboarding do núcleo | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
-| [RM-016](RM-016-experiencia-do-builder.md) | Experiência do builder em Claude Code e Codex | Concluído | Mesclado | Aprovados | Produção | 2026-09-27 |
+| [RM-016](RM-016-experiencia-do-builder.md) | Experiência do builder em Claude Code e Codex | Concluído | Mesclado | Aprovados | Produção | 2026-10-27 |
 | [RM-018](RM-018-ontologia-de-portfolio.md) | Ontologia de portfólio | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-019](RM-019-catalogo-multi-repositorio.md) | Catálogo multi-repositório | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-025](RM-025-company-brain-fundacao.md) | Company Brain: fundação | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-03 |
-| [RM-026](RM-026-workspace-empresarial.md) | Workspace empresarial e Maestro | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-13 |
+| [RM-026](RM-026-workspace-empresarial.md) | Workspace empresarial e Maestro | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-27 |
 | [RM-031](RM-031-grafo-de-codigo.md) | Grafo determinístico de código e artefatos | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-10 |
 | [RM-032](RM-032-bootstrap-maestro.md) | Bootstrap universal Maestro | Disponível | Mesclado | Aprovados | Produção | 2026-10-01 |
 | [RM-033](RM-033-rotacao-de-contas.md) | Rotação de contas e perfis dos runtimes | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-034](RM-034-conclusao-claude-bg.md) | Conclusão nativa das sessões claude-bg | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-035](RM-035-horario-do-dono.md) | Horário do dono em toda superfície humana | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-036](RM-036-maestro-multicanal.md) | Condução multicanal do Maestro no núcleo | Piloto | Mesclado | Aprovados | Produção | 2026-10-03 |
-| [RM-037](RM-037-verify-rapido-e-confiavel.md) | Verify rápido e confiável | Piloto | Mesclado | Aprovados | Produção | 2026-10-20 |
+| [RM-037](RM-037-verify-rapido-e-confiavel.md) | Verify rápido e confiável | Piloto | Mesclado | Aprovados | Produção | 2026-10-27 |
 | [RM-038](RM-038-busca-semantica-na-memoria.md) | Busca semântica na memória | Em validação | Mesclado | Aprovados | Produção | 2026-10-10 |
 | [RM-039](RM-039-cadencia-do-pulse-por-tag.md) | Cadência do pulse por tag em qualquer canal | Piloto | Mesclado | Aprovados | Produção | 2026-10-03 |
 | [RM-040](RM-040-estado-de-conta-compartilhado.md) | Estado de conta compartilhado entre projetos | Piloto | Mesclado | Aprovados | Produção | 2026-09-27 |
@@ -71,7 +71,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-044](RM-044-documentacao-como-codigo.md) | Documentação como código com paridade | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-045](RM-045-pulse-enxuto.md) | Pulse enxuto: fila sem lixo e varredura dentro do teto | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-046](RM-046-go-to-open-source.md) | GoToOpenSource, o Orkastery aberto, seguro e fácil de adotar | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
-| [RM-047](RM-047-fabrica-em-varias-maquinas.md) | Fábrica em várias máquinas, com threads em mais de um computador | Piloto | Mesclado | Aprovados | Produção | 2026-10-03 |
+| [RM-047](RM-047-fabrica-em-varias-maquinas.md) | Fábrica em várias máquinas, com threads em mais de um computador | Piloto | Mesclado | Aprovados | Produção | 2026-10-27 |
 | [RM-048](RM-048-hitl-humano-no-centro.md) | HITL humano no centro: decisão curta, clara e com recomendação em qualquer canal | Em validação | Mesclado | Aprovados | Produção | 2026-10-01 |
 | [RM-049](RM-049-lancamento.md) | Lançamento do Orkastery, com documentação no site, marketplaces e anúncio | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-03 |
 | [RM-050](RM-050-guia-de-contribuicao.md) | Guia de contribuição nos repositórios e nos sites | Piloto | Mesclado | Aprovados | Produção | 2026-10-10 |
@@ -83,22 +83,22 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-056](RM-056-perfil-por-thread-e-carga.md) | Perfil por thread, rodízio por carga e sessões dos perfis | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-02 |
 | [RM-057](RM-057-hitl-por-alternativas.md) | HITL de condução por alternativas: de 3 a 5 opções, uma recomendada, nunca texto colado | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-21 |
 | [RM-058](RM-058-modo-noctum.md) | Modo #Noctum: arcos autônomos de muitas threads e máquinas | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-24 |
-| [RM-059](RM-059-conducao-dentro-do-claude-code.md) | Condução dentro do Claude Code: dez mods para ver, decidir, destravar, entregar e pontuar sem sair do terminal | Em desenvolvimento | Mesclado | Não iniciados | Não implantado | 2026-10-12 |
+| [RM-059](RM-059-conducao-dentro-do-claude-code.md) | Condução dentro do Claude Code: dez mods para ver, decidir, destravar, entregar e pontuar sem sair do terminal | Em desenvolvimento | Mesclado | Não iniciados | Produção | 2026-10-27 |
 | [RM-060](RM-060-site-como-produto.md) | Site como produto: os dois sites públicos com o mesmo rigor do núcleo | Em desenvolvimento | Mesclado | Não iniciados | Não implantado | 2026-10-12 |
-| [RM-061](RM-061-cli-em-ingles-e-pt-br.md) | CLI em inglês e pt-BR | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-12 |
-| [RM-062](RM-062-repositorio-publico-sem-dado-privado.md) | Repositório público sem dado privado | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-20 |
-| [RM-063](RM-063-fabrica-que-nao-para.md) | Fábrica que não para | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-13 |
-| [RM-064](RM-064-conta-esgotada-nao-para-a-fase.md) | Conta esgotada não para a fase | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-19 |
-| [RM-065](RM-065-gitlab-com-paridade-ao-github.md) | GitLab com paridade ao GitHub | Em validação | PR aberto | Aprovados | Não implantado | 2026-10-14 |
+| [RM-061](RM-061-cli-em-ingles-e-pt-br.md) | CLI em inglês e pt-BR | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-10-27 |
+| [RM-062](RM-062-repositorio-publico-sem-dado-privado.md) | Repositório público sem dado privado | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-10-27 |
+| [RM-063](RM-063-fabrica-que-nao-para.md) | Fábrica que não para | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-10-27 |
+| [RM-064](RM-064-conta-esgotada-nao-para-a-fase.md) | Conta esgotada não para a fase | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-10-27 |
+| [RM-065](RM-065-gitlab-com-paridade-ao-github.md) | GitLab com paridade ao GitHub | Disponível | Mesclado | Aprovados | Produção | 2026-10-27 |
 | [RM-066](RM-066-google-antigravity-homologado.md) | Google Antigravity homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-19 |
-| [RM-067](RM-067-grok-build-homologado.md) | Grok Build homologado ao lado de Codex e Claude Code | Em desenvolvimento | Mesclado | Aprovados | Não implantado | 2026-10-26 |
-| [RM-068](RM-068-security-scan-no-check.md) | Security scan no CHECK | Em validação | Mesclado | Aprovados | Não implantado | 2026-10-20 |
-| [RM-069](RM-069-dsn-fora-do-ambiente-dos-agentes.md) | DSN com senha fora do ambiente dos agentes | Em desenvolvimento | Mesclado | Aprovados | Não implantado | 2026-10-21 |
+| [RM-067](RM-067-grok-build-homologado.md) | Grok Build homologado ao lado de Codex e Claude Code | Em desenvolvimento | Mesclado | Aprovados | Não implantado | 2026-10-27 |
+| [RM-068](RM-068-security-scan-no-check.md) | Security scan no CHECK | Disponível | Mesclado | Aprovados | Produção | 2026-10-27 |
+| [RM-069](RM-069-dsn-fora-do-ambiente-dos-agentes.md) | DSN com senha fora do ambiente dos agentes | Disponível | Mesclado | Aprovados | Produção | 2026-10-27 |
 | [RM-070](RM-070-grok-bot-como-camada-de-conducao.md) | Grok Bot como camada de condução do Orkastery | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-21 |
 | [RM-071](RM-071-relatorio-da-esteira-do-sdlc.md) | Relatório da esteira do SDLC no status do roadmap | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-21 |
-| [RM-072](RM-072-check-cinco-vezes-mais-rapido.md) | Agile Check e Classic Check: o CHECK rápido como padrão, sem perder cobertura | Em desenvolvimento | Mesclado | Aprovados | Não implantado | 2026-10-25 |
-| [RM-073](RM-073-modelos-de-decisao-no-ork-e-no-orkmind.md) | Modelos de decisão no ork e no OrkMind | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-24 |
-| [RM-074](RM-074-agile-check-em-3-minutos.md) | Agile Check em 3 minutos: seletividade e CPU da suíte | Discovery | Branch criada | Não iniciados | Não implantado | 2026-10-26 |
+| [RM-072](RM-072-check-cinco-vezes-mais-rapido.md) | Agile Check e Classic Check: o CHECK rápido como padrão, sem perder cobertura | Disponível | Mesclado | Aprovados | Produção | 2026-10-27 |
+| [RM-073](RM-073-modelos-de-decisao-no-ork-e-no-orkmind.md) | Modelos de decisão no ork e no OrkMind | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-27 |
+| [RM-074](RM-074-agile-check-tres-vezes-mais-rapido.md) | Agile Check três vezes mais rápido que o Classic | Discovery | Branch criada | Não iniciados | Não implantado | 2026-10-27 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->
