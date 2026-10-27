@@ -13,7 +13,7 @@ import * as path from 'node:path';
 import { adicionarClaim } from '../src/claims';
 import { elosDoComando, GuardaDoProduto, hashDoProduto, MAXIMO_DE_PREPAROS_REFEITOS, paralelismoDaVarreduraNoGrupo, passosDoComando,
   PECA_SEM_RELATORIO, RelatorioDoCheck, testDasLanes, TETO_DO_RELATORIO_BYTES, tirarPassosDoPreparo } from '../src/check-agil';
-import { rodarEmParalelo } from '../src/check-paralelo';
+import { argvDoItem, rodarEmParalelo } from '../src/check-paralelo';
 import { lerLedger } from '../src/ledger';
 import { carregarManifesto } from '../src/manifest';
 import { dirThread, novaThread } from '../src/thread';
@@ -932,4 +932,18 @@ test('AG42: no ramo do relogio sob steal a juncao das lanes fica com veredito po
     assert.deepEqual(r.motivos.filter((m) => m.startsWith('verify.')), ['verify.timeout']);
     assert.equal(r.comandos.find((c) => c.nome === 'test')!.executado, true);
   } finally { p.limpar(); }
+});
+
+test('AG43: o item do grupo com argv roda sem shell: o argumento chega literal, e sem argv o comando segue no bash -c (RM-074 F4)', () => {
+  const literal = `'$(echo injetado)' $HOME; echo "fora"`;
+  const comArgv = { nome: 'argv', comando: 'identifica', argv: [process.execPath, '-e', 'process.stdout.write(process.argv[1])', literal],
+    cwd: os.tmpdir(), prazoMs: 30_000 };
+  assert.deepEqual(argvDoItem(comArgv, true, false), ['/usr/bin/timeout', '--kill-after=15', '30', ...comArgv.argv]);
+  assert.deepEqual(argvDoItem(comArgv, false, false), comArgv.argv);
+  assert.ok(!argvDoItem(comArgv, true, false).includes('bash'), 'sem shell');
+  assert.deepEqual(argvDoItem({ nome: 'c', comando: 'echo x', cwd: os.tmpdir(), prazoMs: 1000 }, false, false), ['bash', '-c', 'echo x']);
+  const [r, c] = rodarEmParalelo([comArgv, { nome: 'shell', comando: 'echo $((1 + 1))', cwd: os.tmpdir(), prazoMs: 30_000 }]);
+  assert.equal(r.ok, true, r.stderr);
+  assert.equal(r.stdout, literal, 'nada expandido nem quebrado pelo shell');
+  assert.equal(c.stdout.trim(), '2', 'o item sem argv segue pelo bash -c');
 });

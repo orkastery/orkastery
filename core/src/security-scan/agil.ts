@@ -33,8 +33,6 @@ const TRABALHADOR = path.join(__dirname, 'trabalhador.js');
 /** Sem prazo da rodada, o trabalhador ganha o maior prazo do catalogo para a HEAD e para a base, com folga. */
 const FOLGA_MS = 60_000;
 
-const aspas = (s: string): string => `'${s.replace(/'/g, `'\\''`)}'`;
-
 /**
  * O Semgrep baixa as regras do registro (`p/typescript`, ...) a cada rodada, e nao tem cache delas. Regra lida de arquivo
  * local ganha outro `check_id` (o prefixo do caminho), o que muda a impressao digital de todo achado: o cache de regras
@@ -259,7 +257,9 @@ export function runScanAgil(opts: RunScanOptions, rodar: typeof rodarEmParalelo 
         ctx: { headTree, mainRoot, base, head, rangeCommits: count === null ? null : Number(count), deadline, ...(baseTree ? { baseTree } : {}) } };
       const arquivo = path.join(dir, `${i}.json`);
       fs.writeFileSync(arquivo, JSON.stringify(trabalho), { mode: 0o600 });
-      return { nome: t.name, comando: `${aspas(process.execPath)} ${aspas(TRABALHADOR)} ${aspas(arquivo)}`, cwd: root };
+      // RM-074 (F4): o trabalhador roda pelo argv, sem string de shell; o `comando` so identifica o item.
+      const argv = [process.execPath, TRABALHADOR, arquivo];
+      return { nome: t.name, comando: argv.join(' '), argv, cwd: root };
     });
     // S-f do CHECK 2: o teto dos trabalhadores e contado depois de todos montados, com o build da imagem de lint ja feito.
     const prazo = deadline === null ? Math.max(...tools.map(t => t.timeoutMs)) * 2 + FOLGA_MS : Math.max(1000, deadline - Date.now() + FOLGA_MS);

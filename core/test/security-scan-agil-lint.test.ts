@@ -12,7 +12,7 @@ import { afterEach, beforeEach, test } from 'node:test';
 import { dirTemporario } from './apoio';
 import { installFakeTools, type FakeTools } from './security-scan-docker-falso';
 import { PRAZO_DO_BUILD_DA_IMAGEM_MS, prazoDoBuildDaImagem, runScanAgil } from '../src/security-scan/agil';
-import { rodarEmParalelo, type ItemParalelo } from '../src/check-paralelo';
+import { argvDoItem, rodarEmParalelo, type ItemParalelo } from '../src/check-paralelo';
 import { dockerfileDeLint, eslintComImagem, tagDaImagemDeLint } from '../src/security-scan/imagem-de-lint';
 import { runScan } from '../src/security-scan/run';
 import { loadTools } from '../src/security-scan/tools';
@@ -186,6 +186,24 @@ test('SL11: o trabalhador nativo usa o cache por usuario do Trivy, nunca o /tmp 
     assert.ok(dir.startsWith(doUsuario + path.sep), `o cache do usuario (XDG_CACHE_HOME), nao ${dir}`);
     assert.ok(!c.args.includes('/tmp/trivy-cache'));
   }
+});
+
+test('SL12: o trabalhador da varredura roda pelo argv, sem string de shell, e varre igual (RM-074 F4)', () => {
+  fake = installFakeTools(['docker']);
+  const r = repo('sl12');
+  const pedidos: ItemParalelo[] = [];
+  const agile = runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base }, (itens, ambiente, opcoes) => {
+    pedidos.push(...itens);
+    return rodarEmParalelo(itens, ambiente, opcoes);
+  });
+  assert.ok(pedidos.length > 0);
+  const trabalhador = path.resolve(__dirname, '..', 'src', 'security-scan', 'trabalhador.js');
+  for (const item of pedidos) {
+    assert.deepEqual(item.argv?.slice(0, 2), [process.execPath, trabalhador], item.nome);
+    assert.equal(item.argv!.length, 3, item.nome);
+    assert.ok(!argvDoItem(item, true, false).includes('bash') && !argvDoItem(item, true, false).includes('-c'), `${item.nome}: sem shell`);
+  }
+  assert.ok(agile.tools.length > 0 && agile.tools.every(t => t.state === 'ran'), JSON.stringify(agile.tools.map(t => [t.name, t.state, t.reason])));
 });
 
 test('SL4: com o binario nativo na versao do catalogo, o Agile roda o nativo em vez do Docker', () => {

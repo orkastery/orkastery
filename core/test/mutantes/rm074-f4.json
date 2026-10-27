@@ -73,6 +73,15 @@
       "para": "executado: semVeredito.length === 0 && lanes.every((l) => l.resultado.executado !== false),",
       "teste": "check-agil",
       "nome": "^AG42:"
+    },
+    {
+      "id": "M9",
+      "descricao": "item 5: o item do grupo volta a rodar sempre por bash -c, e o argumento do argv passa pelo shell",
+      "modulo": "check-paralelo",
+      "de": "const programa = item.argv?.length ? item.argv : ['bash', '-c', item.comando];",
+      "para": "const programa = ['bash', '-c', item.comando];",
+      "teste": "check-agil",
+      "nome": "^AG43:"
     }
   ]
 }
