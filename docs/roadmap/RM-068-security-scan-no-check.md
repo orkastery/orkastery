@@ -78,7 +78,7 @@ sdlc:
 - **Só vale com `verify.security_scan` declarado.** Sem a chave, nada muda. O `ork init` de projeto novo grava a chave quando detecta uma stack.
 - **Nomes novos em inglês** (comando, chave, pasta, campos, estados, flags e skill), apesar de o guia de estilo pedir nomes em português: decisão do mantenedor do projeto, declarada na descrição do PR. O texto de mensagens e docs segue o pt-BR, pelo catálogo de locale.
 - **Gate do SHIP novo:** projeto com o scan declarado e sem `ci.required_for_ship` pode parar em `human.pending` onde antes entregava.
-- **O CI do Orkastery passa a rodar o scan** no `ork-verify`, com Docker no runner, e soma uma rodada de cerca de 3 a 4,5 minutos (162 a 270 s medidos na estação), mais o pull frio das imagens no runner.
+- **O CI do Orkastery passa a rodar o scan** no `ork-verify`, com Docker no runner, e soma uma varredura do HEAD e da base, que no Classic Check ocupa um quarto da parede da rodada ([RM-072](RM-072-check-cinco-vezes-mais-rapido.md), medição do GO), mais o pull frio das imagens no runner.
 
 ## Plano e decisões
 

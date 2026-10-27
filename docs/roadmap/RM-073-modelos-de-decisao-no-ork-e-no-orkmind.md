@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-24T19:20:00-03:00
+atualizado_em: 2026-10-27T00:50:00-03:00
 estado:
   ciclo: Discovery
   documentacao: Rascunho
@@ -40,12 +40,12 @@ sdlc:
 
 ## Problema e resultado
 
-- **Público e problema/oportunidade:** quem conduz o `ork` e o próprio Orkastery. Hoje quatro decisões repetidas da fábrica são tomadas por regra fixa ou por um agente generativo caro: quais testes rodar, com que runtime, modelo e esforço despachar uma fase, que nota dar no fechamento e que alternativa recomendar ao dono. A fase CHECK completa leva cerca de 20 minutos, o esforço `xhigh` ou `max` é o padrão dos despachos, a nota do MASTER sai por omissão na maioria das threads e a recomendação do HITL não aprende com as respostas passadas do dono.
+- **Público e problema/oportunidade:** quem conduz o `ork` e o próprio Orkastery. Hoje quatro decisões repetidas da fábrica são tomadas por regra fixa ou por um agente generativo caro: quais testes rodar, com que runtime, modelo e esforço despachar uma fase, que nota dar no fechamento e que alternativa recomendar ao dono. A fase CHECK completa é a mais longa nos ledgers (a mediana dela é 1,2 vez a do GO e 3 vezes a do PLAN), o esforço `xhigh` ou `max` é o padrão dos despachos, a nota do MASTER sai por omissão na maioria das threads e a recomendação do HITL não aprende com as respostas passadas do dono.
 - **Evidências e fonte:** duas famílias de medida, ambas de 24/10/2026.
   - **O que os modelos são**, do catálogo público do OpenRouter e da documentação dele (seção "Os três modelos do pedido").
   - **A linha de base local**, contada nos ledgers de 294 threads do próprio Orkastery (seção "Linha de base medida").
 - **Objetivo/OKR:** o ork decide mais rápido e mais barato o que é julgamento de baixo risco, e o dono continua com a prova e com a palavra final.
-- **Hipótese:** se o ork usar modelos de decisão em modo sombra, atrás de flag e com teto de custo, como sinal para escolher testes afetados, esforço de despacho, nota de MASTER, recomendação de HITL e veredito de tela, então o minuto do Agile Check, o custo por fase e o tempo do dono caem sem aumentar o falso negativo acima de um limiar que o dono aprova, porque o modelo devolve uma resposta tipada com probabilidade em uma chamada barata, e cada resposta é comparada com a verdade que o ledger já guarda antes de ter qualquer efeito.
+- **Hipótese:** se o ork usar modelos de decisão em modo sombra, atrás de flag e com teto de custo, como sinal para escolher testes afetados, esforço de despacho, nota de MASTER, recomendação de HITL e veredito de tela, então o tempo do Agile Check, o custo por fase e o tempo do dono caem sem aumentar o falso negativo acima de um limiar que o dono aprova, porque o modelo devolve uma resposta tipada com probabilidade em uma chamada barata, e cada resposta é comparada com a verdade que o ledger já guarda antes de ter qualquer efeito.
 - **Métrica principal / linha de base / meta / janela / fonte:** uma métrica por frente, na tabela "Métricas". A comum a todas é o **falso negativo contra a verdade do ledger ou dos testes atuais**, com limite superior de 95% informado junto. Janela: cada fatia, em modo sombra, antes de ligar a flag. Fonte: a bancada de medição (M0) e o ledger.
 - **Métricas de proteção:**
   - o gate não muda: a suíte completa, as claims e o comando reproduzível continuam como hoje, e o Classic Check fica intacto;
@@ -103,8 +103,8 @@ Contagem feita em 24/10/2026 nos ledgers locais de 294 threads do Orkastery. Os 
 
 | O que | Medida | O que significa para o item |
 | --- | --- | --- |
-| Tempo do CHECK completo | 19 a 20 min de parede; 15 min 22 s só o `npm test`, com 350 arquivos e 5.718 testes (medição da RM-072). Nos ledgers, a mediana do CHECK é de 20,2 min em 19 rodadas | Frente 1: é o minuto que se quer cortar nas rodadas intermediárias |
-| Tempo por fase nos ledgers (mediana, n) | GO 17,1 min (47); GOAL 10,5 (19); PLAN 6,7 (18); CHECK 20,2 (19) | Frente 2: o custo por fase precisa dessa mesma régua |
+| Peso do CHECK completo | o `npm test` ocupa 72% do CHECK, com 628 arquivos e 5.718 testes (medição da RM-072, que corrigiu os 350 arquivos da primeira versão dela); o Agile Check da 0.6.0 fica de 1,43 a 1,52 vez mais rápido que o Classic Check no mesmo commit. Nos ledgers, o CHECK é a fase de maior mediana, em 19 rodadas | Frente 1: é o tempo que se quer cortar nas rodadas intermediárias |
+| Tempo por fase nos ledgers (mediana, em vezes a do GO, n) | GO 1 (47); GOAL 0,61 (19); PLAN 0,39 (18); CHECK 1,18 (19); a duração absoluta fica nos ledgers | Frente 2: o custo por fase precisa dessa mesma régua |
 | Esforço de despacho | Dos 506 despachos, 390 (77%) caem em quatro arranjos de esforço `xhigh` ou `max` | Frente 2: há espaço para esforço dinâmico, mas sem qualidade medida por fase não se prova que baixar é seguro |
 | Tokens por fase | 105 dos 339 `phase_result` trazem `tokens`: 105 de 131 no `codex` (80%), 0 de 157 no `claude-bg`, 0 de 51 sem runtime | Frente 2 depende da [RM-071](RM-071-relatorio-da-esteira-do-sdlc.md) F2, que fecha essa lacuna |
 | Fechamentos (`master_done`) | 213: 162 por omissão (nota derivada do ledger, ninguém pontuou), 46 em lote, 4 em pausa, 1 sem regime | Frente 3: a base de notas que não são omissão é de 50 |
@@ -128,7 +128,7 @@ Contagem feita em 24/10/2026 nos ledgers locais de 294 threads do Orkastery. Os 
 
 | Frente | Métrica | Linha de base | Meta a propor (o dono aprova) | Fonte |
 | --- | --- | --- | --- | --- |
-| 1. Agile Check | Minutos da rodada intermediária de teste, e falso negativo da escolha de testes (teste que falharia na suíte completa e foi deixado de fora) | Rodada completa de 15 min 22 s só de teste; escolha de testes por modelo não existe | Rodada intermediária abaixo de 90 s, igual à meta da F3 da RM-072; falso negativo dentro do limiar da decisão D1 | `verify_run.duracaoMs` (RM-072) e comparação com a suíte completa do gate |
+| 1. Agile Check | A parede da rodada intermediária de teste contra a da suíte completa no mesmo commit, e o falso negativo da escolha de testes (teste que falharia na suíte completa e foi deixado de fora) | Toda rodada de teste é a suíte completa (razão 1); escolha de testes por modelo não existe | A parte de teste da rodada intermediária em até 10% da parede do `npm test` da linha de base, igual à meta da F3 da RM-072; falso negativo dentro do limiar da decisão D1 | `verify_run.duracaoMs` (RM-072) e comparação com a suíte completa do gate |
 | 2. Esforço dinâmico | Tokens e custo por fase e por task, e qualidade (nota derivada do MASTER, rodadas de GO-FIX e de CHECK) | Tokens em 31% das fases (105 de 339) e em 0% no `claude-bg`; custo em dinheiro só como referência estimada | Cobertura de 100% das fases do piloto; custo por fase menor com qualidade igual ou melhor, medido por arranjo | `phase_result.tokens` da RM-071 F2, `phase_dispatch` e `master_done` |
 | 3. MASTER autônomo | Concordância do MASTER automático com a nota humana (exata, dentro de 1 ponto, e kappa ponderado) e acerto da classe do POSTMORTEM | Não medida; 50 notas fora da omissão | Dentro de 1 ponto em pelo menos 90% e classe `outra` abaixo de 40% das classes atribuídas, no conjunto de teste, com a amostra mínima definida na M0 | `master_done`, `postmortem_recorded` |
 | 4. Status e HITL | Acerto da recomendação (a alternativa recomendada é a que o dono escolheu), e calibração (a probabilidade dita bate com a frequência) | Recomendação de hoje (RM-057) existe, acerto não medido | Acerto acima da recomendação atual, com calibração medida; 0 pergunta que antes não parava a fábrica passando a parar | `hitl_requested`, `human_gate`, `autonomous_decision`, `ork decisao placar` |
@@ -142,7 +142,7 @@ Cada fatia é um PR com teste hermético e uma linha no `CHANGELOG.md`. Nenhuma 
 
 | Fatia | Entrega | Critério de aceite verificável |
 | --- | --- | --- |
-| F1 Agile Check mais rápido | Pelo diff, o modelo escolhe os testes afetados nas rodadas intermediárias, ordena as lanes por risco e decide o fallback (rodar mais, ou tudo). A suíte completa continua no gate. Liga à F3 da RM-072. | Em sombra, sobre diffs reais de threads fechadas: a escolha inclui todo teste que falhou na suíte completa em pelo menos o limiar da D1; a rodada intermediária cumpre a meta de minutos; a rodada final e o gate rodam a suíte completa em 100% dos casos, provado por teste que reprova atalho no gate; sem provedor, o resultado é igual ao de hoje. |
+| F1 Agile Check mais rápido | Pelo diff, o modelo escolhe os testes afetados nas rodadas intermediárias, ordena as lanes por risco e decide o fallback (rodar mais, ou tudo). A suíte completa continua no gate. Liga à F3 da RM-072. | Em sombra, sobre diffs reais de threads fechadas: a escolha inclui todo teste que falhou na suíte completa em pelo menos o limiar da D1; a rodada intermediária cumpre a meta de razão da tabela de métricas; a rodada final e o gate rodam a suíte completa em 100% dos casos, provado por teste que reprova atalho no gate; sem provedor, o resultado é igual ao de hoje. |
 | F2 Esforço dinâmico | Por thread e por fase, escolher runtime, modelo e esforço a partir do pedido, do histórico do ledger e da memória do OrkMind, com custo por fase e por task medido. Depende dos tokens por fase da RM-071. | Em sombra, a escolha recomendada é comparada com o arranjo usado e o resultado dele; a recomendação mais barata só sobe de degrau onde a qualidade medida (nota derivada, rodadas de GO-FIX e de CHECK) não piora; custo por fase medido em 100% das fases do piloto; sem dado de tokens, a fase usa o arranjo de hoje e o relatório diz `lacuna`. |
 | F3 MASTER autônomo | Nota de 0 a 5 e classes do POSTMORTEM, com confiança e justificativa montada por perguntas por critério, calibradas contra as notas humanas do histórico. A nota do dono continua sobrescrevendo. | Concordância e kappa contra as notas humanas do conjunto de teste cumprindo a meta aprovada; a nota do dono sobrescreve a automática em teste que prova o registro das duas; a nota automática sai marcada como `sinal`, nunca como nota do dono. |
 | F4 Status e HITL | Recomendar a alternativa de cada pergunta com probabilidade e motivo, aprendendo com as respostas passadas do dono (RM-048, RM-057). O aprendizado é recuperação de casos e recalibração, não treino. | Acerto da recomendação acima da atual e calibração medida em conjunto separado do de ajuste; a pergunta continua com 3 a 5 alternativas e uma recomendada no formato da RM-057; a recomendação nunca decide pelo dono; sem sinal, sai a recomendação de hoje. |
@@ -157,7 +157,7 @@ Cada fatia é um PR com teste hermético e uma linha no `CHANGELOG.md`. Nenhuma 
 
 | Item | Por que | Estado e bloqueio |
 | --- | --- | --- |
-| RM-072 (CHECK 5x) | A F1 liga à F3 dela (mapa de impacto de teste por arquivo e lanes). Se a RM-072 levar o CHECK completo a 3 minutos, o ganho da F1 diminui, e a medição dela é a régua | Em Discovery, reservada em outra thread; a página dela ainda está na branch dela, por isso não há link aqui. Bloqueio: nenhum para a M0 |
+| [RM-072](RM-072-check-cinco-vezes-mais-rapido.md) (Agile Check) | A F1 liga à F3 dela (mapa de impacto de teste por arquivo e lanes), que seguiu para a [RM-074](RM-074-agile-check-em-3-minutos.md). Se o CHECK completo chegar à meta da RM-074 (pelo menos 3 vezes o Classic na mesma máquina), o ganho da F1 diminui, e a medição dela é a régua | Em produção na 0.6.0, com o Agile Check como CHECK padrão. Bloqueio: nenhum para a M0 |
 | [RM-071](RM-071-relatorio-da-esteira-do-sdlc.md) | A F2 precisa dos tokens, minutos e conta por fase (F2 da RM-071) | Em Discovery. Bloqueia a F2, não as outras |
 | [RM-048](RM-048-hitl-humano-no-centro.md) e [RM-057](RM-057-hitl-por-alternativas.md) | O formato da pergunta ao dono (curta, com recomendação, 3 a 5 alternativas) é o contrato da F4 | Em validação e em desenvolvimento. Nenhum bloqueio |
 | [RM-058](RM-058-modo-noctum.md) | O arco do #Noctum é a unidade do teto de custo por arco e consome as decisões de esforço e de HITL | Em desenvolvimento. Nenhum bloqueio |
@@ -198,7 +198,7 @@ Cada decisão traz três alternativas e uma recomendada, no formato da RM-057. *
 **D3. Ordem das fatias depois da M0.** Decidida: alternativa recomendada.
 
 1. **F4, F3, depois F2, F1 e F5 (recomendada).** Começa pelas que não tocam o gate e já têm rótulo no ledger (2.520 decisões autônomas, notas e classes). A F1 espera o resultado da RM-072, cujo ganho define quanto sobra para cortar; a F2 espera os tokens da RM-071; a F5 vem por último, pelo risco maior.
-2. F1 primeiro, porque o CHECK de cerca de 20 minutos é a maior dor medida hoje; depende da F3 da RM-072.
+2. F1 primeiro, porque o CHECK, a fase de maior mediana nos ledgers, é a maior dor medida hoje; depende da F3 da RM-072.
 3. As cinco em sombra ao mesmo tempo: mede tudo cedo, ao custo de mais gasto e de dispersão do piloto.
 
 **D4. Tetos de custo (a revisar com a M0).** Decidida: alternativa recomendada.
@@ -231,13 +231,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-10-24 | Julio |
-| Documentação | Rascunho | — | 2026-10-24 | Julio |
-| Código | Não iniciado | — | 2026-10-24 | Julio |
-| Testes | Não iniciados | — | 2026-10-24 | Julio |
-| Deploy | Não implantado | — | 2026-10-24 | Julio |
-| Exposição | Flag desligada | — | 2026-10-24 | Julio |
-| Habilitação | Pendente | — | 2026-10-24 | Julio |
+| Ciclo do item | Discovery | — | 2026-10-27 | Julio |
+| Documentação | Rascunho | — | 2026-10-27 | Julio |
+| Código | Não iniciado | — | 2026-10-27 | Julio |
+| Testes | Não iniciados | — | 2026-10-27 | Julio |
+| Deploy | Não implantado | — | 2026-10-27 | Julio |
+| Exposição | Flag desligada | — | 2026-10-27 | Julio |
+| Habilitação | Pendente | — | 2026-10-27 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -251,3 +251,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- |
 | 2026-10-24 | Item criado em Discovery, só página e pesquisa | Pedido do dono; catálogo e documentação públicos do OpenRouter lidos; linha de base contada nos ledgers locais | Julio |
 | 2026-10-25 | D1 a D5 decididas pelas recomendadas; D6 nova (avaliador de telas só para mudança pequena, de baixa criticidade e verificável pelo print); chave do provedor no cofre | Respostas do dono no terminal do Claude Code | Julio |
+| 2026-10-27 | O tempo de parede do CHECK passa a razão e percentual (contra o Classic Check, contra o GO e contra a linha de base da RM-072); a dependência da RM-072 aponta a página dela, em produção na 0.6.0, e a meta de tempo na RM-074 | Regra do dono de 27/10/2026: tempo em minutos depende do hardware | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |

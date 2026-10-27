@@ -48,7 +48,7 @@ sdlc:
 
 ## Problema e resultado
 
-- **Problema:** o verify local reprova por tempo quando a VPS perde 67% a 92% da CPU para o hipervisor (sar, 23 e 24/09/2026): a mesma suíte leva 3,4 min com CPU livre e 24 a 30 min com steal alto.
+- **Problema:** o verify local reprova por tempo quando a VPS perde 67% a 92% da CPU para o hipervisor (sar, 23 e 24/09/2026): com steal alto, a mesma suíte leva de 7 a 9 vezes o tempo que leva com CPU livre.
 - **Métrica:** verify local com o mesmo veredito do CI em 10 de 10 rodadas.
 - **Linha de base:** A definir — agente da thread, no PLAN revisado.
 
