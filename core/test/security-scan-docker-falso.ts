@@ -73,7 +73,7 @@ export function installFakeTools(names: string[] = ['docker']): FakeTools {
 }
 
 const VALUE_FLAGS = new Set(['--name', '--user', '-u', '--network', '--tmpfs', '-v', '--volume', '-w', '--workdir', '-e', '--env',
-  '--entrypoint', '--security-opt', '--cap-drop', '--pull', '--stop-timeout', '--memory', '--pids-limit']);
+  '--entrypoint', '--security-opt', '--cap-drop', '--pull', '--stop-timeout', '--memory', '--pids-limit', '--cpus']);
 
 interface Run { image: string; args: string[]; mounts: Map<string, string>; }
 
