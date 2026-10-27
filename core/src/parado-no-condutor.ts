@@ -51,6 +51,7 @@ import { dirThread, lerThread, listarIds } from './thread';
 import { ConducaoAtual, EventoLedger, SessaoNoRadar, Thread } from './types';
 import { exec } from './util';
 import { branchDaWorktree } from './worktree';
+import { branchRegistradaDaEntrega, mergesDasEntregasNaBase } from './merge-da-entrega';
 
 export const CONTRATO_PRS = 'ork.prs-abertos/v1' as const;
 /** D4: duas batidas do pulse. Abaixo disto o condutor pode estar agindo. */
@@ -866,17 +867,17 @@ export function refsLocais(raiz: string, remoto: string): Map<string, string> {
   return mapa;
 }
 
-/** Os merges `ship(<thread>)` da base numa leitura so, do mais novo para o mais velho (fica o mais novo). */
-function mergesNaBase(raiz: string, baseRef: string | null): Map<string, { sha: string; em: string | null }> {
+/** Os merges das entregas da base numa leitura so, do mais novo para o mais velho (fica o mais novo). */
+function mergesNaBase(raiz: string, baseRef: string | null, base: string, threads: Thread[]): Map<string, { sha: string; em: string | null }> {
   const mapa = new Map<string, { sha: string; em: string | null }>();
   if (!baseRef) return mapa;
-  // Regex basica do git: o `(` e literal. A ref vem qualificada do `for-each-ref`.
-  const r = git(raiz, ['log', baseRef, '--first-parent', '--format=%H%x09%cI%x09%s', '--grep=^ship(']);
-  if (!r.ok) return mapa;
-  for (const linha of r.stdout.split('\n')) {
-    const [sha, em, assunto] = linha.split('\t');
-    const m = /^ship\(([A-Za-z0-9._-]+)\)/.exec(assunto ?? '');
-    if (m && sha && SHA.test(sha) && !mapa.has(m[1])) mapa.set(m[1], { sha, em: instante(em) });
+  const reconhecidos = mergesDasEntregasNaBase(raiz, baseRef, base, threads.map((t) => ({
+    thread: t.id,
+    branch: branchRegistradaDaEntrega(raiz, t.id) ?? branchDaWorktree(t),
+  })));
+  for (const t of threads) {
+    const merge = reconhecidos.get(t.id)?.[0];
+    if (merge) mapa.set(t.id, { sha: merge.mergeSha, em: merge.em });
   }
   return mapa;
 }
@@ -941,10 +942,10 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
   const refs = refsLocais(raiz, remoto);
   // A copia do remoto vem primeiro: a base local desta maquina pode estar parada (o merge e pelo GitHub).
   const baseRef = [`refs/remotes/${remoto}/${baseBranch}`, `refs/heads/${baseBranch}`].find((r) => refs.has(r)) ?? null;
-  const merges = mergesNaBase(raiz, baseRef);
   const sessoes = opcoes.sessoes ?? [];
   const threads: Thread[] = [];
   for (const id of listarIds(raiz)) { try { threads.push(lerThread(raiz, id)); } catch { /* thread ilegivel fica de fora */ } }
+  const merges = mergesNaBase(raiz, baseRef, baseBranch, threads);
 
   const fatos = threads.filter((t) => t.status !== 'fechada').map((t) => {
     let eventos: EventoLedger[] = [];
@@ -1069,10 +1070,9 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
       } else if (!aberto && !f.comProduto && f.merge && !f.mergeRegistrado) {
         caso = 'sem-registro'; desde = f.merge.em ?? fimEm; peloGit = true;
         passo = `registrar a entrega do merge ${f.merge.sha.slice(0, 7)} (ork ship registrar-pr ${t.id})`;
-        evidencia.push(`git log: merge ship(${t.id}) ${f.merge.sha.slice(0, 7)} na base, sem ship_done no ledger`);
+        evidencia.push(`git log: merge da entrega de ${t.id} ${f.merge.sha.slice(0, 7)} na base, sem ship_done no ledger`);
       } else if (!aberto && daBranch.mesclado && !f.entregueNaPonta && (daBranch.mesclado.mescladoEm ?? fimEm)) {
-        // N4 do CHECK (rodada 2): PR mesclado sem o assunto ship(<thread>); o `registrar-pr` nao o acha sozinho. Com o
-        // merge ship(<thread>) ainda sem registro na base (squash), o `registrar-pr` acha.
+        // N4 do CHECK (rodada 2): PR mesclado sem assunto ou branch reconhecivel; o `registrar-pr` nao o acha sozinho.
         caso = 'sem-registro'; desde = daBranch.mesclado.mescladoEm ?? fimEm;
         passo = f.merge && !f.mergeRegistrado ? `registrar a entrega do merge ${f.merge.sha.slice(0, 7)} (ork ship registrar-pr ${t.id})`
           : `conferir a entrega do PR #${daBranch.mesclado.numero}, mesclado sem o assunto ship(${t.id}), e registrar o ship_done`;

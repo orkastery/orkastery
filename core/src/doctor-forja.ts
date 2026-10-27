@@ -236,7 +236,7 @@ const REPOSITORIO_DO_GITHUB = z.object({
   allow_merge_commit: z.boolean().optional(), allow_squash_merge: z.boolean().optional(), allow_rebase_merge: z.boolean().optional(),
 });
 
-/** O metodo de merge e o resto do que decide se o merge `ship(<thread>)` chega a base. So avisa; o projeto nao lido reprova. */
+/** O metodo de merge e o que decide se a entrega chega a base com segundo pai. So avisa; o projeto nao lido reprova. */
 function projetoDaForja(f: ForjaResolvida, api: ChamadorDaApi, linha: Linha): Check {
   const m = msg().forja.doctor;
   const caminho = f.tipo === 'gitlab' ? projetoNaApi(f.repo) : `repos/${f.repo}`;
@@ -252,7 +252,6 @@ function projetoDaForja(f: ForjaResolvida, api: ChamadorDaApi, linha: Linha): Ch
     const estado = (v: boolean | undefined): string => (v === undefined ? m.naoDisponivel : v ? m.ligado : m.desligado);
     const avisos: string[] = [];
     if (p.merge_method === 'ff') avisos.push(m.avisoFf);
-    else if (!(p.merge_commit_template ?? '').trimStart().startsWith('%{title}')) avisos.push(m.avisoMensagemPadrao);
     if (p.squash_option === 'always' || p.squash_option === 'default_on') avisos.push(m.avisoSquash(p.squash_option));
     const detalhe = [m.projetoGitlab(p.merge_method, p.squash_option ?? '?', estado(p.merge_pipelines_enabled), estado(p.merge_trains_enabled)),
       ...avisos].join('; ');

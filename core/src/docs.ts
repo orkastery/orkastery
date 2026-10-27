@@ -24,6 +24,7 @@ import { dirThread, lerThread, listarIds } from './thread';
 import { lerLedger } from './ledger';
 import { branchValida, shaValido } from './branch-de-estado';
 import { Locale, LOCALE_PADRAO, Mensagens, msg, remontar, textoDoCatalogo } from './locale';
+import { branchRegistradaDaEntrega, mergesDasEntregasNaBase } from './merge-da-entrega';
 
 export type TipoDoc = 'plataforma' | 'sistema' | 'modulo' | 'feature' | 'roadmap';
 
@@ -808,20 +809,14 @@ export function mergeDaThread(raiz: string, thread: string, base: string): { sha
 }
 
 /**
- * Os commits `ship(<thread>)` da base, do mais velho ao mais novo, so pelo git (o CI nao tem ledger).
+ * Os merges da entrega na base, do mais velho ao mais novo, so pelo git (o CI pode nao ter ledger).
  * RM-037 (fatia 3): um lugar so para o `sincronizarDocs` e o `verificarDocs` acharem o mesmo merge.
  */
 export function mergesDaThreadNoGit(raiz: string, thread: string, base: string): string[] {
-  // Sem `-n 1`: o git corta antes de inverter, e `--reverse -n 1` devolveria o mais recente.
-  // GO-FIX 2 (achado 4 do CHECK): so a linha de primeiro pai da base e o assunto que COMECA com
-  // `ship(<thread>)`, como no `mergeDaEntrega`. Commit que cita o merge no corpo, ou o Revert dele, nao e merge.
-  // RM-047 (fronteira de confiança): a base pode ser o `worktree.base_branch` cru do clone.
-  if (!branchValida(base)) return [];
-  const log = git(raiz, ['log', base, '--first-parent', '--reverse', '--format=%H%x09%s', '--fixed-strings', `--grep=ship(${thread})`]);
-  if (!log.ok) return [];
-  return log.saida.split('\n').map((l) => l.split('\t'))
-    .filter(([sha, assunto]) => !!sha && typeof assunto === 'string' && assunto.startsWith(`ship(${thread})`))
-    .map(([sha]) => sha);
+  // O ref resolvido pode ser local, remoto abreviado ou remoto completo; a mensagem padrao do GitLab leva so a base.
+  const destino = base.replace(/^refs\/heads\//, '').replace(/^refs\/remotes\/[^/]+\//, '').replace(/^origin\//, '');
+  const branch = branchRegistradaDaEntrega(raiz, thread);
+  return (mergesDasEntregasNaBase(raiz, base, destino, [{ thread, branch }], true).get(thread) ?? []).map((m) => m.mergeSha);
 }
 
 function temBranch(raiz: string, thread: string): boolean {

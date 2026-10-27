@@ -159,11 +159,16 @@ export function gravarNaBranch(raiz: string, remoto: string, branch: string, pon
   try {
     if (ponta) exigirGit(raiz, ['read-tree', ponta], prefixo, { env });
     else exigirGit(raiz, ['read-tree', '--empty'], prefixo, { env });
-    for (const m of mudancas) {
+    for (const [i, m] of mudancas.entries()) {
       if (m.conteudo === null) {
         exigirGit(raiz, ['update-index', '--force-remove', m.caminho], prefixo, { env });
       } else {
-        const blob = exigirGit(raiz, ['hash-object', '-w', '--stdin'], prefixo, { input: m.conteudo }).trim();
+        // `spawnSync` nem sempre fecha o pipe de entrada em runtimes hospedados, deixando o
+        // `hash-object --stdin` preso mesmo depois de receber todos os bytes. Um arquivo privado no
+        // mesmo diretorio temporario conserva o conteudo exato e torna o termino deterministico.
+        const conteudo = path.join(path.dirname(indice), `conteudo-${i}`);
+        fs.writeFileSync(conteudo, m.conteudo, { mode: 0o600 });
+        const blob = exigirGit(raiz, ['hash-object', '-w', conteudo], prefixo).trim();
         exigirGit(raiz, ['update-index', '--add', '--cacheinfo', `100644,${blob},${m.caminho}`], prefixo, { env });
       }
     }
