@@ -6,24 +6,24 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-27T00:50:00-03:00
+atualizado_em: 2026-10-27T08:05:50-03:00
 estado:
   ciclo: Discovery
   documentacao: Rascunho
-  codigo: Branch criada
+  codigo: Mesclado
   testes: Não iniciados
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
+    commit: e7fb968
     pr: null
 sdlc:
   thread: ork-orkcheck3min
   modo: "#Fast"
   fase: GO
-  status: aberta
+  status: fechada
 ---
 
 # RM-074: Agile Check três vezes mais rápido que o Classic, sem perder cobertura
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Discovery | Branch criada | Não iniciados | Não implantado | Flag desligada |
+| Discovery | Mesclado | Não iniciados | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -330,7 +330,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Discovery | — | 2026-10-27 | Julio |
 | Documentação | Rascunho | — | 2026-10-27 | Julio |
-| Código | Branch criada | — | 2026-10-27 | Julio |
+| Código | Mesclado | commit `e7fb968` | 2026-10-27 | Julio |
 | Testes | Não iniciados | — | 2026-10-27 | Julio |
 | Deploy | Não implantado | — | 2026-10-27 | Julio |
 | Exposição | Flag desligada | — | 2026-10-27 | Julio |
