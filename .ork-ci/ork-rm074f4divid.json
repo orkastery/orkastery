@@ -1,0 +1,310 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm074f4divid",
+  "branch": "ork/ork-rm074f4divid-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm074f4divid",
+      "fase": "GO",
+      "arquivo": "core/src/security-scan/agil.ts",
+      "alegacao": "RM-074 F4 (item 1): o motivo da peca imagem-de-lint (a ultima linha do docker build) passa por motivoSemCredencial antes de ir ao relatorio da rodada e ao verify_run; SL8 prova a URL do registro com login redigida, e SL3 segue com o motivo sem URL intacto",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"motivoSemCredencial(imagem.motivo, 200)\" core/src/security-scan/agil.ts && npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap --test-name-pattern='^SL[38]:' core/dist-test/test/security-scan-agil-lint.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 2 # fail 0'"
+      ],
+      "criadoEm": "2026-10-27T09:42:17.662Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm074f4divid",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-docker-falso.ts",
+      "alegacao": "RM-074 F4 (item 1): o docker falso aceita ORK_FAKE_DOCKER_BUILD_STDERR, a ultima linha do build que falha, e sem ela mantem a mensagem de rede de antes (SL3)",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'ORK_FAKE_DOCKER_BUILD_STDERR ?? .npm ERR! network unreachable.' core/test/security-scan-docker-falso.ts && npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap --test-name-pattern='^SL[38]:' core/dist-test/test/security-scan-agil-lint.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 2 # fail 0'"
+      ],
+      "criadoEm": "2026-10-27T09:42:20.649Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm074f4divid",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-agil-lint.test.ts",
+      "alegacao": "RM-074 F4 (item 1): SL8 falha sem a redacao (o motivo da peca e o relatorio da rodada trariam a senha do registro) e passa com ela; a suite SL inteira segue verde",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"^test('SL8: o motivo da peca imagem-de-lint chega ao relatorio sem o login\" core/test/security-scan-agil-lint.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap core/dist-test/test/security-scan-agil-lint.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'"
+      ],
+      "criadoEm": "2026-10-27T09:42:23.601Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm074f4divid",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "RM-074 F4 (item 2): o texto do gate do test sem veredito (e o do estouro) diz qual lane ficou sem veredito e por que, pelo porQueDasLanes; o Classic, sem lanes, segue com o texto de antes (AG40); o mutante M3 de core/test/mutantes/rm074-f4.json morre",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'sem veredito (${porQueDasLanes(c)})' core/src/verify.ts && npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap --test-name-pattern='^AG40:' core/dist-test/test/check-agil.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-f4.json M3"
+      ],
+      "criadoEm": "2026-10-27T09:46:00.182Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm074f4divid",
+      "fase": "GO",
+      "arquivo": "core/test/check-agil.test.ts",
+      "alegacao": "RM-074 F4 (item 2): os casos AG39 (paridade com o comando unico do Classic em cinco terminos e duas baselines) e AG40 (o texto do gate por lane) entram, o AG31 passa a afirmar o codigo da lane, e o arquivo inteiro passa com 40 casos ou mais",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap core/dist-test/test/check-agil.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass (4[0-9]|[5-9][0-9]) # fail 0'"
+      ],
+      "criadoEm": "2026-10-27T09:46:03.130Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm074f4divid",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-f4.json",
+      "alegacao": "Mutante: a especificacao ork.mutantes/v1 da F4 da RM-074 tem um mutante por correcao, cada um devolve o comportamento de antes e morre pelo caso do item (o executor sai 0 so com o mutante morto e o controle passando)",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const e=require('./core/test/mutantes/rm074-f4.json'); if (e.contrato!=='ork.mutantes/v1' || e.mutantes.length < 3) process.exit(1)\" && for m in $(node -p \"require('./core/test/mutantes/rm074-f4.json').mutantes.map(m=>m.id).join(' ')\"); do node core/scripts/mutante.cjs core/test/mutantes/rm074-f4.json $m || exit 1; done"
+      ],
+      "criadoEm": "2026-10-27T09:46:06.031Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm074f4divid",
+      "fase": "GO",
+      "arquivo": "core/src/check-agil.ts",
+      "alegacao": "RM-074 F4 (item 2): a lane caida sem veredito fora do tempo (sinal, comando ausente, codigo de 124 em diante antes do prazo) da o codigo dela ao test, que segue com veredito e e comparado com a baseline como o comando unico do Classic (AG39, nem mais nem menos estrito); na baseline ele e sem-veredito (AG31); so a lane que nao rodou e o tempo junto de falha de verdade tiram o veredito inteiro. Os mutantes M1 e M2 de core/test/mutantes/rm074-f4.json morrem",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap --test-name-pattern='^AG(27|30|31|39):' core/dist-test/test/check-agil.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 4 # fail 0'",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-f4.json M1 && node core/scripts/mutante.cjs core/test/mutantes/rm074-f4.json M2"
+      ],
+      "criadoEm": "2026-10-27T09:46:13.217Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm074f4divid",
+      "fase": "GO",
+      "arquivo": "core/src/horario.ts",
+      "alegacao": "RM-074 F4 (item 3): a sigla do fuso normaliza o GMT do ICU antigo para o GMT+0 que o Node 20.20.2 e o 22.23.2 escrevem, e o caso de janeiro da legenda passa nos dois ICUs; o mutante M4 de core/test/mutantes/rm074-f4.json morre",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"return valor === 'GMT' ? 'GMT+0' : valor;\" core/src/horario.ts && npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap --test-name-pattern='^rede: a legenda' core/dist-test/test/network-roadmap.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 2 # fail 0'",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-f4.json M4"
+      ],
+      "criadoEm": "2026-10-27T09:50:43.651Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm074f4divid",
+      "fase": "GO",
+      "arquivo": "core/test/network-roadmap.test.ts",
+      "alegacao": "RM-074 F4 (item 3): o caso novo simula o ICU que escreve so GMT (e confere a simulacao) e exige a legenda de janeiro com GMT+0; o arquivo inteiro passa",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"^test('rede: a legenda de janeiro diz GMT+0 tambem quando o ICU escreve so GMT\" core/test/network-roadmap.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap core/dist-test/test/network-roadmap.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass [1-9][0-9]* # fail 0'"
+      ],
+      "criadoEm": "2026-10-27T09:50:46.249Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm074f4divid",
+      "fase": "GO",
+      "arquivo": "core/src/network-roadmap.ts",
+      "alegacao": "Excecao de prazo da F2 (RM-074 F4): o texto do panorama da rede omite o ano pela hora da leitura (consultadoEm), nao pelo relogio de quem le; o retrato pt-BR F3c sai igual com o relogio em 01/01/2027 e em 2031, e os mutantes M5 e M6 de core/test/mutantes/rm074-f4.json morrem",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap --test-name-pattern='^locale pt-BR F3c:' core/dist-test/test/locale-f3c-snapshot.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 2 # fail 0'",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-f4.json M5 && node core/scripts/mutante.cjs core/test/mutantes/rm074-f4.json M6"
+      ],
+      "criadoEm": "2026-10-27T10:08:46.885Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm074f4divid",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3c-snapshot.test.ts",
+      "alegacao": "Excecao de prazo da F2 (RM-074 F4): o caso novo gera o retrato F3c com o relogio da suite em 01/01/2027 e em 2031 e exige o mesmo texto; ele cai se uma data sem ano voltar a depender do relogio",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"^test('locale pt-BR F3c: o mesmo retrato com o relogio em 01/01/2027\" core/test/locale-f3c-snapshot.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap core/dist-test/test/locale-f3c-snapshot.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 2 # fail 0'"
+      ],
+      "criadoEm": "2026-10-27T10:08:49.795Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm074f4divid",
+      "fase": "GO",
+      "arquivo": "core/src/security-scan/agil.ts",
+      "alegacao": "RM-074 F4 (item 4): o teto de 180 s do build da imagem de lint fica em prazoDoBuildDaImagem e o runScanAgil aceita o grupo paralelo injetado; SL9 (o teto e o prazo que resta, o build lento cortado), SL10 (o teto dos trabalhadores contado depois do build) e SL11 (o trivy nativo com o cache por usuario) passam",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'export function prazoDoBuildDaImagem(restanteMs: number): number' core/src/security-scan/agil.ts && npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap --test-name-pattern='^SL(9|10|11):' core/dist-test/test/security-scan-agil-lint.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 3 # fail 0'"
+      ],
+      "criadoEm": "2026-10-27T10:13:07.968Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm074f4divid",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-docker-falso.ts",
+      "alegacao": "RM-074 F4 (item 4): o docker falso aceita ORK_FAKE_DOCKER_BUILD_SLEEP_MS, o sono do build que SL9 e SL10 usam, e documenta as variaveis novas em pt-BR",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'ORK_FAKE_DOCKER_BUILD_SLEEP_MS  o .docker build. dorme esses ms antes' core/test/security-scan-docker-falso.ts && npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap --test-name-pattern='^SL(9|10):' core/dist-test/test/security-scan-agil-lint.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 2 # fail 0'"
+      ],
+      "criadoEm": "2026-10-27T10:13:11.026Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm074f4divid",
+      "fase": "GO",
+      "arquivo": "core/test/check-agil.test.ts",
+      "alegacao": "RM-074 F4 (item 4): AG41 (a evidencia das lanes relativa a raiz do estado quando o verify roda de uma worktree ligada) e AG42 (o executado do ramo do relogio na juncao das lanes) passam, e os mutantes M7 e M8 de core/test/mutantes/rm074-f4.json morrem",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap --test-name-pattern='^AG4[12]:' core/dist-test/test/check-agil.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 2 # fail 0'",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-f4.json M7 && node core/scripts/mutante.cjs core/test/mutantes/rm074-f4.json M8"
+      ],
+      "criadoEm": "2026-10-27T10:13:13.964Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm074f4divid",
+      "fase": "GO",
+      "arquivo": "core/src/check-paralelo.ts",
+      "alegacao": "RM-074 F4 (item 5): o item do grupo paralelo aceita argv e roda sem shell (o argumento chega literal); sem argv, o comando segue por bash -c como as lanes do manifesto (AG43, AG11); o mutante M9 de core/test/mutantes/rm074-f4.json morre",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap --test-name-pattern='^AG(11|43):' core/dist-test/test/check-agil.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 2 # fail 0'",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-f4.json M9"
+      ],
+      "criadoEm": "2026-10-27T10:15:41.171Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm074f4divid",
+      "fase": "GO",
+      "arquivo": "core/src/security-scan/agil.ts",
+      "alegacao": "RM-074 F4 (item 5): o trabalhador da varredura do Agile roda pelo argv [node, trabalhador.js, arquivo], sem string de shell nem o helper de aspas, e a varredura segue igual (SL12)",
+      "negativa": false,
+      "verificar": [
+        "! grep -q 'aspas(' core/src/security-scan/agil.ts && grep -q 'const argv = \\[process.execPath, TRABALHADOR, arquivo\\];' core/src/security-scan/agil.ts && npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap --test-name-pattern='^SL12:' core/dist-test/test/security-scan-agil-lint.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-27T10:15:44.267Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm074f4divid",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-integracao.test.ts",
+      "alegacao": "RM-074 F4 (item 5): o caso com Docker real do runScanAgil (fixture js, toda ferramenta rodando, o novo do loop nas quatro categorias, sem segredo no relatorio e sem sobra) entra no arquivo da lane de integracao, que a lista de integracao local ja inclui; medido em 16,5 s, cerca de 2,2% da parede do test da baseline",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"test('Docker real (Agile, RM-074 F4): o runScanAgil na fixture js\" core/test/security-scan-integracao.test.ts && grep -q \"'security-scan-integracao.test.js'\" core/src/integracoes-locais.ts && npm --prefix core run build:test"
+      ],
+      "criadoEm": "2026-10-27T10:15:47.177Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm074f4divid",
+      "fase": "GO",
+      "arquivo": ".github/workflows/ci.yml",
+      "alegacao": "RM-074 F4 (item 6): o job nucleo do CI roda a paridade do tsgo com o tsc no core inteiro em todo PR (node scripts/tsgo-paridade.cjs --resumo, no Node 22, depois do npm ci), e nao so pela C70 da thread de origem; TG9 cai sem o passo",
+      "negativa": false,
+      "verificar": [
+        "grep -q '        run: node scripts/tsgo-paridade.cjs --resumo' .github/workflows/ci.yml && npm --prefix core run build:test && node --test --test-reporter=tap --test-name-pattern='^TG9:' core/dist-test/test/tsgo-paridade.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 1 # fail 0'"
+      ],
+      "criadoEm": "2026-10-27T10:18:02.751Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm074f4divid",
+      "fase": "GO",
+      "arquivo": "core/test/tsgo-paridade.test.ts",
+      "alegacao": "RM-074 F4 (item 6): TG9 exige, enquanto o preparo do Agile deste projeto usar o tsgo, o passo da paridade no job nucleo do ci.yml, que roda em pull_request; o arquivo inteiro passa",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"^test('TG9: enquanto o preparo do Agile usar o tsgo\" core/test/tsgo-paridade.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test --test-reporter=tap core/dist-test/test/tsgo-paridade.test.js | grep -E '^# (pass|fail) ' | tr '\\n' ' ' | grep -qE '# pass 9 # fail 0'"
+      ],
+      "criadoEm": "2026-10-27T10:18:05.050Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm074f4divid",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "RM-074 F4: a secao Nao publicado ganha a linha da divida do Agile Check (redacao da imagem-de-lint, lane sem veredito tao estrita quanto o Classic e o texto do gate, GMT+0, F3c sem data que ganhe o ano, trabalhador sem shell, Docker real na lane de integracao e paridade do tsgo no CI), sem tempo em minutos, e o checador do CHANGELOG passa contra a origin/main",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'A dívida do Agile Check que pesava na confiança' CHANGELOG.md && ! awk '/^## Não publicado/{f=1;next} /^## \\[/{f=0} f' CHANGELOG.md | grep -A8 'A dívida do Agile Check' | grep -qiE '[0-9] ?min' && node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-10-27T10:19:19.948Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C21",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
