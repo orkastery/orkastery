@@ -16,8 +16,8 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { configuracaoServidorMcp, instalarMcp } from '../src/mcp-install';
 import { criarServidorMcp } from '../src/mcp-server';
 import { CONSULTAS_MCP, MUTACOES_WORKTREE, montarComando as comandoDoClaude } from '../src/adapters/claude-bg';
-import { configDoFilho, ferramentasDoGrok, ferramentasServidasAoGrok, gravarConfigDaWorktree, MARCA_DA_CONFIG_DO_FILHO,
-  montarComando as comandoDoGrok } from '../src/adapters/grok';
+import { configDoFilho, ferramentasDoGrok, ferramentasServidasAoGrok, gravarConfigDaWorktree, IGNORADOS_DA_CONFIG_DO_FILHO,
+  MARCA_DA_CONFIG_DO_FILHO, montarComando as comandoDoGrok } from '../src/adapters/grok';
 import { instalarAdaptador } from '../src/hosts';
 import { rodarFase } from '../src/phase';
 import { exec } from '../src/util';
@@ -25,8 +25,8 @@ import { editarBloco, textoDoSetup, validarFallback } from '../src/setup';
 import { comLocale } from '../src/locale';
 import { TOOLS_DO_GRAFO } from '../src/mcp-grafo';
 import { dirThread, novaThread } from '../src/thread';
-import { capacidadeDoRuntimeNoProjeto, contextoDoProjeto, novaIdentidadeDeDespacho, validarContextoDoGrok,
-  validarContextoRuntime } from '../src/runtime-context';
+import { capacidadeDaRotacao, capacidadeDoRuntimeNoProjeto, contextoDoProjeto, MOTIVO_FORA_DOS_DESTINOS_AUTOMATICOS,
+  novaIdentidadeDeDespacho, validarContextoDoGrok, validarContextoRuntime } from '../src/runtime-context';
 import { lerLedger } from '../src/ledger';
 import { commitar, projetoTemporario } from './apoio';
 import { esperarCondicao } from './controller-simulado';
@@ -204,7 +204,11 @@ test('GM7: num projeto preparado, o grok recebe o contexto do host grok, com o s
     instalarMcp({ projeto: p.dir, host: 'grok', permissoesFilho: 'worktree' });
     const t = novaThread(p.carregado, { nome: 'gm7', modo: 'auto', criarWorktree: true }).thread;
     const wt = t.worktree!;
-    assert.deepEqual(capacidadeDoRuntimeNoProjeto(p.dir, 'grok'), { runtime: 'grok', host: 'grok', preparado: true, capaz: true, motivo: null });
+    // GO-FIX A5: como destino automatico (fallback e escada) o grok fica fora, pelo sandbox; a troca de conta dentro dele vale.
+    assert.deepEqual(capacidadeDoRuntimeNoProjeto(p.dir, 'grok'),
+      { runtime: 'grok', host: 'grok', preparado: true, capaz: false, motivo: MOTIVO_FORA_DOS_DESTINOS_AUTOMATICOS });
+    assert.equal(capacidadeDaRotacao(p.dir, 'grok', true).capaz, true, 'a troca de conta dentro do grok vale');
+    assert.equal(capacidadeDaRotacao(p.dir, 'grok', false).capaz, false, 'como alvo de fallback, nao');
     assert.equal(capacidadeDoRuntimeNoProjeto(p.dir, 'claude-bg').capaz, false, 'o claude-bg segue exigindo o adaptador dele');
     const ctx = contextoDoProjeto(p.dir, 'grok', wt, t.id)!;
     assert.equal(ctx.host, 'grok');
@@ -277,8 +281,13 @@ test('GM9: o despacho real grava a config da worktree vinculada a thread e ao de
     assert.equal(args[args.indexOf('--host') + 1], 'grok');
     assert.deepEqual(args.slice(-6), ['--child-permissions', 'worktree', '--thread', t.id, '--dispatch', dispatchId],
       'o servidor da worktree e o da thread e do despacho');
-    assert.equal(fs.readFileSync(path.join(wt, '.grok', '.gitignore'), 'utf8'), '*\n');
+    assert.equal(fs.readFileSync(path.join(wt, '.grok', '.gitignore'), 'utf8'), IGNORADOS_DA_CONFIG_DO_FILHO);
     assert.equal(exec('git', ['status', '--porcelain', '--untracked-files=all'], wt).stdout, '', 'a worktree segue limpa');
+    // GO-FIX A2: so os arquivos do ork ficam fora do git; a regra que a sessao deixasse em .grok/rules aparece.
+    fs.mkdirSync(path.join(wt, '.grok', 'rules'));
+    fs.writeFileSync(path.join(wt, '.grok', 'rules', 'plantada.md'), 'regra deixada pela sessao\n');
+    assert.equal(exec('git', ['status', '--porcelain', '--untracked-files=all'], wt).stdout, '?? .grok/rules/plantada.md\n');
+    fs.rmSync(path.join(wt, '.grok', 'rules'), { recursive: true });
     assert.equal(stub.configCarregada(), config, 'o filho carregou a config da worktree na partida confiada');
     assert.deepEqual(liberadasNoGrok(r.comando), [...CONSULTAS, 'ork_git_status', ...MUTACOES].map((f) => `MCPTool(orkastery__${f})`));
     assert.deepEqual(stub.compat(), [['0', '0']], 'o filho nao carrega o MCP do Claude nem o do Cursor');
@@ -293,6 +302,10 @@ test('GM10: a config da worktree recusa versionada, sem a marca, link, cifrao e 
     const texto = configDoFilho({ command: '/srv/node', args: ['ork', 'mcp', 'serve'] }, 'ork-fixture');
     assert.throws(() => configDoFilho({ command: '/srv/node', args: ['ork', '$HOME/x'] }, 'ork-fixture'), /args\[1\] do servidor do ork tem \$/);
     assert.throws(() => configDoFilho({ command: '/srv/node', args: [], env: { CHAVE: '${OUTRA}' } }, 'ork-fixture'), /env\.CHAVE do servidor do ork tem \$/);
+    // GO-FIX S2: o documento inteiro volta pelo parser; uma tabela a mais, por qualquer campo, recusa.
+    assert.throws(() => configDoFilho({ command: '/srv/node', args: [] }, 'ork-x\n[mcp_servers.outro]\ncommand = "y"'),
+      /nao volta igual pelo TOML/);
+    assert.throws(() => configDoFilho({ command: '/srv/node', args: ['\u007f'] }, 'ork-fixture'), /nao sai como TOML valido|nao volta igual/);
     const pasta = path.join(p.dir, '.grok'), arquivo = path.join(pasta, 'config.toml');
     // Arquivo de outra pessoa, sem a marca: fica como estava, e nada nasce ao lado.
     fs.mkdirSync(pasta);
@@ -300,6 +313,13 @@ test('GM10: a config da worktree recusa versionada, sem a marca, link, cifrao e 
     assert.throws(() => gravarConfigDaWorktree(p.dir, texto), /nao e do ork/);
     assert.equal(fs.readFileSync(arquivo, 'utf8'), '[mcp_servers.dela]\ncommand = "x"\n');
     assert.equal(fs.existsSync(path.join(pasta, '.gitignore')), false);
+    // Link no lugar do arquivo (GO-FIX S3): recusa sem seguir, e o alvo fica.
+    fs.rmSync(arquivo);
+    const alvoDoLink = path.join(p.dir, 'alvo-do-link.toml');
+    fs.writeFileSync(alvoDoLink, `${MARCA_DA_CONFIG_DO_FILHO}\n`);
+    fs.symlinkSync(alvoDoLink, arquivo);
+    assert.throws(() => gravarConfigDaWorktree(p.dir, texto), /config\.toml da worktree e link ou ilegivel/);
+    assert.equal(fs.readFileSync(alvoDoLink, 'utf8'), `${MARCA_DA_CONFIG_DO_FILHO}\n`);
     // A config do ork e reescrita a cada despacho.
     fs.rmSync(arquivo);
     gravarConfigDaWorktree(p.dir, texto);
@@ -342,9 +362,12 @@ test('GM10: a config da worktree recusa versionada, sem a marca, link, cifrao e 
 test('GM11: sem o MCP do ork, o filho do grok tambem roda sem o MCP do Claude e do Cursor, e a worktree nao ganha .grok', () => {
   const stub = grokFalso('gm11-sem-mcp');
   const p = projetoTemporario('gm11-sem-mcp');
+  const herdada = process.env.GROK_CLAUDE_MCPS_ENABLED;
   try {
     const t = novaThread(p.carregado, { nome: 'gm11', modo: 'auto', criarWorktree: true }).thread;
     stub.stream('fim-normal.jsonl');
+    // GO-FIX S3: o valor herdado do processo nao vence; as duas variaveis vao por ultimo ao filho.
+    process.env.GROK_CLAUDE_MCPS_ENABLED = '1';
     const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'Fixture SIMULADA sem o MCP', runtime: 'grok', model: 'grok-modelo' });
     assert.ok(r.sessionId, r.erro);
     const sid = r.sessionId!;
@@ -352,7 +375,10 @@ test('GM11: sem o MCP do ork, o filho do grok tambem roda sem o MCP do Claude e 
     assert.equal(r.comando.includes('--allow'), false);
     assert.equal(fs.existsSync(path.join(t.worktree!, '.grok')), false);
     esperarCondicao(() => lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.sessionId === sid), 60000);
-  } finally { p.limpar(); stub.restaurar(); }
+  } finally {
+    if (herdada === undefined) delete process.env.GROK_CLAUDE_MCPS_ENABLED; else process.env.GROK_CLAUDE_MCPS_ENABLED = herdada;
+    p.limpar(); stub.restaurar();
+  }
 });
 
 test('GM12: a tela do setup e as recusas de runtime e de fallback desconhecido listam os tres runtimes de bloco, nas duas linguas', () => {
@@ -366,5 +392,45 @@ test('GM12: a tela do setup e as recusas de runtime e de fallback desconhecido l
       assert.throws(() => validarFallback(['gemini:x'], 'claude-bg'), /fallback uses unknown runtime: "gemini" \(supported: claude-bg, codex, grok\)/);
       assert.equal(editarBloco(p.dir, 'auto', 1, { runtime: 'gemini', model: 'x' }).erro, 'unknown runtime: "gemini" (supported: claude-bg, codex, grok)');
     });
+  } finally { p.limpar(); }
+});
+
+test('GM13: a thread sem worktree propria recusa o grok com o MCP, e a config do projeto fica intocada', () => {
+  // GO-FIX B1: na raiz, a config da sessao viraria a entrada do host grok do projeto e derrubaria a preparacao.
+  const stub = grokFalso('gm13-raiz');
+  const p = projetoTemporario('gm13-raiz');
+  try {
+    instalarMcp({ projeto: p.dir, host: 'grok' });
+    const doProjeto = fs.readFileSync(grokDe(fs.realpathSync(p.dir)));
+    const t = novaThread(p.carregado, { nome: 'gm13', modo: 'auto', criarWorktree: false }).thread;
+    assert.throws(() => contextoDoProjeto(p.dir, 'grok', fs.realpathSync(p.dir), t.id), /runtime\.context\.worktree: o grok com o MCP do ork exige a worktree propria/);
+    stub.stream('fim-normal.jsonl');
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'Fixture SIMULADA na raiz', runtime: 'grok', model: 'grok-modelo' });
+    assert.equal(r.sessionId, null);
+    assert.equal(r.motivo, 'runtime.unavailable');
+    assert.match(String(r.erro), /runtime\.context\.worktree/);
+    assert.deepEqual(stub.chamadas(), [], 'o grok nao rodou');
+    assert.deepEqual(fs.readFileSync(grokDe(fs.realpathSync(p.dir))), doProjeto, 'a entrada do projeto nao mudou');
+    assert.equal(fs.existsSync(path.join(p.dir, '.grok', '.gitignore')), false);
+  } finally { p.limpar(); stub.restaurar(); }
+});
+
+test('GM14: o .grok/config.toml ilegivel do time recusa so o grok, com motivo tipado, e o claude-bg segue capaz', () => {
+  // GO-FIX A4: o arquivo e a config do proprio grok; para o claude-bg e o codex, a falha dele nao conta.
+  const p = projetoTemporario('gm14-config-do-time');
+  try {
+    instalarAdaptador('claude-code', { projeto: p.dir });
+    instalarMcp({ projeto: p.dir, host: 'claude-code' });
+    assert.equal(capacidadeDoRuntimeNoProjeto(p.dir, 'claude-bg').capaz, true);
+    fs.mkdirSync(path.join(p.dir, '.grok'));
+    fs.writeFileSync(path.join(p.dir, '.grok', 'config.toml'), '[permission\nallow = [\n');
+    const t = novaThread(p.carregado, { nome: 'gm14', modo: 'auto', criarWorktree: true }).thread;
+    assert.equal(capacidadeDoRuntimeNoProjeto(p.dir, 'claude-bg').capaz, true, 'o claude-bg nao le a config do grok');
+    assert.ok(contextoDoProjeto(p.dir, 'claude-bg', t.worktree!, t.id), 'o claude-bg segue com o contexto');
+    const grok = capacidadeDoRuntimeNoProjeto(p.dir, 'grok');
+    assert.equal(grok.capaz, false);
+    assert.match(String(grok.motivo), /^runtime\.context\.conflict: \.grok\/config\.toml do projeto ilegivel \(/);
+    assert.throws(() => contextoDoProjeto(p.dir, 'grok', t.worktree!, t.id), /runtime\.context\.conflict: \.grok\/config\.toml do projeto ilegivel/);
+    assert.equal(String(grok.motivo).includes('[permission'), false, 'o motivo nao repete o arquivo do time');
   } finally { p.limpar(); }
 });

@@ -1,6 +1,7 @@
 /**
- * RM-067 (F1 da ork-grokbuild): runtime `grok`, o Grok Build headless da xAI, homologado só para despacho explícito
- * (`ork phase run --runtime grok`): nunca padrão de bloco nem alvo de fallback nesta versão (D1).
+ * RM-067 (F1 da ork-grokbuild): runtime `grok`, o Grok Build headless da xAI. Nasceu só para despacho explícito
+ * (`ork phase run --runtime grok`, D1); desde a F4, é runtime de bloco no setup, nunca o padrão do projeto, e desde a F4b
+ * leva o MCP do `ork` pela config que o despacho grava na worktree (`gravarConfigDaWorktree`).
  *
  * O despacho roda `grok -p <prompt> --output-format streaming-json -s <id>` desanexado, pelo supervisor do `codex-runner`
  * (D6): o log do stream, o `.process.json` com a identidade do filho e o `.exit.json` com o código e o sinal do `close`
@@ -261,12 +262,17 @@ export function montarComando(pedido: DespachoGrokPedido): string[] {
 
 /** RM-067 (F4b, G3): a primeira linha da config que o `ork` grava na worktree; sem ela, o arquivo não é do `ork`. */
 export const MARCA_DA_CONFIG_DO_FILHO = '# Gerado pelo ork para a sessao filha do grok; o ork reescreve este arquivo a cada despacho.';
+/**
+ * RM-067 (F4b, GO-FIX A2): o `.gitignore` da pasta `.grok` só esconde o que o `ork` grava nela, pelo nome. Regra ou arquivo
+ * novo que a sessão deixe em `.grok/` (o `grok` lê `.grok/rules/` na partida) segue visível ao git e à prova do GO.
+ */
+export const IGNORADOS_DA_CONFIG_DO_FILHO = '/config.toml\n/.gitignore\n/.ork-*.tmp\n';
 const LIMITE_DA_CONFIG_BYTES = 65536;
 
 /**
  * RM-067 (F4b, G3 e G7): o `.grok/config.toml` da worktree, com o servidor do `ork` vinculado à thread e ao despacho. O
  * `grok` expande `${VAR}` em `command`, `args` e `env` (G16): valor com `$` recusa, porque o servidor que subiria seria
- * outro. O texto volta pelo parser de TOML e tem de dizer exatamente o servidor pedido.
+ * outro. O texto volta pelo parser de TOML e o documento inteiro tem de ser exatamente o servidor pedido (GO-FIX S2).
  */
 export function configDoFilho(servidor: ServidorDoFilhoGrok, threadId: string): string {
   const env = Object.entries(servidor.env ?? {});
@@ -277,8 +283,11 @@ export function configDoFilho(servidor: ServidorDoFilhoGrok, threadId: string): 
   const texto = [MARCA_DA_CONFIG_DO_FILHO, `# thread ${threadId}`, '[mcp_servers.orkastery]',
     `command = ${JSON.stringify(servidor.command)}`, `args = ${JSON.stringify(servidor.args)}`,
     ...(env.length ? [`env = { ${env.map(([k, v]) => `${k} = ${JSON.stringify(v)}`).join(', ')} }`] : [])].join('\n') + '\n';
-  const lido = JSON.stringify((parse(texto) as { mcp_servers?: { orkastery?: unknown } }).mcp_servers?.orkastery);
-  const esperado = JSON.stringify({ command: servidor.command, args: servidor.args, ...(env.length ? { env: servidor.env } : {}) });
+  let lido: string;
+  try { lido = JSON.stringify(parse(texto)); }
+  catch { throw new Error('runtime.context.conflict: a config do servidor do ork nao sai como TOML valido'); }
+  const esperado = JSON.stringify({ mcp_servers: { orkastery: { command: servidor.command, args: servidor.args,
+    ...(env.length ? { env: servidor.env } : {}) } } });
   if (lido !== esperado) throw new Error('runtime.context.conflict: a config do servidor do ork nao volta igual pelo TOML');
   return texto;
 }
@@ -309,8 +318,9 @@ function gravarNaWorktree(arquivo: string, texto: string): void {
 /**
  * RM-067 (F4b, G3 e D3): grava a config da sessão filha na worktree, fora do git e sem apagar arquivo de ninguém. Recusa
  * antes de escrever: `.grok` que é link ou não é pasta, `config.toml` ou `.gitignore` versionados, link no lugar de
- * arquivo e config sem a marca do `ork`. O `.gitignore` com `*` só nasce quando falta (nunca reescreve o de outro), e o
- * `git status` dos dois arquivos tem de sair vazio depois; se não sair, desfaz o que gravou e recusa.
+ * arquivo e config sem a marca do `ork`. O `.gitignore` com os nomes dos arquivos do `ork` só nasce quando falta (nunca
+ * reescreve o de outro), e o `git status` dos dois arquivos tem de sair vazio depois; se não sair, desfaz o que gravou e
+ * recusa.
  */
 export function gravarConfigDaWorktree(cwd: string, texto: string): void {
   const pasta = path.join(cwd, '.grok'), arquivo = path.join(pasta, 'config.toml'), ignorar = path.join(pasta, '.gitignore');
@@ -333,7 +343,7 @@ export function gravarConfigDaWorktree(cwd: string, texto: string): void {
   const ignorarAntes = textoDaWorktree(ignorar);
   if (!st) fs.mkdirSync(pasta, { mode: 0o700 });
   try {
-    if (ignorarAntes === null) gravarNaWorktree(ignorar, '*\n');
+    if (ignorarAntes === null) gravarNaWorktree(ignorar, IGNORADOS_DA_CONFIG_DO_FILHO);
     gravarNaWorktree(arquivo, texto);
     if (git(['status', '--porcelain', '--untracked-files=all', '--', '.grok/config.toml', '.grok/.gitignore']))
       throw new Error('runtime.context.conflict: a config da sessao ficaria visivel ao git na worktree; confira o .gitignore de .grok');

@@ -1,13 +1,13 @@
 {
   "contrato": "ork.mutantes/v1",
-  "descricao": "RM-067, F4b da ork-rm067f4bhost: cada mutante desfaz uma parte do host MCP do grok fora de adapters/ (o mutante.cjs nao alcanca adapters/). Cada claim Mutante roda um deles pelo core/scripts/mutante.cjs.",
+  "descricao": "RM-067, F4b da ork-rm067f4bhost: cada mutante desfaz uma parte do host MCP do grok fora de adapters/ (o mutante.cjs nao alcanca adapters/). Cada claim Mutante roda um deles pelo core/scripts/mutante.cjs; M5 a M7 vem do GO-FIX da revisao independente.",
   "mutantes": [
     {
       "id": "M1",
       "descricao": "o watcher do grok deixa de refazer a prova do ork com o ledger relido sob o lock da sessao",
       "modulo": "session-watcher-grok",
-      "de": "if (prova !== undefined) {",
-      "para": "if (prova !== undefined && process.env.ORK_MUTANTE_NUNCA === 'x') {",
+      "de": "if (prova !== undefined && JSON.stringify(",
+      "para": "if (prova !== undefined && process.env.ORK_MUTANTE_NUNCA === 'x' && JSON.stringify(",
       "teste": "session-watcher-grok",
       "nome": "^GW19:"
     },
@@ -33,10 +33,37 @@
       "id": "M4",
       "descricao": "a capacidade do grok volta a exigir o adaptador instalado, que o grok nao tem",
       "modulo": "runtime-context",
-      "de": "if (host !== 'grok')",
-      "para": "if (host !== 'grok' || process.env.ORK_MUTANTE_NUNCA !== 'x')",
+      "de": "if (host !== 'grok')\n            conferirInstalacaoDoHost(raiz, host);",
+      "para": "if (host !== 'grok' || process.env.ORK_MUTANTE_NUNCA !== 'x')\n            conferirInstalacaoDoHost(raiz, host);",
       "teste": "rm067-grok-mcp",
       "nome": "^GM7:"
+    },
+    {
+      "id": "M5",
+      "descricao": "a reconferencia volta a comparar so o texto da prova, e o verify do CHECK some do phase_result",
+      "modulo": "session-watcher-grok",
+      "de": "JSON.stringify((0, session_watcher_claude_1.provaDoOrk)(raiz, thread.id, sessao, atuais, fonte)) !== JSON.stringify(prova)",
+      "para": "(0, session_watcher_claude_1.provaDoOrk)(raiz, thread.id, sessao, atuais, fonte).fonte !== prova.fonte",
+      "teste": "session-watcher-grok",
+      "nome": "^GW21:"
+    },
+    {
+      "id": "M6",
+      "descricao": "o contexto do grok volta a aceitar a thread sem worktree propria, e a config da sessao iria a raiz do projeto",
+      "modulo": "runtime-context",
+      "de": "if (!thread.worktree || thread.worktree === raiz || cwd === raiz)",
+      "para": "if ((!thread.worktree || thread.worktree === raiz || cwd === raiz) && process.env.ORK_MUTANTE_NUNCA === 'x')",
+      "teste": "rm067-grok-mcp",
+      "nome": "^GM13:"
+    },
+    {
+      "id": "M7",
+      "descricao": "a falha da config do grok volta a derrubar a preparacao dos outros hosts",
+      "modulo": "runtime-context",
+      "de": "if (host !== 'grok' || quem === undefined || quem === 'grok')",
+      "para": "if (host !== 'grok' || quem === undefined || quem === 'grok' || process.env.ORK_MUTANTE_NUNCA !== 'x')",
+      "teste": "rm067-grok-mcp",
+      "nome": "^GM14:"
     }
   ]
 }

@@ -21,6 +21,13 @@ import { EventoLedger, MotivoGate, SinalDeFalhaDeConta, Thread } from './types';
 import { ARTEFATO_DA_FASE, estadoDoArtefato, provaDoOrk, ProvaOrk, saidaDoArtefato, THREAD_REMOVIDA } from './session-watcher-claude';
 import { citarNoShell } from './doctor-pulse-cron';
 
+/**
+ * RM-067 (F4b, GO-FIX A3): a retomada manual parte do `.grok/config.toml` da worktree como ele está, e a sessão podia
+ * escrever nele no perfil `workspace`; o `ork retry` reescreve a config antes de redespachar.
+ */
+export const AVISO_DA_RETOMADA_COM_MCP = 'a retomada parte do .grok/config.toml da worktree como esta, e a sessao podia ' +
+  'escrever nele: confira o arquivo antes, ou redespache pelo ork retry, que o reescreve';
+
 /** D12: no máximo um `runtime_heartbeat` por minuto; o stream do `grok` emite um evento por pedaço de texto. */
 export const HEARTBEAT_GROK_MS = 60_000;
 export const CONTRATO_CURSOR_GROK = 'ork.session-cursor-grok/v1';
@@ -363,22 +370,22 @@ export function observarGrokSobLock(ctx: ContextoObservacaoGrok): ResultadoObser
     if (ja) return { ...base, bytesLidos: leitura.bytes, concluido: true, classificacao: String(ja.classificacao) };
     // RM-067 (F4b, G8 e D6): com o MCP, a sessão grava commit, artefato e verify pelo núcleo até o fim, e o ledger da prova
     // foi lido antes do recibo. A prova é refeita sobre o ledger relido sob o lock; se mudou, a decisão fica para a próxima
-    // volta, como a do Stop no claude-bg. Converge: a prova só muda com evento novo do intervalo.
-    if (prova !== undefined) {
-      const reconferida = provaDoOrk(raiz, thread.id, sessao, atuais, fonte);
-      if (reconferida.ok !== prova.ok || reconferida.motivo !== prova.motivo || reconferida.fonte !== prova.fonte)
-        return { ...base, bytesLidos: leitura.bytes, espera: 'evento do núcleo gravado durante a observação; reavaliar na próxima volta' };
-    }
+    // volta, como a do Stop no claude-bg. Converge: a prova só muda com evento novo do intervalo. GO-FIX A1: a prova inteira
+    // (o `verify` do CHECK, os commits do GO, o evento do SHIP e do MASTER), não só o texto, porque o `phase_result` a grava.
+    if (prova !== undefined && JSON.stringify(provaDoOrk(raiz, thread.id, sessao, atuais, fonte)) !== JSON.stringify(prova))
+      return { ...base, bytesLidos: leitura.bytes, espera: 'evento do núcleo gravado durante a observação; reavaliar na próxima volta' };
     const despacho = atuais.filter(e => e.tipo === 'phase_dispatch' && e.sessionId === sessao.sessionId).at(-1);
     const comando = Array.isArray(despacho?.comando) && despacho.comando.every(a => typeof a === 'string') ? despacho.comando as string[] : [];
     const retomada = c.retomar ? montarComandoDeRetomada(comando, sessao.sessionId) : null;
     const artefato = saidaDoArtefato(raiz, thread.id, sessao, fonte, eventos);
     const fim = cursor.parser.fim;
     // GO-FIX 1 (S4): o comando da retomada vai pronto para colar, com aspas no argumento que precisa delas. RM-067 (F4b, D5):
-    // com as variáveis do filho na frente, para a sessão retomada também não carregar o MCP de outros clientes.
+    // com as variáveis do filho na frente, para a sessão retomada também não carregar o MCP de outros clientes. GO-FIX A3: com
+    // o MCP do ork, a retomada parte da config que a sessão podia escrever, e o detalhe diz isso.
     const ambiente = Object.entries(AMBIENTE_SEM_MCP_DE_OUTROS_CLIENTES).map(([nome, valor]) => `${nome}=${valor}`);
+    const comMcp = retomada?.some((a) => a.startsWith('MCPTool(orkastery__')) ? `; ${AVISO_DA_RETOMADA_COM_MCP}` : '';
     const detalhe = c.diagnostico === null ? null
-      : retomada ? `${c.diagnostico}; retomada: ${[...ambiente, ...retomada.map(citarNoShell)].join(' ')}` : c.diagnostico;
+      : retomada ? `${c.diagnostico}; retomada: ${[...ambiente, ...retomada.map(citarNoShell)].join(' ')}${comMcp}` : c.diagnostico;
     const dados = { fase: sessao.fase, sessionId: sessao.sessionId, despachoEm: sessao.despachadaEm, sensorResultId: resultadoId,
       classificacao: c.classificacao, motivo: c.motivo, runtime: 'grok', fonte: c.fonte,
       stopReason: fim?.stopReason ?? null, numTurnos: fim?.numTurnos ?? null, tokens: fim?.tokens ?? tokensIndisponiveis(),
