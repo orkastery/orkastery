@@ -1,0 +1,598 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm067f4bhost",
+  "branch": "ork/ork-rm067f4bhost-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "F4b (G5): a uniao CanalDeConducao tem o canal grok, e o registro fechado de canais passa a sete, com o teste da conducao verde",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"'codex' | 'grok' | 'mcp'\" core/src/types.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/conducao-lease.test.js"
+      ],
+      "criadoEm": "2026-10-27T07:42:18.449Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/src/conducao.ts",
+      "alegacao": "F4b (G5): CANAIS_DE_CONDUCAO declara o grok pelo servidor MCP iniciado com --host grok, so na sessao filha vinculada a thread, e validarCanal aceita o grok",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'servidor MCP iniciado com --host grok, so na sessao filha' core/src/conducao.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/conducao-lease.test.js"
+      ],
+      "criadoEm": "2026-10-27T07:42:20.380Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/test/conducao-lease.test.ts",
+      "alegacao": "F4b: o teste do registro fechado de canais cobre os sete canais e aceita o grok",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'os sete canais' core/test/conducao-lease.test.ts && grep -q \"validarCanal('grok'), 'grok'\" core/test/conducao-lease.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/conducao-lease.test.js"
+      ],
+      "criadoEm": "2026-10-27T07:42:22.089Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-install.ts",
+      "alegacao": "F4b (G10): ork mcp install --host grok grava [mcp_servers.orkastery] no .grok/config.toml do projeto com o perfil filho, por acrescimo e sem env_vars, e recusa entrada divergente, TOML ilegivel ou fechado e link sem mudar bytes, como os outros hosts; os testes de instalacao de sempre passam",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 2 '^GM[12]:' && node --test core/dist-test/test/mcp-install.test.js"
+      ],
+      "criadoEm": "2026-10-27T07:44:29.315Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm067-grok-mcp.test.ts",
+      "alegacao": "F4b: os casos GM1 e GM2 provam a instalacao do host grok e as recusas dela",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"^test('GM1:\" core/test/rm067-grok-mcp.test.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 2 '^GM[12]:'"
+      ],
+      "criadoEm": "2026-10-27T07:44:31.017Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-server.ts",
+      "alegacao": "F4b (G1, G5): o servidor --host grok so existe com --thread (mcp.host.child-only), lista so as ferramentas do perfil filho, declara o canal grok sem ingresso HITL local, e o ork_phase_run do MCP aceita o runtime grok e recusa sem model",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 4 '^GM[3-6]:'"
+      ],
+      "criadoEm": "2026-10-27T07:46:19.076Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "F4b: a CLI aceita --host grok no mcp install e no mcp serve, e o serve sem --thread sai 1 com a recusa do servidor",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"host!=='grok'\" core/src/index.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 1 '^GM3:'"
+      ],
+      "criadoEm": "2026-10-27T07:46:20.934Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/grok.ts",
+      "alegacao": "F4b (G1, D1): as listas do grok (ferramentasDoGrok e ferramentasServidasAoGrok) saem das constantes do claude-bg sem o prefixo, nos tres casos e com o grafo",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 2 '^GM[45]:'"
+      ],
+      "criadoEm": "2026-10-27T07:46:22.847Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/claude-bg.ts",
+      "alegacao": "F4b: o claude-bg so passou a exportar CONSULTAS_MCP e MUTACOES_WORKTREE; o comando dele sai igual pelo registro e os testes dele passam",
+      "negativa": false,
+      "verificar": [
+        "grep -q '^export const CONSULTAS_MCP = ' core/src/adapters/claude-bg.ts && grep -q '^export const MUTACOES_WORKTREE = ' core/src/adapters/claude-bg.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/claude-bg-mods.test.js core/dist-test/test/claude-bg-teams.test.js core/dist-test/test/runtimes.test.js && node core/scripts/conferir-casos.cjs core/dist-test/test/runtimes-grok.test.js GR 1 '^GR2:'"
+      ],
+      "criadoEm": "2026-10-27T07:46:25.391Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/test/runtimes-grok.test.ts",
+      "alegacao": "F4b (D7): o GR7 revisto prova o contexto do host grok e o ensaio sem escrever a config da worktree, e os outros GR passam",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'o grok recebe o contexto do host grok' core/test/runtimes-grok.test.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/runtimes-grok.test.js GR 8"
+      ],
+      "criadoEm": "2026-10-27T07:48:38.567Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/grok.ts",
+      "alegacao": "F4b (G2, G3, G4, G7): com o contexto, o comando leva no fim o --allow MCPTool(orkastery__<ferramenta>) igual ao --allowedTools do claude-bg sem o prefixo; o despacho real grava a config da worktree vinculada a thread e ao despacho, fora do git, e recusa versionada, sem marca, link e cifrao sem escrever; o filho roda com GROK_CLAUDE_MCPS_ENABLED=0 e GROK_CURSOR_MCPS_ENABLED=0",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 4 '^GM(8|9|10|11):' && node --test core/dist-test/test/grok.test.js core/dist-test/test/despacho-grok.test.js"
+      ],
+      "criadoEm": "2026-10-27T07:50:34.137Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/test/grok-falso.ts",
+      "alegacao": "F4b: o grok falso grava os valores das duas variaveis de compatibilidade de cada chamada e a config da worktree que carregou com --trust",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'config-carregada' core/test/grok-falso.ts && grep -q 'GROK_CURSOR_MCPS_ENABLED-ausente' core/test/grok-falso.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 2 '^GM(9|11):'"
+      ],
+      "criadoEm": "2026-10-27T07:50:36.425Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/test/claude-bg-mods.test.ts",
+      "alegacao": "F4b (paridade): os testes do claude-bg e do codex nao mudaram desde o merge-base com a origin/main e passam",
+      "negativa": false,
+      "verificar": [
+        "git diff --quiet \"$(git merge-base origin/main HEAD)\" -- core/test/claude-bg-mods.test.ts core/test/claude-bg-teams.test.ts core/test/codex.test.ts core/test/codex-controller-params.test.ts core/test/codex-runner.test.ts core/test/codex-events.test.ts core/test/runtimes.test.ts core/test/despacho-perfil.test.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/claude-bg-mods.test.js core/dist-test/test/claude-bg-teams.test.js core/dist-test/test/codex.test.js core/dist-test/test/codex-controller-params.test.js core/dist-test/test/codex-runner.test.js core/dist-test/test/codex-events.test.js core/dist-test/test/runtimes.test.js core/dist-test/test/despacho-perfil.test.js"
+      ],
+      "criadoEm": "2026-10-27T07:51:07.510Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher-grok.ts",
+      "alegacao": "F4b (G8, D5, D6): o watcher do grok refaz a prova do ork com o ledger relido sob o lock da sessao e adia a decisao quando ela muda, e a retomada pronta para colar leva as duas variaveis do filho; os GW de antes seguem verdes",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/session-watcher-grok.test.js GW 20"
+      ],
+      "criadoEm": "2026-10-27T07:53:17.818Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/test/session-watcher-grok.test.ts",
+      "alegacao": "F4b: GW19 e GW20 cobrem a prova refeita sob o lock e a retomada com o ambiente do filho",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"^test('GW19:\" core/test/session-watcher-grok.test.ts && grep -q \"^test('GW20:\" core/test/session-watcher-grok.test.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/session-watcher-grok.test.js GW 2 '^GW(19|20):'"
+      ],
+      "criadoEm": "2026-10-27T07:53:19.945Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm067-grok-mcp.json",
+      "alegacao": "Mutante M1 da F4b: sem a prova refeita sob o lock da sessao, o GW19 cai, e com ela passa",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm067-grok-mcp.json M1"
+      ],
+      "criadoEm": "2026-10-27T07:53:21.737Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm067-grok-mcp.json",
+      "alegacao": "Mutante M2 da F4b: sem o filtro do perfil filho, o servidor --host grok lista ferramentas a mais e o GM4 cai",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm067-grok-mcp.json M2"
+      ],
+      "criadoEm": "2026-10-27T07:53:23.633Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm067-grok-mcp.json",
+      "alegacao": "Mutante M3 da F4b: sem a recusa do startup sem --thread, o servidor --host grok sobe para o dono e o GM3 e o GM4 caem",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm067-grok-mcp.json M3"
+      ],
+      "criadoEm": "2026-10-27T07:53:25.510Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm067-grok-mcp.json",
+      "alegacao": "Mutante M4 da F4b: exigindo o adaptador instalado, que o grok nao tem, a capacidade dele cai e o GM7 cai",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm067-grok-mcp.json M4"
+      ],
+      "criadoEm": "2026-10-27T07:53:27.101Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/src/setup.ts",
+      "alegacao": "F4b (G9): a tela do setup e as recusas de runtime e de fallback desconhecido listam claude-bg, codex e grok, sem as recusas so por pedido",
+      "negativa": false,
+      "verificar": [
+        "! grep -q 'SoPorPedido' core/src/setup.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 1 '^GM12:' && node --test core/dist-test/test/setup.test.js core/dist-test/test/setup-fallback.test.js"
+      ],
+      "criadoEm": "2026-10-27T08:01:02.489Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-setup.ts",
+      "alegacao": "F4b (G9): as recusas so por pedido sairam do catalogo do setup nas duas linguas, e a tela lista os tres runtimes de bloco",
+      "negativa": false,
+      "verificar": [
+        "! grep -q 'SoPorPedido' core/src/locale-setup.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 1 '^GM12:' && node --test core/dist-test/test/locale-f3d-setup.test.js"
+      ],
+      "criadoEm": "2026-10-27T08:01:04.274Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-ajuda.ts",
+      "alegacao": "F4b (D9): a ajuda do setup lista claude-bg, codex e grok, e a do mcp serve diz o grok so na sessao filha, nas duas linguas, com o retrato F2a e a paridade da referencia verdes",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'runtimes: claude-bg, codex, grok' core/src/locale-ajuda.ts && grep -q 'grok so na sessao filha, com --thread' core/src/locale-ajuda.ts && grep -q 'grok only in the child session, with --thread' core/src/locale-ajuda.ts && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f2a-snapshot.test.js core/dist-test/test/locale-ajuda.test.js core/dist-test/test/rm044-paridade-cli-md.test.js"
+      ],
+      "criadoEm": "2026-10-27T08:01:07.030Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-operacao-restante.ts",
+      "alegacao": "F4b: o uso do ork mcp diz --host codex|claude-code|grok nas duas linguas, e o retrato F3d passa inteiro",
+      "negativa": false,
+      "verificar": [
+        "grep -c 'host codex|claude-code|grok' core/src/locale-operacao-restante.ts | grep -qx 2 && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f3d-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-27T08:01:08.920Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f2a-pt-BR.json",
+      "alegacao": "F4b (D8): o retrato F2a mudou so nas entradas ajuda cli, que listam o grok, e passa inteiro",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'runtimes: claude-bg, codex, grok' core/test/fixtures/locale-f2a-pt-BR.json && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f2a-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-27T08:01:10.819Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f3d-pt-BR.json",
+      "alegacao": "F4b (D8): o retrato F3d lista os tres runtimes no setup e o host grok no uso do mcp, e passa inteiro",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'Runtimes homologados: claude-bg, codex, grok' core/test/fixtures/locale-f3d-pt-BR.json && grep -q 'host codex|claude-code|grok' core/test/fixtures/locale-f3d-pt-BR.json && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f3d-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-27T08:01:13.058Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm067-grok-mcp.test.ts",
+      "alegacao": "F4b: os doze casos GM da fatia passam juntos",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 12"
+      ],
+      "criadoEm": "2026-10-27T08:01:14.466Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/src/runtime-context.ts",
+      "alegacao": "F4b (G6, D2 e GO-FIX B1, A4, A5): preparado le o .grok/config.toml sem que a falha dele derrube o claude-bg e o codex; o grok recebe o contexto do host grok, vinculado a thread e ao despacho, so com a worktree propria da thread; num projeto preparado ele segue fora dos destinos automaticos pelo sandbox, e a troca de conta dentro dele vale",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 3 '^GM(7|13|14):' && node --test core/dist-test/test/runtime-context.test.js core/dist-test/test/hitl-dispatch-transport.test.js"
+      ],
+      "criadoEm": "2026-10-27T08:23:05.585Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm067-grok-setup.test.ts",
+      "alegacao": "F4b (D7 e GO-FIX A5): o GS5 revisto prova o host grok, com o retry trocando o perfil do grok e ele seguindo fora do fallback de quem tem o MCP, pelo sandbox, e os outros GS passam",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'ele segue fora do fallback de quem tem o MCP' core/test/rm067-grok-setup.test.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-setup.test.js GS 6"
+      ],
+      "criadoEm": "2026-10-27T08:23:08.723Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher-grok.ts",
+      "alegacao": "F4b (GO-FIX A1, A3): a prova do grok e comparada por inteiro sob o lock, e o phase_result leva a prova refeita; com o MCP do ork, a retomada pronta para colar avisa que parte da config da worktree como ela esta",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/session-watcher-grok.test.js GW 2 '^GW(21|22):'"
+      ],
+      "criadoEm": "2026-10-27T08:23:10.645Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/test/session-watcher-grok.test.ts",
+      "alegacao": "F4b (GO-FIX): GW21 e GW22 cobrem o verify do CHECK gravado entre as leituras e o aviso da retomada com o MCP, e os 22 GW passam",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"^test('GW21:\" core/test/session-watcher-grok.test.ts && grep -q \"^test('GW22:\" core/test/session-watcher-grok.test.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/session-watcher-grok.test.js GW 22"
+      ],
+      "criadoEm": "2026-10-27T08:23:13.154Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/grok.ts",
+      "alegacao": "F4b (GO-FIX A2, S2): o .gitignore da config da worktree lista so os arquivos do ork, e regra nova em .grok segue visivel ao git; a config inteira volta pelo parser de TOML, e tabela a mais ou valor que nao sai como TOML recusa tipado",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"IGNORADOS_DA_CONFIG_DO_FILHO = '/config.toml\" core/src/adapters/grok.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 2 '^GM(9|10):'"
+      ],
+      "criadoEm": "2026-10-27T08:23:16.039Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm067-grok-mcp.test.ts",
+      "alegacao": "F4b (GO-FIX B1, A4): GM13 e GM14 cobrem a thread sem worktree propria e a config do time ilegivel, e os 14 casos GM passam",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"^test('GM13:\" core/test/rm067-grok-mcp.test.ts && grep -q \"^test('GM14:\" core/test/rm067-grok-mcp.test.ts && npm --prefix core run build && npm --prefix core run build:test && node core/scripts/conferir-casos.cjs core/dist-test/test/rm067-grok-mcp.test.js GM 14"
+      ],
+      "criadoEm": "2026-10-27T08:23:17.195Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm067-grok-mcp.json",
+      "alegacao": "Mutante M5 da F4b: comparando so o texto da prova sob o lock, o verify do CHECK some do phase_result e o GW21 cai",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm067-grok-mcp.json M5"
+      ],
+      "criadoEm": "2026-10-27T08:23:23.556Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm067-grok-mcp.json",
+      "alegacao": "Mutante M6 da F4b: aceitando a thread sem worktree propria, a config da sessao iria a raiz do projeto e o GM13 cai",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm067-grok-mcp.json M6"
+      ],
+      "criadoEm": "2026-10-27T08:23:25.181Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm067-grok-mcp.json",
+      "alegacao": "Mutante M7 da F4b: com a falha da config do grok derrubando os outros hosts, o claude-bg perde o contexto e o GM14 cai",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm067-grok-mcp.json M7"
+      ],
+      "criadoEm": "2026-10-27T08:23:26.545Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-067-grok-build-homologado.md",
+      "alegacao": "F4b: a pagina da RM-067 registra a F4b entregue, o limite do sandbox do grok com a fonte (G17), o .mcp.json e a config da worktree entre partidas como lacunas e o caminho do MCP com o sandbox para o dono, e o ork docs verificar sai sem erro",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'F4b entregue (thread .ork-rm067f4bhost.)' docs/roadmap/RM-067-grok-build-homologado.md && grep -q 'Limite do sandbox (G17)' docs/roadmap/RM-067-grok-build-homologado.md && grep -q 'MCP com o sandbox ligado' docs/roadmap/RM-067-grok-build-homologado.md && grep -q 'Config da worktree entre partidas' docs/roadmap/RM-067-grok-build-homologado.md && npm --prefix core run build && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-10-27T08:26:38.595Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "F4b: a referencia da CLI diz o host grok do mcp serve (so na sessao filha) e do install, a tela do setup com os tres runtimes e o grok fora do fallback de quem tem o MCP, e as duas referencias andam juntas",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'só na sessão filha, com o .--thread.' docs/referencia/cli.md && grep -q 'A tela do setup e as recusas listam .claude-bg., .codex. e .grok.' docs/referencia/cli.md && grep -q 'o retry não manda a thread ao .grok. do fallback, porque o sandbox dele' docs/referencia/cli.md && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f3a-referencia.test.js core/dist-test/test/rm044-paridade-cli-md.test.js"
+      ],
+      "criadoEm": "2026-10-27T08:26:41.135Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "F4b: a referencia em ingles diz o mesmo da pt-BR sobre o host grok, a tela do setup e o fallback, linha por linha",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'only in the child session, with the .--thread.' docs/referencia/cli.en.md && grep -q 'The setup screen and its refusals list .claude-bg., .codex. and .grok.' docs/referencia/cli.en.md && grep -q 'because its sandbox does not let the MCP write' docs/referencia/cli.en.md && npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f3a-referencia.test.js"
+      ],
+      "criadoEm": "2026-10-27T08:26:43.666Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/playbook-runtimes-i09.md",
+      "alegacao": "F4b: o playbook dos runtimes descreve o MCP do ork no grok, deixa o grok fora do fallback de quem tem o MCP pelo sandbox e troca a lacuna do host pela do sandbox e pela do .mcp.json",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'Sandbox e MCP' docs/referencia/contratos/playbook-runtimes-i09.md && grep -q 'desde a F4b, .ork mcp install --host grok. grava' docs/referencia/contratos/playbook-runtimes-i09.md && ! grep -q 'Até lá,' docs/referencia/contratos/playbook-runtimes-i09.md && core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/playbook-runtimes-i09.md"
+      ],
+      "criadoEm": "2026-10-27T08:26:46.838Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/onboarding.md",
+      "alegacao": "F4b: o onboarding diz que a sessao grok recebe o MCP desde a F4b e que o sandbox dela vale tambem para o servidor",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'desde a F4b a sessão .grok. recebe o MCP' docs/guias/onboarding.md && core/node_modules/.bin/markdownlint-cli2 docs/guias/onboarding.md"
+      ],
+      "criadoEm": "2026-10-27T08:26:48.223Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm067f4bhost",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "F4b: a linha do host MCP do Grok Build esta em Nao publicado, com o grok fora do fallback automatico pelo sandbox, e o checador do CHANGELOG passa contra a origin/main",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'Host MCP do Grok Build' CHANGELOG.md && grep -q 'segue fora do fallback automático de um projeto com o MCP' CHANGELOG.md && node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-10-27T08:26:49.684Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C45",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
