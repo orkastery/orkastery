@@ -316,7 +316,7 @@ export function passoConduzido(carregado: ManifestoCarregado, arco: string, quem
   try {
     const entrega = (opcoes.entregar ?? passoDaEntrega)(carregado, arco, { maquina: opcoes.maquina ?? opcoes.passo?.maquina,
       lerReservas: opcoes.passo?.lerReservas, consultarSessoes: opcoes.passo?.consultarSessoes, ...(visao ? { perfis: () => visao.perfis } : {}),
-      ...opcoes.entrega, quando });
+      remoto: opcoes.coordenacao?.remoto, redeDaCoordenacao: opcoes.coordenacao?.rede, ...opcoes.entrega, quando });
     return { ...r, entrega };
   } catch (e) {
     return { ...r, entrega: null, falhaDaEntrega: (e instanceof Error ? e.message : String(e)).split('\n')[0].slice(0, 200) };
