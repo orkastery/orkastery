@@ -26,9 +26,19 @@ export { BRAIN_READ_TOOLS, BRAIN_WRITE_TOOLS } from './company-brain-mcp';
 /** Caminho de sessao, nunca credencial. O cliente resolve o valor no ambiente ao iniciar o MCP. */
 export const ENV_VARS_CODEX_MCP = ['CODEX_HOME'] as const;
 export type PermissoesFilhoMcp = 'interactive' | 'worktree';
+/**
+ * RM-067 (F4b, G10): os hosts do MCP do projeto. O `grok` grava a entrada como o codex, em TOML, e o servidor dele so
+ * serve a sessao filha vinculada a uma thread (`--thread`, gravado pelo despacho na config da worktree).
+ */
+export type HostMcp = 'claude-code' | 'codex' | 'grok';
+export const HOSTS_MCP: readonly HostMcp[] = ['claude-code', 'codex', 'grok'];
+/** O arquivo do projeto onde cada host le a entrada `orkastery`; o codex e o grok usam TOML com `mcp_servers`. */
+export function arquivoDoHostMcp(raiz: string, host: HostMcp): string {
+  return host === 'claude-code' ? path.join(raiz, '.mcp.json') : path.join(raiz, host === 'codex' ? '.codex' : '.grok', 'config.toml');
+}
 export interface OpcoesInstalacaoMcp {
   projeto: string;
-  host: 'claude-code' | 'codex';
+  host: HostMcp;
   dryRun?: boolean;
   transporteShip?: TransporteShipMcp;
   permissoesFilho?: PermissoesFilhoMcp;
@@ -100,7 +110,7 @@ function ler(file: string): {bytes: Buffer; modo: number} | null {
   } finally {fs.closeSync(fd);}
 }
 /** Renderer de startup interno: a raiz vem do manifesto, nunca de argumentos de ferramentas. */
-export function configuracaoServidorMcp(raiz: string, host: 'claude-code' | 'codex',threadId?:string,transporteShip:TransporteShipMcp='github-ssh',permissoesFilho:PermissoesFilhoMcp='interactive',
+export function configuracaoServidorMcp(raiz: string, host: HostMcp,threadId?:string,transporteShip:TransporteShipMcp='github-ssh',permissoesFilho:PermissoesFilhoMcp='interactive',
   /** I-36 (D4): identidade do despacho da sessao filha; so existe junto com a thread vinculada. */
   dispatchId?:string) {
   if(!ehTransporteShipMcp(transporteShip))throw Error('mcp.install.transport.invalid');
@@ -151,12 +161,12 @@ function migrarEnvVarsCodex(bruto:string,entrada:Record<string,unknown>):string 
 /** O transporte SHIP de cada host do projeto com a entrada orkastery; config que nao se le nao conta. */
 function transportesDosHosts(raiz:string):{arquivo:string;transporte:string}[] {
   const achados:{arquivo:string;transporte:string}[]=[];
-  for(const host of ['claude-code','codex'] as const) {
-    const arquivo=path.join(raiz,host==='codex'?'.codex/config.toml':'.mcp.json');
+  for(const host of HOSTS_MCP) {
+    const arquivo=arquivoDoHostMcp(raiz,host),toml=host!=='claude-code';
     try {
       const lido=ler(arquivo);if(!lido)continue;
-      const bruto=lido.bytes.toString('utf8'),dados=objeto(host==='codex'?parse(bruto):JSON.parse(bruto));
-      const servidores=objeto(dados[host==='codex'?'mcp_servers':'mcpServers']);
+      const bruto=lido.bytes.toString('utf8'),dados=objeto(toml?parse(bruto):JSON.parse(bruto));
+      const servidores=objeto(dados[toml?'mcp_servers':'mcpServers']);
       if(!Object.hasOwn(servidores,'orkastery'))continue;
       const argv=objeto(servidores.orkastery).args,lista=Array.isArray(argv)?argv as unknown[]:[],i=lista.indexOf('--ship-transport');
       achados.push({arquivo,transporte:i>=0?String(lista[i+1]):'github-ssh'});
@@ -167,7 +177,7 @@ function transportesDosHosts(raiz:string):{arquivo:string;transporte:string}[] {
 export function instalarMcp(opcoes: OpcoesInstalacaoMcp): ResultadoInstalacaoMcp {
   // Ensaio da 0.5.0: os READMEs dos plugins mandavam `--project .`, recusado sem dizer como acertar.
   if(!path.isAbsolute(opcoes.projeto)) throw Error('mcp.install.project.invalid: raiz absoluta obrigatoria; na raiz do projeto, use --project "$PWD"');
-  if(!['claude-code','codex'].includes(opcoes.host)) throw Error('mcp.install.host.invalid');
+  if(!HOSTS_MCP.includes(opcoes.host)) throw Error('mcp.install.host.invalid');
   if(opcoes.transporteShip!==undefined && !ehTransporteShipMcp(opcoes.transporteShip))throw Error('mcp.install.transport.invalid');
   if(opcoes.impressaoSsh!==undefined && (opcoes.transporteShip!=='forja-ssh' || !IMPRESSAO_SSH.test(opcoes.impressaoSsh)))
     throw Error('mcp.install.ssh-fingerprint.invalid: so com --ship-transport forja-ssh, no formato SHA256:<43 caracteres>');
@@ -193,7 +203,9 @@ export function instalarMcp(opcoes: OpcoesInstalacaoMcp): ResultadoInstalacaoMcp
     if(proposto!==null && proposto!=='github-ssh')linhas.push(msg().forja.transporteShip.proposta(proposto));
   }
   const gravarFixacaoSePedida=()=>{if(fixacao && !opcoes.dryRun)gravarFixacao(dirDaFixacao(raiz),fixacao);};
-  const pasta=opcoes.host==='codex'?path.join(raiz,'.codex'):raiz;
+  // RM-067 (F4b): o grok grava como o codex, em TOML; so o claude-code usa o `.mcp.json` da raiz.
+  const toml=opcoes.host!=='claude-code';
+  const pasta=path.dirname(arquivoDoHostMcp(raiz,opcoes.host));
   const validarPasta=() => {
     try {
       const st=fs.lstatSync(pasta);
@@ -202,13 +214,13 @@ export function instalarMcp(opcoes: OpcoesInstalacaoMcp): ResultadoInstalacaoMcp
     } catch(e) {if((e as NodeJS.ErrnoException).code!=='ENOENT') throw e;}
   };
   validarPasta();
-  const arquivo=path.join(pasta,opcoes.host==='codex'?'config.toml':'.mcp.json');
+  const arquivo=arquivoDoHostMcp(raiz,opcoes.host);
   const anterior=ler(arquivo), bruto=anterior?.bytes.toString('utf8')??'';
   const {command:comando,args}=configuracaoServidorMcp(raiz,opcoes.host,undefined,opcoes.transporteShip,opcoes.permissoesFilho);
   let dados: Record<string,unknown>;
-  try {dados=anterior?objeto(opcoes.host==='codex'?parse(bruto):JSON.parse(bruto)):{};}
+  try {dados=anterior?objeto(toml?parse(bruto):JSON.parse(bruto)):{};}
   catch {throw Error('mcp.install.config.invalid: configuracao existente nao foi alterada');}
-  const chave=opcoes.host==='codex'?'mcp_servers':'mcpServers';
+  const chave=toml?'mcp_servers':'mcpServers';
   const servidores=dados[chave]===undefined?{}:objeto(dados[chave]);
   const existente=Object.hasOwn(servidores,'orkastery')?objeto(servidores.orkastery):undefined;
   const faltaEnvCodex=opcoes.host==='codex' && existente!==undefined &&
@@ -234,9 +246,11 @@ export function instalarMcp(opcoes: OpcoesInstalacaoMcp): ResultadoInstalacaoMcp
     if(faltantes.length===0 && !faltaEnvCodex){gravarFixacaoSePedida();return {arquivo,estado:'igual',dryRun:!!opcoes.dryRun,ativacao:'pendente-no-cliente',transporte:linhas};}
   }
   let proximo: string;
-  if(opcoes.host==='codex') {
+  if(toml) {
     // Append preserva comentarios e escolhas do usuario. TOML inline fechado pode impedir a extensao.
-    proximo=bruto+(bruto.endsWith('\n')||!bruto?'':'\n')+(existente?'':'\n[mcp_servers.orkastery]\ncommand = '+JSON.stringify(comando)+'\nargs = '+JSON.stringify(args)+'\nenv_vars = '+JSON.stringify([...ENV_VARS_CODEX_MCP])+'\n');
+    // RM-067 (F4b): o grok nao tem a lista de variaveis do codex; a entrada dele e so command e args.
+    proximo=bruto+(bruto.endsWith('\n')||!bruto?'':'\n')+(existente?'':'\n[mcp_servers.orkastery]\ncommand = '+JSON.stringify(comando)+'\nargs = '+JSON.stringify(args)+'\n'+
+      (opcoes.host==='codex'?'env_vars = '+JSON.stringify([...ENV_VARS_CODEX_MCP])+'\n':''));
     if(existente && faltaEnvCodex) {
       proximo=migrarEnvVarsCodex(proximo,existente);
       try {
