@@ -6,15 +6,15 @@ categoria: melhoria
 pai: null
 features: [FEAT-017]
 owner: Julio
-atualizado_em: 2026-10-21T13:01:20-03:00
+atualizado_em: 2026-10-27T00:50:00-03:00
 estado:
-  ciclo: Em desenvolvimento
+  ciclo: Disponível
   documentacao: Em revisão
   codigo: Mesclado
   testes: Aprovados
-  deploy: Não implantado
-  exposicao: Flag desligada
-  habilitacao: Pendente
+  deploy: Produção
+  exposicao: Geral
+  habilitacao: Concluída
 evidencias:
   codigo:
     commit: 780eca0
@@ -23,6 +23,8 @@ evidencias:
     resolvedor: core/test/dsn-da-memoria.test.ts (DM1 a DM29 e DR1 a DR9)
     doctor: core/test/dsn-doctor.test.ts (DD1 a DD13)
     saida: core/test/dsn-saida.test.ts (DS1 a DS5) e core/test/mutantes/dsn-da-memoria.json (M1 a M15)
+  deploy:
+    release: v0.6.0, @orkastery/cli no npm (memory.database_url_file)
 sdlc:
   thread: ork-dsnforadoamb
   modo: "#Auto"
@@ -38,7 +40,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Mesclado | Aprovados | Não implantado | Flag desligada |
+| Disponível | Mesclado | Aprovados | Produção | Geral |
 
 <!-- ork-docs:relance:fim -->
 
@@ -107,19 +109,21 @@ sdlc:
 
 ## Estado com evidências
 
+- Em produção na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026): `memory.database_url_file` declara a DSN por um arquivo da pasta de segredos do `ork`; quem segue com `memory.database_url_env` não muda. O guia é o [de memória e handoff](../guias/memoria-e-handoff.md), e a fronteira, a [de confiança](../referencia/fronteira-de-confianca.md).
+
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
 <!-- ork-docs:estado:inicio -->
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-21 | Julio |
-| Documentação | Em revisão | — | 2026-10-21 | Julio |
-| Código | Mesclado | commit `780eca0` · PR ##189 | 2026-10-21 | Julio |
-| Testes | Aprovados | resolvedor: core/test/dsn-da-memoria.test.ts (DM1 a DM29 e DR1 a DR9) · doctor: core/test/dsn-doctor.test.ts (DD1 a DD13) · saida: core/test/dsn-saida.test.ts (DS1 a DS5) e core/test/mutantes/dsn-da-memoria.json (M1 a M15) | 2026-10-21 | Julio |
-| Deploy | Não implantado | — | 2026-10-21 | Julio |
-| Exposição | Flag desligada | — | 2026-10-21 | Julio |
-| Habilitação | Pendente | — | 2026-10-21 | Julio |
+| Ciclo do item | Disponível | — | 2026-10-27 | Julio |
+| Documentação | Em revisão | — | 2026-10-27 | Julio |
+| Código | Mesclado | commit `780eca0` · PR ##189 | 2026-10-27 | Julio |
+| Testes | Aprovados | resolvedor: core/test/dsn-da-memoria.test.ts (DM1 a DM29 e DR1 a DR9) · doctor: core/test/dsn-doctor.test.ts (DD1 a DD13) · saida: core/test/dsn-saida.test.ts (DS1 a DS5) e core/test/mutantes/dsn-da-memoria.json (M1 a M15) | 2026-10-27 | Julio |
+| Deploy | Produção | release: v0.6.0, @orkastery/cli no npm (memory.database_url_file) | 2026-10-27 | Julio |
+| Exposição | Geral | — | 2026-10-27 | Julio |
+| Habilitação | Concluída | — | 2026-10-27 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -127,8 +131,9 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: a sessão da thread `ork-dsnforadoamb`; A: Julio; C: o CHECK independente; I: a condutora da fábrica.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** uma sessão #Auto fez GOAL, PLAN e GO, com as decisões registradas no ledger; o CHECK roda em outro runtime; o dono aprova a entrega pelo modo da thread.
-- **Próxima ação, responsável e prazo:** o CHECK independente do GO-FIX 2, depois SHIP e a migração da máquina da fábrica pela condutora.
+- **Próxima ação, responsável e prazo:** a migração da máquina da fábrica para o arquivo, pela condutora; o CHECK, o SHIP e a versão 0.6.0 já passaram.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-20 | Decisão 4a do dono: o item abre, a DSN sai do ambiente dos agentes e o `ork` passa a ler um arquivo do dono | Credencial de banco no contexto de um modelo | Julio |
+| 2026-10-27 | Em produção na 0.6.0: ciclo Disponível, exposição Geral (a chave vale para toda instalação que a declarar) e habilitação Concluída (o guia de memória e a fronteira de confiança saíram com a versão) | Tag `v0.6.0`, com o merge `780eca0` (PR #189) na tag; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |

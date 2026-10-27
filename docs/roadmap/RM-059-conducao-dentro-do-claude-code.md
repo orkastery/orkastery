@@ -6,19 +6,21 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-12T00:51:47-03:00
+atualizado_em: 2026-10-27T00:50:00-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
   codigo: Mesclado
   testes: Não iniciados
-  deploy: Não implantado
-  exposicao: Flag desligada
-  habilitacao: Pendente
+  deploy: Produção
+  exposicao: Parcial
+  habilitacao: Em andamento
 evidencias:
   codigo:
     commit: "8087442"
     pr: null
+  deploy:
+    release: v0.6.0 (Mensageiro de Sessões e Ritual do MASTER), @orkastery/cli no npm
 sdlc:
   thread: ork-rm059erm060p
   modo: "#Fast"
@@ -34,7 +36,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Mesclado | Não iniciados | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Não iniciados | Produção | Parcial |
 
 <!-- ork-docs:relance:fim -->
 
@@ -160,19 +162,21 @@ Para uma primeira aproximação da linha de base de uma thread, conte as linhas 
 
 ## Estado com evidências
 
+- Em produção na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026): o Mensageiro de Sessões (onda 3, PR #159) e o Ritual do MASTER com a nota pelo diálogo nativo (F8, PR #160); os mods das ondas anteriores já estavam no código da `v0.5.6`. O resto dos dez mods segue.
+
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
 <!-- ork-docs:estado:inicio -->
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-12 | Julio |
-| Documentação | Em revisão | — | 2026-10-12 | Julio |
-| Código | Mesclado | commit `8087442` | 2026-10-12 | Julio |
-| Testes | Não iniciados | — | 2026-10-12 | Julio |
-| Deploy | Não implantado | — | 2026-10-12 | Julio |
-| Exposição | Flag desligada | — | 2026-10-12 | Julio |
-| Habilitação | Pendente | — | 2026-10-12 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-27 | Julio |
+| Documentação | Em revisão | — | 2026-10-27 | Julio |
+| Código | Mesclado | commit `8087442` | 2026-10-27 | Julio |
+| Testes | Não iniciados | — | 2026-10-27 | Julio |
+| Deploy | Produção | release: v0.6.0 (Mensageiro de Sessões e Ritual do MASTER), @orkastery/cli no npm | 2026-10-27 | Julio |
+| Exposição | Parcial | — | 2026-10-27 | Julio |
+| Habilitação | Em andamento | — | 2026-10-27 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -186,3 +190,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- |
 | 2026-10-11 | Proposta vira item de roadmap; começa já, com os dez mods no escopo | Decisões M1 a M5 do dono sobre o plano da thread `ork-modsorquestr` | Julio |
 | 2026-10-12 | Página aberta em Em desenvolvimento, código Em andamento | Thread `ork-rm059erm060p` | Fábrica propõe; Julio decide |
+| 2026-10-27 | Em produção na 0.6.0, com o Mensageiro de Sessões e o Ritual do MASTER; exposição Parcial e habilitação Em andamento, porque o resto dos mods segue | Tag `v0.6.0`, com os merges `d9c5ca6c` (#159) e `22fbf9bf` (#160) na tag; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |

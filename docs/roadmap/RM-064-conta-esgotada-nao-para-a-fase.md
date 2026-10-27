@@ -6,19 +6,21 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-19T23:55:00-03:00
+atualizado_em: 2026-10-27T00:50:00-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
   codigo: Mesclado
   testes: Em execução
-  deploy: Não implantado
-  exposicao: Flag desligada
-  habilitacao: Pendente
+  deploy: Produção
+  exposicao: Parcial
+  habilitacao: Em andamento
 evidencias:
   codigo:
     commit: fe590b66
     pr: 178
+  deploy:
+    release: v0.6.0 (fatias 1, 2 e 3), @orkastery/cli no npm
 sdlc:
   thread: null
   modo: null
@@ -32,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Em execução | Produção | Parcial |
 
 <!-- ork-docs:relance:fim -->
 
@@ -180,19 +182,21 @@ node core/dist-test/test/rm064-fatia3.test.js
 Os testes usam somente projeto, controller, rollout e contas simulados. Não despacham runtime real nem alteram perfis
 da máquina. T6 e a implantação continuam fora desta fatia.
 
+- Em produção na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026): as fatias 1, 2 e 3 saíram juntas nessa versão (T1 a T5 e T7 a T10); a T6 segue.
+
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
 <!-- ork-docs:estado:inicio -->
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-19 | Julio |
-| Documentação | Em revisão | — | 2026-10-19 | Julio |
-| Código | Mesclado | commit `fe590b66` · PR #178 | 2026-10-19 | Julio |
-| Testes | Em execução | — | 2026-10-19 | Julio |
-| Deploy | Não implantado | — | 2026-10-19 | Julio |
-| Exposição | Flag desligada | — | 2026-10-19 | Julio |
-| Habilitação | Pendente | — | 2026-10-19 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-27 | Julio |
+| Documentação | Em revisão | — | 2026-10-27 | Julio |
+| Código | Mesclado | commit `fe590b66` · PR #178 | 2026-10-27 | Julio |
+| Testes | Em execução | — | 2026-10-27 | Julio |
+| Deploy | Produção | release: v0.6.0 (fatias 1, 2 e 3), @orkastery/cli no npm | 2026-10-27 | Julio |
+| Exposição | Parcial | — | 2026-10-27 | Julio |
+| Habilitação | Em andamento | — | 2026-10-27 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -206,3 +210,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- |
 | 2026-10-13 | Item criado com as frentes T1 a T7 | Incidente de 13/10/2026 (I1 a I8): a conta A esgotou às 02h03 com a conta B e o Codex disponíveis, e a fábrica ficou parada até 15h00 | Julio |
 | 2026-10-19 | Estado do código corrigido de `Branch criada` para `Mesclado`, com a evidência do último merge | As fatias 1, 2 e 3 estão na `main`: `9975486e` (#173, 14/10), `8d37c75f` (#176, 19/10) e `fe590b66` (#178, 19/10). Testes seguem em execução e o ciclo não muda: a T6 e a implantação continuam abertas | Julio |
+| 2026-10-27 | Fatias 1, 2 e 3 em produção na 0.6.0; exposição Parcial e habilitação Em andamento, porque a T6 segue | Tag `v0.6.0`, com os merges `9975486e` (#173), `8d37c75f` (#176) e `fe590b66` (#178) na tag; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |
