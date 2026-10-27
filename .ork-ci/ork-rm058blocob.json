@@ -15,7 +15,7 @@
         "grep -qE \"test\\('MQ[0-9]+:\" core/test/noctum-maquina-cli.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-maquina-cli.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - MQ[0-9]+:/{p++} END{exit !(p>=5 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:23:52.709Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -29,7 +29,7 @@
         "grep -qE \"test\\('MQ[0-9]+:\" core/test/noctum-maquina-cli.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-maquina-cli.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - MQ[0-9]+:/{p++} END{exit !(p>=5 && f==0 && s==0)}' && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-modo.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:23:53.107Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -43,7 +43,7 @@
         "test \"$(grep -c 'noctum maquina' core/src/locale-ajuda.ts)\" -ge 2 && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/rm044-paridade-cli-md.test.js core/dist-test/test/locale-f3a-referencia.test.js core/dist-test/test/locale-f2a-snapshot.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:23:53.649Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -57,7 +57,7 @@
         "grep -qF 'noctum maquina' core/test/fixtures/locale-f2a-pt-BR.json && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/locale-f2a-snapshot.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:23:54.193Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -71,7 +71,7 @@
         "grep -qF 'ork noctum maquina' docs/referencia/cli.md && grep -qF -- '--outra-maquina' docs/referencia/cli.md && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/rm044-paridade-cli-md.test.js core/dist-test/test/locale-f3a-referencia.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:23:54.687Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -85,7 +85,35 @@
         "grep -qF 'ork noctum maquina' docs/referencia/cli.en.md && grep -qF -- '--outra-maquina' docs/referencia/cli.en.md && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/locale-f3a-referencia.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:23:55.127Z",
-      "estado": "pendente",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-rede.ts",
+      "alegacao": "T3 (base de B2, B5 e B6): a projeção da rede de um arco `v3` deriva do ramo de coordenação, sem registro novo, a autoridade, o último sinal, as ordens vivas, as vagas e o consumo de cada máquina, e o estado de cada trabalho com a máquina e a ordem; a leitura que falha (sem remoto, adulterado, versão não autorizada) volta como lacuna tipada, nunca como rede vazia, e o arco `v1` ou `v2` não lê o ramo.",
+      "negativa": true,
+      "verificar": [
+        "grep -qE \"test\\('NR[0-9]+:\" core/test/noctum-rede.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-rede.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - NR[0-9]+:/{p++} END{exit !(p>=7 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:23:55.567Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-rede.test.ts",
+      "alegacao": "T3: os casos NR põem trabalho vivo só na outra máquina, provam a lacuna da leitura que falha e o arco `v2` sem leitura do ramo.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('NR[0-9]+:\" core/test/noctum-rede.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-rede.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - NR[0-9]+:/{p++} END{exit !(p>=7 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:23:56.012Z",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -99,7 +127,7 @@
         "grep -qE \"test\\('F(2[1-9]|3[0-9]):\" core/test/noctum-fila.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-fila.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - F(2[1-9]|3[0-9]):/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:23:56.447Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -113,7 +141,7 @@
         "grep -qE \"test\\('F(2[1-9]|3[0-9]):\" core/test/noctum-fila.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-fila.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - F(2[1-9]|3[0-9]):/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:23:56.908Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -127,7 +155,7 @@
         "grep -qE \"test\\('M(2[4-9]|3[0-9]):\" core/test/noctum-maquinas.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-maquinas.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - M(2[4-9]|3[0-9]):/{p++} END{exit !(p>=3 && f==0 && s==0)}' && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-execucao.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:23:57.329Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -141,7 +169,7 @@
         "grep -qE \"test\\('M(2[4-9]|3[0-9]):\" core/test/noctum-maquinas.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-maquinas.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - M(2[4-9]|3[0-9]):/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:23:57.809Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -155,7 +183,7 @@
         "grep -qE \"test\\('M(2[4-9]|3[0-9]):\" core/test/noctum-maquinas.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-maquinas.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - M(2[4-9]|3[0-9]):/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:23:58.256Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -169,7 +197,21 @@
         "grep -qE \"test\\('LM[1-6]:\" core/test/noctum-ligacao-maquinas.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-ligacao-maquinas.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - LM[1-6]:/{p++} END{exit !(p>=6 && f==0 && s==0)}' && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-ligacao.test.js core/dist-test/test/noctum-conduzir.test.js core/dist-test/test/noctum-vigia.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:23:58.704Z",
-      "estado": "pendente",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-ligacao-maquinas.test.ts",
+      "alegacao": "T5 e T8: os casos LM provam o passo da máquina no passo supervisionado (LM1 a LM6) e no arco encerrado nesta máquina, com a cessão da autoridade (LM7 em diante).",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('LM[1-6]:\" core/test/noctum-ligacao-maquinas.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-ligacao-maquinas.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - LM[1-6]:/{p++} END{exit !(p>=6 && f==0 && s==0)}' && grep -qE \"test\\('LM([7-9]|1[0-9]):\" core/test/noctum-ligacao-maquinas.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-ligacao-maquinas.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - LM([7-9]|1[0-9]):/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:23:59.161Z",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -183,7 +225,7 @@
         "grep -qE \"test\\('LM[1-6]:\" core/test/noctum-ligacao-maquinas.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-ligacao-maquinas.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - LM[1-6]:/{p++} END{exit !(p>=6 && f==0 && s==0)}' && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-maquinas.test.js core/dist-test/test/noctum-ensaio.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:23:59.670Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -197,7 +239,7 @@
         "grep -qE \"test\\('QI(1[4-9]|2[0-9]):\" core/test/noctum-integracao-entrega.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-integracao-entrega.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - QI(1[4-9]|2[0-9]):/{p++} END{exit !(p>=6 && f==0 && s==0)}' && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-entrega.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:24:00.172Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -211,7 +253,7 @@
         "grep -qE \"test\\('QI(1[4-9]|2[0-9]):\" core/test/noctum-integracao-entrega.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-integracao-entrega.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - QI(1[4-9]|2[0-9]):/{p++} END{exit !(p>=6 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:24:01.008Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -225,7 +267,35 @@
         "grep -qE \"test\\('QI(1[4-9]|2[0-9]):\" core/test/noctum-integracao-entrega.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-integracao-entrega.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - QI(1[4-9]|2[0-9]):/{p++} END{exit !(p>=6 && f==0 && s==0)}' && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-entrega.test.js core/dist-test/test/noctum-provas.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:24:02.439Z",
-      "estado": "pendente",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-retomada-rede.ts",
+      "alegacao": "G3 (B2): a retomada entre máquinas nunca transfere por silêncio: a máquina viva assume a autoridade cedida a ela, toma à força só a da autoridade sem sinal há mais de 15 min e cancela a ordem da máquina sem sinal há mais de 30 min (nunca a do trabalho preso a ela); a ordem aceita e cancelada fica isolada até o recibo de fim assinado pela máquina antiga, e só então outra máquina recebe ordem nova; a máquina que volta para a sessão da ordem cancelada sem retomá-la; nenhum despacho nem efeito se repete.",
+      "negativa": true,
+      "verificar": [
+        "grep -qE \"test\\('RR[0-9]+:\" core/test/noctum-retomada-rede.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-retomada-rede.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - RR[0-9]+:/{p++} END{exit !(p>=8 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:03.453Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-retomada-rede.test.ts",
+      "alegacao": "T7: os casos RR provam a tomada e a cessão da autoridade, as duas carências, o isolamento até o recibo de fim, a parada da sessão da ordem cancelada e a retomada na sobrevivente sem efeito repetido.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('RR[0-9]+:\" core/test/noctum-retomada-rede.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-retomada-rede.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - RR[0-9]+:/{p++} END{exit !(p>=8 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:04.017Z",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -239,7 +309,7 @@
         "grep -qE \"test\\('RR[0-9]+:\" core/test/noctum-retomada-rede.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-retomada-rede.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - RR[0-9]+:/{p++} END{exit !(p>=8 && f==0 && s==0)}' && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-reconciliacao.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:24:04.691Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -253,7 +323,7 @@
         "grep -qF \"'ordem-cancelada'\" core/src/noctum-supervisao.ts && grep -qE \"test\\('RR[0-9]+:\" core/test/noctum-retomada-rede.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-retomada-rede.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - RR[0-9]+:/{p++} END{exit !(p>=8 && f==0 && s==0)}' && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-supervisao.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:24:05.191Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -267,7 +337,7 @@
         "grep -qE \"test\\('FE(1[6-9]|2[0-9]):\" core/test/noctum-fechamento.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-fechamento.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - FE(1[6-9]|2[0-9]):/{p++} END{exit !(p>=4 && f==0 && s==0)}' && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-encerrado.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:24:05.767Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -281,7 +351,7 @@
         "grep -qE \"test\\('FE(1[6-9]|2[0-9]):\" core/test/noctum-fechamento.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-fechamento.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - FE(1[6-9]|2[0-9]):/{p++} END{exit !(p>=4 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:24:06.243Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -295,7 +365,7 @@
         "grep -qE \"test\\('MO(1[3-9]):\" core/test/noctum-modo.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-modo.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - MO(1[3-9]):/{p++} END{exit !(p>=3 && f==0 && s==0)}' && grep -qE \"test\\('LM([7-9]|1[0-9]):\" core/test/noctum-ligacao-maquinas.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-ligacao-maquinas.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - LM([7-9]|1[0-9]):/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:24:06.911Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -309,7 +379,7 @@
         "grep -qE \"test\\('RL(2[0-9]):\" core/test/noctum-relatorio.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-relatorio.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - RL(2[0-9]):/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:24:07.453Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -323,7 +393,7 @@
         "grep -qE \"test\\('RL(2[0-9]):\" core/test/noctum-relatorio.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-relatorio.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - RL(2[0-9]):/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:24:07.927Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -337,7 +407,7 @@
         "grep -qE \"test\\('MO(1[3-9]):\" core/test/noctum-modo.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-modo.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - MO(1[3-9]):/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:24:08.392Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -351,7 +421,7 @@
         "grep -qE \"test\\('GR[0-9]+:\" core/test/noctum-guarda.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - GR[0-9]+:/{p++} END{exit !(p>=4 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:24:08.912Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -365,7 +435,7 @@
         "grep -qE \"test\\('GR[0-9]+:\" core/test/noctum-guarda.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - GR[0-9]+:/{p++} END{exit !(p>=4 && f==0 && s==0)}' && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/locale-dado.test.js core/dist-test/test/locale-cli.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:24:09.393Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -379,7 +449,7 @@
         "grep -qE \"test\\('GR[0-9]+:\" core/test/noctum-guarda.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - GR[0-9]+:/{p++} END{exit !(p>=4 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:24:09.968Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -393,7 +463,7 @@
         "grep -qE \"test\\('AC(2[6-9]|3[0-9]):\" core/test/noctum-aceite.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - AC(2[6-9]|3[0-9]):/{p++} END{exit !(p>=7 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:24:10.527Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -407,7 +477,7 @@
         "grep -qE \"test\\('AC(2[6-9]|3[0-9]):\" core/test/noctum-aceite.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - AC(2[6-9]|3[0-9]):/{p++} END{exit !(p>=7 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:24:11.190Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -421,7 +491,7 @@
         "grep -qE \"test\\('AC(2[6-9]|3[0-9]):\" core/test/noctum-aceite.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - AC(2[6-9]|3[0-9]):/{p++} END{exit !(p>=7 && f==0 && s==0)}' && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-relatorio.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:24:11.683Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -435,7 +505,7 @@
         "grep -qF -- '--outra-maquina' core/src/noctum-cli.ts && grep -qE \"test\\('AC(2[6-9]|3[0-9]):\" core/test/noctum-aceite.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - AC(2[6-9]|3[0-9]):/{p++} END{exit !(p>=7 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:24:12.122Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -449,7 +519,7 @@
         "grep -qE \"test\\('RG(19|2[0-9]):\" core/test/release-noctum.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/release-noctum.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - RG(19|2[0-9]):/{p++} END{exit !(p>=2 && f==0 && s==0)}' && node core/scripts/checar-release-noctum.cjs --texto"
       ],
       "criadoEm": "2026-10-21T14:24:12.588Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -463,7 +533,7 @@
         "grep -qE \"test\\('RG(19|2[0-9]):\" core/test/release-noctum.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/release-noctum.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - RG(19|2[0-9]):/{p++} END{exit !(p>=2 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:24:13.048Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -477,7 +547,7 @@
         "grep -qF \"'duas-maquinas'\" core/scripts/ensaio-noctum.cjs && node core/scripts/ensaio-noctum.cjs --cenario duas-maquinas --json | node -e \"let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const r=JSON.parse(s);const c=(r.cenarios||[]).find(x=>x.nome==='duas-maquinas');process.exit(r.ok===true&&r.simulado===true&&!!c&&c.ok===true&&c.expectativas.length>=8?0:1)})\""
       ],
       "criadoEm": "2026-10-21T14:24:13.532Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -491,7 +561,21 @@
         "grep -qF \"'duas-maquinas'\" core/scripts/ensaio-noctum.cjs && grep -qE \"test\\('EP(1[2-9]):\" core/test/noctum-ensaio-piloto.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-ensaio-piloto.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - EP(1[2-9]):/{p++} END{exit !(p>=2 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:24:14.002Z",
-      "estado": "pendente",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C81",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/noctum-rede.json",
+      "alegacao": "T14: a especificação `ork.mutantes/v1` das cercas da rede tem os mutantes MR1 a MR10, e cada um morre com o controle sem a troca passando.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR1 && node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR2 && node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR3 && node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR4 && node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR5 && node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR6 && node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR7 && node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR8 && node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR9 && node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR10"
+      ],
+      "criadoEm": "2026-10-21T14:24:14.458Z",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -505,7 +589,35 @@
         "node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR1"
       ],
       "criadoEm": "2026-10-21T14:24:14.921Z",
-      "estado": "pendente",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C83",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-retomada-rede.ts",
+      "alegacao": "Mutante MR2: o cancelamento sai com a máquina sem sinal há só 15 min (a carência da batida no lugar da carência da retomada), e um caso RR cai.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR2"
+      ],
+      "criadoEm": "2026-10-21T14:24:15.337Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C84",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-retomada-rede.ts",
+      "alegacao": "Mutante MR3: a ordem da máquina sem sinal é cancelada mesmo com o trabalho preso a ela, e um caso RR cai.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR3"
+      ],
+      "criadoEm": "2026-10-21T14:24:15.839Z",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -519,7 +631,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR4"
       ],
       "criadoEm": "2026-10-21T14:24:16.318Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -533,7 +645,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR5"
       ],
       "criadoEm": "2026-10-21T14:24:16.796Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -547,7 +659,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR6"
       ],
       "criadoEm": "2026-10-21T14:24:17.235Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -561,7 +673,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR7"
       ],
       "criadoEm": "2026-10-21T14:24:17.692Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -575,7 +687,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR8"
       ],
       "criadoEm": "2026-10-21T14:24:18.212Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -589,7 +701,21 @@
         "node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR9"
       ],
       "criadoEm": "2026-10-21T14:24:18.730Z",
-      "estado": "pendente",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C91",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-rede.ts",
+      "alegacao": "Mutante MR10: a leitura do ramo que falha vira rede vazia na projeção, e um caso NR cai.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR10"
+      ],
+      "criadoEm": "2026-10-21T14:24:19.316Z",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -603,7 +729,7 @@
         "grep -qF 'nenhum piloto em duas máquinas rodou' docs/roadmap/RM-058-modo-noctum.md && grep -qF 'noctum-retomada-rede.test.ts' docs/roadmap/RM-058-modo-noctum.md && node core/scripts/checar-release-noctum.cjs --texto"
       ],
       "criadoEm": "2026-10-21T14:24:19.775Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -617,7 +743,7 @@
         "awk '/^## /{sec=$0} /ork noctum maquina/ && sec ~ /Não publicado/ {ok=1} END{exit !ok}' CHANGELOG.md && node core/scripts/checar-release-noctum.cjs --texto"
       ],
       "criadoEm": "2026-10-21T14:24:20.196Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -631,52 +757,25 @@
         "node -e \"const t=require('./core/dist/noctum-transporte.js'),v=require('./core/dist/noctum-envelope.js');const ok=t.CONTRATO_COORDENACAO==='ork.noctum-coordenacao/v1'&&v.CONTRATO_ENVELOPE_V3==='ork.noctum-envelope/v3'&&t.BRANCH_DE_COORDENACAO==='ork/noctum-coordenacao'&&JSON.stringify(t.TIPOS_DE_REGISTRO)===JSON.stringify(['autoridade','cessao','ordem','cancelamento','recibo','vaga','vaga-solta','vez','vez-fim','entrega','batida','revogacao'])&&JSON.stringify(t.RECIBOS)===JSON.stringify(['aceita','recusada','concluida','encerrada']);process.exit(ok?0:1)\" && test -z \"$(git log --format=%H origin/main..HEAD -- core/src/noctum-envelope.ts core/src/noctum-transporte.ts core/src/noctum-coordenacao.ts)\" && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-envelope-v3.test.js core/dist-test/test/noctum-transporte.test.js core/dist-test/test/noctum-coordenacao.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
       ],
       "criadoEm": "2026-10-21T14:24:20.643Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
-    }
-  ],
-  "deferredClaims": [
-    {
-      "id": "C47",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C48",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C55",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C60",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C61",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C81",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C83",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C84",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C91",
-      "reason": "artifact-not-in-checkout"
     },
     {
       "id": "C95",
-      "reason": "artifact-not-in-checkout"
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-rm058blocob.json",
+      "alegacao": "T16: o bundle é da thread (`ork.ci-bundle/v1`, thread, branch e base certas), traz ao menos 50 claims, todas da thread, só uma sobre o próprio bundle e nenhuma rodando o bundle, e nenhum caminho de máquina nem e-mail.",
+      "negativa": true,
+      "verificar": [
+        "node -e \"const b=JSON.parse(require('fs').readFileSync('.ork-ci/ork-rm058blocob.json','utf8'));const it=[...b.claims,...(b.deferredClaims||[])];const ok=b.schema==='ork.ci-bundle/v1'&&b.thread==='ork-rm058blocob'&&b.branch==='ork/ork-rm058blocob-full'&&b.base==='main'&&it.length>=50&&it.every(c=>c.thread==='ork-rm058blocob')&&it.filter(c=>c.arquivo==='.ork-ci/ork-rm058blocob.json').length===1&&!JSON.stringify(it.map(c=>c.verificar)).includes(['ci','run','--bundle'].join(' '));process.exit(ok?0:1)\" && ! grep -IEl '/hom[e]/|/User[s]/|[[:alnum:]._%+-]+@[[:alnum:]-]+[.][[:alpha:]]{2,}' .ork-ci/ork-rm058blocob.json"
+      ],
+      "criadoEm": "2026-10-21T14:24:21.154Z",
+      "estado": "reprovado",
+      "lint": []
     }
   ],
+  "deferredClaims": [],
   "commands": [
     {
       "name": "ci",
