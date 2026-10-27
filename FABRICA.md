@@ -5,9 +5,9 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado | Sessão |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| vps | ork-rm058blocob | #Auto | GO | codex gpt-5.6-sol/xhigh | RM-058 | — | 27/10 07:18 | viva |
-| vps | ork-rm067f4cmcpd | #Auto | GOAL | sem despacho | RM-067 | — | 27/10 07:18 | parada desde 07:18: nenhuma sessão despachada na fase GOAL |
-| vps | ork-rm074f4divid | #Fast | GO | claude-bg opus/high | RM-074 | — | 27/10 07:18 | viva |
-| vps | ork-rm074m0banca | #Fast | GO | claude-bg opus/high | RM-074 | — | 27/10 07:18 | viva |
+| vps | ork-rm058blocob | #Auto | GO | codex gpt-5.6-sol/xhigh | RM-058 | — | 27/10 07:19 | viva |
+| vps | ork-rm067f4cmcpd | #Auto | GOAL | claude-bg opus/max | RM-067 | — | 27/10 07:19 | viva |
+| vps | ork-rm074f4divid | #Fast | GO | claude-bg opus/high | RM-074 | — | 27/10 07:19 | viva |
+| vps | ork-rm074m0banca | #Fast | GO | claude-bg opus/high | RM-074 | — | 27/10 07:19 | viva |
 
 Horários de Brasília.
