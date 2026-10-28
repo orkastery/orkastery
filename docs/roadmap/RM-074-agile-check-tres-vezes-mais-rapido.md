@@ -20,7 +20,7 @@ evidencias:
     commit: null
     pr: null
 sdlc:
-  thread: ork-orkcheck3min
+  thread: ork-rm074m0banca
   modo: "#Fast"
   fase: GO
   status: aberta
