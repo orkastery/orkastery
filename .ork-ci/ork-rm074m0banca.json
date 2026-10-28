@@ -1,0 +1,134 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm074m0banca",
+  "branch": "ork/ork-rm074m0banca-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm074m0banca",
+      "fase": "GO",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "alegacao": "RM-074 M0: o medir-check.cjs ganha a bancada (--bancada): pares Agile e Classic no mesmo commit, passe por arquivo sob /usr/bin/time, espera por carga quieta, steal por rodada, razao, eficiencia por lane, corte de CPU e sondas 1 a 5; os 22 casos MC passam, com as contas em numeros sinteticos (MC9 a MC22)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-reporter=tap core/dist-test/test/medir-check.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - MC[0-9]+:/{p++} END{exit !(p>=22 && f==0 && s==0)}'",
+        "node -e \"const m=require('./core/scripts/medir-check.cjs'); for (const f of ['razao','eficiencia','corte','variacao','stealPct','quieta','concentracao','custoDosMaiores','claimsQueRepetem','sondaDoGrafo','pecasEmFallback','analisarBancada']) if (typeof m[f] !== 'function') process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-27T05:14:10.596Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm074m0banca",
+      "fase": "GO",
+      "arquivo": "core/test/medir-check.test.ts",
+      "alegacao": "RM-074 M0: os testes da bancada cobrem a razao, a eficiencia, o corte, a variacao, o steal, a carga quieta, o time e o TAP, as sondas 1 a 5, a redacao e a analise inteira com numeros sinteticos",
+      "negativa": false,
+      "verificar": [
+        "grep -c '^test(.MC[0-9]*:' core/test/medir-check.test.ts | awk '{exit !($1>=22)}'",
+        "grep -q 'MC21: a bancada inteira com numeros sinteticos' core/test/medir-check.test.ts"
+      ],
+      "criadoEm": "2026-10-27T05:14:12.879Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm074m0banca",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/evidencias/RM-074/m0-bancada-bruta.json",
+      "alegacao": "A evidência bruta da RM-074 M0 preserva o JSON medido, com três pares, três passes, 645 arquivos, as sondas 1 a 5 e sem caminho de home ou e-mail.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const fs=require('fs'),c=require('crypto'),p='docs/roadmap/evidencias/RM-074/m0-bancada-bruta.json',s=fs.readFileSync(p,'utf8'),d=JSON.parse(s); if(c.createHash('sha256').update(s).digest('hex')!=='aec9faca9aafa783d91af7969b6f947301b196c341a51f75750e61a388b3d28d'||d.pares.length!==3||d.passes.length!==3||d.porArquivo.length!==645||!d.sondas['1']||!d.sondas['5']||/\\\\/home\\\\/|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\\\.[A-Za-z]{2,}/.test(s))process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-27T21:02:48.888Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm074m0banca",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/evidencias/RM-074/m0-bancada.md",
+      "alegacao": "A leitura pública da M0 registra as razões e o steal de cada par, as saídas 1, a variação e as sondas 1 a 5 apenas em razões, percentuais e contagens.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const fs=require('fs'),s=fs.readFileSync('docs/roadmap/evidencias/RM-074/m0-bancada.md','utf8'); for(const x of ['0,693 vez','14,2%','52,4%','ambos saíram 1','Sondas 1 a 5 refeitas','pelo menos 60% de eficiência','pelo menos 63% de corte'])if(!s.includes(x))process.exit(1); if(/\\\\/home\\\\/|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\\\.[A-Za-z]{2,}|(^|[^A-Za-z])min(uto|utos)?([^A-Za-z]|$)/im.test(s))process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-27T21:02:49.108Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm074m0banca",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG em Não publicado descreve a bancada da RM-074 M0 sem duração absoluta e aponta a evidência pública.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main",
+        "node -e \"const fs=require('fs'),s=fs.readFileSync('CHANGELOG.md','utf8'),a=s.indexOf('## Não publicado'),b=s.indexOf('## [',a),u=s.slice(a,b); if(!u.includes('Bancada de medição do CHECK')||!u.includes('docs/roadmap/evidencias/RM-074/'))process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-27T21:02:49.397Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm074m0banca",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-rm074m0banca.json",
+      "alegacao": "O bundle de CI da M0 é desta thread e desta branch e leva claims e os comandos ci e security_scan.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const d=require(\"./.ork-ci/ork-rm074m0banca.json\");process.exit(d.schema===\"ork.ci-bundle/v1\"&&d.thread===\"ork-rm074m0banca\"&&d.branch===\"ork/ork-rm074m0banca-go\"&&d.claims.length>0&&d.commands.some(c=>c.name===\"ci\")&&d.commands.some(c=>c.name===\"security_scan\")?0:1)'"
+      ],
+      "criadoEm": "2026-10-27T22:19:14.969Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm074m0banca",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+      "alegacao": "A página da RM-074 marca a coleta M0, liga as evidências, declara o limite de confiança do steal e fixa o orçamento provisório F2 em 63% de corte e 60% de eficiência.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const fs=require('fs'),s=fs.readFileSync('docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md','utf8'); for(const x of ['thread: ork-rm074m0banca','M0 — bancada coletada','m0-bancada-bruta.json','m0-bancada.md','pelo menos 60% de eficiência','pelo menos 63% de','roubo controlado'])if(!s.includes(x))process.exit(1)\" && npm --prefix core run build && node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-27T22:44:12.187Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm074m0banca",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice do roadmap foi regenerado pela sincronização da RM-074 e está em paridade com o frontmatter.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs sincronizar --so RM-074 && node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-27T22:44:12.785Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}

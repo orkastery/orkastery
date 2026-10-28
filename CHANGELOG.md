@@ -59,6 +59,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   vez global. O aceite combina os arquivos das demais máquinas por `--outra-maquina`, P3 e P4 exigem ao menos duas
   máquinas quando forem conferidos, e o cenário `duas-maquinas` exercita F10 e F11 apenas em fixture simulada.
   Nenhum piloto em duas máquinas rodou; o #Noctum segue em desenvolvimento, não anunciado.
+- **Bancada de medição do CHECK** ([RM-074](docs/roadmap/README.md), M0): `node core/scripts/medir-check.cjs --bancada`
+  roda, numa cópia descartável e no mesmo commit, pares de Agile Check e Classic Check e um passe que mede cada arquivo
+  de teste sozinho (`user`, `sys`, parede, pico de memória e testes), espera a máquina quieta antes de cada rodada,
+  grava o roubo de CPU e calcula a razão entre os modos, a eficiência de paralelismo por lane e o corte de CPU contra a
+  linha de base. A linha de base da M0 está em `docs/roadmap/evidencias/RM-074/`. O Classic Check e o Agile Check não
+  mudam.
 
 ### Corrigido
 

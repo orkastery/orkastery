@@ -499,8 +499,7 @@ test('F20: a retomada autorizada nunca passa por cima da reserva pendente, do er
 });
 
 const filaDaRede = (contrato: 'ork.noctum-envelope/v2' | 'ork.noctum-envelope/v3', coordenacao: CoordenacaoDaFila,
-  fechada = false): FilaDoArco => {
-  const quando = new Date().toISOString();
+  fechada = false, quando = new Date().toISOString()): FilaDoArco => {
   const trabalho = { id: 'x', item: 'RM-901', prioridade: 1, dependeDe: [], pedido: 'Fatia X SIMULADA.' };
   const conteudo = { contrato, arco: 'arco-f-rede', janela: { inicio: quando, fim: new Date(Date.now() + 8 * 3600_000).toISOString(),
     fuso: 'America/Sao_Paulo' }, destinos: [], orcamento: { arco: { valor: 10, unidade: 'sessoes' }, porConta: [], porRuntime: [] },
@@ -536,8 +535,9 @@ test('F23: sem ordem aceita desta máquina, o resto segue sem-ordem', () => {
 
 test('F24: a fila v2 é igual com e sem os campos novos da rede', () => {
   const base = { trabalhos: new Set<string>(), entregues: new Map<string, string>() };
-  const sem = filaDaRede('ork.noctum-envelope/v2', base);
-  const com = filaDaRede('ork.noctum-envelope/v2', { ...base, emOutraMaquina: new Set(['x']), ordens: new Map([['x', { ordem: 'O-x-1', numero: 1 }]]) });
+  const quando = new Date().toISOString();
+  const sem = filaDaRede('ork.noctum-envelope/v2', base, false, quando);
+  const com = filaDaRede('ork.noctum-envelope/v2', { ...base, emOutraMaquina: new Set(['x']), ordens: new Map([['x', { ordem: 'O-x-1', numero: 1 }]]) }, false, quando);
   assert.deepEqual(com.trabalhos, sem.trabalhos);
   assert.deepEqual(com.decisao, sem.decisao);
 });
