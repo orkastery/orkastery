@@ -47,20 +47,6 @@
       "lint": []
     },
     {
-      "id": "C4",
-      "thread": "ork-mainverdeind",
-      "fase": "GO",
-      "arquivo": "CHANGELOG.md",
-      "alegacao": "A mudança em core/src está registrada em Não publicado.",
-      "negativa": false,
-      "verificar": [
-        "rg -n \"paridade do índice do roadmap reprova ainda no PR\" CHANGELOG.md"
-      ],
-      "criadoEm": "2026-10-28T19:53:04.340Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C5",
       "thread": "ork-mainverdeind",
       "fase": "GO",
@@ -71,20 +57,6 @@
         "node --test core/dist-test/test/noctum-fila.test.js"
       ],
       "criadoEm": "2026-10-28T19:54:31.578Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C6",
-      "thread": "ork-mainverdeind",
-      "fase": "GO",
-      "arquivo": "core/test/security-scan-docker-falso.ts",
-      "alegacao": "O Docker falso registra início e fim pareados de cada execução de ferramenta em log separado.",
-      "negativa": false,
-      "verificar": [
-        "rg -n \"recordInterval\\(found.tool.name, '(inicio|fim)'\" core/test/security-scan-docker-falso.ts"
-      ],
-      "criadoEm": "2026-10-28T20:08:49.811Z",
       "estado": "verificado",
       "lint": []
     },
@@ -103,20 +75,6 @@
       "lint": []
     },
     {
-      "id": "C8",
-      "thread": "ork-mainverdeind",
-      "fase": "GO",
-      "arquivo": "core/test/prova-ativacao-apoio.ts",
-      "alegacao": "O Codex falso espera confirmação do escritor apenas quando ORK_TEST_WRITER_ACK está presente.",
-      "negativa": false,
-      "verificar": [
-        "rg -n \"ORK_TEST_WRITER_ACK|writer de teste não confirmou\" core/test/prova-ativacao-apoio.ts"
-      ],
-      "criadoEm": "2026-10-28T20:10:50.956Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C9",
       "thread": "ork-mainverdeind",
       "fase": "GO",
@@ -128,6 +86,62 @@
       ],
       "criadoEm": "2026-10-28T20:10:51.155Z",
       "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-mainverdeind",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A mudança em core/src está registrada em Não publicado.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"paridade do índice do roadmap reprova ainda no PR\" CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-28T20:51:59.610Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-mainverdeind",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-docker-falso.ts",
+      "alegacao": "O Docker falso registra início e fim pareados de cada execução de ferramenta em log separado.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"recordInterval\\(found\\.tool\\.name, '(inicio|fim)'\" core/test/security-scan-docker-falso.ts"
+      ],
+      "criadoEm": "2026-10-28T20:52:01.108Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-mainverdeind",
+      "fase": "GO",
+      "arquivo": "core/test/prova-ativacao-apoio.ts",
+      "alegacao": "O Codex falso espera confirmação do escritor apenas quando ORK_TEST_WRITER_ACK está presente.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"ORK_TEST_WRITER_ACK|writer de teste não confirmou\" core/test/prova-ativacao-apoio.ts"
+      ],
+      "criadoEm": "2026-10-28T20:52:02.719Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-mainverdeind",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-mainverdeind.json",
+      "alegacao": "O bundle de CI do conserto da main é desta thread e desta branch e leva claims e os comandos ci e security_scan.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const d=require(\"./.ork-ci/ork-mainverdeind.json\");process.exit(d.schema===\"ork.ci-bundle/v1\"&&d.thread===\"ork-mainverdeind\"&&d.branch===\"ork/ork-mainverdeind-go\"&&d.claims.length>0&&d.commands.some(c=>c.name===\"ci\")&&d.commands.some(c=>c.name===\"security_scan\")?0:1)'"
+      ],
+      "criadoEm": "2026-10-28T20:52:04.306Z",
+      "estado": "pendente",
       "lint": []
     }
   ],
