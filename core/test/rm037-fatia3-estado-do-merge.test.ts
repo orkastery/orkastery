@@ -168,7 +168,7 @@ test('defeito 1: o indice gerado que diverge do frontmatter reprova com docs.par
   } finally { p.limpar(); }
 });
 
-test('defeito 1 (GO-FIX 2): no PR as duas regras so avisam, e o push da main reprova', () => {
+test('defeito 1 (GO-FIX 2): no PR o indice reprova e so o merge de outra thread vira aviso', () => {
   const p = projetoComItem('rm037-f3-modo-pr', 'ork-entrega5');
   try {
     mesclarThread(p.dir, 'ork-entrega5');
@@ -176,14 +176,14 @@ test('defeito 1 (GO-FIX 2): no PR as duas regras so avisam, e o push da main rep
     fs.writeFileSync(indice, fs.readFileSync(indice, 'utf8').replace(/^\| \[RM-001\].*\n/m, ''));
     // Na main (sem --pr): os dois erros.
     assert.deepEqual(erros(verificarDocs(p.dir).achados).map((a) => a.regra).sort(), ['docs.paridade.indice', 'docs.paridade.merge']);
-    // No PR: os mesmos achados como aviso, com o lembrete de que o push da main reprova.
+    // No PR: o indice nasce do proprio checkout e reprova; so o merge alheio da main vira aviso.
     const noPr = verificarDocs(p.dir, { pr: true }).achados;
-    assert.deepEqual(erros(noPr), []);
+    assert.deepEqual(erros(noPr).map((a) => a.regra), ['docs.paridade.indice']);
     const avisos = noPr.filter((a) => a.gravidade === 'aviso' && a.regra.startsWith('docs.paridade.'));
-    assert.deepEqual(avisos.map((a) => a.regra).sort(), ['docs.paridade.indice', 'docs.paridade.merge']);
+    assert.deepEqual(avisos.map((a) => a.regra), ['docs.paridade.merge']);
     for (const a of avisos) assert.match(a.mensagem, /\(no PR, aviso: o push da main reprova\)$/);
     const cli = spawnSync(process.execPath, [ORK, 'docs', 'verificar', '--pr'], { cwd: p.dir, encoding: 'utf8' });
-    assert.equal(cli.status, 0, cli.stdout + cli.stderr);
+    assert.equal(cli.status, 2, cli.stdout + cli.stderr);
     // A correcao manda abrir um PR de docs (a main e protegida) e lembra a fatia em curso.
     const merge = noPr.find((a) => a.regra === 'docs.paridade.merge')!;
     assert.equal(merge.correcao, 'abra um PR de docs sobre a main atualizada com ork docs sincronizar --escrever --so RM-001 ' +

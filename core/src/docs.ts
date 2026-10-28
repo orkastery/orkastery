@@ -185,9 +185,9 @@ export interface OpcoesDeVerificacao {
   semGit?: boolean;
   /**
    * RM-037 (fatia 3, GO-FIX 2): o verificador roda num PR. O merge de outra thread com o item fora de
-   * `Mesclado` e o indice que diverge vivem na `main`, nao no PR: aqui viram aviso, e quem reprova e o
-   * push da `main`. Sem isso, a pagina de outra thread travava todo PR, inclusive o de fora, na janela
-   * entre o merge e o PR de docs que o sincroniza.
+   * `Mesclado` vive na `main`, nao no PR: aqui vira aviso, e quem reprova e o push da `main`. Sem isso,
+   * a pagina de outra thread travava todo PR, inclusive o de fora, na janela entre o merge e o PR de
+   * docs que o sincroniza. O indice, ao contrario, e derivado do proprio checkout e reprova nos dois.
    */
   pr?: boolean;
 }
@@ -291,7 +291,7 @@ export function verificarDocs(raiz: string, opcoes: OpcoesDeVerificacao = {}): {
       verificarTabelasDeEstado(d, achados);
     }
   }
-  verificarIndices(raiz, docs, achados, opcoes.pr === true);
+  verificarIndices(raiz, docs, achados);
   return { docs, achados };
 }
 
@@ -671,7 +671,7 @@ const INDICES_GERADOS: ReadonlyArray<[string, (docs: Documento[]) => string]> = 
  * do mesmo jeito: sem a RM-051 e com a RM-031 de antes. Divergente reprova; vazio (o modelo recem-copiado
  * pelo `ork docs init`) so avisa; sem os marcadores, nao ha indice gerado para conferir.
  */
-function verificarIndices(raiz: string, docs: Documento[], achados: Achado[], pr = false): void {
+function verificarIndices(raiz: string, docs: Documento[], achados: Achado[]): void {
   for (const [arquivo, gerar] of INDICES_GERADOS) {
     const abs = path.join(raiz, arquivo);
     if (!fs.existsSync(abs)) continue;
@@ -683,8 +683,8 @@ function verificarIndices(raiz: string, docs: Documento[], achados: Achado[], pr
         achados.push(aviso(arquivo, undefined, 'docs.paridade.indice', (m) => m.indiceNaoGerado, (m) => m.indiceNaoGeradoCorrecao));
       }
     } else if (atual !== gerar(docs)) {
-      achados.push((pr ? aviso : erro)(arquivo, undefined, 'docs.paridade.indice',
-        (m) => m.indiceDiverge(pr), (m) => m.indiceDivergeCorrecao));
+      achados.push(erro(arquivo, undefined, 'docs.paridade.indice',
+        (m) => m.indiceDiverge(false), (m) => m.indiceDivergeCorrecao));
     }
   }
 }
