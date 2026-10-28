@@ -43,8 +43,8 @@ desde a F4 e a F4b:
 | Sandbox | `workspace` é o piso; `read-only` com `runtime.sandbox: read-only` e no PLAN que fecha o bloco; `danger-full-access` vira `off` só com `ork setup sandbox confirmar`, senão `runtime.sandbox-nao-confirmado`; nunca `--yolo`, `--always-approve` nem `--permission-mode` |
 | Instruções do projeto | `--trust` na pasta do `--cwd` (a worktree da thread), para o `AGENTS.md` carregar na partida headless |
 | Conta | perfis de `ork accounts add --runtime grok`, cada um com o seu `GROK_HOME`; login do próprio CLI (`grok login` ou `grok login --device-auth`), pela assinatura (D1 = b do dono); o filho roda sem `XAI_API_KEY`, e o `ork` nunca lê nem copia o `auth.json` |
-| Retry | a troca de perfil dentro do `grok` vale também num projeto com o MCP do `ork`; como alvo de fallback de quem tem o MCP, ele fica fora, porque o sandbox dele não deixa o MCP gravar no piso `workspace` (F4b); a escada automática segue sem trocar a conta dele |
-| MCP do `ork` | desde a F4b, `ork mcp install --host grok` grava a entrada no `.grok/config.toml` do projeto; o despacho grava na worktree, fora do git, a config com o servidor vinculado à thread e ao despacho, que só lista as ferramentas do perfil filho, e o comando leva um `--allow MCPTool(orkastery__<ferramenta>)` por ferramenta, as que o `--allowedTools` do `claude-bg` libera; o filho roda com `GROK_CLAUDE_MCPS_ENABLED=0` e `GROK_CURSOR_MCPS_ENABLED=0` |
+| Retry | a troca de perfil dentro do `grok` vale também num projeto com o MCP do `ork`, e desde a F4c ele é alvo do fallback e da escada de quem tem o MCP, porque o servidor do `ork` grava fora do sandbox dele; a escada automática segue sem trocar a conta dele |
+| MCP do `ork` | desde a F4b, `ork mcp install --host grok` grava a entrada no `.grok/config.toml` do projeto, e o comando leva um `--allow MCPTool(orkastery__<ferramenta>)` por ferramenta, as que o `--allowedTools` do `claude-bg` libera; o filho roda com `GROK_CLAUDE_MCPS_ENABLED=0` e `GROK_CURSOR_MCPS_ENABLED=0`. Desde a F4c, o despacho sobe o servidor do `ork` fora do sandbox do `grok`, como processo do próprio `ork`: Streamable HTTP só em `127.0.0.1`, porta efêmera, token de 256 bits por despacho só no ambiente do servidor e do `grok`, nunca em arquivo, e, com o sandbox, a conexão só da árvore de processos do `grok` do despacho (quando ele deixa ler os descritores; sem isso, recusa o dono legível de fora da árvore e aceita o ilegível só pelo token; no perfil `off`, vale só o token), só as ferramentas do `--allow` daquele despacho, e o servidor morre com a sessão; a config da worktree, fora do git, aponta para ele por `url` e `bearer_token_env_var` |
 | Inventário | `ork sessions` lê a pasta `sessions/` de cada `GROK_HOME`, só pelos nomes e pelo mtime do `updates.jsonl` |
 
 Lacunas que seguem abertas:
@@ -54,10 +54,10 @@ Lacunas que seguem abertas:
   ensaio real (F5) ler o formato estruturado.
 - **Conferência de login:** o `grok` não documenta um comando de status do login; o perfil entra no rodízio sem
   conferência prévia, e o erro de login do despacho o tira (`runtime.auth-missing`).
-- **Sandbox e MCP:** o sandbox do `grok` vale para o processo inteiro e os filhos, e o servidor MCP do `ork` é filho
-  dele: com `workspace` ou `read-only`, o servidor lê o estado, mas não grava o ledger, os artefatos nem o git da
-  worktree, que ficam fora dela. Só o perfil `off` (a postura `danger-full-access` confirmada) deixa as mutações
-  gravarem, até o ensaio real (F5) ou um MCP do `ork` fora do sandbox.
+- **Sandbox e MCP:** resolvido na F4c pela decisão do dono (3.a, 27/10/2026): o servidor do `ork` roda fora do
+  sandbox do `grok`, e a sessão no piso `workspace` grava o ledger, os artefatos e o git da worktree por ele. Com o
+  `grok` simulado, o teste com o Landlock do kernel prova as duas pontas; o ensaio real (F5) confirma a conexão do
+  `grok` de verdade, inclusive no `read-only` do PLAN, em que o guia só bloqueia a rede dos filhos.
 - **`.mcp.json` do projeto:** a fonte oficial não dá variável que o desligue. O `orkastery` da config da worktree vence
   pelo nome, nenhuma ferramenta de outro servidor entra no `--allow`, e o ensaio real confirma se o headless recusa a
   ferramenta fora dele.

@@ -127,18 +127,18 @@ test('GR6: o despacho com --runtime grok exige o modelo dele e resolve o trio', 
   } finally { p.limpar(); }
 });
 
-test('GR7: num projeto com o MCP do Orkastery, o grok recebe o contexto do host grok, segue fora da rotacao automatica, e o ensaio nao escreve a config', () => {
+test('GR7: num projeto com o MCP do Orkastery, o grok recebe o contexto do host grok, desde a F4c entra na rotacao automatica, e o ensaio nao escreve a config', () => {
   const p = projetoTemporario('grok-contexto');
   try {
     instalarAdaptador('claude-code', { projeto: p.dir });
     instalarMcp({ projeto: p.dir, host: 'claude-code' });
     const t = novaThread(p.carregado, { nome: 'ctx', modo: 'auto', criarWorktree: true }).thread;
     assert.ok(contextoDoProjeto(p.dir, 'claude-bg', t.worktree!, t.id), 'o claude-bg recebe o contexto');
-    // RM-067 (F4b, D7 e GO-FIX A5): o grok recebe o contexto do host dele no despacho pedido, e segue fora dos destinos
-    // automaticos do projeto preparado, pelo sandbox.
+    // RM-067 (F4b, D7; F4c, D9): o grok recebe o contexto do host dele no despacho pedido e, com o servidor do ork fora do
+    // sandbox dele, e destino automatico tambem no projeto preparado.
     assert.equal(contextoDoProjeto(p.dir, 'grok', t.worktree!, t.id)?.host, 'grok');
-    assert.equal(capacidadeDoRuntimeNoProjeto(p.dir, 'grok').capaz, false);
-    assert.match(String(capacidadeDoRuntimeNoProjeto(p.dir, 'grok').motivo), /^runtime\.context\.sandbox:/);
+    assert.equal(capacidadeDoRuntimeNoProjeto(p.dir, 'grok').capaz, true);
+    assert.equal(capacidadeDoRuntimeNoProjeto(p.dir, 'grok').motivo, null);
     const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'Mapear o objetivo', runtime: 'grok', model: 'grok-modelo', dryRun: true });
     assert.equal(r.bloqueado, false, r.erro);
     assert.equal(r.runtime, 'grok');
