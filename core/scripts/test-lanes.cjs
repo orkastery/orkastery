@@ -39,8 +39,12 @@ const ORCAMENTO_PADRAO_MS = 120000;
 const REPORTER = path.join(__dirname, 'reporter-duracoes.mjs');
 const CONCORRENCIA_DA_INTEGRACAO = 2;
 
-/** Quantos arquivos a lane roda ao mesmo tempo: dois na `integracao`; na `hermetica`, as CPUs menos duas (no minimo um). */
-function concorrenciaDaLane(lane, cpus = os.availableParallelism()) {
+/**
+ * Quantos arquivos a lane roda ao mesmo tempo. O agendador passa a fatia calculada para esta rodada; sem ela, vale o
+ * contrato anterior (dois na integracao e CPUs menos duas na hermetica).
+ */
+function concorrenciaDaLane(lane, cpus = os.availableParallelism(), limiteDoGrupo = Number(process.env.ORK_CHECK_CPUS_DA_LANE)) {
+  if (Number.isFinite(limiteDoGrupo) && limiteDoGrupo > 0) return Math.max(1, Math.min(cpus, Math.floor(limiteDoGrupo)));
   return lane === 'integracao' ? CONCORRENCIA_DA_INTEGRACAO : Math.max(1, cpus - 2);
 }
 const MINIMO_DA_HERMETICA = 100;

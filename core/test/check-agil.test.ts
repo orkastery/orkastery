@@ -14,6 +14,7 @@ import { adicionarClaim } from '../src/claims';
 import { elosDoComando, GuardaDoProduto, hashDoProduto, MAXIMO_DE_PREPAROS_REFEITOS, paralelismoDaVarreduraNoGrupo, passosDoComando,
   PECA_SEM_RELATORIO, RelatorioDoCheck, testDasLanes, TETO_DO_RELATORIO_BYTES, tirarPassosDoPreparo } from '../src/check-agil';
 import { argvDoItem, rodarEmParalelo } from '../src/check-paralelo';
+import { cargaDoProcLoadavg, paredeAgileSimulada, paredeClassicaSimulada, planejarCpuDoGrupo } from '../src/agendador-cpu';
 import { lerLedger } from '../src/ledger';
 import { carregarManifesto } from '../src/manifest';
 import { dirThread, novaThread } from '../src/thread';
@@ -101,7 +102,7 @@ test('AG3: com a guarda valendo, a claim roda sem os passos do preparo e o build
     adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'com preparo', verificar: ['echo passo-a && echo passo-b && echo c1'] });
     const agile = gravador();
     const r = verificar(p.carregado, t.id, { executor: agile.executor });
-    assert.equal(r.ok, true, r.motivos.join(','));
+    assert.equal(r.ok, true, r.motivos.join(',') + JSON.stringify(r.comandos));
     assert.deepEqual(agile.lista, [['preparo', 'echo passo-a && echo passo-b'], ['C1.1', 'echo c1'], ['test', 'echo test']]);
     const exec = r.claims[0].execucoes[0];
     assert.equal(exec.comando, 'echo passo-a && echo passo-b && echo c1', 'o comando gravado e o inteiro');
@@ -238,7 +239,7 @@ test('AG10: o grupo pelo auxiliar real roda ao mesmo tempo, com a saida e a dura
       { scan: marca('varredura') });
     fs.appendFileSync(path.join(p.dir, '.git', 'info', 'exclude'), '*.ini\n*.fim\n*.outros\n');
     const { thread: t } = novaThread(p.carregado, { nome: 'paralelo', modo: 'auto' });
-    const r = verificar(p.carregado, t.id, {});
+    const r = verificar(p.carregado, t.id, { medicaoCpuAgendador: { carga1: 0, stealPct: 0 } });
     assert.equal(r.ok, true, r.motivos.join(',') + JSON.stringify(r.comandos));
     const outros = (n: string): number => Number(fs.readFileSync(path.join(p.dir, `${n}.outros`), 'utf8').trim());
     assert.ok(['lane-a', 'lane-b', 'varredura'].some((n) => outros(n) > 0), 'os tres correram juntos');
@@ -300,7 +301,7 @@ test('AG14: o relatorio das pecas chega ao verify_run: pecas, lanes com contagem
     const peca = 'echo \'{"tipo":"peca","peca":"imagem-de-lint","estado":"fallback","motivo":"sem rede","fallback":"eslint do catalogo"}\' >> $ORK_CHECK_RELATORIO';
     comAgile(p, `  agile:\n    produto:\n      - "README.md"\n    test:\n      h: "${lista}"`, { scan: peca });
     const { thread: t } = novaThread(p.carregado, { nome: 'relatorio', modo: 'auto' });
-    const r = verificar(p.carregado, t.id, {});
+    const r = verificar(p.carregado, t.id, { medicaoCpuAgendador: { carga1: 0, stealPct: 0 } });
     assert.equal(r.ok, true, r.motivos.join(',') + JSON.stringify(r.comandos));
     const agile = ultimoVerify(p, t.id).agile as Record<string, unknown>;
     const lanes = agile.lanes as Array<Record<string, unknown>>;
@@ -419,7 +420,7 @@ test('AG21: a lane de apos_a_varredura entra no grupo depois do security_scan, e
     const { thread: t } = novaThread(p.carregado, { nome: 'encadeada', modo: 'auto' });
     const g = gravador();
     const r = verificar(p.carregado, t.id, { executor: g.executor });
-    assert.equal(r.ok, true, r.motivos.join(','));
+    assert.equal(r.ok, true, r.motivos.join(',') + JSON.stringify(r.comandos));
     assert.deepEqual(g.lista.slice(1), [['test:h', 'echo h'], ['security_scan', 'echo s'], ['test:i', 'echo i']]);
     assert.deepEqual(r.comandos.map((c) => c.nome), ['build', 'test', 'security_scan']);
     assert.deepEqual(r.comandos[1].lanes?.map((l) => l.lane), ['i', 'h'], 'as lanes na ordem do manifesto');
@@ -483,8 +484,8 @@ test('AG24: no grupo real, so a varredura recebe o teto de ferramentas, e a lane
     assert.equal(fs.readFileSync(arq('h.txt'), 'utf8').trim(), '', 'a lane nao recebe o teto da varredura');
     assert.equal(fs.readFileSync(arq('i.txt'), 'utf8').trim(), 'depois', 'a lane encadeada comecou depois da varredura');
     assert.equal(paralelismoDaVarreduraNoGrupo(7), 2);
-    assert.equal(paralelismoDaVarreduraNoGrupo(16), 5);
-    assert.equal(paralelismoDaVarreduraNoGrupo(1), 2);
+    assert.equal(paralelismoDaVarreduraNoGrupo(16), 2);
+    assert.equal(paralelismoDaVarreduraNoGrupo(1), 1);
   } finally { p.limpar(); }
 });
 
@@ -559,7 +560,7 @@ test('AG28: as claims recebem o modo e nunca o relatorio da rodada; a lane receb
     adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'le o ambiente',
       verificar: [`echo "modo=$ORK_CHECK_MODO rel=$ORK_CHECK_RELATORIO" > ${arq('claim.txt')}`] });
     const r = verificar(p.carregado, t.id, {});
-    assert.equal(r.ok, true, r.motivos.join(','));
+    assert.equal(r.ok, true, r.motivos.join(',') + JSON.stringify(r.comandos));
     assert.equal(fs.readFileSync(arq('claim.txt'), 'utf8').trim(), 'modo=agile rel=');
     assert.match(fs.readFileSync(arq('lane.txt'), 'utf8'), /^modo=agile rel=\/.+pecas\.jsonl$/m);
   } finally { p.limpar(); }
@@ -748,7 +749,7 @@ test('AG35: as variaveis de outra rodada nao chegam aos comandos; sem a guarda, 
     process.env.ORK_CHECK_RELATORIO = arq('de-outra-rodada.jsonl');
     process.env.ORK_CHECK_VARREDURA_PARALELA = '1';
     const r = verificar(p.carregado, t.id, {});
-    assert.equal(r.ok, true, r.motivos.join(','));
+    assert.equal(r.ok, true, r.motivos.join(',') + JSON.stringify(r.comandos));
     assert.equal(fs.readFileSync(arq('claim.txt'), 'utf8').trim(), 'rel= teto=');
     assert.equal(fs.readFileSync(arq('test.txt'), 'utf8').trim(), 'rel= teto=', 'o verify.test em serie roda sem o relatorio');
     const scan = fs.readFileSync(arq('scan.txt'), 'utf8');
@@ -946,4 +947,51 @@ test('AG43: o item do grupo com argv roda sem shell: o argumento chega literal, 
   assert.equal(r.ok, true, r.stderr);
   assert.equal(r.stdout, literal, 'nada expandido nem quebrado pelo shell');
   assert.equal(c.stdout.trim(), '2', 'o item sem argv segue pelo bash -c');
+});
+
+test('AG44: sob carga sintetica presa em CPU, o plano cai para o Classic e nunca projeta parede maior', () => {
+  const trabalho = { hermetica: 700, varredura: 140, integracao: 70 };
+  const saturado = planejarCpuDoGrupo(8, { carga1: 8, stealPct: 12 });
+  assert.equal(saturado.ordem, 'classic');
+  assert.equal(saturado.cpusHermetica, 7);
+  assert.equal(saturado.ferramentasDaVarredura, 7);
+  assert.equal(saturado.cpusPorContainer, 1);
+  assert.ok(paredeAgileSimulada(saturado, trabalho) <= paredeClassicaSimulada(8, trabalho));
+  assert.match(saturado.motivo, /carga 8 em \/proc\/loadavg/);
+  assert.match(saturado.motivo, /steal 12% em \/proc\/stat/);
+
+  const livre = planejarCpuDoGrupo(8, { carga1: 2, stealPct: 0 });
+  assert.equal(livre.ordem, 'paralela');
+  assert.equal(livre.cpusHermetica + livre.cpusDaFatia, 8, 'a soma do grupo cabe na maquina');
+  assert.equal(livre.cpusHermetica, 6);
+  assert.equal(livre.ferramentasDaVarredura, 2);
+  assert.equal(livre.cpusPorContainer, 1);
+  assert.equal(cargaDoProcLoadavg('7.25 4.0 3.0 1/2 3\n'), 7.25);
+  assert.equal(cargaDoProcLoadavg('invalida'), null);
+});
+
+test('AG45: saturacao medida pelo verify ordena hermetica, varredura e integracao e registra a peca no verify_run', () => {
+  const p = projetoTemporario('ag40');
+  try {
+    const arq = (nome: string): string => path.join(p.dir, nome);
+    const hermetica = `echo "$ORK_CHECK_CPUS_DA_LANE $ORK_CHECK_CPUS_DOCKER" > ${arq('h.cpu')} && sleep 0.2 && touch ${arq('h.fim')}`;
+    const scan = `test -f ${arq('h.fim')} && echo "$ORK_CHECK_VARREDURA_PARALELA $ORK_CHECK_CPUS_DOCKER" > ${arq('s.cpu')} && touch ${arq('s.fim')}`;
+    const integracao = `test -f ${arq('h.fim')} && test -f ${arq('s.fim')} && ` +
+      `echo "$ORK_CHECK_CPUS_DA_LANE $ORK_CHECK_CPUS_DOCKER" > ${arq('i.cpu')}`;
+    comAgile(p, `  agile:\n    produto:\n      - "README.md"\n    test:\n      hermetica: "${hermetica}"\n` +
+      `      integracao: "${integracao}"\n    apos_a_varredura: ["integracao"]`, { scan });
+    fs.appendFileSync(path.join(p.dir, '.git', 'info', 'exclude'), '*.cpu\n*.fim\n');
+    const { thread: t } = novaThread(p.carregado, { nome: 'cpu saturada', modo: 'auto' });
+    const r = verificar(p.carregado, t.id, { medicaoCpuAgendador: { carga1: os.availableParallelism(), stealPct: 12 } });
+    assert.equal(r.ok, true, r.motivos.join(',') + JSON.stringify(r.comandos));
+    const classic = Math.max(1, os.availableParallelism() - 1);
+    assert.equal(fs.readFileSync(arq('h.cpu'), 'utf8').trim(), `${classic} 1`);
+    assert.equal(fs.readFileSync(arq('s.cpu'), 'utf8').trim(), `${classic} 1`);
+    assert.equal(fs.readFileSync(arq('i.cpu'), 'utf8').trim(), `${classic} 1`);
+    const pecas = (ultimoVerify(p, t.id).agile as { pecas: Array<Record<string, unknown>> }).pecas;
+    const agendador = pecas.find((x) => x.peca === 'agendador-cpu')!;
+    assert.equal(agendador.estado, 'fallback');
+    assert.match(String(agendador.motivo), /\/proc\/loadavg.*\/proc\/stat.*varredura e integracao depois dela/);
+    assert.equal(agendador.fallback, 'ordem do Classic para hermetica, varredura e integracao');
+  } finally { p.limpar(); }
 });
