@@ -6,18 +6,18 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-27T00:50:00-03:00
+atualizado_em: 2026-10-27T18:02:24-03:00
 estado:
-  ciclo: Discovery
-  documentacao: Rascunho
-  codigo: Branch criada
-  testes: Não iniciados
+  ciclo: Em desenvolvimento
+  documentacao: Em revisão
+  codigo: Mesclado
+  testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
+    commit: e7fb968
     pr: null
 sdlc:
   thread: ork-rm074m0banca
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Discovery | Branch criada | Não iniciados | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -50,6 +50,29 @@ sdlc:
   - a seletividade vale só para rodadas intermediárias e atrás de flag;
   - toda medida vem do ledger (`verify_run`, `duracaoMs`) numa cópia descartável do projeto;
   - o desempenho se diz em grandezas que não dependem do hardware: a razão contra o Classic Check na mesma máquina e no mesmo commit, o corte percentual da CPU da suíte contra a linha de base e a eficiência de paralelismo (a CPU total dividida pelos núcleos, contra a parede); a duração absoluta fica no `verify_run.duracaoMs` como evidência bruta e não vai para o texto.
+
+## M0 — bancada coletada
+
+A instrumentação da M0 e os casos MC9 a MC22 estão no commit `fabc6429`. A bancada
+mediu, no commit `476410d6`, três pares de Agile e Classic, três passes por arquivo,
+645 arquivos e 5.910 testes. O [JSON bruto](evidencias/RM-074/m0-bancada-bruta.json)
+e a [leitura das sondas](evidencias/RM-074/m0-bancada.md) são a evidência da fatia.
+A coleta da M0 está concluída; a razão de produto continua sem linha de base confiável.
+
+A razão observada `Classic ÷ Agile` foi de 0,693, 0,926 e 0,971 vez. Nas duas
+primeiras, o Agile aprovou e o Classic saiu 1; no terceiro par, os dois modos saíram 1.
+O roubo de CPU foi de 14,2%, 24,6% e 52,4% no Agile e de 9,3%, 25,9% e 40,7%
+no Classic. Portanto, a M0 prova que a bancada coleta as grandezas e aponta contenção
+material, mas não prova vantagem ou desvantagem de um modo, nem permite corrigir a
+razão, extrapolá-la ou fechar a meta de três vezes.
+
+A eficiência da suíte no Agile variou de 43,9% a 61,4%, com média de 50,4%. Para a
+F2, o orçamento provisório é **pelo menos 60% de eficiência** e **pelo menos 63% de
+corte da CPU da suíte** contra a média da M0. Com oito núcleos, a CPU média da suíte
+equivale a 53,4% da parede Classic sob paralelismo perfeito; a 60% de eficiência, o
+corte para a suíte caber em um terço é 62,6%, arredondado para cima. Esse é um piso,
+não uma promessa: claims, preparo e varredura também precisam caber, e pares aprovados
+com roubo controlado podem exigir recalibrar os dois números.
 
 ## Problema e resultado
 
@@ -170,10 +193,10 @@ O comentário do `orkastery.yaml` registra a suíte com 2.753 testes em 10/10/20
 
 ## O piso do gate: aritmética
 
-Cálculo sobre as medições da RM-072 ("Medição do GO", rodadas 1 a 4, e "O piso físico"), não medida nova. Tudo em frações da parede do Classic Check da rodada 4, chamada W, no mesmo commit e na mesma máquina. Os valores são aproximados, para ordem de grandeza; a M0 refaz a conta com as medidas dela.
+Cálculo histórico sobre as medições da RM-072 ("Medição do GO", rodadas 1 a 4, e "O piso físico"), não medida nova. Tudo em frações da parede do Classic Check da rodada 4, chamada W, no mesmo commit e na mesma máquina. Os valores são aproximados, para ordem de grandeza; a seção da M0 acima traz o orçamento recalculado sobre a bancada atual.
 
 - **c:** o corte da CPU da suíte contra a linha de base (0% hoje).
-- **e:** a eficiência de paralelismo da suíte, a CPU total dividida pelos núcleos, contra a parede da suíte (de 63% a 67% no Agile hoje; 65% na conta).
+- **e:** a eficiência de paralelismo da suíte, a CPU total dividida pelos núcleos, contra a parede da suíte (de 63% a 67% na RM-072; 65% nesta conta histórica).
 - **A suíte com paralelismo perfeito** (e = 100%, c = 0%) ocupa 0,42 W.
 - **A meta:** a parede do Agile em até um terço da do Classic, 0,33 W.
 
@@ -195,7 +218,7 @@ Leitura:
 - o corte que só o Agile faz rende mais que o corte no arquivo de teste, que o Classic também ganha: com a eficiência de hoje, 49% contra 74%;
 - subir a eficiência de paralelismo de 65% para 90% baixa o corte necessário em 19 pontos no caso só do Agile (de 49% para 30%); o maior arquivo limita essa subida, porque sozinho ele já leva cerca de 15% de W, e 21% sob concorrência (sonda 2, ordem de grandeza);
 - a cadeia varredura e integração também precisa caber: hoje ela soma de 0,36 W (cache quente) a 0,46 W (cache frio), acima dos 0,33 W da meta; precisa encolher de 9% a 29%, ou a integração deixar de esperar a varredura inteira, o que pesa na D2;
-- a conta vale para a bancada da RM-072, com três claims representativas; numa thread real, a sonda 3 mostra as claims com 55% a 60% da rodada do Agile, em série com o grupo de lanes, e ali o maior corte vem de rodar as claims ao lado do grupo ou de reaproveitar o resultado da lane; a M0 fixa o conjunto de claims da bancada, o mesmo nos dois modos, e mede a razão com ele;
+- a conta vale para a bancada da RM-072, com três claims representativas; a M0 atual fixou o mesmo conjunto nos dois modos e mediu que as três claims repetem arquivos das lanes e trazem build, mas o roubo e as reprovações impedem usar a razão observada como linha de base de produto;
 - seletividade não muda o gate, que roda a suíte completa por regra (D1); ela só reduz as rodadas intermediárias.
 
 ## Escopo e validação
@@ -209,16 +232,16 @@ Leitura:
 
 | Métrica | Linha de base | Meta | Fonte |
 | --- | --- | --- | --- |
-| Razão entre o Classic e o Agile, gate completo | 1,43 a 1,52 vez (RM-072) | Pelo menos 3 vezes, em três rodadas seguidas (D1) | `verify_run.duracaoMs` das duas rodadas, no mesmo commit e na mesma máquina |
-| Corte da CPU da suíte contra a linha de base | 0% (a linha de base é a CPU por arquivo e por lane da M0) | O que a aritmética pede para a eficiência medida: da ordem de 49% só no Agile, ou de 74% nos dois modos, com a eficiência de hoje; a M0 fixa | Soma de `user` e `sys` por arquivo, na M0 e a cada rodada, por lane |
-| Eficiência de paralelismo da suíte | De 63% a 67% no Agile (cálculo sobre a RM-072) | Fixada na M0 junto com o corte; cada ponto a mais baixa o corte necessário | CPU total da lane dividida pelos núcleos, contra a parede da lane, por rodada |
+| Razão entre o Classic e o Agile, gate completo | 0,693 a 0,971 vez observada na M0, sem linha de base confiável: nenhum par teve os dois modos aprovados e o roubo chegou a 52,4% | Pelo menos 3 vezes, em três pares aprovados e controlados (D1) | `verify_run.duracaoMs` das duas rodadas, no mesmo commit e na mesma máquina |
+| Corte da CPU da suíte contra a linha de base | 0% é a média dos três passes por arquivo da M0 | Pelo menos 63%, provisório; a razão de 3 vezes continua soberana | Soma de `user` e `sys` por arquivo, na M0 e a cada rodada, por lane |
+| Eficiência de paralelismo da suíte | De 43,9% a 61,4% no Agile, média de 50,4% na M0 | Pelo menos 60%, provisório; pares controlados podem recalibrar | CPU total da lane dividida pelos núcleos, contra a parede da lane, por rodada |
 | Cadeia varredura e integração, em fração da parede do Classic | De 0,36 a 0,46 | No máximo um terço, com a meta | `duracaoMs` da varredura e da lane de integração |
-| Parede por arquivo de teste, em % da soma das durações | 5 arquivos acima de 2,6%; o maior com 5,6% (sonda 1) | Nenhum arquivo acima de 1,3% da soma, ou justificativa registrada | Reporter de durações, gravado no ledger |
-| CPU duplicada entre claims e suíte | 112 de 136 comandos de claim rodam `node --test` (sonda 3) | Claim que repete arquivo da lane reaproveita o resultado da lane na mesma rodada, ou sai | Ledger: comando da claim contra a lista de arquivos da lane |
+| Parede por arquivo de teste, em % da soma das durações | De 10 a 12 arquivos acima de 2,6%; os cinco maiores somam de 16,9% a 22,3% na M0 | Nenhum arquivo acima de 1,3% da soma, ou justificativa registrada | Reporter de durações, gravado no ledger |
+| CPU duplicada entre claims e suíte | 3 de 3 claims da bancada repetem arquivo de lane e trazem build; na referência, 85 de 136 repetem lane | Claim que repete arquivo da lane reaproveita o resultado da lane na mesma rodada, ou sai | Ledger: comando da claim contra a lista de arquivos da lane |
 | Pico de memória agregado | De 1,12 a 1,23 vez o do Classic (RM-072) | Dentro do teto da D2 | `docker stats` mais RSS da árvore do verify, como na RM-072, por `medir-check.cjs` |
 | Rodada intermediária com seletividade, contra o gate do Agile no mesmo commit | Não existe (a seletividade não existe) | Fixada na M0, fora da meta da D1 | `verify_run.duracaoMs` das duas rodadas, em sombra |
 | Falso negativo da seletividade contra a suíte completa | Não medido | Dentro do limiar da D3, com o limite superior de 95% informado e N mínimo da M0 | Comparação, em sombra, da lista escolhida com as falhas da suíte completa do mesmo commit |
-| Cobertura no gate (proteção) | 628 arquivos (base da RM-072) e o mesmo conjunto de testes | Igual ou maior, a cada rodada | Lista de arquivos e contagem de testes por lane no ledger |
+| Cobertura no gate (proteção) | 645 arquivos e 5.910 testes na M0 | Igual ou maior, a cada rodada | Lista de arquivos e contagem de testes por lane no ledger |
 
 ## Fatias
 
@@ -226,7 +249,7 @@ A numeração segue a ordem do pedido. A ordem de execução recomendada é a da
 
 | Fatia | O que entrega | Critério de aceite (a provar) |
 | --- | --- | --- |
-| M0 Bancada de medição (pré-requisito) | Cópia descartável do projeto, um comando que mede por arquivo `user`, `sys`, parede e pico de memória, a lista de arquivos e testes por lane, a rodada do Classic no mesmo commit para a razão e o conjunto de claims da bancada, o mesmo nos dois modos. Sem código de produto | Linha de base em três rodadas pelo ledger, do Agile e do Classic no mesmo commit e na mesma máquina, com a razão; CPU por arquivo para os 645; eficiência de paralelismo medida por lane; o resultado desta página (sondas 1 a 5) refeito pelo ledger, com a variação entre rodadas; o conjunto rotulado de diffs, com N definido pela D3, só quando a F1 começar |
+| M0 Bancada de medição (coleta concluída) | Cópia descartável do projeto, um comando que mede por arquivo `user`, `sys`, parede e pico de memória, a lista de arquivos e testes por lane, a rodada do Classic no mesmo commit para a razão e o conjunto de claims da bancada, o mesmo nos dois modos. Sem código de produto | A coleta entregou três pares, três passes, CPU por 645 arquivos, eficiência por lane, variação e sondas 1 a 5. O `steal` e as saídas 1 deixam a razão sem confiança para produto; três pares aprovados e controlados continuam necessários. O conjunto rotulado de diffs, com N definido pela D3, só entra quando a F1 começar |
 | F1 Seletividade | Mapa de impacto arquivo para testes a partir do diff, nas rodadas intermediárias do GO e do CHECK, atrás de flag desligada por padrão; o motor sai da D3; fora do caminho da meta, porque a suíte completa continua obrigatória no gate final e no CI; as claims de teste entram no mesmo mapa | Rodada intermediária mais rápida que o gate do Agile no mesmo commit, na razão que a M0 fixa, em três rodadas seguidas pelo ledger; falso negativo dentro do limiar da D3 em sombra sobre os diffs da M0; teste que prova que o gate final roda a suíte completa em 100% dos casos e que a flag desligada dá o resultado de hoje; módulo central (os `locale-*`, 591 testes) tratado por regra explícita, não por seleção de tudo |
 | F2 CPU da suíte | Os arquivos de teste mais caros (o snapshot de locale, sozinho um quarto da parede do `npm test` da linha de base; os que sobem processo ou Docker; a duplicação de setup), as claims que repetem a suíte, a eficiência de paralelismo das lanes e a cadeia varredura e integração, com meta de corte de CPU e de eficiência fixada na M0 e um orçamento que vigia o crescimento | Agile Check completo pelo menos 3 vezes mais rápido que o Classic no mesmo commit e na mesma máquina, em três rodadas seguidas pelo ledger (a meta da D1); corte de CPU e eficiência na meta da M0; nenhum arquivo acima do orçamento; mesmo número de testes e de arquivos (nenhum caso removido), provado pela lista por lane; paridade byte a byte onde o teste é de snapshot |
 | F3 Memória | O teto da D2 aplicado à varredura do grupo e às lanes, medindo o que isso custa na razão contra o Classic | Pico agregado dentro do teto em três rodadas; varredura com as nove ferramentas e zero achado novo ou desaparecido por impressão digital; custo na razão medido e registrado, e aceito pelo dono se tirar a meta da D1 do alcance |
@@ -328,10 +351,10 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-10-27 | Julio |
-| Documentação | Rascunho | — | 2026-10-27 | Julio |
-| Código | Branch criada | — | 2026-10-27 | Julio |
-| Testes | Não iniciados | — | 2026-10-27 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-27 | Julio |
+| Documentação | Em revisão | — | 2026-10-27 | Julio |
+| Código | Mesclado | commit `e7fb968` | 2026-10-27 | Julio |
+| Testes | Em execução | — | 2026-10-27 | Julio |
 | Deploy | Não implantado | — | 2026-10-27 | Julio |
 | Exposição | Flag desligada | — | 2026-10-27 | Julio |
 | Habilitação | Pendente | — | 2026-10-27 | Julio |

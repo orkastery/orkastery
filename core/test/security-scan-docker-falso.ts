@@ -50,7 +50,7 @@ const CATALOGO_DO_AGILE = path.resolve(__dirname, '../../assets/security-scan/to
 export interface FakeTools {
   dir: string;
   /** Every call received, in order. */
-  calls: () => Array<{ as: string; args: string[] }>;
+  calls: () => Array<{ as: string; args: string[]; t: number }>;
   /** Start and end of every fake Docker tool run, in observed order. */
   intervals: () => Array<{ execution: string; tool: string; event: 'inicio' | 'fim' }>;
   restore: () => void;
@@ -73,7 +73,7 @@ export function installFakeTools(names: string[] = ['docker']): FakeTools {
   return {
     dir,
     calls: () => fs.existsSync(log)
-      ? fs.readFileSync(log, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l) as { as: string; args: string[] })
+      ? fs.readFileSync(log, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l) as { as: string; args: string[]; t: number })
       : [],
     intervals: () => fs.existsSync(intervalLog)
       ? fs.readFileSync(intervalLog, 'utf8').split('\n').filter(Boolean)
@@ -174,7 +174,7 @@ function construidas(): string[] {
 function main(): number {
   const as = process.env.ORK_FAKE_AS ?? 'docker';
   const argv = process.argv.slice(2);
-  if (process.env.ORK_FAKE_DOCKER_LOG) fs.appendFileSync(process.env.ORK_FAKE_DOCKER_LOG, `${JSON.stringify({ as, args: argv })}\n`);
+  if (process.env.ORK_FAKE_DOCKER_LOG) fs.appendFileSync(process.env.ORK_FAKE_DOCKER_LOG, `${JSON.stringify({ as, args: argv, t: Date.now() })}\n`);
   const tools = [...JSON.parse(fs.readFileSync(CATALOG, 'utf8')) as ToolSpec[], ...JSON.parse(fs.readFileSync(CATALOGO_DO_AGILE, 'utf8')) as ToolSpec[]];
   const mode = process.env.ORK_FAKE_DOCKER_MODE ?? '';
   if (as !== 'docker') {
