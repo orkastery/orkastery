@@ -4,26 +4,8 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.0",
-  "publicadoEm": "2026-10-28T18:06:54.268Z",
+  "publicadoEm": "2026-10-28T18:06:59.549Z",
   "threads": [
-    {
-      "id": "ork-rm067f4cmcpd",
-      "nome": "rm067f4c",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-067",
-      "branch": "ork/ork-rm067f4cmcpd-full",
-      "atualizadaEm": "2026-10-28T18:06:53.736Z",
-      "entregue": "d101f3e",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "max",
-      "sessao": null
-    },
     {
       "id": "ork-rm074agendad",
       "nome": "agendadoragile",
