@@ -63,6 +63,14 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   o perfil pedido no ledger (`perfilPedido`), e o retry e a retomada da fila voltam a ele. Se ele estiver sem login,
   esgotado ou for de outro runtime, recusam com motivo tipado e a correção, em vez de redespachar em outra conta sem
   avisar. A rotação por falha da própria conta e o despacho sem `--perfil` seguem como antes.
+- **A dívida do Agile Check que pesava na confiança** ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md),
+  F4): o motivo da peça `imagem-de-lint` chega ao ledger sem login de URL. A lane de teste que não termina sozinha
+  fora do tempo (sinal, comando ausente, código de quem não a deixou terminar) não tira mais o veredito do `test`
+  inteiro: ele é comparado com a baseline como o comando único do Classic, nem mais nem menos estrito. O texto do
+  gate diz qual lane ficou sem veredito e por quê. A legenda do fuso sai `GMT+0` também no ICU que escreve só `GMT`.
+  O panorama da rede omite o ano pela hora da leitura, e o retrato pt-BR F3c não fica vermelho em 01/01/2027. O
+  trabalhador da varredura roda sem string de shell. A varredura do Agile ganha o caso com Docker real na lane de
+  integração. O CI confere a paridade do `tsgo` com o `tsc` em todo PR. O Classic Check não muda.
 
 ## [0.6.0] - 2026-10-26
 

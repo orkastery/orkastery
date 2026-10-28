@@ -22,6 +22,10 @@
  *   ORK_FAKE_DOCKER_GARBAGE         catalog tool name whose report file is not JSON
  *   ORK_FAKE_DOCKER_ZERO_COMMITS=1  Gitleaks `git` reports 0 commits scanned whatever the range holds
  *   ORK_FAKE_DOCKER_BUILD=fails     `docker build` exits 1 (RM-072: the Agile lint image cannot be built)
+ *   ORK_FAKE_DOCKER_BUILD_STDERR    a ultima linha do stderr do build que falha, no lugar do erro de rede do npm (RM-074
+ *                                   F4: a URL do registro com login chega ao ledger redigida)
+ *   ORK_FAKE_DOCKER_BUILD_SLEEP_MS  o `docker build` dorme esses ms antes (RM-074 F4: o prazo do build e o teto dos
+ *                                   trabalhadores contado depois dele)
  *   ORK_FAKE_DOCKER_FAIL_COM_CACHE  catalog tool name that exits 1 with the real Trivy cache-lock message (it ends in
  *                                   `timeout`) only when the run mounts the Trivy cache (RM-072: the Agile run of the tool
  *                                   fails, the Classic run without the cache works)
@@ -181,7 +185,12 @@ function main(): number {
     case 'build': {
       const tag = argv[argv.indexOf('-t') + 1];
       const dockerfile = fs.readFileSync(0, 'utf8');
-      if (process.env.ORK_FAKE_DOCKER_BUILD === 'fails') { process.stderr.write('npm ERR! network unreachable\n'); return 1; }
+      const esperaDoBuild = Number(process.env.ORK_FAKE_DOCKER_BUILD_SLEEP_MS);
+      if (Number.isFinite(esperaDoBuild) && esperaDoBuild > 0) sleep(esperaDoBuild);
+      if (process.env.ORK_FAKE_DOCKER_BUILD === 'fails') {
+        process.stderr.write(`${process.env.ORK_FAKE_DOCKER_BUILD_STDERR ?? 'npm ERR! network unreachable'}\n`);
+        return 1;
+      }
       const dir = path.dirname(process.env.ORK_FAKE_DOCKER_LOG ?? '');
       fs.writeFileSync(path.join(dir, 'ultimo-dockerfile'), dockerfile);
       fs.appendFileSync(path.join(dir, 'imagens-construidas'), `${tag}\n`);
