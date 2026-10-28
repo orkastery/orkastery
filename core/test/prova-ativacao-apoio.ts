@@ -14,6 +14,7 @@ import * as path from 'node:path';
  */
 const CODEX_FALSO = `#!/usr/bin/env node
 const cp = require('node:child_process');
+const fs = require('node:fs');
 const a = process.argv.slice(2);
 if (a[0] === '--version') { console.log('codex-cli 0.0.0-falso'); process.exit(0); }
 if (a[0] === 'login') {
@@ -26,7 +27,13 @@ for (let i = 1; i < a.length; i++) {
   if (a[i] === '-c') { const [k, ...v] = a[++i].split('='); cfg[k] = JSON.parse(v.join('=')); }
   else if (a[i] === '-C') dir = a[++i];
 }
-require('node:fs').writeFileSync(process.env.CODEX_FALSO_ARGS, JSON.stringify({ argv: a, cfg }));
+fs.writeFileSync(process.env.CODEX_FALSO_ARGS, JSON.stringify({ argv: a, cfg }));
+if (process.env.ORK_TEST_WRITER_ACK) {
+  const prazo = Date.now() + 10000;
+  const pausa = new Int32Array(new SharedArrayBuffer(4));
+  while (!fs.existsSync(process.env.ORK_TEST_WRITER_ACK) && Date.now() < prazo) Atomics.wait(pausa, 0, 0, 5);
+  if (!fs.existsSync(process.env.ORK_TEST_WRITER_ACK)) { console.error('writer de teste não confirmou a sobreposição'); process.exit(8); }
+}
 const entrada = [
   { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'codex-falso', version: '0' } } },
   { jsonrpc: '2.0', method: 'notifications/initialized' },

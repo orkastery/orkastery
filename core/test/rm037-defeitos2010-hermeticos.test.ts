@@ -28,9 +28,11 @@ function envDaMaquina(extra: Record<string, string>): NodeJS.ProcessEnv {
 }
 
 /** Roda `node args` e, enquanto ele vive, regrava cada arquivo a cada 20 ms, como outra sessão da máquina. */
-function rodarComEscritor(args: string[], env: NodeJS.ProcessEnv, arquivos: string[]):
+function rodarComEscritor(args: string[], env: NodeJS.ProcessEnv, arquivos: string[],
+  sincronizar?: { sinal: string; ack: string }):
     Promise<{ status: number | null; stdout: string; stderr: string; regravacoes: number }> {
   for (const a of arquivos) fs.mkdirSync(path.dirname(a), { recursive: true });
+  if (sincronizar) { fs.rmSync(sincronizar.sinal, { force: true }); fs.rmSync(sincronizar.ack, { force: true }); }
   let regravacoes = 0;
   const escrever = () => {
     regravacoes++;
@@ -39,7 +41,18 @@ function rodarComEscritor(args: string[], env: NodeJS.ProcessEnv, arquivos: stri
     }
   };
   escrever();
-  const relogio = setInterval(escrever, 20);
+  let sincronizado = false;
+  const regravar = () => {
+    if (sincronizar && !sincronizado) {
+      if (!fs.existsSync(sincronizar.sinal)) return;
+      escrever();
+      fs.writeFileSync(sincronizar.ack, 'reescrito\n');
+      sincronizado = true;
+      return;
+    }
+    escrever();
+  };
+  const relogio = setInterval(regravar, 20);
   return new Promise((resolve, reject) => {
     const filho = spawn(process.execPath, args, { cwd: RAIZ_DO_CORE, env, stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '', stderr = '';
@@ -60,14 +73,15 @@ test('defeito 3 (19 e 20/10/2026): o roteiro mede o registro da casa do ork da p
   const casa = dirTemporario('rm037d2010-roteiro-casa');
   try {
     // Como no `npm test`: a casa do ork em ORKASTERY_HOME e o HOME de quem roda, onde a outra sessao escreve.
-    const env: NodeJS.ProcessEnv = { ...f.env, HOME: home, ORKASTERY_HOME: casa };
+    const sincronizar = { sinal: f.env.CODEX_FALSO_ARGS!, ack: path.join(f.dir, 'writer.ack') };
+    const env: NodeJS.ProcessEnv = { ...f.env, HOME: home, ORKASTERY_HOME: casa, ORK_TEST_WRITER_ACK: sincronizar.ack };
     delete env.ORK_USUARIO_DIR; delete env.NODE_TEST_CONTEXT;
-    const fora = await rodarComEscritor([ROTEIRO, 'codex'], env, [path.join(home, '.orkastery', 'projetos.json')]);
+    const fora = await rodarComEscritor([ROTEIRO, 'codex'], env, [path.join(home, '.orkastery', 'projetos.json')], sincronizar);
     assert.equal(fora.status, 0, `${fora.stderr}\n${fora.stdout.slice(0, 3000)}`);
     assert.equal(JSON.parse(fora.stdout).estado, 'aprovada');
     assert.ok(fora.regravacoes > 1, 'o escritor regravou durante a prova');
     // O mesmo escritor no registro que a prova mede de fato reprova: a conferencia continua valendo.
-    const dentro = await rodarComEscritor([ROTEIRO, 'codex'], env, [path.join(casa, 'projetos.json')]);
+    const dentro = await rodarComEscritor([ROTEIRO, 'codex'], env, [path.join(casa, 'projetos.json')], sincronizar);
     const recibo = JSON.parse(dentro.stdout) as { estado: string; conferencias: { id: string; ok: boolean }[] };
     assert.equal(recibo.estado, 'reprovada');
     assert.deepEqual(recibo.conferencias.filter((c) => !c.ok).map((c) => c.id), ['global.intocado']);
