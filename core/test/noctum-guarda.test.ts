@@ -10,7 +10,8 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { commitar, envPtBr, projetoTemporario, ProjetoDeTeste, shaNoRemotoDeTeste } from './apoio';
-import { abrirArco, passar, pedidoV2, prepararIngressoSimulado, revogarArco, threadDoTrabalho, TrabalhoSimulado } from './noctum-apoio';
+import { abrirArco, autorizarPedido, passar, pedidoV2, prepararIngressoSimulado, revogarArco, threadDoTrabalho, TrabalhoSimulado } from './noctum-apoio';
+import { pedidoV3 } from './noctum-maquinas-apoio';
 import { assinadoPara, HORA, MIN } from './noctum-n6-apoio';
 import { atualizarBranchDaThread } from '../src/atualizar-branch';
 import { caminhoDaAutorizacao, CONTRATO_DA_AUTORIZACAO } from '../src/autorizacao-duravel';
@@ -28,7 +29,10 @@ import { lerLedger, registrar, TIPOS_DE_EVENTO } from '../src/ledger';
 import { comLocale } from '../src/locale';
 import { autorizarPeloIngresso, concluirDespacho, encerrarArco, lerArco, proporEnvelope, reservarDespacho, textoDeAutorizacao } from '../src/noctum-arco';
 import { passoDoArco, OpcoesDoPasso, ResultadoDoPasso } from '../src/noctum-execucao';
-import { arcoDoPasso, guardaDaThread, lerArcosDaRaiz, linhaDoArco, MOTIVO_DA_GUARDA, MOTIVO_DO_ARCO_ILEGIVEL, pedidoDoArco } from '../src/noctum-guarda';
+import { arcoDoPasso, guardaDaThread, lerArcosDaRaiz, linhaDoArco, MOTIVO_DA_GUARDA, MOTIVO_DA_REDE_ILEGIVEL,
+  MOTIVO_DO_ARCO_ILEGIVEL, pedidoDoArco } from '../src/noctum-guarda';
+import { CONTRATO_REDE_DO_ARCO, RedeDoArco } from '../src/noctum-rede';
+import { identidadeDaMaquina } from '../src/noctum-transporte';
 import { ExecutorDoGh } from '../src/parado-no-condutor';
 import { ResultadoRun } from '../src/phase';
 import { ship } from '../src/ship';
@@ -46,6 +50,22 @@ const FORJA = { host: 'github.com', repositorio: 'exemplo/produto' };
 /** O trabalho do envelope que é a thread que já existe. */
 const daThread = (id: string, thread: string, item = 'RM-901', prioridade = 1): TrabalhoSimulado =>
   ({ id, item, prioridade, dependeDe: [], thread });
+
+/** Arco v3 encerrado localmente, sem tocar o ramo de coordenação nos casos da guarda. */
+function arcoV3Encerrado(p: ProjetoDeTeste, arco: string, thread: string): void {
+  const trabalho = { ...daThread('w1', thread), maquina: 'maquina-a' };
+  autorizarPedido(p.dir, arco, pedidoV3(arco, { trabalhos: [trabalho], maquinas: [identidadeDaMaquina(p.dir, 'maquina-a')],
+    contas: [{ conta: 'perfil-a', sessoes: 1 }], global: [{ conta: 'perfil-a', sessoes: 1 }] }));
+  encerrarArco(p.dir, arco, { motivo: 'hora', detalhe: 'fim local SIMULADO' });
+}
+
+/** Projeção simulada usada para provar só a política da guarda, sem transporte Git. */
+function redeDaGuarda(arco: string, estado: RedeDoArco['trabalhos'][number]['estado'], lacuna: RedeDoArco['lacuna'] = null): RedeDoArco {
+  return { contrato: CONTRATO_REDE_DO_ARCO, arco, multimaquina: true, maquina: 'maquina-a', envelopeSha256: 'a'.repeat(64),
+    lidaEm: new Date().toISOString(), autoridade: null, revogada: null, maquinas: [],
+    trabalhos: [{ id: 'w1', estado, maquina: 'maquina-b', ordem: null, maquinaPresa: 'maquina-a', entrega: null }],
+    consumo: { arco: 0, porConta: {}, porRuntime: {} }, obrigacoes: { ordens: [], vagas: [], vezes: [] }, lacuna };
+}
 
 const eventos = (p: ProjetoDeTeste, id: string) => lerLedger(dirThread(p.dir, id)).length;
 
@@ -762,5 +782,71 @@ test('GS20: no arco revogado, a reserva pendente do trabalho de pedido, feita an
     assert.equal(ship(p.carregado, aberta.id, { para: 'main', dryRun: true }).codigo, MOTIVO_DA_GUARDA, 'o ship da sessão da reserva pendente recusa');
     registrar(dirThread(p.dir, aberta.id), aberta.id, 'phase_result', { fase: 'GOAL', sessionId: sessao, classificacao: 'fase_concluida', ok: true });
     assert.equal(guardaDaThread(p.dir, aberta.id), null, 'acabada a sessão, a thread se entrega à mão');
+  } finally { p.limpar(); }
+});
+
+test('GR1: a thread do trabalho vivo na outra máquina segue recusada depois do encerramento local', () => {
+  const p = projetoTemporario('gr1');
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'trabalho vivo na rede', modo: 'auto' });
+    arcoV3Encerrado(p, 'arco-gr1', thread.id);
+    const arcos = lerArcosDaRaiz(p.dir);
+    let leituras = 0;
+    const lerRede = () => { leituras += 1; return redeDaGuarda('arco-gr1', 'em-execucao'); };
+    const primeira = guardaDaThread(p.dir, thread.id, arcos.quando, { arcos, lerRede });
+    const segunda = guardaDaThread(p.dir, thread.id, arcos.quando, { arcos, lerRede });
+    assert.deepEqual([primeira?.motivo, primeira?.situacao, primeira?.origem], [MOTIVO_DA_GUARDA, 'encerrado', 'rede']);
+    assert.match(primeira!.detalhe, /trabalho w1 .* ainda em-execucao na rede/);
+    assert.equal(segunda?.motivo, MOTIVO_DA_GUARDA);
+    assert.equal(leituras, 1, 'a consulta compartilhada lê a rede do arco uma vez');
+  } finally { p.limpar(); }
+});
+
+test('GR2: o trabalho terminal na rede libera os caminhos manuais', () => {
+  const p = projetoTemporario('gr2');
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'trabalho entregue na rede', modo: 'auto' });
+    arcoV3Encerrado(p, 'arco-gr2', thread.id);
+    assert.equal(guardaDaThread(p.dir, thread.id, undefined, { lerRede: () => redeDaGuarda('arco-gr2', 'entregue') }), null);
+  } finally { p.limpar(); }
+});
+
+test('GR3: a rede sem leitura recusa só a thread com vínculo no arco v3 encerrado', () => {
+  const p = projetoTemporario('gr3');
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'rede ilegível', modo: 'auto' });
+    const { thread: fora } = novaThread(p.carregado, { nome: 'fora do arco', modo: 'auto' });
+    arcoV3Encerrado(p, 'arco-gr3', thread.id);
+    const lacuna = { motivo: 'noctum.coordenacao.sem-remoto' as const, detalhe: 'remoto SIMULADO ausente' };
+    const g = guardaDaThread(p.dir, thread.id, undefined, { lerRede: () => redeDaGuarda('arco-gr3', 'livre', lacuna) });
+    assert.deepEqual([g?.motivo, g?.origem], [MOTIVO_DA_REDE_ILEGIVEL, 'rede']);
+    assert.match(g!.detalhe, /^noctum\.guarda\.rede-ilegivel:/);
+    assert.equal(guardaDaThread(p.dir, fora.id, undefined, { lerRede: () => { throw new Error('não deveria ler'); } }), null);
+    assert.match(comLocale('en', () => guardaDaThread(p.dir, thread.id, undefined,
+      { lerRede: () => redeDaGuarda('arco-gr3', 'livre', lacuna) })!.detalhe), /^noctum\.guarda\.rede-ilegivel:/);
+  } finally { p.limpar(); }
+});
+
+test('GR4: a thread sem vínculo v3 não lê a rede', () => {
+  const p = projetoTemporario('gr4');
+  try {
+    const { thread: doArco } = novaThread(p.carregado, { nome: 'vinculada', modo: 'auto' });
+    const { thread: fora } = novaThread(p.carregado, { nome: 'sem vínculo', modo: 'auto' });
+    arcoV3Encerrado(p, 'arco-gr4', doArco.id);
+    let leituras = 0;
+    assert.equal(guardaDaThread(p.dir, fora.id, undefined, { lerRede: () => { leituras += 1; return redeDaGuarda('arco-gr4', 'livre'); } }), null);
+    assert.equal(leituras, 0);
+  } finally { p.limpar(); }
+});
+
+test('GR5: o arco v2 encerrado segue liberando a thread sem ler rede', () => {
+  const p = projetoTemporario('gr5');
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'v2 encerrado', modo: 'auto' });
+    abrirArco(p.dir, 'arco-gr5', { trabalhos: [daThread('w1', thread.id)] });
+    encerrarArco(p.dir, 'arco-gr5', { motivo: 'hora', detalhe: 'fim SIMULADO' });
+    let leituras = 0;
+    assert.equal(guardaDaThread(p.dir, thread.id, undefined, { lerRede: () => { leituras += 1; return redeDaGuarda('arco-gr5', 'livre'); } }), null);
+    assert.equal(leituras, 0);
   } finally { p.limpar(); }
 });

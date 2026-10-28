@@ -9,7 +9,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { dirTemporario, ProjetoDeTeste } from './apoio';
 import { autorizarPedido, pedidoV2, prepararIngressoSimulado, revogarArco } from './noctum-apoio';
-import { avancarBase, ciFalso, EntregaPronta, entregaPronta, EstadoDoCheck, FORJA, git, head, projetoDaEntrega } from './noctum-entrega-apoio';
+import { avancarBase, ciFalso, EntregaPronta, entregaPronta, EstadoDoCheck, FORJA, git, head, projetoDaEntrega,
+  redeDaEntrega } from './noctum-entrega-apoio';
 import { renderizarEstado, renderizarRelance, separarFrontmatter, verificarDocs, Documento } from '../src/docs';
 import { kernelDisponivel, tentarTravaExclusiva } from '../src/fila-pesada';
 import { lerLedger, TIPOS_DE_EVENTO } from '../src/ledger';
@@ -31,6 +32,18 @@ function arcoDaEntrega(p: ProjetoDeTeste, arco: string, threadId: string, permis
   const pedido = pedidoV2(arco, { trabalhos: [{ id: 'a', item: 'RM-958', prioridade: 1, dependeDe: [], thread: threadId }], revisao: 1 });
   pedido.destinos = [{ repositorio: FORJA.repositorio, base: 'main', permissoes }];
   return autorizarPedido(p.dir, arco, pedido);
+}
+
+/** Autoriza a entrega v3 e, quando pedido, deixa a ordem local aceita no ramo de coordenação. */
+function arcoV3DaEntrega(p: ProjetoDeTeste, arco: string, e: EntregaPronta, comOrdem = true,
+  trabalhos: Array<Record<string, unknown>> = [{ id: 'a', item: 'RM-958', prioridade: 1, dependeDe: [], thread: e.t.id }]): string | null {
+  const naMaquina = trabalhos.map(t => t.thread ? { ...t, maquina: String(t.maquina ?? 'maquina-a') } : t);
+  const pedido = pedidoV2(arco, { trabalhos: naMaquina as any, revisao: 1 });
+  Object.assign(pedido, { contrato: CONTRATO_ENVELOPE_V3, maquinas: [identidadeDaMaquina(p.dir, 'maquina-a')],
+    trabalhos: naMaquina, destinos: [{ repositorio: FORJA.repositorio, base: 'main', permissoes: ['push', 'pr', 'merge'] }],
+    capacidadeGlobal: { porConta: [{ conta: 'perfil-a', sessoes: 2 }] } });
+  autorizarPedido(p.dir, arco, pedido);
+  return comOrdem ? 'O-a-1' : null;
 }
 
 /** Publica a branch da thread no remoto bare, como o `publicarEntrega` deixaria. */
@@ -384,7 +397,7 @@ test('QI12: o trabalho que fixa a thread de outro item não integra, como a fila
   } finally { p.limpar(); }
 });
 
-test('QI13: com o envelope v3, a entrega da N5 não integra sozinha: o passo bloqueia, e o merge sem o candidato da vez recusa', { skip: semKernel }, () => {
+test('QI13: com o envelope v3, o merge direto da N5 continua recusado sem a vez da N3', { skip: semKernel }, () => {
   const p = projetoDaEntrega('noctum-qi13');
   try {
     // A3 da revisão do merge com a N5 (ork-rm058n3): o arco entre máquinas integra pela vez da N3, e as duas guardas daqui o
@@ -398,15 +411,122 @@ test('QI13: com o envelope v3, a entrega da N5 não integra sozinha: o passo blo
       capacidadeGlobal: { porConta: [{ conta: 'perfil-a', sessoes: 2 }] } });
     autorizarPedido(p.dir, 'arco-qi13', pedido);
     const base = lsRemote(p, 'refs/heads/main');
-    const r = passoDaEntrega(p.carregado, 'arco-qi13', { maquina: 'maquina-simulada', forja: FORJA, executorCi: ciFalso({ [e.fonte]: 'success' }),
-      lerReservas: () => ({ leitura: 'copia-local', reservas: [{ item: 'RM-958', maquina: 'maquina-simulada', thread: null }] }) });
-    // O bloqueio é do passo, antes de qualquer efeito (atualizar, revisar, publicar, integrar ou o MASTER), e não da segunda
-    // guarda, no merge: o detalhe é o do passo.
-    assert.ok(r.acao === 'bloqueado' && r.motivo === 'noctum.entrega.exige-vez-da-n3' && /integra pela vez entre máquinas \(integrarComVez da N3\)/.test(r.detalhe),
-      `o passo bloqueia o trabalho: ${JSON.stringify(r).slice(0, 300)}`);
     assert.throws(() => integrar(p, 'arco-qi13', e.t.id, { [e.fonte]: 'success' }),
       (x: unknown) => x instanceof RecusaDaEntrega && x.motivo === 'noctum.entrega.exige-vez-da-n3');
     assert.equal(lsRemote(p, 'refs/heads/main'), base, 'a base não mudou');
     assert.equal(lerLedger(dirThread(p.dir, e.t.id)).filter(x => x.tipo === TIPOS_DE_EVENTO.shipConcluido).length, 0);
+  } finally { p.limpar(); }
+});
+
+test('QI14: o passo v3 integra pela ordem aceita e pela vez publicada da N3', { skip: semKernel }, () => {
+  const p = projetoDaEntrega('noctum-qi14');
+  try {
+    const e = entregaPronta(p, 'qi14');
+    publicarBranch(e);
+    const ordem = arcoV3DaEntrega(p, 'arco-qi14', e);
+    const rede = redeDaEntrega('arco-qi14', 'maquina-a', [{ id: 'a', estado: 'em-execucao', maquina: 'maquina-a', maquinaPresa: 'maquina-a',
+      ordem: { ordem: ordem!, numero: 1, maquina: 'maquina-a', estado: 'aceita', emitidaEm: '2026-10-13T03:00:00.000Z' }, entrega: null }]);
+    let ordemVista = '';
+    const r = passoDaEntrega(p.carregado, 'arco-qi14', { maquina: 'maquina-a', forja: FORJA,
+      projecaoDaRede: rede, executorCi: ciFalso({ [e.fonte]: 'success' }),
+      integrarPelaRede: (_carregado, _arco, pedido) => {
+        ordemVista = pedido.ordem;
+        return { trabalho: 'a', vez: 1, merge: pedido.candidato.fonte };
+      },
+      lerReservas: () => ({ leitura: 'copia-local', reservas: [{ item: 'RM-958', maquina: 'maquina-a', thread: e.t.id }] }) });
+    assert.equal(ordem, 'O-a-1');
+    assert.equal(ordemVista, ordem);
+    assert.ok(r.acao === 'integrou', JSON.stringify(r));
+  } finally { p.limpar(); }
+});
+
+test('QI15: uma vez ativa de outra máquina faz o passo aguardar sem tentar merge', { skip: semKernel }, () => {
+  const p = projetoDaEntrega('noctum-qi15');
+  try {
+    const e = entregaPronta(p, 'qi15');
+    publicarBranch(e);
+    arcoV3DaEntrega(p, 'arco-qi15', e);
+    const rede = redeDaEntrega('arco-qi15', 'maquina-a', [{ id: 'a', estado: 'em-execucao', maquina: 'maquina-a', maquinaPresa: 'maquina-a',
+      ordem: { ordem: 'O-a-1', numero: 1, maquina: 'maquina-a', estado: 'aceita', emitidaEm: '2026-10-13T03:00:00.000Z' }, entrega: null }]);
+    const base = lsRemote(p, 'refs/heads/main');
+    const r = passoDaEntrega(p.carregado, 'arco-qi15', { maquina: 'maquina-a', forja: FORJA,
+      projecaoDaRede: rede, executorCi: ciFalso({ [e.fonte]: 'success' }),
+      integrarPelaRede: () => { throw new RecusaDoArco('noctum.integracao.ocupada', 'a vez está com a máquina maquina-b'); },
+      lerReservas: () => ({ leitura: 'copia-local', reservas: [{ item: 'RM-958', maquina: 'maquina-a', thread: e.t.id }] }) });
+    assert.ok(r.acao === 'aguardar' && r.motivo === 'noctum.integracao.ocupada', JSON.stringify(r));
+    assert.equal(lsRemote(p, 'refs/heads/main'), base);
+  } finally { p.limpar(); }
+});
+
+test('QI16: se a base avança depois das provas, a vez invalida o candidato e o passo aguarda', { skip: semKernel }, () => {
+  const p = projetoDaEntrega('noctum-qi16');
+  try {
+    const e = entregaPronta(p, 'qi16');
+    publicarBranch(e);
+    arcoV3DaEntrega(p, 'arco-qi16', e);
+    const rede = redeDaEntrega('arco-qi16', 'maquina-a', [{ id: 'a', estado: 'em-execucao', maquina: 'maquina-a', maquinaPresa: 'maquina-a',
+      ordem: { ordem: 'O-a-1', numero: 1, maquina: 'maquina-a', estado: 'aceita', emitidaEm: '2026-10-13T03:00:00.000Z' }, entrega: null }]);
+    const base = lsRemote(p, 'refs/heads/main');
+    const r = passoDaEntrega(p.carregado, 'arco-qi16', { maquina: 'maquina-a', forja: FORJA, projecaoDaRede: rede,
+      executorCi: ciFalso({ [e.fonte]: 'success' }),
+      integrarPelaRede: () => { throw new RecusaDoArco('noctum.integracao.base-mudou', 'a base avançou depois das provas'); },
+      lerReservas: () => ({ leitura: 'copia-local', reservas: [{ item: 'RM-958', maquina: 'maquina-a', thread: e.t.id }] }) });
+    assert.ok(r.acao === 'aguardar' && r.motivo === 'noctum.integracao.base-mudou', JSON.stringify(r));
+    assert.equal(lsRemote(p, 'refs/heads/main'), base);
+    assert.equal(lerLedger(dirThread(p.dir, e.t.id)).filter(x => x.tipo === TIPOS_DE_EVENTO.shipConcluido).length, 0);
+  } finally { p.limpar(); }
+});
+
+test('QI17: trabalho entregue em outra máquina não publica, não abre PR e não integra de novo', { skip: semKernel }, () => {
+  const p = projetoDaEntrega('noctum-qi17');
+  try {
+    const e = entregaPronta(p, 'qi17');
+    arcoV3DaEntrega(p, 'arco-qi17', e, false);
+    const base = lsRemote(p, 'refs/heads/main');
+    const rede = redeDaEntrega('arco-qi17', 'maquina-a', [{ id: 'a', estado: 'entregue', maquina: 'maquina-b', ordem: null,
+      maquinaPresa: null, entrega: { em: '2026-10-13T03:00:00.000Z', maquina: 'maquina-b', merge: 'b'.repeat(40) } }]);
+    const r = passoDaEntrega(p.carregado, 'arco-qi17', { maquina: 'maquina-a', projecaoDaRede: rede, forja: FORJA,
+      executorCi: () => assert.fail('não consulta CI de trabalho entregue fora') });
+    assert.equal(r.acao, 'nada');
+    assert.equal(lsRemote(p, 'refs/heads/main'), base);
+  } finally { p.limpar(); }
+});
+
+test('QI18: ordem viva de outra máquina não vira publicação local', { skip: semKernel }, () => {
+  const p = projetoDaEntrega('noctum-qi18');
+  try {
+    const e = entregaPronta(p, 'qi18');
+    arcoV3DaEntrega(p, 'arco-qi18', e, false);
+    const rede = redeDaEntrega('arco-qi18', 'maquina-a', [{ id: 'a', estado: 'em-execucao', maquina: 'maquina-b', maquinaPresa: null,
+      ordem: { ordem: 'O-a-1', numero: 1, maquina: 'maquina-b', estado: 'aceita', emitidaEm: '2026-10-13T03:00:00.000Z' }, entrega: null }]);
+    const r = passoDaEntrega(p.carregado, 'arco-qi18', { maquina: 'maquina-a', projecaoDaRede: rede, forja: FORJA,
+      executorCi: () => assert.fail('não consulta CI da ordem de outra máquina') });
+    assert.equal(r.acao, 'nada');
+  } finally { p.limpar(); }
+});
+
+test('QI19: ordem cancelada na rede não produz efeito local', { skip: semKernel }, () => {
+  const p = projetoDaEntrega('noctum-qi19');
+  try {
+    const e = entregaPronta(p, 'qi19');
+    arcoV3DaEntrega(p, 'arco-qi19', e, false);
+    const rede = redeDaEntrega('arco-qi19', 'maquina-a', [{ id: 'a', estado: 'livre', maquina: 'maquina-a', maquinaPresa: null,
+      ordem: { ordem: 'O-a-1', numero: 1, maquina: 'maquina-a', estado: 'cancelada-antes', emitidaEm: '2026-10-13T03:00:00.000Z' }, entrega: null }]);
+    const r = passoDaEntrega(p.carregado, 'arco-qi19', { maquina: 'maquina-a', projecaoDaRede: rede, forja: FORJA,
+      executorCi: () => assert.fail('não consulta CI de ordem cancelada') });
+    assert.equal(r.acao, 'nada');
+  } finally { p.limpar(); }
+});
+
+test('QI20: lacuna na leitura da rede faz a entrega aguardar sem efeito', { skip: semKernel }, () => {
+  const p = projetoDaEntrega('noctum-qi20');
+  try {
+    const e = entregaPronta(p, 'qi20');
+    arcoV3DaEntrega(p, 'arco-qi20', e, false);
+    const rede = redeDaEntrega('arco-qi20', 'maquina-a', [],
+      { motivo: 'noctum.coordenacao.sem-remoto', detalhe: 'SIMULADO: ramo indisponível' });
+    const r = passoDaEntrega(p.carregado, 'arco-qi20', { maquina: 'maquina-a', projecaoDaRede: rede, forja: FORJA,
+      executorCi: () => assert.fail('não consulta CI sem rede') });
+    assert.ok(r.acao === 'aguardar' && r.motivo === 'noctum.coordenacao.sem-remoto', JSON.stringify(r));
   } finally { p.limpar(); }
 });

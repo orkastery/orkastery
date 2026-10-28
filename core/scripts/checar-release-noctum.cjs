@@ -43,6 +43,8 @@ const ALCANCE = 'versao-que-anuncia';
 const PILOTOS_EXIGIDOS = ['P1'];
 /** As horas mínimas da janela de cada piloto, as do plano. */
 const HORAS_MINIMAS = { P1: 6, P2: 12, P3: 6, P4: 12 };
+/** O bloco B prepara P3 e P4 em duas máquinas; P1 e P2 continuam pilotos de uma máquina. */
+const MAQUINAS_MINIMAS = { P1: 1, P2: 1, P3: 2, P4: 2 };
 /** Os arquivos de texto público da raiz e do pacote. */
 const DO_TEXTO = ['README.md', 'README.pt-BR.md', 'CHANGELOG.md', path.join('core', 'README.md')];
 /** As pastas que o `--texto` lê e as extensões de cada uma; a evidência dos pilotos fica de fora. */
@@ -108,7 +110,8 @@ function conferirAceite(raiz) {
     vistos[campo].set(valor, id);
   };
   let fimDosPilotos = -Infinity;
-  for (const id of PILOTOS_EXIGIDOS) {
+  const idsInformados = aceite.pilotos.filter(objeto).map((p) => p.id).filter((id) => Object.hasOwn(HORAS_MINIMAS, id));
+  for (const id of [...new Set([...PILOTOS_EXIGIDOS, ...idsInformados])]) {
     const p = aceite.pilotos.find((x) => objeto(x) && x.id === id);
     if (!p) throw new Recusa('release.noctum.piloto-faltando', `o piloto ${id} não está no aceite (exigidos: ${PILOTOS_EXIGIDOS.join(', ')})`);
     if (typeof p.arquivo !== 'string' || !/^[A-Za-z0-9._-]+\.json$/.test(p.arquivo) || p.arquivo === 'aceite.json') {
@@ -124,6 +127,13 @@ function conferirAceite(raiz) {
     catch { throw new Recusa('release.noctum.aceite-invalido', `${p.arquivo} não é JSON`); }
     if (!objeto(r) || r.contrato !== CONTRATO_PILOTO || r.publicavel !== true) {
       throw new Recusa('release.noctum.aceite-invalido', `${p.arquivo} não é o aceite publicável do piloto (${CONTRATO_PILOTO}, gerado por ork noctum aceite --publicar)`);
+    }
+    const minimoDeMaquinas = MAQUINAS_MINIMAS[id];
+    const maquinas = Array.isArray(r.maquinas) ? r.maquinas : [];
+    const contratoDoEnvelope = objeto(r.envelope) ? r.envelope.contrato : null;
+    if (maquinas.length < minimoDeMaquinas || (minimoDeMaquinas > 1 && contratoDoEnvelope !== 'ork.noctum-envelope/v3')) {
+      throw new Recusa('release.noctum.piloto-sem-maquinas', `o piloto ${id} exige ${minimoDeMaquinas} máquina(s)` +
+        `${minimoDeMaquinas > 1 ? ' e envelope ork.noctum-envelope/v3' : ''}; ${p.arquivo} traz ${maquinas.length} e ${String(contratoDoEnvelope)}`);
     }
     // M2 do CHECK 4: as marcas da simulação também, e não só o booleano.
     if (p.simulado !== false || !objeto(r.simulacao) || r.simulacao.simulado !== false || !Array.isArray(r.simulacao.marcas) || r.simulacao.marcas.length) {

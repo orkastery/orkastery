@@ -1,0 +1,789 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm058blocob",
+  "branch": "ork/ork-rm058blocob-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C41",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-cli.ts",
+      "alegacao": "G1 (B4): `ork noctum maquina [--json]` devolve o nome desta máquina, a chave pública Ed25519 canônica e a impressão dela, sem material privado nem caminho; duas saídas de raízes diferentes compõem `maquinas` válido no envelope `v3`; o nome fora do formato do envelope é recusado com a correção; e o `ork noctum propor` de um envelope `v3` avisa quando esta máquina falta nele ou aparece com outra chave.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('MQ[0-9]+:\" core/test/noctum-maquina-cli.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-maquina-cli.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - MQ[0-9]+:/{p++} END{exit !(p>=5 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:23:52.709Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-maquina-cli.test.ts",
+      "alegacao": "T1: os casos MQ cobrem a saída do `ork noctum maquina`, a recusa do nome fora do formato e o aviso do `propor`, e os casos MO1 a MO12 do `ork noctum` seguem passando.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('MQ[0-9]+:\" core/test/noctum-maquina-cli.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-maquina-cli.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - MQ[0-9]+:/{p++} END{exit !(p>=5 && f==0 && s==0)}' && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-modo.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:23:53.107Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-ajuda.ts",
+      "alegacao": "T2: a ajuda declara `noctum maquina` em pt-BR e em inglês, e a ajuda, as duas referências do CLI e o retrato da ajuda andam juntos.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -c 'noctum maquina' core/src/locale-ajuda.ts)\" -ge 2 && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/rm044-paridade-cli-md.test.js core/dist-test/test/locale-f3a-referencia.test.js core/dist-test/test/locale-f2a-snapshot.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:23:53.649Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f2a-pt-BR.json",
+      "alegacao": "T2: o retrato da ajuda em pt-BR traz a linha do `noctum maquina`, e o caso da ajuda do CLI confere com ele.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'noctum maquina' core/test/fixtures/locale-f2a-pt-BR.json && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/locale-f2a-snapshot.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:23:54.193Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "T2 e T15: a referência do CLI documenta `ork noctum maquina` e a opção `--outra-maquina` do `ork noctum aceite`, e a paridade com a ajuda e com a referência em inglês segue.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'ork noctum maquina' docs/referencia/cli.md && grep -qF -- '--outra-maquina' docs/referencia/cli.md && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/rm044-paridade-cli-md.test.js core/dist-test/test/locale-f3a-referencia.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:23:54.687Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "T2 e T15: a referência do CLI em inglês anda junto com a de pt-BR, com o `ork noctum maquina` e a opção `--outra-maquina`.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'ork noctum maquina' docs/referencia/cli.en.md && grep -qF -- '--outra-maquina' docs/referencia/cli.en.md && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/locale-f3a-referencia.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:23:55.127Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-rede.ts",
+      "alegacao": "T3 (base de B2, B5 e B6): a projeção da rede de um arco `v3` deriva do ramo de coordenação, sem registro novo, a autoridade, o último sinal, as ordens vivas, as vagas e o consumo de cada máquina, e o estado de cada trabalho com a máquina e a ordem; a leitura que falha (sem remoto, adulterado, versão não autorizada) volta como lacuna tipada, nunca como rede vazia, e o arco `v1` ou `v2` não lê o ramo.",
+      "negativa": true,
+      "verificar": [
+        "grep -qE \"test\\('NR[0-9]+:\" core/test/noctum-rede.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-rede.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - NR[0-9]+:/{p++} END{exit !(p>=7 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:23:55.567Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-rede.test.ts",
+      "alegacao": "T3: os casos NR põem trabalho vivo só na outra máquina, provam a lacuna da leitura que falha e o arco `v2` sem leitura do ramo.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('NR[0-9]+:\" core/test/noctum-rede.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-rede.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - NR[0-9]+:/{p++} END{exit !(p>=7 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:23:56.012Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-fila.ts",
+      "alegacao": "T4 (B5): com o envelope `v3`, a fila lê a rede antes da thread local: o trabalho entregue ou encerrado na rede é terminal aqui, o trabalho com ordem viva de outra máquina fica `em-outra-maquina` mesmo com a thread antiga fechada aqui, e o resto sem ordem aceita desta máquina fica `sem-ordem`; a fila do `v1` e do `v2` não muda.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('F(2[1-9]|3[0-9]):\" core/test/noctum-fila.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-fila.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - F(2[1-9]|3[0-9]):/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:23:56.447Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-fila.test.ts",
+      "alegacao": "T4: os casos F21 em diante provam a rede antes da thread local na fila `v3`, e F1 a F20 seguem.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('F(2[1-9]|3[0-9]):\" core/test/noctum-fila.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-fila.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - F(2[1-9]|3[0-9]):/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:23:56.908Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-execucao.ts",
+      "alegacao": "T4 (B2): a thread que o arco `v3` abre para um trabalho leva o número da ordem no assunto (`o<n>`, cortado para caber nos 12 caracteres), e o mesmo trabalho retomado em outra máquina nunca reabre a branch que a máquina antiga publicou; no `v1` e no `v2`, o nome segue `<item> <trabalho>`.",
+      "negativa": true,
+      "verificar": [
+        "grep -qE \"test\\('M(2[4-9]|3[0-9]):\" core/test/noctum-maquinas.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-maquinas.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - M(2[4-9]|3[0-9]):/{p++} END{exit !(p>=3 && f==0 && s==0)}' && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-execucao.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:23:57.329Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C52",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-maquinas.ts",
+      "alegacao": "T4: o passo da máquina passa à fila da N2 a ordem aceita de cada trabalho e os trabalhos vivos em outra máquina, sem mudar a interface da N3 (`reconciliarMaquina`, `passoDaMaquina` e o retorno dele).",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('M(2[4-9]|3[0-9]):\" core/test/noctum-maquinas.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-maquinas.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - M(2[4-9]|3[0-9]):/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:23:57.809Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-maquinas.test.ts",
+      "alegacao": "T4: os casos M24 em diante provam o nome da thread pela ordem e a fila com os trabalhos de outra máquina, e M1 a M23 seguem.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('M(2[4-9]|3[0-9]):\" core/test/noctum-maquinas.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-maquinas.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - M(2[4-9]|3[0-9]):/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:23:58.256Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C54",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-vigia.ts",
+      "alegacao": "G2 (B1): com o envelope `v3`, o passo supervisionado (o do condutor e o do vigia) chama o `passoDaMaquina` com as contas, os alvos e as decisões da supervisão, e o despacho sai só com a ordem aceita, a reserva revalidada e a vaga global; a espera da máquina vira espera do passo com a cadência; no máximo um despacho por passo; com `v1` e `v2`, o passo segue o `passoDoArco` de hoje.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('LM[1-6]:\" core/test/noctum-ligacao-maquinas.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-ligacao-maquinas.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - LM[1-6]:/{p++} END{exit !(p>=6 && f==0 && s==0)}' && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-ligacao.test.js core/dist-test/test/noctum-conduzir.test.js core/dist-test/test/noctum-vigia.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:23:58.704Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-ligacao-maquinas.test.ts",
+      "alegacao": "T5 e T8: os casos LM provam o passo da máquina no passo supervisionado (LM1 a LM6) e no arco encerrado nesta máquina, com a cessão da autoridade (LM7 em diante).",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('LM[1-6]:\" core/test/noctum-ligacao-maquinas.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-ligacao-maquinas.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - LM[1-6]:/{p++} END{exit !(p>=6 && f==0 && s==0)}' && grep -qE \"test\\('LM([7-9]|1[0-9]):\" core/test/noctum-ligacao-maquinas.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-ligacao-maquinas.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - LM([7-9]|1[0-9]):/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:23:59.161Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C56",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-maquinas-apoio.ts",
+      "alegacao": "T5: o apoio de duas máquinas ganha o vigia e o condutor simulados sem mudar os casos da N3 (M1 a M23 e o ensaio R1 a R9).",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('LM[1-6]:\" core/test/noctum-ligacao-maquinas.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-ligacao-maquinas.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - LM[1-6]:/{p++} END{exit !(p>=6 && f==0 && s==0)}' && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-maquinas.test.js core/dist-test/test/noctum-ensaio.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:23:59.670Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C57",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-entrega.ts",
+      "alegacao": "G4 (B3): com o envelope `v3`, o passo da entrega só cuida do trabalho com ordem aceita e viva desta máquina (e do entregue por ela, para o MASTER), integra pelo `integrarComVez` com o `candidatoDaEntrega` e o `integradorDaEntrega`, nunca pela integração direta; base ou fonte que mudaram invalidam o candidato; o trabalho entregue em outra máquina é `nada` aqui, sem push, PR nem merge; o `v2` integra como hoje.",
+      "negativa": true,
+      "verificar": [
+        "grep -qE \"test\\('QI(1[4-9]|2[0-9]):\" core/test/noctum-integracao-entrega.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-integracao-entrega.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - QI(1[4-9]|2[0-9]):/{p++} END{exit !(p>=6 && f==0 && s==0)}' && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-entrega.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:00.172Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C58",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-integracao-entrega.test.ts",
+      "alegacao": "T6: os casos QI14 em diante provam a entrega `v3` pela vez, a recusa da vez ocupada, o candidato invalidado e o trabalho de outra máquina sem efeito, e QI1 a QI13 seguem.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('QI(1[4-9]|2[0-9]):\" core/test/noctum-integracao-entrega.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-integracao-entrega.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - QI(1[4-9]|2[0-9]):/{p++} END{exit !(p>=6 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:01.008Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C59",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-entrega-apoio.ts",
+      "alegacao": "T6: o apoio da entrega monta o arco `v3` de duas máquinas sem mudar os casos QE e QP de antes.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('QI(1[4-9]|2[0-9]):\" core/test/noctum-integracao-entrega.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-integracao-entrega.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - QI(1[4-9]|2[0-9]):/{p++} END{exit !(p>=6 && f==0 && s==0)}' && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-entrega.test.js core/dist-test/test/noctum-provas.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:02.439Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-retomada-rede.ts",
+      "alegacao": "G3 (B2): a retomada entre máquinas nunca transfere por silêncio: a máquina viva assume a autoridade cedida a ela, toma à força só a da autoridade sem sinal há mais de 15 min e cancela a ordem da máquina sem sinal há mais de 30 min (nunca a do trabalho preso a ela); a ordem aceita e cancelada fica isolada até o recibo de fim assinado pela máquina antiga, e só então outra máquina recebe ordem nova; a máquina que volta para a sessão da ordem cancelada sem retomá-la; nenhum despacho nem efeito se repete.",
+      "negativa": true,
+      "verificar": [
+        "grep -qE \"test\\('RR[0-9]+:\" core/test/noctum-retomada-rede.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-retomada-rede.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - RR[0-9]+:/{p++} END{exit !(p>=8 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:03.453Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-retomada-rede.test.ts",
+      "alegacao": "T7: os casos RR provam a tomada e a cessão da autoridade, as duas carências, o isolamento até o recibo de fim, a parada da sessão da ordem cancelada e a retomada na sobrevivente sem efeito repetido.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('RR[0-9]+:\" core/test/noctum-retomada-rede.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-retomada-rede.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - RR[0-9]+:/{p++} END{exit !(p>=8 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:04.017Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C62",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-reconciliacao.ts",
+      "alegacao": "T7: a supervisão não autoriza retomada local do trabalho cuja ordem desta máquina foi cancelada na rede, e R1 a R32 seguem.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('RR[0-9]+:\" core/test/noctum-retomada-rede.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-retomada-rede.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - RR[0-9]+:/{p++} END{exit !(p>=8 && f==0 && s==0)}' && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-reconciliacao.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:04.691Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C63",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-supervisao.ts",
+      "alegacao": "T7: a parada da sessão de uma ordem cancelada na rede fica no log da supervisão com motivo próprio (`ordem-cancelada`), e o log de antes segue legível.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"'ordem-cancelada'\" core/src/noctum-supervisao.ts && grep -qE \"test\\('RR[0-9]+:\" core/test/noctum-retomada-rede.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-retomada-rede.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - RR[0-9]+:/{p++} END{exit !(p>=8 && f==0 && s==0)}' && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-supervisao.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:05.191Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C64",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-fechamento.ts",
+      "alegacao": "G5 (B5): num arco `v3`, a fila vazia só fecha com todo trabalho entregue ou encerrado na rede, o custo fecha pelo consumo somando as máquinas, o MASTER por omissão que esta máquina deve segura o fechamento, e a rede que não se lê não fecha por fila nem por custo (a hora, a revogação e a parada fecham como antes).",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('FE(1[6-9]|2[0-9]):\" core/test/noctum-fechamento.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-fechamento.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - FE(1[6-9]|2[0-9]):/{p++} END{exit !(p>=4 && f==0 && s==0)}' && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-encerrado.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:05.767Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C65",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-fechamento.test.ts",
+      "alegacao": "T8: os casos FE16 em diante provam o fechamento `v3` pela rede e a lacuna dela, e FE1 a FE15 seguem.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('FE(1[6-9]|2[0-9]):\" core/test/noctum-fechamento.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-fechamento.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - FE(1[6-9]|2[0-9]):/{p++} END{exit !(p>=4 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:06.243Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C66",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-modo.ts",
+      "alegacao": "T8 e T9 (B5): o tique de um arco `v3` lê a rede uma vez para o fechamento e o relatório e só fica quieto sem ordem, vaga ou vez desta máquina no ramo; o retrato ganha a visão da rede (`rede`, campo aditivo do `ork.noctum-retrato/v1`).",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('MO(1[3-9]):\" core/test/noctum-modo.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-modo.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - MO(1[3-9]):/{p++} END{exit !(p>=3 && f==0 && s==0)}' && grep -qE \"test\\('LM([7-9]|1[0-9]):\" core/test/noctum-ligacao-maquinas.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-ligacao-maquinas.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - LM([7-9]|1[0-9]):/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:06.911Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C67",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-relatorio.ts",
+      "alegacao": "G6 (B5): o relatório de um arco `v3` diz em que máquina cada trabalho andou, lista a entrega feita em outra máquina pelo registro de entrega da N3 (com o merge), mostra a autoridade e o último sinal de cada máquina e as lacunas da rede, e nunca chama de entregue o que só a fila local viu.",
+      "negativa": true,
+      "verificar": [
+        "grep -qE \"test\\('RL(2[0-9]):\" core/test/noctum-relatorio.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-relatorio.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - RL(2[0-9]):/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:07.453Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C68",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-relatorio.test.ts",
+      "alegacao": "T9: os casos RL20 em diante provam o relatório com a rede, a entrega de outra máquina e a lacuna da rede, e RL1 a RL19 seguem.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('RL(2[0-9]):\" core/test/noctum-relatorio.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-relatorio.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - RL(2[0-9]):/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:07.927Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C69",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-modo.test.ts",
+      "alegacao": "T9: os casos MO13 em diante provam o retrato com a rede, a lacuna dela e o tique quieto só sem obrigação no ramo, e MO1 a MO12 seguem.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('MO(1[3-9]):\" core/test/noctum-modo.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-modo.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - MO(1[3-9]):/{p++} END{exit !(p>=3 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:08.392Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C70",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-guarda.ts",
+      "alegacao": "G7 (B5): a thread local de um trabalho de arco `v3` segue guardada nos caminhos manuais depois do encerramento do arco nesta máquina enquanto o trabalho vive na rede; a rede que não se lê recusa só a thread com esse vínculo (`noctum.guarda.rede-ilegivel`), e a thread sem vínculo não é lida nem bloqueada.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('GR[0-9]+:\" core/test/noctum-guarda.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - GR[0-9]+:/{p++} END{exit !(p>=4 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:08.912Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C71",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-ship.ts",
+      "alegacao": "T10: os textos da guarda da rede existem em pt-BR e em inglês, com as mesmas chaves e sem travessão.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('GR[0-9]+:\" core/test/noctum-guarda.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - GR[0-9]+:/{p++} END{exit !(p>=4 && f==0 && s==0)}' && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/locale-dado.test.js core/dist-test/test/locale-cli.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:09.393Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C72",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-guarda.test.ts",
+      "alegacao": "T10: os casos GR provam a guarda da rede, a recusa da rede ilegível e a thread sem vínculo livre, e GS e GT seguem.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('GR[0-9]+:\" core/test/noctum-guarda.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-guarda.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - GR[0-9]+:/{p++} END{exit !(p>=4 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:09.968Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C73",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-aceite.ts",
+      "alegacao": "G8 (B6): o aceite de um arco `v3` mede F10 (a máquina partida volta a assinar no ramo) e F11 (a máquina viva age sobre a perdida, e o trabalho dela recomeça noutra só depois do recibo de fim), decompõe M2, M4, M5, M7 e M9 por máquina pelo ramo, combina o aceite completo de cada outra máquina, deixa lacuna (nunca zero) para a máquina sem arquivo, conta como duplicado o mesmo trabalho com vaga ativa em duas máquinas ao mesmo tempo, troca os nomes das máquinas por rótulos no publicável e propõe 25 min para A4 no arco entre máquinas.",
+      "negativa": true,
+      "verificar": [
+        "grep -qE \"test\\('AC(2[6-9]|3[0-9]):\" core/test/noctum-aceite.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - AC(2[6-9]|3[0-9]):/{p++} END{exit !(p>=7 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:10.527Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C74",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-aceite.test.ts",
+      "alegacao": "T11: os casos AC26 em diante provam F10, F11, as medidas por máquina, a combinação dos aceites, a lacuna da máquina sem arquivo, o duplicado entre máquinas e o publicável sem nome de máquina, e AC1 a AC25 seguem.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('AC(2[6-9]|3[0-9]):\" core/test/noctum-aceite.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - AC(2[6-9]|3[0-9]):/{p++} END{exit !(p>=7 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:11.190Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C75",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-n6-apoio.ts",
+      "alegacao": "T11: o apoio da N6 monta o aceite de duas máquinas sem mudar AC1 a AC25 nem os casos do relatório.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('AC(2[6-9]|3[0-9]):\" core/test/noctum-aceite.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - AC(2[6-9]|3[0-9]):/{p++} END{exit !(p>=7 && f==0 && s==0)}' && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-relatorio.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:11.683Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C76",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-cli.ts",
+      "alegacao": "T11: `ork noctum aceite <arco> --outra-maquina <arquivo>` (repetível) combina o aceite completo de cada outra máquina do envelope, e o arquivo de outro arco, de envelope que esta máquina não autorizou ou de máquina fora do envelope é recusado.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF -- '--outra-maquina' core/src/noctum-cli.ts && grep -qE \"test\\('AC(2[6-9]|3[0-9]):\" core/test/noctum-aceite.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-aceite.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - AC(2[6-9]|3[0-9]):/{p++} END{exit !(p>=7 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:12.122Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C77",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/checar-release-noctum.cjs",
+      "alegacao": "G9 (B6): o portão de release exige, em P3 e P4, o aceite de um envelope `v3` com ao menos duas máquinas; P1 e P2 seguem com uma; e o `--texto` continua sem achar anúncio.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('RG(19|2[0-9]):\" core/test/release-noctum.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/release-noctum.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - RG(19|2[0-9]):/{p++} END{exit !(p>=2 && f==0 && s==0)}' && node core/scripts/checar-release-noctum.cjs --texto"
+      ],
+      "criadoEm": "2026-10-21T14:24:12.588Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C78",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/test/release-noctum.test.ts",
+      "alegacao": "T12: os casos RG19 em diante provam a exigência de duas máquinas em P3 e P4, e RG1 a RG18 seguem.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"test\\('RG(19|2[0-9]):\" core/test/release-noctum.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/release-noctum.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - RG(19|2[0-9]):/{p++} END{exit !(p>=2 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:13.048Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C79",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/ensaio-noctum.cjs",
+      "alegacao": "G10 (B6): o ensaio ganha o cenário `duas-maquinas`, com duas raízes de estado sobre o mesmo remoto de fixture, as chaves do `ork noctum maquina --json` de cada uma, a partição de 15 min da segunda (F10) e a parada dela (F11) com a volta só para reconciliar; prova uma autoridade por vez, nenhum trabalho com vaga em duas máquinas ao mesmo tempo, uma entrega por trabalho e o trabalho da perdida retomado na primeira depois do recibo de fim, e o aceite combinado sai `simulado` com F10 e F11 medidas.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"'duas-maquinas'\" core/scripts/ensaio-noctum.cjs && node core/scripts/ensaio-noctum.cjs --cenario duas-maquinas --json | node -e \"let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const r=JSON.parse(s);const c=(r.cenarios||[]).find(x=>x.nome==='duas-maquinas');process.exit(r.ok===true&&r.simulado===true&&!!c&&c.ok===true&&c.expectativas.length>=8?0:1)})\""
+      ],
+      "criadoEm": "2026-10-21T14:24:13.532Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C80",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-ensaio-piloto.test.ts",
+      "alegacao": "T13: os casos EP12 em diante provam o cenário de duas máquinas e as marcas de simulação dele, e o EP1 conta todos os cenários.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF \"'duas-maquinas'\" core/scripts/ensaio-noctum.cjs && grep -qE \"test\\('EP(1[2-9]):\" core/test/noctum-ensaio-piloto.test.ts && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-ensaio-piloto.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - EP(1[2-9]):/{p++} END{exit !(p>=2 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:14.002Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C81",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/noctum-rede.json",
+      "alegacao": "T14: a especificação `ork.mutantes/v1` das cercas da rede tem os mutantes MR1 a MR10, e cada um morre com o controle sem a troca passando.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR1 && node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR2 && node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR3 && node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR4 && node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR5 && node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR6 && node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR7 && node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR8 && node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR9 && node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR10"
+      ],
+      "criadoEm": "2026-10-21T14:24:14.458Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C82",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-vigia.ts",
+      "alegacao": "Mutante MR1: o passo supervisionado do `v3` volta ao `passoDoArco` (a espera `exige-passo-da-maquina`), e um caso LM cai.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR1"
+      ],
+      "criadoEm": "2026-10-21T14:24:14.921Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C83",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-retomada-rede.ts",
+      "alegacao": "Mutante MR2: o cancelamento sai com a máquina sem sinal há só 15 min (a carência da batida no lugar da carência da retomada), e um caso RR cai.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR2"
+      ],
+      "criadoEm": "2026-10-21T14:24:15.337Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C84",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-retomada-rede.ts",
+      "alegacao": "Mutante MR3: a ordem da máquina sem sinal é cancelada mesmo com o trabalho preso a ela, e um caso RR cai.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR3"
+      ],
+      "criadoEm": "2026-10-21T14:24:15.839Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C85",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-entrega.ts",
+      "alegacao": "Mutante MR4: a entrega `v3` integra pela integração direta (`integrarNoDestino` sem a vez), e um caso QI cai.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR4"
+      ],
+      "criadoEm": "2026-10-21T14:24:16.318Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C86",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-fila.ts",
+      "alegacao": "Mutante MR5: a fila `v3` deixa a thread local fechada valer antes da ordem viva de outra máquina, e um caso F cai.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR5"
+      ],
+      "criadoEm": "2026-10-21T14:24:16.796Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C87",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-fechamento.ts",
+      "alegacao": "Mutante MR6: o fechamento `v3` por fila vazia usa a fila sem a rede, e um caso FE cai.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR6"
+      ],
+      "criadoEm": "2026-10-21T14:24:17.235Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C88",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-execucao.ts",
+      "alegacao": "Mutante MR7: a thread aberta pela ordem `v3` perde o número da ordem no nome, e um caso M cai.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR7"
+      ],
+      "criadoEm": "2026-10-21T14:24:17.692Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C89",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-aceite.ts",
+      "alegacao": "Mutante MR8: a F11 volta a ser lacuna fixa no aceite `v3`, e um caso AC cai.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR8"
+      ],
+      "criadoEm": "2026-10-21T14:24:18.212Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C90",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-guarda.ts",
+      "alegacao": "Mutante MR9: a guarda deixa de ler a rede no arco encerrado nesta máquina, e um caso GR cai.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR9"
+      ],
+      "criadoEm": "2026-10-21T14:24:18.730Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C91",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-rede.ts",
+      "alegacao": "Mutante MR10: a leitura do ramo que falha vira rede vazia na projeção, e um caso NR cai.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/noctum-rede.json MR10"
+      ],
+      "criadoEm": "2026-10-21T14:24:19.316Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C92",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-058-modo-noctum.md",
+      "alegacao": "G12 (narrativa): a página da RM-058 documenta o bloco B como preparação dos pilotos em duas máquinas, com as evidências dos casos novos, diz que nenhum piloto em duas máquinas rodou e não anuncia o #Noctum como lançado, entregue, validado ou disponível.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'nenhum piloto em duas máquinas rodou' docs/roadmap/RM-058-modo-noctum.md && grep -qF 'noctum-retomada-rede.test.ts' docs/roadmap/RM-058-modo-noctum.md && node core/scripts/checar-release-noctum.cjs --texto"
+      ],
+      "criadoEm": "2026-10-21T14:24:19.775Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C93",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "T15: a linha do bloco B fica em \"Não publicado\", cita o `ork noctum maquina` e não anuncia o #Noctum como lançado, entregue, validado ou disponível.",
+      "negativa": false,
+      "verificar": [
+        "awk '/^## /{sec=$0} /ork noctum maquina/ && sec ~ /Não publicado/ {ok=1} END{exit !ok}' CHANGELOG.md && node core/scripts/checar-release-noctum.cjs --texto"
+      ],
+      "criadoEm": "2026-10-21T14:24:20.196Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C94",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-coordenacao.ts",
+      "alegacao": "Invariante (D1): os contratos ratificados `ork.noctum-envelope/v3` e `ork.noctum-coordenacao/v1` não mudam: os identificadores, a branch, os tipos de registro e os recibos são os mesmos, a thread não traz commit próprio em `noctum-envelope.ts`, `noctum-transporte.ts` nem `noctum-coordenacao.ts`, e os casos EV, T e K seguem passando.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const t=require('./core/dist/noctum-transporte.js'),v=require('./core/dist/noctum-envelope.js');const ok=t.CONTRATO_COORDENACAO==='ork.noctum-coordenacao/v1'&&v.CONTRATO_ENVELOPE_V3==='ork.noctum-envelope/v3'&&t.BRANCH_DE_COORDENACAO==='ork/noctum-coordenacao'&&JSON.stringify(t.TIPOS_DE_REGISTRO)===JSON.stringify(['autoridade','cessao','ordem','cancelamento','recibo','vaga','vaga-solta','vez','vez-fim','entrega','batida','revogacao'])&&JSON.stringify(t.RECIBOS)===JSON.stringify(['aceita','recusada','concluida','encerrada']);process.exit(ok?0:1)\" && test -z \"$(git log --format=%H origin/main..HEAD -- core/src/noctum-envelope.ts core/src/noctum-transporte.ts core/src/noctum-coordenacao.ts)\" && node core/scripts/casa-temporaria.cjs node --test-reporter=tap --test core/dist-test/test/noctum-envelope-v3.test.js core/dist-test/test/noctum-transporte.test.js core/dist-test/test/noctum-coordenacao.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ok [0-9]+ - /{p++} END{exit !(p>=1 && f==0 && s==0)}'"
+      ],
+      "criadoEm": "2026-10-21T14:24:20.643Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C95",
+      "thread": "ork-rm058blocob",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-rm058blocob.json",
+      "alegacao": "T16: o bundle é da thread (`ork.ci-bundle/v1`, thread, branch e base certas), traz ao menos 50 claims, todas da thread, só uma sobre o próprio bundle e nenhuma rodando o bundle, e nenhum caminho de máquina nem e-mail.",
+      "negativa": true,
+      "verificar": [
+        "node -e \"const b=JSON.parse(require('fs').readFileSync('.ork-ci/ork-rm058blocob.json','utf8'));const it=[...b.claims,...(b.deferredClaims||[])];const ok=b.schema==='ork.ci-bundle/v1'&&b.thread==='ork-rm058blocob'&&b.branch==='ork/ork-rm058blocob-full'&&b.base==='main'&&it.length>=50&&it.every(c=>c.thread==='ork-rm058blocob')&&it.filter(c=>c.arquivo==='.ork-ci/ork-rm058blocob.json').length===1&&!JSON.stringify(it.map(c=>c.verificar)).includes(['ci','run','--bundle'].join(' '));process.exit(ok?0:1)\" && ! grep -IEl '/hom[e]/|/User[s]/|[[:alnum:]._%+-]+@[[:alnum:]-]+[.][[:alpha:]]{2,}' .ork-ci/ork-rm058blocob.json"
+      ],
+      "criadoEm": "2026-10-21T14:24:21.154Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}

@@ -23,6 +23,9 @@ import { aceitarModoNoctum, CONTRATO_INGRESSO_DO_ARCO, ehModoNoctum, responderAo
 import { vencimentoDoRelatorio } from '../src/noctum-relatorio';
 import { pastaDoArco } from '../src/noctum-registro';
 import { novaThread } from '../src/thread';
+import { pedidoV3 } from './noctum-maquinas-apoio';
+import { identidadeDaMaquina } from '../src/noctum-transporte';
+import { CONTRATO_REDE_DO_ARCO, RedeDoArco } from '../src/noctum-rede';
 
 prepararIngressoSimulado();
 const semKernel = !kernelDisponivel();
@@ -277,5 +280,54 @@ test('MO12: arquivo de proposta que não se lê e entrada do ingresso malformada
       '--por', 'telegram:42', '--mensagem', 'telegram:-7:1'], '{ isto não é json');
     assert.equal(malformada.status, 2);
     assert.match(malformada.stderr, /^noctum\.origem\.sem-prova: /m);
+  } finally { p.limpar(); }
+});
+
+function redeDoModo(arco: string, lacuna: RedeDoArco['lacuna'] = null): RedeDoArco {
+  return { contrato: CONTRATO_REDE_DO_ARCO, arco, multimaquina: true, maquina: 'maquina-a', envelopeSha256: 'a'.repeat(64),
+    lidaEm: new Date().toISOString(), autoridade: { maquina: 'maquina-a', geracao: 1, desde: new Date().toISOString() }, revogada: null,
+    maquinas: [{ nome: 'maquina-a', ultimoSinal: new Date().toISOString(), sinalRecente: true, ordensVivas: ['O-t1-1'], vagasAtivas: [],
+      vezesAtivas: [], consumo: 1 }], trabalhos: [{ id: 't1', estado: 'em-execucao', maquina: 'maquina-a', maquinaPresa: 'maquina-a', entrega: null,
+        ordem: { ordem: 'O-t1-1', numero: 1, maquina: 'maquina-a', estado: 'aceita', emitidaEm: new Date().toISOString() } }],
+    consumo: { arco: 1, porConta: { 'perfil-a': 1 }, porRuntime: { 'claude-bg': 1 } }, obrigacoes: { ordens: ['O-t1-1'], vagas: [], vezes: [] }, lacuna };
+}
+
+function abrirV3DoModo(p: Projeto, arco: string): void {
+  const { trabalhos } = threads(p, 1);
+  autorizarPedido(p.dir, arco, pedidoV3(arco, { trabalhos: trabalhos.map(t => ({ ...t, maquina: 'maquina-a' })),
+    maquinas: [identidadeDaMaquina(p.dir, 'maquina-a')], contas: [{ conta: 'perfil-a', sessoes: 2 }],
+    global: [{ conta: 'perfil-a', sessoes: 2 }] }));
+}
+
+test('MO13: retrato v3 expõe autoridade, máquinas, trabalho e consumo da rede', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-mo13');
+  try {
+    abrirV3DoModo(p, 'arco-mo13');
+    const r = retratoDoArco(p.carregado, 'arco-mo13', { maquina: 'maquina-a', projecaoDaRede: redeDoModo('arco-mo13'),
+      lerReservas: () => ({ leitura: 'copia-local', reservas: [] }) })!;
+    assert.equal(r.rede?.autoridade?.maquina, 'maquina-a');
+    assert.equal(r.rede?.consumo.arco, 1);
+    assert.match(textoDoRetrato(r), /Rede: autoridade maquina-a/);
+  } finally { p.limpar(); }
+});
+
+test('MO14: retrato v3 preserva a lacuna da rede', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-mo14');
+  try {
+    abrirV3DoModo(p, 'arco-mo14');
+    const projecao = redeDoModo('arco-mo14', { motivo: 'noctum.coordenacao.sem-remoto', detalhe: 'SIMULADO' });
+    const r = retratoDoArco(p.carregado, 'arco-mo14', { maquina: 'maquina-a', projecaoDaRede: projecao })!;
+    assert.equal(r.rede?.lacuna?.motivo, 'noctum.coordenacao.sem-remoto');
+    assert.match(textoDoRetrato(r), /Rede: sem leitura/);
+  } finally { p.limpar(); }
+});
+
+test('MO15: retrato v2 não ganha o campo rede', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-mo15');
+  try {
+    const { trabalhos } = threads(p, 1);
+    abrirArco(p.dir, 'arco-mo15', { trabalhos });
+    const r = retratoDoArco(p.carregado, 'arco-mo15')!;
+    assert.equal('rede' in r, false);
   } finally { p.limpar(); }
 });

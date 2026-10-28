@@ -31,7 +31,7 @@ import { lerLedger, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
 import { nomeDaMaquina } from './maquina';
 import { EstadoDoArco, lerArco } from './noctum-arco';
-import { ConteudoDoEnvelope, envelopeComTrabalhos, shaDoPedido, Trabalho } from './noctum-envelope';
+import { ConteudoDoEnvelope, envelopeComTrabalhos, envelopeMultimaquina, shaDoPedido, Trabalho } from './noctum-envelope';
 import { dirThread, lerThread, listarIds, pedidoDaThread } from './thread';
 import { Fase, FASES, Thread } from './types';
 
@@ -46,7 +46,7 @@ export type EstadoDoTrabalho = 'entregue' | 'encerrado-sem-entrega' | 'em-curso'
 export type MotivoDoBloqueio =
   | 'dependencia' | 'reserva-ausente' | 'reserva-de-outra-maquina' | 'reserva-sem-leitura' | 'decisao-no-lote' | 'dono'
   | 'retomada' | 'fim-de-turno-sem-resultado' | 'sem-passo' | 'modo' | 'pedido-ausente' | 'thread-ausente' | 'thread-ambigua'
-  | 'thread-ilegivel' | 'item-divergente' | 'erro-repetido' | 'dependencia-encerrada' | 'sem-ordem' | 'isolado';
+  | 'thread-ilegivel' | 'item-divergente' | 'erro-repetido' | 'dependencia-encerrada' | 'sem-ordem' | 'em-outra-maquina' | 'isolado';
 
 /** Quantas falhas seguidas do núcleo no despacho de um trabalho o bloqueiam (A4 do CHECK da ork-rm058n2). */
 export const ERROS_SEGUIDOS_QUE_BLOQUEIAM = 3;
@@ -118,7 +118,15 @@ export interface FatosDoTrabalho {
  * com ordem aceita dela são os únicos que ela despacha, os entregues em qualquer máquina contam como entregues aqui, e os
  * encerrados sem entrega em outra máquina, como encerrados aqui (B1 e S1 da rodada 3).
  */
-export interface CoordenacaoDaFila { trabalhos: ReadonlySet<string>; entregues: ReadonlyMap<string, string>; encerrados?: ReadonlySet<string> }
+export interface CoordenacaoDaFila {
+  trabalhos: ReadonlySet<string>;
+  entregues: ReadonlyMap<string, string>;
+  encerrados?: ReadonlySet<string>;
+  /** Trabalhos com uma ordem viva de outra máquina: a thread local antiga nunca os libera. */
+  emOutraMaquina?: ReadonlySet<string>;
+  /** A ordem aceita desta máquina, usada para distinguir a thread de uma retomada. */
+  ordens?: ReadonlyMap<string, { ordem: string; numero: number }>;
+}
 
 /** RM-058 N4 (D8 e D16 da ork-rm058n4): o que a supervisão do arco decidiu e a fila respeita. */
 export interface DecisoesDaSupervisao {
@@ -183,6 +191,9 @@ function classificar(t: Trabalho, posicao: number, f: FatosDoTrabalho | undefine
   if (naRede) return { ...base, thread: f?.threads[0]?.id ?? null, estado: 'entregue', entregueEm: naRede, detalhe: 'entregue em outra máquina do arco' };
   if (fatos.coordenacao?.encerrados?.has(t.id)) {
     return { ...base, thread: f?.threads[0]?.id ?? null, estado: 'encerrado-sem-entrega', detalhe: 'encerrado sem entrega em outra máquina do arco' };
+  }
+  if (envelopeMultimaquina(estado.conteudo!) && fatos.coordenacao?.emOutraMaquina?.has(t.id)) {
+    return bloqueado('em-outra-maquina', 'o trabalho tem ordem viva em outra máquina do arco');
   }
   if (!f) return bloqueado('thread-ilegivel', 'o trabalho não foi lido');
   if (f.ilegivel) return bloqueado('thread-ilegivel', `a thread ${f.ilegivel} não pôde ser lida`);
@@ -353,7 +364,9 @@ export function fatosDaFila(carregado: ManifestoCarregado, arco: string, opcoes:
       if (!casam.length && fatos.threadsIlegiveis.includes(t.thread)) ilegivel = t.thread;
     } else {
       const alvo = shaDoPedido(t.pedido!);
-      casam = threads.filter(x => x.roadmap === t.item && x.pedido?.sha256 === alvo);
+      const ordem = opcoes.coordenacao?.ordens?.get(t.id);
+      casam = threads.filter(x => x.roadmap === t.item && x.pedido?.sha256 === alvo &&
+        (!ordem || x.assunto.endsWith(`o${ordem.numero}`)));
       // Sem casar e com thread ilegível, ela pode ser a do trabalho: abrir outra duplicaria a thread.
       if (!casam.length && fatos.threadsIlegiveis.length) ilegivel = fatos.threadsIlegiveis[0];
     }

@@ -36,9 +36,10 @@ import { ManifestoCarregado } from './manifest';
 import { nomeDaMaquina } from './maquina';
 import { concluirDespacho, EstadoDoArco, lerArco, SituacaoDoArco } from './noctum-arco';
 import { LeituraDeSessoes } from './noctum-capacidade';
-import { envelopeComTrabalhos } from './noctum-envelope';
+import { envelopeComTrabalhos, envelopeMultimaquina } from './noctum-envelope';
 import { MOTIVO_DA_BASELINE_FALHA, OpcoesDoPasso, passoDoArco, ResultadoDoPasso } from './noctum-execucao';
 import { DecisoesDaSupervisao } from './noctum-fila';
+import { OpcoesDoPassoDaMaquina, passoDaMaquina, RelatorioDaMaquina } from './noctum-maquinas';
 import { OpcoesDaEntrega, passoDaEntrega, ResultadoDaEntrega } from './noctum-entrega';
 import { decidirPedidos, decidirReservas, decidirSessoes, efeitosAbertos, LeitorDoRemoto, LeituraDoRuntime, listagemCompleta, ParadaDeSessao,
   paradaPorAmbiente, provaDaSessao, reconciliarEfeito, recusaDeAmbiente, retomadaPendente } from './noctum-reconciliacao';
@@ -51,6 +52,7 @@ import { ambienteDoPerfil } from './adapters/claude-bg';
 import { lerPerfis, lerPerfisComContas, perfilDeDespacho, StoreDePerfis } from './runtime-profiles';
 import { consultarContas } from './sessoes-contas';
 import { sessoesEmVooDoArco } from './noctum-sessoes-em-voo';
+import { OrdemCanceladaLocal, retomadaNaRede } from './noctum-retomada-rede';
 import { dirThread } from './thread';
 import { EventoLedger } from './types';
 import { exec } from './util';
@@ -70,6 +72,8 @@ export interface OpcoesDoVigia {
   lerRemoto?: LeitorDoRemoto;
   /** As dependências do passo da N2 (os testes injetam o despacho e as leituras). */
   passo?: OpcoesDoPasso;
+  /** O remoto e as opções de rede do ramo de coordenação; fixtures podem apontar para um remoto local. */
+  coordenacao?: Pick<OpcoesDoPassoDaMaquina, 'remoto' | 'rede'>;
   /** RM-058, integração (T4, D8): as dependências do passo da entrega da N5 (a forja, o CI, o despacho do CHECK, o verify). */
   entrega?: OpcoesDaEntrega;
   /** O passo da entrega; em produção, `passoDaEntrega`. */
@@ -86,7 +90,7 @@ export interface EntregaDoPasso { entrega?: ResultadoDaEntrega | null; falhaDaEn
 
 export type ResultadoConduzido = (ResultadoDoPasso
   | { acao: 'parado'; motivo: string; detalhe: string }
-  | { acao: 'geracao-vencida'; detalhe: string }) & EntregaDoPasso;
+  | { acao: 'geracao-vencida'; detalhe: string }) & EntregaDoPasso & { maquina?: RelatorioDaMaquina };
 
 export interface ResultadoDoTique {
   acao: 'tique';
@@ -279,10 +283,22 @@ export function passoConduzido(carregado: ManifestoCarregado, arco: string, quem
     gravarComEstado(carregado, arco, (s) => s.parada ? [] : [{ tipo: 'parada', motivo: visao.parada!.motivo, detalhe: visao.parada!.detalhe }], quando);
     return { acao: 'parado', motivo: visao.parada.motivo, detalhe: visao.parada.detalhe };
   }
-  const r = passoDoArco(carregado, arco, { ...opcoes.passo, quando, maquina: opcoes.maquina ?? opcoes.passo?.maquina,
+  const opcoesDaN2: OpcoesDoPasso = { ...opcoes.passo, quando, maquina: opcoes.maquina ?? opcoes.passo?.maquina,
     ...(visao ? { perfis: () => visao.perfis } : {}),
     ...(conteudo && estado ? { alvos: (fase, runtime, modo) => alvosDaFase(carregado, conteudo, estado, fase, runtime, modo) } : {}),
-    supervisao: decisoesDaSupervisao(sup, estado) } as OpcoesDoPasso);
+    supervisao: decisoesDaSupervisao(sup, estado) };
+  let r: ResultadoConduzido;
+  if (estado?.conteudo && envelopeMultimaquina(estado.conteudo)) {
+    const daMaquina = passoDaMaquina(carregado, arco, { ...opcoes.coordenacao, quando, maquina: opcoesDaN2.maquina,
+      consultarSessoes: opcoesDaN2.consultarSessoes ?? opcoes.consultarRuntime, n2: opcoesDaN2 });
+    if (daMaquina.acao === 'aguardar') {
+      r = { acao: 'aguardar', ate: cadencia, motivo: daMaquina.motivo, fila: null, detalhe: daMaquina.detalhe, maquina: daMaquina.relatorio };
+    } else {
+      r = { ...daMaquina.passo, ...(daMaquina.acao === 'passo' ? { maquina: daMaquina.relatorio } : {}) };
+    }
+  } else {
+    r = passoDoArco(carregado, arco, opcoesDaN2);
+  }
   gravarEstadoDoPasso(carregado, arco, quem, r, quando);
   // N1 do CHECK 2: a baseline do trabalho que falhou sem ser espera isola o trabalho, com a causa: os outros seguem, e o
   // tique e o relatório dizem por quê.
@@ -301,7 +317,7 @@ export function passoConduzido(carregado: ManifestoCarregado, arco: string, quem
   try {
     const entrega = (opcoes.entregar ?? passoDaEntrega)(carregado, arco, { maquina: opcoes.maquina ?? opcoes.passo?.maquina,
       lerReservas: opcoes.passo?.lerReservas, consultarSessoes: opcoes.passo?.consultarSessoes, ...(visao ? { perfis: () => visao.perfis } : {}),
-      ...opcoes.entrega, quando });
+      remoto: opcoes.coordenacao?.remoto, redeDaCoordenacao: opcoes.coordenacao?.rede, ...opcoes.entrega, quando });
     return { ...r, entrega };
   } catch (e) {
     return { ...r, entrega: null, falhaDaEntrega: (e instanceof Error ? e.message : String(e)).split('\n')[0].slice(0, 200) };
@@ -383,6 +399,7 @@ export function vigiarArco(carregado: ManifestoCarregado, arco: string, opcoes: 
     opcoes.depoisDeIniciar?.();
     const lacunas: string[] = [];
     const contagem = { reservas: 0, retomadas: 0, isolados: 0, contas: 0 };
+    let passoTerminal: ResultadoConduzido | null = null;
     if (sup.interrupcoesSeguidas >= parametros.interrupcoesQueParam && !sup.parada) {
       sup = gravarComEstado(carregado, arco, (s) => s.parada ? [] : [{ tipo: 'parada', motivo: 'supervisor-falhou',
         detalhe: `${s.interrupcoesSeguidas} tiques do vigia interrompidos em série (o limite é ${parametros.interrupcoesQueParam})` }], quando);
@@ -390,9 +407,22 @@ export function vigiarArco(carregado: ManifestoCarregado, arco: string, opcoes: 
     const estado = lerArco(raiz, arco, quando)!;
     const conteudo = v2(estado);
     if (conteudo) {
+      const retomada = retomadaNaRede(carregado, arco, { ...opcoes.coordenacao, quando,
+        maquina: opcoes.maquina ?? opcoes.passo?.maquina });
+      if (retomada.lacuna) lacunas.push(`retomada na rede: ${retomada.lacuna.motivo}: ${retomada.lacuna.detalhe}`);
+      if (estado.conteudo && envelopeMultimaquina(estado.conteudo) && estado.situacao !== 'vigente' && estado.situacao !== 'agendado') {
+        const daMaquina = passoDaMaquina(carregado, arco, { ...opcoes.coordenacao, quando,
+          maquina: opcoes.maquina ?? opcoes.passo?.maquina, consultarSessoes: opcoes.passo?.consultarSessoes ?? opcoes.consultarRuntime,
+          n2: opcoes.passo });
+        passoTerminal = daMaquina.acao === 'aguardar'
+          ? { acao: 'aguardar', ate: new Date(Date.parse(quando) + parametros.cadenciaMs).toISOString(), motivo: daMaquina.motivo,
+            fila: null, detalhe: daMaquina.detalhe, maquina: daMaquina.relatorio }
+          : { ...daMaquina.passo, ...(daMaquina.acao === 'passo' ? { maquina: daMaquina.relatorio } : {}) };
+      }
       const store = (opcoes.lerStore ?? storePadrao(raiz))();
       aplicarContas(carregado, arco, conteudo, store, quando, contagem);
-      reconciliarSobATravaDeDespacho(carregado, arco, conteudo, parametros, quando, opcoes, lacunas, contagem);
+      reconciliarSobATravaDeDespacho(carregado, arco, conteudo, parametros, quando, opcoes, lacunas, contagem,
+        retomada.canceladasLocais);
       for (const d of decidirPedidos(raiz, arco, lerArco(raiz, arco, quando)!)) {
         cancelarPedido(carregado, d.pedido, d.motivo);
         gravarNaSupervisao(carregado, arco, [{ tipo: 'pedido_tratado', pedido: d.pedido, thread: d.thread, acao: 'cancelado', motivo: d.motivo.slice(0, 200) }], quando);
@@ -408,7 +438,7 @@ export function vigiarArco(carregado: ManifestoCarregado, arco: string, opcoes: 
     sup = lerSupervisao(raiz, arco);
     // D5: com a trava do condutor livre, este tique conduz: a geração do vigia, com a prova, e um passo.
     let condutor: ResultadoDoTique['condutor'] = 'sem-passo';
-    let passo: ResultadoConduzido | null = null;
+    let passo: ResultadoConduzido | null = passoTerminal;
     const vigente = lerArco(raiz, arco, quando)!.situacao === 'vigente';
     if (!sup.parada && vigente && conteudo) {
       const fdCondutor = tentarTravaExclusiva(path.join(dir, ARQUIVO_DO_CONDUTOR));
@@ -453,7 +483,8 @@ export function vigiarArco(carregado: ManifestoCarregado, arco: string, opcoes: 
  * vigente e sem parada (A5), as sessões e as recusas repetidas. Com a trava ocupada, tudo fica para o tique seguinte.
  */
 function reconciliarSobATravaDeDespacho(carregado: ManifestoCarregado, arco: string, conteudo: ConteudoV2, parametros: ParametrosDaSupervisao,
-  quando: string, opcoes: OpcoesDoVigia, lacunas: string[], contagem: { reservas: number; retomadas: number; isolados: number }): void {
+  quando: string, opcoes: OpcoesDoVigia, lacunas: string[], contagem: { reservas: number; retomadas: number; isolados: number },
+  ordensCanceladas: readonly OrdemCanceladaLocal[] = []): void {
   const { raiz } = carregado;
   const noctum = path.join(raizDoEstado(raiz), '.orkastery', 'noctum');
   const fd = tentarTravaExclusiva(path.join(noctum, 'despacho.lock'));
@@ -482,7 +513,7 @@ function reconciliarSobATravaDeDespacho(carregado: ManifestoCarregado, arco: str
       return;
     }
     if (estado.situacao !== 'vigente' || sup.parada) return;
-    aplicarSessoes(carregado, arco, conteudo, leitura, quando, opcoes, lacunas, contagem, consultar);
+    aplicarSessoes(carregado, arco, conteudo, leitura, quando, opcoes, lacunas, contagem, consultar, ordensCanceladas);
     // B4 do CHECK: o trabalho que o núcleo recusa seguidas vezes pelo mesmo tipo de motivo (a árvore, a policy, o erro
     // antes de lançar) não volta a noite toda: no teto, e com a série durando ao menos uma cadência, é isolado. O soluço
     // mais curto que a cadência (a conferência de login inconclusiva da A14, que o núcleo refaz a cada despacho) não isola.
@@ -512,7 +543,8 @@ function aplicarContas(carregado: ManifestoCarregado, arco: string, conteudo: Co
  * trabalho é isolado). Confirmada, ou já morta, a sessão vira `sessao_morta` no ledger da thread e a retomada é autorizada.
  */
 function aplicarSessoes(carregado: ManifestoCarregado, arco: string, conteudo: ConteudoV2, leitura: LeituraDoRuntime, quando: string,
-  opcoes: OpcoesDoVigia, lacunas: string[], contagem: { retomadas: number; isolados: number }, consultar: () => LeituraDeSessoes): void {
+  opcoes: OpcoesDoVigia, lacunas: string[], contagem: { retomadas: number; isolados: number }, consultar: () => LeituraDeSessoes,
+  ordensCanceladas: readonly OrdemCanceladaLocal[] = []): void {
   const { raiz } = carregado;
   const sup = lerSupervisao(raiz, arco);
   const parametros = sup.parametros!;
@@ -530,7 +562,14 @@ function aplicarSessoes(carregado: ManifestoCarregado, arco: string, conteudo: C
     if (confirmada) registrarMorte(raiz, p.thread, p, prova);
     return confirmada ? prova : null;
   };
-  for (const d of decidirSessoes(raiz, arco, conteudo, lerArco(raiz, arco, quando)!, sup, leitura, quando)) {
+  const cancelados = new Set(ordensCanceladas.map(o => o.trabalho));
+  for (const s of sessoesEmVooDoArco(raiz, lerArco(raiz, arco, quando)!).filter(s => cancelados.has(s.trabalho))) {
+    if (!s.sessionId || !s.thread) { lacunas.push(`trabalho ${s.trabalho}: a ordem foi cancelada, mas a sessão em voo não está identificada`); continue; }
+    const prova = pararEConferir({ sessionId: s.sessionId, runtime: s.runtime, perfil: s.conta, thread: s.thread },
+      'ordem-cancelada', s.trabalho);
+    if (!prova) lacunas.push(`${s.thread}: a parada da sessão ${s.sessionId} da ordem cancelada não foi confirmada pelo runtime`);
+  }
+  for (const d of decidirSessoes(raiz, arco, conteudo, lerArco(raiz, arco, quando)!, sup, leitura, quando, cancelados)) {
     if (d.acao === 'aguardar') { lacunas.push(`${d.thread}: ${d.detalhe}`); continue; }
     if (d.acao === 'isolar') {
       if (d.parar) pararEConferir(d.parar, d.motivo === 'sem-primeiro-turno' ? 'sem-primeiro-turno' : 'sem-avanco', d.trabalho);

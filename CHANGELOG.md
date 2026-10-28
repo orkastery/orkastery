@@ -46,6 +46,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   confirmada, até o ensaio real; por isso o `grok` segue fora do fallback automático de um projeto com o MCP. O
   `claude-bg` e o `codex` não mudam.
 
+- **Preparação dos pilotos em duas máquinas do #Noctum (RM-058)**: `ork noctum maquina [--json]` dá nome, chave
+  pública e impressão para o envelope `v3`; o passo supervisionado usa a coordenação da máquina, a retomada exige o
+  recibo de fim antes de transferir trabalho, e fila, fechamento, relatório, guarda e entrega consideram a rede e a
+  vez global. O aceite combina os arquivos das demais máquinas por `--outra-maquina`, P3 e P4 exigem ao menos duas
+  máquinas quando forem conferidos, e o cenário `duas-maquinas` exercita F10 e F11 apenas em fixture simulada.
+  Nenhum piloto em duas máquinas rodou; o #Noctum segue em desenvolvimento, não anunciado.
+
 ### Corrigido
 
 - **A entrega por PR reconhece a mensagem padrão da forja:** `ork ship registrar-pr`, `--todas`, a paridade de docs,
