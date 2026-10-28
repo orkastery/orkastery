@@ -4,8 +4,30 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.0",
-  "publicadoEm": "2026-10-28T18:06:59.549Z",
+  "publicadoEm": "2026-10-28T19:15:15.922Z",
   "threads": [
+    {
+      "id": "ork-mainverdeind",
+      "nome": "mainverde",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-mainverdeind-go",
+      "atualizadaEm": "2026-10-28T19:15:09.425Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-28T19:15:15.362Z",
+        "motivo": "nenhuma sessão despachada na fase GO"
+      }
+    },
     {
       "id": "ork-rm074agendad",
       "nome": "agendadoragile",
