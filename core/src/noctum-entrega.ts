@@ -43,7 +43,7 @@ import { concluirDespacho, conferirAntesDoEfeito, EstadoDoArco, lerArco, reserva
 import { admitir, escolherConta, fatosDeCapacidade, LeituraDeSessoes, MotivoDaCapacidade } from './noctum-capacidade';
 import { ARQUIVO_DO_CHANGELOG, entradasDaThread, linhasDaBasePerdidas, linhasRemovidas, posicionarEntradas,
   resolverConflitosAditivos } from './noctum-changelog';
-import { ConteudoDoEnvelope, CONTRATO_ENVELOPE_V2, Destino, envelopeComTrabalhos, MotivoDeRecusaDoArco, RecusaDoArco, shaDoPedido,
+import { ConteudoDoEnvelope, CONTRATO_ENVELOPE_V2, Destino, envelopeComTrabalhos, envelopeMultimaquina, MotivoDeRecusaDoArco, RecusaDoArco, shaDoPedido,
   Trabalho } from './noctum-envelope';
 import { DecisoesDaSupervisao, fatosDaFila, LeitorDeReservas, montarFila, TrabalhoNaFila } from './noctum-fila';
 import { pedidoDoArco } from './noctum-guarda';
@@ -61,6 +61,8 @@ import { dirThread, gravarThread, lerThread, pedidoDaThread } from './thread';
 import { Fase, MotivoGate, Thread } from './types';
 import { ConducaoDoVerify, verificar } from './verify';
 import { branchDaWorktree } from './worktree';
+import { integrarComVez } from './noctum-integracao';
+import { coordenacaoDaFila, lerRede, RedeDoArco } from './noctum-rede';
 
 export const CONTRATO_DA_ENTREGA = 'ork.noctum-entrega/v1' as const;
 /** D2: quantas vezes o arco despacha o CHECK independente de um trabalho antes de bloquear. */
@@ -254,6 +256,12 @@ export interface OpcoesDaEntrega {
   maquina?: string;
   /** O remoto do projeto; padrão `origin`. */
   remoto?: string;
+  /** A projeção já lida por quem compõe o tique; sem ela, o passo lê o ramo uma vez. */
+  projecaoDaRede?: RedeDoArco;
+  /** Prazo e ambiente do Git que lê e grava o ramo de coordenação. */
+  redeDaCoordenacao?: import('./branch-de-estado').OpcoesDeGit;
+  /** Porta da integração da N3; em produção usa `integrarComVez`, e os ensaios de composição fixam o desfecho da rede. */
+  integrarPelaRede?: typeof integrarComVez;
   /** O GitHub do remoto (os testes o fixam, porque o remoto deles é um bare local). */
   forja?: Forja;
   executorGh?: ExecutorDoGh;
@@ -401,8 +409,16 @@ export function passoDaEntrega(carregado: ManifestoCarregado, arco: string, opco
     return { acao: 'aguardar', trabalho: null, thread: null, motivo: e.motivo, detalhe: e.message, ate: depoisDe(quando, ESPERA_DO_CI_MS) };
   }
   if (sup.parada) return { acao: 'nada', motivo: 'arco-encerrado', detalhe: `a supervisão parou o arco (${sup.parada.motivo}): nenhum efeito novo` };
+  const multimaquina = envelopeMultimaquina(conteudo);
+  const rede = multimaquina ? opcoes.projecaoDaRede ?? lerRede(carregado, arco,
+    { quando, maquina: opcoes.maquina, remoto, rede: opcoes.redeDaCoordenacao }) : null;
+  if (rede?.lacuna) {
+    return { acao: 'aguardar', trabalho: null, thread: null, motivo: rede.lacuna.motivo, detalhe: rede.lacuna.detalhe,
+      ate: depoisDe(quando, ESPERA_DO_CI_MS) };
+  }
+  const coordenacao = rede ? coordenacaoDaFila(rede) : null;
   const fila = montarFila(fatosDaFila(carregado, arco, { quando, maquina: opcoes.maquina, lerReservas: opcoes.lerReservas,
-    supervisao: decisoesDaEntrega(sup) }));
+    ...(coordenacao ? { coordenacao } : {}), supervisao: decisoesDaEntrega(sup) }));
   const naEntrega = fila.trabalhos.filter(t => t.thread && (t.estado === 'aguardando-entrega' || t.estado === 'entregue'))
     .sort((a, b) => a.prioridade - b.prioridade || a.posicao - b.posicao);
   if (!naEntrega.length) return { acao: 'nada', motivo: 'sem-entrega', detalhe: 'nenhum trabalho do arco está na entrega' };
@@ -418,11 +434,11 @@ export function passoDaEntrega(carregado: ManifestoCarregado, arco: string, opco
         detalhe: `o trabalho ${trabalho.id} foi isolado pela supervisão (${isoladoDepois.motivo}): ${isoladoDepois.detalhe}` });
       continue;
     }
-    // D9: com outro contrato (a v3 da N3), a integração é da vez entre máquinas; aqui nada se decide por ela.
-    if (conteudo.contrato !== CONTRATO_ENVELOPE_V2) {
-      bloqueios.push({ trabalho: trabalho.id, thread: trabalho.thread!, motivo: 'noctum.entrega.exige-vez-da-n3',
-        detalhe: `o envelope ${conteudo.contrato} integra pela vez entre máquinas (integrarComVez da N3), com integradorDaEntrega` });
-      continue;
+    if (multimaquina && rede?.trabalhos.find(t => t.id === trabalho.id)?.estado === 'entregue') {
+      let entregueAqui = false;
+      try { entregueAqui = lerLedger(dirThread(carregado.raiz, trabalho.thread!)).some(e => e.tipo === TIPOS_DE_EVENTO.shipConcluido); }
+      catch { /* a leitura normal abaixo dará a lacuna se este trabalho ainda couber aqui */ }
+      if (!entregueAqui) continue;
     }
     let lido: Lido;
     try { lido = entradaDoTrabalho(carregado, estado, trabalho, opcoes, remoto, leituras); }
@@ -440,12 +456,44 @@ export function passoDaEntrega(carregado: ManifestoCarregado, arco: string, opco
       continue;
     }
     if (decisao.acao === 'bloqueado') { bloqueios.push({ ...ids, motivo: decisao.motivo, detalhe: decisao.porque }); continue; }
-    const { resultado, efeito } = executar(carregado, arco, estado, trabalho, lido, decisao.acao, opcoes, remoto, quando);
+    let executado: { resultado: ResultadoDaEntrega; efeito: boolean };
+    if (multimaquina && decisao.acao === 'integrar') {
+      const ordem = coordenacao?.ordens?.get(trabalho.id);
+      const candidato = lido.entrada.provas ? candidatoDaEntrega(lido.entrada.provas) : null;
+      if (!ordem || !candidato || !lido.destino) {
+        bloqueios.push({ trabalho: trabalho.id, thread: trabalho.thread!, motivo: 'noctum.coordenacao.ordem-vencida',
+          detalhe: `o trabalho ${trabalho.id} não tem ordem aceita desta máquina e candidato provado para a vez` });
+        continue;
+      }
+      try {
+        const feita = (opcoes.integrarPelaRede ?? integrarComVez)(carregado, arco, { ordem: ordem.ordem,
+          destino: { repositorio: lido.destino.repositorio, base: lido.destino.base }, candidato },
+        integradorDaEntrega(carregado, arco, lido.t.id, opcoes),
+        { quando, maquina: opcoes.maquina, remoto, rede: opcoes.redeDaCoordenacao });
+        executado = { resultado: { acao: 'integrou', trabalho: trabalho.id, thread: lido.t.id, mergeSha: feita.merge,
+          pontaDaBase: feita.merge, docs: null, provas: candidato.provas }, efeito: true };
+      } catch (e) {
+        if (!(e instanceof RecusaDoArco)) throw e;
+        const ids = { trabalho: trabalho.id, thread: lido.t.id };
+        if (['noctum.integracao.ja-entregue', 'noctum.coordenacao.ordem-vencida'].includes(e.motivo)) {
+          executado = { resultado: { acao: 'nada', motivo: 'sem-entrega', detalhe: e.message }, efeito: false };
+        } else if (e.motivo === 'noctum.integracao.base-nao-provada') {
+          executado = { resultado: { acao: 'bloqueado', ...ids, motivo: e.motivo, detalhe: e.message, outros: [] }, efeito: false };
+        } else {
+          executado = { resultado: { acao: 'aguardar', ...ids, motivo: e.motivo, detalhe: e.message,
+            ate: depoisDe(quando, ESPERA_DO_CI_MS) }, efeito: false };
+        }
+      }
+    } else {
+      executado = executar(carregado, arco, estado, trabalho, lido, decisao.acao, opcoes, remoto, quando);
+    }
+    const { resultado, efeito } = executado;
     // Um efeito por chamada (A1 da rodada 1): o efeito feito, ou de resultado incerto, encerra o passo; a recusa de antes de
     // qualquer efeito deixa o trabalho seguinte tentar, e o trabalho travado não prende a fila.
     if (efeito) return resultado;
     if (resultado.acao === 'aguardar') { espera ??= resultado; continue; }
     if (resultado.acao === 'bloqueado') { bloqueios.push({ trabalho: resultado.trabalho, thread: resultado.thread, motivo: resultado.motivo, detalhe: resultado.detalhe }); continue; }
+    if (resultado.acao === 'nada') continue;
     return resultado;
   }
   if (espera) return espera;

@@ -27,7 +27,7 @@ import { RespostaHumana } from './hitl-gates';
 import { ManifestoCarregado } from './manifest';
 import { MODOS_LEGADOS } from './modos';
 import { autorizarPeloIngresso, EstadoDoArco, lerArco, revogarPeloIngresso, SituacaoDoArco } from './noctum-arco';
-import { ID_DO_ARCO, RecusaDoArco, Unidade } from './noctum-envelope';
+import { envelopeMultimaquina, ID_DO_ARCO, RecusaDoArco, Unidade } from './noctum-envelope';
 import { OpcoesDoPasso, ResultadoDoPasso } from './noctum-execucao';
 import { fecharSeDevido, lerFechamento, OpcoesDoFechamento, ResultadoDoFechamento, textoDaParada, trabalhosDoArco } from './noctum-fechamento';
 import { fatosDaFila, LeitorDeReservas } from './noctum-fila';
@@ -37,6 +37,7 @@ import { entregarRelatorioSeDevido, FatosDaSupervisao, fatosDaSupervisao, JANELA
 import { RecusaDoRegistro } from './noctum-registro';
 import { RecusaDaSupervisao } from './noctum-supervisao';
 import { OpcoesDoVigia, ResultadoDoVigia, vigiarArco } from './noctum-vigia';
+import { coordenacaoDaFila, lerRede, RedeDoArco } from './noctum-rede';
 
 export const CONTRATO_INGRESSO_DO_ARCO = 'ork.noctum-ingresso/v1' as const;
 export const CONTRATO_RETRATO_DO_ARCO = 'ork.noctum-retrato/v1' as const;
@@ -144,6 +145,8 @@ export interface RetratoDoArco {
   consumo: Array<{ escopo: string; unidade: Unidade; teto: number; texto: string; valor: number | null }>;
   fila: { situacao: string; trabalhos: Array<{ id: string; item: string; thread: string | null; estado: string; fase: string | null;
     motivo: string | null }> } | null;
+  /** Projeção entre máquinas; ausente nos envelopes v1/v2. */
+  rede?: RedeDoArco;
   fechamento: { motivo: string; detalhe: string; em: string; paradas: string[] } | null;
   relatorio: RetratoDoRelatorio;
   /** RM-058, integração (T3): os fatos da supervisão da N4 (isolados, contas fora, retomadas, sessões paradas e parada). */
@@ -154,7 +157,8 @@ export interface RetratoDoArco {
 }
 
 export interface OpcoesDoRetrato { quando?: string; maquina?: string; lerReservas?: LeitorDeReservas;
-  medir?: (raiz: string, estado: EstadoDoArco, quando: string) => MedicaoDoArco }
+  medir?: (raiz: string, estado: EstadoDoArco, quando: string) => MedicaoDoArco;
+  projecaoDaRede?: RedeDoArco; remoto?: string; redeDaCoordenacao?: import('./branch-de-estado').OpcoesDeGit }
 
 /** O retrato do arco no instante: situação, janela, consumo, fila, fechamento, relatório e lacunas. Só lê. */
 export function retratoDoArco(carregado: ManifestoCarregado, arco: string, opcoes: OpcoesDoRetrato = {}): RetratoDoArco | null {
@@ -164,11 +168,15 @@ export function retratoDoArco(carregado: ManifestoCarregado, arco: string, opcoe
   if (!estado) return null;
   const lacunas: string[] = [];
   const conteudo = estado.conteudo;
+  const rede = conteudo && envelopeMultimaquina(conteudo) ? opcoes.projecaoDaRede ?? lerRede(carregado, arco,
+    { quando, maquina: opcoes.maquina, remoto: opcoes.remoto, rede: opcoes.redeDaCoordenacao }) : null;
+  if (rede?.lacuna) lacunas.push(`a rede do arco não pôde ser lida (${rede.lacuna.motivo}: ${rede.lacuna.detalhe})`);
   let consumo: RetratoDoArco['consumo'] = [];
   let fila: RetratoDoArco['fila'] = null;
   if (conteudo && estado.autorizadoPor) {
     // As unidades dos tetos só: com todos em sessões, nenhuma transcrição nem rollout é lido para o retrato.
-    const medicao = medidorDoRelatorio(opcoes, conteudo)(raiz, estado, quando);
+    const estadoDoCusto = rede && !rede.lacuna ? { ...estado, consumo: { ...estado.consumo, arco: rede.consumo.arco } } : estado;
+    const medicao = medidorDoRelatorio(opcoes, conteudo)(raiz, estadoDoCusto, quando);
     const o = conteudo.orcamento;
     const linha = (escopo: string, unidade: Unidade, teto: number, c: ReturnType<typeof consumoDoEscopoNaUnidade>) =>
       ({ escopo, unidade, teto, texto: textoDoConsumo(c), valor: c.valor });
@@ -177,7 +185,10 @@ export function retratoDoArco(carregado: ManifestoCarregado, arco: string, opcoe
       ...o.porRuntime.map(s => linha(`do runtime ${s.runtime}`, s.teto.unidade, s.teto.valor,
         consumoDoEscopoNaUnidade(medicao, { runtime: s.runtime }, s.teto.unidade)))];
     try {
-      const f = trabalhosDoArco(fatosDaFila(carregado, arco, { quando, maquina: opcoes.maquina, lerReservas: opcoes.lerReservas }));
+      const coordenacao = rede ? coordenacaoDaFila(rede) : null;
+      if (rede?.lacuna) throw new RecusaDoArco(rede.lacuna.motivo, rede.lacuna.detalhe);
+      const f = trabalhosDoArco(fatosDaFila(carregado, arco,
+        { quando, maquina: opcoes.maquina, lerReservas: opcoes.lerReservas, ...(coordenacao ? { coordenacao } : {}) }));
       fila = { situacao: f.situacao, trabalhos: f.trabalhos.map(t => ({ id: t.id, item: t.item, thread: t.thread, estado: t.estado, fase: t.fase,
         motivo: t.motivo })) };
       lacunas.push(...f.lacunas);
@@ -197,7 +208,8 @@ export function retratoDoArco(carregado: ManifestoCarregado, arco: string, opcoe
   catch (e) { if (!(e instanceof RecusaDaSupervisao)) throw e; lacunas.push(`a supervisão do arco não se lê (${e.motivo})`); }
   return { contrato: CONTRATO_RETRATO_DO_ARCO, arco, quando, situacao: estado.situacao, versao: estado.versao, envelopeSha256: estado.envelopeSha256,
     janela: conteudo ? { inicio: conteudo.janela.inicio, fim: conteudo.janela.fim, fuso: conteudo.janela.fuso } : null,
-    propostaPendente: estado.propostaPendente, consumo, fila, fechamento, relatorio, supervisao, decisoesPendentes: estado.decisoes.length, lacunas };
+    propostaPendente: estado.propostaPendente, consumo, fila, ...(rede ? { rede } : {}), fechamento, relatorio, supervisao,
+    decisoesPendentes: estado.decisoes.length, lacunas };
 }
 
 /** O retrato em texto para pessoa, em pt-BR, com os horários no fuso da janela. */
@@ -214,6 +226,12 @@ export function textoDoRetrato(r: RetratoDoArco): string {
   if (r.fila) {
     l.push(`Fila: ${r.fila.situacao}`, ...r.fila.trabalhos.map(t => `  • ${t.id} (${t.item}): ${t.estado}${t.fase ? `, fase ${t.fase}` : ''}` +
       `${t.thread ? `, thread ${t.thread}` : ''}${t.motivo ? ` (${t.motivo})` : ''}`));
+  }
+  if (r.rede) {
+    if (r.rede.lacuna) l.push(`Rede: sem leitura (${r.rede.lacuna.motivo}: ${r.rede.lacuna.detalhe})`);
+    else l.push(`Rede: autoridade ${r.rede.autoridade?.maquina ?? 'ainda não assumida'}; máquina desta composição ${r.rede.maquina}`,
+      ...r.rede.maquinas.map(m => `  • ${m.nome}: último sinal ${m.ultimoSinal ? formatarNoFuso(m.ultimoSinal) : 'ausente'}, ` +
+        `${m.ordensVivas.length} ordem(ns), ${m.vagasAtivas.length} vaga(s), consumo ${m.consumo}`));
   }
   if (r.fechamento) {
     l.push(`Fechamento: ${r.fechamento.motivo} em ${formatarNoFuso(r.fechamento.em)}: ${r.fechamento.detalhe}`, ...r.fechamento.paradas.map(p => `  • ${p}`));
@@ -266,9 +284,13 @@ export interface ResultadoDoTique {
  * vencimento) acabada, quando o relatório não tenta mais (A3 do CHECK: o canal sem transporte, o terminal nunca mostrado).
  * O vigia não roda mais, e o log dele não cresce.
  */
-function terminalQuieto(carregado: ManifestoCarregado, arco: string, estado: EstadoDoArco, quando: string): boolean {
+function terminalQuieto(carregado: ManifestoCarregado, arco: string, estado: EstadoDoArco, quando: string, rede: RedeDoArco | null): boolean {
   if (!['expirado', 'revogado', 'encerrado'].includes(estado.situacao)) return false;
   if (estado.despachos.some(d => d.desfecho === 'pendente')) return false;
+  if (estado.conteudo && envelopeMultimaquina(estado.conteudo)) {
+    if (!rede || rede.lacuna) return false;
+    if (rede.obrigacoes.ordens.length || rede.obrigacoes.vagas.length || rede.obrigacoes.vezes.length) return false;
+  }
   try {
     const r = retratoDoRelatorio(carregado.raiz, arco, estado.conteudo, quando);
     if (r.versoes.at(-1)?.entregue === true) return true;
@@ -293,8 +315,12 @@ export function tiqueDoArco(carregado: ManifestoCarregado, arco: string, opcoes:
   if (!estado?.autorizadoPor) {
     throw new RecusaDoArco('noctum.modo.sem-envelope', `o arco ${arco} nunca foi autorizado pelo dono: o #Noctum não vale; ${COMO_ABRIR}`);
   }
+  const rede = estado.conteudo && envelopeMultimaquina(estado.conteudo)
+    ? opcoes.projecaoDaRede ?? lerRede(carregado, arco,
+      { quando, maquina: opcoes.maquina, remoto: opcoes.remoto, rede: opcoes.redeDaCoordenacao }) : null;
   const deFechamento: OpcoesDoFechamento = { quando, maquina: opcoes.maquina, lerReservas: opcoes.lerReservas, medir: opcoes.medir,
-    parar: opcoes.parar, listarSessoes: opcoes.listarSessoes, git: opcoes.git };
+    parar: opcoes.parar, listarSessoes: opcoes.listarSessoes, git: opcoes.git, projecaoDaRede: rede ?? undefined,
+    remoto: opcoes.remoto, redeDaCoordenacao: opcoes.redeDaCoordenacao };
   const falhas: FalhaDoTique[] = [];
   let erro: unknown = null;
   const isolada = <T>(etapa: FalhaDoTique['etapa'], fn: () => T): T | null => {
@@ -321,8 +347,10 @@ export function tiqueDoArco(carregado: ManifestoCarregado, arco: string, opcoes:
       passo = isolada('passo', () => opcoes.passo!(carregado, arco, quando));
       if (passo?.acao === 'encerrar') fechamento = isolada('fechamento', () => fecharSeDevido(carregado, arco, deFechamento)) ?? queFalhou();
     }
-  } else if (agora && agora.situacao !== 'agendado' && !terminalQuieto(carregado, arco, agora, quando)) {
+  } else if (agora && agora.situacao !== 'agendado' && !terminalQuieto(carregado, arco, agora, quando, rede)) {
     const deVigia: OpcoesDoVigia = { ...opcoes.opcoesDoVigia, quando, maquina: opcoes.maquina ?? opcoes.opcoesDoVigia?.maquina,
+      coordenacao: { remoto: opcoes.remoto ?? opcoes.opcoesDoVigia?.coordenacao?.remoto,
+        rede: opcoes.redeDaCoordenacao ?? opcoes.opcoesDoVigia?.coordenacao?.rede },
       passo: { maquina: opcoes.maquina, lerReservas: opcoes.lerReservas, ...opcoes.opcoesDoPasso, ...opcoes.opcoesDoVigia?.passo } };
     vigia = isolada('vigia', () => (opcoes.vigia ?? vigiarArco)(carregado, arco, deVigia));
     const doVigia = vigia?.acao === 'tique' ? vigia.passo : null;
@@ -334,7 +362,8 @@ export function tiqueDoArco(carregado: ManifestoCarregado, arco: string, opcoes:
   let relatorio: ResultadoDaEntrega;
   try {
     relatorio = entregarRelatorioSeDevido(carregado, arco, { quando, maquina: opcoes.maquina, lerReservas: opcoes.lerReservas,
-      medir: opcoes.medir, supervisao: opcoes.supervisao, enviar: opcoes.enviar });
+      medir: opcoes.medir, supervisao: opcoes.supervisao, enviar: opcoes.enviar, projecaoDaRede: rede ?? undefined,
+      remoto: opcoes.remoto, redeDaCoordenacao: opcoes.redeDaCoordenacao });
   } catch (e) { throw erro ?? e; }
   if (erro !== null) throw erro;
   return { contrato: CONTRATO_TIQUE, arco, quando, fechamento, passo, vigia, relatorio, falhas };

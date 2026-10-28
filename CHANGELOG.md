@@ -41,11 +41,24 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   Num projeto preparado, o despacho `--runtime grok` de uma thread com worktree própria grava nela, fora do git, a config
   com o servidor vinculado à thread e ao despacho, leva um `--allow MCPTool(orkastery__<ferramenta>)` por ferramenta
   liberada e roda o filho sem o MCP do Claude e do Cursor. O `ork_phase_run` do MCP aceita o `grok`, a tela do setup o
-  lista, e o watcher refaz a prova do `ork` sob o lock da sessão. O sandbox do `grok` vale também para o servidor MCP do
-  `ork`: com `workspace` ou `read-only`, ele só lê, e as mutações gravam só com a postura `danger-full-access`
-  confirmada, até o ensaio real; por isso o `grok` segue fora do fallback automático de um projeto com o MCP. O
+  lista, e o watcher refaz a prova do `ork` sob o lock da sessão. O `claude-bg` e o `codex` não mudam.
+- **MCP do `ork` fora do sandbox do Grok Build** ([RM-067](docs/roadmap/RM-067-grok-build-homologado.md), F4c): o
+  sandbox do `grok` vale para ele e os filhos, e o servidor MCP do `ork` que ele subia lia o estado sem gravar. Agora,
+  com o MCP do `ork`, o despacho `--runtime grok` sobe antes do `grok` um servidor do próprio `ork`, fora do sandbox:
+  Streamable HTTP só em `127.0.0.1`, porta efêmera, token de 256 bits por despacho só no ambiente do servidor e do
+  `grok` (`bearer_token_env_var`), nunca em arquivo, com o sandbox a conexão só da árvore de processos do `grok` do
+  despacho (quando ele deixa ler os descritores), só as ferramentas do `--allow` daquele despacho, e o servidor morre
+  com a sessão. A sessão `grok` no piso `workspace` grava o ledger, os artefatos e o git da worktree pelo núcleo, e o
+  `grok` volta a ser destino de fallback de um projeto com o MCP. O `grok` segue no `workspace`, sem
+  `danger-full-access`, `--yolo` ou `bypassPermissions`, e a retomada manual avisa que roda sem o MCP do `ork`. O
   `claude-bg` e o `codex` não mudam.
 
+- **Preparação dos pilotos em duas máquinas do #Noctum (RM-058)**: `ork noctum maquina [--json]` dá nome, chave
+  pública e impressão para o envelope `v3`; o passo supervisionado usa a coordenação da máquina, a retomada exige o
+  recibo de fim antes de transferir trabalho, e fila, fechamento, relatório, guarda e entrega consideram a rede e a
+  vez global. O aceite combina os arquivos das demais máquinas por `--outra-maquina`, P3 e P4 exigem ao menos duas
+  máquinas quando forem conferidos, e o cenário `duas-maquinas` exercita F10 e F11 apenas em fixture simulada.
+  Nenhum piloto em duas máquinas rodou; o #Noctum segue em desenvolvimento, não anunciado.
 - **Bancada de medição do CHECK** ([RM-074](docs/roadmap/README.md), M0): `node core/scripts/medir-check.cjs --bancada`
   roda, numa cópia descartável e no mesmo commit, pares de Agile Check e Classic Check e um passe que mede cada arquivo
   de teste sozinho (`user`, `sys`, parede, pico de memória e testes), espera a máquina quieta antes de cada rodada,
@@ -55,6 +68,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Agile Check agenda o grupo pela CPU da máquina:** a lane hermética, a varredura e a integração dividem a mesma
+  conta de CPUs, e todo contêiner recebe `--cpus` com a sua cota. Se carga ou steal indicarem saturação, o `verify`
+  executa hermética, varredura e integração na ordem do Classic, registra peça e motivo no `verify_run` e usa uma CPU
+  a menos; arquivos de teste, categorias e ferramentas de varredura permanecem os mesmos.
 - **A entrega por PR reconhece a mensagem padrão da forja:** `ork ship registrar-pr`, `--todas`, a paridade de docs,
   o condutor e `ork ship publicar` aceitam tanto `ship(<thread>)` quanto os merges padrão do GitHub e do GitLab,
   vinculados pela branch exata da thread. Revert, citação só no corpo e branch de outra thread com prefixo parecido
@@ -63,6 +80,14 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   o perfil pedido no ledger (`perfilPedido`), e o retry e a retomada da fila voltam a ele. Se ele estiver sem login,
   esgotado ou for de outro runtime, recusam com motivo tipado e a correção, em vez de redespachar em outra conta sem
   avisar. A rotação por falha da própria conta e o despacho sem `--perfil` seguem como antes.
+- **A dívida do Agile Check que pesava na confiança** ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md),
+  F4): o motivo da peça `imagem-de-lint` chega ao ledger sem login de URL. A lane de teste que não termina sozinha
+  fora do tempo (sinal, comando ausente, código de quem não a deixou terminar) não tira mais o veredito do `test`
+  inteiro: ele é comparado com a baseline como o comando único do Classic, nem mais nem menos estrito. O texto do
+  gate diz qual lane ficou sem veredito e por quê. A legenda do fuso sai `GMT+0` também no ICU que escreve só `GMT`.
+  O panorama da rede omite o ano pela hora da leitura, e o retrato pt-BR F3c não fica vermelho em 01/01/2027. O
+  trabalhador da varredura roda sem string de shell. A varredura do Agile ganha o caso com Docker real na lane de
+  integração. O CI confere a paridade do `tsgo` com o `tsc` em todo PR. O Classic Check não muda.
 
 ## [0.6.0] - 2026-10-26
 

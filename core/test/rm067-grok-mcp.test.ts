@@ -18,6 +18,7 @@ import { criarServidorMcp } from '../src/mcp-server';
 import { CONSULTAS_MCP, MUTACOES_WORKTREE, montarComando as comandoDoClaude } from '../src/adapters/claude-bg';
 import { configDoFilho, ferramentasDoGrok, ferramentasServidasAoGrok, gravarConfigDaWorktree, IGNORADOS_DA_CONFIG_DO_FILHO,
   MARCA_DA_CONFIG_DO_FILHO, montarComando as comandoDoGrok } from '../src/adapters/grok';
+import { arquivosDoServidorGrok, ENV_DO_TOKEN_DO_SERVIDOR_GROK, lerReciboServidorGrok } from '../src/adapters/grok-mcp';
 import { instalarAdaptador } from '../src/hosts';
 import { rodarFase } from '../src/phase';
 import { exec } from '../src/util';
@@ -25,8 +26,8 @@ import { editarBloco, textoDoSetup, validarFallback } from '../src/setup';
 import { comLocale } from '../src/locale';
 import { TOOLS_DO_GRAFO } from '../src/mcp-grafo';
 import { dirThread, novaThread } from '../src/thread';
-import { capacidadeDaRotacao, capacidadeDoRuntimeNoProjeto, contextoDoProjeto, MOTIVO_FORA_DOS_DESTINOS_AUTOMATICOS,
-  novaIdentidadeDeDespacho, validarContextoDoGrok, validarContextoRuntime } from '../src/runtime-context';
+import { capacidadeDaRotacao, capacidadeDoRuntimeNoProjeto, contextoDoProjeto, novaIdentidadeDeDespacho,
+  RUNTIMES_FORA_DOS_DESTINOS_AUTOMATICOS, validarContextoDoGrok, validarContextoRuntime } from '../src/runtime-context';
 import { lerLedger } from '../src/ledger';
 import { commitar, projetoTemporario } from './apoio';
 import { esperarCondicao } from './controller-simulado';
@@ -198,17 +199,17 @@ test('GM6: o ork_phase_run do MCP aceita o runtime grok, como o --runtime do CLI
   } finally { p.limpar(); }
 });
 
-test('GM7: num projeto preparado, o grok recebe o contexto do host grok, com o servidor vinculado a thread e ao despacho', () => {
+test('GM7: num projeto preparado, o grok recebe o contexto do host grok, com o servidor vinculado a thread e ao despacho, e volta a ser destino de fallback', () => {
   const p = projetoTemporario('gm7-contexto');
   try {
     instalarMcp({ projeto: p.dir, host: 'grok', permissoesFilho: 'worktree' });
     const t = novaThread(p.carregado, { nome: 'gm7', modo: 'auto', criarWorktree: true }).thread;
     const wt = t.worktree!;
-    // GO-FIX A5: como destino automatico (fallback e escada) o grok fica fora, pelo sandbox; a troca de conta dentro dele vale.
-    assert.deepEqual(capacidadeDoRuntimeNoProjeto(p.dir, 'grok'),
-      { runtime: 'grok', host: 'grok', preparado: true, capaz: false, motivo: MOTIVO_FORA_DOS_DESTINOS_AUTOMATICOS });
+    // RM-067 (F4c, D9): com o servidor do ork fora do sandbox, o grok e destino automatico (fallback e escada) tambem aqui.
+    assert.deepEqual(capacidadeDoRuntimeNoProjeto(p.dir, 'grok'), { runtime: 'grok', host: 'grok', preparado: true, capaz: true, motivo: null });
     assert.equal(capacidadeDaRotacao(p.dir, 'grok', true).capaz, true, 'a troca de conta dentro do grok vale');
-    assert.equal(capacidadeDaRotacao(p.dir, 'grok', false).capaz, false, 'como alvo de fallback, nao');
+    assert.equal(capacidadeDaRotacao(p.dir, 'grok', false).capaz, true, 'e como alvo de fallback tambem');
+    assert.deepEqual(RUNTIMES_FORA_DOS_DESTINOS_AUTOMATICOS, [], 'nenhum runtime homologado fica fora pelo sandbox');
     assert.equal(capacidadeDoRuntimeNoProjeto(p.dir, 'claude-bg').capaz, false, 'o claude-bg segue exigindo o adaptador dele');
     const ctx = contextoDoProjeto(p.dir, 'grok', wt, t.id)!;
     assert.equal(ctx.host, 'grok');
@@ -217,9 +218,14 @@ test('GM7: num projeto preparado, o grok recebe o contexto do host grok, com o s
     const v = validarContextoDoGrok({ ...ctx, identidade }, wt);
     assert.equal(v.permissoesFilho, 'worktree');
     assert.equal(v.grafoMcp, false);
-    const args = v.servidor.args;
-    assert.equal(args[args.indexOf('--host') + 1], 'grok');
-    assert.deepEqual(args.slice(-6), ['--child-permissions', 'worktree', '--thread', t.id, '--dispatch', identidade.dispatchId]);
+    // RM-067 (F4c, D8): o servidor do contexto e o externo, que o despacho sobe vinculado a thread e ao despacho.
+    assert.equal(v.servidor.projeto, fs.realpathSync(p.dir));
+    assert.equal(v.servidor.threadId, t.id);
+    assert.equal(v.servidor.dispatchId, identidade.dispatchId);
+    assert.equal(v.servidor.permissoesFilho, 'worktree');
+    assert.equal(v.servidor.transporteShip, 'github-ssh');
+    assert.equal('command' in v.servidor || 'args' in v.servidor, false, 'nada do comando stdio que o grok subia');
+    assert.equal(validarContextoDoGrok(ctx, wt).servidor.dispatchId, null, 'sem identidade, o despacho real recusa');
     assert.throws(() => validarContextoRuntime({ ...ctx, identidade }, wt), /runtime\.context\.invalid: host desconhecido/,
       'o host grok nao passa pela validacao do adaptador instalado dos outros hosts');
     assert.throws(() => validarContextoDoGrok({ ...ctx, host: 'codex' }, wt), /host grok esperado/);
@@ -277,10 +283,15 @@ test('GM9: o despacho real grava a config da worktree vinculada a thread e ao de
     const config = fs.readFileSync(path.join(wt, '.grok', 'config.toml'), 'utf8');
     assert.ok(config.startsWith(`${MARCA_DA_CONFIG_DO_FILHO}\n`), 'a marca do ork na primeira linha');
     const dispatchId = (lerLedger(dirThread(p.dir, t.id)).find((e) => e.tipo === 'phase_prompt_recorded')?.identidade as { dispatchId: string }).dispatchId;
-    const args = entradaDe(config).args as string[];
-    assert.equal(args[args.indexOf('--host') + 1], 'grok');
-    assert.deepEqual(args.slice(-6), ['--child-permissions', 'worktree', '--thread', t.id, '--dispatch', dispatchId],
-      'o servidor da worktree e o da thread e do despacho');
+    // RM-067 (F4c, D7): a forma url do guia (G16), com o servidor do ork no loopback e o token so no ambiente (G5).
+    const entrada = entradaDe(config);
+    assert.deepEqual(Object.keys(entrada).sort(), ['bearer_token_env_var', 'url'], 'sem command: o servidor nao e filho do grok');
+    const arquivos = arquivosDoServidorGrok(path.join(dirThread(p.dir, t.id), 'sessoes', `${sid}.grok.jsonl`));
+    assert.equal(entrada.bearer_token_env_var, ENV_DO_TOKEN_DO_SERVIDOR_GROK);
+    const recibo = lerReciboServidorGrok(arquivos.reciboPath);
+    assert.equal(entrada.url, recibo?.url);
+    assert.match(String(entrada.url), /^http:\/\/127\.0\.0\.1:\d+\/mcp$/);
+    assert.deepEqual([recibo?.threadId, recibo?.dispatchId], [t.id, dispatchId], 'o servidor da worktree e o da thread e do despacho');
     assert.equal(fs.readFileSync(path.join(wt, '.grok', '.gitignore'), 'utf8'), IGNORADOS_DA_CONFIG_DO_FILHO);
     assert.equal(exec('git', ['status', '--porcelain', '--untracked-files=all'], wt).stdout, '', 'a worktree segue limpa');
     // GO-FIX A2: so os arquivos do ork ficam fora do git; a regra que a sessao deixasse em .grok/rules aparece.
@@ -299,13 +310,18 @@ test('GM10: a config da worktree recusa versionada, sem a marca, link, cifrao e 
   const stub = grokFalso('gm10-recusas');
   const p = projetoTemporario('gm10-recusas');
   try {
-    const texto = configDoFilho({ command: '/srv/node', args: ['ork', 'mcp', 'serve'] }, 'ork-fixture');
-    assert.throws(() => configDoFilho({ command: '/srv/node', args: ['ork', '$HOME/x'] }, 'ork-fixture'), /args\[1\] do servidor do ork tem \$/);
-    assert.throws(() => configDoFilho({ command: '/srv/node', args: [], env: { CHAVE: '${OUTRA}' } }, 'ork-fixture'), /env\.CHAVE do servidor do ork tem \$/);
+    // RM-067 (F4c, D7): a entrada e a forma url, com o servidor do ork no loopback e o nome da variavel do token.
+    const conexao = { url: 'http://127.0.0.1:41234/mcp', bearerTokenEnvVar: ENV_DO_TOKEN_DO_SERVIDOR_GROK };
+    const texto = configDoFilho(conexao, 'ork-fixture');
+    assert.equal(texto.includes('bearer_token_file'), false, 'nenhum token em arquivo (GO-FIX 1)');
+    assert.throws(() => configDoFilho({ ...conexao, url: 'http://127.0.0.1:41234/mcp${X}' }, 'ork-fixture'), /url do servidor do ork tem \$/);
+    for (const url of ['http://0.0.0.0:41234/mcp', 'http://localhost:41234/mcp', 'https://mcp.example.com/mcp', 'http://127.0.0.1:41234/outro'])
+      assert.throws(() => configDoFilho({ ...conexao, url }, 'ork-fixture'), /nao e a do loopback local/, url);
+    for (const nome of ['${OUTRA}', 'ork-token', 'COM ESPACO', ''])
+      assert.throws(() => configDoFilho({ ...conexao, bearerTokenEnvVar: nome }, 'ork-fixture'), /nao e um nome de variavel/, nome);
     // GO-FIX S2: o documento inteiro volta pelo parser; uma tabela a mais, por qualquer campo, recusa.
-    assert.throws(() => configDoFilho({ command: '/srv/node', args: [] }, 'ork-x\n[mcp_servers.outro]\ncommand = "y"'),
-      /nao volta igual pelo TOML/);
-    assert.throws(() => configDoFilho({ command: '/srv/node', args: ['\u007f'] }, 'ork-fixture'), /nao sai como TOML valido|nao volta igual/);
+    assert.throws(() => configDoFilho(conexao, 'ork-x\n[mcp_servers.outro]\ncommand = "y"'), /nao volta igual pelo TOML/);
+    assert.throws(() => configDoFilho(conexao, 'ork-\u007f'), /nao sai como TOML valido|nao volta igual/);
     const pasta = path.join(p.dir, '.grok'), arquivo = path.join(pasta, 'config.toml');
     // Arquivo de outra pessoa, sem a marca: fica como estava, e nada nasce ao lado.
     fs.mkdirSync(pasta);
@@ -323,7 +339,7 @@ test('GM10: a config da worktree recusa versionada, sem a marca, link, cifrao e 
     // A config do ork e reescrita a cada despacho.
     fs.rmSync(arquivo);
     gravarConfigDaWorktree(p.dir, texto);
-    const outro = configDoFilho({ command: '/srv/node', args: ['ork', 'mcp', 'serve', '--thread', 'ork-outra'] }, 'ork-outra');
+    const outro = configDoFilho({ ...conexao, url: 'http://127.0.0.1:41235/mcp' }, 'ork-outra');
     gravarConfigDaWorktree(p.dir, outro);
     assert.equal(fs.readFileSync(arquivo, 'utf8'), outro);
     // Um .gitignore que nao ignora a config: a escrita volta atras e recusa.

@@ -13,7 +13,8 @@ import * as path from 'node:path';
 import { adicionarClaim } from '../src/claims';
 import { elosDoComando, GuardaDoProduto, hashDoProduto, MAXIMO_DE_PREPAROS_REFEITOS, paralelismoDaVarreduraNoGrupo, passosDoComando,
   PECA_SEM_RELATORIO, RelatorioDoCheck, testDasLanes, TETO_DO_RELATORIO_BYTES, tirarPassosDoPreparo } from '../src/check-agil';
-import { rodarEmParalelo } from '../src/check-paralelo';
+import { argvDoItem, rodarEmParalelo } from '../src/check-paralelo';
+import { cargaDoProcLoadavg, paredeAgileSimulada, paredeClassicaSimulada, planejarCpuDoGrupo } from '../src/agendador-cpu';
 import { lerLedger } from '../src/ledger';
 import { carregarManifesto } from '../src/manifest';
 import { dirThread, novaThread } from '../src/thread';
@@ -21,6 +22,7 @@ import { gravarBaseline, identidadeDoProduto, semVereditoPorTempo, textoDoVerify
   ExecutorVerify } from '../src/verify';
 import { comLocale } from '../src/locale';
 import type { ResultadoDeComando } from '../src/types';
+import { exec } from '../src/util';
 import { ajustarManifesto, commitar, projetoTemporario } from './apoio';
 
 type Projeto = ReturnType<typeof projetoTemporario>;
@@ -100,7 +102,7 @@ test('AG3: com a guarda valendo, a claim roda sem os passos do preparo e o build
     adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'com preparo', verificar: ['echo passo-a && echo passo-b && echo c1'] });
     const agile = gravador();
     const r = verificar(p.carregado, t.id, { executor: agile.executor });
-    assert.equal(r.ok, true, r.motivos.join(','));
+    assert.equal(r.ok, true, r.motivos.join(',') + JSON.stringify(r.comandos));
     assert.deepEqual(agile.lista, [['preparo', 'echo passo-a && echo passo-b'], ['C1.1', 'echo c1'], ['test', 'echo test']]);
     const exec = r.claims[0].execucoes[0];
     assert.equal(exec.comando, 'echo passo-a && echo passo-b && echo c1', 'o comando gravado e o inteiro');
@@ -237,7 +239,7 @@ test('AG10: o grupo pelo auxiliar real roda ao mesmo tempo, com a saida e a dura
       { scan: marca('varredura') });
     fs.appendFileSync(path.join(p.dir, '.git', 'info', 'exclude'), '*.ini\n*.fim\n*.outros\n');
     const { thread: t } = novaThread(p.carregado, { nome: 'paralelo', modo: 'auto' });
-    const r = verificar(p.carregado, t.id, {});
+    const r = verificar(p.carregado, t.id, { medicaoCpuAgendador: { carga1: 0, stealPct: 0 } });
     assert.equal(r.ok, true, r.motivos.join(',') + JSON.stringify(r.comandos));
     const outros = (n: string): number => Number(fs.readFileSync(path.join(p.dir, `${n}.outros`), 'utf8').trim());
     assert.ok(['lane-a', 'lane-b', 'varredura'].some((n) => outros(n) > 0), 'os tres correram juntos');
@@ -299,7 +301,7 @@ test('AG14: o relatorio das pecas chega ao verify_run: pecas, lanes com contagem
     const peca = 'echo \'{"tipo":"peca","peca":"imagem-de-lint","estado":"fallback","motivo":"sem rede","fallback":"eslint do catalogo"}\' >> $ORK_CHECK_RELATORIO';
     comAgile(p, `  agile:\n    produto:\n      - "README.md"\n    test:\n      h: "${lista}"`, { scan: peca });
     const { thread: t } = novaThread(p.carregado, { nome: 'relatorio', modo: 'auto' });
-    const r = verificar(p.carregado, t.id, {});
+    const r = verificar(p.carregado, t.id, { medicaoCpuAgendador: { carga1: 0, stealPct: 0 } });
     assert.equal(r.ok, true, r.motivos.join(',') + JSON.stringify(r.comandos));
     const agile = ultimoVerify(p, t.id).agile as Record<string, unknown>;
     const lanes = agile.lanes as Array<Record<string, unknown>>;
@@ -418,7 +420,7 @@ test('AG21: a lane de apos_a_varredura entra no grupo depois do security_scan, e
     const { thread: t } = novaThread(p.carregado, { nome: 'encadeada', modo: 'auto' });
     const g = gravador();
     const r = verificar(p.carregado, t.id, { executor: g.executor });
-    assert.equal(r.ok, true, r.motivos.join(','));
+    assert.equal(r.ok, true, r.motivos.join(',') + JSON.stringify(r.comandos));
     assert.deepEqual(g.lista.slice(1), [['test:h', 'echo h'], ['security_scan', 'echo s'], ['test:i', 'echo i']]);
     assert.deepEqual(r.comandos.map((c) => c.nome), ['build', 'test', 'security_scan']);
     assert.deepEqual(r.comandos[1].lanes?.map((l) => l.lane), ['i', 'h'], 'as lanes na ordem do manifesto');
@@ -482,8 +484,8 @@ test('AG24: no grupo real, so a varredura recebe o teto de ferramentas, e a lane
     assert.equal(fs.readFileSync(arq('h.txt'), 'utf8').trim(), '', 'a lane nao recebe o teto da varredura');
     assert.equal(fs.readFileSync(arq('i.txt'), 'utf8').trim(), 'depois', 'a lane encadeada comecou depois da varredura');
     assert.equal(paralelismoDaVarreduraNoGrupo(7), 2);
-    assert.equal(paralelismoDaVarreduraNoGrupo(16), 5);
-    assert.equal(paralelismoDaVarreduraNoGrupo(1), 2);
+    assert.equal(paralelismoDaVarreduraNoGrupo(16), 2);
+    assert.equal(paralelismoDaVarreduraNoGrupo(1), 1);
   } finally { p.limpar(); }
 });
 
@@ -558,7 +560,7 @@ test('AG28: as claims recebem o modo e nunca o relatorio da rodada; a lane receb
     adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'le o ambiente',
       verificar: [`echo "modo=$ORK_CHECK_MODO rel=$ORK_CHECK_RELATORIO" > ${arq('claim.txt')}`] });
     const r = verificar(p.carregado, t.id, {});
-    assert.equal(r.ok, true, r.motivos.join(','));
+    assert.equal(r.ok, true, r.motivos.join(',') + JSON.stringify(r.comandos));
     assert.equal(fs.readFileSync(arq('claim.txt'), 'utf8').trim(), 'modo=agile rel=');
     assert.match(fs.readFileSync(arq('lane.txt'), 'utf8'), /^modo=agile rel=\/.+pecas\.jsonl$/m);
   } finally { p.limpar(); }
@@ -597,7 +599,7 @@ test('AG30: o auxiliar que morre sem gravar o resultado deixa os comandos sem ve
   } finally { p.limpar(); }
 });
 
-test('AG31: falha de verdade numa lane com outra sem veredito deixa o test sem veredito inteiro: bloqueia no verify e e sem-veredito na baseline', () => {
+test('AG31: falha de verdade numa lane com outra sem veredito: o tempo e a lane que nao rodou deixam o test sem veredito inteiro, o resto da o codigo dela; na baseline e sem-veredito', () => {
   const base: ResultadoDeComando = { nome: 'x', comando: 'c', ok: true, code: 0, resumo: '', causa: 'exit', prazoMs: 1000, duracaoMs: 1, executado: true };
   const real: ResultadoDeComando = { ...base, ok: false, code: 1, testeQueCaiu: ['quebrou'] };
   const semVeredito: ResultadoDeComando[] = [
@@ -609,7 +611,10 @@ test('AG31: falha de verdade numa lane com outra sem veredito deixa o test sem v
   ];
   for (const outra of semVeredito) {
     const t = testDasLanes([{ lane: 'a', resultado: real }, { lane: 'b', resultado: outra }]);
-    assert.equal(t.executado, false, JSON.stringify(outra));
+    // RM-074 (F4): so o tempo e a lane que nao rodou tiram o veredito inteiro; o sinal e o comando ausente dao o codigo deles.
+    const inteiro = outra.causa === 'timeout' || !!outra.relogioSobSteal?.length || outra.executado === false;
+    assert.equal(t.executado, !inteiro, JSON.stringify(outra));
+    if (!inteiro) assert.equal(t.code, outra.code, 'o codigo e o da lane que nao terminou sozinha');
     assert.equal(t.causa, 'exit', 'a causa e a da falha de verdade');
     assert.deepEqual(t.testeQueCaiu, ['quebrou']);
     assert.equal(vereditoDaBaseline(t), 'sem-veredito', JSON.stringify(outra));
@@ -636,7 +641,10 @@ test('AG31: falha de verdade numa lane com outra sem veredito deixa o test sem v
     }
   }
   const sozinha = testDasLanes([{ lane: 'a', resultado: { ...base, ok: false, code: 124, causa: 'exit' } }, { lane: 'b', resultado: base }]);
-  assert.equal(sozinha.executado, false, 'a lane que sai com 124 antes do prazo de fora fica sem veredito');
+  // RM-074 (F4): como o comando unico do Classic, a lane que sai com 124 antes do prazo de fora e comparada com a baseline.
+  assert.equal(sozinha.executado, true, 'a lane que sai com 124 antes do prazo de fora tem o codigo dela, como no Classic');
+  assert.equal(sozinha.code, 124);
+  assert.equal(vereditoDaBaseline(sozinha), 'sem-veredito', 'na baseline o 124 nao e da propria lane');
   const estourou = testDasLanes([{ lane: 'a', resultado: { ...base, ok: false, code: 124, causa: 'timeout' } }, { lane: 'b', resultado: base }]);
   assert.equal(estourou.executado, true);
   assert.equal(semVereditoPorTempo(estourou), true, 'o estouro sozinho segue como sem veredito por tempo');
@@ -741,7 +749,7 @@ test('AG35: as variaveis de outra rodada nao chegam aos comandos; sem a guarda, 
     process.env.ORK_CHECK_RELATORIO = arq('de-outra-rodada.jsonl');
     process.env.ORK_CHECK_VARREDURA_PARALELA = '1';
     const r = verificar(p.carregado, t.id, {});
-    assert.equal(r.ok, true, r.motivos.join(','));
+    assert.equal(r.ok, true, r.motivos.join(',') + JSON.stringify(r.comandos));
     assert.equal(fs.readFileSync(arq('claim.txt'), 'utf8').trim(), 'rel= teto=');
     assert.equal(fs.readFileSync(arq('test.txt'), 'utf8').trim(), 'rel= teto=', 'o verify.test em serie roda sem o relatorio');
     const scan = fs.readFileSync(arq('scan.txt'), 'utf8');
@@ -812,4 +820,178 @@ test('AG36: o relatorio da rodada e lido ate o teto, e o corte vira peca em fall
     assert.deepEqual(linhas.at(-1), { tipo: 'peca', peca: 'relatorio', estado: 'fallback',
       motivo: `o relatorio da rodada passou do teto de ${TETO_DO_RELATORIO_BYTES} bytes (${linha.length * n} bytes)`, fallback: 'so as linhas ate o teto' });
   } finally { relatorio.fechar(); }
+});
+
+test('AG39: a lane caida sem veredito fora do tempo deixa o test tao estrito quanto o comando unico do Classic, nem mais nem menos (RM-074 F4)', () => {
+  // Cada caso: o que a lane `b` devolve no Agile (com a lane `a` caida de verdade) e o que o comando unico do Classic
+  // devolveria terminando do mesmo jeito; a baseline dos dois tem o test caido de verdade (`ja-falhava`) ou passando.
+  const casos: Array<{ nome: string; lane: Partial<ResultadoDeComando> }> = [
+    { nome: 'sinal', lane: { ok: false, code: 137, causa: 'sinal' } },
+    { nome: 'comando ausente', lane: { ok: false, code: 127, causa: 'nao-encontrado' } },
+    { nome: '124 antes do prazo', lane: { ok: false, code: 124, causa: 'exit' } },
+    { nome: '126 do shell', lane: { ok: false, code: 126, causa: 'exit' } },
+    { nome: 'nao rodou', lane: { ok: false, code: -1, causa: 'exit', executado: false } },
+  ];
+  for (const baselinePassava of [false, true]) {
+    for (const caso of casos) {
+      const motivos = (agile: boolean): string[] => {
+        const p = projetoTemporario(`ag39-${agile ? 'a' : 'c'}`);
+        try {
+          if (agile) comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      a: "echo a"\n      b: "echo b"');
+          else {
+            ajustarManifesto(p, '  # test: nao detectado', '  test: "echo test"');
+            fs.appendFileSync(path.join(p.dir, 'orkastery.yaml'), '\ncheck:\n  mode: classic\n');
+            p.carregado = carregarManifesto(p.dir)!;
+          }
+          const { thread: t } = novaThread(p.carregado, { nome: 'paridade das lanes', modo: 'auto' });
+          const caiu = (nome: string): boolean => nome === 'test' || nome.startsWith('test:');
+          gravarBaseline(p.carregado, t.id, gravador((nome) => (caiu(nome) && !baselinePassava ? { ok: false, code: 1 } : {})).executor);
+          const r = verificar(p.carregado, t.id, { executor: gravador((nome) => nome === 'test:a' ? { ok: false, code: 1 }
+            : nome === 'test:b' || nome === 'test' ? caso.lane : {}).executor });
+          return r.motivos.filter((m) => m.startsWith('verify.')).sort();
+        } finally { p.limpar(); }
+      };
+      assert.deepEqual(motivos(true), motivos(false), `${caso.nome}, baseline ${baselinePassava ? 'passava' : 'ja falhava'}`);
+    }
+  }
+});
+
+test('AG40: o texto do gate do test sem veredito diz qual lane ficou sem veredito e por que (RM-074 F4)', () => {
+  const p = projetoTemporario('ag40');
+  try {
+    comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      hermetica: "echo h"\n      integracao: "echo i"');
+    const { thread: t } = novaThread(p.carregado, { nome: 'texto do gate', modo: 'auto' });
+    const gates = (): Array<Record<string, unknown>> => lerLedger(dirThread(p.dir, t.id)).filter((e) => e.tipo === 'gate_blocked');
+    let r = verificar(p.carregado, t.id, { executor: gravador((nome) => nome === 'test:integracao'
+      ? { ok: false, code: -1, causa: 'exit', executado: false } : {}).executor });
+    assert.ok(r.motivos.includes('verify.sem-veredito'), r.motivos.join(','));
+    const semVeredito = gates().filter((g) => g.motivo === 'verify.sem-veredito').at(-1)!;
+    assert.equal(semVeredito.detalhe, 'test sem veredito (lane integracao: sem codigo de saida: nao rodou, ou o auxiliar do grupo ' +
+      'morreu antes de gravar o resultado)');
+    r = verificar(p.carregado, t.id, { executor: gravador((nome) => nome === 'test:hermetica' ? { ok: false, code: 1 }
+      : nome === 'test:integracao' ? { ok: false, code: 124, causa: 'timeout' } : {}).executor });
+    assert.ok(r.motivos.includes('verify.sem-veredito'), r.motivos.join(','));
+    assert.equal(gates().filter((g) => g.motivo === 'verify.sem-veredito').at(-1)!.detalhe,
+      'test sem veredito (lane hermetica: caiu com o codigo 1; lane integracao: estourou o prazo)');
+    r = verificar(p.carregado, t.id, { executor: gravador((nome) => nome === 'test:integracao'
+      ? { ok: false, code: 124, causa: 'timeout' } : {}).executor });
+    assert.ok(r.motivos.includes('verify.timeout'), r.motivos.join(','));
+    assert.match(String(gates().filter((g) => g.motivo === 'verify.timeout').at(-1)!.detalhe), /: test \(lane integracao: estourou o prazo\)$/);
+  } finally { p.limpar(); }
+});
+
+test('AG41: com a raiz do estado diferente da worktree de onde o verify roda, a evidencia das lanes vai relativa a raiz do estado (RM-074 F4)', () => {
+  const p = projetoTemporario('ag41');
+  const wt = `${p.dir}-wt`;
+  try {
+    const lista = 'echo \'{"tipo":"lista","lane":"h","arquivos":["a.test.js"]}\' >> $ORK_CHECK_RELATORIO';
+    comAgile(p, `  agile:\n    produto:\n      - "README.md"\n    test:\n      h: "${lista}"`);
+    commitar(p.dir, 'orkastery.yaml', fs.readFileSync(path.join(p.dir, 'orkastery.yaml'), 'utf8'), 'agile');
+    const { thread: t } = novaThread(p.carregado, { nome: 'evidencia na raiz do estado', modo: 'auto' });
+    const r0 = exec('git', ['worktree', 'add', '-q', '--detach', wt], p.dir);
+    assert.ok(r0.ok, r0.stderr);
+    const daWorktree = carregarManifesto(wt)!;
+    assert.equal(fs.realpathSync(daWorktree.raiz), fs.realpathSync(wt), 'o verify roda da worktree ligada');
+    const r = verificar(daWorktree, t.id, {});
+    assert.equal(r.ok, true, r.motivos.join(','));
+    const agile = ultimoVerify(p, t.id).agile as Record<string, unknown>;
+    const evidencia = String(agile.evidencia);
+    assert.match(evidencia, new RegExp(`^\\.orkastery/threads/${t.id}/check/[0-9a-f]{12}-lanes\\.json$`));
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(p.dir, evidencia), 'utf8')).lanes[0].arquivos, ['a.test.js']);
+    assert.equal(fs.existsSync(path.join(wt, evidencia)), false, 'nada na worktree de onde rodou');
+  } finally {
+    exec('git', ['worktree', 'remove', '--force', wt], p.dir);
+    fs.rmSync(wt, { recursive: true, force: true });
+    p.limpar();
+  }
+});
+
+test('AG42: no ramo do relogio sob steal a juncao das lanes fica com veredito por tempo (executado verdadeiro); a lane que nao rodou tira o veredito (RM-074 F4)', () => {
+  const base: ResultadoDeComando = { nome: 'x', comando: 'c', ok: true, code: 0, resumo: '', causa: 'exit', prazoMs: 1000, duracaoMs: 1, executado: true };
+  const relogio: ResultadoDeComando = { ...base, ok: false, code: 1, relogioSobSteal: ['prazo de 15 s'] };
+  const estouro: ResultadoDeComando = { ...base, ok: false, code: 124, causa: 'timeout' };
+  const naoRodou: ResultadoDeComando = { ...base, ok: false, code: -1, executado: false };
+  const juntar = (a: ResultadoDeComando, b: ResultadoDeComando): ResultadoDeComando =>
+    testDasLanes([{ lane: 'a', resultado: a }, { lane: 'b', resultado: b }]);
+  for (const [nome, t] of [['relogio e relogio', juntar(relogio, { ...relogio, relogioSobSteal: ['outro'] })],
+    ['relogio e ok', juntar(relogio, base)], ['ok e relogio', juntar(base, relogio)],
+    ['estouro e relogio', juntar(estouro, relogio)], ['relogio e estouro', juntar(relogio, estouro)]] as const) {
+    assert.equal(t.executado, true, nome);
+    assert.equal(semVereditoPorTempo(t), true, nome);
+    assert.equal(vereditoDaBaseline(t), 'sem-veredito', nome);
+  }
+  for (const t of [juntar(relogio, naoRodou), juntar(naoRodou, relogio)]) assert.equal(t.executado, false);
+
+  // No verify: as duas lanes caidas so no relogio dao `verify.timeout`, nunca sem veredito inteiro nem regressao.
+  const p = projetoTemporario('ag42');
+  try {
+    comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      a: "echo a"\n      b: "echo b"');
+    const { thread: t } = novaThread(p.carregado, { nome: 'ramo do relogio', modo: 'auto' });
+    gravarBaseline(p.carregado, t.id, gravador().executor);
+    const r = verificar(p.carregado, t.id, { executor: gravador((nome) => nome.startsWith('test:')
+      ? { ok: false, code: 1, relogioSobSteal: [`prazo de ${nome}`] } : {}).executor });
+    assert.deepEqual(r.motivos.filter((m) => m.startsWith('verify.')), ['verify.timeout']);
+    assert.equal(r.comandos.find((c) => c.nome === 'test')!.executado, true);
+  } finally { p.limpar(); }
+});
+
+test('AG43: o item do grupo com argv roda sem shell: o argumento chega literal, e sem argv o comando segue no bash -c (RM-074 F4)', () => {
+  const literal = `'$(echo injetado)' $HOME; echo "fora"`;
+  const comArgv = { nome: 'argv', comando: 'identifica', argv: [process.execPath, '-e', 'process.stdout.write(process.argv[1])', literal],
+    cwd: os.tmpdir(), prazoMs: 30_000 };
+  assert.deepEqual(argvDoItem(comArgv, true, false), ['/usr/bin/timeout', '--kill-after=15', '30', ...comArgv.argv]);
+  assert.deepEqual(argvDoItem(comArgv, false, false), comArgv.argv);
+  assert.ok(!argvDoItem(comArgv, true, false).includes('bash'), 'sem shell');
+  assert.deepEqual(argvDoItem({ nome: 'c', comando: 'echo x', cwd: os.tmpdir(), prazoMs: 1000 }, false, false), ['bash', '-c', 'echo x']);
+  const [r, c] = rodarEmParalelo([comArgv, { nome: 'shell', comando: 'echo $((1 + 1))', cwd: os.tmpdir(), prazoMs: 30_000 }]);
+  assert.equal(r.ok, true, r.stderr);
+  assert.equal(r.stdout, literal, 'nada expandido nem quebrado pelo shell');
+  assert.equal(c.stdout.trim(), '2', 'o item sem argv segue pelo bash -c');
+});
+
+test('AG44: sob carga sintetica presa em CPU, o plano cai para o Classic e nunca projeta parede maior', () => {
+  const trabalho = { hermetica: 700, varredura: 140, integracao: 70 };
+  const saturado = planejarCpuDoGrupo(8, { carga1: 8, stealPct: 12 });
+  assert.equal(saturado.ordem, 'classic');
+  assert.equal(saturado.cpusHermetica, 7);
+  assert.equal(saturado.ferramentasDaVarredura, 7);
+  assert.equal(saturado.cpusPorContainer, 1);
+  assert.ok(paredeAgileSimulada(saturado, trabalho) <= paredeClassicaSimulada(8, trabalho));
+  assert.match(saturado.motivo, /carga 8 em \/proc\/loadavg/);
+  assert.match(saturado.motivo, /steal 12% em \/proc\/stat/);
+
+  const livre = planejarCpuDoGrupo(8, { carga1: 2, stealPct: 0 });
+  assert.equal(livre.ordem, 'paralela');
+  assert.equal(livre.cpusHermetica + livre.cpusDaFatia, 8, 'a soma do grupo cabe na maquina');
+  assert.equal(livre.cpusHermetica, 6);
+  assert.equal(livre.ferramentasDaVarredura, 2);
+  assert.equal(livre.cpusPorContainer, 1);
+  assert.equal(cargaDoProcLoadavg('7.25 4.0 3.0 1/2 3\n'), 7.25);
+  assert.equal(cargaDoProcLoadavg('invalida'), null);
+});
+
+test('AG45: saturacao medida pelo verify ordena hermetica, varredura e integracao e registra a peca no verify_run', () => {
+  const p = projetoTemporario('ag40');
+  try {
+    const arq = (nome: string): string => path.join(p.dir, nome);
+    const hermetica = `echo "$ORK_CHECK_CPUS_DA_LANE $ORK_CHECK_CPUS_DOCKER" > ${arq('h.cpu')} && sleep 0.2 && touch ${arq('h.fim')}`;
+    const scan = `test -f ${arq('h.fim')} && echo "$ORK_CHECK_VARREDURA_PARALELA $ORK_CHECK_CPUS_DOCKER" > ${arq('s.cpu')} && touch ${arq('s.fim')}`;
+    const integracao = `test -f ${arq('h.fim')} && test -f ${arq('s.fim')} && ` +
+      `echo "$ORK_CHECK_CPUS_DA_LANE $ORK_CHECK_CPUS_DOCKER" > ${arq('i.cpu')}`;
+    comAgile(p, `  agile:\n    produto:\n      - "README.md"\n    test:\n      hermetica: "${hermetica}"\n` +
+      `      integracao: "${integracao}"\n    apos_a_varredura: ["integracao"]`, { scan });
+    fs.appendFileSync(path.join(p.dir, '.git', 'info', 'exclude'), '*.cpu\n*.fim\n');
+    const { thread: t } = novaThread(p.carregado, { nome: 'cpu saturada', modo: 'auto' });
+    const r = verificar(p.carregado, t.id, { medicaoCpuAgendador: { carga1: os.availableParallelism(), stealPct: 12 } });
+    assert.equal(r.ok, true, r.motivos.join(',') + JSON.stringify(r.comandos));
+    const classic = Math.max(1, os.availableParallelism() - 1);
+    assert.equal(fs.readFileSync(arq('h.cpu'), 'utf8').trim(), `${classic} 1`);
+    assert.equal(fs.readFileSync(arq('s.cpu'), 'utf8').trim(), `${classic} 1`);
+    assert.equal(fs.readFileSync(arq('i.cpu'), 'utf8').trim(), `${classic} 1`);
+    const pecas = (ultimoVerify(p, t.id).agile as { pecas: Array<Record<string, unknown>> }).pecas;
+    const agendador = pecas.find((x) => x.peca === 'agendador-cpu')!;
+    assert.equal(agendador.estado, 'fallback');
+    assert.match(String(agendador.motivo), /\/proc\/loadavg.*\/proc\/stat.*varredura e integracao depois dela/);
+    assert.equal(agendador.fallback, 'ordem do Classic para hermetica, varredura e integracao');
+  } finally { p.limpar(); }
 });

@@ -23,6 +23,9 @@ import { CanalComTransporte, entregarRelatorioSeDevido, enviarPeloTransporte, fa
 import { comRegistro, lerRegistro } from '../src/noctum-registro';
 import { gravarNaSupervisao } from '../src/noctum-supervisao';
 import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
+import { pedidoV3 } from './noctum-maquinas-apoio';
+import { identidadeDaMaquina } from '../src/noctum-transporte';
+import { CONTRATO_REDE_DO_ARCO, RedeDoArco } from '../src/noctum-rede';
 
 prepararIngressoSimulado();
 const semKernel = !kernelDisponivel();
@@ -68,6 +71,23 @@ const entregaProvada = (p: Projeto, thread: string, n = 1) => registrar(dirThrea
   fonteDaProva: 'git ls-remote origin refs/heads/main (SIMULADO)', mergeSha: `${n}`.repeat(40), pr: 10 + n });
 const reservas = (itens: string[]) => () => ({ leitura: 'copia-local' as const, reservas: itens.map(item => ({ item, maquina: 'maquina-simulada', thread: null })) });
 const base = { maquina: 'maquina-simulada', lerReservas: reservas(['RM-901', 'RM-902', 'RM-903', 'RM-904']) };
+
+function abrirV3(p: Projeto, arco: string): { thread: string } {
+  const t = threads(p, 1);
+  const trabalhos = t.trabalhos.map(x => ({ ...x, maquina: 'maquina-a' }));
+  autorizarPedido(p.dir, arco, pedidoV3(arco, { trabalhos, maquinas: [identidadeDaMaquina(p.dir, 'maquina-a')],
+    contas: [{ conta: 'perfil-a', sessoes: 2 }], global: [{ conta: 'perfil-a', sessoes: 2 }] }));
+  return { thread: t.ids[0] };
+}
+
+function redeV3(arco: string, trabalhos: RedeDoArco['trabalhos'], lacuna: RedeDoArco['lacuna'] = null): RedeDoArco {
+  return { contrato: CONTRATO_REDE_DO_ARCO, arco, multimaquina: true, maquina: 'maquina-a', envelopeSha256: 'a'.repeat(64),
+    lidaEm: new Date().toISOString(), autoridade: { maquina: 'maquina-a', geracao: 1, desde: new Date().toISOString() }, revogada: null,
+    maquinas: [{ nome: 'maquina-a', ultimoSinal: new Date().toISOString(), sinalRecente: true, ordensVivas: [], vagasAtivas: [],
+      vezesAtivas: [], consumo: 0 }, { nome: 'maquina-b', ultimoSinal: new Date().toISOString(), sinalRecente: true, ordensVivas: [],
+      vagasAtivas: [], vezesAtivas: [], consumo: 0 }], trabalhos, consumo: { arco: 0, porConta: {}, porRuntime: {} },
+    obrigacoes: { ordens: [], vagas: [], vezes: [] }, lacuna };
+}
 
 /** O transporte simulado: grava cada envio e responde o que o roteiro manda. */
 function transporte(respostas: Array<ResultadoDoEnvio['estado']>): { enviar: (c: CanalComTransporte, t: string) => ResultadoDoEnvio; envios: string[] } {
@@ -502,4 +522,44 @@ test('RL21: a recusa por prova do dono aparece com duração e ação exata, nun
     assert.match(texto, /nunca coloque a chave de ingresso no ambiente dos agentes/);
     assert.doesNotMatch(texto, /👤 O que precisa de você\n• nada/);
   } finally { p.limpar(); }
+});
+
+test('RL20: entrega de outra máquina aparece com a máquina e o merge do registro da N3', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-rl20-rede');
+  try {
+    const { thread } = abrirV3(p, 'arco-rl20-rede');
+    const projecao = redeV3('arco-rl20-rede', [{ id: 't1', estado: 'entregue', maquina: 'maquina-b', maquinaPresa: 'maquina-a', ordem: null,
+      entrega: { em: new Date().toISOString(), maquina: 'maquina-b', merge: 'b'.repeat(40) } }]);
+    const fatos = fatosDoRelatorio(p.carregado, 'arco-rl20-rede', { ...base, maquina: 'maquina-a', projecaoDaRede: projecao })!;
+    assert.deepEqual(fatos.entregues.map(e => [e.trabalho, e.thread, e.maquina, e.merge]), [['t1', thread, 'maquina-b', 'b'.repeat(40)]]);
+    assert.match(linhasDoRelatorio(fatos, 1).join('\n'), /máquina maquina-b, merge bbbbbbbb/);
+  } finally { p.limpar(); }
+});
+
+test('RL21: ordem viva de outra máquina aparece em curso naquela máquina', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-rl21-rede');
+  try {
+    abrirV3(p, 'arco-rl21-rede');
+    const projecao = redeV3('arco-rl21-rede', [{ id: 't1', estado: 'em-execucao', maquina: 'maquina-b', maquinaPresa: 'maquina-a', entrega: null,
+      ordem: { ordem: 'O-t1-1', numero: 1, maquina: 'maquina-b', estado: 'aceita', emitidaEm: new Date().toISOString() } }]);
+    const fatos = fatosDoRelatorio(p.carregado, 'arco-rl21-rede', { ...base, maquina: 'maquina-a', projecaoDaRede: projecao })!;
+    assert.deepEqual(fatos.emCurso.map(e => [e.trabalho, e.maquina]), [['t1', 'maquina-b']]);
+    assert.match(linhasDoRelatorio(fatos, 1).join('\n'), /ordem O-t1-1 viva na máquina maquina-b/);
+  } finally { p.limpar(); }
+});
+
+test('RL22: lacuna de rede aparece e não transforma trabalho em entregue', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-rl22');
+  try {
+    abrirV3(p, 'arco-rl22');
+    const projecao = redeV3('arco-rl22', [], { motivo: 'noctum.coordenacao.sem-remoto', detalhe: 'SIMULADO' });
+    const fatos = fatosDoRelatorio(p.carregado, 'arco-rl22', { ...base, maquina: 'maquina-a', projecaoDaRede: projecao })!;
+    assert.equal(fatos.entregues.length, 0);
+    assert.match(fatos.lacunas.join(' '), /noctum\.coordenacao\.sem-remoto/);
+  } finally { p.limpar(); }
+});
+
+test('RL23: cabeçalho leva a máquina no v3 e fica igual no v2', () => {
+  assert.match(paginar('arco-rl23', 1, ['linha'], 'maquina-a')[0], /^Arco arco-rl23, relatório v1, página 1\/1, máquina maquina-a/);
+  assert.equal(paginar('arco-rl23', 1, ['linha'])[0].split('\n')[0], 'Arco arco-rl23, relatório v1, página 1/1');
 });

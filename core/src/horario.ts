@@ -222,8 +222,11 @@ export function duracaoRelativa(minutos: number): string {
 
 function sigla(fuso: string, ms: number, locale: Locale = localeAtivo()): string {
   try {
-    return new Intl.DateTimeFormat(locale === 'en' ? 'en-US' : 'pt-BR', { timeZone: fuso, timeZoneName: 'short' })
+    const valor = new Intl.DateTimeFormat(locale === 'en' ? 'en-US' : 'pt-BR', { timeZone: fuso, timeZoneName: 'short' })
       .formatToParts(new Date(ms)).find(p => p.type === 'timeZoneName')?.value ?? '';
+    // RM-074 (F4): o deslocamento zero sai `GMT+0` no Node 20.20.2 e no 22.23.2; um ICU antigo escreve so `GMT`. O texto
+    // fica o mesmo em qualquer ICU.
+    return valor === 'GMT' ? 'GMT+0' : valor;
   } catch {
     return '';
   }

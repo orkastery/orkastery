@@ -9,6 +9,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { launcherArgs, LAUNCH_TIMEOUT_SUFFIX, type RoundGuard } from './guard';
 import type { Executor, ToolSpec } from './types';
+import { ENV_CPUS_DOCKER } from '../agendador-cpu';
 
 export type UnavailableReason = 'docker-missing' | 'docker-daemon-down' | 'image-pull-failed' | 'binary-missing'
   | 'binary-version-mismatch' | 'disabled' | 'unsupported-ci' | 'no-requirements-file';
@@ -88,6 +89,12 @@ export interface InvocationResult { status: number | null; timedOut: boolean; st
 const CONTAINER = { src: '/src', out: '/out', config: '/config' };
 const MAX_BUFFER = 512 * 1024 * 1024;
 
+/** A cota so existe no grupo Agile; sem a variavel, o Classic continua com o argv de sempre. */
+export function argumentosDeCpuDoDocker(ambiente: NodeJS.ProcessEnv = process.env): string[] {
+  const limite = Number(ambiente[ENV_CPUS_DOCKER]);
+  return Number.isFinite(limite) && limite > 0 ? ['--cpus', String(limite)] : [];
+}
+
 export function expand(arg: string, values: Record<string, string>): string {
   return arg.replace(/\{(src|out|base|config|install|stackDir)\}/g, (_, k: string) => values[k]);
 }
@@ -123,6 +130,7 @@ export function runDocker(inv: Invocation): InvocationResult {
   if (process.getuid?.() === 0) fs.chmodSync(inv.outHost, 0o777);
   const values = { src: CONTAINER.src, out: CONTAINER.out, base: inv.base, config: configCtr, install: (tool.install ?? []).join(' '), stackDir: stackDirArg(inv.stackDir) };
   const args = ['run', '--rm', '--name', name, '--pull', 'never', '--user', containerUser(),
+    ...argumentosDeCpuDoDocker(),
     '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges',
     ...(tool.network === 'none' ? ['--network', 'none'] : []),
     '--tmpfs', '/tmp:exec,mode=1777',

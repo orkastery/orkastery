@@ -33,8 +33,6 @@ const TRABALHADOR = path.join(__dirname, 'trabalhador.js');
 /** Sem prazo da rodada, o trabalhador ganha o maior prazo do catalogo para a HEAD e para a base, com folga. */
 const FOLGA_MS = 60_000;
 
-const aspas = (s: string): string => `'${s.replace(/'/g, `'\\''`)}'`;
-
 /**
  * O Semgrep baixa as regras do registro (`p/typescript`, ...) a cada rodada, e nao tem cache delas. Regra lida de arquivo
  * local ganha outro `check_id` (o prefixo do caminho), o que muda a impressao digital de todo achado: o cache de regras
@@ -94,16 +92,23 @@ function relatar(pecas: PecaDaVarredura[]): void {
 function eslintDoAgile(t: ToolSpec, prazoMs: number, pecas: PecaDaVarredura[]): ToolSpec {
   if (t.name !== 'eslint' || !t.install?.length) return t;
   // A4 do CHECK: o build roda antes dos trabalhadores; com teto curto, um link lento nao consome o prazo da varredura toda.
-  const imagem = garantirImagemDeLint(t, Math.min(prazoMs, PRAZO_DO_BUILD_DA_IMAGEM_MS));
+  const imagem = garantirImagemDeLint(t, prazoDoBuildDaImagem(prazoMs));
   const comImagem = 'tag' in imagem ? eslintComImagem(t, imagem.tag) : null;
   if (comImagem) { pecas.push({ peca: 'imagem-de-lint', estado: 'agile' }); return comImagem; }
-  pecas.push({ peca: 'imagem-de-lint', estado: 'fallback', motivo: 'motivo' in imagem ? imagem.motivo : 'script do catalogo sem o npm install esperado',
+  // RM-074 (F4): a ultima linha do `docker build` vem do registro do npm e pode trazer login na URL; vai ao ledger redigida.
+  pecas.push({ peca: 'imagem-de-lint', estado: 'fallback',
+    motivo: 'motivo' in imagem ? motivoSemCredencial(imagem.motivo, 200) : 'script do catalogo sem o npm install esperado',
     fallback: 'eslint do catalogo, com npm install no container' });
   return t;
 }
 
 /** O teto do build da imagem de lint (A4 do CHECK): estourou, o `eslint` do catalogo, com a peca em fallback. */
 export const PRAZO_DO_BUILD_DA_IMAGEM_MS = 180_000;
+
+/** O prazo do build da imagem de lint: o que resta da ferramenta, nunca acima do teto (RM-074 F4: o caso do teto). */
+export function prazoDoBuildDaImagem(restanteMs: number): number {
+  return Math.min(restanteMs, PRAZO_DO_BUILD_DA_IMAGEM_MS);
+}
 
 /** O prazo minimo que sobra para a ferramenta que caiu no Agile rodar pelo caminho do Classic (A5 do CHECK). */
 export const PRAZO_MINIMO_DO_CLASSIC_MS = 30_000;
@@ -183,8 +188,11 @@ export function catalogoDoAgile(catalogo: ToolSpec[], agile: RunScanOptions['agi
   return lista;
 }
 
-/** A rodada do Agile: as mesmas regras do `runScan`, com as ferramentas em paralelo e os caches de banco. */
-export function runScanAgil(opts: RunScanOptions): ScanReport {
+/**
+ * A rodada do Agile: as mesmas regras do `runScan`, com as ferramentas em paralelo e os caches de banco. `rodar` e o
+ * grupo paralelo; os testes o trocam para ler o prazo e o argv de cada trabalhador (RM-074 F4).
+ */
+export function runScanAgil(opts: RunScanOptions, rodar: typeof rodarEmParalelo = rodarEmParalelo): ScanReport {
   const start = path.resolve(opts.root);
   const root = git(start, ['rev-parse', '--show-toplevel']) ?? start;
   const generatedAt = (opts.now ?? (() => new Date()))().toISOString();
@@ -249,7 +257,9 @@ export function runScanAgil(opts: RunScanOptions): ScanReport {
         ctx: { headTree, mainRoot, base, head, rangeCommits: count === null ? null : Number(count), deadline, ...(baseTree ? { baseTree } : {}) } };
       const arquivo = path.join(dir, `${i}.json`);
       fs.writeFileSync(arquivo, JSON.stringify(trabalho), { mode: 0o600 });
-      return { nome: t.name, comando: `${aspas(process.execPath)} ${aspas(TRABALHADOR)} ${aspas(arquivo)}`, cwd: root };
+      // RM-074 (F4): o trabalhador roda pelo argv, sem string de shell; o `comando` so identifica o item.
+      const argv = [process.execPath, TRABALHADOR, arquivo];
+      return { nome: t.name, comando: argv.join(' '), argv, cwd: root };
     });
     // S-f do CHECK 2: o teto dos trabalhadores e contado depois de todos montados, com o build da imagem de lint ja feito.
     const prazo = deadline === null ? Math.max(...tools.map(t => t.timeoutMs)) * 2 + FOLGA_MS : Math.max(1000, deadline - Date.now() + FOLGA_MS);
@@ -258,7 +268,7 @@ export function runScanAgil(opts: RunScanOptions): ScanReport {
     const teto = Number(process.env[ENV_VARREDURA_PARALELA_DO_CHECK]);
     const maxParalelo = Number.isInteger(teto) && teto > 0 ? teto : undefined;
     if (maxParalelo) pecas[0] = { ...pecas[0], motivo: `ate ${maxParalelo} ferramenta(s) ao mesmo tempo, ao lado das lanes do verify` };
-    const processos = rodarEmParalelo(trabalhos, process.env, maxParalelo ? { maxParalelo } : {});
+    const processos = rodar(trabalhos, process.env, maxParalelo ? { maxParalelo } : {});
     const excluded = new Set<string>();
     tools.forEach((t, i) => {
       const trabalhador = resultadoDoTrabalhador(t, processos[i], trabalhos[i].prazoMs);

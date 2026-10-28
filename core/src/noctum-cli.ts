@@ -2,6 +2,8 @@
  * RM-058, fatia N6 (D1, D12 e D13 da ork-rm058n6): o comando `ork noctum`, a porta do CLI para o arco.
  *
  *   ork noctum propor --arquivo <envelope.json> [--json]   o pedido de abertura vira proposta e pergunta ao dono; nada é autorizado
+ *   ork noctum maquina [--json]                            a entrada desta máquina em `maquinas` do envelope `v3`: o nome, a
+ *                                                          chave pública e a impressão (RM-058, bloco B, D5)
  *   ork noctum revogar <arco> [--json]                     a pergunta de revogação ao dono (RM-057); nada é revogado
  *   ork noctum responder <arco> --resposta-stdin ...       o envelope assinado do gateway (autorizar ou revogar)
  *   ork noctum terminal --hook-stdin                       o ingresso do terminal, que o hook UserPromptSubmit chama (RM-057);
@@ -18,6 +20,7 @@
  * aqui pelo `responder`, ou o diálogo nativo do host pelo MCP). Recusa tipada sai na saída de erro, com código 2.
  */
 import * as fs from 'node:fs';
+import { createHash } from 'node:crypto';
 import { kernelDisponivel } from './fila-pesada';
 import { lerRespostaStdin } from './hitl-gates';
 import { canVerifyPublicReceipt } from './hitl-public-receipt';
@@ -30,22 +33,26 @@ import { lerArco, pedirRevogacao, perguntasDoArco, proporEnvelope, SituacaoDoArc
 import { textoDaPerguntaDoArco } from './noctum-pergunta';
 import { comoResponderAoArco, entregarPerguntaDoArco, EntregaDaPerguntaDoArco } from './noctum-pergunta-canal';
 import { codigosEmUso } from './pulse-resposta';
-import { CANAIS_DO_RELATORIO, ConteudoDoEnvelope, envelopeComTrabalhos, RecusaDoArco } from './noctum-envelope';
+import { CANAIS_DO_RELATORIO, ConteudoDoEnvelope, envelopeComTrabalhos, envelopeMultimaquina, impressaoDaChave, MaquinaDoArco, RecusaDoArco,
+  validarPedidoDeAbertura } from './noctum-envelope';
 import { listarArcos, responderAoArco, retratoDoArco, textoDoRetrato, tiqueDoArco } from './noctum-modo';
 import { CanalComTransporte, reenviarRelatorio, relatorioNoTerminal } from './noctum-relatorio';
 import { RecusaDoRegistro } from './noctum-registro';
 import { lerSupervisao, RecusaDaSupervisao } from './noctum-supervisao';
+import { identidadeDaMaquina, NOME_DE_MAQUINA } from './noctum-transporte';
 import { conduzirArco, OpcoesDoVigia, ResultadoDoCondutor } from './noctum-vigia';
+import { nomeDaMaquina } from './maquina';
 import { diretorioDoPerfil, lerPerfisComContas, PerfilDeRuntime, StoreDePerfis } from './runtime-profiles';
 import { CONTRATO_DO_TERMINAL, responderPeloTerminal } from './noctum-terminal';
 import { caminhoDoPulseHost, hostDoTransporte, HostDoCanal, HOSTS_DO_CANAL, TransportePulse, transporteValido } from './transporte-do-canal';
 
 export interface ArgsDoNoctum { posicionais: string[]; opcoes: Record<string, string | boolean> }
 
-export const USO_DO_NOCTUM = 'uso: ork noctum propor --arquivo <envelope.json> | revogar <arco> [--json] | responder <arco> --resposta-stdin ' +
+export const USO_DO_NOCTUM = 'uso: ork noctum propor --arquivo <envelope.json> | maquina [--json] | revogar <arco> [--json] | ' +
+  'responder <arco> --resposta-stdin ' +
   '--origem O --canal C --por P --mensagem M [--conta X] | terminal --hook-stdin | status [<arco>] [--json] | tique <arco> [--json] | ' +
   'relatorio <arco> [--json] [--reenviar <canal>] | conduzir <arco> [--json] | aceite <arco> [--json] [--injecoes <arquivo>] ' +
-  '[--limiares <arquivo>] [--publicar <arquivo>]';
+  '[--limiares <arquivo>] [--outra-maquina <arquivo>[,<arquivo>]] [--publicar <arquivo>]';
 
 /** A linha da entrega da pergunta ao canal do dono, sem caminho de máquina. */
 function linhaDaEntrega(e: EntregaDaPerguntaDoArco): string {
@@ -75,22 +82,43 @@ const TETO_DO_ARQUIVO_DO_ENVELOPE = 64 * 1024;
 const texto = (v: string | boolean | undefined): string | undefined => typeof v === 'string' ? v : undefined;
 
 export type MotivoDoAvisoDaProposta = 'noctum.proposta.conta-sem-login' | 'noctum.proposta.workspace-untrusted'
-  | 'noctum.proposta.vaga-de-execucao-unica' | 'noctum.proposta.contas-sem-leitura' | 'noctum.proposta.sem-verificador-do-canal';
+  | 'noctum.proposta.vaga-de-execucao-unica' | 'noctum.proposta.contas-sem-leitura' | 'noctum.proposta.maquina-ausente'
+  | 'noctum.proposta.maquina-outra-chave' | 'noctum.proposta.sem-verificador-do-canal';
 export interface AvisoDaProposta { motivo: MotivoDoAvisoDaProposta; detalhe: string; correcao: string }
 
 /**
- * Pré-voo informativo da proposta: antecipa três causas que fariam o arco esperar, mas não autoriza nem bloqueia nada.
- * As dependências opcionais deixam os testes usar perfis e trust simulados sem ler contas reais.
+ * RM-058, bloco B (D22): no `v3`, esta máquina só entra no arco se está em `maquinas` com o nome e a chave desta raiz,
+ * a mesma conferência do `euNaVersaoVigente`. O aviso só antecipa a recusa: a proposta segue.
+ */
+function avisosDaMaquina(maquinas: readonly MaquinaDoArco[], eu: { nome: string; chave: string }): AvisoDaProposta[] {
+  const listada = maquinas.find(m => m.nome === eu.nome);
+  const correcao = 'rode ork noctum maquina --json nesta máquina e ponha a saída em maquinas do envelope';
+  if (!listada) {
+    return [{ motivo: 'noctum.proposta.maquina-ausente', correcao,
+      detalhe: `esta máquina (${eu.nome}) não está em maquinas do envelope v3: fica fora do arco, sem ordem, despacho nem entrega` }];
+  }
+  if (listada.chave === eu.chave) return [];
+  return [{ motivo: 'noctum.proposta.maquina-outra-chave', correcao,
+    detalhe: `o envelope dá à máquina ${eu.nome} a chave de impressão ${impressaoDaChave(listada.chave)}, e a desta raiz é ` +
+      `${impressaoDaChave(eu.chave)}: a máquina fica fora do arco` }];
+}
+
+/**
+ * Pré-voo informativo da proposta: antecipa as causas que fariam o arco esperar, mas não autoriza nem bloqueia nada.
+ * As dependências opcionais deixam os testes usar perfis, trust e a identidade da máquina simulados sem ler contas reais.
  */
 export function avisosDaProposta(carregado: ManifestoCarregado, conteudo: ConteudoDoEnvelope, opcoes: {
   store?: StoreDePerfis;
   confianca?: (raiz: string, perfil: PerfilDeRuntime) => boolean | null;
+  /** O nome e a chave pública desta máquina; sem ela, os desta raiz (`identidadeDaMaquina`), lidos só no `v3`. */
+  identidade?: () => { nome: string; chave: string };
   /** Testes podem fixar o host e o ambiente sem ler nem copiar credenciais reais. `undefined` usa o transporte local. */
   hostDoDono?: HostDoCanal | null;
   env?: NodeJS.ProcessEnv;
 } = {}): AvisoDaProposta[] {
   if (!envelopeComTrabalhos(conteudo)) return [];
-  const avisos: AvisoDaProposta[] = [];
+  const avisos: AvisoDaProposta[] = envelopeMultimaquina(conteudo)
+    ? avisosDaMaquina(conteudo.maquinas, (opcoes.identidade ?? (() => identidadeDaMaquina(carregado.raiz)))()) : [];
   let store: StoreDePerfis | null = null;
   try { store = opcoes.store ?? lerPerfisComContas(carregado.raiz); }
   catch {
@@ -230,9 +258,11 @@ export function comandoNoctum(args: ArgsDoNoctum): number {
       const { raiz } = carregado;
       const quando = new Date().toISOString();
       const r = proporEnvelope(raiz, pedido, quando, codigosEmUso(raiz));
-      const conteudo = lerArco(raiz, r.arco)?.conteudo;
-      const fuso = conteudo?.janela.fuso ?? (pedido as { janela?: { fuso?: string } })?.janela?.fuso;
-      const avisos = conteudo ? avisosDaProposta(carregado, conteudo) : [];
+      // Os avisos olham o envelope que o dono vai autorizar, já validado pelo proporEnvelope: o vigente (lerArco) só
+      // existe depois da autorização, e na primeira proposta os avisos sumiam (RM-058, bloco B).
+      const proposto = validarPedidoDeAbertura(pedido);
+      const fuso = proposto.janela.fuso;
+      const avisos = avisosDaProposta(carregado, proposto);
       // RM-057 (resposta curta, D4 e D9): a proposta é a pergunta ao dono, que sai também pelo canal dele quando ele tem um.
       const q = r.codigo ? perguntasDoArco(raiz, r.arco, quando).find(x => x.codigo === r.codigo && x.situacao === 'pendente') : undefined;
       const entrega = q ? entregarPerguntaDoArco(raiz, q, { quando }) : null;
@@ -247,6 +277,28 @@ export function comandoNoctum(args: ArgsDoNoctum): number {
           `Proposta ${r.versao} do arco ${r.arco}, vale até ${formatarDataHora(r.prazo, { fuso, locale: 'pt-BR' })}.`,
           'Nada foi autorizado: o dono autoriza respondendo à pergunta, nunca por silêncio nem por este comando.',
           ...(textoDaPergunta ? ['', textoDaPergunta, '', linhaDaEntrega(entrega!)] : instrucoes)].join('\n'));
+      }
+      return 0;
+    }
+    if (sub === 'maquina') {
+      // RM-058, bloco B (B4, D5): o que o dono copia de cada máquina para `maquinas` do envelope `v3`. O nome vem antes da
+      // chave: o recusado não cria a chave local. A chave privada nunca sai desta raiz.
+      if (args.posicionais.length !== 2) { console.error(USO_DO_NOCTUM); return 2; }
+      const { raiz } = exigirManifesto();
+      const nome = nomeDaMaquina();
+      if (!NOME_DE_MAQUINA.test(nome)) {
+        console.error(`noctum.maquina.nome-invalido: o nome desta máquina ("${nome}") não serve no envelope v3: letras, dígitos, ` +
+          'ponto, _ ou -, até 64, começando por letra ou dígito. Correção: grave um nome válido em ~/.orkastery/maquina.json ' +
+          '(o campo nome) ou defina ORK_MAQUINA em todo processo do ork desta máquina, o cron e os gateways inclusive');
+        return 2;
+      }
+      const { chave } = identidadeDaMaquina(raiz, nome);
+      const impressao = impressaoDaChave(chave);
+      if (json) console.log(JSON.stringify({ nome, chave, impressao }, null, 2));
+      else {
+        console.log(['Esta máquina no envelope v3:', `  nome       ${nome}`, `  chave      ${chave}`, `  impressão  ${impressao}`, '',
+          'A entrada para maquinas do envelope:', JSON.stringify({ nome, chave }), '',
+          'A chave privada não sai desta raiz; o dono confere a impressão no resumo da proposta.'].join('\n'));
       }
       return 0;
     }
@@ -362,12 +414,19 @@ export function comandoNoctum(args: ArgsDoNoctum): number {
     if (sub === 'aceite') {
       const arco = args.posicionais[2];
       const arquivo = (nome: string): string | null | false => args.opcoes[nome] === undefined ? null : texto(args.opcoes[nome]) ?? false;
-      const [injecoes, limiares, publicar] = [arquivo('injecoes'), arquivo('limiares'), arquivo('publicar')];
-      if (!arco || args.posicionais.length !== 3 || injecoes === false || limiares === false || publicar === false) { console.error(USO_DO_NOCTUM); return 2; }
+      const [injecoes, limiares, outraMaquina, publicar] = [arquivo('injecoes'), arquivo('limiares'), arquivo('outra-maquina'), arquivo('publicar')];
+      if (!arco || args.posicionais.length !== 3 || injecoes === false || limiares === false || outraMaquina === false || publicar === false) {
+        console.error(USO_DO_NOCTUM); return 2;
+      }
       let agenda: Injecao[] | null = null, doDono: Partial<Limiares> | null = null;
+      const outrasMaquinas: Array<{ fonte: string; sha256: string; resultado: unknown }> = [];
       try {
         if (injecoes) agenda = lerInjecoes(fs.readFileSync(injecoes, 'utf8'));
         if (limiares) doDono = lerLimiares(JSON.parse(fs.readFileSync(limiares, 'utf8')));
+        for (const fonte of (outraMaquina ? outraMaquina.split(',') : []).map(x => x.trim()).filter(Boolean)) {
+          const bruto = fs.readFileSync(fonte, 'utf8');
+          outrasMaquinas.push({ fonte, sha256: createHash('sha256').update(bruto).digest('hex'), resultado: JSON.parse(bruto) });
+        }
       } catch (e) {
         if (e instanceof RecusaDoAceite) throw e;
         console.error(`noctum.aceite.arquivo: ${(e as Error).message.slice(0, 200)}`);
@@ -375,7 +434,7 @@ export function comandoNoctum(args: ArgsDoNoctum): number {
       }
       const carregado = exigirManifesto();
       // RM-058, integração (T8, D12): o arquivo completo fica no estado; o publicável vai aonde o dono pedir.
-      const r = aceiteDoPiloto(carregado, arco, { injecoes: agenda, limiares: doDono });
+      const r = aceiteDoPiloto(carregado, arco, { injecoes: agenda, limiares: doDono, outrasMaquinas });
       const gravado = gravarAceite(carregado.raiz, r);
       if (publicar) fs.writeFileSync(publicar, `${JSON.stringify(publicavel(r, gravado.sha256, sensiveisDoArco(carregado, arco)), null, 2)}\n`);
       if (json) console.log(JSON.stringify({ ...r, sha256: gravado.sha256, arquivo: gravado.arquivo }, null, 2));

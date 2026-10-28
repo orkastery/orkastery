@@ -52,8 +52,9 @@ import { ENV_MODO_DO_CHECK, ENV_RELATORIO_DO_CHECK, ENV_VARREDURA_PARALELA_DO_CH
   resolverModo } from './check-modo';
 import { comandosNoAgile, ComandosDoAgile, executorDaClaimNoAgile, ExecutorDeGrupo, GuardaDoProduto, listasDasLanes,
   MAXIMO_DE_PREPAROS_REFEITOS, PecaDoAgile, paralelismoDaVarreduraNoGrupo, PECA_SEM_RELATORIO, pecasDoRelatorio,
-  prepararNoAgile, PreparoVigente, refazerPreparo, RefazerPreparo, RelatorioDoCheck } from './check-agil';
+  porQueDasLanes, prepararNoAgile, PreparoVigente, refazerPreparo, RefazerPreparo, RelatorioDoCheck } from './check-agil';
 import { esperaDoGrupo, rodarEmParalelo } from './check-paralelo';
+import { ENV_CPUS_DA_LANE, ENV_CPUS_DOCKER, MedicaoCpuDoGrupo } from './agendador-cpu';
 
 /** Teto de tempo de um comando de verificacao (build e suite completa cabem). */
 export const TIMEOUT_VERIFY_MS = 10 * 60 * 1000;
@@ -83,7 +84,9 @@ export const PREFIXO_BLOQUEADO_NO_VERIFY = 'ORK_HITL_';
  * RM-072 (S-b do CHECK 2): as variaveis de uma rodada do Agile. Cada rodada poe as suas onde precisa; herdadas de outra
  * rodada (o verify que roda dentro de um comando de outro verify), elas levariam pecas ao relatorio errado.
  */
-const VARIAVEIS_DA_RODADA: ReadonlySet<string> = new Set([ENV_RELATORIO_DO_CHECK, ENV_VARREDURA_PARALELA_DO_CHECK]);
+const VARIAVEIS_DA_RODADA: ReadonlySet<string> = new Set([
+  ENV_RELATORIO_DO_CHECK, ENV_VARREDURA_PARALELA_DO_CHECK, ENV_CPUS_DA_LANE, ENV_CPUS_DOCKER,
+]);
 
 export function ambienteDoVerify(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   return Object.fromEntries(Object.entries(base).filter(([chave]) => !chave.startsWith(PREFIXO_BLOQUEADO_NO_VERIFY)
@@ -180,7 +183,9 @@ export function resultadoDoProcesso(nome: string, comando: string,
     prazoMs: tetoMs,
     duracaoMs,
     // I-54 (D11): so nao rodou o que o sistema recusou lancar; estouro e sinal rodaram e acabaram.
-    executado: !(r.error && NAO_LANCADO.has(r.error)),
+    // `spawnSync` pode devolver um erro tardio do sandbox junto de um status real (por exemplo EPERM com status 0):
+    // nesse caso o processo existiu e o codigo observado e o veredito. So status ausente (`code: -1`) prova que nao lancou.
+    executado: !(r.code === -1 && r.error && NAO_LANCADO.has(r.error)),
   };
   if (!r.ok) {
     const saida = r.stdout + (r.stderr ? '\n' + r.stderr : '');
@@ -420,15 +425,16 @@ function soAVarreduraEAsLanesComRelatorio(comRelatorio: ExecutorVerify, semRelat
  * na janela do grupo e a conducao renovada com o maior prazo. Com executor injetado (MCP, testes), um por vez, por ele.
  */
 function executorDoGrupo(manifesto: Manifesto, ambienteDaRodada: Record<string, string>, instabilidade: RegistroLido,
-  leitor: LeitorProcStat, conducao: ConducaoTomada, injetado?: ExecutorVerify): ExecutorDeGrupo {
+  leitor: LeitorProcStat, conducao: ConducaoTomada, injetado?: ExecutorVerify,
+  medicaoCpu?: MedicaoCpuDoGrupo): ExecutorDeGrupo {
   if (injetado) return (itens, cwd) => itens.map((i) => injetado(i.nome, i.comando, cwd));
   const relogio = testesDeRelogioVigentes(instabilidade);
   // N5 do CHECK 3: no grupo, como em serie, so a varredura e as lanes recebem o relatorio da rodada.
   const { [ENV_RELATORIO_DO_CHECK]: _relatorio, ...semRelatorio } = ambienteDaRodada;
-  return (itens, cwd) => {
+  const executar = ((itens, cwd) => {
     const prazos = itens.map((i) => prazoDaExecucao(manifesto, i.nome, i.comando));
     const paraOAuxiliar = itens.map((i, k) => ({ nome: i.nome, comando: i.comando, cwd, prazoMs: prazos[k],
-      ...(i.nice ? { nice: i.nice } : {}), ...(i.apos?.length ? { apos: i.apos } : {}),
+      ...(i.nice ? { nice: i.nice } : {}), ...(i.apos?.length ? { apos: i.apos } : {}), ...(i.papelCpu ? { papelCpu: i.papelCpu } : {}),
       ambiente: { ...(recebeORelatorio(i.nome) ? ambienteDaRodada : semRelatorio), ...(ehComandoDoScan(manifesto, i.nome, i.comando)
         // RM-072: ao lado das lanes, a varredura roda poucas ferramentas por vez, para o grupo nao passar da CPU.
         ? { ORK_SECURITY_SCAN_DEADLINE_MS: String(prazoInternoDoScan(prazos[k])),
@@ -436,7 +442,15 @@ function executorDoGrupo(manifesto: Manifesto, ambienteDaRodada: Record<string, 
     // A conducao cobre o grupo inteiro: com a lane encadeada, a varredura e a lane somam.
     conducao.renovar(esperaDoGrupo(paraOAuxiliar));
     const janela = abrirJanela(leitor);
-    const processos = rodarEmParalelo(paraOAuxiliar, ambienteDoVerify());
+    const processos = rodarEmParalelo(paraOAuxiliar, ambienteDoVerify(), medicaoCpu ? { medicaoCpu } : {});
+    if (processos.agendamentoCpu) {
+      const p = processos.agendamentoCpu;
+      executar.pecas = [{ peca: 'agendador-cpu', estado: p.saturado ? 'fallback' : 'agile',
+        motivo: p.saturado
+          ? `${p.motivo}; hermetica com ${p.cpusHermetica}/${p.cpus} CPUs, varredura e integracao depois dela`
+          : `${p.cpusHermetica}/${p.cpus} CPUs na hermetica e ${p.cpusDaFatia} reservadas; conteineres com ${p.cpusPorContainer} CPU`,
+        ...(p.saturado ? { fallback: 'ordem do Classic para hermetica, varredura e integracao' } : {}) }];
+    }
     const stealPct = janela.fechar();
     return processos.map((p, k) => {
       const r: ResultadoDeComando = { ...resultadoDoProcesso(itens[k].nome, itens[k].comando, p, p.comGrupo, p.duracaoMs, prazos[k]), stealPct };
@@ -448,7 +462,9 @@ function executorDoGrupo(manifesto: Manifesto, ambienteDaRodada: Record<string, 
       }
       return r;
     });
-  };
+  }) as ExecutorDeGrupo;
+  executar.pecas = [];
+  return executar;
 }
 
 /** RM-072 (D8): o que o Agile grava no `verify_run`, alem dos comandos. */
@@ -687,6 +703,8 @@ export interface OpcoesVerify {
   agoraMs?: number;
   /** RM-072 (D1): o modo pedido pela opcao `--check`; vence o `check.mode` do manifesto. */
   check?: ModoDoCheck;
+  /** Dependencia interna dos testes do agendador; em producao o auxiliar mede `/proc`. */
+  medicaoCpuAgendador?: MedicaoCpuDoGrupo;
 }
 
 /**
@@ -863,7 +881,8 @@ function verificarSobConducao(
     ? []
     : vigente
       ? (doAgile = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executorDosComandos,
-        executorDoGrupo(manifesto, ambienteDaRodada, instabilidade, leitor, conducao, opcoes.executor ? executor : undefined),
+        executorDoGrupo(manifesto, ambienteDaRodada, instabilidade, leitor, conducao, opcoes.executor ? executor : undefined,
+          opcoes.medicaoCpuAgendador),
         vigente.guarda, vigente.preparo)).comandos
       : comandosDoManifesto(manifesto).map((c) => executor(c.nome, c.comando, cwd));
   if (doAgile) pecas.push(...doAgile.pecas);
@@ -991,11 +1010,12 @@ function verificarSobConducao(
             ? `regressao em: ${regressoes.map((r) => r.nome).join(', ')}`
             : motivo === 'verify.timeout'
               ? `sem veredito por tempo (prazo estourado, ou teste com relogio sob steal acima de ${LIMIAR_STEAL_PCT}%): ${[
-                ...estouros.map((r) => r.nome),
+                ...estouros.map((r) => porQueDasLanes(r) ? `${r.nome} (${porQueDasLanes(r)})` : r.nome),
                 ...claims.filter((c) => c.motivo === 'verify.timeout').map((c) => c.claim.id)].join(', ')}`
               : motivo === 'verify.sem-veredito'
                 ? [produtoAlterado ? 'o produto mudou entre o preparo e o fim da rodada' : '',
-                  ...naoExecutados.map((c) => `${c.nome} nao foi executado`),
+                  // RM-074 (F4): no Agile, o `test` diz qual lane ficou sem veredito e por que.
+                  ...naoExecutados.map((c) => porQueDasLanes(c) ? `${c.nome} sem veredito (${porQueDasLanes(c)})` : `${c.nome} nao foi executado`),
                   ...claims.filter((c) => c.motivo === 'verify.sem-veredito').map((c) => `${c.claim.id}: ${c.detalhe}`)]
                   .filter(Boolean).join('; ')
                 : motivo === 'policy.violation'

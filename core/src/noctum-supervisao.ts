@@ -134,7 +134,7 @@ export interface RecusaDoPasso {
 }
 
 export type MotivoDaRetomada = 'sessao-morta' | 'fim-de-turno-sem-resultado' | 'sem-avanco' | 'sem-primeiro-turno' | 'despacho-falho' |
-  'limite-de-uso';
+  'limite-de-uso' | 'ordem-cancelada';
 /** As contas que o arco tira da seleção (D13). Subteto, perfil ausente e desativado são relidos a cada passo, sem linha. */
 export type MotivoDaConta = 'cota' | 'cota-sem-reset' | 'limite-de-uso' | 'auth';
 export type MotivoDoIsolamento = 'reserva-incerta' | 'retomadas-esgotadas' | 'sem-primeiro-turno' | 'sessao-presa' | 'condutor-externo' |

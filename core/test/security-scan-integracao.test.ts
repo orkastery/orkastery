@@ -11,6 +11,7 @@ import * as path from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
 import { dirTemporario } from './apoio';
 import { semAmbiente } from './ambiente-de-teste';
+import { runScanAgil } from '../src/security-scan/agil';
 import { runScan } from '../src/security-scan/run';
 import type { Category, ScanReport, Stack } from '../src/security-scan/types';
 
@@ -86,6 +87,32 @@ for (const stack of ['js', 'python', 'go'] as const) {
       assert.equal(wts.length, 1, 'no registered worktree is left');
     });
 }
+
+// RM-074 (F4): o mesmo caso com o Docker real pela varredura do Agile (um trabalhador por ferramenta, a imagem de lint, o
+// cache do Trivy por usuario), na fixture js, na lane de integracao. A parede vai ao stderr, para a medida do custo.
+test('Docker real (Agile, RM-074 F4): o runScanAgil na fixture js roda toda ferramenta e acha o novo do loop em secret, dependency, sast e workflow',
+  { skip: semDocker(), timeout: DEADLINE_MS + 60000 }, () => {
+    const { dir, base } = fixtureRepo('js');
+    dirs.push(dir);
+    const sobras = (): string[] => fs.readdirSync(os.tmpdir()).filter(n => /^ork-security-scan-(tree|out|agil)-/.test(n)).sort();
+    const antes = sobras();
+    const inicio = Date.now();
+    const report: ScanReport = runScanAgil({ root: dir, stateRoot: dir, base, deadlineMs: DEADLINE_MS });
+    const ms = Date.now() - inicio;
+    const counts = Object.fromEntries(LOOP_CATEGORIES.map(c =>
+      [c, report.findings.filter(f => f.category === c && f.status === 'new' && f.loop).length]));
+    process.stderr.write(`[security-scan-integracao] agile js: ${ms} ms, new loop findings ${JSON.stringify(counts)}, `
+      + `pecas ${(report.check?.pecas ?? []).map(p => `${p.peca}=${p.estado}`).join(' ')}\n`);
+    assert.equal(report.check?.modo, 'agile');
+    for (const t of report.tools) assert.equal(t.state, 'ran', `js: ${t.name}: ${t.reason}`);
+    for (const c of LOOP_CATEGORIES) assert.ok(counts[c] > 0, `js: a new loop finding in ${c}`);
+    assert.ok(report.findings.every(f => f.status === 'new'), 'a base e limpa: nada existente');
+    const src = SECRET_SOURCE.js;
+    const secret = src.pattern.exec(fs.readFileSync(path.join(FIXTURES, 'js', src.file), 'utf8'))![1];
+    assert.ok(!JSON.stringify(report).includes(secret), 'o valor do segredo nunca chega ao relatorio');
+    assert.deepEqual(sobras(), antes, 'nenhuma worktree, saida ou pasta dos trabalhadores sobra no temporario');
+    assert.equal(git(dir, 'worktree', 'list', '--porcelain').split('\n').filter(l => l.startsWith('worktree ')).length, 1);
+  });
 
 test('without docker in PATH and without native binaries every tool is unavailable', () => {
   const { dir, base } = fixtureRepo('js');

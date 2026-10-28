@@ -122,6 +122,7 @@ const ENTRADAS: { arquivo: string; registra?: 'no main' | 'na entrada'; razao?: 
   { arquivo: 'core/src/memory-prospective.ts', razao: '--dry-run imprime o resumo JSON do plano de memória (dado de máquina)' },
   { arquivo: 'core/src/adapters/codex-runner.ts', razao: '--run supervisiona o codex e grava recibo JSON' },
   { arquivo: 'core/src/adapters/codex-controller-worker.ts', razao: 'servidor e cliente JSON-RPC do controller do codex' },
+  { arquivo: 'core/src/adapters/grok-mcp-servidor.ts', razao: '--run serve o MCP do ork à sessão do grok; o fuso do dono vem do criarServidorMcp, pelo projeto servido, e o recibo e o stderr não mostram horário a pessoa' },
   { arquivo: 'monitor/pulse-scope.cjs', razao: 'imprime a allowlist de threads do escopo do pulse' },
   { arquivo: 'core/src/security-scan/guard.ts', razao: 'reaper e lançador do security-scan: limpam worktrees, containers e grupos de processo, sem imprimir texto' },
   { arquivo: 'core/src/check-paralelo.ts', razao: 'auxiliar do grupo paralelo do Agile Check: roda os comandos e grava a saída de cada um em arquivo, sem texto para pessoa' },

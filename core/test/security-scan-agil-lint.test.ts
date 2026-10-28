@@ -11,7 +11,8 @@ import * as path from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
 import { dirTemporario } from './apoio';
 import { installFakeTools, type FakeTools } from './security-scan-docker-falso';
-import { runScanAgil } from '../src/security-scan/agil';
+import { PRAZO_DO_BUILD_DA_IMAGEM_MS, prazoDoBuildDaImagem, runScanAgil } from '../src/security-scan/agil';
+import { argvDoItem, rodarEmParalelo, type ItemParalelo } from '../src/check-paralelo';
 import { dockerfileDeLint, eslintComImagem, tagDaImagemDeLint } from '../src/security-scan/imagem-de-lint';
 import { runScan } from '../src/security-scan/run';
 import { loadTools } from '../src/security-scan/tools';
@@ -46,7 +47,7 @@ function repositorio(nome: string): { dir: string; base: string } {
 let cache: string;
 let fake: FakeTools | undefined;
 const salvos: Record<string, string | undefined> = {};
-const CHAVES = ['XDG_CACHE_HOME', 'ORK_FAKE_DOCKER_BUILD', 'ORK_FAKE_NATIVE_WRONG_VERSION', 'ORK_CHECK_RELATORIO'];
+const CHAVES = ['XDG_CACHE_HOME', 'ORK_FAKE_DOCKER_BUILD', 'ORK_FAKE_DOCKER_BUILD_STDERR', 'ORK_FAKE_DOCKER_BUILD_SLEEP_MS', 'ORK_FAKE_NATIVE_WRONG_VERSION', 'ORK_CHECK_RELATORIO'];
 const limpar: string[] = [];
 
 beforeEach(() => {
@@ -112,6 +113,97 @@ test('SL3: build que falha cai para o eslint do catalogo (npm install no contain
   assert.match(peca.motivo!, /^docker build saiu 1: npm ERR! network unreachable$/);
   assert.equal(peca.fallback, 'eslint do catalogo, com npm install no container');
   assert.equal(agile.tools.find(t => t.name === 'eslint')!.state, 'ran');
+});
+
+test('SL8: o motivo da peca imagem-de-lint chega ao relatorio sem o login da URL do registro (RM-074 F4)', () => {
+  fake = installFakeTools(['docker']);
+  process.env.ORK_FAKE_DOCKER_BUILD = 'fails';
+  process.env.ORK_FAKE_DOCKER_BUILD_STDERR = 'npm ERR! 401 https://usuario:senha-do-registro@registro.exemplo/npm/eslint fora do ar';
+  const r = repo('sl8');
+  const relatorio = path.join(cache, 'relatorio-do-check.jsonl');
+  process.env.ORK_CHECK_RELATORIO = relatorio;
+  const agile = runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base });
+  const peca = agile.check!.pecas.find(p => p.peca === 'imagem-de-lint')!;
+  assert.equal(peca.estado, 'fallback');
+  assert.ok(!peca.motivo!.includes('senha-do-registro'), peca.motivo);
+  assert.equal(peca.motivo, 'docker build saiu 1: npm ERR! 401 https://[credencial redigida]@registro.exemplo/npm/eslint fora do ar');
+  // O relatorio da rodada e o que o verify leva ao `verify_run` do ledger.
+  const linhas = fs.readFileSync(relatorio, 'utf8').trim().split('\n').map((l) => JSON.parse(l) as { peca?: string; motivo?: string });
+  assert.equal(linhas.find((l) => l.peca === 'imagem-de-lint')?.motivo, peca.motivo);
+  assert.ok(!fs.readFileSync(relatorio, 'utf8').includes('senha-do-registro'));
+});
+
+test('SL9: o build da imagem de lint tem o teto de 180 s e o prazo que resta da ferramenta, o menor dos dois (RM-074 F4)', () => {
+  assert.equal(PRAZO_DO_BUILD_DA_IMAGEM_MS, 180_000);
+  assert.equal(prazoDoBuildDaImagem(900_000), 180_000, 'o teto vale com prazo de sobra');
+  assert.equal(prazoDoBuildDaImagem(180_001), 180_000);
+  assert.equal(prazoDoBuildDaImagem(45_000), 45_000, 'abaixo do teto, o prazo que resta');
+  // O build lento e cortado pelo prazo da rodada, nao espera o sono do docker: o eslint cai para o catalogo, com o motivo.
+  fake = installFakeTools(['docker']);
+  process.env.ORK_FAKE_DOCKER_BUILD_SLEEP_MS = '20000';
+  const r = repo('sl9');
+  const inicio = Date.now();
+  const agile = runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base, deadlineMs: 3000 });
+  const peca = agile.check!.pecas.find(p => p.peca === 'imagem-de-lint')!;
+  assert.equal(peca.estado, 'fallback');
+  assert.match(peca.motivo!, /^docker build ETIMEDOUT/);
+  assert.ok(Date.now() - inicio < 20_000, 'o build foi cortado antes do sono do docker');
+});
+
+test('SL10: o teto dos trabalhadores e contado depois do build da imagem de lint (RM-074 F4)', () => {
+  fake = installFakeTools(['docker']);
+  // O sono do build e maior que o caminho da rodada ate ele (as arvores e a sonda dos nativos), para o prazo contado antes
+  // do build passar do teto abaixo com folga.
+  const sono = 5000;
+  process.env.ORK_FAKE_DOCKER_BUILD_SLEEP_MS = String(sono);
+  const r = repo('sl10');
+  const pedidos: ItemParalelo[][] = [];
+  const deadlineMs = 400_000;
+  const inicio = Date.now();
+  runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base, deadlineMs }, (itens, ambiente, opcoes) => {
+    pedidos.push(itens);
+    return rodarEmParalelo(itens, ambiente, opcoes);
+  });
+  const antesDoGrupo = Date.now() - inicio;
+  assert.equal(pedidos.length, 1);
+  assert.ok(antesDoGrupo >= sono, `o build dormiu antes do grupo (${antesDoGrupo} ms)`);
+  // O prazo de cada trabalhador e o que resta da rodada depois do build, mais a folga de 60 s; contado antes do build,
+  // passaria deste teto pelo tempo do build.
+  for (const item of pedidos[0]) assert.ok(item.prazoMs <= deadlineMs + 60_000 - sono, `${item.nome}: ${item.prazoMs}`);
+});
+
+test('SL11: o trabalhador nativo usa o cache por usuario do Trivy, nunca o /tmp compartilhado do catalogo (RM-074 F4)', () => {
+  fake = installFakeTools(['docker', 'trivy']);
+  const r = repo('sl11');
+  const agile = runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base });
+  const trivy = agile.tools.find(t => t.name === 'trivy-vuln')!;
+  assert.equal(trivy.executor, 'native');
+  const chamadas = fake!.calls().filter(c => c.as === 'trivy' && c.args.includes('--cache-dir'));
+  assert.ok(chamadas.length > 0, 'o trivy nativo varreu');
+  const doUsuario = path.join(cache, 'orkastery', 'security-scan', 'cache');
+  for (const c of chamadas) {
+    const dir = c.args[c.args.indexOf('--cache-dir') + 1];
+    assert.ok(dir.startsWith(doUsuario + path.sep), `o cache do usuario (XDG_CACHE_HOME), nao ${dir}`);
+    assert.ok(!c.args.includes('/tmp/trivy-cache'));
+  }
+});
+
+test('SL12: o trabalhador da varredura roda pelo argv, sem string de shell, e varre igual (RM-074 F4)', () => {
+  fake = installFakeTools(['docker']);
+  const r = repo('sl12');
+  const pedidos: ItemParalelo[] = [];
+  const agile = runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base }, (itens, ambiente, opcoes) => {
+    pedidos.push(...itens);
+    return rodarEmParalelo(itens, ambiente, opcoes);
+  });
+  assert.ok(pedidos.length > 0);
+  const trabalhador = path.resolve(__dirname, '..', 'src', 'security-scan', 'trabalhador.js');
+  for (const item of pedidos) {
+    assert.deepEqual(item.argv?.slice(0, 2), [process.execPath, trabalhador], item.nome);
+    assert.equal(item.argv!.length, 3, item.nome);
+    assert.ok(!argvDoItem(item, true, false).includes('bash') && !argvDoItem(item, true, false).includes('-c'), `${item.nome}: sem shell`);
+  }
+  assert.ok(agile.tools.length > 0 && agile.tools.every(t => t.state === 'ran'), JSON.stringify(agile.tools.map(t => [t.name, t.state, t.reason])));
 });
 
 test('SL4: com o binario nativo na versao do catalogo, o Agile roda o nativo em vez do Docker', () => {

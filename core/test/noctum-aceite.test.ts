@@ -12,18 +12,20 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { dirTemporario, projetoTemporario, ProjetoDeTeste } from './apoio';
 import { autorizarPedido, pedidoV2, prepararIngressoSimulado, TrabalhoSimulado } from './noctum-apoio';
+import { chaveSimulada, pedidoV3 } from './noctum-maquinas-apoio';
 import { assinadoPara } from './noctum-n6-apoio';
 import { instancia } from './noctum-supervisao-apoio';
 import { partesLocais } from '../src/horario';
 import { registrar, TIPOS_DE_EVENTO } from '../src/ledger';
 import { aceitarPorOmissao } from '../src/master';
 import { aceiteDoPiloto, CONTRATO_LIMIARES, gitDaRaiz, gravarAceite, hashDoAceite, Injecao, LeitorDoGit, lerInjecoes, lerLimiares, OpcoesDoAceite, publicavel,
-  RecusaDoAceite, ResultadoDoAceite } from '../src/noctum-aceite';
+  RecusaDoAceite, ResultadoDoAceite, sensiveisDoArco } from '../src/noctum-aceite';
 import { autorizarPeloIngresso, concluirDespacho, encerrarArco, lerArco, proporEnvelope, reservarDespacho, textoDeAutorizacao } from '../src/noctum-arco';
 import { entregarRelatorioSeDevido, reenviarRelatorio, vencimentoDoRelatorio } from '../src/noctum-relatorio';
 import { gravarNaSupervisao } from '../src/noctum-supervisao';
 import { ExecutorDoGh } from '../src/parado-no-condutor';
 import { dirThread, novaThread } from '../src/thread';
+import { CONTRATO_COORDENACAO, DadosDoRegistro, identidadeDaMaquina } from '../src/noctum-transporte';
 
 prepararIngressoSimulado();
 const CLI = path.resolve(__dirname, '../../dist/index.js');
@@ -73,13 +75,17 @@ function moverEventos(raiz: string, thread: string, tipo: string, ts: string): v
  */
 function piloto(nome: string, o: { semProva?: boolean; duasEntregas?: boolean; baseDeFora?: boolean; maquina?: string; aberto?: boolean;
   idempotente?: boolean; tiqueParado?: boolean; autorizarEm?: number; emendaEm?: number; composicaoAtrasadaMin?: number;
-  reciboAtrasadoMin?: number; reenvioDoDono?: boolean; masterDeFora?: boolean; semRuntime?: boolean } = {}): Piloto {
+  reciboAtrasadoMin?: number; reenvioDoDono?: boolean; masterDeFora?: boolean; semRuntime?: boolean; v3?: boolean } = {}): Piloto {
   const p = projetoTemporario(nome);
   const threads = ['a', 'b'].map((x, i) => novaThread(p.carregado, { nome: `piloto ${x}`, modo: 'auto', roadmap: `RM-97${i + 1}`,
     pedido: `Trabalho ${x} SIMULADO do piloto.`, criarWorktree: false }).thread.id);
   const trabalhos: TrabalhoSimulado[] = threads.map((thread, i) => ({ id: ['a', 'b'][i], item: `RM-97${i + 1}`, prioridade: i + 1, dependeDe: [], thread }));
   const arco = `arco-${nome}`;
-  const pedido = pedidoV2(arco, { trabalhos, contas: [{ conta: 'perfil-a', sessoes: 2 }, { conta: 'perfil-b', sessoes: 2 }], deslocamentoH: 2 });
+  const basico = { trabalhos, contas: [{ conta: 'perfil-a', sessoes: 2 }, { conta: 'perfil-b', sessoes: 2 }], deslocamentoH: 2 };
+  const pedido = o.v3 ? pedidoV3(arco, { ...basico, trabalhos: trabalhos.map((t, i) => ({ ...t, maquina: i ? 'maquina-b' : 'maquina-a' })),
+    maquinas: [identidadeDaMaquina(p.dir, 'maquina-a'),
+    { nome: 'maquina-b', chave: chaveSimulada('aceite-maquina-b') }], global: [{ conta: 'perfil-a', sessoes: 2 }, { conta: 'perfil-b', sessoes: 2 }] })
+    : pedidoV2(arco, basico);
   const janela = pedido.janela as { inicio: string; fim: string };
   const relatorioEm = partesLocais(Date.parse(janela.fim) + 30 * MIN, 'America/Sao_Paulo');
   pedido.relatorio = { horario: `${relatorioEm.hora}:${relatorioEm.minuto}`, canal: 'telegram' };
@@ -145,6 +151,23 @@ const aceite = (pl: Piloto, o: OpcoesDoAceite = {}): ResultadoDoAceite =>
   aceiteDoPiloto(pl.p.carregado, pl.arco, { git: gitDoGitHub(), executorGh: prsPorBranch(), injecoes: [F1(pl)], ...o });
 const medida = (r: ResultadoDoAceite, id: string) => r.medidas.find(m => m.id === id)!;
 const criterio = (r: ResultadoDoAceite, id: string) => r.criterios.find(c => c.id === id)!;
+
+const registroDaRede = (pl: Piloto, tipo: DadosDoRegistro['tipo'], por: string, instante: string,
+  campos: Record<string, unknown> = {}): DadosDoRegistro => ({ contrato: CONTRATO_COORDENACAO, tipo, arco: pl.arco,
+    envelopeSha256: lerArco(pl.p.dir, pl.arco)!.envelopeSha256!, por, em: instante, ...campos });
+
+const aceiteV3 = (pl: Piloto, o: OpcoesDoAceite = {}): ResultadoDoAceite => aceiteDoPiloto(pl.p.carregado, pl.arco, {
+  git: gitDoGitHub(), executorGh: prsPorBranch(), injecoes: [F1(pl)], maquina: 'maquina-a', rede: { registros: [], estado: null }, ...o,
+});
+
+function fonteDaOutra(r: ResultadoDoAceite, maquina = 'maquina-b', valores: Partial<Record<string, number | null>> = {}) {
+  const resultado = JSON.parse(JSON.stringify(r)) as ResultadoDoAceite;
+  resultado.maquina = maquina;
+  resultado.maquinas = [{ maquina, fonte: 'estado local', sha256: 'b'.repeat(64), veredito: resultado.veredito }];
+  for (const [id, valor] of Object.entries(valores)) medida(resultado, id).valor = valor!;
+  const bruto = `${JSON.stringify(resultado, null, 2)}\n`;
+  return { fonte: `/tmp/${maquina}-aceite-piloto.json`, sha256: createHash('sha256').update(bruto).digest('hex'), resultado };
+}
 
 test('AC1: o arco de fixture tem M1 a M10 medidas, e com os limiares da proposta todos os critérios do núcleo aprovam', () => {
   const pl = piloto('ac1');
@@ -300,7 +323,7 @@ test('AC10: o mesmo arco dá o mesmo hash, no resultado e no arquivo completo do
     assert.equal(hashDoAceite(a).sha256, hashDoAceite(b).sha256);
     const g1 = gravarAceite(pl.p.dir, a), g2 = gravarAceite(pl.p.dir, b);
     assert.deepEqual([g1.sha256, g1.arquivo], [g2.sha256, g2.arquivo]);
-    assert.deepEqual(Object.keys(a), ['contrato', 'arco', 'envelope', 'janela', 'encerramento', 'simulacao', 'medidas', 'criterios', 'veredito', 'lacunas'],
+    assert.deepEqual(Object.keys(a), ['contrato', 'arco', 'envelope', 'janela', 'encerramento', 'maquina', 'maquinas', 'simulacao', 'medidas', 'criterios', 'veredito', 'lacunas'],
       'nenhum campo com o instante de quem roda');
   } finally { pl.p.limpar(); }
 });
@@ -637,4 +660,117 @@ test('AC25: o git real acha o commit que reverte o merge, pela data do commit; o
     fs.rmSync(doB, { recursive: true, force: true });
     pl.p.limpar();
   }
+});
+
+test('AC26: a F10 é medida pelo primeiro registro assinado pela máquina alvo depois da partição', () => {
+  const pl = piloto('ac26', { v3: true });
+  try {
+    const injecao = em(pl.inicio, HORA);
+    const registros = [registroDaRede(pl, 'batida', 'maquina-b', em(injecao, 9 * MIN))];
+    const r = aceiteV3(pl, { injecoes: [{ falha: 'F10', instante: injecao, alvo: 'maquina-b' }], rede: { registros, estado: null } });
+    assert.equal(medida(r, 'M4').valor, 1);
+    assert.deepEqual((medida(r, 'M4').evidencia.injecoes as Array<{ sinal: { maquina: string } }>)[0].sinal.maquina, 'maquina-b');
+  } finally { pl.p.limpar(); }
+});
+
+test('AC27: a F11 mede o primeiro ato de outra máquina e só completa depois do recibo de fim', () => {
+  const pl = piloto('ac27', { v3: true });
+  try {
+    const injecao = em(pl.inicio, HORA);
+    const tomada = registroDaRede(pl, 'autoridade', 'maquina-a', em(injecao, 20 * MIN),
+      { geracao: 2, modo: 'forcada', anterior: { geracao: 1, maquina: 'maquina-b' }, motivo: 'SIMULADO', selo: null });
+    const completa = aceiteV3(pl, { injecoes: [{ falha: 'F11', instante: injecao, alvo: 'maquina-b' }], rede: { registros: [tomada], estado: null } });
+    assert.deepEqual([medida(completa, 'M4').valor, medida(completa, 'M5').valor], [1, 20]);
+    const esperando = aceiteV3(pl, { injecoes: [{ falha: 'F11', instante: injecao, alvo: 'maquina-b' }],
+      rede: { registros: [tomada], estado: null, ordensIsoladas: [{ maquina: 'maquina-b', trabalho: 'b' }] } });
+    assert.equal(medida(esperando, 'M4').valor, 0);
+    assert.deepEqual(medida(esperando, 'M4').evidencia.aguardamRecibo, [{ maquina: 'maquina-b', trabalho: 'b' }]);
+  } finally { pl.p.limpar(); }
+});
+
+test('AC28: F10 e F11 sem alvo deixam a medida em lacuna', () => {
+  const pl = piloto('ac28', { v3: true });
+  try {
+    const r = aceiteV3(pl, { injecoes: [{ falha: 'F10', instante: pl.inicio }, { falha: 'F11', instante: pl.inicio }],
+      rede: { registros: [], estado: null } });
+    assert.equal(medida(r, 'M4').valor, null);
+    assert.match(medida(r, 'M4').lacunas.join('; '), /F10 exige o alvo.*F11 exige o alvo/);
+  } finally { pl.p.limpar(); }
+});
+
+test('AC29: M2 e M9 trazem a evidência dividida por máquina a partir da coordenação', () => {
+  const pl = piloto('ac29', { v3: true });
+  try {
+    const entrega = registroDaRede(pl, 'entrega', 'maquina-b', em(pl.inicio, 5 * HORA), { trabalho: 'b', merge: MERGE(2), destino: 'destino' });
+    const vaga = { vaga: 'V-b-1', maquina: 'maquina-b', conta: 'perfil-b', runtime: 'claude-bg', ordem: 'O-b-1', trabalho: 'b', reserva: 2,
+      chave: 'chave-b', desde: em(pl.inicio, HORA), solta: null };
+    const r = aceiteV3(pl, { rede: { registros: [entrega], estado: null, vagas: [vaga] } });
+    assert.deepEqual(medida(r, 'M2').evidencia.porMaquina, { 'maquina-a': 0, 'maquina-b': 1 });
+    assert.deepEqual(medida(r, 'M9').evidencia.porMaquina, { 'maquina-a': 0, 'maquina-b': 1 });
+  } finally { pl.p.limpar(); }
+});
+
+test('AC30: o aceite completo da outra máquina combina M1, M3, M6, M8 e M10', () => {
+  const pl = piloto('ac30', { v3: true });
+  try {
+    const local = aceiteV3(pl);
+    const outra = fonteDaOutra(local, 'maquina-b', { M1: 7, M3: 3, M6: 2, M8: 4, M10: 1 });
+    const r = aceiteV3(pl, { outrasMaquinas: [outra] });
+    assert.deepEqual(['M1', 'M3', 'M6', 'M8', 'M10'].map(id => medida(r, id).valor), [7, 5, 2, 4, 1]);
+    assert.deepEqual(r.maquinas.map(m => [m.maquina, m.fonte]), [['maquina-a', 'estado local'], ['maquina-b', outra.fonte]]);
+  } finally { pl.p.limpar(); }
+});
+
+test('AC31: sem o arquivo da outra máquina as medidas combinadas ficam em lacuna e o veredito incompleto', () => {
+  const pl = piloto('ac31', { v3: true });
+  try {
+    const r = aceiteV3(pl);
+    assert.equal(medida(r, 'M1').valor, null);
+    assert.match(medida(r, 'M1').lacunas.join('; '), /sem o aceite completo da\(s\) máquina\(s\): maquina-b/);
+    assert.equal(r.veredito, 'incompleto');
+  } finally { pl.p.limpar(); }
+});
+
+test('AC32: vagas do mesmo trabalho ativas em duas máquinas ao mesmo tempo contam em M7', () => {
+  const pl = piloto('ac32', { v3: true });
+  try {
+    const vaga = (n: number, maquina: string, inicio: number, fim: number | null) => ({ vaga: `V-a-${n}`, maquina, conta: 'perfil-a', runtime: 'claude-bg',
+      ordem: `O-a-${n}`, trabalho: 'a', reserva: n, chave: `chave-${n}`, desde: em(pl.inicio, inicio * MIN),
+      solta: fim === null ? null : { em: em(pl.inicio, fim * MIN), consumiu: true, motivo: 'SIMULADO' } });
+    const r = aceiteV3(pl, { rede: { registros: [], estado: null, vagas: [vaga(1, 'maquina-a', 10, 30), vaga(2, 'maquina-b', 20, 40)] } });
+    assert.equal(medida(r, 'M7').valor, 1);
+    assert.equal((medida(r, 'M7').evidencia.vagasSobrepostas as unknown[]).length, 1);
+  } finally { pl.p.limpar(); }
+});
+
+test('AC33: o publicável troca também os nomes das máquinas do envelope', () => {
+  const pl = piloto('ac33', { v3: true });
+  try {
+    const r = aceiteV3(pl);
+    const publico = JSON.stringify(publicavel(r, hashDoAceite(r).sha256, sensiveisDoArco(pl.p.carregado, pl.arco)));
+    assert.doesNotMatch(publico, /maquina-a|maquina-b/);
+    assert.match(publico, /maquina-1/);
+  } finally { pl.p.limpar(); }
+});
+
+test('AC34: a proposta de A4 é 25 min no v3 e continua 15 min no v2', () => {
+  const v3 = piloto('ac34v3', { v3: true }), v2 = piloto('ac34v2');
+  try {
+    assert.equal(criterio(aceiteV3(v3), 'A4').limiar?.m5MaximoMin, 25);
+    assert.equal(criterio(aceite(v2), 'A4').limiar?.m5MaximoMin, 15);
+  } finally { v3.p.limpar(); v2.p.limpar(); }
+});
+
+test('AC35: o arquivo de outro arco ou de máquina fora do envelope é recusado', () => {
+  const pl = piloto('ac35', { v3: true });
+  try {
+    const base = aceiteV3(pl);
+    const outroArco = fonteDaOutra(base);
+    outroArco.resultado.arco = 'arco-outro';
+    assert.throws(() => aceiteV3(pl, { outrasMaquinas: [outroArco] }),
+      (e: unknown) => e instanceof RecusaDoAceite && e.motivo === 'noctum.aceite.outra-maquina-invalida');
+    const fora = fonteDaOutra(base, 'maquina-c');
+    assert.throws(() => aceiteV3(pl, { outrasMaquinas: [fora] }),
+      (e: unknown) => e instanceof RecusaDoAceite && e.motivo === 'noctum.aceite.outra-maquina-invalida');
+  } finally { pl.p.limpar(); }
 });

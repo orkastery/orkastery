@@ -27,23 +27,33 @@ import * as path from 'node:path';
 import { raizDoEstado } from './estado-thread';
 import { lerLedger, TIPOS_DE_EVENTO } from './ledger';
 import { Mensagens, textoDoCatalogo } from './locale';
+import { exigirManifesto } from './manifest';
 import { ArcoComProposta, EstadoDoArco, lerArcoComProposta, SituacaoDoArco } from './noctum-arco';
 import { sessoesEmVooDoArco } from './noctum-sessoes-em-voo';
-import { ConteudoDoEnvelope, ID_DO_ARCO, RecusaDoArco, shaDoPedido } from './noctum-envelope';
+import { ConteudoDoEnvelope, envelopeMultimaquina, ID_DO_ARCO, RecusaDoArco, shaDoPedido, Trabalho } from './noctum-envelope';
+import type { RedeDoArco } from './noctum-rede';
 import { dirThread, lerThread } from './thread';
 import { EventoLedger } from './types';
 
 export const MOTIVO_DA_GUARDA = 'noctum.guarda.thread-do-arco' as const;
 export const MOTIVO_DO_ARCO_ILEGIVEL = 'noctum.guarda.arco-ilegivel' as const;
-export type MotivoDaGuarda = typeof MOTIVO_DA_GUARDA | typeof MOTIVO_DO_ARCO_ILEGIVEL;
+export const MOTIVO_DA_REDE_ILEGIVEL = 'noctum.guarda.rede-ilegivel' as const;
+export type MotivoDaGuarda = typeof MOTIVO_DA_GUARDA | typeof MOTIVO_DO_ARCO_ILEGIVEL | typeof MOTIVO_DA_REDE_ILEGIVEL;
 
 /** De onde vem o vínculo da thread com o arco; um arco dá um vínculo só, o primeiro desta ordem. */
-export type OrigemDoVinculo = 'envelope' | 'proposta' | 'despacho' | 'correlacao';
+export type OrigemDoVinculo = 'envelope' | 'proposta' | 'despacho' | 'correlacao' | 'rede';
 
 export interface VinculoDoArco { arco: string; situacao: SituacaoDoArco; origem: OrigemDoVinculo }
 
 /** Os arcos desta raiz, cada um lido uma vez no instante dado, e os que não se leram, com o motivo. */
-export interface ArcosDaRaiz { quando: string; lidos: Map<string, ArcoComProposta>; ilegiveis: Map<string, string> }
+export interface ArcosDaRaiz {
+  quando: string;
+  lidos: Map<string, ArcoComProposta>;
+  ilegiveis: Map<string, string>;
+  /** Cache preguiçoso da rede: só um arco v3 encerrado e vinculado chega a consultá-lo. */
+  redes: Map<string, RedeDoArco>;
+  redesIlegiveis: Map<string, string>;
+}
 
 /** A recusa tipada da guarda: o arco, a situação dele (`null` no arco que não se lê), a origem do vínculo e o que fazer. */
 export interface RecusaDaGuarda {
@@ -74,7 +84,7 @@ function nomesDosArcos(raiz: string): string[] {
 
 /** Lê cada arco desta raiz uma vez. O arco que não se lê fica com o motivo, e os outros seguem. */
 export function lerArcosDaRaiz(raiz: string, quando = new Date().toISOString()): ArcosDaRaiz {
-  const arcos: ArcosDaRaiz = { quando, lidos: new Map(), ilegiveis: new Map() };
+  const arcos: ArcosDaRaiz = { quando, lidos: new Map(), ilegiveis: new Map(), redes: new Map(), redesIlegiveis: new Map() };
   for (const arco of nomesDosArcos(raiz)) {
     try {
       const lido = lerArcoComProposta(raiz, arco, quando);
@@ -107,8 +117,50 @@ type DadosDaThread = { roadmap: string | null; pedido: string | null };
 
 /** A thread está na lista? A fixada no trabalho, ou a que casa com o item e o sha256 do pedido dele. */
 function naLista(conteudo: ConteudoDoEnvelope | null, thread: string, dados: () => DadosDaThread): boolean {
-  return !!conteudo?.trabalhos?.some(w => w.thread !== undefined ? w.thread === thread
-    : w.pedido !== undefined && dados().roadmap === w.item && dados().pedido === shaDoPedido(w.pedido));
+  return !!trabalhoNaLista(conteudo, thread, dados);
+}
+
+/** O trabalho da thread na lista, pela fixação ou pelo pedido, quando existe. */
+function trabalhoNaLista(conteudo: ConteudoDoEnvelope | null, thread: string, dados: () => DadosDaThread): Trabalho | null {
+  return conteudo?.trabalhos?.find(w => w.thread !== undefined ? w.thread === thread
+    : w.pedido !== undefined && dados().roadmap === w.item && dados().pedido === shaDoPedido(w.pedido)) ?? null;
+}
+
+/** O id do trabalho que liga esta thread ao arco, na lista vigente ou no despacho mais recente. */
+function trabalhoDaThread(estado: EstadoDoArco, thread: string, dados: () => DadosDaThread): string | null {
+  const listado = trabalhoNaLista(estado.conteudo, thread, dados);
+  if (listado) return listado.id;
+  for (let i = estado.despachos.length - 1; i >= 0; i--) {
+    const d = estado.despachos[i];
+    if (d.thread === thread || d.threadDespachada === thread) return d.trabalho;
+  }
+  return null;
+}
+
+/** A rede do arco, uma vez por `ArcosDaRaiz`; falha inesperada também fica cacheada e falha fechada. */
+function redeDoArco(arco: string, arcos: ArcosDaRaiz, ler: (arco: string) => RedeDoArco): RedeDoArco | string {
+  const pronta = arcos.redes.get(arco);
+  if (pronta) return pronta;
+  const falha = arcos.redesIlegiveis.get(arco);
+  if (falha !== undefined) return falha;
+  try {
+    const rede = ler(arco);
+    arcos.redes.set(arco, rede);
+    return rede;
+  } catch (e) {
+    const detalhe = (e instanceof Error ? e.message : String(e)).split('\n')[0].slice(0, 200);
+    arcos.redesIlegiveis.set(arco, detalhe);
+    return detalhe;
+  }
+}
+
+/**
+ * A fila carrega a Sentinela, que carrega esta guarda. Resolver a projeção só quando uma thread de arco v3 encerrado
+ * realmente precisar dela evita o ciclo de inicialização fila -> guarda -> rede -> coordenação -> fila.
+ */
+function lerRedePadrao(raiz: string, arco: string, quando: string): RedeDoArco {
+  const { lerRede } = require('./noctum-rede') as typeof import('./noctum-rede');
+  return lerRede(exigirManifesto(raiz), arco, { quando });
 }
 
 /**
@@ -148,7 +200,7 @@ export function guardaOsCaminhosManuais(v: VinculoDoArco): boolean {
  * outro arco recusa. `arcos` reaproveita a leitura de quem confere várias threads de uma vez (o `registrar-pr --todas`).
  */
 export function guardaDaThread(raiz: string, thread: string, quando = new Date().toISOString(),
-  opcoes: { doArco?: string; arcos?: ArcosDaRaiz } = {}): RecusaDaGuarda | null {
+  opcoes: { doArco?: string; arcos?: ArcosDaRaiz; lerRede?: (arco: string) => RedeDoArco } = {}): RecusaDaGuarda | null {
   const arcos = opcoes.arcos ?? lerArcosDaRaiz(raiz, quando);
   if (!arcos.lidos.size && !arcos.ilegiveis.size) return null;
   const ultimo = arcoDoUltimoDespacho(raiz, thread);
@@ -160,6 +212,33 @@ export function guardaDaThread(raiz: string, thread: string, quando = new Date()
   const vinculos = vinculosDaThread(raiz, arcos, thread, ultimo);
   const v = vinculos.find(x => x.arco !== opcoes.doArco && guardaOsCaminhosManuais(x));
   if (!v) {
+    let dadosLidos: DadosDaThread | null = null;
+    const dados = (): DadosDaThread => {
+      if (dadosLidos) return dadosLidos;
+      try { const t = lerThread(raiz, thread); dadosLidos = { roadmap: t.roadmap ?? null, pedido: t.pedido?.sha256 ?? null }; }
+      catch { dadosLidos = { roadmap: null, pedido: null }; }
+      return dadosLidos;
+    };
+    // Num v3 encerrado localmente, o trabalho pode seguir em outra máquina. A rede só é lida depois de provar o vínculo,
+    // e a leitura fica no `ArcosDaRaiz` para o registrar-pr --todas não consultar o mesmo arco de novo.
+    for (const t of vinculos.filter(x => x.arco !== opcoes.doArco && x.situacao === 'encerrado')) {
+      const lido = arcos.lidos.get(t.arco);
+      if (!lido?.estado.conteudo || !envelopeMultimaquina(lido.estado.conteudo)) continue;
+      const trabalho = trabalhoDaThread(lido.estado, thread, dados);
+      if (!trabalho) continue;
+      const rede = redeDoArco(t.arco, arcos, opcoes.lerRede ?? ((arco) => lerRedePadrao(raiz, arco, arcos.quando)));
+      if (typeof rede === 'string' || rede.lacuna) {
+        const falha = typeof rede === 'string' ? rede : `${rede.lacuna!.motivo}: ${rede.lacuna!.detalhe}`;
+        return recusa(MOTIVO_DA_REDE_ILEGIVEL, thread, t.arco, t.situacao, 'rede',
+          (m) => m.ship.guarda.redeIlegivel(thread, t.arco, falha), (m) => m.ship.guarda.redeIlegivelCorrecao(t.arco));
+      }
+      const naRede = rede.trabalhos.find(x => x.id === trabalho);
+      if (!rede.revogada && naRede && naRede.estado !== 'entregue' && naRede.estado !== 'encerrado') {
+        return recusa(MOTIVO_DA_GUARDA, thread, t.arco, t.situacao, 'rede',
+          (m) => m.ship.guarda.redeDoArco(thread, t.arco, naRede.estado, trabalho),
+          (m) => m.ship.guarda.redeDoArcoCorrecao(t.arco));
+      }
+    }
     // A2 do CHECK: no arco que terminou (revogado, expirado ou encerrado), a sessão que ele despachou e que ainda conduz a
     // thread não entrega fora dele; sem sessão dele em voo, a thread se entrega à mão, como antes.
     for (const t of vinculos.filter(x => x.arco !== opcoes.doArco && TERMINAIS.includes(x.situacao))) {

@@ -42,7 +42,7 @@ import { duracaoRelativa, formatarDataHora, formatarHora, instanteNoFuso, partes
 import { lerLedger, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
 import { AlternativaDoLote, EstadoDoArco, lerArco, SituacaoDoArco } from './noctum-arco';
-import { CanalDoRelatorio, ConteudoDoEnvelope, RecusaDoArco, Unidade } from './noctum-envelope';
+import { CanalDoRelatorio, ConteudoDoEnvelope, envelopeMultimaquina, RecusaDoArco, Unidade } from './noctum-envelope';
 import { lerFechamento, textoDaParada, trabalhosDoArco } from './noctum-fechamento';
 import { fatosDaFila, FilaDoArco, LeitorDeReservas } from './noctum-fila';
 import { ConsumoNaUnidade, consumoDoEscopoNaUnidade, MedicaoDoArco, medirArco, precisaMedir, textoDoConsumo } from './noctum-medicao';
@@ -51,6 +51,7 @@ import { contaForaAgora, EsperaDoPasso, lerSupervisao, RecusaDaSupervisao, Recus
 import { exigirHostLocal } from './procedencia';
 import { dirThread } from './thread';
 import { EventoLedger } from './types';
+import { coordenacaoDaFila, lerRede, RedeDoArco } from './noctum-rede';
 
 export const CONTRATO_RELATORIO = 'ork.noctum-relatorio/v1' as const;
 /** O teto de uma mensagem do Telegram é 4.096; a página fica abaixo, com folga, como o digest do MASTER. */
@@ -66,9 +67,10 @@ export const ARQUIVO_DO_TRANSPORTE = 'noctum-host.json';
 export type CanalComTransporte = Exclude<CanalDoRelatorio, 'terminal'>;
 export interface TransporteDoCanal { executavel: string; argumentos: string[] }
 
-export interface ItemEntregue { trabalho: string; item: string; thread: string; pr: number | null; merge: string | null; push: string; master: string }
+export interface ItemEntregue { trabalho: string; item: string; thread: string | null; pr: number | null; merge: string | null; push: string; master: string;
+  maquina?: string | null }
 export interface ItemEmCurso { trabalho: string; item: string; thread: string | null; estado: string; checkpoint: string; retomada: string;
-  proximo: string; reserva: string | null }
+  proximo: string; reserva: string | null; maquina?: string | null }
 export interface ItemImpedido { trabalho: string; item: string; thread: string | null; causa: string; detalhe: string;
   alcance: 'trabalho' | 'conta' | 'arco'; tentativas: string; hitl: string | null }
 export interface DecisaoNoEnvelope { thread: string; em: string; decidido: string; porque: string; comoMudar: string; evidencia: string }
@@ -122,6 +124,9 @@ export interface FatosDoRelatorio {
   janela: { inicio: string; fim: string };
   situacao: SituacaoDoArco;
   envelopeSha256: string | null;
+  /** Só no v3: a máquina que compôs e a projeção usada como fonte dos fatos entre máquinas. */
+  maquina?: string;
+  rede?: RedeDoArco;
   encerramento: { motivo: string; detalhe: string; em: string } | null;
   entregues: ItemEntregue[];
   emCurso: ItemEmCurso[];
@@ -150,7 +155,7 @@ export interface FatosDoRelatorio {
 }
 
 /** O que uma versão afirmou e que pode precisar de correção depois. */
-export interface InformadoNaVersao { entregues: Array<{ trabalho: string; thread: string; merge: string | null }>; corrigidos: string[] }
+export interface InformadoNaVersao { entregues: Array<{ trabalho: string; thread: string | null; merge: string | null }>; corrigidos: string[] }
 
 type EventoDoRelatorio =
   | { tipo: 'composto'; versao: number; motivo: 'horario' | 'correcao'; vencimentoEm: string; canal: CanalDoRelatorio; sha256: string;
@@ -175,6 +180,10 @@ export interface OpcoesDoRelatorio {
   supervisao?: (raiz: string, arco: string) => FatosDaSupervisao | null;
   /** O envio por canal; em produção, o transporte local do `noctum-host.json`. */
   enviar?: (canal: CanalComTransporte, texto: string) => ResultadoDoEnvio;
+  /** Projeção lida uma vez pelo tique; sem ela, o relatório lê o ramo no v3. */
+  projecaoDaRede?: RedeDoArco;
+  remoto?: string;
+  redeDaCoordenacao?: import('./branch-de-estado').OpcoesDeGit;
 }
 
 const sha = (s: string): string => createHash('sha256').update(s).digest('hex');
@@ -270,8 +279,16 @@ export function fatosDoRelatorio(carregado: ManifestoCarregado, arco: string, op
   const conteudo = estado.conteudo;
   const fuso = conteudo.janela.fuso;
   const lacunas: string[] = [];
+  const multimaquina = envelopeMultimaquina(conteudo);
+  const rede = multimaquina ? opcoes.projecaoDaRede ?? lerRede(carregado, arco,
+    { quando, maquina: opcoes.maquina, remoto: opcoes.remoto, rede: opcoes.redeDaCoordenacao }) : null;
+  if (rede?.lacuna) lacunas.push(`a rede do arco não pôde ser lida (${rede.lacuna.motivo}: ${rede.lacuna.detalhe})`);
   let fila: FilaDoArco | null = null;
-  try { fila = trabalhosDoArco(fatosDaFila(carregado, arco, { quando, maquina: opcoes.maquina, lerReservas: opcoes.lerReservas })); }
+  try {
+    const coordenacao = rede ? coordenacaoDaFila(rede) : null;
+    fila = rede?.lacuna ? null : trabalhosDoArco(fatosDaFila(carregado, arco,
+      { quando, maquina: opcoes.maquina, lerReservas: opcoes.lerReservas, ...(coordenacao ? { coordenacao } : {}) }));
+  }
   catch (e) { if (!(e instanceof RecusaDoArco)) throw e; lacunas.push(`a fila do arco não pôde ser lida (${e.motivo})`); }
   if (fila) lacunas.push(...fila.lacunas);
   let fechamento: ReturnType<typeof lerFechamento> | null = null;
@@ -294,7 +311,22 @@ export function fatosDoRelatorio(carregado: ManifestoCarregado, arco: string, op
     const pendente = estado.despachos.find(d => d.trabalho === t.id && d.desfecho === 'pendente');
     const base = { trabalho: t.id, item: t.item, thread: t.thread };
     const isolado = supervisao?.isolados.find(i => i.trabalho === t.id);
-    if (t.estado === 'entregue' && t.thread && eventos) {
+    const naRede = rede?.trabalhos.find(x => x.id === t.id);
+    if (multimaquina && naRede?.entrega) {
+      const master = eventos ? [...eventos].reverse().find(x => x.tipo === TIPOS_DE_EVENTO.masterConcluido) : null;
+      entregues.push({ ...base, pr: null, merge: naRede.entrega.merge, maquina: naRede.entrega.maquina,
+        push: `registro de entrega da N3 na máquina ${naRede.entrega.maquina}`,
+        master: master && typeof master.score === 'number' ? `MASTER ${master.score}/5` : 'MASTER pendente' });
+      continue;
+    }
+    if (multimaquina && naRede?.ordem && naRede.ordem.maquina !== rede?.maquina &&
+        ['emitida', 'aceita', 'isolada'].includes(naRede.ordem.estado)) {
+      emCurso.push({ ...base, estado: naRede.estado, maquina: naRede.ordem.maquina,
+        checkpoint: `ordem ${naRede.ordem.ordem} viva na máquina ${naRede.ordem.maquina}`,
+        retomada: `na máquina ${naRede.ordem.maquina}`, proximo: 'acompanhar a ordem e seus recibos na rede', reserva: null });
+      continue;
+    }
+    if (!multimaquina && t.estado === 'entregue' && t.thread && eventos) {
       const e = entregaDaThread(eventos);
       if (e.provada && e.ship) {
         const master = [...eventos].reverse().find(x => x.tipo === TIPOS_DE_EVENTO.masterConcluido);
@@ -311,6 +343,12 @@ export function fatosDoRelatorio(carregado: ManifestoCarregado, arco: string, op
       }
       emCurso.push({ ...base, estado: t.estado, checkpoint: CHECKPOINT_SEM_PROVA,
         retomada: 'a entrega (N5), com a prova no SHA exato', proximo: 'provar o push e o merge', reserva: null });
+      continue;
+    }
+    if (multimaquina && t.estado === 'entregue') {
+      emCurso.push({ ...base, estado: t.estado, maquina: naRede?.maquina ?? null,
+        checkpoint: 'a entrega local ainda não tem registro de entrega na rede', retomada: 'a reconciliação da máquina',
+        proximo: 'publicar ou reconciliar o recibo da N3', reserva: null });
       continue;
     }
     if (isolado || t.estado === 'bloqueado' || t.estado === 'encerrado-sem-entrega') {
@@ -348,11 +386,13 @@ export function fatosDoRelatorio(carregado: ManifestoCarregado, arco: string, op
     }
   }
   decisoes.sort((a, b) => a.em.localeCompare(b.em));
-  const custo = modo.semCusto ? [] : linhasDeCusto(conteudo, medidorDoRelatorio(opcoes, conteudo)(raiz, estado, quando));
+  const estadoDoCusto = rede && !rede.lacuna ? { ...estado, consumo: { ...estado.consumo, arco: rede.consumo.arco } } : estado;
+  const custo = modo.semCusto ? [] : linhasDeCusto(conteudo, medidorDoRelatorio(opcoes, conteudo)(raiz, estadoDoCusto, quando));
   const candidato = fila?.candidatos[0];
   return {
     arco, quando, fuso, vencimentoEm: vencimentoDoRelatorio(conteudo), janela: { inicio: conteudo.janela.inicio, fim: conteudo.janela.fim },
     situacao: estado.situacao, envelopeSha256: estado.envelopeSha256,
+    ...(multimaquina ? { maquina: rede?.maquina ?? opcoes.maquina ?? 'desconhecida', ...(rede ? { rede } : {}) } : {}),
     encerramento: estado.encerramento ? { motivo: estado.encerramento.motivo, detalhe: estado.encerramento.detalhe, em: estado.encerramento.em } : null,
     entregues, emCurso, impedidos, decisoes, custo,
     sessoesDespachadas: estado.despachos.filter(d => d.desfecho === 'concluido' && !d.idempotente).length,
@@ -387,14 +427,20 @@ export function linhasDoRelatorio(f: FatosDoRelatorio, versao: number): string[]
   if (f.encerramento) l.push(`O arco fechou às ${hora(f.encerramento.em)} (${MOTIVO_EM_TEXTO[f.encerramento.motivo] ?? f.encerramento.motivo}): ${frase(f.encerramento.detalhe)}`);
   else if (f.situacao === 'vigente') l.push(`O arco segue até ${hora(f.janela.fim)}.`);
   else l.push(`O arco está ${f.situacao}.`);
+  if (f.rede && !f.rede.lacuna) {
+    l.push(`Rede: autoridade ${f.rede.autoridade?.maquina ?? 'ainda não assumida'}; composta na máquina ${f.maquina}.`,
+      ...f.rede.maquinas.map(m => `• Máquina ${m.nome}: último sinal ${m.ultimoSinal ? hora(m.ultimoSinal) : 'ausente'}; ` +
+        `${m.ordensVivas.length} ordem(ns), ${m.vagasAtivas.length} vaga(s), consumo ${m.consumo}.`));
+  }
   if (f.lacunas.length) l.push(`Não lido: ${f.lacunas.join('; ')}.`);
-  l.push('', '✅ Entregue', ...(f.entregues.length ? f.entregues.map(e => `• ${e.trabalho} (${e.item}): thread ${e.thread}` +
+  l.push('', '✅ Entregue', ...(f.entregues.length ? f.entregues.map(e => `• ${e.trabalho} (${e.item}): ` +
+    `${e.thread ? `thread ${e.thread}` : 'sem thread local'}${e.maquina ? `, máquina ${e.maquina}` : ''}` +
     `${e.pr !== null ? `, PR #${e.pr}` : ''}${e.merge ? `, merge ${e.merge.slice(0, 8)}` : ''}, push provado (${e.push}), ${e.master}`) : nada));
   const daSupervisao = [...f.retomadas.map(r => `• retomada autorizada pela supervisão: ${r}`),
     ...f.sessoesParadas.map(s => `• pela supervisão, ${s}`)];
   l.push('', '🔄 Em curso', ...(f.emCurso.length || f.paradas.length || daSupervisao.length ? [...f.emCurso.map(e => `• ${e.trabalho} (${e.item}): ` +
     `${e.thread ? `thread ${e.thread}, ` : ''}checkpoint: ${e.checkpoint}; retoma: ${e.retomada}; próximo passo: ${e.proximo}` +
-    `${e.reserva ? `; ${e.reserva}` : ''}`), ...f.paradas.map(p => `• no fechamento, ${p}`), ...daSupervisao] : nada));
+    `${e.maquina ? `; máquina ${e.maquina}` : ''}${e.reserva ? `; ${e.reserva}` : ''}`), ...f.paradas.map(p => `• no fechamento, ${p}`), ...daSupervisao] : nada));
   // A parada da supervisão que ainda não fechou o arco (o fechamento a lê no tique seguinte) vai ao Impedido, com alcance do arco.
   const parada = f.paradaDaSupervisao && f.encerramento?.motivo !== 'supervisao'
     ? [`• o arco: parado pela supervisão (${f.paradaDaSupervisao}); alcance: arco`] : [];
@@ -461,8 +507,8 @@ export function linhasDoRelatorio(f: FatosDoRelatorio, versao: number): string[]
 }
 
 /** As páginas de até `TETO_DA_PAGINA` caracteres, cada uma com o arco, a versão e a página no cabeçalho. */
-export function paginar(arco: string, versao: number, linhas: readonly string[]): string[] {
-  const cabecalho = (i: number, n: number) => `Arco ${arco}, relatório v${versao}, página ${i}/${n}`;
+export function paginar(arco: string, versao: number, linhas: readonly string[], maquina?: string): string[] {
+  const cabecalho = (i: number, n: number) => `Arco ${arco}, relatório v${versao}, página ${i}/${n}${maquina ? `, máquina ${maquina}` : ''}`;
   const espaco = TETO_DA_PAGINA - cabecalho(99, 99).length - 1;
   const blocos: string[][] = [[]];
   let tamanho = 0;
@@ -587,7 +633,7 @@ export interface ResultadoDaEntrega {
 
 function compor(fatos: FatosDoRelatorio, versao: number, motivo: 'horario' | 'correcao', canal: CanalDoRelatorio,
   corrigidos: string[]): Extract<EventoDoRelatorio, { tipo: 'composto' }> {
-  const paginas = paginar(fatos.arco, versao, linhasDoRelatorio(fatos, versao));
+  const paginas = paginar(fatos.arco, versao, linhasDoRelatorio(fatos, versao), fatos.maquina);
   return { tipo: 'composto', versao, motivo, vencimentoEm: fatos.vencimentoEm, canal, sha256: sha(paginas.join('\n')), paginas,
     informados: { entregues: fatos.entregues.map(e => ({ trabalho: e.trabalho, thread: e.thread, merge: e.merge })), corrigidos } };
 }
@@ -619,7 +665,8 @@ export function entregarRelatorioSeDevido(carregado: ManifestoCarregado, arco: s
   const fatos = fatosDoRelatorio(carregado, arco, { ...opcoes, quando }, { semCusto: true });
   if (!fatos) return sem('sem-relatorio', `o arco ${arco} não tem envelope autorizado`);
   const comCusto = (f: FatosDoRelatorio): FatosDoRelatorio =>
-    ({ ...f, custo: linhasDeCusto(conteudo, medidorDoRelatorio(opcoes, conteudo)(raiz, estado!, quando)) });
+    ({ ...f, custo: linhasDeCusto(conteudo, medidorDoRelatorio(opcoes, conteudo)(raiz,
+      f.rede && !f.rede.lacuna ? { ...estado!, consumo: { ...estado!.consumo, arco: f.rede.consumo.arco } } : estado!, quando)) });
   try {
     return comRegistro<EventoDoRelatorio, ResultadoDaEntrega>(raiz, arco, 'relatorio', (linhas, anexar) => {
       const todas: Linha[] = [...linhas];
@@ -739,7 +786,7 @@ export function relatorioNoTerminal(carregado: ManifestoCarregado, arco: string,
     const fatos = fatosDoRelatorio(carregado, arco, { ...opcoes, quando });
     if (!fatos) return null;
     return { versao: null, previa: true, paginas: paginar(arco, 0, ['Prévia: nenhuma versão foi composta ainda; isto não é a entrega.',
-      ...linhasDoRelatorio(fatos, 0)]) };
+      ...linhasDoRelatorio(fatos, 0)], fatos.maquina) };
   }
   if (opcoes.interativo) {
     // Com a trava ocupada (o tique enviando), o dono vê as páginas assim mesmo; o recibo do terminal fica para a vez seguinte.

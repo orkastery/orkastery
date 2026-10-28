@@ -175,7 +175,7 @@ export const SHIP_PT_BR = {
     situacoes: { 'proposto': 'proposto', 'agendado': 'agendado', 'vigente': 'vigente', 'expirado': 'expirado', 'revogado': 'revogado',
       'encerrado': 'encerrado' } as Record<string, string>,
     origens: { 'envelope': 'pela lista do envelope', 'proposta': 'pela proposta que espera o dono', 'despacho': 'pelo log de despachos do arco',
-      'correlacao': 'pelo último despacho da thread' } as Record<string, string>,
+      'correlacao': 'pelo último despacho da thread', 'rede': 'pela rede do arco' } as Record<string, string>,
     doArco: (thread: string, arco: string, situacao: string, origem: string) =>
       `noctum.guarda.thread-do-arco: a thread ${thread} é trabalho do arco ${arco} (${situacao}, ${origem})`,
     doArcoCorrecao: (arco: string) =>
@@ -183,6 +183,14 @@ export const SHIP_PT_BR = {
     arcoIlegivel: (thread: string, arco: string, motivo: string) =>
       `noctum.guarda.arco-ilegivel: o último despacho da thread ${thread} foi do arco ${arco}, e o arco não se lê (${motivo})`,
     arcoIlegivelCorrecao: (arco: string) => `inspecione o arco antes de entregar a thread por fora dele (ork noctum status ${arco})`,
+    redeIlegivel: (thread: string, arco: string, motivo: string) =>
+      `noctum.guarda.rede-ilegivel: a thread ${thread} é trabalho do arco ${arco}, encerrado nesta máquina, e a rede não se lê (${motivo})`,
+    redeIlegivelCorrecao: (arco: string) =>
+      `restaure a leitura da rede antes de entregar a thread por fora do arco (ork noctum status ${arco})`,
+    redeDoArco: (thread: string, arco: string, estado: string, trabalho: string) =>
+      `noctum.guarda.thread-do-arco: a thread ${thread} é o trabalho ${trabalho} do arco ${arco}, ainda ${estado} na rede`,
+    redeDoArcoCorrecao: (arco: string) =>
+      `espere o trabalho terminar na rede ou entregue-o pelo passo da entrega do arco ${arco} (ork noctum status ${arco})`,
     retencao: (thread: string, arco: string, situacao: string) =>
       `noctum.guarda.thread-do-arco: o arco ${arco} (${situacao}) despachou a thread ${thread} por último; a batida e a Sentinela ` +
       'não a despacham, não a retomam nem a mesclam até um despacho fora do arco ou um arco novo que a liste',
@@ -494,7 +502,7 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
     situacoes: { 'proposto': 'proposed', 'agendado': 'scheduled', 'vigente': 'in force', 'expirado': 'expired', 'revogado': 'revoked',
       'encerrado': 'closed' },
     origens: { 'envelope': 'by the envelope list', 'proposta': 'by the proposal waiting for the owner', 'despacho': 'by the arc dispatch log',
-      'correlacao': 'by the last dispatch of the thread' },
+      'correlacao': 'by the last dispatch of the thread', 'rede': 'by the arc network' },
     doArco: (thread, arco, situacao, origem) =>
       `noctum.guarda.thread-do-arco: thread ${thread} is work of arc ${arco} (${situacao}, ${origem})`,
     doArcoCorrecao: (arco) =>
@@ -502,6 +510,14 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
     arcoIlegivel: (thread, arco, motivo) =>
       `noctum.guarda.arco-ilegivel: the last dispatch of thread ${thread} came from arc ${arco}, and the arc cannot be read (${motivo})`,
     arcoIlegivelCorrecao: (arco) => `inspect the arc before delivering the thread outside it (ork noctum status ${arco})`,
+    redeIlegivel: (thread, arco, motivo) =>
+      `noctum.guarda.rede-ilegivel: thread ${thread} is work of arc ${arco}, closed on this machine, and its network cannot be read (${motivo})`,
+    redeIlegivelCorrecao: (arco) =>
+      `restore network reading before delivering the thread outside the arc (ork noctum status ${arco})`,
+    redeDoArco: (thread, arco, estado, trabalho) =>
+      `noctum.guarda.thread-do-arco: thread ${thread} is work ${trabalho} of arc ${arco}, still ${estado} on the network`,
+    redeDoArcoCorrecao: (arco) =>
+      `wait for the work to finish on the network or deliver it through the delivery step of arc ${arco} (ork noctum status ${arco})`,
     retencao: (thread, arco, situacao) =>
       `noctum.guarda.thread-do-arco: arc ${arco} (${situacao}) dispatched thread ${thread} last; the beat and the Sentinel ` +
       'do not dispatch, resume or merge it until a dispatch outside the arc or a new arc that lists it',

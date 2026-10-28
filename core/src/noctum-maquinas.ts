@@ -33,7 +33,7 @@ import { concluirDespacho, lerArco, reservarDespacho } from './noctum-arco';
 import { fatosDeCapacidade, LeituraDeSessoes } from './noctum-capacidade';
 import {
   assumirAutoridade, AutoridadeDerivada, contasSemVagaGlobal, derivarCoordenacao, encerradosNaRede, encerrarOrdem, entreguesNaRede, EstadoDaCoordenacao,
-  FatosLocaisDaMaquina, gravarNaCoordenacao, lerCoordenacao, motivoDaReservaDeFora, notaDaReserva, OpcoesDaCoordenacao, PlanoDeReconciliacao,
+  FatosLocaisDaMaquina, gravarNaCoordenacao, lerCoordenacao, motivoDaReservaDeFora, notaDaReserva, OpcoesDaCoordenacao, ordemViva, PlanoDeReconciliacao,
   reconciliarCoordenacao, registrosDaDistribuicao, registrosDasRespostas, registrosDosAbandonos, revogarNaRede, soltarReservaDoArco,
   tomarReservaDoTrabalho, tomarVagaGlobal, vistasDasReservas,
 } from './noctum-coordenacao';
@@ -308,6 +308,10 @@ export function passoDaMaquina(carregado: ManifestoCarregado, arco: string, opco
     const perfisDaN2 = opcoes.n2?.perfis ?? (() => perfisDoStore(raiz, Date.parse(quando)));
     // 4. O passo da N2, só com o que o ramo deu a esta máquina, e a vaga global no gancho da reserva da coordenação.
     const ordemDoTrabalho = new Map(minhas.filter(o => permitidos.has(o.trabalho)).map(o => [o.trabalho, o.ordem]));
+    const ordensDaFila = new Map(minhas.filter(o => permitidos.has(o.trabalho)).map(o =>
+      [o.trabalho, { ordem: o.ordem, numero: o.n }] as const));
+    const emOutraMaquina = new Set([...estado.ordens.values()]
+      .filter(o => o.maquina !== eu && ordemViva(o)).map(o => o.trabalho));
     const reservar: typeof reservarDespacho = (raizDoPasso, pedido, q) => {
       const ordem = ordemDoTrabalho.get(pedido.trabalho);
       if (!ordem) throw new RecusaDoArco('noctum.coordenacao.ordem-vencida', `o trabalho ${pedido.trabalho} não tem ordem aceita desta máquina`);
@@ -323,7 +327,8 @@ export function passoDaMaquina(carregado: ManifestoCarregado, arco: string, opco
     const passo = passoDoArco(carregado, arco, { ...opcoes.n2, quando, maquina: opcoes.maquina,
       perfis: () => perfisDaN2().filter(p => !semVaga.has(p.id)),
       lerReservas: () => ({ leitura: 'copia-local', reservas: reservadas.map(x => ({ item: x.item, maquina: eu, thread: x.thread })) }),
-      coordenacao: { trabalhos: permitidos, entregues: entreguesNaRede(estado), encerrados: encerradosNaRede(estado), reservar } });
+      coordenacao: { trabalhos: permitidos, entregues: entreguesNaRede(estado), encerrados: encerradosNaRede(estado),
+        emOutraMaquina, ordens: ordensDaFila, reservar } });
     return { acao: 'passo', passo, relatorio };
   } catch (e) {
     if (!(e instanceof RecusaDoArco)) throw e;

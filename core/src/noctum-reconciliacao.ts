@@ -330,7 +330,7 @@ const recusaDoNucleo = (motivo: string | null): boolean => !!motivo && !motivo.s
  * ainda não atendida (B1) fica de fora.
  */
 export function decidirSessoes(raiz: string, arco: string, conteudo: ConteudoV2, estado: EstadoDoArco, sup: EstadoDaSupervisao,
-  leitura: LeituraDoRuntime, quando: string): DecisaoDeSessao[] {
+  leitura: LeituraDoRuntime, quando: string, ordensCanceladas: ReadonlySet<string> = new Set()): DecisaoDeSessao[] {
   const parametros = sup.parametros;
   if (!parametros) return [];
   const agora = Date.parse(quando);
@@ -340,6 +340,8 @@ export function decidirSessoes(raiz: string, arco: string, conteudo: ConteudoV2,
   const decisoes: DecisaoDeSessao[] = [];
   const aposReserva = ultimaReservaDoArco(estado);
   for (const [trabalho, thread] of threadsDoArco(raiz, conteudo, estado)) {
+    // A sessão da ordem cancelada na rede é encerrada pelo vigia, mas nunca autorizada a retomar nesta máquina.
+    if (ordensCanceladas.has(trabalho)) continue;
     if (sup.isolados.has(trabalho) || pendentes.has(trabalho)) continue;
     let t: Thread, eventos: EventoLedger[];
     try { t = lerThread(raiz, thread); eventos = lerLedger(dirThread(raiz, thread)); } catch { continue; }

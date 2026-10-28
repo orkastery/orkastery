@@ -21,7 +21,7 @@ const lanes = require(SCRIPT) as {
   lerDuracoesDoReporter: (arquivo: string) => Record<string, number>;
   REPORTER: string;
   globDoNpmTest: () => string[];
-  concorrenciaDaLane: (lane: string, cpus?: number) => number;
+  concorrenciaDaLane: (lane: string, cpus?: number, limiteDoGrupo?: number) => number;
 };
 
 test('TL1: a uniao das lanes e todo arquivo de teste compilado, sem arquivo nas duas', () => {
@@ -127,6 +127,9 @@ test('TL9: a hermetica roda as CPUs menos duas (no minimo um arquivo), a integra
   assert.equal(lanes.concorrenciaDaLane('hermetica', 7), 5);
   assert.equal(lanes.concorrenciaDaLane('hermetica', 2), 1);
   assert.equal(lanes.concorrenciaDaLane('integracao', 7), 2);
+  assert.equal(lanes.concorrenciaDaLane('hermetica', 8, 6), 6, 'o plano paralelo reserva duas CPUs');
+  assert.equal(lanes.concorrenciaDaLane('hermetica', 8, 7), 7, 'o fallback usa CPUs menos uma');
+  assert.equal(lanes.concorrenciaDaLane('integracao', 8, 7), 7, 'depois da hermetica, a integracao usa a fatia Classic');
   const texto = fs.readFileSync(SCRIPT, 'utf8');
   assert.match(texto, /`--test-concurrency=\$\{concorrenciaDaLane\(lane\)\}`/, 'as duas lanes passam a concorrencia ao node --test');
   assert.doesNotMatch(texto, /setPriority/, 'o nice baixava so o processo do teste, nunca os containers dele');

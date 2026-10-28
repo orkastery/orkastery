@@ -4,9 +4,19 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { assets, fixtureEnv, pythonFixture, usingFixture, prepareFixture,
+import { argsDockerDaLane, assets, fixtureEnv, pythonFixture, usingFixture, prepareFixture,
   FIXTURE_TTL_PADRAO_MS, FIXTURE_TTL_MIN_MS, FIXTURE_TTL_MAX_MS } from './native-fixture';
+import { ENV_CPUS_DOCKER } from '../src/agendador-cpu';
 import { semPostgres } from './ambiente-de-teste';
+
+test('a fixture da lane recebe a mesma cota de CPU do grupo e o Classic preserva o docker run', () => {
+  assert.deepEqual(argsDockerDaLane(['run', '--rm', 'imagem'], { [ENV_CPUS_DOCKER]: '1' }),
+    ['run', '--cpus', '1', '--rm', 'imagem']);
+  assert.deepEqual(argsDockerDaLane(['run', '--rm', 'imagem'], {}), ['run', '--rm', 'imagem']);
+  assert.deepEqual(argsDockerDaLane(['inspect', 'x'], { [ENV_CPUS_DOCKER]: '1' }), ['inspect', 'x']);
+  assert.deepEqual(argsDockerDaLane(['run', '--cpus', '0.5', 'imagem'], { [ENV_CPUS_DOCKER]: '1' }),
+    ['run', '--cpus', '0.5', 'imagem']);
+});
 
 test('fixture ausente e Docker indisponivel falham runtime.unavailable sem skip ou ensaio falso', t => {
   const dir = fs.mkdtempSync('/tmp/ork-fixture-runtime-'); t.after(() => fs.rmSync(dir, { recursive: true }));

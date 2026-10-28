@@ -21,14 +21,18 @@ const rodar = (raiz: string, ...args: string[]) => executar([...args, raiz]);
 interface Piloto { id: string; arquivo: string; sha256: string; simulado: boolean; veredito: string }
 
 /** O aceite de fixture: o P1 publicável, aprovado e ratificado; `mexer` o estraga do jeito do caso. */
-function aceite(raiz: string, mexer: (a: { contrato: string; pilotos: Piloto[]; ratificacao?: Record<string, string> }) => void = () => {}): void {
+function aceite(raiz: string, mexer: (a: { contrato: string; pilotos: Piloto[]; ratificacao?: Record<string, string> }) => void = () => {},
+  ids: string[] = ['P1']): void {
   fs.mkdirSync(path.join(raiz, PASTA), { recursive: true });
-  const pilotos = ['P1'].map((id, i) => {
+  const pilotos = ids.map((id, i) => {
     const arquivo = `piloto-${i + 1}.json`;
-    const horas = 6;
+    const horas = id === 'P2' || id === 'P4' ? 12 : 6;
     const inicio = Date.parse(`2025-12-0${i + 1}T00:00:00.000Z`);
     const janela = { inicio: new Date(inicio).toISOString(), fim: new Date(inicio + horas * 3_600_000).toISOString(), horas };
+    const duas = id === 'P3' || id === 'P4';
     const texto = `${JSON.stringify({ contrato: 'ork.noctum-piloto/v1', arco: `arco-piloto-${i + 1}`, janela,
+      envelope: { contrato: duas ? 'ork.noctum-envelope/v3' : 'ork.noctum-envelope/v2' },
+      maquinas: Array.from({ length: duas ? 2 : 1 }, (_, m) => ({ maquina: `maquina-${m + 1}`, fonte: 'estado local', sha256: String(m + 1).repeat(64), veredito: 'aprovado' })),
       simulacao: { simulado: false, marcas: [] }, veredito: 'aprovado', publicavel: true, sha256DoCompleto: 'c'.repeat(64) }, null, 2)}\n`;
     fs.writeFileSync(path.join(raiz, PASTA, arquivo), texto);
     return { id, arquivo, sha256: createHash('sha256').update(texto).digest('hex'), simulado: false, veredito: 'aprovado' };
@@ -313,5 +317,31 @@ test('RG18: as marcas da simulação, a janela ausente e a ratificação anterio
     assert.match(rodar(raiz).stderr, /^release\.noctum\.sem-ratificacao: a ratificação \(2025-12-01T05:59:59\.000Z\) é anterior ao fim dos pilotos \(2025-12-01T06:00:00\.000Z\)/);
     aceite(raiz, (a) => { a.ratificacao = { por: 'dono-do-projeto', recibo: 'ingresso:telegram:SIMULADO-1', em: '2025-12-01T06:00:00.000Z' }; });
     assert.equal(rodar(raiz).status, 0, 'ratificado no fim do último piloto, confere');
+  });
+});
+
+test('RG19: P3 com uma máquina é recusado pelo motivo tipado', () => {
+  emPasta('rg19', (raiz) => {
+    aceite(raiz, () => {}, ['P1', 'P3']);
+    mexerNoPublicavel(raiz, 1, (r) => { r.maquinas = [{ maquina: 'maquina-1' }]; });
+    const r = rodar(raiz);
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /^release\.noctum\.piloto-sem-maquinas: o piloto P3 exige 2 máquina\(s\) e envelope ork\.noctum-envelope\/v3/);
+  });
+});
+
+test('RG20: P3 e P4 com v3 e duas máquinas passam pelo portão', () => {
+  emPasta('rg20', (raiz) => {
+    aceite(raiz, () => {}, ['P1', 'P3', 'P4']);
+    const r = rodar(raiz);
+    assert.equal(r.status, 0, r.stderr);
+  });
+});
+
+test('RG21: P1 e P2 continuam aceitos com uma máquina', () => {
+  emPasta('rg21', (raiz) => {
+    aceite(raiz, () => {}, ['P1', 'P2']);
+    const r = rodar(raiz);
+    assert.equal(r.status, 0, r.stderr);
   });
 });

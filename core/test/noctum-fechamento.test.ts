@@ -12,10 +12,13 @@ import { registrar } from '../src/ledger';
 import { concluirDespacho, encerrarArco, EstadoDoArco, lerArco, reservarDespacho } from '../src/noctum-arco';
 import { RecusaDoArco } from '../src/noctum-envelope';
 import { condicaoDeFechamento, fecharSeDevido, lerFechamento, OpcoesDoFechamento, SessaoEmVoo, textoDaParada } from '../src/noctum-fechamento';
-import { FilaDoArco } from '../src/noctum-fila';
+import { fatosDaFila, FilaDoArco, montarFila } from '../src/noctum-fila';
 import { MedicaoDoArco } from '../src/noctum-medicao';
 import { lerRegistro } from '../src/noctum-registro';
-import { dirThread, novaThread } from '../src/thread';
+import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
+import { chaveSimulada, pedidoV3 } from './noctum-maquinas-apoio';
+import { identidadeDaMaquina } from '../src/noctum-transporte';
+import { CONTRATO_REDE_DO_ARCO, RedeDoArco } from '../src/noctum-rede';
 
 prepararIngressoSimulado();
 const semKernel = !kernelDisponivel();
@@ -54,6 +57,21 @@ function medicaoVazia(arco: string, quando: string, minutos: number | null = 0):
   return { contrato: 'ork.noctum-medicao/v1', arco, quando, sessoes: [], doArco: porUnidade, porConta: {}, porRuntime: {} };
 }
 
+function arcoV3(p: Projeto, arco: string, n = 1, teto = 10): { ids: string[]; trabalhos: TrabalhoSimulado[] } {
+  const t = threads(p, n);
+  const trabalhos = t.trabalhos.map(x => ({ ...x, maquina: MAQUINA }));
+  autorizarPedido(p.dir, arco, pedidoV3(arco, { trabalhos, maquinas: [identidadeDaMaquina(p.dir, MAQUINA)], tetoDoArco: teto,
+    maquina: teto, contas: [{ conta: 'perfil-a', sessoes: teto }], global: [{ conta: 'perfil-a', sessoes: teto }] }));
+  return { ids: t.ids, trabalhos };
+}
+
+function rede(arco: string, trabalhos: RedeDoArco['trabalhos'], consumo = 0,
+  lacuna: RedeDoArco['lacuna'] = null, obrigacoes: RedeDoArco['obrigacoes'] = { ordens: [], vagas: [], vezes: [] }): RedeDoArco {
+  return { contrato: CONTRATO_REDE_DO_ARCO, arco, multimaquina: true, maquina: MAQUINA, envelopeSha256: 'a'.repeat(64),
+    lidaEm: new Date().toISOString(), autoridade: null, revogada: null, maquinas: [], trabalhos,
+    consumo: { arco: consumo, porConta: { 'perfil-a': consumo }, porRuntime: { 'claude-bg': consumo } }, obrigacoes, lacuna };
+}
+
 const recusa = (fn: () => unknown, motivo: string): void => {
   try { fn(); } catch (e) { assert.ok(e instanceof RecusaDoArco); assert.equal(e.motivo, motivo, e.message); return; }
   assert.fail(`esperava ${motivo}`);
@@ -85,6 +103,78 @@ test('FE1: no fim do envelope o arco fecha por hora, pede a parada de cada sess�
     assert.equal(paradas.length, 1, 'a parada é pedida uma vez');
     assert.deepEqual(tique.conferencias.map(c => [c.sessionId, c.confirmada]), [[uuid(1), true]]);
     assert.match(textoDaParada(tique.paradas[0], tique.conferencias), /parada confirmada/);
+  } finally { p.limpar(); }
+});
+
+test('FE16: fila local vazia não fecha com trabalho vivo em outra máquina', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-fe16');
+  try {
+    const t = threads(p, 1);
+    const trabalhos = [{ id: 't1', item: 'RM-901', prioridade: 1, dependeDe: [],
+      pedido: 'Trabalho 1 SIMULADO do fechamento.' }];
+    autorizarPedido(p.dir, 'arco-fe16', pedidoV3('arco-fe16', { trabalhos,
+      maquinas: [identidadeDaMaquina(p.dir, MAQUINA), { nome: 'maquina-b', chave: chaveSimulada('fe16-b') }], tetoDoArco: 10,
+      maquina: 10, contas: [{ conta: 'perfil-a', sessoes: 10 }], global: [{ conta: 'perfil-a', sessoes: 10 }] }));
+    gravarThread(p.dir, { ...lerThread(p.dir, t.ids[0]), status: 'fechada' });
+    const soLocal = montarFila(fatosDaFila(p.carregado, 'arco-fe16',
+      { maquina: MAQUINA, lerReservas: () => ({ leitura: 'copia-local', reservas: [] }) }));
+    assert.deepEqual([soLocal.situacao, soLocal.decisao], ['vazia', { acao: 'encerrar', motivo: 'fila-vazia' }],
+      'sem a coordenação, a thread antiga fechada faria a fila local encerrar');
+    const r = fecharSeDevido(p.carregado, 'arco-fe16', simuladas([], { projecaoDaRede: rede('arco-fe16', [
+      { id: 't1', estado: 'em-execucao', maquina: 'maquina-b', maquinaPresa: null,
+        ordem: { ordem: 'O-t1-1', numero: 1, maquina: 'maquina-b', estado: 'aceita', emitidaEm: new Date().toISOString() }, entrega: null },
+    ]) }));
+    assert.deepEqual([r.fechado, r.motivo], [false, null], 'a ordem viva na outra máquina impede o fechamento v3');
+  } finally { p.limpar(); }
+});
+
+test('FE17: todos os trabalhos terminais na rede fecham por fila vazia', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-fe17');
+  try {
+    arcoV3(p, 'arco-fe17', 2);
+    const r = fecharSeDevido(p.carregado, 'arco-fe17', simuladas([], { projecaoDaRede: rede('arco-fe17', [
+      { id: 't1', estado: 'entregue', maquina: MAQUINA, maquinaPresa: MAQUINA, ordem: null,
+        entrega: { em: new Date().toISOString(), maquina: MAQUINA, merge: 'a'.repeat(40) } },
+      { id: 't2', estado: 'encerrado', maquina: 'maquina-b', maquinaPresa: MAQUINA, ordem: null, entrega: null },
+    ]) }));
+    assert.deepEqual([r.fechado, r.motivo], [true, 'fila-vazia']);
+  } finally { p.limpar(); }
+});
+
+test('FE18: consumo somado das máquinas no teto fecha por custo', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-fe18');
+  try {
+    arcoV3(p, 'arco-fe18', 1, 2);
+    const r = fecharSeDevido(p.carregado, 'arco-fe18', simuladas([], { projecaoDaRede: rede('arco-fe18', [
+      { id: 't1', estado: 'em-execucao', maquina: MAQUINA, maquinaPresa: MAQUINA,
+        ordem: { ordem: 'O-t1-1', numero: 1, maquina: MAQUINA, estado: 'aceita', emitidaEm: new Date().toISOString() }, entrega: null },
+    ], 2) }));
+    assert.deepEqual([r.fechado, r.motivo], [true, 'custo']);
+    assert.match(r.detalhe, /2 foram reservadas/);
+  } finally { p.limpar(); }
+});
+
+test('FE19: rede sem leitura não fecha por fila nem custo, mas a hora fecha', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-fe19');
+  try {
+    arcoV3(p, 'arco-fe19', 1, 2);
+    const lacuna = rede('arco-fe19', [], 2, { motivo: 'noctum.coordenacao.sem-remoto', detalhe: 'SIMULADO' });
+    assert.equal(fecharSeDevido(p.carregado, 'arco-fe19', simuladas([], { projecaoDaRede: lacuna })).fechado, false);
+    const fim = lerArco(p.dir, 'arco-fe19')!.conteudo!.janela.fim;
+    assert.equal(fecharSeDevido(p.carregado, 'arco-fe19', simuladas([], { projecaoDaRede: lacuna, quando: fim })).motivo, 'hora');
+  } finally { p.limpar(); }
+});
+
+test('FE20: MASTER devido nesta máquina segura o fechamento v3 por fila vazia', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-fe20');
+  try {
+    const t = arcoV3(p, 'arco-fe20');
+    registrar(dirThread(p.dir, t.ids[0]), t.ids[0], 'ship_done', { mergeSha: 'a'.repeat(40), evidencia: { arco: 'arco-fe20' } });
+    const projecao = rede('arco-fe20', [{ id: 't1', estado: 'entregue', maquina: MAQUINA, maquinaPresa: MAQUINA, ordem: null,
+      entrega: { em: new Date().toISOString(), maquina: MAQUINA, merge: 'a'.repeat(40) } }]);
+    const r = fecharSeDevido(p.carregado, 'arco-fe20', simuladas([], { projecaoDaRede: projecao }));
+    assert.equal(r.fechado, false);
+    assert.match(r.detalhe, /MASTER por omissão/);
   } finally { p.limpar(); }
 });
 

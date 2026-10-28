@@ -14,7 +14,7 @@ import { commitar } from './apoio';
 import { duasMaquinas, DuasMaquinas, entregarThread, MaquinaDeTeste, n2Simulada } from './noctum-maquinas-apoio';
 import * as filaPesada from '../src/fila-pesada';
 import { kernelDisponivel } from '../src/fila-pesada';
-import { encerrarArco, lerArco } from '../src/noctum-arco';
+import { encerrarArco, lerArco, reservarDespacho } from '../src/noctum-arco';
 import * as coordenacao from '../src/noctum-coordenacao';
 import {
   assumirAutoridade, bater, BATIDA_VENCIDA_MS, cancelarOrdem, chaveDoDestino, derivarCoordenacao, emitirOrdem, gravarNaCoordenacao, lerCoordenacao,
@@ -657,4 +657,59 @@ test('M23: a ordem que perdeu a reserva com a vez de integrar abandonada também
     assert.ok(rb.acao === 'aguardar' && rb.motivo === 'noctum.coordenacao.sem-remoto', JSON.stringify(rb.acao === 'aguardar' ? rb.motivo : rb.acao));
     assert.equal(lerCoordenacao(m2.b.carregado, m2.arco, opB).ordens.get('O-c-1')!.estado, 'aceita');
   } finally { (coordenacao as { encerrarOrdem: typeof encerrar }).encerrarOrdem = encerrar; m2.limpar(); }
+});
+
+function passoComNumero(p: ReturnType<typeof projetoTemporario>, arco: string, trabalho: string, item: string, numero: number) {
+  const n2 = n2Simulada([]);
+  return passoDoArco(p.carregado, arco, { ...n2, maquina: 'maquina-a',
+    lerReservas: () => ({ leitura: 'copia-local' as const, reservas: [{ item, maquina: 'maquina-a', thread: null }] }),
+    coordenacao: { trabalhos: new Set([trabalho]), entregues: new Map(), encerrados: new Set(), emOutraMaquina: new Set(),
+      ordens: new Map([[trabalho, { ordem: `O-${trabalho}-${numero}`, numero }]]), reservar: reservarDespacho } });
+}
+
+test('M24: o passo da máquina passa a ordem aceita à N2', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-m24');
+  try {
+    abrirArco(p.dir, 'arco-m24', { trabalhos: [{ id: 'x', item: 'RM-901', prioridade: 1, dependeDe: [], pedido: 'X SIMULADA.' }] });
+    const r = passoComNumero(p, 'arco-m24', 'x', 'RM-901', 4);
+    assert.equal(r.acao, 'despachou');
+    const th = listarIds(p.dir).map(id => lerThread(p.dir, id))[0];
+    assert.equal(th.assunto.endsWith('o4'), true);
+  } finally { p.limpar(); }
+});
+
+test('M25: a thread da ordem n nasce com o número no assunto', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-m25');
+  try {
+    abrirArco(p.dir, 'arco-m25', { trabalhos: [{ id: 'a', item: 'RM-901', prioridade: 1, dependeDe: [], pedido: 'A SIMULADA.' }] });
+    passoComNumero(p, 'arco-m25', 'a', 'RM-901', 7);
+    assert.equal(lerThread(p.dir, listarIds(p.dir)[0]).assunto, 'rm901ao7');
+  } finally { p.limpar(); }
+});
+
+test('M26: o trabalho de id longo é cortado sem perder o sufixo da ordem', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-m26');
+  try {
+    const trabalho = 'trabalho-com-id-longo';
+    abrirArco(p.dir, 'arco-m26', { trabalhos: [{ id: trabalho, item: 'RM-901', prioridade: 1, dependeDe: [], pedido: 'LONGO SIMULADO.' }] });
+    passoComNumero(p, 'arco-m26', trabalho, 'RM-901', 12);
+    const assunto = lerThread(p.dir, listarIds(p.dir)[0]).assunto;
+    assert.equal(assunto.length <= 12 && assunto.endsWith('o12'), true, assunto);
+  } finally { p.limpar(); }
+});
+
+test('M27: uma ordem nova do mesmo trabalho abre outra thread e outra branch', { skip: semKernel }, () => {
+  const antiga = projetoTemporario('noctum-m27-antiga');
+  const nova = projetoTemporario('noctum-m27-nova');
+  try {
+    const trabalho = [{ id: 'x', item: 'RM-901', prioridade: 1, dependeDe: [], pedido: 'X SIMULADA.' }];
+    abrirArco(antiga.dir, 'arco-m27', { trabalhos: trabalho });
+    abrirArco(nova.dir, 'arco-m27', { trabalhos: trabalho });
+    passoComNumero(antiga, 'arco-m27', 'x', 'RM-901', 1);
+    passoComNumero(nova, 'arco-m27', 'x', 'RM-901', 2);
+    const threads = [lerThread(antiga.dir, listarIds(antiga.dir)[0]), lerThread(nova.dir, listarIds(nova.dir)[0])]
+      .sort((a, b) => a.assunto.localeCompare(b.assunto));
+    assert.deepEqual(threads.map(t => t.assunto), ['rm901xo1', 'rm901xo2']);
+    assert.notEqual(threads[0].id, threads[1].id);
+  } finally { antiga.limpar(); nova.limpar(); }
 });

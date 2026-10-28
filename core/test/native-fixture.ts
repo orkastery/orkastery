@@ -3,8 +3,10 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { ENV_CPUS_DOCKER } from '../src/agendador-cpu';
 
-export const fixtureEnv = () => ({ PATH: process.env.PATH, HOME: process.env.HOME, PYTHONDONTWRITEBYTECODE: '1' });
+export const fixtureEnv = () => ({ PATH: process.env.PATH, HOME: process.env.HOME, PYTHONDONTWRITEBYTECODE: '1',
+  ...(process.env[ENV_CPUS_DOCKER] ? { [ENV_CPUS_DOCKER]: process.env[ENV_CPUS_DOCKER] } : {}) });
 export const assets = path.resolve(__dirname, '../../assets');
 export function pythonFixture(): string {
   const cli = (process.env.PATH ?? '').split(path.delimiter).map(p => path.join(p, 'orkmind')).find(p => fs.existsSync(p));
@@ -14,8 +16,16 @@ export function pythonFixture(): string {
   return python;
 }
 const DOCKER_TIMEOUT_PADRAO_MS = 20_000;
+
+/** O PostgreSQL da lane divide a mesma fatia de CPU dos contêineres da varredura; fora do Agile, nada muda. */
+export function argsDockerDaLane(args: string[], ambiente: NodeJS.ProcessEnv = process.env): string[] {
+  const cpus = Number(ambiente[ENV_CPUS_DOCKER]);
+  if (args[0] !== 'run' || args.includes('--cpus') || !Number.isFinite(cpus) || cpus <= 0) return args;
+  return ['run', '--cpus', String(cpus), ...args.slice(1)];
+}
+
 function docker(args: string[], timeout: number = DOCKER_TIMEOUT_PADRAO_MS) {
-  return spawnSync('docker', args, { encoding: 'utf8', env: fixtureEnv(), timeout });
+  return spawnSync('docker', argsDockerDaLane(args), { encoding: 'utf8', env: fixtureEnv(), timeout });
 }
 /**
  * O entrypoint do PostgreSQL sobe um servidor temporario para inicializar o cluster e o derruba antes
