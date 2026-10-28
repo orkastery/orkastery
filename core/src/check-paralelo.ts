@@ -33,6 +33,11 @@ export interface ItemParalelo {
   apos?: string[];
   /** Papel na conta de CPU do grupo do Agile. Ausente nos outros usos deste auxiliar. */
   papelCpu?: 'hermetica' | 'integracao' | 'varredura' | 'outro';
+  /**
+   * RM-074 (F4): o programa e os argumentos, lancados sem shell; com eles, `comando` so identifica o item. Sem eles, o
+   * `comando` roda por `bash -c`, como as lanes e a varredura do manifesto.
+   */
+  argv?: string[];
 }
 
 /** O que o processo devolveu, na forma do `exec` de `util.ts`. */
@@ -62,11 +67,10 @@ interface Especificacao {
 }
 interface Terminado { nome: string; code: number | null; signal: string | null; error?: string; duracaoMs: number; comGrupo: boolean }
 
-/** O argv de um item: `nice` (se pedido e existir), `timeout(1)` (se existir) e `bash -c`. */
+/** O argv de um item: `nice` (se pedido e existir), `timeout(1)` (se existir) e o `argv` do item ou `bash -c`. */
 export function argvDoItem(item: ItemParalelo, comGrupo = fs.existsSync(TIMEOUT_BIN), comNice = fs.existsSync(NICE_BIN)): string[] {
-  const base = comGrupo
-    ? [TIMEOUT_BIN, '--kill-after=15', `${Math.ceil(item.prazoMs / 1000)}`, 'bash', '-c', item.comando]
-    : ['bash', '-c', item.comando];
+  const programa = item.argv?.length ? item.argv : ['bash', '-c', item.comando];
+  const base = comGrupo ? [TIMEOUT_BIN, '--kill-after=15', `${Math.ceil(item.prazoMs / 1000)}`, ...programa] : programa;
   return item.nice && comNice ? [NICE_BIN, '-n', String(item.nice), ...base] : base;
 }
 

@@ -52,7 +52,7 @@ import { ENV_MODO_DO_CHECK, ENV_RELATORIO_DO_CHECK, ENV_VARREDURA_PARALELA_DO_CH
   resolverModo } from './check-modo';
 import { comandosNoAgile, ComandosDoAgile, executorDaClaimNoAgile, ExecutorDeGrupo, GuardaDoProduto, listasDasLanes,
   MAXIMO_DE_PREPAROS_REFEITOS, PecaDoAgile, paralelismoDaVarreduraNoGrupo, PECA_SEM_RELATORIO, pecasDoRelatorio,
-  prepararNoAgile, PreparoVigente, refazerPreparo, RefazerPreparo, RelatorioDoCheck } from './check-agil';
+  porQueDasLanes, prepararNoAgile, PreparoVigente, refazerPreparo, RefazerPreparo, RelatorioDoCheck } from './check-agil';
 import { esperaDoGrupo, rodarEmParalelo } from './check-paralelo';
 import { ENV_CPUS_DA_LANE, ENV_CPUS_DOCKER, MedicaoCpuDoGrupo } from './agendador-cpu';
 
@@ -1010,11 +1010,12 @@ function verificarSobConducao(
             ? `regressao em: ${regressoes.map((r) => r.nome).join(', ')}`
             : motivo === 'verify.timeout'
               ? `sem veredito por tempo (prazo estourado, ou teste com relogio sob steal acima de ${LIMIAR_STEAL_PCT}%): ${[
-                ...estouros.map((r) => r.nome),
+                ...estouros.map((r) => porQueDasLanes(r) ? `${r.nome} (${porQueDasLanes(r)})` : r.nome),
                 ...claims.filter((c) => c.motivo === 'verify.timeout').map((c) => c.claim.id)].join(', ')}`
               : motivo === 'verify.sem-veredito'
                 ? [produtoAlterado ? 'o produto mudou entre o preparo e o fim da rodada' : '',
-                  ...naoExecutados.map((c) => `${c.nome} nao foi executado`),
+                  // RM-074 (F4): no Agile, o `test` diz qual lane ficou sem veredito e por que.
+                  ...naoExecutados.map((c) => porQueDasLanes(c) ? `${c.nome} sem veredito (${porQueDasLanes(c)})` : `${c.nome} nao foi executado`),
                   ...claims.filter((c) => c.motivo === 'verify.sem-veredito').map((c) => `${c.claim.id}: ${c.detalhe}`)]
                   .filter(Boolean).join('; ')
                 : motivo === 'policy.violation'

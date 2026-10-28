@@ -18,6 +18,7 @@ import { registrar, TIPOS_DE_EVENTO } from '../src/ledger';
 import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
 import { Fase, SessaoDaThread, Thread } from '../src/types';
 import { exec } from '../src/util';
+import { CONTRATO_REDE_DO_ARCO, RedeDoArco } from '../src/noctum-rede';
 
 /** O GitHub que os testes fixam para o remoto bare; o envelope de `noctum-apoio` autoriza este repositório. */
 export const FORJA = { host: 'github.com', repositorio: 'exemplo/produto' };
@@ -177,6 +178,19 @@ export function ciFalso(estados: Record<string, EstadoDoCheck>, chamadas: string
 }
 
 export const ENTRADA_DA_THREAD = (nome: string) => `- **Entrega SIMULADA ${nome}** (RM-958): o que a thread acrescenta.`;
+
+/**
+ * Projeção mínima e explícita da rede para os ensaios do passo da entrega. Os casos que só precisam provar que a N5 não
+ * faz efeito não dependem do transporte Git; a integração feliz continua usando o ramo de coordenação de verdade.
+ */
+export function redeDaEntrega(arco: string, maquina: string,
+  trabalhos: RedeDoArco['trabalhos'], lacuna: RedeDoArco['lacuna'] = null): RedeDoArco {
+  return {
+    contrato: CONTRATO_REDE_DO_ARCO, arco, multimaquina: true, maquina, envelopeSha256: 'a'.repeat(64),
+    lidaEm: '2026-10-13T03:00:00.000Z', autoridade: null, revogada: null, maquinas: [], trabalhos,
+    consumo: { arco: 0, porConta: {}, porRuntime: {} }, obrigacoes: { ordens: [], vagas: [], vezes: [] }, lacuna,
+  };
+}
 
 export interface EntregaPronta {
   t: Thread;

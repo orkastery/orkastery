@@ -15,7 +15,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-export type DependenciaDeTeste = 'codex-sandbox' | 'orkmind' | 'postgres' | 'docker';
+export type DependenciaDeTeste = 'codex-sandbox' | 'orkmind' | 'postgres' | 'docker' | 'landlock';
 
 export const VARIAVEL_EXIGE_AMBIENTE = 'ORK_TESTE_EXIGE_AMBIENTE';
 
@@ -24,7 +24,11 @@ export const MOTIVO_DA_FALTA: Readonly<Record<DependenciaDeTeste, string>> = {
   orkmind: 'interpretador do OrkMind ausente (orkmind fora do PATH)',
   docker: 'Docker ausente ou com o daemon parado (docker info falha)',
   postgres: 'PostgreSQL ausente (Docker com a imagem pgvector/pgvector:pg16)',
+  landlock: 'Landlock ausente (kernel Linux sem Landlock ou python3 fora do PATH)',
 };
+
+/** RM-067 (F4c): o lançador de `core/test/fixtures/grok/landlock.py` que confina o `grok` falso como o perfil `workspace`. */
+export const LANCADOR_DO_LANDLOCK = path.resolve(__dirname, '../../..', 'core/test/fixtures/grok/landlock.py');
 
 export type Sonda = (dependencia: DependenciaDeTeste) => boolean;
 
@@ -52,11 +56,19 @@ function dockerComDaemon(): boolean {
   return r.status === 0 && r.stdout.trim() !== '';
 }
 
+/** O mesmo lançador que o teste usa aplica uma regra sem pasta gravável e executa `/bin/true`. */
+function landlockDoKernel(): boolean {
+  if (process.platform !== 'linux') return false;
+  const r = spawnSync('python3', ['-I', LANCADOR_DO_LANDLOCK, '/dev/null', '/bin/true'], { encoding: 'utf8', timeout: 20_000 });
+  return r.status === 0;
+}
+
 const cache = new Map<DependenciaDeTeste, boolean>();
 export const sondaReal: Sonda = (dependencia) => {
   if (!cache.has(dependencia)) {
     const presente = dependencia === 'codex-sandbox' ? codexDoSandbox()
-      : dependencia === 'orkmind' ? interpretadorOrkMind() : dependencia === 'docker' ? dockerComDaemon() : postgresDaFixture();
+      : dependencia === 'orkmind' ? interpretadorOrkMind() : dependencia === 'docker' ? dockerComDaemon()
+        : dependencia === 'landlock' ? landlockDoKernel() : postgresDaFixture();
     cache.set(dependencia, presente);
   }
   return cache.get(dependencia)!;
@@ -80,3 +92,5 @@ export const semCodexSandbox = () => semAmbiente(['codex-sandbox']);
 export const semOrkMind = () => semAmbiente(['orkmind']);
 /** A fixture do PostgreSQL sobe no Docker e se conecta pelo interpretador do OrkMind (psycopg). */
 export const semPostgres = () => semAmbiente(['postgres', 'orkmind']);
+/** RM-067 (F4c): o `grok` falso confinado pelo Landlock do kernel, com o lançador em `python3`. */
+export const semLandlock = () => semAmbiente(['landlock']);

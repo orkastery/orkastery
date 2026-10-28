@@ -55,13 +55,13 @@ function provada(c: Cenario, padrao: RegExp): void {
   assert.equal(e.ok, true, `${c.nome}: ${e.texto}\n${e.detalhe ?? ''}`);
 }
 
-test('EP1: o ensaio inteiro sai 0 com todas as expectativas dos onze cenários, e a pasta descartável some no fim', { skip: semKernel }, () => {
+test('EP1: o ensaio inteiro sai 0 com todas as expectativas dos doze cenários, e a pasta descartável some no fim', { skip: semKernel }, () => {
   const { status, json, stderr } = ensaioCompleto();
   assert.equal(status, 0, stderr + JSON.stringify(json.cenarios.flatMap(c => c.expectativas.filter(e => !e.ok))));
   assert.equal(json.contrato, 'ork.noctum-ensaio/v1');
   assert.equal(json.ok, true);
   assert.deepEqual(json.cenarios.map(c => c.nome), ['ligar-o-modo', 'resposta-curta', 'arco-curto', 'prazo-e-fuso', 'teto-com-sessoes-em-voo',
-    'teto-medido', 'sem-recibo-e-reenvio', 'correcao-explicita', 'cadeia-ligada', 'condutor-morto', 'base-que-anda']);
+    'teto-medido', 'sem-recibo-e-reenvio', 'correcao-explicita', 'cadeia-ligada', 'condutor-morto', 'base-que-anda', 'duas-maquinas']);
   for (const c of json.cenarios) {
     assert.equal(c.ok, true, c.nome);
     assert.ok(c.expectativas.length >= 7, `${c.nome}: ${c.expectativas.length} expectativas`);
@@ -157,7 +157,7 @@ test('EP7: o ensaio reprova quando o canal duplica (sabotagem), e o uso errado s
   assert.equal(sabotagem.status, 2);
   const lista = ensaio(['--listar']);
   assert.equal(lista.status, 0);
-  assert.equal(lista.stdout.trim().split('\n').length, 11);
+  assert.equal(lista.stdout.trim().split('\n').length, 12);
 });
 
 test('EP8: a cadeia ligada vai do pedido do dono à integração na base, ao MASTER por omissão e ao relatório, pelo vigia e pelo condutor', { skip: semKernel }, () => {
@@ -225,4 +225,30 @@ test('EP12: o dono aprova onde estiver, com resposta curta: reply, código, pala
   provada(c, /^o terminal puro segue recusado/);
   provada(c, /^ork noctum revogar só pergunta/);
   provada(c, /^o "a" em reply à pergunta de revogação revoga o arco/);
+});
+
+test('EP13: o cenário duas-maquinas prova partição, perda, retomada, trabalho preso e entrega única', { skip: semKernel }, () => {
+  const r = ensaio(['--cenario', 'duas-maquinas', '--json']);
+  assert.equal(r.status, 0, r.stderr);
+  const j = JSON.parse(r.stdout) as Resultado;
+  const c = j.cenarios.find(x => x.nome === 'duas-maquinas')!;
+  assert.equal(c.ok, true, JSON.stringify(c.expectativas.filter(e => !e.ok)));
+  assert.ok(c.expectativas.length >= 8);
+  provada(c, /^há uma autoridade por geração/);
+  provada(c, /^nenhum trabalho tem vagas ativas em duas máquinas ao mesmo tempo/);
+  provada(c, /^cada trabalho tem uma única entrega na rede/);
+  provada(c, /^na F10, a máquina volta aos 15 min e nenhuma ordem é cancelada/);
+  provada(c, /^na F11, a autoridade é tomada e a ordem flexível é cancelada/);
+  provada(c, /^depois do recibo de fim, o trabalho flexível é retomado na primeira máquina com outra ordem e outra branch/);
+  provada(c, /^o trabalho preso à segunda máquina não é reordenado/);
+});
+
+test('EP14: o resultado e o aceite de duas máquinas permanecem explicitamente simulados', { skip: semKernel }, () => {
+  const r = ensaio(['--cenario', 'duas-maquinas', '--json']);
+  assert.equal(r.status, 0, r.stderr);
+  const j = JSON.parse(r.stdout) as Resultado;
+  assert.equal(j.simulado, true);
+  const c = j.cenarios[0];
+  provada(c, /^o aceite da primeira, combinado com o da segunda por --outra-maquina, fica simulado e mede F10 e F11 por máquina/);
+  provada(c, /^nenhum runtime, forja ou gateway de verdade foi chamado/);
 });

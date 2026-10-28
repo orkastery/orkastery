@@ -1,0 +1,96 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-058, bloco B: mutantes das cercas entre máquinas do arco #Noctum. Cada mutante aponta para o menor caso que prova a cerca.",
+  "mutantes": [
+    {
+      "id": "MR1",
+      "descricao": "o arco v3 volta ao passo local e contorna a máquina",
+      "modulo": "noctum-vigia",
+      "de": "if (estado?.conteudo && (0, noctum_envelope_1.envelopeMultimaquina)(estado.conteudo)) {",
+      "para": "if (false && estado?.conteudo && (0, noctum_envelope_1.envelopeMultimaquina)(estado.conteudo)) {",
+      "teste": "noctum-ligacao-maquinas",
+      "nome": "^LM1:"
+    },
+    {
+      "id": "MR2",
+      "descricao": "a retomada cancela a ordem depois de uma só carência de batida",
+      "modulo": "noctum-retomada-rede",
+      "de": "exports.CARENCIA_DA_RETOMADA_MS = 2 * noctum_coordenacao_1.BATIDA_VENCIDA_MS;",
+      "para": "exports.CARENCIA_DA_RETOMADA_MS = noctum_coordenacao_1.BATIDA_VENCIDA_MS;",
+      "teste": "noctum-retomada-rede",
+      "nome": "^RR3:"
+    },
+    {
+      "id": "MR3",
+      "descricao": "a retomada cancela trabalho preso à máquina ausente",
+      "modulo": "noctum-retomada-rede",
+      "de": "presa.get(o.trabalho) !== o.maquina && idadeDoSinal(estado, o.maquina, quando) > exports.CARENCIA_DA_RETOMADA_MS",
+      "para": "true && idadeDoSinal(estado, o.maquina, quando) > exports.CARENCIA_DA_RETOMADA_MS",
+      "teste": "noctum-retomada-rede",
+      "nome": "^RR4:"
+    },
+    {
+      "id": "MR4",
+      "descricao": "a entrega v3 usa a integração local sem tomar a vez publicada",
+      "modulo": "noctum-entrega",
+      "de": "if (multimaquina && decisao.acao === 'integrar') {",
+      "para": "if (false && multimaquina && decisao.acao === 'integrar') {",
+      "teste": "noctum-integracao-entrega",
+      "nome": "^QI14:"
+    },
+    {
+      "id": "MR5",
+      "descricao": "a thread local fechada vence a ordem viva em outra máquina",
+      "modulo": "noctum-fila",
+      "de": "if ((0, noctum_envelope_1.envelopeMultimaquina)(estado.conteudo) && fatos.coordenacao?.emOutraMaquina?.has(t.id)) {",
+      "para": "if (false && (0, noctum_envelope_1.envelopeMultimaquina)(estado.conteudo) && fatos.coordenacao?.emOutraMaquina?.has(t.id)) {",
+      "teste": "noctum-fila",
+      "nome": "^F21:"
+    },
+    {
+      "id": "MR6",
+      "descricao": "o fechamento v3 calcula fila sem a coordenação da rede",
+      "modulo": "noctum-fechamento",
+      "de": "fila = rede?.lacuna ? null : (0, noctum_fila_1.montarFila)((0, noctum_fila_1.fatosDaFila)(carregado, arco, { quando, maquina: opcoes.maquina, lerReservas: opcoes.lerReservas, ...(coordenacao ? { coordenacao } : {}) }));",
+      "para": "fila = rede?.lacuna ? null : (0, noctum_fila_1.montarFila)((0, noctum_fila_1.fatosDaFila)(carregado, arco, { quando, maquina: opcoes.maquina, lerReservas: opcoes.lerReservas }));",
+      "teste": "noctum-fechamento",
+      "nome": "^FE16:"
+    },
+    {
+      "id": "MR7",
+      "descricao": "a thread aberta pela ordem perde o número no assunto",
+      "modulo": "noctum-execucao",
+      "de": "const sufixo = numero === undefined ? '' : ` o${numero}`;",
+      "para": "const sufixo = '';",
+      "teste": "noctum-maquinas",
+      "nome": "^M25:"
+    },
+    {
+      "id": "MR8",
+      "descricao": "a recuperação da F11 volta a ser um intervalo fixo de quinze minutos",
+      "modulo": "noctum-aceite",
+      "de": "F11: (i) => daRede(i, 'F11'),",
+      "para": "F11: (i) => [{ em: new Date(Date.parse(i.instante) + 15 * 60_000).toISOString(), fonte: 'intervalo fixo', alvos: i.alvo ? [i.alvo] : [] }],",
+      "teste": "noctum-aceite",
+      "nome": "^AC27:"
+    },
+    {
+      "id": "MR9",
+      "descricao": "a guarda terminal não consulta o estado vivo na rede",
+      "modulo": "noctum-guarda",
+      "de": "for (const t of vinculos.filter(x => x.arco !== opcoes.doArco && x.situacao === 'encerrado')) {",
+      "para": "for (const t of vinculos.filter(x => false && x.arco !== opcoes.doArco && x.situacao === 'encerrado')) {",
+      "teste": "noctum-guarda",
+      "nome": "^GR1:"
+    },
+    {
+      "id": "MR10",
+      "descricao": "a rede ilegível volta a parecer uma rede vazia íntegra",
+      "modulo": "noctum-rede",
+      "de": "return vazia(arco, maquina, true, local.envelopeSha256, quando, { motivo: e.motivo, detalhe: e.message });",
+      "para": "return vazia(arco, maquina, true, local.envelopeSha256, quando, null);",
+      "teste": "noctum-rede",
+      "nome": "^NR4:"
+    }
+  ]
+}

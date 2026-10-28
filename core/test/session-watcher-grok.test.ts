@@ -570,14 +570,17 @@ test('GW21: o verify_run gravado entre as leituras do CHECK adia a decisao, e o 
   } finally { c.limpar(); }
 });
 
-test('GW22: com o MCP do ork, a retomada pronta para colar avisa que parte da config da worktree como ela esta', () => {
+test('GW22: com o MCP do ork, a retomada pronta para colar avisa que o servidor terminou com a sessao e que ela parte da config da worktree como esta', () => {
   const comMcp = cenario('retomada-com-mcp', { comMcp: true });
   const semMcp = cenario('retomada-sem-mcp');
   try {
     for (const c of [comMcp, semMcp]) { c.stream(fixture('cortado.jsonl')); c.recibo(143); c.observar(1000); }
     const [com] = comMcp.resultados(), [sem] = semMcp.resultados();
     // GO-FIX N4: o aviso vem antes do comando, que as telas cortam no fim; a regra vai entre aspas simples, pronta para colar.
-    assert.match(String(com.detalhe), /; a retomada parte do \.grok\/config\.toml da worktree como esta, .*; retomada: GROK_CLAUDE_MCPS_ENABLED=0 /);
+    // RM-067 (F4c, D10): o servidor do ork terminou com a sessao; a retomada manual roda sem ele, e o ork retry sobe outro.
+    assert.match(String(com.detalhe), new RegExp('; o servidor MCP do ork terminou com a sessao, e o token dele so existia no ambiente dela, .* parte do ' +
+      '\\.grok/config\\.toml da worktree como a sessao o deixou: .*ork retry, que sobe outro servidor e reescreve a config; ' +
+      'retomada: GROK_CLAUDE_MCPS_ENABLED=0 '));
     assert.match(String(com.detalhe), / --allow 'MCPTool\(orkastery__ork_thread_status\)'$/);
     assert.equal(String(sem.detalhe).includes('.grok/config.toml'), false, 'sem o MCP, a retomada nao fala da config');
   } finally { comMcp.limpar(); semMcp.limpar(); }

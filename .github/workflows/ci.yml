@@ -106,6 +106,13 @@ jobs:
         run: npm run test:ci
         working-directory: core
 
+      # RM-074 (F4): a paridade do tsgo (o preparo do Agile Check) com o tsc 5.9.3 do Classic no core inteiro, em todo PR, e
+      # nao so pela claim da thread que a criou. Sai 0 so com o mesmo typecheck e o mesmo emit token a token; uma vez basta.
+      - name: paridade do tsgo com o tsc
+        if: matrix.node == '22'
+        run: node scripts/tsgo-paridade.cjs --resumo
+        working-directory: core
+
       # Canarios de comportamento + corpus das skills finas.
       # Sai diferente de zero em qualquer falha.
       - name: canarios e corpus das skills

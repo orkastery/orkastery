@@ -281,21 +281,25 @@ function caiuDeVerdade(r: ResultadoDeComando): boolean {
 /**
  * O `test` das lanes (D4): ok so com todas ok; a evidencia de quem caiu; a parede e a da lane mais longa. A falha de
  * verdade de uma lane manda, como num comando so do Classic: o estouro ou o relogio sob steal de outra lane nao a esconde.
- * O relogio sob steal so vale quando toda lane que caiu caiu so nele, e a pior causa so vale sem falha de verdade. N1 do
- * CHECK 2 e N6 do CHECK 4: com uma lane caida sem veredito (fora o caso em que todas as caidas estouraram ou cairam so
- * no relogio, que o agregado ja diz por tempo), o `test` nao tem veredito inteiro (`executado` falso): no verify ele
- * bloqueia como sem veredito, mesmo com a baseline `ja-falhava`, e na baseline ele e `sem-veredito`, em qualquer ordem das
- * lanes; com falha de verdade junto, a causa, os testes e o trecho continuam os dela. A lane sozinha que sai com 124 antes
- * do prazo de fora fica sem veredito, mais estrita que o comando unico do Classic, que a compara com a baseline.
+ * O relogio sob steal so vale quando toda lane que caiu caiu so nele, e a pior causa so vale sem falha de verdade.
+ *
+ * RM-074 (F4): a lane que nao terminou sozinha fora do tempo (sinal, comando ausente, o codigo de quem nao a deixou
+ * terminar, de 124 em diante antes do prazo de fora) da ao `test` o codigo dela, e o `test` segue com veredito, como o
+ * comando unico do Classic que terminasse assim: no verify ele e comparado com a baseline (regressao, ja falhava ou falha
+ * sem baseline), e na baseline ele e `sem-veredito`, porque o codigo nao e da propria lane, em qualquer ordem das lanes;
+ * com falha de verdade junto, a causa, os testes e o trecho continuam os dela. So a lane que nao rodou (`executado`
+ * falso, como o comando que o Classic nao lancou) deixa o `test` sem veredito inteiro. O caso por tempo segue o de antes
+ * (N1 do CHECK 2 e N6 do CHECK 4): o estouro ou o relogio de uma lane junto de falha de verdade de outra tambem deixa o
+ * `test` sem veredito inteiro, e as caidas so por tempo dao o agregado por tempo.
  */
 export function testDasLanes(lanes: Array<{ lane: string; resultado: ResultadoDeComando }>): ResultadoDeComando {
   const caidas = lanes.filter((l) => !l.resultado.ok);
   const deVerdade = caidas.filter((l) => caiuDeVerdade(l.resultado));
   const semVeredito = caidas.filter((l) => !caiuDeVerdade(l.resultado));
-  // N6 do CHECK 4: so o estouro e o relogio sob steal ja dizem "sem veredito" pelo agregado (a causa ou o relogio dele);
-  // qualquer outra lane sem veredito deixa o `test` sem veredito inteiro, em qualquer ordem das lanes.
-  const soPorTempo = deVerdade.length === 0 && semVeredito.length > 0
-    && semVeredito.every((l) => l.resultado.causa === 'timeout' || (l.resultado.relogioSobSteal?.length ?? 0) > 0);
+  const porTempo = (r: ResultadoDeComando): boolean => r.causa === 'timeout' || (r.relogioSobSteal?.length ?? 0) > 0;
+  // RM-074 (F4): a lane sem veredito fora do tempo da o codigo ao `test`, que o verify compara com a baseline.
+  const foraDoTempo = semVeredito.filter((l) => !porTempo(l.resultado));
+  const tempoComFalha = deVerdade.length > 0 && semVeredito.some((l) => porTempo(l.resultado));
   const juntar = <T>(f: (r: ResultadoDeComando) => T[] | undefined): T[] => lanes.flatMap((l) => f(l.resultado) ?? []);
   const causas = lanes.map((l) => l.resultado.causa).filter((c): c is CausaDoComando => !!c);
   const causa = deVerdade.length ? deVerdade[0].resultado.causa ?? 'exit' : PIOR_CAUSA.find((c) => causas.includes(c));
@@ -308,12 +312,12 @@ export function testDasLanes(lanes: Array<{ lane: string; resultado: ResultadoDe
     nome: 'test',
     comando: lanes.map((l) => `${l.lane}: ${l.resultado.comando}`).join('; '),
     ok: caidas.length === 0,
-    code: (deVerdade[0] ?? caidas[0])?.resultado.code ?? 0,
+    code: (foraDoTempo[0] ?? deVerdade[0] ?? caidas[0])?.resultado.code ?? 0,
     resumo: (caidas.length ? caidas : lanes).map((l) => `[${l.lane}] ${l.resultado.resumo}`).join('\n').slice(-800),
     ...(causa ? { causa } : {}),
     prazoMs: Math.max(...lanes.map((l) => l.resultado.prazoMs ?? 0)),
     duracaoMs: Math.max(...lanes.map((l) => l.resultado.duracaoMs ?? 0)),
-    executado: semVeredito.length === 0 || soPorTempo ? lanes.every((l) => l.resultado.executado !== false) : false,
+    executado: !tempoComFalha && lanes.every((l) => l.resultado.executado !== false),
     ...(testes.length ? { testeQueCaiu: testes } : {}),
     ...(falhas.length ? { falhasDeTeste: falhas } : {}),
     ...(trechos.length ? { trecho: trechos.join('\n').slice(0, 1024) } : {}),
@@ -322,6 +326,25 @@ export function testDasLanes(lanes: Array<{ lane: string; resultado: ResultadoDe
     lanes: lanes.map((l) => ({ lane: l.lane, comando: l.resultado.comando, ok: l.resultado.ok, code: l.resultado.code,
       ...(l.resultado.causa ? { causa: l.resultado.causa } : {}), duracaoMs: l.resultado.duracaoMs ?? 0 })),
   };
+}
+
+/**
+ * RM-074 (F4): por que cada lane caida do `test` ficou como ficou, para o texto do gate dizer qual lane ficou sem veredito
+ * e por que. Le so o que o ledger grava da lane (codigo e causa); o relogio sob steal vem do agregado, que so o traz quando
+ * toda lane caida caiu so nele. Vazio fora do Agile (sem lanes) e com todas as lanes ok.
+ */
+export function porQueDasLanes(c: ResultadoDeComando): string {
+  const caidas = (c.lanes ?? []).filter((l) => !l.ok);
+  const porque = (l: NonNullable<ResultadoDeComando['lanes']>[number]): string => {
+    if (l.causa === 'timeout') return 'estourou o prazo';
+    if (l.causa === 'nao-encontrado') return `comando nao encontrado (codigo ${l.code})`;
+    if (l.code === -1) return 'sem codigo de saida: nao rodou, ou o auxiliar do grupo morreu antes de gravar o resultado';
+    if (l.causa === 'sinal') return `morta por sinal (codigo ${l.code})`;
+    if (c.relogioSobSteal?.length) return `caiu so em teste com relogio sob steal (${c.relogioSobSteal.join(', ')})`;
+    if (Number.isInteger(l.code) && l.code >= 1 && l.code <= MAIOR_CODIGO_DA_LANE) return `caiu com o codigo ${l.code}`;
+    return `saiu com ${l.code}, o codigo de quem nao a deixou terminar`;
+  };
+  return caidas.map((l) => `lane ${l.lane}: ${porque(l)}`).join('; ');
 }
 
 /** O que o grupo do Agile entrega ao verify. */

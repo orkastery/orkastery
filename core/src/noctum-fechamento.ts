@@ -39,8 +39,9 @@ import { lerLedger, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
 import { masterRatificado } from './master';
 import { encerrarArco, EncerramentoDoArco, EstadoDoArco, lerArco, MotivoDeEncerramento } from './noctum-arco';
-import { CONTRATO_ENVELOPE_V2, RecusaDoArco, Unidade, UNIDADES } from './noctum-envelope';
+import { envelopeMultimaquina, RecusaDoArco, Unidade, UNIDADES } from './noctum-envelope';
 import { FatosDaFila, fatosDaFila, FilaDoArco, LeitorDeReservas, montarFila } from './noctum-fila';
+import { coordenacaoDaFila, lerRede, RedeDoArco } from './noctum-rede';
 import { ConsumoNaUnidade, consumoDoEscopoNaUnidade, MedicaoDoArco, medirArco, textoDoConsumo } from './noctum-medicao';
 import { comRegistro, lerRegistro } from './noctum-registro';
 import { EstadoDaSupervisao, lerSupervisao, RecusaDaSupervisao } from './noctum-supervisao';
@@ -128,6 +129,10 @@ export interface OpcoesDoFechamento {
   listarSessoes?: () => { lidas: boolean; vivas: ReadonlySet<string> };
   /** A leitura do git da worktree (branch, ponta, árvore); em produção, o `git` local, sem rede. */
   git?: (cwd: string, args: string[]) => string | null;
+  /** Projeção lida uma vez pelo tique; sem ela, o fechamento lê a rede quando o envelope é v3. */
+  projecaoDaRede?: RedeDoArco;
+  remoto?: string;
+  redeDaCoordenacao?: import('./branch-de-estado').OpcoesDeGit;
 }
 
 export interface ResultadoDoFechamento {
@@ -194,7 +199,6 @@ export function condicaoDeFechamento(estado: EstadoDoArco | null, fila: FilaDoAr
  * a thread aberta e sem MASTER ratificado. A thread que não se lê não segura o fechamento: a fila já a mostra.
  */
 function mastersDevidos(raiz: string, estado: EstadoDoArco, fila: FilaDoArco, sup: EstadoDaSupervisao): string[] {
-  if (estado.conteudo?.contrato !== CONTRATO_ENVELOPE_V2) return [];
   const devidos: string[] = [];
   for (const t of fila.trabalhos) {
     if (t.estado !== 'entregue' || !t.thread || sup.isolados.has(t.id)) continue;
@@ -294,7 +298,13 @@ function gravarRetrato(carregado: ManifestoCarregado, arco: string, estado: Esta
   o: OpcoesDoFechamento & Required<Pick<OpcoesDoFechamento, 'medir' | 'git'>>): void {
   const { raiz } = carregado;
   let trabalhosDaFila: FilaDoArco | null = null;
-  try { trabalhosDaFila = trabalhosDoArco(fatosDaFila(carregado, arco, { quando, maquina: o.maquina, lerReservas: o.lerReservas })); }
+  try {
+    const rede = estado.conteudo && envelopeMultimaquina(estado.conteudo)
+      ? o.projecaoDaRede ?? lerRede(carregado, arco, { quando, maquina: o.maquina, remoto: o.remoto, rede: o.redeDaCoordenacao }) : null;
+    const coordenacao = rede ? coordenacaoDaFila(rede) : null;
+    trabalhosDaFila = rede?.lacuna ? null : trabalhosDoArco(fatosDaFila(carregado, arco,
+      { quando, maquina: o.maquina, lerReservas: o.lerReservas, ...(coordenacao ? { coordenacao } : {}) }));
+  }
   catch (e) { if (!(e instanceof RecusaDoArco)) throw e; }
   let consumo: Record<Unidade, ConsumoNaUnidade>;
   try {
@@ -349,24 +359,36 @@ export function fecharSeDevido(carregado: ManifestoCarregado, arco: string, opco
   let agora = false;
   if (!estado.encerramento) {
     const emVooAgora = sessoesEmVooDoArco(raiz, estado).length;
+    const multimaquina = envelopeMultimaquina(estado.conteudo);
+    const rede = multimaquina
+      ? opcoes.projecaoDaRede ?? lerRede(carregado, arco, { quando, maquina: opcoes.maquina, remoto: opcoes.remoto, rede: opcoes.redeDaCoordenacao })
+      : null;
+    // Com rede íntegra, o teto em sessões é global. Sem leitura, o consumo local ainda pode provar sozinho que o teto caiu.
+    const estadoDoCusto = rede && !rede.lacuna
+      ? { ...estado, consumo: { ...estado.consumo, arco: rede.consumo.arco } }
+      : estado;
     // RM-058, integração (D7): a parada da supervisão; o log dela que não se lê não segura o fechamento pelas outras condições.
     let sup: EstadoDaSupervisao | null = null;
     try { sup = lerSupervisao(raiz, arco); } catch (e) { if (!(e instanceof RecusaDaSupervisao)) throw e; }
     const parada = sup?.parada ?? null;
     // Revogado, hora, a parada e o teto em sessões vêm primeiro e sem a fila nem a medição: nenhuma falha delas segura esse fechamento.
-    let condicao = condicaoDeFechamento(estado, null, null, quando, emVooAgora, parada);
+    let condicao = condicaoDeFechamento(estadoDoCusto, null, null, quando, emVooAgora, parada);
     let falhaDaMedicao = '';
     if (!condicao) {
       let fila: FilaDoArco | null = null;
-      try { fila = montarFila(fatosDaFila(carregado, arco, { quando, maquina: opcoes.maquina, lerReservas: opcoes.lerReservas })); }
+      try {
+        const coordenacao = rede ? coordenacaoDaFila(rede) : null;
+        fila = rede?.lacuna ? null : montarFila(fatosDaFila(carregado, arco,
+          { quando, maquina: opcoes.maquina, lerReservas: opcoes.lerReservas, ...(coordenacao ? { coordenacao } : {}) }));
+      }
       catch (e) { if (!(e instanceof RecusaDoArco)) throw e; }
       let medicao: MedicaoDoArco | null = null;
-      if (estado.conteudo.orcamento.arco.unidade !== 'sessoes') {
+      if (estado.conteudo.orcamento.arco.unidade !== 'sessoes' && !rede?.lacuna) {
         // A medição que falha não prova o teto alcançado: o custo não fecha, e a fila vazia ainda pode fechar.
         try { medicao = medir(raiz, estado, quando); }
         catch (e) { falhaDaMedicao = `; a medição falhou (${(e as Error).message.slice(0, 200)})`; }
       }
-      condicao = condicaoDeFechamento(estado, fila, medicao, quando, emVooAgora, parada);
+      condicao = condicaoDeFechamento(estadoDoCusto, fila, medicao, quando, emVooAgora, parada);
       // RM-058, integração (T4, D8): a fila vazia não fecha o arco por cima do MASTER por omissão que a entrega dele ainda
       // deve; o passo seguinte o faz, e o fechamento vem depois. A hora, a parada e o teto fecharam antes, sem esperar.
       const devidos = condicao?.motivo === 'fila-vazia' && fila && sup ? mastersDevidos(raiz, estado, fila, sup) : [];

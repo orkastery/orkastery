@@ -329,7 +329,11 @@ function despacharCandidato(carregado: ManifestoCarregado, arco: string, fila: F
     if (!thread) {
       if (!c.pedido) return { ...recusar('noctum.despacho.pedido-ausente', `o trabalho ${c.trabalho} não traz pedido para abrir a thread`, null), seguir: true };
       // RM-037 (CHECK 3 da ork-rm037defeit2): sob a trava de despacho, o preparo das dependências só fica pendente.
-      thread = (opcoes.abrirThread ?? ((k, o) => novaThread(k, o).thread))(carregado, { nome: `${c.item.toLowerCase()} ${c.trabalho}`,
+      const base = `${c.item.toLowerCase()} ${c.trabalho}`;
+      const numero = opcoes.coordenacao?.ordens?.get(c.trabalho)?.numero;
+      const sufixo = numero === undefined ? '' : ` o${numero}`;
+      const nome = sufixo ? `${base.slice(0, Math.max(1, 12 - sufixo.length)).trimEnd()}${sufixo}` : base;
+      thread = (opcoes.abrirThread ?? ((k, o) => novaThread(k, o).thread))(carregado, { nome,
         modo: 'auto', roadmap: c.item, pedido: c.pedido, criarWorktree: true, adiarDependencias: true });
     }
     pedido = pedidoDaThread(raiz, thread);

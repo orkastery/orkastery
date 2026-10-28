@@ -685,6 +685,28 @@ test('rede: a legenda do fuso do projeto e a da hora da leitura, nao a de agora 
   assert.equal(legenda('2026-01-15T12:00:00.000Z'), 'Neste projeto: Horários em Europe/Lisbon, GMT+0.');
 });
 
+test('rede: a legenda de janeiro diz GMT+0 tambem quando o ICU escreve so GMT (RM-074 F4)', () => {
+  const panorama = (consultadoEm: string): PanoramaDaRede => ({ contrato: CONTRATO_PANORAMA_DA_REDE, consultadoEm, maquina: 'pc-a', pedido: null,
+    limiarSemBatidaMin: 30, fuso: 'America/Sao_Paulo', rede: null, naoConsultado: [], lacunas: [],
+    projetos: [{ projeto: { nome: 'b', forja: null, clone: null, base: null, origem: 'rede', fuso: 'Europe/Lisbon' },
+      roadmap: null, reservas: [], maquinas: [], fontes: [], lacunas: [] }] }) as unknown as PanoramaDaRede;
+  const janeiro = '2026-01-15T12:00:00.000Z';
+  // O ICU antigo: a sigla do deslocamento zero sai `GMT`, sem o `+0` que o Node 20.20.2 e o 22.23.2 escrevem.
+  const original = Intl.DateTimeFormat.prototype.formatToParts;
+  Intl.DateTimeFormat.prototype.formatToParts = function (this: Intl.DateTimeFormat, data?: Date | number) {
+    return original.call(this, data).map((p) => (p.type === 'timeZoneName' && p.value === 'GMT+0' ? { ...p, value: 'GMT' } : p));
+  };
+  try {
+    const sigla = new Intl.DateTimeFormat('pt-BR', { timeZone: 'Europe/Lisbon', timeZoneName: 'short' }).formatToParts(new Date(janeiro))
+      .find((p) => p.type === 'timeZoneName')?.value;
+    assert.equal(sigla, 'GMT', 'o ICU simulado escreve so GMT');
+    assert.equal(textoDoPanoramaDaRede(panorama(janeiro)).split('\n').find((l) => l.startsWith('Neste projeto:')),
+      'Neste projeto: Horários em Europe/Lisbon, GMT+0.');
+  } finally {
+    Intl.DateTimeFormat.prototype.formatToParts = original;
+  }
+});
+
 test('rede: espera voce igual no roadmap e nas maquinas', () => {
   const r = rede('rede-espera-igual');
   try {

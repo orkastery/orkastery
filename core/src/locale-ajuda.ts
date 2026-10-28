@@ -129,6 +129,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
                                                 destrava (pega HITL de sessao SEM thread)
   noctum propor --arquivo <envelope.json>   Propõe o envelope de um arco #Noctum (RM-058) e pergunta ao dono, com código
                                             curto e alternativas, também no canal dele; não autoriza nada
+  noctum maquina [--json]                   A entrada desta máquina em maquinas do envelope v3 (RM-058): o nome, a chave
+                                            pública e a impressão dela; a chave privada não sai desta raiz
   noctum revogar <arco> [--json]            Pergunta ao dono se revoga o arco (RM-057); quem revoga é a resposta dele,
                                             no Telegram ou pelo diálogo do host
   noctum responder <arco> --resposta-stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]
@@ -542,6 +544,8 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
                                                 unblocks it (catches HITL of sessions WITHOUT a thread)
   noctum propor --arquivo <envelope.json>   Proposes the envelope of a #Noctum arc (RM-058) and asks the owner, with a short
                                             code and choices, also on the owner's channel; it authorizes nothing
+  noctum maquina [--json]                   This machine's entry in maquinas of the v3 envelope (RM-058): its name, public key
+                                            and fingerprint; the private key never leaves this root
   noctum revogar <arc> [--json]             Asks the owner whether to revoke the arc (RM-057); the owner's answer revokes,
                                             on Telegram or through the host dialog
   noctum responder <arc> --resposta-stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]

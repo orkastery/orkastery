@@ -258,3 +258,20 @@ test('TG8: no verify do Agile, o preparo com o tsgo e o preparo da rodada, e as 
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('TG9: enquanto o preparo do Agile usar o tsgo, o CI confere a paridade no core inteiro em todo PR, fora da thread de origem (RM-074 F4)', () => {
+  const raiz = path.resolve(CORE, '..');
+  const manifesto = fs.readFileSync(path.join(raiz, 'orkastery.yaml'), 'utf8');
+  assert.match(manifesto, /^ {4}preparo: "npm --prefix core run preparo:tsgo"$/m, 'o preparo do Agile deste projeto usa o tsgo');
+  const ci = fs.readFileSync(path.join(raiz, '.github', 'workflows', 'ci.yml'), 'utf8');
+  const inicio = ci.indexOf('\n  nucleo:\n');
+  assert.ok(inicio >= 0, 'o job nucleo do ci.yml');
+  const fim = ci.slice(inicio + 1).search(/\n {2}[a-z][a-z0-9-]*:\n/);
+  const nucleo = fim < 0 ? ci.slice(inicio) : ci.slice(inicio, inicio + 1 + fim);
+  const passo = /\n {6}- name: paridade do tsgo com o tsc\n((?: {8}.*\n)+)/.exec(nucleo);
+  assert.ok(passo, 'o passo da paridade no job nucleo, que roda em todo PR');
+  assert.match(passo[1], /^ {8}run: node scripts\/tsgo-paridade\.cjs --resumo$/m);
+  assert.match(passo[1], /^ {8}working-directory: core$/m);
+  assert.ok(nucleo.indexOf('- name: instalar') < nucleo.indexOf('- name: paridade do tsgo com o tsc'), 'depois do npm ci, que traz o tsgo');
+  assert.match(ci, /^on:\n(?: {2}.*\n)*? {2}pull_request:/m, 'o ci.yml roda em pull_request');
+});
