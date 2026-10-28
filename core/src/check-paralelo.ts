@@ -13,6 +13,8 @@ import { spawn, spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { ENV_CPUS_DA_LANE, ENV_CPUS_DOCKER, medirCpuDoGrupo, MedicaoCpuDoGrupo, PlanoCpuDoGrupo,
+  planejarCpuDoGrupo } from './agendador-cpu';
 
 const TIMEOUT_BIN = '/usr/bin/timeout';
 const NICE_BIN = '/usr/bin/nice';
@@ -29,6 +31,8 @@ export interface ItemParalelo {
   nice?: number;
   /** Os itens (pelo nome, antes deste na lista) que precisam terminar antes de este comecar, com ou sem sucesso. */
   apos?: string[];
+  /** Papel na conta de CPU do grupo do Agile. Ausente nos outros usos deste auxiliar. */
+  papelCpu?: 'hermetica' | 'integracao' | 'varredura' | 'outro';
   /**
    * RM-074 (F4): o programa e os argumentos, lancados sem shell; com eles, `comando` so identifica o item. Sem eles, o
    * `comando` roda por `bash -c`, como as lanes e a varredura do manifesto.
@@ -51,7 +55,16 @@ export interface ProcessoDoGrupo {
   semResultado?: boolean;
 }
 
-interface Especificacao { itens: ItemParalelo[]; dir: string; maxParalelo?: number }
+export type ProcessosDoGrupo = ProcessoDoGrupo[] & { agendamentoCpu?: PlanoCpuDoGrupo };
+
+interface Especificacao {
+  itens: ItemParalelo[];
+  dir: string;
+  maxParalelo?: number;
+  cpus?: number;
+  /** Injecao deterministica dos testes; em producao a sonda le `/proc`. */
+  medicaoCpu?: MedicaoCpuDoGrupo;
+}
 interface Terminado { nome: string; code: number | null; signal: string | null; error?: string; duracaoMs: number; comGrupo: boolean }
 
 /** O argv de um item: `nice` (se pedido e existir), `timeout(1)` (se existir) e o `argv` do item ou `bash -c`. */
@@ -77,18 +90,30 @@ function vagas(max: number): { tomar: () => Promise<void>; soltar: () => void } 
  */
 async function rodarEspecificacao(esp: Especificacao): Promise<void> {
   const comGrupo = fs.existsSync(TIMEOUT_BIN);
-  const limite = vagas(esp.maxParalelo && esp.maxParalelo > 0 ? esp.maxParalelo : esp.itens.length);
+  const usaAgendador = esp.itens.some((i) => i.papelCpu === 'hermetica');
+  const plano = usaAgendador ? planejarCpuDoGrupo(esp.cpus ?? os.availableParallelism(), esp.medicaoCpu ?? await medirCpuDoGrupo()) : undefined;
+  const itens = plano ? aplicarPlano(esp.itens, plano) : esp.itens;
+  const limite = vagas(esp.maxParalelo && esp.maxParalelo > 0 ? esp.maxParalelo : itens.length);
   const porNome = new Map<string, Promise<Terminado>>();
-  const terminados = await Promise.all(esp.itens.map((item, i) => {
-    const vez = (async () => {
-      for (const nome of item.apos ?? []) await porNome.get(nome);
+  const indice = new Map(itens.map((item, i) => [item.nome, i]));
+  const vezDoItem = (item: ItemParalelo, i: number): Promise<Terminado> => {
+    const existente = porNome.get(item.nome);
+    if (existente) return existente;
+    // O primeiro `then` deixa a promessa entrar no mapa antes de resolver dependencias; assim `apos` funciona mesmo
+    // quando o plano põe uma dependencia que aparece depois na ordem canonica dos resultados.
+    const vez = Promise.resolve().then(async () => {
+      for (const nome of item.apos ?? []) {
+        const j = indice.get(nome);
+        if (j !== undefined) await vezDoItem(itens[j], j);
+      }
       await limite.tomar();
       try { return await lancar(item, i); } finally { limite.soltar(); }
-    })();
+    });
     porNome.set(item.nome, vez);
     return vez;
-  }));
-  fs.writeFileSync(path.join(esp.dir, 'resultado.json'), JSON.stringify(terminados), { mode: 0o600 });
+  };
+  const terminados = await Promise.all(itens.map(vezDoItem));
+  fs.writeFileSync(path.join(esp.dir, 'resultado.json'), JSON.stringify({ terminados, ...(plano ? { agendamentoCpu: plano } : {}) }), { mode: 0o600 });
 
   function lancar(item: ItemParalelo, i: number): Promise<Terminado> {
     return new Promise<Terminado>((resolve) => {
@@ -116,12 +141,48 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
   }
 }
 
+/** Aplica a mesma conta aos processos, as lanes e aos conteineres que eles criarem. */
+function aplicarPlano(originais: ItemParalelo[], plano: PlanoCpuDoGrupo): ItemParalelo[] {
+  const itens = originais.map((item) => ({ ...item, ambiente: { ...item.ambiente } }));
+  const porPapel = (papel: ItemParalelo['papelCpu']): ItemParalelo[] => itens.filter((i) => i.papelCpu === papel);
+  const hermetica = porPapel('hermetica')[0];
+  const varredura = porPapel('varredura')[0];
+  const integracoes = porPapel('integracao');
+  const outros = porPapel('outro');
+  const depender = (item: ItemParalelo | undefined, nomes: Array<string | undefined>): void => {
+    if (!item) return;
+    item.apos = [...new Set([...(item.apos ?? []), ...nomes.filter((n): n is string => !!n && n !== item.nome)])];
+  };
+  const ambiente = (item: ItemParalelo | undefined, valores: Record<string, string>): void => {
+    if (item) item.ambiente = { ...item.ambiente, ...valores };
+  };
+  const cpusContainer = String(plano.cpusPorContainer);
+  ambiente(hermetica, { [ENV_CPUS_DA_LANE]: String(plano.cpusHermetica), [ENV_CPUS_DOCKER]: cpusContainer });
+  ambiente(varredura, {
+    ORK_CHECK_VARREDURA_PARALELA: String(plano.ferramentasDaVarredura),
+    [ENV_CPUS_DOCKER]: cpusContainer,
+  });
+  let anterior = varredura?.nome;
+  for (const item of integracoes) {
+    ambiente(item, { [ENV_CPUS_DA_LANE]: String(plano.cpusIntegracao), [ENV_CPUS_DOCKER]: cpusContainer });
+    depender(item, [anterior]);
+    anterior = item.nome;
+  }
+  if (plano.saturado) depender(varredura, [hermetica?.nome]);
+  // Comandos sem papel conhecido nao disputam CPU com as tres pecas: fecham a cadeia, um por vez.
+  for (const item of outros) {
+    depender(item, [hermetica?.nome, anterior]);
+    anterior = item.nome;
+  }
+  return itens;
+}
+
 /**
  * A espera do grupo inteiro: o maior prazo, ou a soma deles quando ha fila (item com `apos` ou vagas a menos que itens),
  * que e o teto do pior caso.
  */
 export function esperaDoGrupo(itens: ItemParalelo[], maxParalelo?: number): number {
-  const comFila = itens.some((i) => i.apos?.length) || (!!maxParalelo && maxParalelo < itens.length);
+  const comFila = itens.some((i) => i.apos?.length || i.papelCpu) || (!!maxParalelo && maxParalelo < itens.length);
   return comFila ? itens.reduce((t, i) => t + i.prazoMs, 0) : Math.max(...itens.map((i) => i.prazoMs));
 }
 
@@ -130,20 +191,21 @@ export function esperaDoGrupo(itens: ItemParalelo[], maxParalelo?: number): numb
  * (`esperaDoGrupo`), com folga para o `--kill-after` e para o auxiliar gravar; o diretorio das saidas some no fim.
  */
 export function rodarEmParalelo(itens: ItemParalelo[], ambiente: NodeJS.ProcessEnv = process.env,
-  opcoes: { maxParalelo?: number } = {}): ProcessoDoGrupo[] {
-  if (itens.length === 0) return [];
+  opcoes: { maxParalelo?: number; cpus?: number; medicaoCpu?: MedicaoCpuDoGrupo } = {}): ProcessosDoGrupo {
+  if (itens.length === 0) return [] as ProcessosDoGrupo;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-check-paralelo-'));
   try {
     const especificacao = path.join(dir, 'especificacao.json');
-    const esp: Especificacao = { itens, dir, ...(opcoes.maxParalelo ? { maxParalelo: opcoes.maxParalelo } : {}) };
+    const esp: Especificacao = { itens, dir, ...(opcoes.maxParalelo ? { maxParalelo: opcoes.maxParalelo } : {}),
+      ...(opcoes.cpus ? { cpus: opcoes.cpus } : {}), ...(opcoes.medicaoCpu ? { medicaoCpu: opcoes.medicaoCpu } : {}) };
     fs.writeFileSync(especificacao, JSON.stringify(esp), { mode: 0o600 });
     const prazo = esperaDoGrupo(itens, opcoes.maxParalelo) + 60_000;
     const r = spawnSync(process.execPath, [__filename, especificacao], { env: ambiente, encoding: 'utf8', timeout: prazo,
       killSignal: 'SIGKILL' });
-    let terminados: Terminado[] = [];
-    try { terminados = JSON.parse(fs.readFileSync(path.join(dir, 'resultado.json'), 'utf8')) as Terminado[]; } catch { /* abaixo */ }
-    return itens.map((item, i) => {
-      const t = terminados[i];
+    let lido: { terminados: Terminado[]; agendamentoCpu?: PlanoCpuDoGrupo } = { terminados: [] };
+    try { lido = JSON.parse(fs.readFileSync(path.join(dir, 'resultado.json'), 'utf8')) as typeof lido; } catch { /* abaixo */ }
+    const processos = itens.map((item, i) => {
+      const t = lido.terminados[i];
       const ler = (sufixo: string) => { try { return fs.readFileSync(path.join(dir, `${i}.${sufixo}`), 'utf8'); } catch { return ''; } };
       if (!t) {
         // O auxiliar morreu antes de gravar: o comando nao tem veredito, e a causa vai junto.
@@ -153,7 +215,9 @@ export function rodarEmParalelo(itens: ItemParalelo[], ambiente: NodeJS.ProcessE
       }
       return { nome: item.nome, ok: t.code === 0, code: t.code ?? -1, signal: t.signal, ...(t.error ? { error: t.error } : {}),
         stdout: ler('out'), stderr: ler('err'), duracaoMs: t.duracaoMs, comGrupo: t.comGrupo };
-    });
+    }) as ProcessosDoGrupo;
+    if (lido.agendamentoCpu) processos.agendamentoCpu = lido.agendamentoCpu;
+    return processos;
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

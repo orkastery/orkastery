@@ -1,0 +1,162 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm074agendad",
+  "branch": "ork/ork-rm074agendad-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm074agendad",
+      "fase": "GO",
+      "arquivo": "core/src/agendador-cpu.ts",
+      "alegacao": "O agendador calcula uma fatia de CPU que cabe na máquina, mede carga e steal em /proc e cai para a ordem Classic sob saturação.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-10-27T22:53:15.630Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm074agendad",
+      "fase": "GO",
+      "arquivo": "core/src/check-paralelo.ts",
+      "alegacao": "O auxiliar aplica o plano antes de lançar o grupo e encadeia hermética, varredura e integração quando a máquina está saturada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-10-27T22:53:15.694Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm074agendad",
+      "fase": "GO",
+      "arquivo": "core/src/check-agil.ts",
+      "alegacao": "O Agile identifica os papéis de CPU das lanes e incorpora a peça produzida pelo agendador ao resumo da rodada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-10-27T22:53:15.754Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm074agendad",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "O verify transporta o plano ao auxiliar e registra no verify_run o motivo e o fallback do agendador de CPU.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-10-27T22:53:15.808Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm074agendad",
+      "fase": "GO",
+      "arquivo": "core/test/check-agil.test.ts",
+      "alegacao": "A regressão sintética prova que o plano saturado não projeta parede maior que o Classic e cobre a ordem e a evidência no verify_run.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-10-27T22:53:15.862Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm074agendad",
+      "fase": "GO",
+      "arquivo": "core/src/security-scan/executor.ts",
+      "alegacao": "Todo contêiner da varredura iniciado no grupo Agile recebe docker run --cpus com a cota do agendador; sem a cota, o Classic preserva o argv anterior.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-name-pattern='CPU limit' core/dist-test/test/security-scan-run.test.js"
+      ],
+      "criadoEm": "2026-10-27T22:54:34.721Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm074agendad",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-run.test.ts",
+      "alegacao": "O teste cobre cotas inteiras e fracionárias de Docker e a ausência de limite no Classic.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-name-pattern='CPU limit' core/dist-test/test/security-scan-run.test.js"
+      ],
+      "criadoEm": "2026-10-27T22:54:34.788Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm074agendad",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-docker-falso.ts",
+      "alegacao": "O Docker falso reconhece --cpus como opção com valor e permite conferir o argv completo da varredura.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-name-pattern='CPU limit' core/dist-test/test/security-scan-run.test.js"
+      ],
+      "criadoEm": "2026-10-27T22:54:34.849Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm074agendad",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A seção Não publicado explica o agendamento por CPU, o fallback sob saturação e a preservação integral da cobertura.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-10-27T22:55:46.606Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C9",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C10",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C11",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C12",
+      "reason": "local-integration-required"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}

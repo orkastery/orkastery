@@ -62,6 +62,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Agile Check agenda o grupo pela CPU da máquina:** a lane hermética, a varredura e a integração dividem a mesma
+  conta de CPUs, e todo contêiner recebe `--cpus` com a sua cota. Se carga ou steal indicarem saturação, o `verify`
+  executa hermética, varredura e integração na ordem do Classic, registra peça e motivo no `verify_run` e usa uma CPU
+  a menos; arquivos de teste, categorias e ferramentas de varredura permanecem os mesmos.
 - **A paridade do índice do roadmap reprova ainda no PR:** `ork docs verificar --pr` deixa de rebaixar
   `docs.paridade.indice` para aviso; a janela entre o merge de outra thread e a atualização da página continua aviso.
 - **A entrega por PR reconhece a mensagem padrão da forja:** `ork ship registrar-pr`, `--todas`, a paridade de docs,

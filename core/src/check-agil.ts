@@ -26,6 +26,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { ENV_RELATORIO_DO_CHECK } from './check-modo';
+import { planejarCpuDoGrupo } from './agendador-cpu';
 import { redigirCredenciaisUrl } from './redacao-url';
 import { CausaDoComando, Manifesto, ResultadoDeComando } from './types';
 
@@ -56,18 +57,21 @@ export interface ItemDoGrupo {
   nice?: number;
   /** Os itens do grupo (pelo nome, antes deste na lista) que precisam terminar antes de este comecar. */
   apos?: string[];
+  /** Papel usado pelo agendador de CPU do auxiliar. */
+  papelCpu?: 'hermetica' | 'integracao' | 'varredura' | 'outro';
 }
 
-/**
- * Quantas ferramentas a varredura roda ao mesmo tempo dentro do grupo, ao lado das lanes: um terco das CPUs que sobram
- * de uma, e no minimo duas. Numa maquina de 7 CPUs, duas.
- */
+/** Quantas ferramentas cabem na fatia de duas CPUs reservada pelo plano paralelo. */
 export function paralelismoDaVarreduraNoGrupo(cpus = os.availableParallelism()): number {
-  return Math.max(2, Math.floor((cpus - 1) / 3));
+  return planejarCpuDoGrupo(cpus, { carga1: 0, stealPct: 0 }).ferramentasDaVarredura;
 }
 
 /** Roda os comandos do grupo e devolve os resultados na mesma ordem. */
-export type ExecutorDeGrupo = (itens: ItemDoGrupo[], cwd: string) => ResultadoDeComando[];
+export interface ExecutorDeGrupo {
+  (itens: ItemDoGrupo[], cwd: string): ResultadoDeComando[];
+  /** Pecas descobertas pelo auxiliar depois da sonda de CPU. */
+  pecas?: PecaDoAgile[];
+}
 
 /** Roda um comando (o executor da rodada, com prazo, steal e conducao). */
 export type ExecutorUnico = (nome: string, comando: string, cwd: string) => ResultadoDeComando;
@@ -388,13 +392,14 @@ export function comandosNoAgile(manifesto: Manifesto, cwd: string, lista: { nome
   for (const c of resto) {
     if (c.nome === 'test' && lanesDeclaradas.length > 0) {
       for (const [lane, comando] of lanesDeclaradas) {
-        if (depoisDaVarredura.has(lane)) encadeados.push({ nome: `test:${lane}`, comando, apos: ['security_scan'] });
-        else itens.push({ nome: `test:${lane}`, comando });
+        if (depoisDaVarredura.has(lane)) encadeados.push({ nome: `test:${lane}`, comando, apos: ['security_scan'], papelCpu: 'integracao' });
+        else itens.push({ nome: `test:${lane}`, comando, papelCpu: lane === 'hermetica' ? 'hermetica' : 'outro' });
       }
-    } else itens.push({ nome: c.nome, comando: c.comando });
+    } else itens.push({ nome: c.nome, comando: c.comando, papelCpu: c.nome === 'security_scan' ? 'varredura' : 'outro' });
   }
   itens.push(...encadeados);
   const resultados = itens.length > 1 ? grupo(itens, cwd) : itens.map((i) => executor(i.nome, i.comando, cwd));
+  pecas.push(...(grupo.pecas ?? []));
   const lanes: Array<{ lane: string; resultado: ResultadoDeComando }> = [];
   itens.forEach((item, i) => {
     if (item.nome.startsWith('test:')) lanes.push({ lane: item.nome.slice('test:'.length), resultado: resultados[i] });

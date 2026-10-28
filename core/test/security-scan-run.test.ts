@@ -5,10 +5,11 @@ import * as path from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
 import { dirTemporario } from './apoio';
 import { installFakeTools, type FakeTools } from './security-scan-docker-falso';
-import { chooseExecutor, defaultProbe, type Probe } from '../src/security-scan/executor';
+import { argumentosDeCpuDoDocker, chooseExecutor, defaultProbe, type Probe } from '../src/security-scan/executor';
 import { runScan } from '../src/security-scan/run';
 import { loadTools } from '../src/security-scan/tools';
 import type { ScanReport, ToolSpec } from '../src/security-scan/types';
+import { ENV_CPUS_DOCKER } from '../src/agendador-cpu';
 
 const FIXTURE_JS = path.resolve(__dirname, '..', '..', '..', 'eval', 'fixtures', 'security-scan', 'js');
 const JS_TOOLS = ['gitleaks', 'semgrep', 'trivy-vuln', 'npm-audit', 'trivy-config', 'zizmor', 'actionlint', 'eslint', 'trivy-license'];
@@ -68,7 +69,8 @@ const NO_DOCKER_NO_BINARY: Probe = { dockerCli: () => false, dockerDaemon: () =>
 
 let cache: string;
 const saved: Record<string, string | undefined> = {};
-const ENV_KEYS = ['XDG_CACHE_HOME', 'ORK_FAKE_DOCKER_MODE', 'ORK_FAKE_DOCKER_SLEEP', 'ORK_FAKE_DOCKER_FAIL', 'ORK_FAKE_DOCKER_GARBAGE', 'ORK_FAKE_DOCKER_ZERO_COMMITS'];
+const ENV_KEYS = ['XDG_CACHE_HOME', 'ORK_FAKE_DOCKER_MODE', 'ORK_FAKE_DOCKER_SLEEP', 'ORK_FAKE_DOCKER_FAIL', 'ORK_FAKE_DOCKER_GARBAGE',
+  'ORK_FAKE_DOCKER_ZERO_COMMITS', ENV_CPUS_DOCKER];
 let fake: FakeTools | undefined;
 const cleanups: Array<() => void> = [];
 
@@ -100,6 +102,13 @@ test('chooseExecutor: Docker first, then the native binary with the accepted ver
   assert.equal(pipAudit.native, undefined, 'a tool that installs packages has no native entry');
 });
 
+test('CPU limit: o Docker do grupo Agile recebe --cpus e o Classic sem cota preserva o argv', () => {
+  assert.deepEqual(argumentosDeCpuDoDocker({ [ENV_CPUS_DOCKER]: '1' }), ['--cpus', '1']);
+  assert.deepEqual(argumentosDeCpuDoDocker({ [ENV_CPUS_DOCKER]: '0.5' }), ['--cpus', '0.5']);
+  assert.deepEqual(argumentosDeCpuDoDocker({}), []);
+  assert.deepEqual(argumentosDeCpuDoDocker({ [ENV_CPUS_DOCKER]: 'invalido' }), []);
+});
+
 test('without Docker and without binaries every tool is unavailable and the report has no finding', () => {
   const r = repo('secscan-none', { origin: true });
   const report = runScan({ root: r.dir, stateRoot: r.dir, probe: NO_DOCKER_NO_BINARY, now: () => new Date('2026-10-19T12:00:00Z') });
@@ -121,6 +130,7 @@ test('without Docker and without binaries every tool is unavailable and the repo
 test('with Docker every tool runs in a hardened container, the fixture findings are new and the base worktree is gone', () => {
   const r = repo('secscan-docker', { origin: true });
   fake = installFakeTools();
+  process.env[ENV_CPUS_DOCKER] = '1';
   const report = runScan({ root: r.dir, stateRoot: r.dir });
   for (const t of report.tools) {
     assert.equal(t.state, 'ran', `${t.name}: ${t.reason}`);
@@ -149,6 +159,7 @@ test('with Docker every tool runs in a hardened container, the fixture findings 
     assert.ok(a.some(x => /:\/src:ro$/.test(x)), 'repository mounted read-only');
     assert.ok(a.some(x => x.startsWith('/tmp:')) && a.includes('--tmpfs'), 'writable /tmp');
     assert.ok(a.includes('--name'));
+    assert.equal(a[a.indexOf('--cpus') + 1], '1', 'a cota do grupo chega a todo conteiner da varredura');
     const spec = loadTools().find(t => t.image === image && JSON.stringify(a).includes(t.expect.files[0].replace(/\.json$/, '')))
       ?? loadTools().find(t => t.image === image)!;
     assert.equal(a.includes('--network') && a[a.indexOf('--network') + 1] === 'none', spec.network === 'none', spec.name);
