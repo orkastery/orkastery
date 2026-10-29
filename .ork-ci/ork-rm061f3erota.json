@@ -716,7 +716,7 @@
         "node --test-name-pattern='locale en F2a doctor \\(index.ts\\): doctor --json' core/dist-test/test/locale-doctor.test.js"
       ],
       "criadoEm": "2026-10-29T21:32:57.411Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -730,7 +730,7 @@
         "node --test-name-pattern='locale en F2a erros: em pt-BR e com --json' core/dist-test/test/locale-erros.test.js"
       ],
       "criadoEm": "2026-10-29T21:32:57.529Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -744,6 +744,111 @@
         "node --test-name-pattern='locale en F3b estado \\(negativo\\)' core/dist-test/test/locale-estado.test.js"
       ],
       "criadoEm": "2026-10-29T21:32:57.648Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C57",
+      "thread": "ork-rm061f3erota",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "As sondas F3d reconhecem mcp serve e master audit no catálogo, mantêm privado fora e comparam as redações do grafo com argumentos tipados.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"cobreLocale(\\['mcp', 'serve'\\], {}), true\" core/test/locale-f3d-operacao.test.ts && grep -q \"cobreLocale(\\['privado'\\], {}), false\" core/test/locale-f3d-operacao.test.ts",
+        "node --test-name-pattern='instalacao do MCP|MASTER complementar|pt-BR do catalogo' core/dist-test/test/locale-f3d-operacao.test.js"
+      ],
+      "criadoEm": "2026-10-29T23:03:36.651Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C58",
+      "thread": "ork-rm061f3erota",
+      "fase": "GO",
+      "arquivo": "core/test/locale-master.test.ts",
+      "alegacao": "O teste negativo de master preserva JSON canônico e usa privado como rota realmente fora do catálogo.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"\\['privado'\\]\" core/test/locale-master.test.ts",
+        "node --test-name-pattern='os --json e a rota privada' core/dist-test/test/locale-master.test.js"
+      ],
+      "criadoEm": "2026-10-29T23:03:36.767Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C59",
+      "thread": "ork-rm061f3erota",
+      "fase": "GO",
+      "arquivo": "core/test/locale-onboarding.test.ts",
+      "alegacao": "O teste negativo de onboarding usa privado e Noctum, ainda fora do catálogo, sem afrouxar stdout, stderr ou status.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"for (const args of \\[\\['privado'\\], \\['noctum'\\]\\])\" core/test/locale-onboarding.test.ts",
+        "node --test-name-pattern='rotas fora da lista' core/dist-test/test/locale-onboarding.test.js"
+      ],
+      "criadoEm": "2026-10-29T23:03:36.868Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-rm061f3erota",
+      "fase": "GO",
+      "arquivo": "core/test/locale-verify.test.ts",
+      "alegacao": "O teste negativo de verify preserva as contraprovas --json e usa privado no lugar de master digest, agora localizado.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"\\['retry', 'list', '--json'\\], \\['privado'\\]\" core/test/locale-verify.test.ts",
+        "node --test-name-pattern='os --json e a rota privada' core/dist-test/test/locale-verify.test.js"
+      ],
+      "criadoEm": "2026-10-29T23:03:37.023Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-rm061f3erota",
+      "fase": "GO",
+      "arquivo": "core/test/locale-phase.test.ts",
+      "alegacao": "O teste negativo de phase preserva as contraprovas --json e usa privado no lugar de master digest, agora localizado.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"\\['retry', 'list', '--json'\\], \\['privado'\\]\" core/test/locale-phase.test.ts",
+        "node --test-name-pattern='phase \\\\(negativo\\\\)' core/dist-test/test/locale-phase.test.js"
+      ],
+      "criadoEm": "2026-10-29T23:03:37.152Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C62",
+      "thread": "ork-rm061f3erota",
+      "fase": "GO",
+      "arquivo": "core/test/ork-ponte.test.ts",
+      "alegacao": "A lista fechada da ponte confere `maestro --json` na ajuda pública do catálogo e as demais consultas na ajuda principal do CLI.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"const ajudaDoMaestro = msg('pt-BR').maestro.help\" core/test/ork-ponte.test.ts",
+        "node --test-name-pattern='cada consulta da lista fechada' core/dist-test/test/ork-ponte.test.js"
+      ],
+      "criadoEm": "2026-10-29T23:03:50.422Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C63",
+      "thread": "ork-rm061f3erota",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3d-operacao.test.ts",
+      "alegacao": "A matriz ampliada de 60 arquivos — locale-*, ork-ponte e todo teste que cita F3d, F3e, F2a, F2b ou COMANDOS_COM_LOCALE — passa duas vezes com --test-concurrency=16.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"node:fs\"),cp=require(\"node:child_process\"),dir=\"core/dist-test/test\";const files=fs.readdirSync(dir).filter(f=>f.endsWith(\".test.js\")).filter(f=>f===\"ork-ponte.test.js\"||f.startsWith(\"locale-\")||/F3d|F3e|F2a|F2b|COMANDOS_COM_LOCALE/.test(fs.readFileSync(dir+\"/\"+f,\"utf8\"))).sort().map(f=>dir+\"/\"+f);console.log(\"ARQUIVOS \"+files.length+\"\\n\"+files.join(\"\\n\"));const r=cp.spawnSync(process.execPath,[\"--test\",\"--test-concurrency=16\",...files],{stdio:\"inherit\"});if(r.error)throw r.error;process.exit(r.status===null?1:r.status)'",
+        "node -e 'const fs=require(\"node:fs\"),cp=require(\"node:child_process\"),dir=\"core/dist-test/test\";const files=fs.readdirSync(dir).filter(f=>f.endsWith(\".test.js\")).filter(f=>f===\"ork-ponte.test.js\"||f.startsWith(\"locale-\")||/F3d|F3e|F2a|F2b|COMANDOS_COM_LOCALE/.test(fs.readFileSync(dir+\"/\"+f,\"utf8\"))).sort().map(f=>dir+\"/\"+f);console.log(\"ARQUIVOS \"+files.length+\"\\n\"+files.join(\"\\n\"));const r=cp.spawnSync(process.execPath,[\"--test\",\"--test-concurrency=16\",...files],{stdio:\"inherit\"});if(r.error)throw r.error;process.exit(r.status===null?1:r.status)'"
+      ],
+      "criadoEm": "2026-10-29T23:04:30.684Z",
       "estado": "pendente",
       "lint": []
     }
