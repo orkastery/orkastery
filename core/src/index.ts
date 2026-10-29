@@ -4305,12 +4305,13 @@ function executarComando(argvBruto: string[]): number {
     return 0;
   }
   if (argv[0] === 'maestro') {
-    if (argv.length === 2 && argv[1] === '--help') return runMaestroCli(argv.slice(1));
+    const textos = msg(localeDaAjuda(projeto)).maestro;
+    if (argv.length === 2 && argv[1] === '--help') return runMaestroCli(argv.slice(1), process.cwd(), {}, undefined, textos);
     // RM-052: o alvo explicito vira SELECAO entre as raizes permitidas; sem ele, o cwd de sempre. O
     // snapshot ja declara o projeto consultado (project.root, notConsulted): sem a linha da fatia 2.
     const alvo = fixarAlvoDoProcesso(projeto, false);
-    return alvo ? runMaestroCli(argv.slice(1), alvo.raiz, { allowedRoots: [alvo.raiz], selected: alvo.raiz })
-      : runMaestroCli(argv.slice(1));
+    return alvo ? runMaestroCli(argv.slice(1), alvo.raiz, { allowedRoots: [alvo.raiz], selected: alvo.raiz }, undefined, textos)
+      : runMaestroCli(argv.slice(1), process.cwd(), {}, undefined, textos);
   }
   const args = parseArgs(argv);
   const comando = args.posicionais[0];

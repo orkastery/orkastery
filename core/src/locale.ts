@@ -91,6 +91,7 @@ import { CONDUCAO_EN, CONDUCAO_PT_BR } from './locale-conducao';
 import { GRAFO_EN, GRAFO_PT_BR } from './locale-grafo';
 import { AUDIT_EN, AUDIT_PT_BR } from './locale-audit';
 import { PREFLIGHT_EN, PREFLIGHT_PT_BR } from './locale-preflight';
+import { MAESTRO_EN, MAESTRO_PT_BR } from './locale-maestro';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
@@ -283,6 +284,7 @@ const PT_BR = {
     masterSelecaoUso: 'seleção deve ser thread:assinatura',
   },
   preflight: PREFLIGHT_PT_BR,
+  maestro: MAESTRO_PT_BR,
   horario: {
     brasilia: 'horário de Brasília',
     legendaBrasilia: 'Horários de Brasília.',
@@ -770,6 +772,7 @@ const EN: Mensagens = {
     masterSelecaoUso: 'the selection must be thread:signature',
   },
   preflight: PREFLIGHT_EN,
+  maestro: MAESTRO_EN,
   horario: {
     brasilia: 'Brasília time',
     legendaBrasilia: 'Times in Brasília time.',
