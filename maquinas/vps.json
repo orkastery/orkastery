@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.0",
-  "publicadoEm": "2026-10-29T13:30:47.196Z",
+  "publicadoEm": "2026-10-29T13:30:59.171Z",
   "threads": [
     {
       "id": "ork-mainverdeind",
@@ -22,24 +22,6 @@
       "runtime": "codex",
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
-      "sessao": null
-    },
-    {
-      "id": "ork-sdkdomcp1322",
-      "nome": "mcpsdk",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-sdkdomcp1322-go",
-      "atualizadaEm": "2026-10-27T22:17:50.252Z",
-      "entregue": "7d57f99",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null,
       "sessao": null
     },
     {
