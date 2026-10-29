@@ -76,6 +76,7 @@ O #Noctum segue **em desenvolvimento, não anunciado** e ainda não validado.
 
 ### Corrigido
 
+- **O teste das lanes não herda o plano de CPU da rodada:** a fatia continua limitando a própria lane, sem alterar a concorrência nem os argumentos Docker dos testes que ela executa.
 - **Agile Check agenda o grupo pela CPU da máquina:** a lane hermética, a varredura e a integração dividem a mesma
   conta de CPUs, e todo contêiner recebe `--cpus` com a sua cota. Se carga ou steal indicarem saturação, o `verify`
   executa hermética, varredura e integração na ordem do Classic, registra peça e motivo no `verify_run` e usa uma CPU
