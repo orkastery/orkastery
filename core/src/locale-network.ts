@@ -124,6 +124,8 @@ export const NETWORK_PT_BR = {
   foraDaRede: 'rede.fora: esta maquina nao esta na rede; ork network entrar',
   nomeInvalido: (maquina: string) =>
     `rede.maquina: nome de maquina invalido ("${maquina}"); use ork network entrar --maquina NOME (letras, numeros, ponto, _ ou -)`,
+  nomeGenericoAusente: 'rede.maquina-generica: escolha um nome generico com ork network entrar --maquina maquina-a; ' +
+    'o mapa fica somente em ~/.orkastery/maquina.json, fora do git',
   ocupadoAoEntrar: (trava: string) =>
     `rede.ocupado: outra publicacao desta maquina esta em andamento (${trava}); rode ork network entrar de novo em instantes`,
   semHttpsAoSair: (cli: string, ref: string) =>
@@ -327,6 +329,8 @@ export const NETWORK_EN: MensagensDeNetwork = {
   concorrencia: (n) => `rede.concorrencia: ${n} pushes refused in a row; try again in a moment`,
   foraDaRede: 'rede.fora: this machine is not in the network; `ork network entrar`',
   nomeInvalido: (maquina) => `rede.maquina: invalid machine name ("${maquina}"); use \`ork network entrar --maquina NAME\` (letters, digits, dot, _ or -)`,
+  nomeGenericoAusente: 'rede.maquina-generica: choose a generic name with `ork network entrar --maquina maquina-a`; ' +
+    'the mapping stays only in ~/.orkastery/maquina.json, outside git',
   ocupadoAoEntrar: (trava) => `rede.ocupado: another publication from this machine is in progress (${trava}); run \`ork network entrar\` again in a moment`,
   semHttpsAoSair: (cli, ref) => `rede.sem-https: left the network here, but ${cli} returned a URL without https for ${ref}; the snapshot stays in the home`,
   ocupadoAoSair: (trava) => `rede.ocupado: left the network here, but another publication from this machine holds the home (${trava}); run \`ork network sair\` again`,
