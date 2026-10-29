@@ -1,0 +1,506 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm061f3erota",
+  "branch": "ork/ork-rm061f3erota-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "As rotas da F3e e seus resíduos humanos saem em pt-BR e em inglês conforme o locale, com snapshot focado por rota.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/locale-f3e-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-29T17:48:20.786Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-security-scan.ts",
+      "alegacao": "O security-scan localiza a apresentação humana dos diagnósticos sem alterar motivos armazenados nem o contrato --json.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/locale-f3e-security-scan.test.js"
+      ],
+      "criadoEm": "2026-10-29T17:48:21.075Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md",
+      "alegacao": "A F3e mede e documenta a cobertura antes e depois, preserva os fora de escopo e registra a decisão sobre os diagnósticos do security-scan.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/contar-mensagens-de-saida.cjs --json | jq -e '.catalogo.entradas >= 3482 and .cobertura >= 0.5618'",
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-29T17:48:21.222Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "CHANGELOG e PR body registram a F3e e listam as novas frases inglesas para revisão do dono.",
+      "negativa": false,
+      "verificar": [
+        "rg -n 'F3e|RM-061' CHANGELOG.md .orkastery/threads/ork-rm061f3erota/pr-body.md"
+      ],
+      "criadoEm": "2026-10-29T17:48:21.326Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "A entrada do CLI ativa o locale antes das recusas de projeto para rotas cobertas e preserva servidores/JSON no locale canônico.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3e-routes.test.js"
+      ],
+      "criadoEm": "2026-10-29T17:54:47.930Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-onboarding.ts",
+      "alegacao": "Onboarding sync e experiencia uninstall têm molduras humanas equivalentes em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3e-routes.test.js"
+      ],
+      "criadoEm": "2026-10-29T17:54:48.065Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3e-routes.test.ts",
+      "alegacao": "A matriz de rotas F3e e as novas molduras têm teste focado verde.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3e-routes.test.js"
+      ],
+      "criadoEm": "2026-10-29T17:54:48.224Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-preflight.ts",
+      "alegacao": "O preflight contextual possui catálogo tipado pt-BR/en para todos os checks, blocos, resumo e limites.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3e-doctor.test.js"
+      ],
+      "criadoEm": "2026-10-29T17:58:10.594Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/src/preflight.ts",
+      "alegacao": "O texto de doctor --modo usa o catálogo sem alterar o objeto de preflight.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3e-doctor.test.js"
+      ],
+      "criadoEm": "2026-10-29T17:58:10.716Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3e-doctor.test.ts",
+      "alegacao": "Snapshots focados de doctor --modo passam em pt-BR e inglês sem resíduo português.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3e-doctor.test.js"
+      ],
+      "criadoEm": "2026-10-29T17:58:10.799Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-maestro.ts",
+      "alegacao": "O catálogo Maestro fornece molduras humanas equivalentes em pt-BR e inglês sem alterar o snapshot JSON.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3e-maestro.test.js"
+      ],
+      "criadoEm": "2026-10-29T18:03:37.920Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/src/maestro-cli.ts",
+      "alegacao": "O painel e a ajuda de ork maestro usam o catálogo do locale selecionado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3e-maestro.test.js"
+      ],
+      "criadoEm": "2026-10-29T18:03:38.050Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "A rota ork maestro seleciona o catálogo humano pelo locale do projeto.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3e-maestro.test.js"
+      ],
+      "criadoEm": "2026-10-29T18:03:38.127Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3e-maestro.test.ts",
+      "alegacao": "Snapshots focados cobrem painel e ajuda Maestro em pt-BR e inglês, incluindo invariância do JSON.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3e-maestro.test.js"
+      ],
+      "criadoEm": "2026-10-29T18:03:38.313Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-grafo.ts",
+      "alegacao": "O catálogo do grafo cobre as linhas de extração e traduz somente os detalhes humanos de erros tipados, preservando os códigos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3e-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-29T18:09:11.944Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-cli.ts",
+      "alegacao": "A saída humana do grafo usa o catálogo para extração e erros; o caminho --json conserva mensagens e schemas canônicos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3e-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-29T18:09:12.098Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3e-grafo.test.ts",
+      "alegacao": "Snapshots focados cobrem extração e erros tipados do grafo em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3e-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-29T18:09:12.334Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-security-scan.ts",
+      "alegacao": "O catálogo de security-scan traduz o vocabulário humano conhecido de recusas e motivos sem alterar os dados armazenados.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3e-security-scan.test.js"
+      ],
+      "criadoEm": "2026-10-29T18:12:22.420Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/report.ts",
+      "alegacao": "O relatório Markdown apresenta motivos de ferramentas no locale ativo, mantendo o report.json canônico.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3e-security-scan.test.js"
+      ],
+      "criadoEm": "2026-10-29T18:12:22.651Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/cli.ts",
+      "alegacao": "A saída humana do security-scan localiza recusas e motivos; --json preserva a mensagem e o relatório canônicos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3e-security-scan.test.js"
+      ],
+      "criadoEm": "2026-10-29T18:12:22.833Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3e-security-scan.test.ts",
+      "alegacao": "Snapshots pt-BR e inglês provam a tradução humana e a invariância do ScanReport.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3e-security-scan.test.js"
+      ],
+      "criadoEm": "2026-10-29T18:12:23.027Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-projetos.ts",
+      "alegacao": "As recusas de --projeto emitidas antes do comando têm pares pt-BR e inglês no catálogo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3e-routes.test.js"
+      ],
+      "criadoEm": "2026-10-29T18:14:33.465Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "A borda de seleção de projeto usa o catálogo ativado antes de recusar comandos que não leem projeto.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3e-routes.test.js"
+      ],
+      "criadoEm": "2026-10-29T18:14:33.875Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3e-routes.test.ts",
+      "alegacao": "Os snapshots de rotas F3e incluem as recusas antecipadas de projeto em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3e-routes.test.js"
+      ],
+      "criadoEm": "2026-10-29T18:14:34.280Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/evidencias/RM-061/cobertura-f3e.json",
+      "alegacao": "O recibo F3e registra a baseline, a medição pós-GO, os testes focados, a decisão do security-scan e os limites de escopo.",
+      "negativa": false,
+      "verificar": [
+        "ork docs verificar",
+        "node core/scripts/contar-mensagens-de-saida.cjs --json"
+      ],
+      "criadoEm": "2026-10-29T18:16:22.633Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md",
+      "alegacao": "A página RM-061 documenta o resultado e a cobertura da F3e sem prometer as superfícies fora do escopo.",
+      "negativa": false,
+      "verificar": [
+        "ork docs verificar",
+        "node core/scripts/contar-mensagens-de-saida.cjs --json"
+      ],
+      "criadoEm": "2026-10-29T18:16:22.835Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice do roadmap foi regenerado a partir do frontmatter atualizado da RM-061.",
+      "negativa": false,
+      "verificar": [
+        "ork docs verificar",
+        "node core/scripts/contar-mensagens-de-saida.cjs --json"
+      ],
+      "criadoEm": "2026-10-29T18:16:22.936Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG não publicado registra a F3e e explicita que códigos, dados e --json não mudam.",
+      "negativa": false,
+      "verificar": [
+        "ork docs verificar",
+        "node core/scripts/contar-mensagens-de-saida.cjs --json"
+      ],
+      "criadoEm": "2026-10-29T18:16:23.028Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "O catálogo de doctor inclui o erro de uso de --modo em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3e-doctor.test.js"
+      ],
+      "criadoEm": "2026-10-29T18:21:11.807Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "A rota doctor --modo usa o catálogo também ao recusar argumentos inválidos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3e-doctor.test.js"
+      ],
+      "criadoEm": "2026-10-29T18:21:11.983Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3e-doctor.test.ts",
+      "alegacao": "O snapshot doctor cobre preflight e erro de uso de --modo nos dois locales.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3e-doctor.test.js"
+      ],
+      "criadoEm": "2026-10-29T18:21:12.121Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm061f3erota",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3e-snapshot.test.ts",
+      "alegacao": "O snapshot agregado exercita em pt-BR e inglês todas as rotas que a F3e acrescentou ao catálogo.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/locale-f3e-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-29T18:32:13.598Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
