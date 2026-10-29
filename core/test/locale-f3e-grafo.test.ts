@@ -1,8 +1,9 @@
 /** RM-061 F3e: snapshots dos resíduos humanos do grafo; códigos e JSON não mudam. */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import { executarGrafo, type TextosDoGrafo } from '../src/intelligence-graph-cli';
 import { GRAFO_EN, GRAFO_PT_BR } from '../src/locale-grafo';
-import { linhasEmPortugues } from './locale-apoio';
+import { cenario, linhasEmPortugues } from './locale-apoio';
 
 test('locale pt-BR F3e grafo: extração e erro tipado preservam a redação', () => {
   const m = GRAFO_PT_BR.indexar.extracao;
@@ -31,3 +32,15 @@ test('locale en F3e grafo: extração e detalhes mudam, códigos permanecem', ()
   assert.match(linhas[6], /^grafo\.consulta\.uso: limite must be an integer/);
 });
 
+test('locale F3e grafo: erro --json permanece idêntico nos dois locales', () => {
+  const c = cenario('f3e-grafo-json');
+  try {
+    const rodar = (textos: TextosDoGrafo) => {
+      const saida: string[] = [];
+      const code = executarGrafo(['vizinhos', 'alvo', '--json'],
+        { raiz: c.dir, estado: c.dir, repositorio: 'loc', textos, escrever: (texto) => saida.push(texto) });
+      return { code, saida };
+    };
+    assert.deepEqual(rodar(GRAFO_EN), rodar(GRAFO_PT_BR));
+  } finally { c.limpar(); }
+});

@@ -6,15 +6,16 @@
  */
 
 const motivoEmPtBR = (reason: string): string => {
-  const exact: Record<string, string> = {
-    'not in the catalog': 'não está no catálogo', 'unbalanced JSON': 'JSON desbalanceado',
-    'truncated JSON': 'JSON truncado', 'empty stream': 'fluxo vazio', 'invalid JSON': 'JSON inválido',
-    'expected a JSON array': 'era esperado um array JSON', 'expected a JSON object': 'era esperado um objeto JSON',
-    'unreadable output': 'saída ilegível', 'commit-range-unresolved': 'intervalo de commits não resolvido',
-    timeout: 'tempo esgotado', 'no-requirements-file': 'nenhum arquivo requirements',
-    'zero-commits-scanned': 'nenhum commit varrido', disabled: 'desabilitada', 'unsupported-ci': 'CI não suportada',
-  };
-  if (exact[reason]) return exact[reason];
+  const exact = new Map<string, string>([
+    ['not in the catalog', 'não está no catálogo'], ['unbalanced JSON', 'JSON desbalanceado'],
+    ['truncated JSON', 'JSON truncado'], ['empty stream', 'fluxo vazio'], ['invalid JSON', 'JSON inválido'],
+    ['expected a JSON array', 'era esperado um array JSON'], ['expected a JSON object', 'era esperado um objeto JSON'],
+    ['unreadable output', 'saída ilegível'], ['commit-range-unresolved', 'intervalo de commits não resolvido'],
+    ['timeout', 'tempo esgotado'], ['no-requirements-file', 'nenhum arquivo requirements'],
+    ['zero-commits-scanned', 'nenhum commit varrido'], ['disabled', 'desabilitada'], ['unsupported-ci', 'CI não suportada'],
+  ]);
+  const conhecida = exact.get(reason);
+  if (conhecida !== undefined) return conhecida;
   return reason
     .replace(/not in the catalog/g, 'não está no catálogo')
     .replace(/unbalanced JSON/g, 'JSON desbalanceado')

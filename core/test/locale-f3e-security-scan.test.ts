@@ -19,6 +19,7 @@ test('locale pt-BR F3e security-scan: motivos conhecidos são traduzidos só no 
   assert.match(md, /security-scan\.parse: scanner: era esperado um objeto JSON/);
   assert.equal(msg('pt-BR').securityScan.error('security-scan.dismissal-invalid: (no fingerprint)'),
     'security-scan.dismissal-invalid: (sem fingerprint)');
+  assert.equal(msg('pt-BR').securityScan.reason('toString'), 'toString');
   assert.equal(JSON.stringify(report), jsonAntes);
 });
 
@@ -29,4 +30,3 @@ test('locale en F3e security-scan: apresentação inglesa e dado canônico coinc
   assert.equal(msg('en').securityScan.error('security-scan.config-invalid: config.json: expected an object'),
     'security-scan.config-invalid: config.json: expected an object');
 });
-

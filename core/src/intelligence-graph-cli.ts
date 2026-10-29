@@ -499,7 +499,7 @@ function consultavel(ctx: ContextoDoCli): {
     doHead = indiceDoHead(ctx);
   } catch (e) {
     if (String((e as Error).message).startsWith('grafo.indice.ausente')) semIndiceDoHead(ctx, e as Error);
-    throw new Error(textosDe(ctx).erroTipado(String((e as Error).message)));
+    throw e;
   }
   const { arvore, perfil, chave, indice } = doHead;
   const concessao = concessaoLocal(arvore.raiz, perfil);
@@ -807,6 +807,13 @@ const erroEmJson = (ctx: ContextoDoCli, e: unknown, compacto: boolean, schema: s
   return 1;
 };
 
+/** Traduz a mensagem sem apagar a classe, os candidatos ou o stack do erro tipado. */
+const erroHumano = (ctx: ContextoDoCli, e: unknown): Error => {
+  const erro = e instanceof Error ? e : new Error(String(e));
+  erro.message = textosDe(ctx).erroTipado(erro.message);
+  return erro;
+};
+
 /** `ork grafo <subcomando> ...`: devolve o codigo de saida; sem `--json`, o erro de uso ou tipado e lancado. */
 export function executarGrafo(argv: readonly string[], ctx: ContextoDoCli): number {
   const schema = argv[0] === 'contexto' ? CONTEXTO_SCHEMA : CONSULTA_SCHEMA;
@@ -827,7 +834,7 @@ export function executarGrafo(argv: readonly string[], ctx: ContextoDoCli): numb
     if (p.sub === 'contexto') return contexto(ctx, p);
     return consultar(ctx, p);
   } catch (e) {
-    if (!p.bandeiras.has('json')) throw new Error(textosDe(ctx).erroTipado(String((e as Error).message)));
+    if (!p.bandeiras.has('json')) throw erroHumano(ctx, e);
     return erroEmJson(ctx, e, compacto, schema);
   }
 }
