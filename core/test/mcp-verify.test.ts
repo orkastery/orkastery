@@ -1,8 +1,9 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { verificarMcp } from '../src/mcp-verify';
+import { diagnosticoDoVerifyMcp, verificarMcp } from '../src/mcp-verify';
 import { adquirir, caminhoFila, caminhoLease, lerLease, liberar } from '../src/leases';
 import { adicionarClaim } from '../src/claims';
 import { dirThread, gravarThread, novaThread } from '../src/thread';
@@ -19,7 +20,23 @@ function fixture(nome: string) {
   return { p, thread, wt: thread.worktree as string, lease: 'worktree-write:' + thread.id };
 }
 
-test('MCP VERIFY usa sandbox real, registra resultado canônico e libera somente a lease própria', { skip: semCodexSandbox() }, () => {
+const subprocessoIndisponivel = (() => {
+  const r = spawnSync(process.execPath, ['-e', ''], { encoding: 'utf8', timeout: 5_000 });
+  const code = (r.error as NodeJS.ErrnoException | undefined)?.code;
+  return code ? `skip: subprocesso Node indisponivel neste executor (${code})` : false;
+})();
+const semSandboxAninhado = subprocessoIndisponivel || semCodexSandbox();
+
+test('MCP VERIFY expõe o diagnóstico granular sem remover as listas legadas', () => {
+  const comando = { nome: 'test', comando: 'node --test', ok: false, code: 1, resumo: 'falhou' };
+  const comparacao = { comando: 'test', granularidade: 'teste' as const, regressoes: ['B'],
+    preExistentes: ['A'], corrigidos: [] };
+  assert.deepEqual(diagnosticoDoVerifyMcp({
+    regressoes: [comando], preExistentes: [comando], comparacoes: [comparacao],
+  }), { regressoes: ['test'], preExistentes: ['test'], comparacoes: [comparacao] });
+});
+
+test('MCP VERIFY usa sandbox real, registra resultado canônico e libera somente a lease própria', { skip: semSandboxAninhado }, () => {
   const f = fixture('positivo');
   try {
     adicionarClaim(f.p.dir, f.thread.id, { arquivo: 'produto.md', alegacao: 'prova real', verificar: ['test -f produto.md; echo prova-real'] });
@@ -33,7 +50,7 @@ test('MCP VERIFY usa sandbox real, registra resultado canônico e libera somente
   } finally { f.p.limpar(); }
 });
 
-test('MCP VERIFY bloqueia shell da claim escrevendo fora da WT, sem fallback e sem recibo SHIP', { skip: semCodexSandbox() }, () => {
+test('MCP VERIFY bloqueia shell da claim escrevendo fora da WT, sem fallback e sem recibo SHIP', { skip: semSandboxAninhado }, () => {
   const f = fixture('sentinela'); const fora = path.join(f.p.dir, 'sentinela'); fs.writeFileSync(fora, 'original');
   try {
     adicionarClaim(f.p.dir, f.thread.id, { arquivo: 'produto.md', alegacao: 'contraprova externa', verificar: [`echo escapou > ${q(fora)}`] });
@@ -91,7 +108,7 @@ test('MCP VERIFY recusa raiz/ID inválidos, estado symlink e worktree de outra r
 });
 
 
-test('MCP VERIFY preserva lease substituída por outro dono durante execução', { skip: semCodexSandbox() }, t => {
+test('MCP VERIFY preserva lease substituída por outro dono durante execução', { skip: semSandboxAninhado }, t => {
   const f = fixture('identidade');
   const sandbox = require('../src/verify-sandbox') as typeof import('../src/verify-sandbox');
   const original = sandbox.criarExecutorSandbox;
@@ -113,7 +130,7 @@ test('MCP VERIFY preserva lease substituída por outro dono durante execução',
   } finally { f.p.limpar(); }
 });
 
-test('prazo total impede comandos restantes: relógio simulado, primeira execução real', { skip: semCodexSandbox() }, t => {
+test('prazo total impede comandos restantes: relógio simulado, primeira execução real', { skip: semSandboxAninhado }, t => {
   const f = fixture('prazo');
   const sandbox = require('../src/verify-sandbox') as typeof import('../src/verify-sandbox');
   const original = sandbox.criarExecutorSandbox;
@@ -147,7 +164,7 @@ test('fila symlink dangling é recusada antes de adquirir ou criar alvo externo'
   } finally { outro.limpar(); f.p.limpar(); }
 });
 
-test('lease canônica impede claim_add concorrente e ambas leases próprias são liberadas', { skip: semCodexSandbox() }, t => {
+test('lease canônica impede claim_add concorrente e ambas leases próprias são liberadas', { skip: semSandboxAninhado }, t => {
   const f = fixture('claims-concorrentes');
   const sandbox = require('../src/verify-sandbox') as typeof import('../src/verify-sandbox');
   const original = sandbox.criarExecutorSandbox; let tentou = false;

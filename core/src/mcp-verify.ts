@@ -7,7 +7,7 @@ import { dirThread, lerThread } from './thread';
 import { lerClaims } from './claims';
 import { adquirirRegiao, caminhoFila, caminhoLease, dirLeases, lerLease, leasesColidentes, liberar, podarRegioesDeThreadsFechadas } from './leases';
 import { validarArquivosEstadoMcp } from './mcp-artifacts';
-import { comandosDoManifesto, ConducaoDoVerify, ExecutorVerify, prazoDoComando, verificar } from './verify';
+import { comandosDoManifesto, ConducaoDoVerify, ExecutorVerify, prazoDoComando, ResultadoVerify, verificar } from './verify';
 import { criarExecutorSandbox } from './verify-sandbox';
 import { ResultadoDeComando } from './types';
 import { branchDaWorktree, worktreesDoGit } from './worktree';
@@ -33,6 +33,15 @@ function dentro(raiz: string, p: string): boolean { return p.startsWith(raiz + p
 function mesmoLease(a: ReturnType<typeof lerLease>, b: NonNullable<ReturnType<typeof lerLease>>) {
   return !!a && a.nome === b.nome && a.thread === b.thread && a.pid === b.pid &&
     a.adquiridoEm === b.adquiridoEm && a.expiraEm === b.expiraEm && a.motivo === b.motivo;
+}
+
+/** Parte pura do retorno MCP: permite provar o contrato mesmo quando o sandbox nao abre outro sandbox. */
+export function diagnosticoDoVerifyMcp(r: Pick<ResultadoVerify, 'regressoes' | 'preExistentes' | 'comparacoes'>) {
+  return {
+    regressoes: r.regressoes.map(c => c.nome),
+    preExistentes: r.preExistentes.map(c => c.nome),
+    comparacoes: r.comparacoes,
+  };
 }
 
 /** Síncrono: prazo total/per-command, não cancelamento reativo do event loop. */
@@ -118,8 +127,7 @@ export function verificarMcp(raizEntrada: string, threadId: string, conducao: Co
       execucoes: execucoes.slice(0, LIMITE_RETORNO).map(c => ({ nome: c.nome, ok: c.ok, code: c.code,
         executado: (c as ResultadoDeComando & { executado?: boolean }).executado === true, resumo: c.resumo })),
       totalExecucoes: execucoes.length, omitidas: Math.max(0, execucoes.length - LIMITE_RETORNO),
-      regressoes: r.regressoes.map(c => c.nome), preExistentes: r.preExistentes.map(c => c.nome),
-      comparacoes: r.comparacoes,
+      ...diagnosticoDoVerifyMcp(r),
       executor: 'codex-sandbox', prazoTotalMs: PRAZO_TOTAL_MS, limitePorComandoMs: COMANDO_MAX_MS,
     };
   } finally {

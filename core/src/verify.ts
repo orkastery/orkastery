@@ -954,6 +954,9 @@ function verificarSobConducao(
   // RM-037 (defeito 1 de 19 e 20/10/2026): o comando sem veredito na baseline nao separa regressao de divida.
   const baselineSemVeredito = (baseline?.comandos ?? []).filter((c) => vereditoDaBaseline(c) === 'sem-veredito').map((c) => c.nome);
   for (const atual of comandos) {
+    // I-54 (D11): comando que nao rodou nao tem resultado para comparar. O motivo tipado entra abaixo como
+    // `verify.sem-veredito`, sem tambem inventar regressao ou divida a partir da ausencia de nomes.
+    if (atual.executado === false) continue;
     if (!atual.ok && semVereditoPorTempo(atual)) {
       estouros.push(atual);
       continue;
@@ -1219,11 +1222,18 @@ export function textoDoVerify(r: ResultadoVerify): string {
     linhas.push('');
     linhas.push(m.semVeredito(r.estouros.map((c) => c.nome).join(', ')));
   }
-  if (r.regressoes.length > 0 || r.preExistentes.length > 0 || r.falhasSemBaseline.length > 0) {
+  if (r.comparacoes.length > 0 || r.falhasSemBaseline.length > 0) {
     linhas.push('');
-    linhas.push(m.classificacao(r.regressoes.length, r.preExistentes.length, r.falhasSemBaseline.length));
-    for (const c of r.regressoes) linhas.push(m.regressao(c.nome, c.comando));
-    for (const c of r.preExistentes) linhas.push(m.preExistente(c.nome, c.comando));
+    for (const c of r.comparacoes) {
+      if (c.granularidade === 'teste') {
+        linhas.push(m.comparacaoPorTeste(c.comando, c.regressoes.length, c.preExistentes.length, c.corrigidos.length));
+        for (const teste of c.regressoes) linhas.push(m.testeRegressao(teste));
+        for (const teste of c.preExistentes) linhas.push(m.testePreExistente(teste));
+        for (const teste of c.corrigidos) linhas.push(m.testeCorrigido(teste));
+      } else {
+        linhas.push(m.comparacaoPorComando(c.comando, c.classificacaoDoComando!, c.motivoDoFallback!));
+      }
+    }
     // RM-037 (defeito 1 de 19 e 20/10/2026): a baseline existe, mas nao teve veredito deste comando.
     const semVeredito = new Set((r.baseline?.comandos ?? []).filter((c) => vereditoDaBaseline(c) === 'sem-veredito').map((c) => c.nome));
     for (const c of r.falhasSemBaseline) {

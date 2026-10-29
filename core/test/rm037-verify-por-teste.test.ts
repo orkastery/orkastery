@@ -127,3 +127,22 @@ test('baseline verde é conjunto vazio comprovado e os nomes atuais viram regres
     assert.ok(r.motivos.includes('verify.regression'));
   } finally { p.limpar(); }
 });
+
+test('comando não executado fica sem veredito e nunca vira regressão ou dívida por falta de nomes', () => {
+  const p = projetoTemporario('rm037-verify-nao-executado');
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'sem veredito', modo: 'auto' });
+    p.carregado.manifesto.verify = { test: 'teste-simulado' };
+    gravarBaseline(p.carregado, thread.id, executor(undefined, true));
+    const naoExecutou: ExecutorVerify = (nome, comando) => ({
+      nome, comando, ok: false, code: -1, resumo: 'prazo total esgotado', executado: false,
+    });
+
+    const r = verificar(p.carregado, thread.id, { executor: naoExecutou });
+    assert.deepEqual(r.comparacoes, []);
+    assert.deepEqual(r.regressoes, []);
+    assert.deepEqual(r.preExistentes, []);
+    assert.ok(r.motivos.includes('verify.sem-veredito'));
+    assert.equal(r.motivos.includes('verify.regression'), false);
+  } finally { p.limpar(); }
+});
