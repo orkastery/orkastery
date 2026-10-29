@@ -4,6 +4,29 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.1",
-  "publicadoEm": "2026-10-29T14:45:03.111Z",
-  "threads": []
+  "publicadoEm": "2026-10-29T14:56:11.262Z",
+  "threads": [
+    {
+      "id": "ork-otestedaslan",
+      "nome": "ork-lanescpuenv",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": "RM-074",
+      "branch": "ork/ork-otestedaslan-go",
+      "atualizadaEm": "2026-10-29T14:55:58.411Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-29T14:56:06.144Z",
+        "motivo": "nenhuma sessão despachada na fase GO"
+      }
+    }
+  ]
 }
