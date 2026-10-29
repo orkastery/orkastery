@@ -5,6 +5,6 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado | Sessão |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| vps | ork-versao061 | #Fast | GO | claude-bg sonnet/high | — | — | 29/10 10:31 | parada desde 27/10 08:34: sessão 79626b3f encerrada (done) |
+| vps | ork-versao061 | #Fast | GO | claude-bg sonnet/high | — | — | 29/10 13:31 | parada desde 27/10 11:34: sessão 79626b3f encerrada (done) |
 
-Horários de Brasília.
+Horários em UTC.
