@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.1",
-  "publicadoEm": "2026-10-29T15:48:59.216Z",
+  "publicadoEm": "2026-10-29T15:49:55.227Z",
   "threads": [
     {
       "id": "ork-otestedaslan",
@@ -80,18 +80,18 @@
       "status": "aberta",
       "roadmap": "RM-074",
       "branch": "ork/ork-rm074comamet-go",
-      "atualizadaEm": "2026-10-29T15:33:24.597Z",
+      "atualizadaEm": "2026-10-29T15:49:54.548Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null,
+      "runtime": "grok",
+      "modelo": "grok-4.7",
+      "esforco": "high",
       "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-29T15:33:33.144Z",
-        "motivo": "nenhuma sessão despachada na fase GO"
+        "viva": true,
+        "desdeEm": null,
+        "motivo": null
       }
     }
   ]
