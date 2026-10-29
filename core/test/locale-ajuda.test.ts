@@ -85,10 +85,12 @@ test('locale en F2a ajuda: com --projeto, vale o owner.language do projeto-alvo'
   } finally { c.limpar(); }
 });
 
-test('locale en F2a ajuda: ork maestro --help segue igual com LANG=en_US', () => {
-  const c = cenario('ajuda-maestro');
+test('locale en F2a ajuda: comando fora da F3e segue igual com LANG=en_US', () => {
+  const c = cenario('ajuda-fora-f3e');
   try {
-    const pt = ork(c, PT, false, 'maestro', '--help'), en = ork(c, EN, false, 'maestro', '--help');
+    const pt = ork(c, PT, false, 'noctum'), en = ork(c, EN, false, 'noctum');
+    assert.equal(pt.status, 2);
+    assert.equal(en.status, 2);
     assert.equal(en.stdout, pt.stdout);
     assert.equal(en.stderr, pt.stderr);
   } finally { c.limpar(); }
