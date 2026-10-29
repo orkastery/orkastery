@@ -55,7 +55,7 @@ let cache: string;
 let fake: FakeTools | undefined;
 const salvos: Record<string, string | undefined> = {};
 const CHAVES = ['XDG_CACHE_HOME', 'ORK_FAKE_DOCKER_SLEEP_MS', 'ORK_FAKE_DOCKER_FAIL', 'ORK_CHECK_RELATORIO', 'ORK_CHECK_MODO',
-  'ORK_CHECK_VARREDURA_PARALELA', 'ORK_FAKE_DOCKER_FAIL_COM_CACHE'];
+  'ORK_CHECK_VARREDURA_PARALELA', 'ORK_CHECK_CPUS_DA_LANE', 'ORK_CHECK_CPUS_DOCKER', 'ORK_FAKE_DOCKER_FAIL_COM_CACHE'];
 const limpezas: Array<() => void> = [];
 
 beforeEach(() => {
