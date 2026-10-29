@@ -6,6 +6,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Adicionado
+
 - **CLI em inglês e pt-BR — F3e ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)):** entram no catálogo as rotas restantes de `master`, `onboarding sync`, `experiencia uninstall`, `doctor --modo`, Maestro, `brain`, `activation`, `mcp serve`, `receipt-verifiers` e as recusas antecipadas de projeto; o grafo e o `security-scan` localizam a apresentação humana sem mudar códigos, dados ou `--json`.
 
 ## [0.6.1] - 2026-10-29
