@@ -6,6 +6,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Corrigido
+
+- **O teste das lanes não herda o plano de CPU da rodada:** `ORK_CHECK_CPUS_DA_LANE` e `ORK_CHECK_CPUS_DOCKER`
+  continuam limitando a própria lane, mas não chegam aos testes que ela executa. Sob saturação, os testes que conferem
+  a concorrência da lane e os argumentos do Docker viam a fatia da rodada e reprovavam sem defeito no código
+  ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)).
+
 ## [0.6.1] - 2026-10-29
 
 O Grok Build entra por despacho explícito (`--runtime grok`), com perfis de conta, setup e MCP, ainda sem homologação real: o ensaio real (F5) falta.
@@ -76,7 +83,6 @@ O #Noctum segue **em desenvolvimento, não anunciado** e ainda não validado.
 
 ### Corrigido
 
-- **O teste das lanes não herda o plano de CPU da rodada:** a fatia continua limitando a própria lane, sem alterar a concorrência nem os argumentos Docker dos testes que ela executa.
 - **Agile Check agenda o grupo pela CPU da máquina:** a lane hermética, a varredura e a integração dividem a mesma
   conta de CPUs, e todo contêiner recebe `--cpus` com a sua cota. Se carga ou steal indicarem saturação, o `verify`
   executa hermética, varredura e integração na ordem do Classic, registra peça e motivo no `verify_run` e usa uma CPU
