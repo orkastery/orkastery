@@ -797,12 +797,11 @@ function gravarNaCasa(conferida: CasaConferida, retrato: RetratoDaMaquina, desca
       const idDoOutro = atual ? atual.id ?? null : idNoArquivo(cache, ponta, arquivoDoRetrato(maquina));
       const alheio = !!idDoOutro && idDoOutro !== retrato.id;
       if (alheio && !opcoes.tomarNome) {
-        // U7 da revisao 3: o hostname igual sugere a propria maquina, mas duas VMs podem se chamar `ubuntu`.
-        const mesmoHostname = atual?.hostname === hostnameSeguro();
+        // O campo legado `hostname` agora repete o alias generico e nao distingue instalacoes.
         const outro = atual ? { hostname: atual.hostname, publicadoEm: atual.publicadoEm } : null;
         throw new ErroDoCatalogo((m) => m.network.nomeEmUso(maquina,
           outro ? m.network.quemHostname(String(outro.hostname), formatarDataHora(outro.publicadoEm)) : m.network.quemIlegivel,
-          mesmoHostname ? m.network.dicaMesmoHostname : m.network.dicaOutroNome));
+          m.network.dicaNomeEmUso));
       }
       const mudancas: MudancaNaBranch[] = [
         { caminho: arquivoDoRetrato(maquina), conteudo: JSON.stringify(retrato, null, 2) + '\n' },
