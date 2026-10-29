@@ -36,20 +36,19 @@ test('locale F2a infra: cobreLocale so com a entrada na lista e nunca com --json
     assert.equal(cobreLocale(posicionais, { ...opcoes, json: true }), false, `${chave} --json`);
   }
   assert.equal(cobreLocale(['doctor'], { json: true }), false);
-  assert.equal(cobreLocale(['doctor'], { modo: 'fast' }), false);
+  assert.ok(cobreLocale(['doctor'], { modo: 'fast' }));
   assert.equal(cobreLocale(['init'], { json: true }), false);
   assert.ok(cobreLocale(['thread', 'new', 'x'], { 'from-finding': 'A1' }));
   assert.ok(cobreLocale(['thread', 'new', 'x'], { 'do-achado': 'A1' }));
-  // A F2b (G3) cobre `verify`, `ship`, `pulse`, `master`, `retry plan|run` e `roadmap status`; aqui ficam so as
-  // rotas que seguem em pt-BR. F3b: `docs` inteiro segue o locale e saiu desta lista.
-  for (const fora of [['onboarding', 'sync'], ['experiencia', 'uninstall', 'codex'], ['master', 'digest'], ['master', 'audit'],
-    ['master', 'migrar'], ['master', 'ratificar'], ['master', 'propor', 'x'], ['brain'], ['brain', 'status'], ['activation', 'status'],
-    ['mcp', 'serve']]) {
+  // A F3e levou estas rotas ao catalogo. Noctum e o comando privado seguem fora desta entrega.
+  for (const fora of [['noctum'], ['noctum', 'status'], ['privado', 'varrer']]) {
     assert.equal(cobreLocale(fora, {}), false, fora.join(' '));
   }
-  // F3d (GO-FIX 1, decisao registrada): estas rotas eram a sonda do que segue em pt-BR e entraram na lista de proposito.
+  // F3d e F3e: estas rotas eram sondas do que seguia em pt-BR e entraram na lista de proposito.
   for (const dentro of [['retry', 'list'], ['retry', 'policy'], ['pulse', 'cadencia'], ['master', 'classes'], ['master', 'x'],
-    ['projetos'], ['modos']]) {
+    ['projetos'], ['modos'], ['onboarding', 'sync'], ['experiencia', 'uninstall', 'codex'], ['master', 'digest'],
+    ['master', 'audit'], ['master', 'migrar'], ['master', 'ratificar'], ['master', 'propor', 'x'], ['brain'],
+    ['brain', 'status'], ['activation', 'status'], ['mcp', 'serve']]) {
     assert.ok(cobreLocale(dentro, {}), dentro.join(' '));
   }
 });
