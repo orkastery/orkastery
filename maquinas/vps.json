@@ -3,8 +3,8 @@
   "maquina": "vps",
   "por": "Julio Pessoa",
   "projeto": "orkastery",
-  "versaoOrk": "0.6.0",
-  "publicadoEm": "2026-10-29T13:31:00.975Z",
+  "versaoOrk": "0.6.1",
+  "publicadoEm": "2026-10-29T14:43:04.068Z",
   "threads": [
     {
       "id": "ork-versao061",
@@ -14,19 +14,15 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-versao061-go",
-      "atualizadaEm": "2026-10-27T11:33:14.077Z",
-      "entregue": null,
+      "atualizadaEm": "2026-10-29T13:32:14.454Z",
+      "entregue": "6a30b24",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
       "runtime": "claude-bg",
       "modelo": "sonnet",
       "esforco": "high",
-      "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-27T11:34:56.948Z",
-        "motivo": "sessão 79626b3f encerrada (done)"
-      }
+      "sessao": null
     }
   ]
 }
