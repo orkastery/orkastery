@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.1",
-  "publicadoEm": "2026-10-29T16:30:02.609Z",
+  "publicadoEm": "2026-10-29T16:46:29.101Z",
   "threads": [
     {
       "id": "ork-otestedaslan",
@@ -14,7 +14,7 @@
       "status": "aberta",
       "roadmap": "RM-074",
       "branch": "ork/ork-otestedaslan-go",
-      "atualizadaEm": "2026-10-29T16:04:16.143Z",
+      "atualizadaEm": "2026-10-29T16:45:26.990Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -26,6 +26,28 @@
         "viva": false,
         "desdeEm": "2026-10-29T16:03:38.534Z",
         "motivo": "sessão 01a18859 encerrada (completed)"
+      }
+    },
+    {
+      "id": "ork-otestedavali",
+      "nome": "ork-fixturehermet",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": "RM-037",
+      "branch": "ork/ork-otestedavali-go",
+      "atualizadaEm": "2026-10-29T16:46:19.013Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-29T16:46:24.826Z",
+        "motivo": "nenhuma sessão despachada na fase GO"
       }
     },
     {
@@ -68,7 +90,7 @@
       "esforco": null,
       "sessao": {
         "viva": false,
-        "desdeEm": "2026-10-29T15:39:56.614Z",
+        "desdeEm": "2026-10-29T16:45:35.708Z",
         "motivo": "nenhuma sessão despachada na fase GOAL"
       }
     },
