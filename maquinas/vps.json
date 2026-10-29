@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.1",
-  "publicadoEm": "2026-10-29T18:45:04.654Z",
+  "publicadoEm": "2026-10-29T19:25:39.455Z",
   "threads": [
     {
       "id": "ork-otestedaslan",
@@ -58,7 +58,29 @@
       "status": "aberta",
       "roadmap": "RM-061",
       "branch": "ork/ork-rm061f3erota-full",
-      "atualizadaEm": "2026-10-29T18:44:28.896Z",
+      "atualizadaEm": "2026-10-29T19:19:54.016Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": "codex",
+      "modelo": "gpt-5.6-sol",
+      "esforco": "xhigh",
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-29T19:19:10.665Z",
+        "motivo": "sessão 01a188c3 caiu (runtime.unavailable)"
+      }
+    },
+    {
+      "id": "ork-rm062f3ef4no",
+      "nome": "ork-rm062f3f4",
+      "modo": "#Auto",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": "RM-062",
+      "branch": "ork/ork-rm062f3ef4no-full",
+      "atualizadaEm": "2026-10-29T19:25:38.131Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -70,28 +92,6 @@
         "viva": true,
         "desdeEm": null,
         "motivo": null
-      }
-    },
-    {
-      "id": "ork-rm062f3ef4no",
-      "nome": "ork-rm062f3f4",
-      "modo": "#Auto",
-      "fase": "GOAL",
-      "status": "aberta",
-      "roadmap": "RM-062",
-      "branch": "ork/ork-rm062f3ef4no-full",
-      "atualizadaEm": "2026-10-29T18:32:24.013Z",
-      "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "high",
-      "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-29T18:33:24.379Z",
-        "motivo": "sessão 01a188ce encerrada (completed)"
       }
     },
     {
