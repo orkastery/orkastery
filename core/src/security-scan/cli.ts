@@ -48,7 +48,7 @@ export function executarSecurityScan(argv: string[], ctx: ScanCliContext): numbe
   } catch (e) {
     const message = (e as Error).message;
     if (!/^security-scan\.(config-invalid|dismissal-invalid)/.test(message)) throw e;
-    console.error(message);
+    console.error(json ? message : m.error(message));
     return 1;
   }
   const files = writeReport(ctx.estado, report);
@@ -59,7 +59,7 @@ export function executarSecurityScan(argv: string[], ctx: ScanCliContext): numbe
     const notRun = report.tools.filter(r => r.state !== 'ran');
     if (notRun.length) {
       ctx.escrever(m.notRunHeading);
-      for (const r of notRun) ctx.escrever(m.notRun(r.name, m.states[r.state] ?? r.state, r.reason ?? ''));
+      for (const r of notRun) ctx.escrever(m.notRun(r.name, m.states[r.state] ?? r.state, m.reason(r.reason ?? '')));
     }
     ctx.escrever(files.md);
   }
