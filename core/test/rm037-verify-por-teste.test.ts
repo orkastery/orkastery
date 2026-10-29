@@ -4,9 +4,10 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { lerLedger } from '../src/ledger';
+import { comLocale } from '../src/locale';
 import { dirThread, lerThread, novaThread } from '../src/thread';
 import { ResultadoDeComando } from '../src/types';
-import { ExecutorVerify, gravarBaseline, verificar } from '../src/verify';
+import { ExecutorVerify, gravarBaseline, textoDoVerify, verificar } from '../src/verify';
 import { projetoTemporario } from './apoio';
 
 function resultado(nome: string, comando: string, nomes: string[] | undefined, ok = false): ResultadoDeComando {
@@ -48,6 +49,7 @@ test('classificação por teste: falha nova bloqueia e cita o nome sem esconder 
       comando: 'test', granularidade: 'teste', regressoes: ['B: regressão nova'],
       preExistentes: ['A: já falhava'], corrigidos: [],
     }]);
+    assert.match(textoDoVerify(r), /Comparacao teste a teste \(test\): 1 regressao\(oes\), 1 pre-existente\(s\), 0 corrigido\(s\)/);
 
     const eventos = lerLedger(dirThread(p.dir, thread.id));
     const gate = eventos.filter((e) => e.tipo === 'gate_blocked' && e.motivo === 'verify.regression').at(-1)!;
@@ -68,6 +70,7 @@ test('corrigido, instável e renomeado são diferenças exatas dos nomes da base
     assert.deepEqual(corrigido.comparacoes[0], {
       comando: 'test', granularidade: 'teste', regressoes: [], preExistentes: [], corrigidos: ['A: nome original'],
     });
+    assert.match(textoDoVerify(corrigido), /corrigido      A: nome original/);
     assert.equal(corrigido.ok, true);
 
     const instavel = verificar(p.carregado, thread.id, { executor: executor(['A: nome original']) });
@@ -101,6 +104,12 @@ test('fallback por comando: baseline sem nomes preserva a regra legada e marca a
       comando: 'test', granularidade: 'comando', regressoes: [], preExistentes: [], corrigidos: [],
       classificacaoDoComando: 'pre-existente', motivoDoFallback: 'baseline-sem-nomes',
     }]);
+    const pt = textoDoVerify(r);
+    assert.match(pt, /Comparacao somente por comando \(test\): pre-existente; a baseline nao guardou nomes de testes/);
+    assert.doesNotMatch(pt, /0 regressao/);
+    const en = comLocale('en', () => textoDoVerify(r));
+    assert.match(en, /Command-only comparison \(test\): pre-existing; the baseline did not store test names/);
+    assert.doesNotMatch(en, /0 regression/);
   } finally { p.limpar(); }
 });
 

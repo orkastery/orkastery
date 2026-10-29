@@ -51,8 +51,9 @@ test('locale en F2b verify: baseline, relatorio, classificacao e veredito saem e
     assert.ok(r.stdout.includes('  C3  verified: NO  sem comando\n      file: README.md\n      no verification command\n' +
       '      typed reason: claims.unverifiable (no verification command declared)\n'), r.stdout);
     assert.ok(r.stdout.includes('\nManifest verify commands:\n  build      ok  true\n  test       FAILED (exit 1)  test -f passa.txt\n'), r.stdout);
-    assert.ok(r.stdout.includes('\nClassification: 1 regression(s), 0 pre-existing, 0 failure(s) without a baseline\n' +
-      '  regression     test: test -f passa.txt\n'), r.stdout);
+    assert.ok(r.stdout.includes('\nCommand-only comparison (test): regression; the current run did not report test names. ' +
+      'No per-test regression count was calculated.\n'), r.stdout);
+    assert.doesNotMatch(r.stdout, /0 regression/);
     assert.ok(r.stdout.endsWith('\nVerdict: FAILED. Typed reasons: claims.failed, claims.unverifiable, verify.regression\n'), r.stdout);
     assert.deepEqual(linhasEmPortugues(`${base.stdout}\n${r.stdout}`, [...CLAIMS, c.dir]), []);
     // Controle do detector: o mesmo relatorio em pt-BR e acusado.

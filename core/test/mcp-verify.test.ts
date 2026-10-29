@@ -26,6 +26,7 @@ test('MCP VERIFY usa sandbox real, registra resultado canônico e libera somente
     const r = verificarMcp(f.p.dir, f.thread.id);
     assert.equal(r.ok, true, JSON.stringify(r)); assert.equal(r.executor, 'codex-sandbox');
     assert.equal(r.claims.verificadas, 1); assert.match(r.execucoes[0].resumo, /prova-real/); assert.equal(r.execucoes[0].executado, true);
+    assert.deepEqual(r.comparacoes, [], 'o retorno estruturado preserva o diagnostico granular do verify');
     assert.equal(lerLease(f.p.dir, f.lease), null);
     const eventos = lerLedger(dirThread(f.p.dir, f.thread.id));
     assert.ok(eventos.some(e => e.tipo === 'verify_run')); assert.equal(eventos.some(e => e.tipo === 'ship_done'), false);

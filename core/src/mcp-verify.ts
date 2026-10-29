@@ -119,6 +119,7 @@ export function verificarMcp(raizEntrada: string, threadId: string, conducao: Co
         executado: (c as ResultadoDeComando & { executado?: boolean }).executado === true, resumo: c.resumo })),
       totalExecucoes: execucoes.length, omitidas: Math.max(0, execucoes.length - LIMITE_RETORNO),
       regressoes: r.regressoes.map(c => c.nome), preExistentes: r.preExistentes.map(c => c.nome),
+      comparacoes: r.comparacoes,
       executor: 'codex-sandbox', prazoTotalMs: PRAZO_TOTAL_MS, limitePorComandoMs: COMANDO_MAX_MS,
     };
   } finally {
