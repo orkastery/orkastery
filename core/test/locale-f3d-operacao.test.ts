@@ -368,7 +368,8 @@ test('F3d: instalacao do MCP localiza a orientacao sem alterar caminho ou estado
   assert.match(en, /\/tmp\/projeto\/\.mcp\.json \(novo\)/);
   assert.deepEqual(linhasEmPortugues(en, ['/tmp/projeto/.mcp.json', 'novo']), []);
   assert.equal(cobreLocale(['mcp', 'install'], {}), true);
-  assert.equal(cobreLocale(['mcp', 'serve'], {}), false);
+  assert.equal(cobreLocale(['mcp', 'serve'], {}), true);
+  assert.equal(cobreLocale(['privado'], {}), false);
 });
 
 test('F3d: MASTER complementar localiza classes, score e a recusa da fila aposentada', () => {
@@ -384,7 +385,8 @@ test('F3d: MASTER complementar localiza classes, score e a recusa da fila aposen
   assert.equal(cobreLocale(['master', 'classes'], {}), true);
   assert.equal(cobreLocale(['master', 'batch'], {}), true);
   assert.equal(cobreLocale(['master', 'ork-x'], { score: '4' }), true);
-  assert.equal(cobreLocale(['master', 'audit'], {}), false);
+  assert.equal(cobreLocale(['master', 'audit'], {}), true);
+  assert.equal(cobreLocale(['privado'], {}), false);
 });
 
 test('F3d: todas as rotas de conducao ativam o catálogo bilíngue', () => {
@@ -473,8 +475,11 @@ test('F3d: grafo localiza uso e resposta humana sem alterar o contrato JSON', ()
 function mesmaRedacao(familia: unknown, catalogo: unknown, onde: string): void {
   if (typeof familia === 'function') {
     assert.equal(typeof catalogo, 'function', onde);
-    for (const args of [['a1', 'a2', 'a3', 'a4', 'a5', 'a6'], ['', '', '', '', '', '']]) {
-      assert.equal((catalogo as (...x: string[]) => string)(...args), (familia as (...x: string[]) => string)(...args), onde);
+    const chamadas = onde.endsWith('.indexar.extracao.lista')
+      ? [[['a1', 'a2', 'a3', 'a4', 'a5', 'a6']], [[]]]
+      : [['a1', 'a2', 'a3', 'a4', 'a5', 'a6'], ['', '', '', '', '', '']];
+    for (const args of chamadas) {
+      assert.equal((catalogo as (...x: unknown[]) => string)(...args), (familia as (...x: unknown[]) => string)(...args), onde);
     }
   } else if (familia !== null && typeof familia === 'object') {
     assert.deepEqual(Object.keys(catalogo as object), Object.keys(familia), onde);
