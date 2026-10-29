@@ -5,6 +5,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { gravarConfigDaMaquina } from '../src/maquina';
 import { arquivoDoRetrato, retratoDaMaquina } from '../src/rede';
 import { dirTemporario } from './apoio';
 
@@ -42,6 +43,35 @@ test('RM-062 F3: o retrato e o filename usam o alias generico, nunca o hostname 
     if (antes.usuario === undefined) delete process.env.ORK_USUARIO_DIR; else process.env.ORK_USUARIO_DIR = antes.usuario;
     if (antes.maquina === undefined) delete process.env.ORK_MAQUINA; else process.env.ORK_MAQUINA = antes.maquina;
     if (antes.hostname === undefined) delete process.env.HOSTNAME; else process.env.HOSTNAME = antes.hostname;
+    fs.rmSync(usuario, { recursive: true, force: true });
+  }
+});
+
+test('RM-062 F3: a configuracao da maquina segue ORKASTERY_HOME, sem consultar o home real', () => {
+  const usuario = dirTemporario('rm062-f3-orkastery-home');
+  const antes = {
+    usuario: process.env.ORK_USUARIO_DIR,
+    orkasteryHome: process.env.ORKASTERY_HOME,
+    maquina: process.env.ORK_MAQUINA,
+  };
+  try {
+    delete process.env.ORK_USUARIO_DIR;
+    delete process.env.ORK_MAQUINA;
+    process.env.ORKASTERY_HOME = usuario;
+    gravarConfigDaMaquina({ nome: 'maquina-home' });
+
+    const retrato = retratoDaMaquina({
+      amb: { env: { PATH: '' }, home: usuario },
+      identidades: [],
+      diretorio: null,
+      arquivoDeProjetos: path.join(usuario, 'projetos-ausentes.json'),
+    });
+    assert.deepEqual([retrato.maquina, retrato.hostname], ['maquina-home', 'maquina-home']);
+    assert.equal(fs.existsSync(path.join(usuario, 'maquina.json')), true);
+  } finally {
+    if (antes.usuario === undefined) delete process.env.ORK_USUARIO_DIR; else process.env.ORK_USUARIO_DIR = antes.usuario;
+    if (antes.orkasteryHome === undefined) delete process.env.ORKASTERY_HOME; else process.env.ORKASTERY_HOME = antes.orkasteryHome;
+    if (antes.maquina === undefined) delete process.env.ORK_MAQUINA; else process.env.ORK_MAQUINA = antes.maquina;
     fs.rmSync(usuario, { recursive: true, force: true });
   }
 });
