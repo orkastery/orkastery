@@ -152,6 +152,36 @@
       "criadoEm": "2026-10-29T21:25:33.867Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-overifycompa",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f2b-casos.ts",
+      "alegacao": "O gerador F2b fornece o novo campo comparacoes ao ResultadoVerify e continua sendo a origem da fixture, sem editar a saída esperada à mão.",
+      "negativa": false,
+      "verificar": [
+        "grep -Fq \"comparacoes: []\" core/test/locale-f2b-casos.ts",
+        "node core/node_modules/typescript/bin/tsc --build core/tsconfig.test.json"
+      ],
+      "criadoEm": "2026-10-29T22:35:26.748Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-overifycompa",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f2b-pt-BR.json",
+      "alegacao": "A fixture pt-BR F2b registra a nova comparação do verify e a prova completa mantém ship, retry, master, pulse e roadmap byte a byte.",
+      "negativa": false,
+      "verificar": [
+        "grep -Fq \"Comparacao somente por comando (test): regressao; a rodada atual nao informou nomes de testes. Nenhuma contagem de regressoes por teste foi calculada.\" core/test/fixtures/locale-f2b-pt-BR.json",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/locale-f2b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-29T22:35:26.855Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
   "deferredClaims": [
