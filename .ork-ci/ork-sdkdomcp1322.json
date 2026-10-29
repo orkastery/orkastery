@@ -1,0 +1,52 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-sdkdomcp1322",
+  "branch": "ork/ork-sdkdomcp1322-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C4",
+      "thread": "ork-sdkdomcp1322",
+      "fase": "GO",
+      "arquivo": "core/package.json",
+      "alegacao": "O core fixa o @modelcontextprotocol/sdk na 1.32.2, fora da faixa do GHSA-f897-62hf-6gxq (<=1.31.0).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '\"@modelcontextprotocol/sdk\": \"1.32.2\"' core/package.json"
+      ],
+      "criadoEm": "2026-10-27T21:56:55.611Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-sdkdomcp1322",
+      "fase": "GO",
+      "arquivo": "core/package-lock.json",
+      "alegacao": "O lockfile resolve o SDK do MCP na 1.32.2.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const l=require(\"./core/package-lock.json\");process.exit(l.packages[\"node_modules/@modelcontextprotocol/sdk\"].version===\"1.32.2\"?0:1)'"
+      ],
+      "criadoEm": "2026-10-27T21:56:56.176Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C3",
+      "reason": "local-integration-required"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}

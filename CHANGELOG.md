@@ -89,6 +89,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   trabalhador da varredura roda sem string de shell. A varredura do Agile ganha o caso com Docker real na lane de
   integração. O CI confere a paridade do `tsgo` com o `tsc` em todo PR. O Classic Check não muda.
 
+### Segurança
+
+- **SDK do MCP 1.32.2** (GHSA-f897-62hf-6gxq): o `@modelcontextprotocol/sdk` sai da 1.29.0, cujos transportes
+  HTTP não limitavam o tamanho do corpo nem o lote de JSON-RPC; o `qs` transitivo também sai da faixa do
+  GHSA-6pq8-jhm2-2vcw.
+
 ## [0.6.0] - 2026-10-26
 
 O CHECK padrão passou a ser o **Agile Check**; para voltar ao Classic, use `check.mode: classic` no `orkastery.yaml` ou `ork verify --check classic`.
