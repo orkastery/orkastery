@@ -15,7 +15,7 @@
     "cobertura": 0.5618
   },
   "depois": {
-    "arvore": "1b028e0ce095c38a85d55617d906375dbb061dfd",
+    "arvore": "c9f2b42aeda1a0cba2b94fd85321dd21d2e4ffc9",
     "descricao": "F3e: rotas ausentes, residuos humanos do grafo, doctor contextual, Maestro, recusas de projeto e apresentacao do security-scan",
     "arquivos": 365,
     "literaisComTexto": 5379,
@@ -42,8 +42,8 @@
   },
   "testes": {
     "focados": {
-      "comando": "node core/dist-test/test/locale-f3e-routes.test.js && node core/dist-test/test/locale-f3e-doctor.test.js && node core/dist-test/test/locale-f3e-maestro.test.js && node core/dist-test/test/locale-f3e-grafo.test.js && node core/dist-test/test/locale-f3e-security-scan.test.js",
-      "resultado": "13 testes aprovados, 0 falhas"
+      "comando": "node core/dist-test/test/locale-f3e-routes.test.js && node core/dist-test/test/locale-f3e-doctor.test.js && node core/dist-test/test/locale-f3e-maestro.test.js && node core/dist-test/test/locale-f3e-grafo.test.js && node core/dist-test/test/locale-f3e-security-scan.test.js && node core/dist-test/test/locale-f3e-snapshot.test.js",
+      "resultado": "15 testes aprovados, 0 falhas"
     },
     "contador": {
       "comando": "node core/scripts/contar-mensagens-de-saida.cjs --json",

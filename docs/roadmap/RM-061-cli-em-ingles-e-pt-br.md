@@ -239,13 +239,13 @@ A F3d mede no mesmo contador, com o recibo em [`cobertura-f3d.json`](evidencias/
 
 A F3e mede no mesmo contador, com o recibo em [`cobertura-f3e.json`](evidencias/RM-061/cobertura-f3e.json):
 
-| Medida | Base carimbada da F3e (`6a30b24c`) | F3e (`1b028e0c`) |
+| Medida | Base carimbada da F3e (`6a30b24c`) | F3e (`c9f2b42a`) |
 | --- | --- | --- |
 | Entradas do catálogo | 3.482 | 3.568 |
 | Literais de saída fora do catálogo | 2.716 | 2.680 |
 | Cobertura | 56,18% | 57,11% |
 
-- **Resultado da F3e:** as rotas entram em `COMANDOS_COM_LOCALE`; as linhas de extração e detalhes humanos tipados do grafo, o preflight e o erro de uso do `doctor --modo`, a ajuda e o painel Maestro, as recusas antecipadas de projeto e a apresentação humana do `security-scan` usam o catálogo. Os cinco arquivos de teste focado aprovam 13 de 13 casos pt-BR/en; o `--json`, os códigos tipados e os dados gravados permanecem canônicos.
+- **Resultado da F3e:** as rotas entram em `COMANDOS_COM_LOCALE`; as linhas de extração e detalhes humanos tipados do grafo, o preflight e o erro de uso do `doctor --modo`, a ajuda e o painel Maestro, as recusas antecipadas de projeto e a apresentação humana do `security-scan` usam o catálogo. Os seis arquivos de teste focado aprovam 15 de 15 casos pt-BR/en, incluindo o snapshot agregado das rotas; o `--json`, os códigos tipados e os dados gravados permanecem canônicos.
 - **Fora da F3e:** o `--json`, que é contrato em qualquer fatia; as três superfícies derivadas, em trabalho próprio; e `ork noctum`, que o GOAL da F3d deixou fora do escopo.
 - **Contratos preservados:** comandos, flags, ids, códigos tipados, ledger e `--json` não são traduzidos. Os quatro snapshots pt-BR anteriores conservaram os mesmos hashes byte a byte; cada família nova tem exercício em pt-BR e inglês no teste focado da F3d.
 - **Fora da régua:** o contador mede `core/src`. As superfícies derivadas que ficaram pendentes não seriam representadas com honestidade pela porcentagem e ganham trabalho próprio de geração e paridade.
