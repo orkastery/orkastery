@@ -73,6 +73,22 @@ afterEach(() => {
 
 function repo(nome: string): Repo { const r = repositorio(nome); limpezas.push(r.limpar); return r; }
 
+function picoDeExecucoes(eventos: ReturnType<FakeTools['intervals']>): number {
+  const ativas = new Set<string>();
+  let pico = 0;
+  for (const evento of eventos) {
+    if (evento.event === 'inicio') {
+      assert.equal(ativas.has(evento.execution), false, `execução ${evento.execution} iniciou duas vezes`);
+      ativas.add(evento.execution);
+      pico = Math.max(pico, ativas.size);
+    } else {
+      assert.equal(ativas.delete(evento.execution), true, `execução ${evento.execution} terminou sem início`);
+    }
+  }
+  assert.equal(ativas.size, 0, 'toda execução terminou');
+  return pico;
+}
+
 test('SA1: o Agile da os mesmos achados e os mesmos estados do Classic, por impressao digital, na ordem do catalogo', () => {
   const r = repo('sa1');
   const classic = runScan({ root: r.dir, stateRoot: r.dir, base: r.base });
@@ -87,25 +103,16 @@ test('SA1: o Agile da os mesmos achados e os mesmos estados do Classic, por impr
 
 test('SA2: as ferramentas rodam ao mesmo tempo no Agile e uma por vez no Classic', () => {
   const r = repo('sa2');
-  const espera = 400;
-  process.env.ORK_FAKE_DOCKER_SLEEP_MS = String(espera);
-  const t0 = Date.now();
+  process.env.ORK_FAKE_DOCKER_SLEEP_MS = '400';
+  let marco = fake!.intervals().length;
   runScan({ root: r.dir, stateRoot: r.dir, base: r.base });
-  const classic = Date.now() - t0;
-  const inicioClassico = fake!.calls().filter(c => c.args[0] === 'run').map(c => c.t);
+  const classic = fake!.intervals().slice(marco);
   fs.rmSync(path.join(cache, 'orkastery'), { recursive: true, force: true });
-  const n = fake!.calls().length;
-  const t1 = Date.now();
+  marco = fake!.intervals().length;
   runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base });
-  const agile = Date.now() - t1;
-  const inicioAgile = fake!.calls().slice(n).filter(c => c.args[0] === 'run').map(c => c.t);
-  assert.ok(classic >= 18 * espera, `Classic em serie: ${classic} ms`);
-  // RM-074 M0: a prova de simultaneidade e a sobreposicao dos inicios, nao a parede. Sob runner com poucas CPUs o
-  // ganho de parede fica abaixo de 2x e o teste antigo falhava sem que o paralelismo tivesse quebrado.
-  const sobrepoem = (inicios: number[]): boolean => inicios.some((t, i) => i > 0 && t - inicios[i - 1] < espera * 0.9);
-  assert.equal(sobrepoem(inicioClassico), false, `Classic em serie: ${classic} ms`);
-  assert.equal(sobrepoem(inicioAgile), true, `Agile sobreposto (${agile} ms contra ${classic} ms)`);
-  assert.ok(agile < classic, `Agile (${agile} ms) contra o Classic (${classic} ms)`);
+  const agile = fake!.intervals().slice(marco);
+  assert.equal(picoDeExecucoes(classic), 1, 'Classic nunca tem mais de uma ferramenta em execução');
+  assert.ok(picoDeExecucoes(agile) > 1, 'Agile tem mais de uma ferramenta em execução');
 });
 
 test('SA3: o cache persistente do Trivy so e montado no Agile, um por ferramenta, no /tmp/trivy-cache do catalogo', () => {

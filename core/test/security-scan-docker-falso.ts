@@ -14,6 +14,7 @@
  *
  * Control (environment of the test process, inherited by the shims):
  *   ORK_FAKE_DOCKER_LOG             file where each call is appended as a JSON line {as, args}
+ *   ORK_FAKE_DOCKER_INTERVAL_LOG    file where each tool run appends `inicio` and `fim` with the same execution id
  *   ORK_FAKE_DOCKER_MODE            `daemon-down` (info fails) or `pull-fails` (image absent and pull fails)
  *   ORK_FAKE_DOCKER_SLEEP           catalog tool name that sleeps 60 s before answering
  *   ORK_FAKE_DOCKER_SLEEP_MS        every tool run sleeps this many ms first (RM-072: proves the Agile scan overlaps runs)
@@ -48,8 +49,10 @@ const CATALOGO_DO_AGILE = path.resolve(__dirname, '../../assets/security-scan/to
 
 export interface FakeTools {
   dir: string;
-  /** Every call received, in order, with the instant it started (RM-074: prove overlap). */
+  /** Every call received, in order. */
   calls: () => Array<{ as: string; args: string[]; t: number }>;
+  /** Start and end of every fake Docker tool run, in observed order. */
+  intervals: () => Array<{ execution: string; tool: string; event: 'inicio' | 'fim' }>;
   restore: () => void;
 }
 
@@ -61,13 +64,20 @@ export function installFakeTools(names: string[] = ['docker']): FakeTools {
     fs.writeFileSync(path.join(dir, name), shim, { mode: 0o755 });
   }
   const log = path.join(dir, 'calls.jsonl');
-  const previous = { PATH: process.env.PATH, ORK_FAKE_DOCKER_LOG: process.env.ORK_FAKE_DOCKER_LOG };
+  const intervalLog = path.join(dir, 'intervals.jsonl');
+  const previous = { PATH: process.env.PATH, ORK_FAKE_DOCKER_LOG: process.env.ORK_FAKE_DOCKER_LOG,
+    ORK_FAKE_DOCKER_INTERVAL_LOG: process.env.ORK_FAKE_DOCKER_INTERVAL_LOG };
   process.env.PATH = `${dir}:${process.env.PATH ?? ''}`;
   process.env.ORK_FAKE_DOCKER_LOG = log;
+  process.env.ORK_FAKE_DOCKER_INTERVAL_LOG = intervalLog;
   return {
     dir,
     calls: () => fs.existsSync(log)
       ? fs.readFileSync(log, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l) as { as: string; args: string[]; t: number })
+      : [],
+    intervals: () => fs.existsSync(intervalLog)
+      ? fs.readFileSync(intervalLog, 'utf8').split('\n').filter(Boolean)
+        .map(l => JSON.parse(l) as { execution: string; tool: string; event: 'inicio' | 'fim' })
       : [],
     restore: () => {
       for (const [k, v] of Object.entries(previous)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
@@ -102,6 +112,11 @@ function toHost(p: string, mounts: Map<string, string>): string {
 }
 
 function sleep(ms: number): void { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); }
+
+function recordInterval(tool: string, event: 'inicio' | 'fim', execution: string): void {
+  const log = process.env.ORK_FAKE_DOCKER_INTERVAL_LOG;
+  if (log) fs.appendFileSync(log, `${JSON.stringify({ execution, tool, event })}\n`);
+}
 
 function identify(candidates: ToolSpec[], args: string[]): { tool: ToolSpec; file: string; outArg?: string } | null {
   for (const tool of candidates) {
@@ -205,12 +220,18 @@ function main(): number {
       if (!found) { process.stderr.write(`fake docker: no catalog tool for ${run.image}\n`); return 125; }
       const src = run.mounts.get('/src');
       if (!src) { process.stderr.write('fake docker: /src not mounted\n'); return 125; }
-      if (process.env.ORK_FAKE_DOCKER_FAIL_COM_CACHE === found.tool.name && run.mounts.has('/tmp/trivy-cache')) {
-        // N2 do CHECK 2: a ultima linha do Trivy real na trava do cache termina em `timeout`, sem ser estouro do prazo.
-        process.stderr.write('FATAL\tFatal error\tinit error: cache error: unable to initialize fs cache: cache may be in use by another process: timeout\n');
-        return 1;
+      const execution = String(process.pid);
+      recordInterval(found.tool.name, 'inicio', execution);
+      try {
+        if (process.env.ORK_FAKE_DOCKER_FAIL_COM_CACHE === found.tool.name && run.mounts.has('/tmp/trivy-cache')) {
+          // N2 do CHECK 2: a ultima linha do Trivy real na trava do cache termina em `timeout`, sem ser estouro do prazo.
+          process.stderr.write('FATAL\tFatal error\tinit error: cache error: unable to initialize fs cache: cache may be in use by another process: timeout\n');
+          return 1;
+        }
+        return emulate(found.tool, found.file, found.outArg && toHost(found.outArg, run.mounts), run.args, src, false);
+      } finally {
+        recordInterval(found.tool.name, 'fim', execution);
       }
-      return emulate(found.tool, found.file, found.outArg && toHost(found.outArg, run.mounts), run.args, src, false);
     }
     default: process.stderr.write(`fake docker: unknown command ${argv[0]}\n`); return 1;
   }
