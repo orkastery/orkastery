@@ -4,8 +4,30 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.1",
-  "publicadoEm": "2026-10-29T23:45:03.324Z",
+  "publicadoEm": "2026-10-29T23:49:01.356Z",
   "threads": [
+    {
+      "id": "ork-claimsechang",
+      "nome": "ork-claimsci",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-037",
+      "branch": "ork/ork-claimsechang-full",
+      "atualizadaEm": "2026-10-29T23:48:54.202Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-29T23:48:58.457Z",
+        "motivo": "nenhuma sessão despachada na fase GOAL"
+      }
+    },
     {
       "id": "ork-otestedaslan",
       "nome": "ork-lanescpuenv",
