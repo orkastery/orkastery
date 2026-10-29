@@ -6,6 +6,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Corrigido
+
+- **Teste da validade inicial da fixture isolado:** a fixture respeita `TMPDIR`, e o teste não observa mais o `/tmp`
+  compartilhado nem vence após 5 segundos sob carga ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)).
+
 ## [0.6.1] - 2026-10-29
 
 O Grok Build entra por despacho explícito (`--runtime grok`), com perfis de conta, setup e MCP, ainda sem homologação real: o ensaio real (F5) falta.
@@ -76,7 +81,6 @@ O #Noctum segue **em desenvolvimento, não anunciado** e ainda não validado.
 
 ### Corrigido
 
-- **Teste da validade inicial da fixture isolado:** a fixture respeita `TMPDIR`, e o teste não observa mais o `/tmp` compartilhado nem vence após 5 segundos sob carga.
 - **Agile Check agenda o grupo pela CPU da máquina:** a lane hermética, a varredura e a integração dividem a mesma
   conta de CPUs, e todo contêiner recebe `--cpus` com a sua cota. Se carga ou steal indicarem saturação, o `verify`
   executa hermética, varredura e integração na ordem do Classic, registra peça e motivo no `verify_run` e usa uma CPU
