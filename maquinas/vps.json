@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.1",
-  "publicadoEm": "2026-10-29T16:15:04.197Z",
+  "publicadoEm": "2026-10-29T16:30:02.609Z",
   "threads": [
     {
       "id": "ork-otestedaslan",
@@ -89,9 +89,9 @@
       "modelo": "grok-4.7",
       "esforco": "high",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-10-29T15:53:00.931Z",
+        "motivo": "sessão 7d0c534d encerrada (sem estado)"
       }
     }
   ]
