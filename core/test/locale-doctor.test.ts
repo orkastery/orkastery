@@ -69,9 +69,10 @@ test('locale en F2a doctor (init.ts): ork init fora do repositorio recusa em ing
     assert.equal(r.stdout, '');
     assert.equal(r.stderr, `error: init.fora-do-repositorio: ${fora} is not inside a git repository; nothing was created. ` +
       'Enter the project repository (or create one with `git init` and a first commit) and run `ork init` again.\n');
-    // Caso negativo: comando fora do catalogo segue em pt-BR, prefixo incluido. A F3e levou `brain`; Noctum segue fora.
-    const pt = ork(c, EN, false, 'noctum', 'status');
-    assert.match(pt.stderr, /^erro: manifesto orkastery\.yaml nao encontrado /);
+    // Caso negativo: comando sem projeto e fora do catalogo segue em pt-BR. A F3e levou `brain`; `privado` segue fora.
+    const pt = ork(c, EN, false, 'privado');
+    assert.equal(pt.status, 2);
+    assert.equal(pt.stderr, 'uso: ork privado varrer [--base REF] [--json]\n');
   } finally { c.limpar(); fs.rmSync(fora, { recursive: true, force: true }); }
 });
 

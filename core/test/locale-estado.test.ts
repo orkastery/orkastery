@@ -71,10 +71,12 @@ test('locale en F3b estado (negativo): num comando fora da lista, o erro de esta
   const c = cenario('estado-f3b-fora');
   try {
     // A F3e levou `master audit` ao catalogo; `noctum tique` segue fora e le o estado do arco.
-    const r = ork(c, EN, false, 'noctum', 'tique', 'arco-inexistente');
-    assert.equal(r.status, 2);
-    assert.equal(r.stderr, 'noctum.modo.sem-envelope: o arco arco-inexistente nunca foi autorizado pelo dono: o #Noctum não vale; ' +
-      'abra um arco: proponha o envelope com ork noctum propor --arquivo <envelope.json> (ou a ferramenta ork_noctum_propor) ' +
-      'e o dono o autoriza respondendo à pergunta dele com a letra, em reply no Telegram, ou pelo diálogo do host\n');
+    const pt = ork(c, PT, false, 'noctum', 'tique', 'arco-inexistente');
+    const en = ork(c, EN, false, 'noctum', 'tique', 'arco-inexistente');
+    assert.equal(pt.status, 2);
+    assert.equal(en.status, 2);
+    assert.equal(en.stdout, pt.stdout);
+    assert.equal(en.stderr, pt.stderr);
+    assert.match(pt.stderr, /^noctum\.modo\.sem-envelope: o arco arco-inexistente nunca foi autorizado pelo dono:/);
   } finally { c.limpar(); }
 });

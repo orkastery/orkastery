@@ -110,9 +110,10 @@ test('locale en F2a erros: em pt-BR e com --json as mensagens seguem as da base'
   try {
     assert.equal(ork(fora, PT, false, 'onboarding').stderr,
       `erro: manifesto orkastery.yaml nao encontrado a partir de ${fora.dir}. Rode: ork init\n`);
-    // Comando fora da lista (D2) com LANG=en_US: segue pt-BR. A F3e levou `brain`; Noctum segue fora.
-    assert.equal(ork(fora, EN, false, 'noctum').stderr,
-      `erro: manifesto orkastery.yaml nao encontrado a partir de ${fora.dir}. Rode: ork init\n`);
+    // Comando sem projeto e fora da lista (D2) com LANG=en_US: segue pt-BR. A F3e levou `brain`; `privado` segue fora.
+    const privado = ork(fora, EN, false, 'privado');
+    assert.equal(privado.status, 2);
+    assert.equal(privado.stderr, 'uso: ork privado varrer [--base REF] [--json]\n');
   } finally { fora.limpar(); }
   const c = cenario('erros-pt');
   try {
