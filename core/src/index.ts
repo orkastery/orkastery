@@ -682,11 +682,12 @@ function comandoOnboarding(args: Args): number {
   if (['show', 'sync'].includes(sub) && (args.posicionais.length > 2 || 'conteudo' in args.opcoes)) invalido();
   if (sub === 'set' && (!etapa || args.posicionais.length !== 3 || typeof args.opcoes.conteudo !== 'string')) invalido();
   if (sub === 'reset' && (args.posicionais.length > 3 || 'conteudo' in args.opcoes)) invalido();
-  if (sub === 'sync' && 'por' in args.opcoes) throw new Error('onboarding.input.invalid: sync não aceita --por; informe autoria em set ou reset.');
+  if (sub === 'sync' && 'por' in args.opcoes) throw new Error(msg().onboarding.syncPor);
   const carregado = exigirManifesto(), raiz = carregado.raiz, por = texto(args.opcoes.por) ?? 'owner';
   if (sub === 'sync') {
-    const r = sincronizarOnboarding(carregado);
-    console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : `${r.regime}${r.motivo ? ` (${r.motivo})` : ''}: ${r.detalhe}`);
+    const r = comLocale('pt-BR', () => sincronizarOnboarding(carregado));
+    console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2)
+      : msg().onboarding.syncResultado(r.regime, r.motivo, r.respondidas, r.gravadas, r.duplicadas, r.falhas));
     return 0;
   }
   let estado;
@@ -2909,7 +2910,7 @@ function comandoMaster(args: Args): number {
       console.log(JSON.stringify(montarDigest(carregado.raiz, new Date().toISOString()), null, 2));
       return 0;
     }
-    if (sub !== 'enviar') throw new Error('uso: ork master digest <enviar|preview|responder>');
+    if (sub !== 'enviar') throw new Error(msg().cli.masterDigestUso);
     const r = enviarDigest({ raiz: carregado.raiz });
     console.log(JSON.stringify(r, null, 2)); return r.code;
   }
@@ -2927,12 +2928,12 @@ function comandoMaster(args: Args): number {
     if (primeiro === 'ratificar') {
       const partes = (texto(args.opcoes.resposta) ?? '').trim().split(/\s+/);
       const classe = parseClasse(partes[3]);
-      if (partes.length !== 4 || partes[0] !== 'ratificar' || !classe) throw new Error('resposta deve ser ratificar <thread> <assinatura> <classe>');
+      if (partes.length !== 4 || partes[0] !== 'ratificar' || !classe) throw new Error(msg().cli.masterRatificarUso);
       selecao = [{ thread: partes[1], assinatura: partes[2], classe }];
     } else {
       selecao = (texto(args.opcoes.aceitar) ?? '').split(',').map(v => {
         const partes = v.trim().split(':');
-        if (partes.length !== 2 || !/^[a-f0-9]{64}$/.test(partes[1])) throw new Error('seleção deve ser thread:assinatura');
+        if (partes.length !== 2 || !/^[a-f0-9]{64}$/.test(partes[1])) throw new Error(msg().cli.masterSelecaoUso);
         return { thread: partes[0], assinatura: partes[1] };
       });
     }
@@ -4288,7 +4289,10 @@ function executarComando(argvBruto: string[]): number {
   const projeto = proprio ? undefined : extraida.projeto;
   // Helper fixo do host confiável: o projeto vem da instalação, nunca de toolargs.
   if (argv[0] === 'receipt-verifiers') {
-    if (argv.length !== 2 || argv[1] !== '--json' || projeto !== undefined) throw Error('uso: ork receipt-verifiers --json');
+    if (argv.length !== 2 || argv[1] !== '--json' || projeto !== undefined) {
+      ativarLocale(localeDaAjuda());
+      throw new ErroDoCatalogo((m) => m.cli.receiptVerifiersUso);
+    }
     const root = process.env.ORK_HITL_ROOT;
     const privateKey = Object.keys(process.env).some(name => /^ORK_HITL_(?:INGRESS_KEY|NATIVE_KEY)/.test(name));
     if (root !== undefined || privateKey) {
@@ -4321,6 +4325,12 @@ function executarComando(argvBruto: string[]): number {
     console.log(msg().ajuda.texto(dadosDaAjuda()));
     return 0;
   }
+  // F3e (D2): a recusa do projeto-alvo e os usos das rotas cobertas acontecem antes do manifesto efetivo.
+  // Resolva a lingua aqui; `--json` continua fora e um `mcp serve` valido desliga o locale antes de servir.
+  if (cobreLocale(args.posicionais, args.opcoes)) {
+    ativarLocale(localeDaAjuda(projeto));
+    ligarRemontagem(true);
+  }
   if (!COMANDOS_SEM_PROJETO.has(comando) && !proprio) {
     fixarAlvoDoProcesso(projeto, !SEM_DECLARACAO_DO_PROJETO.has(`${comando} ${args.posicionais[1] ?? ''}`.trim()));
   } else if (projeto !== undefined && comando !== 'projetos') {
@@ -4343,11 +4353,6 @@ function executarComando(argvBruto: string[]): number {
   // CLI por locale (RM-061, EN1 e EN7): a escolha do onboarding (owner.language) ou o LC_ALL/LC_MESSAGES/LANG
   // decidem a lingua do TEXTO dos comandos cobertos (`cobreLocale`); `--json` e contrato, e os recortes ainda
   // fora do catalogo (`doctor --modo` e os subcomandos fora da lista) ficam em pt-BR.
-  if (cobreLocale(args.posicionais, args.opcoes)) {
-    ativarLocale(resolverLocale(ambienteManifesto?.manifesto.owner?.language).locale);
-    ligarRemontagem(true);
-  }
-
   switch (comando) {
     case 'mcp': {
       const projeto=texto(args.opcoes.project), host=texto(args.opcoes.host),threadId=texto(args.opcoes.thread);
@@ -4385,6 +4390,9 @@ function executarComando(argvBruto: string[]): number {
           .catch(e=>{console.error(msg().operacao.restante.mcp.erro((e as Error).message));process.exitCode=1;});
         return 0;
       }
+      // O servidor e contrato com hosts e nao ganha uma moldura inglesa por herdar o locale do erro de uso.
+      ativarLocale(undefined);
+      ligarRemontagem(false);
       void import('./mcp-server').then(({servirMcp})=>servirMcp({projeto,host,threadId,dispatchId,nomesProviderHerdados:nomesHerdados,transporteShip:transporteShip as TransporteShipMcp,permissoesFilho:permissoesFilho as 'interactive'|'worktree'})).catch(e=>{console.error(`mcp: ${(e as Error).message}`);process.exitCode=1;});
       return 0;
     }
@@ -4514,10 +4522,9 @@ function executarComando(argvBruto: string[]): number {
         const host = parseHost(args.posicionais[2]);
         if (!host || !['claude-code', 'codex'].includes(host) || args.posicionais.length !== 3 ||
             Object.keys(args.opcoes).some(k => !['dry-run', 'json'].includes(k)) ||
-            Object.values(args.opcoes).some(v => v !== true)) throw Error('uso: ork experiencia uninstall claude-code|codex [--dry-run] [--json]');
+            Object.values(args.opcoes).some(v => v !== true)) throw Error(msg().onboarding.experienciaUninstallUso);
         const r = desinstalarExperiencia(exigirManifesto().raiz, host as 'claude-code' | 'codex', args.opcoes['dry-run'] === true);
-        console.log(args.opcoes.json ? JSON.stringify(r, null, 2) :
-          `${r.dryRun ? 'Simulação de remoção' : 'Remoção concluída'}: ${r.arquivos.length} arquivo(s). O adaptador permanece instalado. Para manter o pacote desativado, configure owner.experience:false no onboarding.`);
+        console.log(args.opcoes.json ? JSON.stringify(r, null, 2) : msg().onboarding.experienciaUninstall(r.dryRun, r.arquivos.length));
         return 0;
       }
       if ((args.posicionais[1] ?? 'show') !== 'show' || args.posicionais.length > 2 ||
@@ -4606,7 +4613,7 @@ function executarComando(argvBruto: string[]): number {
     case 'recall':
       return comandoRecall(args);
     case 'brain': {
-      const result = runBrain(exigirManifesto(), args.posicionais[1] ?? 'status', args.opcoes, args.posicionais.slice(2));
+      const result = comLocale('pt-BR', () => runBrain(exigirManifesto(), args.posicionais[1] ?? 'status', args.opcoes, args.posicionais.slice(2)));
       console.log(JSON.stringify(result, null, 2));
       return ['ok','empty','unknown','withheld','applied','rolled-back'].includes(result.state) ? 0 : 1;
     }
@@ -4636,7 +4643,12 @@ function executarComando(argvBruto: string[]): number {
     case 'ship':
       return comandoShip(args);
     case 'activation':
-      return comandoAtivacao(exigirManifesto(), args);
+      try { return comLocale('pt-BR', () => comandoAtivacao(exigirManifesto(), args)); }
+      catch (e) {
+        if ((e as Error).message === 'uso: ork activation plan|status|enable|disable')
+          throw new ErroDoCatalogo((m) => m.cli.activationUso);
+        throw e;
+      }
     case 'lease':
       return comandoLease(args);
     case 'conducao':
