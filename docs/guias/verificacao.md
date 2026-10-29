@@ -92,7 +92,7 @@ sha do commit, o diretório, e o resultado por claim.
 
 ### Comparação teste a teste dentro do mesmo comando
 
-Quando o runner nomeia as falhas, a baseline guarda `testeQueCaiu` por comando. O verify faz a comparação teste a teste
+Quando o runner nomeia as falhas, a baseline guarda `testeQueCaiu` por comando e, no Agile, também por lane. O verify faz a comparação teste a teste
 esses nomes por igualdade exata: nome que aparece apenas na rodada atual é regressão e bloqueia
 com `verify.regression`; nome presente nos dois lados continua como dívida pré-existente; nome que
 existia só na baseline fica registrado como corrigido. Assim, se `test` já falhava em `A` e passa a
@@ -180,7 +180,7 @@ que falha:
 | --- | --- |
 | `causa` | `exit`, `timeout`, `nao-encontrado` ou `sinal` |
 | `prazoMs`, `duracaoMs` | O prazo aplicado e o tempo que o comando levou |
-| `testeQueCaiu` | Até 10 testes que o runner reportou como reprovados (`not ok` do TAP e a seção "failing tests" do reporter `spec` do `node --test`, `FAIL` de jest e vitest) |
+| `testeQueCaiu` | Até 10 testes que o runner reportou como reprovados (`not ok` do TAP e a seção "failing tests" do reporter `spec` do `node --test`, `FAIL` de jest e vitest); no Agile, cada item de `lanes` preserva os nomes da própria lane |
 | `stealPct`, `relogioSobSteal` | O steal da CPU na janela do comando e, quando a reprovação foi só de relógio sob steal acima de 40%, os testes (RM-037) |
 | `trecho` | O fim da saída real, até 1024 caracteres, redigido |
 

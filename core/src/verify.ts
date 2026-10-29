@@ -626,7 +626,8 @@ function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: stri
     cwd,
     comandos: comandos.map((c) => ({ nome: c.nome, comando: c.comando, ok: c.ok, code: c.code, prazoMs: c.prazoMs ?? null,
       ...(c.duracaoMs !== undefined ? { duracaoMs: c.duracaoMs } : {}), ...(c.ok ? {} : { causa: c.causa ?? null }),
-      ...(c.testeQueCaiu?.length ? { testeQueCaiu: c.testeQueCaiu } : {}) })),
+      ...(c.testeQueCaiu?.length ? { testeQueCaiu: c.testeQueCaiu } : {}),
+      ...(c.lanes?.length ? { lanes: c.lanes.map((l) => ({ ...l, comando: redigirCredenciaisUrl(l.comando) })) } : {}) })),
     check: checkNoLedger(check),
     ...(pecasDaBaseline.length ? { agile: { pecas: pecasDaBaseline } } : {}),
     // RM-037 (defeito 1 de 19 e 20/10/2026): o que a baseline nao provou fica dito no proprio evento.

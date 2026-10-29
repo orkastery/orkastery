@@ -3,6 +3,7 @@
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import { testDasLanes } from '../src/check-agil';
 import { lerLedger } from '../src/ledger';
 import { comLocale } from '../src/locale';
 import { dirThread, lerThread, novaThread } from '../src/thread';
@@ -144,5 +145,30 @@ test('comando não executado fica sem veredito e nunca vira regressão ou dívid
     assert.deepEqual(r.preExistentes, []);
     assert.ok(r.motivos.includes('verify.sem-veredito'));
     assert.equal(r.motivos.includes('verify.regression'), false);
+  } finally { p.limpar(); }
+});
+
+test('baseline preserva os nomes por lane e o mesmo agregado alimenta a classificação', () => {
+  const p = projetoTemporario('rm037-verify-lanes');
+  try {
+    const agregado = testDasLanes([
+      { lane: 'hermetica', resultado: resultado('hermetica', 'node --test hermetica', ['A: hermética']) },
+      { lane: 'integracao', resultado: resultado('integracao', 'node --test integracao', ['B: integração']) },
+    ]);
+    assert.deepEqual(agregado.testeQueCaiu, ['A: hermética', 'B: integração']);
+    assert.deepEqual(agregado.lanes?.map((l) => [l.lane, l.testeQueCaiu]), [
+      ['hermetica', ['A: hermética']], ['integracao', ['B: integração']],
+    ]);
+
+    const { thread } = novaThread(p.carregado, { nome: 'nomes por lane', modo: 'auto' });
+    p.carregado.manifesto.verify = { test: 'teste-simulado' };
+    gravarBaseline(p.carregado, thread.id, () => agregado);
+    assert.deepEqual(lerThread(p.dir, thread.id).baseline?.comandos[0].lanes?.[1].testeQueCaiu, ['B: integração']);
+    const evento = lerLedger(dirThread(p.dir, thread.id)).find((e) => e.tipo === 'baseline_recorded')!;
+    const comando = (evento.comandos as Array<Record<string, unknown>>)[0];
+    const lanes = comando.lanes as Array<Record<string, unknown>>;
+    assert.deepEqual(lanes.map((l) => [l.lane, l.testeQueCaiu]), [
+      ['hermetica', ['A: hermética']], ['integracao', ['B: integração']],
+    ]);
   } finally { p.limpar(); }
 });
