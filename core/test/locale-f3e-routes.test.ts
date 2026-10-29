@@ -46,3 +46,17 @@ test('locale F3e rotas: onboarding sync localiza apenas a moldura humana', () =>
   assert.equal(pt, 'files (orkmind.indisponivel): Entrevista preservada em arquivos; publicação semântica não concluída. Consulte ork memory status.');
   assert.equal(en, 'files (orkmind.indisponivel): Interview preserved in files; semantic publication did not finish. See ork memory status.');
 });
+
+test('locale F3e rotas: recusas de projeto anteriores ao comando têm snapshots pt-BR e en', () => {
+  const pt = msg('pt-BR').projetos, en = msg('en').projetos;
+  assert.deepEqual([pt.initNaoLeProjeto, pt.mcpNaoLeProjeto, pt.comandoNaoLeProjeto('doctor')], [
+    'uso: ork init cria o projeto no diretório atual; entre nele e rode ork init, sem --projeto',
+    'uso: o servidor MCP recebe a raiz por --project <raiz absoluta>, não por --projeto',
+    'uso: ork doctor não lê projeto; tire --projeto',
+  ]);
+  assert.deepEqual([en.initNaoLeProjeto, en.mcpNaoLeProjeto, en.comandoNaoLeProjeto('doctor')], [
+    'usage: ork init creates the project in the current directory; enter it and run ork init without --projeto',
+    'usage: the MCP server receives its root through --project <absolute root>, not --projeto',
+    'usage: ork doctor does not read a project; remove --projeto',
+  ]);
+});

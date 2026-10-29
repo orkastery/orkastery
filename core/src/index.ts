@@ -4335,10 +4335,11 @@ function executarComando(argvBruto: string[]): number {
   if (!COMANDOS_SEM_PROJETO.has(comando) && !proprio) {
     fixarAlvoDoProcesso(projeto, !SEM_DECLARACAO_DO_PROJETO.has(`${comando} ${args.posicionais[1] ?? ''}`.trim()));
   } else if (projeto !== undefined && comando !== 'projetos') {
+    const mp = msg().projetos;
     throw new Error(comando === 'init'
-      ? 'uso: ork init cria o projeto no diretório atual; entre nele e rode ork init, sem --projeto'
-      : comando === 'mcp' ? 'uso: o servidor MCP recebe a raiz por --project <raiz absoluta>, não por --projeto'
-        : `uso: ork ${comando} não lê projeto; tire --projeto`);
+      ? mp.initNaoLeProjeto
+      : comando === 'mcp' ? mp.mcpNaoLeProjeto
+        : mp.comandoNaoLeProjeto(comando));
   }
 
   const nomesHerdados = nomesDeProviderAtivos();
