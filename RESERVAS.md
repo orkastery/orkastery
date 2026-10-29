@@ -5,6 +5,7 @@ não edite à mão. Antes de começar um item: `ork roadmap reservas`.
 
 | Item | Com quem | Máquina | Thread | Desde | Nota |
 | --- | --- | --- | --- | --- | --- |
+| RM-037 | Julio Pessoa | vps | — | 29/10 13:46 | — |
 | RM-061 | Julio Pessoa | vps | ork-rm061f3erota | 29/10 12:40 | — |
 | RM-062 | Julio Pessoa | vps | ork-rm062f3ef4no | 29/10 12:39 | — |
 | RM-065 | Paschoal Diniz | dsk1 | forja-gitlab | 14/10 12:56 | Suporte a GitLab com paridade ao GitHub, PR da branch forja/gitlab |
