@@ -90,6 +90,24 @@ ork verify <thread> --so-claims    # so as claims
 O `verify` roda **na worktree da thread**, no commit real, e grava `verify_run` no ledger com o
 sha do commit, o diretório, e o resultado por claim.
 
+### Comparação teste a teste dentro do mesmo comando
+
+Quando o runner nomeia as falhas, a baseline guarda `testeQueCaiu` por comando. O verify faz a comparação teste a teste
+esses nomes por igualdade exata: nome que aparece apenas na rodada atual é regressão e bloqueia
+com `verify.regression`; nome presente nos dois lados continua como dívida pré-existente; nome que
+existia só na baseline fica registrado como corrigido. Assim, se `test` já falhava em `A` e passa a
+falhar em `A` e `B`, `B` não se esconde dentro do vermelho anterior.
+
+Teste renomeado é deliberadamente conservador: o nome antigo sai como corrigido e o novo como
+regressão. Não há heurística de semelhança, porque o TAP fornece nomes, não uma identidade estável.
+Um teste instável que aparece com o mesmo nome nos dois lados continua pré-existente. A evidência
+nominal é limitada aos até dez nomes que o parser já registra por comando.
+
+Em baseline antiga ou comando sem TAP, quando falta nome em qualquer lado que falhou, vale a
+**comparação somente por comando**, compatível com a regra anterior. A saída diz essa granularidade
+e não afirma “0 regressões” por teste: sem os nomes, essa contagem não foi calculada. Baseline verde
+prova um conjunto vazio de falhas; se a rodada atual trouxer nomes, todos eles são regressões.
+
 ### Estouro de prazo não é reprovação
 
 Um comando que não termina no prazo não provou nada, nem a favor nem contra. Ele sai com o
