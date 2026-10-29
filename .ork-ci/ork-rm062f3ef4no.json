@@ -129,14 +129,105 @@
       "criadoEm": "2026-10-29T17:18:39.535Z",
       "estado": "verificado",
       "lint": []
-    }
-  ],
-  "deferredClaims": [
+    },
     {
-      "id": "C10",
-      "reason": "artifact-not-in-checkout"
+      "id": "C11",
+      "thread": "ork-rm062f3ef4no",
+      "fase": "GO",
+      "arquivo": "core/src/rede.ts",
+      "alegacao": "A recusa rede.nome-em-uso não infere a identidade por hostname e usa uma única dica neutra com os caminhos de retomar ou trocar o nome.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'm.network.dicaNomeEmUso' core/src/rede.ts",
+        "grep -F 'const mesmoHostname = atual?.hostname === hostnameSeguro()' core/src/rede.ts >/dev/null && exit 1 || true",
+        "node --test --test-concurrency=16 core/dist-test/test/rede.test.js"
+      ],
+      "criadoEm": "2026-10-29T19:34:37.018Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm062f3ef4no",
+      "fase": "GO",
+      "arquivo": "core/src/locale-network.ts",
+      "alegacao": "Os catálogos pt-BR e en explicam as duas saídas sem afirmar que o retrato contém o hostname real desta máquina.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'se for esta maquina com ~/.orkastery apagada ou copiada' core/src/locale-network.ts",
+        "grep -F 'if it is this machine with ~/.orkastery deleted or copied' core/src/locale-network.ts",
+        "grep -F 'o retrato tem o hostname desta maquina' core/src/locale-network.ts >/dev/null && exit 1 || true"
+      ],
+      "criadoEm": "2026-10-29T19:34:37.206Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm062f3ef4no",
+      "fase": "GO",
+      "arquivo": "core/test/rede.test.ts",
+      "alegacao": "O S3/S10 preserva identidade fora do cache, cache apagado, troca de id corrompido e espera a nova recusa neutra; a RM-062 permanece estável em três rodadas.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'sem inferir pelo hostname' core/test/rede.test.ts",
+        "node --test --test-concurrency=16 core/dist-test/test/rede.test.js",
+        "node --test --test-concurrency=16 core/dist-test/test/rm062-f3-f4.test.js",
+        "node --test --test-concurrency=16 core/dist-test/test/rm062-f3-f4.test.js",
+        "node --test --test-concurrency=16 core/dist-test/test/rm062-f3-f4.test.js"
+      ],
+      "criadoEm": "2026-10-29T19:34:37.345Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm062f3ef4no",
+      "fase": "GO",
+      "arquivo": "core/src/rede.ts",
+      "alegacao": "A recusa rede.nome-em-uso usa dica neutra única e não escolhe o caminho pela igualdade do hostname legado.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'm.network.dicaNomeEmUso' core/src/rede.ts",
+        "node -e \"const fs=require('node:fs');const s=fs.readFileSync('core/src/rede.ts','utf8');if(!s.includes('m.network.dicaNomeEmUso')||s.includes('const mesmoHostname = atual?.hostname === hostnameSeguro()'))process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-29T20:03:42.623Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm062f3ef4no",
+      "fase": "GO",
+      "arquivo": "core/src/locale-network.ts",
+      "alegacao": "pt-BR e en apresentam retomar o nome ou escolher outro sem afirmar que o retrato identifica o hostname real.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'se for esta maquina com ~/.orkastery apagada ou copiada' core/src/locale-network.ts",
+        "grep -F 'if it is this machine with ~/.orkastery deleted or copied' core/src/locale-network.ts",
+        "node -e \"const fs=require('node:fs');const s=fs.readFileSync('core/src/locale-network.ts','utf8');if(s.includes('o retrato tem o hostname desta maquina')||s.includes(\\\"the snapshot has this machine's hostname\\\"))process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-29T20:03:42.715Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm062f3ef4no",
+      "fase": "GO",
+      "arquivo": "core/test/rede.test.ts",
+      "alegacao": "O S3/S10 espera a dica neutra e continua cobrindo identidade fora do cache, cache apagado e substituição de id vazio.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'sem inferir pelo hostname' core/test/rede.test.ts",
+        "node -e \"const fs=require('node:fs');const s=fs.readFileSync('core/test/rede.test.ts','utf8');for(const x of ['RM-053 autoria: o id da instalacao mora fora do cache','fs.rmSync(path.join(u, \\'rede\\')','fs.writeFileSync(path.join(u, \\'maquina-id\\'), \\'\\')','se for outra maquina ou instalacao, escolha outro nome'])if(!s.includes(x))process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-29T20:03:42.801Z",
+      "estado": "pendente",
+      "lint": []
     }
   ],
+  "deferredClaims": [],
   "commands": [
     {
       "name": "ci",
