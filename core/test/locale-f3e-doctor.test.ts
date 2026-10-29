@@ -1,7 +1,7 @@
 /** RM-061 F3e: snapshot do preflight humano de `ork doctor --modo`. */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { comLocale } from '../src/locale';
+import { comLocale, msg } from '../src/locale';
 import { preflight, textoPreflight } from '../src/preflight';
 import { cenario, linhasEmPortugues } from './locale-apoio';
 
@@ -34,4 +34,10 @@ test('locale en F3e doctor: preflight contextual sai integralmente em ingles', (
     assert.match(texto, /Local contextual probe: it does not invent sessions/);
     assert.deepEqual(linhasEmPortugues(texto, [c.dir]), []);
   } finally { c.limpar(); }
+});
+
+test('locale F3e doctor: erro de uso de --modo tem snapshots pt-BR e en', () => {
+  const modos = 'classic|maestro|auto|fast';
+  assert.equal(comLocale('pt-BR', () => msg().doctor.modoUso(modos)), `uso: ork doctor --modo ${modos}`);
+  assert.equal(comLocale('en', () => msg().doctor.modoUso(modos)), `usage: ork doctor --modo ${modos}`);
 });

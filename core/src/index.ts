@@ -4403,7 +4403,7 @@ function executarComando(argvBruto: string[]): number {
         const bruto=texto(args.opcoes.modo);
         if(args.posicionais.length!==1 || !bruto ||
             Object.keys(args.opcoes).some(k=>k!=='modo') || argv.filter(a=>a==='--modo' || a.startsWith('--modo=')).length!==1)
-          throw Error(`uso: ork doctor --modo ${ORDEM_DOS_MODOS.join('|')}`);
+          throw Error(msg().doctor.modoUso(ORDEM_DOS_MODOS.join('|')));
         const r=preflight(diretorioDoProjeto(),exigirModoVivo(bruto),nomesHerdados);console.log(textoPreflight(r));return r.prontoPrimeiroBloco?0:1;
       }
       // RM-031: o check dos analisadores do grafo entra por aqui, a porta da familia do grafo (fronteira do KG1).

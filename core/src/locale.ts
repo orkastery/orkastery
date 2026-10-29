@@ -98,8 +98,8 @@ export const LOCALE_PADRAO: Locale = 'pt-BR';
 /**
  * Comandos cujo texto ja sai pelo catalogo, por `comando` ou por `comando subcomando`; `comando ?` e o
  * subcomando desconhecido (o erro de uso e do proprio comando). Os demais seguem em pt-BR. Ficam de
- * fora por decisao (D2 da F2a): `doctor --modo`, `thread new --from-finding`, `onboarding sync` e
- * `experiencia uninstall`. A F2b (G3) acrescenta `verify` (com `--baseline`),
+ * fora por decisao (D2 da F2a): `thread new --from-finding`. A F3e acrescenta `doctor --modo`,
+ * `onboarding sync` e `experiencia uninstall`. A F2b (G3) acrescenta `verify` (com `--baseline`),
  * `ship`, `ship registrar-pr`, `retry plan`, `retry run`, `master` (o indice), `master aceitar-omissao` e
  * `master pedir`, `pulse` (sem `responder` nem `cadencia`) e `roadmap status`. A F3a (D5) acrescenta `docs init`, e a
  * F3b (D1), o resto da lista do dono; a F3c completa `decisao registrar` e `network roadmap`. O conhecimento escrito
@@ -298,6 +298,7 @@ const PT_BR = {
   },
   doctor: {
     titulo: 'ork doctor: o que vale nesta maquina agora',
+    modoUso: (modos: string) => `uso: ork doctor --modo ${modos}`,
     correcao: 'correcao',
     bloqueado: (falhas: number, avisos: number) =>
       `Veredito: BLOQUEADO (${falhas} fail, ${avisos} warn). Corrija os itens acima antes de despachar fase.`,
@@ -785,6 +786,7 @@ const EN: Mensagens = {
   },
   doctor: {
     titulo: 'ork doctor: what holds on this machine now',
+    modoUso: (modes) => `usage: ork doctor --modo ${modes}`,
     correcao: 'fix',
     bloqueado: (falhas, avisos) =>
       `Verdict: BLOCKED (${falhas} fail, ${avisos} warn). Fix the items above before dispatching a phase.`,
