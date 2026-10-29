@@ -104,17 +104,31 @@
       "lint": []
     },
     {
-      "id": "C8",
+      "id": "C9",
+      "thread": "ork-otestedaslan",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-otestedaslan.json",
+      "alegacao": "O bundle CI da thread declara o schema ork.ci-bundle/v1, a branch e as claims reais desta rodada.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const b=require('./.ork-ci/ork-otestedaslan.json'); if(b.schema!=='ork.ci-bundle/v1'||b.thread!=='ork-otestedaslan') process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-29T16:02:18.768Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C10",
       "thread": "ork-otestedaslan",
       "fase": "GO",
       "arquivo": "CHANGELOG.md",
-      "alegacao": "A seção Não publicado > Corrigido registra que os testes das lanes não herdam o plano de CPU da rodada.",
+      "alegacao": "A linha do teste das lanes que não herda o plano de CPU está em Não publicado, antes da seção da 0.6.1.",
       "negativa": false,
       "verificar": [
-        "rg -n -A2 '^### Corrigido' CHANGELOG.md | rg 'teste das lanes não herda o plano de CPU da rodada'"
+        "node -e 'const t=require(\"fs\").readFileSync(\"CHANGELOG.md\",\"utf8\");const i=t.indexOf(\"## Não publicado\");const j=t.indexOf(\"## [0.6.1]\");const k=t.indexOf(\"teste das lanes não herda o plano de CPU da rodada\");process.exit(i>=0&&i<k&&k<j?0:1)'"
       ],
-      "criadoEm": "2026-10-29T15:57:40.176Z",
-      "estado": "verificado",
+      "criadoEm": "2026-10-29T16:04:16.143Z",
+      "estado": "pendente",
       "lint": []
     }
   ],
