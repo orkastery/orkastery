@@ -76,6 +76,7 @@ O #Noctum segue **em desenvolvimento, não anunciado** e ainda não validado.
 
 ### Corrigido
 
+- **Teste da validade inicial da fixture isolado:** a fixture respeita `TMPDIR`, e o teste não observa mais o `/tmp` compartilhado nem vence após 5 segundos sob carga.
 - **Agile Check agenda o grupo pela CPU da máquina:** a lane hermética, a varredura e a integração dividem a mesma
   conta de CPUs, e todo contêiner recebe `--cpus` com a sua cota. Se carga ou steal indicarem saturação, o `verify`
   executa hermética, varredura e integração na ordem do Classic, registra peça e motivo no `verify_run` e usa uma CPU
