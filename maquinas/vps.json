@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.1",
-  "publicadoEm": "2026-10-29T19:59:33.748Z",
+  "publicadoEm": "2026-10-29T19:59:57.220Z",
   "threads": [
     {
       "id": "ork-otestedaslan",
@@ -48,6 +48,28 @@
         "viva": true,
         "desdeEm": null,
         "motivo": null
+      }
+    },
+    {
+      "id": "ork-overifycompa",
+      "nome": "ork-verifyporteste",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-037",
+      "branch": "ork/ork-overifycompa-full",
+      "atualizadaEm": "2026-10-29T19:59:47.281Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-29T19:59:53.860Z",
+        "motivo": "nenhuma sessão despachada na fase GOAL"
       }
     },
     {
