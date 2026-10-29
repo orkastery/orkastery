@@ -6,6 +6,14 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Corrigido
+
+- **O verify faz classificação por teste dentro de comandos que já falhavam** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  a baseline guarda os nomes que o TAP já produz, e a rodada separa por igualdade exata regressões, falhas
+  pré-existentes e testes corrigidos. Uma falha nova bloqueia com `verify.regression` e leva o nome no motivo;
+  teste renomeado conta como antigo corrigido e novo em regressão. Baseline antiga ou comando sem nomes mantém
+  a comparação por comando, mas o veredito declara o fallback e não inventa “0 regressões” por teste.
+
 ## [0.6.1] - 2026-10-29
 
 O Grok Build entra por despacho explícito (`--runtime grok`), com perfis de conta, setup e MCP, ainda sem homologação real: o ensaio real (F5) falta.
@@ -76,11 +84,6 @@ O #Noctum segue **em desenvolvimento, não anunciado** e ainda não validado.
 
 ### Corrigido
 
-- **O verify faz classificação por teste dentro de comandos que já falhavam** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
-  a baseline guarda os nomes que o TAP já produz, e a rodada separa por igualdade exata regressões, falhas
-  pré-existentes e testes corrigidos. Uma falha nova bloqueia com `verify.regression` e leva o nome no motivo;
-  teste renomeado conta como antigo corrigido e novo em regressão. Baseline antiga ou comando sem nomes mantém
-  a comparação por comando, mas o veredito declara o fallback e não inventa “0 regressões” por teste.
 - **Agile Check agenda o grupo pela CPU da máquina:** a lane hermética, a varredura e a integração dividem a mesma
   conta de CPUs, e todo contêiner recebe `--cpus` com a sua cota. Se carga ou steal indicarem saturação, o `verify`
   executa hermética, varredura e integração na ordem do Classic, registra peça e motivo no `verify_run` e usa uma CPU
