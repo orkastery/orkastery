@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.1",
-  "publicadoEm": "2026-10-29T16:46:29.101Z",
+  "publicadoEm": "2026-10-29T17:12:52.565Z",
   "threads": [
     {
       "id": "ork-otestedaslan",
@@ -80,18 +80,18 @@
       "status": "aberta",
       "roadmap": "RM-062",
       "branch": "ork/ork-rm062f3ef4no-full",
-      "atualizadaEm": "2026-10-29T15:39:52.095Z",
+      "atualizadaEm": "2026-10-29T17:12:51.895Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null,
+      "runtime": "codex",
+      "modelo": "gpt-5.6-sol",
+      "esforco": "xhigh",
       "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-29T16:45:35.708Z",
-        "motivo": "nenhuma sessão despachada na fase GOAL"
+        "viva": true,
+        "desdeEm": null,
+        "motivo": null
       }
     },
     {
