@@ -1,0 +1,77 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-ogx4dogrokfi",
+  "branch": "ork/ork-ogx4dogrokfi-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C2",
+      "thread": "ork-ogx4dogrokfi",
+      "fase": "GO",
+      "arquivo": "core/src/adapters/grok-mcp-servidor.ts",
+      "alegacao": "A vigia do servidor externo espera o recibo enquanto o supervisor vive e so usa grok-ausente com a ausencia comprovada do supervisor.",
+      "negativa": false,
+      "verificar": [
+        "grep -n processo.supervisor core/src/adapters/grok-mcp-servidor.ts",
+        "node --test-concurrency=16 --test-name-pattern=^GX3: core/dist-test/test/rm067-grok-mcp-externo.test.js"
+      ],
+      "criadoEm": "2026-10-30T07:27:24.873Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-ogx4dogrokfi",
+      "fase": "GO",
+      "arquivo": "core/test/rm067-grok-mcp-externo.test.ts",
+      "alegacao": "O GX3 prova deterministicamente que o filho ausente nao vence o recibo ainda pendente de um supervisor vivo.",
+      "negativa": false,
+      "verificar": [
+        "grep -n reciboAtrasado core/test/rm067-grok-mcp-externo.test.ts",
+        "node --test-concurrency=16 --test-name-pattern=^GX3: core/dist-test/test/rm067-grok-mcp-externo.test.js"
+      ],
+      "criadoEm": "2026-10-30T07:27:24.920Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-ogx4dogrokfi",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG registra a correcao da corrida do recibo sob Nao publicado e Corrigido.",
+      "negativa": false,
+      "verificar": [
+        "grep -n servidor.MCP.externo.do.Grok.espera CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-30T07:27:24.984Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-ogx4dogrokfi",
+      "fase": "GO",
+      "arquivo": "core/test/rm067-grok-mcp-externo.test.ts",
+      "alegacao": "O GX4 fecha com o recibo do supervisor em 5 rodadas seguidas com --test-concurrency=16.",
+      "negativa": false,
+      "verificar": [
+        "for r in 1 2 3 4 5; do node --test --test-concurrency=16 --test-name-pattern=GX4 core/dist-test/test/rm067-grok-mcp-externo.test.js || exit 1; done"
+      ],
+      "criadoEm": "2026-10-30T08:18:35.525Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
