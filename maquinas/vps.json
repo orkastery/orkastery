@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.1",
-  "publicadoEm": "2026-10-30T03:45:03.424Z",
+  "publicadoEm": "2026-10-30T03:53:33.821Z",
   "threads": [
     {
       "id": "ork-asessaonosan",
@@ -14,7 +14,7 @@
       "status": "aberta",
       "roadmap": "RM-064",
       "branch": "ork/ork-asessaonosan-full",
-      "atualizadaEm": "2026-10-30T03:43:07.466Z",
+      "atualizadaEm": "2026-10-30T03:49:40.216Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -98,23 +98,19 @@
       "id": "ork-overifycompa",
       "nome": "ork-verifyporteste",
       "modo": "#Auto",
-      "fase": "GO",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": "RM-037",
       "branch": "ork/ork-overifycompa-full",
-      "atualizadaEm": "2026-10-29T23:18:55.991Z",
-      "entregue": null,
+      "atualizadaEm": "2026-10-30T03:53:33.423Z",
+      "entregue": "95690b0",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
       "runtime": "codex",
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
-      "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-29T23:19:46.174Z",
-        "motivo": "sessão 01a189c3 encerrada (completed)"
-      }
+      "sessao": null
     },
     {
       "id": "ork-rm061f3erota",
