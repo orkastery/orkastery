@@ -25,6 +25,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { Worker } from 'node:worker_threads';
 import { exigirEstadoSemLink, raizDoEstado } from './estado-thread';
 import { formatarDesde } from './horario';
 
@@ -35,6 +36,9 @@ const FLOCK = '/usr/bin/flock';
 const DIR = 'fila-pesada';
 /** Entre uma tentativa e outra. A vez costuma durar minutos; meio segundo não pesa em ninguém. */
 const PAUSA_MS = 500;
+/** A batida e complementar ao flock: atravessa a observacao de um sandbox com outro namespace de PID. */
+const BATIDA_CADA_MS = 1_000;
+const BATIDA_VALE_MS = 5_000;
 
 export interface PedidoDeRecursoPesado {
   /** O diretório onde a operação compila e testa (a worktree da thread). Dois pedidos nele nunca rodam juntos. */
@@ -60,6 +64,35 @@ export interface OcupanteDaFila {
   artefato: string;
   pid: number;
   desde: string;
+  /** Estado observado, nunca inferido so pela visibilidade local do PID. */
+  vida?: VidaDoOcupante;
+  prova?: ProvaDaVida;
+  inicio?: string | null;
+  host?: string | null;
+  espacoPids?: string | null;
+  posse?: string;
+  batidaExpiraEm?: string | null;
+}
+
+export type VidaDoOcupante = 'vivo' | 'morto' | 'desconhecido';
+export type ProvaDaVida = 'trava-kernel' | 'trava-livre' | 'batida' | 'processo' | 'processo-ausente' | 'indeterminada';
+
+/** Evidencias separadas para a regra ser testavel sem fingir namespaces no processo de teste. */
+export interface EvidenciasDaVida {
+  trava: 'ocupada' | 'livre' | 'desconhecida';
+  batidaValida: boolean;
+  mesmoHost: boolean;
+  mesmoEspacoPids: boolean;
+  processo: 'vivo' | 'ausente' | 'desconhecido';
+}
+
+export function avaliarVidaDoOcupante(e: EvidenciasDaVida): { vida: VidaDoOcupante; prova: ProvaDaVida } {
+  if (e.trava === 'ocupada') return { vida: 'vivo', prova: 'trava-kernel' };
+  if (e.trava === 'livre') return { vida: 'morto', prova: 'trava-livre' };
+  if (e.batidaValida) return { vida: 'vivo', prova: 'batida' };
+  if (e.mesmoHost && e.mesmoEspacoPids && e.processo === 'vivo') return { vida: 'vivo', prova: 'processo' };
+  if (e.mesmoHost && e.mesmoEspacoPids && e.processo === 'ausente') return { vida: 'morto', prova: 'processo-ausente' };
+  return { vida: 'desconhecido', prova: 'indeterminada' };
 }
 
 export interface UsoDaFilaPesada {
@@ -71,7 +104,7 @@ export interface UsoDaFilaPesada {
 
 export interface RecusaDaFilaPesada {
   contrato: 'ork.fila-pesada-recusa/v1';
-  motivo: 'fila-pesada.ocupada';
+  motivo: 'fila-pesada.ocupada' | 'concurrency.lease-indeterminado';
   operacao: string;
   thread: string | null;
   slots: number;
@@ -84,7 +117,7 @@ export interface RecusaDaFilaPesada {
 export class ErroDaFilaPesada extends Error {
   readonly recusa: RecusaDaFilaPesada;
   constructor(recusa: RecusaDaFilaPesada) {
-    super(`fila-pesada.ocupada: ${recusa.texto}`);
+    super(`${recusa.motivo}: ${recusa.texto}`);
     this.name = 'ErroDaFilaPesada';
     this.recusa = recusa;
   }
@@ -94,11 +127,18 @@ export function kernelDisponivel(): boolean {
   return process.platform === 'linux' && fs.existsSync(FLOCK);
 }
 
-/** O `flock` exclusivo sem espera sobre um descritor já aberto. O helper tranca a descrição de arquivo, que fica do processo. */
-function trancar(fd: number): boolean {
+type ObservacaoDaTrava = 'adquirida' | 'ocupada' | 'desconhecida';
+
+/** Diferencia a contencao provada do erro de observacao; erro nunca vira trava livre. */
+function observarTrava(fd: number): ObservacaoDaTrava {
   const r = spawnSync(FLOCK, ['--exclusive', '--nonblock', '3'], { stdio: ['ignore', 'ignore', 'ignore', fd], timeout: 5000 });
-  return r.status === 0 && !r.error;
+  if (!r.error && r.status === 0) return 'adquirida';
+  if (!r.error && r.status === 1) return 'ocupada';
+  return 'desconhecida';
 }
+
+/** Tomar a trava exige prova positiva. Contencao e observacao inconclusiva falham fechadas. */
+function trancar(fd: number): boolean { return observarTrava(fd) === 'adquirida'; }
 
 function abrirTrava(arquivo: string, criar: boolean): number {
   const fd = fs.openSync(arquivo, fs.constants.O_RDWR | fs.constants.O_NOFOLLOW | (criar ? fs.constants.O_CREAT : 0), 0o600);
@@ -187,13 +227,59 @@ function minhaVez(dir: string, senha: Senha): boolean {
   return true;
 }
 
-/** `id`: o identificador desta posse, gravado na vaga e na marca que os filhos herdam (S1 da rodada 2 do CHECK). */
-interface Posse { fdArtefato: number; fdVaga: number; slot: number; id: string }
+interface IdentidadeDaMaquina { host: string | null; espacoPids: string | null }
+
+function hashLocal(valor: string): string { return createHash('sha256').update(valor).digest('hex').slice(0, 24); }
+
+/** Identidades opacas: provam igualdade sem publicar hostname, boot id ou inode do namespace. */
+function identidadeDaMaquina(): IdentidadeDaMaquina {
+  let host: string | null = null, espacoPids: string | null = null;
+  try { host = hashLocal(fs.readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim()); } catch { /* nao observavel */ }
+  try { espacoPids = hashLocal(fs.readlinkSync('/proc/self/ns/pid')); } catch { /* nao observavel */ }
+  return { host, espacoPids };
+}
+
+/** `id`: o identificador desta posse, gravado na vaga e na marca que os filhos herdam. */
+interface Posse {
+  fdArtefato: number; fdVaga: number; slot: number; id: string;
+  batida: Worker | null; arquivoDaBatida: string | null;
+}
 
 function gravarDono(fd: number, dono: OcupanteDaFila, posse: string): void {
   const bytes = Buffer.from(JSON.stringify({ contrato: CONTRATO_FILA_PESADA, ...dono, posse }) + '\n', 'utf8');
   fs.ftruncateSync(fd, 0);
   fs.writeSync(fd, bytes, 0, bytes.length, 0);
+}
+
+function arquivoDaBatida(dir: string, slot: number, posse: string): string {
+  return path.join(dir, `vaga-${slot}.${posse}.heartbeat.json`);
+}
+
+/** Worker nativo: a batida continua enquanto o verify sincrono bloqueia a thread JS, sem processo shell perdido. */
+function iniciarBatida(dir: string, slot: number, posse: string): { worker: Worker; arquivo: string } | null {
+  const arquivo = arquivoDaBatida(dir, slot, posse);
+  try {
+    const worker = new Worker(`
+      const fs = require('node:fs');
+      const { parentPort, workerData } = require('node:worker_threads');
+      const { randomUUID } = require('node:crypto');
+      let ativo = true;
+      parentPort.on('message', () => { ativo = false; });
+      function bater() {
+        if (!ativo) return;
+        const tmp = workerData.arquivo + '.' + randomUUID() + '.tmp';
+        try {
+          fs.writeFileSync(tmp, JSON.stringify({ contrato: 'ork.fila-pesada-heartbeat/v1', posse: workerData.posse,
+            expiraEm: new Date(Date.now() + workerData.validadeMs).toISOString() }) + '\\n', { flag: 'wx', mode: 0o600 });
+          fs.renameSync(tmp, workerData.arquivo);
+        } catch (_) { try { fs.unlinkSync(tmp); } catch (_) {} }
+        if (ativo) setTimeout(bater, workerData.intervaloMs);
+      }
+      bater();
+    `, { eval: true, workerData: { arquivo, posse, intervaloMs: BATIDA_CADA_MS, validadeMs: BATIDA_VALE_MS } });
+    worker.unref();
+    return { worker, arquivo };
+  } catch { return null; }
 }
 
 /** O artefato primeiro, depois a primeira vaga livre; sem vaga, solta o artefato. Nunca espera segurando nada. */
@@ -203,18 +289,22 @@ function tentarVaga(dir: string, pedido: PedidoDeRecursoPesado): Posse | null {
   for (let slot = 0; slot < pedido.slots; slot++) {
     const fdVaga = tentarTravaExclusiva(path.join(dir, `vaga-${slot}.lock`));
     if (fdVaga === null) continue;
-    const dono: OcupanteDaFila = { slot, operacao: pedido.operacao, thread: pedido.thread, artefato: path.resolve(pedido.artefato),
-      pid: process.pid, desde: new Date().toISOString() };
     const id = randomUUID();
+    const identidade = identidadeDaMaquina();
+    const dono: OcupanteDaFila = { slot, operacao: pedido.operacao, thread: pedido.thread, artefato: path.resolve(pedido.artefato),
+      pid: process.pid, desde: new Date().toISOString(), inicio: inicioDoProcesso(process.pid), ...identidade };
     gravarDono(fdVaga, dono, id);
     gravarDono(fdArtefato, dono, id);
-    return { fdArtefato, fdVaga, slot, id };
+    const batida = iniciarBatida(dir, slot, id);
+    return { fdArtefato, fdVaga, slot, id, batida: batida?.worker ?? null, arquivoDaBatida: batida?.arquivo ?? null };
   }
   fs.closeSync(fdArtefato);
   return null;
 }
 
 function soltar(posse: Posse): void {
+  try { posse.batida?.postMessage('parar'); void posse.batida?.terminate(); } catch { /* o processo tambem encerra o worker */ }
+  if (posse.arquivoDaBatida) try { fs.unlinkSync(posse.arquivoDaBatida); } catch { /* batida expira sozinha */ }
   for (const fd of [posse.fdVaga, posse.fdArtefato]) {
     try { fs.ftruncateSync(fd, 0); } catch { /* o descritor fecha de qualquer jeito */ }
     try { fs.closeSync(fd); } catch { /* já fechado */ }
@@ -233,32 +323,58 @@ export function ocupantesDaFilaPesada(raiz: string): OcupanteDaFila[] {
     let fd: number;
     try { fd = abrirTrava(path.join(dir, nome), false); } catch { continue; }
     try {
-      if (trancar(fd)) continue;
+      const trava = observarTrava(fd);
+      if (trava === 'adquirida') continue;
       const slot = Number(/^vaga-(\d+)\.lock$/.exec(nome)![1]);
-      let dono: Partial<OcupanteDaFila> = {};
-      try { dono = JSON.parse(fs.readFileSync(path.join(dir, nome), 'utf8')) as Partial<OcupanteDaFila>; } catch { /* dono ainda gravando */ }
+      let dono: Partial<OcupanteDaFila> & { posse?: unknown } = {};
+      try { dono = JSON.parse(fs.readFileSync(path.join(dir, nome), 'utf8')) as typeof dono; } catch { /* dono ainda gravando */ }
+      let batidaExpiraEm: string | null = null;
+      if (typeof dono.posse === 'string') {
+        try {
+          const batida = JSON.parse(fs.readFileSync(arquivoDaBatida(dir, slot, dono.posse), 'utf8')) as { posse?: unknown; expiraEm?: unknown };
+          if (batida.posse === dono.posse && typeof batida.expiraEm === 'string') batidaExpiraEm = batida.expiraEm;
+        } catch { /* batida ausente, vencida ou ainda sendo publicada */ }
+      }
+      const local = identidadeDaMaquina();
+      const mesmoHost = typeof dono.host === 'string' && local.host === dono.host;
+      const mesmoEspacoPids = typeof dono.espacoPids === 'string' && local.espacoPids === dono.espacoPids;
+      let processo: EvidenciasDaVida['processo'] = 'desconhecido';
+      if (mesmoHost && mesmoEspacoPids && typeof dono.pid === 'number' && typeof dono.inicio === 'string') {
+        const atual = inicioDoProcesso(dono.pid);
+        processo = atual === dono.inicio ? 'vivo' : atual === null ? 'ausente' : 'ausente';
+      }
+      const estado = avaliarVidaDoOcupante({ trava: trava === 'ocupada' ? 'ocupada' : 'desconhecida',
+        batidaValida: batidaExpiraEm !== null && Date.parse(batidaExpiraEm) > Date.now(), mesmoHost, mesmoEspacoPids, processo });
       ocupantes.push({ slot, operacao: typeof dono.operacao === 'string' ? dono.operacao : 'desconhecida',
         thread: typeof dono.thread === 'string' ? dono.thread : null, artefato: typeof dono.artefato === 'string' ? dono.artefato : '',
-        pid: typeof dono.pid === 'number' ? dono.pid : 0, desde: typeof dono.desde === 'string' ? dono.desde : '' });
+        pid: typeof dono.pid === 'number' ? dono.pid : 0, desde: typeof dono.desde === 'string' ? dono.desde : '',
+        inicio: typeof dono.inicio === 'string' ? dono.inicio : null, host: typeof dono.host === 'string' ? dono.host : null,
+        espacoPids: typeof dono.espacoPids === 'string' ? dono.espacoPids : null,
+        posse: typeof dono.posse === 'string' ? dono.posse : undefined, batidaExpiraEm, ...estado });
     } finally { fs.closeSync(fd); }
   }
   return ocupantes;
 }
 
 function recusaDaFila(pedido: PedidoDeRecursoPesado, esperouMs: number, ocupantes: OcupanteDaFila[]): RecusaDaFilaPesada {
+  const indeterminado = ocupantes.some(o => o.vida === 'desconhecido');
+  const motivo = indeterminado ? 'concurrency.lease-indeterminado' : 'fila-pesada.ocupada';
   const espera = esperouMs < 60000 ? `${Math.round(esperouMs / 1000)} s` : `${Math.round(esperouMs / 60000)} min`;
   const linhas = [
     `Operação pesada não executada: ${pedido.operacao}${pedido.thread ? ` da thread ${pedido.thread}` : ''} esperou ${espera} ` +
       `e a fila de recursos pesados não liberou a vez (até ${pedido.slots} ao mesmo tempo, concurrency.max_parallel_heavy). ` +
       'Verify e build juntos nesta máquina dão regressão falsa.',
     ...(ocupantes.length ? ocupantes.map(o => `  Quem ocupa: ${o.operacao}${o.thread ? ` da thread ${o.thread}` : ''}, ` +
-      `desde ${formatarDesde(o.desde)}, processo ${o.pid}.`) : ['  Quem ocupa: a vez é de outro pedido que chegou antes e ainda espera.']),
+      `desde ${formatarDesde(o.desde)}, processo ${o.pid}${o.vida === 'desconhecido' ? '; vida indeterminada' : ''}.`) :
+      ['  Quem ocupa: a vez é de outro pedido que chegou antes e ainda espera.']),
+    ...(indeterminado ? ['A vida do lease não pôde ser comprovada deste ambiente; “não sei” nunca é órfão. ' +
+      'Espere com --esperar ou devolva à condução com concurrency.lease-indeterminado.'] : []),
     'O que você pode fazer:',
     '  1. Esperar a vez: o dono da vaga segue rodando e, quando ele termina ou morre, a vaga volta sozinha.',
     ...(pedido.comandoDeEsperar ? [`     ${pedido.comandoDeEsperar}`] : []),
     '  2. Desligar a fila só nesta máquina, se ela aguenta: concurrency.max_parallel_heavy no orkastery.yaml (0 desliga).',
   ];
-  return { contrato: 'ork.fila-pesada-recusa/v1', motivo: 'fila-pesada.ocupada', operacao: pedido.operacao, thread: pedido.thread,
+  return { contrato: 'ork.fila-pesada-recusa/v1', motivo, operacao: pedido.operacao, thread: pedido.thread,
     slots: pedido.slots, esperouMs, ocupantes, texto: linhas.join('\n') };
 }
 

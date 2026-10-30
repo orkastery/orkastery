@@ -19,7 +19,8 @@ export type PermissoesDonoMcp = 'interactive' | 'orchestrate';
 export const TOOLS_DONO_CODEX = ['ork_thread_new','ork_phase_run','ork_request_decision'] as const;
 // RM-037 (rm037defeito, defeito 1): a decisao autonoma da sessao entra com as outras mutacoes do filho;
 // sem o grant, o codex com approval_policy never recusaria a chamada.
-export const TOOLS_FILHO_CODEX = ['ork_artifact_write','ork_claim_add','ork_decision_record','ork_git_commit','ork_verify','ork_ship'] as const;
+export const TOOLS_FILHO_CODEX = ['ork_artifact_write','ork_claim_add','ork_decision_record','ork_request_conduction',
+  'ork_git_commit','ork_verify','ork_ship'] as const;
 // Brain mutation tools are deliberately excluded from the existing opt-in bundle.
 // A native integration must request exact startup grants plus scoped activation.
 export { BRAIN_READ_TOOLS, BRAIN_WRITE_TOOLS } from './company-brain-mcp';

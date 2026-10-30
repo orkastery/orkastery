@@ -301,6 +301,7 @@ test('RM-064 T8: sessão worktree recebe somente as mutações MCP exatas, sem a
   assert.equal(cfg.args.some((a) => /writable|sandbox|danger/i.test(a)), false);
   const politicas = politicasFilhoCodex({});
   assert.deepEqual(Object.keys(politicas.tools).sort(), [...TOOLS_FILHO_CODEX].sort());
+  assert.ok(TOOLS_FILHO_CODEX.includes('ork_request_conduction'));
   assert.deepEqual(Object.values(politicas.tools).map((v) => (v as { approval_mode: string }).approval_mode),
     Array(TOOLS_FILHO_CODEX.length).fill('approve'));
 });

@@ -10,6 +10,7 @@ import { observarSessao, BLOCO_WATCH_BYTES } from '../src/session-watcher';
 import { identidadeProcesso } from '../src/adapters/codex-runner';
 import { acharRollout } from '../src/adapters/codex';
 import { executarRetry, planejarRetry } from '../src/retry';
+import { registrarPedidoAConducao } from '../src/pedido-conducao';
 const inicio = Date.parse('2026-09-01T00:00:00.000Z');
 const sid = '11111111-2222-3333-4444-555555555555';
 const linha = (e: unknown) => JSON.stringify(e) + '\n';
@@ -68,6 +69,30 @@ test('GO-FIX4: supervisor preserva rate limit no exit 1 e mantém retry esperar-
     assert.equal(result.exitCodeFonte, 'supervisor.close');
     assert.equal(result.ok, false);
     assert.equal(planejarRetry(p.carregado, p.t.id).acao, 'esperar-janela');
+  } finally { p.limpar(); }
+});
+
+test('parada intencional vira pedido à condução e o retry aguarda sem redespachar', () => {
+  const p = fixture();
+  try {
+    const despacho = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+    registrar(p.dirEstado, p.t.id, 'phase_dispatch', { fase: 'GO', sessionId: sid, runtime: 'codex',
+      identidade: { dispatchId: despacho } });
+    const comando = `ork verify ${p.t.id}`;
+    registrarPedidoAConducao(p.dir, p.t.id, { despacho, motivo: 'conducao.acao-necessaria',
+      detalhe: 'o sandbox não autoriza a verificação oficial', comando, host: 'codex' });
+    p.receipt(1);
+    assert.equal(p.run(1000).classificacao, 'gate_blocked');
+    const resultado = p.eventos().find(e => e.tipo === 'phase_result')!;
+    assert.equal(resultado.motivo, 'conducao.acao-necessaria');
+    assert.equal(resultado.comando, comando);
+    assert.equal((resultado.pedidoConducao as { contrato: string }).contrato, 'ork.pedido-conducao/v1');
+    assert.equal(p.eventos().some(e => e.tipo === 'phase_result' && e.motivo === 'runtime.unavailable'), false);
+    const retry = executarRetry(p.carregado, p.t.id);
+    assert.equal(retry.plano.acao, 'esperar-janela');
+    assert.equal(retry.plano.automatica, false);
+    assert.equal(retry.executada, false);
+    assert.equal(p.eventos().some(e => e.tipo === 'retry_attempt'), false);
   } finally { p.limpar(); }
 });
 

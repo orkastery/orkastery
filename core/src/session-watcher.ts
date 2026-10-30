@@ -14,12 +14,31 @@ import { exigirManifesto, ManifestoCarregado } from './manifest';
 import { FonteController, SnapshotController, lerSnapshotController, registrarFonteController } from './adapters/codex-controller-sensor';
 import { politicaDoMotivo } from './retry';
 import { marcarContaDaFalha } from './ratelimit';
-import { SinalDeFalhaDeConta } from './types';
+import { EventoLedger, SinalDeFalhaDeConta } from './types';
 import { ConsultaAgentesNativos } from './adapters/claude-bg';
 import { eventosDoIntervalo, garantirFonteClaude, INTERVALO_WATCH_CLAUDE_MS, observarClaudeSobLock, THREAD_REMOVIDA, validarFonteClaude } from './session-watcher-claude';
 import { observarGrokSobLock, validarFonteGrok } from './session-watcher-grok';
 import { reconciliarContaEsgotada } from './conta-esgotada';
 import { caminhoDoTrabalho, gravarRespostaFinalDaSessao } from './trabalho-thread';
+import { MOTIVOS_DE_PEDIDO_A_CONDUCAO, MotivoDoPedidoAConducao } from './pedido-conducao';
+
+interface PedidoDaConducao {
+  motivo: MotivoDoPedidoAConducao;
+  comando: string;
+  detalhe: string;
+  despacho: string;
+}
+
+/** O gate estreito da própria sessão vence diagnósticos genéricos do watcher. */
+function pedidoDaConducao(eventos: EventoLedger[], sessionId: string, despachoEm: string): PedidoDaConducao | null {
+  const evento = eventos.filter(e => e.tipo === 'gate_blocked' && e.origem === 'mcp.request_conduction' &&
+    e.sessionId === sessionId && e.despachoEm === despachoEm && typeof e.motivo === 'string' &&
+    MOTIVOS_DE_PEDIDO_A_CONDUCAO.includes(e.motivo as MotivoDoPedidoAConducao) &&
+    typeof e.comando === 'string' && typeof e.despacho === 'string').at(-1);
+  return evento ? { motivo: evento.motivo as MotivoDoPedidoAConducao, comando: evento.comando as string,
+    detalhe: typeof evento.detalhe === 'string' ? evento.detalhe : 'sessão solicitou ação da condução',
+    despacho: evento.despacho as string } : null;
+}
 
 /** Falhas operacionais e bloqueios sem retry automático não alegam conclusão do produto. */
 function bloqueioPreservado(terminal: TerminalCodex): boolean {
@@ -413,18 +432,24 @@ export function reconciliarSessaoSemWatcher(carregado: ManifestoCarregado, threa
       const atuais = lerLedger(dir);
       if (atuais.some(e => e.tipo === 'phase_result' && e.sessionId === sessao.sessionId &&
           e.despachoEm === sessao.despachadaEm)) return;
+      const pedido = pedidoDaConducao(atuais, sessao.sessionId, sessao.despachadaEm);
       const dados = { fase: sessao.fase, sessionId: sessao.sessionId, despachoEm: sessao.despachadaEm,
-        sensorResultId, classificacao: 'gate_blocked', motivo: 'runtime.unavailable', runtime: sessao.runtime,
-        fonte: 'conducao.batida: sessão verificada sem watcher e sem evento útil', fonteVencedora: null,
+        sensorResultId, classificacao: 'gate_blocked', motivo: pedido?.motivo ?? 'runtime.unavailable', runtime: sessao.runtime,
+        fonte: pedido ? 'mcp.request_conduction: parada intencional tipada pela sessão'
+          : 'conducao.batida: sessão verificada sem watcher e sem evento útil', fonteVencedora: null,
         ok: false, conclusaoNativa: false, conclusaoNativaAusente: 'watcher ausente e fonte indisponível além do limite',
         estado: 'bloqueada', observadoEm: new Date(agoraMs).toISOString(), gate: 'phase.dispatch',
-        origem: 'conducao.batida', morteLatenciaMs: agoraMs - ultimoUtil };
-      registrar(dir, threadId, 'sessao_morta', dados);
+        origem: 'conducao.batida', morteLatenciaMs: agoraMs - ultimoUtil,
+        ...(pedido ? { detalhe: pedido.detalhe, correcao: pedido.comando, comando: pedido.comando,
+          pedidoConducao: { contrato: 'ork.pedido-conducao/v1', despacho: pedido.despacho, estado: 'aberto' } } : {}) };
+      if (!pedido) registrar(dir, threadId, 'sessao_morta', dados);
       registrar(dir, threadId, 'gate_blocked', dados);
       registrar(dir, threadId, 'phase_result', dados);
     });
     return { thread: threadId, sessionId: sessao.sessionId, estado: 'parada',
-      detalhe: 'sessão verificada sem watcher e sem evento útil além do limite' };
+      detalhe: pedidoDaConducao(lerLedger(dir), sessao.sessionId, sessao.despachadaEm)
+        ? 'sessão parou com pedido tipado para a condução'
+        : 'sessão verificada sem watcher e sem evento útil além do limite' };
   }
 }
 
@@ -623,6 +648,7 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
         cursor.heartbeatEm = cursor.crescimentoEm; gravarAtomico(file, cursor);
       }
       if (!podeTerminar) return { ...base, bytesLidos };
+      const pedido = pedidoDaConducao(atuais, sessionId, sessao.despachadaEm);
       const semTerminal = !terminal;
       // Fato registrado para a autoridade de revisão: `null` só com terminal nativo correlacionado.
       const conclusaoNativa = incompleto || invalido || aberto || descorrelacionado
@@ -633,6 +659,11 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
       if (!terminal) terminal = { classificacao: 'gate_blocked', motivo: 'runtime.silencio',
         timestamp: new Date(now).toISOString(), turnId: null, fonte: 'processo ausente e arquivos estáveis',
         tokens: new ParserCodex().estado.tokens, duracaoMs: null };
+      if (pedido && (terminal.classificacao === 'fase_concluida' ||
+          terminal.classificacao === 'gate_blocked' && ['runtime.unavailable', 'runtime.silencio'].includes(terminal.motivo ?? ''))) {
+        terminal = { ...terminal, classificacao: 'gate_blocked', motivo: pedido.motivo,
+          fonte: `mcp.request_conduction: ${pedido.detalhe}` };
+      }
       if (fechamento && (fechamento.exitCode !== 0 || fechamento.signal || fechamento.erro) &&
           terminal.classificacao !== 'human.pending' && !bloqueioPreservado(terminal)) {
         terminal = { ...terminal, classificacao: 'gate_blocked', motivo: 'runtime.unavailable' };
@@ -645,7 +676,7 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
         ? gravarRespostaFinalDaSessao(carregado.raiz, thread.id, sessionId, terminal.respostaFinal) : null;
       const dados = { fase: sessao.fase, sessionId, despachoEm: sessao.despachadaEm, sensorResultId: resultadoId,
         classificacao: terminal.classificacao, motivo: terminal.motivo, runtime: 'codex', fonte: terminal.fonte,
-        fonteVencedora: incompleto || invalido || aberto || descorrelacionado ? null : terminais[0]?.nome ?? null,
+        fonteVencedora: pedido || incompleto || invalido || aberto || descorrelacionado ? null : terminais[0]?.nome ?? null,
         turnId: terminal.turnId, numeroTurno: terminal.numeroTurno ?? null,
         tokens: terminal.tokens, exitCode: fechamento?.exitCode ?? null, exitCodeFonte: fechamento?.fonte ?? 'unavailable',
         signal: fechamento?.signal ?? null, duracaoMs: fechamento?.duracaoMs ?? terminal.duracaoMs,
@@ -656,11 +687,13 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
         estado: terminal.classificacao === 'fase_concluida' ? 'concluida' : 'bloqueada',
         observadoEm: terminal.timestamp, gate: 'phase.dispatch', origem: 'sessions.watch',
         morteLatenciaMs: morte ? now - cursor.progressoEm! : null, ...(perfil ? { perfil } : {}),
+        ...(pedido ? { detalhe: pedido.detalhe, correcao: pedido.comando, comando: pedido.comando,
+          pedidoConducao: { contrato: 'ork.pedido-conducao/v1', despacho: pedido.despacho, estado: 'aberto' } } : {}),
         ...(respostaFinal ? { respostaFinal: { arquivo: caminhoDoTrabalho(thread.id) + respostaFinal.arquivo,
           sha256: respostaFinal.sha256, bytes: respostaFinal.bytes, truncada: respostaFinal.truncada } } : {}),
         ...(conta ? { falhaDeConta: { motivo: conta.falha.motivo, resetEm: conta.falha.resetEm, fonte: conta.falha.fonte,
           trecho: conta.falha.trecho } } : {}) };
-      const tipo = semTerminal && morte && !incompleto && !conta ? 'sessao_morta' : terminal.classificacao;
+      const tipo = semTerminal && morte && !incompleto && !conta && !pedido ? 'sessao_morta' : terminal.classificacao;
       // I-33 (D12): o perfil sai do rodizio na primeira gravacao do resultado, onde a evidencia esta.
       if (conta && perfil && !atuais.some(e => e.tipo === 'phase_result' && e.sensorResultId === resultadoId)) {
         try {

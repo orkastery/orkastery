@@ -123,6 +123,7 @@ export const MOTIVOS_DO_ORQUESTRADOR: readonly string[] = Object.freeze([
   'verify.failed', 'verify.regression', 'verify.timeout', 'verify.sem-veredito',
   'claims.failed', 'claims.unverifiable', 'ci.failed', 'hitl.formato',
   'lease.busy', 'vaga.stale', 'conducao.em-andamento', 'concurrency.limite',
+  'concurrency.lease-indeterminado', 'conducao.acao-necessaria',
 ]);
 
 export function quemDecide(motivo: string | null | undefined): QuemDecide {

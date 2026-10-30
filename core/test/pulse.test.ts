@@ -59,6 +59,23 @@ test('consulta indisponível não grava silêncio nem recomenda retry sobre sess
   } finally { p.limpar(); }
 });
 
+test('pedido à condução fica em Conosco no relatório e preserva o comando exato', () => {
+  const p = projetoTemporario('pulse-conducao');
+  try {
+    const t = novaThread(p.carregado, { nome: 'pedido à condução', modo: 'auto' }).thread;
+    const comando = `ork verify ${t.id}`;
+    registrar(dirThread(p.dir, t.id), t.id, 'gate_blocked', { fase: 'GO', gate: 'phase.dispatch',
+      motivo: 'conducao.acao-necessaria', detalhe: 'verificação precisa rodar fora do sandbox',
+      correcao: comando, comando, origem: 'mcp.request_conduction', ts: '2026-09-07T10:00:00Z' });
+    const pulse = montarPulse(p.carregado, { fontes: () => ({}), quando: '2026-09-07T10:05:00Z',
+      consulta: { ok: true, sessoes: [], detalhe: '' } });
+    const item = pulse.acoesAutomaticas.find(i => i.thread === t.id && i.motivo === 'conducao.acao-necessaria');
+    assert.ok(item);
+    assert.equal(item.comandoResposta, comando);
+    assert.equal(pulse.precisaDeHumanoAgora.some(i => i.thread === t.id), false);
+  } finally { p.limpar(); }
+});
+
 test('pulse une monitor, HITL e batch, deduplica a mesma espera e preserva política distinta',t=>{
   const runtime=runtimeFalso('pulse'),p=projetoTemporario('pulse');
   t.after(()=>{runtime.restaurar();p.limpar();});

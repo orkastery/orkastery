@@ -92,6 +92,24 @@ test('violacao de custo NUNCA recebe retry automatico', () => {
   assert.deepEqual(semRetry.map((p) => p.motivo), ['cost.violation']);
 });
 
+test('retry espera o pedido da condução e o lease indeterminado sem redespachar', (t) => {
+  const p = projetoTemporario('retry-pedido-conducao');
+  t.after(p.limpar);
+  const thread = novaThread(p.carregado, { nome: 'pedido da conducao', modo: 'auto' }).thread;
+  for (const motivo of ['conducao.acao-necessaria', 'concurrency.lease-indeterminado'] as const) {
+    const plano = planejarRetry(p.carregado, thread.id, { motivo, fase: 'GO' });
+    assert.equal(plano.acao, 'esperar-janela');
+    assert.equal(plano.automatica, false);
+    assert.equal(plano.bloqueio, 'politica.nao-automatica');
+    const antes = lerThread(p.dir, thread.id).sessoes.length;
+    const resultado = executarRetry(p.carregado, thread.id, { motivo, fase: 'GO' });
+    assert.equal(resultado.executada, false);
+    assert.equal(resultado.redespacho, null);
+    assert.equal(lerThread(p.dir, thread.id).sessoes.length, antes);
+  }
+  assert.equal(lerLedger(dirThread(p.dir, thread.id)).filter(e => e.tipo === 'retry_attempt').length, 0);
+});
+
 test('despacho por provider pago reprova como cost.violation e o retry recusa reexecutar', (t) => {
   const p = projetoTemporario('b3-custo');
   const anterior = process.env.ANTHROPIC_API_KEY;
