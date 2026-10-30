@@ -1,0 +1,406 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-asessaonosan",
+  "branch": "ork/ork-asessaonosan-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "core/src/fila-pesada.ts",
+      "alegacao": "A fila pesada distingue posse viva, órfã e indeterminada sem tratar invisibilidade de PID como morte; indeterminação falha fechada com concurrency.lease-indeterminado.",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='outro espaço de PIDs|realmente órfão|lease indeterminado' core/dist-test/test/fila-pesada.test.js",
+        "grep -n 'concurrency.lease-indeterminado' core/src/fila-pesada.ts"
+      ],
+      "criadoEm": "2026-10-30T00:31:34.982Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "Um pedido aberto à condução aparece no resumo operacional e impede retry automático da fase.",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='retry espera o pedido|pedido à condução no relatório' core/dist-test/test/retry.test.js core/dist-test/test/pulse.test.js",
+        "grep -n 'conducao.acao-necessaria' core/src/retry.ts"
+      ],
+      "criadoEm": "2026-10-30T00:31:35.091Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A documentação pública da fila e dos pedidos à condução está atualizada nas RM-055, RM-064, guia de verificação e CHANGELOG Não publicado.",
+      "negativa": false,
+      "verificar": [
+        "grep -n 'lease indeterminado\\|pedido à condução' CHANGELOG.md docs/guias/verificacao.md docs/roadmap/RM-055-impedimento-do-dono-vira-hitl.md docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md"
+      ],
+      "criadoEm": "2026-10-30T00:31:35.142Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "core/test/fila-pesada.test.ts",
+      "alegacao": "Os testes da fila cobrem lease vivo em outro espaço de PIDs, lease realmente órfão e observação indeterminada.",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='outro espaço de PIDs|realmente órfão|lease indeterminado' core/dist-test/test/fila-pesada.test.js"
+      ],
+      "criadoEm": "2026-10-30T00:34:02.169Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "O catálogo de MotivoGate inclui lease indeterminado e ação necessária da condução.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"'concurrency.lease-indeterminado'\\|'conducao.acao-necessaria'\" core/src/types.ts"
+      ],
+      "criadoEm": "2026-10-30T00:36:21.822Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-retry.ts",
+      "alegacao": "A política de espera dos dois novos motivos tem mensagens em português e inglês.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"'concurrency.lease-indeterminado'\\|'conducao.acao-necessaria'\" core/src/locale-retry.ts"
+      ],
+      "criadoEm": "2026-10-30T00:36:21.874Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-pulse.ts",
+      "alegacao": "O catálogo público de motivos descreve os dois novos impedimentos em português e inglês.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"'concurrency.lease-indeterminado'\\|'conducao.acao-necessaria'\" core/src/locale-pulse.ts"
+      ],
+      "criadoEm": "2026-10-30T00:36:21.922Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "core/test/retry.test.ts",
+      "alegacao": "O teste de retry prova que os pedidos da condução não redespacham a fase.",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='retry espera o pedido' core/dist-test/test/retry.test.js"
+      ],
+      "criadoEm": "2026-10-30T00:36:21.972Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "core/src/pedido-conducao.ts",
+      "alegacao": "O pedido à condução valida dispatch, motivos enumerados e comando ork sem executar shell.",
+      "negativa": false,
+      "verificar": [
+        "grep -n 'MOTIVOS_DE_PEDIDO_A_CONDUCAO\\|comandoSeguro\\|mcp.request_conduction' core/src/pedido-conducao.ts"
+      ],
+      "criadoEm": "2026-10-30T00:39:38.009Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-install.ts",
+      "alegacao": "O perfil filho Codex worktree concede exatamente ork_request_conduction entre as mutações enumeradas.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"TOOLS_FILHO_CODEX.*ork_request_conduction\\|ork_request_conduction\" core/src/mcp-install.ts"
+      ],
+      "criadoEm": "2026-10-30T00:41:17.385Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/claude-bg.ts",
+      "alegacao": "O perfil worktree do Claude concede a ferramenta MCP exata de pedido à condução.",
+      "negativa": false,
+      "verificar": [
+        "grep -n 'mcp__orkastery__ork_request_conduction' core/src/adapters/claude-bg.ts"
+      ],
+      "criadoEm": "2026-10-30T00:41:17.464Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/grok.ts",
+      "alegacao": "O Grok deriva a mesma lista enumerada de mutações worktree sem ampliar o perfil interactive.",
+      "negativa": false,
+      "verificar": [
+        "grep -n 'sete\\|MUTACOES_WORKTREE' core/src/adapters/grok.ts"
+      ],
+      "criadoEm": "2026-10-30T00:41:17.513Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm064-fatia3.test.ts",
+      "alegacao": "O teste RM-064 prova que o grant worktree contém somente as mutações MCP exatas.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='sessão worktree recebe somente' core/dist-test/test/rm064-fatia3.test.js"
+      ],
+      "criadoEm": "2026-10-30T00:41:17.578Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm067-grok-mcp.test.ts",
+      "alegacao": "O teste de paridade prova que Claude e Grok recebem a mesma lista worktree, incluindo o pedido à condução.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='GM8:' core/dist-test/test/rm067-grok-mcp.test.js"
+      ],
+      "criadoEm": "2026-10-30T00:41:17.652Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher.ts",
+      "alegacao": "O watcher preserva o pedido tipado da sessão, seu motivo e comando, em vez de convertê-lo em runtime.unavailable.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"mcp.request_conduction: parada intencional\" core/src/session-watcher.ts",
+        "node --test-name-pattern='parada intencional vira pedido' core/dist-test/test/session-watcher.test.js"
+      ],
+      "criadoEm": "2026-10-30T00:44:51.827Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "core/src/pulse.ts",
+      "alegacao": "Pedidos à condução e leases indeterminados aparecem na faixa automática Conosco.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"conducao.acao-necessaria\" core/src/pulse.ts",
+        "node --test-name-pattern='pedido à condução fica em Conosco' core/dist-test/test/pulse.test.js"
+      ],
+      "criadoEm": "2026-10-30T00:44:51.875Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "core/test/pulse.test.ts",
+      "alegacao": "O relatório preserva o comando exato do pedido e não o envia à fila humana.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"pedido à condução fica em Conosco\" core/test/pulse.test.ts",
+        "node --test-name-pattern='pedido à condução fica em Conosco' core/dist-test/test/pulse.test.js"
+      ],
+      "criadoEm": "2026-10-30T00:44:51.928Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "core/test/session-watcher.test.ts",
+      "alegacao": "Há regressão automatizada para parada intencional, comando exato e retry sem redespacho.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"parada intencional vira pedido\" core/test/session-watcher.test.ts",
+        "node --test-name-pattern='parada intencional vira pedido' core/dist-test/test/session-watcher.test.js"
+      ],
+      "criadoEm": "2026-10-30T00:44:51.977Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "core/src/hitl-classificacao.ts",
+      "alegacao": "Os dois motivos de pedido à condução pertencem ao orquestrador, não ao dono.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"concurrency.lease-indeterminado.*conducao.acao-necessaria\" core/src/hitl-classificacao.ts",
+        "node --test-name-pattern='pedido tipado da sessão' core/dist-test/test/hitl-classificacao.test.js"
+      ],
+      "criadoEm": "2026-10-30T00:44:52.027Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "core/test/hitl-classificacao.test.ts",
+      "alegacao": "A classificação dos motivos de condução tem teste explícito.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"pedido tipado da sessão pertence à condução\" core/test/hitl-classificacao.test.ts",
+        "node --test-name-pattern='pedido tipado da sessão' core/dist-test/test/hitl-classificacao.test.js"
+      ],
+      "criadoEm": "2026-10-30T00:44:52.076Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A seção Não publicado registra a fila pesada portátil e o pedido tipado à condução.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"Fila pesada entre host e sandbox\" CHANGELOG.md",
+        "grep -n \"Parada intencional não vira queda\" CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-30T00:46:15.527Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-055-impedimento-do-dono-vira-hitl.md",
+      "alegacao": "A RM-055 separa explicitamente pedido ao dono de pedido à condução.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"Pedido ao dono e pedido à condução são contratos diferentes\" docs/roadmap/RM-055-impedimento-do-dono-vira-hitl.md",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-10-30T00:46:15.590Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md",
+      "alegacao": "A RM-064 registra a continuação da fila pesada entre host e sandbox sem apresentá-la como produção.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"Continuação: fila pesada entre host e sandbox\" docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-10-30T00:46:15.672Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/verificacao.md",
+      "alegacao": "O guia documenta o estado indeterminado, a prova portátil do lease e o contrato de pedido à condução.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"concurrency.lease-indeterminado\" docs/guias/verificacao.md",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-10-30T00:46:15.745Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "core/src/fila-pesada.ts",
+      "alegacao": "A classificação triádica da vida do lease é exercitada por três testes que realmente executam no runner Node.",
+      "negativa": false,
+      "verificar": [
+        "grep -n 'export function avaliarVidaDoOcupante' core/src/fila-pesada.ts",
+        "node --test-name-pattern='outro espaço de PIDs|realmente órfão|lease indeterminado' core/dist-test/test/fila-pesada.test.js"
+      ],
+      "criadoEm": "2026-10-30T00:59:04.686Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-asessaonosan",
+      "fase": "GOAL",
+      "arquivo": "core/test/fila-pesada.test.ts",
+      "alegacao": "A suíte executa casos de lease vivo entre namespaces, órfão provado e estado indeterminado.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"outro espaço de PIDs\\|lease realmente órfão\\|lease indeterminado\" core/test/fila-pesada.test.ts",
+        "node --test-name-pattern='outro espaço de PIDs|realmente órfão|lease indeterminado' core/dist-test/test/fila-pesada.test.js"
+      ],
+      "criadoEm": "2026-10-30T00:59:04.782Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C2",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C10",
+      "reason": "local-integration-required"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
