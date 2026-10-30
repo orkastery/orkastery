@@ -381,6 +381,126 @@
       "criadoEm": "2026-10-30T00:59:04.782Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-asessaonosan",
+      "fase": "GO",
+      "arquivo": "core/test/claude-worktree-permissions.test.ts",
+      "alegacao": "Os contratos Claude worktree e Maestro incluem somente ork_request_conduction como novo mutador, preservam a ausência de Edit no planejamento e revalidam Edit no GO.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"request_conduction\\|sete mutadores\\|capacidade e revalidada\" core/test/claude-worktree-permissions.test.ts",
+        "node --test-name-pattern='Claude worktree concede sete consultas|Maestro planejamento usa documentos MCP sem grant Edit' core/dist-test/test/claude-worktree-permissions.test.js"
+      ],
+      "criadoEm": "2026-10-30T01:41:32.410Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-asessaonosan",
+      "fase": "GO",
+      "arquivo": "core/test/rm067-grok-mcp.test.ts",
+      "alegacao": "GM4 prova o perfil filho Grok vinculado a thread e dispatch com as sete mutações exatas.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"dispatchId\\|ork_request_conduction\\|sete mutacoes\" core/test/rm067-grok-mcp.test.ts",
+        "node --test-name-pattern='GM4:' core/dist-test/test/rm067-grok-mcp.test.js"
+      ],
+      "criadoEm": "2026-10-30T01:41:32.492Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-asessaonosan",
+      "fase": "GO",
+      "arquivo": "core/test/ork-mensageiro.test.ts",
+      "alegacao": "A prova do Mensageiro mantém a caixa exclusiva do dono e confere request_conduction e inbox no bloco thread+dispatch.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"ork_request_conduction.*ork_session_inbox\\|pedido à condução\" core/test/ork-mensageiro.test.ts",
+        "node --test-name-pattern='as ferramentas da lista existem no nucleo' core/dist-test/test/ork-mensageiro.test.js"
+      ],
+      "criadoEm": "2026-10-30T01:41:32.563Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-asessaonosan",
+      "fase": "GO",
+      "arquivo": "core/test/horario-lint.test.ts",
+      "alegacao": "O lint registra expiraEm do heartbeat como dado de máquina justificado e nenhuma exceção fica morta.",
+      "negativa": true,
+      "verificar": [
+        "grep -n \"fila-pesada.ts.*expiraEm\" core/test/horario-lint.test.ts",
+        "node --test-name-pattern='campo ISO não chega cru ao texto' core/dist-test/test/horario-lint.test.js"
+      ],
+      "criadoEm": "2026-10-30T01:41:32.624Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-asessaonosan",
+      "fase": "GO",
+      "arquivo": "adapters/claude-code/mods/ork-torre/hooks/frases.ts",
+      "alegacao": "A Torre cobre os dois novos motivos tipados com frases curtas.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"concurrency.lease-indeterminado\\|conducao.acao-necessaria\" adapters/claude-code/mods/ork-torre/hooks/frases.ts",
+        "node --test-name-pattern='frases: uma por motivo tipado' core/dist-test/test/ork-torre.test.js"
+      ],
+      "criadoEm": "2026-10-30T01:41:32.684Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-asessaonosan",
+      "fase": "GO",
+      "arquivo": "marketplaces/claude-code/mods/ork-torre/hooks/frases.ts",
+      "alegacao": "O espelho de marketplace da Torre mantém as mesmas frases dos motivos novos.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"concurrency.lease-indeterminado\\|conducao.acao-necessaria\" marketplaces/claude-code/mods/ork-torre/hooks/frases.ts",
+        "node --test-name-pattern='frases: uma por motivo tipado' core/dist-test/test/ork-torre.test.js"
+      ],
+      "criadoEm": "2026-10-30T01:41:32.749Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-asessaonosan",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f2b-pt-BR.json",
+      "alegacao": "O snapshot F2b deriva a política e as descrições completas já com os dois motivos novos.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"concurrency.lease-indeterminado\\|conducao.acao-necessaria\" core/test/fixtures/locale-f2b-pt-BR.json",
+        "node -e 'const fs=require(\"fs\"),r=require(\"./core/dist/retry.js\"),g=require(\"./core/dist/gates.js\"),f=JSON.parse(fs.readFileSync(\"core/test/fixtures/locale-f2b-pt-BR.json\",\"utf8\"));if(f[\"retry: a politica inteira (porque e correcao de cada motivo)\"]!==JSON.stringify(r.POLITICA_DE_RETRY,null,1)||f[\"pulse: descricao de cada motivo\"]!==JSON.stringify(g.DESCRICAO_DO_MOTIVO,null,1))process.exit(1)'"
+      ],
+      "criadoEm": "2026-10-30T01:41:32.824Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-asessaonosan",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3d-pt-BR.json",
+      "alegacao": "O snapshot F3d atualiza somente a saída pública de retry policy com os dois motivos novos.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"concurrency.lease-indeterminado\\|conducao.acao-necessaria\" core/test/fixtures/locale-f3d-pt-BR.json",
+        "node -e 'const fs=require(\"fs\"),r=require(\"./core/dist/retry.js\"),f=JSON.parse(fs.readFileSync(\"core/test/fixtures/locale-f3d-pt-BR.json\",\"utf8\"));const x=\"[saida 0]\\nPolitica de retry por motivo tipado de gate (bloco B3)\\n\\n\"+r.tabelaDaPolitica()+\"\\n\\nA politica e a MESMA em todos os modos: o modo afrouxa a pausa, nunca a\\nverificacao. cost.violation nunca recebe retry automatico, e o limite de\\nescalacao (retry.max_tentativas) pausa qualquer modo, inclusive #Auto.\\n\";if(f.correcao[\"cli retry: policy\"]!==x)process.exit(1)'"
+      ],
+      "criadoEm": "2026-10-30T01:41:32.909Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
   "deferredClaims": [
