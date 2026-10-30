@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.1",
-  "publicadoEm": "2026-10-30T06:36:15.032Z",
+  "publicadoEm": "2026-10-30T06:45:02.862Z",
   "threads": [
     {
       "id": "ork-asessaonosan",
@@ -46,7 +46,7 @@
       "esforco": null,
       "sessao": {
         "viva": false,
-        "desdeEm": "2026-10-30T03:33:58.036Z",
+        "desdeEm": "2026-10-30T06:36:23.737Z",
         "motivo": "nenhuma sessão despachada na fase GO"
       }
     },
@@ -102,7 +102,7 @@
       "status": "aberta",
       "roadmap": "RM-074",
       "branch": "ork/ork-rm074m1menos-full",
-      "atualizadaEm": "2026-10-30T06:35:07.486Z",
+      "atualizadaEm": "2026-10-30T06:42:35.799Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -124,7 +124,7 @@
       "status": "aberta",
       "roadmap": "RM-064",
       "branch": "ork/ork-verifyassinc-full",
-      "atualizadaEm": "2026-10-30T06:36:14.582Z",
+      "atualizadaEm": "2026-10-30T06:41:43.888Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
