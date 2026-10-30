@@ -23,7 +23,7 @@ ork worktree audit <thread>          # a worktree confere no proprio git
 ork gate request <thread>            # o pedido da pausa; o humano responde pelo canal autenticado
 ```
 
-- Waits: never start verify, build or the suite with `&` inside the command, because the process gets lost and the session waits for a notice that never comes; run `ork verify` in the foreground, with `timeout` (it waits its turn in the heavy-resource queue), or use the host's background execution, which tells you when it finishes; never wait with `pgrep -f` whose pattern shows up in the command itself, because the loop finds itself and never ends: wait for the output file with a deadline, or for the saved PID.
+- Waits: never start verify, build or the suite with `&` inside the command, because the process gets lost and the session waits for a notice that never comes; prefer asynchronous `ork_verify` and query `ork_verify_status` every 30–60 s; without it, run `ork verify` in the foreground, with `timeout` (it waits its turn in the heavy-resource queue), or use the host's background execution, which tells you when it finishes; never wait with `pgrep -f` whose pattern shows up in the command itself, because the loop finds itself and never ends: wait for the output file with a deadline, or for the saved PID.
 
 When the verdict is PRECISA DE MUDANCA, the GO-FIX / CHECK-REVERIFY sub-loop of block B3 is
 what conducts the way back, and it does not depend on a human until the final verdict:
