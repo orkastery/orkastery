@@ -1,0 +1,146 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-otestedaslan",
+  "branch": "ork/ork-otestedaslan-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-otestedaslan",
+      "fase": "GO",
+      "arquivo": "core/scripts/test-lanes.cjs",
+      "alegacao": "A lane consome sua fatia de CPU ao montar --test-concurrency, mas o processo node --test filho não herda ORK_CHECK_CPUS_DA_LANE nem ORK_CHECK_CPUS_DOCKER.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && ORK_CHECK_CPUS_DA_LANE=3 ORK_CHECK_CPUS_DOCKER=0.5 node --test --test-concurrency=16 core/dist-test/test/test-lanes.test.js"
+      ],
+      "criadoEm": "2026-10-29T15:51:53.323Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-otestedaslan",
+      "fase": "GO",
+      "arquivo": "core/scripts/retrato-do-classic.cjs",
+      "alegacao": "O retrato Classic remove o plano de CPU da rodada externa antes de executar a varredura e conserva o argv de referência.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && ORK_CHECK_CPUS_DA_LANE=3 ORK_CHECK_CPUS_DOCKER=0.5 node --test --test-concurrency=16 core/dist-test/test/check-classic-intacto.test.js"
+      ],
+      "criadoEm": "2026-10-29T15:52:31.971Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-otestedaslan",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-agil.test.ts",
+      "alegacao": "O auxiliar da varredura Agile neutraliza o plano de CPU externo para que comparações de execução não dependam da máquina que roda a suíte.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && ORK_CHECK_CPUS_DA_LANE=3 ORK_CHECK_CPUS_DOCKER=0.5 node --test --test-concurrency=16 core/dist-test/test/security-scan-agil.test.js"
+      ],
+      "criadoEm": "2026-10-29T15:52:32.081Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-otestedaslan",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-agil-flags.test.ts",
+      "alegacao": "Os testes das flags da varredura neutralizam as duas variáveis do agendador herdadas da rodada externa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && ORK_CHECK_CPUS_DA_LANE=3 ORK_CHECK_CPUS_DOCKER=0.5 node --test --test-concurrency=16 core/dist-test/test/security-scan-agil-flags.test.js"
+      ],
+      "criadoEm": "2026-10-29T15:52:32.334Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-otestedaslan",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-agil-lint.test.ts",
+      "alegacao": "Os testes da imagem e dos argumentos de lint neutralizam as duas variáveis do agendador herdadas da rodada externa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && ORK_CHECK_CPUS_DA_LANE=3 ORK_CHECK_CPUS_DOCKER=0.5 node --test --test-concurrency=16 core/dist-test/test/security-scan-agil-lint.test.js"
+      ],
+      "criadoEm": "2026-10-29T15:52:32.423Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-otestedaslan",
+      "fase": "GO",
+      "arquivo": "core/test/check-classic-intacto.test.ts",
+      "alegacao": "CL2 executa o retrato Classic sob ORK_CHECK_CPUS_DA_LANE=7 e ORK_CHECK_CPUS_DOCKER=1 e conserva exatamente os argumentos Docker da base.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && env -u NODE_TEST_CONTEXT node --test --test-concurrency=16 core/dist-test/test/check-classic-intacto.test.js"
+      ],
+      "criadoEm": "2026-10-29T15:57:24.195Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-otestedaslan",
+      "fase": "GO",
+      "arquivo": "core/test/test-lanes.test.ts",
+      "alegacao": "TL9 independe do plano externo no contrato base e TL10 prova que o teste filho não recebe as duas cotas de CPU.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && env -u NODE_TEST_CONTEXT node --test --test-concurrency=16 core/dist-test/test/test-lanes.test.js",
+        "npm --prefix core run build:test && for rodada in 1 2 3 4 5; do env -u NODE_TEST_CONTEXT ORK_CHECK_CPUS_DA_LANE=7 ORK_CHECK_CPUS_DOCKER=1 node --test --test-concurrency=16 core/dist-test/test/check-classic-intacto.test.js core/dist-test/test/test-lanes.test.js core/dist-test/test/security-scan-agil.test.js core/dist-test/test/security-scan-agil-flags.test.js core/dist-test/test/security-scan-agil-lint.test.js || exit; done"
+      ],
+      "criadoEm": "2026-10-29T15:57:24.276Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-otestedaslan",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-otestedaslan.json",
+      "alegacao": "O bundle CI da thread declara o schema ork.ci-bundle/v1, a branch e as claims reais desta rodada.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const b=require('./.ork-ci/ork-otestedaslan.json'); if(b.schema!=='ork.ci-bundle/v1'||b.thread!=='ork-otestedaslan') process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-29T16:02:18.768Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-otestedaslan",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A linha do teste das lanes que não herda o plano de CPU está em Não publicado, antes da seção da 0.6.1.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const t=require(\"fs\").readFileSync(\"CHANGELOG.md\",\"utf8\");const i=t.indexOf(\"## Não publicado\");const j=t.indexOf(\"## [0.6.1]\");const k=t.indexOf(\"teste das lanes não herda o plano de CPU da rodada\");process.exit(i>=0&&i<k&&k<j?0:1)'"
+      ],
+      "criadoEm": "2026-10-29T16:04:16.143Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}

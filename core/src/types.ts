@@ -652,7 +652,8 @@ export type MotivoGate =
 
 /** Uma alegacao verificavel feita por uma fase (`claims.jsonl` da thread). */
 /** I-53 (RM-037, P6): as regras do lint de comando de claim (`claim-lint.ts`). */
-export type RegraDoLint = 'suite-inteira' | 'sha-intermediario' | 'contagem-de-commits';
+export type RegraDoLint = 'suite-inteira' | 'sha-intermediario' | 'contagem-de-commits'
+  | 'binario-rg' | 'ork-fora-do-path' | 'estado-local' | 'aspas-escapadas';
 
 /** Um achado do lint: a regra, o pedaco do comando que casou e a forma certa. */
 export interface AchadoDoLint {
@@ -743,7 +744,9 @@ export interface ResultadoDeComando {
   /** RM-072 (D5): o que rodou de fato quando os passos do preparo sairam da frente; `comando` segue o inteiro. */
   comandoExecutado?: string;
   /** RM-072 (D4): as lanes que compuseram o `test` do Agile. */
-  lanes?: Array<{ lane: string; comando: string; ok: boolean; code: number; causa?: CausaDoComando; duracaoMs: number }>;
+  lanes?: Array<{ lane: string; comando: string; ok: boolean; code: number; causa?: CausaDoComando; duracaoMs: number;
+    /** RM-037 (29/10/2026): nomes que esta lane extraiu do TAP; ausente em baselines antigas ou sem TAP. */
+    testeQueCaiu?: string[] }>;
 }
 
 /**

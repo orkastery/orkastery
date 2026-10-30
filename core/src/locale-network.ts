@@ -117,13 +117,14 @@ export const NETWORK_PT_BR = {
   nomeEmUso: (maquina: string, quem: string, dica: string) => `rede.nome-em-uso: outra instalacao ja publica como "${maquina}"${quem}${dica}`,
   quemHostname: (hostname: string, batida: string) => ` (hostname ${hostname}, batida ${batida})`,
   quemIlegivel: ' (num retrato que esta versao nao le)',
-  dicaMesmoHostname: '; o retrato tem o hostname desta maquina: se for ela mesma, com ~/.orkastery apagada ou copiada, retome o nome com ' +
-    'ork network entrar --forcar; se for outra maquina ou instalacao com o mesmo hostname, escolha outro nome com --maquina NOME',
-  dicaOutroNome: '; escolha outro nome com ork network entrar --maquina NOME, ou tome este com --forcar',
+  dicaNomeEmUso: '; se for esta maquina com ~/.orkastery apagada ou copiada, retome o nome com ' +
+    'ork network entrar --forcar; se for outra maquina ou instalacao, escolha outro nome com --maquina NOME',
   concorrencia: (n: number) => `rede.concorrencia: ${n} pushes recusados seguidos; tente de novo em instantes`,
   foraDaRede: 'rede.fora: esta maquina nao esta na rede; ork network entrar',
   nomeInvalido: (maquina: string) =>
     `rede.maquina: nome de maquina invalido ("${maquina}"); use ork network entrar --maquina NOME (letras, numeros, ponto, _ ou -)`,
+  nomeGenericoAusente: 'rede.maquina-generica: escolha um nome generico com ork network entrar --maquina maquina-a; ' +
+    'o mapa fica somente em ~/.orkastery/maquina.json, fora do git',
   ocupadoAoEntrar: (trava: string) =>
     `rede.ocupado: outra publicacao desta maquina esta em andamento (${trava}); rode ork network entrar de novo em instantes`,
   semHttpsAoSair: (cli: string, ref: string) =>
@@ -321,12 +322,13 @@ export const NETWORK_EN: MensagensDeNetwork = {
   nomeEmUso: (maquina, quem, dica) => `rede.nome-em-uso: another installation already publishes as "${maquina}"${quem}${dica}`,
   quemHostname: (hostname, batida) => ` (hostname ${hostname}, heartbeat ${batida})`,
   quemIlegivel: ' (in a snapshot this version does not read)',
-  dicaMesmoHostname: '; the snapshot has this machine\'s hostname: if it is this machine, with ~/.orkastery deleted or copied, take the name back with ' +
-    '`ork network entrar --forcar`; if it is another machine or installation with the same hostname, pick another name with `--maquina NAME`',
-  dicaOutroNome: '; pick another name with `ork network entrar --maquina NAME`, or take this one with `--forcar`',
+  dicaNomeEmUso: '; if it is this machine with ~/.orkastery deleted or copied, take the name back with ' +
+    '`ork network entrar --forcar`; if it is another machine or installation, pick another name with `--maquina NAME`',
   concorrencia: (n) => `rede.concorrencia: ${n} pushes refused in a row; try again in a moment`,
   foraDaRede: 'rede.fora: this machine is not in the network; `ork network entrar`',
   nomeInvalido: (maquina) => `rede.maquina: invalid machine name ("${maquina}"); use \`ork network entrar --maquina NAME\` (letters, digits, dot, _ or -)`,
+  nomeGenericoAusente: 'rede.maquina-generica: choose a generic name with `ork network entrar --maquina maquina-a`; ' +
+    'the mapping stays only in ~/.orkastery/maquina.json, outside git',
   ocupadoAoEntrar: (trava) => `rede.ocupado: another publication from this machine is in progress (${trava}); run \`ork network entrar\` again in a moment`,
   semHttpsAoSair: (cli, ref) => `rede.sem-https: left the network here, but ${cli} returned a URL without https for ${ref}; the snapshot stays in the home`,
   ocupadoAoSair: (trava) => `rede.ocupado: left the network here, but another publication from this machine holds the home (${trava}); run \`ork network sair\` again`,

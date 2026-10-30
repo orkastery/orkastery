@@ -6,8 +6,29 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Adicionado
+
+- **CLI em inglês e pt-BR — F3e ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)):** entram no catálogo as rotas restantes de `master`, `onboarding sync`, `experiencia uninstall`, `doctor --modo`, Maestro, `brain`, `activation`, `mcp serve`, `receipt-verifiers` e as recusas antecipadas de projeto; o grafo e o `security-scan` localizam a apresentação humana sem mudar códigos, dados ou `--json`.
+
 ### Corrigido
 
+- **O teste das lanes não herda o plano de CPU da rodada:** `ORK_CHECK_CPUS_DA_LANE` e `ORK_CHECK_CPUS_DOCKER`
+  continuam limitando a própria lane, mas não chegam aos testes que ela executa. Sob saturação, os testes que conferem
+  a concorrência da lane e os argumentos do Docker viam a fatia da rodada e reprovavam sem defeito no código
+  ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)).
+- **O verify faz classificação por teste dentro de comandos que já falhavam** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  a baseline guarda os nomes que o TAP já produz, e a rodada separa por igualdade exata regressões, falhas
+  pré-existentes e testes corrigidos. Uma falha nova bloqueia com `verify.regression` e leva o nome no motivo;
+  teste renomeado conta como antigo corrigido e novo em regressão. Baseline antiga ou comando sem nomes mantém
+  a comparação por comando, mas o veredito declara o fallback e não inventa “0 regressões” por teste.
+- **Teste da validade inicial da fixture isolado:** a fixture respeita `TMPDIR`, e o teste não observa mais o `/tmp`
+  compartilhado nem vence após 5 segundos sob carga ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)).
+- **Claims executáveis no CI e CHANGELOG na seção certa** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  `ork claims add` e o MCP recusam antes da gravação comandos com `rg`, `ork` fora do PATH, estado em `.orkastery/`
+  ou aspas `\x22`/`\x27` literais, indicando `grep` e `node core/dist/index.js`; `ork ci prepare` mantém apenas aviso
+  para claims antigas. Em repositório com `CHANGELOG.md` e tag publicada `v*`, o verify, `ork docs verificar --pr` e o
+  CI também recusam linha nova em versão já tagueada e exigem que a entrada de "Não publicado" fique sob Adicionado,
+  Alterado, Corrigido ou Segurança; sem arquivo ou versão publicada, a regra não entra no verify.
 - **Fila pesada entre host e sandbox** ([RM-064](docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md)):
   o lease combina a trava do kernel com batida em arquivo, identidade opaca do host e do espaço de PIDs e o instante de
   início lido de `/proc/<pid>/stat`. PID invisível ou evidência insuficiente agora é lease indeterminado, nunca órfão;
@@ -16,6 +37,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   a sessão `worktree` ganha somente `ork_request_conduction`, vinculada ao próprio despacho, para registrar um motivo
   enumerado e um comando `ork` exato sem executá-lo. O watcher preserva o pedido em vez de sintetizar
   `runtime.unavailable`, o retry não redespacha enquanto ele está aberto e o relatório o mostra em “Conosco”.
+
+### Segurança
+
+- **Evidência de máquina e relato honesto de escape** ([RM-062](docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md), F3 e F4): o retrato da Orkastery Network exige um alias local e o repete em `maquina`, no campo legado `hostname` e no nome do arquivo, sem publicar o hostname real; o guia de pull request ganha um modelo testado que separa o que foi corrigido, o que continua nos commits anteriores e a decisão do dono sobre reescrever ou não.
 
 ## [0.6.1] - 2026-10-29
 

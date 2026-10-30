@@ -109,16 +109,16 @@ test('locale en F2a phase: o dado gravado pelo despacho (prompt, sha256, ledger,
   } finally { pt.limpar(); en.limpar(); }
 });
 
-test('locale en F2a phase (negativo): o que fica fora da lista segue em pt-BR com LANG=en_US (a F3d levou retry list e policy)', () => {
+test('locale en F2a phase (negativo): os --json e a rota privada seguem em pt-BR com LANG=en_US', () => {
   const c = cenario('phase-negativo');
   try {
     assert.equal(ork(c, PT, true, 'thread', 'new', 'Fora', '--modo', 'auto', '--sem-worktree').status, 0);
-    // A F3b levou `claims list` ao catalogo (locale-claims) e a F3d, o resto do `retry` (decisao registrada no GO-FIX 1):
-    // seguem em pt-BR o `--json` e as rotas fora da lista.
-    for (const args of [['retry', 'policy', '--json'], ['retry', 'list', '--json'], ['master', 'digest']]) {
+    // Retry e master digest entraram no catálogo; os contratos --json e `privado` seguem fora.
+    for (const args of [['retry', 'policy', '--json'], ['retry', 'list', '--json'], ['privado']]) {
       const pt = ork(c, PT, true, ...args), en = ork(c, EN, true, ...args);
       assert.equal(en.stdout, pt.stdout, args.join(' '));
       assert.equal(en.stderr, pt.stderr, args.join(' '));
+      assert.equal(en.status, pt.status, args.join(' '));
     }
   } finally { c.limpar(); }
 });

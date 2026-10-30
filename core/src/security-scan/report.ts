@@ -98,7 +98,7 @@ export function renderMarkdown(report: ScanReport): string {
   else {
     out.push(`| ${m.tableTool} | ${m.tableExecutor} | ${m.tableState} | ${m.tableReason} |`, '| --- | --- | --- | --- |');
     for (const r of report.tools) {
-      out.push(`| ${cell(r.name)} | ${r.executor ?? m.noExecutor} | ${m.states[r.state] ?? r.state} | ${cell(r.reason ?? '')} |`);
+      out.push(`| ${cell(r.name)} | ${r.executor ?? m.noExecutor} | ${m.states[r.state] ?? r.state} | ${cell(m.reason(r.reason ?? ''))} |`);
     }
   }
   const news = report.findings.filter(f => f.status === 'new');

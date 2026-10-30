@@ -90,24 +90,27 @@ import { OPERACAO_RESTANTE_EN, OPERACAO_RESTANTE_PT_BR } from './locale-operacao
 import { CONDUCAO_EN, CONDUCAO_PT_BR } from './locale-conducao';
 import { GRAFO_EN, GRAFO_PT_BR } from './locale-grafo';
 import { AUDIT_EN, AUDIT_PT_BR } from './locale-audit';
+import { PREFLIGHT_EN, PREFLIGHT_PT_BR } from './locale-preflight';
+import { MAESTRO_EN, MAESTRO_PT_BR } from './locale-maestro';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
 /**
  * Comandos cujo texto ja sai pelo catalogo, por `comando` ou por `comando subcomando`; `comando ?` e o
  * subcomando desconhecido (o erro de uso e do proprio comando). Os demais seguem em pt-BR. Ficam de
- * fora por decisao (D2 da F2a): `doctor --modo`, `thread new --from-finding`, `onboarding sync` e
- * `experiencia uninstall`. A F2b (G3) acrescenta `verify` (com `--baseline`),
+ * fora por decisao (D2 da F2a): `thread new --from-finding`. A F3e acrescenta `doctor --modo`,
+ * `onboarding sync` e `experiencia uninstall`. A F2b (G3) acrescenta `verify` (com `--baseline`),
  * `ship`, `ship registrar-pr`, `retry plan`, `retry run`, `master` (o indice), `master aceitar-omissao` e
  * `master pedir`, `pulse` (sem `responder` nem `cadencia`) e `roadmap status`. A F3a (D5) acrescenta `docs init`, e a
  * F3b (D1), o resto da lista do dono; a F3c completa `decisao registrar` e `network roadmap`. O conhecimento escrito
  * (RM-026 K7, fatia 2) nasce coberto: `conhecimento listar|mostrar|colecoes|verificar` e o uso errado dele.
  */
 export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboarding show', 'onboarding set', 'onboarding reset',
-  'onboarding ?', 'experiencia show', 'experiencia ?', 'thread new', 'thread status', 'thread ?',
+  'onboarding sync', 'onboarding ?', 'experiencia show', 'experiencia uninstall', 'experiencia ?', 'thread new', 'thread status', 'thread ?',
   'phase list', 'phase run', 'phase ?', 'verify', 'ship', 'ship registrar-pr', 'retry plan', 'retry run',
   'retry policy', 'retry parse', 'retry list', 'retry resume', 'retry cancel', 'retry ?',
-  'master', 'master <thread>', 'master aceitar-omissao', 'master pedir', 'master classes', 'master batch',
+  'master', 'master <thread>', 'master aceitar-omissao', 'master pedir', 'master audit', 'master digest', 'master migrar',
+  'master classes', 'master ratificar', 'master batch', 'master propor',
   'pulse', 'roadmap status', 'docs init',
   // F3b (D1): o resto do CLI, na ordem do pedido.
   'thread list', 'thread close', 'thread entrega', 'worktree ensure', 'worktree sync', 'worktree audit', 'worktree release', 'worktree ?',
@@ -135,7 +138,7 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'orquestracao status', 'orquestracao ?', 'monitor', 'licoes', 'demo',
   'fabrica list', 'fabrica publicar', 'fabrica entrar', 'fabrica sair', 'fabrica batida', 'fabrica ?', 'eval',
   'memory status', 'memory inventory', 'memory migrate', 'memory sync', 'memory search', 'memory index', 'memory ?',
-  'mcp install', 'conducao status', 'conducao assumir', 'conducao atualizar', 'conducao autorizar',
+  'mcp install', 'mcp serve', 'mcp ?', 'brain', 'activation', 'conducao status', 'conducao assumir', 'conducao atualizar', 'conducao autorizar',
   'conducao autorizacao', 'conducao batida', 'conducao sentinela', 'conducao ?', 'grafo',
   'audit packs', 'audit pack', 'audit lint', 'audit run', 'audit list', 'audit show', 'audit prompt',
   'audit ingest', 'audit finding', 'audit achado', 'audit verify', 'audit report', 'audit relatorio',
@@ -207,7 +210,6 @@ function chaveDoMaster(bruto: string | undefined, opcoes: Readonly<Record<string
 /** O comando pede o texto pelo locale? Nunca com `--json`, nem nos recortes da D2. */
 export function cobreLocale(posicionais: readonly (string | undefined)[], opcoes: Readonly<Record<string, unknown>>): boolean {
   if (opcoes.json !== undefined) return false;
-  if (posicionais[0] === 'doctor' && opcoes.modo !== undefined) return false;
   return COMANDOS_COM_LOCALE.includes(chaveDoLocale(posicionais, opcoes));
 }
 
@@ -275,7 +277,14 @@ const PT_BR = {
     subcomandoDesconhecido: (comando: string, sub: string | undefined) => `subcomando desconhecido: ${comando} ${sub}`,
     /** `exigirManifesto` fora de um projeto: o primeiro erro de quem chega (D14). */
     manifestoNaoEncontrado: (nome: string, dir: string) => `manifesto ${nome} nao encontrado a partir de ${dir}. Rode: ork init`,
+    receiptVerifiersUso: 'uso: ork receipt-verifiers --json',
+    activationUso: 'uso: ork activation plan|status|enable|disable',
+    masterDigestUso: 'uso: ork master digest <enviar|preview|responder>',
+    masterRatificarUso: 'resposta deve ser ratificar <thread> <assinatura> <classe>',
+    masterSelecaoUso: 'seleção deve ser thread:assinatura',
   },
+  preflight: PREFLIGHT_PT_BR,
+  maestro: MAESTRO_PT_BR,
   horario: {
     brasilia: 'horário de Brasília',
     legendaBrasilia: 'Horários de Brasília.',
@@ -289,6 +298,7 @@ const PT_BR = {
   },
   doctor: {
     titulo: 'ork doctor: o que vale nesta maquina agora',
+    modoUso: (modos: string) => `uso: ork doctor --modo ${modos}`,
     correcao: 'correcao',
     bloqueado: (falhas: number, avisos: number) =>
       `Veredito: BLOQUEADO (${falhas} fail, ${avisos} warn). Corrija os itens acima antes de despachar fase.`,
@@ -756,7 +766,14 @@ const EN: Mensagens = {
     erro: (mensagem) => `error: ${mensagem}`,
     subcomandoDesconhecido: (comando, sub) => sub === undefined ? `missing subcommand: ${comando}` : `unknown subcommand: ${comando} ${sub}`,
     manifestoNaoEncontrado: (nome, dir) => `\`${nome}\` not found in ${dir} or any parent directory; run \`ork init\` first.`,
+    receiptVerifiersUso: 'usage: ork receipt-verifiers --json',
+    activationUso: 'usage: ork activation plan|status|enable|disable',
+    masterDigestUso: 'usage: ork master digest <enviar|preview|responder>',
+    masterRatificarUso: 'the response must be ratificar <thread> <signature> <class>',
+    masterSelecaoUso: 'the selection must be thread:signature',
   },
+  preflight: PREFLIGHT_EN,
+  maestro: MAESTRO_EN,
   horario: {
     brasilia: 'Brasília time',
     legendaBrasilia: 'Times in Brasília time.',
@@ -769,6 +786,7 @@ const EN: Mensagens = {
   },
   doctor: {
     titulo: 'ork doctor: what holds on this machine now',
+    modoUso: (modes) => `usage: ork doctor --modo ${modes}`,
     correcao: 'fix',
     bloqueado: (falhas, avisos) =>
       `Verdict: BLOCKED (${falhas} fail, ${avisos} warn). Fix the items above before dispatching a phase.`,

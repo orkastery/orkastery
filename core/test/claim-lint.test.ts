@@ -8,10 +8,11 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { analisarComando } from '../src/claim-lint';
-import { adicionarClaim, caminhoClaims, lerClaims, montarClaim } from '../src/claims';
+import { adicionarClaim, caminhoClaims, gravarClaim, lerClaims, montarClaim } from '../src/claims';
 import { lintDoBundle, prepararBundleCi } from '../src/ci';
 import { TESTES_DE_INTEGRACAO_LOCAL } from '../src/integracoes-locais';
 import { lerLedger } from '../src/ledger';
+import { adicionarClaimMcp } from '../src/mcp-artifacts';
 import { dirThread, novaThread } from '../src/thread';
 import { envPtBr, projetoTemporario } from './apoio';
 
@@ -46,6 +47,38 @@ test('(b2) contagem de commits so quando comparada a um numero', () => {
   assert.deepEqual(regras('git rev-list --count HEAD'), []);
 });
 
+test('quatro comandos incompatíveis: claims add e MCP recusam antes de persistir e sugerem o equivalente portátil', () => {
+  const casos = [
+    { comando: 'rg -n claims core/src', regra: 'binario-rg', sugestao: '`grep`' },
+    { comando: 'ork docs verificar --pr', regra: 'ork-fora-do-path', sugestao: '`node core/dist/index.js ...`' },
+    { comando: 'grep -q claim .orkastery/threads/x/claims.jsonl', regra: 'estado-local', sugestao: 'arquivos versionados do checkout' },
+    { comando: 'grep -q \\x27claim\\x27 core/src/claims.ts', regra: 'aspas-escapadas', sugestao: 'aspas reais do shell' },
+  ];
+  for (const [i, caso] of casos.entries()) {
+    assert.deepEqual(regras(caso.comando), [caso.regra], caso.comando);
+    const p = projetoTemporario(`claim-lint-fatal-${i}`);
+    try {
+      const { thread } = novaThread(p.carregado, { nome: `lint fatal ${i}`, modo: 'auto' });
+      for (const adicionar of [
+        () => adicionarClaim(p.dir, thread.id, { arquivo: 'README.md', alegacao: 'prova portatil', verificar: [caso.comando] }),
+        () => adicionarClaimMcp(p.dir, thread.id, { arquivo: 'README.md', alegacao: 'prova portatil', verificar: [caso.comando] }),
+      ]) {
+        assert.throws(adicionar, (e: Error) => e.message.includes(`claims.lint.${caso.regra}`) && e.message.includes(caso.sugestao));
+      }
+      assert.deepEqual(lerClaims(p.dir, thread.id), [], 'a recusa nao grava claims.jsonl');
+      assert.deepEqual(lerLedger(dirThread(p.dir, thread.id)).filter((e) => e.tipo === 'claim_registrada'), [],
+        'a recusa nao grava recibo de claim no ledger');
+    } finally { p.limpar(); }
+  }
+
+  for (const comando of [
+    'grep -n claims core/src/claims.ts',
+    'node core/dist/index.js docs verificar --pr',
+    'grep -q claim core/test/claim-lint.test.ts',
+    `grep -q 'claim' core/src/claims.ts`,
+  ]) assert.deepEqual(regras(comando), [], comando);
+});
+
 test('toda claim nova nasce com o lint; a anexacao refaz o lint so de quem nasceu com ele', () => {
   const limpa = montarClaim({ id: 'C1', dono: 'ork-x', fase: 'GO', arquivo: 'a', alegacao: 'x', verificar: ['node --test a.test.js'] });
   assert.deepEqual(limpa.lint, []);
@@ -72,6 +105,35 @@ test('ci prepare recusa a suite inteira em claim nascida sob a regra; claim anti
     assert.equal(fs.existsSync(arquivo), true);
     assert.equal(avisos.length, 1);
     assert.match(avisos[0], /roda a suite inteira .*claim anterior ao lint: so aviso/);
+    assert.deepEqual(lintDoBundle(lerClaims(p.dir, thread.id)).recusas, []);
+  } finally { p.limpar(); }
+});
+
+test('quatro casos no bundle: claim nova recusa e a equivalente anterior ao lint apenas avisa', () => {
+  const p = projetoTemporario('claim-lint-ci-quatro');
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'lint ci quatro', modo: 'auto' });
+    const comandos = [
+      'rg -n claims core/src',
+      'ork docs verificar --pr',
+      'grep -q claim .orkastery/threads/x/claims.jsonl',
+      'grep -q \\x27claim\\x27 core/src/claims.ts',
+    ];
+    for (const [i, comando] of comandos.entries()) {
+      gravarClaim(p.dir, montarClaim({ id: `C${i + 1}`, dono: thread.id, fase: 'GO', arquivo: 'README.md',
+        alegacao: `prova ${i + 1}`, verificar: [comando] }));
+    }
+    const lintNovo = lintDoBundle(lerClaims(p.dir, thread.id));
+    assert.equal(lintNovo.recusas.length, 4);
+    assert.deepEqual(lintNovo.avisos, []);
+    assert.throws(() => prepararBundleCi(p.carregado, thread.id), /claims\.lint: o bundle nao foi gerado/);
+
+    const antigas = lerClaims(p.dir, thread.id).map(({ lint: _lint, ...resto }) => resto);
+    fs.writeFileSync(caminhoClaims(p.dir, thread.id), antigas.map((c) => JSON.stringify(c)).join('\n') + '\n');
+    const avisos: string[] = [];
+    prepararBundleCi(p.carregado, thread.id, { aoAvisar: (linha) => avisos.push(linha) });
+    assert.equal(avisos.length, 4);
+    for (const aviso of avisos) assert.match(aviso, /claim anterior ao lint: so aviso/);
     assert.deepEqual(lintDoBundle(lerClaims(p.dir, thread.id)).recusas, []);
   } finally { p.limpar(); }
 });
