@@ -22,6 +22,8 @@ const CHANGELOG_DA_BASE = `# Changelog
 
 ## Não publicado
 
+### Alterado
+
 - **Coisa antiga** já registrada.
 
 ## [0.5.0] - 2026-09-30
@@ -95,12 +97,45 @@ test('defeito 2: com a linha nova em "Não publicado", ou com a seção de uma v
   try {
     // O PR de versão leva as linhas de "Não publicado" para a versão nova e deixa a seção vazia.
     versao.mudar('core/package.json', '{"version":"0.6.0"}\n');
-    versao.mudar('CHANGELOG.md', CHANGELOG_DA_BASE.replace('## Não publicado\n\n- **Coisa antiga** já registrada.\n',
-      '## Não publicado\n\n## [0.6.0] - 2026-10-01\n\n- **Coisa antiga** já registrada.\n'));
+    versao.mudar('CHANGELOG.md', CHANGELOG_DA_BASE.replace(
+      '## Não publicado\n\n### Alterado\n\n- **Coisa antiga** já registrada.\n',
+      '## Não publicado\n\n## [0.6.0] - 2026-10-01\n\n### Alterado\n\n- **Coisa antiga** já registrada.\n'));
     const v = checar(versao.dir);
     assert.equal(v.ok, true, v.detalhe);
     assert.match(v.detalhe, /versão nova no CHANGELOG\.md: 0\.6\.0/);
   } finally { versao.limpar(); }
+});
+
+test('seção publicada e grupo: tag bloqueia edição histórica, Corrigido passa e linha sem ### reprova', () => {
+  const publicada = repositorio('rm037-changelog-publicada');
+  try {
+    git(publicada.dir, 'tag', 'v0.5.0', 'main');
+    publicada.mudar('core/src/modulo.ts', 'export const x = 20;\n');
+    publicada.mudar('CHANGELOG.md', CHANGELOG_DA_BASE
+      .replace('### Alterado\n\n- **Coisa antiga** já registrada.',
+        '### Alterado\n\n- **Coisa antiga** já registrada.\n\n### Corrigido\n\n- **Mudança correta**: fica por publicar.')
+      .replace('- a versão anterior.', '- a versão anterior.\n- **Edição histórica**: não pode entrar.'));
+    const v = checar(publicada.dir);
+    assert.equal(v.motivo, 'changelog.secao-publicada');
+    assert.match(v.detalhe, /tag v0\.5\.0/);
+    assert.match(String(v.correcao), /Não publicado/);
+  } finally { publicada.limpar(); }
+
+  const correta = repositorio('rm037-changelog-grupo-correto');
+  try {
+    correta.mudar('core/src/modulo.ts', 'export const x = 21;\n');
+    correta.mudar('CHANGELOG.md', CHANGELOG_DA_BASE.replace('- **Coisa antiga** já registrada.',
+      '- **Coisa antiga** já registrada.\n\n### Corrigido\n\n- **Conserto**: fica na seção certa.'));
+    assert.equal(checar(correta.dir).ok, true);
+  } finally { correta.limpar(); }
+
+  const semGrupo = repositorio('rm037-changelog-sem-grupo');
+  try {
+    semGrupo.mudar('core/src/modulo.ts', 'export const x = 22;\n');
+    semGrupo.mudar('CHANGELOG.md', CHANGELOG_DA_BASE.replace('## Não publicado\n\n',
+      '## Não publicado\n\n- **Sem grupo**: esta linha não tem título de terceiro nível.\n\n'));
+    assert.equal(checar(semGrupo.dir).motivo, 'changelog.grupo-ausente');
+  } finally { semGrupo.limpar(); }
 });
 
 test('defeito 2 (GO-FIX 2): o PR de versão passa nos dois formatos, também quando "Não publicado" vira a versão', () => {
@@ -172,7 +207,8 @@ test('defeito 2: o CLI sai 1 com o motivo tipado e a correção, e 0 quando pass
     assert.equal(saida.status, 1, saida.stdout + saida.stderr);
     assert.match(saida.stdout, /^changelog\.linha-ausente: o PR muda 1 arquivo\(s\)/m);
     assert.match(saida.stdout, /^correcao: acrescente em "## Não publicado"/m);
-    r.mudar('CHANGELOG.md', CHANGELOG_DA_BASE.replace('## Não publicado\n', '## Não publicado\n\n- **Módulo**: x vale 4.\n'));
+    r.mudar('CHANGELOG.md', CHANGELOG_DA_BASE.replace('- **Coisa antiga** já registrada.',
+      '- **Coisa antiga** já registrada.\n\n### Corrigido\n\n- **Módulo**: x vale 4.'));
     saida = spawnSync(process.execPath, [SCRIPT, '--base', 'main', r.dir], { encoding: 'utf8' });
     assert.equal(saida.status, 0, saida.stdout + saida.stderr);
     assert.equal(spawnSync(process.execPath, [SCRIPT, '--base', 'origin/nao-existe', r.dir], { encoding: 'utf8' }).status, 2);
