@@ -148,6 +148,11 @@ export interface ProjetoDeTeste {
   limpar: () => void;
 }
 
+export interface CopiadorDeProjetoDeTeste {
+  copiar: (nome: string) => ProjetoDeTeste;
+  totalDeModelos: () => number;
+}
+
 /**
  * I-34 (achado 1 do CHECK 2764ac5f): o despacho claude-bg inicia um watcher destacado que
  * escreve na pasta da thread. Apagar o projeto com ele vivo corre com o `rmSync` (ENOTEMPTY)
@@ -195,6 +200,54 @@ export function projetoTemporario(nome: string, comRemoto = false): ProjetoDeTes
       fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
       if (remoto) fs.rmSync(remoto, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     },
+  };
+}
+
+/**
+ * RM-074 M4: cria o projeto Git inicial uma vez no processo do arquivo e entrega uma copia isolada por caso.
+ * O remoto tambem e copiado e o `origin` aponta para a copia, nunca para o modelo compartilhado.
+ */
+export function copiadorDeProjetoDeTeste(criarModelo: () => ProjetoDeTeste): CopiadorDeProjetoDeTeste {
+  let modelo: ProjetoDeTeste | null = null;
+  let modelosCriados = 0;
+
+  const obterModelo = (): ProjetoDeTeste => {
+    if (modelo) return modelo;
+    modelo = criarModelo();
+    modelosCriados++;
+    process.once('exit', () => modelo?.limpar());
+    return modelo;
+  };
+
+  return {
+    copiar(nome: string): ProjetoDeTeste {
+      const base = obterModelo();
+      const dir = dirTemporario(nome);
+      fs.rmSync(dir, { recursive: true, force: true });
+      fs.cpSync(base.dir, dir, { recursive: true });
+
+      let remoto: string | null = null;
+      if (base.remoto) {
+        remoto = dirTemporario(`${nome}-origin`);
+        fs.rmSync(remoto, { recursive: true, force: true });
+        fs.cpSync(base.remoto, remoto, { recursive: true });
+        const configurado = exec('git', ['remote', 'set-url', 'origin', remoto], dir);
+        if (!configurado.ok) throw new Error(`fixture: nao foi possivel isolar origin: ${configurado.stderr}`);
+      }
+
+      const carregado = exigirManifesto(dir);
+      return {
+        dir,
+        carregado,
+        remoto,
+        limpar: () => {
+          encerrarWatchers(dir);
+          fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+          if (remoto) fs.rmSync(remoto, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+        },
+      };
+    },
+    totalDeModelos: () => modelosCriados,
   };
 }
 
