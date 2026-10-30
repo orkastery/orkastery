@@ -205,6 +205,90 @@
       "criadoEm": "2026-10-30T12:53:34.388Z",
       "estado": "pendente",
       "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm074m2harne",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-rm074m2harne.json",
+      "alegacao": "O bundle de CI referencia esta thread, a branch fonte e o conjunto de claims preparado pelo núcleo.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const j=require('./.ork-ci/ork-rm074m2harne.json');if(j.thread!=='ork-rm074m2harne'||j.branch!=='ork/ork-rm074m2harne-full'||!Array.isArray(j.claims))process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-30T13:06:14.892Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm074m2harne",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "alegacao": "A sonda 2 escolhe os dez maiores pela parede concorrente e publica CPU total e de sistema por arquivo.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'custoDosMaiores' core/scripts/medir-check.cjs && node --test-name-pattern='^MC16:' core/dist-test/test/medir-check.test.js"
+      ],
+      "criadoEm": "2026-10-30T13:06:45.343Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm074m2harne",
+      "fase": "GOAL",
+      "arquivo": "core/test/medir-check.test.ts",
+      "alegacao": "MC16 prova seleção pela parede concorrente e as frações de CPU, sistema, parede e testes.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='^MC16:' core/dist-test/test/medir-check.test.js"
+      ],
+      "criadoEm": "2026-10-30T13:06:45.419Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm074m2harne",
+      "fase": "GOAL",
+      "arquivo": "core/test/rede.test.ts",
+      "alegacao": "Rede separa o helper no processo para respostas e mantém orkEmProcesso nos cenários de fronteira real.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'cliNoProcesso' core/test/rede.test.ts && grep -q 'orkEmProcesso' core/test/rede.test.ts"
+      ],
+      "criadoEm": "2026-10-30T13:06:45.495Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm074m2harne",
+      "fase": "GOAL",
+      "arquivo": "core/test/projeto-alvo-declaracao.test.ts",
+      "alegacao": "Os cinco casos L3 sem OpenClaw preservam a saída ao usar o harness; OpenClaw continua como processo real.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'cliNoProcesso' core/test/projeto-alvo-declaracao.test.ts && node --test-name-pattern='^(?!.*OpenClaw).*L3' core/dist-test/test/projeto-alvo-declaracao.test.js"
+      ],
+      "criadoEm": "2026-10-30T13:06:45.611Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm074m2harne",
+      "fase": "GOAL",
+      "arquivo": "core/test/cli-in-processo.ts",
+      "alegacao": "O harness restaura o projeto alvo global no finally e conserva a moldura de saída coberta por CIP.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'fixarProjetoAlvo' core/test/cli-in-processo.ts && node core/dist-test/test/cli-in-processo.test.js"
+      ],
+      "criadoEm": "2026-10-30T13:06:45.717Z",
+      "estado": "pendente",
+      "lint": []
     }
   ],
   "deferredClaims": [],
