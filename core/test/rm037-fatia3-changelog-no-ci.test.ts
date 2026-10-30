@@ -16,7 +16,8 @@ import { verificar } from '../src/verify';
 
 const raizDoRepo = path.resolve(__dirname, '../../..');
 const SCRIPT = path.join(raizDoRepo, 'core/scripts/checar-changelog.cjs');
-const { checarChangelog } = require(SCRIPT) as {
+const { changelogAplicavel, checarChangelog } = require(SCRIPT) as {
+  changelogAplicavel: (raiz: string, head?: string) => boolean;
   checarChangelog: (raiz: string, opcoes: { base?: string; head?: string; baseCarimbada?: string }) =>
     { ok: boolean; motivo: string | null; detalhe: string; correcao?: string; arquivos: string[]; linhas: string[] };
 };
@@ -57,6 +58,7 @@ function repositorio(nome: string): { dir: string; mudar: (arquivo: string, cont
   escrever('core/src/modulo.ts', 'export const x = 1;\n');
   git(dir, 'add', '-A');
   git(dir, 'commit', '-q', '-m', 'base');
+  git(dir, 'tag', 'v0.5.0');
   git(dir, 'checkout', '-q', '-b', 'ork/ork-pr-full');
   return {
     dir,
@@ -77,9 +79,9 @@ test('defeito 2: PR que muda core/ sem linha em "Não publicado" reprova com cha
     assert.equal(v.motivo, 'changelog.linha-ausente');
     assert.deepEqual(v.arquivos, ['adapters/claude-code/agents/ork-go.md', 'core/src/modulo.ts']);
     assert.match(String(v.correcao), /acrescente em "## Não publicado" do CHANGELOG\.md/);
-    // Linha nova fora de "Não publicado" (na versão já publicada) não vale.
+    // Linha nova fora de "Não publicado" (na versão já publicada) recebe a recusa mais específica.
     r.mudar('CHANGELOG.md', CHANGELOG_DA_BASE.replace('- a versão anterior.', '- a versão anterior.\n- linha no lugar errado.'));
-    assert.equal(checar(r.dir).motivo, 'changelog.linha-ausente');
+    assert.equal(checar(r.dir).motivo, 'changelog.secao-publicada');
     // Só um título novo, sem texto, também não.
     r.mudar('CHANGELOG.md', CHANGELOG_DA_BASE.replace('## Não publicado\n', '## Não publicado\n\n### Corrigido\n'));
     assert.equal(checar(r.dir).motivo, 'changelog.linha-ausente');
@@ -112,7 +114,6 @@ test('defeito 2: com a linha nova em "Não publicado", ou com a seção de uma v
 test('seção publicada e grupo: tag bloqueia edição histórica, Corrigido passa e linha sem ### reprova', () => {
   const publicada = repositorio('rm037-changelog-publicada');
   try {
-    git(publicada.dir, 'tag', 'v0.5.0', 'main');
     publicada.mudar('core/src/modulo.ts', 'export const x = 20;\n');
     publicada.mudar('CHANGELOG.md', CHANGELOG_DA_BASE
       .replace('### Alterado\n\n- **Coisa antiga** já registrada.',
@@ -139,6 +140,30 @@ test('seção publicada e grupo: tag bloqueia edição histórica, Corrigido pas
       '## Não publicado\n\n- **Sem grupo**: esta linha não tem título de terceiro nível.\n\n'));
     assert.equal(checar(semGrupo.dir).motivo, 'changelog.grupo-ausente');
   } finally { semGrupo.limpar(); }
+});
+
+test('aplicabilidade: sem tag publicada ou sem CHANGELOG a regra não entra no verify', () => {
+  const semTag = repositorio('rm037-changelog-sem-tag');
+  try {
+    git(semTag.dir, 'tag', '-d', 'v0.5.0');
+    semTag.mudar('core/src/modulo.ts', 'export const x = 30;\n');
+    assert.equal(changelogAplicavel(semTag.dir), false);
+    const v = checar(semTag.dir);
+    assert.equal(v.ok, true, v.detalhe);
+    assert.match(v.detalhe, /ainda não tem versão publicada/);
+  } finally { semTag.limpar(); }
+
+  const semArquivo = repositorio('rm037-changelog-sem-arquivo');
+  try {
+    fs.rmSync(path.join(semArquivo.dir, 'CHANGELOG.md'));
+    git(semArquivo.dir, 'add', '-A');
+    git(semArquivo.dir, 'commit', '-q', '-m', 'remove changelog');
+    semArquivo.mudar('core/src/modulo.ts', 'export const x = 31;\n');
+    assert.equal(changelogAplicavel(semArquivo.dir), false);
+    const v = checar(semArquivo.dir);
+    assert.equal(v.ok, true, v.detalhe);
+    assert.match(v.detalhe, /CHANGELOG\.md não existe/);
+  } finally { semArquivo.limpar(); }
 });
 
 test('base carimbada posterior à branch alvo não atribui à thread uma seção publicada anterior', () => {
