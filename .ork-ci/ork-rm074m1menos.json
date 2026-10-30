@@ -71,7 +71,7 @@
         "grep -F 'M1' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md && grep -F 'RM-074' CHANGELOG.md"
       ],
       "criadoEm": "2026-10-30T06:02:21.958Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -86,7 +86,7 @@
         "node --test core/dist-test/test/cli-in-processo.test.js"
       ],
       "criadoEm": "2026-10-30T06:12:59.488Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -101,7 +101,7 @@
         "node --test core/dist-test/test/cli-in-processo.test.js"
       ],
       "criadoEm": "2026-10-30T06:12:59.565Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -116,7 +116,7 @@
         "node --test core/dist-test/test/locale-f3b-snapshot.test.js"
       ],
       "criadoEm": "2026-10-30T06:18:21.108Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -131,7 +131,7 @@
         "node --test core/dist-test/test/locale-f3d-snapshot.test.js"
       ],
       "criadoEm": "2026-10-30T06:18:21.201Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -146,7 +146,7 @@
         "node --test core/dist-test/test/rede.test.js"
       ],
       "criadoEm": "2026-10-30T06:18:21.345Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -161,7 +161,7 @@
         "node --test core/dist-test/test/test-lanes.test.js"
       ],
       "criadoEm": "2026-10-30T06:23:36.611Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -176,7 +176,7 @@
         "node --test core/dist-test/test/test-lanes.test.js"
       ],
       "criadoEm": "2026-10-30T06:23:36.678Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -191,7 +191,7 @@
         "node --test core/dist-test/test/test-lanes.test.js"
       ],
       "criadoEm": "2026-10-30T06:23:36.735Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -206,7 +206,7 @@
         "node --test core/dist-test/test/check-agil.test.js"
       ],
       "criadoEm": "2026-10-30T06:30:25.358Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -221,7 +221,7 @@
         "node --test core/dist-test/test/check-agil.test.js"
       ],
       "criadoEm": "2026-10-30T06:30:25.437Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -236,7 +236,7 @@
         "node --test core/dist-test/test/check-agil.test.js core/dist-test/test/verify.test.js core/dist-test/test/verify-compilacao-unica.test.js"
       ],
       "criadoEm": "2026-10-30T06:30:25.554Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -251,7 +251,7 @@
         "node --test core/dist-test/test/check-agil.test.js"
       ],
       "criadoEm": "2026-10-30T06:30:25.641Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -270,7 +270,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m1.json M6"
       ],
       "criadoEm": "2026-10-30T06:31:27.525Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -284,7 +284,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m1.json M7"
       ],
       "criadoEm": "2026-10-30T06:35:07.486Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -299,7 +299,7 @@
         "grep -F 'a bateria e as asserções não diminuem' CHANGELOG.md"
       ],
       "criadoEm": "2026-10-30T06:38:57.559Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -313,7 +313,7 @@
         "grep -F '[RM-074](RM-074-agile-check-tres-vezes-mais-rapido.md) | Agile Check cerca de 1,7 vez mais rápido que o Classic | Em desenvolvimento | Branch criada' docs/roadmap/README.md"
       ],
       "criadoEm": "2026-10-30T06:39:39.744Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -327,7 +327,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m1.json M8"
       ],
       "criadoEm": "2026-10-30T06:42:35.799Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -341,7 +341,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m1.json M9"
       ],
       "criadoEm": "2026-10-30T06:49:31.722Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -356,7 +356,7 @@
         "node --test core/dist-test/test/locale-f3b-snapshot.test.js"
       ],
       "criadoEm": "2026-10-30T07:19:57.599Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -371,7 +371,7 @@
         "node --test core/dist-test/test/locale-f3d-snapshot.test.js"
       ],
       "criadoEm": "2026-10-30T07:19:57.677Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -386,7 +386,7 @@
         "node --test core/dist-test/test/rede.test.js"
       ],
       "criadoEm": "2026-10-30T07:19:57.743Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -400,6 +400,51 @@
         "node -e \"const x=JSON.parse(require('fs').readFileSync('.ork-ci/ork-rm074m1menos.json','utf8'));if(x.thread!=='ork-rm074m1menos')process.exit(1)\""
       ],
       "criadoEm": "2026-10-30T07:44:33.823Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm074m1menos",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3d-apoio.ts",
+      "alegacao": "Os casos `mcp install` do snapshot F3d usam processo filho, pois sua conclusão assíncrona não cabe no harness síncrono.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"args[0] === 'accounts' || cliExigeProcessoFilho(args)\" core/test/locale-f3d-apoio.ts",
+        "node --test core/dist-test/test/locale-f3d-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-30T08:12:50.416Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm074m1menos",
+      "fase": "GO",
+      "arquivo": "core/test/cli-in-processo.test.ts",
+      "alegacao": "O contrato do harness recusa `mcp install` com `--project` relativo e absoluto antes de alterar estado global.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"CIP4: mcp install com --project relativo e absoluto permanece no processo filho\" core/test/cli-in-processo.test.ts",
+        "node --test core/dist-test/test/cli-in-processo.test.js"
+      ],
+      "criadoEm": "2026-10-30T08:12:50.469Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm074m1menos",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m1.json",
+      "alegacao": "Os mutantes M8 e M9 usam trechos únicos do JavaScript compilado atual e são mortos pela suíte.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m1.json M8",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m1.json M9"
+      ],
+      "criadoEm": "2026-10-30T08:12:50.507Z",
       "estado": "pendente",
       "lint": []
     }
