@@ -258,20 +258,23 @@ test('MC15: sonda 1, a concentracao da parede por arquivo: os mais caros, a part
   assert.equal(medir.concentracao({}), null);
 });
 
-test('MC16: sonda 2, o custo isolado dos maiores: parte da CPU da suite, sistema, CPU por parede, sozinho contra concorrente', () => {
+test('MC16: sonda 2, os maiores da sonda 1: CPU da suite, sistema, CPU por parede e sozinho contra concorrente', () => {
   const m = (userMs: number, sysMs: number, paredeMs: number, testes: number) => ({ userMs, sysMs, paredeMs, testes, picoKb: 1000 });
   const c = medir.custoDosMaiores({ 'a.test.js': m(300, 100, 200, 4), 'b.test.js': m(100, 300, 400, 6), 'c.test.js': m(100, 100, 100, 10),
-    'd.test.js': { userMs: null, sysMs: null, paredeMs: 5, testes: 1, picoKb: null } }, { 'a.test.js': 400 }, 2)!;
-  assert.deepEqual(c.arquivos.map((x: { arquivo: string }) => x.arquivo), ['a.test.js', 'b.test.js'], 'empate em CPU vai pelo nome');
-  perto(c.arquivos[0].parteDaCpu, 0.4);
-  perto(c.arquivos[0].parteDoSistema, 0.25);
+    'd.test.js': { userMs: null, sysMs: null, paredeMs: 5, testes: 1, picoKb: null } },
+  { 'a.test.js': 400, 'b.test.js': 800, 'c.test.js': 1000, 'd.test.js': 2000 }, 2)!;
+  assert.deepEqual(c.arquivos.map((x: { arquivo: string }) => x.arquivo), ['c.test.js', 'b.test.js'],
+    'a sonda 1, nao a CPU isolada, escolhe e ordena os arquivos; medicao invalida fica fora');
+  perto(c.arquivos[0].parteDaCpu, 0.2);
+  assert.equal(c.arquivos[0].cpuMs, 200);
+  assert.equal(c.arquivos[0].sistemaMs, 100);
+  perto(c.arquivos[0].parteDoSistema, 0.5);
   perto(c.arquivos[0].cpuPorParede, 2);
-  perto(c.arquivos[0].sozinhoContraConcorrente, 0.5);
-  assert.equal(c.arquivos[1].sozinhoContraConcorrente, null, 'sem parede sob concorrencia');
+  perto(c.arquivos[0].sozinhoContraConcorrente, 0.1);
   perto(c.arquivos[1].parteDoSistema, 0.75);
-  assert.equal(c.soma.testes, 10);
+  assert.equal(c.soma.testes, 16);
   perto(c.soma.parteDosTestes, 0.5, 'o arquivo sem tempo medido fica fora das duas somas');
-  perto(c.soma.parteDaCpu, 0.8);
+  perto(c.soma.parteDaCpu, 0.6);
 });
 
 test('MC17: sonda 3, as claims que repetem a lane e o peso das claims, das lanes e da varredura na parede da rodada', () => {

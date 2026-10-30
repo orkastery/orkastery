@@ -348,21 +348,23 @@ function concentracao(duracoes, lanes = {}) {
 }
 
 /**
- * Sonda 2: o custo isolado dos N arquivos de maior CPU no passe por arquivo. Por arquivo: testes, a parte da CPU da suite,
- * o sistema na CPU do arquivo, a CPU por parede, a parede sozinho contra a parede sob concorrencia (sonda 1) e o pico.
+ * Sonda 2: o custo isolado dos N arquivos de maior parede sob concorrencia na sonda 1. Por arquivo: testes, a parte da
+ * CPU da suite, a CPU de sistema (valor e parte), a CPU por parede, a parede sozinho contra a concorrente e o pico.
  */
-function custoDosMaiores(porArquivo, concorrente = {}, n = 5) {
+function custoDosMaiores(porArquivo, concorrente = {}, n = 10) {
   const linhas = Object.entries(porArquivo).filter(([, m]) => typeof m.userMs === 'number' && typeof m.sysMs === 'number')
     .map(([arquivo, m]) => ({ arquivo, ...m, cpuMs: m.userMs + m.sysMs }));
   const cpuDaSuite = linhas.reduce((s, l) => s + l.cpuMs, 0);
   const testesDaSuite = linhas.reduce((s, l) => s + (l.testes ?? 0), 0);
   if (!cpuDaSuite) return null;
-  const maiores = linhas.sort((a, b) => b.cpuMs - a.cpuMs || (a.arquivo < b.arquivo ? -1 : 1)).slice(0, n);
+  const maiores = linhas.filter((l) => typeof concorrente[l.arquivo] === 'number')
+    .sort((a, b) => concorrente[b.arquivo] - concorrente[a.arquivo] || (a.arquivo < b.arquivo ? -1 : 1)).slice(0, n);
   const somaCpu = maiores.reduce((s, l) => s + l.cpuMs, 0);
   const somaTestes = maiores.reduce((s, l) => s + (l.testes ?? 0), 0);
   return {
     arquivos: maiores.map((l) => ({ arquivo: l.arquivo, testes: l.testes ?? null, parteDaCpu: l.cpuMs / cpuDaSuite,
-      parteDoSistema: l.cpuMs ? l.sysMs / l.cpuMs : null, cpuPorParede: l.paredeMs ? l.cpuMs / l.paredeMs : null,
+      cpuMs: l.cpuMs, sistemaMs: l.sysMs, parteDoSistema: l.cpuMs ? l.sysMs / l.cpuMs : null,
+      cpuPorParede: l.paredeMs ? l.cpuMs / l.paredeMs : null,
       sozinhoContraConcorrente: concorrente[l.arquivo] ? l.paredeMs / concorrente[l.arquivo] : null, picoKb: l.picoKb ?? null })),
     soma: { testes: somaTestes, parteDosTestes: testesDaSuite ? somaTestes / testesDaSuite : null, parteDaCpu: somaCpu / cpuDaSuite },
   };
@@ -918,7 +920,7 @@ function analisarBancada({ rodadas, passes, lanes, nucleos, linhaDeBase = null, 
   const agiles = rodadas.filter((r) => r.pedido === 'agile');
   const classics = rodadas.filter((r) => r.pedido === 'classic');
   const sonda1 = agiles.map((r) => ({ par: r.par, ...concentracao(r.duracoesPorArquivo ?? {}, lanes) }));
-  const sonda2 = passes.map((p, i) => ({ passe: p.passe, ...custoDosMaiores(p.medidas, agiles[i]?.duracoesPorArquivo ?? {}) }));
+  const sonda2 = passes.map((p, i) => ({ passe: p.passe, ...custoDosMaiores(p.medidas, agiles[i]?.duracoesPorArquivo ?? {}, 10) }));
   const arquivosDasLanes = Object.values(lanes).flat();
   const sonda3 = {
     bancada: claimsQueRepetem(CLAIMS_REPRESENTATIVAS.map((c) => c.verificar), arquivosDasLanes),
