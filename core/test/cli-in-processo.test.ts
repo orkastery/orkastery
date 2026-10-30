@@ -8,6 +8,7 @@ import * as path from 'node:path';
 import { test } from 'node:test';
 import { cliExigeProcessoFilho, cliNoProcesso } from './cli-in-processo';
 import { VERSAO_DO_ORK } from '../src/versao';
+import { projetoAlvoAtual } from '../src/projeto-alvo';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
 const RAIZ = path.resolve(__dirname, '../../..');
@@ -45,9 +46,9 @@ test('CIP1: sucesso e erro de uso sao byte a byte iguais ao processo filho', () 
   }
 });
 
-test('CIP2: cwd, ambiente, argv, exitCode e descritores voltam ao valor anterior', () => {
+test('CIP2: cwd, ambiente, argv, exitCode, descritores e projeto-alvo voltam ao valor anterior', () => {
   const antes = { cwd: process.cwd(), lang: process.env.LANG, argv: [...process.argv], exitCode: process.exitCode,
-    stdout: process.stdout.write, stderr: process.stderr.write, exit: process.exit };
+    stdout: process.stdout.write, stderr: process.stderr.write, exit: process.exit, projeto: projetoAlvoAtual() };
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-cli-restaura-'));
   try {
     const r = cliNoProcesso({ cwd: dir, env: ambiente(dir, 'en_US.UTF-8'), args: ['help'] });
@@ -59,6 +60,7 @@ test('CIP2: cwd, ambiente, argv, exitCode e descritores voltam ao valor anterior
     assert.equal(process.stdout.write, antes.stdout);
     assert.equal(process.stderr.write, antes.stderr);
     assert.equal(process.exit, antes.exit);
+    assert.equal(projetoAlvoAtual(), antes.projeto);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
