@@ -6,6 +6,17 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Corrigido
+
+- **Fila pesada entre host e sandbox** ([RM-064](docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md)):
+  o lease combina a trava do kernel com batida em arquivo, identidade opaca do host e do espaço de PIDs e o instante de
+  início lido de `/proc/<pid>/stat`. PID invisível ou evidência insuficiente agora é lease indeterminado, nunca órfão;
+  a sessão espera com `--esperar` ou deixa um pedido tipado para a condução.
+- **Parada intencional não vira queda do runtime** ([RM-055](docs/roadmap/RM-055-impedimento-do-dono-vira-hitl.md)):
+  a sessão `worktree` ganha somente `ork_request_conduction`, vinculada ao próprio despacho, para registrar um motivo
+  enumerado e um comando `ork` exato sem executá-lo. O watcher preserva o pedido em vez de sintetizar
+  `runtime.unavailable`, o retry não redespacha enquanto ele está aberto e o relatório o mostra em “Conosco”.
+
 ## [0.6.1] - 2026-10-29
 
 O Grok Build entra por despacho explícito (`--runtime grok`), com perfis de conta, setup e MCP, ainda sem homologação real: o ensaio real (F5) falta.
