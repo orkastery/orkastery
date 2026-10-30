@@ -11,7 +11,8 @@ import { ProjetoDeTeste } from './apoio';
 import { autorizarPedido, passar, pedidoV2, prepararIngressoSimulado, revogarArco } from './noctum-apoio';
 import { avancarBase, CAB, CHANGELOG_DA_BASE, ciFalso, claimDe, commitarBundle, commitarNaWorktree, commitDaSessao, concluirBloco,
   concluirRevisao, despachoDoCheck, ENTRADA_DA_THREAD, entregaPronta, EstadoDoCheck, FORJA, ghFalso, git, head, projetoDaEntrega,
-  SessaoSimulada, sessaoDespachada, threadComWorktree, verifyDoPasso, verifyNoLedger } from './noctum-entrega-apoio';
+  SessaoSimulada, sessaoDespachada, threadComWorktree, totalDeModelosDaEntrega, verifyDoPasso,
+  verifyNoLedger } from './noctum-entrega-apoio';
 import { ExecutorCi } from '../src/ci';
 import { kernelDisponivel } from '../src/fila-pesada';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from '../src/ledger';
@@ -94,6 +95,7 @@ test('QE1: de ponta a ponta: publica, espera o CI, integra no SHA, registra o MA
     const r5 = passo(m, 'arco-qe1');
     assert.equal(r5.acao, 'nada', resumo(r5));
     assert.equal(lerLedger(dirThread(m.p.dir, e.t.id)).filter(x => x.tipo === TIPOS_DE_EVENTO.shipConcluido).length, 1, 'uma entrega só');
+    fs.writeFileSync(path.join(m.p.dir, '.rm074-m4-isolamento-entrega'), 'so no mundo de QE1\n');
   } finally { m.p.limpar(); }
 });
 
@@ -101,6 +103,8 @@ test('QE2: sem revisão independente (o bloco inteiro numa sessão), o arco desp
   const m = mundo('noctum-qe2');
   m.gh = ghFalso(m.p);
   try {
+    assert.equal(totalDeModelosDaEntrega(), 1, 'o projeto inicial da entrega nasce uma vez no processo do arquivo');
+    assert.equal(fs.existsSync(path.join(m.p.dir, '.rm074-m4-isolamento-entrega')), false, 'QE2 nao herda os bytes de QE1');
     const t = threadComWorktree(m.p, 'qe2');
     const autor = sessaoDespachada(m.p, t.id, 'GOAL');
     const changelog = fs.readFileSync(path.join(t.worktree!, 'CHANGELOG.md'), 'utf8').replace('### Adicionado\n\n', `### Adicionado\n\n${ENTRADA_DA_THREAD('qe2')}\n\n`);
