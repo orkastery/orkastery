@@ -20,8 +20,10 @@ evidencias:
     commit: ab26364f
     pr: null
 sdlc:
-  thread: null
-  modo: null
+  thread: ork-rm074m4cpude
+  modo: "#Auto"
+  fase: GOAL
+  status: aberta
 ---
 
 # RM-074: Agile Check cerca de 1,7 vez mais rápido que o Classic, sem perder cobertura
