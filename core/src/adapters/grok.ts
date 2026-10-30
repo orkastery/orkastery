@@ -89,7 +89,7 @@ const PREFIXO_DO_CLAUDE = 'mcp__orkastery__';
 /**
  * RM-067 (F4b, G2 e D1): as ferramentas do MCP do `ork` que um despacho do `grok` libera, as mesmas do `--allowedTools` do
  * `claude-bg` no mesmo caso, sem o prefixo: no PLAN que fecha o bloco, as consultas, `ork_artifact_write` e
- * `ork_decision_record`, em qualquer perfil; fora dele, as consultas e, no perfil `worktree`, `ork_git_status` e as seis
+ * `ork_decision_record`, em qualquer perfil; fora dele, as consultas e, no perfil `worktree`, `ork_git_status` e as sete
  * mutações. As consultas do grafo entram com a flag do manifesto da raiz. Montada na chamada, como no `claude-bg`: no
  * ciclo de imports, o valor importado pode ainda não existir quando este módulo carrega.
  */

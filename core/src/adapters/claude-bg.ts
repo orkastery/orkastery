@@ -55,7 +55,8 @@ export const CONSULTAS_MCP = [
 // RM-037 (defeito 1): a decisao autonoma pelo MCP tem o mesmo grant nos dois runtimes.
 export const MUTACOES_WORKTREE = [
   'mcp__orkastery__ork_artifact_write', 'mcp__orkastery__ork_claim_add', 'mcp__orkastery__ork_decision_record',
-  'mcp__orkastery__ork_git_commit', 'mcp__orkastery__ork_verify', 'mcp__orkastery__ork_ship',
+  'mcp__orkastery__ork_request_conduction', 'mcp__orkastery__ork_git_commit', 'mcp__orkastery__ork_verify',
+  'mcp__orkastery__ork_ship',
 ] as const;
 /**
  * RM-031 KG5 (D7): as consultas do grafo, de leitura, so com a flag do manifesto da raiz; sem ela, nada muda.
