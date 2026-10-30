@@ -286,16 +286,16 @@
       "lint": []
     },
     {
-      "id": "C22",
+      "id": "C23",
       "thread": "ork-claimsechang",
       "fase": "GO",
       "arquivo": "docs/produto/FEAT-004-claims-e-verify.md",
       "alegacao": "FEAT-004, RM-037 e CHANGELOG limitam a regra aos repositórios com CHANGELOG.md e tag v* publicada.",
       "negativa": false,
       "verificar": [
-        "grep -q 'tag publicada `v\\*`' docs/roadmap/RM-037-verify-rapido-e-confiavel.md && grep -q 'Sem arquivo ou versão publicada' docs/produto/FEAT-004-claims-e-verify.md && node -e \"const t=require('fs').readFileSync('CHANGELOG.md','utf8');const i=t.indexOf('## Não publicado');const j=t.indexOf('## [',i);const k=t.indexOf('sem arquivo ou versão publicada',i);process.exit(i>=0&&k>i&&(j<0||k<j)?0:1)\""
+        "grep -q 'tag publicada `v' docs/roadmap/RM-037-verify-rapido-e-confiavel.md && grep -q 'Sem arquivo ou versão publicada' docs/produto/FEAT-004-claims-e-verify.md && node -e \"const t=require('fs').readFileSync('CHANGELOG.md','utf8');const i=t.indexOf('## Não publicado');const j=t.indexOf('## [',i);const k=t.indexOf('sem arquivo ou versão publicada',i);process.exit(i>=0&&k>i&&(j<0||k<j)?0:1)\""
       ],
-      "criadoEm": "2026-10-30T04:51:06.480Z",
+      "criadoEm": "2026-10-30T04:51:31.587Z",
       "estado": "pendente",
       "lint": []
     }
