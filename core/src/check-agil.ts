@@ -558,6 +558,9 @@ function comandoNodeTest(comando: string, cwd: string): ComandoNodeTest | null {
       || !relativo.endsWith('.test.js')) return null;
     arquivos.push(path.basename(absoluto));
   }
+  if (padrao !== undefined) {
+    try { void new RegExp(padrao); } catch { return null; }
+  }
   return arquivos.length > 0 ? { arquivos: [...new Set(arquivos)], ...(padrao !== undefined ? { padrao } : {}) } : null;
 }
 

@@ -73,6 +73,15 @@
       "para": "if (!pedido)",
       "teste": "check-agil",
       "nome": "^AG46:"
+    },
+    {
+      "id": "M9",
+      "descricao": "claim volta a aceitar padrão de nome que o node rejeita como expressão regular",
+      "modulo": "check-agil",
+      "de": "try { void new RegExp(padrao); }",
+      "para": "try { void /aceita/; }",
+      "teste": "check-agil",
+      "nome": "^AG46:"
     }
   ]
 }
