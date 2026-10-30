@@ -7,14 +7,22 @@
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { cenario, EN, linhasEmPortugues, ork, PT } from './locale-apoio';
 import { comVerify, dadoDoLedger } from './locale-f2b-apoio';
 import { ativarLocale, ligarRemontagem, msg, remontar, textoDoCatalogo } from '../src/locale';
+import { VERIFY_EN, VERIFY_PT_BR } from '../src/locale-verify';
 
 /** Os textos das claims sao dado (pt-BR de quem as registrou). */
 const CLAIMS = ['o readme existe', 'reprova sempre', 'sem comando'];
+
+const subprocessoIndisponivel = (() => {
+  const r = spawnSync(process.execPath, ['-e', ''], { encoding: 'utf8', timeout: 5_000 });
+  const code = (r.error as NodeJS.ErrnoException | undefined)?.code;
+  return code ? `skip: subprocesso Node indisponivel neste executor (${code})` : false;
+})();
 
 function comClaims(c: ReturnType<typeof cenario>, id: string): void {
   comVerify(c);
@@ -24,7 +32,20 @@ function comClaims(c: ReturnType<typeof cenario>, id: string): void {
   assert.equal(ork(c, PT, false, 'claims', 'add', id, 'README.md', '--claim', CLAIMS[2]).status, 0);
 }
 
-test('locale en F2b verify: baseline, relatorio, classificacao e veredito saem em ingles', () => {
+test('locale verify: comparação nominal e fallback são tipados nas duas línguas sem subprocesso', () => {
+  assert.equal(VERIFY_PT_BR.comparacaoPorTeste('test', 1, 1, 1),
+    'Comparacao teste a teste (test): 1 regressao(oes), 1 pre-existente(s), 1 corrigido(s)');
+  assert.equal(VERIFY_EN.comparacaoPorTeste('test', 1, 1, 1),
+    'Test-by-test comparison (test): 1 regression(s), 1 pre-existing, 1 fixed');
+  const pt = VERIFY_PT_BR.comparacaoPorComando('test', 'pre-existente', 'baseline-sem-nomes');
+  const en = VERIFY_EN.comparacaoPorComando('test', 'pre-existente', 'baseline-sem-nomes');
+  assert.match(pt, /Comparacao somente por comando.*Nenhuma contagem de regressoes por teste foi calculada/);
+  assert.match(en, /Command-only comparison.*No per-test regression count was calculated/);
+  assert.doesNotMatch(`${pt}\n${en}`, /0 regress/);
+});
+
+test('locale en F2b verify: baseline, relatorio, classificacao e veredito saem em ingles',
+  { skip: subprocessoIndisponivel }, () => {
   const c = cenario('verify-en');
   const id = 'loc-verificar';
   try {
@@ -51,8 +72,9 @@ test('locale en F2b verify: baseline, relatorio, classificacao e veredito saem e
     assert.ok(r.stdout.includes('  C3  verified: NO  sem comando\n      file: README.md\n      no verification command\n' +
       '      typed reason: claims.unverifiable (no verification command declared)\n'), r.stdout);
     assert.ok(r.stdout.includes('\nManifest verify commands:\n  build      ok  true\n  test       FAILED (exit 1)  test -f passa.txt\n'), r.stdout);
-    assert.ok(r.stdout.includes('\nClassification: 1 regression(s), 0 pre-existing, 0 failure(s) without a baseline\n' +
-      '  regression     test: test -f passa.txt\n'), r.stdout);
+    assert.ok(r.stdout.includes('\nCommand-only comparison (test): regression; the current run did not report test names. ' +
+      'No per-test regression count was calculated.\n'), r.stdout);
+    assert.doesNotMatch(r.stdout, /0 regression/);
     assert.ok(r.stdout.endsWith('\nVerdict: FAILED. Typed reasons: claims.failed, claims.unverifiable, verify.regression\n'), r.stdout);
     assert.deepEqual(linhasEmPortugues(`${base.stdout}\n${r.stdout}`, [...CLAIMS, c.dir]), []);
     // Controle do detector: o mesmo relatorio em pt-BR e acusado.
@@ -64,7 +86,8 @@ test('locale en F2b verify: baseline, relatorio, classificacao e veredito saem e
   } finally { c.limpar(); }
 });
 
-test('locale en F2b verify: owner.language en-US vence o LANG pt-BR, e o verde diz VERIFIED', () => {
+test('locale en F2b verify: owner.language en-US vence o LANG pt-BR, e o verde diz VERIFIED',
+  { skip: subprocessoIndisponivel }, () => {
   const c = cenario('verify-owner');
   try {
     comVerify(c);
@@ -80,7 +103,8 @@ test('locale en F2b verify: owner.language en-US vence o LANG pt-BR, e o verde d
   } finally { c.limpar(); }
 });
 
-test('locale en F2b verify: o ledger e a baseline gravados nao mudam com a lingua', () => {
+test('locale en F2b verify: o ledger e a baseline gravados nao mudam com a lingua',
+  { skip: subprocessoIndisponivel }, () => {
   const pt = cenario('verify-dado-pt'), en = cenario('verify-dado-en');
   try {
     const gravado = (c: ReturnType<typeof cenario>, locale: Record<string, string>) => {
@@ -97,11 +121,12 @@ test('locale en F2b verify: o ledger e a baseline gravados nao mudam com a lingu
   } finally { pt.limpar(); en.limpar(); }
 });
 
-test('locale en F2b verify: o que fica fora segue pt-BR com LANG en (a F3d levou retry list e policy; ficam o --json e master digest)', () => {
+test('locale en F2b verify: os --json e a rota privada seguem pt-BR com LANG en',
+  { skip: subprocessoIndisponivel }, () => {
   const c = cenario('verify-fora');
   try {
-    // Decisao registrada no GO-FIX 1 da F3d: a sonda troca as rotas que entraram na lista pelas que seguem fora.
-    for (const args of [['retry', 'policy', '--json'], ['retry', 'list', '--json'], ['master', 'digest']]) {
+    // Retry e master digest entraram no catálogo; os contratos --json e `privado` seguem fora.
+    for (const args of [['retry', 'policy', '--json'], ['retry', 'list', '--json'], ['privado']]) {
       const pt = ork(c, PT, false, ...args), en = ork(c, EN, false, ...args);
       assert.equal(en.stdout, pt.stdout, args.join(' '));
       assert.equal(en.stderr, pt.stderr, args.join(' '));

@@ -203,7 +203,8 @@ export function comporPulse(carregado: ManifestoCarregado, entrada: {
     // RM-037 (fatia 4): o `human.pending` que o observador grava no fim de turno sem pergunta nao e do dono.
     if (p.motivo === 'human.pending' && p.fonte === 'ledger' && entregas?.doCondutor.gates.has(`${l.thread}|${p.fase}`)) continue;
     if (ehRegistro(l.thread)) {
-      if (p.fonte === 'escalonador' || ['lease.busy', 'conducao.em-andamento', 'concurrency.limite', 'vaga.stale', 'runtime.silencio'].includes(p.motivo)) continue;
+      if (p.fonte === 'escalonador' || ['lease.busy', 'conducao.em-andamento', 'concurrency.limite', 'vaga.stale',
+        'runtime.silencio', 'concurrency.lease-indeterminado', 'conducao.acao-necessaria'].includes(p.motivo)) continue;
       const sessoes = radar.sessoes.filter(s => s.thread?.id === l.thread && s.thread.fase === p.fase);
       // Escalada explícita de ledger não é apagada pela conclusão de uma sessão.
       if (p.fonte !== 'ledger' && sessoes.length > 0 && sessoes.every(s => s.jobVivo !== true &&
@@ -244,7 +245,8 @@ export function comporPulse(carregado: ManifestoCarregado, entrada: {
       } catch { item.evidencia.push('Pedido curto da escada indisponível; a correção acima vale.'); }
     }
     // I-45: vaga parada e sinal do escalonador (`ork board reap` devolve a vaga), nao pergunta ao dono.
-    const esperaAutomatica=['lease.busy','conducao.em-andamento','concurrency.limite','runtime.rate-limited','vaga.stale'].includes(p.motivo);
+    const esperaAutomatica=['lease.busy','conducao.em-andamento','concurrency.limite','runtime.rate-limited','vaga.stale',
+      'concurrency.lease-indeterminado','conducao.acao-necessaria'].includes(p.motivo);
     (esperaAutomatica?automaticas:humanos).push(item);
   }
   // RM-063 (F5): o MASTER por omissao da varredura nao vira item do dono (I-45: a entrega sem nota fica na faixa

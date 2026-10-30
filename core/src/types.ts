@@ -635,11 +635,15 @@ export type MotivoGate =
   | 'tree.blocked'
   | 'lease.busy'
   | 'lease.resume-unavailable'
+  /** A vida do dono do lease nao pode ser provada deste host/namespace; nunca equivale a orfao. */
+  | 'concurrency.lease-indeterminado'
   /**
    * I-36 (RM-036, D2): outra conducao ja executa na worktree desta thread. Nao e reprovacao nem
    * falha: e a resposta util ao segundo pedido, com quem conduz e as tres acoes possiveis.
    */
   | 'conducao.em-andamento'
+  /** A sessao parou de proposito e deixou um comando exato para a conducao executar fora do sandbox. */
+  | 'conducao.acao-necessaria'
   // I-41 (D10): pedido HITL malformado. Ele e defeito do EMISSOR, nao do dono: a pergunta saiu
   // sem alternativa rotulada, sem consequencia, sem recomendada, ou com a pergunta em prosa.
   // Escalar formato para o humano seria pedir que ele revise a sintaxe do robo.
@@ -648,7 +652,8 @@ export type MotivoGate =
 
 /** Uma alegacao verificavel feita por uma fase (`claims.jsonl` da thread). */
 /** I-53 (RM-037, P6): as regras do lint de comando de claim (`claim-lint.ts`). */
-export type RegraDoLint = 'suite-inteira' | 'sha-intermediario' | 'contagem-de-commits';
+export type RegraDoLint = 'suite-inteira' | 'sha-intermediario' | 'contagem-de-commits'
+  | 'binario-rg' | 'ork-fora-do-path' | 'estado-local' | 'aspas-escapadas';
 
 /** Um achado do lint: a regra, o pedaco do comando que casou e a forma certa. */
 export interface AchadoDoLint {
@@ -739,7 +744,9 @@ export interface ResultadoDeComando {
   /** RM-072 (D5): o que rodou de fato quando os passos do preparo sairam da frente; `comando` segue o inteiro. */
   comandoExecutado?: string;
   /** RM-072 (D4): as lanes que compuseram o `test` do Agile. */
-  lanes?: Array<{ lane: string; comando: string; ok: boolean; code: number; causa?: CausaDoComando; duracaoMs: number }>;
+  lanes?: Array<{ lane: string; comando: string; ok: boolean; code: number; causa?: CausaDoComando; duracaoMs: number;
+    /** RM-037 (29/10/2026): nomes que esta lane extraiu do TAP; ausente em baselines antigas ou sem TAP. */
+    testeQueCaiu?: string[] }>;
 }
 
 /**

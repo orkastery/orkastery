@@ -123,6 +123,7 @@ export const USO_DO_GRAFO = [
 export interface TextosDoGrafo {
   uso: readonly string[];
   erroUso: (motivo: string) => string;
+  erroTipado: (mensagem: string) => string;
   motivos: {
     semSub: string; desconhecido: (sub: string) => string; repetida: (nome: string) => string; semValor: (nome: string) => string;
     exigeValor: (nome: string) => string; opcao: (sub: string, valor: string) => string;
@@ -140,6 +141,15 @@ export interface TextosDoGrafo {
     naoConferido: (motivo: string) => string;
     aprovado: string;
     semBase: string;
+    extracao: {
+      lista: (itens: readonly string[]) => string;
+      incremental: (base: string, alterados: number, novos: number, removidos: number) => string;
+      tsInteiro: (motivo: string | null) => string;
+      tsParcial: (reextraidos: number, lista: string, programa: number, reaproveitados: number) => string;
+      tsBase: (reaproveitados: number) => string;
+      markdown: (reextraidos: number, lista: string, reaproveitados: number) => string;
+      completa: (motivo: string | null) => string;
+    };
   };
   status: {
     titulo: (head: string, arvore: string) => string; indice: (chave: string, estado: string) => string; ausente: string;
@@ -165,6 +175,7 @@ export interface TextosDoGrafo {
 export const TEXTOS_DO_GRAFO: TextosDoGrafo = {
   uso: USO_DO_GRAFO.split('\n'),
   erroUso: (motivo) => `grafo.uso: ${motivo}`,
+  erroTipado: (mensagem) => mensagem,
   motivos: {
     semSub: 'falta o subcomando', desconhecido: (sub) => `subcomando desconhecido: ${sub}`,
     repetida: (nome) => `--${nome} repetida`, semValor: (nome) => `--${nome} nao leva valor`,
@@ -187,6 +198,18 @@ export const TEXTOS_DO_GRAFO: TextosDoGrafo = {
     naoConferido: (motivo) => `  incremental  nao conferido: ${motivo}`,
     aprovado: 'aprovado',
     semBase: 'sem base',
+    extracao: {
+      lista: (itens) => itens.length ? ` (${itens.slice(0, 5).join(', ')}${itens.length > 5 ? ` e mais ${itens.length - 5}` : ''})` : '',
+      incremental: (base, alterados, novos, removidos) =>
+        `  extracao     incremental a partir do indice de ${base}: ${alterados} alterado(s), ${novos} novo(s), ${removidos} removido(s)`,
+      tsInteiro: (motivo) => `TypeScript inteiro (${motivo ?? ''})`,
+      tsParcial: (reextraidos, lista, programa, reaproveitados) =>
+        `TypeScript parcial, ${reextraidos} reextraido(s)${lista} num programa de ${programa}, ${reaproveitados} da base`,
+      tsBase: (reaproveitados) => `TypeScript todo da base (${reaproveitados})`,
+      markdown: (reextraidos, lista, reaproveitados) =>
+        `               Markdown: ${reextraidos} reextraido(s)${lista}, ${reaproveitados} da base`,
+      completa: (motivo) => `  extracao     completa${motivo ? `: ${motivo}` : ''}`,
+    },
   },
   status: {
     titulo: (head, arvore) => `grafo: HEAD ${head}, arvore ${arvore}`,
@@ -328,22 +351,23 @@ const contagem = (o: Record<string, number>): string => Object.entries(o).map(([
 const alguns = (lista: readonly string[]): string => (lista.length ? ` (${lista.slice(0, 5).join(', ')}${lista.length > 5 ? ` e mais ${lista.length - 5}` : ''})` : '');
 
 /** KG4: como a extracao rodou, a base e o que veio dela, ou por que foi completa. */
-function linhasDaExtracao(r: ResultadoDaConstrucao): string[] {
+export function linhasDaExtracao(r: ResultadoDaConstrucao, mi: TextosDoGrafo['indexar']): string[] {
   if (r.modo === null) return [];
   const a = r.reaproveitamento;
+  const me = mi.extracao;
   if (r.modo === 'incremental' && r.base && a) {
     // Desestruturado: o lint de horario le o campo de nome curto do TypeScript como instante.
     const { ts: doTs, md: doMd, mudanca } = a;
-    const ts = doTs.modo === 'inteiro' ? `TypeScript inteiro (${doTs.motivo})`
-      : doTs.modo === 'parcial' ? `TypeScript parcial, ${doTs.reextraidos.length} reextraido(s)${alguns(doTs.reextraidos)} num programa de ${doTs.programa}, ${doTs.reaproveitados} da base`
-        : `TypeScript todo da base (${doTs.reaproveitados})`;
+    const ts = doTs.modo === 'inteiro' ? me.tsInteiro(doTs.motivo)
+      : doTs.modo === 'parcial' ? me.tsParcial(doTs.reextraidos.length, me.lista(doTs.reextraidos), doTs.programa, doTs.reaproveitados)
+        : me.tsBase(doTs.reaproveitados);
     return [
-      `  extracao     incremental a partir do indice de ${r.base.revision.slice(0, 12)}: ${mudanca.alterados} alterado(s), ${mudanca.novos} novo(s), ${mudanca.removidos} removido(s)`,
+      me.incremental(r.base.revision.slice(0, 12), mudanca.alterados, mudanca.novos, mudanca.removidos),
       `               ${ts}`,
-      `               Markdown: ${doMd.reextraidos.length} reextraido(s)${alguns(doMd.reextraidos)}, ${doMd.reaproveitados} da base`,
+      me.markdown(doMd.reextraidos.length, me.lista(doMd.reextraidos), doMd.reaproveitados),
     ];
   }
-  return [`  extracao     completa${r.motivo_completo ? `: ${r.motivo_completo}` : ''}`];
+  return [me.completa(r.motivo_completo)];
 }
 
 function indexar(ctx: ContextoDoCli, p: Pedido): number {
@@ -360,7 +384,7 @@ function indexar(ctx: ContextoDoCli, p: Pedido): number {
     mi.campo(mi.campos.conferencia, mi.conferencia(m.conferencia.fontes, m.conferencia.evidencias)),
     mi.campo(mi.campos.nos, contagem(m.contagens.nos)), mi.campo(mi.campos.arestas, contagem(m.contagens.arestas)),
     mi.campo(mi.campos.lugar, `${r.dir} (${mb(m.graph_bytes + m.report_bytes + m.units_bytes)})`),
-    ...linhasDaExtracao(r),
+    ...linhasDaExtracao(r, mi),
   ];
   if (r.motivo) linhas.push(mi.campo(mi.campos.motivo, r.motivo));
   for (const d of r.determinismo ?? []) {
@@ -783,6 +807,13 @@ const erroEmJson = (ctx: ContextoDoCli, e: unknown, compacto: boolean, schema: s
   return 1;
 };
 
+/** Traduz a mensagem sem apagar a classe, os candidatos ou o stack do erro tipado. */
+const erroHumano = (ctx: ContextoDoCli, e: unknown): Error => {
+  const erro = e instanceof Error ? e : new Error(String(e));
+  erro.message = textosDe(ctx).erroTipado(erro.message);
+  return erro;
+};
+
 /** `ork grafo <subcomando> ...`: devolve o codigo de saida; sem `--json`, o erro de uso ou tipado e lancado. */
 export function executarGrafo(argv: readonly string[], ctx: ContextoDoCli): number {
   const schema = argv[0] === 'contexto' ? CONTEXTO_SCHEMA : CONSULTA_SCHEMA;
@@ -803,7 +834,7 @@ export function executarGrafo(argv: readonly string[], ctx: ContextoDoCli): numb
     if (p.sub === 'contexto') return contexto(ctx, p);
     return consultar(ctx, p);
   } catch (e) {
-    if (!p.bandeiras.has('json')) throw e;
+    if (!p.bandeiras.has('json')) throw erroHumano(ctx, e);
     return erroEmJson(ctx, e, compacto, schema);
   }
 }

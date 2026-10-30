@@ -23,7 +23,7 @@ import { lerClaims } from './claims';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Claim } from './types';
-import { analisarComandos, linhaDoLintDeClaim } from './claim-lint';
+import { analisarComandos, linhaDoLintDeClaim, regraFatalDeClaim } from './claim-lint';
 import { TESTES_DE_INTEGRACAO_LOCAL } from './integracoes-locais';
 import { registrar, TIPOS_DE_EVENTO } from './ledger';
 import { dirThread, lerThread } from './thread';
@@ -407,8 +407,9 @@ export function lintDoBundle(claims: readonly Claim[]): { recusas: string[]; avi
   for (const claim of claims) {
     for (const achado of analisarComandos(claim.verificar)) {
       const linha = linhaDoLintDeClaim(claim.id, achado);
-      if (achado.regra === 'suite-inteira' && claim.lint !== undefined) recusas.push(linha);
-      else avisos.push(achado.regra === 'suite-inteira' ? anteriorAoLint(linha) : linha);
+      const bloqueiaNova = achado.regra === 'suite-inteira' || regraFatalDeClaim(achado.regra);
+      if (bloqueiaNova && claim.lint !== undefined) recusas.push(linha);
+      else avisos.push(bloqueiaNova ? anteriorAoLint(linha) : linha);
     }
   }
   return { recusas, avisos };

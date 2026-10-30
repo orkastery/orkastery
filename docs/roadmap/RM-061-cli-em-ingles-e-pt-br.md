@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-27T00:50:00-03:00
+atualizado_em: 2026-10-29T15:20:00-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -138,13 +138,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-27 | Julio |
-| Documentação | Em revisão | — | 2026-10-27 | Julio |
-| Código | Mesclado | commit `4a889fc` · PR #113 | 2026-10-27 | Julio |
-| Testes | Em execução | — | 2026-10-27 | Julio |
-| Deploy | Produção | release: v0.6.0 (F3b, F3c e F3d), @orkastery/cli no npm | 2026-10-27 | Julio |
-| Exposição | Parcial | — | 2026-10-27 | Julio |
-| Habilitação | Em andamento | — | 2026-10-27 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-29 | Julio |
+| Documentação | Em revisão | — | 2026-10-29 | Julio |
+| Código | Mesclado | commit `4a889fc` · PR #113 | 2026-10-29 | Julio |
+| Testes | Em execução | — | 2026-10-29 | Julio |
+| Deploy | Produção | release: v0.6.0 (F3b, F3c e F3d), @orkastery/cli no npm | 2026-10-29 | Julio |
+| Exposição | Parcial | — | 2026-10-29 | Julio |
+| Habilitação | Em andamento | — | 2026-10-29 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -227,7 +227,7 @@ A F3d mede no mesmo contador, com o recibo em [`cobertura-f3d.json`](evidencias/
 | Cobertura | 41,5% | 59,35% | 41,26% | 58,63% |
 
 - **Comandos cobertos:** além das três lacunas da revisão, entram `modos`, `ciclos`, `setup`, `projetos`, as rotas complementares de `pulse`, `ledger`, `portfolio`, `creation`, `objective`, `ci`, `retry`, `sessions`, `gate`, `fix`, `handoff`, `recall`, `lease`, `board`, `orquestracao`, `monitor`, `licoes`, `demo`, `fabrica`, `eval`, `memory`, `mcp install`, três rotas de `master` (`master <thread>` com a nota, `master classes` e `master batch`), `conducao`, `grafo` (menos as linhas de extração e o detalhe das recusas tipadas) e `audit`.
-- **Seguem em pt-BR, para a F3e:** com o CLI em inglês, estas rotas e estes resíduos continuam em pt-BR. A lista das rotas sai do código: o que `chaveDoLocale` não acha em `COMANDOS_COM_LOCALE` (`core/src/locale.ts`), conferido contra o `switch` de `core/src/index.ts` e as invocações de [`cli.md`](../referencia/cli.md). Os resíduos dentro das rotas cobertas são os que os testes e o CHECK independente acharam; o contador ainda mede 2.466 literais de saída fora do catálogo na F3d integrada à `main` em `aa3681fe`.
+- **Escopo de entrada da F3e, implementado pela thread `ork-rm061f3erota`:** antes desta thread, com o CLI em inglês, estas rotas e estes resíduos continuavam em pt-BR. A lista das rotas saiu do código: o que `chaveDoLocale` não achava em `COMANDOS_COM_LOCALE` (`core/src/locale.ts`), conferido contra o `switch` de `core/src/index.ts` e as invocações de [`cli.md`](../referencia/cli.md). Os resíduos dentro das rotas cobertas eram os que os testes e o CHECK independente acharam.
   - `ork master audit`, `master digest`, `master migrar`, `master ratificar` e `master propor`, rotas próprias desde a G3 da F2b.
   - No `ork grafo`: as linhas de extração do `grafo indexar` (`linhasDaExtracao`: a extração incremental ou completa e o que veio da base) e o detalhe das recusas tipadas do índice (`grafo.indice.*`, `grafo.acesso.negado`) e da consulta (`grafo.consulta.*`); o código da recusa é contrato e fica igual.
   - `ork onboarding sync`, `ork experiencia uninstall`, `ork doctor --modo` e a ajuda do `ork maestro`, fora da lista desde a D2 da F2a, e o painel em texto do `ork maestro`, que roda antes de o CLI ativar o locale.
@@ -235,7 +235,17 @@ A F3d mede no mesmo contador, com o recibo em [`cobertura-f3d.json`](evidencias/
   - `ork mcp serve` e o `ork mcp` sem subcomando conhecido: o erro de uso; o texto que o servidor devolve aos hosts também segue em pt-BR.
   - `ork receipt-verifiers`, o ajudante JSON do host confiável: o erro de uso.
   - Em qualquer comando, a recusa do projeto-alvo (`--projeto` ou `ORK_PROJETO`) e o `uso: ork <comando> não lê projeto`, que saem antes de o comando ativar o locale.
-  - No `ork security-scan`, que chegou da `main` no GO-FIX 4, o caso inverso: o detalhe das recusas `security-scan.config-invalid` e `security-scan.dismissal-invalid` e os motivos `security-scan.parse` e `worktree-failed` de uma ferramenta que falhou saem em inglês também com o CLI em pt-BR. São os 15 literais de saída que o `security-scan` deixa fora do catálogo; a F3e decide se viram catálogo, com o pt-BR e o par inglês, ou seguem como dado, que é como o `security-scan` trata os motivos.
+  - No `ork security-scan`, que chegou da `main` no GO-FIX 4, o caso inverso: o detalhe das recusas `security-scan.config-invalid` e `security-scan.dismissal-invalid` e os motivos `security-scan.parse` e `worktree-failed` de uma ferramenta que falhou saíam em inglês também com o CLI em pt-BR. A F3e decidiu manter códigos, motivos e `ScanReport` como dados canônicos e traduzir no catálogo somente a apresentação humana conhecida (`stdout`, `report.md` e recusas sem `--json`).
+
+A F3e mede no mesmo contador, com o recibo em [`cobertura-f3e.json`](evidencias/RM-061/cobertura-f3e.json):
+
+| Medida | Base carimbada da F3e (`6a30b24c`) | F3e (`f88ead2c`) |
+| --- | --- | --- |
+| Entradas do catálogo | 3.482 | 3.568 |
+| Literais de saída fora do catálogo | 2.716 | 2.680 |
+| Cobertura | 56,18% | 57,11% |
+
+- **Resultado da F3e:** as rotas entram em `COMANDOS_COM_LOCALE`; as linhas de extração e detalhes humanos tipados do grafo, o preflight e o erro de uso do `doctor --modo`, a ajuda e o painel Maestro, as recusas antecipadas de projeto e a apresentação humana do `security-scan` usam o catálogo. Os seis arquivos de teste focado aprovam 16 de 16 casos pt-BR/en, incluindo o snapshot agregado das rotas e a igualdade do erro `--json` do grafo; o `--json`, os códigos tipados e os dados gravados permanecem canônicos.
 - **Fora da F3e:** o `--json`, que é contrato em qualquer fatia; as três superfícies derivadas, em trabalho próprio; e `ork noctum`, que o GOAL da F3d deixou fora do escopo.
 - **Contratos preservados:** comandos, flags, ids, códigos tipados, ledger e `--json` não são traduzidos. Os quatro snapshots pt-BR anteriores conservaram os mesmos hashes byte a byte; cada família nova tem exercício em pt-BR e inglês no teste focado da F3d.
 - **Fora da régua:** o contador mede `core/src`. As superfícies derivadas que ficaram pendentes não seriam representadas com honestidade pela porcentagem e ganham trabalho próprio de geração e paridade.
@@ -249,7 +259,7 @@ A F3d mede no mesmo contador, com o recibo em [`cobertura-f3d.json`](evidencias/
 
 - **RACI (R / A / C / I):** R: fábrica Orkastery nas fatias; A: Julio; C: revisão humana do inglês; I: quem usa o CLI em inglês.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** agente Claude Code redigiu esta página em #Fast, restrita à documentação. O código da F1 vem do #113, mesclado por outra thread. Revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** refazer o CHECK independente da F3d depois do GO-FIX 3 e do GO-FIX 4, abrir a F3e para a lista de **Seguem em pt-BR, para a F3e** e trabalho próprio para as três superfícies derivadas pendentes; responsável: fábrica, com a revisão do inglês pelo dono; sem data definida nesta página.
+- **Próxima ação, responsável e prazo:** o dono revisa as frases novas em inglês da F3e; as três superfícies derivadas pendentes recebem trabalho próprio de geração e paridade. Responsável pela revisão: Julio; sem data definida nesta página.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -262,3 +272,4 @@ A F3d mede no mesmo contador, com o recibo em [`cobertura-f3d.json`](evidencias/
 | 2026-10-20 | A F3d leva ao catálogo as famílias do CLI principal que seguiam fora da lista e as três lacunas da revisão da F3c; o GO-FIX 1 corrige as 15 falhas que a suíte inteira mostrou depois do merge da `main`; mods, tools do OpenClaw e marketplaces ficam pendentes | Thread `ork-rm061f3d` e o recibo `cobertura-f3d.json` | Fábrica, pelo pedido do dono |
 | 2026-10-20 | O GO-FIX 2 da F3d lista o que segue em pt-BR com o CLI em inglês e cria a F3e para levar essa lista ao catálogo | CHECK independente da F3d (achado 2) e a lista de `core/src/locale.ts` conferida contra `core/src/index.ts` | Fábrica, pelo pedido do dono |
 | 2026-10-27 | F3b, F3c e F3d em produção na 0.6.0; exposição Parcial, porque a F3e segue | Tag `v0.6.0`, com os merges `a6c70768`, `a95a4667` (#177) e `15351f3d` (#187) na tag; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |
+| 2026-10-29 | A F3e leva ao catálogo as rotas e resíduos listados pela F3d; `--json`, superfícies derivadas e `ork noctum` ficam fora | Thread `ork-rm061f3erota`, recibo `cobertura-f3e.json` e decisões D1-D3 do ledger | Agente em #Auto, pelo pedido do dono |

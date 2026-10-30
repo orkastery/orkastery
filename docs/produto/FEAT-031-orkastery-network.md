@@ -61,7 +61,7 @@ fontes:
 - **Pré-condições e gatilho:** a CLI da forja (`gh` ou `glab`) com login nesta máquina; para publicar, a máquina é membro (entrou, ou fez `ork fabrica entrar`).
 - **Fluxo principal:**
 
-  1. `ork network entrar --maquina pc-casa` confere a casa `<usuario>/orkastery-network` na forja, cria o repositório privado quando falta e é do próprio login, publica o primeiro retrato e só então grava o nome e a adesão em `~/.orkastery/`.
+  1. `ork network entrar --maquina maquina-a` confere a casa `<usuario>/orkastery-network` na forja, cria o repositório privado quando falta e é do próprio login, publica o primeiro retrato e só então grava o alias genérico e a adesão em `~/.orkastery/`.
   2. Depois, a batida do pulse (depois da entrega ao dono) e os eventos de thread publicam o retrato em segundo plano: no máximo uma tentativa a cada 14 minutos, e retrato igual só de hora em hora, sem chamar a forja nesse meio tempo.
   3. `ork network status` lê a casa e a `ork/fabrica-estado` dos projetos conhecidos e mostra cada máquina, com a batida, os runtimes, os hosts e os projetos.
 
@@ -70,6 +70,7 @@ fontes:
   - repositório público ou `internal`: nada é publicado (`rede.repositorio-publico`), e o `status` mostra a lacuna;
   - URL da casa sem https (GitLab próprio servido por http): nada é publicado (`rede.sem-https`), e o `status` mostra a lacuna `rede.sem-leitura` e só a última cópia local;
   - nome em uso por outra instalação: `rede.nome-em-uso`; `ork network entrar --forcar` toma o nome, e o commit registra;
+  - sem `--maquina`, `ORK_MAQUINA` ou alias já gravado: `rede.maquina-generica` recusa antes de montar o retrato; o hostname nunca é fallback;
   - `entrar` que falha (inclusive `rede.ocupado`) não grava adesão nem nome;
   - sem rede: o `status` mostra a última cópia e diz que é cópia; `--sem-remoto` nem tenta ler;
   - push recusado: relê a ponta e grava de novo, até cinco vezes;
@@ -84,7 +85,8 @@ fontes:
   - BR-031-06: todo git da rede roda isolado do ambiente de quem chamou: sem as variáveis que redirecionam o repositório, sem prompt, em inglês e com autor e committer fixos na máquina.
   - BR-031-07: o escritor publica o que o leitor aceita (mesmas regras antes do push), e o leitor ignora item de host ou forja que não conhece: versão nova não some para quem não atualizou.
   - BR-031-08: nada que o terminal executa ou que ninguém vê (ESC, BEL, bidi, largura zero; fora o ZWJ e os seletores que montam emoji) passa pela rede: o leitor recusa o retrato que o tem, o texto do status põe cada valor numa linha só e sem eles, o JSON os escreve como `\uXXXX` e o `REDE.md` escapa o Markdown. A casa só fala por HTTPS.
-- **Critérios de aceite e testes:** Dadas duas máquinas com a forja simulada, quando cada uma entra e publica, então o `status` de uma, de fora de qualquer clone, mostra as duas, e nenhum blob nem commit da casa tem token, credencial, caminho de credencial, e-mail ou dado de conta paga (`core/test/rede.test.ts`).
+  - BR-031-09: a identidade publicada é o alias genérico guardado localmente; `maquina`, o campo legado `hostname`, o filename e o commit usam esse alias, nunca o hostname real.
+- **Critérios de aceite e testes:** Dadas duas máquinas com a forja simulada, quando cada uma entra e publica, então o `status` de uma, de fora de qualquer clone, mostra as duas, e nenhum blob nem commit da casa tem hostname real, token, credencial, caminho de credencial, e-mail ou dado de conta paga (`core/test/rede.test.ts`, `core/test/rm062-f3-f4.test.ts`).
 - **Interface e acessibilidade:** texto em linhas curtas, com a fonte e o que não foi lido no topo e as lacunas no fim; `ork network status --json` com o contrato `ork.rede-status/v1` para agentes.
 
 ## Dados e contratos
@@ -92,16 +94,16 @@ fontes:
 - **Entidades e campos:**
   - `~/.orkastery/rede.json` (`ork.rede/v1`): adesão e casa;
   - `~/.orkastery/maquina-id`: o identificador desta instalação, fora da pasta de cache (aleatório quando criado; sem hard link, ou na troca do arquivo ruim, aleatório numa reserva `maquina-id.reserva/` ou `maquina-id.troca-<chave>/`, igual para todo host que divide a pasta; derivado do arquivo ruim, da pasta e do boot só se a reserva falhar);
-  - `maquinas/<maquina>.json` (`ork.rede-maquina/v1`): máquina, `id`, hostname, forjas com o login, runtimes e hosts com versão, projetos com remoto sem credencial e caminho, versão do `ork` e batida;
+  - `maquinas/<maquina>.json` (`ork.rede-maquina/v1`): alias genérico, `id`, o mesmo alias no campo legado `hostname`, forjas com o login, runtimes e hosts com versão, projetos com remoto sem credencial e caminho, versão do `ork` e batida;
   - `ork network status --json` (`ork.rede-status/v1`): casa, esta máquina, fontes, membros, lacunas e o que não foi consultado.
 - **APIs e endpoints:** a API da forja pela CLI dela, sempre com o host da casa: `gh api --hostname` e `glab api --hostname`; o git por HTTPS, autenticado pelo helper da própria CLI.
 - **Eventos e jobs:** a batida do pulse (cron de 15 minutos) e os eventos de thread; nada novo no ledger das threads.
 
 ## Operação e controle
 
-- **Configuração e ambientes:** `ork network entrar`, `--forja github|gitlab`, `--repositorio` e `--forcar`; `ORK_MAQUINA` vale na primeira entrada e fica gravado; `ORK_REDE_PUBLICAR=0` desliga a publicação automática; `ORK_BINARIOS_EXTRA` troca as pastas extras de binários.
+- **Configuração e ambientes:** `ork network entrar --maquina maquina-a`, `--forja github|gitlab`, `--repositorio` e `--forcar`; `ORK_MAQUINA` também vale na primeira entrada e o alias fica gravado fora do git; sem alias, a entrada recusa; `ORK_REDE_PUBLICAR=0` desliga a publicação automática; `ORK_BINARIOS_EXTRA` troca as pastas extras de binários.
 - **Observabilidade:** `ork network status`, o `REDE.md` da casa, `~/.orkastery/rede/rede.log` e, desde a fatia 2, a linha `rede` do `ork doctor`, com a última batida e a última falha.
-- **Acesso, privacidade e conformidade:** casa privada da pessoa; nenhum token é lido pelo `ork`; hostname e caminhos locais só vão para a casa privada, nunca para a branch da fábrica (BR-027-02 continua).
+- **Acesso, privacidade e conformidade:** casa privada da pessoa; nenhum token é lido pelo `ork`; o hostname real não é publicado, e caminhos locais só vão para a casa privada, nunca para a branch da fábrica (BR-027-02 continua).
 - **Dependências e rollback:** depende da CLI da forja e do git. Rollback: `ork network sair` em cada máquina; apagar o repositório `orkastery-network` zera a rede sem afetar projeto nenhum.
 - **Código, PR, testes e release:** `core/src/rede*.ts`, `core/test/rede.test.ts`; PR e release a registrar no RM-053.
 
@@ -118,3 +120,4 @@ fontes:
 | 2026-09-30 | revista com o GO-FIX 6: invisível pelas classes do Unicode, nome sem `://`, o id derivado descrito | Claude (agente) / Julio, revisão pendente | parecer do CHECK 6 da thread `ork-rm053network` |
 | 2026-09-30 | revista com o GO-FIX 7: o aviso só do diretório atual, a batida ilegível | Claude (agente) / Julio, revisão pendente | parecer do CHECK 7 da thread `ork-rm053network` |
 | 2026-10-03 | o `id` sem hard link e o da troca do arquivo ruim saem de uma reserva igual entre hosts (X6) | Claude (agente) / Julio, revisão pendente | decisões no ledger da thread `ork-rm053iddains` |
+| 2026-10-29 | o retrato passa a repetir somente o alias genérico em `maquina` e `hostname`, sem fallback ao hostname real | Codex (agente) / Julio, revisão pendente | RM-062 F3, thread `ork-rm062f3ef4no` |

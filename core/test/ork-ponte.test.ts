@@ -81,7 +81,7 @@ test('nucleo: cada consulta da lista fechada existe no CLI com --json', () => {
   const { CONSULTAS } = carregar('hooks/nucleo.ts');
   // A ajuda mora no catalogo do locale desde a RM-061 (F2a); as linhas de comando sao as mesmas nas duas linguas.
   const ajuda = msg('pt-BR').ajuda.texto({ versao: '0.0.0', modos: 0, segredos: '', tags: '' });
-  const ajudaDoMaestro = fs.readFileSync(path.join(raizDoRepo, 'core/src/maestro-cli.ts'), 'utf8');
+  const ajudaDoMaestro = msg('pt-BR').maestro.help;
   for (const [consulta, modelo] of Object.entries(CONSULTAS) as Array<[string, { argv: string[] }]>) {
     const palavras = modelo.argv.filter((a) => !a.startsWith('-') && a !== '<thread>');
     if (consulta === 'maestro') { assert.match(ajudaDoMaestro, /ork maestro \[--json\]/); continue; }

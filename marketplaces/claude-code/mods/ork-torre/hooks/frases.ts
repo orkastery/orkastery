@@ -7,6 +7,8 @@ export const FRASE_DO_MOTIVO: Readonly<Record<string, string>> = {
   'artifact.missing': 'falta um artefato que a fase exige',
   'claims.failed': 'uma claim reprovou no HEAD',
   'claims.unverifiable': 'há claim sem comando de verificação',
+  'concurrency.lease-indeterminado': 'não foi possível provar se a vaga está livre',
+  'conducao.acao-necessaria': 'a condução precisa executar uma ação',
   'policy.violation': 'uma policy de bloqueio foi violada',
   'runtime.autoconferencia': 'o CHECK caiu no mesmo runtime do GO',
   'verify.regression': 'um teste que passava na baseline caiu',
