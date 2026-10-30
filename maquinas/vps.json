@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.1",
-  "publicadoEm": "2026-10-30T07:15:03.022Z",
+  "publicadoEm": "2026-10-30T07:30:04.450Z",
   "threads": [
     {
       "id": "ork-listadecoman",
@@ -14,7 +14,7 @@
       "status": "aberta",
       "roadmap": "RM-060",
       "branch": "ork/ork-listadecoman-go",
-      "atualizadaEm": "2026-10-30T07:14:45.127Z",
+      "atualizadaEm": "2026-10-30T07:20:04.814Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -23,9 +23,9 @@
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-10-30T07:20:53.720Z",
+        "motivo": "sessão 01a18b98 encerrada (completed)"
       }
     },
     {
@@ -36,7 +36,7 @@
       "status": "aberta",
       "roadmap": "RM-067",
       "branch": "ork/ork-ogx4dogrokfi-go",
-      "atualizadaEm": "2026-10-30T07:12:19.240Z",
+      "atualizadaEm": "2026-10-30T07:27:24.985Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -80,7 +80,7 @@
       "status": "aberta",
       "roadmap": "RM-074",
       "branch": "ork/ork-rm074m1menos-full",
-      "atualizadaEm": "2026-10-30T06:49:31.722Z",
+      "atualizadaEm": "2026-10-30T07:19:57.744Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
