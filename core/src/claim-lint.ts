@@ -29,7 +29,20 @@ const CORRECAO: Record<RegraDoLint, string> = {
   'suite-inteira': msg('pt-BR').claims.correcoesDoLint['suite-inteira'],
   'sha-intermediario': msg('pt-BR').claims.correcoesDoLint['sha-intermediario'],
   'contagem-de-commits': msg('pt-BR').claims.correcoesDoLint['contagem-de-commits'],
+  'binario-rg': msg('pt-BR').claims.correcoesDoLint['binario-rg'],
+  'ork-fora-do-path': msg('pt-BR').claims.correcoesDoLint['ork-fora-do-path'],
+  'estado-local': msg('pt-BR').claims.correcoesDoLint['estado-local'],
+  'aspas-escapadas': msg('pt-BR').claims.correcoesDoLint['aspas-escapadas'],
 };
+
+/** RM-037: estes achados tornam uma claim nova inexequivel no checkout do runner. */
+export const REGRAS_FATAIS_DE_CLAIM = new Set<RegraDoLint>([
+  'binario-rg', 'ork-fora-do-path', 'estado-local', 'aspas-escapadas',
+]);
+
+export function regraFatalDeClaim(regra: RegraDoLint): boolean {
+  return REGRAS_FATAIS_DE_CLAIM.has(regra);
+}
 
 /**
  * (a) `npm [--prefix <dir>] [run] test` sem subcomando (`test:ci` nao casa) e sem arquivos
@@ -45,8 +58,25 @@ const SO_ANCESTRALIDADE = /merge-base\s+--is-ancestor\s+\S+\s+\S+/g;
 const CONTAGEM = /rev-list\s+(?:[^|;&]*\s)?--count\b|\bgit\s+log\b[^|;&]*\|\s*wc\s+-l\b/;
 const COMPARACAO = /-(?:eq|ne|gt|lt|ge|le)\s+['"]?\d|[^=!<>]==?\s*['"]?\d|grep\s+-(?:q?x|xq)\s+['"]?\d/;
 
+/** Executavel em posicao de comando, no inicio ou depois de um operador do shell. */
+function executavelDireto(comando: string, nome: string): RegExpExecArray | null {
+  return new RegExp(`(?:^|&&|\\|\\||[;|(])\\s*(?:command\\s+|env\\s+)?(${nome})(?=\\s|$)`).exec(comando);
+}
+
 export function analisarComando(comando: string): AchadoDoLint[] {
   const achados: AchadoDoLint[] = [];
+  const rg = executavelDireto(comando, 'rg');
+  if (rg) achados.push({ regra: 'binario-rg', trecho: rg[1], correcao: CORRECAO['binario-rg'] });
+
+  const ork = executavelDireto(comando, 'ork');
+  if (ork) achados.push({ regra: 'ork-fora-do-path', trecho: ork[1], correcao: CORRECAO['ork-fora-do-path'] });
+
+  const estado = /(?:^|[\s"'=])((?:\.\/)?\.orkastery(?:[\\/][^\s"']*)?)/.exec(comando);
+  if (estado) achados.push({ regra: 'estado-local', trecho: estado[1], correcao: CORRECAO['estado-local'] });
+
+  const aspas = /\\x(?:22|27)/i.exec(comando);
+  if (aspas) achados.push({ regra: 'aspas-escapadas', trecho: aspas[0], correcao: CORRECAO['aspas-escapadas'] });
+
   const suite = SUITE_INTEIRA.exec(comando);
   if (suite) achados.push({ regra: 'suite-inteira', trecho: suite[0].trim(), correcao: CORRECAO['suite-inteira'] });
 

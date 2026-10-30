@@ -12,6 +12,7 @@ import { adicionarClaim, caminhoClaims, lerClaims, montarClaim } from '../src/cl
 import { lintDoBundle, prepararBundleCi } from '../src/ci';
 import { TESTES_DE_INTEGRACAO_LOCAL } from '../src/integracoes-locais';
 import { lerLedger } from '../src/ledger';
+import { adicionarClaimMcp } from '../src/mcp-artifacts';
 import { dirThread, novaThread } from '../src/thread';
 import { envPtBr, projetoTemporario } from './apoio';
 
@@ -44,6 +45,38 @@ test('(b2) contagem de commits so quando comparada a um numero', () => {
   assert.deepEqual(regras('test "$(git rev-list --count main..HEAD)" -eq 3'), ['contagem-de-commits']);
   assert.deepEqual(regras('git log --oneline main..HEAD | wc -l | grep -qx 2'), ['contagem-de-commits']);
   assert.deepEqual(regras('git rev-list --count HEAD'), []);
+});
+
+test('quatro comandos incompatíveis: claims add e MCP recusam antes de persistir e sugerem o equivalente portátil', () => {
+  const casos = [
+    { comando: 'rg -n claims core/src', regra: 'binario-rg', sugestao: '`grep`' },
+    { comando: 'ork docs verificar --pr', regra: 'ork-fora-do-path', sugestao: '`node core/dist/index.js ...`' },
+    { comando: 'grep -q claim .orkastery/threads/x/claims.jsonl', regra: 'estado-local', sugestao: 'arquivos versionados do checkout' },
+    { comando: 'grep -q \\x27claim\\x27 core/src/claims.ts', regra: 'aspas-escapadas', sugestao: 'aspas reais do shell' },
+  ];
+  for (const [i, caso] of casos.entries()) {
+    assert.deepEqual(regras(caso.comando), [caso.regra], caso.comando);
+    const p = projetoTemporario(`claim-lint-fatal-${i}`);
+    try {
+      const { thread } = novaThread(p.carregado, { nome: `lint fatal ${i}`, modo: 'auto' });
+      for (const adicionar of [
+        () => adicionarClaim(p.dir, thread.id, { arquivo: 'README.md', alegacao: 'prova portatil', verificar: [caso.comando] }),
+        () => adicionarClaimMcp(p.dir, thread.id, { arquivo: 'README.md', alegacao: 'prova portatil', verificar: [caso.comando] }),
+      ]) {
+        assert.throws(adicionar, (e: Error) => e.message.includes(`claims.lint.${caso.regra}`) && e.message.includes(caso.sugestao));
+      }
+      assert.deepEqual(lerClaims(p.dir, thread.id), [], 'a recusa nao grava claims.jsonl');
+      assert.deepEqual(lerLedger(dirThread(p.dir, thread.id)).filter((e) => e.tipo === 'claim_registrada'), [],
+        'a recusa nao grava recibo de claim no ledger');
+    } finally { p.limpar(); }
+  }
+
+  for (const comando of [
+    'grep -n claims core/src/claims.ts',
+    'node core/dist/index.js docs verificar --pr',
+    'grep -q claim core/test/claim-lint.test.ts',
+    `grep -q 'claim' core/src/claims.ts`,
+  ]) assert.deepEqual(regras(comando), [], comando);
 });
 
 test('toda claim nova nasce com o lint; a anexacao refaz o lint so de quem nasceu com ele', () => {

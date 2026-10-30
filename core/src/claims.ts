@@ -20,7 +20,7 @@ import { Claim, Fase, ResultadoDeComando } from './types';
 import { avaliarPolicies, avisos, policyDeProvaLocal, ViolacaoDePolicy } from './policies';
 import { cwdDaThread, executar, TIMEOUT_VERIFY_MS } from './verify';
 import { agora, anexarJsonl, lerJsonl, proximoIdSequencial, tabela } from './util';
-import { analisarComandos } from './claim-lint';
+import { analisarComandos, linhaDoLintDeClaim, regraFatalDeClaim } from './claim-lint';
 import { ErroDoCatalogo, msg } from './locale';
 
 /** Caminho do `claims.jsonl` da thread (append-only, como o ledger). */
@@ -145,6 +145,11 @@ export function adicionarClaim(raiz: string, threadId: string, opcoes: OpcoesDeC
     verificar: opcoes.verificar,
     origem: opcoes.origem,
   });
+  const recusas = (claim.lint ?? []).filter((a) => regraFatalDeClaim(a.regra));
+  if (recusas.length > 0) {
+    throw new ErroDoCatalogo((m) => m.claims.lintRecusado(
+      recusas.map((a) => `claims.lint.${a.regra}: ${linhaDoLintDeClaim(claim.id, a)}`).join('\n  ')));
+  }
   const negativa = claim.negativa;
   const verificar = claim.verificar;
   gravarClaim(raiz, claim);
