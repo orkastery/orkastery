@@ -4,17 +4,17 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.1",
-  "publicadoEm": "2026-10-30T01:30:05.207Z",
+  "publicadoEm": "2026-10-30T01:31:21.160Z",
   "threads": [
     {
       "id": "ork-asessaonosan",
       "nome": "ork-sandboxfila",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "GO",
       "status": "aberta",
       "roadmap": "RM-064",
       "branch": "ork/ork-asessaonosan-full",
-      "atualizadaEm": "2026-10-30T01:13:35.331Z",
+      "atualizadaEm": "2026-10-30T01:31:20.610Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -23,9 +23,9 @@
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
       "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-30T01:14:01.658Z",
-        "motivo": "sessão 01a18a34 caiu (runtime.unavailable)"
+        "viva": true,
+        "desdeEm": null,
+        "motivo": null
       }
     },
     {
