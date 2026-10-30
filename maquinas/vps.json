@@ -4,26 +4,8 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.1",
-  "publicadoEm": "2026-10-30T08:58:45.070Z",
+  "publicadoEm": "2026-10-30T09:00:05.414Z",
   "threads": [
-    {
-      "id": "ork-ogx4dogrokfi",
-      "nome": "ork-gx4estavel",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": "RM-067",
-      "branch": "ork/ork-ogx4dogrokfi-go",
-      "atualizadaEm": "2026-10-30T08:33:50.233Z",
-      "entregue": "72ba7ac",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh",
-      "sessao": null
-    },
     {
       "id": "ork-rm074comamet",
       "nome": "ork-rm074meta17",
