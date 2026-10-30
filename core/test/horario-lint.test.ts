@@ -126,6 +126,8 @@ function linhasCruas(linhas: readonly string[]): number[] {
 /** Dado de máquina ou fora do escopo (D5, D12): o texto guarda ISO e quem exibe localiza. */
 const EXCECOES: { arquivo: string; trecho: string; razao: string }[] = [
   { arquivo: 'retry.ts', trecho: 'libera em ${pedido.liberaEm})', razao: 'detalhe gravado na tentativa; textoDoRetry e textoDaRetomada localizam' },
+  { arquivo: 'fila-pesada.ts', trecho: 'expiraEm: new Date(Date.now() + workerData.validadeMs).toISOString()',
+    razao: 'prazo de máquina no artefato JSON do heartbeat; nunca é texto apresentado a uma pessoa' },
   // Delta da I-33 (GO-FIX 2): perfis e fila duravel. O ISO fica no dado; quem imprime localiza.
   { arquivo: 'preflight.ts', trecho: 'ate ${p.esgotadoAte}', razao: 'estado do perfil no Check; textoPreflight localiza e diz o fuso uma vez' },
   { arquivo: 'phase.ts', trecho: 'ate ${pedido.esgotadoAte}', razao: 'erro gravado em dispatch_failed e gate_blocked; o CLI localiza ao imprimir' },
