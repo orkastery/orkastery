@@ -21,8 +21,9 @@ import { criarServidorMcp } from '../src/mcp-server';
 import { instalarMcp } from '../src/mcp-install';
 import { ferramentasDoGrok } from '../src/adapters/grok';
 import { arquivosDoServidorGrok, ENV_DO_TOKEN_DO_SERVIDOR_GROK, iniciarServidorDoGrok, lerReciboServidorGrok,
-  ServidorDoGrokIniciado } from '../src/adapters/grok-mcp';
-import { LIMITE_DE_RECUSAS_NO_LOG, LIMITE_DE_SESSOES_MCP, LIMITE_DO_CORPO_BYTES } from '../src/adapters/grok-mcp-servidor';
+  PRAZO_DA_PARTIDA_MS, ServidorDoGrokIniciado } from '../src/adapters/grok-mcp';
+import { LIMITE_DE_RECUSAS_NO_LOG, LIMITE_DE_SESSOES_MCP, LIMITE_DO_CORPO_BYTES,
+  motivoDeEncerramentoDoGrok } from '../src/adapters/grok-mcp-servidor';
 import { estadoProcesso, gravarAtomico, identidadeProcesso, ProcessoCodex } from '../src/adapters/codex-runner';
 import { dirThread, novaThread } from '../src/thread';
 import { lerLedger } from '../src/ledger';
@@ -72,16 +73,20 @@ interface Bancada {
   ferramentas: string[];
   /** O `sleep` no papel do `grok`, quando a bancada nao usa o proprio processo do teste. */
   grok: ChildProcess | null;
+  /** O `sleep` no papel do supervisor, para provar a queda dele sem fabricar recibo. */
+  supervisor: ChildProcess | null;
   limpar: () => void;
 }
 
 /**
  * Um projeto com thread, um processo no papel do `grok` e o servidor do despacho de pe. Por padrao o `grok` e o proprio
  * processo do teste, para as conexoes dele virem da arvore que o servidor confere (D2, GO-FIX 2); com `grok: 'sleep'`, um
- * `sleep` faz o papel, para o caso do `grok` morto e para a conexao de fora da arvore. O `env` vai ao processo do servidor.
+ * `sleep` faz o papel, para o caso do `grok` morto e para a conexao de fora da arvore. Outro `sleep` pode fazer o papel do
+ * supervisor que caiu sem recibo. O `env` vai ao processo do servidor.
  */
 function bancada(nome: string, opcoes: { perfil?: 'interactive' | 'worktree'; plano?: boolean; prazoDaPartidaMs?: number;
-    semPartida?: boolean; grok?: 'teste' | 'sleep'; conferirProcesso?: boolean; env?: NodeJS.ProcessEnv } = {}): Bancada {
+    semPartida?: boolean; grok?: 'teste' | 'sleep'; supervisor?: 'teste' | 'sleep'; conferirProcesso?: boolean;
+    env?: NodeJS.ProcessEnv } = {}): Bancada {
   const p = projetoTemporario(nome);
   const t = novaThread(p.carregado, { nome, modo: 'auto', criarWorktree: true }).thread;
   const logPath = path.join(dirThread(p.dir, t.id), 'sessoes', `${randomUUID()}.grok.jsonl`);
@@ -89,19 +94,22 @@ function bancada(nome: string, opcoes: { perfil?: 'interactive' | 'worktree'; pl
   const perfil = opcoes.perfil ?? 'worktree';
   const ferramentas = ferramentasDoGrok(perfil, opcoes.plano ?? false, false);
   const grok = opcoes.grok === 'sleep' ? spawn('sleep', ['600'], { stdio: 'ignore' }) : null;
+  const supervisor = opcoes.supervisor === 'sleep' ? spawn('sleep', ['600'], { stdio: 'ignore' }) : null;
   if (!opcoes.semPartida) {
     gravarAtomico(`${logPath}.process.json`, { schema: 'ork.codex-process/v1', iniciadoEm: new Date().toISOString(),
-      supervisor: identidadeProcesso(process.pid), filho: identidadeProcesso(grok ? grok.pid! : process.pid) });
+      supervisor: identidadeProcesso(supervisor ? supervisor.pid! : process.pid),
+      filho: identidadeProcesso(grok ? grok.pid! : process.pid) });
   }
   const dispatchId = randomUUID();
   const s = iniciarServidorDoGrok({ projeto: fs.realpathSync(p.dir), threadId: t.id, dispatchId, permissoesFilho: perfil,
     transporteShip: 'github-ssh', ferramentas, logPath, conferirProcesso: opcoes.conferirProcesso ?? true,
     ...(opcoes.prazoDaPartidaMs ? { prazoDaPartidaMs: opcoes.prazoDaPartidaMs } : {}) },
   t.worktree!, { ...process.env, ...opcoes.env });
-  return { p, threadId: t.id, dispatchId, logPath, s, token: s.token, ferramentas, grok,
+  return { p, threadId: t.id, dispatchId, logPath, s, token: s.token, ferramentas, grok, supervisor,
     limpar: () => {
       s.encerrar();
       grok?.kill('SIGKILL');
+      supervisor?.kill('SIGKILL');
       esperarCondicao(() => estadoProcesso(s.processo) === 'ausente', 15000);
       p.limpar();
     } };
@@ -243,7 +251,8 @@ test('GX2: o canal recusa outro processo e outra sessao: token ausente, errado o
 
 test('GX3: o servidor morre com a sessao: recibo do supervisor, grok ausente, sem partida, encerrar do despacho e a requisicao em andamento', async () => {
   const recibo = bancada('gx3-recibo');
-  const ausente = bancada('gx3-ausente', { grok: 'sleep' });
+  const reciboAtrasado = bancada('gx3-recibo-atrasado', { grok: 'sleep' });
+  const ausente = bancada('gx3-ausente', { grok: 'sleep', supervisor: 'sleep' });
   const semPartida = bancada('gx3-sem-partida', { semPartida: true, prazoDaPartidaMs: 1500 });
   const encerrado = bancada('gx3-encerrar');
   const emCurso = bancada('gx3-em-curso');
@@ -251,7 +260,19 @@ test('GX3: o servidor morre com a sessao: recibo do supervisor, grok ausente, se
     gravarAtomico(`${recibo.logPath}.exit.json`, { simulado: true });
     await conferirFim(recibo, 'recibo');
 
+    const identidadeDoGrok = identidadeProcesso(reciboAtrasado.grok!.pid!)!;
+    reciboAtrasado.grok!.kill('SIGKILL');
+    esperarCondicao(() => estadoProcesso(identidadeDoGrok) === 'ausente', 10000);
+    assert.equal(motivoDeEncerramentoDoGrok(reciboAtrasado.logPath, Date.now(), PRAZO_DA_PARTIDA_MS), null,
+      'o supervisor vivo torna a ausencia do filho uma janela, nao um fim');
+    assert.equal(lerReciboServidorGrok(reciboAtrasado.s.reciboPath)?.estado, 'pronto',
+      'o filho ausente nao vence o recibo que o supervisor vivo ainda vai gravar');
+    gravarAtomico(`${reciboAtrasado.logPath}.exit.json`, { simulado: true });
+    assert.equal(motivoDeEncerramentoDoGrok(reciboAtrasado.logPath, Date.now(), PRAZO_DA_PARTIDA_MS), 'recibo');
+    await conferirFim(reciboAtrasado, 'recibo');
+
     ausente.grok!.kill('SIGKILL');
+    ausente.supervisor!.kill('SIGKILL');
     await conferirFim(ausente, 'grok-ausente');
 
     await conferirFim(semPartida, 'sem-partida');
@@ -289,7 +310,7 @@ test('GX3: o servidor morre com a sessao: recibo do supervisor, grok ausente, se
     assert.match(texto, /^HTTP\/1\.1 200 /, texto.slice(0, 200));
     assert.match(texto, /"serverInfo"/, 'a requisicao em andamento recebeu a resposta inteira');
     await conferirFim(emCurso, 'recibo');
-  } finally { for (const b of [recibo, ausente, semPartida, encerrado, emCurso]) b.limpar(); }
+  } finally { for (const b of [recibo, reciboAtrasado, ausente, semPartida, encerrado, emCurso]) b.limpar(); }
 });
 
 /** O `phase_result` do despacho, quando o watcher o grava. */
