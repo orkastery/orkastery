@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.1",
-  "publicadoEm": "2026-10-30T00:05:27.254Z",
+  "publicadoEm": "2026-10-30T00:15:03.424Z",
   "threads": [
     {
       "id": "ork-asessaonosan",
@@ -24,7 +24,7 @@
       "esforco": null,
       "sessao": {
         "viva": false,
-        "desdeEm": "2026-10-29T23:49:09.281Z",
+        "desdeEm": "2026-10-30T00:05:34.937Z",
         "motivo": "nenhuma sessão despachada na fase GOAL"
       }
     },
@@ -36,7 +36,7 @@
       "status": "aberta",
       "roadmap": "RM-037",
       "branch": "ork/ork-claimsechang-full",
-      "atualizadaEm": "2026-10-30T00:05:26.844Z",
+      "atualizadaEm": "2026-10-30T00:14:07.989Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
