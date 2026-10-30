@@ -728,8 +728,10 @@ test('AG46: claim node --test reaproveita somente arquivos verdes no mesmo HEAD 
       { arquivo: 'a.test.js', nome: 'AG1: primeiro', nesting: 0, estado: 'pass' as const },
       { arquivo: 'a.test.js', nome: 'AG2: segundo', nesting: 0, estado: 'pass' as const },
       { arquivo: 'b.test.js', nome: 'AG9: terceiro', nesting: 0, estado: 'pass' as const },
-      { arquivo: 'b.test.js', nome: 'dispensado', nesting: 0, estado: 'skip' as const },
+      { arquivo: 'b.test.js', nome: 'AG10: quarto', nesting: 0, estado: 'pass' as const },
       { arquivo: 'c.test.js', nome: 'c.test.js', nesting: 0, estado: 'fail' as const },
+      { arquivo: 'd.test.js', nome: 'AG11: quinto', nesting: 0, estado: 'pass' as const },
+      { arquivo: 'd.test.js', nome: 'dispensado', nesting: 0, estado: 'skip' as const },
     ] }];
     const executar = executorDaClaimPelasLanes(base.executor, evidencias, { head, ambiente });
     const a = executar('C1.1', "node --test --test-name-pattern='caso A$' core/dist-test/test/a.test.js", dir);
@@ -752,7 +754,7 @@ test('AG46: claim node --test reaproveita somente arquivos verdes no mesmo HEAD 
     executar('C7.1', 'bun --test core/dist-test/test/a.test.js', dir);
     executar('C8.1', 'node --test core/dist-test/test/sub/a.test.js', dir);
     executar('C10.1', "node --test --test-name-pattern='[' core/dist-test/test/a.test.js", dir);
-    executar('C11.1', "node --test-reporter=tap core/dist-test/test/b.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AG[0-9]+:/{p++} END{exit !(p>=1 && f==0 && s==0)}'", dir);
+    executar('C11.1', "node --test-reporter=tap core/dist-test/test/d.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AG[0-9]+:/{p++} END{exit !(p>=1 && f==0 && s==0)}'", dir);
     executar('C12.1', "node --test-reporter=tap core/dist-test/test/a.test.js | awk 'END{exit 0}'", dir);
     const equivalente = gravador();
     executorDaClaimPelasLanes(base.executor, evidencias, { head, ambiente, podeReaproveitar: () => false,
@@ -761,6 +763,25 @@ test('AG46: claim node --test reaproveita somente arquivos verdes no mesmo HEAD 
     assert.deepEqual(base.lista.map(([nome]) => nome), ['C2.2', 'C2.3', 'C3.1', 'C4.1', 'C5.1', 'C6.1', 'C7.1', 'C8.1', 'C10.1', 'C11.1', 'C12.1'],
       'so o grep da cadeia fechada roda; falha, shell aberto, ambiente ou HEAD diferente, outro runner, subdiretorio, regex invalida, skip auditado, awk aberto e produto mudado executam de verdade');
     assert.deepEqual(equivalente.lista.map(([nome]) => nome), ['C9.1'], 'o fallback node --test usa o ambiente das lanes');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('AG48: skip ou todo em node --test nunca prova a claim pela lane', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag48-'));
+  try {
+    const base = gravador();
+    const head = 'a'.repeat(40);
+    const ambiente = { LANG: 'C.UTF-8', ORKASTERY_HOME: path.join(dir, 'casa') };
+    for (const estado of ['skip', 'todo'] as const) {
+      const evidencias = [{ lane: 'hermetica', head, ambiente: assinaturaDoAmbiente(ambiente), testes: [
+        { arquivo: `${estado}.test.js`, nome: 'caso verde', nesting: 0, estado: 'pass' as const },
+        { arquivo: `${estado}.test.js`, nome: 'caso sem prova', nesting: 0, estado },
+      ] }];
+      const r = executorDaClaimPelasLanes(base.executor, evidencias, { head, ambiente })(
+        `C-${estado}`, `node --test core/dist-test/test/${estado}.test.js`, dir);
+      assert.equal(r.lane, undefined, `${estado} deve executar a claim de verdade`);
+    }
+    assert.deepEqual(base.lista.map(([nome]) => nome), ['C-skip', 'C-todo']);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 

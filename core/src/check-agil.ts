@@ -649,10 +649,10 @@ export function executorDaClaimPelasLanes(base: ExecutorUnico, evidencias: Resul
       const cobertos = pedido.arquivos.every((arquivo) => {
         const vistos = usadas.flatMap((e) => e.testes.filter((t) => t.arquivo === arquivo));
         if (vistos.length === 0 || vistos.some((t) => t.estado === 'fail')) return false;
+        if (vistos.some((t) => t.estado === 'skip' || t.estado === 'todo')) return false;
         if (!tap) return true;
         const doArquivo = vistos.filter((t) => t.nesting === 0);
-        return !vistos.some((t) => t.estado === 'skip' || t.estado === 'todo')
-          && doArquivo.filter((t) => t.estado === 'pass' && new RegExp(`^${tap.prefixo}[0-9]+:`).test(t.nome)).length >= tap.minimo;
+        return doArquivo.filter((t) => t.estado === 'pass' && new RegExp(`^${tap.prefixo}[0-9]+:`).test(t.nome)).length >= tap.minimo;
       });
       if (!cobertos) return executar(nome, comando, cwd);
       const nomes = tap ? pedido.arquivos.map((a) => `${a}:${tap.prefixo}>=${tap.minimo};sem-falha;sem-skip`) : undefined;

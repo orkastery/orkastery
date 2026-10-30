@@ -13,12 +13,12 @@
     },
     {
       "id": "M2",
-      "descricao": "a auditoria TAP volta a aceitar arquivo com teste pulado",
+      "descricao": "a claim volta a aceitar arquivo com teste skip ou todo",
       "modulo": "check-agil",
-      "de": "return !vistos.some((t) => t.estado === 'skip' || t.estado === 'todo')",
-      "para": "return !vistos.some((t) => t.estado === 'todo')",
+      "de": "vistos.some((t) => t.estado === 'skip' || t.estado === 'todo')",
+      "para": "false",
       "teste": "check-agil",
-      "nome": "^AG46:"
+      "nome": "^(AG46|AG48):"
     },
     {
       "id": "M3",

@@ -22,10 +22,10 @@
     },
     {
       "id": "M3",
-      "descricao": "claim volta a reaproveitar arquivo que falhou na lane",
+      "descricao": "claim volta a reaproveitar arquivo que falhou na lane; guarda atual: if (vistos.length === 0 || vistos.some((t) => t.estado === 'fail')) return false;",
       "modulo": "check-agil",
-      "de": "return vistos.length > 0 && !vistos.some((t) => t.estado === 'fail');",
-      "para": "return vistos.length > 0;",
+      "de": "vistos.length === 0 || vistos.some((t) => t.estado === 'fail')",
+      "para": "vistos.length === 0",
       "teste": "check-agil",
       "nome": "^AG46:"
     },
