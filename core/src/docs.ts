@@ -25,6 +25,7 @@ import { lerLedger } from './ledger';
 import { branchValida, shaValido } from './branch-de-estado';
 import { Locale, LOCALE_PADRAO, Mensagens, msg, remontar, textoDoCatalogo } from './locale';
 import { branchRegistradaDaEntrega, mergesDasEntregasNaBase } from './merge-da-entrega';
+import { CHANGELOG, checarChangelog } from './changelog-check';
 
 export type TipoDoc = 'plataforma' | 'sistema' | 'modulo' | 'feature' | 'roadmap';
 
@@ -276,6 +277,13 @@ export function verificarDocs(raiz: string, opcoes: OpcoesDeVerificacao = {}): {
   if (!opcoes.semGit && !base) {
     achados.push(aviso('.', undefined, 'docs.git.base',
       (m) => m.baseAusente(opcoes.baseBranch ?? 'main'), (m) => m.baseAusenteCorrecao));
+  }
+  if (opcoes.pr && base) {
+    const changelog = checarChangelog(raiz, { base, head: 'HEAD' });
+    if (!changelog.ok) {
+      achados.push(erro(CHANGELOG, undefined, changelog.motivo ?? 'changelog.invalido',
+        () => changelog.detalhe, () => changelog.correcao ?? 'corrija o CHANGELOG e repita a verificação'));
+    }
   }
   const comandos = opcoes.ajudaDoCli ? comandosDaAjuda(opcoes.ajudaDoCli) : null;
 

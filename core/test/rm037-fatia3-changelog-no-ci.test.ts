@@ -8,8 +8,11 @@ import { test } from 'node:test';
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { dirTemporario } from './apoio';
+import { commitar, dirTemporario, projetoTemporario } from './apoio';
 import { exec } from '../src/util';
+import { verificarDocs } from '../src/docs';
+import { novaThread } from '../src/thread';
+import { verificar } from '../src/verify';
 
 const raizDoRepo = path.resolve(__dirname, '../../..');
 const SCRIPT = path.join(raizDoRepo, 'core/scripts/checar-changelog.cjs');
@@ -136,6 +139,30 @@ test('seção publicada e grupo: tag bloqueia edição histórica, Corrigido pas
       '## Não publicado\n\n- **Sem grupo**: esta linha não tem título de terceiro nível.\n\n'));
     assert.equal(checar(semGrupo.dir).motivo, 'changelog.grupo-ausente');
   } finally { semGrupo.limpar(); }
+});
+
+test('verify e docs compartilham a recusa tipada de linha em seção publicada', () => {
+  const p = projetoTemporario('rm037-changelog-verify-docs');
+  try {
+    commitar(p.dir, 'CHANGELOG.md', CHANGELOG_DA_BASE, 'docs: changelog base');
+    commitar(p.dir, 'core/src/modulo.ts', 'export const x = 1;\n', 'feat: modulo base');
+    git(p.dir, 'tag', 'v0.5.0', 'main');
+    const { thread } = novaThread(p.carregado, { nome: 'changelog verify docs', modo: 'auto' });
+    git(p.dir, 'checkout', '-q', '-b', 'ork/rm037-changelog-verify-docs');
+    commitar(p.dir, 'core/src/modulo.ts', 'export const x = 2;\n', 'fix: modulo');
+    commitar(p.dir, 'CHANGELOG.md', CHANGELOG_DA_BASE.replace('- a versão anterior.',
+      '- a versão anterior.\n- **Edição histórica**: esta linha deve ser recusada.'), 'docs: linha no lugar errado');
+
+    const docs = verificarDocs(p.dir, { baseBranch: 'main', pr: true });
+    assert.ok(docs.achados.some((a) => a.regra === 'changelog.secao-publicada' && a.gravidade === 'erro'));
+
+    const rodada = verificar(p.carregado, thread.id);
+    const changelog = rodada.comandos.find((c) => c.nome === 'changelog');
+    assert.equal(changelog?.ok, false);
+    assert.match(changelog?.resumo ?? '', /^changelog\.secao-publicada:/);
+    assert.ok(rodada.motivos.includes('verify.failed'));
+    assert.equal(rodada.ok, false);
+  } finally { p.limpar(); }
 });
 
 test('defeito 2 (GO-FIX 2): o PR de versão passa nos dois formatos, também quando "Não publicado" vira a versão', () => {
