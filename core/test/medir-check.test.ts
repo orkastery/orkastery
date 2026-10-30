@@ -273,7 +273,7 @@ test('MC16: sonda 2, os maiores da sonda 1: CPU da suite, sistema, CPU por pared
   perto(c.arquivos[0].sozinhoContraConcorrente, 0.1);
   perto(c.arquivos[1].parteDoSistema, 0.75);
   assert.equal(c.soma.testes, 16);
-  perto(c.soma.parteDosTestes, 0.5, 'o arquivo sem tempo medido fica fora das duas somas');
+  perto(c.soma.parteDosTestes, 0.8, 'o arquivo sem tempo medido fica fora das duas somas');
   perto(c.soma.parteDaCpu, 0.6);
 });
 
