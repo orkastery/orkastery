@@ -43,7 +43,7 @@
         "grep -q \"ork_verify_status\" core/src/adapters/claude-bg.ts && grep -q \"ork_verify_status\" core/src/mcp-install.ts && node core/dist-test/test/claude-worktree-permissions.test.js && node core/dist-test/test/rm064-fatia3.test.js && node core/dist-test/test/rm067-grok-mcp.test.js"
       ],
       "criadoEm": "2026-10-30T06:41:43.717Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -127,7 +127,7 @@
         "grep -q \"'ork_verify_status'\" core/src/mcp-install.ts && node core/dist-test/test/rm064-fatia3.test.js"
       ],
       "criadoEm": "2026-10-30T07:03:44.356Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -155,7 +155,7 @@
         "grep -q \"ork_verify_status\" core/test/claude-worktree-permissions.test.ts && node --test-name-pattern='Claude interactive|Claude worktree concede' core/dist-test/test/claude-worktree-permissions.test.js"
       ],
       "criadoEm": "2026-10-30T07:03:44.504Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -883,7 +883,7 @@
         "node --test-name-pattern='cada variante tem a estrutura' core/dist-test/test/locale-skills.test.js"
       ],
       "criadoEm": "2026-10-30T09:07:47.313Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -897,7 +897,7 @@
         "node --test-name-pattern='cada variante tem a estrutura' core/dist-test/test/locale-skills.test.js"
       ],
       "criadoEm": "2026-10-30T09:07:47.372Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -911,7 +911,7 @@
         "node --test-name-pattern='cada variante tem a estrutura' core/dist-test/test/locale-skills.test.js"
       ],
       "criadoEm": "2026-10-30T09:07:47.453Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -925,7 +925,7 @@
         "node --test-name-pattern='cada variante tem a estrutura' core/dist-test/test/locale-skills.test.js"
       ],
       "criadoEm": "2026-10-30T09:07:47.512Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -939,7 +939,7 @@
         "node --test-name-pattern='cada variante tem a estrutura' core/dist-test/test/locale-skills.test.js"
       ],
       "criadoEm": "2026-10-30T09:07:47.569Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -953,7 +953,7 @@
         "node --test-name-pattern='cada variante tem a estrutura' core/dist-test/test/locale-skills.test.js"
       ],
       "criadoEm": "2026-10-30T09:07:47.633Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -967,7 +967,7 @@
         "node --test-name-pattern='cada variante tem a estrutura' core/dist-test/test/locale-skills.test.js"
       ],
       "criadoEm": "2026-10-30T09:07:47.695Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -981,7 +981,7 @@
         "node --test-name-pattern='cada variante tem a estrutura' core/dist-test/test/locale-skills.test.js"
       ],
       "criadoEm": "2026-10-30T09:07:47.755Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -995,7 +995,7 @@
         "node --test-name-pattern='cada variante tem a estrutura' core/dist-test/test/locale-skills.test.js"
       ],
       "criadoEm": "2026-10-30T09:07:47.822Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1009,7 +1009,7 @@
         "grep -q 'mcp__orkastery__ork_verify_status' marketplaces/claude-code/orkastery/commands/ork.md"
       ],
       "criadoEm": "2026-10-30T09:07:47.881Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1023,7 +1023,7 @@
         "node core/dist-test/test/locale-f3b-snapshot.test.js"
       ],
       "criadoEm": "2026-10-30T09:10:01.883Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
