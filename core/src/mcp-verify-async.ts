@@ -296,6 +296,9 @@ export function executarVerifyMcpWorker(raiz: string, threadId: string, rodadaId
     });
     if (inicial.estado === 'falhou') throw Error(inicial.falha?.motivo ?? 'verify.worker-failed');
   };
+  // RM-064: o estado terminal só é gravado depois de a lease voltar. Quem lê `concluido` ou `falhou`
+  // pode contar com a worktree livre; a ordem inversa deixava a recusa visível com a lease ainda presa.
+  let terminal: Partial<EstadoVerifyMcp> | null = null;
   try {
     atualizar({ estado: 'na-fila', lane: 'fila-pesada' });
     const carregado = exigirManifesto(raiz);
@@ -309,13 +312,21 @@ export function executarVerifyMcpWorker(raiz: string, threadId: string, rodadaId
     const locale = resolverLocale(carregado.manifesto.owner?.language).locale;
     const veredito: VereditoVerifyMcp = { ok: resultado.ok, commit: resultado.commit, motivos: resultado.motivos,
       check: resultado.check, texto: comLocale(locale, () => textoDoVerify(resultado)), resultado };
-    atualizar({ estado: 'concluido', lane: null, veredito, falha: undefined, ocupantes: undefined });
+    terminal = { estado: 'concluido', lane: null, veredito, falha: undefined, ocupantes: undefined };
   } catch (e) {
-    try { atualizar({ estado: 'falhou', lane: null, falha: falhaDaExecucao(e), ocupantes: undefined }); }
-    catch { /* a leitura abaixo projeta morte/falha; nunca inventa verde */ }
+    terminal = { estado: 'falhou', lane: null, falha: falhaDaExecucao(e), ocupantes: undefined };
   } finally {
-    inicial = lerEstado(dir, threadId, rodadaId);
-    liberarLeaseExata(raiz, inicial);
+    const atual = lerEstado(dir, threadId, rodadaId);
+    const leaseNossa = mesmoLease(lerLease(raiz, atual.lease.nome), atual.lease);
+    liberarLeaseExata(raiz, atual);
+    if (atual.estado === 'falhou') terminal = null; // a falha já gravada (lease perdida, por exemplo) prevalece
+    else if (!leaseNossa) terminal = { estado: 'falhou', lane: null, ocupantes: undefined,
+      falha: { motivo: 'verify.lease-perdida', detalhe: 'a lease da worktree mudou durante a rodada' } };
+    if (terminal) {
+      const fim = terminal;
+      try { inicial = atualizarRodada(raiz, threadId, rodadaId, (a) => ({ ...a, ...fim, atualizadaEm: new Date().toISOString() })); }
+      catch { /* a leitura abaixo projeta morte/falha; nunca inventa verde */ }
+    }
   }
   return consultarVerifyMcp(raiz, threadId, rodadaId);
 }
