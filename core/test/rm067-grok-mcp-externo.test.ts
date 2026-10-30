@@ -21,8 +21,9 @@ import { criarServidorMcp } from '../src/mcp-server';
 import { instalarMcp } from '../src/mcp-install';
 import { ferramentasDoGrok } from '../src/adapters/grok';
 import { arquivosDoServidorGrok, ENV_DO_TOKEN_DO_SERVIDOR_GROK, iniciarServidorDoGrok, lerReciboServidorGrok,
-  ServidorDoGrokIniciado } from '../src/adapters/grok-mcp';
-import { LIMITE_DE_RECUSAS_NO_LOG, LIMITE_DE_SESSOES_MCP, LIMITE_DO_CORPO_BYTES } from '../src/adapters/grok-mcp-servidor';
+  PRAZO_DA_PARTIDA_MS, ServidorDoGrokIniciado } from '../src/adapters/grok-mcp';
+import { LIMITE_DE_RECUSAS_NO_LOG, LIMITE_DE_SESSOES_MCP, LIMITE_DO_CORPO_BYTES,
+  motivoDeEncerramentoDoGrok } from '../src/adapters/grok-mcp-servidor';
 import { estadoProcesso, gravarAtomico, identidadeProcesso, ProcessoCodex } from '../src/adapters/codex-runner';
 import { dirThread, novaThread } from '../src/thread';
 import { lerLedger } from '../src/ledger';
@@ -262,9 +263,12 @@ test('GX3: o servidor morre com a sessao: recibo do supervisor, grok ausente, se
     const identidadeDoGrok = identidadeProcesso(reciboAtrasado.grok!.pid!)!;
     reciboAtrasado.grok!.kill('SIGKILL');
     esperarCondicao(() => estadoProcesso(identidadeDoGrok) === 'ausente', 10000);
+    assert.equal(motivoDeEncerramentoDoGrok(reciboAtrasado.logPath, Date.now(), PRAZO_DA_PARTIDA_MS), null,
+      'o supervisor vivo torna a ausencia do filho uma janela, nao um fim');
     assert.equal(lerReciboServidorGrok(reciboAtrasado.s.reciboPath)?.estado, 'pronto',
       'o filho ausente nao vence o recibo que o supervisor vivo ainda vai gravar');
     gravarAtomico(`${reciboAtrasado.logPath}.exit.json`, { simulado: true });
+    assert.equal(motivoDeEncerramentoDoGrok(reciboAtrasado.logPath, Date.now(), PRAZO_DA_PARTIDA_MS), 'recibo');
     await conferirFim(reciboAtrasado, 'recibo');
 
     ausente.grok!.kill('SIGKILL');

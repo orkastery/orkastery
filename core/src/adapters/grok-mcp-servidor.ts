@@ -243,6 +243,20 @@ function existe(arquivo: string): boolean {
   return fs.lstatSync(arquivo, { throwIfNoEntry: false }) !== undefined;
 }
 
+/**
+ * O evento terminal que a vigia ja pode afirmar. O recibo do `close` sempre vence; a ausencia do filho so e terminal
+ * depois que o supervisor tambem saiu, pois ele grava esse recibo entre os dois acontecimentos.
+ */
+export function motivoDeEncerramentoDoGrok(logPath: string, inicio: number, prazoDaPartida: number,
+    agora = Date.now()): 'recibo' | 'sem-partida' | 'grok-ausente' | null {
+  if (existe(`${logPath}.exit.json`)) return 'recibo';
+  const processo = lerJsonPequeno<ProcessoCodex>(`${logPath}.process.json`);
+  if (!processo) return agora - inicio > prazoDaPartida ? 'sem-partida' : null;
+  if ((!processo.filho || estadoProcesso(processo.filho) === 'ausente') &&
+      estadoProcesso(processo.supervisor) === 'ausente') return 'grok-ausente';
+  return null;
+}
+
 /** Roda um passo do fecho sem deixar a exceção dele impedir os seguintes. */
 function semFalhar(passo: () => void): void {
   try { passo(); } catch { /* o fecho segue: a porta e o recibo vêm depois */ }
@@ -447,14 +461,11 @@ export async function servirGrok(pedido: PedidoServidorGrok, token: string): Pro
     terminar();
   };
   const vigiar = () => {
-    if (existe(`${pedido.logPath}.exit.json`)) { fechar('recibo'); return; }
-    const processo = lerJsonPequeno<ProcessoCodex>(`${pedido.logPath}.process.json`);
-    if (!processo) { if (Date.now() - inicio > prazoDaPartida) fechar('sem-partida'); return; }
     // O `close` real do filho ocorre depois que ele ja aparece ausente e, dentro dele, o supervisor grava o recibo
     // atomicamente antes de sair. Enquanto o supervisor vive, a ausencia do filho e so essa janela: o evento certo ainda
     // e o recibo. `grok-ausente` fica para a queda do supervisor sem recibo, comprovada pela ausencia dos dois processos.
-    if ((!processo.filho || estadoProcesso(processo.filho) === 'ausente') &&
-        estadoProcesso(processo.supervisor) === 'ausente') fechar('grok-ausente');
+    const motivo = motivoDeEncerramentoDoGrok(pedido.logPath, inicio, prazoDaPartida);
+    if (motivo) fechar(motivo);
   };
   const vigia = setInterval(vigiar, INTERVALO_DA_VIGIA_MS);
   return { porta, url, fechar, fechado };
