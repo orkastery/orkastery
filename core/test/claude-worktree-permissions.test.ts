@@ -14,8 +14,9 @@ import { lerArtefatoMcp, escreverArtefatoMcp } from '../src/mcp-artifacts';
 import { commitMcp } from '../src/mcp-git';
 import { exec } from '../src/util';
 
-const leituras = ['thread_status', 'phase_list', 'hitl_pending', 'observe', 'artifact_read', 'claims_list', 'verify_status']
-  .map(nome => `mcp__orkastery__ork_${nome}`);
+const leituras = ['thread_status', 'phase_list', 'hitl_pending', 'observe', 'artifact_read', 'claims_list']
+  .map(nome => `mcp__orkastery__ork_${nome}`)
+  .concat('mcp__orkastery__ork_verify_status');
 const mutacoes = ['artifact_write', 'claim_add', 'decision_record', 'git_commit', 'verify', 'ship']
   .map(nome => `mcp__orkastery__ork_${nome}`);
 function preparar(nome: string, perfil: 'interactive' | 'worktree', modo: 'auto' | 'maestro' = 'auto') {
