@@ -28,7 +28,8 @@ import { adicionarPerfil } from '../src/runtime-profiles';
 import { exec } from '../src/util';
 import { varrerEDepoisPublicarNaRede } from '../src/pulse-delivery';
 import { dirTemporario, envPtBr, projetoTemporario } from './apoio';
-import { cliNoProcesso, saidaCompativel } from './cli-in-processo';
+
+const CLI = path.resolve(__dirname, '../../dist/index.js');
 
 /** A forja e os runtimes falsos: um script so, que decide pelo nome com que foi chamado. */
 const SCRIPT_FALSO = `#!${process.execPath}
@@ -700,7 +701,8 @@ test('RM-053 forja: repositorio publico recusa entrar e publicar; nada vai ao re
 
 function ork(cwd: string, args: string[], env: NodeJS.ProcessEnv) {
   // RM-061 (F3b): `network status|entrar|sair|publicar` seguem o locale; o teste le o texto em pt-BR.
-  return saidaCompativel(cliNoProcesso({ cwd, args, env: envPtBr(env) }));
+  // A forja falsa e descoberta pelo PATH: este arquivo prova a fronteira de processo e nao usa o harness da RM-074.
+  return spawnSync(process.execPath, [CLI, ...args], { cwd, env: envPtBr(env), encoding: 'utf8' });
 }
 
 test('RM-053 ciclo: entrar, status, publicar e sair pelo CLI, com duas maquinas e fora de qualquer clone', () => {
