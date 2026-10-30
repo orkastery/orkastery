@@ -77,6 +77,7 @@ test('CIP3: stdin e erro lancado preservam a moldura do executavel', () => {
 
 test('CIP4: mcp install com --project relativo e absoluto permanece no processo filho', () => {
   const casa = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-cli-mcp-casa-'));
+  const cwdAntes = process.cwd();
   try {
     const env = ambiente(casa);
     const relativo = ['mcp', 'install', '--project', 'loja', '--host', 'claude-code'];
@@ -86,7 +87,8 @@ test('CIP4: mcp install com --project relativo e absoluto permanece no processo 
       assert.throws(() => cliNoProcesso({ cwd: RAIZ, env, args }),
         /cli\.in-processo\.assincrona: mcp install exige processo filho/);
     }
-    assert.equal(process.cwd(), RAIZ);
+    // A recusa vem antes de qualquer chdir: o diretório do processo continua o de antes da chamada.
+    assert.equal(process.cwd(), cwdAntes);
   } finally {
     fs.rmSync(casa, { recursive: true, force: true });
   }
