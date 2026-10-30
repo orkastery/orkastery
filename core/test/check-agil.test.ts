@@ -11,8 +11,9 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { adicionarClaim } from '../src/claims';
-import { elosDoComando, GuardaDoProduto, hashDoProduto, MAXIMO_DE_PREPAROS_REFEITOS, paralelismoDaVarreduraNoGrupo, passosDoComando,
-  PECA_SEM_RELATORIO, RelatorioDoCheck, testDasLanes, TETO_DO_RELATORIO_BYTES, tirarPassosDoPreparo } from '../src/check-agil';
+import { assinaturaDoAmbiente, elosDoComando, executorDaClaimPelasLanes, GuardaDoProduto, hashDoProduto,
+  MAXIMO_DE_PREPAROS_REFEITOS, paralelismoDaVarreduraNoGrupo, passosDoComando, PECA_SEM_RELATORIO, RelatorioDoCheck,
+  testDasLanes, TETO_DO_RELATORIO_BYTES, tirarPassosDoPreparo } from '../src/check-agil';
 import { argvDoItem, rodarEmParalelo } from '../src/check-paralelo';
 import { cargaDoProcLoadavg, paredeAgileSimulada, paredeClassicaSimulada, planejarCpuDoGrupo } from '../src/agendador-cpu';
 import { lerLedger } from '../src/ledger';
@@ -504,7 +505,7 @@ test('AG25: a peca que dois processos da rodada relatam igual entra uma vez no v
   } finally { p.limpar(); }
 });
 
-test('AG26: a claim que muda o produto sem mudar a arvore faz o preparo rodar de novo antes do grupo, que segue em paralelo', () => {
+test('AG26: a claim que muda o produto apos as lanes refaz preparo e grupo sobre o produto final', () => {
   const p = projetoTemporario('ag26');
   try {
     fs.mkdirSync(path.join(p.dir, 'out'));
@@ -519,9 +520,9 @@ test('AG26: a claim que muda o produto sem mudar a arvore faz o preparo rodar de
     });
     const r = verificar(p.carregado, t.id, { executor: g.executor });
     assert.equal(r.ok, true, r.motivos.join(','));
-    assert.deepEqual(g.lista.map(([n]) => n), ['preparo', 'C1.1', 'preparo', 'test:h', 'security_scan']);
+    assert.deepEqual(g.lista.map(([n]) => n), ['preparo', 'test:h', 'security_scan', 'C1.1', 'preparo', 'test:h', 'security_scan']);
     const pecas = (ultimoVerify(p, t.id).agile as { pecas: Array<Record<string, unknown>> }).pecas;
-    assert.ok(pecas.some((x) => x.peca === 'preparo-refeito' && x.estado === 'agile' && /rodou de novo antes do grupo/.test(String(x.motivo))),
+    assert.ok(pecas.some((x) => x.peca === 'preparo-refeito' && x.estado === 'agile' && /rodou de novo depois das claims/.test(String(x.motivo))),
       JSON.stringify(pecas));
     assert.ok(pecas.some((x) => x.peca === 'grupo' && x.estado === 'agile') && !pecas.some((x) => x.peca === 'grupo' && x.estado === 'fallback'));
   } finally { p.limpar(); }
@@ -705,9 +706,50 @@ test('AG33: o produto que muda numa claim faz o preparo rodar de novo antes da c
     assert.equal(refeitos.length, MAXIMO_DE_PREPAROS_REFEITOS + 1, JSON.stringify(pecas));
     assert.ok(refeitos.every((x) => x.estado === 'agile'));
     assert.match(String(refeitos[0].motivo), /antes da claim C2\.1/);
-    assert.match(String(refeitos.at(-1)!.motivo), /antes do grupo/);
+    assert.match(String(refeitos.at(-1)!.motivo), /depois das claims/);
     assert.ok(pecas.some((x) => x.peca === 'grupo' && x.estado === 'agile') && !pecas.some((x) => x.peca === 'grupo' && x.estado === 'fallback'),
       JSON.stringify(pecas));
+  } finally { p.limpar(); }
+});
+
+test('AG46: claim node --test reaproveita somente arquivos verdes no mesmo HEAD e ambiente, inclusive com padrao', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag34-'));
+  try {
+    const base = gravador();
+    const head = 'a'.repeat(40);
+    const ambiente = { LANG: 'C.UTF-8', ORKASTERY_HOME: path.join(dir, 'casa'), FEATURE_X: '1' };
+    const evidencias = [{ lane: 'hermetica', head, ambiente: assinaturaDoAmbiente(ambiente), testes: [
+      { arquivo: 'a.test.js', nome: 'a.test.js', nesting: 0, estado: 'pass' as const },
+      { arquivo: 'b.test.js', nome: 'b.test.js', nesting: 0, estado: 'pass' as const },
+      { arquivo: 'c.test.js', nome: 'c.test.js', nesting: 0, estado: 'fail' as const },
+    ] }];
+    const executar = executorDaClaimPelasLanes(base.executor, evidencias, { head, ambiente });
+    const a = executar('C1.1', "node --test --test-name-pattern='caso A$' core/dist-test/test/a.test.js", dir);
+    assert.equal(a.ok, true);
+    assert.deepEqual(a.lane?.arquivos, ['a.test.js']);
+    assert.deepEqual(a.lane?.nomes, ['a.test.js:/caso A$/']);
+    const dois = executar('C2.1', 'node --test core/dist-test/test/a.test.js core/dist-test/test/b.test.js', dir);
+    assert.deepEqual(dois.lane?.arquivos, ['a.test.js', 'b.test.js']);
+    executar('C3.1', 'node --test core/dist-test/test/c.test.js', dir);
+    executar('C4.1', 'node --test core/dist-test/test/a.test.js && echo aberto', dir);
+    executorDaClaimPelasLanes(base.executor, evidencias, { head, ambiente: { ...ambiente, FEATURE_X: '2' } })(
+      'C5.1', 'node --test core/dist-test/test/a.test.js', dir);
+    assert.deepEqual(base.lista.map(([nome]) => nome), ['C3.1', 'C4.1', 'C5.1'], 'falha, shell aberto e ambiente diferente rodam de verdade');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('AG47: com lanes validas, o Agile roda preparo e lanes antes das claims; o Classic conserva a ordem', () => {
+  const p = projetoTemporario('ag35');
+  try {
+    comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      h: "echo h"');
+    const { thread: t } = novaThread(p.carregado, { nome: 'ordem lane claim', modo: 'auto' });
+    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'depois da lane', verificar: ['echo claim'] });
+    const agile = gravador();
+    verificar(p.carregado, t.id, { executor: agile.executor });
+    assert.deepEqual(agile.lista.map(([nome]) => nome), ['preparo', 'test:h', 'C1.1']);
+    const classic = gravador();
+    verificar(p.carregado, t.id, { executor: classic.executor, check: 'classic' });
+    assert.deepEqual(classic.lista.map(([nome]) => nome), ['preparo', 'C1.1', 'build', 'test']);
   } finally { p.limpar(); }
 });
 

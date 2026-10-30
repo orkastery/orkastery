@@ -31,6 +31,7 @@ import {
   Thread,
 } from './types';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import { existsSync, readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { join } from 'node:path';
@@ -50,9 +51,10 @@ import { BarreiraDaThread, barreiraDaThread, resumoNoLedger } from './dado-priva
 import { avisos as avisosDePolicy, bloqueantes as bloqueantesDePolicy } from './policies';
 import { ENV_MODO_DO_CHECK, ENV_RELATORIO_DO_CHECK, ENV_VARREDURA_PARALELA_DO_CHECK, ModoDoCheck, ModoResolvido, NOME_DO_MODO,
   resolverModo } from './check-modo';
-import { comandosNoAgile, ComandosDoAgile, executorDaClaimNoAgile, ExecutorDeGrupo, GuardaDoProduto, listasDasLanes,
+import { comandosNoAgile, ComandosDoAgile, executorDaClaimNoAgile, executorDaClaimPelasLanes, ExecutorDeGrupo, GuardaDoProduto, listasDasLanes,
   MAXIMO_DE_PREPAROS_REFEITOS, PecaDoAgile, paralelismoDaVarreduraNoGrupo, PECA_SEM_RELATORIO, pecasDoRelatorio,
-  porQueDasLanes, prepararNoAgile, PreparoVigente, refazerPreparo, RefazerPreparo, RelatorioDoCheck } from './check-agil';
+  porQueDasLanes, prepararNoAgile, PreparoVigente, refazerPreparo, RefazerPreparo, RelatorioDoCheck,
+  resultadosDasLanes } from './check-agil';
 import { esperaDoGrupo, rodarEmParalelo } from './check-paralelo';
 import { ENV_CPUS_DA_LANE, ENV_CPUS_DOCKER, MedicaoCpuDoGrupo } from './agendador-cpu';
 import { changelogAplicavel, checarChangelog } from './changelog-check';
@@ -274,6 +276,7 @@ export function comandoNoLedger(c: ResultadoDeComando): Record<string, unknown> 
   // RM-072 (D2): a duracao vai tambem no comando que passa, para a meta do CHECK ser medida pelo ledger. RM-072 (D4, D5):
   // no Agile, o uso do preparo e as lanes; o Classic nao tem esses campos.
   const doAgile = { ...(c.preparo ? { preparo: c.preparo } : {}),
+    ...(c.lane ? { lane: c.lane } : {}),
     ...(c.lanes ? { lanes: c.lanes.map((l) => ({ ...l, comando: redigirCredenciaisUrl(l.comando) })) } : {}),
     ...(c.comandoExecutado ? { comandoExecutado: redigirCredenciaisUrl(c.comandoExecutado) } : {}) };
   if (c.ok) return { nome: c.nome, ok: true, code: c.code, ...(c.duracaoMs !== undefined ? { duracaoMs: c.duracaoMs } : {}), ...doAgile };
@@ -487,7 +490,7 @@ export interface ResumoDoAgile {
   grupo: { paralelo: boolean; lanes: string[] };
   /** O hash curto do produto no fim do preparo (`null` sem guarda). */
   produto: string | null;
-  claims: { reaproveitadas: number; inteiras: number };
+  claims: { reaproveitadas: number; inteiras: number; lanes: number };
   lanes: Array<{ lane: string; arquivos: number; sha256: string }>;
   /** O arquivo com a lista inteira de cada lane, relativo a raiz. */
   evidencia?: string;
@@ -504,12 +507,15 @@ function agileNoLedger(raiz: string, threadId: string, commit: string, pecasDoVe
   relatorio.fechar();
   const doRelatorio = pecasDoRelatorio(linhas);
   const listas = listasDasLanes(linhas);
+  const resultados = resultadosDasLanes(linhas);
   const usos = claims.flatMap((c) => c.execucoes.map((e) => e.preparo).filter((u): u is NonNullable<typeof u> => !!u));
+  const usosDasLanes = claims.flatMap((c) => c.execucoes.filter((e) => e.lane));
   const resumo: ResumoDoAgile = {
     pecas: [...pecasDoVerify, ...doRelatorio],
     grupo: { paralelo: doAgile?.paralelo ?? false, lanes: doAgile?.lanes ?? [] },
     produto: guarda.hashCurto(),
-    claims: { reaproveitadas: usos.filter((u) => u.reaproveitado).length, inteiras: usos.filter((u) => !u.reaproveitado).length },
+    claims: { reaproveitadas: usos.filter((u) => u.reaproveitado).length, inteiras: usos.filter((u) => !u.reaproveitado).length,
+      lanes: usosDasLanes.length },
     lanes: listas.map((l) => ({ lane: l.lane, arquivos: l.arquivos.length, sha256: l.sha256 })),
     orcamento: linhas.filter((l) => l.tipo === 'duracoes').map(({ tipo: _tipo, ...resto }) => resto),
   };
@@ -518,7 +524,7 @@ function agileNoLedger(raiz: string, threadId: string, commit: string, pecasDoVe
     const arquivo = path.join(dirThread(raiz, threadId), 'check', `${commit.slice(0, 12)}-lanes.json`);
     try {
       fs.mkdirSync(path.dirname(arquivo), { recursive: true, mode: 0o700 });
-      fs.writeFileSync(arquivo, JSON.stringify({ commit, lanes: listas.map((l) => ({ lane: l.lane, arquivos: l.arquivos })) },
+      fs.writeFileSync(arquivo, JSON.stringify({ commit, lanes: listas.map((l) => ({ lane: l.lane, arquivos: l.arquivos })), resultados },
         null, 1) + '\n', { mode: 0o600 });
       resumo.evidencia = path.relative(raizDoEstado(raiz), arquivo);
     } catch { /* sem o arquivo, o ledger ainda guarda a contagem e o sha256 de cada lane */ }
@@ -876,7 +882,10 @@ function verificarSobConducao(
   // RM-072 (D8): no Agile, as pecas contam o que rodaram num relatorio da rodada, lido no fim.
   const agil = check.modo === 'agile';
   const relatorio = agil ? new RelatorioDoCheck() : null;
-  const ambienteDaRodada = { ...ambienteDoModo(check), ...relatorio?.ambiente() };
+  const casaDaRodada = agil && !(process.env.ORKASTERY_HOME || '').trim()
+    ? fs.mkdtempSync(path.join(os.tmpdir(), 'ork-verify-casa-')) : null;
+  const ambienteFuncional = { ...ambienteDoModo(check), ...(casaDaRodada ? { ORKASTERY_HOME: casaDaRodada } : {}) };
+  const ambienteDaRodada = { ...ambienteFuncional, ...relatorio?.ambiente() };
 
   // I-37 (D2, D3): o prazo de cada comando sai do manifesto carregado no inicio da rodada;
   // editar o manifesto no meio dela nao muda o teto de quem ainda vai rodar.
@@ -885,7 +894,7 @@ function verificarSobConducao(
   // RM-072 (A3 do CHECK): as claims recebem o modo, nunca o relatorio da rodada; o teste que roda a varredura dentro de uma
   // claim gravaria pecas de fixture no relatorio do verify. O relatorio fica com o preparo e o grupo.
   const executorDasClaims: ExecutorVerify = relatorio
-    ? executorSobConducao(executorDaRodada(manifesto, instabilidade, opcoes.executor, leitor, ambienteDoModo(check)), manifesto, conducao)
+    ? executorSobConducao(executorDaRodada(manifesto, instabilidade, opcoes.executor, leitor, ambienteFuncional), manifesto, conducao)
     : executor;
   // RM-072 (S-b do CHECK 2): fora do preparo, so a varredura e as lanes recebem o relatorio.
   const executorDosComandos = relatorio ? soAVarreduraEAsLanesComRelatorio(executor, executorDasClaims) : executor;
@@ -925,8 +934,25 @@ function verificarSobConducao(
     return true;
   };
 
+  // RM-074 M1: no Agile, as lanes rodam antes das claims para seus resultados nominais poderem provar `node --test`.
+  // Classic conserva a ordem anterior. O build continua vindo do preparo desta mesma rodada.
+  let doAgile: ComandosDoAgile | null = null;
+  const grupoAntesDasClaims = !opcoes.soClaims && !!vigente && vigente.guarda.conferir() === null
+    && Object.keys(manifesto.check?.agile?.test ?? {}).length > 0;
+  let comandosDoManifestoExecutados = grupoAntesDasClaims
+    ? (doAgile = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executorDosComandos,
+      executorDoGrupo(manifesto, ambienteDaRodada, instabilidade, leitor, conducao, opcoes.executor ? executor : undefined,
+        opcoes.medicaoCpuAgendador), vigente!.guarda, vigente!.preparo)).comandos
+    : [];
+  if (doAgile) pecas.push(...doAgile.pecas);
+  const evidenciasDasLanes = relatorio && doAgile ? resultadosDasLanes(relatorio.ler()) : [];
+  const ambienteEfetivoDasClaims = { ...ambienteDoVerify(), ...ambienteFuncional };
+  const executorComLanes = evidenciasDasLanes.length > 0
+    ? executorDaClaimPelasLanes(executorDasClaims, evidenciasDasLanes, { head: commit, ambiente: ambienteEfetivoDasClaims })
+    : executorDasClaims;
+
   // Claim retirada sai do gate: o historico guarda a alegacao e o motivo da retirada.
-  const executorDaClaim = vigente ? executorDaClaimNoAgile(manifesto, executorDasClaims, vigente, refazerAntesDaClaim) : executorDasClaims;
+  const executorDaClaim = vigente ? executorDaClaimNoAgile(manifesto, executorComLanes, vigente, refazerAntesDaClaim) : executorComLanes;
   const claims = lerClaims(raiz, threadId)
     .filter((c) => c.estado !== 'retirada')
     .map((c) => verificarClaim(c, cwd, executorDaClaim));
@@ -941,26 +967,33 @@ function verificarSobConducao(
     if (r.claim.estado !== estado) carimbarEstado(raiz, r.claim, estado);
   }
 
-  // RM-072 (A1 do CHECK): o produto que mudou durante as claims tem o preparo refeito antes do grupo, que segue em paralelo.
-  // S-h do CHECK 3: o grupo tem a vaga dele, fora do teto das claims.
-  if (vigente && !opcoes.soClaims && vigente.guarda.conferir() === 'produto-mudou') refazer('antes do grupo');
+  // Claim nao reaproveitada pode recompilar e mudar o produto depois das lanes. Nesse caso o preparo e o grupo rodam
+  // novamente sobre o produto final; na rodada comum, as claims de teste vieram das lanes e este caminho nao custa nada.
+  const guardaDepoisDasClaims = grupoAntesDasClaims ? vigente?.guarda.conferir() : null;
+  if (grupoAntesDasClaims && guardaDepoisDasClaims) {
+    if (guardaDepoisDasClaims === 'produto-mudou') refazer('depois das claims');
+    doAgile = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executorDosComandos,
+      executorDoGrupo(manifesto, ambienteDaRodada, instabilidade, leitor, conducao, opcoes.executor ? executor : undefined,
+        opcoes.medicaoCpuAgendador), vigente.guarda, vigente.preparo);
+    comandosDoManifestoExecutados = doAgile.comandos;
+    pecas.push(...doAgile.pecas);
+  }
 
-  // RM-072 (D4, D6): no Agile, build do preparo e o resto no grupo paralelo, com a guarda valendo.
-  let doAgile: ComandosDoAgile | null = null;
-  const comandosDoManifestoExecutados = opcoes.soClaims
-    ? []
-    : vigente
+  if (!opcoes.soClaims && !grupoAntesDasClaims) {
+    comandosDoManifestoExecutados = vigente
       ? (doAgile = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executorDosComandos,
         executorDoGrupo(manifesto, ambienteDaRodada, instabilidade, leitor, conducao, opcoes.executor ? executor : undefined,
-          opcoes.medicaoCpuAgendador),
-        vigente.guarda, vigente.preparo)).comandos
-      : comandosDoManifesto(manifesto).map((c) => executor(c.nome, c.comando, cwd));
+          opcoes.medicaoCpuAgendador), vigente.guarda, vigente.preparo)).comandos
+      : comandosDoManifesto(manifesto).map((c) => executorDosComandos(c.nome, c.comando, cwd));
+    if (doAgile) pecas.push(...doAgile.pecas);
+  }
   const changelog = opcoes.soClaims ? null
     : verificarChangelog(cwd, manifesto.worktree.base_branch, thread.base?.commit);
   const comandos = opcoes.soClaims ? []
     : changelog ? [...comandosDoManifestoExecutados, changelog] : comandosDoManifestoExecutados;
-  if (doAgile) pecas.push(...doAgile.pecas);
   const resumoDoAgile = vigente ? agileNoLedger(raiz, threadId, commit, pecas, doAgile, vigente.guarda, relatorio!, claims) : null;
+  if (relatorio && !vigente) relatorio.fechar();
+  if (casaDaRodada) fs.rmSync(casaDaRodada, { recursive: true, force: true });
 
   // RM-062 (F2): a barreira de dado privado no diff da thread, so com a policy `dado_privado` no manifesto.
   const dadoPrivado = barreiraDaThread(carregado, thread, cwd, 'verify');
@@ -1045,6 +1078,7 @@ function verificarSobConducao(
         duracaoMs: c.execucoes.reduce((t, e) => t + (e.duracaoMs ?? 0), 0),
         // RM-072 (D5): no Agile, o que a guarda fez com cada comando da claim.
         ...(c.execucoes.some((e) => e.preparo) ? { preparo: c.execucoes.map((e) => e.preparo ?? null) } : {}),
+        ...(c.execucoes.some((e) => e.lane) ? { lane: c.execucoes.map((e) => e.lane ?? null) } : {}),
         ...(falhou ? { execucao: comandoNoLedger(falhou) } : {}),
       };
     }),

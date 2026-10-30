@@ -11,6 +11,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { TESTES_DE_INTEGRACAO_LOCAL } from '../src/integracoes-locais';
+import { assinaturaDoAmbiente as assinaturaDoVerify } from '../src/check-agil';
 
 const CORE = path.resolve(__dirname, '../..');
 const SCRIPT = path.join(CORE, 'scripts', 'test-lanes.cjs');
@@ -126,6 +127,7 @@ test('TL11: a assinatura ignora transporte do runner, mas muda com ambiente func
   const base = { LANG: 'C.UTF-8', ORKASTERY_HOME: '/tmp/casa', FEATURE_X: '1' };
   assert.equal(lanes.assinaturaDoAmbiente(base), lanes.assinaturaDoAmbiente({ ...base, ORK_CHECK_MODO: 'agile',
     npm_lifecycle_event: 'test:hermetica', NODE_COMPILE_CACHE: '/tmp/cache', PWD: '/outra' }));
+  assert.equal(lanes.assinaturaDoAmbiente(base), assinaturaDoVerify(base), 'a lane e o verify assinam o mesmo contrato');
   assert.notEqual(lanes.assinaturaDoAmbiente(base), lanes.assinaturaDoAmbiente({ ...base, FEATURE_X: '2' }));
 });
 
