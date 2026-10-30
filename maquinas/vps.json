@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.1",
-  "publicadoEm": "2026-10-30T03:31:24.771Z",
+  "publicadoEm": "2026-10-30T03:33:50.402Z",
   "threads": [
     {
       "id": "ork-asessaonosan",
@@ -49,24 +49,6 @@
         "desdeEm": "2026-10-30T01:34:38.776Z",
         "motivo": "sessão 01a18a57 encerrada (completed)"
       }
-    },
-    {
-      "id": "ork-otestedaslan",
-      "nome": "ork-lanescpuenv",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": "RM-074",
-      "branch": "ork/ork-otestedaslan-go",
-      "atualizadaEm": "2026-10-29T16:45:26.990Z",
-      "entregue": "b762e37",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh",
-      "sessao": null
     },
     {
       "id": "ork-otestedavali",
@@ -176,6 +158,28 @@
         "viva": false,
         "desdeEm": "2026-10-29T15:53:00.931Z",
         "motivo": "sessão 7d0c534d encerrada (sem estado)"
+      }
+    },
+    {
+      "id": "ork-verifyassinc",
+      "nome": "ork-verifymcp",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-064",
+      "branch": "ork/ork-verifyassinc-full",
+      "atualizadaEm": "2026-10-30T03:33:44.325Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-30T03:33:47.374Z",
+        "motivo": "nenhuma sessão despachada na fase GOAL"
       }
     }
   ]
