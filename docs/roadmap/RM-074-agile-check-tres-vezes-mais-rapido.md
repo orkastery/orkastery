@@ -417,7 +417,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Em desenvolvimento | — | 2026-10-30 | Julio |
 | Documentação | Em revisão | — | 2026-10-30 | Julio |
-| Código | Branch criada | commit `2babe765` | 2026-10-30 | Julio |
+| Código | Branch criada | commit `ab26364f` | 2026-10-30 | Julio |
 | Testes | Em execução | — | 2026-10-30 | Julio |
 | Deploy | Não implantado | — | 2026-10-30 | Julio |
 | Exposição | Flag desligada | — | 2026-10-30 | Julio |
