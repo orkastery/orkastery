@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.1",
-  "publicadoEm": "2026-10-30T05:15:02.604Z",
+  "publicadoEm": "2026-10-30T05:34:18.549Z",
   "threads": [
     {
       "id": "ork-asessaonosan",
@@ -47,6 +47,28 @@
       "sessao": {
         "viva": false,
         "desdeEm": "2026-10-30T03:33:58.036Z",
+        "motivo": "nenhuma sessão despachada na fase GO"
+      }
+    },
+    {
+      "id": "ork-ogx4dogrokfi",
+      "nome": "ork-gx4estavel",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": "RM-067",
+      "branch": "ork/ork-ogx4dogrokfi-go",
+      "atualizadaEm": "2026-10-30T05:34:13.021Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-30T05:34:15.551Z",
         "motivo": "nenhuma sessão despachada na fase GO"
       }
     },
