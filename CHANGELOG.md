@@ -18,7 +18,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Alterado
 
-- **Reaproveitamento de provas no Agile Check — M1 e M2 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** os testes pesados que não verificam a fronteira real de processo chamam o CLI dentro do próprio processo com ambiente, diretório, saídas e código isolados; a M2 leva o harness a quatro pontos quentes restantes. Claims `node --test`, a auditoria TAP canônica e cadeias fechadas com `grep -q` reaproveitam as lanes e o build único somente no mesmo HEAD, ambiente e produto. Testes de sinais, PATH, rede e Docker reais, Git, locks e concorrência permanecem com processo filho, sem reduzir a bateria ou as asserções. A razão e a CPU da M2 saem da bancada da condução; até lá, este registro não afirma “Menos CPU por teste no Agile Check — M1 e M2”.
+- **Confiança e CPU de sistema no Agile Check — M1 a M3 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** a bancada só publica razão com três pares válidos em ordem AB/BA, mostra o preparo fora da razão e acompanha a CPU com o `steal` de cada passe. Os testes de security scan reutilizam um modelo Git por arquivo, e as lanes podem usar tmpfs com `ORK_CHECK_TMPFS=auto` quando memória, espaço e escrita têm folga; o padrão continua em disco e todo fallback explica o motivo. O harness e as provas reaproveitadas das M1 e M2 permanecem limitados ao mesmo HEAD, ambiente e produto. Nenhum teste ou asserção foi removido, e este registro não afirma ganho de razão ou CPU antes de uma bancada válida.
 
 ### Corrigido
 
