@@ -241,6 +241,63 @@
       "criadoEm": "2026-10-30T00:24:22.969Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-claimsechang",
+      "fase": "GO",
+      "arquivo": "core/src/changelog-check.ts",
+      "alegacao": "A regra do CHANGELOG só é aplicável quando o HEAD contém CHANGELOG.md e há tag v* alcançável; sem uma dessas condições, o resultado é uma dispensa.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern \"aplicabilidade:\" core/dist-test/test/rm037-fatia3-changelog-no-ci.test.js"
+      ],
+      "criadoEm": "2026-10-30T01:22:28.505Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-claimsechang",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "O verify omite por completo o comando changelog em repositórios não versionados, preservando lista e ordem dos comandos do manifesto.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern \"AG8:|AG21:\" core/dist-test/test/check-agil.test.js",
+        "node --test-name-pattern \"CM5:\" core/dist-test/test/check-modo.test.js"
+      ],
+      "criadoEm": "2026-10-30T01:22:28.580Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-claimsechang",
+      "fase": "GO",
+      "arquivo": "core/test/rm037-fatia3-changelog-no-ci.test.ts",
+      "alegacao": "A fixture da regra usa uma tag publicada real e cobre explicitamente repositórios sem tag e sem CHANGELOG.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern \"aplicabilidade:\" core/dist-test/test/rm037-fatia3-changelog-no-ci.test.js"
+      ],
+      "criadoEm": "2026-10-30T01:22:28.672Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-claimsechang",
+      "fase": "GO",
+      "arquivo": "docs/produto/FEAT-004-claims-e-verify.md",
+      "alegacao": "FEAT-004, RM-037 e CHANGELOG limitam a regra aos repositórios com CHANGELOG.md e tag v* publicada.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'tag publicada `v\\\\*`' docs/roadmap/RM-037-verify-rapido-e-confiavel.md && grep -q 'Sem arquivo ou versão publicada' docs/produto/FEAT-004-claims-e-verify.md && grep -A 12 '^## Não publicado$' CHANGELOG.md | grep -q 'sem arquivo ou versão publicada'"
+      ],
+      "criadoEm": "2026-10-30T01:25:47.195Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
   "deferredClaims": [],
