@@ -8,6 +8,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **O teste das lanes não herda o plano de CPU da rodada:** `ORK_CHECK_CPUS_DA_LANE` e `ORK_CHECK_CPUS_DOCKER`
+  continuam limitando a própria lane, mas não chegam aos testes que ela executa. Sob saturação, os testes que conferem
+  a concorrência da lane e os argumentos do Docker viam a fatia da rodada e reprovavam sem defeito no código
+  ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)).
 - **Teste da validade inicial da fixture isolado:** a fixture respeita `TMPDIR`, e o teste não observa mais o `/tmp`
   compartilhado nem vence após 5 segundos sob carga ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)).
 
