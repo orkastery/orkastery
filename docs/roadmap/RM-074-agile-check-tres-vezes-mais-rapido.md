@@ -131,7 +131,8 @@ rede e Docker reais, Git, locks e concorrência continuam em processo filho. Nas
 claims, a M2 reaproveita a auditoria TAP canônica e remove o preparo único depois
 apenas de leituras `grep -q`; outra forma de shell continua inteira. A bancada M2
 ainda não foi coletada no host real, portanto esta página não atribui a ela razão
-nem CPU da suíte sem evidência.
+nem CPU da suíte sem evidência. A razão da M2 só sai da bancada da sessão condutora,
+fora deste sandbox.
 
 ## Problema e resultado
 
