@@ -6,6 +6,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Alterado
+
+- **Confiança e CPU de sistema no Agile Check — M3 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** a bancada só publica razão com três pares válidos em ordem AB/BA, mostra o preparo fora da razão e acompanha a CPU com o `steal` de cada passe. Os testes de security scan reutilizam um modelo Git por arquivo, e as lanes podem usar tmpfs com `ORK_CHECK_TMPFS=auto` quando memória, espaço e escrita têm folga; o padrão continua em disco e todo fallback explica o motivo. Nenhum teste ou asserção foi removido, e este registro não afirma ganho de razão ou CPU antes de uma bancada válida.
+
 ## [0.6.2] - 2026-10-30
 
 O CHECK fica mais confiável: uma regressão não se esconde em um comando que já falhava. O Agile Check reaproveita provas

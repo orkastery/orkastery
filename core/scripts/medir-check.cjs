@@ -52,6 +52,8 @@ const CLI = path.join(RAIZ, 'core', 'dist', 'index.js');
 const TETO_DA_RODADA_MS = 3 * 60 * 1000;
 const TETO_DO_PICO_BYTES = 4 * 1024 ** 3;
 const PREFIXO_DOS_CONTAINERS = 'ork-security-scan-';
+const MIN_PARES_CONFIAVEIS = 3;
+const TOLERANCIA_STEAL_PP = 2;
 const TEMPO = '/usr/bin/time';
 const FORMATO_DO_TEMPO = '%e %U %S %M';
 const PRAZO_DO_ARQUIVO_MS = 20 * 60 * 1000;
@@ -227,6 +229,32 @@ function removerContainersDaCopia(pastas) {
 /** A razao do par: a parede do Classic dividida pela do Agile no mesmo commit (3 = o Agile tres vezes mais rapido). */
 function razao(classicMs, agileMs) {
   return typeof classicMs === 'number' && typeof agileMs === 'number' && classicMs > 0 && agileMs > 0 ? classicMs / agileMs : null;
+}
+
+/** Ordem contrabalanceada da bancada: AB, BA, AB... (A = Agile, B = Classic). */
+function ordemDosPares(total) {
+  return Array.from({ length: total }, (_, i) => (i % 2 === 0 ? ['agile', 'classic'] : ['classic', 'agile']));
+}
+
+/** Parede usada pela razao: o preparo medido fica de fora, sem esconder o valor bruto. */
+function paredeSemPreparo(rodada) {
+  if (!(rodada?.duracaoMs > 0) || typeof rodada?.preparoMs !== 'number' || rodada.preparoMs < 0) return null;
+  const parede = rodada.duracaoMs - rodada.preparoMs;
+  return parede > 0 ? parede : null;
+}
+
+/** Validade de um par antes de ele poder participar da razao oficial. */
+function validarPar(a, classic, ordem, esperada, toleranciaStealPp = TOLERANCIA_STEAL_PP) {
+  const motivos = [];
+  if (!a?.ok || !classic?.ok) motivos.push('rodada-reprovada');
+  const paredeAgile = paredeSemPreparo(a), paredeClassic = paredeSemPreparo(classic);
+  if (paredeAgile === null || paredeClassic === null) motivos.push('preparo-ou-parede-ausente');
+  if (ordem.join(',') !== esperada.join(',')) motivos.push('ordem-nao-ABBA');
+  const stealAgile = a?.stealPct, stealClassic = classic?.stealPct;
+  if (typeof stealAgile !== 'number' || typeof stealClassic !== 'number') motivos.push('steal-ausente');
+  else if (Math.abs(stealAgile - stealClassic) > toleranciaStealPp) motivos.push('steal-divergente');
+  return { valido: motivos.length === 0, motivos, paredesSemPreparoMs: { agile: paredeAgile, classic: paredeClassic },
+    divergenciaStealPp: typeof stealAgile === 'number' && typeof stealClassic === 'number' ? Math.abs(stealAgile - stealClassic) : null };
 }
 
 /**
@@ -447,7 +475,9 @@ function sondaDoGrafo(fechos, sobeProcesso, diffs, duracoes, janelas = [60, 200]
 /** Sonda 5: as pecas do Agile que cairam para o equivalente do Classic numa rodada. */
 function pecasEmFallback(rodada) {
   const pecas = Array.isArray(rodada?.pecas) ? rodada.pecas : [];
-  return { total: pecas.length, fallback: pecas.filter((p) => p && p.estado === 'fallback').map((p) => p.peca) };
+  const fallback = pecas.filter((p) => p && p.estado === 'fallback');
+  return { total: pecas.length, fallback: fallback.map((p) => p.peca),
+    detalhes: fallback.map((p) => ({ peca: p.peca, motivo: p.motivo ?? null, fallback: p.fallback ?? null })) };
 }
 
 /** Troca cada trecho sensivel (a casa, o nome da maquina, as pastas da copia) por um rotulo, em todo texto de um valor. */
@@ -624,6 +654,12 @@ function opcoes(args) {
     reanalisar: valor('--reanalisar', null) };
 }
 
+function validarOpcoesDaBancada(o) {
+  if (!Number.isInteger(o.pares) || o.pares < MIN_PARES_CONFIAVEIS) {
+    throw new Error(`a bancada confiavel exige pelo menos ${MIN_PARES_CONFIAVEIS} pares (--pares ${MIN_PARES_CONFIAVEIS} ou mais)`);
+  }
+}
+
 /**
  * A copia descartavel, com a thread e as claims representativas: devolve as pastas, o ambiente, o ledger e a limpeza.
  * Com `--commit`, a copia sai desse commit (numa branch propria) e a base da thread e o merge-base dele com a base.
@@ -699,6 +735,7 @@ function ultimaRodada(ledger, jaLidas) {
 async function principal(args) {
   const o = opcoes(args);
   if (o.bancada && o.reanalisar) return escreverBancada(JSON.parse(fs.readFileSync(o.reanalisar, 'utf8')), o);
+  if (o.bancada) validarOpcoesDaBancada(o);
   if (o.bancada) return bancada(o);
   const c = prepararCopia(o);
   const desligar = pararPorSinal(c.limpar);
@@ -790,8 +827,9 @@ async function bancada(o) {
   try {
     const { rodadas, passes } = bruto;
     let lanes = null;
+    const ordens = ordemDosPares(o.pares);
     for (let k = 1; k <= o.pares; k++) {
-      for (const modo of ['agile', 'classic']) {
+      for (const modo of ordens[k - 1]) {
         const esperou = await espera();
         avisar(`par ${k} ${modo}: esperou ${Math.round(esperou.esperaMs / 1000)} s (quieta: ${esperou.quieta})`);
         const log = path.join(logs, `par-${k}-${modo}.log`);
@@ -889,7 +927,7 @@ function analisarBancada({ rodadas, passes, lanes, nucleos, linhaDeBase = null, 
     }
     return { total, porLane };
   };
-  const cpuPorPasse = passes.map((p) => ({ passe: p.passe, ...cpuDoPasse(p), testes: Object.values(p.medidas).reduce((s, m) => s + (m.testes ?? 0), 0),
+  const cpuPorPasse = passes.map((p) => ({ passe: p.passe, stealPct: p.stealPct ?? null, ...cpuDoPasse(p), testes: Object.values(p.medidas).reduce((s, m) => s + (m.testes ?? 0), 0),
     arquivosComFalha: Object.entries(p.medidas).filter(([, m]) => m.saida !== 0).map(([a]) => a) }));
   const testeDe = (a) => passes.map((p) => p.medidas[a]?.testes).find((n) => typeof n === 'number') ?? null;
   const porLane = {};
@@ -898,22 +936,37 @@ function analisarBancada({ rodadas, passes, lanes, nucleos, linhaDeBase = null, 
   }
   const pares = [];
   const ks = [...new Set(rodadas.map((r) => r.par))];
-  for (const k of ks) {
+  const ordensEsperadas = ordemDosPares(ks.length);
+  for (const [indice, k] of ks.entries()) {
     const a = rodadas.find((r) => r.par === k && r.pedido === 'agile');
     const cl = rodadas.find((r) => r.par === k && r.pedido === 'classic');
+    const ordem = rodadas.filter((r) => r.par === k).map((r) => r.pedido);
+    const validade = validarPar(a, cl, ordem, ordensEsperadas[indice]);
     const passe = cpuPorPasse.find((p) => p.passe === k) ?? cpuPorPasse[cpuPorPasse.length - 1] ?? null;
     const laneMs = (r, lane) => r?.comandos.find((x) => x.nome === 'test')?.lanes?.find((l) => l.lane === lane)?.duracaoMs ?? null;
     const testMs = (r) => r?.comandos.find((x) => x.nome === 'test')?.duracaoMs ?? null;
     const ef = {};
     for (const lane of Object.keys(lanes)) ef[lane] = passe ? eficiencia(passe.porLane[lane], nucleos, laneMs(a, lane)) : null;
     pares.push({
-      par: k, ambosAprovados: !!(a?.ok && cl?.ok),
-      razao: razao(cl?.duracaoMs, a?.duracaoMs), razaoDaCpu: razao(cl?.cpuDaArvoreMs, a?.cpuDaArvoreMs),
+      par: k, ordem, ambosAprovados: !!(a?.ok && cl?.ok), ...validade,
+      preparoMs: { agile: a?.preparoMs ?? null, classic: cl?.preparoMs ?? null },
+      cpuDaArvore: { agile: { ms: a?.cpuDaArvoreMs ?? null, stealPct: a?.stealPct ?? null },
+        classic: { ms: cl?.cpuDaArvoreMs ?? null, stealPct: cl?.stealPct ?? null } },
+      razao: null, razaoDaCpu: null,
       picoAgileSobreClassic: a?.picoBytes && cl?.picoBytes ? a.picoBytes / cl.picoBytes : null,
       eficiencia: { ...ef, suiteNoAgile: passe ? eficiencia(passe.total, nucleos, testMs(a)) : null,
         suiteNoClassic: passe ? eficiencia(passe.total, nucleos, testMs(cl)) : null },
       stealPct: { agile: a?.stealPct ?? null, classic: cl?.stealPct ?? null },
     });
+  }
+  const validos = pares.filter((p) => p.valido);
+  const motivosDaConfianca = [];
+  if (pares.length < MIN_PARES_CONFIAVEIS) motivosDaConfianca.push(`menos-de-${MIN_PARES_CONFIAVEIS}-pares`);
+  if (validos.length < MIN_PARES_CONFIAVEIS) motivosDaConfianca.push(`menos-de-${MIN_PARES_CONFIAVEIS}-pares-validos`);
+  const comConfianca = motivosDaConfianca.length === 0;
+  if (comConfianca) for (const p of validos) {
+    p.razao = razao(p.paredesSemPreparoMs.classic, p.paredesSemPreparoMs.agile);
+    p.razaoDaCpu = razao(p.cpuDaArvore.classic.ms, p.cpuDaArvore.agile.ms);
   }
   const baseCpu = linhaDeBase?.cpuDaSuite?.variacao?.media ?? variacao(cpuPorPasse.map((p) => p.total))?.media ?? null;
   const cortes = cpuPorPasse.map((p) => ({ passe: p.passe, corte: corte(p.total, baseCpu) }));
@@ -933,6 +986,8 @@ function analisarBancada({ rodadas, passes, lanes, nucleos, linhaDeBase = null, 
     passes: passes.map((p) => p.medidas[a] ?? null), concorrenteMs: agiles.map((r) => r.duracoesPorArquivo?.[a] ?? null) }));
   return {
     lanes: porLane,
+    confianca: { estado: comConfianca ? 'com-confianca' : 'sem-confianca', motivos: motivosDaConfianca,
+      pares: pares.length, paresValidos: validos.length, minimo: MIN_PARES_CONFIAVEIS, toleranciaStealPp: TOLERANCIA_STEAL_PP },
     pares,
     variacao: {
       razao: variacao(pares.map((p) => p.razao)),
@@ -955,6 +1010,8 @@ function analisarBancada({ rodadas, passes, lanes, nucleos, linhaDeBase = null, 
 }
 
 module.exports = { lerRodadas, tresConsecutivas, rssDaArvore, picoAgregado, pastaDasCopias, encerrarArvore, CLAIMS_REPRESENTATIVAS,
+  MIN_PARES_CONFIAVEIS, TOLERANCIA_STEAL_PP, ordemDosPares, paredeSemPreparo, validarPar,
+  validarOpcoesDaBancada,
   razao, eficiencia, corte, variacao, quantil, lerCpuStat, stealPct, quieta, eSuite, lerTempo, contarTap, concentracao,
   custoDosMaiores, claimsQueRepetem, pesoNaRodada, selecionarPorDiff, sondaDoGrafo, pecasEmFallback, redigir, comandosDeClaims,
   fechosDeRequire, analisarBancada, jsonRaso };

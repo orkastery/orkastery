@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-30T14:04:42-03:00
+atualizado_em: 2026-10-30T15:40:00-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -20,9 +20,9 @@ evidencias:
     commit: ab26364f
     pr: null
 sdlc:
-  thread: ork-rm074m3rumoa
+  thread: ork-rm074m4cpude
   modo: "#Auto"
-  fase: GO
+  fase: GOAL
   status: aberta
 ---
 
@@ -129,10 +129,40 @@ A M2 leva o harness somente aos cenários de resposta em `rede`,
 `projeto-alvo-declaracao`, `p4-worktree-por-thread` e `locale-f2b`; sinais, PATH,
 rede e Docker reais, Git, locks e concorrência continuam em processo filho. Nas
 claims, a M2 reaproveita a auditoria TAP canônica e remove o preparo único depois
-apenas de leituras `grep -q`; outra forma de shell continua inteira. A bancada M2
-ainda não foi coletada no host real, portanto esta página não atribui a ela razão
-nem CPU da suíte sem evidência. A razão da M2 só sai da bancada da sessão condutora,
-fora deste sandbox.
+apenas de leituras `grep -q`; outra forma de shell continua inteira. A leitura da
+bancada M2 está abaixo e não converte um par isolado em resultado de produto.
+
+### Resultado da M2 e M3 de confiança e CPU de sistema
+
+A bancada da M2 entregou só um par. Nele, o Agile foi cerca de 1,40 vez o Classic,
+mas os dois passes sofreram roubo de CPU entre 23% e 26% e o preparo do Classic foi
+atípico; sem o preparo, que não representa o CHECK medido, a indicação cai para perto
+de 1,33 vez. A razão de CPU Agile/Classic ficou perto de 0,97: o ganho observado veio
+de usar mais CPU ao mesmo tempo, não de consumir menos CPU. Esse par é diagnóstico,
+não resultado de produto.
+
+Nas rodadas analisadas, a CPU da suíte acompanhou o `steal` da máquina. Cerca de 45%
+da CPU da árvore do Agile foi de sistema, chegando a 63% nos arquivos mais caros. As
+claims ocuparam 6,1% da parede do Agile. `cache-semgrep` e `binarios-nativos`
+continuaram em fallback pelos motivos já medidos; a M3 não atribui ganho a essas duas
+peças.
+
+A M3 torna a confiança condição para publicar qualquer razão. A bancada exige pelo
+menos três pares, alterna a ordem AB/BA, mostra o preparo separadamente e o exclui da
+razão. Cada passe apresenta CPU junto do `steal`; um par cuja diferença de `steal`
+ultrapassa 2 pontos percentuais é marcado e descartado, com o motivo. Com menos de
+três pares válidos, o relatório diz `sem confiança` e não publica razão oficial.
+
+Para atacar CPU de sistema sem mexer na bateria, `security-scan-agil` e
+`security-scan-run` passam a criar o modelo Git uma vez por arquivo e copiar a fixture
+para cada caso.
+
+As lanes também conseguem pôr sua pasta temporária em um filesystem
+em memória quando `ORK_CHECK_TMPFS=auto`; a escolha exige memória livre e espaço com
+folga proporcional, registra a causa de qualquer fallback e continua desligada por
+padrão até uma bancada confiável provar ganho. Nenhum teste ou asserção foi removido.
+Como ainda não há três pares válidos depois dessas mudanças, a M3 não afirma razão,
+corte de CPU nem eficiência nova.
 
 ## Problema e resultado
 
@@ -313,6 +343,7 @@ A numeração segue a ordem do pedido. A ordem de execução recomendada é a da
 | M0 Bancada de medição (coleta concluída) | Cópia descartável do projeto, um comando que mede por arquivo `user`, `sys`, parede e pico de memória, a lista de arquivos e testes por lane, a rodada do Classic no mesmo commit para a razão e o conjunto de claims da bancada, o mesmo nos dois modos. Sem código de produto | A coleta entregou três pares, três passes, CPU por 645 arquivos, eficiência por lane, variação e sondas 1 a 5. O `steal` e as saídas 1 deixam a razão sem confiança para produto; três pares aprovados e controlados continuam necessários. O conjunto rotulado de diffs, com N definido pela D3, só entra quando a F1 começar |
 | F1 Seletividade | Mapa de impacto arquivo para testes a partir do diff, nas rodadas intermediárias do GO e do CHECK, atrás de flag desligada por padrão; o motor sai da D3; fora do caminho da meta, porque a suíte completa continua obrigatória no gate final e no CI; as claims de teste entram no mesmo mapa | Rodada intermediária mais rápida que o gate do Agile no mesmo commit, na razão que a M0 fixa, em três rodadas seguidas pelo ledger; falso negativo dentro do limiar da D3 em sombra sobre os diffs da M0; teste que prova que o gate final roda a suíte completa em 100% dos casos e que a flag desligada dá o resultado de hoje; módulo central (os `locale-*`, 591 testes) tratado por regra explícita, não por seleção de tudo |
 | M1 CPU por teste | Harness do CLI dentro do processo para os testes pesados que não verificam a fronteira de processo; resultado nominal das lanes reaproveitado por claims `node --test` no mesmo HEAD e ambiente; build único por rodada | Razão contra o Classic e CPU da suíte medidas pela mesma bancada da recoleta M0; mesmo número de testes e asserções, nenhum `skip`; paridade byte a byte entre harness e processo; mutação dos arquivos tocados sem piora superior a 10% |
+| M3 Confiança da medida e CPU de sistema | Bancada com três pares válidos em ordem AB/BA, preparo separado e `steal` por passe; fixture Git compartilhada nos dois testes de security scan; tmpfs das lanes atrás de opt-in e fallback explicado | A razão só é oficial com três pares válidos cuja divergência de `steal` não passe de 2 pontos percentuais; CPU sempre acompanhada do `steal`; nenhum teste ou asserção removido; mutantes da M3 mortos; tmpfs só pode virar padrão depois de ganho de CPU de sistema provado pela bancada |
 | F2 CPU da suíte (demais fatias) | Os arquivos de teste mais caros que continuam fora da M1, a eficiência de paralelismo das lanes e a cadeia varredura e integração, com orçamento que vigia o crescimento | Evolução até cerca de 1,7 vez contra o Classic, no mesmo commit, máquina e bateria; nenhum caso removido; cada ganho medido em razão e CPU da suíte |
 | F3 Memória | O teto da D2 aplicado à varredura do grupo e às lanes, medindo o que isso custa na razão contra o Classic | Pico agregado dentro do teto em três rodadas; varredura com as nove ferramentas e zero achado novo ou desaparecido por impressão digital; custo na razão medido e registrado, e aceito pelo dono se tirar a meta da D1 do alcance |
 | F4 Dívida da RM-072 que pesa no tempo ou na confiança | O que a tabela "A dívida da RM-072" diz que entra: redação do motivo da peça `imagem-de-lint`, a lane caída sem veredito e o texto do gate, a data sem ano e o caso de `GMT+0` do snapshot de locale, os casos que faltam, a paridade do `tsgo` fora da thread de origem e as peças em fallback | Cada item da tabela com caso de teste que falha sem a correção; nenhum arquivo ou categoria de varredura removido; peças `tsgo`, `cache-semgrep` e binários nativos com o motivo do fallback medido e, onde o fallback some, o ganho em percentual da parede pelo ledger |
@@ -427,9 +458,9 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 ## Responsabilidades e histórico
 
-- **RACI (R / A / C / I):** R: sessão condutora da thread `ork-rm074m2harne` para a M2; A: Julio; C: a definir; I: a definir.
-- **Agentes envolvidos, atuação, autonomia e revisor humano:** a M2 é conduzida em `#Auto` pela thread `ork-rm074m2harne`; decisões autônomas ficam no ledger, enquanto a meta 2.c e o limite de qualidade são do dono; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** coletar a bancada M2 no host real, registrar razão e CPU da suíte e concluir CHECK/SHIP/MASTER; responsável: thread `ork-rm074m2harne`; prazo: nesta entrega.
+- **RACI (R / A / C / I):** R: sessão condutora da thread `ork-rm074m3rumoa` para a M3; A: Julio; C: a definir; I: a definir.
+- **Agentes envolvidos, atuação, autonomia e revisor humano:** a M3 é conduzida em `#Auto` pela thread `ork-rm074m3rumoa`; decisões autônomas ficam no ledger, enquanto a meta 2.c e o limite de qualidade são do dono; revisor humano: Julio.
+- **Próxima ação, responsável e prazo:** nenhuma thread sucessora foi autorizada nesta entrega. A próxima fatia deve nascer do roadmap antes de novo código; até lá, `sdlc.thread` fica vazio e a meta continua aberta, sem razão atribuída à M3.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -438,3 +469,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-29 | A alternativa 2.c substitui a D1: meta de cerca de 1,7 vez contra o Classic, mesma máquina e bateria, com perda de qualidade limitada a 10% | Decisão do dono recebida pela thread `ork-rm074m1menos` | Julio |
 | 2026-10-30 | M1 iniciada: CLI no processo para testes pesados e resultados das lanes reutilizados por claims equivalentes no mesmo HEAD e ambiente | Bancada M0 `6a30b24c`, plano e implementação da thread `ork-rm074m1menos` | Thread `ork-rm074m1menos` (#Auto) |
 | 2026-10-30 | M1 registrada; M2 leva o harness a quatro pontos quentes restantes e reaproveita formas fechadas das claims. A razão e a CPU da M2 ficam pendentes da bancada no host real | Bancada M1 `4f4d4b55`, reanálise da sonda 2 e implementação da thread `ork-rm074m2harne` | Thread `ork-rm074m2harne` (#Auto) |
+| 2026-10-30 | M3 torna a confiança pré-condição da razão, reaproveita a fixture Git nos testes de security scan e deixa o tmpfs das lanes atrás de opt-in; sem três pares válidos, não publica ganho | Par único da M2 sob `steal` alto, perfil de CPU de sistema e implementação da thread `ork-rm074m3rumoa` | Thread `ork-rm074m3rumoa` (#Auto) |

@@ -25,6 +25,7 @@ const lanes = require(SCRIPT) as {
   REPORTER: string;
   globDoNpmTest: () => string[];
   concorrenciaDaLane: (lane: string, cpus?: number, limiteDoGrupo?: number) => number;
+  selecionarTemporario: (opcoes?: Record<string, unknown>) => { diretorio: string; estado: 'agile' | 'fallback'; motivo: string };
 };
 
 test('TL1: a uniao das lanes e todo arquivo de teste compilado, sem arquivo nas duas', () => {
@@ -179,4 +180,19 @@ test('TL10: o teste da lane nao herda modo, relatorio nem plano de CPU da rodada
       'quem exporta ORK_TESTE_EXIGE_AMBIENTE exige as dependencias nos dois modos, como no npm test');
     assert.ok(fs.readFileSync(relatorio, 'utf8').split('\n').filter(Boolean).some((l) => (JSON.parse(l) as { tipo: string }).tipo === 'lista'));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('TL12: tmpfs e opt-in, exige memoria e espaco com folga e cai para disco com o motivo', () => {
+  const base = { disco: '/disco', candidatos: ['/memoria'], memoriaTotal: 1000, memoriaLivre: 500,
+    sondar: () => ({ ok: true, livres: 500 }) };
+  assert.deepEqual(lanes.selecionarTemporario(base),
+    { diretorio: '/disco', estado: 'fallback', motivo: 'desligado-por-padrao' });
+  assert.deepEqual(lanes.selecionarTemporario({ ...base, chave: 'off' }),
+    { diretorio: '/disco', estado: 'fallback', motivo: 'chave-off' });
+  assert.deepEqual(lanes.selecionarTemporario({ ...base, chave: 'auto' }),
+    { diretorio: '/memoria', estado: 'agile', motivo: 'tmpfs-gravavel-com-folga' });
+  assert.deepEqual(lanes.selecionarTemporario({ ...base, chave: 'auto', memoriaLivre: 200 }),
+    { diretorio: '/disco', estado: 'fallback', motivo: 'memoria-livre-sem-folga' });
+  assert.deepEqual(lanes.selecionarTemporario({ ...base, chave: 'auto', sondar: () => ({ ok: false, motivo: 'nao-tmpfs' }) }),
+    { diretorio: '/disco', estado: 'fallback', motivo: '/memoria:nao-tmpfs' });
 });
