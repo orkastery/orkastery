@@ -737,8 +737,9 @@ test('AG46: claim node --test reaproveita somente arquivos verdes no mesmo HEAD 
     executorDaClaimPelasLanes(base.executor, evidencias, { head: 'b'.repeat(40), ambiente })(
       'C6.1', 'node --test core/dist-test/test/a.test.js', dir);
     executar('C7.1', 'bun --test core/dist-test/test/a.test.js', dir);
-    assert.deepEqual(base.lista.map(([nome]) => nome), ['C3.1', 'C4.1', 'C5.1', 'C6.1', 'C7.1'],
-      'falha, shell aberto, ambiente ou HEAD diferente e outro runner executam de verdade');
+    executar('C8.1', 'node --test core/dist-test/test/sub/a.test.js', dir);
+    assert.deepEqual(base.lista.map(([nome]) => nome), ['C3.1', 'C4.1', 'C5.1', 'C6.1', 'C7.1', 'C8.1'],
+      'falha, shell aberto, ambiente ou HEAD diferente, outro runner e subdiretorio executam de verdade');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 

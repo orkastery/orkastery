@@ -55,6 +55,15 @@
       "para": "const grupoAntesDasClaims = false && !opcoes.soClaims && !!vigente && vigente.guarda.conferir() === null",
       "teste": "check-agil",
       "nome": "^AG47:"
+    },
+    {
+      "id": "M7",
+      "descricao": "arquivo em subdiretório volta a colidir pelo basename com arquivo plano da lane",
+      "modulo": "check-agil",
+      "de": "|| relativo !== path.basename(relativo)",
+      "para": "|| false",
+      "teste": "check-agil",
+      "nome": "^AG46:"
     }
   ]
 }

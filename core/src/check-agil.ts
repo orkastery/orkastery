@@ -550,7 +550,8 @@ function comandoNodeTest(comando: string, cwd: string): ComandoNodeTest | null {
     if (p.startsWith('-') || /[*?\[]/.test(p)) return null;
     const absoluto = path.resolve(cwd, p);
     const relativo = path.relative(path.join(cwd, 'core', 'dist-test', 'test'), absoluto);
-    if (!relativo || relativo.startsWith('..') || path.isAbsolute(relativo) || !relativo.endsWith('.test.js')) return null;
+    if (!relativo || relativo.startsWith('..') || path.isAbsolute(relativo) || relativo !== path.basename(relativo)
+      || !relativo.endsWith('.test.js')) return null;
     arquivos.push(path.basename(absoluto));
   }
   return arquivos.length > 0 ? { arquivos: [...new Set(arquivos)], ...(padrao !== undefined ? { padrao } : {}) } : null;
