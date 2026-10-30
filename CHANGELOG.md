@@ -18,6 +18,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   teste renomeado conta como antigo corrigido e novo em regressão. Baseline antiga ou comando sem nomes mantém
   a comparação por comando, mas o veredito declara o fallback e não inventa “0 regressões” por teste.
 
+### Segurança
+
+- **Evidência de máquina e relato honesto de escape** ([RM-062](docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md), F3 e F4): o retrato da Orkastery Network exige um alias local e o repete em `maquina`, no campo legado `hostname` e no nome do arquivo, sem publicar o hostname real; o guia de pull request ganha um modelo testado que separa o que foi corrigido, o que continua nos commits anteriores e a decisão do dono sobre reescrever ou não.
+
 ## [0.6.1] - 2026-10-29
 
 O Grok Build entra por despacho explícito (`--runtime grok`), com perfis de conta, setup e MCP, ainda sem homologação real: o ensaio real (F5) falta.
