@@ -11,7 +11,8 @@
  *   - as demais claims, uma por vez, contra o produto do preparo: a claim que comeca pelos passos do `verify.preparo` roda sem
  *     eles quando a guarda vale (o preparo passou, a arvore e a mesma do fim do preparo e o hash dos caminhos de
  *     `check.agile.produto` tambem); qualquer divergencia roda o comando inteiro, e o motivo vai ao ledger. Passo no meio
- *     da cadeia fica: o que vem antes dele pode mudar a entrada do build (o mutante que edita o fonte e compila). Quando
+ *     da cadeia so sai quando tudo antes dele e uma leitura `grep -q` fechada; qualquer outro elo pode mudar a entrada do
+ *     build (como o mutante que edita o fonte e compila), entao a cadeia fica inteira. Quando
  *     so o produto mudou (a claim anterior compilou de novo no meio da cadeia), o preparo roda de novo antes da proxima
  *     claim que o reaproveitaria, ate `MAXIMO_DE_PREPAROS_REFEITOS` vezes, e uma vez depois das claims se elas mudarem o produto, com a peca
  *     `preparo-refeito`;
@@ -135,6 +136,52 @@ export function tirarPassosDoPreparo(comando: string, passosDoPreparo: readonly 
   return { passos, resto };
 }
 
+/** Palavras de um comando simples, sem operadores ou expansoes do shell. */
+function palavrasDoComando(comando: string): string[] | null {
+  const palavras: string[] = [];
+  let atual = '', aspas: "'" | '"' | null = null, escape = false;
+  const fechar = (): void => { if (atual !== '') palavras.push(atual); atual = ''; };
+  for (const c of comando) {
+    if (escape) { atual += c; escape = false; continue; }
+    if (c === '\\' && aspas !== "'") { escape = true; continue; }
+    if (aspas) { if (c === aspas) aspas = null; else if (aspas === '"' && (c === '$' || c === '`')) return null; else atual += c; continue; }
+    if (c === "'" || c === '"') { aspas = c; continue; }
+    if (/\s/.test(c)) { fechar(); continue; }
+    if (';&|<>$`(){}'.includes(c)) return null;
+    atual += c;
+  }
+  if (escape || aspas) return null;
+  fechar();
+  return palavras;
+}
+
+/** Uma leitura sem efeito colateral aceita antes do preparo unico. */
+function comandoGrepQ(comando: string): boolean {
+  const palavras = palavrasDoComando(comando);
+  if (!palavras || palavras[0] !== 'grep' || palavras[1] !== '-q') return false;
+  const argumentos = palavras[2] === '--' ? palavras.slice(3) : palavras.slice(2);
+  return argumentos.length === 2 && argumentos[0] !== '' && argumentos[1] !== '' && !argumentos[1].startsWith('-');
+}
+
+/**
+ * Tira passos exatos do preparo que aparecem depois apenas de `grep -q`. A leitura nao altera a entrada do build;
+ * qualquer outro elo antes do preparo conserva a regra antiga e faz a cadeia rodar inteira.
+ */
+export function tirarPassosDoPreparoAposLeituras(comando: string, passosDoPreparo: readonly string[]):
+  { passos: string[]; resto: string } {
+  const elos = elosDoComando(comando);
+  if (!elos) return { passos: [], resto: comando.trim() };
+  const passos: string[] = [];
+  const resto: string[] = [];
+  let somenteLeiturasAntes = true;
+  for (const elo of elos) {
+    if (somenteLeiturasAntes && passosDoPreparo.includes(elo)) { passos.push(elo); continue; }
+    resto.push(elo);
+    if (!comandoGrepQ(elo)) somenteLeiturasAntes = false;
+  }
+  return passos.length > 0 ? { passos, resto: resto.join(SEPARADOR) } : { passos: [], resto: comando.trim() };
+}
+
 /**
  * O sha256 do conteudo dos caminhos do produto (arquivos em ordem, com o caminho relativo). Caminho ausente entra como
  * ausente, para o produto que some nao passar por igual; link simbolico entra pelo destino que ele aponta, sem segui-lo.
@@ -227,7 +274,8 @@ export function executorDaClaimNoAgile(manifesto: Manifesto, executor: ExecutorU
   refazer?: RefazerPreparo): ExecutorUnico {
   const passosDoPreparo = manifesto.verify.preparo ? passosDoComando(manifesto.verify.preparo) : [];
   return (nome, comando, cwd) => {
-    const { passos, resto } = tirarPassosDoPreparo(comando, passosDoPreparo);
+    const daFrente = tirarPassosDoPreparo(comando, passosDoPreparo);
+    const { passos, resto } = daFrente.passos.length > 0 ? daFrente : tirarPassosDoPreparoAposLeituras(comando, passosDoPreparo);
     if (passos.length === 0) return executor(nome, comando, cwd);
     let motivo = vigente.guarda.conferir();
     if (motivo === 'produto-mudou' && refazer?.(nome)) motivo = vigente.guarda.conferir();
@@ -530,20 +578,8 @@ interface ComandoNodeTest { arquivos: string[]; padrao?: string }
 
 /** Le somente a gramatica aceita para reaproveitar: `node --test [--test-name-pattern P] arquivo...`. */
 function comandoNodeTest(comando: string, cwd: string): ComandoNodeTest | null {
-  const palavras: string[] = [];
-  let atual = '', aspas: "'" | '"' | null = null, escape = false;
-  const fechar = (): void => { if (atual !== '') palavras.push(atual); atual = ''; };
-  for (const c of comando) {
-    if (escape) { atual += c; escape = false; continue; }
-    if (c === '\\' && aspas !== "'") { escape = true; continue; }
-    if (aspas) { if (c === aspas) aspas = null; else if (aspas === '"' && (c === '$' || c === '`')) return null; else atual += c; continue; }
-    if (c === "'" || c === '"') { aspas = c; continue; }
-    if (/\s/.test(c)) { fechar(); continue; }
-    if (';&|<>$`(){}'.includes(c)) return null;
-    atual += c;
-  }
-  if (escape || aspas) return null;
-  fechar();
+  const palavras = palavrasDoComando(comando);
+  if (!palavras) return null;
   if (palavras[0] !== 'node' || palavras[1] !== '--test') return null;
   let padrao: string | undefined;
   const arquivos: string[] = [];
@@ -564,6 +600,31 @@ function comandoNodeTest(comando: string, cwd: string): ComandoNodeTest | null {
   return arquivos.length > 0 ? { arquivos: [...new Set(arquivos)], ...(padrao !== undefined ? { padrao } : {}) } : null;
 }
 
+interface AuditoriaTap { pedido: ComandoNodeTest; prefixo: string; minimo: number }
+
+/** A forma fechada usada pelas claims para provar contagem, zero falhas e zero skips no TAP. */
+function auditoriaTap(comando: string, cwd: string): AuditoriaTap | null {
+  const divisor = ' | ';
+  const i = comando.indexOf(divisor);
+  if (i < 0 || comando.indexOf(divisor, i + divisor.length) >= 0) return null;
+  const node = comando.slice(0, i).trim();
+  const awk = comando.slice(i + divisor.length).trim();
+  const pedido = comandoNodeTest(node.replace(/^node --test-reporter=tap\b/, 'node --test'), cwd);
+  if (!pedido || pedido.arquivos.length !== 1 || pedido.padrao !== undefined) return null;
+  const m = /^awk '\/\^ \*not ok\/{f\+\+} \/# SKIP\/{s\+\+} \/\^ \*ok \[0-9\]\+ - ([A-Z][A-Z0-9_-]*)\[0-9\]\+:\/{p\+\+} END\{exit !\(p>=([1-9][0-9]*) && f==0 && s==0\)\}'$/.exec(awk);
+  return m ? { pedido, prefixo: m[1], minimo: Number(m[2]) } : null;
+}
+
+function resultadoReaproveitado(nome: string, comando: string, pedido: ComandoNodeTest, usadas: ResultadoNominalDaLane[],
+  esperado: { head: string; ambiente: string }, nomes?: string[]): ResultadoDeComando {
+  const lanes = [...new Set(usadas.filter((e) => e.testes.some((t) => pedido.arquivos.includes(t.arquivo))).map((e) => e.lane))];
+  return { nome, comando, ok: true, code: 0, causa: 'exit', duracaoMs: 0, executado: true,
+    resumo: `reaproveitado das lanes ${lanes.join(', ')} desta rodada`,
+    lane: { reaproveitada: true, lanes, arquivos: pedido.arquivos,
+      nomes: nomes ?? (pedido.padrao === undefined ? pedido.arquivos.map((a) => `${a}:todos`) : pedido.arquivos.map((a) => `${a}:/${pedido.padrao}/`)),
+      head: esperado.head, ambiente: esperado.ambiente } };
+}
+
 /**
  * Reaproveita uma claim somente quando a lane terminou todos os arquivos pedidos no mesmo HEAD e ambiente. Um arquivo
  * inteiro verde e evidencia mais forte que `--test-name-pattern`: o padrao fica registrado em `nomes`.
@@ -573,21 +634,47 @@ export function executorDaClaimPelasLanes(base: ExecutorUnico, evidencias: Resul
 }): ExecutorUnico {
   const assinatura = assinaturaDoAmbiente(esperado.ambiente);
   return (nome, comando, cwd) => {
-    const pedido = comandoNodeTest(comando, cwd);
-    if (!pedido) return base(nome, comando, cwd);
     const executar = esperado.executorEquivalente ?? base;
     if (esperado.podeReaproveitar?.() === false) return executar(nome, comando, cwd);
-    const usadas = evidencias.filter((e) => e.head === esperado.head && e.ambiente === assinatura
-      && e.testes.some((t) => pedido.arquivos.includes(t.arquivo)));
-    const cobertos = pedido.arquivos.every((arquivo) => {
-      const vistos = usadas.flatMap((e) => e.testes.filter((t) => t.arquivo === arquivo));
-      return vistos.length > 0 && !vistos.some((t) => t.estado === 'fail');
-    });
-    if (!cobertos) return executar(nome, comando, cwd);
-    const lanes = [...new Set(usadas.filter((e) => e.testes.some((t) => pedido.arquivos.includes(t.arquivo))).map((e) => e.lane))];
-    const nomes = pedido.padrao === undefined ? pedido.arquivos.map((a) => `${a}:todos`) : pedido.arquivos.map((a) => `${a}:/${pedido.padrao}/`);
-    return { nome, comando, ok: true, code: 0, causa: 'exit', duracaoMs: 0, executado: true,
-      resumo: `reaproveitado das lanes ${lanes.join(', ')} desta rodada`,
-      lane: { reaproveitada: true, lanes, arquivos: pedido.arquivos, nomes, head: esperado.head, ambiente: assinatura } };
+    const elos = elosDoComando(comando);
+    if (!elos) return base(nome, comando, cwd);
+    const planejados: Array<{ tipo: 'grep'; comando: string } | { tipo: 'lane'; resultado: ResultadoDeComando }> = [];
+    for (const elo of elos) {
+      if (comandoGrepQ(elo)) { planejados.push({ tipo: 'grep', comando: elo }); continue; }
+      const tap = auditoriaTap(elo, cwd);
+      const pedido = tap?.pedido ?? comandoNodeTest(elo, cwd);
+      if (!pedido) return base(nome, comando, cwd);
+      const usadas = evidencias.filter((e) => e.head === esperado.head && e.ambiente === assinatura
+        && e.testes.some((t) => pedido.arquivos.includes(t.arquivo)));
+      const cobertos = pedido.arquivos.every((arquivo) => {
+        const vistos = usadas.flatMap((e) => e.testes.filter((t) => t.arquivo === arquivo));
+        if (vistos.length === 0 || vistos.some((t) => t.estado === 'fail')) return false;
+        if (!tap) return true;
+        const doArquivo = vistos.filter((t) => t.nesting === 0);
+        return !vistos.some((t) => t.estado === 'skip' || t.estado === 'todo')
+          && doArquivo.filter((t) => t.estado === 'pass' && new RegExp(`^${tap.prefixo}[0-9]+:`).test(t.nome)).length >= tap.minimo;
+      });
+      if (!cobertos) return executar(nome, comando, cwd);
+      const nomes = tap ? pedido.arquivos.map((a) => `${a}:${tap.prefixo}>=${tap.minimo};sem-falha;sem-skip`) : undefined;
+      planejados.push({ tipo: 'lane', resultado: resultadoReaproveitado(nome, elo, pedido, usadas,
+        { head: esperado.head, ambiente: assinatura }, nomes) });
+    }
+    let duracaoMs = 0;
+    const resumos: string[] = [];
+    let ultimo: ResultadoDeComando | null = null;
+    const lanes = new Set<string>(), arquivos = new Set<string>(), nomes = new Set<string>();
+    for (const item of planejados) {
+      const r = item.tipo === 'grep' ? base(nome, item.comando, cwd) : item.resultado;
+      duracaoMs += r.duracaoMs ?? 0;
+      resumos.push(r.resumo);
+      ultimo = r;
+      if (!r.ok) return { ...r, comando, comandoExecutado: item.tipo === 'grep' ? item.comando : r.comando, duracaoMs };
+      for (const lane of r.lane?.lanes ?? []) lanes.add(lane);
+      for (const arquivo of r.lane?.arquivos ?? []) arquivos.add(arquivo);
+      for (const n of r.lane?.nomes ?? []) nomes.add(n);
+    }
+    if (!ultimo || lanes.size === 0) return base(nome, comando, cwd);
+    return { ...ultimo, nome, comando, duracaoMs, resumo: resumos.filter(Boolean).join('\n'),
+      lane: { reaproveitada: true, lanes: [...lanes], arquivos: [...arquivos], nomes: [...nomes], head: esperado.head, ambiente: assinatura } };
   };
 }
