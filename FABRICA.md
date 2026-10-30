@@ -5,9 +5,9 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado | Sessão |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| vps | ork-rm074comamet | #Fast | GO | grok grok-4.7/high | RM-074 | sim: autorizacao da retomada | 30/10 18:59 | parada desde 29/10 15:53: sessão 7d0c534d encerrada (sem estado) |
-| vps | ork-rm074m3rumoa | #Auto | GOAL | codex gpt-5.6-sol/xhigh | RM-074 | — | 30/10 18:59 | parada desde 18:58: sessão 01a18e08 encerrada (completed) |
-| vps | ork-rm074m4cpude | #Auto | GOAL | sem despacho | RM-074 | — | 30/10 18:59 | parada desde 18:58: nenhuma sessão despachada na fase GOAL |
-| vps | ork-versao062 | #Fast | GO | codex gpt-5.6-sol/xhigh | — | — | 30/10 18:59 | parada desde 18:25: sessão 01a18def caiu (runtime.unavailable) |
+| vps | ork-rm074comamet | #Fast | GO | grok grok-4.7/high | RM-074 | sim: autorizacao da retomada | 30/10 16:00 | parada desde 29/10 12:53: sessão 7d0c534d encerrada (sem estado) |
+| vps | ork-rm074m3rumoa | #Auto | GOAL | codex gpt-5.6-sol/xhigh | RM-074 | — | 30/10 16:00 | parada desde 15:58: sessão 01a18e08 encerrada (completed) |
+| vps | ork-rm074m4cpude | #Auto | GOAL | sem despacho | RM-074 | — | 30/10 16:00 | parada desde 15:58: nenhuma sessão despachada na fase GOAL |
+| vps | ork-versao062 | #Fast | GO | codex gpt-5.6-sol/xhigh | — | — | 30/10 16:00 | parada desde 15:25: sessão 01a18def caiu (runtime.unavailable) |
 
-Horários em UTC.
+Horários de Brasília.
