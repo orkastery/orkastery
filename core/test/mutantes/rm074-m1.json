@@ -69,8 +69,8 @@
       "id": "M8",
       "descricao": "claim volta a aceitar resultado de lane depois de o produto deixar a guarda",
       "modulo": "check-agil",
-      "de": "if (!pedido || esperado.podeReaproveitar?.() === false)",
-      "para": "if (!pedido)",
+      "de": "if (esperado.podeReaproveitar?.() === false)\n            return executar(nome, comando, cwd);",
+      "para": "if (false)\n            return executar(nome, comando, cwd);",
       "teste": "check-agil",
       "nome": "^AG46:"
     },
@@ -78,8 +78,8 @@
       "id": "M9",
       "descricao": "claim volta a aceitar padrão de nome que o node rejeita como expressão regular",
       "modulo": "check-agil",
-      "de": "try { void new RegExp(padrao); }",
-      "para": "try { void /aceita/; }",
+      "de": "void new RegExp(padrao);",
+      "para": "void /aceita/;",
       "teste": "check-agil",
       "nome": "^AG46:"
     }
