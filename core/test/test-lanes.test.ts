@@ -125,9 +125,12 @@ test('TL7: a lane roda os arquivos pela duracao guardada, conta a lista e acusa 
 
 test('TL11: a assinatura ignora transporte do runner, mas muda com ambiente funcional', () => {
   const base = { LANG: 'C.UTF-8', ORKASTERY_HOME: '/tmp/casa', FEATURE_X: '1' };
-  assert.equal(lanes.assinaturaDoAmbiente(base), lanes.assinaturaDoAmbiente({ ...base, ORK_CHECK_MODO: 'agile',
-    npm_lifecycle_event: 'test:hermetica', NODE_COMPILE_CACHE: '/tmp/cache', PWD: '/outra' }));
+  assert.equal(lanes.assinaturaDoAmbiente(base), lanes.assinaturaDoAmbiente({ ...base,
+    ORK_CHECK_RELATORIO: '/tmp/relatorio', ORK_CHECK_CPUS_DA_LANE: '5', npm_lifecycle_event: 'test:hermetica',
+    NODE_COMPILE_CACHE: '/tmp/cache', PWD: '/outra' }));
   assert.equal(lanes.assinaturaDoAmbiente(base), assinaturaDoVerify(base), 'a lane e o verify assinam o mesmo contrato');
+  assert.notEqual(lanes.assinaturaDoAmbiente(base), lanes.assinaturaDoAmbiente({ ...base, ORK_CHECK_MODO: 'agile' }),
+    'o modo muda o comportamento de testes e nao pode sumir da assinatura');
   assert.notEqual(lanes.assinaturaDoAmbiente(base), lanes.assinaturaDoAmbiente({ ...base, FEATURE_X: '2' }));
 });
 

@@ -150,8 +150,9 @@ function lerResultadosDoReporter(arquivo) {
 
 /** Mesmo ambiente funcional entre a lane e a claim; variaveis de transporte/runner nao mudam o teste. */
 function assinaturaDoAmbiente(env) {
-  const ignorada = (nome) => nome.startsWith('ORK_CHECK_') || nome.startsWith('npm_') || nome.startsWith('NPM_')
-    || ['NODE_TEST_CONTEXT', 'NODE_COMPILE_CACHE', 'PWD', 'OLDPWD', 'SHLVL', '_', 'INIT_CWD'].includes(nome);
+  const ignorada = (nome) => nome.startsWith('npm_') || nome.startsWith('NPM_')
+    || ['ORK_CHECK_RELATORIO', 'ORK_CHECK_CPUS_DA_LANE', 'ORK_CHECK_CPUS_DOCKER',
+      'NODE_TEST_CONTEXT', 'NODE_COMPILE_CACHE', 'PWD', 'OLDPWD', 'SHLVL', '_', 'INIT_CWD'].includes(nome);
   const pares = Object.entries(env).filter(([nome, valor]) => valor !== undefined && !ignorada(nome))
     .sort(([a], [b]) => a.localeCompare(b));
   return createHash('sha256').update(JSON.stringify(pares)).digest('hex');
@@ -172,7 +173,6 @@ function rodarLane(lane) {
   const arquivos = ordenarPorDuracao(listas[lane], anteriores);
   const orcamento = Number(process.env.ORK_CHECK_ORCAMENTO_MS) > 0 ? Number(process.env.ORK_CHECK_ORCAMENTO_MS) : ORCAMENTO_PADRAO_MS;
   relatar({ tipo: 'lista', lane, arquivos: [...listas[lane]] });
-  const ambiente = assinaturaDoAmbiente(process.env);
   const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: CORE, encoding: 'utf8' }).stdout.trim();
 
   // O ambiente e o de quem chama, como no `npm test`: quem exporta ORK_TESTE_EXIGE_AMBIENTE exige as dependencias nos dois
@@ -191,6 +191,7 @@ function rodarLane(lane) {
   delete env.ORK_CHECK_CPUS_DOCKER;
   let casa = null;
   if (!(env.ORKASTERY_HOME || '').trim()) { casa = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-casa-')); env.ORKASTERY_HOME = casa; }
+  const ambiente = assinaturaDoAmbiente(env);
   try {
     fs.mkdirSync(path.join(cache, 'compile-cache'), { recursive: true });
     env.NODE_COMPILE_CACHE = path.join(cache, 'compile-cache');

@@ -64,6 +64,15 @@
       "para": "|| false",
       "teste": "check-agil",
       "nome": "^AG46:"
+    },
+    {
+      "id": "M8",
+      "descricao": "claim volta a aceitar resultado de lane depois de o produto deixar a guarda",
+      "modulo": "check-agil",
+      "de": "if (!pedido || esperado.podeReaproveitar?.() === false)",
+      "para": "if (!pedido)",
+      "teste": "check-agil",
+      "nome": "^AG46:"
     }
   ]
 }

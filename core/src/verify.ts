@@ -896,6 +896,13 @@ function verificarSobConducao(
   const executorDasClaims: ExecutorVerify = relatorio
     ? executorSobConducao(executorDaRodada(manifesto, instabilidade, opcoes.executor, leitor, ambienteFuncional), manifesto, conducao)
     : executor;
+  // Uma claim `node --test` elegivel usa o mesmo ambiente funcional das lanes: casa compartilhada, sem o modo da
+  // orquestracao. Assim o fallback da claim e a prova reaproveitada observam exatamente a mesma bateria.
+  const ambienteFuncionalDasLanes = { ...(casaDaRodada ? { ORKASTERY_HOME: casaDaRodada } : {}) };
+  const executorDasClaimsComoLane: ExecutorVerify = relatorio
+    ? executorSobConducao(executorDaRodada(manifesto, instabilidade, opcoes.executor, leitor, ambienteFuncionalDasLanes),
+      manifesto, conducao)
+    : executor;
   // RM-072 (S-b do CHECK 2): fora do preparo, so a varredura e as lanes recebem o relatorio.
   const executorDosComandos = relatorio ? soAVarreduraEAsLanesComRelatorio(executor, executorDasClaims) : executor;
 
@@ -927,9 +934,11 @@ function verificarSobConducao(
     pecas.push(...refazerPreparo(manifesto, cwd, executor, vigente!, (p) => guardaDoPreparo(manifesto, cwd, p), quando));
   };
   let preparosRefeitos = 0;
+  let lanesVigentes = true;
   const refazerAntesDaClaim: RefazerPreparo = (nome) => {
     if (!vigente || preparosRefeitos >= MAXIMO_DE_PREPAROS_REFEITOS) return false;
     preparosRefeitos++;
+    lanesVigentes = false;
     refazer(`antes da claim ${nome}`);
     return true;
   };
@@ -946,9 +955,11 @@ function verificarSobConducao(
     : [];
   if (doAgile) pecas.push(...doAgile.pecas);
   const evidenciasDasLanes = relatorio && doAgile ? resultadosDasLanes(relatorio.ler()) : [];
-  const ambienteEfetivoDasClaims = { ...ambienteDoVerify(), ...ambienteFuncional };
+  const ambienteEfetivoDasClaims = { ...ambienteDoVerify(), ...ambienteFuncionalDasLanes };
   const executorComLanes = evidenciasDasLanes.length > 0
-    ? executorDaClaimPelasLanes(executorDasClaims, evidenciasDasLanes, { head: commit, ambiente: ambienteEfetivoDasClaims })
+    ? executorDaClaimPelasLanes(executorDasClaims, evidenciasDasLanes, { head: commit, ambiente: ambienteEfetivoDasClaims,
+      podeReaproveitar: () => lanesVigentes && vigente?.guarda.conferir() === null,
+      executorEquivalente: executorDasClaimsComoLane })
     : executorDasClaims;
 
   // Claim retirada sai do gate: o historico guarda a alegacao e o motivo da retirada.

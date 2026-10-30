@@ -738,8 +738,13 @@ test('AG46: claim node --test reaproveita somente arquivos verdes no mesmo HEAD 
       'C6.1', 'node --test core/dist-test/test/a.test.js', dir);
     executar('C7.1', 'bun --test core/dist-test/test/a.test.js', dir);
     executar('C8.1', 'node --test core/dist-test/test/sub/a.test.js', dir);
+    const equivalente = gravador();
+    executorDaClaimPelasLanes(base.executor, evidencias, { head, ambiente, podeReaproveitar: () => false,
+      executorEquivalente: equivalente.executor })(
+      'C9.1', 'node --test core/dist-test/test/a.test.js', dir);
     assert.deepEqual(base.lista.map(([nome]) => nome), ['C3.1', 'C4.1', 'C5.1', 'C6.1', 'C7.1', 'C8.1'],
-      'falha, shell aberto, ambiente ou HEAD diferente, outro runner e subdiretorio executam de verdade');
+      'falha, shell aberto, ambiente ou HEAD diferente, outro runner, subdiretorio e produto mudado executam de verdade');
+    assert.deepEqual(equivalente.lista.map(([nome]) => nome), ['C9.1'], 'o fallback node --test usa o ambiente das lanes');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 

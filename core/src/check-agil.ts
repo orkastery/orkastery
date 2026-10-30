@@ -5,12 +5,15 @@
  *
  *   - o preparo do Agile (`check.agile.preparo`, como o `tsgo` deste projeto) e, se ele falhar ou nao existir, o
  *     `verify.preparo`, com a peca `preparo` em fallback;
- *   - as claims, uma por vez, contra o produto do preparo: a claim que comeca pelos passos do `verify.preparo` roda sem
+ *   - quando ha lanes, elas rodam antes das claims; `node --test` dos mesmos arquivos, HEAD e ambiente usa o resultado
+ *     nominal da lane, enquanto comando aberto ou evidencia divergente roda inteiro; se uma claim posterior mudar o
+ *     produto, preparo e grupo rodam outra vez sobre o produto final;
+ *   - as demais claims, uma por vez, contra o produto do preparo: a claim que comeca pelos passos do `verify.preparo` roda sem
  *     eles quando a guarda vale (o preparo passou, a arvore e a mesma do fim do preparo e o hash dos caminhos de
  *     `check.agile.produto` tambem); qualquer divergencia roda o comando inteiro, e o motivo vai ao ledger. Passo no meio
  *     da cadeia fica: o que vem antes dele pode mudar a entrada do build (o mutante que edita o fonte e compila). Quando
  *     so o produto mudou (a claim anterior compilou de novo no meio da cadeia), o preparo roda de novo antes da proxima
- *     claim que o reaproveitaria, ate `MAXIMO_DE_PREPAROS_REFEITOS` vezes, e uma vez antes do grupo, com a peca
+ *     claim que o reaproveitaria, ate `MAXIMO_DE_PREPAROS_REFEITOS` vezes, e uma vez depois das claims se elas mudarem o produto, com a peca
  *     `preparo-refeito`;
  *   - o `build` que e so passos do preparo, com a guarda valendo, sai do preparo desta rodada sem rodar de novo;
  *   - `typecheck`, as lanes de `test` (`check.agile.test`, ou o `verify.test`) e o `security_scan` num grupo paralelo, so
@@ -515,8 +518,9 @@ export function resultadosDasLanes(linhas: Array<Record<string, unknown>>): Resu
 
 /** Hash do ambiente funcional; transporte do CHECK, npm e bookkeeping do shell nao mudam o teste. */
 export function assinaturaDoAmbiente(env: NodeJS.ProcessEnv): string {
-  const ignorada = (nome: string): boolean => nome.startsWith('ORK_CHECK_') || nome.startsWith('npm_') || nome.startsWith('NPM_')
-    || ['NODE_TEST_CONTEXT', 'NODE_COMPILE_CACHE', 'PWD', 'OLDPWD', 'SHLVL', '_', 'INIT_CWD'].includes(nome);
+  const ignorada = (nome: string): boolean => nome.startsWith('npm_') || nome.startsWith('NPM_')
+    || ['ORK_CHECK_RELATORIO', 'ORK_CHECK_CPUS_DA_LANE', 'ORK_CHECK_CPUS_DOCKER',
+      'NODE_TEST_CONTEXT', 'NODE_COMPILE_CACHE', 'PWD', 'OLDPWD', 'SHLVL', '_', 'INIT_CWD'].includes(nome);
   const pares = Object.entries(env).filter(([nome, valor]) => valor !== undefined && !ignorada(nome))
     .sort(([a], [b]) => a.localeCompare(b));
   return createHash('sha256').update(JSON.stringify(pares)).digest('hex');
@@ -562,19 +566,21 @@ function comandoNodeTest(comando: string, cwd: string): ComandoNodeTest | null {
  * inteiro verde e evidencia mais forte que `--test-name-pattern`: o padrao fica registrado em `nomes`.
  */
 export function executorDaClaimPelasLanes(base: ExecutorUnico, evidencias: ResultadoNominalDaLane[], esperado: {
-  head: string; ambiente: NodeJS.ProcessEnv;
+  head: string; ambiente: NodeJS.ProcessEnv; podeReaproveitar?: () => boolean; executorEquivalente?: ExecutorUnico;
 }): ExecutorUnico {
   const assinatura = assinaturaDoAmbiente(esperado.ambiente);
   return (nome, comando, cwd) => {
     const pedido = comandoNodeTest(comando, cwd);
     if (!pedido) return base(nome, comando, cwd);
+    const executar = esperado.executorEquivalente ?? base;
+    if (esperado.podeReaproveitar?.() === false) return executar(nome, comando, cwd);
     const usadas = evidencias.filter((e) => e.head === esperado.head && e.ambiente === assinatura
       && e.testes.some((t) => pedido.arquivos.includes(t.arquivo)));
     const cobertos = pedido.arquivos.every((arquivo) => {
       const vistos = usadas.flatMap((e) => e.testes.filter((t) => t.arquivo === arquivo));
       return vistos.length > 0 && !vistos.some((t) => t.estado === 'fail');
     });
-    if (!cobertos) return base(nome, comando, cwd);
+    if (!cobertos) return executar(nome, comando, cwd);
     const lanes = [...new Set(usadas.filter((e) => e.testes.some((t) => pedido.arquivos.includes(t.arquivo))).map((e) => e.lane))];
     const nomes = pedido.padrao === undefined ? pedido.arquivos.map((a) => `${a}:todos`) : pedido.arquivos.map((a) => `${a}:/${pedido.padrao}/`);
     return { nome, comando, ok: true, code: 0, causa: 'exit', duracaoMs: 0, executado: true,
