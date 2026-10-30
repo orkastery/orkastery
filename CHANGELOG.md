@@ -10,6 +10,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **CLI em inglês e pt-BR — F3e ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)):** entram no catálogo as rotas restantes de `master`, `onboarding sync`, `experiencia uninstall`, `doctor --modo`, Maestro, `brain`, `activation`, `mcp serve`, `receipt-verifiers` e as recusas antecipadas de projeto; o grafo e o `security-scan` localizam a apresentação humana sem mudar códigos, dados ou `--json`.
 
+### Alterado
+
+- **Menos CPU por teste no Agile Check — M1 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** os testes pesados que não verificam a fronteira real de processo chamam o CLI dentro do próprio processo com ambiente, diretório, saídas e código isolados; claims `node --test` equivalentes reaproveitam o resultado nominal das lanes somente no mesmo HEAD e ambiente, e o build continua único por rodada. Testes de processo permanecem com processo filho, e a bateria e as asserções não diminuem.
+
 ### Corrigido
 
 - **O teste das lanes não herda o plano de CPU da rodada:** `ORK_CHECK_CPUS_DA_LANE` e `ORK_CHECK_CPUS_DOCKER`
