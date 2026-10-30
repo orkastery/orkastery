@@ -13,8 +13,10 @@ import { validarArquivosEstadoMcp } from './mcp-artifacts';
 import { adquirirRegiao, lerLease, leasesColidentes, liberar, podarRegioesDeThreadsFechadas } from './leases';
 import { dirThread, lerThread } from './thread';
 import { Lease } from './types';
-import { ESPERA_DA_FILA_PESADA_MS, ResultadoVerify, textoDoVerify, verificar } from './verify';
-import { PRAZO_DE_SESSAO_PADRAO_MS, prazoDaVerificacao } from './conducao';
+import { ResultadoVerify, textoDoVerify, verificar } from './verify';
+import { ErroDeConducao, PRAZO_DE_SESSAO_PADRAO_MS, RecusaDeConducao, prazoDaVerificacao } from './conducao';
+import { ErroDaFilaPesada, RecusaDaFilaPesada } from './fila-pesada';
+import { ESPERA_DA_FILA_PESADA_MCP_MS } from './mcp-verify';
 import { comandosDoManifesto } from './verify';
 import { lerClaims } from './claims';
 import { comLocale, resolverLocale } from './locale';
@@ -26,8 +28,10 @@ const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-
 const LIMITE_ESTADO = 16 * 1024 * 1024;
 
 export interface FalhaVerifyMcp {
-  motivo: 'verify.processo-morto' | 'verify.worker-failed' | 'verify.lease-perdida';
+  motivo: 'verify.processo-morto' | 'verify.worker-failed' | 'verify.lease-perdida' |
+    'fila-pesada.ocupada' | 'conducao.em-andamento';
   detalhe: string;
+  recusa?: RecusaDaFilaPesada | RecusaDeConducao;
 }
 
 export interface VereditoVerifyMcp {
@@ -69,6 +73,14 @@ export interface DependenciasVerifyMcp {
 }
 
 function agora(dep?: DependenciasVerifyMcp): string { return (dep?.agora?.() ?? new Date()).toISOString(); }
+
+function falhaDaExecucao(e: unknown): FalhaVerifyMcp {
+  if (e instanceof ErroDaFilaPesada)
+    return { motivo: e.recusa.motivo, detalhe: e.message, recusa: e.recusa };
+  if (e instanceof ErroDeConducao)
+    return { motivo: e.recusa.motivo, detalhe: e.message, recusa: e.recusa };
+  return { motivo: 'verify.worker-failed', detalhe: (e as Error).message };
+}
 
 function inicioDoProcesso(pid: number): string | null {
   try {
@@ -185,7 +197,7 @@ function prazoDaLease(raiz: string, threadId: string): number {
   const quantidade = claims.reduce((n, c) => n + c.verificar.length, 0) + comandosDoManifesto(carregado.manifesto).length + 2;
   const prazos = [carregado.manifesto.verify.timeout_ms ?? 600_000,
     ...Object.values(carregado.manifesto.verify.timeout_ms_por_comando ?? {}).filter((n): n is number => typeof n === 'number')];
-  return ESPERA_DA_FILA_PESADA_MS + Math.max(PRAZO_DE_SESSAO_PADRAO_MS, prazoDaVerificacao(Math.max(...prazos), quantidade));
+  return ESPERA_DA_FILA_PESADA_MCP_MS + Math.max(PRAZO_DE_SESSAO_PADRAO_MS, prazoDaVerificacao(Math.max(...prazos), quantidade));
 }
 
 function lancarWorker(pedido: { worker: string; raiz: string; threadId: string; rodadaId: string }): ProcessoDaRodada {
@@ -290,7 +302,7 @@ export function executarVerifyMcpWorker(raiz: string, threadId: string, rodadaId
     const resultado = comLocale('pt-BR', () => verificar(carregado, threadId, {
       operacao: 'mcp.verify',
       conducao: { canal: inicial.host, identidade: inicial.despacho,
-        filaPesada: { esperarMs: ESPERA_DA_FILA_PESADA_MS, aoEsperar: (ocupantes) => atualizar({ estado: 'na-fila',
+        filaPesada: { esperarMs: ESPERA_DA_FILA_PESADA_MCP_MS, aoEsperar: (ocupantes) => atualizar({ estado: 'na-fila',
           lane: 'fila-pesada', ocupantes: ocupantes.map((o) => ({ operacao: o.operacao, thread: o.thread })) }) } },
       progresso: (lane) => atualizar({ estado: 'rodando', lane, ocupantes: undefined }),
     }));
@@ -299,7 +311,7 @@ export function executarVerifyMcpWorker(raiz: string, threadId: string, rodadaId
       check: resultado.check, texto: comLocale(locale, () => textoDoVerify(resultado)), resultado };
     atualizar({ estado: 'concluido', lane: null, veredito, falha: undefined, ocupantes: undefined });
   } catch (e) {
-    try { atualizar({ estado: 'falhou', lane: null, falha: { motivo: 'verify.worker-failed', detalhe: (e as Error).message }, ocupantes: undefined }); }
+    try { atualizar({ estado: 'falhou', lane: null, falha: falhaDaExecucao(e), ocupantes: undefined }); }
     catch { /* a leitura abaixo projeta morte/falha; nunca inventa verde */ }
   } finally {
     inicial = lerEstado(dir, threadId, rodadaId);

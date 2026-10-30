@@ -30,15 +30,18 @@ não inicia, não repete e não altera o veredito.
 | `concluido` | `veredito` contém `ok`, `commit`, `motivos`, modo do CHECK, texto e `resultado` completos do CLI |
 | `falhou` | A infraestrutura não produziu veredito; `falha.motivo` é tipado e o resultado nunca é verde |
 
-Falhas tipadas são `verify.processo-morto`, `verify.worker-failed` e
-`verify.lease-perdida`. Um processo morto é projetado assim pela consulta; uma nova
-inicialização reconcilia e libera somente a lease exata da rodada anterior.
+Falhas tipadas de infraestrutura são `verify.processo-morto`, `verify.worker-failed` e
+`verify.lease-perdida`. As recusas canônicas `fila-pesada.ocupada` e
+`conducao.em-andamento` preservam em `falha.recusa` o contrato completo que o CLI devolve.
+Um processo morto é projetado assim pela consulta; uma nova inicialização reconcilia e
+libera somente a lease exata da rodada anterior.
 
 ## Idempotência, fila e prazos
 
 Uma rodada viva por thread é o máximo: repetir `ork_verify` devolve o mesmo `rodadaId`.
 O worker adquire `worktree-write:<thread>` antes de nascer e espera a fila definida por
-`concurrency.max_parallel_heavy`, como `ork verify --esperar`. Cada comando usa
+`concurrency.max_parallel_heavy`, por no máximo 20 s. Se a vez não chegar, o status terminal
+devolve `ork.fila-pesada-recusa/v1` e libera a lease da worktree. Cada comando usa
 `verify.timeout_ms_por_comando` e depois `verify.timeout_ms`; no manifesto deste projeto,
 `test` tem 2.400 s. O transporte MCP não impõe o antigo teto total de 180 s.
 

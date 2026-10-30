@@ -148,7 +148,7 @@ test('V5: o CLI espera em primeiro plano, avisa no stderr e recusa com 3 dizendo
   } finally { await encerrar(outro.filho); p.limpar(); }
 });
 
-test('V6: o ork_verify do MCP espera no máximo o teto dele, devolve a recusa tipada e a lease da worktree', { skip: semKernel }, async () => {
+test('V6: o verify assíncrono inicia já, espera no máximo o teto MCP e o status devolve a recusa tipada', { skip: semKernel }, async () => {
   const p = projetoTemporario('fila-pesada-v6');
   const outro = outroVerify(p.dir, 90000);
   const server = criarServidorMcp({ projeto: p.dir, host: 'claude-code' });
@@ -162,13 +162,27 @@ test('V6: o ork_verify do MCP espera no máximo o teto dele, devolve a recusa ti
     const { thread } = novaThread(p.carregado, { nome: 'pelo mcp', modo: 'auto', criarWorktree: true });
     commitar(thread.worktree as string, 'produto.md', 'produto\n', 'produto');
     await outro.dentro;
-    // Pela ferramenta, sem prazo da fila: o teto do MCP (20 s) vale antes do padrão da biblioteca (30 s).
+    // A chamada curta só inicia. O worker conserva o teto MCP de 20 s e a lease enquanto espera;
+    // a consulta terminal carrega a mesma recusa tipada que o CLI síncrono.
     const inicio = Date.now();
     const r = await client.callTool({ name: 'ork_verify', arguments: { threadId: thread.id } });
+    assert.ok(Date.now() - inicio < 2_000, `início levou ${Date.now() - inicio} ms`);
+    assert.notEqual(r.isError, true);
+    const iniciada = JSON.parse((r.content as { type: string; text: string }[]).map((c) => c.text).join(''));
+    assert.equal(iniciada.estado, 'na-fila');
+    assert.ok(lerLease(p.dir, `worktree-write:${thread.id}`), 'a rodada segura a lease enquanto espera');
+    let terminal: any, respostaTerminal: any;
+    const ate = Date.now() + 30_000;
+    do {
+      respostaTerminal = await client.callTool({ name: 'ork_verify_status', arguments: { threadId: thread.id, rodadaId: iniciada.rodadaId } });
+      terminal = JSON.parse((respostaTerminal.content as { type: string; text: string }[]).map((c) => c.text).join(''));
+      if (terminal.estado !== 'falhou') await new Promise((resolve) => setTimeout(resolve, 50));
+    } while (terminal.estado !== 'falhou' && Date.now() < ate);
     const levou = Date.now() - inicio;
-    assert.ok(levou >= 19_000 && levou < 29_000, `levou ${levou} ms`);
-    assert.equal(r.isError, true);
-    const recusa = JSON.parse((r.content as { type: string; text: string }[]).map((c) => c.text).join(''));
+    assert.ok(levou >= 19_000 && levou < 29_000, `terminal levou ${levou} ms`);
+    assert.equal(respostaTerminal.isError, true);
+    assert.equal(terminal.falha.motivo, 'fila-pesada.ocupada');
+    const recusa = terminal.falha.recusa;
     assert.equal(recusa.contrato, 'ork.fila-pesada-recusa/v1', 'a mesma recusa tipada do CLI, e não um erro genérico');
     assert.equal(recusa.motivo, 'fila-pesada.ocupada');
     assert.equal(recusa.ocupantes[0]?.thread, 'ork-outra');

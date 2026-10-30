@@ -120,7 +120,9 @@ imediatamente. O worker entra na mesma fila pesada do CLI com espera, executa o 
 Consulte `ork_verify_status {threadId, rodadaId}` a cada 30–60 s. A resposta passa por
 `na-fila` (lane `fila-pesada` e, quando houver, ocupantes), `rodando` (lane atual),
 `concluido` (veredito e texto iguais ao CLI) ou `falhou`. Processo morto, worker que termina
-sem veredito e lease perdida são falhas tipadas e nunca viram verde. O contrato completo está
+sem veredito e lease perdida são falhas tipadas e nunca viram verde. A fila espera no máximo
+20 s; fila ocupada e condução concorrente preservam a recusa tipada do CLI em `falha.recusa`.
+O contrato completo está
 em [verify-mcp](../referencia/contratos/verify-mcp.md).
 
 A baseline (`ork verify <thread> --baseline`, e a que o `ork phase run` grava no despacho codex) roda pelo

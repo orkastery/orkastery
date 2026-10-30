@@ -76,8 +76,18 @@ test('CLI e MCP disputam o mesmo lease: o MCP recebe a mesma recusa tipada do CL
     assert.ok(conducaoDaThread(p.dir, thread.id), 'o CLI tomou a conducao');
 
     const r = await client.callTool({ name: 'ork_verify', arguments: { threadId: thread.id } });
-    assert.equal(r.isError, true);
-    const recusa = JSON.parse((r.content as { type: string; text: string }[]).map((c) => c.text).join(''));
+    assert.notEqual(r.isError, true, 'o transporte só inicia a rodada assíncrona');
+    const iniciada = JSON.parse((r.content as { type: string; text: string }[]).map((c) => c.text).join(''));
+    let terminal: any, respostaTerminal: any;
+    const ateStatus = Date.now() + 10_000;
+    do {
+      respostaTerminal = await client.callTool({ name: 'ork_verify_status', arguments: { threadId: thread.id, rodadaId: iniciada.rodadaId } });
+      terminal = JSON.parse((respostaTerminal.content as { type: string; text: string }[]).map((c) => c.text).join(''));
+      if (terminal.estado !== 'falhou') await new Promise((resolve) => setTimeout(resolve, 50));
+    } while (terminal.estado !== 'falhou' && Date.now() < ateStatus);
+    assert.equal(respostaTerminal.isError, true);
+    assert.equal(terminal.falha.motivo, 'conducao.em-andamento');
+    const recusa = terminal.falha.recusa;
     assert.equal(recusa.contrato, 'ork.conducao-recusa/v1');
     assert.equal(recusa.motivo, 'conducao.em-andamento');
     assert.equal(recusa.conducao.canal, 'hermes', 'quem conduz e o CLI do canal hermes');
