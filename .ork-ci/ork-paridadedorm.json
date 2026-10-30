@@ -1,0 +1,33 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-paridadedorm",
+  "branch": "ork/ork-paridadedorm-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-paridadedorm",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+      "alegacao": "Depois do merge da M1, o RM-074 aponta para a thread da M2 em curso e a paridade de docs fecha na main e no PR.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"thread: ork-rm074m2harne\" docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md && node core/dist/index.js docs verificar && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-10-30T12:22:28.843Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
