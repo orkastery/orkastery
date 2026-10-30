@@ -11,7 +11,6 @@
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { registrarAchadoDaRodada, rodarAuditoria, verificarRodada } from '../src/auditrun';
@@ -25,8 +24,7 @@ import {
 } from '../src/thread';
 import { COMMIT_DESCONHECIDO, exec } from '../src/util';
 import { ajustarManifesto, commitar, dirTemporario, ProjetoDeTeste, projetoTemporario, shaDaBranch } from './apoio';
-
-const CLI = path.resolve(__dirname, '../../dist/index.js');
+import { cliNoProcesso, saidaCompativel } from './cli-in-processo';
 
 const LINHA_DA_CHAVE = '  worktree: criada pela chave worktree.por_thread do orkastery.yaml; para criar sem ela, use --sem-worktree';
 
@@ -39,12 +37,9 @@ function branchExiste(raiz: string, branch: string): boolean {
 }
 
 /** A CLI do HEAD, com HOME proprio e sem as variaveis de quem roda o teste. */
-function ork(dir: string, casa: string, ...args: string[]): { status: number | null; stdout: string; stderr: string } {
-  const r = spawnSync(process.execPath, [CLI, ...args], {
-    cwd: dir, encoding: 'utf8', timeout: 120000,
-    env: { HOME: casa, PATH: process.env.PATH ?? '/usr/bin:/bin', LANG: 'C.UTF-8', ORK_FABRICA_PUBLICAR: '0' },
-  });
-  return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+function ork(dir: string, casa: string, ...args: string[]): { status: number; stdout: string; stderr: string } {
+  return saidaCompativel(cliNoProcesso({ cwd: dir, args,
+    env: { HOME: casa, PATH: process.env.PATH ?? '/usr/bin:/bin', LANG: 'C.UTF-8', ORK_FABRICA_PUBLICAR: '0' } }));
 }
 
 function limpar(...dirs: string[]): void {

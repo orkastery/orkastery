@@ -13,7 +13,6 @@ import { strict as assert } from 'node:assert';
 import { test, TestContext } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import * as os from 'node:os';
 import { init } from '../src/init';
@@ -25,6 +24,7 @@ import {
   remotoParaExibir,
 } from '../src/projeto-alvo';
 import { dirTemporario, envPtBr, projetoTemporario } from './apoio';
+import { cliNoProcesso, saidaCompativel } from './cli-in-processo';
 
 const ORK = path.resolve(__dirname, '../../dist/index.js');
 const DIST_OPENCLAW = path.resolve(__dirname, '../../../adapters/openclaw/dist');
@@ -56,8 +56,7 @@ function maquina(t: TestContext) {
 
 function ork(cwd: string, args: string[], env: NodeJS.ProcessEnv, entrada?: string) {
   // RM-061 (D13): o teste le o texto de thread status em pt-BR; o locale de quem roda nao entra.
-  const r = spawnSync(process.execPath, [ORK, ...args], { cwd, env: envPtBr(env), encoding: 'utf8', timeout: 60_000, input: entrada });
-  return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+  return saidaCompativel(cliNoProcesso({ cwd, env: envPtBr(env), args, ...(entrada === undefined ? {} : { entrada }) }));
 }
 
 const vezes = (texto: string) => (texto.match(/Projeto consultado:/g) ?? []).length;

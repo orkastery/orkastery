@@ -11,7 +11,6 @@
  * normalizado aqui, igual na geracao e na comparacao.
  */
 
-import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -34,8 +33,8 @@ import { montarMonitor } from '../src/orquestracao';
 import { exigirManifesto } from '../src/manifest';
 import { gravarThread, lerThread } from '../src/thread';
 import { exec, noPath } from '../src/util';
+import { cliNoProcesso, saidaCompativel } from './cli-in-processo';
 
-const CLI = path.resolve(__dirname, '../../dist/index.js');
 const SP = 'America/Sao_Paulo';
 /** Instantes fixos fora do ano corrente: a data mostra o ano em qualquer ano de execucao. */
 const T0 = '2025-09-19T18:16:00.000Z';
@@ -118,11 +117,8 @@ function ork(dir: string, amb: Ambiente, ...args: string[]): Saida {
 }
 
 function orkComEnv(dir: string, amb: Ambiente, extra: Record<string, string>, ...args: string[]): Saida {
-  const r = spawnSync(process.execPath, [CLI, ...args], {
-    cwd: dir, encoding: 'utf8', timeout: 180000,
-    env: { HOME: amb.casa, LANG: 'C.UTF-8', TZ: SP, PATH: `${amb.stub}:${amb.bin}`, ORK_STUB_DIR: amb.stub, ...extra },
-  });
-  return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+  return saidaCompativel(cliNoProcesso({ cwd: dir, args,
+    env: { HOME: amb.casa, LANG: 'C.UTF-8', TZ: SP, PATH: `${amb.stub}:${amb.bin}`, ORK_STUB_DIR: amb.stub, ...extra } }));
 }
 
 /** O steal da rodada do CLI depende da maquina (medido ou nao); os casos de funcao cobrem as duas frases. */
