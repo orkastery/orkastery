@@ -4,7 +4,7 @@ tipo: roadmap
 titulo: Conta esgotada não para a fase
 categoria: iniciativa
 pai: null
-features: []
+features: [FEAT-020]
 owner: Julio
 atualizado_em: 2026-10-27T00:50:00-03:00
 estado:
@@ -37,6 +37,8 @@ sdlc:
 | Em desenvolvimento | Mesclado | Em execução | Produção | Parcial |
 
 <!-- ork-docs:relance:fim -->
+
+- **Features:** [FEAT-020](../produto/FEAT-020-mcp-e-adaptadores.md)
 
 **Pedido do dono de 13/10/2026:** "garanta que exista um item no roadmap tratando esse tipo de interrupção que ocorreu, pra que não ocorra mais quando houver outros runtimes capazes de assumir, nesse caso havia outra conta claude code logada".
 
@@ -181,6 +183,19 @@ node core/dist-test/test/rm064-fatia3.test.js
 
 Os testes usam somente projeto, controller, rollout e contas simulados. Não despacham runtime real nem alteram perfis
 da máquina. T6 e a implantação continuam fora desta fatia.
+
+### CHECK continua dentro da sessão — thread `ork-verifyassinc`
+
+A continuação #Auto não depende mais de manter `ork_verify` aberto durante a suíte. O prompt v5
+inicia uma única rodada assíncrona, guarda o `rodadaId` e consulta `ork_verify_status` a cada
+30–60 s, conservando só estado e lane durante a espera. No verde, segue para bundle, CHECK e SHIP;
+falha tipada ou veredito vermelho continua bloqueando qualquer modo.
+
+Claude Code e Grok recebem `ork_verify_status` como consulta enumerada; o filho Codex recebe o
+grant explícito necessário ao perfil `approval_policy=never`. O perfil `worktree` continua sendo
+o único que inicia a mutação, sem ampliar sandbox, gate ou identidade do dono. O comportamento e
+o contrato estão em [FEAT-020](../produto/FEAT-020-mcp-e-adaptadores.md) e
+[`verify-mcp.md`](../referencia/contratos/verify-mcp.md).
 
 - Em produção na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026): as fatias 1, 2 e 3 saíram juntas nessa versão (T1 a T5 e T7 a T10); a T6 segue.
 

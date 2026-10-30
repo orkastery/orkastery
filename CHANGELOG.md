@@ -6,6 +6,15 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Adicionado
+
+- **Verify assíncrono no MCP:** `ork_verify` devolve imediatamente um `rodadaId`, e
+  `ork_verify_status` acompanha fila, lane e o veredito canônico. A rodada viva é reutilizada,
+  o worker respeita a fila pesada e os prazos do manifesto, e morte de processo nunca vira verde.
+  Os prompts v5 aguardam o resultado em intervalos de 30–60 s, e Claude Code, Codex e Grok recebem
+  os grants enumerados correspondentes ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md),
+  [RM-064](docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md)).
+
 ### Corrigido
 
 - **O teste das lanes não herda o plano de CPU da rodada:** `ORK_CHECK_CPUS_DA_LANE` e `ORK_CHECK_CPUS_DOCKER`
