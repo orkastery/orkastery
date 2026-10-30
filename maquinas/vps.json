@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.1",
-  "publicadoEm": "2026-10-30T17:15:03.098Z",
+  "publicadoEm": "2026-10-30T17:27:10.477Z",
   "threads": [
     {
       "id": "ork-paridadeapos",
@@ -15,18 +15,14 @@
       "roadmap": "RM-074",
       "branch": "ork/ork-paridadeapos-go",
       "atualizadaEm": "2026-10-30T17:05:10.966Z",
-      "entregue": null,
+      "entregue": "45eea90",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
       "runtime": null,
       "modelo": null,
       "esforco": null,
-      "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-30T17:05:10.979Z",
-        "motivo": "nenhuma sessão despachada na fase GO"
-      }
+      "sessao": null
     },
     {
       "id": "ork-rm074comamet",
