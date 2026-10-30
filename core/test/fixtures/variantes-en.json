@@ -28,7 +28,7 @@
   "adapters-en/claude-code/agents/ork-check.md": "8afa6cf588dc4147134effc809db5cf69c5b25efb419b871dff3733d6291ffbd",
   "adapters-en/claude-code/agents/ork-go.md": "bfed35704ad6c43586bcbc23ba7f6cb904e0ad7cfecd3d9e2f2185c3d4e2dd64",
   "adapters-en/claude-code/agents/ork-goal.md": "b5f672b4b52397c0244041a0151b9174e7de15f608d5c090b223d339ff8d362d",
-  "adapters-en/claude-code/agents/ork-master.md": "9d3ffe4fbcb0d1b918fd11266be896b645ce2721944611b269480e0db78ee9f5",
+  "adapters-en/claude-code/agents/ork-master.md": "2f2fa4cc8b57ef8640a035c3716ed2db0b12cb9552c37c5af0b1ca210979a00f",
   "adapters-en/claude-code/agents/ork-plan.md": "12a549e930a952c4b3bf4cc024077165f4b24567db3994b1b33facc912dbc7e3",
   "adapters-en/claude-code/agents/ork-ship.md": "3d5831c68a65dba0ce2eedb479e50f98758f5b81185a79b737707d20ffb9f018",
   "adapters-en/claude-code/commands/check.md": "d86f83df49a9a4930d0d74b31e9f24cbd4eea246cc771f3165f5c95f5497c286",
