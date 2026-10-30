@@ -15,7 +15,7 @@
         "node core/dist-test/test/mcp-verify-async.test.js"
       ],
       "criadoEm": "2026-10-30T06:41:43.576Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -29,7 +29,7 @@
         "grep -q \"registrarTool('ork_verify_status'\" core/src/mcp-server.ts && grep -q \"iniciarVerifyMcp\" core/src/mcp-server.ts"
       ],
       "criadoEm": "2026-10-30T06:41:43.648Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -43,7 +43,7 @@
         "grep -q \"ork_verify_status\" core/src/adapters/claude-bg.ts && grep -q \"ork_verify_status\" core/src/mcp-install.ts && node core/dist-test/test/claude-worktree-permissions.test.js && node core/dist-test/test/rm064-fatia3.test.js && node core/dist-test/test/rm067-grok-mcp.test.js"
       ],
       "criadoEm": "2026-10-30T06:41:43.717Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -57,7 +57,7 @@
         "node core/dist-test/test/prompts.test.js && node core/dist-test/test/check-modo-prompts.test.js && node core/dist-test/test/locale-prompts.test.js"
       ],
       "criadoEm": "2026-10-30T06:41:43.784Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -71,7 +71,7 @@
         "grep -q \"ork_verify_status\" docs/guias/verificacao.md && grep -q \"ork_verify_status\" docs/referencia/contratos/verify-mcp.md && grep -q \"ork_verify_status\" docs/roadmap/RM-037-verify-rapido-e-confiavel.md && grep -q \"ork_verify_status\" docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md && grep -q \"ork_verify_status\" CHANGELOG.md"
       ],
       "criadoEm": "2026-10-30T06:41:43.888Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -85,7 +85,7 @@
         "node core/dist-test/test/mcp-verify-async.test.js"
       ],
       "criadoEm": "2026-10-30T06:46:55.945Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -99,7 +99,7 @@
         "node core/dist-test/test/mcp-verify-async.test.js"
       ],
       "criadoEm": "2026-10-30T06:46:56.062Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -113,7 +113,7 @@
         "node core/dist-test/test/mcp-verify-async.test.js && node core/dist-test/test/verify.test.js"
       ],
       "criadoEm": "2026-10-30T06:46:56.149Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -127,7 +127,7 @@
         "grep -q \"'ork_verify_status'\" core/src/mcp-install.ts && node core/dist-test/test/rm064-fatia3.test.js"
       ],
       "criadoEm": "2026-10-30T07:03:44.356Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -141,7 +141,7 @@
         "grep -q \"esperarStatus\" core/test/mcp-server.test.ts && grep -q \"ork_verify_status\" core/test/mcp-server.test.ts && node core/dist-test/test/mcp-verify-async.test.js"
       ],
       "criadoEm": "2026-10-30T07:03:44.432Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -155,7 +155,7 @@
         "grep -q \"ork_verify_status\" core/test/claude-worktree-permissions.test.ts && node --test-name-pattern='Claude interactive|Claude worktree concede' core/dist-test/test/claude-worktree-permissions.test.js"
       ],
       "criadoEm": "2026-10-30T07:03:44.504Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -169,7 +169,7 @@
         "grep -q \"mcp__orkastery__ork_verify_status\" adapters/claude-code/commands/ork.md"
       ],
       "criadoEm": "2026-10-30T07:03:44.563Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -183,7 +183,7 @@
         "grep -q \"mcp__orkastery__ork_verify_status\" core/assets/adapters-en/claude-code/commands/ork.md"
       ],
       "criadoEm": "2026-10-30T07:03:44.641Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -197,7 +197,7 @@
         "grep -q \"'ork_verify_status'\" core/test/rm067-grok-mcp.test.ts && node --test-name-pattern='GM5' core/dist-test/test/rm067-grok-mcp.test.js"
       ],
       "criadoEm": "2026-10-30T07:06:54.616Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -211,7 +211,7 @@
         "grep -q \"mcp__orkastery__ork_verify_status\" core/test/runtime-context.test.ts && node core/dist-test/test/runtime-context.test.js"
       ],
       "criadoEm": "2026-10-30T07:06:54.691Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -225,7 +225,7 @@
         "grep -q \"ork_verify_status\" core/src/prompts.ts && grep -q \"30–60\" core/src/prompts.ts && node core/dist-test/test/prompts.test.js"
       ],
       "criadoEm": "2026-10-30T07:09:26.071Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -239,7 +239,7 @@
         "grep -q \"versao: 5\" prompts/fase-padrao.md && grep -q \"ork_verify_status\" prompts/fase-padrao.md && node core/dist-test/test/prompts.test.js"
       ],
       "criadoEm": "2026-10-30T07:09:26.117Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -253,7 +253,7 @@
         "grep -q \"versao: 5\" prompts/fase-padrao.en.md && grep -q \"ork_verify_status\" prompts/fase-padrao.en.md && node core/dist-test/test/prompts.test.js"
       ],
       "criadoEm": "2026-10-30T07:09:26.174Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -267,7 +267,7 @@
         "grep -q \"ork_verify_status\" core/test/prompts.test.ts && node core/dist-test/test/prompts.test.js"
       ],
       "criadoEm": "2026-10-30T07:09:26.231Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -281,7 +281,7 @@
         "grep -q \"fase-padrao.*v5\" core/test/locale-prompts.test.ts && node core/dist-test/test/locale-prompts.test.js"
       ],
       "criadoEm": "2026-10-30T07:09:26.278Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -295,7 +295,7 @@
         "grep -q \"ork.verify-mcp/v1\" docs/referencia/contratos/verify-mcp.md && grep -q \"verify.processo-morto\" docs/referencia/contratos/verify-mcp.md && node core/dist-test/test/mcp-verify-async.test.js"
       ],
       "criadoEm": "2026-10-30T07:11:52.068Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -309,7 +309,7 @@
         "grep -q \"ork_verify_status\" docs/referencia/cli.md && grep -q \"contratos/verify-mcp.md\" docs/referencia/cli.md"
       ],
       "criadoEm": "2026-10-30T07:11:52.169Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -323,7 +323,7 @@
         "grep -q \"ork_verify_status\" docs/produto/FEAT-020-mcp-e-adaptadores.md && grep -q \"ork.verify-mcp/v1\" docs/produto/FEAT-020-mcp-e-adaptadores.md && node core/dist/index.js docs verificar"
       ],
       "criadoEm": "2026-10-30T07:11:52.233Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -337,7 +337,7 @@
         "grep -q \"ork_verify_status\" docs/referencia/cli.en.md && grep -q \"contratos/verify-mcp.md\" docs/referencia/cli.en.md"
       ],
       "criadoEm": "2026-10-30T07:11:52.302Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -351,7 +351,7 @@
         "grep -q \"ork_verify_status\" docs/roadmap/RM-037-verify-rapido-e-confiavel.md && grep -q \"mcp-verify-async.test.ts\" docs/roadmap/RM-037-verify-rapido-e-confiavel.md && node core/dist/index.js docs verificar"
       ],
       "criadoEm": "2026-10-30T07:12:53.289Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -365,7 +365,7 @@
         "grep -q \"ork_verify_status\" docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md && grep -q \"30–60\" docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md && node core/dist/index.js docs verificar"
       ],
       "criadoEm": "2026-10-30T07:12:53.335Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -379,7 +379,7 @@
         "grep -q \"## Não publicado\" CHANGELOG.md && grep -q \"### Adicionado\" CHANGELOG.md && grep -q \"ork_verify_status\" CHANGELOG.md"
       ],
       "criadoEm": "2026-10-30T07:12:53.380Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -393,7 +393,7 @@
         "grep -q \"ork_verify_status\" core/test/fixtures/locale-f3c-pt-BR.json && node core/dist-test/test/locale-f3c-snapshot.test.js"
       ],
       "criadoEm": "2026-10-30T07:14:56.217Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -407,6 +407,622 @@
         "grep -q \"template fase-padrao v5\" core/test/fixtures/locale-f3b-pt-BR.json && grep -q \"ork_verify_status\" core/test/fixtures/locale-f3b-pt-BR.json && node core/dist-test/test/prompts.test.js"
       ],
       "criadoEm": "2026-10-30T07:14:56.277Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-verify-async.ts",
+      "alegacao": "O worker do verify MCP aplica o teto de 20 s à fila pesada e preserva recusas tipadas de fila e condução.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test-name-pattern='V6:' core/dist-test/test/fila-pesada-verify.test.js && node --test-name-pattern='CLI e MCP disputam' core/dist-test/test/conducao-paridade.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:04:33.459Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/verify-mcp.md",
+      "alegacao": "O contrato público documenta o teto da fila e falha.recusa para fila ocupada e condução concorrente.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'falha.recusa' docs/referencia/contratos/verify-mcp.md && grep -q 'por no máximo 20 s' docs/referencia/contratos/verify-mcp.md"
+      ],
+      "criadoEm": "2026-10-30T09:04:33.521Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "core/test/fila-pesada-verify.test.ts",
+      "alegacao": "V6 prova início assíncrono imediato, lease durante a espera, teto MCP e recusa tipada no status terminal.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='V6:' core/dist-test/test/fila-pesada-verify.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:04:33.577Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "docs/guias/verificacao.md",
+      "alegacao": "O guia de verificação descreve as recusas tipadas do verify MCP assíncrono.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'fila ocupada e condução concorrente preservam a recusa tipada' docs/guias/verificacao.md"
+      ],
+      "criadoEm": "2026-10-30T09:04:33.648Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "core/test/conducao-paridade.test.ts",
+      "alegacao": "A paridade CLI/MCP é conferida no status terminal da rodada assíncrona sem perder ork.conducao-recusa/v1.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='CLI e MCP disputam' core/dist-test/test/conducao-paridade.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:04:33.696Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "core/test/mcp-grafo.test.ts",
+      "alegacao": "O contrato KG5 reconhece 41 tools e insere as tools do grafo depois de todas as consultas, inclusive ork_verify_status.",
+      "negativa": true,
+      "verificar": [
+        "node --test-name-pattern='KG5 flag: servidor sem|KG5 despacho: com a flag' core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:05:20.937Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "core/test/projeto-alvo-mcp.test.ts",
+      "alegacao": "A 41a tool ork_verify_status participa do contrato de projeto opcional, schema fechado e raiz fixa.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='toda tool do MCP aceita projeto' core/dist-test/test/projeto-alvo-mcp.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:05:21.018Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "core/test/horario-entradas.test.ts",
+      "alegacao": "O worker do verify MCP está declarado como entrada que grava instantes ISO e não apresenta horário a pessoas.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='entradas de processo registram' core/dist-test/test/horario-entradas.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:05:21.097Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "skills/core/orkastery-bootstrap/SKILL.md",
+      "alegacao": "skills/core/orkastery-bootstrap/SKILL.md traz a regra canônica de espera assíncrona uma vez, sincronizada ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='R2:|R3:' core/dist-test/test/rm037-esperas.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:45.917Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "skills/phases/go-implementation/SKILL.md",
+      "alegacao": "skills/phases/go-implementation/SKILL.md traz a regra canônica de espera assíncrona uma vez, sincronizada ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='R2:|R3:' core/dist-test/test/rm037-esperas.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:45.989Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "skills/phases/check-quality/SKILL.md",
+      "alegacao": "skills/phases/check-quality/SKILL.md traz a regra canônica de espera assíncrona uma vez, sincronizada ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='R2:|R3:' core/dist-test/test/rm037-esperas.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:46.045Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "adapters/codex/skills/ork/SKILL.md",
+      "alegacao": "adapters/codex/skills/ork/SKILL.md traz a regra canônica de espera assíncrona uma vez, sincronizada ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='R2:|R3:' core/dist-test/test/rm037-esperas.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:46.102Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "adapters/claude-code/agents/ork-goal.md",
+      "alegacao": "adapters/claude-code/agents/ork-goal.md traz a regra canônica de espera assíncrona uma vez, sincronizada ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='R2:|R3:' core/dist-test/test/rm037-esperas.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:46.166Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "adapters/claude-code/agents/ork-plan.md",
+      "alegacao": "adapters/claude-code/agents/ork-plan.md traz a regra canônica de espera assíncrona uma vez, sincronizada ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='R2:|R3:' core/dist-test/test/rm037-esperas.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:46.217Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "adapters/claude-code/agents/ork-go.md",
+      "alegacao": "adapters/claude-code/agents/ork-go.md traz a regra canônica de espera assíncrona uma vez, sincronizada ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='R2:|R3:' core/dist-test/test/rm037-esperas.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:46.259Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "adapters/claude-code/agents/ork-check.md",
+      "alegacao": "adapters/claude-code/agents/ork-check.md traz a regra canônica de espera assíncrona uma vez, sincronizada ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='R2:|R3:' core/dist-test/test/rm037-esperas.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:46.306Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "adapters/claude-code/agents/ork-ship.md",
+      "alegacao": "adapters/claude-code/agents/ork-ship.md traz a regra canônica de espera assíncrona uma vez, sincronizada ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='R2:|R3:' core/dist-test/test/rm037-esperas.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:46.361Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "adapters/claude-code/agents/ork-master.md",
+      "alegacao": "adapters/claude-code/agents/ork-master.md traz a regra canônica de espera assíncrona uma vez, sincronizada ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='R2:|R3:' core/dist-test/test/rm037-esperas.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:46.427Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "marketplaces/claude-code/orkastery/skills/core/orkastery-bootstrap/SKILL.md",
+      "alegacao": "marketplaces/claude-code/orkastery/skills/core/orkastery-bootstrap/SKILL.md traz a regra canônica de espera assíncrona uma vez, sincronizada ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='R2:|R3:' core/dist-test/test/rm037-esperas.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:46.477Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "marketplaces/claude-code/orkastery/skills/phases/check-quality/SKILL.md",
+      "alegacao": "marketplaces/claude-code/orkastery/skills/phases/check-quality/SKILL.md traz a regra canônica de espera assíncrona uma vez, sincronizada ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='R2:|R3:' core/dist-test/test/rm037-esperas.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:46.524Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "marketplaces/claude-code/orkastery/skills/phases/go-implementation/SKILL.md",
+      "alegacao": "marketplaces/claude-code/orkastery/skills/phases/go-implementation/SKILL.md traz a regra canônica de espera assíncrona uma vez, sincronizada ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='R2:|R3:' core/dist-test/test/rm037-esperas.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:46.574Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "marketplaces/claude-code/orkastery/agents/ork-check.md",
+      "alegacao": "marketplaces/claude-code/orkastery/agents/ork-check.md traz a regra canônica de espera assíncrona uma vez, sincronizada ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='R2:|R3:' core/dist-test/test/rm037-esperas.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:46.627Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C52",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "marketplaces/claude-code/orkastery/agents/ork-go.md",
+      "alegacao": "marketplaces/claude-code/orkastery/agents/ork-go.md traz a regra canônica de espera assíncrona uma vez, sincronizada ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='R2:|R3:' core/dist-test/test/rm037-esperas.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:46.680Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "marketplaces/claude-code/orkastery/agents/ork-goal.md",
+      "alegacao": "marketplaces/claude-code/orkastery/agents/ork-goal.md traz a regra canônica de espera assíncrona uma vez, sincronizada ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='R2:|R3:' core/dist-test/test/rm037-esperas.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:46.749Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C54",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "marketplaces/claude-code/orkastery/agents/ork-master.md",
+      "alegacao": "marketplaces/claude-code/orkastery/agents/ork-master.md traz a regra canônica de espera assíncrona uma vez, sincronizada ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='R2:|R3:' core/dist-test/test/rm037-esperas.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:46.801Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "marketplaces/claude-code/orkastery/agents/ork-plan.md",
+      "alegacao": "marketplaces/claude-code/orkastery/agents/ork-plan.md traz a regra canônica de espera assíncrona uma vez, sincronizada ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='R2:|R3:' core/dist-test/test/rm037-esperas.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:46.848Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C56",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "marketplaces/claude-code/orkastery/agents/ork-ship.md",
+      "alegacao": "marketplaces/claude-code/orkastery/agents/ork-ship.md traz a regra canônica de espera assíncrona uma vez, sincronizada ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='R2:|R3:' core/dist-test/test/rm037-esperas.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:46.897Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C57",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "marketplaces/codex/orkastery/skills/ork/SKILL.md",
+      "alegacao": "marketplaces/codex/orkastery/skills/ork/SKILL.md traz a regra canônica de espera assíncrona uma vez, sincronizada ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='R2:|R3:' core/dist-test/test/rm037-esperas.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:46.942Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C58",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "marketplaces/codex/orkastery/skills/core/orkastery-bootstrap/SKILL.md",
+      "alegacao": "marketplaces/codex/orkastery/skills/core/orkastery-bootstrap/SKILL.md traz a regra canônica de espera assíncrona uma vez, sincronizada ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='R2:|R3:' core/dist-test/test/rm037-esperas.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:46.995Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C59",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "marketplaces/codex/orkastery/skills/phases/check-quality/SKILL.md",
+      "alegacao": "marketplaces/codex/orkastery/skills/phases/check-quality/SKILL.md traz a regra canônica de espera assíncrona uma vez, sincronizada ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='R2:|R3:' core/dist-test/test/rm037-esperas.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:47.066Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "marketplaces/codex/orkastery/skills/phases/go-implementation/SKILL.md",
+      "alegacao": "marketplaces/codex/orkastery/skills/phases/go-implementation/SKILL.md traz a regra canônica de espera assíncrona uma vez, sincronizada ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='R2:|R3:' core/dist-test/test/rm037-esperas.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:47.129Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "core/assets/skills-en/core/orkastery-bootstrap/SKILL.md",
+      "alegacao": "core/assets/skills-en/core/orkastery-bootstrap/SKILL.md preserva estrutura, conteúdo inglês atual e hash da origem correspondente.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='cada variante tem a estrutura' core/dist-test/test/locale-skills.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:47.199Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C62",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "core/assets/skills-en/phases/go-implementation/SKILL.md",
+      "alegacao": "core/assets/skills-en/phases/go-implementation/SKILL.md preserva estrutura, conteúdo inglês atual e hash da origem correspondente.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='cada variante tem a estrutura' core/dist-test/test/locale-skills.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:47.249Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C63",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "core/assets/skills-en/phases/check-quality/SKILL.md",
+      "alegacao": "core/assets/skills-en/phases/check-quality/SKILL.md preserva estrutura, conteúdo inglês atual e hash da origem correspondente.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='cada variante tem a estrutura' core/dist-test/test/locale-skills.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:47.313Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C64",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "core/assets/adapters-en/codex/skills/ork/SKILL.md",
+      "alegacao": "core/assets/adapters-en/codex/skills/ork/SKILL.md preserva estrutura, conteúdo inglês atual e hash da origem correspondente.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='cada variante tem a estrutura' core/dist-test/test/locale-skills.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:47.372Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C65",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "core/assets/adapters-en/claude-code/agents/ork-goal.md",
+      "alegacao": "core/assets/adapters-en/claude-code/agents/ork-goal.md preserva estrutura, conteúdo inglês atual e hash da origem correspondente.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='cada variante tem a estrutura' core/dist-test/test/locale-skills.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:47.453Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C66",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "core/assets/adapters-en/claude-code/agents/ork-plan.md",
+      "alegacao": "core/assets/adapters-en/claude-code/agents/ork-plan.md preserva estrutura, conteúdo inglês atual e hash da origem correspondente.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='cada variante tem a estrutura' core/dist-test/test/locale-skills.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:47.512Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C67",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "core/assets/adapters-en/claude-code/agents/ork-go.md",
+      "alegacao": "core/assets/adapters-en/claude-code/agents/ork-go.md preserva estrutura, conteúdo inglês atual e hash da origem correspondente.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='cada variante tem a estrutura' core/dist-test/test/locale-skills.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:47.569Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C68",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "core/assets/adapters-en/claude-code/agents/ork-check.md",
+      "alegacao": "core/assets/adapters-en/claude-code/agents/ork-check.md preserva estrutura, conteúdo inglês atual e hash da origem correspondente.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='cada variante tem a estrutura' core/dist-test/test/locale-skills.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:47.633Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C69",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "core/assets/adapters-en/claude-code/agents/ork-ship.md",
+      "alegacao": "core/assets/adapters-en/claude-code/agents/ork-ship.md preserva estrutura, conteúdo inglês atual e hash da origem correspondente.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='cada variante tem a estrutura' core/dist-test/test/locale-skills.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:47.695Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C70",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "core/assets/adapters-en/claude-code/agents/ork-master.md",
+      "alegacao": "core/assets/adapters-en/claude-code/agents/ork-master.md preserva estrutura, conteúdo inglês atual e hash da origem correspondente.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='cada variante tem a estrutura' core/dist-test/test/locale-skills.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:47.755Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C71",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/variantes-en.json",
+      "alegacao": "core/test/fixtures/variantes-en.json preserva estrutura, conteúdo inglês atual e hash da origem correspondente.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='cada variante tem a estrutura' core/dist-test/test/locale-skills.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:07:47.822Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C72",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "marketplaces/claude-code/orkastery/commands/ork.md",
+      "alegacao": "A cópia gerada do comando Claude enumera ork_verify_status como a fonte do catálogo.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'mcp__orkastery__ork_verify_status' marketplaces/claude-code/orkastery/commands/ork.md"
+      ],
+      "criadoEm": "2026-10-30T09:07:47.881Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C73",
+      "thread": "ork-verifyassinc",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "A fixture F3b foi regenerada pelo código só nas três entradas de prompt e nos dois recibos de adaptador afetados.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/locale-f3b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-30T09:10:01.883Z",
       "estado": "pendente",
       "lint": []
     }
