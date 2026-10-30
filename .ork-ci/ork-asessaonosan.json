@@ -513,7 +513,7 @@
         "node --test-name-pattern='locale pt-BR F3b: o resto' core/dist-test/test/locale-f3b-snapshot.test.js"
       ],
       "criadoEm": "2026-10-30T03:36:48.006Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -527,7 +527,7 @@
         "node --test-concurrency=16 --test-name-pattern='locale pt-BR F3b: o resto' core/dist-test/test/locale-f3b-snapshot.test.js"
       ],
       "criadoEm": "2026-10-30T03:46:46.892Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -542,7 +542,7 @@
         "node --test-concurrency=16 --test-name-pattern='locale pt-BR F3b: o resto' core/dist-test/test/locale-f3b-snapshot.test.js"
       ],
       "criadoEm": "2026-10-30T03:55:14.430Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -557,7 +557,7 @@
         "node --test-concurrency=16 --test-name-pattern='locale pt-BR F3d: correcao' core/dist-test/test/locale-f3d-snapshot.test.js"
       ],
       "criadoEm": "2026-10-30T03:55:14.480Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     }
   ],
