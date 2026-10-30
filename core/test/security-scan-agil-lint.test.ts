@@ -47,7 +47,8 @@ function repositorio(nome: string): { dir: string; base: string } {
 let cache: string;
 let fake: FakeTools | undefined;
 const salvos: Record<string, string | undefined> = {};
-const CHAVES = ['XDG_CACHE_HOME', 'ORK_FAKE_DOCKER_BUILD', 'ORK_FAKE_DOCKER_BUILD_STDERR', 'ORK_FAKE_DOCKER_BUILD_SLEEP_MS', 'ORK_FAKE_NATIVE_WRONG_VERSION', 'ORK_CHECK_RELATORIO'];
+const CHAVES = ['XDG_CACHE_HOME', 'ORK_FAKE_DOCKER_BUILD', 'ORK_FAKE_DOCKER_BUILD_STDERR', 'ORK_FAKE_DOCKER_BUILD_SLEEP_MS',
+  'ORK_FAKE_NATIVE_WRONG_VERSION', 'ORK_CHECK_RELATORIO', 'ORK_CHECK_CPUS_DA_LANE', 'ORK_CHECK_CPUS_DOCKER'];
 const limpar: string[] = [];
 
 beforeEach(() => {

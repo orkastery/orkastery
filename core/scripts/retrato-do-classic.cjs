@@ -98,6 +98,9 @@ function retratoDoScan(arvore, modo) {
     fs.mkdirSync(cache);
     const env = { ...process.env, ORKASTERY_HOME: casa, XDG_CACHE_HOME: cache, ORK_CHECK_MODO: modo, ORK_LOCALE: 'pt-BR' };
     delete env.ORK_CHECK_RELATORIO;
+    // O retrato simula uma rodada Classic propria; o plano do Agile que roda os testes nao faz parte do seu argv.
+    delete env.ORK_CHECK_CPUS_DA_LANE;
+    delete env.ORK_CHECK_CPUS_DOCKER;
     const cli = path.join(arvore, 'dist', 'index.js');
     const init = spawnSync(process.execPath, [cli, 'init', '--name', 'retrato', '--abbrev', 'ret'], { cwd: repo, env, encoding: 'utf8' });
     if (init.status !== 0) throw new Error(`ork init: ${init.stderr}`);

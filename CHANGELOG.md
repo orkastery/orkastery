@@ -8,6 +8,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **O teste das lanes não herda o plano de CPU da rodada:** `ORK_CHECK_CPUS_DA_LANE` e `ORK_CHECK_CPUS_DOCKER`
+  continuam limitando a própria lane, mas não chegam aos testes que ela executa. Sob saturação, os testes que conferem
+  a concorrência da lane e os argumentos do Docker viam a fatia da rodada e reprovavam sem defeito no código
+  ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)).
 - **O verify faz classificação por teste dentro de comandos que já falhavam** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
   a baseline guarda os nomes que o TAP já produz, e a rodada separa por igualdade exata regressões, falhas
   pré-existentes e testes corrigidos. Uma falha nova bloqueia com `verify.regression` e leva o nome no motivo;

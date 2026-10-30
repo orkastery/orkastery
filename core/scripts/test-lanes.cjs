@@ -158,10 +158,14 @@ function rodarLane(lane) {
   // A lane e sempre uma rodada de topo: sob outro `node --test`, o pai marca o filho com NODE_TEST_CONTEXT e o `node
   // --test` da lane falaria o protocolo do runner, sem o TAP e sem o reporter das duracoes.
   delete env.NODE_TEST_CONTEXT;
-  // O modo e o relatorio sao da rodada do verify, nao dos testes: o teste que roda a varredura gravaria pecas no
-  // relatorio da rodada, e o que confia no modo padrao rodaria no modo do verify.
+  // O modo, o relatorio e o plano de CPU sao da rodada do verify, nao dos testes: o teste que roda a varredura
+  // gravaria pecas no relatorio da rodada, o que confia no modo padrao rodaria no modo do verify, e os testes que
+  // conferem concorrencia ou argv do Docker observariam a fatia da lane. A propria lane ja consumiu a fatia acima,
+  // ao montar --test-concurrency; so o node --test filho deve ficar sem ela.
   delete env.ORK_CHECK_MODO;
   delete env.ORK_CHECK_RELATORIO;
+  delete env.ORK_CHECK_CPUS_DA_LANE;
+  delete env.ORK_CHECK_CPUS_DOCKER;
   let casa = null;
   if (!(env.ORKASTERY_HOME || '').trim()) { casa = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-casa-')); env.ORKASTERY_HOME = casa; }
   try {
