@@ -12,7 +12,7 @@ const CLEAN_JS = {
 };
 
 const git = (cwd: string, ...args: string[]): string => {
-  const r = spawnSync('git', ['-c', 'user.email=t@example.invalid', '-c', 'user.name=t', '-c', 'commit.gpgsign=false', ...args],
+  const r = spawnSync('git', ['-c', 'user.email=fixture.invalid', '-c', 'user.name=fixture', '-c', 'commit.gpgsign=false', ...args],
     { cwd, encoding: 'utf8' });
   if (r.status !== 0) throw new Error(`git ${args.join(' ')}: ${r.stderr}`);
   return r.stdout.trim();
