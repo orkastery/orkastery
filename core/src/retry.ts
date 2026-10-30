@@ -260,6 +260,12 @@ export const POLITICA_DE_RETRY: Readonly<Record<MotivoGate, PoliticaDeRetry>> = 
     automatica: true,
     ...TEXTOS_DA_POLITICA['lease.busy'],
   },
+  'concurrency.lease-indeterminado': {
+    motivo: 'concurrency.lease-indeterminado',
+    acao: 'esperar-janela',
+    automatica: false,
+    ...TEXTOS_DA_POLITICA['concurrency.lease-indeterminado'],
+  },
   // I-36 (T6): a vez chega quando a conducao atual terminar. Redespachar agora so recebe a mesma recusa,
   // e passar na frente de quem conduz e exatamente o incidente de 19/09/2026.
   'conducao.em-andamento': {
@@ -267,6 +273,12 @@ export const POLITICA_DE_RETRY: Readonly<Record<MotivoGate, PoliticaDeRetry>> = 
     acao: 'esperar-janela',
     automatica: true,
     ...TEXTOS_DA_POLITICA['conducao.em-andamento'],
+  },
+  'conducao.acao-necessaria': {
+    motivo: 'conducao.acao-necessaria',
+    acao: 'esperar-janela',
+    automatica: false,
+    ...TEXTOS_DA_POLITICA['conducao.acao-necessaria'],
   },
   // I-41 (D10): formato e defeito de quem escreveu o pedido, e a spec dirigida conserta.
   // Escalar isto para o dono seria pedir que ele revise a sintaxe do robo.

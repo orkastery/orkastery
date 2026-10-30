@@ -635,11 +635,15 @@ export type MotivoGate =
   | 'tree.blocked'
   | 'lease.busy'
   | 'lease.resume-unavailable'
+  /** A vida do dono do lease nao pode ser provada deste host/namespace; nunca equivale a orfao. */
+  | 'concurrency.lease-indeterminado'
   /**
    * I-36 (RM-036, D2): outra conducao ja executa na worktree desta thread. Nao e reprovacao nem
    * falha: e a resposta util ao segundo pedido, com quem conduz e as tres acoes possiveis.
    */
   | 'conducao.em-andamento'
+  /** A sessao parou de proposito e deixou um comando exato para a conducao executar fora do sandbox. */
+  | 'conducao.acao-necessaria'
   // I-41 (D10): pedido HITL malformado. Ele e defeito do EMISSOR, nao do dono: a pergunta saiu
   // sem alternativa rotulada, sem consequencia, sem recomendada, ou com a pergunta em prosa.
   // Escalar formato para o humano seria pedir que ele revise a sintaxe do robo.

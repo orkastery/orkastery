@@ -8,7 +8,8 @@ import { ChildProcess, spawn, spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { comRecursoPesado, ENV_DONO_DA_FILA, ErroDaFilaPesada, kernelDisponivel, ocupantesDaFilaPesada, OcupanteDaFila } from '../src/fila-pesada';
+import { avaliarVidaDoOcupante, comRecursoPesado, ENV_DONO_DA_FILA, ErroDaFilaPesada, kernelDisponivel,
+  ocupantesDaFilaPesada, OcupanteDaFila } from '../src/fila-pesada';
 
 const MODULO = path.resolve(__dirname, '../src/fila-pesada');
 const semKernel = !kernelDisponivel();
@@ -16,6 +17,21 @@ const semKernel = !kernelDisponivel();
 function raizTemporaria(nome: string): string {
   return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `ork-fila-pesada-${nome}-`)));
 }
+
+test('outro espaço de PIDs: batida válida prova o lease vivo sem enxergar o PID', () => {
+  assert.deepEqual(avaliarVidaDoOcupante({ trava: 'desconhecida', batidaValida: true, mesmoHost: true,
+    mesmoEspacoPids: false, processo: 'desconhecido' }), { vida: 'vivo', prova: 'batida' });
+});
+
+test('lease realmente órfão: trava livre é prova positiva de morte', () => {
+  assert.deepEqual(avaliarVidaDoOcupante({ trava: 'livre', batidaValida: false, mesmoHost: true,
+    mesmoEspacoPids: true, processo: 'ausente' }), { vida: 'morto', prova: 'trava-livre' });
+});
+
+test('lease indeterminado: PID invisível e batida vencida nunca viram órfão', () => {
+  assert.deepEqual(avaliarVidaDoOcupante({ trava: 'desconhecida', batidaValida: false, mesmoHost: true,
+    mesmoEspacoPids: false, processo: 'desconhecido' }), { vida: 'desconhecido', prova: 'indeterminada' });
+});
 
 /**
  * Um processo que pega a vez, marca a entrada no log, escreve o próprio id no artefato, espera, confere que

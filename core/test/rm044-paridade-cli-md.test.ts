@@ -22,6 +22,8 @@ import { comandosDaAjuda } from '../src/docs';
 
 const RAIZ = path.resolve(__dirname, '../../..');
 const ORK = path.join(RAIZ, 'core/dist/index.js');
+const REFERENCIAS = ['docs/referencia/cli.md', 'docs/referencia/cli.en.md'] as const;
+const VERBOS_DA_CONDUCAO = ['limpar', 'registrar', 'master', 'merge', 'despachar'] as const;
 
 /**
  * Subcomandos que o parser aceita e a referencia documenta, mas que a ajuda nao declara numa
@@ -75,6 +77,21 @@ export function invocacoes(md: string): { linha: number; texto: string }[] {
   return achadas;
 }
 
+/** Listas dos verbos de autorizacao que escaparam de codigo inline na referencia. */
+export function listasDeVerbosSemCodigo(md: string): { linha: number; texto: string }[] {
+  const verbos = VERBOS_DA_CONDUCAO.join('|');
+  const lista = new RegExp(`\\b(?:${verbos})(?:\\s*,\\s*(?:${verbos})){1,}\\b`, 'g');
+  const achadas: { linha: number; texto: string }[] = [];
+  let cercado = false;
+  md.split('\n').forEach((linha, i) => {
+    if (/^\s*```/.test(linha)) { cercado = !cercado; return; }
+    if (cercado) return;
+    const prosa = linha.replace(/`[^`]*`/g, '');
+    for (const m of prosa.matchAll(lista)) achadas.push({ linha: i + 1, texto: m[0] });
+  });
+  return achadas;
+}
+
 /** Comando e subcomandos de uma invocacao; `brain status\|inventory` vira um subcomando cada. */
 function cabeca(texto: string): { topo: string; subs: string[] } | null {
   const toks = texto.replace(/"[^"]*"|'[^']*'/g, 'Q').split(/\s+/).filter(Boolean);
@@ -115,6 +132,25 @@ test('RM-044: docs/referencia/cli.md e a tabela de comandos do parser andam junt
   const ajuda = comandosDaAjuda(execFileSync(process.execPath, [ORK, '--help'], { encoding: 'utf8' }));
   assert.ok(parser.has('thread') && parser.has('maestro') && parser.has('monitor'), 'a leitura do main achou o despacho');
   assert.deepEqual(derivas(md, parser, ajuda), []);
+});
+
+test('RM-044: listas de verbos do ork ficam em codigo inline nas duas referencias', () => {
+  for (const arquivo of REFERENCIAS) {
+    const md = fs.readFileSync(path.join(RAIZ, arquivo), 'utf8');
+    assert.deepEqual(listasDeVerbosSemCodigo(md), [], arquivo);
+  }
+});
+
+test('RM-044: a conferencia encontra verbos do ork separados por virgula fora de codigo', () => {
+  const md = fs.readFileSync(path.join(RAIZ, REFERENCIAS[0]), 'utf8');
+  const semCodigo = md.replace(
+    '`limpar`, `registrar`, `master`, `merge`, `despachar`',
+    'limpar,registrar,master,merge,despachar',
+  );
+  assert.notEqual(semCodigo, md, 'a fixture removeu o codigo inline da lista real');
+  assert.deepEqual(listasDeVerbosSemCodigo(semCodigo).map((a) => a.texto), [
+    'limpar,registrar,master,merge,despachar',
+  ]);
 });
 
 test('RM-044: a conferencia reprova comando inventado, subcomando inventado e comando sem doc', () => {
