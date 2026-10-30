@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-30T09:22:04-03:00
+atualizado_em: 2026-10-30T14:04:42-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -20,7 +20,7 @@ evidencias:
     commit: ab26364f
     pr: null
 sdlc:
-  thread: ork-rm074m2harne
+  thread: ork-rm074m3rumoa
   modo: "#Auto"
   fase: GO
   status: aberta
