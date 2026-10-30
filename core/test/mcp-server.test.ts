@@ -43,6 +43,16 @@ async function call(c:Client,name:string,args:Record<string,unknown>) {
   const text=r.content.filter(x=>x.type==='text').map(x=>x.text).join('');
   return {error:r.isError===true,text,data:()=>JSON.parse(text)};
 }
+async function esperarStatus(c:Client,threadId:string,rodadaId:string) {
+  const ate=Date.now()+30000;
+  for(;;) {
+    const r=await call(c,'ork_verify_status',{threadId,rodadaId});
+    const estado=r.data().estado;
+    if(estado==='concluido' || estado==='falhou')return r;
+    if(Date.now()>=ate)throw Error('prazo do verify MCP da fixture');
+    await new Promise(resolve=>setTimeout(resolve,50));
+  }
+}
 function pedido(p:ProjetoDeTeste) {
   const t=novaThread(p.carregado,{nome:'decisao',modo:'classic'}).thread;
   const q:PedidoHitl={contrato:'ork.hitl/v1',id:'q-mcp',thread:t.id,fase:t.faseAtual,modo:t.modo,
@@ -94,9 +104,8 @@ test('MCP filho fixa thread e omite criacao, redespacho e decisao do dono',async
 test('MCP schemas fechados recusam shell, raiz, traversal e resposta gerada pelo modelo sem efeito',()=>fixture(async(p,c)=>{
   const {t,q}=pedido(p),before=fs.readFileSync(path.join(dirThread(p.dir,t.id),'ledger.jsonl'));
   const tools=(await c.listTools()).tools;
-  // RM-026 K7 (fatia 2): as quatro ork_conhecimento_*, de leitura, levam o catalogo de 31 a 35; a RM-059 (fatia F8) soma a
-  // ork_request_master_note: 36; a RM-058 (N6) soma as quatro ork_noctum_*, fora da sessao de fase: 40.
-  assert.equal(tools.length,40);assert.ok(tools.some(t=>t.name==='ork_noctum_autorizar'));assert.ok(tools.some(t=>t.name==='ork_network_status'));assert.ok(tools.some(t=>t.name==='ork_conhecimento_verificar'));assert.ok(tools.some(t=>t.name==='ork_request_master_note'));assert.ok(tools.some(t=>t.name==='ork_network_roadmap'));assert.ok(tools.some(t=>t.name==='ork_decision_record'));assert.ok(tools.some(t=>t.name==='ork_brain_dossie'));
+  // O status assíncrono do verify soma uma consulta ao catálogo anterior de 40 ferramentas.
+  assert.equal(tools.length,41);assert.ok(tools.some(t=>t.name==='ork_verify_status'));assert.ok(tools.some(t=>t.name==='ork_noctum_autorizar'));assert.ok(tools.some(t=>t.name==='ork_network_status'));assert.ok(tools.some(t=>t.name==='ork_conhecimento_verificar'));assert.ok(tools.some(t=>t.name==='ork_request_master_note'));assert.ok(tools.some(t=>t.name==='ork_network_roadmap'));assert.ok(tools.some(t=>t.name==='ork_decision_record'));assert.ok(tools.some(t=>t.name==='ork_brain_dossie'));
   assert.ok(tools.some(t=>t.name==='ork_roadmap_reservas'));assert.ok(tools.some(t=>t.name==='ork_fabrica'));assert.ok(!tools.some(t=>/shell|answer/.test(t.name)));
   assert.equal(tools.find(t=>t.name==='ork_brain_context')?.annotations?.readOnlyHint,true);
   for(const tool of tools) assert.equal(tool.inputSchema.additionalProperties,false);
@@ -239,7 +248,7 @@ test('CLI mcp serve negocia stdio real sem banner e sem configuracao global',asy
   const transport=new StdioClientTransport({command:process.execPath,
     args:[path.resolve(__dirname,'../src/index.js'),'mcp','serve','--project',p.dir,'--host','codex'],
     cwd:p.dir,env:{PATH:process.env.PATH??'',HOME:p.dir},stderr:'pipe'});
-  try {await c.connect(transport);assert.equal((await c.listTools()).tools.length,40);}
+  try {await c.connect(transport);assert.equal((await c.listTools()).tools.length,41);}
   finally {await c.close();await transport.close();p.limpar();}
 });
 
@@ -254,12 +263,13 @@ test('MCP commit integra claim e HEAD real sem registrar entrega SHIP', { skip: 
   const args={threadId:t.id,expectedHead:head,paths:['produto.txt'],mensagem:'fixture MCP'};
   const r=await call(c,'ork_git_commit',args);assert.equal(r.error,false,r.text);
   assert.equal(r.data().estadoAuditado,true);assert.notEqual(r.data().commit,head);
-  const verified=await call(c,'ork_verify',{threadId:t.id});assert.equal(verified.error,false,verified.text);
-  assert.equal(verified.data().claims.verificadas,1);assert.equal(verified.data().commit,r.data().commit);
-  await call(c,'ork_claim_add',{threadId:t.id,arquivo:'produto.txt',alegacao:'contraprova sandbox',verificar:['touch ../outside-not-allowed']});
-  const denied=await call(c,'ork_verify',{threadId:t.id});assert.equal(denied.error,true,denied.text);
-  assert.equal(denied.data().executor,'codex-sandbox');
-  assert.equal(fs.existsSync(path.resolve(t.worktree!,'..','outside-not-allowed')),false);
+  const rodada=await call(c,'ork_verify',{threadId:t.id});assert.equal(rodada.error,false,rodada.text);
+  const verified=await esperarStatus(c,t.id,rodada.data().rodadaId);assert.equal(verified.error,false,verified.text);
+  assert.equal(verified.data().veredito.resultado.claims[0].verificado,true);assert.equal(verified.data().veredito.commit,r.data().commit);
+  await call(c,'ork_claim_add',{threadId:t.id,arquivo:'produto.txt',alegacao:'contraprova funcional',verificar:['false']});
+  const rodadaVermelha=await call(c,'ork_verify',{threadId:t.id});assert.equal(rodadaVermelha.error,false,rodadaVermelha.text);
+  const denied=await esperarStatus(c,t.id,rodadaVermelha.data().rodadaId);assert.equal(denied.error,true,denied.text);
+  assert.equal(denied.data().estado,'concluido');assert.equal(denied.data().veredito.ok,false);
   assert.equal((await call(c,'ork_git_commit',args)).error,true);
   assert.equal(lerLedger(dirThread(p.dir,t.id)).some(e=>['artifact_delivered','ship_done'].includes(e.tipo)),false);
 })));

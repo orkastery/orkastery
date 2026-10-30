@@ -33,9 +33,7 @@ import {preflight} from './preflight';
 import {exigirModoVivo,ORDEM_DOS_MODOS} from './modos';
 import { registrarFerramentasDoNoctum } from './mcp-noctum';
 import {VERSAO_DO_ORK} from './versao';
-import {verificarMcp} from './mcp-verify';
-import { conducaoDaThread, ErroDeConducao } from './conducao';
-import { ErroDaFilaPesada } from './fila-pesada';
+import { conducaoDaThread } from './conducao';
 import { registrarDecisao } from './decisao-autonoma';
 import { linhaDeConducao } from './conducao-texto';
 import {criarPerfilShipMcp,PerfilShipMcp,shipMcp} from './mcp-ship';
@@ -379,18 +377,20 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
       if(!perfilShip)throw Error(erroShip);
       const r=await shipMcp(perfilShip,args,extra.signal);return {...resposta(r),...(r.ok?{}:{isError:true})};
     });
-  registrarTool('ork_verify',{description:'Reexecuta claims e verificadores do manifesto na worktree, em sandbox e com prazo total de tres minutos. Registra resultado real; falhas bloqueiam a verificacao.',
+  registrarTool('ork_verify',{description:'Inicia uma rodada assíncrona do verify canônico no processo do servidor, vinculada à thread e ao despacho. Devolve imediatamente o UUID; repetir enquanto viva reutiliza a rodada.',
     inputSchema:daThread,annotations:{readOnlyHint:false,destructiveHint:false}},async({threadId})=>{
-      thread(threadId);livre(threadId);
-      try {
-        const r=verificarMcp(raiz,threadId,conducao);return {...resposta(r),...(r.ok?{}:{isError:true})};
-      } catch(e) {
-        // I-36 (T18): a mesma recusa tipada do CLI, com o mesmo texto, sem reescrever nada no host.
-        if(e instanceof ErroDeConducao) return {...resposta(e.recusa),isError:true};
-        // RM-058 N2 (A6 do CHECK): a fila pesada que nao deu a vez no prazo responde como a conducao.
-        if(e instanceof ErroDaFilaPesada) return {...resposta(e.recusa),isError:true};
-        throw e;
-      }
+      thread(threadId);
+      const {iniciarVerifyMcp}=await import('./mcp-verify-async');
+      const r=iniciarVerifyMcp(raiz,threadId,{host:opcoes.host,despacho:opcoes.dispatchId??null});
+      return {...resposta(r),...(r.estado==='falhou'?{isError:true}:{})};
+    });
+  registrarTool('ork_verify_status',{description:'Consulta uma rodada assíncrona do verify por UUID: na fila, rodando com a lane atual, concluída com o veredito completo do CLI ou falha tipada. Não inicia nem duplica rodada.',
+    inputSchema:daThread.extend({rodadaId:z.string().uuid()}).strict(),annotations:{readOnlyHint:true,destructiveHint:false}},async({threadId,rodadaId})=>{
+      thread(threadId);
+      const {consultarVerifyMcp}=await import('./mcp-verify-async');
+      const r=consultarVerifyMcp(raiz,threadId,rodadaId);
+      const reprovou=r.estado==='falhou' || (r.estado==='concluido' && r.veredito?.ok===false);
+      return {...resposta(r),...(reprovou?{isError:true}:{})};
     });
   registrarTool('ork_git_commit',{description:'Commita somente paths com claims e HEAD esperado na worktree da thread. Recusa hooks/filtros ativos; preserva configuracao. Commit local nao e SHIP.',
     inputSchema:daThread.extend({expectedHead:z.string().regex(/^[a-f0-9]{40}$/),
