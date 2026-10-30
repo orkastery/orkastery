@@ -10,7 +10,7 @@ import fs = require('node:fs');
 import { main } from '../src/index';
 import { ErroDeConducao } from '../src/conducao';
 import { ErroDaFilaPesada } from '../src/fila-pesada';
-import { ErroDeProjeto, SAIDA_DE_PROJETO } from '../src/projeto-alvo';
+import { ErroDeProjeto, fixarProjetoAlvo, projetoAlvoAtual, SAIDA_DE_PROJETO } from '../src/projeto-alvo';
 import { mensagemDoErro, msg } from '../src/locale';
 
 export interface SaidaDaCli {
@@ -89,6 +89,7 @@ export function cliNoProcesso(chamada: ChamadaDaCli): SaidaDaCli {
   const stderrAnterior = process.stderr.write;
   const readFileAnterior: Leitura = fs.readFileSync;
   const readAnterior: LeituraParcial = fs.readSync;
+  const projetoAnterior = projetoAlvoAtual();
   let stdout = '';
   let stderr = '';
 
@@ -150,6 +151,7 @@ export function cliNoProcesso(chamada: ChamadaDaCli): SaidaDaCli {
     process.exit = exitAnterior;
     process.exitCode = exitCodeAnterior;
     process.argv.splice(0, process.argv.length, ...argvAnterior);
+    fixarProjetoAlvo(projetoAnterior);
     trocarAmbiente(envAnterior);
     process.chdir(cwdAnterior);
   }

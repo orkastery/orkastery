@@ -1,0 +1,33 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-074 M2: o reaproveitamento das claims aceita apenas leituras fechadas, auditoria TAP equivalente e curto-circuito preservado.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "o preparo depois de leituras grep deixa de ser reaproveitado",
+      "modulo": "check-agil",
+      "de": "if (somenteLeiturasAntes && passosDoPreparo.includes(elo)) {",
+      "para": "if (false && somenteLeiturasAntes && passosDoPreparo.includes(elo)) {",
+      "teste": "check-agil",
+      "nome": "^(AG1|AG20):"
+    },
+    {
+      "id": "M2",
+      "descricao": "a claim volta a aceitar arquivo com teste skip ou todo",
+      "modulo": "check-agil",
+      "de": "vistos.some((t) => t.estado === 'skip' || t.estado === 'todo')",
+      "para": "false",
+      "teste": "check-agil",
+      "nome": "^(AG46|AG48):"
+    },
+    {
+      "id": "M3",
+      "descricao": "a cadeia reaproveitada ignora a falha de um grep anterior",
+      "modulo": "check-agil",
+      "de": "if (!r.ok)",
+      "para": "if (false && !r.ok)",
+      "teste": "check-agil",
+      "nome": "^AG46:"
+    }
+  ]
+}

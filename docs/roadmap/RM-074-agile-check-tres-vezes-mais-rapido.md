@@ -17,12 +17,12 @@ estado:
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: 2babe765
+    commit: ab26364f
     pr: null
 sdlc:
   thread: ork-rm074m2harne
   modo: "#Auto"
-  fase: GOAL
+  fase: GO
   status: aberta
 ---
 
@@ -91,6 +91,48 @@ compatível com o custo de criar processos. As claims ocupam 9,6% da parede do A
 e 5,1% da do Classic, repetindo build e arquivos que as lanes já executaram. A cadeia
 de locale alcança 602 de 655 arquivos, por isso a seleção por dependência fica fora
 desta fatia.
+
+### Resultado da M1 e diagnóstico de entrada da M2
+
+A bancada da M1, no commit `4f4d4b55`, mediu razão `Classic ÷ Agile` de 1,15 e
+razão de CPU de 1,06. É uma indicação, não um aceite: o roubo de CPU foi de 7,3%
+num modo e 11,6% no outro. A CPU da suíte ficou 13,0% acima da recoleta usada como
+linha de base. A própria bancada conta 6.126 testes na M1 contra 6.075 na base:
+mantido o custo médio anterior, os 51 testes novos explicam 0,84 ponto desse aumento,
+e a regressão de CPU por teste explica 12,21 pontos. O handoff da M1 também registrou
+5.925 testes na base; se esse retrato for usado, os 201 testes novos explicam 3,39
+pontos e a regressão por teste, 9,66. A divergência fica explícita; a decomposição
+principal segue os JSONs da mesma bancada.
+
+Na M1, a lane hermética ocupou 90,7% da parede de teste. Os cinco maiores arquivos
+somaram 17,3% e os vinte maiores, 36,0%. As claims ainda ocuparam 11,4% da parede
+do Agile, contra 5,0% no Classic. A reanálise do bruto da M1 selecionou, antes da
+mudança da M2, os dez maiores pela parede sob concorrência. A coluna “sistema” é a
+parcela observável de CPU do sistema na árvore — a aproximação para criação de
+processos, espera e filesystem; ela não atribui todo esse custo exclusivamente ao
+`spawn`.
+
+| Arquivo | Testes | CPU da suíte | Sistema na CPU do arquivo | Sozinho ÷ concorrente |
+| --- | ---: | ---: | ---: | ---: |
+| `security-scan-integracao` | 5 | 0,27% | 50,7% | 0,94 |
+| `rede` | 79 | 4,11% | 53,6% | 0,72 |
+| `noctum-integracao` | 25 | 2,76% | 78,0% | 0,95 |
+| `noctum-maquinas` | 27 | 2,44% | 77,3% | 1,30 |
+| `noctum-coordenacao` | 28 | 2,53% | 78,2% | 1,00 |
+| `projeto-alvo-declaracao` | 6 | 1,08% | 23,6% | 0,44 |
+| `noctum-entrega` | 36 | 1,29% | 77,3% | 1,10 |
+| `rm036-leases-canonicos` | 38 | 1,36% | 25,7% | 0,67 |
+| `p4-worktree-por-thread` | 20 | 0,76% | 27,9% | 0,43 |
+| `locale-f2b-snapshot` | 1 | 1,23% | 22,4% | 0,75 |
+
+A M2 leva o harness somente aos cenários de resposta em `rede`,
+`projeto-alvo-declaracao`, `p4-worktree-por-thread` e `locale-f2b`; sinais, PATH,
+rede e Docker reais, Git, locks e concorrência continuam em processo filho. Nas
+claims, a M2 reaproveita a auditoria TAP canônica e remove o preparo único depois
+apenas de leituras `grep -q`; outra forma de shell continua inteira. A bancada M2
+ainda não foi coletada no host real, portanto esta página não atribui a ela razão
+nem CPU da suíte sem evidência. A razão da M2 só sai da bancada da sessão condutora,
+fora deste sandbox.
 
 ## Problema e resultado
 
@@ -375,7 +417,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Em desenvolvimento | — | 2026-10-30 | Julio |
 | Documentação | Em revisão | — | 2026-10-30 | Julio |
-| Código | Branch criada | commit `2babe765` | 2026-10-30 | Julio |
+| Código | Branch criada | commit `ab26364f` | 2026-10-30 | Julio |
 | Testes | Em execução | — | 2026-10-30 | Julio |
 | Deploy | Não implantado | — | 2026-10-30 | Julio |
 | Exposição | Flag desligada | — | 2026-10-30 | Julio |
@@ -385,9 +427,9 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 ## Responsabilidades e histórico
 
-- **RACI (R / A / C / I):** R: sessão condutora da thread `ork-rm074m1menos` para a M1; A: Julio; C: a definir; I: a definir.
-- **Agentes envolvidos, atuação, autonomia e revisor humano:** a M1 é conduzida em `#Auto` pela thread `ork-rm074m1menos`; decisões autônomas ficam no ledger, enquanto a meta 2.c e o limite de qualidade são do dono; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** fechar a bancada da M1, registrar razão e CPU da suíte e concluir CHECK/SHIP/MASTER; responsável: thread `ork-rm074m1menos`; prazo: nesta entrega.
+- **RACI (R / A / C / I):** R: sessão condutora da thread `ork-rm074m2harne` para a M2; A: Julio; C: a definir; I: a definir.
+- **Agentes envolvidos, atuação, autonomia e revisor humano:** a M2 é conduzida em `#Auto` pela thread `ork-rm074m2harne`; decisões autônomas ficam no ledger, enquanto a meta 2.c e o limite de qualidade são do dono; revisor humano: Julio.
+- **Próxima ação, responsável e prazo:** coletar a bancada M2 no host real, registrar razão e CPU da suíte e concluir CHECK/SHIP/MASTER; responsável: thread `ork-rm074m2harne`; prazo: nesta entrega.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -395,3 +437,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-27 | D1 decidida: a meta é o Agile Check completo pelo menos 3 vezes mais rápido que o Classic na mesma máquina e no mesmo commit, em três rodadas seguidas pelo ledger; título, resumo, métricas e sondas sem minutos, em razão e percentual; a aritmética do piso refeita em termos relativos; D2, D3 e D4 reavaliadas; o arquivo passa a `RM-074-agile-check-tres-vezes-mais-rapido.md`, com os links corrigidos | Decisão e regra do dono de 27/10/2026, no pedido da thread `ork-docsda060emp` | Julio (a D1 e a regra); thread `ork-docsda060emp` (#Fast) na reescrita |
 | 2026-10-29 | A alternativa 2.c substitui a D1: meta de cerca de 1,7 vez contra o Classic, mesma máquina e bateria, com perda de qualidade limitada a 10% | Decisão do dono recebida pela thread `ork-rm074m1menos` | Julio |
 | 2026-10-30 | M1 iniciada: CLI no processo para testes pesados e resultados das lanes reutilizados por claims equivalentes no mesmo HEAD e ambiente | Bancada M0 `6a30b24c`, plano e implementação da thread `ork-rm074m1menos` | Thread `ork-rm074m1menos` (#Auto) |
+| 2026-10-30 | M1 registrada; M2 leva o harness a quatro pontos quentes restantes e reaproveita formas fechadas das claims. A razão e a CPU da M2 ficam pendentes da bancada no host real | Bancada M1 `4f4d4b55`, reanálise da sonda 2 e implementação da thread `ork-rm074m2harne` | Thread `ork-rm074m2harne` (#Auto) |

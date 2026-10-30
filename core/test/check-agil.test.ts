@@ -13,7 +13,7 @@ import * as path from 'node:path';
 import { adicionarClaim } from '../src/claims';
 import { assinaturaDoAmbiente, elosDoComando, executorDaClaimPelasLanes, GuardaDoProduto, hashDoProduto,
   MAXIMO_DE_PREPAROS_REFEITOS, paralelismoDaVarreduraNoGrupo, passosDoComando, PECA_SEM_RELATORIO, RelatorioDoCheck,
-  testDasLanes, TETO_DO_RELATORIO_BYTES, tirarPassosDoPreparo } from '../src/check-agil';
+  testDasLanes, TETO_DO_RELATORIO_BYTES, tirarPassosDoPreparo, tirarPassosDoPreparoAposLeituras } from '../src/check-agil';
 import { argvDoItem, rodarEmParalelo } from '../src/check-paralelo';
 import { cargaDoProcLoadavg, paredeAgileSimulada, paredeClassicaSimulada, planejarCpuDoGrupo } from '../src/agendador-cpu';
 import { lerLedger } from '../src/ledger';
@@ -65,6 +65,12 @@ test('AG1: os passos do preparo saem da frente do comando so na forma exata, e o
   assert.deepEqual(tirarPassosDoPreparo('npm --prefix core run build:test', preparo), { passos: ['npm --prefix core run build:test'], resto: '' });
   assert.deepEqual(tirarPassosDoPreparo('npm  --prefix core run build && x', preparo), { passos: [], resto: 'npm  --prefix core run build && x' });
   assert.deepEqual(tirarPassosDoPreparo('node --test x.js', preparo), { passos: [], resto: 'node --test x.js' });
+  assert.deepEqual(tirarPassosDoPreparoAposLeituras(
+    "grep -q -- '--check classic\\|agile' docs/referencia/cli.md && npm --prefix core run build && npm --prefix core run build:test && node --test x.js", preparo),
+  { passos: preparo, resto: "grep -q -- '--check classic\\|agile' docs/referencia/cli.md && node --test x.js" });
+  assert.deepEqual(tirarPassosDoPreparoAposLeituras(
+    'node edita.js && npm --prefix core run build && node --test x.js', preparo),
+  { passos: [], resto: 'node edita.js && npm --prefix core run build && node --test x.js' }, 'comando que pode escrever conserva o build');
 });
 
 test('AG2: o hash do produto muda com conteudo, permissao e arquivo que some; a guarda diz cada motivo', () => {
@@ -396,7 +402,7 @@ test('AG19: os passos do preparo saem so da frente da cadeia; no meio ficam, e o
   assert.equal(elosDoComando('echo "aberta && x'), null, 'aspas abertas');
 });
 
-test('AG20: a claim com o build no meio roda inteira, e a da frente continua sem os passos do preparo', () => {
+test('AG20: a claim com o build depois so de grep reaproveita o preparo, como a da frente', () => {
   const p = projetoTemporario('ag20');
   try {
     comAgile(p, '  agile:\n    produto:\n      - "README.md"');
@@ -405,10 +411,10 @@ test('AG20: a claim com o build no meio roda inteira, e a da frente continua sem
     adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'frente', verificar: ['echo passo-a && echo passo-b && echo c2'] });
     const g = gravador();
     const r = verificar(p.carregado, t.id, { executor: g.executor });
-    assert.deepEqual(g.lista.slice(1, 3), [['C1.1', 'grep -q x README.md && echo passo-a && echo passo-b && echo c1'], ['C2.1', 'echo c2']]);
+    assert.deepEqual(g.lista.slice(1, 3), [['C1.1', 'grep -q x README.md && echo c1'], ['C2.1', 'echo c2']]);
     const [c1, c2] = r.claims.map((c) => c.execucoes[0]);
-    assert.equal(c1.comandoExecutado, undefined, 'rodou inteira');
-    assert.equal(c1.preparo, undefined);
+    assert.equal(c1.comandoExecutado, 'grep -q x README.md && echo c1');
+    assert.deepEqual(c1.preparo, { reaproveitado: true, passos: ['echo passo-a', 'echo passo-b'] });
     assert.deepEqual(c2.preparo, { reaproveitado: true, passos: ['echo passo-a', 'echo passo-b'] });
   } finally { p.limpar(); }
 });
@@ -715,13 +721,17 @@ test('AG33: o produto que muda numa claim faz o preparo rodar de novo antes da c
 test('AG46: claim node --test reaproveita somente arquivos verdes no mesmo HEAD e ambiente, inclusive com padrao', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag34-'));
   try {
-    const base = gravador();
+    const base = gravador((_nome, comando) => comando.includes('grep -q ausente') ? { ok: false, code: 1 } : {});
     const head = 'a'.repeat(40);
     const ambiente = { LANG: 'C.UTF-8', ORKASTERY_HOME: path.join(dir, 'casa'), FEATURE_X: '1' };
     const evidencias = [{ lane: 'hermetica', head, ambiente: assinaturaDoAmbiente(ambiente), testes: [
-      { arquivo: 'a.test.js', nome: 'a.test.js', nesting: 0, estado: 'pass' as const },
-      { arquivo: 'b.test.js', nome: 'b.test.js', nesting: 0, estado: 'pass' as const },
+      { arquivo: 'a.test.js', nome: 'AG1: primeiro', nesting: 0, estado: 'pass' as const },
+      { arquivo: 'a.test.js', nome: 'AG2: segundo', nesting: 0, estado: 'pass' as const },
+      { arquivo: 'b.test.js', nome: 'AG9: terceiro', nesting: 0, estado: 'pass' as const },
+      { arquivo: 'b.test.js', nome: 'AG10: quarto', nesting: 0, estado: 'pass' as const },
       { arquivo: 'c.test.js', nome: 'c.test.js', nesting: 0, estado: 'fail' as const },
+      { arquivo: 'd.test.js', nome: 'AG11: quinto', nesting: 0, estado: 'pass' as const },
+      { arquivo: 'd.test.js', nome: 'dispensado', nesting: 0, estado: 'skip' as const },
     ] }];
     const executar = executorDaClaimPelasLanes(base.executor, evidencias, { head, ambiente });
     const a = executar('C1.1', "node --test --test-name-pattern='caso A$' core/dist-test/test/a.test.js", dir);
@@ -730,6 +740,11 @@ test('AG46: claim node --test reaproveita somente arquivos verdes no mesmo HEAD 
     assert.deepEqual(a.lane?.nomes, ['a.test.js:/caso A$/']);
     const dois = executar('C2.1', 'node --test core/dist-test/test/a.test.js core/dist-test/test/b.test.js', dir);
     assert.deepEqual(dois.lane?.arquivos, ['a.test.js', 'b.test.js']);
+    const fechada = executar('C2.2', "grep -q 'conteudo' README.md && node --test-reporter=tap core/dist-test/test/a.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AG[0-9]+:/{p++} END{exit !(p>=2 && f==0 && s==0)}' && node --test core/dist-test/test/b.test.js", dir);
+    assert.deepEqual(fechada.lane?.arquivos, ['a.test.js', 'b.test.js']);
+    assert.ok(fechada.lane?.nomes.includes('a.test.js:AG>=2;sem-falha;sem-skip'));
+    const grepFalhou = executar('C2.3', "grep -q ausente README.md && node --test core/dist-test/test/a.test.js", dir);
+    assert.equal(grepFalhou.ok, false, 'a cadeia conserva o curto-circuito do grep');
     executar('C3.1', 'node --test core/dist-test/test/c.test.js', dir);
     executar('C4.1', 'node --test core/dist-test/test/a.test.js && echo aberto', dir);
     executorDaClaimPelasLanes(base.executor, evidencias, { head, ambiente: { ...ambiente, FEATURE_X: '2' } })(
@@ -739,13 +754,34 @@ test('AG46: claim node --test reaproveita somente arquivos verdes no mesmo HEAD 
     executar('C7.1', 'bun --test core/dist-test/test/a.test.js', dir);
     executar('C8.1', 'node --test core/dist-test/test/sub/a.test.js', dir);
     executar('C10.1', "node --test --test-name-pattern='[' core/dist-test/test/a.test.js", dir);
+    executar('C11.1', "node --test-reporter=tap core/dist-test/test/d.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AG[0-9]+:/{p++} END{exit !(p>=1 && f==0 && s==0)}'", dir);
+    executar('C12.1', "node --test-reporter=tap core/dist-test/test/a.test.js | awk 'END{exit 0}'", dir);
     const equivalente = gravador();
     executorDaClaimPelasLanes(base.executor, evidencias, { head, ambiente, podeReaproveitar: () => false,
       executorEquivalente: equivalente.executor })(
       'C9.1', 'node --test core/dist-test/test/a.test.js', dir);
-    assert.deepEqual(base.lista.map(([nome]) => nome), ['C3.1', 'C4.1', 'C5.1', 'C6.1', 'C7.1', 'C8.1', 'C10.1'],
-      'falha, shell aberto, ambiente ou HEAD diferente, outro runner, subdiretorio, regex invalida e produto mudado executam de verdade');
+    assert.deepEqual(base.lista.map(([nome]) => nome), ['C2.2', 'C2.3', 'C3.1', 'C4.1', 'C5.1', 'C6.1', 'C7.1', 'C8.1', 'C10.1', 'C11.1', 'C12.1'],
+      'so o grep da cadeia fechada roda; falha, shell aberto, ambiente ou HEAD diferente, outro runner, subdiretorio, regex invalida, skip auditado, awk aberto e produto mudado executam de verdade');
     assert.deepEqual(equivalente.lista.map(([nome]) => nome), ['C9.1'], 'o fallback node --test usa o ambiente das lanes');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('AG48: skip ou todo em node --test nunca prova a claim pela lane', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag48-'));
+  try {
+    const base = gravador();
+    const head = 'a'.repeat(40);
+    const ambiente = { LANG: 'C.UTF-8', ORKASTERY_HOME: path.join(dir, 'casa') };
+    for (const estado of ['skip', 'todo'] as const) {
+      const evidencias = [{ lane: 'hermetica', head, ambiente: assinaturaDoAmbiente(ambiente), testes: [
+        { arquivo: `${estado}.test.js`, nome: 'caso verde', nesting: 0, estado: 'pass' as const },
+        { arquivo: `${estado}.test.js`, nome: 'caso sem prova', nesting: 0, estado },
+      ] }];
+      const r = executorDaClaimPelasLanes(base.executor, evidencias, { head, ambiente })(
+        `C-${estado}`, `node --test core/dist-test/test/${estado}.test.js`, dir);
+      assert.equal(r.lane, undefined, `${estado} deve executar a claim de verdade`);
+    }
+    assert.deepEqual(base.lista.map(([nome]) => nome), ['C-skip', 'C-todo']);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 

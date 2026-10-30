@@ -258,20 +258,28 @@ test('MC15: sonda 1, a concentracao da parede por arquivo: os mais caros, a part
   assert.equal(medir.concentracao({}), null);
 });
 
-test('MC16: sonda 2, o custo isolado dos maiores: parte da CPU da suite, sistema, CPU por parede, sozinho contra concorrente', () => {
+test('MC16: sonda 2, os maiores da sonda 1: CPU da suite, sistema, CPU por parede e sozinho contra concorrente', () => {
   const m = (userMs: number, sysMs: number, paredeMs: number, testes: number) => ({ userMs, sysMs, paredeMs, testes, picoKb: 1000 });
-  const c = medir.custoDosMaiores({ 'a.test.js': m(300, 100, 200, 4), 'b.test.js': m(100, 300, 400, 6), 'c.test.js': m(100, 100, 100, 10),
-    'd.test.js': { userMs: null, sysMs: null, paredeMs: 5, testes: 1, picoKb: null } }, { 'a.test.js': 400 }, 2)!;
-  assert.deepEqual(c.arquivos.map((x: { arquivo: string }) => x.arquivo), ['a.test.js', 'b.test.js'], 'empate em CPU vai pelo nome');
-  perto(c.arquivos[0].parteDaCpu, 0.4);
-  perto(c.arquivos[0].parteDoSistema, 0.25);
-  perto(c.arquivos[0].cpuPorParede, 2);
-  perto(c.arquivos[0].sozinhoContraConcorrente, 0.5);
-  assert.equal(c.arquivos[1].sozinhoContraConcorrente, null, 'sem parede sob concorrencia');
-  perto(c.arquivos[1].parteDoSistema, 0.75);
-  assert.equal(c.soma.testes, 10);
-  perto(c.soma.parteDosTestes, 0.5, 'o arquivo sem tempo medido fica fora das duas somas');
-  perto(c.soma.parteDaCpu, 0.8);
+  const nomes = [...'abcdefghijkl'];
+  const medidas: Record<string, Record<string, number | null>> = Object.fromEntries(
+    nomes.map((nome, i) => [`${nome}.test.js`, m(300 - i * 10, 20 + i, 200 + i * 10, i + 1)]));
+  const concorrente: Record<string, number> = Object.fromEntries(nomes.map((nome, i) => [`${nome}.test.js`, (i + 1) * 100]));
+  medidas['z-invalido.test.js'] = { userMs: null, sysMs: null, paredeMs: 5, testes: 1, picoKb: null };
+  concorrente['z-invalido.test.js'] = 10_000;
+  const c = medir.custoDosMaiores(medidas, concorrente)!;
+  assert.deepEqual(c.arquivos.map((x: { arquivo: string }) => x.arquivo),
+    ['l.test.js', 'k.test.js', 'j.test.js', 'i.test.js', 'h.test.js', 'g.test.js', 'f.test.js', 'e.test.js', 'd.test.js', 'c.test.js'],
+    'o padrão escolhe exatamente dez pela parede concorrente, em ordem; CPU inversa e medição inválida não mudam o conjunto');
+  assert.equal(c.arquivos.length, 10);
+  perto(c.arquivos[0].parteDaCpu, 221 / 3246);
+  assert.equal(c.arquivos[0].cpuMs, 221);
+  assert.equal(c.arquivos[0].sistemaMs, 31);
+  perto(c.arquivos[0].parteDoSistema, 31 / 221);
+  perto(c.arquivos[0].cpuPorParede, 221 / 310);
+  perto(c.arquivos[0].sozinhoContraConcorrente, 310 / 1200);
+  assert.equal(c.soma.testes, 75);
+  perto(c.soma.parteDosTestes, 75 / 78, 'a medição inválida fica fora das duas somas');
+  perto(c.soma.parteDaCpu, 2615 / 3246);
 });
 
 test('MC17: sonda 3, as claims que repetem a lane e o peso das claims, das lanes e da varredura na parede da rodada', () => {

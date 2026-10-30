@@ -11,6 +11,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
+import { cliNoProcesso, saidaCompativel } from './cli-in-processo';
 import { acharBinario, comGitIsolado, forjaPorNome, forjasDaMaquina, pastasDeBinarios, versaoDoBinario } from '../src/rede-forja';
 import { buscarBranch, gravarNaBranch } from '../src/branch-de-estado';
 import { publicarMaquina } from '../src/fabrica-estado';
@@ -699,10 +700,15 @@ test('RM-053 forja: repositorio publico recusa entrar e publicar; nada vai ao re
 // O CLI, de fora de qualquer clone.
 // ---------------------------------------------------------------------------
 
-function ork(cwd: string, args: string[], env: NodeJS.ProcessEnv) {
+function orkEmProcesso(cwd: string, args: string[], env: NodeJS.ProcessEnv) {
   // RM-061 (F3b): `network status|entrar|sair|publicar` seguem o locale; o teste le o texto em pt-BR.
   // A forja falsa e descoberta pelo PATH: este arquivo prova a fronteira de processo e nao usa o harness da RM-074.
   return spawnSync(process.execPath, [CLI, ...args], { cwd, env: envPtBr(env), encoding: 'utf8' });
+}
+
+/** Casos que conferem somente a resposta da CLI reaproveitam o processo do arquivo. */
+function ork(cwd: string, args: string[], env: NodeJS.ProcessEnv) {
+  return saidaCompativel(cliNoProcesso({ cwd, env: envPtBr(env), args }));
 }
 
 test('RM-053 ciclo: entrar, status, publicar e sair pelo CLI, com duas maquinas e fora de qualquer clone', () => {
@@ -710,15 +716,15 @@ test('RM-053 ciclo: entrar, status, publicar e sair pelo CLI, com duas maquinas 
   const [ua, ub, fora] = [dirTemporario('rede-ciclo-a'), dirTemporario('rede-ciclo-b'), dirTemporario('rede-ciclo-fora')];
   try {
     const envDe = (usuario: string) => ({ ...f.env, ORK_USUARIO_DIR: usuario, ORK_MAQUINA: '', ORK_REDE_PUBLICAR: '0', ORK_FABRICA_PUBLICAR: '0' });
-    const a = ork(fora, ['network', 'entrar', '--maquina', 'pc-a'], envDe(ua));
+    const a = orkEmProcesso(fora, ['network', 'entrar', '--maquina', 'pc-a'], envDe(ua));
     assert.equal(a.status, 0, a.stderr);
     assert.match(a.stdout, /^Rede: pc-a entrou na Orkastery Network de pessoa-teste \(github: github\.com\/pessoa-teste\/orkastery-network, privado, criado agora\)\.$/m);
     assert.match(a.stdout, /Primeiro retrato publicado \([0-9a-f]{7}\)/);
-    const b = ork(fora, ['network', 'entrar', '--maquina', 'pc-b'], envDe(ub));
+    const b = orkEmProcesso(fora, ['network', 'entrar', '--maquina', 'pc-b'], envDe(ub));
     assert.equal(b.status, 0, b.stderr);
     assert.match(b.stdout, /de pessoa-teste \(github: github\.com\/pessoa-teste\/orkastery-network, privado\)\./, 'a casa ja existia');
 
-    const st = ork(fora, ['network', 'status', '--json'], envDe(ua));
+    const st = orkEmProcesso(fora, ['network', 'status', '--json'], envDe(ua));
     assert.equal(st.status, 0, st.stderr);
     const json = JSON.parse(st.stdout);
     assert.equal(json.contrato, 'ork.rede-status/v1');
@@ -727,7 +733,7 @@ test('RM-053 ciclo: entrar, status, publicar e sair pelo CLI, com duas maquinas 
     assert.deepEqual([json.lacunas, json.naoConsultado], [[], ['roadmap', 'reservas', 'threads']]);
     assert.deepEqual(json.casa, { forja: 'github', host: 'github.com', dono: 'pessoa-teste', repositorio: 'orkastery-network', origem: 'rede.json' });
 
-    const texto = ork(fora, ['network'], envDe(ub));
+    const texto = orkEmProcesso(fora, ['network'], envDe(ub));
     assert.equal(texto.status, 0, texto.stderr);
     assert.match(texto.stdout, /^Orkastery Network de pessoa-teste · github: github\.com\/pessoa-teste\/orkastery-network · lida agora$/m);
     assert.match(texto.stdout, /^Não consultado: roadmap, reservas, threads\./m);
@@ -735,23 +741,23 @@ test('RM-053 ciclo: entrar, status, publicar e sair pelo CLI, com duas maquinas 
     assert.match(texto.stdout, /^  runtimes: claude-bg 9\.9\.9, codex 0\.99\.0$/m);
     assert.match(texto.stdout, /^Lacunas: nenhuma\.$/m);
 
-    const igual = ork(fora, ['network', 'publicar'], envDe(ua));
+    const igual = orkEmProcesso(fora, ['network', 'publicar'], envDe(ua));
     assert.equal(igual.status, 0, igual.stderr);
     assert.match(igual.stdout, /retrato de pc-a igual ao ultimo publicado/);
-    const forcado = JSON.parse(ork(fora, ['network', 'publicar', '--forcar', '--json'], envDe(ua)).stdout);
+    const forcado = JSON.parse(orkEmProcesso(fora, ['network', 'publicar', '--forcar', '--json'], envDe(ua)).stdout);
     assert.deepEqual([forcado.acao, forcado.maquina, forcado.casa], ['publicou', 'pc-a', 'github.com/pessoa-teste/orkastery-network']);
 
-    const sai = ork(fora, ['network', 'sair'], envDe(ub));
+    const sai = orkEmProcesso(fora, ['network', 'sair'], envDe(ub));
     assert.equal(sai.status, 0, sai.stderr);
     assert.match(sai.stdout, /^Rede: pc-b saiu; nada mais e publicado daqui\. Retrato removido de github\.com\/pessoa-teste\/orkastery-network \([0-9a-f]{7}\)\.$/m);
-    const depois = JSON.parse(ork(fora, ['network', 'status', '--json'], envDe(ua)).stdout);
+    const depois = JSON.parse(orkEmProcesso(fora, ['network', 'status', '--json'], envDe(ua)).stdout);
     assert.deepEqual(depois.membros.map((m: { maquina: string }) => m.maquina), ['pc-a']);
-    const deB = JSON.parse(ork(fora, ['network', 'status', '--json'], envDe(ub)).stdout);
+    const deB = JSON.parse(orkEmProcesso(fora, ['network', 'status', '--json'], envDe(ub)).stdout);
     assert.deepEqual(deB.estaMaquina, { maquina: 'pc-b', membro: false, adesao: null, publicada: false, nomeEmUso: false });
 
-    assert.equal(ork(fora, ['network', 'entrar', '--forja', 'bitbucket'], envDe(ua)).status, 2);
-    assert.equal(ork(fora, ['network', 'voar'], envDe(ua)).status, 2);
-    const semRede = ork(fora, ['network', 'publicar'], envDe(ub));
+    assert.equal(orkEmProcesso(fora, ['network', 'entrar', '--forja', 'bitbucket'], envDe(ua)).status, 2);
+    assert.equal(orkEmProcesso(fora, ['network', 'voar'], envDe(ua)).status, 2);
+    const semRede = orkEmProcesso(fora, ['network', 'publicar'], envDe(ub));
     assert.equal(semRede.status, 1);
     assert.match(semRede.stderr, /erro: rede\.fora: esta maquina nao esta na rede; ork network entrar/);
   } finally { f.limpar(); for (const d of [ua, ub, fora]) fs.rmSync(d, { recursive: true, force: true }); }
@@ -764,14 +770,14 @@ test('RM-053 honestidade: ork network status fora de clone e sem forja responde 
     f.tirar('gh');
     f.tirar('glab');
     const env = { ...f.env, ORK_USUARIO_DIR: u, ORK_MAQUINA: 'pc-h' };
-    const r = ork(fora, ['network', 'status'], env);
+    const r = orkEmProcesso(fora, ['network', 'status'], env);
     assert.equal(r.status, 0, r.stderr);
     assert.match(r.stdout, /^Orkastery Network · sem casa: nenhuma forja com login nesta máquina$/m);
     assert.match(r.stdout, /^Nenhuma máquina lida\. Isso não quer dizer que não há máquinas: veja as lacunas\.$/m);
     assert.match(r.stdout, /^  • forja\.ausente: nenhuma CLI de forja \(gh ou glab\) nesta maquina$/m);
     assert.match(r.stdout, /^Esta máquina \(pc-h\) não está na rede: ork network entrar\.$/m);
     assert.doesNotMatch(r.stdout, /nenhuma publicou/i);
-    const json = JSON.parse(ork(fora, ['network', 'status', '--json'], env).stdout);
+    const json = JSON.parse(orkEmProcesso(fora, ['network', 'status', '--json'], env).stdout);
     assert.deepEqual([json.casa, json.membros, json.lacunas.map((l: { tipo: string }) => l.tipo)], [null, [], ['forja.ausente']]);
   } finally { f.limpar(); for (const d of [u, fora]) fs.rmSync(d, { recursive: true, force: true }); }
 });

@@ -8,6 +8,7 @@ import * as path from 'node:path';
 import { test } from 'node:test';
 import { cliExigeProcessoFilho, cliNoProcesso } from './cli-in-processo';
 import { VERSAO_DO_ORK } from '../src/versao';
+import { fixarProjetoAlvo, projetoAlvoAtual } from '../src/projeto-alvo';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
 const RAIZ = path.resolve(__dirname, '../../..');
@@ -45,11 +46,14 @@ test('CIP1: sucesso e erro de uso sao byte a byte iguais ao processo filho', () 
   }
 });
 
-test('CIP2: cwd, ambiente, argv, exitCode e descritores voltam ao valor anterior', () => {
+test('CIP2: cwd, ambiente, argv, exitCode, descritores e projeto-alvo voltam ao valor anterior', () => {
+  const projetoOriginal = projetoAlvoAtual();
   const antes = { cwd: process.cwd(), lang: process.env.LANG, argv: [...process.argv], exitCode: process.exitCode,
     stdout: process.stdout.write, stderr: process.stderr.write, exit: process.exit };
+  const projetoSentinela = { raiz: antes.cwd, origem: 'cwd' as const, pedido: 'CIP2' };
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-cli-restaura-'));
   try {
+    fixarProjetoAlvo(projetoSentinela);
     const r = cliNoProcesso({ cwd: dir, env: ambiente(dir, 'en_US.UTF-8'), args: ['help'] });
     assert.equal(r.status, 0);
     assert.equal(process.cwd(), antes.cwd);
@@ -59,7 +63,12 @@ test('CIP2: cwd, ambiente, argv, exitCode e descritores voltam ao valor anterior
     assert.equal(process.stdout.write, antes.stdout);
     assert.equal(process.stderr.write, antes.stderr);
     assert.equal(process.exit, antes.exit);
-  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+    assert.equal(projetoAlvoAtual(), projetoSentinela,
+      'main zera o alvo no início; só o finally do harness restaura a sentinela');
+  } finally {
+    fixarProjetoAlvo(projetoOriginal);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('CIP3: stdin e erro lancado preservam a moldura do executavel', () => {
