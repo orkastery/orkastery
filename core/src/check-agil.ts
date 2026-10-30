@@ -5,12 +5,15 @@
  *
  *   - o preparo do Agile (`check.agile.preparo`, como o `tsgo` deste projeto) e, se ele falhar ou nao existir, o
  *     `verify.preparo`, com a peca `preparo` em fallback;
- *   - as claims, uma por vez, contra o produto do preparo: a claim que comeca pelos passos do `verify.preparo` roda sem
+ *   - quando ha lanes, elas rodam antes das claims; `node --test` dos mesmos arquivos, HEAD e ambiente usa o resultado
+ *     nominal da lane, enquanto comando aberto ou evidencia divergente roda inteiro; se uma claim posterior mudar o
+ *     produto, preparo e grupo rodam outra vez sobre o produto final;
+ *   - as demais claims, uma por vez, contra o produto do preparo: a claim que comeca pelos passos do `verify.preparo` roda sem
  *     eles quando a guarda vale (o preparo passou, a arvore e a mesma do fim do preparo e o hash dos caminhos de
  *     `check.agile.produto` tambem); qualquer divergencia roda o comando inteiro, e o motivo vai ao ledger. Passo no meio
  *     da cadeia fica: o que vem antes dele pode mudar a entrada do build (o mutante que edita o fonte e compila). Quando
  *     so o produto mudou (a claim anterior compilou de novo no meio da cadeia), o preparo roda de novo antes da proxima
- *     claim que o reaproveitaria, ate `MAXIMO_DE_PREPAROS_REFEITOS` vezes, e uma vez antes do grupo, com a peca
+ *     claim que o reaproveitaria, ate `MAXIMO_DE_PREPAROS_REFEITOS` vezes, e uma vez depois das claims se elas mudarem o produto, com a peca
  *     `preparo-refeito`;
  *   - o `build` que e so passos do preparo, com a guarda valendo, sai do preparo desta rodada sem rodar de novo;
  *   - `typecheck`, as lanes de `test` (`check.agile.test`, ou o `verify.test`) e o `security_scan` num grupo paralelo, so
@@ -489,4 +492,102 @@ export function listasDasLanes(linhas: Array<Record<string, unknown>>): Array<{ 
       const arquivos = (l.arquivos as unknown[]).filter((a): a is string => typeof a === 'string').sort();
       return { lane: l.lane as string, arquivos, sha256: createHash('sha256').update(arquivos.join('\n')).digest('hex') };
     });
+}
+
+export interface ResultadoNominalDaLane {
+  lane: string;
+  head: string;
+  ambiente: string;
+  testes: Array<{ arquivo: string; nome: string; nesting: number; estado: 'pass' | 'fail' | 'skip' | 'todo' }>;
+}
+
+/** Evidencia nominal produzida pelo reporter, sem confiar em campos abertos do JSONL. */
+export function resultadosDasLanes(linhas: Array<Record<string, unknown>>): ResultadoNominalDaLane[] {
+  return linhas.filter((l) => l.tipo === 'resultados' && typeof l.lane === 'string' && typeof l.head === 'string'
+      && typeof l.ambiente === 'string' && Array.isArray(l.testes))
+    .map((l) => ({ lane: l.lane as string, head: l.head as string, ambiente: l.ambiente as string,
+      testes: (l.testes as unknown[]).flatMap((t) => {
+        if (!t || typeof t !== 'object' || Array.isArray(t)) return [];
+        const x = t as Record<string, unknown>;
+        if (typeof x.arquivo !== 'string' || typeof x.nome !== 'string' || !Number.isInteger(x.nesting)
+          || !['pass', 'fail', 'skip', 'todo'].includes(String(x.estado))) return [];
+        return [{ arquivo: x.arquivo, nome: x.nome, nesting: x.nesting as number,
+          estado: x.estado as 'pass' | 'fail' | 'skip' | 'todo' }];
+      }) }));
+}
+
+/** Hash do ambiente funcional; transporte do CHECK, npm e bookkeeping do shell nao mudam o teste. */
+export function assinaturaDoAmbiente(env: NodeJS.ProcessEnv): string {
+  const ignorada = (nome: string): boolean => nome.startsWith('npm_') || nome.startsWith('NPM_')
+    || ['ORK_CHECK_RELATORIO', 'ORK_CHECK_CPUS_DA_LANE', 'ORK_CHECK_CPUS_DOCKER',
+      'NODE_TEST_CONTEXT', 'NODE_COMPILE_CACHE', 'PWD', 'OLDPWD', 'SHLVL', '_', 'INIT_CWD'].includes(nome);
+  const pares = Object.entries(env).filter(([nome, valor]) => valor !== undefined && !ignorada(nome))
+    .sort(([a], [b]) => a.localeCompare(b));
+  return createHash('sha256').update(JSON.stringify(pares)).digest('hex');
+}
+
+interface ComandoNodeTest { arquivos: string[]; padrao?: string }
+
+/** Le somente a gramatica aceita para reaproveitar: `node --test [--test-name-pattern P] arquivo...`. */
+function comandoNodeTest(comando: string, cwd: string): ComandoNodeTest | null {
+  const palavras: string[] = [];
+  let atual = '', aspas: "'" | '"' | null = null, escape = false;
+  const fechar = (): void => { if (atual !== '') palavras.push(atual); atual = ''; };
+  for (const c of comando) {
+    if (escape) { atual += c; escape = false; continue; }
+    if (c === '\\' && aspas !== "'") { escape = true; continue; }
+    if (aspas) { if (c === aspas) aspas = null; else if (aspas === '"' && (c === '$' || c === '`')) return null; else atual += c; continue; }
+    if (c === "'" || c === '"') { aspas = c; continue; }
+    if (/\s/.test(c)) { fechar(); continue; }
+    if (';&|<>$`(){}'.includes(c)) return null;
+    atual += c;
+  }
+  if (escape || aspas) return null;
+  fechar();
+  if (palavras[0] !== 'node' || palavras[1] !== '--test') return null;
+  let padrao: string | undefined;
+  const arquivos: string[] = [];
+  for (let i = 2; i < palavras.length; i++) {
+    const p = palavras[i];
+    if (p === '--test-name-pattern') { if (padrao !== undefined || !palavras[++i]) return null; padrao = palavras[i]; continue; }
+    if (p.startsWith('--test-name-pattern=')) { if (padrao !== undefined) return null; padrao = p.slice('--test-name-pattern='.length); continue; }
+    if (p.startsWith('-') || /[*?\[]/.test(p)) return null;
+    const absoluto = path.resolve(cwd, p);
+    const relativo = path.relative(path.join(cwd, 'core', 'dist-test', 'test'), absoluto);
+    if (!relativo || relativo.startsWith('..') || path.isAbsolute(relativo) || relativo !== path.basename(relativo)
+      || !relativo.endsWith('.test.js')) return null;
+    arquivos.push(path.basename(absoluto));
+  }
+  if (padrao !== undefined) {
+    try { void new RegExp(padrao); } catch { return null; }
+  }
+  return arquivos.length > 0 ? { arquivos: [...new Set(arquivos)], ...(padrao !== undefined ? { padrao } : {}) } : null;
+}
+
+/**
+ * Reaproveita uma claim somente quando a lane terminou todos os arquivos pedidos no mesmo HEAD e ambiente. Um arquivo
+ * inteiro verde e evidencia mais forte que `--test-name-pattern`: o padrao fica registrado em `nomes`.
+ */
+export function executorDaClaimPelasLanes(base: ExecutorUnico, evidencias: ResultadoNominalDaLane[], esperado: {
+  head: string; ambiente: NodeJS.ProcessEnv; podeReaproveitar?: () => boolean; executorEquivalente?: ExecutorUnico;
+}): ExecutorUnico {
+  const assinatura = assinaturaDoAmbiente(esperado.ambiente);
+  return (nome, comando, cwd) => {
+    const pedido = comandoNodeTest(comando, cwd);
+    if (!pedido) return base(nome, comando, cwd);
+    const executar = esperado.executorEquivalente ?? base;
+    if (esperado.podeReaproveitar?.() === false) return executar(nome, comando, cwd);
+    const usadas = evidencias.filter((e) => e.head === esperado.head && e.ambiente === assinatura
+      && e.testes.some((t) => pedido.arquivos.includes(t.arquivo)));
+    const cobertos = pedido.arquivos.every((arquivo) => {
+      const vistos = usadas.flatMap((e) => e.testes.filter((t) => t.arquivo === arquivo));
+      return vistos.length > 0 && !vistos.some((t) => t.estado === 'fail');
+    });
+    if (!cobertos) return executar(nome, comando, cwd);
+    const lanes = [...new Set(usadas.filter((e) => e.testes.some((t) => pedido.arquivos.includes(t.arquivo))).map((e) => e.lane))];
+    const nomes = pedido.padrao === undefined ? pedido.arquivos.map((a) => `${a}:todos`) : pedido.arquivos.map((a) => `${a}:/${pedido.padrao}/`);
+    return { nome, comando, ok: true, code: 0, causa: 'exit', duracaoMs: 0, executado: true,
+      resumo: `reaproveitado das lanes ${lanes.join(', ')} desta rodada`,
+      lane: { reaproveitada: true, lanes, arquivos: pedido.arquivos, nomes, head: esperado.head, ambiente: assinatura } };
+  };
 }

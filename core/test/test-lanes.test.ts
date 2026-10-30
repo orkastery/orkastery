@@ -11,6 +11,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { TESTES_DE_INTEGRACAO_LOCAL } from '../src/integracoes-locais';
+import { assinaturaDoAmbiente as assinaturaDoVerify } from '../src/check-agil';
 
 const CORE = path.resolve(__dirname, '../..');
 const SCRIPT = path.join(CORE, 'scripts', 'test-lanes.cjs');
@@ -19,6 +20,8 @@ const lanes = require(SCRIPT) as {
   listasDasLanes: (dir?: string, integracao?: ReadonlySet<string>) => { todos: string[]; hermetica: string[]; integracao: string[] };
   ordenarPorDuracao: (arquivos: string[], duracoes: Record<string, number>) => string[];
   lerDuracoesDoReporter: (arquivo: string) => Record<string, number>;
+  lerResultadosDoReporter: (arquivo: string) => Array<{ arquivo: string; nome: string; nesting: number; estado: string }>;
+  assinaturaDoAmbiente: (env: NodeJS.ProcessEnv) => string;
   REPORTER: string;
   globDoNpmTest: () => string[];
   concorrenciaDaLane: (lane: string, cpus?: number, limiteDoGrupo?: number) => number;
@@ -77,7 +80,11 @@ test('TL6: o reporter de duracoes soma, por arquivo, os testes de nivel zero del
     assert.deepEqual(Object.keys(d).sort(), ['a.test.js', 'b.test.js']);
     assert.ok(d['a.test.js'] >= 290, `a soma os dois testes de 150 ms: ${d['a.test.js']}`);
     assert.ok(d['b.test.js'] < 200);
+    const resultados = lanes.lerResultadosDoReporter(saida);
+    assert.ok(resultados.some((t) => t.arquivo === 'a.test.js' && t.estado === 'pass'));
+    assert.ok(resultados.some((t) => t.arquivo === 'b.test.js' && t.estado === 'pass'));
     assert.deepEqual(lanes.lerDuracoesDoReporter(path.join(dir, 'nao-existe.json')), {});
+    assert.deepEqual(lanes.lerResultadosDoReporter(path.join(dir, 'nao-existe.json')), []);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -101,6 +108,12 @@ test('TL7: a lane roda os arquivos pela duracao guardada, conta a lista e acusa 
     const duracoes = linhas.find((l) => l.tipo === 'duracoes')!;
     assert.equal(duracoes.orcamentoMs, 200);
     assert.deepEqual((duracoes.acima as Array<{ arquivo: string }>).map((a) => a.arquivo), ['lento.test.js']);
+    const resultados = linhas.find((l) => l.tipo === 'resultados')!;
+    assert.equal(resultados.lane, 'hermetica');
+    assert.match(String(resultados.head), /^[0-9a-f]{40}$/);
+    assert.match(String(resultados.ambiente), /^[0-9a-f]{64}$/);
+    assert.deepEqual((resultados.testes as Array<{ arquivo: string; estado: string }>).map((t) => [t.arquivo, t.estado]).sort(),
+      [['lento.test.js', 'pass'], ['rapido.test.js', 'pass']]);
     const guardadas = JSON.parse(fs.readFileSync(path.join(dir, 'cache', 'orkastery', 'check', 'duracoes-hermetica.json'), 'utf8')) as Record<string, number>;
     assert.ok(guardadas['lento.test.js'] > guardadas['rapido.test.js']);
     assert.ok(fs.existsSync(path.join(dir, 'cache', 'orkastery', 'check', 'compile-cache')), 'o cache de compilacao do Node');
@@ -108,6 +121,17 @@ test('TL7: a lane roda os arquivos pela duracao guardada, conta a lista e acusa 
     assert.equal(integra.status, 0, integra.stderr);
     assert.match(integra.stdout, /^# tests 1$/m);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('TL11: a assinatura ignora transporte do runner, mas muda com ambiente funcional', () => {
+  const base = { LANG: 'C.UTF-8', ORKASTERY_HOME: '/tmp/casa', FEATURE_X: '1' };
+  assert.equal(lanes.assinaturaDoAmbiente(base), lanes.assinaturaDoAmbiente({ ...base,
+    ORK_CHECK_RELATORIO: '/tmp/relatorio', ORK_CHECK_CPUS_DA_LANE: '5', npm_lifecycle_event: 'test:hermetica',
+    NODE_COMPILE_CACHE: '/tmp/cache', PWD: '/outra' }));
+  assert.equal(lanes.assinaturaDoAmbiente(base), assinaturaDoVerify(base), 'a lane e o verify assinam o mesmo contrato');
+  assert.notEqual(lanes.assinaturaDoAmbiente(base), lanes.assinaturaDoAmbiente({ ...base, ORK_CHECK_MODO: 'agile' }),
+    'o modo muda o comportamento de testes e nao pode sumir da assinatura');
+  assert.notEqual(lanes.assinaturaDoAmbiente(base), lanes.assinaturaDoAmbiente({ ...base, FEATURE_X: '2' }));
 });
 
 test('TL8: teste que falha numa lane faz a lane sair diferente de zero, com o TAP inteiro na saida', () => {

@@ -16,6 +16,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   os grants enumerados correspondentes ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md),
   [RM-064](docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md)).
 
+### Alterado
+
+- **Menos CPU por teste no Agile Check — M1 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** os testes pesados que não verificam a fronteira real de processo chamam o CLI dentro do próprio processo com ambiente, diretório, saídas e código isolados; claims `node --test` equivalentes reaproveitam o resultado nominal das lanes somente no mesmo HEAD e ambiente, e o build continua único por rodada. Testes de processo permanecem com processo filho, e a bateria e as asserções não diminuem.
+
 ### Corrigido
 
 - **A referência do CLI não deixa listas de ações virarem texto corrido:** o teste de paridade confere nas versões em

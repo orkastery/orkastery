@@ -98,7 +98,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-071](RM-071-relatorio-da-esteira-do-sdlc.md) | Relatório da esteira do SDLC no status do roadmap | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-21 |
 | [RM-072](RM-072-check-cinco-vezes-mais-rapido.md) | Agile Check e Classic Check: o CHECK rápido como padrão, sem perder cobertura | Disponível | Mesclado | Aprovados | Produção | 2026-10-27 |
 | [RM-073](RM-073-modelos-de-decisao-no-ork-e-no-orkmind.md) | Modelos de decisão no ork e no OrkMind | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-27 |
-| [RM-074](RM-074-agile-check-tres-vezes-mais-rapido.md) | Agile Check três vezes mais rápido que o Classic | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-27 |
+| [RM-074](RM-074-agile-check-tres-vezes-mais-rapido.md) | Agile Check cerca de 1,7 vez mais rápido que o Classic | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-10-30 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->

@@ -1,0 +1,87 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-074 M1: o reaproveitamento de claims pelas lanes continua fechado por HEAD, ambiente, arquivos verdes e gramática; mudança posterior do produto reexecuta o grupo.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "claim volta a aceitar resultado de lane de outro HEAD",
+      "modulo": "check-agil",
+      "de": "const usadas = evidencias.filter((e) => e.head === esperado.head && e.ambiente === assinatura",
+      "para": "const usadas = evidencias.filter((e) => e.ambiente === assinatura",
+      "teste": "check-agil",
+      "nome": "^AG46:"
+    },
+    {
+      "id": "M2",
+      "descricao": "claim volta a aceitar resultado de lane com outro ambiente",
+      "modulo": "check-agil",
+      "de": "const usadas = evidencias.filter((e) => e.head === esperado.head && e.ambiente === assinatura",
+      "para": "const usadas = evidencias.filter((e) => e.head === esperado.head",
+      "teste": "check-agil",
+      "nome": "^AG46:"
+    },
+    {
+      "id": "M3",
+      "descricao": "claim volta a reaproveitar arquivo que falhou na lane",
+      "modulo": "check-agil",
+      "de": "return vistos.length > 0 && !vistos.some((t) => t.estado === 'fail');",
+      "para": "return vistos.length > 0;",
+      "teste": "check-agil",
+      "nome": "^AG46:"
+    },
+    {
+      "id": "M4",
+      "descricao": "claim volta a aceitar outro runner como se fosse node --test",
+      "modulo": "check-agil",
+      "de": "if (palavras[0] !== 'node' || palavras[1] !== '--test')",
+      "para": "if (palavras[1] !== '--test')",
+      "teste": "check-agil",
+      "nome": "^AG46:"
+    },
+    {
+      "id": "M5",
+      "descricao": "produto alterado por claim deixa de reexecutar as lanes sobre o produto final",
+      "modulo": "verify",
+      "de": "if (grupoAntesDasClaims && guardaDepoisDasClaims) {",
+      "para": "if (false && grupoAntesDasClaims && guardaDepoisDasClaims) {",
+      "teste": "check-agil",
+      "nome": "^AG26:"
+    },
+    {
+      "id": "M6",
+      "descricao": "as lanes voltam a rodar depois das claims e deixam de servir como prova da mesma rodada",
+      "modulo": "verify",
+      "de": "const grupoAntesDasClaims = !opcoes.soClaims && !!vigente && vigente.guarda.conferir() === null",
+      "para": "const grupoAntesDasClaims = false && !opcoes.soClaims && !!vigente && vigente.guarda.conferir() === null",
+      "teste": "check-agil",
+      "nome": "^AG47:"
+    },
+    {
+      "id": "M7",
+      "descricao": "arquivo em subdiretório volta a colidir pelo basename com arquivo plano da lane",
+      "modulo": "check-agil",
+      "de": "|| relativo !== path.basename(relativo)",
+      "para": "|| false",
+      "teste": "check-agil",
+      "nome": "^AG46:"
+    },
+    {
+      "id": "M8",
+      "descricao": "claim volta a aceitar resultado de lane depois de o produto deixar a guarda",
+      "modulo": "check-agil",
+      "de": "if (esperado.podeReaproveitar?.() === false)\n            return executar(nome, comando, cwd);",
+      "para": "if (false)\n            return executar(nome, comando, cwd);",
+      "teste": "check-agil",
+      "nome": "^AG46:"
+    },
+    {
+      "id": "M9",
+      "descricao": "claim volta a aceitar padrão de nome que o node rejeita como expressão regular",
+      "modulo": "check-agil",
+      "de": "void new RegExp(padrao);",
+      "para": "void /aceita/;",
+      "teste": "check-agil",
+      "nome": "^AG46:"
+    }
+  ]
+}

@@ -31,6 +31,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawn, spawnSync } = require('node:child_process');
+const { createHash } = require('node:crypto');
 
 const CORE = path.resolve(__dirname, '..');
 const DIR_DOS_TESTES = path.join(CORE, 'dist-test', 'test');
@@ -129,11 +130,32 @@ function ordenarPorDuracao(arquivos, duracoes) {
 function lerDuracoesDoReporter(arquivo) {
   let bruto = {};
   try { bruto = JSON.parse(fs.readFileSync(arquivo, 'utf8')); } catch { return {}; }
+  const fonte = bruto && bruto.versao === 2 && bruto.duracoes && typeof bruto.duracoes === 'object' ? bruto.duracoes : bruto;
   const duracoes = {};
-  for (const [caminho, ms] of Object.entries(bruto)) {
+  for (const [caminho, ms] of Object.entries(fonte)) {
     if (typeof ms === 'number' && Number.isFinite(ms)) duracoes[path.basename(caminho)] = Math.round(ms);
   }
   return duracoes;
+}
+
+/** Resultados nominais do reporter; formato antigo de so duracoes nao inventa evidencia. */
+function lerResultadosDoReporter(arquivo) {
+  let bruto;
+  try { bruto = JSON.parse(fs.readFileSync(arquivo, 'utf8')); } catch { return []; }
+  if (!bruto || bruto.versao !== 2 || !Array.isArray(bruto.testes)) return [];
+  return bruto.testes.filter((t) => t && typeof t.arquivo === 'string' && typeof t.nome === 'string'
+    && ['pass', 'fail', 'skip', 'todo'].includes(t.estado))
+    .map((t) => ({ arquivo: path.basename(t.arquivo), nome: t.nome, nesting: Number.isInteger(t.nesting) ? t.nesting : 0, estado: t.estado }));
+}
+
+/** Mesmo ambiente funcional entre a lane e a claim; variaveis de transporte/runner nao mudam o teste. */
+function assinaturaDoAmbiente(env) {
+  const ignorada = (nome) => nome.startsWith('npm_') || nome.startsWith('NPM_')
+    || ['ORK_CHECK_RELATORIO', 'ORK_CHECK_CPUS_DA_LANE', 'ORK_CHECK_CPUS_DOCKER',
+      'NODE_TEST_CONTEXT', 'NODE_COMPILE_CACHE', 'PWD', 'OLDPWD', 'SHLVL', '_', 'INIT_CWD'].includes(nome);
+  const pares = Object.entries(env).filter(([nome, valor]) => valor !== undefined && !ignorada(nome))
+    .sort(([a], [b]) => a.localeCompare(b));
+  return createHash('sha256').update(JSON.stringify(pares)).digest('hex');
 }
 
 function relatar(linha) {
@@ -151,6 +173,7 @@ function rodarLane(lane) {
   const arquivos = ordenarPorDuracao(listas[lane], anteriores);
   const orcamento = Number(process.env.ORK_CHECK_ORCAMENTO_MS) > 0 ? Number(process.env.ORK_CHECK_ORCAMENTO_MS) : ORCAMENTO_PADRAO_MS;
   relatar({ tipo: 'lista', lane, arquivos: [...listas[lane]] });
+  const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: CORE, encoding: 'utf8' }).stdout.trim();
 
   // O ambiente e o de quem chama, como no `npm test`: quem exporta ORK_TESTE_EXIGE_AMBIENTE exige as dependencias nos dois
   // modos (S4 do CHECK).
@@ -168,6 +191,7 @@ function rodarLane(lane) {
   delete env.ORK_CHECK_CPUS_DOCKER;
   let casa = null;
   if (!(env.ORKASTERY_HOME || '').trim()) { casa = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-casa-')); env.ORKASTERY_HOME = casa; }
+  const ambiente = assinaturaDoAmbiente(env);
   try {
     fs.mkdirSync(path.join(cache, 'compile-cache'), { recursive: true });
     env.NODE_COMPILE_CACHE = path.join(cache, 'compile-cache');
@@ -185,6 +209,7 @@ function rodarLane(lane) {
     filho.on('close', (code, signal) => {
       if (casa) fs.rmSync(casa, { recursive: true, force: true });
       const medidas = lerDuracoesDoReporter(arquivoDoReporter);
+      const testes = lerResultadosDoReporter(arquivoDoReporter);
       fs.rmSync(path.dirname(arquivoDoReporter), { recursive: true, force: true });
       try {
         fs.mkdirSync(cache, { recursive: true });
@@ -194,12 +219,14 @@ function rodarLane(lane) {
         .map(([arquivo, ms]) => ({ arquivo, ms }));
       const maiores = Object.entries(medidas).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([arquivo, ms]) => ({ arquivo, ms }));
       relatar({ tipo: 'duracoes', lane, orcamentoMs: orcamento, medidos: Object.keys(medidas).length, acima, maiores });
+      relatar({ tipo: 'resultados', lane, head, ambiente, testes });
       resolve(code ?? (signal ? 1 : 1));
     });
   });
 }
 
-module.exports = { listasDasLanes, ordenarPorDuracao, lerDuracoesDoReporter, globDoNpmTest, concorrenciaDaLane, LANES, REPORTER };
+module.exports = { listasDasLanes, ordenarPorDuracao, lerDuracoesDoReporter, lerResultadosDoReporter, assinaturaDoAmbiente,
+  globDoNpmTest, concorrenciaDaLane, LANES, REPORTER };
 
 if (require.main === module) {
   const [alvo] = process.argv.slice(2);
