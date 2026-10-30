@@ -48,11 +48,11 @@ test('toda tool do MCP aceita projeto (so nome, schema fechado); o projeto servi
     // A RM-052 nao soma tool; a 26a e o ork_brain_dossie da RM-026, a 27a a ork_decision_record da RM-037, a RM-051 soma
     // ork_roadmap_reservas e ork_fabrica, a RM-054 (fatia 2) soma ork_network_roadmap e a fatia 3, ork_network_status, o K7 da
     // RM-026 (fatia 2) soma as quatro ork_conhecimento_*, a RM-059 (fatia F8), ork_request_master_note, e a RM-058 (N6), as
-    // quatro ork_noctum_*, todas com projeto.
-    assert.equal(tools.length, 40, 'nenhuma tool nova no catalogo alem das quinze nomeadas');
+    // quatro ork_noctum_* e o status do verify assíncrono, todas com projeto.
+    assert.equal(tools.length, 41, 'nenhuma tool nova no catalogo alem das dezesseis nomeadas');
     for (const nome of ['ork_decision_record', 'ork_brain_dossie', 'ork_roadmap_reservas', 'ork_fabrica', 'ork_network_roadmap', 'ork_network_status',
       'ork_conhecimento_listar', 'ork_conhecimento_mostrar', 'ork_conhecimento_colecoes', 'ork_conhecimento_verificar',
-      'ork_request_master_note', 'ork_noctum_propor', 'ork_noctum_autorizar', 'ork_noctum_revogar', 'ork_noctum_status'])
+      'ork_request_master_note', 'ork_noctum_propor', 'ork_noctum_autorizar', 'ork_noctum_revogar', 'ork_noctum_status', 'ork_verify_status'])
       assert.ok(tools.some((x) => x.name === nome), nome);
     for (const tool of tools) {
       const props = tool.inputSchema.properties as Record<string, { pattern?: string }>;
