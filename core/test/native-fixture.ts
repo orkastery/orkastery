@@ -1,13 +1,15 @@
 /** Dev provisioner and reviewer consumer are separate. No privilege delegation or inherited DSN. */
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { ENV_CPUS_DOCKER } from '../src/agendador-cpu';
 
-export const fixtureEnv = () => ({ PATH: process.env.PATH, HOME: process.env.HOME, PYTHONDONTWRITEBYTECODE: '1',
+export const fixtureEnv = () => ({ PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: os.tmpdir(), PYTHONDONTWRITEBYTECODE: '1',
   ...(process.env[ENV_CPUS_DOCKER] ? { [ENV_CPUS_DOCKER]: process.env[ENV_CPUS_DOCKER] } : {}) });
 export const assets = path.resolve(__dirname, '../../assets');
+const fixtureTempRoot = () => fs.realpathSync(os.tmpdir());
 export function pythonFixture(): string {
   const cli = (process.env.PATH ?? '').split(path.delimiter).map(p => path.join(p, 'orkmind')).find(p => fs.existsSync(p));
   if (!cli) throw Error('runtime.unavailable: installed OrkMind interpreter');
@@ -131,7 +133,7 @@ export function prepareFixture(preparedBy: string, opcoes: { ttlMs?: number } = 
   const image = docker(['image', 'inspect', '--format', '{{.Id}}', 'pgvector/pgvector:pg16']);
   if (image.status !== 0 || !/^sha256:[a-f0-9]{64}$/.test(image.stdout.trim()))
     throw Error('runtime.unavailable: Docker or identified local PostgreSQL image');
-  const socket = fs.mkdtempSync('/tmp/ork-prospective-fixture-');
+  const socket = fs.mkdtempSync(path.join(fixtureTempRoot(), 'ork-prospective-fixture-'));
   const filename = path.join(socket, 'receipt.json');
   const name = 'ork-fixture-' + randomBytes(12).toString('hex');
   const receipt = { schema: 'ork.native-fixture/v1', synthetic: true, preparedBy, ownerUid: process.getuid!(),
@@ -180,8 +182,10 @@ asyncio.run(run())
 }
 export function cleanupFixture(filename: string): void {
   const r = JSON.parse(fs.readFileSync(filename, 'utf8'));
+  const tempRoot = fixtureTempRoot();
   if (r.ownerUid !== process.getuid!() || filename !== path.join(r.socket, 'receipt.json') ||
-      !/^\/tmp\/ork-prospective-fixture-[a-zA-Z0-9-]+$/.test(r.socket) || fs.realpathSync(r.socket) !== r.socket)
+      path.dirname(r.socket) !== tempRoot || !/^ork-prospective-fixture-[a-zA-Z0-9-]+$/.test(path.basename(r.socket)) ||
+      fs.realpathSync(r.socket) !== r.socket)
     throw Error('runtime.fixture.cleanup-owner');
   const inspected = docker(['inspect', r.container || r.name]);
   if (inspected.status === 0) {

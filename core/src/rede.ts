@@ -8,7 +8,7 @@
  * fora de qualquer clone de projeto.
  *
  * D3: publicar exige o repositorio privado, conferido na forja antes de cada publicacao.
- * D5: o retrato e uma LISTA DE PERMISSAO (maquina, hostname, forjas, runtimes, hosts, projetos,
+ * D5: o retrato e uma LISTA DE PERMISSAO (maquina, alias legado, forjas, runtimes, hosts, projetos,
  * versao do `ork`, batida) e passa por uma varredura de segredo antes do push: um achado recusa a
  * publicacao inteira, e o erro diz o padrao e o campo, nunca o valor.
  * D6: cada maquina so escreve o proprio retrato; o `REDE.md` e indice derivado que quem publica
@@ -23,7 +23,7 @@ import * as path from 'node:path';
 import { buscarBranch, exigirGit, git, gravarNaBranch, MudancaNaBranch } from './branch-de-estado';
 import { formatarDataHora, legendaDoFuso } from './horario';
 import { Host, HOSTS, lerRecibo, ORDEM_DOS_HOSTS } from './hosts';
-import { gravarConfigDaMaquina, lerConfigDaMaquina, nomeDaMaquina } from './maquina';
+import { gravarConfigDaMaquina, lerConfigDaMaquina } from './maquina';
 import { adquirirLockMonitor } from './monitor-lock';
 import { procurarSegredos } from './policies';
 import { Adesao, adesaoDaRede, ConfigDaRede, ehIdDeMaquina, gravarConfigDaRede, idDaMaquina, lerConfigDaRede, pastaDaRede,
@@ -54,6 +54,7 @@ export interface RetratoDaMaquina {
   maquina: string;
   /** B7: identificador aleatorio da instalacao; opcional no v1 (retratos antigos nao tem). */
   id?: string;
+  /** RM-062 F3: campo legado do v1; repete o alias generico, nunca o hostname real. */
   hostname: string;
   adesao: Adesao;
   forjas: ForjaNoRetrato[];
@@ -206,6 +207,17 @@ export function hostnameSeguro(): string {
   return /^[A-Za-z0-9][A-Za-z0-9._-]{0,252}$/.test(bruto) ? bruto : bruto.replace(/[^A-Za-z0-9._-]+/g, '-').slice(0, 253) || 'desconhecido';
 }
 
+/**
+ * RM-062 F3: o nome que sai da maquina precisa ter sido escolhido localmente. O fallback historico
+ * para `os.hostname()` transformava um detalhe privado em nome de arquivo e em JSON. A configuracao
+ * fica em `~/.orkastery/maquina.json`; `--maquina` e `ORK_MAQUINA` cobrem a primeira entrada.
+ */
+function nomeGenericoDaRede(explicito?: string | null): string {
+  const nome = (explicito ?? '').trim() || lerConfigDaMaquina()?.nome || (process.env.ORK_MAQUINA ?? '').trim();
+  if (!nome) throw new ErroDoCatalogo((m) => m.network.nomeGenericoAusente);
+  return nomeSeguro(nome);
+}
+
 /** Um projeto que ficou fora do retrato: o campo e o padrao, nunca o valor. */
 export interface Descarte { campo: string; padrao: string }
 
@@ -218,7 +230,7 @@ export function retratoDaMaquina(opcoes: OpcoesDoRetrato = {}): RetratoDaMaquina
  * O retrato e os projetos que ficaram fora dele. Projeto vem de fora do nucleo (o registro da
  * RM-052, o cwd, o ultimo retrato): um valor dele com cara de segredo tira SO aquele projeto, com
  * aviso, em vez de travar a publicacao da maquina para sempre (A1 do CHECK 1). O que o nucleo monta
- * (maquina, hostname, forjas, runtimes, hosts) continua falhando fechado em `exigirRetratoSeguro`.
+ * (maquina, alias legado, forjas, runtimes, hosts) continua falhando fechado em `exigirRetratoSeguro`.
  */
 export function retratoComDescartes(opcoes: OpcoesDoRetrato = {}): { retrato: RetratoDaMaquina; descartados: Descarte[] } {
   const amb = opcoes.amb ?? {};
@@ -264,11 +276,12 @@ export function retratoComDescartes(opcoes: OpcoesDoRetrato = {}): { retrato: Re
     descartados.push({ campo: `projetos[${MAXIMO_DE_ITENS}..]`, padrao: `limite de ${MAXIMO_DE_ITENS} projetos` });
     limpos.length = MAXIMO_DE_ITENS;
   }
+  const maquina = nomeGenericoDaRede(opcoes.maquina);
   const retrato: RetratoDaMaquina = {
     contrato: CONTRATO_DO_RETRATO,
-    maquina: nomeSeguro(nomeDaMaquina(opcoes.maquina)),
+    maquina,
     ...(opcoes.id ? { id: opcoes.id } : {}),
-    hostname: hostnameSeguro(),
+    hostname: maquina,
     adesao: opcoes.adesao ?? adesaoDaRede().adesao ?? 'rede',
     forjas: identidades.map((i) => ({ forja: i.forja, host: i.host, cli: i.cli, versao: i.versao, usuario: i.usuario })),
     runtimes,
@@ -784,12 +797,11 @@ function gravarNaCasa(conferida: CasaConferida, retrato: RetratoDaMaquina, desca
       const idDoOutro = atual ? atual.id ?? null : idNoArquivo(cache, ponta, arquivoDoRetrato(maquina));
       const alheio = !!idDoOutro && idDoOutro !== retrato.id;
       if (alheio && !opcoes.tomarNome) {
-        // U7 da revisao 3: o hostname igual sugere a propria maquina, mas duas VMs podem se chamar `ubuntu`.
-        const mesmoHostname = atual?.hostname === hostnameSeguro();
+        // O campo legado `hostname` agora repete o alias generico e nao distingue instalacoes.
         const outro = atual ? { hostname: atual.hostname, publicadoEm: atual.publicadoEm } : null;
         throw new ErroDoCatalogo((m) => m.network.nomeEmUso(maquina,
           outro ? m.network.quemHostname(String(outro.hostname), formatarDataHora(outro.publicadoEm)) : m.network.quemIlegivel,
-          mesmoHostname ? m.network.dicaMesmoHostname : m.network.dicaOutroNome));
+          m.network.dicaNomeEmUso));
       }
       const mudancas: MudancaNaBranch[] = [
         { caminho: arquivoDoRetrato(maquina), conteudo: JSON.stringify(retrato, null, 2) + '\n' },
@@ -818,7 +830,7 @@ export function publicarRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaRede {
   const adesao = adesaoDaRede();
   if (!adesao.membro) throw new ErroDoCatalogo((m) => m.network.foraDaRede);
   const amb = opcoes.amb ?? {};
-  const maquina = nomeSeguro(nomeDaMaquina(opcoes.maquina));
+  const maquina = nomeGenericoDaRede(opcoes.maquina);
   const id = idDaMaquina();
   const agora = opcoes.agora ?? new Date().toISOString();
   const marca = lerMarcaDaRede();
@@ -867,12 +879,13 @@ const NOME_DE_MAQUINA = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
  * `ork network entrar`. M2 do CHECK 1: atomico do ponto de vista da maquina. Confere (e cria,
  * privada) a casa, publica o primeiro retrato e SO ENTAO grava o nome e a adesao; se a publicacao
  * falha, nada muda aqui. M3: o nome que vale e gravado, como no `ork fabrica entrar`: `--maquina`,
- * senao o ja gravado, senao `ORK_MAQUINA` ou o hostname; assim o cron publica com o mesmo nome.
+ * senao o ja gravado, senao `ORK_MAQUINA`; assim o cron publica com o mesmo nome. RM-062 F3:
+ * hostname nunca e fallback, porque nome de arquivo e JSON sao evidencia publicada.
  */
 export function entrarNaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaEntrada {
-  // O nome explicito tem de ser valido; o que vem do arquivo, de ORK_MAQUINA ou do hostname e saneado.
+  // O nome explicito tem de ser valido; o que vem do arquivo ou de ORK_MAQUINA e saneado.
   const explicito = (opcoes.maquina ?? '').trim();
-  const maquina = explicito || nomeSeguro(lerConfigDaMaquina()?.nome || nomeDaMaquina());
+  const maquina = explicito || nomeGenericoDaRede();
   if (!NOME_DE_MAQUINA.test(maquina)) {
     throw new ErroDoCatalogo((m) => m.network.nomeInvalido(maquina));
   }
@@ -914,7 +927,7 @@ export interface ResultadoDaSaida {
 export function sairDaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaSaida {
   // U3 da revisao 3: a saida local vem primeiro; nada depois dela pode deixar a maquina membro.
   gravarConfigDaRede({ membro: false });
-  const maquina = nomeSeguro(nomeDaMaquina(opcoes.maquina));
+  const maquina = nomeGenericoDaRede(opcoes.maquina);
   const r = resolverCasa(opcoes);
   if (r.casa) gravarConfigDaRede({ forja: r.casa.forja, host: r.casa.host, dono: r.casa.dono, repositorio: r.casa.repositorio });
   try { fs.rmSync(arquivoDaMarca(), { force: true }); } catch { /* marca local */ }
