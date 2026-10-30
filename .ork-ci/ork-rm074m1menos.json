@@ -1,0 +1,409 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm074m1menos",
+  "branch": "ork/ork-rm074m1menos-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "O harness em processo preserva byte a byte stdout, stderr e código de saída do CLI nas entradas cobertas.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/cli-in-processo.test.js"
+      ],
+      "criadoEm": "2026-10-30T06:02:21.741Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "O Agile reaproveita de forma conservadora resultados nome a nome das lanes para claims node --test equivalentes e mantém fallback para os demais comandos.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/check-agil.test.js core/dist-test/test/verify.test.js core/dist-test/test/test-lanes.test.js"
+      ],
+      "criadoEm": "2026-10-30T06:02:21.789Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-agil.ts",
+      "alegacao": "O preparo e o build continuam únicos por rodada Agile quando as claims e lanes usam o produto preparado.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/verify-compilacao-unica.test.js"
+      ],
+      "criadoEm": "2026-10-30T06:02:21.846Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-snapshot.test.ts",
+      "alegacao": "Os snapshots de locale preservam a saída byte a byte sem remover casos nem criar skip.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-f3b-snapshot.test.js core/dist-test/test/locale-f3d-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-30T06:02:21.905Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+      "alegacao": "A página RM-074 e o CHANGELOG registram a M1 em razão contra o Classic e CPU da suíte, sem duração em minutos.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'M1' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md && grep -F 'RM-074' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-30T06:02:21.958Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "core/test/cli-in-processo.ts",
+      "alegacao": "O harness executa o main da CLI no processo, captura stdout/stderr/status e restaura cwd, ambiente, argv, process.exit, exitCode e leituras de stdin após cada chamada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/cli-in-processo.test.js"
+      ],
+      "criadoEm": "2026-10-30T06:12:59.488Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "core/test/cli-in-processo.test.ts",
+      "alegacao": "O contrato do harness prova paridade byte a byte com o executável para sucesso e erro e prova isolamento do estado global e stdin sem retirar testes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/cli-in-processo.test.js"
+      ],
+      "criadoEm": "2026-10-30T06:12:59.565Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3b-casos.ts",
+      "alegacao": "Os casos do snapshot F3b exercitam a CLI no processo e preservam as mesmas saídas byte a byte, sem remover ou pular casos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/locale-f3b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-30T06:18:21.108Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-apoio.ts",
+      "alegacao": "Os casos do snapshot F3d exercitam a CLI no processo, inclusive stdin e ambiente por chamada, preservando o snapshot.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/locale-f3d-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-30T06:18:21.201Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "core/test/rede.test.ts",
+      "alegacao": "O helper central dos testes de rede chama a CLI no processo; subprocessos que testam forja, credenciais e concorrência permanecem subprocessos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rede.test.js"
+      ],
+      "criadoEm": "2026-10-30T06:18:21.345Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/reporter-duracoes.mjs",
+      "alegacao": "O reporter das lanes conserva durações e acrescenta resultados por arquivo sem alterar o TAP nem o veredito do runner.",
+      "negativa": false,
+      "verificar": [
+        "node --check core/scripts/reporter-duracoes.mjs",
+        "node --test core/dist-test/test/test-lanes.test.js"
+      ],
+      "criadoEm": "2026-10-30T06:23:36.611Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/test-lanes.cjs",
+      "alegacao": "Cada lane registra HEAD, assinatura do ambiente e resultados dos arquivos no relatório da mesma rodada, preservando lista, orçamento e código de saída.",
+      "negativa": false,
+      "verificar": [
+        "node --check core/scripts/test-lanes.cjs",
+        "node --test core/dist-test/test/test-lanes.test.js"
+      ],
+      "criadoEm": "2026-10-30T06:23:36.678Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "core/test/test-lanes.test.ts",
+      "alegacao": "A suíte cobre compatibilidade do reporter, evidência nominal da lane e assinatura estável do ambiente funcional.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/test-lanes.test.js"
+      ],
+      "criadoEm": "2026-10-30T06:23:36.735Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "O resultado de comando pode registrar prova tipada de reaproveitamento por lane sem alterar o contrato de resultados antigos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "node --test core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-10-30T06:30:25.358Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-agil.ts",
+      "alegacao": "Somente node --test explícito de arquivos verdes no mesmo HEAD e ambiente é reaproveitado; comando aberto, arquivo falho ou ambiente divergente executa normalmente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-10-30T06:30:25.437Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "No Agile com lanes válidas, preparo e lanes antecedem as claims, o build não se repete e a origem da lane vai ao ledger; o Classic conserva a ordem e claims que mudam o produto forçam novo grupo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/check-agil.test.js core/dist-test/test/verify.test.js core/dist-test/test/verify-compilacao-unica.test.js"
+      ],
+      "criadoEm": "2026-10-30T06:30:25.554Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "core/test/check-agil.test.ts",
+      "alegacao": "Os testes cobrem reutilização por HEAD/ambiente/arquivo, padrão de nome, fallbacks, ordem Agile/Classic e reexecução após mudança do produto.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-10-30T06:30:25.641Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m1.json",
+      "alegacao": "Os seis mutantes da M1 morrem: HEAD, ambiente, arquivo falho, runner divergente, produto alterado e ordem lane/claim são observáveis pela suíte.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m1.json M1",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m1.json M2",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m1.json M3",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m1.json M4",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m1.json M5",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m1.json M6"
+      ],
+      "criadoEm": "2026-10-30T06:31:27.525Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m1.json",
+      "alegacao": "O mutante M7 prova que arquivo em subdiretório não pode herdar evidência de uma lane plana apenas pelo basename.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m1.json M7"
+      ],
+      "criadoEm": "2026-10-30T06:35:07.486Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG em Não publicado registra a M1 sem prometer duração absoluta nem redução da bateria.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'Menos CPU por teste no Agile Check — M1' CHANGELOG.md",
+        "grep -F 'a bateria e as asserções não diminuem' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-30T06:38:57.559Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice do roadmap reflete o título, a data e o estado atuais da RM-074.",
+      "negativa": false,
+      "verificar": [
+        "grep -F '[RM-074](RM-074-agile-check-tres-vezes-mais-rapido.md) | Agile Check cerca de 1,7 vez mais rápido que o Classic | Em desenvolvimento | Branch criada' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-10-30T06:39:39.744Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m1.json",
+      "alegacao": "O mutante M8 prova que uma claim não reaproveita evidência de lane depois que o produto sai da guarda da rodada.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m1.json M8"
+      ],
+      "criadoEm": "2026-10-30T06:42:35.799Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m1.json",
+      "alegacao": "O mutante M9 prova que padrão de nome inválido não é aceito pela reutilização como se o node o executasse.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m1.json M9"
+      ],
+      "criadoEm": "2026-10-30T06:49:31.722Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3b-casos.ts",
+      "alegacao": "Os casos funcionais F3b usam o CLI no processo, mas accounts, network e PATH explícito preservam o processo filho.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"extra.PATH !== undefined || args[0] === 'accounts' || args[0] === 'network'\" core/test/locale-f3b-casos.ts",
+        "node --test core/dist-test/test/locale-f3b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-30T07:19:57.599Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f3d-apoio.ts",
+      "alegacao": "Os casos funcionais F3d usam o CLI no processo, mas accounts e PATH explícito preservam o processo filho.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"extra.PATH !== undefined || args[0] === 'accounts'\" core/test/locale-f3d-apoio.ts",
+        "node --test core/dist-test/test/locale-f3d-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-30T07:19:57.677Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": "core/test/rede.test.ts",
+      "alegacao": "A claim C10 foi substituída: os casos de rede preservam o processo filho porque provam a descoberta da forja falsa pelo PATH.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"return spawnSync(process.execPath, [CLI, ...args]\" core/test/rede.test.ts",
+        "node --test core/dist-test/test/rede.test.js"
+      ],
+      "criadoEm": "2026-10-30T07:19:57.743Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C11",
+      "reason": "local-integration-required"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
