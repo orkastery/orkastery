@@ -6,6 +6,17 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Alterado
+
+- **Confiança e CPU de sistema no Agile Check — M3 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** a bancada só publica razão com três pares válidos em ordem AB/BA, mostra o preparo fora da razão e acompanha a CPU com o `steal` de cada passe. Os testes de security scan reutilizam um modelo Git por arquivo, e as lanes podem usar tmpfs com `ORK_CHECK_TMPFS=auto` quando memória, espaço e escrita têm folga; o padrão continua em disco e todo fallback explica o motivo. Nenhum teste ou asserção foi removido, e este registro não afirma ganho de razão ou CPU antes de uma bancada válida.
+
+## [0.6.2] - 2026-10-30
+
+O CHECK fica mais confiável: uma regressão não se esconde em um comando que já falhava. O Agile Check reaproveita provas
+já fechadas e roda os testes pesados dentro do processo, sem tirar teste.
+
+O #Noctum segue **em desenvolvimento, não anunciado**.
+
 ### Adicionado
 
 - **CLI em inglês e pt-BR — F3e ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)):** entram no catálogo as rotas restantes de `master`, `onboarding sync`, `experiencia uninstall`, `doctor --modo`, Maestro, `brain`, `activation`, `mcp serve`, `receipt-verifiers` e as recusas antecipadas de projeto; o grafo e o `security-scan` localizam a apresentação humana sem mudar códigos, dados ou `--json`.
@@ -18,7 +29,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Alterado
 
-- **Confiança e CPU de sistema no Agile Check — M1 a M3 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** a bancada só publica razão com três pares válidos em ordem AB/BA, mostra o preparo fora da razão e acompanha a CPU com o `steal` de cada passe. Os testes de security scan reutilizam um modelo Git por arquivo, e as lanes podem usar tmpfs com `ORK_CHECK_TMPFS=auto` quando memória, espaço e escrita têm folga; o padrão continua em disco e todo fallback explica o motivo. O harness e as provas reaproveitadas das M1 e M2 permanecem limitados ao mesmo HEAD, ambiente e produto. Nenhum teste ou asserção foi removido, e este registro não afirma ganho de razão ou CPU antes de uma bancada válida.
+- **Reaproveitamento de provas no Agile Check — M1 e M2 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** os testes pesados que não verificam a fronteira real de processo chamam o CLI dentro do próprio processo com ambiente, diretório, saídas e código isolados; a M2 leva o harness a quatro pontos quentes restantes. Claims `node --test`, a auditoria TAP canônica e cadeias fechadas com `grep -q` reaproveitam as lanes e o build único somente no mesmo HEAD, ambiente e produto. Testes de sinais, PATH, rede e Docker reais, Git, locks e concorrência permanecem com processo filho, sem reduzir a bateria ou as asserções. A razão contra o Classic ainda não é anunciada: falta uma medida com pares suficientes para sustentá-la.
 
 ### Corrigido
 
