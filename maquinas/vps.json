@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.1",
-  "publicadoEm": "2026-10-30T04:17:04.802Z",
+  "publicadoEm": "2026-10-30T04:30:02.761Z",
   "threads": [
     {
       "id": "ork-asessaonosan",
@@ -71,24 +71,6 @@
         "desdeEm": "2026-10-30T03:33:58.036Z",
         "motivo": "nenhuma sessão despachada na fase GO"
       }
-    },
-    {
-      "id": "ork-otestedavali",
-      "nome": "ork-fixturehermet",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": "RM-037",
-      "branch": "ork/ork-otestedavali-go",
-      "atualizadaEm": "2026-10-29T21:54:29.651Z",
-      "entregue": "d65b90d",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh",
-      "sessao": null
     },
     {
       "id": "ork-rm061f3erota",
