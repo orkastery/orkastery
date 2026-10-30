@@ -91,6 +91,17 @@ export const VERIFY_PT_BR = {
   // Classificacao e veredito
   classificacao: (regressoes: number, preExistentes: number, semBaseline: number) =>
     `Classificacao: ${regressoes} regressao(oes), ${preExistentes} pre-existente(s), ${semBaseline} falha(s) sem baseline`,
+  comparacaoPorTeste: (comando: string, regressoes: number, preExistentes: number, corrigidos: number) =>
+    `Comparacao teste a teste (${comando}): ${regressoes} regressao(oes), ${preExistentes} pre-existente(s), ` +
+    `${corrigidos} corrigido(s)`,
+  testeRegressao: (nome: string) => `    regressao      ${nome}`,
+  testePreExistente: (nome: string) => `    pre-existente  ${nome}`,
+  testeCorrigido: (nome: string) => `    corrigido      ${nome}`,
+  comparacaoPorComando: (comando: string, classificacao: 'regressao' | 'pre-existente' | 'corrigido',
+    motivo: 'baseline-sem-nomes' | 'rodada-sem-nomes') =>
+    `Comparacao somente por comando (${comando}): ${classificacao}; ${motivo === 'baseline-sem-nomes'
+      ? 'a baseline nao guardou nomes de testes' : 'a rodada atual nao informou nomes de testes'}. ` +
+    'Nenhuma contagem de regressoes por teste foi calculada.',
   regressao: (nome: string, comando: string) => `  regressao      ${nome}: ${comando}`,
   preExistente: (nome: string, comando: string) => `  pre-existente  ${nome}: ${comando}`,
   falhaSemBaseline: (nome: string, comando: string) => `  sem baseline   ${nome}: ${comando}`,
@@ -194,6 +205,15 @@ export const VERIFY_EN: typeof VERIFY_PT_BR = {
   semVeredito: (nomes) => `No verdict for lack of time (not a failure: deadline exceeded or clock under steal): ${nomes}`,
   classificacao: (regressoes, preExistentes, semBaseline) =>
     `Classification: ${regressoes} regression(s), ${preExistentes} pre-existing, ${semBaseline} failure(s) without a baseline`,
+  comparacaoPorTeste: (comando, regressoes, preExistentes, corrigidos) =>
+    `Test-by-test comparison (${comando}): ${regressoes} regression(s), ${preExistentes} pre-existing, ${corrigidos} fixed`,
+  testeRegressao: (nome) => `    regression     ${nome}`,
+  testePreExistente: (nome) => `    pre-existing   ${nome}`,
+  testeCorrigido: (nome) => `    fixed          ${nome}`,
+  comparacaoPorComando: (comando, classificacao, motivo) =>
+    `Command-only comparison (${comando}): ${classificacao === 'regressao' ? 'regression' : classificacao === 'pre-existente'
+      ? 'pre-existing' : 'fixed'}; ${motivo === 'baseline-sem-nomes' ? 'the baseline did not store test names'
+      : 'the current run did not report test names'}. No per-test regression count was calculated.`,
   regressao: (nome, comando) => `  regression     ${nome}: ${comando}`,
   preExistente: (nome, comando) => `  pre-existing   ${nome}: ${comando}`,
   falhaSemBaseline: (nome, comando) => `  no baseline    ${nome}: ${comando}`,
