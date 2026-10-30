@@ -39,6 +39,8 @@ const LANES = ['hermetica', 'integracao'];
 const ORCAMENTO_PADRAO_MS = 120000;
 const REPORTER = path.join(__dirname, 'reporter-duracoes.mjs');
 const CONCORRENCIA_DA_INTEGRACAO = 2;
+const ENV_TMPFS = 'ORK_CHECK_TMPFS';
+const TMPFS_MAGIC = 0x01021994;
 
 /**
  * Quantos arquivos a lane roda ao mesmo tempo. O agendador passa a fatia calculada para esta rodada; sem ela, vale o
@@ -102,6 +104,42 @@ function conferir() {
 function dirDoCache() {
   const xdg = process.env.XDG_CACHE_HOME;
   return path.join(xdg && path.isAbsolute(xdg) ? xdg : path.join(os.homedir(), '.cache'), 'orkastery', 'check');
+}
+
+/** Confere filesystem em memoria, espaco e escrita sem depender do nome ou do tamanho de uma maquina. */
+function sondarTmpfs(dir) {
+  try {
+    if (!path.isAbsolute(dir) || !fs.statSync(dir).isDirectory()) return { ok: false, motivo: 'candidato-ausente' };
+    const s = fs.statfsSync(dir, { bigint: true });
+    if (Number(s.type) !== TMPFS_MAGIC) return { ok: false, motivo: 'filesystem-nao-e-tmpfs' };
+    const teste = fs.mkdtempSync(path.join(dir, 'ork-check-sonda-'));
+    try { fs.writeFileSync(path.join(teste, 'gravavel'), 'ok', { mode: 0o600 }); }
+    finally { fs.rmSync(teste, { recursive: true, force: true }); }
+    return { ok: true, livres: Number(s.bavail * s.bsize) };
+  } catch (e) {
+    return { ok: false, motivo: `sonda-falhou:${String(e.code || e.message)}` };
+  }
+}
+
+/**
+ * O tmpfs e opt-in ate a bancada provar ganho. `auto` exige ao menos um quarto da memoria livre e espaco no tmpfs
+ * equivalente ao menor entre um quarto da memoria livre e um decimo da memoria total; qualquer duvida usa disco.
+ */
+function selecionarTemporario({ chave = process.env[ENV_TMPFS], disco = os.tmpdir(),
+  candidatos = [process.env.XDG_RUNTIME_DIR, '/dev/shm'].filter(Boolean), memoriaLivre = os.freemem(), memoriaTotal = os.totalmem(),
+  sondar = sondarTmpfs } = {}) {
+  if (chave !== 'auto') return { diretorio: disco, estado: 'fallback', motivo: chave ? `chave-${chave}` : 'desligado-por-padrao' };
+  if (!(memoriaTotal > 0) || memoriaLivre / memoriaTotal < 0.25) {
+    return { diretorio: disco, estado: 'fallback', motivo: 'memoria-livre-sem-folga' };
+  }
+  const necessario = Math.min(memoriaLivre / 4, memoriaTotal / 10);
+  const motivos = [];
+  for (const candidato of [...new Set(candidatos)]) {
+    const r = sondar(candidato);
+    if (r.ok && r.livres >= necessario) return { diretorio: candidato, estado: 'agile', motivo: 'tmpfs-gravavel-com-folga' };
+    motivos.push(`${candidato}:${r.ok ? 'espaco-sem-folga' : r.motivo}`);
+  }
+  return { diretorio: disco, estado: 'fallback', motivo: motivos.length ? motivos.join(';') : 'sem-candidato-tmpfs' };
 }
 
 function lerDuracoes(arquivo) {
@@ -173,6 +211,10 @@ function rodarLane(lane) {
   const arquivos = ordenarPorDuracao(listas[lane], anteriores);
   const orcamento = Number(process.env.ORK_CHECK_ORCAMENTO_MS) > 0 ? Number(process.env.ORK_CHECK_ORCAMENTO_MS) : ORCAMENTO_PADRAO_MS;
   relatar({ tipo: 'lista', lane, arquivos: [...listas[lane]] });
+  const temporario = selecionarTemporario();
+  relatar({ tipo: 'peca', peca: 'tmpfs-das-lanes', estado: temporario.estado, motivo: temporario.motivo,
+    ...(temporario.estado === 'fallback' ? { fallback: 'disco' } : {}) });
+  const pastaDaLane = fs.mkdtempSync(path.join(temporario.diretorio, 'ork-lanes-'));
   const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: CORE, encoding: 'utf8' }).stdout.trim();
 
   // O ambiente e o de quem chama, como no `npm test`: quem exporta ORK_TESTE_EXIGE_AMBIENTE exige as dependencias nos dois
@@ -189,8 +231,9 @@ function rodarLane(lane) {
   delete env.ORK_CHECK_RELATORIO;
   delete env.ORK_CHECK_CPUS_DA_LANE;
   delete env.ORK_CHECK_CPUS_DOCKER;
+  env.TMPDIR = pastaDaLane;
   let casa = null;
-  if (!(env.ORKASTERY_HOME || '').trim()) { casa = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-casa-')); env.ORKASTERY_HOME = casa; }
+  if (!(env.ORKASTERY_HOME || '').trim()) { casa = fs.mkdtempSync(path.join(pastaDaLane, 'ork-casa-')); env.ORKASTERY_HOME = casa; }
   const ambiente = assinaturaDoAmbiente(env);
   try {
     fs.mkdirSync(path.join(cache, 'compile-cache'), { recursive: true });
@@ -198,7 +241,7 @@ function rodarLane(lane) {
   } catch (e) {
     relatar({ tipo: 'peca', peca: 'compile-cache', estado: 'fallback', motivo: String(e.code || e.message), fallback: 'sem cache de compilacao' });
   }
-  const arquivoDoReporter = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ork-lanes-')), 'duracoes.json');
+  const arquivoDoReporter = path.join(pastaDaLane, 'duracoes.json');
   const args = ['--test', '--test-reporter=tap', '--test-reporter-destination=stdout',
     `--test-reporter=${REPORTER}`, `--test-reporter-destination=${arquivoDoReporter}`,
     `--test-concurrency=${concorrenciaDaLane(lane)}`,
@@ -207,10 +250,8 @@ function rodarLane(lane) {
     const filho = spawn(process.execPath, args, { cwd: CORE, env, stdio: ['ignore', 'pipe', 'inherit'] });
     filho.stdout.on('data', (d) => process.stdout.write(d));
     filho.on('close', (code, signal) => {
-      if (casa) fs.rmSync(casa, { recursive: true, force: true });
       const medidas = lerDuracoesDoReporter(arquivoDoReporter);
       const testes = lerResultadosDoReporter(arquivoDoReporter);
-      fs.rmSync(path.dirname(arquivoDoReporter), { recursive: true, force: true });
       try {
         fs.mkdirSync(cache, { recursive: true });
         fs.writeFileSync(arquivoDeDuracoes, JSON.stringify({ ...anteriores, ...medidas }, null, 1) + '\n');
@@ -220,13 +261,14 @@ function rodarLane(lane) {
       const maiores = Object.entries(medidas).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([arquivo, ms]) => ({ arquivo, ms }));
       relatar({ tipo: 'duracoes', lane, orcamentoMs: orcamento, medidos: Object.keys(medidas).length, acima, maiores });
       relatar({ tipo: 'resultados', lane, head, ambiente, testes });
+      fs.rmSync(pastaDaLane, { recursive: true, force: true });
       resolve(code ?? (signal ? 1 : 1));
     });
   });
 }
 
 module.exports = { listasDasLanes, ordenarPorDuracao, lerDuracoesDoReporter, lerResultadosDoReporter, assinaturaDoAmbiente,
-  globDoNpmTest, concorrenciaDaLane, LANES, REPORTER };
+  globDoNpmTest, concorrenciaDaLane, selecionarTemporario, sondarTmpfs, ENV_TMPFS, LANES, REPORTER };
 
 if (require.main === module) {
   const [alvo] = process.argv.slice(2);

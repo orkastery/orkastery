@@ -46,6 +46,24 @@
       "para": "if (false && modelo)\n        return modelo;",
       "teste": "security-scan-agil",
       "nome": "^SA13:"
+    },
+    {
+      "id": "M6",
+      "descricao": "o tmpfs deixa de ser opt-in e tenta ativar com a chave ausente",
+      "arquivo": "core/scripts/test-lanes.cjs",
+      "de": "if (chave !== 'auto')",
+      "para": "if (false && chave !== 'auto')",
+      "teste": "test-lanes",
+      "nome": "^TL12:"
+    },
+    {
+      "id": "M7",
+      "descricao": "a sonda volta a esconder a causa medida do fallback",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "de": "motivo: p.motivo ?? null",
+      "para": "motivo: null",
+      "teste": "medir-check",
+      "nome": "^MC20:"
     }
   ]
 }
