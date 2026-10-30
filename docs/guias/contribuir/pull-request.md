@@ -21,6 +21,20 @@ O [modelo de PR](../../../.github/PULL_REQUEST_TEMPLATE.md) já abre com as seç
 
 Um PR que descreve o problema em uma linha e cola a saída de um teste novo vale mais que três parágrafos sem comando.
 
+### Quando dado privado escapou
+
+Corrija por PR mesmo que o valor já tenha aparecido antes. Na descrição, copie este modelo e complete as três linhas;
+remover o dado da ponta atual não o remove dos commits anteriores, e somente o dono decide se o histórico será reescrito:
+
+```text
+Corrigido agora: <arquivos, nomes ou campos corrigidos neste PR>
+Continua no histórico: <o que permanece nos commits anteriores>
+Decisão do dono sobre reescrita: <não reescrever, reescrever por ação separada ou decisão pendente>
+```
+
+Não atribua a terceira linha ao dono sem uma decisão autêntica. Enquanto ela estiver pendente, escreva “decisão pendente”;
+isso não impede a correção atual de seguir por PR.
+
 ## Evidência esperada
 
 - A saída dos comandos de [testes e verificação](testes-e-verificacao.md#o-que-rodar-antes-do-pr).

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
@@ -56,23 +57,29 @@ asyncio.run(run())
 });
 
 test('validade inicial da fixture e configuravel, finita e validada antes de Docker ou de qualquer arquivo', t => {
-  const antes=fs.readdirSync('/tmp').filter(n=>n.startsWith('ork-prospective-fixture-'));
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'ork-fixture-ttl-'));
+  t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const antes=fs.readdirSync(dir);
   assert.equal(FIXTURE_TTL_PADRAO_MS,1_800_000,'o padrao de 30 minutos e preservado');
   assert.equal(FIXTURE_TTL_MIN_MS,60_000);assert.equal(FIXTURE_TTL_MAX_MS,3_600_000);
   const recusados: [string,unknown][]=[['NaN',NaN],['Infinity',Infinity],['-Infinity',-Infinity],
     ['negativo',-1_800_000],['zero',0],['fracao',1_800_000.5],['abaixo do minimo',FIXTURE_TTL_MIN_MS-1],
     ['acima do maximo',FIXTURE_TTL_MAX_MS+1],['texto','2400000'],['nulo',null],['objeto',{}],
     ['fora do inteiro seguro',Number.MAX_SAFE_INTEGER+2]];
-  for(const [nome,valor] of recusados)
-    assert.throws(()=>prepareFixture('synthetic-test',{ttlMs:valor as number}),/runtime\.fixture\.ttl-invalid/,
-      'ttl recusado antes de Docker: '+nome);
-  assert.deepEqual(fs.readdirSync('/tmp').filter(n=>n.startsWith('ork-prospective-fixture-')),antes,
+  const tmpdirAnterior=process.env.TMPDIR;process.env.TMPDIR=dir;
+  try {
+    for(const [nome,valor] of recusados)
+      assert.throws(()=>prepareFixture('synthetic-test',{ttlMs:valor as number}),/runtime\.fixture\.ttl-invalid/,
+        'ttl recusado antes de Docker: '+nome);
+  } finally {
+    if(tmpdirAnterior===undefined)delete process.env.TMPDIR;else process.env.TMPDIR=tmpdirAnterior;
+  }
+  assert.deepEqual(fs.readdirSync(dir),antes,
     'pedido invalido nao cria diretorio nem recibo');
 
   // Sem docker no PATH: o ttl invalido ainda recusa por ttl, prova de que a validacao vem antes.
-  const dir=fs.mkdtempSync('/tmp/ork-fixture-ttl-');t.after(()=>fs.rmSync(dir,{recursive:true}));
   const cli=(...args: string[])=>spawnSync(process.execPath,[path.join(__dirname,'native-fixture.js'),'prepare',...args],
-    {encoding:'utf8',env:{PATH:dir,HOME:dir},timeout:5000});
+    {encoding:'utf8',env:{PATH:dir,HOME:dir,TMPDIR:dir},timeout:60_000});
   const invalido=cli('synthetic-test','120000000');
   assert.equal(invalido.status,1);assert.equal(invalido.stdout,'');
   assert.match(invalido.stderr,/runtime\.fixture\.ttl-invalid/,'ttl invalido recusa antes de constatar Docker ausente');
@@ -80,6 +87,6 @@ test('validade inicial da fixture e configuravel, finita e validada antes de Doc
   assert.equal(semTtl.status,1);assert.match(semTtl.stderr,/runtime\.unavailable/,'ttl valido por default chega ate a checagem de Docker');
   const valido=cli('synthetic-test','2400000');
   assert.equal(valido.status,1);assert.match(valido.stderr,/runtime\.unavailable/,'40 minutos e aceito pelo contrato e para em Docker ausente');
-  assert.deepEqual(fs.readdirSync('/tmp').filter(n=>n.startsWith('ork-prospective-fixture-')),antes,
+  assert.deepEqual(fs.readdirSync(dir),antes,
     'nenhuma fixture foi provisionada por este teste');
 });

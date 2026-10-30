@@ -101,6 +101,38 @@ test('MCP filho fixa thread e omite criacao, redespacho e decisao do dono',async
   } finally {await client.close();await server.close();p.limpar();}
 });
 
+test('pedido à condução é estreito, correlacionado ao despacho e idempotente', async () => {
+  const p=projetoTemporario('mcp-request-conduction');
+  const t=novaThread(p.carregado,{nome:'pedido conducao',modo:'auto'}).thread;
+  const dispatchId='aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+  const sessionId='11111111-2222-4333-8444-555555555555';
+  const despachoEm='2026-10-29T12:00:00.000Z';
+  t.sessoes.push({sessionId,slug:t.slug,fase:'GO',bloco:'GO',runtime:'codex',despachadaEm:despachoEm,
+    promptPath:'',promptSha256:'a'.repeat(64),verificada:true});
+  t.faseAtual='GO';gravarThread(p.dir,t);
+  registrar(dirThread(p.dir,t.id),t.id,'phase_dispatch',{fase:'GO',sessionId,runtime:'codex',
+    identidade:{schema:'ork.dispatch-identity/v1',dispatchId,threadId:t.id,role:'executor'}});
+  const server=criarServidorMcp({projeto:p.dir,host:'codex',threadId:t.id,dispatchId,permissoesFilho:'worktree'});
+  const client=new Client({name:'request-conduction-fixture',version:'1'});const [ct,st]=InMemoryTransport.createLinkedPair();
+  try {
+    await server.connect(st);await client.connect(ct);
+    const names=(await client.listTools()).tools.map(x=>x.name);assert.ok(names.includes('ork_request_conduction'));
+    const args={threadId:t.id,motivo:'conducao.acao-necessaria',detalhe:'o sandbox nao grava o recibo oficial',
+      comando:`ork verify ${t.id}`};
+    const primeiro=await call(client,'ork_request_conduction',args);assert.equal(primeiro.error,false,primeiro.text);
+    assert.equal(primeiro.data().criado,true);
+    const segundo=await call(client,'ork_request_conduction',args);assert.equal(segundo.data().criado,false);
+    assert.equal(segundo.data().eventId,primeiro.data().eventId);
+    const evento=lerLedger(dirThread(p.dir,t.id)).filter(e=>e.origem==='mcp.request_conduction').at(-1)!;
+    assert.deepEqual([evento.tipo,evento.motivo,evento.despacho,evento.comando],
+      ['gate_blocked','conducao.acao-necessaria',dispatchId,`ork verify ${t.id}`]);
+    assert.equal((evento.pedidoConducao as {estado:string}).estado,'aberto');
+    for(const comando of [`ork verify ${t.id}; touch fora`,'sh -c falso',`ork verify ${t.id}\nork ship ${t.id}`]) {
+      const recusado=await call(client,'ork_request_conduction',{...args,comando});assert.equal(recusado.error,true,comando);
+    }
+  } finally {await client.close();await server.close();p.limpar();}
+});
+
 test('MCP schemas fechados recusam shell, raiz, traversal e resposta gerada pelo modelo sem efeito',()=>fixture(async(p,c)=>{
   const {t,q}=pedido(p),before=fs.readFileSync(path.join(dirThread(p.dir,t.id),'ledger.jsonl'));
   const tools=(await c.listTools()).tools;

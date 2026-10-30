@@ -259,12 +259,13 @@ test('locale en: comando fora da prova de conceito segue em pt-BR byte a byte co
   const dir = repoComCommit('locale-fora'), casa = dirTemporario('locale-fora-casa');
   try {
     assert.equal(ork(dir, casa, { LANG: 'pt_BR.UTF-8' }, 'init').status, 0);
-    // A F3d levou `modos` a lista (decisao registrada no GO-FIX 1); `master digest` segue fora, com o erro de uso em pt-BR.
-    for (const args of [['master', 'digest'], ['doctor', '--modo', 'fast'], ['projetos', '--json']]) {
+    // A F3e levou master/doctor/projetos ao catalogo; Noctum segue fora por decisao de escopo.
+    for (const args of [['noctum'], ['noctum', 'propor'], ['noctum', 'status', 'arco-inexistente']]) {
       const pt = ork(dir, casa, { LANG: 'pt_BR.UTF-8' }, ...args), en = ork(dir, casa, { LANG: 'en_US.UTF-8' }, ...args);
+      assert.equal(pt.status, 2, args.join(' '));
+      assert.equal(en.status, 2, args.join(' '));
       assert.equal(en.stdout, pt.stdout, args.join(' '));
       assert.equal(en.stderr, pt.stderr, args.join(' '));
     }
-    assert.equal(ork(dir, casa, { LANG: 'en_US.UTF-8' }, 'master', 'digest').stderr, 'erro: uso: ork master digest <enviar|preview|responder>\n');
   } finally { limpar(dir, casa); }
 });

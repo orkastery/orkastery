@@ -1,4 +1,40 @@
-/** RM-061 F3d: moldura humana do grafo; schemas, códigos e JSON continuam em pt-BR. */
+/** RM-061 F3e: traduz somente o detalhe humano; o código tipado continua canônico. */
+const erroDoGrafoEmIngles = (mensagem: string): string => {
+  const trocas: readonly [RegExp, string][] = [
+    [/quem roda o CLI nao le a raiz do repositorio/g, 'the CLI process cannot read the repository root'],
+    [/nao e pasta real/g, 'is not a real directory'], [/de outro dono/g, 'has a different owner'],
+    [/ com modo /g, ' with mode '], [/ ausente/g, ' missing'], [/\(erro\)/g, '(error)'],
+    [/nao bate com o tamanho/g, 'does not match the size'], [/nao bate com o digest/g, 'does not match the digest'],
+    [/fora do manifesto/g, 'outside the manifest'], [/sem unidades/g, 'without units'],
+    [/o ork grafo limpar o remove/g, 'ork grafo limpar removes it'], [/nenhum indice guardado/g, 'no stored index'],
+    [/sem-commit/g, 'no-commit'], [/revisao-mudou/g, 'revision-changed'],
+    [/rastreado fora da leitura/g, 'tracked outside the read'], [/ e mais (\d+)/g, ' and $1 more'],
+    [/o incremental a partir de ([^ ]+) falhou e a extracao foi completa/g, 'the incremental build from $1 failed and extraction was full'],
+    [/o incremental da base ([^ ]+) falhou/g, 'the incremental build from base $1 failed'],
+    [/o indice guardado difere da extracao nova/g, 'the stored index differs from the new extraction'],
+    [/sem indice do HEAD ([^;]+); rode/g, 'no index for HEAD $1; run'],
+    [/ha indice do HEAD ([^ ]+) de outro extrator/g, 'HEAD $1 has an index from another extractor'],
+    [/perfil diferente/g, 'different profile'], [/pacotes dos analisadores/g, 'analyzer packages'],
+    [/codigo do extrator/g, 'extractor code'], [/ no indice/g, ' in the index'], [/ aqui/g, ' here'],
+    [/o HEAD ([^ ]+) nao tem indice; o guardado e de outra revisao/g, 'HEAD $1 has no index; the stored index is from another revision'],
+    [/; rode /g, '; run '],
+    [/com a mesma instalacao do ork e o mesmo Node de quem consulta/g, 'with the same Ork installation and Node used by the caller'],
+    [/\(o servidor MCP consulta com a dele\)/g, '(the MCP server uses its own installation)'],
+    [/ tem (\d+) candidatos/g, ' has $1 candidates'], [/no vazio/g, 'empty node'],
+    [/ precisa ser inteiro de /g, ' must be an integer from '], [/tipo de aresta desconhecido/g, 'unknown edge type'],
+    [/nenhum tipo de aresta/g, 'no edge type'], [/sentido desconhecido/g, 'unknown direction'],
+    [/chamadores pede um simbolo; para arquivo, use importadores ou vizinhos/g, 'chamadores expects a symbol; for a file, use importadores or vizinhos'],
+    [/importadores pede um arquivo ou um simbolo/g, 'importadores expects a file or symbol'],
+    [/teto deve ser inteiro de/g, 'ceiling must be an integer from'], [/borda sem leitor da thread/g, 'edge has no thread reader'],
+    [/HEAD mudou durante a leitura; repita a consulta/g, 'HEAD changed during the read; repeat the query'],
+    [/ tem (\d+) bytes, acima do teto de (\d+)/g, ' has $1 bytes, above the $2-byte ceiling'],
+    [/o caminho nao se corta/g, 'the path cannot be truncated'], [/use --teto-bytes maior/g, 'use a larger --teto-bytes'],
+    [/o caminho de (\d+) passo\(s\)/g, 'the $1-step path'], [/a resposta com (\d+) aresta\(s\)/g, 'the response with $1 edge(s)'],
+  ];
+  return trocas.reduce((texto, [padrao, troca]) => texto.replace(padrao, troca), mensagem);
+};
+
+/** RM-061 F3d/F3e: moldura humana do grafo; schemas, códigos e JSON continuam em pt-BR. */
 export const GRAFO_PT_BR = {
   uso: [
     'uso: ork grafo indexar [--verificar] [--forcar] [--json]',
@@ -12,6 +48,7 @@ export const GRAFO_PT_BR = {
     '     ork grafo limpar [--tudo] [--json]',
   ] as readonly string[],
   erroUso: (motivo: string) => `grafo.uso: ${motivo}`,
+  erroTipado: (mensagem: string) => mensagem,
   motivos: {
     semSub: 'falta o subcomando', desconhecido: (sub: string) => `subcomando desconhecido: ${sub}`,
     repetida: (nome: string) => `--${nome} repetida`, semValor: (nome: string) => `--${nome} nao leva valor`,
@@ -32,6 +69,18 @@ export const GRAFO_PT_BR = {
       `  determinismo ${ordem}: digest ${digest}, relatorio ${relatorio}, unidades ${unidades}, ${igual ? 'igual' : 'DIFERENTE'}`,
     incremental: (base: string, igual: boolean) => `  incremental  a partir do indice de ${base}: ${igual ? 'igual a completa nos quatro arquivos' : 'DIFERENTE'}`,
     naoConferido: (motivo: string) => `  incremental  nao conferido: ${motivo}`, aprovado: 'aprovado', semBase: 'sem base',
+    extracao: {
+      lista: (itens: readonly string[]) => itens.length ? ` (${itens.slice(0, 5).join(', ')}${itens.length > 5 ? ` e mais ${itens.length - 5}` : ''})` : '',
+      incremental: (base: string, alterados: number, novos: number, removidos: number) =>
+        `  extracao     incremental a partir do indice de ${base}: ${alterados} alterado(s), ${novos} novo(s), ${removidos} removido(s)`,
+      tsInteiro: (motivo: string | null) => `TypeScript inteiro (${motivo ?? ''})`,
+      tsParcial: (reextraidos: number, lista: string, programa: number, reaproveitados: number) =>
+        `TypeScript parcial, ${reextraidos} reextraido(s)${lista} num programa de ${programa}, ${reaproveitados} da base`,
+      tsBase: (reaproveitados: number) => `TypeScript todo da base (${reaproveitados})`,
+      markdown: (reextraidos: number, lista: string, reaproveitados: number) =>
+        `               Markdown: ${reextraidos} reextraido(s)${lista}, ${reaproveitados} da base`,
+      completa: (motivo: string | null) => `  extracao     completa${motivo ? `: ${motivo}` : ''}`,
+    },
   },
   status: {
     titulo: (head: string, arvore: string) => `grafo: HEAD ${head}, arvore ${arvore}`,
@@ -80,6 +129,7 @@ export const GRAFO_EN: typeof GRAFO_PT_BR = {
     '       ork grafo amostra [--por-estrato N] | ork grafo amostra --conferir FILE [--json]', '       ork grafo limpar [--tudo] [--json]',
   ],
   erroUso: (reason) => `grafo.uso: ${reason}`,
+  erroTipado: erroDoGrafoEmIngles,
   motivos: {
     semSub: 'missing subcommand', desconhecido: (sub) => `unknown subcommand: ${sub}`, repetida: (name) => `--${name} repeated`,
     semValor: (name) => `--${name} takes no value`, exigeValor: (name) => `--${name} requires a value`, opcao: (sub, value) => `unknown option for ${sub}: ${value}`,
@@ -95,6 +145,18 @@ export const GRAFO_EN: typeof GRAFO_PT_BR = {
     determinismo: (order, digest, report, units, equal) => `  determinism   ${order}: digest ${digest}, report ${report}, units ${units}, ${equal ? 'equal' : 'DIFFERENT'}`,
     incremental: (base, equal) => `  incremental  from index ${base}: ${equal ? 'equal to the full build in all four files' : 'DIFFERENT'}`,
     naoConferido: (reason) => `  incremental  not checked: ${reason}`, aprovado: 'approved', semBase: 'no base',
+    extracao: {
+      lista: (items) => items.length ? ` (${items.slice(0, 5).join(', ')}${items.length > 5 ? ` and ${items.length - 5} more` : ''})` : '',
+      incremental: (base, changed, added, removed) =>
+        `  extraction   incremental from index ${base}: ${changed} changed, ${added} added, ${removed} removed`,
+      tsInteiro: (reason) => `full TypeScript program (${erroDoGrafoEmIngles(reason ?? '')})`,
+      tsParcial: (reextracted, list, program, reused) =>
+        `partial TypeScript program, ${reextracted} re-extracted${list} in a program of ${program}, ${reused} reused from the base`,
+      tsBase: (reused) => `TypeScript entirely from the base (${reused})`,
+      markdown: (reextracted, list, reused) =>
+        `               Markdown: ${reextracted} re-extracted${list}, ${reused} reused from the base`,
+      completa: (reason) => `  extraction   full${reason ? `: ${erroDoGrafoEmIngles(reason)}` : ''}`,
+    },
   },
   status: {
     titulo: (head, tree) => `graph: HEAD ${head}, tree ${tree}`, indice: (key, state) => `  HEAD index     ${key} ${state}`,

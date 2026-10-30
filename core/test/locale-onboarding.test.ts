@@ -96,13 +96,16 @@ test('locale en F2a onboarding: a pauta pt-BR, a frase dos segredos e o dado gra
   } finally { pt.limpar(); en.limpar(); }
 });
 
-test('locale en F2a onboarding: onboarding sync e experiencia uninstall seguem em pt-BR com LANG=en_US', () => {
+test('locale en F2a onboarding: rotas fora da lista seguem em pt-BR com LANG=en_US', () => {
   const c = cenario('onboarding-negativo');
   try {
-    for (const args of [['onboarding', 'sync'], ['experiencia', 'uninstall', 'claude-code', '--dry-run']]) {
+    // A F3e levou onboarding sync e experiencia uninstall ao catálogo; privado e Noctum seguem fora.
+    for (const args of [['privado'], ['noctum']]) {
       const pt = ork(c, PT, false, ...args), en = ork(c, EN, false, ...args);
       assert.equal(en.stdout, pt.stdout, args.join(' '));
       assert.equal(en.stderr, pt.stderr, args.join(' '));
+      assert.equal(en.status, pt.status, args.join(' '));
+      assert.notEqual(pt.status, 0, args.join(' '));
     }
   } finally { c.limpar(); }
 });

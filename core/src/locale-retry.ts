@@ -105,9 +105,17 @@ export const RETRY_PT_BR = {
       porque: 'o lease e de outra thread e vai ser liberado: a fila ja serializa, entao a acao e tentar de novo quando chegar a vez, nunca furar a fila',
       correcao: 'ork lease list mostra a fila; a vez chega sem ninguem forcar',
     },
+    'concurrency.lease-indeterminado': {
+      porque: 'o sandbox nao conseguiu provar se o dono do lease esta vivo ou morto: ausencia de PID visivel nao prova orfandade, e reexecutar poderia abrir duas operacoes pesadas',
+      correcao: 'espere com --esperar; se a observacao continuar inconclusiva, execute pela conducao o comando exato do pedido aberto',
+    },
     'conducao.em-andamento': {
       porque: 'outra conducao executa na mesma worktree agora: a vez chega quando ela terminar, e furar a fila e o incidente de 19/09/2026',
       correcao: 'ork conducao status <thread> mostra quem conduz; repita o pedido com --esperar <min> para seguir sozinho quando liberar',
+    },
+    'conducao.acao-necessaria': {
+      porque: 'a sessao parou de proposito porque a proxima operacao exige a autoridade da conducao; reexecutar a fase antes desse comando so repete a mesma parada',
+      correcao: 'execute o comando exato do pedido no canal da conducao; depois retome a mesma fase',
     },
     'hitl.formato': {
       porque: 'o pedido HITL saiu fora do formato obrigatorio: quem errou foi o emissor, e a correcao e reemitir com alternativas rotuladas, consequencia por alternativa e exatamente uma recomendada com o porque',
@@ -396,9 +404,17 @@ export const RETRY_EN: typeof RETRY_PT_BR = {
       porque: 'the lease belongs to another thread and will be released: the queue already serializes, so the action is to try again when the turn comes, never to jump the queue',
       correcao: '`ork lease list` shows the queue; the turn comes with nobody forcing it',
     },
+    'concurrency.lease-indeterminado': {
+      porque: 'the sandbox could not prove whether the lease owner is alive or dead: an invisible PID does not prove orphanhood, and rerunning could open two heavy operations',
+      correcao: 'wait with `--esperar`; if observation stays inconclusive, run the exact command from the open request through the conductor',
+    },
     'conducao.em-andamento': {
       porque: 'another conduction runs on the same worktree now: the turn comes when it finishes, and jumping the queue is the 2026-09-19 incident',
       correcao: '`ork conducao status <thread>` shows who conducts; repeat the request with `--esperar <min>` to go on by itself when it frees up',
+    },
+    'conducao.acao-necessaria': {
+      porque: 'the session stopped on purpose because the next operation needs conductor authority; rerunning the phase before that command only repeats the same stop',
+      correcao: 'run the exact request command in the conductor channel; then resume the same phase',
     },
     'hitl.formato': {
       porque: 'the HITL request came out of the required format: the issuer made the mistake, and the fix is to issue it again with labeled alternatives, a consequence per alternative and exactly one recommended, with the reason',

@@ -88,41 +88,37 @@ export function sondasDeAmbiente(raiz:string,umask:number|null=umaskDoProcesso()
  * com login conferido pelo proprio CLI. A sonda nao marca o store: quem marca e o despacho.
  */
 export function checkDeContas(raiz:string,runtime:string,auth:(p:PerfilDeDespacho)=>StatusDeAuth=authPadrao):Check {
+  const m=msg().preflight;
   let perfis;
   try {perfis=perfisDoRuntime(lerPerfisComContas(raiz),runtime).filter(p=>p.estado!=='desativado');}
-  catch(e) {return {nome:'contas',nivel:'fail',detalhe:`store de perfis invalido: ${(e as Error).message}`}}
-  if(!perfis.length) return {nome:'contas',nivel:'ok',detalhe:`${runtime} sem perfil configurado: despacho pelo ambiente do processo`};
+  catch(e) {return {nome:'contas',nivel:'fail',detalhe:m.storeInvalido((e as Error).message)}}
+  if(!perfis.length) return {nome:'contas',nivel:'ok',detalhe:m.semPerfil(runtime)};
   const estados=perfis.map(p=>{const a=auth(perfilDeDespacho(p));return {id:p.id,pronto:a.ok && perfilDisponivel(p),
-    texto:!a.ok?`${a.pago?'provider pago, nunca despacha':a.transitorio?'conferencia de login inconclusiva':'sem login'} (${a.detalhe})`:perfilDisponivel(p)?'pronto':`${p.estado}${p.esgotadoAte?` ate ${p.esgotadoAte}`:''}`};});
+    texto:!a.ok?`${a.pago?m.estadoConta.providerPago:a.transitorio?m.estadoConta.loginInconclusivo:m.estadoConta.semLogin} (${a.detalhe})`
+      :perfilDisponivel(p)?m.estadoConta.pronto:m.estadoConta.esgotadoAte(p.estado,p.esgotadoAte??'')};});
   const prontos=estados.filter(e=>e.pronto).length;
   return {nome:'contas',nivel:prontos===0?'fail':prontos<estados.length?'warn':'ok',
-    detalhe:`${runtime}: ${estados.map(e=>`${e.id} ${e.texto}`).join('; ')}`,
-    ...(prontos<estados.length?{correcao:'ork accounts check marca os perfis; ork accounts add refaz o login pelo proprio CLI'}:{})};
+    detalhe:m.contas(runtime,estados.map(e=>`${e.id} ${e.texto}`).join('; ')),
+    ...(prontos<estados.length?{correcao:m.contasCorrecao}:{})};
 }
-
-const limites=[
-  'Sonda contextual local: não inventaria sessões, não inicia modelo e não autoriza despacho.',
-  'Aceitação do modelo, instalação do adaptador/MCP, contexto da thread, gates e policies do pedido são revalidados no despacho; com perfis, o login de cada conta é conferido aqui e de novo no despacho.',
-  'Trio sem override; um override posterior exige resolver e verificar novamente o despacho.',
-  'VERIFY/SHIP MCP exigem executor Codex isolado próprio e transporte SHIP válido; a sonda de despacho não comprova entrega.',
-];
 export function preflight(raiz:string,modo:Modo,nomesHerdados=nomesDeProviderAtivos(),sensores:SensoresPreflight=sensoresPadrao) {
+  const t=msg().preflight;
   // I-43: a matriz tem os cinco (para LER thread antiga); quem entra aqui e ESCRITA.
   if(!(ORDEM_DOS_MODOS as readonly string[]).includes(modo))throw Error('preflight.mode.invalid');
   const checks:Check[]=[];
-  checks.push({nome:'node',nivel:Number(process.versions.node.split('.')[0])>=20?'ok':'fail',detalhe:'Node 20 ou superior necessário'});
+  checks.push({nome:'node',nivel:Number(process.versions.node.split('.')[0])>=20?'ok':'fail',detalhe:t.node});
   const git=!!noPath('git');
-  checks.push({nome:'git',nivel:git?'ok':'fail',detalhe:git?'Git disponível':'Git ausente'});
+  checks.push({nome:'git',nivel:git?'ok':'fail',detalhe:git?t.gitOk:t.gitAusente});
   const repo=git?exec('git',['rev-parse','--is-inside-work-tree'],raiz,10000):null;
-  checks.push({nome:'repositorio',nivel:repo?.ok && repo.stdout.trim()==='true'?'ok':'fail',detalhe:'Repositório Git local necessário'});
+  checks.push({nome:'repositorio',nivel:repo?.ok && repo.stdout.trim()==='true'?'ok':'fail',detalhe:t.repo});
   checks.push(...sondasDeAmbiente(raiz));
   const carregado=carregarManifesto(raiz);
   const blocos:Array<{numero:number;fases:string[];trio:{runtime:string;model:string;effort:string}|null;checks:Check[];pronto:boolean}>=[];
-  checks.push({nome:'manifesto',nivel:!carregado || carregado.erros.length?'fail':'ok',detalhe:!carregado?'Manifesto ausente':carregado.erros.length?'Manifesto inválido; corrija antes do despacho':'Manifesto válido'});
+  checks.push({nome:'manifesto',nivel:!carregado || carregado.erros.length?'fail':'ok',detalhe:!carregado?t.manifestoAusente:carregado.erros.length?t.manifestoInvalido:t.manifestoValido});
   if(carregado && !carregado.erros.length) {
     const m=carregado.manifesto;
-    checks.push({nome:'modo',nivel:m.conduction.allowed_modes.includes(modo)?'ok':'fail',detalhe:`Modo solicitado: ${modo}`});
-    checks.push({nome:'abbrev',nivel:validarAbbrev(m.project.abbrev).ok?'ok':'fail',detalhe:'Identidade curta do projeto validada'});
+    checks.push({nome:'modo',nivel:m.conduction.allowed_modes.includes(modo)?'ok':'fail',detalhe:t.modo(modo)});
+    checks.push({nome:'abbrev',nivel:validarAbbrev(m.project.abbrev).ok?'ok':'fail',detalhe:t.abbrev});
     const setup=lerSetup(carregado.raiz),observados=new Map<string,boolean>(),contas=new Map<string,Check>();
     let sandbox:boolean|undefined;
     for(const [i,bloco] of MODOS[modo].blocos.entries()) {
@@ -130,23 +126,24 @@ export function preflight(raiz:string,modo:Modo,nomesHerdados=nomesDeProviderAti
       try {
         trio=resolverDespacho(m,{},configDoBloco(setup,modo,bloco.fases[0]));
         resolverRuntime(trio.runtime);
-        locais.push({nome:'trio',nivel:'ok',detalhe:'Runtime/modelo/esforço resolvidos pelo mesmo contrato do despacho; aceitação nativa não comprovada'});
+        locais.push({nome:'trio',nivel:'ok',detalhe:t.trio});
         if(!observados.has(trio.runtime))observados.set(trio.runtime,sensores.runtime(trio.runtime));
         const presente=observados.get(trio.runtime)!;
-        locais.push({nome:'runtime',nivel:presente?'ok':'fail',detalhe:presente?`${trio.runtime} disponível`:`${trio.runtime} ausente`});
+        locais.push({nome:'runtime',nivel:presente?'ok':'fail',detalhe:presente?t.runtimeOk(trio.runtime):t.runtimeAusente(trio.runtime)});
         if(presente) {
           if(!contas.has(trio.runtime))contas.set(trio.runtime,checkDeContas(carregado.raiz,trio.runtime,sensores.auth??authPadrao));
           locais.push(contas.get(trio.runtime)!);
         }
         if(trio.runtime==='codex' && presente) {
           sandbox??=sensores.sandboxCodex();
-          locais.push({nome:'sandbox de despacho',nivel:sandbox?'ok':m.runtime.sandbox==='danger-full-access'?'warn':'fail',detalhe:sandbox?'Sonda Codex sem modelo executou':'Sonda Codex falhou; não altere o sandbox para contornar a falha'});
+          locais.push({nome:'sandbox de despacho',nivel:sandbox?'ok':m.runtime.sandbox==='danger-full-access'?'warn':'fail',detalhe:sandbox?t.sandboxOk:t.sandboxFalhou});
         }
         const ativos=nomesHerdados.filter(n=>(ENVS_DE_PROVIDER_PAGO as readonly string[]).includes(n));
         const relevantes=ativos.filter(n=>trio!.runtime==='claude-bg'?/^(ANTHROPIC_|CLAUDE_CODE_USE_)/.test(n):/^(OPENAI_|OPENROUTER_)/.test(n));
-        locais.push({nome:'provider',nivel:m.runtime.provider_policy==='subscription-only' && relevantes.length?'fail':ativos.length?'warn':'ok',detalhe:relevantes.length?`Nomes de provider incompatíveis com assinatura: ${relevantes.join(', ')}`:ativos.length?'Há nomes de provider alheios ao runtime; não usar credenciais pagas':'Nenhum nome de provider pago ativo'});
+        locais.push({nome:'provider',nivel:m.runtime.provider_policy==='subscription-only' && relevantes.length?'fail':ativos.length?'warn':'ok',
+          detalhe:relevantes.length?t.providerIncompativel(relevantes.join(', ')):ativos.length?t.providerAlheio:t.providerNenhum});
       } catch {
-        locais.push({nome:'trio',nivel:'fail',detalhe:'Setup/trio ou sonda inválidos; complete o modelo e confira o runtime no setup canônico'});
+        locais.push({nome:'trio',nivel:'fail',detalhe:t.trioInvalido});
       }
       blocos.push({numero:i+1,fases:[...bloco.fases],trio,checks:locais,pronto:locais.every(c=>c.nivel!=='fail')});
     }
@@ -155,15 +152,16 @@ export function preflight(raiz:string,modo:Modo,nomesHerdados=nomesDeProviderAti
   return {modo,scope:'dispatch-local' as const,checks,blocos,
     prontoPrimeiroBloco:basePronta && !!blocos[0]?.pronto,
     prontoTodosBlocos:basePronta && blocos.length>0 && blocos.every(b=>b.pronto),
-    entrega:{verificada:false as const,dependencias:['executor Codex isolado','transporte SHIP instalado','gates e HEADs correntes']},limites:[...limites]};
+    entrega:{verificada:false as const,dependencias:['executor Codex isolado','transporte SHIP instalado','gates e HEADs correntes']},limites:[...t.limites]};
 }
 export function textoPreflight(r:ReturnType<typeof preflight>):string {
   // I-35: o Check guarda o ISO (dado de maquina); quem imprime para o dono localiza.
   let localizou=false;
   const local=(t:string):string=>{const l=localizarTexto(t);if(l!==t)localizou=true;return l;};
-  const linhas=['ork doctor contextual: '+r.modo,...r.checks.map(c=>`${c.nivel}: ${c.nome}: ${local(c.detalhe)}`),
-    ...r.blocos.flatMap(b=>[`bloco ${b.numero} ${b.fases.join('→')}: ${b.trio?`${b.trio.runtime}/${b.trio.model}/${b.trio.effort}`:'trio pendente'}`,...b.checks.map(c=>`  ${c.nivel}: ${c.nome}: ${local(c.detalhe)}`)]),
-    `Primeiro bloco: ${r.prontoPrimeiroBloco?'sonda pronta':'bloqueado'}; todos os blocos: ${r.prontoTodosBlocos?'sonda pronta':'dependências pendentes'}`,...r.limites];
+  const m=msg().preflight,nome=(v:string)=>m.nomes[v]??v;
+  const linhas=[m.titulo(r.modo),...r.checks.map(c=>m.check(c.nivel,nome(c.nome),local(c.detalhe))),
+    ...r.blocos.flatMap(b=>[m.bloco(b.numero,b.fases.join('→'),b.trio?`${b.trio.runtime}/${b.trio.model}/${b.trio.effort}`:null),
+      ...b.checks.map(c=>m.checkDoBloco(c.nivel,nome(c.nome),local(c.detalhe)))]),m.resumo(r.prontoPrimeiroBloco,r.prontoTodosBlocos),...r.limites];
   // O fuso sai uma vez por mensagem, depois dos limites.
   if(localizou)linhas.push(legendaDoFuso());
   return linhas.join('\n');

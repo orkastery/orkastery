@@ -6,7 +6,7 @@ categoria: melhoria
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-27T00:52:46-03:00
+atualizado_em: 2026-10-29T14:27:00-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -22,13 +22,14 @@ evidencias:
   testes:
     f1: core/test/dado-privado.test.ts (DP1 a DP19) e core/test/dado-privado-cli.test.ts (DC1 a DC4)
     f2: core/test/dado-privado-verify.test.ts (DV1 a DV5 e DB1 a DB7)
+    f3_f4: core/test/rm062-f3-f4.test.ts
   deploy:
     release: v0.6.0 (F1 e F2), @orkastery/cli no npm
 sdlc:
-  thread: ork-rm062barreir
+  thread: ork-rm062f3ef4no
   modo: "#Auto"
-  fase: MASTER
-  status: fechada
+  fase: GOAL
+  status: aberta
 ---
 
 # RM-062 — Repositório público sem dado privado
@@ -100,7 +101,7 @@ Os aceites acima são o que cada fatia terá de provar; não são provas já exe
 - **Medição da árvore:** na base carimbada (`79d3ebf9`), a varredura achou três dados reais e o resto era exemplo inventado. Os reais foram corrigidos nesta branch: a conta pessoal do dono em quatro fixtures gravadas da API do GitHub virou uma conta inventada, um teste da rede que usava o nome do dono como nome de máquina passou a usar `maquina-a`, e a regex de uma claim antiga do bundle da RM-049 deixou de procurar o caminho de home do dono pelo nome (a barreira faz essa conferência para todo arquivo). Os exemplos (usuários de home dos testes e da documentação, e-mails de domínio de teste do repositório, nomes de máquina inventados) entraram nas exceções. Depois disso, a árvore da branch tem zero achado.
 - **O que continua no histórico:** os commits anteriores a esta thread ainda trazem os três dados corrigidos agora; o histórico não é reescrito, e reescrevê-lo é decisão do dono, caso a caso (D1).
 - **Conteúdo binário:** a árvore e o diff tratam os bytes como `UTF-8`; byte nulo e `-diff` não pulam o arquivo, e texto literal continua detectável.
-- **Limites:** conteúdo comprimido ou codificado em `UTF-16`, `base64` ou outro formato não é decodificado; mensagem de commit não é varrida; o F2 lê o diff líquido contra a base, então um commit intermediário que acrescente e depois retire o dado escapa da barreira e permanece no histórico da branch, que fica para a revisão; o hostname da máquina que roda a varredura não entra sozinho como termo (vai para a lista local por decisão do dono); a barreira no CI dos sites, a F3 e a F4 ficam para as próximas fatias.
+- **Limites:** conteúdo comprimido ou codificado em `UTF-16`, `base64` ou outro formato não é decodificado; mensagem de commit não é varrida; o F2 lê o diff líquido contra a base, então um commit intermediário que acrescente e depois retire o dado escapa da barreira e permanece no histórico da branch, que fica para a revisão; o hostname da máquina que roda a varredura não entra sozinho como termo (vai para a lista local por decisão do dono); a barreira no CI dos sites fica para outra fatia.
 
 ## Plano e decisões
 
@@ -134,7 +135,8 @@ Os aceites acima são o que cada fatia terá de provar; não são provas já exe
 
 ## Estado com evidências
 
-- Em produção na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026): a F1 e a F2, com o `ork privado varrer`, a policy `dado_privado` no `ork verify` e no `ork ci prepare` e o passo do CI do núcleo; a F3, a F4 e a barreira no CI dos sites seguem.
+- Em produção na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026): a F1 e a F2, com o `ork privado varrer`, a policy `dado_privado` no `ork verify` e no `ork ci prepare` e o passo do CI do núcleo.
+- Na branch `ork/ork-rm062f3ef4no-full`, em validação nesta thread: a F3 faz o retrato de rede repetir somente o alias genérico em `maquina`, no campo legado `hostname` e no filename, recusando gravar sem mapa local; a F4 acrescenta ao guia de PR o modelo testado com corrigido agora, permanência no histórico e decisão do dono. A barreira no CI dos sites segue fora desta thread.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -142,13 +144,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-27 | Julio |
-| Documentação | Em revisão | — | 2026-10-27 | Julio |
-| Código | Mesclado | commit `f5c8db2` | 2026-10-27 | Julio |
-| Testes | Em execução | f1: core/test/dado-privado.test.ts (DP1 a DP19) e core/test/dado-privado-cli.test.ts (DC1 a DC4) · f2: core/test/dado-privado-verify.test.ts (DV1 a DV5 e DB1 a DB7) | 2026-10-27 | Julio |
-| Deploy | Produção | release: v0.6.0 (F1 e F2), @orkastery/cli no npm | 2026-10-27 | Julio |
-| Exposição | Parcial | — | 2026-10-27 | Julio |
-| Habilitação | Em andamento | — | 2026-10-27 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-29 | Julio |
+| Documentação | Em revisão | — | 2026-10-29 | Julio |
+| Código | Mesclado | commit `f5c8db2` | 2026-10-29 | Julio |
+| Testes | Em execução | f1: core/test/dado-privado.test.ts (DP1 a DP19) e core/test/dado-privado-cli.test.ts (DC1 a DC4) · f2: core/test/dado-privado-verify.test.ts (DV1 a DV5 e DB1 a DB7) · f3_f4: core/test/rm062-f3-f4.test.ts | 2026-10-29 | Julio |
+| Deploy | Produção | release: v0.6.0 (F1 e F2), @orkastery/cli no npm | 2026-10-29 | Julio |
+| Exposição | Parcial | — | 2026-10-29 | Julio |
+| Habilitação | Em andamento | — | 2026-10-29 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -156,10 +158,11 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: fábrica Orkastery nas fatias; A: Julio; C: —; I: quem contribui com o repositório.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** agente Claude Code redigiu esta página e fez a correção dos nomes em #Fast, restrito à documentação e aos nomes de arquivo. Revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** a barreira no CI dos sites, a F3 e a F4 (a F1 e a F2 saíram na versão 0.6.0); responsável: fábrica; sem data definida nesta página.
+- **Próxima ação, responsável e prazo:** validar e entregar a F3/F4 desta thread; depois, a barreira no CI dos sites continua como fatia separada; responsável: fábrica; sem data definida nesta página.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-12 | Item criado em Desenvolvimento, com F1 a F4; arquivo de evidência da RM-040 renomeado para nome genérico | Decisão do dono de 12/10/2026 (item 5.a); o nome antigo continua nos commits anteriores | Julio |
 | 2026-10-20 | F1 (CI do núcleo) e F2 (`ork verify` e `ork ci prepare`) levadas à branch `ork-rm062barreir` para revisão; policy `dado_privado` de `warn` a `block` com a árvore em zero achado; três dados reais corrigidos | Pedido do dono para a thread #Auto; decisões D3 a D12 no ledger da thread; testes DP, DV, DB e DC | Julio |
 | 2026-10-27 | F1 e F2 em produção na 0.6.0; exposição Parcial e habilitação Em andamento, porque a F3 e a F4 seguem | Tag `v0.6.0`, com o merge `f5c8db2` (PR #184) na tag; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |
+| 2026-10-29 | F3 e F4 implementadas na branch da thread: retrato com alias genérico por construção e modelo testado de relato honesto no PR; CI dos sites continua fora | `core/test/rm062-f3-f4.test.ts`; commits da thread `ork-rm062f3ef4no` | Codex, sessão condutora #Auto |

@@ -52,6 +52,7 @@ import { registrarConsultasExperiencia } from './mcp-experiencia';
 import { grafoLigado, registrarConsultasDoGrafo } from './mcp-grafo';
 import { registrarConsultasDoConhecimento } from './mcp-conhecimento';
 import { comLocale, ErroDoCatalogo, resolverLocale } from './locale';
+import { MOTIVOS_DE_PEDIDO_A_CONDUCAO, registrarPedidoAConducao } from './pedido-conducao';
 
 const identidade = z.string().min(1).max(80).regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/);
 const daThread = z.object({ threadId: identidade }).strict();
@@ -539,6 +540,13 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     });
   if(opcoes.threadId && opcoes.dispatchId) {
     const despacho=opcoes.dispatchId;
+    registrarTool('ork_request_conduction',{description:'Registra um pedido tipado desta sessao para a conducao, com comando ork exato. Nao executa o comando, nao aprova gate e nao responde pelo dono.',
+      inputSchema:daThread.extend({motivo:z.enum(MOTIVOS_DE_PEDIDO_A_CONDUCAO),detalhe:z.string().trim().min(1).max(2000),
+        comando:z.string().trim().min(1).max(1000)}).strict(),
+      annotations:{readOnlyHint:false,destructiveHint:false}},async({threadId,motivo,detalhe,comando})=>{
+        thread(threadId);
+        return resposta(registrarPedidoAConducao(raiz,threadId,{despacho,motivo,detalhe,comando,host:opcoes.host}));
+      });
     registrarTool('ork_session_inbox',{description:'Lado receptor do Mensageiro de Sessoes na sessao de fase deste despacho: confere e reserva uma vez a resposta do dono que chegou de outra sessao (conferir, com o prazo ate) e, depois de ela entrar na fila, grava o recibo (confirmar). A sessao sai do despacho deste servidor, nunca de argumento. Nao responde nem aprova pedido.',
       inputSchema:daThread.extend({operacao:z.enum(['conferir','confirmar']),texto:z.string().max(LIMITE_DA_MENSAGEM),
         envioId:z.string().uuid().optional(),ate:z.string().max(40).optional()}).strict(),

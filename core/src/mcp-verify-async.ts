@@ -29,7 +29,7 @@ const LIMITE_ESTADO = 16 * 1024 * 1024;
 
 export interface FalhaVerifyMcp {
   motivo: 'verify.processo-morto' | 'verify.worker-failed' | 'verify.lease-perdida' |
-    'fila-pesada.ocupada' | 'conducao.em-andamento';
+    'fila-pesada.ocupada' | 'concurrency.lease-indeterminado' | 'conducao.em-andamento';
   detalhe: string;
   recusa?: RecusaDaFilaPesada | RecusaDeConducao;
 }

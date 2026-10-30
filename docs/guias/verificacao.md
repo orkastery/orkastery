@@ -90,6 +90,24 @@ ork verify <thread> --so-claims    # so as claims
 O `verify` roda **na worktree da thread**, no commit real, e grava `verify_run` no ledger com o
 sha do commit, o diretório, e o resultado por claim.
 
+### Comparação teste a teste dentro do mesmo comando
+
+Quando o runner nomeia as falhas, a baseline guarda `testeQueCaiu` por comando e, no Agile, também por lane. O verify faz a comparação teste a teste
+esses nomes por igualdade exata: nome que aparece apenas na rodada atual é regressão e bloqueia
+com `verify.regression`; nome presente nos dois lados continua como dívida pré-existente; nome que
+existia só na baseline fica registrado como corrigido. Assim, se `test` já falhava em `A` e passa a
+falhar em `A` e `B`, `B` não se esconde dentro do vermelho anterior.
+
+Teste renomeado é deliberadamente conservador: o nome antigo sai como corrigido e o novo como
+regressão. Não há heurística de semelhança, porque o TAP fornece nomes, não uma identidade estável.
+Um teste instável que aparece com o mesmo nome nos dois lados continua pré-existente. A evidência
+nominal é limitada aos até dez nomes que o parser já registra por comando.
+
+Em baseline antiga ou comando sem TAP, quando falta nome em qualquer lado que falhou, vale a
+**comparação somente por comando**, compatível com a regra anterior. A saída diz essa granularidade
+e não afirma “0 regressões” por teste: sem os nomes, essa contagem não foi calculada. Baseline verde
+prova um conjunto vazio de falhas; se a rodada atual trouxer nomes, todos eles são regressões.
+
 ### Estouro de prazo não é reprovação
 
 Um comando que não termina no prazo não provou nada, nem a favor nem contra. Ele sai com o
@@ -178,7 +196,7 @@ que falha:
 | --- | --- |
 | `causa` | `exit`, `timeout`, `nao-encontrado` ou `sinal` |
 | `prazoMs`, `duracaoMs` | O prazo aplicado e o tempo que o comando levou |
-| `testeQueCaiu` | Até 10 testes que o runner reportou como reprovados (`not ok` do TAP e a seção "failing tests" do reporter `spec` do `node --test`, `FAIL` de jest e vitest) |
+| `testeQueCaiu` | Até 10 testes que o runner reportou como reprovados (`not ok` do TAP e a seção "failing tests" do reporter `spec` do `node --test`, `FAIL` de jest e vitest); no Agile, cada item de `lanes` preserva os nomes da própria lane |
 | `stealPct`, `relogioSobSteal` | O steal da CPU na janela do comando e, quando a reprovação foi só de relógio sob steal acima de 40%, os testes (RM-037) |
 | `trecho` | O fim da saída real, até 1024 caracteres, redigido |
 
@@ -354,8 +372,10 @@ não compila sem política).
 | `runtime.profile-invalid` | escalar-humano | **não** | O perfil pedido (`--perfil`) não existe ou é de outro runtime (RM-056): repetir dá a mesma recusa, e trocar de perfil sozinho desobedeceria o pedido |
 | `tree.blocked` | sincronizar-worktree | sim | A árvore andou por baixo da thread: reexecutar antes de rebasar só repete o conflito |
 | `lease.busy` | reexecutar | sim | O lease e de outra thread e vai ser liberado. A fila já serializa: nunca furar a fila |
+| `concurrency.lease-indeterminado` | esperar-janela | **não** | A trava ou a batida mostram ocupação, mas este host ou espaço de PIDs não consegue provar a vida do dono. “Não sei” nunca significa órfão: espere com `--esperar` ou devolva o comando exato à condução |
 | `lease.resume-unavailable` | escalar-humano | **não** | Retomada sem caminho seguro, como hard link ou link simbólico: avaliar a posse antes de `ork lease release <nome> --forcar`. Ausência de `flock` usa retomada portátil; `nlink === 0` é `lease.busy`. Fila de retomada expirada (30 minutos): candidatos e temporários recolhidos; consultar `ork lease list` e repetir a aquisição, sem apagar o lease |
 | `conducao.em-andamento` | esperar a vez | sim | Outra condução executa na mesma worktree agora (I-36). A vez chega quando ela terminar; repetir já recebe a mesma recusa, e furar a fila é o incidente de 19/09/2026 |
+| `conducao.acao-necessaria` | esperar-janela | **não** | A sessão parou de propósito porque a ação exige o host da condução. O pedido carrega um comando `ork` exato; enquanto ele estiver aberto, retry observa e relata sem reexecutar a fase |
 | `runtime.unavailable` | reexecutar | sim | Falha de infra não é falha de conteúdo: o MESMO prompt, com o mesmo sha256, e redespachado |
 | `runtime.silencio` | reexecutar | sim, com prova terminal | Fase sem heartbeat: só redespacha com prova terminal atual da mesma sessão |
 | `runtime.rate-limited` | esperar-janela | sim | Rate limit comum, com hora de volta: a fase entra na fila durável e volta na janela seguinte, sem trocar de perfil (D16) |
@@ -831,9 +851,19 @@ duas, não uma alegação falsa. Desde a I-36, nada executa na worktree de uma t
   thread (RM-037). Dentro de uma sessão Claude, o CLI só aceita a identidade que o ledger da
   thread liga ao `CLAUDE_CODE_SESSION_ID` dela; par herdado de outra sessão é recusado.
 
-O prazo do lease vem do teto real da operação e é renovado enquanto ela roda, mas não é prova:
-dono processo prova vida pela trava do kernel (`flock`), e sessão, pelo resultado da fase no
-ledger ou pelo próprio runtime. O detalhe está em [Modos](modos.md#um-maestro-vários-canais-i-36).
+O prazo do lease vem do teto real da operação e é renovado enquanto ela roda. Para processo, a
+prova combina a trava do kernel (`flock`), batida em arquivo com prazo, identidade opaca do host e
+do espaço de PIDs e o instante de início em `/proc/<pid>/stat`; para sessão, vale o resultado da
+fase no ledger ou o próprio runtime. A trava livre prova que não há dono; uma batida válida prova
+vida mesmo quando o sandbox não enxerga o PID. Se a observação não consegue decidir, o estado é
+`concurrency.lease-indeterminado`: nunca se apaga nem se toma o lease por inferência.
+
+Uma sessão `worktree` que precisa de algo fora de sua autoridade usa `ork_request_conduction` no
+MCP vinculado ao despacho. A ferramenta aceita só motivos enumerados e um comando `ork` de uma
+linha, registra o pedido sem executá-lo e sem responder pelo dono. O watcher conserva esse motivo
+e o comando no `phase_result`; o retry espera, e o pulse/relatório da manhã mostra a ação em
+“Conosco”. Pedido de outro despacho não vale. O detalhe da exclusão está em
+[Modos](modos.md#um-maestro-vários-canais-i-36).
 
 ### Do modelo declarado
 

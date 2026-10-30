@@ -38,7 +38,8 @@ const grokDe = (raiz: string) => path.join(raiz, '.grok', 'config.toml');
 const entradaDe = (texto: string) => (parse(texto) as { mcp_servers: Record<string, Record<string, unknown>> }).mcp_servers.orkastery;
 const semPrefixo = (nomes: readonly string[]) => nomes.map((n) => n.replace(/^mcp__orkastery__/, ''));
 const CONSULTAS = ['ork_thread_status', 'ork_phase_list', 'ork_hitl_pending', 'ork_observe', 'ork_artifact_read', 'ork_claims_list', 'ork_verify_status'];
-const MUTACOES = ['ork_artifact_write', 'ork_claim_add', 'ork_decision_record', 'ork_git_commit', 'ork_verify', 'ork_ship'];
+const MUTACOES = ['ork_artifact_write', 'ork_claim_add', 'ork_decision_record', 'ork_request_conduction',
+  'ork_git_commit', 'ork_verify', 'ork_ship'];
 
 /** Um cliente MCP em memoria ligado ao servidor, fechado no fim. */
 async function comCliente<T>(server: Server, corpo: (c: Client) => Promise<T>): Promise<T> {
@@ -144,13 +145,15 @@ test('GM4: o servidor --host grok so existe com a thread, lista so as ferramenta
   try {
     assert.throws(() => criarServidorMcp({ projeto: p.dir, host: 'grok' }), /mcp\.host\.child-only/);
     const t = novaThread(p.carregado, { nome: 'gm4', modo: 'auto', criarWorktree: true }).thread;
-    const interativo = await comCliente(criarServidorMcp({ projeto: p.dir, host: 'grok', threadId: t.id }),
+    const dispatchId = novaIdentidadeDeDespacho(t.id, 'GO').dispatchId;
+    const interativo = await comCliente(criarServidorMcp({ projeto: p.dir, host: 'grok', threadId: t.id, dispatchId }),
       async (c) => (await c.listTools()).tools.map((x) => x.name).sort());
     assert.deepEqual(interativo, [...CONSULTAS, 'ork_artifact_write', 'ork_decision_record'].sort(),
       'interactive: as consultas e o que o PLAN grava; nada do dono, do brain, do maestro ou da caixa');
-    await comCliente(criarServidorMcp({ projeto: p.dir, host: 'grok', threadId: t.id, permissoesFilho: 'worktree' }), async (c) => {
+    await comCliente(criarServidorMcp({ projeto: p.dir, host: 'grok', threadId: t.id, dispatchId,
+      permissoesFilho: 'worktree' }), async (c) => {
       const nomes = (await c.listTools()).tools.map((x) => x.name).sort();
-      assert.deepEqual(nomes, [...CONSULTAS, 'ork_git_status', ...MUTACOES].sort(), 'worktree: mais o ork_git_status e as seis mutacoes');
+      assert.deepEqual(nomes, [...CONSULTAS, 'ork_git_status', ...MUTACOES].sort(), 'worktree: mais o ork_git_status e as sete mutacoes');
       const r = await c.callTool({ name: 'ork_decision_record', arguments: { threadId: t.id,
         decidido: 'Fixture SIMULADA de decisao pelo servidor do grok', porque: 'Conferir o canal do host',
         comoMudar: 'Nao se aplica', custoAgora: 'Nenhum', custoDepois: 'Nenhum',
@@ -171,7 +174,7 @@ test('GM5: as listas do grok saem das constantes do claude-bg, sem o prefixo, no
     assert.deepEqual(ferramentasDoGrok(perfil, true, false), [...semPrefixo(CONSULTAS_MCP), 'ork_artifact_write', 'ork_decision_record']);
   assert.deepEqual(ferramentasDoGrok('interactive', false, true), [...semPrefixo(CONSULTAS_MCP), ...TOOLS_DO_GRAFO]);
   assert.deepEqual(semPrefixo(CONSULTAS_MCP), CONSULTAS, 'as consultas incluem o status assíncrono do verify');
-  assert.deepEqual(semPrefixo(MUTACOES_WORKTREE), MUTACOES, 'as mutacoes sao as seis de sempre');
+  assert.deepEqual(semPrefixo(MUTACOES_WORKTREE), MUTACOES, 'as mutacoes sao as sete exatas');
   assert.deepEqual(ferramentasServidasAoGrok('interactive', false).sort(), [...CONSULTAS, 'ork_artifact_write', 'ork_decision_record'].sort());
   assert.deepEqual(ferramentasServidasAoGrok('worktree', true).sort(), [...CONSULTAS, ...TOOLS_DO_GRAFO, 'ork_git_status', ...MUTACOES].sort());
 });

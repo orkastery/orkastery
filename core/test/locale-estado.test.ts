@@ -2,7 +2,7 @@
  * RM-061, fatia F3b (item 10): os erros de estado em ingles. O diretorio de estado como link (`dirEstado`, de
  * `manifest.ts`) e as recusas da pasta privada da confirmacao local (`postura-local.ts`) nascem do catalogo, com o
  * motivo tipado do comeco igual nas duas linguas; os de `estado-thread.ts` e `procedencia.ts` tem o teste da worktree.
- * Negativo: num comando fora da lista (`ork master audit`; a F3d levou `lease` a lista), o mesmo erro segue em pt-BR.
+ * Negativo: num comando fora da lista (`ork noctum tique`), a recusa de estado segue em pt-BR.
  * Os nomes comecam por "locale en F3b estado:".
  */
 
@@ -69,11 +69,14 @@ test('locale en F3b estado: as recusas da pasta privada nascem do catalogo, com 
 
 test('locale en F3b estado (negativo): num comando fora da lista, o erro de estado segue em pt-BR com LANG ingles', () => {
   const c = cenario('estado-f3b-fora');
-  const fora = estadoComoLink(c);
   try {
-    // A F3d levou `lease` a lista (decisao registrada no GO-FIX 1); `master audit` segue fora e le o estado.
-    const r = ork(c, EN, false, 'master', 'audit');
-    assert.equal(r.status, 1);
-    assert.equal(r.stderr, LINK_PT);
-  } finally { c.limpar(); fs.rmSync(fora, { recursive: true, force: true }); }
+    // A F3e levou `master audit` ao catalogo; `noctum tique` segue fora e le o estado do arco.
+    const pt = ork(c, PT, false, 'noctum', 'tique', 'arco-inexistente');
+    const en = ork(c, EN, false, 'noctum', 'tique', 'arco-inexistente');
+    assert.equal(pt.status, 2);
+    assert.equal(en.status, 2);
+    assert.equal(en.stdout, pt.stdout);
+    assert.equal(en.stderr, pt.stderr);
+    assert.match(pt.stderr, /^noctum\.modo\.sem-envelope: o arco arco-inexistente nunca foi autorizado pelo dono:/);
+  } finally { c.limpar(); }
 });

@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import re
 import stat
+import tempfile
 import time
 
 
@@ -11,8 +12,10 @@ def receipt_file(filename):
     try:
         path = Path(filename)
         root = path.parent
+        temp_root = Path(tempfile.gettempdir()).resolve()
         if (not path.is_absolute() or not re.fullmatch(r'receipt(?:-[a-f0-9]+)?\.json', path.name)
-                or not re.fullmatch(r'/tmp/ork-prospective-fixture-[a-zA-Z0-9-]+', str(root))
+                or root.parent != temp_root
+                or not re.fullmatch(r'ork-prospective-fixture-[a-zA-Z0-9-]+', root.name)
                 or root.resolve() != root or root.is_symlink()):
             raise ValueError()
         st = root.stat()

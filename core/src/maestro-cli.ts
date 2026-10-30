@@ -5,6 +5,7 @@ import { collectMaestroSources, digest } from './maestro-sources';
 import { ActionHost, proposeMaestroActions } from './maestro-actions';
 import { nativeForThread } from './maestro-runtime';
 import { formatarDataHoraRotulada } from './horario';
+import { MAESTRO_PT_BR, TextosDoMaestro } from './locale-maestro';
 
 export function readMaestro(context: MaestroContext, options: Pick<SnapshotOptions,'offsets'|'threadId'> & {host:ActionHost; native?:boolean}): MaestroSnapshot {
   const observations=options.native&&options.threadId?nativeForThread(context.root,options.threadId):[];
@@ -26,30 +27,25 @@ export function readMaestro(context: MaestroContext, options: Pick<SnapshotOptio
     sources.fingerprint=digest([sources.fingerprint,sources.sections]);return sources;
   }});
 }
-/** RM-052: de onde veio o projeto do panorama, na lingua do dono. */
-const ORIGEM_DO_PANORAMA: Readonly<Record<MaestroSnapshot['project']['origin'], string>> = Object.freeze({
-  installation: 'fixado na instalação', cwd: 'pelo diretório atual', worktree: 'pela worktree da thread',
-  selection: 'pedido explicitamente (--projeto ou ORK_PROJETO)',
-});
-export function maestroText(snapshot:MaestroSnapshot):string {
+export function maestroText(snapshot:MaestroSnapshot, textos:TextosDoMaestro=MAESTRO_PT_BR):string {
   const p=snapshot.project;
-  return [`${p.name} · panorama Maestro`,
+  return [textos.titulo(p.name),
     // I-35: o snapshot guarda ISO; o texto ao dono diz quando consultou, no fuso dele.
-    `• Consulta: ${formatarDataHoraRotulada(snapshot.observedAt, { agora: snapshot.observedAt })}`,
+    textos.consulta(formatarDataHoraRotulada(snapshot.observedAt, { agora: snapshot.observedAt })),
     // RM-052: qual cópia foi lida e o que o panorama não lê, antes de qualquer seção.
-    `• Projeto consultado: ${p.name}${p.root?` · ${p.root}`:''}${p.remote===undefined?'':` · ${p.remote??'sem remoto'}`} · ${ORIGEM_DO_PANORAMA[p.origin]}`,
-    ...(snapshot.notConsulted?.length?[`• Não lido: ${snapshot.notConsulted.join(' · ')}`]:[]),
+    textos.projeto(p.name,p.root??'',p.remote===null?textos.semRemoto:p.remote,textos.origem[p.origin]),
+    ...(snapshot.notConsulted?.length?[textos.naoLido(snapshot.notConsulted.join(' · '))]:[]),
     ...SECTION_NAMES.map(name=>{
-      const s=snapshot.sections[name];return `• ${name}: ${s.state} · ${s.coverage.returned}/${s.coverage.total??'?'}${s.coverage.omitted?' · mais itens disponíveis':''}`;
+      const s=snapshot.sections[name];return textos.secao(name,s.state,s.coverage.returned,s.coverage.total,!!s.coverage.omitted);
     }),
-    ...snapshot.sections.threads.items.slice(0,8).map(t=>`  ${t.title}: ${t.facts.phase} · ${t.status}`),
-    `• Recomendo: ${snapshot.conflicts.length?'reler as fontes em conflito':snapshot.gaps.length?'conferir as lacunas antes de agir':'escolher uma thread para ver o detalhe'}.`,
-    'Use ork maestro --json para cobertura e ações; --thread ID consulta o detalhe nativo.',
+    ...snapshot.sections.threads.items.slice(0,8).map(t=>textos.thread(t.title,String(t.facts.phase),t.status)),
+    textos.recomendacao(snapshot.conflicts.length,snapshot.gaps.length),textos.final,
   ].join('\n');
 }
-export function runMaestroCli(argv:string[], cwd=process.cwd(), trusted:Omit<DiscoveryOptions,'cwd'>={}, io={out:(v:string)=>console.log(v),err:(v:string)=>console.error(v)}):number {
+export function runMaestroCli(argv:string[], cwd=process.cwd(), trusted:Omit<DiscoveryOptions,'cwd'>={},
+  io={out:(v:string)=>console.log(v),err:(v:string)=>console.error(v)}, textos:TextosDoMaestro=MAESTRO_PT_BR):number {
   if(argv.length===1&&argv[0]==='--help') {
-    io.out('ork maestro [--json] [--thread ID] [--section NOME --offset N]\nConsulta sem criar ou despachar trabalho. Na conversa, diga: orkastery maestro.');return 0;
+    io.out(textos.help);return 0;
   }
   try {
     let json=false,threadId:string|undefined,section:SectionName|undefined,offset:number|undefined;
@@ -66,7 +62,7 @@ export function runMaestroCli(argv:string[], cwd=process.cwd(), trusted:Omit<Dis
     const context=discoverMaestro({cwd,...trusted});
     const snapshot=readMaestro(context,{threadId,offsets:section?{[section]:offset!}:undefined,native:true,
       host:{tools:['ork_thread_status','ork_observe','ork_git_status'],child:false}});
-    io.out(json?JSON.stringify(snapshot):maestroText(snapshot));return 0;
+    io.out(json?JSON.stringify(snapshot):maestroText(snapshot,textos));return 0;
   } catch(e) {
     const message=(e as Error).message;const code=/^maestro\.[a-z_.]+$/.test(message)?message:'maestro.source.unavailable';
     io.err(JSON.stringify({error:code}));return code==='maestro.arguments.invalid'?2:1;

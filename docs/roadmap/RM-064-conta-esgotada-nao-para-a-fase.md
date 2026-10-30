@@ -184,6 +184,27 @@ node core/dist-test/test/rm064-fatia3.test.js
 Os testes usam somente projeto, controller, rollout e contas simulados. Não despacham runtime real nem alteram perfis
 da máquina. T6 e a implantação continuam fora desta fatia.
 
+### Continuação: fila pesada entre host e sandbox
+
+O incidente de 29/10/2026 mostrou que a vida do dono da fila pesada não pode depender só de
+`kill(pid, 0)`: o `ork verify` estava vivo no host, mas o sandbox via outro espaço de PIDs e chamou
+o lease de órfão. A continuação `ork-asessaonosan` combina quatro sinais:
+
+- a trava do kernel continua a autoridade quando observável;
+- uma batida em arquivo, renovada pelo próprio dono e com prazo, prova vida dos dois lados;
+- identidade opaca do host e do espaço de PIDs impede comparar PIDs de domínios diferentes;
+- quando o domínio coincide, `/proc/<pid>/stat` confere também o instante de início, evitando PID reutilizado.
+
+O resultado é triádico: vivo, morto ou desconhecido. Só prova positiva de morte permite recuperar;
+desconhecido vira `concurrency.lease-indeterminado`, espera com `--esperar` ou pedido tipado à
+condução. A mesma continuação acrescenta `ork_request_conduction` ao perfil filho `worktree`, sem
+ampliar o sandbox: a sessão registra um comando `ork` exato, o watcher não o rebaixa a
+`runtime.unavailable`, o retry não redespacha e o relatório o mostra em “Conosco”.
+
+Provas focadas cobrem lease vivo visto de outro espaço de PIDs, lease realmente órfão, estado
+desconhecido, parada intencional, correlação do pedido, retry em espera e o relatório. A mudança
+está em “Não publicado”; as fatias 1 a 3 seguem sendo as únicas marcadas como produção abaixo.
+
 ### CHECK continua dentro da sessão — thread `ork-verifyassinc`
 
 A continuação #Auto não depende mais de manter `ork_verify` aberto durante a suíte. O prompt v5
@@ -226,3 +247,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-13 | Item criado com as frentes T1 a T7 | Incidente de 13/10/2026 (I1 a I8): a conta A esgotou às 02h03 com a conta B e o Codex disponíveis, e a fábrica ficou parada até 15h00 | Julio |
 | 2026-10-19 | Estado do código corrigido de `Branch criada` para `Mesclado`, com a evidência do último merge | As fatias 1, 2 e 3 estão na `main`: `9975486e` (#173, 14/10), `8d37c75f` (#176, 19/10) e `fe590b66` (#178, 19/10). Testes seguem em execução e o ciclo não muda: a T6 e a implantação continuam abertas | Julio |
 | 2026-10-27 | Fatias 1, 2 e 3 em produção na 0.6.0; exposição Parcial e habilitação Em andamento, porque a T6 segue | Tag `v0.6.0`, com os merges `9975486e` (#173), `8d37c75f` (#176) e `fe590b66` (#178) na tag; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |
+| 2026-10-29 | Continuação para a fila pesada observada de outro espaço de PIDs e para pedidos tipados à condução | Incidente da thread `ork-rm061f3erota` e testes focados da thread `ork-asessaonosan`; mudança ainda em “Não publicado” | Agente condutor em #Auto |
