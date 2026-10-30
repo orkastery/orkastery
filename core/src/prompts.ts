@@ -306,7 +306,7 @@ export function lintTemplate(
  */
 export const TEMPLATE_FASE_PADRAO = `---
 id: fase-padrao
-versao: 4
+versao: 5
 descricao: Prompt canonico de uma fase do ciclo GOAL..MASTER, com nomenclatura, modo de conducao, contexto da thread, memoria injetada e regras de evidencia.
 fases: [GOAL, PLAN, GO, CHECK, SHIP, MASTER]
 variaveis: [fase, thread, bloco, nome, ciclo_canonico, tag, blocos, pausas, linha_variante, regra_de_pausa, invariantes, slug, projeto_nome, projeto_abbrev, base_branch, base_commit, diretorio, trabalho, pedido, fecho_go, memoria_injetada, regras_de_evidencia]
@@ -321,6 +321,7 @@ Quando disponiveis, use ork_artifact_read/write para objetivo, plano e parecer, 
 Decisao que voce tomar sem perguntar ao dono vai ao ledger por \`ork decisao registrar <thread>\` (no MCP, \`ork_decision_record\`, pois o sandbox do codex nao grava o ledger), com o que foi decidido, o porque, como mudar, o custo de reverter agora e depois, o criterio escrito, quem decidiu e a evidencia; e assim que ela chega ao dono no resumo, em vez de sumir na conversa.
 Artefato de autoria do agente nao e recibo oficial; cadastrar claim nao significa verifica-la.
 Para registrar produto, prefira ork_git_commit com HEAD atual e paths com claims; use ork_verify para verificacao real e ork_ship com HEADs fonte/destino conferidos para entrega. Commit local nao e SHIP; retorno incomplete exige reconciliar estado e remoto antes de repetir. Permissao para consultar nao concede essas operacoes: respeite a autorizacao nativa e os gates.
+Quando o MCP expuser \`ork_verify_status\`, chame \`ork_verify\` uma vez, guarde o \`rodadaId\` e consulte a mesma rodada a cada 30–60 s. Enquanto ela estiver na fila ou rodando, retenha apenas estado e lane atuais no contexto; nao repita o pedido nem copie payloads intermediarios. So avance com o veredito terminal verde; falha tipada ou veredito vermelho bloqueia o ciclo.
 Decisao do dono deve ser apresentada pela sessao condutora ao host; a sessao filha nao responde nem assume a identidade do dono.
 Preserve o perfil filho configurado: \`interactive\` concede consultas; \`worktree\` exige opt-in da instalacao e autoriza ferramentas exatas na WT validada, sem aprovar gates ou assumir o dono. Nao mude configuracao para contornar bloqueio.
 Consulte \`ork_git_status\` para HEADs reais e estado Git; use \`ork_git_commit\`, \`ork_verify\` e \`ork_ship\` pelos contratos do nucleo, sem Bash Git nem inventar SHAs. Use \`source.head\` como \`expectedHead\` do commit; consulte novamente apos commit e use \`source.head\`/\`destination.head\` como \`expectedSource\`/\`expectedDestination\` do SHIP. Base historica nao substitui a consulta atual. As regras Edit/deny sao permissoes nativas de ferramentas, nao sandbox de processos.
@@ -366,7 +367,7 @@ Falha de autenticação permanece impedimento; não troque provider, sandbox ou 
 /** English counterpart of the canonical phase prompt. The pt-BR template above remains the source contract. */
 export const TEMPLATE_FASE_PADRAO_EN = `---
 id: fase-padrao.en
-versao: 4
+versao: 5
 descricao: Canonical prompt for a GOAL..MASTER cycle phase, with naming, conduction mode, thread context, injected memory, and evidence rules.
 fases: [GOAL, PLAN, GO, CHECK, SHIP, MASTER]
 variaveis: [fase, thread, bloco, nome, ciclo_canonico, tag, blocos, pausas, linha_variante, regra_de_pausa, invariantes, slug, projeto_nome, projeto_abbrev, base_branch, base_commit, diretorio, trabalho, pedido, fecho_go, memoria_injetada, regras_de_evidencia]
@@ -381,6 +382,7 @@ When available, use ork_artifact_read/write for the goal, plan, and review, and 
 Record every decision you make without asking the owner in the ledger with \`ork decisao registrar <thread>\` (or \`ork_decision_record\` in MCP because the Codex sandbox cannot write the ledger), including what was decided, why, how to change it, reversal cost now and later, the written criterion, who decided, and the evidence. This is how it reaches the owner in the summary instead of disappearing in the conversation.
 An agent-authored artifact is not an official receipt; registering a claim does not verify it.
 To record product changes, prefer ork_git_commit with the current HEAD and paths with claims; use ork_verify for real verification and ork_ship with checked source/destination HEADs for delivery. A local commit is not SHIP; an incomplete result requires reconciling state and remote before retrying. Permission to query does not grant those operations: respect native authorization and gates.
+When MCP exposes \`ork_verify_status\`, call \`ork_verify\` once, keep its \`rodadaId\`, and query that same round every 30–60 seconds. While queued or running, retain only the current state and lane in context; do not repeat the request or copy intermediate payloads. Continue only after a terminal green verdict; a typed failure or red verdict blocks the cycle.
 The conducting session presents an owner decision to the host; a child session neither answers nor assumes the owner's identity.
 Preserve the configured child profile: \`interactive\` grants queries; \`worktree\` requires installation opt-in and authorizes exact tools in the validated worktree, without approving gates or assuming the owner. Do not change configuration to bypass a block.
 Query \`ork_git_status\` for real HEADs and Git state; use \`ork_git_commit\`, \`ork_verify\`, and \`ork_ship\` through the core contracts, without Bash Git or invented SHAs. Use \`source.head\` as the commit \`expectedHead\`; query again after the commit and use \`source.head\`/\`destination.head\` as SHIP \`expectedSource\`/\`expectedDestination\`. A historical base does not replace the current query. Edit/deny rules are native tool permissions, not process sandbox rules.

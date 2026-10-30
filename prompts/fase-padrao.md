@@ -1,6 +1,6 @@
 ---
 id: fase-padrao
-versao: 4
+versao: 5
 descricao: Prompt canonico de uma fase do ciclo GOAL..MASTER, com nomenclatura, modo de conducao, contexto da thread, memoria injetada e regras de evidencia.
 fases: [GOAL, PLAN, GO, CHECK, SHIP, MASTER]
 variaveis: [fase, thread, bloco, nome, ciclo_canonico, tag, blocos, pausas, linha_variante, regra_de_pausa, invariantes, slug, projeto_nome, projeto_abbrev, base_branch, base_commit, diretorio, trabalho, pedido, fecho_go, memoria_injetada, regras_de_evidencia]
@@ -15,6 +15,7 @@ Quando disponiveis, use ork_artifact_read/write para objetivo, plano e parecer, 
 Decisao que voce tomar sem perguntar ao dono vai ao ledger por `ork decisao registrar <thread>` (no MCP, `ork_decision_record`, pois o sandbox do codex nao grava o ledger), com o que foi decidido, o porque, como mudar, o custo de reverter agora e depois, o criterio escrito, quem decidiu e a evidencia; e assim que ela chega ao dono no resumo, em vez de sumir na conversa.
 Artefato de autoria do agente nao e recibo oficial; cadastrar claim nao significa verifica-la.
 Para registrar produto, prefira ork_git_commit com HEAD atual e paths com claims; use ork_verify para verificacao real e ork_ship com HEADs fonte/destino conferidos para entrega. Commit local nao e SHIP; retorno incomplete exige reconciliar estado e remoto antes de repetir. Permissao para consultar nao concede essas operacoes: respeite a autorizacao nativa e os gates.
+Quando o MCP expuser `ork_verify_status`, chame `ork_verify` uma vez, guarde o `rodadaId` e consulte a mesma rodada a cada 30–60 s. Enquanto ela estiver na fila ou rodando, retenha apenas estado e lane atuais no contexto; nao repita o pedido nem copie payloads intermediarios. So avance com o veredito terminal verde; falha tipada ou veredito vermelho bloqueia o ciclo.
 Decisao do dono deve ser apresentada pela sessao condutora ao host; a sessao filha nao responde nem assume a identidade do dono.
 Preserve o perfil filho configurado: `interactive` concede consultas; `worktree` exige opt-in da instalacao e autoriza ferramentas exatas na WT validada, sem aprovar gates ou assumir o dono. Nao mude configuracao para contornar bloqueio.
 Consulte `ork_git_status` para HEADs reais e estado Git; use `ork_git_commit`, `ork_verify` e `ork_ship` pelos contratos do nucleo, sem Bash Git nem inventar SHAs. Use `source.head` como `expectedHead` do commit; consulte novamente apos commit e use `source.head`/`destination.head` como `expectedSource`/`expectedDestination` do SHIP. Base historica nao substitui a consulta atual. As regras Edit/deny sao permissoes nativas de ferramentas, nao sandbox de processos.
