@@ -3257,7 +3257,10 @@ function comandoDocs(args: Args): number {
   if (sub === 'verificar') {
     // RM-037 (fatia 3, GO-FIX 2): o CI passa --pr no pull_request; no push da main as duas regras novas reprovam.
     // RM-061 (F3b, G4): verifica no escopo pt-BR, como o `--json` leva os achados; o texto os remonta no locale do comando.
-    const { docs, achados } = comLocale('pt-BR', () => verificarDocs(raiz, { baseBranch, ajudaDoCli: AJUDA, pr: args.opcoes.pr === true }));
+    const threadDaWorktree = escopoPadraoDoSync(raiz).thread;
+    const baseCarimbada = threadDaWorktree ? lerThread(raiz, threadDaWorktree).base?.commit : undefined;
+    const { docs, achados } = comLocale('pt-BR', () => verificarDocs(raiz,
+      { baseBranch, baseCarimbada, ajudaDoCli: AJUDA, pr: args.opcoes.pr === true }));
     if (args.opcoes.json === true) {
       console.log(JSON.stringify({ paginas: docs.length, erros: achados.filter((a) => a.gravidade === 'erro').length,
         achados }, null, 2));

@@ -112,8 +112,15 @@ function tagPublicada(raiz: string, versao: string): boolean {
   return git(raiz, ['rev-parse', '--verify', '--quiet', `refs/tags/v${versao}^{commit}`]).ok;
 }
 
-/** Confere o diff de `base` (pelo merge-base) ate `head`. */
-export function checarChangelog(raiz: string, opcoes: { base?: string; head?: string } = {}): ResultadoDoChangelog {
+/**
+ * Confere o diff da thread ate `head`.
+ *
+ * A referencia local da branch alvo pode estar atrasada em relacao ao commit que abriu a
+ * worktree. Quando a base carimbada tambem e ancestral do HEAD e vem depois da merge-base,
+ * ela delimita o que a thread de fato acrescentou. Se a branch alvo avancou para alem dela,
+ * a merge-base mais nova continua vencendo.
+ */
+export function checarChangelog(raiz: string, opcoes: { base?: string; head?: string; baseCarimbada?: string | null } = {}): ResultadoDoChangelog {
   const head = opcoes.head ?? 'HEAD', base = opcoes.base;
   const indisponivel = (detalhe: string): ResultadoDoChangelog => ({ ok: false, motivo: 'changelog.base-indisponivel', detalhe,
     correcao: 'rode com o histórico completo do git (fetch-depth: 0 no CI) ou passe --base <ref>', arquivos: [], linhas: [] });
@@ -121,8 +128,15 @@ export function checarChangelog(raiz: string, opcoes: { base?: string; head?: st
   if (!git(raiz, ['rev-parse', '--verify', '--quiet', `${base}^{commit}`]).ok) return indisponivel(`a base ${base} não existe neste repositório`);
   if (!git(raiz, ['rev-parse', '--verify', '--quiet', `${head}^{commit}`]).ok) return indisponivel(`o head ${head} não existe neste repositório`);
   const mb = git(raiz, ['merge-base', base, head]);
-  const ancestral = mb.saida.trim();
+  let ancestral = mb.saida.trim();
   if (!mb.ok || !ancestral) return indisponivel(`${base} e ${head} não têm ancestral comum`);
+  const carimbada = opcoes.baseCarimbada?.trim();
+  if (carimbada
+    && git(raiz, ['rev-parse', '--verify', '--quiet', `${carimbada}^{commit}`]).ok
+    && git(raiz, ['merge-base', '--is-ancestor', carimbada, head]).ok
+    && git(raiz, ['merge-base', '--is-ancestor', ancestral, carimbada]).ok) {
+    ancestral = carimbada;
+  }
 
   const mudados = git(raiz, ['diff', '--name-only', '--no-renames', '-z', ancestral, head]);
   const arquivos = (mudados.ok ? mudados.saida.split('\0') : []).filter(Boolean);

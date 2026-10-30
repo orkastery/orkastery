@@ -180,6 +180,8 @@ export function carregarDocs(raiz: string): { docs: Documento[]; achados: Achado
 export interface OpcoesDeVerificacao {
   /** Branch base do produto (manifesto `worktree.base_branch`). */
   baseBranch?: string;
+  /** Commit que abriu a thread, para nao atribuir a ela conteudo anterior quando a branch local esta atrasada. */
+  baseCarimbada?: string | null;
   /** Linhas de ajuda do CLI do produto; quando dadas, `fontes.comandos` com `ork` e conferido. */
   ajudaDoCli?: string;
   /** Desliga as checagens que chamam git (teste de unidade sem repositorio). */
@@ -279,7 +281,7 @@ export function verificarDocs(raiz: string, opcoes: OpcoesDeVerificacao = {}): {
       (m) => m.baseAusente(opcoes.baseBranch ?? 'main'), (m) => m.baseAusenteCorrecao));
   }
   if (opcoes.pr && base) {
-    const changelog = checarChangelog(raiz, { base, head: 'HEAD' });
+    const changelog = checarChangelog(raiz, { base, head: 'HEAD', baseCarimbada: opcoes.baseCarimbada });
     if (!changelog.ok) {
       achados.push(erro(CHANGELOG, undefined, changelog.motivo ?? 'changelog.invalido',
         () => changelog.detalhe, () => changelog.correcao ?? 'corrija o CHANGELOG e repita a verificação'));

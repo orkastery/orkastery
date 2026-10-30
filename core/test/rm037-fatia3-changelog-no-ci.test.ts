@@ -17,7 +17,7 @@ import { verificar } from '../src/verify';
 const raizDoRepo = path.resolve(__dirname, '../../..');
 const SCRIPT = path.join(raizDoRepo, 'core/scripts/checar-changelog.cjs');
 const { checarChangelog } = require(SCRIPT) as {
-  checarChangelog: (raiz: string, opcoes: { base?: string; head?: string }) =>
+  checarChangelog: (raiz: string, opcoes: { base?: string; head?: string; baseCarimbada?: string }) =>
     { ok: boolean; motivo: string | null; detalhe: string; correcao?: string; arquivos: string[]; linhas: string[] };
 };
 
@@ -139,6 +139,25 @@ test('seção publicada e grupo: tag bloqueia edição histórica, Corrigido pas
       '## Não publicado\n\n- **Sem grupo**: esta linha não tem título de terceiro nível.\n\n'));
     assert.equal(checar(semGrupo.dir).motivo, 'changelog.grupo-ausente');
   } finally { semGrupo.limpar(); }
+});
+
+test('base carimbada posterior à branch alvo não atribui à thread uma seção publicada anterior', () => {
+  const r = repositorio('rm037-changelog-base-carimbada');
+  try {
+    r.mudar('CHANGELOG.md', CHANGELOG_DA_BASE.replace('## [0.5.0] - 2026-09-30',
+      '## [0.5.1] - 2026-10-01'));
+    const carimbada = git(r.dir, 'rev-parse', 'HEAD');
+    git(r.dir, 'tag', 'v0.5.1', carimbada);
+    r.mudar('core/src/modulo.ts', 'export const x = 23;\n');
+    r.mudar('CHANGELOG.md', fs.readFileSync(path.join(r.dir, 'CHANGELOG.md'), 'utf8').replace(
+      '- **Coisa antiga** já registrada.',
+      '- **Coisa antiga** já registrada.\n\n### Corrigido\n\n- **Conserto da thread**: posterior à base carimbada.'));
+
+    assert.equal(checarChangelog(r.dir, { base: 'main', head: 'HEAD' }).motivo, 'changelog.secao-publicada');
+    const v = checarChangelog(r.dir, { base: 'main', head: 'HEAD', baseCarimbada: carimbada });
+    assert.equal(v.ok, true, v.detalhe);
+    assert.deepEqual(v.linhas, ['- **Conserto da thread**: posterior à base carimbada.']);
+  } finally { r.limpar(); }
 });
 
 test('verify e docs compartilham a recusa tipada de linha em seção publicada', () => {

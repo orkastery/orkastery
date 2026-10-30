@@ -300,10 +300,10 @@ export function comandosDoManifesto(manifesto: Manifesto): { nome: string; coman
 }
 
 /** A regra estrutural do CHANGELOG entra no mesmo veredito e na mesma baseline dos comandos do manifesto. */
-function verificarChangelog(cwd: string, base: string): ResultadoDeComando {
+function verificarChangelog(cwd: string, base: string, baseCarimbada?: string | null): ResultadoDeComando {
   const inicio = Date.now();
   const comando = `node core/scripts/checar-changelog.cjs --base "${base}"`;
-  const r = checarChangelog(cwd, { base, head: 'HEAD' });
+  const r = checarChangelog(cwd, { base, head: 'HEAD', baseCarimbada });
   return {
     nome: 'changelog', comando, ok: r.ok, code: r.ok ? 0 : r.motivo === 'changelog.base-indisponivel' ? 2 : 1,
     resumo: r.ok ? r.detalhe : `${r.motivo}: ${r.detalhe}\ncorrecao: ${r.correcao ?? 'corrija o CHANGELOG'}`,
@@ -615,7 +615,8 @@ function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: stri
       return r.comandos;
     })()
     : comandosDoManifesto(manifesto).map((c) => executorDosComandos(c.nome, c.comando, cwd));
-  const comandos = [...comandosDoManifestoExecutados, verificarChangelog(cwd, manifesto.worktree.base_branch)];
+  const comandos = [...comandosDoManifestoExecutados,
+    verificarChangelog(cwd, manifesto.worktree.base_branch, thread.base?.commit)];
   if (relatorio) {
     if (base) pecasDaBaseline.push(PECA_SEM_RELATORIO);
     pecasDaBaseline.push(...pecasDoRelatorio(relatorio.ler()));
@@ -900,7 +901,8 @@ function verificarSobConducao(
         vigente.guarda, vigente.preparo)).comandos
       : comandosDoManifesto(manifesto).map((c) => executor(c.nome, c.comando, cwd));
   const comandos = opcoes.soClaims ? []
-    : [...comandosDoManifestoExecutados, verificarChangelog(cwd, manifesto.worktree.base_branch)];
+    : [...comandosDoManifestoExecutados,
+      verificarChangelog(cwd, manifesto.worktree.base_branch, thread.base?.commit)];
   if (doAgile) pecas.push(...doAgile.pecas);
   const resumoDoAgile = vigente ? agileNoLedger(raiz, threadId, commit, pecas, doAgile, vigente.guarda, relatorio!, claims) : null;
 
