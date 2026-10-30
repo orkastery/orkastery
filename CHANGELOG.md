@@ -6,6 +6,14 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Corrigido
+
+- **Claims executáveis no CI e CHANGELOG na seção certa** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  `ork claims add` e o MCP recusam antes da gravação comandos com `rg`, `ork` fora do PATH, estado em `.orkastery/`
+  ou aspas `\x22`/`\x27` literais, indicando `grep` e `node core/dist/index.js`; `ork ci prepare` mantém apenas aviso
+  para claims antigas. O verify, `ork docs verificar --pr` e o CI também recusam linha nova em versão já tagueada e
+  exigem que a entrada de "Não publicado" fique sob Adicionado, Alterado, Corrigido ou Segurança.
+
 ## [0.6.1] - 2026-10-29
 
 O Grok Build entra por despacho explícito (`--runtime grok`), com perfis de conta, setup e MCP, ainda sem homologação real: o ensaio real (F5) falta.

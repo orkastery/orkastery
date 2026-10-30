@@ -55,12 +55,12 @@ fontes:
 - **Fluxo principal:**
 
   1. `ork claims add <thread> <arquivo> --claim "<alegação>" --verificar "<comando>"`.
-  2. `ork verify <thread>` roda cada comando no HEAD real, mais o verify do manifesto.
+  2. `ork verify <thread>` roda cada comando no HEAD real, mais o verify do manifesto e a regra estrutural do CHANGELOG.
   3. Regressão contra a baseline reprova o gate.
 
-- **Alternativas, erros e recuperação:** comando que estoura o prazo é encerrado com a árvore inteira de processos e sai como `verify.timeout`, sem reprovar a alegação; alegação negativa ("não existe X") também é conferida.
+- **Alternativas, erros e recuperação:** comando que estoura o prazo é encerrado com a árvore inteira de processos e sai como `verify.timeout`, sem reprovar a alegação; alegação negativa ("não existe X") também é conferida. Claim nova que use `rg`, chame `ork` diretamente, leia `.orkastery/` ou leve `\x22`/`\x27` literalmente é recusada antes de ser gravada; use `grep`, `node core/dist/index.js`, arquivos versionados e aspas reais do shell.
 - **Pós-condições:** evento `verify_run` com o resultado de cada claim e `gate_blocked` quando reprova.
-- **Regras de negócio:** BR-004-01: claim pendente, reprovada ou retirada não conta. BR-004-02: o verificador nunca afrouxa asserção para passar. BR-004-03: estouro de prazo não é reprovação; o retry reexecuta. BR-004-04: o comando de verificação nunca herda variável `ORK_HITL_*`. BR-004-05: o comando de claim passa pelo lint; a suíte inteira do npm é recusada no `ci prepare` para a claim nascida sob a regra, e o resto só avisa. BR-004-06: só conta o comando que rodou (`executado`); com `verify.preparo`, o produto é conferido do preparo ao fim da rodada, e mudança no meio invalida o veredito (`verify.sem-veredito`).
+- **Regras de negócio:** BR-004-01: claim pendente, reprovada ou retirada não conta. BR-004-02: o verificador nunca afrouxa asserção para passar. BR-004-03: estouro de prazo não é reprovação; o retry reexecuta. BR-004-04: o comando de verificação nunca herda variável `ORK_HITL_*`. BR-004-05: o comando de claim passa pelo lint; a suíte inteira do npm é recusada no `ci prepare`, e `rg`, `ork` direto, `.orkastery/` e aspas escapadas literalmente são recusados já no `claims add` para claim nova. Claim sem o campo `lint`, anterior à regra, só avisa no bundle. BR-004-06: só conta o comando que rodou (`executado`); com `verify.preparo`, o produto é conferido do preparo ao fim da rodada, e mudança no meio invalida o veredito (`verify.sem-veredito`). BR-004-07: linha nova do CHANGELOG não entra em seção com tag `v<versão>` e, em `## Não publicado`, fica sob `### Adicionado`, `### Alterado`, `### Corrigido` ou `### Segurança`; verify, docs no PR e CI compartilham a regra.
 - **Critérios de aceite e testes:** Dado um comando que passa do teto, quando o verify encerra, então nenhum descendente segue vivo (`core/test/verify-arvore.test.ts`). Dado um comando que estoura o prazo do manifesto, quando o verify roda, então o motivo é `verify.timeout` e o ledger grava causa, prazo e duração (`core/test/verify-timeout.test.ts`).
 - **Interface e acessibilidade:** Não aplicável — CLI.
 
@@ -86,3 +86,4 @@ fontes:
 | 2026-09-27 | compilação única por preparo, identidade do produto e `executado` no contrato | Claude (agente) / Julio, revisão pendente | RM-037 |
 | 2026-10-01 | fatia 3 da RM-037: o verify e o commit pelo MCP não travam em lease de thread fechada nem em hard link de objeto do `.git`, e o CI cobra a linha do CHANGELOG e o estado do item depois do merge | Claude (agente) / Julio, revisão pendente | RM-037 |
 | 2026-10-03 | fatia 6 da RM-037: steal do `/proc/stat` no `verify_run`, teste com relógio sob steal acima de 40% como `verify.timeout` e o registro `ork.instabilidade/v1` | Claude (agente) / Julio, revisão pendente | RM-037 |
+| 2026-10-29 | claims novas executáveis no CI e CHANGELOG validado por seção, tag e grupo nos três verificadores | Codex (agente) / revisão pendente | RM-037, thread `ork-claimsechang` |
