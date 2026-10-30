@@ -10,6 +10,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
 import { dirTemporario } from './apoio';
+import { repositorioSecurityScan, totalDeModelosSecurityScan, type RepoSecurityScan } from './security-scan-repo-fixture';
 import { installFakeTools, type FakeTools } from './security-scan-docker-falso';
 import { estourouNoAgile, motivoSemCredencial, resultadoDoTrabalhador, runScanAgil } from '../src/security-scan/agil';
 import { runScan } from '../src/security-scan/run';
@@ -17,35 +18,7 @@ import { loadTools } from '../src/security-scan/tools';
 import { comCacheNoHost } from '../src/security-scan/trabalhador';
 import type { ScanReport } from '../src/security-scan/types';
 
-const FIXTURE_JS = path.resolve(__dirname, '..', '..', '..', 'eval', 'fixtures', 'security-scan', 'js');
 const CLI = path.resolve(__dirname, '..', '..', 'dist', 'index.js');
-
-const git = (cwd: string, ...args: string[]): string => {
-  const r = spawnSync('git', ['-c', 'user.email=t@example.invalid', '-c', 'user.name=t', '-c', 'commit.gpgsign=false', ...args],
-    { cwd, encoding: 'utf8' });
-  if (r.status !== 0) throw new Error(`git ${args.join(' ')}: ${r.stderr}`);
-  return r.stdout.trim();
-};
-
-interface Repo { dir: string; base: string; head: string; limpar: () => void }
-
-/** A main limpa e a feat com a fixture vulneravel (e o `.fake-case` que faz o falso Docker responder com as gravacoes). */
-function repositorio(nome: string): Repo {
-  const dir = dirTemporario(nome);
-  git(dir, 'init', '-q', '-b', 'main');
-  fs.writeFileSync(path.join(dir, 'package.json'), '{ "name": "clean-js", "version": "1.0.0", "private": true, "license": "MIT" }\n');
-  fs.writeFileSync(path.join(dir, 'package-lock.json'), '{ "name": "clean-js", "version": "1.0.0", "lockfileVersion": 3, ' +
-    '"requires": true, "packages": { "": { "name": "clean-js", "version": "1.0.0" } } }\n');
-  git(dir, 'add', '-A');
-  git(dir, 'commit', '-q', '-m', 'base');
-  const base = git(dir, 'rev-parse', 'HEAD');
-  git(dir, 'checkout', '-q', '-b', 'feat');
-  fs.cpSync(FIXTURE_JS, dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, '.fake-case'), 'js\n');
-  git(dir, 'add', '-A');
-  git(dir, 'commit', '-q', '-m', 'head');
-  return { dir, base, head: git(dir, 'rev-parse', 'HEAD'), limpar: () => fs.rmSync(dir, { recursive: true, force: true }) };
-}
 
 /** Os achados como conjunto comparavel: impressao digital, estado e ferramenta, em ordem. */
 const achados = (r: ScanReport): string[] => r.findings.map(f => `${f.tool}|${f.fingerprint}|${f.status}`).sort();
@@ -71,7 +44,7 @@ afterEach(() => {
   while (limpezas.length) limpezas.pop()!();
 });
 
-function repo(nome: string): Repo { const r = repositorio(nome); limpezas.push(r.limpar); return r; }
+function repo(nome: string): RepoSecurityScan { const r = repositorioSecurityScan(nome); limpezas.push(r.cleanup); return r; }
 
 function picoDeExecucoes(eventos: ReturnType<FakeTools['intervals']>): number {
   const ativas = new Set<string>();
@@ -312,4 +285,10 @@ test('SA12: o binario nativo do Agile usa o cache por usuario que o Docker monta
   const nativo = comCacheNoHost({ ...t, cacheMounts: [{ host, container: '/tmp/trivy-cache' }] });
   assert.ok(nativo.args.includes(host) && !nativo.args.includes('/tmp/trivy-cache'), nativo.args.join(' '));
   assert.equal(comCacheNoHost(t), t, 'sem montagem de cache, nada muda');
+});
+
+test('SA13: a fixture Git e criada uma vez no arquivo e copiada para os casos', () => {
+  repo('sa-fixture-a');
+  repo('sa-fixture-b');
+  assert.equal(totalDeModelosSecurityScan(), 1);
 });

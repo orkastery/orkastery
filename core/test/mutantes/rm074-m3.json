@@ -37,6 +37,15 @@
       "para": "['agile', 'classic']",
       "teste": "medir-check",
       "nome": "^(MC21|MC23):"
+    },
+    {
+      "id": "M5",
+      "descricao": "a fixture Git volta a ser criada para cada caso",
+      "arquivo": "core/dist-test/test/security-scan-repo-fixture.js",
+      "de": "if (modelo)\n        return modelo;",
+      "para": "if (false && modelo)\n        return modelo;",
+      "teste": "security-scan-agil",
+      "nome": "^SA13:"
     }
   ]
 }

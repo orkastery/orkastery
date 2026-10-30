@@ -4,6 +4,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
 import { dirTemporario } from './apoio';
+import { repositorioSecurityScan, totalDeModelosSecurityScan, type OpcoesRepoSecurityScan, type RepoSecurityScan } from './security-scan-repo-fixture';
 import { installFakeTools, type FakeTools } from './security-scan-docker-falso';
 import { argumentosDeCpuDoDocker, chooseExecutor, defaultProbe, type Probe } from '../src/security-scan/executor';
 import { runScan } from '../src/security-scan/run';
@@ -14,6 +15,11 @@ import { ENV_CPUS_DOCKER } from '../src/agendador-cpu';
 const FIXTURE_JS = path.resolve(__dirname, '..', '..', '..', 'eval', 'fixtures', 'security-scan', 'js');
 const JS_TOOLS = ['gitleaks', 'semgrep', 'trivy-vuln', 'npm-audit', 'trivy-config', 'zizmor', 'actionlint', 'eslint', 'trivy-license'];
 const FAKE_SECRET = /apiKey: '([^']+)'/.exec(fs.readFileSync(path.join(FIXTURE_JS, 'src', 'config.js'), 'utf8'))![1];
+const CLEAN_JS = {
+  'package.json': '{ "name": "clean-js", "version": "1.0.0", "private": true, "license": "MIT" }\n',
+  'package-lock.json': '{ "name": "clean-js", "version": "1.0.0", "lockfileVersion": 3, "requires": true, ' +
+    '"packages": { "": { "name": "clean-js", "version": "1.0.0" } } }\n',
+};
 
 const git = (cwd: string, ...args: string[]): string => {
   const r = spawnSync('git', ['-c', 'user.email=t@example.invalid', '-c', 'user.name=t', '-c', 'commit.gpgsign=false', ...args],
@@ -21,41 +27,6 @@ const git = (cwd: string, ...args: string[]): string => {
   if (r.status !== 0) throw new Error(`git ${args.join(' ')}: ${r.stderr}`);
   return r.stdout.trim();
 };
-
-const CLEAN_JS = {
-  'package.json': '{ "name": "clean-js", "version": "1.0.0", "private": true, "license": "MIT" }\n',
-  'package-lock.json': '{ "name": "clean-js", "version": "1.0.0", "lockfileVersion": 3, "requires": true, "packages": { "": { "name": "clean-js", "version": "1.0.0" } } }\n',
-};
-
-interface Repo { dir: string; base: string; head: string; cleanup: () => void }
-
-/**
- * A git repository whose `main` is a clean JS project and whose `feat` branch (checked out) replaces it with the
- * vulnerable JS fixture plus the `.fake-case` marker that makes the fake answer with the recorded `js` outputs.
- */
-function scanRepo(name: string, opts: { origin?: boolean; mainBranch?: string } = {}): Repo {
-  const dir = dirTemporario(name);
-  const extra: string[] = [];
-  git(dir, 'init', '-q', '-b', opts.mainBranch ?? 'main');
-  for (const [f, body] of Object.entries(CLEAN_JS)) fs.writeFileSync(path.join(dir, f), body);
-  git(dir, 'add', '-A');
-  git(dir, 'commit', '-q', '-m', 'base');
-  const base = git(dir, 'rev-parse', 'HEAD');
-  if (opts.origin) {
-    const remote = dirTemporario(`${name}-origin`);
-    extra.push(remote);
-    git(remote, 'init', '-q', '--bare', '-b', 'main');
-    git(dir, 'remote', 'add', 'origin', remote);
-    git(dir, 'push', '-q', 'origin', 'main');
-  }
-  git(dir, 'checkout', '-q', '-b', 'feat');
-  fs.cpSync(FIXTURE_JS, dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, '.fake-case'), 'js\n');
-  git(dir, 'add', '-A');
-  git(dir, 'commit', '-q', '-m', 'head');
-  const head = git(dir, 'rev-parse', 'HEAD');
-  return { dir, base, head, cleanup: () => { for (const d of [dir, ...extra]) fs.rmSync(d, { recursive: true, force: true }); } };
-}
 
 const tool = (r: ScanReport, name: string) => {
   const t = r.tools.find(x => x.name === name);
@@ -85,7 +56,9 @@ afterEach(() => {
   fs.rmSync(cache, { recursive: true, force: true });
   for (const k of ENV_KEYS) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; }
 });
-const repo = (name: string, opts?: Parameters<typeof scanRepo>[1]): Repo => { const r = scanRepo(name, opts); cleanups.push(r.cleanup); return r; };
+const repo = (name: string, opts?: OpcoesRepoSecurityScan): RepoSecurityScan => {
+  const r = repositorioSecurityScan(name, opts); cleanups.push(r.cleanup); return r;
+};
 
 test('chooseExecutor: Docker first, then the native binary with the accepted version, else unavailable with the reason', () => {
   const gitleaks = loadTools().find(t => t.name === 'gitleaks')!;
@@ -446,7 +419,7 @@ test('an image that cannot be pulled falls back to the native binary', () => {
 });
 
 /** A repository whose HEAD answers with the fake recordings of `kase` (the clean base answers `empty`). */
-function caseRepo(name: string, kase: string): Repo {
+function caseRepo(name: string, kase: string): RepoSecurityScan {
   const r = repo(name, { origin: true });
   fs.writeFileSync(path.join(r.dir, '.fake-case'), `${kase}\n`);
   git(r.dir, 'add', '-A');
@@ -533,7 +506,7 @@ test('a round killed by SIGTERM leaves no worktree, no raw output dir and no con
 });
 
 /** A repo with explicit base and HEAD file sets (paths relative to the root); `.fake-case` selects the recorded outputs. */
-function twoCommitRepo(name: string, baseFiles: Record<string, string>, headFiles: Record<string, string>, removed: string[] = []): Repo {
+function twoCommitRepo(name: string, baseFiles: Record<string, string>, headFiles: Record<string, string>, removed: string[] = []): RepoSecurityScan {
   const dir = dirTemporario(name);
   cleanups.push(() => fs.rmSync(dir, { recursive: true, force: true }));
   const put = (files: Record<string, string>) => {
@@ -594,4 +567,10 @@ test('a stack forced by config.stacks.add has no manifest and its base is still 
   assert.deepEqual(report.stacks, ['go']);
   assert.equal(tool(report, 'govulncheck').state, 'ran', tool(report, 'govulncheck').reason);
   assert.equal(runsWith(fake, 'govulncheck.json'), 2, 'HEAD and base');
+});
+
+test('the Git fixture is created once in this file and copied for each case', () => {
+  repo('secscan-fixture-a');
+  repo('secscan-fixture-b');
+  assert.equal(totalDeModelosSecurityScan(), 1);
 });
