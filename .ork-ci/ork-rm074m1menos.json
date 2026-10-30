@@ -388,6 +388,20 @@
       "criadoEm": "2026-10-30T07:19:57.743Z",
       "estado": "pendente",
       "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm074m1menos",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-rm074m1menos.json",
+      "alegacao": "O bundle de CI da thread foi gerado no HEAD final do GO e referencia a própria thread.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const x=JSON.parse(require('fs').readFileSync('.ork-ci/ork-rm074m1menos.json','utf8'));if(x.thread!=='ork-rm074m1menos')process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-30T07:44:33.823Z",
+      "estado": "pendente",
+      "lint": []
     }
   ],
   "deferredClaims": [
