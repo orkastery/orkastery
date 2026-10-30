@@ -68,8 +68,12 @@ test('CIP3: stdin e erro lancado preservam a moldura do executavel', () => {
     const env = ambiente(casa);
     const args = ['sessions', 'event', '--tipo', 'permission_request', '--sessao', 'synthetic'];
     const entrada = '{nao e json}\n';
+    // A mensagem do JSON.parse muda com a versão do V8 (o Node 22 acrescenta linha e coluna):
+    // o esperado sai do mesmo motor que roda o teste, como sairia do executável.
+    let mensagem = '';
+    try { JSON.parse(entrada.trim()); } catch (e) { mensagem = (e as Error).message; }
     assert.deepEqual(cliNoProcesso({ cwd: RAIZ, env, args, entrada }), { status: 1, stdout: '',
-      stderr: "evento recusado: Expected property name or '}' in JSON at position 1 (line 1 column 2)\n" });
+      stderr: `evento recusado: ${mensagem}\n` });
   } finally {
     fs.rmSync(casa, { recursive: true, force: true });
   }
