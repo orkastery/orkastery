@@ -60,14 +60,23 @@
       "criadoEm": "2026-10-30T07:01:14.966Z",
       "estado": "verificado",
       "lint": []
-    }
-  ],
-  "deferredClaims": [
+    },
     {
       "id": "C5",
-      "reason": "artifact-not-in-checkout"
+      "thread": "ork-listadecoman",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-listadecoman.json",
+      "alegacao": "O bundle de CI da thread usa o contrato v1 e inclui as claims de documentação, teste e CHANGELOG.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const j=require('./.ork-ci/ork-listadecoman.json'); const ids=new Set(j.claims.map(c=>c.id)); if(j.schema!=='ork.ci-bundle/v1'||j.thread!=='ork-listadecoman'||!['C1','C2','C3','C4'].every(id=>ids.has(id))) process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-30T07:16:20.899Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
+  "deferredClaims": [],
   "commands": [
     {
       "name": "ci",
