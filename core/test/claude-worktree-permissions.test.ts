@@ -14,7 +14,7 @@ import { lerArtefatoMcp, escreverArtefatoMcp } from '../src/mcp-artifacts';
 import { commitMcp } from '../src/mcp-git';
 import { exec } from '../src/util';
 
-const leituras = ['thread_status', 'phase_list', 'hitl_pending', 'observe', 'artifact_read', 'claims_list']
+const leituras = ['thread_status', 'phase_list', 'hitl_pending', 'observe', 'artifact_read', 'claims_list', 'verify_status']
   .map(nome => `mcp__orkastery__ork_${nome}`);
 const mutacoes = ['artifact_write', 'claim_add', 'decision_record', 'git_commit', 'verify', 'ship']
   .map(nome => `mcp__orkastery__ork_${nome}`);
@@ -34,7 +34,7 @@ function preparar(nome: string, perfil: 'interactive' | 'worktree', modo: 'auto'
 function lista(args: string[], flag: string): string[] {
   const i = args.indexOf(flag); return i < 0 ? [] : args[i + 1].split(',');
 }
-test('Claude interactive preserva seis consultas sem grants de arquivo ou denies novos', () => {
+test('Claude interactive preserva sete consultas sem grants de arquivo ou denies novos', () => {
   const f = preparar('claude-interactive', 'interactive');
   try {
     const args = montarComando({cwd:f.t.worktree!, nome:'consulta', prompt:'estado', contextoRuntime:f.contexto});
@@ -44,7 +44,7 @@ test('Claude interactive preserva seis consultas sem grants de arquivo ou denies
     assert.deepEqual(montarComando({cwd:f.p.dir,nome:'legado',prompt:'pedido'}), ['claude','--bg','pedido','--name','legado']);
   } finally { f.p.limpar(); }
 });
-test('Claude worktree concede sete consultas, cinco mutadores e Edit absoluto apenas na WT', () => {
+test('Claude worktree concede oito consultas, seis mutadores e Edit absoluto apenas na WT', () => {
   const f = preparar('claude-worktree', 'worktree');
   try {
     const args = montarComando({cwd:f.t.worktree!,nome:'bloco',prompt:'escopo autorizado',contextoRuntime:f.contexto});
