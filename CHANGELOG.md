@@ -6,6 +6,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Corrigido
+
+- **O teste das lanes não herda o plano de CPU da rodada:** `ORK_CHECK_CPUS_DA_LANE` e `ORK_CHECK_CPUS_DOCKER`
+  continuam limitando a própria lane, mas não chegam aos testes que ela executa. Sob saturação, os testes que conferem
+  a concorrência da lane e os argumentos do Docker viam a fatia da rodada e reprovavam sem defeito no código
+  ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)).
+
 ### Segurança
 
 - **Evidência de máquina e relato honesto de escape** ([RM-062](docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md), F3 e F4): o retrato da Orkastery Network exige um alias local e o repete em `maquina`, no campo legado `hostname` e no nome do arquivo, sem publicar o hostname real; o guia de pull request ganha um modelo testado que separa o que foi corrigido, o que continua nos commits anteriores e a decisão do dono sobre reescrever ou não.
