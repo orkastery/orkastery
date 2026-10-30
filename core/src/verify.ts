@@ -625,7 +625,9 @@ function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: stri
     commit: baseline.commit,
     cwd,
     comandos: comandos.map((c) => ({ nome: c.nome, comando: c.comando, ok: c.ok, code: c.code, prazoMs: c.prazoMs ?? null,
-      ...(c.duracaoMs !== undefined ? { duracaoMs: c.duracaoMs } : {}), ...(c.ok ? {} : { causa: c.causa ?? null }) })),
+      ...(c.duracaoMs !== undefined ? { duracaoMs: c.duracaoMs } : {}), ...(c.ok ? {} : { causa: c.causa ?? null }),
+      ...(c.testeQueCaiu?.length ? { testeQueCaiu: c.testeQueCaiu } : {}),
+      ...(c.lanes?.length ? { lanes: c.lanes.map((l) => ({ ...l, comando: redigirCredenciaisUrl(l.comando) })) } : {}) })),
     check: checkNoLedger(check),
     ...(pecasDaBaseline.length ? { agile: { pecas: pecasDaBaseline } } : {}),
     // RM-037 (defeito 1 de 19 e 20/10/2026): o que a baseline nao provou fica dito no proprio evento.
@@ -634,6 +636,56 @@ function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: stri
     origem,
   });
   return baseline;
+}
+
+export type GranularidadeDaComparacao = 'teste' | 'comando';
+
+/**
+ * RM-037 (29/10/2026): o diagnostico que impede uma falha nova de se esconder dentro de um
+ * comando que ja falhava. Os nomes sao os que o runner entregou, sem heuristica de renomeacao.
+ */
+export interface ComparacaoDoVerify {
+  comando: string;
+  granularidade: GranularidadeDaComparacao;
+  regressoes: string[];
+  preExistentes: string[];
+  corrigidos: string[];
+  /** No fallback, a classificacao legada do comando; nunca e apresentada como contagem de testes. */
+  classificacaoDoComando?: 'regressao' | 'pre-existente' | 'corrigido';
+  motivoDoFallback?: 'baseline-sem-nomes' | 'rodada-sem-nomes';
+}
+
+function nomesUnicos(nomes: string[] | undefined): string[] {
+  return [...new Set(nomes ?? [])];
+}
+
+/** Compara os conjuntos que o runner realmente nomeou; sucesso prova que o conjunto atual e vazio. */
+function compararComBaseline(atual: ResultadoDeComando, antes: ResultadoDeComando): ComparacaoDoVerify | null {
+  if (atual.ok && antes.ok) return null;
+  const nomesAntes = nomesUnicos(antes.testeQueCaiu);
+  const nomesAtuais = nomesUnicos(atual.testeQueCaiu);
+  const baselineNominal = antes.ok || nomesAntes.length > 0;
+  const rodadaNominal = atual.ok || nomesAtuais.length > 0;
+  if (baselineNominal && rodadaNominal) {
+    const antesSet = new Set(nomesAntes);
+    const atualSet = new Set(nomesAtuais);
+    return {
+      comando: atual.nome,
+      granularidade: 'teste',
+      regressoes: nomesAtuais.filter((nome) => !antesSet.has(nome)),
+      preExistentes: nomesAtuais.filter((nome) => antesSet.has(nome)),
+      corrigidos: nomesAntes.filter((nome) => !atualSet.has(nome)),
+    };
+  }
+  return {
+    comando: atual.nome,
+    granularidade: 'comando',
+    regressoes: [],
+    preExistentes: [],
+    corrigidos: [],
+    classificacaoDoComando: atual.ok ? 'corrigido' : antes.ok ? 'regressao' : 'pre-existente',
+    motivoDoFallback: baselineNominal ? 'rodada-sem-nomes' : 'baseline-sem-nomes',
+  };
 }
 
 export interface ResultadoVerify {
@@ -649,6 +701,8 @@ export interface ResultadoVerify {
   preExistentes: ResultadoDeComando[];
   /** Falhou sem baseline para comparar: declarado como tal, nao chamado de regressao. */
   falhasSemBaseline: ResultadoDeComando[];
+  /** Comparacao nominal quando ha nomes; fallback explicitamente marcado quando nao ha. */
+  comparacoes: ComparacaoDoVerify[];
   /** I-37 (D1): estourou o prazo sem terminar. Nem regressao nem falha: nao ha veredito. */
   estouros: ResultadoDeComando[];
   /** I-54 (D10): o preparo unico da rodada, quando o manifesto declara `verify.preparo`. */
@@ -896,19 +950,34 @@ function verificarSobConducao(
   const regressoes: ResultadoDeComando[] = [];
   const preExistentes: ResultadoDeComando[] = [];
   const falhasSemBaseline: ResultadoDeComando[] = [];
+  const comparacoes: ComparacaoDoVerify[] = [];
   const estouros: ResultadoDeComando[] = [];
   // RM-037 (defeito 1 de 19 e 20/10/2026): o comando sem veredito na baseline nao separa regressao de divida.
   const baselineSemVeredito = (baseline?.comandos ?? []).filter((c) => vereditoDaBaseline(c) === 'sem-veredito').map((c) => c.nome);
   for (const atual of comandos) {
-    if (atual.ok) continue;
-    if (semVereditoPorTempo(atual)) {
+    // I-54 (D11): comando que nao rodou nao tem resultado para comparar. O motivo tipado entra abaixo como
+    // `verify.sem-veredito`, sem tambem inventar regressao ou divida a partir da ausencia de nomes.
+    if (atual.executado === false) continue;
+    if (!atual.ok && semVereditoPorTempo(atual)) {
       estouros.push(atual);
       continue;
     }
     const antes = baseline?.comandos.find((c) => c.nome === atual.nome);
-    if (!antes || vereditoDaBaseline(antes) === 'sem-veredito') falhasSemBaseline.push(atual);
-    else if (antes.ok) regressoes.push(atual);
-    else preExistentes.push(atual);
+    if (!antes || vereditoDaBaseline(antes) === 'sem-veredito') {
+      if (!atual.ok) falhasSemBaseline.push(atual);
+      continue;
+    }
+    const comparacao = compararComBaseline(atual, antes);
+    if (!comparacao) continue;
+    comparacoes.push(comparacao);
+    if (comparacao.granularidade === 'teste') {
+      if (comparacao.regressoes.length > 0) regressoes.push(atual);
+      if (comparacao.preExistentes.length > 0) preExistentes.push(atual);
+    } else if (comparacao.classificacaoDoComando === 'regressao') {
+      regressoes.push(atual);
+    } else if (comparacao.classificacaoDoComando === 'pre-existente') {
+      preExistentes.push(atual);
+    }
   }
 
   // I-54 (D11): o produto mudou entre o preparo e o fim da rodada? Entao nenhum veredito vale.
@@ -964,6 +1033,7 @@ function verificarSobConducao(
     regressoes: regressoes.map((r) => r.nome),
     preExistentes: preExistentes.map((r) => r.nome),
     falhasSemBaseline: falhasSemBaseline.map((r) => r.nome),
+    comparacoes,
     ...(baselineSemVeredito.length > 0 ? { baselineSemVeredito } : {}),
     estouros: estouros.map((r) => r.nome),
     prazoMs: manifesto.verify.timeout_ms ?? TIMEOUT_VERIFY_MS,
@@ -1007,7 +1077,9 @@ function verificarSobConducao(
               .map((c) => `${c.claim.id}: ${c.detalhe}`)
               .join('; ')
           : motivo === 'verify.regression'
-            ? `regressao em: ${regressoes.map((r) => r.nome).join(', ')}`
+            ? `regressao em: ${comparacoes.flatMap((c) => c.granularidade === 'teste'
+              ? c.regressoes.map((teste) => `${c.comando}: ${teste}`)
+              : c.classificacaoDoComando === 'regressao' ? [c.comando] : []).join(', ')}`
             : motivo === 'verify.timeout'
               ? `sem veredito por tempo (prazo estourado, ou teste com relogio sob steal acima de ${LIMIAR_STEAL_PCT}%): ${[
                 ...estouros.map((r) => porQueDasLanes(r) ? `${r.nome} (${porQueDasLanes(r)})` : r.nome),
@@ -1052,6 +1124,7 @@ function verificarSobConducao(
     regressoes,
     preExistentes,
     falhasSemBaseline,
+    comparacoes,
     estouros,
     preparo: preparo ? { ...preparo, identidadeFinal: identidadeFinal!, produtoAlterado } : null,
     steal,
@@ -1150,11 +1223,18 @@ export function textoDoVerify(r: ResultadoVerify): string {
     linhas.push('');
     linhas.push(m.semVeredito(r.estouros.map((c) => c.nome).join(', ')));
   }
-  if (r.regressoes.length > 0 || r.preExistentes.length > 0 || r.falhasSemBaseline.length > 0) {
+  if (r.comparacoes.length > 0 || r.falhasSemBaseline.length > 0) {
     linhas.push('');
-    linhas.push(m.classificacao(r.regressoes.length, r.preExistentes.length, r.falhasSemBaseline.length));
-    for (const c of r.regressoes) linhas.push(m.regressao(c.nome, c.comando));
-    for (const c of r.preExistentes) linhas.push(m.preExistente(c.nome, c.comando));
+    for (const c of r.comparacoes) {
+      if (c.granularidade === 'teste') {
+        linhas.push(m.comparacaoPorTeste(c.comando, c.regressoes.length, c.preExistentes.length, c.corrigidos.length));
+        for (const teste of c.regressoes) linhas.push(m.testeRegressao(teste));
+        for (const teste of c.preExistentes) linhas.push(m.testePreExistente(teste));
+        for (const teste of c.corrigidos) linhas.push(m.testeCorrigido(teste));
+      } else {
+        linhas.push(m.comparacaoPorComando(c.comando, c.classificacaoDoComando!, c.motivoDoFallback!));
+      }
+    }
     // RM-037 (defeito 1 de 19 e 20/10/2026): a baseline existe, mas nao teve veredito deste comando.
     const semVeredito = new Set((r.baseline?.comandos ?? []).filter((c) => vereditoDaBaseline(c) === 'sem-veredito').map((c) => c.nome));
     for (const c of r.falhasSemBaseline) {

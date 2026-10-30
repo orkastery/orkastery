@@ -4,7 +4,8 @@
 
 - **Casa da rede:** repositório privado `<usuario>/orkastery-network` na forja, branch `main`, sempre por HTTPS com o helper da própria CLI (decisão no [ADR-001](../../conceitos/decisoes/ADR-001-estado-da-rede.md)). URL da casa sem https recusa com `rede.sem-https`, e o helper nunca é configurado para `http://`. A exceção é o caminho local absoluto (um espelho, ou o remoto bare dos testes), que não leva credencial.
 - **Quem lê este documento:** quem escreve um leitor da rede (a RM-054, os hosts) e quem alimenta os projetos conhecidos (a RM-052).
-- **Versões:** todos em `v1`. Campo novo e opcional não muda a versão; campo removido ou com sentido novo muda.
+- **Versões:** todos em `v1`. Campo novo e opcional não muda a versão; campo removido ou com sentido novo muda. A RM-062 F3
+  preserva o schema: o campo legado `hostname` passa a repetir o alias genérico que o exemplo já mostrava, nunca o hostname real.
 
 ## `ork.rede/v1` — a adesão desta máquina
 
@@ -24,7 +25,7 @@ Arquivo `~/.orkastery/rede.json`, gravado por `ork network entrar` e `ork networ
 
 - `membro: false` é a saída explícita, e vence a adesão herdada.
 - Sem o arquivo, a máquina é membro **herdado** quando `~/.orkastery/maquina.json` (`ork.maquina/v1`) tem `fabricaCompartilhada: true`: quem fez `ork fabrica entrar` entra na rede sem refazer.
-- O nome da máquina continua em `maquina.json`; a rede não guarda um segundo nome.
+- O alias genérico da máquina continua em `maquina.json`; a rede não guarda o hostname real nem um segundo nome.
 
 ## `ork.rede-maquina/v1` — o retrato de uma máquina
 
@@ -51,8 +52,9 @@ Arquivo `maquinas/<maquina>.json` na casa da rede. Cada máquina escreve só o p
 
 | Campo | O que é | Regra |
 | --- | --- | --- |
-| `maquina` | o nome da máquina, saneado: letras, números, `.`, `_` e `-`, até 64 | é o mesmo nome do arquivo, da trava e dos commits |
+| `maquina` | o alias genérico da máquina, saneado: letras, números, `.`, `_` e `-`, até 64 | é o mesmo nome do arquivo, da trava e dos commits; nasce de `--maquina`, `ORK_MAQUINA` ou `~/.orkastery/maquina.json`; sem um deles, a gravação recusa |
 | `id` | identificador desta instalação (`~/.orkastery/maquina-id`, fora da pasta de cache): aleatório quando criado; sem hard link, ou quando o arquivo ruim precisa ser trocado, aleatório numa reserva (`maquina-id.reserva/` ou `maquina-id.troca-<chave>/`) que todo host da mesma pasta lê igual; derivado do arquivo ruim, da pasta e do boot só se a reserva falhar | opcional no v1; o arquivo com o nome desta máquina, com o cabeçalho do contrato (`contrato` `ork.rede-maquina/vN` e `maquina` dona do arquivo) e outro `id`, não é regravado (`rede.nome-em-uso`) nem removido, mesmo quando esta versão não lê o resto; lixo sem esse cabeçalho não prende o nome |
+| `hostname` | campo legado do v1 | repete exatamente `maquina`; o hostname real fica somente na máquina e nunca entra no JSON, no nome do arquivo ou no commit |
 | `adesao` | `rede` (entrou) ou `fabrica` (herdada) | — |
 | `forjas[]` | cada CLI de forja achada na máquina | `usuario` é só o login; `null` quando a CLI não tem login |
 | `runtimes[]` | `claude-bg` (binário `claude`) e `codex`, quando instalados | `versao` casa `\d+.\d+[.\d+]`; texto fora disso vira `null` |
@@ -60,10 +62,10 @@ Arquivo `maquinas/<maquina>.json` na casa da rede. Cada máquina escreve só o p
 | `projetos[]` | projetos conhecidos desta máquina, até 200 | `nome` com algo visível (letra, dígito, pontuação ou símbolo), sem espaço nas pontas, sem `://`, sem caractere invisível e até 80 unidades UTF-16 (o leitor aceita qualquer texto sem invisível até 80) e `caminho` até 1024, sem caractere invisível; senão o escritor tira do retrato, com aviso, o projeto do diretório atual, e o registro e o último retrato o descartam na leitura, sem aviso; `remoto` até 500, senão `null` |
 | `publicadoEm` | a última batida que chegou ao remoto | retrato igual só volta ao remoto de hora em hora |
 
-**Nunca vai:** token, senha, chave, cabeçalho de autorização, e-mail ou plano da conta (da forja ou do runtime), perfil de conta e o diretório dele, caminho de arquivo de credencial (`hosts.yml`, `.credentials.json`, `auth.json`, `.git-credentials`, `.netrc`, `.ssh/`), prompt, transcript, log.
+**Nunca vai:** hostname real, token, senha, chave, cabeçalho de autorização, e-mail ou plano da conta (da forja ou do runtime), perfil de conta e o diretório dele, caminho de arquivo de credencial (`hosts.yml`, `.credentials.json`, `auth.json`, `.git-credentials`, `.netrc`, `.ssh/`), prompt, transcript, log.
 
 - O retrato é montado por lista de permissão, e uma varredura de segredo roda antes do push.
-- Campo que o núcleo monta (máquina, hostname, forjas, runtimes, hosts) com cara de segredo recusa a publicação inteira.
+- Campo que o núcleo monta (máquina, alias legado, forjas, runtimes, hosts) com cara de segredo recusa a publicação inteira.
 - Projeto vem de fora do núcleo: o que tem valor com cara de segredo fica fora do retrato sozinho, com aviso no CLI e no `rede.log` (campo e padrão, nunca o valor).
 - O remoto é MONTADO a partir de partes validadas, nunca copiado: esquema conhecido (`https`, `http`, `ssh`, `git`, `git+ssh`, `ssh+git`), host em conjunto fechado (nome, IPv4 ou IPv6 entre colchetes), porta numérica e caminho sem `@`, `:` nem `\`. Usuário, senha, query e fragmento nunca vão; o que não se encaixa (inclusive `file://` e barra invertida) vira `null`, e o projeto continua.
 - Nos transportes `ssh`, `git+ssh`, `ssh+git` e `git`, o git não para a autoridade em `?` nem em `#`: remoto com eles vira `null`. No `http(s)`, query ou fragmento com `@` também. O host fica com a caixa de origem, para a varredura ver o que é sensível a caixa (como o `AKIA`).

@@ -1247,10 +1247,10 @@ test('RM-053 autoria: o id da instalacao mora fora do cache; apagar o cache nao 
       fs.rmSync(path.join(u, 'rede'), { recursive: true, force: true });
       assert.equal(publicarRede({ amb, maquina: 'pc-a', forcar: true }).acao, 'publicou');
       assert.equal(fs.readFileSync(path.join(u, 'maquina-id'), 'utf8'), id);
-      // Sem o id (a pasta do usuario apagada), a mensagem aponta a propria maquina e o caminho de volta.
+      // Sem o id (a pasta do usuario apagada), a mensagem oferece os dois caminhos sem inferir pelo hostname.
       fs.rmSync(path.join(u, 'maquina-id'));
       assert.throws(() => publicarRede({ amb, maquina: 'pc-a', forcar: true }),
-        /^Error: rede\.nome-em-uso: .*; o retrato tem o hostname desta maquina: se for ela mesma, com ~\/\.orkastery apagada ou copiada, retome o nome com ork network entrar --forcar; se for outra maquina ou instalacao com o mesmo hostname, escolha outro nome/);
+        /^Error: rede\.nome-em-uso: .*; se for esta maquina com ~\/\.orkastery apagada ou copiada, retome o nome com ork network entrar --forcar; se for outra maquina ou instalacao, escolha outro nome/);
       assert.equal(entrarNaRede({ amb, maquina: 'pc-a', tomarNome: true }).publicacao.tomouNome, true);
       // S10: arquivo vazio (queda no meio da gravacao) e trocado por um id valido, sem travar.
       fs.writeFileSync(path.join(u, 'maquina-id'), '');

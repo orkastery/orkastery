@@ -111,8 +111,11 @@ sdlc:
   - o parser do `claude agents --json --all` é estrito: um registro malformado entre os cerca de 150 invalida a leitura da conta inteira (a sessão segue contando, sem aviso de que o runtime não foi lido), e a vaga solta pela prova do runtime não deixa rastro no ledger;
   - a regra cita o `pgrep -f` cujo padrão aparece no próprio comando; o texto que outro processo carrega também prende a espera (o prompt de outra sessão traz `ork verify`), e a saída que a regra dá, o arquivo de saída com prazo ou o PID guardado, cobre os dois casos.
 
+- **Entregue na branch da thread `ork-overifycompa` em 29/10/2026, ainda sem SHIP:**
+  - classificação por teste dentro de cada comando: a baseline e o evento guardam `testeQueCaiu`; igualdade exata separa regressões, falhas pré-existentes e corrigidas; regressão nova bloqueia com o nome no motivo tipado; teste instável com o mesmo nome continua dívida, e renomeado vira antigo corrigido mais novo em regressão;
+  - baseline antiga ou comando sem nomes mantém a comparação por comando, com o fallback explícito e sem afirmar zero regressões por teste. A prova focada está em `core/test/rm037-verify-por-teste.test.ts`; merge, push e release seguem pendentes do CHECK e do SHIP desta thread.
+
 - **Fica para depois do lote de 19 e 20/10/2026 (thread `ork-rm037defeit2`):**
-  - comparar a baseline teste a teste (`testeQueCaiu`) em vez de comando a comando: com um teste instável que reprova de verdade na baseline, a falha de outro teste do mesmo comando ainda passa como dívida anterior;
   - varrer os outros testes que chamam o CLI real sem runtime falso, ou que leem a pasta do usuário de quem roda a suíte;
   - ler o `status` nativo também no radar do pulse e no portão de vaga do `ork phase run`, que contam a sessão ociosa no prompt como trabalhando até o `done` do runtime;
   - o prompt da fase não traz o comando de `worktree.dependencias` (o template é contrato versionado); a recusa da baseline o traz;
@@ -139,6 +142,7 @@ sdlc:
 - Fatia das esperas (thread `ork-rm037esperas`, 12/10/2026): a regra das esperas no prompt, na skill e nos guias, o teste do pulse sem o relógio e o portão de vaga que ouve o runtime, com decisões D1 a D10 no ledger e testes `rm037-esperas`; PR a abrir pela condutora.
 - Lote de 19 e 20/10/2026 (thread `ork-rm037defeit2`): os quatro defeitos de condução com testes `rm037-defeitos2010-*` e os mutantes M1 a M17, com os achados de três CHECKs independentes, decisões no ledger; PR a abrir pela condutora.
 - Em produção na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026): a fatia das esperas (PR #158), a saída completa no `ork verify` (PR #170), os testes instáveis de 13/10, o snapshot pt-BR com sha só de letras (PRs #179 e #182), os defeitos de condução de 19 e 20/10 (PR #185) e os tipos que o Claude Code grava nos mods (PR #195).
+- Classificação por teste de 29/10/2026: implementada localmente na thread `ork-overifycompa`, com teste focado verde; ainda não mesclada, publicada ou lançada.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
