@@ -24,7 +24,7 @@ ork claims add <thread> <arquivo> --claim "<...>" --verificar "<comando>" --fase
 ork verify <thread>                           # reexecuta no HEAD real
 ```
 
-- Esperas: nunca dispare verify, build ou suite com `&` dentro do comando, porque o processo se perde e a sessao espera um aviso que nunca vem; rode o `ork verify` em primeiro plano, com `timeout` (ele espera a vez na fila de recursos pesados), ou use a execucao em segundo plano do host, que avisa quando termina; nunca espere com `pgrep -f` cujo padrao aparece no proprio comando, porque o laco acha a si mesmo e nao termina: espere pelo arquivo de saida com prazo, ou pelo PID guardado.
+- Esperas: nunca dispare verify, build ou suite com `&` dentro do comando, porque o processo se perde e a sessao espera um aviso que nunca vem; prefira `ork_verify` assíncrono e consulte `ork_verify_status` a cada 30–60 s; sem essa ferramenta, rode o `ork verify` em primeiro plano, com `timeout` (ele espera a vez na fila de recursos pesados), ou use a execucao em segundo plano do host, que avisa quando termina; nunca espere com `pgrep -f` cujo padrao aparece no proprio comando, porque o laco acha a si mesmo e nao termina: espere pelo arquivo de saida com prazo, ou pelo PID guardado.
 
 ## O que o GO entrega
 

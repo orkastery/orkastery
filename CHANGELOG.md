@@ -9,6 +9,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 ### Adicionado
 
 - **CLI em inglês e pt-BR — F3e ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)):** entram no catálogo as rotas restantes de `master`, `onboarding sync`, `experiencia uninstall`, `doctor --modo`, Maestro, `brain`, `activation`, `mcp serve`, `receipt-verifiers` e as recusas antecipadas de projeto; o grafo e o `security-scan` localizam a apresentação humana sem mudar códigos, dados ou `--json`.
+- **Verify assíncrono no MCP:** `ork_verify` devolve imediatamente um `rodadaId`, e
+  `ork_verify_status` acompanha fila, lane e o veredito canônico. A rodada viva é reutilizada,
+  o worker respeita a fila pesada e os prazos do manifesto, e morte de processo nunca vira verde.
+  Os prompts v5 aguardam o resultado em intervalos de 30–60 s, e Claude Code, Codex e Grok recebem
+  os grants enumerados correspondentes ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md),
+  [RM-064](docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md)).
 
 ### Corrigido
 

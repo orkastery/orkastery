@@ -36,7 +36,7 @@ test('locale en F3c prompts: render, list, lint e recusas saem em ingles', () =>
     process.chdir(p.dir);
     const render = executar('prompt', 'render', '--exemplo', '--fase', 'GOAL', '--modo', 'auto', '--pedido', 'Map it.');
     assert.equal(render.status, 0, render.stderr);
-    assert.match(render.stdout, /^# template fase-padrao\.en v4 \(source: built-in\)/);
+    assert.match(render.stdout, /^# template fase-padrao\.en v5 \(source: built-in\)/);
     assert.match(render.stdout, /# EXAMPLE thread \(nothing was written\), mode #Auto, sha256 [0-9a-f]{64}/);
     assert.match(render.stdout, /# Orkastery, GOAL phase of thread/);
     assert.match(render.stdout, /## Canonical cycle[\s\S]*## Conduction mode: #Auto[\s\S]*## Builder request\nMap it\./);
@@ -61,7 +61,7 @@ test('locale en F3c prompts: render, list, lint e recusas saem em ingles', () =>
     ajustarManifesto(p, 'language: en-US', 'language: pt-BR');
     const pt = executar('prompt', 'render', '--exemplo', '--fase', 'GOAL', '--modo', 'auto', '--pedido', 'Mapear.');
     assert.equal(pt.status, 0, pt.stderr);
-    assert.match(pt.stdout, /^# template fase-padrao v4 \(origem: /);
+    assert.match(pt.stdout, /^# template fase-padrao v5 \(origem: /);
     assert.match(pt.stdout, /# Orkastery, fase GOAL da thread/);
     assert.match(pt.stdout, /REGRA CENTRAL: o modo afrouxa a pausa, NUNCA a verificacao\./);
   } finally {
@@ -79,13 +79,13 @@ test('locale en F3c prompts: o render mostra o prompt do despacho, e o --templat
     const { thread } = novaThread(p.carregado, { nome: 'despacho', modo: 'auto' });
     const render = executar('prompt', 'render', thread.id, 'GOAL', '--pedido', 'Mapear a mudanca.');
     assert.equal(render.status, 0, render.stderr);
-    assert.match(render.stdout, /^# template fase-padrao v4 \(source: built-in\)\n# thread \S+, phase GOAL, sha256 [0-9a-f]{64}\n/);
+    assert.match(render.stdout, /^# template fase-padrao v5 \(source: built-in\)\n# thread \S+, phase GOAL, sha256 [0-9a-f]{64}\n/);
     assert.match(render.stdout, /\n# Orkastery, fase GOAL da thread /);
     const { prompt } = montarPromptComMemoria(p.carregado, thread, 'GOAL', 'Mapear a mudanca.', abrirMemoria(p.carregado));
     assert.ok(render.stdout.includes(`, sha256 ${hashDoPrompt(prompt)}\n`), 'o mesmo sha256 do prompt que o phase run grava');
     const lista = executar('prompt', 'list');
     assert.match(lista.stdout, /^Prompt templates /);
-    assert.match(lista.stdout, /\n {2}fase-padrao {6}v4 {2}source: built-in\n/);
+    assert.match(lista.stdout, /\n {2}fase-padrao {6}v5 {2}source: built-in\n/);
     assert.doesNotMatch(lista.stdout, /fase-padrao\.en/);
     // O --template escolhe tambem a lingua dos valores: o `.en` sai inteiro em ingles, sem modulo em pt-BR.
     const en = executar('prompt', 'render', '--exemplo', '--fase', 'GO', '--modo', 'fast', '--template', 'fase-padrao.en', '--pedido', 'Fix it.');
@@ -129,7 +129,7 @@ test('locale en F3c prompts: owner.language vence o ambiente na geracao', () => 
     process.chdir(p.dir); process.env.LC_ALL = 'pt_BR.UTF-8'; process.env.LANG = 'pt_BR.UTF-8';
     const render = executar('prompt', 'render', '--exemplo', '--fase', 'PLAN', '--modo', 'auto', '--pedido', 'Plan it.');
     assert.equal(render.status, 0, render.stderr);
-    assert.match(render.stdout, /^# template fase-padrao\.en v4 \(source: built-in\)/);
+    assert.match(render.stdout, /^# template fase-padrao\.en v5 \(source: built-in\)/);
     assert.match(render.stdout, /# Orkastery, PLAN phase of thread/);
   } finally {
     console.log = log; console.error = error; process.chdir(cwd); ativarLocale(undefined);

@@ -21,7 +21,7 @@ Distinguish the context before acting:
 - **Conductor session:** receives the owner's request, identifies or opens the thread, dispatches through `ork` and tracks the result; never writes product code in place of the dispatched session.
 - **Already dispatched phase session:** has received the thread, phase, prompt and worktree from `ork`.
   Work within that scope through the phase skill. Do not open another thread or redispatch your own phase to do the work already assigned to you.
-  - Waits: never start verify, build or the suite with `&` inside the command, because the process gets lost and the session waits for a notice that never comes; run `ork verify` in the foreground, with `timeout` (it waits its turn in the heavy-resource queue), or use the host's background execution, which tells you when it finishes; never wait with `pgrep -f` whose pattern shows up in the command itself, because the loop finds itself and never ends: wait for the output file with a deadline, or for the saved PID.
+  - Waits: never start verify, build or the suite with `&` inside the command, because the process gets lost and the session waits for a notice that never comes; prefer asynchronous `ork_verify` and query `ork_verify_status` every 30–60 s; without it, run `ork verify` in the foreground, with `timeout` (it waits its turn in the heavy-resource queue), or use the host's background execution, which tells you when it finishes; never wait with `pgrep -f` whose pattern shows up in the command itself, because the loop finds itself and never ends: wait for the output file with a deadline, or for the saved PID.
 
 ## Start or resume
 
