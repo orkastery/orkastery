@@ -48,7 +48,7 @@ test('o template versionado em prompts/ e identico ao embutido no ork', () => {
   );
   const english = fs.readFileSync(path.join(RAIZ_DO_PRODUTO, 'prompts', 'fase-padrao.en.md'), 'utf8').replace(/\n$/, '');
   assert.equal(english, TEMPLATE_FASE_PADRAO_EN, 'a copia inglesa divergiu do template embutido');
-  // RM-061 F3c: as duas linguas andam juntas. Variavel ou versao nova no pt-BR (o `fecho_go` da RM-016 levou a v4)
+  // RM-061 F3c: as duas linguas andam juntas. Variavel ou versao nova no pt-BR (o verify assíncrono levou a v5)
   // entra no ingles no mesmo lugar, para o prompt ingles nunca perder um modulo que o pt-BR ganhou.
   const pt = parseTemplate(TEMPLATE_FASE_PADRAO, 'embutido'), en = parseTemplate(TEMPLATE_FASE_PADRAO_EN, 'embutido');
   assert.equal(en.versao, pt.versao);
@@ -293,6 +293,7 @@ test('N2: o prompt de toda fase traz a regra contra & em verify, build e suite (
     const prompt = renderizar(templateDaFase(fase), valoresDoPrompt(threadDeExemplo('auto', fase), fase, 'pedido do builder'));
     assert.ok(prompt.split('\n').includes(`- ${REGRA_DAS_ESPERAS}`), fase);
     assert.ok(prompt.includes('nunca dispare verify, build ou suite com `&` dentro do comando'), fase);
+    assert.ok(prompt.includes('prefira `ork_verify` assíncrono e consulte `ork_verify_status` a cada 30–60 s'), fase);
     assert.ok(prompt.includes('rode o `ork verify` em primeiro plano, com `timeout` (ele espera a vez na fila de recursos pesados)'), fase);
   }
 });
@@ -308,6 +309,7 @@ test('RM-016: Claude Code e Codex recebem o mesmo fecho obrigatório no prompt r
       assert.equal(r.runtime, runtime);
       const prompt = fs.readFileSync(r.promptPath, 'utf8');
       assert.match(prompt, /## Fecho obrigatório do GO/);
+      assert.match(prompt, /use `ork_verify` e aguarde o veredito verde por `ork_verify_status`/);
       assert.ok(prompt.includes(`\`ork verify ${thread.id}\``));
       assert.ok(prompt.includes(`\`ork ci prepare ${thread.id}\``));
       assert.ok(prompt.includes(`\`ci(${thread.id}): bundle ...\``));
@@ -328,7 +330,7 @@ test('RM-061 F3c: com o dono em ingles, o GO dos dois runtimes recebe o mesmo fe
       });
       assert.equal(r.runtime, runtime);
       const prompt = fs.readFileSync(r.promptPath, 'utf8');
-      assert.match(prompt, /\n## Mandatory GO closing\n\nBefore ending a block that includes GO, run /);
+      assert.match(prompt, /\n## Mandatory GO closing\n\nBefore ending a block that includes GO, use `ork_verify` and wait for its green verdict through `ork_verify_status`/);
       assert.ok(prompt.includes(`\`ork verify ${thread.id}\``));
       assert.ok(prompt.includes(`\`ork ci prepare ${thread.id}\``));
       assert.ok(prompt.includes(`\`ci(${thread.id}): bundle ...\``));
