@@ -29,7 +29,7 @@
         "node --test core/dist-test/test/check-agil.test.js core/dist-test/test/verify.test.js core/dist-test/test/test-lanes.test.js"
       ],
       "criadoEm": "2026-10-30T06:02:21.789Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -57,7 +57,7 @@
         "node --test core/dist-test/test/locale-f3b-snapshot.test.js core/dist-test/test/locale-f3d-snapshot.test.js"
       ],
       "criadoEm": "2026-10-30T06:02:21.905Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -131,7 +131,7 @@
         "node --test core/dist-test/test/locale-f3d-snapshot.test.js"
       ],
       "criadoEm": "2026-10-30T06:18:21.201Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -327,7 +327,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m1.json M8"
       ],
       "criadoEm": "2026-10-30T06:42:35.799Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -341,7 +341,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m1.json M9"
       ],
       "criadoEm": "2026-10-30T06:49:31.722Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -371,7 +371,7 @@
         "node --test core/dist-test/test/locale-f3d-snapshot.test.js"
       ],
       "criadoEm": "2026-10-30T07:19:57.677Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -415,7 +415,7 @@
         "node --test core/dist-test/test/locale-f3d-snapshot.test.js"
       ],
       "criadoEm": "2026-10-30T08:12:50.416Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -430,7 +430,7 @@
         "node --test core/dist-test/test/cli-in-processo.test.js"
       ],
       "criadoEm": "2026-10-30T08:12:50.469Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -445,7 +445,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m1.json M9"
       ],
       "criadoEm": "2026-10-30T08:12:50.507Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
