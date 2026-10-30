@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.1",
-  "publicadoEm": "2026-10-30T12:30:02.660Z",
+  "publicadoEm": "2026-10-30T12:45:03.654Z",
   "threads": [
     {
       "id": "ork-paridadedorm",
@@ -58,7 +58,7 @@
       "status": "aberta",
       "roadmap": "RM-074",
       "branch": "ork/ork-rm074m2harne-full",
-      "atualizadaEm": "2026-10-30T12:28:15.903Z",
+      "atualizadaEm": "2026-10-30T12:45:03.482Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
