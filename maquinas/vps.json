@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.1",
-  "publicadoEm": "2026-10-30T12:21:03.734Z",
+  "publicadoEm": "2026-10-30T12:24:07.287Z",
   "threads": [
     {
       "id": "ork-paridadedorm",
@@ -14,7 +14,7 @@
       "status": "aberta",
       "roadmap": "RM-074",
       "branch": "ork/ork-paridadedorm-go",
-      "atualizadaEm": "2026-10-30T12:20:53.645Z",
+      "atualizadaEm": "2026-10-30T12:22:28.844Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -24,7 +24,7 @@
       "esforco": null,
       "sessao": {
         "viva": false,
-        "desdeEm": "2026-10-30T12:20:58.460Z",
+        "desdeEm": "2026-10-30T12:22:28.854Z",
         "motivo": "nenhuma sessão despachada na fase GO"
       }
     },
@@ -58,18 +58,18 @@
       "status": "aberta",
       "roadmap": "RM-074",
       "branch": "ork/ork-rm074m2harne-full",
-      "atualizadaEm": "2026-10-30T12:04:46.623Z",
+      "atualizadaEm": "2026-10-30T12:24:06.792Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null,
+      "runtime": "codex",
+      "modelo": "gpt-5.6-sol",
+      "esforco": "xhigh",
       "sessao": {
-        "viva": false,
-        "desdeEm": "2026-10-30T12:05:21.359Z",
-        "motivo": "nenhuma sessão despachada na fase GOAL"
+        "viva": true,
+        "desdeEm": null,
+        "motivo": null
       }
     }
   ]
