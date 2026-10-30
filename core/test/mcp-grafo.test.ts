@@ -375,20 +375,20 @@ async function listarCom(p: ProjetoDeTeste, bloco: string): Promise<Tool[]> {
 }
 
 // RM-026 K7 (fatia 2): as quatro ork_conhecimento_* levam o servidor sem a flag de 31 a 35 tools; a RM-059 (fatia F8) soma a
-// ork_request_master_note: 36.
-test('KG5 flag: servidor sem a flag, com false ou com valor invalido lista as mesmas 40 tools; com true, so acrescenta as do grafo', async () => {
+// ork_request_master_note: 36. O status do verify assíncrono é a 41a tool do catálogo atual.
+test('KG5 flag: servidor sem a flag, com false ou com valor invalido lista as mesmas 41 tools; com true, so acrescenta as do grafo', async () => {
   const p = projetoTemporario('kg5-lista');
   try {
     const sem = await listarCom(p, '');
     // RM-058 N6 (ork-rm058n6): o servidor do dono ganhou as quatro ork_noctum_*, registradas antes das do grafo.
-    assert.equal(sem.length, 40);
+    assert.equal(sem.length, 41);
     assert.ok(!sem.some((t) => t.name.startsWith('ork_grafo_')));
     assert.deepEqual(await listarCom(p, 'grafo:\n  mcp: false\n'), sem);
     assert.deepEqual(await listarCom(p, 'grafo:\n  mcp: sim\n'), sem);
     const com = await listarCom(p, FLAG_LIGADA);
-    assert.equal(com.length, 40 + TOOLS_DO_GRAFO.length);
-    assert.deepEqual(com.slice(0, 40), sem, 'a flag nao muda nenhuma das outras tools');
-    assert.deepEqual(com.slice(40).map((t) => t.name), [...TOOLS_DO_GRAFO]);
+    assert.equal(com.length, 41 + TOOLS_DO_GRAFO.length);
+    assert.deepEqual(com.slice(0, 41), sem, 'a flag nao muda nenhuma das outras tools');
+    assert.deepEqual(com.slice(41).map((t) => t.name), [...TOOLS_DO_GRAFO]);
   } finally {
     p.limpar();
   }
@@ -653,7 +653,7 @@ test('KG5 despacho: com a flag da raiz, as cinco tools entram logo depois das co
       antes.forEach((a, i) => {
         const allow = valorDe(a, '--allowedTools'), comFlag = valorDe(depois[i], '--allowedTools');
         assert.ok(!allow.some((x) => x.includes('ork_grafo_')), `${perfil}: sem a flag, nenhuma tool do grafo`);
-        const fim = allow.indexOf('mcp__orkastery__ork_claims_list') + 1;
+        const fim = allow.indexOf('mcp__orkastery__ork_verify_status') + 1;
         assert.ok(fim > 0, `${perfil}: as consultas estao na allowlist`);
         assert.deepEqual(comFlag, [...allow.slice(0, fim), ...NOMES_DO_GRAFO_NO_CLAUDE, ...allow.slice(fim)], `${perfil} ${i ? 'PLAN' : 'fase'}`);
         assert.deepEqual(semAllowlist(depois[i]), semAllowlist(a), `${perfil}: fora a allowlist, o comando e o mesmo`);

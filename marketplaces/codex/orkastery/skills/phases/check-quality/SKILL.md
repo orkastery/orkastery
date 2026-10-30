@@ -23,7 +23,7 @@ ork worktree audit <thread>          # a worktree confere no proprio git
 ork gate request <thread>            # o pedido da pausa; o humano responde pelo canal autenticado
 ```
 
-- Esperas: nunca dispare verify, build ou suite com `&` dentro do comando, porque o processo se perde e a sessao espera um aviso que nunca vem; rode o `ork verify` em primeiro plano, com `timeout` (ele espera a vez na fila de recursos pesados), ou use a execucao em segundo plano do host, que avisa quando termina; nunca espere com `pgrep -f` cujo padrao aparece no proprio comando, porque o laco acha a si mesmo e nao termina: espere pelo arquivo de saida com prazo, ou pelo PID guardado.
+- Esperas: nunca dispare verify, build ou suite com `&` dentro do comando, porque o processo se perde e a sessao espera um aviso que nunca vem; prefira `ork_verify` assíncrono e consulte `ork_verify_status` a cada 30–60 s; sem essa ferramenta, rode o `ork verify` em primeiro plano, com `timeout` (ele espera a vez na fila de recursos pesados), ou use a execucao em segundo plano do host, que avisa quando termina; nunca espere com `pgrep -f` cujo padrao aparece no proprio comando, porque o laco acha a si mesmo e nao termina: espere pelo arquivo de saida com prazo, ou pelo PID guardado.
 
 Quando o veredito e PRECISA DE MUDANCA, o sub-loop GO-FIX / CHECK-REVERIFY do bloco B3 e
 quem conduz a volta, e ele nao depende de humano ate o veredito final:

@@ -1,6 +1,6 @@
 ---
 id: fase-padrao.en
-versao: 4
+versao: 5
 descricao: Canonical prompt for a GOAL..MASTER cycle phase, with naming, conduction mode, thread context, injected memory, and evidence rules.
 fases: [GOAL, PLAN, GO, CHECK, SHIP, MASTER]
 variaveis: [fase, thread, bloco, nome, ciclo_canonico, tag, blocos, pausas, linha_variante, regra_de_pausa, invariantes, slug, projeto_nome, projeto_abbrev, base_branch, base_commit, diretorio, trabalho, pedido, fecho_go, memoria_injetada, regras_de_evidencia]
@@ -15,6 +15,7 @@ When available, use ork_artifact_read/write for the goal, plan, and review, and 
 Record every decision you make without asking the owner in the ledger with `ork decisao registrar <thread>` (or `ork_decision_record` in MCP because the Codex sandbox cannot write the ledger), including what was decided, why, how to change it, reversal cost now and later, the written criterion, who decided, and the evidence. This is how it reaches the owner in the summary instead of disappearing in the conversation.
 An agent-authored artifact is not an official receipt; registering a claim does not verify it.
 To record product changes, prefer ork_git_commit with the current HEAD and paths with claims; use ork_verify for real verification and ork_ship with checked source/destination HEADs for delivery. A local commit is not SHIP; an incomplete result requires reconciling state and remote before retrying. Permission to query does not grant those operations: respect native authorization and gates.
+When MCP exposes `ork_verify_status`, call `ork_verify` once, keep its `rodadaId`, and query that same round every 30–60 seconds. While queued or running, retain only the current state and lane in context; do not repeat the request or copy intermediate payloads. Continue only after a terminal green verdict; a typed failure or red verdict blocks the cycle.
 The conducting session presents an owner decision to the host; a child session neither answers nor assumes the owner's identity.
 Preserve the configured child profile: `interactive` grants queries; `worktree` requires installation opt-in and authorizes exact tools in the validated worktree, without approving gates or assuming the owner. Do not change configuration to bypass a block.
 Query `ork_git_status` for real HEADs and Git state; use `ork_git_commit`, `ork_verify`, and `ork_ship` through the core contracts, without Bash Git or invented SHAs. Use `source.head` as the commit `expectedHead`; query again after the commit and use `source.head`/`destination.head` as SHIP `expectedSource`/`expectedDestination`. A historical base does not replace the current query. Edit/deny rules are native tool permissions, not process sandbox rules.

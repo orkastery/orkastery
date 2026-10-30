@@ -100,15 +100,15 @@ export const PROMPTS_PT_BR: MensagensDePrompts = {
     'Passos irreversiveis (push, merge, delecao) so acontecem quando o modo autoriza.',
   ],
   regraDasEsperas: 'Esperas: nunca dispare verify, build ou suite com `&` dentro do comando, porque o processo se perde e a sessao ' +
-    'espera um aviso que nunca vem; rode o `ork verify` em primeiro plano, com `timeout` (ele espera a vez na fila de ' +
-    'recursos pesados), ou use a execucao em segundo plano do host, que avisa quando termina; nunca espere com ' +
+    'espera um aviso que nunca vem; prefira `ork_verify` assíncrono e consulte `ork_verify_status` a cada 30–60 s; sem essa ' +
+    'ferramenta, rode o `ork verify` em primeiro plano, com `timeout` (ele espera a vez na fila de recursos pesados), ou use a execucao em segundo plano do host, que avisa quando termina; nunca espere com ' +
     '`pgrep -f` cujo padrao aparece no proprio comando, porque o laco acha a si mesmo e nao termina: espere pelo ' +
     'arquivo de saida com prazo, ou pelo PID guardado.',
   fechoDoGo: (t) => [
     '## Fecho obrigatório do GO',
     '',
-    `Antes de encerrar o bloco com GO, rode \`ork verify ${t}\` e o build declarado no manifesto, ambos em primeiro plano.`,
-    `Gere o bundle com \`ork ci prepare ${t}\` e faça o commit atômico final \`ci(${t}): bundle ...\`.`,
+    `Antes de encerrar o bloco com GO, use \`ork_verify\` e aguarde o veredito verde por \`ork_verify_status\`; sem a consulta assíncrona, rode \`ork verify ${t}\` em primeiro plano. Rode também o build declarado no manifesto em primeiro plano.`,
+    `Com o veredito verde, gere o bundle com \`ork ci prepare ${t}\`, faça o commit atômico final \`ci(${t}): bundle ...\` e siga para CHECK e SHIP conforme os gates.`,
     `Grave \`.orkastery/threads/${t}/pr-body.md\` curto, no idioma do projeto, com o modo do CHECK da rodada (Agile Check ou Classic Check, da linha \`check\` do \`ork verify\`); ` +
       'se o perfil não puder gravá-lo pelo transporte autorizado, devolva o corpo completo no resumo final.',
     'O rito é idêntico em Claude Code e Codex. Ele fecha o GO, mas não autoriza SHIP, push, PR ou merge.',
@@ -195,14 +195,14 @@ export const PROMPTS_EN: MensagensDePrompts = {
     'Irreversible steps (push, merge, deletion) happen only when the mode authorizes them.',
   ],
   regraDasEsperas: 'Waiting: never start verify, build, or a test suite with `&` inside the command; the process may be lost while the session ' +
-    'waits for a notice that never comes. Run `ork verify` in the foreground with `timeout` (it waits for the heavy-resource queue), ' +
-    'or use the host background execution that reports completion. Never wait with `pgrep -f` when its pattern appears in the command itself; ' +
+    'waits for a notice that never comes. Prefer asynchronous `ork_verify` and query `ork_verify_status` every 30–60 seconds; without that ' +
+    'tool, run `ork verify` in the foreground with `timeout` (it waits for the heavy-resource queue), or use the host background execution that reports completion. Never wait with `pgrep -f` when its pattern appears in the command itself; ' +
     'the loop finds itself and never ends. Wait for an output file with a deadline, or for a stored PID.',
   fechoDoGo: (t) => [
     '## Mandatory GO closing',
     '',
-    `Before ending a block that includes GO, run \`ork verify ${t}\` and the build declared in the manifest, both in the foreground.`,
-    `Generate the bundle with \`ork ci prepare ${t}\` and make the final atomic commit \`ci(${t}): bundle ...\`.`,
+    `Before ending a block that includes GO, use \`ork_verify\` and wait for its green verdict through \`ork_verify_status\`; without the asynchronous query, run \`ork verify ${t}\` in the foreground. Also run the manifest build in the foreground.`,
+    `After the green verdict, generate the bundle with \`ork ci prepare ${t}\`, make the final atomic commit \`ci(${t}): bundle ...\`, and continue to CHECK and SHIP as their gates allow.`,
     `Write a short \`.orkastery/threads/${t}/pr-body.md\` in the project language, naming the CHECK mode of the round (Agile Check or Classic Check, from the \`check\` line of \`ork verify\`); ` +
       'if the profile cannot write it through the authorized transport, return the full body in the final summary.',
     'The ritual is identical in Claude Code and Codex. It closes GO, but it does not authorize SHIP, push, PR, or merge.',

@@ -4,7 +4,7 @@ tipo: feature
 titulo: Servidor MCP e instalação de adaptadores
 estado: vigente
 pai: MOD-06
-roadmap: [RM-016, RM-032, RM-052]
+roadmap: [RM-016, RM-032, RM-037, RM-052, RM-064]
 owner: Julio
 aprovador: Julio
 verificado_em: 2026-09-24T21:30:00-03:00
@@ -34,7 +34,7 @@ fontes:
 
 # FEAT-020 — Servidor MCP e instalação de adaptadores
 
-> **Em uma frase:** O mesmo `ork` atende Claude Code e Codex por MCP e se instala em cada host com recibo e sha256 por arquivo; divergência dos dois lados pede decisão, arquivo a arquivo.
+> **Em uma frase:** O mesmo `ork` atende Claude Code, Codex e Grok por MCP, inclusive com verify assíncrono consultável, e se instala em cada host com grants enumerados e recibo por arquivo.
 
 - **Estado:** vigente · **Verificado em:** 2026-09-24 · **Versão:** main@f9d9bc1
 - **Onde fica:** [PLAT-01](PLAT-01-orkastery.md) > [SYS-02](SYS-02-hosts-e-canais.md) > [MOD-06](MOD-06-integracao-com-hosts.md)
@@ -43,7 +43,7 @@ fontes:
 
 ## Comportamento
 
-- **Casos de uso e operações:** servir MCP, instalar adaptador, resolver divergência.
+- **Casos de uso e operações:** servir MCP, instalar adaptador, resolver divergência, iniciar `ork_verify` e consultar `ork_verify_status`.
 - **Pré-condições e gatilho:** host instalado na máquina (Claude Code, Codex, Hermes ou OpenClaw).
 - **Fluxo principal:**
 
@@ -60,7 +60,7 @@ fontes:
 ## Dados e contratos
 
 - **Entidades:** recibo `ork.adapter-install/v1`.
-- **APIs:** MCP stdio (tools `ork_*`).
+- **APIs:** MCP stdio (tools `ork_*`); o verify usa o contrato [`ork.verify-mcp/v1`](../referencia/contratos/verify-mcp.md).
 - **Eventos:** Não aplicável.
 
 ## Operação e controle

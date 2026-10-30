@@ -1,7 +1,7 @@
 ---
 description: Reconhece orkastery maestro e conduz pedidos, retomadas e status na conversa com o Maestro/Builder.
 argument-hint: "[pedido em linguagem natural|thread|status|board|plan|doctor|modos]"
-allowed-tools: Bash(ork:*), Read, mcp__orkastery__ork_thread_status, mcp__orkastery__ork_phase_list, mcp__orkastery__ork_hitl_pending, mcp__orkastery__ork_observe, mcp__orkastery__ork_artifact_read, mcp__orkastery__ork_claims_list, mcp__orkastery__ork_git_status, mcp__orkastery__ork_thread_new, mcp__orkastery__ork_phase_run, mcp__orkastery__ork_preflight
+allowed-tools: Bash(ork:*), Read, mcp__orkastery__ork_thread_status, mcp__orkastery__ork_phase_list, mcp__orkastery__ork_hitl_pending, mcp__orkastery__ork_observe, mcp__orkastery__ork_artifact_read, mcp__orkastery__ork_claims_list, mcp__orkastery__ork_verify_status, mcp__orkastery__ork_git_status, mcp__orkastery__ork_thread_new, mcp__orkastery__ork_phase_run, mcp__orkastery__ork_preflight
 ---
 
 # /orkastery:ork

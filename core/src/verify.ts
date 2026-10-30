@@ -781,6 +781,8 @@ export interface OpcoesVerify {
   check?: ModoDoCheck;
   /** Dependencia interna dos testes do agendador; em producao o auxiliar mede `/proc`. */
   medicaoCpuAgendador?: MedicaoCpuDoGrupo;
+  /** Progresso interno da rodada longa (MCP assíncrono); não altera veredito nem vai ao ledger. */
+  progresso?: (lane: string) => void;
 }
 
 /**
@@ -862,6 +864,7 @@ function verificarSobConducao(
   const inicioDaRodada = Date.now();
   const thread = lerThread(raiz, threadId);
   const cwd = cwdDaThread(raiz, thread);
+  opcoes.progresso?.('preflight');
   exigirDependenciasDaWorktree(carregado, threadId, cwd, 'verify', conducao, opcoes.executor);
   const commit = commitReal(cwd);
   const dir = dirThread(raiz, threadId);
@@ -889,18 +892,21 @@ function verificarSobConducao(
 
   // I-37 (D2, D3): o prazo de cada comando sai do manifesto carregado no inicio da rodada;
   // editar o manifesto no meio dela nao muda o teto de quem ainda vai rodar.
-  const executor: ExecutorVerify = executorSobConducao(executorDaRodada(manifesto, instabilidade, opcoes.executor, leitor,
-    ambienteDaRodada), manifesto, conducao);
+  const observar = (base: ExecutorVerify): ExecutorVerify => opcoes.progresso
+    ? (nome, comando, dir) => { opcoes.progresso!(nome); return base(nome, comando, dir); }
+    : base;
+  const executor: ExecutorVerify = executorSobConducao(observar(executorDaRodada(manifesto, instabilidade, opcoes.executor, leitor,
+    ambienteDaRodada)), manifesto, conducao);
   // RM-072 (A3 do CHECK): as claims recebem o modo, nunca o relatorio da rodada; o teste que roda a varredura dentro de uma
   // claim gravaria pecas de fixture no relatorio do verify. O relatorio fica com o preparo e o grupo.
   const executorDasClaims: ExecutorVerify = relatorio
-    ? executorSobConducao(executorDaRodada(manifesto, instabilidade, opcoes.executor, leitor, ambienteFuncional), manifesto, conducao)
+    ? executorSobConducao(observar(executorDaRodada(manifesto, instabilidade, opcoes.executor, leitor, ambienteFuncional)), manifesto, conducao)
     : executor;
   // Uma claim `node --test` elegivel usa o mesmo ambiente funcional das lanes: casa compartilhada, sem o modo da
   // orquestracao. Assim o fallback da claim e a prova reaproveitada observam exatamente a mesma bateria.
   const ambienteFuncionalDasLanes = { ...(casaDaRodada ? { ORKASTERY_HOME: casaDaRodada } : {}) };
   const executorDasClaimsComoLane: ExecutorVerify = relatorio
-    ? executorSobConducao(executorDaRodada(manifesto, instabilidade, opcoes.executor, leitor, ambienteFuncionalDasLanes),
+    ? executorSobConducao(observar(executorDaRodada(manifesto, instabilidade, opcoes.executor, leitor, ambienteFuncionalDasLanes)),
       manifesto, conducao)
     : executor;
   // RM-072 (S-b do CHECK 2): fora do preparo, so a varredura e as lanes recebem o relatorio.
@@ -949,7 +955,7 @@ function verificarSobConducao(
   const grupoAntesDasClaims = !opcoes.soClaims && !!vigente && vigente.guarda.conferir() === null
     && Object.keys(manifesto.check?.agile?.test ?? {}).length > 0;
   let comandosDoManifestoExecutados = grupoAntesDasClaims
-    ? (doAgile = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executorDosComandos,
+    ? (opcoes.progresso?.('grupo-agile'), doAgile = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executorDosComandos,
       executorDoGrupo(manifesto, ambienteDaRodada, instabilidade, leitor, conducao, opcoes.executor ? executor : undefined,
         opcoes.medicaoCpuAgendador), vigente!.guarda, vigente!.preparo)).comandos
     : [];
@@ -983,6 +989,7 @@ function verificarSobConducao(
   const guardaDepoisDasClaims = grupoAntesDasClaims ? vigente?.guarda.conferir() : null;
   if (grupoAntesDasClaims && guardaDepoisDasClaims) {
     if (guardaDepoisDasClaims === 'produto-mudou') refazer('depois das claims');
+    opcoes.progresso?.('grupo-agile');
     doAgile = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executorDosComandos,
       executorDoGrupo(manifesto, ambienteDaRodada, instabilidade, leitor, conducao, opcoes.executor ? executor : undefined,
         opcoes.medicaoCpuAgendador), vigente.guarda, vigente.preparo);
@@ -992,7 +999,7 @@ function verificarSobConducao(
 
   if (!opcoes.soClaims && !grupoAntesDasClaims) {
     comandosDoManifestoExecutados = vigente
-      ? (doAgile = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executorDosComandos,
+      ? (opcoes.progresso?.('grupo-agile'), doAgile = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executorDosComandos,
         executorDoGrupo(manifesto, ambienteDaRodada, instabilidade, leitor, conducao, opcoes.executor ? executor : undefined,
           opcoes.medicaoCpuAgendador), vigente.guarda, vigente.preparo)).comandos
       : comandosDoManifesto(manifesto).map((c) => executorDosComandos(c.nome, c.comando, cwd));

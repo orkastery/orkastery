@@ -51,6 +51,7 @@ export const CONSULTAS_MCP = [
   'mcp__orkastery__ork_observe',
   'mcp__orkastery__ork_artifact_read',
   'mcp__orkastery__ork_claims_list',
+  'mcp__orkastery__ork_verify_status',
 ] as const;
 // RM-037 (defeito 1): a decisao autonoma pelo MCP tem o mesmo grant nos dois runtimes.
 export const MUTACOES_WORKTREE = [

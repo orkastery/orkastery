@@ -4,7 +4,7 @@ tipo: roadmap
 titulo: Verify rápido e confiável
 categoria: iniciativa
 pai: null
-features: [FEAT-004, FEAT-014]
+features: [FEAT-004, FEAT-014, FEAT-020]
 owner: Julio
 atualizado_em: 2026-10-27T00:52:46-03:00
 estado:
@@ -43,7 +43,7 @@ sdlc:
 
 <!-- ork-docs:relance:fim -->
 
-- **Features:** [FEAT-004](../produto/FEAT-004-claims-e-verify.md), [FEAT-014](../produto/FEAT-014-monitor-board-e-pulse.md)
+- **Features:** [FEAT-004](../produto/FEAT-004-claims-e-verify.md), [FEAT-014](../produto/FEAT-014-monitor-board-e-pulse.md), [FEAT-020](../produto/FEAT-020-mcp-e-adaptadores.md)
 - **Thread:** `ork-rm037defeit2` (a mais recente); antes, `ork-rm037esperas`, `ork-rm037fatia6r`, `ork-rm037fatia5p`, `ork-rm037fatia4t`, `ork-rm037fatia3d`, `ork-rm037noite`, `ork-rm037defeito`, `ork-defeitosdeco`, `ork-i54compilaca` e `ork-verifytimeou`
 
 ## Problema e resultado
@@ -127,6 +127,19 @@ sdlc:
   - o `ork fix open` diz "NAO ha baseline" também para a falha cuja baseline existe e ficou sem veredito.
 
 ## Estado com evidências
+
+### Verify MCP assíncrono — thread `ork-verifyassinc`
+
+A fatia de 30/10/2026 remove da chamada MCP o teto de transporte que interrompia o CHECK.
+`ork_verify` inicia um worker do servidor, vinculado à thread e ao despacho, e devolve o UUID;
+`ork_verify_status` acompanha fila, lane e veredito. A rodada viva é idempotente, espera a mesma
+fila pesada do CLI e usa os prazos do manifesto — `test` tem 2.400 s neste projeto.
+
+O contrato `ork.verify-mcp/v1` cobre `na-fila`, `rodando`, `concluido` e `falhou`. Worker morto,
+lease perdida e falha interna são terminais tipados, nunca verde. O teste
+`core/test/mcp-verify-async.test.ts` cobre início/consulta, fila ocupada, repetição, morte real do
+worker e igualdade do resultado canônico no mesmo HEAD. A página pública está em
+[`verify-mcp.md`](../referencia/contratos/verify-mcp.md).
 
 - T5 já está na `main` (merge `8f02f44`).
 - Fatia de 27/09/2026 na thread `ork-verifytimeou` (blocos P1, P3 e parte do P4):

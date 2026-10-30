@@ -25,7 +25,7 @@ test('contexto: legado sem MCP nao exige plugin nem escreve instalacao', () => {
   } finally { p.limpar(); }
 });
 
-test('contexto: Claude recebe MCP estrito da thread e somente seis grants de consulta', () => {
+test('contexto: Claude recebe MCP estrito da thread e somente sete grants de consulta', () => {
   const p = projetoTemporario('ctx-claude');
   try {
     const instalado = instalarAdaptador('claude-code', { projeto: p.dir });
@@ -46,6 +46,7 @@ test('contexto: Claude recebe MCP estrito da thread e somente seis grants de con
       'mcp__orkastery__ork_observe',
       'mcp__orkastery__ork_artifact_read',
       'mcp__orkastery__ork_claims_list',
+      'mcp__orkastery__ork_verify_status',
     ]);
     for (const nome of ['ork_thread_new', 'ork_phase_run', 'ork_gate_request', 'ork_request_decision', 'ork_artifact_write', 'ork_claim_add', 'ork_verify', 'ork_ship'])
       assert.equal(consultas.includes(`mcp__orkastery__${nome}`), false);
