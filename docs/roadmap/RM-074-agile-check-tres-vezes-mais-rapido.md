@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-30T03:39:33-03:00
+atualizado_em: 2026-10-30T09:22:04-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
