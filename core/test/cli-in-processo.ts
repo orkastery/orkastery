@@ -43,6 +43,15 @@ function trocarAmbiente(novo: NodeJS.ProcessEnv): void {
   for (const [nome, valor] of Object.entries(novo)) if (valor !== undefined) process.env[nome] = valor;
 }
 
+/**
+ * Comandos cuja conclusao depende do ciclo de vida do processo nao entram no harness sincrono.
+ * `mcp install` termina numa continuacao de `import()`: `main()` volta antes dela e o processo
+ * filho mantem cwd, ambiente e descritores ate a continuacao acabar.
+ */
+export function cliExigeProcessoFilho(args: readonly string[]): boolean {
+  return args[0] === 'mcp' && args[1] === 'install';
+}
+
 /** A mesma moldura de erro da entrada executavel de `index.ts`. */
 function tratarErro(e: unknown, args: readonly string[]): number {
   if (e instanceof ErroDeConducao) {
@@ -68,6 +77,9 @@ function tratarErro(e: unknown, args: readonly string[]): number {
  * globais do processo. O runner do Node isola arquivos de teste em processos distintos.
  */
 export function cliNoProcesso(chamada: ChamadaDaCli): SaidaDaCli {
+  if (cliExigeProcessoFilho(chamada.args)) {
+    throw new Error('cli.in-processo.assincrona: mcp install exige processo filho');
+  }
   const cwdAnterior = process.cwd();
   const envAnterior = { ...process.env };
   const argvAnterior = [...process.argv];

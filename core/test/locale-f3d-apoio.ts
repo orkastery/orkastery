@@ -10,7 +10,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { normalizar as normalizarDaF3b } from './locale-f3b-casos';
 import { exec, noPath } from '../src/util';
-import { cliNoProcesso, saidaCompativel } from './cli-in-processo';
+import { cliExigeProcessoFilho, cliNoProcesso, saidaCompativel } from './cli-in-processo';
 
 export const CLI = path.resolve(__dirname, '../../dist/index.js');
 export const SP = 'America/Sao_Paulo';
@@ -136,8 +136,9 @@ export function orkComEnv(dir: string, amb: Ambiente, extra: Record<string, stri
 export function orkComEntrada(dir: string, amb: Ambiente, entrada: string | undefined, extra: Record<string, string>, ...args: string[]): Saida {
   const env = { HOME: amb.casa, LANG: 'C.UTF-8', TZ: SP, PATH: `${amb.stub}:${amb.bin}`, ORK_USUARIO_DIR: path.join(amb.casa, '.orkastery'),
     ORK_MAQUINA: 'pc-loc', ORK_REDE_PUBLICAR: '0', ORK_FABRICA_PUBLICAR: '0', ORK_BINARIOS_EXTRA: '', ...extra };
-  // PATH explicito e accounts exercitam runtimes externos; a fronteira de processo faz parte do contrato desses casos.
-  if (extra.PATH !== undefined || args[0] === 'accounts') {
+  // PATH explicito e accounts exercitam runtimes externos; `mcp install` conclui depois do retorno
+  // sincrono de `main`. A fronteira de processo faz parte do contrato desses casos.
+  if (extra.PATH !== undefined || args[0] === 'accounts' || cliExigeProcessoFilho(args)) {
     const r = spawnSync(process.execPath, [CLI, ...args], { cwd: dir, env, encoding: 'utf8',
       ...(entrada === undefined ? {} : { input: entrada }) });
     return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };

@@ -6,7 +6,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { cliNoProcesso } from './cli-in-processo';
+import { cliExigeProcessoFilho, cliNoProcesso } from './cli-in-processo';
 import { VERSAO_DO_ORK } from '../src/versao';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
@@ -70,6 +70,23 @@ test('CIP3: stdin e erro lancado preservam a moldura do executavel', () => {
     const entrada = '{nao e json}\n';
     assert.deepEqual(cliNoProcesso({ cwd: RAIZ, env, args, entrada }), { status: 1, stdout: '',
       stderr: "evento recusado: Expected property name or '}' in JSON at position 1 (line 1 column 2)\n" });
+  } finally {
+    fs.rmSync(casa, { recursive: true, force: true });
+  }
+});
+
+test('CIP4: mcp install com --project relativo e absoluto permanece no processo filho', () => {
+  const casa = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-cli-mcp-casa-'));
+  try {
+    const env = ambiente(casa);
+    const relativo = ['mcp', 'install', '--project', 'loja', '--host', 'claude-code'];
+    const absoluto = ['mcp', 'install', '--project', RAIZ, '--host', 'claude-code', '--dry-run'];
+    for (const args of [relativo, absoluto]) {
+      assert.equal(cliExigeProcessoFilho(args), true);
+      assert.throws(() => cliNoProcesso({ cwd: RAIZ, env, args }),
+        /cli\.in-processo\.assincrona: mcp install exige processo filho/);
+    }
+    assert.equal(process.cwd(), RAIZ);
   } finally {
     fs.rmSync(casa, { recursive: true, force: true });
   }
