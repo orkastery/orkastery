@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.1",
-  "publicadoEm": "2026-10-30T05:12:43.202Z",
+  "publicadoEm": "2026-10-30T05:15:02.604Z",
   "threads": [
     {
       "id": "ork-asessaonosan",
@@ -27,24 +27,6 @@
         "desdeEm": "2026-10-30T03:59:39.696Z",
         "motivo": "sessão 01a18ad6 encerrada (completed)"
       }
-    },
-    {
-      "id": "ork-claimsechang",
-      "nome": "ork-claimsci",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-037",
-      "branch": "ork/ork-claimsechang-full",
-      "atualizadaEm": "2026-10-30T05:12:42.775Z",
-      "entregue": "8875501",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh",
-      "sessao": null
     },
     {
       "id": "ork-listadecoman",
