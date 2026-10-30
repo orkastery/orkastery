@@ -16,7 +16,7 @@
         "node --test-concurrency=16 --test-name-pattern=^GX3: core/dist-test/test/rm067-grok-mcp-externo.test.js"
       ],
       "criadoEm": "2026-10-30T07:27:24.873Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -31,7 +31,7 @@
         "node --test-concurrency=16 --test-name-pattern=^GX3: core/dist-test/test/rm067-grok-mcp-externo.test.js"
       ],
       "criadoEm": "2026-10-30T07:27:24.920Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -45,7 +45,7 @@
         "grep -n servidor.MCP.externo.do.Grok.espera CHANGELOG.md"
       ],
       "criadoEm": "2026-10-30T07:27:24.984Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -59,7 +59,7 @@
         "for r in 1 2 3 4 5; do node --test --test-concurrency=16 --test-name-pattern=GX4 core/dist-test/test/rm067-grok-mcp-externo.test.js || exit 1; done"
       ],
       "criadoEm": "2026-10-30T08:18:35.525Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
