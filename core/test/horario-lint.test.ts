@@ -126,6 +126,8 @@ function linhasCruas(linhas: readonly string[]): number[] {
 /** Dado de máquina ou fora do escopo (D5, D12): o texto guarda ISO e quem exibe localiza. */
 const EXCECOES: { arquivo: string; trecho: string; razao: string }[] = [
   { arquivo: 'retry.ts', trecho: 'libera em ${pedido.liberaEm})', razao: 'detalhe gravado na tentativa; textoDoRetry e textoDaRetomada localizam' },
+  { arquivo: 'fila-pesada.ts', trecho: 'expiraEm: new Date(Date.now() + workerData.validadeMs).toISOString()',
+    razao: 'prazo de máquina no artefato JSON do heartbeat; nunca é texto apresentado a uma pessoa' },
   { arquivo: 'phase.ts', trecho: 'ate ${pedido.esgotadoAte}', razao: 'erro gravado em dispatch_failed e gate_blocked; o CLI localiza ao imprimir' },
   { arquivo: 'retry.ts', trecho: ': fila duravel ate ${liberaEm}', razao: 'razao gravada no evento runtime_profile_rotated' },
   { arquivo: 'retry.ts', trecho: 'aguarde ate ${pedido.liberaEm})', razao: 'correcao gravada no evento rate_limit_enqueued, como a de phase.ts' },

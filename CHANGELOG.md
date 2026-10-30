@@ -16,6 +16,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **A referência do CLI não deixa listas de ações virarem texto corrido:** o teste de paridade confere nas versões em
+  português e inglês que `limpar`, `registrar`, `master`, `merge` e `despachar` continuam diferenciados como código.
+- **O servidor MCP externo do Grok espera o recibo real do supervisor:** o processo do `grok` pode aparecer ausente antes
+  de o evento `close` do supervisor gravar o recibo. Nesse intervalo, o servidor continua vivo; `grok-ausente` fica
+  reservado para a queda comprovada também do supervisor, sem recibo, e o GX4 deixa de flutuar sob carga
+  ([RM-067](docs/roadmap/RM-067-grok-build-homologado.md)).
 - **O teste das lanes não herda o plano de CPU da rodada:** `ORK_CHECK_CPUS_DA_LANE` e `ORK_CHECK_CPUS_DOCKER`
   continuam limitando a própria lane, mas não chegam aos testes que ela executa. Sob saturação, os testes que conferem
   a concorrência da lane e os argumentos do Docker viam a fatia da rodada e reprovavam sem defeito no código
@@ -33,6 +39,14 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   para claims antigas. Em repositório com `CHANGELOG.md` e tag publicada `v*`, o verify, `ork docs verificar --pr` e o
   CI também recusam linha nova em versão já tagueada e exigem que a entrada de "Não publicado" fique sob Adicionado,
   Alterado, Corrigido ou Segurança; sem arquivo ou versão publicada, a regra não entra no verify.
+- **Fila pesada entre host e sandbox** ([RM-064](docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md)):
+  o lease combina a trava do kernel com batida em arquivo, identidade opaca do host e do espaço de PIDs e o instante de
+  início lido de `/proc/<pid>/stat`. PID invisível ou evidência insuficiente agora é lease indeterminado, nunca órfão;
+  a sessão espera com `--esperar` ou deixa um pedido tipado para a condução.
+- **Parada intencional não vira queda do runtime** ([RM-055](docs/roadmap/RM-055-impedimento-do-dono-vira-hitl.md)):
+  a sessão `worktree` ganha somente `ork_request_conduction`, vinculada ao próprio despacho, para registrar um motivo
+  enumerado e um comando `ork` exato sem executá-lo. O watcher preserva o pedido em vez de sintetizar
+  `runtime.unavailable`, o retry não redespacha enquanto ele está aberto e o relatório o mostra em “Conosco”.
 
 ### Segurança
 

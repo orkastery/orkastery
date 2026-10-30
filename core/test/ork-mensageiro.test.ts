@@ -316,8 +316,8 @@ test('as ferramentas da lista existem no nucleo: a caixa so no servidor do dono 
   const servidor = fs.readFileSync(path.join(raizDoRepo, 'core/src/mcp-server.ts'), 'utf8');
   assert.ok(servidor.includes("if(caixa) registrarTool('ork_session_outbox',"));
   assert.match(servidor, /const caixa = opcoes\.host==='claude-code' && !opcoes\.threadId \? novaCaixaDeSaida\(\) : null;/);
-  // A conferencia do receptor so no servidor preso a uma thread e a um despacho.
-  assert.match(servidor, /if\(opcoes\.threadId && opcoes\.dispatchId\) \{\n\s+const despacho=opcoes\.dispatchId;\n\s+registrarTool\('ork_session_inbox',/);
+  // O pedido à condução e a conferência do receptor só existem no servidor preso a uma thread e a um despacho.
+  assert.match(servidor, /if\(opcoes\.threadId && opcoes\.dispatchId\) \{\n\s+const despacho=opcoes\.dispatchId;\n\s+registrarTool\('ork_request_conduction',[\s\S]*?\n\s+registrarTool\('ork_session_inbox',/);
   assert.equal(recepcao().FERRAMENTA_DA_CONFERENCIA, 'ork_session_inbox');
   assert.equal(caixa().FERRAMENTA_DA_CAIXA, 'ork_session_outbox');
 });

@@ -55,6 +55,7 @@ sdlc:
   - **c)** `ork retry run <thread>` re-despacha a mesma fase com o mesmo prompt gravado. Na confiança do diretório, o re-despacho só sai depois que o `.claude.json` da conta registra o aceite, pela regra que o claude 2.1.296 aplica no `--bg`: o próprio diretório e os de cima até a raiz git, ou o repositório principal da worktree vinculada; o diretório acima da raiz git não vale (corrigido na continuação, que achou a regra "o diretório de cima confiado vale" errada nos dois sentidos). Sem a prova, nada é despachado e a tentativa não conta; a recusa do runtime pelo mesmo impedimento também não conta.
   - **d)** este item, o CHANGELOG em "Não publicado", a tabela de retry do guia de verificação e a referência da CLI.
   - **e)** continuação (thread `ork-rm055impedi2`, rm055impedim3, 10/10/2026): as frases conferidas contra o claude 2.1.296 e o codex 0.154.0 instalados (o aviso de termos que bloqueia e os portões do `--bg` viram `runtime.consent-pending` com o comando tirado da frase; as variantes que aceitar a confiança não resolve ficam fora), a prova da confiança pela regra observada, a recusa repetida sem gastar tentativa e o impedimento no resumo que chega ao dono, com o comando e na hora.
+  - **f)** continuação `ork-asessaonosan` (29/10/2026): o contrato irmão sessão → condução cobre a ação que o sandbox não pode executar. `ork_request_conduction` só existe no servidor filho vinculado ao despacho, aceita dois motivos enumerados e um comando `ork` de uma linha, e não executa, aprova ou assume o dono. O watcher preserva o pedido no lugar de `runtime.unavailable`; retry e pulse aguardam a condução sem gastar tentativa nem mandar o item ao dono.
 - **Fora de escopo:** login ausente e cota esgotada, que já são da rotação de conta (I-33) e só chegam ao dono quando a rotação escala. Também fica fora o re-despacho automático pelo pulse, sem o `ork retry run`: o pulse mostra o comando e a ação continua explícita. Por fim, a seleção de 3 a 5 alternativas em todo HITL, que é da RM-057. Na continuação ficaram fora, como itens seguintes: o consentimento que só aparece depois do despacho, na transcrição da sessão (erro de API `terms_not_accepted`), por falta de amostra real; a prova local do codex (`trust_level` no `config.toml`); transformar o impedimento em pergunta do lote; o retry de `runtime.unavailable` sem prompt gravado; e o rótulo `human.pending` do board na pausa do impedimento.
 - **Entregáveis e critérios de aceite:**
   - classificação por motivo → `core/test/rm055-impedimento.test.ts` (frases do claude, do codex, de termos, e as que ficam fora);
@@ -80,6 +81,17 @@ sdlc:
   - D8, idem (D6 da thread), 10/10/2026: os testes da continuação moram em arquivo próprio, e os da fatia 1 continuam como estão.
 
 ## Estado com evidências
+
+### Continuação: pedido à condução
+
+Pedido ao dono e pedido à condução são contratos diferentes. `runtime.workspace-untrusted` e
+`runtime.consent-pending` continuam esperas do dono. `concurrency.lease-indeterminado` e
+`conducao.acao-necessaria` ficam em “Conosco”: a sessão registra o comando exato pelo MCP do
+próprio despacho, o watcher o carrega ao `phase_result` e `ork retry` não redespacha enquanto o
+gate estiver aberto. Os testes focados cobrem correlação e idempotência da ferramenta, parada
+intencional sem `runtime.unavailable`, retry sem tentativa e presença no relatório da condução.
+
+Esta continuação está em “Não publicado”; não altera a evidência de deploy da fatia anterior.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -108,3 +120,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-30 | Item reservado pela thread `ork-rm055impedim` | `ork roadmap reservas` | Julio |
 | 2026-10-02 | Fatia única: motivos, espera do dono, retry e docs | PR desta thread | Agente condutor |
 | 2026-10-10 | Continuação (thread `ork-rm055impedi2`, rm055impedim3): frases reais do claude 2.1.296, prova da confiança pela regra observada, recusa repetida sem gastar tentativa e impedimento no resumo entregue | Experimentos E1 a E4 com o `claude --bg` 2.1.296 em ambiente isolado e reprodução dos quatro defeitos na base 8248d98d | Agente condutor |
+| 2026-10-29 | Contrato sessão → condução, separado do HITL do dono | Testes focados de `ork_request_conduction`, watcher, retry e pulse na thread `ork-asessaonosan` | Agente condutor em #Auto |

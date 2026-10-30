@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
   atoIrreversivelDoItem, classificarItem, contarClassificacoes, ItemClassificavel, JANELA_PADRAO_MIN,
+  quemDecide,
 } from '../src/hitl-classificacao';
 import { ATOS_IRREVERSIVEIS, PedidoHitl, validarPedidoHitl } from '../src/hitl-contract';
 
@@ -146,4 +147,9 @@ test('a contagem agrega uma vez por item e nomeia cada thread bloqueada uma vez 
 test('instante e janela inválidos são recusados em vez de virarem classificação silenciosa', () => {
   assert.throws(() => classificarItem(item({}), { quando: 'ontem' }), /instante de consulta inválido/);
   assert.throws(() => classificarItem(item({}), { quando: AGORA, janelaMin: 0 }), /janela da cadência inválida/);
+});
+
+test('pedido tipado da sessão pertence à condução, não ao dono', () => {
+  assert.equal(quemDecide('conducao.acao-necessaria'), 'orquestrador');
+  assert.equal(quemDecide('concurrency.lease-indeterminado'), 'orquestrador');
 });
