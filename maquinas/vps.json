@@ -4,26 +4,8 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.1",
-  "publicadoEm": "2026-10-30T17:27:10.477Z",
+  "publicadoEm": "2026-10-30T17:27:50.802Z",
   "threads": [
-    {
-      "id": "ork-paridadeapos",
-      "nome": "docsrm074m2",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": "RM-074",
-      "branch": "ork/ork-paridadeapos-go",
-      "atualizadaEm": "2026-10-30T17:05:10.966Z",
-      "entregue": "45eea90",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null,
-      "sessao": null
-    },
     {
       "id": "ork-rm074comamet",
       "nome": "ork-rm074meta17",
@@ -66,6 +48,28 @@
         "viva": false,
         "desdeEm": "2026-10-30T17:04:19.371Z",
         "motivo": "nenhuma sessão despachada na fase GOAL"
+      }
+    },
+    {
+      "id": "ork-versao062",
+      "nome": "versao062",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-versao062-go",
+      "atualizadaEm": "2026-10-30T17:27:45.647Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-30T17:27:50.229Z",
+        "motivo": "nenhuma sessão despachada na fase GO"
       }
     }
   ]
