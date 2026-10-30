@@ -1,0 +1,54 @@
+{
+  "schema": "ork.locale-cobertura-evidencia/v1",
+  "item": "RM-061",
+  "fatia": "F3e",
+  "thread": "ork-rm061f3erota",
+  "contador": "core/scripts/contar-mensagens-de-saida.cjs",
+  "metodo": "literais com texto de pessoa em posicao de saida, fora do catalogo, e folhas do catalogo ingles; cobertura = entradas / (entradas + literais de saida)",
+  "comando": "node core/scripts/contar-mensagens-de-saida.cjs --json",
+  "antes": {
+    "arvore": "6a30b24cbc3c22382d12c0c2f7d792d5decc51c7",
+    "descricao": "base carimbada da F3e",
+    "emPosicaoDeSaida": 2716,
+    "arquivosComSaida": 210,
+    "catalogo": { "entradas": 3482 },
+    "cobertura": 0.5618
+  },
+  "depois": {
+    "arvore": "f88ead2c591bc25208ce23b90a228018c78fb77f",
+    "descricao": "F3e: rotas ausentes, residuos humanos do grafo, doctor contextual, Maestro, recusas de projeto e apresentacao do security-scan",
+    "arquivos": 365,
+    "literaisComTexto": 5379,
+    "emPosicaoDeSaida": 2680,
+    "arquivosComSaida": 209,
+    "catalogo": {
+      "entradas": 3568,
+      "familiasNovasOuAmpliadas": [
+        "locale-grafo.ts",
+        "locale-maestro.ts",
+        "locale-onboarding.ts",
+        "locale-preflight.ts",
+        "locale-projetos.ts",
+        "locale-security-scan.ts",
+        "locale.ts"
+      ]
+    },
+    "cobertura": 0.5711
+  },
+  "securityScan": {
+    "decisao": "codigos, motivos e ScanReport continuam dados canonicos; o catalogo traduz somente a apresentacao humana conhecida",
+    "json": "intocado",
+    "humanos": ["stdout", "report.md", "recusas de configuracao sem --json"]
+  },
+  "testes": {
+    "focados": {
+      "comando": "node core/dist-test/test/locale-f3e-routes.test.js && node core/dist-test/test/locale-f3e-doctor.test.js && node core/dist-test/test/locale-f3e-maestro.test.js && node core/dist-test/test/locale-f3e-grafo.test.js && node core/dist-test/test/locale-f3e-security-scan.test.js && node core/dist-test/test/locale-f3e-snapshot.test.js",
+      "resultado": "16 testes aprovados, 0 falhas"
+    },
+    "contador": {
+      "comando": "node core/scripts/contar-mensagens-de-saida.cjs --json",
+      "resultado": "medicao concluida"
+    }
+  },
+  "foraDoEscopo": ["--json", "tres superficies derivadas", "ork noctum"]
+}

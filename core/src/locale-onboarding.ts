@@ -43,6 +43,15 @@ export const ONBOARDING_PT_BR = {
   /** Aviso de preferencia invalida que o manifesto gravou ao carregar (pt-BR): traduzido so na impressao (D14). */
   avisoDaPreferencia: (aviso: string) => aviso,
   experienciaAviso: (aviso: string) => `Aviso: ${aviso}; o adapter install pula o pacote até ork onboarding set maestro corrigir.`,
+  syncPor: 'onboarding.input.invalid: sync não aceita --por; informe autoria em set ou reset.',
+  syncResultado: (regime: string, motivo: string | null, respondidas: number, gravadas: number, duplicadas: number, falhas: number) =>
+    `${regime}${motivo ? ` (${motivo})` : ''}: ${regime === 'orkmind' && falhas === 0
+      ? `${gravadas} nova(s), ${duplicadas} já existente(s); ${respondidas} etapa(s) publicada(s).`
+      : 'Entrevista preservada em arquivos; publicação semântica não concluída. Consulte ork memory status.'}`,
+  experienciaUninstallUso: 'uso: ork experiencia uninstall claude-code|codex [--dry-run] [--json]',
+  experienciaUninstall: (dryRun: boolean, arquivos: number) =>
+    `${dryRun ? 'Simulação de remoção' : 'Remoção concluída'}: ${arquivos} arquivo(s). O adaptador permanece instalado. ` +
+    'Para manter o pacote desativado, configure owner.experience:false no onboarding.',
 };
 
 /** Os avisos de `validarPreferencias` (`core/src/experiencia.ts`), pela frase exata que o manifesto grava. */
@@ -93,4 +102,13 @@ export const ONBOARDING_EN: typeof ONBOARDING_PT_BR = {
     return traduzido === undefined ? aviso : traduzido + (texto === aviso ? '' : '; the default is used for now');
   },
   experienciaAviso: (aviso) => `Warning: ${aviso}; \`ork adapter install\` skips the package until \`ork onboarding set maestro\` fixes it.`,
+  syncPor: 'onboarding.input.invalid: sync does not accept --por; record authorship with set or reset.',
+  syncResultado: (regime, motivo, respondidas, gravadas, duplicadas, falhas) =>
+    `${regime}${motivo ? ` (${motivo})` : ''}: ${regime === 'orkmind' && falhas === 0
+      ? `${gravadas} new, ${duplicadas} already present; ${respondidas} step(s) published.`
+      : 'Interview preserved in files; semantic publication did not finish. See ork memory status.'}`,
+  experienciaUninstallUso: 'usage: ork experiencia uninstall claude-code|codex [--dry-run] [--json]',
+  experienciaUninstall: (dryRun, files) =>
+    `${dryRun ? 'Removal dry run' : 'Removal complete'}: ${files} file(s). The adapter remains installed. ` +
+    'To keep the package disabled, set owner.experience:false in onboarding.',
 };
