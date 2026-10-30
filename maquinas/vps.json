@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.1",
-  "publicadoEm": "2026-10-30T03:33:50.402Z",
+  "publicadoEm": "2026-10-30T03:34:02.278Z",
   "threads": [
     {
       "id": "ork-asessaonosan",
@@ -48,6 +48,28 @@
         "viva": false,
         "desdeEm": "2026-10-30T01:34:38.776Z",
         "motivo": "sessão 01a18a57 encerrada (completed)"
+      }
+    },
+    {
+      "id": "ork-listadecoman",
+      "nome": "ork-docscli",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": "RM-060",
+      "branch": "ork/ork-listadecoman-go",
+      "atualizadaEm": "2026-10-30T03:33:54.781Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-30T03:33:58.036Z",
+        "motivo": "nenhuma sessão despachada na fase GO"
       }
     },
     {
