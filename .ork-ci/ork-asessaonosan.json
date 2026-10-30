@@ -501,6 +501,64 @@
       "criadoEm": "2026-10-30T01:41:32.909Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-asessaonosan",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "O snapshot pt-BR F3b coincide byte a byte com o código atual, incluindo as skills instaladas e o prompt de fase alterados pela thread.",
+      "negativa": false,
+      "verificar": [
+        "node --test-name-pattern='locale pt-BR F3b: o resto' core/dist-test/test/locale-f3b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-30T03:36:48.006Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-asessaonosan",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "O snapshot pt-BR F3b coincide byte a byte com o código atual quando executado com concorrência 16, incluindo skills instaladas e prompt de fase.",
+      "negativa": false,
+      "verificar": [
+        "node --test-concurrency=16 --test-name-pattern='locale pt-BR F3b: o resto' core/dist-test/test/locale-f3b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-30T03:46:46.892Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-asessaonosan",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "A fixture F3b registra o recibo atual das skills e mods instalados, incluindo o SHA gerado de `mods/ork-torre/hooks/frases.ts`, e o snapshot pt-BR completo passa.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'mods/ork-torre/hooks/frases.ts sha:13683d44c130213a' core/test/fixtures/locale-f3b-pt-BR.json",
+        "node --test-concurrency=16 --test-name-pattern='locale pt-BR F3b: o resto' core/dist-test/test/locale-f3b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-30T03:55:14.430Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-asessaonosan",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3d-pt-BR.json",
+      "alegacao": "A fixture F3d inclui `concurrency.lease-indeterminado` e `conducao.acao-necessaria` na lista de motivos conhecidos, e o snapshot pt-BR de correção passa.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'concurrency.lease-indeterminado, conducao.em-andamento, conducao.acao-necessaria' core/test/fixtures/locale-f3d-pt-BR.json",
+        "node --test-concurrency=16 --test-name-pattern='locale pt-BR F3d: correcao' core/dist-test/test/locale-f3d-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-30T03:55:14.480Z",
+      "estado": "reprovado",
+      "lint": []
     }
   ],
   "deferredClaims": [
