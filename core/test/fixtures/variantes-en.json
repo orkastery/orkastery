@@ -25,7 +25,7 @@
   "references-en/testing-patterns.md": "67fa7e604e2e483216b09f79dce3ab807e3aeebbb1fa027e5e12ae73d5f6da0a",
   "adapters-en/claude-code/ACTIVATION.md": "42e3a201c5e5db2e60b555bf6576d8d6206efa94fd1e2e60236124288ebffe12",
   "adapters-en/claude-code/README.md": "8e1dcf366b97224fbb3d8596790fe3b1f7b413aab4ef0fed2cf0a462b0ae10f1",
-  "adapters-en/claude-code/agents/ork-check.md": "647d1365e73225939b39a380515dffbf647d9b3b37a43889511d53a85d1a7feb",
+  "adapters-en/claude-code/agents/ork-check.md": "8afa6cf588dc4147134effc809db5cf69c5b25efb419b871dff3733d6291ffbd",
   "adapters-en/claude-code/agents/ork-go.md": "bfed35704ad6c43586bcbc23ba7f6cb904e0ad7cfecd3d9e2f2185c3d4e2dd64",
   "adapters-en/claude-code/agents/ork-goal.md": "b5f672b4b52397c0244041a0151b9174e7de15f608d5c090b223d339ff8d362d",
   "adapters-en/claude-code/agents/ork-master.md": "9d3ffe4fbcb0d1b918fd11266be896b645ce2721944611b269480e0db78ee9f5",
