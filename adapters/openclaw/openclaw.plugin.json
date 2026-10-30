@@ -2,7 +2,7 @@
   "id": "orkastery",
   "name": "Orkastery",
   "description": "Conducao de looping threads em 6 fases pelo nucleo `ork`, exposta ao OpenClaw como tools `ork_*`. Zero regra de negocio no host: cada tool e uma chamada de CLI. Toda tool de projeto aceita projeto (nome do projeto pedido); o cwd do gateway nunca escolhe o projeto. O status do roadmap vem de ork_network_roadmap; as maquinas da pessoa, de ork_network_status (sem projeto).",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "configSchema": {
     "type": "object",
     "properties": {},
