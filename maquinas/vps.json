@@ -4,8 +4,30 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.1",
-  "publicadoEm": "2026-10-30T12:15:02.858Z",
+  "publicadoEm": "2026-10-30T12:21:03.734Z",
   "threads": [
+    {
+      "id": "ork-paridadedorm",
+      "nome": "ork-docsrm074m1",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": "RM-074",
+      "branch": "ork/ork-paridadedorm-go",
+      "atualizadaEm": "2026-10-30T12:20:53.645Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-30T12:20:58.460Z",
+        "motivo": "nenhuma sessão despachada na fase GO"
+      }
+    },
     {
       "id": "ork-rm074comamet",
       "nome": "ork-rm074meta17",
