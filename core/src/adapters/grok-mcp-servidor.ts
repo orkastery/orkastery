@@ -450,7 +450,11 @@ export async function servirGrok(pedido: PedidoServidorGrok, token: string): Pro
     if (existe(`${pedido.logPath}.exit.json`)) { fechar('recibo'); return; }
     const processo = lerJsonPequeno<ProcessoCodex>(`${pedido.logPath}.process.json`);
     if (!processo) { if (Date.now() - inicio > prazoDaPartida) fechar('sem-partida'); return; }
-    if (!processo.filho || estadoProcesso(processo.filho) === 'ausente') fechar('grok-ausente');
+    // O `close` real do filho ocorre depois que ele ja aparece ausente e, dentro dele, o supervisor grava o recibo
+    // atomicamente antes de sair. Enquanto o supervisor vive, a ausencia do filho e so essa janela: o evento certo ainda
+    // e o recibo. `grok-ausente` fica para a queda do supervisor sem recibo, comprovada pela ausencia dos dois processos.
+    if ((!processo.filho || estadoProcesso(processo.filho) === 'ausente') &&
+        estadoProcesso(processo.supervisor) === 'ausente') fechar('grok-ausente');
   };
   const vigia = setInterval(vigiar, INTERVALO_DA_VIGIA_MS);
   return { porta, url, fechar, fechado };
