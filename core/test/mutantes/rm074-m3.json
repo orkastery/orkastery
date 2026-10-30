@@ -1,0 +1,42 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-074 M3: a bancada so publica razao confiavel, a CPU de sistema cai sem reduzir qualidade e o tmpfs permanece seguro e observavel.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "a bancada volta a aceitar menos de tres pares",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "de": "o.pares < MIN_PARES_CONFIAVEIS",
+      "para": "o.pares < 1",
+      "teste": "medir-check",
+      "nome": "^MC23:"
+    },
+    {
+      "id": "M2",
+      "descricao": "a divergencia de steal deixa de invalidar o par",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "de": "Math.abs(stealAgile - stealClassic) > toleranciaStealPp",
+      "para": "Math.abs(stealAgile - stealClassic) > Infinity",
+      "teste": "medir-check",
+      "nome": "^MC23:"
+    },
+    {
+      "id": "M3",
+      "descricao": "o preparo volta a entrar na parede usada pela razao",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "de": "const parede = rodada.duracaoMs - rodada.preparoMs;",
+      "para": "const parede = rodada.duracaoMs;",
+      "teste": "medir-check",
+      "nome": "^(MC21|MC23):"
+    },
+    {
+      "id": "M4",
+      "descricao": "a ordem dos pares deixa de ser contrabalanceada",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "de": "i % 2 === 0 ? ['agile', 'classic'] : ['classic', 'agile']",
+      "para": "['agile', 'classic']",
+      "teste": "medir-check",
+      "nome": "^(MC21|MC23):"
+    }
+  ]
+}

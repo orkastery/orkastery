@@ -35,6 +35,12 @@ const medir = require(path.join(RAIZ, 'core', 'scripts', 'medir-check.cjs')) as 
   pastaDasCopias: (cache: string, home?: string) => string;
   encerrarArvore: (raiz: number, sinal?: NodeJS.Signals) => number;
   CLAIMS_REPRESENTATIVAS: Array<{ arquivo: string; alegacao: string; verificar: string }>;
+  MIN_PARES_CONFIAVEIS: number;
+  TOLERANCIA_STEAL_PP: number;
+  ordemDosPares: (total: number) => string[][];
+  paredeSemPreparo: (rodada: unknown) => number | null;
+  validarPar: (agile: unknown, classic: unknown, ordem: string[], esperada: string[], tolerancia?: number) => Record<string, any>;
+  validarOpcoesDaBancada: (opcoes: { pares: number }) => void;
   razao: (classicMs: unknown, agileMs: unknown) => number | null;
   eficiencia: (cpuMs: unknown, nucleos: number, paredeMs: unknown) => number | null;
   corte: (cpuMs: unknown, baseMs: unknown) => number | null;
@@ -345,15 +351,16 @@ test('MC19: sonda 4, o fecho de require segue os relativos ate a fonte e marca o
 });
 
 test('MC20: sonda 5 e a redacao: as pecas em fallback de uma rodada; a casa, a maquina e a copia saem de todo texto', () => {
-  assert.deepEqual(medir.pecasEmFallback({ pecas: [{ peca: 'tsgo', estado: 'fallback' }, { peca: 'cache-semgrep', estado: 'agile' }, null] }),
-    { total: 3, fallback: ['tsgo'] });
-  assert.deepEqual(medir.pecasEmFallback(null), { total: 0, fallback: [] });
+  assert.deepEqual(medir.pecasEmFallback({ pecas: [{ peca: 'tsgo', estado: 'fallback', motivo: 'ausente', fallback: 'tsc' },
+    { peca: 'cache-semgrep', estado: 'agile' }, null] }),
+  { total: 3, fallback: ['tsgo'], detalhes: [{ peca: 'tsgo', motivo: 'ausente', fallback: 'tsc' }] });
+  assert.deepEqual(medir.pecasEmFallback(null), { total: 0, fallback: [], detalhes: [] });
   const r = medir.redigir({ trecho: '/srv/u/.cache/x/projeto/core: falhou em vm-1', lista: ['/srv/u/a', 3], '/srv/u': true },
     [['/srv/u', '~'], ['/srv/u/.cache/x/projeto', '<copia>'], ['vm-1', '<maquina>'], ['', 'nada'], [undefined as unknown as string, 'x']]);
   assert.deepEqual(r, { trecho: '<copia>/core: falhou em <maquina>', lista: ['~/a', 3], '~': true }, 'o trecho mais longo troca primeiro');
 });
 
-test('MC21: a bancada inteira com numeros sinteticos: razao por par, eficiencia por lane, corte, variacao e lista por lane', () => {
+test('MC21: a bancada inteira com tres pares ABBA validos: razao sem preparo, CPU com steal, eficiencia, corte e lista por lane', () => {
   const lanes = { hermetica: ['a.test.js', 'b.test.js'], integracao: ['c.test.js'] };
   const verifyRun = (modo: string, duracaoMs: number, lanesMs: Record<string, number> | null, steal: number) => ({
     pedido: modo, ok: true, duracaoMs, stealPct: steal, cpuDaArvoreMs: duracaoMs * 2, picoBytes: modo === 'agile' ? 1200 : 1000, preparoMs: 10,
@@ -362,39 +369,74 @@ test('MC21: a bancada inteira com numeros sinteticos: razao por par, eficiencia 
       ...(lanesMs ? { lanes: Object.entries(lanesMs).map(([lane, ms]) => ({ lane, duracaoMs: ms })) } : {}) }],
     duracoesPorArquivo: modo === 'agile' ? { 'a.test.js': 60, 'b.test.js': 30, 'c.test.js': 10 } : undefined });
   const rodadas = [
-    { par: 1, ...verifyRun('agile', 1000, { hermetica: 500, integracao: 200 }, 10) }, { par: 1, ...verifyRun('classic', 3000, null, 12) },
-    { par: 2, ...verifyRun('agile', 1250, { hermetica: 625, integracao: 250 }, 8) }, { par: 2, ...verifyRun('classic', 2500, null, 9) },
+    { par: 1, ...verifyRun('agile', 1010, { hermetica: 500, integracao: 200 }, 10) }, { par: 1, ...verifyRun('classic', 3010, null, 12) },
+    { par: 2, ...verifyRun('classic', 2510, null, 9) }, { par: 2, ...verifyRun('agile', 1260, { hermetica: 625, integracao: 250 }, 8) },
+    { par: 3, ...verifyRun('agile', 1010, { hermetica: 500, integracao: 200 }, 5) }, { par: 3, ...verifyRun('classic', 2010, null, 6) },
   ];
   const medidas = (fator: number) => ({ 'a.test.js': { userMs: 2000 * fator, sysMs: 1000 * fator, paredeMs: 30, picoKb: 1, testes: 3, saida: 0 },
     'b.test.js': { userMs: 600 * fator, sysMs: 400 * fator, paredeMs: 10, picoKb: 1, testes: 2, saida: 0 },
     'c.test.js': { userMs: 400 * fator, sysMs: 400 * fator, paredeMs: 5, picoKb: 1, testes: 1, saida: 1 } });
-  const passes = [{ passe: 1, stealPct: 11, medidas: medidas(1) }, { passe: 2, stealPct: 9, medidas: medidas(1.2) }];
+  const passes = [{ passe: 1, stealPct: 11, medidas: medidas(1) }, { passe: 2, stealPct: 9, medidas: medidas(1.2) },
+    { passe: 3, stealPct: 5.5, medidas: medidas(0.8) }];
   const b = medir.analisarBancada({ rodadas, passes, lanes, nucleos: 2 });
+  assert.deepEqual(b.confianca, { estado: 'com-confianca', motivos: [], pares: 3, paresValidos: 3, minimo: 3, toleranciaStealPp: 2 });
   perto(b.pares[0].razao, 3);
   perto(b.pares[1].razao, 2);
-  perto(b.variacao.razao.media, 2.5);
+  perto(b.pares[2].razao, 2);
+  perto(b.variacao.razao.media, 7 / 3);
+  assert.deepEqual(b.pares.map((p: { ordem: string[] }) => p.ordem),
+    [['agile', 'classic'], ['classic', 'agile'], ['agile', 'classic']]);
+  assert.deepEqual(b.pares[0].preparoMs, { agile: 10, classic: 10 });
+  assert.deepEqual(b.pares[0].paredesSemPreparoMs, { agile: 1000, classic: 3000 });
+  assert.deepEqual(b.pares[0].cpuDaArvore, { agile: { ms: 2020, stealPct: 10 }, classic: { ms: 6020, stealPct: 12 } });
   perto(b.pares[0].eficiencia.hermetica, 4000 / 2 / 500);
   perto(b.pares[0].eficiencia.integracao, 800 / 2 / 200);
   perto(b.pares[1].eficiencia.hermetica, 4800 / 2 / 625, 'o par 2 usa a CPU do passe 2');
   perto(b.pares[0].eficiencia.suiteNoAgile, 4800 / 2 / 500);
-  perto(b.pares[0].eficiencia.suiteNoClassic, 4800 / 2 / 1500);
+  perto(b.pares[0].eficiencia.suiteNoClassic, 4800 / 2 / 1505);
   perto(b.pares[0].picoAgileSobreClassic, 1.2);
   assert.deepEqual(b.lanes.hermetica, { arquivos: 2, testes: 5, lista: lanes.hermetica });
   assert.equal(b.lanes.integracao.testes, 1);
   assert.equal(b.corte.base, 'media desta medicao');
-  perto(b.corte.baseMs, 5280);
-  perto(b.corte.porPasse[0].corte, 1 - 4800 / 5280);
+  perto(b.corte.baseMs, 4800);
+  perto(b.corte.porPasse[0].corte, 0);
+  assert.equal(b.cpuDaSuite.porPasse[0].stealPct, 11, 'CPU da suite vem com o steal do passe');
   assert.deepEqual(b.cpuDaSuite.arquivosComFalha, ['c.test.js']);
   perto(b.variacao.stealPct.max, 12);
-  assert.deepEqual(b.sondas[5].map((s: { fallback: string[] }) => s.fallback), [['tsgo'], ['tsgo']]);
+  assert.deepEqual(b.sondas[5].map((s: { fallback: string[] }) => s.fallback), [['tsgo'], ['tsgo'], ['tsgo']]);
   perto(b.sondas[1][0].porLane.integracao, 0.1);
   perto(b.sondas[2][0].arquivos[0].sozinhoContraConcorrente, 0.5);
-  perto(b.sondas[3].peso[0].claims, 0.1);
-  assert.deepEqual(b.porArquivo[2], { arquivo: 'c.test.js', lane: 'integracao', testes: 1, passes: [medidas(1)['c.test.js'], medidas(1.2)['c.test.js']], concorrenteMs: [10, 10] });
+  perto(b.sondas[3].peso[0].claims, 100 / 1010);
+  assert.deepEqual(b.porArquivo[2], { arquivo: 'c.test.js', lane: 'integracao', testes: 1,
+    passes: [medidas(1)['c.test.js'], medidas(1.2)['c.test.js'], medidas(0.8)['c.test.js']], concorrenteMs: [10, 10, 10] });
   assert.ok(!('duracoesPorArquivo' in b.rodadas[0]), 'a parede por arquivo vai so na tabela por arquivo');
   const comBase = medir.analisarBancada({ rodadas, passes, lanes, nucleos: 2, linhaDeBase: { cpuDaSuite: { variacao: { media: 9600 } } } });
   assert.equal(comBase.corte.base, 'linha de base');
   perto(comBase.corte.porPasse[0].corte, 0.5);
+});
+
+test('MC23: menos de tres pares, ordem errada, preparo ausente e steal divergente deixam a bancada sem confianca e sem razao', () => {
+  assert.equal(medir.MIN_PARES_CONFIAVEIS, 3);
+  assert.equal(medir.TOLERANCIA_STEAL_PP, 2);
+  assert.deepEqual(medir.ordemDosPares(4), [
+    ['agile', 'classic'], ['classic', 'agile'], ['agile', 'classic'], ['classic', 'agile'],
+  ]);
+  assert.equal(medir.paredeSemPreparo({ duracaoMs: 110, preparoMs: 10 }), 100);
+  assert.equal(medir.paredeSemPreparo({ duracaoMs: 110, preparoMs: null }), null);
+  const rodada = (pedido: string, stealPct: number | null, preparoMs: number | null = 10) => ({
+    par: 1, pedido, ok: true, duracaoMs: 110, preparoMs, stealPct, cpuDaArvoreMs: 200, comandos: [], claims: [], pecas: [],
+  });
+  const rodadas = [rodada('agile', 2), rodada('classic', 5)];
+  const b = medir.analisarBancada({ rodadas, passes: [], lanes: {}, nucleos: 2 });
+  assert.equal(b.confianca.estado, 'sem-confianca');
+  assert.deepEqual(b.confianca.motivos, ['menos-de-3-pares', 'menos-de-3-pares-validos']);
+  assert.deepEqual(b.pares[0].motivos, ['steal-divergente']);
+  assert.equal(b.pares[0].razao, null, 'nem a razao individual sai sem tres pares validos');
+  assert.equal(b.variacao.razao, null);
+  assert.deepEqual(medir.validarPar(rodada('agile', null, null), rodada('classic', 1), ['classic', 'agile'], ['agile', 'classic']).motivos,
+    ['preparo-ou-parede-ausente', 'ordem-nao-ABBA', 'steal-ausente']);
+  assert.throws(() => medir.validarOpcoesDaBancada({ pares: 2 }), /exige pelo menos 3 pares/);
+  assert.doesNotThrow(() => medir.validarOpcoesDaBancada({ pares: 3 }));
 });
 
 test('MC22: o JSON da bancada e indentado ate o nivel pedido e compacto abaixo dele, e volta ao mesmo valor', () => {
