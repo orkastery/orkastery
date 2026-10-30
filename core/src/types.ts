@@ -648,7 +648,8 @@ export type MotivoGate =
 
 /** Uma alegacao verificavel feita por uma fase (`claims.jsonl` da thread). */
 /** I-53 (RM-037, P6): as regras do lint de comando de claim (`claim-lint.ts`). */
-export type RegraDoLint = 'suite-inteira' | 'sha-intermediario' | 'contagem-de-commits';
+export type RegraDoLint = 'suite-inteira' | 'sha-intermediario' | 'contagem-de-commits'
+  | 'binario-rg' | 'ork-fora-do-path' | 'estado-local' | 'aspas-escapadas';
 
 /** Um achado do lint: a regra, o pedaco do comando que casou e a forma certa. */
 export interface AchadoDoLint {

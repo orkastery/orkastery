@@ -23,6 +23,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   a comparação por comando, mas o veredito declara o fallback e não inventa “0 regressões” por teste.
 - **Teste da validade inicial da fixture isolado:** a fixture respeita `TMPDIR`, e o teste não observa mais o `/tmp`
   compartilhado nem vence após 5 segundos sob carga ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)).
+- **Claims executáveis no CI e CHANGELOG na seção certa** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  `ork claims add` e o MCP recusam antes da gravação comandos com `rg`, `ork` fora do PATH, estado em `.orkastery/`
+  ou aspas `\x22`/`\x27` literais, indicando `grep` e `node core/dist/index.js`; `ork ci prepare` mantém apenas aviso
+  para claims antigas. Em repositório com `CHANGELOG.md` e tag publicada `v*`, o verify, `ork docs verificar --pr` e o
+  CI também recusam linha nova em versão já tagueada e exigem que a entrada de "Não publicado" fique sob Adicionado,
+  Alterado, Corrigido ou Segurança; sem arquivo ou versão publicada, a regra não entra no verify.
 
 ### Segurança
 
