@@ -8,7 +8,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { analisarComando } from '../src/claim-lint';
-import { adicionarClaim, caminhoClaims, lerClaims, montarClaim } from '../src/claims';
+import { adicionarClaim, caminhoClaims, gravarClaim, lerClaims, montarClaim } from '../src/claims';
 import { lintDoBundle, prepararBundleCi } from '../src/ci';
 import { TESTES_DE_INTEGRACAO_LOCAL } from '../src/integracoes-locais';
 import { lerLedger } from '../src/ledger';
@@ -105,6 +105,35 @@ test('ci prepare recusa a suite inteira em claim nascida sob a regra; claim anti
     assert.equal(fs.existsSync(arquivo), true);
     assert.equal(avisos.length, 1);
     assert.match(avisos[0], /roda a suite inteira .*claim anterior ao lint: so aviso/);
+    assert.deepEqual(lintDoBundle(lerClaims(p.dir, thread.id)).recusas, []);
+  } finally { p.limpar(); }
+});
+
+test('quatro casos no bundle: claim nova recusa e a equivalente anterior ao lint apenas avisa', () => {
+  const p = projetoTemporario('claim-lint-ci-quatro');
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'lint ci quatro', modo: 'auto' });
+    const comandos = [
+      'rg -n claims core/src',
+      'ork docs verificar --pr',
+      'grep -q claim .orkastery/threads/x/claims.jsonl',
+      'grep -q \\x27claim\\x27 core/src/claims.ts',
+    ];
+    for (const [i, comando] of comandos.entries()) {
+      gravarClaim(p.dir, montarClaim({ id: `C${i + 1}`, dono: thread.id, fase: 'GO', arquivo: 'README.md',
+        alegacao: `prova ${i + 1}`, verificar: [comando] }));
+    }
+    const lintNovo = lintDoBundle(lerClaims(p.dir, thread.id));
+    assert.equal(lintNovo.recusas.length, 4);
+    assert.deepEqual(lintNovo.avisos, []);
+    assert.throws(() => prepararBundleCi(p.carregado, thread.id), /claims\.lint: o bundle nao foi gerado/);
+
+    const antigas = lerClaims(p.dir, thread.id).map(({ lint: _lint, ...resto }) => resto);
+    fs.writeFileSync(caminhoClaims(p.dir, thread.id), antigas.map((c) => JSON.stringify(c)).join('\n') + '\n');
+    const avisos: string[] = [];
+    prepararBundleCi(p.carregado, thread.id, { aoAvisar: (linha) => avisos.push(linha) });
+    assert.equal(avisos.length, 4);
+    for (const aviso of avisos) assert.match(aviso, /claim anterior ao lint: so aviso/);
     assert.deepEqual(lintDoBundle(lerClaims(p.dir, thread.id)).recusas, []);
   } finally { p.limpar(); }
 });
