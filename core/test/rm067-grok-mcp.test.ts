@@ -145,11 +145,13 @@ test('GM4: o servidor --host grok so existe com a thread, lista so as ferramenta
   try {
     assert.throws(() => criarServidorMcp({ projeto: p.dir, host: 'grok' }), /mcp\.host\.child-only/);
     const t = novaThread(p.carregado, { nome: 'gm4', modo: 'auto', criarWorktree: true }).thread;
-    const interativo = await comCliente(criarServidorMcp({ projeto: p.dir, host: 'grok', threadId: t.id }),
+    const dispatchId = novaIdentidadeDeDespacho(t.id, 'GO').dispatchId;
+    const interativo = await comCliente(criarServidorMcp({ projeto: p.dir, host: 'grok', threadId: t.id, dispatchId }),
       async (c) => (await c.listTools()).tools.map((x) => x.name).sort());
     assert.deepEqual(interativo, [...CONSULTAS, 'ork_artifact_write', 'ork_decision_record'].sort(),
       'interactive: as consultas e o que o PLAN grava; nada do dono, do brain, do maestro ou da caixa');
-    await comCliente(criarServidorMcp({ projeto: p.dir, host: 'grok', threadId: t.id, permissoesFilho: 'worktree' }), async (c) => {
+    await comCliente(criarServidorMcp({ projeto: p.dir, host: 'grok', threadId: t.id, dispatchId,
+      permissoesFilho: 'worktree' }), async (c) => {
       const nomes = (await c.listTools()).tools.map((x) => x.name).sort();
       assert.deepEqual(nomes, [...CONSULTAS, 'ork_git_status', ...MUTACOES].sort(), 'worktree: mais o ork_git_status e as sete mutacoes');
       const r = await c.callTool({ name: 'ork_decision_record', arguments: { threadId: t.id,

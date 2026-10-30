@@ -16,7 +16,7 @@ import { exec } from '../src/util';
 
 const leituras = ['thread_status', 'phase_list', 'hitl_pending', 'observe', 'artifact_read', 'claims_list']
   .map(nome => `mcp__orkastery__ork_${nome}`);
-const mutacoes = ['artifact_write', 'claim_add', 'decision_record', 'git_commit', 'verify', 'ship']
+const mutacoes = ['artifact_write', 'claim_add', 'decision_record', 'request_conduction', 'git_commit', 'verify', 'ship']
   .map(nome => `mcp__orkastery__ork_${nome}`);
 function preparar(nome: string, perfil: 'interactive' | 'worktree', modo: 'auto' | 'maestro' = 'auto') {
   const container = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-test-c35-container-'));
@@ -44,7 +44,7 @@ test('Claude interactive preserva seis consultas sem grants de arquivo ou denies
     assert.deepEqual(montarComando({cwd:f.p.dir,nome:'legado',prompt:'pedido'}), ['claude','--bg','pedido','--name','legado']);
   } finally { f.p.limpar(); }
 });
-test('Claude worktree concede sete consultas, cinco mutadores e Edit absoluto apenas na WT', () => {
+test('Claude worktree concede sete consultas, sete mutadores e Edit absoluto apenas na WT', () => {
   const f = preparar('claude-worktree', 'worktree');
   try {
     const args = montarComando({cwd:f.t.worktree!,nome:'bloco',prompt:'escopo autorizado',contextoRuntime:f.contexto});
