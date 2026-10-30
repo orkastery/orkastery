@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-30T15:40:00-03:00
+atualizado_em: 2026-10-30T20:15:00-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -17,12 +17,12 @@ estado:
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: ab26364f
+    commit: 1171177e
     pr: null
 sdlc:
   thread: ork-rm074m4cpude
   modo: "#Auto"
-  fase: GOAL
+  fase: GO
   status: aberta
 ---
 
@@ -163,6 +163,34 @@ folga proporcional, registra a causa de qualquer fallback e continua desligada p
 padrão até uma bancada confiável provar ganho. Nenhum teste ou asserção foi removido.
 Como ainda não há três pares válidos depois dessas mudanças, a M3 não afirma razão,
 corte de CPU nem eficiência nova.
+
+### M4: preparo compartilhado nos testes caros restantes
+
+A leitura estática da M4 separou o preparo fixo do comportamento exercitado:
+
+- cada chamada de `projetoTemporario` com remoto fazia dois `git init`, um commit e
+  um push iniciais e criava a árvore do projeto antes de o cenário começar;
+- nos quatro arquivos Noctum de múltiplas máquinas, `duasMaquinas` ainda acrescentava
+  os commits dos itens, o commit do manifesto, outro push e o clone da segunda máquina;
+- em `noctum-entrega`, cada mundo acrescentava o commit e o push do CHANGELOG base;
+- em `rede`, a forja falsa reescrevia cinco executáveis e dois links de ferramentas
+  por chamada, além dos projetos temporários usados por parte dos cenários.
+
+| Arquivo | Preparo repetido localizado | O que a M4 compartilha | Fronteira preservada |
+| --- | --- | --- | --- |
+| `noctum-integracao` | projeto, remoto, estado inicial e segundo clone por cenário | modelo de projeto e remoto uma vez no processo do arquivo; cópia isolada por cenário | Git de branches, prova, push e reconciliação |
+| `noctum-maquinas` | o mesmo prefixo de `duasMaquinas` | o mesmo modelo copiado | locks, reservas, coordenação e retomada |
+| `noctum-coordenacao` | o mesmo prefixo de `duasMaquinas` | o mesmo modelo copiado | ramo de coordenação e concorrência |
+| `noctum-ensaio` | o mesmo prefixo de `duasMaquinas` | o mesmo modelo copiado | os dois executores concorrentes continuam processos filhos |
+| `noctum-entrega` | projeto, remoto, manifesto e CHANGELOG base por mundo | modelo de entrega uma vez no processo; cópia de projeto e bare por mundo | worktrees, commits, hooks, conflitos, locks, push, CI e retomada |
+| `rede` | projeto inicial; cinco scripts e dois links da forja por chamada | um modelo de projeto e um modelo da forja por processo; cópia por cenário | o ciclo CLI continua com quinze filhos; pulse, PATH, shell, credential helper, locks e corridas permanecem reais |
+
+O copiador reescreve o `origin` para o bare copiado antes de devolver o cenário. Casos
+existentes plantam sentinelas numa cópia e conferem que a próxima não as recebe; seis
+mutantes cobrem retorno ao preparo por caso e perda de isolamento. Nenhum caso foi
+removido ou transformado em `skip`. Esta seção não atribui ganho: razão contra o
+Classic, CPU e eficiência continuam pendentes da bancada do host com três pares
+válidos e o critério de `steal` da M3.
 
 ## Problema e resultado
 
@@ -344,6 +372,7 @@ A numeração segue a ordem do pedido. A ordem de execução recomendada é a da
 | F1 Seletividade | Mapa de impacto arquivo para testes a partir do diff, nas rodadas intermediárias do GO e do CHECK, atrás de flag desligada por padrão; o motor sai da D3; fora do caminho da meta, porque a suíte completa continua obrigatória no gate final e no CI; as claims de teste entram no mesmo mapa | Rodada intermediária mais rápida que o gate do Agile no mesmo commit, na razão que a M0 fixa, em três rodadas seguidas pelo ledger; falso negativo dentro do limiar da D3 em sombra sobre os diffs da M0; teste que prova que o gate final roda a suíte completa em 100% dos casos e que a flag desligada dá o resultado de hoje; módulo central (os `locale-*`, 591 testes) tratado por regra explícita, não por seleção de tudo |
 | M1 CPU por teste | Harness do CLI dentro do processo para os testes pesados que não verificam a fronteira de processo; resultado nominal das lanes reaproveitado por claims `node --test` no mesmo HEAD e ambiente; build único por rodada | Razão contra o Classic e CPU da suíte medidas pela mesma bancada da recoleta M0; mesmo número de testes e asserções, nenhum `skip`; paridade byte a byte entre harness e processo; mutação dos arquivos tocados sem piora superior a 10% |
 | M3 Confiança da medida e CPU de sistema | Bancada com três pares válidos em ordem AB/BA, preparo separado e `steal` por passe; fixture Git compartilhada nos dois testes de security scan; tmpfs das lanes atrás de opt-in e fallback explicado | A razão só é oficial com três pares válidos cuja divergência de `steal` não passe de 2 pontos percentuais; CPU sempre acompanhada do `steal`; nenhum teste ou asserção removido; mutantes da M3 mortos; tmpfs só pode virar padrão depois de ganho de CPU de sistema provado pela bancada |
+| M4 CPU de sistema nos testes caros restantes | Modelo de projeto Git, remoto e estado inicial compartilhado nos arquivos Noctum, entrega e rede; árvore da forja falsa compartilhada em `rede`; cópias isoladas por caso | Mesmo conjunto de casos e asserções, filhos reais preservados nas fronteiras, seis mutantes da M4 mortos; nenhum ganho publicado antes de três pares válidos da bancada |
 | F2 CPU da suíte (demais fatias) | Os arquivos de teste mais caros que continuam fora da M1, a eficiência de paralelismo das lanes e a cadeia varredura e integração, com orçamento que vigia o crescimento | Evolução até cerca de 1,7 vez contra o Classic, no mesmo commit, máquina e bateria; nenhum caso removido; cada ganho medido em razão e CPU da suíte |
 | F3 Memória | O teto da D2 aplicado à varredura do grupo e às lanes, medindo o que isso custa na razão contra o Classic | Pico agregado dentro do teto em três rodadas; varredura com as nove ferramentas e zero achado novo ou desaparecido por impressão digital; custo na razão medido e registrado, e aceito pelo dono se tirar a meta da D1 do alcance |
 | F4 Dívida da RM-072 que pesa no tempo ou na confiança | O que a tabela "A dívida da RM-072" diz que entra: redação do motivo da peça `imagem-de-lint`, a lane caída sem veredito e o texto do gate, a data sem ano e o caso de `GMT+0` do snapshot de locale, os casos que faltam, a paridade do `tsgo` fora da thread de origem e as peças em fallback | Cada item da tabela com caso de teste que falha sem a correção; nenhum arquivo ou categoria de varredura removido; peças `tsgo`, `cache-semgrep` e binários nativos com o motivo do fallback medido e, onde o fallback some, o ganho em percentual da parede pelo ledger |
@@ -448,7 +477,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Em desenvolvimento | — | 2026-10-30 | Julio |
 | Documentação | Em revisão | — | 2026-10-30 | Julio |
-| Código | Branch criada | commit `ab26364f` | 2026-10-30 | Julio |
+| Código | Branch criada | commit `1171177e` | 2026-10-30 | Julio |
 | Testes | Em execução | — | 2026-10-30 | Julio |
 | Deploy | Não implantado | — | 2026-10-30 | Julio |
 | Exposição | Flag desligada | — | 2026-10-30 | Julio |
@@ -458,9 +487,9 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 ## Responsabilidades e histórico
 
-- **RACI (R / A / C / I):** R: sessão condutora da thread `ork-rm074m3rumoa` para a M3; A: Julio; C: a definir; I: a definir.
-- **Agentes envolvidos, atuação, autonomia e revisor humano:** a M3 é conduzida em `#Auto` pela thread `ork-rm074m3rumoa`; decisões autônomas ficam no ledger, enquanto a meta 2.c e o limite de qualidade são do dono; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** nenhuma thread sucessora foi autorizada nesta entrega. A próxima fatia deve nascer do roadmap antes de novo código; até lá, `sdlc.thread` fica vazio e a meta continua aberta, sem razão atribuída à M3.
+- **RACI (R / A / C / I):** R: sessão condutora da thread `ork-rm074m4cpude` para a M4; A: Julio; C: a definir; I: a definir.
+- **Agentes envolvidos, atuação, autonomia e revisor humano:** a M4 é conduzida em `#Auto` pela thread `ork-rm074m4cpude`; decisões autônomas ficam no ledger, enquanto a meta 2.c e o limite de qualidade são do dono; revisor humano: Julio.
+- **Próxima ação, responsável e prazo:** o condutor do host roda verify, bancada e fechamento; no fechamento, `sdlc.thread` aponta para a próxima fatia autorizada ou para `null`. A M4 não publica ganho antes dessa medida.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -470,3 +499,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-30 | M1 iniciada: CLI no processo para testes pesados e resultados das lanes reutilizados por claims equivalentes no mesmo HEAD e ambiente | Bancada M0 `6a30b24c`, plano e implementação da thread `ork-rm074m1menos` | Thread `ork-rm074m1menos` (#Auto) |
 | 2026-10-30 | M1 registrada; M2 leva o harness a quatro pontos quentes restantes e reaproveita formas fechadas das claims. A razão e a CPU da M2 ficam pendentes da bancada no host real | Bancada M1 `4f4d4b55`, reanálise da sonda 2 e implementação da thread `ork-rm074m2harne` | Thread `ork-rm074m2harne` (#Auto) |
 | 2026-10-30 | M3 torna a confiança pré-condição da razão, reaproveita a fixture Git nos testes de security scan e deixa o tmpfs das lanes atrás de opt-in; sem três pares válidos, não publica ganho | Par único da M2 sob `steal` alto, perfil de CPU de sistema e implementação da thread `ork-rm074m3rumoa` | Thread `ork-rm074m3rumoa` (#Auto) |
+| 2026-10-30 | M4 compartilha os modelos Git e de forja nos seis arquivos caros restantes, preservando cópias isoladas e as fronteiras reais de processo; sem bancada válida, não publica ganho | Leitura estática do preparo, casos existentes de isolamento e `core/test/mutantes/rm074-m4.json` | Thread `ork-rm074m4cpude` (#Auto) |

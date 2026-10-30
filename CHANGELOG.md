@@ -8,6 +8,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Alterado
 
+- **CPU de sistema nos testes caros restantes do Agile Check — M4 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** os arquivos Noctum de integração, máquinas, coordenação, ensaio e entrega, além de `rede`, criam uma vez por processo seus modelos de projeto Git, remoto, estado inicial e forja falsa, e entregam cópias isoladas a cada caso. Processos de sinais, PATH, rede e Docker, locks, concorrência e retomada continuam reais; nenhum caso, `skip` ou asserção foi retirado. A razão contra o Classic, a CPU e a eficiência seguem pendentes da bancada com três pares válidos, sem ganho antecipado neste registro.
+
 - **Confiança e CPU de sistema no Agile Check — M3 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** a bancada só publica razão com três pares válidos em ordem AB/BA, mostra o preparo fora da razão e acompanha a CPU com o `steal` de cada passe. Os testes de security scan reutilizam um modelo Git por arquivo, e as lanes podem usar tmpfs com `ORK_CHECK_TMPFS=auto` quando memória, espaço e escrita têm folga; o padrão continua em disco e todo fallback explica o motivo. Nenhum teste ou asserção foi removido, e este registro não afirma ganho de razão ou CPU antes de uma bancada válida.
 
 ## [0.6.2] - 2026-10-30
