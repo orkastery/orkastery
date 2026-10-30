@@ -1,0 +1,425 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-verifyassinc",
+  "branch": "ork/ork-verifyassinc-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "core/test/mcp-verify-async.test.ts",
+      "alegacao": "A rodada MCP assíncrona cobre início e consulta, fila ocupada, repetição idempotente, worker morto e equivalência com o verify canônico no mesmo HEAD.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/mcp-verify-async.test.js"
+      ],
+      "criadoEm": "2026-10-30T06:41:43.576Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-server.ts",
+      "alegacao": "O servidor expõe ork_verify como início assíncrono e ork_verify_status como consulta tipada por UUID.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"registrarTool('ork_verify_status'\" core/src/mcp-server.ts && grep -q \"iniciarVerifyMcp\" core/src/mcp-server.ts"
+      ],
+      "criadoEm": "2026-10-30T06:41:43.648Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/claude-bg.ts",
+      "alegacao": "Os perfis filhos de Claude, Codex e Grok enumeram ork_verify_status sem conceder gate ou identidade do dono.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"ork_verify_status\" core/src/adapters/claude-bg.ts && grep -q \"ork_verify_status\" core/src/mcp-install.ts && node core/dist-test/test/claude-worktree-permissions.test.js && node core/dist-test/test/rm064-fatia3.test.js && node core/dist-test/test/rm067-grok-mcp.test.js"
+      ],
+      "criadoEm": "2026-10-30T06:41:43.717Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-prompts.ts",
+      "alegacao": "O prompt #Auto inicia o verify assíncrono, consulta em intervalos razoáveis e só continua após veredito verde, em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/prompts.test.js && node core/dist-test/test/check-modo-prompts.test.js && node core/dist-test/test/locale-prompts.test.js"
+      ],
+      "criadoEm": "2026-10-30T06:41:43.784Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/verificacao.md",
+      "alegacao": "Guia, contrato MCP, RM-037, RM-064 e CHANGELOG Não publicado documentam o verify assíncrono.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"ork_verify_status\" docs/guias/verificacao.md && grep -q \"ork_verify_status\" docs/referencia/contratos/verify-mcp.md && grep -q \"ork_verify_status\" docs/roadmap/RM-037-verify-rapido-e-confiavel.md && grep -q \"ork_verify_status\" docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md && grep -q \"ork_verify_status\" CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-30T06:41:43.888Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-verify-async.ts",
+      "alegacao": "O motor MCP cria uma rodada persistente e idempotente, segura a worktree e projeta morte do worker como falha tipada.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/mcp-verify-async.test.js"
+      ],
+      "criadoEm": "2026-10-30T06:46:55.945Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-verify-worker.ts",
+      "alegacao": "O worker destacado executa somente a rodada previamente criada pelo núcleo e validada por identidade.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/mcp-verify-async.test.js"
+      ],
+      "criadoEm": "2026-10-30T06:46:56.062Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "O verify canônico expõe progresso interno sem alterar o veredito usado pelo CLI.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/mcp-verify-async.test.js && node core/dist-test/test/verify.test.js"
+      ],
+      "criadoEm": "2026-10-30T06:46:56.149Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-install.ts",
+      "alegacao": "O filho Codex recebe grant explícito para iniciar e consultar a rodada assíncrona sem ampliar gates.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"'ork_verify_status'\" core/src/mcp-install.ts && node core/dist-test/test/rm064-fatia3.test.js"
+      ],
+      "criadoEm": "2026-10-30T07:03:44.356Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "core/test/mcp-server.test.ts",
+      "alegacao": "A superfície MCP enumera a consulta e os fluxos de commit verificam o veredito terminal por polling.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"esperarStatus\" core/test/mcp-server.test.ts && grep -q \"ork_verify_status\" core/test/mcp-server.test.ts && node core/dist-test/test/mcp-verify-async.test.js"
+      ],
+      "criadoEm": "2026-10-30T07:03:44.432Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "core/test/claude-worktree-permissions.test.ts",
+      "alegacao": "Os testes de permissões do Claude exigem ork_verify_status nas consultas interactive e worktree.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"ork_verify_status\" core/test/claude-worktree-permissions.test.ts && node --test-name-pattern='Claude interactive|Claude worktree concede' core/dist-test/test/claude-worktree-permissions.test.js"
+      ],
+      "criadoEm": "2026-10-30T07:03:44.504Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/commands/ork.md",
+      "alegacao": "O comando Claude pt-BR enumera ork_verify_status entre as leituras autorizadas.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"mcp__orkastery__ork_verify_status\" adapters/claude-code/commands/ork.md"
+      ],
+      "criadoEm": "2026-10-30T07:03:44.563Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/claude-code/commands/ork.md",
+      "alegacao": "O comando Claude en-US enumera ork_verify_status entre as leituras autorizadas.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"mcp__orkastery__ork_verify_status\" core/assets/adapters-en/claude-code/commands/ork.md"
+      ],
+      "criadoEm": "2026-10-30T07:03:44.641Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm067-grok-mcp.test.ts",
+      "alegacao": "A paridade Grok exige ork_verify_status na mesma lista de consultas do Claude, sem ampliar mutações.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"'ork_verify_status'\" core/test/rm067-grok-mcp.test.ts && node --test-name-pattern='GM5' core/dist-test/test/rm067-grok-mcp.test.js"
+      ],
+      "criadoEm": "2026-10-30T07:06:54.616Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "core/test/runtime-context.test.ts",
+      "alegacao": "O contexto runtime exige exatamente sete consultas Claude, incluindo ork_verify_status.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"mcp__orkastery__ork_verify_status\" core/test/runtime-context.test.ts && node core/dist-test/test/runtime-context.test.js"
+      ],
+      "criadoEm": "2026-10-30T07:06:54.691Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "core/src/prompts.ts",
+      "alegacao": "O template canônico v5 orienta uma única rodada, polling de 30–60 s e avanço apenas após verde em pt-BR/en-US.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"ork_verify_status\" core/src/prompts.ts && grep -q \"30–60\" core/src/prompts.ts && node core/dist-test/test/prompts.test.js"
+      ],
+      "criadoEm": "2026-10-30T07:09:26.071Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "prompts/fase-padrao.md",
+      "alegacao": "A cópia versionada pt-BR do template v5 é idêntica ao contrato embutido e descreve o polling assíncrono.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"versao: 5\" prompts/fase-padrao.md && grep -q \"ork_verify_status\" prompts/fase-padrao.md && node core/dist-test/test/prompts.test.js"
+      ],
+      "criadoEm": "2026-10-30T07:09:26.117Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "prompts/fase-padrao.en.md",
+      "alegacao": "A cópia versionada en-US do template v5 descreve o polling assíncrono econômico.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"versao: 5\" prompts/fase-padrao.en.md && grep -q \"ork_verify_status\" prompts/fase-padrao.en.md && node core/dist-test/test/prompts.test.js"
+      ],
+      "criadoEm": "2026-10-30T07:09:26.174Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "core/test/prompts.test.ts",
+      "alegacao": "Os testes de prompt exigem status assíncrono, intervalo de 30–60 s, fallback foreground e fecho verde nos dois idiomas.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"ork_verify_status\" core/test/prompts.test.ts && node core/dist-test/test/prompts.test.js"
+      ],
+      "criadoEm": "2026-10-30T07:09:26.231Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-prompts.test.ts",
+      "alegacao": "Os testes de locale reconhecem a versão pública v5 do template em pt-BR e en-US.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"fase-padrao.*v5\" core/test/locale-prompts.test.ts && node core/dist-test/test/locale-prompts.test.js"
+      ],
+      "criadoEm": "2026-10-30T07:09:26.278Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/verify-mcp.md",
+      "alegacao": "O contrato público descreve ferramentas, estados, idempotência, fila, prazos, falhas, segurança e equivalência do verify MCP.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"ork.verify-mcp/v1\" docs/referencia/contratos/verify-mcp.md && grep -q \"verify.processo-morto\" docs/referencia/contratos/verify-mcp.md && node core/dist-test/test/mcp-verify-async.test.js"
+      ],
+      "criadoEm": "2026-10-30T07:11:52.068Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referência CLI pt-BR não promete mais o teto síncrono de 180 s e aponta para ork_verify_status.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"ork_verify_status\" docs/referencia/cli.md && grep -q \"contratos/verify-mcp.md\" docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-10-30T07:11:52.169Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "docs/produto/FEAT-020-mcp-e-adaptadores.md",
+      "alegacao": "A página de produto inclui a operação assíncrona e liga o contrato ork.verify-mcp/v1.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"ork_verify_status\" docs/produto/FEAT-020-mcp-e-adaptadores.md && grep -q \"ork.verify-mcp/v1\" docs/produto/FEAT-020-mcp-e-adaptadores.md && node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-30T07:11:52.233Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "A referência CLI en-US documenta a rodada assíncrona e seu status.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"ork_verify_status\" docs/referencia/cli.en.md && grep -q \"contratos/verify-mcp.md\" docs/referencia/cli.en.md"
+      ],
+      "criadoEm": "2026-10-30T07:11:52.302Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-037-verify-rapido-e-confiavel.md",
+      "alegacao": "RM-037 registra a fatia do verify MCP assíncrono com fonte no manifesto, contrato e teste.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"ork_verify_status\" docs/roadmap/RM-037-verify-rapido-e-confiavel.md && grep -q \"mcp-verify-async.test.ts\" docs/roadmap/RM-037-verify-rapido-e-confiavel.md && node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-30T07:12:53.289Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md",
+      "alegacao": "RM-064 registra que o #Auto aguarda a rodada dentro da sessão e preserva os gates.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"ork_verify_status\" docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md && grep -q \"30–60\" docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md && node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-30T07:12:53.335Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG Não publicado, sob Adicionado, registra verify assíncrono, status e grants enumerados.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"## Não publicado\" CHANGELOG.md && grep -q \"### Adicionado\" CHANGELOG.md && grep -q \"ork_verify_status\" CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-30T07:12:53.380Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f3c-pt-BR.json",
+      "alegacao": "O snapshot F3c foi regenerado pelo gerador canônico e cobre a nova regra de espera.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"ork_verify_status\" core/test/fixtures/locale-f3c-pt-BR.json && node core/dist-test/test/locale-f3c-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-30T07:14:56.217Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-verifyassinc",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "O snapshot F3b foi migrado mecanicamente a partir dos contratos canônicos de template, espera e fecho do GO.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"template fase-padrao v5\" core/test/fixtures/locale-f3b-pt-BR.json && grep -q \"ork_verify_status\" core/test/fixtures/locale-f3b-pt-BR.json && node core/dist-test/test/prompts.test.js"
+      ],
+      "criadoEm": "2026-10-30T07:14:56.277Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
