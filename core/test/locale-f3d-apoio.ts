@@ -4,12 +4,12 @@
  * marcadores, e o resto (datas, sha, uuid, duracoes, versao) passa pelo mesmo normalizador da F3b, sem copia.
  */
 
-import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { normalizar as normalizarDaF3b } from './locale-f3b-casos';
 import { exec, noPath } from '../src/util';
+import { cliNoProcesso, saidaCompativel } from './cli-in-processo';
 
 export const CLI = path.resolve(__dirname, '../../dist/index.js');
 export const SP = 'America/Sao_Paulo';
@@ -133,12 +133,10 @@ export function orkComEnv(dir: string, amb: Ambiente, extra: Record<string, stri
 
 /** Como `orkComEnv`, com `entrada` no stdin (os comandos que leem envelope ou payload por `--stdin`). */
 export function orkComEntrada(dir: string, amb: Ambiente, entrada: string | undefined, extra: Record<string, string>, ...args: string[]): Saida {
-  const r = spawnSync(process.execPath, [CLI, ...args], {
-    cwd: dir, encoding: 'utf8', timeout: 180000, ...(entrada === undefined ? {} : { input: entrada }),
+  return saidaCompativel(cliNoProcesso({ cwd: dir, args, ...(entrada === undefined ? {} : { entrada }),
     env: { HOME: amb.casa, LANG: 'C.UTF-8', TZ: SP, PATH: `${amb.stub}:${amb.bin}`, ORK_USUARIO_DIR: path.join(amb.casa, '.orkastery'),
       ORK_MAQUINA: 'pc-loc', ORK_REDE_PUBLICAR: '0', ORK_FABRICA_PUBLICAR: '0', ORK_BINARIOS_EXTRA: '', ...extra },
-  });
-  return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+  }));
 }
 
 export function texto(s: Saida): string {

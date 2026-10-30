@@ -18,6 +18,7 @@ import { usingFixture, pythonFixture, fixtureEnv, assets } from './native-fixtur
 import { abrirPedidoGate, RespostaHumana } from '../src/hitl-gates';
 import { evidenciaDoIngresso, gravarIngresso } from '../src/hitl-ingress-receipt';
 import { semPostgres } from './ambiente-de-teste';
+import { cliNoProcesso, saidaCompativel } from './cli-in-processo';
 
 const fixtureDatabase = `
 import asyncio,json,sys,uuid
@@ -94,7 +95,7 @@ test('perfil fabrica no CLI e PostgreSQL: C1..C4, ativacao explicita, legado int
     };
     const setup=db({op:'setup',policies});
     const env={...fixtureEnv(),LANG:'C.UTF-8',SYNTHETIC_NATIVE_FIXTURE:setup.dsn,ORK_HITL_INGRESS_KEY:ingressKey};
-    const cli=(args: string[])=>spawnSync(process.execPath,[path.resolve(__dirname,'../src/index.js'),...args],{cwd:p.dir,env,encoding:'utf8',timeout:60000});
+    const cli=(args: string[])=>saidaCompativel(cliNoProcesso({cwd:p.dir,env,args}));
     const state=()=>db({op:'state',schema:setup.schema});
     /** Estado integral: todas as tabelas do schema desta execucao, nao apenas as duas conferidas antes. */
     const integral=()=>db({op:'integral',schema:setup.schema});
