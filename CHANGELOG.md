@@ -12,6 +12,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **A referência do CLI não deixa listas de ações virarem texto corrido:** o teste de paridade confere nas versões em
+  português e inglês que `limpar`, `registrar`, `master`, `merge` e `despachar` continuam diferenciados como código.
 - **O teste das lanes não herda o plano de CPU da rodada:** `ORK_CHECK_CPUS_DA_LANE` e `ORK_CHECK_CPUS_DOCKER`
   continuam limitando a própria lane, mas não chegam aos testes que ela executa. Sob saturação, os testes que conferem
   a concorrência da lane e os argumentos do Docker viam a fatia da rodada e reprovavam sem defeito no código
