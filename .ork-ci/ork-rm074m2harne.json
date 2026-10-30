@@ -5,20 +5,6 @@
   "base": "main",
   "claims": [
     {
-      "id": "C1",
-      "thread": "ork-rm074m2harne",
-      "fase": "GOAL",
-      "arquivo": "core/test/cli-in-processo.ts",
-      "alegacao": "Os pontos quentes elegíveis usam cliNoProcesso com paridade CIP; rede, projeto-alvo, P4 e locale F2b preservam seus casos sem processo de CLI por chamada.",
-      "negativa": false,
-      "verificar": [
-        "grep -q 'cliNoProcesso' core/test/rede.test.ts && grep -q 'cliNoProcesso' core/test/projeto-alvo-declaracao.test.ts && grep -q 'cliNoProcesso' core/test/p4-worktree-por-thread.test.ts && grep -q 'cliNoProcesso' core/test/locale-f2b-casos.ts && node --test core/dist-test/test/cli-in-processo.test.js core/dist-test/test/rede.test.js core/dist-test/test/projeto-alvo-declaracao.test.js core/dist-test/test/p4-worktree-por-thread.test.js core/dist-test/test/locale-f2b-snapshot.test.js"
-      ],
-      "criadoEm": "2026-10-30T12:28:08.889Z",
-      "estado": "reprovado",
-      "lint": []
-    },
-    {
       "id": "C2",
       "thread": "ork-rm074m2harne",
       "fase": "GOAL",
@@ -33,20 +19,6 @@
       "lint": []
     },
     {
-      "id": "C3",
-      "thread": "ork-rm074m2harne",
-      "fase": "GOAL",
-      "arquivo": "core/scripts/medir-check.cjs",
-      "alegacao": "A sonda 2 relata os dez maiores da sonda 1, com CPU de sistema e razão sozinho contra concorrente, e preserva o contrato da bancada.",
-      "negativa": false,
-      "verificar": [
-        "node --test core/dist-test/test/medir-check.test.js"
-      ],
-      "criadoEm": "2026-10-30T12:28:09.156Z",
-      "estado": "reprovado",
-      "lint": []
-    },
-    {
       "id": "C4",
       "thread": "ork-rm074m2harne",
       "fase": "GOAL",
@@ -57,7 +29,7 @@
         "node -e \"const fs=require('fs');const s=fs.readFileSync('docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md','utf8');if(!/M1/.test(s)||!/M2/.test(s)||!/1,7/.test(s)||!/CPU/.test(s)||/\\\\b\\\\d+(?:[,.]\\\\d+)? minutos?\\\\b/i.test(s))process.exit(1)\""
       ],
       "criadoEm": "2026-10-30T12:28:09.296Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -71,7 +43,7 @@
         "node -e \"const fs=require('fs');const s=fs.readFileSync('docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md','utf8');if(/[0-9]+(?:[,.][0-9]+)? minutos?/i.test(s))process.exit(1)\""
       ],
       "criadoEm": "2026-10-30T12:28:15.903Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -85,7 +57,7 @@
         "node --test core/dist-test/test/medir-check.test.js"
       ],
       "criadoEm": "2026-10-30T12:38:22.183Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -287,6 +259,90 @@
         "grep -q 'fixarProjetoAlvo' core/test/cli-in-processo.ts && node core/dist-test/test/cli-in-processo.test.js"
       ],
       "criadoEm": "2026-10-30T13:06:45.717Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm074m2harne",
+      "fase": "GO",
+      "arquivo": "core/src/check-agil.ts",
+      "alegacao": "Skip ou todo em qualquer resultado nominal de node:test impede reaproveitar a claim, e AG48 prova os dois fallbacks.",
+      "negativa": false,
+      "verificar": [
+        "grep -Fq \"if (vistos.some((t) => t.estado === 'skip' || t.estado === 'todo')) return false;\" core/src/check-agil.ts && node --test-name-pattern='^(AG46|AG48):' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-10-30T13:23:13.072Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm074m2harne",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m1.json",
+      "alegacao": "O mutante M3 da M1 aponta para a guarda atual de falha na lane e volta a ser morto por AG46.",
+      "negativa": false,
+      "verificar": [
+        "grep -Fq \"if (vistos.length === 0 || vistos.some((t) => t.estado === 'fail')) return false;\" core/test/mutantes/rm074-m1.json && node core/scripts/mutante.cjs core/test/mutantes/rm074-m1.json M3"
+      ],
+      "criadoEm": "2026-10-30T13:23:13.194Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm074m2harne",
+      "fase": "GO",
+      "arquivo": "core/test/cli-in-processo.test.ts",
+      "alegacao": "CIP2 parte de projeto-alvo sentinela não nulo e falha se o finally do harness não o restaurar.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'projetoSentinela' core/test/cli-in-processo.test.ts && node --test-name-pattern='^CIP2:' core/dist-test/test/cli-in-processo.test.js"
+      ],
+      "criadoEm": "2026-10-30T13:23:13.313Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm074m2harne",
+      "fase": "GO",
+      "arquivo": "core/test/medir-check.test.ts",
+      "alegacao": "MC16 chama o padrão da sonda e exige exatamente os dez maiores da sonda 1, no conjunto e na ordem.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'assert.equal(c.arquivos.length, 10)' core/test/medir-check.test.ts && node --test-name-pattern='^MC16:' core/dist-test/test/medir-check.test.js"
+      ],
+      "criadoEm": "2026-10-30T13:23:13.491Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm074m2harne",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "CHANGELOG e página RM-074 descrevem a M2 sem prometer menos CPU e reservam razão e CPU para a bancada da condução.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'A razão e a CPU da M2 saem da bancada da condução' CHANGELOG.md && grep -q 'A razão da M2 só sai da bancada da sessão condutora' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md && node core/scripts/checar-changelog.cjs --base main"
+      ],
+      "criadoEm": "2026-10-30T13:23:13.606Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm074m2harne",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "No diff desde a base carimbada, CHANGELOG e página RM-074 reservam razão e CPU da M2 para a bancada da condução.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'A razão e a CPU da M2 saem da bancada da condução' CHANGELOG.md && grep -q 'A razão da M2 só sai da bancada da sessão condutora' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md && node core/scripts/checar-changelog.cjs --base 17e0ee1ae44dea6c17c78ef65a05a77d0c54731d"
+      ],
+      "criadoEm": "2026-10-30T13:23:48.567Z",
       "estado": "pendente",
       "lint": []
     }
