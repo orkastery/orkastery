@@ -124,9 +124,10 @@ test('TL8: teste que falha numa lane faz a lane sair diferente de zero, com o TA
 });
 
 test('TL9: a hermetica roda as CPUs menos duas (no minimo um arquivo), a integracao dois por vez, e nenhuma muda a prioridade', () => {
-  assert.equal(lanes.concorrenciaDaLane('hermetica', 7), 5);
-  assert.equal(lanes.concorrenciaDaLane('hermetica', 2), 1);
-  assert.equal(lanes.concorrenciaDaLane('integracao', 7), 2);
+  // O contrato base e conferido sem plano, mesmo quando o processo que executa este arquivo herdou o plano saturado.
+  assert.equal(lanes.concorrenciaDaLane('hermetica', 7, Number.NaN), 5);
+  assert.equal(lanes.concorrenciaDaLane('hermetica', 2, Number.NaN), 1);
+  assert.equal(lanes.concorrenciaDaLane('integracao', 7, Number.NaN), 2);
   assert.equal(lanes.concorrenciaDaLane('hermetica', 8, 6), 6, 'o plano paralelo reserva duas CPUs');
   assert.equal(lanes.concorrenciaDaLane('hermetica', 8, 7), 7, 'o fallback usa CPUs menos uma');
   assert.equal(lanes.concorrenciaDaLane('integracao', 8, 7), 7, 'depois da hermetica, a integracao usa a fatia Classic');
@@ -135,19 +136,22 @@ test('TL9: a hermetica roda as CPUs menos duas (no minimo um arquivo), a integra
   assert.doesNotMatch(texto, /setPriority/, 'o nice baixava so o processo do teste, nunca os containers dele');
 });
 
-test('TL10: o teste da lane nao herda o modo nem o relatorio da rodada, herda o resto (ORK_TESTE_EXIGE_AMBIENTE) e a lane grava a lista', () => {
+test('TL10: o teste da lane nao herda modo, relatorio nem plano de CPU da rodada, mas herda o ambiente exigido', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-tl10-'));
   try {
     const visto = path.join(dir, 'visto.json');
     fs.writeFileSync(path.join(dir, 've.test.js'), "const { test } = require('node:test'); test('ve', () => { require('fs').writeFileSync(" +
       `${JSON.stringify(visto)}, JSON.stringify({ modo: process.env.ORK_CHECK_MODO ?? null, relatorio: process.env.ORK_CHECK_RELATORIO ?? null, ` +
+      `cpusDaLane: process.env.ORK_CHECK_CPUS_DA_LANE ?? null, cpusDocker: process.env.ORK_CHECK_CPUS_DOCKER ?? null, ` +
       `exige: process.env.ORK_TESTE_EXIGE_AMBIENTE ?? null })); });\n`);
     const relatorio = path.join(dir, 'relatorio.jsonl');
     const env = { ...process.env, ORK_LANES_DIR: dir, ORK_LANES_INTEGRACAO: '', XDG_CACHE_HOME: path.join(dir, 'cache'),
-      ORK_CHECK_MODO: 'agile', ORK_CHECK_RELATORIO: relatorio, ORK_TESTE_EXIGE_AMBIENTE: '1' };
+      ORK_CHECK_MODO: 'agile', ORK_CHECK_RELATORIO: relatorio, ORK_CHECK_CPUS_DA_LANE: '7', ORK_CHECK_CPUS_DOCKER: '1',
+      ORK_TESTE_EXIGE_AMBIENTE: '1' };
     const r = spawnSync(process.execPath, [SCRIPT, 'hermetica'], { encoding: 'utf8', env });
     assert.equal(r.status, 0, r.stderr + r.stdout);
-    assert.deepEqual(JSON.parse(fs.readFileSync(visto, 'utf8')), { modo: null, relatorio: null, exige: '1' },
+    assert.deepEqual(JSON.parse(fs.readFileSync(visto, 'utf8')),
+      { modo: null, relatorio: null, cpusDaLane: null, cpusDocker: null, exige: '1' },
       'quem exporta ORK_TESTE_EXIGE_AMBIENTE exige as dependencias nos dois modos, como no npm test');
     assert.ok(fs.readFileSync(relatorio, 'utf8').split('\n').filter(Boolean).some((l) => (JSON.parse(l) as { tipo: string }).tipo === 'lista'));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }

@@ -10,6 +10,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **CLI em inglês e pt-BR — F3e ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)):** entram no catálogo as rotas restantes de `master`, `onboarding sync`, `experiencia uninstall`, `doctor --modo`, Maestro, `brain`, `activation`, `mcp serve`, `receipt-verifiers` e as recusas antecipadas de projeto; o grafo e o `security-scan` localizam a apresentação humana sem mudar códigos, dados ou `--json`.
 
+### Corrigido
+
+- **O teste das lanes não herda o plano de CPU da rodada:** `ORK_CHECK_CPUS_DA_LANE` e `ORK_CHECK_CPUS_DOCKER`
+  continuam limitando a própria lane, mas não chegam aos testes que ela executa. Sob saturação, os testes que conferem
+  a concorrência da lane e os argumentos do Docker viam a fatia da rodada e reprovavam sem defeito no código
+  ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)).
+
 ## [0.6.1] - 2026-10-29
 
 O Grok Build entra por despacho explícito (`--runtime grok`), com perfis de conta, setup e MCP, ainda sem homologação real: o ensaio real (F5) falta.

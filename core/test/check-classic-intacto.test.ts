@@ -17,21 +17,23 @@ const SCRIPT = path.join(CORE, 'scripts', 'retrato-do-classic.cjs');
 const DA_BASE = JSON.parse(fs.readFileSync(path.join(CORE, 'test', 'fixtures', 'classic-retrato-b16c5be8.json'), 'utf8')) as
   { contrato: string; modo: string; verify: string[][]; scan: string[][] };
 
-function retrato(arvore: string, ...extra: string[]): { verify?: string[][]; scan?: string[][] } {
-  const r = spawnSync(process.execPath, [SCRIPT, '--arvore', arvore, '--modo', 'classic', ...extra], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+function retrato(arvore: string, extra: string[], env: NodeJS.ProcessEnv = process.env): { verify?: string[][]; scan?: string[][] } {
+  const r = spawnSync(process.execPath, [SCRIPT, '--arvore', arvore, '--modo', 'classic', ...extra],
+    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env });
   assert.equal(r.status, 0, r.stderr);
   return JSON.parse(r.stdout) as { verify?: string[][]; scan?: string[][] };
 }
 
 test('CL1: o Classic roda no verify a mesma lista de comandos da base, na mesma ordem', () => {
   assert.equal(DA_BASE.contrato, 'ork.retrato-do-classic/v1');
-  assert.deepEqual(retrato(CORE, '--so', 'verify').verify, DA_BASE.verify);
+  assert.deepEqual(retrato(CORE, ['--so', 'verify']).verify, DA_BASE.verify);
   // O retrato cobre preparo, as duas claims (a que comeca pelos passos do preparo roda inteira), typecheck, build, test e scan.
   assert.deepEqual(DA_BASE.verify.map(([nome]) => nome), ['preparo', 'C1.1', 'C1.2', 'C2.1', 'typecheck', 'build', 'test', 'security_scan']);
 });
 
 test('CL2: o Classic chama o Docker igual a base: as mesmas ferramentas, opcoes e argumentos, na mesma ordem', () => {
-  const scan = retrato(CORE, '--so', 'scan').scan!;
+  const scan = retrato(CORE, ['--so', 'scan'],
+    { ...process.env, ORK_CHECK_CPUS_DA_LANE: '7', ORK_CHECK_CPUS_DOCKER: '1' }).scan!;
   assert.deepEqual(scan, DA_BASE.scan);
   const ferramentas = [...new Set(scan.filter((c) => c[1] === 'run').map((c) => /ork-security-scan-([a-z-]+)-<N>/.exec(c.join(' '))?.[1]))];
   assert.deepEqual(ferramentas, ['gitleaks', 'semgrep', 'trivy-vuln', 'npm-audit', 'trivy-config', 'zizmor', 'actionlint', 'eslint', 'trivy-license']);
@@ -48,7 +50,7 @@ test('CL3: mutante de prova: com a ordem dos comandos do manifesto invertida num
     const ordem = "['typecheck', 'build', 'test', 'security_scan']";
     assert.ok(original.includes(ordem), 'a ordem canonica esta no verify compilado');
     fs.writeFileSync(verify, original.replace(ordem, "['security_scan', 'test', 'build', 'typecheck']"));
-    const mutante = retrato(tmp, '--so', 'verify').verify!;
+    const mutante = retrato(tmp, ['--so', 'verify']).verify!;
     assert.notDeepEqual(mutante, DA_BASE.verify, 'o retrato pega a ordem trocada');
     assert.deepEqual(mutante.slice(-4).map(([nome]) => nome), ['security_scan', 'test', 'build', 'typecheck']);
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
