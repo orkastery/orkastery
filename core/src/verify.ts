@@ -55,7 +55,7 @@ import { comandosNoAgile, ComandosDoAgile, executorDaClaimNoAgile, ExecutorDeGru
   porQueDasLanes, prepararNoAgile, PreparoVigente, refazerPreparo, RefazerPreparo, RelatorioDoCheck } from './check-agil';
 import { esperaDoGrupo, rodarEmParalelo } from './check-paralelo';
 import { ENV_CPUS_DA_LANE, ENV_CPUS_DOCKER, MedicaoCpuDoGrupo } from './agendador-cpu';
-import { checarChangelog } from './changelog-check';
+import { changelogAplicavel, checarChangelog } from './changelog-check';
 
 /** Teto de tempo de um comando de verificacao (build e suite completa cabem). */
 export const TIMEOUT_VERIFY_MS = 10 * 60 * 1000;
@@ -300,7 +300,8 @@ export function comandosDoManifesto(manifesto: Manifesto): { nome: string; coman
 }
 
 /** A regra estrutural do CHANGELOG entra no mesmo veredito e na mesma baseline dos comandos do manifesto. */
-function verificarChangelog(cwd: string, base: string, baseCarimbada?: string | null): ResultadoDeComando {
+function verificarChangelog(cwd: string, base: string, baseCarimbada?: string | null): ResultadoDeComando | null {
+  if (!changelogAplicavel(cwd)) return null;
   const inicio = Date.now();
   const comando = `node core/scripts/checar-changelog.cjs --base "${base}"`;
   const r = checarChangelog(cwd, { base, head: 'HEAD', baseCarimbada });
@@ -615,8 +616,8 @@ function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: stri
       return r.comandos;
     })()
     : comandosDoManifesto(manifesto).map((c) => executorDosComandos(c.nome, c.comando, cwd));
-  const comandos = [...comandosDoManifestoExecutados,
-    verificarChangelog(cwd, manifesto.worktree.base_branch, thread.base?.commit)];
+  const changelog = verificarChangelog(cwd, manifesto.worktree.base_branch, thread.base?.commit);
+  const comandos = changelog ? [...comandosDoManifestoExecutados, changelog] : comandosDoManifestoExecutados;
   if (relatorio) {
     if (base) pecasDaBaseline.push(PECA_SEM_RELATORIO);
     pecasDaBaseline.push(...pecasDoRelatorio(relatorio.ler()));
@@ -900,9 +901,10 @@ function verificarSobConducao(
           opcoes.medicaoCpuAgendador),
         vigente.guarda, vigente.preparo)).comandos
       : comandosDoManifesto(manifesto).map((c) => executor(c.nome, c.comando, cwd));
+  const changelog = opcoes.soClaims ? null
+    : verificarChangelog(cwd, manifesto.worktree.base_branch, thread.base?.commit);
   const comandos = opcoes.soClaims ? []
-    : [...comandosDoManifestoExecutados,
-      verificarChangelog(cwd, manifesto.worktree.base_branch, thread.base?.commit)];
+    : changelog ? [...comandosDoManifestoExecutados, changelog] : comandosDoManifestoExecutados;
   if (doAgile) pecas.push(...doAgile.pecas);
   const resumoDoAgile = vigente ? agileNoLedger(raiz, threadId, commit, pecas, doAgile, vigente.guarda, relatorio!, claims) : null;
 

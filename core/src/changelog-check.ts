@@ -71,6 +71,17 @@ function changelogEm(raiz: string, ref: string): string {
   return r.ok ? r.saida : '';
 }
 
+/**
+ * A regra protege um histórico publicado. Repositórios ainda sem versão `v*` ou sem
+ * CHANGELOG no HEAD não têm esse contrato para comparar e ficam fora do verificador.
+ */
+export function changelogAplicavel(raiz: string, head = 'HEAD'): boolean {
+  const arquivo = git(raiz, ['cat-file', '-e', `${head}:${CHANGELOG}`]);
+  if (!arquivo.ok) return false;
+  const tags = git(raiz, ['tag', '--merged', head, '--list', 'v*']);
+  return tags.ok && tags.saida.split('\n').some((tag) => tag.trim().length > 1);
+}
+
 interface LinhaNova { numero: number; texto: string }
 
 /** Linhas acrescentadas no arquivo, com o numero que ocupam no HEAD. */
@@ -124,9 +135,15 @@ export function checarChangelog(raiz: string, opcoes: { base?: string; head?: st
   const head = opcoes.head ?? 'HEAD', base = opcoes.base;
   const indisponivel = (detalhe: string): ResultadoDoChangelog => ({ ok: false, motivo: 'changelog.base-indisponivel', detalhe,
     correcao: 'rode com o histórico completo do git (fetch-depth: 0 no CI) ou passe --base <ref>', arquivos: [], linhas: [] });
+  if (!git(raiz, ['rev-parse', '--verify', '--quiet', `${head}^{commit}`]).ok) return indisponivel(`o head ${head} não existe neste repositório`);
+  if (!changelogAplicavel(raiz, head)) {
+    const temArquivo = git(raiz, ['cat-file', '-e', `${head}:${CHANGELOG}`]).ok;
+    return { ok: true, motivo: null, arquivos: [], linhas: [], detalhe: temArquivo
+      ? 'regra do CHANGELOG não aplicável: o repositório ainda não tem versão publicada em tag v*'
+      : `regra do CHANGELOG não aplicável: ${CHANGELOG} não existe em ${head}` };
+  }
   if (!base) return indisponivel('nenhuma base para comparar');
   if (!git(raiz, ['rev-parse', '--verify', '--quiet', `${base}^{commit}`]).ok) return indisponivel(`a base ${base} não existe neste repositório`);
-  if (!git(raiz, ['rev-parse', '--verify', '--quiet', `${head}^{commit}`]).ok) return indisponivel(`o head ${head} não existe neste repositório`);
   const mb = git(raiz, ['merge-base', base, head]);
   let ancestral = mb.saida.trim();
   if (!mb.ok || !ancestral) return indisponivel(`${base} e ${head} não têm ancestral comum`);
