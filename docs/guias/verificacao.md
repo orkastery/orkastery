@@ -106,8 +106,22 @@ verify:
     test: 900000                  # vence o default para este comando
 ```
 
-Sem nada no manifesto, vale 600 s. O `ork_verify` do MCP usa o mesmo prazo, até o teto de
-300 s por comando e 180 s no total da chamada.
+Sem nada no manifesto, vale 600 s. O `ork_verify` do MCP usa exatamente o mesmo prazo por
+comando; neste projeto, `test` tem 2.400 s. A chamada MCP só inicia a rodada e devolve um
+`rodadaId`: não existe mais teto total de 180 s do transporte sobre a execução.
+
+### Verify assíncrono pelo MCP
+
+`ork_verify {threadId}` inicia um worker do servidor, fora do sandbox da sessão, e responde
+imediatamente. O worker entra na mesma fila pesada do CLI com espera, executa o mesmo
+`verificar` e grava o veredito completo. Enquanto a rodada estiver viva, repetir
+`ork_verify` devolve o mesmo id com `reutilizada: true`; nunca cria uma segunda execução.
+
+Consulte `ork_verify_status {threadId, rodadaId}` a cada 30–60 s. A resposta passa por
+`na-fila` (lane `fila-pesada` e, quando houver, ocupantes), `rodando` (lane atual),
+`concluido` (veredito e texto iguais ao CLI) ou `falhou`. Processo morto, worker que termina
+sem veredito e lease perdida são falhas tipadas e nunca viram verde. O contrato completo está
+em [verify-mcp](../referencia/contratos/verify-mcp.md).
 
 A baseline (`ork verify <thread> --baseline`, e a que o `ork phase run` grava no despacho codex) roda pelo
 mesmo executor: o mesmo prazo de cada comando e a mesma medida do steal. Só o término normal do próprio comando
