@@ -37,7 +37,7 @@ const CLI = path.resolve(__dirname, '../src/index.js');
 const grokDe = (raiz: string) => path.join(raiz, '.grok', 'config.toml');
 const entradaDe = (texto: string) => (parse(texto) as { mcp_servers: Record<string, Record<string, unknown>> }).mcp_servers.orkastery;
 const semPrefixo = (nomes: readonly string[]) => nomes.map((n) => n.replace(/^mcp__orkastery__/, ''));
-const CONSULTAS = ['ork_thread_status', 'ork_phase_list', 'ork_hitl_pending', 'ork_observe', 'ork_artifact_read', 'ork_claims_list'];
+const CONSULTAS = ['ork_thread_status', 'ork_phase_list', 'ork_hitl_pending', 'ork_observe', 'ork_artifact_read', 'ork_claims_list', 'ork_verify_status'];
 const MUTACOES = ['ork_artifact_write', 'ork_claim_add', 'ork_decision_record', 'ork_git_commit', 'ork_verify', 'ork_ship'];
 
 /** Um cliente MCP em memoria ligado ao servidor, fechado no fim. */
@@ -170,7 +170,7 @@ test('GM5: as listas do grok saem das constantes do claude-bg, sem o prefixo, no
   for (const perfil of ['interactive', 'worktree'] as const)
     assert.deepEqual(ferramentasDoGrok(perfil, true, false), [...semPrefixo(CONSULTAS_MCP), 'ork_artifact_write', 'ork_decision_record']);
   assert.deepEqual(ferramentasDoGrok('interactive', false, true), [...semPrefixo(CONSULTAS_MCP), ...TOOLS_DO_GRAFO]);
-  assert.deepEqual(semPrefixo(CONSULTAS_MCP), CONSULTAS, 'as consultas sao as seis de sempre');
+  assert.deepEqual(semPrefixo(CONSULTAS_MCP), CONSULTAS, 'as consultas incluem o status assíncrono do verify');
   assert.deepEqual(semPrefixo(MUTACOES_WORKTREE), MUTACOES, 'as mutacoes sao as seis de sempre');
   assert.deepEqual(ferramentasServidasAoGrok('interactive', false).sort(), [...CONSULTAS, 'ork_artifact_write', 'ork_decision_record'].sort());
   assert.deepEqual(ferramentasServidasAoGrok('worktree', true).sort(), [...CONSULTAS, ...TOOLS_DO_GRAFO, 'ork_git_status', ...MUTACOES].sort());
