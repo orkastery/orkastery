@@ -28,9 +28,13 @@ import { jsonDaRede, lerRede, SEM_BATIDA_MS, textoDaRede } from '../src/rede-sta
 import { adicionarPerfil } from '../src/runtime-profiles';
 import { exec } from '../src/util';
 import { varrerEDepoisPublicarNaRede } from '../src/pulse-delivery';
-import { dirTemporario, envPtBr, projetoTemporario } from './apoio';
+import { copiadorDeProjetoDeTeste, dirTemporario, envPtBr, projetoTemporario } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
+
+const projetosDaRede = copiadorDeProjetoDeTeste(() => projetoTemporario('rede-projeto-modelo', true));
+const projetoDaRede = (nome: string) => projetosDaRede.copiar(nome);
+const totalDeModelosDeProjetoDaRede = (): number => projetosDaRede.totalDeModelos();
 
 /** A forja e os runtimes falsos: um script so, que decide pelo nome com que foi chamado. */
 const SCRIPT_FALSO = `#!${process.execPath}
@@ -161,12 +165,28 @@ interface ForjaFalsa {
   limpar(): void;
 }
 
-function forjaFalsa(nome: string, extra: NodeJS.ProcessEnv = {}): ForjaFalsa {
-  const raiz = dirTemporario(`rede-${nome}`);
+let modeloDaForjaFalsa: string | null = null;
+let modelosDaForjaFalsaCriados = 0;
+
+function obterModeloDaForjaFalsa(): string {
+  if (modeloDaForjaFalsa) return modeloDaForjaFalsa;
+  const raiz = dirTemporario('rede-forja-modelo');
   const bin = path.join(raiz, 'bin'), estado = path.join(raiz, 'forja'), home = path.join(raiz, 'home');
   for (const d of [bin, estado, home]) fs.mkdirSync(d, { recursive: true });
   for (const cli of ['gh', 'glab', 'claude', 'codex', 'openclaw']) fs.writeFileSync(path.join(bin, cli), SCRIPT_FALSO, { mode: 0o755 });
-  const env: NodeJS.ProcessEnv = { ...process.env, PATH: [bin, ferramentas(raiz)].join(path.delimiter), ORK_BINARIOS_EXTRA: '',
+  ferramentas(raiz);
+  modeloDaForjaFalsa = raiz;
+  modelosDaForjaFalsaCriados++;
+  process.once('exit', () => fs.rmSync(raiz, { recursive: true, force: true }));
+  return raiz;
+}
+
+function forjaFalsa(nome: string, extra: NodeJS.ProcessEnv = {}): ForjaFalsa {
+  const raiz = dirTemporario(`rede-${nome}`);
+  fs.rmSync(raiz, { recursive: true, force: true });
+  fs.cpSync(obterModeloDaForjaFalsa(), raiz, { recursive: true });
+  const bin = path.join(raiz, 'bin'), estado = path.join(raiz, 'forja'), home = path.join(raiz, 'home');
+  const env: NodeJS.ProcessEnv = { ...process.env, PATH: [bin, path.join(raiz, 'ferramentas')].join(path.delimiter), ORK_BINARIOS_EXTRA: '',
     GLAB_FAKE_DIR: estado, HOME: home, ...extra };
   delete env.GITLAB_HOST;
   return {
@@ -205,12 +225,15 @@ test('RM-053 forja: o GitHub pela CLI, so com o login; 404 e "nao existe"; criar
     f.visibilidade('pessoa-teste/orkastery-network', false);
     assert.equal(gh.repositorio('pessoa-teste', 'orkastery-network').privado, false);
     assert.equal(gh.helperDeCredencial(), `!${path.join(f.bin, 'gh')} auth git-credential`);
+    fs.writeFileSync(path.join(f.raiz, '.rm074-m4-isolamento-forja'), 'so na copia do GitHub\n');
   } finally { f.limpar(); }
 });
 
 test('RM-053 forja: o GitLab passa pela mesma interface', () => {
   const f = forjaFalsa('forja-gitlab');
   try {
+    assert.equal(modelosDaForjaFalsaCriados, 1, 'a arvore da forja falsa nasce uma vez no processo do arquivo');
+    assert.equal(fs.existsSync(path.join(f.raiz, '.rm074-m4-isolamento-forja')), false, 'o GitLab nao herda bytes do caso GitHub');
     const lab = forjaPorNome('gitlab', f.amb);
     assert.ok(lab);
     assert.deepEqual(lab.identidade(), { forja: 'gitlab', host: 'gitlab.com', cli: 'glab', versao: '1.50.0', usuario: 'pessoa-lab' });
@@ -315,7 +338,7 @@ test('RM-053 projetos: formas toleradas (mapa por nome, caminho, remotos) e regi
 });
 
 test('RM-053 projetos: sem registro, a reserva e o projeto do cwd e o ultimo retrato; a mesma raiz nao repete', () => {
-  const p = projetoTemporario('rede-projetos-cwd', true);
+  const p = projetoDaRede('rede-projetos-cwd');
   const outro = comManifesto(dirTemporario('rede-projetos-outro'));
   try {
     exec('git', ['remote', 'set-url', 'origin', 'https://pessoa:ghp_FAKEtoken0123456789abcdefghij@github.com/pessoa/produto.git'], p.dir);
@@ -329,6 +352,7 @@ test('RM-053 projetos: sem registro, a reserva e o projeto do cwd e o ultimo ret
       ['orkastery', 'cwd', 'https://github.com/pessoa/produto.git', p.dir],
       ['outro', 'retrato', 'https://h/outro.git', outro],
     ]);
+    fs.writeFileSync(path.join(p.dir, '.rm074-m4-isolamento-rede'), 'so nesta copia\n');
   } finally { p.limpar(); fs.rmSync(outro, { recursive: true, force: true }); }
 });
 
@@ -393,8 +417,10 @@ function todosOsBlobs(repo: string): string[] {
 test('RM-053 segredo: nada de token, credencial, caminho de credencial ou conta paga em nenhum blob da casa', () => {
   const f = forjaFalsa('segredo');
   const usuario = dirTemporario('rede-segredo-usuario');
-  const p = projetoTemporario('rede-segredo', true);
+  const p = projetoDaRede('rede-segredo');
   try {
+    assert.equal(totalDeModelosDeProjetoDaRede(), 1, 'o projeto inicial da rede nasce uma vez no processo do arquivo');
+    assert.equal(fs.existsSync(path.join(p.dir, '.rm074-m4-isolamento-rede')), false, 'o projeto nao herda bytes do caso anterior');
     naMaquina(usuario, () => {
       // Tudo o que nao pode sair, plantado onde uma maquina de verdade tem.
       const amb = ligado(f, { GH_TOKEN: TOKEN_GH, GITHUB_TOKEN: TOKEN_GH, GITLAB_TOKEN: 'glpat-FAKE0123456789abcdefgh',
@@ -444,7 +470,7 @@ test('RM-053 segredo: nada de token, credencial, caminho de credencial ou conta 
 test('RM-053 segredo: retrato com valor de cara de segredo e recusado antes do push, e o erro nao mostra o valor', () => {
   const f = forjaFalsa('segredo-recusa');
   const usuario = dirTemporario('rede-segredo-recusa-usuario');
-  const p = projetoTemporario('rede-segredo-recusa', true);
+  const p = projetoDaRede('rede-segredo-recusa');
   try {
     naMaquina(usuario, () => {
       const amb = ligado(f);
@@ -563,7 +589,7 @@ test('RM-053 migracao: quem fez ork fabrica entrar e membro sem refazer; a batid
 test('RM-053 migracao: maquina que so publicou em ork/fabrica-estado aparece como membro pela fabrica', () => {
   const f = forjaFalsa('migracao-legada');
   const ua = dirTemporario('rede-migracao-legada-a');
-  const p = projetoTemporario('rede-migracao-legada', true);
+  const p = projetoDaRede('rede-migracao-legada');
   try {
     // A vps-velha roda um ork antigo: so conhece a fabrica do projeto.
     assert.equal(publicarMaquina(exigirManifesto(p.dir), { maquina: 'vps-velha', por: 'Julio' }).acao, 'publicou');
@@ -785,7 +811,7 @@ test('RM-053 honestidade: ork network status fora de clone e sem forja responde 
 test('RM-053 migracao: a batida real do pulse publica o retrato de quem so fez ork fabrica entrar', () => {
   const f = forjaFalsa('migracao-pulse');
   const [ua, uv] = [dirTemporario('rede-pulse-a'), dirTemporario('rede-pulse-vps')];
-  const p = projetoTemporario('rede-pulse', true);
+  const p = projetoDaRede('rede-pulse');
   try {
     naMaquina(ua, () => entrarNaRede({ amb: ligado(f), maquina: 'pc-a' }));
     naMaquina(uv, () => gravarConfigDaMaquina({ nome: 'vps', fabricaCompartilhada: true }));
@@ -837,7 +863,7 @@ function comAmbiente<T>(vars: Record<string, string>, f: () => T): T {
 test('RM-053 isolamento: GIT_DIR, GIT_WORK_TREE e GIT_INDEX_FILE herdados (hook do git) nao fazem o git da rede tocar o projeto', () => {
   const f = forjaFalsa('isolamento-git-dir');
   const u = dirTemporario('rede-isolamento-usuario');
-  const p = projetoTemporario('rede-isolamento', true);
+  const p = projetoDaRede('rede-isolamento');
   try {
     const amb = ligado(f);
     naMaquina(u, () => {
@@ -1098,7 +1124,7 @@ test('RM-053 migracao: retrato igual dentro da batida nao chama a forja nenhuma 
 test('RM-053 migracao: quem saiu da rede mas segue na fabrica aparece como vista na fabrica, nunca como membro (B11)', () => {
   const f = forjaFalsa('migracao-saiu');
   const [ua, ub] = [dirTemporario('rede-saiu-a'), dirTemporario('rede-saiu-b')];
-  const p = projetoTemporario('rede-saiu', true);
+  const p = projetoDaRede('rede-saiu');
   try {
     const amb = ligado(f);
     naMaquina(ua, () => { entrarNaRede({ amb, maquina: 'pc-a', diretorio: p.dir }); sairDaRede({ amb, maquina: 'pc-a' }); });
@@ -1175,7 +1201,7 @@ test('RM-053 forja: GitLab de ponta a ponta, so com o glab: entrar, status e sai
 test('RM-053 autoria: todo retrato publicado passa no leitor, mesmo com nome de maquina e de projeto nos limites (S2)', () => {
   const f = forjaFalsa('autoria-limites');
   const [ua, ub] = [dirTemporario('rede-limites-a'), dirTemporario('rede-limites-b')];
-  const p = projetoTemporario('rede-limites', true);
+  const p = projetoDaRede('rede-limites');
   try {
     const amb = ligado(f);
     naMaquina(ua, () => entrarNaRede({ amb, maquina: 'pc-a' }));
@@ -1454,7 +1480,7 @@ test('RM-053 autoria: arquivo com o nome desta maquina num contrato mais novo e 
 test('RM-053 migracao: nome so com caracteres fora do ASCII nao quebra status nem sair, e a fabrica casa pelo nome saneado (U3, U4)', () => {
   const f = forjaFalsa('migracao-nome-estranho');
   const u = dirTemporario('rede-nome-estranho');
-  const p = projetoTemporario('rede-nome-estranho', true);
+  const p = projetoDaRede('rede-nome-estranho');
   try {
     assert.match(nomeSeguro('日本'), /^maquina-[0-9a-f]{8}$/);
     assert.equal(nomeSeguro('日本'), nomeSeguro('日本'), 'estavel');
@@ -1519,7 +1545,7 @@ test('RM-053 autoria: o escritor para em 200 projetos, com aviso (U8)', () => {
 test('RM-053 isolamento: a leitura da fabrica legada respeita o core.sshCommand do projeto (S4 no lerRede, U8)', () => {
   const f = forjaFalsa('isolamento-ssh-projeto');
   const u = dirTemporario('rede-ssh-projeto');
-  const p = projetoTemporario('rede-ssh-projeto', true);
+  const p = projetoDaRede('rede-ssh-projeto');
   try {
     const marca = path.join(u, 'ssh-do-projeto-chamado');
     const ssh = path.join(u, 'ssh-do-projeto.sh');
@@ -1577,7 +1603,7 @@ test('RM-053 projetos: no ssh e no git://, ? e # nunca deixam login ou senha no 
 test('RM-053 segredo: ESC, BEL, bidi e link de terceiro nao chegam a casa, ao REDE.md, ao texto nem ao JSON do status (V2)', () => {
   const f = forjaFalsa('segredo-controle');
   const [ua, ub] = [dirTemporario('rede-controle-a'), dirTemporario('rede-controle-b')];
-  const p = projetoTemporario('rede-controle', true);
+  const p = projetoDaRede('rede-controle');
   const ESC = '\u001b', BEL = '\u0007', RLO = '\u202e', CSI = '\u009b';
   const sujo = (t: string) => [ESC, BEL, RLO, CSI].some((c) => t.includes(c));
   try {
@@ -1943,7 +1969,7 @@ test('RM-053 autoria: o retrato de outra instalacao que esta versao nao le conti
 test('RM-053 honestidade: quebra de linha num valor da fabrica legada nao abre linha no texto do status (W4)', () => {
   const f = forjaFalsa('honestidade-quebra');
   const u = dirTemporario('rede-quebra');
-  const p = projetoTemporario('rede-quebra', true);
+  const p = projetoDaRede('rede-quebra');
   try {
     const amb = ligado(f);
     naMaquina(u, () => entrarNaRede({ amb, maquina: 'pc-a' }));
@@ -2093,7 +2119,7 @@ test('RM-053 autoria: link pendurado trocado ou tirado por outro processo no mei
 test('RM-053 honestidade: batida ilegivel da fabrica legada vira lacuna, nunca "ha menos de 1 min" (X5)', () => {
   const f = forjaFalsa('honestidade-batida');
   const u = dirTemporario('rede-batida');
-  const p = projetoTemporario('rede-batida', true);
+  const p = projetoDaRede('rede-batida');
   try {
     const amb = ligado(f);
     naMaquina(u, () => entrarNaRede({ amb, maquina: 'pc-a' }));
@@ -2134,7 +2160,7 @@ test('RM-053 segredo: cada restricao dos padroes e da regra de nome tem prova (X
 test('RM-053 honestidade: a batida ilegivel de uma fabrica nao esconde a batida legivel da mesma maquina em outra (Y1)', () => {
   const f = forjaFalsa('honestidade-duas-fabricas');
   const u = dirTemporario('rede-duas-fabricas');
-  const [p1, p2] = [projetoTemporario('rede-fabrica-a', true), projetoTemporario('rede-fabrica-b', true)];
+  const [p1, p2] = [projetoDaRede('rede-fabrica-a'), projetoDaRede('rede-fabrica-b')];
   try {
     const amb = ligado(f);
     naMaquina(u, () => entrarNaRede({ amb, maquina: 'pc-a' }));
