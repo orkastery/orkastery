@@ -33,10 +33,16 @@ import { LANCADOR_DO_LANDLOCK, semLandlock } from './ambiente-de-teste';
 function arquivosCom(texto: string, pastas: string[]): string[] {
   const achados: string[] = [];
   const visitar = (pasta: string) => {
-    for (const e of fs.readdirSync(pasta, { withFileTypes: true })) {
+    let entradas: fs.Dirent[];
+    try { entradas = fs.readdirSync(pasta, { withFileTypes: true }); }
+    catch (e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') return; throw e; }
+    for (const e of entradas) {
       const caminho = path.join(pasta, e.name);
       if (e.isDirectory()) visitar(caminho);
-      else if (e.isFile() && fs.readFileSync(caminho).includes(texto)) achados.push(caminho);
+      else if (e.isFile()) {
+        try { if (fs.readFileSync(caminho).includes(texto)) achados.push(caminho); }
+        catch (erro) { if ((erro as NodeJS.ErrnoException).code !== 'ENOENT') throw erro; }
+      }
     }
   };
   for (const pasta of pastas) visitar(pasta);

@@ -758,18 +758,31 @@ test('publicar: a criacao que falha com a branch ja no remoto e o PR aberto na r
 
 test('publicar: o comando do dono poe cada parte entre aspas simples, e nada dele vira comando no shell (A4)', () => {
   const dir = dirTemporario('comando-do-dono');
+  const bashEnvAnterior = process.env.BASH_ENV;
   try {
     const bin = path.join(dir, 'bin');
     fs.mkdirSync(bin);
     for (const nome of ['git', 'gh']) {
       fs.writeFileSync(path.join(bin, nome), `#!/bin/sh\nfor a in "$@"; do printf '%s\\n' "$a"; done >> '${path.join(dir, `${nome}.args`)}'\n`, { mode: 0o755 });
     }
+    const bashEnvCompartilhado = path.join(dir, 'ambiente-compartilhado.sh');
+    fs.writeFileSync(bashEnvCompartilhado, 'PATH=/usr/bin:/bin\n');
+    process.env.BASH_ENV = bashEnvCompartilhado;
     const branch = 'ork/x;touch${IFS}marcador-injetado;true';
     const base = 'main$(touch base-injetada)';
     const titulo = "ship(ork-x): o 'titulo' com $HOME, `crase` e barra \\";
     const comando = comandoDoDono('origin', base, branch, titulo, '.orkastery/threads/ork-x/pr-body.md');
     assert.equal(spawnSync('bash', ['-n', '-c', comando]).status, 0, `o shell le o comando inteiro: ${comando}`);
-    const r = spawnSync('bash', ['-c', comando], { cwd: dir, env: { ...process.env, PATH: `${bin}:/usr/bin:/bin` }, encoding: 'utf8' });
+    const envDoCaso = {
+      PATH: '/usr/bin:/bin',
+      LANG: 'C.UTF-8',
+    };
+    const executar = [
+      `git() { /bin/sh '${path.join(bin, 'git')}' "$@"; }`,
+      `gh() { /bin/sh '${path.join(bin, 'gh')}' "$@"; }`,
+      comando,
+    ].join('\n');
+    const r = spawnSync('bash', ['-c', executar], { cwd: dir, env: envDoCaso, encoding: 'utf8' });
     assert.equal(r.status, 0, r.stderr);
     assert.equal(fs.existsSync(path.join(dir, 'marcador-injetado')), false, 'a branch nao virou comando');
     assert.equal(fs.existsSync(path.join(dir, 'base-injetada')), false, 'a base nao virou comando');
@@ -778,7 +791,10 @@ test('publicar: o comando do dono poe cada parte entre aspas simples, e nada del
     const doGh = fs.readFileSync(path.join(dir, 'gh.args'), 'utf8').split('\n');
     assert.ok(doGh.includes(titulo) && doGh.includes(base) && doGh.includes(branch), doGh.join(' | '));
     assert.ok(doGh.includes('.orkastery/threads/ork-x/pr-body.md'));
-  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  } finally {
+    if (bashEnvAnterior === undefined) delete process.env.BASH_ENV; else process.env.BASH_ENV = bashEnvAnterior;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('pista: o PR mesclado de outro head nao vale para a ponta nova, e a pista oferece publicar de novo (A1)', () => {
