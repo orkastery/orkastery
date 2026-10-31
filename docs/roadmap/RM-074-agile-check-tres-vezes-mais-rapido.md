@@ -248,7 +248,7 @@ o modelo uma vez por processo e copiar estado isolado por caso. Os arquivos
 `suspeitas-0310-rede-cache` continua com os processos simultâneos: a corrida entre
 eles é o que o arquivo prova, e limitá-la a um processo por vez deixaria de prová-la.
 
-Carga de fora na bancada:
+A bancada passa a enxergar a carga de fora:
 
 - a bancada amostra, durante cada rodada, a CPU dos processos que não descendem dela;
 - o relatório traz os maiores por nome e CPU;
