@@ -7,7 +7,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
-import { ajustarManifesto, commitar, projetoTemporario, ProjetoDeTeste } from './apoio';
+import { ajustarManifesto, commitar, copiadorDeProjetoDeTeste, projetoTemporario, ProjetoDeTeste } from './apoio';
 import { passar } from './noctum-apoio';
 import { ExecutorCi, prepararBundleCi } from '../src/ci';
 import { registrarConducaoDaSessao } from '../src/conducao';
@@ -30,13 +30,21 @@ export const CHANGELOG_DA_BASE = `${CAB}## Não publicado\n\n### Adicionado\n\n-
 export const git = (dir: string, ...args: string[]) => exec('git', args, dir);
 export const head = (dir: string): string => git(dir, 'rev-parse', 'HEAD').stdout.trim();
 
-/** Um projeto com remoto bare, CI obrigatório e o CHANGELOG da base publicado. */
-export function projetoDaEntrega(nome: string): ProjetoDeTeste {
-  const p = projetoTemporario(nome, true);
+/** O modelo com remoto bare, CI obrigatório e o CHANGELOG da base publicado. */
+function criarModeloDaEntrega(): ProjetoDeTeste {
+  const p = projetoTemporario('noctum-entrega-modelo', true);
   ajustarManifesto(p, 'required_for_ship: false', 'required_for_ship: true');
   commitar(p.dir, 'CHANGELOG.md', CHANGELOG_DA_BASE, 'docs: o CHANGELOG da base');
   git(p.dir, 'push', '-q', 'origin', 'main');
   return p;
+}
+
+const projetosDaEntrega = copiadorDeProjetoDeTeste(criarModeloDaEntrega);
+export const totalDeModelosDaEntrega = (): number => projetosDaEntrega.totalDeModelos();
+
+/** Uma copia isolada do modelo da entrega; worktrees, commits e efeitos continuam pertencendo ao caso. */
+export function projetoDaEntrega(nome: string): ProjetoDeTeste {
+  return projetosDaEntrega.copiar(nome);
 }
 
 /** A thread #Auto do item, com a worktree dela e o pedido guardado. */

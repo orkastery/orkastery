@@ -1,0 +1,60 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-074 M4: os modelos caros nascem uma vez por arquivo e cada caso recebe uma copia isolada, sem retirar fronteiras reais de processo.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "as quatro suites Noctum voltam a preparar um projeto Git por cenario",
+      "arquivo": "core/dist-test/test/noctum-maquinas-apoio.js",
+      "de": "const p = projetosDuasMaquinas.copiar(nome);",
+      "para": "const p = (0, apoio_1.projetoTemporario)(nome, true);",
+      "teste": "noctum-integracao",
+      "nome": "^(I1|I2):"
+    },
+    {
+      "id": "M2",
+      "descricao": "a entrega volta a preparar remoto, manifesto e CHANGELOG por mundo",
+      "arquivo": "core/dist-test/test/noctum-entrega-apoio.js",
+      "de": "return projetosDaEntrega.copiar(nome);",
+      "para": "return criarModeloDaEntrega();",
+      "teste": "noctum-entrega",
+      "nome": "^(QE1|QE2):"
+    },
+    {
+      "id": "M3",
+      "descricao": "os cenarios de rede voltam a preparar projeto Git e estado inicial por caso",
+      "arquivo": "core/dist-test/test/rede.test.js",
+      "de": "const projetoDaRede = (nome) => projetosDaRede.copiar(nome);",
+      "para": "const projetoDaRede = (nome) => (0, apoio_1.projetoTemporario)(nome, true);",
+      "teste": "rede",
+      "nome": "^(RM-053 projetos: sem registro|RM-053 segredo: nada)"
+    },
+    {
+      "id": "M4",
+      "descricao": "a arvore da forja falsa volta a ser escrita em cada caso",
+      "arquivo": "core/dist-test/test/rede.test.js",
+      "de": "if (modeloDaForjaFalsa)\n        return modeloDaForjaFalsa;",
+      "para": "if (false && modeloDaForjaFalsa)\n        return modeloDaForjaFalsa;",
+      "teste": "rede",
+      "nome": "^RM-053 forja: o Git(Hub|Lab)"
+    },
+    {
+      "id": "M5",
+      "descricao": "a copia do projeto vira link e deixa um caso contaminar o seguinte",
+      "arquivo": "core/dist-test/test/apoio.js",
+      "de": "fs.cpSync(base.dir, dir, { recursive: true });",
+      "para": "fs.symlinkSync(base.dir, dir, 'dir');",
+      "teste": "noctum-integracao",
+      "nome": "^(I1|I2):"
+    },
+    {
+      "id": "M6",
+      "descricao": "a copia da forja falsa vira link e deixa um caso contaminar o seguinte",
+      "arquivo": "core/dist-test/test/rede.test.js",
+      "de": "fs.cpSync(obterModeloDaForjaFalsa(), raiz, { recursive: true });",
+      "para": "fs.symlinkSync(obterModeloDaForjaFalsa(), raiz, 'dir');",
+      "teste": "rede",
+      "nome": "^RM-053 forja: o Git(Hub|Lab)"
+    }
+  ]
+}

@@ -12,6 +12,7 @@ import { exec } from '../src/util';
 import { prepararIngressoSimulado, revogarArco } from './noctum-apoio';
 import {
   atualizarBranch, branchDeTrabalho, duasMaquinas, DuasMaquinas, integradorPorAvanco, MaquinaDeTeste, maisUmCommit, provasSimuladas,
+  totalDeModelosDuasMaquinas,
 } from './noctum-maquinas-apoio';
 import { RecusaDoArco } from '../src/noctum-envelope';
 import * as transporte from '../src/noctum-transporte';
@@ -80,12 +81,15 @@ test('I1: um integrador por destino; quem chega com a vez ocupada espera', () =>
     assert.equal(situacaoDoTrabalho(estado, 'a')!.estado, 'entregue');
     assert.equal(estado.entregas.get('a')!.merge, ca.fonte);
     assert.deepEqual([...estado.vezes.values()].flat().map(v => [v.maquina, v.fim?.desfecho]), [['maquina-a', 'entregue']]);
+    fs.writeFileSync(path.join(m.a.dir, '.rm074-m4-isolamento'), 'so na copia de I1\n');
   } finally { m.limpar(); }
 });
 
 test('I2: perdeu a corrida, a base mudou: o candidato é invalidado e as provas se repetem sobre a base nova', () => {
   const m = cenario('noctum-i2');
   try {
+    assert.equal(totalDeModelosDuasMaquinas(), 1, 'o projeto inicial nasce uma vez no processo do arquivo');
+    assert.equal(fs.existsSync(path.join(m.a.dir, '.rm074-m4-isolamento')), false, 'I2 nao herda os bytes escritos por I1');
     const ca = candidato(branchDeTrabalho(m.a.dir, 'trabalho-a', 'a.txt', 'A SIMULADO\n'), 'a');
     const cb = candidato(branchDeTrabalho(m.b.dir, 'trabalho-b', 'b.txt', 'B SIMULADO\n'), 'b');
     integrarComVez(m.a.carregado, m.arco, { ordem: 'O-a-1', destino: DESTINO, candidato: ca }, integradorPorAvanco(m.a.dir), op(m.a));

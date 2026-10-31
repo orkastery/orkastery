@@ -18,7 +18,7 @@ import { ResultadoRun } from '../src/phase';
 import { dirThread } from '../src/thread';
 import { gravarNaSupervisao, Instancia } from '../src/noctum-supervisao';
 import { exec } from '../src/util';
-import { commitar, dirTemporario, projetoTemporario } from './apoio';
+import { commitar, copiadorDeProjetoDeTeste, dirTemporario, projetoTemporario } from './apoio';
 import { abrirComBaseline, autorizarPedido, OpcoesDoArco, pedidoV2, TrabalhoSimulado } from './noctum-apoio';
 import { opcoesSimuladas } from './noctum-supervisao-apoio';
 
@@ -70,6 +70,9 @@ export interface DuasMaquinas {
   limpar: () => void;
 }
 
+const projetosDuasMaquinas = copiadorDeProjetoDeTeste(() => projetoTemporario('noctum-maquinas-modelo', true));
+export const totalDeModelosDuasMaquinas = (): number => projetosDuasMaquinas.totalDeModelos();
+
 /** O segundo clone ganha identidade de git própria e a pasta de estado que o `ork init` criaria (ela não vai ao git). */
 export function cloneDoRemoto(remoto: string, nome: string, usuario: string): string {
   const dir = path.join(dirTemporario(nome), 'clone');
@@ -86,7 +89,7 @@ export function cloneDoRemoto(remoto: string, nome: string, usuario: string): st
  * envelope `v3` autorizado pelo ingresso simulado nas duas raízes. Nada sai da pasta temporária.
  */
 export function duasMaquinas(nome: string, o: Omit<OpcoesDoArcoV3, 'maquinas'> & { arco?: string; semPagina?: string[] }): DuasMaquinas {
-  const p = projetoTemporario(nome, true);
+  const p = projetosDuasMaquinas.copiar(nome);
   // `semPagina`: itens do envelope sem página no roadmap do remoto (o teste a põe só no clone que deve tê-la).
   const itens = [...new Set(o.trabalhos.map(t => t.item))].filter(i => !(o.semPagina ?? []).includes(i));
   for (const item of itens) commitar(p.dir, `docs/roadmap/${item}-simulado.md`, `# ${item} SIMULADO\n`, `roadmap: ${item}`);
