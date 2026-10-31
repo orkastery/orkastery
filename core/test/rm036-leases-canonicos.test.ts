@@ -25,7 +25,7 @@ import { lerLedger } from '../src/ledger';
 import { ship as ensaiarShip } from '../src/ship';
 import { Lease, PedidoNaFila } from '../src/types';
 import { exec } from '../src/util';
-import { commitar, dirTemporario, projetoTemporario, ProjetoDeTeste, shaDaBranch } from './apoio';
+import { commitar, copiadorDeProjetoDeTeste, dirTemporario, projetoTemporario, ProjetoDeTeste, shaDaBranch } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
 
@@ -79,17 +79,25 @@ test('rm036 leases: orkEmParalelo encerra o filho e rejeita no prazo', async (t)
 
 interface Cenario { p: ProjetoDeTeste; raiz: string; wt: string; t1: string; outras: string[] }
 
+function modeloDoCenario(remoto: boolean): ProjetoDeTeste {
+  const p = projetoTemporario(`rm036-modelo-${remoto ? 'com' : 'sem'}-remoto`, remoto);
+  commitar(p.dir, 'orkastery.yaml', fs.readFileSync(path.join(p.dir, 'orkastery.yaml'), 'utf8'), 'manifesto');
+  if (remoto) {
+    const push = exec('git', ['push', 'origin', 'main'], p.dir);
+    assert.equal(push.ok, true, push.stderr || push.stdout);
+  }
+  return p;
+}
+
+const cenariosSemRemoto = copiadorDeProjetoDeTeste(() => modeloDoCenario(false));
+const cenariosComRemoto = copiadorDeProjetoDeTeste(() => modeloDoCenario(true));
+
 /**
  * Projeto com o manifesto commitado (a worktree tem o proprio, e e ele que faz o `ork` da worktree achar
  * a raiz nela), a thread `t1` com worktree e outras threads sem worktree.
  */
 function cenario(nome: string, opcoes: { remoto?: boolean; threads?: number } = {}): Cenario {
-  const p = projetoTemporario(nome, opcoes.remoto ?? false);
-  commitar(p.dir, 'orkastery.yaml', fs.readFileSync(path.join(p.dir, 'orkastery.yaml'), 'utf8'), 'manifesto');
-  if (opcoes.remoto) {
-    const push = exec('git', ['push', 'origin', 'main'], p.dir);
-    assert.equal(push.ok, true, push.stderr || push.stdout);
-  }
+  const p = (opcoes.remoto ? cenariosComRemoto : cenariosSemRemoto).copiar(nome);
   const t1 = novaThread(p.carregado, { nome: 'na worktree', modo: 'auto', criarWorktree: true }).thread;
   const outras = Array.from({ length: opcoes.threads ?? 1 },
     (_, i) => novaThread(p.carregado, { nome: `outra ${i + 1}`, modo: 'auto' }).thread.id);

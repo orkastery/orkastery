@@ -5,7 +5,6 @@
  * catalogo roda no lugar do Docker, e o Classic segue Docker primeiro. Os nomes comecam por "SLn:".
  */
 import { strict as assert } from 'node:assert';
-import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
@@ -16,33 +15,9 @@ import { argvDoItem, rodarEmParalelo, type ItemParalelo } from '../src/check-par
 import { dockerfileDeLint, eslintComImagem, tagDaImagemDeLint } from '../src/security-scan/imagem-de-lint';
 import { runScan } from '../src/security-scan/run';
 import { loadTools } from '../src/security-scan/tools';
+import { repositorioSecurityScan } from './security-scan-repo-fixture';
 
-const FIXTURE_JS = path.resolve(__dirname, '..', '..', '..', 'eval', 'fixtures', 'security-scan', 'js');
 const ESLINT = loadTools().find(t => t.name === 'eslint')!;
-
-const git = (cwd: string, ...args: string[]): string => {
-  const r = spawnSync('git', ['-c', 'user.email=t@example.invalid', '-c', 'user.name=t', '-c', 'commit.gpgsign=false', ...args],
-    { cwd, encoding: 'utf8' });
-  if (r.status !== 0) throw new Error(`git ${args.join(' ')}: ${r.stderr}`);
-  return r.stdout.trim();
-};
-
-function repositorio(nome: string): { dir: string; base: string } {
-  const dir = dirTemporario(nome);
-  git(dir, 'init', '-q', '-b', 'main');
-  fs.writeFileSync(path.join(dir, 'package.json'), '{ "name": "clean-js", "version": "1.0.0", "private": true, "license": "MIT" }\n');
-  fs.writeFileSync(path.join(dir, 'package-lock.json'), '{ "name": "clean-js", "version": "1.0.0", "lockfileVersion": 3, ' +
-    '"requires": true, "packages": { "": { "name": "clean-js", "version": "1.0.0" } } }\n');
-  git(dir, 'add', '-A');
-  git(dir, 'commit', '-q', '-m', 'base');
-  const base = git(dir, 'rev-parse', 'HEAD');
-  git(dir, 'checkout', '-q', '-b', 'feat');
-  fs.cpSync(FIXTURE_JS, dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, '.fake-case'), 'js\n');
-  git(dir, 'add', '-A');
-  git(dir, 'commit', '-q', '-m', 'head');
-  return { dir, base };
-}
 
 let cache: string;
 let fake: FakeTools | undefined;
@@ -63,7 +38,11 @@ afterEach(() => {
   for (const d of [cache, ...limpar.splice(0)]) fs.rmSync(d, { recursive: true, force: true });
 });
 
-function repo(nome: string): { dir: string; base: string } { const r = repositorio(nome); limpar.push(r.dir); return r; }
+function repo(nome: string): { dir: string; base: string } {
+  const r = repositorioSecurityScan(nome);
+  limpar.push(r.dir);
+  return { dir: r.dir, base: r.base };
+}
 const runsDo = (ferramenta: string) => fake!.calls().filter(c => c.args[0] === 'run' && c.args.some(a => a.startsWith(`ork-security-scan-${ferramenta}-`)));
 
 test('SL1: a imagem de lint sai uma vez, do digest e do install do catalogo, e a segunda rodada nao monta de novo', () => {

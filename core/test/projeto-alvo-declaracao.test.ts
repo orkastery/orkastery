@@ -23,7 +23,7 @@ import {
   consultaDoProjeto, declaracaoQueFaltou, iniciarDeclaracaoDoProjeto, pedirDeclaracaoDoProjeto, registrarProjeto,
   remotoParaExibir,
 } from '../src/projeto-alvo';
-import { dirTemporario, envPtBr, projetoTemporario } from './apoio';
+import { copiadorDeProjetoDeTeste, dirTemporario, envPtBr, projetoTemporario } from './apoio';
 import { cliNoProcesso, saidaCompativel } from './cli-in-processo';
 
 const ORK = path.resolve(__dirname, '../../dist/index.js');
@@ -32,13 +32,16 @@ const LINHA = /^Projeto consultado: orkastery \(ork\) · /m;
 
 type Tool = { name: string; execute: (p: Record<string, unknown>, c: unknown, x: unknown) => Promise<string> };
 
+const projetosDaDeclaracao = copiadorDeProjetoDeTeste(() => projetoTemporario('declaracao-modelo'));
+const projetoDaDeclaracao = (nome: string) => projetosDaDeclaracao.copiar(nome);
+
 /** A maquina: o orkastery com uma thread, o alfa e o workspace do gateway, os tres registrados. */
 function maquina(t: TestContext) {
-  const orkastery = projetoTemporario('declaracao-orkastery');
-  const alfa = projetoTemporario('declaracao-alfa');
+  const orkastery = projetoDaDeclaracao('declaracao-orkastery');
+  const alfa = projetoDaDeclaracao('declaracao-alfa');
   init(alfa.dir, { nome: 'alfa', abbrev: 'alf', force: true });
   alfa.carregado = exigirManifesto(alfa.dir);
-  const workspace = projetoTemporario('declaracao-workspace');
+  const workspace = projetoDaDeclaracao('declaracao-workspace');
   init(workspace.dir, { nome: 'workspace', abbrev: 'wor', force: true });
   workspace.carregado = exigirManifesto(workspace.dir);
   const { thread } = novaThread(orkastery.carregado, { nome: 'declaracao', modo: 'auto' });
@@ -106,7 +109,7 @@ test('L3: os comandos com cabecalho proprio declaram uma vez so; maestro e sessi
 });
 
 test('L3 (sugestao T1 do CHECK): no host, o unico projeto conhecido responde e diz que foi ele', (t) => {
-  const p = projetoTemporario('declaracao-unico');
+  const p = projetoDaDeclaracao('declaracao-unico');
   const { thread } = novaThread(p.carregado, { nome: 'unico', modo: 'auto' });
   const usuario = dirTemporario('declaracao-unico-usuario');
   const gatewaySemProjeto = dirTemporario('declaracao-unico-gateway');
@@ -124,8 +127,8 @@ test('L3 (sugestao T1 do CHECK): no host, o unico projeto conhecido responde e d
 });
 
 test('L3 (sugestao A3 do CHECK): a consulta de outro projeto nao apaga a declaracao pedida', (t) => {
-  const a = projetoTemporario('declaracao-a3-a');
-  const b = projetoTemporario('declaracao-a3-b');
+  const a = projetoDaDeclaracao('declaracao-a3-a');
+  const b = projetoDaDeclaracao('declaracao-a3-b');
   init(b.dir, { nome: 'beta', abbrev: 'bet', force: true });
   b.carregado = exigirManifesto(b.dir);
   t.after(() => { iniciarDeclaracaoDoProjeto(); a.limpar(); b.limpar(); });
