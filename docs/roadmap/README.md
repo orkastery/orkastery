@@ -30,6 +30,20 @@ Proposta de 26/09/2026, a confirmar pelo dono. Ordem por impacto em quem constr�
 | 14 | [RM-025](RM-025-company-brain-fundacao.md) e [RM-026](RM-026-workspace-empresarial.md) Company Brain | Produto principal é o OrkMind; entra depois da adoção do núcleo |
 | 15 | [RM-050](RM-050-guia-de-contribuicao.md) Guia de contribuição | Quem é convidado a colaborar chega ao primeiro PR verde sem perguntar |
 
+## Achados de condução em rede (31/10/2026)
+
+Achados de uma rede de três VPS que conduz um roadmap em `#Auto` com o ork 0.5.6, conferidos contra a 0.6.2. A ordem segue a criticidade e o impacto no paralelismo, na fluidez e na autonomia da fábrica. A [RM-074](RM-074-agile-check-tres-vezes-mais-rapido.md) segue na frente, porque já está em andamento.
+
+| # | Item | Criticidade | Por que nesta posição |
+| --- | --- | --- | --- |
+| 1 | [RM-075](RM-075-fim-de-fase-lido-pelo-resultado.md) Fim de fase lido pelo resultado | Crítica | Fase concluída vira espera humana: a thread gira em GO sem verify ou para esperando o dono |
+| 2 | [RM-077](RM-077-revisao-independente-pelo-construtor-do-head.md) Revisão independente pelo construtor do HEAD | Alta | Thread com GO nos dois runtimes fica sem revisor; hoje só sai editando estado à mão |
+| 3 | [RM-076](RM-076-fila-pesada-com-prioridade.md) Fila pesada com prioridade e reserva | Alta | A vaga pesada escapa da thread prioritária na troca de job e fica com uma que nem pode passar |
+| 4 | [RM-078](RM-078-recibo-valido-enquanto-nada-muda.md) Recibo válido enquanto nada muda | Alta | Um GO sem mudança custa um verify ou um CHECK inteiro |
+| 5 | [RM-079](RM-079-claims-que-a-correcao-passa.md) Claims que a correção passa | Média | Claim impossível ou retirada sem trilha vira trabalho do dono |
+| 6 | [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md) Saída completa e causa tipada no verify | Média | A 0.6.0 tirou o caso comum; falta a causa certa e o log inteiro para quem corrige |
+| 7 | [RM-064](RM-064-conta-esgotada-nao-para-a-fase.md), fatia 4 | Média | O rodízio no mesmo runtime já existe desde a 0.6.0; falta a trava entre runtimes e o histórico |
+
 ## Itens
 
 Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
@@ -99,6 +113,12 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-072](RM-072-check-cinco-vezes-mais-rapido.md) | Agile Check e Classic Check: o CHECK rápido como padrão, sem perder cobertura | Disponível | Mesclado | Aprovados | Produção | 2026-10-27 |
 | [RM-073](RM-073-modelos-de-decisao-no-ork-e-no-orkmind.md) | Modelos de decisão no ork e no OrkMind | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-27 |
 | [RM-074](RM-074-agile-check-tres-vezes-mais-rapido.md) | Agile Check cerca de 1,7 vez mais rápido que o Classic | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-10-30 |
+| [RM-075](RM-075-fim-de-fase-lido-pelo-resultado.md) | Fim de fase lido pelo resultado: sessão que termina sem pergunta não vira espera humana | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-31 |
+| [RM-076](RM-076-fila-pesada-com-prioridade.md) | Fila pesada com prioridade e reserva de vaga | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-31 |
+| [RM-077](RM-077-revisao-independente-pelo-construtor-do-head.md) | Revisão independente medida pelo construtor do HEAD | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-31 |
+| [RM-078](RM-078-recibo-valido-enquanto-nada-muda.md) | Recibo de verify e de revisão válido enquanto HEAD, claims e plano não mudam | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-31 |
+| [RM-079](RM-079-claims-que-a-correcao-passa.md) | Claims de revisão que a correção passa e retirada tipada com substituta | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-31 |
+| [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md) | Saída completa e causa tipada em todo comando do verify | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-31 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->
