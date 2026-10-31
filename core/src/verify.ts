@@ -462,10 +462,19 @@ function executorDoGrupo(manifesto: Manifesto, ambienteDaRodada: Record<string, 
     const processos = rodarEmParalelo(paraOAuxiliar, ambienteDoVerify(), medicaoCpu ? { medicaoCpu } : {});
     if (processos.agendamentoCpu) {
       const p = processos.agendamentoCpu;
+      const medida = p.medicaoCpuIntegracao;
+      const evidencia = medida
+        ? `; CPU da integracao: arvore ${Math.round(medida.arvoreMs)} ms + conteineres ${Math.round(medida.containersMs)} ms` +
+          ` = ${Math.round(medida.totalMs)} ms, pico ${medida.picoCpus ?? 'indisponivel'} CPU, ` +
+          (medida.completa ? 'medida completa' : `medida incompleta (${medida.ausentes.length} conteiner(es) sem cgroup)`)
+        : '';
       executar.pecas = [{ peca: 'agendador-cpu', estado: p.saturado ? 'fallback' : 'agile',
         motivo: p.saturado
           ? `${p.motivo}; hermetica com ${p.cpusHermetica}/${p.cpus} CPUs, varredura e integracao depois dela`
-          : `${p.cpusHermetica}/${p.cpus} CPUs na hermetica e ${p.cpusDaFatia} reservadas; conteineres com ${p.cpusPorContainer} CPU`,
+          : `${p.cpusHermetica}/${p.cpus} CPUs na hermetica; depois da varredura ${p.cpusHermeticaAposVarredura}` +
+            ` e depois da integracao ${p.cpusHermeticaAposReserva}; reserva da integracao ${p.fonteCpusIntegracao}` +
+            ` (${p.cpusIntegracao} CPU), ${p.integracaoEmParalelo ? 'em paralelo com a varredura' : 'encadeada depois da varredura'}` +
+            `; conteineres com ${p.cpusPorContainer} CPU${evidencia}`,
         ...(p.saturado ? { fallback: 'ordem do Classic para hermetica, varredura e integracao' } : {}) }];
     }
     const stealPct = janela.fechar();
