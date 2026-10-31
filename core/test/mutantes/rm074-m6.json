@@ -1,0 +1,51 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-074 M6: a reserva volta por peça e pela medida completa, os testes caros não multiplicam CPU e a bancada recusa carga externa.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "a varredura nunca devolve a parte que a integração medida não usa",
+      "modulo": "agendador-cpu",
+      "de": "cpusHermeticaAposVarredura: saturado ? classic : Math.max(1, cpus - cpusIntegracao),",
+      "para": "cpusHermeticaAposVarredura: saturado ? classic : Math.max(1, cpus - fatia),",
+      "teste": "check-agil",
+      "nome": "^AG49:"
+    },
+    {
+      "id": "M2",
+      "descricao": "a hermética aceita um degrau acima da CPU da máquina",
+      "arquivo": "core/scripts/test-lanes.cjs",
+      "de": "r.vagas < vagas || r.vagas > final || r.vagasGanhas !== r.vagas - vagas",
+      "para": "r.vagas < vagas || false || r.vagasGanhas !== r.vagas - vagas",
+      "teste": "test-lanes",
+      "nome": "^TL13:"
+    },
+    {
+      "id": "M3",
+      "descricao": "a reserva medida da integração é ignorada",
+      "modulo": "agendador-cpu",
+      "de": "Number.isFinite(medida) && (medida as number) > 0 ? Math.ceil(medida as number) : ferramentas",
+      "para": "false && (medida as number) > 0 ? Math.ceil(medida as number) : ferramentas",
+      "teste": "check-agil",
+      "nome": "^AG49:"
+    },
+    {
+      "id": "M4",
+      "descricao": "a concorrência interna do suspeitas-0310-rede-cache volta a abrir várias CPUs por vaga",
+      "arquivo": "core/dist-test/test/suspeitas-0310-rede-cache.test.js",
+      "de": "const PROCESSOS = 1;",
+      "para": "const PROCESSOS = 8;",
+      "teste": "suspeitas-0310-rede-cache",
+      "nome": "^suspeitas 03/10:"
+    },
+    {
+      "id": "M5",
+      "descricao": "a bancada aceita um par com carga de fora acima do limiar",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "de": "cargaAgile > cargaForaMaxPct || cargaClassic > cargaForaMaxPct",
+      "para": "false",
+      "teste": "medir-check",
+      "nome": "^MC24:"
+    }
+  ]
+}
