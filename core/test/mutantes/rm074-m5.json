@@ -1,0 +1,60 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-074 M5: a reserva volta a hermetica somente depois da cadeia e as corridas do Classic ficam isoladas sem reduzir suas provas.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "a reserva nunca volta para a hermetica",
+      "modulo": "agendador-cpu",
+      "de": "cpusHermeticaAposReserva: saturado ? classic : cpus,",
+      "para": "cpusHermeticaAposReserva: classic,",
+      "teste": "check-agil",
+      "nome": "^AG44:"
+    },
+    {
+      "id": "M2",
+      "descricao": "a devolucao acontece antes de varredura e integracao terminarem",
+      "modulo": "check-paralelo",
+      "de": "await Promise.all(reservados.map((item) => vezDoItem(item, indice.get(item.nome))));",
+      "para": "void Promise.all(reservados.map((item) => vezDoItem(item, indice.get(item.nome))));",
+      "teste": "check-agil",
+      "nome": "^AG44:"
+    },
+    {
+      "id": "M3",
+      "descricao": "a hermetica abre uma vaga acima da CPU da maquina",
+      "modulo": "agendador-cpu",
+      "de": "cpusHermeticaAposReserva: saturado ? classic : cpus,",
+      "para": "cpusHermeticaAposReserva: saturado ? classic : cpus + 1,",
+      "teste": "check-agil",
+      "nome": "^AG44:"
+    },
+    {
+      "id": "M4",
+      "descricao": "o security scan volta ao TMPDIR compartilhado",
+      "arquivo": "core/dist-test/test/security-scan-integracao.test.js",
+      "de": "process.env.TMPDIR = tmpdir;",
+      "para": "process.env.TMPDIR = salvo;",
+      "teste": "security-scan-integracao",
+      "nome": "^without docker"
+    },
+    {
+      "id": "M5",
+      "descricao": "o GL3 volta a reprovar quando uma entrada some durante a varredura",
+      "arquivo": "core/dist-test/test/rm067-grok-landlock.test.js",
+      "de": "if (e.code === 'ENOENT')\n                return;",
+      "para": "if (false && e.code === 'ENOENT')\n                return;",
+      "teste": "rm067-grok-landlock",
+      "nome": "^GL3:"
+    },
+    {
+      "id": "M6",
+      "descricao": "o A4 deixa de instalar os substitutos locais de Git e gh",
+      "arquivo": "core/dist-test/test/ship-publicar.test.js",
+      "de": "['-c', executar]",
+      "para": "['-c', comando]",
+      "teste": "ship-publicar",
+      "nome": "^publicar: o comando do dono"
+    }
+  ]
+}

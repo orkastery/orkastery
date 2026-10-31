@@ -47,7 +47,21 @@ function fixtureRepo(stack: Stack): { dir: string; base: string } {
   return { dir, base };
 }
 
-const leftovers = (): string[] => fs.readdirSync(os.tmpdir()).filter(n => /^ork-security-scan-(tree|out)-/.test(n)).sort();
+const leftovers = (tmpdir = os.tmpdir()): string[] => fs.readdirSync(tmpdir).filter(n => /^ork-security-scan-(tree|out)-/.test(n)).sort();
+
+/** Cada caso responde somente pelas pastas que a propria varredura criou. */
+function emTmpdirDoCaso<T>(nome: string, executar: (tmpdir: string) => T): T {
+  const tmpdir = dirTemporario(nome);
+  const salvo = process.env.TMPDIR;
+  process.env.TMPDIR = tmpdir;
+  try {
+    assert.equal(fs.realpathSync(os.tmpdir()), fs.realpathSync(tmpdir), 'o caso usa seu proprio TMPDIR');
+    return executar(tmpdir);
+  } finally {
+    if (salvo === undefined) delete process.env.TMPDIR; else process.env.TMPDIR = salvo;
+    fs.rmSync(tmpdir, { recursive: true, force: true });
+  }
+}
 
 let cache: string;
 let savedCache: string | undefined;
@@ -63,10 +77,10 @@ const semDocker = (): string | false => semAmbiente(['docker']);
 
 for (const stack of ['js', 'python', 'go'] as const) {
   test(`real Docker: the ${stack} fixture yields new loop findings in secret, dependency, sast and workflow`,
-    { skip: semDocker(), timeout: DEADLINE_MS + 60000 }, () => {
+    { skip: semDocker(), timeout: DEADLINE_MS + 60000 }, () => emTmpdirDoCaso(`secscan-int-tmp-${stack}`, (tmpdir) => {
       const { dir, base } = fixtureRepo(stack);
       dirs.push(dir);
-      const before = leftovers();
+      const before = leftovers(tmpdir);
       const started = Date.now();
       const report: ScanReport = runScan({ root: dir, stateRoot: dir, base, deadlineMs: DEADLINE_MS });
       const seconds = Math.round((Date.now() - started) / 1000);
@@ -82,19 +96,19 @@ for (const stack of ['js', 'python', 'go'] as const) {
       const secret = src.pattern.exec(fs.readFileSync(path.join(FIXTURES, stack, src.file), 'utf8'))![1];
       assert.ok(!JSON.stringify(report).includes(secret), 'the secret value never reaches the report');
 
-      assert.deepEqual(leftovers(), before, 'no leftover worktree or out dir in the temp dir');
+      assert.deepEqual(leftovers(tmpdir), before, 'no leftover worktree or out dir created by this case');
       const wts = git(dir, 'worktree', 'list', '--porcelain').split('\n').filter(l => l.startsWith('worktree '));
       assert.equal(wts.length, 1, 'no registered worktree is left');
-    });
+    }));
 }
 
 // RM-074 (F4): o mesmo caso com o Docker real pela varredura do Agile (um trabalhador por ferramenta, a imagem de lint, o
 // cache do Trivy por usuario), na fixture js, na lane de integracao. A parede vai ao stderr, para a medida do custo.
 test('Docker real (Agile, RM-074 F4): o runScanAgil na fixture js roda toda ferramenta e acha o novo do loop em secret, dependency, sast e workflow',
-  { skip: semDocker(), timeout: DEADLINE_MS + 60000 }, () => {
+  { skip: semDocker(), timeout: DEADLINE_MS + 60000 }, () => emTmpdirDoCaso('secscan-int-tmp-agile-js', (tmpdir) => {
     const { dir, base } = fixtureRepo('js');
     dirs.push(dir);
-    const sobras = (): string[] => fs.readdirSync(os.tmpdir()).filter(n => /^ork-security-scan-(tree|out|agil)-/.test(n)).sort();
+    const sobras = (): string[] => fs.readdirSync(tmpdir).filter(n => /^ork-security-scan-(tree|out|agil)-/.test(n)).sort();
     const antes = sobras();
     const inicio = Date.now();
     const report: ScanReport = runScanAgil({ root: dir, stateRoot: dir, base, deadlineMs: DEADLINE_MS });
@@ -112,9 +126,10 @@ test('Docker real (Agile, RM-074 F4): o runScanAgil na fixture js roda toda ferr
     assert.ok(!JSON.stringify(report).includes(secret), 'o valor do segredo nunca chega ao relatorio');
     assert.deepEqual(sobras(), antes, 'nenhuma worktree, saida ou pasta dos trabalhadores sobra no temporario');
     assert.equal(git(dir, 'worktree', 'list', '--porcelain').split('\n').filter(l => l.startsWith('worktree ')).length, 1);
-  });
+  }));
 
 test('without docker in PATH and without native binaries every tool is unavailable', () => {
+  emTmpdirDoCaso('secscan-int-tmp-sem-docker', () => {
   const { dir, base } = fixtureRepo('js');
   dirs.push(dir);
   const bin = dirTemporario('secscan-int-pathless');
@@ -128,4 +143,5 @@ test('without docker in PATH and without native binaries every tool is unavailab
   assert.ok(report.tools.length > 0);
   for (const t of report.tools) assert.equal(t.state, 'unavailable', `${t.name}: ${t.reason}`);
   assert.deepEqual(report.findings, []);
+  });
 });

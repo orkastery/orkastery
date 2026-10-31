@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { TESTES_DE_INTEGRACAO_LOCAL } from '../src/integracoes-locais';
 import { assinaturaDoAmbiente as assinaturaDoVerify } from '../src/check-agil';
 
@@ -25,6 +25,9 @@ const lanes = require(SCRIPT) as {
   REPORTER: string;
   globDoNpmTest: () => string[];
   concorrenciaDaLane: (lane: string, cpus?: number, limiteDoGrupo?: number) => number;
+  planoDoPool: (lane: string, cpus?: number, env?: NodeJS.ProcessEnv) => { inicial: number; final: number; sinal: string } | null;
+  ENV_CPUS_APOS_RESERVA: string;
+  ENV_SINAL_DA_RESERVA: string;
   selecionarTemporario: (opcoes?: Record<string, unknown>) => { diretorio: string; estado: 'agile' | 'fallback'; motivo: string };
 };
 
@@ -148,7 +151,7 @@ test('TL8: teste que falha numa lane faz a lane sair diferente de zero, com o TA
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('TL9: a hermetica roda as CPUs menos duas (no minimo um arquivo), a integracao dois por vez, e nenhuma muda a prioridade', () => {
+test('TL9: a hermetica devolve as vagas sem passar da CPU, e a integracao preserva a prioridade', { timeout: 30_000 }, async () => {
   // O contrato base e conferido sem plano, mesmo quando o processo que executa este arquivo herdou o plano saturado.
   assert.equal(lanes.concorrenciaDaLane('hermetica', 7, Number.NaN), 5);
   assert.equal(lanes.concorrenciaDaLane('hermetica', 2, Number.NaN), 1);
@@ -156,9 +159,65 @@ test('TL9: a hermetica roda as CPUs menos duas (no minimo um arquivo), a integra
   assert.equal(lanes.concorrenciaDaLane('hermetica', 8, 6), 6, 'o plano paralelo reserva duas CPUs');
   assert.equal(lanes.concorrenciaDaLane('hermetica', 8, 7), 7, 'o fallback usa CPUs menos uma');
   assert.equal(lanes.concorrenciaDaLane('integracao', 8, 7), 7, 'depois da hermetica, a integracao usa a fatia Classic');
+  assert.deepEqual(lanes.planoDoPool('hermetica', 8, { ORK_CHECK_CPUS_DA_LANE: '6',
+    [lanes.ENV_CPUS_APOS_RESERVA]: '8', [lanes.ENV_SINAL_DA_RESERVA]: '/tmp/sinal' }),
+  { inicial: 6, final: 8, sinal: '/tmp/sinal' }, 'a hermetica devolve a reserva ate a CPU da maquina');
+  assert.equal(lanes.planoDoPool('integracao', 8, { ORK_CHECK_CPUS_DA_LANE: '2',
+    [lanes.ENV_CPUS_APOS_RESERVA]: '8', [lanes.ENV_SINAL_DA_RESERVA]: '/tmp/sinal' }), null, 'a integracao nunca abre o pool');
   const texto = fs.readFileSync(SCRIPT, 'utf8');
-  assert.match(texto, /`--test-concurrency=\$\{concorrenciaDaLane\(lane\)\}`/, 'as duas lanes passam a concorrencia ao node --test');
+  assert.match(texto, /function rodarPoolDeArquivos/, 'a hermetica tem o pool dinamico por arquivo');
+  assert.match(texto, /`--test-concurrency=\$\{concorrenciaDaLane\(lane\)\}`/, 'sem sinal, as lanes preservam o runner atual');
   assert.doesNotMatch(texto, /setPriority/, 'o nice baixava so o processo do teste, nunca os containers dele');
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-tl9-pool-'));
+  let filho: ReturnType<typeof spawn> | null = null;
+  try {
+    const testes = path.join(dir, 'testes'), marcas = path.join(dir, 'marcas');
+    fs.mkdirSync(testes); fs.mkdirSync(marcas);
+    const liberar = path.join(marcas, 'liberar');
+    for (const nome of ['a', 'b', 'c', 'd']) {
+      fs.writeFileSync(path.join(testes, `${nome}.test.js`),
+        `const { test } = require('node:test'); const fs = require('node:fs'); const path = require('node:path');\n` +
+        `test('${nome}', async () => { fs.writeFileSync(path.join(process.env.MARCAS, '${nome}.inicio'), ''); ` +
+        `while (!fs.existsSync(${JSON.stringify(liberar)})) await new Promise((r) => setTimeout(r, 20)); ` +
+        `fs.writeFileSync(path.join(process.env.MARCAS, '${nome}.fim'), ''); });\n`);
+    }
+    const sinal = path.join(dir, 'reserva.json'), relatorio = path.join(dir, 'relatorio.jsonl');
+    const env = { ...process.env, ORK_LANES_DIR: testes, ORK_LANES_INTEGRACAO: '', ORK_CHECK_RELATORIO: relatorio,
+      ORK_CHECK_CPUS_DA_LANE: '1', ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA: '3', ORK_CHECK_RESERVA_DEVOLVIDA: sinal,
+      XDG_CACHE_HOME: path.join(dir, 'cache'), MARCAS: marcas };
+    let stdout = '', stderr = '';
+    filho = spawn(process.execPath, [SCRIPT, 'hermetica'], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+    filho.stdout!.on('data', (d) => { stdout += d; });
+    filho.stderr!.on('data', (d) => { stderr += d; });
+    const esperar = async (condicao: () => boolean, mensagem: string): Promise<void> => {
+      const ate = Date.now() + 10_000;
+      while (!condicao() && Date.now() < ate) await new Promise((r) => setTimeout(r, 25));
+      assert.ok(condicao(), mensagem);
+    };
+    const quantos = (sufixo: string) => fs.readdirSync(marcas).filter((n) => n.endsWith(sufixo)).length;
+    await esperar(() => quantos('.inicio') === 1, 'a vaga inicial comecou');
+    await new Promise((r) => setTimeout(r, 150));
+    assert.equal(quantos('.inicio'), 1, 'antes do sinal so a cota inicial roda');
+    fs.writeFileSync(sinal, JSON.stringify({ em: '2026-10-31T00:00:00.000Z', vagas: 3 }));
+    await esperar(() => quantos('.inicio') === 3, 'o sinal abriu as duas vagas devolvidas');
+    assert.equal(quantos('.fim'), 0, 'as tres vagas estiveram ocupadas ao mesmo tempo');
+    fs.writeFileSync(liberar, '');
+    const code = await new Promise<number | null>((resolve) => filho!.once('close', resolve));
+    filho = null;
+    assert.equal(code, 0, stderr + stdout);
+    assert.match(stdout, /^TAP version 13$/m);
+    assert.match(stdout, /^1\.\.4$/m);
+    assert.match(stdout, /^# tests 4$/m);
+    const linhas = fs.readFileSync(relatorio, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Record<string, unknown>);
+    assert.ok(linhas.some((l) => l.peca === 'agendador-cpu' && /passou a 3 vagas/.test(String(l.motivo))), 'a devolucao foi registrada');
+    const resultados = linhas.find((l) => l.tipo === 'resultados')!;
+    assert.deepEqual((resultados.testes as Array<{ arquivo: string; estado: string }>).map((t) => [t.arquivo, t.estado]).sort(),
+      ['a', 'b', 'c', 'd'].map((n) => [`${n}.test.js`, 'pass']));
+  } finally {
+    filho?.kill('SIGKILL');
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('TL10: o teste da lane nao herda modo, relatorio nem plano de CPU da rodada, mas herda o ambiente exigido', () => {
@@ -167,16 +226,18 @@ test('TL10: o teste da lane nao herda modo, relatorio nem plano de CPU da rodada
     const visto = path.join(dir, 'visto.json');
     fs.writeFileSync(path.join(dir, 've.test.js'), "const { test } = require('node:test'); test('ve', () => { require('fs').writeFileSync(" +
       `${JSON.stringify(visto)}, JSON.stringify({ modo: process.env.ORK_CHECK_MODO ?? null, relatorio: process.env.ORK_CHECK_RELATORIO ?? null, ` +
-      `cpusDaLane: process.env.ORK_CHECK_CPUS_DA_LANE ?? null, cpusDocker: process.env.ORK_CHECK_CPUS_DOCKER ?? null, ` +
+      `cpusDaLane: process.env.ORK_CHECK_CPUS_DA_LANE ?? null, cpusApos: process.env.ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA ?? null, ` +
+      `sinal: process.env.ORK_CHECK_RESERVA_DEVOLVIDA ?? null, cpusDocker: process.env.ORK_CHECK_CPUS_DOCKER ?? null, ` +
       `exige: process.env.ORK_TESTE_EXIGE_AMBIENTE ?? null })); });\n`);
     const relatorio = path.join(dir, 'relatorio.jsonl');
     const env = { ...process.env, ORK_LANES_DIR: dir, ORK_LANES_INTEGRACAO: '', XDG_CACHE_HOME: path.join(dir, 'cache'),
-      ORK_CHECK_MODO: 'agile', ORK_CHECK_RELATORIO: relatorio, ORK_CHECK_CPUS_DA_LANE: '7', ORK_CHECK_CPUS_DOCKER: '1',
+      ORK_CHECK_MODO: 'agile', ORK_CHECK_RELATORIO: relatorio, ORK_CHECK_CPUS_DA_LANE: '7',
+      ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA: '8', ORK_CHECK_RESERVA_DEVOLVIDA: path.join(dir, 'sinal'), ORK_CHECK_CPUS_DOCKER: '1',
       ORK_TESTE_EXIGE_AMBIENTE: '1' };
     const r = spawnSync(process.execPath, [SCRIPT, 'hermetica'], { encoding: 'utf8', env });
     assert.equal(r.status, 0, r.stderr + r.stdout);
     assert.deepEqual(JSON.parse(fs.readFileSync(visto, 'utf8')),
-      { modo: null, relatorio: null, cpusDaLane: null, cpusDocker: null, exige: '1' },
+      { modo: null, relatorio: null, cpusDaLane: null, cpusApos: null, sinal: null, cpusDocker: null, exige: '1' },
       'quem exporta ORK_TESTE_EXIGE_AMBIENTE exige as dependencias nos dois modos, como no npm test');
     assert.ok(fs.readFileSync(relatorio, 'utf8').split('\n').filter(Boolean).some((l) => (JSON.parse(l) as { tipo: string }).tipo === 'lista'));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }

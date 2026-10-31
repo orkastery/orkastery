@@ -1043,6 +1043,7 @@ test('AG44: sob carga sintetica presa em CPU, o plano cai para o Classic e nunca
   const saturado = planejarCpuDoGrupo(8, { carga1: 8, stealPct: 12 });
   assert.equal(saturado.ordem, 'classic');
   assert.equal(saturado.cpusHermetica, 7);
+  assert.equal(saturado.cpusHermeticaAposReserva, 7, 'o fallback nao devolve reserva dinamicamente');
   assert.equal(saturado.ferramentasDaVarredura, 7);
   assert.equal(saturado.cpusPorContainer, 1);
   assert.ok(paredeAgileSimulada(saturado, trabalho) <= paredeClassicaSimulada(8, trabalho));
@@ -1053,10 +1054,38 @@ test('AG44: sob carga sintetica presa em CPU, o plano cai para o Classic e nunca
   assert.equal(livre.ordem, 'paralela');
   assert.equal(livre.cpusHermetica + livre.cpusDaFatia, 8, 'a soma do grupo cabe na maquina');
   assert.equal(livre.cpusHermetica, 6);
+  assert.equal(livre.cpusHermeticaAposReserva, 8, 'depois da cadeia a hermetica usa a maquina inteira');
   assert.equal(livre.ferramentasDaVarredura, 2);
   assert.equal(livre.cpusPorContainer, 1);
+  assert.ok(paredeAgileSimulada(livre, trabalho) < Math.max(trabalho.hermetica / livre.cpusHermetica,
+    trabalho.varredura / livre.cpusDaFatia + trabalho.integracao / livre.cpusIntegracao), 'a devolucao reduz a parede modelada');
   assert.equal(cargaDoProcLoadavg('7.25 4.0 3.0 1/2 3\n'), 7.25);
   assert.equal(cargaDoProcLoadavg('invalida'), null);
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag44-reserva-'));
+  try {
+    const hermetica = [
+      `while ! test -f ${path.join(dir, 'scan.inicio')}; do sleep 0.02; done`,
+      'test ! -e "$ORK_CHECK_RESERVA_DEVOLVIDA"',
+      'for i in $(seq 1 200); do test -f "$ORK_CHECK_RESERVA_DEVOLVIDA" && break; sleep 0.02; done',
+      `test -f ${path.join(dir, 'scan.fim')}`,
+      `test -f ${path.join(dir, 'integracao.fim')}`,
+      'cat "$ORK_CHECK_RESERVA_DEVOLVIDA"',
+    ].join(' && ');
+    const processos = rodarEmParalelo([
+      { nome: 'test:hermetica', comando: hermetica, cwd: dir, prazoMs: 10_000, papelCpu: 'hermetica' },
+      { nome: 'security_scan', comando: `touch ${path.join(dir, 'scan.inicio')} && sleep 0.2 && touch ${path.join(dir, 'scan.fim')}`,
+        cwd: dir, prazoMs: 10_000, papelCpu: 'varredura' },
+      { nome: 'test:integracao', comando: `sleep 0.2 && touch ${path.join(dir, 'integracao.fim')}`,
+        cwd: dir, prazoMs: 10_000, papelCpu: 'integracao' },
+    ], process.env, { cpus: 4, medicaoCpu: { carga1: 0, stealPct: 0 } });
+    assert.ok(processos.every((p) => p.ok), processos.map((p) => p.stderr).join('\n'));
+    assert.equal(processos.agendamentoCpu?.cpusHermetica, 2);
+    assert.equal(processos.agendamentoCpu?.cpusHermeticaAposReserva, 4);
+    const sinal = JSON.parse(processos[0].stdout) as { vagas: number; em: string };
+    assert.equal(sinal.vagas, 4);
+    assert.match(sinal.em, /^\d{4}-\d{2}-\d{2}T/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('AG45: saturacao medida pelo verify ordena hermetica, varredura e integracao e registra a peca no verify_run', () => {

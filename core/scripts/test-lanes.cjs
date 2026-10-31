@@ -40,6 +40,8 @@ const ORCAMENTO_PADRAO_MS = 120000;
 const REPORTER = path.join(__dirname, 'reporter-duracoes.mjs');
 const CONCORRENCIA_DA_INTEGRACAO = 2;
 const ENV_TMPFS = 'ORK_CHECK_TMPFS';
+const ENV_CPUS_APOS_RESERVA = 'ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA';
+const ENV_SINAL_DA_RESERVA = 'ORK_CHECK_RESERVA_DEVOLVIDA';
 const TMPFS_MAGIC = 0x01021994;
 
 /**
@@ -49,6 +51,15 @@ const TMPFS_MAGIC = 0x01021994;
 function concorrenciaDaLane(lane, cpus = os.availableParallelism(), limiteDoGrupo = Number(process.env.ORK_CHECK_CPUS_DA_LANE)) {
   if (Number.isFinite(limiteDoGrupo) && limiteDoGrupo > 0) return Math.max(1, Math.min(cpus, Math.floor(limiteDoGrupo)));
   return lane === 'integracao' ? CONCORRENCIA_DA_INTEGRACAO : Math.max(1, cpus - 2);
+}
+
+/** O pool dinamico so existe na hermetica do grupo paralelo, com sinal e cota final maiores que a inicial. */
+function planoDoPool(lane, cpus = os.availableParallelism(), env = process.env) {
+  const inicial = concorrenciaDaLane(lane, cpus, Number(env.ORK_CHECK_CPUS_DA_LANE));
+  const informada = Number(env[ENV_CPUS_APOS_RESERVA]);
+  const final = Number.isFinite(informada) && informada > 0 ? Math.max(inicial, Math.min(cpus, Math.floor(informada))) : inicial;
+  const sinal = env[ENV_SINAL_DA_RESERVA];
+  return lane === 'hermetica' && sinal && final > inicial ? { inicial, final, sinal } : null;
 }
 const MINIMO_DA_HERMETICA = 100;
 
@@ -189,7 +200,7 @@ function lerResultadosDoReporter(arquivo) {
 /** Mesmo ambiente funcional entre a lane e a claim; variaveis de transporte/runner nao mudam o teste. */
 function assinaturaDoAmbiente(env) {
   const ignorada = (nome) => nome.startsWith('npm_') || nome.startsWith('NPM_')
-    || ['ORK_CHECK_RELATORIO', 'ORK_CHECK_CPUS_DA_LANE', 'ORK_CHECK_CPUS_DOCKER',
+    || ['ORK_CHECK_RELATORIO', 'ORK_CHECK_CPUS_DA_LANE', ENV_CPUS_APOS_RESERVA, ENV_SINAL_DA_RESERVA, 'ORK_CHECK_CPUS_DOCKER',
       'NODE_TEST_CONTEXT', 'NODE_COMPILE_CACHE', 'PWD', 'OLDPWD', 'SHLVL', '_', 'INIT_CWD'].includes(nome);
   const pares = Object.entries(env).filter(([nome, valor]) => valor !== undefined && !ignorada(nome))
     .sort(([a], [b]) => a.localeCompare(b));
@@ -200,6 +211,75 @@ function relatar(linha) {
   const arquivo = process.env.ORK_CHECK_RELATORIO;
   if (!arquivo) return;
   try { fs.appendFileSync(arquivo, JSON.stringify(linha) + '\n'); } catch { /* o relatorio e evidencia, nao condicao do teste */ }
+}
+
+/** Soma um campo do sumario TAP de cada processo de arquivo. */
+function totalDoTap(resultados, campo) {
+  return resultados.reduce((total, r) => {
+    const m = new RegExp(`^# ${campo} ([0-9]+)$`, 'm').exec(r.tap);
+    return total + Number(m?.[1] ?? 0);
+  }, 0);
+}
+
+/** Um TAP valido: cada arquivo conserva seu TAP inteiro como subteste do pool. */
+function emitirTapDoPool(resultados, duracaoMs) {
+  process.stdout.write('TAP version 13\n');
+  resultados.forEach((r, i) => {
+    process.stdout.write(`# Subtest: ${r.arquivo}\n`);
+    process.stdout.write(r.tap.trimEnd().split('\n').map((linha) => `    ${linha}`).join('\n') + '\n');
+    process.stdout.write(`${r.code === 0 ? 'ok' : 'not ok'} ${i + 1} - ${r.arquivo}\n`);
+  });
+  process.stdout.write(`1..${resultados.length}\n`);
+  for (const campo of ['tests', 'suites', 'pass', 'fail', 'cancelled', 'skipped', 'todo']) {
+    process.stdout.write(`# ${campo} ${totalDoTap(resultados, campo)}\n`);
+  }
+  process.stdout.write(`# duration_ms ${duracaoMs}\n`);
+}
+
+/**
+ * Pool LPT da hermetica. Cada arquivo conserva o isolamento do runner e grava TAP/reporter proprios; o controlador
+ * so abre vagas novas quando o grupo cria o sinal depois de varredura e integracao.
+ */
+function rodarPoolDeArquivos({ arquivos, dir, env, pastaDaLane, plano }) {
+  const inicio = Date.now();
+  const resultados = new Array(arquivos.length);
+  let proximo = 0, ativos = 0, concluidos = 0, vagas = plano.inicial, devolvida = false;
+  const caminho = (nome) => (process.env.ORK_LANES_DIR ? path.join(dir, nome) : path.join('dist-test', 'test', nome));
+  const observarSinal = () => {
+    if (devolvida || !fs.existsSync(plano.sinal)) return;
+    let registro = {};
+    try { registro = JSON.parse(fs.readFileSync(plano.sinal, 'utf8')); } catch { /* a existencia ja e o sinal atomico */ }
+    vagas = plano.final;
+    devolvida = true;
+    relatar({ tipo: 'peca', peca: 'agendador-cpu', estado: 'agile',
+      motivo: `reserva devolvida em ${typeof registro.em === 'string' ? registro.em : 'instante nao registrado'}; hermetica passou a ${vagas} vagas` });
+  };
+  return new Promise((resolve) => {
+    const lancar = () => {
+      observarSinal();
+      while (ativos < vagas && proximo < arquivos.length) {
+        const i = proximo++, arquivo = arquivos[i];
+        const tap = path.join(pastaDaLane, `${i}.tap`), reporter = path.join(pastaDaLane, `${i}.json`);
+        const args = ['--test', '--test-concurrency=1', '--test-reporter=tap', `--test-reporter-destination=${tap}`,
+          `--test-reporter=${REPORTER}`, `--test-reporter-destination=${reporter}`, caminho(arquivo)];
+        ativos++;
+        const filho = spawn(process.execPath, args, { cwd: CORE, env, stdio: ['ignore', 'ignore', 'inherit'] });
+        filho.on('close', (code, signal) => {
+          resultados[i] = { arquivo, code: code ?? (signal ? 1 : 1), tap: (() => { try { return fs.readFileSync(tap, 'utf8'); } catch { return ''; } })(),
+            medidas: lerDuracoesDoReporter(reporter), testes: lerResultadosDoReporter(reporter) };
+          ativos--; concluidos++;
+          if (concluidos === arquivos.length) {
+            clearInterval(sonda);
+            emitirTapDoPool(resultados, Date.now() - inicio);
+            resolve({ code: resultados.some((r) => r.code !== 0) ? 1 : 0,
+              medidas: Object.assign({}, ...resultados.map((r) => r.medidas)), testes: resultados.flatMap((r) => r.testes) });
+          } else lancar();
+        });
+      }
+    };
+    const sonda = setInterval(lancar, 25);
+    lancar();
+  });
 }
 
 function rodarLane(lane) {
@@ -230,6 +310,8 @@ function rodarLane(lane) {
   delete env.ORK_CHECK_MODO;
   delete env.ORK_CHECK_RELATORIO;
   delete env.ORK_CHECK_CPUS_DA_LANE;
+  delete env[ENV_CPUS_APOS_RESERVA];
+  delete env[ENV_SINAL_DA_RESERVA];
   delete env.ORK_CHECK_CPUS_DOCKER;
   env.TMPDIR = pastaDaLane;
   let casa = null;
@@ -241,17 +323,7 @@ function rodarLane(lane) {
   } catch (e) {
     relatar({ tipo: 'peca', peca: 'compile-cache', estado: 'fallback', motivo: String(e.code || e.message), fallback: 'sem cache de compilacao' });
   }
-  const arquivoDoReporter = path.join(pastaDaLane, 'duracoes.json');
-  const args = ['--test', '--test-reporter=tap', '--test-reporter-destination=stdout',
-    `--test-reporter=${REPORTER}`, `--test-reporter-destination=${arquivoDoReporter}`,
-    `--test-concurrency=${concorrenciaDaLane(lane)}`,
-    ...arquivos.map((n) => (process.env.ORK_LANES_DIR ? path.join(dir, n) : path.join('dist-test', 'test', n)))];
-  return new Promise((resolve) => {
-    const filho = spawn(process.execPath, args, { cwd: CORE, env, stdio: ['ignore', 'pipe', 'inherit'] });
-    filho.stdout.on('data', (d) => process.stdout.write(d));
-    filho.on('close', (code, signal) => {
-      const medidas = lerDuracoesDoReporter(arquivoDoReporter);
-      const testes = lerResultadosDoReporter(arquivoDoReporter);
+  const terminar = ({ code, medidas, testes }) => {
       try {
         fs.mkdirSync(cache, { recursive: true });
         fs.writeFileSync(arquivoDeDuracoes, JSON.stringify({ ...anteriores, ...medidas }, null, 1) + '\n');
@@ -262,20 +334,33 @@ function rodarLane(lane) {
       relatar({ tipo: 'duracoes', lane, orcamentoMs: orcamento, medidos: Object.keys(medidas).length, acima, maiores });
       relatar({ tipo: 'resultados', lane, head, ambiente, testes });
       fs.rmSync(pastaDaLane, { recursive: true, force: true });
-      resolve(code ?? (signal ? 1 : 1));
-    });
+      return code;
+  };
+  const plano = planoDoPool(lane);
+  if (plano) return rodarPoolDeArquivos({ arquivos, dir, env, pastaDaLane, plano }).then(terminar);
+  const arquivoDoReporter = path.join(pastaDaLane, 'duracoes.json');
+  const args = ['--test', '--test-reporter=tap', '--test-reporter-destination=stdout',
+    `--test-reporter=${REPORTER}`, `--test-reporter-destination=${arquivoDoReporter}`,
+    `--test-concurrency=${concorrenciaDaLane(lane)}`,
+    ...arquivos.map((n) => (process.env.ORK_LANES_DIR ? path.join(dir, n) : path.join('dist-test', 'test', n)))];
+  return new Promise((resolve) => {
+    const filho = spawn(process.execPath, args, { cwd: CORE, env, stdio: ['ignore', 'pipe', 'inherit'] });
+    filho.stdout.on('data', (d) => process.stdout.write(d));
+    filho.on('close', (code, signal) => resolve(terminar({ code: code ?? (signal ? 1 : 1),
+      medidas: lerDuracoesDoReporter(arquivoDoReporter), testes: lerResultadosDoReporter(arquivoDoReporter) })));
   });
 }
 
 module.exports = { listasDasLanes, ordenarPorDuracao, lerDuracoesDoReporter, lerResultadosDoReporter, assinaturaDoAmbiente,
-  globDoNpmTest, concorrenciaDaLane, selecionarTemporario, sondarTmpfs, ENV_TMPFS, LANES, REPORTER };
+  globDoNpmTest, concorrenciaDaLane, planoDoPool, selecionarTemporario, sondarTmpfs, ENV_TMPFS, ENV_CPUS_APOS_RESERVA,
+  ENV_SINAL_DA_RESERVA, LANES, REPORTER };
 
 if (require.main === module) {
   const [alvo] = process.argv.slice(2);
-  if (alvo === '--conferir') process.exit(conferir());
-  if (!LANES.includes(alvo)) {
+  if (alvo === '--conferir') process.exitCode = conferir();
+  else if (!LANES.includes(alvo)) {
     process.stderr.write(`uso: test-lanes.cjs ${LANES.join('|')} | --conferir\n`);
-    process.exit(2);
+    process.exitCode = 2;
   }
-  rodarLane(alvo).then((code) => process.exit(code), (e) => { process.stderr.write(`test-lanes: ${e.message}\n`); process.exit(1); });
+  else rodarLane(alvo).then((code) => { process.exitCode = code; }, (e) => { process.stderr.write(`test-lanes: ${e.message}\n`); process.exitCode = 1; });
 }
