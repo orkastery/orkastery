@@ -141,6 +141,8 @@ test('GL3: a sessao de outra thread, confinada no proprio dominio, nao acha o to
     const token = environ.split('\0').find((v) => v.startsWith(`${ENV_DO_TOKEN_DO_SERVIDOR_GROK}=`))?.slice(ENV_DO_TOKEN_DO_SERVIDOR_GROK.length + 1);
     assert.match(String(token), /^[a-f0-9]{64}$/, 'o controle: o token esta no ambiente do grok');
     assert.deepEqual(arquivosCom(token!, [p.dir]), [], 'nenhum arquivo do projeto tem o token: recibo, config, log, estado');
+    // A pasta que some durante a varredura (o vigia apaga o watch.lock) nao e erro: o caso deterministico da mesma corrida.
+    assert.deepEqual(arquivosCom(token!, [path.join(p.dir, 'pasta-que-sumiu')]), [], 'pasta que sumiu nao reprova a varredura');
     // A sessao irma: outro dominio do Landlock, com escrita so na pasta dela, como a sessao grok de outra thread.
     const lista = path.join(irma, 'pastas');
     fs.writeFileSync(lista, `${irma}\n`);
