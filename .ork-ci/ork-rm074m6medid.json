@@ -98,6 +98,20 @@
       "lint": []
     },
     {
+      "id": "C7",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m6.json",
+      "alegacao": "Mutante M1 da M6 morre quando a varredura deixa de devolver sua parcela da reserva.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m6.json M1"
+      ],
+      "criadoEm": "2026-10-31T10:58:21.750Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
       "id": "C8",
       "thread": "ork-rm074m6medid",
       "fase": "GOAL",
@@ -110,6 +124,62 @@
         "node core/dist/index.js checar-changelog --base origin/main"
       ],
       "criadoEm": "2026-10-31T10:58:21.784Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m6.json",
+      "alegacao": "Mutante M4 da M6 morre quando suspeitas-0310-rede-cache ignora a cota da lane.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m6.json M4"
+      ],
+      "criadoEm": "2026-10-31T10:58:21.820Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m6.json",
+      "alegacao": "Mutante M2 da M6 morre quando um degrau permite ao grupo ultrapassar a CPU da máquina.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m6.json M2"
+      ],
+      "criadoEm": "2026-10-31T10:58:21.853Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m6.json",
+      "alegacao": "Mutante M5 da M6 morre quando a bancada aceita um par acima do limiar de carga externa.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m6.json M5"
+      ],
+      "criadoEm": "2026-10-31T10:58:21.888Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m6.json",
+      "alegacao": "Mutante M3 da M6 morre quando a reserva medida da integração é ignorada.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m6.json M3"
+      ],
+      "criadoEm": "2026-10-31T10:58:21.926Z",
       "estado": "pendente",
       "lint": []
     },
@@ -321,35 +391,39 @@
       "criadoEm": "2026-10-31T11:18:58.056Z",
       "estado": "pendente",
       "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-rm074m6medid.json",
+      "alegacao": "O bundle de CI da M6 foi gerado pelo núcleo e identifica a thread correta.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'ork-rm074m6medid' .ork-ci/ork-rm074m6medid.json"
+      ],
+      "criadoEm": "2026-10-31T11:23:05.684Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/native-fixture.ts",
+      "alegacao": "Containers das fixtures nativas são registrados antes de subir para entrar na evidência de CPU da integração.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test"
+      ],
+      "criadoEm": "2026-10-31T11:23:26.018Z",
+      "estado": "pendente",
+      "lint": []
     }
   ],
   "deferredClaims": [
     {
-      "id": "C7",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C9",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C10",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C11",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C12",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
       "id": "C15",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C28",
       "reason": "artifact-not-in-checkout"
     }
   ],
