@@ -13,9 +13,9 @@ import { cliDoCatalogo } from './catalogo';
 
 const linha = (e: unknown) => JSON.stringify(e) + '\n';
 function esperar(teste: () => boolean): void {
-  const limite = Date.now() + 5000;
+  const limite = Date.now() + 15000;
   while (!teste()) {
-    if (Date.now() >= limite) throw new Error('subprocesso do canário não terminou em 5000 ms');
+    if (Date.now() >= limite) throw new Error('subprocesso do cenário de comportamento não terminou no prazo de transporte');
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
   }
 }
@@ -37,10 +37,11 @@ export const CANARIO_SENSORES: Canario = {
       const hook = path.join(catalogo, 'adapters/claude-code/hooks/ork-sensor.js');
       const cli = cliDoCatalogo(catalogo);
       const start = Date.now();
-      const h = spawnSync(process.execPath, [hook], { cwd: wt, encoding: 'utf8', timeout: 5000,
+      // O teto de transporte absorve a fila do Classic; a fixture continua exigindo a latência funcional abaixo de 5 s.
+      const h = spawnSync(process.execPath, [hook], { cwd: wt, encoding: 'utf8', timeout: 15000,
         input: JSON.stringify({ cwd: wt, session_id: 'fixture-claude', hook_event_name: 'PermissionRequest', tool_use_id: 'fixture-tool' }),
         env: { ...process.env, ORK_SENSOR_CLI: cli } });
-      if (h.status !== 0 || h.stderr || h.stdout) throw new Error('hook/CLI do canário indisponível');
+      if (h.status !== 0 || h.stderr || h.stdout) throw new Error('hook/CLI do cenário de comportamento indisponível');
       const hookLatenciaMs = Date.now() - start;
       const bloqueio = lerLedger(dir).find(e => e.tipo === 'sessao_bloqueada');
       const carimboLatenciaMs = bloqueio ? Date.parse(String(bloqueio.recebidoEm)) - Date.parse(bloqueio.ts) : null;
@@ -63,8 +64,8 @@ export const CANARIO_SENSORES: Canario = {
       // A identidade vem de um processo realmente executado e encerrado, sem recibo.
       const runner = require.resolve('./adapters/codex-runner');
       const morto = spawnSync(process.execPath, ['-e', `console.log(JSON.stringify(require(process.argv[1]).identidadeProcesso(process.pid)))`, runner],
-        { cwd: wt, encoding: 'utf8', timeout: 5000 });
-      if (morto.status !== 0) throw new Error('processo de morte do canário indisponível');
+        { cwd: wt, encoding: 'utf8', timeout: 15000 });
+      if (morto.status !== 0) throw new Error('processo de morte do cenário de comportamento indisponível');
       const filho = JSON.parse(morto.stdout);
       if (estadoProcesso(filho) !== 'ausente') throw new Error('processo ainda não está ausente');
       const sid = 'fixture-morto'; sessao(sid, 'codex');
