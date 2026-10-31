@@ -15,7 +15,8 @@ import { spawn, execFileSync } from 'node:child_process';
 import { dirTemporario } from './apoio';
 
 const MODULO = path.resolve(__dirname, '../src/branch-de-estado.js');
-const PROCESSOS = 8;
+// O arquivo inteiro ocupa uma vaga do pool: abrir mais processos aqui multiplicaria a cota externa da lane.
+const PROCESSOS = 1;
 const RODADAS = 15;
 
 const git = (dir: string, args: string[]) => execFileSync('git', args, { cwd: dir, encoding: 'utf8',
@@ -38,6 +39,7 @@ function buscaJunta(cache: string): Promise<string> {
 test('suspeitas 03/10: buscas simultaneas no mesmo cache da casa, com a casa avancando, todas atualizam', async () => {
   const raiz = dirTemporario('susp0310-rede-cache');
   try {
+    assert.equal(PROCESSOS, 1, 'a concorrencia interna cabe na unica vaga ocupada pelo arquivo no pool');
     const casa = path.join(raiz, 'casa.git'), outra = path.join(raiz, 'outra'), cache = path.join(raiz, 'cache');
     git(raiz, ['init', '--bare', '-q', '-b', 'main', casa]);
     git(raiz, ['clone', '-q', casa, outra]);
