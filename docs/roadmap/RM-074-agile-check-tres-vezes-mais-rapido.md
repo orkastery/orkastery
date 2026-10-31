@@ -223,6 +223,45 @@ devolução antecipada, o excesso de CPU e o retorno das três corridas. A razã
 o corte de CPU e a eficiência finais continuam pendentes de três pares válidos
 na bancada do host.
 
+A saída `com-confianca` da bancada M5, recebida pela thread `ork-rm074m6medid` em
+31/10/2026 no regime de `node core/scripts/medir-check.cjs --bancada --pares 3`,
+fechou três pares válidos em ordem AB/BA, todos aprovados, com
+razões `Classic ÷ Agile` de 1,43, 1,37 e 1,37, média de 1,39 e coeficiente de
+variação perto de 2%. A CPU da suíte ficou de 8% a 13% abaixo da linha de base
+anterior à M4, enquanto a razão de CPU entre os modos permaneceu perto de 1: o
+resultado vem de ocupação melhor da máquina, não de menos CPU entre os modos.
+A eficiência da hermética ficou entre 70% e 74%, a da integração perto de 7%, a
+da suíte no Agile entre 73% e 77% e no Classic entre 66% e 71%. A hermética ainda
+foi o caminho crítico e encerrou entre 68% e 74% da parede do Classic.
+
+### M6: reserva medida por peça, CPU dos arquivos caros e carga externa
+
+A M6 mede a CPU da árvore da integração e dos containers registrados pela lane.
+Uma medida só vira perfil quando está completa e é compatível com os comandos, a
+capacidade e as entradas da lane. A primeira rodada sem esse perfil conserva a
+cadeia da M5; uma rodada posterior só põe integração e varredura lado a lado quando
+a reserva medida prova que hermética, varredura e integração cabem juntas. Sob carga
+ou `steal` acima do limiar, a ordem e a cota do Classic continuam valendo.
+
+Cada peça devolve sua própria reserva quando termina. A hermética lê os degraus do
+mesmo sinal, aceita apenas cotas monotônicas dentro da capacidade e a peça
+`agendador-cpu` registra origem, instante, vagas e a evidência de CPU da integração.
+O perfil incompleto nunca reduz reserva.
+
+Nos arquivos caros que ainda reconstruíam estado fixo, `projeto-alvo-declaracao`,
+`rm036-leases-canonicos`, `tsgo-paridade` e `security-scan-agil-lint` passam a criar
+o modelo uma vez por processo e copiar estado isolado por caso. Os arquivos
+`noctum-*`, `rede` e `security-scan-run` já tinham esse contrato nas M3 e M4. Em
+`suspeitas-0310-rede-cache`, o arquivo ocupa uma vaga do pool e abre um processo por
+vez, sem mudar as rodadas, o estado próprio de cada caso ou as asserções.
+
+A bancada também amostra a carga de fora durante cada rodada: a CPU dos processos que não descendem
+dela. O relatório traz os maiores por nome e CPU; um par acima do limiar percentual
+configurado fica marcado e descartado, como já ocorre com a divergência de `steal`.
+Assim, uma reação dos testes pelo **antivírus do provedor** ou por um indexador deixa
+de ficar invisível. Esta seção descreve o contrato da M6 e não atribui ganho: razão,
+CPU e eficiência depois da mudança dependem de três pares válidos no host.
+
 ## Problema e resultado
 
 - **Público e problema/oportunidade:** quem conduz o `ork` e o próprio Orkastery. A RM-072 deixou o Agile Check de 1,43 a 1,52 vez mais rápido que o Classic no mesmo commit e parou aí: a lane hermética ocupa 94% da parede do Agile, e ela é presa em CPU, não em espera. Cada rodada de GO-FIX e de CHECK paga a suíte inteira, mesmo quando o diff toca uma tela de texto.
@@ -404,6 +443,8 @@ A numeração segue a ordem do pedido. A ordem de execução recomendada é a da
 | M1 CPU por teste | Harness do CLI dentro do processo para os testes pesados que não verificam a fronteira de processo; resultado nominal das lanes reaproveitado por claims `node --test` no mesmo HEAD e ambiente; build único por rodada | Razão contra o Classic e CPU da suíte medidas pela mesma bancada da recoleta M0; mesmo número de testes e asserções, nenhum `skip`; paridade byte a byte entre harness e processo; mutação dos arquivos tocados sem piora superior a 10% |
 | M3 Confiança da medida e CPU de sistema | Bancada com três pares válidos em ordem AB/BA, preparo separado e `steal` por passe; fixture Git compartilhada nos dois testes de security scan; tmpfs das lanes atrás de opt-in e fallback explicado | A razão só é oficial com três pares válidos cuja divergência de `steal` não passe de 2 pontos percentuais; CPU sempre acompanhada do `steal`; nenhum teste ou asserção removido; mutantes da M3 mortos; tmpfs só pode virar padrão depois de ganho de CPU de sistema provado pela bancada |
 | M4 CPU de sistema nos testes caros restantes | Modelo de projeto Git, remoto e estado inicial compartilhado nos arquivos Noctum, entrega e rede; árvore da forja falsa compartilhada em `rede`; cópias isoladas por caso | Mesmo conjunto de casos e asserções, filhos reais preservados nas fronteiras, seis mutantes da M4 mortos; nenhum ganho publicado antes de três pares válidos da bancada |
+| M5 Reserva devolvida | Pool LPT da hermética recebe a reserva depois da cadeia da varredura e integração; correções de isolamento preservam o Classic | Três pares válidos mediram razão média de 1,39; a hermética segue no caminho crítico e a medida não vira promessa da M6 |
+| M6 Reserva medida e carga externa | CPU da integração inclui containers, devolução ocorre por peça, concorrência só abre com perfil completo; modelos restantes são copiados por caso e a bancada mede carga externa | Nenhum degrau ultrapassa a capacidade; perfil incompleto conserva reserva; par acima do limiar de carga externa é descartado; mesmos casos e asserções; cinco mutantes mortos; ganho depende da bancada do host |
 | F2 CPU da suíte (demais fatias) | Os arquivos de teste mais caros que continuam fora da M1, a eficiência de paralelismo das lanes e a cadeia varredura e integração, com orçamento que vigia o crescimento | Evolução até cerca de 1,7 vez contra o Classic, no mesmo commit, máquina e bateria; nenhum caso removido; cada ganho medido em razão e CPU da suíte |
 | F3 Memória | O teto da D2 aplicado à varredura do grupo e às lanes, medindo o que isso custa na razão contra o Classic | Pico agregado dentro do teto em três rodadas; varredura com as nove ferramentas e zero achado novo ou desaparecido por impressão digital; custo na razão medido e registrado, e aceito pelo dono se tirar a meta da D1 do alcance |
 | F4 Dívida da RM-072 que pesa no tempo ou na confiança | O que a tabela "A dívida da RM-072" diz que entra: redação do motivo da peça `imagem-de-lint`, a lane caída sem veredito e o texto do gate, a data sem ano e o caso de `GMT+0` do snapshot de locale, os casos que faltam, a paridade do `tsgo` fora da thread de origem e as peças em fallback | Cada item da tabela com caso de teste que falha sem a correção; nenhum arquivo ou categoria de varredura removido; peças `tsgo`, `cache-semgrep` e binários nativos com o motivo do fallback medido e, onde o fallback some, o ganho em percentual da parede pelo ledger |
@@ -496,6 +537,7 @@ O que mudou na recomendação: a F2 sobe para antes da F3 e passa a ser a frente
 - Decisão e regra do dono de 27/10/2026, no pedido da thread `ork-docsda060emp`.
 - Decisão vigente 2.c do dono em 29/10/2026 e bancada M0 de 30/10/2026, recebidas no pedido da thread `ork-rm074m1menos`.
 - Resultado da bancada M3 e contrato da M5 recebidos no pedido da thread `ork-rm074m5medid`.
+- Resultado da bancada M5 e contrato da M6 recebidos no pedido da thread `ork-rm074m6medid`.
 - Código citado: `core/scripts/test-lanes.cjs`, `core/scripts/reporter-duracoes.mjs`, `core/scripts/medir-check.cjs`, `core/src/integracoes-locais.ts`, `core/package.json`, `orkastery.yaml`.
 - Páginas citadas: [RM-071](RM-071-relatorio-da-esteira-do-sdlc.md), [RM-072](RM-072-check-cinco-vezes-mais-rapido.md), [RM-073](RM-073-modelos-de-decisao-no-ork-e-no-orkmind.md), [RM-062](RM-062-repositorio-publico-sem-dado-privado.md).
 
@@ -519,9 +561,9 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 ## Responsabilidades e histórico
 
-- **RACI (R / A / C / I):** R: sessão condutora da thread `ork-rm074m5medid` para a M5; A: Julio; C: a definir; I: a definir.
-- **Agentes envolvidos, atuação, autonomia e revisor humano:** a M5 é conduzida em `#Auto` pela thread `ork-rm074m5medid`; decisões autônomas ficam no ledger, enquanto a meta 2.c e o limite de qualidade são do dono; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** o condutor do host roda verify, bancada e fechamento; no fechamento, `sdlc.thread` aponta para a próxima fatia autorizada ou para `null`. A M5 não publica ganho antes dessa medida.
+- **RACI (R / A / C / I):** R: sessão condutora da thread `ork-rm074m6medid` para a M6; A: Julio; C: a definir; I: a definir.
+- **Agentes envolvidos, atuação, autonomia e revisor humano:** a M6 é conduzida em `#Auto` pela thread `ork-rm074m6medid`; decisões autônomas ficam no ledger, enquanto a meta 2.c e o limite de qualidade são do dono; revisor humano: Julio.
+- **Próxima ação, responsável e prazo:** a condução roda verify e a bancada no host; no fechamento, ajusta `sdlc.thread`. A M6 não publica ganho antes dessa medida.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -532,3 +574,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-30 | M1 registrada; M2 leva o harness a quatro pontos quentes restantes e reaproveita formas fechadas das claims. A razão e a CPU da M2 ficam pendentes da bancada no host real | Bancada M1 `4f4d4b55`, reanálise da sonda 2 e implementação da thread `ork-rm074m2harne` | Thread `ork-rm074m2harne` (#Auto) |
 | 2026-10-30 | M3 torna a confiança pré-condição da razão, reaproveita a fixture Git nos testes de security scan e deixa o tmpfs das lanes atrás de opt-in; sem três pares válidos, não publica ganho | Par único da M2 sob `steal` alto, perfil de CPU de sistema e implementação da thread `ork-rm074m3rumoa` | Thread `ork-rm074m3rumoa` (#Auto) |
 | 2026-10-30 | M4 compartilha os modelos Git e de forja nos seis arquivos caros restantes, preservando cópias isoladas e as fronteiras reais de processo; sem bancada válida, não publica ganho | Leitura estática do preparo, casos existentes de isolamento e `core/test/mutantes/rm074-m4.json` | Thread `ork-rm074m4cpude` (#Auto) |
+| 2026-10-31 | A bancada da M5 fecha três pares válidos; a M6 mede a reserva da integração, devolve CPU por peça, reduz preparo dos arquivos caros restantes e descarta carga externa acima do limiar | Três pares AB/BA da M5, evidência de eficiência e implementação da thread `ork-rm074m6medid` | Thread `ork-rm074m6medid` (#Auto) |
