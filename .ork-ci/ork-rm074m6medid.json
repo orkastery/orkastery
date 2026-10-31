@@ -17,7 +17,7 @@
         "node --test --test-name-pattern '^(AG44|AG45|TL9|TL13):' core/dist-test/test/check-agil.test.js core/dist-test/test/test-lanes.test.js"
       ],
       "criadoEm": "2026-10-31T10:58:21.509Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -32,7 +32,7 @@
         "node --test core/dist-test/test/medir-check.test.js"
       ],
       "criadoEm": "2026-10-31T10:58:21.551Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -48,7 +48,7 @@
         "node --test --test-name-pattern '^(AG44|AG45|TL13):' core/dist-test/test/check-agil.test.js core/dist-test/test/test-lanes.test.js"
       ],
       "criadoEm": "2026-10-31T10:58:21.596Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -64,7 +64,7 @@
         "node --test core/dist-test/test/check-classic-intacto.test.js"
       ],
       "criadoEm": "2026-10-31T10:58:21.636Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -78,7 +78,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m6.json M1"
       ],
       "criadoEm": "2026-10-31T10:58:21.750Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -92,7 +92,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m6.json M2"
       ],
       "criadoEm": "2026-10-31T10:58:21.853Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -106,7 +106,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m6.json M5"
       ],
       "criadoEm": "2026-10-31T10:58:21.888Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -120,7 +120,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m6.json M3"
       ],
       "criadoEm": "2026-10-31T10:58:21.926Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -149,7 +149,7 @@
         "node core/dist/index.js --help"
       ],
       "criadoEm": "2026-10-31T11:10:53.901Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -178,7 +178,7 @@
         "node core/dist-test/test/test-lanes.test.js"
       ],
       "criadoEm": "2026-10-31T11:10:54.078Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -193,7 +193,7 @@
         "node core/dist-test/test/test-lanes.test.js"
       ],
       "criadoEm": "2026-10-31T11:10:54.137Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -208,7 +208,7 @@
         "node core/dist-test/test/check-agil.test.js"
       ],
       "criadoEm": "2026-10-31T11:10:54.190Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -223,7 +223,7 @@
         "node --test-name-pattern=^MC24: core/dist-test/test/medir-check.test.js"
       ],
       "criadoEm": "2026-10-31T11:18:10.809Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -238,7 +238,7 @@
         "node core/dist-test/test/projeto-alvo-declaracao.test.js"
       ],
       "criadoEm": "2026-10-31T11:18:10.906Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -253,7 +253,7 @@
         "node core/dist-test/test/tsgo-paridade.test.js"
       ],
       "criadoEm": "2026-10-31T11:18:10.985Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -268,7 +268,7 @@
         "node core/dist-test/test/security-scan-agil-lint.test.js"
       ],
       "criadoEm": "2026-10-31T11:18:11.089Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -283,7 +283,7 @@
         "node core/dist-test/test/rm036-leases-canonicos.test.js"
       ],
       "criadoEm": "2026-10-31T11:18:11.252Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -298,7 +298,7 @@
         "node core/scripts/checar-changelog.cjs --base origin/main"
       ],
       "criadoEm": "2026-10-31T11:18:58.010Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -314,7 +314,7 @@
         "node core/scripts/checar-changelog.cjs --base origin/main"
       ],
       "criadoEm": "2026-10-31T11:18:58.056Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -328,7 +328,7 @@
         "grep -q 'ork-rm074m6medid' .ork-ci/ork-rm074m6medid.json"
       ],
       "criadoEm": "2026-10-31T11:23:05.684Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -356,7 +356,7 @@
         "node --test --test-name-pattern=^AG50: core/dist-test/test/check-agil.test.js"
       ],
       "criadoEm": "2026-10-31T11:35:08.906Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -370,7 +370,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m6.json M6"
       ],
       "criadoEm": "2026-10-31T11:35:09.352Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -384,7 +384,7 @@
         "node --test core/dist-test/test/suspeitas-0310-rede-cache.test.js"
       ],
       "criadoEm": "2026-10-31T11:35:09.847Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
