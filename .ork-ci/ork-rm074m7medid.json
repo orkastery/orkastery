@@ -343,6 +343,195 @@
       "criadoEm": "2026-10-31T18:30:08.651Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-rm074m7medid.json",
+      "alegacao": "O bundle de CI corresponde ao HEAD verde da thread e carrega as claims verificadas do CHECK Agile.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js ci prepare ork-rm074m7medid"
+      ],
+      "criadoEm": "2026-10-31T18:44:24.299Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "alegacao": "A bancada separa a CPU da infraestrutura de contêiner, atribui-a integral ou proporcionalmente à rodada e leva toda parcela incerta à carga de fora.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='^MC24:' core/dist-test/test/medir-check.test.js"
+      ],
+      "criadoEm": "2026-10-31T19:13:21.489Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/medir-check.test.ts",
+      "alegacao": "MC24 prova infraestrutura sem contêiner de fora, repartição proporcional, atribuição parcial e limiar aplicado somente à carga alheia ou incerta.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='^MC24:' core/dist-test/test/medir-check.test.js"
+      ],
+      "criadoEm": "2026-10-31T19:13:21.547Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/incremental.ts",
+      "alegacao": "A identidade incremental do Semgrep inclui o hash do conteúdo resolvido das regras e desabilita cache para regra entre arquivos ou registro indisponível.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='^SA4:' core/dist-test/test/security-scan-agil.test.js"
+      ],
+      "criadoEm": "2026-10-31T19:18:55.422Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/run.ts",
+      "alegacao": "O trabalho do Semgrep transporta somente a identidade e o estado seguro das regras resolvidas para o trabalhador Agile.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='^SA4:' core/dist-test/test/security-scan-agil.test.js"
+      ],
+      "criadoEm": "2026-10-31T19:18:55.484Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/agil.ts",
+      "alegacao": "A peça cache-semgrep registra uso do hash ou o motivo do fallback integral sem alterar o caminho Classic.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='^SA4:' core/dist-test/test/security-scan-agil.test.js"
+      ],
+      "criadoEm": "2026-10-31T19:18:55.533Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/security-scan-agil.test.ts",
+      "alegacao": "SA4 prova mudança de conteúdo com fonte igual, regra entre arquivos e registro indisponível, preservando paridade com o Classic.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='^SA4:' core/dist-test/test/security-scan-agil.test.js"
+      ],
+      "criadoEm": "2026-10-31T19:18:55.587Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/security-scan-docker-falso.ts",
+      "alegacao": "O falso Docker simula conteúdo e indisponibilidade do mesmo registro usado na identidade do Semgrep.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='^SA4:' core/dist-test/test/security-scan-agil.test.js"
+      ],
+      "criadoEm": "2026-10-31T19:18:55.637Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m7.json",
+      "alegacao": "Os mutantes M6 a M9 isolam daemon externo, hash ignorado, regra entre arquivos e registro indisponível.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m7.json M6",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m7.json M7",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m7.json M8",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m7.json M9"
+      ],
+      "criadoEm": "2026-10-31T19:18:55.680Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A linha M7 em Não publicado registra os dois contratos corrigidos sem prometer ganho.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main",
+        "grep -n 'infraestrutura de contêiner\\|conteúdo das regras\\|registro indisponível' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-31T19:18:55.726Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+      "alegacao": "A seção M7 documenta atribuição da infraestrutura e fallback conservador do cache sem publicar números novos.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main",
+        "grep -n 'infraestrutura de contêiner\\|conteúdo das regras\\|registro indisponível' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-31T19:18:55.768Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/security-scan-agil.test.ts",
+      "alegacao": "O cenário SA7 preserva no relatório a peça do cache do Semgrep e seu estado tipado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='^SA7:' core/dist-test/test/security-scan-agil.test.js"
+      ],
+      "criadoEm": "2026-10-31T19:56:16.905Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
   "deferredClaims": [],
