@@ -285,15 +285,19 @@ sustenta a meta, e cortar trabalho comum aos dois modos não muda a razão.
 A M7 corrige a atribuição e separa o trabalho evitável:
 
 - **CPU da rodada:** o relatório separa árvore, contêineres da integração e
-  contêineres da varredura. Só processos que a rodada não criou entram na carga
-  externa e no limiar de validade.
+  contêineres da varredura e infraestrutura de contêiner. Sem contêiner de fora,
+  a CPU do daemon e do runtime pertence à rodada; com um concorrente, ela é
+  repartida pelos deltas de cgroup. Proporção indisponível deixa a atribuição
+  parcial e leva toda a parcela incerta à carga externa e ao limiar de validade.
 - **Sonda da integração:** o pico usa deltas por fonte e descarta a primeira
   leitura de fontes preexistentes. Pico acima da capacidade vira anomalia e não
   grava perfil; cada cgroup ausente leva o motivo na evidência.
 - **Varredura incremental:** o Agile guarda, fora do repositório, resultado
-  normalizado por versão, identidade das regras e conteúdo. O Semgrep reaproveita
-  achados de arquivo inalterado com o mesmo `check_id`; ferramentas de dependência
-  usam o lockfile; ferramenta ou regra sem garantia continua integral.
+  normalizado por versão, conteúdo das regras resolvidas e conteúdo do arquivo.
+  O Semgrep reaproveita achados de arquivo inalterado com o mesmo `check_id`;
+  mudança no ruleset invalida a entrada. Regra entre arquivos ou registro
+  indisponível força varredura integral e registra o motivo; ferramentas de
+  dependência usam o lockfile.
 - **Fria e morna:** cada par mede a rodada fria com cache isolado e uma segunda
   rodada Agile morna na mesma árvore. As duas razões e seus critérios de validade
   permanecem separados.
@@ -301,8 +305,9 @@ A M7 corrige a atribuição e separa o trabalho evitável:
   comportamento integrado só repete em nova sandbox quando sua única divergência
   é a latência de parede; qualquer outra divergência reprova imediatamente.
 
-Cinco mutantes cobrem atribuição de contêiner, pico impossível, preservação de
-`check_id`, invalidação por conteúdo e separação das razões. Esta seção não afirma
+Os mutantes cobrem atribuição de contêiner e da infraestrutura, pico impossível,
+preservação de `check_id`, invalidação pelo conteúdo das regras, regra entre
+arquivos, registro indisponível e separação das razões. Esta seção não afirma
 ganho da M7: razão fria, razão morna, CPU e eficiência dependem de três pares
 válidos no host.
 
