@@ -43,7 +43,7 @@
         "node --check core/scripts/test-lanes.cjs && npm --prefix core run build:test && node --test --test-name-pattern='^(TL9|TL11|TL12|TL13):' core/dist-test/test/test-lanes.test.js"
       ],
       "criadoEm": "2026-10-31T03:29:28.621Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -71,7 +71,7 @@
         "npm --prefix core run build:test && node --test --test-name-pattern='^(TL9|TL13):' core/dist-test/test/test-lanes.test.js"
       ],
       "criadoEm": "2026-10-31T03:29:28.701Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -127,7 +127,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m5.json M1"
       ],
       "criadoEm": "2026-10-31T03:34:23.829Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -141,7 +141,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m5.json M2"
       ],
       "criadoEm": "2026-10-31T03:34:23.871Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -155,7 +155,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m5.json M3"
       ],
       "criadoEm": "2026-10-31T03:34:23.909Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -169,7 +169,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m5.json M4"
       ],
       "criadoEm": "2026-10-31T03:34:23.948Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -197,7 +197,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m5.json M6"
       ],
       "criadoEm": "2026-10-31T03:34:24.043Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
