@@ -192,6 +192,37 @@ removido ou transformado em `skip`. Esta seção não atribui ganho: razão cont
 Classic, CPU e eficiência continuam pendentes da bancada do host com três pares
 válidos e o critério de `steal` da M3.
 
+### Resultado da bancada M3 e M5: reserva devolvida
+
+A bancada da M3 mediu três pares AB/BA com razões `Classic ÷ Agile` de 1,16,
+1,35 e 1,23. O relatório permaneceu `sem-confianca`, com zero par válido, porque
+o Classic reprovou nas três rodadas; portanto esses valores não são resultado de
+produto nem sustentam uma afirmação de ganho.
+
+A lane hermética permaneceu no caminho crítico. O agendador entregava a ela 71%
+da CPU disponível e conservava 29% para a varredura e a integração até o fim da
+lane, mesmo depois de as duas terminarem. A eficiência observada da hermética foi
+cerca de 67%. A CPU da suíte teve 42% de sistema; os arquivos de rede e Noctum
+tratados na M4 somaram cerca de 15%, e a cauda de arquivos leves somou cerca de
+12%. As durações absolutas da bancada permanecem na evidência bruta e não viram
+promessa nesta página.
+
+Na M5, a lane hermética passa a ser um pool LPT de arquivos. Ela começa com a cota
+planejada e, somente quando `security_scan` e a integração terminam, recebe um
+sinal para abrir vagas até 100% da CPU disponível. O grupo nunca ultrapassa essa
+capacidade; quando carga ou `steal` acionam o fallback, conserva a ordem e a cota
+do Classic. A peça `agendador-cpu` registra a devolução e a nova cota. TAP, o
+reporter de durações, os resultados nominais e a lista da lane continuam no
+contrato testado.
+
+O Classic não muda de produto. Seus testes de integração agora isolam o temporário
+por caso, a varredura do GL3 ignora apenas uma entrada que desapareceu durante a
+leitura, e o A4 usa seus próprios substitutos de Git e `gh`; as asserções e a
+quantidade de casos permanecem. Mutantes cobrem a reserva nunca devolvida, a
+devolução antecipada, o excesso de CPU e o retorno das três corridas. A razão,
+o corte de CPU e a eficiência finais continuam pendentes de três pares válidos
+na bancada do host.
+
 ## Problema e resultado
 
 - **Público e problema/oportunidade:** quem conduz o `ork` e o próprio Orkastery. A RM-072 deixou o Agile Check de 1,43 a 1,52 vez mais rápido que o Classic no mesmo commit e parou aí: a lane hermética ocupa 94% da parede do Agile, e ela é presa em CPU, não em espera. Cada rodada de GO-FIX e de CHECK paga a suíte inteira, mesmo quando o diff toca uma tela de texto.
@@ -464,6 +495,7 @@ O que mudou na recomendação: a F2 sobe para antes da F3 e passa a ser a frente
 - Sondas 1 a 5 desta página (26/10/2026): cache de durações por arquivo do reporter `reporter-duracoes.mjs`, `claims.jsonl` e `verify_run` do ledger da thread `ork-check5x` (relidos em 27/10/2026 para as proporções da sonda 3), fecho de `require` dos testes compilados contra o histórico do git, `/usr/bin/time` sobre os arquivos mais caros. Os scripts das sondas foram descartáveis e não estão no repositório; a M0 refaz tudo pelo ledger. Os números brutos das sondas ficam na versão desta página do merge `e7fb968f` (PR #207), no histórico do git.
 - Decisão e regra do dono de 27/10/2026, no pedido da thread `ork-docsda060emp`.
 - Decisão vigente 2.c do dono em 29/10/2026 e bancada M0 de 30/10/2026, recebidas no pedido da thread `ork-rm074m1menos`.
+- Resultado da bancada M3 e contrato da M5 recebidos no pedido da thread `ork-rm074m5medid`.
 - Código citado: `core/scripts/test-lanes.cjs`, `core/scripts/reporter-duracoes.mjs`, `core/scripts/medir-check.cjs`, `core/src/integracoes-locais.ts`, `core/package.json`, `orkastery.yaml`.
 - Páginas citadas: [RM-071](RM-071-relatorio-da-esteira-do-sdlc.md), [RM-072](RM-072-check-cinco-vezes-mais-rapido.md), [RM-073](RM-073-modelos-de-decisao-no-ork-e-no-orkmind.md), [RM-062](RM-062-repositorio-publico-sem-dado-privado.md).
 
@@ -487,9 +519,9 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 ## Responsabilidades e histórico
 
-- **RACI (R / A / C / I):** R: sessão condutora da thread `ork-rm074m4cpude` para a M4; A: Julio; C: a definir; I: a definir.
-- **Agentes envolvidos, atuação, autonomia e revisor humano:** a M4 é conduzida em `#Auto` pela thread `ork-rm074m4cpude`; decisões autônomas ficam no ledger, enquanto a meta 2.c e o limite de qualidade são do dono; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** o condutor do host roda verify, bancada e fechamento; no fechamento, `sdlc.thread` aponta para a próxima fatia autorizada ou para `null`. A M4 não publica ganho antes dessa medida.
+- **RACI (R / A / C / I):** R: sessão condutora da thread `ork-rm074m5medid` para a M5; A: Julio; C: a definir; I: a definir.
+- **Agentes envolvidos, atuação, autonomia e revisor humano:** a M5 é conduzida em `#Auto` pela thread `ork-rm074m5medid`; decisões autônomas ficam no ledger, enquanto a meta 2.c e o limite de qualidade são do dono; revisor humano: Julio.
+- **Próxima ação, responsável e prazo:** o condutor do host roda verify, bancada e fechamento; no fechamento, `sdlc.thread` aponta para a próxima fatia autorizada ou para `null`. A M5 não publica ganho antes dessa medida.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
