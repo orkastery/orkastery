@@ -6,6 +6,14 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+## [0.6.3] - 2026-10-31
+
+O Agile Check fica mais rápido e mais estável: a bancada só publica razão com três pares válidos, os testes caros
+gastam menos CPU de sistema e a lane hermética recebe de volta as CPUs reservadas quando a varredura e a integração
+terminam. Nenhum teste sai.
+
+O #Noctum segue **em desenvolvimento, não anunciado**.
+
 ### Alterado
 
 - **Reserva de CPU devolvida e Classic estável — M5 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** depois que a varredura e a integração terminam, a lane hermética abre seu pool LPT até a capacidade da máquina, sem ultrapassar o teto do grupo e mantendo o fallback sob carga ou `steal`. Os testes concorrentes do Classic isolam o temporário do security scan, toleram somente o desaparecimento de uma entrada no GL3 e usam substitutos locais no A4. TAP, reporter, resultados, casos e asserções permanecem; a razão, a CPU e a eficiência aguardam três pares válidos da bancada, sem ganho antecipado neste registro.
