@@ -18,7 +18,7 @@
       "de": "await Promise.all(reservados.map((item) => vezDoItem(item, indice.get(item.nome))));",
       "para": "void Promise.all(reservados.map((item) => vezDoItem(item, indice.get(item.nome))));",
       "teste": "check-agil",
-      "nome": "^AG46:"
+      "nome": "^AG44:"
     },
     {
       "id": "M3",
