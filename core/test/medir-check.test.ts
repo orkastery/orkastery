@@ -68,6 +68,8 @@ const medir = require(path.join(RAIZ, 'core', 'scripts', 'medir-check.cjs')) as 
   jsonRaso: (valor: unknown, nivel?: number) => string;
   resumirCargaExterna: (amostras: Array<Array<{ chave: string; nome: string; cpuMs: number }>>, paredeMs: number, cpus: number) =>
     { cpuMs: number; pct: number | null; processos: Array<{ nome: string; cpuMs: number }>; amostras: number };
+  resumirCpuDosContainers: (amostras: Array<Array<{ id: string; parte: 'integracao' | 'varredura'; cpuMs: number | null }>>) =>
+    { integracaoMs: number; varreduraMs: number };
 };
 
 const perto = (atual: number | null | undefined, esperado: number, msg?: string): void => {
@@ -374,9 +376,15 @@ test('MC21: a bancada inteira com tres pares ABBA validos: razao sem preparo, CP
       ...(lanesMs ? { lanes: Object.entries(lanesMs).map(([lane, ms]) => ({ lane, duracaoMs: ms })) } : {}) }],
     duracoesPorArquivo: modo === 'agile' ? { 'a.test.js': 60, 'b.test.js': 30, 'c.test.js': 10 } : undefined });
   const rodadas = [
-    { par: 1, ...verifyRun('agile', 1010, { hermetica: 500, integracao: 200 }, 10) }, { par: 1, ...verifyRun('classic', 3010, null, 12) },
-    { par: 2, ...verifyRun('classic', 2510, null, 9) }, { par: 2, ...verifyRun('agile', 1260, { hermetica: 625, integracao: 250 }, 8) },
-    { par: 3, ...verifyRun('agile', 1010, { hermetica: 500, integracao: 200 }, 5) }, { par: 3, ...verifyRun('classic', 2010, null, 6) },
+    { par: 1, temperatura: 'frio', ...verifyRun('agile', 1010, { hermetica: 500, integracao: 200 }, 10) },
+    { par: 1, temperatura: 'morno', ...verifyRun('agile', 610, { hermetica: 500, integracao: 200 }, 11) },
+    { par: 1, ...verifyRun('classic', 3010, null, 12) },
+    { par: 2, ...verifyRun('classic', 2510, null, 9) },
+    { par: 2, temperatura: 'frio', ...verifyRun('agile', 1260, { hermetica: 625, integracao: 250 }, 8) },
+    { par: 2, temperatura: 'morno', ...verifyRun('agile', 1010, { hermetica: 625, integracao: 250 }, 8.5) },
+    { par: 3, temperatura: 'frio', ...verifyRun('agile', 1010, { hermetica: 500, integracao: 200 }, 5) },
+    { par: 3, temperatura: 'morno', ...verifyRun('agile', 810, { hermetica: 500, integracao: 200 }, 5.5) },
+    { par: 3, ...verifyRun('classic', 2010, null, 6) },
   ];
   const medidas = (fator: number) => ({ 'a.test.js': { userMs: 2000 * fator, sysMs: 1000 * fator, paredeMs: 30, picoKb: 1, testes: 3, saida: 0 },
     'b.test.js': { userMs: 600 * fator, sysMs: 400 * fator, paredeMs: 10, picoKb: 1, testes: 2, saida: 0 },
@@ -384,12 +392,17 @@ test('MC21: a bancada inteira com tres pares ABBA validos: razao sem preparo, CP
   const passes = [{ passe: 1, stealPct: 11, medidas: medidas(1) }, { passe: 2, stealPct: 9, medidas: medidas(1.2) },
     { passe: 3, stealPct: 5.5, medidas: medidas(0.8) }];
   const b = medir.analisarBancada({ rodadas, passes, lanes, nucleos: 2 });
-  assert.deepEqual(b.confianca, { estado: 'com-confianca', motivos: [], pares: 3, paresValidos: 3, minimo: 3,
-    toleranciaStealPp: 2, cargaForaMaxPct: 10 });
+  const confiavel = { estado: 'com-confianca', motivos: [], pares: 3, paresValidos: 3, minimo: 3,
+    toleranciaStealPp: 2, cargaForaMaxPct: 10 };
+  assert.deepEqual(b.confianca, { fria: confiavel, morna: confiavel });
   perto(b.pares[0].razao, 3);
   perto(b.pares[1].razao, 2);
   perto(b.pares[2].razao, 2);
-  perto(b.variacao.razao.media, 7 / 3);
+  perto(b.variacao.razaoFria.media, 7 / 3);
+  perto(b.pares[0].morna.razao, 5);
+  perto(b.pares[1].morna.razao, 2.5);
+  perto(b.pares[2].morna.razao, 2.5);
+  perto(b.variacao.razaoMorna.media, 10 / 3);
   assert.deepEqual(b.pares.map((p: { ordem: string[] }) => p.ordem),
     [['agile', 'classic'], ['classic', 'agile'], ['agile', 'classic']]);
   assert.deepEqual(b.pares[0].preparoMs, { agile: 10, classic: 10 });
@@ -435,11 +448,11 @@ test('MC23: menos de tres pares, ordem errada, preparo ausente e steal divergent
   });
   const rodadas = [rodada('agile', 2), rodada('classic', 5)];
   const b = medir.analisarBancada({ rodadas, passes: [], lanes: {}, nucleos: 2 });
-  assert.equal(b.confianca.estado, 'sem-confianca');
-  assert.deepEqual(b.confianca.motivos, ['menos-de-3-pares', 'menos-de-3-pares-validos']);
+  assert.equal(b.confianca.fria.estado, 'sem-confianca');
+  assert.deepEqual(b.confianca.fria.motivos, ['menos-de-3-pares', 'menos-de-3-pares-validos']);
   assert.deepEqual(b.pares[0].motivos, ['steal-divergente']);
   assert.equal(b.pares[0].razao, null, 'nem a razao individual sai sem tres pares validos');
-  assert.equal(b.variacao.razao, null);
+  assert.equal(b.variacao.razaoFria, null);
   assert.deepEqual(medir.validarPar(rodada('agile', null, null), rodada('classic', 1), ['classic', 'agile'], ['agile', 'classic']).motivos,
     ['preparo-ou-parede-ausente', 'ordem-nao-ABBA', 'steal-ausente']);
   assert.throws(() => medir.validarOpcoesDaBancada({ pares: 2 }), /exige pelo menos 3 pares/);
@@ -455,6 +468,11 @@ test('MC24: carga externa durante a rodada traz nome e CPU e descarta o par acim
   assert.deepEqual(carga.processos, [{ nome: 'antivirus', cpuMs: 160 }, { nome: 'curto', cpuMs: 40 }]);
   assert.equal(carga.cpuMs, 200);
   perto(carga.pct, 10);
+  assert.deepEqual(medir.resumirCpuDosContainers([
+    [{ id: 'scan', parte: 'varredura', cpuMs: 100 }, { id: 'int', parte: 'integracao', cpuMs: 40 }],
+    [{ id: 'scan', parte: 'varredura', cpuMs: 260 }, { id: 'int', parte: 'integracao', cpuMs: 100 },
+      { id: 'novo', parte: 'varredura', cpuMs: 30 }],
+  ]), { integracaoMs: 60, varreduraMs: 190 }, 'contêiner preexistente perde a baseline; o que nasceu na rodada entra inteiro');
   const rodada = (pct: number) => ({ ok: true, duracaoMs: 110, preparoMs: 10, stealPct: 1,
     cargaExterna: { pct, cpuMs: pct, processos: [{ nome: 'antivirus', cpuMs: pct }] } });
   const par = medir.validarPar(rodada(11), rodada(2), ['agile', 'classic'], ['agile', 'classic'], 2, 10);

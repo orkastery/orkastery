@@ -176,7 +176,8 @@ function lerProcessos() {
       const fecha = stat.lastIndexOf(')');
       const depois = stat.slice(fecha + 2).trim().split(/\s+/);
       const rss = Number(fs.readFileSync(`/proc/${nome}/statm`, 'utf8').split(' ')[1]) * pagina;
-      tabela.set(Number(nome), { ppid: Number(depois[1]), rss,
+      const cgroup = lerOuVazio(`/proc/${nome}/cgroup`);
+      tabela.set(Number(nome), { ppid: Number(depois[1]), rss, cgroup,
         cpuMs: (Number(depois[11]) + Number(depois[12])) * 1000 / CLK_TCK,
         inicio: depois[19], nome: stat.slice(stat.indexOf('(') + 1, fecha) });
     } catch { /* o processo acabou entre a lista e a leitura */ }
@@ -207,15 +208,79 @@ function resumirCargaExterna(amostras, paredeMs, cpus) {
     processos: lista.slice(0, 20), amostras: amostras.length };
 }
 
-function processosExternos(tabela) {
+function processosExternos(tabela, containersDaRodada = []) {
   const filhos = new Map();
   for (const [pid, p] of tabela) { if (!filhos.has(p.ppid)) filhos.set(p.ppid, []); filhos.get(p.ppid).push(pid); }
   const meus = new Set(), pilha = [process.pid];
   while (pilha.length) { const pid = pilha.pop(); if (meus.has(pid)) continue; meus.add(pid); pilha.push(...(filhos.get(pid) ?? [])); }
   for (let pid = process.ppid; pid > 1 && !meus.has(pid); pid = tabela.get(pid)?.ppid ?? 0) meus.add(pid);
+  const ids = containersDaRodada.map((c) => c.id);
+  const raizes = containersDaRodada.map((c) => c.pid).filter((pid) => pid > 0);
+  pilha.push(...raizes);
+  while (pilha.length) { const pid = pilha.pop(); if (meus.has(pid)) continue; meus.add(pid); pilha.push(...(filhos.get(pid) ?? [])); }
   const seguro = (nome) => String(nome || 'processo').replace(/[^\p{L}\p{N}_.+-]/gu, '?').slice(0, 32);
-  return [...tabela].filter(([pid, p]) => !meus.has(pid) && Number.isFinite(p.cpuMs))
+  return [...tabela].filter(([pid, p]) => !meus.has(pid) && !ids.some((id) => p.cgroup.includes(id)) && Number.isFinite(p.cpuMs))
     .map(([pid, p]) => ({ chave: `${pid}:${p.inicio}`, nome: seguro(p.nome), cpuMs: p.cpuMs }));
+}
+
+function cpuDoCgroup(arquivo) {
+  try {
+    const texto = fs.readFileSync(arquivo, 'utf8');
+    const bruto = arquivo.endsWith('cpu.stat') ? Number(/^usage_usec\s+(\d+)$/m.exec(texto)?.[1]) : Number(texto.trim()) / 1000;
+    return Number.isFinite(bruto) && bruto >= 0 ? bruto : null;
+  } catch { return null; }
+}
+
+function fonteCpuDoContainer(id, pid) {
+  const candidatos = [];
+  if (pid > 0) {
+    const linhas = lerOuVazio(`/proc/${pid}/cgroup`);
+    const v2 = /^0::(.+)$/m.exec(linhas)?.[1];
+    if (v2) candidatos.push(path.join('/sys/fs/cgroup', v2, 'cpu.stat'));
+    const legado = /^(?:\d+):[^\n]*(?:cpuacct|cpu)[^\n]*:(.+)$/m.exec(linhas)?.[1];
+    if (legado) candidatos.push(path.join('/sys/fs/cgroup/cpuacct', legado, 'cpuacct.usage'));
+  }
+  candidatos.push(`/sys/fs/cgroup/system.slice/docker-${id}.scope/cpu.stat`, `/sys/fs/cgroup/docker/${id}/cpu.stat`);
+  return candidatos.find((arquivo) => cpuDoCgroup(arquivo) !== null) ?? null;
+}
+
+/** Contêineres vinculados à cópia por montagem; o prefixo separa varredura de integração. */
+function containersDaRodada(pastas) {
+  const ps = spawnSync('docker', ['ps', '--no-trunc', '--format', '{{.ID}}'], { encoding: 'utf8', timeout: 3000 });
+  if (ps.status !== 0) return [];
+  const lista = [];
+  for (const id of ps.stdout.split('\n').filter(Boolean)) {
+    const r = spawnSync('docker', ['inspect', id], { encoding: 'utf8', timeout: 3000, maxBuffer: 4 * 1024 * 1024 });
+    if (r.status !== 0) continue;
+    let c;
+    try { c = JSON.parse(r.stdout)?.[0]; } catch { continue; }
+    const montagens = Array.isArray(c?.Mounts) ? c.Mounts.map((m) => String(m.Source ?? '')) : [];
+    if (!montagens.some((m) => pastas.some((p) => m === p || m.startsWith(`${p}${path.sep}`)))) continue;
+    const nome = String(c?.Name ?? '').replace(/^\//, '');
+    const pid = Number(c?.State?.Pid ?? 0);
+    const fonte = fonteCpuDoContainer(id, pid);
+    lista.push({ id, pid, nome, parte: nome.startsWith(PREFIXO_DOS_CONTAINERS) ? 'varredura' : 'integracao', fonte,
+      cpuMs: fonte ? cpuDoCgroup(fonte) : null });
+  }
+  return lista;
+}
+
+function resumirCpuDosContainers(amostras) {
+  const fontes = new Map();
+  amostras.forEach((amostra, indice) => {
+    for (const c of amostra) {
+      const atual = fontes.get(c.id);
+      if (!atual) fontes.set(c.id, { parte: c.parte, primeiro: c.cpuMs, ultimo: c.cpuMs, indice });
+      else if (typeof c.cpuMs === 'number') atual.ultimo = Math.max(atual.ultimo ?? 0, c.cpuMs);
+    }
+  });
+  const partes = { integracaoMs: 0, varreduraMs: 0 };
+  for (const f of fontes.values()) {
+    if (typeof f.ultimo !== 'number') continue;
+    const cpuMs = Math.max(0, f.ultimo - (f.indice === 0 && typeof f.primeiro === 'number' ? f.primeiro : 0));
+    partes[`${f.parte}Ms`] += cpuMs;
+  }
+  return { integracaoMs: Math.round(partes.integracaoMs), varreduraMs: Math.round(partes.varreduraMs) };
 }
 
 /**
@@ -561,7 +626,7 @@ function ork(cwd, env, ...args) {
  * Roda um comando com a saida num arquivo e prazo; com `memoria`, amostra por segundo o RSS da arvore e os containers.
  * Com `tempo`, o comando roda sob o `/usr/bin/time`, que grava a CPU dos filhos esperados nesse arquivo.
  */
-function executar(cmd, args, { cwd, env, log, prazoMs, memoria = false, tempo = null, cargaExterna = false }) {
+function executar(cmd, args, { cwd, env, log, prazoMs, memoria = false, tempo = null, cargaExterna = false, pastasDaRodada = [] }) {
   return new Promise((resolve) => {
     const fd = fs.openSync(log, 'w');
     const inicio = Date.now();
@@ -570,10 +635,15 @@ function executar(cmd, args, { cwd, env, log, prazoMs, memoria = false, tempo = 
     emCurso = p.pid;
     const amostras = [];
     const amostrasExternas = [];
+    const amostrasContainers = [];
     const amostrar = () => { try {
       const tabela = lerProcessos();
+      const containers = cargaExterna ? containersDaRodada(pastasDaRodada) : [];
       if (memoria) amostras.push({ arvore: rssDaArvore(p.pid, tabela), containers: memoriaDosContainers() });
-      if (cargaExterna) amostrasExternas.push(processosExternos(tabela));
+      if (cargaExterna) {
+        amostrasExternas.push(processosExternos(tabela, containers));
+        amostrasContainers.push(containers);
+      }
     } catch { /* segue */ } };
     if (memoria || cargaExterna) amostrar();
     const relogio = memoria || cargaExterna ? setInterval(amostrar, 1000) : null;
@@ -586,15 +656,16 @@ function executar(cmd, args, { cwd, env, log, prazoMs, memoria = false, tempo = 
       fs.closeSync(fd);
       const paredeMs = Date.now() - inicio;
       resolve({ code, sinal, paredeMs, pico: picoAgregado(amostras), amostras: amostras.length,
-        ...(cargaExterna ? { cargaExterna: resumirCargaExterna(amostrasExternas, paredeMs, os.availableParallelism()) } : {}) });
+        ...(cargaExterna ? { cargaExterna: resumirCargaExterna(amostrasExternas, paredeMs, os.availableParallelism()),
+          cpuDosContainers: resumirCpuDosContainers(amostrasContainers) } : {}) });
     });
   });
 }
 
 /** Uma rodada do verify com amostra de memoria por segundo; o log vai para um arquivo da copia. */
-function rodada(copia, env, thread, modo, log, prazoMs, tempo = null) {
+function rodada(copia, env, thread, modo, log, prazoMs, tempo = null, pastasDaRodada = []) {
   return executar(process.execPath, [CLI, 'verify', thread, '--check', modo],
-    { cwd: copia, env, log, prazoMs, memoria: true, tempo, cargaExterna: true });
+    { cwd: copia, env, log, prazoMs, memoria: true, tempo, cargaExterna: true, pastasDaRodada });
 }
 
 function lerOuVazio(arquivo) {
@@ -809,7 +880,7 @@ async function principal(args) {
     const fila = [...Array(o.agile).fill('agile'), ...Array(o.classic).fill('classic')];
     for (const [i, modo] of fila.entries()) {
       const log = path.join(c.base, `rodada-${i + 1}-${modo}.log`);
-      const r = await rodada(c.copia, c.env, c.thread, modo, log, o.prazoMs);
+      const r = await rodada(c.copia, c.env, c.thread, modo, log, o.prazoMs, null, [c.base, c.tmp]);
       if (logs) fs.copyFileSync(log, path.join(logs, path.basename(log)));
       const ultima = ultimaRodada(c.ledger, resultado.length);
       resultado.push({ n: i + 1, pedido: modo, saida: r.code, sinal: r.sinal, paredeMs: r.paredeMs, picoBytes: r.pico.bytes,
@@ -892,19 +963,29 @@ async function bancada(o) {
     let lanes = null;
     const ordens = ordemDosPares(o.pares);
     for (let k = 1; k <= o.pares; k++) {
-      for (const modo of ordens[k - 1]) {
+      if (!o.compartilhado) {
+        c.env.XDG_CACHE_HOME = path.join(c.base, `cache-par-${k}`);
+        fs.mkdirSync(c.env.XDG_CACHE_HOME, { recursive: true });
+      }
+      const sequencia = ordens[k - 1].flatMap((modo) => modo === 'agile' ? ['agile-frio', 'agile-morno'] : ['classic']);
+      for (const etapa of sequencia) {
+        const modo = etapa.startsWith('agile') ? 'agile' : 'classic';
+        const temperatura = modo === 'agile' ? etapa.slice('agile-'.length) : null;
         const esperou = await espera();
-        avisar(`par ${k} ${modo}: esperou ${Math.round(esperou.esperaMs / 1000)} s (quieta: ${esperou.quieta})`);
-        const log = path.join(logs, `par-${k}-${modo}.log`);
-        const tempo = path.join(logs, `par-${k}-${modo}.tempo`);
+        avisar(`par ${k} ${etapa}: esperou ${Math.round(esperou.esperaMs / 1000)} s (quieta: ${esperou.quieta})`);
+        const log = path.join(logs, `par-${k}-${etapa}.log`);
+        const tempo = path.join(logs, `par-${k}-${etapa}.tempo`);
         const antes = lerCpuStatAgora();
-        const r = await rodada(c.copia, c.env, c.thread, modo, log, o.prazoMs, tempo);
+        const r = await rodada(c.copia, c.env, c.thread, modo, log, o.prazoMs, tempo, [c.base, c.tmp]);
         const steal = stealPct(antes, lerCpuStatAgora());
         const ultima = ultimaRodada(c.ledger, rodadas.length);
         const cpu = lerTempo(lerOuVazio(tempo));
         const registro = { par: k, pedido: modo, espera: esperou, stealPct: steal, saida: r.code, sinal: r.sinal, paredeMs: r.paredeMs,
-          cargaExterna: r.cargaExterna,
+          ...(temperatura ? { temperatura } : {}), cargaExterna: r.cargaExterna,
           cpuDaArvoreMs: cpu ? cpu.userMs + cpu.sysMs : null, userMs: cpu?.userMs ?? null, sysMs: cpu?.sysMs ?? null,
+          cpuDaRodada: { arvoreMs: cpu ? cpu.userMs + cpu.sysMs : null,
+            integracaoContainersMs: r.cpuDosContainers?.integracaoMs ?? 0, varreduraContainersMs: r.cpuDosContainers?.varreduraMs ?? 0,
+            totalMs: cpu ? cpu.userMs + cpu.sysMs + (r.cpuDosContainers?.integracaoMs ?? 0) + (r.cpuDosContainers?.varreduraMs ?? 0) : null },
           picoBytes: r.pico.bytes, picoArvore: r.pico.arvore, picoContainers: r.pico.containers, amostras: r.amostras,
           ...(ultima ?? { modo: null, ok: false, duracaoMs: null, comandos: [], claims: [], pecas: [] }) };
         if (modo === 'agile') {
@@ -914,7 +995,7 @@ async function bancada(o) {
         rodadas.push(registro);
         bruto.lanes = lanes;
         guardar();
-        avisar(`par ${k} ${modo}: ${ultima?.duracaoMs ?? '?'} ms no ledger, steal ${steal?.toFixed(1) ?? '?'}%, saida ${r.code}`);
+        avisar(`par ${k} ${etapa}: ${ultima?.duracaoMs ?? '?'} ms no ledger, steal ${steal?.toFixed(1) ?? '?'}%, saida ${r.code}`);
       }
       if (k <= o.porArquivo) {
         const esperou = await espera();
@@ -961,7 +1042,8 @@ function escreverBancada(bruto, o) {
   const saida = {
     contrato: 'ork.medir-check.bancada/v1', commit: bruto.commit, base: bruto.base, cache: bruto.cache,
     maquina: { nucleos: bruto.nucleos, memoriaBytes: bruto.memoriaBytes, node: process.version, plataforma: process.platform },
-    criterios: { cargaMax: o.cargaMax, cargaForaMaxPct: o.cargaForaMaxPct, janelaQuietaMs: o.janelaMs, esperaMaxMs: o.esperaMaxMs, pares: bruto.rodadas.filter((r) => r.pedido === 'agile').length,
+    criterios: { cargaMax: o.cargaMax, cargaForaMaxPct: o.cargaForaMaxPct, janelaQuietaMs: o.janelaMs, esperaMaxMs: o.esperaMaxMs,
+      pares: bruto.rodadas.filter((r) => r.pedido === 'agile' && r.temperatura !== 'morno').length,
       porArquivo: bruto.passes.length },
     claims: CLAIMS_REPRESENTATIVAS,
     ...resumo,
@@ -1004,10 +1086,12 @@ function analisarBancada({ rodadas, passes, lanes, nucleos, linhaDeBase = null, 
   const ks = [...new Set(rodadas.map((r) => r.par))];
   const ordensEsperadas = ordemDosPares(ks.length);
   for (const [indice, k] of ks.entries()) {
-    const a = rodadas.find((r) => r.par === k && r.pedido === 'agile');
+    const a = rodadas.find((r) => r.par === k && r.pedido === 'agile' && r.temperatura !== 'morno');
+    const morno = rodadas.find((r) => r.par === k && r.pedido === 'agile' && r.temperatura === 'morno');
     const cl = rodadas.find((r) => r.par === k && r.pedido === 'classic');
-    const ordem = rodadas.filter((r) => r.par === k).map((r) => r.pedido);
+    const ordem = rodadas.filter((r) => r.par === k).map((r) => r.pedido).filter((modo, i, todos) => i === 0 || modo !== todos[i - 1]);
     const validade = validarPar(a, cl, ordem, ordensEsperadas[indice], TOLERANCIA_STEAL_PP, cargaForaMaxPct);
+    const validadeMorna = validarPar(morno, cl, ordem, ordensEsperadas[indice], TOLERANCIA_STEAL_PP, cargaForaMaxPct);
     const passe = cpuPorPasse.find((p) => p.passe === k) ?? cpuPorPasse[cpuPorPasse.length - 1] ?? null;
     const laneMs = (r, lane) => r?.comandos.find((x) => x.nome === 'test')?.lanes?.find((l) => l.lane === lane)?.duracaoMs ?? null;
     const testMs = (r) => r?.comandos.find((x) => x.nome === 'test')?.duracaoMs ?? null;
@@ -1023,20 +1107,33 @@ function analisarBancada({ rodadas, passes, lanes, nucleos, linhaDeBase = null, 
       eficiencia: { ...ef, suiteNoAgile: passe ? eficiencia(passe.total, nucleos, testMs(a)) : null,
         suiteNoClassic: passe ? eficiencia(passe.total, nucleos, testMs(cl)) : null },
       stealPct: { agile: a?.stealPct ?? null, classic: cl?.stealPct ?? null },
+      morna: { ...validadeMorna, ambosAprovados: !!(morno?.ok && cl?.ok), preparoMs: { agile: morno?.preparoMs ?? null, classic: cl?.preparoMs ?? null },
+        cpuDaArvore: { agile: { ms: morno?.cpuDaArvoreMs ?? null, stealPct: morno?.stealPct ?? null },
+          classic: { ms: cl?.cpuDaArvoreMs ?? null, stealPct: cl?.stealPct ?? null } },
+        razao: null, razaoDaCpu: null, stealPct: { agile: morno?.stealPct ?? null, classic: cl?.stealPct ?? null } },
     });
   }
-  const validos = pares.filter((p) => p.valido);
-  const motivosDaConfianca = [];
-  if (pares.length < MIN_PARES_CONFIAVEIS) motivosDaConfianca.push(`menos-de-${MIN_PARES_CONFIAVEIS}-pares`);
-  if (validos.length < MIN_PARES_CONFIAVEIS) motivosDaConfianca.push(`menos-de-${MIN_PARES_CONFIAVEIS}-pares-validos`);
-  const comConfianca = motivosDaConfianca.length === 0;
-  if (comConfianca) for (const p of validos) {
+  const confiancaDe = (validos) => {
+    const motivos = [];
+    if (pares.length < MIN_PARES_CONFIAVEIS) motivos.push(`menos-de-${MIN_PARES_CONFIAVEIS}-pares`);
+    if (validos.length < MIN_PARES_CONFIAVEIS) motivos.push(`menos-de-${MIN_PARES_CONFIAVEIS}-pares-validos`);
+    return { estado: motivos.length ? 'sem-confianca' : 'com-confianca', motivos, pares: pares.length, paresValidos: validos.length,
+      minimo: MIN_PARES_CONFIAVEIS, toleranciaStealPp: TOLERANCIA_STEAL_PP, cargaForaMaxPct };
+  };
+  const validos = pares.filter((p) => p.valido), validosMornos = pares.filter((p) => p.morna.valido);
+  const confiancaFria = confiancaDe(validos), confiancaMorna = confiancaDe(validosMornos);
+  if (confiancaFria.estado === 'com-confianca') for (const p of validos) {
     p.razao = razao(p.paredesSemPreparoMs.classic, p.paredesSemPreparoMs.agile);
     p.razaoDaCpu = razao(p.cpuDaArvore.classic.ms, p.cpuDaArvore.agile.ms);
   }
+  if (confiancaMorna.estado === 'com-confianca') for (const p of validosMornos) {
+    p.morna.razao = razao(p.morna.paredesSemPreparoMs.classic, p.morna.paredesSemPreparoMs.agile);
+    p.morna.razaoDaCpu = razao(p.morna.cpuDaArvore.classic.ms, p.morna.cpuDaArvore.agile.ms);
+  }
   const baseCpu = linhaDeBase?.cpuDaSuite?.variacao?.media ?? variacao(cpuPorPasse.map((p) => p.total))?.media ?? null;
   const cortes = cpuPorPasse.map((p) => ({ passe: p.passe, corte: corte(p.total, baseCpu) }));
-  const agiles = rodadas.filter((r) => r.pedido === 'agile');
+  const agiles = rodadas.filter((r) => r.pedido === 'agile' && r.temperatura !== 'morno');
+  const agilesMornos = rodadas.filter((r) => r.pedido === 'agile' && r.temperatura === 'morno');
   const classics = rodadas.filter((r) => r.pedido === 'classic');
   const sonda1 = agiles.map((r) => ({ par: r.par, ...concentracao(r.duracoesPorArquivo ?? {}, lanes) }));
   const sonda2 = passes.map((p, i) => ({ passe: p.passe, ...custoDosMaiores(p.medidas, agiles[i]?.duracoesPorArquivo ?? {}, 10) }));
@@ -1052,14 +1149,13 @@ function analisarBancada({ rodadas, passes, lanes, nucleos, linhaDeBase = null, 
     passes: passes.map((p) => p.medidas[a] ?? null), concorrenteMs: agiles.map((r) => r.duracoesPorArquivo?.[a] ?? null) }));
   return {
     lanes: porLane,
-    confianca: { estado: comConfianca ? 'com-confianca' : 'sem-confianca', motivos: motivosDaConfianca,
-      pares: pares.length, paresValidos: validos.length, minimo: MIN_PARES_CONFIAVEIS, toleranciaStealPp: TOLERANCIA_STEAL_PP,
-      cargaForaMaxPct },
+    confianca: { fria: confiancaFria, morna: confiancaMorna },
     pares,
     variacao: {
-      razao: variacao(pares.map((p) => p.razao)),
-      razaoDaCpu: variacao(pares.map((p) => p.razaoDaCpu)),
-      agileMs: variacao(agiles.map((r) => r.duracaoMs)), classicMs: variacao(classics.map((r) => r.duracaoMs)),
+      razaoFria: variacao(pares.map((p) => p.razao)), razaoMorna: variacao(pares.map((p) => p.morna.razao)),
+      razaoDaCpuFria: variacao(pares.map((p) => p.razaoDaCpu)), razaoDaCpuMorna: variacao(pares.map((p) => p.morna.razaoDaCpu)),
+      agileFrioMs: variacao(agiles.map((r) => r.duracaoMs)), agileMornoMs: variacao(agilesMornos.map((r) => r.duracaoMs)),
+      classicMs: variacao(classics.map((r) => r.duracaoMs)),
       cpuDaSuiteMs: variacao(cpuPorPasse.map((p) => p.total)),
       eficiencia: Object.fromEntries([...Object.keys(lanes), 'suiteNoAgile', 'suiteNoClassic']
         .map((l) => [l, variacao(pares.map((p) => p.eficiencia[l]))])),
@@ -1081,7 +1177,7 @@ module.exports = { lerRodadas, tresConsecutivas, rssDaArvore, picoAgregado, past
   validarOpcoesDaBancada,
   razao, eficiencia, corte, variacao, quantil, lerCpuStat, stealPct, quieta, eSuite, lerTempo, contarTap, concentracao,
   custoDosMaiores, claimsQueRepetem, pesoNaRodada, selecionarPorDiff, sondaDoGrafo, pecasEmFallback, redigir, comandosDeClaims,
-  fechosDeRequire, analisarBancada, jsonRaso, resumirCargaExterna };
+  fechosDeRequire, analisarBancada, jsonRaso, resumirCargaExterna, resumirCpuDosContainers };
 
 if (require.main === module) {
   principal(process.argv.slice(2)).then((c) => process.exit(c), (e) => { process.stderr.write(`medir-check: ${e.message}\n`); process.exit(1); });
