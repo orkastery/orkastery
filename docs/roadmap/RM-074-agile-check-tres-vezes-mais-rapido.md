@@ -251,9 +251,9 @@ O perfil incompleto nunca reduz reserva.
 Nos arquivos caros que ainda reconstruíam estado fixo, `projeto-alvo-declaracao`,
 `rm036-leases-canonicos`, `tsgo-paridade` e `security-scan-agil-lint` passam a criar
 o modelo uma vez por processo e copiar estado isolado por caso. Os arquivos
-`noctum-*`, `rede` e `security-scan-run` já tinham esse contrato nas M3 e M4. Em
-`suspeitas-0310-rede-cache`, o arquivo ocupa uma vaga do pool e abre um processo por
-vez, sem mudar as rodadas, o estado próprio de cada caso ou as asserções.
+`noctum-*`, `rede` e `security-scan-run` já tinham esse contrato nas M3 e M4.
+`suspeitas-0310-rede-cache` continua com os processos simultâneos: a corrida entre
+eles é o que o arquivo prova, e limitá-la a um processo por vez deixaria de prová-la.
 
 A bancada também amostra a carga de fora durante cada rodada: a CPU dos processos que não descendem
 dela. O relatório traz os maiores por nome e CPU; um par acima do limiar percentual

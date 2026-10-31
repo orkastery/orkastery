@@ -17,6 +17,7 @@ import * as path from 'node:path';
 import { ENV_CONTAINERS_DA_LANE, ENV_CPUS_DA_LANE, ENV_CPUS_DA_LANE_APOS_RESERVA, ENV_CPUS_DA_LANE_APOS_VARREDURA,
   ENV_CPUS_DOCKER, ENV_SINAL_DA_RESERVA,
   medirCpuDoGrupo, MedicaoCpuDaIntegracao, MedicaoCpuDoGrupo, PlanoCpuDoGrupo, planejarCpuDoGrupo } from './agendador-cpu';
+import { TESTES_DE_INTEGRACAO_LOCAL } from './integracoes-locais';
 
 const TIMEOUT_BIN = '/usr/bin/timeout';
 const NICE_BIN = '/usr/bin/nice';
@@ -105,14 +106,27 @@ function arquivoDoPerfilIntegracao(): string {
   return path.join(base, 'orkastery', 'check', 'cpu-integracao.json');
 }
 
-/** A medida so atravessa rodadas quando comando, capacidade e entradas que definem a lane continuam iguais. */
-function chaveDoPerfilIntegracao(itens: ItemParalelo[], cpus: number): string | null {
+/** Os arquivos da lane de integracao, pela mesma regra do `test-lanes.cjs`: a lista do ambiente ou a do nucleo. */
+function arquivosDaIntegracao(env: NodeJS.ProcessEnv = process.env): string[] {
+  const lista = env.ORK_LANES_INTEGRACAO !== undefined
+    ? env.ORK_LANES_INTEGRACAO.split(',').map((n) => n.trim()).filter(Boolean) : [...TESTES_DE_INTEGRACAO_LOCAL];
+  return [...new Set(lista)].sort();
+}
+
+/**
+ * A medida so atravessa rodadas quando comando, capacidade e entradas que definem a lane continuam iguais: o script das
+ * lanes, a lista de integracao e o conteudo compilado de cada teste dela. Teste novo, mudado ou ausente troca a chave.
+ */
+export function chaveDoPerfilIntegracao(itens: ItemParalelo[], cpus: number,
+  arquivos: string[] = arquivosDaIntegracao()): string | null {
   const integracao = itens.filter((i) => i.papelCpu === 'integracao');
   if (!integracao.length) return null;
   const h = createHash('sha256').update(JSON.stringify({ cpus, node: process.version,
-    comandos: integracao.map((i) => i.comando) }));
+    comandos: integracao.map((i) => i.comando), arquivos }));
   const cwd = integracao[0].cwd;
-  for (const relativo of ['core/dist/integracoes-locais.js', 'core/scripts/test-lanes.cjs']) {
+  const relativos = ['core/dist/integracoes-locais.js', 'core/scripts/test-lanes.cjs',
+    ...arquivos.map((nome) => path.join('core', 'dist-test', 'test', nome))];
+  for (const relativo of relativos) {
     try { h.update(relativo).update(fs.readFileSync(path.join(cwd, relativo))); }
     catch { h.update(`${relativo}:ausente`); }
   }

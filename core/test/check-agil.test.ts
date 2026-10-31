@@ -14,7 +14,7 @@ import { adicionarClaim } from '../src/claims';
 import { assinaturaDoAmbiente, elosDoComando, executorDaClaimPelasLanes, GuardaDoProduto, hashDoProduto,
   MAXIMO_DE_PREPAROS_REFEITOS, paralelismoDaVarreduraNoGrupo, passosDoComando, PECA_SEM_RELATORIO, RelatorioDoCheck,
   testDasLanes, TETO_DO_RELATORIO_BYTES, tirarPassosDoPreparo, tirarPassosDoPreparoAposLeituras } from '../src/check-agil';
-import { argvDoItem, rodarEmParalelo } from '../src/check-paralelo';
+import { argvDoItem, chaveDoPerfilIntegracao, rodarEmParalelo } from '../src/check-paralelo';
 import { cargaDoProcLoadavg, paredeAgileSimulada, paredeClassicaSimulada, planejarCpuDoGrupo } from '../src/agendador-cpu';
 import { lerLedger } from '../src/ledger';
 import { carregarManifesto } from '../src/manifest';
@@ -1146,5 +1146,29 @@ test('AG49: a reserva medida da integracao abre um degrau apos a varredura sem u
       { origem: string; vagasGanhas: number; vagas: number });
     assert.deepEqual(degraus.map((d) => [d.origem, d.vagasGanhas, d.vagas]),
       [['integracao', 1, 6], ['varredura', 2, 8]], 'cada peca devolve ao terminar, mesmo fora da ordem da cadeia antiga');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('AG50: o perfil medido da integracao so vale para os mesmos testes compilados da lane', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag50-perfil-'));
+  try {
+    const testes = path.join(dir, 'core', 'dist-test', 'test');
+    fs.mkdirSync(testes, { recursive: true });
+    fs.writeFileSync(path.join(testes, 'a.test.js'), 'um');
+    fs.writeFileSync(path.join(testes, 'b.test.js'), 'dois');
+    const itens = [{ nome: 'test:integracao', papelCpu: 'integracao' as const, cwd: dir, prazoMs: 1000, comando: 'x' }];
+    const chave = (): string | null => chaveDoPerfilIntegracao(itens, 8, ['a.test.js', 'b.test.js']);
+    const antes = chave();
+    assert.ok(antes, 'com a lane de integracao, ha chave');
+    assert.equal(chave(), antes, 'as mesmas entradas dao a mesma chave');
+    assert.equal(chaveDoPerfilIntegracao([{ ...itens[0], papelCpu: 'hermetica' }], 8, ['a.test.js']), null,
+      'sem integracao, nada a reutilizar');
+    fs.writeFileSync(path.join(testes, 'b.test.js'), 'dois mudado');
+    const mudou = chave();
+    assert.notEqual(mudou, antes, 'teste de integracao mudado invalida a medida');
+    assert.notEqual(chaveDoPerfilIntegracao(itens, 8, ['a.test.js', 'b.test.js', 'c.test.js']), mudou,
+      'teste novo na lista invalida a medida');
+    fs.rmSync(path.join(testes, 'a.test.js'));
+    assert.notEqual(chave(), mudou, 'teste que some invalida a medida');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
