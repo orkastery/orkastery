@@ -238,6 +238,18 @@ export function runScanAgil(opts: RunScanOptions, rodar: typeof rodarEmParalelo 
     }
     const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ork-security-scan-agil-')));
     guard.add('outDirs', dir);
+    // A peça do cache já fazia parte do contrato ordenado do relatório antes das peças de executor. Resolver aqui mantém
+    // essa ordem pública; o mesmo resultado segue no trabalho que será entregue ao processo da ferramenta.
+    const regrasSemgrepPorIndice = new Map<number, ReturnType<typeof resolverRegrasSemgrep>>();
+    tools.forEach((t, i) => {
+      if (t.name !== 'semgrep') return;
+      const regrasSemgrep = resolverRegrasSemgrep(t, unitsOf(t, pairs));
+      regrasSemgrepPorIndice.set(i, regrasSemgrep);
+      pecas.push(regrasSemgrep.reutilizavel
+        ? { peca: 'cache-semgrep', estado: 'agile', motivo: 'hash do conteúdo das regras resolvidas; check_id preservado' }
+        : { peca: 'cache-semgrep', estado: 'fallback', motivo: regrasSemgrep.motivo,
+          fallback: 'varredura integral, como no Classic' });
+    });
     // RM-072 (D12): quem tem o binario nativo na versao do catalogo roda sem o Docker; a peca diz quem faltou.
     const probe = opts.probe ?? defaultProbe();
     const comNativo = tools.filter(t => t.native && !t.install);
@@ -252,11 +264,7 @@ export function runScanAgil(opts: RunScanOptions, rodar: typeof rodarEmParalelo 
       const restante = deadline === null ? t.timeoutMs : Math.min(t.timeoutMs, deadline - Date.now());
       const units = unitsOf(t, pairs);
       const tool = eslintDoAgile(especificacaoDoAgile(t, pecas), restante, pecas);
-      const regrasSemgrep = t.name === 'semgrep' ? resolverRegrasSemgrep(tool, units) : undefined;
-      if (regrasSemgrep) pecas.push(regrasSemgrep.reutilizavel
-        ? { peca: 'cache-semgrep', estado: 'agile', motivo: 'hash do conteúdo das regras resolvidas; check_id preservado' }
-        : { peca: 'cache-semgrep', estado: 'fallback', motivo: regrasSemgrep.motivo,
-          fallback: 'varredura integral, como no Classic' });
+      const regrasSemgrep = regrasSemgrepPorIndice.get(i);
       const trabalho: TrabalhoDaFerramenta = { tool, units, config,
         incremental: true,
         ...(regrasSemgrep ? { regrasSemgrep } : {}),
