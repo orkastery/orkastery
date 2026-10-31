@@ -6,8 +6,8 @@
       "id": "M1",
       "descricao": "um contêiner criado pela rodada volta a ser contado como carga de fora",
       "arquivo": "core/scripts/medir-check.cjs",
-      "de": "!meus.has(pid) && !ids.some((id) => p.cgroup.includes(id)) && Number.isFinite(p.cpuMs)",
-      "para": "!meus.has(pid) && Number.isFinite(p.cpuMs)",
+      "de": "if (meus.has(pid) || ids.some((id) => p.cgroup.includes(id)) || !Number.isFinite(p.cpuMs)) continue;",
+      "para": "if (meus.has(pid) || !Number.isFinite(p.cpuMs)) continue;",
       "teste": "medir-check",
       "nome": "^MC24:"
     },

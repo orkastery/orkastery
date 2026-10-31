@@ -131,8 +131,7 @@ test('SA4: a segunda rodada com a mesma base reaproveita o relatorio da base e d
   fonteAgile.commit!('src/server.js', conteudoMudado);
   const marco = fake!.calls().length;
   const agileMudado = runScanAgil({ root: fonteAgile.dir, stateRoot: fonteAgile.dir, base: fonteAgile.base });
-  const runsDepoisDaMudanca = fake!.calls().slice(marco).filter(c => c.args[0] === 'run');
-  assert.ok(runsDepoisDaMudanca.some(c => c.args.some(a => a.startsWith('ork-security-scan-semgrep-'))),
+  assert.ok(runsSemgrepDesde(marco).length > 0,
     'arquivo alterado nunca reutiliza o achado antigo sem nova varredura');
   const fonteClassic = repo('sa4-fonte-classic');
   fonteClassic.commit!('src/server.js', conteudoMudado);

@@ -105,7 +105,13 @@ export function resolverRegrasSemgrep(ferramenta: ToolSpec, unidades: TrabalhoDa
 
 /** Só habilita o que tem garantia explícita: Semgrep por arquivo e dependências por lockfile. */
 function escopoDaFerramenta(t: ToolSpec, trabalho: TrabalhoDaFerramenta): Escopo | null {
-  if (t.name === 'semgrep') return trabalho.regrasSemgrep?.reutilizavel && trabalho.regrasSemgrep.hash ? 'arquivo' : null;
+  if (t.name === 'semgrep') {
+    // A API direta antecede o trabalhador e continua útil para conferir o retrato por arquivo isoladamente. No caminho
+    // real do Agile, `incremental: true` torna obrigatória a identidade das regras resolvidas: ausência, registro
+    // indisponível ou regra entre arquivos nunca cai nesta compatibilidade.
+    if (trabalho.incremental !== true) return 'arquivo';
+    return trabalho.regrasSemgrep?.reutilizavel && trabalho.regrasSemgrep.hash ? 'arquivo' : null;
+  }
   if (t.category === 'dependency') return 'lockfile';
   return null;
 }
