@@ -27,6 +27,9 @@
  *                                   F4: a URL do registro com login chega ao ledger redigida)
  *   ORK_FAKE_DOCKER_BUILD_SLEEP_MS  o `docker build` dorme esses ms antes (RM-074 F4: o prazo do build e o teto dos
  *                                   trabalhadores contado depois dele)
+ *   ORK_FAKE_SEMGREP_REGISTRY       resposta bruta do registro para a identidade incremental; há um ruleset unifile padrão
+ *   ORK_FAKE_SEMGREP_REGISTRY_DOWN  `1` faz a resolução do registro falhar
+ *   ORK_FAKE_SEMGREP_RULESET_CASE   gravação do Semgrep usada pelo scan, independente do arquivo `.fake-case`
  *   ORK_FAKE_DOCKER_FAIL_COM_CACHE  catalog tool name that exits 1 with the real Trivy cache-lock message (it ends in
  *                                   `timeout`) only when the run mounts the Trivy cache (RM-072: the Agile run of the tool
  *                                   fails, the Classic run without the cache works)
@@ -144,7 +147,9 @@ function emulate(tool: ToolSpec, file: string, outHost: string | undefined, args
     process.stderr.write('no-requirements-file\n'); return 3;
   }
   const caseFile = path.join(src, '.fake-case');
-  const kase = fs.existsSync(caseFile) ? fs.readFileSync(caseFile, 'utf8').trim() : 'empty';
+  const original = fs.existsSync(caseFile) ? fs.readFileSync(caseFile, 'utf8').trim() : 'empty';
+  const kase = tool.name === 'semgrep' && process.env.ORK_FAKE_SEMGREP_RULESET_CASE
+    ? process.env.ORK_FAKE_SEMGREP_RULESET_CASE : original;
   const fail = process.env.ORK_FAKE_DOCKER_FAIL;
   if (fail === tool.name || fail === `${tool.name}@${kase}`) { process.stderr.write('fake failure\n'); return 2; }
   const ext = path.extname(file);
@@ -216,6 +221,12 @@ function main(): number {
     case 'rm': case 'kill': return 0;
     case 'run': {
       const run = parseRun(argv.slice(1));
+      if (run.image.includes('semgrep/semgrep@') && run.args.some((a) => a.includes('ORK_SEMGREP_RESOLVE_V1'))) {
+        if (process.env.ORK_FAKE_SEMGREP_REGISTRY_DOWN === '1') { process.stderr.write('registry unavailable\n'); return 7; }
+        process.stdout.write(process.env.ORK_FAKE_SEMGREP_REGISTRY ??
+          '{"rules":[{"id":"regra-unifile","languages":["javascript"],"message":"m","severity":"WARNING","pattern":"eval(...)"}]}');
+        return 0;
+      }
       const found = identify(tools.filter(t => t.image === run.image || (run.image.startsWith('orkastery-eslint-agil:') && t.name === 'eslint')), run.args);
       if (!found) { process.stderr.write(`fake docker: no catalog tool for ${run.image}\n`); return 125; }
       const src = run.mounts.get('/src');
