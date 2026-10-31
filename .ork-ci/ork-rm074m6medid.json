@@ -68,36 +68,6 @@
       "lint": []
     },
     {
-      "id": "C5",
-      "thread": "ork-rm074m6medid",
-      "fase": "GOAL",
-      "arquivo": "core/test/suspeitas-0310-rede-cache.test.ts",
-      "alegacao": "A concorrência interna de suspeitas-0310-rede-cache respeita a cota de CPU recebida da lane sem mudar a propriedade de concorrência que o arquivo prova.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node --test core/dist-test/test/suspeitas-0310-rede-cache.test.js"
-      ],
-      "criadoEm": "2026-10-31T10:58:21.673Z",
-      "estado": "pendente",
-      "lint": []
-    },
-    {
-      "id": "C6",
-      "thread": "ork-rm074m6medid",
-      "fase": "GOAL",
-      "arquivo": "CHANGELOG.md",
-      "alegacao": "O CHANGELOG contém uma linha nova da M6 somente em Não publicado e mantém a narrativa sem duração absoluta ou ganho não medido.",
-      "negativa": false,
-      "verificar": [
-        "grep -q 'M6' CHANGELOG.md",
-        "node core/dist/index.js checar-changelog --base origin/main"
-      ],
-      "criadoEm": "2026-10-31T10:58:21.708Z",
-      "estado": "pendente",
-      "lint": []
-    },
-    {
       "id": "C7",
       "thread": "ork-rm074m6medid",
       "fase": "GOAL",
@@ -108,36 +78,6 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m6.json M1"
       ],
       "criadoEm": "2026-10-31T10:58:21.750Z",
-      "estado": "pendente",
-      "lint": []
-    },
-    {
-      "id": "C8",
-      "thread": "ork-rm074m6medid",
-      "fase": "GOAL",
-      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
-      "alegacao": "A página da RM-074 registra M5 e M6 apenas em razão contra o Classic, percentual de CPU e eficiência, explica o encadeamento medido e não afirma ganho antes da bancada válida.",
-      "negativa": false,
-      "verificar": [
-        "grep -q 'M6' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
-        "grep -q 'carga de fora' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
-        "node core/dist/index.js checar-changelog --base origin/main"
-      ],
-      "criadoEm": "2026-10-31T10:58:21.784Z",
-      "estado": "pendente",
-      "lint": []
-    },
-    {
-      "id": "C9",
-      "thread": "ork-rm074m6medid",
-      "fase": "GOAL",
-      "arquivo": "core/test/mutantes/rm074-m6.json",
-      "alegacao": "Mutante M4 da M6 morre quando suspeitas-0310-rede-cache ignora a cota da lane.",
-      "negativa": false,
-      "verificar": [
-        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m6.json M4"
-      ],
-      "criadoEm": "2026-10-31T10:58:21.820Z",
       "estado": "pendente",
       "lint": []
     },
@@ -332,21 +272,6 @@
       "lint": []
     },
     {
-      "id": "C24",
-      "thread": "ork-rm074m6medid",
-      "fase": "GOAL",
-      "arquivo": "core/test/suspeitas-0310-rede-cache.test.ts",
-      "alegacao": "A corrida interna de rede-cache ocupa uma única vaga sem reduzir rodadas, estado isolado ou asserções.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node core/dist-test/test/suspeitas-0310-rede-cache.test.js"
-      ],
-      "criadoEm": "2026-10-31T11:18:11.162Z",
-      "estado": "pendente",
-      "lint": []
-    },
-    {
       "id": "C25",
       "thread": "ork-rm074m6medid",
       "fase": "GOAL",
@@ -417,6 +342,48 @@
         "npm --prefix core run build:test"
       ],
       "criadoEm": "2026-10-31T11:23:26.018Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm074m6medid",
+      "fase": "CHECK",
+      "arquivo": "core/src/check-paralelo.ts",
+      "alegacao": "O perfil medido da integracao so e reutilizado com os mesmos testes compilados da lane: teste novo, mudado ou ausente troca a chave (AG50)",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=^AG50: core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-10-31T11:35:08.906Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm074m6medid",
+      "fase": "CHECK",
+      "arquivo": "core/test/mutantes/rm074-m6.json",
+      "alegacao": "Mutante M6 da M6 morre quando a chave do perfil da integracao ignora o conteudo dos testes compilados da lane.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m6.json M6"
+      ],
+      "criadoEm": "2026-10-31T11:35:09.352Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm074m6medid",
+      "fase": "CHECK",
+      "arquivo": "core/test/suspeitas-0310-rede-cache.test.ts",
+      "alegacao": "suspeitas-0310-rede-cache continua com os processos simultaneos da main e passa sozinho",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/suspeitas-0310-rede-cache.test.js"
+      ],
+      "criadoEm": "2026-10-31T11:35:09.847Z",
       "estado": "pendente",
       "lint": []
     }
