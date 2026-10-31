@@ -13,8 +13,8 @@ import { spawn, spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { ENV_CPUS_DA_LANE, ENV_CPUS_DOCKER, medirCpuDoGrupo, MedicaoCpuDoGrupo, PlanoCpuDoGrupo,
-  planejarCpuDoGrupo } from './agendador-cpu';
+import { ENV_CPUS_DA_LANE, ENV_CPUS_DA_LANE_APOS_RESERVA, ENV_CPUS_DOCKER, ENV_SINAL_DA_RESERVA,
+  medirCpuDoGrupo, MedicaoCpuDoGrupo, PlanoCpuDoGrupo, planejarCpuDoGrupo } from './agendador-cpu';
 
 const TIMEOUT_BIN = '/usr/bin/timeout';
 const NICE_BIN = '/usr/bin/nice';
@@ -92,7 +92,8 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
   const comGrupo = fs.existsSync(TIMEOUT_BIN);
   const usaAgendador = esp.itens.some((i) => i.papelCpu === 'hermetica');
   const plano = usaAgendador ? planejarCpuDoGrupo(esp.cpus ?? os.availableParallelism(), esp.medicaoCpu ?? await medirCpuDoGrupo()) : undefined;
-  const itens = plano ? aplicarPlano(esp.itens, plano) : esp.itens;
+  const sinalDaReserva = plano && !plano.saturado ? path.join(esp.dir, 'reserva-devolvida.json') : undefined;
+  const itens = plano ? aplicarPlano(esp.itens, plano, sinalDaReserva) : esp.itens;
   const limite = vagas(esp.maxParalelo && esp.maxParalelo > 0 ? esp.maxParalelo : itens.length);
   const porNome = new Map<string, Promise<Terminado>>();
   const indice = new Map(itens.map((item, i) => [item.nome, i]));
@@ -112,7 +113,15 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
     porNome.set(item.nome, vez);
     return vez;
   };
-  const terminados = await Promise.all(itens.map(vezDoItem));
+  const todos = Promise.all(itens.map(vezDoItem));
+  const reservados = itens.filter((item) => item.papelCpu === 'varredura' || item.papelCpu === 'integracao');
+  const devolverReserva = async (): Promise<void> => {
+    if (!sinalDaReserva || !reservados.some((item) => item.papelCpu === 'varredura')
+      || !reservados.some((item) => item.papelCpu === 'integracao')) return;
+    await Promise.all(reservados.map((item) => vezDoItem(item, indice.get(item.nome)!)));
+    fs.writeFileSync(sinalDaReserva, JSON.stringify({ em: new Date().toISOString(), vagas: plano!.cpusHermeticaAposReserva }), { mode: 0o600 });
+  };
+  const [, terminados] = await Promise.all([devolverReserva(), todos]);
   fs.writeFileSync(path.join(esp.dir, 'resultado.json'), JSON.stringify({ terminados, ...(plano ? { agendamentoCpu: plano } : {}) }), { mode: 0o600 });
 
   function lancar(item: ItemParalelo, i: number): Promise<Terminado> {
@@ -142,7 +151,7 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
 }
 
 /** Aplica a mesma conta aos processos, as lanes e aos conteineres que eles criarem. */
-function aplicarPlano(originais: ItemParalelo[], plano: PlanoCpuDoGrupo): ItemParalelo[] {
+function aplicarPlano(originais: ItemParalelo[], plano: PlanoCpuDoGrupo, sinalDaReserva?: string): ItemParalelo[] {
   const itens = originais.map((item) => ({ ...item, ambiente: { ...item.ambiente } }));
   const porPapel = (papel: ItemParalelo['papelCpu']): ItemParalelo[] => itens.filter((i) => i.papelCpu === papel);
   const hermetica = porPapel('hermetica')[0];
@@ -157,7 +166,10 @@ function aplicarPlano(originais: ItemParalelo[], plano: PlanoCpuDoGrupo): ItemPa
     if (item) item.ambiente = { ...item.ambiente, ...valores };
   };
   const cpusContainer = String(plano.cpusPorContainer);
-  ambiente(hermetica, { [ENV_CPUS_DA_LANE]: String(plano.cpusHermetica), [ENV_CPUS_DOCKER]: cpusContainer });
+  ambiente(hermetica, { [ENV_CPUS_DA_LANE]: String(plano.cpusHermetica), [ENV_CPUS_DOCKER]: cpusContainer,
+    ...(sinalDaReserva && varredura && integracoes.length > 0 ? {
+      [ENV_CPUS_DA_LANE_APOS_RESERVA]: String(plano.cpusHermeticaAposReserva), [ENV_SINAL_DA_RESERVA]: sinalDaReserva,
+    } : {}) });
   ambiente(varredura, {
     ORK_CHECK_VARREDURA_PARALELA: String(plano.ferramentasDaVarredura),
     [ENV_CPUS_DOCKER]: cpusContainer,

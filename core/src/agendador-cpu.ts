@@ -9,6 +9,8 @@ import { readFileSync } from 'node:fs';
 import { amostraDoProcStat, stealDaJanela } from './steal';
 
 export const ENV_CPUS_DA_LANE = 'ORK_CHECK_CPUS_DA_LANE';
+export const ENV_CPUS_DA_LANE_APOS_RESERVA = 'ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA';
+export const ENV_SINAL_DA_RESERVA = 'ORK_CHECK_RESERVA_DEVOLVIDA';
 export const ENV_CPUS_DOCKER = 'ORK_CHECK_CPUS_DOCKER';
 export const RESERVA_DO_GRUPO = 2;
 export const LIMIAR_STEAL_DO_AGENDADOR_PCT = 10;
@@ -25,6 +27,8 @@ export interface PlanoCpuDoGrupo {
   saturado: boolean;
   motivo: string;
   cpusHermetica: number;
+  /** Vagas da hermetica depois que varredura e integracao devolvem a reserva. */
+  cpusHermeticaAposReserva: number;
   cpusIntegracao: number;
   cpusDaFatia: number;
   ferramentasDaVarredura: number;
@@ -80,6 +84,7 @@ export function planejarCpuDoGrupo(cpusInformadas: number, medicao: MedicaoCpuDo
     saturado,
     motivo: motivos.join('; ') || `carga e steal abaixo dos limiares; ${fatia} CPU(s) reservadas ao grupo`,
     cpusHermetica: saturado ? classic : Math.max(1, cpus - fatia),
+    cpusHermeticaAposReserva: saturado ? classic : cpus,
     cpusIntegracao: ferramentas,
     cpusDaFatia: fatia,
     ferramentasDaVarredura: ferramentas,
@@ -101,6 +106,10 @@ export function paredeAgileSimulada(plano: PlanoCpuDoGrupo, trabalho: TrabalhoCp
     return trabalho.hermetica / plano.cpusHermetica + trabalho.varredura / plano.cpusDaFatia
       + trabalho.integracao / plano.cpusIntegracao;
   }
-  return Math.max(trabalho.hermetica / plano.cpusHermetica,
-    trabalho.varredura / plano.cpusDaFatia + trabalho.integracao / plano.cpusIntegracao);
+  const paredeDaReserva = trabalho.varredura / plano.cpusDaFatia + trabalho.integracao / plano.cpusIntegracao;
+  const feitoAntesDaDevolucao = Math.min(trabalho.hermetica, paredeDaReserva * plano.cpusHermetica);
+  const paredeDaHermetica = feitoAntesDaDevolucao === trabalho.hermetica
+    ? trabalho.hermetica / plano.cpusHermetica
+    : paredeDaReserva + (trabalho.hermetica - feitoAntesDaDevolucao) / plano.cpusHermeticaAposReserva;
+  return Math.max(paredeDaHermetica, paredeDaReserva);
 }
