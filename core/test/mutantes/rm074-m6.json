@@ -24,8 +24,8 @@
       "id": "M3",
       "descricao": "a reserva medida da integração é ignorada",
       "modulo": "agendador-cpu",
-      "de": "Number.isFinite(medida) && (medida as number) > 0 ? Math.ceil(medida as number) : ferramentas",
-      "para": "false && (medida as number) > 0 ? Math.ceil(medida as number) : ferramentas",
+      "de": "Number.isFinite(medida) && medida > 0 ? Math.ceil(medida) : ferramentas",
+      "para": "false && medida > 0 ? Math.ceil(medida) : ferramentas",
       "teste": "check-agil",
       "nome": "^AG49:"
     },

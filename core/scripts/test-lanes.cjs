@@ -276,7 +276,8 @@ function rodarPoolDeArquivos({ arquivos, dir, env, pastaDaLane, plano }) {
     const lidos = degrausDaReserva(texto, vagas, plano.final, vistos);
     vagas = lidos.vagas;
     for (const registro of lidos.aplicados) relatar({ tipo: 'peca', peca: 'agendador-cpu', estado: 'agile',
-      motivo: `${registro.origem} devolveu ${registro.vagasGanhas} vaga(s) em ${registro.em}; hermetica passou a ${registro.vagas} vagas` });
+      motivo: `${registro.origem} devolveu ${registro.vagasGanhas} vaga(s) aos ${Math.round((Date.parse(registro.em) - inicio) / 1000)} s `
+        + `da lane; hermetica passou a ${registro.vagas} vagas`, devolvidaEm: registro.em });
   };
   return new Promise((resolve) => {
     const lancar = () => {
