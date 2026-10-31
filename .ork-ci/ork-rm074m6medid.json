@@ -1,0 +1,366 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm074m6medid",
+  "branch": "ork/ork-rm074m6medid-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "core/src/agendador-cpu.ts",
+      "alegacao": "A reserva do grupo é medida e devolvida por peça em degraus identificados, sem a hermética ultrapassar a CPU disponível e preservando o fallback sob carga ou steal.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern '^(AG44|AG45|TL9|TL13):' core/dist-test/test/check-agil.test.js core/dist-test/test/test-lanes.test.js"
+      ],
+      "criadoEm": "2026-10-31T10:58:21.509Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "alegacao": "A bancada mede e nomeia CPU externa durante cada rodada e descarta o par que excede o limiar configurável, além do critério existente de divergência de steal.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/medir-check.test.js"
+      ],
+      "criadoEm": "2026-10-31T10:58:21.551Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-paralelo.ts",
+      "alegacao": "A evidência da lane de integração soma CPU da árvore e dos containers, e o encadeamento com a varredura só muda quando a medida prova que o grupo cabe na máquina.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern '^(AG44|AG45|TL13):' core/dist-test/test/check-agil.test.js core/dist-test/test/test-lanes.test.js"
+      ],
+      "criadoEm": "2026-10-31T10:58:21.596Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/check-classic-intacto.test.ts",
+      "alegacao": "O Classic Check conserva seu comportamento enquanto o novo agendamento e a nova medição valem apenas para o Agile.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/check-classic-intacto.test.js"
+      ],
+      "criadoEm": "2026-10-31T10:58:21.636Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/suspeitas-0310-rede-cache.test.ts",
+      "alegacao": "A concorrência interna de suspeitas-0310-rede-cache respeita a cota de CPU recebida da lane sem mudar a propriedade de concorrência que o arquivo prova.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/suspeitas-0310-rede-cache.test.js"
+      ],
+      "criadoEm": "2026-10-31T10:58:21.673Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG contém uma linha nova da M6 somente em Não publicado e mantém a narrativa sem duração absoluta ou ganho não medido.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'M6' CHANGELOG.md",
+        "node core/dist/index.js checar-changelog --base origin/main"
+      ],
+      "criadoEm": "2026-10-31T10:58:21.708Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+      "alegacao": "A página da RM-074 registra M5 e M6 apenas em razão contra o Classic, percentual de CPU e eficiência, explica o encadeamento medido e não afirma ganho antes da bancada válida.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'M6' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+        "grep -q 'carga de fora' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+        "node core/dist/index.js checar-changelog --base origin/main"
+      ],
+      "criadoEm": "2026-10-31T10:58:21.784Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-agil.ts",
+      "alegacao": "A assinatura funcional do Agile ignora somente o transporte privado da medição e dos degraus, preservando a identidade dos testes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build"
+      ],
+      "criadoEm": "2026-10-31T11:10:53.836Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "O verify registra na peça agendador-cpu os dois degraus, a origem da reserva e a CPU medida da integração.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "node core/dist/index.js --help"
+      ],
+      "criadoEm": "2026-10-31T11:10:53.901Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/executor.ts",
+      "alegacao": "Containers do security scan são registrados antes de subir para que sua CPU entre na evidência da integração.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build"
+      ],
+      "criadoEm": "2026-10-31T11:10:54.026Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/test-lanes.cjs",
+      "alegacao": "A lane hermética consome degraus monotônicos por peça e nunca abre vagas acima do plano da máquina.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/test-lanes.test.js"
+      ],
+      "criadoEm": "2026-10-31T11:10:54.078Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/test-lanes.test.ts",
+      "alegacao": "TL9 prova os degraus da varredura e integração e TL13 recusa degrau duplicado, regressivo ou acima da CPU.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/test-lanes.test.js"
+      ],
+      "criadoEm": "2026-10-31T11:10:54.137Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/check-agil.test.ts",
+      "alegacao": "AG44, AG45 e AG49 provam fallback sob carga, evidência do agendador e reserva medida sem ultrapassar a CPU.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-10-31T11:10:54.190Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/medir-check.test.ts",
+      "alegacao": "MC24 prova a CPU externa por nome e o descarte de par acima do limiar configurado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test-name-pattern=^MC24: core/dist-test/test/medir-check.test.js"
+      ],
+      "criadoEm": "2026-10-31T11:18:10.809Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/projeto-alvo-declaracao.test.ts",
+      "alegacao": "Os cenários de projeto-alvo copiam um único modelo por processo e preservam projetos isolados por caso.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/projeto-alvo-declaracao.test.js"
+      ],
+      "criadoEm": "2026-10-31T11:18:10.906Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/tsgo-paridade.test.ts",
+      "alegacao": "As árvores fixas da paridade tsgo são modeladas uma vez e copiadas com emit e estado próprios por cenário.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/tsgo-paridade.test.js"
+      ],
+      "criadoEm": "2026-10-31T11:18:10.985Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/security-scan-agil-lint.test.ts",
+      "alegacao": "O lint Agile reutiliza o modelo Git comum do security scan e cada caso recebe sua cópia isolada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/security-scan-agil-lint.test.js"
+      ],
+      "criadoEm": "2026-10-31T11:18:11.089Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/suspeitas-0310-rede-cache.test.ts",
+      "alegacao": "A corrida interna de rede-cache ocupa uma única vaga sem reduzir rodadas, estado isolado ou asserções.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/suspeitas-0310-rede-cache.test.js"
+      ],
+      "criadoEm": "2026-10-31T11:18:11.162Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm036-leases-canonicos.test.ts",
+      "alegacao": "Os cenários de leases copiam modelos com e sem remoto uma vez por processo e preservam worktrees próprias.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/rm036-leases-canonicos.test.js"
+      ],
+      "criadoEm": "2026-10-31T11:18:11.252Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG registra a M6 em Não publicado e passa no checador canônico contra origin/main.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'M6' CHANGELOG.md",
+        "node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-10-31T11:18:58.010Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm074m6medid",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+      "alegacao": "A página registra a M5 e a M6, inclui carga de fora e não publica ganho da M6 sem bancada.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'M6' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+        "grep -q 'carga de fora' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+        "node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-10-31T11:18:58.056Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C7",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C9",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C10",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C11",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C12",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C15",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C28",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
