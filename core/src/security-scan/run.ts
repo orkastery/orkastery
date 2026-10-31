@@ -287,6 +287,8 @@ export interface TrabalhoDaFerramenta {
   tool: ToolSpec; units: Unit[]; config: ScanConfig;
   /** Só o trabalhador do Agile consulta o cache por conteúdo; o Classic nunca recebe esta opção. */
   incremental?: boolean;
+  /** Identidade dos bytes resolvidos pelo registro; sem garantia, o Semgrep roda inteiro e não grava cache. */
+  regrasSemgrep?: { reutilizavel: boolean; hash: string | null; motivo?: string; referencias: string[] };
   /** RM-072 (D12): o binario nativo desta ferramenta esta na maquina com a versao do catalogo; o Agile o usa antes do Docker. */
   nativoPrimeiro?: boolean;
   ctx: Omit<Context, 'probe' | 'guard' | 'images' | 'deadline' | 'rangePatch'> & { deadline: number | null };

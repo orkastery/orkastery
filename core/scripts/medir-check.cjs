@@ -268,8 +268,9 @@ function containersNoHost(pastas) {
     let c;
     try { c = JSON.parse(r.stdout)?.[0]; } catch { continue; }
     const montagens = Array.isArray(c?.Mounts) ? c.Mounts.map((m) => String(m.Source ?? '')) : [];
-    const daRodada = montagens.some((m) => pastas.some((p) => m === p || m.startsWith(`${p}${path.sep}`)));
     const nome = String(c?.Name ?? '').replace(/^\//, '');
+    const daRodada = nome.startsWith(PREFIXO_DOS_CONTAINERS)
+      || montagens.some((m) => pastas.some((p) => m === p || m.startsWith(`${p}${path.sep}`)));
     const pid = Number(c?.State?.Pid ?? 0);
     const fonte = fonteCpuDoContainer(id, pid);
     lista.push({ id, pid, nome, daRodada, parte: daRodada ? (nome.startsWith(PREFIXO_DOS_CONTAINERS) ? 'varredura' : 'integracao') : 'fora', fonte,
