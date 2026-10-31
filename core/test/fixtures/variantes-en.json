@@ -22,9 +22,9 @@
   "references-en/definition-of-done.md": "326648a138f29f9c1165d0e1eecd1d1fbcccc166cb38f4773e69dba5b31c9467",
   "references-en/performance-checklist.md": "2e7b2298b1aea164f09b154ab9fc4eb78f99f4cf43d43bad45a1e52080f072c6",
   "references-en/security-checklist.md": "2f203ad4997ac5ba3e05ced23d8e31a56d09e76a1548afb1b8834cfc9883103e",
-  "references-en/testing-patterns.md": "67fa7e604e2e483216b09f79dce3ab807e3aeebbb1fa027e5e12ae73d5f6da0a",
+  "references-en/testing-patterns.md": "12d1bea3b47bffd79328b04daf0029ac064c3d0e40cdb729afada5d38ff82dad",
   "adapters-en/claude-code/ACTIVATION.md": "42e3a201c5e5db2e60b555bf6576d8d6206efa94fd1e2e60236124288ebffe12",
-  "adapters-en/claude-code/README.md": "8e1dcf366b97224fbb3d8596790fe3b1f7b413aab4ef0fed2cf0a462b0ae10f1",
+  "adapters-en/claude-code/README.md": "66e5e417b528c5200d889edf753ab433881b829a1cb69d1d2f5f50922b5ad174",
   "adapters-en/claude-code/agents/ork-check.md": "8afa6cf588dc4147134effc809db5cf69c5b25efb419b871dff3733d6291ffbd",
   "adapters-en/claude-code/agents/ork-go.md": "bfed35704ad6c43586bcbc23ba7f6cb904e0ad7cfecd3d9e2f2185c3d4e2dd64",
   "adapters-en/claude-code/agents/ork-goal.md": "b5f672b4b52397c0244041a0151b9174e7de15f608d5c090b223d339ff8d362d",
@@ -40,7 +40,7 @@
   "adapters-en/claude-code/commands/plan.md": "715fde71074cca15ab8f1d3ef9d06c30d9e87e959098cce63e581a1c9d5ee2a1",
   "adapters-en/claude-code/commands/ship.md": "94a90536081c1e481a40a44cd4a258a770579a34abbce53466e4575a20c9a18b",
   "adapters-en/codex/skills/ork/SKILL.md": "fa2bb5397ff0a5c60b29fadadf5aec915630dccfda222f2faf1cce357821ebc2",
-  "adapters-en/hermes/README.md": "1ec2d5a9f8d2a7d4b5ff32b99de2adf9edf75fd4d1054ff0eff248510298af04",
+  "adapters-en/hermes/README.md": "ee34e534e2868ca2fb29d103871f98bb9ce1302149be692cca0e7d4eab37a367",
   "adapters-en/hermes/skills/orkastery-devmaster/SKILL.md": "0b5acccbac932f6d8443a9c0d36e412957eeb6b7594aa14c535e252a02b90958",
   "skills-en/phases/security-remediation/SKILL.md": "744c70a8e3f8fe059a11dd01a848f76ef0d2be2d453fd74afe260491a0698bde"
 }

@@ -9,7 +9,7 @@
 > **In one sentence:** `ork` conducts AI coding agents (Claude Code and Codex) through parallel six-phase threads, checks every claim against the repository before it counts, and only calls you when the decision is really yours.
 
 - **Status:** in daily use · on npm as [`@orkastery/cli`](https://www.npmjs.com/package/@orkastery/cli), with [changes per version](CHANGELOG.md) · reviewed on 2026-09-27
-- **Proof:** GitHub CI on every PR: 2,733 core tests, 24 canaries and 20 skills with 199 assertions, zero failures (CI of the `main` at PR #74, run 37102089623, 2026-10-03)
+- **Proof:** GitHub CI on every PR: 2,733 core tests, 24 scenarios and 20 skills with 199 assertions, zero failures (CI of the `main` at PR #74, run 37102089623, 2026-10-03)
 - **Product and roadmap:** [`docs/produto/`](docs/produto/README.md) and [`docs/roadmap/`](docs/roadmap/README.md), checked against the code by `ork docs verificar`
 - **Language:** this page is the canonical entry point, mirrored in [Portuguese](README.pt-BR.md). The pages under `docs/` are in Brazilian Portuguese, and the [CLI reference](docs/referencia/cli.en.md) is also in English. The CLI prints Brazilian Portuguese too, except `ork doctor`, `ork init`, `ork onboarding`, `ork experiencia show`, `ork thread` (except `thread new --from-finding`), `ork phase list`, `ork phase run`, `ork verify`, `ork ship`, `ork pulse`, `ork master`, `ork retry plan`, `ork retry run`, `ork roadmap` (status and reservations), `ork worktree`, `ork claims`, `ork decisao placar`, `ork accounts`, `ork network` (except `network roadmap`), `ork docs`, `ork adapter` and the help, which print English when `owner.language` or your locale asks for `en`; so do the `orkastery.yaml` comments, the `AGENTS.md` and `CLAUDE.md` blocks, the `ork docs init` templates and the skills, checklists, commands and subagents that `ork adapter install` copies; in English, read the [quickstart on orkastery.com](https://orkastery.com/en/docs/comecar/) and the [glossary of what the CLI prints](#reading-the-cli-in-english)
 
@@ -197,7 +197,7 @@ The full picture, item by item and with git evidence, is in the [roadmap index](
 | Measure | Value | How to check |
 | --- | --- | --- |
 | Core tests | 2,733, zero failing (CI on 2026-10-03) | `npm --prefix core run test:ci` |
-| Behavior canaries | 24, all green | `ork eval --so-canarios` |
+| Behavior scenarios | 24, all green | `ork eval --so-cenarios` |
 | Skills corpus | 20 skills, 101 cases, 199 assertions | `ork eval --so-skills` |
 | Product docs and roadmap | zero parity errors | `ork docs verificar` |
 | Runtime dependencies | 9, pinned | `core/package.json` |

@@ -44,7 +44,7 @@ sdlc:
 ## Problema e resultado
 
 - **Problema:** um watchdog aprovava todo `human.pending` em nome do dono a cada 5 minutos.
-- **Resultado:** `human_gate` pelo Telegram e delegação tipada; canário `fx-blanket-approve`.
+- **Resultado:** `human_gate` pelo Telegram e delegação tipada; cenário `fx-blanket-approve`.
 - **Métricas:** Não aplicável — item anterior ao padrão v1.1 (24/09/2026); a métrica e a meta não foram registradas no plano da época.
 
 ## Escopo e validação

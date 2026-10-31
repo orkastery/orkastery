@@ -51,7 +51,7 @@
     "board.test.js",
     "branch-de-estado-remoto.test.js",
     "busca-semantica.test.js",
-    "canario-eventos-mods.test.js",
+    "cenario-eventos-mods.test.js",
     "catalogo.test.js",
     "checar-comandos-dos-guias.test.js",
     "checar-fontes-do-site.test.js",
@@ -613,7 +613,7 @@
     "security-scan-ship.test.js",
     "security-scan-tools.test.js",
     "segredo-openrouter.test.js",
-    "sensores-canarios.test.js",
+    "sensores-cenarios.test.js",
     "sessao-perfil.test.js",
     "session-events-notificacao.test.js",
     "session-events.test.js",
@@ -1639,7 +1639,7 @@
    ]
   },
   {
-   "arquivo": "canario-eventos-mods.test.js",
+   "arquivo": "cenario-eventos-mods.test.js",
    "lane": "hermetica",
    "testes": 9,
    "passes": [
@@ -10354,7 +10354,7 @@
    ]
   },
   {
-   "arquivo": "sensores-canarios.test.js",
+   "arquivo": "sensores-cenarios.test.js",
    "lane": "hermetica",
    "testes": 1,
    "passes": [

@@ -470,7 +470,7 @@ test('os testes do kit cobrem os três portões: criação sem touch_paths, conc
   assert.ok(nomes('verify.test.ts').includes('conclusao com a conferencia aprovada passa e a tarefa fica concluida no quadro'));
   assert.ok(nomes('lease.test.ts').includes('teammate ocioso com o lease da proxima tarefa ocupado por outra thread nao a recebe e recebe a seguinte livre'));
   assert.ok(nomes('lease.test.ts').includes('sem tarefa livre o teammate fica ocioso e nenhum lease e pedido'));
-  // O kit roda nos dois lugares em que o `claude` existe: o host e o job `mods` do CI (canário com --com-plugin).
+  // O kit roda nos dois lugares em que o `claude` existe: o host e o job `mods` do CI (cenário com --com-plugin).
   assert.ok(nomes('portao.test.ts').length + nomes('verify.test.ts').length + nomes('lease.test.ts').length >= 30);
   for (const rel of ['portao.test.ts', 'verify.test.ts', 'lease.test.ts']) assert.doesNotMatch(kit(rel), /\$\.process\.(run|spawn)\(/, `${rel}: o teste não roda processo`);
   assert.ok(kit('lease.test.ts').split('expect(leases).toEqual([])').length >= 4, 'os testes do teammate conferem que nenhum lease é pedido');

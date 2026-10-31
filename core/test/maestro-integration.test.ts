@@ -5,7 +5,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
 import { projetoTemporario } from './apoio';
-import { canarioPorId } from '../src/canarios';
+import { cenarioPorId } from '../src/cenarios';
 import { novaThread, dirThread, gravarThread, lerThread, listarIds } from '../src/thread';
 import { concluirDespacho, rodarFase } from '../src/phase';
 import { novaIdentidadeDeDespacho } from '../src/runtime-context';
@@ -20,9 +20,9 @@ import { lerLedger, registrar } from '../src/ledger';
 import { Fase } from '../src/types';
 
 const root = path.resolve(__dirname, '../../..');
-test('canário registrado executa o oracle versionado sem rodar outros canários', () => {
+test('cenário registrado executa o oracle versionado sem rodar outros cenários', () => {
   const fixture = JSON.parse(fs.readFileSync(path.join(root, 'eval/fixtures/fx-maestro-bootstrap/caso.json'), 'utf8'));
-  const runner = canarioPorId(fixture.id); assert.ok(runner);
+  const runner = cenarioPorId(fixture.id); assert.ok(runner);
   assert.deepEqual(runner.rodar({ catalogo: root }), fixture.esperado);
 });
 

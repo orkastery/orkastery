@@ -442,7 +442,7 @@ test('a identidade da entrada sobrevive a um transporte que descarta metadata', 
     /**
      * Reproduz a perda de metadata do transporte legado, depois da persistencia.
      * A ponte atual preserva metadata e o duplo agora gera fingerprint como ela.
-     * O canario continua exigindo recuperacao por tags mesmo sem qualquer metadata.
+     * O cenario continua exigindo recuperacao por tags mesmo sem qualquer metadata.
      */
     class DriverSemMetadata extends DriverEmMemoria {
       override adicionar(entrada: Parameters<DriverEmMemoria['adicionar']>[0]) {

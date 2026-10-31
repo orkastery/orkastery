@@ -1,6 +1,6 @@
 /**
  * RM-057 (fatia 2): o tempo parado por HITL de conducao sai do ledger, a regra chega aos prompts do
- * OpenClaw e do Hermes, e o canario do incidente de 01/10 prova que o pedido colado com autorizacao
+ * OpenClaw e do Hermes, e o cenario do incidente de 01/10 prova que o pedido colado com autorizacao
  * explicita segue sem parar.
  */
 import { strict as assert } from 'node:assert';
@@ -14,8 +14,8 @@ import { coletarEstatisticas, linhaDoHitlDeConducao, textoDasEstatisticas } from
 import { registrar } from '../src/ledger';
 import { dirThread, novaThread } from '../src/thread';
 import { EventoLedger } from '../src/types';
-import { fxPedidoColado, PEDIDO_COLADO_DO_INCIDENTE, PROMPTS_DE_CONDUCAO } from '../src/canarios-rm057';
-import { rodarCanarios } from '../src/evalrunner';
+import { fxPedidoColado, PEDIDO_COLADO_DO_INCIDENTE, PROMPTS_DE_CONDUCAO } from '../src/cenarios-rm057';
+import { rodarCenarios } from '../src/evalrunner';
 import { extrairTagDoPedido } from '../src/modos';
 import { dirTemporario } from '../src/sandbox';
 
@@ -161,11 +161,11 @@ test('o OpenClaw diz a regra nas descrições de nove tools (as três de conduç
 });
 
 // ---------------------------------------------------------------------------
-// O canario do incidente de 01/10: o pedido colado com autorizacao explicita segue sem parar.
+// O cenario do incidente de 01/10: o pedido colado com autorizacao explicita segue sem parar.
 // ---------------------------------------------------------------------------
 
 test('fx-pedido-colado passa contra o código e o catálogo reais, com a fixture versionada', () => {
-  const r = rodarCanarios(catalogo, ['fx-pedido-colado']);
+  const r = rodarCenarios(catalogo, ['fx-pedido-colado']);
   assert.deepEqual(r.falhas, []);
   assert.equal(r.resultados.length, 1);
   const c = r.resultados[0];

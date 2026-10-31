@@ -14,7 +14,7 @@ homologado.
 | GO | agente `ork-go` instalado pelo plugin; escrita limitada a worktree | `outputSchema` fechado de `schemas/claims.schema.json` |
 | CHECK | agente `ork-check` instalado pelo plugin | `review/start` inline contra a branch base carimbada na thread |
 | Limite temporal | contrato persistido no `#setup`; a sessão `--bg` não oferece interrupção temporal nativa | `duracaoMaximaMs`, com `turn/interrupt` ao vencer |
-| Avaliação contínua | `ork eval` cobre prompts, skills, hooks e canários | o mesmo corpus, mais testes do app-server simulado |
+| Avaliação contínua | `ork eval` cobre prompts, skills, hooks e cenários | o mesmo corpus, mais testes do app-server simulado |
 
 O perfil é opt-in. `playbook.ativo: true` exige limites explícitos em todos os blocos dos
 modos permitidos. Ausência ou `ativo: false` preserva o despacho anterior.

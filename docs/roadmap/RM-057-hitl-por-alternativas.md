@@ -62,7 +62,7 @@ sdlc:
   - Contrato do HITL de condução com 3 a 5 alternativas e um selo "Recomendação" → teste que reprova um pedido com menos de 3 ou mais de 5 opções, ou com nenhuma ou mais de uma recomendada.
   - Lint de prompt e de adaptador → `ork prompt lint` reprova um template que peça confirmação em texto livre ou que o humano cole texto.
   - Exceção técnica → o pedido em texto só passa com o motivo tipado de dependência técnica e o comando a rodar.
-  - Canário do incidente de 01/10 → um pedido colado com autorização explícita segue sem parar.
+  - Cenário do incidente de 01/10 → um pedido colado com autorização explícita segue sem parar.
 - **Piloto, medição e critérios de expansão/interrupção:** piloto na condução do próprio Orkastery por 7 dias, medindo no ledger o tempo parado por HITL; expande para todos os hosts se nenhum HITL em texto livre passar fora da exceção.
 
 ### Fatia 5: a resposta curta, onde o dono estiver
@@ -83,7 +83,7 @@ Evidência: `core/test/hitl-curto.test.ts` e `hitl-texto-livre.test.ts` (os test
 ## Plano e decisões
 
 - **Prioridade / método / pontuação / justificativa / data:** Alta; pedido do dono; uma noite inteira de fábrica parada por um HITL em texto livre; 2026-10-02.
-- **Horizonte / alvo / previsão / confiança / marcos:** próxima versão depois da 0.5.1; marcos: contrato, lint, adaptadores, canário.
+- **Horizonte / alvo / previsão / confiança / marcos:** próxima versão depois da 0.5.1; marcos: contrato, lint, adaptadores, cenário.
 - **Dependências e bloqueios (ID, owner, próxima revisão):** [RM-048](RM-048-hitl-humano-no-centro.md) (forma do bloco de decisão), [RM-041](RM-041-hitl-invertido.md) (HITL invertido).
 - **Premissas / riscos / mitigação:** risco de a fábrica decidir sozinha algo irreversível. Mitigação: a alternativa recomendada só é aplicada com a escolha do humano ou dentro da autorização que ele já deu; dúvida dentro da autorização vai para `ork decisao registrar`, sem parar a thread.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):** regra definida por Julio em 2026-10-02.
@@ -117,7 +117,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-02 | Item criado com prioridade alta | Incidente da noite de 01→02/10: mais de 10 h de condução parada por um HITL em texto livre | Julio |
 | 2026-10-02 | Fatia 1 na thread ork-rm057alterna: contrato de 3 a 5 com uma Recomendação no registro, dependência técnica tipada, letras a-e, selo no texto ao dono, lint `hitl-texto-livre` e a regra nos adaptadores do Claude Code e do Codex | Recorte registrado com `ork decisao registrar` na thread | Julio |
 | 2026-10-02 | Fatia 1 mesclada | PR 49, merge 7266df6 | Julio |
-| 2026-10-03 | Fatia 2 na thread ork-rm057fatia2c: canário `fx-pedido-colado` (o pedido colado com autorização explícita segue sem parar), a regra nas descrições das tools do OpenClaw e na skill do Hermes, e o tempo parado por HITL de condução no `ork ledger stats` (`hitlDeConducao`, mediana contra a meta de 5 min) | Recorte registrado com `ork decisao registrar` na thread; o pulse e o piloto ficam para depois | Claude (agente, #Auto), revisão de Julio pendente |
+| 2026-10-03 | Fatia 2 na thread ork-rm057fatia2c: cenário `fx-pedido-colado` (o pedido colado com autorização explícita segue sem parar), a regra nas descrições das tools do OpenClaw e na skill do Hermes, e o tempo parado por HITL de condução no `ork ledger stats` (`hitlDeConducao`, mediana contra a meta de 5 min) | Recorte registrado com `ork decisao registrar` na thread; o pulse e o piloto ficam para depois | Claude (agente, #Auto), revisão de Julio pendente |
 | 2026-10-03 | Fatia 2 mesclada | PR 52, merge 66b7ee3 | Julio |
 | 2026-10-03 | Fatia 3 na thread ork-rm057fatia3t: o tempo parado por HITL de condução no `ork pulse` e no `ork roadmap status` (`hitlDeConducao`: abertas com há quanto tempo, mediana de 7 dias), com uma linha no resumo do pulse só acima da meta de 5 min | Recorte registrado com `ork decisao registrar` na thread; campo aditivo opcional nos contratos que já existem, sem contrato novo | Claude (agente, #Auto), revisão de Julio pendente |
 | 2026-10-03 | Fatia 4 na thread ork-rm057regrada, defeitos do ensaio isolado da reinstalação do OpenClaw: a regra também em `ork_network_roadmap` e `ork_network_status`, as únicas tools visíveis no perfil `coding` (o perfil não foi ampliado), e o `ork adapter install` apontando a extensão para o `ork` em execução, com aviso quando o do PATH é outro | Ensaio de 03/10: no `coding` o modelo do Telegram nunca lia a regra; pelo tarball, a extensão 0.5.2 chamava o `ork` 0.4.3 global. `tools.alsoAllow` fica como decisão do dono | Claude (agente, #Auto), revisão de Julio pendente |

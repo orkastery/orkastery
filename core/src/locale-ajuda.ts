@@ -373,8 +373,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
         [--aceitar-catalogo <arquivo>]           sobrescreve a copia com o catalogo, arquivo a arquivo
         [--manter-copia <arquivo>]               deixa a copia como esta, arquivo a arquivo
 
-  eval [--skill S] [--canario C]            Canarios de comportamento + corpus das skills finas
-        [--so-canarios] [--so-skills] [--json]   (sai != 0 em qualquer falha)
+  eval [--skill S] [--cenario C]            Cenarios de comportamento + corpus das skills finas
+        [--so-cenarios] [--so-skills] [--json]   (sai != 0 em qualquer falha)
 
   audit packs [--estagio E] [--pack P]      Os 7 packs, o estagio que os ativa e a postura
   audit run <pack> [--profile P]            Monta o prompt do pack e despacha pelo runtime adapter
@@ -422,7 +422,7 @@ Fases: GOAL PLAN GO CHECK SHIP MASTER. Modos: ${v.tags}.
 Familias de lease: main-tree, worktree-write:<thread>, path:<glob>, board:<card>, service:<porta>.
 Ciclos: greenfield, merge-branch, goal-plan, gap, feature-xl-faseada.
 Fontes de medida do gate de tokens: runtime_reported, estimated, informada, unavailable.
-Hosts de Camada 1: claude-code, codex, hermes, openclaw. Canarios: fx-happy, fx-hallucination,
+Hosts de Camada 1: claude-code, codex, hermes, openclaw. Cenarios: fx-happy, fx-hallucination,
 fx-stale-base, fx-wiki-destroy, fx-schema-drift, fx-concurrency.
 Packs de auditoria: clean-code, reuse, architecture, data-model, ux, security-privacy, process.
 Superficie de ataque de rede (SP8..SP12, varredura deterministica): rota sem auth, endpoint de
@@ -788,8 +788,8 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
         [--aceitar-catalogo <file>]              overwrites the copy with the catalog, file by file
         [--manter-copia <file>]                  keeps the copy as it is, file by file
 
-  eval [--skill S] [--canario C]            Behavior canaries + corpus of the thin skills
-        [--so-canarios] [--so-skills] [--json]   (exits != 0 on any failure)
+  eval [--skill S] [--cenario C]            Behavior scenarios + corpus of the thin skills
+        [--so-cenarios] [--so-skills] [--json]   (exits != 0 on any failure)
 
   audit packs [--estagio E] [--pack P]      The 7 packs, the stage that activates them and the posture
   audit run <pack> [--profile P]            Builds the pack prompt and dispatches through the runtime adapter
@@ -837,7 +837,7 @@ Phases: GOAL PLAN GO CHECK SHIP MASTER. Modes: ${v.tags}.
 Lease families: main-tree, worktree-write:<thread>, path:<glob>, board:<card>, service:<port>.
 Cycles: greenfield, merge-branch, goal-plan, gap, feature-xl-faseada.
 Token gate measurement sources: runtime_reported, estimated, informada, unavailable.
-Layer 1 hosts: claude-code, codex, hermes, openclaw. Canaries: fx-happy, fx-hallucination,
+Layer 1 hosts: claude-code, codex, hermes, openclaw. Scenarios: fx-happy, fx-hallucination,
 fx-stale-base, fx-wiki-destroy, fx-schema-drift, fx-concurrency.
 Audit packs: clean-code, reuse, architecture, data-model, ux, security-privacy, process.
 Network attack surface (SP8..SP12, deterministic scan): route without auth, exposed admin
