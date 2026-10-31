@@ -5,9 +5,9 @@
  * ferramentas do catalogo e a mesma classificacao contra a base. O que muda e o empacotamento: a arvore da base sai uma
  * vez, antes, e cada ferramenta roda num trabalhador proprio (`trabalhador.ts`), ao mesmo tempo, chamando o mesmo
  * `scanTool` do Classic; o relatorio sai na ordem do catalogo. As ferramentas do Trivy montam um diretorio persistente
- * por ferramenta no `/tmp/trivy-cache` do catalogo, para o banco nao descer a cada rodada (cache de banco, nunca de
- * resultado: o HEAD e sempre varrido de novo, e a base usa o cache por SHA que o `scanBase` ja tem, com a chave da
- * especificacao do Agile). Cada peca do Agile que nao pode rodar cai para o equivalente do Classic e vai ao relatorio
+ * por ferramenta no `/tmp/trivy-cache` do catalogo. O resultado normalizado do Semgrep e das ferramentas de dependência
+ * fica no cache da máquina, por versão, regras e conteúdo; o Classic continua varrendo toda a árvore. Cada peça do Agile
+ * que não pode rodar cai para o equivalente do Classic e vai ao relatório
  * (`check.pecas`) e ao `ORK_CHECK_RELATORIO` do verify.
  */
 import * as fs from 'node:fs';
@@ -34,12 +34,11 @@ const TRABALHADOR = path.join(__dirname, 'trabalhador.js');
 const FOLGA_MS = 60_000;
 
 /**
- * O Semgrep baixa as regras do registro (`p/typescript`, ...) a cada rodada, e nao tem cache delas. Regra lida de arquivo
- * local ganha outro `check_id` (o prefixo do caminho), o que muda a impressao digital de todo achado: o cache de regras
- * fica de fora, declarado como peca em fallback.
+ * O cache guarda os achados normalizados junto da identidade das regras do registro. Assim uma rodada morna devolve o
+ * `check_id` original, em vez de reler uma regra por arquivo local e reescrever a impressão digital.
  */
-export const SEMGREP_SEM_CACHE: PecaDaVarredura = { peca: 'cache-semgrep', estado: 'fallback',
-  motivo: 'regra lida de arquivo local troca o check_id e a impressao digital', fallback: 'regras do registro a cada rodada, como no Classic' };
+export const SEMGREP_CACHE: PecaDaVarredura = { peca: 'cache-semgrep', estado: 'agile',
+  motivo: 'identidade das regras, check_id e achados normalizados preservados por conteúdo' };
 
 /**
  * O prazo por regra e arquivo do Semgrep no Agile, em segundos. O padrao dele e 5 s; com as ferramentas juntas (e, no
@@ -230,7 +229,9 @@ export function runScanAgil(opts: RunScanOptions, rodar: typeof rodarEmParalelo 
     const base = resolveBase(root, path.resolve(opts.stateRoot), opts.base);
     if (!base) { report.tools = failedAll(tools, config, 'base-unresolved'); return report; }
     report.base = base;
-    if (tools.some(t => t.name === 'semgrep')) pecas.push(SEMGREP_SEM_CACHE);
+    pecas.push({ peca: 'varredura-incremental', estado: 'agile',
+      motivo: 'arquivo pela versao e regras da ferramenta; dependencias pelo lockfile; demais ferramentas rodam inteiras' });
+    if (tools.some(t => t.name === 'semgrep')) pecas.push(SEMGREP_CACHE);
     const count = git(root, ['rev-list', '--count', `${base}..${head}`]);
     const deadline = opts.deadlineMs === undefined ? null : Date.now() + opts.deadlineMs;
     // A arvore da base sai uma vez, aqui, e os trabalhadores a dividem (cada um varre a sua ferramenta nela).
@@ -253,6 +254,7 @@ export function runScanAgil(opts: RunScanOptions, rodar: typeof rodarEmParalelo 
     const montados = tools.map((t, i) => {
       const restante = deadline === null ? t.timeoutMs : Math.min(t.timeoutMs, deadline - Date.now());
       const trabalho: TrabalhoDaFerramenta = { tool: eslintDoAgile(especificacaoDoAgile(t, pecas), restante, pecas), units: unitsOf(t, pairs), config,
+        incremental: true,
         ...(nativos.has(t.name) ? { nativoPrimeiro: true } : {}),
         ctx: { headTree, mainRoot, base, head, rangeCommits: count === null ? null : Number(count), deadline, ...(baseTree ? { baseTree } : {}) } };
       const arquivo = path.join(dir, `${i}.json`);

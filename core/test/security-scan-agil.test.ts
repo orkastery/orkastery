@@ -112,6 +112,8 @@ test('SA4: a segunda rodada com a mesma base reaproveita o relatorio da base e d
   const segunda = runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base });
   const runsDaSegunda = fake!.calls().slice(n).filter(c => c.args[0] === 'run');
   assert.deepEqual(achados(segunda), achados(primeira));
+  assert.equal(runsDaSegunda.some(c => c.args.some(a => a.startsWith('ork-security-scan-semgrep-'))), false,
+    'o Semgrep morno preserva check_id e impressoes digitais sem refazer a arvore');
   // Na segunda, so a HEAD e varrida: nenhuma montagem da arvore da base (a segunda arvore do retrato).
   const arvores = new Set(runsDaSegunda.map(c => c.args[c.args.indexOf('-v') + 1].split(':')[0]));
   assert.equal(arvores.size, 1, `so a arvore do HEAD: ${[...arvores].join(', ')}`);
@@ -156,9 +158,9 @@ test('SA7: as pecas do Agile vao ao relatorio (check.pecas) e ao ORK_CHECK_RELAT
   process.env.ORK_CHECK_RELATORIO = relatorio;
   const agile = runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base });
   const pecas = agile.check!.pecas.map(p => `${p.peca}:${p.estado}`);
-  assert.deepEqual(pecas, ['varredura-paralela:agile', 'cache-semgrep:fallback', 'binarios-nativos:fallback', 'semgrep-prazo-por-regra:agile',
+  assert.deepEqual(pecas, ['varredura-paralela:agile', 'varredura-incremental:agile', 'cache-semgrep:agile', 'binarios-nativos:fallback', 'semgrep-prazo-por-regra:agile',
     'cache-trivy-vuln:agile', 'cache-trivy-config:agile', 'imagem-de-lint:agile', 'cache-trivy-license:agile']);
-  assert.equal(agile.check!.pecas.find(p => p.peca === 'cache-semgrep')!.fallback, 'regras do registro a cada rodada, como no Classic');
+  assert.match(agile.check!.pecas.find(p => p.peca === 'cache-semgrep')!.motivo ?? '', /check_id/);
   const linhas = fs.readFileSync(relatorio, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l) as Record<string, unknown>);
   assert.deepEqual(linhas.map(l => `${String(l.tipo)}:${String(l.peca)}:${String(l.estado)}`), pecas.map(p => `peca:${p}`));
 });
