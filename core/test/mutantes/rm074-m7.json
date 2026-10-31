@@ -46,6 +46,42 @@
       "para": "razaoFria: variacao(pares.flatMap((p) => [p.razao, p.morna.razao])), razaoMorna: variacao(pares.map((p) => p.morna.razao)),",
       "teste": "medir-check",
       "nome": "^MC21:"
+    },
+    {
+      "id": "M6",
+      "descricao": "a CPU do daemon provocada pela rodada volta a ser carga de fora",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "de": "classificados[eInfraestruturaDeContainer(p.nome) ? 'infraestrutura' : 'externos'].push(item);",
+      "para": "classificados.externos.push(item);",
+      "teste": "medir-check",
+      "nome": "^MC24:"
+    },
+    {
+      "id": "M7",
+      "descricao": "a identidade do cache ignora a mudança no conteúdo resolvido das regras",
+      "modulo": "security-scan/incremental",
+      "de": "regrasSemgrep: trabalho.regrasSemgrep?.hash ?? null",
+      "para": "regrasSemgrep: null",
+      "teste": "security-scan-agil",
+      "nome": "^SA4:"
+    },
+    {
+      "id": "M8",
+      "descricao": "uma regra entre arquivos passa a autorizar reaproveitamento",
+      "modulo": "security-scan/incremental",
+      "de": "if (regraEntreArquivos(conteudo))",
+      "para": "if (false)",
+      "teste": "security-scan-agil",
+      "nome": "^SA4:"
+    },
+    {
+      "id": "M9",
+      "descricao": "o registro indisponível passa a autorizar reaproveitamento",
+      "modulo": "security-scan/incremental",
+      "de": "return { reutilizavel: false, hash: null, motivo: 'registro-indisponivel', referencias };",
+      "para": "return { reutilizavel: true, hash: 'sem-registro', referencias };",
+      "teste": "security-scan-agil",
+      "nome": "^SA4:"
     }
   ]
 }
