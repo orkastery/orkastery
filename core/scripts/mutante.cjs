@@ -38,7 +38,8 @@ const { spawnSync } = require('node:child_process');
 const RAIZ = path.resolve(__dirname, '..', '..');
 const CONTRATO = 'ork.mutantes/v1';
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/;
-const MODULO = /^[a-z0-9][a-z0-9-]{0,63}$/;
+const MODULO = /^[a-z0-9][a-z0-9-]{0,63}(?:\/[a-z0-9][a-z0-9-]{0,63})?$/;
+const TESTE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const ARQUIVO = /^core\/(?:scripts\/[a-z0-9][a-z0-9.-]{0,63}\.c?js|dist-test\/test\/[a-z0-9][a-z0-9.-]{0,63}\.js)$/;
 /** As pastas onde um alvo pode morar: as duas do `arquivo` e as duas do `modulo` compilado. */
 const PASTAS_DO_ALVO = ['core/scripts/', 'core/dist-test/test/', 'core/dist/', 'core/dist-test/src/'];
@@ -117,7 +118,7 @@ function main(argv) {
   const porArquivo = m.arquivo !== undefined;
   const alvoOk = porArquivo ? m.modulo === undefined && typeof m.arquivo === 'string' && ARQUIVO.test(m.arquivo)
     : typeof m.modulo === 'string' && MODULO.test(m.modulo);
-  if (!ID.test(m.id) || !alvoOk || !MODULO.test(m.teste) || typeof m.de !== 'string' || !m.de ||
+  if (!ID.test(m.id) || !alvoOk || !TESTE.test(m.teste) || typeof m.de !== 'string' || !m.de ||
       typeof m.para !== 'string' || m.de === m.para || typeof m.nome !== 'string' || !m.nome) {
     return falha(`o mutante ${id} está fora do formato (id, modulo ou arquivo de core/scripts ou core/dist-test/test, de, para, teste e nome)`);
   }

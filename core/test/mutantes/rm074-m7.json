@@ -1,0 +1,51 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-074 M7: a bancada separa a CPU da rodada, a integração mede fontes e o Agile reaproveita somente conteúdo compatível.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "um contêiner criado pela rodada volta a ser contado como carga de fora",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "de": "!meus.has(pid) && !ids.some((id) => p.cgroup.includes(id)) && Number.isFinite(p.cpuMs)",
+      "para": "!meus.has(pid) && Number.isFinite(p.cpuMs)",
+      "teste": "medir-check",
+      "nome": "^MC24:"
+    },
+    {
+      "id": "M2",
+      "descricao": "um pico da integração acima da CPU da máquina passa a ser aceito",
+      "modulo": "check-paralelo",
+      "de": "if (pico > cpus + 1e-9) {",
+      "para": "if (false) {",
+      "teste": "check-agil",
+      "nome": "^AG50:"
+    },
+    {
+      "id": "M3",
+      "descricao": "o cache morno do Semgrep troca o check_id preservado",
+      "modulo": "security-scan/incremental",
+      "de": "reutilizado: alterados.length === 0 ? entrada.resultado : null",
+      "para": "reutilizado: alterados.length === 0 ? { ...entrada.resultado, head: entrada.resultado.head.map((f) => ({ ...f, rule: `local.${f.rule}` })) } : null",
+      "teste": "security-scan-agil",
+      "nome": "^SA4:"
+    },
+    {
+      "id": "M4",
+      "descricao": "um achado é reaproveitado mesmo depois de o arquivo mudar",
+      "modulo": "security-scan/incremental",
+      "de": "reutilizado: alterados.length === 0 ? entrada.resultado : null",
+      "para": "reutilizado: entrada.resultado",
+      "teste": "security-scan-agil",
+      "nome": "^SA4:"
+    },
+    {
+      "id": "M5",
+      "descricao": "a razão da rodada morna volta a ser somada à razão da fria",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "de": "razaoFria: variacao(pares.map((p) => p.razao)), razaoMorna: variacao(pares.map((p) => p.morna.razao)),",
+      "para": "razaoFria: variacao(pares.flatMap((p) => [p.razao, p.morna.razao])), razaoMorna: variacao(pares.map((p) => p.morna.razao)),",
+      "teste": "medir-check",
+      "nome": "^MC21:"
+    }
+  ]
+}
