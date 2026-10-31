@@ -20,7 +20,7 @@ evidencias:
     commit: 1171177e
     pr: null
 sdlc:
-  thread: ork-rm074m7medid
+  thread: ork-rm074m8medid
   modo: "#Auto"
   fase: GOAL
   status: aberta
