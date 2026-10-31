@@ -25,7 +25,11 @@ const lanes = require(SCRIPT) as {
   REPORTER: string;
   globDoNpmTest: () => string[];
   concorrenciaDaLane: (lane: string, cpus?: number, limiteDoGrupo?: number) => number;
-  planoDoPool: (lane: string, cpus?: number, env?: NodeJS.ProcessEnv) => { inicial: number; final: number; sinal: string } | null;
+  planoDoPool: (lane: string, cpus?: number, env?: NodeJS.ProcessEnv) =>
+    { inicial: number; aposVarredura: number; final: number; sinal: string } | null;
+  degrausDaReserva: (texto: string, vagas: number, final: number, vistos?: Set<string>) =>
+    { vagas: number; aplicados: Array<{ origem: string; em: string; vagasGanhas: number; vagas: number }> };
+  ENV_CPUS_APOS_VARREDURA: string;
   ENV_CPUS_APOS_RESERVA: string;
   ENV_SINAL_DA_RESERVA: string;
   selecionarTemporario: (opcoes?: Record<string, unknown>) => { diretorio: string; estado: 'agile' | 'fallback'; motivo: string };
@@ -48,7 +52,7 @@ test('TL2: a lane hermetica e o conjunto do test:ci (o glob menos as integracoes
 test('TL3: a uniao das lanes e exatamente o glob que o npm test expande', () => {
   const l = lanes.listasDasLanes();
   assert.deepEqual([...l.hermetica, ...l.integracao].sort(), lanes.globDoNpmTest());
-  const r = spawnSync(process.execPath, [SCRIPT, '--conferir'], { encoding: 'utf8' });
+  const r = spawnSync(process.execPath, [SCRIPT, '--conferir'], { encoding: 'utf8', env: process.env });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /^lanes conferidas: \d+ arquivos no glob do npm test = \d+ na hermetica \+ \d+ na integracao\n$/);
 });
@@ -160,8 +164,8 @@ test('TL9: a hermetica devolve as vagas sem passar da CPU, e a integracao preser
   assert.equal(lanes.concorrenciaDaLane('hermetica', 8, 7), 7, 'o fallback usa CPUs menos uma');
   assert.equal(lanes.concorrenciaDaLane('integracao', 8, 7), 7, 'depois da hermetica, a integracao usa a fatia Classic');
   assert.deepEqual(lanes.planoDoPool('hermetica', 8, { ORK_CHECK_CPUS_DA_LANE: '6',
-    [lanes.ENV_CPUS_APOS_RESERVA]: '8', [lanes.ENV_SINAL_DA_RESERVA]: '/tmp/sinal' }),
-  { inicial: 6, final: 8, sinal: '/tmp/sinal' }, 'a hermetica devolve a reserva ate a CPU da maquina');
+    [lanes.ENV_CPUS_APOS_VARREDURA]: '7', [lanes.ENV_CPUS_APOS_RESERVA]: '8', [lanes.ENV_SINAL_DA_RESERVA]: '/tmp/sinal' }),
+  { inicial: 6, aposVarredura: 7, final: 8, sinal: '/tmp/sinal' }, 'a hermetica recebe um degrau por peca');
   assert.equal(lanes.planoDoPool('integracao', 8, { ORK_CHECK_CPUS_DA_LANE: '2',
     [lanes.ENV_CPUS_APOS_RESERVA]: '8', [lanes.ENV_SINAL_DA_RESERVA]: '/tmp/sinal' }), null, 'a integracao nunca abre o pool');
   const texto = fs.readFileSync(SCRIPT, 'utf8');
@@ -184,7 +188,8 @@ test('TL9: a hermetica devolve as vagas sem passar da CPU, e a integracao preser
     }
     const sinal = path.join(dir, 'reserva.json'), relatorio = path.join(dir, 'relatorio.jsonl');
     const env = { ...process.env, ORK_LANES_DIR: testes, ORK_LANES_INTEGRACAO: '', ORK_CHECK_RELATORIO: relatorio,
-      ORK_CHECK_CPUS_DA_LANE: '1', ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA: '3', ORK_CHECK_RESERVA_DEVOLVIDA: sinal,
+      ORK_CHECK_CPUS_DA_LANE: '1', ORK_CHECK_CPUS_DA_LANE_APOS_VARREDURA: '2',
+      ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA: '3', ORK_CHECK_RESERVA_DEVOLVIDA: sinal,
       XDG_CACHE_HOME: path.join(dir, 'cache'), MARCAS: marcas };
     let stdout = '', stderr = '';
     filho = spawn(process.execPath, [SCRIPT, 'hermetica'], { env, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -199,8 +204,12 @@ test('TL9: a hermetica devolve as vagas sem passar da CPU, e a integracao preser
     await esperar(() => quantos('.inicio') === 1, 'a vaga inicial comecou');
     await new Promise((r) => setTimeout(r, 150));
     assert.equal(quantos('.inicio'), 1, 'antes do sinal so a cota inicial roda');
-    fs.writeFileSync(sinal, JSON.stringify({ em: '2026-10-31T00:00:00.000Z', vagas: 3 }));
-    await esperar(() => quantos('.inicio') === 3, 'o sinal abriu as duas vagas devolvidas');
+    fs.writeFileSync(sinal, JSON.stringify({ contrato: 'ork.check.reserva-devolvida/v2', origem: 'varredura',
+      em: '2026-10-31T00:00:00.000Z', vagasGanhas: 1, vagas: 2 }) + '\n');
+    await esperar(() => quantos('.inicio') === 2, 'a varredura abriu o primeiro degrau');
+    fs.appendFileSync(sinal, JSON.stringify({ contrato: 'ork.check.reserva-devolvida/v2', origem: 'integracao',
+      em: '2026-10-31T00:00:01.000Z', vagasGanhas: 1, vagas: 3 }) + '\n');
+    await esperar(() => quantos('.inicio') === 3, 'a integracao abriu o segundo degrau');
     assert.equal(quantos('.fim'), 0, 'as tres vagas estiveram ocupadas ao mesmo tempo');
     fs.writeFileSync(liberar, '');
     const code = await new Promise<number | null>((resolve) => filho!.once('close', resolve));
@@ -210,7 +219,8 @@ test('TL9: a hermetica devolve as vagas sem passar da CPU, e a integracao preser
     assert.match(stdout, /^1\.\.4$/m);
     assert.match(stdout, /^# tests 4$/m);
     const linhas = fs.readFileSync(relatorio, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Record<string, unknown>);
-    assert.ok(linhas.some((l) => l.peca === 'agendador-cpu' && /passou a 3 vagas/.test(String(l.motivo))), 'a devolucao foi registrada');
+    assert.ok(linhas.some((l) => l.peca === 'agendador-cpu' && /varredura devolveu 1 vaga.*passou a 2 vagas/.test(String(l.motivo))));
+    assert.ok(linhas.some((l) => l.peca === 'agendador-cpu' && /integracao devolveu 1 vaga.*passou a 3 vagas/.test(String(l.motivo))));
     const resultados = linhas.find((l) => l.tipo === 'resultados')!;
     assert.deepEqual((resultados.testes as Array<{ arquivo: string; estado: string }>).map((t) => [t.arquivo, t.estado]).sort(),
       ['a', 'b', 'c', 'd'].map((n) => [`${n}.test.js`, 'pass']));
@@ -218,6 +228,19 @@ test('TL9: a hermetica devolve as vagas sem passar da CPU, e a integracao preser
     filho?.kill('SIGKILL');
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('TL13: degrau duplicado, regressivo ou acima da CPU nunca abre vaga', () => {
+  const linha = (origem: string, vagasGanhas: number, vagas: number) => JSON.stringify({
+    contrato: 'ork.check.reserva-devolvida/v2', origem, em: '2026-10-31T00:00:00.000Z', vagasGanhas, vagas,
+  });
+  const vistos = new Set<string>();
+  const primeiro = lanes.degrausDaReserva([linha('varredura', 1, 2), linha('varredura', 1, 3),
+    linha('integracao', -1, 1), linha('integracao', 3, 5)].join('\n'), 1, 3, vistos);
+  assert.equal(primeiro.vagas, 2, 'so o degrau valido da varredura foi aplicado');
+  assert.deepEqual(primeiro.aplicados.map((d) => [d.origem, d.vagasGanhas, d.vagas]), [['varredura', 1, 2]]);
+  const segundo = lanes.degrausDaReserva(linha('integracao', 1, 3), primeiro.vagas, 3, vistos);
+  assert.deepEqual(segundo, { vagas: 3, aplicados: [{ origem: 'integracao', em: '2026-10-31T00:00:00.000Z', vagasGanhas: 1, vagas: 3 }] });
 });
 
 test('TL10: o teste da lane nao herda modo, relatorio nem plano de CPU da rodada, mas herda o ambiente exigido', () => {

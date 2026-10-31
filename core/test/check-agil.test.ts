@@ -14,7 +14,7 @@ import { adicionarClaim } from '../src/claims';
 import { assinaturaDoAmbiente, elosDoComando, executorDaClaimPelasLanes, GuardaDoProduto, hashDoProduto,
   MAXIMO_DE_PREPAROS_REFEITOS, paralelismoDaVarreduraNoGrupo, passosDoComando, PECA_SEM_RELATORIO, RelatorioDoCheck,
   testDasLanes, TETO_DO_RELATORIO_BYTES, tirarPassosDoPreparo, tirarPassosDoPreparoAposLeituras } from '../src/check-agil';
-import { argvDoItem, rodarEmParalelo } from '../src/check-paralelo';
+import { argvDoItem, chaveDoPerfilIntegracao, rodarEmParalelo } from '../src/check-paralelo';
 import { cargaDoProcLoadavg, paredeAgileSimulada, paredeClassicaSimulada, planejarCpuDoGrupo } from '../src/agendador-cpu';
 import { lerLedger } from '../src/ledger';
 import { carregarManifesto } from '../src/manifest';
@@ -1043,6 +1043,7 @@ test('AG44: sob carga sintetica presa em CPU, o plano cai para o Classic e nunca
   const saturado = planejarCpuDoGrupo(8, { carga1: 8, stealPct: 12 });
   assert.equal(saturado.ordem, 'classic');
   assert.equal(saturado.cpusHermetica, 7);
+  assert.equal(saturado.cpusHermeticaAposVarredura, 7);
   assert.equal(saturado.cpusHermeticaAposReserva, 7, 'o fallback nao devolve reserva dinamicamente');
   assert.equal(saturado.ferramentasDaVarredura, 7);
   assert.equal(saturado.cpusPorContainer, 1);
@@ -1054,6 +1055,7 @@ test('AG44: sob carga sintetica presa em CPU, o plano cai para o Classic e nunca
   assert.equal(livre.ordem, 'paralela');
   assert.equal(livre.cpusHermetica + livre.cpusDaFatia, 8, 'a soma do grupo cabe na maquina');
   assert.equal(livre.cpusHermetica, 6);
+  assert.equal(livre.cpusHermeticaAposVarredura, 6, 'sem medida completa, a integracao conserva a reserva');
   assert.equal(livre.cpusHermeticaAposReserva, 8, 'depois da cadeia a hermetica usa a maquina inteira');
   assert.equal(livre.ferramentasDaVarredura, 2);
   assert.equal(livre.cpusPorContainer, 1);
@@ -1066,8 +1068,8 @@ test('AG44: sob carga sintetica presa em CPU, o plano cai para o Classic e nunca
   try {
     const hermetica = [
       `while ! test -f ${path.join(dir, 'scan.inicio')}; do sleep 0.02; done`,
-      'test ! -e "$ORK_CHECK_RESERVA_DEVOLVIDA"',
-      'for i in $(seq 1 200); do test -f "$ORK_CHECK_RESERVA_DEVOLVIDA" && break; sleep 0.02; done',
+      'for i in $(seq 1 200); do test -f "$ORK_CHECK_RESERVA_DEVOLVIDA" && ' +
+        'test "$(wc -l < "$ORK_CHECK_RESERVA_DEVOLVIDA")" -eq 2 && break; sleep 0.02; done',
       `test -f ${path.join(dir, 'scan.fim')}`,
       `test -f ${path.join(dir, 'integracao.fim')}`,
       'cat "$ORK_CHECK_RESERVA_DEVOLVIDA"',
@@ -1082,9 +1084,10 @@ test('AG44: sob carga sintetica presa em CPU, o plano cai para o Classic e nunca
     assert.ok(processos.every((p) => p.ok), processos.map((p) => p.stderr).join('\n'));
     assert.equal(processos.agendamentoCpu?.cpusHermetica, 2);
     assert.equal(processos.agendamentoCpu?.cpusHermeticaAposReserva, 4);
-    const sinal = JSON.parse(processos[0].stdout) as { vagas: number; em: string };
-    assert.equal(sinal.vagas, 4);
-    assert.match(sinal.em, /^\d{4}-\d{2}-\d{2}T/);
+    const sinais = processos[0].stdout.trim().split('\n').map((l) => JSON.parse(l) as
+      { origem: string; vagasGanhas: number; vagas: number; em: string });
+    assert.deepEqual(sinais.map((s) => [s.origem, s.vagasGanhas, s.vagas]), [['varredura', 0, 2], ['integracao', 2, 4]]);
+    assert.ok(sinais.every((s) => /^\d{4}-\d{2}-\d{2}T/.test(s.em)));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -1112,4 +1115,60 @@ test('AG45: saturacao medida pelo verify ordena hermetica, varredura e integraca
     assert.match(String(agendador.motivo), /\/proc\/loadavg.*\/proc\/stat.*varredura e integracao depois dela/);
     assert.equal(agendador.fallback, 'ordem do Classic para hermetica, varredura e integracao');
   } finally { p.limpar(); }
+});
+
+test('AG49: a reserva medida da integracao abre um degrau apos a varredura sem ultrapassar a CPU', () => {
+  const p = planejarCpuDoGrupo(8, { carga1: 0, stealPct: 0, cpusIntegracao: 0.64, fonteCpusIntegracao: 'medida' });
+  assert.equal(p.fonteCpusIntegracao, 'medida');
+  assert.equal(p.cpusIntegracao, 1, 'a medida e arredondada para cima antes de virar reserva');
+  assert.equal(p.integracaoEmParalelo, true, 'a medida completa prova que as três peças cabem juntas');
+  assert.deepEqual([p.cpusHermetica, p.cpusHermeticaAposVarredura, p.cpusHermeticaAposReserva], [5, 7, 8]);
+  assert.ok(p.cpusHermetica + p.cpusDaFatia + p.cpusIntegracao <= p.cpus);
+  assert.ok(p.cpusHermeticaAposVarredura + p.cpusIntegracao <= p.cpus);
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag49-paralelo-'));
+  try {
+    const sinal = path.join(dir, 'sinal.jsonl'), fimScan = path.join(dir, 'scan.fim');
+    const processos = rodarEmParalelo([
+      { nome: 'test:hermetica', papelCpu: 'hermetica', cwd: dir, prazoMs: 10_000,
+        comando: 'for i in $(seq 1 300); do test -f "$ORK_CHECK_RESERVA_DEVOLVIDA" && ' +
+          'test "$(wc -l < "$ORK_CHECK_RESERVA_DEVOLVIDA")" -eq 2 && break; sleep 0.02; done && ' +
+          `cp "$ORK_CHECK_RESERVA_DEVOLVIDA" ${sinal}` },
+      { nome: 'security_scan', papelCpu: 'varredura', cwd: dir, prazoMs: 10_000,
+        comando: `touch ${path.join(dir, 'scan.inicio')} && sleep 0.4 && touch ${fimScan}` },
+      { nome: 'test:integracao', papelCpu: 'integracao', cwd: dir, prazoMs: 10_000,
+        comando: `touch ${path.join(dir, 'integracao.inicio')} && test ! -f ${fimScan} && sleep 0.1` },
+    ], { ...process.env, XDG_CACHE_HOME: path.join(dir, 'cache') },
+    { cpus: 8, medicaoCpu: { carga1: 0, stealPct: 0, cpusIntegracao: 0.64, fonteCpusIntegracao: 'medida' } });
+    assert.ok(processos.every((x) => x.ok), processos.map((x) => x.stderr).join('\n'));
+    assert.equal(processos.agendamentoCpu?.integracaoEmParalelo, true);
+    const degraus = fs.readFileSync(sinal, 'utf8').trim().split('\n').map((l) => JSON.parse(l) as
+      { origem: string; vagasGanhas: number; vagas: number });
+    assert.deepEqual(degraus.map((d) => [d.origem, d.vagasGanhas, d.vagas]),
+      [['integracao', 1, 6], ['varredura', 2, 8]], 'cada peca devolve ao terminar, mesmo fora da ordem da cadeia antiga');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('AG50: o perfil medido da integracao so vale para os mesmos testes compilados da lane', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag50-perfil-'));
+  try {
+    const testes = path.join(dir, 'core', 'dist-test', 'test');
+    fs.mkdirSync(testes, { recursive: true });
+    fs.writeFileSync(path.join(testes, 'a.test.js'), 'um');
+    fs.writeFileSync(path.join(testes, 'b.test.js'), 'dois');
+    const itens = [{ nome: 'test:integracao', papelCpu: 'integracao' as const, cwd: dir, prazoMs: 1000, comando: 'x' }];
+    const chave = (): string | null => chaveDoPerfilIntegracao(itens, 8, ['a.test.js', 'b.test.js']);
+    const antes = chave();
+    assert.ok(antes, 'com a lane de integracao, ha chave');
+    assert.equal(chave(), antes, 'as mesmas entradas dao a mesma chave');
+    assert.equal(chaveDoPerfilIntegracao([{ ...itens[0], papelCpu: 'hermetica' }], 8, ['a.test.js']), null,
+      'sem integracao, nada a reutilizar');
+    fs.writeFileSync(path.join(testes, 'b.test.js'), 'dois mudado');
+    const mudou = chave();
+    assert.notEqual(mudou, antes, 'teste de integracao mudado invalida a medida');
+    assert.notEqual(chaveDoPerfilIntegracao(itens, 8, ['a.test.js', 'b.test.js', 'c.test.js']), mudou,
+      'teste novo na lista invalida a medida');
+    fs.rmSync(path.join(testes, 'a.test.js'));
+    assert.notEqual(chave(), mudou, 'teste que some invalida a medida');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

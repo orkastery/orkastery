@@ -40,8 +40,10 @@ const ORCAMENTO_PADRAO_MS = 120000;
 const REPORTER = path.join(__dirname, 'reporter-duracoes.mjs');
 const CONCORRENCIA_DA_INTEGRACAO = 2;
 const ENV_TMPFS = 'ORK_CHECK_TMPFS';
+const ENV_CPUS_APOS_VARREDURA = 'ORK_CHECK_CPUS_DA_LANE_APOS_VARREDURA';
 const ENV_CPUS_APOS_RESERVA = 'ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA';
 const ENV_SINAL_DA_RESERVA = 'ORK_CHECK_RESERVA_DEVOLVIDA';
+const ENV_CONTAINERS_DA_LANE = 'ORK_CHECK_CONTAINERS_DA_LANE';
 const TMPFS_MAGIC = 0x01021994;
 
 /**
@@ -56,10 +58,30 @@ function concorrenciaDaLane(lane, cpus = os.availableParallelism(), limiteDoGrup
 /** O pool dinamico so existe na hermetica do grupo paralelo, com sinal e cota final maiores que a inicial. */
 function planoDoPool(lane, cpus = os.availableParallelism(), env = process.env) {
   const inicial = concorrenciaDaLane(lane, cpus, Number(env.ORK_CHECK_CPUS_DA_LANE));
+  const intermediariaInformada = Number(env[ENV_CPUS_APOS_VARREDURA]);
   const informada = Number(env[ENV_CPUS_APOS_RESERVA]);
   const final = Number.isFinite(informada) && informada > 0 ? Math.max(inicial, Math.min(cpus, Math.floor(informada))) : inicial;
+  const aposVarredura = Number.isFinite(intermediariaInformada) && intermediariaInformada > 0
+    ? Math.max(inicial, Math.min(final, Math.floor(intermediariaInformada))) : inicial;
   const sinal = env[ENV_SINAL_DA_RESERVA];
-  return lane === 'hermetica' && sinal && final > inicial ? { inicial, final, sinal } : null;
+  return lane === 'hermetica' && sinal && final > inicial ? { inicial, aposVarredura, final, sinal } : null;
+}
+
+/** Linhas completas e monotonicas do sinal; duplicata, regressao e excesso nunca abrem vaga. */
+function degrausDaReserva(texto, vagasAtuais, final, vistos = new Set()) {
+  let vagas = vagasAtuais;
+  const aplicados = [];
+  for (const linha of texto.split('\n').filter(Boolean)) {
+    let r;
+    try { r = JSON.parse(linha); } catch { continue; }
+    if (r?.contrato !== 'ork.check.reserva-devolvida/v2' || !['varredura', 'integracao'].includes(r.origem)
+      || vistos.has(r.origem) || !Number.isInteger(r.vagas) || !Number.isInteger(r.vagasGanhas)
+      || r.vagas < vagas || r.vagas > final || r.vagasGanhas !== r.vagas - vagas || typeof r.em !== 'string') continue;
+    vistos.add(r.origem);
+    vagas = r.vagas;
+    aplicados.push({ origem: r.origem, em: r.em, vagasGanhas: r.vagasGanhas, vagas });
+  }
+  return { vagas, aplicados };
 }
 const MINIMO_DA_HERMETICA = 100;
 
@@ -200,7 +222,8 @@ function lerResultadosDoReporter(arquivo) {
 /** Mesmo ambiente funcional entre a lane e a claim; variaveis de transporte/runner nao mudam o teste. */
 function assinaturaDoAmbiente(env) {
   const ignorada = (nome) => nome.startsWith('npm_') || nome.startsWith('NPM_')
-    || ['ORK_CHECK_RELATORIO', 'ORK_CHECK_CPUS_DA_LANE', ENV_CPUS_APOS_RESERVA, ENV_SINAL_DA_RESERVA, 'ORK_CHECK_CPUS_DOCKER',
+    || ['ORK_CHECK_RELATORIO', 'ORK_CHECK_CPUS_DA_LANE', ENV_CPUS_APOS_VARREDURA, ENV_CPUS_APOS_RESERVA, ENV_SINAL_DA_RESERVA,
+      ENV_CONTAINERS_DA_LANE, 'ORK_CHECK_CPUS_DOCKER',
       'NODE_TEST_CONTEXT', 'NODE_COMPILE_CACHE', 'PWD', 'OLDPWD', 'SHLVL', '_', 'INIT_CWD'].includes(nome);
   const pares = Object.entries(env).filter(([nome, valor]) => valor !== undefined && !ignorada(nome))
     .sort(([a], [b]) => a.localeCompare(b));
@@ -243,16 +266,18 @@ function emitirTapDoPool(resultados, duracaoMs) {
 function rodarPoolDeArquivos({ arquivos, dir, env, pastaDaLane, plano }) {
   const inicio = Date.now();
   const resultados = new Array(arquivos.length);
-  let proximo = 0, ativos = 0, concluidos = 0, vagas = plano.inicial, devolvida = false;
+  let proximo = 0, ativos = 0, concluidos = 0, vagas = plano.inicial;
+  const vistos = new Set();
   const caminho = (nome) => (process.env.ORK_LANES_DIR ? path.join(dir, nome) : path.join('dist-test', 'test', nome));
   const observarSinal = () => {
-    if (devolvida || !fs.existsSync(plano.sinal)) return;
-    let registro = {};
-    try { registro = JSON.parse(fs.readFileSync(plano.sinal, 'utf8')); } catch { /* a existencia ja e o sinal atomico */ }
-    vagas = plano.final;
-    devolvida = true;
-    relatar({ tipo: 'peca', peca: 'agendador-cpu', estado: 'agile',
-      motivo: `reserva devolvida em ${typeof registro.em === 'string' ? registro.em : 'instante nao registrado'}; hermetica passou a ${vagas} vagas` });
+    if (!fs.existsSync(plano.sinal)) return;
+    let texto = '';
+    try { texto = fs.readFileSync(plano.sinal, 'utf8'); } catch { return; }
+    const lidos = degrausDaReserva(texto, vagas, plano.final, vistos);
+    vagas = lidos.vagas;
+    for (const registro of lidos.aplicados) relatar({ tipo: 'peca', peca: 'agendador-cpu', estado: 'agile',
+      motivo: `${registro.origem} devolveu ${registro.vagasGanhas} vaga(s) aos ${Math.round((Date.parse(registro.em) - inicio) / 1000)} s `
+        + `da lane; hermetica passou a ${registro.vagas} vagas`, devolvidaEm: registro.em });
   };
   return new Promise((resolve) => {
     const lancar = () => {
@@ -310,6 +335,7 @@ function rodarLane(lane) {
   delete env.ORK_CHECK_MODO;
   delete env.ORK_CHECK_RELATORIO;
   delete env.ORK_CHECK_CPUS_DA_LANE;
+  delete env[ENV_CPUS_APOS_VARREDURA];
   delete env[ENV_CPUS_APOS_RESERVA];
   delete env[ENV_SINAL_DA_RESERVA];
   delete env.ORK_CHECK_CPUS_DOCKER;
@@ -352,8 +378,8 @@ function rodarLane(lane) {
 }
 
 module.exports = { listasDasLanes, ordenarPorDuracao, lerDuracoesDoReporter, lerResultadosDoReporter, assinaturaDoAmbiente,
-  globDoNpmTest, concorrenciaDaLane, planoDoPool, selecionarTemporario, sondarTmpfs, ENV_TMPFS, ENV_CPUS_APOS_RESERVA,
-  ENV_SINAL_DA_RESERVA, LANES, REPORTER };
+  globDoNpmTest, concorrenciaDaLane, planoDoPool, degrausDaReserva, selecionarTemporario, sondarTmpfs, ENV_TMPFS,
+  ENV_CPUS_APOS_VARREDURA, ENV_CPUS_APOS_RESERVA, ENV_SINAL_DA_RESERVA, LANES, REPORTER };
 
 if (require.main === module) {
   const [alvo] = process.argv.slice(2);
