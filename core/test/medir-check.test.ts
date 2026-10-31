@@ -68,10 +68,18 @@ const medir = require(path.join(RAIZ, 'core', 'scripts', 'medir-check.cjs')) as 
   jsonRaso: (valor: unknown, nivel?: number) => string;
   resumirCargaExterna: (amostras: Array<Array<{ chave: string; nome: string; cpuMs: number }>>, paredeMs: number, cpus: number) =>
     { cpuMs: number; pct: number | null; processos: Array<{ nome: string; cpuMs: number }>; amostras: number };
-  resumirCpuDosContainers: (amostras: Array<Array<{ id: string; parte: 'integracao' | 'varredura'; cpuMs: number | null }>>) =>
-    { integracaoMs: number; varreduraMs: number };
+  resumirCpuDosContainers: (amostras: Array<Array<{ id: string; parte: 'integracao' | 'varredura' | 'fora'; daRodada?: boolean; cpuMs: number | null }>>) =>
+    { integracaoMs: number; varreduraMs: number; rodadaMs: number; foraMs: number; foraPresentes: boolean;
+      proporcaoMensuravel: boolean; fontesSemMedida: { rodada: boolean; fora: boolean } };
   processosExternos: (tabela: Map<number, { ppid: number; rss: number; cpuMs: number; inicio: string; nome: string; cgroup: string }>,
     containers: Array<{ id: string; pid: number }>) => Array<{ chave: string; nome: string; cpuMs: number }>;
+  classificarProcessos: (tabela: Map<number, { ppid: number; rss: number; cpuMs: number; inicio: string; nome: string; cgroup: string }>,
+    containers: Array<{ id: string; pid: number }>) => { externos: Array<{ chave: string; nome: string; cpuMs: number }>;
+      infraestrutura: Array<{ chave: string; nome: string; cpuMs: number }> };
+  atribuirCpuDaInfraestrutura: (amostras: Array<Array<{ chave: string; nome: string; cpuMs: number }>>,
+    containers: ReturnType<typeof medir.resumirCpuDosContainers>, paredeMs: number, cpus: number) => Record<string, any>;
+  cargaExternaComInfraestrutura: (carga: ReturnType<typeof medir.resumirCargaExterna>, infraestrutura: Record<string, any>,
+    paredeMs: number, cpus: number) => ReturnType<typeof medir.resumirCargaExterna>;
 };
 
 const perto = (atual: number | null | undefined, esperado: number, msg?: string): void => {
@@ -474,12 +482,52 @@ test('MC24: carga externa durante a rodada traz nome e CPU e descarta o par acim
     [{ id: 'scan', parte: 'varredura', cpuMs: 100 }, { id: 'int', parte: 'integracao', cpuMs: 40 }],
     [{ id: 'scan', parte: 'varredura', cpuMs: 260 }, { id: 'int', parte: 'integracao', cpuMs: 100 },
       { id: 'novo', parte: 'varredura', cpuMs: 30 }],
-  ]), { integracaoMs: 60, varreduraMs: 190 }, 'contêiner preexistente perde a baseline; o que nasceu na rodada entra inteiro');
-  assert.deepEqual(medir.processosExternos(new Map([
+  ]), { integracaoMs: 60, varreduraMs: 190, rodadaMs: 250, foraMs: 0, foraPresentes: false,
+    proporcaoMensuravel: true, fontesSemMedida: { rodada: false, fora: false } },
+  'contêiner preexistente perde a baseline; o que nasceu na rodada entra inteiro');
+  const processos = new Map([
     [900001, { ppid: 1, rss: 1, cpuMs: 90, inicio: 'a', nome: 'semgrep-core', cgroup: '/docker/abc' }],
     [900002, { ppid: 1, rss: 1, cpuMs: 20, inicio: 'b', nome: 'antivirus', cgroup: '/system.slice/fora' }],
-  ]), [{ id: 'abc', pid: 0 }]), [{ chave: '900002:b', nome: 'antivirus', cpuMs: 20 }],
+    [900003, { ppid: 1, rss: 1, cpuMs: 70, inicio: 'c', nome: 'dockerd', cgroup: '/system.slice/docker.service' }],
+    [900004, { ppid: 1, rss: 1, cpuMs: 30, inicio: 'd', nome: 'containerd-shim-runc-v2', cgroup: '/system.slice/containerd.service' }],
+  ]);
+  assert.deepEqual(medir.processosExternos(processos, [{ id: 'abc', pid: 0 }]),
+    [{ chave: '900002:b', nome: 'antivirus', cpuMs: 20 }],
   'processo no cgroup de contêiner criado pela rodada não vira carga de fora');
+  assert.deepEqual(medir.classificarProcessos(processos, [{ id: 'abc', pid: 0 }]).infraestrutura,
+    [{ chave: '900003:c', nome: 'dockerd', cpuMs: 70 },
+      { chave: '900004:d', nome: 'containerd-shim-runc-v2', cpuMs: 30 }], 'daemon e runtime têm linha própria');
+  const amostrasInfra = [
+    [{ chave: 'd:a', nome: 'dockerd', cpuMs: 100 }, { chave: 'c:b', nome: 'containerd', cpuMs: 20 }],
+    [{ chave: 'd:a', nome: 'dockerd', cpuMs: 260 }, { chave: 'c:b', nome: 'containerd', cpuMs: 60 }],
+  ];
+  const semFora = medir.atribuirCpuDaInfraestrutura(amostrasInfra, medir.resumirCpuDosContainers([
+    [{ id: 'scan', parte: 'varredura', cpuMs: 10 }], [{ id: 'scan', parte: 'varredura', cpuMs: 110 }],
+  ]), 1000, 2);
+  assert.deepEqual(semFora, { estado: 'integral', cpuMs: 200, rodadaMs: 200, cargaExternaMs: 0, proporcaoDaRodada: 1,
+    processos: [{ nome: 'dockerd', cpuMs: 160 }, { nome: 'containerd', cpuMs: 40 }],
+    cgroup: { rodadaMs: 100, foraMs: 0, foraPresentes: false, proporcaoMensuravel: true,
+      fontesSemMedida: { rodada: false, fora: false } } });
+  const comFora = medir.atribuirCpuDaInfraestrutura(amostrasInfra, medir.resumirCpuDosContainers([
+    [{ id: 'scan', parte: 'varredura', cpuMs: 10 }, { id: 'alheio', parte: 'fora', daRodada: false, cpuMs: 20 }],
+    [{ id: 'scan', parte: 'varredura', cpuMs: 160 }, { id: 'alheio', parte: 'fora', daRodada: false, cpuMs: 70 }],
+  ]), 1000, 2);
+  assert.equal(comFora.estado, 'proporcional');
+  assert.equal(comFora.rodadaMs, 150);
+  assert.equal(comFora.cargaExternaMs, 50);
+  perto(comFora.proporcaoDaRodada, 0.75);
+  const parcial = medir.atribuirCpuDaInfraestrutura(amostrasInfra, medir.resumirCpuDosContainers([
+    [{ id: 'scan', parte: 'varredura', cpuMs: 10 }, { id: 'alheio', parte: 'fora', daRodada: false, cpuMs: null }],
+    [{ id: 'scan', parte: 'varredura', cpuMs: 160 }, { id: 'alheio', parte: 'fora', daRodada: false, cpuMs: null }],
+  ]), 1000, 2);
+  assert.equal(parcial.estado, 'parcial');
+  assert.equal(parcial.rodadaMs, 0);
+  assert.equal(parcial.cargaExternaMs, 200, 'toda parte em dúvida vira carga de fora');
+  assert.equal(parcial.proporcaoDaRodada, null);
+  const externaComDuvida = medir.cargaExternaComInfraestrutura(carga, parcial, 1000, 2);
+  assert.equal(externaComDuvida.cpuMs, 400);
+  perto(externaComDuvida.pct, 20);
+  assert.deepEqual(externaComDuvida.processos[0], { nome: 'infraestrutura-de-contêiner-não-atribuída', cpuMs: 200 });
   const rodada = (pct: number) => ({ ok: true, duracaoMs: 110, preparoMs: 10, stealPct: 1,
     cargaExterna: { pct, cpuMs: pct, processos: [{ nome: 'antivirus', cpuMs: pct }] } });
   const par = medir.validarPar(rodada(11), rodada(2), ['agile', 'classic'], ['agile', 'classic'], 2, 10);

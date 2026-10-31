@@ -208,7 +208,11 @@ function resumirCargaExterna(amostras, paredeMs, cpus) {
     processos: lista.slice(0, 20), amostras: amostras.length };
 }
 
-function processosExternos(tabela, containersDaRodada = []) {
+function eInfraestruturaDeContainer(nome) {
+  return nome === 'dockerd' || nome === 'containerd' || nome.startsWith('containerd-shim') || nome.startsWith('runc');
+}
+
+function classificarProcessos(tabela, containersDaRodada = []) {
   const filhos = new Map();
   for (const [pid, p] of tabela) { if (!filhos.has(p.ppid)) filhos.set(p.ppid, []); filhos.get(p.ppid).push(pid); }
   const meus = new Set(), pilha = [process.pid];
@@ -219,8 +223,17 @@ function processosExternos(tabela, containersDaRodada = []) {
   pilha.push(...raizes);
   while (pilha.length) { const pid = pilha.pop(); if (meus.has(pid)) continue; meus.add(pid); pilha.push(...(filhos.get(pid) ?? [])); }
   const seguro = (nome) => String(nome || 'processo').replace(/[^\p{L}\p{N}_.+-]/gu, '?').slice(0, 32);
-  return [...tabela].filter(([pid, p]) => !meus.has(pid) && !ids.some((id) => p.cgroup.includes(id)) && Number.isFinite(p.cpuMs))
-    .map(([pid, p]) => ({ chave: `${pid}:${p.inicio}`, nome: seguro(p.nome), cpuMs: p.cpuMs }));
+  const classificados = { externos: [], infraestrutura: [] };
+  for (const [pid, p] of tabela) {
+    if (meus.has(pid) || ids.some((id) => p.cgroup.includes(id)) || !Number.isFinite(p.cpuMs)) continue;
+    const item = { chave: `${pid}:${p.inicio}`, nome: seguro(p.nome), cpuMs: p.cpuMs };
+    classificados[eInfraestruturaDeContainer(p.nome) ? 'infraestrutura' : 'externos'].push(item);
+  }
+  return classificados;
+}
+
+function processosExternos(tabela, containersDaRodada = []) {
+  return classificarProcessos(tabela, containersDaRodada).externos;
 }
 
 function cpuDoCgroup(arquivo) {
@@ -244,8 +257,8 @@ function fonteCpuDoContainer(id, pid) {
   return candidatos.find((arquivo) => cpuDoCgroup(arquivo) !== null) ?? null;
 }
 
-/** Contêineres vinculados à cópia por montagem; o prefixo separa varredura de integração. */
-function containersDaRodada(pastas) {
+/** Todos os contêineres do host; a montagem vincula os da rodada e o prefixo separa varredura de integração. */
+function containersNoHost(pastas) {
   const ps = spawnSync('docker', ['ps', '--no-trunc', '--format', '{{.ID}}'], { encoding: 'utf8', timeout: 3000 });
   if (ps.status !== 0) return [];
   const lista = [];
@@ -255,11 +268,11 @@ function containersDaRodada(pastas) {
     let c;
     try { c = JSON.parse(r.stdout)?.[0]; } catch { continue; }
     const montagens = Array.isArray(c?.Mounts) ? c.Mounts.map((m) => String(m.Source ?? '')) : [];
-    if (!montagens.some((m) => pastas.some((p) => m === p || m.startsWith(`${p}${path.sep}`)))) continue;
+    const daRodada = montagens.some((m) => pastas.some((p) => m === p || m.startsWith(`${p}${path.sep}`)));
     const nome = String(c?.Name ?? '').replace(/^\//, '');
     const pid = Number(c?.State?.Pid ?? 0);
     const fonte = fonteCpuDoContainer(id, pid);
-    lista.push({ id, pid, nome, parte: nome.startsWith(PREFIXO_DOS_CONTAINERS) ? 'varredura' : 'integracao', fonte,
+    lista.push({ id, pid, nome, daRodada, parte: daRodada ? (nome.startsWith(PREFIXO_DOS_CONTAINERS) ? 'varredura' : 'integracao') : 'fora', fonte,
       cpuMs: fonte ? cpuDoCgroup(fonte) : null });
   }
   return lista;
@@ -270,17 +283,58 @@ function resumirCpuDosContainers(amostras) {
   amostras.forEach((amostra, indice) => {
     for (const c of amostra) {
       const atual = fontes.get(c.id);
-      if (!atual) fontes.set(c.id, { parte: c.parte, primeiro: c.cpuMs, ultimo: c.cpuMs, indice });
+      if (!atual) fontes.set(c.id, { parte: c.parte, daRodada: c.daRodada !== false, primeiro: c.cpuMs, ultimo: c.cpuMs,
+        indice, semMedida: typeof c.cpuMs !== 'number' });
       else if (typeof c.cpuMs === 'number') atual.ultimo = Math.max(atual.ultimo ?? 0, c.cpuMs);
+      else atual.semMedida = true;
     }
   });
-  const partes = { integracaoMs: 0, varreduraMs: 0 };
+  const partes = { integracaoMs: 0, varreduraMs: 0, foraMs: 0 };
+  let foraPresentes = false, semMedidaDaRodada = false, semMedidaDeFora = false;
   for (const f of fontes.values()) {
+    if (!f.daRodada) foraPresentes = true;
+    if (f.semMedida) {
+      if (f.daRodada) semMedidaDaRodada = true; else semMedidaDeFora = true;
+    }
     if (typeof f.ultimo !== 'number') continue;
     const cpuMs = Math.max(0, f.ultimo - (f.indice === 0 && typeof f.primeiro === 'number' ? f.primeiro : 0));
-    partes[`${f.parte}Ms`] += cpuMs;
+    partes[f.daRodada ? `${f.parte}Ms` : 'foraMs'] += cpuMs;
   }
-  return { integracaoMs: Math.round(partes.integracaoMs), varreduraMs: Math.round(partes.varreduraMs) };
+  const rodadaMs = partes.integracaoMs + partes.varreduraMs;
+  return { integracaoMs: Math.round(partes.integracaoMs), varreduraMs: Math.round(partes.varreduraMs),
+    rodadaMs: Math.round(rodadaMs), foraMs: Math.round(partes.foraMs), foraPresentes,
+    proporcaoMensuravel: !semMedidaDaRodada && !semMedidaDeFora && rodadaMs + partes.foraMs > 0,
+    fontesSemMedida: { rodada: semMedidaDaRodada, fora: semMedidaDeFora } };
+}
+
+function atribuirCpuDaInfraestrutura(amostras, containers, paredeMs, cpus) {
+  const total = resumirCargaExterna(amostras, paredeMs, cpus);
+  let estado = 'integral', proporcaoDaRodada = 1, rodadaMs = total.cpuMs, cargaExternaMs = 0;
+  if (containers.foraPresentes) {
+    if (containers.proporcaoMensuravel) {
+      estado = 'proporcional';
+      proporcaoDaRodada = containers.rodadaMs / (containers.rodadaMs + containers.foraMs);
+      rodadaMs = Math.round(total.cpuMs * proporcaoDaRodada);
+      cargaExternaMs = total.cpuMs - rodadaMs;
+    } else {
+      estado = 'parcial';
+      proporcaoDaRodada = null;
+      rodadaMs = 0;
+      cargaExternaMs = total.cpuMs;
+    }
+  }
+  return { estado, cpuMs: total.cpuMs, rodadaMs, cargaExternaMs, proporcaoDaRodada, processos: total.processos,
+    cgroup: { rodadaMs: containers.rodadaMs, foraMs: containers.foraMs, foraPresentes: containers.foraPresentes,
+      proporcaoMensuravel: containers.proporcaoMensuravel, fontesSemMedida: containers.fontesSemMedida } };
+}
+
+function cargaExternaComInfraestrutura(carga, infraestrutura, paredeMs, cpus) {
+  if (!infraestrutura.cargaExternaMs) return carga;
+  const cpuMs = carga.cpuMs + infraestrutura.cargaExternaMs;
+  const processos = [...carga.processos,
+    { nome: 'infraestrutura-de-contêiner-não-atribuída', cpuMs: infraestrutura.cargaExternaMs }]
+    .sort((a, b) => b.cpuMs - a.cpuMs || a.nome.localeCompare(b.nome)).slice(0, 20);
+  return { ...carga, cpuMs, pct: paredeMs > 0 && cpus > 0 ? cpuMs / (paredeMs * cpus) * 100 : null, processos };
 }
 
 /**
@@ -635,13 +689,17 @@ function executar(cmd, args, { cwd, env, log, prazoMs, memoria = false, tempo = 
     emCurso = p.pid;
     const amostras = [];
     const amostrasExternas = [];
+    const amostrasInfraestrutura = [];
     const amostrasContainers = [];
     const amostrar = () => { try {
       const tabela = lerProcessos();
-      const containers = cargaExterna ? containersDaRodada(pastasDaRodada) : [];
+      const containers = cargaExterna ? containersNoHost(pastasDaRodada) : [];
+      const daRodada = containers.filter((c) => c.daRodada);
       if (memoria) amostras.push({ arvore: rssDaArvore(p.pid, tabela), containers: memoriaDosContainers() });
       if (cargaExterna) {
-        amostrasExternas.push(processosExternos(tabela, containers));
+        const classificados = classificarProcessos(tabela, daRodada);
+        amostrasExternas.push(classificados.externos);
+        amostrasInfraestrutura.push(classificados.infraestrutura);
         amostrasContainers.push(containers);
       }
     } catch { /* segue */ } };
@@ -655,9 +713,12 @@ function executar(cmd, args, { cwd, env, log, prazoMs, memoria = false, tempo = 
       clearTimeout(prazo);
       fs.closeSync(fd);
       const paredeMs = Date.now() - inicio;
+      const cpuDosContainers = resumirCpuDosContainers(amostrasContainers);
+      const cpuDaInfraestrutura = atribuirCpuDaInfraestrutura(amostrasInfraestrutura, cpuDosContainers, paredeMs, os.availableParallelism());
+      const externa = resumirCargaExterna(amostrasExternas, paredeMs, os.availableParallelism());
       resolve({ code, sinal, paredeMs, pico: picoAgregado(amostras), amostras: amostras.length,
-        ...(cargaExterna ? { cargaExterna: resumirCargaExterna(amostrasExternas, paredeMs, os.availableParallelism()),
-          cpuDosContainers: resumirCpuDosContainers(amostrasContainers) } : {}) });
+        ...(cargaExterna ? { cargaExterna: cargaExternaComInfraestrutura(externa, cpuDaInfraestrutura, paredeMs, os.availableParallelism()),
+          cpuDosContainers, cpuDaInfraestrutura } : {}) });
     });
   });
 }
@@ -983,9 +1044,12 @@ async function bancada(o) {
         const registro = { par: k, pedido: modo, espera: esperou, stealPct: steal, saida: r.code, sinal: r.sinal, paredeMs: r.paredeMs,
           ...(temperatura ? { temperatura } : {}), cargaExterna: r.cargaExterna,
           cpuDaArvoreMs: cpu ? cpu.userMs + cpu.sysMs : null, userMs: cpu?.userMs ?? null, sysMs: cpu?.sysMs ?? null,
+          infraestruturaDeContainer: r.cpuDaInfraestrutura,
           cpuDaRodada: { arvoreMs: cpu ? cpu.userMs + cpu.sysMs : null,
             integracaoContainersMs: r.cpuDosContainers?.integracaoMs ?? 0, varreduraContainersMs: r.cpuDosContainers?.varreduraMs ?? 0,
-            totalMs: cpu ? cpu.userMs + cpu.sysMs + (r.cpuDosContainers?.integracaoMs ?? 0) + (r.cpuDosContainers?.varreduraMs ?? 0) : null },
+            infraestruturaContainersMs: r.cpuDaInfraestrutura?.rodadaMs ?? 0,
+            totalMs: cpu ? cpu.userMs + cpu.sysMs + (r.cpuDosContainers?.integracaoMs ?? 0) + (r.cpuDosContainers?.varreduraMs ?? 0)
+              + (r.cpuDaInfraestrutura?.rodadaMs ?? 0) : null },
           picoBytes: r.pico.bytes, picoArvore: r.pico.arvore, picoContainers: r.pico.containers, amostras: r.amostras,
           ...(ultima ?? { modo: null, ok: false, duracaoMs: null, comandos: [], claims: [], pecas: [] }) };
         if (modo === 'agile') {
@@ -1102,6 +1166,7 @@ function analisarBancada({ rodadas, passes, lanes, nucleos, linhaDeBase = null, 
       preparoMs: { agile: a?.preparoMs ?? null, classic: cl?.preparoMs ?? null },
       cpuDaArvore: { agile: { ms: a?.cpuDaArvoreMs ?? null, stealPct: a?.stealPct ?? null },
         classic: { ms: cl?.cpuDaArvoreMs ?? null, stealPct: cl?.stealPct ?? null } },
+      infraestruturaDeContainer: { agile: a?.infraestruturaDeContainer ?? null, classic: cl?.infraestruturaDeContainer ?? null },
       razao: null, razaoDaCpu: null,
       picoAgileSobreClassic: a?.picoBytes && cl?.picoBytes ? a.picoBytes / cl.picoBytes : null,
       eficiencia: { ...ef, suiteNoAgile: passe ? eficiencia(passe.total, nucleos, testMs(a)) : null,
@@ -1110,6 +1175,7 @@ function analisarBancada({ rodadas, passes, lanes, nucleos, linhaDeBase = null, 
       morna: { ...validadeMorna, ambosAprovados: !!(morno?.ok && cl?.ok), preparoMs: { agile: morno?.preparoMs ?? null, classic: cl?.preparoMs ?? null },
         cpuDaArvore: { agile: { ms: morno?.cpuDaArvoreMs ?? null, stealPct: morno?.stealPct ?? null },
           classic: { ms: cl?.cpuDaArvoreMs ?? null, stealPct: cl?.stealPct ?? null } },
+        infraestruturaDeContainer: { agile: morno?.infraestruturaDeContainer ?? null, classic: cl?.infraestruturaDeContainer ?? null },
         razao: null, razaoDaCpu: null, stealPct: { agile: morno?.stealPct ?? null, classic: cl?.stealPct ?? null } },
     });
   }
@@ -1177,7 +1243,8 @@ module.exports = { lerRodadas, tresConsecutivas, rssDaArvore, picoAgregado, past
   validarOpcoesDaBancada,
   razao, eficiencia, corte, variacao, quantil, lerCpuStat, stealPct, quieta, eSuite, lerTempo, contarTap, concentracao,
   custoDosMaiores, claimsQueRepetem, pesoNaRodada, selecionarPorDiff, sondaDoGrafo, pecasEmFallback, redigir, comandosDeClaims,
-  fechosDeRequire, analisarBancada, jsonRaso, resumirCargaExterna, resumirCpuDosContainers, processosExternos };
+  fechosDeRequire, analisarBancada, jsonRaso, resumirCargaExterna, resumirCpuDosContainers, processosExternos,
+  classificarProcessos, atribuirCpuDaInfraestrutura, cargaExternaComInfraestrutura };
 
 if (require.main === module) {
   principal(process.argv.slice(2)).then((c) => process.exit(c), (e) => { process.stderr.write(`medir-check: ${e.message}\n`); process.exit(1); });
