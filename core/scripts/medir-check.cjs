@@ -1177,7 +1177,7 @@ module.exports = { lerRodadas, tresConsecutivas, rssDaArvore, picoAgregado, past
   validarOpcoesDaBancada,
   razao, eficiencia, corte, variacao, quantil, lerCpuStat, stealPct, quieta, eSuite, lerTempo, contarTap, concentracao,
   custoDosMaiores, claimsQueRepetem, pesoNaRodada, selecionarPorDiff, sondaDoGrafo, pecasEmFallback, redigir, comandosDeClaims,
-  fechosDeRequire, analisarBancada, jsonRaso, resumirCargaExterna, resumirCpuDosContainers };
+  fechosDeRequire, analisarBancada, jsonRaso, resumirCargaExterna, resumirCpuDosContainers, processosExternos };
 
 if (require.main === module) {
   principal(process.argv.slice(2)).then((c) => process.exit(c), (e) => { process.stderr.write(`medir-check: ${e.message}\n`); process.exit(1); });

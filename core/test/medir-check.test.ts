@@ -70,6 +70,8 @@ const medir = require(path.join(RAIZ, 'core', 'scripts', 'medir-check.cjs')) as 
     { cpuMs: number; pct: number | null; processos: Array<{ nome: string; cpuMs: number }>; amostras: number };
   resumirCpuDosContainers: (amostras: Array<Array<{ id: string; parte: 'integracao' | 'varredura'; cpuMs: number | null }>>) =>
     { integracaoMs: number; varreduraMs: number };
+  processosExternos: (tabela: Map<number, { ppid: number; rss: number; cpuMs: number; inicio: string; nome: string; cgroup: string }>,
+    containers: Array<{ id: string; pid: number }>) => Array<{ chave: string; nome: string; cpuMs: number }>;
 };
 
 const perto = (atual: number | null | undefined, esperado: number, msg?: string): void => {
@@ -473,6 +475,11 @@ test('MC24: carga externa durante a rodada traz nome e CPU e descarta o par acim
     [{ id: 'scan', parte: 'varredura', cpuMs: 260 }, { id: 'int', parte: 'integracao', cpuMs: 100 },
       { id: 'novo', parte: 'varredura', cpuMs: 30 }],
   ]), { integracaoMs: 60, varreduraMs: 190 }, 'contêiner preexistente perde a baseline; o que nasceu na rodada entra inteiro');
+  assert.deepEqual(medir.processosExternos(new Map([
+    [900001, { ppid: 1, rss: 1, cpuMs: 90, inicio: 'a', nome: 'semgrep-core', cgroup: '/docker/abc' }],
+    [900002, { ppid: 1, rss: 1, cpuMs: 20, inicio: 'b', nome: 'antivirus', cgroup: '/system.slice/fora' }],
+  ]), [{ id: 'abc', pid: 0 }]), [{ chave: '900002:b', nome: 'antivirus', cpuMs: 20 }],
+  'processo no cgroup de contêiner criado pela rodada não vira carga de fora');
   const rodada = (pct: number) => ({ ok: true, duracaoMs: 110, preparoMs: 10, stealPct: 1,
     cargaExterna: { pct, cpuMs: pct, processos: [{ nome: 'antivirus', cpuMs: pct }] } });
   const par = medir.validarPar(rodada(11), rodada(2), ['agile', 'classic'], ['agile', 'classic'], 2, 10);

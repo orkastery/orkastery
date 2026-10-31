@@ -19,7 +19,7 @@ const git = (cwd: string, ...args: string[]): string => {
 };
 
 interface Modelo { dir: string; base: string; head: string }
-export interface RepoSecurityScan { dir: string; base: string; head: string; cleanup: () => void }
+export interface RepoSecurityScan { dir: string; base: string; head: string; commit?: (arquivo: string, corpo: string) => string; cleanup: () => void }
 export interface OpcoesRepoSecurityScan { origin?: boolean; mainBranch?: string }
 
 let modelo: Modelo | null = null;
@@ -61,6 +61,11 @@ export function repositorioSecurityScan(nome: string, opcoes: OpcoesRepoSecurity
     git(dir, 'push', '-q', 'origin', mainBranch);
   }
   return { dir, base: base.base, head: base.head,
+    commit: (arquivo, corpo) => {
+      fs.writeFileSync(path.join(dir, arquivo), corpo);
+      git(dir, 'add', '--', arquivo); git(dir, 'commit', '-q', '-m', `fixture ${arquivo}`);
+      return git(dir, 'rev-parse', 'HEAD');
+    },
     cleanup: () => { for (const alvo of [dir, ...extras]) fs.rmSync(alvo, { recursive: true, force: true }); } };
 }
 

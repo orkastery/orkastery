@@ -117,6 +117,15 @@ test('SA4: a segunda rodada com a mesma base reaproveita o relatorio da base e d
   // Na segunda, so a HEAD e varrida: nenhuma montagem da arvore da base (a segunda arvore do retrato).
   const arvores = new Set(runsDaSegunda.map(c => c.args[c.args.indexOf('-v') + 1].split(':')[0]));
   assert.equal(arvores.size, 1, `so a arvore do HEAD: ${[...arvores].join(', ')}`);
+  const fonte = path.join(r.dir, 'src', 'server.js');
+  r.commit!('src/server.js', fs.readFileSync(fonte, 'utf8') + '\n// conteúdo alterado na M7\n');
+  const classicMudado = runScan({ root: r.dir, stateRoot: r.dir, base: r.base });
+  const marco = fake!.calls().length;
+  const agileMudado = runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base });
+  const runsDepoisDaMudanca = fake!.calls().slice(marco).filter(c => c.args[0] === 'run');
+  assert.ok(runsDepoisDaMudanca.some(c => c.args.some(a => a.startsWith('ork-security-scan-semgrep-'))),
+    'arquivo alterado nunca reutiliza o achado antigo sem nova varredura');
+  assert.deepEqual(achados(agileMudado), achados(classicMudado), 'a varredura parcial mantém a paridade com o Classic');
 });
 
 test('SA5: falha de uma ferramenta sai igual nos dois modos (failed com o mesmo motivo), sem derrubar as outras', () => {
