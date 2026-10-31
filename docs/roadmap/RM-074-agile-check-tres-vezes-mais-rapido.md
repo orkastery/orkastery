@@ -20,7 +20,7 @@ evidencias:
     commit: 1171177e
     pr: null
 sdlc:
-  thread: ork-rm074m6medid
+  thread: ork-rm074m7medid
   modo: "#Auto"
   fase: GOAL
   status: aberta
@@ -223,30 +223,23 @@ devolução antecipada, o excesso de CPU e o retorno das três corridas. A razã
 o corte de CPU e a eficiência finais continuam pendentes de três pares válidos
 na bancada do host.
 
-A saída `com-confianca` da bancada M5, recebida pela thread `ork-rm074m6medid` em
-31/10/2026 no regime de `node core/scripts/medir-check.cjs --bancada --pares 3`,
-fechou três pares válidos em ordem AB/BA, todos aprovados, com
-razões `Classic ÷ Agile` de 1,43, 1,37 e 1,37, média de 1,39 e coeficiente de
-variação perto de 2%. A CPU da suíte ficou de 8% a 13% abaixo da linha de base
-anterior à M4, enquanto a razão de CPU entre os modos permaneceu perto de 1: o
-resultado vem de ocupação melhor da máquina, não de menos CPU entre os modos.
-A eficiência da hermética ficou entre 70% e 74%, a da integração perto de 7%, a
-da suíte no Agile entre 73% e 77% e no Classic entre 66% e 71%. A hermética ainda
-foi o caminho crítico e encerrou entre 68% e 74% da parede do Classic.
+Bancada da M5 em 31/10/2026 (`node core/scripts/medir-check.cjs --bancada --pares 3`), saída `com-confianca`:
+
+- **Pares:** três válidos em ordem AB/BA, os dois modos aprovados em todos.
+- **Razão `Classic ÷ Agile`:** 1,43, 1,37 e 1,37; média de 1,39, coeficiente de variação perto de 2%.
+- **CPU da suíte:** de 8% a 13% abaixo da linha de base anterior à M4.
+- **Razão de CPU entre os modos:** perto de 1. O ganho vem de ocupar melhor a máquina, não de gastar menos CPU.
+- **Eficiência:** hermética entre 70% e 74%; integração perto de 7%; suíte no Agile entre 73% e 77%, no Classic entre 66% e 71%.
+- **Caminho crítico:** ainda a hermética, que encerrou entre 68% e 74% da parede do Classic.
 
 ### M6: reserva medida por peça, CPU dos arquivos caros e carga externa
 
-A M6 mede a CPU da árvore da integração e dos containers registrados pela lane.
-Uma medida só vira perfil quando está completa e é compatível com os comandos, a
-capacidade e as entradas da lane. A primeira rodada sem esse perfil conserva a
-cadeia da M5; uma rodada posterior só põe integração e varredura lado a lado quando
-a reserva medida prova que hermética, varredura e integração cabem juntas. Sob carga
-ou `steal` acima do limiar, a ordem e a cota do Classic continuam valendo.
-
-Cada peça devolve sua própria reserva quando termina. A hermética lê os degraus do
-mesmo sinal, aceita apenas cotas monotônicas dentro da capacidade e a peça
-`agendador-cpu` registra origem, instante, vagas e a evidência de CPU da integração.
-O perfil incompleto nunca reduz reserva.
+- **Reserva medida:** a M6 mede a CPU da árvore da integração e dos containers que a lane registra.
+- **Perfil:** a medida só vira perfil quando está completa e bate com os comandos, a capacidade, o script das lanes e o conteúdo compilado dos testes de integração. Perfil incompleto nunca reduz a reserva.
+- **Integração ao lado da varredura:** a primeira rodada sem perfil conserva a cadeia da M5. Uma rodada posterior só põe as duas lado a lado quando a reserva medida prova que hermética, varredura e integração cabem juntas.
+- **Sob carga ou `steal`** acima do limiar, a ordem e a cota do Classic continuam valendo.
+- **Devolução por peça:** cada peça devolve a própria reserva quando termina. A hermética lê os degraus do mesmo sinal e só aceita cotas crescentes dentro da capacidade.
+- **Evidência:** a peça `agendador-cpu` registra a origem de cada degrau, quando ele chegou desde a largada da lane, as vagas e a CPU medida da integração.
 
 Nos arquivos caros que ainda reconstruíam estado fixo, `projeto-alvo-declaracao`,
 `rm036-leases-canonicos`, `tsgo-paridade` e `security-scan-agil-lint` passam a criar
@@ -255,12 +248,14 @@ o modelo uma vez por processo e copiar estado isolado por caso. Os arquivos
 `suspeitas-0310-rede-cache` continua com os processos simultâneos: a corrida entre
 eles é o que o arquivo prova, e limitá-la a um processo por vez deixaria de prová-la.
 
-A bancada também amostra a carga de fora durante cada rodada: a CPU dos processos que não descendem
-dela. O relatório traz os maiores por nome e CPU; um par acima do limiar percentual
-configurado fica marcado e descartado, como já ocorre com a divergência de `steal`.
-Assim, uma reação dos testes pelo **antivírus do provedor** ou por um indexador deixa
-de ficar invisível. Esta seção descreve o contrato da M6 e não atribui ganho: razão,
-CPU e eficiência depois da mudança dependem de três pares válidos no host.
+Carga de fora na bancada:
+
+- a bancada amostra, durante cada rodada, a CPU dos processos que não descendem dela;
+- o relatório traz os maiores por nome e CPU;
+- um par acima do limiar percentual configurado fica marcado e descartado, como já ocorre com a divergência de `steal`;
+- assim, uma reação aos testes do **antivírus do provedor** ou de um indexador deixa de ficar invisível.
+
+Esta seção descreve o contrato da M6 e não atribui ganho: razão, CPU e eficiência depois da mudança dependem de três pares válidos no host.
 
 ## Problema e resultado
 
