@@ -138,12 +138,13 @@ function lerPerfilIntegracao(chave: string | null, cpus: number): PerfilCpuInteg
   try {
     const p = JSON.parse(fs.readFileSync(arquivoDoPerfilIntegracao(), 'utf8')) as PerfilCpuIntegracao;
     return p?.contrato === CONTRATO_PERFIL_INTEGRACAO && p.chave === chave && p.cpus === cpus && p.completa
-      && Number.isFinite(p.picoCpus) && p.picoCpus > 0 ? p : null;
+      && Number.isFinite(p.picoCpus) && p.picoCpus > 0 && p.picoCpus <= cpus ? p : null;
   } catch { return null; }
 }
 
 function gravarPerfilIntegracao(chave: string | null, cpus: number, medicao: MedicaoCpuDaIntegracao): void {
-  if (!chave || !medicao.completa || medicao.picoCpus === null || !(medicao.picoCpus > 0)) return;
+  if (!chave || !medicao.completa || medicao.anomalia || medicao.picoCpus === null
+    || !(medicao.picoCpus > 0) || medicao.picoCpus > cpus) return;
   const arquivo = arquivoDoPerfilIntegracao();
   try {
     fs.mkdirSync(path.dirname(arquivo), { recursive: true });
@@ -201,19 +202,34 @@ function nomesDosContainers(arquivo: string): string[] {
   } catch { return []; }
 }
 
-function arquivoCpuDoContainer(nome: string): { arquivo: string; divisor: number } | null {
-  const r = spawnSync('docker', ['inspect', '--format', '{{.State.Pid}}', nome], { encoding: 'utf8', timeout: 1000 });
-  const pid = Number(r.stdout?.trim());
-  if (r.status !== 0 || !Number.isInteger(pid) || pid <= 0) return null;
+interface FonteCpuDoContainer { arquivo: string; divisor: number }
+interface BuscaCpuDoContainer { fonte: FonteCpuDoContainer | null; motivo: string | null }
+
+function arquivoCpuDoContainer(nome: string): BuscaCpuDoContainer {
+  const r = spawnSync('docker', ['inspect', '--format', '{{.Id}} {{.State.Pid}}', nome], { encoding: 'utf8', timeout: 1000 });
+  const [id = '', pidTexto = ''] = r.stdout?.trim().split(/\s+/) ?? [];
+  const pid = Number(pidTexto);
+  if (r.status !== 0) return { fonte: null, motivo: 'docker inspect nao encontrou o conteiner' };
+  if (!/^[a-f0-9]{12,64}$/.test(id) || !Number.isInteger(pid) || pid <= 0) {
+    return { fonte: null, motivo: 'PID ou identificador do conteiner indisponivel' };
+  }
   let linhas = '';
-  try { linhas = fs.readFileSync(`/proc/${pid}/cgroup`, 'utf8'); } catch { return null; }
+  try { linhas = fs.readFileSync(`/proc/${pid}/cgroup`, 'utf8'); }
+  catch { return { fonte: null, motivo: 'cgroup do PID do conteiner indisponivel' }; }
   const unificado = /^0::(.+)$/m.exec(linhas)?.[1];
-  if (unificado) return { arquivo: path.join('/sys/fs/cgroup', unificado, 'cpu.stat'), divisor: 1000 };
+  const candidatos: FonteCpuDoContainer[] = [
+    ...(unificado ? [{ arquivo: path.join('/sys/fs/cgroup', unificado, 'cpu.stat'), divisor: 1000 }] : []),
+    { arquivo: path.join('/sys/fs/cgroup/system.slice', `docker-${id}.scope`, 'cpu.stat'), divisor: 1000 },
+    { arquivo: path.join('/sys/fs/cgroup/docker', id, 'cpu.stat'), divisor: 1000 },
+  ];
   const legado = /^(?:\d+):[^\n]*(?:cpuacct|cpu)[^\n]*:(.+)$/m.exec(linhas)?.[1];
-  return legado ? { arquivo: path.join('/sys/fs/cgroup/cpuacct', legado, 'cpuacct.usage'), divisor: 1_000_000 } : null;
+  if (legado) candidatos.push({ arquivo: path.join('/sys/fs/cgroup/cpuacct', legado, 'cpuacct.usage'), divisor: 1_000_000 });
+  const fonte = candidatos.find((x) => fs.existsSync(x.arquivo)) ?? null;
+  return fonte ? { fonte, motivo: null }
+    : { fonte: null, motivo: 'cpu.stat ausente no cgroup v2, no escopo do systemd e no caminho legado' };
 }
 
-function lerCpuDoCgroup(fonte: { arquivo: string; divisor: number }): number | null {
+function lerCpuDoCgroup(fonte: FonteCpuDoContainer): number | null {
   try {
     const texto = fs.readFileSync(fonte.arquivo, 'utf8');
     const bruto = fonte.arquivo.endsWith('cpu.stat') ? Number(/^usage_usec\s+(\d+)$/m.exec(texto)?.[1]) : Number(texto.trim());
@@ -221,40 +237,74 @@ function lerCpuDoCgroup(fonte: { arquivo: string; divisor: number }): number | n
   } catch { return null; }
 }
 
-/** CPU acumulada e pico por janela da integracao; nomes registrados mas nunca observados tornam a medida incompleta. */
-function sondarCpuDaIntegracao(pid: number, registro: string): { amostrar: () => void; fechar: (arvoreMs: number, paredeMs: number) => MedicaoCpuDaIntegracao } {
-  const processos = new Map<string, number>();
-  const fontes = new Map<string, { arquivo: string; divisor: number }>();
-  const containers = new Map<string, number>();
-  let anterior: { em: number; total: number } | null = null;
+export interface AmostraCpuPorFonte { em: number; fontes: Record<string, number> }
+
+/**
+ * Calcula o pico por fonte. A primeira leitura vira baseline; uma fonte que nasce depois dela contribui com o acumulado
+ * desde seu nascimento, sem despejar na janela o tempo anterior de processos ou conteineres que ja existiam.
+ */
+export function picoCpuPorFonte(amostras: AmostraCpuPorFonte[], cpus: number): { picoCpus: number | null; anomalia: string | null } {
   let pico = 0;
+  for (let i = 1; i < amostras.length; i++) {
+    const anterior = amostras[i - 1], atual = amostras[i];
+    if (!(atual.em > anterior.em)) continue;
+    let delta = 0;
+    for (const [fonte, acumulado] of Object.entries(atual.fontes)) {
+      const base = anterior.fontes[fonte];
+      delta += Math.max(0, acumulado - (base ?? 0));
+    }
+    pico = Math.max(pico, delta / (atual.em - anterior.em));
+  }
+  if (pico > cpus + 1e-9) {
+    return { picoCpus: null, anomalia: `pico medido de ${pico.toFixed(2)} CPU excede a capacidade de ${cpus} CPU` };
+  }
+  return { picoCpus: pico > 0 ? Math.ceil(pico * 100) / 100 : null, anomalia: null };
+}
+
+/** CPU acumulada e pico por janela da integracao; nomes registrados mas nunca observados tornam a medida incompleta. */
+function sondarCpuDaIntegracao(pid: number, registro: string, cpus: number): { amostrar: () => void; fechar: (arvoreMs: number, paredeMs: number) => MedicaoCpuDaIntegracao } {
+  const fontes = new Map<string, FonteCpuDoContainer>();
+  const motivos = new Map<string, string>();
+  const amostras: AmostraCpuPorFonte[] = [];
+  const primeiraCpuDosContainers = new Map<string, number>();
+  const ultimaCpuDosContainers = new Map<string, number>();
   const amostrar = () => {
     const tabela = processosCpu();
+    const atuais: Record<string, number> = {};
     for (const p of arvoreDeProcessos(pid, tabela)) {
       const x = tabela.get(p);
-      if (x) processos.set(`${p}:${x.inicio}`, Math.max(processos.get(`${p}:${x.inicio}`) ?? 0, x.cpuMs));
+      if (x) atuais[`processo:${p}:${x.inicio}`] = x.cpuMs;
     }
     for (const nome of nomesDosContainers(registro)) {
-      const fonte = fontes.get(nome) ?? arquivoCpuDoContainer(nome);
-      if (fonte) fontes.set(nome, fonte);
+      let fonte = fontes.get(nome);
+      if (!fonte) {
+        const busca = arquivoCpuDoContainer(nome);
+        if (busca.fonte) { fonte = busca.fonte; fontes.set(nome, fonte); motivos.delete(nome); }
+        else if (busca.motivo) motivos.set(nome, busca.motivo);
+      }
       const cpu = fonte ? lerCpuDoCgroup(fonte) : null;
-      if (cpu !== null) containers.set(nome, Math.max(containers.get(nome) ?? 0, cpu));
+      if (cpu !== null) {
+        atuais[`conteiner:${nome}`] = cpu;
+        if (!primeiraCpuDosContainers.has(nome)) primeiraCpuDosContainers.set(nome, amostras.length === 0 ? cpu : 0);
+        ultimaCpuDosContainers.set(nome, cpu);
+        motivos.delete(nome);
+      } else if (fonte) motivos.set(nome, 'contador de CPU do cgroup ilegivel');
     }
-    const agora = Date.now();
-    const total = [...processos.values()].reduce((a, b) => a + b, 0) + [...containers.values()].reduce((a, b) => a + b, 0);
-    if (anterior && agora > anterior.em) pico = Math.max(pico, (total - anterior.total) / (agora - anterior.em));
-    anterior = { em: agora, total };
+    amostras.push({ em: Date.now(), fontes: atuais });
   };
   return {
     amostrar,
     fechar: (arvoreMs, paredeMs) => {
       amostrar();
       const nomes = nomesDosContainers(registro);
-      const containersMs = [...containers.values()].reduce((a, b) => a + b, 0);
-      const ausentes = nomes.filter((nome) => !containers.has(nome));
+      const containersMs = nomes.reduce((total, nome) => total + Math.max(0,
+        (ultimaCpuDosContainers.get(nome) ?? 0) - (primeiraCpuDosContainers.get(nome) ?? 0)), 0);
+      const ausentes = nomes.filter((nome) => !ultimaCpuDosContainers.has(nome));
+      const pico = picoCpuPorFonte(amostras, cpus);
       return { arvoreMs, containersMs, totalMs: arvoreMs + containersMs, paredeMs,
-        picoCpus: pico > 0 ? Math.ceil(pico * 100) / 100 : null, completa: ausentes.length === 0,
-        containers: nomes, ausentes };
+        picoCpus: pico.picoCpus, completa: ausentes.length === 0 && !pico.anomalia,
+        containers: nomes, ausentes, motivosDosAusentes: ausentes.map((container) => ({ container,
+          motivo: motivos.get(container) ?? 'conteiner terminou antes de uma amostra completa' })), anomalia: pico.anomalia };
     },
   };
 }
@@ -368,7 +418,7 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
       const filho = spawn(bin, args, { cwd: item.cwd, env: ambiente, stdio: ['ignore', saida, erro],
         ...(comGrupo ? {} : { timeout: item.prazoMs, killSignal: 'SIGTERM' as const }) });
       if (medirIntegracao) {
-        sonda = sondarCpuDaIntegracao(filho.pid!, registro);
+        sonda = sondarCpuDaIntegracao(filho.pid!, registro, cpus);
         sonda.amostrar();
         relogio = setInterval(sonda.amostrar, INTERVALO_CPU_MS);
       }
