@@ -1,0 +1,15 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "Legenda do fuso no relatorio do doctor: o mutante faz a legenda ignorar o instante em que o relatorio sai, e o caso de inverno do teste o mata. A claim Mutante roda pelo core/scripts/mutante.cjs.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "a legenda volta a ter a abreviacao de verao fixa, sem olhar o instante do relatorio",
+      "modulo": "horario",
+      "de": "return (0, locale_1.msg)().horario.legenda(rotuloDoFuso(fuso, quando));",
+      "para": "return (0, locale_1.msg)().horario.legenda(rotuloDoFuso(fuso, quando ?? '2026-09-19T12:00:00Z'));",
+      "teste": "locale-cli",
+      "nome": "^locale en: a legenda do doctor acompanha"
+    }
+  ]
+}

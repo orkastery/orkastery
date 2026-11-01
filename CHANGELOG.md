@@ -12,6 +12,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   repositórios privados. A tabela "Ecosystem" do `README.md` e do `README.pt-BR.md` deixa de apontar para eles, e o guia
   de contribuição de documentação manda a correção de página do site para uma issue neste repositório.
 
+### Corrigido
+
+- **Teste do doctor que dependia da estação do ano:** o teste da legenda do fuso em inglês esperava a abreviação
+  de verão de Nova York fixa e passou a falhar quando o horário de verão de lá terminou. O relógio do teste agora fica
+  parado, e um caso novo prova a abreviação de inverno. O produto não muda.
+
 ## [0.6.3] - 2026-10-31
 
 O Agile Check fica mais rápido e mais estável: a bancada só publica razão com três pares válidos, os testes caros
