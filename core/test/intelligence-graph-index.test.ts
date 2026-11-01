@@ -75,26 +75,26 @@ test('KG3 parsers: micromark com a tabela GFM e o decodificador de referencia do
 test('KG3 parsers: juiz de sintaxe do V8 decide CommonJS e ESM sem executar o codigo', () => {
   const dir = dirTemporario('kg3-juiz');
   try {
-    const canario = (n: string) => path.join(dir, `canario-${n}`);
+    const cenario = (n: string) => path.join(dir, `cenario-${n}`);
     const juiz = criarJuizDeSintaxe();
     assert.equal(juiz.versao, `node.${process.versions.node}`);
     const pedidos = [
-      { texto: `require('node:fs').writeFileSync(${JSON.stringify(canario('cjs'))}, 'x');\n`, formato: 'cjs' as const },
-      { texto: `import fs from 'node:fs';\nfs.writeFileSync(${JSON.stringify(canario('esm'))}, 'x');\n`, formato: 'esm' as const },
-      { texto: `await import('node:fs').then((f) => f.writeFileSync(${JSON.stringify(canario('await'))}, 'x'));\n`, formato: 'esm' as const },
-      { texto: `#!/usr/bin/env node\nrequire('node:fs').writeFileSync(${JSON.stringify(canario('hashbang'))}, 'x');\n`, formato: 'cjs' as const },
+      { texto: `require('node:fs').writeFileSync(${JSON.stringify(cenario('cjs'))}, 'x');\n`, formato: 'cjs' as const },
+      { texto: `import fs from 'node:fs';\nfs.writeFileSync(${JSON.stringify(cenario('esm'))}, 'x');\n`, formato: 'esm' as const },
+      { texto: `await import('node:fs').then((f) => f.writeFileSync(${JSON.stringify(cenario('await'))}, 'x'));\n`, formato: 'esm' as const },
+      { texto: `#!/usr/bin/env node\nrequire('node:fs').writeFileSync(${JSON.stringify(cenario('hashbang'))}, 'x');\n`, formato: 'cjs' as const },
       { texto: "import x from './x';\n", formato: 'cjs' as const },
       { texto: 'return 1;\n', formato: 'esm' as const },
       { texto: 'return 1;\n', formato: 'cjs' as const },
       { texto: 'let a; let a;\n', formato: 'esm' as const },
     ];
     assert.deepEqual(juiz.sintaxe(pedidos), [true, true, true, true, false, false, true, false]);
-    for (const n of ['cjs', 'esm', 'await', 'hashbang']) assert.ok(!fs.existsSync(canario(n)), `o juiz executou ${n}`);
+    for (const n of ['cjs', 'esm', 'await', 'hashbang']) assert.ok(!fs.existsSync(cenario(n)), `o juiz executou ${n}`);
     // Mesmo texto e formato: o veredito vem do cache, sem outro filho.
     assert.deepEqual(juiz.sintaxe([pedidos[1], pedidos[5]]), [true, false]);
     // O filho roda sem ambiente: um NODE_OPTIONS hostil de quem chama nao carrega codigo nele.
     const preload = path.join(dir, 'preload.js');
-    fs.writeFileSync(preload, `require('node:fs').writeFileSync(${JSON.stringify(canario('preload'))}, 'x');\n`);
+    fs.writeFileSync(preload, `require('node:fs').writeFileSync(${JSON.stringify(cenario('preload'))}, 'x');\n`);
     const antes = process.env.NODE_OPTIONS;
     process.env.NODE_OPTIONS = `--require ${preload}`;
     try {
@@ -103,7 +103,7 @@ test('KG3 parsers: juiz de sintaxe do V8 decide CommonJS e ESM sem executar o co
       if (antes === undefined) delete process.env.NODE_OPTIONS;
       else process.env.NODE_OPTIONS = antes;
     }
-    assert.ok(!fs.existsSync(canario('preload')), 'o filho herdou o NODE_OPTIONS');
+    assert.ok(!fs.existsSync(cenario('preload')), 'o filho herdou o NODE_OPTIONS');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -112,11 +112,11 @@ test('KG3 parsers: juiz de sintaxe do V8 decide CommonJS e ESM sem executar o co
 test('KG3 parsers: typescript falso no repositorio analisado e no diretorio atual nao e carregado', () => {
   const dir = dirTemporario('kg3-ts-falso');
   try {
-    const canario = path.join(dir, 'canario');
+    const cenario = path.join(dir, 'cenario');
     for (const pacote of ['typescript', 'micromark']) {
       fs.mkdirSync(path.join(dir, 'node_modules', pacote), { recursive: true });
       fs.writeFileSync(path.join(dir, 'node_modules', pacote, 'package.json'), JSON.stringify({ name: pacote, version: '0.0.0-falso', main: 'index.js' }));
-      fs.writeFileSync(path.join(dir, 'node_modules', pacote, 'index.js'), `require('node:fs').writeFileSync(${JSON.stringify(canario)}, '${pacote}');\n`);
+      fs.writeFileSync(path.join(dir, 'node_modules', pacote, 'index.js'), `require('node:fs').writeFileSync(${JSON.stringify(cenario)}, '${pacote}');\n`);
     }
     const r = noFilho(dir, `
       const m = require(${JSON.stringify(MODULO_DOS_ANALISADORES)});
@@ -128,7 +128,7 @@ test('KG3 parsers: typescript falso no repositorio analisado e no diretorio atua
     assert.equal(saida.ts, ts.version);
     assert.equal(saida.versoes.typescript, ts.version);
     assert.ok(!saida.versoes.markdown.includes('falso'));
-    assert.ok(!fs.existsSync(canario), 'carregou pacote do diretorio analisado');
+    assert.ok(!fs.existsSync(cenario), 'carregou pacote do diretorio analisado');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -143,10 +143,10 @@ function instalarCopia(raiz: string): string {
   return copia;
 }
 
-function pacoteFalso(dir: string, nome: string, versao: string, canario: string): void {
+function pacoteFalso(dir: string, nome: string, versao: string, cenario: string): void {
   fs.mkdirSync(path.join(dir, nome), { recursive: true });
   fs.writeFileSync(path.join(dir, nome, 'package.json'), JSON.stringify({ name: nome, version: versao, main: 'index.js' }));
-  fs.writeFileSync(path.join(dir, nome, 'index.js'), `require('node:fs').writeFileSync(${JSON.stringify(canario)}, ${JSON.stringify(nome)});\n`);
+  fs.writeFileSync(path.join(dir, nome, 'index.js'), `require('node:fs').writeFileSync(${JSON.stringify(cenario)}, ${JSON.stringify(nome)});\n`);
 }
 
 const erroDoFilho = `const erro = (f) => { try { f(); return null; } catch (e) { return e.message; } };`;
@@ -180,10 +180,10 @@ test('KG3 parsers: sem o pacote na instalacao, a recusa e grafo.parser.indisponi
 test('KG3 parsers: com o ork instalado dentro de um projeto, o typescript do projeto nao e usado nem executado', () => {
   const dir = dirTemporario('kg3-ork-no-projeto');
   try {
-    const canario = path.join(dir, 'canario');
+    const cenario = path.join(dir, 'cenario');
     const modulos = path.join(dir, 'projeto', 'node_modules');
     const copia = instalarCopia(path.join(modulos, '@orkastery', 'cli'));
-    for (const nome of ['typescript', 'micromark']) pacoteFalso(modulos, nome, '9.9.9-do-projeto', canario);
+    for (const nome of ['typescript', 'micromark']) pacoteFalso(modulos, nome, '9.9.9-do-projeto', cenario);
     const corpo = `
       const m = require(${JSON.stringify(copia)});
       ${erroDoFilho}
@@ -192,12 +192,12 @@ test('KG3 parsers: com o ork instalado dentro de um projeto, o typescript do pro
     let r = noFilho(path.join(dir, 'projeto'), corpo, { NODE_PATH: modulos });
     assert.equal(r.status, 0, r.erro);
     assert.deepEqual(r.saida, { versoes: 'grafo.parser.indisponivel: typescript fora da instalacao do ork', carga: 'grafo.parser.indisponivel: typescript fora da instalacao do ork' });
-    assert.ok(!fs.existsSync(canario), 'executou pacote do projeto');
+    assert.ok(!fs.existsSync(cenario), 'executou pacote do projeto');
     // Dentro do node_modules do proprio pacote do ork, o pacote vale (so a versao e lida aqui, nada roda).
-    pacoteFalso(path.join(modulos, '@orkastery', 'cli', 'node_modules'), 'typescript', '5.0.0-da-instalacao', canario);
+    pacoteFalso(path.join(modulos, '@orkastery', 'cli', 'node_modules'), 'typescript', '5.0.0-da-instalacao', cenario);
     r = noFilho(path.join(dir, 'projeto'), `const m = require(${JSON.stringify(copia)}); ${erroDoFilho} process.stdout.write(JSON.stringify(erro(() => m.versoesDosAnalisadores())));`);
     assert.equal(r.saida, 'grafo.parser.indisponivel: micromark fora da instalacao do ork', 'o typescript de dentro passa; o micromark de fora nao');
-    assert.ok(!fs.existsSync(canario));
+    assert.ok(!fs.existsSync(cenario));
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -227,15 +227,15 @@ test('KG3 parsers: instalacao com o node_modules ligado por link simbolico vale 
 test('KG3 parsers: dependencia transitiva ausente na instalacao recusa a carga, sem rodar a copia de fora', () => {
   const dir = dirTemporario('kg3-transitiva-fora');
   try {
-    const canario = path.join(dir, 'canario');
+    const cenario = path.join(dir, 'cenario');
     const projeto = path.join(dir, 'projeto', 'node_modules'), instalacao = path.join(projeto, '@orkastery', 'cli');
     const copia = instalarCopia(instalacao);
     const dentroDela = path.join(instalacao, 'node_modules');
-    for (const nome of PACOTES_DOS_ANALISADORES) pacoteFalso(dentroDela, nome, '1.0.0-dentro', canario);
+    for (const nome of PACOTES_DOS_ANALISADORES) pacoteFalso(dentroDela, nome, '1.0.0-dentro', cenario);
     // O micromark de dentro depende de um pacote que so existe no node_modules do projeto, acima da instalacao.
     const micromark = path.join(dentroDela, 'micromark', 'package.json');
     fs.writeFileSync(micromark, JSON.stringify({ name: 'micromark', version: '1.0.0-dentro', main: 'index.js', dependencies: { 'micromark-core-commonmark': '^2.0.0' } }));
-    pacoteFalso(projeto, 'micromark-core-commonmark', '9.9.9-do-projeto', canario);
+    pacoteFalso(projeto, 'micromark-core-commonmark', '9.9.9-do-projeto', cenario);
     const r = noFilho(path.join(dir, 'projeto'), `
       const m = require(${JSON.stringify(copia)});
       ${erroDoFilho}
@@ -246,7 +246,7 @@ test('KG3 parsers: dependencia transitiva ausente na instalacao recusa a carga, 
     assert.ok(saida.pacotes.includes('micromark-core-commonmark@ausente'), saida.pacotes.join(' '));
     assert.ok(!saida.pacotes.some((x) => x.includes('9.9.9-do-projeto')), 'a versao de fora nao entra no fecho');
     assert.equal(saida.carga, 'grafo.parser.indisponivel: dependencia fora da instalacao do ork (micromark-core-commonmark@ausente)');
-    assert.ok(!fs.existsSync(canario), 'carregou pacote');
+    assert.ok(!fs.existsSync(cenario), 'carregou pacote');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

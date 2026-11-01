@@ -10,7 +10,7 @@ const vivo = (pid: number): boolean => {
   try { process.kill(pid, 0); return true; } catch { return false; }
 };
 
-// Canario do travamento de 21/09/2026: no codigo antigo o neto sobrevive ao estouro.
+// Cenario do travamento de 21/09/2026: no codigo antigo o neto sobrevive ao estouro.
 test('verify: o estouro do teto leva a arvore do comando, nao so o bash', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-verify-arvore-'));
   const arquivo = path.join(dir, 'neto.pid');

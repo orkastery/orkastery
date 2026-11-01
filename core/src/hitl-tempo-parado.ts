@@ -19,7 +19,7 @@
  *   aberto              nada disso ainda: a espera corre ate o fim do periodo.
  *
  * Limite dito: o "confirmo" que um condutor pede na conversa, fora do ork, nao chega ao ledger e
- * nao entra aqui. Por isso o canario `fx-pedido-colado` e a regra nos adaptadores existem.
+ * nao entra aqui. Por isso o cenario `fx-pedido-colado` e a regra nos adaptadores existem.
  *
  * Funcoes puras sobre eventos: nao leem disco nem relogio. Ausencia de pedido e zero pedidos, e a
  * mediana sem resposta e `null`, nunca zero inventado. A unica leitura de disco e

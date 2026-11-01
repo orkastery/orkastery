@@ -10,6 +10,19 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **Reserva medida por peça e carga externa na bancada — M6 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** a lane de integração mede sua árvore e os containers, o agendador só reutiliza perfil completo e compatível e a hermética recebe cada devolução em um degrau limitado pela capacidade. Fixtures caras restantes usam modelos copiados com estado próprio e pares com carga externa acima do limiar são descartados com os processos e a CPU no relatório. Casos, asserções e Classic permanecem; razão, CPU e eficiência da M6 aguardam três pares válidos no host, sem ganho antecipado neste registro.
 
+## [0.6.3] - 2026-10-31
+
+O Agile Check fica mais rápido e mais estável: a bancada só publica razão com três pares válidos, os testes caros
+gastam menos CPU de sistema e a lane hermética recebe de volta as CPUs reservadas quando a varredura e a integração
+terminam. Nenhum teste sai. O `ork eval` passa a chamar de cenários de comportamento as provas de falhas conhecidas
+da condução (`--so-cenarios`, `--cenario <id>`), e os filtros antigos deixam de existir.
+
+O #Noctum segue **em desenvolvimento, não anunciado**.
+
+### Alterado
+
+- **Cenários de comportamento no lugar do nome de pássaro:** o `ork eval` chama de cenários de comportamento as provas que reproduzem um jeito conhecido de a condução falhar. Os filtros passam a ser `--so-cenarios` e `--cenario <id>`, e os antigos deixam de existir. A saída, as docs, o check de CI `nucleo ork (build, testes, cenarios)` e os arquivos do núcleo usam o termo novo. No padrão de roadmap, o nível de exposição gradual passa a se chamar `Piloto/Gradual`, e a página que usa o nome antigo é apontada pelo `ork docs verificar`.
+
 - **Reserva de CPU devolvida e Classic estável — M5 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** depois que a varredura e a integração terminam, a lane hermética abre seu pool LPT até a capacidade da máquina, sem ultrapassar o teto do grupo e mantendo o fallback sob carga ou `steal`. Os testes concorrentes do Classic isolam o temporário do security scan, toleram somente o desaparecimento de uma entrada no GL3 e usam substitutos locais no A4. TAP, reporter, resultados, casos e asserções permanecem; a razão, a CPU e a eficiência aguardam três pares válidos da bancada, sem ganho antecipado neste registro.
 
 - **CPU de sistema nos testes caros restantes do Agile Check — M4 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** os arquivos Noctum de integração, máquinas, coordenação, ensaio e entrega, além de `rede`, criam uma vez por processo seus modelos de projeto Git, remoto, estado inicial e forja falsa, e entregam cópias isoladas a cada caso. Processos de sinais, PATH, rede e Docker, locks, concorrência e retomada continuam reais; nenhum caso, `skip` ou asserção foi retirado. A razão contra o Classic, a CPU e a eficiência seguem pendentes da bancada com três pares válidos, sem ganho antecipado neste registro.

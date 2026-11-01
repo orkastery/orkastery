@@ -1,18 +1,18 @@
 /**
- * Canarios da I-43: cada remocao so e dada como pronta junto do canario que prova que
+ * Cenarios da I-43: cada remocao so e dada como pronta junto do cenario que prova que
  * a falha evitada pelo mecanismo removido continua evitada por outra coisa.
  *
- * Remocao sem canario nao e simplificacao, e aposta. E a razao de este arquivo existir
+ * Remocao sem cenario nao e simplificacao, e aposta. E a razao de este arquivo existir
  * separado: o CHECK confere as cinco remocoes num lugar so, e o que cada uma perdeu
  * esta escrito ao lado do que a substitui.
  *
- * Os canarios rodam em sandbox git propria (`sandboxGit`), nunca contra o board vivo:
+ * Os cenarios rodam em sandbox git propria (`sandboxGit`), nunca contra o board vivo:
  * `raizDoEstado` manda o estado para a arvore principal mesmo de dentro de uma worktree
  * vinculada, entao qualquer conferencia feita "no projeto" leria as 137 threads reais
  * e viraria contagem de artefato vivo, que reprova sozinha quando a branch cresce.
  */
 
-import type { Canario } from './canarios';
+import type { Cenario } from './cenarios';
 import { sandboxGit, dirTemporario } from './sandbox';
 import * as fs from 'node:fs';
 import { instalarAdaptador, lerRecibo, textoDaInstalacao } from './hosts';
@@ -53,10 +53,10 @@ function pedidoLegado(modo: ModoAposentado): PedidoHitl {
  * `modo: look, profundidade: profunda` deixaria de validar EM SILENCIO: o produto
  * passaria a negar o que ele mesmo emitiu e assinou.
  *
- * O canario grava uma thread em modo aposentado direto no disco da sandbox, como uma
+ * O cenario grava uma thread em modo aposentado direto no disco da sandbox, como uma
  * thread de setembro esta gravada, e cobra que ela abra inteira.
  */
-const fxModoAposentadoLeitor: Canario = {
+const fxModoAposentadoLeitor: Cenario = {
   id: 'fx-modo-aposentado-leitor',
   sobre: 'thread e recibo gravados em modo aposentado continuam sendo lidos para sempre',
   precisaDeGit: true,
@@ -111,12 +111,12 @@ const fxModoAposentadoLeitor: Canario = {
  * resultado desta aposentadoria: o builder escreve `#Look` no pedido e recebe uma
  * thread em `#Auto` sem saber que trocou de regime de supervisao.
  *
- * O canario cobra as tres coisas juntas: a recusa acontece, ela e TIPADA, e ela nomeia
+ * O cenario cobra as tres coisas juntas: a recusa acontece, ela e TIPADA, e ela nomeia
  * um substituto que EXISTE. Toda #TAG do texto e um modo da matriz, e o substituto e
  * sempre de ciclo completo: com a I-42, o `#Fast` existe, mas nao substitui modo de
  * vigilancia maxima.
  */
-const fxModoAposentadoEscritor: Canario = {
+const fxModoAposentadoEscritor: Cenario = {
   id: 'fx-modo-aposentado-escritor',
   sobre: 'modo aposentado escrito em qualquer entrada recebe recusa tipada, nunca silencio',
   precisaDeGit: true,
@@ -179,17 +179,17 @@ const fxModoAposentadoEscritor: Canario = {
  * `Sessao adotada claude-bg <uuid>`, lixo do mecanismo de adocao de 07 a 14/09. Quem
  * pagava era quem nao sabia que existia flag, porque flag nenhuma existia.
  *
- * O canario roda em SANDBOX e nunca contra o board vivo, e isso nao e detalhe: M8 do
+ * O cenario roda em SANDBOX e nunca contra o board vivo, e isso nao e detalhe: M8 do
  * PLAN mediu que `ork thread list` rodado DENTRO desta worktree lista as 137 threads
  * da arvore principal, porque `raizDoEstado` resolve o estado pelo `git-common-dir`.
  * Conferir "no projeto" seria comparar 137 com 10 e afirmar contagem de artefato vivo,
  * que reprova sozinha quando a branch cresce. Aqui as contagens sao 1 e 2, fixadas
- * pelo proprio canario.
+ * pelo proprio cenario.
  *
  * A thread PAUSADA e a razao de o default ser "nao fechadas" e nao "so abertas", que
  * era o texto do GOAL: esconder a pausada seria esconder a que mais pede atencao.
  */
-const fxListagemAbertas: Canario = {
+const fxListagemAbertas: Cenario = {
   id: 'fx-listagem-abertas',
   sobre: 'o default de ork thread list mostra o que ainda pede atencao, e --todas abre o resto',
   precisaDeGit: true,
@@ -217,7 +217,7 @@ const fxListagemAbertas: Canario = {
         comTodas: todas.length,
         todasTemAFechada: todas.some((l) => l.id === fechada.id),
         // A soma bate: default + fechadas = tudo. Sem afirmar numero de artefato vivo,
-        // porque as tres threads sao criadas por este canario.
+        // porque as tres threads sao criadas por este cenario.
         somaBate: padrao.length + todas.filter((l) => l.status === 'fechada').length === todas.length,
         // E o texto avisa que escondeu algo, em vez de esconder em silencio.
         avisaQueEscondeu: texto.includes('fechada(s) omitida(s)'),
@@ -230,7 +230,7 @@ const fxListagemAbertas: Canario = {
  * fx-indice-reversao: a entrega revertida se rebaixa SOZINHA, pelo caminho que o
  * produto percorre de verdade.
  *
- * E o canario que libera a saida da fila de ratificacao de score, e ele prova a
+ * E o cenario que libera a saida da fila de ratificacao de score, e ele prova a
  * propriedade exata que a fila nao entregava: a fila tinha 13 entradas esperando nota
  * humana justamente porque lembrete nao converte em nota, e nenhuma delas dizia se a
  * entrega tinha sido desfeita depois.
@@ -238,7 +238,7 @@ const fxListagemAbertas: Canario = {
  * ELE NAO CHAMA A DETECCAO A MAO, e essa e a mudanca do GO-FIX 1. Na primeira versao
  * ele chamava `registrarReversaoDaEntrega` direto, que era justamente o passo que no
  * produto ninguem executava: o unico chamador era o COMECO de um `ork ship` seguinte
- * da mesma thread, e depois do MASTER nao ha ship seguinte. O canario ficava verde com
+ * da mesma thread, e depois do MASTER nao ha ship seguinte. O cenario ficava verde com
  * a propriedade quebrada, e o CHECK provou com `git revert` real que o produto gravava
  * score 5 e a justificativa "sem reversao" numa entrega desfeita.
  *
@@ -259,7 +259,7 @@ const fxListagemAbertas: Canario = {
  * Tambem se prova a IDEMPOTENCIA: o caminho roda em todo `ork master`, entao rodar de
  * novo nao pode rebaixar duas vezes. Sem isso, consultar a tabela afundaria a nota.
  */
-const fxIndiceReversao: Canario = {
+const fxIndiceReversao: Cenario = {
   id: 'fx-indice-reversao',
   sobre: 'entrega revertida depois do ship se rebaixa sozinha no caminho real do ork master, sem ninguem pontuar',
   precisaDeGit: true,
@@ -334,13 +334,13 @@ const fxIndiceReversao: Canario = {
  * de CHECK, e em 11 delas o CHECK rodou apenas em runtime que o GO tambem usou. As
  * quatro threads mais recentes sao todas `claude-bg` conferindo `claude-bg`.
  *
- * O canario prova os TRES lados, porque so o positivo nao provaria nada:
+ * O cenario prova os TRES lados, porque so o positivo nao provaria nada:
  *   - a thread que EXIGE recusa o CHECK no runtime do GO, com motivo tipado;
  *   - a mesma thread ACEITA o CHECK em outro runtime;
  *   - a thread que NAO exige despacha normalmente, entao a regra nao vazou para quem
  *     nao pediu por ela.
  */
-const fxCheckRuntimeCruzado: Canario = {
+const fxCheckRuntimeCruzado: Cenario = {
   id: 'fx-check-runtime-cruzado',
   sobre: 'thread que exige validacao cruzada recusa o CHECK no mesmo runtime que entregou',
   precisaDeGit: true,
@@ -396,7 +396,7 @@ const fxCheckRuntimeCruzado: Canario = {
  * objective da thread nao esta approved, com teste que cobre a recusa". Bonito, e
  * impossivel de reprovar.
  *
- * O canario prova as duas metades, porque criterio que so passa nao prova nada:
+ * O cenario prova as duas metades, porque criterio que so passa nao prova nada:
  *   - o criterio que o comando SUSTENTA passa e a thread verifica;
  *   - o criterio que o comando NAO sustenta reprova, e o veredito diz QUAL criterio
  *     falhou, pela alegacao que a claim carrega.
@@ -404,7 +404,7 @@ const fxCheckRuntimeCruzado: Canario = {
  * E prova a IDEMPOTENCIA: `ork verify` roda em toda fase, e uma claim por criterio
  * por rodada transformaria a lista num acumulador em vez de uma verificacao.
  */
-const fxDoneWhenExecutavel: Canario = {
+const fxDoneWhenExecutavel: Cenario = {
   id: 'fx-donewhen-executavel',
   sobre: 'criterio de pronto executavel reprova quando o comando falha, e o veredito o nomeia',
   precisaDeGit: true,
@@ -455,21 +455,21 @@ const fxDoneWhenExecutavel: Canario = {
  * a copia. Trocar uma recusa barulhenta por nada seria trocar investigacao de
  * madrugada por defeito que ninguem ve.
  *
- * O que muda e o que BARRA, nao o que DETECTA. O canario cobra os dois lados:
+ * O que muda e o que BARRA, nao o que DETECTA. O cenario cobra os dois lados:
  *   - a copia editada e detectada, NOMEADA, e classificada como `copia-editada`;
  *   - a divergencia segura (`catalogo-andou`) resolve sozinha e nao vira decisao;
  *   - a saida traz o `diff` do arquivo e um caminho de UM comando, com o `--dir` em
  *     uso repetido. A linha antiga mandava rodar `--force` SEM o `--dir`, e rodar o
  *     que estava na tela instalaria no lugar errado.
  */
-const fxAdapterEditadoDetectado: Canario = {
+const fxAdapterEditadoDetectado: Cenario = {
   id: 'fx-adapter-editado-detectado',
   sobre: 'copia de adapter editada fora do catalogo continua detectada e nomeada, com saida de um comando',
   precisaDeGit: false,
   rodar: (ctx) => {
     const destino = dirTemporario('adapter-editado');
     try {
-      const comum = { projeto: destino, dir: '.', catalogo: ctx.catalogo, versao: '0.0.0-canario' } as const;
+      const comum = { projeto: destino, dir: '.', catalogo: ctx.catalogo, versao: '0.0.0-cenario' } as const;
 
       // 1. Instalacao limpa: nasce o recibo com o sha de cada arquivo.
       const primeira = instalarAdaptador('hermes', comum);
@@ -513,7 +513,7 @@ const fxAdapterEditadoDetectado: Canario = {
   },
 };
 
-export const CANARIOS_I43: readonly Canario[] = [
+export const CENARIOS_I43: readonly Cenario[] = [
   fxModoAposentadoLeitor,
   fxModoAposentadoEscritor,
   fxListagemAbertas,

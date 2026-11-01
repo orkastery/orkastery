@@ -33,7 +33,7 @@ flowchart LR
 | 6 | A suite roda no HEAD real, no diretorio de trabalho da thread. Passagem relatada por agente nao e passagem. | `ork verify <thread>` reexecuta os comandos do manifesto e as claims, e carimba o commit real. |
 | 7 | Nenhum teste foi desligado, marcado para pular ou afrouxado para fechar a entrega. Pular teste e mudanca de escopo com registro, nunca ajuste de rota silencioso. | Diff sobre os arquivos de teste, procurando teste removido, `skip` e assercao relaxada. |
 | 8 | Nenhuma assercao foi trocada pelo valor que o codigo produz hoje sem que alguem tenha dito por que o valor certo mudou. Ajustar o esperado ao observado e a forma mais comum de transformar defeito em contrato. | Diff das assercoes contra a intencao declarada no PLAN. |
-| 9 | Teste nao depende de rede, de credencial paga nem de relogio de parede. Fixture deterministica e o padrao; o que precisa de mundo externo fica fora do gate e e declarado. | Rodar a suite offline. No `ork`, os canarios de `ork eval` montam repositorio git temporario e nao tocam a rede. |
+| 9 | Teste nao depende de rede, de credencial paga nem de relogio de parede. Fixture deterministica e o padrao; o que precisa de mundo externo fica fora do gate e e declarado. | Rodar a suite offline. No `ork`, os cenarios de `ork eval` montam repositorio git temporario e nao tocam a rede. |
 | 10 | Teste nao depende de outro teste nem da ordem de execucao. Estado compartilhado entre casos e defeito, mesmo quando a suite esta verde hoje. | Rodar em ordem embaralhada ou isoladamente o caso suspeito. |
 
 ## Contagem e cobertura

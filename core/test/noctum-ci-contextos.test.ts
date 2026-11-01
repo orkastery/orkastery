@@ -119,6 +119,6 @@ test('PC5: o manifesto recusa ci.contexts vazio, com item que não é texto ou c
 test('PC6: o manifesto deste repositório exige os quatro contextos da proteção da main e mantém o ci.context do ork ship', () => {
   const k = exigirManifesto(path.resolve(__dirname, '../../..'));
   assert.equal(k.manifesto.ci.context, 'ork-verify');
-  assert.deepEqual(k.manifesto.ci.contexts, [DOCS, 'nucleo ork (build, testes, canarios) (20)', 'nucleo ork (build, testes, canarios) (22)',
+  assert.deepEqual(k.manifesto.ci.contexts, [DOCS, 'nucleo ork (build, testes, cenarios) (20)', 'nucleo ork (build, testes, cenarios) (22)',
     'ork-verify']);
 });

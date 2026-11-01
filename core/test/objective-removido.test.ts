@@ -19,7 +19,7 @@ import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { projetoTemporario } from './apoio';
 import { estadoParaDespacho } from '../src/phase';
-import { CANARIOS } from '../src/canarios';
+import { CENARIOS } from '../src/cenarios';
 import { lerThread, novaThread } from '../src/thread';
 
 const CLI = path.resolve(__dirname, '../src/index.js');
@@ -58,8 +58,8 @@ test('thread sem creationOrigin despacha normalmente depois da remocao', () => {
   } finally { p.limpar(); }
 });
 
-test('D9 CANCELADA: o canario FICA, porque o sujeito dele continua vivo', () => {
-  const ids = CANARIOS.map((c) => c.id);
+test('D9 CANCELADA: o cenario FICA, porque o sujeito dele continua vivo', () => {
+  const ids = CENARIOS.map((c) => c.id);
 
   // D9 mandava tirar `fx-objective-oscillation`, justificando que "sem envelope nao ha
   // revisao nem objetivo: a propriedade deixa de existir junto com o mecanismo".
@@ -67,19 +67,19 @@ test('D9 CANCELADA: o canario FICA, porque o sujeito dele continua vivo', () => 
   // A premissa NAO se sustentou na execucao. O que saiu foi o COMANDO `ork objective`;
   // o modulo `objective.ts` FICA, porque `creation-operation.ts`, `portfolio-context.ts`
   // e `maestro-sources.ts` dependem dele, e `createObjective`/`reviseObjective`
-  // continuam exportados. O canario continua tendo sujeito: ele exercita a guarda de
+  // continuam exportados. O cenario continua tendo sujeito: ele exercita a guarda de
   // oscilacao de codigo VIVO.
   //
   // Tira-lo seria remover cobertura de codigo que permanece, que e o oposto do que a
   // I-43 existe para fazer. A remocao foi cancelada com motivo escrito, e este teste
   // trava a decisao para ela nao ser desfeita por distracao.
   assert.ok(ids.includes('fx-objective-oscillation'),
-    'o canario fica enquanto createObjective/reviseObjective existirem');
+    'o cenario fica enquanto createObjective/reviseObjective existirem');
 
-  // As vigas que SAIRAM VIVAS tem canario proprio, e e isso que libera a remocao do
+  // As vigas que SAIRAM VIVAS tem cenario proprio, e e isso que libera a remocao do
   // comando.
-  assert.ok(ids.includes('fx-check-runtime-cruzado'), 'a viga (a) precisa de canario');
-  assert.ok(ids.includes('fx-donewhen-executavel'), 'a viga (b) precisa de canario');
+  assert.ok(ids.includes('fx-check-runtime-cruzado'), 'a viga (a) precisa de cenario');
+  assert.ok(ids.includes('fx-donewhen-executavel'), 'a viga (b) precisa de cenario');
 });
 
 test('as duas vigas continuam existindo, agora como propriedade de thread comum', () => {

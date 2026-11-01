@@ -1,9 +1,9 @@
 /**
- * RM-057 (fatia 2): o canario do incidente de 01/10/2026.
+ * RM-057 (fatia 2): o cenario do incidente de 01/10/2026.
  *
  * Na noite de 01 para 02/10 o condutor recebeu, colado, o pedido do dono com push e merge
  * autorizados ate um horario, parou para pedir um "confirmo" em texto livre e a fabrica ficou mais
- * de 10 h sem produzir. O canario refaz a conducao inteira em sandbox SIMULADO e exige que o mesmo
+ * de 10 h sem produzir. O cenario refaz a conducao inteira em sandbox SIMULADO e exige que o mesmo
  * pedido colado siga sem parar:
  *
  *   1. o modo sai da #TAG do texto colado (`#Auto`), pelo nucleo;
@@ -19,7 +19,7 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { Canario } from './canarios';
+import type { Cenario } from './cenarios';
 import { registrarDecisao } from './decisao-autonoma';
 import { CONTRATO_HITL_V2, PerguntaAoDono, SelecaoRecusada } from './hitl-contract';
 import { abrirPedidoGate, registrarPedidoHitl } from './hitl-gates';
@@ -46,7 +46,7 @@ export const PROMPTS_DE_CONDUCAO = [
   'adapters/openclaw/dist/index.js',
 ] as const;
 
-export const fxPedidoColado: Canario = {
+export const fxPedidoColado: Cenario = {
   id: 'fx-pedido-colado',
   sobre: 'SIMULADO: o pedido colado com autorização explícita segue sem parar (incidente de 01/10, RM-057)',
   precisaDeGit: true,
@@ -64,7 +64,7 @@ export const fxPedidoColado: Canario = {
       const decisao = registrarDecisao(s.dir, t.id, {
         decidido: 'Seguir com push e merge dentro da autorização colada', porque: 'o dono autorizou até 02/10 às 12h',
         comoMudar: 'reverter o merge', custoDeReverter: { agora: 'um revert', depois: 'um revert' },
-        criterio: { tipo: 'ledger', referencia: `${t.id}#evento:1` }, quemDecidiu: 'canario-SIMULADO', evidencia: 'pedido colado',
+        criterio: { tipo: 'ledger', referencia: `${t.id}#evento:1` }, quemDecidiu: 'cenario-SIMULADO', evidencia: 'pedido colado',
       });
 
       const confirmo: PerguntaAoDono = {

@@ -96,7 +96,7 @@ export function montarClaim(entrada: {
     criadoEm: agora(),
     estado: verificar.length > 0 ? 'pendente' : 'nao-verificavel',
     ...(entrada.origem ? { origem: entrada.origem } : {}),
-    // I-53 (RM-037, P6): a mesma regra para CLI, MCP, canarios e auditor, porque todos passam aqui.
+    // I-53 (RM-037, P6): a mesma regra para CLI, MCP, cenarios e auditor, porque todos passam aqui.
     lint: analisarComandos(verificar),
   };
 }

@@ -1,7 +1,7 @@
 {
   "id": "fx-codex-dry",
   "sobre": "O setup do bloco leva o despacho governado ao controller Codex app-server via stdio em dry-run; o default continua claude-bg.",
-  "porque": "Novos despachos governados precisam de entrada bidirecional e controller próprio. O canário exige o comando app-server via stdio, preserva runtime/modelo/esforço e garante que dry-run não despacha. Provas de recepção nativa são separadas.",
+  "porque": "Novos despachos governados precisam de entrada bidirecional e controller próprio. O cenário exige o comando app-server via stdio, preserva runtime/modelo/esforço e garante que dry-run não despacha. Provas de recepção nativa são separadas.",
   "precisa": [
     "git"
   ],

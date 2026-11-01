@@ -717,9 +717,9 @@ A project template (`prompts/<id>.md`) overrides the built-in one with the same 
 
 | Command | What it does |
 | --- | --- |
-| `ork eval [--skill S] [--canario C] [--so-canarios] [--so-skills] [--json]` | Behavior canaries and skill corpus from the catalog of the running package; a catalog found from the cwd that is not the package's own is refused with `eval.catalogo-alheio` (RM-047) |
+| `ork eval [--skill S] [--cenario C] [--so-cenarios] [--so-skills] [--json]` | Behavior scenarios and skill corpus from the catalog of the running package; a catalog found from the cwd that is not the package's own is refused with `eval.catalogo-alheio` (RM-047) |
 
-Exits non-zero on any failure. Canaries: `fx-happy`, `fx-hallucination`,
+Exits non-zero on any failure. Scenarios: `fx-happy`, `fx-hallucination`,
 `fx-stale-base`, `fx-wiki-destroy`, `fx-schema-drift`, `fx-concurrency`.
 
 ---
