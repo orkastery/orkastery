@@ -6,6 +6,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Alterado
+
+- **Grok Build com lista fechada de comandos — F5a ([RM-067](docs/roadmap/RM-067-grok-build-homologado.md)):** o despacho headless usa `dontAsk` e libera somente `git`, `node`, `npm`, `ork`, `grep`, `find`, `ls` e `cat`, além das regras MCP já enumeradas. Comando fora da lista é negado sem pergunta; a sessão pode continuar, e um fim causado pela negação vira bloqueio tipado com o comando na evidência. O sandbox continua `workspace`, sem `--always-approve`, `--yolo`, `bypassPermissions` ou `danger-full-access`.
+
 ## [0.6.4] - 2026-11-01
 
 O Agile Check reserva CPU pela medida de cada peça e reaproveita a varredura do Semgrep quando as regras não mudam;

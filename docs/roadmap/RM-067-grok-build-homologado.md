@@ -40,9 +40,9 @@ sdlc:
 
 **Pedido do dono de 19/10/2026:** "e também adicione o Grok Build, o agente CLI do Grok". Prioridade do dono em 25/10/2026: "Priorize RM-067 Grok Build além das que já estão em andamento".
 
-**Estado:** F1 a F4c entregues, com testes sobre um `grok` simulado, porque a máquina não tem o runtime: F1 e F2 na thread `ork-grokbuild`, F3 na `ork-rm067f3perfi`, F4 na `ork-rm067f4setup`, o host MCP do `grok` (F4b) na `ork-rm067f4bhost` e o servidor MCP do `ork` fora do sandbox do `grok` (F4c) na `ork-rm067f4cmcpd`.
+**Estado:** F1 a F4c entregues, e a F5a implementa a lista fechada de comandos da fase, todas com testes sobre um `grok` simulado. F1 e F2 estão na thread `ork-grokbuild`, F3 na `ork-rm067f3perfi`, F4 na `ork-rm067f4setup`, o host MCP do `grok` (F4b) na `ork-rm067f4bhost`, o servidor MCP do `ork` fora do sandbox do `grok` (F4c) na `ork-rm067f4cmcpd` e a F5a na `ork-rm067f5agrok`.
 
-O dono decidiu a D1 em 27/10/2026 (alternativa b, a assinatura agora) e a D2 no mesmo dia (alternativa a, o servidor do `ork` fora do sandbox). A F5 fica para depois, e meta, janela e piloto continuam a definir pelo dono. O que existe e o que falta estão em "Estado com evidências".
+O dono decidiu a D1 em 27/10/2026 (alternativa b, a assinatura agora), a D2 no mesmo dia (alternativa a, o servidor do `ork` fora do sandbox) e a D3 em 31/10/2026 (alternativa a, lista fechada de comandos sem pergunta). O ensaio real F5b fica para depois do merge, e meta, janela e piloto continuam a definir pelo dono. O que existe e o que falta estão em "Estado com evidências".
 
 **Decisão de condução:** uma página por runtime, porque cada um avança no próprio ritmo. O Google Antigravity tem a [RM-066](RM-066-google-antigravity-homologado.md).
 
@@ -95,7 +95,8 @@ As colunas "o que o runtime oferece" citam a fonte entre parênteses (lista em "
 | F2 Fim da sessão, transcrição e watcher | Fonte canônica do fim (evento `end` e `updates.jsonl` da sessão), sensores e watcher próprios do `grok` | Teste com stream e diretório de sessão simulados: o `end` com `stopReason` de fim normal vira um único `phase_result`; saída 1 com objeto `error` vira parada tipada; saída 130 ou 143 vira interrupção, com retomada por `-r <id>`; stream cortado sem `end` termina como `runtime.unavailable` depois do prazo |
 | F3 Perfis, login e cota esgotada | `grok` em `ork accounts add --runtime`, com `GROK_HOME` por perfil; login pelo próprio CLI; sinal tipado de cota esgotada; entrada na escada e no fallback | Teste com dois perfis simulados: esgotar o primeiro move a thread para o segundo; perfil de outro estado não recebe despacho; o `ork` não lê nem copia `auth.json`. A fatia só começa com a decisão D1 registrada (registrada em 27/10/2026) |
 | F4 Setup, sandbox, MCP, documentação e onboarding | `ork setup` com o `grok`; mapeamento da postura de sandbox; `ork mcp install --host` para o `grok`; confiança da worktree; playbook; guia de onboarding | Teste: a postura mais frouxa sem confirmação recusa com `runtime.sandbox-nao-confirmado`; o MCP instalado traz só as ferramentas enumeradas; o `AGENTS.md` da worktree é carregado na partida headless; `ork docs verificar` verde com a página do runtime; o onboarding lista o `grok` com o modo de autenticação decidido |
-| F5 Homologação com ensaio real | Uma thread `#Fast` de uma fase conduzida de ponta a ponta pelo `grok`, em credencial que o dono autoriza no modo decidido | O ensaio fecha com a sessão vista pelo watcher, claims verificados, `ork verify` verde e o ledger sem auto-relato como prova. Se o fornecedor não autorizar o modo escolhido, a fatia para e volta ao dono |
+| F5a Permissões de terminal | O despacho headless usa `dontAsk` com uma lista fechada de comandos da fase, sem ampliar o sandbox nem pedir aprovação | O `grok` simulado executa comando da lista, nega comando fora dela e continua; se a negação encerrar o turno, o watcher grava bloqueio tipado com o comando na evidência |
+| F5b Homologação com ensaio real | Uma thread `#Fast` de uma fase conduzida de ponta a ponta pelo `grok`, em credencial que o dono autoriza no modo decidido | O ensaio fecha com a sessão vista pelo watcher, claims verificados, `ork verify` verde e o ledger sem auto-relato como prova. Se o fornecedor não autorizar o modo escolhido, a fatia para e volta ao dono |
 
 - **Premissas / riscos / mitigação:**
   - **Política de uso:** ela proíbe acesso aos serviços por meios automatizados "não autorizados", enquanto a documentação promove o headless e o ACP para scripts e orquestradores (D1). Mitigação: a decisão foi do dono (D1 b, 27/10/2026), que aceitou o risco; se o fornecedor não autorizar o modo, a F5 para e volta ao dono.
@@ -126,6 +127,16 @@ As colunas "o que o runtime oferece" citam a fonte entre parênteses (lista em "
 | c | O `grok` só em fases de leitura | O `grok` não grava artefato, commit nem entrega pelo núcleo |
 
 **Decisão do dono, 27/10/2026, no terminal (resposta "3.a"): alternativa a, o MCP do `ork` fora do sandbox do `grok`.** O `grok` continua no `workspace`, sem `danger-full-access`, `--yolo` ou `bypassPermissions`. Entregue na F4c (thread `ork-rm067f4cmcpd`), abaixo.
+
+**D3. Como o `grok` headless executa os comandos de terminal da fase sem uma tela de aprovação.** O ensaio real de 29/10/2026 mostrou que um `find` sem aprovação disponível cancelou a sessão (`stopReason: cancelled`) e levou a fase a `human.pending`. A escolha precisa manter o sandbox `workspace` e a D2 intacta.
+
+| Alternativa | O que significa | Custo e risco |
+| --- | --- | --- |
+| **a (escolhida)** | `--permission-mode dontAsk` e regras `--allow` para `git`, `node`, `npm`, `ork`, `grep`, `find`, `ls` e `cat` | Lista pequena para manter; comando não listado é negado, entregue ao modelo e não pede aprovação |
+| b | `--always-approve` com o sandbox `workspace` | Aprova qualquer ferramenta antes do limite do sandbox e fica perto do bypass que a D2 vetou |
+| c | Usar o `grok` somente em fases sem terminal | Evita a aprovação, mas retira o runtime do ciclo de implementação e verificação |
+
+**Decisão do dono, 31/10/2026, no terminal (resposta "4A"): alternativa a.** As alternativas b e c ficam descartadas. O despacho usa a sintaxe `Bash(<comando> *)` documentada no guia `22-permissions-and-safety`, mantém as regras atuais do MCP e nunca usa `--always-approve`, `--yolo`, `bypassPermissions` nem `danger-full-access`.
 
 **Decisão da condutora, registrada no ledger:** uma página por runtime (RM-066 e RM-067), sem fatia comum, porque cada um avança no próprio ritmo.
 
@@ -221,11 +232,11 @@ As provas usam o mesmo `grok` simulado, agora com um cliente MCP como o do guia 
 
 - **Cota esgotada tipada:** o formato estruturado do erro de cota do `grok`, lido no ensaio real (F5); só com ele o `grok` entra na escada automática.
 - **Conferência de login:** um comando do próprio `grok` que diga o login sem o `ork` ler o `auth.json`, se o fornecedor documentar um.
-- **MCP no ensaio real:** a conexão do `grok` de verdade ao servidor do `ork` pela `url`, no `workspace` e no `read-only` do PLAN (o guia só bloqueia a rede dos filhos, e o cliente HTTP do MCP é do próprio processo), se ele abre fluxo `GET` (o servidor responde 405, como a especificação do Streamable HTTP permite) se, com o token no `bearer_token_env_var`, ele vai direto ao servidor sem a descoberta OAuth (o guia só diz isso do `bearer_token_file`) se a conexão sai do próprio processo dele, como o guia indica (fora da árvore do `grok`, o servidor recusa), e se ele deixa ler os próprios descritores (não despejável, a conferência só acha os donos que se leem).
+- **MCP no ensaio real:** a conexão do `grok` de verdade ao servidor do `ork` pela `url`, no `workspace` e no `read-only` do PLAN. O ensaio F5b confere o fluxo HTTP, o token, a árvore de processos e a leitura dos descritores sem ampliar permissões.
 - **Thread sem worktree própria no fallback:** num projeto com o MCP, o `grok` exige a worktree própria da thread (F4b), e a capacidade de destino é por projeto: a thread sem ela que cair no `grok` pelo fallback recusa com `runtime.context.worktree`, e a rotação segue para o próximo destino. A capacidade por thread fica para uma fatia própria (decisão no ledger da `ork-rm067f4cmcpd`).
 - **`.mcp.json` do projeto:** fonte separada do `grok`, sem variável que a desligue (G16). O `orkastery` da config da worktree vence pelo nome, nenhuma ferramenta de outro servidor entra no `--allow`, e a F5 confirma se o headless recusa a ferramenta fora dele. A F4c não mudou isso: o único ajuste documentado (`grok mcp disable`, que grava `disabled_mcp_servers`) mora na config do usuário, que o `ork` não edita.
 - **Config da worktree entre partidas:** no perfil `workspace` a sessão escreve no cwd, então pode mudar o `.grok/config.toml` que a retomada manual reusa. Desde a F4c, a retomada manual roda sem o MCP do `ork` (o servidor terminou com a sessão), o `ork retry` sobe outro servidor e reescreve a config, e a retomada pronta para colar avisa; conferir o arquivo pelo hash gravado no despacho, numa retomada pelo próprio `ork` (`-r`), fica para a F5, com essa retomada.
-- **F5:** o ensaio real de homologação, que também confirma o `-s` com o id do `ork`, o formato do stream, o comportamento sem aprovação automática e a conexão do MCP pela `url`.
+- **F5b:** o ensaio real de homologação, depois do merge. Ele confirma o `-s` com o id do `ork`, o formato do stream, a lista fechada sem pergunta e a conexão do MCP pela `url`.
 - **Lacunas menores:** a retomada automática pelo `ork retry` com `-r`; o status do roadmap e a prova de vida do retry ainda não leem a sessão `grok` (quem impede a segunda sessão na worktree é o lease da condução, que só solta com o resultado); o pedido de impedimento do dono ainda manda o binário `claude` para o `grok`; a medição de consumo do #Noctum.
 
 ### Fontes
@@ -258,7 +269,7 @@ Pontos que a página não confirma:
 
 - **RACI (R / A / C / I):** R: condutor da thread `ork-runtimesnovo` para a página, da thread `ork-grokbuild` para F1 e F2, da thread `ork-rm067f3perfi` para F3, da thread `ork-rm067f4setup` para a F4 da thread `ork-rm067f4bhost` para a F4b e da thread `ork-rm067f4cmcpd` para a F4c; A: Julio; C: A definir; I: A definir.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** a página foi redigida por agente em #Fast, a partir do pedido do dono e das fontes citadas; F1 e F2 foram implementadas por agente em #Auto na thread `ork-grokbuild`, F3 em #Fast na thread `ork-rm067f3perfi`, a F4 em #Fast na thread `ork-rm067f4setup` a F4b em #Auto na thread `ork-rm067f4bhost` e a F4c em #Auto na thread `ork-rm067f4cmcpd`, com testes sobre o `grok` simulado; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** Julio define meta, janela e piloto e o modelo padrão do `grok`, antes da F5. Sem prazo definido.
+- **Próxima ação, responsável e prazo:** a condução executa a F5b depois do merge. Julio ainda define meta, janela, piloto e o modelo padrão do `grok`; sem prazo definido.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -270,3 +281,6 @@ Pontos que a página não confirma:
 | 2026-10-27 | F4b entregue na thread `ork-rm067f4bhost`: host MCP do `grok` (instalação, servidor só da sessão filha, config da worktree com o `--allow` das ferramentas enumeradas), o `grok` no `ork_phase_run` e na tela do setup, e a prova do `ork` sob o lock; o sandbox do `grok` vale também para o MCP, que só grava com o perfil `off` | Pedido do dono de 27/10/2026; `core/test/rm067-grok-mcp.test.ts`; guia `18-sandbox` (G17) | Julio |
 | 2026-10-27 | D2 decidida: alternativa a, o MCP do `ork` fora do sandbox do `grok`; o `grok` segue no `workspace` | Resposta "3.a" do dono no terminal, em 27/10/2026 | Julio |
 | 2026-10-27 | F4c entregue na thread `ork-rm067f4cmcpd`: o servidor MCP do `ork` fora do sandbox do `grok` (Streamable HTTP no loopback, token por despacho, só as ferramentas do despacho, vida presa à sessão), a fase no `workspace` fechando com prova e o `grok` de volta ao fallback de um projeto com o MCP | Pedido do dono de 27/10/2026; `core/test/rm067-grok-mcp-externo.test.ts`; `core/test/rm067-grok-landlock.test.ts`; guia `07-mcp-servers` (G16) | Julio |
+| 2026-10-29 | O ensaio real sem tela parou quando a fase pediu `find`, porque não havia canal de aprovação; a homologação foi dividida em F5a e F5b | Stream do `grok` com `stopReason: cancelled` e fase em `human.pending` | Julio |
+| 2026-10-31 | D3 decidida: alternativa a, lista fechada de comandos com `dontAsk`, sem `--always-approve` e sem ampliar o sandbox | Resposta "4A" do dono no terminal; guia `22-permissions-and-safety`; `grok --help` | Julio |
+| 2026-11-01 | F5a implementada na thread `ork-rm067f5agrok`: regras para os comandos do ciclo, negação que permite continuar e bloqueio tipado quando a negação encerra a sessão | Testes do `grok` simulado, watcher e mutantes da F5a | sessão executora GO (Codex) |
