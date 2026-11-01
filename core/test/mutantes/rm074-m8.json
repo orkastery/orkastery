@@ -1,0 +1,42 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-074 M8: a sonda ignora um pico, o plano degrada por capacidade e a peça distingue degradação de fallback.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "um pico isolado volta a decidir a sonda",
+      "modulo": "agendador-cpu",
+      "de": "return validas.length % 2 ? validas[meio] : (validas[meio - 1] + validas[meio]) / 2;",
+      "para": "return Math.max(...validas);",
+      "teste": "check-agil",
+      "nome": "^AG44:"
+    },
+    {
+      "id": "M2",
+      "descricao": "a degradação volta a ser tudo ou nada",
+      "modulo": "agendador-cpu",
+      "de": "const saturado = capacidadeEfetiva < exports.MINIMO_ESTRUTURAL_DO_GRUPO;",
+      "para": "const saturado = capacidadeEfetiva < cpus;",
+      "teste": "check-agil",
+      "nome": "^AG44:"
+    },
+    {
+      "id": "M3",
+      "descricao": "o mínimo estrutural do grupo é ignorado",
+      "modulo": "agendador-cpu",
+      "de": "const saturado = capacidadeEfetiva < exports.MINIMO_ESTRUTURAL_DO_GRUPO;",
+      "para": "const saturado = false;",
+      "teste": "check-agil",
+      "nome": "^AG44:"
+    },
+    {
+      "id": "M4",
+      "descricao": "a peça degradada volta a ser reportada como agile",
+      "modulo": "verify",
+      "de": "return { peca: 'agendador-cpu', estado: p.estado,",
+      "para": "return { peca: 'agendador-cpu', estado: p.estado === 'degradado' ? 'agile' : p.estado,",
+      "teste": "check-agil",
+      "nome": "^AG45:"
+    }
+  ]
+}

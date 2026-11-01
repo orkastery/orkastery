@@ -20,7 +20,7 @@ import { cargaDoProcLoadavg, MINIMO_ESTRUTURAL_DO_GRUPO, paredeAgileSimulada, pa
 import { lerLedger } from '../src/ledger';
 import { carregarManifesto } from '../src/manifest';
 import { dirThread, novaThread } from '../src/thread';
-import { gravarBaseline, identidadeDoProduto, semVereditoPorTempo, textoDoVerify, vereditoDaBaseline, verificar,
+import { gravarBaseline, identidadeDoProduto, pecaDoAgendadorCpu, semVereditoPorTempo, textoDoVerify, vereditoDaBaseline, verificar,
   ExecutorVerify } from '../src/verify';
 import { comLocale } from '../src/locale';
 import type { ResultadoDeComando } from '../src/types';
@@ -376,12 +376,15 @@ test('AG18: o texto do verify diz o reaproveitamento, o grupo e cada peca em fal
     adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'x', verificar: ['echo passo-a && echo passo-b && echo c'] });
     const g = gravador((_nome, comando) => (comando === 'echo rapido' ? { ok: false, code: 127, causa: 'nao-encontrado' } : {}));
     const r = verificar(p.carregado, t.id, { executor: g.executor });
+    r.agile!.pecas.push({ peca: 'agendador-cpu', estado: 'degradado', motivo: 'capacidade 7/8 CPUs' });
     const texto = textoDoVerify(r);
     assert.match(texto, /\n {2}agile {7}1 comando\(s\) de claim contra o produto do preparo, 0 inteiro\(s\); grupo em paralelo com as lanes h\n/);
     assert.match(texto, /\n {2}fallback {4}preparo: saiu com codigo 127: echo rapido; rodou verify\.preparo\n/);
+    assert.match(texto, /\n {2}degradado {3}agendador-cpu: capacidade 7\/8 CPUs; preservou o plano paralelo\n/);
     const ingles = comLocale('en', () => textoDoVerify(r));
     assert.match(ingles, /\n {2}agile {7}1 claim command\(s\) against the prepared product, 0 in full; parallel group with lanes h\n/);
     assert.match(ingles, /\n {2}fallback {4}preparo: saiu com codigo 127: echo rapido; ran verify\.preparo\n/);
+    assert.match(ingles, /\n {2}degraded {4}agendador-cpu: capacidade 7\/8 CPUs; kept the parallel plan\n/);
   } finally { p.limpar(); }
 });
 
@@ -1133,6 +1136,11 @@ test('AG45: saturacao medida pelo verify ordena hermetica, varredura e integraca
     assert.equal(agendador.estado, 'fallback');
     assert.match(String(agendador.motivo), /\/proc\/loadavg.*\/proc\/stat.*varredura e integracao depois dela/);
     assert.equal(agendador.fallback, 'ordem do Classic para hermetica, varredura e integracao');
+    const degradado = pecaDoAgendadorCpu(planejarCpuDoGrupo(8,
+      resumirMedicaoCpuDoGrupo([0, 0, 0], [12, 12, 12])));
+    assert.equal(degradado.estado, 'degradado');
+    assert.equal(degradado.fallback, undefined);
+    assert.match(String(degradado.motivo), /capacidade 7\/8 CPU\(s\).*amostras \[12, 12, 12\], mediana 12%/);
   } finally { p.limpar(); }
 });
 

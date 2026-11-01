@@ -56,7 +56,7 @@ import { comandosNoAgile, ComandosDoAgile, executorDaClaimNoAgile, executorDaCla
   porQueDasLanes, prepararNoAgile, PreparoVigente, refazerPreparo, RefazerPreparo, RelatorioDoCheck,
   resultadosDasLanes } from './check-agil';
 import { esperaDoGrupo, rodarEmParalelo } from './check-paralelo';
-import { ENV_CPUS_DA_LANE, ENV_CPUS_DOCKER, MedicaoCpuDoGrupo } from './agendador-cpu';
+import { ENV_CPUS_DA_LANE, ENV_CPUS_DOCKER, MedicaoCpuDoGrupo, PlanoCpuDoGrupo } from './agendador-cpu';
 import { changelogAplicavel, checarChangelog } from './changelog-check';
 
 /** Teto de tempo de um comando de verificacao (build e suite completa cabem). */
@@ -441,6 +441,27 @@ function soAVarreduraEAsLanesComRelatorio(comRelatorio: ExecutorVerify, semRelat
  * cada um com o prazo e o ambiente que o `executorDoManifesto` daria a ele (o do scan com o prazo interno), o steal medido
  * na janela do grupo e a conducao renovada com o maior prazo. Com executor injetado (MCP, testes), um por vez, por ele.
  */
+/** A evidencia publica do plano: estado, capacidade usada, amostras e, no fallback, o equivalente do Classic. */
+export function pecaDoAgendadorCpu(p: PlanoCpuDoGrupo): PecaDoAgile {
+  const medida = p.medicaoCpuIntegracao;
+  const evidencia = medida
+    ? `; CPU da integracao: arvore ${Math.round(medida.arvoreMs)} ms + conteineres ${Math.round(medida.containersMs)} ms` +
+      ` = ${Math.round(medida.totalMs)} ms, pico ${medida.picoCpus ?? 'indisponivel'} CPU, ` +
+      (medida.completa ? 'medida completa' : medida.anomalia
+        ? `medida anomala (${medida.anomalia})`
+        : `medida incompleta (${medida.motivosDosAusentes.map((x) => `${x.container}: ${x.motivo}`).join('; ')})`)
+    : '';
+  return { peca: 'agendador-cpu', estado: p.estado,
+    motivo: p.saturado
+      ? `${p.motivo}; hermetica com ${p.cpusHermetica}/${p.capacidadeEfetiva} CPUs, varredura e integracao depois dela`
+      : `${p.motivo}; ${p.cpusHermetica}/${p.capacidadeEfetiva} CPUs na hermetica; depois da varredura ` +
+        `${p.cpusHermeticaAposVarredura} e depois da integracao ${p.cpusHermeticaAposReserva}; reserva da integracao ` +
+        `${p.fonteCpusIntegracao} (${p.cpusIntegracao} CPU), ` +
+        `${p.integracaoEmParalelo ? 'em paralelo com a varredura' : 'encadeada depois da varredura'}; ` +
+        `conteineres com ${p.cpusPorContainer} CPU${evidencia}`,
+    ...(p.saturado ? { fallback: 'ordem do Classic para hermetica, varredura e integracao' } : {}) };
+}
+
 function executorDoGrupo(manifesto: Manifesto, ambienteDaRodada: Record<string, string>, instabilidade: RegistroLido,
   leitor: LeitorProcStat, conducao: ConducaoTomada, injetado?: ExecutorVerify,
   medicaoCpu?: MedicaoCpuDoGrupo): ExecutorDeGrupo {
@@ -461,23 +482,7 @@ function executorDoGrupo(manifesto: Manifesto, ambienteDaRodada: Record<string, 
     const janela = abrirJanela(leitor);
     const processos = rodarEmParalelo(paraOAuxiliar, ambienteDoVerify(), medicaoCpu ? { medicaoCpu } : {});
     if (processos.agendamentoCpu) {
-      const p = processos.agendamentoCpu;
-      const medida = p.medicaoCpuIntegracao;
-      const evidencia = medida
-        ? `; CPU da integracao: arvore ${Math.round(medida.arvoreMs)} ms + conteineres ${Math.round(medida.containersMs)} ms` +
-          ` = ${Math.round(medida.totalMs)} ms, pico ${medida.picoCpus ?? 'indisponivel'} CPU, ` +
-          (medida.completa ? 'medida completa' : medida.anomalia
-            ? `medida anomala (${medida.anomalia})`
-            : `medida incompleta (${medida.motivosDosAusentes.map((x) => `${x.container}: ${x.motivo}`).join('; ')})`)
-        : '';
-      executar.pecas = [{ peca: 'agendador-cpu', estado: p.saturado ? 'fallback' : 'agile',
-        motivo: p.saturado
-          ? `${p.motivo}; hermetica com ${p.cpusHermetica}/${p.cpus} CPUs, varredura e integracao depois dela`
-          : `${p.cpusHermetica}/${p.cpus} CPUs na hermetica; depois da varredura ${p.cpusHermeticaAposVarredura}` +
-            ` e depois da integracao ${p.cpusHermeticaAposReserva}; reserva da integracao ${p.fonteCpusIntegracao}` +
-            ` (${p.cpusIntegracao} CPU), ${p.integracaoEmParalelo ? 'em paralelo com a varredura' : 'encadeada depois da varredura'}` +
-            `; conteineres com ${p.cpusPorContainer} CPU${evidencia}`,
-        ...(p.saturado ? { fallback: 'ordem do Classic para hermetica, varredura e integracao' } : {}) }];
+      executar.pecas = [pecaDoAgendadorCpu(processos.agendamentoCpu)];
     }
     const stealPct = janela.fechar();
     return processos.map((p, k) => {
@@ -1271,6 +1276,7 @@ export function textoDoVerify(r: ResultadoVerify): string {
     linhas.push(m.agile(a.claims.reaproveitadas, a.claims.inteiras, a.grupo.paralelo, a.grupo.lanes));
   }
   for (const p of a?.pecas.filter((x) => x.estado === 'fallback') ?? []) linhas.push(m.agileFallback(p.peca, p.motivo ?? '', p.fallback ?? ''));
+  for (const p of a?.pecas.filter((x) => x.estado === 'degradado') ?? []) linhas.push(m.agileDegradado(p.peca, p.motivo ?? ''));
   linhas.push(r.baseline ? m.baseline(shaCurto(r.baseline.commit), formatarDataHoraRotulada(r.baseline.gravadaEm)) : m.semBaseline);
   if (r.preparo) {
     const p = r.preparo;
