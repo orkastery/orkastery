@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.2",
-  "publicadoEm": "2026-11-01T01:28:05.945Z",
+  "publicadoEm": "2026-11-01T01:30:03.790Z",
   "threads": [
     {
       "id": "ork-rm074comamet",
@@ -137,24 +137,6 @@
         "desdeEm": "2026-10-31T21:25:26.257Z",
         "motivo": "nenhuma sessão despachada na fase GO"
       }
-    },
-    {
-      "id": "ork-vocabulariod",
-      "nome": "vocabulario",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-vocabulariod-go",
-      "atualizadaEm": "2026-10-31T17:51:51.783Z",
-      "entregue": "97b5c9c",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null,
-      "sessao": null
     }
   ]
 }
