@@ -6,6 +6,14 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+## [0.6.4] - 2026-11-01
+
+O Agile Check reserva CPU pela medida de cada peça e reaproveita a varredura do Semgrep quando as regras não mudam;
+a bancada separa a rodada fria da morna e descarta par com carga externa. Nenhum teste sai e o Classic não muda.
+O README deixa de apontar para os repositórios dos sites, e um teste que dependia da estação do ano fica com o relógio parado.
+
+O #Noctum segue **em desenvolvimento, não anunciado**.
+
 ### Alterado
 
 - **Varredura por conteúdo e bancada fria/morna — M7 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** a bancada atribui a infraestrutura de contêiner pela presença e pelos deltas de cgroup dos contêineres de fora, levando a parcela incerta à carga externa. O Agile inclui o conteúdo das regras resolvidas na identidade do cache do Semgrep; regra entre arquivos ou registro indisponível força varredura integral com o motivo registrado, sem mudar `check_id`. As razões fria e morna ficam separadas; o Classic continua varrendo tudo. Casos e asserções permanecem, e razão, CPU e eficiência aguardam três pares válidos no host, sem ganho antecipado neste registro.
