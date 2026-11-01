@@ -61,7 +61,7 @@ sdlc:
   1. **Índice curto em cada repositório** (`CONTRIBUTING.md`) apontando para uma pasta com um guia por tarefa:
      - o que contribuir: quando abrir discussão antes (feature nova), issue (defeito) ou PR direto (docs, correção pequena);
      - desenvolvimento local: requisitos, build e como rodar o CLI ou o pacote a partir do checkout;
-     - testes: suíte, canários e `ork verify`, e como separar falha anterior de regressão;
+     - testes: suíte, cenários e `ork verify`, e como separar falha anterior de regressão;
      - documentação: onde cada tipo de doc mora, padrão de escrita, paridade de idioma e como o site importa o texto;
      - pull request: título, descrição, evidência esperada, checks obrigatórios e identidade dos commits;
      - lint e estilo;

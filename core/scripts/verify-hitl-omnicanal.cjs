@@ -4,7 +4,7 @@
 // mudanca futura pode desfazer sem quebrar teste nenhum:
 //   1. reduzir a lista de canais, ou deixar um canal sem adaptador em disco;
 //   2. deixar a documentacao descrever o HITL por transporte, escondendo canal ou alvo;
-//   3. perder o canario que prova os quatro recibos distinguiveis.
+//   3. perder o cenario que prova os quatro recibos distinguiveis.
 // Uso: node core/scripts/verify-hitl-omnicanal.cjs
 const fs = require('node:fs');
 const path = require('node:path');
@@ -63,15 +63,15 @@ assert.ok(servidor.includes("pedido.respostaAceita.tipo === 'texto'"), 'pergunta
 assert.ok(fs.existsSync(path.join(root, 'core/src/hitl-local-atestado.ts')), 'atestado em modulo neutro');
 assert.ok(!sessoes.includes("from './hitl-local'"), 'hitl-sessions nao importa hitl-local');
 
-// 4. O canario dos quatro canais existe, com fixture versionada e expectativa fechada.
+// 4. O cenario dos quatro canais existe, com fixture versionada e expectativa fechada.
 const caso = JSON.parse(ler('eval/fixtures/fx-omnicanal/caso.json'));
 assert.equal(caso.id, 'fx-omnicanal');
-assert.equal(caso.esperado.canaisRegistrados, 4, 'o canario espera os quatro canais');
+assert.equal(caso.esperado.canaisRegistrados, 4, 'o cenario espera os quatro canais');
 assert.equal(caso.esperado.aprovados, 4, 'os quatro canais respondem');
 assert.equal(caso.esperado.canaisDistinguiveis, 4, 'os quatro recibos sao distinguiveis');
 assert.equal(caso.esperado.canalPorInferencia, 0, 'nenhum canal sai por inferencia');
 assert.equal(caso.esperado.humanosSemIngresso, 0, 'nenhum gate sem ingresso homologado');
-assert.ok(caso.sobre.includes('SIMULADA'), 'o canario se declara simulado');
+assert.ok(caso.sobre.includes('SIMULADA'), 'o cenario se declara simulado');
 
 // 5. A narrativa tecnica descreve canal e alvo, e nao promete o que nao foi provado.
 const doc = ler('docs/guias/sincronismo-hitl.md');
@@ -83,5 +83,5 @@ for (const termo of ['HITL omnicanal nos quatro hosts homologados', 'openclaw', 
 assert.ok(!/HITL (so|só|apenas) (pelo|por) Telegram/i.test(doc), 'narrativa nao descreve HITL como so-Telegram');
 
 console.log(JSON.stringify({ claim: 'D12', ok: true, canais: Object.keys(CANAIS).length,
-  transportes: 2, alvos: ['gate', 'session'], canario: 'fx-omnicanal',
+  transportes: 2, alvos: ['gate', 'session'], cenario: 'fx-omnicanal',
   alcance: 'registro, adaptadores em disco, cobertura dos dois alvos e narrativa; nao exercita rede nem cliente MCP real' }));

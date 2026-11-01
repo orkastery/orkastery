@@ -78,7 +78,7 @@ jobs:
         run: node core/scripts/gerar-marketplaces.cjs --verificar
 
   nucleo:
-    name: nucleo ork (build, testes, canarios)
+    name: nucleo ork (build, testes, cenarios)
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -113,9 +113,9 @@ jobs:
         run: node scripts/tsgo-paridade.cjs --resumo
         working-directory: core
 
-      # Canarios de comportamento + corpus das skills finas.
+      # Cenarios de comportamento + corpus das skills finas.
       # Sai diferente de zero em qualquer falha.
-      - name: canarios e corpus das skills
+      - name: cenarios e corpus das skills
         run: node core/dist/index.js eval
 
       # Template quebrado nao pode chegar a virar despacho.
@@ -133,10 +133,10 @@ jobs:
 
   # RM-059 (T0.9): os mods do Claude Code (adapters/claude-code/mods). O Claude Code vem fixado do
   # registro do npm, sem credencial nem chave de API: `claude plugin validate` e `claude plugin test`
-  # rodam sem login e sem rede. O canario procura no binario cada evento e chamada que os mods usam;
-  # sem mod na pasta, so o contrato do plano. A versao fixada sobe por PR, com o canario verde.
+  # rodam sem login e sem rede. O cenario procura no binario cada evento e chamada que os mods usam;
+  # sem mod na pasta, so o contrato do plano. A versao fixada sobe por PR, com o cenario verde.
   mods:
-    name: mods do Claude Code (validate, test e canario)
+    name: mods do Claude Code (validate, test e cenario)
     runs-on: ubuntu-latest
     env:
       DISABLE_AUTOUPDATER: '1'
@@ -153,8 +153,8 @@ jobs:
       - name: Claude Code fixado, do registro do npm
         run: npm install --global --no-audit --no-fund @anthropic-ai/claude-code@2.1.296
 
-      - name: validate e test de cada mod, e o canario de eventos
-        run: node core/scripts/canario-eventos-mods.cjs --com-plugin
+      - name: validate e test de cada mod, e o cenario de eventos
+        run: node core/scripts/cenario-eventos-mods.cjs --com-plugin
 
 # Nota deliberada: `ork doctor` NAO roda aqui. Ele exige o runtime adapter
 # instalado na maquina, e um runner de CI nao tem um. Rodar doctor no CI

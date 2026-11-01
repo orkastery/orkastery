@@ -1,13 +1,13 @@
 # eval/
 
 Avaliacao deterministica do Orkastery, rodada por `ork eval`. Regra do catalogo original,
-mantida e agora executavel: **skill sem eval nao entra**, e comportamento sem canario tambem nao.
+mantida e agora executavel: **skill sem eval nao entra**, e comportamento sem cenario tambem nao.
 
 ```bash
-ork eval                                  # canarios + corpus das skills
-ork eval --so-canarios                    # so o comportamento do nucleo
+ork eval                                  # cenarios + corpus das skills
+ork eval --so-cenarios                    # so o comportamento do nucleo
 ork eval --skill code-reviewer            # so uma skill
-ork eval --canario fx-stale-base          # so um canario
+ork eval --cenario fx-stale-base          # so um cenario
 ork eval --json                           # para o CI
 ```
 
@@ -35,14 +35,14 @@ monta uma copia do catalogo, apaga uma regra, planta uma skill sem eval e ancora
 dentro da tabela de desculpas, e confere que os tres ficam vermelhos. Corpus que fica verde
 depois de a regra sumir nao protege nada.
 
-## `fixtures/`, os canarios
+## `fixtures/`, os cenarios
 
 Seis comportamentos do nucleo, exercitados ponta a ponta contra git de verdade, em repositorio
 temporario, sem rede e sem credencial. A expectativa de cada um e **dado versionado**
-(`caso.json`), e o executor e codigo tipado (`core/src/canarios.ts`): assim, mudar o que se
+(`caso.json`), e o executor e codigo tipado (`core/src/cenarios.ts`): assim, mudar o que se
 espera do produto e um diff que aparece na revisao, revisavel por quem nao le TypeScript.
 
-| Canario | O que ele impede de voltar |
+| Cenario | O que ele impede de voltar |
 |---|---|
 | `fx-happy` | O caminho feliz parar de funcionar sem ninguem notar |
 | `fx-hallucination` | Citacao de arquivo e de teste que nao existem passar no gate |
@@ -54,7 +54,7 @@ espera do produto e um diff que aparece na revisao, revisavel por quem nao le Ty
 Ha ainda duas fixtures de contrato, mais antigas, rodadas pela suite (`npm test`) em
 `core/test/eval.test.ts`: `b0-slug-e-modos` (a #TAG do pedido vira slug, blocos e pausas) e
 `b2-master-log` (o contrato congelado do MASTER log, com as mutacoes que precisam reprovar).
-A segunda tem dois consumidores de proposito: a suite e o canario `fx-schema-drift`.
+A segunda tem dois consumidores de proposito: a suite e o cenario `fx-schema-drift`.
 
 ## `casos/`, o corpus das skills
 

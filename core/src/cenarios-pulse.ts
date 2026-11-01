@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
-import type { Canario } from './canarios';
+import type { Cenario } from './cenarios';
 import { sandboxGit } from './sandbox';
 import { novaThread, dirThread } from './thread';
 import { garantirWorktree, sincronizarWorktree } from './worktree';
@@ -19,7 +19,7 @@ import { varrerPulse } from './pulse-delivery';
 import { EventoLedger } from './types';
 import { cliDoCatalogo } from './catalogo';
 
-export const CANARIOS_PULSE: readonly Canario[] = [
+export const CENARIOS_PULSE: readonly Cenario[] = [
   {id:'fx-estado-dividido',sobre:'90 eventos na worktree não podem parecer 14 na main',precisaDeGit:true,rodar:()=>{
     const s=sandboxGit('estado-dividido');
     try {
@@ -74,7 +74,7 @@ export const CANARIOS_PULSE: readonly Canario[] = [
       const t = novaThread(s.carregado, { nome: 'resposta simulada', modo: 'classic' }).thread;
       registrar(dirThread(s.dir, t.id), t.id, 'phase_result', { fase: 'GOAL', evidencia: 'SIMULADO' });
       const pedido = abrirPedidoGate(s.dir, t.id);
-      const chave = 'canario-SIMULADO-sem-credencial-real-000';
+      const chave = 'cenario-SIMULADO-sem-credencial-real-000';
       const resposta = { origem: 'telegram' as const, por: 'telegram:42', mensagem: 'telegram:-7:99',
         resposta: '1', recebidoEm: new Date().toISOString() };
       const envelope = { ...resposta, prova: assinaturaDaResposta(t.id, pedido.id, resposta, chave) };

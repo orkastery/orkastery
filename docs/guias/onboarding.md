@@ -162,7 +162,7 @@ servidor MCP do `ork` da sessão `grok` roda fora do sandbox dela, e a fase no p
 
 ## Verificação e lacunas
 
-Medição desta implementação: 366 testes passaram, 0 falharam; 10 canários verdes;
+Medição desta implementação: 366 testes passaram, 0 falharam; 10 cenários verdes;
 18 skills, 92 casos e 184 asserções no eval estrutural. Comandos: `npm --prefix core test`,
 `node core/dist/index.js eval --json` e `bash adapters/openclaw/construir.sh`.
 

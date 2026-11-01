@@ -78,7 +78,7 @@ Tudo que o `ork` sabe está em arquivos legiveis, versionaveis e auditaveis.
 ├── references/                       # referencias de metodo citadas pelas skills
 ├── prompts/                          # templates de prompt do projeto (sobrescrevem os embutidos)
 ├── auditors/                         # templates dos packs de auditoria do projeto
-└── eval/                             # canarios de comportamento e corpus das skills
+└── eval/                             # cenarios de comportamento e corpus das skills
 ```
 
 Duas propriedades que valem mais do que parecem:
@@ -162,7 +162,7 @@ não pela ordem alfabética.
 | `auditrun.ts` | Rodada de auditoria: prompt, despacho, ingestão de achados, relatório |
 | `divida.ts` | O board de dívida append-only e a recorrência |
 | `superficie.ts` | Varredura deterministica da superfície de ataque de rede (SP8 a SP12) |
-| `canarios.ts` | Os 6 canários de comportamento |
+| `cenarios.ts` | Os 6 cenários de comportamento |
 | `evalrunner.ts` | O corpus das skills finas e o runner de avaliação |
 | `catalogo.ts` | O catálogo de skills e referências, com sha256 por arquivo |
 

@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process';
 import * as path from 'node:path';
 import { exigirCatalogo } from '../src/catalogo';
 import { envPtBr } from './apoio';
-import { CANARIOS } from '../src/canarios';
+import { CENARIOS } from '../src/cenarios';
 import { lerCasos } from '../src/evalrunner';
 
 const RAIZ = exigirCatalogo(path.resolve(__dirname, '../../..'));
@@ -158,7 +158,7 @@ test('ork eval sai verde neste catalogo e aceita filtro', () => {
   const assercoes = casos.reduce((total, c) => total + c.assercoes.length, 0);
   const tudo = ork(['eval']);
   assert.equal(tudo.codigo, 0, 'o eval do produto precisa sair verde');
-  assert.ok(tudo.saida.includes(`canarios: ${CANARIOS.length}/${CANARIOS.length} verdes`));
+  assert.ok(tudo.saida.includes(`cenarios: ${CENARIOS.length}/${CENARIOS.length} verdes`));
   assert.ok(tudo.saida.includes(`skills: ${corpus.arquivos.length} | casos: ${casos.length} | assercoes: ${assercoes} | falhas: 0`));
   assert.ok(tudo.saida.includes('VEREDITO: verde'));
   assert.ok(
@@ -166,10 +166,10 @@ test('ork eval sai verde neste catalogo e aceita filtro', () => {
     'o eval precisa dizer que a metade comportamental sai unavailable'
   );
 
-  const umCanario = ork(['eval', '--canario', 'fx-hallucination', '--so-canarios']);
-  assert.equal(umCanario.codigo, 0);
-  assert.ok(umCanario.saida.includes('fx-hallucination'));
-  assert.ok(!umCanario.saida.includes('fx-concurrency'));
+  const umCenario = ork(['eval', '--cenario', 'fx-hallucination', '--so-cenarios']);
+  assert.equal(umCenario.codigo, 0);
+  assert.ok(umCenario.saida.includes('fx-hallucination'));
+  assert.ok(!umCenario.saida.includes('fx-concurrency'));
 });
 
 test('ork adapter list e show trazem os 3 hosts com os pitfalls', () => {

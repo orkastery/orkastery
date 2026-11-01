@@ -2,7 +2,7 @@
 # maquina nenhuma. O dono configura uma vez no npmjs.com: pacote @orkastery/cli > Settings >
 # Trusted publishing > GitHub Actions, com organizacao `orkastery`, repositorio `orkastery` e
 # workflow `publicar.yml`. Dispara pela tag `v<versao>` num commit da main, e so publica quando a
-# tag bate com o package.json, os canarios do produto passam e o grafo roda no pacote instalado.
+# tag bate com o package.json, os cenarios do produto passam e o grafo roda no pacote instalado.
 name: Publicar no npm
 
 on:
@@ -74,8 +74,8 @@ jobs:
         run: npm ci && npm run build
         working-directory: core
 
-      - name: canarios do produto
-        run: node core/dist/index.js eval --so-canarios
+      - name: cenarios do produto
+        run: node core/dist/index.js eval --so-cenarios
 
       # RM-058, item 8: so a versao que anuncia o #Noctum exige a validacao por pilotos reais. O aceite
       # (docs/roadmap/evidencias/RM-058/aceite.json, com a ratificacao do dono) e conferido antes de publicar;

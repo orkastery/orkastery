@@ -137,7 +137,7 @@ export function pedidoHitlAberto(raiz: string, id: string, fase: string | null, 
 /**
  * FX6: a oferta de canais que acompanha um pedido HITL REAL.
  *
- * `ofertaDeCanais` existia desde D12 e era chamada de um lugar so: o canario. No caminho de
+ * `ofertaDeCanais` existia desde D12 e era chamada de um lugar so: o cenario. No caminho de
  * producao o humano via a pergunta e um `comandoResposta`, e nada dizia por quais canais dava
  * para responder AGORA nem por que os outros nao serviam. Uma oferta que so aparece em
  * simulacao nao e oferta; e uma tabela bonita, como a propria narrativa de D12 admitia.

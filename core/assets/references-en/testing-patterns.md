@@ -33,7 +33,7 @@ flowchart LR
 | 6 | The suite runs on the real HEAD, in the thread's working directory. A pass reported by an agent is not a pass. | `ork verify <thread>` re-runs the manifest commands and the claims, and stamps the real commit. |
 | 7 | No test was disabled, marked to skip or loosened to close the delivery. Skipping a test is a recorded scope change, never a silent course correction. | Diff over the test files, looking for removed tests, `skip` and relaxed assertions. |
 | 8 | No assertion was swapped for the value the code produces today without someone saying why the right value changed. Adjusting the expected to the observed is the most common way to turn a defect into a contract. | Diff of the assertions against the intent declared in the PLAN. |
-| 9 | A test does not depend on the network, on a paid credential or on the wall clock. A deterministic fixture is the standard; whatever needs the outside world stays out of the gate and is declared. | Run the suite offline. In `ork`, the `ork eval` canaries build a temporary git repository and do not touch the network. |
+| 9 | A test does not depend on the network, on a paid credential or on the wall clock. A deterministic fixture is the standard; whatever needs the outside world stays out of the gate and is declared. | Run the suite offline. In `ork`, the `ork eval` scenarios build a temporary git repository and do not touch the network. |
 | 10 | A test does not depend on another test or on the execution order. State shared between cases is a defect, even when the suite is green today. | Run the suspect case in shuffled order or in isolation. |
 
 ## Count and coverage

@@ -28,7 +28,7 @@ sdlc:
 
 # RM-043 — Aposentadoria de cinco mecanismos
 
-> **Em uma frase:** Saíram dois modos que ninguém usava, a fila de notas, o envelope de objetivo, a cerimônia de instalação e a listagem inchada, cada um com canário provando que a falha segue evitada.
+> **Em uma frase:** Saíram dois modos que ninguém usava, a fila de notas, o envelope de objetivo, a cerimônia de instalação e a listagem inchada, cada um com cenário provando que a falha segue evitada.
 
 <!-- ork-docs:relance:inicio -->
 

@@ -1,7 +1,7 @@
 /**
- * Os 7 canarios de `ork eval` (6 do bloco B4 + fx-codex-dry da homologacao do codex).
+ * Os 7 cenarios de `ork eval` (6 do bloco B4 + fx-codex-dry da homologacao do codex).
  *
- * Canario nao e teste unitario: e um comportamento inteiro do produto, exercitado ponta a
+ * Cenario nao e teste unitario: e um comportamento inteiro do produto, exercitado ponta a
  * ponta contra git de verdade, que precisa continuar acontecendo depois de qualquer mudanca.
  * Cada um nasce de um jeito conhecido de o trabalho de um agente parecer certo e nao ser:
  *
@@ -30,30 +30,30 @@ import { commitar, gitDisponivel, sandboxGit } from './sandbox';
 import { novaThread, listarIds, lerThread, dirThread } from './thread';
 import { verificar } from './verify';
 import { auditarWorktree, garantirWorktree } from './worktree';
-import { CANARIOS_PULSE } from './canarios-pulse';
-import { CANARIO_SENSORES } from './canarios-sensores';
-import { CANARIOS_HITL } from './canarios-hitl';
-import { CANARIOS_I43 } from './canarios-i43';
-import { fxPedidoColado } from './canarios-rm057';
+import { CENARIOS_PULSE } from './cenarios-pulse';
+import { CENARIO_SENSORES } from './cenarios-sensores';
+import { CENARIOS_HITL } from './cenarios-hitl';
+import { CENARIOS_I43 } from './cenarios-i43';
+import { fxPedidoColado } from './cenarios-rm057';
 import { createObjective, reviseObjective } from './objective';
 import { discoverMaestro } from './maestro-discovery';
 import { readMaestro, runMaestroCli } from './maestro-cli';
 import { performMaestroAction } from './maestro-actions';
 import { lerLedger } from './ledger';
 
-/** O que um canario observou no mundo real, comparado depois com o `esperado` da fixture. */
+/** O que um cenario observou no mundo real, comparado depois com o `esperado` da fixture. */
 export type Observado = Record<string, unknown>;
 
-export interface Canario {
+export interface Cenario {
   id: string;
   sobre: string;
-  /** `git` e obrigatorio? Sem ele o canario sai `unavailable`, nunca `passing`. */
+  /** `git` e obrigatorio? Sem ele o cenario sai `unavailable`, nunca `passing`. */
   precisaDeGit: boolean;
-  rodar: (ctx: ContextoDeCanario) => Observado;
+  rodar: (ctx: ContextoDeCenario) => Observado;
 }
 
-export interface ContextoDeCanario {
-  /** Raiz do catalogo do produto, para os canarios que exercitam arquivo do produto. */
+export interface ContextoDeCenario {
+  /** Raiz do catalogo do produto, para os cenarios que exercitam arquivo do produto. */
   catalogo: string;
 }
 
@@ -67,7 +67,7 @@ function comSandbox<T>(nome: string, fn: (s: ReturnType<typeof sandboxGit>) => T
 }
 
 /** fx-happy: o ciclo que funciona, do `thread new` ao `verify` verde. */
-const fxHappy: Canario = {
+const fxHappy: Cenario = {
   id: 'fx-happy',
   sobre: 'thread aberta, fase montada com prompt gravado e claim verificada no HEAD real',
   precisaDeGit: true,
@@ -100,7 +100,7 @@ const fxHappy: Canario = {
 };
 
 /** fx-hallucination: a citacao sem lastro reprova na reexecucao, com motivo tipado. */
-const fxHallucination: Canario = {
+const fxHallucination: Cenario = {
   id: 'fx-hallucination',
   sobre: 'arquivo e teste citados pelo agente que nao existem no repositorio',
   precisaDeGit: true,
@@ -130,7 +130,7 @@ const fxHallucination: Canario = {
 };
 
 /** fx-stale-base: a base andou embaixo da thread e o `ork` percebe antes do merge. */
-const fxStaleBase: Canario = {
+const fxStaleBase: Cenario = {
   id: 'fx-stale-base',
   sobre: 'a branch base avancou depois de a thread carimbar a sua base',
   precisaDeGit: true,
@@ -156,7 +156,7 @@ const fxStaleBase: Canario = {
 };
 
 /** fx-wiki-destroy: comando destrutivo em massa barrado no host e na entrega. */
-const fxWikiDestroy: Canario = {
+const fxWikiDestroy: Cenario = {
   id: 'fx-wiki-destroy',
   sobre: 'agente tenta apagar trabalho alheio em massa, no host e na entrega',
   precisaDeGit: false,
@@ -184,7 +184,7 @@ const fxWikiDestroy: Canario = {
       }
     };
 
-    // A outra metade do canario: a policy bloqueante do nucleo, que reprova entregar em cima
+    // A outra metade do cenario: a policy bloqueante do nucleo, que reprova entregar em cima
     // da propria base. Guard do host e policy do nucleo sao defesas independentes de proposito.
     const manifesto = {
       runtime: { provider_policy: 'subscription-only' },
@@ -211,7 +211,7 @@ const fxWikiDestroy: Canario = {
 };
 
 /** fx-schema-drift: o contrato congelado do MASTER log recusa mutacao. */
-const fxSchemaDrift: Canario = {
+const fxSchemaDrift: Cenario = {
   id: 'fx-schema-drift',
   sobre: 'MASTER log com contrato, escala ou catalogo de classes alterados',
   precisaDeGit: false,
@@ -235,7 +235,7 @@ const fxSchemaDrift: Canario = {
 };
 
 /** fx-concurrency: duas threads na mesma regiao, a segunda entra na fila. */
-const fxConcurrency: Canario = {
+const fxConcurrency: Cenario = {
   id: 'fx-concurrency',
   sobre: 'duas threads pedindo regiao que se cruza, com fila FIFO em vez de escrita por cima',
   precisaDeGit: true,
@@ -269,9 +269,9 @@ const fxConcurrency: Canario = {
  * Nasce da homologacao do segundo runtime (thread ork-homologarcod): um `setup.json`
  * apontando o bloco para o codex tem de mudar o COMANDO que o despacho monta, e o
  * default sem setup tem de continuar saindo pelo claude-bg byte a byte (paridade sem
- * downgrade). Tudo em dry-run: canario nao gasta assinatura de ninguem.
+ * downgrade). Tudo em dry-run: cenario nao gasta assinatura de ninguem.
  */
-const fxCodexDry: Canario = {
+const fxCodexDry: Cenario = {
   id: 'fx-codex-dry',
   sobre: 'setup do bloco levando o despacho ao codex, com o claude-bg intacto como padrao',
   precisaDeGit: true,
@@ -306,7 +306,7 @@ const fxCodexDry: Canario = {
 };
 
 /** fx-objective-oscillation: revisões repetidas pausam o objetivo em vez de rodar para sempre. */
-const fxObjectiveOscillation: Canario = {
+const fxObjectiveOscillation: Cenario = {
   id: 'fx-objective-oscillation',
   sobre: 'Objective Envelope revisado três vezes aciona a guarda de oscilação',
   precisaDeGit: true,
@@ -325,7 +325,7 @@ const fxObjectiveOscillation: Canario = {
 };
 
 /** Projeto temporário real; nenhum host/humano real é simulado como ativação live. */
-const fxMaestroBootstrap: Canario = {
+const fxMaestroBootstrap: Cenario = {
   id: 'fx-maestro-bootstrap',
   sobre: 'SIMULADO: consulta limpa, ação com readback e policy block no modo Auto',
   precisaDeGit: true,
@@ -335,7 +335,7 @@ const fxMaestroBootstrap: Canario = {
     const exit = runMaestroCli(['--json'], s.dir, {}, { out: v => { raw = v; }, err: () => {} });
     const clean = JSON.parse(raw);
     const createsThread = listarIds(s.dir).length !== before;
-    const t = novaThread(s.carregado, { nome: 'Canário Maestro', modo: 'auto' }).thread;
+    const t = novaThread(s.carregado, { nome: 'Cenário Maestro', modo: 'auto' }).thread;
     const context = discoverMaestro({ cwd: s.dir });
     const snapshot = () => readMaestro(context, { host: { tools: ['ork_thread_status', 'ork_phase_run'], child: true } });
     const state = snapshot();
@@ -360,8 +360,8 @@ const fxMaestroBootstrap: Canario = {
   }),
 };
 
-/** Os canarios registrados, na ordem em que o `ork eval` os roda. */
-export const CANARIOS: readonly Canario[] = [
+/** Os cenarios registrados, na ordem em que o `ork eval` os roda. */
+export const CENARIOS: readonly Cenario[] = [
   fxHappy,
   fxHallucination,
   fxStaleBase,
@@ -371,16 +371,16 @@ export const CANARIOS: readonly Canario[] = [
   fxCodexDry,
   fxObjectiveOscillation,
   fxMaestroBootstrap,
-  ...CANARIOS_PULSE,
-  CANARIO_SENSORES,
-  ...CANARIOS_HITL,
-  ...CANARIOS_I43,
+  ...CENARIOS_PULSE,
+  CENARIO_SENSORES,
+  ...CENARIOS_HITL,
+  ...CENARIOS_I43,
   fxPedidoColado,
 ];
 
-/** Um canario por id, ou null quando a fixture aponta para um canario que nao existe. */
-export function canarioPorId(id: string): Canario | null {
-  return CANARIOS.find((c) => c.id === id) ?? null;
+/** Um cenario por id, ou null quando a fixture aponta para um cenario que nao existe. */
+export function cenarioPorId(id: string): Cenario | null {
+  return CENARIOS.find((c) => c.id === id) ?? null;
 }
 
 export { gitDisponivel };

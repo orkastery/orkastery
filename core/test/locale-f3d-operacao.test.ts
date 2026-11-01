@@ -318,7 +318,7 @@ test('F3d: fabrica e batida localizam os estados de leitura sem mudar contratos'
 });
 
 test('F3d: eval localiza o parecer e mantem codigos de falha', () => {
-  const resultado = { catalogo: '/tmp/catalog', skills: [], canarios: [], totalDeCasos: 0,
+  const resultado = { catalogo: '/tmp/catalog', skills: [], cenarios: [], totalDeCasos: 0,
     totalDeAssercoes: 0, metadeComportamental: 'unavailable', ok: false,
     falhas: [{ codigo: 'fixture-invalida', detalhe: 'dado preservado' }] } as any;
   const pt = comLocale('pt-BR', () => textoDoEval(resultado));
