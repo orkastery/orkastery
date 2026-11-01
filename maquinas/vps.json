@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.3",
-  "publicadoEm": "2026-11-01T07:30:03.178Z",
+  "publicadoEm": "2026-11-01T07:45:02.645Z",
   "threads": [
     {
       "id": "ork-legendadofus",
@@ -156,7 +156,7 @@
       "esforco": null,
       "sessao": {
         "viva": false,
-        "desdeEm": "2026-11-01T07:18:48.592Z",
+        "desdeEm": "2026-11-01T07:30:33.226Z",
         "motivo": "nenhuma sessão despachada na fase GOAL"
       }
     },
