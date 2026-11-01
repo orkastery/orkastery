@@ -446,7 +446,7 @@ test('grafo no pacote: workflow: o publicar.yml so publica depois da prova, que 
     assert.ok(i > 0, `job publicar sem: ${trecho}`);
     return i;
   };
-  assert.ok(onde('run: node core/dist/index.js eval --so-canarios') < onde('run: npm publish --access public'));
+  assert.ok(onde('run: node core/dist/index.js eval --so-cenarios') < onde('run: npm publish --access public'));
   onde('test "v$(node -p "require(\'./core/package.json\').version")" = "$GITHUB_REF_NAME"');
   onde('test "$(node -p "require(\'./core/package.json\').repository.url")" = "git+https://github.com/$GITHUB_REPOSITORY.git"');
   onde('run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main');

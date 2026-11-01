@@ -226,7 +226,7 @@ export function recusarIngressoNaoHomologado(ingresso: unknown): Ingresso {
   return ingresso as Ingresso;
 }
 
-/** Invariantes do registro. O teste chama isto; o produto tambem, no canario. */
+/** Invariantes do registro. O teste chama isto; o produto tambem, no cenario. */
 export function conferirRegistro(): { contrato: typeof CONTRATO_CANAIS; canais: number; transportes: number; chaves: number } {
   const canais = canaisHomologados();
   if (canais.length !== ORDEM_DOS_HOSTS.length || canais.length !== 4) {

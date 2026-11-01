@@ -58,7 +58,7 @@ function real(p: string): string {
 }
 
 /**
- * RM-047 (P4): o catálogo que o `ork eval` executa. O eval roda os canários, os hooks e o `core/dist`
+ * RM-047 (P4): o catálogo que o `ork eval` executa. O eval roda os cenários, os hooks e o `core/dist`
  * do catálogo, então ele só vale o do pacote que está rodando. Um diretório com `skills/`,
  * `references/` e `eval/` achado a partir do cwd (um clone qualquer) que não seja o próprio pacote é
  * recusado com `eval.catalogo-alheio`, com o comando que roda o eval daquele checkout de propósito.
@@ -71,7 +71,7 @@ export function exigirCatalogoDoPacote(inicial: string): string {
   const doCwd = subirProcurando(inicial);
   if (doCwd && real(doCwd) !== real(pacote)) {
     throw new Error(`eval.catalogo-alheio: ${doCwd} tem skills/, references/ e eval/, mas nao e o pacote deste ork ` +
-      `(${pacote}). O eval executa os canarios, os hooks e o core/dist do catalogo, e so roda o do proprio pacote. ` +
+      `(${pacote}). O eval executa os cenarios, os hooks e o core/dist do catalogo, e so roda o do proprio pacote. ` +
       `Para avaliar aquele checkout de proposito, rode o ork dele: node ${path.join(doCwd, 'core', 'dist', 'index.js')} eval`);
   }
   return pacote;
@@ -96,7 +96,7 @@ export const BUCKETS: readonly string[] = [
 
 /** Todas as skills do catalogo, varridas do disco (nunca de uma lista escrita a mao). */
 /**
- * O CLI que um canario chama. No repositorio ele fica em `core/dist/`; no pacote npm o catalogo e
+ * O CLI que um cenario chama. No repositorio ele fica em `core/dist/`; no pacote npm o catalogo e
  * a propria raiz do pacote e o CLI e o que esta rodando, ao lado deste arquivo compilado.
  */
 export function cliDoCatalogo(catalogo: string): string {

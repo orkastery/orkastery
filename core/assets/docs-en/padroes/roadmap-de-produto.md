@@ -58,7 +58,7 @@ Do not use a single field to hide differences between plan, code and delivery. U
 | Code | `Não iniciado` (not started), `Branch criada` (branch created), `PR aberto` (PR open), `Mesclado` (merged) | Repository, branch/PR and commit. |
 | Tests | `Não iniciados` (not started), `Em execução` (running), `Aprovados` (passing), `Falhando` (failing) | Run and date; coverage, if relevant. |
 | Deploy | `Não implantado` (not deployed), `Dev`, `Staging`, `Produção` (production) | Pipeline, release and actual date. |
-| Exposure | `Flag desligada` (flag off), `Piloto/Canary` (pilot/canary), `Parcial` (partial), `Geral` (general) | Configuration per environment/cohort and verification. |
+| Exposure | `Flag desligada` (flag off), `Piloto/Gradual` (pilot/gradual), `Parcial` (partial), `Geral` (general) | Configuration per environment/cohort and verification. |
 | Enablement | `Pendente` (pending), `Em andamento` (in progress), `Concluída` (done) | Communication, training or published material. |
 
 `Bloqueado` requires a reason, a dependency, an owner and a next review. `Concluído` requires met acceptance criteria, evidence of availability and a record of the initial measurement or a post-launch evaluation plan. Status must not be updated merely because time has passed.

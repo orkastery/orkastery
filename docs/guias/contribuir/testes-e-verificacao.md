@@ -16,11 +16,11 @@ node core/dist/index.js audit lint
 | Comando | O que confere |
 | --- | --- |
 | `npm --prefix core run test:ci` | A suíte do núcleo, hermética: sem rede, sem Docker, sem runtime |
-| `node core/dist/index.js eval` | Os canários de comportamento e o corpus das skills |
+| `node core/dist/index.js eval` | Os cenários de comportamento e o corpus das skills |
 | `node core/dist/index.js prompt lint` | Os modelos de prompt das fases |
 | `node core/dist/index.js audit lint` | Os modelos de auditoria |
 
-- São os passos do check `nucleo ork (build, testes, canarios)`, que roda em cada versão do Node da matriz.
+- São os passos do check `nucleo ork (build, testes, cenarios)`, que roda em cada versão do Node da matriz.
 - Mexeu em texto? Rode também o que o guia de [documentação](documentacao.md#conferir-antes-do-pr) lista.
 
 ## Um teste só, ou uma skill só

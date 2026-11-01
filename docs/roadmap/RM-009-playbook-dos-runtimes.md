@@ -49,7 +49,7 @@ sdlc:
 
 ## Escopo e validação
 
-- **Critério de aceite:** 6 de 6 claims, suíte 1.023 de 1.023 e eval com 13 canários (registro da época).
+- **Critério de aceite:** 6 de 6 claims, suíte 1.023 de 1.023 e eval com 13 cenários (registro da época).
 
 ## Plano e decisões
 

@@ -1,5 +1,5 @@
 /** Exercícios SIMULADOS em sandbox; não representam resposta humana ou rede Telegram. */
-import type { Canario } from './canarios';
+import type { Cenario } from './cenarios';
 import { sandboxGit } from './sandbox';
 import { novaThread, dirThread } from './thread';
 import { registrar, lerLedger } from './ledger';
@@ -11,7 +11,7 @@ import { contextoHitl } from './hitl-gates';
 import { hashPedidoLocal, registrarAtestadoLocal } from './hitl-local-atestado';
 import { canaisHomologados, canalDaResposta, conferirRegistro, ofertaDeCanais, recusarIngressoNaoHomologado } from './hitl-canais';
 
-export const CANARIOS_HITL: readonly Canario[] = [
+export const CENARIOS_HITL: readonly Cenario[] = [
   { id: 'fx-blanket-approve', sobre: 'SIMULADO: aprovação cega e envelope sem autenticação são recusados', precisaDeGit: true, rodar: () => {
     const s = sandboxGit('blanket-approve');
     try {
@@ -51,16 +51,16 @@ export const CANARIOS_HITL: readonly Canario[] = [
   // precisam responder e ficar distinguiveis depois, que e o que D12 exige.
   { id: 'fx-omnicanal', sobre: 'SIMULADO: os quatro canais respondem e ficam distinguiveis no recibo', precisaDeGit: true, rodar: () => {
     const s = sandboxGit('omnicanal');
-    // FX1: cada canal de telegram tem a SUA chave; o canario nunca compartilha segredo.
+    // FX1: cada canal de telegram tem a SUA chave; o cenario nunca compartilha segredo.
     const nomes = ['ORK_HITL_INGRESS_KEY_HERMES', 'ORK_HITL_INGRESS_KEY_OPENCLAW',
       'ORK_HITL_OPENCLAW_ACCOUNT', 'ORK_HITL_TELEGRAM_USERS', 'ORK_HITL_TELEGRAM_CHATS',
       'ORK_HITL_ROOT', 'ORK_HITL_TELEGRAM_BOT_ID'];
     const antigos = nomes.map(n => process.env[n]);
-    const chaves: Record<string, string> = { hermes: 'chave-SIMULADA-do-canario-hermes-00000000',
-      openclaw: 'chave-SIMULADA-do-canario-openclaw-000000' };
+    const chaves: Record<string, string> = { hermes: 'chave-SIMULADA-do-cenario-hermes-00000000',
+      openclaw: 'chave-SIMULADA-do-cenario-openclaw-000000' };
     // FX5: so o OpenClaw tem conta homologada, e ela entra no corpo assinado.
-    const conta = 'conta-SIMULADA-do-canario-openclaw';
-    [chaves.hermes, chaves.openclaw, conta, '42', '-7', '/tmp/ork-hitl-canario', '999']
+    const conta = 'conta-SIMULADA-do-cenario-openclaw';
+    [chaves.hermes, chaves.openclaw, conta, '42', '-7', '/tmp/ork-hitl-cenario', '999']
       .forEach((v, i) => { process.env[nomes[i]] = v; });
     try {
       const registro = conferirRegistro();

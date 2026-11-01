@@ -7,7 +7,7 @@
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { rodarCanarios, rodarEval, textoDoEval } from '../src/evalrunner';
+import { rodarCenarios, rodarEval, textoDoEval } from '../src/evalrunner';
 import { textoDoEstadoDaBatida, textoDoResultadoDaBatida } from '../src/fabrica-batida';
 import { textoDaFabrica, textoDasOutrasMaquinas } from '../src/fabrica-estado';
 import { textoDeLicoes } from '../src/licoes';
@@ -122,7 +122,7 @@ function casosDaFabricaNoCli(casos: Casos): void {
 }
 
 // ---------------------------------------------------------------------------
-// eval: o corpus das skills e os canarios num catalogo temporario
+// eval: o corpus das skills e os cenarios num catalogo temporario
 // ---------------------------------------------------------------------------
 
 /** A mensagem do motor de regex muda com a versao do Node; o texto do catalogo vem antes dela e fica inteiro. */
@@ -160,36 +160,36 @@ function corpusDasSkills(): string {
 function casosDoEval(casos: Casos, amb: Ambiente): void {
   const skills = corpusDasSkills();
   caso(casos, 'eval: corpus das skills com cada falha', () => semMensagemDoMotor(textoDoEval(rodarEval({ catalogo: skills, soSkills: true }))));
-  const canarios = dirTemp('eval-canarios', '<CAT-CANARIOS>');
-  fs.mkdirSync(path.join(canarios, 'eval', 'fixtures', 'fx-sem-caso'), { recursive: true });
-  gravar(canarios, 'eval/fixtures/fx-diverge/caso.json', { id: 'fx-outro', esperado: {} });
-  gravar(canarios, 'eval/fixtures/fx-sem-executor/caso.json', { id: 'fx-sem-executor', esperado: {} });
-  gravar(canarios, 'eval/fixtures/fx-schema-drift/caso.json', { id: 'fx-schema-drift', esperado: { contratoTrocado: true } });
-  gravar(canarios, 'eval/fixtures/b2-master-log/caso.json', { valido: {} });
-  caso(casos, 'eval: canarios pedidos com fixture torta', () => textoDoEval(rodarEval({ catalogo: canarios, soCanarios: true,
-    canarios: ['fx-sem-caso', 'fx-diverge', 'fx-sem-executor', 'fx-schema-drift', 'fx-sumido'] })));
-  caso(casos, 'eval: filtro de canarios vazio', () => textoDoEval(rodarEval({ catalogo: canarios, soCanarios: true, canarios: [] })));
+  const cenarios = dirTemp('eval-cenarios', '<CAT-CENARIOS>');
+  fs.mkdirSync(path.join(cenarios, 'eval', 'fixtures', 'fx-sem-caso'), { recursive: true });
+  gravar(cenarios, 'eval/fixtures/fx-diverge/caso.json', { id: 'fx-outro', esperado: {} });
+  gravar(cenarios, 'eval/fixtures/fx-sem-executor/caso.json', { id: 'fx-sem-executor', esperado: {} });
+  gravar(cenarios, 'eval/fixtures/fx-schema-drift/caso.json', { id: 'fx-schema-drift', esperado: { contratoTrocado: true } });
+  gravar(cenarios, 'eval/fixtures/b2-master-log/caso.json', { valido: {} });
+  caso(casos, 'eval: cenarios pedidos com fixture torta', () => textoDoEval(rodarEval({ catalogo: cenarios, soCenarios: true,
+    cenarios: ['fx-sem-caso', 'fx-diverge', 'fx-sem-executor', 'fx-schema-drift', 'fx-sumido'] })));
+  caso(casos, 'eval: filtro de cenarios vazio', () => textoDoEval(rodarEval({ catalogo: cenarios, soCenarios: true, cenarios: [] })));
   const divergente = dirTemp('eval-divergente', '<CAT-DIVERGENTE>');
   gravar(divergente, 'eval/fixtures/fx-schema-drift/caso.json', { id: 'fx-schema-drift', esperado: { validoPassa: true } });
   gravar(divergente, 'eval/fixtures/b2-master-log/caso.json', { valido: {} });
-  caso(casos, 'eval: canario que diverge da fixture', () =>
-    textoDoEval(rodarEval({ catalogo: divergente, soCanarios: true, canarios: ['fx-schema-drift'] })));
-  // Sem filtro, todo canario do codigo sem fixture reprova; o caso guarda so a linha do fx-happy (a lista cresce com o codigo).
-  caso(casos, 'eval: canario do codigo sem fixture', () => rodarCanarios(dirTemp('eval-sem-fixtures', '<CAT-VAZIO>')).falhas
+  caso(casos, 'eval: cenario que diverge da fixture', () =>
+    textoDoEval(rodarEval({ catalogo: divergente, soCenarios: true, cenarios: ['fx-schema-drift'] })));
+  // Sem filtro, todo cenario do codigo sem fixture reprova; o caso guarda so a linha do fx-happy (a lista cresce com o codigo).
+  caso(casos, 'eval: cenario do codigo sem fixture', () => rodarCenarios(dirTemp('eval-sem-fixtures', '<CAT-VAZIO>')).falhas
     .filter((f) => f.caso === 'fx-happy').map((f) => `[${f.codigo}] ${f.detalhe}`).join('\n'));
   caso(casos, 'eval: texto com os tres estados', () => textoDoEval({ catalogo: '/srv/catalogo', metadeComportamental: 'unavailable', ok: false,
-    canarios: [
+    cenarios: [
       { id: 'fx-a', sobre: 'o ciclo que funciona', estado: 'passou', divergencias: [], motivo: '', observado: {} },
       { id: 'fx-b', sobre: 'a base andou', estado: 'falhou', divergencias: [], motivo: '1 chave(s) divergente(s)', observado: {} },
       { id: 'fx-c', sobre: 'precisa de git', estado: 'unavailable', divergencias: [], motivo: '', observado: {} },
     ],
     skills: [{ skill: 'alfa', casos: 3, assercoes: 7, falhas: 1 }],
-    falhas: [{ codigo: 'canario', caso: 'fx-b/ponta', detalhe: 'esperado 1, observado 2' }],
+    falhas: [{ codigo: 'cenario', caso: 'fx-b/ponta', detalhe: 'esperado 1, observado 2' }],
     totalDeCasos: 3, totalDeAssercoes: 7 } as never));
   const fora = dirTemp('eval-fora', '<FORA>');
-  // Sem git no PATH: o canario que precisa dele sai unavailable, nunca passing.
-  caso(casos, 'cli eval: canario sem git na maquina', () =>
-    texto(orkComEnv(fora, amb, { PATH: amb.stub }, 'eval', '--so-canarios', '--canario', 'fx-happy')));
+  // Sem git no PATH: o cenario que precisa dele sai unavailable, nunca passing.
+  caso(casos, 'cli eval: cenario sem git na maquina', () =>
+    texto(orkComEnv(fora, amb, { PATH: amb.stub }, 'eval', '--so-cenarios', '--cenario', 'fx-happy')));
 }
 
 // ---------------------------------------------------------------------------

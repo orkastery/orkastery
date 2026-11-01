@@ -13,7 +13,7 @@ const AJUDA = [
   '  docs verificar [--json]           Documentacao contra o codigo',
   '  docs init                         Cria padroes e modelos',
   '  verify <thread-id> [--baseline]   Reexecuta claims',
-  '  eval [--skill S]                  Canarios',
+  '  eval [--skill S]                  Cenarios',
 ].join('\n');
 
 const TRIAGEM = '# Triagem\n\n| Rótulo | Quando |\n| --- | --- |\n| `bug` | defeito |\n';

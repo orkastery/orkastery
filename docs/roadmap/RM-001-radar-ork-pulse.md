@@ -44,13 +44,13 @@ sdlc:
 ## Problema e resultado
 
 - **Problema:** o dono perguntava o status várias vezes por dia e virava o monitor (diagnóstico de 07/09/2026, DM-01 e DM-03).
-- **Resultado:** contrato `ork.pulse/v1`, três canários e cron na máquina da fábrica.
+- **Resultado:** contrato `ork.pulse/v1`, três cenários e cron na máquina da fábrica.
 - **Métricas:** Não aplicável — item anterior ao padrão v1.1 (24/09/2026); a métrica e a meta não foram registradas no plano da época.
 
 ## Escopo e validação
 
 - **Incluído:** `ork pulse`, carimbo de bloqueio, estado único, cron.
-- **Critério de aceite:** canários do pulse e ativação do host no ledger da entrega.
+- **Critério de aceite:** cenários do pulse e ativação do host no ledger da entrega.
 - **Pendência:** observação do `hitl.log` por 7 dias.
 
 ## Plano e decisões

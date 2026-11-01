@@ -56,7 +56,7 @@ Não use um único campo para ocultar diferenças entre plano, código e entrega
 | Código | `Não iniciado`, `Branch criada`, `PR aberto`, `Mesclado` | Repositório, branch/PR e commit. |
 | Testes | `Não iniciados`, `Em execução`, `Aprovados`, `Falhando` | Execução e data; cobertura, se relevante. |
 | Deploy | `Não implantado`, `Dev`, `Staging`, `Produção` | Pipeline, release e data efetiva. |
-| Exposição | `Flag desligada`, `Piloto/Canary`, `Parcial`, `Geral` | Configuração por ambiente/coorte e verificação. |
+| Exposição | `Flag desligada`, `Piloto/Gradual`, `Parcial`, `Geral` | Configuração por ambiente/coorte e verificação. |
 | Habilitação | `Pendente`, `Em andamento`, `Concluída` | Comunicação, treinamento ou material publicado. |
 
 `Bloqueado` exige motivo, dependência, responsável e próxima revisão. `Concluído` exige critérios de aceite cumpridos, evidência de disponibilidade e registro de medição inicial ou plano de avaliação pós-lançamento. O status não deve ser atualizado por mera passagem do tempo.

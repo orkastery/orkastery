@@ -5,7 +5,7 @@
  * canais de Telegram SO no alvo `gate`, e `hitl-sessao-local` provava os dois canais MCP SO
  * no alvo `session`. Nenhum teste exercitava as oito combinacoes, e por isso ninguem
  * percebia que a evidencia duravel de sessao por Telegram nunca era revalidada, nem que a
- * oferta de canais so existia no canario. Uma matriz cheia tem um efeito que somas de casos
+ * oferta de canais so existia no cenario. Uma matriz cheia tem um efeito que somas de casos
  * parciais nao tem: ela reprova a linha que falta.
  *
  * Tudo aqui e SIMULADO: nao ha rede Telegram, cliente MCP nem sessao real.

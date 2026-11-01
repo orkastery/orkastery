@@ -23,7 +23,7 @@ npm --prefix core run test:ci
 1. **Before the PR, run `npm --prefix core run test:ci`.** It is hermetic: no network, no Docker, no agent runtime. Paste its output in the PR.
 2. **A behavior change needs a test** that fails before your change and passes after it. A text change needs `node core/dist/index.js docs verificar` and markdownlint green.
 3. **The PR template** asks for the problem, the change, the proof (the real output, pasted), the baseline (what already failed before) and the risk. An empty section sends the PR back.
-4. **Required checks:** `documentacao (markdownlint e paridade)`; `nucleo ork (build, testes, canarios)`, one per Node version; and `ork-verify`. A PR that changes `core/`, `adapters/` or `marketplaces/` needs a new line under "Não publicado" (unreleased) in the `CHANGELOG.md`, or `documentacao` fails with `changelog.linha-ausente`. Never change `version` in `core/package.json`.
+4. **Required checks:** `documentacao (markdownlint e paridade)`; `nucleo ork (build, testes, cenarios)`, one per Node version; and `ork-verify`. A PR that changes `core/`, `adapters/` or `marketplaces/` needs a new line under "Não publicado" (unreleased) in the `CHANGELOG.md`, or `documentacao` fails with `changelog.linha-ausente`. Never change `version` in `core/package.json`.
 5. **Language:** the PR title, the commit messages and the CHANGELOG line can be in pt-BR or in English. Keep the CHANGELOG group names (Adicionado, Mudado, Corrigido, Removido) as they are.
 6. **Security issues** never go in a public issue: see [SECURITY.md](SECURITY.md).
 

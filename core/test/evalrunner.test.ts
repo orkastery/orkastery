@@ -11,7 +11,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { CANARIOS } from '../src/canarios';
+import { CENARIOS } from '../src/cenarios';
 import { exigirCatalogo, skillsDoCatalogo } from '../src/catalogo';
 import {
   ArquivoDeCasos,
@@ -35,14 +35,14 @@ function catalogoDeRascunho(nome: string): { dir: string; limpar: () => void } {
   return { dir, limpar: () => fs.rmSync(dir, { recursive: true, force: true }) };
 }
 
-test('o eval do produto cobre os canários, skills, casos e asserções do catálogo vigente', () => {
+test('o eval do produto cobre os cenários, skills, casos e asserções do catálogo vigente', () => {
   const corpus = lerCasos(RAIZ);
   assert.deepEqual(corpus.falhas, []);
   const casos = corpus.arquivos.flatMap(a => a.casos);
   const r = rodarEval({ catalogo: RAIZ });
   assert.deepEqual(r.falhas, [], 'o eval do proprio produto precisa estar verde');
-  assert.deepEqual(r.canarios.map(c => c.id).sort(), CANARIOS.map(c => c.id).sort());
-  assert.equal(r.canarios.filter((c) => c.estado === 'passou').length, CANARIOS.length);
+  assert.deepEqual(r.cenarios.map(c => c.id).sort(), CENARIOS.map(c => c.id).sort());
+  assert.equal(r.cenarios.filter((c) => c.estado === 'passou').length, CENARIOS.length);
   assert.deepEqual(r.skills.map(s => s.skill).sort(), skillsDoCatalogo(RAIZ).map(s => s.nome).sort());
   assert.equal(r.totalDeCasos, casos.length);
   assert.equal(r.totalDeAssercoes, casos.reduce((total, c) => total + c.assercoes.length, 0));
@@ -55,10 +55,10 @@ test('o eval do produto cobre os canários, skills, casos e asserções do catá
   assert.ok(r.ok);
 });
 
-test('todo canario registrado tem fixture em disco, e vice-versa', () => {
-  for (const c of CANARIOS) {
+test('todo cenario registrado tem fixture em disco, e vice-versa', () => {
+  for (const c of CENARIOS) {
     const caminho = path.join(RAIZ, 'eval', 'fixtures', c.id, 'caso.json');
-    assert.ok(fs.existsSync(caminho), `canario ${c.id} sem fixture versionada`);
+    assert.ok(fs.existsSync(caminho), `cenario ${c.id} sem fixture versionada`);
     const fixture = JSON.parse(fs.readFileSync(caminho, 'utf8')) as {
       id: string;
       porque?: string;
