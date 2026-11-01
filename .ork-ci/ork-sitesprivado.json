@@ -1,0 +1,75 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-sitesprivado",
+  "branch": "ork/ork-sitesprivado-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-sitesprivado",
+      "fase": "GO",
+      "arquivo": "README.md",
+      "alegacao": "A tabela Ecosystem do README em inglês não aponta para os repositórios dos sites.",
+      "negativa": false,
+      "verificar": [
+        "! grep -q -E \"github.com/orkastery/(orkastery|orkmind)[.]com\" README.md"
+      ],
+      "criadoEm": "2026-11-01T03:53:05.917Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-sitesprivado",
+      "fase": "GO",
+      "arquivo": "README.pt-BR.md",
+      "alegacao": "A tabela do ecossistema do README em português não aponta para os repositórios dos sites.",
+      "negativa": false,
+      "verificar": [
+        "! grep -q -E \"github.com/orkastery/(orkastery|orkmind)[.]com\" README.pt-BR.md"
+      ],
+      "criadoEm": "2026-11-01T03:53:06.408Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-sitesprivado",
+      "fase": "GO",
+      "arquivo": "docs/guias/contribuir/documentacao.md",
+      "alegacao": "O guia de contribuição de documentação não cita os repositórios dos sites e manda a correção de página para uma issue neste repositório.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"Abra a issue neste repositório\" docs/guias/contribuir/documentacao.md"
+      ],
+      "criadoEm": "2026-11-01T03:53:06.845Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-sitesprivado",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A mudança está no CHANGELOG em Não publicado.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-11-01T03:53:07.280Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
