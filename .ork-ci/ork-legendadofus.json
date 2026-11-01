@@ -15,7 +15,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-cli.test.js"
       ],
       "criadoEm": "2026-11-01T06:23:59.294Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -29,7 +29,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/legenda-fuso.json M1"
       ],
       "criadoEm": "2026-11-01T06:23:59.734Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -43,7 +43,7 @@
         "node core/scripts/checar-changelog.cjs --base origin/main"
       ],
       "criadoEm": "2026-11-01T06:24:00.168Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
