@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.3",
-  "publicadoEm": "2026-11-01T08:00:03.960Z",
+  "publicadoEm": "2026-11-01T08:15:03.540Z",
   "threads": [
     {
       "id": "ork-legendadofus",
@@ -134,7 +134,7 @@
       "esforco": null,
       "sessao": {
         "viva": false,
-        "desdeEm": "2026-11-01T04:31:01.284Z",
+        "desdeEm": "2026-11-01T08:01:46.660Z",
         "motivo": "nenhuma sessão despachada na fase GO"
       }
     },
@@ -146,7 +146,7 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-roadmapachad-full",
-      "atualizadaEm": "2026-11-01T07:46:08.348Z",
+      "atualizadaEm": "2026-11-01T08:01:24.714Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -156,7 +156,7 @@
       "esforco": null,
       "sessao": {
         "viva": false,
-        "desdeEm": "2026-11-01T07:49:50.052Z",
+        "desdeEm": "2026-11-01T08:15:07.578Z",
         "motivo": "nenhuma sessão despachada na fase GOAL"
       }
     },
