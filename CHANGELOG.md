@@ -6,6 +6,15 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+## [0.6.3] - 2026-10-31
+
+O Agile Check fica mais rápido e mais estável: a bancada só publica razão com três pares válidos, os testes caros
+gastam menos CPU de sistema e a lane hermética recebe de volta as CPUs reservadas quando a varredura e a integração
+terminam. Nenhum teste sai. O `ork eval` passa a chamar de cenários de comportamento as provas de falhas conhecidas
+da condução (`--so-cenarios`, `--cenario <id>`), e os filtros antigos deixam de existir.
+
+O #Noctum segue **em desenvolvimento, não anunciado**.
+
 ### Alterado
 
 - **Cenários de comportamento no lugar do nome de pássaro:** o `ork eval` chama de cenários de comportamento as provas que reproduzem um jeito conhecido de a condução falhar. Os filtros passam a ser `--so-cenarios` e `--cenario <id>`, e os antigos deixam de existir. A saída, as docs, o check de CI `nucleo ork (build, testes, cenarios)` e os arquivos do núcleo usam o termo novo. No padrão de roadmap, o nível de exposição gradual passa a se chamar `Piloto/Gradual`, e a página que usa o nome antigo é apontada pelo `ork docs verificar`.
