@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.3",
-  "publicadoEm": "2026-11-01T19:30:03.545Z",
+  "publicadoEm": "2026-11-01T19:45:03.632Z",
   "threads": [
     {
       "id": "ork-legendadofus",
@@ -36,7 +36,7 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm067f5agrok-go",
-      "atualizadaEm": "2026-11-01T19:11:09.483Z",
+      "atualizadaEm": "2026-11-01T19:36:30.700Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -124,7 +124,7 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm074m8agend-go",
-      "atualizadaEm": "2026-11-01T19:27:56.727Z",
+      "atualizadaEm": "2026-11-01T19:32:10.622Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -133,9 +133,9 @@
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-11-01T19:33:10.322Z",
+        "motivo": "sessão 01a1988a encerrada (completed)"
       }
     },
     {
