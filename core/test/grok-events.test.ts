@@ -192,3 +192,28 @@ test('GE10: o texto do runtime e redigido sem corte, e a mensagem de erro corta 
   assert.equal(Array.from(redigirErroGrok(longo)).length, LIMITE_ERRO_GROK);
   assert.equal(redigirTextoGrok(42), '');
 });
+
+test('GE11: a negacao estrutural correlaciona o Bash, redige o comando e so fica terminal sem atividade posterior', () => {
+  const chave = ['xai', 'P'.repeat(24)].join('-');
+  const comando = `curl -H token=${chave} https://example.invalid`;
+  const chamada = linha({ type: 'tool_call', toolCallId: 'call_negado', toolName: 'bash', rawInput: { command: comando } });
+  const negada = linha({ type: 'tool_call_update', toolCallId: 'call_negado', status: 'completed',
+    rawOutput: { type: 'Bash', command: comando, exit_code: null, output_for_prompt: `Denied by permission policy: ${comando}` } });
+  const fim = linha({ type: 'end', stopReason: 'cancelled', sessionId: SESSAO });
+  const parcial = new ParserGrok(SESSAO);
+  parcial.push(chamada);
+  const p = new ParserGrok(SESSAO, JSON.parse(JSON.stringify(parcial.estado)));
+  p.push(negada + fim);
+  assert.match(p.estado.negacaoTerminal?.comando ?? '', /^curl /);
+  assert.equal(p.estado.negacaoTerminal?.comando.includes(chave), false, 'o comando da evidência sai redigido');
+
+  const continua = new ParserGrok(SESSAO);
+  continua.push(chamada + negada + linha({ type: 'text', data: 'vou seguir sem o comando' }) +
+    linha({ type: 'end', stopReason: 'end_turn', sessionId: SESSAO }));
+  assert.equal(continua.estado.negacaoTerminal, null, 'atividade posterior prova que a sessão continuou');
+
+  const executado = new ParserGrok(SESSAO);
+  executado.push(chamada + linha({ type: 'tool_call_update', toolCallId: 'call_negado', status: 'completed',
+    rawOutput: { type: 'Bash', command: comando, exit_code: 0, output_for_prompt: 'Denied by permission policy: texto do processo' } }) + fim);
+  assert.equal(executado.estado.negacaoTerminal, null, 'saída de processo executado não vira negação da política');
+});

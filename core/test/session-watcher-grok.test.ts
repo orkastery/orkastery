@@ -585,3 +585,33 @@ test('GW22: com o MCP do ork, a retomada pronta para colar avisa que o servidor 
     assert.equal(String(sem.detalhe).includes('.grok/config.toml'), false, 'sem o MCP, a retomada nao fala da config');
   } finally { comMcp.limpar(); semMcp.limpar(); }
 });
+
+test('GW23: a negacao seguida de atividade deixa a fase seguir; se ela encerra o turno, vira policy.violation com evidencia', () => {
+  const continua = cenario('negacao-segue');
+  const encerra = cenario('negacao-encerra');
+  const comando = 'curl https://example.invalid';
+  const eventos = (stopReason: string, comAtividade: boolean) => [
+    { type: 'tool_call', toolCallId: 'call_negado', toolName: 'bash', rawInput: { command: comando } },
+    { type: 'tool_call_update', toolCallId: 'call_negado', status: 'completed',
+      rawOutput: { type: 'Bash', command: comando, exit_code: null, output_for_prompt: `Denied by permission policy: ${comando}` } },
+    ...(comAtividade ? [{ type: 'text', data: 'a fase continua sem o comando' }] : []),
+    { type: 'end', stopReason, sessionId: SID },
+  ].map((e) => `${JSON.stringify(e)}\n`).join('');
+  try {
+    continua.stream(eventos('end_turn', true));
+    continua.plano();
+    continua.recibo(0);
+    assert.equal(continua.observar(1000).classificacao, 'fase_concluida');
+    assert.equal(continua.resultados()[0].motivo, null);
+
+    encerra.stream(eventos('cancelled', false));
+    encerra.recibo(0);
+    assert.equal(encerra.observar(1000).classificacao, 'gate_blocked');
+    const [res] = encerra.resultados();
+    assert.equal(res.motivo, 'policy.violation');
+    assert.equal(res.comandoNegado, comando);
+    assert.equal(res.evidencia, `comando negado pela lista fechada do Grok: ${comando}`);
+    assert.equal(res.retomada, undefined, 'negação tipada não vira human.pending com retomada');
+    assert.ok(encerra.eventos().some((e) => e.tipo === 'gate_blocked' && e.motivo === 'policy.violation' && e.evidencia === res.evidencia));
+  } finally { continua.limpar(); encerra.limpar(); }
+});
