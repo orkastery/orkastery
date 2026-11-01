@@ -5,20 +5,6 @@
   "base": "main",
   "claims": [
     {
-      "id": "C1",
-      "thread": "ork-rm074m8agend",
-      "fase": "GO",
-      "arquivo": "core/src/agendador-cpu.ts",
-      "alegacao": "A sonda usa medianas de varias amostras e o plano reduz capacidade por carga e steal, voltando ao Classic apenas abaixo do minimo estrutural.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node core/dist-test/test/check-agil.test.js"
-      ],
-      "criadoEm": "2026-11-01T19:24:03.994Z",
-      "estado": "pendente",
-      "lint": []
-    },
-    {
       "id": "C2",
       "thread": "ork-rm074m8agend",
       "fase": "GO",
@@ -29,7 +15,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/dist-test/test/check-agil.test.js"
       ],
       "criadoEm": "2026-11-01T19:24:04.107Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -43,7 +29,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/dist-test/test/check-agil.test.js"
       ],
       "criadoEm": "2026-11-01T19:27:56.120Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -57,7 +43,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/dist-test/test/check-agil.test.js"
       ],
       "criadoEm": "2026-11-01T19:27:56.244Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -71,7 +57,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/dist-test/test/check-agil.test.js"
       ],
       "criadoEm": "2026-11-01T19:27:56.327Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -85,7 +71,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/dist-test/test/check-agil.test.js"
       ],
       "criadoEm": "2026-11-01T19:27:56.431Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -99,7 +85,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m8.json M1"
       ],
       "criadoEm": "2026-11-01T19:27:56.485Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -113,7 +99,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m8.json M2"
       ],
       "criadoEm": "2026-11-01T19:27:56.556Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -127,7 +113,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m8.json M3"
       ],
       "criadoEm": "2026-11-01T19:27:56.660Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -141,7 +127,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m8.json M4"
       ],
       "criadoEm": "2026-11-01T19:27:56.726Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -155,7 +141,7 @@
         "node core/dist/index.js docs verificar"
       ],
       "criadoEm": "2026-11-01T19:32:10.322Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -169,7 +155,7 @@
         "node core/dist/index.js docs verificar"
       ],
       "criadoEm": "2026-11-01T19:32:10.508Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -183,7 +169,7 @@
         "node core/scripts/checar-changelog.cjs --base origin/main"
       ],
       "criadoEm": "2026-11-01T19:32:10.622Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -197,7 +183,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m8.json M5"
       ],
       "criadoEm": "2026-11-01T19:51:26.209Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -211,7 +197,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m8.json M6"
       ],
       "criadoEm": "2026-11-01T19:51:26.825Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -225,6 +211,20 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m8.json M7"
       ],
       "criadoEm": "2026-11-01T19:51:27.564Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm074m8agend",
+      "fase": "GO",
+      "arquivo": "core/src/agendador-cpu.ts",
+      "alegacao": "A sonda usa medianas de várias amostras; só o steal acima do limiar desconta capacidade, a carga do loadavg segue a regra anterior e o fallback roda com a paralelização do Classic.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-01T20:11:17.196Z",
       "estado": "pendente",
       "lint": []
     }
