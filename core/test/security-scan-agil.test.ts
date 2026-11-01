@@ -159,6 +159,16 @@ test('SA4: a segunda rodada com a mesma base reaproveita o relatorio da base e d
   assert.ok(runsSemgrepDesde(marcoMultifile).length > 0, 'regra entre arquivos sempre roda inteira');
   assert.match(segundaMultifile.check!.pecas.find(p => p.peca === 'cache-semgrep')!.motivo ?? '', /regra-entre-arquivos/);
 
+  // O registro responde em YAML, e as regras padrao marcam `interfile` em `options` e `metadata`: sem o motor Pro, reaproveita.
+  const soNoPro = repo('sa4-interfile-sem-pro');
+  process.env.ORK_FAKE_SEMGREP_REGISTRY = 'rules:\n- id: so-no-motor-pro\n  languages:\n  - javascript\n  message: m\n'
+    + '  severity: WARNING\n  pattern: eval(...)\n  options:\n    interfile: true\n  metadata:\n    interfile: true\n';
+  runScanAgil({ root: soNoPro.dir, stateRoot: soNoPro.dir, base: soNoPro.base });
+  const marcoSoNoPro = fake!.calls().length;
+  const segundaSoNoPro = runScanAgil({ root: soNoPro.dir, stateRoot: soNoPro.dir, base: soNoPro.base });
+  assert.equal(runsSemgrepDesde(marcoSoNoPro).length, 0, 'interfile das regras padrao, sem o motor Pro, reaproveita o achado por arquivo');
+  assert.doesNotMatch(segundaSoNoPro.check!.pecas.find(p => p.peca === 'cache-semgrep')?.motivo ?? '', /regra-entre-arquivos/);
+
   delete process.env.ORK_FAKE_SEMGREP_REGISTRY;
   process.env.ORK_FAKE_SEMGREP_REGISTRY_DOWN = '1';
   const indisponivel = repo('sa4-registro-indisponivel');
