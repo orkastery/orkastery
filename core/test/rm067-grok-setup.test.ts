@@ -37,7 +37,7 @@ import { semAutoridadeHitlNoAmbiente } from './apoio';
 semAutoridadeHitlNoAmbiente();
 
 const PROMPT = 'Fatia de fixture SIMULADA para o setup do grok';
-const APROVACAO_AUTOMATICA = ['--yolo', '--always-approve', '--permission-mode', 'bypassPermissions'];
+const BYPASS = ['--yolo', '--always-approve', 'bypassPermissions'];
 
 /** O manifesto do repositório pede o sandbox desligado, como um clone de terceiro poderia pedir. */
 function projetoQueAfrouxa(nome: string): ProjetoDeTeste {
@@ -82,7 +82,8 @@ test('GS2: confirmada nesta maquina, a postura frouxa vira o perfil off; o padra
     const r = rodarFase(p.carregado, t.id, { fase: 'GO', prompt: PROMPT, dryRun: true, runtime: 'grok', model: 'grok-modelo' });
     assert.equal(r.bloqueado, false, r.erro);
     assert.equal(perfilDoComando(r.comando), 'off');
-    for (const proibida of APROVACAO_AUTOMATICA) assert.equal(r.comando.includes(proibida), false, proibida);
+    assert.equal(r.comando[r.comando.indexOf('--permission-mode') + 1], 'dontAsk');
+    for (const proibida of BYPASS) assert.equal(r.comando.includes(proibida), false, proibida);
 
     // Confirmar outra postura nao vale para esta, e revogar volta a recusar.
     confirmarPosturaLocal(p.dir, 'workspace-write', 'teste');
@@ -96,7 +97,8 @@ test('GS2: confirmada nesta maquina, a postura frouxa vira o perfil off; o padra
     const piso = rodarFase(padrao.carregado, tp.id, { fase: 'GO', prompt: PROMPT, dryRun: true, runtime: 'grok', model: 'grok-modelo' });
     assert.equal(piso.bloqueado, false, piso.erro);
     assert.equal(perfilDoComando(piso.comando), 'workspace', 'o piso sem postura frouxa e workspace, sem confirmacao');
-    for (const proibida of APROVACAO_AUTOMATICA) assert.equal(piso.comando.includes(proibida), false, proibida);
+    assert.equal(piso.comando[piso.comando.indexOf('--permission-mode') + 1], 'dontAsk');
+    for (const proibida of BYPASS) assert.equal(piso.comando.includes(proibida), false, proibida);
   } finally { p.limpar(); padrao.limpar(); }
 });
 

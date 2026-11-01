@@ -348,7 +348,8 @@ test('GX4: o despacho real sobe o servidor fora do grok, e o filho no workspace 
 
     // O grok segue no piso workspace, sem nada que aprove tudo.
     assert.equal(r.comando[r.comando.indexOf('--sandbox') + 1], 'workspace');
-    for (const proibido of ['off', 'danger-full-access', '--yolo', '--always-approve', '--permission-mode', 'bypassPermissions'])
+    assert.equal(r.comando[r.comando.indexOf('--permission-mode') + 1], 'dontAsk');
+    for (const proibido of ['off', 'danger-full-access', '--yolo', '--always-approve', 'bypassPermissions'])
       assert.equal(r.comando.includes(proibido), false, proibido);
     const config = fs.readFileSync(path.join(wt, '.grok', 'config.toml'), 'utf8');
     const entrada = (parse(config) as { mcp_servers: Record<string, Record<string, unknown>> }).mcp_servers.orkastery;
