@@ -42,6 +42,7 @@ Achados de uma rede de três VPS que conduz um roadmap em `#Auto` com o ork 0.5.
 | 4 | [RM-078](RM-078-recibo-valido-enquanto-nada-muda.md) Recibo válido enquanto nada muda | Alta | Um GO sem mudança custa um verify ou um CHECK inteiro |
 | 5 | [RM-079](RM-079-claims-que-a-correcao-passa.md) Claims que a correção passa | Média | Claim impossível ou retirada sem trilha vira trabalho do dono |
 | 6 | [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md) Saída completa e causa tipada no verify | Média | A 0.6.0 tirou o caso comum; falta a causa certa e o log inteiro para quem corrige |
+| 7 | [RM-081](RM-081-check-por-qualquer-runner.md) CHECK que entende qualquer runner de teste | Alta | Fora do Node, o CHECK não nomeia o teste que caiu nem protege teste de relógio, e cada correção paga a suíte inteira (relato de 01/11/2026, conferido contra a 0.6.3) |
 | 7 | [RM-064](RM-064-conta-esgotada-nao-para-a-fase.md), fatia 4 | Média | O rodízio no mesmo runtime já existe desde a 0.6.0; falta a trava entre runtimes e o histórico |
 
 ## Itens
@@ -119,6 +120,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-078](RM-078-recibo-valido-enquanto-nada-muda.md) | Recibo de verify e de revisão válido enquanto HEAD, claims e plano não mudam | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-31 |
 | [RM-079](RM-079-claims-que-a-correcao-passa.md) | Claims de revisão que a correção passa e retirada tipada com substituta | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-31 |
 | [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md) | Saída completa e causa tipada em todo comando do verify | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-31 |
+| [RM-081](RM-081-check-por-qualquer-runner.md) | CHECK que entende qualquer runner de teste e só roda de novo o necessário | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-01 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->
