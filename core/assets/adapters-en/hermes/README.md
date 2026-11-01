@@ -176,7 +176,7 @@ Verification: `python3 -m unittest discover -s adapters/hermes/test -p conducao_
 
 The authenticated gateway delivers the original update over stdin to `bin/ork-hitl-answer.py ork_gate_answer <thread> <pedido>` or `ork_session_answer`. Set `ORK_BIN`, `ORK_HITL_TELEGRAM_USERS` and `ORK_HITL_TELEGRAM_CHATS` to the allowed ids. Reply to the alert that contains the line `ork-hitl <thread> <pedido>`; buttons use `ork:<thread>:<pedido>:<número>`. The transport refuses bots, an unauthorized chat/user and an answer without correlation. The core decides on the deadline, the mode and the validity of the request.
 
-The script must receive events directly from the gateway, whose Telegram authentication is the trust boundary. JSON created by an agent is not human evidence. The canary uses a controlled transport; it does not measure the real Telegram network. To retire `ork-watchdog-5min`, disable the job in the host scheduler and keep the receipt; no watchdog may call an approval on the builder's behalf.
+The script must receive events directly from the gateway, whose Telegram authentication is the trust boundary. JSON created by an agent is not human evidence. The scenario uses a controlled transport; it does not measure the real Telegram network. To retire `ork-watchdog-5min`, disable the job in the host scheduler and keep the receipt; no watchdog may call an approval on the builder's behalf.
 
 Verification: `python3 -m unittest discover -s adapters/hermes/test -p hitl_answer_test.py -v`.
 

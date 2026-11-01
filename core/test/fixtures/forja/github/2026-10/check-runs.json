@@ -15,7 +15,7 @@
     "check_runs": [
       {
         "id": 115115811714,
-        "name": "nucleo ork (build, testes, canarios) (20)",
+        "name": "nucleo ork (build, testes, cenarios) (20)",
         "node_id": "CR_kwDOUvQwr88AAAAazW_jgg",
         "head_sha": "9436d3e076e66353e8e47f39c4457ed1d9bc3dc8",
         "external_id": "609c7477-b7e2-59ea-b104-f31ad7736beb",
@@ -245,7 +245,7 @@
       },
       {
         "id": 115115811696,
-        "name": "mods do Claude Code (validate, test e canario)",
+        "name": "mods do Claude Code (validate, test e cenario)",
         "node_id": "CR_kwDOUvQwr88AAAAazW_jcA",
         "head_sha": "9436d3e076e66353e8e47f39c4457ed1d9bc3dc8",
         "external_id": "186609b8-59e9-5528-97fe-d8319ee74298",
@@ -360,7 +360,7 @@
       },
       {
         "id": 115115811663,
-        "name": "nucleo ork (build, testes, canarios) (22)",
+        "name": "nucleo ork (build, testes, cenarios) (22)",
         "node_id": "CR_kwDOUvQwr88AAAAazW_jTw",
         "head_sha": "9436d3e076e66353e8e47f39c4457ed1d9bc3dc8",
         "external_id": "f914c27c-7b39-5eef-b31f-566ca35b830a",

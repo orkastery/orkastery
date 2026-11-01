@@ -82,7 +82,7 @@ export const DIMENSOES: Readonly<Record<string, readonly string[]>> = {
   codigo: ['Não iniciado', 'Branch criada', 'PR aberto', 'Mesclado'],
   testes: ['Não iniciados', 'Em execução', 'Aprovados', 'Falhando'],
   deploy: ['Não implantado', 'Dev', 'Staging', 'Produção'],
-  exposicao: ['Flag desligada', 'Piloto/Canary', 'Parcial', 'Geral'],
+  exposicao: ['Flag desligada', 'Piloto/Gradual', 'Parcial', 'Geral'],
   habilitacao: ['Pendente', 'Em andamento', 'Concluída'],
 };
 

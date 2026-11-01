@@ -144,7 +144,7 @@ resultado contém o SHA do HEAD confirmado no Git. O comando recebido nunca é e
 
 Teste de integração isolado: `npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/claude-sensors.test.js`.
 
-O canário `node core/dist/index.js eval --so-canarios --canario fx-sensores-runtime`
+O cenário `node core/dist/index.js eval --so-cenarios --cenario fx-sensores-runtime`
 integra hook, CLI, supervisor e watcher em um repositório temporário. Seus eventos Codex
 são sintéticos; a saída identifica esse limite e mede ingestão, morte e duplicatas.
 

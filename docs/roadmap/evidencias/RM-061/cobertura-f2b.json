@@ -571,7 +571,7 @@
         "saida": 4
       },
       {
-        "arquivo": "canarios-sensores.ts",
+        "arquivo": "cenarios-sensores.ts",
         "saida": 4
       },
       {
@@ -655,11 +655,11 @@
         "saida": 3
       },
       {
-        "arquivo": "canarios-i43.ts",
+        "arquivo": "cenarios-i43.ts",
         "saida": 2
       },
       {
-        "arquivo": "canarios-rm057.ts",
+        "arquivo": "cenarios-rm057.ts",
         "saida": 2
       },
       {
@@ -707,7 +707,7 @@
         "saida": 2
       },
       {
-        "arquivo": "canarios-hitl.ts",
+        "arquivo": "cenarios-hitl.ts",
         "saida": 1
       },
       {

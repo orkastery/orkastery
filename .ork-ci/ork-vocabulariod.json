@@ -1,0 +1,103 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-vocabulariod",
+  "branch": "ork/ork-vocabulariod-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-vocabulariod",
+      "fase": "GO",
+      "arquivo": "core/src/evalrunner.ts",
+      "alegacao": "O ork eval roda os cenários de comportamento pelo filtro --so-cenarios e sai verde",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js eval --so-cenarios && node core/dist/index.js eval --so-cenarios | grep -q \"^cenarios: \""
+      ],
+      "criadoEm": "2026-10-31T17:37:20.376Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-vocabulariod",
+      "fase": "GO",
+      "arquivo": "core/src/locale-ajuda.ts",
+      "alegacao": "A ajuda do CLI mostra o filtro --cenario do eval",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js --help | grep -q -- \"--cenario C\""
+      ],
+      "criadoEm": "2026-10-31T17:37:20.855Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-vocabulariod",
+      "fase": "GO",
+      "arquivo": ".github/workflows/ci.yml",
+      "alegacao": "O check de CI do núcleo se chama nucleo ork (build, testes, cenarios)",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"name: nucleo ork (build, testes, cenarios)\" .github/workflows/ci.yml"
+      ],
+      "criadoEm": "2026-10-31T17:37:21.284Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-vocabulariod",
+      "fase": "GO",
+      "arquivo": "core/src/docs.ts",
+      "alegacao": "O padrão de roadmap usa Piloto/Gradual como nível de exposição gradual",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"Piloto/Gradual\" core/src/docs.ts && grep -q \"Piloto/Gradual\" docs/padroes/roadmap-de-produto.md"
+      ],
+      "criadoEm": "2026-10-31T17:37:21.728Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-vocabulariod",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "Os snapshots de locale e as variantes inglesas acompanham o termo novo",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f3b-snapshot.test.js core/dist-test/test/locale-skills.test.js core/dist-test/test/evalrunner.test.js"
+      ],
+      "criadoEm": "2026-10-31T17:37:22.570Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-vocabulariod",
+      "fase": "GO",
+      "arquivo": "README.md",
+      "alegacao": "Nenhum arquivo do repositório fora do histórico publicado do CHANGELOG e das evidências de fechamento usa o nome de pássaro",
+      "negativa": true,
+      "verificar": [
+        "! grep -r -i -q -E \"can[aá]ri|canar(y|ies)\" --exclude-dir=.ork-ci --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=dist-test --exclude=CHANGELOG.md ."
+      ],
+      "criadoEm": "2026-10-31T17:37:31.143Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}

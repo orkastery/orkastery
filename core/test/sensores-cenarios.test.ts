@@ -1,10 +1,10 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as path from 'node:path';
-import { rodarCanarios } from '../src/evalrunner';
+import { rodarCenarios } from '../src/evalrunner';
 
-test('cenário de comportamento integrado confronta medições reais de subprocessos com a fixture T8', () => {
-  const executar = () => rodarCanarios(path.resolve(__dirname, '../../..'), ['fx-sensores-runtime']);
+test('cenário integrado confronta medições reais de subprocessos com a fixture T8', () => {
+  const executar = () => rodarCenarios(path.resolve(__dirname, '../../..'), ['fx-sensores-runtime']);
   const primeira = executar();
   const divergencias = primeira.resultados[0]?.divergencias ?? [];
   // Sob concorrência do Classic, só a latência de parede pode refletir a fila do host. Uma nova sandbox precisa então

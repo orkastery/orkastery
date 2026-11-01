@@ -42,7 +42,7 @@ test('achado a: a sessao interativa ocupada, sem thread, nao vira item do dono n
     const quando = '2026-10-13T12:00:00.000Z';
     const sessao = (n: number, campos: Record<string, unknown>) => ({ sessionId: `b0b0b0b0-0000-4000-8000-00000000000${n}`,
       id: `b0b0b0b${n}`, kind: 'interactive', cwd: p.dir, pid: process.pid, startedAt: Date.parse('2026-10-13T11:00:00Z'), ...campos });
-    // A sessao bloqueada sem thread continua visivel: e o canario fx-hitl-latency (I-01), que le os logs dela.
+    // A sessao bloqueada sem thread continua visivel: e o cenario fx-hitl-latency (I-01), que le os logs dela.
     const sessoes = [sessao(1, { status: 'busy' }), sessao(2, { state: 'busy' }), sessao(3, { state: 'running' }),
       sessao(4, { state: 'xyz' })];
     const pulse = montarPulse(p.carregado, { fontes: () => ({}), quando, consulta: { ok: true, detalhe: '', sessoes } });

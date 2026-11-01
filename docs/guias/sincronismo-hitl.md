@@ -283,7 +283,7 @@ ork pulse --json
 cat .orkastery/monitor/hitl.log
 ```
 
-O canário `fx-hitl-latency` usa sessão fake e destino local real: entrega em quatro
+O cenário `fx-hitl-latency` usa sessão fake e destino local real: entrega em quatro
 minutos simulados e nenhum reenvio sem novidade. Isso não comprova Telegram real nem sete
 dias de operação. O replay `fx-fase-orfa` conserva os prefixos dos ledgers originais,
 antes do próximo redespacho e da reconciliação posterior, com hash das fontes.
@@ -392,7 +392,7 @@ existe escolha de canal, e D12 seria só uma tabela.
 
 ### O que isto NÃO prova
 
-O canário `fx-omnicanal` é SIMULADO, em sandbox git: ele prova que os quatro recibos são
+O cenário `fx-omnicanal` é SIMULADO, em sandbox git: ele prova que os quatro recibos são
 distinguíveis e que aprovação cega, transcrito de tool, canal de outro transporte, chave de
 outro canal e conta fora da allowlist são recusados. Ele **não** prova rede Telegram real,
 nem cliente MCP real, nem operação prolongada. A observação de sete dias de `hitl.log` da
@@ -477,7 +477,7 @@ ele confere o veredito tipado, `repetida` e, em resposta de sessão, a sessão q
 
 ### FX6 — a oferta de canais chega ao humano
 
-`ofertaDeCanais` era chamada de um lugar só: o canário. `ofertaDoPedido` agora acompanha o
+`ofertaDeCanais` era chamada de um lugar só: o cenário. `ofertaDoPedido` agora acompanha o
 pedido real no `ork pulse` e em `ork_hitl_pending`, com pré-condições lidas na hora. O Pulse
 roda em cron e não é uma conexão MCP: ele passa a lista de conexões vazia de propósito, e os
 dois canais locais saem `indisponivel` com `hitl.canal.sem-conexao`. No servidor MCP a
@@ -728,7 +728,7 @@ mudou o que o núcleo traduz depois dela.
   alternativas continua legível. `ork prompt lint` reprova o template que peça um "confirmo" em
   texto livre ou que o dono cole texto (regra `hitl-texto-livre`).
   O tempo parado por essas perguntas sai do ledger em `ork ledger stats` (`hitlDeConducao`, com a
-  mediana contra a meta de 5 min), e o canário `fx-pedido-colado` prova que o pedido colado com
+  mediana contra a meta de 5 min), e o cenário `fx-pedido-colado` prova que o pedido colado com
   autorização explícita segue sem parar. A regra está nos quatro adaptadores de condução.
   O mesmo tempo chega ao `ork pulse` e ao `ork roadmap status` (campo `hitlDeConducao`): cada
   pergunta de condução aberta com há quanto tempo para a thread e desde que hora, no fuso do dono,

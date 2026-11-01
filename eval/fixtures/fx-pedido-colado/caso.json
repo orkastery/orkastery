@@ -16,5 +16,5 @@
     "tempoParadoMs": 0,
     "adaptadoresComARegra": 4
   },
-  "porque": "Na noite de 01 para 02/10 o condutor parou mais de 10 h pedindo um confirmo em texto livre a um pedido colado que já trazia a autorização. O canário prova, contra o código real, que o #Auto não pausa, a dúvida vira decisão informada, o confirmo em texto é recusado sem gravar nada, ninguém aparece esperando no pulse, o tempo parado é zero e os quatro adaptadores dizem a regra."
+  "porque": "Na noite de 01 para 02/10 o condutor parou mais de 10 h pedindo um confirmo em texto livre a um pedido colado que já trazia a autorização. O cenário prova, contra o código real, que o #Auto não pausa, a dúvida vira decisão informada, o confirmo em texto é recusado sem gravar nada, ninguém aparece esperando no pulse, o tempo parado é zero e os quatro adaptadores dizem a regra."
 }

@@ -248,7 +248,7 @@ export interface ResultadoInit {
  * exemplo) gravava manifesto, `AGENTS.md` e `.orkastery/` ali e saia 0; um repositorio criado depois
  * dentro dessa pasta herdava o manifesto de fora, com outro nome e outra abbrev, e o doctor dizia PRONTO.
  * A CLI recusa antes de gravar qualquer coisa. A funcao `init` segue aceitando qualquer pasta (demo e
- * canarios montam o projeto por ela).
+ * cenarios montam o projeto por ela).
  */
 export function exigirRepositorioParaInit(dir: string): void {
   const r = exec('git', ['rev-parse', '--is-inside-work-tree'], dir);

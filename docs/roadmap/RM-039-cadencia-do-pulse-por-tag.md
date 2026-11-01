@@ -71,7 +71,7 @@ sdlc:
 
 - **Origem:** proposta registrada na I-41 (20/09/2026).
 - **Batida de 15 minutos, não de 5:** 15 é a menor cadência das tags, e a varredura leva perto de um minuto nesta VPS. Pergunta nova espera no máximo 15 minutos.
-- **A cadência é opção da varredura:** só a entrada do cron liga. Chamada direta (terminal, testes, canários) entrega toda novidade na hora, como antes.
+- **A cadência é opção da varredura:** só a entrada do cron liga. Chamada direta (terminal, testes, cenários) entrega toda novidade na hora, como antes.
 - **A troca não é gate:** é preferência de entrega. Pelo Telegram, quem troca é o remetente autenticado; pelo terminal, `--por` ou o usuário do sistema.
 
 ## Estado com evidências

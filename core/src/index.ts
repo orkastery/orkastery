@@ -3475,9 +3475,9 @@ function comandoAdapter(args: Args): number {
 }
 
 /**
- * `ork eval`: canarios de comportamento e o corpus das skills finas (bloco B4).
+ * `ork eval`: cenarios de comportamento e o corpus das skills finas (bloco B4).
  *
- * Skill sem eval nao entra, e comportamento sem canario tambem nao. O comando sai diferente
+ * Skill sem eval nao entra, e comportamento sem cenario tambem nao. O comando sai diferente
  * de zero em qualquer falha, para o CI do kit poder barrar merge sem eval.
  */
 function comandoEval(args: Args): number {
@@ -3490,8 +3490,8 @@ function comandoEval(args: Args): number {
   const r = rodarEval({
     catalogo,
     skills: lista(args.opcoes.skill),
-    canarios: lista(args.opcoes.canario) ?? lista(args.opcoes.fixture),
-    soCanarios: args.opcoes['so-canarios'] === true,
+    cenarios: lista(args.opcoes.cenario) ?? lista(args.opcoes.fixture),
+    soCenarios: args.opcoes['so-cenarios'] === true,
     soSkills: args.opcoes['so-skills'] === true,
   });
   if (args.opcoes.json === true) {
