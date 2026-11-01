@@ -1,0 +1,47 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-roadmapachad",
+  "branch": "ork/ork-roadmapachad-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-roadmapachad",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice do roadmap traz a seção Achados de condução em rede, com RM-075 a RM-080 e a fatia 4 da RM-064 em ordem de criticidade",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"RM-080-saida-completa-e-causa-tipada-no-verify.md\" docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-10-31T14:22:48.912Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-roadmapachad",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md",
+      "alegacao": "A RM-064 ganha a fatia 4 proposta: trava de rodízio entre runtimes, histórico de rodízios e contadores",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"Fatia 4 (proposta de 31/10/2026)\" docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md"
+      ],
+      "criadoEm": "2026-10-31T14:22:49.364Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
