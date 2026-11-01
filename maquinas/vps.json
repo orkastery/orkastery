@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.3",
-  "publicadoEm": "2026-11-01T06:30:02.739Z",
+  "publicadoEm": "2026-11-01T06:45:02.884Z",
   "threads": [
     {
       "id": "ork-legendadofus",
@@ -14,7 +14,7 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-legendadofus-go",
-      "atualizadaEm": "2026-11-01T06:24:00.169Z",
+      "atualizadaEm": "2026-11-01T06:37:09.446Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -24,7 +24,7 @@
       "esforco": null,
       "sessao": {
         "viva": false,
-        "desdeEm": "2026-11-01T06:24:10.426Z",
+        "desdeEm": "2026-11-01T06:37:52.982Z",
         "motivo": "nenhuma sessão despachada na fase GO"
       }
     },
