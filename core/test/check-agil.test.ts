@@ -15,7 +15,8 @@ import { assinaturaDoAmbiente, elosDoComando, executorDaClaimPelasLanes, GuardaD
   MAXIMO_DE_PREPAROS_REFEITOS, paralelismoDaVarreduraNoGrupo, passosDoComando, PECA_SEM_RELATORIO, RelatorioDoCheck,
   testDasLanes, TETO_DO_RELATORIO_BYTES, tirarPassosDoPreparo, tirarPassosDoPreparoAposLeituras } from '../src/check-agil';
 import { argvDoItem, chaveDoPerfilIntegracao, picoCpuPorFonte, rodarEmParalelo } from '../src/check-paralelo';
-import { cargaDoProcLoadavg, paredeAgileSimulada, paredeClassicaSimulada, planejarCpuDoGrupo } from '../src/agendador-cpu';
+import { cargaDoProcLoadavg, MINIMO_ESTRUTURAL_DO_GRUPO, paredeAgileSimulada, paredeClassicaSimulada, planejarCpuDoGrupo,
+  resumirMedicaoCpuDoGrupo } from '../src/agendador-cpu';
 import { lerLedger } from '../src/ledger';
 import { carregarManifesto } from '../src/manifest';
 import { dirThread, novaThread } from '../src/thread';
@@ -1038,29 +1039,47 @@ test('AG43: o item do grupo com argv roda sem shell: o argumento chega literal, 
   assert.equal(c.stdout.trim(), '2', 'o item sem argv segue pelo bash -c');
 });
 
-test('AG44: sob carga sintetica presa em CPU, o plano cai para o Classic e nunca projeta parede maior', () => {
+test('AG44: carga e steal degradam a capacidade em degraus; so o minimo estrutural volta a ordem do Classic', () => {
   const trabalho = { hermetica: 700, varredura: 140, integracao: 70 };
-  const saturado = planejarCpuDoGrupo(8, { carga1: 8, stealPct: 12 });
-  assert.equal(saturado.ordem, 'classic');
-  assert.equal(saturado.cpusHermetica, 7);
-  assert.equal(saturado.cpusHermeticaAposVarredura, 7);
-  assert.equal(saturado.cpusHermeticaAposReserva, 7, 'o fallback nao devolve reserva dinamicamente');
-  assert.equal(saturado.ferramentasDaVarredura, 7);
-  assert.equal(saturado.cpusPorContainer, 1);
-  assert.ok(paredeAgileSimulada(saturado, trabalho) <= paredeClassicaSimulada(8, trabalho));
-  assert.match(saturado.motivo, /carga 8 em \/proc\/loadavg/);
-  assert.match(saturado.motivo, /steal 12% em \/proc\/stat/);
-
-  const livre = planejarCpuDoGrupo(8, { carga1: 2, stealPct: 0 });
+  const livre = planejarCpuDoGrupo(8, resumirMedicaoCpuDoGrupo([0, 0, 0], [0, 0, 0]));
   assert.equal(livre.ordem, 'paralela');
+  assert.equal(livre.estado, 'agile');
+  assert.equal(livre.capacidadeEfetiva, 8);
   assert.equal(livre.cpusHermetica + livre.cpusDaFatia, 8, 'a soma do grupo cabe na maquina');
   assert.equal(livre.cpusHermetica, 6);
   assert.equal(livre.cpusHermeticaAposVarredura, 6, 'sem medida completa, a integracao conserva a reserva');
-  assert.equal(livre.cpusHermeticaAposReserva, 8, 'depois da cadeia a hermetica usa a maquina inteira');
+  assert.equal(livre.cpusHermeticaAposReserva, 8, 'depois da cadeia a hermetica usa a capacidade inteira');
   assert.equal(livre.ferramentasDaVarredura, 2);
   assert.equal(livre.cpusPorContainer, 1);
   assert.ok(paredeAgileSimulada(livre, trabalho) < Math.max(trabalho.hermetica / livre.cpusHermetica,
     trabalho.varredura / livre.cpusDaFatia + trabalho.integracao / livre.cpusIntegracao), 'a devolucao reduz a parede modelada');
+
+  const degradado = planejarCpuDoGrupo(8, resumirMedicaoCpuDoGrupo([0, 0, 0], [12, 12, 12]));
+  assert.equal(degradado.ordem, 'paralela', 'steal acima do limiar antigo nao derruba o grupo inteiro');
+  assert.equal(degradado.estado, 'degradado');
+  assert.equal(degradado.capacidadeEfetiva, 7);
+  assert.equal(degradado.cpusHermeticaAposReserva, 7);
+  assert.equal(degradado.ferramentasDaVarredura, 2);
+  assert.match(degradado.motivo, /amostras \[12, 12, 12\], mediana 12%/);
+
+  const pico = planejarCpuDoGrupo(8, resumirMedicaoCpuDoGrupo([0, 7, 0], [0, 90, 0]));
+  assert.equal(pico.estado, 'agile', 'um pico isolado fica na evidencia, mas a mediana preserva o plano');
+  assert.equal(pico.capacidadeEfetiva, 8);
+  assert.match(pico.motivo, /amostras \[0, 90, 0\], mediana 0%/);
+
+  const saturado = planejarCpuDoGrupo(4, resumirMedicaoCpuDoGrupo([0, 0, 0], [50, 50, 50]));
+  assert.equal(saturado.ordem, 'classic');
+  assert.equal(saturado.estado, 'fallback');
+  assert.equal(saturado.capacidadeEfetiva, MINIMO_ESTRUTURAL_DO_GRUPO - 1);
+  assert.equal(saturado.cpusHermetica, 1);
+  assert.equal(saturado.cpusHermeticaAposVarredura, 1);
+  assert.equal(saturado.cpusHermeticaAposReserva, 1, 'o fallback nao devolve reserva dinamicamente');
+  assert.equal(saturado.ferramentasDaVarredura, 1);
+  assert.equal(saturado.cpusPorContainer, 1);
+  assert.ok(paredeAgileSimulada(saturado, trabalho) <= paredeClassicaSimulada(2, trabalho));
+  assert.match(saturado.motivo, /abaixo do minimo estrutural 3/);
+  const porCarga = planejarCpuDoGrupo(4, resumirMedicaoCpuDoGrupo([2, 2, 2], [0, 0, 0]));
+  assert.equal(porCarga.ordem, 'classic', 'carga que deixa menos que o grupo minimo tambem volta a ordem do Classic');
   assert.equal(cargaDoProcLoadavg('7.25 4.0 3.0 1/2 3\n'), 7.25);
   assert.equal(cargaDoProcLoadavg('invalida'), null);
 
@@ -1105,7 +1124,7 @@ test('AG45: saturacao medida pelo verify ordena hermetica, varredura e integraca
     const { thread: t } = novaThread(p.carregado, { nome: 'cpu saturada', modo: 'auto' });
     const r = verificar(p.carregado, t.id, { medicaoCpuAgendador: { carga1: os.availableParallelism(), stealPct: 12 } });
     assert.equal(r.ok, true, r.motivos.join(',') + JSON.stringify(r.comandos));
-    const classic = Math.max(1, os.availableParallelism() - 1);
+    const classic = 1;
     assert.equal(fs.readFileSync(arq('h.cpu'), 'utf8').trim(), `${classic} 1`);
     assert.equal(fs.readFileSync(arq('s.cpu'), 'utf8').trim(), `${classic} 1`);
     assert.equal(fs.readFileSync(arq('i.cpu'), 'utf8').trim(), `${classic} 1`);
