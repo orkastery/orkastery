@@ -228,8 +228,6 @@ A [página inicial dos docs](docs/README.md) organiza tudo pelo que você quer f
 | --- | --- |
 | **[orkastery](https://github.com/orkastery/orkastery)** | Este repositório: o núcleo `ork`, os adaptadores, as skills e os auditores |
 | **[OrkMind](https://github.com/orkastery/orkmind)** | A camada de memória: Postgres com pgvector, ontologia e busca por tag; opcional |
-| **[orkastery.com](https://github.com/orkastery/orkastery.com)** | Site e documentação para usuários |
-| **[orkmind.com](https://github.com/orkastery/orkmind.com)** | O site do OrkMind |
 
 <!-- maestro-i32:begin -->
 ## Maestro na conversa (I-32: código entregue, ativação live pendente)

@@ -120,7 +120,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m6.json M3"
       ],
       "criadoEm": "2026-10-31T10:58:21.926Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
