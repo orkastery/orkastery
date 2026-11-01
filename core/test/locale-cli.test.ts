@@ -194,16 +194,34 @@ test('locale en: datas ISO (EN6) so com o locale en; pt-BR segue dia/mes', () =>
   assert.equal(formatarDataHora(quando, { fuso: 'America/New_York', agora }), '03/10 06:30');
 });
 
-test('locale en: o relatorio do doctor sai em ingles, com a data ISO e a legenda do fuso', () => {
-  definirFusoDoDono('America/New_York');
-  ativarLocale('en');
+// A legenda do doctor diz a abreviacao do fuso no instante em que o relatorio sai (EDT no verao de
+// Nova York, EST no inverno). O relogio fica parado para o texto esperado nao mudar com a estacao.
+test('locale en: o relatorio do doctor sai em ingles, com a data ISO e a legenda do fuso', (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-09-19T12:00:00Z') });
   try {
-    assert.equal(relatorio(CHECKS), RELATORIO_EN);
-  } finally { ativarLocale(undefined); definirFusoDoDono(undefined); }
-  definirFusoDoDono('America/Sao_Paulo');
+    definirFusoDoDono('America/New_York');
+    ativarLocale('en');
+    try {
+      assert.equal(relatorio(CHECKS), RELATORIO_EN);
+    } finally { ativarLocale(undefined); definirFusoDoDono(undefined); }
+    definirFusoDoDono('America/Sao_Paulo');
+    try {
+      assert.equal(relatorio(CHECKS), RELATORIO_PT, 'sem ativar, o relatorio volta ao pt-BR');
+    } finally { definirFusoDoDono(undefined); }
+  } finally { t.mock.timers.reset(); }
+});
+
+test('locale en: a legenda do doctor acompanha o horario de verao do fuso (EST no inverno de Nova York)', (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-01-15T12:00:00Z') });
   try {
-    assert.equal(relatorio(CHECKS), RELATORIO_PT, 'sem ativar, o relatorio volta ao pt-BR');
-  } finally { definirFusoDoDono(undefined); }
+    definirFusoDoDono('America/New_York');
+    ativarLocale('en');
+    try {
+      const inverno = RELATORIO_EN.replace('Times in America/New_York, EDT.', 'Times in America/New_York, EST.');
+      assert.notEqual(inverno, RELATORIO_EN);
+      assert.equal(relatorio(CHECKS), inverno);
+    } finally { ativarLocale(undefined); definirFusoDoDono(undefined); }
+  } finally { t.mock.timers.reset(); }
 });
 
 for (const env of [{ LANG: 'en_US.UTF-8' }, { LANG: 'pt_BR.UTF-8', LC_ALL: 'en_GB.UTF-8' }] as Record<string, string>[]) {
