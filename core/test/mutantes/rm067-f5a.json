@@ -1,0 +1,42 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-067 F5a: a lista fechada do Grok permanece sem bypass, sem curinga, no sandbox workspace e com bloqueio tipado quando a negação encerra a sessão.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "o despacho troca dontAsk por always-approve",
+      "modulo": "adapters/grok",
+      "de": "args.push('--permission-mode', 'dontAsk', '--sandbox',",
+      "para": "args.push('--always-approve', '--sandbox',",
+      "teste": "grok",
+      "nome": "^GK15:"
+    },
+    {
+      "id": "M2",
+      "descricao": "a lista fechada vira uma regra aberta para qualquer comando",
+      "modulo": "adapters/grok",
+      "de": "return exports.COMANDOS_TERMINAL_DO_GROK.flatMap(({ comando }) => [`Bash(${comando})`, `Bash(${comando} *)`]);",
+      "para": "return ['Bash(*)'];",
+      "teste": "grok",
+      "nome": "^GK15:"
+    },
+    {
+      "id": "M3",
+      "descricao": "o perfil workspace-write passa a desligar o sandbox",
+      "modulo": "adapters/grok",
+      "de": "'workspace-write': 'workspace',",
+      "para": "'workspace-write': 'off',",
+      "teste": "grok",
+      "nome": "^GK3:"
+    },
+    {
+      "id": "M4",
+      "descricao": "o fim por negação volta a ser human.pending genérico",
+      "modulo": "session-watcher-grok",
+      "de": "return bloqueio('policy.violation', `comando de terminal negado pela política fechada: ${comando}`",
+      "para": "return bloqueio('human.pending', `comando de terminal negado pela política fechada: ${comando}`",
+      "teste": "session-watcher-grok",
+      "nome": "^GW23:"
+    }
+  ]
+}
