@@ -15,7 +15,7 @@
         "node -e 'const p=require(\"./core/package.json\");if(p.name!==\"@orkastery/cli\"||p.version!==\"0.6.3\")process.exit(1)'"
       ],
       "criadoEm": "2026-10-31T21:01:30.037Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -29,7 +29,7 @@
         "node -e 'const p=require(\"./core/package-lock.json\");if(p.version!==\"0.6.3\"||p.packages[\"\"].version!==\"0.6.3\")process.exit(1)'"
       ],
       "criadoEm": "2026-10-31T21:01:30.607Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -43,7 +43,7 @@
         "node -e 'if(require(\"./adapters/openclaw/package.json\").version!==\"0.6.3\"||require(\"./adapters/openclaw/openclaw.plugin.json\").version!==\"0.6.3\")process.exit(1)'"
       ],
       "criadoEm": "2026-10-31T21:01:31.181Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -57,7 +57,7 @@
         "node -e 'if(require(\"./marketplaces/claude-code/orkastery/.claude-plugin/plugin.json\").version!==\"0.6.3\"||require(\"./marketplaces/codex/orkastery/.codex-plugin/plugin.json\").version!==\"0.6.3\")process.exit(1)'"
       ],
       "criadoEm": "2026-10-31T21:01:31.718Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -71,7 +71,7 @@
         "grep -q 'default: \"0.6.3\"' templates/ork-verify/template.yml && grep -q 'ORK_VERSAO: \"0.6.3\"' templates/gitlab/ork-verify.yml"
       ],
       "criadoEm": "2026-10-31T21:01:32.271Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -85,7 +85,7 @@
         "node -e 'const t=require(\"fs\").readFileSync(\"CHANGELOG.md\",\"utf8\");const u=t.indexOf(\"## Não publicado\");const r=t.indexOf(\"## [0.6.3] - 2026-10-31\");const p=t.indexOf(\"## [0.6.2]\");if(u<0||r<u||p<r||t.slice(u+16,r).trim()!==\"\"||!t.slice(r,p).includes(\"em desenvolvimento, não anunciado\"))process.exit(1)'"
       ],
       "criadoEm": "2026-10-31T21:01:32.828Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -99,7 +99,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test --test-name-pattern 'locale pt-BR F3b' core/dist-test/test/locale-f3b-snapshot.test.js"
       ],
       "criadoEm": "2026-10-31T21:01:33.379Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
