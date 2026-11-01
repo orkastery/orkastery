@@ -6,6 +6,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Alterado
+
+- **Repositórios dos sites fora do README:** os sites orkastery.com e orkmind.com passam a ser mantidos em
+  repositórios privados. A tabela "Ecosystem" do `README.md` e do `README.pt-BR.md` deixa de apontar para eles, e o guia
+  de contribuição de documentação manda a correção de página do site para uma issue neste repositório.
+
 ## [0.6.3] - 2026-10-31
 
 O Agile Check fica mais rápido e mais estável: a bancada só publica razão com três pares válidos, os testes caros
