@@ -3,8 +3,9 @@
  *
  * A lane hermetica deixa duas CPUs para a varredura e para a integracao. Cada conteiner recebe uma cota dessa fatia,
  * em vez de enxergar a maquina inteira. Antes de lancar os comandos, o auxiliar do verify mede `/proc/loadavg` e
- * varias janelas curtas de `/proc/stat`. A mediana ignora um pico isolado; carga e steal reduzem a capacidade do plano
- * em degraus, e a ordem do Classic so volta quando nao cabem as tres CPUs estruturais do grupo paralelo.
+ * varias janelas curtas de `/proc/stat`. A mediana ignora um pico isolado. Steal acima do limiar reduz a capacidade do
+ * plano em degraus; a ordem do Classic, com a paralelizacao do Classic, so volta quando nao cabem as tres CPUs
+ * estruturais do grupo paralelo ou quando a carga ocupa quase a maquina inteira.
  */
 import { appendFileSync, readFileSync } from 'node:fs';
 import { amostraDoProcStat, stealDaJanela } from './steal';
@@ -18,7 +19,7 @@ export const ENV_CPUS_DOCKER = 'ORK_CHECK_CPUS_DOCKER';
 export const ENV_CONTAINERS_DA_LANE = 'ORK_CHECK_CONTAINERS_DA_LANE';
 export const RESERVA_DO_GRUPO = 2;
 export const MINIMO_ESTRUTURAL_DO_GRUPO = RESERVA_DO_GRUPO + 1;
-/** Mantido como referencia das medicoes anteriores; a M8 desconta a fracao observada, sem corte tudo ou nada. */
+/** Abaixo dele o steal nao desconta capacidade (como na M7); acima, a M8 desconta a fracao medida, sem corte tudo ou nada. */
 export const LIMIAR_STEAL_DO_AGENDADOR_PCT = 10;
 export const JANELA_DA_SONDA_MS = 250;
 export const AMOSTRAS_DA_SONDA = 5;
@@ -134,12 +135,21 @@ export async function medirCpuDoGrupo(janelaMs = JANELA_DA_SONDA_MS): Promise<Me
 /** O plano unico que alimenta concorrencia das lanes, varredura e `docker run --cpus`. */
 export function planejarCpuDoGrupo(cpusInformadas: number, medicao: MedicaoCpuDoGrupo): PlanoCpuDoGrupo {
   const cpus = cpusValidas(cpusInformadas);
-  const carga = Math.max(0, medicao.carga1 ?? 0);
   const steal = Math.min(100, Math.max(0, medicao.stealPct ?? 0));
-  const capacidadeEfetiva = Math.max(1, Math.min(cpus, Math.floor(cpus * (1 - steal / 100) - carga)));
-  const saturado = capacidadeEfetiva < MINIMO_ESTRUTURAL_DO_GRUPO;
+  // So o steal desconta capacidade. A carga de um minuto do /proc/loadavg inclui o build do proprio verify e a rodada
+  // anterior; descontada, tiraria CPUs de maquina quieta. A carga segue a regra anterior: ordem do Classic perto da
+  // maquina inteira ocupada.
+  const descontoDeSteal = steal >= LIMIAR_STEAL_DO_AGENDADOR_PCT ? steal / 100 : 0;
+  const capacidadeEfetiva = Math.max(1, Math.min(cpus, Math.round(cpus * (1 - descontoDeSteal))));
+  const classic = Math.max(1, cpus - 1);
+  const motivos: string[] = [];
+  if (cpus < MINIMO_ESTRUTURAL_DO_GRUPO) motivos.push(`${cpus} CPU(s), sem duas CPUs livres para o grupo paralelo`);
+  else if (capacidadeEfetiva < MINIMO_ESTRUTURAL_DO_GRUPO) {
+    motivos.push(`capacidade efetiva ${capacidadeEfetiva}/${cpus} CPU(s), abaixo do minimo estrutural ${MINIMO_ESTRUTURAL_DO_GRUPO}`);
+  }
+  if (medicao.carga1 !== null && medicao.carga1 >= classic) motivos.push(`carga ${medicao.carga1} em /proc/loadavg (limiar ${classic})`);
+  const saturado = motivos.length > 0;
   const estado: PlanoCpuDoGrupo['estado'] = saturado ? 'fallback' : capacidadeEfetiva < cpus ? 'degradado' : 'agile';
-  const classic = Math.max(1, capacidadeEfetiva - 1);
   const fatia = saturado ? classic : Math.min(RESERVA_DO_GRUPO, capacidadeEfetiva - 1);
   const ferramentas = Math.max(1, Math.floor(fatia));
   const medida = medicao.cpusIntegracao;
@@ -153,8 +163,8 @@ export function planejarCpuDoGrupo(cpusInformadas: number, medicao: MedicaoCpuDo
     `${medicao.carga1 ?? 'indisponivel'}; steal em /proc/stat: amostras ${amostras(medicao.amostrasStealPct, medicao.stealPct)}, ` +
     `mediana ${medicao.stealPct === null ? 'indisponivel' : `${medicao.stealPct}%`}`;
   const motivo = saturado
-    ? `capacidade efetiva ${capacidadeEfetiva}/${cpus} CPU(s), abaixo do minimo estrutural ${MINIMO_ESTRUTURAL_DO_GRUPO}; ${evidencia}`
-    : `capacidade ${capacidadeEfetiva}/${cpus} CPU(s)${estado === 'degradado' ? ' depois dos descontos' : ' inteira'}; ${evidencia}; ` +
+    ? `${motivos.join('; ')}; ${evidencia}`
+    : `capacidade ${capacidadeEfetiva}/${cpus} CPU(s)${estado === 'degradado' ? ' depois do desconto do steal' : ' inteira'}; ${evidencia}; ` +
       `${fatia} CPU(s) reservadas a varredura; ` +
       (integracaoEmParalelo ? `integracao medida cabe em paralelo com ${cpusIntegracao} CPU(s)` : 'integracao permanece encadeada');
   return {

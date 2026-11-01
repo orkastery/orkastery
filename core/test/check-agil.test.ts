@@ -1074,15 +1074,21 @@ test('AG44: carga e steal degradam a capacidade em degraus; so o minimo estrutur
   assert.equal(saturado.ordem, 'classic');
   assert.equal(saturado.estado, 'fallback');
   assert.equal(saturado.capacidadeEfetiva, MINIMO_ESTRUTURAL_DO_GRUPO - 1);
-  assert.equal(saturado.cpusHermetica, 1);
-  assert.equal(saturado.cpusHermeticaAposVarredura, 1);
-  assert.equal(saturado.cpusHermeticaAposReserva, 1, 'o fallback nao devolve reserva dinamicamente');
-  assert.equal(saturado.ferramentasDaVarredura, 1);
+  assert.equal(saturado.cpusHermetica, 3, 'o fallback usa a paralelizacao do Classic, nao a capacidade descontada');
+  assert.equal(saturado.cpusHermeticaAposVarredura, 3);
+  assert.equal(saturado.cpusHermeticaAposReserva, 3, 'o fallback nao devolve reserva dinamicamente');
+  assert.equal(saturado.ferramentasDaVarredura, 3);
   assert.equal(saturado.cpusPorContainer, 1);
-  assert.ok(paredeAgileSimulada(saturado, trabalho) <= paredeClassicaSimulada(2, trabalho));
+  assert.ok(paredeAgileSimulada(saturado, trabalho) <= paredeClassicaSimulada(4, trabalho));
   assert.match(saturado.motivo, /abaixo do minimo estrutural 3/);
-  const porCarga = planejarCpuDoGrupo(4, resumirMedicaoCpuDoGrupo([2, 2, 2], [0, 0, 0]));
-  assert.equal(porCarga.ordem, 'classic', 'carga que deixa menos que o grupo minimo tambem volta a ordem do Classic');
+  const porCarga = planejarCpuDoGrupo(4, resumirMedicaoCpuDoGrupo([3, 3, 3], [0, 0, 0]));
+  assert.equal(porCarga.ordem, 'classic', 'carga que ocupa quase a maquina inteira volta a ordem do Classic');
+  assert.equal(porCarga.cpusHermetica, 3);
+  assert.match(porCarga.motivo, /carga 3 em \/proc\/loadavg \(limiar 3\)/);
+  const quieta = planejarCpuDoGrupo(8, resumirMedicaoCpuDoGrupo([2, 2, 2], [9, 9, 9]));
+  assert.equal(quieta.estado, 'agile', 'carga do proprio verify e steal abaixo do limiar nao tiram CPU do plano');
+  assert.equal(quieta.capacidadeEfetiva, 8);
+  assert.equal(quieta.cpusHermeticaAposReserva, 8);
   assert.equal(cargaDoProcLoadavg('7.25 4.0 3.0 1/2 3\n'), 7.25);
   assert.equal(cargaDoProcLoadavg('invalida'), null);
 
@@ -1127,7 +1133,7 @@ test('AG45: saturacao medida pelo verify ordena hermetica, varredura e integraca
     const { thread: t } = novaThread(p.carregado, { nome: 'cpu saturada', modo: 'auto' });
     const r = verificar(p.carregado, t.id, { medicaoCpuAgendador: { carga1: os.availableParallelism(), stealPct: 12 } });
     assert.equal(r.ok, true, r.motivos.join(',') + JSON.stringify(r.comandos));
-    const classic = 1;
+    const classic = Math.max(1, os.availableParallelism() - 1);
     assert.equal(fs.readFileSync(arq('h.cpu'), 'utf8').trim(), `${classic} 1`);
     assert.equal(fs.readFileSync(arq('s.cpu'), 'utf8').trim(), `${classic} 1`);
     assert.equal(fs.readFileSync(arq('i.cpu'), 'utf8').trim(), `${classic} 1`);

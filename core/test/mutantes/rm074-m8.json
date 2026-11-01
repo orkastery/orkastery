@@ -15,8 +15,8 @@
       "id": "M2",
       "descricao": "a degradação volta a ser tudo ou nada",
       "modulo": "agendador-cpu",
-      "de": "const saturado = capacidadeEfetiva < exports.MINIMO_ESTRUTURAL_DO_GRUPO;",
-      "para": "const saturado = capacidadeEfetiva < cpus;",
+      "de": "const descontoDeSteal = steal >= exports.LIMIAR_STEAL_DO_AGENDADOR_PCT ? steal / 100 : 0;",
+      "para": "const descontoDeSteal = steal >= exports.LIMIAR_STEAL_DO_AGENDADOR_PCT ? 1 : 0;",
       "teste": "check-agil",
       "nome": "^AG44:"
     },
@@ -24,8 +24,8 @@
       "id": "M3",
       "descricao": "o mínimo estrutural do grupo é ignorado",
       "modulo": "agendador-cpu",
-      "de": "const saturado = capacidadeEfetiva < exports.MINIMO_ESTRUTURAL_DO_GRUPO;",
-      "para": "const saturado = false;",
+      "de": "else if (capacidadeEfetiva < exports.MINIMO_ESTRUTURAL_DO_GRUPO) {",
+      "para": "else if (false) {",
       "teste": "check-agil",
       "nome": "^AG44:"
     },
@@ -37,6 +37,33 @@
       "para": "return { peca: 'agendador-cpu', estado: p.estado === 'degradado' ? 'agile' : p.estado,",
       "teste": "check-agil",
       "nome": "^AG45:"
+    },
+    {
+      "id": "M5",
+      "descricao": "a carga do /proc/loadavg volta a descontar capacidade de máquina quieta",
+      "de": "Math.round(cpus * (1 - descontoDeSteal))",
+      "para": "Math.round(cpus * (1 - descontoDeSteal) - (medicao.carga1 ?? 0))",
+      "modulo": "agendador-cpu",
+      "teste": "check-agil",
+      "nome": "^AG44:"
+    },
+    {
+      "id": "M6",
+      "descricao": "steal abaixo do limiar volta a descontar capacidade",
+      "de": "const descontoDeSteal = steal >= exports.LIMIAR_STEAL_DO_AGENDADOR_PCT ? steal / 100 : 0;",
+      "para": "const descontoDeSteal = steal / 100;",
+      "modulo": "agendador-cpu",
+      "teste": "check-agil",
+      "nome": "^AG44:"
+    },
+    {
+      "id": "M7",
+      "descricao": "o fallback usa a capacidade descontada em vez da paralelização do Classic",
+      "de": "const classic = Math.max(1, cpus - 1);",
+      "para": "const classic = Math.max(1, capacidadeEfetiva - 1);",
+      "modulo": "agendador-cpu",
+      "teste": "check-agil",
+      "nome": "^AG44:"
     }
   ]
 }
