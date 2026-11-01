@@ -220,6 +220,23 @@ o contrato estão em [FEAT-020](../produto/FEAT-020-mcp-e-adaptadores.md) e
 
 - Em produção na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026): as fatias 1, 2 e 3 saíram juntas nessa versão (T1 a T5 e T7 a T10); a T6 segue.
 
+### Fatia 4 (proposta de 31/10/2026): rodízio que não troca de runtime sem autorização e histórico de rodízios
+
+Origem: achados de uma rede de três VPS que conduz um roadmap em `#Auto` com o ork 0.5.6, conferidos contra a 0.6.2. Na 0.5.6, uma máquina com três perfis `claude-bg` ficou quase um dia sem sessão, porque o rodízio não atendia a fase em andamento. A maior parte disso já está resolvida desde a 0.6.0:
+
+- o retry do Codex leva o `contextoRuntime` e o MCP (T8);
+- o sensor de cota marca o perfil e a batida da condução roda o retry sozinha quando o plano é automático;
+- o rodízio tenta outro perfil do mesmo runtime primeiro (`rotate_same_runtime_on_quota`), com o mesmo modelo, o mesmo esforço e o sha256 do prompt;
+- o `ork accounts list` já mostra até quando cada perfil está esgotado.
+
+O que falta, nesta fatia:
+
+- **Trava entre runtimes:** uma chave do manifesto (por exemplo `rotate_cross_runtime_on_quota`), desligada por padrão ou com pedido ao dono, conferida no `proximoAlvo` e no `alvoDaRetomada`. Hoje a única trava é a lista de `fallback` do bloco.
+- **Histórico de rodízios:** `ork accounts` mostra o último rodízio de cada perfil, juntando os eventos `perfil_rotacionado` dos projetos registrados, como o `esgotamentos` já faz com as marcas de esgotamento.
+- **Contadores:** conferir e provar que o rodízio preserva os contadores de tentativa da fase.
+
+Critério de aceite: com dois perfis `claude-bg` e o primeiro esgotado, o retry despacha a mesma fase no segundo, com o mesmo modelo e esforço; com todos esgotados e a trava ligada, não cai no Codex sem autorização. A troca de runtime por cota também aumenta a chance de a thread ficar sem revisor independente, o que a [RM-077](RM-077-revisao-independente-pelo-construtor-do-head.md) resolve.
+
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
 <!-- ork-docs:estado:inicio -->
@@ -248,3 +265,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-19 | Estado do código corrigido de `Branch criada` para `Mesclado`, com a evidência do último merge | As fatias 1, 2 e 3 estão na `main`: `9975486e` (#173, 14/10), `8d37c75f` (#176, 19/10) e `fe590b66` (#178, 19/10). Testes seguem em execução e o ciclo não muda: a T6 e a implantação continuam abertas | Julio |
 | 2026-10-27 | Fatias 1, 2 e 3 em produção na 0.6.0; exposição Parcial e habilitação Em andamento, porque a T6 segue | Tag `v0.6.0`, com os merges `9975486e` (#173), `8d37c75f` (#176) e `fe590b66` (#178) na tag; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |
 | 2026-10-29 | Continuação para a fila pesada observada de outro espaço de PIDs e para pedidos tipados à condução | Incidente da thread `ork-rm061f3erota` e testes focados da thread `ork-asessaonosan`; mudança ainda em “Não publicado” | Agente condutor em #Auto |
+| 2026-10-31 | Fatia 4 proposta: trava de rodízio entre runtimes, histórico de rodízios e contadores | Achados de condução em rede, conferidos contra a 0.6.2 | Julio (pedido de 31/10/2026) |

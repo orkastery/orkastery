@@ -10,6 +10,16 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **Reserva medida por peça e carga externa na bancada — M6 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** a lane de integração mede sua árvore e os containers, o agendador só reutiliza perfil completo e compatível e a hermética recebe cada devolução em um degrau limitado pela capacidade. Fixtures caras restantes usam modelos copiados com estado próprio e pares com carga externa acima do limiar são descartados com os processos e a CPU no relatório. Casos, asserções e Classic permanecem; razão, CPU e eficiência da M6 aguardam três pares válidos no host, sem ganho antecipado neste registro.
 
+- **Repositórios dos sites fora do README:** os sites orkastery.com e orkmind.com passam a ser mantidos em
+  repositórios privados. A tabela "Ecosystem" do `README.md` e do `README.pt-BR.md` deixa de apontar para eles, e o guia
+  de contribuição de documentação manda a correção de página do site para uma issue neste repositório.
+
+### Corrigido
+
+- **Teste do doctor que dependia da estação do ano:** o teste da legenda do fuso em inglês esperava a abreviação
+  de verão de Nova York fixa e passou a falhar quando o horário de verão de lá terminou. O relógio do teste agora fica
+  parado, e um caso novo prova a abreviação de inverno. O produto não muda.
+
 ## [0.6.3] - 2026-10-31
 
 O Agile Check fica mais rápido e mais estável: a bancada só publica razão com três pares válidos, os testes caros
