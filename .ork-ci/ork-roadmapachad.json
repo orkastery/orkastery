@@ -15,7 +15,7 @@
         "grep -q \"RM-080-saida-completa-e-causa-tipada-no-verify.md\" docs/roadmap/README.md"
       ],
       "criadoEm": "2026-10-31T14:22:48.912Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -29,7 +29,7 @@
         "grep -q \"Fatia 4 (proposta de 31/10/2026)\" docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md"
       ],
       "criadoEm": "2026-10-31T14:22:49.364Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
