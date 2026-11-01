@@ -40,7 +40,7 @@ A publicação sai do CI, nunca de uma máquina. O workflow [publicar.yml](../..
    git push origin v<versao>
    ```
 
-3. O workflow confere que a tag bate com o `package.json`, que o commit está na `main` e que os canários passam. Só então publica.
+3. O workflow confere que a tag bate com o `package.json`, que o commit está na `main` e que os cenários passam. Só então publica.
 4. O mantenedor confere no npm com `npm view @orkastery/cli version`.
 
 ## Versão com defeito

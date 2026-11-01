@@ -3,7 +3,7 @@
  *
  * Ele julga duas coisas, e diz em voz alta que so uma delas ele consegue julgar.
  *
- *  1. **Os canarios** (`eval/fixtures/fx-*`): comportamento real do nucleo, exercitado ponta a
+ *  1. **Os cenarios** (`eval/fixtures/fx-*`): comportamento real do nucleo, exercitado ponta a
  *     ponta contra git de verdade, comparado com o que a fixture declara esperar.
  *  2. **O corpus das skills** (`eval/casos/*.json`): as regras que precisam EXISTIR no arquivo
  *     da skill para o comportamento ser possivel. Isso e deterministico, e e o que o runner
@@ -21,7 +21,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { CANARIOS, canarioPorId, gitDisponivel, Observado } from './canarios';
+import { CENARIOS, cenarioPorId, gitDisponivel, Observado } from './cenarios';
 import { skillsDoCatalogo } from './catalogo';
 import { tabela } from './util';
 import { msg } from './locale';
@@ -76,8 +76,8 @@ export interface Falha {
     | 'ancora-fora-da-tabela'
     | 'assercao'
     | 'padrao-invalido'
-    | 'canario'
-    | 'canario-sem-executor'
+    | 'cenario'
+    | 'cenario-sem-executor'
     | 'fixture-invalida';
   skill?: string;
   caso?: string;
@@ -149,7 +149,7 @@ export interface LinhaDeSkill {
   falhas: number;
 }
 
-export interface ResultadoDeCanario {
+export interface ResultadoDeCenario {
   id: string;
   sobre: string;
   estado: 'passou' | 'falhou' | 'unavailable';
@@ -162,7 +162,7 @@ export interface ResultadoDeCanario {
 export interface ResultadoDoEval {
   catalogo: string;
   skills: LinhaDeSkill[];
-  canarios: ResultadoDeCanario[];
+  cenarios: ResultadoDeCenario[];
   falhas: Falha[];
   totalDeCasos: number;
   totalDeAssercoes: number;
@@ -175,9 +175,9 @@ export interface OpcoesDoEval {
   catalogo: string;
   /** So estas skills (nomes). */
   skills?: string[];
-  /** So estes canarios (ids). */
-  canarios?: string[];
-  soCanarios?: boolean;
+  /** So estes cenarios (ids). */
+  cenarios?: string[];
+  soCenarios?: boolean;
   soSkills?: boolean;
 }
 
@@ -330,10 +330,10 @@ function avaliarSkill(
 }
 
 // ---------------------------------------------------------------------------
-// Canarios
+// Cenarios
 // ---------------------------------------------------------------------------
 
-interface FixtureDeCanario {
+interface FixtureDeCenario {
   id: string;
   sobre?: string;
   esperado: Record<string, unknown>;
@@ -353,13 +353,13 @@ function comparar(
   return divergencias;
 }
 
-/** Roda os canarios cujas fixtures existem em `eval/fixtures/fx-*`. */
-export function rodarCanarios(
+/** Roda os cenarios cujas fixtures existem em `eval/fixtures/fx-*`. */
+export function rodarCenarios(
   catalogo: string,
   filtro?: string[]
-): { resultados: ResultadoDeCanario[]; falhas: Falha[] } {
+): { resultados: ResultadoDeCenario[]; falhas: Falha[] } {
   const dir = dirDeFixtures(catalogo);
-  const resultados: ResultadoDeCanario[] = [];
+  const resultados: ResultadoDeCenario[] = [];
   const falhas: Falha[] = [];
   const m = msg().operacao.restante.eval;
   const temGit = gitDisponivel();
@@ -369,8 +369,8 @@ export function rodarCanarios(
     falhas.push({ codigo: 'fixture-invalida', detalhe: m.filtroVazio });
   }
   for (const id of new Set(filtro ?? [])) {
-    if (!nomes.includes(id) || !canarioPorId(id)) {
-      falhas.push({ codigo: 'canario-sem-executor', caso: id, detalhe: m.canarioAusente(id) });
+    if (!nomes.includes(id) || !cenarioPorId(id)) {
+      falhas.push({ codigo: 'cenario-sem-executor', caso: id, detalhe: m.cenarioAusente(id) });
     }
   }
 
@@ -382,29 +382,29 @@ export function rodarCanarios(
       falhas.push({ codigo: 'fixture-invalida', detalhe: m.casoAusente(nome) });
       continue;
     }
-    let fixture: FixtureDeCanario;
+    let fixture: FixtureDeCenario;
     try {
-      fixture = JSON.parse(fs.readFileSync(caminho, 'utf8')) as FixtureDeCanario;
+      fixture = JSON.parse(fs.readFileSync(caminho, 'utf8')) as FixtureDeCenario;
     } catch (e) {
       falhas.push({ codigo: 'fixture-invalida', detalhe: `${nome}: ${(e as Error).message}` });
       continue;
     }
-    const canario = canarioPorId(fixture.id ?? nome);
+    const cenario = cenarioPorId(fixture.id ?? nome);
     if (fixture.id !== nome) {
       falhas.push({ codigo: 'fixture-invalida', caso: nome, detalhe: m.fixtureDiverge });
       continue;
     }
-    if (!canario) {
+    if (!cenario) {
       falhas.push({
-        codigo: 'canario-sem-executor',
+        codigo: 'cenario-sem-executor',
         detalhe: m.semExecutor(nome, fixture.id ?? nome),
       });
       continue;
     }
-    if (canario.precisaDeGit && !temGit) {
+    if (cenario.precisaDeGit && !temGit) {
       resultados.push({
-        id: canario.id,
-        sobre: canario.sobre,
+        id: cenario.id,
+        sobre: cenario.sobre,
         estado: 'unavailable',
         divergencias: [],
         motivo: m.semGit,
@@ -413,11 +413,11 @@ export function rodarCanarios(
       continue;
     }
     try {
-      const observado = canario.rodar({ catalogo });
+      const observado = cenario.rodar({ catalogo });
       const divergencias = comparar(fixture.esperado ?? {}, observado);
       resultados.push({
-        id: canario.id,
-        sobre: canario.sobre,
+        id: cenario.id,
+        sobre: cenario.sobre,
         estado: divergencias.length === 0 ? 'passou' : 'falhou',
         divergencias,
         motivo: divergencias.length === 0 ? '' : `${divergencias.length} chave(s) divergente(s)`,
@@ -425,33 +425,33 @@ export function rodarCanarios(
       });
       for (const d of divergencias) {
         falhas.push({
-          codigo: 'canario',
-          caso: `${canario.id}/${d.chave}`,
+          codigo: 'cenario',
+          caso: `${cenario.id}/${d.chave}`,
           detalhe: m.divergencia(JSON.stringify(d.esperado), JSON.stringify(d.observado)),
         });
       }
     } catch (e) {
       resultados.push({
-        id: canario.id,
-        sobre: canario.sobre,
+        id: cenario.id,
+        sobre: cenario.sobre,
         estado: 'falhou',
         divergencias: [],
         motivo: (e as Error).message,
         observado: {},
       });
-      falhas.push({ codigo: 'canario', caso: canario.id, detalhe: (e as Error).message });
+      falhas.push({ codigo: 'cenario', caso: cenario.id, detalhe: (e as Error).message });
     }
   }
 
-  // Canario registrado no codigo e sem fixture em disco tambem e defeito: a expectativa
+  // Cenario registrado no codigo e sem fixture em disco tambem e defeito: a expectativa
   // precisa ser dado versionado, revisavel por quem nao le TypeScript.
   if (!filtro) {
-    for (const c of CANARIOS) {
+    for (const c of CENARIOS) {
       if (!fs.existsSync(path.join(dir, c.id, 'caso.json'))) {
         falhas.push({
           codigo: 'fixture-invalida',
           caso: c.id,
-          detalhe: m.canarioSemFixture(c.id),
+          detalhe: m.cenarioSemFixture(c.id),
         });
       }
     }
@@ -464,23 +464,23 @@ export function rodarCanarios(
 // Orquestracao
 // ---------------------------------------------------------------------------
 
-/** Roda o eval inteiro: canarios mais corpus das skills. */
+/** Roda o eval inteiro: cenarios mais corpus das skills. */
 export function rodarEval(opcoes: OpcoesDoEval): ResultadoDoEval {
   const { catalogo } = opcoes;
   const falhas: Falha[] = [];
   const linhas: LinhaDeSkill[] = [];
-  let canarios: ResultadoDeCanario[] = [];
+  let cenarios: ResultadoDeCenario[] = [];
 
   if (!opcoes.soSkills) {
-    const r = rodarCanarios(catalogo, opcoes.canarios);
-    canarios = r.resultados;
+    const r = rodarCenarios(catalogo, opcoes.cenarios);
+    cenarios = r.resultados;
     falhas.push(...r.falhas);
   }
 
   let totalDeCasos = 0;
   let totalDeAssercoes = 0;
 
-  if (!opcoes.soCanarios) {
+  if (!opcoes.soCenarios) {
     const { arquivos, falhas: falhasDeLeitura } = lerCasos(catalogo);
     falhas.push(...falhasDeLeitura);
     const doCatalogo = skillsDoCatalogo(catalogo);
@@ -520,7 +520,7 @@ export function rodarEval(opcoes: OpcoesDoEval): ResultadoDoEval {
   return {
     catalogo,
     skills: linhas,
-    canarios,
+    cenarios,
     falhas,
     totalDeCasos,
     totalDeAssercoes,
@@ -536,13 +536,13 @@ export function textoDoEval(r: ResultadoDoEval): string {
   linhas.push(m.titulo(r.catalogo));
   linhas.push('');
 
-  if (r.canarios.length > 0) {
-    linhas.push(m.canarios);
+  if (r.cenarios.length > 0) {
+    linhas.push(m.cenarios);
     linhas.push('');
     linhas.push(
       tabela(
-        [...m.colunasCanarios],
-        r.canarios.map((c) => [c.id, m.estados[c.estado] ?? c.estado, c.estado === 'passou' ? c.sobre : c.motivo || c.sobre])
+        [...m.colunasCenarios],
+        r.cenarios.map((c) => [c.id, m.estados[c.estado] ?? c.estado, c.estado === 'passou' ? c.sobre : c.motivo || c.sobre])
       )
     );
     linhas.push('');
@@ -570,9 +570,9 @@ export function textoDoEval(r: ResultadoDoEval): string {
     linhas.push('');
   }
 
-  const passaram = r.canarios.filter((c) => c.estado === 'passou').length;
-  const indisponiveis = r.canarios.filter((c) => c.estado === 'unavailable').length;
-  linhas.push(m.resumoCanarios(passaram, r.canarios.length, indisponiveis));
+  const passaram = r.cenarios.filter((c) => c.estado === 'passou').length;
+  const indisponiveis = r.cenarios.filter((c) => c.estado === 'unavailable').length;
+  linhas.push(m.resumoCenarios(passaram, r.cenarios.length, indisponiveis));
   linhas.push(m.resumoSkills(r.skills.length, r.totalDeCasos, r.totalDeAssercoes, r.falhas.length));
   linhas.push(m.metade);
   linhas.push(m.veredito(r.ok));

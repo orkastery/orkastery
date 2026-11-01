@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * RM-059 (T0.9): canario de eventos dos mods do Claude Code.
+ * RM-059 (T0.9): cenario de eventos dos mods do Claude Code.
  *
  * A API de mods esta em acesso antecipado e muda entre releases sem aviso (R1 do GOAL da thread
- * ork-modsorquestr). Este canario junta os eventos e as chamadas de `$` que os mods do Orkastery usam
+ * ork-modsorquestr). Este cenario junta os eventos e as chamadas de `$` que os mods do Orkastery usam
  * (o contrato fixo dos 10 mods do plano e o que os mods de `adapters/claude-code/mods/` chamam de fato)
  * e procura cada nome no binario do `claude`: o build que tirar um deles reprova aqui, antes de um mod
  * cair calado numa sessao. O evento classico e procurado sem o prefixo `classic.`, porque o binario
@@ -13,8 +13,8 @@
  * Com `--com-plugin`, roda antes `claude plugin validate --strict` e `claude plugin test` em cada mod:
  * e o passo do job `mods` do CI, com o Claude Code fixado do registro do npm e sem credencial.
  *
- *   node core/scripts/canario-eventos-mods.cjs [--json]       canario no binario do claude do PATH
- *   node core/scripts/canario-eventos-mods.cjs --com-plugin   validate e test de cada mod, depois o canario
+ *   node core/scripts/cenario-eventos-mods.cjs [--json]       cenario no binario do claude do PATH
+ *   node core/scripts/cenario-eventos-mods.cjs --com-plugin   validate e test de cada mod, depois o cenario
  *   [--binario ARQ]   procura neste arquivo em vez do binario do claude (os testes usam um falso)
  *   [--claude CMD]    o claude que roda --version, validate e test (padrao: o do PATH)
  *   [--mods DIR]      a pasta dos mods (padrao: adapters/claude-code/mods da raiz do repositorio)
@@ -34,7 +34,7 @@ const MODS = 'adapters/claude-code/mods';
 /**
  * Os eventos e as chamadas de `$` dos 10 mods do plano (campos "Evento/hook" e "Chamadas da API" do
  * plano da ork-modsorquestr), mais o `classic.SessionStart` dos `watchPaths` da ponte. Mudar esta
- * lista e mudar o contrato que o canario protege: vai junto com o plano.
+ * lista e mudar o contrato que o cenario protege: vai junto com o plano.
  */
 const CONTRATO = [
   'classic.PostToolBatch', 'classic.FileChanged', 'classic.SessionStart', 'classic.TaskCreated',
@@ -165,14 +165,14 @@ function opcao(argv, nome) {
   return valor;
 }
 
-/** Roda o canario e devolve o relatorio e o codigo de saida. */
-function canario(argv) {
+/** Roda o cenario e devolve o relatorio e o codigo de saida. */
+function cenario(argv) {
   const comPlugin = argv.includes('--com-plugin');
   const pastaDosMods = path.resolve(opcao(argv, '--mods') || path.join(RAIZ, MODS));
   const claude = opcao(argv, '--claude') || noPath('claude');
   const binarioPedido = opcao(argv, '--binario');
   const relatorio = {
-    formato: 'ork.canario-mods/v1', ok: false, claude: { comando: claude, versao: null, binario: null },
+    formato: 'ork.cenario-mods/v1', ok: false, claude: { comando: claude, versao: null, binario: null },
     mods: modsDaPasta(pastaDosMods), plugin: [],
     nomes: { contrato: CONTRATO.length, dosMods: 0, nounsDosMods: [], ignorados: [], procurados: [], faltando: [] },
     controle: { nome: CONTROLE, achado: null }, erro: null,
@@ -221,7 +221,7 @@ function canario(argv) {
 }
 
 function texto(r) {
-  const linhas = ['canario dos mods do Claude Code'];
+  const linhas = ['cenario dos mods do Claude Code'];
   if (r.erro) return [...linhas, `  erro       ${r.erro}`].join('\n');
   linhas.push(`  claude     ${r.claude.versao || 'versao nao lida'}; procurado em ${r.claude.binario}`);
   linhas.push(`  mods       ${r.mods.length ? `${r.mods.length}: ${r.mods.join(', ')}` : `nenhum em ${MODS}`}`);
@@ -237,14 +237,14 @@ function texto(r) {
 function main(argv) {
   let saida;
   try {
-    saida = canario(argv);
+    saida = cenario(argv);
   } catch (e) {
-    saida = { relatorio: { formato: 'ork.canario-mods/v1', ok: false, erro: e.message }, codigo: 2 };
+    saida = { relatorio: { formato: 'ork.cenario-mods/v1', ok: false, erro: e.message }, codigo: 2 };
   }
   console.log(argv.includes('--json') ? JSON.stringify(saida.relatorio, null, 2) : texto(saida.relatorio));
   return saida.codigo;
 }
 
-module.exports = { CONTRATO, CONTROLE, MODS, nomesDoMod, nounsDosMods, modsDaPasta, procurar, comoNoBinario, canario };
+module.exports = { CONTRATO, CONTROLE, MODS, nomesDoMod, nounsDosMods, modsDaPasta, procurar, comoNoBinario, cenario };
 
 if (require.main === module) process.exitCode = main(process.argv.slice(2));

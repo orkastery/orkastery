@@ -49,7 +49,7 @@ sdlc:
 
 ## Escopo e validação
 
-- **Critério de aceite:** harness `core/scripts/smoke-sensores.cjs` e canário `fx-sensores-runtime`.
+- **Critério de aceite:** harness `core/scripts/smoke-sensores.cjs` e cenário `fx-sensores-runtime`.
 
 ## Plano e decisões
 

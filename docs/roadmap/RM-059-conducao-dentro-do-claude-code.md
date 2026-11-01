@@ -78,7 +78,7 @@ A ordem é a do índice do plano (alcance × impacto × confiança). O esforço 
 
 ### Ondas
 
-- **Onda 0, fundação:** a ponte `ork-ponte` (namespace `$.ork` e leitura do núcleo), o papel da sessão (`dono`, `fase` ou `dormente`), as guardas de autoridade (varredura estática e recusa em tempo de execução), a distribuição dos mods para a sessão de fase, o marketplace pelo gerador, o CI com o canário de eventos, a conferência pontual de claims no sandbox do verify e o pedido guardado na criação da thread. Começa pela prova de que um mod carrega numa sessão `claude --bg`.
+- **Onda 0, fundação:** a ponte `ork-ponte` (namespace `$.ork` e leitura do núcleo), o papel da sessão (`dono`, `fase` ou `dormente`), as guardas de autoridade (varredura estática e recusa em tempo de execução), a distribuição dos mods para a sessão de fase, o marketplace pelo gerador, o CI com o cenário de eventos, a conferência pontual de claims no sandbox do verify e o pedido guardado na criação da thread. Começa pela prova de que um mod carrega numa sessão `claude --bg`.
 - **Onda 1:** Torre de Controle, Freio de Lote, Radar de Colisão e Clima de Cota.
 - **Onda 2:** Mesa do Dono e Sentinela do Condutor.
 - **Onda 3:** Pista de Entrega, Ritual do MASTER, Mensageiro de Sessões e Portão de Tarefas.
@@ -128,7 +128,7 @@ Como mudar: registrar outra decisão que reverta a anterior, no ledger da thread
 
 | Risco | Mitigação e contingência |
 | --- | --- |
-| API de mods em acesso antecipado: pode mudar entre versões | Versão mínima por mod; `claude plugin validate` e `claude plugin test` no CI; canário que procura no binário instalado cada evento usado e reprova se um sumir |
+| API de mods em acesso antecipado: pode mudar entre versões | Versão mínima por mod; `claude plugin validate` e `claude plugin test` no CI; cenário que procura no binário instalado cada evento usado e reprova se um sumir |
 | Mods não têm sandbox e rodam como o usuário | Guarda estática (melhor esforço) e recusa em tempo de execução na `ork-ponte`; nenhum mod guarda credencial nem fala pelo dono |
 | Dois condutores despachando a mesma fase (Sentinela e cron) | Todo despacho passa pelo núcleo, que é idempotente e recusa com `conducao.em-andamento`; lease de condução; a Sentinela nunca usa `ork conducao assumir`; o cron cede |
 | Mods desligados de fora (3 quedas do worker, desligamento remoto ou política da organização) | Nada no núcleo depende de mod; o Telegram e o cron continuam como reserva; se uma fatia tornar um mod obrigatório para conduzir, ela é recusada |

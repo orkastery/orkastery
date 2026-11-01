@@ -255,10 +255,10 @@ Severidade `block` para **qualquer** modo, inclusive o `#Auto`.
 Um conjunto de regras que um auditor periódico aplica ao código ou ao ledger. São sete, e o
 `stage` do manifesto decide quais estão ativos. Ver [`auditoria.md`](../guias/auditoria.md).
 
-## Canario
+## Cenario
 
 Um cenário de comportamento que reproduz um jeito conhecido de a condução falhar. São seis, e
-rodam em `ork eval --so-canarios`: `fx-happy`, `fx-hallucination`, `fx-stale-base`,
+rodam em `ork eval --so-cenarios`: `fx-happy`, `fx-hallucination`, `fx-stale-base`,
 `fx-wiki-destroy`, `fx-schema-drift`, `fx-concurrency`.
 
 ## Skill fina

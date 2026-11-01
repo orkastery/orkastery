@@ -87,8 +87,8 @@ ci:
   # do arco #Noctum exige todos verdes no SHA fonte; o ork ship segue lendo só o context acima.
   contexts:
     - "documentacao (markdownlint e paridade)"
-    - "nucleo ork (build, testes, canarios) (20)"
-    - "nucleo ork (build, testes, canarios) (22)"
+    - "nucleo ork (build, testes, cenarios) (20)"
+    - "nucleo ork (build, testes, cenarios) (22)"
     - "ork-verify"
   # O runner hospedado não oferece OrkMind/PostgreSQL local nem user namespaces. A suíte
   # hermética mantém essas integrações na verificação integral da estação de desenvolvimento.

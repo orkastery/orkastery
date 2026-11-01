@@ -156,8 +156,8 @@ Nenhum histórico é migrado. Thread antiga em `#Look` fica em `#Look` em disco 
 O que `ork modos migrar` ajusta é só **configuração** (`orkastery.yaml` e `setup.json`), de
 forma idempotente e com backup.
 
-As duas metades têm canário próprio, porque remoção sem canário é aposta e não simplificação:
-`ork eval --canario fx-modo-aposentado-leitor` e `--canario fx-modo-aposentado-escritor`.
+As duas metades têm cenário próprio, porque remoção sem cenário é aposta e não simplificação:
+`ork eval --cenario fx-modo-aposentado-leitor` e `--cenario fx-modo-aposentado-escritor`.
 
 Se você usava `#Look`, use `#Classic`. Se usava `#Ork`, use `#Classic` também: ele separa
 GOAL de PLAN e pausa sobre as evidências.
