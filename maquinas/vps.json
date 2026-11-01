@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.3",
-  "publicadoEm": "2026-11-01T10:45:02.773Z",
+  "publicadoEm": "2026-11-01T11:50:12.693Z",
   "threads": [
     {
       "id": "ork-legendadofus",
@@ -158,6 +158,28 @@
         "viva": false,
         "desdeEm": "2026-11-01T08:15:07.578Z",
         "motivo": "nenhuma sessão despachada na fase GOAL"
+      }
+    },
+    {
+      "id": "ork-semgrepincre",
+      "nome": "semgrep-incremental",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-semgrepincre-go",
+      "atualizadaEm": "2026-11-01T11:50:08.929Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-11-01T11:50:12.188Z",
+        "motivo": "nenhuma sessão despachada na fase GO"
       }
     },
     {
