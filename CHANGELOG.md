@@ -18,6 +18,12 @@ O #Noctum segue **em desenvolvimento, não anunciado**.
 
 - **Varredura por conteúdo e bancada fria/morna — M7 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** a bancada atribui a infraestrutura de contêiner pela presença e pelos deltas de cgroup dos contêineres de fora, levando a parcela incerta à carga externa. O Agile inclui o conteúdo das regras resolvidas na identidade do cache do Semgrep; regra entre arquivos ou registro indisponível força varredura integral com o motivo registrado, sem mudar `check_id`. As razões fria e morna ficam separadas; o Classic continua varrendo tudo. Casos e asserções permanecem, e razão, CPU e eficiência aguardam três pares válidos no host, sem ganho antecipado neste registro.
 
+- **Reaproveitamento do Semgrep com as regras padrão do registro:** as regras `p/typescript`, `p/javascript`,
+  `p/nodejs` e `p/golang` do catálogo marcam `interfile: true` em `options` e em `metadata`, e o Agile tomava essa
+  marca por regra entre arquivos, varrendo tudo em toda rodada. A marca só cruza arquivos no motor Pro do Semgrep;
+  no `semgrep scan` do catálogo, o achado por arquivo volta a ser reaproveitado quando as regras não mudam.
+  `mode: join`, `--pro`, `semgrep ci` ou o token do Semgrep no ambiente continuam forçando a varredura inteira.
+
 - **Reserva medida por peça e carga externa na bancada — M6 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** a lane de integração mede sua árvore e os containers, o agendador só reutiliza perfil completo e compatível e a hermética recebe cada devolução em um degrau limitado pela capacidade. Fixtures caras restantes usam modelos copiados com estado próprio e pares com carga externa acima do limiar são descartados com os processos e a CPU no relatório. Casos, asserções e Classic permanecem; razão, CPU e eficiência da M6 aguardam três pares válidos no host, sem ganho antecipado neste registro.
 
 - **Repositórios dos sites fora do README:** os sites orkastery.com e orkmind.com passam a ser mantidos em

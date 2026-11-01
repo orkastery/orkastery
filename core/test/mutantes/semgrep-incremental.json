@@ -1,0 +1,60 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "ork-semgrepincre: a marca interfile só força a varredura inteira onde cruza arquivos de fato, no motor da rodada.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "interfile em metadata volta a forçar a varredura inteira",
+      "modulo": "security-scan/incremental",
+      "de": "if (pai === 'metadata')\n        return false;",
+      "para": "if (pai === 'metadata')\n        return true;",
+      "teste": "security-scan-regras-semgrep",
+      "nome": "^SR2:"
+    },
+    {
+      "id": "M2",
+      "descricao": "interfile em options força a varredura inteira mesmo sem o motor Pro",
+      "modulo": "security-scan/incremental",
+      "de": "if (pai === 'options')\n        return pro;",
+      "para": "if (pai === 'options')\n        return true;",
+      "teste": "security-scan-agil",
+      "nome": "^SA4:"
+    },
+    {
+      "id": "M3",
+      "descricao": "interfile em options nunca força a varredura inteira, nem no motor Pro",
+      "modulo": "security-scan/incremental",
+      "de": "if (pai === 'options')\n        return pro;",
+      "para": "if (pai === 'options')\n        return false;",
+      "teste": "security-scan-regras-semgrep",
+      "nome": "^SR3:"
+    },
+    {
+      "id": "M4",
+      "descricao": "--pro deixa de contar como motor Pro",
+      "modulo": "security-scan/incremental",
+      "de": "args.some((a) => a.startsWith('--pro'))",
+      "para": "args.some((a) => a === '--pro-nunca')",
+      "teste": "security-scan-regras-semgrep",
+      "nome": "^SR3:"
+    },
+    {
+      "id": "M5",
+      "descricao": "semgrep ci deixa de contar como motor Pro",
+      "modulo": "security-scan/incremental",
+      "de": "|| args.includes('ci'))",
+      "para": "|| false)",
+      "teste": "security-scan-regras-semgrep",
+      "nome": "^SR3:"
+    },
+    {
+      "id": "M6",
+      "descricao": "marca com valor que não é booleano passa a ser relaxada pelo lugar",
+      "modulo": "security-scan/incremental",
+      "de": " || !booleano",
+      "para": "",
+      "teste": "security-scan-regras-semgrep",
+      "nome": "^SR5:"
+    }
+  ]
+}
