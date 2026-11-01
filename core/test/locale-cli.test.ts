@@ -9,6 +9,7 @@
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import './sem-aviso-mocktimers';
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
