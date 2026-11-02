@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-30T20:46:07-03:00
+atualizado_em: 2026-11-01T16:28:00-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -20,9 +20,9 @@ evidencias:
     commit: 1171177e
     pr: null
 sdlc:
-  thread: ork-rm074m8medid
-  modo: "#Auto"
-  fase: GOAL
+  thread: ork-rm074m8agend
+  modo: "#Fast"
+  fase: GO
   status: aberta
 ---
 
@@ -97,7 +97,9 @@ desta fatia.
 A bancada da M1, no commit `4f4d4b55`, mediu razão `Classic ÷ Agile` de 1,15 e
 razão de CPU de 1,06. É uma indicação, não um aceite: o roubo de CPU foi de 7,3%
 num modo e 11,6% no outro. A CPU da suíte ficou 13,0% acima da recoleta usada como
-linha de base. A própria bancada conta 6.126 testes na M1 contra 6.075 na base:
+linha de base.
+
+A própria bancada conta 6.126 testes na M1 contra 6.075 na base:
 mantido o custo médio anterior, os 51 testes novos explicam 0,84 ponto desse aumento,
 e a regressão de CPU por teste explica 12,21 pontos. O handoff da M1 também registrou
 5.925 testes na base; se esse retrato for usado, os 201 testes novos explicam 3,39
@@ -311,6 +313,47 @@ arquivos, registro indisponível e separação das razões. Esta seção não af
 ganho da M7: razão fria, razão morna, CPU e eficiência dependem de três pares
 válidos no host.
 
+### M8: sonda robusta e degradação por capacidade
+
+A bancada da M7 mostrou razões mornas de 1,43 e 1,56 nos pares válidos. O terceiro
+par chegou a 1,62, mas foi descartado por carga externa. Nas rodadas frias, as
+razões foram 1,33 e 1,02.
+
+No segundo par frio, uma única janela leu 13,1% de `steal` no começo da rodada. O
+agendador devolveu o grupo inteiro à ordem do Classic, e o ganho de parede quase
+sumiu. A razão de CPU entre Agile e Classic ficou de 1,01 a 1,08; a diferença vem
+do paralelismo, portanto perder todo o grupo por uma amostra isolada desperdiça a
+principal vantagem observada.
+
+A M8 muda o contrato do agendador:
+
+- a janela curta contém várias amostras de carga e `steal`, e a mediana decide sem
+  apagar o pico da evidência;
+- acima do limiar de `steal`, a capacidade efetiva desconta da capacidade
+  informada a fração medida; abaixo dele, nada muda em relação à M7;
+- a carga de um minuto do `/proc/loadavg` não desconta capacidade, porque inclui
+  o build do próprio verify e a rodada anterior; ela segue a regra anterior e só
+  devolve a ordem do Classic quando ocupa quase a máquina inteira;
+- hermética, varredura, integração e cotas de contêiner usam a mesma capacidade
+  reduzida;
+- a ordem do Classic só volta quando a capacidade efetiva não comporta o mínimo
+  estrutural do grupo paralelo, e então roda com a paralelização do Classic, não
+  com a capacidade descontada;
+- a peça `agendador-cpu` distingue `agile`, `degradado` e `fallback`, e registra a
+  capacidade usada, as amostras e a mediana no motivo.
+
+Os limiares permanecem proporcionais à capacidade. O Classic não muda, e esta
+seção não atribui ganho novo antes da bancada oficial.
+
+### O que falta
+
+- Rodar o verify oficial e a bancada fria e morna da M8 no host, com três pares
+  válidos e os mesmos critérios de carga externa e divergência de `steal`.
+- Confirmar na evidência que `degradado` preserva o grupo paralelo sob contenção
+  moderada e que `fallback` aparece somente abaixo do mínimo estrutural.
+- Reavaliar a distância para a meta de cerca de 1,7 vez; a M8 remove o desperdício
+  medido, mas não publica uma razão antes dessa coleta.
+
 ## Problema e resultado
 
 - **Público e problema/oportunidade:** quem conduz o `ork` e o próprio Orkastery. A RM-072 deixou o Agile Check de 1,43 a 1,52 vez mais rápido que o Classic no mesmo commit e parou aí: a lane hermética ocupa 94% da parede do Agile, e ela é presa em CPU, não em espera. Cada rodada de GO-FIX e de CHECK paga a suíte inteira, mesmo quando o diff toca uma tela de texto.
@@ -494,6 +537,8 @@ A numeração segue a ordem do pedido. A ordem de execução recomendada é a da
 | M4 CPU de sistema nos testes caros restantes | Modelo de projeto Git, remoto e estado inicial compartilhado nos arquivos Noctum, entrega e rede; árvore da forja falsa compartilhada em `rede`; cópias isoladas por caso | Mesmo conjunto de casos e asserções, filhos reais preservados nas fronteiras, seis mutantes da M4 mortos; nenhum ganho publicado antes de três pares válidos da bancada |
 | M5 Reserva devolvida | Pool LPT da hermética recebe a reserva depois da cadeia da varredura e integração; correções de isolamento preservam o Classic | Três pares válidos mediram razão média de 1,39; a hermética segue no caminho crítico e a medida não vira promessa da M6 |
 | M6 Reserva medida e carga externa | CPU da integração inclui containers, devolução ocorre por peça, concorrência só abre com perfil completo; modelos restantes são copiados por caso e a bancada mede carga externa | Nenhum degrau ultrapassa a capacidade; perfil incompleto conserva reserva; par acima do limiar de carga externa é descartado; mesmos casos e asserções; cinco mutantes mortos; ganho depende da bancada do host |
+| M7 Atribuição e cache por conteúdo | A bancada separa CPU da rodada e carga externa; integração mede deltas por fonte; o Agile reaproveita a varredura somente com conteúdo compatível; razões fria e morna ficam separadas | Atribuição incerta entra na carga externa; pico impossível não vira perfil; regra entre arquivos ou registro indisponível força varredura integral; ganho depende da bancada do host |
+| M8 Agendador em degraus | Sonda com várias amostras, capacidade efetiva proporcional e estado `degradado` distinto de `fallback` | Pico isolado não muda o plano; `steal` acima do limiar reduz cotas e preserva o paralelo; carga do próprio verify não tira CPU; só a perda do mínimo estrutural ou a máquina ocupada voltam à ordem do Classic, com a paralelização do Classic; sete mutantes mortos; Classic intacto |
 | F2 CPU da suíte (demais fatias) | Os arquivos de teste mais caros que continuam fora da M1, a eficiência de paralelismo das lanes e a cadeia varredura e integração, com orçamento que vigia o crescimento | Evolução até cerca de 1,7 vez contra o Classic, no mesmo commit, máquina e bateria; nenhum caso removido; cada ganho medido em razão e CPU da suíte |
 | F3 Memória | O teto da D2 aplicado à varredura do grupo e às lanes, medindo o que isso custa na razão contra o Classic | Pico agregado dentro do teto em três rodadas; varredura com as nove ferramentas e zero achado novo ou desaparecido por impressão digital; custo na razão medido e registrado, e aceito pelo dono se tirar a meta da D1 do alcance |
 | F4 Dívida da RM-072 que pesa no tempo ou na confiança | O que a tabela "A dívida da RM-072" diz que entra: redação do motivo da peça `imagem-de-lint`, a lane caída sem veredito e o texto do gate, a data sem ano e o caso de `GMT+0` do snapshot de locale, os casos que faltam, a paridade do `tsgo` fora da thread de origem e as peças em fallback | Cada item da tabela com caso de teste que falha sem a correção; nenhum arquivo ou categoria de varredura removido; peças `tsgo`, `cache-semgrep` e binários nativos com o motivo do fallback medido e, onde o fallback some, o ganho em percentual da parede pelo ledger |
@@ -598,13 +643,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-30 | Julio |
-| Documentação | Em revisão | — | 2026-10-30 | Julio |
-| Código | Branch criada | commit `1171177e` | 2026-10-30 | Julio |
-| Testes | Em execução | — | 2026-10-30 | Julio |
-| Deploy | Não implantado | — | 2026-10-30 | Julio |
-| Exposição | Flag desligada | — | 2026-10-30 | Julio |
-| Habilitação | Pendente | — | 2026-10-30 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-01 | Julio |
+| Documentação | Em revisão | — | 2026-11-01 | Julio |
+| Código | Branch criada | commit `1171177e` | 2026-11-01 | Julio |
+| Testes | Em execução | — | 2026-11-01 | Julio |
+| Deploy | Não implantado | — | 2026-11-01 | Julio |
+| Exposição | Flag desligada | — | 2026-11-01 | Julio |
+| Habilitação | Pendente | — | 2026-11-01 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -624,3 +669,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-30 | M3 torna a confiança pré-condição da razão, reaproveita a fixture Git nos testes de security scan e deixa o tmpfs das lanes atrás de opt-in; sem três pares válidos, não publica ganho | Par único da M2 sob `steal` alto, perfil de CPU de sistema e implementação da thread `ork-rm074m3rumoa` | Thread `ork-rm074m3rumoa` (#Auto) |
 | 2026-10-30 | M4 compartilha os modelos Git e de forja nos seis arquivos caros restantes, preservando cópias isoladas e as fronteiras reais de processo; sem bancada válida, não publica ganho | Leitura estática do preparo, casos existentes de isolamento e `core/test/mutantes/rm074-m4.json` | Thread `ork-rm074m4cpude` (#Auto) |
 | 2026-10-31 | A bancada da M5 fecha três pares válidos; a M6 mede a reserva da integração, devolve CPU por peça, reduz preparo dos arquivos caros restantes e descarta carga externa acima do limiar | Três pares AB/BA da M5, evidência de eficiência e implementação da thread `ork-rm074m6medid` | Thread `ork-rm074m6medid` (#Auto) |
+| 2026-11-01 | A M8 troca o fallback binário por capacidade em degraus, usa mediana de várias amostras e registra o estado `degradado`; a razão nova fica pendente da bancada | Rodadas frias e mornas da M7, pico isolado de `steal`, cenários sintéticos e mutantes da M8 | Thread `ork-rm074m8agend` (#Fast) |
