@@ -467,7 +467,7 @@ test('GO-FIX 3 (D16): GO conclui com commit conferido ou com HEAD igual e worktr
       f.evento('commit', 15, { commit: sha }); f.evento('stop', 20);
       assert.equal(f.observar(30, [{ state: 'done' }]).classificacao, 'gate_blocked', caso);
       const [pr] = f.resultados();
-      assert.equal(pr.motivo, 'artifact.missing', caso);
+      assert.equal(pr.motivo, 'human.pending', caso);
       assert.match(String(pr.fonte), /nenhum commit conferido no git da worktree/, caso);
       assert.deepEqual((pr.provaOrk as { recusados: string[] }).recusados, [sha], caso);
       assert.equal(f.eventos().some(e => e.tipo === 'fase_concluida'), false, caso);

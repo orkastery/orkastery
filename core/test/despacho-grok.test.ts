@@ -146,7 +146,9 @@ test('GD5: o GO pelo grok guarda na fonte o HEAD da worktree lido antes do despa
     assert.equal(registro.artefato, undefined, 'o GO nao tem artefato de documento');
     esperarCondicao(() => resultadoDa(c, r.sessionId!) !== undefined, 60000);
     const res = resultadoDa(c, r.sessionId!)!;
-    assert.equal(res.motivo, 'human.pending', 'sem commit registrado pelo nucleo, o GO nao conclui');
+    assert.equal(res.classificacao, 'fase_concluida');
+    assert.equal(res.motivo, null, 'GO limpo, sem commit e com HEAD igual conclui pelo resultado tipado');
+    assert.equal((res.provaOrk as { resultado?: string }).resultado, 'go.sem-mudanca');
   } finally { c.limpar(); }
 });
 

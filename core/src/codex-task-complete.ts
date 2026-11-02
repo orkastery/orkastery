@@ -15,6 +15,8 @@ export interface TaskCompleteFixado {
 }
 
 const BLOCO = 256 * 1024;
+const chaveDaFonte = (sessionId: string, despachoEm: string): string =>
+  createHash('sha256').update(sessionId + '|' + despachoEm).digest('hex');
 
 /** O parser percorre o descritor autenticado inteiro; linha parcial ou corrupção não prova terminal. */
 export function taskCompleteFixadoDaFonte(fonte: FonteController, agoraMs = Date.now()): TaskCompleteFixado | null {
@@ -51,7 +53,7 @@ export function taskCompleteFixadoDaSessao(raiz: string, thread: Thread, sessao:
   const cwd = (despacho?.cwd ?? registro.cwd) as string | undefined;
   if (!cwd) return null;
   const dir = dirThread(raiz, thread.id);
-  const chave = createHash('sha256').update(sessao.sessionId + '|' + sessao.despachadaEm).digest('hex');
+  const chave = chaveDaFonte(sessao.sessionId, sessao.despachadaEm);
   const esperado: EsperadoController = {
     dirSessoes: path.join(dir, 'sessoes'), sessionId: sessao.sessionId, cwd,
     despachoEm: sessao.despachadaEm, agoraMs,
