@@ -144,6 +144,9 @@ export interface SetupDeConducao {
   modos: Record<Modo, SetupDeModo> & Partial<Record<ModoAposentado, SetupDeModo>>;
 }
 
+/** RM-081 F2: como um comando JUnit declara que mede relogio. */
+export type MarcacaoDeRelogio = { nome: string[] } | { marcador: string } | { tag: string };
+
 /** Manifesto do projeto (`orkastery.yaml`), na fatia v1 do bloco B0. */
 export interface Manifesto {
   project: {
@@ -202,6 +205,8 @@ export interface Manifesto {
     junit?: Partial<Record<'build' | 'test' | 'typecheck' | 'security_scan', string>>;
     /** RM-081 F3: comando opt-in que substitui `{testes}` pelos nomes JUnit da rodada anterior. */
     filtro?: Partial<Record<'build' | 'test' | 'typecheck' | 'security_scan', string>>;
+    /** RM-081 F2: testes de relogio declarados junto do relatorio JUnit de cada comando. */
+    relogio?: Partial<Record<'build' | 'test' | 'typecheck' | 'security_scan', MarcacaoDeRelogio>>;
     /** I-37 (D2): prazo default de cada comando de verificacao, em ms. */
     timeout_ms?: number;
     /** I-37 (D2): prazo de um comando do manifesto, que vence o default. */
@@ -793,6 +798,8 @@ export interface ConfigDoAgile {
   junit?: Record<string, string>;
   /** RM-081 F3: comando de selecao nominal por lane; ausente preserva a suite inteira. */
   filtro?: Record<string, string>;
+  /** RM-081 F2: marcacao de relogio por lane JUnit; ausente preserva o julgamento anterior. */
+  relogio?: Record<string, MarcacaoDeRelogio>;
   /** As lanes de `test` que so comecam quando o `security_scan` do grupo termina (as que sobem containers). */
   apos_a_varredura?: string[];
   /** `osv-scanner` no lugar de `trivy-vuln` e `npm-audit` (D13); desligado por padrao. */
