@@ -187,8 +187,8 @@ function conferirSessionMeta(fd: number, tamanho: number, sessionId: string, cwd
  * Não há atomicidade contra troca entre lstat e open: a garantia é a reconferência do
  * descritor aberto e do vínculo com a fonte fixada, com recusa quando a prova não se sustenta.
  */
-function conferirFonteDeRollout(rollout: unknown, uid: number, sessionId: string, cwd: string,
-    fixado?: RolloutFixado): RolloutFixado {
+function comRolloutConferido<T>(rollout: unknown, uid: number, sessionId: string, cwd: string,
+    fixado: RolloutFixado | undefined, consumir: (fd: number, tamanho: number) => T): { fonte: RolloutFixado; valor: T } {
   if (typeof rollout !== 'string' || !rollout || !path.isAbsolute(rollout)) recusar('rollout do controller não confirmado');
   const file = rollout as string;
   if (fixado && file !== fixado.file) recusar('rollout do controller divergente do registrado');
@@ -208,8 +208,13 @@ function conferirFonteDeRollout(rollout: unknown, uid: number, sessionId: string
     // Rotação não é permitida neste transporte: sem regra de vínculo com a fonte anterior, recusa.
     if (fixado && (st.ino !== fixado.ino || st.dev !== fixado.dev)) recusar('rollout do controller rotacionado sem vínculo provado com a fonte fixada');
     conferirSessionMeta(fd, st.size, sessionId, cwd);
-    return { file, ino: st.ino, dev: st.dev };
+    return { fonte: { file, ino: st.ino, dev: st.dev }, valor: consumir(fd, st.size) };
   } finally { fs.closeSync(fd); }
+}
+
+function conferirFonteDeRollout(rollout: unknown, uid: number, sessionId: string, cwd: string,
+    fixado?: RolloutFixado): RolloutFixado {
+  return comRolloutConferido(rollout, uid, sessionId, cwd, fixado, () => undefined).fonte;
 }
 
 /**
@@ -245,6 +250,24 @@ function lerFonteFixada(file: string, esperado: EsperadoController, uid: number)
   return { contrato: 'ork.controller-launch/v1', dir: f.dir, instancia: f.instancia, vinculo: esperado.vinculo,
     cwd: esperado.cwd, sessionId: esperado.sessionId, rollout: f.rollout, rolloutIno: f.rolloutIno,
     rolloutDev: f.rolloutDev, criadoEm: f.criadoEm, processoController: controlador, processoRuntime: runtime, uid };
+}
+
+/** Leitura pura da fixação do watcher: não descobre fonte, não grava pin e reconfere o rollout. */
+export function lerFonteControllerFixada(file: string, esperado: EsperadoController): FonteController | null {
+  const uid = esperado.uid ?? uidAtual();
+  const fonte = lerFonteFixada(file, esperado, uid);
+  if (!fonte) return null;
+  conferirDiretorioDaFonte(fonte.dir, esperado.dirSessoes, uid);
+  conferirFonteDeRollout(fonte.rollout, uid, fonte.sessionId, fonte.cwd,
+    { file: fonte.rollout, ino: fonte.rolloutIno, dev: fonte.rolloutDev });
+  return fonte;
+}
+
+/** Consome bytes do descritor autenticado do rollout já fixado, sem reabrir pathname não conferido. */
+export function consumirRolloutControllerFixado<T>(fonte: FonteController,
+    consumir: (fd: number, tamanho: number) => T): T {
+  return comRolloutConferido(fonte.rollout, fonte.uid, fonte.sessionId, fonte.cwd,
+    { file: fonte.rollout, ino: fonte.rolloutIno, dev: fonte.rolloutDev }, consumir).valor;
 }
 
 /**

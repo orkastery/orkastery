@@ -86,6 +86,8 @@ import { comandoDeConfirmacao, posturaAfrouxada, recusaDePostura } from './postu
 import { Mensagens, msg, remontar, textoDoCatalogo, textoDoErro } from './locale';
 import { RETRY_PT_BR } from './locale-retry';
 import { prepararPromptDeRetomada } from './retomada-checkpoint';
+import { taskCompleteFixadoDaSessao } from './codex-task-complete';
+import { exigirSessaoDespachada } from './session-events';
 
 /** RM-061 (F2b, D3): `porque` e `correcao` de cada motivo tem a fonte no catalogo pt-BR; o `--json` nao muda. */
 const TEXTOS_DA_POLITICA = RETRY_PT_BR.politica;
@@ -374,6 +376,31 @@ export interface OpcoesDePlano {
   autorizadoPor?: string;
 }
 
+/** Prova estreita: somente o rollout fixado da sessão Codex que originou o gate da fase. */
+function faseJaTerminouPorTaskComplete(raiz: string, thread: Thread, fase: Fase,
+    evento: EventoLedger | null): boolean {
+  const candidata = [...thread.sessoes].reverse().find(s => s.runtime === 'codex' && s.fase === fase &&
+    typeof s.despachadaEm === 'string' && (typeof evento?.sessionId !== 'string' || s.sessionId === evento.sessionId) &&
+    (typeof evento?.despachoEm !== 'string' || s.despachadaEm === evento.despachoEm));
+  if (!candidata) return false;
+  try {
+    const prova = taskCompleteFixadoDaSessao(raiz, thread, exigirSessaoDespachada(candidata, candidata.sessionId),
+      lerLedger(dirThread(raiz, thread.id)));
+    // task_complete encerra o turno, mas pode carregar uma falha estruturada de runtime.
+    // Só o resultado que concluiu a fase impede nova tentativa; cota/auth/modelo mantêm
+    // a política tipada de recuperação já existente.
+    return prova?.terminal.classificacao === 'fase_concluida';
+  } catch { return false; }
+}
+
+function planoProtegidoPorTaskComplete(thread: Thread, fase: Fase, limite: number, effort: string): PlanoDeRetry {
+  return { thread: thread.id, modo: thread.modo, fase, motivo: null,
+    detalhe: 'rollout autenticado da sessão despachada já contém task_complete', politica: null,
+    acao: 'sem-retry', tentativas: 0, limite, effort, effortAnterior: effort, automatica: false,
+    bloqueio: 'gate.sem-reprovacao',
+    razao: 'rollout autenticado já contém task_complete; a fase terminou e não será redespachada' };
+}
+
 /**
  * Calcula o plano de retry SEM executar nada.
  *
@@ -412,6 +439,8 @@ export function planejarRetry(
   }
 
   const fase = opcoes.fase ?? (evento ? faseDoEvento(evento, thread) : thread.faseAtual);
+  if (faseJaTerminouPorTaskComplete(raiz, thread, fase, evento))
+    return planoProtegidoPorTaskComplete(thread, fase, limite, effortBase);
   const politica = politicaDoMotivo(motivo);
   const tentativas = tentativasFeitas(raiz, threadId, fase, motivo);
   const detalhe = evento && typeof evento.detalhe === 'string' ? evento.detalhe : '';
@@ -1538,6 +1567,12 @@ export function executarRetry(
     }
   }
   const thread = lerThread(raiz, threadId);
+  // D4: reconfirma imediatamente antes do primeiro efeito do retry; o plano anterior pode ter
+  // sido calculado enquanto o runtime ainda anexava o terminal ao rollout.
+  if (plano.motivo !== null && plano.fase &&
+      faseJaTerminouPorTaskComplete(raiz, thread, plano.fase, ultimaReprovacao(raiz, threadId))) {
+    plano = planoProtegidoPorTaskComplete(thread, plano.fase, plano.limite, plano.effortAnterior);
+  }
   const dir = dirThread(raiz, threadId);
   const vazio: ResultadoDeRetry = {
     plano,

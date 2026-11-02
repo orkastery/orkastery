@@ -1,0 +1,502 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm075fimdefa",
+  "branch": "ork/ork-rm075fimdefa-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/codex-events.ts",
+      "alegacao": "A mensagem final só pede humano quando contém pergunta ou pedido explícito reconhecido.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node core/dist-test/test/session-watcher-claude.test.js"
+      ],
+      "criadoEm": "2026-11-02T12:34:34.067Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher-claude.ts",
+      "alegacao": "Claude blocked, working e done fecham pelo resultado; GO limpo sem commit produz go.sem-mudanca.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node core/dist-test/test/session-watcher-claude.test.js"
+      ],
+      "criadoEm": "2026-11-02T12:34:34.124Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher.ts",
+      "alegacao": "O observador injeta a leitura final de tela no sensor Claude sem alterar o caminho Codex.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node core/dist-test/test/session-watcher-claude.test.js"
+      ],
+      "criadoEm": "2026-11-02T12:34:34.176Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/test/session-watcher-claude.test.ts",
+      "alegacao": "A matriz de estados Claude, pergunta real, GO sem mudança e regressões do observador permanece verde.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node core/dist-test/test/session-watcher-claude.test.js"
+      ],
+      "criadoEm": "2026-11-02T12:34:34.225Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/codex-controller-sensor.ts",
+      "alegacao": "A fixação do controller e o descritor do rollout podem ser relidos sem descoberta nem escrita.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test-name-pattern=RM-075 core/dist-test/test/session-watcher-controller.test.js"
+      ],
+      "criadoEm": "2026-11-02T12:43:33.532Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/src/codex-task-complete.ts",
+      "alegacao": "task_complete só vale quando vem do descritor do rollout já fixado e autenticado para o despacho.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test-name-pattern=RM-075 core/dist-test/test/session-watcher-controller.test.js"
+      ],
+      "criadoEm": "2026-11-02T12:43:33.592Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher.ts",
+      "alegacao": "task_complete autenticado fecha o Codex mesmo sob SESSION_STATE_SPLIT e preserva pedido tipado à condução.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test-name-pattern=RM-075 core/dist-test/test/session-watcher-controller.test.js"
+      ],
+      "criadoEm": "2026-11-02T12:43:33.640Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "O plano e a execução do retry recusam redespachar uma sessão Codex cujo rollout fixado já contém task_complete.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test-name-pattern=RM-075 core/dist-test/test/session-watcher-controller.test.js"
+      ],
+      "criadoEm": "2026-11-02T12:43:33.680Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/test/session-watcher-controller.test.ts",
+      "alegacao": "Os cenários RM-075 de estado dividido, pedido à condução e retry recusado passam no sensor controller.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test-name-pattern=RM-075 core/dist-test/test/session-watcher-controller.test.js"
+      ],
+      "criadoEm": "2026-11-02T12:43:33.735Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-075-fim-de-fase-lido-pelo-resultado.md",
+      "alegacao": "A RM-075 inclui o Codex, a evidência de uma rede de três VPS, o estado dividido, o retry e os critérios focados.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'task_complete' docs/roadmap/RM-075-fim-de-fase-lido-pelo-resultado.md",
+        "grep -q 'uma rede de três VPS' docs/roadmap/RM-075-fim-de-fase-lido-pelo-resultado.md",
+        "grep -q 'SESSION_STATE_SPLIT' docs/roadmap/RM-075-fim-de-fase-lido-pelo-resultado.md"
+      ],
+      "criadoEm": "2026-11-02T12:44:36.123Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A seção Não publicado registra a correção de fim de fase da RM-075.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'RM-075' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-11-02T12:44:36.167Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A linha nova da RM-075 está na seção Não publicado e no grupo permitido.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-11-02T12:44:47.217Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher.ts",
+      "alegacao": "O polling saudável do Codex reconhece task_complete pelo cursor incremental e reserva a varredura integral autenticada para a recuperação de snapshot perdido.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test-name-pattern=RM-075 core/dist-test/test/session-watcher-controller.test.js"
+      ],
+      "criadoEm": "2026-11-02T12:47:08.346Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm075.json",
+      "alegacao": "Mutante M1 morre quando o ramo blocked volta a esperar o humano sem pergunta real.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm075.json M1"
+      ],
+      "criadoEm": "2026-11-02T12:48:35.070Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm075.json",
+      "alegacao": "Mutante M2 morre quando human.pending nasce sem pergunta real.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm075.json M2"
+      ],
+      "criadoEm": "2026-11-02T12:48:35.119Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm075.json",
+      "alegacao": "Mutante M3 morre quando task_complete deixa de recuperar SESSION_STATE_SPLIT.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm075.json M3"
+      ],
+      "criadoEm": "2026-11-02T12:48:35.165Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm075.json",
+      "alegacao": "Mutante M4 morre quando a nova tentativa volta a redespachar rollout com task_complete.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm075.json M4"
+      ],
+      "criadoEm": "2026-11-02T12:48:35.213Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm075.json",
+      "alegacao": "Mutante M5 morre quando GO sem commit perde o resultado tipado go.sem-mudanca.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm075.json M5"
+      ],
+      "criadoEm": "2026-11-02T12:48:35.260Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher-claude.ts",
+      "alegacao": "A indisponibilidade da tela final não cria espera humana; os despachos Claude continuam concluindo pelo resultado e pela prova do núcleo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node core/dist-test/test/despacho-claude-watcher.test.js"
+      ],
+      "criadoEm": "2026-11-02T13:16:48.537Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "O guard recusa retry de fase concluída por task_complete e preserva a política de falhas estruturadas do runtime.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test-name-pattern=RM-075 core/dist-test/test/session-watcher-controller.test.js"
+      ],
+      "criadoEm": "2026-11-02T13:16:48.636Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/test/session-watcher-controller.test.ts",
+      "alegacao": "Os cenários RM-075 distinguem task_complete concluído de task_complete com falha tipada recuperável.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test-name-pattern=RM-075 core/dist-test/test/session-watcher-controller.test.js"
+      ],
+      "criadoEm": "2026-11-02T13:16:48.676Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-075-fim-de-fase-lido-pelo-resultado.md",
+      "alegacao": "A página da RM-075 documenta a distinção entre conclusão e falha estruturada e exige pergunta efetivamente lida para human.pending.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'task_complete.*falha estruturada' docs/roadmap/RM-075-fim-de-fase-lido-pelo-resultado.md && grep -q 'pergunta efetivamente lida' docs/roadmap/RM-075-fim-de-fase-lido-pelo-resultado.md"
+      ],
+      "criadoEm": "2026-11-02T13:16:48.735Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher-claude.ts",
+      "alegacao": "Falta de artefato documental continua artifact.missing, enquanto GO sem prova preserva o motivo legado e GO limpo usa go.sem-mudanca.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test-name-pattern='^defeito 4: sem a prova documental' core/dist-test/test/rm037-defeitos2010-ociosa.test.js",
+        "node core/scripts/casa-temporaria.cjs node --test-name-pattern='^GW2: o end_turn sem a prova' core/dist-test/test/session-watcher-grok.test.js"
+      ],
+      "criadoEm": "2026-11-02T13:37:10.553Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher.ts",
+      "alegacao": "task_complete com falha tipada encerra o turno sem alegar conclusão nativa da fase e mantém o motivo recuperável.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test-name-pattern=RM-075 core/dist-test/test/session-watcher-controller.test.js"
+      ],
+      "criadoEm": "2026-11-02T13:37:10.630Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/test/session-watcher-controller.test.ts",
+      "alegacao": "A abertura consumidora continua recusando troca de inode e symlink e aceita apenas append no mesmo rollout fixado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test-name-pattern='^CK11: abertura consumidora.*(inode|symlink|append)' core/dist-test/test/session-watcher-controller.test.js"
+      ],
+      "criadoEm": "2026-11-02T13:37:10.705Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-defeitos2010-ociosa.test.ts",
+      "alegacao": "A ociosidade sem prova documental produz artifact.missing em GOAL e PLAN, sem retry genérico.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test-name-pattern='^defeito 4: sem a prova documental' core/dist-test/test/rm037-defeitos2010-ociosa.test.js"
+      ],
+      "criadoEm": "2026-11-02T13:37:10.772Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/test/session-watcher-claude.test.ts",
+      "alegacao": "O teste completo preserva human.pending para GO não comprovável e confirma go.sem-mudanca apenas com HEAD igual e worktree limpa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node core/dist-test/test/session-watcher-claude.test.js"
+      ],
+      "criadoEm": "2026-11-02T13:57:11.686Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/test/despacho-grok.test.ts",
+      "alegacao": "O sensor Grok também conclui GO limpo sem commit pelo resultado tipado go.sem-mudanca.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test-name-pattern='^GD5: o GO pelo grok' core/dist-test/test/despacho-grok.test.js"
+      ],
+      "criadoEm": "2026-11-02T13:57:11.782Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/test/hitl-gates.test.ts",
+      "alegacao": "As fixtures HITL distinguem GO limpo de commit não registrado e preservam o diagnóstico nos modos Classic e Auto.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test-name-pattern='^GO-FIX 3' core/dist-test/test/hitl-gates.test.js"
+      ],
+      "criadoEm": "2026-11-02T13:57:11.886Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": "core/src/codex-task-complete.ts",
+      "alegacao": "A chave da fixação task_complete mantém o formato canônico do watcher sem expor campo ISO cru ao texto.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test-name-pattern=RM-075 core/dist-test/test/session-watcher-controller.test.js",
+        "node core/scripts/casa-temporaria.cjs node --test-name-pattern='^lint: campo ISO não chega' core/dist-test/test/horario-lint.test.js"
+      ],
+      "criadoEm": "2026-11-02T13:57:11.995Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm075fimdefa",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-rm075fimdefa.json",
+      "alegacao": "O bundle de CI identifica a thread e a branch da RM-075, usa o contrato público esperado e transporta claims, diferimentos e comandos do CHECK independente.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const b=require('./.ork-ci/ork-rm075fimdefa.json'); if(b.schema!=='ork.ci-bundle/v1'||b.thread!=='ork-rm075fimdefa'||b.branch!=='ork/ork-rm075fimdefa-full'||b.base!=='main'||!Array.isArray(b.claims)||b.claims.length===0||!Array.isArray(b.deferredClaims)||!Array.isArray(b.commands)) process.exit(1)\""
+      ],
+      "criadoEm": "2026-11-02T15:08:21.169Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C20",
+      "reason": "local-integration-required"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
