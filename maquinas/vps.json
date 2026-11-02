@@ -4,26 +4,8 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.3",
-  "publicadoEm": "2026-11-02T00:28:08.369Z",
+  "publicadoEm": "2026-11-02T00:28:13.184Z",
   "threads": [
-    {
-      "id": "ork-legendadofus",
-      "nome": "legendafuso",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-legendadofus-go",
-      "atualizadaEm": "2026-11-01T06:49:55.639Z",
-      "entregue": "62da3fa",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null,
-      "sessao": null
-    },
     {
       "id": "ork-rm067f5agrok",
       "nome": "rm067-f5a",
