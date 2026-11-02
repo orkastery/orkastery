@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.4",
-  "publicadoEm": "2026-11-02T14:52:35.126Z",
+  "publicadoEm": "2026-11-02T15:12:17.659Z",
   "threads": [
     {
       "id": "ork-rm067f5agrok",
@@ -48,6 +48,28 @@
         "viva": false,
         "desdeEm": "2026-10-29T15:53:00.931Z",
         "motivo": "sessão 7d0c534d encerrada (sem estado)"
+      }
+    },
+    {
+      "id": "ork-rm074m10sele",
+      "nome": "rm074m10",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-074",
+      "branch": "ork/ork-rm074m10sele-full",
+      "atualizadaEm": "2026-11-02T15:12:09.833Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-11-02T15:12:13.273Z",
+        "motivo": "nenhuma sessão despachada na fase GOAL"
       }
     },
     {
@@ -112,7 +134,7 @@
       "esforco": null,
       "sessao": {
         "viva": false,
-        "desdeEm": "2026-11-02T14:52:31.873Z",
+        "desdeEm": "2026-11-02T15:07:39.317Z",
         "motivo": "nenhuma sessão despachada na fase GOAL"
       }
     },
@@ -124,7 +146,7 @@
       "status": "aberta",
       "roadmap": "RM-075",
       "branch": "ork/ork-rm075fimdefa-full",
-      "atualizadaEm": "2026-11-02T13:57:11.995Z",
+      "atualizadaEm": "2026-11-02T15:08:21.172Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -133,9 +155,9 @@
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-11-02T15:10:59.883Z",
+        "motivo": "sessão 01a19c31 encerrada (completed)"
       }
     },
     {
