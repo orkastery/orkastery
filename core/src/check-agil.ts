@@ -61,6 +61,8 @@ export interface ItemDoGrupo {
   nice?: number;
   /** Os itens do grupo (pelo nome, antes deste na lista) que precisam terminar antes de este comecar. */
   apos?: string[];
+  /** Servicos que esta lane precisa usar sozinha durante a rodada. */
+  recursos?: string[];
   /** Papel usado pelo agendador de CPU do auxiliar. */
   papelCpu?: 'hermetica' | 'integracao' | 'varredura' | 'outro';
 }
@@ -443,9 +445,13 @@ export function comandosNoAgile(manifesto: Manifesto, cwd: string, lista: { nome
   const encadeados: ItemDoGrupo[] = [];
   for (const c of resto) {
     if (c.nome === 'test' && lanesDeclaradas.length > 0) {
-      for (const [lane, comando] of lanesDeclaradas) {
-        if (depoisDaVarredura.has(lane)) encadeados.push({ nome: `test:${lane}`, comando, apos: ['security_scan'], papelCpu: 'integracao' });
-        else itens.push({ nome: `test:${lane}`, comando, papelCpu: lane === 'hermetica' ? 'hermetica' : 'outro' });
+      for (const [lane, declaracao] of lanesDeclaradas) {
+        const comando = typeof declaracao === 'string' ? declaracao : declaracao.comando;
+        const recursos = typeof declaracao === 'string' ? undefined : declaracao.recursos;
+        if (depoisDaVarredura.has(lane)) encadeados.push({ nome: `test:${lane}`, comando, apos: ['security_scan'],
+          papelCpu: 'integracao', ...(recursos?.length ? { recursos } : {}) });
+        else itens.push({ nome: `test:${lane}`, comando, papelCpu: lane === 'hermetica' ? 'hermetica' : 'outro',
+          ...(recursos?.length ? { recursos } : {}) });
       }
     } else itens.push({ nome: c.nome, comando: c.comando, papelCpu: c.nome === 'security_scan' ? 'varredura' : 'outro' });
   }
@@ -569,6 +575,7 @@ export function assinaturaDoAmbiente(env: NodeJS.ProcessEnv): string {
   const ignorada = (nome: string): boolean => nome.startsWith('npm_') || nome.startsWith('NPM_')
     || ['ORK_CHECK_RELATORIO', 'ORK_CHECK_CPUS_DA_LANE', 'ORK_CHECK_CPUS_DA_LANE_APOS_VARREDURA',
       'ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA', 'ORK_CHECK_RESERVA_DEVOLVIDA', 'ORK_CHECK_CONTAINERS_DA_LANE', 'ORK_CHECK_CPUS_DOCKER',
+      'ORK_WORKERS',
       'NODE_TEST_CONTEXT', 'NODE_COMPILE_CACHE', 'PWD', 'OLDPWD', 'SHLVL', '_', 'INIT_CWD'].includes(nome);
   const pares = Object.entries(env).filter(([nome, valor]) => valor !== undefined && !ignorada(nome))
     .sort(([a], [b]) => a.localeCompare(b));

@@ -256,11 +256,43 @@ function lerAgile(v: ValorYaml | undefined, erros: string[], avisos: string[]): 
     if (typeof v.test !== 'object' || Array.isArray(v.test)) {
       erros.push(`check.agile.test precisa ser um mapa de lane para comando (recebido ${exibir(v.test)})`);
     } else {
-      const lanes: Record<string, string> = {};
-      for (const [lane, comando] of Object.entries(v.test)) {
+      const lanes: NonNullable<ConfigDoAgile['test']> = {};
+      for (const [lane, declaracao] of Object.entries(v.test)) {
         if (!NOME_DE_LANE.test(lane)) erros.push(`check.agile.test.${lane}: nome de lane aceita [a-z0-9-], ate 32 caracteres`);
-        else if (typeof comando !== 'string' || !comando.trim()) erros.push(`check.agile.test.${lane} precisa ser o comando, em texto`);
-        else lanes[lane] = comando.trim();
+        else if (typeof declaracao === 'string') {
+          if (!declaracao.trim()) erros.push(`check.agile.test.${lane} precisa ser o comando em texto ou um mapa com comando e recursos`);
+          else lanes[lane] = declaracao.trim();
+        } else if (!declaracao || typeof declaracao !== 'object' || Array.isArray(declaracao)) {
+          erros.push(`check.agile.test.${lane} precisa ser o comando em texto ou um mapa com comando e recursos`);
+        } else {
+          const desconhecidas = Object.keys(declaracao).filter((chave) => !['comando', 'recursos'].includes(chave));
+          for (const chave of desconhecidas) erros.push(`check.agile.test.${lane}.${chave} desconhecida; a lane tem comando e recursos`);
+          const comando = declaracao.comando;
+          const recursos = declaracao.recursos;
+          let valido = desconhecidas.length === 0;
+          if (typeof comando !== 'string' || !comando.trim()) {
+            erros.push(`check.agile.test.${lane}.comando precisa ser texto nao vazio`);
+            valido = false;
+          }
+          const lidos: string[] = [];
+          if (recursos !== undefined) {
+            if (!Array.isArray(recursos) || recursos.length === 0) {
+              erros.push(`check.agile.test.${lane}.recursos precisa ser uma lista nao vazia de textos`);
+              valido = false;
+            } else {
+              for (const recurso of recursos) {
+                if (typeof recurso !== 'string' || !recurso.trim() || recurso.trim().length > 80 || /[\r\n]/.test(recurso)) {
+                  erros.push(`check.agile.test.${lane}.recursos: ${exibir(recurso)} precisa ser texto de uma linha, de 1 a 80 caracteres`);
+                  valido = false;
+                } else if (lidos.includes(recurso.trim())) {
+                  erros.push(`check.agile.test.${lane}.recursos: ${exibir(recurso.trim())} esta repetido`);
+                  valido = false;
+                } else lidos.push(recurso.trim());
+              }
+            }
+          }
+          if (valido && typeof comando === 'string') lanes[lane] = { comando: comando.trim(), ...(lidos.length ? { recursos: lidos } : {}) };
+        }
       }
       if (Object.keys(lanes).length) agile.test = lanes;
     }

@@ -760,14 +760,20 @@ export interface ConfigDoAgile {
   produto?: string[];
   /** O preparo do Agile; falhou ou nao existe, vale o `verify.preparo`. */
   preparo?: string;
-  /** As lanes que substituem o `verify.test`, por nome, rodando juntas com a guarda valendo. */
-  test?: Record<string, string>;
+  /** As lanes que substituem o `verify.test`; texto preserva o contrato, objeto acrescenta recursos exclusivos. */
+  test?: Record<string, string | ConfigDaLaneDoAgile>;
   /** As lanes de `test` que so comecam quando o `security_scan` do grupo termina (as que sobem containers). */
   apos_a_varredura?: string[];
   /** `osv-scanner` no lugar de `trivy-vuln` e `npm-audit` (D13); desligado por padrao. */
   osv_scanner?: boolean;
   /** `oxlint` como primeiro passe de lint, antes do `eslint` (D13); desligado por padrao. */
   oxlint?: boolean;
+}
+
+export interface ConfigDaLaneDoAgile {
+  comando: string;
+  /** Identificadores de banco, broker, porta ou outro servico exclusivo dentro da rodada. */
+  recursos?: string[];
 }
 
 /** Baseline gravada antes do GO: separa regressao de divida pre-existente. */
