@@ -261,8 +261,6 @@ Many commands still print Brazilian Portuguese (`ork doctor`, `ork init`, `ork o
 | --- | --- |
 | **[orkastery](https://github.com/orkastery/orkastery)** | This repository: the `ork` core, the adapters, the skills and the auditors |
 | **[OrkMind](https://github.com/orkastery/orkmind)** | The memory layer: Postgres with pgvector, an ontology and tag search; optional |
-| **[orkastery.com](https://github.com/orkastery/orkastery.com)** | The website and user docs |
-| **[orkmind.com](https://github.com/orkastery/orkmind.com)** | The OrkMind site |
 
 ## Maestro in the conversation (code delivered, live activation pending)
 

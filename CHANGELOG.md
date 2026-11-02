@@ -6,6 +6,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Alterado
+
+- **Repositórios dos sites fora do README:** os sites orkastery.com e orkmind.com passam a ser mantidos em
+  repositórios privados. A tabela "Ecosystem" do `README.md` e do `README.pt-BR.md` deixa de apontar para eles, e o guia
+  de contribuição de documentação manda a correção de página do site para uma issue neste repositório.
+
 ### Corrigido
 
 - **Teste do doctor que dependia da estação do ano:** o teste da legenda do fuso em inglês esperava a abreviação
