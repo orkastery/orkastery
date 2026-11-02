@@ -144,6 +144,38 @@ Os runners escrevem o mesmo contrato com opções diferentes:
 - **Playwright:** `playwright test --reporter=junit`, com `PLAYWRIGHT_JUNIT_OUTPUT_NAME=reports/playwright.xml`.
 - **Go:** `gotestsum --junitfile reports/go.xml -- ./...`.
 
+### Filtro do runner na rodada de correção
+
+Um comando com JUnit pode declarar também `filtro`. O valor é o comando do próprio runner com
+`{testes}` exatamente uma vez; o verify substitui o marcador pelos nomes JUnit, cada um como
+argumento shell separado e escapado. Exemplo com pytest:
+
+```yaml
+verify:
+  test:
+    comando: "pytest --junitxml reports/pytest.xml"
+    junit: reports/pytest.xml
+    filtro: "pytest --junitxml reports/pytest.xml {testes}"
+```
+
+- Sem `filtro`, sem JUnit válido ou sem nomes no último `verify_run`, nada muda: roda o comando
+  completo.
+- O comando integral precisa continuar igual ao da rodada anterior. Mudou, a evidência nominal
+  não é reaproveitada.
+- Se a passagem filtrada continuar vermelha, o comando reprova ali, marca a rodada como parcial
+  e lista os nomes filtrados no texto e no ledger.
+- Se a passagem filtrada ficar verde, o verify roda em seguida o comando completo. Só esse
+  resultado integral pode deixar a rodada verde.
+- Em `check.agile.test`, cada lane pode declarar seu próprio `junit` e `filtro`; uma lane nunca
+  recebe os nomes de outra.
+- O `ork ship` recusa recibo parcial, mesmo se ele estiver marcado como verde. A suíte inteira
+  verde no HEAD continua obrigatória.
+
+O filtro recebe exatamente os nomes que o relatório produziu. O Orkastery não converte
+`classname :: name` para id de framework: pytest pode receber ids, Vitest/Jest podem usar a
+seleção por nome ou caminho, Playwright pode usar `--grep` e Go pode usar `-run`, desde que o
+comando declarado saiba consumir os nomes do JUnit do projeto.
+
 O leitor usa `classname :: name`; sem classe, usa `file :: name`; sem ambos, usa só `name`. Se o
 nome de uma falha ou erro precisaria ser truncado ou redigido, o relatório não serve para comparação
 nominal: ele é marcado como inválido, sem copiar o conteúdo para o motivo. Isso evita colisões de
@@ -241,6 +273,7 @@ que falha:
 | `prazoMs`, `duracaoMs` | O prazo aplicado e o tempo que o comando levou |
 | `testeQueCaiu` | Sem JUnit, até 10 testes extraídos da saída (`not ok` do TAP, a seção "failing tests" do reporter `spec` e `FAIL` de Jest/Vitest). Com JUnit válido, todas as falhas e erros; no Agile, cada item de `lanes` preserva os nomes da própria lane |
 | `junit` | Caminho e estado da leitura; quando válido, total de testes, falhas, erros, pulados e duração somada. No Agile, aparece também por lane |
+| `parcial` | Presente somente quando a passagem filtrada reprovou antes da suíte inteira; guarda os nomes selecionados. O `verify_run` também marca a rodada como parcial |
 | `stealPct`, `relogioSobSteal` | O steal da CPU na janela do comando e, quando a reprovação foi só de relógio sob steal acima de 40%, os testes (RM-037) |
 | `trecho` | O fim da saída real, até 1024 caracteres, redigido |
 
