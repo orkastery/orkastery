@@ -68,8 +68,10 @@ sdlc:
     - Na rodada de correção, o verify roda primeiro os testes que caíram na rodada anterior, com o filtro do próprio runner declarado no manifesto. Se algum ainda cai, reprova sem rodar o resto.
     - A suíte inteira roda uma vez antes do SHIP.
   - **F4 · Lanes do tamanho da máquina.**
-    - O Agile passa a cada lane quantos workers ela pode usar, pela CPU medida, numa variável de ambiente que o comando do projeto lê.
-    - Lanes que sobem serviço declaram o recurso, para não disputar porta nem banco.
+    - O Agile passa `ORK_WORKERS` a cada lane com a reserva vigente medida pelo agendador; o Classic publica a mesma variável com a capacidade inteira da máquina.
+    - `check.agile.test` preserva `lane: comando` e aceita `lane: { comando, recursos }` para declarar banco, broker, porta ou outro serviço exclusivo da rodada.
+    - Lanes com recurso comum não se sobrepõem; a soma das reservas simultâneas permanece dentro da capacidade medida.
+    - Pytest, Playwright, Vitest, Jest e Go têm exemplos no [guia de verificação](../guias/verificacao.md#classic-check-e-agile-check-rm-072).
   - **F5 · Seleção pelo que mudou, só na rodada morna.**
     - Usa a seleção nativa do runner declarada no manifesto, com a regra da M7 da [RM-074](RM-074-agile-check-tres-vezes-mais-rapido.md): na dúvida, suíte inteira.
     - Nunca vale no SHIP.
@@ -128,3 +130,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-11-01 | Item criado em Discovery, com as fatias F1 a F5 | Relato da pilha de testes de outra rede, conferido contra a 0.6.3 | Julio (pedido de 01/11/2026) |
+| 2026-11-02 | F4 implementa workers por reserva e recursos exclusivos com forma textual retrocompatível | Testes RM081F4 e mutantes M1–M4 da thread `ork-rm081f4worke` | Thread `ork-rm081f4worke` (#Auto) |
