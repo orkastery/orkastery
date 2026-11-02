@@ -4,7 +4,7 @@ tipo: roadmap
 titulo: CHECK que entende qualquer runner de teste e só roda de novo o necessário
 categoria: iniciativa
 pai: null
-features: []
+features: [FEAT-004]
 owner: Julio
 atualizado_em: 2026-11-02T00:00:00-03:00
 estado:
@@ -139,9 +139,17 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 - O recibo e o texto declaram a parcial e os nomes selecionados. O SHIP recusa explicitamente qualquer recibo parcial.
 - Testes focados cobrem Classic, lanes Agile, escape dos nomes e a defesa do SHIP; a bancada de razão permanece com a condução.
 
+### F5 nesta fatia
+
+- A lane Agile aceita `selecao` com comando nativo, caminhos que o runner garante mapear e configurações que invalidam essa garantia. Sem a declaração, nada muda.
+- Só a rodada morna com último `verify_run` verde, mesma base, commit ancestral e árvore limpa pode selecionar. Rodada fria, Classic, cache ausente ou inválido, manifesto, lockfile, configuração e caminho não mapeado executam a suíte inteira com o motivo.
+- A lane grava modo, motivo, arquivos e base no ledger e no texto bilíngue. A seleção reutiliza `parcial` da F3; o SHIP continua recusando pelo caminho existente.
+- O guia e a referência trazem exemplos de Vitest, Jest e Playwright. Testes focados e mutantes cobrem as regras; a razão contra a rodada integral fica para a bancada da condução, sem ganho antecipado.
+
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-11-01 | Item criado em Discovery, com as fatias F1 a F5 | Relato da pilha de testes de outra rede, conferido contra a 0.6.3 | Julio (pedido de 01/11/2026) |
 | 2026-11-02 | F1 implementa JUnit declarado por comando e lane, sem mudar a forma textual | Fixtures de pytest, Vitest, Jest, Playwright e gotestsum e mutantes da thread `ork-rm081f1relat`; veredito no CHECK | Codex (#Auto, D1 registrada no ledger) |
 | 2026-11-02 | F3 roda primeiro os nomes da correção e conserva a suíte inteira como condição do SHIP | Testes focados da thread `ork-rm081f3rodad`; D1 a D4 registradas no ledger; CHECK pendente | Codex (#Auto) |
 | 2026-11-02 | F2 protege qualquer runner JUnit marcado contra julgamento temporal sob steal, sem esconder falha comum | Testes focados e mutantes da thread `ork-rm081f2teste`; decisões autônomas registradas no ledger; CHECK pendente | Codex (#Auto) |
+| 2026-11-02 | F5 usa seleção nativa somente no Agile morno e cai para a suíte inteira na dúvida | Testes focados e mutantes da thread `ork-rm081f5selec`; decisões autônomas registradas no ledger; CHECK pendente | Codex (#Auto) |

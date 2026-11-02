@@ -14,6 +14,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **RM-081 · F2 — relógio JUnit protegido sob steal ([roadmap](docs/roadmap/RM-081-check-por-qualquer-runner.md)):** comando ou lane marca casos temporais por nome, marcador ou tag; falha exclusivamente marcada sob steal alto fica sem veredito, recebe reteste isolado pelo filtro existente e registra o resultado sem virar verde.
 
+- **RM-081 · F5 — seleção nativa na rodada morna ([roadmap](docs/roadmap/RM-081-check-por-qualquer-runner.md)):** lane Agile pode declarar como Vitest, Jest ou Playwright relaciona mudanças; cache inválido, base, manifesto, lockfile, configuração ou caminho não mapeado executa a suíte inteira com o motivo, e recibo selecionado permanece parcial e recusado pelo SHIP.
+
 ## [0.6.4] - 2026-11-01
 
 O Agile Check reserva CPU pela medida de cada peça e reaproveita a varredura do Semgrep quando as regras não mudam;

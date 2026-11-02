@@ -176,6 +176,63 @@ O filtro recebe exatamente os nomes que o relatório produziu. O Orkastery não 
 seleção por nome ou caminho, Playwright pode usar `--grep` e Go pode usar `-run`, desde que o
 comando declarado saiba consumir os nomes do JUnit do projeto.
 
+### Seleção nativa por mudanças na rodada morna
+
+Uma lane de `check.agile.test` pode declarar `selecao` ao lado de `comando` e `junit`. O
+opt-in diz qual comando nativo do runner seleciona testes, quais caminhos ele garante mapear e
+quais arquivos de configuração invalidam essa garantia. Sem a chave, o Agile conserva a suíte
+inteira; `verify.test` e o Classic não aceitam nem usam a declaração.
+
+O comando contém exatamente um marcador. `{base}` recebe o commit da rodada anterior quando o
+runner calcula o diff pelo Git; `{arquivos}` recebe cada caminho mudado como um argumento shell
+fechado. Exemplos dos runners que expõem esses mecanismos:
+
+```yaml
+check:
+  mode: agile
+  agile:
+    produto: [dist]
+    preparo: "npm run build"
+    test:
+      vitest:
+        comando: "vitest run --reporter=junit --outputFile=reports/vitest.xml"
+        junit: reports/vitest.xml
+        selecao:
+          comando: "vitest run --changed {base} --reporter=junit --outputFile=reports/vitest.xml"
+          mapeia: [src/**, test/**]
+          configuracao: [vitest.config.*, vite.config.*]
+      jest:
+        comando: "jest --ci --reporters=default --reporters=jest-junit"
+        junit: reports/jest.xml
+        selecao:
+          comando: "jest --findRelatedTests {arquivos} --ci --reporters=default --reporters=jest-junit"
+          mapeia: [src/**, test/**]
+          configuracao: [jest.config.*, package.json]
+      playwright:
+        comando: "playwright test --reporter=junit"
+        junit: reports/playwright.xml
+        selecao:
+          comando: "playwright test --only-changed={base} --reporter=junit"
+          mapeia: [src/**, tests/**]
+          configuracao: [playwright.config.*]
+```
+
+A seleção só vale quando o último `verify_run` ficou verde, trouxe o cache F5 reconhecido, tem
+commit ancestral do HEAD, usa o mesmo merge-base e a árvore atual está limpa. A primeira rodada é
+fria e inteira. Rodada selecionada verde pode alimentar a seguinte, mas continua parcial.
+
+A lane roda inteira e registra o motivo quando qualquer condição não fecha:
+
+- cache ausente, inválido, vermelho, de outra base ou fora da ancestralidade;
+- mudança em `orkastery.yaml`, `devmaster.yaml`, lockfile ou configuração declarada do runner;
+- caminho mudado fora de `mapeia`, nenhum caminho verificável ou `mapeia` vazio;
+- rodada fria ou Classic Check.
+
+O `verify_run` grava `selecao` no cache da rodada e, em cada lane declarada, `modo`, `motivo`,
+`arquivos` e a base quando aplicáveis. O texto diz `SELECIONADA`/`INTEIRA` em português e
+`SELECTED`/`FULL` em inglês. Lane selecionada reutiliza o campo `parcial` da rodada nominal: o
+SHIP a recusa pelo mesmo contrato, sem um segundo tipo de recibo parcial.
+
 ### Teste de relógio declarado no relatório
 
 Um comando com JUnit pode declarar também `relogio`. A marcação é opt-in e aceita exatamente uma

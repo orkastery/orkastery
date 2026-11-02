@@ -147,6 +147,29 @@ export interface SetupDeConducao {
 /** RM-081 F2: como um comando JUnit declara que mede relogio. */
 export type MarcacaoDeRelogio = { nome: string[] } | { marcador: string } | { tag: string };
 
+/** RM-081 F5: opt-in da lane para a selecao nativa do runner na rodada morna. */
+export interface SelecaoNativa {
+  /** Comando com exatamente um marcador `{base}` ou `{arquivos}`. */
+  comando: string;
+  /** Superficie que o runner garante relacionar; vazia significa que nao ha garantia e conserva a suite inteira. */
+  mapeia: string[];
+  /** Arquivos ou globs de configuracao cuja mudanca invalida a selecao. */
+  configuracao?: string[];
+}
+
+/** RM-081 F5: causa estável da seleção ou da queda para a suíte inteira. */
+export type MotivoDaSelecaoNativa = 'rodada-fria' | 'cache-ausente' | 'cache-invalido' | 'base-mudou'
+  | 'manifesto-mudou' | 'lockfile-mudou' | 'configuracao-mudou' | 'fora-do-mapeamento'
+  | 'runner-sem-garantia' | 'sem-mudancas' | 'selecionada';
+
+/** RM-081 F5: o que uma lane executou e por quê, persistido no recibo. */
+export interface RegistroDaSelecaoNativa {
+  modo: 'selecionada' | 'inteira';
+  motivo: MotivoDaSelecaoNativa;
+  arquivos?: string[];
+  base?: string;
+}
+
 /** Manifesto do projeto (`orkastery.yaml`), na fatia v1 do bloco B0. */
 export interface Manifesto {
   project: {
@@ -765,6 +788,8 @@ export interface ResultadoDeComando {
   comandoExecutado?: string;
   /** RM-081 F3: a suite inteira nao rodou; estes foram os nomes JUnit selecionados. */
   parcial?: { testes: string[] };
+  /** RM-081 F5: decisão por mudanças desta lane; seleção usada também torna o resultado parcial. */
+  selecao?: RegistroDaSelecaoNativa;
   /** RM-074 M1: prova de que um `node --test` da claim veio das lanes desta mesma rodada e ambiente. */
   lane?: { reaproveitada: true; lanes: string[]; arquivos: string[]; nomes: string[]; head: string; ambiente: string };
   /** RM-072 (D4): as lanes que compuseram o `test` do Agile. */
@@ -775,6 +800,10 @@ export interface ResultadoDeComando {
     junit?: EvidenciaJUnit;
     /** RM-081 F3: a lane terminou na passagem parcial, sem a suite inteira. */
     parcial?: { testes: string[] };
+    /** RM-081 F5: comando realmente executado quando diferente do contrato integral. */
+    comandoExecutado?: string;
+    /** RM-081 F5: seleção nativa ou queda integral e sua causa estável. */
+    selecao?: RegistroDaSelecaoNativa;
     /** RM-081 F2: recibo da segunda passagem isolada da lane. */
     retesteDeRelogio?: RetesteDeRelogio;
     relogioSobSteal?: string[];
@@ -811,6 +840,8 @@ export interface ConfigDoAgile {
   junit?: Record<string, string>;
   /** RM-081 F3: comando de selecao nominal por lane; ausente preserva a suite inteira. */
   filtro?: Record<string, string>;
+  /** RM-081 F5: selecao nativa por mudancas, somente na rodada morna do Agile. */
+  selecao?: Record<string, SelecaoNativa>;
   /** RM-081 F2: marcacao de relogio por lane JUnit; ausente preserva o julgamento anterior. */
   relogio?: Record<string, MarcacaoDeRelogio>;
   /** As lanes de `test` que so comecam quando o `security_scan` do grupo termina (as que sobem containers). */

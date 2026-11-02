@@ -6,7 +6,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { lerYaml, ValorYaml } from './yaml';
-import { ConfigDeEmbedding, ConfigDoAgile, Manifesto, MarcacaoDeRelogio, Modo } from './types';
+import { ConfigDeEmbedding, ConfigDoAgile, Manifesto, MarcacaoDeRelogio, Modo, SelecaoNativa } from './types';
 import { modoAposentado, ORDEM_DOS_MODOS, parseModo, substitutosVivos } from './modos';
 import { ORDEM_DOS_RUNTIMES, RUNTIME_PADRAO, runtimeConhecido, runtimeDoManifesto } from './runtimes';
 import { SANDBOX_PADRAO, SANDBOXES_DO_CODEX } from './adapters/codex';
@@ -220,7 +220,13 @@ function lerCheck(v: ValorYaml | undefined, erros: string[], avisos: string[]): 
 /** Nome de lane: o que vira `test:<lane>` no ledger. */
 const NOME_DE_LANE = /^[a-z0-9][a-z0-9-]{0,31}$/;
 
-interface ComandoLido { comando?: string; junit?: string; filtro?: string; relogio?: MarcacaoDeRelogio }
+interface ComandoLido {
+  comando?: string;
+  junit?: string;
+  filtro?: string;
+  relogio?: MarcacaoDeRelogio;
+  selecao?: SelecaoNativa;
+}
 
 /** RM-081 F1: o relatorio e sempre um caminho POSIX relativo, nunca uma busca ou um caminho da maquina. */
 function caminhoJUnit(chave: string, v: ValorYaml, erros: string[]): string | undefined {
@@ -252,6 +258,57 @@ function filtroDoComando(chave: string, v: ValorYaml, erros: string[]): string |
     return undefined;
   }
   return filtro;
+}
+
+/** RM-081 F5: caminho ou glob POSIX relativo, sem sair da worktree nem alcançar estado do nucleo. */
+function caminhoDaSelecao(chave: string, v: ValorYaml, erros: string[]): string | undefined {
+  if (typeof v !== 'string' || !v.trim()) {
+    erros.push(`${chave} precisa ser um caminho ou glob relativo, em texto`);
+    return undefined;
+  }
+  const bruto = v.trim().replace(/\/+$/, '');
+  const normal = path.posix.normalize(bruto);
+  if (!bruto || bruto.includes('\\') || bruto.includes('\0') || path.posix.isAbsolute(bruto)
+      || path.win32.isAbsolute(bruto) || normal === '.' || normal === '..' || normal.startsWith('../')
+      || /^(\.orkastery|\.git)(\/|$)/.test(normal)) {
+    erros.push(`${chave}: ${exibir(v)} precisa ficar dentro da worktree, fora de .orkastery e .git`);
+    return undefined;
+  }
+  return normal;
+}
+
+/** RM-081 F5: o manifesto declara o mecanismo e a superficie que o runner sabe relacionar. */
+function selecaoDoComando(chave: string, v: ValorYaml, erros: string[]): SelecaoNativa | undefined {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== 'object' || Array.isArray(v)) {
+    erros.push(`${chave} precisa ser um mapa com comando, mapeia e configuracao opcional`);
+    return undefined;
+  }
+  for (const nome of Object.keys(v)) {
+    if (!['comando', 'mapeia', 'configuracao'].includes(nome)) {
+      erros.push(`${chave}.${nome} desconhecida; use somente comando, mapeia e configuracao`);
+    }
+  }
+  const comando = typeof v.comando === 'string' ? v.comando.trim() : '';
+  const bases = comando.match(/\{base\}/g)?.length ?? 0;
+  const arquivos = comando.match(/\{arquivos\}/g)?.length ?? 0;
+  if (!comando || bases + arquivos !== 1) {
+    erros.push(`${chave}.comando precisa ter exatamente um marcador {base} ou {arquivos}`);
+  }
+  const lista = (nome: 'mapeia' | 'configuracao'): string[] => {
+    const valor = v[nome];
+    if (valor === undefined || valor === null) return [];
+    const itens = Array.isArray(valor) ? valor : [valor];
+    return itens.flatMap((item, indice) => {
+      const lido = caminhoDaSelecao(`${chave}.${nome}[${indice}]`, item, erros);
+      return lido ? [lido] : [];
+    });
+  };
+  const mapeia = lista('mapeia');
+  const configuracao = lista('configuracao');
+  return comando && bases + arquivos === 1
+    ? { comando, mapeia, ...(configuracao.length ? { configuracao } : {}) }
+    : undefined;
 }
 
 /** RM-081 F2: uma unica estrategia, fechada e validada antes de qualquer teste rodar. */
@@ -293,7 +350,7 @@ function relogioDoComando(chave: string, v: ValorYaml, erros: string[]): Marcaca
 }
 
 /** Texto continua sendo o contrato legado; o objeto exige comando e junit, e aceita os opt-ins. */
-function lerComando(chave: string, v: ValorYaml, erros: string[]): ComandoLido {
+function lerComando(chave: string, v: ValorYaml, erros: string[], aceitaSelecao = false): ComandoLido {
   if (v === undefined || v === null) return {};
   if (typeof v === 'string') return { comando: v };
   if (typeof v !== 'object' || Array.isArray(v)) {
@@ -301,8 +358,9 @@ function lerComando(chave: string, v: ValorYaml, erros: string[]): ComandoLido {
     return {};
   }
   for (const nome of Object.keys(v)) {
-    if (!['comando', 'junit', 'filtro', 'relogio'].includes(nome)) {
-      erros.push(`${chave}.${nome} desconhecida; use somente comando, junit, filtro e relogio`);
+    if (!['comando', 'junit', 'filtro', 'relogio', ...(aceitaSelecao ? ['selecao'] : [])].includes(nome)) {
+      erros.push(`${chave}.${nome} desconhecida; use somente comando, junit, filtro e relogio` +
+        (aceitaSelecao ? ', e selecao' : ''));
     }
   }
   const comando = typeof v.comando === 'string' && v.comando.trim() ? v.comando.trim() : undefined;
@@ -310,8 +368,9 @@ function lerComando(chave: string, v: ValorYaml, erros: string[]): ComandoLido {
   const junit = caminhoJUnit(`${chave}.junit`, v.junit, erros);
   const filtro = filtroDoComando(`${chave}.filtro`, v.filtro, erros);
   const relogio = relogioDoComando(`${chave}.relogio`, v.relogio, erros);
+  const selecao = aceitaSelecao ? selecaoDoComando(`${chave}.selecao`, v.selecao, erros) : undefined;
   return { ...(comando ? { comando } : {}), ...(junit ? { junit } : {}), ...(filtro ? { filtro } : {}),
-    ...(relogio ? { relogio } : {}) };
+    ...(relogio ? { relogio } : {}), ...(selecao ? { selecao } : {}) };
 }
 
 /**
@@ -354,20 +413,23 @@ function lerAgile(v: ValorYaml | undefined, erros: string[], avisos: string[]): 
       const junit: Record<string, string> = {};
       const filtro: Record<string, string> = {};
       const relogio: Record<string, MarcacaoDeRelogio> = {};
+      const selecao: Record<string, SelecaoNativa> = {};
       for (const [lane, valor] of Object.entries(v.test)) {
         if (!NOME_DE_LANE.test(lane)) erros.push(`check.agile.test.${lane}: nome de lane aceita [a-z0-9-], ate 32 caracteres`);
         else {
-          const lido = lerComando(`check.agile.test.${lane}`, valor, erros);
+          const lido = lerComando(`check.agile.test.${lane}`, valor, erros, true);
           if (lido.comando) lanes[lane] = lido.comando.trim();
           if (lido.junit) junit[lane] = lido.junit;
           if (lido.filtro) filtro[lane] = lido.filtro;
           if (lido.relogio) relogio[lane] = lido.relogio;
+          if (lido.selecao) selecao[lane] = lido.selecao;
         }
       }
       if (Object.keys(lanes).length) agile.test = lanes;
       if (Object.keys(junit).length) agile.junit = junit;
       if (Object.keys(filtro).length) agile.filtro = filtro;
       if (Object.keys(relogio).length) agile.relogio = relogio;
+      if (Object.keys(selecao).length) agile.selecao = selecao;
     }
   }
   if (v.apos_a_varredura !== undefined && v.apos_a_varredura !== null) {

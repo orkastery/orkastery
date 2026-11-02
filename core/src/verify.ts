@@ -62,6 +62,7 @@ import { ENV_CPUS_DA_LANE, ENV_CPUS_DOCKER, MedicaoCpuDoGrupo } from './agendado
 import { changelogAplicavel, checarChangelog } from './changelog-check';
 import { anexarRelatorioJUnit, caminhoJUnitDoComando, marcacaoDeRelogioDoComando, prepararRelatorioJUnit,
   RelatorioJUnitPreparado } from './junit';
+import { planejarSelecaoNativa } from './check-selecao';
 
 /** Teto de tempo de um comando de verificacao (build e suite completa cabem). */
 export const TIMEOUT_VERIFY_MS = 10 * 60 * 1000;
@@ -311,7 +312,8 @@ export function comandoNoLedger(c: ResultadoDeComando): Record<string, unknown> 
   // no Agile, o uso do preparo e as lanes; o Classic nao tem esses campos.
   const doAgile = { ...(c.preparo ? { preparo: c.preparo } : {}),
     ...(c.lane ? { lane: c.lane } : {}),
-    ...(c.lanes ? { lanes: c.lanes.map((l) => ({ ...l, comando: redigirCredenciaisUrl(l.comando) })) } : {}),
+    ...(c.lanes ? { lanes: c.lanes.map((l) => ({ ...l, comando: redigirCredenciaisUrl(l.comando),
+      ...(l.comandoExecutado ? { comandoExecutado: redigirCredenciaisUrl(l.comandoExecutado) } : {}) })) } : {}),
     ...(c.comandoExecutado ? { comandoExecutado: redigirCredenciaisUrl(c.comandoExecutado) } : {}),
     ...(c.parcial ? { parcial: c.parcial } : {}),
     ...(c.junit ? { junit: c.junit } : {}),
@@ -1010,9 +1012,11 @@ function verificarSobConducao(
   exigirDependenciasDaWorktree(carregado, threadId, cwd, 'verify', conducao, opcoes.executor);
   const commit = commitReal(cwd);
   const dir = dirThread(raiz, threadId);
-  const selecaoAnterior = selecaoDaRodadaAnterior(lerLedger(dir), manifesto);
+  const eventos = lerLedger(dir);
+  const selecaoAnterior = selecaoDaRodadaAnterior(eventos, manifesto);
   // RM-072 (D1): o modo da rodada; a opcao vence o manifesto, que vence o padrao.
   const check = resolverModo(manifesto.check?.mode, opcoes.check);
+  const selecaoPorMudanca = planejarSelecaoNativa(cwd, manifesto, eventos, commit, check.modo);
 
   // I-43 (D4, viga b): os criterios de pronto da thread viram claims do nucleo ANTES
   // da reexecucao, para entrarem no MESMO veredito das demais alegacoes. Idempotente:
@@ -1101,7 +1105,8 @@ function verificarSobConducao(
     ? (opcoes.progresso?.('grupo-agile'), doAgile = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executorDosComandos,
       executorDoGrupo(manifesto, ambienteDaRodada, instabilidade, leitor, conducao, opcoes.executor ? executor : undefined,
         opcoes.medicaoCpuAgendador), vigente!.guarda, vigente!.preparo, selecaoAnterior,
-      (nome, comando, dir, filtro, testes) => executarPassagemParcial(nome, comando, dir, executorDosComandos, filtro, testes))).comandos
+      (nome, comando, dir, filtro, testes) => executarPassagemParcial(nome, comando, dir, executorDosComandos, filtro, testes),
+      selecaoPorMudanca.lanes)).comandos
     : [];
   if (doAgile) pecas.push(...doAgile.pecas);
   const evidenciasDasLanes = relatorio && doAgile ? resultadosDasLanes(relatorio.ler()) : [];
@@ -1137,7 +1142,8 @@ function verificarSobConducao(
     doAgile = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executorDosComandos,
       executorDoGrupo(manifesto, ambienteDaRodada, instabilidade, leitor, conducao, opcoes.executor ? executor : undefined,
         opcoes.medicaoCpuAgendador), vigente.guarda, vigente.preparo, selecaoAnterior,
-      (nome, comando, dir, filtro, testes) => executarPassagemParcial(nome, comando, dir, executorDosComandos, filtro, testes));
+      (nome, comando, dir, filtro, testes) => executarPassagemParcial(nome, comando, dir, executorDosComandos, filtro, testes),
+      selecaoPorMudanca.lanes);
     comandosDoManifestoExecutados = doAgile.comandos;
     pecas.push(...doAgile.pecas);
   }
@@ -1147,7 +1153,8 @@ function verificarSobConducao(
       ? (opcoes.progresso?.('grupo-agile'), doAgile = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executorDosComandos,
         executorDoGrupo(manifesto, ambienteDaRodada, instabilidade, leitor, conducao, opcoes.executor ? executor : undefined,
           opcoes.medicaoCpuAgendador), vigente.guarda, vigente.preparo, selecaoAnterior,
-        (nome, comando, dir, filtro, testes) => executarPassagemParcial(nome, comando, dir, executorDosComandos, filtro, testes))).comandos
+        (nome, comando, dir, filtro, testes) => executarPassagemParcial(nome, comando, dir, executorDosComandos, filtro, testes),
+        selecaoPorMudanca.lanes)).comandos
       : comandosDoManifesto(manifesto).map((c) => executarComFiltro(c.nome, c.comando, cwd, executorDosComandos,
         c.filtro, selecaoAnterior.comandos[c.nome]));
     if (doAgile) pecas.push(...doAgile.pecas);
@@ -1250,6 +1257,7 @@ function verificarSobConducao(
     }),
     comandos: comandos.map(comandoNoLedger),
     parcial,
+    ...(selecaoPorMudanca.cache ? { selecao: selecaoPorMudanca.cache } : {}),
     baseline: baseline ? { commit: baseline.commit, gravadaEm: baseline.gravadaEm } : null,
     regressoes: regressoes.map((r) => r.nome),
     preExistentes: preExistentes.map((r) => r.nome),
@@ -1452,7 +1460,11 @@ export function textoDoVerify(r: ResultadoVerify): string {
     linhas.push(m.comandosDoManifesto);
     for (const c of r.comandos) {
       linhas.push(m.comando(c.nome, c.ok ? m.comandoOk : situacaoDoComando(c), c.comando));
-      if (c.parcial) linhas.push(m.rodadaParcial(c.parcial.testes.join('; ')));
+      for (const lane of c.lanes ?? []) if (lane.selecao) {
+        linhas.push(m.selecaoDaLane(lane.lane, lane.selecao.modo, lane.selecao.motivo,
+          lane.selecao.arquivos?.join('; ') ?? ''));
+      }
+      if (c.parcial?.testes.length) linhas.push(m.rodadaParcial(c.parcial.testes.join('; ')));
       if (c.retesteDeRelogio) linhas.push(m.retesteDeRelogio(c.retesteDeRelogio.testes.join('; '), c.stealPct,
         c.retesteDeRelogio.estado, c.retesteDeRelogio.code));
       if (!c.ok && c.testeQueCaiu?.length) {
