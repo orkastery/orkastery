@@ -58,6 +58,7 @@ import { comandosNoAgile, ComandosDoAgile, executorDaClaimNoAgile, executorDaCla
 import { esperaDoGrupo, rodarEmParalelo } from './check-paralelo';
 import { ENV_CPUS_DA_LANE, ENV_CPUS_DOCKER, MedicaoCpuDoGrupo } from './agendador-cpu';
 import { changelogAplicavel, checarChangelog } from './changelog-check';
+import { anexarRelatorioJUnit, caminhoJUnitDoComando, prepararRelatorioJUnit, RelatorioJUnitPreparado } from './junit';
 
 /** Teto de tempo de um comando de verificacao (build e suite completa cabem). */
 export const TIMEOUT_VERIFY_MS = 10 * 60 * 1000;
@@ -229,6 +230,16 @@ export function executorComSteal(base: ExecutorVerify, leitor: LeitorProcStat = 
   };
 }
 
+/** RM-081 F1: o relatorio e preparado antes e anexado depois, sem alterar o codigo de saida observado. */
+export function executorComJUnit(base: ExecutorVerify, manifesto: Manifesto): ExecutorVerify {
+  return (nome, comando, cwd) => {
+    const caminho = caminhoJUnitDoComando(manifesto, nome);
+    if (!caminho) return base(nome, comando, cwd);
+    const preparado = prepararRelatorioJUnit(cwd, caminho);
+    return anexarRelatorioJUnit(base(nome, comando, cwd), preparado);
+  };
+}
+
 /** I-54 (D11): erros de spawn em que o processo nem chegou a existir. */
 const NAO_LANCADO: ReadonlySet<string> = new Set(['ENOENT', 'EACCES', 'EAGAIN', 'ENOMEM', 'EPERM', 'EMFILE']);
 
@@ -278,7 +289,8 @@ export function comandoNoLedger(c: ResultadoDeComando): Record<string, unknown> 
   const doAgile = { ...(c.preparo ? { preparo: c.preparo } : {}),
     ...(c.lane ? { lane: c.lane } : {}),
     ...(c.lanes ? { lanes: c.lanes.map((l) => ({ ...l, comando: redigirCredenciaisUrl(l.comando) })) } : {}),
-    ...(c.comandoExecutado ? { comandoExecutado: redigirCredenciaisUrl(c.comandoExecutado) } : {}) };
+    ...(c.comandoExecutado ? { comandoExecutado: redigirCredenciaisUrl(c.comandoExecutado) } : {}),
+    ...(c.junit ? { junit: c.junit } : {}) };
   if (c.ok) return { nome: c.nome, ok: true, code: c.code, ...(c.duracaoMs !== undefined ? { duracaoMs: c.duracaoMs } : {}), ...doAgile };
   return {
     nome: c.nome, comando: redigirCredenciaisUrl(c.comando), ok: false, code: c.code, ...doAgile,
@@ -293,11 +305,12 @@ export function comandoNoLedger(c: ResultadoDeComando): Record<string, unknown> 
 }
 
 /** Comandos declarados em `verify:` no manifesto, na ordem canonica. */
-export function comandosDoManifesto(manifesto: Manifesto): { nome: string; comando: string }[] {
-  const lista: { nome: string; comando: string }[] = [];
+export function comandosDoManifesto(manifesto: Manifesto): { nome: string; comando: string; junit?: string }[] {
+  const lista: { nome: string; comando: string; junit?: string }[] = [];
   for (const nome of ['typecheck', 'build', 'test', 'security_scan'] as const) {
     const comando = manifesto.verify[nome];
-    if (comando && comando.trim() !== '') lista.push({ nome, comando });
+    if (comando && comando.trim() !== '') lista.push({ nome, comando,
+      ...(manifesto.verify.junit?.[nome] ? { junit: manifesto.verify.junit[nome] } : {}) });
   }
   return lista;
 }
@@ -404,7 +417,8 @@ export type OrigemDaBaseline = 'cli' | 'phase.run';
  */
 export function executorDaRodada(manifesto: Manifesto, instabilidade: RegistroLido, base?: ExecutorVerify,
   leitor: LeitorProcStat = lerProcStat, ambienteDaRodada?: Record<string, string>): ExecutorVerify {
-  return executorComSteal(base ?? executorDoManifesto(manifesto, ambienteDaRodada), leitor, testesDeRelogioVigentes(instabilidade));
+  return executorComSteal(executorComJUnit(base ?? executorDoManifesto(manifesto, ambienteDaRodada), manifesto),
+    leitor, testesDeRelogioVigentes(instabilidade));
 }
 
 /** RM-072 (D2): o que a rodada passa a todo comando dela, nos dois modos: o modo do CHECK. */
@@ -449,6 +463,8 @@ function executorDoGrupo(manifesto: Manifesto, ambienteDaRodada: Record<string, 
   // N5 do CHECK 3: no grupo, como em serie, so a varredura e as lanes recebem o relatorio da rodada.
   const { [ENV_RELATORIO_DO_CHECK]: _relatorio, ...semRelatorio } = ambienteDaRodada;
   const executar = ((itens, cwd) => {
+    const relatorios: Array<RelatorioJUnitPreparado | null> = itens.map((i) =>
+      i.junit ? prepararRelatorioJUnit(cwd, i.junit) : null);
     const prazos = itens.map((i) => prazoDaExecucao(manifesto, i.nome, i.comando));
     const paraOAuxiliar = itens.map((i, k) => ({ nome: i.nome, comando: i.comando, cwd, prazoMs: prazos[k],
       ...(i.nice ? { nice: i.nice } : {}), ...(i.apos?.length ? { apos: i.apos } : {}), ...(i.papelCpu ? { papelCpu: i.papelCpu } : {}),
@@ -481,7 +497,8 @@ function executorDoGrupo(manifesto: Manifesto, ambienteDaRodada: Record<string, 
     }
     const stealPct = janela.fechar();
     return processos.map((p, k) => {
-      const r: ResultadoDeComando = { ...resultadoDoProcesso(itens[k].nome, itens[k].comando, p, p.comGrupo, p.duracaoMs, prazos[k]), stealPct };
+      let r: ResultadoDeComando = { ...resultadoDoProcesso(itens[k].nome, itens[k].comando, p, p.comGrupo, p.duracaoMs, prazos[k]), stealPct };
+      if (relatorios[k]) r = anexarRelatorioJUnit(r, relatorios[k]!);
       // S1 do CHECK: o auxiliar que morreu sem gravar o resultado deixa o comando sem veredito, nunca uma regressao.
       if (p.semResultado) r.executado = false;
       if (!r.ok && r.causa !== 'timeout' && r.executado !== false && stealAlto(stealPct)) {
@@ -660,6 +677,7 @@ function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: stri
     comandos: comandos.map((c) => ({ nome: c.nome, comando: c.comando, ok: c.ok, code: c.code, prazoMs: c.prazoMs ?? null,
       ...(c.duracaoMs !== undefined ? { duracaoMs: c.duracaoMs } : {}), ...(c.ok ? {} : { causa: c.causa ?? null }),
       ...(c.testeQueCaiu?.length ? { testeQueCaiu: c.testeQueCaiu } : {}),
+      ...(c.junit ? { junit: c.junit } : {}),
       ...(c.lanes?.length ? { lanes: c.lanes.map((l) => ({ ...l, comando: redigirCredenciaisUrl(l.comando) })) } : {}) })),
     check: checkNoLedger(check),
     ...(pecasDaBaseline.length ? { agile: { pecas: pecasDaBaseline } } : {}),
@@ -1299,7 +1317,11 @@ export function textoDoVerify(r: ResultadoVerify): string {
     linhas.push(m.comandosDoManifesto);
     for (const c of r.comandos) {
       linhas.push(m.comando(c.nome, c.ok ? m.comandoOk : situacaoDoComando(c), c.comando));
-      if (!c.ok && c.testeQueCaiu?.length) linhas.push(m.testesQueCairam(c.testeQueCaiu.join('; ')));
+      if (!c.ok && c.testeQueCaiu?.length) {
+        const visiveis = c.junit?.estado === 'lido' ? c.testeQueCaiu.slice(0, 10) : c.testeQueCaiu;
+        const restante = c.testeQueCaiu.length - visiveis.length;
+        linhas.push(m.testesQueCairam(visiveis.join('; ') + (restante > 0 ? `; +${restante} no ledger` : '')));
+      }
     }
   }
   if (r.estouros.length > 0) {
