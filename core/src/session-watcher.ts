@@ -531,10 +531,14 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
         dirSessoes: path.join(dir, 'sessoes'), sessionId, cwd, despachoEm: sessao.despachadaEm, agoraMs: now,
         fixacao: path.join(dir, 'sessoes', `watcher-source-${chave}.json`),
         vinculo: { thread: thread.id, fase: sessao.fase, promptSha256: sessao.promptSha256 } });
-      taskCompleteFixado ??= taskCompleteFixadoDaFonte(fonteControlador, now);
       // Relógio injetado vale como está; o real é lido pelo sensor depois do state.json.
       try { snapshot = lerSnapshotController(fonteControlador, opcoes.agoraMs === undefined ? {} : { agoraMs: now }); }
-      catch (e) { if (!taskCompleteFixado) throw e; }
+      catch (e) {
+        // A varredura integral e excepcional: no fluxo saudável o cursor incremental
+        // reconhece task_complete sem reler todo o rollout a cada polling.
+        taskCompleteFixado ??= taskCompleteFixadoDaFonte(fonteControlador, now);
+        if (!taskCompleteFixado) throw e;
+      }
     }
     const file = path.join(pasta, 'cursor.json');
     const cursor = lerJson<Cursor>(file) ?? { schema: 'ork.session-cursor/v1', sessionId,
@@ -615,8 +619,11 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
       return tempo || (y.numeroTurno ?? 0) - (x.numeroTurno ?? 0) ||
         ordem[x.classificacao] - ordem[y.classificacao] || a.nome.localeCompare(b.nome);
     });
-    let terminal: TerminalCodex | undefined = taskCompleteFixado?.terminal ?? terminais[0]?.terminal;
-    const taskCompleteAutenticado = taskCompleteFixado !== null && terminal === taskCompleteFixado.terminal;
+    const taskCompleteDoCursor = fonteControlador ? terminais.find(({ nome, terminal: atual }) =>
+      nome === 'rollout' && atual.fonte === 'rollout.task_complete')?.terminal : undefined;
+    let terminal: TerminalCodex | undefined = taskCompleteFixado?.terminal ?? taskCompleteDoCursor ?? terminais[0]?.terminal;
+    const taskCompleteAutenticado = terminal !== undefined &&
+      (terminal === taskCompleteFixado?.terminal || terminal === taskCompleteDoCursor);
     const fontesAtuais = Object.values(cursor.fontes);
     const aberto = fontesAtuais.some(f => {
       if (!f.parser.turnoAberto) return false;
