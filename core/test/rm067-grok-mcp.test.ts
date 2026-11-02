@@ -17,7 +17,7 @@ import { configuracaoServidorMcp, instalarMcp } from '../src/mcp-install';
 import { criarServidorMcp } from '../src/mcp-server';
 import { CONSULTAS_MCP, MUTACOES_WORKTREE, montarComando as comandoDoClaude } from '../src/adapters/claude-bg';
 import { configDoFilho, ferramentasDoGrok, ferramentasServidasAoGrok, gravarConfigDaWorktree, IGNORADOS_DA_CONFIG_DO_FILHO,
-  MARCA_DA_CONFIG_DO_FILHO, montarComando as comandoDoGrok } from '../src/adapters/grok';
+  MARCA_DA_CONFIG_DO_FILHO, montarComando as comandoDoGrok, regrasDosComandosDoGrok } from '../src/adapters/grok';
 import { arquivosDoServidorGrok, ENV_DO_TOKEN_DO_SERVIDOR_GROK, lerReciboServidorGrok } from '../src/adapters/grok-mcp';
 import { instalarAdaptador } from '../src/hosts';
 import { rodarFase } from '../src/phase';
@@ -240,11 +240,13 @@ test('GM7: num projeto preparado, o grok recebe o contexto do host grok, com o s
 
 /** As ferramentas do ork que o comando do grok libera, na ordem do comando. */
 const liberadasNoGrok = (comando: string[]) => comando.flatMap((a, i) => (a === '--allow' ? [comando[i + 1]] : []));
+const liberadasMcpNoGrok = (comando: string[]) => liberadasNoGrok(comando).filter((r) => r.startsWith('MCPTool('));
+const liberadasTerminalNoGrok = (comando: string[]) => liberadasNoGrok(comando).filter((r) => r.startsWith('Bash('));
 /** As ferramentas do ork no --allowedTools do claude-bg, sem as regras de arquivo. */
 const liberadasNoClaude = (comando: string[]) => comando[comando.indexOf('--allowedTools') + 1].split(',')
   .filter((r) => r.startsWith('mcp__orkastery__')).map((r) => `MCPTool(orkastery__${r.slice('mcp__orkastery__'.length)})`);
 
-test('GM8: o --allow do grok e o --allowedTools do claude-bg sem o prefixo, no PLAN, no worktree e no interactive; sem contexto, nenhum', () => {
+test('GM8: o grok combina a lista fechada de terminal com o mesmo MCP do claude-bg, no PLAN, no worktree e no interactive', () => {
   const interativo = projetoTemporario('gm8-interactive'), worktree = projetoTemporario('gm8-worktree');
   try {
     for (const [p, perfil] of [[interativo, 'interactive'], [worktree, 'worktree']] as const) {
@@ -257,10 +259,12 @@ test('GM8: o --allow do grok e o --allowedTools do claude-bg sem o prefixo, no P
           contextoRuntime: contextoDoProjeto(p.dir, 'claude-bg', wt, t.id)! });
         const grok = comandoDoGrok({ prompt: 'p', nome: t.slug, cwd: wt, colaboracao, sessionId: '0193c4a2-7b1e-7c3d-9f00-1234567890ab',
           contextoRuntime: contextoDoProjeto(p.dir, 'grok', wt, t.id)! });
-        assert.deepEqual(liberadasNoGrok(grok), liberadasNoClaude(claude), `${perfil} ${colaboracao}`);
+        assert.deepEqual(liberadasMcpNoGrok(grok), liberadasNoClaude(claude), `${perfil} ${colaboracao}`);
+        assert.deepEqual(liberadasTerminalNoGrok(grok), regrasDosComandosDoGrok(), `${perfil} ${colaboracao}: terminal fechado`);
         assert.deepEqual(grok.slice(-2 * liberadasNoGrok(grok).length).filter((_, i) => i % 2 === 0).every((a) => a === '--allow'), true,
           'as regras vao no fim do comando');
-        assert.equal(grok.some((a) => /^(--always-approve|--yolo|--permission-mode)$/.test(a)), false);
+        assert.equal(grok[grok.indexOf('--permission-mode') + 1], 'dontAsk');
+        assert.equal(grok.some((a) => /^(--always-approve|--yolo|bypassPermissions)$/.test(a)), false);
       }
       const doPlano = liberadasNoGrok(comandoDoGrok({ prompt: 'p', nome: t.slug, cwd: wt, colaboracao: 'plan',
         contextoRuntime: contextoDoProjeto(p.dir, 'grok', wt, t.id)! }));
@@ -268,7 +272,7 @@ test('GM8: o --allow do grok e o --allowedTools do claude-bg sem o prefixo, no P
         'o PLAN grava o artefato e nao commita, em qualquer perfil');
     }
     const semContexto = comandoDoGrok({ prompt: 'p', nome: 'x', cwd: interativo.dir });
-    assert.equal(semContexto.includes('--allow'), false, 'sem o MCP do ork, nenhuma regra');
+    assert.deepEqual(liberadasNoGrok(semContexto), regrasDosComandosDoGrok(), 'sem o MCP do ork, so a lista fechada de terminal');
   } finally { interativo.limpar(); worktree.limpar(); }
 });
 
@@ -303,7 +307,8 @@ test('GM9: o despacho real grava a config da worktree vinculada a thread e ao de
     assert.equal(exec('git', ['status', '--porcelain', '--untracked-files=all'], wt).stdout, '?? .grok/rules/plantada.md\n');
     fs.rmSync(path.join(wt, '.grok', 'rules'), { recursive: true });
     assert.equal(stub.configCarregada(), config, 'o filho carregou a config da worktree na partida confiada');
-    assert.deepEqual(liberadasNoGrok(r.comando), [...CONSULTAS, 'ork_git_status', ...MUTACOES].map((f) => `MCPTool(orkastery__${f})`));
+    assert.deepEqual(liberadasMcpNoGrok(r.comando), [...CONSULTAS, 'ork_git_status', ...MUTACOES].map((f) => `MCPTool(orkastery__${f})`));
+    assert.deepEqual(liberadasTerminalNoGrok(r.comando), regrasDosComandosDoGrok());
     assert.deepEqual(stub.compat(), [['0', '0']], 'o filho nao carrega o MCP do Claude nem o do Cursor');
     esperarCondicao(() => lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.sessionId === sid), 60000);
   } finally { p.limpar(); stub.restaurar(); }
@@ -391,7 +396,8 @@ test('GM11: sem o MCP do ork, o filho do grok tambem roda sem o MCP do Claude e 
     assert.ok(r.sessionId, r.erro);
     const sid = r.sessionId!;
     assert.deepEqual(stub.compat(), [['0', '0']]);
-    assert.equal(r.comando.includes('--allow'), false);
+    assert.deepEqual(liberadasNoGrok(r.comando), regrasDosComandosDoGrok(), 'sem MCP, ficam somente os comandos fechados');
+    assert.equal(r.comando[r.comando.indexOf('--permission-mode') + 1], 'dontAsk');
     assert.equal(fs.existsSync(path.join(t.worktree!, '.grok')), false);
     esperarCondicao(() => lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.sessionId === sid), 60000);
   } finally {

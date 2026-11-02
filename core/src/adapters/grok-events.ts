@@ -49,10 +49,26 @@ export interface EstadoParserGrok {
   sessaoDivergente: boolean;
   /** Eventos válidos lidos desde o início do stream. */
   eventos: number;
+  /** Comandos de terminal em curso, por `toolCallId`, para correlacionar a atualização estrutural do runtime. */
+  comandosTerminal: Record<string, string>;
+  /** A última atividade antes do `end` foi uma negação da política, com o comando já redigido. */
+  negacaoTerminal: { comando: string } | null;
 }
 
 const STOP = /^[a-z][a-z0-9_]{0,39}$/;
 const ID = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/;
+
+/** A saída estrutural do Bash que o runtime usa quando `dontAsk` nega antes de executar. */
+function negacaoDaPolitica(e: Record<string, unknown>): boolean {
+  const saida = e.rawOutput;
+  if (saida && typeof saida === 'object' && !Array.isArray(saida)) {
+    const o = saida as Record<string, unknown>;
+    if (o.type === 'PermissionDenied' || o.code === 'permission_denied' || o.outcome === 'blocked-by-permissions') return true;
+    if (typeof o.exit_code === 'number') return false;
+    return typeof o.output_for_prompt === 'string' && /Denied by permission policy|tool permission denied for/i.test(o.output_for_prompt);
+  }
+  return typeof saida === 'string' && /Denied by permission policy|tool permission denied for/i.test(saida);
+}
 
 /**
  * D7: um texto do runtime pronto para o ledger, sem corte: os segredos que o núcleo já conhece, a chave da xAI
@@ -95,7 +111,11 @@ export class ParserGrok {
   constructor(sessaoEsperada: string, estado?: EstadoParserGrok) {
     if (estado && estado.sessaoEsperada !== sessaoEsperada) throw new Error('estado do parser do grok de outra sessão');
     this.estado = estado ? structuredClone(estado)
-      : { sessaoEsperada, fim: null, erro: null, invalido: false, sessaoDivergente: false, eventos: 0 };
+      : { sessaoEsperada, fim: null, erro: null, invalido: false, sessaoDivergente: false, eventos: 0,
+        comandosTerminal: {}, negacaoTerminal: null };
+    // Cursor gravado antes da F5a continua legível.
+    if (!this.estado.comandosTerminal || typeof this.estado.comandosTerminal !== 'object') this.estado.comandosTerminal = {};
+    if (this.estado.negacaoTerminal === undefined) this.estado.negacaoTerminal = null;
   }
 
   /** Lê as linhas completas do bloco; o resto fica pendente para o próximo. */
@@ -126,11 +146,29 @@ export class ParserGrok {
     // O guia diz que o `end` é sempre o último: outro `end` ou um `error` depois dele é contrato quebrado.
     if (this.estado.fim && (e.type === 'end' || e.type === 'error')) { this.estado.invalido = true; return; }
     this.eventosValidos++; this.estado.eventos++;
+    if (e.type === 'tool_call') {
+      this.estado.negacaoTerminal = null;
+      const entrada = e.rawInput;
+      if (typeof e.toolCallId === 'string' && ID.test(e.toolCallId) && (e.toolName === 'bash' || e.toolName === 'run_terminal_cmd') &&
+          entrada && typeof entrada === 'object' && !Array.isArray(entrada) && typeof (entrada as Record<string, unknown>).command === 'string') {
+        const comando = redigirErroGrok((entrada as Record<string, unknown>).command);
+        if (comando) this.estado.comandosTerminal[e.toolCallId] = comando;
+      }
+      return;
+    }
+    if (e.type === 'tool_call_update') {
+      const id = typeof e.toolCallId === 'string' && ID.test(e.toolCallId) ? e.toolCallId : null;
+      const comando = id ? this.estado.comandosTerminal[id] : undefined;
+      this.estado.negacaoTerminal = comando && negacaoDaPolitica(e) ? { comando } : null;
+      if (id && e.status === 'completed') delete this.estado.comandosTerminal[id];
+      return;
+    }
     if (e.type === 'error') {
+      this.estado.negacaoTerminal = null;
       this.estado.erro = { mensagem: redigirErroGrok(e.message) || 'erro do grok sem mensagem' };
       return;
     }
-    if (e.type !== 'end') return;
+    if (e.type !== 'end') { this.estado.negacaoTerminal = null; return; }
     const sessionId = typeof e.sessionId === 'string' && ID.test(e.sessionId) ? e.sessionId : null;
     if (sessionId !== this.estado.sessaoEsperada) this.estado.sessaoDivergente = true;
     this.estado.fim = {

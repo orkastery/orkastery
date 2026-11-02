@@ -16,6 +16,8 @@
  *   - RM-067 (F4c, D11): se mandado, roda confinado pelo Landlock do kernel como o perfil `workspace` (escrita só nas pastas
  *     pedidas), pelo lançador de `fixtures/grok/landlock.py`, e os filhos herdam o confinamento; uma sonda tenta criar um
  *     arquivo fora delas e grava se conseguiu;
+ *   - RM-067 (F5a): simula um comando de terminal, executa-o só quando o argv traz a regra fechada dele e, fora da lista,
+ *     devolve a negação ao modelo antes de continuar ou de encerrar com `cancelled`, conforme o caso;
  *   - escreve no stderr o texto pedido e, no stdout, a fixture do stream, com `<SESSAO>` trocado pelo id;
  *   - espera, se mandado, e sai com o código pedido, ou se mata com o sinal pedido.
  *
@@ -137,7 +139,19 @@ if [ -n "$CONFIA" ] && [ -f "$DIR/mcp-roteiro.json" ] && [ -f "$CWD/.grok/config
   "$NODE" "$DIR/cliente-mcp.cjs" "$CWD/.grok/config.toml" "$DIR" 2> "$DIR/mcp-cliente.stderr"
 fi
 if [ -f "$DIR/stderr" ]; then cat "$DIR/stderr" >&2; fi
-if [ -f "$DIR/stream" ]; then sed "s/<SESSAO>/$ID/g" "$DIR/stream"; fi
+if [ -f "$DIR/comando-terminal" ]; then
+  COMANDO=$(cat "$DIR/comando-terminal")
+  BINARIO=$(printf '%s' "$COMANDO" | awk '{print $1}')
+  if grep -Fqx -- "Bash($BINARIO)" "$DIR/chamada-$N" || grep -Fqx -- "Bash($BINARIO *)" "$DIR/chamada-$N"; then
+    CODIGO=0
+    sh -c "$COMANDO" > "$DIR/terminal.stdout" 2> "$DIR/terminal.stderr" || CODIGO=$?
+    "$NODE" -e 'const [c,id,code]=process.argv.slice(1); const p=(x)=>process.stdout.write(JSON.stringify(x)+"\\n"); p({type:"tool_call",toolCallId:"call_terminal",title:"Bash",kind:"execute",status:"in_progress",toolName:"bash",rawInput:{command:c},content:[],locations:[]}); p({type:"tool_call_update",toolCallId:"call_terminal",status:"completed",content:[],rawOutput:{type:"Bash",command:c,exit_code:Number(code),output_for_prompt:"comando executado"},locations:[]}); p({type:"text",data:"A fase seguiu depois do comando permitido."}); p({type:"end",stopReason:"end_turn",sessionId:id,requestId:"req-terminal",usage:{input_tokens:10,output_tokens:2,total_tokens:12},num_turns:2});' "$COMANDO" "$ID" "$CODIGO"
+  else
+    : > "$DIR/terminal.negado"
+    ENCERRA=0; if [ -f "$DIR/terminal-encerra" ]; then ENCERRA=1; fi
+    "$NODE" -e 'const [c,id,encerra]=process.argv.slice(1); const p=(x)=>process.stdout.write(JSON.stringify(x)+"\\n"); p({type:"tool_call",toolCallId:"call_terminal",title:"Bash",kind:"execute",status:"in_progress",toolName:"bash",rawInput:{command:c},content:[],locations:[]}); p({type:"tool_call_update",toolCallId:"call_terminal",status:"completed",content:[],rawOutput:{type:"Bash",command:c,exit_code:null,output_for_prompt:"Denied by permission policy: "+c},locations:[]}); if(encerra!=="1") p({type:"text",data:"A negação foi recebida; a fase seguiu sem o comando."}); p({type:"end",stopReason:encerra==="1"?"cancelled":"end_turn",sessionId:id,requestId:"req-terminal",usage:{input_tokens:10,output_tokens:2,total_tokens:12},num_turns:2});' "$COMANDO" "$ID" "$ENCERRA"
+  fi
+elif [ -f "$DIR/stream" ]; then sed "s/<SESSAO>/$ID/g" "$DIR/stream"; fi
 if [ -f "$DIR/espera" ]; then sleep "$(cat "$DIR/espera")"; fi
 if [ -f "$DIR/sinal" ]; then kill -"$(cat "$DIR/sinal")" $$; fi
 exit "$(cat "$DIR/saida" 2>/dev/null || echo 0)"
@@ -159,6 +173,12 @@ export interface GrokFalso {
   sinal: (nome: 'TERM' | 'INT') => void;
   /** O stub não cria a pasta da sessão. */
   semSessao: () => void;
+  /** RM-067 (F5a): o comando que o runtime simula; fora da lista pode encerrar o turno depois da negação. */
+  comandoTerminal: (comando: string, encerraAoNegar?: boolean) => void;
+  /** A saída do comando permitido, ou `null` quando ele não rodou. */
+  saidaDoComandoTerminal: () => string | null;
+  /** A política fechada negou o comando antes de executá-lo? */
+  comandoTerminalNegado: () => boolean;
   /** O processo fica vivo por estes segundos antes de sair. */
   espera: (segundos: number) => void;
   /** O stub grava um documento neste caminho, como a sessão que escreveu o artefato da fase. */
@@ -212,6 +232,13 @@ export function grokFalso(nome: string): GrokFalso {
     saida: (codigo) => gravar('saida', String(codigo)),
     sinal: (nome) => gravar('sinal', nome),
     semSessao: () => gravar('sem-sessao', ''),
+    comandoTerminal: (comando, encerraAoNegar = false) => {
+      gravar('comando-terminal', comando);
+      if (encerraAoNegar) gravar('terminal-encerra', '');
+    },
+    saidaDoComandoTerminal: () => fs.existsSync(path.join(dir, 'terminal.stdout'))
+      ? fs.readFileSync(path.join(dir, 'terminal.stdout'), 'utf8') : null,
+    comandoTerminalNegado: () => fs.existsSync(path.join(dir, 'terminal.negado')),
     espera: (segundos) => gravar('espera', String(segundos)),
     artefato: (caminho) => gravar('artefato', caminho),
     chamadas: () => fs.readdirSync(dir).filter((f) => f.startsWith('chamada-')).sort((a, b) => Number(a.slice(8)) - Number(b.slice(8)))

@@ -1,0 +1,284 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm067f5agrok",
+  "branch": "ork/ork-rm067f5agrok-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm067f5agrok",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-067-grok-build-homologado.md",
+      "alegacao": "A página registra a D3 com pergunta, três alternativas, custos, resposta 4A, F5a/F5b, pendências e histórico.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'Decisão do dono, 31/10/2026, no terminal (resposta \"4A\"): alternativa a' docs/roadmap/RM-067-grok-build-homologado.md",
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-11-01T19:00:26.126Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm067f5agrok",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG registra a F5a somente em Não publicado, sob Alterado.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'Grok Build com lista fechada de comandos — F5a' CHANGELOG.md",
+        "node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-11-01T19:00:26.238Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm067f5agrok",
+      "fase": "GO",
+      "arquivo": "core/src/adapters/grok.ts",
+      "alegacao": "Todo despacho headless do Grok usa dontAsk, sandbox preservado e regras fechadas justificadas para os oito comandos, além das regras MCP existentes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "node --test core/dist-test/test/grok.test.js"
+      ],
+      "criadoEm": "2026-11-01T19:05:44.551Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm067f5agrok",
+      "fase": "GO",
+      "arquivo": "core/test/grok-falso.ts",
+      "alegacao": "O Grok simulado executa somente comando coberto pela lista e entrega ao modelo a negação dos demais.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "node --test core/dist-test/test/grok.test.js"
+      ],
+      "criadoEm": "2026-11-01T19:05:44.653Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm067f5agrok",
+      "fase": "GO",
+      "arquivo": "core/test/grok.test.ts",
+      "alegacao": "Os cenários do adaptador provam argv, ausência de bypass, comando permitido e comando negado com continuação.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "node --test core/dist-test/test/grok.test.js"
+      ],
+      "criadoEm": "2026-11-01T19:05:44.730Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm067f5agrok",
+      "fase": "GO",
+      "arquivo": "core/src/adapters/grok-events.ts",
+      "alegacao": "A correlação estrutural preserva apenas a negação terminal, redige o comando e descarta falsos positivos após atividade posterior.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/grok-events.test.js core/dist-test/test/session-watcher-grok.test.js core/dist-test/test/despacho-grok.test.js"
+      ],
+      "criadoEm": "2026-11-01T19:10:25.697Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm067f5agrok",
+      "fase": "GO",
+      "arquivo": "core/src/session-watcher-grok.ts",
+      "alegacao": "O fim imediato após negação de comando fora da lista vira policy.violation com evidência do comando; uma sessão que segue mantém sua classificação normal.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/grok-events.test.js core/dist-test/test/session-watcher-grok.test.js core/dist-test/test/despacho-grok.test.js"
+      ],
+      "criadoEm": "2026-11-01T19:10:25.766Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm067f5agrok",
+      "fase": "GO",
+      "arquivo": "core/test/grok-events.test.ts",
+      "alegacao": "Os cenários de comportamento cobrem correlação, redação, continuidade e a saída legítima que contém a frase de negação.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/grok-events.test.js core/dist-test/test/session-watcher-grok.test.js core/dist-test/test/despacho-grok.test.js"
+      ],
+      "criadoEm": "2026-11-01T19:10:25.828Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm067f5agrok",
+      "fase": "GO",
+      "arquivo": "core/test/session-watcher-grok.test.ts",
+      "alegacao": "Os cenários de comportamento cobrem a continuidade após negação e o bloqueio tipado quando a sessão encerra.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/grok-events.test.js core/dist-test/test/session-watcher-grok.test.js core/dist-test/test/despacho-grok.test.js"
+      ],
+      "criadoEm": "2026-11-01T19:10:25.899Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm067f5agrok",
+      "fase": "GO",
+      "arquivo": "core/test/despacho-grok.test.ts",
+      "alegacao": "O ensaio integrado com o Grok simulado prova que comando negado não executa, permite continuidade e produz bloqueio tipado no encerramento.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/grok-events.test.js core/dist-test/test/session-watcher-grok.test.js core/dist-test/test/despacho-grok.test.js"
+      ],
+      "criadoEm": "2026-11-01T19:10:25.984Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm067f5agrok",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm067-f5a.json",
+      "alegacao": "Mutante M1 prova que trocar dontAsk por --always-approve é detectado pelo cenário de comportamento GK15.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm067-f5a.json M1"
+      ],
+      "criadoEm": "2026-11-01T19:11:09.270Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm067f5agrok",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm067-f5a.json",
+      "alegacao": "Mutante M2 prova que abrir a lista com Bash(*) é detectado pelo cenário de comportamento GK15.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm067-f5a.json M2"
+      ],
+      "criadoEm": "2026-11-01T19:11:09.352Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm067f5agrok",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm067-f5a.json",
+      "alegacao": "Mutante M3 prova que trocar o sandbox workspace por off é detectado pelo cenário de comportamento GK3.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm067-f5a.json M3"
+      ],
+      "criadoEm": "2026-11-01T19:11:09.421Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm067f5agrok",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm067-f5a.json",
+      "alegacao": "Mutante M4 prova que classificar o fim por negação como human.pending é detectado pelo cenário de comportamento GW23.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm067-f5a.json M4"
+      ],
+      "criadoEm": "2026-11-01T19:11:09.483Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm067f5agrok",
+      "fase": "GO",
+      "arquivo": "core/test/rm067-grok-mcp.test.ts",
+      "alegacao": "Os cenários MCP separam a lista fechada Bash das regras MCP, exigem dontAsk e preservam as ferramentas de cada perfil.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='^(GM8|GM9|GM11):' core/dist-test/test/rm067-grok-mcp.test.js"
+      ],
+      "criadoEm": "2026-11-01T19:36:30.559Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm067f5agrok",
+      "fase": "GO",
+      "arquivo": "core/test/rm067-grok-mcp-externo.test.ts",
+      "alegacao": "O cenário externo exige dontAsk no workspace e continua recusando off, danger-full-access e todos os bypasses.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='^GX4:' core/dist-test/test/rm067-grok-mcp-externo.test.js"
+      ],
+      "criadoEm": "2026-11-01T19:36:30.641Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm067f5agrok",
+      "fase": "GO",
+      "arquivo": "core/test/rm067-grok-setup.test.ts",
+      "alegacao": "Os perfis off confirmado e workspace padrão exigem dontAsk e continuam sem yolo, always-approve ou bypassPermissions.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='^GS2:' core/dist-test/test/rm067-grok-setup.test.js"
+      ],
+      "criadoEm": "2026-11-01T19:36:30.700Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm067f5agrok",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-rm067f5agrok.json",
+      "alegacao": "O bundle de CI identifica a thread e a branch, preserva a base main e leva claims e comandos reproduzíveis para a condução.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const b=require('./.ork-ci/ork-rm067f5agrok.json'); if(b.schema!=='ork.ci-bundle/v1'||b.thread!=='ork-rm067f5agrok'||b.branch!=='ork/ork-rm067f5agrok-go'||b.base!=='main'||!Array.isArray(b.claims)||!Array.isArray(b.commands))process.exit(1)\""
+      ],
+      "criadoEm": "2026-11-01T19:53:19.077Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
