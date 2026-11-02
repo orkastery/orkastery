@@ -405,6 +405,22 @@
       "criadoEm": "2026-11-02T09:16:25.230Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm081f5selec",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-selecao.ts",
+      "alegacao": "A queda integral reconhece lockfiles por formatos conservadores de ecossistemas distintos, inclusive Cargo.lock, uv.lock, bun.lockb e packages.lock.json.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm081-f5.test.js",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm081-f5.json M3"
+      ],
+      "criadoEm": "2026-11-02T10:03:47.566Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
   "deferredClaims": [],
