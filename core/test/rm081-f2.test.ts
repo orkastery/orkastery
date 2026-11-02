@@ -7,7 +7,7 @@ import { lerLedger } from '../src/ledger';
 import { comLocale } from '../src/locale';
 import { carregarManifesto, NOME_MANIFESTO } from '../src/manifest';
 import { dirThread, novaThread } from '../src/thread';
-import { ResultadoDeComando } from '../src/types';
+import { MarcacaoDeRelogio, ResultadoDeComando } from '../src/types';
 import { gravarBaseline, textoDoVerify, verificar } from '../src/verify';
 import { projetoTemporario, ProjetoDeTeste } from './apoio';
 
@@ -99,12 +99,13 @@ function procStatComSteal(pct: number): () => string {
 }
 
 function cenarioClassic(nome: string, pct: number, falhas: string[], retesteOk = true,
-  comFiltro = true): { p: ProjetoDeTeste; thread: string; comandos: string[]; r: ReturnType<typeof verificar> } {
+  comFiltro = true, marcacao: MarcacaoDeRelogio = { nome: ['tempo$'] }):
+  { p: ProjetoDeTeste; thread: string; comandos: string[]; r: ReturnType<typeof verificar> } {
   const p = projetoTemporario(nome);
   fs.mkdirSync(path.join(p.dir, 'reports'));
   p.carregado.manifesto.verify = { test: 'runner completo', junit: { test: 'reports/junit.xml' },
     ...(comFiltro ? { filtro: { test: 'runner parcial {testes}' } } : {}),
-    relogio: { test: { nome: ['tempo$'] } } };
+    relogio: { test: marcacao } };
   p.carregado.manifesto.check = { mode: 'classic' };
   const thread = novaThread(p.carregado, { nome, modo: 'auto' }).thread.id;
   gravarBaseline(p.carregado, thread, (n, comando) => {
@@ -122,6 +123,18 @@ function cenarioClassic(nome: string, pct: number, falhas: string[], retesteOk =
     } });
   return { p, thread, comandos, r };
 }
+
+test('RM081 F2 M3: marcador e tag declaram um comando JUnit dedicado em execucao', () => {
+  for (const marcacao of [{ marcador: 'desempenho' }, { tag: '@tempo' }] as MarcacaoDeRelogio[]) {
+    const c = cenarioClassic(`rm081-f2-dedicado-${Object.keys(marcacao)[0]}`, 70,
+      ['afirma comum'], true, true, marcacao);
+    try {
+      assert.deepEqual(c.comandos, ['runner completo', "runner parcial 'runner :: afirma comum'"]);
+      assert.deepEqual(c.r.estouros[0].relogioSobSteal, ['runner :: afirma comum']);
+      assert.equal(c.r.estouros[0].retesteDeRelogio?.estado, 'passou');
+    } finally { c.p.limpar(); }
+  }
+});
 
 test('RM081 F2 V1: steal alto protege somente marcados e a segunda rodada usa o filtro existente sem ficar verde', () => {
   const c = cenarioClassic('rm081-f2-protegido', 70, ['mede tempo']);
