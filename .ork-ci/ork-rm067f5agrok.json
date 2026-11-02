@@ -16,7 +16,7 @@
         "node core/dist/index.js docs verificar"
       ],
       "criadoEm": "2026-11-01T19:00:26.126Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": []
     },
     {
