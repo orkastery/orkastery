@@ -6,17 +6,17 @@
       "id": "M1",
       "descricao": "um teste que sobe processo filho fica fora quando o grafo não o alcança",
       "modulo": "seletor-node-test",
-      "de": "const selecionados = completos.filter((nome) => processos.has(nome)\n        || [...(fechos.get(nome) ?? [])].some((arquivo) => mudou.has(arquivo)));",
-      "para": "const selecionados = completos.filter((nome) => [...(fechos.get(nome) ?? [])].some((arquivo) => mudou.has(arquivo)));",
+      "de": "const selecionados = completos.filter((nome) => processos.has(nome) || incertos.has(nome)\n        || [...(fechos.get(nome) ?? [])].some((arquivo) => mudou.has(arquivo)));",
+      "para": "const selecionados = completos.filter((nome) => incertos.has(nome)\n        || [...(fechos.get(nome) ?? [])].some((arquivo) => mudou.has(arquivo)));",
       "teste": "selecionar-testes-node",
       "nome": "^RM074 M10 S2:"
     },
     {
       "id": "M2",
-      "descricao": "require dinâmico deixa de derrubar a lane inteira",
+      "descricao": "require dinâmico deixa de prender o teste incerto",
       "modulo": "seletor-node-test",
-      "de": "if (dependencias.dinamico) {\n                return inteira('require-dinamico', { arquivo: caminhoDeFonte(distTest, atual), pedido: dependencias.pedidoDinamico });\n            }",
-      "para": "if (false) {\n                return inteira('require-dinamico', { arquivo: caminhoDeFonte(distTest, atual), pedido: dependencias.pedidoDinamico });\n            }",
+      "de": "if (dependencias.incertezas.length)\n                incertos.add(nome);",
+      "para": "if (false)\n                incertos.add(nome);",
       "teste": "selecionar-testes-node",
       "nome": "^RM074 M10 S3:"
     },
@@ -37,6 +37,42 @@
       "para": "if (!ultima) {\n        const arquivos = ['src/base.ts'];\n        return { lanes: Object.fromEntries(Object.entries(declaracoes).map(([lane, declaracao]) => [lane, { modo: 'selecionada', motivo: 'selecionada', arquivos, base: commit, comando: comandoDaSelecao(declaracao, commit, arquivos) }])), cache };\n    }",
       "teste": "rm081-f5",
       "nome": "^RM081 F5 P1:"
+    },
+    {
+      "id": "M5",
+      "descricao": "fonte TypeScript lida como texto deixa de entrar no fecho resolvido",
+      "modulo": "seletor-node-test",
+      "de": "if (dentro(core, arquivo))\n        return `core/${barras(path.relative(core, arquivo))}`;",
+      "para": "if (false)\n        return `core/${barras(path.relative(core, arquivo))}`;",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S6:"
+    },
+    {
+      "id": "M6",
+      "descricao": "JSON lido por fs deixa de entrar no fecho resolvido",
+      "modulo": "seletor-node-test",
+      "de": "const FUNCOES_DE_FS = new Set(['readFileSync', 'readFile', 'existsSync', 'statSync']);",
+      "para": "const FUNCOES_DE_FS = new Set(['readFileSync', 'existsSync', 'statSync']);",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S7:"
+    },
+    {
+      "id": "M7",
+      "descricao": "require.resolve deixa de ser reconhecido como caminho resolvível",
+      "modulo": "seletor-node-test",
+      "de": "&& expressao.expression.text === 'require' && expressao.name.text === 'resolve';",
+      "para": "&& expressao.expression.text === 'require' && false;",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S8:"
+    },
+    {
+      "id": "M8",
+      "descricao": "caminho de fs não resolvido deixa de prender o teste incerto",
+      "modulo": "seletor-node-test",
+      "de": "if (arquivoResolvido)\n            arquivos.push(arquivoResolvido);\n        else\n            incertezas.push(argumento?.getText(fonte) ?? '<ausente>');",
+      "para": "if (arquivoResolvido)\n            arquivos.push(arquivoResolvido);\n        else if (false)\n            incertezas.push(argumento?.getText(fonte) ?? '<ausente>');",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S9:"
     }
   ]
 }
