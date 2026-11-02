@@ -3,8 +3,11 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { CONTRATO_DA_SELECAO, planejarSelecaoNativa } from '../src/check-selecao';
 import { carregarManifesto, NOME_MANIFESTO } from '../src/manifest';
-import { projetoTemporario, ProjetoDeTeste } from './apoio';
+import { EventoLedger, Manifesto } from '../src/types';
+import { exec } from '../src/util';
+import { commitar, projetoTemporario, ProjetoDeTeste } from './apoio';
 
 function comCheck(p: ProjetoDeTeste, check: string) {
   const arquivo = path.join(p.dir, NOME_MANIFESTO);
@@ -107,5 +110,110 @@ test('RM081 F5 M4: selecao existe somente em lane do Agile', () => {
     fs.writeFileSync(arquivo, novo);
     const lido = carregarManifesto(p.dir)!;
     assert.ok(lido.erros.some((erro) => /verify\.test\.selecao desconhecida/.test(erro)), lido.erros.join(' | '));
+  } finally { p.limpar(); }
+});
+
+function manifestoComSelecao(p: ProjetoDeTeste): Manifesto {
+  const branch = exec('git', ['switch', '-c', 'ork-rm081-f5'], p.dir);
+  assert.equal(branch.ok, true, branch.stderr);
+  p.carregado.manifesto.worktree.base_branch = 'main';
+  p.carregado.manifesto.check = { mode: 'agile', agile: { test: { runner: 'runner completo' },
+    selecao: { runner: { comando: 'runner relacionado {arquivos}', mapeia: ['src/**', 'test/**'],
+      configuracao: ['runner.config.ts'] } } } };
+  return p.carregado.manifesto;
+}
+
+function commitarArvore(p: ProjetoDeTeste, mensagem: string): string {
+  exec('git', ['add', '--all'], p.dir);
+  const r = exec('git', ['commit', '-m', mensagem], p.dir);
+  assert.equal(r.ok, true, r.stderr);
+  return exec('git', ['rev-parse', 'HEAD'], p.dir).stdout.trim();
+}
+
+function rodadaVerde(head: string, cache: unknown): EventoLedger {
+  return { tipo: 'verify_run', thread: 'ork-rm081-f5', ts: '2026-11-02T00:00:00.000Z', commit: head,
+    veredito: 'verdade sustentada', selecao: cache } as EventoLedger;
+}
+
+test('RM081 F5 P1: rodada fria e Classic nunca selecionam', () => {
+  const p = projetoTemporario('rm081-f5-fria');
+  try {
+    const manifesto = manifestoComSelecao(p);
+    const head = commitarArvore(p, 'manifesto');
+    const base = exec('git', ['merge-base', head, 'main'], p.dir).stdout.trim();
+    const fria = planejarSelecaoNativa(p.dir, manifesto, [], head, 'agile');
+    assert.deepEqual(fria.lanes.runner, { modo: 'inteira', motivo: 'rodada-fria' });
+    assert.deepEqual(fria.cache, { contrato: CONTRATO_DA_SELECAO, base, head });
+    assert.deepEqual(planejarSelecaoNativa(p.dir, manifesto, [], head, 'classic'), { lanes: {}, cache: null });
+  } finally { p.limpar(); }
+});
+
+test('RM081 F5 P2: rodada morna seleciona somente mudancas mapeadas e escapa os arquivos', () => {
+  const p = projetoTemporario('rm081-f5-morna');
+  try {
+    const manifesto = manifestoComSelecao(p);
+    const anterior = commitarArvore(p, 'manifesto');
+    const fria = planejarSelecaoNativa(p.dir, manifesto, [], anterior, 'agile');
+    const atual = commitar(p.dir, "src/a'b.ts", 'export const valor = 1;\n', 'produto');
+    const morna = planejarSelecaoNativa(p.dir, manifesto, [rodadaVerde(anterior, fria.cache)], atual, 'agile');
+    assert.deepEqual(morna.lanes.runner, { modo: 'selecionada', motivo: 'selecionada', arquivos: ["src/a'b.ts"],
+      base: anterior, comando: `runner relacionado 'src/a'"'"'b.ts'` });
+  } finally { p.limpar(); }
+});
+
+test('RM081 F5 P3: manifesto, lockfile, configuracao e fora do mapeamento caem para a suite inteira', () => {
+  const casos = [
+    ['manifesto', NOME_MANIFESTO, 'manifesto-mudou'],
+    ['lockfile', 'package-lock.json', 'lockfile-mudou'],
+    ['configuracao', 'runner.config.ts', 'configuracao-mudou'],
+    ['fora', 'docs/guia.md', 'fora-do-mapeamento'],
+  ] as const;
+  for (const [nome, arquivo, motivo] of casos) {
+    const p = projetoTemporario(`rm081-f5-queda-${nome}`);
+    try {
+      const manifesto = manifestoComSelecao(p);
+      const anterior = commitarArvore(p, 'manifesto');
+      const fria = planejarSelecaoNativa(p.dir, manifesto, [], anterior, 'agile');
+      const conteudo = arquivo === NOME_MANIFESTO ? fs.readFileSync(path.join(p.dir, arquivo), 'utf8') + '\n# mudanca\n' : 'mudanca\n';
+      const atual = commitar(p.dir, arquivo, conteudo, nome);
+      const plano = planejarSelecaoNativa(p.dir, manifesto, [rodadaVerde(anterior, fria.cache)], atual, 'agile');
+      assert.deepEqual(plano.lanes.runner, { modo: 'inteira', motivo, arquivos: [arquivo] });
+    } finally { p.limpar(); }
+  }
+});
+
+test('RM081 F5 P4: cache ausente, vermelho, malformado ou de outra base nunca seleciona', () => {
+  const p = projetoTemporario('rm081-f5-cache-invalido');
+  try {
+    const manifesto = manifestoComSelecao(p);
+    const anterior = commitarArvore(p, 'manifesto');
+    const atual = commitar(p.dir, 'src/produto.ts', 'export {};\n', 'produto');
+    const ausente = planejarSelecaoNativa(p.dir, manifesto, [rodadaVerde(anterior, undefined)], atual, 'agile');
+    assert.equal(ausente.lanes.runner.motivo, 'cache-ausente');
+    const malformado = { contrato: CONTRATO_DA_SELECAO, base: anterior, head: 'invalido' };
+    assert.equal(planejarSelecaoNativa(p.dir, manifesto, [rodadaVerde(anterior, malformado)], atual, 'agile')
+      .lanes.runner.motivo, 'cache-invalido');
+    const fria = planejarSelecaoNativa(p.dir, manifesto, [], anterior, 'agile');
+    const vermelho = { ...rodadaVerde(anterior, fria.cache), veredito: 'reprovado' } as EventoLedger;
+    assert.equal(planejarSelecaoNativa(p.dir, manifesto, [vermelho], atual, 'agile').lanes.runner.motivo,
+      'cache-invalido');
+    const outraBase = { ...fria.cache!, base: 'f'.repeat(40) };
+    assert.equal(planejarSelecaoNativa(p.dir, manifesto, [rodadaVerde(anterior, outraBase)], atual, 'agile')
+      .lanes.runner.motivo, 'base-mudou');
+  } finally { p.limpar(); }
+});
+
+test('RM081 F5 P5: runner sem mapeamento declarado e diff vazio conservam a suite inteira', () => {
+  const p = projetoTemporario('rm081-f5-sem-garantia-runtime');
+  try {
+    const manifesto = manifestoComSelecao(p);
+    manifesto.check!.agile!.selecao!.runner.mapeia = [];
+    const head = commitarArvore(p, 'manifesto');
+    const cache = planejarSelecaoNativa(p.dir, manifesto, [], head, 'agile').cache!;
+    assert.equal(planejarSelecaoNativa(p.dir, manifesto, [rodadaVerde(head, cache)], head, 'agile')
+      .lanes.runner.motivo, 'runner-sem-garantia');
+    manifesto.check!.agile!.selecao!.runner.mapeia = ['src/**'];
+    assert.equal(planejarSelecaoNativa(p.dir, manifesto, [rodadaVerde(head, cache)], head, 'agile')
+      .lanes.runner.motivo, 'sem-mudancas');
   } finally { p.limpar(); }
 });
