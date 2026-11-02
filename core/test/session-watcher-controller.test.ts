@@ -148,9 +148,10 @@ test('RM-075: task_complete com falha tipada preserva a política de recuperaç�
     assert.equal(p.run(2000).concluido, false);
     fs.appendFileSync(p.roll, fimTaskCompleteComCota.join(''));
     fs.utimesSync(p.roll, (BASE + 2600) / 1000, (BASE + 2600) / 1000);
-    const despachoEm = p.t.sessoes[0].despachadaEm!;
-    registrar(p.dirEstado, p.t.id, 'gate_blocked', { fase: 'GO', sessionId: SID, despachoEm,
-      runtime: 'codex', motivo: 'runtime.quota-exhausted', classificacao: 'gate_blocked', origem: 'sessions.watch' });
+    assert.equal(p.run(3000).classificacao, 'gate_blocked');
+    const resultado = p.eventos().find(e => e.tipo === 'phase_result')!;
+    assert.equal(resultado.motivo, 'runtime.quota-exhausted');
+    assert.equal(resultado.conclusaoNativa, false);
     const plano = planejarRetry(p.carregado, p.t.id);
     assert.equal(plano.motivo, 'runtime.quota-exhausted');
     assert.equal(plano.acao, 'reexecutar');
@@ -517,8 +518,9 @@ for (const troca of ['inode', 'symlink', 'fifo', 'append'] as const) {
     if (troca === 'fifo') execFileSync('mkfifo', ['-m', '600', fifoPreparado]);
     try {
       nativoFs.openSync = ((file: fs.PathLike, flags: string | number, mode?: fs.Mode) => {
-        // Registro, prova task_complete e snapshot já abriram descritores conferidos; a quarta é o cursor consumidor.
-        if (file === f.roll && ++aberturas === 4) {
+        // Registro e snapshot já abriram descritores conferidos; a terceira é o cursor consumidor.
+        // A prova task_complete integral só roda no caminho excepcional de snapshot perdido.
+        if (file === f.roll && ++aberturas === 3) {
           injetado = true;
           const substituto = f.roll + '.substituto';
           if (troca === 'append') {

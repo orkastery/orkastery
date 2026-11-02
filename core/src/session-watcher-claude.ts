@@ -565,15 +565,17 @@ export function provaDoOrk(raiz: string, threadId: string, sessao: Pick<SessaoDe
     eventos: readonly EventoLedger[], fonte: Partial<Pick<FonteClaude, 'artefato' | 'cwd' | 'head'>> | undefined): ProvaOrk {
   const intervalo = eventosDoIntervalo(eventos, sessao);
   const falta = (texto: string, extra: Partial<ProvaOrk> = {}): ProvaOrk =>
-    ({ ok: false, fonte: texto, motivo: 'artifact.missing', ...extra });
+    ({ ok: false, fonte: texto, ...extra });
   const saida = saidaDoArtefato(raiz, threadId, sessao, fonte, eventos);
   if (saida) {
-    if (!saida.produzido) return falta(`${saida.arquivo} não foi gravado no intervalo do despacho`);
+    if (!saida.produzido) return falta(`${saida.arquivo} não foi gravado no intervalo do despacho`,
+      { motivo: 'artifact.missing' });
     if (sessao.fase !== 'CHECK') return { ok: true, fonte: `${saida.arquivo} gravado no intervalo do despacho` };
     const v = intervalo.filter(e => e.tipo === 'verify_run' && typeof e.commit === 'string').at(-1);
     const verify = v ? { eventId: String(v.eventId), commit: String(v.commit), ts: v.ts } : null;
     const veredito = saida.texto === null ? null : vereditoDoParecer(saida.texto);
-    if (!veredito) return falta(`${saida.arquivo} gravado sem exatamente um veredito legível`, { veredito: null, verify });
+    if (!veredito) return falta(`${saida.arquivo} gravado sem exatamente um veredito legível`,
+      { motivo: 'artifact.missing', veredito: null, verify });
     return { ok: true, fonte: `${saida.arquivo} gravado com veredito ${veredito}`, veredito, verify };
   }
   if (sessao.fase === 'GO') {

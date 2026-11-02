@@ -703,6 +703,7 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
         fonte: `${conta.fonte}: ${conta.falha.motivo} (${conta.falha.trecho})` };
       const respostaFinal = terminal.respostaFinal
         ? gravarRespostaFinalDaSessao(carregado.raiz, thread.id, sessionId, terminal.respostaFinal) : null;
+      const taskCompleteBloqueado = taskCompleteAutenticado && terminal.classificacao !== 'fase_concluida';
       const dados = { fase: sessao.fase, sessionId, despachoEm: sessao.despachadaEm, sensorResultId: resultadoId,
         classificacao: terminal.classificacao, motivo: terminal.motivo, runtime: 'codex', fonte: terminal.fonte,
         fonteVencedora: pedido ? null : taskCompleteAutenticado ? 'rollout'
@@ -712,8 +713,9 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
         signal: fechamento?.signal ?? null, duracaoMs: fechamento?.duracaoMs ?? terminal.duracaoMs,
         duracaoFonte: fechamento?.fonte ?? (terminal.duracaoMs === null ? 'unavailable' : terminal.fonte),
         ok: terminal.classificacao === 'fase_concluida' && (taskCompleteAutenticado || fechamento?.exitCode === 0),
-        conclusaoNativa: conclusaoNativa === null,
-        conclusaoNativaAusente: conclusaoNativa,
+        conclusaoNativa: conclusaoNativa === null && !taskCompleteBloqueado,
+        conclusaoNativaAusente: taskCompleteBloqueado
+          ? 'task_complete encerrou o turno com resultado bloqueado' : conclusaoNativa,
         estado: terminal.classificacao === 'fase_concluida' ? 'concluida' : 'bloqueada',
         observadoEm: terminal.timestamp, gate: 'phase.dispatch', origem: 'sessions.watch',
         morteLatenciaMs: morte ? now - cursor.progressoEm! : null, ...(perfil ? { perfil } : {}),
