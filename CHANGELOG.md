@@ -8,7 +8,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Alterado
 
-- **RM-074 · M10 — seleção conservadora para `node --test` ([roadmap](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** a lane hermética usa o grafo estático somente no Agile morno, mantém testes de processo filho e cai para a suíte inteira diante de ambiguidade; a integração, o Classic, a rodada fria e o SHIP continuam integrais, e a razão aguarda a bancada de três pares.
+- **RM-074 · M10 — seleção conservadora para `node --test` ([roadmap](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** no Agile morno, a lane hermética seleciona pelos fechos resolvidos de importação, `require.resolve` e leituras por `fs`; testes de processo filho ou com dependência incerta continuam sempre na lista, enquanto integração, Classic, rodada fria e SHIP seguem integrais. A bancada reaplica cada delta sobre uma base comum, e a razão continua pendente dos três pares.
 
 ## [0.6.5] - 2026-11-02
 

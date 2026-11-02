@@ -387,23 +387,28 @@ da F5 da RM-081.
 O Agile morno passa a usar a própria declaração `selecao` da F5 na lane
 hermética. O comando:
 
-- calcula o fecho transitivo de `require` estático nos testes compilados;
+- calcula o fecho transitivo das dependências resolvidas nos testes compilados;
 - mantém sempre os testes que exercitam processo filho, o CLI compilado ou
   scripts;
+- mantém sempre somente o teste cujo fecho contém dependência incerta, sem
+  prender os demais testes da lane;
+- transforma `require.resolve` e leituras resolvidas por `fs` em arestas,
+  inclusive para fonte TypeScript, JSON e fixtures;
 - executa a lista pelo mesmo runner da lane, preservando reporter, isolamento e
   cache de duração;
-- devolve a lane inteira diante de `require` dinâmico, caminho local não
-  resolvido, diff vazio ou mudança fora de `core/src` e `core/test`.
+- devolve a lane inteira diante de diff vazio ou mudança fora de `core/src` e
+  `core/test`.
 
 A lane de integração continua inteira. Rodada fria, Classic, cache inválido e
 SHIP também conservam as regras integrais da RM-081; o recibo selecionado segue
 parcial e não serve como prova de entrega.
 
-A bancada recebe três commits recentes sem merge, reverte cada delta numa cópia
-descartável da base da fatia e o reaplica antes da rodada morna. O relatório traz
-a razão contra o Classic e a fração de testes selecionados por commit, a mediana,
-o terceiro quartil e os falsos negativos contra uma rodada integral no mesmo
-conteúdo. Qualquer falso negativo reprova a amostra.
+A bancada recebe três commits recentes sem merge. Para cada um, cria uma cópia
+descartável da mesma base carimbada e reaplica o delta `c^..c` antes da rodada
+morna; delta que não aplica limpo é pulado com o motivo no relatório. O relatório
+traz a razão contra o Classic e a fração de testes selecionados por commit, a
+mediana, o terceiro quartil e os falsos negativos contra uma rodada integral no
+mesmo conteúdo. Qualquer falso negativo reprova a amostra.
 
 Esta página ainda não atribui ganho à M10. A razão só será acrescentada depois de
 três pares válidos medidos pela condução; até lá, os testes focados provam o
