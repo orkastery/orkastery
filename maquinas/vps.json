@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.4",
-  "publicadoEm": "2026-11-02T13:35:45.328Z",
+  "publicadoEm": "2026-11-02T13:35:50.409Z",
   "threads": [
     {
       "id": "ork-rm067f5agrok",
@@ -117,24 +117,6 @@
       }
     },
     {
-      "id": "ork-rm081f2teste",
-      "nome": "rm081f2",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-081",
-      "branch": "ork/ork-rm081f2teste-full",
-      "atualizadaEm": "2026-11-02T13:35:44.918Z",
-      "entregue": "c1b7f6b",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh",
-      "sessao": null
-    },
-    {
       "id": "ork-rm081f4sobre",
       "nome": "rm081f4pilha",
       "modo": "#Auto",
@@ -178,11 +160,11 @@
       "id": "ork-rm081f5selec",
       "nome": "rm081f5",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": "RM-081",
       "branch": "ork/ork-rm081f5selec-full",
-      "atualizadaEm": "2026-11-02T10:54:32.419Z",
+      "atualizadaEm": "2026-11-02T13:35:49.980Z",
       "entregue": "e79d808",
       "esperaVoce": false,
       "pergunta": null,
