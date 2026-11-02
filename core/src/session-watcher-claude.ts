@@ -101,7 +101,7 @@ export interface EntradaClassificacao {
   /** Prova de vida do processo nativo; `ausente` só com evidência de morte. */
   processo: (pid: number | undefined, cursor: CursorClaude) => 'vivo' | 'ausente';
   /** A tela final só é lida quando os demais sinais já tornam o turno candidato a terminal. */
-  perguntaReal?: () => boolean | null;
+  perguntaReal?: () => boolean;
 }
 
 const SHA256 = /^[a-f0-9]{64}$/;
@@ -203,8 +203,9 @@ export function classificarSessaoClaude(e: EntradaClassificacao): ClassificacaoC
     ({ terminal: true, classificacao: 'gate_blocked', motivo, fonte, conclusaoNativa, stop });
   // D12: o `done` classifica o texto final do agente; a fase só conclui com a prova do `ork`.
   const concluir = (sinal: string, conclusaoNativa: boolean): ClassificacaoClaude => {
-    const perguntaReal = e.perguntaReal?.() ?? null;
-    if (perguntaReal === null) return espera(`${sinal}; tela final indisponível para conferir pergunta real`);
+    // RM-075: indisponibilidade da tela não fabrica espera humana. Só uma pergunta
+    // efetivamente lida pode produzir human.pending.
+    const perguntaReal = e.perguntaReal?.() ?? false;
     if (perguntaReal) return { ...bloqueio(`${sinal}; a mensagem final pergunta ao humano`, 'human.pending', conclusaoNativa),
       perguntaReal, dependeDoStop: true, diagnostico: 'a mensagem final pede uma resposta humana' };
     const prova = e.prova();
@@ -742,11 +743,11 @@ export function observarClaudeSobLock(ctx: ContextoObservacaoClaude): ResultadoO
   // e ao fecho.
   let erroLido: ErroDeApiDaTranscricao | null | undefined;
   const erroDaTranscricao = () => erroLido !== undefined ? erroLido : (erroLido = ultimoErroDeApi(perfil, fonte.cwd, sessao.sessionId));
-  let perguntaLida: boolean | null | undefined;
-  const perguntaReal = (): boolean | null => {
+  let perguntaLida: boolean | undefined;
+  const perguntaReal = (): boolean => {
     if (perguntaLida !== undefined) return perguntaLida;
     const tela = (ctx.tela ?? (() => logsDaSessao(registro?.id ?? sessao.sessionId.slice(0, 8), 60, ambienteDoPerfil(perfil))))();
-    perguntaLida = tela.ok ? mensagemFinalPedeHumano(tela.texto) : null;
+    perguntaLida = tela.ok && mensagemFinalPedeHumano(tela.texto);
     return perguntaLida;
   };
   const { c, falha } = comFalhaDeConta(classificarSessaoClaude({ sessao, eventos, consulta, registro, cursor, agoraMs: ctx.agoraMs,

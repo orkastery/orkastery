@@ -470,9 +470,10 @@ test('I-34: MCP observe deixa de devolver nao-inferida quando há evidência nat
     // Ociosidade depois do Stop não é atividade.
     registrar(dir,t.id,'runtime_event',{...stop,sensor:'notification',notificationType:'idle_prompt',sensorEventId:'b'.repeat(64)});
     nativo={state:'done',status:'idle',pid:process.pid};
-    // GO-FIX 2 (D12): done com Stop sem o artefato do GOAL não conclui; escala ao humano.
+    // RM-075: done com Stop sem o artefato do GOAL não conclui, mas também não
+    // inventa espera humana quando nenhuma pergunta foi lida.
     let d=await turno();
-    assert.equal(d.estado,'encerrado');assert.equal(d.conclusaoDeFase,'gate_blocked:human.pending');assert.equal(d.registrada,false);
+    assert.equal(d.estado,'encerrado');assert.equal(d.conclusaoDeFase,'gate_blocked:artifact.missing');assert.equal(d.registrada,false);
     assert.match(d.conclusao.fonte,/sem prova do ork: docs\/goal\.md/);
     fs.mkdirSync(path.join(dir,'docs'),{recursive:true});fs.writeFileSync(path.join(dir,'docs','goal.md'),'# objetivo\n');
     d=await turno();
@@ -525,7 +526,7 @@ test('GO-FIX 2 (D15, achado 6): MCP observe mostra sessão stopped sem resultado
 
 test('GO-FIX 3 (D17): ork_observe e o watcher dão a mesma leitura para stopped e failed, com e sem Stop correlacionado',()=>fixture(async(p,c)=>{
   const original=util.exec;
-  const casos=[['stopped',true,'gate_blocked:human.pending'],['failed',true,'gate_blocked:human.pending'],
+  const casos=[['stopped',true,'gate_blocked:artifact.missing'],['failed',true,'gate_blocked:human.pending'],
     ['stopped',false,'gate_blocked:runtime.unavailable'],['failed',false,'gate_blocked:runtime.unavailable']] as const;
   const nativos=new Map<string,string>();
   const stub=mock.method(util,'exec',(cmd:string,args:string[],cwd?:string,timeout?:number,env?:NodeJS.ProcessEnv)=>{
