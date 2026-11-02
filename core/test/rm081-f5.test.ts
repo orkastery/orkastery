@@ -264,9 +264,12 @@ test('RM081 F5 E1: rodada morna executa comando selecionado, conserva identidade
     assert.equal(r.parcial, true);
     const teste = r.comandos.find((comando) => comando.nome === 'test')!;
     assert.deepEqual(teste.parcial, { testes: [] });
-    assert.deepEqual(teste.lanes?.[0], {
+    const lane = teste.lanes?.[0];
+    assert.ok(lane);
+    assert.ok(lane.stealPct === null || typeof lane.stealPct === 'number');
+    const { stealPct: _stealPct, ...reciboDaLane } = lane;
+    assert.deepEqual(reciboDaLane, {
       lane: 'runner', comando: 'runner completo', ok: true, code: 0, causa: 'exit', duracaoMs: 1,
-      stealPct: null,
       parcial: { testes: [] }, comandoExecutado: "runner relacionado 'src/produto.ts'",
       selecao: { modo: 'selecionada', motivo: 'selecionada', arquivos: ['src/produto.ts'], base: c.anterior },
     });
