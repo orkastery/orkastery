@@ -223,7 +223,7 @@ function lerResultadosDoReporter(arquivo) {
 function assinaturaDoAmbiente(env) {
   const ignorada = (nome) => nome.startsWith('npm_') || nome.startsWith('NPM_')
     || ['ORK_CHECK_RELATORIO', 'ORK_CHECK_CPUS_DA_LANE', ENV_CPUS_APOS_VARREDURA, ENV_CPUS_APOS_RESERVA, ENV_SINAL_DA_RESERVA,
-      ENV_CONTAINERS_DA_LANE, 'ORK_CHECK_CPUS_DOCKER',
+      ENV_CONTAINERS_DA_LANE, 'ORK_CHECK_CPUS_DOCKER', 'ORK_WORKERS',
       'NODE_TEST_CONTEXT', 'NODE_COMPILE_CACHE', 'PWD', 'OLDPWD', 'SHLVL', '_', 'INIT_CWD'].includes(nome);
   const pares = Object.entries(env).filter(([nome, valor]) => valor !== undefined && !ignorada(nome))
     .sort(([a], [b]) => a.localeCompare(b));
@@ -339,6 +339,7 @@ function rodarLane(lane) {
   delete env[ENV_CPUS_APOS_RESERVA];
   delete env[ENV_SINAL_DA_RESERVA];
   delete env.ORK_CHECK_CPUS_DOCKER;
+  delete env.ORK_WORKERS;
   env.TMPDIR = pastaDaLane;
   let casa = null;
   if (!(env.ORKASTERY_HOME || '').trim()) { casa = fs.mkdtempSync(path.join(pastaDaLane, 'ork-casa-')); env.ORKASTERY_HOME = casa; }

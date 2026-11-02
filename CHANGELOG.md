@@ -6,6 +6,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Alterado
+
+- **Workers e recursos na declaração única da lane — F4 ([RM-081](docs/roadmap/RM-081-check-por-qualquer-runner.md)):** o Agile exporta `ORK_WORKERS` pela reserva vigente e serializa lanes que declaram o mesmo serviço; o Classic publica o mesmo contrato com a capacidade inteira disponível, preservando seus comandos e sua ordem.
+
 ### Adicionado
 
 - **JUnit por comando e lane — F1 ([RM-081](docs/roadmap/RM-081-check-por-qualquer-runner.md)):** o manifesto pode declarar o relatório de pytest, Vitest, Jest, Playwright ou gotestsum; o verify compara falhas e erros por nome, registra contagens e duração e preserva a forma textual existente quando não há relatório.

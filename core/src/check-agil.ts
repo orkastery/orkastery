@@ -70,6 +70,8 @@ export interface ItemDoGrupo {
   nice?: number;
   /** Os itens do grupo (pelo nome, antes deste na lista) que precisam terminar antes de este comecar. */
   apos?: string[];
+  /** RM-081 F4: servicos que esta lane precisa usar sozinha durante a rodada. */
+  recursos?: string[];
   /** Papel usado pelo agendador de CPU do auxiliar. */
   papelCpu?: 'hermetica' | 'integracao' | 'varredura' | 'outro';
 }
@@ -503,15 +505,18 @@ export function comandosNoAgile(manifesto: Manifesto, cwd: string,
       for (const [lane, comando] of lanesDeclaradas) {
         const junit = manifesto.check?.agile?.junit?.[lane];
         const filtro = manifesto.check?.agile?.filtro?.[lane];
+        const recursos = manifesto.check?.agile?.recursos?.[lane];
         const testesFiltrados = selecao.lanes[lane];
         const porMudanca = selecaoPorMudanca[lane];
         const efetivo = porMudanca?.comando ?? comando;
         const dadosDaSelecao = porMudanca ? { comandoIntegral: comando, selecaoPorMudanca: porMudanca } : {};
         if (depoisDaVarredura.has(lane)) encadeados.push({ nome: `test:${lane}`, comando: efetivo, ...dadosDaSelecao,
           ...(junit ? { junit } : {}), ...(filtro ? { filtro } : {}), ...(testesFiltrados ? { testesFiltrados } : {}),
+          ...(recursos?.length ? { recursos } : {}),
           apos: ['security_scan'], papelCpu: 'integracao' });
         else itens.push({ nome: `test:${lane}`, comando: efetivo, ...dadosDaSelecao, ...(junit ? { junit } : {}),
           ...(filtro ? { filtro } : {}), ...(testesFiltrados ? { testesFiltrados } : {}),
+          ...(recursos?.length ? { recursos } : {}),
           papelCpu: lane === 'hermetica' ? 'hermetica' : 'outro' });
       }
     } else itens.push({ nome: c.nome, comando: c.comando, ...(c.junit ? { junit: c.junit } : {}),

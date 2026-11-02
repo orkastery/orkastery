@@ -1,0 +1,350 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm081f4sobre",
+  "branch": "ork/ork-rm081f4sobre-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm081f4sobre",
+      "fase": "GOAL",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "A configuração Agile representa recursos da lane sem separar a declaração pública das chaves F1 a F5.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='^RM081F4-' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-02T09:47:29.229Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm081f4sobre",
+      "fase": "GOAL",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "O leitor único de comando aceita recursos ao lado de comando, junit, filtro, relogio e selecao, e rejeita chave desconhecida com caminho completo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='^RM081F4-' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-02T09:47:29.282Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm081f4sobre",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-agil.ts",
+      "alegacao": "A montagem do grupo transporta os recursos declarados pela lane sem alterar comando, JUnit, filtro, relógio ou seleção.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='^RM081F4-' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-02T09:47:29.333Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm081f4sobre",
+      "fase": "GOAL",
+      "arquivo": "core/src/agendador-cpu.ts",
+      "alegacao": "A reserva publicada como workers é inteira, positiva e derivada da capacidade vigente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='^RM081F4-' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-02T09:47:29.386Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm081f4sobre",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-paralelo.ts",
+      "alegacao": "Workers por lane respeitam o plano de CPU e recursos comuns se excluem sem bloquear recursos disjuntos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='^RM081F4-' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-02T09:47:29.446Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm081f4sobre",
+      "fase": "GOAL",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "Classic publica ORK_WORKERS com a capacidade inteira e o grupo transporta recursos sem alterar a ordem dos comandos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='^RM081F4-' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-02T09:47:29.496Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm081f4sobre",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/test-lanes.cjs",
+      "alegacao": "A lane usa ORK_WORKERS no runner, mas não o propaga aos processos internos dos testes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='^TL1[01]:' core/dist-test/test/test-lanes.test.js"
+      ],
+      "criadoEm": "2026-11-02T09:47:29.541Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm081f4sobre",
+      "fase": "GOAL",
+      "arquivo": "core/test/check-agil.test.ts",
+      "alegacao": "Os casos RM081F4 cobrem manifesto unificado, workers, capacidade, recursos e Classic.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='^RM081F4-' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-02T09:47:29.592Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm081f4sobre",
+      "fase": "GOAL",
+      "arquivo": "core/test/test-lanes.test.ts",
+      "alegacao": "TL10 e TL11 cobrem a fronteira e a assinatura de ORK_WORKERS.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='^TL1[01]:' core/dist-test/test/test-lanes.test.js"
+      ],
+      "criadoEm": "2026-11-02T09:47:29.643Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm081f4sobre",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm081-f4.json",
+      "alegacao": "Mutante M1 morre: zero worker é recusado.",
+      "negativa": true,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm081-f4.json M1"
+      ],
+      "criadoEm": "2026-11-02T09:47:29.684Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm081f4sobre",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm081-f4.json",
+      "alegacao": "Mutante M2 morre: a hermética não pode receber a capacidade inteira junto das reservas.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm081-f4.json M2"
+      ],
+      "criadoEm": "2026-11-02T09:47:29.735Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm081f4sobre",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm081-f4.json",
+      "alegacao": "Mutante M3 morre: recurso comum não pode iniciar em paralelo.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm081-f4.json M3"
+      ],
+      "criadoEm": "2026-11-02T09:47:29.786Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm081f4sobre",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm081-f4.json",
+      "alegacao": "Mutante M4 morre: Classic precisa publicar ORK_WORKERS.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm081-f4.json M4"
+      ],
+      "criadoEm": "2026-11-02T09:47:29.834Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm081f4sobre",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-081-check-por-qualquer-runner.md",
+      "alegacao": "A página da RM-081 registra a F4 implementada sobre a pilha F1, F2, F3 e F5.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const s=require('fs').readFileSync('docs/roadmap/RM-081-check-por-qualquer-runner.md','utf8');if(!s.includes('### F4 nesta fatia')||!s.includes('sobre a pilha'))process.exit(1)\""
+      ],
+      "criadoEm": "2026-11-02T09:47:29.918Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm081f4sobre",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A F4 aparece como linha nova em Alterado dentro de Não publicado.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-11-02T09:47:29.969Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm081f4sobre",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/verificacao.md",
+      "alegacao": "O guia contém uma lane de referência unificada com comando, junit, filtro, relogio, selecao e recursos.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const fs=require('fs');const s=fs.readFileSync('docs/guias/verificacao.md','utf8');const i=s.indexOf('      lane-completa:');const j=s.indexOf('\\n\\nO verify remove',i);const b=i>=0&&j>i?s.slice(i,j):'';if(!['comando:','junit:','filtro:','relogio:','selecao:','recursos:'].every(k=>b.includes(k)))process.exit(1)\""
+      ],
+      "criadoEm": "2026-11-02T09:56:18.731Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm081f4sobre",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-rm081f4sobre.json",
+      "alegacao": "O bundle de CI pós-verify usa o contrato v1, identifica a thread e contém claims e comandos.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const b=require('./.ork-ci/ork-rm081f4sobre.json');if(b.schema!=='ork.ci-bundle/v1'||b.thread!=='ork-rm081f4sobre'||!Array.isArray(b.claims)||!Array.isArray(b.commands))process.exit(1)\""
+      ],
+      "criadoEm": "2026-11-02T10:32:31.225Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm081f4sobre",
+      "fase": "GO",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "O objeto de verify ou lane exige JUnit, exceto a lane Agile que declara recursos; filtro e relogio continuam nomeando a dependencia do relatorio.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm081-junit.test.js",
+        "node --test --test-name-pattern='^RM081F4-manifesto:' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-02T11:14:18.174Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm081f4sobre",
+      "fase": "GO",
+      "arquivo": "core/test/check-agil.test.ts",
+      "alegacao": "Os casos RM081F4 recusam objeto sem JUnit e sem recursos, aceitam comando com recursos sem JUnit e preservam as mensagens de filtro e relogio.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='^RM081F4-manifesto:' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-02T11:14:18.227Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm081f4sobre",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm081-f4.json",
+      "alegacao": "M5 mata a exigencia indevida de JUnit com recursos e M6 mata a aceitacao de objeto sem JUnit e sem recursos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm081-f4.json M5",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm081-f4.json M6"
+      ],
+      "criadoEm": "2026-11-02T11:14:18.271Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm081f4sobre",
+      "fase": "GO",
+      "arquivo": "docs/guias/verificacao.md",
+      "alegacao": "O guia declara que apenas recursos na lane Agile dispensam JUnit e que filtro ou relogio ainda exigem o relatorio.",
+      "negativa": false,
+      "verificar": [
+        "grep -Fq 'A única exceção é a lane do Agile cujo mesmo' docs/guias/verificacao.md",
+        "grep -Fq 'mas não dispensa o relatório exigido por `filtro` ou `relogio`' docs/guias/verificacao.md"
+      ],
+      "criadoEm": "2026-11-02T11:14:18.322Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm081f4sobre",
+      "fase": "GO",
+      "arquivo": "docs/produto/FEAT-004-claims-e-verify.md",
+      "alegacao": "A FEAT-004 exige JUnit nos objetos e registra recursos como unica dispensa nas lanes Agile.",
+      "negativa": false,
+      "verificar": [
+        "grep -Fq 'Todo objeto exige `junit`' docs/produto/FEAT-004-claims-e-verify.md",
+        "grep -Fq 'somente a presença de `recursos` dispensa `junit` no objeto da lane' docs/produto/FEAT-004-claims-e-verify.md"
+      ],
+      "criadoEm": "2026-11-02T11:14:18.374Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm081f4sobre",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-rm081f4sobre.json",
+      "alegacao": "O bundle final usa o contrato v1, identifica a thread e inclui as claims verificadas C25 a C29 e comandos executaveis.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const b=require('./.ork-ci/ork-rm081f4sobre.json');if(b.schema!=='ork.ci-bundle/v1'||b.thread!=='ork-rm081f4sobre'||!Array.isArray(b.commands)||!['C25','C26','C27','C28','C29'].every(id=>b.claims.some(c=>c.id===id)))process.exit(1)\""
+      ],
+      "criadoEm": "2026-11-02T11:29:26.740Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}

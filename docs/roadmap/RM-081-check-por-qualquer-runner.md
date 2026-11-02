@@ -68,8 +68,10 @@ sdlc:
     - Na rodada de correção, o verify roda primeiro os testes que caíram na rodada anterior, com o filtro do próprio runner declarado no manifesto. Se algum ainda cai, reprova sem rodar o resto.
     - A suíte inteira roda uma vez antes do SHIP.
   - **F4 · Lanes do tamanho da máquina.**
-    - O Agile passa a cada lane quantos workers ela pode usar, pela CPU medida, numa variável de ambiente que o comando do projeto lê.
-    - Lanes que sobem serviço declaram o recurso, para não disputar porta nem banco.
+    - O Agile passa `ORK_WORKERS` a cada lane com a reserva vigente medida pelo agendador; o Classic publica a mesma variável com a capacidade inteira disponível.
+    - `check.agile.test` preserva `lane: comando` e aceita um objeto único com as chaves de F1, F2, F3 e F5, mais `recursos`.
+    - Lanes com recurso comum não se sobrepõem; a soma das reservas simultâneas permanece dentro da capacidade medida.
+    - Pytest, Playwright, Vitest, Jest e Go têm exemplos no [guia de verificação](../guias/verificacao.md#workers-e-recursos-por-lane).
   - **F5 · Seleção pelo que mudou, só na rodada morna.**
     - Usa a seleção nativa do runner declarada no manifesto, com a regra da M7 da [RM-074](RM-074-agile-check-tres-vezes-mais-rapido.md): na dúvida, suíte inteira.
     - Nunca vale no SHIP.
@@ -146,6 +148,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 - A lane grava modo, motivo, arquivos e base no ledger e no texto bilíngue. A seleção reutiliza `parcial` da F3; o SHIP continua recusando pelo caminho existente.
 - O guia e a referência trazem exemplos de Vitest, Jest e Playwright. Testes focados e mutantes cobrem as regras; a razão contra a rodada integral fica para a bancada da condução, sem ganho antecipado.
 
+### F4 nesta fatia
+
+- A F4 entrou sobre a pilha de F1, F2, F3 e F5: a lane tem uma única declaração, textual ou em objeto, sem escolher entre formatos incompatíveis.
+- O objeto usa o leitor comum de comando e reúne `comando`, `junit`, `filtro`, `relogio`, `selecao` e `recursos`; chave desconhecida conserva o caminho completo no erro.
+- O Agile publica `ORK_WORKERS` pela reserva vigente e serializa somente lanes com recurso comum. O Classic publica o mesmo contrato com a capacidade inteira e conserva comandos e ordem.
+- Testes focados, TL10, TL11 e mutantes M1–M4 cobrem o contrato. A razão contra a rodada sem a fatia permanece para a bancada da condução, sem ganho antecipado.
+
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-11-01 | Item criado em Discovery, com as fatias F1 a F5 | Relato da pilha de testes de outra rede, conferido contra a 0.6.3 | Julio (pedido de 01/11/2026) |
@@ -153,3 +162,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-11-02 | F3 roda primeiro os nomes da correção e conserva a suíte inteira como condição do SHIP | Testes focados da thread `ork-rm081f3rodad`; D1 a D4 registradas no ledger; CHECK pendente | Codex (#Auto) |
 | 2026-11-02 | F2 protege qualquer runner JUnit marcado contra julgamento temporal sob steal, sem esconder falha comum | Testes focados e mutantes da thread `ork-rm081f2teste`; decisões autônomas registradas no ledger; CHECK pendente | Codex (#Auto) |
 | 2026-11-02 | F5 usa seleção nativa somente no Agile morno e cai para a suíte inteira na dúvida | Testes focados e mutantes da thread `ork-rm081f5selec`; decisões autônomas registradas no ledger; CHECK pendente | Codex (#Auto) |
+| 2026-11-02 | F4 entra sobre a pilha com workers por reserva e recursos exclusivos na declaração única da lane | Testes focados e mutantes M1–M4 da thread `ork-rm081f4sobre`; decisões D1–D4 registradas no ledger; CHECK pendente | Codex (#Auto) |
