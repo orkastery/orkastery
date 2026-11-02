@@ -9,6 +9,5 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | vps | ork-rm074m10sele | #Auto | GOAL | codex gpt-5.6-sol/xhigh | RM-074 | — | 02/11 19:30 | parada desde 13:43: sessão 01a19cf9 encerrada (completed) |
 | vps | ork-rm074m8medid | #Auto | GOAL | sem despacho | RM-074 | — | 02/11 19:30 | parada desde 31/10 17:57: nenhuma sessão despachada na fase GOAL |
 | vps | ork-rm081f4worke | #Auto | PLAN | codex gpt-5.6-sol/xhigh | RM-081 | — | 02/11 19:30 | parada desde 01:34: sessão 01a19a53 encerrada (completed) |
-| vps | ork-versao065 | #Fast | GO | sem despacho | — | — | 02/11 19:30 | parada desde 19:30: nenhuma sessão despachada na fase GO |
 
 Horários de Brasília.
