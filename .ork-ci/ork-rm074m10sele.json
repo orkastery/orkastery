@@ -15,7 +15,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/selecionar-testes-node.test.js"
       ],
       "criadoEm": "2026-11-02T16:05:56.191Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -29,7 +29,7 @@
         "npm --prefix core run build && node -e \"const s=require('./core/scripts/selecionar-testes-node.cjs'); if(typeof s.principal !== 'function') process.exit(1)\""
       ],
       "criadoEm": "2026-11-02T16:05:56.279Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -43,7 +43,7 @@
         "node -e \"const l=require('./core/scripts/test-lanes.cjs'); l.rodarLane('hermetica', []).then((c)=>{ if(c!==0) process.exit(1); })\""
       ],
       "criadoEm": "2026-11-02T16:05:56.347Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -57,7 +57,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/selecionar-testes-node.test.js"
       ],
       "criadoEm": "2026-11-02T16:05:56.434Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -71,7 +71,7 @@
         "grep -q 'TL14: a entrada selecionada roda somente o subconjunto validado da lane' core/test/test-lanes.test.ts"
       ],
       "criadoEm": "2026-11-02T16:05:56.507Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -85,7 +85,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test-name-pattern='MC25:' core/dist-test/test/medir-check.test.js"
       ],
       "criadoEm": "2026-11-02T16:12:33.748Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -99,7 +99,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test-name-pattern='MC25:' core/dist-test/test/medir-check.test.js"
       ],
       "criadoEm": "2026-11-02T16:12:33.791Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -113,7 +113,7 @@
         "npm --prefix core run build && node -e \"const r=require('./core/dist/manifest.js').carregarManifesto(process.cwd()); if(!r||r.erros.length||!r.manifesto.check.agile.selecao.hermetica||r.manifesto.check.agile.selecao.integracao) process.exit(1)\" && node core/scripts/test-lanes.cjs --conferir"
       ],
       "criadoEm": "2026-11-02T16:13:13.446Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -127,7 +127,7 @@
         "grep -q 'M10: seleção do `node --test` pelo grafo de importação' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md && grep -q 'Qualquer falso negativo reprova a amostra' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md"
       ],
       "criadoEm": "2026-11-02T16:13:13.519Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -141,7 +141,7 @@
         "grep -q 'RM-074 · M10 — seleção conservadora para `node --test`' CHANGELOG.md"
       ],
       "criadoEm": "2026-11-02T16:13:13.581Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -155,7 +155,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M1"
       ],
       "criadoEm": "2026-11-02T16:13:56.967Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -169,7 +169,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M2"
       ],
       "criadoEm": "2026-11-02T16:13:57.017Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -183,7 +183,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M3"
       ],
       "criadoEm": "2026-11-02T16:13:57.067Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -197,7 +197,7 @@
         "node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M4"
       ],
       "criadoEm": "2026-11-02T16:13:57.111Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
