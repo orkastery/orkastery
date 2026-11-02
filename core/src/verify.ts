@@ -466,7 +466,9 @@ function executorDoGrupo(manifesto: Manifesto, ambienteDaRodada: Record<string, 
       const evidencia = medida
         ? `; CPU da integracao: arvore ${Math.round(medida.arvoreMs)} ms + conteineres ${Math.round(medida.containersMs)} ms` +
           ` = ${Math.round(medida.totalMs)} ms, pico ${medida.picoCpus ?? 'indisponivel'} CPU, ` +
-          (medida.completa ? 'medida completa' : `medida incompleta (${medida.ausentes.length} conteiner(es) sem cgroup)`)
+          (medida.completa ? 'medida completa' : medida.anomalia
+            ? `medida anomala (${medida.anomalia})`
+            : `medida incompleta (${medida.motivosDosAusentes.map((x) => `${x.container}: ${x.motivo}`).join('; ')})`)
         : '';
       executar.pecas = [{ peca: 'agendador-cpu', estado: p.saturado ? 'fallback' : 'agile',
         motivo: p.saturado

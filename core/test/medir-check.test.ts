@@ -68,6 +68,18 @@ const medir = require(path.join(RAIZ, 'core', 'scripts', 'medir-check.cjs')) as 
   jsonRaso: (valor: unknown, nivel?: number) => string;
   resumirCargaExterna: (amostras: Array<Array<{ chave: string; nome: string; cpuMs: number }>>, paredeMs: number, cpus: number) =>
     { cpuMs: number; pct: number | null; processos: Array<{ nome: string; cpuMs: number }>; amostras: number };
+  resumirCpuDosContainers: (amostras: Array<Array<{ id: string; parte: 'integracao' | 'varredura' | 'fora'; daRodada?: boolean; cpuMs: number | null }>>) =>
+    { integracaoMs: number; varreduraMs: number; rodadaMs: number; foraMs: number; foraPresentes: boolean;
+      proporcaoMensuravel: boolean; fontesSemMedida: { rodada: boolean; fora: boolean } };
+  processosExternos: (tabela: Map<number, { ppid: number; rss: number; cpuMs: number; inicio: string; nome: string; cgroup: string }>,
+    containers: Array<{ id: string; pid: number }>) => Array<{ chave: string; nome: string; cpuMs: number }>;
+  classificarProcessos: (tabela: Map<number, { ppid: number; rss: number; cpuMs: number; inicio: string; nome: string; cgroup: string }>,
+    containers: Array<{ id: string; pid: number }>) => { externos: Array<{ chave: string; nome: string; cpuMs: number }>;
+      infraestrutura: Array<{ chave: string; nome: string; cpuMs: number }> };
+  atribuirCpuDaInfraestrutura: (amostras: Array<Array<{ chave: string; nome: string; cpuMs: number }>>,
+    containers: ReturnType<typeof medir.resumirCpuDosContainers>, paredeMs: number, cpus: number) => Record<string, any>;
+  cargaExternaComInfraestrutura: (carga: ReturnType<typeof medir.resumirCargaExterna>, infraestrutura: Record<string, any>,
+    paredeMs: number, cpus: number) => ReturnType<typeof medir.resumirCargaExterna>;
 };
 
 const perto = (atual: number | null | undefined, esperado: number, msg?: string): void => {
@@ -374,9 +386,15 @@ test('MC21: a bancada inteira com tres pares ABBA validos: razao sem preparo, CP
       ...(lanesMs ? { lanes: Object.entries(lanesMs).map(([lane, ms]) => ({ lane, duracaoMs: ms })) } : {}) }],
     duracoesPorArquivo: modo === 'agile' ? { 'a.test.js': 60, 'b.test.js': 30, 'c.test.js': 10 } : undefined });
   const rodadas = [
-    { par: 1, ...verifyRun('agile', 1010, { hermetica: 500, integracao: 200 }, 10) }, { par: 1, ...verifyRun('classic', 3010, null, 12) },
-    { par: 2, ...verifyRun('classic', 2510, null, 9) }, { par: 2, ...verifyRun('agile', 1260, { hermetica: 625, integracao: 250 }, 8) },
-    { par: 3, ...verifyRun('agile', 1010, { hermetica: 500, integracao: 200 }, 5) }, { par: 3, ...verifyRun('classic', 2010, null, 6) },
+    { par: 1, temperatura: 'frio', ...verifyRun('agile', 1010, { hermetica: 500, integracao: 200 }, 10) },
+    { par: 1, temperatura: 'morno', ...verifyRun('agile', 610, { hermetica: 500, integracao: 200 }, 11) },
+    { par: 1, ...verifyRun('classic', 3010, null, 12) },
+    { par: 2, ...verifyRun('classic', 2510, null, 9) },
+    { par: 2, temperatura: 'frio', ...verifyRun('agile', 1260, { hermetica: 625, integracao: 250 }, 8) },
+    { par: 2, temperatura: 'morno', ...verifyRun('agile', 1010, { hermetica: 625, integracao: 250 }, 8.5) },
+    { par: 3, temperatura: 'frio', ...verifyRun('agile', 1010, { hermetica: 500, integracao: 200 }, 5) },
+    { par: 3, temperatura: 'morno', ...verifyRun('agile', 810, { hermetica: 500, integracao: 200 }, 5.5) },
+    { par: 3, ...verifyRun('classic', 2010, null, 6) },
   ];
   const medidas = (fator: number) => ({ 'a.test.js': { userMs: 2000 * fator, sysMs: 1000 * fator, paredeMs: 30, picoKb: 1, testes: 3, saida: 0 },
     'b.test.js': { userMs: 600 * fator, sysMs: 400 * fator, paredeMs: 10, picoKb: 1, testes: 2, saida: 0 },
@@ -384,12 +402,17 @@ test('MC21: a bancada inteira com tres pares ABBA validos: razao sem preparo, CP
   const passes = [{ passe: 1, stealPct: 11, medidas: medidas(1) }, { passe: 2, stealPct: 9, medidas: medidas(1.2) },
     { passe: 3, stealPct: 5.5, medidas: medidas(0.8) }];
   const b = medir.analisarBancada({ rodadas, passes, lanes, nucleos: 2 });
-  assert.deepEqual(b.confianca, { estado: 'com-confianca', motivos: [], pares: 3, paresValidos: 3, minimo: 3,
-    toleranciaStealPp: 2, cargaForaMaxPct: 10 });
+  const confiavel = { estado: 'com-confianca', motivos: [], pares: 3, paresValidos: 3, minimo: 3,
+    toleranciaStealPp: 2, cargaForaMaxPct: 10 };
+  assert.deepEqual(b.confianca, { fria: confiavel, morna: confiavel });
   perto(b.pares[0].razao, 3);
   perto(b.pares[1].razao, 2);
   perto(b.pares[2].razao, 2);
-  perto(b.variacao.razao.media, 7 / 3);
+  perto(b.variacao.razaoFria.media, 7 / 3);
+  perto(b.pares[0].morna.razao, 5);
+  perto(b.pares[1].morna.razao, 2.5);
+  perto(b.pares[2].morna.razao, 2.5);
+  perto(b.variacao.razaoMorna.media, 10 / 3);
   assert.deepEqual(b.pares.map((p: { ordem: string[] }) => p.ordem),
     [['agile', 'classic'], ['classic', 'agile'], ['agile', 'classic']]);
   assert.deepEqual(b.pares[0].preparoMs, { agile: 10, classic: 10 });
@@ -435,11 +458,11 @@ test('MC23: menos de tres pares, ordem errada, preparo ausente e steal divergent
   });
   const rodadas = [rodada('agile', 2), rodada('classic', 5)];
   const b = medir.analisarBancada({ rodadas, passes: [], lanes: {}, nucleos: 2 });
-  assert.equal(b.confianca.estado, 'sem-confianca');
-  assert.deepEqual(b.confianca.motivos, ['menos-de-3-pares', 'menos-de-3-pares-validos']);
+  assert.equal(b.confianca.fria.estado, 'sem-confianca');
+  assert.deepEqual(b.confianca.fria.motivos, ['menos-de-3-pares', 'menos-de-3-pares-validos']);
   assert.deepEqual(b.pares[0].motivos, ['steal-divergente']);
   assert.equal(b.pares[0].razao, null, 'nem a razao individual sai sem tres pares validos');
-  assert.equal(b.variacao.razao, null);
+  assert.equal(b.variacao.razaoFria, null);
   assert.deepEqual(medir.validarPar(rodada('agile', null, null), rodada('classic', 1), ['classic', 'agile'], ['agile', 'classic']).motivos,
     ['preparo-ou-parede-ausente', 'ordem-nao-ABBA', 'steal-ausente']);
   assert.throws(() => medir.validarOpcoesDaBancada({ pares: 2 }), /exige pelo menos 3 pares/);
@@ -455,6 +478,56 @@ test('MC24: carga externa durante a rodada traz nome e CPU e descarta o par acim
   assert.deepEqual(carga.processos, [{ nome: 'antivirus', cpuMs: 160 }, { nome: 'curto', cpuMs: 40 }]);
   assert.equal(carga.cpuMs, 200);
   perto(carga.pct, 10);
+  assert.deepEqual(medir.resumirCpuDosContainers([
+    [{ id: 'scan', parte: 'varredura', cpuMs: 100 }, { id: 'int', parte: 'integracao', cpuMs: 40 }],
+    [{ id: 'scan', parte: 'varredura', cpuMs: 260 }, { id: 'int', parte: 'integracao', cpuMs: 100 },
+      { id: 'novo', parte: 'varredura', cpuMs: 30 }],
+  ]), { integracaoMs: 60, varreduraMs: 190, rodadaMs: 250, foraMs: 0, foraPresentes: false,
+    proporcaoMensuravel: true, fontesSemMedida: { rodada: false, fora: false } },
+  'contêiner preexistente perde a baseline; o que nasceu na rodada entra inteiro');
+  const processos = new Map([
+    [900001, { ppid: 1, rss: 1, cpuMs: 90, inicio: 'a', nome: 'semgrep-core', cgroup: '/docker/abc' }],
+    [900002, { ppid: 1, rss: 1, cpuMs: 20, inicio: 'b', nome: 'antivirus', cgroup: '/system.slice/fora' }],
+    [900003, { ppid: 1, rss: 1, cpuMs: 70, inicio: 'c', nome: 'dockerd', cgroup: '/system.slice/docker.service' }],
+    [900004, { ppid: 1, rss: 1, cpuMs: 30, inicio: 'd', nome: 'containerd-shim-runc-v2', cgroup: '/system.slice/containerd.service' }],
+  ]);
+  assert.deepEqual(medir.processosExternos(processos, [{ id: 'abc', pid: 0 }]),
+    [{ chave: '900002:b', nome: 'antivirus', cpuMs: 20 }],
+  'processo no cgroup de contêiner criado pela rodada não vira carga de fora');
+  assert.deepEqual(medir.classificarProcessos(processos, [{ id: 'abc', pid: 0 }]).infraestrutura,
+    [{ chave: '900003:c', nome: 'dockerd', cpuMs: 70 },
+      { chave: '900004:d', nome: 'containerd-shim-runc-v2', cpuMs: 30 }], 'daemon e runtime têm linha própria');
+  const amostrasInfra = [
+    [{ chave: 'd:a', nome: 'dockerd', cpuMs: 100 }, { chave: 'c:b', nome: 'containerd', cpuMs: 20 }],
+    [{ chave: 'd:a', nome: 'dockerd', cpuMs: 260 }, { chave: 'c:b', nome: 'containerd', cpuMs: 60 }],
+  ];
+  const semFora = medir.atribuirCpuDaInfraestrutura(amostrasInfra, medir.resumirCpuDosContainers([
+    [{ id: 'scan', parte: 'varredura', cpuMs: 10 }], [{ id: 'scan', parte: 'varredura', cpuMs: 110 }],
+  ]), 1000, 2);
+  assert.deepEqual(semFora, { estado: 'integral', cpuMs: 200, rodadaMs: 200, cargaExternaMs: 0, proporcaoDaRodada: 1,
+    processos: [{ nome: 'dockerd', cpuMs: 160 }, { nome: 'containerd', cpuMs: 40 }],
+    cgroup: { rodadaMs: 100, foraMs: 0, foraPresentes: false, proporcaoMensuravel: true,
+      fontesSemMedida: { rodada: false, fora: false } } });
+  const comFora = medir.atribuirCpuDaInfraestrutura(amostrasInfra, medir.resumirCpuDosContainers([
+    [{ id: 'scan', parte: 'varredura', cpuMs: 10 }, { id: 'alheio', parte: 'fora', daRodada: false, cpuMs: 20 }],
+    [{ id: 'scan', parte: 'varredura', cpuMs: 160 }, { id: 'alheio', parte: 'fora', daRodada: false, cpuMs: 70 }],
+  ]), 1000, 2);
+  assert.equal(comFora.estado, 'proporcional');
+  assert.equal(comFora.rodadaMs, 150);
+  assert.equal(comFora.cargaExternaMs, 50);
+  perto(comFora.proporcaoDaRodada, 0.75);
+  const parcial = medir.atribuirCpuDaInfraestrutura(amostrasInfra, medir.resumirCpuDosContainers([
+    [{ id: 'scan', parte: 'varredura', cpuMs: 10 }, { id: 'alheio', parte: 'fora', daRodada: false, cpuMs: null }],
+    [{ id: 'scan', parte: 'varredura', cpuMs: 160 }, { id: 'alheio', parte: 'fora', daRodada: false, cpuMs: null }],
+  ]), 1000, 2);
+  assert.equal(parcial.estado, 'parcial');
+  assert.equal(parcial.rodadaMs, 0);
+  assert.equal(parcial.cargaExternaMs, 200, 'toda parte em dúvida vira carga de fora');
+  assert.equal(parcial.proporcaoDaRodada, null);
+  const externaComDuvida = medir.cargaExternaComInfraestrutura(carga, parcial, 1000, 2);
+  assert.equal(externaComDuvida.cpuMs, 400);
+  perto(externaComDuvida.pct, 20);
+  assert.deepEqual(externaComDuvida.processos[0], { nome: 'infraestrutura-de-contêiner-não-atribuída', cpuMs: 200 });
   const rodada = (pct: number) => ({ ok: true, duracaoMs: 110, preparoMs: 10, stealPct: 1,
     cargaExterna: { pct, cpuMs: pct, processos: [{ nome: 'antivirus', cpuMs: pct }] } });
   const par = medir.validarPar(rodada(11), rodada(2), ['agile', 'classic'], ['agile', 'classic'], 2, 10);

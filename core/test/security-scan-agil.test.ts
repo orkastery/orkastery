@@ -28,7 +28,8 @@ let cache: string;
 let fake: FakeTools | undefined;
 const salvos: Record<string, string | undefined> = {};
 const CHAVES = ['XDG_CACHE_HOME', 'ORK_FAKE_DOCKER_SLEEP_MS', 'ORK_FAKE_DOCKER_FAIL', 'ORK_CHECK_RELATORIO', 'ORK_CHECK_MODO',
-  'ORK_CHECK_VARREDURA_PARALELA', 'ORK_CHECK_CPUS_DA_LANE', 'ORK_CHECK_CPUS_DOCKER', 'ORK_FAKE_DOCKER_FAIL_COM_CACHE'];
+  'ORK_CHECK_VARREDURA_PARALELA', 'ORK_CHECK_CPUS_DA_LANE', 'ORK_CHECK_CPUS_DOCKER', 'ORK_FAKE_DOCKER_FAIL_COM_CACHE',
+  'ORK_FAKE_SEMGREP_REGISTRY', 'ORK_FAKE_SEMGREP_REGISTRY_DOWN', 'ORK_FAKE_SEMGREP_RULESET_CASE'];
 const limpezas: Array<() => void> = [];
 
 beforeEach(() => {
@@ -107,14 +108,65 @@ test('SA3: o cache persistente do Trivy so e montado no Agile, um por ferramenta
 
 test('SA4: a segunda rodada com a mesma base reaproveita o relatorio da base e da o mesmo resultado', () => {
   const r = repo('sa4');
+  const runsSemgrepDesde = (marco: number) => fake!.calls().slice(marco)
+    .filter(c => c.args[0] === 'run' && c.args.some(a => a.startsWith('ork-security-scan-semgrep-')
+      && !a.startsWith('ork-security-scan-semgrep-registry-')));
   const primeira = runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base });
   const n = fake!.calls().length;
   const segunda = runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base });
-  const runsDaSegunda = fake!.calls().slice(n).filter(c => c.args[0] === 'run');
+  const runsDaSegunda = fake!.calls().slice(n).filter(c => c.args[0] === 'run'
+    && c.args.some(a => a.startsWith('ork-security-scan-'))
+    && !c.args.some(a => a.startsWith('ork-security-scan-semgrep-registry-')));
   assert.deepEqual(achados(segunda), achados(primeira));
+  assert.equal(runsSemgrepDesde(n).length, 0,
+    'o Semgrep morno preserva check_id e impressoes digitais sem refazer a arvore');
   // Na segunda, so a HEAD e varrida: nenhuma montagem da arvore da base (a segunda arvore do retrato).
   const arvores = new Set(runsDaSegunda.map(c => c.args[c.args.indexOf('-v') + 1].split(':')[0]));
-  assert.equal(arvores.size, 1, `so a arvore do HEAD: ${[...arvores].join(', ')}`);
+  assert.ok(arvores.size <= 1, `nenhuma arvore ou so a do HEAD: ${[...arvores].join(', ')}`);
+
+  const fonteAgile = repo('sa4-fonte-agile');
+  runScanAgil({ root: fonteAgile.dir, stateRoot: fonteAgile.dir, base: fonteAgile.base });
+  const fonte = path.join(fonteAgile.dir, 'src', 'server.js');
+  const conteudoMudado = fs.readFileSync(fonte, 'utf8') + '\n// conteúdo alterado na M7\n';
+  fonteAgile.commit!('src/server.js', conteudoMudado);
+  const marco = fake!.calls().length;
+  const agileMudado = runScanAgil({ root: fonteAgile.dir, stateRoot: fonteAgile.dir, base: fonteAgile.base });
+  assert.ok(runsSemgrepDesde(marco).length > 0,
+    'arquivo alterado nunca reutiliza o achado antigo sem nova varredura');
+  const fonteClassic = repo('sa4-fonte-classic');
+  fonteClassic.commit!('src/server.js', conteudoMudado);
+  const classicMudado = runScan({ root: fonteClassic.dir, stateRoot: fonteClassic.dir, base: fonteClassic.base });
+  assert.deepEqual(achados(agileMudado), achados(classicMudado), 'a varredura parcial mantém a paridade com o Classic');
+
+  const regras = repo('sa4-regras');
+  runScanAgil({ root: regras.dir, stateRoot: regras.dir, base: regras.base });
+  process.env.ORK_FAKE_SEMGREP_REGISTRY = '{"rules":[{"id":"regra-nova","languages":["javascript"],"message":"nova","severity":"ERROR","pattern":"novo(...)"}]}';
+  process.env.ORK_FAKE_SEMGREP_RULESET_CASE = 'empty';
+  const regraMudou = fake!.calls().length;
+  const agileComRegraNova = runScanAgil({ root: regras.dir, stateRoot: regras.dir, base: regras.base });
+  assert.ok(runsSemgrepDesde(regraMudou).length > 0, 'conteúdo novo do ruleset invalida o cache com a fonte igual');
+  const classicRegras = repo('sa4-regras-classic');
+  const classicComRegraNova = runScan({ root: classicRegras.dir, stateRoot: classicRegras.dir, base: classicRegras.base });
+  assert.deepEqual(achados(agileComRegraNova), achados(classicComRegraNova), 'o Agile acha o mesmo que o Classic depois da mudança');
+
+  delete process.env.ORK_FAKE_SEMGREP_RULESET_CASE;
+
+  const multifile = repo('sa4-multifile');
+  process.env.ORK_FAKE_SEMGREP_REGISTRY = '{"rules":[{"id":"entre-arquivos","mode":"join","join":{"on":[]}}]}';
+  runScanAgil({ root: multifile.dir, stateRoot: multifile.dir, base: multifile.base });
+  const marcoMultifile = fake!.calls().length;
+  const segundaMultifile = runScanAgil({ root: multifile.dir, stateRoot: multifile.dir, base: multifile.base });
+  assert.ok(runsSemgrepDesde(marcoMultifile).length > 0, 'regra entre arquivos sempre roda inteira');
+  assert.match(segundaMultifile.check!.pecas.find(p => p.peca === 'cache-semgrep')!.motivo ?? '', /regra-entre-arquivos/);
+
+  delete process.env.ORK_FAKE_SEMGREP_REGISTRY;
+  process.env.ORK_FAKE_SEMGREP_REGISTRY_DOWN = '1';
+  const indisponivel = repo('sa4-registro-indisponivel');
+  runScanAgil({ root: indisponivel.dir, stateRoot: indisponivel.dir, base: indisponivel.base });
+  const marcoIndisponivel = fake!.calls().length;
+  const segundaIndisponivel = runScanAgil({ root: indisponivel.dir, stateRoot: indisponivel.dir, base: indisponivel.base });
+  assert.ok(runsSemgrepDesde(marcoIndisponivel).length > 0, 'registro indisponível sempre roda inteiro');
+  assert.match(segundaIndisponivel.check!.pecas.find(p => p.peca === 'cache-semgrep')!.motivo ?? '', /registro-indisponivel/);
 });
 
 test('SA5: falha de uma ferramenta sai igual nos dois modos (failed com o mesmo motivo), sem derrubar as outras', () => {
@@ -156,9 +208,9 @@ test('SA7: as pecas do Agile vao ao relatorio (check.pecas) e ao ORK_CHECK_RELAT
   process.env.ORK_CHECK_RELATORIO = relatorio;
   const agile = runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base });
   const pecas = agile.check!.pecas.map(p => `${p.peca}:${p.estado}`);
-  assert.deepEqual(pecas, ['varredura-paralela:agile', 'cache-semgrep:fallback', 'binarios-nativos:fallback', 'semgrep-prazo-por-regra:agile',
+  assert.deepEqual(pecas, ['varredura-paralela:agile', 'varredura-incremental:agile', 'cache-semgrep:agile', 'binarios-nativos:fallback', 'semgrep-prazo-por-regra:agile',
     'cache-trivy-vuln:agile', 'cache-trivy-config:agile', 'imagem-de-lint:agile', 'cache-trivy-license:agile']);
-  assert.equal(agile.check!.pecas.find(p => p.peca === 'cache-semgrep')!.fallback, 'regras do registro a cada rodada, como no Classic');
+  assert.match(agile.check!.pecas.find(p => p.peca === 'cache-semgrep')!.motivo ?? '', /check_id/);
   const linhas = fs.readFileSync(relatorio, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l) as Record<string, unknown>);
   assert.deepEqual(linhas.map(l => `${String(l.tipo)}:${String(l.peca)}:${String(l.estado)}`), pecas.map(p => `peca:${p}`));
 });
@@ -177,7 +229,8 @@ test('SA8: sem diretorio de cache, o Trivy do Agile cai para o cache efemero do 
 test('SA9: o Semgrep do Agile roda com 30 s por regra (o padrao dele e 5 s), e o do Classic sem a opcao', () => {
   const r = repo('sa9');
   runScan({ root: r.dir, stateRoot: r.dir, base: r.base });
-  const semgrep = () => fake!.calls().filter(c => c.args[0] === 'run' && c.args.some(a => a.startsWith('ork-security-scan-semgrep-')));
+  const semgrep = () => fake!.calls().filter(c => c.args[0] === 'run' && c.args.some(a => a.startsWith('ork-security-scan-semgrep-')
+    && !a.startsWith('ork-security-scan-semgrep-registry-')));
   const doClassic = semgrep();
   assert.ok(doClassic.length > 0 && doClassic.every(c => !c.args.includes('--timeout')));
   runScanAgil({ root: r.dir, stateRoot: r.dir, base: r.base });

@@ -1,0 +1,530 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm074m7medid",
+  "branch": "ork/ork-rm074m7medid-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "alegacao": "A bancada atribui os contêineres da integração e da varredura à CPU da rodada, deixa na carga externa apenas processos alheios e calcula separadamente as razões fria e morna.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='^(MC21|MC23|MC24):' core/dist-test/test/medir-check.test.js"
+      ],
+      "criadoEm": "2026-10-31T18:21:49.450Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/medir-check.test.ts",
+      "alegacao": "Os cenários sintéticos provam a separação da CPU da rodada, o limiar exclusivo da carga externa e as razões independentes das rodadas fria e morna.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='^(MC21|MC23|MC24):' core/dist-test/test/medir-check.test.js"
+      ],
+      "criadoEm": "2026-10-31T18:21:49.507Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/src/agendador-cpu.ts",
+      "alegacao": "A medição da integração carrega anomalia e motivos tipados para lacunas de contêiner.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='^(AG49|AG50):' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-10-31T18:23:44.300Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-paralelo.ts",
+      "alegacao": "A sonda calcula deltas por fonte, rejeita pico acima da CPU da máquina, procura cgroups por PID, systemd e cgroup v2 e só grava perfil completo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='^(AG49|AG50):' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-10-31T18:23:44.363Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "A evidência do agendador informa a anomalia ou o motivo de cada contêiner sem medição.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='^(AG49|AG50):' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-10-31T18:23:44.417Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/check-agil.test.ts",
+      "alegacao": "Os cenários AG49 e AG50 provam o limite físico do plano, a baseline por fonte, a entrada de fonte nova e a rejeição de pico impossível.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='^(AG49|AG50):' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-10-31T18:23:44.464Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/incremental.ts",
+      "alegacao": "O cache do Agile fica fora do repositório, é chaveado por versão, regras e conteúdo, reutiliza somente resultado aprovado e invalida arquivo ou lockfile alterado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node -e \"const a=require('node:assert').strict,fs=require('node:fs'),os=require('node:os'),p=require('node:path'),m=require('./core/dist/security-scan/incremental.js'); const d=fs.mkdtempSync(p.join(os.tmpdir(),'ork-inc-')),old=process.env.XDG_CACHE_HOME; process.env.XDG_CACHE_HOME=d; const tree=p.join(d,'tree'); fs.mkdirSync(tree); fs.writeFileSync(p.join(tree,'a.js'),'um'); const tool={name:'semgrep',category:'sast',stacks:'all',image:'x@sha256:y',version:'1',network:'none',baseMode:'worktree',timeoutMs:1,args:[],argsByStack:{js:['semgrep','{stackDir}']},expect:{files:[],shape:'object'}}; const trabalho={tool,units:[{stack:'js',dir:'.'}],config:{tools:{},stacks:{add:[],remove:[]},exclude:[]},ctx:{headTree:tree,mainRoot:tree,base:'b',head:'h',rangeCommits:1,deadline:null}}; const resultado={run:{name:'semgrep',category:'sast',version:'1',executor:'docker',state:'ran',counts:{}},head:[{tool:'semgrep',rule:'r',category:'sast',severity:'high',file:'a.js',message:'m',snippet:'s'}],base:[]}; m.gravarCacheIncremental(trabalho,tool,resultado); a.equal(m.consultarCacheIncremental(trabalho,tool).reutilizado.head[0].rule,'r'); fs.writeFileSync(p.join(tree,'a.js'),'dois'); const c=m.consultarCacheIncremental(trabalho,tool); a.equal(c.reutilizado,null); a.deepEqual(c.alterados,['a.js']); fs.rmSync(d,{recursive:true,force:true}); if(old===undefined) delete process.env.XDG_CACHE_HOME; else process.env.XDG_CACHE_HOME=old;\""
+      ],
+      "criadoEm": "2026-10-31T18:26:34.700Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/run.ts",
+      "alegacao": "O contrato do trabalhador distingue explicitamente a varredura incremental do Agile sem mudar o caminho do Classic.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node -e \"const a=require('node:assert').strict,fs=require('node:fs'),os=require('node:os'),p=require('node:path'),m=require('./core/dist/security-scan/incremental.js'); const d=fs.mkdtempSync(p.join(os.tmpdir(),'ork-inc-')),old=process.env.XDG_CACHE_HOME; process.env.XDG_CACHE_HOME=d; const tree=p.join(d,'tree'); fs.mkdirSync(tree); fs.writeFileSync(p.join(tree,'a.js'),'um'); const tool={name:'semgrep',category:'sast',stacks:'all',image:'x@sha256:y',version:'1',network:'none',baseMode:'worktree',timeoutMs:1,args:[],argsByStack:{js:['semgrep','{stackDir}']},expect:{files:[],shape:'object'}}; const trabalho={tool,units:[{stack:'js',dir:'.'}],config:{tools:{},stacks:{add:[],remove:[]},exclude:[]},ctx:{headTree:tree,mainRoot:tree,base:'b',head:'h',rangeCommits:1,deadline:null}}; const resultado={run:{name:'semgrep',category:'sast',version:'1',executor:'docker',state:'ran',counts:{}},head:[{tool:'semgrep',rule:'r',category:'sast',severity:'high',file:'a.js',message:'m',snippet:'s'}],base:[]}; m.gravarCacheIncremental(trabalho,tool,resultado); a.equal(m.consultarCacheIncremental(trabalho,tool).reutilizado.head[0].rule,'r'); fs.writeFileSync(p.join(tree,'a.js'),'dois'); const c=m.consultarCacheIncremental(trabalho,tool); a.equal(c.reutilizado,null); a.deepEqual(c.alterados,['a.js']); fs.rmSync(d,{recursive:true,force:true}); if(old===undefined) delete process.env.XDG_CACHE_HOME; else process.env.XDG_CACHE_HOME=old;\""
+      ],
+      "criadoEm": "2026-10-31T18:26:34.742Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/trabalhador.ts",
+      "alegacao": "O trabalhador reaproveita achados do Semgrep por arquivo inalterado, varre apenas arquivos alterados e conserva a base para a mesma comparação.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node -e \"const a=require('node:assert').strict,fs=require('node:fs'),os=require('node:os'),p=require('node:path'),m=require('./core/dist/security-scan/incremental.js'); const d=fs.mkdtempSync(p.join(os.tmpdir(),'ork-inc-')),old=process.env.XDG_CACHE_HOME; process.env.XDG_CACHE_HOME=d; const tree=p.join(d,'tree'); fs.mkdirSync(tree); fs.writeFileSync(p.join(tree,'a.js'),'um'); const tool={name:'semgrep',category:'sast',stacks:'all',image:'x@sha256:y',version:'1',network:'none',baseMode:'worktree',timeoutMs:1,args:[],argsByStack:{js:['semgrep','{stackDir}']},expect:{files:[],shape:'object'}}; const trabalho={tool,units:[{stack:'js',dir:'.'}],config:{tools:{},stacks:{add:[],remove:[]},exclude:[]},ctx:{headTree:tree,mainRoot:tree,base:'b',head:'h',rangeCommits:1,deadline:null}}; const resultado={run:{name:'semgrep',category:'sast',version:'1',executor:'docker',state:'ran',counts:{}},head:[{tool:'semgrep',rule:'r',category:'sast',severity:'high',file:'a.js',message:'m',snippet:'s'}],base:[]}; m.gravarCacheIncremental(trabalho,tool,resultado); a.equal(m.consultarCacheIncremental(trabalho,tool).reutilizado.head[0].rule,'r'); fs.writeFileSync(p.join(tree,'a.js'),'dois'); const c=m.consultarCacheIncremental(trabalho,tool); a.equal(c.reutilizado,null); a.deepEqual(c.alterados,['a.js']); fs.rmSync(d,{recursive:true,force:true}); if(old===undefined) delete process.env.XDG_CACHE_HOME; else process.env.XDG_CACHE_HOME=old;\""
+      ],
+      "criadoEm": "2026-10-31T18:26:34.791Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/agil.ts",
+      "alegacao": "A varredura Agile ativa cache por conteúdo para Semgrep e dependências, preservando check_id e deixando ferramentas sem garantia no caminho integral.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node -e \"const a=require('node:assert').strict,fs=require('node:fs'),os=require('node:os'),p=require('node:path'),m=require('./core/dist/security-scan/incremental.js'); const d=fs.mkdtempSync(p.join(os.tmpdir(),'ork-inc-')),old=process.env.XDG_CACHE_HOME; process.env.XDG_CACHE_HOME=d; const tree=p.join(d,'tree'); fs.mkdirSync(tree); fs.writeFileSync(p.join(tree,'a.js'),'um'); const tool={name:'semgrep',category:'sast',stacks:'all',image:'x@sha256:y',version:'1',network:'none',baseMode:'worktree',timeoutMs:1,args:[],argsByStack:{js:['semgrep','{stackDir}']},expect:{files:[],shape:'object'}}; const trabalho={tool,units:[{stack:'js',dir:'.'}],config:{tools:{},stacks:{add:[],remove:[]},exclude:[]},ctx:{headTree:tree,mainRoot:tree,base:'b',head:'h',rangeCommits:1,deadline:null}}; const resultado={run:{name:'semgrep',category:'sast',version:'1',executor:'docker',state:'ran',counts:{}},head:[{tool:'semgrep',rule:'r',category:'sast',severity:'high',file:'a.js',message:'m',snippet:'s'}],base:[]}; m.gravarCacheIncremental(trabalho,tool,resultado); a.equal(m.consultarCacheIncremental(trabalho,tool).reutilizado.head[0].rule,'r'); fs.writeFileSync(p.join(tree,'a.js'),'dois'); const c=m.consultarCacheIncremental(trabalho,tool); a.equal(c.reutilizado,null); a.deepEqual(c.alterados,['a.js']); fs.rmSync(d,{recursive:true,force:true}); if(old===undefined) delete process.env.XDG_CACHE_HOME; else process.env.XDG_CACHE_HOME=old;\""
+      ],
+      "criadoEm": "2026-10-31T18:26:34.839Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/security-scan-agil.test.ts",
+      "alegacao": "Os cenários existentes exigem paridade de achados e impressões digitais com o Classic e que a rodada morna não execute novamente o Semgrep.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node -e \"const a=require('node:assert').strict,fs=require('node:fs'),os=require('node:os'),p=require('node:path'),m=require('./core/dist/security-scan/incremental.js'); const d=fs.mkdtempSync(p.join(os.tmpdir(),'ork-inc-')),old=process.env.XDG_CACHE_HOME; process.env.XDG_CACHE_HOME=d; const tree=p.join(d,'tree'); fs.mkdirSync(tree); fs.writeFileSync(p.join(tree,'a.js'),'um'); const tool={name:'semgrep',category:'sast',stacks:'all',image:'x@sha256:y',version:'1',network:'none',baseMode:'worktree',timeoutMs:1,args:[],argsByStack:{js:['semgrep','{stackDir}']},expect:{files:[],shape:'object'}}; const trabalho={tool,units:[{stack:'js',dir:'.'}],config:{tools:{},stacks:{add:[],remove:[]},exclude:[]},ctx:{headTree:tree,mainRoot:tree,base:'b',head:'h',rangeCommits:1,deadline:null}}; const resultado={run:{name:'semgrep',category:'sast',version:'1',executor:'docker',state:'ran',counts:{}},head:[{tool:'semgrep',rule:'r',category:'sast',severity:'high',file:'a.js',message:'m',snippet:'s'}],base:[]}; m.gravarCacheIncremental(trabalho,tool,resultado); a.equal(m.consultarCacheIncremental(trabalho,tool).reutilizado.head[0].rule,'r'); fs.writeFileSync(p.join(tree,'a.js'),'dois'); const c=m.consultarCacheIncremental(trabalho,tool); a.equal(c.reutilizado,null); a.deepEqual(c.alterados,['a.js']); fs.rmSync(d,{recursive:true,force:true}); if(old===undefined) delete process.env.XDG_CACHE_HOME; else process.env.XDG_CACHE_HOME=old;\""
+      ],
+      "criadoEm": "2026-10-31T18:26:34.884Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/security-scan-repo-fixture.ts",
+      "alegacao": "A fixture versionada pode criar um novo HEAD alterando um arquivo, para provar invalidação do cache sem reconstruir o repositório.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='^(MC21|MC24):' core/dist-test/test/medir-check.test.js"
+      ],
+      "criadoEm": "2026-10-31T18:28:52.026Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m7.json",
+      "alegacao": "Mutante M1 morre quando um contêiner criado pela rodada volta a ser contado como carga de fora.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m7.json M1"
+      ],
+      "criadoEm": "2026-10-31T18:29:18.878Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m7.json",
+      "alegacao": "Mutante M2 morre quando a sonda aceita pico da integração acima da CPU da máquina.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m7.json M2"
+      ],
+      "criadoEm": "2026-10-31T18:29:18.942Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m7.json",
+      "alegacao": "Mutante M3 morre quando o cache morno do Semgrep troca o check_id preservado.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m7.json M3"
+      ],
+      "criadoEm": "2026-10-31T18:29:18.991Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m7.json",
+      "alegacao": "Mutante M4 morre quando um achado é reaproveitado depois de o conteúdo do arquivo mudar.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m7.json M4"
+      ],
+      "criadoEm": "2026-10-31T18:29:19.041Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m7.json",
+      "alegacao": "Mutante M5 morre quando a razão morna é somada à razão fria.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m7.json M5"
+      ],
+      "criadoEm": "2026-10-31T18:29:19.089Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/mutante.cjs",
+      "alegacao": "O executor de mutantes aceita módulos compilados em um subdiretório controlado, sem ampliar nomes de teste nem alvos fora de core/dist.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"const MODULO.*\\\\/\\|const TESTE\" core/scripts/mutante.cjs",
+        "npm --prefix core run build:test"
+      ],
+      "criadoEm": "2026-10-31T18:29:22.634Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+      "alegacao": "A página registra o diagnóstico da M6 apenas em razão, percentuais de CPU e eficiência, documenta a M7 por tópicos e não afirma ganho antes de três pares válidos.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar --pr",
+        "node core/scripts/checar-changelog.cjs --base origin/main",
+        "grep -n \"Resultado da bancada M6 e M7\\|Varredura por conteúdo e bancada fria/morna\" docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-31T18:30:08.507Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG inclui uma linha nova da M7 somente em Não publicado, preserva o Classic e deixa razão, CPU e eficiência pendentes da bancada válida.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar --pr",
+        "node core/scripts/checar-changelog.cjs --base origin/main",
+        "grep -n \"Resultado da bancada M6 e M7\\|Varredura por conteúdo e bancada fria/morna\" docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-31T18:30:08.651Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "alegacao": "A bancada separa a CPU da infraestrutura de contêiner, atribui-a integral ou proporcionalmente à rodada e leva toda parcela incerta à carga de fora.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='^MC24:' core/dist-test/test/medir-check.test.js"
+      ],
+      "criadoEm": "2026-10-31T19:13:21.489Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/medir-check.test.ts",
+      "alegacao": "MC24 prova infraestrutura sem contêiner de fora, repartição proporcional, atribuição parcial e limiar aplicado somente à carga alheia ou incerta.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='^MC24:' core/dist-test/test/medir-check.test.js"
+      ],
+      "criadoEm": "2026-10-31T19:13:21.547Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/incremental.ts",
+      "alegacao": "A identidade incremental do Semgrep inclui o hash do conteúdo resolvido das regras e desabilita cache para regra entre arquivos ou registro indisponível.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='^SA4:' core/dist-test/test/security-scan-agil.test.js"
+      ],
+      "criadoEm": "2026-10-31T19:18:55.422Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/run.ts",
+      "alegacao": "O trabalho do Semgrep transporta somente a identidade e o estado seguro das regras resolvidas para o trabalhador Agile.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='^SA4:' core/dist-test/test/security-scan-agil.test.js"
+      ],
+      "criadoEm": "2026-10-31T19:18:55.484Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/src/security-scan/agil.ts",
+      "alegacao": "A peça cache-semgrep registra uso do hash ou o motivo do fallback integral sem alterar o caminho Classic.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='^SA4:' core/dist-test/test/security-scan-agil.test.js"
+      ],
+      "criadoEm": "2026-10-31T19:18:55.533Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/security-scan-agil.test.ts",
+      "alegacao": "SA4 prova mudança de conteúdo com fonte igual, regra entre arquivos e registro indisponível, preservando paridade com o Classic.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='^SA4:' core/dist-test/test/security-scan-agil.test.js"
+      ],
+      "criadoEm": "2026-10-31T19:18:55.587Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/security-scan-docker-falso.ts",
+      "alegacao": "O falso Docker simula conteúdo e indisponibilidade do mesmo registro usado na identidade do Semgrep.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='^SA4:' core/dist-test/test/security-scan-agil.test.js"
+      ],
+      "criadoEm": "2026-10-31T19:18:55.637Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m7.json",
+      "alegacao": "Os mutantes M6 a M9 isolam daemon externo, hash ignorado, regra entre arquivos e registro indisponível.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m7.json M6",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m7.json M7",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m7.json M8",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m7.json M9"
+      ],
+      "criadoEm": "2026-10-31T19:18:55.680Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A linha M7 em Não publicado registra os dois contratos corrigidos sem prometer ganho.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main",
+        "grep -n 'infraestrutura de contêiner\\|conteúdo das regras\\|registro indisponível' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-31T19:18:55.726Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+      "alegacao": "A seção M7 documenta atribuição da infraestrutura e fallback conservador do cache sem publicar números novos.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main",
+        "grep -n 'infraestrutura de contêiner\\|conteúdo das regras\\|registro indisponível' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-31T19:18:55.768Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/security-scan-agil.test.ts",
+      "alegacao": "O cenário SA7 preserva no relatório a peça do cache do Semgrep e seu estado tipado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='^SA7:' core/dist-test/test/security-scan-agil.test.js"
+      ],
+      "criadoEm": "2026-10-31T19:56:16.905Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/test/sensores-cenarios.test.ts",
+      "alegacao": "O teste só repete em nova sandbox quando a única divergência é a latência de parede e a segunda execução precisa provar o cenário completo; qualquer outra divergência reprova imediatamente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && grep -n \"divergencias.length === 1.*hookAbaixo5s\\|timeout: 15000\" core/test/sensores-cenarios.test.ts core/src/cenarios-sensores.ts"
+      ],
+      "criadoEm": "2026-11-01T06:25:34.104Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm074m7medid",
+      "fase": "GOAL",
+      "arquivo": "core/src/cenarios-sensores.ts",
+      "alegacao": "O cenário integrado mantém a meta funcional de cinco segundos, mas separa dela o prazo de transporte necessário sob concorrência do Classic.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && grep -n \"divergencias.length === 1.*hookAbaixo5s\\|timeout: 15000\" core/test/sensores-cenarios.test.ts core/src/cenarios-sensores.ts"
+      ],
+      "criadoEm": "2026-11-01T06:25:34.604Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}

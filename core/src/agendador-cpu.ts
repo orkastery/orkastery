@@ -36,6 +36,10 @@ export interface MedicaoCpuDaIntegracao {
   completa: boolean;
   containers: string[];
   ausentes: string[];
+  /** Explica por que cada conteiner registrado nao entrou na medicao, sem esconder a lacuna no perfil. */
+  motivosDosAusentes: Array<{ container: string; motivo: string }>;
+  /** Uma conta acima da capacidade fisica invalida o perfil, em vez de ensinar uma reserva impossivel. */
+  anomalia: string | null;
 }
 
 export interface PlanoCpuDoGrupo {

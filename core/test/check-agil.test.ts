@@ -14,7 +14,7 @@ import { adicionarClaim } from '../src/claims';
 import { assinaturaDoAmbiente, elosDoComando, executorDaClaimPelasLanes, GuardaDoProduto, hashDoProduto,
   MAXIMO_DE_PREPAROS_REFEITOS, paralelismoDaVarreduraNoGrupo, passosDoComando, PECA_SEM_RELATORIO, RelatorioDoCheck,
   testDasLanes, TETO_DO_RELATORIO_BYTES, tirarPassosDoPreparo, tirarPassosDoPreparoAposLeituras } from '../src/check-agil';
-import { argvDoItem, chaveDoPerfilIntegracao, rodarEmParalelo } from '../src/check-paralelo';
+import { argvDoItem, chaveDoPerfilIntegracao, picoCpuPorFonte, rodarEmParalelo } from '../src/check-paralelo';
 import { cargaDoProcLoadavg, paredeAgileSimulada, paredeClassicaSimulada, planejarCpuDoGrupo } from '../src/agendador-cpu';
 import { lerLedger } from '../src/ledger';
 import { carregarManifesto } from '../src/manifest';
@@ -1170,5 +1170,13 @@ test('AG50: o perfil medido da integracao so vale para os mesmos testes compilad
       'teste novo na lista invalida a medida');
     fs.rmSync(path.join(testes, 'a.test.js'));
     assert.notEqual(chave(), mudou, 'teste que some invalida a medida');
+    assert.deepEqual(picoCpuPorFonte([
+      { em: 0, fontes: { antigo: 900 } },
+      { em: 100, fontes: { antigo: 950, novo: 20 } },
+      { em: 200, fontes: { antigo: 1000, novo: 50 } },
+    ], 2), { picoCpus: 0.8, anomalia: null }, 'a baseline antiga nao entra; fonte nova entra so desde que nasceu');
+    const impossivel = picoCpuPorFonte([{ em: 0, fontes: {} }, { em: 100, fontes: { novo: 801 } }], 8);
+    assert.equal(impossivel.picoCpus, null, 'pico acima da maquina nunca vira perfil');
+    assert.match(impossivel.anomalia ?? '', /excede a capacidade/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
