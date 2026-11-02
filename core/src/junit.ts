@@ -9,7 +9,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { TextDecoder } from 'node:util';
-import type { EvidenciaJUnit, Manifesto, ResultadoDeComando } from './types';
+import type { EvidenciaJUnit, Manifesto, MarcacaoDeRelogio, ResultadoDeComando } from './types';
 import { procurarSegredos } from './policies';
 import { redigirCredenciaisUrl } from './redacao-url';
 
@@ -256,6 +256,22 @@ export function caminhoJUnitDoComando(manifesto: Manifesto, nome: string): strin
   return manifesto.verify.junit?.[nome as keyof NonNullable<Manifesto['verify']['junit']>];
 }
 
+/** A marcacao fechada que acompanha o relatorio do mesmo comando ou lane. */
+export function marcacaoDeRelogioDoComando(manifesto: Manifesto, nome: string): MarcacaoDeRelogio | undefined {
+  if (nome.startsWith('test:')) return manifesto.check?.agile?.relogio?.[nome.slice('test:'.length)];
+  return manifesto.verify.relogio?.[nome as keyof NonNullable<Manifesto['verify']['relogio']>];
+}
+
+/** Nome e granular; marcador e tag declaram que o proprio comando ja selecionou aquela categoria. */
+function casoMedeRelogio(nome: string, marcacao: MarcacaoDeRelogio | undefined): boolean {
+  if (!marcacao) return false;
+  if ('marcador' in marcacao || 'tag' in marcacao) return true;
+  return marcacao.nome.some((padrao) => {
+    try { return new RegExp(padrao).test(nome); }
+    catch { return false; }
+  });
+}
+
 type DiretorioAncorado = { ok: true; descritor: number; alvo: string }
   | { ok: false; estado: EvidenciaJUnit['estado']; motivo: string };
 
@@ -433,13 +449,14 @@ export function lerRelatorioJUnit(preparado: RelatorioJUnitPreparado): { evidenc
 }
 
 /** Anexa estatisticas e, em comando vermelho, substitui o extrator de stdout pelos nomes completos do XML. */
-export function anexarRelatorioJUnit(resultado: ResultadoDeComando, preparado: RelatorioJUnitPreparado): ResultadoDeComando {
+export function anexarRelatorioJUnit(resultado: ResultadoDeComando, preparado: RelatorioJUnitPreparado,
+  marcacao?: MarcacaoDeRelogio): ResultadoDeComando {
   const lido = lerRelatorioJUnit(preparado);
   if (!lido.relatorio) return { ...resultado, junit: lido.evidencia };
   if (resultado.ok) return { ...resultado, junit: lido.evidencia };
   const caidos = lido.relatorio.casos.filter((c) => c.estado === 'falhou' || c.estado === 'erro').map((c) => c.nome);
   const base: ResultadoDeComando = { ...resultado, junit: lido.evidencia, testeQueCaiu: caidos,
-    falhasDeTeste: caidos.map((nome) => ({ nome, relogio: false })) };
+    falhasDeTeste: caidos.map((nome) => ({ nome, relogio: casoMedeRelogio(nome, marcacao) })) };
   if (caidos.length > 0) return base;
   const { testeQueCaiu: _testes, falhasDeTeste: _falhas, ...semNomes } = base;
   return semNomes;

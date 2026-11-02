@@ -3,7 +3,12 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { lerLedger } from '../src/ledger';
+import { comLocale } from '../src/locale';
 import { carregarManifesto, NOME_MANIFESTO } from '../src/manifest';
+import { dirThread, novaThread } from '../src/thread';
+import { ResultadoDeComando } from '../src/types';
+import { gravarBaseline, textoDoVerify, verificar } from '../src/verify';
 import { projetoTemporario, ProjetoDeTeste } from './apoio';
 
 function comVerify(p: ProjetoDeTeste, linhas: string, check = '') {
@@ -72,4 +77,92 @@ test('RM081 F2 M2: manifesto recusa marcacao ambigua, vazia, desconhecida ou com
       assert.ok(lido.erros.some((e) => esperado.test(e)), lido.erros.join(' | '));
     } finally { p.limpar(); }
   }
+});
+
+function resultado(nome: string, comando: string, ok: boolean): ResultadoDeComando {
+  return { nome, comando, ok, code: ok ? 0 : 1, resumo: '', causa: 'exit', executado: true, duracaoMs: 1 };
+}
+
+function xml(falhas: readonly string[]): string {
+  const nomes = [...new Set(['mede tempo', 'afirma comum', ...falhas])];
+  return `<testsuite>${nomes.map((nome) => `<testcase classname="runner" name="${nome}">` +
+    (falhas.includes(nome) ? '<failure/>' : '') + '</testcase>').join('')}</testsuite>`;
+}
+
+/** Janela sintetica com a mesma porcentagem em todas as leituras do verify e do comando. */
+function procStatComSteal(pct: number): () => string {
+  let n = 0;
+  return () => {
+    n++;
+    return `cpu  1000 0 500 ${2_000_000 + n * (100 - pct)} 0 0 0 ${n * pct} 0 0\n`;
+  };
+}
+
+function cenarioClassic(nome: string, pct: number, falhas: string[], retesteOk = true,
+  comFiltro = true): { p: ProjetoDeTeste; thread: string; comandos: string[]; r: ReturnType<typeof verificar> } {
+  const p = projetoTemporario(nome);
+  fs.mkdirSync(path.join(p.dir, 'reports'));
+  p.carregado.manifesto.verify = { test: 'runner completo', junit: { test: 'reports/junit.xml' },
+    ...(comFiltro ? { filtro: { test: 'runner parcial {testes}' } } : {}),
+    relogio: { test: { nome: ['tempo$'] } } };
+  p.carregado.manifesto.check = { mode: 'classic' };
+  const thread = novaThread(p.carregado, { nome, modo: 'auto' }).thread.id;
+  gravarBaseline(p.carregado, thread, (n, comando) => {
+    fs.writeFileSync(path.join(p.dir, 'reports/junit.xml'), xml([]));
+    return resultado(n, comando, true);
+  }, {}, 'cli', procStatComSteal(0), 'classic');
+  const comandos: string[] = [];
+  const r = verificar(p.carregado, thread, { check: 'classic', lerProcStat: procStatComSteal(pct),
+    executor: (n, comando) => {
+      comandos.push(comando);
+      const segunda = comandos.length > 1;
+      const destaPassagem = segunda ? (retesteOk ? [] : ['mede tempo']) : falhas;
+      fs.writeFileSync(path.join(p.dir, 'reports/junit.xml'), xml(destaPassagem));
+      return resultado(n, comando, destaPassagem.length === 0);
+    } });
+  return { p, thread, comandos, r };
+}
+
+test('RM081 F2 V1: steal alto protege somente marcados e a segunda rodada usa o filtro existente sem ficar verde', () => {
+  const c = cenarioClassic('rm081-f2-protegido', 70, ['mede tempo']);
+  try {
+    assert.deepEqual(c.comandos, ['runner completo', "runner parcial 'runner :: mede tempo'"]);
+    assert.equal(c.r.ok, false, 'a segunda rodada verde nao promove o primeiro resultado a verde');
+    assert.deepEqual(c.r.motivos, ['verify.timeout']);
+    assert.deepEqual(c.r.estouros[0].relogioSobSteal, ['runner :: mede tempo']);
+    assert.deepEqual(c.r.estouros[0].retesteDeRelogio,
+      { testes: ['runner :: mede tempo'], estado: 'passou', code: 0 });
+  } finally { c.p.limpar(); }
+});
+
+test('RM081 F2 V2: assercao comum sob steal e teste marcado sem steal alto continuam regressao', () => {
+  const comum = cenarioClassic('rm081-f2-comum', 80, ['mede tempo', 'afirma comum']);
+  try {
+    assert.deepEqual(comum.comandos, ['runner completo'], 'falha comum impede qualquer reteste atenuante');
+    assert.deepEqual(comum.r.regressoes.map((x) => x.nome), ['test']);
+    assert.ok(!comum.r.motivos.includes('verify.timeout'));
+  } finally { comum.p.limpar(); }
+
+  const semSteal = cenarioClassic('rm081-f2-sem-steal', 40, ['mede tempo']);
+  try {
+    assert.deepEqual(semSteal.comandos, ['runner completo']);
+    assert.deepEqual(semSteal.r.regressoes.map((x) => x.nome), ['test']);
+    assert.ok(!semSteal.r.motivos.includes('verify.timeout'));
+  } finally { semSteal.p.limpar(); }
+});
+
+test('RM081 F2 L1: ledger e texto pt-BR e ingles dizem nomes, steal e resultado da segunda rodada', () => {
+  const c = cenarioClassic('rm081-f2-ledger', 75, ['mede tempo'], false);
+  try {
+    const evento = lerLedger(dirThread(c.p.dir, c.thread)).filter((e) => e.tipo === 'verify_run').at(-1)!;
+    const comando = (evento.comandos as Array<Record<string, unknown>>)[0];
+    assert.deepEqual(comando.retesteDeRelogio,
+      { testes: ['runner :: mede tempo'], estado: 'reprovou', code: 1 });
+    const pt = comLocale('pt-BR', () => textoDoVerify(c.r));
+    const en = comLocale('en', () => textoDoVerify(c.r));
+    assert.match(pt, /relogio protegido: runner :: mede tempo; steal 75%; segunda rodada reprovou \(codigo 1\)/);
+    assert.match(en, /protected clock test\(s\): runner :: mede tempo; 75% steal; second run failed \(exit 1\)/);
+    const gate = lerLedger(dirThread(c.p.dir, c.thread)).filter((e) => e.tipo === 'gate_blocked').at(-1)!;
+    assert.match(String(gate.detalhe), /runner :: mede tempo; steal 75%; segunda rodada reprovou/);
+  } finally { c.p.limpar(); }
 });

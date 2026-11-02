@@ -28,6 +28,7 @@ import {
   OperacaoDeConducao,
   ResultadoDeClaim,
   ResultadoDeComando,
+  RetesteDeRelogio,
   Thread,
   EventoLedger,
 } from './types';
@@ -59,7 +60,8 @@ import { comandosNoAgile, ComandosDoAgile, executorDaClaimNoAgile, executorDaCla
 import { esperaDoGrupo, rodarEmParalelo } from './check-paralelo';
 import { ENV_CPUS_DA_LANE, ENV_CPUS_DOCKER, MedicaoCpuDoGrupo } from './agendador-cpu';
 import { changelogAplicavel, checarChangelog } from './changelog-check';
-import { anexarRelatorioJUnit, caminhoJUnitDoComando, prepararRelatorioJUnit, RelatorioJUnitPreparado } from './junit';
+import { anexarRelatorioJUnit, caminhoJUnitDoComando, marcacaoDeRelogioDoComando, prepararRelatorioJUnit,
+  RelatorioJUnitPreparado } from './junit';
 
 /** Teto de tempo de um comando de verificacao (build e suite completa cabem). */
 export const TIMEOUT_VERIFY_MS = 10 * 60 * 1000;
@@ -216,18 +218,38 @@ export function semVereditoPorTempo(c: ResultadoDeComando): boolean {
  * relogio sob steal alto. Os testes de relogio sao os da assinatura de prazo do runner e os do registro
  * de instabilidade vigente. Comando que passou, estourou ou nem rodou so ganha a medida.
  */
+type RetestarRelogio = (nome: string, comando: string, cwd: string, testes: readonly string[]) => ResultadoDeComando | null;
+
+function reciboDoReteste(testes: readonly string[], resultado: ResultadoDeComando | null): RetesteDeRelogio {
+  if (!resultado) return { testes: [...testes], estado: 'sem-filtro' };
+  if (resultado.executado === false || resultado.causa === 'timeout') {
+    return { testes: [...testes], estado: 'sem-veredito', code: resultado.code };
+  }
+  return { testes: [...testes], estado: resultado.ok ? 'passou' : 'reprovou', code: resultado.code };
+}
+
+/** Aplica a medida a um resultado ja enriquecido pelo JUnit e, quando cabivel, registra o reteste isolado. */
+export function resultadoComSteal(r: ResultadoDeComando, stealPct: number | null, registro: TestesDeRelogio,
+  retestar?: (testes: readonly string[]) => ResultadoDeComando | null): ResultadoDeComando {
+  const resultado: ResultadoDeComando = { ...r, stealPct };
+  if (!r.ok && r.causa !== 'timeout' && r.executado !== false && stealAlto(stealPct)) {
+    const testes = reprovacaoSoDeRelogio(r.falhasDeTeste, registro);
+    if (testes) {
+      resultado.relogioSobSteal = testes;
+      if (retestar) resultado.retesteDeRelogio = reciboDoReteste(testes, retestar(testes));
+    }
+  }
+  return resultado;
+}
+
 export function executorComSteal(base: ExecutorVerify, leitor: LeitorProcStat = lerProcStat,
-  registro: TestesDeRelogio = new Set()): ExecutorVerify {
+  registro: TestesDeRelogio = new Set(), retestar?: RetestarRelogio): ExecutorVerify {
   return (nome, comando, cwd) => {
     const janela = abrirJanela(leitor);
     const r = base(nome, comando, cwd);
     const stealPct = janela.fechar();
-    const resultado: ResultadoDeComando = { ...r, stealPct };
-    if (!r.ok && r.causa !== 'timeout' && r.executado !== false && stealAlto(stealPct)) {
-      const testes = reprovacaoSoDeRelogio(r.falhasDeTeste, registro);
-      if (testes) resultado.relogioSobSteal = testes;
-    }
-    return resultado;
+    return resultadoComSteal(r, stealPct, registro,
+      retestar ? (testes) => retestar(nome, comando, cwd, testes) : undefined);
   };
 }
 
@@ -237,7 +259,7 @@ export function executorComJUnit(base: ExecutorVerify, manifesto: Manifesto): Ex
     const caminho = caminhoJUnitDoComando(manifesto, nome);
     if (!caminho) return base(nome, comando, cwd);
     const preparado = prepararRelatorioJUnit(cwd, caminho);
-    return anexarRelatorioJUnit(base(nome, comando, cwd), preparado);
+    return anexarRelatorioJUnit(base(nome, comando, cwd), preparado, marcacaoDeRelogioDoComando(manifesto, nome));
   };
 }
 
@@ -292,7 +314,8 @@ export function comandoNoLedger(c: ResultadoDeComando): Record<string, unknown> 
     ...(c.lanes ? { lanes: c.lanes.map((l) => ({ ...l, comando: redigirCredenciaisUrl(l.comando) })) } : {}),
     ...(c.comandoExecutado ? { comandoExecutado: redigirCredenciaisUrl(c.comandoExecutado) } : {}),
     ...(c.parcial ? { parcial: c.parcial } : {}),
-    ...(c.junit ? { junit: c.junit } : {}) };
+    ...(c.junit ? { junit: c.junit } : {}),
+    ...(c.retesteDeRelogio ? { retesteDeRelogio: c.retesteDeRelogio } : {}) };
   if (c.ok) return { nome: c.nome, ok: true, code: c.code, ...(c.duracaoMs !== undefined ? { duracaoMs: c.duracaoMs } : {}), ...doAgile };
   return {
     nome: c.nome, comando: redigirCredenciaisUrl(c.comando), ok: false, code: c.code, ...doAgile,
@@ -308,6 +331,12 @@ export function comandoNoLedger(c: ResultadoDeComando): Record<string, unknown> 
 
 /** Comandos declarados em `verify:` no manifesto, na ordem canonica. */
 export interface ComandoDoManifesto { nome: string; comando: string; junit?: string; filtro?: string }
+
+/** O filtro nominal da F3 para o mesmo comando/lane; F2 nao cria uma segunda selecao. */
+export function filtroDoComandoNoManifesto(manifesto: Manifesto, nome: string): string | undefined {
+  if (nome.startsWith('test:')) return manifesto.check?.agile?.filtro?.[nome.slice('test:'.length)];
+  return manifesto.verify.filtro?.[nome as keyof NonNullable<Manifesto['verify']['filtro']>];
+}
 
 export function comandosDoManifesto(manifesto: Manifesto): ComandoDoManifesto[] {
   const lista: ComandoDoManifesto[] = [];
@@ -494,8 +523,11 @@ export type OrigemDaBaseline = 'cli' | 'phase.run';
  */
 export function executorDaRodada(manifesto: Manifesto, instabilidade: RegistroLido, base?: ExecutorVerify,
   leitor: LeitorProcStat = lerProcStat, ambienteDaRodada?: Record<string, string>): ExecutorVerify {
-  return executorComSteal(executorComJUnit(base ?? executorDoManifesto(manifesto, ambienteDaRodada), manifesto),
-    leitor, testesDeRelogioVigentes(instabilidade));
+  const comJUnit = executorComJUnit(base ?? executorDoManifesto(manifesto, ambienteDaRodada), manifesto);
+  return executorComSteal(comJUnit, leitor, testesDeRelogioVigentes(instabilidade), (nome, _comando, cwd, testes) => {
+    const filtro = filtroDoComandoNoManifesto(manifesto, nome);
+    return filtro ? comJUnit(nome, comandoComTestesFiltrados(filtro, testes), cwd) : null;
+  });
 }
 
 /** RM-072 (D2): o que a rodada passa a todo comando dela, nos dois modos: o modo do CHECK. */
@@ -1269,7 +1301,8 @@ function verificarSobConducao(
               : c.classificacaoDoComando === 'regressao' ? [c.comando] : []).join(', ')}`
             : motivo === 'verify.timeout'
               ? `sem veredito por tempo (prazo estourado, ou teste com relogio sob steal acima de ${LIMIAR_STEAL_PCT}%): ${[
-                ...estouros.map((r) => porQueDasLanes(r) ? `${r.nome} (${porQueDasLanes(r)})` : r.nome),
+                ...estouros.map((r) => r.relogioSobSteal?.length ? motivoDoRelogioSobSteal(r)
+                  : porQueDasLanes(r) ? `${r.nome} (${porQueDasLanes(r)})` : r.nome),
                 ...claims.filter((c) => c.motivo === 'verify.timeout').map((c) => c.claim.id)].join(', ')}`
               : motivo === 'verify.sem-veredito'
                 ? [produtoAlterado ? 'o produto mudou entre o preparo e o fim da rodada' : '',
@@ -1348,6 +1381,19 @@ function situacaoDoComando(c: ResultadoDeComando): string {
   return m.falhou(c.code);
 }
 
+function resultadoDoReteste(c: ResultadoDeComando): string {
+  const reteste = c.retesteDeRelogio;
+  if (!reteste) return 'segunda rodada sem recibo';
+  if (reteste.estado === 'sem-filtro') return 'segunda rodada nao executada: filtro ausente';
+  if (reteste.estado === 'sem-veredito') return `segunda rodada sem veredito (codigo ${reteste.code ?? 'ausente'})`;
+  return `segunda rodada ${reteste.estado} (codigo ${reteste.code ?? 'ausente'})`;
+}
+
+function motivoDoRelogioSobSteal(c: ResultadoDeComando): string {
+  return `${c.nome}: testes ${c.relogioSobSteal?.join(', ') ?? 'nao informados'}; steal ${c.stealPct ?? 'nao medido'}%; ` +
+    resultadoDoReteste(c);
+}
+
 /**
  * RM-037 (defeito 1 de 19 e 20/10/2026): as linhas de cada comando de `ork verify --baseline`, com o veredito dele, e a
  * linha que diz o que a baseline nao provou e como regravar.
@@ -1405,6 +1451,8 @@ export function textoDoVerify(r: ResultadoVerify): string {
     for (const c of r.comandos) {
       linhas.push(m.comando(c.nome, c.ok ? m.comandoOk : situacaoDoComando(c), c.comando));
       if (c.parcial) linhas.push(m.rodadaParcial(c.parcial.testes.join('; ')));
+      if (c.retesteDeRelogio) linhas.push(m.retesteDeRelogio(c.retesteDeRelogio.testes.join('; '), c.stealPct,
+        c.retesteDeRelogio.estado, c.retesteDeRelogio.code));
       if (!c.ok && c.testeQueCaiu?.length) {
         const visiveis = c.junit?.estado === 'lido' ? c.testeQueCaiu.slice(0, 10) : c.testeQueCaiu;
         const restante = c.testeQueCaiu.length - visiveis.length;

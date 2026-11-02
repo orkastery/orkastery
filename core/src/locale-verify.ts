@@ -82,6 +82,11 @@ export const VERIFY_PT_BR = {
   comandoOk: 'ok',
   comando: (nome: string, situacao: string, comando: string) => `  ${nome.padEnd(10)} ${situacao}  ${comando}`,
   rodadaParcial: (testes: string) => `             rodada PARCIAL; teste(s) filtrado(s): ${testes}`,
+  retesteDeRelogio: (testes: string, steal: number | null | undefined,
+    estado: 'passou' | 'reprovou' | 'sem-veredito' | 'sem-filtro', code?: number) =>
+    `             relogio protegido: ${testes}; steal ${steal}%; segunda rodada ${estado === 'sem-filtro'
+      ? 'nao executada (filtro ausente)' : estado === 'sem-veredito' ? `sem veredito (codigo ${code ?? 'ausente'})`
+        : `${estado} (codigo ${code ?? 'ausente'})`}`,
   testesQueCairam: (testes: string) => `             teste(s) que caiu(ram): ${testes}`,
   estourou: (prazo: string, rodou: string) => `ESTOUROU O PRAZO (${prazo}, rodou ${rodou})`,
   relogioSobSteal: (pct: number | null | undefined, limiar: number) => `RELOGIO SOB STEAL (${pct}% de steal, acima de ${limiar}%)`,
@@ -198,6 +203,10 @@ export const VERIFY_EN: typeof VERIFY_PT_BR = {
   comandoOk: 'ok',
   comando: (nome, situacao, comando) => `  ${nome.padEnd(10)} ${situacao}  ${comando}`,
   rodadaParcial: (testes) => `             PARTIAL run; filtered test(s): ${testes}`,
+  retesteDeRelogio: (testes, steal, estado, code) =>
+    `             protected clock test(s): ${testes}; ${steal}% steal; second run ${estado === 'sem-filtro'
+      ? 'not run (no filter)' : estado === 'sem-veredito' ? `had no verdict (exit ${code ?? 'missing'})`
+        : `${estado === 'passou' ? 'passed' : 'failed'} (exit ${code ?? 'missing'})`}`,
   testesQueCairam: (testes) => `             failing test(s): ${testes}`,
   estourou: (prazo, rodou) => `TIMED OUT (${prazo}, ran ${rodou})`,
   relogioSobSteal: (pct, limiar) => `CLOCK UNDER STEAL (${pct}% steal, above ${limiar}%)`,

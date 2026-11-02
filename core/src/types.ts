@@ -709,6 +709,13 @@ export interface Claim {
 /** I-37 (D8): por que o comando terminou. Separa "nao rodou ate o fim" de "rodou e falhou". */
 export type CausaDoComando = 'exit' | 'timeout' | 'nao-encontrado' | 'sinal';
 
+/** RM-081 F2: resultado diagnostico da segunda passagem isolada dos testes de relogio. */
+export interface RetesteDeRelogio {
+  testes: string[];
+  estado: 'passou' | 'reprovou' | 'sem-veredito' | 'sem-filtro';
+  code?: number;
+}
+
 export interface ResultadoDeComando {
   nome: string;
   comando: string;
@@ -747,6 +754,8 @@ export interface ResultadoDeComando {
    * verify trata como `verify.timeout` (sem veredito, o retry reexecuta), nunca como regressao.
    */
   relogioSobSteal?: string[];
+  /** RM-081 F2: a segunda passagem nunca promove o primeiro resultado sem veredito a verde. */
+  retesteDeRelogio?: RetesteDeRelogio;
   /**
    * RM-072 (D5): no Agile, o que a guarda do produto fez com o comando: os passos do preparo tirados da frente, ou o
    * motivo de ter rodado inteiro. Ausente no Classic e em comando sem passos do preparo.
@@ -765,7 +774,11 @@ export interface ResultadoDeComando {
     /** RM-081 F1: evidencia JUnit da propria lane, quando declarada. */
     junit?: EvidenciaJUnit;
     /** RM-081 F3: a lane terminou na passagem parcial, sem a suite inteira. */
-    parcial?: { testes: string[] } }>;
+    parcial?: { testes: string[] };
+    /** RM-081 F2: recibo da segunda passagem isolada da lane. */
+    retesteDeRelogio?: RetesteDeRelogio;
+    relogioSobSteal?: string[];
+    stealPct?: number | null }>; 
 }
 
 /** O estado do relatorio nunca muda o codigo de saida do comando; ele qualifica somente a evidencia. */
