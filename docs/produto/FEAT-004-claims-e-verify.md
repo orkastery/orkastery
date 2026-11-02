@@ -13,6 +13,7 @@ fontes:
   codigo:
     - core/src/claims.ts
     - core/src/verify.ts
+    - core/src/junit.ts
     - core/src/verify-sandbox.ts
     - core/src/redacao-saida.ts
     - core/src/claim-lint.ts
@@ -23,6 +24,7 @@ fontes:
     - core/test/verify-timeout.test.ts
     - core/test/claim-lint.test.ts
     - core/test/verify-compilacao-unica.test.ts
+    - core/test/rm081-junit.test.ts
   simbolos:
     - core/src/claims.ts#adicionarClaim
     - core/src/verify.ts#verificar
@@ -60,7 +62,7 @@ fontes:
   3. Regressão contra a baseline reprova o gate.
 
 - **Alternativas, erros e recuperação:** comando que estoura o prazo é encerrado com a árvore inteira de processos e sai como `verify.timeout`, sem reprovar a alegação; alegação negativa ("não existe X") também é conferida. Claim nova que use `rg`, chame `ork` diretamente, leia `.orkastery/` ou leve `\x22`/`\x27` literalmente é recusada antes de ser gravada; use `grep`, `node core/dist/index.js`, arquivos versionados e aspas reais do shell.
-- **Pós-condições:** evento `verify_run` com o resultado de cada claim e `gate_blocked` quando reprova.
+- **Pós-condições:** evento `verify_run` com o resultado de cada claim e `gate_blocked` quando reprova. Com JUnit declarado, o evento inclui a leitura estruturada e suas contagens por comando ou lane.
 - **Regras de negócio:** BR-004-01: claim pendente, reprovada ou retirada não conta. BR-004-02: o verificador nunca afrouxa asserção para passar. BR-004-03: estouro de prazo não é reprovação; o retry reexecuta. BR-004-04: o comando de verificação nunca herda variável `ORK_HITL_*`. BR-004-05: o comando de claim passa pelo lint; a suíte inteira do npm é recusada no `ci prepare`, e `rg`, `ork` direto, `.orkastery/` e aspas escapadas literalmente são recusados já no `claims add` para claim nova. Claim sem o campo `lint`, anterior à regra, só avisa no bundle. BR-004-06: só conta o comando que rodou (`executado`); com `verify.preparo`, o produto é conferido do preparo ao fim da rodada, e mudança no meio invalida o veredito (`verify.sem-veredito`). BR-004-07: em repositório que tenha `CHANGELOG.md` e ao menos uma tag `v*` alcançável pelo HEAD, linha nova do CHANGELOG não entra em seção com tag `v<versão>` e, em `## Não publicado`, fica sob `### Adicionado`, `### Alterado`, `### Corrigido` ou `### Segurança`; verify, docs no PR e CI compartilham a regra. Sem arquivo ou versão publicada, a regra não entra no verify.
 - **Critérios de aceite e testes:** Dado um comando que passa do teto, quando o verify encerra, então nenhum descendente segue vivo (`core/test/verify-arvore.test.ts`). Dado um comando que estoura o prazo do manifesto, quando o verify roda, então o motivo é `verify.timeout` e o ledger grava causa, prazo e duração (`core/test/verify-timeout.test.ts`).
 - **Interface e acessibilidade:** Não aplicável — CLI.
@@ -69,11 +71,11 @@ fontes:
 
 - **Entidades:** `claims.jsonl` da thread, com o campo `lint` em cada claim nova; baseline em `.orkastery/threads/<id>/`.
 - **APIs:** Não aplicável.
-- **Eventos:** `verify_run`, `gate_blocked` (motivos `claims.failed`, `verify.regression`, `verify.failed`, `verify.timeout`, `verify.sem-veredito`), `claim_lint` (avisos e recusas do `ci prepare`). Por comando que falha, o evento guarda `causa`, `prazoMs`, `duracaoMs`, `testeQueCaiu` e `trecho` redigido.
+- **Eventos:** `verify_run`, `gate_blocked` (motivos `claims.failed`, `verify.regression`, `verify.failed`, `verify.timeout`, `verify.sem-veredito`), `claim_lint` (avisos e recusas do `ci prepare`). Por comando que falha, o evento guarda `causa`, `prazoMs`, `duracaoMs`, `testeQueCaiu` e `trecho` redigido. Quando declarado, `junit` também entra em comando verde e guarda caminho, estado, motivo de descarte ou as contagens e a duração somada; no Agile, cada lane leva sua própria evidência.
 
 ## Operação e controle
 
-- **Configuração:** bloco `verify` do `orkastery.yaml`: build, test, typecheck, `timeout_ms` (default de cada comando, 600 s sem configuração), `timeout_ms_por_comando` e `preparo` (a compilação única da rodada).
+- **Configuração:** `build`, `test`, `typecheck` e `security_scan` no bloco `verify` aceitam o comando em texto ou `{ comando, junit }`, com `junit` relativo à worktree. As lanes em `check.agile.test` aceitam as mesmas duas formas. `timeout_ms` (default de cada comando, 600 s sem configuração), `timeout_ms_por_comando` e `preparo` continuam independentes. Exemplos para pytest, Vitest, Jest, Playwright e gotestsum estão no [guia de verificação](../guias/verificacao.md#relatório-junit-declarado-no-manifesto).
 - **Limite conhecido:** em máquina virtual com CPU roubada pelo hipervisor, o verify local pode reprovar por tempo; a prova confiável é o CI ([FEAT-005](FEAT-005-ci-check-independente.md)). Desde a fatia 6 da [RM-037](../roadmap/RM-037-verify-rapido-e-confiavel.md), o verify mede o steal do `/proc/stat` e a reprovação só de teste com relógio sob steal acima de 40% vira `verify.timeout`, nunca regressão ([contrato](../referencia/contratos/instabilidade-rm037.md)).
 - **Rollback:** `ork claims retirar <thread> <claim> --motivo "<motivo>"` (o histórico fica).
 
@@ -88,3 +90,4 @@ fontes:
 | 2026-10-01 | fatia 3 da RM-037: o verify e o commit pelo MCP não travam em lease de thread fechada nem em hard link de objeto do `.git`, e o CI cobra a linha do CHANGELOG e o estado do item depois do merge | Claude (agente) / Julio, revisão pendente | RM-037 |
 | 2026-10-03 | fatia 6 da RM-037: steal do `/proc/stat` no `verify_run`, teste com relógio sob steal acima de 40% como `verify.timeout` e o registro `ork.instabilidade/v1` | Claude (agente) / Julio, revisão pendente | RM-037 |
 | 2026-10-29 | claims novas executáveis no CI e CHANGELOG validado por seção, tag e grupo nos três verificadores | Codex (agente) / revisão pendente | RM-037, thread `ork-claimsechang` |
+| 2026-11-02 | relatório JUnit declarado por comando e lane, com comparação nominal para qualquer runner | Codex (agente) / revisão pendente | RM-081 F1, thread `ork-rm081f1relat` |
