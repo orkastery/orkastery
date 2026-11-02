@@ -10,6 +10,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **Agendador do Agile em degraus — M8 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** a sonda usa várias amostras curtas e a mediana, preservando um pico isolado na evidência sem entregar a decisão a ele. Acima do limiar, o `steal` reduz proporcionalmente a capacidade da hermética, da varredura, da integração e dos contêineres, em vez de devolver tudo à ordem do Classic; a carga do `/proc/loadavg` segue a regra anterior, porque inclui o build do próprio verify. A peça `agendador-cpu` sai `degradado`, com a capacidade usada, e só volta à ordem do Classic, com a paralelização do Classic, quando não cabe o grupo paralelo ou a máquina está ocupada. O Classic não muda, e a razão nova aguarda a bancada do host.
 
+- **Reserva medida da integração no Agile Check — M9 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** o perfil usa o pico sustentado da árvore da lane e preserva separadamente a lacuna de contêiner; perfil ausente ou incompatível mantém a reserva conservadora, e o relatório localiza a reserva e sua origem em pt-BR e inglês sem mudar o Classic.
+
 - **Workers e recursos na declaração única da lane — F4 ([RM-081](docs/roadmap/RM-081-check-por-qualquer-runner.md)):** o Agile exporta `ORK_WORKERS` pela reserva vigente e serializa lanes que declaram o mesmo serviço; o Classic publica o mesmo contrato com a capacidade inteira disponível, preservando seus comandos e sua ordem.
 
 ### Adicionado
@@ -91,7 +93,6 @@ O #Noctum segue **em desenvolvimento, não anunciado**.
 ### Alterado
 
 - **Reaproveitamento de provas no Agile Check — M1 e M2 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** os testes pesados que não verificam a fronteira real de processo chamam o CLI dentro do próprio processo com ambiente, diretório, saídas e código isolados; a M2 leva o harness a quatro pontos quentes restantes. Claims `node --test`, a auditoria TAP canônica e cadeias fechadas com `grep -q` reaproveitam as lanes e o build único somente no mesmo HEAD, ambiente e produto. Testes de sinais, PATH, rede e Docker reais, Git, locks e concorrência permanecem com processo filho, sem reduzir a bateria ou as asserções. A razão contra o Classic ainda não é anunciada: falta uma medida com pares suficientes para sustentá-la.
-- **Reserva medida da integração no Agile Check — M9 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** o perfil usa o pico sustentado da árvore da lane e preserva separadamente a lacuna de contêiner; perfil ausente ou incompatível mantém a reserva conservadora, e o relatório localiza a reserva e sua origem em pt-BR e inglês sem mudar o Classic.
 
 ### Corrigido
 
