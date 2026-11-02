@@ -11,15 +11,16 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { adicionarClaim } from '../src/claims';
-import { assinaturaDoAmbiente, elosDoComando, executorDaClaimPelasLanes, GuardaDoProduto, hashDoProduto,
+import { assinaturaDoAmbiente, comandosNoAgile, elosDoComando, executorDaClaimPelasLanes, GuardaDoProduto, hashDoProduto,
   MAXIMO_DE_PREPAROS_REFEITOS, paralelismoDaVarreduraNoGrupo, passosDoComando, PECA_SEM_RELATORIO, RelatorioDoCheck,
   testDasLanes, TETO_DO_RELATORIO_BYTES, tirarPassosDoPreparo, tirarPassosDoPreparoAposLeituras } from '../src/check-agil';
-import { argvDoItem, chaveDoPerfilIntegracao, picoCpuPorFonte, rodarEmParalelo } from '../src/check-paralelo';
-import { cargaDoProcLoadavg, paredeAgileSimulada, paredeClassicaSimulada, planejarCpuDoGrupo } from '../src/agendador-cpu';
+import { argvDoItem, chaveDoPerfilIntegracao, picoCpuPorFonte, rodarEmParalelo, workersDaLane } from '../src/check-paralelo';
+import { cargaDoProcLoadavg, paredeAgileSimulada, paredeClassicaSimulada, planejarCpuDoGrupo,
+  workersDaReserva } from '../src/agendador-cpu';
 import { lerLedger } from '../src/ledger';
 import { carregarManifesto } from '../src/manifest';
 import { dirThread, novaThread } from '../src/thread';
-import { gravarBaseline, identidadeDoProduto, semVereditoPorTempo, textoDoVerify, vereditoDaBaseline, verificar,
+import { ambienteDoModo, gravarBaseline, identidadeDoProduto, semVereditoPorTempo, textoDoVerify, vereditoDaBaseline, verificar,
   ExecutorVerify } from '../src/verify';
 import { comLocale } from '../src/locale';
 import type { ResultadoDeComando } from '../src/types';
@@ -1179,4 +1180,111 @@ test('AG50: o perfil medido da integracao so vale para os mesmos testes compilad
     assert.equal(impossivel.picoCpus, null, 'pico acima da maquina nunca vira perfil');
     assert.match(impossivel.anomalia ?? '', /excede a capacidade/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('RM081F4-workers: cada lane recebe a reserva vigente em ORK_WORKERS, nunca menor que um', () => {
+  assert.equal(workersDaReserva(0), 1);
+  assert.equal(workersDaReserva(Number.NaN), 1);
+  assert.equal(workersDaReserva(3.9), 3);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-rm081f4-workers-'));
+  try {
+    const arquivo = (nome: string): string => path.join(dir, nome);
+    const processos = rodarEmParalelo([
+      { nome: 'test:hermetica', papelCpu: 'hermetica', cwd: dir, prazoMs: 10_000,
+        comando: `echo "$ORK_WORKERS" > ${arquivo('h')}` },
+      { nome: 'security_scan', papelCpu: 'varredura', cwd: dir, prazoMs: 10_000, comando: 'sleep 0.1' },
+      { nome: 'test:integracao', papelCpu: 'integracao', cwd: dir, prazoMs: 10_000,
+        comando: `echo "$ORK_WORKERS" > ${arquivo('i')}` },
+      { nome: 'test:depois', papelCpu: 'outro', cwd: dir, prazoMs: 10_000,
+        comando: `echo "$ORK_WORKERS" > ${arquivo('d')}` },
+    ], process.env, { cpus: 8, medicaoCpu: { carga1: 0, stealPct: 0, cpusIntegracao: 0.4, fonteCpusIntegracao: 'medida' } });
+    assert.ok(processos.every((p) => p.ok), processos.map((p) => p.stderr).join('\n'));
+    assert.deepEqual(['h', 'i', 'd'].map((nome) => Number(fs.readFileSync(arquivo(nome), 'utf8'))), [5, 1, 8],
+      'a lane posterior recebe a capacidade depois que as reservas voltaram');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('RM081F4-capacidade: a soma das reservas simultaneas nunca passa da maquina', () => {
+  const plano = planejarCpuDoGrupo(8, { carga1: 0, stealPct: 0, cpusIntegracao: 0.4, fonteCpusIntegracao: 'medida' });
+  const hermetica = workersDaLane({ nome: 'test:hermetica', papelCpu: 'hermetica' }, plano, 8, 3)!;
+  const integracao = workersDaLane({ nome: 'test:integracao', papelCpu: 'integracao' }, plano, 8, 3)!;
+  const depois = workersDaLane({ nome: 'test:depois', papelCpu: 'outro' }, plano, 8, 3)!;
+  assert.ok(hermetica + plano.cpusDaFatia + integracao <= plano.cpus);
+  assert.ok(plano.cpusHermeticaAposVarredura + integracao <= plano.cpus);
+  assert.equal(depois, plano.cpus, 'depois da devolucao, uma lane sozinha recebe a capacidade inteira');
+  assert.equal(workersDaLane({ nome: 'test:a', papelCpu: 'outro' }, undefined, 8, 3), 2,
+    'sem os papeis internos, o grupo divide a capacidade pelo maximo de lanes simultaneas');
+});
+
+test('RM081F4-recursos: lanes com recurso comum nao se sobrepoem e recursos diferentes continuam paralelos', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-rm081f4-recursos-'));
+  try {
+    const arq = (nome: string): string => path.join(dir, nome);
+    const processos = rodarEmParalelo([
+      { nome: 'test:a', comando: `touch ${arq('a.ini')} && while test ! -f ${arq('c.ini')}; do sleep 0.02; done && ` +
+          `test ! -f ${arq('b.ini')} && sleep 0.1 && touch ${arq('a.fim')}`,
+        cwd: dir, prazoMs: 10_000, recursos: ['banco'] },
+      { nome: 'test:b', comando: `test -f ${arq('a.fim')} && touch ${arq('b.ini')}`,
+        cwd: dir, prazoMs: 10_000, recursos: ['banco'] },
+      { nome: 'test:c', comando: `touch ${arq('c.ini')} && while test ! -f ${arq('a.ini')}; do sleep 0.02; done && ` +
+          `test ! -f ${arq('a.fim')} && touch ${arq('c.sobrepos')}`,
+        cwd: dir, prazoMs: 10_000, recursos: ['porta'] },
+    ], process.env, { cpus: 4 });
+    assert.ok(processos.every((p) => p.ok), processos.map((p) => p.stderr).join('\n'));
+    assert.ok(fs.existsSync(arq('c.sobrepos')), 'o recurso diferente rodou junto de a');
+    assert.ok(fs.existsSync(arq('b.ini')), 'b so iniciou depois que a liberou o recurso comum');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('RM081F4-manifesto: lane textual permanece valida e objeto transporta comando e recursos', () => {
+  const p = projetoTemporario('rm081-f4-manifesto');
+  try {
+    comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      texto: "echo texto"\n' +
+      '      servico:\n        comando: "echo servico"\n        recursos: ["banco", "porta"]');
+    assert.deepEqual(p.carregado.manifesto.check?.agile?.test, {
+      texto: 'echo texto', servico: { comando: 'echo servico', recursos: ['banco', 'porta'] },
+    });
+    let itens: Array<{ nome: string; comando: string; recursos?: string[] }> = [];
+    const grupo = (recebidos: typeof itens): ResultadoDeComando[] => {
+      itens = recebidos;
+      return recebidos.map((item) => ({ nome: item.nome, comando: item.comando, ok: true, code: 0, resumo: '', causa: 'exit',
+        prazoMs: 1000, duracaoMs: 1, executado: true }));
+    };
+    const preparo: ResultadoDeComando = { nome: 'preparo', comando: 'echo passo-a && echo passo-b', ok: true, code: 0,
+      resumo: '', causa: 'exit', prazoMs: 1000, duracaoMs: 1, executado: true };
+    const guarda = new GuardaDoProduto(p.dir, ['README.md'], () => 'arvore-estavel', null);
+    const r = comandosNoAgile(p.carregado.manifesto, p.dir, [{ nome: 'build', comando: 'echo passo-a' },
+      { nome: 'test', comando: 'echo test' }], gravador().executor, grupo, guarda, preparo);
+    assert.equal(r.comandos.find((c) => c.nome === 'test')?.ok, true);
+    assert.deepEqual(itens.filter((item) => item.nome.startsWith('test:')).map((item) =>
+      [item.nome, item.comando, item.recursos ?? []]), [
+      ['test:texto', 'echo texto', []],
+      ['test:servico', 'echo servico', ['banco', 'porta']],
+    ]);
+  } finally { p.limpar(); }
+});
+
+test('RM081F4-manifesto: objeto de lane recusa comando, recurso e chave invalidos', () => {
+  const p = projetoTemporario('rm081-f4-manifesto-invalido');
+  try {
+    fs.appendFileSync(path.join(p.dir, 'orkastery.yaml'), '\ncheck:\n  agile:\n    test:\n' +
+      '      vazia:\n        comando: ""\n        recursos: []\n' +
+      '      nula:\n        comando: "echo nula"\n        recursos:\n' +
+      '      duplicada:\n        comando: "echo x"\n        recursos: ["banco", "banco"]\n' +
+      '      errada:\n        comando: "echo y"\n        recursos: [3]\n        outro: true\n');
+    const m = carregarManifesto(p.dir)!;
+    assert.ok(m.erros.some((erro) => /vazia\.comando precisa ser texto nao vazio/.test(erro)), m.erros.join('; '));
+    assert.ok(m.erros.some((erro) => /vazia\.recursos precisa ser uma lista nao vazia/.test(erro)), m.erros.join('; '));
+    assert.ok(m.erros.some((erro) => /nula\.recursos precisa ser uma lista nao vazia/.test(erro)), m.erros.join('; '));
+    assert.ok(m.erros.some((erro) => /duplicada\.recursos: "banco" esta repetido/.test(erro)), m.erros.join('; '));
+    assert.ok(m.erros.some((erro) => /errada\.recursos: 3 precisa ser texto de uma linha/.test(erro)), m.erros.join('; '));
+    assert.ok(m.erros.some((erro) => /errada\.outro desconhecida/.test(erro)), m.erros.join('; '));
+  } finally { p.limpar(); }
+});
+
+test('RM081F4-classic: o Classic exporta ORK_WORKERS com a capacidade inteira da maquina', () => {
+  const ambiente = ambienteDoModo({ modo: 'classic', origem: 'opcao', nome: 'Classic Check' });
+  assert.match(ambiente.ORK_WORKERS, /^[1-9][0-9]*$/);
+  assert.equal(Number(ambiente.ORK_WORKERS), os.availableParallelism());
+  assert.equal(ambiente.ORK_CHECK_MODO, 'classic');
 });

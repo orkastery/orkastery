@@ -135,7 +135,7 @@ test('TL11: a assinatura ignora transporte do runner, mas muda com ambiente func
   const base = { LANG: 'C.UTF-8', ORKASTERY_HOME: '/tmp/casa', FEATURE_X: '1' };
   assert.equal(lanes.assinaturaDoAmbiente(base), lanes.assinaturaDoAmbiente({ ...base,
     ORK_CHECK_RELATORIO: '/tmp/relatorio', ORK_CHECK_CPUS_DA_LANE: '5', npm_lifecycle_event: 'test:hermetica',
-    NODE_COMPILE_CACHE: '/tmp/cache', PWD: '/outra' }));
+    ORK_WORKERS: '5', NODE_COMPILE_CACHE: '/tmp/cache', PWD: '/outra' }));
   assert.equal(lanes.assinaturaDoAmbiente(base), assinaturaDoVerify(base), 'a lane e o verify assinam o mesmo contrato');
   assert.notEqual(lanes.assinaturaDoAmbiente(base), lanes.assinaturaDoAmbiente({ ...base, ORK_CHECK_MODO: 'agile' }),
     'o modo muda o comportamento de testes e nao pode sumir da assinatura');
@@ -251,16 +251,16 @@ test('TL10: o teste da lane nao herda modo, relatorio nem plano de CPU da rodada
       `${JSON.stringify(visto)}, JSON.stringify({ modo: process.env.ORK_CHECK_MODO ?? null, relatorio: process.env.ORK_CHECK_RELATORIO ?? null, ` +
       `cpusDaLane: process.env.ORK_CHECK_CPUS_DA_LANE ?? null, cpusApos: process.env.ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA ?? null, ` +
       `sinal: process.env.ORK_CHECK_RESERVA_DEVOLVIDA ?? null, cpusDocker: process.env.ORK_CHECK_CPUS_DOCKER ?? null, ` +
-      `exige: process.env.ORK_TESTE_EXIGE_AMBIENTE ?? null })); });\n`);
+      `workers: process.env.ORK_WORKERS ?? null, exige: process.env.ORK_TESTE_EXIGE_AMBIENTE ?? null })); });\n`);
     const relatorio = path.join(dir, 'relatorio.jsonl');
     const env = { ...process.env, ORK_LANES_DIR: dir, ORK_LANES_INTEGRACAO: '', XDG_CACHE_HOME: path.join(dir, 'cache'),
       ORK_CHECK_MODO: 'agile', ORK_CHECK_RELATORIO: relatorio, ORK_CHECK_CPUS_DA_LANE: '7',
       ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA: '8', ORK_CHECK_RESERVA_DEVOLVIDA: path.join(dir, 'sinal'), ORK_CHECK_CPUS_DOCKER: '1',
-      ORK_TESTE_EXIGE_AMBIENTE: '1' };
+      ORK_WORKERS: '7', ORK_TESTE_EXIGE_AMBIENTE: '1' };
     const r = spawnSync(process.execPath, [SCRIPT, 'hermetica'], { encoding: 'utf8', env });
     assert.equal(r.status, 0, r.stderr + r.stdout);
     assert.deepEqual(JSON.parse(fs.readFileSync(visto, 'utf8')),
-      { modo: null, relatorio: null, cpusDaLane: null, cpusApos: null, sinal: null, cpusDocker: null, exige: '1' },
+      { modo: null, relatorio: null, cpusDaLane: null, cpusApos: null, sinal: null, cpusDocker: null, workers: null, exige: '1' },
       'quem exporta ORK_TESTE_EXIGE_AMBIENTE exige as dependencias nos dois modos, como no npm test');
     assert.ok(fs.readFileSync(relatorio, 'utf8').split('\n').filter(Boolean).some((l) => (JSON.parse(l) as { tipo: string }).tipo === 'lista'));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }

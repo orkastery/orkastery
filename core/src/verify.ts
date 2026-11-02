@@ -56,7 +56,7 @@ import { comandosNoAgile, ComandosDoAgile, executorDaClaimNoAgile, executorDaCla
   porQueDasLanes, prepararNoAgile, PreparoVigente, refazerPreparo, RefazerPreparo, RelatorioDoCheck,
   resultadosDasLanes } from './check-agil';
 import { esperaDoGrupo, rodarEmParalelo } from './check-paralelo';
-import { ENV_CPUS_DA_LANE, ENV_CPUS_DOCKER, MedicaoCpuDoGrupo } from './agendador-cpu';
+import { ENV_CPUS_DA_LANE, ENV_CPUS_DOCKER, ENV_WORKERS, MedicaoCpuDoGrupo, workersDaReserva } from './agendador-cpu';
 import { changelogAplicavel, checarChangelog } from './changelog-check';
 
 /** Teto de tempo de um comando de verificacao (build e suite completa cabem). */
@@ -88,7 +88,7 @@ export const PREFIXO_BLOQUEADO_NO_VERIFY = 'ORK_HITL_';
  * rodada (o verify que roda dentro de um comando de outro verify), elas levariam pecas ao relatorio errado.
  */
 const VARIAVEIS_DA_RODADA: ReadonlySet<string> = new Set([
-  ENV_RELATORIO_DO_CHECK, ENV_VARREDURA_PARALELA_DO_CHECK, ENV_CPUS_DA_LANE, ENV_CPUS_DOCKER,
+  ENV_RELATORIO_DO_CHECK, ENV_VARREDURA_PARALELA_DO_CHECK, ENV_CPUS_DA_LANE, ENV_CPUS_DOCKER, ENV_WORKERS,
 ]);
 
 export function ambienteDoVerify(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
@@ -409,7 +409,7 @@ export function executorDaRodada(manifesto: Manifesto, instabilidade: RegistroLi
 
 /** RM-072 (D2): o que a rodada passa a todo comando dela, nos dois modos: o modo do CHECK. */
 export function ambienteDoModo(check: ModoResolvido): Record<string, string> {
-  return { [ENV_MODO_DO_CHECK]: check.modo };
+  return { [ENV_MODO_DO_CHECK]: check.modo, [ENV_WORKERS]: String(workersDaReserva(os.availableParallelism())) };
 }
 
 /** RM-072 (D1, D2): o modo da rodada, como vai ao ledger. */
@@ -452,6 +452,7 @@ function executorDoGrupo(manifesto: Manifesto, ambienteDaRodada: Record<string, 
     const prazos = itens.map((i) => prazoDaExecucao(manifesto, i.nome, i.comando));
     const paraOAuxiliar = itens.map((i, k) => ({ nome: i.nome, comando: i.comando, cwd, prazoMs: prazos[k],
       ...(i.nice ? { nice: i.nice } : {}), ...(i.apos?.length ? { apos: i.apos } : {}), ...(i.papelCpu ? { papelCpu: i.papelCpu } : {}),
+      ...(i.recursos?.length ? { recursos: i.recursos } : {}),
       ambiente: { ...(recebeORelatorio(i.nome) ? ambienteDaRodada : semRelatorio), ...(ehComandoDoScan(manifesto, i.nome, i.comando)
         // RM-072: ao lado das lanes, a varredura roda poucas ferramentas por vez, para o grupo nao passar da CPU.
         ? { ORK_SECURITY_SCAN_DEADLINE_MS: String(prazoInternoDoScan(prazos[k])),
