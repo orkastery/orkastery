@@ -844,6 +844,8 @@ export interface ConfigDoAgile {
   selecao?: Record<string, SelecaoNativa>;
   /** RM-081 F2: marcacao de relogio por lane JUnit; ausente preserva o julgamento anterior. */
   relogio?: Record<string, MarcacaoDeRelogio>;
+  /** RM-081 F4: servicos exclusivos declarados no mesmo objeto das demais chaves da lane. */
+  recursos?: Record<string, string[]>;
   /** As lanes de `test` que so comecam quando o `security_scan` do grupo termina (as que sobem containers). */
   apos_a_varredura?: string[];
   /** `osv-scanner` no lugar de `trivy-vuln` e `npm-audit` (D13); desligado por padrao. */

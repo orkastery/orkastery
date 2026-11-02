@@ -11,7 +11,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { adicionarClaim } from '../src/claims';
-import { assinaturaDoAmbiente, elosDoComando, executorDaClaimPelasLanes, GuardaDoProduto, hashDoProduto,
+import { assinaturaDoAmbiente, comandosNoAgile, elosDoComando, executorDaClaimPelasLanes, GuardaDoProduto, hashDoProduto,
   MAXIMO_DE_PREPAROS_REFEITOS, paralelismoDaVarreduraNoGrupo, passosDoComando, PECA_SEM_RELATORIO, RelatorioDoCheck,
   testDasLanes, TETO_DO_RELATORIO_BYTES, tirarPassosDoPreparo, tirarPassosDoPreparoAposLeituras } from '../src/check-agil';
 import { argvDoItem, chaveDoPerfilIntegracao, picoCpuPorFonte, rodarEmParalelo } from '../src/check-paralelo';
@@ -1179,4 +1179,58 @@ test('AG50: o perfil medido da integracao so vale para os mesmos testes compilad
     assert.equal(impossivel.picoCpus, null, 'pico acima da maquina nunca vira perfil');
     assert.match(impossivel.anomalia ?? '', /excede a capacidade/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('RM081F4-manifesto: a declaracao unica preserva texto e transporta todas as chaves da lane', () => {
+  const p = projetoTemporario('rm081-f4-manifesto');
+  try {
+    comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      texto: "echo texto"\n' +
+      '      lane-completa:\n        comando: "echo completa"\n        junit: "reports/completa.xml"\n' +
+      '        filtro: "echo {testes}"\n        relogio:\n          nome: ["tempo$"]\n' +
+      '        selecao:\n          comando: "echo {arquivos}"\n          mapeia: ["src/**"]\n' +
+      '        recursos: ["banco", "porta"]');
+    assert.deepEqual(p.carregado.manifesto.check?.agile?.test, { texto: 'echo texto', 'lane-completa': 'echo completa' });
+    assert.deepEqual(p.carregado.manifesto.check?.agile?.junit, { 'lane-completa': 'reports/completa.xml' });
+    assert.deepEqual(p.carregado.manifesto.check?.agile?.filtro, { 'lane-completa': 'echo {testes}' });
+    assert.deepEqual(p.carregado.manifesto.check?.agile?.relogio, { 'lane-completa': { nome: ['tempo$'] } });
+    assert.deepEqual(p.carregado.manifesto.check?.agile?.selecao, {
+      'lane-completa': { comando: 'echo {arquivos}', mapeia: ['src/**'] },
+    });
+    assert.deepEqual(p.carregado.manifesto.check?.agile?.recursos, { 'lane-completa': ['banco', 'porta'] });
+
+    let itens: Array<{ nome: string; comando: string; recursos?: string[] }> = [];
+    const grupo = (recebidos: typeof itens): ResultadoDeComando[] => {
+      itens = recebidos;
+      return recebidos.map((item) => ({ nome: item.nome, comando: item.comando, ok: true, code: 0, resumo: '', causa: 'exit',
+        prazoMs: 1000, duracaoMs: 1, executado: true }));
+    };
+    const preparo: ResultadoDeComando = { nome: 'preparo', comando: 'echo passo-a && echo passo-b', ok: true, code: 0,
+      resumo: '', causa: 'exit', prazoMs: 1000, duracaoMs: 1, executado: true };
+    const guarda = new GuardaDoProduto(p.dir, ['README.md'], () => 'arvore-estavel', null);
+    const r = comandosNoAgile(p.carregado.manifesto, p.dir, [{ nome: 'build', comando: 'echo passo-a' },
+      { nome: 'test', comando: 'echo test' }], gravador().executor, grupo, guarda, preparo);
+    assert.equal(r.comandos.find((c) => c.nome === 'test')?.ok, true);
+    assert.deepEqual(itens.filter((item) => item.nome.startsWith('test:')).map((item) =>
+      [item.nome, item.comando, item.recursos ?? []]), [
+      ['test:texto', 'echo texto', []],
+      ['test:lane-completa', 'echo completa', ['banco', 'porta']],
+    ]);
+  } finally { p.limpar(); }
+});
+
+test('RM081F4-manifesto: recursos e chave desconhecida conservam o caminho completo no erro', () => {
+  const p = projetoTemporario('rm081-f4-manifesto-invalido');
+  try {
+    fs.appendFileSync(path.join(p.dir, 'orkastery.yaml'), '\ncheck:\n  agile:\n    test:\n' +
+      '      vazia:\n        comando: "echo vazia"\n        junit: "reports/vazia.xml"\n        recursos: []\n' +
+      '      nula:\n        comando: "echo nula"\n        junit: "reports/nula.xml"\n        recursos:\n' +
+      '      duplicada:\n        comando: "echo x"\n        junit: "reports/x.xml"\n        recursos: ["banco", "banco"]\n' +
+      '      errada:\n        comando: "echo y"\n        junit: "reports/y.xml"\n        recursos: [3]\n        outro: true\n');
+    const m = carregarManifesto(p.dir)!;
+    assert.ok(m.erros.some((erro) => /check\.agile\.test\.vazia\.recursos precisa ser uma lista nao vazia/.test(erro)), m.erros.join('; '));
+    assert.ok(m.erros.some((erro) => /check\.agile\.test\.nula\.recursos precisa ser uma lista nao vazia/.test(erro)), m.erros.join('; '));
+    assert.ok(m.erros.some((erro) => /check\.agile\.test\.duplicada\.recursos: "banco" esta repetido/.test(erro)), m.erros.join('; '));
+    assert.ok(m.erros.some((erro) => /check\.agile\.test\.errada\.recursos: 3 precisa ser texto de uma linha/.test(erro)), m.erros.join('; '));
+    assert.ok(m.erros.some((erro) => /check\.agile\.test\.errada\.outro desconhecida/.test(erro)), m.erros.join('; '));
+  } finally { p.limpar(); }
 });

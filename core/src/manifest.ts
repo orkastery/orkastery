@@ -226,6 +226,7 @@ interface ComandoLido {
   filtro?: string;
   relogio?: MarcacaoDeRelogio;
   selecao?: SelecaoNativa;
+  recursos?: string[];
 }
 
 /** RM-081 F1: o relatorio e sempre um caminho POSIX relativo, nunca uma busca ou um caminho da maquina. */
@@ -349,18 +350,40 @@ function relogioDoComando(chave: string, v: ValorYaml, erros: string[]): Marcaca
   return estrategia === 'marcador' ? { marcador: valor.trim() } : { tag: valor.trim() };
 }
 
-/** Texto continua sendo o contrato legado; o objeto exige comando e junit, e aceita os opt-ins. */
-function lerComando(chave: string, v: ValorYaml, erros: string[], aceitaSelecao = false): ComandoLido {
+/** RM-081 F4: recursos da lane sao nomes locais a rodada, unicos e de uma linha. */
+function recursosDoComando(chave: string, v: ValorYaml, erros: string[]): string[] | undefined {
+  if (v === undefined) return undefined;
+  if (!Array.isArray(v) || v.length === 0) {
+    erros.push(`${chave} precisa ser uma lista nao vazia de textos`);
+    return undefined;
+  }
+  const lidos: string[] = [];
+  let valido = true;
+  for (const recurso of v) {
+    if (typeof recurso !== 'string' || !recurso.trim() || recurso.trim().length > 80 || /[\r\n]/.test(recurso)) {
+      erros.push(`${chave}: ${exibir(recurso)} precisa ser texto de uma linha, de 1 a 80 caracteres`);
+      valido = false;
+    } else if (lidos.includes(recurso.trim())) {
+      erros.push(`${chave}: ${exibir(recurso.trim())} esta repetido`);
+      valido = false;
+    } else lidos.push(recurso.trim());
+  }
+  return valido ? lidos : undefined;
+}
+
+/** Texto continua sendo o contrato legado; o objeto exige comando e junit, e aceita os opt-ins da superficie. */
+function lerComando(chave: string, v: ValorYaml, erros: string[], aceitaSelecao = false, aceitaRecursos = false): ComandoLido {
   if (v === undefined || v === null) return {};
   if (typeof v === 'string') return { comando: v };
   if (typeof v !== 'object' || Array.isArray(v)) {
     erros.push(`${chave} precisa ser o comando em texto ou um mapa com comando e junit (recebido ${exibir(v)})`);
     return {};
   }
+  const conhecidas = ['comando', 'junit', 'filtro', 'relogio', ...(aceitaSelecao ? ['selecao'] : []),
+    ...(aceitaRecursos ? ['recursos'] : [])];
   for (const nome of Object.keys(v)) {
-    if (!['comando', 'junit', 'filtro', 'relogio', ...(aceitaSelecao ? ['selecao'] : [])].includes(nome)) {
-      erros.push(`${chave}.${nome} desconhecida; use somente comando, junit, filtro e relogio` +
-        (aceitaSelecao ? ', e selecao' : ''));
+    if (!conhecidas.includes(nome)) {
+      erros.push(`${chave}.${nome} desconhecida; use somente ${conhecidas.join(', ')}`);
     }
   }
   const comando = typeof v.comando === 'string' && v.comando.trim() ? v.comando.trim() : undefined;
@@ -369,8 +392,9 @@ function lerComando(chave: string, v: ValorYaml, erros: string[], aceitaSelecao 
   const filtro = filtroDoComando(`${chave}.filtro`, v.filtro, erros);
   const relogio = relogioDoComando(`${chave}.relogio`, v.relogio, erros);
   const selecao = aceitaSelecao ? selecaoDoComando(`${chave}.selecao`, v.selecao, erros) : undefined;
+  const recursos = aceitaRecursos ? recursosDoComando(`${chave}.recursos`, v.recursos, erros) : undefined;
   return { ...(comando ? { comando } : {}), ...(junit ? { junit } : {}), ...(filtro ? { filtro } : {}),
-    ...(relogio ? { relogio } : {}), ...(selecao ? { selecao } : {}) };
+    ...(relogio ? { relogio } : {}), ...(selecao ? { selecao } : {}), ...(recursos ? { recursos } : {}) };
 }
 
 /**
@@ -414,15 +438,17 @@ function lerAgile(v: ValorYaml | undefined, erros: string[], avisos: string[]): 
       const filtro: Record<string, string> = {};
       const relogio: Record<string, MarcacaoDeRelogio> = {};
       const selecao: Record<string, SelecaoNativa> = {};
+      const recursos: Record<string, string[]> = {};
       for (const [lane, valor] of Object.entries(v.test)) {
         if (!NOME_DE_LANE.test(lane)) erros.push(`check.agile.test.${lane}: nome de lane aceita [a-z0-9-], ate 32 caracteres`);
         else {
-          const lido = lerComando(`check.agile.test.${lane}`, valor, erros, true);
+          const lido = lerComando(`check.agile.test.${lane}`, valor, erros, true, true);
           if (lido.comando) lanes[lane] = lido.comando.trim();
           if (lido.junit) junit[lane] = lido.junit;
           if (lido.filtro) filtro[lane] = lido.filtro;
           if (lido.relogio) relogio[lane] = lido.relogio;
           if (lido.selecao) selecao[lane] = lido.selecao;
+          if (lido.recursos) recursos[lane] = lido.recursos;
         }
       }
       if (Object.keys(lanes).length) agile.test = lanes;
@@ -430,6 +456,7 @@ function lerAgile(v: ValorYaml | undefined, erros: string[], avisos: string[]): 
       if (Object.keys(filtro).length) agile.filtro = filtro;
       if (Object.keys(relogio).length) agile.relogio = relogio;
       if (Object.keys(selecao).length) agile.selecao = selecao;
+      if (Object.keys(recursos).length) agile.recursos = recursos;
     }
   }
   if (v.apos_a_varredura !== undefined && v.apos_a_varredura !== null) {
