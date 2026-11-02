@@ -1,0 +1,51 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-075: cada mutante desfaz uma regra de fim de fase e precisa morrer no caso focado correspondente.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "o ramo blocked depois do Stop volta a esperar o humano mesmo sem pergunta real",
+      "modulo": "session-watcher-claude",
+      "de": "return concluir('Stop correlacionado e sessão blocked sem pergunta de permissão pendente', false);",
+      "para": "return espera('sessão bloqueada à espera humana');",
+      "teste": "session-watcher-claude",
+      "nome": "^RM-075: blocked vivo depois do Stop, com prova e sem pergunta"
+    },
+    {
+      "id": "M2",
+      "descricao": "a ausência de pergunta real volta a produzir human.pending",
+      "modulo": "session-watcher-claude",
+      "de": "if (perguntaReal)\n            return { ...bloqueio",
+      "para": "if (!perguntaReal)\n            return { ...bloqueio",
+      "teste": "session-watcher-claude",
+      "nome": "^RM-075: blocked, working e done só viram human.pending"
+    },
+    {
+      "id": "M3",
+      "descricao": "task_complete autenticado deixa de recuperar o watcher sob SESSION_STATE_SPLIT",
+      "modulo": "session-watcher",
+      "de": "if (prova)\n                    return observarSessaoResolvida(carregado, sessionId, { thread, sessao }, { ...opcoes, taskCompleteFixado: prova });",
+      "para": "if (prova && process.env.ORK_MUTANTE_NUNCA === 'x')\n                    return observarSessaoResolvida(carregado, sessionId, { thread, sessao }, { ...opcoes, taskCompleteFixado: prova });",
+      "teste": "session-watcher-controller",
+      "nome": "^RM-075: task_complete do rollout fixado fecha Codex"
+    },
+    {
+      "id": "M4",
+      "descricao": "o retry volta a ignorar task_complete e planeja redespachar a fase concluída",
+      "modulo": "retry",
+      "de": "return (0, codex_task_complete_1.taskCompleteFixadoDaSessao)(raiz, thread, (0, session_events_1.exigirSessaoDespachada)(candidata, candidata.sessionId), (0, ledger_1.lerLedger)((0, thread_1.dirThread)(raiz, thread.id))) !== null;",
+      "para": "return false;",
+      "teste": "session-watcher-controller",
+      "nome": "^RM-075: retry recusa redespacho"
+    },
+    {
+      "id": "M5",
+      "descricao": "GO sem commit perde o resultado tipado go.sem-mudanca",
+      "modulo": "session-watcher-claude",
+      "de": "commits: [], worktreeLimpa: true, resultado: 'go.sem-mudanca' };",
+      "para": "commits: [], worktreeLimpa: true, resultado: undefined };",
+      "teste": "session-watcher-claude",
+      "nome": "^GO-FIX 3 \\(D16\\): GO conclui com commit conferido ou com HEAD igual"
+    }
+  ]
+}
