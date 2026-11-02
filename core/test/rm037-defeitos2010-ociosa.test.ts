@@ -92,8 +92,8 @@ test('defeito 4 (19 e 20/10/2026): working/idle vivo depois do Stop vira fim do 
   } finally { f.limpar(); }
 });
 
-test('defeito 4: sem a prova do ork a ociosidade depois do Stop vira human.pending (no PLAN, artifact.missing), nunca reexecucao', () => {
-  for (const [fase, motivo] of [['GOAL', 'human.pending'], ['PLAN', 'artifact.missing']] as [Fase, string][]) {
+test('defeito 4: sem a prova documental a ociosidade depois do Stop vira artifact.missing, nunca reexecucao', () => {
+  for (const [fase, motivo] of [['GOAL', 'artifact.missing'], ['PLAN', 'artifact.missing']] as [Fase, string][]) {
     const f = fixture(fase);
     try {
       f.evento('stop', 20);

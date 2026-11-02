@@ -8,6 +8,20 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Alterado
 
+- **RM-074 · M10 — seleção conservadora para `node --test` ([roadmap](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** a lane hermética usa o grafo estático somente no Agile morno, mantém testes de processo filho e cai para a suíte inteira diante de ambiguidade; a integração, o Classic, a rodada fria e o SHIP continuam integrais, e a razão aguarda a bancada de três pares.
+
+## [0.6.5] - 2026-11-02
+
+O Check passa a entender qualquer runner de teste: o manifesto declara o relatório JUnit de pytest, Vitest, Jest, Playwright ou gotestsum,
+o verify confere primeiro pelo nome os testes que caíram, protege casos de relógio sob `steal` alto e, no Agile morno, usa a seleção nativa do runner (RM-081).
+O agendador do Agile decide pela mediana de várias amostras, e a integração reserva só a CPU que mede (RM-074, M8 e M9); a razão contra o Classic sai da bancada.
+O fim de fase é lido pelo resultado da sessão, sem espera humana falsa nem retentativa de fase já concluída (RM-075), e o Grok Build roda com uma lista fechada de comandos (RM-067, F5a).
+Nenhum teste sai e o Classic não muda.
+
+O #Noctum segue **em desenvolvimento, não anunciado**.
+
+### Alterado
+
 - **Grok Build com lista fechada de comandos — F5a ([RM-067](docs/roadmap/RM-067-grok-build-homologado.md)):** o despacho headless usa `dontAsk` e libera somente `git`, `node`, `npm`, `ork`, `grep`, `find`, `ls` e `cat`, além das regras MCP já enumeradas. Comando fora da lista é negado sem pergunta; a sessão pode continuar, e um fim causado pela negação vira bloqueio tipado com o comando na evidência. O sandbox continua `workspace`, sem `--always-approve`, `--yolo`, `bypassPermissions` ou `danger-full-access`.
 
 - **Agendador do Agile em degraus — M8 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** a sonda usa várias amostras curtas e a mediana, preservando um pico isolado na evidência sem entregar a decisão a ele. Acima do limiar, o `steal` reduz proporcionalmente a capacidade da hermética, da varredura, da integração e dos contêineres, em vez de devolver tudo à ordem do Classic; a carga do `/proc/loadavg` segue a regra anterior, porque inclui o build do próprio verify. A peça `agendador-cpu` sai `degradado`, com a capacidade usada, e só volta à ordem do Classic, com a paralelização do Classic, quando não cabe o grupo paralelo ou a máquina está ocupada. O Classic não muda, e a razão nova aguarda a bancada do host.
@@ -26,7 +40,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **RM-081 · F5 — seleção nativa na rodada morna ([roadmap](docs/roadmap/RM-081-check-por-qualquer-runner.md)):** lane Agile pode declarar como Vitest, Jest ou Playwright relaciona mudanças; cache inválido, base, manifesto, lockfile, configuração ou caminho não mapeado executa a suíte inteira com o motivo, e recibo selecionado permanece parcial e recusado pelo SHIP.
 
-- **RM-074 · M10 — seleção conservadora para `node --test` ([roadmap](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** a lane hermética usa o grafo estático somente no Agile morno, mantém testes de processo filho e cai para a suíte inteira diante de ambiguidade; a integração, o Classic, a rodada fria e o SHIP continuam integrais, e a razão aguarda a bancada de três pares.
+### Corrigido
+
+- **Fim de fase lido pelo resultado ([RM-075](docs/roadmap/RM-075-fim-de-fase-lido-pelo-resultado.md)):** `claude-bg` só abre `human.pending` quando a mensagem final pergunta algo, GO limpo sem commit produz `go.sem-mudanca`, e o Codex fecha pelo `task_complete` do rollout fixado mesmo se o watcher perder o estado; o retry não redespacha esse terminal e pedidos tipados à condução continuam prevalecendo.
 
 ## [0.6.4] - 2026-11-01
 
