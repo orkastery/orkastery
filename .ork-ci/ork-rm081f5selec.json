@@ -403,7 +403,7 @@
         "node -e \"const assert=require('node:assert/strict'); const b=require('./.ork-ci/ork-rm081f5selec.json'); assert.equal(b.schema,'ork.ci-bundle/v1'); assert.equal(b.thread,'ork-rm081f5selec'); assert.ok(Array.isArray(b.claims))\""
       ],
       "criadoEm": "2026-11-02T09:16:25.230Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
