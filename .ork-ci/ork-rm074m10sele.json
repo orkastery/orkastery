@@ -1,0 +1,215 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm074m10sele",
+  "branch": "ork/ork-rm074m10sele-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm074m10sele",
+      "fase": "GOAL",
+      "arquivo": "core/src/seletor-node-test.ts",
+      "alegacao": "O seletor compilado calcula fecho estatico transitivo e cai para a lane inteira diante de ambiguidade.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/selecionar-testes-node.test.js"
+      ],
+      "criadoEm": "2026-11-02T16:05:56.191Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm074m10sele",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/selecionar-testes-node.cjs",
+      "alegacao": "O comando F5 do node --test exporta a entrada que delega a execucao ao runner de lanes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node -e \"const s=require('./core/scripts/selecionar-testes-node.cjs'); if(typeof s.principal !== 'function') process.exit(1)\""
+      ],
+      "criadoEm": "2026-11-02T16:05:56.279Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm074m10sele",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/test-lanes.cjs",
+      "alegacao": "O runner aceita uma lista selecionada validada e conclui corretamente uma selecao vazia sem descobrir testes por acidente.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const l=require('./core/scripts/test-lanes.cjs'); l.rodarLane('hermetica', []).then((c)=>{ if(c!==0) process.exit(1); })\""
+      ],
+      "criadoEm": "2026-11-02T16:05:56.347Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm074m10sele",
+      "fase": "GOAL",
+      "arquivo": "core/test/selecionar-testes-node.test.ts",
+      "alegacao": "Os testes focados cobrem fecho simples e transitivo, processo filho, require dinamico, caminho nao resolvido, diff vazio e fora do mapeamento.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/selecionar-testes-node.test.js"
+      ],
+      "criadoEm": "2026-11-02T16:05:56.434Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm074m10sele",
+      "fase": "GOAL",
+      "arquivo": "core/test/test-lanes.test.ts",
+      "alegacao": "A suite das lanes contem o cenario focado da entrada selecionada e da recusa de arquivo fora da lane.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'TL14: a entrada selecionada roda somente o subconjunto validado da lane' core/test/test-lanes.test.ts"
+      ],
+      "criadoEm": "2026-11-02T16:05:56.507Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm074m10sele",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "alegacao": "A bancada oferece amostra de commits recentes reaplicados, razao por commit, quantis, fracao selecionada e reprovacao por falso negativo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-name-pattern='MC25:' core/dist-test/test/medir-check.test.js"
+      ],
+      "criadoEm": "2026-11-02T16:12:33.748Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm074m10sele",
+      "fase": "GOAL",
+      "arquivo": "core/test/medir-check.test.ts",
+      "alegacao": "O cenario MC25 prova mediana, terceiro quartil, fracao por commit e falso negativo bloqueante.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test-name-pattern='MC25:' core/dist-test/test/medir-check.test.js"
+      ],
+      "criadoEm": "2026-11-02T16:12:33.791Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm074m10sele",
+      "fase": "GOAL",
+      "arquivo": "orkastery.yaml",
+      "alegacao": "Somente a lane hermetica declara a selecao F5 do node --test e o manifesto e valido.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node -e \"const r=require('./core/dist/manifest.js').carregarManifesto(process.cwd()); if(!r||r.erros.length||!r.manifesto.check.agile.selecao.hermetica||r.manifesto.check.agile.selecao.integracao) process.exit(1)\" && node core/scripts/test-lanes.cjs --conferir"
+      ],
+      "criadoEm": "2026-11-02T16:13:13.446Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm074m10sele",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+      "alegacao": "A secao M10 explica Sonda 4, quedas conservadoras, amostra historica e ausencia de ganho antecipado.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'M10: seleção do `node --test` pelo grafo de importação' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md && grep -q 'Qualquer falso negativo reprova a amostra' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md"
+      ],
+      "criadoEm": "2026-11-02T16:13:13.519Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm074m10sele",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "Nao publicado registra a selecao conservadora M10 sem prometer razao ainda nao medida.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'RM-074 · M10 — seleção conservadora para `node --test`' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-11-02T16:13:13.581Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm074m10sele",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M1 morre quando teste de processo filho e removido da selecao obrigatoria.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M1"
+      ],
+      "criadoEm": "2026-11-02T16:13:56.967Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm074m10sele",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M2 morre quando require dinamico deixa de forcar a lane inteira.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M2"
+      ],
+      "criadoEm": "2026-11-02T16:13:57.017Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm074m10sele",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M3 morre quando package.json deixa de cair para a lane inteira.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M3"
+      ],
+      "criadoEm": "2026-11-02T16:13:57.067Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm074m10sele",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M4 morre quando a selecao e aplicada na rodada fria.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M4"
+      ],
+      "criadoEm": "2026-11-02T16:13:57.111Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
