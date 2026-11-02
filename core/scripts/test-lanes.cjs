@@ -307,15 +307,18 @@ function rodarPoolDeArquivos({ arquivos, dir, env, pastaDaLane, plano }) {
   });
 }
 
-function rodarLane(lane) {
+function rodarLane(lane, arquivosSelecionados = null) {
   const { dir } = origem();
   const listas = listasDasLanes();
+  const recebidos = arquivosSelecionados === null ? listas[lane] : [...new Set(arquivosSelecionados)];
+  const invalidos = recebidos.filter((nome) => !listas[lane].includes(nome));
+  if (invalidos.length) throw new Error(`arquivo fora da lane ${lane}: ${invalidos.join(', ')}`);
   const cache = dirDoCache();
   const arquivoDeDuracoes = path.join(cache, `duracoes-${lane}.json`);
   const anteriores = lerDuracoes(arquivoDeDuracoes);
-  const arquivos = ordenarPorDuracao(listas[lane], anteriores);
+  const arquivos = ordenarPorDuracao(recebidos, anteriores);
   const orcamento = Number(process.env.ORK_CHECK_ORCAMENTO_MS) > 0 ? Number(process.env.ORK_CHECK_ORCAMENTO_MS) : ORCAMENTO_PADRAO_MS;
-  relatar({ tipo: 'lista', lane, arquivos: [...listas[lane]] });
+  relatar({ tipo: 'lista', lane, arquivos: [...arquivos].sort() });
   const temporario = selecionarTemporario();
   relatar({ tipo: 'peca', peca: 'tmpfs-das-lanes', estado: temporario.estado, motivo: temporario.motivo,
     ...(temporario.estado === 'fallback' ? { fallback: 'disco' } : {}) });
@@ -363,6 +366,10 @@ function rodarLane(lane) {
       fs.rmSync(pastaDaLane, { recursive: true, force: true });
       return code;
   };
+  if (arquivos.length === 0) {
+    emitirTapDoPool([], 0);
+    return Promise.resolve(terminar({ code: 0, medidas: {}, testes: [] }));
+  }
   const plano = planoDoPool(lane);
   if (plano) return rodarPoolDeArquivos({ arquivos, dir, env, pastaDaLane, plano }).then(terminar);
   const arquivoDoReporter = path.join(pastaDaLane, 'duracoes.json');
@@ -380,7 +387,7 @@ function rodarLane(lane) {
 
 module.exports = { listasDasLanes, ordenarPorDuracao, lerDuracoesDoReporter, lerResultadosDoReporter, assinaturaDoAmbiente,
   globDoNpmTest, concorrenciaDaLane, planoDoPool, degrausDaReserva, selecionarTemporario, sondarTmpfs, ENV_TMPFS,
-  ENV_CPUS_APOS_VARREDURA, ENV_CPUS_APOS_RESERVA, ENV_SINAL_DA_RESERVA, LANES, REPORTER };
+  ENV_CPUS_APOS_VARREDURA, ENV_CPUS_APOS_RESERVA, ENV_SINAL_DA_RESERVA, LANES, REPORTER, rodarLane };
 
 if (require.main === module) {
   const [alvo] = process.argv.slice(2);

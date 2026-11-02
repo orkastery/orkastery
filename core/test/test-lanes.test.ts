@@ -33,6 +33,7 @@ const lanes = require(SCRIPT) as {
   ENV_CPUS_APOS_RESERVA: string;
   ENV_SINAL_DA_RESERVA: string;
   selecionarTemporario: (opcoes?: Record<string, unknown>) => { diretorio: string; estado: 'agile' | 'fallback'; motivo: string };
+  rodarLane: (lane: string, arquivos?: string[] | null) => Promise<number>;
 };
 
 test('TL1: a uniao das lanes e todo arquivo de teste compilado, sem arquivo nas duas', () => {
@@ -152,6 +153,35 @@ test('TL8: teste que falha numa lane faz a lane sair diferente de zero, com o TA
     assert.notEqual(r.status, 0);
     assert.match(r.stdout, /^not ok 1 - cai$/m);
     assert.match(r.stdout, /location: '.*cai\.test\.js:1:\d+'/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('TL14: a entrada selecionada roda somente o subconjunto validado da lane', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-tl14-'));
+  try {
+    fs.writeFileSync(path.join(dir, 'a.test.js'), "const { test } = require('node:test'); test('a', () => {});\n");
+    fs.writeFileSync(path.join(dir, 'b.test.js'), "const { test } = require('node:test'); test('b', () => {});\n");
+    const relatorio = path.join(dir, 'relatorio.jsonl');
+    const env: NodeJS.ProcessEnv = { ...process.env, ORK_LANES_DIR: dir, ORK_LANES_INTEGRACAO: '', ORK_CHECK_RELATORIO: relatorio,
+      XDG_CACHE_HOME: path.join(dir, 'cache') };
+    delete env.NODE_TEST_CONTEXT;
+    const codigo = `require(${JSON.stringify(SCRIPT)}).rodarLane('hermetica', ['b.test.js']).then((c) => { process.exitCode = c; })`;
+    const executar = (fonte: string): Promise<{ code: number | null; stdout: string; stderr: string }> =>
+      new Promise((resolve) => {
+        const filho = spawn(process.execPath, ['-e', fonte], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+        let stdout = '', stderr = '';
+        filho.stdout!.on('data', (d) => { stdout += d; });
+        filho.stderr!.on('data', (d) => { stderr += d; });
+        filho.on('close', (code) => resolve({ code, stdout, stderr }));
+      });
+    const r = await executar(codigo);
+    assert.equal(r.code, 0, r.stderr + r.stdout);
+    assert.match(r.stdout, /^# tests 1$/m);
+    const linhas = fs.readFileSync(relatorio, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Record<string, unknown>);
+    assert.deepEqual(linhas.find((l) => l.tipo === 'lista'), { tipo: 'lista', lane: 'hermetica', arquivos: ['b.test.js'] });
+    const invalido = await executar(`require(${JSON.stringify(SCRIPT)}).rodarLane('hermetica', ['fora.test.js'])`);
+    assert.notEqual(invalido.code, 0);
+    assert.match(invalido.stderr, /arquivo fora da lane hermetica: fora\.test\.js/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
