@@ -469,6 +469,8 @@ function quantil(valores, q) {
  */
 function resumirAmostraSelecao(resultados) {
   const porCommit = resultados.map((r) => {
+    if (r.ignorado) return { commit: r.commit, ignorado: true, motivo: r.motivo || 'delta não aplicado', ok: null,
+      razao: null, fracaoSelecionada: null, testesSelecionados: null, totalTestes: null, falsosNegativos: [] };
     const falhasDaInteira = [...new Set(r.falhasDaInteira ?? [])].sort();
     const falhasDaSelecionada = new Set(r.falhasDaSelecionada ?? []);
     const falsosNegativos = falhasDaInteira.filter((falha) => !falhasDaSelecionada.has(falha));
@@ -484,14 +486,17 @@ function resumirAmostraSelecao(resultados) {
       ...(r.erro ? { erro: r.erro } : {}),
     };
   });
-  const razoes = porCommit.map((r) => r.razao).filter((v) => typeof v === 'number');
-  const fracoes = porCommit.map((r) => r.fracaoSelecionada).filter((v) => typeof v === 'number');
+  const validos = porCommit.filter((r) => !r.ignorado);
+  const razoes = validos.map((r) => r.razao).filter((v) => typeof v === 'number');
+  const fracoes = validos.map((r) => r.fracaoSelecionada).filter((v) => typeof v === 'number');
   return {
     commits: porCommit,
+    validos: validos.length,
+    ignorados: porCommit.filter((r) => r.ignorado).map((r) => ({ commit: r.commit, motivo: r.motivo })),
     razao: { mediana: quantil(razoes, 0.5), terceiroQuartil: quantil(razoes, 0.75) },
     fracaoSelecionada: { mediana: quantil(fracoes, 0.5), terceiroQuartil: quantil(fracoes, 0.75) },
     falsosNegativos: porCommit.flatMap((r) => r.falsosNegativos.map((falha) => ({ commit: r.commit, falha }))),
-    ok: porCommit.length > 0 && porCommit.every((r) => r.ok && r.razao !== null && r.fracaoSelecionada !== null),
+    ok: validos.length > 0 && validos.every((r) => r.ok && r.razao !== null && r.fracaoSelecionada !== null),
   };
 }
 
@@ -991,59 +996,82 @@ function ultimaRodada(ledger, jaLidas) {
   return doLedger.length > jaLidas ? doLedger[doLedger.length - 1] : null;
 }
 
-/** Reverte e reaplica um commit real numa cópia do HEAD da fatia, medindo morna, Classic e integral no mesmo conteúdo. */
-async function medirCommitDaAmostra(commit, indice, o) {
-  const c = prepararCopia({ ...o, commit: 'HEAD', manter: false });
+/** Executores reais de um delta: todos começam na mesma base carimbada, antes de aplicar `commit^..commit`. */
+function executoresReaisDaAmostra(commit, indice, baseCarimbada, o) {
+  const c = prepararCopia({ ...o, commit: baseCarimbada, manter: false });
   const logs = o.saida ? `${o.saida}.amostra.d` : c.base;
   fs.mkdirSync(logs, { recursive: true });
   const esperar = () => esperarQuieta({ limite: o.cargaMax, janelaMs: o.janelaMs, tetoMs: o.esperaMaxMs });
+  return {
+    fria: async () => {
+      await esperar();
+      await rodada(c.copia, c.env, c.thread, 'agile', path.join(logs, `${indice}-fria.log`), o.prazoMs, null, [c.base, c.tmp]);
+      return ultimaRodada(c.ledger, 0);
+    },
+    aplicarDelta: async () => {
+      try {
+        git(c.copia, 'cherry-pick', commit);
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, motivo: `delta ${commit} não aplica limpo sobre ${baseCarimbada}: ${String(e?.message ?? e).split('\n')[0]}` };
+      }
+    },
+    selecionada: async () => {
+      await esperar();
+      await rodada(c.copia, c.env, c.thread, 'agile', path.join(logs, `${indice}-morna.log`), o.prazoMs, null, [c.base, c.tmp]);
+      const rodadaLida = ultimaRodada(c.ledger, 1);
+      return { rodada: rodadaLida, evidencia: evidenciaNominal(c.copia, rodadaLida) };
+    },
+    classic: async () => {
+      await esperar();
+      await rodada(c.copia, c.env, c.thread, 'classic', path.join(logs, `${indice}-classic.log`), o.prazoMs, null, [c.base, c.tmp]);
+      return ultimaRodada(c.ledger, 2);
+    },
+    integral: async () => {
+      const antes = new Set(fs.readdirSync(path.join(c.copia, '.orkastery', 'threads')));
+      ork(c.copia, c.env, 'thread', 'new', `integral da amostra ${indice}`, '--modo', 'auto', '--sem-worktree');
+      const integralThread = fs.readdirSync(path.join(c.copia, '.orkastery', 'threads')).find((nome) => !antes.has(nome)
+        && fs.existsSync(path.join(c.copia, '.orkastery', 'threads', nome, 'thread.json')));
+      if (!integralThread) throw new Error('a thread da rodada integral não foi criada');
+      const integralLedger = path.join(c.copia, '.orkastery', 'threads', integralThread, 'ledger.jsonl');
+      await esperar();
+      await rodada(c.copia, c.env, integralThread, 'agile', path.join(logs, `${indice}-integral.log`), o.prazoMs, null, [c.base, c.tmp]);
+      const rodadaLida = ultimaRodada(integralLedger, 0);
+      return { rodada: rodadaLida, evidencia: evidenciaNominal(c.copia, rodadaLida) };
+    },
+    limpar: c.limpar,
+  };
+}
+
+/** Mede um commit por executores injetáveis; a integral continua sendo a verdade contra falso negativo. */
+async function medirCommitDaAmostra(commit, indice, baseCarimbada, o, executores = executoresReaisDaAmostra(commit, indice, baseCarimbada, o)) {
   try {
-    git(c.copia, 'revert', '--no-commit', commit);
-    git(c.copia, 'commit', '-m', `medir-check: base sem amostra ${indice}`);
-    await esperar();
-    await rodada(c.copia, c.env, c.thread, 'agile', path.join(logs, `${indice}-fria.log`), o.prazoMs, null, [c.base, c.tmp]);
-    const fria = ultimaRodada(c.ledger, 0);
+    const fria = await executores.fria();
     if (!fria) throw new Error('rodada fria não chegou ao ledger');
-
-    git(c.copia, 'cherry-pick', commit);
-    await esperar();
-    await rodada(c.copia, c.env, c.thread, 'agile', path.join(logs, `${indice}-morna.log`), o.prazoMs, null, [c.base, c.tmp]);
-    const morna = ultimaRodada(c.ledger, 1);
-    if (!morna) throw new Error('rodada morna não chegou ao ledger');
-    await esperar();
-    await rodada(c.copia, c.env, c.thread, 'classic', path.join(logs, `${indice}-classic.log`), o.prazoMs, null, [c.base, c.tmp]);
-    const classic = ultimaRodada(c.ledger, 2);
+    const aplicacao = await executores.aplicarDelta();
+    if (!aplicacao?.ok) return { commit, ignorado: true, motivo: aplicacao?.motivo || 'delta não aplica limpo sobre a base carimbada' };
+    const selecionada = await executores.selecionada();
+    if (!selecionada?.rodada) throw new Error('rodada morna não chegou ao ledger');
+    const classic = await executores.classic();
     if (!classic) throw new Error('rodada Classic não chegou ao ledger');
-
-    const antes = new Set(fs.readdirSync(path.join(c.copia, '.orkastery', 'threads')));
-    ork(c.copia, c.env, 'thread', 'new', `integral da amostra ${indice}`, '--modo', 'auto', '--sem-worktree');
-    const integralThread = fs.readdirSync(path.join(c.copia, '.orkastery', 'threads')).find((nome) => !antes.has(nome)
-      && fs.existsSync(path.join(c.copia, '.orkastery', 'threads', nome, 'thread.json')));
-    if (!integralThread) throw new Error('a thread da rodada integral não foi criada');
-    const integralLedger = path.join(c.copia, '.orkastery', 'threads', integralThread, 'ledger.jsonl');
-    await esperar();
-    await rodada(c.copia, c.env, integralThread, 'agile', path.join(logs, `${indice}-integral.log`), o.prazoMs, null, [c.base, c.tmp]);
-    const integral = ultimaRodada(integralLedger, 0);
-    if (!integral) throw new Error('rodada integral não chegou ao ledger');
-
-    const evidenciaMorna = evidenciaNominal(c.copia, morna);
-    const evidenciaIntegral = evidenciaNominal(c.copia, integral);
+    const integral = await executores.integral();
+    if (!integral?.rodada) throw new Error('rodada integral não chegou ao ledger');
     const identidade = (t) => `${t.arquivo}\u0000${t.nome}`;
     const falhas = (e) => e.resultados.filter((t) => t.estado === 'fail').map(identidade);
     return {
       commit,
-      ok: !!(morna.ok && classic.ok && integral.ok),
+      ok: !!(selecionada.rodada.ok && classic.ok && integral.rodada.ok),
       classicMs: paredeSemPreparo(classic),
-      agileMornoMs: paredeSemPreparo(morna),
-      testesSelecionados: evidenciaMorna.resultados.length,
-      totalTestes: evidenciaIntegral.resultados.length,
-      falhasDaSelecionada: falhas(evidenciaMorna),
-      falhasDaInteira: falhas(evidenciaIntegral),
+      agileMornoMs: paredeSemPreparo(selecionada.rodada),
+      testesSelecionados: selecionada.evidencia.resultados.length,
+      totalTestes: integral.evidencia.resultados.length,
+      falhasDaSelecionada: falhas(selecionada.evidencia),
+      falhasDaInteira: falhas(integral.evidencia),
     };
   } catch (e) {
     return { commit, ok: false, erro: String(e?.message ?? e), classicMs: null, agileMornoMs: null,
       testesSelecionados: null, totalTestes: null, falhasDaSelecionada: [], falhasDaInteira: [] };
-  } finally { c.limpar(); }
+  } finally { await executores.limpar?.(); }
 }
 
 async function bancadaSelecaoHistorica(o) {
@@ -1051,10 +1079,11 @@ async function bancadaSelecaoHistorica(o) {
   const resultados = [];
   for (const [i, commit] of amostra.commits.entries()) {
     process.stderr.write(`medir-check: amostra ${i + 1}/${amostra.commits.length}, commit ${commit.slice(0, 12)}\n`);
-    resultados.push(await medirCommitDaAmostra(commit, i + 1, o));
+    resultados.push(await medirCommitDaAmostra(commit, i + 1, amostra.base, o));
   }
+  const resumo = resumirAmostraSelecao(resultados);
   const saida = { contrato: 'ork.medir-check.selecao/v1', base: amostra.base, tamanho: amostra.commits.length,
-    ...resumirAmostraSelecao(resultados) };
+    ...resumo, ok: resumo.ok && resumo.validos === amostra.commits.length };
   const texto = JSON.stringify(saida, null, 1) + '\n';
   if (o.saida) fs.writeFileSync(o.saida, texto);
   process.stdout.write(texto);
@@ -1376,7 +1405,7 @@ function analisarBancada({ rodadas, passes, lanes, nucleos, linhaDeBase = null, 
 module.exports = { lerRodadas, tresConsecutivas, rssDaArvore, picoAgregado, pastaDasCopias, encerrarArvore, CLAIMS_REPRESENTATIVAS,
   MIN_PARES_CONFIAVEIS, TOLERANCIA_STEAL_PP, CARGA_FORA_MAX_PCT, ordemDosPares, paredeSemPreparo, validarPar,
   validarOpcoesDaBancada,
-  validarOpcoesDaAmostra, resumirAmostraSelecao, commitsRecentesDaAmostra,
+  validarOpcoesDaAmostra, resumirAmostraSelecao, commitsRecentesDaAmostra, medirCommitDaAmostra,
   razao, eficiencia, corte, variacao, quantil, lerCpuStat, stealPct, quieta, eSuite, lerTempo, contarTap, concentracao,
   custoDosMaiores, claimsQueRepetem, pesoNaRodada, selecionarPorDiff, sondaDoGrafo, pecasEmFallback, redigir, comandosDeClaims,
   fechosDeRequire, analisarBancada, jsonRaso, resumirCargaExterna, resumirCpuDosContainers, processosExternos,

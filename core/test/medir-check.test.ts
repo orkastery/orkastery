@@ -45,6 +45,14 @@ const medir = require(path.join(RAIZ, 'core', 'scripts', 'medir-check.cjs')) as 
   validarOpcoesDaBancada: (opcoes: { pares: number; cargaForaMaxPct?: number }) => void;
   validarOpcoesDaAmostra: (opcoes: { amostraCommits: number }) => void;
   resumirAmostraSelecao: (resultados: Array<Record<string, unknown>>) => Record<string, any>;
+  medirCommitDaAmostra: (commit: string, indice: number, base: string, opcoes: Record<string, unknown>, executores: {
+    fria: () => Promise<Record<string, unknown> | null>;
+    aplicarDelta: () => Promise<{ ok: boolean; motivo?: string }>;
+    selecionada: () => Promise<{ rodada: Record<string, unknown>; evidencia: { resultados: Array<Record<string, unknown>> } }>;
+    classic: () => Promise<Record<string, unknown>>;
+    integral: () => Promise<{ rodada: Record<string, unknown>; evidencia: { resultados: Array<Record<string, unknown>> } }>;
+    limpar: () => Promise<void> | void;
+  }) => Promise<Record<string, any>>;
   razao: (classicMs: unknown, agileMs: unknown) => number | null;
   eficiencia: (cpuMs: unknown, nucleos: number, paredeMs: unknown) => number | null;
   corte: (cpuMs: unknown, baseMs: unknown) => number | null;
@@ -558,6 +566,43 @@ test('MC25: a amostra morna relata razao e fracao por commit, mediana, terceiro 
   assert.equal(resumo.ok, false);
   assert.throws(() => medir.validarOpcoesDaAmostra({ amostraCommits: 2 }), /pelo menos 3 commits/);
   assert.doesNotThrow(() => medir.validarOpcoesDaAmostra({ amostraCommits: 3 }));
+});
+
+test('MC26: executores injetados reprovam o delta cuja integral vermelha fica fora da selecao e relatam delta inaplicavel', async () => {
+  const chamadas: string[] = [];
+  const rodada = (modo: string, ok: boolean, duracaoMs: number) => ({ modo, ok, duracaoMs, preparoMs: 0 });
+  const resultado = await medir.medirCommitDaAmostra('commit-a', 1, 'base-carimbada', {}, {
+    fria: async () => { chamadas.push('fria'); return rodada('agile', true, 120); },
+    aplicarDelta: async () => { chamadas.push('aplicar:base-carimbada'); return { ok: true }; },
+    selecionada: async () => { chamadas.push('selecionada'); return {
+      rodada: rodada('agile', true, 100), evidencia: { resultados: [{ arquivo: 'passa.test.js', nome: 'passa', estado: 'pass' }] },
+    }; },
+    classic: async () => { chamadas.push('classic'); return rodada('classic', false, 200); },
+    integral: async () => { chamadas.push('integral'); return {
+      rodada: rodada('agile', false, 190), evidencia: { resultados: [
+        { arquivo: 'passa.test.js', nome: 'passa', estado: 'pass' },
+        { arquivo: 'omitido.test.js', nome: 'cai', estado: 'fail' },
+      ] },
+    }; },
+    limpar: () => { chamadas.push('limpar'); },
+  });
+  assert.deepEqual(chamadas, ['fria', 'aplicar:base-carimbada', 'selecionada', 'classic', 'integral', 'limpar']);
+  const resumo = medir.resumirAmostraSelecao([resultado]);
+  assert.equal(resumo.ok, false);
+  assert.deepEqual(resumo.falsosNegativos, [{ commit: 'commit-a', falha: 'omitido.test.js\0cai' }]);
+
+  const ignorado = await medir.medirCommitDaAmostra('commit-b', 2, 'base-carimbada', {}, {
+    fria: async () => rodada('agile', true, 120),
+    aplicarDelta: async () => ({ ok: false, motivo: 'delta commit-b não aplica limpo sobre base-carimbada' }),
+    selecionada: async () => { throw new Error('não deveria rodar'); },
+    classic: async () => { throw new Error('não deveria rodar'); },
+    integral: async () => { throw new Error('não deveria rodar'); },
+    limpar: () => undefined,
+  });
+  assert.deepEqual(ignorado, { commit: 'commit-b', ignorado: true,
+    motivo: 'delta commit-b não aplica limpo sobre base-carimbada' });
+  assert.deepEqual(medir.resumirAmostraSelecao([ignorado]).ignorados,
+    [{ commit: 'commit-b', motivo: 'delta commit-b não aplica limpo sobre base-carimbada' }]);
 });
 
 test('MC22: o JSON da bancada e indentado ate o nivel pedido e compacto abaixo dele, e volta ao mesmo valor', () => {
