@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.3",
-  "publicadoEm": "2026-11-02T00:28:37.954Z",
+  "publicadoEm": "2026-11-02T00:28:42.229Z",
   "threads": [
     {
       "id": "ork-rm067f5agrok",
@@ -93,24 +93,6 @@
         "desdeEm": "2026-10-31T20:57:42.157Z",
         "motivo": "nenhuma sessão despachada na fase GOAL"
       }
-    },
-    {
-      "id": "ork-semgrepincre",
-      "nome": "semgrep-incremental",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-semgrepincre-go",
-      "atualizadaEm": "2026-11-01T12:13:47.829Z",
-      "entregue": "b5e9334",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null,
-      "sessao": null
     },
     {
       "id": "ork-versao064",
