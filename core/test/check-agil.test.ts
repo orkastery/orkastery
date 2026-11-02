@@ -1186,26 +1186,20 @@ test('RM081F4-manifesto: a declaracao unica preserva texto e transporta todas as
   const p = projetoTemporario('rm081-f4-manifesto');
   try {
     comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      texto: "echo texto"\n' +
-      '      somente-comando:\n        comando: "echo comando"\n' +
       '      com-recursos:\n        comando: "echo recursos"\n        recursos: ["cache"]\n' +
-      '      selecao-sem-junit:\n        comando: "echo selecao"\n' +
-      '        selecao:\n          comando: "echo {arquivos}"\n          mapeia: ["src/**"]\n' +
       '      lane-completa:\n        comando: "echo completa"\n        junit: "reports/completa.xml"\n' +
       '        filtro: "echo {testes}"\n        relogio:\n          nome: ["tempo$"]\n' +
       '        selecao:\n          comando: "echo {arquivos}"\n          mapeia: ["src/**"]\n' +
       '        recursos: ["banco", "porta"]');
     assert.deepEqual(p.carregado.manifesto.check?.agile?.test, {
       texto: 'echo texto',
-      'somente-comando': 'echo comando',
       'com-recursos': 'echo recursos',
-      'selecao-sem-junit': 'echo selecao',
       'lane-completa': 'echo completa',
     });
     assert.deepEqual(p.carregado.manifesto.check?.agile?.junit, { 'lane-completa': 'reports/completa.xml' });
     assert.deepEqual(p.carregado.manifesto.check?.agile?.filtro, { 'lane-completa': 'echo {testes}' });
     assert.deepEqual(p.carregado.manifesto.check?.agile?.relogio, { 'lane-completa': { nome: ['tempo$'] } });
     assert.deepEqual(p.carregado.manifesto.check?.agile?.selecao, {
-      'selecao-sem-junit': { comando: 'echo {arquivos}', mapeia: ['src/**'] },
       'lane-completa': { comando: 'echo {arquivos}', mapeia: ['src/**'] },
     });
     assert.deepEqual(p.carregado.manifesto.check?.agile?.recursos,
@@ -1226,11 +1220,23 @@ test('RM081F4-manifesto: a declaracao unica preserva texto e transporta todas as
     assert.deepEqual(itens.filter((item) => item.nome.startsWith('test:')).map((item) =>
       [item.nome, item.comando, item.recursos ?? []]), [
       ['test:texto', 'echo texto', []],
-      ['test:somente-comando', 'echo comando', []],
       ['test:com-recursos', 'echo recursos', ['cache']],
-      ['test:selecao-sem-junit', 'echo selecao', []],
       ['test:lane-completa', 'echo completa', ['banco', 'porta']],
     ]);
+  } finally { p.limpar(); }
+});
+
+test('RM081F4-manifesto: objeto sem junit e sem recursos conserva a recusa da F1', () => {
+  const p = projetoTemporario('rm081-f4-manifesto-sem-junit');
+  try {
+    fs.appendFileSync(path.join(p.dir, 'orkastery.yaml'), '\ncheck:\n  agile:\n    test:\n' +
+      '      somente-comando:\n        comando: "echo comando"\n' +
+      '      selecao-sem-recursos:\n        comando: "echo selecao"\n' +
+      '        selecao:\n          comando: "echo {arquivos}"\n          mapeia: ["src/**"]\n');
+    const m = carregarManifesto(p.dir)!;
+    assert.ok(m.erros.some((erro) => /check\.agile\.test\.somente-comando\.junit precisa/.test(erro)), m.erros.join('; '));
+    assert.ok(m.erros.some((erro) => /check\.agile\.test\.selecao-sem-recursos\.junit precisa/.test(erro)),
+      m.erros.join('; '));
   } finally { p.limpar(); }
 });
 

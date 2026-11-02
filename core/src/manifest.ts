@@ -389,11 +389,17 @@ function lerComando(chave: string, v: ValorYaml, erros: string[], aceitaSelecao 
   const comando = typeof v.comando === 'string' && v.comando.trim() ? v.comando.trim() : undefined;
   if (!comando) erros.push(`${chave}.comando precisa ser texto nao vazio`);
   const junit = v.junit === undefined ? undefined : caminhoJUnit(`${chave}.junit`, v.junit, erros);
+  const dispensaJUnit = aceitaRecursos && v.recursos !== undefined && v.recursos !== null;
   if (v.junit === undefined) {
-    for (const dependencia of ['filtro', 'relogio'] as const) {
+    const dependencias = (['filtro', 'relogio'] as const)
+      .filter((dependencia) => v[dependencia] !== undefined && v[dependencia] !== null);
+    for (const dependencia of dependencias) {
       if (v[dependencia] !== undefined && v[dependencia] !== null) {
         erros.push(`${chave}.junit precisa ser declarado porque ${chave}.${dependencia} depende do relatorio JUnit`);
       }
+    }
+    if (!dependencias.length && !dispensaJUnit) {
+      erros.push(`${chave}.junit precisa ser declarado no objeto de comando`);
     }
   }
   const filtro = filtroDoComando(`${chave}.filtro`, v.filtro, erros);

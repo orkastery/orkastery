@@ -1,6 +1,6 @@
 {
   "contrato": "ork.mutantes/v1",
-  "descricao": "RM-081 F4: o objeto aceita lanes sem JUnit, workers seguem a reserva, a capacidade limita a soma, recursos comuns se excluem e o Classic publica o mesmo contrato.",
+  "descricao": "RM-081 F4: somente recursos dispensam JUnit no objeto da lane, workers seguem a reserva, a capacidade limita a soma, recursos comuns se excluem e o Classic publica o mesmo contrato.",
   "mutantes": [
     {
       "id": "M1",
@@ -44,6 +44,15 @@
       "modulo": "manifest",
       "de": "const junit = v.junit === undefined ? undefined : caminhoJUnit(`${chave}.junit`, v.junit, erros);",
       "para": "const junit = caminhoJUnit(`${chave}.junit`, v.junit, erros);",
+      "teste": "check-agil",
+      "nome": "^RM081F4-manifesto:"
+    },
+    {
+      "id": "M6",
+      "descricao": "o objeto sem junit e sem recursos passa",
+      "modulo": "manifest",
+      "de": "const dispensaJUnit = aceitaRecursos && v.recursos !== undefined && v.recursos !== null;",
+      "para": "const dispensaJUnit = true;",
       "teste": "check-agil",
       "nome": "^RM081F4-manifesto:"
     }

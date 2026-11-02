@@ -144,9 +144,11 @@ ou alcançado por link não serve como evidência: o código de saída continua 
 campo `junit` do ledger registra o estado e o motivo. O XML nunca transforma código de saída vermelho
 em verde.
 
-No objeto de comando ou lane, `junit` é opcional. Ele é obrigatório quando o mesmo objeto declara
-`filtro`, que consome os nomes do relatório, ou `relogio`, que marca identidades JUnit. `comando`
-sozinho, `recursos` e `selecao` não dependem do relatório e podem ser declarados sem `junit`.
+No objeto de comando ou lane, `junit` é obrigatório. A única exceção é a lane do Agile cujo mesmo
+objeto declara `recursos`; somente nesse caso o objeto pode omitir o relatório. `filtro`, que consome
+os nomes do relatório, e `relogio`, que marca identidades JUnit, sempre exigem `junit`, inclusive
+quando há `recursos`, e a mensagem de erro identifica qual dessas chaves pediu o relatório. Um objeto
+com apenas `comando`, ou com `selecao` mas sem `recursos`, continua incompleto como no contrato da F1.
 
 Os runners escrevem o mesmo contrato com opções diferentes:
 
@@ -280,9 +282,10 @@ exporta a mesma variável com a capacidade inteira disponível, de modo que o co
 mudar a ordem do Classic.
 
 A forma `lane: "comando"` continua válida. No objeto da lane, `recursos` fica ao lado de `comando`, `junit`, `filtro`,
-`relogio` e `selecao`, como na `lane-completa` da referência acima; `recursos` não torna `junit` obrigatório. Duas lanes
-com ao menos um recurso em comum não se sobrepõem; recursos diferentes não criam dependência. O conjunto é adquirido
-inteiro antes de a lane ocupar uma vaga, para que listas em ordens diferentes não formem espera circular.
+`relogio` e `selecao`, como na `lane-completa` da referência acima; sua presença é a única dispensa de `junit` para o
+objeto, mas não dispensa o relatório exigido por `filtro` ou `relogio`. Duas lanes com ao menos um recurso em comum não
+se sobrepõem; recursos diferentes não criam dependência. O conjunto é adquirido inteiro antes de a lane ocupar uma vaga,
+para que listas em ordens diferentes não formem espera circular.
 
 Cada runner lê a variável no próprio comando e conserva seu fallback quando é executado fora do `ork`:
 
