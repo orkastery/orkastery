@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.3",
-  "publicadoEm": "2026-11-02T00:28:22.743Z",
+  "publicadoEm": "2026-11-02T00:28:27.327Z",
   "threads": [
     {
       "id": "ork-rm067f5agrok",
@@ -54,11 +54,11 @@
       "id": "ork-rm074m6medid",
       "nome": "rm074m6",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": "RM-074",
       "branch": "ork/ork-rm074m6medid-full",
-      "atualizadaEm": "2026-11-01T08:46:45.952Z",
+      "atualizadaEm": "2026-11-02T00:28:26.815Z",
       "entregue": "94c5a9f",
       "esperaVoce": false,
       "pergunta": null,
@@ -129,24 +129,6 @@
         "desdeEm": "2026-10-31T20:57:42.157Z",
         "motivo": "nenhuma sessão despachada na fase GOAL"
       }
-    },
-    {
-      "id": "ork-rm081paginad",
-      "nome": "rm081pagina",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-rm081paginad-go",
-      "atualizadaEm": "2026-11-01T08:29:11.858Z",
-      "entregue": "54527b5",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null,
-      "sessao": null
     },
     {
       "id": "ork-semgrepincre",
