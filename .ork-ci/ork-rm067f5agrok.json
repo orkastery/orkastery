@@ -266,7 +266,7 @@
         "node -e \"const b=require('./.ork-ci/ork-rm067f5agrok.json'); if(b.schema!=='ork.ci-bundle/v1'||b.thread!=='ork-rm067f5agrok'||b.branch!=='ork/ork-rm067f5agrok-go'||b.base!=='main'||!Array.isArray(b.claims)||!Array.isArray(b.commands))process.exit(1)\""
       ],
       "criadoEm": "2026-11-01T19:53:19.077Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
