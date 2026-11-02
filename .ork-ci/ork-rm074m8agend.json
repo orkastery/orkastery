@@ -225,7 +225,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/dist-test/test/check-agil.test.js"
       ],
       "criadoEm": "2026-11-01T20:11:17.196Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
