@@ -5,10 +5,10 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { carregarManifesto, NOME_MANIFESTO } from '../src/manifest';
 import { registrar, TIPOS_DE_EVENTO } from '../src/ledger';
-import { novaThread } from '../src/thread';
-import { dirThread } from '../src/thread';
+import { dirThread, novaThread } from '../src/thread';
 import { ResultadoDeComando } from '../src/types';
 import { comandoComTestesFiltrados, comandoNoLedger, verificar, textoDoVerify } from '../src/verify';
+import { verificacaoCompletaParaShip } from '../src/ship';
 import { projetoTemporario, ProjetoDeTeste } from './apoio';
 
 function comVerify(p: ProjetoDeTeste, linhas: string, check = '') {
@@ -146,4 +146,75 @@ test('RM081 F3 V3: parcial verde continua para a suite inteira, que decide o ver
 test('RM081 F3 V4: nomes viram argumentos shell, sem executar metacaracteres', () => {
   assert.equal(comandoComTestesFiltrados('runner {testes}', ["a'b", '$(efeito)', 'x; y']),
     "runner 'a'\"'\"'b' '$(efeito)' 'x; y'");
+});
+
+test('RM081 F3 A1: lane parcial vermelha nao roda sua suite e preserva as demais lanes', () => {
+  const p = projetoTemporario('rm081-f3-agile-vermelha');
+  try {
+    fs.writeFileSync(path.join(p.dir, 'produto.txt'), 'produto');
+    fs.mkdirSync(path.join(p.dir, 'reports'));
+    p.carregado.manifesto.verify = { test: 'runner completo', preparo: 'prepara' };
+    p.carregado.manifesto.check = { mode: 'agile', agile: { produto: ['produto.txt'],
+      test: { a: 'runner a completo', b: 'runner b completo' },
+      junit: { a: 'reports/a.xml', b: 'reports/b.xml' },
+      filtro: { a: 'runner a parcial {testes}', b: 'runner b parcial {testes}' } } };
+    const { thread } = novaThread(p.carregado, { nome: 'agile vermelha', modo: 'auto' });
+    registrar(dirThread(p.dir, thread.id), thread.id, TIPOS_DE_EVENTO.verificacao, {
+      commit: 'a'.repeat(40), comandos: [{ nome: 'test', ok: false, code: 1, lanes: [
+        { lane: 'a', comando: 'runner a completo', ok: false, code: 1, testeQueCaiu: ['suite :: A'],
+          junit: { caminho: 'reports/a.xml', estado: 'lido' } },
+        { lane: 'b', comando: 'runner b completo', ok: true, code: 0,
+          junit: { caminho: 'reports/b.xml', estado: 'lido' } },
+      ] }],
+    });
+    const comandos: string[] = [];
+    const r = verificar(p.carregado, thread.id, { executor: (nome, comando) => {
+      comandos.push(comando);
+      if (nome.startsWith('test:')) {
+        const lane = nome.slice('test:'.length);
+        const falha = comando.includes('parcial');
+        fs.writeFileSync(path.join(p.dir, `reports/${lane}.xml`), xml(lane, falha));
+        return resultado(nome, comando, !falha);
+      }
+      return resultado(nome, comando, true);
+    } });
+    assert.deepEqual(comandos, ['prepara', "runner a parcial 'suite :: A'", 'runner b completo']);
+    assert.equal(r.parcial, true);
+    const teste = r.comandos.find((c) => c.nome === 'test')!;
+    assert.deepEqual(teste.parcial, { testes: ['suite :: A'] });
+    assert.equal(teste.lanes?.find((l) => l.lane === 'a')?.parcial?.testes[0], 'suite :: A');
+  } finally { p.limpar(); }
+});
+
+test('RM081 F3 A2: lane parcial verde segue para a suite completa da mesma lane', () => {
+  const p = projetoTemporario('rm081-f3-agile-verde');
+  try {
+    fs.writeFileSync(path.join(p.dir, 'produto.txt'), 'produto');
+    fs.mkdirSync(path.join(p.dir, 'reports'));
+    p.carregado.manifesto.verify = { test: 'runner completo', preparo: 'prepara' };
+    p.carregado.manifesto.check = { mode: 'agile', agile: { produto: ['produto.txt'], test: { a: 'runner a completo' },
+      junit: { a: 'reports/a.xml' }, filtro: { a: 'runner a parcial {testes}' } } };
+    const { thread } = novaThread(p.carregado, { nome: 'agile verde', modo: 'auto' });
+    registrar(dirThread(p.dir, thread.id), thread.id, TIPOS_DE_EVENTO.verificacao, {
+      commit: 'a'.repeat(40), comandos: [{ nome: 'test', ok: false, code: 1, lanes: [
+        { lane: 'a', comando: 'runner a completo', ok: false, code: 1, testeQueCaiu: ['suite :: A'],
+          junit: { caminho: 'reports/a.xml', estado: 'lido' } },
+      ] }],
+    });
+    const comandos: string[] = [];
+    const r = verificar(p.carregado, thread.id, { executor: (nome, comando) => {
+      comandos.push(comando);
+      if (nome.startsWith('test:')) fs.writeFileSync(path.join(p.dir, 'reports/a.xml'), xml('A', false));
+      return resultado(nome, comando, true);
+    } });
+    assert.deepEqual(comandos, ['prepara', "runner a parcial 'suite :: A'", 'runner a completo']);
+    assert.equal(r.parcial, false);
+    assert.equal(r.ok, true);
+  } finally { p.limpar(); }
+});
+
+test('RM081 F3 S1: SHIP recusa recibo parcial mesmo se o booleano ok vier verde', () => {
+  assert.equal(verificacaoCompletaParaShip({ ok: true, parcial: true }), false);
+  assert.equal(verificacaoCompletaParaShip({ ok: true, parcial: false }), true);
+  assert.equal(verificacaoCompletaParaShip({ ok: false, parcial: false }), false);
 });

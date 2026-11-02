@@ -59,6 +59,9 @@ export interface ItemDoGrupo {
   comando: string;
   /** RM-081 F1: relatorio que o proprio comando escreve, preparado pelo executor antes do grupo. */
   junit?: string;
+  /** RM-081 F3: comando e nomes da passagem parcial anterior a suite inteira. */
+  filtro?: string;
+  testesFiltrados?: string[];
   /** Prioridade menor (nice) no processo auxiliar. */
   nice?: number;
   /** Os itens do grupo (pelo nome, antes deste na lista) que precisam terminar antes de este comecar. */
@@ -81,6 +84,13 @@ export interface ExecutorDeGrupo {
 
 /** Roda um comando (o executor da rodada, com prazo, steal e conducao). */
 export type ExecutorUnico = (nome: string, comando: string, cwd: string) => ResultadoDeComando;
+export type ExecutorDaPassagemParcial = (nome: string, comando: string, cwd: string, filtro: string,
+  testes: readonly string[]) => ResultadoDeComando | null;
+
+export interface SelecaoAnteriorDoAgile {
+  comandos: Record<string, string[]>;
+  lanes: Record<string, string[]>;
+}
 
 const SEPARADOR = ' && ';
 
@@ -370,6 +380,7 @@ export function testDasLanes(lanes: Array<{ lane: string; resultado: ResultadoDe
   const nomesExtraidos = juntar((r) => r.testeQueCaiu);
   const testes = lanes.some((l) => l.resultado.junit?.estado === 'lido') ? nomesExtraidos : nomesExtraidos.slice(0, 10);
   const falhas = juntar((r) => r.falhasDeTeste);
+  const filtrados = juntar((r) => r.parcial?.testes);
   const junit = junitDasLanes(lanes);
   const relogio = soRelogio ? juntar((r) => r.relogioSobSteal) : [];
   const trechos = caidas.map((l) => l.resultado.trecho).filter((t): t is string => !!t);
@@ -386,13 +397,15 @@ export function testDasLanes(lanes: Array<{ lane: string; resultado: ResultadoDe
     ...(testes.length ? { testeQueCaiu: testes } : {}),
     ...(falhas.length ? { falhasDeTeste: falhas } : {}),
     ...(junit ? { junit } : {}),
+    ...(filtrados.length ? { parcial: { testes: [...new Set(filtrados)] } } : {}),
     ...(trechos.length ? { trecho: trechos.join('\n').slice(0, 1024) } : {}),
     ...(lanes.some((l) => l.resultado.stealPct !== undefined) ? { stealPct: lanes.find((l) => l.resultado.stealPct !== undefined)!.resultado.stealPct } : {}),
     ...(relogio.length ? { relogioSobSteal: relogio } : {}),
     lanes: lanes.map((l) => ({ lane: l.lane, comando: l.resultado.comando, ok: l.resultado.ok, code: l.resultado.code,
       ...(l.resultado.causa ? { causa: l.resultado.causa } : {}), duracaoMs: l.resultado.duracaoMs ?? 0,
       ...(l.resultado.testeQueCaiu?.length ? { testeQueCaiu: l.resultado.testeQueCaiu } : {}),
-      ...(l.resultado.junit ? { junit: l.resultado.junit } : {}) })),
+      ...(l.resultado.junit ? { junit: l.resultado.junit } : {}),
+      ...(l.resultado.parcial ? { parcial: l.resultado.parcial } : {}) })),
   };
 }
 
@@ -429,8 +442,10 @@ export interface ComandosDoAgile {
  * Os comandos do manifesto no Agile (D4): `build` reaproveitado do preparo com a guarda valendo; o resto num grupo
  * paralelo, com as lanes no lugar do `verify.test`, so com a guarda valendo; sem ela, tudo em serie (o Classic).
  */
-export function comandosNoAgile(manifesto: Manifesto, cwd: string, lista: { nome: string; comando: string; junit?: string }[], executor: ExecutorUnico,
-  grupo: ExecutorDeGrupo, guarda: GuardaDoProduto, preparo: ResultadoDeComando | null): ComandosDoAgile {
+export function comandosNoAgile(manifesto: Manifesto, cwd: string,
+  lista: { nome: string; comando: string; junit?: string; filtro?: string }[], executor: ExecutorUnico,
+  grupo: ExecutorDeGrupo, guarda: GuardaDoProduto, preparo: ResultadoDeComando | null,
+  selecao: SelecaoAnteriorDoAgile = { comandos: {}, lanes: {} }, passagemParcial?: ExecutorDaPassagemParcial): ComandosDoAgile {
   const pecas: PecaDoAgile[] = [];
   const passosDoPreparo = manifesto.verify.preparo ? passosDoComando(manifesto.verify.preparo) : [];
   const lanesDeclaradas = Object.entries(manifesto.check?.agile?.test ?? {});
@@ -443,7 +458,12 @@ export function comandosNoAgile(manifesto: Manifesto, cwd: string, lista: { nome
     const resto = lista.filter((c) => c.nome !== 'build');
     if (resto.length > 1 || lanesDeclaradas.length > 0) pecas.push({ peca: 'grupo', estado: 'fallback', motivo, fallback: 'comandos em serie' });
     if (lanesDeclaradas.length > 0) pecas.push({ peca: 'lanes', estado: 'fallback', motivo, fallback: 'verify.test' });
-    return { comandos: lista.map((c) => executor(c.nome, c.comando, cwd)), pecas, paralelo: false, lanes: [] };
+    const executar = (c: typeof lista[number]) => {
+      const parcial = c.filtro && selecao.comandos[c.nome]
+        ? passagemParcial?.(c.nome, c.comando, cwd, c.filtro, selecao.comandos[c.nome]) : null;
+      return parcial && !parcial.ok ? parcial : executor(c.nome, c.comando, cwd);
+    };
+    return { comandos: lista.map(executar), pecas, paralelo: false, lanes: [] };
   }
   // Com a guarda: o build primeiro (do preparo, quando e so passos dele), e o resto junto.
   const build = lista.find((c) => c.nome === 'build');
@@ -461,16 +481,30 @@ export function comandosNoAgile(manifesto: Manifesto, cwd: string, lista: { nome
     if (c.nome === 'test' && lanesDeclaradas.length > 0) {
       for (const [lane, comando] of lanesDeclaradas) {
         const junit = manifesto.check?.agile?.junit?.[lane];
+        const filtro = manifesto.check?.agile?.filtro?.[lane];
+        const testesFiltrados = selecao.lanes[lane];
         if (depoisDaVarredura.has(lane)) encadeados.push({ nome: `test:${lane}`, comando,
-          ...(junit ? { junit } : {}), apos: ['security_scan'], papelCpu: 'integracao' });
+          ...(junit ? { junit } : {}), ...(filtro ? { filtro } : {}), ...(testesFiltrados ? { testesFiltrados } : {}),
+          apos: ['security_scan'], papelCpu: 'integracao' });
         else itens.push({ nome: `test:${lane}`, comando, ...(junit ? { junit } : {}),
+          ...(filtro ? { filtro } : {}), ...(testesFiltrados ? { testesFiltrados } : {}),
           papelCpu: lane === 'hermetica' ? 'hermetica' : 'outro' });
       }
     } else itens.push({ nome: c.nome, comando: c.comando, ...(c.junit ? { junit: c.junit } : {}),
+      ...(c.filtro ? { filtro: c.filtro } : {}), ...(selecao.comandos[c.nome] ? { testesFiltrados: selecao.comandos[c.nome] } : {}),
       papelCpu: c.nome === 'security_scan' ? 'varredura' : 'outro' });
   }
   itens.push(...encadeados);
-  const resultados = itens.length > 1 ? grupo(itens, cwd) : itens.map((i) => executor(i.nome, i.comando, cwd));
+  const parciaisVermelhas = new Map<string, ResultadoDeComando>();
+  for (const item of itens) {
+    if (!item.filtro || !item.testesFiltrados?.length || !passagemParcial) continue;
+    const parcial = passagemParcial(item.nome, item.comando, cwd, item.filtro, item.testesFiltrados);
+    if (parcial && !parcial.ok) parciaisVermelhas.set(item.nome, parcial);
+  }
+  const inteiros = itens.filter((i) => !parciaisVermelhas.has(i.nome));
+  const resultadosInteiros = inteiros.length > 1 ? grupo(inteiros, cwd) : inteiros.map((i) => executor(i.nome, i.comando, cwd));
+  const porItemInteiro = new Map(inteiros.map((item, i) => [item.nome, resultadosInteiros[i]]));
+  const resultados = itens.map((item) => parciaisVermelhas.get(item.nome) ?? porItemInteiro.get(item.nome)!);
   pecas.push(...(grupo.pecas ?? []));
   const lanes: Array<{ lane: string; resultado: ResultadoDeComando }> = [];
   itens.forEach((item, i) => {

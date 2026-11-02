@@ -336,11 +336,18 @@ export function comandoComTestesFiltrados(filtro: string, testes: readonly strin
  */
 export function executarComFiltro(nome: string, comando: string, cwd: string, executor: ExecutorVerify,
   filtro: string | undefined, testes: readonly string[] | undefined): ResultadoDeComando {
-  if (!filtro || !testes?.length) return executor(nome, comando, cwd);
-  const filtrado = comandoComTestesFiltrados(filtro, testes);
-  const parcial = executor(nome, filtrado, cwd);
+  const parcial = executarPassagemParcial(nome, comando, cwd, executor, filtro, testes);
+  if (!parcial) return executor(nome, comando, cwd);
   if (parcial.ok) return executor(nome, comando, cwd);
-  return { ...parcial, comando, comandoExecutado: filtrado, parcial: { testes: [...testes] } };
+  return parcial;
+}
+
+/** Uma passagem parcial isolada; o Agile decide depois se inclui a suite completa no grupo. */
+export function executarPassagemParcial(nome: string, comando: string, cwd: string, executor: ExecutorVerify,
+  filtro: string | undefined, testes: readonly string[] | undefined): ResultadoDeComando | null {
+  if (!filtro || !testes?.length) return null;
+  const filtrado = comandoComTestesFiltrados(filtro, testes);
+  return { ...executor(nome, filtrado, cwd), comando, comandoExecutado: filtrado, parcial: { testes: [...testes] } };
 }
 
 export interface SelecaoDaRodadaAnterior {
@@ -371,6 +378,16 @@ export function selecaoDaRodadaAnterior(eventos: readonly EventoLedger[], manife
     const nomes = nomesPersistidos(anterior?.testeQueCaiu);
     if (anterior?.ok === false && anterior.comando === redigirCredenciaisUrl(atual.comando)
         && junit?.estado === 'lido' && nomes.length > 0) comandos[atual.nome] = nomes;
+  }
+  const anteriorTest = rodada.comandos.map(objeto).find((c) => c?.nome === 'test');
+  const lanesAnteriores = Array.isArray(anteriorTest?.lanes) ? anteriorTest.lanes.map(objeto) : [];
+  for (const [lane, comando] of Object.entries(manifesto.check?.agile?.test ?? {})) {
+    if (!manifesto.check?.agile?.filtro?.[lane] || !manifesto.check.agile.junit?.[lane]) continue;
+    const anterior = lanesAnteriores.find((l) => l?.lane === lane);
+    const junit = objeto(anterior?.junit);
+    const nomes = nomesPersistidos(anterior?.testeQueCaiu);
+    if (anterior?.ok === false && anterior.comando === redigirCredenciaisUrl(comando)
+        && junit?.estado === 'lido' && nomes.length > 0) lanes[lane] = nomes;
   }
   return { comandos, lanes };
 }
@@ -1049,7 +1066,8 @@ function verificarSobConducao(
   let comandosDoManifestoExecutados = grupoAntesDasClaims
     ? (opcoes.progresso?.('grupo-agile'), doAgile = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executorDosComandos,
       executorDoGrupo(manifesto, ambienteDaRodada, instabilidade, leitor, conducao, opcoes.executor ? executor : undefined,
-        opcoes.medicaoCpuAgendador), vigente!.guarda, vigente!.preparo)).comandos
+        opcoes.medicaoCpuAgendador), vigente!.guarda, vigente!.preparo, selecaoAnterior,
+      (nome, comando, dir, filtro, testes) => executarPassagemParcial(nome, comando, dir, executorDosComandos, filtro, testes))).comandos
     : [];
   if (doAgile) pecas.push(...doAgile.pecas);
   const evidenciasDasLanes = relatorio && doAgile ? resultadosDasLanes(relatorio.ler()) : [];
@@ -1084,7 +1102,8 @@ function verificarSobConducao(
     opcoes.progresso?.('grupo-agile');
     doAgile = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executorDosComandos,
       executorDoGrupo(manifesto, ambienteDaRodada, instabilidade, leitor, conducao, opcoes.executor ? executor : undefined,
-        opcoes.medicaoCpuAgendador), vigente.guarda, vigente.preparo);
+        opcoes.medicaoCpuAgendador), vigente.guarda, vigente.preparo, selecaoAnterior,
+      (nome, comando, dir, filtro, testes) => executarPassagemParcial(nome, comando, dir, executorDosComandos, filtro, testes));
     comandosDoManifestoExecutados = doAgile.comandos;
     pecas.push(...doAgile.pecas);
   }
@@ -1093,7 +1112,8 @@ function verificarSobConducao(
     comandosDoManifestoExecutados = vigente
       ? (opcoes.progresso?.('grupo-agile'), doAgile = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executorDosComandos,
         executorDoGrupo(manifesto, ambienteDaRodada, instabilidade, leitor, conducao, opcoes.executor ? executor : undefined,
-          opcoes.medicaoCpuAgendador), vigente.guarda, vigente.preparo)).comandos
+          opcoes.medicaoCpuAgendador), vigente.guarda, vigente.preparo, selecaoAnterior,
+        (nome, comando, dir, filtro, testes) => executarPassagemParcial(nome, comando, dir, executorDosComandos, filtro, testes))).comandos
       : comandosDoManifesto(manifesto).map((c) => executarComFiltro(c.nome, c.comando, cwd, executorDosComandos,
         c.filtro, selecaoAnterior.comandos[c.nome]));
     if (doAgile) pecas.push(...doAgile.pecas);
