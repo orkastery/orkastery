@@ -6,24 +6,24 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-01T16:28:00-03:00
+atualizado_em: 2026-11-02T12:47:42-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
-  codigo: Branch criada
+  codigo: Mesclado
   testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: 1171177e
+    commit: a1059ce
     pr: null
 sdlc:
   thread: ork-rm074m8agend
   modo: "#Fast"
   fase: GO
-  status: aberta
+  status: fechada
 ---
 
 # RM-074: Agile Check cerca de 1,7 vez mais rápido que o Classic, sem perder cobertura
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -674,13 +674,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-11-01 | Julio |
-| Documentação | Em revisão | — | 2026-11-01 | Julio |
-| Código | Branch criada | commit `1171177e` | 2026-11-01 | Julio |
-| Testes | Em execução | — | 2026-11-01 | Julio |
-| Deploy | Não implantado | — | 2026-11-01 | Julio |
-| Exposição | Flag desligada | — | 2026-11-01 | Julio |
-| Habilitação | Pendente | — | 2026-11-01 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-02 | Julio |
+| Documentação | Em revisão | — | 2026-11-02 | Julio |
+| Código | Mesclado | commit `a1059ce` | 2026-11-02 | Julio |
+| Testes | Em execução | — | 2026-11-02 | Julio |
+| Deploy | Não implantado | — | 2026-11-02 | Julio |
+| Exposição | Flag desligada | — | 2026-11-02 | Julio |
+| Habilitação | Pendente | — | 2026-11-02 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
