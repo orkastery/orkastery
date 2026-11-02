@@ -200,6 +200,8 @@ export interface Manifesto {
     security_scan?: string;
     /** RM-081 F1: caminho JUnit declarado junto de cada comando, normalizado pelo leitor do manifesto. */
     junit?: Partial<Record<'build' | 'test' | 'typecheck' | 'security_scan', string>>;
+    /** RM-081 F3: comando opt-in que substitui `{testes}` pelos nomes JUnit da rodada anterior. */
+    filtro?: Partial<Record<'build' | 'test' | 'typecheck' | 'security_scan', string>>;
     /** I-37 (D2): prazo default de cada comando de verificacao, em ms. */
     timeout_ms?: number;
     /** I-37 (D2): prazo de um comando do manifesto, que vence o default. */
@@ -785,6 +787,8 @@ export interface ConfigDoAgile {
   test?: Record<string, string>;
   /** RM-081 F1: caminho JUnit normalizado por lane; ausente preserva o contrato textual anterior. */
   junit?: Record<string, string>;
+  /** RM-081 F3: comando de selecao nominal por lane; ausente preserva a suite inteira. */
+  filtro?: Record<string, string>;
   /** As lanes de `test` que so comecam quando o `security_scan` do grupo termina (as que sobem containers). */
   apos_a_varredura?: string[];
   /** `osv-scanner` no lugar de `trivy-vuln` e `npm-audit` (D13); desligado por padrao. */
