@@ -241,14 +241,23 @@
       "criadoEm": "2026-11-02T06:20:15.492Z",
       "estado": "verificado",
       "lint": []
-    }
-  ],
-  "deferredClaims": [
+    },
     {
       "id": "C18",
-      "reason": "artifact-not-in-checkout"
+      "thread": "ork-rm081f3rodad",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-rm081f3rodad.json",
+      "alegacao": "O bundle de CI pertence à thread e contém suas claims e os comandos do manifesto.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const b=require(\"./.ork-ci/ork-rm081f3rodad.json\"); if(b.schema!==\"ork.ci-bundle/v1\"||b.thread!==\"ork-rm081f3rodad\"||!Array.isArray(b.claims)||!Array.isArray(b.commands)) process.exit(1)'"
+      ],
+      "criadoEm": "2026-11-02T06:33:53.312Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
+  "deferredClaims": [],
   "commands": [
     {
       "name": "ci",
