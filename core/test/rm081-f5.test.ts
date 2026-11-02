@@ -3,10 +3,15 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { CONTRATO_DA_SELECAO, planejarSelecaoNativa } from '../src/check-selecao';
+import { comandoDaSelecao, CONTRATO_DA_SELECAO, planejarSelecaoNativa } from '../src/check-selecao';
+import { registrar, lerLedger, TIPOS_DE_EVENTO } from '../src/ledger';
+import { comLocale } from '../src/locale';
 import { carregarManifesto, NOME_MANIFESTO } from '../src/manifest';
-import { EventoLedger, Manifesto } from '../src/types';
+import { verificacaoCompletaParaShip } from '../src/ship';
+import { dirThread, novaThread } from '../src/thread';
+import { EventoLedger, Manifesto, ResultadoDeComando } from '../src/types';
 import { exec } from '../src/util';
+import { comandoNoLedger, textoDoVerify, verificar } from '../src/verify';
 import { commitar, projetoTemporario, ProjetoDeTeste } from './apoio';
 
 function comCheck(p: ProjetoDeTeste, check: string) {
@@ -158,6 +163,8 @@ test('RM081 F5 P2: rodada morna seleciona somente mudancas mapeadas e escapa os 
     const morna = planejarSelecaoNativa(p.dir, manifesto, [rodadaVerde(anterior, fria.cache)], atual, 'agile');
     assert.deepEqual(morna.lanes.runner, { modo: 'selecionada', motivo: 'selecionada', arquivos: ["src/a'b.ts"],
       base: anterior, comando: `runner relacionado 'src/a'"'"'b.ts'` });
+    assert.equal(comandoDaSelecao({ comando: 'vitest --changed {base}', mapeia: ['src/**'] }, anterior, []),
+      `vitest --changed '${anterior}'`);
   } finally { p.limpar(); }
 });
 
@@ -216,4 +223,101 @@ test('RM081 F5 P5: runner sem mapeamento declarado e diff vazio conservam a suit
     assert.equal(planejarSelecaoNativa(p.dir, manifesto, [rodadaVerde(head, cache)], head, 'agile')
       .lanes.runner.motivo, 'sem-mudancas');
   } finally { p.limpar(); }
+});
+
+function resultado(nome: string, comando: string, ok = true): ResultadoDeComando {
+  return { nome, comando, ok, code: ok ? 0 : 1, resumo: '', causa: 'exit', executado: true, duracaoMs: 1 };
+}
+
+function prepararCenarioDeExecucao(nome: string, comSelecao = true) {
+  const p = projetoTemporario(nome);
+  const manifesto = manifestoComSelecao(p);
+  fs.mkdirSync(path.join(p.dir, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(p.dir, 'src/base.ts'), 'export const base = true;\n');
+  manifesto.verify = { test: 'runner do verify', preparo: 'prepara' };
+  manifesto.check!.agile!.produto = ['src'];
+  if (!comSelecao) delete manifesto.check!.agile!.selecao;
+  const anterior = commitarArvore(p, 'manifesto e produto');
+  const thread = novaThread(p.carregado, { nome, modo: 'auto' }).thread;
+  return { p, manifesto, anterior, thread };
+}
+
+test('RM081 F5 E1: rodada morna executa comando selecionado, conserva identidade integral e marca parcial', () => {
+  const c = prepararCenarioDeExecucao('rm081-f5-execucao-morna');
+  try {
+    const fria = planejarSelecaoNativa(c.p.dir, c.manifesto, [], c.anterior, 'agile');
+    registrar(dirThread(c.p.dir, c.thread.id), c.thread.id, TIPOS_DE_EVENTO.verificacao, {
+      commit: c.anterior, veredito: 'verdade sustentada', selecao: fria.cache, comandos: [], parcial: false,
+    });
+    const atual = commitar(c.p.dir, 'src/produto.ts', 'export const produto = true;\n', 'produto');
+    const comandos: string[] = [];
+    const r = verificar(c.p.carregado, c.thread.id, { check: 'agile', executor: (nome, comando) => {
+      comandos.push(comando);
+      return resultado(nome, comando);
+    } });
+    assert.deepEqual(comandos, ['prepara', "runner relacionado 'src/produto.ts'"]);
+    assert.equal(r.ok, true);
+    assert.equal(r.parcial, true);
+    const teste = r.comandos.find((comando) => comando.nome === 'test')!;
+    assert.deepEqual(teste.parcial, { testes: [] });
+    assert.deepEqual(teste.lanes?.[0], {
+      lane: 'runner', comando: 'runner completo', ok: true, code: 0, causa: 'exit', duracaoMs: 1,
+      stealPct: null,
+      parcial: { testes: [] }, comandoExecutado: "runner relacionado 'src/produto.ts'",
+      selecao: { modo: 'selecionada', motivo: 'selecionada', arquivos: ['src/produto.ts'], base: c.anterior },
+    });
+    const noLedger = comandoNoLedger(teste);
+    assert.equal((noLedger.lanes as Array<Record<string, unknown>>)[0].comandoExecutado,
+      "runner relacionado 'src/produto.ts'");
+    const evento = lerLedger(dirThread(c.p.dir, c.thread.id)).filter((e) => e.tipo === 'verify_run').at(-1)!;
+    assert.deepEqual(evento.selecao, { contrato: CONTRATO_DA_SELECAO,
+      base: exec('git', ['merge-base', atual, 'main'], c.p.dir).stdout.trim(), head: atual });
+    assert.equal(evento.parcial, true);
+    assert.equal(verificacaoCompletaParaShip({ ok: true, parcial: r.parcial }), false);
+    assert.match(comLocale('pt-BR', () => textoDoVerify(r)), /lane runner SELECIONADA: cache valido e mudancas mapeadas/);
+    assert.match(comLocale('en', () => textoDoVerify(r)), /lane runner SELECTED: valid cache and mapped changes/);
+  } finally { c.p.limpar(); }
+});
+
+test('RM081 F5 E2: rodada fria executa lane inteira e explica o motivo', () => {
+  const c = prepararCenarioDeExecucao('rm081-f5-execucao-fria');
+  try {
+    const comandos: string[] = [];
+    const r = verificar(c.p.carregado, c.thread.id, { check: 'agile', executor: (nome, comando) => {
+      comandos.push(comando);
+      return resultado(nome, comando);
+    } });
+    assert.deepEqual(comandos, ['prepara', 'runner completo']);
+    assert.equal(r.parcial, false);
+    assert.deepEqual(r.comandos.find((comando) => comando.nome === 'test')?.lanes?.[0].selecao,
+      { modo: 'inteira', motivo: 'rodada-fria' });
+    assert.match(comLocale('pt-BR', () => textoDoVerify(r)), /lane runner INTEIRA: rodada fria/);
+    assert.match(comLocale('en', () => textoDoVerify(r)), /lane runner FULL: cold run/);
+  } finally { c.p.limpar(); }
+});
+
+test('RM081 F5 E3: Classic e Agile sem declaracao conservam os comandos anteriores', () => {
+  const classic = prepararCenarioDeExecucao('rm081-f5-classic');
+  try {
+    const comandos: string[] = [];
+    const r = verificar(classic.p.carregado, classic.thread.id, { check: 'classic', executor: (nome, comando) => {
+      comandos.push(comando);
+      return resultado(nome, comando);
+    } });
+    assert.deepEqual(comandos, ['prepara', 'runner do verify']);
+    assert.equal(r.parcial, false);
+    assert.equal(r.comandos[0].lanes, undefined);
+  } finally { classic.p.limpar(); }
+
+  const legado = prepararCenarioDeExecucao('rm081-f5-agile-legado', false);
+  try {
+    const comandos: string[] = [];
+    const r = verificar(legado.p.carregado, legado.thread.id, { check: 'agile', executor: (nome, comando) => {
+      comandos.push(comando);
+      return resultado(nome, comando);
+    } });
+    assert.deepEqual(comandos, ['prepara', 'runner completo']);
+    assert.equal(r.parcial, false);
+    assert.equal(r.comandos.find((comando) => comando.nome === 'test')?.lanes?.[0].selecao, undefined);
+  } finally { legado.p.limpar(); }
 });

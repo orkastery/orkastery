@@ -157,6 +157,19 @@ export interface SelecaoNativa {
   configuracao?: string[];
 }
 
+/** RM-081 F5: causa estável da seleção ou da queda para a suíte inteira. */
+export type MotivoDaSelecaoNativa = 'rodada-fria' | 'cache-ausente' | 'cache-invalido' | 'base-mudou'
+  | 'manifesto-mudou' | 'lockfile-mudou' | 'configuracao-mudou' | 'fora-do-mapeamento'
+  | 'runner-sem-garantia' | 'sem-mudancas' | 'selecionada';
+
+/** RM-081 F5: o que uma lane executou e por quê, persistido no recibo. */
+export interface RegistroDaSelecaoNativa {
+  modo: 'selecionada' | 'inteira';
+  motivo: MotivoDaSelecaoNativa;
+  arquivos?: string[];
+  base?: string;
+}
+
 /** Manifesto do projeto (`orkastery.yaml`), na fatia v1 do bloco B0. */
 export interface Manifesto {
   project: {
@@ -775,6 +788,8 @@ export interface ResultadoDeComando {
   comandoExecutado?: string;
   /** RM-081 F3: a suite inteira nao rodou; estes foram os nomes JUnit selecionados. */
   parcial?: { testes: string[] };
+  /** RM-081 F5: decisão por mudanças desta lane; seleção usada também torna o resultado parcial. */
+  selecao?: RegistroDaSelecaoNativa;
   /** RM-074 M1: prova de que um `node --test` da claim veio das lanes desta mesma rodada e ambiente. */
   lane?: { reaproveitada: true; lanes: string[]; arquivos: string[]; nomes: string[]; head: string; ambiente: string };
   /** RM-072 (D4): as lanes que compuseram o `test` do Agile. */
@@ -785,6 +800,10 @@ export interface ResultadoDeComando {
     junit?: EvidenciaJUnit;
     /** RM-081 F3: a lane terminou na passagem parcial, sem a suite inteira. */
     parcial?: { testes: string[] };
+    /** RM-081 F5: comando realmente executado quando diferente do contrato integral. */
+    comandoExecutado?: string;
+    /** RM-081 F5: seleção nativa ou queda integral e sua causa estável. */
+    selecao?: RegistroDaSelecaoNativa;
     /** RM-081 F2: recibo da segunda passagem isolada da lane. */
     retesteDeRelogio?: RetesteDeRelogio;
     relogioSobSteal?: string[];

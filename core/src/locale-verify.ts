@@ -82,6 +82,17 @@ export const VERIFY_PT_BR = {
   comandoOk: 'ok',
   comando: (nome: string, situacao: string, comando: string) => `  ${nome.padEnd(10)} ${situacao}  ${comando}`,
   rodadaParcial: (testes: string) => `             rodada PARCIAL; teste(s) filtrado(s): ${testes}`,
+  selecaoDaLane: (lane: string, modo: 'selecionada' | 'inteira', motivo: string, arquivos: string) => {
+    const razoes: Record<string, string> = {
+      'rodada-fria': 'rodada fria', 'cache-ausente': 'cache anterior ausente', 'cache-invalido': 'cache anterior invalido',
+      'base-mudou': 'base mudou', 'manifesto-mudou': 'manifesto mudou', 'lockfile-mudou': 'lockfile mudou',
+      'configuracao-mudou': 'configuracao do runner mudou', 'fora-do-mapeamento': 'mudanca fora do mapeamento do runner',
+      'runner-sem-garantia': 'runner sem garantia declarada', 'sem-mudancas': 'nenhuma mudanca verificavel',
+      selecionada: 'cache valido e mudancas mapeadas',
+    };
+    return `             lane ${lane} ${modo === 'selecionada' ? 'SELECIONADA' : 'INTEIRA'}: ` +
+      `${razoes[motivo] ?? motivo}${arquivos ? ` (${arquivos})` : ''}`;
+  },
   retesteDeRelogio: (testes: string, steal: number | null | undefined,
     estado: 'passou' | 'reprovou' | 'sem-veredito' | 'sem-filtro', code?: number) =>
     `             relogio protegido: ${testes}; steal ${steal}%; segunda rodada ${estado === 'sem-filtro'
@@ -203,6 +214,17 @@ export const VERIFY_EN: typeof VERIFY_PT_BR = {
   comandoOk: 'ok',
   comando: (nome, situacao, comando) => `  ${nome.padEnd(10)} ${situacao}  ${comando}`,
   rodadaParcial: (testes) => `             PARTIAL run; filtered test(s): ${testes}`,
+  selecaoDaLane: (lane, modo, motivo, arquivos) => {
+    const razoes: Record<string, string> = {
+      'rodada-fria': 'cold run', 'cache-ausente': 'previous cache missing', 'cache-invalido': 'previous cache invalid',
+      'base-mudou': 'base changed', 'manifesto-mudou': 'manifest changed', 'lockfile-mudou': 'lockfile changed',
+      'configuracao-mudou': 'runner configuration changed', 'fora-do-mapeamento': 'change outside runner mapping',
+      'runner-sem-garantia': 'runner has no declared guarantee', 'sem-mudancas': 'no verifiable changes',
+      selecionada: 'valid cache and mapped changes',
+    };
+    return `             lane ${lane} ${modo === 'selecionada' ? 'SELECTED' : 'FULL'}: ` +
+      `${razoes[motivo] ?? motivo}${arquivos ? ` (${arquivos})` : ''}`;
+  },
   retesteDeRelogio: (testes, steal, estado, code) =>
     `             protected clock test(s): ${testes}; ${steal}% steal; second run ${estado === 'sem-filtro'
       ? 'not run (no filter)' : estado === 'sem-veredito' ? `had no verdict (exit ${code ?? 'missing'})`

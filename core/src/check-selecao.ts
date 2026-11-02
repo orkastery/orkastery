@@ -3,25 +3,12 @@ import * as path from 'node:path';
 import { caminhoBateComGlob } from './leases';
 import { NOME_MANIFESTO, NOME_MANIFESTO_LEGADO } from './manifest';
 import { ModoDoCheck } from './check-modo';
-import { EventoLedger, Manifesto, SelecaoNativa } from './types';
+import { EventoLedger, Manifesto, MotivoDaSelecaoNativa, RegistroDaSelecaoNativa, SelecaoNativa } from './types';
 import { exec } from './util';
 
 export const CONTRATO_DA_SELECAO = 'ork.check.selecao/v1' as const;
 
-export type MotivoDaSelecao = 'rodada-fria' | 'cache-ausente' | 'cache-invalido' | 'base-mudou'
-  | 'manifesto-mudou' | 'lockfile-mudou' | 'configuracao-mudou' | 'fora-do-mapeamento'
-  | 'runner-sem-garantia' | 'sem-mudancas' | 'selecionada';
-
-export interface RegistroDaSelecao {
-  modo: 'selecionada' | 'inteira';
-  motivo: MotivoDaSelecao;
-  /** Caminhos que explicam a decisão; sempre relativos à worktree. */
-  arquivos?: string[];
-  /** Commit da rodada anterior usado pelo runner. */
-  base?: string;
-}
-
-export interface PlanoDaLane extends RegistroDaSelecao {
+export interface PlanoDaLane extends RegistroDaSelecaoNativa {
   /** Presente somente quando o runner pode executar a seleção. */
   comando?: string;
 }
@@ -82,11 +69,11 @@ function lockfile(arquivo: string): boolean {
   return LOCKFILES.has(nome) || /^requirements(?:\.[^.]+)?\.txt$/.test(nome);
 }
 
-function inteira(motivo: Exclude<MotivoDaSelecao, 'selecionada'>, arquivos?: string[]): PlanoDaLane {
+function inteira(motivo: Exclude<MotivoDaSelecaoNativa, 'selecionada'>, arquivos?: string[]): PlanoDaLane {
   return { modo: 'inteira', motivo, ...(arquivos?.length ? { arquivos } : {}) };
 }
 
-function todasInteiras(declaracoes: Record<string, SelecaoNativa>, motivo: Exclude<MotivoDaSelecao, 'selecionada'>,
+function todasInteiras(declaracoes: Record<string, SelecaoNativa>, motivo: Exclude<MotivoDaSelecaoNativa, 'selecionada'>,
   arquivos?: string[]): Record<string, PlanoDaLane> {
   return Object.fromEntries(Object.keys(declaracoes).map((lane) => [lane, inteira(motivo, arquivos)]));
 }

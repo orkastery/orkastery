@@ -33,6 +33,7 @@ import { ENV_RELATORIO_DO_CHECK } from './check-modo';
 import { planejarCpuDoGrupo } from './agendador-cpu';
 import { redigirCredenciaisUrl } from './redacao-url';
 import { CausaDoComando, EvidenciaJUnit, Manifesto, ResultadoDeComando } from './types';
+import { PlanoDaLane } from './check-selecao';
 
 /** Uma peca do Agile e o que aconteceu com ela; `fallback` diz o equivalente do Classic que rodou no lugar. */
 export interface PecaDoAgile {
@@ -62,6 +63,9 @@ export interface ItemDoGrupo {
   /** RM-081 F3: comando e nomes da passagem parcial anterior a suite inteira. */
   filtro?: string;
   testesFiltrados?: string[];
+  /** RM-081 F5: comando integral e decisão por mudanças; `comando` é o que roda de fato. */
+  comandoIntegral?: string;
+  selecaoPorMudanca?: PlanoDaLane;
   /** Prioridade menor (nice) no processo auxiliar. */
   nice?: number;
   /** Os itens do grupo (pelo nome, antes deste na lista) que precisam terminar antes de este comecar. */
@@ -380,6 +384,7 @@ export function testDasLanes(lanes: Array<{ lane: string; resultado: ResultadoDe
   const nomesExtraidos = juntar((r) => r.testeQueCaiu);
   const testes = lanes.some((l) => l.resultado.junit?.estado === 'lido') ? nomesExtraidos : nomesExtraidos.slice(0, 10);
   const falhas = juntar((r) => r.falhasDeTeste);
+  const parciais = lanes.filter((l) => !!l.resultado.parcial);
   const filtrados = juntar((r) => r.parcial?.testes);
   const junit = junitDasLanes(lanes);
   const relogio = soRelogio ? juntar((r) => r.relogioSobSteal) : [];
@@ -406,7 +411,7 @@ export function testDasLanes(lanes: Array<{ lane: string; resultado: ResultadoDe
     ...(testes.length ? { testeQueCaiu: testes } : {}),
     ...(falhas.length ? { falhasDeTeste: falhas } : {}),
     ...(junit ? { junit } : {}),
-    ...(filtrados.length ? { parcial: { testes: [...new Set(filtrados)] } } : {}),
+    ...(parciais.length ? { parcial: { testes: [...new Set(filtrados)] } } : {}),
     ...(trechos.length ? { trecho: trechos.join('\n').slice(0, 1024) } : {}),
     ...(lanes.some((l) => l.resultado.stealPct !== undefined) ? { stealPct: lanes.find((l) => l.resultado.stealPct !== undefined)!.resultado.stealPct } : {}),
     ...(relogio.length ? { relogioSobSteal: relogio } : {}),
@@ -416,6 +421,8 @@ export function testDasLanes(lanes: Array<{ lane: string; resultado: ResultadoDe
       ...(l.resultado.testeQueCaiu?.length ? { testeQueCaiu: l.resultado.testeQueCaiu } : {}),
       ...(l.resultado.junit ? { junit: l.resultado.junit } : {}),
       ...(l.resultado.parcial ? { parcial: l.resultado.parcial } : {}),
+      ...(l.resultado.comandoExecutado ? { comandoExecutado: l.resultado.comandoExecutado } : {}),
+      ...(l.resultado.selecao ? { selecao: l.resultado.selecao } : {}),
       ...(l.resultado.relogioSobSteal?.length ? { relogioSobSteal: l.resultado.relogioSobSteal } : {}),
       ...(l.resultado.retesteDeRelogio ? { retesteDeRelogio: l.resultado.retesteDeRelogio } : {}),
       ...(l.resultado.stealPct !== undefined ? { stealPct: l.resultado.stealPct } : {}) })),
@@ -458,7 +465,8 @@ export interface ComandosDoAgile {
 export function comandosNoAgile(manifesto: Manifesto, cwd: string,
   lista: { nome: string; comando: string; junit?: string; filtro?: string }[], executor: ExecutorUnico,
   grupo: ExecutorDeGrupo, guarda: GuardaDoProduto, preparo: ResultadoDeComando | null,
-  selecao: SelecaoAnteriorDoAgile = { comandos: {}, lanes: {} }, passagemParcial?: ExecutorDaPassagemParcial): ComandosDoAgile {
+  selecao: SelecaoAnteriorDoAgile = { comandos: {}, lanes: {} }, passagemParcial?: ExecutorDaPassagemParcial,
+  selecaoPorMudanca: Record<string, PlanoDaLane> = {}): ComandosDoAgile {
   const pecas: PecaDoAgile[] = [];
   const passosDoPreparo = manifesto.verify.preparo ? passosDoComando(manifesto.verify.preparo) : [];
   const lanesDeclaradas = Object.entries(manifesto.check?.agile?.test ?? {});
@@ -496,10 +504,13 @@ export function comandosNoAgile(manifesto: Manifesto, cwd: string,
         const junit = manifesto.check?.agile?.junit?.[lane];
         const filtro = manifesto.check?.agile?.filtro?.[lane];
         const testesFiltrados = selecao.lanes[lane];
-        if (depoisDaVarredura.has(lane)) encadeados.push({ nome: `test:${lane}`, comando,
+        const porMudanca = selecaoPorMudanca[lane];
+        const efetivo = porMudanca?.comando ?? comando;
+        const dadosDaSelecao = porMudanca ? { comandoIntegral: comando, selecaoPorMudanca: porMudanca } : {};
+        if (depoisDaVarredura.has(lane)) encadeados.push({ nome: `test:${lane}`, comando: efetivo, ...dadosDaSelecao,
           ...(junit ? { junit } : {}), ...(filtro ? { filtro } : {}), ...(testesFiltrados ? { testesFiltrados } : {}),
           apos: ['security_scan'], papelCpu: 'integracao' });
-        else itens.push({ nome: `test:${lane}`, comando, ...(junit ? { junit } : {}),
+        else itens.push({ nome: `test:${lane}`, comando: efetivo, ...dadosDaSelecao, ...(junit ? { junit } : {}),
           ...(filtro ? { filtro } : {}), ...(testesFiltrados ? { testesFiltrados } : {}),
           papelCpu: lane === 'hermetica' ? 'hermetica' : 'outro' });
       }
@@ -517,7 +528,17 @@ export function comandosNoAgile(manifesto: Manifesto, cwd: string,
   const inteiros = itens.filter((i) => !parciaisVermelhas.has(i.nome));
   const resultadosInteiros = inteiros.length > 1 ? grupo(inteiros, cwd) : inteiros.map((i) => executor(i.nome, i.comando, cwd));
   const porItemInteiro = new Map(inteiros.map((item, i) => [item.nome, resultadosInteiros[i]]));
-  const resultados = itens.map((item) => parciaisVermelhas.get(item.nome) ?? porItemInteiro.get(item.nome)!);
+  const resultados = itens.map((item) => {
+    const parcial = parciaisVermelhas.get(item.nome);
+    if (parcial) return parcial;
+    const resultado = porItemInteiro.get(item.nome)!;
+    if (!item.selecaoPorMudanca || !item.comandoIntegral) return resultado;
+    const { comando: _comando, ...registro } = item.selecaoPorMudanca;
+    return item.selecaoPorMudanca.modo === 'selecionada'
+      ? { ...resultado, comando: item.comandoIntegral, comandoExecutado: item.comando,
+        parcial: { testes: [] }, selecao: registro }
+      : { ...resultado, comando: item.comandoIntegral, selecao: registro };
+  });
   pecas.push(...(grupo.pecas ?? []));
   const lanes: Array<{ lane: string; resultado: ResultadoDeComando }> = [];
   itens.forEach((item, i) => {
