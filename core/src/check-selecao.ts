@@ -26,7 +26,7 @@ export interface PlanoDaSelecao {
 }
 
 const LOCKFILES = new Set(['package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock', 'poetry.lock',
-  'Pipfile.lock', 'go.mod', 'go.sum']);
+  'Pipfile.lock', 'go.mod', 'go.sum', 'Package.resolved']);
 
 function objeto(v: unknown): Record<string, unknown> | null {
   return v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : null;
@@ -66,7 +66,8 @@ function arquivosMudados(cwd: string, anterior: string, atual: string): string[]
 
 function lockfile(arquivo: string): boolean {
   const nome = path.posix.basename(arquivo);
-  return LOCKFILES.has(nome) || /^requirements(?:\.[^.]+)?\.txt$/.test(nome);
+  return LOCKFILES.has(nome) || /^requirements(?:\.[^.]+)?\.txt$/.test(nome)
+    || /(?:^|[.-])lock(?:b|\.(?:json|ya?ml|toml))?$/i.test(nome);
 }
 
 function inteira(motivo: Exclude<MotivoDaSelecaoNativa, 'selecionada'>, arquivos?: string[]): PlanoDaLane {

@@ -172,6 +172,10 @@ test('RM081 F5 P3: manifesto, lockfile, configuracao e fora do mapeamento caem p
   const casos = [
     ['manifesto', NOME_MANIFESTO, 'manifesto-mudou'],
     ['lockfile', 'package-lock.json', 'lockfile-mudou'],
+    ['lockfile-cargo', 'Cargo.lock', 'lockfile-mudou'],
+    ['lockfile-uv', 'uv.lock', 'lockfile-mudou'],
+    ['lockfile-bun', 'bun.lockb', 'lockfile-mudou'],
+    ['lockfile-dotnet', 'packages.lock.json', 'lockfile-mudou'],
     ['configuracao', 'runner.config.ts', 'configuracao-mudou'],
     ['fora', 'docs/guia.md', 'fora-do-mapeamento'],
   ] as const;
