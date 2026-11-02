@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-02T09:45:00-03:00
+atualizado_em: 2026-11-02T13:06:31-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -22,7 +22,7 @@ evidencias:
 sdlc:
   thread: ork-rm075fimdefa
   modo: "#Auto"
-  fase: GO
+  fase: GOAL
   status: aberta
 ---
 
@@ -97,13 +97,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | thread `ork-rm075fimdefa` | 2026-11-02 | Julio |
-| Documentação | Em revisão | página atualizada na branch | 2026-11-02 | Julio |
-| Código | Branch criada | `7352012f` | 2026-11-02 | Julio |
-| Testes | Em execução | testes focados Claude e Codex | 2026-11-02 | Julio |
-| Deploy | Não implantado | — | 2026-10-31 | Julio |
-| Exposição | Flag desligada | — | 2026-10-31 | Julio |
-| Habilitação | Pendente | — | 2026-10-31 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-02 | Julio |
+| Documentação | Em revisão | — | 2026-11-02 | Julio |
+| Código | Branch criada | commit `7352012f` | 2026-11-02 | Julio |
+| Testes | Em execução | — | 2026-11-02 | Julio |
+| Deploy | Não implantado | — | 2026-11-02 | Julio |
+| Exposição | Flag desligada | — | 2026-11-02 | Julio |
+| Habilitação | Pendente | — | 2026-11-02 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
