@@ -345,14 +345,45 @@ A M8 muda o contrato do agendador:
 Os limiares permanecem proporcionais à capacidade. O Classic não muda, e esta
 seção não atribui ganho novo antes da bancada oficial.
 
+### M9: a integração reserva a CPU que mede
+
+O par morno válido da M8 mediu o Agile em 0,92 da parede do Classic nos testes.
+Quase todo o ganho veio de executar a varredura ao lado das lanes, enquanto a
+integração conservou 29% da capacidade até perto de 60% da parede e usou, em
+média, menos da metade dessa reserva.
+
+O perfil não fechava quando qualquer contêiner ficava sem medida de cgroup. Isso
+apagava junto a CPU válida da árvore da lane, embora os contêineres já tenham
+atribuição própria desde a M7, e fazia toda rodada seguinte repetir a reserva
+conservadora.
+
+A M9 separa as duas evidências:
+
+- o perfil da árvore usa somente o pico sustentado dos processos da lane;
+- contêiner sem cgroup mantém o motivo na evidência, mas não invalida uma árvore
+  completa;
+- perfil antigo ou incompatível por comandos, capacidade, script das lanes,
+  lista ou conteúdo compilado conserva a reserva anterior;
+- sem perfil compatível, a primeira rodada continua igual à M8.
+
+Com perfil compatível, a reserva sobe o pico sustentado da árvore para o inteiro
+seguinte e respeita o piso estrutural da lane. A hermética recebe o restante
+pelos mesmos degraus da M6 e pela capacidade efetiva da M8; a conta deixa de usar
+o número de ferramentas como aproximação da integração.
+
+A peça `agendador-cpu` passa a dizer a reserva da integração e se sua origem foi
+medida, conservadora ou Classic em pt-BR e inglês. O Classic não muda. A razão
+de produto da M9 continua pendente da bancada: o par da M8 explica a mudança,
+mas não mede o resultado dela.
+
 ### O que falta
 
-- Rodar o verify oficial e a bancada fria e morna da M8 no host, com três pares
+- Rodar o verify oficial da M9 e a bancada fria e morna no host, com três pares
   válidos e os mesmos critérios de carga externa e divergência de `steal`.
-- Confirmar na evidência que `degradado` preserva o grupo paralelo sob contenção
-  moderada e que `fallback` aparece somente abaixo do mínimo estrutural.
-- Reavaliar a distância para a meta de cerca de 1,7 vez; a M8 remove o desperdício
-  medido, mas não publica uma razão antes dessa coleta.
+- Confirmar na evidência que o perfil da árvore fecha mesmo quando um contêiner
+  fica sem cgroup e que a reserva medida devolve antes a capacidade ociosa.
+- Reavaliar a distância para a meta de cerca de 1,7 vez; a M9 remove a reserva
+  conservadora diagnosticada, mas não publica uma razão antes dessa coleta.
 
 ## Problema e resultado
 

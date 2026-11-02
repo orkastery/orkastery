@@ -1,0 +1,201 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm074m9integ",
+  "branch": "ork/ork-rm074m9integ-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm074m9integ",
+      "fase": "GOAL",
+      "arquivo": "core/src/agendador-cpu.ts",
+      "alegacao": "A reserva medida usa o ceil do pico da árvore, nunca fica abaixo de 1, deixa CPU para a hermética e não altera o fallback Classic.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='^AG(44|49|50|51):|^RM081F4-classic:' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-02T15:28:31.944Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm074m9integ",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-paralelo.ts",
+      "alegacao": "O perfil v2 usa a árvore completa; contêiner sem cgroup mantém o motivo sem invalidar a medida da árvore, e perfil incompleto ou incompatível é conservador.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='^AG(44|49|50|51):|^RM081F4-classic:' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-02T15:28:32.026Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm074m9integ",
+      "fase": "GOAL",
+      "arquivo": "core/test/check-agil.test.ts",
+      "alegacao": "Os cenários sintéticos AG49 e AG51 cobrem reserva por medida, piso 1, perfil incompleto/incompatível, contêiner ausente, ausência de perfil e Classic estável.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='^AG(44|49|50|51):|^RM081F4-classic:' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-02T15:28:32.123Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm074m9integ",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-agil.ts",
+      "alegacao": "A peça do Agile transporta reserva e origem da integração como dado estruturado opcional.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='^AG18:|^AG45:|^AG51:' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-02T15:30:51.720Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm074m9integ",
+      "fase": "GOAL",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "A peça do agendador expõe a medida da árvore e o relatório mostra reserva/origem também no estado agile.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='^AG18:|^AG45:|^AG51:' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-02T15:30:51.791Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm074m9integ",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-verify.ts",
+      "alegacao": "A reserva e sua origem são apresentadas em pt-BR e inglês pelo catálogo de locale.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='^AG18:|^AG45:|^AG51:' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-02T15:30:51.877Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm074m9integ",
+      "fase": "GOAL",
+      "arquivo": "core/test/check-agil.test.ts",
+      "alegacao": "AG18 prova o relatório da reserva conservadora e medida em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='^AG18:|^AG45:|^AG51:' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-02T15:30:51.950Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm074m9integ",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m9.json",
+      "alegacao": "Mutante M1 morre quando perfil incompleto tenta reduzir a reserva.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m9.json M1"
+      ],
+      "criadoEm": "2026-11-02T15:32:25.249Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm074m9integ",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m9.json",
+      "alegacao": "Mutante M2 morre quando a reserva medida pode ficar abaixo de uma CPU.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m9.json M2"
+      ],
+      "criadoEm": "2026-11-02T15:32:25.361Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm074m9integ",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m9.json",
+      "alegacao": "Mutante M3 morre quando contêiner sem cgroup invalida a árvore medida.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m9.json M3"
+      ],
+      "criadoEm": "2026-11-02T15:32:25.454Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm074m9integ",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m9.json",
+      "alegacao": "Mutante M4 morre quando a reserva medida é aplicada sem perfil.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m9.json M4"
+      ],
+      "criadoEm": "2026-11-02T15:32:25.548Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm074m9integ",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+      "alegacao": "A página da RM-074 contém a seção M9, explica o perfil da árvore em razões e percentuais e atualiza O que falta.",
+      "negativa": false,
+      "verificar": [
+        "grep -q '^### M9:' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md && grep -q 'perfil da árvore' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md"
+      ],
+      "criadoEm": "2026-11-02T15:33:13.017Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm074m9integ",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG registra a M9 em Não publicado e passa a regra do repositório contra origin/main.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-11-02T15:33:13.125Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
