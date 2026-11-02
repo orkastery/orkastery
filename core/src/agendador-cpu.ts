@@ -32,7 +32,7 @@ export interface MedicaoCpuDoGrupo {
   /** Leituras que produziram as medianas; seguem no plano para explicar a decisao. */
   amostrasCarga1?: number[];
   amostrasStealPct?: number[];
-  /** Reserva conservadora aprendida de uma medicao completa e compativel da integracao. */
+  /** Reserva aprendida do pico sustentado da arvore da integracao, quando o perfil e completo e compativel. */
   cpusIntegracao?: number | null;
   fonteCpusIntegracao?: 'medida' | 'conservadora';
 }
@@ -42,14 +42,21 @@ export interface MedicaoCpuDaIntegracao {
   containersMs: number;
   totalMs: number;
   paredeMs: number;
+  /** Pico de todas as fontes observadas, mantido como evidencia da rodada. */
   picoCpus: number | null;
+  /** Pico sustentado somente da arvore da lane; e esta medida que pode ensinar a reserva. */
+  picoCpusDaArvore: number | null;
+  /** A evidencia inteira inclui os conteineres registrados. */
   completa: boolean;
+  /** A arvore pode estar completa mesmo quando um conteiner ficou sem cgroup. */
+  arvoreCompleta: boolean;
   containers: string[];
   ausentes: string[];
   /** Explica por que cada conteiner registrado nao entrou na medicao, sem esconder a lacuna no perfil. */
   motivosDosAusentes: Array<{ container: string; motivo: string }>;
   /** Uma conta acima da capacidade fisica invalida o perfil, em vez de ensinar uma reserva impossivel. */
   anomalia: string | null;
+  anomaliaDaArvore: string | null;
 }
 
 export interface PlanoCpuDoGrupo {
@@ -160,9 +167,10 @@ export function planejarCpuDoGrupo(cpusInformadas: number, medicao: MedicaoCpuDo
   const fatia = saturado ? classic : Math.min(RESERVA_DO_GRUPO, capacidadeEfetiva - 1);
   const ferramentas = Math.max(1, Math.floor(fatia));
   const medida = medicao.cpusIntegracao;
-  const cpusIntegracao = saturado ? ferramentas : Math.max(1, Math.min(ferramentas,
-    Number.isFinite(medida) && (medida as number) > 0 ? Math.ceil(medida as number) : ferramentas));
-  const medidaCompativel = medicao.fonteCpusIntegracao === 'medida' && medida !== null && medida !== undefined;
+  const medidaCompativel = medicao.fonteCpusIntegracao === 'medida' && Number.isFinite(medida) && (medida as number) >= 0;
+  const cpusIntegracao = saturado ? ferramentas : medidaCompativel
+    ? Math.max(1, Math.min(capacidadeEfetiva - 1, Math.ceil(medida as number)))
+    : ferramentas;
   const integracaoEmParalelo = !saturado && medidaCompativel && capacidadeEfetiva - fatia - cpusIntegracao >= 1;
   const amostras = (xs: number[] | undefined, resumo: number | null): string =>
     `[${(xs?.length ? xs : resumo === null ? [] : [resumo]).join(', ')}]`;

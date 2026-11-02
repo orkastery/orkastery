@@ -23,7 +23,7 @@ import { TESTES_DE_INTEGRACAO_LOCAL } from './integracoes-locais';
 const TIMEOUT_BIN = '/usr/bin/timeout';
 const NICE_BIN = '/usr/bin/nice';
 const TIME_BIN = '/usr/bin/time';
-const CONTRATO_PERFIL_INTEGRACAO = 'ork.check.cpu-integracao/v1';
+const CONTRATO_PERFIL_INTEGRACAO = 'ork.check.cpu-integracao/v2';
 const INTERVALO_CPU_MS = 100;
 
 /** Um comando do grupo. */
@@ -81,7 +81,7 @@ interface PerfilCpuIntegracao {
   contrato: typeof CONTRATO_PERFIL_INTEGRACAO;
   chave: string;
   cpus: number;
-  picoCpus: number;
+  picoCpusDaArvore: number;
   completa: boolean;
   medidoEm: string;
 }
@@ -180,19 +180,25 @@ function lerPerfilIntegracao(chave: string | null, cpus: number): PerfilCpuInteg
   try {
     const p = JSON.parse(fs.readFileSync(arquivoDoPerfilIntegracao(), 'utf8')) as PerfilCpuIntegracao;
     return p?.contrato === CONTRATO_PERFIL_INTEGRACAO && p.chave === chave && p.cpus === cpus && p.completa
-      && Number.isFinite(p.picoCpus) && p.picoCpus > 0 && p.picoCpus <= cpus ? p : null;
+      && Number.isFinite(p.picoCpusDaArvore) && p.picoCpusDaArvore > 0 && p.picoCpusDaArvore <= cpus ? p : null;
   } catch { return null; }
 }
 
+/** Somente uma arvore completa e fisicamente possivel pode ensinar a reserva; lacunas de conteiner ficam na evidencia. */
+export function picoDaArvoreParaPerfil(medicao: MedicaoCpuDaIntegracao, cpus: number): number | null {
+  const pico = medicao.picoCpusDaArvore;
+  return medicao.arvoreCompleta && !medicao.anomaliaDaArvore && pico !== null && pico > 0 && pico <= cpus ? pico : null;
+}
+
 function gravarPerfilIntegracao(chave: string | null, cpus: number, medicao: MedicaoCpuDaIntegracao): void {
-  if (!chave || !medicao.completa || medicao.anomalia || medicao.picoCpus === null
-    || !(medicao.picoCpus > 0) || medicao.picoCpus > cpus) return;
+  const picoCpusDaArvore = picoDaArvoreParaPerfil(medicao, cpus);
+  if (!chave || picoCpusDaArvore === null) return;
   const arquivo = arquivoDoPerfilIntegracao();
   try {
     fs.mkdirSync(path.dirname(arquivo), { recursive: true });
     const temporario = `${arquivo}.${process.pid}.tmp`;
     const perfil: PerfilCpuIntegracao = { contrato: CONTRATO_PERFIL_INTEGRACAO, chave, cpus,
-      picoCpus: medicao.picoCpus, completa: true, medidoEm: new Date().toISOString() };
+      picoCpusDaArvore, completa: true, medidoEm: new Date().toISOString() };
     fs.writeFileSync(temporario, JSON.stringify(perfil) + '\n', { mode: 0o600 });
     fs.renameSync(temporario, arquivo);
   } catch { /* cache de desempenho ausente conserva a reserva; nunca derruba o CHECK */ }
@@ -308,15 +314,17 @@ function sondarCpuDaIntegracao(pid: number, registro: string, cpus: number): { a
   const fontes = new Map<string, FonteCpuDoContainer>();
   const motivos = new Map<string, string>();
   const amostras: AmostraCpuPorFonte[] = [];
+  const amostrasDaArvore: AmostraCpuPorFonte[] = [];
   const primeiraCpuDosContainers = new Map<string, number>();
   const ultimaCpuDosContainers = new Map<string, number>();
   const amostrar = () => {
     const tabela = processosCpu();
-    const atuais: Record<string, number> = {};
+    const arvore: Record<string, number> = {};
     for (const p of arvoreDeProcessos(pid, tabela)) {
       const x = tabela.get(p);
-      if (x) atuais[`processo:${p}:${x.inicio}`] = x.cpuMs;
+      if (x) arvore[`processo:${p}:${x.inicio}`] = x.cpuMs;
     }
+    const atuais: Record<string, number> = { ...arvore };
     for (const nome of nomesDosContainers(registro)) {
       let fonte = fontes.get(nome);
       if (!fonte) {
@@ -332,7 +340,9 @@ function sondarCpuDaIntegracao(pid: number, registro: string, cpus: number): { a
         motivos.delete(nome);
       } else if (fonte) motivos.set(nome, 'contador de CPU do cgroup ilegivel');
     }
-    amostras.push({ em: Date.now(), fontes: atuais });
+    const em = Date.now();
+    amostrasDaArvore.push({ em, fontes: arvore });
+    amostras.push({ em, fontes: atuais });
   };
   return {
     amostrar,
@@ -343,10 +353,14 @@ function sondarCpuDaIntegracao(pid: number, registro: string, cpus: number): { a
         (ultimaCpuDosContainers.get(nome) ?? 0) - (primeiraCpuDosContainers.get(nome) ?? 0)), 0);
       const ausentes = nomes.filter((nome) => !ultimaCpuDosContainers.has(nome));
       const pico = picoCpuPorFonte(amostras, cpus);
+      const picoDaArvore = picoCpuPorFonte(amostrasDaArvore, cpus);
+      const arvoreCompleta = arvoreMs > 0 && picoDaArvore.picoCpus !== null && !picoDaArvore.anomalia;
       return { arvoreMs, containersMs, totalMs: arvoreMs + containersMs, paredeMs,
-        picoCpus: pico.picoCpus, completa: ausentes.length === 0 && !pico.anomalia,
+        picoCpus: pico.picoCpus, picoCpusDaArvore: picoDaArvore.picoCpus,
+        completa: arvoreCompleta && ausentes.length === 0 && !pico.anomalia, arvoreCompleta,
         containers: nomes, ausentes, motivosDosAusentes: ausentes.map((container) => ({ container,
-          motivo: motivos.get(container) ?? 'conteiner terminou antes de uma amostra completa' })), anomalia: pico.anomalia };
+          motivo: motivos.get(container) ?? 'conteiner terminou antes de uma amostra completa' })),
+        anomalia: pico.anomalia, anomaliaDaArvore: picoDaArvore.anomalia };
     },
   };
 }
@@ -362,7 +376,7 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
   const chaveDoPerfil = usaAgendador ? chaveDoPerfilIntegracao(esp.itens, cpus) : null;
   const perfil = esp.medicaoCpu?.cpusIntegracao === undefined ? lerPerfilIntegracao(chaveDoPerfil, cpus) : null;
   const medicao = esp.medicaoCpu ?? await medirCpuDoGrupo();
-  if (perfil) Object.assign(medicao, { cpusIntegracao: perfil.picoCpus, fonteCpusIntegracao: 'medida' as const });
+  if (perfil) Object.assign(medicao, { cpusIntegracao: perfil.picoCpusDaArvore, fonteCpusIntegracao: 'medida' as const });
   else if (medicao.cpusIntegracao === undefined) Object.assign(medicao, { cpusIntegracao: null, fonteCpusIntegracao: 'conservadora' as const });
   const plano = usaAgendador ? planejarCpuDoGrupo(cpus, medicao) : undefined;
   const sinalDaReserva = plano && !plano.saturado ? path.join(esp.dir, 'reserva-devolvida.json') : undefined;
@@ -452,7 +466,6 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
           catch { /* medida incompleta abaixo */ }
         }
         const medicaoCpu = medirIntegracao && sonda ? sonda.fechar(arvoreMs, t.duracaoMs) : undefined;
-        if (medicaoCpu && !(arvoreMs > 0)) medicaoCpu.completa = false;
         fim = { ...t, ...(medicaoCpu ? { medicaoCpu } : {}) };
         fs.closeSync(saida);
         fs.closeSync(erro);

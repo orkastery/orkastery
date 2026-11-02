@@ -14,7 +14,8 @@ import { adicionarClaim } from '../src/claims';
 import { assinaturaDoAmbiente, comandosNoAgile, elosDoComando, executorDaClaimPelasLanes, GuardaDoProduto, hashDoProduto,
   MAXIMO_DE_PREPAROS_REFEITOS, paralelismoDaVarreduraNoGrupo, passosDoComando, PECA_SEM_RELATORIO, RelatorioDoCheck,
   testDasLanes, TETO_DO_RELATORIO_BYTES, tirarPassosDoPreparo, tirarPassosDoPreparoAposLeituras } from '../src/check-agil';
-import { argvDoItem, chaveDoPerfilIntegracao, picoCpuPorFonte, rodarEmParalelo, workersDaLane } from '../src/check-paralelo';
+import { argvDoItem, chaveDoPerfilIntegracao, picoCpuPorFonte, picoDaArvoreParaPerfil, rodarEmParalelo,
+  workersDaLane } from '../src/check-paralelo';
 import { cargaDoProcLoadavg, MINIMO_ESTRUTURAL_DO_GRUPO, paredeAgileSimulada, paredeClassicaSimulada, planejarCpuDoGrupo,
   resumirMedicaoCpuDoGrupo, workersDaReserva } from '../src/agendador-cpu';
 import { lerLedger } from '../src/ledger';
@@ -1158,6 +1159,10 @@ test('AG49: a reserva medida da integracao abre um degrau apos a varredura sem u
   assert.deepEqual([p.cpusHermetica, p.cpusHermeticaAposVarredura, p.cpusHermeticaAposReserva], [5, 7, 8]);
   assert.ok(p.cpusHermetica + p.cpusDaFatia + p.cpusIntegracao <= p.cpus);
   assert.ok(p.cpusHermeticaAposVarredura + p.cpusIntegracao <= p.cpus);
+  const acimaDasFerramentas = planejarCpuDoGrupo(8,
+    { carga1: 0, stealPct: 0, cpusIntegracao: 2.4, fonteCpusIntegracao: 'medida' });
+  assert.equal(acimaDasFerramentas.cpusIntegracao, 3, 'a reserva vem do ceil da medida, nao do numero de ferramentas');
+  assert.equal(acimaDasFerramentas.cpusHermeticaAposVarredura, 5, 'a hermetica recebe o resto no degrau');
 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag49-paralelo-'));
   try {
@@ -1212,6 +1217,63 @@ test('AG50: o perfil medido da integracao so vale para os mesmos testes compilad
     assert.equal(impossivel.picoCpus, null, 'pico acima da maquina nunca vira perfil');
     assert.match(impossivel.anomalia ?? '', /excede a capacidade/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('AG51: perfil da arvore fecha com conteiner ausente; perfil incompleto ou incompativel conserva a reserva', () => {
+  const medidaComLacuna = {
+    arvoreMs: 80, containersMs: 0, totalMs: 80, paredeMs: 100,
+    picoCpus: 0.64, picoCpusDaArvore: 0.64, completa: false, arvoreCompleta: true,
+    containers: ['integracao-sem-cgroup'], ausentes: ['integracao-sem-cgroup'],
+    motivosDosAusentes: [{ container: 'integracao-sem-cgroup', motivo: 'cgroup ausente' }],
+    anomalia: null, anomaliaDaArvore: null,
+  };
+  assert.equal(picoDaArvoreParaPerfil(medidaComLacuna, 8), 0.64,
+    'o conteiner sem cgroup fica na evidencia sem invalidar a arvore');
+  assert.equal(picoDaArvoreParaPerfil({ ...medidaComLacuna, arvoreCompleta: false }, 8), null,
+    'a arvore incompleta nunca ensina uma reserva');
+
+  const medida = planejarCpuDoGrupo(8, { carga1: 0, stealPct: 0, cpusIntegracao: 0.01, fonteCpusIntegracao: 'medida' });
+  assert.equal(medida.cpusIntegracao, 1, 'a reserva medida nunca fica abaixo de uma CPU');
+  const semPerfil = planejarCpuDoGrupo(8, { carga1: 0, stealPct: 0, cpusIntegracao: 0.01 });
+  assert.equal(semPerfil.cpusIntegracao, 2, 'um numero sem a origem de perfil nao reduz a reserva conservadora');
+  assert.equal(semPerfil.fonteCpusIntegracao, 'conservadora');
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag51-perfil-'));
+  try {
+    const cache = path.join(dir, 'cache');
+    const itens = [
+      { nome: 'test:hermetica', papelCpu: 'hermetica' as const, cwd: dir, prazoMs: 10_000, comando: 'true' },
+      { nome: 'security_scan', papelCpu: 'varredura' as const, cwd: dir, prazoMs: 10_000, comando: 'true' },
+      { nome: 'test:integracao', papelCpu: 'integracao' as const, cwd: dir, prazoMs: 10_000, comando: 'true' },
+    ];
+    const chave = chaveDoPerfilIntegracao(itens, 8, []);
+    assert.ok(chave);
+    const arquivo = path.join(cache, 'orkastery', 'check', 'cpu-integracao.json');
+    fs.mkdirSync(path.dirname(arquivo), { recursive: true });
+    const gravar = (mudancas: Record<string, unknown> = {}): void => fs.writeFileSync(arquivo, JSON.stringify({
+      contrato: 'ork.check.cpu-integracao/v2', chave, cpus: 8, picoCpusDaArvore: 0.64, completa: true,
+      medidoEm: '2026-11-02T00:00:00.000Z', ...mudancas,
+    }) + '\n');
+    const rodar = () => rodarEmParalelo(itens, { ...process.env, XDG_CACHE_HOME: cache, ORK_LANES_INTEGRACAO: '' },
+      { cpus: 8, medicaoCpu: { carga1: 0, stealPct: 0 } }).agendamentoCpu!;
+
+    gravar();
+    const compativel = rodar();
+    assert.equal(compativel.cpusIntegracao, 1, 'o perfil completo reduz a reserva pelo ceil do pico');
+    assert.equal(compativel.fonteCpusIntegracao, 'medida');
+    gravar({ completa: false });
+    assert.equal(rodar().cpusIntegracao, 2, 'perfil incompleto conserva a reserva atual');
+    gravar({ chave: `${chave}-incompativel` });
+    assert.equal(rodar().cpusIntegracao, 2, 'perfil incompativel conserva a reserva atual');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+
+  const classicSemPerfil = planejarCpuDoGrupo(4, { carga1: 3, stealPct: 0 });
+  const classicMedido = planejarCpuDoGrupo(4,
+    { carga1: 3, stealPct: 0, cpusIntegracao: 0.2, fonteCpusIntegracao: 'medida' });
+  assert.deepEqual(
+    [classicMedido.ordem, classicMedido.cpusHermetica, classicMedido.cpusIntegracao, classicMedido.fonteCpusIntegracao],
+    [classicSemPerfil.ordem, classicSemPerfil.cpusHermetica, classicSemPerfil.cpusIntegracao, classicSemPerfil.fonteCpusIntegracao],
+    'o fallback Classic ignora o perfil e conserva o plano anterior');
 });
 
 test('RM081F4-manifesto: a declaracao unica preserva texto e transporta todas as chaves da lane', () => {
