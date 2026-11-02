@@ -14,13 +14,14 @@ import { adicionarClaim } from '../src/claims';
 import { assinaturaDoAmbiente, comandosNoAgile, elosDoComando, executorDaClaimPelasLanes, GuardaDoProduto, hashDoProduto,
   MAXIMO_DE_PREPAROS_REFEITOS, paralelismoDaVarreduraNoGrupo, passosDoComando, PECA_SEM_RELATORIO, RelatorioDoCheck,
   testDasLanes, TETO_DO_RELATORIO_BYTES, tirarPassosDoPreparo, tirarPassosDoPreparoAposLeituras } from '../src/check-agil';
-import { argvDoItem, chaveDoPerfilIntegracao, picoCpuPorFonte, rodarEmParalelo, workersDaLane } from '../src/check-paralelo';
-import { cargaDoProcLoadavg, paredeAgileSimulada, paredeClassicaSimulada, planejarCpuDoGrupo,
-  workersDaReserva } from '../src/agendador-cpu';
+import { argvDoItem, chaveDoPerfilIntegracao, picoCpuPorFonte, picoDaArvoreParaPerfil, rodarEmParalelo,
+  workersDaLane } from '../src/check-paralelo';
+import { cargaDoProcLoadavg, MINIMO_ESTRUTURAL_DO_GRUPO, paredeAgileSimulada, paredeClassicaSimulada, planejarCpuDoGrupo,
+  resumirMedicaoCpuDoGrupo, workersDaReserva } from '../src/agendador-cpu';
 import { lerLedger } from '../src/ledger';
 import { carregarManifesto } from '../src/manifest';
 import { dirThread, novaThread } from '../src/thread';
-import { ambienteDoModo, gravarBaseline, identidadeDoProduto, semVereditoPorTempo, textoDoVerify, vereditoDaBaseline, verificar,
+import { ambienteDoModo, gravarBaseline, identidadeDoProduto, pecaDoAgendadorCpu, semVereditoPorTempo, textoDoVerify, vereditoDaBaseline, verificar,
   ExecutorVerify } from '../src/verify';
 import { comLocale } from '../src/locale';
 import type { ResultadoDeComando } from '../src/types';
@@ -376,12 +377,20 @@ test('AG18: o texto do verify diz o reaproveitamento, o grupo e cada peca em fal
     adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'x', verificar: ['echo passo-a && echo passo-b && echo c'] });
     const g = gravador((_nome, comando) => (comando === 'echo rapido' ? { ok: false, code: 127, causa: 'nao-encontrado' } : {}));
     const r = verificar(p.carregado, t.id, { executor: g.executor });
+    r.agile!.pecas.push({ peca: 'agendador-cpu', estado: 'degradado', motivo: 'capacidade 7/8 CPUs',
+      reservaIntegracao: { cpus: 2, fonte: 'conservadora' } });
+    r.agile!.pecas.push({ peca: 'agendador-cpu-medido', estado: 'agile', motivo: 'perfil compativel',
+      reservaIntegracao: { cpus: 1, fonte: 'medida' } });
     const texto = textoDoVerify(r);
     assert.match(texto, /\n {2}agile {7}1 comando\(s\) de claim contra o produto do preparo, 0 inteiro\(s\); grupo em paralelo com as lanes h\n/);
     assert.match(texto, /\n {2}fallback {4}preparo: saiu com codigo 127: echo rapido; rodou verify\.preparo\n/);
+    assert.match(texto, /\n {2}degradado {3}agendador-cpu: capacidade 7\/8 CPUs; reserva da integracao 2 CPU\(s\), origem conservadora; preservou o plano paralelo\n/);
+    assert.match(texto, /\n {2}agile {7}agendador-cpu-medido: perfil compativel; reserva da integracao 1 CPU\(s\), origem medida\n/);
     const ingles = comLocale('en', () => textoDoVerify(r));
     assert.match(ingles, /\n {2}agile {7}1 claim command\(s\) against the prepared product, 0 in full; parallel group with lanes h\n/);
     assert.match(ingles, /\n {2}fallback {4}preparo: saiu com codigo 127: echo rapido; ran verify\.preparo\n/);
+    assert.match(ingles, /\n {2}degraded {4}agendador-cpu: capacidade 7\/8 CPUs; integration reservation 2 CPU\(s\), source conservative; kept the parallel plan\n/);
+    assert.match(ingles, /\n {2}agile {7}agendador-cpu-medido: perfil compativel; integration reservation 1 CPU\(s\), source measured\n/);
   } finally { p.limpar(); }
 });
 
@@ -1039,29 +1048,53 @@ test('AG43: o item do grupo com argv roda sem shell: o argumento chega literal, 
   assert.equal(c.stdout.trim(), '2', 'o item sem argv segue pelo bash -c');
 });
 
-test('AG44: sob carga sintetica presa em CPU, o plano cai para o Classic e nunca projeta parede maior', () => {
+test('AG44: carga e steal degradam a capacidade em degraus; so o minimo estrutural volta a ordem do Classic', () => {
   const trabalho = { hermetica: 700, varredura: 140, integracao: 70 };
-  const saturado = planejarCpuDoGrupo(8, { carga1: 8, stealPct: 12 });
-  assert.equal(saturado.ordem, 'classic');
-  assert.equal(saturado.cpusHermetica, 7);
-  assert.equal(saturado.cpusHermeticaAposVarredura, 7);
-  assert.equal(saturado.cpusHermeticaAposReserva, 7, 'o fallback nao devolve reserva dinamicamente');
-  assert.equal(saturado.ferramentasDaVarredura, 7);
-  assert.equal(saturado.cpusPorContainer, 1);
-  assert.ok(paredeAgileSimulada(saturado, trabalho) <= paredeClassicaSimulada(8, trabalho));
-  assert.match(saturado.motivo, /carga 8 em \/proc\/loadavg/);
-  assert.match(saturado.motivo, /steal 12% em \/proc\/stat/);
-
-  const livre = planejarCpuDoGrupo(8, { carga1: 2, stealPct: 0 });
+  const livre = planejarCpuDoGrupo(8, resumirMedicaoCpuDoGrupo([0, 0, 0], [0, 0, 0]));
   assert.equal(livre.ordem, 'paralela');
+  assert.equal(livre.estado, 'agile');
+  assert.equal(livre.capacidadeEfetiva, 8);
   assert.equal(livre.cpusHermetica + livre.cpusDaFatia, 8, 'a soma do grupo cabe na maquina');
   assert.equal(livre.cpusHermetica, 6);
   assert.equal(livre.cpusHermeticaAposVarredura, 6, 'sem medida completa, a integracao conserva a reserva');
-  assert.equal(livre.cpusHermeticaAposReserva, 8, 'depois da cadeia a hermetica usa a maquina inteira');
+  assert.equal(livre.cpusHermeticaAposReserva, 8, 'depois da cadeia a hermetica usa a capacidade inteira');
   assert.equal(livre.ferramentasDaVarredura, 2);
   assert.equal(livre.cpusPorContainer, 1);
   assert.ok(paredeAgileSimulada(livre, trabalho) < Math.max(trabalho.hermetica / livre.cpusHermetica,
     trabalho.varredura / livre.cpusDaFatia + trabalho.integracao / livre.cpusIntegracao), 'a devolucao reduz a parede modelada');
+
+  const degradado = planejarCpuDoGrupo(8, resumirMedicaoCpuDoGrupo([0, 0, 0], [12, 12, 12]));
+  assert.equal(degradado.ordem, 'paralela', 'steal acima do limiar antigo nao derruba o grupo inteiro');
+  assert.equal(degradado.estado, 'degradado');
+  assert.equal(degradado.capacidadeEfetiva, 7);
+  assert.equal(degradado.cpusHermeticaAposReserva, 7);
+  assert.equal(degradado.ferramentasDaVarredura, 2);
+  assert.match(degradado.motivo, /amostras \[12, 12, 12\], mediana 12%/);
+
+  const pico = planejarCpuDoGrupo(8, resumirMedicaoCpuDoGrupo([0, 7, 0], [0, 90, 0]));
+  assert.equal(pico.estado, 'agile', 'um pico isolado fica na evidencia, mas a mediana preserva o plano');
+  assert.equal(pico.capacidadeEfetiva, 8);
+  assert.match(pico.motivo, /amostras \[0, 90, 0\], mediana 0%/);
+
+  const saturado = planejarCpuDoGrupo(4, resumirMedicaoCpuDoGrupo([0, 0, 0], [50, 50, 50]));
+  assert.equal(saturado.ordem, 'classic');
+  assert.equal(saturado.estado, 'fallback');
+  assert.equal(saturado.capacidadeEfetiva, MINIMO_ESTRUTURAL_DO_GRUPO - 1);
+  assert.equal(saturado.cpusHermetica, 3, 'o fallback usa a paralelizacao do Classic, nao a capacidade descontada');
+  assert.equal(saturado.cpusHermeticaAposVarredura, 3);
+  assert.equal(saturado.cpusHermeticaAposReserva, 3, 'o fallback nao devolve reserva dinamicamente');
+  assert.equal(saturado.ferramentasDaVarredura, 3);
+  assert.equal(saturado.cpusPorContainer, 1);
+  assert.ok(paredeAgileSimulada(saturado, trabalho) <= paredeClassicaSimulada(4, trabalho));
+  assert.match(saturado.motivo, /abaixo do minimo estrutural 3/);
+  const porCarga = planejarCpuDoGrupo(4, resumirMedicaoCpuDoGrupo([3, 3, 3], [0, 0, 0]));
+  assert.equal(porCarga.ordem, 'classic', 'carga que ocupa quase a maquina inteira volta a ordem do Classic');
+  assert.equal(porCarga.cpusHermetica, 3);
+  assert.match(porCarga.motivo, /carga 3 em \/proc\/loadavg \(limiar 3\)/);
+  const quieta = planejarCpuDoGrupo(8, resumirMedicaoCpuDoGrupo([2, 2, 2], [9, 9, 9]));
+  assert.equal(quieta.estado, 'agile', 'carga do proprio verify e steal abaixo do limiar nao tiram CPU do plano');
+  assert.equal(quieta.capacidadeEfetiva, 8);
+  assert.equal(quieta.cpusHermeticaAposReserva, 8);
   assert.equal(cargaDoProcLoadavg('7.25 4.0 3.0 1/2 3\n'), 7.25);
   assert.equal(cargaDoProcLoadavg('invalida'), null);
 
@@ -1115,6 +1148,11 @@ test('AG45: saturacao medida pelo verify ordena hermetica, varredura e integraca
     assert.equal(agendador.estado, 'fallback');
     assert.match(String(agendador.motivo), /\/proc\/loadavg.*\/proc\/stat.*varredura e integracao depois dela/);
     assert.equal(agendador.fallback, 'ordem do Classic para hermetica, varredura e integracao');
+    const degradado = pecaDoAgendadorCpu(planejarCpuDoGrupo(8,
+      resumirMedicaoCpuDoGrupo([0, 0, 0], [12, 12, 12])));
+    assert.equal(degradado.estado, 'degradado');
+    assert.equal(degradado.fallback, undefined);
+    assert.match(String(degradado.motivo), /capacidade 7\/8 CPU\(s\).*amostras \[12, 12, 12\], mediana 12%/);
   } finally { p.limpar(); }
 });
 
@@ -1126,6 +1164,10 @@ test('AG49: a reserva medida da integracao abre um degrau apos a varredura sem u
   assert.deepEqual([p.cpusHermetica, p.cpusHermeticaAposVarredura, p.cpusHermeticaAposReserva], [5, 7, 8]);
   assert.ok(p.cpusHermetica + p.cpusDaFatia + p.cpusIntegracao <= p.cpus);
   assert.ok(p.cpusHermeticaAposVarredura + p.cpusIntegracao <= p.cpus);
+  const acimaDasFerramentas = planejarCpuDoGrupo(8,
+    { carga1: 0, stealPct: 0, cpusIntegracao: 2.4, fonteCpusIntegracao: 'medida' });
+  assert.equal(acimaDasFerramentas.cpusIntegracao, 3, 'a reserva vem do ceil da medida, nao do numero de ferramentas');
+  assert.equal(acimaDasFerramentas.cpusHermeticaAposVarredura, 5, 'a hermetica recebe o resto no degrau');
 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag49-paralelo-'));
   try {
@@ -1180,6 +1222,63 @@ test('AG50: o perfil medido da integracao so vale para os mesmos testes compilad
     assert.equal(impossivel.picoCpus, null, 'pico acima da maquina nunca vira perfil');
     assert.match(impossivel.anomalia ?? '', /excede a capacidade/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('AG51: perfil da arvore fecha com conteiner ausente; perfil incompleto ou incompativel conserva a reserva', () => {
+  const medidaComLacuna = {
+    arvoreMs: 80, containersMs: 0, totalMs: 80, paredeMs: 100,
+    picoCpus: 0.64, picoCpusDaArvore: 0.64, completa: false, arvoreCompleta: true,
+    containers: ['integracao-sem-cgroup'], ausentes: ['integracao-sem-cgroup'],
+    motivosDosAusentes: [{ container: 'integracao-sem-cgroup', motivo: 'cgroup ausente' }],
+    anomalia: null, anomaliaDaArvore: null,
+  };
+  assert.equal(picoDaArvoreParaPerfil(medidaComLacuna, 8), 0.64,
+    'o conteiner sem cgroup fica na evidencia sem invalidar a arvore');
+  assert.equal(picoDaArvoreParaPerfil({ ...medidaComLacuna, arvoreCompleta: false }, 8), null,
+    'a arvore incompleta nunca ensina uma reserva');
+
+  const medida = planejarCpuDoGrupo(8, { carga1: 0, stealPct: 0, cpusIntegracao: 0, fonteCpusIntegracao: 'medida' });
+  assert.equal(medida.cpusIntegracao, 1, 'a reserva medida nunca fica abaixo de uma CPU');
+  const semPerfil = planejarCpuDoGrupo(8, { carga1: 0, stealPct: 0, cpusIntegracao: 0.01 });
+  assert.equal(semPerfil.cpusIntegracao, 2, 'um numero sem a origem de perfil nao reduz a reserva conservadora');
+  assert.equal(semPerfil.fonteCpusIntegracao, 'conservadora');
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag51-perfil-'));
+  try {
+    const cache = path.join(dir, 'cache');
+    const itens = [
+      { nome: 'test:hermetica', papelCpu: 'hermetica' as const, cwd: dir, prazoMs: 10_000, comando: 'true' },
+      { nome: 'security_scan', papelCpu: 'varredura' as const, cwd: dir, prazoMs: 10_000, comando: 'true' },
+      { nome: 'test:integracao', papelCpu: 'integracao' as const, cwd: dir, prazoMs: 10_000, comando: 'true' },
+    ];
+    const chave = chaveDoPerfilIntegracao(itens, 8, []);
+    assert.ok(chave);
+    const arquivo = path.join(cache, 'orkastery', 'check', 'cpu-integracao.json');
+    fs.mkdirSync(path.dirname(arquivo), { recursive: true });
+    const gravar = (mudancas: Record<string, unknown> = {}): void => fs.writeFileSync(arquivo, JSON.stringify({
+      contrato: 'ork.check.cpu-integracao/v2', chave, cpus: 8, picoCpusDaArvore: 0.64, completa: true,
+      medidoEm: '2026-11-02T00:00:00.000Z', ...mudancas,
+    }) + '\n');
+    const rodar = () => rodarEmParalelo(itens, { ...process.env, XDG_CACHE_HOME: cache, ORK_LANES_INTEGRACAO: '' },
+      { cpus: 8, medicaoCpu: { carga1: 0, stealPct: 0 } }).agendamentoCpu!;
+
+    gravar();
+    const compativel = rodar();
+    assert.equal(compativel.cpusIntegracao, 1, 'o perfil completo reduz a reserva pelo ceil do pico');
+    assert.equal(compativel.fonteCpusIntegracao, 'medida');
+    gravar({ completa: false });
+    assert.equal(rodar().cpusIntegracao, 2, 'perfil incompleto conserva a reserva atual');
+    gravar({ chave: `${chave}-incompativel` });
+    assert.equal(rodar().cpusIntegracao, 2, 'perfil incompativel conserva a reserva atual');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+
+  const classicSemPerfil = planejarCpuDoGrupo(4, { carga1: 3, stealPct: 0 });
+  const classicMedido = planejarCpuDoGrupo(4,
+    { carga1: 3, stealPct: 0, cpusIntegracao: 0.2, fonteCpusIntegracao: 'medida' });
+  assert.deepEqual(
+    [classicMedido.ordem, classicMedido.cpusHermetica, classicMedido.cpusIntegracao, classicMedido.fonteCpusIntegracao],
+    [classicSemPerfil.ordem, classicSemPerfil.cpusHermetica, classicSemPerfil.cpusIntegracao, classicSemPerfil.fonteCpusIntegracao],
+    'o fallback Classic ignora o perfil e conserva o plano anterior');
 });
 
 test('RM081F4-manifesto: a declaracao unica preserva texto e transporta todas as chaves da lane', () => {
