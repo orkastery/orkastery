@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.4",
-  "publicadoEm": "2026-11-02T22:04:58.916Z",
+  "publicadoEm": "2026-11-02T22:15:02.932Z",
   "threads": [
     {
       "id": "ork-rm074comamet",
@@ -71,24 +71,6 @@
         "desdeEm": "2026-10-31T20:57:42.157Z",
         "motivo": "nenhuma sessão despachada na fase GOAL"
       }
-    },
-    {
-      "id": "ork-rm075fimdefa",
-      "nome": "rm075",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-075",
-      "branch": "ork/ork-rm075fimdefa-full",
-      "atualizadaEm": "2026-11-02T22:04:58.474Z",
-      "entregue": "7fd2b66",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh",
-      "sessao": null
     },
     {
       "id": "ork-rm081f4worke",
