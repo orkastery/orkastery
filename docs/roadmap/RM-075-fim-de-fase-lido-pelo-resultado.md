@@ -61,28 +61,29 @@ sdlc:
   - GO concluído sem commit e com HEAD igual vira um resultado tipado de "GO sem mudança", que vai direto à reavaliação do recibo ([RM-078](RM-078-recibo-valido-enquanto-nada-muda.md)), com a prova "nenhum commit" para o verify decidir;
   - no Codex, `task_complete` no rollout fixado da sessão despachada fecha a fase pelo resultado mesmo quando o watcher perdeu o estado; sem `task_complete`, a indisponibilidade continua tipada;
   - pedido à condução registrado pela sessão prevalece sobre o fechamento genérico;
-  - a política de retry não redespacha uma fase cujo rollout fixado já contém `task_complete`;
+  - a política de retry não redespacha uma fase que o `task_complete` classificou como `fase_concluida`; quando o mesmo terminal carrega falha estruturada de runtime, a política tipada de recuperação permanece;
   - `human.pending` só quando a mensagem final pergunta algo ao humano.
 - **Fora de escopo:** mudar a janela do Claude Code para marcar a sessão como encerrada; alterar o contrato de recibo da [RM-078](RM-078-recibo-valido-enquanto-nada-muda.md) ou a política de claims da [RM-079](RM-079-claims-que-a-correcao-passa.md).
 - **Entregáveis e critérios de aceite:**
   - GO que termina sem pergunta ao humano fecha como `fase_concluida`, com ou sem commit, na mesma janela de ociosidade depois do Stop que já vale para `working`/`idle`;
   - um caso de teste por combinação de estado nativo (`blocked`, `working`, `done`) com e sem pergunta real;
   - Codex com `task_complete` e estado dividido fecha; sem `task_complete`, o pedido à condução permanece tipado;
-  - retry com `task_complete` é recusado e deixa a razão no ledger;
+  - retry com `task_complete` concluído é recusado e deixa a razão no ledger; `task_complete` com erro estruturado conserva a política da falha;
   - um mutante por regra morre.
-- **Piloto, medição e critérios de expansão/interrupção:** a bancada da condução compara rodadas equivalentes com e sem a fatia e publica apenas a razão; qualquer pergunta real perdida ou redespacho depois de `task_complete` interrompe a expansão.
+- **Piloto, medição e critérios de expansão/interrupção:** a bancada da condução compara rodadas equivalentes com e sem a fatia e publica apenas a razão; qualquer pergunta real perdida ou redespacho depois de `task_complete` concluído interrompe a expansão.
 
 ## Plano e decisões
 
 - **Prioridade / método / pontuação / justificativa / data:** 1ª da fila de achados de condução em rede (31/10/2026). Crítica: um fim de fase mal lido para a autonomia inteira da thread.
 - **Horizonte / alvo / previsão / confiança / marcos:** a definir pelo dono; candidato à primeira versão depois da RM-074.
 - **Dependências e bloqueios (ID, owner, próxima revisão):** nenhuma. Conversa com a [RM-078](RM-078-recibo-valido-enquanto-nada-muda.md) no caso do GO sem commit.
-- **Premissas / riscos / mitigação:** a leitura de tela pode ficar indisponível; sem leitura válida, o watcher aguarda nova observação e não inventa `human.pending`. O Codex só aceita `task_complete` do descritor associado à fixação autenticada do controller.
+- **Premissas / riscos / mitigação:** a leitura de tela pode ficar indisponível; essa indisponibilidade não prova pergunta nem cria `human.pending`, que exige pergunta efetivamente lida. O Codex só aceita `task_complete` do descritor associado à fixação autenticada do controller.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):**
   1. Estender a janela de ociosidade ao estado `blocked`/`idle`: simples, mas ainda depende do tempo.
   2. Classificar pelo resultado (recomendada): depende só de fatos do núcleo e da tela.
   3. Ler o terminal Codex apenas da fixação autenticada: evita descobrir outro rollout quando o estado está dividido.
   4. Reconfirmar `task_complete` no plano e na execução do retry: impede a corrida entre a leitura do gate e o redespacho.
+  5. Aplicar a guarda de retry ao resultado `fase_concluida`, não ao erro estruturado transportado por `task_complete`: preserva a recuperação tipada de cota, autenticação e modelo. Decisão `#Auto` registrada após o primeiro verify apontar regressões de cota e checkpoint.
 
 - **Andamento da thread:** a matriz `blocked`/`working`/`done`, o resultado `go.sem-mudanca`, a leitura autenticada de `task_complete`, a precedência do pedido à condução e a guarda do retry estão implementados na branch.
 

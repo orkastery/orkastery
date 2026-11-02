@@ -33,7 +33,7 @@
       "id": "M4",
       "descricao": "o retry volta a ignorar task_complete e planeja redespachar a fase concluída",
       "modulo": "retry",
-      "de": "return (0, codex_task_complete_1.taskCompleteFixadoDaSessao)(raiz, thread, (0, session_events_1.exigirSessaoDespachada)(candidata, candidata.sessionId), (0, ledger_1.lerLedger)((0, thread_1.dirThread)(raiz, thread.id))) !== null;",
+      "de": "return prova?.terminal.classificacao === 'fase_concluida';",
       "para": "return false;",
       "teste": "session-watcher-controller",
       "nome": "^RM-075: retry recusa redespacho"

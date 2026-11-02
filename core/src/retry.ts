@@ -384,8 +384,12 @@ function faseJaTerminouPorTaskComplete(raiz: string, thread: Thread, fase: Fase,
     (typeof evento?.despachoEm !== 'string' || s.despachadaEm === evento.despachoEm));
   if (!candidata) return false;
   try {
-    return taskCompleteFixadoDaSessao(raiz, thread, exigirSessaoDespachada(candidata, candidata.sessionId),
-      lerLedger(dirThread(raiz, thread.id))) !== null;
+    const prova = taskCompleteFixadoDaSessao(raiz, thread, exigirSessaoDespachada(candidata, candidata.sessionId),
+      lerLedger(dirThread(raiz, thread.id)));
+    // task_complete encerra o turno, mas pode carregar uma falha estruturada de runtime.
+    // Só o resultado que concluiu a fase impede nova tentativa; cota/auth/modelo mantêm
+    // a política tipada de recuperação já existente.
+    return prova?.terminal.classificacao === 'fase_concluida';
   } catch { return false; }
 }
 

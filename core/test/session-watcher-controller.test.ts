@@ -80,6 +80,11 @@ const fimTaskComplete = [
   linha({ type: 'event_msg', timestamp: new Date(BASE + 2600).toISOString(),
     payload: { type: 'task_complete', turn_id: 'turn-1', usage: { input_tokens: 20, cached_input_tokens: 10, output_tokens: 4 } } }),
 ];
+const fimTaskCompleteComCota = [
+  linha({ type: 'event_msg', timestamp: new Date(BASE + 2500).toISOString(),
+    payload: { type: 'task_complete', turn_id: 'turn-1',
+      error: { message: 'Your workspace is out of credits.', codex_error_info: 'usage_limit_exceeded' } } }),
+];
 const terminalNativo = { metodo: 'turn/completed', threadId: SID, turnId: 'turn-1', status: 'completed' };
 
 test('RM-075: task_complete do rollout fixado fecha Codex mesmo com SESSION_STATE_SPLIT', () => {
@@ -134,6 +139,21 @@ test('RM-075: retry recusa redespacho quando o rollout fixado já contém task_c
     assert.equal(p.eventos().some(e => e.tipo === 'retry_attempt'), false);
     const registrado = p.eventos().filter(e => e.tipo === 'retry_planned').at(-1)!;
     assert.match(String(registrado.razao), /task_complete/);
+  } finally { p.limpar(); }
+});
+
+test('RM-075: task_complete com falha tipada preserva a política de recuperação do runtime', () => {
+  const p = fixtureControlador({ estado: 'working' }, rolloutBase);
+  try {
+    assert.equal(p.run(2000).concluido, false);
+    fs.appendFileSync(p.roll, fimTaskCompleteComCota.join(''));
+    fs.utimesSync(p.roll, (BASE + 2600) / 1000, (BASE + 2600) / 1000);
+    const despachoEm = p.t.sessoes[0].despachadaEm!;
+    registrar(p.dirEstado, p.t.id, 'gate_blocked', { fase: 'GO', sessionId: SID, despachoEm,
+      runtime: 'codex', motivo: 'runtime.quota-exhausted', classificacao: 'gate_blocked', origem: 'sessions.watch' });
+    const plano = planejarRetry(p.carregado, p.t.id);
+    assert.equal(plano.motivo, 'runtime.quota-exhausted');
+    assert.equal(plano.acao, 'reexecutar');
   } finally { p.limpar(); }
 });
 
