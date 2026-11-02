@@ -1,0 +1,42 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-081 F4: workers seguem a reserva, a capacidade limita a soma, recursos comuns se excluem e o Classic publica o mesmo contrato.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "a normalizacao permite zero workers",
+      "modulo": "agendador-cpu",
+      "de": "return Math.max(1, Math.floor(Number.isFinite(cpus) ? cpus : 1));",
+      "para": "return Math.max(0, Math.floor(Number.isFinite(cpus) ? cpus : 1));",
+      "teste": "check-agil",
+      "nome": "^RM081F4-workers:"
+    },
+    {
+      "id": "M2",
+      "descricao": "a hermetica recebe a maquina inteira junto das outras reservas",
+      "modulo": "check-paralelo",
+      "de": "return (0, agendador_cpu_1.workersDaReserva)(plano.cpusHermetica);",
+      "para": "return (0, agendador_cpu_1.workersDaReserva)(plano.cpus);",
+      "teste": "check-agil",
+      "nome": "^RM081F4-capacidade:"
+    },
+    {
+      "id": "M3",
+      "descricao": "duas lanes com o mesmo recurso podem iniciar juntas",
+      "modulo": "check-paralelo",
+      "de": "if (pedido.nomes.some((nome) => ocupados.has(nome))) {",
+      "para": "if (false) {",
+      "teste": "check-agil",
+      "nome": "^RM081F4-recursos:"
+    },
+    {
+      "id": "M4",
+      "descricao": "o Classic deixa de exportar ORK_WORKERS",
+      "modulo": "verify",
+      "de": "return { [check_modo_1.ENV_MODO_DO_CHECK]: check.modo, [agendador_cpu_1.ENV_WORKERS]: String((0, agendador_cpu_1.workersDaReserva)(os.availableParallelism())) };",
+      "para": "return { [check_modo_1.ENV_MODO_DO_CHECK]: check.modo };",
+      "teste": "check-agil",
+      "nome": "^RM081F4-classic:"
+    }
+  ]
+}
