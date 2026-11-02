@@ -198,6 +198,8 @@ export interface Manifesto {
     typecheck?: string;
     /** Comando opcional do scan de seguranca; o 4o do verify, depois de typecheck, build e test. */
     security_scan?: string;
+    /** RM-081 F1: caminho JUnit declarado junto de cada comando, normalizado pelo leitor do manifesto. */
+    junit?: Partial<Record<'build' | 'test' | 'typecheck' | 'security_scan', string>>;
     /** I-37 (D2): prazo default de cada comando de verificacao, em ms. */
     timeout_ms?: number;
     /** I-37 (D2): prazo de um comando do manifesto, que vence o default. */
@@ -712,8 +714,10 @@ export interface ResultadoDeComando {
   /** Prazo aplicado a este comando, resolvido uma vez por rodada (D3). */
   prazoMs?: number;
   duracaoMs?: number;
-  /** Testes que o runner reportou como reprovados (ate 10). So em comando que falha. */
+  /** Testes reprovados: ate 10 da saida legada; todos os nomes persistiveis de JUnit. So em comando que falha. */
   testeQueCaiu?: string[];
+  /** RM-081 F1: evidencia estruturada do relatorio JUnit declarado para este comando. */
+  junit?: EvidenciaJUnit;
   /** Saida real ja redigida, ate 1024 caracteres. So em comando que falha. */
   trecho?: string;
   /**
@@ -748,7 +752,24 @@ export interface ResultadoDeComando {
   /** RM-072 (D4): as lanes que compuseram o `test` do Agile. */
   lanes?: Array<{ lane: string; comando: string; ok: boolean; code: number; causa?: CausaDoComando; duracaoMs: number;
     /** RM-037 (29/10/2026): nomes que esta lane extraiu do TAP; ausente em baselines antigas ou sem TAP. */
-    testeQueCaiu?: string[] }>;
+    testeQueCaiu?: string[];
+    /** RM-081 F1: evidencia JUnit da propria lane, quando declarada. */
+    junit?: EvidenciaJUnit }>;
+}
+
+/** O estado do relatorio nunca muda o codigo de saida do comando; ele qualifica somente a evidencia. */
+export type EstadoDoJUnit = 'lido' | 'ausente' | 'invalido' | 'inseguro' | 'outra-rodada' | 'erro';
+
+/** Evidencia compacta que cabe no ledger; os casos aprovados nao sao carregados para o evento. */
+export interface EvidenciaJUnit {
+  caminho: string;
+  estado: EstadoDoJUnit;
+  motivo?: string;
+  testes?: number;
+  falhas?: number;
+  erros?: number;
+  pulados?: number;
+  duracaoMs?: number;
 }
 
 /**
@@ -762,6 +783,8 @@ export interface ConfigDoAgile {
   preparo?: string;
   /** As lanes que substituem o `verify.test`, por nome, rodando juntas com a guarda valendo. */
   test?: Record<string, string>;
+  /** RM-081 F1: caminho JUnit normalizado por lane; ausente preserva o contrato textual anterior. */
+  junit?: Record<string, string>;
   /** As lanes de `test` que so comecam quando o `security_scan` do grupo termina (as que sobem containers). */
   apos_a_varredura?: string[];
   /** `osv-scanner` no lugar de `trivy-vuln` e `npm-audit` (D13); desligado por padrao. */
