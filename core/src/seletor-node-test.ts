@@ -61,9 +61,12 @@ function dependenciasDoArquivo(arquivo: string): Dependencias {
   return { locais, dinamico, pedidoDinamico };
 }
 
+/** Extensão do fonte TypeScript que corresponde ao teste compilado. */
+const EXTENSAO_DO_FONTE = '.ts';
+
 function caminhoDeFonte(distTest: string, arquivo: string): string {
   const relativo = barras(path.relative(distTest, arquivo));
-  return `core/${relativo.replace(/\.js$/, '.ts')}`;
+  return `core/${relativo.replace(/\.js$/, EXTENSAO_DO_FONTE)}`;
 }
 
 /** Processo filho e referências ao produto inteiro ficam sempre na seleção. */
