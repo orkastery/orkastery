@@ -260,6 +260,8 @@ interface OpcoesObservacao {
   threadId?: string;
   /** I-34: consulta nativa injetável em teste, como `rollout` no Codex. */
   consultaClaude?: () => ConsultaAgentesNativos;
+  /** RM-075: tela final injetável para a matriz claude-bg. */
+  telaClaude?: () => { ok: boolean; texto: string };
 }
 
 /** Diagnóstico fechado: mensagens de E/S e JSON podem conter caminhos e segredos. */
@@ -480,7 +482,8 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
     if (!threadPresente(dir)) return desfazer();
     if (sessao.runtime === 'claude-bg') {
       const r = comLockWatcher(pasta, () => observarClaudeSobLock({ raiz: carregado.raiz,
-        thread, sessao, dir, pasta, chave, agoraMs: now, limiteMs: LIMITE_MORTE_MS, consulta: opcoes.consultaClaude, carregado })) ?? { ...base, ocupado: true };
+        thread, sessao, dir, pasta, chave, agoraMs: now, limiteMs: LIMITE_MORTE_MS, consulta: opcoes.consultaClaude,
+        tela: opcoes.telaClaude, carregado })) ?? { ...base, ocupado: true };
       return threadPresente(dir) ? r : desfazer();
     }
     // RM-067 (F2): o grok tem observador próprio (stream, recibo do supervisor e pasta da sessão), no mesmo lock.

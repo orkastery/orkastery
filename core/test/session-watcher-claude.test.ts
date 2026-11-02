@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { test } from 'node:test';
+import { mock, test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -8,15 +8,15 @@ import { novaThread, gravarThread, dirThread } from '../src/thread';
 import { lerLedger, registrar } from '../src/ledger';
 import { ingerirEvento } from '../src/session-events';
 import { observarSessao, LIMITE_MORTE_MS } from '../src/session-watcher';
-import { fonteClaudeDoDespacho, INTERVALO_WATCH_CLAUDE_MS } from '../src/session-watcher-claude';
+import { classificarSessaoClaude, fonteClaudeDoDespacho, INTERVALO_WATCH_CLAUDE_MS, OCIOSA_DEPOIS_DO_STOP_MS } from '../src/session-watcher-claude';
 import { RegistroAgenteClaude, ConsultaAgentesNativos } from '../src/adapters/claude-bg';
 import { Fase, Modo } from '../src/types';
+import { main } from '../src/index';
 
 const sid = '11111111-2222-3333-4444-555555555555';
 const inicio = Date.parse('2026-09-01T00:00:00.000Z');
 const hora = (seg: number) => new Date(inicio + seg * 1000).toISOString();
 const depois = inicio + 24 * 3600000;
-const cli = path.resolve(__dirname, '../../dist/index.js');
 
 function fixture(opcoes: { modo?: Modo; fase?: Fase; registrar?: boolean; worktree?: boolean } = {}) {
   const p = projetoTemporario('watcher-claude');
@@ -34,8 +34,9 @@ function fixture(opcoes: { modo?: Modo; fase?: Fase; registrar?: boolean; worktr
   const nativa = (registros: Partial<RegistroAgenteClaude>[] | null) => (): ConsultaAgentesNativos => registros === null
     ? { ok: false, registros: [], detalhe: 'falha simulada', consultadoEm: hora(1) }
     : { ok: true, registros: registros.map(r => ({ sessionId: sid, cwd, ...r })), detalhe: '', consultadoEm: hora(1) };
-  const observar = (seg: number, registros: Partial<RegistroAgenteClaude>[] | null) =>
-    observarSessao(p.carregado, sid, { agoraMs: inicio + seg * 1000, consultaClaude: nativa(registros) });
+  const observar = (seg: number, registros: Partial<RegistroAgenteClaude>[] | null, tela = '') =>
+    observarSessao(p.carregado, sid, { agoraMs: inicio + seg * 1000, consultaClaude: nativa(registros),
+      telaClaude: () => ({ ok: true, texto: tela }) });
   const evento = (tipo: string, seg: number, extra: Record<string, string> = {}) =>
     ingerirEvento(p.dir, sid, tipo, JSON.stringify({ observedAt: hora(seg), eventId: `${tipo}-${seg}`, ...extra }), depois);
   const eventos = () => lerLedger(dir);
@@ -47,6 +48,30 @@ function fixture(opcoes: { modo?: Modo; fase?: Fase; registrar?: boolean; worktr
   return { ...p, t, cwd, estado: dir, observar, evento, eventos, resultados, gravarArtefato };
 }
 const pidMorto = () => spawnSync('true').pid!;
+
+test('RM-075: blocked, working e done só viram human.pending quando a mensagem final pergunta', () => {
+  for (const state of ['blocked', 'working', 'done'] as const) for (const pergunta of [false, true]) {
+    const despachoEm = hora(0);
+    const sessao = { sessionId: sid, fase: 'GOAL' as const, despachadaEm: despachoEm };
+    const eventos = [{ tipo: 'runtime_stop', ts: hora(20), thread: 'ork-fixture', fase: 'GOAL', runtime: 'claude-bg',
+      sessionId: sid, despachoEm, sensor: 'stop', fonte: 'ork sessions event', sensorEventId: 'a'.repeat(64),
+      backgroundTasks: 0, sessionCrons: 0 }] as any[];
+    const depoisDoStop = inicio + 30000;
+    const cursor = { schema: 'ork.session-cursor-claude/v1' as const, sessionId: sid, despachoEm,
+      ...(state === 'blocked' ? { bloqueadoDesde: depoisDoStop } : state === 'working' ? { ociosaDesde: depoisDoStop } : {}) };
+    const agoraMs = state === 'blocked' ? depoisDoStop + INTERVALO_WATCH_CLAUDE_MS
+      : state === 'working' ? depoisDoStop + OCIOSA_DEPOIS_DO_STOP_MS : inicio + 30000;
+    const c = classificarSessaoClaude({ sessao, eventos, consulta: { ok: true, registros: [], detalhe: '', consultadoEm: hora(30) },
+      registro: { sessionId: sid, cwd: '/tmp', state, status: 'idle', pid: process.pid },
+      cursor, agoraMs, limiteMs: LIMITE_MORTE_MS, pausaAoFim: false,
+      prova: () => ({ ok: true, fonte: 'prova simulada da fase' }), processo: () => 'vivo', perguntaReal: () => pergunta });
+    assert.equal(c.terminal, true, `${state} pergunta=${pergunta}`);
+    if (!c.terminal) continue;
+    assert.equal(c.classificacao, pergunta ? 'gate_blocked' : 'fase_concluida', `${state} pergunta=${pergunta}`);
+    assert.equal(c.motivo, pergunta ? 'human.pending' : null, `${state} pergunta=${pergunta}`);
+    assert.equal(c.perguntaReal, pergunta);
+  }
+});
 
 test('I-34: done com Stop correlacionado conclui uma vez, com evidência nativa e sem código de saída inventado', () => {
   const p = fixture();
@@ -262,32 +287,31 @@ test('I-34: sessão sem registro ganha fonte retroativa do despacho; runtime des
   } finally { q.limpar(); }
 });
 
-test('I-34: CLI real `sessions watch --once` aceita claude-bg com a consulta nativa do claude falso', () => {
+test('I-34: comando `sessions watch --once` aceita claude-bg com a consulta nativa do claude falso', () => {
   const p = fixture();
   const rt = runtimeFalso('watch-claude');
+  const cwd = process.cwd(), saidas: string[] = [];
+  const log = mock.method(console, 'log', (valor: unknown) => { saidas.push(String(valor)); });
   try {
     fs.writeFileSync(path.join(rt.dir, 'sessao'), sid); fs.writeFileSync(path.join(rt.dir, 'cwd'), p.dir);
-    rt.estadoDaSessao('working'); rt.pidDaSessao(process.pid); rt.statusDaSessao('busy'); p.gravarArtefato();
-    const run = () => spawnSync(process.execPath, [cli, 'sessions', 'watch', '--thread', p.t.id, '--once'],
-      { cwd: p.dir, encoding: 'utf8', env: process.env });
-    let r = run();
-    assert.equal(r.status, 0, r.stderr);
-    assert.equal(JSON.parse(r.stdout).concluido, false);
+    rt.estadoDaSessao('working'); rt.pidDaSessao(process.pid); rt.statusDaSessao('busy');
+    rt.telaDaSessao('Turno concluído sem pergunta.'); p.gravarArtefato();
+    const run = () => { saidas.length = 0; assert.equal(main(['sessions', 'watch', '--thread', p.t.id, '--once']), 0); return saidas.at(-1)!; };
+    process.chdir(p.dir);
+    assert.equal(JSON.parse(run()).concluido, false);
     ingerirEvento(p.dir, sid, 'stop', JSON.stringify({ observedAt: new Date().toISOString(), eventId: 'stop-cli' }));
     rt.estadoDaSessao('done'); rt.statusDaSessao('idle');
-    r = run();
-    assert.equal(r.status, 0, r.stderr);
-    assert.deepEqual([JSON.parse(r.stdout).concluido, JSON.parse(r.stdout).classificacao], [true, 'fase_concluida']);
+    const r = JSON.parse(run());
+    assert.deepEqual([r.concluido, r.classificacao], [true, 'fase_concluida']);
     const [pr] = p.resultados();
     assert.equal((pr.evidencia as { registro: { pid: number; status: string } }).registro.pid, process.pid);
     assert.equal(p.eventos().some(e => e.tipo === 'session_watcher_error'), false);
-  } finally { rt.restaurar(); p.limpar(); }
+  } finally { process.chdir(cwd); log.mock.restore(); rt.restaurar(); p.limpar(); }
 });
 
 // ---------------------------------------------------------------------------
 // GO-FIX 1 (achados da revisão independente do CHECK).
 // ---------------------------------------------------------------------------
-import { mock } from 'node:test';
 import * as util from '../src/util';
 import { consultarAgentesNativos } from '../src/adapters/claude-bg';
 
@@ -349,13 +373,13 @@ test('GO-FIX 1: registro de outro projeto fora do formato não invalida a consul
 import { eventosDoIntervalo, vereditoDoParecer } from '../src/session-watcher-claude';
 import { exec } from '../src/util';
 
-test('GO-FIX 2 (D12): done com Stop sem o artefato da fase vira human.pending com diagnóstico; com o artefato conclui', () => {
+test('GO-FIX 2 (D12): done com Stop sem o artefato da fase vira artifact.missing; com o artefato conclui', () => {
   const p = fixture();
   try {
     p.evento('stop', 20);
     assert.equal(p.observar(30, [{ state: 'done' }]).classificacao, 'gate_blocked');
     const [pr] = p.resultados();
-    assert.equal(pr.motivo, 'human.pending'); assert.equal(pr.conclusaoNativa, true); assert.equal(pr.ok, false);
+    assert.equal(pr.motivo, 'artifact.missing'); assert.equal(pr.conclusaoNativa, true); assert.equal(pr.ok, false);
     assert.match(String(pr.fonte), /sem prova do ork: docs\/goal\.md não foi gravado no intervalo do despacho/);
     assert.equal((pr.provaOrk as { ok: boolean }).ok, false);
     assert.equal(p.eventos().some(e => e.tipo === 'fase_concluida'), false);
@@ -368,7 +392,7 @@ test('GO-FIX 2 (D12): done com Stop sem o artefato da fase vira human.pending co
       ...fonteClaudeDoDespacho(antigo.dir, antigo.t.id, 'GOAL', antigo.cwd) });
     antigo.evento('stop', 20);
     assert.equal(antigo.observar(30, [{ state: 'done' }]).classificacao, 'gate_blocked');
-    assert.equal(antigo.resultados()[0].motivo, 'human.pending');
+    assert.equal(antigo.resultados()[0].motivo, 'artifact.missing');
   } finally { antigo.limpar(); }
   const feito = fixture();
   try {
@@ -390,7 +414,7 @@ test('GO-FIX 2 (D12): CHECK exige parecer com exatamente um veredito legível e 
       p.gravarArtefato('check.md', conteudo); p.evento('stop', 20);
       assert.equal(p.observar(30, [{ state: 'done' }]).classificacao, 'gate_blocked', conteudo);
       const [pr] = p.resultados();
-      assert.equal(pr.motivo, 'human.pending');
+      assert.equal(pr.motivo, 'artifact.missing');
       assert.match(String(pr.fonte), /sem exatamente um veredito legível/);
       assert.equal((pr.provaOrk as { veredito: string | null }).veredito, esperado);
     } finally { p.limpar(); }
@@ -407,14 +431,15 @@ test('GO-FIX 2 (D12): CHECK exige parecer com exatamente um veredito legível e 
   } finally { p.limpar(); }
 });
 
-test('GO-FIX 3 (D16): GO conclui só com commit conferido no git da worktree depois do despacho e worktree limpa', () => {
+test('GO-FIX 3 (D16): GO conclui com commit conferido ou com HEAD igual e worktree limpa', () => {
   const semCommit = fixture({ fase: 'GO', worktree: true });
   try {
     assert.equal(semCommit.eventos().find(e => e.tipo === 'session_sensor_registered')!.artefato, undefined);
     semCommit.evento('stop', 20);
-    assert.equal(semCommit.observar(30, [{ state: 'done' }]).classificacao, 'gate_blocked');
-    assert.match(String(semCommit.resultados()[0].fonte), /nenhum commit registrado pelo núcleo/);
-    assert.equal(semCommit.resultados()[0].motivo, 'human.pending');
+    assert.equal(semCommit.observar(30, [{ state: 'done' }]).classificacao, 'fase_concluida');
+    assert.match(String(semCommit.resultados()[0].fonte), /GO sem mudança: nenhum commit, HEAD igual ao despacho e worktree limpa/);
+    assert.equal(semCommit.resultados()[0].motivo, null);
+    assert.equal(semCommit.resultados()[0].resultado, 'go.sem-mudanca');
   } finally { semCommit.limpar(); }
   // Commit depois do próximo despacho da thread está fora do intervalo desta sessão.
   const fora = fixture({ fase: 'GO', worktree: true });
@@ -424,7 +449,7 @@ test('GO-FIX 3 (D16): GO conclui só com commit conferido no git da worktree dep
       paths: ['go.txt'], origem: 'mcp.git' });
     fora.evento('stop', 20);
     assert.equal(fora.observar(30, [{ state: 'done' }]).classificacao, 'gate_blocked');
-    assert.match(String(fora.resultados()[0].fonte), /nenhum commit registrado/);
+    assert.match(String(fora.resultados()[0].fonte), /HEAD da worktree mudou sem commit registrado pelo núcleo/);
   } finally { fora.limpar(); }
   // Negativos do CHECK dd50cc0c: o HEAD anterior ao despacho e um SHA inexistente, declarados pelo
   // mesmo sensor que o hook usa, não concluem; nem um commit real que não está no HEAD atual.
@@ -442,7 +467,7 @@ test('GO-FIX 3 (D16): GO conclui só com commit conferido no git da worktree dep
       f.evento('commit', 15, { commit: sha }); f.evento('stop', 20);
       assert.equal(f.observar(30, [{ state: 'done' }]).classificacao, 'gate_blocked', caso);
       const [pr] = f.resultados();
-      assert.equal(pr.motivo, 'human.pending', caso);
+      assert.equal(pr.motivo, 'artifact.missing', caso);
       assert.match(String(pr.fonte), /nenhum commit conferido no git da worktree/, caso);
       assert.deepEqual((pr.provaOrk as { recusados: string[] }).recusados, [sha], caso);
       assert.equal(f.eventos().some(e => e.tipo === 'fase_concluida'), false, caso);
@@ -455,7 +480,7 @@ test('GO-FIX 3 (D16): GO conclui só com commit conferido no git da worktree dep
     registrar(outra.estado, outra.t.id, 'commit', { ts: hora(15), fase: 'GO', sessionId: 'outra-sessao', commit: sha });
     outra.evento('stop', 20);
     assert.equal(outra.observar(30, [{ state: 'done' }]).classificacao, 'gate_blocked');
-    assert.match(String(outra.resultados()[0].fonte), /nenhum commit registrado pelo núcleo/);
+    assert.match(String(outra.resultados()[0].fonte), /HEAD da worktree mudou sem commit registrado pelo núcleo/);
   } finally { outra.limpar(); }
   // Fonte retroativa, sem HEAD de despacho conhecido: não há prova.
   const retro = fixture({ fase: 'GO', worktree: true, registrar: false });
@@ -499,7 +524,7 @@ test('GO-FIX 3 (D16, nota P3): artefato gravado depois do próximo despacho da t
     depois.evento('stop', 20); seguinte(depois); pausa(20); depois.gravarArtefato();
     assert.equal(depois.observar(30, [{ state: 'done' }]).classificacao, 'gate_blocked');
     assert.match(String(depois.resultados()[0].fonte), /docs\/goal.md não foi gravado no intervalo do despacho/);
-    assert.equal(depois.resultados()[0].motivo, 'human.pending');
+    assert.equal(depois.resultados()[0].motivo, 'artifact.missing');
   } finally { depois.limpar(); }
   // Positivo: gravado antes do próximo despacho, continua sendo saída desta sessão.
   const antes = fixture();
@@ -545,7 +570,7 @@ test('GO-FIX 2 (D12): veredito legível e intervalo do despacho', () => {
 // vira runtime.unavailable (retry automático `reexecutar`); vale a prova do lado do `ork`.
 // ---------------------------------------------------------------------------
 
-test('GO-FIX 2 (D13): Stop correlacionado com working ou blocked sem processo escala ao humano sem prova e conclui com prova', () => {
+test('GO-FIX 2 (D13): Stop correlacionado com working ou blocked sem processo acusa artifact.missing sem prova e conclui com prova', () => {
   for (const state of ['working', 'blocked']) {
     // Reprodução do achado: Stop em 20 s, processo vivo em 30 s, sem pid em 3600 s e 3606 s.
     const sem = fixture();
@@ -555,7 +580,7 @@ test('GO-FIX 2 (D13): Stop correlacionado com working ou blocked sem processo es
       assert.equal(sem.observar(3600, [{ state }]).concluido, false, 'a primeira leitura sem processo só espera');
       assert.equal(sem.observar(3606, [{ state }]).classificacao, 'gate_blocked', state);
       const [pr] = sem.resultados();
-      assert.equal(pr.motivo, 'human.pending', state); assert.notEqual(pr.motivo, 'runtime.unavailable');
+      assert.equal(pr.motivo, 'artifact.missing', state); assert.notEqual(pr.motivo, 'runtime.unavailable');
       assert.match(String(pr.fonte), /Stop correlacionado e processo encerrado sem done .*sem prova do ork/);
       assert.equal(pr.conclusaoNativa, false);
       assert.equal(sem.eventos().some(e => e.motivo === 'runtime.unavailable'), false);
@@ -615,7 +640,7 @@ test('GO-FIX 3 (D17): stopped depois de Stop correlacionado segue a prova; faile
     assert.equal(sem.observar(30, [{ state: 'blocked', pid: process.pid }]).concluido, false);
     assert.equal(sem.observar(40, [{ state: 'stopped' }]).classificacao, 'gate_blocked');
     const [pr] = sem.resultados();
-    assert.equal(pr.motivo, 'human.pending');
+    assert.equal(pr.motivo, 'artifact.missing');
     assert.match(String(pr.fonte), /Stop correlacionado e sessão encerrada externamente \(stopped\) sem done; sem prova do ork/);
     assert.equal(pr.conclusaoNativa, false);
     assert.deepEqual([politicaDoMotivo('human.pending')?.acao, politicaDoMotivo('human.pending')?.automatica], ['escalar-humano', false]);
@@ -704,7 +729,7 @@ test('GO-FIX 2 (D15, achado 5): estado, status e erro nativos entram normalizado
 // morto. Com Stop correlacionado, a segunda leitura abre a pausa humana pelo motivo da prova.
 // ---------------------------------------------------------------------------
 
-test('defeitosdeco D-1: blocked vivo depois do Stop, com a prova do ork, abre human.pending na segunda leitura', () => {
+test('RM-075: blocked vivo depois do Stop, com prova e sem pergunta, conclui na segunda leitura', () => {
   const p = fixture();
   try {
     // A sequência medida na f15c7158: Stop, SubagentStop e a notificação de ociosidade, nada depois.
@@ -715,41 +740,40 @@ test('defeitosdeco D-1: blocked vivo depois do Stop, com a prova do ork, abre hu
     assert.equal(primeira.concluido, false, 'a primeira leitura só marca o instante');
     assert.match(String(primeira.espera), /aguardando a segunda observação/);
     const r = p.observar(90 + INTERVALO_WATCH_CLAUDE_MS / 1000, registro);
-    assert.deepEqual([r.concluido, r.classificacao], [true, 'gate_blocked']);
+    assert.deepEqual([r.concluido, r.classificacao], [true, 'fase_concluida']);
     const [pr] = p.resultados();
-    assert.equal(pr.motivo, 'human.pending');
+    assert.equal(pr.motivo, null);
     assert.equal(pr.estadoNativo, 'blocked'); assert.equal(pr.pidNativo, process.pid);
-    assert.match(String(pr.fonte), /Stop correlacionado e sessão viva à espera humana \(blocked\); docs\/goal\.md gravado/);
-    assert.match(String(pr.diagnostico), /o humano decide/);
+    assert.match(String(pr.fonte), /Stop correlacionado e sessão blocked sem pergunta de permissão pendente; docs\/goal\.md gravado/);
+    assert.equal(pr.diagnostico, null); assert.equal(pr.perguntaReal, false);
     assert.equal((pr.provaOrk as { ok: boolean }).ok, true);
     assert.equal(pr.conclusaoNativa, false, 'blocked não é conclusão nativa');
-    // A pausa humana abre: o gate tipado que o `ork gate request` exige está no ledger.
-    const gates = p.eventos().filter(e => e.tipo === 'gate_blocked');
-    assert.deepEqual(gates.map(e => e.motivo), ['human.pending']);
-    assert.equal(p.eventos().some(e => e.tipo === 'fase_concluida'), false, 'blocked nunca conclui direto');
+    assert.equal(p.eventos().some(e => e.tipo === 'gate_blocked'), false);
+    assert.equal(p.eventos().filter(e => e.tipo === 'fase_concluida').length, 1);
     assert.equal(p.observar(3600, registro).concluido, true, 'idempotente');
     assert.equal(p.resultados().length, 1);
   } finally { p.limpar(); }
 });
 
-test('defeitosdeco D-1 (R6): sem a prova, blocked depois do Stop tambem abre human.pending, nunca artifact.missing automatico', () => {
+test('RM-075: blocked depois do Stop sem prova acusa artifact.missing, nunca inventa pergunta humana', () => {
   const plano = fixture({ fase: 'PLAN' });
   try {
     plano.evento('stop', 20);
     plano.observar(30, [{ state: 'blocked', status: 'idle', pid: process.pid }]);
     assert.equal(plano.observar(36, [{ state: 'blocked', status: 'idle', pid: process.pid }]).classificacao, 'gate_blocked');
     const [pr] = plano.resultados();
-    assert.equal(pr.motivo, 'human.pending', 'a sessao espera resposta: quem responde e o humano');
-    assert.match(String(pr.fonte), /à espera humana \(blocked\); sem prova do ork: docs\/plan\.md não foi gravado/);
-    assert.match(String(pr.diagnostico), /a sessão espera resposta humana \(blocked\) e a fase ainda não tem a prova do ork/);
-    assert.equal(plano.eventos().some(e => e.motivo === 'artifact.missing'), false);
+    assert.equal(pr.motivo, 'artifact.missing');
+    assert.match(String(pr.fonte), /sessão blocked sem pergunta de permissão pendente; sem prova do ork: docs\/plan\.md não foi gravado/);
+    assert.match(String(pr.diagnostico), /sem prova do ork/);
+    assert.equal(pr.perguntaReal, false);
+    assert.equal(plano.eventos().some(e => e.motivo === 'artifact.missing'), true);
   } finally { plano.limpar(); }
   const goal = fixture();
   try {
     goal.evento('stop', 20);
     goal.observar(30, [{ state: 'blocked', pid: process.pid }]);
     assert.equal(goal.observar(36, [{ state: 'blocked', pid: process.pid }]).classificacao, 'gate_blocked');
-    assert.equal(goal.resultados()[0].motivo, 'human.pending');
+    assert.equal(goal.resultados()[0].motivo, 'artifact.missing');
     assert.equal(goal.eventos().some(e => e.motivo === 'runtime.unavailable'), false, 'nunca reexecuta a fase');
   } finally { goal.limpar(); }
 });
@@ -779,6 +803,21 @@ test('defeitosdeco D-1: blocked continua esperando sem Stop, com bloqueio penden
     // Outro estado no meio zera a contagem: working depois do blocked não herda o instante.
     cedo.observar(40, [{ state: 'working', pid: process.pid }]);
     assert.equal(cedo.observar(41, [{ state: 'blocked', pid: process.pid }]).concluido, false);
-    assert.equal(cedo.observar(41 + INTERVALO_WATCH_CLAUDE_MS / 1000, [{ state: 'blocked', pid: process.pid }]).classificacao, 'gate_blocked');
+    assert.equal(cedo.observar(41 + INTERVALO_WATCH_CLAUDE_MS / 1000, [{ state: 'blocked', pid: process.pid }]).classificacao, 'fase_concluida');
   } finally { cedo.limpar(); }
+});
+
+test('RM-075: blocked depois do Stop abre human.pending quando a tela final contém pergunta real', () => {
+  const p = fixture();
+  try {
+    p.gravarArtefato(); p.evento('stop', 20);
+    const registro = [{ state: 'blocked', status: 'idle', pid: process.pid }];
+    assert.equal(p.observar(30, registro).concluido, false);
+    const r = p.observar(30 + INTERVALO_WATCH_CLAUDE_MS / 1000, registro, 'Você confirma a publicação?');
+    assert.equal(r.classificacao, 'gate_blocked');
+    const [pr] = p.resultados();
+    assert.equal(pr.motivo, 'human.pending'); assert.equal(pr.perguntaReal, true);
+    assert.match(String(pr.diagnostico), /mensagem final pede uma resposta humana/);
+    assert.equal(p.eventos().some(e => e.tipo === 'fase_concluida'), false);
+  } finally { p.limpar(); }
 });
