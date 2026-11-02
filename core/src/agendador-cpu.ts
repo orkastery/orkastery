@@ -5,13 +5,16 @@
  * em vez de enxergar a maquina inteira. Antes de lancar os comandos, o auxiliar do verify mede `/proc/loadavg` e uma
  * janela de `/proc/stat`; sob carga ou steal, as pecas voltam a ordem do Classic e usam uma CPU a menos que a maquina.
  */
-import { readFileSync } from 'node:fs';
+import { appendFileSync, readFileSync } from 'node:fs';
 import { amostraDoProcStat, stealDaJanela } from './steal';
 
 export const ENV_CPUS_DA_LANE = 'ORK_CHECK_CPUS_DA_LANE';
+export const ENV_CPUS_DA_LANE_APOS_VARREDURA = 'ORK_CHECK_CPUS_DA_LANE_APOS_VARREDURA';
 export const ENV_CPUS_DA_LANE_APOS_RESERVA = 'ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA';
 export const ENV_SINAL_DA_RESERVA = 'ORK_CHECK_RESERVA_DEVOLVIDA';
 export const ENV_CPUS_DOCKER = 'ORK_CHECK_CPUS_DOCKER';
+/** Registro privado da rodada: quem sobe um container na lane anota o nome para a sonda de CPU. */
+export const ENV_CONTAINERS_DA_LANE = 'ORK_CHECK_CONTAINERS_DA_LANE';
 export const RESERVA_DO_GRUPO = 2;
 export const LIMIAR_STEAL_DO_AGENDADOR_PCT = 10;
 export const JANELA_DA_SONDA_MS = 250;
@@ -19,6 +22,20 @@ export const JANELA_DA_SONDA_MS = 250;
 export interface MedicaoCpuDoGrupo {
   carga1: number | null;
   stealPct: number | null;
+  /** Reserva conservadora aprendida de uma medicao completa e compativel da integracao. */
+  cpusIntegracao?: number | null;
+  fonteCpusIntegracao?: 'medida' | 'conservadora';
+}
+
+export interface MedicaoCpuDaIntegracao {
+  arvoreMs: number;
+  containersMs: number;
+  totalMs: number;
+  paredeMs: number;
+  picoCpus: number | null;
+  completa: boolean;
+  containers: string[];
+  ausentes: string[];
 }
 
 export interface PlanoCpuDoGrupo {
@@ -27,13 +44,28 @@ export interface PlanoCpuDoGrupo {
   saturado: boolean;
   motivo: string;
   cpusHermetica: number;
+  /** Vagas depois que a varredura termina e resta somente a reserva medida da integracao. */
+  cpusHermeticaAposVarredura: number;
   /** Vagas da hermetica depois que varredura e integracao devolvem a reserva. */
   cpusHermeticaAposReserva: number;
   cpusIntegracao: number;
+  fonteCpusIntegracao: 'medida' | 'conservadora' | 'classic';
+  /** Só vale com perfil completo e compatível; a primeira rodada preserva a cadeia. */
+  integracaoEmParalelo: boolean;
   cpusDaFatia: number;
   ferramentasDaVarredura: number;
   cpusPorContainer: number;
   medicao: MedicaoCpuDoGrupo;
+  /** Preenchida pelo auxiliar depois que a lane termina; nao participa do plano da propria rodada. */
+  medicaoCpuIntegracao?: MedicaoCpuDaIntegracao;
+}
+
+/** Registra o container antes do `docker run`; falha de evidencia nunca impede a ferramenta de rodar. */
+export function registrarContainerDaLane(nome: string, ambiente: NodeJS.ProcessEnv = process.env): void {
+  const arquivo = ambiente[ENV_CONTAINERS_DA_LANE];
+  if (!arquivo || !nome) return;
+  try { appendFileSync(arquivo, JSON.stringify({ nome, em: new Date().toISOString() }) + '\n', { mode: 0o600 }); }
+  catch { /* a medicao fica incompleta e o agendador conserva a reserva */ }
 }
 
 const cpusValidas = (cpus: number): number => Math.max(1, Math.floor(Number.isFinite(cpus) ? cpus : 1));
@@ -78,14 +110,24 @@ export function planejarCpuDoGrupo(cpusInformadas: number, medicao: MedicaoCpuDo
   const saturado = motivos.length > 0;
   const fatia = saturado ? classic : Math.min(RESERVA_DO_GRUPO, cpus - 1);
   const ferramentas = Math.max(1, Math.floor(fatia));
+  const medida = medicao.cpusIntegracao;
+  const cpusIntegracao = saturado ? ferramentas : Math.max(1, Math.min(ferramentas,
+    Number.isFinite(medida) && (medida as number) > 0 ? Math.ceil(medida as number) : ferramentas));
+  const medidaCompativel = medicao.fonteCpusIntegracao === 'medida' && medida !== null && medida !== undefined;
+  const integracaoEmParalelo = !saturado && medidaCompativel && cpus - fatia - cpusIntegracao >= 1;
   return {
     cpus,
     ordem: saturado ? 'classic' : 'paralela',
     saturado,
-    motivo: motivos.join('; ') || `carga e steal abaixo dos limiares; ${fatia} CPU(s) reservadas ao grupo`,
-    cpusHermetica: saturado ? classic : Math.max(1, cpus - fatia),
+    motivo: motivos.join('; ') || `carga e steal abaixo dos limiares; ${fatia} CPU(s) reservadas a varredura; ` +
+      (integracaoEmParalelo ? `integracao medida cabe em paralelo com ${cpusIntegracao} CPU(s)` : 'integracao permanece encadeada'),
+    cpusHermetica: saturado ? classic : Math.max(1, cpus - fatia - (integracaoEmParalelo ? cpusIntegracao : 0)),
+    cpusHermeticaAposVarredura: saturado ? classic : Math.max(1, cpus - cpusIntegracao),
     cpusHermeticaAposReserva: saturado ? classic : cpus,
-    cpusIntegracao: ferramentas,
+    cpusIntegracao,
+    fonteCpusIntegracao: saturado ? 'classic' : medidaCompativel
+      ? 'medida' : 'conservadora',
+    integracaoEmParalelo,
     cpusDaFatia: fatia,
     ferramentasDaVarredura: ferramentas,
     cpusPorContainer: Math.max(0.01, Math.floor((fatia / ferramentas) * 100) / 100),
@@ -106,10 +148,23 @@ export function paredeAgileSimulada(plano: PlanoCpuDoGrupo, trabalho: TrabalhoCp
     return trabalho.hermetica / plano.cpusHermetica + trabalho.varredura / plano.cpusDaFatia
       + trabalho.integracao / plano.cpusIntegracao;
   }
-  const paredeDaReserva = trabalho.varredura / plano.cpusDaFatia + trabalho.integracao / plano.cpusIntegracao;
-  const feitoAntesDaDevolucao = Math.min(trabalho.hermetica, paredeDaReserva * plano.cpusHermetica);
-  const paredeDaHermetica = feitoAntesDaDevolucao === trabalho.hermetica
-    ? trabalho.hermetica / plano.cpusHermetica
-    : paredeDaReserva + (trabalho.hermetica - feitoAntesDaDevolucao) / plano.cpusHermeticaAposReserva;
-  return Math.max(paredeDaHermetica, paredeDaReserva);
+  const paredeVarredura = trabalho.varredura / plano.cpusDaFatia;
+  const paredeIntegracao = trabalho.integracao / plano.cpusIntegracao;
+  if (plano.integracaoEmParalelo) {
+    let instante = 0, restante = trabalho.hermetica, capacidade = plano.cpusHermetica;
+    for (const evento of [{ em: paredeVarredura, libera: plano.cpusDaFatia },
+      { em: paredeIntegracao, libera: plano.cpusIntegracao }].sort((a, b) => a.em - b.em)) {
+      restante = Math.max(0, restante - (evento.em - instante) * capacidade);
+      instante = evento.em;
+      capacidade += evento.libera;
+    }
+    return Math.max(paredeVarredura, paredeIntegracao, instante + restante / capacidade);
+  }
+  const feitoNaVarredura = Math.min(trabalho.hermetica, paredeVarredura * plano.cpusHermetica);
+  const restanteAposVarredura = trabalho.hermetica - feitoNaVarredura;
+  const feitoNaIntegracao = Math.min(restanteAposVarredura, paredeIntegracao * plano.cpusHermeticaAposVarredura);
+  const restanteFinal = restanteAposVarredura - feitoNaIntegracao;
+  const paredeDaHermetica = (feitoNaVarredura ? paredeVarredura : 0)
+    + (feitoNaIntegracao ? paredeIntegracao : 0) + restanteFinal / plano.cpusHermeticaAposReserva;
+  return Math.max(paredeDaHermetica, paredeVarredura + paredeIntegracao);
 }

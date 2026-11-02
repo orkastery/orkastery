@@ -41,8 +41,12 @@ interface ComparacaoDoEmit {
  * Uma arvore pequena com as tsconfig de verdade do core, um src com `index.ts`, um test e os scripts de build do core. O
  * `node_modules` e o do core por link; `semTsgo` liga cada pacote menos o `@typescript` (o `tsgo`).
  */
-function arvore(nome: string, opcoes: { semTsgo?: boolean } = {}): string {
-  const dir = dirTemporario(nome);
+const modelosDeArvore = new Map<boolean, string>();
+
+function modeloDeArvore(semTsgo: boolean): string {
+  const existente = modelosDeArvore.get(semTsgo);
+  if (existente) return existente;
+  const dir = dirTemporario(`tg-modelo-${semTsgo ? 'sem' : 'com'}-tsgo`);
   for (const f of TSCONFIGS) fs.copyFileSync(path.join(CORE, f), path.join(dir, f));
   fs.mkdirSync(path.join(dir, 'src'));
   fs.mkdirSync(path.join(dir, 'test'));
@@ -53,7 +57,7 @@ function arvore(nome: string, opcoes: { semTsgo?: boolean } = {}): string {
   fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'arvore', private: true,
     scripts: { build: scripts.build, 'build:test': scripts['build:test'] } }));
   const nm = path.join(CORE, 'node_modules');
-  if (opcoes.semTsgo) {
+  if (semTsgo) {
     fs.mkdirSync(path.join(dir, 'node_modules', '.bin'), { recursive: true });
     for (const e of fs.readdirSync(nm).filter((n) => !n.startsWith('.') && n !== '@typescript')) {
       fs.symlinkSync(path.join(nm, e), path.join(dir, 'node_modules', e));
@@ -62,6 +66,15 @@ function arvore(nome: string, opcoes: { semTsgo?: boolean } = {}): string {
   } else {
     fs.symlinkSync(nm, path.join(dir, 'node_modules'));
   }
+  modelosDeArvore.set(semTsgo, dir);
+  process.once('exit', () => fs.rmSync(dir, { recursive: true, force: true }));
+  return dir;
+}
+
+function arvore(nome: string, opcoes: { semTsgo?: boolean } = {}): string {
+  const dir = dirTemporario(nome);
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.cpSync(modeloDeArvore(opcoes.semTsgo === true), dir, { recursive: true });
   return dir;
 }
 

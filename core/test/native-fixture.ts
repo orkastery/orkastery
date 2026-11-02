@@ -4,10 +4,11 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { ENV_CPUS_DOCKER } from '../src/agendador-cpu';
+import { ENV_CONTAINERS_DA_LANE, ENV_CPUS_DOCKER, registrarContainerDaLane } from '../src/agendador-cpu';
 
 export const fixtureEnv = () => ({ PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: os.tmpdir(), PYTHONDONTWRITEBYTECODE: '1',
-  ...(process.env[ENV_CPUS_DOCKER] ? { [ENV_CPUS_DOCKER]: process.env[ENV_CPUS_DOCKER] } : {}) });
+  ...(process.env[ENV_CPUS_DOCKER] ? { [ENV_CPUS_DOCKER]: process.env[ENV_CPUS_DOCKER] } : {}),
+  ...(process.env[ENV_CONTAINERS_DA_LANE] ? { [ENV_CONTAINERS_DA_LANE]: process.env[ENV_CONTAINERS_DA_LANE] } : {}) });
 export const assets = path.resolve(__dirname, '../../assets');
 const fixtureTempRoot = () => fs.realpathSync(os.tmpdir());
 export function pythonFixture(): string {
@@ -141,6 +142,7 @@ export function prepareFixture(preparedBy: string, opcoes: { ttlMs?: number } = 
     image: image.stdout.trim(), container: '', name, expiresAt: (Date.now() + ttlMs) / 1000 };
   fs.writeFileSync(filename, JSON.stringify(receipt), { mode: 0o600, flag: 'wx' });
   try {
+    registrarContainerDaLane(name);
     const start = docker(['run', '-d', '--pull=never', '--name', name, '--label', 'ork.fixture.identity='+receipt.identity,
       '--network', 'none', '--user', `${process.getuid!()}:${process.getgid!()}`,
       '--tmpfs', `/var/lib/postgresql/data:rw,uid=${process.getuid!()},gid=${process.getgid!()},mode=0700`,

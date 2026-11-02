@@ -37,10 +37,12 @@ const medir = require(path.join(RAIZ, 'core', 'scripts', 'medir-check.cjs')) as 
   CLAIMS_REPRESENTATIVAS: Array<{ arquivo: string; alegacao: string; verificar: string }>;
   MIN_PARES_CONFIAVEIS: number;
   TOLERANCIA_STEAL_PP: number;
+  CARGA_FORA_MAX_PCT: number;
   ordemDosPares: (total: number) => string[][];
   paredeSemPreparo: (rodada: unknown) => number | null;
-  validarPar: (agile: unknown, classic: unknown, ordem: string[], esperada: string[], tolerancia?: number) => Record<string, any>;
-  validarOpcoesDaBancada: (opcoes: { pares: number }) => void;
+  validarPar: (agile: unknown, classic: unknown, ordem: string[], esperada: string[], tolerancia?: number,
+    cargaForaMaxPct?: number) => Record<string, any>;
+  validarOpcoesDaBancada: (opcoes: { pares: number; cargaForaMaxPct?: number }) => void;
   razao: (classicMs: unknown, agileMs: unknown) => number | null;
   eficiencia: (cpuMs: unknown, nucleos: number, paredeMs: unknown) => number | null;
   corte: (cpuMs: unknown, baseMs: unknown) => number | null;
@@ -64,6 +66,8 @@ const medir = require(path.join(RAIZ, 'core', 'scripts', 'medir-check.cjs')) as 
   fechosDeRequire: (distTest: string) => { fechos: Record<string, Set<string>>; sobeProcesso: string[] };
   analisarBancada: (dados: Record<string, unknown>) => Record<string, any>;
   jsonRaso: (valor: unknown, nivel?: number) => string;
+  resumirCargaExterna: (amostras: Array<Array<{ chave: string; nome: string; cpuMs: number }>>, paredeMs: number, cpus: number) =>
+    { cpuMs: number; pct: number | null; processos: Array<{ nome: string; cpuMs: number }>; amostras: number };
 };
 
 const perto = (atual: number | null | undefined, esperado: number, msg?: string): void => {
@@ -364,6 +368,7 @@ test('MC21: a bancada inteira com tres pares ABBA validos: razao sem preparo, CP
   const lanes = { hermetica: ['a.test.js', 'b.test.js'], integracao: ['c.test.js'] };
   const verifyRun = (modo: string, duracaoMs: number, lanesMs: Record<string, number> | null, steal: number) => ({
     pedido: modo, ok: true, duracaoMs, stealPct: steal, cpuDaArvoreMs: duracaoMs * 2, picoBytes: modo === 'agile' ? 1200 : 1000, preparoMs: 10,
+    cargaExterna: { pct: 1, cpuMs: 20, processos: [{ nome: 'antivirus', cpuMs: 20 }] },
     claims: [{ id: 'C1', duracaoMs: 100 }], pecas: modo === 'agile' ? [{ peca: 'tsgo', estado: 'fallback' }] : [],
     comandos: [{ nome: 'test', ok: true, duracaoMs: lanesMs ? Math.max(...Object.values(lanesMs)) : duracaoMs / 2,
       ...(lanesMs ? { lanes: Object.entries(lanesMs).map(([lane, ms]) => ({ lane, duracaoMs: ms })) } : {}) }],
@@ -379,7 +384,8 @@ test('MC21: a bancada inteira com tres pares ABBA validos: razao sem preparo, CP
   const passes = [{ passe: 1, stealPct: 11, medidas: medidas(1) }, { passe: 2, stealPct: 9, medidas: medidas(1.2) },
     { passe: 3, stealPct: 5.5, medidas: medidas(0.8) }];
   const b = medir.analisarBancada({ rodadas, passes, lanes, nucleos: 2 });
-  assert.deepEqual(b.confianca, { estado: 'com-confianca', motivos: [], pares: 3, paresValidos: 3, minimo: 3, toleranciaStealPp: 2 });
+  assert.deepEqual(b.confianca, { estado: 'com-confianca', motivos: [], pares: 3, paresValidos: 3, minimo: 3,
+    toleranciaStealPp: 2, cargaForaMaxPct: 10 });
   perto(b.pares[0].razao, 3);
   perto(b.pares[1].razao, 2);
   perto(b.pares[2].razao, 2);
@@ -425,6 +431,7 @@ test('MC23: menos de tres pares, ordem errada, preparo ausente e steal divergent
   assert.equal(medir.paredeSemPreparo({ duracaoMs: 110, preparoMs: null }), null);
   const rodada = (pedido: string, stealPct: number | null, preparoMs: number | null = 10) => ({
     par: 1, pedido, ok: true, duracaoMs: 110, preparoMs, stealPct, cpuDaArvoreMs: 200, comandos: [], claims: [], pecas: [],
+    cargaExterna: { pct: 1, cpuMs: 2, processos: [] },
   });
   const rodadas = [rodada('agile', 2), rodada('classic', 5)];
   const b = medir.analisarBancada({ rodadas, passes: [], lanes: {}, nucleos: 2 });
@@ -437,6 +444,24 @@ test('MC23: menos de tres pares, ordem errada, preparo ausente e steal divergent
     ['preparo-ou-parede-ausente', 'ordem-nao-ABBA', 'steal-ausente']);
   assert.throws(() => medir.validarOpcoesDaBancada({ pares: 2 }), /exige pelo menos 3 pares/);
   assert.doesNotThrow(() => medir.validarOpcoesDaBancada({ pares: 3 }));
+});
+
+test('MC24: carga externa durante a rodada traz nome e CPU e descarta o par acima do limiar configurado', () => {
+  assert.equal(medir.CARGA_FORA_MAX_PCT, 10);
+  const carga = medir.resumirCargaExterna([
+    [{ chave: '1:a', nome: 'antivirus', cpuMs: 100 }, { chave: '2:b', nome: 'indexador', cpuMs: 20 }],
+    [{ chave: '1:a', nome: 'antivirus', cpuMs: 260 }, { chave: '3:c', nome: 'curto', cpuMs: 40 }],
+  ], 1000, 2);
+  assert.deepEqual(carga.processos, [{ nome: 'antivirus', cpuMs: 160 }, { nome: 'curto', cpuMs: 40 }]);
+  assert.equal(carga.cpuMs, 200);
+  perto(carga.pct, 10);
+  const rodada = (pct: number) => ({ ok: true, duracaoMs: 110, preparoMs: 10, stealPct: 1,
+    cargaExterna: { pct, cpuMs: pct, processos: [{ nome: 'antivirus', cpuMs: pct }] } });
+  const par = medir.validarPar(rodada(11), rodada(2), ['agile', 'classic'], ['agile', 'classic'], 2, 10);
+  assert.equal(par.valido, false);
+  assert.deepEqual(par.motivos, ['carga-de-fora-acima-do-limiar']);
+  assert.deepEqual(par.cargaDeFora, { agilePct: 11, classicPct: 2, limiarPct: 10 });
+  assert.throws(() => medir.validarOpcoesDaBancada({ pares: 3, cargaForaMaxPct: -1 }), /maior ou igual a zero/);
 });
 
 test('MC22: o JSON da bancada e indentado ate o nivel pedido e compacto abaixo dele, e volta ao mesmo valor', () => {

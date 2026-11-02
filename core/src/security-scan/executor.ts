@@ -9,7 +9,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { launcherArgs, LAUNCH_TIMEOUT_SUFFIX, type RoundGuard } from './guard';
 import type { Executor, ToolSpec } from './types';
-import { ENV_CPUS_DOCKER } from '../agendador-cpu';
+import { ENV_CPUS_DOCKER, registrarContainerDaLane } from '../agendador-cpu';
 
 export type UnavailableReason = 'docker-missing' | 'docker-daemon-down' | 'image-pull-failed' | 'binary-missing'
   | 'binary-version-mismatch' | 'disabled' | 'unsupported-ci' | 'no-requirements-file';
@@ -142,6 +142,7 @@ export function runDocker(inv: Invocation): InvocationResult {
     ...Object.entries(tool.env ?? {}).flatMap(([k, v]) => ['-e', `${k}=${v}`]),
     '--entrypoint', tool.containerBin ?? inv.argv[0], tool.image,
     ...inv.argv.slice(1).map(a => expand(a, values))];
+  registrarContainerDaLane(name);
   inv.guard?.add('containers', name);
   const r = spawnSync('docker', args, { encoding: 'utf8', timeout: inv.timeoutMs, killSignal: 'SIGKILL', maxBuffer: MAX_BUFFER, env: process.env });
   const timedOut = (r.error as NodeJS.ErrnoException | undefined)?.code === 'ETIMEDOUT';

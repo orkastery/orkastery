@@ -152,6 +152,10 @@ const EXCECOES: { arquivo: string; trecho: string; razao: string }[] = [
   // O catalogo nao importa o nucleo: o motivo do forja.limite leva o tentarEm em ISO e quem imprime localiza (localizarTexto).
   { arquivo: 'locale-forja.ts', trecho: 'tente depois de ${e.tentarEm}', razao: 'motivo do forja.limite no catalogo sem import do nucleo; quem imprime localiza' },
   { arquivo: 'locale-forja.ts', trecho: 'try again after ${e.tentarEm}', razao: 'motivo do forja.limite no catalogo sem import do nucleo; quem imprime localiza' },
+  { arquivo: 'agendador-cpu.ts', trecho: 'JSON.stringify({ nome, em: new Date().toISOString() })',
+    razao: 'registro de container da lane em JSONL de máquina, lido só pela medição de CPU; nunca é texto para pessoa' },
+  { arquivo: 'check-paralelo.ts', trecho: 'em: new Date().toISOString(), vagasGanhas: vagas - antes, vagas })',
+    razao: 'degrau da reserva no sinal JSONL que a lane hermética lê; a evidência da lane mostra o tempo desde a largada, não o carimbo' },
 ];
 
 test('lint: nenhum UTC truncado por replace de T em core/src, scripts/ e monitor/', () => {

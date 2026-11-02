@@ -567,8 +567,8 @@ export function resultadosDasLanes(linhas: Array<Record<string, unknown>>): Resu
 /** Hash do ambiente funcional; transporte do CHECK, npm e bookkeeping do shell nao mudam o teste. */
 export function assinaturaDoAmbiente(env: NodeJS.ProcessEnv): string {
   const ignorada = (nome: string): boolean => nome.startsWith('npm_') || nome.startsWith('NPM_')
-    || ['ORK_CHECK_RELATORIO', 'ORK_CHECK_CPUS_DA_LANE', 'ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA', 'ORK_CHECK_RESERVA_DEVOLVIDA',
-      'ORK_CHECK_CPUS_DOCKER',
+    || ['ORK_CHECK_RELATORIO', 'ORK_CHECK_CPUS_DA_LANE', 'ORK_CHECK_CPUS_DA_LANE_APOS_VARREDURA',
+      'ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA', 'ORK_CHECK_RESERVA_DEVOLVIDA', 'ORK_CHECK_CONTAINERS_DA_LANE', 'ORK_CHECK_CPUS_DOCKER',
       'NODE_TEST_CONTEXT', 'NODE_COMPILE_CACHE', 'PWD', 'OLDPWD', 'SHLVL', '_', 'INIT_CWD'].includes(nome);
   const pares = Object.entries(env).filter(([nome, valor]) => valor !== undefined && !ignorada(nome))
     .sort(([a], [b]) => a.localeCompare(b));
