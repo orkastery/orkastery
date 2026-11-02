@@ -60,20 +60,67 @@ function conteudoResolvido(resposta: string): string {
   } catch { return resposta; }
 }
 
-function regraEntreArquivos(conteudo: string): boolean {
-  let valor: unknown = conteudo;
-  try { valor = JSON.parse(conteudo); } catch { /* YAML: a inspeção textual conservadora vem abaixo */ }
-  const visitar = (atual: unknown): boolean => {
-    if (Array.isArray(atual)) return atual.some(visitar);
+const MARCAS_ENTRE_ARQUIVOS = ['join', 'interfile', 'crossfile', 'multifile'];
+const MARCA_NA_LINHA = /(?:^|[\s{,])(?:mode\s*:\s*)?(?:join|inter[-_ ]?file|cross[-_ ]?file|multi[-_ ]?file)(?:\s*:|\s*$)/i;
+const CHAVE_DA_LINHA = /^(\s*)(-\s+)?([A-Za-z_][\w-]*)\s*:(?:\s+(.*))?$/;
+const normalizar = (chave: string): string => chave.toLowerCase().replace(/[-_]/g, '');
+
+/**
+ * Se a marca cruza arquivos de fato. `join` cruza em qualquer motor. `interfile` em `options` só cruza no motor Pro do
+ * Semgrep; em `metadata` é rótulo do registro, que o motor ignora. Em qualquer outro lugar, cruza (conservador).
+ */
+function marcaCruzaArquivos(marca: string, pai: string | null, pro: boolean): boolean {
+  if (marca === 'join') return true;
+  if (pai === 'metadata') return false;
+  if (pai === 'options') return pro;
+  return true;
+}
+
+/**
+ * O registro responde em YAML. Toda linha com marca cruza arquivos, menos a chave da própria marca, em bloco e com valor
+ * booleano, cujo pai pela indentação a torna inócua no motor da rodada. Linha de texto que parece chave nunca relaxa nada.
+ */
+function marcaNoYaml(conteudo: string, pro: boolean): boolean {
+  const pais: Array<{ coluna: number; chave: string }> = [];
+  for (const linha of conteudo.split(/\r?\n/)) {
+    const m = CHAVE_DA_LINHA.exec(linha);
+    const coluna = m ? m[1].length + (m[2]?.length ?? 0) : 0;
+    if (m) while (pais.length && pais[pais.length - 1].coluna >= coluna) pais.pop();
+    if (MARCA_NA_LINHA.test(linha)) {
+      const chave = m ? normalizar(m[3]) : null;
+      const booleano = !!m && /^(?:true|false|yes|no|on|off)?\s*(?:#.*)?$/i.test(m[4] ?? '');
+      if (!chave || !MARCAS_ENTRE_ARQUIVOS.includes(chave) || !booleano
+        || marcaCruzaArquivos(chave, pais[pais.length - 1]?.chave ?? null, pro)) return true;
+    }
+    if (m) pais.push({ coluna, chave: normalizar(m[3]) });
+  }
+  return false;
+}
+
+function regraEntreArquivos(conteudo: string, pro: boolean): boolean {
+  let valor: unknown;
+  try { valor = JSON.parse(conteudo); } catch { return marcaNoYaml(conteudo, pro); }
+  if (typeof valor === 'string') return marcaNoYaml(valor, pro);
+  const visitar = (atual: unknown, pai: string | null): boolean => {
+    if (Array.isArray(atual)) return atual.some((item) => visitar(item, pai));
     if (!atual || typeof atual !== 'object') return false;
     return Object.entries(atual as Record<string, unknown>).some(([chave, filho]) => {
-      const normal = chave.toLowerCase().replace(/[-_]/g, '');
+      const normal = normalizar(chave);
       if (normal === 'mode' && typeof filho === 'string' && /^(join|interfile|crossfile|multifile)$/i.test(filho)) return true;
-      if (['join', 'interfile', 'crossfile', 'multifile'].includes(normal) && filho !== false && filho !== null) return true;
-      return visitar(filho);
+      if (MARCAS_ENTRE_ARQUIVOS.includes(normal) && filho !== false && filho !== null
+        && marcaCruzaArquivos(normal, pai, pro)) return true;
+      return visitar(filho, normal);
     });
   };
-  return visitar(valor) || /(?:^|[\s{,])(?:mode\s*:\s*)?(?:join|inter[-_ ]?file|cross[-_ ]?file|multi[-_ ]?file)(?:\s*:|\s*$)/im.test(conteudo);
+  return visitar(valor, null);
+}
+
+/** O Semgrep da rodada usa o motor Pro, o único que cruza arquivos nas regras `interfile`: `--pro*`, `semgrep ci` ou token. */
+function motorPro(ferramenta: ToolSpec, unidades: TrabalhoDaFerramenta['units']): boolean {
+  const stacks = new Set(unidades.map((u) => u.stack).filter((s): s is NonNullable<typeof s> => !!s));
+  const todos = [ferramenta.args, ...[...stacks].map((s) => ferramenta.argsByStack?.[s] ?? [])];
+  return todos.some((args) => args.some((a) => a.startsWith('--pro')) || args.includes('ci'))
+    || Object.keys(ferramenta.env ?? {}).some((k) => /^SEMGREP_APP_TOKEN$/i.test(k));
 }
 
 function referenciasDasRegras(ferramenta: ToolSpec, unidades: TrabalhoDaFerramenta['units']): string[] {
@@ -91,13 +138,14 @@ export function resolverRegrasSemgrep(ferramenta: ToolSpec, unidades: TrabalhoDa
   const referencias = referenciasDasRegras(ferramenta, unidades);
   if (referencias.length === 0) return { reutilizavel: false, hash: null, motivo: 'regras-sem-referencia', referencias };
   const resolvidas: Array<[string, string]> = [];
+  const pro = motorPro(ferramenta, unidades);
   for (const referencia of referencias) {
     const url = urlDoRegistro(referencia);
     if (!url) return { reutilizavel: false, hash: null, motivo: 'referencia-de-regra-nao-resolvivel', referencias };
     const resposta = baixar(ferramenta, url);
     if (!resposta) return { reutilizavel: false, hash: null, motivo: 'registro-indisponivel', referencias };
     const conteudo = conteudoResolvido(resposta);
-    if (regraEntreArquivos(conteudo)) return { reutilizavel: false, hash: null, motivo: 'regra-entre-arquivos', referencias };
+    if (regraEntreArquivos(conteudo, pro)) return { reutilizavel: false, hash: null, motivo: 'regra-entre-arquivos', referencias };
     resolvidas.push([referencia, conteudo]);
   }
   return { reutilizavel: true, hash: sha256(JSON.stringify(resolvidas)), referencias };

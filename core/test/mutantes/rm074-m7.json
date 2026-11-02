@@ -69,7 +69,7 @@
       "id": "M8",
       "descricao": "uma regra entre arquivos passa a autorizar reaproveitamento",
       "modulo": "security-scan/incremental",
-      "de": "if (regraEntreArquivos(conteudo))",
+      "de": "if (regraEntreArquivos(conteudo, pro))",
       "para": "if (false)",
       "teste": "security-scan-agil",
       "nome": "^SA4:"

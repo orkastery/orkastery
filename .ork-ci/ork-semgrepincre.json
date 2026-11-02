@@ -1,0 +1,75 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-semgrepincre",
+  "branch": "ork/ork-semgrepincre-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-semgrepincre",
+      "fase": "GO",
+      "arquivo": "core/src/security-scan/incremental.ts",
+      "alegacao": "Com as regras do registro em YAML que marcam interfile em options ou em metadata, o semgrep scan do catálogo deixa as regras reaproveitáveis.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test --test-name-pattern '^SR[126]:' core/dist-test/test/security-scan-regras-semgrep.test.js"
+      ],
+      "criadoEm": "2026-11-01T11:59:26.444Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-semgrepincre",
+      "fase": "GO",
+      "arquivo": "core/src/security-scan/incremental.ts",
+      "alegacao": "No motor Pro (--pro, semgrep ci ou token do Semgrep), interfile em options força a varredura inteira; mode join e marca fora de options e metadata forçam em qualquer motor.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test --test-name-pattern '^SR[345]:' core/dist-test/test/security-scan-regras-semgrep.test.js"
+      ],
+      "criadoEm": "2026-11-01T11:59:26.865Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-semgrepincre",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-agil.test.ts",
+      "alegacao": "A segunda rodada do Agile com o registro em YAML e interfile, sem o motor Pro, não chama o Semgrep de novo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test --test-name-pattern '^SA4:' core/dist-test/test/security-scan-agil.test.js"
+      ],
+      "criadoEm": "2026-11-01T11:59:27.301Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-semgrepincre",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/semgrep-incremental.json",
+      "alegacao": "Os seis mutantes da regra do lugar da marca morrem nos testes SR e SA4.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && for i in M1 M2 M3 M4 M5 M6; do node core/scripts/mutante.cjs core/test/mutantes/semgrep-incremental.json $i 2>&1 | tail -1 | grep -q \"morto\" || exit 1; done"
+      ],
+      "criadoEm": "2026-11-01T11:59:27.724Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
