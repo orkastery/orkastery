@@ -35,10 +35,10 @@ import { redigirCredenciaisUrl } from './redacao-url';
 import { CausaDoComando, EvidenciaJUnit, Manifesto, ResultadoDeComando } from './types';
 import { PlanoDaLane } from './check-selecao';
 
-/** Uma peca do Agile e o que aconteceu com ela; `fallback` diz o equivalente do Classic que rodou no lugar. */
+/** Uma peca do Agile e o que aconteceu com ela; `degradado` preserva o Agile com menos capacidade. */
 export interface PecaDoAgile {
   peca: string;
-  estado: 'agile' | 'fallback';
+  estado: 'agile' | 'degradado' | 'fallback';
   motivo?: string;
   fallback?: string;
 }
@@ -615,8 +615,9 @@ export class RelatorioDoCheck {
  */
 export function pecasDoRelatorio(linhas: Array<Record<string, unknown>>): PecaDoAgile[] {
   const vistas = new Set<string>();
-  return linhas.filter((l) => l.tipo === 'peca' && typeof l.peca === 'string' && (l.estado === 'agile' || l.estado === 'fallback'))
-    .map((l) => ({ peca: l.peca as string, estado: l.estado as 'agile' | 'fallback',
+  return linhas.filter((l) => l.tipo === 'peca' && typeof l.peca === 'string'
+      && (l.estado === 'agile' || l.estado === 'degradado' || l.estado === 'fallback'))
+    .map((l) => ({ peca: l.peca as string, estado: l.estado as PecaDoAgile['estado'],
       ...(typeof l.motivo === 'string' ? { motivo: l.motivo } : {}), ...(typeof l.fallback === 'string' ? { fallback: l.fallback } : {}) }))
     .filter((p) => { const chave = JSON.stringify(p); if (vistas.has(chave)) return false; vistas.add(chave); return true; });
 }

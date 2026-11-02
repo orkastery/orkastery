@@ -59,6 +59,8 @@ export const VERIFY_PT_BR = {
     `${paralelo ? `grupo em paralelo${lanes.length ? ` com as lanes ${lanes.join(', ')}` : ''}` : 'comandos do manifesto em serie'}`,
   agileFallback: (peca: string, motivo: string, fallback: string) =>
     `  fallback    ${peca}: ${motivo || 'sem motivo dito'}; rodou ${fallback || 'o equivalente do Classic'}`,
+  agileDegradado: (peca: string, motivo: string) =>
+    `  degradado   ${peca}: ${motivo || 'sem motivo dito'}; preservou o plano paralelo`,
   preparo: (situacao: string, segundos: number, alterado: boolean) => `  preparo     ${situacao} em ` +
     `${segundos} s, uma vez para a rodada; produto ` +
     `${alterado ? 'MUDOU no meio da rodada: nenhum veredito vale' : 'conferido do preparo ao fim'}`,
@@ -196,6 +198,7 @@ export const VERIFY_EN: typeof VERIFY_PT_BR = {
     `  agile       ${reaproveitadas} claim command(s) against the prepared product, ${inteiras} in full; ` +
     `${paralelo ? `parallel group${lanes.length ? ` with lanes ${lanes.join(', ')}` : ''}` : 'manifest commands in series'}`,
   agileFallback: (peca, motivo, fallback) => `  fallback    ${peca}: ${motivo || 'no reason given'}; ran ${fallback || 'the Classic equivalent'}`,
+  agileDegradado: (peca, motivo) => `  degraded    ${peca}: ${motivo || 'no reason given'}; kept the parallel plan`,
   preparo: (situacao, segundos, alterado) => `  prepare     ${situacao} in ${segundos} s, once for the run; product ` +
     `${alterado ? 'CHANGED during the run: no verdict counts' : 'checked from prepare to end'}`,
   stealMedido: (pct, fonte, limiar) =>
