@@ -144,6 +144,9 @@ export interface SetupDeConducao {
   modos: Record<Modo, SetupDeModo> & Partial<Record<ModoAposentado, SetupDeModo>>;
 }
 
+/** RM-081 F2: como um comando JUnit declara que mede relogio. */
+export type MarcacaoDeRelogio = { nome: string[] } | { marcador: string } | { tag: string };
+
 /** Manifesto do projeto (`orkastery.yaml`), na fatia v1 do bloco B0. */
 export interface Manifesto {
   project: {
@@ -202,6 +205,8 @@ export interface Manifesto {
     junit?: Partial<Record<'build' | 'test' | 'typecheck' | 'security_scan', string>>;
     /** RM-081 F3: comando opt-in que substitui `{testes}` pelos nomes JUnit da rodada anterior. */
     filtro?: Partial<Record<'build' | 'test' | 'typecheck' | 'security_scan', string>>;
+    /** RM-081 F2: testes de relogio declarados junto do relatorio JUnit de cada comando. */
+    relogio?: Partial<Record<'build' | 'test' | 'typecheck' | 'security_scan', MarcacaoDeRelogio>>;
     /** I-37 (D2): prazo default de cada comando de verificacao, em ms. */
     timeout_ms?: number;
     /** I-37 (D2): prazo de um comando do manifesto, que vence o default. */
@@ -704,6 +709,13 @@ export interface Claim {
 /** I-37 (D8): por que o comando terminou. Separa "nao rodou ate o fim" de "rodou e falhou". */
 export type CausaDoComando = 'exit' | 'timeout' | 'nao-encontrado' | 'sinal';
 
+/** RM-081 F2: resultado diagnostico da segunda passagem isolada dos testes de relogio. */
+export interface RetesteDeRelogio {
+  testes: string[];
+  estado: 'passou' | 'reprovou' | 'sem-veredito' | 'sem-filtro';
+  code?: number;
+}
+
 export interface ResultadoDeComando {
   nome: string;
   comando: string;
@@ -742,6 +754,8 @@ export interface ResultadoDeComando {
    * verify trata como `verify.timeout` (sem veredito, o retry reexecuta), nunca como regressao.
    */
   relogioSobSteal?: string[];
+  /** RM-081 F2: a segunda passagem nunca promove o primeiro resultado sem veredito a verde. */
+  retesteDeRelogio?: RetesteDeRelogio;
   /**
    * RM-072 (D5): no Agile, o que a guarda do produto fez com o comando: os passos do preparo tirados da frente, ou o
    * motivo de ter rodado inteiro. Ausente no Classic e em comando sem passos do preparo.
@@ -760,7 +774,11 @@ export interface ResultadoDeComando {
     /** RM-081 F1: evidencia JUnit da propria lane, quando declarada. */
     junit?: EvidenciaJUnit;
     /** RM-081 F3: a lane terminou na passagem parcial, sem a suite inteira. */
-    parcial?: { testes: string[] } }>;
+    parcial?: { testes: string[] };
+    /** RM-081 F2: recibo da segunda passagem isolada da lane. */
+    retesteDeRelogio?: RetesteDeRelogio;
+    relogioSobSteal?: string[];
+    stealPct?: number | null }>; 
 }
 
 /** O estado do relatorio nunca muda o codigo de saida do comando; ele qualifica somente a evidencia. */
@@ -793,6 +811,8 @@ export interface ConfigDoAgile {
   junit?: Record<string, string>;
   /** RM-081 F3: comando de selecao nominal por lane; ausente preserva a suite inteira. */
   filtro?: Record<string, string>;
+  /** RM-081 F2: marcacao de relogio por lane JUnit; ausente preserva o julgamento anterior. */
+  relogio?: Record<string, MarcacaoDeRelogio>;
   /** As lanes de `test` que so comecam quando o `security_scan` do grupo termina (as que sobem containers). */
   apos_a_varredura?: string[];
   /** `osv-scanner` no lugar de `trivy-vuln` e `npm-audit` (D13); desligado por padrao. */

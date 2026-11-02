@@ -176,6 +176,33 @@ O filtro recebe exatamente os nomes que o relatório produziu. O Orkastery não 
 seleção por nome ou caminho, Playwright pode usar `--grep` e Go pode usar `-run`, desde que o
 comando declarado saiba consumir os nomes do JUnit do projeto.
 
+### Teste de relógio declarado no relatório
+
+Um comando com JUnit pode declarar também `relogio`. A marcação é opt-in e aceita exatamente uma
+estratégia: `nome`, com uma lista de expressões regulares sobre a identidade JUnit, ou `marcador` e
+`tag`, que documentam que o próprio comando ou lane já seleciona somente aquela categoria. Sem a
+declaração, o julgamento de Classic e Agile não muda.
+
+Cada runner conserva a própria sintaxe; o manifesto só registra a intenção:
+
+- **pytest:** `comando: "pytest -m desempenho --junitxml reports/pytest.xml"` com
+  `relogio: { marcador: desempenho }`.
+- **Vitest:** `comando: "vitest run --reporter=junit --outputFile=reports/vitest.xml"` com
+  `relogio: { nome: ["tempo$"] }`.
+- **Jest:** `comando: "JEST_JUNIT_OUTPUT_FILE=reports/jest.xml jest --reporters=default --reporters=jest-junit"`
+  com `relogio: { nome: ["latencia"] }`.
+- **Playwright:** `comando: "PLAYWRIGHT_JUNIT_OUTPUT_NAME=reports/playwright.xml playwright test --grep @tempo --reporter=junit"`
+  com `relogio: { tag: "@tempo" }`.
+- **Go:** `comando: "gotestsum --junitfile reports/go.xml -- ./..."` com
+  `relogio: { nome: ["/Tempo$"] }`.
+
+Sob steal acima do limiar, somente a reprovação formada inteira por casos marcados fica sem
+veredito. O verify reutiliza o `filtro` da rodada de correção para rodar esses nomes isolados quando
+ele existe. A segunda rodada é diagnóstico: ela nunca promove o primeiro resultado a verde. Falha
+comum no mesmo comando continua regressão; teste marcado que cai sem steal alto também. Texto e
+ledger dizem os nomes, o steal medido e se a segunda rodada passou, reprovou, ficou sem veredito ou
+não tinha filtro.
+
 O leitor usa `classname :: name`; sem classe, usa `file :: name`; sem ambos, usa só `name`. Se o
 nome de uma falha ou erro precisaria ser truncado ou redigido, o relatório não serve para comparação
 nominal: ele é marcado como inválido, sem copiar o conteúdo para o motivo. Isso evita colisões de
@@ -245,16 +272,17 @@ worktree:
 
 ### Steal da CPU: a máquina julgada antes do código (RM-037)
 
-Numa VPS, o hipervisor pode tomar a CPU: em 23 e 24/09/2026 a máquina de referência perdeu de 67% a
-92% dela (sar), e a suíte levou de 7 a 9 vezes o tempo que leva com a CPU livre. Teste que mede relógio reprova nessa
-hora sem que o código tenha mudado.
+O relato veio de uma rede de três VPS: o hipervisor pode tomar a CPU, e um teste que mede relógio
+reprova nessa hora sem que o código tenha mudado.
 
 O `ork verify` mede o steal do `/proc/stat` na rodada inteira e na janela de cada comando, e grava a
 medida no `verify_run` (`steal`, e `stealPct` em cada comando que falha). Quando um comando reprova
 **só** em teste com relógio e o steal na janela dele passou de 40%, a reprovação vira
-`verify.timeout`: sem veredito, o retry reexecuta, e nunca é regressão. Teste com relógio é o que
-falhou com a assinatura de prazo do `node --test` (estouro do teste, ou cancelado pelo pai que
-estourou) ou o que tem entrada vigente no registro de instabilidade, `core/instabilidade.json`.
+`verify.timeout`: sem veredito, e nunca regressão. Teste com relógio é o caso marcado no manifesto e
+confirmado pelo JUnit, o que falhou com a assinatura de prazo do `node --test` (estouro do teste, ou
+cancelado pelo pai que estourou) ou o que tem entrada vigente no registro de instabilidade,
+`core/instabilidade.json`. Quando há marcação JUnit, o verify faz a segunda rodada isolada descrita
+acima e conserva o primeiro resultado sem veredito.
 Asserção comum sob steal alto continua regressão, e sem `/proc/stat` nada é atenuado. O `ork ci run`
 não mede nem atenua: o CI segue sendo a prova independente.
 
@@ -275,6 +303,7 @@ que falha:
 | `junit` | Caminho e estado da leitura; quando válido, total de testes, falhas, erros, pulados e duração somada. No Agile, aparece também por lane |
 | `parcial` | Presente somente quando a passagem filtrada reprovou antes da suíte inteira; guarda os nomes selecionados. O `verify_run` também marca a rodada como parcial |
 | `stealPct`, `relogioSobSteal` | O steal da CPU na janela do comando e, quando a reprovação foi só de relógio sob steal acima de 40%, os testes (RM-037) |
+| `retesteDeRelogio` | Os testes marcados e o resultado da segunda rodada isolada: `passou`, `reprovou`, `sem-veredito` ou `sem-filtro`, com o código quando houver |
 | `trecho` | O fim da saída real, até 1024 caracteres, redigido |
 
 A redação segue a regra do prompt: credencial em URL vira `[credencial redigida]@`, e se

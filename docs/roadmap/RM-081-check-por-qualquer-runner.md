@@ -125,6 +125,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** item aberto pela condução da VPS a pedido do dono, a partir do relato da pilha de testes de outra rede; revisor humano: Julio.
 - **Próxima ação, responsável e prazo:** a condução submete a F3 empilhada sobre a F1; F2 e F4 seguem como fatias independentes depois da 0.6.4.
 
+### F2 nesta fatia
+
+- O manifesto aceita `relogio` por comando ou lane JUnit, com uma estratégia entre padrão de nome, marcador e tag. Sem a declaração, Classic e Agile conservam o julgamento anterior.
+- Sob steal acima do limiar, somente um conjunto de falhas integralmente marcado fica sem veredito. Falha comum no mesmo comando, ou caso marcado sem steal alto, continua regressão.
+- A segunda rodada reutiliza o filtro nominal da F3 para isolar os nomes marcados quando ele existe. O resultado é diagnóstico e nunca transforma o primeiro resultado em verde.
+- Ledger, gate e texto bilíngue conservam os nomes, o steal e o resultado da segunda rodada. Os mutantes cobrem marcação excessiva, limiar ignorado, promoção indevida a verde, ausência de isolamento e perda do recibo.
+
 ### F3 nesta fatia
 
 - O mapa de comando aceita `filtro` ao lado de `comando` e `junit`; sem a declaração nova, Classic e Agile continuam com a suíte inteira.
@@ -137,3 +144,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-11-01 | Item criado em Discovery, com as fatias F1 a F5 | Relato da pilha de testes de outra rede, conferido contra a 0.6.3 | Julio (pedido de 01/11/2026) |
 | 2026-11-02 | F1 implementa JUnit declarado por comando e lane, sem mudar a forma textual | Fixtures de pytest, Vitest, Jest, Playwright e gotestsum e mutantes da thread `ork-rm081f1relat`; veredito no CHECK | Codex (#Auto, D1 registrada no ledger) |
 | 2026-11-02 | F3 roda primeiro os nomes da correção e conserva a suíte inteira como condição do SHIP | Testes focados da thread `ork-rm081f3rodad`; D1 a D4 registradas no ledger; CHECK pendente | Codex (#Auto) |
+| 2026-11-02 | F2 protege qualquer runner JUnit marcado contra julgamento temporal sob steal, sem esconder falha comum | Testes focados e mutantes da thread `ork-rm081f2teste`; decisões autônomas registradas no ledger; CHECK pendente | Codex (#Auto) |

@@ -12,6 +12,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **RM-081 · F3 — correção nominal antes da suíte inteira ([roadmap](docs/roadmap/RM-081-check-por-qualquer-runner.md)):** comando ou lane com JUnit pode declarar o próprio filtro; o verify reprova cedo se algum nome continuar vermelho, segue para a suíte inteira quando a parcial passa e o SHIP recusa recibo parcial.
 
+- **RM-081 · F2 — relógio JUnit protegido sob steal ([roadmap](docs/roadmap/RM-081-check-por-qualquer-runner.md)):** comando ou lane marca casos temporais por nome, marcador ou tag; falha exclusivamente marcada sob steal alto fica sem veredito, recebe reteste isolado pelo filtro existente e registra o resultado sem virar verde.
+
 ## [0.6.4] - 2026-11-01
 
 O Agile Check reserva CPU pela medida de cada peça e reaproveita a varredura do Semgrep quando as regras não mudam;
