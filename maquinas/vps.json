@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.4",
-  "publicadoEm": "2026-11-02T22:15:02.932Z",
+  "publicadoEm": "2026-11-02T22:30:04.516Z",
   "threads": [
     {
       "id": "ork-rm074comamet",
@@ -112,7 +112,7 @@
       "esforco": null,
       "sessao": {
         "viva": false,
-        "desdeEm": "2026-11-02T21:54:21.542Z",
+        "desdeEm": "2026-11-02T22:30:10.955Z",
         "motivo": "nenhuma sessão despachada na fase GO"
       }
     }
