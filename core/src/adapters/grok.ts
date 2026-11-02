@@ -67,6 +67,26 @@ export const PERFIL_DE_SANDBOX_DO_GROK: Readonly<Record<string, string>> = Objec
 export const PERFIL_DE_SANDBOX_PADRAO = 'workspace';
 
 /**
+ * RM-067 (F5a, D3): a lista fechada dos comandos de terminal do ciclo da fase. O motivo mora com o comando para uma
+ * inclusão futura nunca virar só mais um curinga sem justificativa. As regras do MCP continuam em `ferramentasDoGrok`.
+ */
+export const COMANDOS_TERMINAL_DO_GROK = Object.freeze([
+  { comando: 'git', motivo: 'inspecionar e registrar o estado da worktree pelos fluxos autorizados da fase' },
+  { comando: 'node', motivo: 'executar o CLI compilado e os scripts de prova do projeto' },
+  { comando: 'npm', motivo: 'instalar, compilar e testar o pacote pelo manifesto' },
+  { comando: 'ork', motivo: 'consultar e operar o ciclo da fase quando o transporte nativo estiver disponível' },
+  { comando: 'grep', motivo: 'localizar texto e produzir evidência reproduzível' },
+  { comando: 'find', motivo: 'descobrir arquivos dentro do sandbox da worktree' },
+  { comando: 'ls', motivo: 'inspecionar diretórios dentro do sandbox da worktree' },
+  { comando: 'cat', motivo: 'ler arquivos de texto dentro do sandbox da worktree' },
+] as const);
+
+/** A forma oficial do guia 22: a regra exata cobre o comando nu, e a regra com espaço cobre seus argumentos. */
+export function regrasDosComandosDoGrok(): string[] {
+  return COMANDOS_TERMINAL_DO_GROK.flatMap(({ comando }) => [`Bash(${comando})`, `Bash(${comando} *)`]);
+}
+
+/**
  * RM-067 (F4, E6): o esforço do Orkastery nos níveis canônicos do `grok` (`none`, `minimal`, `low`, `medium`, `high`,
  * `xhigh`, `max`, no guia headless). O `eco` vira `minimal`, para a escada de esforço (`eco` antes de `low`) seguir com
  * degraus distintos; os outros cinco têm o mesmo nome. Cada modelo só aceita os níveis que o próprio menu anuncia, e esse
@@ -243,7 +263,9 @@ function comandoDoDespacho(pedido: DespachoGrokPedido, ferramentas: readonly str
   args.push('--cwd', pedido.cwd, '--trust');
   if (pedido.model) args.push('-m', pedido.model);
   if (pedido.effort?.trim()) args.push('--effort', esforcoDoGrok(pedido.effort));
-  args.push('--sandbox', perfilDeSandbox(pedido.sandbox, pedido.colaboracao), '--no-auto-update');
+  // RM-067 (F5a, D3): no headless, o que não casar com uma regra é negado e devolvido ao modelo, sem abrir diálogo.
+  args.push('--permission-mode', 'dontAsk', '--sandbox', perfilDeSandbox(pedido.sandbox, pedido.colaboracao), '--no-auto-update');
+  for (const regra of regrasDosComandosDoGrok()) args.push('--allow', regra);
   // RM-067 (F4b, G2): com o MCP do ork, uma regra por ferramenta liberada, no fim, para o despacho sem contexto ficar igual
   // e a retomada (que guarda o que vem depois do `-s`) levar as mesmas regras.
   for (const ferramenta of ferramentas) args.push('--allow', `MCPTool(orkastery__${ferramenta})`);
@@ -251,8 +273,9 @@ function comandoDoDespacho(pedido: DespachoGrokPedido, ferramentas: readonly str
 }
 
 /**
- * D2: a linha de comando exata do despacho (usada também pelo `--dry-run`). O prompt fica no argumento 2, que o ledger
- * mascara. Nunca `--yolo`, `--always-approve` nem `--permission-mode`.
+ * D2 e F5a: a linha de comando exata do despacho (usada também pelo `--dry-run`). O prompt fica no argumento 2, que o
+ * ledger mascara. Todo despacho headless usa `--permission-mode dontAsk` com as regras fechadas de D3; nunca `--yolo`,
+ * `--always-approve` nem `--permission-mode bypassPermissions`.
  *
  * RM-067 (F4, E8): `--trust` confia a pasta do `--cwd`, a worktree da thread, que é o checkout do próprio projeto. O guia
  * de regras de projeto do `grok` diz que o `AGENTS.md` só carrega na partida com a pasta confiada (`--trust` ou a
@@ -261,7 +284,7 @@ function comandoDoDespacho(pedido: DespachoGrokPedido, ferramentas: readonly str
  * `grok` lê; não aprova ferramenta nenhuma.
  *
  * RM-067 (F4b, G2): num projeto preparado, o comando leva no fim um `--allow MCPTool(orkastery__<ferramenta>)` por
- * ferramenta do MCP do `ork` que o caso libera (`ferramentasDoGrok`), e nenhuma outra regra.
+ * ferramenta do MCP do `ork` que o caso libera (`ferramentasDoGrok`), além das regras fechadas de terminal da F5a.
  */
 export function montarComando(pedido: DespachoGrokPedido): string[] {
   return comandoDoDespacho(pedido, ferramentasDoDespacho(pedido, contextoDoDespacho(pedido)));

@@ -47,8 +47,10 @@ test('GD1: o ensaio do --runtime grok mostra o comando e nao despacha, e trocar 
     assert.equal(r.dryRun, true);
     assert.equal(r.runtime, 'grok');
     assert.equal(r.comando[0], 'grok');
-    assert.deepEqual(r.comando.slice(-10), ['--cwd', c.wt, '--trust', '-m', 'grok-modelo', '--effort', 'high', '--sandbox', 'workspace',
-      '--no-auto-update']);
+    assert.equal(r.comando[r.comando.indexOf('--permission-mode') + 1], 'dontAsk');
+    assert.equal(r.comando[r.comando.indexOf('--sandbox') + 1], 'workspace');
+    assert.ok(r.comando.includes('Bash(node *)'));
+    assert.equal(r.comando.includes('--always-approve'), false);
     assert.deepEqual(c.stub!.chamadas(), [], 'o grok nao rodou');
     assert.equal(c.eventos().some((e) => e.tipo === 'phase_dispatch' || e.tipo === 'phase_prompt_recorded'), false);
     assert.throws(() => rodarFase(c.p.carregado, c.t.id, { fase: 'GOAL', prompt: PROMPT, runtime: 'grok', dryRun: true }),
@@ -218,4 +220,32 @@ test('GD8: no PLAN que fecha o bloco, o grok vai em read-only pelo phase run e p
     const a = rodarFase(auto.p.carregado, auto.t.id, { fase: 'PLAN', prompt: PROMPT, runtime: 'grok', model: 'grok-modelo', dryRun: true });
     assert.equal(sandbox(a.comando), 'workspace');
   } finally { c.limpar(); auto.limpar(); }
+});
+
+test('GD9: pelo grok falso, comando fora da lista deixa a fase seguir ou bloqueia tipado quando encerra a sessao', () => {
+  const continua = cenario('permissao-continua');
+  const marca = path.join(continua.stub!.dir, 'comando-fora-rodou');
+  try {
+    continua.stub!.comandoTerminal(`sh -c 'printf executou > ${marca}'`);
+    continua.stub!.artefato(path.join(continua.dir, 'docs', 'plan.md'));
+    const segue = despachar(continua, 'PLAN');
+    assert.ok(segue.sessionId, segue.erro);
+    esperarCondicao(() => resultadoDa(continua, segue.sessionId!) !== undefined, 60000);
+    assert.equal(continua.stub!.comandoTerminalNegado(), true);
+    assert.equal(fs.existsSync(marca), false, 'a política negou antes de executar');
+    assert.equal(resultadoDa(continua, segue.sessionId!)!.classificacao, 'fase_concluida');
+  } finally { continua.limpar(); }
+
+  const encerra = cenario('permissao-encerra');
+  try {
+    encerra.stub!.comandoTerminal('curl https://example.invalid', true);
+    const para = despachar(encerra, 'GOAL');
+    assert.ok(para.sessionId, para.erro);
+    esperarCondicao(() => resultadoDa(encerra, para.sessionId!) !== undefined, 60000);
+    const res = resultadoDa(encerra, para.sessionId!)!;
+    assert.equal(res.classificacao, 'gate_blocked');
+    assert.equal(res.motivo, 'policy.violation');
+    assert.equal(res.comandoNegado, 'curl https://example.invalid');
+    assert.equal(res.evidencia, 'comando negado pela lista fechada do Grok: curl https://example.invalid');
+  } finally { encerra.limpar(); }
 });

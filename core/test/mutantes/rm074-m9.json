@@ -1,0 +1,42 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-074 M9: o perfil completo da arvore decide a reserva medida, com piso 1 e fallback conservador.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "perfil incompleto reduz a reserva",
+      "modulo": "check-paralelo",
+      "de": "p.cpus === cpus && p.completa",
+      "para": "p.cpus === cpus",
+      "teste": "check-agil",
+      "nome": "^AG51:"
+    },
+    {
+      "id": "M2",
+      "descricao": "a reserva medida pode ficar abaixo de uma CPU",
+      "modulo": "agendador-cpu",
+      "de": "Math.max(1, Math.min(capacidadeEfetiva - 1, Math.ceil(medida)))",
+      "para": "Math.min(capacidadeEfetiva - 1, Math.ceil(medida))",
+      "teste": "check-agil",
+      "nome": "^AG51:"
+    },
+    {
+      "id": "M3",
+      "descricao": "conteiner sem cgroup invalida a arvore medida",
+      "modulo": "check-paralelo",
+      "de": "return medicao.arvoreCompleta && !medicao.anomaliaDaArvore && pico !== null && pico > 0 && pico <= cpus ? pico : null;",
+      "para": "return medicao.completa && !medicao.anomaliaDaArvore && pico !== null && pico > 0 && pico <= cpus ? pico : null;",
+      "teste": "check-agil",
+      "nome": "^AG51:"
+    },
+    {
+      "id": "M4",
+      "descricao": "a reserva medida e aplicada sem perfil",
+      "modulo": "agendador-cpu",
+      "de": "medicao.fonteCpusIntegracao === 'medida' && Number.isFinite(medida)",
+      "para": "medicao.fonteCpusIntegracao !== 'classic' && Number.isFinite(medida)",
+      "teste": "check-agil",
+      "nome": "^AG51:"
+    }
+  ]
+}

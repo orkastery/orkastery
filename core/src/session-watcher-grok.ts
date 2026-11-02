@@ -147,7 +147,9 @@ export type ClassificacaoGrok =
       /** O resultado leva o comando da retomada (`-r <id>`). */
       retomar?: boolean;
       erroDoRuntime?: string;
-      falhaDeConta?: SinalDeFalhaDeConta };
+      falhaDeConta?: SinalDeFalhaDeConta;
+      /** F5a: comando redigido que a política fechada negou imediatamente antes do fim. */
+      comandoNegado?: string };
 type TerminalGrok = Extract<ClassificacaoGrok, { terminal: true }>;
 
 const RETOMADA = 'o estado da sessão ficou salvo até a última ferramenta concluída e os arquivos alterados ficam como estão: ' +
@@ -166,8 +168,14 @@ export function classificarSessaoGrok(e: EntradaGrok): ClassificacaoGrok {
   const interrupcao = (codigo: number | null, sinal: string | null, fonte: string): TerminalGrok =>
     bloqueio('human.pending', fonte, { interrupcao: { codigo, sinal, stopReason: estado.fim?.stopReason ?? null },
       retomar: true, diagnostico: `${fonte}; ${RETOMADA}` });
+  const porNegacao = (): TerminalGrok => {
+    const comando = estado.negacaoTerminal!.comando;
+    return bloqueio('policy.violation', `comando de terminal negado pela política fechada: ${comando}`,
+      { comandoNegado: comando, diagnostico: `a sessão terminou imediatamente depois de negar o comando: ${comando}` });
+  };
   const pelaFim = (comRecibo: boolean): TerminalGrok => {
     const fim = estado.fim!;
+    if (estado.negacaoTerminal) return porNegacao();
     if (fim.stopReason === STOP_CANCELADO) return interrupcao(recibo?.exitCode ?? null, recibo?.signal ?? null, 'end com stopReason cancelled');
     if (fim.stopReason !== STOP_FIM_NORMAL) {
       return bloqueio('human.pending', `end com stopReason ${fim.stopReason}`, { retomar: true,
@@ -198,6 +206,7 @@ export function classificarSessaoGrok(e: EntradaGrok): ClassificacaoGrok {
     return { terminal: false, espera: 'processo sem prova de vida e sem recibo; aguardando o limite de estabilidade' };
   }
   if (recibo.erro) return bloqueio('runtime.unavailable', `o supervisor não iniciou o grok (${recibo.erro})`);
+  if (estado.negacaoTerminal && valido) return porNegacao();
   if (recibo.exitCode === 130 || recibo.exitCode === 143 || recibo.signal === 'SIGINT' || recibo.signal === 'SIGTERM') {
     return interrupcao(recibo.exitCode, recibo.signal,
       `processo interrompido (${recibo.signal ?? `saida ${recibo.exitCode}`}) no recibo do supervisor`);
@@ -406,6 +415,8 @@ export function observarGrokSobLock(ctx: ContextoObservacaoGrok): ResultadoObser
       ...(c.erroDoRuntime ? { erroDoRuntime: c.erroDoRuntime } : {}),
       ...(c.falhaDeConta ? { falhaDeConta: { motivo: c.falhaDeConta.motivo, resetEm: c.falhaDeConta.resetEm,
         fonte: c.falhaDeConta.fonte, trecho: c.falhaDeConta.trecho } } : {}),
+      ...(c.comandoNegado ? { comandoNegado: c.comandoNegado,
+        evidencia: `comando negado pela lista fechada do Grok: ${c.comandoNegado}` } : {}),
       // D18 da I-34: o diagnóstico vai ao pedido HITL e, como `detalhe` do `gate_blocked`, ao monitor e ao pulse.
       diagnostico: c.diagnostico, ...(detalhe ? { detalhe } : {}),
       observadoEm: new Date(agoraMs).toISOString(), gate: 'phase.dispatch', origem: 'sessions.watch',

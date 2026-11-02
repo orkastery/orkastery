@@ -8,8 +8,8 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
-  acharSessaoGrok, ambienteDoDespacho, ambienteDoFilho, casaDoGrok, despachar, disponivel, ENVS_REMOVIDAS_DO_DESPACHO,
-  montarComando, montarComandoDeRetomada, perfilDeSandbox, versao,
+  acharSessaoGrok, ambienteDoDespacho, ambienteDoFilho, casaDoGrok, COMANDOS_TERMINAL_DO_GROK, despachar, disponivel,
+  ENVS_REMOVIDAS_DO_DESPACHO, montarComando, montarComandoDeRetomada, perfilDeSandbox, regrasDosComandosDoGrok, versao,
 } from '../src/adapters/grok';
 import { ENVS_DE_PROVIDER_PAGO } from '../src/runtime-ambiente';
 import { dirTemporario } from './apoio';
@@ -20,6 +20,7 @@ const SESSAO = '0193c4a2-7b1e-7c3d-9f00-1234567890ab';
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
 const PEDIDO = { prompt: 'Conduza a fase GO da thread', nome: 'ork-grok-full', cwd: '/srv/wt', model: 'grok-modelo',
   effort: 'high', sandbox: 'workspace-write', sessionId: SESSAO };
+const REGRAS_TERMINAL = regrasDosComandosDoGrok().flatMap((regra) => ['--allow', regra]);
 
 /** Cenário de despacho real: o stub no PATH, a worktree e a pasta de logs da thread. */
 function cenario(nome: string) {
@@ -32,17 +33,20 @@ function cenario(nome: string) {
 
 test('GK1: o comando completo sai na ordem do contrato, com o prompt no argumento 2', () => {
   assert.deepEqual(montarComando(PEDIDO), ['grok', '-p', PEDIDO.prompt, '--output-format', 'streaming-json', '-s', SESSAO,
-    '--cwd', '/srv/wt', '--trust', '-m', 'grok-modelo', '--effort', 'high', '--sandbox', 'workspace', '--no-auto-update']);
+    '--cwd', '/srv/wt', '--trust', '-m', 'grok-modelo', '--effort', 'high', '--permission-mode', 'dontAsk', '--sandbox',
+    'workspace', '--no-auto-update', ...REGRAS_TERMINAL]);
   assert.equal(montarComando(PEDIDO)[2], PEDIDO.prompt, 'o ledger mascara o argumento 2');
 });
 
-test('GK2: sem modelo, esforco e id as opcoes somem, e nenhuma aprovacao automatica entra', () => {
+test('GK2: sem modelo, esforco e id as opcoes somem, e so o dontAsk fechado entra', () => {
   assert.deepEqual(montarComando({ prompt: 'x', nome: 'n', cwd: '/srv/wt' }),
-    ['grok', '-p', 'x', '--output-format', 'streaming-json', '--cwd', '/srv/wt', '--trust', '--sandbox', 'workspace', '--no-auto-update']);
+    ['grok', '-p', 'x', '--output-format', 'streaming-json', '--cwd', '/srv/wt', '--trust', '--permission-mode', 'dontAsk',
+      '--sandbox', 'workspace', '--no-auto-update', ...REGRAS_TERMINAL]);
   const comando = montarComando(PEDIDO);
-  for (const proibida of ['--yolo', '--always-approve', '--permission-mode', 'bypassPermissions']) {
+  for (const proibida of ['--yolo', '--always-approve', 'bypassPermissions']) {
     assert.equal(comando.includes(proibida), false, proibida);
   }
+  assert.equal(comando[comando.indexOf('--permission-mode') + 1], 'dontAsk');
   // RM-067 (F4): a confiança é da pasta do --cwd, e vem logo depois dela.
   assert.equal(comando[comando.indexOf('--cwd') + 2], '--trust');
 });
@@ -56,8 +60,10 @@ test('GK3: a postura do manifesto vira o perfil de sandbox do grok, com workspac
   assert.equal(perfilDeSandbox('workspace-write', 'plan'), 'read-only');
   assert.throws(() => perfilDeSandbox('off'), /^Error: runtime\.unavailable: sandbox off sem perfil do grok$/);
   assert.throws(() => perfilDeSandbox('__proto__'), /sem perfil do grok/);
-  assert.deepEqual(montarComando({ ...PEDIDO, sandbox: 'read-only' }).slice(-3), ['--sandbox', 'read-only', '--no-auto-update']);
-  assert.deepEqual(montarComando({ ...PEDIDO, colaboracao: 'plan' }).slice(-3), ['--sandbox', 'read-only', '--no-auto-update']);
+  for (const comando of [montarComando({ ...PEDIDO, sandbox: 'read-only' }), montarComando({ ...PEDIDO, colaboracao: 'plan' })]) {
+    const i = comando.indexOf('--sandbox');
+    assert.deepEqual(comando.slice(i, i + 3), ['--sandbox', 'read-only', '--no-auto-update']);
+  }
   const r = despachar({ ...PEDIDO, sandbox: 'off', dryRun: true });
   assert.equal(r.ok, false);
   assert.equal(r.erro, 'runtime.unavailable: sandbox off sem perfil do grok');
@@ -66,7 +72,8 @@ test('GK3: a postura do manifesto vira o perfil de sandbox do grok, com workspac
 test('GK4: a retomada troca o prompt pelo texto e o -s pelo -r, do comando do despacho mascarado ou nao', () => {
   const comando = montarComando(PEDIDO);
   const esperada = ['grok', '-p', 'continue', '--output-format', 'streaming-json', '-r', SESSAO, '--cwd', '/srv/wt', '--trust',
-    '-m', 'grok-modelo', '--effort', 'high', '--sandbox', 'workspace', '--no-auto-update'];
+    '-m', 'grok-modelo', '--effort', 'high', '--permission-mode', 'dontAsk', '--sandbox', 'workspace', '--no-auto-update',
+    ...REGRAS_TERMINAL];
   assert.deepEqual(montarComandoDeRetomada(comando, SESSAO), esperada);
   assert.deepEqual(montarComandoDeRetomada(comando.map((c, i) => (i === 2 ? '<prompt:abcd1234>' : c)), SESSAO), esperada);
   assert.equal(montarComandoDeRetomada(comando, SESSAO, 'retome do ponto de parada')?.[2], 'retome do ponto de parada');
@@ -263,5 +270,50 @@ test('GK14: a cauda com log de verdade e caractere fora do plano basico classifi
     const primeira = r.stderr.charCodeAt(0);
     assert.ok(primeira < 0xdc00 || primeira > 0xdfff, 'o corte nao comeca na metade baixa de um par');
     assert.equal(r.stderr.codePointAt(0), 0x1f600, 'o primeiro caractere e o emoji inteiro');
+  } finally { c.limpar(); }
+});
+
+test('GK15: a lista fechada tem os oito comandos justificados, regras estreitas e nenhum bypass ou sandbox off', () => {
+  assert.deepEqual(COMANDOS_TERMINAL_DO_GROK.map(({ comando }) => comando),
+    ['git', 'node', 'npm', 'ork', 'grep', 'find', 'ls', 'cat']);
+  assert.ok(COMANDOS_TERMINAL_DO_GROK.every(({ motivo }) => motivo.length > 20));
+  assert.deepEqual(regrasDosComandosDoGrok(), COMANDOS_TERMINAL_DO_GROK.flatMap(({ comando }) =>
+    [`Bash(${comando})`, `Bash(${comando} *)`]));
+  const comando = montarComando(PEDIDO);
+  assert.equal(comando[comando.indexOf('--permission-mode') + 1], 'dontAsk');
+  assert.equal(comando[comando.indexOf('--sandbox') + 1], 'workspace');
+  assert.equal(comando.includes('Bash(*)'), false, 'nenhum curinga abre todos os comandos');
+  for (const proibida of ['--always-approve', '--yolo', 'bypassPermissions']) assert.equal(comando.includes(proibida), false, proibida);
+});
+
+test('GK16: o grok simulado executa comando da lista e termina o turno normalmente', () => {
+  const c = cenario('terminal-permitido');
+  try {
+    c.stub.comandoTerminal('node --version');
+    const r = despachar({ ...PEDIDO, sessionId: undefined, cwd: c.wt, logDir: c.logs, esperaMs: 30000 });
+    assert.equal(r.ok, true, r.erro);
+    esperarCondicao(() => !!r.reciboPath && fs.existsSync(r.reciboPath), 30000);
+    esperarCondicao(() => !!r.logPath && fs.readFileSync(r.logPath, 'utf8').includes('"stopReason":"end_turn"'), 30000);
+    assert.match(c.stub.saidaDoComandoTerminal() ?? '', /^v\d+/);
+    assert.equal(c.stub.comandoTerminalNegado(), false);
+    assert.match(fs.readFileSync(r.logPath!, 'utf8'), /"stopReason":"end_turn"/);
+  } finally { c.limpar(); }
+});
+
+test('GK17: o grok simulado nega comando fora da lista sem executa-lo e a sessao continua', () => {
+  const c = cenario('terminal-negado');
+  const marca = path.join(c.stub.dir, 'fora-da-lista-rodou');
+  try {
+    c.stub.comandoTerminal(`sh -c 'printf executou > ${marca}'`);
+    const r = despachar({ ...PEDIDO, sessionId: undefined, cwd: c.wt, logDir: c.logs, esperaMs: 30000 });
+    assert.equal(r.ok, true, r.erro);
+    esperarCondicao(() => !!r.reciboPath && fs.existsSync(r.reciboPath), 30000);
+    esperarCondicao(() => !!r.logPath && fs.readFileSync(r.logPath, 'utf8').includes('Denied by permission policy'), 30000);
+    assert.equal(c.stub.comandoTerminalNegado(), true);
+    assert.equal(fs.existsSync(marca), false, 'o comando negado nao rodou');
+    const stream = fs.readFileSync(r.logPath!, 'utf8');
+    assert.match(stream, /Denied by permission policy/);
+    assert.match(stream, /A negação foi recebida; a fase seguiu sem o comando/);
+    assert.match(stream, /"stopReason":"end_turn"/);
   } finally { c.limpar(); }
 });
