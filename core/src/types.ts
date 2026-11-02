@@ -144,6 +144,32 @@ export interface SetupDeConducao {
   modos: Record<Modo, SetupDeModo> & Partial<Record<ModoAposentado, SetupDeModo>>;
 }
 
+/** RM-081 F2: como um comando JUnit declara que mede relogio. */
+export type MarcacaoDeRelogio = { nome: string[] } | { marcador: string } | { tag: string };
+
+/** RM-081 F5: opt-in da lane para a selecao nativa do runner na rodada morna. */
+export interface SelecaoNativa {
+  /** Comando com exatamente um marcador `{base}` ou `{arquivos}`. */
+  comando: string;
+  /** Superficie que o runner garante relacionar; vazia significa que nao ha garantia e conserva a suite inteira. */
+  mapeia: string[];
+  /** Arquivos ou globs de configuracao cuja mudanca invalida a selecao. */
+  configuracao?: string[];
+}
+
+/** RM-081 F5: causa estável da seleção ou da queda para a suíte inteira. */
+export type MotivoDaSelecaoNativa = 'rodada-fria' | 'cache-ausente' | 'cache-invalido' | 'base-mudou'
+  | 'manifesto-mudou' | 'lockfile-mudou' | 'configuracao-mudou' | 'fora-do-mapeamento'
+  | 'runner-sem-garantia' | 'sem-mudancas' | 'selecionada';
+
+/** RM-081 F5: o que uma lane executou e por quê, persistido no recibo. */
+export interface RegistroDaSelecaoNativa {
+  modo: 'selecionada' | 'inteira';
+  motivo: MotivoDaSelecaoNativa;
+  arquivos?: string[];
+  base?: string;
+}
+
 /** Manifesto do projeto (`orkastery.yaml`), na fatia v1 do bloco B0. */
 export interface Manifesto {
   project: {
@@ -198,6 +224,12 @@ export interface Manifesto {
     typecheck?: string;
     /** Comando opcional do scan de seguranca; o 4o do verify, depois de typecheck, build e test. */
     security_scan?: string;
+    /** RM-081 F1: caminho JUnit declarado junto de cada comando, normalizado pelo leitor do manifesto. */
+    junit?: Partial<Record<'build' | 'test' | 'typecheck' | 'security_scan', string>>;
+    /** RM-081 F3: comando opt-in que substitui `{testes}` pelos nomes JUnit da rodada anterior. */
+    filtro?: Partial<Record<'build' | 'test' | 'typecheck' | 'security_scan', string>>;
+    /** RM-081 F2: testes de relogio declarados junto do relatorio JUnit de cada comando. */
+    relogio?: Partial<Record<'build' | 'test' | 'typecheck' | 'security_scan', MarcacaoDeRelogio>>;
     /** I-37 (D2): prazo default de cada comando de verificacao, em ms. */
     timeout_ms?: number;
     /** I-37 (D2): prazo de um comando do manifesto, que vence o default. */
@@ -700,6 +732,13 @@ export interface Claim {
 /** I-37 (D8): por que o comando terminou. Separa "nao rodou ate o fim" de "rodou e falhou". */
 export type CausaDoComando = 'exit' | 'timeout' | 'nao-encontrado' | 'sinal';
 
+/** RM-081 F2: resultado diagnostico da segunda passagem isolada dos testes de relogio. */
+export interface RetesteDeRelogio {
+  testes: string[];
+  estado: 'passou' | 'reprovou' | 'sem-veredito' | 'sem-filtro';
+  code?: number;
+}
+
 export interface ResultadoDeComando {
   nome: string;
   comando: string;
@@ -712,8 +751,10 @@ export interface ResultadoDeComando {
   /** Prazo aplicado a este comando, resolvido uma vez por rodada (D3). */
   prazoMs?: number;
   duracaoMs?: number;
-  /** Testes que o runner reportou como reprovados (ate 10). So em comando que falha. */
+  /** Testes reprovados: ate 10 da saida legada; todos os nomes persistiveis de JUnit. So em comando que falha. */
   testeQueCaiu?: string[];
+  /** RM-081 F1: evidencia estruturada do relatorio JUnit declarado para este comando. */
+  junit?: EvidenciaJUnit;
   /** Saida real ja redigida, ate 1024 caracteres. So em comando que falha. */
   trecho?: string;
   /**
@@ -736,6 +777,8 @@ export interface ResultadoDeComando {
    * verify trata como `verify.timeout` (sem veredito, o retry reexecuta), nunca como regressao.
    */
   relogioSobSteal?: string[];
+  /** RM-081 F2: a segunda passagem nunca promove o primeiro resultado sem veredito a verde. */
+  retesteDeRelogio?: RetesteDeRelogio;
   /**
    * RM-072 (D5): no Agile, o que a guarda do produto fez com o comando: os passos do preparo tirados da frente, ou o
    * motivo de ter rodado inteiro. Ausente no Classic e em comando sem passos do preparo.
@@ -743,12 +786,43 @@ export interface ResultadoDeComando {
   preparo?: { reaproveitado: boolean; passos?: string[]; motivo?: string };
   /** RM-072 (D5): o que rodou de fato quando os passos do preparo sairam da frente; `comando` segue o inteiro. */
   comandoExecutado?: string;
+  /** RM-081 F3: a suite inteira nao rodou; estes foram os nomes JUnit selecionados. */
+  parcial?: { testes: string[] };
+  /** RM-081 F5: decisão por mudanças desta lane; seleção usada também torna o resultado parcial. */
+  selecao?: RegistroDaSelecaoNativa;
   /** RM-074 M1: prova de que um `node --test` da claim veio das lanes desta mesma rodada e ambiente. */
   lane?: { reaproveitada: true; lanes: string[]; arquivos: string[]; nomes: string[]; head: string; ambiente: string };
   /** RM-072 (D4): as lanes que compuseram o `test` do Agile. */
   lanes?: Array<{ lane: string; comando: string; ok: boolean; code: number; causa?: CausaDoComando; duracaoMs: number;
     /** RM-037 (29/10/2026): nomes que esta lane extraiu do TAP; ausente em baselines antigas ou sem TAP. */
-    testeQueCaiu?: string[] }>;
+    testeQueCaiu?: string[];
+    /** RM-081 F1: evidencia JUnit da propria lane, quando declarada. */
+    junit?: EvidenciaJUnit;
+    /** RM-081 F3: a lane terminou na passagem parcial, sem a suite inteira. */
+    parcial?: { testes: string[] };
+    /** RM-081 F5: comando realmente executado quando diferente do contrato integral. */
+    comandoExecutado?: string;
+    /** RM-081 F5: seleção nativa ou queda integral e sua causa estável. */
+    selecao?: RegistroDaSelecaoNativa;
+    /** RM-081 F2: recibo da segunda passagem isolada da lane. */
+    retesteDeRelogio?: RetesteDeRelogio;
+    relogioSobSteal?: string[];
+    stealPct?: number | null }>; 
+}
+
+/** O estado do relatorio nunca muda o codigo de saida do comando; ele qualifica somente a evidencia. */
+export type EstadoDoJUnit = 'lido' | 'ausente' | 'invalido' | 'inseguro' | 'outra-rodada' | 'erro';
+
+/** Evidencia compacta que cabe no ledger; os casos aprovados nao sao carregados para o evento. */
+export interface EvidenciaJUnit {
+  caminho: string;
+  estado: EstadoDoJUnit;
+  motivo?: string;
+  testes?: number;
+  falhas?: number;
+  erros?: number;
+  pulados?: number;
+  duracaoMs?: number;
 }
 
 /**
@@ -762,6 +836,16 @@ export interface ConfigDoAgile {
   preparo?: string;
   /** As lanes que substituem o `verify.test`, por nome, rodando juntas com a guarda valendo. */
   test?: Record<string, string>;
+  /** RM-081 F1: caminho JUnit normalizado por lane; ausente preserva o contrato textual anterior. */
+  junit?: Record<string, string>;
+  /** RM-081 F3: comando de selecao nominal por lane; ausente preserva a suite inteira. */
+  filtro?: Record<string, string>;
+  /** RM-081 F5: selecao nativa por mudancas, somente na rodada morna do Agile. */
+  selecao?: Record<string, SelecaoNativa>;
+  /** RM-081 F2: marcacao de relogio por lane JUnit; ausente preserva o julgamento anterior. */
+  relogio?: Record<string, MarcacaoDeRelogio>;
+  /** RM-081 F4: servicos exclusivos declarados no mesmo objeto das demais chaves da lane. */
+  recursos?: Record<string, string[]>;
   /** As lanes de `test` que so comecam quando o `security_scan` do grupo termina (as que sobem containers). */
   apos_a_varredura?: string[];
   /** `osv-scanner` no lugar de `trivy-vuln` e `npm-audit` (D13); desligado por padrao. */

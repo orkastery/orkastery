@@ -4,9 +4,9 @@ tipo: roadmap
 titulo: CHECK que entende qualquer runner de teste e só roda de novo o necessário
 categoria: iniciativa
 pai: null
-features: []
+features: [FEAT-004]
 owner: Julio
-atualizado_em: 2026-11-01T01:30:00-03:00
+atualizado_em: 2026-11-02T00:00:00-03:00
 estado:
   ciclo: Discovery
   documentacao: Rascunho
@@ -68,8 +68,10 @@ sdlc:
     - Na rodada de correção, o verify roda primeiro os testes que caíram na rodada anterior, com o filtro do próprio runner declarado no manifesto. Se algum ainda cai, reprova sem rodar o resto.
     - A suíte inteira roda uma vez antes do SHIP.
   - **F4 · Lanes do tamanho da máquina.**
-    - O Agile passa a cada lane quantos workers ela pode usar, pela CPU medida, numa variável de ambiente que o comando do projeto lê.
-    - Lanes que sobem serviço declaram o recurso, para não disputar porta nem banco.
+    - O Agile passa `ORK_WORKERS` a cada lane com a reserva vigente medida pelo agendador; o Classic publica a mesma variável com a capacidade inteira disponível.
+    - `check.agile.test` preserva `lane: comando` e aceita um objeto único com as chaves de F1, F2, F3 e F5, mais `recursos`.
+    - Lanes com recurso comum não se sobrepõem; a soma das reservas simultâneas permanece dentro da capacidade medida.
+    - Pytest, Playwright, Vitest, Jest e Go têm exemplos no [guia de verificação](../guias/verificacao.md#workers-e-recursos-por-lane).
   - **F5 · Seleção pelo que mudou, só na rodada morna.**
     - Usa a seleção nativa do runner declarada no manifesto, com a regra da M7 da [RM-074](RM-074-agile-check-tres-vezes-mais-rapido.md): na dúvida, suíte inteira.
     - Nunca vale no SHIP.
@@ -109,13 +111,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-11-01 | Julio |
-| Documentação | Rascunho | — | 2026-11-01 | Julio |
-| Código | Não iniciado | — | 2026-11-01 | Julio |
-| Testes | Não iniciados | — | 2026-11-01 | Julio |
-| Deploy | Não implantado | — | 2026-11-01 | Julio |
-| Exposição | Flag desligada | — | 2026-11-01 | Julio |
-| Habilitação | Pendente | — | 2026-11-01 | Julio |
+| Ciclo do item | Discovery | — | 2026-11-02 | Julio |
+| Documentação | Rascunho | — | 2026-11-02 | Julio |
+| Código | Não iniciado | — | 2026-11-02 | Julio |
+| Testes | Não iniciados | — | 2026-11-02 | Julio |
+| Deploy | Não implantado | — | 2026-11-02 | Julio |
+| Exposição | Flag desligada | — | 2026-11-02 | Julio |
+| Habilitação | Pendente | — | 2026-11-02 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -123,8 +125,41 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: a sessão condutora de cada fatia; A: Julio; C: a definir; I: a definir.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** item aberto pela condução da VPS a pedido do dono, a partir do relato da pilha de testes de outra rede; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** a condução despacha a F1, com a F4 ao lado, depois da 0.6.4.
+- **Próxima ação, responsável e prazo:** a condução submete a F3 empilhada sobre a F1; F2 e F4 seguem como fatias independentes depois da 0.6.4.
+
+### F2 nesta fatia
+
+- O manifesto aceita `relogio` por comando ou lane JUnit, com uma estratégia entre padrão de nome, marcador e tag. Sem a declaração, Classic e Agile conservam o julgamento anterior.
+- Sob steal acima do limiar, somente um conjunto de falhas integralmente marcado fica sem veredito. Falha comum no mesmo comando, ou caso marcado sem steal alto, continua regressão.
+- A segunda rodada reutiliza o filtro nominal da F3 para isolar os nomes marcados quando ele existe. O resultado é diagnóstico e nunca transforma o primeiro resultado em verde.
+- Ledger, gate e texto bilíngue conservam os nomes, o steal e o resultado da segunda rodada. Os mutantes cobrem marcação excessiva, limiar ignorado, promoção indevida a verde, ausência de isolamento e perda do recibo.
+
+### F3 nesta fatia
+
+- O mapa de comando aceita `filtro` ao lado de `comando` e `junit`; sem a declaração nova, Classic e Agile continuam com a suíte inteira.
+- A correção usa somente nomes JUnit do último `verify_run` do mesmo comando. Parcial vermelha reprova ali; parcial verde segue para o comando integral.
+- O recibo e o texto declaram a parcial e os nomes selecionados. O SHIP recusa explicitamente qualquer recibo parcial.
+- Testes focados cobrem Classic, lanes Agile, escape dos nomes e a defesa do SHIP; a bancada de razão permanece com a condução.
+
+### F5 nesta fatia
+
+- A lane Agile aceita `selecao` com comando nativo, caminhos que o runner garante mapear e configurações que invalidam essa garantia. Sem a declaração, nada muda.
+- Só a rodada morna com último `verify_run` verde, mesma base, commit ancestral e árvore limpa pode selecionar. Rodada fria, Classic, cache ausente ou inválido, manifesto, lockfile, configuração e caminho não mapeado executam a suíte inteira com o motivo.
+- A lane grava modo, motivo, arquivos e base no ledger e no texto bilíngue. A seleção reutiliza `parcial` da F3; o SHIP continua recusando pelo caminho existente.
+- O guia e a referência trazem exemplos de Vitest, Jest e Playwright. Testes focados e mutantes cobrem as regras; a razão contra a rodada integral fica para a bancada da condução, sem ganho antecipado.
+
+### F4 nesta fatia
+
+- A F4 entrou sobre a pilha de F1, F2, F3 e F5: a lane tem uma única declaração, textual ou em objeto, sem escolher entre formatos incompatíveis.
+- O objeto usa o leitor comum de comando e reúne `comando`, `junit`, `filtro`, `relogio`, `selecao` e `recursos`; chave desconhecida conserva o caminho completo no erro.
+- O Agile publica `ORK_WORKERS` pela reserva vigente e serializa somente lanes com recurso comum. O Classic publica o mesmo contrato com a capacidade inteira e conserva comandos e ordem.
+- Testes focados, TL10, TL11 e mutantes M1–M4 cobrem o contrato. A razão contra a rodada sem a fatia permanece para a bancada da condução, sem ganho antecipado.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-11-01 | Item criado em Discovery, com as fatias F1 a F5 | Relato da pilha de testes de outra rede, conferido contra a 0.6.3 | Julio (pedido de 01/11/2026) |
+| 2026-11-02 | F1 implementa JUnit declarado por comando e lane, sem mudar a forma textual | Fixtures de pytest, Vitest, Jest, Playwright e gotestsum e mutantes da thread `ork-rm081f1relat`; veredito no CHECK | Codex (#Auto, D1 registrada no ledger) |
+| 2026-11-02 | F3 roda primeiro os nomes da correção e conserva a suíte inteira como condição do SHIP | Testes focados da thread `ork-rm081f3rodad`; D1 a D4 registradas no ledger; CHECK pendente | Codex (#Auto) |
+| 2026-11-02 | F2 protege qualquer runner JUnit marcado contra julgamento temporal sob steal, sem esconder falha comum | Testes focados e mutantes da thread `ork-rm081f2teste`; decisões autônomas registradas no ledger; CHECK pendente | Codex (#Auto) |
+| 2026-11-02 | F5 usa seleção nativa somente no Agile morno e cai para a suíte inteira na dúvida | Testes focados e mutantes da thread `ork-rm081f5selec`; decisões autônomas registradas no ledger; CHECK pendente | Codex (#Auto) |
+| 2026-11-02 | F4 entra sobre a pilha com workers por reserva e recursos exclusivos na declaração única da lane | Testes focados e mutantes M1–M4 da thread `ork-rm081f4sobre`; decisões D1–D4 registradas no ledger; CHECK pendente | Codex (#Auto) |

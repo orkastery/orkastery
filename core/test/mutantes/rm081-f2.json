@@ -1,0 +1,78 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-081 F2: cada mutante remove uma garantia do relogio JUnit protegido sob steal.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "uma assercao comum no mesmo comando passa a ser tratada como falha de relogio",
+      "modulo": "steal",
+      "de": "const todas = falhas.every((f) => f.relogio || registro.has(f.nome));",
+      "para": "const todas = falhas.some((f) => f.relogio || registro.has(f.nome));",
+      "teste": "rm081-f2",
+      "nome": "^RM081 F2 V2:"
+    },
+    {
+      "id": "M2",
+      "descricao": "um teste marcado que cai sem steal alto deixa de ser regressao",
+      "modulo": "verify",
+      "de": "if (!r.ok && r.causa !== 'timeout' && r.executado !== false && (0, steal_1.stealAlto)(stealPct)) {",
+      "para": "if (!r.ok && r.causa !== 'timeout' && r.executado !== false) {",
+      "teste": "rm081-f2",
+      "nome": "^RM081 F2 V2:"
+    },
+    {
+      "id": "M3",
+      "descricao": "o resultado sem veredito passa a ficar verde depois da marcacao",
+      "modulo": "verify",
+      "de": "resultado.relogioSobSteal = testes;",
+      "para": "resultado.relogioSobSteal = testes;\n            resultado.ok = true;",
+      "teste": "rm081-f2",
+      "nome": "^RM081 F2 V1:"
+    },
+    {
+      "id": "M4",
+      "descricao": "a segunda rodada repete o comando completo em vez de isolar os testes marcados",
+      "modulo": "verify",
+      "de": "return filtro ? comJUnit(nome, comandoComTestesFiltrados(filtro, testes), cwd) : null;",
+      "para": "return filtro ? comJUnit(nome, _comando, cwd) : null;",
+      "teste": "rm081-f2",
+      "nome": "^RM081 F2 V1:"
+    },
+    {
+      "id": "M5",
+      "descricao": "marcador e tag deixam de declarar o comando JUnit dedicado",
+      "modulo": "junit",
+      "de": "if ('marcador' in marcacao || 'tag' in marcacao)\n        return true;",
+      "para": "if ('marcador' in marcacao || 'tag' in marcacao)\n        return false;",
+      "teste": "rm081-f2",
+      "nome": "^RM081 F2 M3:"
+    },
+    {
+      "id": "M6",
+      "descricao": "o padrao de nome deixa de marcar o testcase JUnit",
+      "modulo": "junit",
+      "de": "return new RegExp(padrao).test(nome);",
+      "para": "return false;",
+      "teste": "rm081-f2",
+      "nome": "^RM081 F2 V1:"
+    },
+    {
+      "id": "M7",
+      "descricao": "o recibo do reteste deixa de ser anexado ao resultado",
+      "modulo": "verify",
+      "de": "resultado.retesteDeRelogio = reciboDoReteste(testes, retestar(testes));",
+      "para": "reciboDoReteste(testes, retestar(testes));",
+      "teste": "rm081-f2",
+      "nome": "^RM081 F2 L1:"
+    },
+    {
+      "id": "M8",
+      "descricao": "o agregado Agile deixa de conservar o recibo das lanes",
+      "modulo": "check-agil",
+      "de": "...(reteste ? { retesteDeRelogio: reteste } : {}),",
+      "para": "...{},",
+      "teste": "rm081-f2",
+      "nome": "^RM081 F2 A1:"
+    }
+  ]
+}

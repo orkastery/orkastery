@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="3" failures="1" errors="0" time="0.055">
+  <testsuite name="servico" errors="0" failures="1" skipped="1" timestamp="2026-11-01T12:00:00" time="0.055" tests="3">
+    <testcase classname="servico consulta" name="responde com os dados" time="0.014" />
+    <testcase classname="servico consulta" name="propaga a falha" time="0.036">
+      <failure>Error: resposta inesperada
+    at Object.&lt;anonymous&gt; (src/servico.test.ts:22:5)</failure>
+    </testcase>
+    <testcase classname="servico consulta" name="integração opcional" time="0.005">
+      <skipped />
+    </testcase>
+  </testsuite>
+</testsuites>
