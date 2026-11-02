@@ -1237,7 +1237,7 @@ test('AG51: perfil da arvore fecha com conteiner ausente; perfil incompleto ou i
   assert.equal(picoDaArvoreParaPerfil({ ...medidaComLacuna, arvoreCompleta: false }, 8), null,
     'a arvore incompleta nunca ensina uma reserva');
 
-  const medida = planejarCpuDoGrupo(8, { carga1: 0, stealPct: 0, cpusIntegracao: 0.01, fonteCpusIntegracao: 'medida' });
+  const medida = planejarCpuDoGrupo(8, { carga1: 0, stealPct: 0, cpusIntegracao: 0, fonteCpusIntegracao: 'medida' });
   assert.equal(medida.cpusIntegracao, 1, 'a reserva medida nunca fica abaixo de uma CPU');
   const semPerfil = planejarCpuDoGrupo(8, { carga1: 0, stealPct: 0, cpusIntegracao: 0.01 });
   assert.equal(semPerfil.cpusIntegracao, 2, 'um numero sem a origem de perfil nao reduz a reserva conservadora');
