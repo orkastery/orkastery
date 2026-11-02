@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-01T01:30:00-03:00
+atualizado_em: 2026-11-02T00:00:00-03:00
 estado:
   ciclo: Discovery
   documentacao: Rascunho
@@ -109,13 +109,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-11-01 | Julio |
-| Documentação | Rascunho | — | 2026-11-01 | Julio |
-| Código | Não iniciado | — | 2026-11-01 | Julio |
-| Testes | Não iniciados | — | 2026-11-01 | Julio |
-| Deploy | Não implantado | — | 2026-11-01 | Julio |
-| Exposição | Flag desligada | — | 2026-11-01 | Julio |
-| Habilitação | Pendente | — | 2026-11-01 | Julio |
+| Ciclo do item | Discovery | — | 2026-11-02 | Julio |
+| Documentação | Rascunho | — | 2026-11-02 | Julio |
+| Código | Não iniciado | — | 2026-11-02 | Julio |
+| Testes | Não iniciados | — | 2026-11-02 | Julio |
+| Deploy | Não implantado | — | 2026-11-02 | Julio |
+| Exposição | Flag desligada | — | 2026-11-02 | Julio |
+| Habilitação | Pendente | — | 2026-11-02 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -128,3 +128,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-11-01 | Item criado em Discovery, com as fatias F1 a F5 | Relato da pilha de testes de outra rede, conferido contra a 0.6.3 | Julio (pedido de 01/11/2026) |
+| 2026-11-02 | F1 implementa JUnit declarado por comando e lane, sem mudar a forma textual | Fixtures de pytest, Vitest, Jest, Playwright e gotestsum e mutantes da thread `ork-rm081f1relat`; veredito no CHECK | Codex (#Auto, D1 registrada no ledger) |

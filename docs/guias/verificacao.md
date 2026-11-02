@@ -93,20 +93,63 @@ sha do commit, o diretório, e o resultado por claim.
 ### Comparação teste a teste dentro do mesmo comando
 
 Quando o runner nomeia as falhas, a baseline guarda `testeQueCaiu` por comando e, no Agile, também por lane. O verify faz a comparação teste a teste
-esses nomes por igualdade exata: nome que aparece apenas na rodada atual é regressão e bloqueia
+desses nomes por igualdade exata: nome que aparece apenas na rodada atual é regressão e bloqueia
 com `verify.regression`; nome presente nos dois lados continua como dívida pré-existente; nome que
 existia só na baseline fica registrado como corrigido. Assim, se `test` já falhava em `A` e passa a
 falhar em `A` e `B`, `B` não se esconde dentro do vermelho anterior.
 
 Teste renomeado é deliberadamente conservador: o nome antigo sai como corrigido e o novo como
-regressão. Não há heurística de semelhança, porque o TAP fornece nomes, não uma identidade estável.
-Um teste instável que aparece com o mesmo nome nos dois lados continua pré-existente. A evidência
-nominal é limitada aos até dez nomes que o parser já registra por comando.
+regressão. Não há heurística de semelhança. Um teste instável que aparece com o mesmo nome nos dois
+lados continua pré-existente. Sem relatório declarado, a evidência nominal conserva o teto de dez
+nomes do extrator da saída. Com JUnit, todos os nomes de falha e erro ficam no ledger; o texto do
+terminal resume os primeiros dez.
 
 Em baseline antiga ou comando sem TAP, quando falta nome em qualquer lado que falhou, vale a
 **comparação somente por comando**, compatível com a regra anterior. A saída diz essa granularidade
 e não afirma “0 regressões” por teste: sem os nomes, essa contagem não foi calculada. Baseline verde
 prova um conjunto vazio de falhas; se a rodada atual trouxer nomes, todos eles são regressões.
+
+### Relatório JUnit declarado no manifesto
+
+O comando pode continuar como texto. Para ler o resultado estruturado de qualquer runner, troque
+somente o valor pelo mapa com `comando` e `junit`; o caminho é relativo à worktree:
+
+```yaml
+verify:
+  build: "npm run build" # forma existente, sem mudança
+  test:
+    comando: "pytest --junitxml reports/pytest.xml"
+    junit: reports/pytest.xml
+
+check:
+  agile:
+    test:
+      rapida: "npm run test:rapida" # lane textual continua válida
+      navegador:
+        comando: "PLAYWRIGHT_JUNIT_OUTPUT_NAME=reports/playwright.xml npx playwright test --reporter=junit"
+        junit: reports/playwright.xml
+```
+
+O verify remove o arquivo declarado antes do comando e lê o novo depois. Ele aceita somente arquivo
+regular, dentro da worktree e produzido nessa execução. XML ausente, inválido, grande demais, antigo
+ou alcançado por link não serve como evidência: o código de saída continua julgando o comando e o
+campo `junit` do ledger registra o estado e o motivo. O XML nunca transforma código de saída vermelho
+em verde.
+
+Os runners escrevem o mesmo contrato com opções diferentes:
+
+- **pytest:** `pytest --junitxml reports/pytest.xml`.
+- **Vitest:** `vitest run --reporter=junit --outputFile=reports/vitest.xml`.
+- **Jest:** `jest --reporters=default --reporters=jest-junit`, com `JEST_JUNIT_OUTPUT_FILE=reports/jest.xml`.
+- **Playwright:** `playwright test --reporter=junit`, com `PLAYWRIGHT_JUNIT_OUTPUT_NAME=reports/playwright.xml`.
+- **Go:** `gotestsum --junitfile reports/go.xml -- ./...`.
+
+O leitor usa `classname :: name`; sem classe, usa `file :: name`; sem ambos, usa só `name`. Se o
+nome de uma falha ou erro precisaria ser truncado ou redigido, o relatório não serve para comparação
+nominal: ele é marcado como inválido, sem copiar o conteúdo para o motivo. Isso evita colisões de
+identidade sem limitar a quantidade de casos. O leitor distingue passou, falhou, erro e pulado e soma
+a duração dos casos. Falhas e erros alimentam `testeQueCaiu`; casos aprovados não são copiados para o
+ledger.
 
 ### Estouro de prazo não é reprovação
 
@@ -196,13 +239,16 @@ que falha:
 | --- | --- |
 | `causa` | `exit`, `timeout`, `nao-encontrado` ou `sinal` |
 | `prazoMs`, `duracaoMs` | O prazo aplicado e o tempo que o comando levou |
-| `testeQueCaiu` | Até 10 testes que o runner reportou como reprovados (`not ok` do TAP e a seção "failing tests" do reporter `spec` do `node --test`, `FAIL` de jest e vitest); no Agile, cada item de `lanes` preserva os nomes da própria lane |
+| `testeQueCaiu` | Sem JUnit, até 10 testes extraídos da saída (`not ok` do TAP, a seção "failing tests" do reporter `spec` e `FAIL` de Jest/Vitest). Com JUnit válido, todas as falhas e erros; no Agile, cada item de `lanes` preserva os nomes da própria lane |
+| `junit` | Caminho e estado da leitura; quando válido, total de testes, falhas, erros, pulados e duração somada. No Agile, aparece também por lane |
 | `stealPct`, `relogioSobSteal` | O steal da CPU na janela do comando e, quando a reprovação foi só de relógio sob steal acima de 40%, os testes (RM-037) |
 | `trecho` | O fim da saída real, até 1024 caracteres, redigido |
 
 A redação segue a regra do prompt: credencial em URL vira `[credencial redigida]@`, e se
 qualquer padrão de segredo casar, o trecho inteiro é descartado e vira
-`[trecho omitido: padrao <nome> casou]`. Comando que passa grava só o código 0.
+`[trecho omitido: padrao <nome> casou]`. Comando que passa grava o código 0 e a duração; quando
+há JUnit declarado, grava também o estado da leitura e, se válido, as contagens e a duração somada
+dos casos.
 
 O comando de verificação também nunca herda variável `ORK_HITL_*`: quem prova uma alegação não
 pode agir como o dono.

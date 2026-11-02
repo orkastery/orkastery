@@ -32,7 +32,7 @@ import * as path from 'node:path';
 import { ENV_RELATORIO_DO_CHECK } from './check-modo';
 import { planejarCpuDoGrupo } from './agendador-cpu';
 import { redigirCredenciaisUrl } from './redacao-url';
-import { CausaDoComando, Manifesto, ResultadoDeComando } from './types';
+import { CausaDoComando, EvidenciaJUnit, Manifesto, ResultadoDeComando } from './types';
 
 /** Uma peca do Agile e o que aconteceu com ela; `fallback` diz o equivalente do Classic que rodou no lugar. */
 export interface PecaDoAgile {
@@ -57,6 +57,8 @@ export interface UsoDoPreparo {
 export interface ItemDoGrupo {
   nome: string;
   comando: string;
+  /** RM-081 F1: relatorio que o proprio comando escreve, preparado pelo executor antes do grupo. */
+  junit?: string;
   /** Prioridade menor (nice) no processo auxiliar. */
   nice?: number;
   /** Os itens do grupo (pelo nome, antes deste na lista) que precisam terminar antes de este comecar. */
@@ -329,6 +331,16 @@ function caiuDeVerdade(r: ResultadoDeComando): boolean {
     && r.code >= 1 && r.code <= MAIOR_CODIGO_DA_LANE && !(r.relogioSobSteal?.length);
 }
 
+/** O agregado so afirma contagens quando todas as lanes trouxeram JUnit valido. */
+function junitDasLanes(lanes: Array<{ lane: string; resultado: ResultadoDeComando }>): EvidenciaJUnit | undefined {
+  if (!lanes.length || lanes.some((l) => l.resultado.junit?.estado !== 'lido')) return undefined;
+  const relatorios = lanes.map((l) => l.resultado.junit!);
+  const somar = (campo: 'testes' | 'falhas' | 'erros' | 'pulados' | 'duracaoMs') =>
+    relatorios.reduce((total, r) => total + (r[campo] ?? 0), 0);
+  return { caminho: relatorios.map((r) => r.caminho).join(';'), estado: 'lido', testes: somar('testes'),
+    falhas: somar('falhas'), erros: somar('erros'), pulados: somar('pulados'), duracaoMs: somar('duracaoMs') };
+}
+
 /**
  * O `test` das lanes (D4): ok so com todas ok; a evidencia de quem caiu; a parede e a da lane mais longa. A falha de
  * verdade de uma lane manda, como num comando so do Classic: o estouro ou o relogio sob steal de outra lane nao a esconde.
@@ -355,8 +367,10 @@ export function testDasLanes(lanes: Array<{ lane: string; resultado: ResultadoDe
   const causas = lanes.map((l) => l.resultado.causa).filter((c): c is CausaDoComando => !!c);
   const causa = deVerdade.length ? deVerdade[0].resultado.causa ?? 'exit' : PIOR_CAUSA.find((c) => causas.includes(c));
   const soRelogio = caidas.length > 0 && caidas.every((l) => (l.resultado.relogioSobSteal?.length ?? 0) > 0);
-  const testes = juntar((r) => r.testeQueCaiu).slice(0, 10);
+  const nomesExtraidos = juntar((r) => r.testeQueCaiu);
+  const testes = lanes.some((l) => l.resultado.junit?.estado === 'lido') ? nomesExtraidos : nomesExtraidos.slice(0, 10);
   const falhas = juntar((r) => r.falhasDeTeste);
+  const junit = junitDasLanes(lanes);
   const relogio = soRelogio ? juntar((r) => r.relogioSobSteal) : [];
   const trechos = caidas.map((l) => l.resultado.trecho).filter((t): t is string => !!t);
   return {
@@ -371,12 +385,14 @@ export function testDasLanes(lanes: Array<{ lane: string; resultado: ResultadoDe
     executado: !tempoComFalha && lanes.every((l) => l.resultado.executado !== false),
     ...(testes.length ? { testeQueCaiu: testes } : {}),
     ...(falhas.length ? { falhasDeTeste: falhas } : {}),
+    ...(junit ? { junit } : {}),
     ...(trechos.length ? { trecho: trechos.join('\n').slice(0, 1024) } : {}),
     ...(lanes.some((l) => l.resultado.stealPct !== undefined) ? { stealPct: lanes.find((l) => l.resultado.stealPct !== undefined)!.resultado.stealPct } : {}),
     ...(relogio.length ? { relogioSobSteal: relogio } : {}),
     lanes: lanes.map((l) => ({ lane: l.lane, comando: l.resultado.comando, ok: l.resultado.ok, code: l.resultado.code,
       ...(l.resultado.causa ? { causa: l.resultado.causa } : {}), duracaoMs: l.resultado.duracaoMs ?? 0,
-      ...(l.resultado.testeQueCaiu?.length ? { testeQueCaiu: l.resultado.testeQueCaiu } : {}) })),
+      ...(l.resultado.testeQueCaiu?.length ? { testeQueCaiu: l.resultado.testeQueCaiu } : {}),
+      ...(l.resultado.junit ? { junit: l.resultado.junit } : {}) })),
   };
 }
 
@@ -413,7 +429,7 @@ export interface ComandosDoAgile {
  * Os comandos do manifesto no Agile (D4): `build` reaproveitado do preparo com a guarda valendo; o resto num grupo
  * paralelo, com as lanes no lugar do `verify.test`, so com a guarda valendo; sem ela, tudo em serie (o Classic).
  */
-export function comandosNoAgile(manifesto: Manifesto, cwd: string, lista: { nome: string; comando: string }[], executor: ExecutorUnico,
+export function comandosNoAgile(manifesto: Manifesto, cwd: string, lista: { nome: string; comando: string; junit?: string }[], executor: ExecutorUnico,
   grupo: ExecutorDeGrupo, guarda: GuardaDoProduto, preparo: ResultadoDeComando | null): ComandosDoAgile {
   const pecas: PecaDoAgile[] = [];
   const passosDoPreparo = manifesto.verify.preparo ? passosDoComando(manifesto.verify.preparo) : [];
@@ -444,10 +460,14 @@ export function comandosNoAgile(manifesto: Manifesto, cwd: string, lista: { nome
   for (const c of resto) {
     if (c.nome === 'test' && lanesDeclaradas.length > 0) {
       for (const [lane, comando] of lanesDeclaradas) {
-        if (depoisDaVarredura.has(lane)) encadeados.push({ nome: `test:${lane}`, comando, apos: ['security_scan'], papelCpu: 'integracao' });
-        else itens.push({ nome: `test:${lane}`, comando, papelCpu: lane === 'hermetica' ? 'hermetica' : 'outro' });
+        const junit = manifesto.check?.agile?.junit?.[lane];
+        if (depoisDaVarredura.has(lane)) encadeados.push({ nome: `test:${lane}`, comando,
+          ...(junit ? { junit } : {}), apos: ['security_scan'], papelCpu: 'integracao' });
+        else itens.push({ nome: `test:${lane}`, comando, ...(junit ? { junit } : {}),
+          papelCpu: lane === 'hermetica' ? 'hermetica' : 'outro' });
       }
-    } else itens.push({ nome: c.nome, comando: c.comando, papelCpu: c.nome === 'security_scan' ? 'varredura' : 'outro' });
+    } else itens.push({ nome: c.nome, comando: c.comando, ...(c.junit ? { junit: c.junit } : {}),
+      papelCpu: c.nome === 'security_scan' ? 'varredura' : 'outro' });
   }
   itens.push(...encadeados);
   const resultados = itens.length > 1 ? grupo(itens, cwd) : itens.map((i) => executor(i.nome, i.comando, cwd));

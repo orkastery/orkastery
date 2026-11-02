@@ -220,6 +220,41 @@ function lerCheck(v: ValorYaml | undefined, erros: string[], avisos: string[]): 
 /** Nome de lane: o que vira `test:<lane>` no ledger. */
 const NOME_DE_LANE = /^[a-z0-9][a-z0-9-]{0,31}$/;
 
+interface ComandoLido { comando?: string; junit?: string }
+
+/** RM-081 F1: o relatorio e sempre um caminho POSIX relativo, nunca uma busca ou um caminho da maquina. */
+function caminhoJUnit(chave: string, v: ValorYaml, erros: string[]): string | undefined {
+  if (typeof v !== 'string' || !v.trim()) {
+    erros.push(`${chave} precisa ser um caminho relativo, em texto`);
+    return undefined;
+  }
+  const bruto = v.trim();
+  const normal = path.posix.normalize(bruto);
+  if (bruto.includes('\\') || bruto.includes('\0') || path.posix.isAbsolute(bruto) || path.win32.isAbsolute(bruto)
+      || normal === '.' || normal === '..' || normal.startsWith('../')) {
+    erros.push(`${chave}: ${exibir(v)} precisa ser um caminho relativo dentro da worktree`);
+    return undefined;
+  }
+  return normal;
+}
+
+/** Texto continua sendo o contrato legado; o objeto novo exige as duas chaves e nenhuma outra. */
+function lerComando(chave: string, v: ValorYaml, erros: string[]): ComandoLido {
+  if (v === undefined || v === null) return {};
+  if (typeof v === 'string') return { comando: v };
+  if (typeof v !== 'object' || Array.isArray(v)) {
+    erros.push(`${chave} precisa ser o comando em texto ou um mapa com comando e junit (recebido ${exibir(v)})`);
+    return {};
+  }
+  for (const nome of Object.keys(v)) {
+    if (!['comando', 'junit'].includes(nome)) erros.push(`${chave}.${nome} desconhecida; use somente comando e junit`);
+  }
+  const comando = typeof v.comando === 'string' && v.comando.trim() ? v.comando.trim() : undefined;
+  if (!comando) erros.push(`${chave}.comando precisa ser texto nao vazio`);
+  const junit = caminhoJUnit(`${chave}.junit`, v.junit, erros);
+  return { ...(comando ? { comando } : {}), ...(junit ? { junit } : {}) };
+}
+
 /**
  * RM-072 (D3): o bloco `check.agile`. Cada chave liga uma peca do Agile; tipo errado e erro do manifesto, porque uma
  * peca mal escrita que sumisse em silencio mudaria o que o CHECK roda. `produto` so aceita caminho relativo dentro da
@@ -257,12 +292,17 @@ function lerAgile(v: ValorYaml | undefined, erros: string[], avisos: string[]): 
       erros.push(`check.agile.test precisa ser um mapa de lane para comando (recebido ${exibir(v.test)})`);
     } else {
       const lanes: Record<string, string> = {};
-      for (const [lane, comando] of Object.entries(v.test)) {
+      const junit: Record<string, string> = {};
+      for (const [lane, valor] of Object.entries(v.test)) {
         if (!NOME_DE_LANE.test(lane)) erros.push(`check.agile.test.${lane}: nome de lane aceita [a-z0-9-], ate 32 caracteres`);
-        else if (typeof comando !== 'string' || !comando.trim()) erros.push(`check.agile.test.${lane} precisa ser o comando, em texto`);
-        else lanes[lane] = comando.trim();
+        else {
+          const lido = lerComando(`check.agile.test.${lane}`, valor, erros);
+          if (lido.comando) lanes[lane] = lido.comando.trim();
+          if (lido.junit) junit[lane] = lido.junit;
+        }
       }
       if (Object.keys(lanes).length) agile.test = lanes;
+      if (Object.keys(junit).length) agile.junit = junit;
     }
   }
   if (v.apos_a_varredura !== undefined && v.apos_a_varredura !== null) {
@@ -579,6 +619,11 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
       '(esperado nome de branch do git, sem "-" no começo e sem "..")');
   }
   const verify = mapa(dados.verify);
+  const comandosVerify = Object.fromEntries((['build', 'test', 'typecheck', 'security_scan'] as const)
+    .map((nome) => [nome, lerComando(`verify.${nome}`, verify[nome], erros)])) as
+      Record<'build' | 'test' | 'typecheck' | 'security_scan', ComandoLido>;
+  const junitVerify = Object.fromEntries(Object.entries(comandosVerify)
+    .flatMap(([nome, lido]) => lido.junit ? [[nome, lido.junit]] : [])) as NonNullable<Manifesto['verify']['junit']>;
   const ci = mapa(dados.ci);
   const concurrency = mapa(dados.concurrency);
   const handoff = mapa(dados.handoff);
@@ -804,17 +849,12 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
       ...dependenciasDaWorktree(worktree.dependencias, erros),
     },
     verify: {
-      build: verify.build === null || verify.build === undefined ? undefined : texto(verify.build, ''),
-      test: verify.test === null || verify.test === undefined ? undefined : texto(verify.test, ''),
+      build: comandosVerify.build.comando,
+      test: comandosVerify.test.comando,
       ...prazosDoVerify(verify, erros),
-      typecheck:
-        verify.typecheck === null || verify.typecheck === undefined
-          ? undefined
-          : texto(verify.typecheck, ''),
-      security_scan:
-        verify.security_scan === null || verify.security_scan === undefined
-          ? undefined
-          : texto(verify.security_scan, ''),
+      typecheck: comandosVerify.typecheck.comando,
+      security_scan: comandosVerify.security_scan.comando,
+      ...(Object.keys(junitVerify).length ? { junit: junitVerify } : {}),
       // I-54 (RM-037, D10): o preparo unico da rodada de verify, quando declarado.
       ...(typeof verify.preparo === 'string' && verify.preparo.trim() ? { preparo: verify.preparo.trim() } : {}),
     },

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites id="" name="" tests="3" failures="1" skipped="1" errors="0" time="1.725">
+  <testsuite name="acesso.spec.ts" timestamp="2026-11-01T12:00:00.000Z" hostname="chromium" tests="3" failures="1" skipped="1" time="1.725" errors="0">
+    <testcase name="abre a página" classname="acesso.spec.ts" time="0.511">
+      <system-out><![CDATA[
+[[ATTACHMENT|traces/abre.zip]]
+]]></system-out>
+    </testcase>
+    <testcase name="exibe a validação" classname="acesso.spec.ts" time="1.113">
+      <failure message="acesso.spec.ts:18:5 exibe a validação" type="FAILURE">
+        <![CDATA[Error: expect(locator).toBeVisible() failed]]>
+      </failure>
+    </testcase>
+    <testcase name="cenário móvel" classname="acesso.spec.ts" time="0.101">
+      <skipped />
+    </testcase>
+  </testsuite>
+</testsuites>
