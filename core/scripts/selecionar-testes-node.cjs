@@ -11,7 +11,10 @@ async function principal(args) {
   if (!LANES.includes(lane)) throw new Error(`uso: selecionar-testes-node.cjs ${LANES.join('|')} <arquivos mudados...>`);
   const listas = listasDasLanes();
   const plano = planejarSelecaoNode(path.resolve(__dirname, '../dist-test'), listas[lane], alterados);
-  process.stderr.write(`selecionar-testes-node: ${lane} ${plano.modo} (${plano.motivo}), ${plano.arquivos.length} arquivo(s)\n`);
+  const sempre = plano.sempre ? new Set([...plano.sempre.processoFilho, ...plano.sempre.dependenciaIncerta]).size : 0;
+  const detalhe = plano.sempre ? `; ${sempre} sempre (${plano.sempre.processoFilho.length} processo filho, `
+    + `${plano.sempre.dependenciaIncerta.length} dependencia incerta)` : '';
+  process.stderr.write(`selecionar-testes-node: ${lane} ${plano.modo} (${plano.motivo}), ${plano.arquivos.length} arquivo(s)${detalhe}\n`);
   return rodarLane(lane, plano.arquivos);
 }
 

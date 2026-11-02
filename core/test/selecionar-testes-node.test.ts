@@ -6,6 +6,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { planejarSelecaoNode, testeSobeProcesso } from '../src/seletor-node-test';
 
+const CORE = path.resolve(__dirname, '../..');
+
 function fixture(nome: string, arquivos: Record<string, string>) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `ork-m10-${nome}-`));
   const distTest = path.join(dir, 'dist-test');
@@ -45,37 +47,39 @@ test('RM074 M10 S2: teste que sobe processo filho fica sempre na selecao', () =>
   try {
     const plano = planejarSelecaoNode(f.distTest,
       ['fora.test.js', 'processo.test.js', 'relacionado.test.js'], ['core/src/alvo.ts']);
-    assert.deepEqual(plano, { modo: 'selecionada', motivo: 'selecionada',
-      arquivos: ['processo.test.js', 'relacionado.test.js'], alterados: ['core/src/alvo.ts'] });
+    assert.equal(plano.modo, 'selecionada');
+    assert.deepEqual(plano.arquivos, ['processo.test.js', 'relacionado.test.js']);
+    assert.deepEqual(plano.sempre?.processoFilho, ['processo.test.js']);
     assert.equal(testeSobeProcesso("require('../../scripts/auxiliar.cjs')"), true);
     assert.equal(testeSobeProcesso("const cli = 'dist/index.js'"), true);
   } finally { f.limpar(); }
 });
 
-test('RM074 M10 S3: require dinamico derruba a lane inteira', () => {
+test('RM074 M10 S3: require dinamico prende somente o teste incerto', () => {
   const f = fixture('dinamico', {
     'test/a.test.js': "const nome = '../src/a'; require(nome);\n",
-    'test/b.test.js': 'module.exports = true;\n',
+    'test/b.test.js': "require('../src/b');\n",
+    'src/b.js': 'module.exports = true;\n',
   });
   try {
-    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/a.ts']);
-    assert.equal(plano.modo, 'inteira');
-    assert.equal(plano.motivo, 'require-dinamico');
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/b.ts']);
+    assert.equal(plano.modo, 'selecionada');
     assert.deepEqual(plano.arquivos, ['a.test.js', 'b.test.js']);
-    assert.deepEqual(plano.ambiguidade, { arquivo: 'core/test/a.test.ts', pedido: 'nome' });
+    assert.deepEqual(plano.sempre?.dependenciaIncerta, ['a.test.js']);
   } finally { f.limpar(); }
 });
 
-test('RM074 M10 S4: caminho local nao resolvido derruba a lane inteira', () => {
+test('RM074 M10 S4: caminho local nao resolvido prende somente o teste incerto', () => {
   const f = fixture('nao-resolvido', {
     'test/a.test.js': "require('../src/sumiu');\n",
-    'test/b.test.js': 'module.exports = true;\n',
+    'test/b.test.js': "require('../src/b');\n",
+    'src/b.js': 'module.exports = true;\n',
   });
   try {
-    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/a.ts']);
-    assert.equal(plano.modo, 'inteira');
-    assert.equal(plano.motivo, 'caminho-nao-resolvido');
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/b.ts']);
+    assert.equal(plano.modo, 'selecionada');
     assert.deepEqual(plano.arquivos, ['a.test.js', 'b.test.js']);
+    assert.deepEqual(plano.sempre?.dependenciaIncerta, ['a.test.js']);
   } finally { f.limpar(); }
 });
 
@@ -87,4 +91,69 @@ test('RM074 M10 S5: mudanca fora do mapeamento e diff vazio conservam a lane int
     assert.equal(planejarSelecaoNode(f.distTest, ['a.test.js'], ['package.json']).motivo, 'fora-do-mapeamento');
     assert.equal(planejarSelecaoNode(f.distTest, ['a.test.js'], ['core/scripts/x.cjs']).motivo, 'fora-do-mapeamento');
   } finally { f.limpar(); }
+});
+
+test('RM074 M10 S6: leitura textual de fonte TypeScript vira aresta resolvida', () => {
+  const f = fixture('fonte-ts', {
+    'test/a.test.js': "const fs = require('node:fs'); const path = require('node:path');\n" +
+      "const FONTE = path.resolve(__dirname, '../../src', 'verify-sandbox.ts'); fs.readFileSync(FONTE, 'utf8');\n",
+    'test/b.test.js': 'module.exports = true;\n',
+    '../src/verify-sandbox.ts': 'export const frase = true;\n',
+  });
+  try {
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/verify-sandbox.ts']);
+    assert.deepEqual(plano.arquivos, ['a.test.js']);
+    assert.deepEqual(plano.sempre?.dependenciaIncerta, []);
+  } finally { f.limpar(); }
+});
+
+test('RM074 M10 S7: JSON lido por fs vira aresta resolvida', () => {
+  const f = fixture('json-fs', {
+    'test/a.test.js': "const fs = require('node:fs'); const path = require('node:path');\n" +
+      "fs.promises.readFile(path.join(__dirname, 'fixtures', 'dados.json'));\n",
+    'test/b.test.js': 'module.exports = true;\n',
+    'test/fixtures/dados.json': '{"ok":true}\n',
+  });
+  try {
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/test/fixtures/dados.json']);
+    assert.deepEqual(plano.arquivos, ['a.test.js']);
+    assert.deepEqual(plano.sempre?.dependenciaIncerta, []);
+  } finally { f.limpar(); }
+});
+
+test('RM074 M10 S8: require.resolve seguido de leitura vira aresta resolvida', () => {
+  const f = fixture('require-resolve', {
+    'test/a.test.js': "const fs = require('node:fs'); const ALVO = require.resolve('../src/dados.json'); fs.readFileSync(ALVO);\n",
+    'test/b.test.js': 'module.exports = true;\n',
+    'src/dados.json': '{"ok":true}\n',
+  });
+  try {
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/dados.json']);
+    assert.deepEqual(plano.arquivos, ['a.test.js']);
+    assert.deepEqual(plano.sempre?.dependenciaIncerta, []);
+    assert.deepEqual(planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/fora.ts']).arquivos, []);
+  } finally { f.limpar(); }
+});
+
+test('RM074 M10 S9: caminho de fs nao resolvido prende somente o teste incerto', () => {
+  const f = fixture('fs-incerto', {
+    'test/a.test.js': "const fs = require('node:fs'); fs.existsSync(process.env.ALVO);\n",
+    'test/b.test.js': "require('../src/b');\n",
+    'src/b.js': 'module.exports = true;\n',
+  });
+  try {
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/b.ts']);
+    assert.deepEqual(plano.arquivos, ['a.test.js', 'b.test.js']);
+    assert.deepEqual(plano.sempre?.dependenciaIncerta, ['a.test.js']);
+  } finally { f.limpar(); }
+});
+
+test('RM074 M10 S10: a lane hermetica compilada seleciona subconjunto estrito para horario', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const lanes = require(path.join(CORE, 'scripts', 'test-lanes.cjs')) as { listasDasLanes: () => { hermetica: string[] } };
+  const arquivos = lanes.listasDasLanes().hermetica;
+  const plano = planejarSelecaoNode(path.join(CORE, 'dist-test'), arquivos, ['core/src/horario.ts']);
+  assert.equal(plano.modo, 'selecionada');
+  assert.ok(plano.arquivos.length > 0, 'ao menos o teste relacionado ou conservador roda');
+  assert.ok(plano.arquivos.length < arquivos.length, `${plano.arquivos.length} de ${arquivos.length} precisam ser subconjunto estrito`);
 });
