@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.3",
-  "publicadoEm": "2026-11-02T00:28:18.182Z",
+  "publicadoEm": "2026-11-02T00:28:22.743Z",
   "threads": [
     {
       "id": "ork-rm067f5agrok",
@@ -140,24 +140,6 @@
       "branch": "ork/ork-rm081paginad-go",
       "atualizadaEm": "2026-11-01T08:29:11.858Z",
       "entregue": "54527b5",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null,
-      "sessao": null
-    },
-    {
-      "id": "ork-roadmapachad",
-      "nome": "roadmapachados",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-roadmapachad-full",
-      "atualizadaEm": "2026-11-02T00:28:17.712Z",
-      "entregue": "ef8f45b",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
