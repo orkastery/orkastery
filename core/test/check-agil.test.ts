@@ -377,15 +377,20 @@ test('AG18: o texto do verify diz o reaproveitamento, o grupo e cada peca em fal
     adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'x', verificar: ['echo passo-a && echo passo-b && echo c'] });
     const g = gravador((_nome, comando) => (comando === 'echo rapido' ? { ok: false, code: 127, causa: 'nao-encontrado' } : {}));
     const r = verificar(p.carregado, t.id, { executor: g.executor });
-    r.agile!.pecas.push({ peca: 'agendador-cpu', estado: 'degradado', motivo: 'capacidade 7/8 CPUs' });
+    r.agile!.pecas.push({ peca: 'agendador-cpu', estado: 'degradado', motivo: 'capacidade 7/8 CPUs',
+      reservaIntegracao: { cpus: 2, fonte: 'conservadora' } });
+    r.agile!.pecas.push({ peca: 'agendador-cpu-medido', estado: 'agile', motivo: 'perfil compativel',
+      reservaIntegracao: { cpus: 1, fonte: 'medida' } });
     const texto = textoDoVerify(r);
     assert.match(texto, /\n {2}agile {7}1 comando\(s\) de claim contra o produto do preparo, 0 inteiro\(s\); grupo em paralelo com as lanes h\n/);
     assert.match(texto, /\n {2}fallback {4}preparo: saiu com codigo 127: echo rapido; rodou verify\.preparo\n/);
-    assert.match(texto, /\n {2}degradado {3}agendador-cpu: capacidade 7\/8 CPUs; preservou o plano paralelo\n/);
+    assert.match(texto, /\n {2}degradado {3}agendador-cpu: capacidade 7\/8 CPUs; reserva da integracao 2 CPU\(s\), origem conservadora; preservou o plano paralelo\n/);
+    assert.match(texto, /\n {2}agile {7}agendador-cpu-medido: perfil compativel; reserva da integracao 1 CPU\(s\), origem medida\n/);
     const ingles = comLocale('en', () => textoDoVerify(r));
     assert.match(ingles, /\n {2}agile {7}1 claim command\(s\) against the prepared product, 0 in full; parallel group with lanes h\n/);
     assert.match(ingles, /\n {2}fallback {4}preparo: saiu com codigo 127: echo rapido; ran verify\.preparo\n/);
-    assert.match(ingles, /\n {2}degraded {4}agendador-cpu: capacidade 7\/8 CPUs; kept the parallel plan\n/);
+    assert.match(ingles, /\n {2}degraded {4}agendador-cpu: capacidade 7\/8 CPUs; integration reservation 2 CPU\(s\), source conservative; kept the parallel plan\n/);
+    assert.match(ingles, /\n {2}agile {7}agendador-cpu-medido: perfil compativel; integration reservation 1 CPU\(s\), source measured\n/);
   } finally { p.limpar(); }
 });
 

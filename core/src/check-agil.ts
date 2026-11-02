@@ -41,6 +41,8 @@ export interface PecaDoAgile {
   estado: 'agile' | 'degradado' | 'fallback';
   motivo?: string;
   fallback?: string;
+  /** Dado do agendador que a apresentacao localiza sem tentar traduzir o motivo livre. */
+  reservaIntegracao?: { cpus: number; fonte: 'medida' | 'conservadora' | 'classic' };
 }
 
 /** Por que a guarda do produto nao vale (a claim, o `build` e as lanes rodam como no Classic). */

@@ -571,7 +571,9 @@ export function pecaDoAgendadorCpu(p: PlanoCpuDoGrupo): PecaDoAgile {
   const medida = p.medicaoCpuIntegracao;
   const evidencia = medida
     ? `; CPU da integracao: arvore ${Math.round(medida.arvoreMs)} ms + conteineres ${Math.round(medida.containersMs)} ms` +
-      ` = ${Math.round(medida.totalMs)} ms, pico ${medida.picoCpus ?? 'indisponivel'} CPU, ` +
+      ` = ${Math.round(medida.totalMs)} ms, pico da arvore ${medida.picoCpusDaArvore ?? 'indisponivel'} CPU ` +
+      `(${medida.arvoreCompleta ? 'arvore completa' : medida.anomaliaDaArvore
+        ? `arvore anomala: ${medida.anomaliaDaArvore}` : 'arvore incompleta'}), pico total ${medida.picoCpus ?? 'indisponivel'} CPU, ` +
       (medida.completa ? 'medida completa' : medida.anomalia
         ? `medida anomala (${medida.anomalia})`
         : `medida incompleta (${medida.motivosDosAusentes.map((x) => `${x.container}: ${x.motivo}`).join('; ')})`)
@@ -580,10 +582,10 @@ export function pecaDoAgendadorCpu(p: PlanoCpuDoGrupo): PecaDoAgile {
     motivo: p.saturado
       ? `${p.motivo}; hermetica com ${p.cpusHermetica}/${p.capacidadeEfetiva} CPUs, varredura e integracao depois dela`
       : `${p.motivo}; ${p.cpusHermetica}/${p.capacidadeEfetiva} CPUs na hermetica; depois da varredura ` +
-        `${p.cpusHermeticaAposVarredura} e depois da integracao ${p.cpusHermeticaAposReserva}; reserva da integracao ` +
-        `${p.fonteCpusIntegracao} (${p.cpusIntegracao} CPU), ` +
+        `${p.cpusHermeticaAposVarredura} e depois da integracao ${p.cpusHermeticaAposReserva}; integracao ` +
         `${p.integracaoEmParalelo ? 'em paralelo com a varredura' : 'encadeada depois da varredura'}; ` +
         `conteineres com ${p.cpusPorContainer} CPU${evidencia}`,
+    reservaIntegracao: { cpus: p.cpusIntegracao, fonte: p.fonteCpusIntegracao },
     ...(p.saturado ? { fallback: 'ordem do Classic para hermetica, varredura e integracao' } : {}) };
 }
 
@@ -1437,8 +1439,12 @@ export function textoDoVerify(r: ResultadoVerify): string {
   if (a && (a.claims.reaproveitadas + a.claims.inteiras > 0 || a.grupo.paralelo)) {
     linhas.push(m.agile(a.claims.reaproveitadas, a.claims.inteiras, a.grupo.paralelo, a.grupo.lanes));
   }
-  for (const p of a?.pecas.filter((x) => x.estado === 'fallback') ?? []) linhas.push(m.agileFallback(p.peca, p.motivo ?? '', p.fallback ?? ''));
-  for (const p of a?.pecas.filter((x) => x.estado === 'degradado') ?? []) linhas.push(m.agileDegradado(p.peca, p.motivo ?? ''));
+  const motivoDaPeca = (p: PecaDoAgile): string => [p.motivo,
+    p.reservaIntegracao ? m.reservaIntegracao(p.reservaIntegracao.cpus, p.reservaIntegracao.fonte) : null]
+    .filter((x): x is string => !!x).join('; ');
+  for (const p of a?.pecas.filter((x) => x.estado === 'fallback') ?? []) linhas.push(m.agileFallback(p.peca, motivoDaPeca(p), p.fallback ?? ''));
+  for (const p of a?.pecas.filter((x) => x.estado === 'degradado') ?? []) linhas.push(m.agileDegradado(p.peca, motivoDaPeca(p)));
+  for (const p of a?.pecas.filter((x) => x.estado === 'agile' && x.reservaIntegracao) ?? []) linhas.push(m.agilePeca(p.peca, motivoDaPeca(p)));
   linhas.push(r.baseline ? m.baseline(shaCurto(r.baseline.commit), formatarDataHoraRotulada(r.baseline.gravadaEm)) : m.semBaseline);
   if (r.preparo) {
     const p = r.preparo;
