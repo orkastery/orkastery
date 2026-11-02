@@ -5,12 +5,12 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado | Sessão |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| vps | ork-rm067f5agrok | #Fast | GO | codex gpt-5.6-sol/xhigh | — | — | 02/11 13:45 | parada desde 01/11 16:53: sessão 01a19878 encerrada (completed) |
-| vps | ork-rm074comamet | #Fast | GO | grok grok-4.7/high | RM-074 | sim: autorizacao da retomada | 02/11 13:45 | parada desde 29/10 12:53: sessão 7d0c534d encerrada (sem estado) |
-| vps | ork-rm074m10sele | #Auto | GOAL | codex gpt-5.6-sol/xhigh | RM-074 | — | 02/11 13:45 | parada desde 13:43: sessão 01a19cf9 encerrada (completed) |
-| vps | ork-rm074m8medid | #Auto | GOAL | sem despacho | RM-074 | — | 02/11 13:45 | parada desde 31/10 17:57: nenhuma sessão despachada na fase GOAL |
-| vps | ork-rm074m9integ | #Auto | CHECK | codex gpt-5.6-sol/xhigh | RM-074 | — | 02/11 13:45 | viva |
-| vps | ork-rm075fimdefa | #Auto | GOAL | codex gpt-5.6-sol/xhigh | RM-075 | — | 02/11 13:45 | parada desde 12:10: sessão 01a19c31 encerrada (completed) |
-| vps | ork-rm081f4worke | #Auto | PLAN | codex gpt-5.6-sol/xhigh | RM-081 | — | 02/11 13:45 | parada desde 01:34: sessão 01a19a53 encerrada (completed) |
+| vps | ork-rm067f5agrok | #Fast | GO | codex gpt-5.6-sol/xhigh | — | — | 02/11 14:00 | parada desde 01/11 16:53: sessão 01a19878 encerrada (completed) |
+| vps | ork-rm074comamet | #Fast | GO | grok grok-4.7/high | RM-074 | sim: autorizacao da retomada | 02/11 14:00 | parada desde 29/10 12:53: sessão 7d0c534d encerrada (sem estado) |
+| vps | ork-rm074m10sele | #Auto | GOAL | codex gpt-5.6-sol/xhigh | RM-074 | — | 02/11 14:00 | parada desde 13:43: sessão 01a19cf9 encerrada (completed) |
+| vps | ork-rm074m8medid | #Auto | GOAL | sem despacho | RM-074 | — | 02/11 14:00 | parada desde 31/10 17:57: nenhuma sessão despachada na fase GOAL |
+| vps | ork-rm074m9integ | #Auto | CHECK | codex gpt-5.6-sol/xhigh | RM-074 | — | 02/11 14:00 | parada desde 13:50: sessão 01a19d24 encerrada (completed) |
+| vps | ork-rm075fimdefa | #Auto | GOAL | codex gpt-5.6-sol/xhigh | RM-075 | — | 02/11 14:00 | parada desde 12:10: sessão 01a19c31 encerrada (completed) |
+| vps | ork-rm081f4worke | #Auto | PLAN | codex gpt-5.6-sol/xhigh | RM-081 | — | 02/11 14:00 | parada desde 01:34: sessão 01a19a53 encerrada (completed) |
 
 Horários de Brasília.
