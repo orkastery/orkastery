@@ -26,6 +26,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **RM-081 · F5 — seleção nativa na rodada morna ([roadmap](docs/roadmap/RM-081-check-por-qualquer-runner.md)):** lane Agile pode declarar como Vitest, Jest ou Playwright relaciona mudanças; cache inválido, base, manifesto, lockfile, configuração ou caminho não mapeado executa a suíte inteira com o motivo, e recibo selecionado permanece parcial e recusado pelo SHIP.
 
+### Corrigido
+
+- **Fim de fase lido pelo resultado ([RM-075](docs/roadmap/RM-075-fim-de-fase-lido-pelo-resultado.md)):** `claude-bg` só abre `human.pending` quando a mensagem final pergunta algo, GO limpo sem commit produz `go.sem-mudanca`, e o Codex fecha pelo `task_complete` do rollout fixado mesmo se o watcher perder o estado; o retry não redespacha esse terminal e pedidos tipados à condução continuam prevalecendo.
+
 ## [0.6.4] - 2026-11-01
 
 O Agile Check reserva CPU pela medida de cada peça e reaproveita a varredura do Semgrep quando as regras não mudam;

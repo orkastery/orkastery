@@ -21,6 +21,7 @@ import { observarGrokSobLock, validarFonteGrok } from './session-watcher-grok';
 import { reconciliarContaEsgotada } from './conta-esgotada';
 import { caminhoDoTrabalho, gravarRespostaFinalDaSessao } from './trabalho-thread';
 import { MOTIVOS_DE_PEDIDO_A_CONDUCAO, MotivoDoPedidoAConducao } from './pedido-conducao';
+import { TaskCompleteFixado, taskCompleteFixadoDaFonte, taskCompleteFixadoDaSessao } from './codex-task-complete';
 
 interface PedidoDaConducao {
   motivo: MotivoDoPedidoAConducao;
@@ -260,6 +261,10 @@ interface OpcoesObservacao {
   threadId?: string;
   /** I-34: consulta nativa injetável em teste, como `rollout` no Codex. */
   consultaClaude?: () => ConsultaAgentesNativos;
+  /** RM-075: tela final injetável para a matriz claude-bg. */
+  telaClaude?: () => { ok: boolean; texto: string };
+  /** RM-075: prova pré-lida que autoriza atravessar somente o SESSION_STATE_SPLIT deste despacho. */
+  taskCompleteFixado?: TaskCompleteFixado;
 }
 
 /** Diagnóstico fechado: mensagens de E/S e JSON podem conter caminhos e segredos. */
@@ -337,6 +342,17 @@ export function observarSessao(carregado: ManifestoCarregado, sessionId: string,
       ? resolvida.thread.id : undefined;
     return observarSessaoResolvida(carregado, sessionId, resolvida, opcoes);
   } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'SESSION_STATE_SPLIT' && threadId) {
+      const thread = lerThread(carregado.raiz, threadId);
+      const registrada = thread.sessoes.find(s => s.sessionId === sessionId);
+      if (registrada) {
+        const sessao = exigirSessaoDespachada(registrada, sessionId);
+        const prova = taskCompleteFixadoDaSessao(carregado.raiz, thread, sessao,
+          lerLedger(dirThread(carregado.raiz, threadId)), opcoes.agoraMs ?? Date.now());
+        if (prova) return observarSessaoResolvida(carregado, sessionId, { thread, sessao },
+          { ...opcoes, taskCompleteFixado: prova });
+      }
+    }
     if (threadId) tentarRegistrarErroWatcher(carregado.raiz, threadId, sessionId, e);
     throw e;
   }
@@ -480,7 +496,8 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
     if (!threadPresente(dir)) return desfazer();
     if (sessao.runtime === 'claude-bg') {
       const r = comLockWatcher(pasta, () => observarClaudeSobLock({ raiz: carregado.raiz,
-        thread, sessao, dir, pasta, chave, agoraMs: now, limiteMs: LIMITE_MORTE_MS, consulta: opcoes.consultaClaude, carregado })) ?? { ...base, ocupado: true };
+        thread, sessao, dir, pasta, chave, agoraMs: now, limiteMs: LIMITE_MORTE_MS, consulta: opcoes.consultaClaude,
+        tela: opcoes.telaClaude, carregado })) ?? { ...base, ocupado: true };
       return threadPresente(dir) ? r : desfazer();
     }
     // RM-067 (F2): o grok tem observador próprio (stream, recibo do supervisor e pasta da sessão), no mesmo lock.
@@ -502,6 +519,7 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
     const perfil = perfilDoRegistro(eventos, sessao);
     // Fonte do controller validada ANTES de ler rollout ou escrever cursor.
     let fonteControlador: FonteController | null = null, snapshot: SnapshotController | null = null;
+    let taskCompleteFixado = opcoes.taskCompleteFixado ?? null;
     let cwdDespacho: string | undefined;
     if (registro?.controlador) {
       const despacho = eventos.filter(e => e.tipo === 'phase_dispatch' && e.sessionId === sessionId).at(-1);
@@ -514,7 +532,13 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
         fixacao: path.join(dir, 'sessoes', `watcher-source-${chave}.json`),
         vinculo: { thread: thread.id, fase: sessao.fase, promptSha256: sessao.promptSha256 } });
       // Relógio injetado vale como está; o real é lido pelo sensor depois do state.json.
-      snapshot = lerSnapshotController(fonteControlador, opcoes.agoraMs === undefined ? {} : { agoraMs: now });
+      try { snapshot = lerSnapshotController(fonteControlador, opcoes.agoraMs === undefined ? {} : { agoraMs: now }); }
+      catch (e) {
+        // A varredura integral e excepcional: no fluxo saudável o cursor incremental
+        // reconhece task_complete sem reler todo o rollout a cada polling.
+        taskCompleteFixado ??= taskCompleteFixadoDaFonte(fonteControlador, now);
+        if (!taskCompleteFixado) throw e;
+      }
     }
     const file = path.join(pasta, 'cursor.json');
     const cursor = lerJson<Cursor>(file) ?? { schema: 'ork.session-cursor/v1', sessionId,
@@ -523,7 +547,7 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
     // Cursor anterior media bytes, nao progresso: migracao conservadora desde o despacho.
     cursor.progressoEm ??= Date.parse(sessao.despachadaEm);
     // Transporte do controller não admite descoberta nem override de rollout.
-    const fontes = { stream: registro?.logPath, rollout: snapshot ? snapshot.rollout
+    const fontes = { stream: registro?.logPath, rollout: fonteControlador ? fonteControlador.rollout
       : opcoes.rollout === undefined ? acharRollout(sessionId, 3, casaDoCodex(perfil)) : opcoes.rollout };
     let bytesLidos = 0, temMais = false, cresceu = false;
     for (const [nome, fonte] of Object.entries(fontes)) {
@@ -595,7 +619,11 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
       return tempo || (y.numeroTurno ?? 0) - (x.numeroTurno ?? 0) ||
         ordem[x.classificacao] - ordem[y.classificacao] || a.nome.localeCompare(b.nome);
     });
-    let terminal: TerminalCodex | undefined = terminais[0]?.terminal;
+    const taskCompleteDoCursor = fonteControlador ? terminais.find(({ nome, terminal: atual }) =>
+      nome === 'rollout' && atual.fonte === 'rollout.task_complete')?.terminal : undefined;
+    let terminal: TerminalCodex | undefined = taskCompleteFixado?.terminal ?? taskCompleteDoCursor ?? terminais[0]?.terminal;
+    const taskCompleteAutenticado = terminal !== undefined &&
+      (terminal === taskCompleteFixado?.terminal || terminal === taskCompleteDoCursor);
     const fontesAtuais = Object.values(cursor.fontes);
     const aberto = fontesAtuais.some(f => {
       if (!f.parser.turnoAberto) return false;
@@ -619,22 +647,23 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
     const invalido = fontesAtuais.some(f => f.parser.invalido);
     // Conclusão nativa é medida em todo terminal, independente da política de retry:
     // bloqueio sem retry preserva o motivo, mas não prova que o turno do runtime terminou.
-    const provaNativa = snapshot && terminal
+    const provaNativa = taskCompleteAutenticado ? null : snapshot && terminal
       ? semProvaNativa(snapshot, terminal, terminais[0]?.nome, fechamento, sessionId, cwdDespacho as string)
       : 'terminal nativo do controller ausente';
     // Parecer negativo também exige conclusão nativa inteira: texto claims.failed de
     // turno interrompido não pode virar rejeição autenticada de um objetivo.
-    const semProva = snapshot && terminal && terminal.classificacao !== 'human.pending' && !bloqueioPreservado(terminal)
+    const semProva = !taskCompleteAutenticado && snapshot && terminal && terminal.classificacao !== 'human.pending' && !bloqueioPreservado(terminal)
       ? provaNativa : null;
     const descorrelacionado = !!semProva;
-    const incompleto = semCloseNoLimite && (!!terminal || estado !== 'ausente' || aberto || parcial || invalido) || !backlog && (((parcial || aberto || invalido || descorrelacionado || !terminal) && !!fechamento) ||
+    const observacaoInvalida = !taskCompleteAutenticado && (invalido || aberto || descorrelacionado);
+    const incompleto = !taskCompleteAutenticado && (semCloseNoLimite && (!!terminal || estado !== 'ausente' || aberto || parcial || invalido) || !backlog && (((parcial || aberto || invalido || descorrelacionado || !terminal) && !!fechamento) ||
       (estavel && (parcial || (aberto && estado === 'ausente') ||
-        (supervisionado && estado === 'desconhecido'))));
+        (supervisionado && estado === 'desconhecido')))));
     const morte = estado === 'ausente' && estavel && !temMais;
     // Fechamento supervisionado precisa existir antes de associar o código de saída ao turno.
-    const podeTerminar = !esperaHumana && (incompleto || (!temMais && !aberto &&
+    const podeTerminar = taskCompleteAutenticado || !esperaHumana && (incompleto || (!temMais && !aberto &&
       ((terminal && (fechamento || !supervisionado)) || morte)));
-    const conta = falhaDeContaDoTerminal(terminal, !invalido && !aberto, snapshot, now);
+    const conta = falhaDeContaDoTerminal(terminal, taskCompleteAutenticado || !invalido && !aberto, snapshot, now);
     gravarAtomico(file, cursor);
     return comLockDeSessao(dir, () => {
       const atuais = lerLedger(dir);
@@ -651,20 +680,20 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
       const pedido = pedidoDaConducao(atuais, sessionId, sessao.despachadaEm);
       const semTerminal = !terminal;
       // Fato registrado para a autoridade de revisão: `null` só com terminal nativo correlacionado.
-      const conclusaoNativa = incompleto || invalido || aberto || descorrelacionado
+      const conclusaoNativa = incompleto || observacaoInvalida
         ? provaNativa ?? 'observação incompleta ou inválida' : provaNativa;
-      if (incompleto || invalido || aberto || descorrelacionado) terminal = { classificacao: 'gate_blocked', motivo: 'runtime.unavailable',
+      if (incompleto || observacaoInvalida) terminal = { classificacao: 'gate_blocked', motivo: 'runtime.unavailable',
         timestamp: new Date(now).toISOString(), turnId: null, fonte: semProva ?? 'observação incompleta ou inválida',
         tokens: new ParserCodex().estado.tokens, duracaoMs: null };
       if (!terminal) terminal = { classificacao: 'gate_blocked', motivo: 'runtime.silencio',
         timestamp: new Date(now).toISOString(), turnId: null, fonte: 'processo ausente e arquivos estáveis',
         tokens: new ParserCodex().estado.tokens, duracaoMs: null };
-      if (pedido && (terminal.classificacao === 'fase_concluida' ||
+      if (pedido && (taskCompleteAutenticado || terminal.classificacao === 'fase_concluida' ||
           terminal.classificacao === 'gate_blocked' && ['runtime.unavailable', 'runtime.silencio'].includes(terminal.motivo ?? ''))) {
         terminal = { ...terminal, classificacao: 'gate_blocked', motivo: pedido.motivo,
           fonte: `mcp.request_conduction: ${pedido.detalhe}` };
       }
-      if (fechamento && (fechamento.exitCode !== 0 || fechamento.signal || fechamento.erro) &&
+      if (!taskCompleteAutenticado && fechamento && (fechamento.exitCode !== 0 || fechamento.signal || fechamento.erro) &&
           terminal.classificacao !== 'human.pending' && !bloqueioPreservado(terminal)) {
         terminal = { ...terminal, classificacao: 'gate_blocked', motivo: 'runtime.unavailable' };
       }
@@ -674,16 +703,19 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
         fonte: `${conta.fonte}: ${conta.falha.motivo} (${conta.falha.trecho})` };
       const respostaFinal = terminal.respostaFinal
         ? gravarRespostaFinalDaSessao(carregado.raiz, thread.id, sessionId, terminal.respostaFinal) : null;
+      const taskCompleteBloqueado = taskCompleteAutenticado && terminal.classificacao !== 'fase_concluida';
       const dados = { fase: sessao.fase, sessionId, despachoEm: sessao.despachadaEm, sensorResultId: resultadoId,
         classificacao: terminal.classificacao, motivo: terminal.motivo, runtime: 'codex', fonte: terminal.fonte,
-        fonteVencedora: pedido || incompleto || invalido || aberto || descorrelacionado ? null : terminais[0]?.nome ?? null,
+        fonteVencedora: pedido ? null : taskCompleteAutenticado ? 'rollout'
+          : incompleto || invalido || aberto || descorrelacionado ? null : terminais[0]?.nome ?? null,
         turnId: terminal.turnId, numeroTurno: terminal.numeroTurno ?? null,
         tokens: terminal.tokens, exitCode: fechamento?.exitCode ?? null, exitCodeFonte: fechamento?.fonte ?? 'unavailable',
         signal: fechamento?.signal ?? null, duracaoMs: fechamento?.duracaoMs ?? terminal.duracaoMs,
         duracaoFonte: fechamento?.fonte ?? (terminal.duracaoMs === null ? 'unavailable' : terminal.fonte),
-        ok: terminal.classificacao === 'fase_concluida' && fechamento?.exitCode === 0,
-        conclusaoNativa: conclusaoNativa === null,
-        conclusaoNativaAusente: conclusaoNativa,
+        ok: terminal.classificacao === 'fase_concluida' && (taskCompleteAutenticado || fechamento?.exitCode === 0),
+        conclusaoNativa: conclusaoNativa === null && !taskCompleteBloqueado,
+        conclusaoNativaAusente: taskCompleteBloqueado
+          ? 'task_complete encerrou o turno com resultado bloqueado' : conclusaoNativa,
         estado: terminal.classificacao === 'fase_concluida' ? 'concluida' : 'bloqueada',
         observadoEm: terminal.timestamp, gate: 'phase.dispatch', origem: 'sessions.watch',
         morteLatenciaMs: morte ? now - cursor.progressoEm! : null, ...(perfil ? { perfil } : {}),

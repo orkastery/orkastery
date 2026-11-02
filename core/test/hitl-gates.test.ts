@@ -213,6 +213,7 @@ function goClaudeBg(nome: string, modo: Modo, comCommit: boolean) {
     ...fonteClaudeDoDespacho(p.dir, t.id, 'GO', wt) });
   if (comCommit) registrar(dir, t.id, 'mcp_git_committed', { commit: commitar(wt, 'go.txt', 'entrega\n', 'commit do GO'),
     paths: ['go.txt'], origem: 'mcp.git' });
+  else commitar(wt, 'fora-do-nucleo.txt', 'mudança sem recibo\n', 'commit sem registro do núcleo');
   ingerirEvento(p.dir, sid, 'stop', JSON.stringify({ observedAt: '2026-09-08T00:10:00.000Z', eventId: 'stop-go' }), Date.parse(quando));
   observarSessao(p.carregado, sid, { agoraMs: Date.parse('2026-09-08T00:11:00.000Z'), consultaClaude: () => ({ ok: true, detalhe: '',
     consultadoEm: '2026-09-08T00:11:00.000Z', registros: [{ sessionId: sid, cwd: wt, state: 'done', status: 'idle' }] }) });
@@ -224,14 +225,14 @@ test('GO-FIX 3 (D18): pausa sobre GO sem prova leva o diagnóstico e não oferec
   const sem = goClaudeBg('hitl-d18-sem-prova', 'classic', false);
   try {
     assert.equal(sem.resultado.motivo, 'human.pending');
-    assert.match(String(sem.resultado.diagnostico), /^sem prova do ork: nenhum commit registrado pelo núcleo/);
+    assert.match(String(sem.resultado.diagnostico), /^sem prova do ork: HEAD da worktree mudou sem commit registrado pelo núcleo/);
     const pedido = abrirPedidoGate(sem.p.dir, sem.t.id, 'human.pending', quando);
     // I-41 (D1/T6): o diagnóstico continua chegando ao dono, agora no corpo, que é o bloco de
     // evidência. A pergunta volta a ser uma frase, e a recomendada deixa de ser aviso genérico:
     // sem conclusão provada, ela NOMEIA a alternativa de revisão e diz o porquê em uma linha.
     assert.match(textoDoPedido(pedido), /^Qual é o veredito sobre [^?]+\?$/);
     assert.ok(ehV2(pedido) && pedido.classe === 'pergunta' && pedido.corpo.some(
-      l => l.includes('sem prova do ork: nenhum commit registrado pelo núcleo')), JSON.stringify(pedido));
+      l => l.includes('sem prova do ork: HEAD da worktree mudou sem commit registrado pelo núcleo')), JSON.stringify(pedido));
     assert.match(recomendacaoDoPedido(pedido), /^b\) Solicitar revisão: a fase não tem conclusão provada/);
     const escolhas = escolhasDoPedido(pedido);
     assert.notEqual(escolhas[0].texto, 'Aprovar com as evidências apresentadas');

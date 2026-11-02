@@ -10,7 +10,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
-import { ambienteDoPerfil, consultarAgentesNativos, ConsultaAgentesNativos, parseFalhaDeConta, RegistroAgenteClaude } from './adapters/claude-bg';
+import { ambienteDoPerfil, consultarAgentesNativos, ConsultaAgentesNativos, logsDaSessao, parseFalhaDeConta, RegistroAgenteClaude } from './adapters/claude-bg';
+import { mensagemFinalPedeHumano } from './adapters/codex-events';
 import { ManifestoCarregado } from './manifest';
 import { marcarContaDaFalha, prazoDaCotaVista } from './ratelimit';
 import { diretorioEfetivo, PerfilDeDespacho, perfilDoRegistro } from './runtime-profiles';
@@ -77,6 +78,8 @@ export type ClassificacaoClaude =
   | { terminal: false; espera: string; stop: EventoLedger | null; inconclusivo?: boolean }
   | { terminal: true; classificacao: 'fase_concluida' | 'gate_blocked'; motivo: MotivoGate | null;
       fonte: string; conclusaoNativa: boolean; stop: EventoLedger | null;
+      /** RM-075: resultado da leitura autenticada da mensagem final. */
+      perguntaReal?: boolean;
       /** A decisão veio do Stop correlacionado: reconferida sob o lock antes de gravar. */
       dependeDoStop?: boolean;
       /** D18: por que o turno encerrado não virou conclusão (falta de prova, ou `failed` depois do Stop). */
@@ -97,6 +100,8 @@ export interface EntradaClassificacao {
   prova: () => ProvaOrk;
   /** Prova de vida do processo nativo; `ausente` só com evidência de morte. */
   processo: (pid: number | undefined, cursor: CursorClaude) => 'vivo' | 'ausente';
+  /** A tela final só é lida quando os demais sinais já tornam o turno candidato a terminal. */
+  perguntaReal?: () => boolean;
 }
 
 const SHA256 = /^[a-f0-9]{64}$/;
@@ -117,14 +122,16 @@ export interface ProvaOrk {
   ok: boolean;
   /** Diagnóstico curto: o que provou ou o que faltou. */
   fonte: string;
-  /** Sem prova: `artifact.missing` só no PLAN (D2); nas demais fases, `human.pending`. */
-  motivo?: 'artifact.missing' | 'human.pending';
+  /** RM-075: falta de prova é artefato ausente, nunca pergunta humana inventada. */
+  motivo?: 'artifact.missing';
   veredito?: string | null;
   verify?: { eventId: string; commit: string; ts: string } | null;
   /** GO (D16): SHAs conferidos no git da worktree; `recusados`, os registrados que não conferiram. */
   commits?: string[];
   recusados?: string[];
   worktreeLimpa?: boolean;
+  /** RM-075: resultado tipado para GO que não alterou HEAD nem árvore. */
+  resultado?: 'go.sem-mudanca';
   evento?: { tipo: string; eventId: string; ts: string };
 }
 
@@ -196,27 +203,18 @@ export function classificarSessaoClaude(e: EntradaClassificacao): ClassificacaoC
     ({ terminal: true, classificacao: 'gate_blocked', motivo, fonte, conclusaoNativa, stop });
   // D12: o `done` classifica o texto final do agente; a fase só conclui com a prova do `ork`.
   const concluir = (sinal: string, conclusaoNativa: boolean): ClassificacaoClaude => {
+    // RM-075: indisponibilidade da tela não fabrica espera humana. Só uma pergunta
+    // efetivamente lida pode produzir human.pending.
+    const perguntaReal = e.perguntaReal?.() ?? false;
+    if (perguntaReal) return { ...bloqueio(`${sinal}; a mensagem final pergunta ao humano`, 'human.pending', conclusaoNativa),
+      perguntaReal, dependeDoStop: true, diagnostico: 'a mensagem final pede uma resposta humana' };
     const prova = e.prova();
     const c: TerminalClaude = !prova.ok
       ? { ...bloqueio(`${sinal}; sem prova do ork: ${prova.fonte}`, prova.motivo ?? 'human.pending', conclusaoNativa),
           diagnostico: `sem prova do ork: ${prova.fonte}` }
       : e.pausaAoFim ? bloqueio(`${sinal}; ${prova.fonte}; pausa prevista ao fim do bloco`, 'human.pending', conclusaoNativa)
       : { terminal: true, classificacao: 'fase_concluida', motivo: null, fonte: `${sinal}; ${prova.fonte}`, conclusaoNativa, stop };
-    return { ...c, dependeDoStop: true };
-  };
-  // RM-037 (defeitosdeco D-1): turno encerrado pelo Stop e sessão viva em `blocked` é o Claude Code
-  // dizendo que o texto final pediu resposta. Nunca conclui direto, e a pausa humana abre sempre
-  // (`human.pending`): GO-FIX (R6 do CHECK), sem a prova o motivo também é o humano, porque um
-  // `artifact.missing` automático abriria correção sobre uma sessão viva que espera resposta.
-  const esperaHumana = (): ClassificacaoClaude => {
-    const sinal = 'Stop correlacionado e sessão viva à espera humana (blocked)';
-    const prova = e.prova();
-    const c: TerminalClaude = !prova.ok
-      ? { ...bloqueio(`${sinal}; sem prova do ork: ${prova.fonte}; o humano decide`, 'human.pending'),
-          diagnostico: `a sessão espera resposta humana (blocked) e a fase ainda não tem a prova do ork: ${prova.fonte}` }
-      : { ...bloqueio(`${sinal}; ${prova.fonte}; o humano decide`, 'human.pending'),
-          diagnostico: 'a fase tem a prova do ork e a sessão espera resposta humana (blocked): o humano decide' };
-    return { ...c, dependeDoStop: true };
+    return { ...c, perguntaReal, dependeDoStop: true };
   };
   const venceu = (desde: number) => agora - desde >= e.limiteMs;
   // Sem prova para concluir nem para bloquear: `runtime.unavailable` reexecutaria o mesmo prompt
@@ -281,7 +279,7 @@ export function classificarSessaoClaude(e: EntradaClassificacao): ClassificacaoC
         cursor.bloqueadoDesde ??= agora;
         if (agora - cursor.bloqueadoDesde < INTERVALO_WATCH_CLAUDE_MS)
           return espera('turno encerrado pelo Stop com a sessão à espera humana (blocked); aguardando a segunda observação');
-        return esperaHumana();
+        return concluir('Stop correlacionado e sessão blocked sem pergunta de permissão pendente', false);
       }
       delete cursor.bloqueadoDesde;
       // RM-037 (defeito 4 de 19 e 20/10/2026): turno encerrado pelo Stop e a sessão ociosa no prompt (`status: idle`). O
@@ -567,15 +565,17 @@ export function provaDoOrk(raiz: string, threadId: string, sessao: Pick<SessaoDe
     eventos: readonly EventoLedger[], fonte: Partial<Pick<FonteClaude, 'artefato' | 'cwd' | 'head'>> | undefined): ProvaOrk {
   const intervalo = eventosDoIntervalo(eventos, sessao);
   const falta = (texto: string, extra: Partial<ProvaOrk> = {}): ProvaOrk =>
-    ({ ok: false, fonte: texto, motivo: sessao.fase === 'PLAN' ? 'artifact.missing' : 'human.pending', ...extra });
+    ({ ok: false, fonte: texto, ...extra });
   const saida = saidaDoArtefato(raiz, threadId, sessao, fonte, eventos);
   if (saida) {
-    if (!saida.produzido) return falta(`${saida.arquivo} não foi gravado no intervalo do despacho`);
+    if (!saida.produzido) return falta(`${saida.arquivo} não foi gravado no intervalo do despacho`,
+      { motivo: 'artifact.missing' });
     if (sessao.fase !== 'CHECK') return { ok: true, fonte: `${saida.arquivo} gravado no intervalo do despacho` };
     const v = intervalo.filter(e => e.tipo === 'verify_run' && typeof e.commit === 'string').at(-1);
     const verify = v ? { eventId: String(v.eventId), commit: String(v.commit), ts: v.ts } : null;
     const veredito = saida.texto === null ? null : vereditoDoParecer(saida.texto);
-    if (!veredito) return falta(`${saida.arquivo} gravado sem exatamente um veredito legível`, { veredito: null, verify });
+    if (!veredito) return falta(`${saida.arquivo} gravado sem exatamente um veredito legível`,
+      { motivo: 'artifact.missing', veredito: null, verify });
     return { ok: true, fonte: `${saida.arquivo} gravado com veredito ${veredito}`, veredito, verify };
   }
   if (sessao.fase === 'GO') {
@@ -583,8 +583,20 @@ export function provaDoOrk(raiz: string, threadId: string, sessao: Pick<SessaoDe
     const registrados = [...new Set(intervalo.filter(e => (e.tipo === 'mcp_git_committed' ||
       (e.tipo === 'commit' && e.sessionId === sessao.sessionId)) &&
       typeof e.commit === 'string' && SHA_COMMIT.test(e.commit)).map(e => String(e.commit)))].slice(-20);
-    if (!registrados.length) return falta('nenhum commit registrado pelo núcleo no intervalo do despacho', { commits: [] });
     const cwd = fonte?.cwd, headNoDespacho = fonte?.head;
+    if (!registrados.length) {
+      if (!cwd || typeof headNoDespacho !== 'string')
+        return falta('HEAD da worktree no despacho não registrado; GO sem mudança não conferível', { commits: [] });
+      if (cwdLocalOuNulo(raiz, threadId, cwd, 'ledger') === null)
+        return falta('cwd do despacho fora das worktrees registradas; GO sem mudança não conferível', { commits: [] });
+      if (headDaWorktree(cwd) !== headNoDespacho)
+        return falta('HEAD da worktree mudou sem commit registrado pelo núcleo', { commits: [], worktreeLimpa: false });
+      const status = exec('git', ['status', '--porcelain'], cwd, 30000);
+      if (!status.ok) return falta('git status da worktree do despacho falhou', { commits: [], worktreeLimpa: false });
+      if (status.stdout.trim() !== '') return falta('worktree com alterações não commitadas', { commits: [], worktreeLimpa: false });
+      return { ok: true, fonte: 'GO sem mudança: nenhum commit, HEAD igual ao despacho e worktree limpa',
+        commits: [], worktreeLimpa: true, resultado: 'go.sem-mudanca' };
+    }
     if (!cwd || typeof headNoDespacho !== 'string')
       return falta('HEAD da worktree no despacho não registrado; commit não conferível', { commits: [], recusados: registrados });
     // RM-047 (P2): o git da prova só roda na worktree registrada; o cwd vem do ledger.
@@ -691,6 +703,8 @@ export interface ContextoObservacaoClaude {
   agoraMs: number; limiteMs: number; consulta?: () => ConsultaAgentesNativos;
   /** I-33 (D12): com o manifesto, a falha de conta marca o perfil (janela padrao quando sem horario). */
   carregado?: ManifestoCarregado;
+  /** Tela injetável para os testes da matriz RM-075. */
+  tela?: () => { ok: boolean; texto: string };
 }
 export interface ResultadoObservacaoClaude {
   sessionId: string; thread: string; concluido: boolean; bytesLidos: number; classificacao?: string; espera?: string;
@@ -731,9 +745,16 @@ export function observarClaudeSobLock(ctx: ContextoObservacaoClaude): ResultadoO
   // e ao fecho.
   let erroLido: ErroDeApiDaTranscricao | null | undefined;
   const erroDaTranscricao = () => erroLido !== undefined ? erroLido : (erroLido = ultimoErroDeApi(perfil, fonte.cwd, sessao.sessionId));
+  let perguntaLida: boolean | undefined;
+  const perguntaReal = (): boolean => {
+    if (perguntaLida !== undefined) return perguntaLida;
+    const tela = (ctx.tela ?? (() => logsDaSessao(registro?.id ?? sessao.sessionId.slice(0, 8), 60, ambienteDoPerfil(perfil))))();
+    perguntaLida = tela.ok && mensagemFinalPedeHumano(tela.texto);
+    return perguntaLida;
+  };
   const { c, falha } = comFalhaDeConta(classificarSessaoClaude({ sessao, eventos, consulta, registro, cursor, agoraMs: ctx.agoraMs,
     limiteMs: ctx.limiteMs, pausaAoFim: pausaNaThread(thread, sessao.fase),
-    prova: () => prova ??= provaDoOrk(raiz, thread.id, sessao, eventos, fonte), processo: processoNativo }),
+    prova: () => prova ??= provaDoOrk(raiz, thread.id, sessao, eventos, fonte), processo: processoNativo, perguntaReal }),
     () => falhaDoErro(erroDaTranscricao(), ctx.agoraMs));
   gravarAtomico(arquivoCursor, cursor);
   // GO-FIX 3 (achado 1): cursor gravado numa thread que sumiu durante a consulta é desfeito aqui;
@@ -777,6 +798,8 @@ export function observarClaudeSobLock(ctx: ContextoObservacaoClaude): ResultadoO
       evidencia: { fonte: 'claude agents --json --all', consultadoEm: consulta.consultadoEm, registro: evidenciaDoRegistro(registro) },
       ...(artefato ? { artefato: { arquivo: artefato.arquivo, sha256Base: artefato.sha256Base, sha256Atual: artefato.sha256 } } : {}),
       ...(prova ? { provaOrk: prova } : {}),
+      ...(prova?.resultado ? { resultado: prova.resultado } : {}),
+      ...(c.perguntaReal !== undefined ? { perguntaReal: c.perguntaReal } : {}),
       conclusaoNativa: c.conclusaoNativa, conclusaoNativaAusente: c.conclusaoNativa ? null : c.fonte,
       ...(perfil ? { perfil } : {}),
       ...(falha ? { falhaDeConta: { motivo: falha.motivo, resetEm: falha.resetEm, fonte: falha.fonte, trecho: falha.trecho } } : {}),

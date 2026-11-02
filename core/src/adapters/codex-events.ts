@@ -82,11 +82,20 @@ export function classificarMensagem(texto: unknown): ClassificacaoCodex {
   const final = linhas.join('\n').trim().split(/\n\s*\n/).at(-1) ?? '';
   const estado = /(?:^|\n)\s*(?:motivo|gate_blocked|bloquead[oa](?:\s+por)?|blocked(?:\s+by)?)\s*[:=]?\s*`?([a-z]+[._][a-z_.-]+)`?/i.exec(final);
   if (estado) return motivo(estado[1]) ?? falha();
-  const pergunta = final.replace(/`[^`]*`/g, '').trim();
-  if (/(?:preciso|aguardo|aguardando|waiting for|need)\s+(?:da?\s+)?(?:sua|your|confirmação|resposta|autorização|approval|confirmation)/i.test(pergunta)) return humano();
-  if (/\?\s*$/.test(pergunta) &&
-      /(?:\b(?:você|voce|you|confirma|confirme|deseja|prefere|autoriza|posso|can you|could you|should I)\b|(?:qual|which|what)\s+(?:é\s+o\s+|is\s+the\s+)?(?:diretório|diretorio|caminho|arquivo|opção|opcao|directory|path|file|option))/i.test(pergunta)) return humano();
-  return sucesso();
+  return mensagemFinalPedeHumano(final) ? humano() : sucesso();
+}
+
+/**
+ * RM-075: a mensagem final pede uma resposta do humano? A regra é compartilhada pelos
+ * rollouts Codex e pela tela final do claude-bg, para `human.pending` não nascer apenas
+ * do estado nativo `blocked`.
+ */
+export function mensagemFinalPedeHumano(texto: unknown): boolean {
+  if (typeof texto !== 'string') return false;
+  const pergunta = texto.replace(/`[^`]*`/g, '').trim();
+  if (/(?:preciso|aguardo|aguardando|waiting for|need)\s+(?:da?\s+)?(?:sua|your|confirmação|resposta|autorização|approval|confirmation)/i.test(pergunta)) return true;
+  return /\?\s*$/.test(pergunta) &&
+    /(?:\b(?:você|voce|you|confirma|confirme|deseja|prefere|autoriza|posso|can you|could you|should I)\b|(?:qual|which|what)\s+(?:é\s+o\s+|is\s+the\s+)?(?:diretório|diretorio|caminho|arquivo|opção|opcao|directory|path|file|option))/i.test(pergunta);
 }
 
 function tokens(v: unknown, fonte: string, escopo: TokensCodex['escopo']): TokensCodex {

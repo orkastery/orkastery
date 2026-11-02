@@ -30,9 +30,12 @@ function processoProprio(cwd: string): { identidade: IdentidadeProcesso; encerra
 }
 
 /** Controller governado sintético: mesma validação de fonte, estado sob controle do teste. */
-function fixtureControlador(estadoExtra: Record<string, unknown>, rollout: string[], opcoes: { vivo?: boolean; registro?: (sessoes: string) => Record<string, unknown> } = {}) {
+function fixtureControlador(estadoExtra: Record<string, unknown>, rollout: string[], opcoes: {
+  vivo?: boolean; registro?: (sessoes: string) => Record<string, unknown>; worktree?: boolean;
+} = {}) {
   const p = projetoTemporario('watcher-controlador');
-  const t = novaThread(p.carregado, { nome: 'watch', modo: 'auto' }).thread;
+  const t = novaThread(p.carregado, { nome: 'watch', modo: 'auto', criarWorktree: opcoes.worktree }).thread;
+  const cwd = t.worktree ?? p.dir;
   const despachadaEm = new Date(BASE + 1000).toISOString();
   const promptSha256 = createHash('sha256').update('prompt SIMULADO').digest('hex');
   t.sessoes.push({ sessionId: SID, slug: t.slug, fase: 'GO', bloco: 'GO', runtime: 'codex',
@@ -44,24 +47,24 @@ function fixtureControlador(estadoExtra: Record<string, unknown>, rollout: strin
   fs.mkdirSync(controlador, { mode: 0o700 });
   const roll = path.join(sessoes, 'rollout.jsonl');
   // O cwd do despacho so existe aqui: o session_meta do rollout precisa carrega-lo.
-  fs.writeFileSync(roll, rollout.join('').split('__CWD__').join(p.dir), { mode: 0o600 });
+  fs.writeFileSync(roll, rollout.join('').split('__CWD__').join(cwd), { mode: 0o600 });
   fs.utimesSync(roll, (BASE + 1000) / 1000, (BASE + 1000) / 1000);
   // Controller nasce no diretorio de IPC; runtime, no cwd do despacho.
-  const proprioControlador = processoProprio(controlador), proprioRuntime = processoProprio(p.dir);
+  const proprioControlador = processoProprio(controlador), proprioRuntime = processoProprio(cwd);
   const vivo = proprioControlador.identidade;
   const runtime = proprioRuntime.identidade;
   const identidade = opcoes.vivo === false ? { ...runtime, inicio: '0' } : runtime;
   const vinculo = { thread: t.id, fase: 'GO', promptSha256 };
   const escrever = (nome: string, valor: unknown) => fs.writeFileSync(path.join(controlador, nome), JSON.stringify(valor), { mode: 0o600 });
-  escrever('launch.json', { contrato: 'ork.controller-launch/v1', instancia: INSTANCIA, vinculo, cwd: p.dir,
+  escrever('launch.json', { contrato: 'ork.controller-launch/v1', instancia: INSTANCIA, vinculo, cwd,
     criadoEm: new Date(BASE).toISOString() });
   escrever('process-launch.json', { instancia: INSTANCIA, pid: vivo.pid, processoController: vivo });
-  escrever('state.json', { instancia: INSTANCIA, vinculo, cwd: p.dir, sessionId: SID, pid: vivo.pid,
+  escrever('state.json', { instancia: INSTANCIA, vinculo, cwd, sessionId: SID, pid: vivo.pid,
     processoController: vivo, processoRuntime: identidade, rollout: roll, turno: 'turn-1', ...estadoExtra });
   registrar(dir, t.id, 'session_sensor_registered', { fase: 'GO', sessionId: SID, despachoEm: despachadaEm,
-    controlador, cwd: p.dir, ...opcoes.registro?.(sessoes) });
-  return { ...p, t, dirEstado: dir, controlador, escrever, roll,
-    run: (ms: number) => observarSessao(p.carregado, SID, { agoraMs: BASE + ms }),
+    controlador, cwd, ...opcoes.registro?.(sessoes) });
+  return { ...p, t, cwd, dirEstado: dir, controlador, escrever, roll,
+    run: (ms: number) => observarSessao(p.carregado, SID, { agoraMs: BASE + ms, threadId: t.id }),
     eventos: () => lerLedger(dir),
     limpar: () => { proprioControlador.encerrar(); proprioRuntime.encerrar(); p.limpar(); } };
 }
@@ -71,7 +74,89 @@ const rolloutCompleto = [...rolloutBase,
   linha({ type: 'event_msg', timestamp: new Date(BASE + 600).toISOString(), payload: { type: 'item.completed', item: { type: 'agent_message', text: 'Concluido.' } } }),
   linha({ type: 'token_usage_record', payload: { turn_id: 'turn-1', turn_token_usage: { input_tokens: 20, cached_input_tokens: 10, output_tokens: 4 } } }),
   linha({ type: 'event_msg', timestamp: new Date(BASE + 700).toISOString(), payload: { type: 'turn.completed', turn_id: 'turn-1', usage: { input_tokens: 20, cached_input_tokens: 10, output_tokens: 4 } } })];
+const fimTaskComplete = [
+  linha({ type: 'event_msg', timestamp: new Date(BASE + 2500).toISOString(),
+    payload: { type: 'item.completed', item: { type: 'agent_message', text: 'Concluído sem pergunta.' } } }),
+  linha({ type: 'event_msg', timestamp: new Date(BASE + 2600).toISOString(),
+    payload: { type: 'task_complete', turn_id: 'turn-1', usage: { input_tokens: 20, cached_input_tokens: 10, output_tokens: 4 } } }),
+];
+const fimTaskCompleteComCota = [
+  linha({ type: 'event_msg', timestamp: new Date(BASE + 2500).toISOString(),
+    payload: { type: 'task_complete', turn_id: 'turn-1',
+      error: { message: 'Your workspace is out of credits.', codex_error_info: 'usage_limit_exceeded' } } }),
+];
 const terminalNativo = { metodo: 'turn/completed', threadId: SID, turnId: 'turn-1', status: 'completed' };
+
+test('RM-075: task_complete do rollout fixado fecha Codex mesmo com SESSION_STATE_SPLIT', () => {
+  const p = fixtureControlador({ estado: 'working' }, rolloutBase, { worktree: true });
+  try {
+    assert.equal(p.run(2000).concluido, false, 'a primeira leitura fixa a fonte autenticada');
+    fs.appendFileSync(p.roll, fimTaskComplete.join(''));
+    fs.utimesSync(p.roll, (BASE + 2600) / 1000, (BASE + 2600) / 1000);
+    const local = path.join(p.cwd, '.orkastery', 'threads', p.t.id);
+    fs.unlinkSync(local); fs.mkdirSync(local, { recursive: true });
+    fs.writeFileSync(path.join(local, 'thread.json'), '{}\n');
+    const fim = p.run(3000);
+    assert.equal(fim.classificacao, 'fase_concluida');
+    const resultado = p.eventos().find(e => e.tipo === 'phase_result')!;
+    assert.equal(resultado.fonte, 'rollout.task_complete'); assert.equal(resultado.fonteVencedora, 'rollout');
+    assert.equal(resultado.ok, true); assert.equal(resultado.exitCode, null);
+    assert.equal(resultado.exitCodeFonte, 'unavailable'); assert.equal(resultado.conclusaoNativa, true);
+    assert.equal(p.eventos().some(e => e.tipo === 'gate_blocked' && e.motivo === 'runtime.unavailable'), false);
+  } finally { p.limpar(); }
+});
+
+test('RM-075: sem task_complete, pedido tipado à condução permanece condução.acao-necessaria', () => {
+  const p = fixtureControlador({ estado: 'working' }, rolloutBase, { vivo: false });
+  try {
+    assert.equal(p.run(2000).concluido, false);
+    const despachoEm = p.t.sessoes[0].despachadaEm!;
+    registrar(p.dirEstado, p.t.id, 'gate_blocked', { fase: 'GO', sessionId: SID, despachoEm,
+      origem: 'mcp.request_conduction', motivo: 'conducao.acao-necessaria', comando: 'comando da condução',
+      detalhe: 'a sessão pediu uma ação que não pode executar', despacho: 'pedido-rm075' });
+    assert.equal(p.run(601000).classificacao, 'gate_blocked');
+    const resultado = p.eventos().filter(e => e.tipo === 'phase_result').at(-1)!;
+    assert.equal(resultado.motivo, 'conducao.acao-necessaria');
+    assert.equal(resultado.fonte, 'mcp.request_conduction: a sessão pediu uma ação que não pode executar');
+    assert.equal(resultado.pedidoConducao && (resultado.pedidoConducao as { estado: string }).estado, 'aberto');
+  } finally { p.limpar(); }
+});
+
+test('RM-075: retry recusa redespacho quando o rollout fixado já contém task_complete', () => {
+  const p = fixtureControlador({ estado: 'working' }, rolloutBase);
+  try {
+    assert.equal(p.run(2000).concluido, false);
+    fs.appendFileSync(p.roll, fimTaskComplete.join(''));
+    fs.utimesSync(p.roll, (BASE + 2600) / 1000, (BASE + 2600) / 1000);
+    const despachoEm = p.t.sessoes[0].despachadaEm!;
+    registrar(p.dirEstado, p.t.id, 'gate_blocked', { fase: 'GO', sessionId: SID, despachoEm,
+      runtime: 'codex', motivo: 'runtime.unavailable', classificacao: 'gate_blocked', origem: 'sessions.watch' });
+    const plano = planejarRetry(p.carregado, p.t.id);
+    assert.equal(plano.acao, 'sem-retry'); assert.equal(plano.motivo, null);
+    assert.match(plano.razao, /task_complete/);
+    const retry = executarRetry(p.carregado, p.t.id);
+    assert.equal(retry.executada, false); assert.equal(retry.redespacho, null);
+    assert.equal(p.eventos().some(e => e.tipo === 'retry_attempt'), false);
+    const registrado = p.eventos().filter(e => e.tipo === 'retry_planned').at(-1)!;
+    assert.match(String(registrado.razao), /task_complete/);
+  } finally { p.limpar(); }
+});
+
+test('RM-075: task_complete com falha tipada preserva a política de recuperação do runtime', () => {
+  const p = fixtureControlador({ estado: 'working' }, rolloutBase);
+  try {
+    assert.equal(p.run(2000).concluido, false);
+    fs.appendFileSync(p.roll, fimTaskCompleteComCota.join(''));
+    fs.utimesSync(p.roll, (BASE + 2600) / 1000, (BASE + 2600) / 1000);
+    assert.equal(p.run(3000).classificacao, 'gate_blocked');
+    const resultado = p.eventos().find(e => e.tipo === 'phase_result')!;
+    assert.equal(resultado.motivo, 'runtime.quota-exhausted');
+    assert.equal(resultado.conclusaoNativa, false);
+    const plano = planejarRetry(p.carregado, p.t.id);
+    assert.equal(plano.motivo, 'runtime.quota-exhausted');
+    assert.equal(plano.acao, 'reexecutar');
+  } finally { p.limpar(); }
+});
 
 for (const [motivo, acao] of [['cost.violation', 'sem-retry'], ['policy.violation', 'escalar-humano'],
   ['ci.failed', 'escalar-humano']] as const) {
@@ -253,7 +338,7 @@ test('crash com EOF parcial e turno divergente ficam tipados, sem afirmar conclu
     assert.equal(r.ok, false);
     console.log(JSON.stringify({ eofParcial: 'runtime.unavailable', turnoDivergente: 'runtime.unavailable' }));
   } finally { outroTurno.limpar(); }
-  // Id de origem gerada nao vincula turno: sem prova alternativa, sucesso recusado.
+  // RM-075: task_complete do rollout fixado é a prova alternativa ao estado do controller.
   const semIdProprio = fixtureControlador({ estado: 'completed', terminal: terminalNativo,
     processoEncerrado: { em: new Date(BASE + 800).toISOString(), code: 0, signal: null } },
     [linha({ type: 'session_meta', payload: { id: SID, cwd: '__CWD__' } }),
@@ -262,13 +347,14 @@ test('crash com EOF parcial e turno divergente ficam tipados, sem afirmar conclu
      linha({ type: 'event_msg', timestamp: new Date(BASE + 700).toISOString(), payload: { type: 'task_complete', usage: { input_tokens: 20, cached_input_tokens: 10, output_tokens: 4 } } })],
     { vivo: false });
   try {
-    assert.equal(semIdProprio.run(2000).classificacao, 'gate_blocked');
+    assert.equal(semIdProprio.run(2000).classificacao, 'fase_concluida');
     const r = semIdProprio.eventos().find(e => e.tipo === 'phase_result')!;
-    assert.equal(r.ok, false);
-    assert.equal(r.motivo, 'runtime.unavailable');
-    assert.match(String(r.fonte), /proveniencia explicita/);
+    assert.equal(r.ok, true);
+    assert.equal(r.motivo, null);
+    assert.equal(r.fonte, 'rollout.task_complete');
+    assert.equal(r.conclusaoNativa, true);
     assert.equal(r.exitCodeFonte, 'controller.close');
-    console.log(JSON.stringify({ turnoSintetizado: r.classificacao, motivoTipado: r.fonte }));
+    console.log(JSON.stringify({ turnoSintetizado: r.classificacao, terminal: r.fonte }));
   } finally { semIdProprio.limpar(); }
 });
 
@@ -428,9 +514,12 @@ for (const troca of ['inode', 'symlink', 'fifo', 'append'] as const) {
     const abrir = nativoFs.openSync;
     let aberturas = 0, injetado = false;
     const inoOriginal = fs.statSync(f.roll).ino;
+    const fifoPreparado = f.roll + '.fifo';
+    if (troca === 'fifo') execFileSync('mkfifo', ['-m', '600', fifoPreparado]);
     try {
       nativoFs.openSync = ((file: fs.PathLike, flags: string | number, mode?: fs.Mode) => {
-        // Duas aberturas do sensor já validaram a fonte; a terceira é o consumidor.
+        // Registro e snapshot já abriram descritores conferidos; a terceira é o cursor consumidor.
+        // A prova task_complete integral só roda no caminho excepcional de snapshot perdido.
         if (file === f.roll && ++aberturas === 3) {
           injetado = true;
           const substituto = f.roll + '.substituto';
@@ -441,7 +530,7 @@ for (const troca of ['inode', 'symlink', 'fifo', 'append'] as const) {
             fs.renameSync(f.roll, f.roll + '.original');
             if (troca === 'inode') fs.renameSync(substituto, f.roll);
             else if (troca === 'symlink') fs.symlinkSync(substituto, f.roll);
-            else execFileSync('mkfifo', ['-m', '600', f.roll]);
+            else fs.renameSync(fifoPreparado, f.roll);
           }
         }
         return abrir(file, flags, mode);
