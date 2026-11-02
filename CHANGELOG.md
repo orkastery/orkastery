@@ -8,6 +8,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Alterado
 
+- **Agendador do Agile em degraus — M8 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** a sonda usa várias amostras curtas e a mediana, preservando um pico isolado na evidência sem entregar a decisão a ele. Acima do limiar, o `steal` reduz proporcionalmente a capacidade da hermética, da varredura, da integração e dos contêineres, em vez de devolver tudo à ordem do Classic; a carga do `/proc/loadavg` segue a regra anterior, porque inclui o build do próprio verify. A peça `agendador-cpu` sai `degradado`, com a capacidade usada, e só volta à ordem do Classic, com a paralelização do Classic, quando não cabe o grupo paralelo ou a máquina está ocupada. O Classic não muda, e a razão nova aguarda a bancada do host.
+
 - **Workers e recursos na declaração única da lane — F4 ([RM-081](docs/roadmap/RM-081-check-por-qualquer-runner.md)):** o Agile exporta `ORK_WORKERS` pela reserva vigente e serializa lanes que declaram o mesmo serviço; o Classic publica o mesmo contrato com a capacidade inteira disponível, preservando seus comandos e sua ordem.
 
 ### Adicionado
@@ -29,8 +31,6 @@ O README deixa de apontar para os repositórios dos sites, e um teste que depend
 O #Noctum segue **em desenvolvimento, não anunciado**.
 
 ### Alterado
-
-- **Agendador do Agile em degraus — M8 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** a sonda usa várias amostras curtas e a mediana, preservando um pico isolado na evidência sem entregar a decisão a ele. Acima do limiar, o `steal` reduz proporcionalmente a capacidade da hermética, da varredura, da integração e dos contêineres, em vez de devolver tudo à ordem do Classic; a carga do `/proc/loadavg` segue a regra anterior, porque inclui o build do próprio verify. A peça `agendador-cpu` sai `degradado`, com a capacidade usada, e só volta à ordem do Classic, com a paralelização do Classic, quando não cabe o grupo paralelo ou a máquina está ocupada. O Classic não muda, e a razão nova aguarda a bancada do host.
 
 - **Varredura por conteúdo e bancada fria/morna — M7 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** a bancada atribui a infraestrutura de contêiner pela presença e pelos deltas de cgroup dos contêineres de fora, levando a parcela incerta à carga externa. O Agile inclui o conteúdo das regras resolvidas na identidade do cache do Semgrep; regra entre arquivos ou registro indisponível força varredura integral com o motivo registrado, sem mudar `check_id`. As razões fria e morna ficam separadas; o Classic continua varrendo tudo. Casos e asserções permanecem, e razão, CPU e eficiência aguardam três pares válidos no host, sem ganho antecipado neste registro.
 
