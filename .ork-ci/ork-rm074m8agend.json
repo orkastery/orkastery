@@ -169,7 +169,7 @@
         "node core/scripts/checar-changelog.cjs --base origin/main"
       ],
       "criadoEm": "2026-11-01T19:32:10.622Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
