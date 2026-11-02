@@ -120,7 +120,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-078](RM-078-recibo-valido-enquanto-nada-muda.md) | Recibo de verify e de revisão válido enquanto HEAD, claims e plano não mudam | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-31 |
 | [RM-079](RM-079-claims-que-a-correcao-passa.md) | Claims de revisão que a correção passa e retirada tipada com substituta | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-31 |
 | [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md) | Saída completa e causa tipada em todo comando do verify | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-31 |
-| [RM-081](RM-081-check-por-qualquer-runner.md) | CHECK que entende qualquer runner de teste e só roda de novo o necessário | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-01 |
+| [RM-081](RM-081-check-por-qualquer-runner.md) | CHECK que entende qualquer runner de teste e só roda de novo o necessário | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-02 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->

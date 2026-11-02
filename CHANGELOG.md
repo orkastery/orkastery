@@ -6,6 +6,20 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Alterado
+
+- **Workers e recursos na declaração única da lane — F4 ([RM-081](docs/roadmap/RM-081-check-por-qualquer-runner.md)):** o Agile exporta `ORK_WORKERS` pela reserva vigente e serializa lanes que declaram o mesmo serviço; o Classic publica o mesmo contrato com a capacidade inteira disponível, preservando seus comandos e sua ordem.
+
+### Adicionado
+
+- **JUnit por comando e lane — F1 ([RM-081](docs/roadmap/RM-081-check-por-qualquer-runner.md)):** o manifesto pode declarar o relatório de pytest, Vitest, Jest, Playwright ou gotestsum; o verify compara falhas e erros por nome, registra contagens e duração e preserva a forma textual existente quando não há relatório.
+
+- **RM-081 · F3 — correção nominal antes da suíte inteira ([roadmap](docs/roadmap/RM-081-check-por-qualquer-runner.md)):** comando ou lane com JUnit pode declarar o próprio filtro; o verify reprova cedo se algum nome continuar vermelho, segue para a suíte inteira quando a parcial passa e o SHIP recusa recibo parcial.
+
+- **RM-081 · F2 — relógio JUnit protegido sob steal ([roadmap](docs/roadmap/RM-081-check-por-qualquer-runner.md)):** comando ou lane marca casos temporais por nome, marcador ou tag; falha exclusivamente marcada sob steal alto fica sem veredito, recebe reteste isolado pelo filtro existente e registra o resultado sem virar verde.
+
+- **RM-081 · F5 — seleção nativa na rodada morna ([roadmap](docs/roadmap/RM-081-check-por-qualquer-runner.md)):** lane Agile pode declarar como Vitest, Jest ou Playwright relaciona mudanças; cache inválido, base, manifesto, lockfile, configuração ou caminho não mapeado executa a suíte inteira com o motivo, e recibo selecionado permanece parcial e recusado pelo SHIP.
+
 ### Corrigido
 
 - **Fim de fase lido pelo resultado ([RM-075](docs/roadmap/RM-075-fim-de-fase-lido-pelo-resultado.md)):** `claude-bg` só abre `human.pending` quando a mensagem final pergunta algo, GO limpo sem commit produz `go.sem-mudanca`, e o Codex fecha pelo `task_complete` do rollout fixado mesmo se o watcher perder o estado; o retry não redespacha esse terminal e pedidos tipados à condução continuam prevalecendo.

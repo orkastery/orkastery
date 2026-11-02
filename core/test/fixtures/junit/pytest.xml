@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites name="pytest tests">
+  <testsuite name="pytest" errors="1" failures="1" skipped="1" tests="4" time="0.314">
+    <testcase classname="tests.test_api.TestUsuario" name="test_lista" time="0.101" />
+    <testcase classname="tests.test_api.TestUsuario" name="test_cria" time="0.102">
+      <failure message="assert 500 == 201">tests/test_api.py:18: AssertionError</failure>
+    </testcase>
+    <testcase classname="tests.test_banco" name="test_conecta" time="0.103">
+      <error message="fixture falhou">RuntimeError: banco indisponível</error>
+    </testcase>
+    <testcase classname="tests.test_opcional" name="test_recurso" time="0.008">
+      <skipped type="pytest.skip" message="recurso opcional">tests/test_opcional.py:7: recurso opcional</skipped>
+    </testcase>
+  </testsuite>
+</testsuites>

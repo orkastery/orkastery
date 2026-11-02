@@ -145,6 +145,11 @@ export interface ResultadoShip {
   dryRun: boolean;
 }
 
+/** RM-081 F3: `ok` nunca basta quando a rodada nao cobriu a suite inteira. */
+export function verificacaoCompletaParaShip(verificacao: Pick<ResultadoVerify, 'ok' | 'parcial'>): boolean {
+  return verificacao.ok && !verificacao.parcial;
+}
+
 /**
  * RM-037 (fatia 5, A1): o commit de primeiro pai da base que incorporou o `shaDe`: o merge que trouxe a branch, ou
  * o proprio `shaDe` quando a base avancou por fast-forward ate ele. Com a branch ja incorporada, a ponta da base e
@@ -660,11 +665,13 @@ export function ship(
   const verificacao = verificar(carregado, threadId, { executor: opcoes.executorVerify,
     conducao: { filaPesada: { ...opcoes.avisoDaFilaPesada, esperarMs: opcoes.esperarFilaPesadaMs } } });
   r.verificacao = verificacao;
-  if (!verificacao.ok) {
-    const motivo = verificacao.motivos.find((m) => m !== 'claims.unverifiable') as MotivoGate;
+  if (!verificacaoCompletaParaShip(verificacao)) {
+    const motivo = (verificacao.parcial ? 'verify.failed'
+      : verificacao.motivos.find((m) => m !== 'claims.unverifiable')) as MotivoGate;
     return bloquear(
       motivo,
-      textoDoCatalogo((m) => m.ship.verificacaoReprovou(verificacao.commit, verificacao.motivos.join(', '))),
+      textoDoCatalogo((m) => m.ship.verificacaoReprovou(verificacao.commit,
+        verificacao.parcial ? 'verify.parcial' : verificacao.motivos.join(', '))),
       textoDoCatalogo((m) => m.ship.rodeVerify(threadId))
     );
   }

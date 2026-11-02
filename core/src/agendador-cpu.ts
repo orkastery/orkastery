@@ -9,6 +9,8 @@ import { appendFileSync, readFileSync } from 'node:fs';
 import { amostraDoProcStat, stealDaJanela } from './steal';
 
 export const ENV_CPUS_DA_LANE = 'ORK_CHECK_CPUS_DA_LANE';
+/** RM-081 F4: contrato publico com a quantidade inteira de workers disponivel ao runner. */
+export const ENV_WORKERS = 'ORK_WORKERS';
 export const ENV_CPUS_DA_LANE_APOS_VARREDURA = 'ORK_CHECK_CPUS_DA_LANE_APOS_VARREDURA';
 export const ENV_CPUS_DA_LANE_APOS_RESERVA = 'ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA';
 export const ENV_SINAL_DA_RESERVA = 'ORK_CHECK_RESERVA_DEVOLVIDA';
@@ -72,7 +74,12 @@ export function registrarContainerDaLane(nome: string, ambiente: NodeJS.ProcessE
   catch { /* a medicao fica incompleta e o agendador conserva a reserva */ }
 }
 
-const cpusValidas = (cpus: number): number => Math.max(1, Math.floor(Number.isFinite(cpus) ? cpus : 1));
+/** Reserva publicada para runners: entrada invalida, fracionaria ou zero nunca produz menos de um worker. */
+export function workersDaReserva(cpus: number): number {
+  return Math.max(1, Math.floor(Number.isFinite(cpus) ? cpus : 1));
+}
+
+const cpusValidas = workersDaReserva;
 
 /** A carga de um minuto de `/proc/loadavg`; entrada invalida ou ausencia nao inventam saturacao. */
 export function cargaDoProcLoadavg(conteudo: string | null): number | null {

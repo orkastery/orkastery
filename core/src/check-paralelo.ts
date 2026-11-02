@@ -15,8 +15,9 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { ENV_CONTAINERS_DA_LANE, ENV_CPUS_DA_LANE, ENV_CPUS_DA_LANE_APOS_RESERVA, ENV_CPUS_DA_LANE_APOS_VARREDURA,
-  ENV_CPUS_DOCKER, ENV_SINAL_DA_RESERVA,
-  medirCpuDoGrupo, MedicaoCpuDaIntegracao, MedicaoCpuDoGrupo, PlanoCpuDoGrupo, planejarCpuDoGrupo } from './agendador-cpu';
+  ENV_CPUS_DOCKER, ENV_SINAL_DA_RESERVA, ENV_WORKERS,
+  medirCpuDoGrupo, MedicaoCpuDaIntegracao, MedicaoCpuDoGrupo, PlanoCpuDoGrupo, planejarCpuDoGrupo,
+  workersDaReserva } from './agendador-cpu';
 import { TESTES_DE_INTEGRACAO_LOCAL } from './integracoes-locais';
 
 const TIMEOUT_BIN = '/usr/bin/timeout';
@@ -37,6 +38,8 @@ export interface ItemParalelo {
   nice?: number;
   /** Os itens (pelo nome, antes deste na lista) que precisam terminar antes de este comecar, com ou sem sucesso. */
   apos?: string[];
+  /** RM-081 F4: servicos exclusivos locais a esta rodada, adquiridos como um conjunto indivisivel. */
+  recursos?: string[];
   /** Papel na conta de CPU do grupo do Agile. Ausente nos outros usos deste auxiliar. */
   papelCpu?: 'hermetica' | 'integracao' | 'varredura' | 'outro';
   /**
@@ -98,6 +101,45 @@ function vagas(max: number): { tomar: () => Promise<void>; soltar: () => void } 
     tomar: () => new Promise<void>((pronto) => { if (livres > 0) { livres--; pronto(); } else fila.push(pronto); }),
     soltar: () => { const proximo = fila.shift(); if (proximo) proximo(); else livres++; },
   };
+}
+
+/**
+ * Recursos exclusivos sem dependencia artificial. Cada pedido adquire o conjunto inteiro ou espera, o que evita
+ * deadlock entre listas cruzadas; pedidos disjuntos continuam livres para avancar.
+ */
+function recursosExclusivos(): { tomar: (nomes: string[]) => Promise<() => void> } {
+  const ocupados = new Set<string>();
+  const fila: Array<{ nomes: string[]; pronto: (soltar: () => void) => void }> = [];
+  const despachar = (): void => {
+    for (let i = 0; i < fila.length;) {
+      const pedido = fila[i];
+      if (pedido.nomes.some((nome) => ocupados.has(nome))) { i++; continue; }
+      fila.splice(i, 1);
+      pedido.nomes.forEach((nome) => ocupados.add(nome));
+      pedido.pronto(() => {
+        pedido.nomes.forEach((nome) => ocupados.delete(nome));
+        despachar();
+      });
+    }
+  };
+  return {
+    tomar: (nomes) => new Promise<() => void>((pronto) => {
+      fila.push({ nomes: [...new Set(nomes)], pronto });
+      despachar();
+    }),
+  };
+}
+
+/** A reserva que vira ORK_WORKERS quando a lane e efetivamente lancada. */
+export function workersDaLane(item: Pick<ItemParalelo, 'nome' | 'papelCpu'>, plano: PlanoCpuDoGrupo | undefined,
+  cpus: number, totalDeLanes: number): number | null {
+  if (!item.nome.startsWith('test:')) return null;
+  const capacidade = workersDaReserva(cpus);
+  if (!plano) return Math.max(1, Math.floor(capacidade / Math.max(1, Math.min(capacidade, totalDeLanes))));
+  if (item.papelCpu === 'hermetica') return workersDaReserva(plano.cpusHermetica);
+  if (item.papelCpu === 'integracao') return workersDaReserva(plano.cpusIntegracao);
+  // Outros fecham a cadeia depois que as reservas da varredura e da integracao voltaram.
+  return capacidade;
 }
 
 function arquivoDoPerfilIntegracao(): string {
@@ -325,7 +367,10 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
   const plano = usaAgendador ? planejarCpuDoGrupo(cpus, medicao) : undefined;
   const sinalDaReserva = plano && !plano.saturado ? path.join(esp.dir, 'reserva-devolvida.json') : undefined;
   const itens = plano ? aplicarPlano(esp.itens, plano, sinalDaReserva) : esp.itens;
-  const limite = vagas(esp.maxParalelo && esp.maxParalelo > 0 ? esp.maxParalelo : itens.length);
+  const tetoInformado = esp.maxParalelo && esp.maxParalelo > 0 ? esp.maxParalelo : itens.length;
+  const limite = vagas(Math.max(1, Math.min(tetoInformado, workersDaReserva(cpus))));
+  const exclusivos = recursosExclusivos();
+  const totalDeLanes = itens.filter((item) => item.nome.startsWith('test:')).length;
   const porNome = new Map<string, Promise<Terminado>>();
   const indice = new Map(itens.map((item, i) => [item.nome, i]));
   const vezDoItem = (item: ItemParalelo, i: number): Promise<Terminado> => {
@@ -338,8 +383,9 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
         const j = indice.get(nome);
         if (j !== undefined) await vezDoItem(itens[j], j);
       }
+      const soltarRecursos = await exclusivos.tomar(item.recursos ?? []);
       await limite.tomar();
-      try { return await lancar(item, i); } finally { limite.soltar(); }
+      try { return await lancar(item, i); } finally { limite.soltar(); soltarRecursos(); }
     });
     porNome.set(item.nome, vez);
     return vez;
@@ -413,7 +459,8 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
         resolve(fim);
       };
       // Sem o `timeout(1)`, o proprio auxiliar mata pelo prazo, como o `spawnSync` do `exec` faria.
-      const ambiente = { ...process.env, ...item.ambiente,
+      const workers = workersDaLane(item, plano, cpus, totalDeLanes);
+      const ambiente = { ...process.env, ...item.ambiente, ...(workers === null ? {} : { [ENV_WORKERS]: String(workers) }),
         ...(medirIntegracao ? { [ENV_CONTAINERS_DA_LANE]: registro } : {}) };
       const filho = spawn(bin, args, { cwd: item.cwd, env: ambiente, stdio: ['ignore', saida, erro],
         ...(comGrupo ? {} : { timeout: item.prazoMs, killSignal: 'SIGTERM' as const }) });

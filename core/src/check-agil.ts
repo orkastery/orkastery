@@ -32,7 +32,8 @@ import * as path from 'node:path';
 import { ENV_RELATORIO_DO_CHECK } from './check-modo';
 import { planejarCpuDoGrupo } from './agendador-cpu';
 import { redigirCredenciaisUrl } from './redacao-url';
-import { CausaDoComando, Manifesto, ResultadoDeComando } from './types';
+import { CausaDoComando, EvidenciaJUnit, Manifesto, ResultadoDeComando } from './types';
+import { PlanoDaLane } from './check-selecao';
 
 /** Uma peca do Agile e o que aconteceu com ela; `fallback` diz o equivalente do Classic que rodou no lugar. */
 export interface PecaDoAgile {
@@ -57,10 +58,20 @@ export interface UsoDoPreparo {
 export interface ItemDoGrupo {
   nome: string;
   comando: string;
+  /** RM-081 F1: relatorio que o proprio comando escreve, preparado pelo executor antes do grupo. */
+  junit?: string;
+  /** RM-081 F3: comando e nomes da passagem parcial anterior a suite inteira. */
+  filtro?: string;
+  testesFiltrados?: string[];
+  /** RM-081 F5: comando integral e decisão por mudanças; `comando` é o que roda de fato. */
+  comandoIntegral?: string;
+  selecaoPorMudanca?: PlanoDaLane;
   /** Prioridade menor (nice) no processo auxiliar. */
   nice?: number;
   /** Os itens do grupo (pelo nome, antes deste na lista) que precisam terminar antes de este comecar. */
   apos?: string[];
+  /** RM-081 F4: servicos que esta lane precisa usar sozinha durante a rodada. */
+  recursos?: string[];
   /** Papel usado pelo agendador de CPU do auxiliar. */
   papelCpu?: 'hermetica' | 'integracao' | 'varredura' | 'outro';
 }
@@ -79,6 +90,13 @@ export interface ExecutorDeGrupo {
 
 /** Roda um comando (o executor da rodada, com prazo, steal e conducao). */
 export type ExecutorUnico = (nome: string, comando: string, cwd: string) => ResultadoDeComando;
+export type ExecutorDaPassagemParcial = (nome: string, comando: string, cwd: string, filtro: string,
+  testes: readonly string[]) => ResultadoDeComando | null;
+
+export interface SelecaoAnteriorDoAgile {
+  comandos: Record<string, string[]>;
+  lanes: Record<string, string[]>;
+}
 
 const SEPARADOR = ' && ';
 
@@ -329,6 +347,16 @@ function caiuDeVerdade(r: ResultadoDeComando): boolean {
     && r.code >= 1 && r.code <= MAIOR_CODIGO_DA_LANE && !(r.relogioSobSteal?.length);
 }
 
+/** O agregado so afirma contagens quando todas as lanes trouxeram JUnit valido. */
+function junitDasLanes(lanes: Array<{ lane: string; resultado: ResultadoDeComando }>): EvidenciaJUnit | undefined {
+  if (!lanes.length || lanes.some((l) => l.resultado.junit?.estado !== 'lido')) return undefined;
+  const relatorios = lanes.map((l) => l.resultado.junit!);
+  const somar = (campo: 'testes' | 'falhas' | 'erros' | 'pulados' | 'duracaoMs') =>
+    relatorios.reduce((total, r) => total + (r[campo] ?? 0), 0);
+  return { caminho: relatorios.map((r) => r.caminho).join(';'), estado: 'lido', testes: somar('testes'),
+    falhas: somar('falhas'), erros: somar('erros'), pulados: somar('pulados'), duracaoMs: somar('duracaoMs') };
+}
+
 /**
  * O `test` das lanes (D4): ok so com todas ok; a evidencia de quem caiu; a parede e a da lane mais longa. A falha de
  * verdade de uma lane manda, como num comando so do Classic: o estouro ou o relogio sob steal de outra lane nao a esconde.
@@ -355,9 +383,22 @@ export function testDasLanes(lanes: Array<{ lane: string; resultado: ResultadoDe
   const causas = lanes.map((l) => l.resultado.causa).filter((c): c is CausaDoComando => !!c);
   const causa = deVerdade.length ? deVerdade[0].resultado.causa ?? 'exit' : PIOR_CAUSA.find((c) => causas.includes(c));
   const soRelogio = caidas.length > 0 && caidas.every((l) => (l.resultado.relogioSobSteal?.length ?? 0) > 0);
-  const testes = juntar((r) => r.testeQueCaiu).slice(0, 10);
+  const nomesExtraidos = juntar((r) => r.testeQueCaiu);
+  const testes = lanes.some((l) => l.resultado.junit?.estado === 'lido') ? nomesExtraidos : nomesExtraidos.slice(0, 10);
   const falhas = juntar((r) => r.falhasDeTeste);
+  const parciais = lanes.filter((l) => !!l.resultado.parcial);
+  const filtrados = juntar((r) => r.parcial?.testes);
+  const junit = junitDasLanes(lanes);
   const relogio = soRelogio ? juntar((r) => r.relogioSobSteal) : [];
+  const retestes = lanes.map((l) => l.resultado.retesteDeRelogio).filter((r): r is NonNullable<typeof r> => !!r);
+  const estadoDoReteste = (['reprovou', 'sem-veredito', 'sem-filtro', 'passou'] as const)
+    .find((estado) => retestes.some((r) => r.estado === estado));
+  const reteste = estadoDoReteste ? {
+    testes: [...new Set(retestes.flatMap((r) => r.testes))],
+    estado: estadoDoReteste,
+    ...(retestes.find((r) => r.estado === estadoDoReteste)?.code !== undefined
+      ? { code: retestes.find((r) => r.estado === estadoDoReteste)!.code } : {}),
+  } : undefined;
   const trechos = caidas.map((l) => l.resultado.trecho).filter((t): t is string => !!t);
   return {
     nome: 'test',
@@ -371,12 +412,22 @@ export function testDasLanes(lanes: Array<{ lane: string; resultado: ResultadoDe
     executado: !tempoComFalha && lanes.every((l) => l.resultado.executado !== false),
     ...(testes.length ? { testeQueCaiu: testes } : {}),
     ...(falhas.length ? { falhasDeTeste: falhas } : {}),
+    ...(junit ? { junit } : {}),
+    ...(parciais.length ? { parcial: { testes: [...new Set(filtrados)] } } : {}),
     ...(trechos.length ? { trecho: trechos.join('\n').slice(0, 1024) } : {}),
     ...(lanes.some((l) => l.resultado.stealPct !== undefined) ? { stealPct: lanes.find((l) => l.resultado.stealPct !== undefined)!.resultado.stealPct } : {}),
     ...(relogio.length ? { relogioSobSteal: relogio } : {}),
+    ...(reteste ? { retesteDeRelogio: reteste } : {}),
     lanes: lanes.map((l) => ({ lane: l.lane, comando: l.resultado.comando, ok: l.resultado.ok, code: l.resultado.code,
       ...(l.resultado.causa ? { causa: l.resultado.causa } : {}), duracaoMs: l.resultado.duracaoMs ?? 0,
-      ...(l.resultado.testeQueCaiu?.length ? { testeQueCaiu: l.resultado.testeQueCaiu } : {}) })),
+      ...(l.resultado.testeQueCaiu?.length ? { testeQueCaiu: l.resultado.testeQueCaiu } : {}),
+      ...(l.resultado.junit ? { junit: l.resultado.junit } : {}),
+      ...(l.resultado.parcial ? { parcial: l.resultado.parcial } : {}),
+      ...(l.resultado.comandoExecutado ? { comandoExecutado: l.resultado.comandoExecutado } : {}),
+      ...(l.resultado.selecao ? { selecao: l.resultado.selecao } : {}),
+      ...(l.resultado.relogioSobSteal?.length ? { relogioSobSteal: l.resultado.relogioSobSteal } : {}),
+      ...(l.resultado.retesteDeRelogio ? { retesteDeRelogio: l.resultado.retesteDeRelogio } : {}),
+      ...(l.resultado.stealPct !== undefined ? { stealPct: l.resultado.stealPct } : {}) })),
   };
 }
 
@@ -413,8 +464,11 @@ export interface ComandosDoAgile {
  * Os comandos do manifesto no Agile (D4): `build` reaproveitado do preparo com a guarda valendo; o resto num grupo
  * paralelo, com as lanes no lugar do `verify.test`, so com a guarda valendo; sem ela, tudo em serie (o Classic).
  */
-export function comandosNoAgile(manifesto: Manifesto, cwd: string, lista: { nome: string; comando: string }[], executor: ExecutorUnico,
-  grupo: ExecutorDeGrupo, guarda: GuardaDoProduto, preparo: ResultadoDeComando | null): ComandosDoAgile {
+export function comandosNoAgile(manifesto: Manifesto, cwd: string,
+  lista: { nome: string; comando: string; junit?: string; filtro?: string }[], executor: ExecutorUnico,
+  grupo: ExecutorDeGrupo, guarda: GuardaDoProduto, preparo: ResultadoDeComando | null,
+  selecao: SelecaoAnteriorDoAgile = { comandos: {}, lanes: {} }, passagemParcial?: ExecutorDaPassagemParcial,
+  selecaoPorMudanca: Record<string, PlanoDaLane> = {}): ComandosDoAgile {
   const pecas: PecaDoAgile[] = [];
   const passosDoPreparo = manifesto.verify.preparo ? passosDoComando(manifesto.verify.preparo) : [];
   const lanesDeclaradas = Object.entries(manifesto.check?.agile?.test ?? {});
@@ -427,7 +481,12 @@ export function comandosNoAgile(manifesto: Manifesto, cwd: string, lista: { nome
     const resto = lista.filter((c) => c.nome !== 'build');
     if (resto.length > 1 || lanesDeclaradas.length > 0) pecas.push({ peca: 'grupo', estado: 'fallback', motivo, fallback: 'comandos em serie' });
     if (lanesDeclaradas.length > 0) pecas.push({ peca: 'lanes', estado: 'fallback', motivo, fallback: 'verify.test' });
-    return { comandos: lista.map((c) => executor(c.nome, c.comando, cwd)), pecas, paralelo: false, lanes: [] };
+    const executar = (c: typeof lista[number]) => {
+      const parcial = c.filtro && selecao.comandos[c.nome]
+        ? passagemParcial?.(c.nome, c.comando, cwd, c.filtro, selecao.comandos[c.nome]) : null;
+      return parcial && !parcial.ok ? parcial : executor(c.nome, c.comando, cwd);
+    };
+    return { comandos: lista.map(executar), pecas, paralelo: false, lanes: [] };
   }
   // Com a guarda: o build primeiro (do preparo, quando e so passos dele), e o resto junto.
   const build = lista.find((c) => c.nome === 'build');
@@ -444,13 +503,47 @@ export function comandosNoAgile(manifesto: Manifesto, cwd: string, lista: { nome
   for (const c of resto) {
     if (c.nome === 'test' && lanesDeclaradas.length > 0) {
       for (const [lane, comando] of lanesDeclaradas) {
-        if (depoisDaVarredura.has(lane)) encadeados.push({ nome: `test:${lane}`, comando, apos: ['security_scan'], papelCpu: 'integracao' });
-        else itens.push({ nome: `test:${lane}`, comando, papelCpu: lane === 'hermetica' ? 'hermetica' : 'outro' });
+        const junit = manifesto.check?.agile?.junit?.[lane];
+        const filtro = manifesto.check?.agile?.filtro?.[lane];
+        const recursos = manifesto.check?.agile?.recursos?.[lane];
+        const testesFiltrados = selecao.lanes[lane];
+        const porMudanca = selecaoPorMudanca[lane];
+        const efetivo = porMudanca?.comando ?? comando;
+        const dadosDaSelecao = porMudanca ? { comandoIntegral: comando, selecaoPorMudanca: porMudanca } : {};
+        if (depoisDaVarredura.has(lane)) encadeados.push({ nome: `test:${lane}`, comando: efetivo, ...dadosDaSelecao,
+          ...(junit ? { junit } : {}), ...(filtro ? { filtro } : {}), ...(testesFiltrados ? { testesFiltrados } : {}),
+          ...(recursos?.length ? { recursos } : {}),
+          apos: ['security_scan'], papelCpu: 'integracao' });
+        else itens.push({ nome: `test:${lane}`, comando: efetivo, ...dadosDaSelecao, ...(junit ? { junit } : {}),
+          ...(filtro ? { filtro } : {}), ...(testesFiltrados ? { testesFiltrados } : {}),
+          ...(recursos?.length ? { recursos } : {}),
+          papelCpu: lane === 'hermetica' ? 'hermetica' : 'outro' });
       }
-    } else itens.push({ nome: c.nome, comando: c.comando, papelCpu: c.nome === 'security_scan' ? 'varredura' : 'outro' });
+    } else itens.push({ nome: c.nome, comando: c.comando, ...(c.junit ? { junit: c.junit } : {}),
+      ...(c.filtro ? { filtro: c.filtro } : {}), ...(selecao.comandos[c.nome] ? { testesFiltrados: selecao.comandos[c.nome] } : {}),
+      papelCpu: c.nome === 'security_scan' ? 'varredura' : 'outro' });
   }
   itens.push(...encadeados);
-  const resultados = itens.length > 1 ? grupo(itens, cwd) : itens.map((i) => executor(i.nome, i.comando, cwd));
+  const parciaisVermelhas = new Map<string, ResultadoDeComando>();
+  for (const item of itens) {
+    if (!item.filtro || !item.testesFiltrados?.length || !passagemParcial) continue;
+    const parcial = passagemParcial(item.nome, item.comando, cwd, item.filtro, item.testesFiltrados);
+    if (parcial && !parcial.ok) parciaisVermelhas.set(item.nome, parcial);
+  }
+  const inteiros = itens.filter((i) => !parciaisVermelhas.has(i.nome));
+  const resultadosInteiros = inteiros.length > 1 ? grupo(inteiros, cwd) : inteiros.map((i) => executor(i.nome, i.comando, cwd));
+  const porItemInteiro = new Map(inteiros.map((item, i) => [item.nome, resultadosInteiros[i]]));
+  const resultados = itens.map((item) => {
+    const parcial = parciaisVermelhas.get(item.nome);
+    if (parcial) return parcial;
+    const resultado = porItemInteiro.get(item.nome)!;
+    if (!item.selecaoPorMudanca || !item.comandoIntegral) return resultado;
+    const { comando: _comando, ...registro } = item.selecaoPorMudanca;
+    return item.selecaoPorMudanca.modo === 'selecionada'
+      ? { ...resultado, comando: item.comandoIntegral, comandoExecutado: item.comando,
+        parcial: { testes: [] }, selecao: registro }
+      : { ...resultado, comando: item.comandoIntegral, selecao: registro };
+  });
   pecas.push(...(grupo.pecas ?? []));
   const lanes: Array<{ lane: string; resultado: ResultadoDeComando }> = [];
   itens.forEach((item, i) => {

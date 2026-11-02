@@ -93,20 +93,220 @@ sha do commit, o diretório, e o resultado por claim.
 ### Comparação teste a teste dentro do mesmo comando
 
 Quando o runner nomeia as falhas, a baseline guarda `testeQueCaiu` por comando e, no Agile, também por lane. O verify faz a comparação teste a teste
-esses nomes por igualdade exata: nome que aparece apenas na rodada atual é regressão e bloqueia
+desses nomes por igualdade exata: nome que aparece apenas na rodada atual é regressão e bloqueia
 com `verify.regression`; nome presente nos dois lados continua como dívida pré-existente; nome que
 existia só na baseline fica registrado como corrigido. Assim, se `test` já falhava em `A` e passa a
 falhar em `A` e `B`, `B` não se esconde dentro do vermelho anterior.
 
 Teste renomeado é deliberadamente conservador: o nome antigo sai como corrigido e o novo como
-regressão. Não há heurística de semelhança, porque o TAP fornece nomes, não uma identidade estável.
-Um teste instável que aparece com o mesmo nome nos dois lados continua pré-existente. A evidência
-nominal é limitada aos até dez nomes que o parser já registra por comando.
+regressão. Não há heurística de semelhança. Um teste instável que aparece com o mesmo nome nos dois
+lados continua pré-existente. Sem relatório declarado, a evidência nominal conserva o teto de dez
+nomes do extrator da saída. Com JUnit, todos os nomes de falha e erro ficam no ledger; o texto do
+terminal resume os primeiros dez.
 
 Em baseline antiga ou comando sem TAP, quando falta nome em qualquer lado que falhou, vale a
 **comparação somente por comando**, compatível com a regra anterior. A saída diz essa granularidade
 e não afirma “0 regressões” por teste: sem os nomes, essa contagem não foi calculada. Baseline verde
 prova um conjunto vazio de falhas; se a rodada atual trouxer nomes, todos eles são regressões.
+
+### Relatório JUnit declarado no manifesto
+
+O comando pode continuar como texto. Para ler o resultado estruturado de qualquer runner, troque
+somente o valor pelo mapa com `comando` e `junit`; o caminho é relativo à worktree:
+
+```yaml
+verify:
+  build: "npm run build" # forma existente, sem mudança
+  test:
+    comando: "pytest --junitxml reports/pytest.xml"
+    junit: reports/pytest.xml
+
+check:
+  agile:
+    test:
+      rapida: "npm run test:rapida" # lane textual continua válida
+      lane-completa:
+        comando: "PLAYWRIGHT_JUNIT_OUTPUT_NAME=reports/playwright.xml npx playwright test --reporter=junit"
+        junit: reports/playwright.xml
+        filtro: "npx playwright test --reporter=junit --grep {testes}"
+        relogio:
+          nome: ["@tempo"]
+        selecao:
+          comando: "npx playwright test --only-changed={base} --reporter=junit"
+          mapeia: [src/**, tests/**]
+          configuracao: [playwright.config.*]
+        recursos: [postgres-local, porta-http]
+```
+
+O verify remove o arquivo declarado antes do comando e lê o novo depois. Ele aceita somente arquivo
+regular, dentro da worktree e produzido nessa execução. XML ausente, inválido, grande demais, antigo
+ou alcançado por link não serve como evidência: o código de saída continua julgando o comando e o
+campo `junit` do ledger registra o estado e o motivo. O XML nunca transforma código de saída vermelho
+em verde.
+
+No objeto de comando ou lane, `junit` é obrigatório. A única exceção é a lane do Agile cujo mesmo
+objeto declara `recursos`; somente nesse caso o objeto pode omitir o relatório. `filtro`, que consome
+os nomes do relatório, e `relogio`, que marca identidades JUnit, sempre exigem `junit`, inclusive
+quando há `recursos`, e a mensagem de erro identifica qual dessas chaves pediu o relatório. Um objeto
+com apenas `comando`, ou com `selecao` mas sem `recursos`, continua incompleto como no contrato da F1.
+
+Os runners escrevem o mesmo contrato com opções diferentes:
+
+- **pytest:** `pytest --junitxml reports/pytest.xml`.
+- **Vitest:** `vitest run --reporter=junit --outputFile=reports/vitest.xml`.
+- **Jest:** `jest --reporters=default --reporters=jest-junit`, com `JEST_JUNIT_OUTPUT_FILE=reports/jest.xml`.
+- **Playwright:** `playwright test --reporter=junit`, com `PLAYWRIGHT_JUNIT_OUTPUT_NAME=reports/playwright.xml`.
+- **Go:** `gotestsum --junitfile reports/go.xml -- ./...`.
+
+### Filtro do runner na rodada de correção
+
+Um comando com JUnit pode declarar também `filtro`. O valor é o comando do próprio runner com
+`{testes}` exatamente uma vez; o verify substitui o marcador pelos nomes JUnit, cada um como
+argumento shell separado e escapado. Exemplo com pytest:
+
+```yaml
+verify:
+  test:
+    comando: "pytest --junitxml reports/pytest.xml"
+    junit: reports/pytest.xml
+    filtro: "pytest --junitxml reports/pytest.xml {testes}"
+```
+
+- Sem `filtro`, sem JUnit válido ou sem nomes no último `verify_run`, nada muda: roda o comando
+  completo.
+- O comando integral precisa continuar igual ao da rodada anterior. Mudou, a evidência nominal
+  não é reaproveitada.
+- Se a passagem filtrada continuar vermelha, o comando reprova ali, marca a rodada como parcial
+  e lista os nomes filtrados no texto e no ledger.
+- Se a passagem filtrada ficar verde, o verify roda em seguida o comando completo. Só esse
+  resultado integral pode deixar a rodada verde.
+- Em `check.agile.test`, cada lane pode declarar seu próprio `junit` e `filtro`; uma lane nunca
+  recebe os nomes de outra.
+- O `ork ship` recusa recibo parcial, mesmo se ele estiver marcado como verde. A suíte inteira
+  verde no HEAD continua obrigatória.
+
+O filtro recebe exatamente os nomes que o relatório produziu. O Orkastery não converte
+`classname :: name` para id de framework: pytest pode receber ids, Vitest/Jest podem usar a
+seleção por nome ou caminho, Playwright pode usar `--grep` e Go pode usar `-run`, desde que o
+comando declarado saiba consumir os nomes do JUnit do projeto.
+
+### Seleção nativa por mudanças na rodada morna
+
+Uma lane de `check.agile.test` pode declarar `selecao` ao lado de `comando` e, quando necessário, `junit`. O
+opt-in diz qual comando nativo do runner seleciona testes, quais caminhos ele garante mapear e
+quais arquivos de configuração invalidam essa garantia. Sem a chave, o Agile conserva a suíte
+inteira; `verify.test` e o Classic não aceitam nem usam a declaração.
+
+O comando contém exatamente um marcador. `{base}` recebe o commit da rodada anterior quando o
+runner calcula o diff pelo Git; `{arquivos}` recebe cada caminho mudado como um argumento shell
+fechado. Exemplos dos runners que expõem esses mecanismos:
+
+```yaml
+check:
+  mode: agile
+  agile:
+    produto: [dist]
+    preparo: "npm run build"
+    test:
+      vitest:
+        comando: "vitest run --reporter=junit --outputFile=reports/vitest.xml"
+        junit: reports/vitest.xml
+        selecao:
+          comando: "vitest run --changed {base} --reporter=junit --outputFile=reports/vitest.xml"
+          mapeia: [src/**, test/**]
+          configuracao: [vitest.config.*, vite.config.*]
+      jest:
+        comando: "jest --ci --reporters=default --reporters=jest-junit"
+        junit: reports/jest.xml
+        selecao:
+          comando: "jest --findRelatedTests {arquivos} --ci --reporters=default --reporters=jest-junit"
+          mapeia: [src/**, test/**]
+          configuracao: [jest.config.*, package.json]
+      playwright:
+        comando: "playwright test --reporter=junit"
+        junit: reports/playwright.xml
+        selecao:
+          comando: "playwright test --only-changed={base} --reporter=junit"
+          mapeia: [src/**, tests/**]
+          configuracao: [playwright.config.*]
+```
+
+A seleção só vale quando o último `verify_run` ficou verde, trouxe o cache F5 reconhecido, tem
+commit ancestral do HEAD, usa o mesmo merge-base e a árvore atual está limpa. A primeira rodada é
+fria e inteira. Rodada selecionada verde pode alimentar a seguinte, mas continua parcial.
+
+A lane roda inteira e registra o motivo quando qualquer condição não fecha:
+
+- cache ausente, inválido, vermelho, de outra base ou fora da ancestralidade;
+- mudança em `orkastery.yaml`, `devmaster.yaml`, lockfile ou configuração declarada do runner;
+- caminho mudado fora de `mapeia`, nenhum caminho verificável ou `mapeia` vazio;
+- rodada fria ou Classic Check.
+
+O `verify_run` grava `selecao` no cache da rodada e, em cada lane declarada, `modo`, `motivo`,
+`arquivos` e a base quando aplicáveis. O texto diz `SELECIONADA`/`INTEIRA` em português e
+`SELECTED`/`FULL` em inglês. Lane selecionada reutiliza o campo `parcial` da rodada nominal: o
+SHIP a recusa pelo mesmo contrato, sem um segundo tipo de recibo parcial.
+
+### Teste de relógio declarado no relatório
+
+Um comando com JUnit pode declarar também `relogio`. A marcação é opt-in e aceita exatamente uma
+estratégia: `nome`, com uma lista de expressões regulares sobre a identidade JUnit, ou `marcador` e
+`tag`, que documentam que o próprio comando ou lane já seleciona somente aquela categoria. Sem a
+declaração, o julgamento de Classic e Agile não muda.
+
+Cada runner conserva a própria sintaxe; o manifesto só registra a intenção:
+
+- **pytest:** `comando: "pytest -m desempenho --junitxml reports/pytest.xml"` com
+  `relogio: { marcador: desempenho }`.
+- **Vitest:** `comando: "vitest run --reporter=junit --outputFile=reports/vitest.xml"` com
+  `relogio: { nome: ["tempo$"] }`.
+- **Jest:** `comando: "JEST_JUNIT_OUTPUT_FILE=reports/jest.xml jest --reporters=default --reporters=jest-junit"`
+  com `relogio: { nome: ["latencia"] }`.
+- **Playwright:** `comando: "PLAYWRIGHT_JUNIT_OUTPUT_NAME=reports/playwright.xml playwright test --grep @tempo --reporter=junit"`
+  com `relogio: { tag: "@tempo" }`.
+- **Go:** `comando: "gotestsum --junitfile reports/go.xml -- ./..."` com
+  `relogio: { nome: ["/Tempo$"] }`.
+
+Sob steal acima do limiar, somente a reprovação formada inteira por casos marcados fica sem
+veredito. O verify reutiliza o `filtro` da rodada de correção para rodar esses nomes isolados quando
+ele existe. A segunda rodada é diagnóstico: ela nunca promove o primeiro resultado a verde. Falha
+comum no mesmo comando continua regressão; teste marcado que cai sem steal alto também. Texto e
+ledger dizem os nomes, o steal medido e se a segunda rodada passou, reprovou, ficou sem veredito ou
+não tinha filtro.
+
+### Workers e recursos por lane
+
+Ao lançar uma lane, o Agile exporta `ORK_WORKERS` com a reserva inteira vigente que o agendador atribuiu a ela, sempre
+com pelo menos um worker. Se uma lane começa depois de outra peça devolver a reserva, ela recebe o valor novo. O Classic
+exporta a mesma variável com a capacidade inteira disponível, de modo que o comando do projeto serve nos dois modos sem
+mudar a ordem do Classic.
+
+A forma `lane: "comando"` continua válida. No objeto da lane, `recursos` fica ao lado de `comando`, `junit`, `filtro`,
+`relogio` e `selecao`, como na `lane-completa` da referência acima; sua presença é a única dispensa de `junit` para o
+objeto, mas não dispensa o relatório exigido por `filtro` ou `relogio`. Duas lanes com ao menos um recurso em comum não
+se sobrepõem; recursos diferentes não criam dependência. O conjunto é adquirido inteiro antes de a lane ocupar uma vaga,
+para que listas em ordens diferentes não formem espera circular.
+
+Cada runner lê a variável no próprio comando e conserva seu fallback quando é executado fora do `ork`:
+
+```bash
+pytest -n "${ORK_WORKERS:-auto}"
+playwright test --workers="${ORK_WORKERS:-50%}"
+vitest --maxWorkers="${ORK_WORKERS:-50%}"
+jest --maxWorkers="${ORK_WORKERS:-50%}"
+go test -p "${ORK_WORKERS:-1}"
+```
+
+As variáveis `ORK_CHECK_*` continuam internas; `ORK_WORKERS` é o contrato público para runners. Neste repositório,
+`core/scripts/test-lanes.cjs` consome a reserva interna equivalente no runner e não propaga modo, relatório, workers nem
+outras variáveis de transporte aos processos internos dos testes.
+
+O leitor usa `classname :: name`; sem classe, usa `file :: name`; sem ambos, usa só `name`. Se o
+nome de uma falha ou erro precisaria ser truncado ou redigido, o relatório não serve para comparação
+nominal: ele é marcado como inválido, sem copiar o conteúdo para o motivo. Isso evita colisões de
+identidade sem limitar a quantidade de casos. O leitor distingue passou, falhou, erro e pulado e soma
+a duração dos casos. Falhas e erros alimentam `testeQueCaiu`; casos aprovados não são copiados para o
+ledger.
 
 ### Estouro de prazo não é reprovação
 
@@ -170,16 +370,17 @@ worktree:
 
 ### Steal da CPU: a máquina julgada antes do código (RM-037)
 
-Numa VPS, o hipervisor pode tomar a CPU: em 23 e 24/09/2026 a máquina de referência perdeu de 67% a
-92% dela (sar), e a suíte levou de 7 a 9 vezes o tempo que leva com a CPU livre. Teste que mede relógio reprova nessa
-hora sem que o código tenha mudado.
+O relato veio de uma rede de três VPS: o hipervisor pode tomar a CPU, e um teste que mede relógio
+reprova nessa hora sem que o código tenha mudado.
 
 O `ork verify` mede o steal do `/proc/stat` na rodada inteira e na janela de cada comando, e grava a
 medida no `verify_run` (`steal`, e `stealPct` em cada comando que falha). Quando um comando reprova
 **só** em teste com relógio e o steal na janela dele passou de 40%, a reprovação vira
-`verify.timeout`: sem veredito, o retry reexecuta, e nunca é regressão. Teste com relógio é o que
-falhou com a assinatura de prazo do `node --test` (estouro do teste, ou cancelado pelo pai que
-estourou) ou o que tem entrada vigente no registro de instabilidade, `core/instabilidade.json`.
+`verify.timeout`: sem veredito, e nunca regressão. Teste com relógio é o caso marcado no manifesto e
+confirmado pelo JUnit, o que falhou com a assinatura de prazo do `node --test` (estouro do teste, ou
+cancelado pelo pai que estourou) ou o que tem entrada vigente no registro de instabilidade,
+`core/instabilidade.json`. Quando há marcação JUnit, o verify faz a segunda rodada isolada descrita
+acima e conserva o primeiro resultado sem veredito.
 Asserção comum sob steal alto continua regressão, e sem `/proc/stat` nada é atenuado. O `ork ci run`
 não mede nem atenua: o CI segue sendo a prova independente.
 
@@ -196,13 +397,18 @@ que falha:
 | --- | --- |
 | `causa` | `exit`, `timeout`, `nao-encontrado` ou `sinal` |
 | `prazoMs`, `duracaoMs` | O prazo aplicado e o tempo que o comando levou |
-| `testeQueCaiu` | Até 10 testes que o runner reportou como reprovados (`not ok` do TAP e a seção "failing tests" do reporter `spec` do `node --test`, `FAIL` de jest e vitest); no Agile, cada item de `lanes` preserva os nomes da própria lane |
+| `testeQueCaiu` | Sem JUnit, até 10 testes extraídos da saída (`not ok` do TAP, a seção "failing tests" do reporter `spec` e `FAIL` de Jest/Vitest). Com JUnit válido, todas as falhas e erros; no Agile, cada item de `lanes` preserva os nomes da própria lane |
+| `junit` | Caminho e estado da leitura; quando válido, total de testes, falhas, erros, pulados e duração somada. No Agile, aparece também por lane |
+| `parcial` | Presente somente quando a passagem filtrada reprovou antes da suíte inteira; guarda os nomes selecionados. O `verify_run` também marca a rodada como parcial |
 | `stealPct`, `relogioSobSteal` | O steal da CPU na janela do comando e, quando a reprovação foi só de relógio sob steal acima de 40%, os testes (RM-037) |
+| `retesteDeRelogio` | Os testes marcados e o resultado da segunda rodada isolada: `passou`, `reprovou`, `sem-veredito` ou `sem-filtro`, com o código quando houver |
 | `trecho` | O fim da saída real, até 1024 caracteres, redigido |
 
 A redação segue a regra do prompt: credencial em URL vira `[credencial redigida]@`, e se
 qualquer padrão de segredo casar, o trecho inteiro é descartado e vira
-`[trecho omitido: padrao <nome> casou]`. Comando que passa grava só o código 0.
+`[trecho omitido: padrao <nome> casou]`. Comando que passa grava o código 0 e a duração; quando
+há JUnit declarado, grava também o estado da leitura e, se válido, as contagens e a duração somada
+dos casos.
 
 O comando de verificação também nunca herda variável `ORK_HITL_*`: quem prova uma alegação não
 pode agir como o dono.
@@ -330,8 +536,9 @@ check:
 - `preparo`: o preparo do Agile; se ele falhar, roda o `verify.preparo`, com a peça `preparo` em fallback. Aqui ele usa
   o `tsgo` (o TypeScript 7 nativo) na árvore fria e o preparo do Classic quando o build incremental do `tsc` já existe;
   `core/scripts/tsgo-paridade.cjs` confere o mesmo typecheck e o mesmo JavaScript do `tsc` 5.9.3.
-- `test`: as lanes, juntas no lugar do `verify.test`. O `test` do `verify_run` fica ok só com todas ok, e a lista de
-  arquivos de cada lane vai ao ledger.
+- `test`: as lanes, juntas no lugar do `verify.test`. A forma textual continua válida; o objeto reúne as chaves da
+  declaração completa mostrada acima. O `test` do `verify_run` fica ok só com todas ok, e a lista de arquivos de cada
+  lane vai ao ledger.
 - `apos_a_varredura`: as lanes que só começam quando o `security_scan` do grupo termina. É para a lane que sobe containers
   (aqui, a de integração, com o scan real e o PostgreSQL): junto da varredura, as duas cargas disputam a CPU, e teste com
   prazo cai por falta de máquina, não por defeito.
@@ -340,9 +547,9 @@ check:
   `oxlint` roda antes do `eslint`, sem tirar regra dele. Neste repositório o `osv-scanner` não teve paridade e fica
   desligado.
 
-O grupo do Agile não passa da CPU da máquina: a lane encadeada espera a varredura; dentro do grupo, a varredura roda no
-máximo um terço das CPUs que sobram de uma ferramentas ao mesmo tempo (no mínimo duas); e a lane `hermetica` deste
-repositório roda duas CPUs a menos que a máquina. Os testes das lanes não herdam o modo nem o relatório da rodada.
+O grupo do Agile mantém a soma das reservas dentro da capacidade medida. A lane encadeada espera a varredura, e lanes
+que declaram o mesmo recurso esperam a liberação dele sem impedir que recursos diferentes avancem. Os testes das lanes
+não herdam modo, relatório, workers nem as demais variáveis internas da rodada.
 
 O `ork security-scan` segue o mesmo modo: `--check`, depois o modo da rodada do verify, depois `check.mode`, depois o
 padrão. O Classic roda as ferramentas do catálogo uma depois da outra, Docker primeiro; o Agile roda as mesmas

@@ -1,0 +1,341 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm081f1relat",
+  "branch": "ork/ork-rm081f1relat-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm081f1relat",
+      "fase": "GOAL",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "O manifesto preserva comandos e lanes em texto e aceita a forma com comando e junit, recusando caminhos que saem da worktree.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm081-junit.test.js"
+      ],
+      "criadoEm": "2026-11-02T02:55:33.453Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm081f1relat",
+      "fase": "GOAL",
+      "arquivo": "core/src/junit.ts",
+      "alegacao": "O leitor normaliza relatórios reais de pytest, Vitest, Jest, Playwright e gotestsum e distingue falha, erro, pulado e duração.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm081-junit.test.js"
+      ],
+      "criadoEm": "2026-11-02T02:55:33.509Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm081f1relat",
+      "fase": "GOAL",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "O verify remove relatório anterior, rejeita evidência ausente, inválida ou alheia à rodada sem torná-la verde e compara qualquer runner nominalmente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm081-junit.test.js core/dist-test/test/rm037-verify-por-teste.test.js"
+      ],
+      "criadoEm": "2026-11-02T02:55:33.573Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm081f1relat",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-agil.ts",
+      "alegacao": "Com relatório declarado, o Agile preserva todos os nomes e as estatísticas por lane; sem relatório, mantém o comportamento anterior.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm081-junit.test.js core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-02T02:55:33.622Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm081f1relat",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/verificacao.md",
+      "alegacao": "O guia documenta texto e objeto com junit e traz exemplos de pytest, Vitest, Jest, Playwright e Go.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'junit:' docs/guias/verificacao.md && grep -q 'pytest' docs/guias/verificacao.md && grep -q 'Vitest' docs/guias/verificacao.md && grep -q 'Jest' docs/guias/verificacao.md && grep -q 'Playwright' docs/guias/verificacao.md && grep -q 'gotestsum' docs/guias/verificacao.md"
+      ],
+      "criadoEm": "2026-11-02T02:55:33.686Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm081f1relat",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG registra a F1 somente em Não publicado.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-11-02T02:55:33.730Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm081f1relat",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm081-junit.test.ts",
+      "alegacao": "A suíte focada prova o manifesto e o leitor JUnit da RM-081 F1.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm081-junit.test.js"
+      ],
+      "criadoEm": "2026-11-02T03:06:42.861Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm081f1relat",
+      "fase": "GOAL",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "Os tipos preservam a compatibilidade e carregam a evidência JUnit por comando e lane.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm081-junit.test.js"
+      ],
+      "criadoEm": "2026-11-02T03:06:42.925Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm081f1relat",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/junit/pytest.xml",
+      "alegacao": "A fixture pública de pytest é lida com falha, erro, pulado e duração.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm081-junit.test.js"
+      ],
+      "criadoEm": "2026-11-02T03:16:19.521Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm081f1relat",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/junit/vitest.xml",
+      "alegacao": "A fixture pública de Vitest é lida com nomes e duração.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm081-junit.test.js"
+      ],
+      "criadoEm": "2026-11-02T03:16:19.596Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm081f1relat",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/junit/jest.xml",
+      "alegacao": "A fixture pública de Jest é lida com nomes e duração.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm081-junit.test.js"
+      ],
+      "criadoEm": "2026-11-02T03:16:19.650Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm081f1relat",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/junit/playwright.xml",
+      "alegacao": "A fixture pública de Playwright é lida com nomes e duração.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm081-junit.test.js"
+      ],
+      "criadoEm": "2026-11-02T03:16:19.715Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm081f1relat",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/junit/gotestsum.xml",
+      "alegacao": "A fixture pública de gotestsum é lida com nomes e duração.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm081-junit.test.js"
+      ],
+      "criadoEm": "2026-11-02T03:16:19.785Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm081f1relat",
+      "fase": "GOAL",
+      "arquivo": "docs/produto/FEAT-004-claims-e-verify.md",
+      "alegacao": "A referência do manifesto documenta a forma textual e o objeto com JUnit.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'comando, junit' docs/produto/FEAT-004-claims-e-verify.md && grep -q 'check.agile.test' docs/produto/FEAT-004-claims-e-verify.md"
+      ],
+      "criadoEm": "2026-11-02T03:16:19.863Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm081f1relat",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-081-check-por-qualquer-runner.md",
+      "alegacao": "A página da RM-081 registra a implementação da F1 nesta thread.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'F1 implementa JUnit' docs/roadmap/RM-081-check-por-qualquer-runner.md"
+      ],
+      "criadoEm": "2026-11-02T03:16:19.909Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm081f1relat",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm081-f1.json",
+      "alegacao": "Mutante M1 da RM-081 F1 é morto isoladamente pelo teste focado.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm081-f1.json M1"
+      ],
+      "criadoEm": "2026-11-02T03:16:19.964Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm081f1relat",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm081-f1.json",
+      "alegacao": "Mutante M2 da RM-081 F1 é morto isoladamente pelo teste focado.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm081-f1.json M2"
+      ],
+      "criadoEm": "2026-11-02T03:16:20.013Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm081f1relat",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm081-f1.json",
+      "alegacao": "Mutante M3 da RM-081 F1 é morto isoladamente pelo teste focado.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm081-f1.json M3"
+      ],
+      "criadoEm": "2026-11-02T03:16:20.073Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm081f1relat",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm081-f1.json",
+      "alegacao": "Mutante M4 da RM-081 F1 é morto isoladamente pelo teste focado.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm081-f1.json M4"
+      ],
+      "criadoEm": "2026-11-02T03:16:20.132Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm081f1relat",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm081-f1.json",
+      "alegacao": "Mutante M5 da RM-081 F1 é morto isoladamente pelo teste focado.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm081-f1.json M5"
+      ],
+      "criadoEm": "2026-11-02T03:16:20.206Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm081f1relat",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm081-f1.json",
+      "alegacao": "Mutante M6 da RM-081 F1 é morto isoladamente pelo teste focado.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm081-f1.json M6"
+      ],
+      "criadoEm": "2026-11-02T03:16:20.270Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm081f1relat",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm081-f1.json",
+      "alegacao": "O mutante M7 prova que um relatório vermelho não injeta falhas nominais em comando com código de saída verde.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm081-f1.json M7"
+      ],
+      "criadoEm": "2026-11-02T03:28:13.894Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm081f1relat",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice do roadmap permanece sincronizado com o frontmatter atualizado da RM-081.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar --json"
+      ],
+      "criadoEm": "2026-11-02T03:39:28.302Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}

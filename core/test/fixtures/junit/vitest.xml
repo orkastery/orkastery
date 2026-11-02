@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="3" failures="1" errors="0" time="0.046">
+  <testsuite name="src/painel.test.ts" timestamp="2026-11-01T12:00:00.000Z" hostname="localhost" tests="3" failures="1" errors="0" skipped="1" time="0.046">
+    <testcase classname="src/painel.test.ts" name="painel &gt; mostra o resumo" time="0.011" />
+    <testcase classname="src/painel.test.ts" name="painel &gt; mostra o erro" time="0.029">
+      <failure message="expected true to be false" type="AssertionError">AssertionError: expected true to be false</failure>
+    </testcase>
+    <testcase classname="src/painel.test.ts" name="painel &gt; cenário opcional" time="0.006">
+      <skipped />
+    </testcase>
+  </testsuite>
+</testsuites>
