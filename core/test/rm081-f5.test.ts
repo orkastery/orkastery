@@ -207,6 +207,10 @@ test('RM081 F5 P4: cache ausente, vermelho, malformado ou de outra base nunca se
     const outraBase = { ...fria.cache!, base: 'f'.repeat(40) };
     assert.equal(planejarSelecaoNativa(p.dir, manifesto, [rodadaVerde(anterior, outraBase)], atual, 'agile')
       .lanes.runner.motivo, 'base-mudou');
+    fs.writeFileSync(path.join(p.dir, 'src/nao-commitado.ts'), 'export {};\n');
+    const sujo = planejarSelecaoNativa(p.dir, manifesto, [rodadaVerde(anterior, fria.cache)], atual, 'agile');
+    assert.equal(sujo.lanes.runner.motivo, 'cache-invalido');
+    assert.equal(sujo.cache, null);
   } finally { p.limpar(); }
 });
 
