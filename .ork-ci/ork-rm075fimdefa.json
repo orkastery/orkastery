@@ -479,7 +479,7 @@
         "node -e \"const b=require('./.ork-ci/ork-rm075fimdefa.json'); if(b.schema!=='ork.ci-bundle/v1'||b.thread!=='ork-rm075fimdefa'||b.branch!=='ork/ork-rm075fimdefa-full'||b.base!=='main'||!Array.isArray(b.claims)||b.claims.length===0||!Array.isArray(b.deferredClaims)||!Array.isArray(b.commands)) process.exit(1)\""
       ],
       "criadoEm": "2026-11-02T15:08:21.169Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
