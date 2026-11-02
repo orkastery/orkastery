@@ -383,6 +383,15 @@ export function testDasLanes(lanes: Array<{ lane: string; resultado: ResultadoDe
   const filtrados = juntar((r) => r.parcial?.testes);
   const junit = junitDasLanes(lanes);
   const relogio = soRelogio ? juntar((r) => r.relogioSobSteal) : [];
+  const retestes = lanes.map((l) => l.resultado.retesteDeRelogio).filter((r): r is NonNullable<typeof r> => !!r);
+  const estadoDoReteste = (['reprovou', 'sem-veredito', 'sem-filtro', 'passou'] as const)
+    .find((estado) => retestes.some((r) => r.estado === estado));
+  const reteste = estadoDoReteste ? {
+    testes: [...new Set(retestes.flatMap((r) => r.testes))],
+    estado: estadoDoReteste,
+    ...(retestes.find((r) => r.estado === estadoDoReteste)?.code !== undefined
+      ? { code: retestes.find((r) => r.estado === estadoDoReteste)!.code } : {}),
+  } : undefined;
   const trechos = caidas.map((l) => l.resultado.trecho).filter((t): t is string => !!t);
   return {
     nome: 'test',
@@ -401,11 +410,15 @@ export function testDasLanes(lanes: Array<{ lane: string; resultado: ResultadoDe
     ...(trechos.length ? { trecho: trechos.join('\n').slice(0, 1024) } : {}),
     ...(lanes.some((l) => l.resultado.stealPct !== undefined) ? { stealPct: lanes.find((l) => l.resultado.stealPct !== undefined)!.resultado.stealPct } : {}),
     ...(relogio.length ? { relogioSobSteal: relogio } : {}),
+    ...(reteste ? { retesteDeRelogio: reteste } : {}),
     lanes: lanes.map((l) => ({ lane: l.lane, comando: l.resultado.comando, ok: l.resultado.ok, code: l.resultado.code,
       ...(l.resultado.causa ? { causa: l.resultado.causa } : {}), duracaoMs: l.resultado.duracaoMs ?? 0,
       ...(l.resultado.testeQueCaiu?.length ? { testeQueCaiu: l.resultado.testeQueCaiu } : {}),
       ...(l.resultado.junit ? { junit: l.resultado.junit } : {}),
-      ...(l.resultado.parcial ? { parcial: l.resultado.parcial } : {}) })),
+      ...(l.resultado.parcial ? { parcial: l.resultado.parcial } : {}),
+      ...(l.resultado.relogioSobSteal?.length ? { relogioSobSteal: l.resultado.relogioSobSteal } : {}),
+      ...(l.resultado.retesteDeRelogio ? { retesteDeRelogio: l.resultado.retesteDeRelogio } : {}),
+      ...(l.resultado.stealPct !== undefined ? { stealPct: l.resultado.stealPct } : {}) })),
   };
 }
 

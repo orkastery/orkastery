@@ -166,3 +166,45 @@ test('RM081 F2 L1: ledger e texto pt-BR e ingles dizem nomes, steal e resultado 
     assert.match(String(gate.detalhe), /runner :: mede tempo; steal 75%; segunda rodada reprovou/);
   } finally { c.p.limpar(); }
 });
+
+test('RM081 F2 A1: Agile preserva o reteste por lane e sem a declaracao conserva a falha comum', () => {
+  for (const marcado of [true, false]) {
+    const p = projetoTemporario(`rm081-f2-agile-${marcado ? 'marcado' : 'legado'}`);
+    try {
+      fs.writeFileSync(path.join(p.dir, 'produto.txt'), 'produto');
+      fs.mkdirSync(path.join(p.dir, 'reports'));
+      p.carregado.manifesto.verify = { test: 'runner completo', preparo: 'prepara' };
+      p.carregado.manifesto.check = { mode: 'agile', agile: { produto: ['produto.txt'],
+        test: { a: 'runner a completo', b: 'runner b completo' },
+        junit: { a: 'reports/a.xml', b: 'reports/b.xml' },
+        filtro: { a: 'runner a parcial {testes}' },
+        ...(marcado ? { relogio: { a: { nome: ['tempo$'] } } } : {}) } };
+      const thread = novaThread(p.carregado, { nome: `agile ${marcado}`, modo: 'auto' }).thread.id;
+      const comandos: string[] = [];
+      const r = verificar(p.carregado, thread, { check: 'agile', lerProcStat: procStatComSteal(80),
+        executor: (nome, comando) => {
+          comandos.push(comando);
+          if (nome === 'test:a') {
+            const falhas = comando.includes('parcial') ? [] : ['mede tempo'];
+            fs.writeFileSync(path.join(p.dir, 'reports/a.xml'), xml(falhas));
+            return resultado(nome, comando, falhas.length === 0);
+          }
+          if (nome === 'test:b') fs.writeFileSync(path.join(p.dir, 'reports/b.xml'), xml([]));
+          return resultado(nome, comando, true);
+        } });
+      const agregado = r.comandos.find((c) => c.nome === 'test')!;
+      if (marcado) {
+        assert.deepEqual(comandos, ['prepara', 'runner a completo', "runner a parcial 'runner :: mede tempo'", 'runner b completo']);
+        assert.deepEqual(agregado.retesteDeRelogio,
+          { testes: ['runner :: mede tempo'], estado: 'passou', code: 0 });
+        assert.deepEqual(agregado.lanes?.find((l) => l.lane === 'a')?.retesteDeRelogio,
+          { testes: ['runner :: mede tempo'], estado: 'passou', code: 0 });
+        assert.deepEqual(r.motivos, ['verify.timeout']);
+      } else {
+        assert.deepEqual(comandos, ['prepara', 'runner a completo', 'runner b completo']);
+        assert.equal(agregado.retesteDeRelogio, undefined);
+        assert.deepEqual(r.motivos, ['verify.failed'], 'sem relogio declarado vale o julgamento anterior');
+      }
+    } finally { p.limpar(); }
+  }
+});

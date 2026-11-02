@@ -607,14 +607,16 @@ function executorDoGrupo(manifesto: Manifesto, ambienteDaRodada: Record<string, 
     const stealPct = janela.fechar();
     return processos.map((p, k) => {
       let r: ResultadoDeComando = { ...resultadoDoProcesso(itens[k].nome, itens[k].comando, p, p.comGrupo, p.duracaoMs, prazos[k]), stealPct };
-      if (relatorios[k]) r = anexarRelatorioJUnit(r, relatorios[k]!);
+      if (relatorios[k]) r = anexarRelatorioJUnit(r, relatorios[k]!, marcacaoDeRelogioDoComando(manifesto, itens[k].nome));
       // S1 do CHECK: o auxiliar que morreu sem gravar o resultado deixa o comando sem veredito, nunca uma regressao.
       if (p.semResultado) r.executado = false;
-      if (!r.ok && r.causa !== 'timeout' && r.executado !== false && stealAlto(stealPct)) {
-        const testes = reprovacaoSoDeRelogio(r.falhasDeTeste, relogio);
-        if (testes) r.relogioSobSteal = testes;
-      }
-      return r;
+      return resultadoComSteal(r, stealPct, relogio, (testes) => {
+        if (!itens[k].filtro) return null;
+        const filtrado = comandoComTestesFiltrados(itens[k].filtro!, testes);
+        const executarReteste = executorSobConducao(executorComJUnit(
+          executorDoManifesto(manifesto, paraOAuxiliar[k].ambiente), manifesto), manifesto, conducao);
+        return executarReteste(itens[k].nome, filtrado, cwd);
+      });
     });
   }) as ExecutorDeGrupo;
   executar.pecas = [];
