@@ -125,9 +125,17 @@ check:
   agile:
     test:
       rapida: "npm run test:rapida" # lane textual continua válida
-      navegador:
+      lane-completa:
         comando: "PLAYWRIGHT_JUNIT_OUTPUT_NAME=reports/playwright.xml npx playwright test --reporter=junit"
         junit: reports/playwright.xml
+        filtro: "npx playwright test --reporter=junit --grep {testes}"
+        relogio:
+          nome: ["@tempo"]
+        selecao:
+          comando: "npx playwright test --only-changed={base} --reporter=junit"
+          mapeia: [src/**, tests/**]
+          configuracao: [playwright.config.*]
+        recursos: [postgres-local, porta-http]
 ```
 
 O verify remove o arquivo declarado antes do comando e lê o novo depois. Ele aceita somente arquivo
@@ -259,6 +267,32 @@ ele existe. A segunda rodada é diagnóstico: ela nunca promove o primeiro resul
 comum no mesmo comando continua regressão; teste marcado que cai sem steal alto também. Texto e
 ledger dizem os nomes, o steal medido e se a segunda rodada passou, reprovou, ficou sem veredito ou
 não tinha filtro.
+
+### Workers e recursos por lane
+
+Ao lançar uma lane, o Agile exporta `ORK_WORKERS` com a reserva inteira vigente que o agendador atribuiu a ela, sempre
+com pelo menos um worker. Se uma lane começa depois de outra peça devolver a reserva, ela recebe o valor novo. O Classic
+exporta a mesma variável com a capacidade inteira disponível, de modo que o comando do projeto serve nos dois modos sem
+mudar a ordem do Classic.
+
+A forma `lane: "comando"` continua válida. No objeto da lane, `recursos` fica ao lado de `comando`, `junit`, `filtro`,
+`relogio` e `selecao`, como na `lane-completa` da referência acima. Duas lanes com ao menos um recurso em comum não se
+sobrepõem; recursos diferentes não criam dependência. O conjunto é adquirido inteiro antes de a lane ocupar uma vaga,
+para que listas em ordens diferentes não formem espera circular.
+
+Cada runner lê a variável no próprio comando e conserva seu fallback quando é executado fora do `ork`:
+
+```bash
+pytest -n "${ORK_WORKERS:-auto}"
+playwright test --workers="${ORK_WORKERS:-50%}"
+vitest --maxWorkers="${ORK_WORKERS:-50%}"
+jest --maxWorkers="${ORK_WORKERS:-50%}"
+go test -p "${ORK_WORKERS:-1}"
+```
+
+As variáveis `ORK_CHECK_*` continuam internas; `ORK_WORKERS` é o contrato público para runners. Neste repositório,
+`core/scripts/test-lanes.cjs` consome a reserva interna equivalente no runner e não propaga modo, relatório, workers nem
+outras variáveis de transporte aos processos internos dos testes.
 
 O leitor usa `classname :: name`; sem classe, usa `file :: name`; sem ambos, usa só `name`. Se o
 nome de uma falha ou erro precisaria ser truncado ou redigido, o relatório não serve para comparação
@@ -495,8 +529,9 @@ check:
 - `preparo`: o preparo do Agile; se ele falhar, roda o `verify.preparo`, com a peça `preparo` em fallback. Aqui ele usa
   o `tsgo` (o TypeScript 7 nativo) na árvore fria e o preparo do Classic quando o build incremental do `tsc` já existe;
   `core/scripts/tsgo-paridade.cjs` confere o mesmo typecheck e o mesmo JavaScript do `tsc` 5.9.3.
-- `test`: as lanes, juntas no lugar do `verify.test`. O `test` do `verify_run` fica ok só com todas ok, e a lista de
-  arquivos de cada lane vai ao ledger.
+- `test`: as lanes, juntas no lugar do `verify.test`. A forma textual continua válida; o objeto reúne as chaves da
+  declaração completa mostrada acima. O `test` do `verify_run` fica ok só com todas ok, e a lista de arquivos de cada
+  lane vai ao ledger.
 - `apos_a_varredura`: as lanes que só começam quando o `security_scan` do grupo termina. É para a lane que sobe containers
   (aqui, a de integração, com o scan real e o PostgreSQL): junto da varredura, as duas cargas disputam a CPU, e teste com
   prazo cai por falta de máquina, não por defeito.
@@ -505,9 +540,9 @@ check:
   `oxlint` roda antes do `eslint`, sem tirar regra dele. Neste repositório o `osv-scanner` não teve paridade e fica
   desligado.
 
-O grupo do Agile não passa da CPU da máquina: a lane encadeada espera a varredura; dentro do grupo, a varredura roda no
-máximo um terço das CPUs que sobram de uma ferramentas ao mesmo tempo (no mínimo duas); e a lane `hermetica` deste
-repositório roda duas CPUs a menos que a máquina. Os testes das lanes não herdam o modo nem o relatório da rodada.
+O grupo do Agile mantém a soma das reservas dentro da capacidade medida. A lane encadeada espera a varredura, e lanes
+que declaram o mesmo recurso esperam a liberação dele sem impedir que recursos diferentes avancem. Os testes das lanes
+não herdam modo, relatório, workers nem as demais variáveis internas da rodada.
 
 O `ork security-scan` segue o mesmo modo: `--check`, depois o modo da rodada do verify, depois `check.mode`, depois o
 padrão. O Classic roda as ferramentas do catálogo uma depois da outra, Docker primeiro; o Agile roda as mesmas
