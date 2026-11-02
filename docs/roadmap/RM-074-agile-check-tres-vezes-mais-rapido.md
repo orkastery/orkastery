@@ -311,6 +311,39 @@ arquivos, registro indisponível e separação das razões. Esta seção não af
 ganho da M7: razão fria, razão morna, CPU e eficiência dependem de três pares
 válidos no host.
 
+### M10: seleção do `node --test` pelo grafo de importação
+
+A Sonda 4 mostrou os dois limites que orientam esta fatia. Um diff distante dos
+módulos centrais alcança poucos testes pelo grafo estático, enquanto a cadeia de
+`locale-*` alcança quase toda a lane. O runner nativo não oferece seleção pelo
+diff, por isso a rodada morna do próprio projeto continuava integral mesmo depois
+da F5 da RM-081.
+
+O Agile morno passa a usar a própria declaração `selecao` da F5 na lane
+hermética. O comando:
+
+- calcula o fecho transitivo de `require` estático nos testes compilados;
+- mantém sempre os testes que exercitam processo filho, o CLI compilado ou
+  scripts;
+- executa a lista pelo mesmo runner da lane, preservando reporter, isolamento e
+  cache de duração;
+- devolve a lane inteira diante de `require` dinâmico, caminho local não
+  resolvido, diff vazio ou mudança fora de `core/src` e `core/test`.
+
+A lane de integração continua inteira. Rodada fria, Classic, cache inválido e
+SHIP também conservam as regras integrais da RM-081; o recibo selecionado segue
+parcial e não serve como prova de entrega.
+
+A bancada recebe três commits recentes sem merge, reverte cada delta numa cópia
+descartável da base da fatia e o reaplica antes da rodada morna. O relatório traz
+a razão contra o Classic e a fração de testes selecionados por commit, a mediana,
+o terceiro quartil e os falsos negativos contra uma rodada integral no mesmo
+conteúdo. Qualquer falso negativo reprova a amostra.
+
+Esta página ainda não atribui ganho à M10. A razão só será acrescentada depois de
+três pares válidos medidos pela condução; até lá, os testes focados provam o
+contrato de seleção, não desempenho.
+
 ## Problema e resultado
 
 - **Público e problema/oportunidade:** quem conduz o `ork` e o próprio Orkastery. A RM-072 deixou o Agile Check de 1,43 a 1,52 vez mais rápido que o Classic no mesmo commit e parou aí: a lane hermética ocupa 94% da parede do Agile, e ela é presa em CPU, não em espera. Cada rodada de GO-FIX e de CHECK paga a suíte inteira, mesmo quando o diff toca uma tela de texto.

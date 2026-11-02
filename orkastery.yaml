@@ -74,7 +74,13 @@ check:
     preparo: "npm --prefix core run preparo:tsgo"
     # As lanes juntas no lugar do verify.test: o conjunto do test:ci e as integracoes locais (integracoes-locais.ts).
     test:
-      hermetica: "npm --prefix core run test:hermetica"
+      hermetica:
+        comando: "npm --prefix core run test:hermetica"
+        selecao:
+          comando: "node core/scripts/selecionar-testes-node.cjs hermetica {arquivos}"
+          mapeia: ["core/src/**", "core/test/**"]
+          configuracao: ["core/scripts/**", "core/package.json", "core/package-lock.json", "core/tsconfig*.json", "core/test/fixtures/**"]
+        recursos: ["node-test"]
       integracao: "npm --prefix core run test:integracao"
     # A integracao sobe containers (scan real, PostgreSQL): so comeca quando a varredura do grupo termina.
     apos_a_varredura: ["integracao"]
