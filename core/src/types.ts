@@ -749,6 +749,8 @@ export interface ResultadoDeComando {
   preparo?: { reaproveitado: boolean; passos?: string[]; motivo?: string };
   /** RM-072 (D5): o que rodou de fato quando os passos do preparo sairam da frente; `comando` segue o inteiro. */
   comandoExecutado?: string;
+  /** RM-081 F3: a suite inteira nao rodou; estes foram os nomes JUnit selecionados. */
+  parcial?: { testes: string[] };
   /** RM-074 M1: prova de que um `node --test` da claim veio das lanes desta mesma rodada e ambiente. */
   lane?: { reaproveitada: true; lanes: string[]; arquivos: string[]; nomes: string[]; head: string; ambiente: string };
   /** RM-072 (D4): as lanes que compuseram o `test` do Agile. */
@@ -756,7 +758,9 @@ export interface ResultadoDeComando {
     /** RM-037 (29/10/2026): nomes que esta lane extraiu do TAP; ausente em baselines antigas ou sem TAP. */
     testeQueCaiu?: string[];
     /** RM-081 F1: evidencia JUnit da propria lane, quando declarada. */
-    junit?: EvidenciaJUnit }>;
+    junit?: EvidenciaJUnit;
+    /** RM-081 F3: a lane terminou na passagem parcial, sem a suite inteira. */
+    parcial?: { testes: string[] } }>;
 }
 
 /** O estado do relatorio nunca muda o codigo de saida do comando; ele qualifica somente a evidencia. */
