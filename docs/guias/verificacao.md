@@ -144,6 +144,10 @@ ou alcançado por link não serve como evidência: o código de saída continua 
 campo `junit` do ledger registra o estado e o motivo. O XML nunca transforma código de saída vermelho
 em verde.
 
+No objeto de comando ou lane, `junit` é opcional. Ele é obrigatório quando o mesmo objeto declara
+`filtro`, que consome os nomes do relatório, ou `relogio`, que marca identidades JUnit. `comando`
+sozinho, `recursos` e `selecao` não dependem do relatório e podem ser declarados sem `junit`.
+
 Os runners escrevem o mesmo contrato com opções diferentes:
 
 - **pytest:** `pytest --junitxml reports/pytest.xml`.
@@ -186,7 +190,7 @@ comando declarado saiba consumir os nomes do JUnit do projeto.
 
 ### Seleção nativa por mudanças na rodada morna
 
-Uma lane de `check.agile.test` pode declarar `selecao` ao lado de `comando` e `junit`. O
+Uma lane de `check.agile.test` pode declarar `selecao` ao lado de `comando` e, quando necessário, `junit`. O
 opt-in diz qual comando nativo do runner seleciona testes, quais caminhos ele garante mapear e
 quais arquivos de configuração invalidam essa garantia. Sem a chave, o Agile conserva a suíte
 inteira; `verify.test` e o Classic não aceitam nem usam a declaração.
@@ -276,9 +280,9 @@ exporta a mesma variável com a capacidade inteira disponível, de modo que o co
 mudar a ordem do Classic.
 
 A forma `lane: "comando"` continua válida. No objeto da lane, `recursos` fica ao lado de `comando`, `junit`, `filtro`,
-`relogio` e `selecao`, como na `lane-completa` da referência acima. Duas lanes com ao menos um recurso em comum não se
-sobrepõem; recursos diferentes não criam dependência. O conjunto é adquirido inteiro antes de a lane ocupar uma vaga,
-para que listas em ordens diferentes não formem espera circular.
+`relogio` e `selecao`, como na `lane-completa` da referência acima; `recursos` não torna `junit` obrigatório. Duas lanes
+com ao menos um recurso em comum não se sobrepõem; recursos diferentes não criam dependência. O conjunto é adquirido
+inteiro antes de a lane ocupar uma vaga, para que listas em ordens diferentes não formem espera circular.
 
 Cada runner lê a variável no próprio comando e conserva seu fallback quando é executado fora do `ork`:
 

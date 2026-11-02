@@ -1186,18 +1186,30 @@ test('RM081F4-manifesto: a declaracao unica preserva texto e transporta todas as
   const p = projetoTemporario('rm081-f4-manifesto');
   try {
     comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      texto: "echo texto"\n' +
+      '      somente-comando:\n        comando: "echo comando"\n' +
+      '      com-recursos:\n        comando: "echo recursos"\n        recursos: ["cache"]\n' +
+      '      selecao-sem-junit:\n        comando: "echo selecao"\n' +
+      '        selecao:\n          comando: "echo {arquivos}"\n          mapeia: ["src/**"]\n' +
       '      lane-completa:\n        comando: "echo completa"\n        junit: "reports/completa.xml"\n' +
       '        filtro: "echo {testes}"\n        relogio:\n          nome: ["tempo$"]\n' +
       '        selecao:\n          comando: "echo {arquivos}"\n          mapeia: ["src/**"]\n' +
       '        recursos: ["banco", "porta"]');
-    assert.deepEqual(p.carregado.manifesto.check?.agile?.test, { texto: 'echo texto', 'lane-completa': 'echo completa' });
+    assert.deepEqual(p.carregado.manifesto.check?.agile?.test, {
+      texto: 'echo texto',
+      'somente-comando': 'echo comando',
+      'com-recursos': 'echo recursos',
+      'selecao-sem-junit': 'echo selecao',
+      'lane-completa': 'echo completa',
+    });
     assert.deepEqual(p.carregado.manifesto.check?.agile?.junit, { 'lane-completa': 'reports/completa.xml' });
     assert.deepEqual(p.carregado.manifesto.check?.agile?.filtro, { 'lane-completa': 'echo {testes}' });
     assert.deepEqual(p.carregado.manifesto.check?.agile?.relogio, { 'lane-completa': { nome: ['tempo$'] } });
     assert.deepEqual(p.carregado.manifesto.check?.agile?.selecao, {
+      'selecao-sem-junit': { comando: 'echo {arquivos}', mapeia: ['src/**'] },
       'lane-completa': { comando: 'echo {arquivos}', mapeia: ['src/**'] },
     });
-    assert.deepEqual(p.carregado.manifesto.check?.agile?.recursos, { 'lane-completa': ['banco', 'porta'] });
+    assert.deepEqual(p.carregado.manifesto.check?.agile?.recursos,
+      { 'com-recursos': ['cache'], 'lane-completa': ['banco', 'porta'] });
 
     let itens: Array<{ nome: string; comando: string; recursos?: string[] }> = [];
     const grupo = (recebidos: typeof itens): ResultadoDeComando[] => {
@@ -1214,6 +1226,9 @@ test('RM081F4-manifesto: a declaracao unica preserva texto e transporta todas as
     assert.deepEqual(itens.filter((item) => item.nome.startsWith('test:')).map((item) =>
       [item.nome, item.comando, item.recursos ?? []]), [
       ['test:texto', 'echo texto', []],
+      ['test:somente-comando', 'echo comando', []],
+      ['test:com-recursos', 'echo recursos', ['cache']],
+      ['test:selecao-sem-junit', 'echo selecao', []],
       ['test:lane-completa', 'echo completa', ['banco', 'porta']],
     ]);
   } finally { p.limpar(); }
@@ -1233,6 +1248,18 @@ test('RM081F4-manifesto: recursos e chave desconhecida conservam o caminho compl
     assert.ok(m.erros.some((erro) => /check\.agile\.test\.duplicada\.recursos: "banco" esta repetido/.test(erro)), m.erros.join('; '));
     assert.ok(m.erros.some((erro) => /check\.agile\.test\.errada\.recursos: 3 precisa ser texto de uma linha/.test(erro)), m.erros.join('; '));
     assert.ok(m.erros.some((erro) => /check\.agile\.test\.errada\.outro desconhecida/.test(erro)), m.erros.join('; '));
+  } finally { p.limpar(); }
+});
+
+test('RM081F4-manifesto: filtro e relogio dizem que dependem de junit quando o relatorio falta', () => {
+  const p = projetoTemporario('rm081-f4-manifesto-junit-dependente');
+  try {
+    fs.appendFileSync(path.join(p.dir, 'orkastery.yaml'), '\ncheck:\n  agile:\n    test:\n' +
+      '      filtrada:\n        comando: "echo filtrada"\n        filtro: "echo {testes}"\n' +
+      '      cronometrada:\n        comando: "echo cronometrada"\n        relogio:\n          nome: ["tempo$"]\n');
+    const m = carregarManifesto(p.dir)!;
+    assert.ok(m.erros.some((erro) => /check\.agile\.test\.filtrada\.junit precisa ser declarado porque check\.agile\.test\.filtrada\.filtro depende do relatorio JUnit/.test(erro)), m.erros.join('; '));
+    assert.ok(m.erros.some((erro) => /check\.agile\.test\.cronometrada\.junit precisa ser declarado porque check\.agile\.test\.cronometrada\.relogio depende do relatorio JUnit/.test(erro)), m.erros.join('; '));
   } finally { p.limpar(); }
 });
 

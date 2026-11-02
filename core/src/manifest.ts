@@ -371,12 +371,12 @@ function recursosDoComando(chave: string, v: ValorYaml, erros: string[]): string
   return valido ? lidos : undefined;
 }
 
-/** Texto continua sendo o contrato legado; o objeto exige comando e junit, e aceita os opt-ins da superficie. */
+/** Texto continua sendo o contrato legado; o objeto exige comando e aceita os opt-ins da superficie. */
 function lerComando(chave: string, v: ValorYaml, erros: string[], aceitaSelecao = false, aceitaRecursos = false): ComandoLido {
   if (v === undefined || v === null) return {};
   if (typeof v === 'string') return { comando: v };
   if (typeof v !== 'object' || Array.isArray(v)) {
-    erros.push(`${chave} precisa ser o comando em texto ou um mapa com comando e junit (recebido ${exibir(v)})`);
+    erros.push(`${chave} precisa ser o comando em texto ou um mapa com comando (recebido ${exibir(v)})`);
     return {};
   }
   const conhecidas = ['comando', 'junit', 'filtro', 'relogio', ...(aceitaSelecao ? ['selecao'] : []),
@@ -388,7 +388,14 @@ function lerComando(chave: string, v: ValorYaml, erros: string[], aceitaSelecao 
   }
   const comando = typeof v.comando === 'string' && v.comando.trim() ? v.comando.trim() : undefined;
   if (!comando) erros.push(`${chave}.comando precisa ser texto nao vazio`);
-  const junit = caminhoJUnit(`${chave}.junit`, v.junit, erros);
+  const junit = v.junit === undefined ? undefined : caminhoJUnit(`${chave}.junit`, v.junit, erros);
+  if (v.junit === undefined) {
+    for (const dependencia of ['filtro', 'relogio'] as const) {
+      if (v[dependencia] !== undefined && v[dependencia] !== null) {
+        erros.push(`${chave}.junit precisa ser declarado porque ${chave}.${dependencia} depende do relatorio JUnit`);
+      }
+    }
+  }
   const filtro = filtroDoComando(`${chave}.filtro`, v.filtro, erros);
   const relogio = relogioDoComando(`${chave}.relogio`, v.relogio, erros);
   const selecao = aceitaSelecao ? selecaoDoComando(`${chave}.selecao`, v.selecao, erros) : undefined;
