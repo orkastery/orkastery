@@ -1,0 +1,60 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-081 F3: cada mutante remove uma garantia da passagem parcial ou da suíte completa obrigatória.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "um recibo parcial verde passa a ser aceito pelo SHIP",
+      "modulo": "ship",
+      "de": "return verificacao.ok && !verificacao.parcial;",
+      "para": "return verificacao.ok;",
+      "teste": "rm081-f3",
+      "nome": "^RM081 F3 S1:"
+    },
+    {
+      "id": "M2",
+      "descricao": "uma passagem parcial ainda vermelha segue para a suíte completa",
+      "modulo": "verify",
+      "de": "if (parcial.ok)\n        return executor(nome, comando, cwd);",
+      "para": "if (true)\n        return executor(nome, comando, cwd);",
+      "teste": "rm081-f3",
+      "nome": "^RM081 F3 V2:"
+    },
+    {
+      "id": "M3",
+      "descricao": "o filtro é aplicado mesmo sem nomes da rodada anterior",
+      "modulo": "verify",
+      "de": "if (!filtro || !testes?.length)\n        return null;",
+      "para": "if (!filtro)\n        return null;",
+      "teste": "rm081-f3",
+      "nome": "^RM081 F3 V1:"
+    },
+    {
+      "id": "M4",
+      "descricao": "uma passagem parcial verde deixa de seguir para a suíte completa",
+      "modulo": "verify",
+      "de": "if (parcial.ok)\n        return executor(nome, comando, cwd);",
+      "para": "if (parcial.ok)\n        return parcial;",
+      "teste": "rm081-f3",
+      "nome": "^RM081 F3 V3:"
+    },
+    {
+      "id": "M5",
+      "descricao": "o recibo da passagem filtrada perde a marca parcial e seus nomes",
+      "modulo": "verify",
+      "de": "return { ...executor(nome, filtrado, cwd), comando, comandoExecutado: filtrado, parcial: { testes: [...testes] } };",
+      "para": "return { ...executor(nome, filtrado, cwd), comando, comandoExecutado: filtrado };",
+      "teste": "rm081-f3",
+      "nome": "^RM081 F3 V2:"
+    },
+    {
+      "id": "M6",
+      "descricao": "uma lane parcial vermelha volta a executar a suíte completa da própria lane",
+      "modulo": "check-agil",
+      "de": "const inteiros = itens.filter((i) => !parciaisVermelhas.has(i.nome));",
+      "para": "const inteiros = itens;",
+      "teste": "rm081-f3",
+      "nome": "^RM081 F3 A1:"
+    }
+  ]
+}
