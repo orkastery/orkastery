@@ -43,6 +43,8 @@ const medir = require(path.join(RAIZ, 'core', 'scripts', 'medir-check.cjs')) as 
   validarPar: (agile: unknown, classic: unknown, ordem: string[], esperada: string[], tolerancia?: number,
     cargaForaMaxPct?: number) => Record<string, any>;
   validarOpcoesDaBancada: (opcoes: { pares: number; cargaForaMaxPct?: number }) => void;
+  validarOpcoesDaAmostra: (opcoes: { amostraCommits: number }) => void;
+  resumirAmostraSelecao: (resultados: Array<Record<string, unknown>>) => Record<string, any>;
   razao: (classicMs: unknown, agileMs: unknown) => number | null;
   eficiencia: (cpuMs: unknown, nucleos: number, paredeMs: unknown) => number | null;
   corte: (cpuMs: unknown, baseMs: unknown) => number | null;
@@ -535,6 +537,27 @@ test('MC24: carga externa durante a rodada traz nome e CPU e descarta o par acim
   assert.deepEqual(par.motivos, ['carga-de-fora-acima-do-limiar']);
   assert.deepEqual(par.cargaDeFora, { agilePct: 11, classicPct: 2, limiarPct: 10 });
   assert.throws(() => medir.validarOpcoesDaBancada({ pares: 3, cargaForaMaxPct: -1 }), /maior ou igual a zero/);
+});
+
+test('MC25: a amostra morna relata razao e fracao por commit, mediana, terceiro quartil e reprova falso negativo', () => {
+  const resumo = medir.resumirAmostraSelecao([
+    { commit: 'a', ok: true, classicMs: 200, agileMornoMs: 100, testesSelecionados: 20, totalTestes: 100,
+      falhasDaInteira: [], falhasDaSelecionada: [] },
+    { commit: 'b', ok: true, classicMs: 400, agileMornoMs: 100, testesSelecionados: 60, totalTestes: 100,
+      falhasDaInteira: ['b.test.js\0cai'], falhasDaSelecionada: [] },
+    { commit: 'c', ok: true, classicMs: 300, agileMornoMs: 100, testesSelecionados: 40, totalTestes: 100,
+      falhasDaInteira: ['c.test.js\0cai'], falhasDaSelecionada: ['c.test.js\0cai'] },
+  ]);
+  assert.deepEqual(resumo.commits.map((r: Record<string, unknown>) => [r.commit, r.razao, r.fracaoSelecionada, r.ok]), [
+    ['a', 2, 0.2, true], ['b', 4, 0.6, false], ['c', 3, 0.4, true],
+  ]);
+  assert.deepEqual(resumo.razao, { mediana: 3, terceiroQuartil: 3.5 });
+  perto(resumo.fracaoSelecionada.mediana, 0.4);
+  perto(resumo.fracaoSelecionada.terceiroQuartil, 0.5);
+  assert.deepEqual(resumo.falsosNegativos, [{ commit: 'b', falha: 'b.test.js\0cai' }]);
+  assert.equal(resumo.ok, false);
+  assert.throws(() => medir.validarOpcoesDaAmostra({ amostraCommits: 2 }), /pelo menos 3 commits/);
+  assert.doesNotThrow(() => medir.validarOpcoesDaAmostra({ amostraCommits: 3 }));
 });
 
 test('MC22: o JSON da bancada e indentado ate o nivel pedido e compacto abaixo dele, e volta ao mesmo valor', () => {

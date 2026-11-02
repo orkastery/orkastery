@@ -5,6 +5,7 @@
  *   node core/scripts/medir-check.cjs [--agile N] [--classic N] [--saida <arquivo.json>] [--prazo-min M]
  *                                     [--cache-compartilhado] [--manter] [--commit <ref>]
  *   node core/scripts/medir-check.cjs --bancada [--pares N] [--por-arquivo N] [--commit <ref>] [--saida <arquivo.json>]
+ *   node core/scripts/medir-check.cjs --amostra-selecao [--amostra-commits N] [--saida <arquivo.json>]
  *                                     [--linha-de-base <bancada.json>] [--claims-de <claims.jsonl>] [--carga-max L]
  *                                     [--carga-fora-max-pct P]
  *                                     [--janela-quieta-s S] [--espera-max-min M] [--prazo-min M]
@@ -462,6 +463,38 @@ function quantil(valores, q) {
   return i + 1 < v.length ? v[i] + (v[i + 1] - v[i]) * (pos - i) : v[i];
 }
 
+/**
+ * RM-074 M10: resumo honesto da amostra histórica. A integral é a verdade de comparação: um caso vermelho que não
+ * aparece vermelho na rodada selecionada é falso negativo e reprova a fatia, mesmo quando as razões são numéricas.
+ */
+function resumirAmostraSelecao(resultados) {
+  const porCommit = resultados.map((r) => {
+    const falhasDaInteira = [...new Set(r.falhasDaInteira ?? [])].sort();
+    const falhasDaSelecionada = new Set(r.falhasDaSelecionada ?? []);
+    const falsosNegativos = falhasDaInteira.filter((falha) => !falhasDaSelecionada.has(falha));
+    return {
+      commit: r.commit,
+      ok: r.ok !== false && falsosNegativos.length === 0,
+      razao: razao(r.classicMs, r.agileMornoMs),
+      fracaoSelecionada: Number.isInteger(r.totalTestes) && r.totalTestes > 0 && Number.isInteger(r.testesSelecionados)
+        ? r.testesSelecionados / r.totalTestes : null,
+      testesSelecionados: r.testesSelecionados ?? null,
+      totalTestes: r.totalTestes ?? null,
+      falsosNegativos,
+      ...(r.erro ? { erro: r.erro } : {}),
+    };
+  });
+  const razoes = porCommit.map((r) => r.razao).filter((v) => typeof v === 'number');
+  const fracoes = porCommit.map((r) => r.fracaoSelecionada).filter((v) => typeof v === 'number');
+  return {
+    commits: porCommit,
+    razao: { mediana: quantil(razoes, 0.5), terceiroQuartil: quantil(razoes, 0.75) },
+    fracaoSelecionada: { mediana: quantil(fracoes, 0.5), terceiroQuartil: quantil(fracoes, 0.75) },
+    falsosNegativos: porCommit.flatMap((r) => r.falsosNegativos.map((falha) => ({ commit: r.commit, falha }))),
+    ok: porCommit.length > 0 && porCommit.every((r) => r.ok && r.razao !== null && r.fracaoSelecionada !== null),
+  };
+}
+
 /** A linha agregada `cpu` do /proc/stat: o total das oito primeiras colunas e o `steal`, em jiffies. */
 function lerCpuStat(texto) {
   const linha = String(texto).split('\n').find((l) => /^cpu\s/.test(l));
@@ -813,6 +846,29 @@ function diffsDoHistorico(copia, n) {
   return texto.split('@@').map((b) => b.trim().split('\n').slice(1).filter(Boolean)).filter((l) => l.length);
 }
 
+/** Os commits reais da amostra terminam na base da fatia, para os commits da própria implementação não escolherem o caso. */
+function commitsRecentesDaAmostra(n) {
+  const { carregarManifesto } = require(path.join(RAIZ, 'core', 'dist', 'manifest.js'));
+  const baseBranch = carregarManifesto(RAIZ)?.manifesto.worktree.base_branch || 'main';
+  const base = git(RAIZ, 'merge-base', 'HEAD', baseBranch);
+  const commits = git(RAIZ, 'log', '--no-merges', `-n${n}`, '--format=%H', base, '--', 'core/src', 'core/test')
+    .split('\n').filter(Boolean);
+  if (commits.length < n) throw new Error(`a amostra pediu ${n} commits recentes e encontrou ${commits.length}`);
+  return { base, commits };
+}
+
+function evidenciaNominal(copia, rodada) {
+  if (!rodada?.evidenciaDasLanes) return { listas: {}, resultados: [] };
+  try {
+    const dados = JSON.parse(fs.readFileSync(path.join(copia, rodada.evidenciaDasLanes), 'utf8'));
+    const listas = Object.fromEntries((dados.lanes ?? []).filter((l) => l && typeof l.lane === 'string' && Array.isArray(l.arquivos))
+      .map((l) => [l.lane, l.arquivos.filter((a) => typeof a === 'string')]));
+    const resultados = (dados.resultados ?? []).flatMap((lane) => Array.isArray(lane?.testes)
+      ? lane.testes.filter((t) => t && typeof t.arquivo === 'string' && typeof t.nome === 'string' && typeof t.estado === 'string') : []);
+    return { listas, resultados };
+  } catch { return { listas: {}, resultados: [] }; }
+}
+
 /** Um passe por arquivo: cada arquivo de teste sozinho, em sequencia, sob o `/usr/bin/time`, com a casa do `ork` temporaria. */
 async function passePorArquivo(core, env, arquivos, pasta) {
   const casa = fs.mkdtempSync(path.join(env.TMPDIR, 'ork-casa-'));
@@ -845,7 +901,8 @@ function opcoes(args) {
     linhaDeBase: valor('--linha-de-base', null), claimsDe: valor('--claims-de', null), cargaMax: Number(valor('--carga-max', '2')),
     cargaForaMaxPct: Number(valor('--carga-fora-max-pct', String(CARGA_FORA_MAX_PCT))),
     janelaMs: Number(valor('--janela-quieta-s', '120')) * 1000, esperaMaxMs: Number(valor('--espera-max-min', '60')) * 60000,
-    reanalisar: valor('--reanalisar', null) };
+    reanalisar: valor('--reanalisar', null), amostraSelecao: args.includes('--amostra-selecao'),
+    amostraCommits: Number(valor('--amostra-commits', '3')) };
 }
 
 function validarOpcoesDaBancada(o) {
@@ -854,6 +911,12 @@ function validarOpcoesDaBancada(o) {
   }
   const cargaForaMaxPct = o.cargaForaMaxPct ?? CARGA_FORA_MAX_PCT;
   if (!Number.isFinite(cargaForaMaxPct) || cargaForaMaxPct < 0) throw new Error('--carga-fora-max-pct exige numero maior ou igual a zero');
+}
+
+function validarOpcoesDaAmostra(o) {
+  if (!Number.isInteger(o.amostraCommits) || o.amostraCommits < 3) {
+    throw new Error('a amostra historica exige pelo menos 3 commits (--amostra-commits 3 ou mais)');
+  }
 }
 
 /**
@@ -928,8 +991,79 @@ function ultimaRodada(ledger, jaLidas) {
   return doLedger.length > jaLidas ? doLedger[doLedger.length - 1] : null;
 }
 
+/** Reverte e reaplica um commit real numa cópia do HEAD da fatia, medindo morna, Classic e integral no mesmo conteúdo. */
+async function medirCommitDaAmostra(commit, indice, o) {
+  const c = prepararCopia({ ...o, commit: 'HEAD', manter: false });
+  const logs = o.saida ? `${o.saida}.amostra.d` : c.base;
+  fs.mkdirSync(logs, { recursive: true });
+  const esperar = () => esperarQuieta({ limite: o.cargaMax, janelaMs: o.janelaMs, tetoMs: o.esperaMaxMs });
+  try {
+    git(c.copia, 'revert', '--no-commit', commit);
+    git(c.copia, 'commit', '-m', `medir-check: base sem amostra ${indice}`);
+    await esperar();
+    await rodada(c.copia, c.env, c.thread, 'agile', path.join(logs, `${indice}-fria.log`), o.prazoMs, null, [c.base, c.tmp]);
+    const fria = ultimaRodada(c.ledger, 0);
+    if (!fria) throw new Error('rodada fria não chegou ao ledger');
+
+    git(c.copia, 'cherry-pick', commit);
+    await esperar();
+    await rodada(c.copia, c.env, c.thread, 'agile', path.join(logs, `${indice}-morna.log`), o.prazoMs, null, [c.base, c.tmp]);
+    const morna = ultimaRodada(c.ledger, 1);
+    if (!morna) throw new Error('rodada morna não chegou ao ledger');
+    await esperar();
+    await rodada(c.copia, c.env, c.thread, 'classic', path.join(logs, `${indice}-classic.log`), o.prazoMs, null, [c.base, c.tmp]);
+    const classic = ultimaRodada(c.ledger, 2);
+    if (!classic) throw new Error('rodada Classic não chegou ao ledger');
+
+    const antes = new Set(fs.readdirSync(path.join(c.copia, '.orkastery', 'threads')));
+    ork(c.copia, c.env, 'thread', 'new', `integral da amostra ${indice}`, '--modo', 'auto', '--sem-worktree');
+    const integralThread = fs.readdirSync(path.join(c.copia, '.orkastery', 'threads')).find((nome) => !antes.has(nome)
+      && fs.existsSync(path.join(c.copia, '.orkastery', 'threads', nome, 'thread.json')));
+    if (!integralThread) throw new Error('a thread da rodada integral não foi criada');
+    const integralLedger = path.join(c.copia, '.orkastery', 'threads', integralThread, 'ledger.jsonl');
+    await esperar();
+    await rodada(c.copia, c.env, integralThread, 'agile', path.join(logs, `${indice}-integral.log`), o.prazoMs, null, [c.base, c.tmp]);
+    const integral = ultimaRodada(integralLedger, 0);
+    if (!integral) throw new Error('rodada integral não chegou ao ledger');
+
+    const evidenciaMorna = evidenciaNominal(c.copia, morna);
+    const evidenciaIntegral = evidenciaNominal(c.copia, integral);
+    const identidade = (t) => `${t.arquivo}\u0000${t.nome}`;
+    const falhas = (e) => e.resultados.filter((t) => t.estado === 'fail').map(identidade);
+    return {
+      commit,
+      ok: !!(morna.ok && classic.ok && integral.ok),
+      classicMs: paredeSemPreparo(classic),
+      agileMornoMs: paredeSemPreparo(morna),
+      testesSelecionados: evidenciaMorna.resultados.length,
+      totalTestes: evidenciaIntegral.resultados.length,
+      falhasDaSelecionada: falhas(evidenciaMorna),
+      falhasDaInteira: falhas(evidenciaIntegral),
+    };
+  } catch (e) {
+    return { commit, ok: false, erro: String(e?.message ?? e), classicMs: null, agileMornoMs: null,
+      testesSelecionados: null, totalTestes: null, falhasDaSelecionada: [], falhasDaInteira: [] };
+  } finally { c.limpar(); }
+}
+
+async function bancadaSelecaoHistorica(o) {
+  const amostra = commitsRecentesDaAmostra(o.amostraCommits);
+  const resultados = [];
+  for (const [i, commit] of amostra.commits.entries()) {
+    process.stderr.write(`medir-check: amostra ${i + 1}/${amostra.commits.length}, commit ${commit.slice(0, 12)}\n`);
+    resultados.push(await medirCommitDaAmostra(commit, i + 1, o));
+  }
+  const saida = { contrato: 'ork.medir-check.selecao/v1', base: amostra.base, tamanho: amostra.commits.length,
+    ...resumirAmostraSelecao(resultados) };
+  const texto = JSON.stringify(saida, null, 1) + '\n';
+  if (o.saida) fs.writeFileSync(o.saida, texto);
+  process.stdout.write(texto);
+  return saida.ok ? 0 : 1;
+}
+
 async function principal(args) {
   const o = opcoes(args);
+  if (o.amostraSelecao) { validarOpcoesDaAmostra(o); return bancadaSelecaoHistorica(o); }
   if (o.bancada && o.reanalisar) return escreverBancada(JSON.parse(fs.readFileSync(o.reanalisar, 'utf8')), o);
   if (o.bancada) validarOpcoesDaBancada(o);
   if (o.bancada) return bancada(o);
@@ -1242,6 +1376,7 @@ function analisarBancada({ rodadas, passes, lanes, nucleos, linhaDeBase = null, 
 module.exports = { lerRodadas, tresConsecutivas, rssDaArvore, picoAgregado, pastaDasCopias, encerrarArvore, CLAIMS_REPRESENTATIVAS,
   MIN_PARES_CONFIAVEIS, TOLERANCIA_STEAL_PP, CARGA_FORA_MAX_PCT, ordemDosPares, paredeSemPreparo, validarPar,
   validarOpcoesDaBancada,
+  validarOpcoesDaAmostra, resumirAmostraSelecao, commitsRecentesDaAmostra,
   razao, eficiencia, corte, variacao, quantil, lerCpuStat, stealPct, quieta, eSuite, lerTempo, contarTap, concentracao,
   custoDosMaiores, claimsQueRepetem, pesoNaRodada, selecionarPorDiff, sondaDoGrafo, pecasEmFallback, redigir, comandosDeClaims,
   fechosDeRequire, analisarBancada, jsonRaso, resumirCargaExterna, resumirCpuDosContainers, processosExternos,
