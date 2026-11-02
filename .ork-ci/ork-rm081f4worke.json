@@ -1,0 +1,243 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm081f4worke",
+  "branch": "ork/ork-rm081f4worke-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm081f4worke",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-paralelo.ts",
+      "alegacao": "Cada lane Agile recebe ORK_WORKERS da reserva vigente, nunca zero, e a soma das reservas simultâneas não excede a capacidade da máquina.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='^RM081F4-(workers|capacidade):' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-02T03:15:23.579Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm081f4worke",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-agil.ts",
+      "alegacao": "Lanes Agile com recurso exclusivo comum são serializadas, enquanto lanes sem conflito preservam o paralelismo permitido.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='^RM081F4-recursos:' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-02T03:15:23.693Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm081f4worke",
+      "fase": "GOAL",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "check.agile.test preserva lane como texto e aceita a forma enriquecida com comando e recursos, recusando valores inválidos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='^RM081F4-manifesto:' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-02T03:15:23.770Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm081f4worke",
+      "fase": "GOAL",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "O Classic exporta ORK_WORKERS com a capacidade inteira da máquina sem alterar o retrato protegido por CL1 e CL2.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='^(RM081F4-classic|CL1:|CL2:)' core/dist-test/test/check-agil.test.js core/dist-test/test/check-classic-intacto.test.js"
+      ],
+      "criadoEm": "2026-11-02T03:15:23.863Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm081f4worke",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/verificacao.md",
+      "alegacao": "A documentação publica ORK_WORKERS para pytest, Playwright, Vitest, Jest e Go, registra a F4 na RM-081 e mantém o CHANGELOG válido em Não publicado.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'pytest -n \"${ORK_WORKERS:-auto}\"' docs/guias/verificacao.md && grep -q 'playwright test --workers=\"${ORK_WORKERS:-50%}\"' docs/guias/verificacao.md && grep -q 'vitest --maxWorkers=\"${ORK_WORKERS:-50%}\"' docs/guias/verificacao.md && grep -q 'jest --maxWorkers=\"${ORK_WORKERS:-50%}\"' docs/guias/verificacao.md && grep -q 'go test -p \"${ORK_WORKERS:-4}\"' docs/guias/verificacao.md && grep -q 'F4' docs/roadmap/RM-081-check-por-qualquer-runner.md && node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-11-02T03:15:23.950Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm081f4worke",
+      "fase": "GOAL",
+      "arquivo": "core/src/agendador-cpu.ts",
+      "alegacao": "A reserva publicada para o runner é inteira, nunca menor que 1, e os degraus simultâneos permanecem dentro da capacidade medida.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='^RM081F4-(workers|capacidade|recursos):' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-02T03:25:05.551Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm081f4worke",
+      "fase": "GOAL",
+      "arquivo": "core/test/check-agil.test.ts",
+      "alegacao": "Os cenários RM081F4 provam workers por reserva, soma dentro da capacidade e exclusividade de recursos sem perder paralelismo independente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='^RM081F4-(workers|capacidade|recursos):' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-02T03:25:05.628Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm081f4worke",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/test-lanes.cjs",
+      "alegacao": "ORK_WORKERS é transporte do CHECK: não altera a assinatura funcional e não chega aos processos internos dos testes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='^TL(10|11):' core/dist-test/test/test-lanes.test.js"
+      ],
+      "criadoEm": "2026-11-02T03:28:17.231Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm081f4worke",
+      "fase": "GOAL",
+      "arquivo": "core/test/test-lanes.test.ts",
+      "alegacao": "As regressões TL10 e TL11 provam que ORK_WORKERS sai do ambiente interno e da assinatura funcional das lanes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='^TL(10|11):' core/dist-test/test/test-lanes.test.js"
+      ],
+      "criadoEm": "2026-11-02T03:28:17.277Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm081f4worke",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm081-f4.json",
+      "alegacao": "Mutante M1: a suíte mata a implementação que permite zero workers.",
+      "negativa": true,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm081-f4.json M1"
+      ],
+      "criadoEm": "2026-11-02T03:30:22.389Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm081f4worke",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm081-f4.json",
+      "alegacao": "Mutante M2: a suíte mata a implementação cuja soma de reservas passa da capacidade.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm081-f4.json M2"
+      ],
+      "criadoEm": "2026-11-02T03:30:22.437Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm081f4worke",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm081-f4.json",
+      "alegacao": "Mutante M3: a suíte mata a implementação que deixa recursos exclusivos comuns se sobreporem.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm081-f4.json M3"
+      ],
+      "criadoEm": "2026-11-02T03:30:22.483Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm081f4worke",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm081-f4.json",
+      "alegacao": "Mutante M4: a suíte mata a implementação em que o Classic não exporta ORK_WORKERS.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm081-f4.json M4"
+      ],
+      "criadoEm": "2026-11-02T03:30:22.533Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm081f4worke",
+      "fase": "GOAL",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "O tipo público de check.agile.test preserva texto e aceita comando com recursos exclusivos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='^RM081F4-manifesto:' core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-02T03:30:59.125Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm081f4worke",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-081-check-por-qualquer-runner.md",
+      "alegacao": "A página da RM-081 registra a F4 com ORK_WORKERS, recursos exclusivos e os runners documentados.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'pytest -n \"${ORK_WORKERS:-auto}\"' docs/guias/verificacao.md && grep -q 'playwright test --workers=\"${ORK_WORKERS:-50%}\"' docs/guias/verificacao.md && grep -q 'vitest --maxWorkers=\"${ORK_WORKERS:-50%}\"' docs/guias/verificacao.md && grep -q 'jest --maxWorkers=\"${ORK_WORKERS:-50%}\"' docs/guias/verificacao.md && grep -q 'go test -p \"${ORK_WORKERS:-4}\"' docs/guias/verificacao.md && grep -q 'F4' docs/roadmap/RM-081-check-por-qualquer-runner.md && node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-11-02T03:30:59.173Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm081f4worke",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG registra a F4 somente em Não publicado e permanece válido contra origin/main.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'pytest -n \"${ORK_WORKERS:-auto}\"' docs/guias/verificacao.md && grep -q 'playwright test --workers=\"${ORK_WORKERS:-50%}\"' docs/guias/verificacao.md && grep -q 'vitest --maxWorkers=\"${ORK_WORKERS:-50%}\"' docs/guias/verificacao.md && grep -q 'jest --maxWorkers=\"${ORK_WORKERS:-50%}\"' docs/guias/verificacao.md && grep -q 'go test -p \"${ORK_WORKERS:-4}\"' docs/guias/verificacao.md && grep -q 'F4' docs/roadmap/RM-081-check-por-qualquer-runner.md && node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-11-02T03:30:59.220Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
