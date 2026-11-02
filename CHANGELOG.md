@@ -10,6 +10,20 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **Grok Build com lista fechada de comandos — F5a ([RM-067](docs/roadmap/RM-067-grok-build-homologado.md)):** o despacho headless usa `dontAsk` e libera somente `git`, `node`, `npm`, `ork`, `grep`, `find`, `ls` e `cat`, além das regras MCP já enumeradas. Comando fora da lista é negado sem pergunta; a sessão pode continuar, e um fim causado pela negação vira bloqueio tipado com o comando na evidência. O sandbox continua `workspace`, sem `--always-approve`, `--yolo`, `bypassPermissions` ou `danger-full-access`.
 
+- **Agendador do Agile em degraus — M8 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** a sonda usa várias amostras curtas e a mediana, preservando um pico isolado na evidência sem entregar a decisão a ele. Acima do limiar, o `steal` reduz proporcionalmente a capacidade da hermética, da varredura, da integração e dos contêineres, em vez de devolver tudo à ordem do Classic; a carga do `/proc/loadavg` segue a regra anterior, porque inclui o build do próprio verify. A peça `agendador-cpu` sai `degradado`, com a capacidade usada, e só volta à ordem do Classic, com a paralelização do Classic, quando não cabe o grupo paralelo ou a máquina está ocupada. O Classic não muda, e a razão nova aguarda a bancada do host.
+
+- **Workers e recursos na declaração única da lane — F4 ([RM-081](docs/roadmap/RM-081-check-por-qualquer-runner.md)):** o Agile exporta `ORK_WORKERS` pela reserva vigente e serializa lanes que declaram o mesmo serviço; o Classic publica o mesmo contrato com a capacidade inteira disponível, preservando seus comandos e sua ordem.
+
+### Adicionado
+
+- **JUnit por comando e lane — F1 ([RM-081](docs/roadmap/RM-081-check-por-qualquer-runner.md)):** o manifesto pode declarar o relatório de pytest, Vitest, Jest, Playwright ou gotestsum; o verify compara falhas e erros por nome, registra contagens e duração e preserva a forma textual existente quando não há relatório.
+
+- **RM-081 · F3 — correção nominal antes da suíte inteira ([roadmap](docs/roadmap/RM-081-check-por-qualquer-runner.md)):** comando ou lane com JUnit pode declarar o próprio filtro; o verify reprova cedo se algum nome continuar vermelho, segue para a suíte inteira quando a parcial passa e o SHIP recusa recibo parcial.
+
+- **RM-081 · F2 — relógio JUnit protegido sob steal ([roadmap](docs/roadmap/RM-081-check-por-qualquer-runner.md)):** comando ou lane marca casos temporais por nome, marcador ou tag; falha exclusivamente marcada sob steal alto fica sem veredito, recebe reteste isolado pelo filtro existente e registra o resultado sem virar verde.
+
+- **RM-081 · F5 — seleção nativa na rodada morna ([roadmap](docs/roadmap/RM-081-check-por-qualquer-runner.md)):** lane Agile pode declarar como Vitest, Jest ou Playwright relaciona mudanças; cache inválido, base, manifesto, lockfile, configuração ou caminho não mapeado executa a suíte inteira com o motivo, e recibo selecionado permanece parcial e recusado pelo SHIP.
+
 ## [0.6.4] - 2026-11-01
 
 O Agile Check reserva CPU pela medida de cada peça e reaproveita a varredura do Semgrep quando as regras não mudam;

@@ -6,7 +6,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { lerYaml, ValorYaml } from './yaml';
-import { ConfigDeEmbedding, ConfigDoAgile, Manifesto, Modo } from './types';
+import { ConfigDeEmbedding, ConfigDoAgile, Manifesto, MarcacaoDeRelogio, Modo, SelecaoNativa } from './types';
 import { modoAposentado, ORDEM_DOS_MODOS, parseModo, substitutosVivos } from './modos';
 import { ORDEM_DOS_RUNTIMES, RUNTIME_PADRAO, runtimeConhecido, runtimeDoManifesto } from './runtimes';
 import { SANDBOX_PADRAO, SANDBOXES_DO_CODEX } from './adapters/codex';
@@ -220,6 +220,196 @@ function lerCheck(v: ValorYaml | undefined, erros: string[], avisos: string[]): 
 /** Nome de lane: o que vira `test:<lane>` no ledger. */
 const NOME_DE_LANE = /^[a-z0-9][a-z0-9-]{0,31}$/;
 
+interface ComandoLido {
+  comando?: string;
+  junit?: string;
+  filtro?: string;
+  relogio?: MarcacaoDeRelogio;
+  selecao?: SelecaoNativa;
+  recursos?: string[];
+}
+
+/** RM-081 F1: o relatorio e sempre um caminho POSIX relativo, nunca uma busca ou um caminho da maquina. */
+function caminhoJUnit(chave: string, v: ValorYaml, erros: string[]): string | undefined {
+  if (typeof v !== 'string' || !v.trim()) {
+    erros.push(`${chave} precisa ser um caminho relativo, em texto`);
+    return undefined;
+  }
+  const bruto = v.trim();
+  const normal = path.posix.normalize(bruto);
+  if (bruto.includes('\\') || bruto.includes('\0') || path.posix.isAbsolute(bruto) || path.win32.isAbsolute(bruto)
+      || normal === '.' || normal === '..' || normal.startsWith('../')) {
+    erros.push(`${chave}: ${exibir(v)} precisa ser um caminho relativo dentro da worktree`);
+    return undefined;
+  }
+  return normal;
+}
+
+/** RM-081 F3: o runner recebe a lista somente no marcador fechado, uma vez. */
+function filtroDoComando(chave: string, v: ValorYaml, erros: string[]): string | undefined {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== 'string' || !v.trim()) {
+    erros.push(`${chave} precisa ser um comando em texto com o marcador {testes}`);
+    return undefined;
+  }
+  const filtro = v.trim();
+  const marcadores = filtro.match(/\{testes\}/g)?.length ?? 0;
+  if (marcadores !== 1) {
+    erros.push(`${chave} precisa ter o marcador {testes} exatamente uma vez`);
+    return undefined;
+  }
+  return filtro;
+}
+
+/** RM-081 F5: caminho ou glob POSIX relativo, sem sair da worktree nem alcançar estado do nucleo. */
+function caminhoDaSelecao(chave: string, v: ValorYaml, erros: string[]): string | undefined {
+  if (typeof v !== 'string' || !v.trim()) {
+    erros.push(`${chave} precisa ser um caminho ou glob relativo, em texto`);
+    return undefined;
+  }
+  const bruto = v.trim().replace(/\/+$/, '');
+  const normal = path.posix.normalize(bruto);
+  if (!bruto || bruto.includes('\\') || bruto.includes('\0') || path.posix.isAbsolute(bruto)
+      || path.win32.isAbsolute(bruto) || normal === '.' || normal === '..' || normal.startsWith('../')
+      || /^(\.orkastery|\.git)(\/|$)/.test(normal)) {
+    erros.push(`${chave}: ${exibir(v)} precisa ficar dentro da worktree, fora de .orkastery e .git`);
+    return undefined;
+  }
+  return normal;
+}
+
+/** RM-081 F5: o manifesto declara o mecanismo e a superficie que o runner sabe relacionar. */
+function selecaoDoComando(chave: string, v: ValorYaml, erros: string[]): SelecaoNativa | undefined {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== 'object' || Array.isArray(v)) {
+    erros.push(`${chave} precisa ser um mapa com comando, mapeia e configuracao opcional`);
+    return undefined;
+  }
+  for (const nome of Object.keys(v)) {
+    if (!['comando', 'mapeia', 'configuracao'].includes(nome)) {
+      erros.push(`${chave}.${nome} desconhecida; use somente comando, mapeia e configuracao`);
+    }
+  }
+  const comando = typeof v.comando === 'string' ? v.comando.trim() : '';
+  const bases = comando.match(/\{base\}/g)?.length ?? 0;
+  const arquivos = comando.match(/\{arquivos\}/g)?.length ?? 0;
+  if (!comando || bases + arquivos !== 1) {
+    erros.push(`${chave}.comando precisa ter exatamente um marcador {base} ou {arquivos}`);
+  }
+  const lista = (nome: 'mapeia' | 'configuracao'): string[] => {
+    const valor = v[nome];
+    if (valor === undefined || valor === null) return [];
+    const itens = Array.isArray(valor) ? valor : [valor];
+    return itens.flatMap((item, indice) => {
+      const lido = caminhoDaSelecao(`${chave}.${nome}[${indice}]`, item, erros);
+      return lido ? [lido] : [];
+    });
+  };
+  const mapeia = lista('mapeia');
+  const configuracao = lista('configuracao');
+  return comando && bases + arquivos === 1
+    ? { comando, mapeia, ...(configuracao.length ? { configuracao } : {}) }
+    : undefined;
+}
+
+/** RM-081 F2: uma unica estrategia, fechada e validada antes de qualquer teste rodar. */
+function relogioDoComando(chave: string, v: ValorYaml, erros: string[]): MarcacaoDeRelogio | undefined {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== 'object' || Array.isArray(v)) {
+    erros.push(`${chave} precisa ser um mapa com exatamente uma de nome, marcador ou tag`);
+    return undefined;
+  }
+  const conhecidas = ['nome', 'marcador', 'tag'];
+  for (const nome of Object.keys(v)) {
+    if (!conhecidas.includes(nome)) erros.push(`${chave}.${nome} desconhecida; use somente nome, marcador ou tag`);
+  }
+  const presentes = conhecidas.filter((nome) => v[nome] !== undefined && v[nome] !== null);
+  if (presentes.length !== 1) {
+    erros.push(`${chave} precisa declarar exatamente uma de nome, marcador ou tag`);
+    return undefined;
+  }
+  const estrategia = presentes[0];
+  if (estrategia === 'nome') {
+    const valores = Array.isArray(v.nome) ? v.nome : [v.nome];
+    const padroes = valores.flatMap((item) => typeof item === 'string' && item.trim() ? [item.trim()] : []);
+    if (padroes.length !== valores.length || padroes.length === 0 || padroes.length > 20) {
+      erros.push(`${chave}.nome precisa ter de 1 a 20 expressoes regulares em texto`);
+      return undefined;
+    }
+    for (const padrao of padroes) {
+      try { void new RegExp(padrao); }
+      catch { erros.push(`${chave}.nome contem expressao regular invalida: ${exibir(padrao)}`); return undefined; }
+    }
+    return { nome: padroes };
+  }
+  const valor = v[estrategia];
+  if (typeof valor !== 'string' || !valor.trim()) {
+    erros.push(`${chave}.${estrategia} precisa ser texto nao vazio`);
+    return undefined;
+  }
+  return estrategia === 'marcador' ? { marcador: valor.trim() } : { tag: valor.trim() };
+}
+
+/** RM-081 F4: recursos da lane sao nomes locais a rodada, unicos e de uma linha. */
+function recursosDoComando(chave: string, v: ValorYaml, erros: string[]): string[] | undefined {
+  if (v === undefined) return undefined;
+  if (!Array.isArray(v) || v.length === 0) {
+    erros.push(`${chave} precisa ser uma lista nao vazia de textos`);
+    return undefined;
+  }
+  const lidos: string[] = [];
+  let valido = true;
+  for (const recurso of v) {
+    if (typeof recurso !== 'string' || !recurso.trim() || recurso.trim().length > 80 || /[\r\n]/.test(recurso)) {
+      erros.push(`${chave}: ${exibir(recurso)} precisa ser texto de uma linha, de 1 a 80 caracteres`);
+      valido = false;
+    } else if (lidos.includes(recurso.trim())) {
+      erros.push(`${chave}: ${exibir(recurso.trim())} esta repetido`);
+      valido = false;
+    } else lidos.push(recurso.trim());
+  }
+  return valido ? lidos : undefined;
+}
+
+/** Texto continua sendo o contrato legado; o objeto exige comando e aceita os opt-ins da superficie. */
+function lerComando(chave: string, v: ValorYaml, erros: string[], aceitaSelecao = false, aceitaRecursos = false): ComandoLido {
+  if (v === undefined || v === null) return {};
+  if (typeof v === 'string') return { comando: v };
+  if (typeof v !== 'object' || Array.isArray(v)) {
+    erros.push(`${chave} precisa ser o comando em texto ou um mapa com comando (recebido ${exibir(v)})`);
+    return {};
+  }
+  const conhecidas = ['comando', 'junit', 'filtro', 'relogio', ...(aceitaSelecao ? ['selecao'] : []),
+    ...(aceitaRecursos ? ['recursos'] : [])];
+  for (const nome of Object.keys(v)) {
+    if (!conhecidas.includes(nome)) {
+      erros.push(`${chave}.${nome} desconhecida; use somente ${conhecidas.join(', ')}`);
+    }
+  }
+  const comando = typeof v.comando === 'string' && v.comando.trim() ? v.comando.trim() : undefined;
+  if (!comando) erros.push(`${chave}.comando precisa ser texto nao vazio`);
+  const junit = v.junit === undefined ? undefined : caminhoJUnit(`${chave}.junit`, v.junit, erros);
+  const dispensaJUnit = aceitaRecursos && v.recursos !== undefined && v.recursos !== null;
+  if (v.junit === undefined) {
+    const dependencias = (['filtro', 'relogio'] as const)
+      .filter((dependencia) => v[dependencia] !== undefined && v[dependencia] !== null);
+    for (const dependencia of dependencias) {
+      if (v[dependencia] !== undefined && v[dependencia] !== null) {
+        erros.push(`${chave}.junit precisa ser declarado porque ${chave}.${dependencia} depende do relatorio JUnit`);
+      }
+    }
+    if (!dependencias.length && !dispensaJUnit) {
+      erros.push(`${chave}.junit precisa ser declarado no objeto de comando`);
+    }
+  }
+  const filtro = filtroDoComando(`${chave}.filtro`, v.filtro, erros);
+  const relogio = relogioDoComando(`${chave}.relogio`, v.relogio, erros);
+  const selecao = aceitaSelecao ? selecaoDoComando(`${chave}.selecao`, v.selecao, erros) : undefined;
+  const recursos = aceitaRecursos ? recursosDoComando(`${chave}.recursos`, v.recursos, erros) : undefined;
+  return { ...(comando ? { comando } : {}), ...(junit ? { junit } : {}), ...(filtro ? { filtro } : {}),
+    ...(relogio ? { relogio } : {}), ...(selecao ? { selecao } : {}), ...(recursos ? { recursos } : {}) };
+}
+
 /**
  * RM-072 (D3): o bloco `check.agile`. Cada chave liga uma peca do Agile; tipo errado e erro do manifesto, porque uma
  * peca mal escrita que sumisse em silencio mudaria o que o CHECK roda. `produto` so aceita caminho relativo dentro da
@@ -257,12 +447,29 @@ function lerAgile(v: ValorYaml | undefined, erros: string[], avisos: string[]): 
       erros.push(`check.agile.test precisa ser um mapa de lane para comando (recebido ${exibir(v.test)})`);
     } else {
       const lanes: Record<string, string> = {};
-      for (const [lane, comando] of Object.entries(v.test)) {
+      const junit: Record<string, string> = {};
+      const filtro: Record<string, string> = {};
+      const relogio: Record<string, MarcacaoDeRelogio> = {};
+      const selecao: Record<string, SelecaoNativa> = {};
+      const recursos: Record<string, string[]> = {};
+      for (const [lane, valor] of Object.entries(v.test)) {
         if (!NOME_DE_LANE.test(lane)) erros.push(`check.agile.test.${lane}: nome de lane aceita [a-z0-9-], ate 32 caracteres`);
-        else if (typeof comando !== 'string' || !comando.trim()) erros.push(`check.agile.test.${lane} precisa ser o comando, em texto`);
-        else lanes[lane] = comando.trim();
+        else {
+          const lido = lerComando(`check.agile.test.${lane}`, valor, erros, true, true);
+          if (lido.comando) lanes[lane] = lido.comando.trim();
+          if (lido.junit) junit[lane] = lido.junit;
+          if (lido.filtro) filtro[lane] = lido.filtro;
+          if (lido.relogio) relogio[lane] = lido.relogio;
+          if (lido.selecao) selecao[lane] = lido.selecao;
+          if (lido.recursos) recursos[lane] = lido.recursos;
+        }
       }
       if (Object.keys(lanes).length) agile.test = lanes;
+      if (Object.keys(junit).length) agile.junit = junit;
+      if (Object.keys(filtro).length) agile.filtro = filtro;
+      if (Object.keys(relogio).length) agile.relogio = relogio;
+      if (Object.keys(selecao).length) agile.selecao = selecao;
+      if (Object.keys(recursos).length) agile.recursos = recursos;
     }
   }
   if (v.apos_a_varredura !== undefined && v.apos_a_varredura !== null) {
@@ -579,6 +786,15 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
       '(esperado nome de branch do git, sem "-" no começo e sem "..")');
   }
   const verify = mapa(dados.verify);
+  const comandosVerify = Object.fromEntries((['build', 'test', 'typecheck', 'security_scan'] as const)
+    .map((nome) => [nome, lerComando(`verify.${nome}`, verify[nome], erros)])) as
+      Record<'build' | 'test' | 'typecheck' | 'security_scan', ComandoLido>;
+  const junitVerify = Object.fromEntries(Object.entries(comandosVerify)
+    .flatMap(([nome, lido]) => lido.junit ? [[nome, lido.junit]] : [])) as NonNullable<Manifesto['verify']['junit']>;
+  const filtroVerify = Object.fromEntries(Object.entries(comandosVerify)
+    .flatMap(([nome, lido]) => lido.filtro ? [[nome, lido.filtro]] : [])) as NonNullable<Manifesto['verify']['filtro']>;
+  const relogioVerify = Object.fromEntries(Object.entries(comandosVerify)
+    .flatMap(([nome, lido]) => lido.relogio ? [[nome, lido.relogio]] : [])) as NonNullable<Manifesto['verify']['relogio']>;
   const ci = mapa(dados.ci);
   const concurrency = mapa(dados.concurrency);
   const handoff = mapa(dados.handoff);
@@ -804,17 +1020,14 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
       ...dependenciasDaWorktree(worktree.dependencias, erros),
     },
     verify: {
-      build: verify.build === null || verify.build === undefined ? undefined : texto(verify.build, ''),
-      test: verify.test === null || verify.test === undefined ? undefined : texto(verify.test, ''),
+      build: comandosVerify.build.comando,
+      test: comandosVerify.test.comando,
       ...prazosDoVerify(verify, erros),
-      typecheck:
-        verify.typecheck === null || verify.typecheck === undefined
-          ? undefined
-          : texto(verify.typecheck, ''),
-      security_scan:
-        verify.security_scan === null || verify.security_scan === undefined
-          ? undefined
-          : texto(verify.security_scan, ''),
+      typecheck: comandosVerify.typecheck.comando,
+      security_scan: comandosVerify.security_scan.comando,
+      ...(Object.keys(junitVerify).length ? { junit: junitVerify } : {}),
+      ...(Object.keys(filtroVerify).length ? { filtro: filtroVerify } : {}),
+      ...(Object.keys(relogioVerify).length ? { relogio: relogioVerify } : {}),
       // I-54 (RM-037, D10): o preparo unico da rodada de verify, quando declarado.
       ...(typeof verify.preparo === 'string' && verify.preparo.trim() ? { preparo: verify.preparo.trim() } : {}),
     },

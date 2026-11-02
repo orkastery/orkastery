@@ -1,0 +1,69 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-081 F1: cada mutante devolve uma falha de isolamento, estado ou completude do relatório JUnit.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "o relatório anterior deixa de ser removido antes do comando",
+      "modulo": "junit",
+      "de": "fs.unlinkSync(pai.alvo);\n        if (fs.lstatSync(pai.alvo, { throwIfNoEntry: false })) {",
+      "para": "void pai.alvo;\n        if (fs.lstatSync(pai.alvo, { throwIfNoEntry: false })) {",
+      "teste": "rm081-junit",
+      "nome": "^RM081 R1:"
+    },
+    {
+      "id": "M2",
+      "descricao": "um teste com error deixa de alimentar testeQueCaiu",
+      "modulo": "junit",
+      "de": "c.estado === 'falhou' || c.estado === 'erro'",
+      "para": "c.estado === 'falhou'",
+      "teste": "rm081-junit",
+      "nome": "^RM081 R3:"
+    },
+    {
+      "id": "M3",
+      "descricao": "relatório ausente promove o comando vermelho a verde",
+      "modulo": "junit",
+      "de": "if (!lido.relatorio)\n        return { ...resultado, junit: lido.evidencia };",
+      "para": "if (!lido.relatorio)\n        return { ...resultado, ok: true, code: 0, junit: lido.evidencia };",
+      "teste": "rm081-junit",
+      "nome": "^RM081 R2:"
+    },
+    {
+      "id": "M4",
+      "descricao": "o agregado das lanes volta a cortar nomes JUnit em dez",
+      "modulo": "check-agil",
+      "de": "const testes = lanes.some((l) => l.resultado.junit?.estado === 'lido') ? nomesExtraidos : nomesExtraidos.slice(0, 10);",
+      "para": "const testes = nomesExtraidos.slice(0, 10);",
+      "teste": "rm081-junit",
+      "nome": "^RM081 L1:"
+    },
+    {
+      "id": "M5",
+      "descricao": "o manifesto aceita relatório fora da worktree por travessia",
+      "modulo": "manifest",
+      "de": "|| normal === '.' || normal === '..' || normal.startsWith('../')) {",
+      "para": "|| normal === '.' || normal === '..') {",
+      "teste": "rm081-junit",
+      "nome": "^RM081 M2:"
+    },
+    {
+      "id": "M6",
+      "descricao": "XML com fechamento desencontrado deixa de ser recusado",
+      "modulo": "junit",
+      "de": "if (esperado !== nome)\n                return erro(`fechamento </${nome}> nao corresponde a <${esperado ?? 'ausente'}>`);",
+      "para": "if (false)\n                return erro(`fechamento </${nome}> nao corresponde a <${esperado ?? 'ausente'}>`);",
+      "teste": "rm081-junit",
+      "nome": "^RM081 P2:"
+    },
+    {
+      "id": "M7",
+      "descricao": "relatório vermelho passa a anexar falhas nominais a um comando verde",
+      "modulo": "junit",
+      "de": "if (resultado.ok)\n        return { ...resultado, junit: lido.evidencia };",
+      "para": "if (false)\n        return { ...resultado, junit: lido.evidencia };",
+      "teste": "rm081-junit",
+      "nome": "^RM081 R3c:"
+    }
+  ]
+}

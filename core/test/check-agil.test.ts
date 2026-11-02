@@ -11,15 +11,16 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { adicionarClaim } from '../src/claims';
-import { assinaturaDoAmbiente, elosDoComando, executorDaClaimPelasLanes, GuardaDoProduto, hashDoProduto,
+import { assinaturaDoAmbiente, comandosNoAgile, elosDoComando, executorDaClaimPelasLanes, GuardaDoProduto, hashDoProduto,
   MAXIMO_DE_PREPAROS_REFEITOS, paralelismoDaVarreduraNoGrupo, passosDoComando, PECA_SEM_RELATORIO, RelatorioDoCheck,
   testDasLanes, TETO_DO_RELATORIO_BYTES, tirarPassosDoPreparo, tirarPassosDoPreparoAposLeituras } from '../src/check-agil';
-import { argvDoItem, chaveDoPerfilIntegracao, picoCpuPorFonte, rodarEmParalelo } from '../src/check-paralelo';
-import { cargaDoProcLoadavg, paredeAgileSimulada, paredeClassicaSimulada, planejarCpuDoGrupo } from '../src/agendador-cpu';
+import { argvDoItem, chaveDoPerfilIntegracao, picoCpuPorFonte, rodarEmParalelo, workersDaLane } from '../src/check-paralelo';
+import { cargaDoProcLoadavg, MINIMO_ESTRUTURAL_DO_GRUPO, paredeAgileSimulada, paredeClassicaSimulada, planejarCpuDoGrupo,
+  resumirMedicaoCpuDoGrupo, workersDaReserva } from '../src/agendador-cpu';
 import { lerLedger } from '../src/ledger';
 import { carregarManifesto } from '../src/manifest';
 import { dirThread, novaThread } from '../src/thread';
-import { gravarBaseline, identidadeDoProduto, semVereditoPorTempo, textoDoVerify, vereditoDaBaseline, verificar,
+import { ambienteDoModo, gravarBaseline, identidadeDoProduto, pecaDoAgendadorCpu, semVereditoPorTempo, textoDoVerify, vereditoDaBaseline, verificar,
   ExecutorVerify } from '../src/verify';
 import { comLocale } from '../src/locale';
 import type { ResultadoDeComando } from '../src/types';
@@ -375,12 +376,15 @@ test('AG18: o texto do verify diz o reaproveitamento, o grupo e cada peca em fal
     adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'x', verificar: ['echo passo-a && echo passo-b && echo c'] });
     const g = gravador((_nome, comando) => (comando === 'echo rapido' ? { ok: false, code: 127, causa: 'nao-encontrado' } : {}));
     const r = verificar(p.carregado, t.id, { executor: g.executor });
+    r.agile!.pecas.push({ peca: 'agendador-cpu', estado: 'degradado', motivo: 'capacidade 7/8 CPUs' });
     const texto = textoDoVerify(r);
     assert.match(texto, /\n {2}agile {7}1 comando\(s\) de claim contra o produto do preparo, 0 inteiro\(s\); grupo em paralelo com as lanes h\n/);
     assert.match(texto, /\n {2}fallback {4}preparo: saiu com codigo 127: echo rapido; rodou verify\.preparo\n/);
+    assert.match(texto, /\n {2}degradado {3}agendador-cpu: capacidade 7\/8 CPUs; preservou o plano paralelo\n/);
     const ingles = comLocale('en', () => textoDoVerify(r));
     assert.match(ingles, /\n {2}agile {7}1 claim command\(s\) against the prepared product, 0 in full; parallel group with lanes h\n/);
     assert.match(ingles, /\n {2}fallback {4}preparo: saiu com codigo 127: echo rapido; ran verify\.preparo\n/);
+    assert.match(ingles, /\n {2}degraded {4}agendador-cpu: capacidade 7\/8 CPUs; kept the parallel plan\n/);
   } finally { p.limpar(); }
 });
 
@@ -1038,29 +1042,53 @@ test('AG43: o item do grupo com argv roda sem shell: o argumento chega literal, 
   assert.equal(c.stdout.trim(), '2', 'o item sem argv segue pelo bash -c');
 });
 
-test('AG44: sob carga sintetica presa em CPU, o plano cai para o Classic e nunca projeta parede maior', () => {
+test('AG44: carga e steal degradam a capacidade em degraus; so o minimo estrutural volta a ordem do Classic', () => {
   const trabalho = { hermetica: 700, varredura: 140, integracao: 70 };
-  const saturado = planejarCpuDoGrupo(8, { carga1: 8, stealPct: 12 });
-  assert.equal(saturado.ordem, 'classic');
-  assert.equal(saturado.cpusHermetica, 7);
-  assert.equal(saturado.cpusHermeticaAposVarredura, 7);
-  assert.equal(saturado.cpusHermeticaAposReserva, 7, 'o fallback nao devolve reserva dinamicamente');
-  assert.equal(saturado.ferramentasDaVarredura, 7);
-  assert.equal(saturado.cpusPorContainer, 1);
-  assert.ok(paredeAgileSimulada(saturado, trabalho) <= paredeClassicaSimulada(8, trabalho));
-  assert.match(saturado.motivo, /carga 8 em \/proc\/loadavg/);
-  assert.match(saturado.motivo, /steal 12% em \/proc\/stat/);
-
-  const livre = planejarCpuDoGrupo(8, { carga1: 2, stealPct: 0 });
+  const livre = planejarCpuDoGrupo(8, resumirMedicaoCpuDoGrupo([0, 0, 0], [0, 0, 0]));
   assert.equal(livre.ordem, 'paralela');
+  assert.equal(livre.estado, 'agile');
+  assert.equal(livre.capacidadeEfetiva, 8);
   assert.equal(livre.cpusHermetica + livre.cpusDaFatia, 8, 'a soma do grupo cabe na maquina');
   assert.equal(livre.cpusHermetica, 6);
   assert.equal(livre.cpusHermeticaAposVarredura, 6, 'sem medida completa, a integracao conserva a reserva');
-  assert.equal(livre.cpusHermeticaAposReserva, 8, 'depois da cadeia a hermetica usa a maquina inteira');
+  assert.equal(livre.cpusHermeticaAposReserva, 8, 'depois da cadeia a hermetica usa a capacidade inteira');
   assert.equal(livre.ferramentasDaVarredura, 2);
   assert.equal(livre.cpusPorContainer, 1);
   assert.ok(paredeAgileSimulada(livre, trabalho) < Math.max(trabalho.hermetica / livre.cpusHermetica,
     trabalho.varredura / livre.cpusDaFatia + trabalho.integracao / livre.cpusIntegracao), 'a devolucao reduz a parede modelada');
+
+  const degradado = planejarCpuDoGrupo(8, resumirMedicaoCpuDoGrupo([0, 0, 0], [12, 12, 12]));
+  assert.equal(degradado.ordem, 'paralela', 'steal acima do limiar antigo nao derruba o grupo inteiro');
+  assert.equal(degradado.estado, 'degradado');
+  assert.equal(degradado.capacidadeEfetiva, 7);
+  assert.equal(degradado.cpusHermeticaAposReserva, 7);
+  assert.equal(degradado.ferramentasDaVarredura, 2);
+  assert.match(degradado.motivo, /amostras \[12, 12, 12\], mediana 12%/);
+
+  const pico = planejarCpuDoGrupo(8, resumirMedicaoCpuDoGrupo([0, 7, 0], [0, 90, 0]));
+  assert.equal(pico.estado, 'agile', 'um pico isolado fica na evidencia, mas a mediana preserva o plano');
+  assert.equal(pico.capacidadeEfetiva, 8);
+  assert.match(pico.motivo, /amostras \[0, 90, 0\], mediana 0%/);
+
+  const saturado = planejarCpuDoGrupo(4, resumirMedicaoCpuDoGrupo([0, 0, 0], [50, 50, 50]));
+  assert.equal(saturado.ordem, 'classic');
+  assert.equal(saturado.estado, 'fallback');
+  assert.equal(saturado.capacidadeEfetiva, MINIMO_ESTRUTURAL_DO_GRUPO - 1);
+  assert.equal(saturado.cpusHermetica, 3, 'o fallback usa a paralelizacao do Classic, nao a capacidade descontada');
+  assert.equal(saturado.cpusHermeticaAposVarredura, 3);
+  assert.equal(saturado.cpusHermeticaAposReserva, 3, 'o fallback nao devolve reserva dinamicamente');
+  assert.equal(saturado.ferramentasDaVarredura, 3);
+  assert.equal(saturado.cpusPorContainer, 1);
+  assert.ok(paredeAgileSimulada(saturado, trabalho) <= paredeClassicaSimulada(4, trabalho));
+  assert.match(saturado.motivo, /abaixo do minimo estrutural 3/);
+  const porCarga = planejarCpuDoGrupo(4, resumirMedicaoCpuDoGrupo([3, 3, 3], [0, 0, 0]));
+  assert.equal(porCarga.ordem, 'classic', 'carga que ocupa quase a maquina inteira volta a ordem do Classic');
+  assert.equal(porCarga.cpusHermetica, 3);
+  assert.match(porCarga.motivo, /carga 3 em \/proc\/loadavg \(limiar 3\)/);
+  const quieta = planejarCpuDoGrupo(8, resumirMedicaoCpuDoGrupo([2, 2, 2], [9, 9, 9]));
+  assert.equal(quieta.estado, 'agile', 'carga do proprio verify e steal abaixo do limiar nao tiram CPU do plano');
+  assert.equal(quieta.capacidadeEfetiva, 8);
+  assert.equal(quieta.cpusHermeticaAposReserva, 8);
   assert.equal(cargaDoProcLoadavg('7.25 4.0 3.0 1/2 3\n'), 7.25);
   assert.equal(cargaDoProcLoadavg('invalida'), null);
 
@@ -1114,6 +1142,11 @@ test('AG45: saturacao medida pelo verify ordena hermetica, varredura e integraca
     assert.equal(agendador.estado, 'fallback');
     assert.match(String(agendador.motivo), /\/proc\/loadavg.*\/proc\/stat.*varredura e integracao depois dela/);
     assert.equal(agendador.fallback, 'ordem do Classic para hermetica, varredura e integracao');
+    const degradado = pecaDoAgendadorCpu(planejarCpuDoGrupo(8,
+      resumirMedicaoCpuDoGrupo([0, 0, 0], [12, 12, 12])));
+    assert.equal(degradado.estado, 'degradado');
+    assert.equal(degradado.fallback, undefined);
+    assert.match(String(degradado.motivo), /capacidade 7\/8 CPU\(s\).*amostras \[12, 12, 12\], mediana 12%/);
   } finally { p.limpar(); }
 });
 
@@ -1179,4 +1212,158 @@ test('AG50: o perfil medido da integracao so vale para os mesmos testes compilad
     assert.equal(impossivel.picoCpus, null, 'pico acima da maquina nunca vira perfil');
     assert.match(impossivel.anomalia ?? '', /excede a capacidade/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('RM081F4-manifesto: a declaracao unica preserva texto e transporta todas as chaves da lane', () => {
+  const p = projetoTemporario('rm081-f4-manifesto');
+  try {
+    comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      texto: "echo texto"\n' +
+      '      com-recursos:\n        comando: "echo recursos"\n        recursos: ["cache"]\n' +
+      '      lane-completa:\n        comando: "echo completa"\n        junit: "reports/completa.xml"\n' +
+      '        filtro: "echo {testes}"\n        relogio:\n          nome: ["tempo$"]\n' +
+      '        selecao:\n          comando: "echo {arquivos}"\n          mapeia: ["src/**"]\n' +
+      '        recursos: ["banco", "porta"]');
+    assert.deepEqual(p.carregado.manifesto.check?.agile?.test, {
+      texto: 'echo texto',
+      'com-recursos': 'echo recursos',
+      'lane-completa': 'echo completa',
+    });
+    assert.deepEqual(p.carregado.manifesto.check?.agile?.junit, { 'lane-completa': 'reports/completa.xml' });
+    assert.deepEqual(p.carregado.manifesto.check?.agile?.filtro, { 'lane-completa': 'echo {testes}' });
+    assert.deepEqual(p.carregado.manifesto.check?.agile?.relogio, { 'lane-completa': { nome: ['tempo$'] } });
+    assert.deepEqual(p.carregado.manifesto.check?.agile?.selecao, {
+      'lane-completa': { comando: 'echo {arquivos}', mapeia: ['src/**'] },
+    });
+    assert.deepEqual(p.carregado.manifesto.check?.agile?.recursos,
+      { 'com-recursos': ['cache'], 'lane-completa': ['banco', 'porta'] });
+
+    let itens: Array<{ nome: string; comando: string; recursos?: string[] }> = [];
+    const grupo = (recebidos: typeof itens): ResultadoDeComando[] => {
+      itens = recebidos;
+      return recebidos.map((item) => ({ nome: item.nome, comando: item.comando, ok: true, code: 0, resumo: '', causa: 'exit',
+        prazoMs: 1000, duracaoMs: 1, executado: true }));
+    };
+    const preparo: ResultadoDeComando = { nome: 'preparo', comando: 'echo passo-a && echo passo-b', ok: true, code: 0,
+      resumo: '', causa: 'exit', prazoMs: 1000, duracaoMs: 1, executado: true };
+    const guarda = new GuardaDoProduto(p.dir, ['README.md'], () => 'arvore-estavel', null);
+    const r = comandosNoAgile(p.carregado.manifesto, p.dir, [{ nome: 'build', comando: 'echo passo-a' },
+      { nome: 'test', comando: 'echo test' }], gravador().executor, grupo, guarda, preparo);
+    assert.equal(r.comandos.find((c) => c.nome === 'test')?.ok, true);
+    assert.deepEqual(itens.filter((item) => item.nome.startsWith('test:')).map((item) =>
+      [item.nome, item.comando, item.recursos ?? []]), [
+      ['test:texto', 'echo texto', []],
+      ['test:com-recursos', 'echo recursos', ['cache']],
+      ['test:lane-completa', 'echo completa', ['banco', 'porta']],
+    ]);
+  } finally { p.limpar(); }
+});
+
+test('RM081F4-manifesto: objeto sem junit e sem recursos conserva a recusa da F1', () => {
+  const p = projetoTemporario('rm081-f4-manifesto-sem-junit');
+  try {
+    fs.appendFileSync(path.join(p.dir, 'orkastery.yaml'), '\ncheck:\n  agile:\n    test:\n' +
+      '      somente-comando:\n        comando: "echo comando"\n' +
+      '      selecao-sem-recursos:\n        comando: "echo selecao"\n' +
+      '        selecao:\n          comando: "echo {arquivos}"\n          mapeia: ["src/**"]\n');
+    const m = carregarManifesto(p.dir)!;
+    assert.ok(m.erros.some((erro) => /check\.agile\.test\.somente-comando\.junit precisa/.test(erro)), m.erros.join('; '));
+    assert.ok(m.erros.some((erro) => /check\.agile\.test\.selecao-sem-recursos\.junit precisa/.test(erro)),
+      m.erros.join('; '));
+  } finally { p.limpar(); }
+});
+
+test('RM081F4-manifesto: recursos e chave desconhecida conservam o caminho completo no erro', () => {
+  const p = projetoTemporario('rm081-f4-manifesto-invalido');
+  try {
+    fs.appendFileSync(path.join(p.dir, 'orkastery.yaml'), '\ncheck:\n  agile:\n    test:\n' +
+      '      vazia:\n        comando: "echo vazia"\n        junit: "reports/vazia.xml"\n        recursos: []\n' +
+      '      nula:\n        comando: "echo nula"\n        junit: "reports/nula.xml"\n        recursos:\n' +
+      '      duplicada:\n        comando: "echo x"\n        junit: "reports/x.xml"\n        recursos: ["banco", "banco"]\n' +
+      '      errada:\n        comando: "echo y"\n        junit: "reports/y.xml"\n        recursos: [3]\n        outro: true\n');
+    const m = carregarManifesto(p.dir)!;
+    assert.ok(m.erros.some((erro) => /check\.agile\.test\.vazia\.recursos precisa ser uma lista nao vazia/.test(erro)), m.erros.join('; '));
+    assert.ok(m.erros.some((erro) => /check\.agile\.test\.nula\.recursos precisa ser uma lista nao vazia/.test(erro)), m.erros.join('; '));
+    assert.ok(m.erros.some((erro) => /check\.agile\.test\.duplicada\.recursos: "banco" esta repetido/.test(erro)), m.erros.join('; '));
+    assert.ok(m.erros.some((erro) => /check\.agile\.test\.errada\.recursos: 3 precisa ser texto de uma linha/.test(erro)), m.erros.join('; '));
+    assert.ok(m.erros.some((erro) => /check\.agile\.test\.errada\.outro desconhecida/.test(erro)), m.erros.join('; '));
+  } finally { p.limpar(); }
+});
+
+test('RM081F4-manifesto: filtro e relogio dizem que dependem de junit quando o relatorio falta', () => {
+  const p = projetoTemporario('rm081-f4-manifesto-junit-dependente');
+  try {
+    fs.appendFileSync(path.join(p.dir, 'orkastery.yaml'), '\ncheck:\n  agile:\n    test:\n' +
+      '      filtrada:\n        comando: "echo filtrada"\n        filtro: "echo {testes}"\n' +
+      '      cronometrada:\n        comando: "echo cronometrada"\n        relogio:\n          nome: ["tempo$"]\n');
+    const m = carregarManifesto(p.dir)!;
+    assert.ok(m.erros.some((erro) => /check\.agile\.test\.filtrada\.junit precisa ser declarado porque check\.agile\.test\.filtrada\.filtro depende do relatorio JUnit/.test(erro)), m.erros.join('; '));
+    assert.ok(m.erros.some((erro) => /check\.agile\.test\.cronometrada\.junit precisa ser declarado porque check\.agile\.test\.cronometrada\.relogio depende do relatorio JUnit/.test(erro)), m.erros.join('; '));
+  } finally { p.limpar(); }
+});
+
+test('RM081F4-workers: cada lane recebe a reserva vigente em ORK_WORKERS, nunca menor que um', () => {
+  assert.equal(workersDaReserva(0), 1);
+  assert.equal(workersDaReserva(Number.NaN), 1);
+  assert.equal(workersDaReserva(3.9), 3);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-rm081f4-workers-'));
+  try {
+    const arquivo = (nome: string): string => path.join(dir, nome);
+    const processos = rodarEmParalelo([
+      { nome: 'test:hermetica', papelCpu: 'hermetica', cwd: dir, prazoMs: 10_000,
+        comando: `echo "$ORK_WORKERS" > ${arquivo('h')}` },
+      { nome: 'security_scan', papelCpu: 'varredura', cwd: dir, prazoMs: 10_000, comando: 'sleep 0.1' },
+      { nome: 'test:integracao', papelCpu: 'integracao', cwd: dir, prazoMs: 10_000,
+        comando: `echo "$ORK_WORKERS" > ${arquivo('i')}` },
+      { nome: 'test:depois', papelCpu: 'outro', cwd: dir, prazoMs: 10_000,
+        comando: `echo "$ORK_WORKERS" > ${arquivo('d')}` },
+    ], process.env, { cpus: 8, medicaoCpu: { carga1: 0, stealPct: 0, cpusIntegracao: 0.4, fonteCpusIntegracao: 'medida' } });
+    assert.ok(processos.every((p) => p.ok), processos.map((p) => p.stderr).join('\n'));
+    assert.deepEqual(['h', 'i', 'd'].map((nome) => Number(fs.readFileSync(arquivo(nome), 'utf8'))), [5, 1, 8],
+      'a lane posterior recebe a capacidade depois que as reservas voltaram');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('RM081F4-capacidade: a soma das reservas simultaneas nunca passa da maquina', () => {
+  const plano = planejarCpuDoGrupo(8, { carga1: 0, stealPct: 0, cpusIntegracao: 0.4, fonteCpusIntegracao: 'medida' });
+  const hermetica = workersDaLane({ nome: 'test:hermetica', papelCpu: 'hermetica' }, plano, 8, 3)!;
+  const integracao = workersDaLane({ nome: 'test:integracao', papelCpu: 'integracao' }, plano, 8, 3)!;
+  const depois = workersDaLane({ nome: 'test:depois', papelCpu: 'outro' }, plano, 8, 3)!;
+  assert.ok(hermetica + plano.cpusDaFatia + integracao <= plano.cpus);
+  assert.ok(plano.cpusHermeticaAposVarredura + integracao <= plano.cpus);
+  assert.equal(depois, plano.cpus, 'depois da devolucao, uma lane sozinha recebe a capacidade inteira');
+  assert.equal(workersDaLane({ nome: 'test:a', papelCpu: 'outro' }, undefined, 8, 3), 2,
+    'sem os papeis internos, o grupo divide a capacidade pelo maximo de lanes simultaneas');
+});
+
+test('RM081F4-recursos: recurso comum serializa, recurso diferente sobrepoe e listas cruzadas nao bloqueiam', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-rm081f4-recursos-'));
+  try {
+    const arq = (nome: string): string => path.join(dir, nome);
+    const processos = rodarEmParalelo([
+      { nome: 'test:a', comando: `touch ${arq('a.ini')} && while test ! -f ${arq('c.ini')}; do sleep 0.02; done && ` +
+          `test ! -f ${arq('b.ini')} && sleep 0.1 && touch ${arq('a.fim')}`,
+        cwd: dir, prazoMs: 10_000, recursos: ['banco'] },
+      { nome: 'test:b', comando: `test -f ${arq('a.fim')} && touch ${arq('b.ini')}`,
+        cwd: dir, prazoMs: 10_000, recursos: ['banco'] },
+      { nome: 'test:c', comando: `touch ${arq('c.ini')} && while test ! -f ${arq('a.ini')}; do sleep 0.02; done && ` +
+          `test ! -f ${arq('a.fim')} && touch ${arq('c.sobrepos')}`,
+        cwd: dir, prazoMs: 10_000, recursos: ['porta'] },
+    ], process.env, { cpus: 4 });
+    assert.ok(processos.every((p) => p.ok), processos.map((p) => p.stderr).join('\n'));
+    assert.ok(fs.existsSync(arq('c.sobrepos')), 'o recurso diferente rodou junto de a');
+    assert.ok(fs.existsSync(arq('b.ini')), 'b so iniciou depois que a liberou o recurso comum');
+
+    const cruzadas = rodarEmParalelo([
+      { nome: 'test:d', comando: 'true', cwd: dir, prazoMs: 10_000, recursos: ['banco', 'porta'] },
+      { nome: 'test:e', comando: 'true', cwd: dir, prazoMs: 10_000, recursos: ['porta', 'banco'] },
+    ], process.env, { cpus: 2 });
+    assert.ok(cruzadas.every((p) => p.ok), 'o conjunto inteiro e adquirido sem espera circular');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('RM081F4-classic: o Classic exporta ORK_WORKERS com a capacidade inteira da maquina', () => {
+  const ambiente = ambienteDoModo({ modo: 'classic', origem: 'opcao', nome: 'Classic Check' });
+  assert.match(ambiente.ORK_WORKERS, /^[1-9][0-9]*$/);
+  assert.equal(Number(ambiente.ORK_WORKERS), os.availableParallelism());
+  assert.equal(ambiente.ORK_CHECK_MODO, 'classic');
 });

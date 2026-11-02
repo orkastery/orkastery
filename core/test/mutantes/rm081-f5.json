@@ -1,0 +1,150 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-081 F5: cada mutante remove uma garantia da seleção nativa ou da queda para a suíte inteira.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "a rodada fria usa seleção nativa em vez da suíte inteira",
+      "modulo": "check-selecao",
+      "de": "if (!ultima)\n        return { lanes: todasInteiras(declaracoes, 'rodada-fria'), cache };",
+      "para": "if (!ultima) {\n        const arquivos = ['src/base.ts'];\n        return { lanes: Object.fromEntries(Object.entries(declaracoes).map(([lane, declaracao]) => [lane, { modo: 'selecionada', motivo: 'selecionada', arquivos, base: commit, comando: comandoDaSelecao(declaracao, commit, arquivos) }])), cache };\n    }",
+      "teste": "rm081-f5",
+      "nome": "^RM081 F5 P1:"
+    },
+    {
+      "id": "M2",
+      "descricao": "o SHIP aceita recibo selecionado marcado como parcial",
+      "modulo": "ship",
+      "de": "return verificacao.ok && !verificacao.parcial;",
+      "para": "return verificacao.ok;",
+      "teste": "rm081-f5",
+      "nome": "^RM081 F5 E1:"
+    },
+    {
+      "id": "M3",
+      "descricao": "mudança no lockfile deixa de cair para a suíte inteira",
+      "modulo": "check-selecao",
+      "de": "if (lockfiles.length)\n        return { lanes: todasInteiras(declaracoes, 'lockfile-mudou', lockfiles), cache };",
+      "para": "if (false)\n        return { lanes: todasInteiras(declaracoes, 'lockfile-mudou', lockfiles), cache };",
+      "teste": "rm081-f5",
+      "nome": "^RM081 F5 P3:"
+    },
+    {
+      "id": "M4",
+      "descricao": "cache vermelho é aceito como válido para selecionar",
+      "modulo": "check-selecao",
+      "de": "if (!base || !limpa || ultima.veredito !== 'verdade sustentada' || anterior.contrato !== exports.CONTRATO_DA_SELECAO\n        || !sha(anterior.base) || !sha(anterior.head) || anterior.head !== ultima.commit) {",
+      "para": "if (!base || !limpa || anterior.contrato !== exports.CONTRATO_DA_SELECAO\n        || !sha(anterior.base) || !sha(anterior.head) || anterior.head !== ultima.commit) {",
+      "teste": "rm081-f5",
+      "nome": "^RM081 F5 P4:"
+    },
+    {
+      "id": "M5",
+      "descricao": "o Classic passa a construir o plano de seleção do Agile",
+      "modulo": "check-selecao",
+      "de": "if (modo !== 'agile' || Object.keys(declaracoes).length === 0)",
+      "para": "if (Object.keys(declaracoes).length === 0)",
+      "teste": "rm081-f5",
+      "nome": "^RM081 F5 P1:"
+    },
+    {
+      "id": "M6",
+      "descricao": "mudança no manifesto deixa de ter precedência de suíte inteira",
+      "modulo": "check-selecao",
+      "de": "if (mudancaNoManifesto.length)\n        return { lanes: todasInteiras(declaracoes, 'manifesto-mudou', mudancaNoManifesto), cache };",
+      "para": "if (false)\n        return { lanes: todasInteiras(declaracoes, 'manifesto-mudou', mudancaNoManifesto), cache };",
+      "teste": "rm081-f5",
+      "nome": "^RM081 F5 P3:"
+    },
+    {
+      "id": "M7",
+      "descricao": "mudança na configuração do runner não força a suíte inteira",
+      "modulo": "check-selecao",
+      "de": "if (configuracao.length) {\n            lanes[lane] = inteira('configuracao-mudou', configuracao);\n            continue;\n        }",
+      "para": "if (false) {\n            lanes[lane] = inteira('configuracao-mudou', configuracao);\n            continue;\n        }",
+      "teste": "rm081-f5",
+      "nome": "^RM081 F5 P3:"
+    },
+    {
+      "id": "M8",
+      "descricao": "mudança fora do mapeamento passa a ser selecionada",
+      "modulo": "check-selecao",
+      "de": "if (fora.length) {\n            lanes[lane] = inteira('fora-do-mapeamento', fora);\n            continue;\n        }",
+      "para": "if (false) {\n            lanes[lane] = inteira('fora-do-mapeamento', fora);\n            continue;\n        }",
+      "teste": "rm081-f5",
+      "nome": "^RM081 F5 P3:"
+    },
+    {
+      "id": "M9",
+      "descricao": "runner sem mapeamento declarado deixa de registrar a falta de garantia",
+      "modulo": "check-selecao",
+      "de": "if (!declaracao.mapeia.length) {\n            lanes[lane] = inteira('runner-sem-garantia');\n            continue;\n        }",
+      "para": "if (false) {\n            lanes[lane] = inteira('runner-sem-garantia');\n            continue;\n        }",
+      "teste": "rm081-f5",
+      "nome": "^RM081 F5 P5:"
+    },
+    {
+      "id": "M10",
+      "descricao": "a execução selecionada perde a marca parcial",
+      "modulo": "check-agil",
+      "de": "parcial: { testes: [] }, selecao: registro }",
+      "para": "selecao: registro }",
+      "teste": "rm081-f5",
+      "nome": "^RM081 F5 E1:"
+    },
+    {
+      "id": "M11",
+      "descricao": "a rodada morna ignora o comando selecionado e executa a suíte inteira",
+      "modulo": "check-agil",
+      "de": "const efetivo = porMudanca?.comando ?? comando;",
+      "para": "const efetivo = comando;",
+      "teste": "rm081-f5",
+      "nome": "^RM081 F5 E1:"
+    },
+    {
+      "id": "M12",
+      "descricao": "cache de outra base deixa de cair para a suíte inteira",
+      "modulo": "check-selecao",
+      "de": "if (anterior.base !== base)\n        return { lanes: todasInteiras(declaracoes, 'base-mudou'), cache };",
+      "para": "if (false)\n        return { lanes: todasInteiras(declaracoes, 'base-mudou'), cache };",
+      "teste": "rm081-f5",
+      "nome": "^RM081 F5 P4:"
+    },
+    {
+      "id": "M13",
+      "descricao": "a lane selecionada perde modo, motivo, arquivos e base no recibo",
+      "modulo": "check-agil",
+      "de": "parcial: { testes: [] }, selecao: registro }",
+      "para": "parcial: { testes: [] } }",
+      "teste": "rm081-f5",
+      "nome": "^RM081 F5 E1:"
+    },
+    {
+      "id": "M14",
+      "descricao": "cache ausente perde o motivo tipado da queda integral",
+      "modulo": "check-selecao",
+      "de": "if (!anterior)\n        return { lanes: todasInteiras(declaracoes, 'cache-ausente'), cache };",
+      "para": "if (!anterior)\n        return { lanes: todasInteiras(declaracoes, 'rodada-fria'), cache };",
+      "teste": "rm081-f5",
+      "nome": "^RM081 F5 P4:"
+    },
+    {
+      "id": "M15",
+      "descricao": "diff vazio deixa de registrar que não há mudança verificável",
+      "modulo": "check-selecao",
+      "de": "if (!mudados.length) {\n            lanes[lane] = inteira('sem-mudancas');\n            continue;\n        }",
+      "para": "if (false) {\n            lanes[lane] = inteira('sem-mudancas');\n            continue;\n        }",
+      "teste": "rm081-f5",
+      "nome": "^RM081 F5 P5:"
+    },
+    {
+      "id": "M16",
+      "descricao": "árvore suja deixa de invalidar o cache da rodada",
+      "modulo": "check-selecao",
+      "de": "if (!base || !limpa || ultima.veredito !== 'verdade sustentada' || anterior.contrato !== exports.CONTRATO_DA_SELECAO\n        || !sha(anterior.base) || !sha(anterior.head) || anterior.head !== ultima.commit) {",
+      "para": "if (!base || ultima.veredito !== 'verdade sustentada' || anterior.contrato !== exports.CONTRATO_DA_SELECAO\n        || !sha(anterior.base) || !sha(anterior.head) || anterior.head !== ultima.commit) {",
+      "teste": "rm081-f5",
+      "nome": "^RM081 F5 P4:"
+    }
+  ]
+}
