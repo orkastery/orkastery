@@ -6,24 +6,24 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-02T13:06:31-03:00
+atualizado_em: 2026-11-02T19:05:31-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
-  codigo: Branch criada
+  codigo: Mesclado
   testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: 7352012f
+    commit: 7fd2b66
     pr: null
 sdlc:
   thread: ork-rm075fimdefa
   modo: "#Auto"
-  fase: GOAL
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-075: Fim de fase lido pelo resultado: sessão que termina sem pergunta não vira espera humana
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -99,7 +99,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Em desenvolvimento | — | 2026-11-02 | Julio |
 | Documentação | Em revisão | — | 2026-11-02 | Julio |
-| Código | Branch criada | commit `7352012f` | 2026-11-02 | Julio |
+| Código | Mesclado | commit `7fd2b66` | 2026-11-02 | Julio |
 | Testes | Em execução | — | 2026-11-02 | Julio |
 | Deploy | Não implantado | — | 2026-11-02 | Julio |
 | Exposição | Flag desligada | — | 2026-11-02 | Julio |

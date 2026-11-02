@@ -6,6 +6,16 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+## [0.6.5] - 2026-11-02
+
+O Check passa a entender qualquer runner de teste: o manifesto declara o relatório JUnit de pytest, Vitest, Jest, Playwright ou gotestsum,
+o verify confere primeiro pelo nome os testes que caíram, protege casos de relógio sob `steal` alto e, no Agile morno, usa a seleção nativa do runner (RM-081).
+O agendador do Agile decide pela mediana de várias amostras, e a integração reserva só a CPU que mede (RM-074, M8 e M9); a razão contra o Classic sai da bancada.
+O fim de fase é lido pelo resultado da sessão, sem espera humana falsa nem retentativa de fase já concluída (RM-075), e o Grok Build roda com uma lista fechada de comandos (RM-067, F5a).
+Nenhum teste sai e o Classic não muda.
+
+O #Noctum segue **em desenvolvimento, não anunciado**.
+
 ### Alterado
 
 - **Grok Build com lista fechada de comandos — F5a ([RM-067](docs/roadmap/RM-067-grok-build-homologado.md)):** o despacho headless usa `dontAsk` e libera somente `git`, `node`, `npm`, `ork`, `grep`, `find`, `ls` e `cat`, além das regras MCP já enumeradas. Comando fora da lista é negado sem pergunta; a sessão pode continuar, e um fim causado pela negação vira bloqueio tipado com o comando na evidência. O sandbox continua `workspace`, sem `--always-approve`, `--yolo`, `bypassPermissions` ou `danger-full-access`.
