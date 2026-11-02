@@ -1,0 +1,42 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-074 M10: cada mutante remove uma regra conservadora da seleção do node --test.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "um teste que sobe processo filho fica fora quando o grafo não o alcança",
+      "modulo": "seletor-node-test",
+      "de": "const selecionados = completos.filter((nome) => processos.has(nome)\n        || [...(fechos.get(nome) ?? [])].some((arquivo) => mudou.has(arquivo)));",
+      "para": "const selecionados = completos.filter((nome) => [...(fechos.get(nome) ?? [])].some((arquivo) => mudou.has(arquivo)));",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S2:"
+    },
+    {
+      "id": "M2",
+      "descricao": "require dinâmico deixa de derrubar a lane inteira",
+      "modulo": "seletor-node-test",
+      "de": "if (dependencias.dinamico) {\n                return inteira('require-dinamico', { arquivo: caminhoDeFonte(distTest, atual), pedido: dependencias.pedidoDinamico });\n            }",
+      "para": "if (false) {\n                return inteira('require-dinamico', { arquivo: caminhoDeFonte(distTest, atual), pedido: dependencias.pedidoDinamico });\n            }",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S3:"
+    },
+    {
+      "id": "M3",
+      "descricao": "mudança em package.json deixa de cair para a lane inteira",
+      "modulo": "seletor-node-test",
+      "de": "if (alterados.some((arquivo) => !/^core\\/(?:src|test)\\//.test(arquivo)))\n        return inteira('fora-do-mapeamento');",
+      "para": "if (false)\n        return inteira('fora-do-mapeamento');",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S5:"
+    },
+    {
+      "id": "M4",
+      "descricao": "a rodada fria usa o comando selecionado em vez da lane inteira",
+      "modulo": "check-selecao",
+      "de": "if (!ultima)\n        return { lanes: todasInteiras(declaracoes, 'rodada-fria'), cache };",
+      "para": "if (!ultima) {\n        const arquivos = ['src/base.ts'];\n        return { lanes: Object.fromEntries(Object.entries(declaracoes).map(([lane, declaracao]) => [lane, { modo: 'selecionada', motivo: 'selecionada', arquivos, base: commit, comando: comandoDaSelecao(declaracao, commit, arquivos) }])), cache };\n    }",
+      "teste": "rm081-f5",
+      "nome": "^RM081 F5 P1:"
+    }
+  ]
+}
