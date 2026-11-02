@@ -147,6 +147,16 @@ export interface SetupDeConducao {
 /** RM-081 F2: como um comando JUnit declara que mede relogio. */
 export type MarcacaoDeRelogio = { nome: string[] } | { marcador: string } | { tag: string };
 
+/** RM-081 F5: opt-in da lane para a selecao nativa do runner na rodada morna. */
+export interface SelecaoNativa {
+  /** Comando com exatamente um marcador `{base}` ou `{arquivos}`. */
+  comando: string;
+  /** Superficie que o runner garante relacionar; vazia significa que nao ha garantia e conserva a suite inteira. */
+  mapeia: string[];
+  /** Arquivos ou globs de configuracao cuja mudanca invalida a selecao. */
+  configuracao?: string[];
+}
+
 /** Manifesto do projeto (`orkastery.yaml`), na fatia v1 do bloco B0. */
 export interface Manifesto {
   project: {
@@ -811,6 +821,8 @@ export interface ConfigDoAgile {
   junit?: Record<string, string>;
   /** RM-081 F3: comando de selecao nominal por lane; ausente preserva a suite inteira. */
   filtro?: Record<string, string>;
+  /** RM-081 F5: selecao nativa por mudancas, somente na rodada morna do Agile. */
+  selecao?: Record<string, SelecaoNativa>;
   /** RM-081 F2: marcacao de relogio por lane JUnit; ausente preserva o julgamento anterior. */
   relogio?: Record<string, MarcacaoDeRelogio>;
   /** As lanes de `test` que so comecam quando o `security_scan` do grupo termina (as que sobem containers). */
