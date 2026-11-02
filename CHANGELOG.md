@@ -91,6 +91,7 @@ O #Noctum segue **em desenvolvimento, não anunciado**.
 ### Alterado
 
 - **Reaproveitamento de provas no Agile Check — M1 e M2 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** os testes pesados que não verificam a fronteira real de processo chamam o CLI dentro do próprio processo com ambiente, diretório, saídas e código isolados; a M2 leva o harness a quatro pontos quentes restantes. Claims `node --test`, a auditoria TAP canônica e cadeias fechadas com `grep -q` reaproveitam as lanes e o build único somente no mesmo HEAD, ambiente e produto. Testes de sinais, PATH, rede e Docker reais, Git, locks e concorrência permanecem com processo filho, sem reduzir a bateria ou as asserções. A razão contra o Classic ainda não é anunciada: falta uma medida com pares suficientes para sustentá-la.
+- **Reserva medida da integração no Agile Check — M9 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** o perfil usa o pico sustentado da árvore da lane e preserva separadamente a lacuna de contêiner; perfil ausente ou incompatível mantém a reserva conservadora, e o relatório localiza a reserva e sua origem em pt-BR e inglês sem mudar o Classic.
 
 ### Corrigido
 
