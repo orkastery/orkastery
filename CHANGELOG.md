@@ -10,6 +10,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **JUnit por comando e lane — F1 ([RM-081](docs/roadmap/RM-081-check-por-qualquer-runner.md)):** o manifesto pode declarar o relatório de pytest, Vitest, Jest, Playwright ou gotestsum; o verify compara falhas e erros por nome, registra contagens e duração e preserva a forma textual existente quando não há relatório.
 
+- **RM-081 · F3 — correção nominal antes da suíte inteira ([roadmap](docs/roadmap/RM-081-check-por-qualquer-runner.md)):** comando ou lane com JUnit pode declarar o próprio filtro; o verify reprova cedo se algum nome continuar vermelho, segue para a suíte inteira quando a parcial passa e o SHIP recusa recibo parcial.
+
 ## [0.6.4] - 2026-11-01
 
 O Agile Check reserva CPU pela medida de cada peça e reaproveita a varredura do Semgrep quando as regras não mudam;

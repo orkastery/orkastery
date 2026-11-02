@@ -123,9 +123,17 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: a sessão condutora de cada fatia; A: Julio; C: a definir; I: a definir.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** item aberto pela condução da VPS a pedido do dono, a partir do relato da pilha de testes de outra rede; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** a condução despacha a F1, com a F4 ao lado, depois da 0.6.4.
+- **Próxima ação, responsável e prazo:** a condução submete a F3 empilhada sobre a F1; F2 e F4 seguem como fatias independentes depois da 0.6.4.
+
+### F3 nesta fatia
+
+- O mapa de comando aceita `filtro` ao lado de `comando` e `junit`; sem a declaração nova, Classic e Agile continuam com a suíte inteira.
+- A correção usa somente nomes JUnit do último `verify_run` do mesmo comando. Parcial vermelha reprova ali; parcial verde segue para o comando integral.
+- O recibo e o texto declaram a parcial e os nomes selecionados. O SHIP recusa explicitamente qualquer recibo parcial.
+- Testes focados cobrem Classic, lanes Agile, escape dos nomes e a defesa do SHIP; a bancada de razão permanece com a condução.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-11-01 | Item criado em Discovery, com as fatias F1 a F5 | Relato da pilha de testes de outra rede, conferido contra a 0.6.3 | Julio (pedido de 01/11/2026) |
 | 2026-11-02 | F1 implementa JUnit declarado por comando e lane, sem mudar a forma textual | Fixtures de pytest, Vitest, Jest, Playwright e gotestsum e mutantes da thread `ork-rm081f1relat`; veredito no CHECK | Codex (#Auto, D1 registrada no ledger) |
+| 2026-11-02 | F3 roda primeiro os nomes da correção e conserva a suíte inteira como condição do SHIP | Testes focados da thread `ork-rm081f3rodad`; D1 a D4 registradas no ledger; CHECK pendente | Codex (#Auto) |

@@ -220,7 +220,7 @@ function lerCheck(v: ValorYaml | undefined, erros: string[], avisos: string[]): 
 /** Nome de lane: o que vira `test:<lane>` no ledger. */
 const NOME_DE_LANE = /^[a-z0-9][a-z0-9-]{0,31}$/;
 
-interface ComandoLido { comando?: string; junit?: string }
+interface ComandoLido { comando?: string; junit?: string; filtro?: string }
 
 /** RM-081 F1: o relatorio e sempre um caminho POSIX relativo, nunca uma busca ou um caminho da maquina. */
 function caminhoJUnit(chave: string, v: ValorYaml, erros: string[]): string | undefined {
@@ -238,7 +238,23 @@ function caminhoJUnit(chave: string, v: ValorYaml, erros: string[]): string | un
   return normal;
 }
 
-/** Texto continua sendo o contrato legado; o objeto novo exige as duas chaves e nenhuma outra. */
+/** RM-081 F3: o runner recebe a lista somente no marcador fechado, uma vez. */
+function filtroDoComando(chave: string, v: ValorYaml, erros: string[]): string | undefined {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== 'string' || !v.trim()) {
+    erros.push(`${chave} precisa ser um comando em texto com o marcador {testes}`);
+    return undefined;
+  }
+  const filtro = v.trim();
+  const marcadores = filtro.match(/\{testes\}/g)?.length ?? 0;
+  if (marcadores !== 1) {
+    erros.push(`${chave} precisa ter o marcador {testes} exatamente uma vez`);
+    return undefined;
+  }
+  return filtro;
+}
+
+/** Texto continua sendo o contrato legado; o objeto exige comando e junit, e aceita o filtro opt-in. */
 function lerComando(chave: string, v: ValorYaml, erros: string[]): ComandoLido {
   if (v === undefined || v === null) return {};
   if (typeof v === 'string') return { comando: v };
@@ -247,12 +263,13 @@ function lerComando(chave: string, v: ValorYaml, erros: string[]): ComandoLido {
     return {};
   }
   for (const nome of Object.keys(v)) {
-    if (!['comando', 'junit'].includes(nome)) erros.push(`${chave}.${nome} desconhecida; use somente comando e junit`);
+    if (!['comando', 'junit', 'filtro'].includes(nome)) erros.push(`${chave}.${nome} desconhecida; use somente comando, junit e filtro`);
   }
   const comando = typeof v.comando === 'string' && v.comando.trim() ? v.comando.trim() : undefined;
   if (!comando) erros.push(`${chave}.comando precisa ser texto nao vazio`);
   const junit = caminhoJUnit(`${chave}.junit`, v.junit, erros);
-  return { ...(comando ? { comando } : {}), ...(junit ? { junit } : {}) };
+  const filtro = filtroDoComando(`${chave}.filtro`, v.filtro, erros);
+  return { ...(comando ? { comando } : {}), ...(junit ? { junit } : {}), ...(filtro ? { filtro } : {}) };
 }
 
 /**
@@ -293,16 +310,19 @@ function lerAgile(v: ValorYaml | undefined, erros: string[], avisos: string[]): 
     } else {
       const lanes: Record<string, string> = {};
       const junit: Record<string, string> = {};
+      const filtro: Record<string, string> = {};
       for (const [lane, valor] of Object.entries(v.test)) {
         if (!NOME_DE_LANE.test(lane)) erros.push(`check.agile.test.${lane}: nome de lane aceita [a-z0-9-], ate 32 caracteres`);
         else {
           const lido = lerComando(`check.agile.test.${lane}`, valor, erros);
           if (lido.comando) lanes[lane] = lido.comando.trim();
           if (lido.junit) junit[lane] = lido.junit;
+          if (lido.filtro) filtro[lane] = lido.filtro;
         }
       }
       if (Object.keys(lanes).length) agile.test = lanes;
       if (Object.keys(junit).length) agile.junit = junit;
+      if (Object.keys(filtro).length) agile.filtro = filtro;
     }
   }
   if (v.apos_a_varredura !== undefined && v.apos_a_varredura !== null) {
@@ -624,6 +644,8 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
       Record<'build' | 'test' | 'typecheck' | 'security_scan', ComandoLido>;
   const junitVerify = Object.fromEntries(Object.entries(comandosVerify)
     .flatMap(([nome, lido]) => lido.junit ? [[nome, lido.junit]] : [])) as NonNullable<Manifesto['verify']['junit']>;
+  const filtroVerify = Object.fromEntries(Object.entries(comandosVerify)
+    .flatMap(([nome, lido]) => lido.filtro ? [[nome, lido.filtro]] : [])) as NonNullable<Manifesto['verify']['filtro']>;
   const ci = mapa(dados.ci);
   const concurrency = mapa(dados.concurrency);
   const handoff = mapa(dados.handoff);
@@ -855,6 +877,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
       typecheck: comandosVerify.typecheck.comando,
       security_scan: comandosVerify.security_scan.comando,
       ...(Object.keys(junitVerify).length ? { junit: junitVerify } : {}),
+      ...(Object.keys(filtroVerify).length ? { filtro: filtroVerify } : {}),
       // I-54 (RM-037, D10): o preparo unico da rodada de verify, quando declarado.
       ...(typeof verify.preparo === 'string' && verify.preparo.trim() ? { preparo: verify.preparo.trim() } : {}),
     },

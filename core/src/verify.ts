@@ -14,7 +14,7 @@
 
 import { lerClaims, carimbarEstado, registrarCriteriosDePronto } from './claims';
 import { registrarGateBloqueado } from './gates';
-import { registrar, TIPOS_DE_EVENTO } from './ledger';
+import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
 import { dirThread, gravarThread, lerThread, prepararDependenciasPendentes } from './thread';
 import { raizDoEstado } from './estado-thread';
@@ -29,6 +29,7 @@ import {
   ResultadoDeClaim,
   ResultadoDeComando,
   Thread,
+  EventoLedger,
 } from './types';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -290,6 +291,7 @@ export function comandoNoLedger(c: ResultadoDeComando): Record<string, unknown> 
     ...(c.lane ? { lane: c.lane } : {}),
     ...(c.lanes ? { lanes: c.lanes.map((l) => ({ ...l, comando: redigirCredenciaisUrl(l.comando) })) } : {}),
     ...(c.comandoExecutado ? { comandoExecutado: redigirCredenciaisUrl(c.comandoExecutado) } : {}),
+    ...(c.parcial ? { parcial: c.parcial } : {}),
     ...(c.junit ? { junit: c.junit } : {}) };
   if (c.ok) return { nome: c.nome, ok: true, code: c.code, ...(c.duracaoMs !== undefined ? { duracaoMs: c.duracaoMs } : {}), ...doAgile };
   return {
@@ -305,14 +307,89 @@ export function comandoNoLedger(c: ResultadoDeComando): Record<string, unknown> 
 }
 
 /** Comandos declarados em `verify:` no manifesto, na ordem canonica. */
-export function comandosDoManifesto(manifesto: Manifesto): { nome: string; comando: string; junit?: string }[] {
-  const lista: { nome: string; comando: string; junit?: string }[] = [];
+export interface ComandoDoManifesto { nome: string; comando: string; junit?: string; filtro?: string }
+
+export function comandosDoManifesto(manifesto: Manifesto): ComandoDoManifesto[] {
+  const lista: ComandoDoManifesto[] = [];
   for (const nome of ['typecheck', 'build', 'test', 'security_scan'] as const) {
     const comando = manifesto.verify[nome];
     if (comando && comando.trim() !== '') lista.push({ nome, comando,
-      ...(manifesto.verify.junit?.[nome] ? { junit: manifesto.verify.junit[nome] } : {}) });
+      ...(manifesto.verify.junit?.[nome] ? { junit: manifesto.verify.junit[nome] } : {}),
+      ...(manifesto.verify.filtro?.[nome] ? { filtro: manifesto.verify.filtro[nome] } : {}) });
   }
   return lista;
+}
+
+/** Um argumento por nome, sem deixar metacaractere do JUnit virar sintaxe do shell. */
+function argumentoDoFiltro(nome: string): string {
+  return `'${nome.replace(/'/g, `'"'"'`)}'`;
+}
+
+/** RM-081 F3: expande o unico marcador validado pelo manifesto. */
+export function comandoComTestesFiltrados(filtro: string, testes: readonly string[]): string {
+  return filtro.replace('{testes}', testes.map(argumentoDoFiltro).join(' '));
+}
+
+/**
+ * Roda a passagem parcial e so segue para o comando integral quando ela fica verde. O resultado
+ * parcial conserva `comando` como o contrato integral e guarda em `comandoExecutado` o que rodou.
+ */
+export function executarComFiltro(nome: string, comando: string, cwd: string, executor: ExecutorVerify,
+  filtro: string | undefined, testes: readonly string[] | undefined): ResultadoDeComando {
+  const parcial = executarPassagemParcial(nome, comando, cwd, executor, filtro, testes);
+  if (!parcial) return executor(nome, comando, cwd);
+  if (parcial.ok) return executor(nome, comando, cwd);
+  return parcial;
+}
+
+/** Uma passagem parcial isolada; o Agile decide depois se inclui a suite completa no grupo. */
+export function executarPassagemParcial(nome: string, comando: string, cwd: string, executor: ExecutorVerify,
+  filtro: string | undefined, testes: readonly string[] | undefined): ResultadoDeComando | null {
+  if (!filtro || !testes?.length) return null;
+  const filtrado = comandoComTestesFiltrados(filtro, testes);
+  return { ...executor(nome, filtrado, cwd), comando, comandoExecutado: filtrado, parcial: { testes: [...testes] } };
+}
+
+export interface SelecaoDaRodadaAnterior {
+  comandos: Record<string, string[]>;
+  lanes: Record<string, string[]>;
+}
+
+function objeto(v: unknown): Record<string, unknown> | null {
+  return v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : null;
+}
+
+function nomesPersistidos(v: unknown): string[] {
+  return Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === 'string' && !!x))] : [];
+}
+
+/**
+ * So o ultimo verify_run da thread vale. Comando, JUnit lido e nomes precisam conferir; uma
+ * baseline, um stdout heuristico ou um comando antigo nunca autorizam reduzir a cobertura.
+ */
+export function selecaoDaRodadaAnterior(eventos: readonly EventoLedger[], manifesto: Manifesto): SelecaoDaRodadaAnterior {
+  const rodada = [...eventos].reverse().find((e) => e.tipo === TIPOS_DE_EVENTO.verificacao);
+  const comandos: Record<string, string[]> = {}, lanes: Record<string, string[]> = {};
+  if (!rodada || !Array.isArray(rodada.comandos)) return { comandos, lanes };
+  for (const atual of comandosDoManifesto(manifesto)) {
+    if (!atual.filtro || !atual.junit) continue;
+    const anterior = rodada.comandos.map(objeto).find((c) => c?.nome === atual.nome);
+    const junit = objeto(anterior?.junit);
+    const nomes = nomesPersistidos(anterior?.testeQueCaiu);
+    if (anterior?.ok === false && anterior.comando === redigirCredenciaisUrl(atual.comando)
+        && junit?.estado === 'lido' && nomes.length > 0) comandos[atual.nome] = nomes;
+  }
+  const anteriorTest = rodada.comandos.map(objeto).find((c) => c?.nome === 'test');
+  const lanesAnteriores = Array.isArray(anteriorTest?.lanes) ? anteriorTest.lanes.map(objeto) : [];
+  for (const [lane, comando] of Object.entries(manifesto.check?.agile?.test ?? {})) {
+    if (!manifesto.check?.agile?.filtro?.[lane] || !manifesto.check.agile.junit?.[lane]) continue;
+    const anterior = lanesAnteriores.find((l) => l?.lane === lane);
+    const junit = objeto(anterior?.junit);
+    const nomes = nomesPersistidos(anterior?.testeQueCaiu);
+    if (anterior?.ok === false && anterior.comando === redigirCredenciaisUrl(comando)
+        && junit?.estado === 'lido' && nomes.length > 0) lanes[lane] = nomes;
+  }
+  return { comandos, lanes };
 }
 
 /** A regra estrutural do CHANGELOG entra no mesmo veredito e na mesma baseline dos comandos do manifesto. */
@@ -775,6 +852,8 @@ export interface ResultadoVerify {
   motivos: MotivoGate[];
   /** True quando nenhum motivo BLOQUEANTE apareceu. */
   ok: boolean;
+  /** RM-081 F3: ao menos um comando terminou antes da suite inteira. */
+  parcial: boolean;
 }
 
 /** RM-037 (fatia 6): o steal da rodada inteira e de cada comando, como vai ao `verify_run`. */
@@ -897,6 +976,7 @@ function verificarSobConducao(
   exigirDependenciasDaWorktree(carregado, threadId, cwd, 'verify', conducao, opcoes.executor);
   const commit = commitReal(cwd);
   const dir = dirThread(raiz, threadId);
+  const selecaoAnterior = selecaoDaRodadaAnterior(lerLedger(dir), manifesto);
   // RM-072 (D1): o modo da rodada; a opcao vence o manifesto, que vence o padrao.
   const check = resolverModo(manifesto.check?.mode, opcoes.check);
 
@@ -986,7 +1066,8 @@ function verificarSobConducao(
   let comandosDoManifestoExecutados = grupoAntesDasClaims
     ? (opcoes.progresso?.('grupo-agile'), doAgile = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executorDosComandos,
       executorDoGrupo(manifesto, ambienteDaRodada, instabilidade, leitor, conducao, opcoes.executor ? executor : undefined,
-        opcoes.medicaoCpuAgendador), vigente!.guarda, vigente!.preparo)).comandos
+        opcoes.medicaoCpuAgendador), vigente!.guarda, vigente!.preparo, selecaoAnterior,
+      (nome, comando, dir, filtro, testes) => executarPassagemParcial(nome, comando, dir, executorDosComandos, filtro, testes))).comandos
     : [];
   if (doAgile) pecas.push(...doAgile.pecas);
   const evidenciasDasLanes = relatorio && doAgile ? resultadosDasLanes(relatorio.ler()) : [];
@@ -1021,7 +1102,8 @@ function verificarSobConducao(
     opcoes.progresso?.('grupo-agile');
     doAgile = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executorDosComandos,
       executorDoGrupo(manifesto, ambienteDaRodada, instabilidade, leitor, conducao, opcoes.executor ? executor : undefined,
-        opcoes.medicaoCpuAgendador), vigente.guarda, vigente.preparo);
+        opcoes.medicaoCpuAgendador), vigente.guarda, vigente.preparo, selecaoAnterior,
+      (nome, comando, dir, filtro, testes) => executarPassagemParcial(nome, comando, dir, executorDosComandos, filtro, testes));
     comandosDoManifestoExecutados = doAgile.comandos;
     pecas.push(...doAgile.pecas);
   }
@@ -1030,14 +1112,17 @@ function verificarSobConducao(
     comandosDoManifestoExecutados = vigente
       ? (opcoes.progresso?.('grupo-agile'), doAgile = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executorDosComandos,
         executorDoGrupo(manifesto, ambienteDaRodada, instabilidade, leitor, conducao, opcoes.executor ? executor : undefined,
-          opcoes.medicaoCpuAgendador), vigente.guarda, vigente.preparo)).comandos
-      : comandosDoManifesto(manifesto).map((c) => executorDosComandos(c.nome, c.comando, cwd));
+          opcoes.medicaoCpuAgendador), vigente.guarda, vigente.preparo, selecaoAnterior,
+        (nome, comando, dir, filtro, testes) => executarPassagemParcial(nome, comando, dir, executorDosComandos, filtro, testes))).comandos
+      : comandosDoManifesto(manifesto).map((c) => executarComFiltro(c.nome, c.comando, cwd, executorDosComandos,
+        c.filtro, selecaoAnterior.comandos[c.nome]));
     if (doAgile) pecas.push(...doAgile.pecas);
   }
   const changelog = opcoes.soClaims ? null
     : verificarChangelog(cwd, manifesto.worktree.base_branch, thread.base?.commit);
   const comandos = opcoes.soClaims ? []
     : changelog ? [...comandosDoManifestoExecutados, changelog] : comandosDoManifestoExecutados;
+  const parcial = comandos.some((c) => !!c.parcial || c.lanes?.some((l) => !!l.parcial));
   const resumoDoAgile = vigente ? agileNoLedger(raiz, threadId, commit, pecas, doAgile, vigente.guarda, relatorio!, claims) : null;
   if (relatorio && !vigente) relatorio.fechar();
   if (casaDaRodada) fs.rmSync(casaDaRodada, { recursive: true, force: true });
@@ -1130,6 +1215,7 @@ function verificarSobConducao(
       };
     }),
     comandos: comandos.map(comandoNoLedger),
+    parcial,
     baseline: baseline ? { commit: baseline.commit, gravadaEm: baseline.gravadaEm } : null,
     regressoes: regressoes.map((r) => r.nome),
     preExistentes: preExistentes.map((r) => r.nome),
@@ -1237,6 +1323,7 @@ function verificarSobConducao(
     agile: resumoDoAgile,
     motivos,
     ok,
+    parcial,
   };
 }
 
@@ -1317,6 +1404,7 @@ export function textoDoVerify(r: ResultadoVerify): string {
     linhas.push(m.comandosDoManifesto);
     for (const c of r.comandos) {
       linhas.push(m.comando(c.nome, c.ok ? m.comandoOk : situacaoDoComando(c), c.comando));
+      if (c.parcial) linhas.push(m.rodadaParcial(c.parcial.testes.join('; ')));
       if (!c.ok && c.testeQueCaiu?.length) {
         const visiveis = c.junit?.estado === 'lido' ? c.testeQueCaiu.slice(0, 10) : c.testeQueCaiu;
         const restante = c.testeQueCaiu.length - visiveis.length;

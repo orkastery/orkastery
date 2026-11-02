@@ -200,6 +200,8 @@ export interface Manifesto {
     security_scan?: string;
     /** RM-081 F1: caminho JUnit declarado junto de cada comando, normalizado pelo leitor do manifesto. */
     junit?: Partial<Record<'build' | 'test' | 'typecheck' | 'security_scan', string>>;
+    /** RM-081 F3: comando opt-in que substitui `{testes}` pelos nomes JUnit da rodada anterior. */
+    filtro?: Partial<Record<'build' | 'test' | 'typecheck' | 'security_scan', string>>;
     /** I-37 (D2): prazo default de cada comando de verificacao, em ms. */
     timeout_ms?: number;
     /** I-37 (D2): prazo de um comando do manifesto, que vence o default. */
@@ -747,6 +749,8 @@ export interface ResultadoDeComando {
   preparo?: { reaproveitado: boolean; passos?: string[]; motivo?: string };
   /** RM-072 (D5): o que rodou de fato quando os passos do preparo sairam da frente; `comando` segue o inteiro. */
   comandoExecutado?: string;
+  /** RM-081 F3: a suite inteira nao rodou; estes foram os nomes JUnit selecionados. */
+  parcial?: { testes: string[] };
   /** RM-074 M1: prova de que um `node --test` da claim veio das lanes desta mesma rodada e ambiente. */
   lane?: { reaproveitada: true; lanes: string[]; arquivos: string[]; nomes: string[]; head: string; ambiente: string };
   /** RM-072 (D4): as lanes que compuseram o `test` do Agile. */
@@ -754,7 +758,9 @@ export interface ResultadoDeComando {
     /** RM-037 (29/10/2026): nomes que esta lane extraiu do TAP; ausente em baselines antigas ou sem TAP. */
     testeQueCaiu?: string[];
     /** RM-081 F1: evidencia JUnit da propria lane, quando declarada. */
-    junit?: EvidenciaJUnit }>;
+    junit?: EvidenciaJUnit;
+    /** RM-081 F3: a lane terminou na passagem parcial, sem a suite inteira. */
+    parcial?: { testes: string[] } }>;
 }
 
 /** O estado do relatorio nunca muda o codigo de saida do comando; ele qualifica somente a evidencia. */
@@ -785,6 +791,8 @@ export interface ConfigDoAgile {
   test?: Record<string, string>;
   /** RM-081 F1: caminho JUnit normalizado por lane; ausente preserva o contrato textual anterior. */
   junit?: Record<string, string>;
+  /** RM-081 F3: comando de selecao nominal por lane; ausente preserva a suite inteira. */
+  filtro?: Record<string, string>;
   /** As lanes de `test` que so comecam quando o `security_scan` do grupo termina (as que sobem containers). */
   apos_a_varredura?: string[];
   /** `osv-scanner` no lugar de `trivy-vuln` e `npm-audit` (D13); desligado por padrao. */
