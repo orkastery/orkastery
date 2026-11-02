@@ -1,0 +1,262 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm081f3rodad",
+  "branch": "ork/ork-rm081f3rodad-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm081f3rodad",
+      "fase": "GOAL",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "O manifesto aceita filtro somente no mapa com comando e JUnit, recusa contratos incompletos e preserva a forma textual legada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/rm081-f3.test.js"
+      ],
+      "criadoEm": "2026-11-02T06:05:55.999Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm081f3rodad",
+      "fase": "GOAL",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "A rodada anterior nominal aciona primeiro a seleção parcial; parcial vermelha encerra o comando e parcial verde continua para a suíte completa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/rm081-f3.test.js"
+      ],
+      "criadoEm": "2026-11-02T06:05:56.071Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm081f3rodad",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-agil.ts",
+      "alegacao": "As lanes Agile filtram somente os nomes da própria lane e preservam o agregado completo quando a seleção passa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/rm081-f3.test.js"
+      ],
+      "criadoEm": "2026-11-02T06:05:56.129Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm081f3rodad",
+      "fase": "GOAL",
+      "arquivo": "core/src/ship.ts",
+      "alegacao": "O SHIP recusa um resultado de verify marcado como parcial mesmo se o resultado estiver verde.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/rm081-f3.test.js"
+      ],
+      "criadoEm": "2026-11-02T06:05:56.177Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm081f3rodad",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-verify.ts",
+      "alegacao": "Ledger e texto de verify em português e inglês identificam rodada parcial e os testes filtrados.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/rm081-f3.test.js"
+      ],
+      "criadoEm": "2026-11-02T06:05:56.228Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm081f3rodad",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/verificacao.md",
+      "alegacao": "A documentação pública explica o filtro opt-in por runner, a passagem parcial e a suíte completa obrigatória.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"filtro\" docs/guias/verificacao.md && grep -q \"filtro\" docs/roadmap/RM-081-check-por-qualquer-runner.md && grep -q \"filtro\" docs/produto/FEAT-004-claims-e-verify.md"
+      ],
+      "criadoEm": "2026-11-02T06:05:56.281Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm081f3rodad",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG registra a F3 somente em Não publicado e continua válido contra origin/main.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"RM-081.*F3\" CHANGELOG.md && node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-11-02T06:05:56.330Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm081f3rodad",
+      "fase": "GOAL",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "Os tipos do manifesto representam o filtro opcional por comando e por lane sem alterar comandos legados.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/rm081-f3.test.js"
+      ],
+      "criadoEm": "2026-11-02T06:09:56.917Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm081f3rodad",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm081-f3.test.ts",
+      "alegacao": "Os cenários focados da RM-081 F3 cobrem aceitação, rejeição e compatibilidade do filtro declarado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/rm081-f3.test.js"
+      ],
+      "criadoEm": "2026-11-02T06:09:56.969Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm081f3rodad",
+      "fase": "GOAL",
+      "arquivo": "docs/produto/FEAT-004-claims-e-verify.md",
+      "alegacao": "A referência do verify documenta o filtro nominal, a passagem parcial e a exigência da suíte inteira.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"filtro\" docs/guias/verificacao.md && grep -q \"filtro\" docs/roadmap/RM-081-check-por-qualquer-runner.md && grep -q \"filtro\" docs/produto/FEAT-004-claims-e-verify.md"
+      ],
+      "criadoEm": "2026-11-02T06:17:48.518Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm081f3rodad",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-081-check-por-qualquer-runner.md",
+      "alegacao": "A página da RM-081 registra a entrega da F3 por ideia e sua próxima ação.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"filtro\" docs/guias/verificacao.md && grep -q \"filtro\" docs/roadmap/RM-081-check-por-qualquer-runner.md && grep -q \"filtro\" docs/produto/FEAT-004-claims-e-verify.md"
+      ],
+      "criadoEm": "2026-11-02T06:17:48.562Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm081f3rodad",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm081-f3.json",
+      "alegacao": "Mutante M1: um recibo parcial verde não é aceito pelo SHIP.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm081-f3.json M1"
+      ],
+      "criadoEm": "2026-11-02T06:20:15.205Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm081f3rodad",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm081-f3.json",
+      "alegacao": "Mutante M2: um teste que ainda cai na passagem parcial reprova antes da suíte completa.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm081-f3.json M2"
+      ],
+      "criadoEm": "2026-11-02T06:20:15.271Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm081f3rodad",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm081-f3.json",
+      "alegacao": "Mutante M3: o filtro não é aplicado sem nomes da rodada anterior.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm081-f3.json M3"
+      ],
+      "criadoEm": "2026-11-02T06:20:15.331Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm081f3rodad",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm081-f3.json",
+      "alegacao": "Mutante M4: uma passagem parcial verde sempre segue para a suíte completa.",
+      "negativa": true,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm081-f3.json M4"
+      ],
+      "criadoEm": "2026-11-02T06:20:15.387Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm081f3rodad",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm081-f3.json",
+      "alegacao": "Mutante M5: o recibo parcial preserva a marca e os nomes filtrados.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm081-f3.json M5"
+      ],
+      "criadoEm": "2026-11-02T06:20:15.439Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm081f3rodad",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm081-f3.json",
+      "alegacao": "Mutante M6: uma lane parcial vermelha não executa a própria suíte completa.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm081-f3.json M6"
+      ],
+      "criadoEm": "2026-11-02T06:20:15.492Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C18",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
