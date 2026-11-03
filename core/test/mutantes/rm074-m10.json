@@ -7,7 +7,7 @@
       "descricao": "um teste que sobe processo filho fica fora quando o grafo não o alcança",
       "modulo": "seletor-node-test",
       "de": "const selecionados = completos.filter((nome) => processos.has(nome) || incertos.has(nome)\n        || [...(fechos.get(nome) ?? [])].some((arquivo) => mudou.has(arquivo)));",
-      "para": "const selecionados = completos.filter((nome) => incertos.has(nome)\n        || [...(fechos.get(nome) ?? [])].some((arquivo) => mudou.has(arquivo)));",
+      "para": "const selecionados = completos.filter((nome) => (incertos.has(nome) && !processos.has(nome))\n        || [...(fechos.get(nome) ?? [])].some((arquivo) => mudou.has(arquivo)));",
       "teste": "selecionar-testes-node",
       "nome": "^RM074 M10 S2:"
     },

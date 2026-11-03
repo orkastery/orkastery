@@ -404,6 +404,8 @@ apenas cargas e descobertas que o seletor resolve. O comando:
   alias ou propriedade de `require`, `module.require`, `createRequire`, importação
   dinâmica, código construído, `vm`, `Worker`, aquisição indireta de nativo,
   módulo fora da lista curta e acesso computado em objeto sensível;
+- mantém sempre somente o teste cujo fecho contém dependência incerta, enquanto
+  os fechos formados por formas seguras continuam selecionáveis;
 - registra no plano cada incerteza com a forma, o arquivo e a linha que a
   originaram;
 - executa a lista pelo mesmo runner da lane, preservando reporter, isolamento e
