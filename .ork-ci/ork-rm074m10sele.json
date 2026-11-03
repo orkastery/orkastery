@@ -229,20 +229,6 @@
       "lint": []
     },
     {
-      "id": "C21",
-      "thread": "ork-rm074m10sele",
-      "fase": "GO",
-      "arquivo": "CHANGELOG.md",
-      "alegacao": "Não publicado descreve a seleção corrigida da M10 sem publicar ganho numérico.",
-      "negativa": false,
-      "verificar": [
-        "grep -q 'seleciona pelos fechos resolvidos de importação, `require.resolve` e leituras por `fs`' CHANGELOG.md"
-      ],
-      "criadoEm": "2026-11-02T23:35:07.607Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C23",
       "thread": "ork-rm074m10sele",
       "fase": "GO",
@@ -341,30 +327,142 @@
       "lint": []
     },
     {
-      "id": "C30",
+      "id": "C32",
       "thread": "ork-rm074m10sele",
-      "fase": "GO",
-      "arquivo": "core/test/mutantes/rm074-m10.json",
-      "alegacao": "Mutante M1 morre quando teste de processo filho deixa de ser sempre selecionado.",
-      "negativa": true,
+      "fase": "CHECK",
+      "arquivo": "core/test/test-lanes.test.ts",
+      "alegacao": "O TL14 recebe o TAP do subconjunto selecionado quando o runner pode abrir processo filho.",
+      "negativa": false,
       "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M1"
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test --test-name-pattern TL14 core/dist-test/test/test-lanes.test.js"
       ],
-      "criadoEm": "2026-11-02T23:36:19.651Z",
+      "criadoEm": "2026-11-03T00:21:13.526Z",
       "estado": "verificado",
       "lint": []
     },
     {
-      "id": "C31",
+      "id": "C33",
+      "thread": "ork-rm074m10sele",
+      "fase": "CHECK",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M1 morre quando o teste de processo filho sai da seleção obrigatória.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M1"
+      ],
+      "criadoEm": "2026-11-03T00:21:14.008Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/test/selecionar-testes-node.test.ts",
+      "alegacao": "Os casos focados prendem o teste que enumera diretório, usa glob ou constrói importação.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='RM074 M10 S1[1-4]:' core/dist-test/test/selecionar-testes-node.test.js"
+      ],
+      "criadoEm": "2026-11-03T00:29:06.377Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M9 morre quando a enumeração de diretório deixa de prender o teste.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M9"
+      ],
+      "criadoEm": "2026-11-03T00:29:06.444Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M10 morre quando o glob deixa de prender o teste.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M10"
+      ],
+      "criadoEm": "2026-11-03T00:29:06.500Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M11 morre quando o código construído deixa de prender o teste.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M11"
+      ],
+      "criadoEm": "2026-11-03T00:29:06.572Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+      "alegacao": "A seção M10 nomeia as quatro operações modeladas de fs e descreve a baixa redução atual no Orkastery.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'fs.readFileSync' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md && grep -F 'quase não reduz a lane hermética' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md"
+      ],
+      "criadoEm": "2026-11-03T00:29:06.632Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/src/seletor-node-test.ts",
+      "alegacao": "Os artefatos compilados de produto e teste produzem o mesmo plano para uma mudança em horario.ts.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node -e \"const path=require('node:path');const a=require('./core/dist/seletor-node-test.js');const b=require('./core/dist-test/src/seletor-node-test.js');const l=require('./core/scripts/test-lanes.cjs').listasDasLanes().hermetica;const x=a.planejarSelecaoNode(path.resolve('core/dist-test'),l,['core/src/horario.ts']);const y=b.planejarSelecaoNode(path.resolve('core/dist-test'),l,['core/src/horario.ts']);console.log(JSON.stringify({selecionados:x.arquivos.length,lane:l.length}));if(JSON.stringify(x)!==JSON.stringify(y))process.exit(1)\""
+      ],
+      "criadoEm": "2026-11-03T00:29:06.687Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A linha M10 do Não publicado restringe fs às operações modeladas e registra o fallback conservador.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'fs.readFileSync' CHANGELOG.md && grep -F 'outro membro de `fs`' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-11-03T00:29:11.016Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
       "thread": "ork-rm074m10sele",
       "fase": "GO",
       "arquivo": ".ork-ci/ork-rm074m10sele.json",
-      "alegacao": "O bundle final contém as claims ativas do GO-FIX e os comandos do manifesto para reexecução no CI.",
+      "alegacao": "O bundle final inclui as claims do GO-FIX 2 e omite as claims retiradas desta correção.",
       "negativa": false,
       "verificar": [
-        "node -e \"const b=require('./.ork-ci/ork-rm074m10sele.json'); const ids=['C15','C16','C18','C19','C20','C21','C23','C24','C25','C26','C27','C28','C29','C30']; if(!ids.every(id=>b.claims.some(c=>c.id===id))||!Array.isArray(b.commands)||!b.commands.length) process.exit(1)\""
+        "node -e \"const b=require('./.ork-ci/ork-rm074m10sele.json');const ids=b.claims.map(c=>c.id);const ativas=['C34','C35','C36','C37','C38','C39','C40','C41'];const retiradas=['C21','C30','C31'];if(!ativas.every(id=>ids.includes(id))||retiradas.some(id=>ids.includes(id))||!Array.isArray(b.commands)||!b.commands.length)process.exit(1)\""
       ],
-      "criadoEm": "2026-11-02T23:52:29.490Z",
+      "criadoEm": "2026-11-03T01:11:07.757Z",
       "estado": "pendente",
       "lint": []
     }
