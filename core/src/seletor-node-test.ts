@@ -41,20 +41,38 @@ interface ContextoEstatico {
 }
 
 const FUNCOES_DE_FS = new Set(['readFileSync', 'readFile', 'existsSync', 'statSync']);
-const MODULOS_FS = new Set(['fs', 'node:fs']);
+const MODULOS_FS = new Set(['fs', 'node:fs', 'fs/promises', 'node:fs/promises']);
 const MODULOS_PATH = new Set(['path', 'node:path']);
-const MODULOS_VM = new Set(['vm', 'node:vm']);
-const MODULOS_GLOB = new Set(['glob']);
 const MODULOS_NATIVOS_SEGUROS = new Set([
   'path', 'node:path', 'assert', 'node:assert', 'node:assert/strict', 'util', 'node:util',
   'events', 'node:events', 'crypto', 'node:crypto', 'url', 'node:url', 'os', 'node:os',
   'test', 'node:test', 'buffer', 'node:buffer', 'timers', 'node:timers',
   'string_decoder', 'node:string_decoder',
 ]);
-const OPERACOES_PERIGOSAS_DE_PROCESS = new Set([
-  'getBuiltinModule', 'binding', 'dlopen', 'mainModule',
+const MODULOS_NATIVOS = new Set([
+  'assert', 'assert/strict', 'async_hooks', 'buffer', 'child_process', 'cluster', 'console',
+  'constants', 'crypto', 'dgram', 'diagnostics_channel', 'dns', 'dns/promises', 'domain',
+  'events', 'fs', 'fs/promises', 'http', 'http2', 'https', 'inspector', 'module', 'net',
+  'os', 'path', 'path/posix', 'path/win32', 'perf_hooks', 'process', 'punycode',
+  'querystring', 'readline', 'readline/promises', 'repl', 'sqlite', 'stream',
+  'stream/consumers', 'stream/promises', 'stream/web', 'string_decoder', 'sys', 'test',
+  'test/reporters', 'timers', 'timers/promises', 'tls', 'trace_events', 'tty', 'url',
+  'util', 'util/types', 'v8', 'vm', 'wasi', 'worker_threads', 'zlib',
 ]);
-const PROPRIEDADES_SEGURAS_DE_MODULE = new Set(['exports']);
+const CAPACIDADES_GLOBAIS = new Set([
+  'require', 'module', 'exports', 'process', 'global', 'globalThis', 'Reflect', 'Proxy',
+  'eval', 'Function', 'WebAssembly', 'arguments',
+  // Permanecem conservadoras por compatibilidade com as contraprovas da rodada anterior.
+  'createRequire', 'Worker',
+]);
+const HELPERS_DE_INTEROPERABILIDADE = new Set([
+  '__importStar', '__importDefault', '__createBinding', '__setModuleDefault',
+]);
+
+interface LigacaoDeCapacidade {
+  tipo: 'fs' | 'outra';
+  origem: string;
+}
 
 interface LigacoesDeModulo {
   pedidos: ReadonlySet<string>;
@@ -121,8 +139,8 @@ function eNamespaceDoModulo(expressao: ts.Expression, ligacoes: LigacoesDeModulo
     && ['__importStar', '__importDefault'].includes(no.expression.text) && no.arguments.length === 1) {
     return eNamespaceDoModulo(no.arguments[0], ligacoes);
   }
-  return (ts.isPropertyAccessExpression(no) || ts.isElementAccessExpression(no))
-    && nomeDaPropriedade(no) === 'promises' && eNamespaceDoModulo(no.expression, ligacoes);
+  return ts.isPropertyAccessExpression(no)
+    && nomeDaPropriedade(no) === 'default' && eNamespaceDoModulo(no.expression, ligacoes);
 }
 
 function operacaoDoModulo(expressao: ts.Expression, ligacoes: LigacoesDeModulo): string | null {
@@ -161,6 +179,16 @@ function coletarLigacoesDoModulo(fonte: ts.SourceFile, pedidos: ReadonlySet<stri
             } else if (ligacoes.funcoes.get(item.name.text) !== propriedade) {
               ligacoes.funcoes.set(item.name.text, propriedade); mudou = true;
             }
+          }
+        }
+      } else if (ts.isBinaryExpression(no) && no.operatorToken.kind === ts.SyntaxKind.EqualsToken
+        && ts.isIdentifier(no.left)) {
+        if (eNamespaceDoModulo(no.right, ligacoes) && !ligacoes.namespaces.has(no.left.text)) {
+          ligacoes.namespaces.add(no.left.text); mudou = true;
+        } else {
+          const operacao = operacaoDoModulo(no.right, ligacoes);
+          if (operacao !== null && ligacoes.funcoes.get(no.left.text) !== operacao) {
+            ligacoes.funcoes.set(no.left.text, operacao); mudou = true;
           }
         }
       }
@@ -228,28 +256,34 @@ function linhaDoNo(fonte: ts.SourceFile, no: ts.Node): number {
   return fonte.getLineAndCharacterOfPosition(no.getStart(fonte)).line + 1;
 }
 
-function nomeDeBindingContemRequire(nome: ts.BindingName): boolean {
-  if (ts.isIdentifier(nome)) return nome.text === 'require';
-  return nome.elements.some((item) => !ts.isOmittedExpression(item) && nomeDeBindingContemRequire(item.name));
+function coletarNomesDeBinding(nome: ts.BindingName, nomes: Set<string>): void {
+  if (ts.isIdentifier(nome)) nomes.add(nome.text);
+  else for (const item of nome.elements) {
+    if (!ts.isOmittedExpression(item)) coletarNomesDeBinding(item.name, nomes);
+  }
 }
 
-function requireFoiSombreado(fonte: ts.SourceFile): boolean {
-  let sombreado = false;
+function capacidadesGlobaisSombreadas(fonte: ts.SourceFile): Set<string> {
+  const declarados = new Set<string>();
   const visitar = (no: ts.Node): void => {
-    if (sombreado) return;
-    if ((ts.isVariableDeclaration(no) || ts.isParameter(no)) && nomeDeBindingContemRequire(no.name)) sombreado = true;
-    else if ((ts.isFunctionDeclaration(no) || ts.isClassDeclaration(no)) && no.name?.text === 'require') sombreado = true;
-    else ts.forEachChild(no, visitar);
+    if (ts.isVariableDeclaration(no) || ts.isParameter(no) || ts.isBindingElement(no)) {
+      coletarNomesDeBinding(no.name, declarados);
+    } else if ((ts.isFunctionDeclaration(no) || ts.isFunctionExpression(no)
+      || ts.isClassDeclaration(no) || ts.isClassExpression(no)) && no.name) declarados.add(no.name.text);
+    else if (ts.isImportClause(no) && no.name) declarados.add(no.name.text);
+    else if (ts.isNamespaceImport(no)) declarados.add(no.name.text);
+    else if (ts.isImportSpecifier(no)) declarados.add(no.name.text);
+    ts.forEachChild(no, visitar);
   };
   visitar(fonte);
-  return sombreado;
+  return new Set([...declarados].filter((nome) => CAPACIDADES_GLOBAIS.has(nome)));
 }
 
 function eChamadaDiretaDeRequire(no: ts.CallExpression, sombreado: boolean): boolean {
   return !sombreado && ts.isIdentifier(no.expression) && no.expression.text === 'require';
 }
 
-function usoPermitidoDeRequire(no: ts.Identifier, sombreado: boolean): boolean {
+function usoSeguroDeRequire(no: ts.Identifier, sombreado: boolean): boolean {
   if (sombreado) return false;
   const pai = no.parent;
   if (ts.isCallExpression(pai) && pai.expression === no) return true;
@@ -257,18 +291,195 @@ function usoPermitidoDeRequire(no: ts.Identifier, sombreado: boolean): boolean {
     && ts.isCallExpression(pai.parent) && pai.parent.expression === pai;
 }
 
-function eCreateRequire(no: ts.Expression): boolean {
-  return (ts.isIdentifier(no) && no.text === 'createRequire')
-    || (ts.isPropertyAccessExpression(no) && no.name.text === 'createRequire');
+function eModuloNativo(pedido: string): boolean {
+  return pedido.startsWith('node:') || MODULOS_NATIVOS.has(pedido);
 }
 
-function eConstrutorWorker(no: ts.Expression): boolean {
-  return (ts.isIdentifier(no) && no.text === 'Worker')
-    || (ts.isPropertyAccessExpression(no) && no.name.text === 'Worker');
+function eHelperDeImportacao(no: ts.Expression, helpers: ReadonlySet<string>): no is ts.Identifier {
+  return ts.isIdentifier(no) && helpers.has(no.text)
+    && (no.text === '__importStar' || no.text === '__importDefault');
+}
+
+function ePedidoDeArquivo(pedido: string): boolean {
+  return pedido.startsWith('.') || path.isAbsolute(pedido);
 }
 
 function eModuloSemCargaDeArquivo(pedido: string): boolean {
-  return MODULOS_FS.has(pedido) || MODULOS_NATIVOS_SEGUROS.has(pedido);
+  return MODULOS_FS.has(pedido) || (eModuloNativo(pedido) && MODULOS_NATIVOS_SEGUROS.has(pedido));
+}
+
+function helpersEmitidosPeloTypescript(fonte: ts.SourceFile): Set<string> {
+  const helpers = new Set<string>();
+  for (const declaracao of fonte.statements) {
+    if (!ts.isVariableStatement(declaracao)) continue;
+    for (const item of declaracao.declarationList.declarations) {
+      if (!ts.isIdentifier(item.name) || !HELPERS_DE_INTEROPERABILIDADE.has(item.name.text) || !item.initializer) continue;
+      const inicial = desembrulharExpressao(item.initializer);
+      if (!ts.isBinaryExpression(inicial) || inicial.operatorToken.kind !== ts.SyntaxKind.BarBarToken) continue;
+      const guarda = desembrulharExpressao(inicial.left);
+      if (ts.isBinaryExpression(guarda) && guarda.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken
+        && guarda.left.kind === ts.SyntaxKind.ThisKeyword && ts.isPropertyAccessExpression(guarda.right)
+        && guarda.right.expression.kind === ts.SyntaxKind.ThisKeyword && guarda.right.name.text === item.name.text) {
+        helpers.add(item.name.text);
+      }
+    }
+  }
+  return helpers;
+}
+
+function origemDaCapacidade(expressao: ts.Expression,
+  ligacoes: ReadonlyMap<string, LigacaoDeCapacidade>,
+  helpers: ReadonlySet<string>): LigacaoDeCapacidade | null {
+  const no = desembrulharExpressao(expressao);
+  if (ts.isIdentifier(no)) return ligacoes.get(no.text) ?? null;
+  const pedido = pedidoDeRequire(no);
+  if (pedido !== null) {
+    if (MODULOS_FS.has(pedido)) return { tipo: 'fs', origem: pedido };
+    if (!ePedidoDeArquivo(pedido) && !MODULOS_NATIVOS_SEGUROS.has(pedido)) {
+      return { tipo: 'outra', origem: pedido };
+    }
+    return null;
+  }
+  if (ts.isCallExpression(no) && eHelperDeImportacao(no.expression, helpers) && no.arguments.length === 1) {
+    return origemDaCapacidade(no.arguments[0], ligacoes, helpers);
+  }
+  if (ts.isPropertyAccessExpression(no) && ['default', 'promises'].includes(no.name.text)) {
+    return origemDaCapacidade(no.expression, ligacoes, helpers);
+  }
+  return null;
+}
+
+function coletarLigacoesDeCapacidade(fonte: ts.SourceFile): {
+  ligacoes: Map<string, LigacaoDeCapacidade>;
+  importacoesFsSeguras: Set<ts.Identifier>;
+  helpers: Set<string>;
+} {
+  const ligacoes = new Map<string, LigacaoDeCapacidade>();
+  const importacoesFsSeguras = new Set<ts.Identifier>();
+  const helpers = helpersEmitidosPeloTypescript(fonte);
+  let mudou = true;
+  while (mudou) {
+    mudou = false;
+    const ligar = (nome: ts.BindingName, origem: LigacaoDeCapacidade, simplesSeguro: boolean): void => {
+      if (ts.isIdentifier(nome)) {
+        const anterior = ligacoes.get(nome.text);
+        if (!anterior) {
+          ligacoes.set(nome.text, origem); mudou = true;
+        } else if ((anterior.tipo !== origem.tipo || anterior.origem !== origem.origem)
+          && anterior.origem !== 'múltiplas capacidades') {
+          ligacoes.set(nome.text, { tipo: 'outra', origem: 'múltiplas capacidades' }); mudou = true;
+        }
+        if (origem.tipo === 'fs' && simplesSeguro) importacoesFsSeguras.add(nome);
+        return;
+      }
+      for (const item of nome.elements) {
+        if (!ts.isOmittedExpression(item)) ligar(item.name,
+          { tipo: 'outra', origem: `${origem.origem} desestruturado` }, false);
+      }
+    };
+    const visitar = (no: ts.Node): void => {
+      if (ts.isVariableDeclaration(no) && no.initializer) {
+        const origem = origemDaCapacidade(no.initializer, ligacoes, helpers);
+        if (origem) {
+          const inicial = desembrulharExpressao(no.initializer);
+          const importacaoDireta = pedidoDeRequire(inicial) !== null
+            || (ts.isCallExpression(inicial) && eHelperDeImportacao(inicial.expression, helpers));
+          ligar(no.name, origem, importacaoDireta);
+        }
+      } else if (ts.isBinaryExpression(no) && no.operatorToken.kind === ts.SyntaxKind.EqualsToken
+        && ts.isIdentifier(no.left)) {
+        const origem = origemDaCapacidade(no.right, ligacoes, helpers);
+        if (origem) ligar(no.left, origem, false);
+      }
+      ts.forEachChild(no, visitar);
+    };
+    visitar(fonte);
+  }
+  return { ligacoes, importacoesFsSeguras, helpers };
+}
+
+function eNomeDePropriedade(no: ts.Identifier): boolean {
+  const pai = no.parent;
+  return (ts.isPropertyAccessExpression(pai) && pai.name === no)
+    || (ts.isPropertyAssignment(pai) && pai.name === no)
+    || (ts.isMethodDeclaration(pai) && pai.name === no)
+    || (ts.isBindingElement(pai) && pai.propertyName === no)
+    || (ts.isLabeledStatement(pai) && pai.label === no)
+    || (ts.isBreakOrContinueStatement(pai) && pai.label === no);
+}
+
+function eAlvoDeEscrita(no: ts.Expression): boolean {
+  const pai = no.parent;
+  return (ts.isBinaryExpression(pai) && pai.left === no
+      && pai.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
+      && pai.operatorToken.kind <= ts.SyntaxKind.LastAssignment)
+    || ((ts.isPrefixUnaryExpression(pai) || ts.isPostfixUnaryExpression(pai))
+      && (pai.operator === ts.SyntaxKind.PlusPlusToken || pai.operator === ts.SyntaxKind.MinusMinusToken))
+    || (ts.isDeleteExpression(pai) && pai.expression === no);
+}
+
+function usoSeguroDeProcesso(no: ts.Identifier): boolean {
+  const membro = no.parent;
+  if (!ts.isPropertyAccessExpression(membro) || membro.expression !== no) return false;
+  if (membro.name.text === 'platform') return !eAlvoDeEscrita(membro);
+  if (membro.name.text !== 'env') return false;
+  const variavel = membro.parent;
+  return ts.isPropertyAccessExpression(variavel) && variavel.expression === membro && !eAlvoDeEscrita(variavel);
+}
+
+function usoSeguroDeExportacao(no: ts.Identifier): boolean {
+  if (no.text === 'exports') {
+    const propriedade = no.parent;
+    if (ts.isPropertyAccessExpression(propriedade) && propriedade.expression === no) {
+      return ts.isBinaryExpression(propriedade.parent) && propriedade.parent.left === propriedade
+        && propriedade.parent.operatorToken.kind === ts.SyntaxKind.EqualsToken;
+    }
+    const chamada = no.parent;
+    return ts.isCallExpression(chamada) && chamada.arguments[0] === no
+      && ts.isPropertyAccessExpression(chamada.expression)
+      && ts.isIdentifier(chamada.expression.expression) && chamada.expression.expression.text === 'Object'
+      && chamada.expression.name.text === 'defineProperty';
+  }
+  const exports = no.parent;
+  if (!ts.isPropertyAccessExpression(exports) || exports.expression !== no || exports.name.text !== 'exports') return false;
+  const alvo = ts.isPropertyAccessExpression(exports.parent) && exports.parent.expression === exports
+    ? exports.parent : exports;
+  return ts.isBinaryExpression(alvo.parent) && alvo.parent.left === alvo
+    && alvo.parent.operatorToken.kind === ts.SyntaxKind.EqualsToken;
+}
+
+function chamadaDiretaDaPropriedade(propriedade: ts.PropertyAccessExpression): ts.CallExpression | null {
+  let atual: ts.Expression = propriedade;
+  while (ts.isParenthesizedExpression(atual.parent) && atual.parent.expression === atual) atual = atual.parent;
+  if (ts.isBinaryExpression(atual.parent) && atual.parent.operatorToken.kind === ts.SyntaxKind.CommaToken
+    && atual.parent.right === atual) atual = atual.parent;
+  while (ts.isParenthesizedExpression(atual.parent) && atual.parent.expression === atual) atual = atual.parent;
+  return ts.isCallExpression(atual.parent) && atual.parent.expression === atual ? atual.parent : null;
+}
+
+function usoSeguroDeFs(no: ts.Identifier, importacoesSeguras: ReadonlySet<ts.Identifier>): boolean {
+  if (importacoesSeguras.has(no)) return true;
+  const pai = no.parent;
+  if (!ts.isPropertyAccessExpression(pai) || pai.expression !== no) return false;
+  let propriedade: ts.PropertyAccessExpression = pai;
+  if (propriedade.name.text === 'default') {
+    const operacao = propriedade.parent;
+    if (!ts.isPropertyAccessExpression(operacao) || operacao.expression !== propriedade) return false;
+    propriedade = operacao;
+  }
+  return FUNCOES_DE_FS.has(propriedade.name.text) && chamadaDiretaDaPropriedade(propriedade) !== null;
+}
+
+function requireDeFsEstaEmImportacaoSegura(chamada: ts.CallExpression, helpers: ReadonlySet<string>): boolean {
+  let atual: ts.Expression = chamada;
+  const pai = atual.parent;
+  if (ts.isCallExpression(pai) && pai.arguments.includes(atual) && ts.isIdentifier(pai.expression)
+    && helpers.has(pai.expression.text)) {
+    if (!eHelperDeImportacao(pai.expression, helpers)) return true;
+    atual = pai;
+  }
+  return ts.isVariableDeclaration(atual.parent) && atual.parent.initializer === atual
+    && ts.isIdentifier(atual.parent.name);
 }
 
 function chamadasDeFs(no: ts.Node, ligacoes: LigacoesDeModulo): Array<{ chamada: ts.CallExpression; operacao: string }> {
@@ -321,8 +532,7 @@ function dependenciasDoArquivo(distTest: string, arquivo: string): Dependencias 
   const fonte = ts.createSourceFile(arquivo, texto, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
   const ligacoesFs = coletarLigacoesDoModulo(fonte, MODULOS_FS);
   const ligacoesPath = coletarLigacoesDoModulo(fonte, MODULOS_PATH);
-  const ligacoesVm = coletarLigacoesDoModulo(fonte, MODULOS_VM);
-  const ligacoesGlob = coletarLigacoesDoModulo(fonte, MODULOS_GLOB);
+  const { ligacoes: capacidadesLocais, importacoesFsSeguras, helpers } = coletarLigacoesDeCapacidade(fonte);
   const contexto: ContextoEstatico = {
     arquivo, distTest, fonte, constantes: constantesDoModulo(fonte), ligacoesPath,
   };
@@ -330,7 +540,7 @@ function dependenciasDoArquivo(distTest: string, arquivo: string): Dependencias 
   const locais: Dependencias['locais'] = [], modulos: string[] = [], arquivos: string[] = [];
   const incertezas = new Map<string, { linha: number; forma: string }>();
   const wrappersInvocados = new Set<string>();
-  const sombreado = requireFoiSombreado(fonte);
+  const sombreadas = capacidadesGlobaisSombreadas(fonte);
   const marcar = (no: ts.Node, forma: string): void => {
     const linha = linhaDoNo(fonte, no);
     incertezas.set(`${linha}:${forma}`, { linha, forma });
@@ -346,82 +556,58 @@ function dependenciasDoArquivo(distTest: string, arquivo: string): Dependencias 
     if (arquivoResolvido) arquivos.push(arquivoResolvido);
     else marcar(argumento ?? chamada, `caminho de fs não resolvido em ${operacao}`);
   };
-  const validarForma = (no: ts.Node): void => {
-    if (ts.isNewExpression(no)) {
-      if ((ts.isIdentifier(no.expression) && no.expression.text === 'Function')
-        || operacaoDoModulo(no.expression, ligacoesVm) !== null) marcar(no, 'construtor de código dinâmico');
-      else if (eConstrutorWorker(no.expression)) marcar(no, 'construtor Worker');
+  const diagnosticos = (fonte as ts.SourceFile & { parseDiagnostics?: readonly ts.Diagnostic[] }).parseDiagnostics ?? [];
+  for (const diagnostico of diagnosticos) {
+    const linha = diagnostico.start === undefined ? 1
+      : fonte.getLineAndCharacterOfPosition(diagnostico.start).line + 1;
+    const forma = 'arquivo não analisado por inteiro: erro de sintaxe';
+    incertezas.set(`${linha}:${forma}`, { linha, forma });
+  }
+  const formaDaCapacidade = (no: ts.Identifier): string => {
+    const pai = no.parent;
+    if (no.text === 'require') return 'uso de require fora de chamada direta';
+    if (no.text === 'module' && ts.isPropertyAccessExpression(pai) && pai.expression === no) {
+      return `module.${pai.name.text}`;
     }
-    if (ts.isCallExpression(no)) {
-      if (no.expression.kind === ts.SyntaxKind.ImportKeyword) marcar(no, 'importação dinâmica');
-      else if (ts.isIdentifier(no.expression) && ['eval', 'Function'].includes(no.expression.text)) {
-        marcar(no, `execução dinâmica por ${no.expression.text}`);
-      } else if (eCreateRequire(no.expression)) marcar(no, 'createRequire');
-      else if (operacaoDoModulo(no.expression, ligacoesVm) !== null) marcar(no, 'execução por vm');
-      else if (operacaoDoModulo(no.expression, ligacoesGlob) !== null) marcar(no, 'descoberta por glob');
-      else if (ts.isPropertyAccessExpression(no.expression)
-        && ts.isIdentifier(no.expression.expression) && no.expression.expression.text === 'process'
-        && OPERACOES_PERIGOSAS_DE_PROCESS.has(no.expression.name.text)) {
-        marcar(no, `process.${no.expression.name.text}`);
-      }
+    if (no.text === 'process' && ts.isPropertyAccessExpression(pai) && pai.expression === no) {
+      return `process.${pai.name.text}`;
     }
-    if (ts.isElementAccessExpression(no)) {
-      const base = desembrulharExpressao(no.expression);
-      if ((ts.isIdentifier(base) && ['globalThis', 'global', 'process', 'module', 'require'].includes(base.text))
-        || eNamespaceDoModulo(base, ligacoesFs)) marcar(no, 'acesso computado em objeto sensível');
-    }
-    if (ts.isPropertyAccessExpression(no)) {
-      if (ts.isIdentifier(no.expression) && no.expression.text === 'module'
-        && !PROPRIEDADES_SEGURAS_DE_MODULE.has(no.name.text)) marcar(no, `module.${no.name.text}`);
-      if (ts.isIdentifier(no.expression) && ['globalThis', 'global'].includes(no.expression.text)
-        && ['require', 'module', 'process'].includes(no.name.text)) marcar(no, `${no.expression.text}.${no.name.text}`);
-      if (eNamespaceDoModulo(no.expression, ligacoesFs)) {
-        const pai = no.parent;
-        const operacao = nomeDaPropriedade(no) ?? '<desconhecida>';
-        const chamadaDireta = ts.isCallExpression(pai) && pai.expression === no;
-        const aliasEstatico = ts.isVariableDeclaration(pai) && pai.initializer === no;
-        const namespacePromises = operacao === 'promises' && ts.isPropertyAccessExpression(pai) && pai.expression === no;
-        if (!chamadaDireta && !aliasEstatico && !namespacePromises) marcar(no, `referência de fs passada adiante: ${operacao}`);
-      }
-    }
-    if (ts.isIdentifier(no)) {
-      const pai = no.parent;
-      const nomeDePropriedade = ts.isPropertyAccessExpression(pai) && pai.name === no;
-      const nomeDeDeclaracao = (ts.isVariableDeclaration(pai) || ts.isParameter(pai)) && pai.name === no;
-      const nomeDeBinding = ts.isBindingElement(pai) && (pai.name === no || pai.propertyName === no);
-      if (no.text === 'require' && !nomeDePropriedade && !usoPermitidoDeRequire(no, sombreado)) {
-        marcar(no, 'uso de require fora de chamada direta');
-      } else if (no.text === 'module' && !nomeDePropriedade
-        && !(ts.isPropertyAccessExpression(pai) && pai.expression === no)
-        && !(ts.isElementAccessExpression(pai) && pai.expression === no)) {
-        marcar(no, 'uso de module fora de module.exports');
-      } else if (no.text === 'process' && !nomeDePropriedade
-        && !(ts.isPropertyAccessExpression(pai) && pai.expression === no)
-        && !(ts.isElementAccessExpression(pai) && pai.expression === no)) {
-        marcar(no, 'referência de process passada adiante');
-      } else if (eCreateRequire(no) && !nomeDePropriedade
-        && !(ts.isCallExpression(pai) && pai.expression === no)) marcar(no, 'referência a createRequire');
-      else if (eConstrutorWorker(no) && !nomeDePropriedade
-        && !(ts.isNewExpression(pai) && pai.expression === no)) marcar(no, 'referência a Worker');
-      else if (['eval', 'Function'].includes(no.text) && !nomeDePropriedade
-        && !(ts.isCallExpression(pai) && pai.expression === no)
-        && !(ts.isNewExpression(pai) && pai.expression === no)) marcar(no, `referência a ${no.text}`);
-      if (!nomeDePropriedade && !nomeDeDeclaracao && !nomeDeBinding
-        && (ligacoesFs.namespaces.has(no.text) || ligacoesFs.funcoes.has(no.text))) {
-        const baseDePropriedade = ts.isPropertyAccessExpression(pai) && pai.expression === no;
-        const funcaoChamada = ts.isCallExpression(pai) && pai.expression === no;
-        const aliasEstatico = ts.isVariableDeclaration(pai) && pai.initializer === no;
-        if (!baseDePropriedade && !funcaoChamada && !aliasEstatico) marcar(no, 'referência de fs passada adiante');
-      }
-    }
-    ts.forEachChild(no, validarForma);
+    if (['globalThis', 'global', 'process', 'module', 'require'].includes(no.text)
+      && ts.isElementAccessExpression(pai) && pai.expression === no) return 'acesso computado em objeto sensível';
+    if (no.text === 'Worker' && ts.isNewExpression(pai) && pai.expression === no) return 'construtor Worker';
+    if (no.text === 'createRequire') return 'createRequire';
+    return `capacidade em posição não segura: ${no.text}`;
   };
-  validarForma(fonte);
+  const validarCapacidades = (no: ts.Node): void => {
+    if (ts.isWithStatement(no)) marcar(no, 'capacidade em posição não segura: with');
+    if (ts.isMetaProperty(no) && no.keywordToken === ts.SyntaxKind.ImportKeyword) {
+      marcar(no, 'capacidade em posição não segura: import.meta');
+    }
+    if (ts.isCallExpression(no) && no.expression.kind === ts.SyntaxKind.ImportKeyword) {
+      marcar(no, 'capacidade em posição não segura: importação dinâmica');
+    }
+    if (ts.isIdentifier(no) && !eNomeDePropriedade(no)) {
+      if (CAPACIDADES_GLOBAIS.has(no.text)) {
+        if (sombreadas.has(no.text)) marcar(no, `sombreamento de capacidade: ${no.text}`);
+        else if (no.text === 'require' && usoSeguroDeRequire(no, false)) { /* posição segura */ }
+        else if ((no.text === 'module' || no.text === 'exports') && usoSeguroDeExportacao(no)) { /* posição segura */ }
+        else if (no.text === 'process' && usoSeguroDeProcesso(no)) { /* posição segura */ }
+        else marcar(no, formaDaCapacidade(no));
+      } else {
+        const ligacao = capacidadesLocais.get(no.text);
+        if (ligacao && !(ligacao.tipo === 'fs' && usoSeguroDeFs(no, importacoesFsSeguras))) {
+          marcar(no, `capacidade de ${ligacao.origem} em posição não segura`);
+        }
+      }
+    }
+    ts.forEachChild(no, validarCapacidades);
+  };
+  validarCapacidades(fonte);
   const visitar = (no: ts.Node): void => {
     if (ts.isVariableDeclaration(no) && ts.isIdentifier(no.name) && wrappers.has(no.name.text)) return;
     if (ts.isFunctionDeclaration(no) && no.name && wrappers.has(no.name.text)) return;
     if (ts.isCallExpression(no)) {
-      if (eChamadaDiretaDeRequire(no, sombreado)) {
+      if (eChamadaDiretaDeRequire(no, sombreadas.has('require'))) {
         const argumento = no.arguments[0];
         const pedido = no.arguments.length === 1 && argumento ? avaliarPedidoDeRequire(argumento, contexto) : null;
         if (!pedido) marcar(argumento ?? no, 'require com caminho não resolvido');
@@ -431,8 +617,12 @@ function dependenciasDoArquivo(distTest: string, arquivo: string): Dependencias 
         else if (path.isAbsolute(pedido)) {
           const resolvido = resolverArquivo(distTest, pedido);
           if (resolvido) modulos.push(resolvido); else marcar(argumento ?? no, `require não resolvido: ${pedido}`);
-        } else if (!eModuloSemCargaDeArquivo(pedido)) marcar(no, `módulo fora da lista segura: ${pedido}`);
-      } else if (!sombreado && eRequireResolve(no.expression)) {
+        } else if (MODULOS_FS.has(pedido)) {
+          if (!requireDeFsEstaEmImportacaoSegura(no, helpers)) marcar(no, `capacidade de ${pedido} fora de importação segura`);
+        } else if (!eModuloSemCargaDeArquivo(pedido)) {
+          marcar(no, `módulo fora da lista segura: ${pedido}`);
+        }
+      } else if (!sombreadas.has('require') && eRequireResolve(no.expression)) {
         const argumento = no.arguments[0];
         const pedido = no.arguments.length === 1 && argumento ? avaliarPedidoDeRequire(argumento, contexto) : null;
         if (!pedido) marcar(argumento ?? no, 'require.resolve com caminho não resolvido');

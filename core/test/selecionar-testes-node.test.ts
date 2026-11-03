@@ -110,7 +110,7 @@ test('RM074 M10 S6: leitura textual de fonte TypeScript vira aresta resolvida', 
 test('RM074 M10 S7: JSON lido por fs vira aresta resolvida', () => {
   const f = fixture('json-fs', {
     'test/a.test.js': "const fs = require('node:fs'); const path = require('node:path');\n" +
-      "fs.promises.readFile(path.join(__dirname, 'fixtures', 'dados.json'));\n",
+      "fs.readFile(path.join(__dirname, 'fixtures', 'dados.json'), () => {});\n",
     'test/b.test.js': 'module.exports = true;\n',
     'test/fixtures/dados.json': '{"ok":true}\n',
   });
@@ -323,6 +323,123 @@ test('RM074 M10 S22: fecho formado somente por formas seguras continua seleciona
       "fs.existsSync(path.join(__dirname, 'fixture.json')); module.exports = true;\n",
     'src/fixture.json': '{"ok":true}\n',
     'src/b.js': 'module.exports = true;\n',
+  });
+  try {
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/a.ts']);
+    assert.deepEqual(plano.arquivos, ['a.test.js']);
+    assert.deepEqual(plano.sempre?.dependenciaIncerta, []);
+    assert.deepEqual(plano.incertezas, []);
+  } finally { f.limpar(); }
+});
+
+test('RM074 M10 S23: Reflect com fs prende o teste pela posicao da capacidade', () => {
+  const f = fixture('reflect-fs', {
+    'test/a.test.js': "const read = Reflect.get(require('node:fs'), 'readFileSync'); read('../src/a.js');\n",
+    'test/b.test.js': "require('../src/b');\n",
+    'src/b.js': 'module.exports = true;\n',
+  });
+  try {
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/b.ts']);
+    assert.deepEqual(plano.arquivos, ['a.test.js', 'b.test.js']);
+    assert.ok(plano.incertezas?.some((causa) => causa.arquivo === 'core/test/a.test.ts'
+      && causa.forma === 'capacidade em posição não segura: Reflect'));
+  } finally { f.limpar(); }
+});
+
+test('RM074 M10 S24: Proxy de fs prende o teste pela posicao da capacidade', () => {
+  const f = fixture('proxy-fs', {
+    'test/a.test.js': "const io = new Proxy(require('node:fs'), {}); io.readFileSync('../src/a.js');\n",
+    'test/b.test.js': "require('../src/b');\n",
+    'src/b.js': 'module.exports = true;\n',
+  });
+  try {
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/b.ts']);
+    assert.deepEqual(plano.arquivos, ['a.test.js', 'b.test.js']);
+    assert.ok(plano.incertezas?.some((causa) => causa.forma === 'capacidade em posição não segura: Proxy'));
+  } finally { f.limpar(); }
+});
+
+test('RM074 M10 S25: getter que devolve fs prende o teste', () => {
+  const f = fixture('getter-fs', {
+    'test/a.test.js': "const box = { get io() { return require('node:fs'); } }; box.io.readFileSync('../src/a.js');\n",
+    'test/b.test.js': "require('../src/b');\n",
+    'src/b.js': 'module.exports = true;\n',
+  });
+  try {
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/b.ts']);
+    assert.deepEqual(plano.arquivos, ['a.test.js', 'b.test.js']);
+    assert.ok(plano.incertezas?.some((causa) => causa.forma === 'capacidade de node:fs fora de importação segura'));
+  } finally { f.limpar(); }
+});
+
+test('RM074 M10 S26: rest destructuring de fs prende o teste', () => {
+  const f = fixture('rest-fs', {
+    'test/a.test.js': "const { ...io } = require('node:fs'); io.readFileSync('../src/a.js');\n",
+    'test/b.test.js': "require('../src/b');\n",
+    'src/b.js': 'module.exports = true;\n',
+  });
+  try {
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/b.ts']);
+    assert.deepEqual(plano.arquivos, ['a.test.js', 'b.test.js']);
+    assert.ok(plano.incertezas?.some((causa) => causa.forma.includes('desestruturado')));
+  } finally { f.limpar(); }
+});
+
+test('RM074 M10 S27: alias de fs por atribuicao prende o teste', () => {
+  const f = fixture('atribuicao-fs', {
+    'test/a.test.js': "let io; io = require('node:fs'); io.readFileSync('../src/a.js');\n",
+    'test/b.test.js': "require('../src/b');\n",
+    'src/b.js': 'module.exports = true;\n',
+  });
+  try {
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/b.ts']);
+    assert.deepEqual(plano.arquivos, ['a.test.js', 'b.test.js']);
+    assert.ok(plano.incertezas?.some((causa) => causa.forma === 'capacidade de node:fs em posição não segura'));
+  } finally { f.limpar(); }
+});
+
+test('RM074 M10 S28: capacidade em posicao nao catalogada prende pela regra geral', () => {
+  const f = fixture('capacidade-geral', {
+    'test/a.test.js': "function inspecionar(require) { with ({}) { return { WebAssembly, arguments, require }; } }\n",
+    'test/b.test.js': "require('../src/b');\n",
+    'src/b.js': 'module.exports = true;\n',
+  });
+  try {
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/b.ts']);
+    assert.deepEqual(plano.arquivos, ['a.test.js', 'b.test.js']);
+    assert.ok(plano.incertezas?.some((causa) => causa.forma === 'capacidade em posição não segura: WebAssembly'));
+    assert.ok(plano.incertezas?.some((causa) => causa.forma === 'capacidade em posição não segura: with'));
+    assert.ok(plano.incertezas?.some((causa) => causa.forma === 'sombreamento de capacidade: require'));
+  } finally { f.limpar(); }
+});
+
+test('RM074 M10 S29: arquivo que o parser nao le por inteiro prende o teste', () => {
+  const f = fixture('sintaxe-incompleta', {
+    'test/a.test.js': 'function quebrada( {\n',
+    'test/b.test.js': "require('../src/b');\n",
+    'src/b.js': 'module.exports = true;\n',
+  });
+  try {
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/b.ts']);
+    assert.deepEqual(plano.arquivos, ['a.test.js', 'b.test.js']);
+    assert.ok(plano.incertezas?.some((causa) => causa.forma === 'arquivo não analisado por inteiro: erro de sintaxe'));
+  } finally { f.limpar(); }
+});
+
+test('RM074 M10 S30: interoperabilidade TypeScript e posicoes seguras continuam selecionaveis', () => {
+  const f = fixture('interop-segura', {
+    'test/a.test.js': "var __importStar = (this && this.__importStar) || ((mod) => mod);\n" +
+      "var __importDefault = (this && this.__importDefault) || ((mod) => ({ default: mod }));\n" +
+      "var __createBinding = (this && this.__createBinding) || (() => {});\n" +
+      "var __setModuleDefault = (this && this.__setModuleDefault) || (() => {});\n" +
+      "const fs = __importStar(require('node:fs')); const fsDefault = __importDefault(require('node:fs'));\n" +
+      "const path = require('node:path'); const ALVO = path.join(__dirname, '..', 'src', 'a.js');\n" +
+      "__createBinding({}, require('node:fs'), 'readFileSync'); __setModuleDefault({}, require('node:fs'));\n" +
+      "fs.readFileSync(ALVO); fsDefault.default.statSync(ALVO); process.platform; process.env.CI;\n" +
+      "Object.defineProperty(exports, 'seguro', { value: true });\n",
+    'test/b.test.js': "require('../src/b');\n",
+    'src/a.js': 'module.exports.valor = true;\n',
+    'src/b.js': 'exports.valor = true;\n',
   });
   try {
     const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/a.ts']);

@@ -163,6 +163,105 @@
       "para": "return MODULOS_FS.has(pedido) || MODULOS_NATIVOS_SEGUROS.has(pedido) || pedido === 'node:querystring';",
       "teste": "selecionar-testes-node",
       "nome": "^RM074 M10 S21:"
+    },
+    {
+      "id": "M19",
+      "descricao": "Reflect deixa de ser tratado como capacidade global",
+      "modulo": "seletor-node-test",
+      "de": "'require', 'module', 'exports', 'process', 'global', 'globalThis', 'Reflect', 'Proxy',",
+      "para": "'require', 'module', 'exports', 'process', 'global', 'globalThis', 'Proxy',",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S23:"
+    },
+    {
+      "id": "M20",
+      "descricao": "Proxy deixa de ser tratado como capacidade global",
+      "modulo": "seletor-node-test",
+      "de": "'require', 'module', 'exports', 'process', 'global', 'globalThis', 'Reflect', 'Proxy',",
+      "para": "'require', 'module', 'exports', 'process', 'global', 'globalThis', 'Reflect',",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S24:"
+    },
+    {
+      "id": "M21",
+      "descricao": "require de fs devolvido por getter deixa de prender o teste",
+      "modulo": "seletor-node-test",
+      "de": "if (!requireDeFsEstaEmImportacaoSegura(no, helpers))\n                        marcar(no, `capacidade de ${pedido} fora de importação segura`);",
+      "para": "if (false)\n                        marcar(no, `capacidade de ${pedido} fora de importação segura`);",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S25:"
+    },
+    {
+      "id": "M22",
+      "descricao": "desestruturação de capacidade perde o diagnóstico de origem",
+      "modulo": "seletor-node-test",
+      "de": "ligar(item.name, { tipo: 'outra', origem: `${origem.origem} desestruturado` }, false);",
+      "para": "ligar(item.name, { tipo: 'fs', origem: origem.origem }, false);",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S26:"
+    },
+    {
+      "id": "M23",
+      "descricao": "alias de capacidade por atribuição deixa de ser propagado",
+      "modulo": "seletor-node-test",
+      "de": "else if (typescript_1.default.isBinaryExpression(no) && no.operatorToken.kind === typescript_1.default.SyntaxKind.EqualsToken\n                && typescript_1.default.isIdentifier(no.left)) {\n                const origem = origemDaCapacidade(no.right, ligacoes, helpers);",
+      "para": "else if (false && typescript_1.default.isBinaryExpression(no) && no.operatorToken.kind === typescript_1.default.SyntaxKind.EqualsToken\n                && typescript_1.default.isIdentifier(no.left)) {\n                const origem = origemDaCapacidade(no.right, ligacoes, helpers);",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S27:"
+    },
+    {
+      "id": "M24",
+      "descricao": "uma capacidade em posição nova deixa de cair na regra geral",
+      "modulo": "seletor-node-test",
+      "de": "'eval', 'Function', 'WebAssembly', 'arguments',",
+      "para": "'eval', 'Function', 'arguments',",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S28:"
+    },
+    {
+      "id": "M25",
+      "descricao": "erro de sintaxe deixa de prender o arquivo que o parser não leu por inteiro",
+      "modulo": "seletor-node-test",
+      "de": "const diagnosticos = fonte.parseDiagnostics ?? [];",
+      "para": "const diagnosticos = [];",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S29:"
+    },
+    {
+      "id": "M26",
+      "descricao": "__importStar emitido pelo TypeScript deixa de ser reconhecido",
+      "modulo": "seletor-node-test",
+      "de": "'__importStar', '__importDefault', '__createBinding', '__setModuleDefault',",
+      "para": "'__importDefault', '__createBinding', '__setModuleDefault',",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S30:"
+    },
+    {
+      "id": "M27",
+      "descricao": "leituras seguras de process deixam de ser reconhecidas",
+      "modulo": "seletor-node-test",
+      "de": "function usoSeguroDeProcesso(no) {",
+      "para": "function usoSeguroDeProcesso(no) { return false;",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S30:"
+    },
+    {
+      "id": "M28",
+      "descricao": "atribuições seguras de module.exports e exports deixam de ser reconhecidas",
+      "modulo": "seletor-node-test",
+      "de": "function usoSeguroDeExportacao(no) {",
+      "para": "function usoSeguroDeExportacao(no) { return false;",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S30:"
+    },
+    {
+      "id": "M29",
+      "descricao": "chamadas diretas das quatro operações de fs deixam de ser reconhecidas",
+      "modulo": "seletor-node-test",
+      "de": "function usoSeguroDeFs(no, importacoesSeguras) {",
+      "para": "function usoSeguroDeFs(no, importacoesSeguras) { return false;",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S30:"
     }
   ]
 }
