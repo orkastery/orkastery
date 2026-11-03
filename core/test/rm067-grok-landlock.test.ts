@@ -54,10 +54,11 @@ const decisao = (threadId: string, decidido: string) => ({ nome: 'ork_decision_r
   custoDepois: 'Nenhum', criterio: { tipo: 'medicao', referencia: 'core/test/rm067-grok-landlock.test.ts' },
   quemDecidiu: 'sessao grok SIMULADA', evidencia: 'teste' } });
 
-function identidadeDoWatcher(dir: string, sessionId: string): IdentidadeProcesso {
+function identidadeDoWatcher(dir: string, sessionId: string): IdentidadeProcesso | null {
   const evento = lerLedger(dir).filter((e) => e.tipo === 'session_watcher_started' && e.sessionId === sessionId).at(-1);
+  if (!evento) return null;
   const identidade = evento?.identidade as IdentidadeProcesso | undefined;
-  assert.ok(identidade, `faltou session_watcher_started para ${sessionId}`);
+  assert.ok(identidade, `session_watcher_started sem identidade para ${sessionId}`);
   assert.equal(evento?.pid, identidade.pid, 'o pid do watcher corresponde à identidade completa registrada');
   return identidade;
 }
@@ -117,7 +118,7 @@ test('GL2: com o mesmo confinamento, pelo despacho da F4c o filho grava decisao,
     esperarFimDaFase(
       () => lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.sessionId === sid),
       stub.pids(),
-      { identidades: [identidadeDoWatcher(dirThread(p.dir, t.id), sid)] },
+      { lerIdentidadePendente: () => identidadeDoWatcher(dirThread(p.dir, t.id), sid) },
     );
     assert.equal(stub.sondaResultado(), 'recusada', 'o filho seguia confinado');
     assert.equal(fs.existsSync(sonda), false);
@@ -178,7 +179,7 @@ test('GL3: a sessao de outra thread, confinada no proprio dominio, nao acha o to
     esperarFimDaFase(
       () => lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.sessionId === sid),
       stub.pids(),
-      { identidades: [identidadeDoWatcher(dirThread(p.dir, t.id), sid)] },
+      { lerIdentidadePendente: () => identidadeDoWatcher(dirThread(p.dir, t.id), sid) },
     );
     assert.deepEqual(stub.mcpResultado()?.chamadas.map((c) => c.isError), [false], 'e a sessao desta thread segue com o MCP');
   } finally { p.limpar(); stub.restaurar(); fs.rmSync(irma, { recursive: true, force: true }); }

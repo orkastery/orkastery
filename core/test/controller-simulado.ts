@@ -78,6 +78,8 @@ interface OpcoesDaEsperaDaFase {
   tetoMs?: number;
   /** Processos externos à árvore do runtime que ainda podem registrar o resultado da fase. */
   identidades?: readonly IdentidadeProcesso[];
+  /** Devolve null enquanto o processo externo ainda não anunciou a própria identidade. */
+  lerIdentidadePendente?: () => IdentidadeProcesso | null;
 }
 
 const PAUSA_DA_ESPERA = new Int32Array(new SharedArrayBuffer(4));
@@ -97,16 +99,28 @@ export function esperarFimDaFase(resultadoNoLedger: () => boolean, processos: re
   }
   const pids = new Set(processos.flatMap(({ pid, pai }) => [pid, pai]));
   const capturadas = [...pids].map(identidadeProcesso).filter((id): id is IdentidadeProcesso => id !== null);
-  const identidades = [...new Map([...capturadas, ...(opcoes.identidades ?? [])]
-    .map((id) => [`${id.boot}:${id.pid}:${id.inicio}`, id])).values()];
-  const haviaProcessoObservavel = identidades.length > 0;
+  const identidades = new Map([...capturadas, ...(opcoes.identidades ?? [])]
+    .map((id) => [`${id.boot}:${id.pid}:${id.inicio}`, id]));
+  const lerIdentidadePendente = opcoes.lerIdentidadePendente;
+  let identidadePendente: IdentidadeProcesso | null = null;
+  let haviaProcessoObservavel = identidades.size > 0;
   const inicio = Date.now();
   let arvoreSaiuEm: number | null = null;
   while (Date.now() - inicio < tetoMs) {
     if (resultadoNoLedger()) return;
     const agora = Date.now();
-    if (haviaProcessoObservavel) {
-      const arvoreViva = identidades.some((id) => estadoProcesso(id) !== 'ausente');
+    if (lerIdentidadePendente && identidadePendente === null) {
+      identidadePendente = lerIdentidadePendente();
+      if (identidadePendente !== null) {
+        identidades.set(`${identidadePendente.boot}:${identidadePendente.pid}:${identidadePendente.inicio}`, identidadePendente);
+        haviaProcessoObservavel = true;
+      }
+    }
+    const anuncioPendente = lerIdentidadePendente !== undefined && identidadePendente === null;
+    if (anuncioPendente) {
+      arvoreSaiuEm = null;
+    } else if (haviaProcessoObservavel) {
+      const arvoreViva = [...identidades.values()].some((id) => estadoProcesso(id) !== 'ausente');
       if (arvoreViva) {
         arvoreSaiuEm = null;
       } else if (arvoreSaiuEm === null) {
@@ -119,6 +133,12 @@ export function esperarFimDaFase(resultadoNoLedger: () => boolean, processos: re
     Atomics.wait(PAUSA_DA_ESPERA, 0, 0, Math.min(30, Math.max(1, tetoMs - (agora - inicio))));
   }
   if (resultadoNoLedger()) return;
+  if (lerIdentidadePendente && identidadePendente === null) {
+    throw new Error('teto absoluto da espera pelo fim da fase: faltou phase_result no ledger; o watcher da sessão não se anunciou');
+  }
+  if (identidadePendente !== null && estadoProcesso(identidadePendente) !== 'ausente') {
+    throw new Error('teto absoluto da espera pelo fim da fase: faltou phase_result no ledger; o watcher da sessão ainda estava vivo');
+  }
   throw new Error(haviaProcessoObservavel
     ? 'teto absoluto da espera pelo fim da fase: faltou phase_result no ledger'
     : 'teto absoluto da espera pelo fim da fase: faltou phase_result no ledger; não havia processo observável');

@@ -18,6 +18,15 @@
       "para": "...[]",
       "teste": "controller-simulado",
       "nome": "^esperarFimDaFase: aguarda o watcher"
+    },
+    {
+      "id": "GL23-3",
+      "descricao": "a espera lê a identidade do watcher uma vez só, antes de esperar",
+      "arquivo": "core/dist-test/test/controller-simulado.js",
+      "de": "const lerIdentidadePendente = opcoes.lerIdentidadePendente;",
+      "para": "const primeiraIdentidadePendente = opcoes.lerIdentidadePendente?.() ?? null;\n    const lerIdentidadePendente = opcoes.lerIdentidadePendente ? () => primeiraIdentidadePendente : undefined;",
+      "teste": "controller-simulado",
+      "nome": "^esperarFimDaFase: relê o watcher"
     }
   ]
 }
