@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.4",
-  "publicadoEm": "2026-11-03T01:30:20.707Z",
+  "publicadoEm": "2026-11-03T01:39:14.683Z",
   "threads": [
     {
       "id": "ork-rm074comamet",
@@ -32,11 +32,11 @@
       "id": "ork-rm074m10sele",
       "nome": "rm074m10",
       "modo": "#Auto",
-      "fase": "CHECK",
+      "fase": "GO",
       "status": "aberta",
       "roadmap": "RM-074",
       "branch": "ork/ork-rm074m10sele-full",
-      "atualizadaEm": "2026-11-03T01:30:20.053Z",
+      "atualizadaEm": "2026-11-03T01:39:14.087Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
