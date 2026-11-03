@@ -386,24 +386,33 @@ incerta; por isso a seleção atual quase não reduz a lane hermética. O ganho
 esperado desta capacidade está em suítes menos presas ao CLI.
 
 O Agile morno passa a usar a própria declaração `selecao` da F5 na lane
-hermética. A fronteira é uma lista de formas seguras: um teste só participa da
+hermética. A fronteira é a posição de cada capacidade: um teste só participa da
 seleção pelo grafo quando o próprio arquivo e cada arquivo do seu fecho usam
-apenas cargas e descobertas que o seletor resolve. O comando:
+`require`, `module`, `exports`, `process`, os globais de execução dinâmica e as
+ligações de módulos sensíveis apenas nas posições que o seletor resolve. O
+comando:
 
 - calcula o fecho transitivo das dependências resolvidas nos testes compilados;
 - mantém sempre os testes que exercitam processo filho, o CLI compilado ou
   scripts;
 - aceita `require` e `require.resolve` somente quando são chamados diretamente
-  pelo identificador global e o caminho literal ou formado por
+  pelo identificador global, sem sombra local, e o caminho literal ou formado por
   `path.join`/`path.resolve` com `__dirname`, literais e constante de módulo pode
   ser resolvido;
-- aceita somente uma lista curta de módulos nativos sem carga de arquivo; em
-  `fs` e `node:fs`, somente `fs.readFileSync`, `fs.readFile`, `fs.existsSync` e
-  `fs.statSync` formam arestas, inclusive para fonte TypeScript, JSON e fixtures;
+- aceita `module.exports`, `module.exports.x`, `exports.x` e o
+  `Object.defineProperty(exports, ...)` emitido pelo TypeScript somente como
+  atribuições de exportação, além de `process.env.X` e `process.platform` somente
+  como leituras;
+- aceita somente uma lista curta de módulos nativos sem carga de arquivo; numa
+  ligação de `fs`, somente chamadas diretas de `readFileSync`, `readFile`,
+  `existsSync` e `statSync` formam arestas, inclusive nas formas de
+  interoperabilidade que o TypeScript emite e para fonte, JSON e fixtures;
 - prende somente o teste cujo fecho contém outra forma, sem prender os demais:
-  alias ou propriedade de `require`, `module.require`, `createRequire`, importação
-  dinâmica, código construído, `vm`, `Worker`, aquisição indireta de nativo,
-  módulo fora da lista curta e acesso computado em objeto sensível;
+  capacidade passada como valor, atribuída, desestruturada, computada, guardada
+  em getter ou objeto, sombreada ou usada por `Reflect`, `Proxy`, `with`,
+  `arguments`, importação dinâmica, código construído, `vm` ou `Worker`;
+- prende também o teste quando um arquivo do fecho não pode ser analisado por
+  inteiro;
 - mantém sempre somente o teste cujo fecho contém dependência incerta, enquanto
   os fechos formados por formas seguras continuam selecionáveis;
 - registra no plano cada incerteza com a forma, o arquivo e a linha que a
