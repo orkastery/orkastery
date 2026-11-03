@@ -1,0 +1,14 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "mutantes": [
+    {
+      "id": "GL23-1",
+      "descricao": "a espera ignora a morte da árvore e só para no teto absoluto",
+      "arquivo": "core/dist-test/test/controller-simulado.js",
+      "de": "        if (arvoreViva) {",
+      "para": "        if (true) {",
+      "teste": "controller-simulado",
+      "nome": "^esperarFimDaFase: falha cedo"
+    }
+  ]
+}

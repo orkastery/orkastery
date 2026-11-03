@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { dirTemporario } from './apoio';
 import { DespachoCodexPedido, despachar } from '../src/adapters/codex';
 import { controleDoController, lerEstadoController } from '../src/adapters/codex-controller';
+import { estadoProcesso, identidadeProcesso, IdentidadeProcesso } from '../src/adapters/codex-runner';
 
 export function controllerSimulado(raiz?: string,
   opcoes: { launcherExec?: boolean; cenario?: string; capturarEnv?: { arquivo: string; nomes: string[] };
@@ -68,4 +69,43 @@ export function esperarCondicao(f: () => boolean, ms = 5000): void {
   const fim = Date.now() + ms;
   while (!f() && Date.now() < fim) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 30);
   if (!f()) throw new Error('condição de fixture não ocorreu');
+}
+
+export interface ProcessoDaFase { pid: number; pai: number }
+
+const PAUSA_DA_ESPERA = new Int32Array(new SharedArrayBuffer(4));
+const FOLGA_APOS_SAIDA_MS = 1500;
+const TETO_DA_FASE_MS = 600000;
+
+/**
+ * Aguarda o resultado da fase enquanto o runtime ou o supervisor ainda podem produzi-lo.
+ * A identidade completa impede que a reutilização de um PID prolongue a espera por outro processo.
+ */
+export function esperarFimDaFase(resultadoNoLedger: () => boolean, processos: readonly ProcessoDaFase[],
+  opcoes: { folgaAposSaidaMs?: number; tetoMs?: number } = {}): void {
+  const folgaAposSaidaMs = opcoes.folgaAposSaidaMs ?? FOLGA_APOS_SAIDA_MS;
+  const tetoMs = opcoes.tetoMs ?? TETO_DA_FASE_MS;
+  if (!Number.isFinite(folgaAposSaidaMs) || folgaAposSaidaMs < 0 || !Number.isFinite(tetoMs) || tetoMs <= 0) {
+    throw new Error('prazos inválidos para esperar o fim da fase');
+  }
+  const pids = new Set(processos.flatMap(({ pid, pai }) => [pid, pai]));
+  const identidades = [...pids].map(identidadeProcesso).filter((id): id is IdentidadeProcesso => id !== null);
+  const inicio = Date.now();
+  let arvoreSaiuEm: number | null = null;
+  while (Date.now() - inicio < tetoMs) {
+    if (resultadoNoLedger()) return;
+    const agora = Date.now();
+    const arvoreViva = identidades.some((id) => estadoProcesso(id) !== 'ausente');
+    if (arvoreViva) {
+      arvoreSaiuEm = null;
+    } else if (arvoreSaiuEm === null) {
+      arvoreSaiuEm = agora;
+    } else if (agora - arvoreSaiuEm >= folgaAposSaidaMs) {
+      if (resultadoNoLedger()) return;
+      throw new Error('a árvore de processos da fase saiu, mas faltou phase_result no ledger');
+    }
+    Atomics.wait(PAUSA_DA_ESPERA, 0, 0, Math.min(30, Math.max(1, tetoMs - (agora - inicio))));
+  }
+  if (resultadoNoLedger()) return;
+  throw new Error('teto absoluto da espera pelo fim da fase: faltou phase_result no ledger');
 }
