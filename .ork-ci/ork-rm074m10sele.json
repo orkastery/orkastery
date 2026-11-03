@@ -463,6 +463,174 @@
         "node -e \"const b=require('./.ork-ci/ork-rm074m10sele.json');const ids=b.claims.map(c=>c.id);const ativas=['C34','C35','C36','C37','C38','C39','C40','C41'];const retiradas=['C21','C30','C31'];if(!ativas.every(id=>ids.includes(id))||retiradas.some(id=>ids.includes(id))||!Array.isArray(b.commands)||!b.commands.length)process.exit(1)\""
       ],
       "criadoEm": "2026-11-03T01:11:07.757Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/src/seletor-node-test.ts",
+      "alegacao": "O seletor prende formas de carga fora da lista segura e inclui no plano a forma, o arquivo e a linha da incerteza.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='RM074 M10 S1[5-9]:|RM074 M10 S2[0-2]:' core/dist-test/test/selecionar-testes-node.test.js"
+      ],
+      "criadoEm": "2026-11-03T01:51:18.974Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/test/selecionar-testes-node.test.ts",
+      "alegacao": "Os casos focados cobrem alias de require, module.require, createRequire, getBuiltinModule, Worker, acesso computado, nativo fora da lista e fecho seguro.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='RM074 M10 S1[5-9]:|RM074 M10 S2[0-2]:' core/dist-test/test/selecionar-testes-node.test.js"
+      ],
+      "criadoEm": "2026-11-03T01:51:19.044Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M12 morre quando alias de require deixa de prender o teste.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M12"
+      ],
+      "criadoEm": "2026-11-03T01:51:19.131Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M13 morre quando module.require deixa de prender o teste.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M13"
+      ],
+      "criadoEm": "2026-11-03T01:51:19.213Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M14 morre quando createRequire deixa de prender o teste.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M14"
+      ],
+      "criadoEm": "2026-11-03T01:51:19.315Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M15 morre quando process.getBuiltinModule deixa de prender o teste.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M15"
+      ],
+      "criadoEm": "2026-11-03T01:51:19.384Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M16 morre quando Worker deixa de prender o teste.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M16"
+      ],
+      "criadoEm": "2026-11-03T01:51:19.445Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M17 morre quando acesso computado deixa de prender o teste.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M17"
+      ],
+      "criadoEm": "2026-11-03T01:51:19.541Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M18 morre quando nativo fora da lista curta deixa de prender o teste.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M18"
+      ],
+      "criadoEm": "2026-11-03T01:51:19.617Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+      "alegacao": "A seção M10 descreve a fronteira por formas seguras, as causas no plano e a baixa redução atual no Orkastery.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'fronteira é uma lista de formas seguras' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md && grep -F 'registra no plano cada incerteza com a forma, o arquivo e a linha' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md && grep -F 'quase não reduz a lane hermética' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md"
+      ],
+      "criadoEm": "2026-11-03T01:51:19.713Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C52",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A linha M10 do Não publicado descreve as formas seguras e conserva a ressalva de baixa redução sem publicar ganho.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'formas seguras que o seletor resolve' CHANGELOG.md && grep -F 'quase não reduz a lane' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-11-03T01:51:19.790Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-rm074m10sele.json",
+      "alegacao": "O bundle final inclui as claims do GO-FIX 3 e os comandos do manifesto para reexecução independente.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const b=require('./.ork-ci/ork-rm074m10sele.json');const ids=['C42','C43','C44','C45','C46','C47','C48','C49','C50','C51','C52','C53'];if(!ids.every(id=>b.claims.some(c=>c.id===id))||!Array.isArray(b.commands)||!b.commands.length)process.exit(1)\""
+      ],
+      "criadoEm": "2026-11-03T02:48:57.524Z",
       "estado": "pendente",
       "lint": []
     }
