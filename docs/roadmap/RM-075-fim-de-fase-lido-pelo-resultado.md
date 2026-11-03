@@ -6,13 +6,13 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-02T19:05:31-03:00
+atualizado_em: 2026-11-03T17:30:00-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
   codigo: Mesclado
   testes: Em execução
-  deploy: Não implantado
+  deploy: Produção
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Em execução | Produção | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -97,13 +97,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-11-02 | Julio |
-| Documentação | Em revisão | — | 2026-11-02 | Julio |
-| Código | Mesclado | commit `7fd2b66` | 2026-11-02 | Julio |
-| Testes | Em execução | — | 2026-11-02 | Julio |
-| Deploy | Não implantado | — | 2026-11-02 | Julio |
-| Exposição | Flag desligada | — | 2026-11-02 | Julio |
-| Habilitação | Pendente | — | 2026-11-02 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-03 | Julio |
+| Documentação | Em revisão | — | 2026-11-03 | Julio |
+| Código | Mesclado | commit `7fd2b66` | 2026-11-03 | Julio |
+| Testes | Em execução | — | 2026-11-03 | Julio |
+| Deploy | Produção | — | 2026-11-03 | Julio |
+| Exposição | Flag desligada | — | 2026-11-03 | Julio |
+| Habilitação | Pendente | — | 2026-11-03 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -117,3 +117,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- |
 | 2026-10-31 | Item criado em Discovery | Achados de condução em rede, conferidos contra a 0.6.2 | Julio (pedido de 31/10/2026) |
 | 2026-11-02 | Codex incluído no escopo e implementação iniciada | `task_complete` foi perdido sob `SESSION_STATE_SPLIT` e a escada redespachou a fase concluída | Condução `#Auto`, decisão registrada na thread |
+| 2026-11-03 | Em produção na 0.6.5 | Merge `7fd2b66` (PR #257) e tag `v0.6.5` publicada no npm | Julio |

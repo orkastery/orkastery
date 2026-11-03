@@ -113,14 +113,14 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-071](RM-071-relatorio-da-esteira-do-sdlc.md) | Relatório da esteira do SDLC no status do roadmap | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-21 |
 | [RM-072](RM-072-check-cinco-vezes-mais-rapido.md) | Agile Check e Classic Check: o CHECK rápido como padrão, sem perder cobertura | Disponível | Mesclado | Aprovados | Produção | 2026-10-27 |
 | [RM-073](RM-073-modelos-de-decisao-no-ork-e-no-orkmind.md) | Modelos de decisão no ork e no OrkMind | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-27 |
-| [RM-074](RM-074-agile-check-tres-vezes-mais-rapido.md) | Agile Check cerca de 1,7 vez mais rápido que o Classic | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-02 |
-| [RM-075](RM-075-fim-de-fase-lido-pelo-resultado.md) | Fim de fase lido pelo resultado: sessão que termina sem pergunta não vira espera humana | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-02 |
+| [RM-074](RM-074-agile-check-tres-vezes-mais-rapido.md) | Agile Check cerca de 1,7 vez mais rápido que o Classic | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-03 |
+| [RM-075](RM-075-fim-de-fase-lido-pelo-resultado.md) | Fim de fase lido pelo resultado: sessão que termina sem pergunta não vira espera humana | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-03 |
 | [RM-076](RM-076-fila-pesada-com-prioridade.md) | Fila pesada com prioridade e reserva de vaga | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-31 |
 | [RM-077](RM-077-revisao-independente-pelo-construtor-do-head.md) | Revisão independente medida pelo construtor do HEAD | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-31 |
 | [RM-078](RM-078-recibo-valido-enquanto-nada-muda.md) | Recibo de verify e de revisão válido enquanto HEAD, claims e plano não mudam | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-31 |
 | [RM-079](RM-079-claims-que-a-correcao-passa.md) | Claims de revisão que a correção passa e retirada tipada com substituta | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-31 |
 | [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md) | Saída completa e causa tipada em todo comando do verify | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-31 |
-| [RM-081](RM-081-check-por-qualquer-runner.md) | CHECK que entende qualquer runner de teste e só roda de novo o necessário | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-02 |
+| [RM-081](RM-081-check-por-qualquer-runner.md) | CHECK que entende qualquer runner de teste e só roda de novo o necessário | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-03 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->
