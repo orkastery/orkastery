@@ -404,8 +404,8 @@ comando:
   atribuições de exportação, além de `process.env.X` e `process.platform` somente
   como leituras;
 - aceita somente uma lista curta de módulos nativos sem carga de arquivo; numa
-  ligação de `fs`, somente chamadas diretas de `readFileSync`, `readFile`,
-  `existsSync` e `statSync` formam arestas, inclusive nas formas de
+  ligação de `fs`, somente chamadas diretas de `fs.readFileSync`, `fs.readFile`,
+  `fs.existsSync` e `fs.statSync` formam arestas, inclusive nas formas de
   interoperabilidade que o TypeScript emite e para fonte, JSON e fixtures;
 - prende somente o teste cujo fecho contém outra forma, sem prender os demais:
   capacidade passada como valor, atribuída, desestruturada, computada, guardada
