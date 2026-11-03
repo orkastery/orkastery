@@ -386,18 +386,26 @@ incerta; por isso a seleção atual quase não reduz a lane hermética. O ganho
 esperado desta capacidade está em suítes menos presas ao CLI.
 
 O Agile morno passa a usar a própria declaração `selecao` da F5 na lane
-hermética. O comando:
+hermética. A fronteira é uma lista de formas seguras: um teste só participa da
+seleção pelo grafo quando o próprio arquivo e cada arquivo do seu fecho usam
+apenas cargas e descobertas que o seletor resolve. O comando:
 
 - calcula o fecho transitivo das dependências resolvidas nos testes compilados;
 - mantém sempre os testes que exercitam processo filho, o CLI compilado ou
   scripts;
-- mantém sempre somente o teste cujo fecho contém dependência incerta, sem
-  prender os demais testes da lane;
-- transforma `require.resolve` e caminhos resolvidos de `fs.readFileSync`,
-  `fs.readFile`, `fs.existsSync` e `fs.statSync` em arestas, inclusive para fonte
-  TypeScript, JSON e fixtures;
-- prende o teste quando ele usa outro membro de `fs`, enumera por glob ou carrega
-  código por `new Function`, `eval`, `vm` ou importação dinâmica;
+- aceita `require` e `require.resolve` somente quando são chamados diretamente
+  pelo identificador global e o caminho literal ou formado por
+  `path.join`/`path.resolve` com `__dirname`, literais e constante de módulo pode
+  ser resolvido;
+- aceita somente uma lista curta de módulos nativos sem carga de arquivo; em
+  `fs` e `node:fs`, somente `fs.readFileSync`, `fs.readFile`, `fs.existsSync` e
+  `fs.statSync` formam arestas, inclusive para fonte TypeScript, JSON e fixtures;
+- prende somente o teste cujo fecho contém outra forma, sem prender os demais:
+  alias ou propriedade de `require`, `module.require`, `createRequire`, importação
+  dinâmica, código construído, `vm`, `Worker`, aquisição indireta de nativo,
+  módulo fora da lista curta e acesso computado em objeto sensível;
+- registra no plano cada incerteza com a forma, o arquivo e a linha que a
+  originaram;
 - executa a lista pelo mesmo runner da lane, preservando reporter, isolamento e
   cache de duração;
 - devolve a lane inteira diante de diff vazio ou mudança fora de `core/src` e

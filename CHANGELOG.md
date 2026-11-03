@@ -8,7 +8,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Alterado
 
-- **RM-074 · M10 — seleção conservadora para `node --test` ([roadmap](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** no Agile morno, a lane hermética seleciona pelos fechos resolvidos de importação, `require.resolve` e caminhos de `fs.readFileSync`, `fs.readFile`, `fs.existsSync` e `fs.statSync`; outro membro de `fs`, glob, código construído, processo filho ou dependência incerta mantém o teste na lista. No próprio Orkastery a seleção quase não reduz a lane porque quase todos os testes exercitam o CLI ou abrem processo; o ganho esperado está em suítes menos presas ao CLI. Integração, Classic, rodada fria e SHIP seguem integrais, e a razão continua pendente dos três pares.
+- **RM-074 · M10 — seleção conservadora para `node --test` ([roadmap](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** no Agile morno, a lane hermética só seleciona pelo grafo quando todo arquivo do fecho usa as formas seguras que o seletor resolve: chamada direta do `require` global ou de `require.resolve`, a lista curta de nativos e caminhos de `fs.readFileSync`, `fs.readFile`, `fs.existsSync` e `fs.statSync`. Outra forma prende o teste e registra forma, arquivo e linha no plano. No próprio Orkastery a seleção quase não reduz a lane porque quase todos os testes exercitam o CLI, abrem processo ou alcançam uma forma incerta. Integração, Classic, rodada fria e SHIP seguem integrais, e a razão continua pendente dos três pares.
 
 ## [0.6.5] - 2026-11-02
 
