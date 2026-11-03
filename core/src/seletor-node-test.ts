@@ -69,6 +69,10 @@ const HELPERS_DE_INTEROPERABILIDADE = new Set([
   '__importStar', '__importDefault', '__createBinding', '__setModuleDefault',
 ]);
 
+function operacaoFsEmPosicaoSegura(nome: string): boolean {
+  return FUNCOES_DE_FS.has(nome);
+}
+
 interface LigacaoDeCapacidade {
   tipo: 'fs' | 'outra';
   origem: string;
@@ -467,7 +471,8 @@ function usoSeguroDeFs(no: ts.Identifier, importacoesSeguras: ReadonlySet<ts.Ide
     if (!ts.isPropertyAccessExpression(operacao) || operacao.expression !== propriedade) return false;
     propriedade = operacao;
   }
-  return FUNCOES_DE_FS.has(propriedade.name.text) && chamadaDiretaDaPropriedade(propriedade) !== null;
+  return operacaoFsEmPosicaoSegura(propriedade.name.text)
+    && chamadaDiretaDaPropriedade(propriedade) !== null;
 }
 
 function requireDeFsEstaEmImportacaoSegura(chamada: ts.CallExpression, helpers: ReadonlySet<string>): boolean {
@@ -528,6 +533,9 @@ function wrappersDeFs(fonte: ts.SourceFile, ligacoes: LigacoesDeModulo): Map<str
 }
 
 function dependenciasDoArquivo(distTest: string, arquivo: string): Dependencias {
+  if (path.extname(arquivo) === '.json') {
+    return { locais: [], modulos: [], arquivos: [], incertezas: [] };
+  }
   const texto = fs.readFileSync(arquivo, 'utf8');
   const fonte = ts.createSourceFile(arquivo, texto, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
   const ligacoesFs = coletarLigacoesDoModulo(fonte, MODULOS_FS);
@@ -635,7 +643,9 @@ function dependenciasDoArquivo(distTest: string, arquivo: string): Dependencias 
         } else if (!eModuloSemCargaDeArquivo(pedido)) marcar(no, `módulo fora da lista segura: ${pedido}`);
       } else {
         const operacaoFs = operacaoDoModulo(no.expression, ligacoesFs);
-        if (operacaoFs !== null) registrarFs(no, operacaoFs);
+        if (operacaoFs !== null) {
+          if (FUNCOES_DE_FS.has(operacaoFs)) registrarFs(no, operacaoFs);
+        }
         else if (ts.isIdentifier(no.expression) && wrappers.has(no.expression.text)) {
           const wrapper = wrappers.get(no.expression.text)!;
           wrappersInvocados.add(no.expression.text);
