@@ -25,7 +25,7 @@ import { dirThread, novaThread } from '../src/thread';
 import { lerLedger } from '../src/ledger';
 import { rodarFase } from '../src/phase';
 import { dirTemporario, projetoTemporario } from './apoio';
-import { esperarCondicao } from './controller-simulado';
+import { esperarCondicao, esperarFimDaFase } from './controller-simulado';
 import { grokFalso } from './grok-falso';
 import { LANCADOR_DO_LANDLOCK, semLandlock } from './ambiente-de-teste';
 
@@ -106,7 +106,10 @@ test('GL2: com o mesmo confinamento, pelo despacho da F4c o filho grava decisao,
     assert.equal(r.comando[r.comando.indexOf('--sandbox') + 1], 'workspace');
     stub.liberarMcp();
     const sid = r.sessionId!;
-    esperarCondicao(() => lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.sessionId === sid), 60000);
+    esperarFimDaFase(
+      () => lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.sessionId === sid),
+      stub.pids(),
+    );
     assert.equal(stub.sondaResultado(), 'recusada', 'o filho seguia confinado');
     assert.equal(fs.existsSync(sonda), false);
     const mcp = stub.mcpResultado();
@@ -163,7 +166,10 @@ test('GL3: a sessao de outra thread, confinada no proprio dominio, nao acha o to
     });
     assert.equal(status, 403, 'o token certo, de um processo fora da arvore do grok, recusa');
     stub.liberarMcp();
-    esperarCondicao(() => lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.sessionId === sid), 60000);
+    esperarFimDaFase(
+      () => lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.sessionId === sid),
+      stub.pids(),
+    );
     assert.deepEqual(stub.mcpResultado()?.chamadas.map((c) => c.isError), [false], 'e a sessao desta thread segue com o MCP');
   } finally { p.limpar(); stub.restaurar(); fs.rmSync(irma, { recursive: true, force: true }); }
 });
