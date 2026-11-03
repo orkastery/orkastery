@@ -399,9 +399,6 @@ de `require` alcança o que o diff mudou. O dono arquivou a fatia sem merge em
 
 - Fechar a bancada fria e morna da M8 e da M9 no host, com três pares válidos e
   os mesmos critérios de carga externa e divergência de `steal`.
-- Estabilizar sob carga os casos GL2 e GL3 do confinamento do Grok: com a
-  máquina ocupada, eles estouram a espera nos dois modos e invalidam pares da
-  bancada.
 - Confirmar na evidência que o perfil da árvore fecha mesmo quando um contêiner
   fica sem cgroup e que a reserva medida devolve antes a capacidade ociosa.
 - Reavaliar a distância para a meta de cerca de 1,7 vez; a M9 remove a reserva
@@ -724,3 +721,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-31 | A bancada da M5 fecha três pares válidos; a M6 mede a reserva da integração, devolve CPU por peça, reduz preparo dos arquivos caros restantes e descarta carga externa acima do limiar | Três pares AB/BA da M5, evidência de eficiência e implementação da thread `ork-rm074m6medid` | Thread `ork-rm074m6medid` (#Auto) |
 | 2026-11-01 | A M8 troca o fallback binário por capacidade em degraus, usa mediana de várias amostras e registra o estado `degradado`; a razão nova fica pendente da bancada | Rodadas frias e mornas da M7, pico isolado de `steal`, cenários sintéticos e mutantes da M8 | Thread `ork-rm074m8agend` (#Fast) |
 | 2026-11-03 | M8 e M9 em produção na 0.6.5. M10 (seleção do `node --test` pelo grafo de import) arquivada sem merge | Cinco CHECKs da thread `ork-rm074m10sele` com PRECISA DE MUDANÇA; decisão 2a do dono em 03/11/2026 | Julio |
+| 2026-11-03 | GL2 e GL3 do confinamento deixam de julgar a fase por prazo fixo e acompanham o Grok e o supervisor até o resultado ou a saída da árvore | Reprodução sob disputa de CPU e quatro cenários herméticos da espera pelo fim da fase | Thread `ork-rm074gl2gl3s` (#Auto) |

@@ -6,6 +6,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Corrigido
+
+- **Confinamento do Grok sob disputa de CPU ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** os testes GL2 e GL3 esperam pelo fim da fase, e não por um prazo fixo, enquanto o Grok ou seu supervisor ainda estão trabalhando.
+
 ## [0.6.5] - 2026-11-02
 
 O Check passa a entender qualquer runner de teste: o manifesto declara o relatório JUnit de pytest, Vitest, Jest, Playwright ou gotestsum,
