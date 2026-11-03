@@ -6,13 +6,13 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-02T12:47:42-03:00
+atualizado_em: 2026-11-03T17:30:00-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
   codigo: Mesclado
   testes: Em execução
-  deploy: Não implantado
+  deploy: Produção
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Em execução | Produção | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -376,10 +376,32 @@ medida, conservadora ou Classic em pt-BR e inglês. O Classic não muda. A razã
 de produto da M9 continua pendente da bancada: o par da M8 explica a mudança,
 mas não mede o resultado dela.
 
+### M10: seleção do `node --test` pelo grafo de import (arquivada)
+
+A M10 tentou rodar, no Agile morno, só os arquivos do `node --test` cujo fecho
+de `require` alcança o que o diff mudou. O dono arquivou a fatia sem merge em
+03/11/2026.
+
+- Cinco CHECKs independentes acharam, a cada rodada, uma forma nova de carregar
+  ou descobrir arquivo que a análise estática não via. A fronteira passou de
+  lista de formas proibidas a lista de formas seguras e, por fim, à posição de
+  cada capacidade, e ainda assim não fechou sem falso negativo.
+- No próprio Orkastery, a seleção quase não reduzia a lane hermética, porque
+  quase todos os testes exercitam o CLI ou abrem processo.
+- A seleção nativa do runner, da F5 da [RM-081](RM-081-check-por-qualquer-runner.md),
+  continua valendo para os runners que a têm. O `node --test` segue com a lane
+  inteira.
+- A branch da thread `ork-rm074m10sele` fica como referência. Se uma suíte
+  pedir seleção no `node --test`, o caminho é uma fatia nova com seleção
+  declarada pelo projeto, sem análise do código.
+
 ### O que falta
 
-- Rodar o verify oficial da M9 e a bancada fria e morna no host, com três pares
-  válidos e os mesmos critérios de carga externa e divergência de `steal`.
+- Fechar a bancada fria e morna da M8 e da M9 no host, com três pares válidos e
+  os mesmos critérios de carga externa e divergência de `steal`.
+- Estabilizar sob carga os casos GL2 e GL3 do confinamento do Grok: com a
+  máquina ocupada, eles estouram a espera nos dois modos e invalidam pares da
+  bancada.
 - Confirmar na evidência que o perfil da árvore fecha mesmo quando um contêiner
   fica sem cgroup e que a reserva medida devolve antes a capacidade ociosa.
 - Reavaliar a distância para a meta de cerca de 1,7 vez; a M9 remove a reserva
@@ -674,13 +696,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-11-02 | Julio |
-| Documentação | Em revisão | — | 2026-11-02 | Julio |
-| Código | Mesclado | commit `a1059ce` | 2026-11-02 | Julio |
-| Testes | Em execução | — | 2026-11-02 | Julio |
-| Deploy | Não implantado | — | 2026-11-02 | Julio |
-| Exposição | Flag desligada | — | 2026-11-02 | Julio |
-| Habilitação | Pendente | — | 2026-11-02 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-03 | Julio |
+| Documentação | Em revisão | — | 2026-11-03 | Julio |
+| Código | Mesclado | commit `a1059ce` | 2026-11-03 | Julio |
+| Testes | Em execução | — | 2026-11-03 | Julio |
+| Deploy | Produção | — | 2026-11-03 | Julio |
+| Exposição | Flag desligada | — | 2026-11-03 | Julio |
+| Habilitação | Pendente | — | 2026-11-03 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -701,3 +723,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-30 | M4 compartilha os modelos Git e de forja nos seis arquivos caros restantes, preservando cópias isoladas e as fronteiras reais de processo; sem bancada válida, não publica ganho | Leitura estática do preparo, casos existentes de isolamento e `core/test/mutantes/rm074-m4.json` | Thread `ork-rm074m4cpude` (#Auto) |
 | 2026-10-31 | A bancada da M5 fecha três pares válidos; a M6 mede a reserva da integração, devolve CPU por peça, reduz preparo dos arquivos caros restantes e descarta carga externa acima do limiar | Três pares AB/BA da M5, evidência de eficiência e implementação da thread `ork-rm074m6medid` | Thread `ork-rm074m6medid` (#Auto) |
 | 2026-11-01 | A M8 troca o fallback binário por capacidade em degraus, usa mediana de várias amostras e registra o estado `degradado`; a razão nova fica pendente da bancada | Rodadas frias e mornas da M7, pico isolado de `steal`, cenários sintéticos e mutantes da M8 | Thread `ork-rm074m8agend` (#Fast) |
+| 2026-11-03 | M8 e M9 em produção na 0.6.5. M10 (seleção do `node --test` pelo grafo de import) arquivada sem merge | Cinco CHECKs da thread `ork-rm074m10sele` com PRECISA DE MUDANÇA; decisão 2a do dono em 03/11/2026 | Julio |
