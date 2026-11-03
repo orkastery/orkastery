@@ -9,6 +9,15 @@
       "para": "        if (true) {",
       "teste": "controller-simulado",
       "nome": "^esperarFimDaFase: falha cedo"
+    },
+    {
+      "id": "GL23-2",
+      "descricao": "a espera ignora a identidade adicional do watcher",
+      "arquivo": "core/dist-test/test/controller-simulado.js",
+      "de": "...(opcoes.identidades ?? [])",
+      "para": "...[]",
+      "teste": "controller-simulado",
+      "nome": "^esperarFimDaFase: aguarda o watcher"
     }
   ]
 }
