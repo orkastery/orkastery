@@ -33,6 +33,15 @@ interface ContextoEstatico {
 }
 
 const FUNCOES_DE_FS = new Set(['readFileSync', 'readFile', 'existsSync', 'statSync']);
+const MODULOS_FS = new Set(['fs', 'node:fs', 'fs/promises', 'node:fs/promises']);
+const MODULOS_VM = new Set(['vm', 'node:vm']);
+const MODULOS_GLOB = new Set(['glob']);
+
+interface LigacoesDeModulo {
+  pedidos: ReadonlySet<string>;
+  namespaces: Set<string>;
+  funcoes: Map<string, string>;
+}
 
 function barras(arquivo: string): string {
   return arquivo.split(path.sep).join('/');
@@ -66,6 +75,81 @@ function nomeDaPropriedade(expressao: ts.Expression): string | null {
     return expressao.argumentExpression.text;
   }
   return ts.isIdentifier(expressao) ? expressao.text : null;
+}
+
+function pedidoDeRequire(expressao: ts.Expression): string | null {
+  if (!ts.isCallExpression(expressao) || !ts.isIdentifier(expressao.expression)
+    || expressao.expression.text !== 'require' || expressao.arguments.length !== 1) return null;
+  const argumento = expressao.arguments[0];
+  return argumento && (ts.isStringLiteral(argumento) || ts.isNoSubstitutionTemplateLiteral(argumento))
+    ? argumento.text : null;
+}
+
+function desembrulharExpressao(expressao: ts.Expression): ts.Expression {
+  if (ts.isParenthesizedExpression(expressao)) return desembrulharExpressao(expressao.expression);
+  if (ts.isBinaryExpression(expressao) && expressao.operatorToken.kind === ts.SyntaxKind.CommaToken) {
+    return desembrulharExpressao(expressao.right);
+  }
+  return expressao;
+}
+
+function eNamespaceDoModulo(expressao: ts.Expression, ligacoes: LigacoesDeModulo): boolean {
+  const no = desembrulharExpressao(expressao);
+  if (ts.isIdentifier(no)) return ligacoes.namespaces.has(no.text);
+  const pedido = pedidoDeRequire(no);
+  if (pedido !== null) return ligacoes.pedidos.has(pedido);
+  if (ts.isCallExpression(no) && ts.isIdentifier(no.expression)
+    && ['__importStar', '__importDefault'].includes(no.expression.text) && no.arguments.length === 1) {
+    return eNamespaceDoModulo(no.arguments[0], ligacoes);
+  }
+  return (ts.isPropertyAccessExpression(no) || ts.isElementAccessExpression(no))
+    && nomeDaPropriedade(no) === 'promises' && eNamespaceDoModulo(no.expression, ligacoes);
+}
+
+function operacaoDoModulo(expressao: ts.Expression, ligacoes: LigacoesDeModulo): string | null {
+  const no = desembrulharExpressao(expressao);
+  if (ts.isIdentifier(no)) return ligacoes.funcoes.get(no.text) ?? null;
+  if ((ts.isPropertyAccessExpression(no) || ts.isElementAccessExpression(no))
+    && eNamespaceDoModulo(no.expression, ligacoes)) return nomeDaPropriedade(no);
+  return null;
+}
+
+function coletarLigacoesDoModulo(fonte: ts.SourceFile, pedidos: ReadonlySet<string>): LigacoesDeModulo {
+  const ligacoes: LigacoesDeModulo = { pedidos, namespaces: new Set(), funcoes: new Map() };
+  let mudou = true;
+  while (mudou) {
+    mudou = false;
+    const registrar = (no: ts.Node): void => {
+      if (ts.isVariableDeclaration(no) && no.initializer) {
+        if (ts.isIdentifier(no.name)) {
+          if (eNamespaceDoModulo(no.initializer, ligacoes) && !ligacoes.namespaces.has(no.name.text)) {
+            ligacoes.namespaces.add(no.name.text); mudou = true;
+          } else {
+            const operacao = operacaoDoModulo(no.initializer, ligacoes);
+            if (operacao !== null && ligacoes.funcoes.get(no.name.text) !== operacao) {
+              ligacoes.funcoes.set(no.name.text, operacao); mudou = true;
+            }
+          }
+        } else if (ts.isObjectBindingPattern(no.name) && eNamespaceDoModulo(no.initializer, ligacoes)) {
+          for (const item of no.name.elements) {
+            if (!ts.isIdentifier(item.name)) continue;
+            const propriedade = item.propertyName && (ts.isIdentifier(item.propertyName)
+              || ts.isStringLiteral(item.propertyName)) ? item.propertyName.text : item.name.text;
+            if (propriedade === 'promises') {
+              if (!ligacoes.namespaces.has(item.name.text)) {
+                ligacoes.namespaces.add(item.name.text); mudou = true;
+              }
+            } else if (ligacoes.funcoes.get(item.name.text) !== propriedade) {
+              ligacoes.funcoes.set(item.name.text, propriedade); mudou = true;
+            }
+          }
+        }
+      }
+      ts.forEachChild(no, registrar);
+    };
+    registrar(fonte);
+  }
+  return ligacoes;
 }
 
 function eRequireResolve(expressao: ts.Expression): boolean {
@@ -111,28 +195,37 @@ function avaliarCaminho(no: ts.Expression, contexto: ContextoEstatico, visitados
   return null;
 }
 
-function chamadasDeFs(no: ts.Node): ts.CallExpression[] {
-  const chamadas: ts.CallExpression[] = [];
+function chamadasDeFs(no: ts.Node, ligacoes: LigacoesDeModulo): Array<{ chamada: ts.CallExpression; operacao: string }> {
+  const chamadas: Array<{ chamada: ts.CallExpression; operacao: string }> = [];
   const visitar = (filho: ts.Node): void => {
-    if (ts.isCallExpression(filho) && FUNCOES_DE_FS.has(nomeDaPropriedade(filho.expression) ?? '')) chamadas.push(filho);
+    if (ts.isCallExpression(filho)) {
+      const operacao = operacaoDoModulo(filho.expression, ligacoes);
+      if (operacao !== null) chamadas.push({ chamada: filho, operacao });
+    }
     ts.forEachChild(filho, visitar);
   };
   visitar(no);
   return chamadas;
 }
 
-function wrappersDeFs(fonte: ts.SourceFile): Map<string, { parametros: string[]; chamadas: ts.CallExpression[] }> {
-  const wrappers = new Map<string, { parametros: string[]; chamadas: ts.CallExpression[] }>();
+function wrappersDeFs(fonte: ts.SourceFile, ligacoes: LigacoesDeModulo): Map<string, {
+  parametros: string[];
+  chamadas: Array<{ chamada: ts.CallExpression; operacao: string }>;
+}> {
+  const wrappers = new Map<string, {
+    parametros: string[];
+    chamadas: Array<{ chamada: ts.CallExpression; operacao: string }>;
+  }>();
   for (const declaracao of fonte.statements) {
     if (ts.isFunctionDeclaration(declaracao) && declaracao.name && declaracao.body) {
-      const chamadas = chamadasDeFs(declaracao.body);
+      const chamadas = chamadasDeFs(declaracao.body, ligacoes);
       if (chamadas.length) wrappers.set(declaracao.name.text, {
         parametros: declaracao.parameters.map((p) => ts.isIdentifier(p.name) ? p.name.text : ''), chamadas,
       });
     } else if (ts.isVariableStatement(declaracao)) {
       for (const item of declaracao.declarationList.declarations) {
         if (ts.isIdentifier(item.name) && item.initializer && (ts.isArrowFunction(item.initializer) || ts.isFunctionExpression(item.initializer))) {
-          const chamadas = chamadasDeFs(item.initializer.body);
+          const chamadas = chamadasDeFs(item.initializer.body, ligacoes);
           if (chamadas.length) wrappers.set(item.name.text, {
             parametros: item.initializer.parameters.map((p) => ts.isIdentifier(p.name) ? p.name.text : ''), chamadas,
           });
@@ -147,10 +240,17 @@ function dependenciasDoArquivo(distTest: string, arquivo: string): Dependencias 
   const texto = fs.readFileSync(arquivo, 'utf8');
   const fonte = ts.createSourceFile(arquivo, texto, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
   const contexto: ContextoEstatico = { arquivo, distTest, fonte, constantes: constantesDoModulo(fonte) };
-  const wrappers = wrappersDeFs(fonte);
+  const ligacoesFs = coletarLigacoesDoModulo(fonte, MODULOS_FS);
+  const ligacoesVm = coletarLigacoesDoModulo(fonte, MODULOS_VM);
+  const ligacoesGlob = coletarLigacoesDoModulo(fonte, MODULOS_GLOB);
+  const wrappers = wrappersDeFs(fonte, ligacoesFs);
   const locais: string[] = [], arquivos: string[] = [], incertezas: string[] = [];
   const wrappersInvocados = new Set<string>();
-  const registrarFs = (chamada: ts.CallExpression, ctx = contexto): void => {
+  const registrarFs = (chamada: ts.CallExpression, operacao: string, ctx = contexto): void => {
+    if (!FUNCOES_DE_FS.has(operacao)) {
+      incertezas.push(chamada.getText(fonte));
+      return;
+    }
     const argumento = chamada.arguments[0];
     const resolvido = argumento ? avaliarCaminho(argumento, ctx) : null;
     const arquivoResolvido = resolvido ? resolverArquivo(distTest, resolvido) : null;
@@ -160,6 +260,10 @@ function dependenciasDoArquivo(distTest: string, arquivo: string): Dependencias 
   const visitar = (no: ts.Node): void => {
     if (ts.isVariableDeclaration(no) && ts.isIdentifier(no.name) && wrappers.has(no.name.text)) return;
     if (ts.isFunctionDeclaration(no) && no.name && wrappers.has(no.name.text)) return;
+    if (ts.isNewExpression(no) && ((ts.isIdentifier(no.expression) && no.expression.text === 'Function')
+      || operacaoDoModulo(no.expression, ligacoesVm) !== null)) {
+      incertezas.push(no.getText(fonte));
+    }
     if (ts.isCallExpression(no)) {
       if (ts.isIdentifier(no.expression) && no.expression.text === 'require') {
         const argumento = no.arguments[0];
@@ -177,14 +281,21 @@ function dependenciasDoArquivo(distTest: string, arquivo: string): Dependencias 
           const resolvido = resolverArquivo(distTest, pedido);
           if (resolvido) arquivos.push(resolvido); else incertezas.push(pedido);
         }
-      } else if (FUNCOES_DE_FS.has(nomeDaPropriedade(no.expression) ?? '')) {
-        registrarFs(no);
-      } else if (ts.isIdentifier(no.expression) && wrappers.has(no.expression.text)) {
-        const wrapper = wrappers.get(no.expression.text)!;
-        wrappersInvocados.add(no.expression.text);
-        const parametros = new Map<string, ts.Expression>();
-        wrapper.parametros.forEach((nome, i) => { if (nome && no.arguments[i]) parametros.set(nome, no.arguments[i]); });
-        for (const chamada of wrapper.chamadas) registrarFs(chamada, { ...contexto, parametros });
+      } else {
+        const operacaoFs = operacaoDoModulo(no.expression, ligacoesFs);
+        if (operacaoFs !== null) registrarFs(no, operacaoFs);
+        else if ((ts.isIdentifier(no.expression) && ['eval', 'Function'].includes(no.expression.text))
+          || no.expression.kind === ts.SyntaxKind.ImportKeyword
+          || operacaoDoModulo(no.expression, ligacoesVm) !== null
+          || operacaoDoModulo(no.expression, ligacoesGlob) !== null) {
+          incertezas.push(no.getText(fonte));
+        } else if (ts.isIdentifier(no.expression) && wrappers.has(no.expression.text)) {
+          const wrapper = wrappers.get(no.expression.text)!;
+          wrappersInvocados.add(no.expression.text);
+          const parametros = new Map<string, ts.Expression>();
+          wrapper.parametros.forEach((nome, i) => { if (nome && no.arguments[i]) parametros.set(nome, no.arguments[i]); });
+          for (const { chamada, operacao } of wrapper.chamadas) registrarFs(chamada, operacao, { ...contexto, parametros });
+        }
       }
     }
     ts.forEachChild(no, visitar);

@@ -157,3 +157,62 @@ test('RM074 M10 S10: a lane hermetica compilada seleciona subconjunto estrito pa
   assert.ok(plano.arquivos.length > 0, 'ao menos o teste relacionado ou conservador roda');
   assert.ok(plano.arquivos.length < arquivos.length, `${plano.arquivos.length} de ${arquivos.length} precisam ser subconjunto estrito`);
 });
+
+test('RM074 M10 S11: enumeracao de diretorio prende somente o teste incerto', () => {
+  const f = fixture('enumera-diretorio', {
+    'test/a.test.js': "const fs = require('node:fs'); fs.readdirSync(__dirname);\n",
+    'test/b.test.js': "require('../src/b');\n",
+    'src/b.js': 'module.exports = true;\n',
+  });
+  try {
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/b.ts']);
+    assert.deepEqual(plano.arquivos, ['a.test.js', 'b.test.js']);
+    assert.deepEqual(plano.sempre?.dependenciaIncerta, ['a.test.js']);
+  } finally { f.limpar(); }
+});
+
+test('RM074 M10 S12: glob nativo ou de pacote prende somente o teste incerto', () => {
+  const f = fixture('glob', {
+    'test/a.test.js': "const fs = require('node:fs'); fs.globSync('**/*.js');\n",
+    'test/b.test.js': "require('../src/b');\n",
+    'test/c.test.js': "const { glob } = require('glob'); glob('**/*.json');\n",
+    'src/b.js': 'module.exports = true;\n',
+  });
+  try {
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js', 'c.test.js'], ['core/src/b.ts']);
+    assert.deepEqual(plano.arquivos, ['a.test.js', 'b.test.js', 'c.test.js']);
+    assert.deepEqual(plano.sempre?.dependenciaIncerta, ['a.test.js', 'c.test.js']);
+  } finally { f.limpar(); }
+});
+
+test('RM074 M10 S13: importacao construida prende somente o teste incerto', () => {
+  const f = fixture('codigo-construido', {
+    'test/a.test.js': "const importar = new Function('u', 'return import(u)'); importar('../src/a.js');\n",
+    'test/b.test.js': "require('../src/b');\n",
+    'src/b.js': 'module.exports = true;\n',
+  });
+  try {
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/b.ts']);
+    assert.deepEqual(plano.arquivos, ['a.test.js', 'b.test.js']);
+    assert.deepEqual(plano.sempre?.dependenciaIncerta, ['a.test.js']);
+  } finally { f.limpar(); }
+});
+
+test('RM074 M10 S14: outras leituras nao modeladas e codigo avaliado prendem seus testes', () => {
+  const f = fixture('fallback-conservador', {
+    'test/a.test.js': "const fs = require('node:fs'); fs.readdir(__dirname, () => {}); fs.opendirSync(__dirname);\n",
+    'test/b.test.js': "require('../src/b');\n",
+    'test/c.test.js': "const fsp = require('node:fs/promises'); fsp.readdir(__dirname);\n",
+    'test/d.test.js': "const { createReadStream } = require('node:fs'); createReadStream(__filename);\n",
+    'test/e.test.js': "const vm = require('node:vm'); new vm.Script('module.exports = true');\n",
+    'test/f.test.js': "eval('module.exports = true');\n",
+    'src/b.js': 'module.exports = true;\n',
+  });
+  try {
+    const arquivos = ['a.test.js', 'b.test.js', 'c.test.js', 'd.test.js', 'e.test.js', 'f.test.js'];
+    const plano = planejarSelecaoNode(f.distTest, arquivos, ['core/src/b.ts']);
+    assert.deepEqual(plano.arquivos, arquivos);
+    assert.deepEqual(plano.sempre?.dependenciaIncerta,
+      ['a.test.js', 'c.test.js', 'd.test.js', 'e.test.js', 'f.test.js']);
+  } finally { f.limpar(); }
+});

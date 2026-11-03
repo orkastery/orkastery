@@ -73,6 +73,33 @@
       "para": "if (arquivoResolvido)\n            arquivos.push(arquivoResolvido);\n        else if (false)\n            incertezas.push(argumento?.getText(fonte) ?? '<ausente>');",
       "teste": "selecionar-testes-node",
       "nome": "^RM074 M10 S9:"
+    },
+    {
+      "id": "M9",
+      "descricao": "enumeração de diretório deixa de prender o teste incerto",
+      "modulo": "seletor-node-test",
+      "de": "if (operacaoFs !== null)\n                    registrarFs(no, operacaoFs);",
+      "para": "if (operacaoFs !== null && operacaoFs !== 'readdirSync')\n                    registrarFs(no, operacaoFs);",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S11:"
+    },
+    {
+      "id": "M10",
+      "descricao": "glob deixa de prender o teste incerto",
+      "modulo": "seletor-node-test",
+      "de": "if (operacaoFs !== null)\n                    registrarFs(no, operacaoFs);",
+      "para": "if (operacaoFs !== null && operacaoFs !== 'globSync')\n                    registrarFs(no, operacaoFs);",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S12:"
+    },
+    {
+      "id": "M11",
+      "descricao": "importação por código construído deixa de prender o teste incerto",
+      "modulo": "seletor-node-test",
+      "de": "if (typescript_1.default.isNewExpression(no) && ((typescript_1.default.isIdentifier(no.expression) && no.expression.text === 'Function')\n            || operacaoDoModulo(no.expression, ligacoesVm) !== null)) {",
+      "para": "if (typescript_1.default.isNewExpression(no) && ((typescript_1.default.isIdentifier(no.expression) && false)\n            || operacaoDoModulo(no.expression, ligacoesVm) !== null)) {",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S13:"
     }
   ]
 }
