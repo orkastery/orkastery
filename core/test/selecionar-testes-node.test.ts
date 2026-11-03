@@ -216,3 +216,118 @@ test('RM074 M10 S14: outras leituras nao modeladas e codigo avaliado prendem seu
       ['a.test.js', 'c.test.js', 'd.test.js', 'e.test.js', 'f.test.js']);
   } finally { f.limpar(); }
 });
+
+test('RM074 M10 S15: alias de require prende o teste e explica arquivo e linha', () => {
+  const f = fixture('alias-require', {
+    'test/a.test.js': "const carregar = require;\ncarregar('../src/a.js');\n",
+    'test/b.test.js': "require('../src/b');\n",
+    'src/b.js': 'module.exports = true;\n',
+  });
+  try {
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/b.ts']);
+    assert.deepEqual(plano.arquivos, ['a.test.js', 'b.test.js']);
+    assert.deepEqual(plano.sempre?.dependenciaIncerta, ['a.test.js']);
+    assert.deepEqual(plano.incertezas, [{
+      testes: ['a.test.js'], arquivo: 'core/test/a.test.ts', linha: 1,
+      forma: 'uso de require fora de chamada direta',
+    }]);
+  } finally { f.limpar(); }
+});
+
+test('RM074 M10 S16: module.require prende o teste', () => {
+  const f = fixture('module-require', {
+    'test/a.test.js': "require('../src/a.js');\n",
+    'test/b.test.js': "require('../src/b');\n",
+    'src/a.js': "module.require('./oculto.js');\n",
+    'src/b.js': 'module.exports = true;\n',
+  });
+  try {
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/b.ts']);
+    assert.deepEqual(plano.arquivos, ['a.test.js', 'b.test.js']);
+    assert.ok(plano.incertezas?.some((causa) => causa.arquivo === 'core/src/a.ts'
+      && causa.forma === 'module.require'));
+  } finally { f.limpar(); }
+});
+
+test('RM074 M10 S17: createRequire prende o teste', () => {
+  const f = fixture('create-require', {
+    'test/a.test.js': "createRequire(__filename)('../src/a.js');\n",
+    'test/b.test.js': "require('../src/b');\n",
+    'src/b.js': 'module.exports = true;\n',
+  });
+  try {
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/b.ts']);
+    assert.deepEqual(plano.arquivos, ['a.test.js', 'b.test.js']);
+    assert.ok(plano.incertezas?.some((causa) => causa.forma === 'createRequire'));
+  } finally { f.limpar(); }
+});
+
+test('RM074 M10 S18: process.getBuiltinModule prende o teste', () => {
+  const f = fixture('builtin-module', {
+    'test/a.test.js': "process.getBuiltinModule('fs').readdirSync(__dirname);\n",
+    'test/b.test.js': "require('../src/b');\n",
+    'src/b.js': 'module.exports = true;\n',
+  });
+  try {
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/b.ts']);
+    assert.deepEqual(plano.arquivos, ['a.test.js', 'b.test.js']);
+    assert.ok(plano.incertezas?.some((causa) => causa.forma === 'process.getBuiltinModule'));
+  } finally { f.limpar(); }
+});
+
+test('RM074 M10 S19: Worker prende o teste', () => {
+  const f = fixture('worker', {
+    'test/a.test.js': "new Worker('../src/worker.js');\n",
+    'test/b.test.js': "require('../src/b');\n",
+    'src/b.js': 'module.exports = true;\n',
+  });
+  try {
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/b.ts']);
+    assert.deepEqual(plano.arquivos, ['a.test.js', 'b.test.js']);
+    assert.ok(plano.incertezas?.some((causa) => causa.forma === 'construtor Worker'));
+  } finally { f.limpar(); }
+});
+
+test('RM074 M10 S20: acesso computado em globalThis prende o teste', () => {
+  const f = fixture('global-computado', {
+    'test/a.test.js': "globalThis['req' + 'uire']('../src/a.js');\n",
+    'test/b.test.js': "require('../src/b');\n",
+    'src/b.js': 'module.exports = true;\n',
+  });
+  try {
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/b.ts']);
+    assert.deepEqual(plano.arquivos, ['a.test.js', 'b.test.js']);
+    assert.ok(plano.incertezas?.some((causa) => causa.forma === 'acesso computado em objeto sensível'));
+  } finally { f.limpar(); }
+});
+
+test('RM074 M10 S21: modulo nativo fora da lista curta prende o teste', () => {
+  const f = fixture('nativo-fora-lista', {
+    'test/a.test.js': "require('node:querystring');\n",
+    'test/b.test.js': "require('../src/b');\n",
+    'src/b.js': 'module.exports = true;\n',
+  });
+  try {
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/b.ts']);
+    assert.deepEqual(plano.arquivos, ['a.test.js', 'b.test.js']);
+    assert.ok(plano.incertezas?.some((causa) => causa.forma === 'módulo fora da lista segura: node:querystring'));
+  } finally { f.limpar(); }
+});
+
+test('RM074 M10 S22: fecho formado somente por formas seguras continua selecionavel', () => {
+  const f = fixture('fecho-seguro', {
+    'test/a.test.js': "const path = require('node:path'); const assert = require('node:assert');\n" +
+      "const ALVO = path.join(__dirname, '..', 'src', 'a.js'); require(ALVO); assert.ok(true);\n",
+    'test/b.test.js': "require('../src/b');\n",
+    'src/a.js': "const fs = require('node:fs'); const path = require('node:path');\n" +
+      "fs.existsSync(path.join(__dirname, 'fixture.json')); module.exports = true;\n",
+    'src/fixture.json': '{"ok":true}\n',
+    'src/b.js': 'module.exports = true;\n',
+  });
+  try {
+    const plano = planejarSelecaoNode(f.distTest, ['a.test.js', 'b.test.js'], ['core/src/a.ts']);
+    assert.deepEqual(plano.arquivos, ['a.test.js']);
+    assert.deepEqual(plano.sempre?.dependenciaIncerta, []);
+    assert.deepEqual(plano.incertezas, []);
+  } finally { f.limpar(); }
+});

@@ -16,12 +16,19 @@ export interface PlanoDaSelecaoNode {
     processoFilho: string[];
     dependenciaIncerta: string[];
   };
+  incertezas?: Array<{
+    testes: string[];
+    arquivo: string;
+    linha: number;
+    forma: string;
+  }>;
 }
 
 interface Dependencias {
-  locais: string[];
+  locais: Array<{ pedido: string; linha: number; forma: string }>;
+  modulos: string[];
   arquivos: string[];
-  incertezas: string[];
+  incertezas: Array<{ linha: number; forma: string }>;
 }
 
 interface ContextoEstatico {
@@ -29,13 +36,25 @@ interface ContextoEstatico {
   distTest: string;
   fonte: ts.SourceFile;
   constantes: Map<string, ts.Expression>;
+  ligacoesPath: LigacoesDeModulo;
   parametros?: Map<string, ts.Expression>;
 }
 
 const FUNCOES_DE_FS = new Set(['readFileSync', 'readFile', 'existsSync', 'statSync']);
-const MODULOS_FS = new Set(['fs', 'node:fs', 'fs/promises', 'node:fs/promises']);
+const MODULOS_FS = new Set(['fs', 'node:fs']);
+const MODULOS_PATH = new Set(['path', 'node:path']);
 const MODULOS_VM = new Set(['vm', 'node:vm']);
 const MODULOS_GLOB = new Set(['glob']);
+const MODULOS_NATIVOS_SEGUROS = new Set([
+  'path', 'node:path', 'assert', 'node:assert', 'node:assert/strict', 'util', 'node:util',
+  'events', 'node:events', 'crypto', 'node:crypto', 'url', 'node:url', 'os', 'node:os',
+  'test', 'node:test', 'buffer', 'node:buffer', 'timers', 'node:timers',
+  'string_decoder', 'node:string_decoder',
+]);
+const OPERACOES_PERIGOSAS_DE_PROCESS = new Set([
+  'getBuiltinModule', 'binding', 'dlopen', 'mainModule',
+]);
+const PROPRIEDADES_SEGURAS_DE_MODULE = new Set(['exports']);
 
 interface LigacoesDeModulo {
   pedidos: ReadonlySet<string>;
@@ -109,7 +128,7 @@ function eNamespaceDoModulo(expressao: ts.Expression, ligacoes: LigacoesDeModulo
 function operacaoDoModulo(expressao: ts.Expression, ligacoes: LigacoesDeModulo): string | null {
   const no = desembrulharExpressao(expressao);
   if (ts.isIdentifier(no)) return ligacoes.funcoes.get(no.text) ?? null;
-  if ((ts.isPropertyAccessExpression(no) || ts.isElementAccessExpression(no))
+  if (ts.isPropertyAccessExpression(no)
     && eNamespaceDoModulo(no.expression, ligacoes)) return nomeDaPropriedade(no);
   return null;
 }
@@ -186,13 +205,70 @@ function avaliarCaminho(no: ts.Expression, contexto: ContextoEstatico, visitados
     if (path.isAbsolute(pedido)) return resolverArquivo(contexto.distTest, pedido);
     return resolverModulo(contexto.distTest, contexto.arquivo, pedido);
   }
-  if (ts.isCallExpression(no) && ts.isPropertyAccessExpression(no.expression)
-    && ['join', 'resolve'].includes(no.expression.name.text)) {
+  if (ts.isCallExpression(no)) {
+    const operacaoPath = operacaoDoModulo(no.expression, contexto.ligacoesPath);
+    if (!operacaoPath || !['join', 'resolve'].includes(operacaoPath)) return null;
     const partes = no.arguments.map((argumento) => avaliarCaminho(argumento, contexto, visitados));
     if (partes.some((parte) => parte === null)) return null;
-    return no.expression.name.text === 'join' ? path.join(...partes as string[]) : path.resolve(...partes as string[]);
+    return operacaoPath === 'join' ? path.join(...partes as string[]) : path.resolve(...partes as string[]);
   }
   return null;
+}
+
+function avaliarPedidoDeRequire(no: ts.Expression, contexto: ContextoEstatico): string | null {
+  if (ts.isStringLiteral(no) || ts.isNoSubstitutionTemplateLiteral(no)) return no.text;
+  if (!ts.isIdentifier(no)) return avaliarCaminho(no, contexto);
+  const constante = contexto.constantes.get(no.text);
+  if (!constante || !ts.isCallExpression(constante)) return null;
+  const operacaoPath = operacaoDoModulo(constante.expression, contexto.ligacoesPath);
+  return operacaoPath && ['join', 'resolve'].includes(operacaoPath) ? avaliarCaminho(constante, contexto) : null;
+}
+
+function linhaDoNo(fonte: ts.SourceFile, no: ts.Node): number {
+  return fonte.getLineAndCharacterOfPosition(no.getStart(fonte)).line + 1;
+}
+
+function nomeDeBindingContemRequire(nome: ts.BindingName): boolean {
+  if (ts.isIdentifier(nome)) return nome.text === 'require';
+  return nome.elements.some((item) => !ts.isOmittedExpression(item) && nomeDeBindingContemRequire(item.name));
+}
+
+function requireFoiSombreado(fonte: ts.SourceFile): boolean {
+  let sombreado = false;
+  const visitar = (no: ts.Node): void => {
+    if (sombreado) return;
+    if ((ts.isVariableDeclaration(no) || ts.isParameter(no)) && nomeDeBindingContemRequire(no.name)) sombreado = true;
+    else if ((ts.isFunctionDeclaration(no) || ts.isClassDeclaration(no)) && no.name?.text === 'require') sombreado = true;
+    else ts.forEachChild(no, visitar);
+  };
+  visitar(fonte);
+  return sombreado;
+}
+
+function eChamadaDiretaDeRequire(no: ts.CallExpression, sombreado: boolean): boolean {
+  return !sombreado && ts.isIdentifier(no.expression) && no.expression.text === 'require';
+}
+
+function usoPermitidoDeRequire(no: ts.Identifier, sombreado: boolean): boolean {
+  if (sombreado) return false;
+  const pai = no.parent;
+  if (ts.isCallExpression(pai) && pai.expression === no) return true;
+  return ts.isPropertyAccessExpression(pai) && pai.expression === no && pai.name.text === 'resolve'
+    && ts.isCallExpression(pai.parent) && pai.parent.expression === pai;
+}
+
+function eCreateRequire(no: ts.Expression): boolean {
+  return (ts.isIdentifier(no) && no.text === 'createRequire')
+    || (ts.isPropertyAccessExpression(no) && no.name.text === 'createRequire');
+}
+
+function eConstrutorWorker(no: ts.Expression): boolean {
+  return (ts.isIdentifier(no) && no.text === 'Worker')
+    || (ts.isPropertyAccessExpression(no) && no.name.text === 'Worker');
+}
+
+function eModuloSemCargaDeArquivo(pedido: string): boolean {
+  return MODULOS_FS.has(pedido) || MODULOS_NATIVOS_SEGUROS.has(pedido);
 }
 
 function chamadasDeFs(no: ts.Node, ligacoes: LigacoesDeModulo): Array<{ chamada: ts.CallExpression; operacao: string }> {
@@ -211,16 +287,19 @@ function chamadasDeFs(no: ts.Node, ligacoes: LigacoesDeModulo): Array<{ chamada:
 function wrappersDeFs(fonte: ts.SourceFile, ligacoes: LigacoesDeModulo): Map<string, {
   parametros: string[];
   chamadas: Array<{ chamada: ts.CallExpression; operacao: string }>;
+  no: ts.Node;
 }> {
   const wrappers = new Map<string, {
     parametros: string[];
     chamadas: Array<{ chamada: ts.CallExpression; operacao: string }>;
+    no: ts.Node;
   }>();
   for (const declaracao of fonte.statements) {
     if (ts.isFunctionDeclaration(declaracao) && declaracao.name && declaracao.body) {
       const chamadas = chamadasDeFs(declaracao.body, ligacoes);
       if (chamadas.length) wrappers.set(declaracao.name.text, {
         parametros: declaracao.parameters.map((p) => ts.isIdentifier(p.name) ? p.name.text : ''), chamadas,
+        no: declaracao,
       });
     } else if (ts.isVariableStatement(declaracao)) {
       for (const item of declaracao.declarationList.declarations) {
@@ -228,6 +307,7 @@ function wrappersDeFs(fonte: ts.SourceFile, ligacoes: LigacoesDeModulo): Map<str
           const chamadas = chamadasDeFs(item.initializer.body, ligacoes);
           if (chamadas.length) wrappers.set(item.name.text, {
             parametros: item.initializer.parameters.map((p) => ts.isIdentifier(p.name) ? p.name.text : ''), chamadas,
+            no: item,
           });
         }
       }
@@ -239,57 +319,134 @@ function wrappersDeFs(fonte: ts.SourceFile, ligacoes: LigacoesDeModulo): Map<str
 function dependenciasDoArquivo(distTest: string, arquivo: string): Dependencias {
   const texto = fs.readFileSync(arquivo, 'utf8');
   const fonte = ts.createSourceFile(arquivo, texto, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
-  const contexto: ContextoEstatico = { arquivo, distTest, fonte, constantes: constantesDoModulo(fonte) };
   const ligacoesFs = coletarLigacoesDoModulo(fonte, MODULOS_FS);
+  const ligacoesPath = coletarLigacoesDoModulo(fonte, MODULOS_PATH);
   const ligacoesVm = coletarLigacoesDoModulo(fonte, MODULOS_VM);
   const ligacoesGlob = coletarLigacoesDoModulo(fonte, MODULOS_GLOB);
+  const contexto: ContextoEstatico = {
+    arquivo, distTest, fonte, constantes: constantesDoModulo(fonte), ligacoesPath,
+  };
   const wrappers = wrappersDeFs(fonte, ligacoesFs);
-  const locais: string[] = [], arquivos: string[] = [], incertezas: string[] = [];
+  const locais: Dependencias['locais'] = [], modulos: string[] = [], arquivos: string[] = [];
+  const incertezas = new Map<string, { linha: number; forma: string }>();
   const wrappersInvocados = new Set<string>();
+  const sombreado = requireFoiSombreado(fonte);
+  const marcar = (no: ts.Node, forma: string): void => {
+    const linha = linhaDoNo(fonte, no);
+    incertezas.set(`${linha}:${forma}`, { linha, forma });
+  };
   const registrarFs = (chamada: ts.CallExpression, operacao: string, ctx = contexto): void => {
     if (!FUNCOES_DE_FS.has(operacao)) {
-      incertezas.push(chamada.getText(fonte));
+      marcar(chamada, `operação de fs fora da lista segura: ${operacao}`);
       return;
     }
     const argumento = chamada.arguments[0];
     const resolvido = argumento ? avaliarCaminho(argumento, ctx) : null;
     const arquivoResolvido = resolvido ? resolverArquivo(distTest, resolvido) : null;
     if (arquivoResolvido) arquivos.push(arquivoResolvido);
-    else incertezas.push(argumento?.getText(fonte) ?? '<ausente>');
+    else marcar(argumento ?? chamada, `caminho de fs não resolvido em ${operacao}`);
   };
+  const validarForma = (no: ts.Node): void => {
+    if (ts.isNewExpression(no)) {
+      if ((ts.isIdentifier(no.expression) && no.expression.text === 'Function')
+        || operacaoDoModulo(no.expression, ligacoesVm) !== null) marcar(no, 'construtor de código dinâmico');
+      else if (eConstrutorWorker(no.expression)) marcar(no, 'construtor Worker');
+    }
+    if (ts.isCallExpression(no)) {
+      if (no.expression.kind === ts.SyntaxKind.ImportKeyword) marcar(no, 'importação dinâmica');
+      else if (ts.isIdentifier(no.expression) && ['eval', 'Function'].includes(no.expression.text)) {
+        marcar(no, `execução dinâmica por ${no.expression.text}`);
+      } else if (eCreateRequire(no.expression)) marcar(no, 'createRequire');
+      else if (operacaoDoModulo(no.expression, ligacoesVm) !== null) marcar(no, 'execução por vm');
+      else if (operacaoDoModulo(no.expression, ligacoesGlob) !== null) marcar(no, 'descoberta por glob');
+      else if (ts.isPropertyAccessExpression(no.expression)
+        && ts.isIdentifier(no.expression.expression) && no.expression.expression.text === 'process'
+        && OPERACOES_PERIGOSAS_DE_PROCESS.has(no.expression.name.text)) {
+        marcar(no, `process.${no.expression.name.text}`);
+      }
+    }
+    if (ts.isElementAccessExpression(no)) {
+      const base = desembrulharExpressao(no.expression);
+      if ((ts.isIdentifier(base) && ['globalThis', 'global', 'process', 'module', 'require'].includes(base.text))
+        || eNamespaceDoModulo(base, ligacoesFs)) marcar(no, 'acesso computado em objeto sensível');
+    }
+    if (ts.isPropertyAccessExpression(no)) {
+      if (ts.isIdentifier(no.expression) && no.expression.text === 'module'
+        && !PROPRIEDADES_SEGURAS_DE_MODULE.has(no.name.text)) marcar(no, `module.${no.name.text}`);
+      if (ts.isIdentifier(no.expression) && ['globalThis', 'global'].includes(no.expression.text)
+        && ['require', 'module', 'process'].includes(no.name.text)) marcar(no, `${no.expression.text}.${no.name.text}`);
+      if (eNamespaceDoModulo(no.expression, ligacoesFs)) {
+        const pai = no.parent;
+        const operacao = nomeDaPropriedade(no) ?? '<desconhecida>';
+        const chamadaDireta = ts.isCallExpression(pai) && pai.expression === no;
+        const aliasEstatico = ts.isVariableDeclaration(pai) && pai.initializer === no;
+        const namespacePromises = operacao === 'promises' && ts.isPropertyAccessExpression(pai) && pai.expression === no;
+        if (!chamadaDireta && !aliasEstatico && !namespacePromises) marcar(no, `referência de fs passada adiante: ${operacao}`);
+      }
+    }
+    if (ts.isIdentifier(no)) {
+      const pai = no.parent;
+      const nomeDePropriedade = ts.isPropertyAccessExpression(pai) && pai.name === no;
+      const nomeDeDeclaracao = (ts.isVariableDeclaration(pai) || ts.isParameter(pai)) && pai.name === no;
+      const nomeDeBinding = ts.isBindingElement(pai) && (pai.name === no || pai.propertyName === no);
+      if (no.text === 'require' && !nomeDePropriedade && !usoPermitidoDeRequire(no, sombreado)) {
+        marcar(no, 'uso de require fora de chamada direta');
+      } else if (no.text === 'module' && !nomeDePropriedade
+        && !(ts.isPropertyAccessExpression(pai) && pai.expression === no)
+        && !(ts.isElementAccessExpression(pai) && pai.expression === no)) {
+        marcar(no, 'uso de module fora de module.exports');
+      } else if (no.text === 'process' && !nomeDePropriedade
+        && !(ts.isPropertyAccessExpression(pai) && pai.expression === no)
+        && !(ts.isElementAccessExpression(pai) && pai.expression === no)) {
+        marcar(no, 'referência de process passada adiante');
+      } else if (eCreateRequire(no) && !nomeDePropriedade
+        && !(ts.isCallExpression(pai) && pai.expression === no)) marcar(no, 'referência a createRequire');
+      else if (eConstrutorWorker(no) && !nomeDePropriedade
+        && !(ts.isNewExpression(pai) && pai.expression === no)) marcar(no, 'referência a Worker');
+      else if (['eval', 'Function'].includes(no.text) && !nomeDePropriedade
+        && !(ts.isCallExpression(pai) && pai.expression === no)
+        && !(ts.isNewExpression(pai) && pai.expression === no)) marcar(no, `referência a ${no.text}`);
+      if (!nomeDePropriedade && !nomeDeDeclaracao && !nomeDeBinding
+        && (ligacoesFs.namespaces.has(no.text) || ligacoesFs.funcoes.has(no.text))) {
+        const baseDePropriedade = ts.isPropertyAccessExpression(pai) && pai.expression === no;
+        const funcaoChamada = ts.isCallExpression(pai) && pai.expression === no;
+        const aliasEstatico = ts.isVariableDeclaration(pai) && pai.initializer === no;
+        if (!baseDePropriedade && !funcaoChamada && !aliasEstatico) marcar(no, 'referência de fs passada adiante');
+      }
+    }
+    ts.forEachChild(no, validarForma);
+  };
+  validarForma(fonte);
   const visitar = (no: ts.Node): void => {
     if (ts.isVariableDeclaration(no) && ts.isIdentifier(no.name) && wrappers.has(no.name.text)) return;
     if (ts.isFunctionDeclaration(no) && no.name && wrappers.has(no.name.text)) return;
-    if (ts.isNewExpression(no) && ((ts.isIdentifier(no.expression) && no.expression.text === 'Function')
-      || operacaoDoModulo(no.expression, ligacoesVm) !== null)) {
-      incertezas.push(no.getText(fonte));
-    }
     if (ts.isCallExpression(no)) {
-      if (ts.isIdentifier(no.expression) && no.expression.text === 'require') {
+      if (eChamadaDiretaDeRequire(no, sombreado)) {
         const argumento = no.arguments[0];
-        if (no.arguments.length !== 1 || !argumento || !(ts.isStringLiteral(argumento)
-          || ts.isNoSubstitutionTemplateLiteral(argumento))) {
-          incertezas.push(argumento?.getText(fonte) ?? '<ausente>');
-        } else if (argumento.text.startsWith('.')) locais.push(argumento.text);
-        else if (path.isAbsolute(argumento.text)) incertezas.push(argumento.text);
-      } else if (eRequireResolve(no.expression)) {
-        const argumento = no.arguments[0];
-        const pedido = argumento ? avaliarCaminho(argumento, contexto) : null;
-        if (!pedido) incertezas.push(argumento?.getText(fonte) ?? '<ausente>');
-        else if (pedido.startsWith('.')) locais.push(pedido);
+        const pedido = no.arguments.length === 1 && argumento ? avaliarPedidoDeRequire(argumento, contexto) : null;
+        if (!pedido) marcar(argumento ?? no, 'require com caminho não resolvido');
+        else if (pedido.startsWith('.')) locais.push({
+          pedido, linha: linhaDoNo(fonte, no), forma: `require(${pedido})`,
+        });
         else if (path.isAbsolute(pedido)) {
           const resolvido = resolverArquivo(distTest, pedido);
-          if (resolvido) arquivos.push(resolvido); else incertezas.push(pedido);
-        }
+          if (resolvido) modulos.push(resolvido); else marcar(argumento ?? no, `require não resolvido: ${pedido}`);
+        } else if (!eModuloSemCargaDeArquivo(pedido)) marcar(no, `módulo fora da lista segura: ${pedido}`);
+      } else if (!sombreado && eRequireResolve(no.expression)) {
+        const argumento = no.arguments[0];
+        const pedido = no.arguments.length === 1 && argumento ? avaliarPedidoDeRequire(argumento, contexto) : null;
+        if (!pedido) marcar(argumento ?? no, 'require.resolve com caminho não resolvido');
+        else if (pedido.startsWith('.')) locais.push({
+          pedido, linha: linhaDoNo(fonte, no), forma: `require.resolve(${pedido})`,
+        });
+        else if (path.isAbsolute(pedido)) {
+          const resolvido = resolverArquivo(distTest, pedido);
+          if (resolvido) modulos.push(resolvido); else marcar(argumento ?? no, `require.resolve não resolvido: ${pedido}`);
+        } else if (!eModuloSemCargaDeArquivo(pedido)) marcar(no, `módulo fora da lista segura: ${pedido}`);
       } else {
         const operacaoFs = operacaoDoModulo(no.expression, ligacoesFs);
         if (operacaoFs !== null) registrarFs(no, operacaoFs);
-        else if ((ts.isIdentifier(no.expression) && ['eval', 'Function'].includes(no.expression.text))
-          || no.expression.kind === ts.SyntaxKind.ImportKeyword
-          || operacaoDoModulo(no.expression, ligacoesVm) !== null
-          || operacaoDoModulo(no.expression, ligacoesGlob) !== null) {
-          incertezas.push(no.getText(fonte));
-        } else if (ts.isIdentifier(no.expression) && wrappers.has(no.expression.text)) {
+        else if (ts.isIdentifier(no.expression) && wrappers.has(no.expression.text)) {
           const wrapper = wrappers.get(no.expression.text)!;
           wrappersInvocados.add(no.expression.text);
           const parametros = new Map<string, ts.Expression>();
@@ -301,8 +458,14 @@ function dependenciasDoArquivo(distTest: string, arquivo: string): Dependencias 
     ts.forEachChild(no, visitar);
   };
   visitar(fonte);
-  for (const nome of wrappers.keys()) if (!wrappersInvocados.has(nome)) incertezas.push(`${nome}(<indeterminado>)`);
-  return { locais: [...new Set(locais)], arquivos: [...new Set(arquivos)], incertezas: [...new Set(incertezas)] };
+  for (const [nome, wrapper] of wrappers) {
+    if (!wrappersInvocados.has(nome)) marcar(wrapper.no, `wrapper de fs não invocado: ${nome}`);
+  }
+  const locaisUnicos = new Map(locais.map((item) => [`${item.pedido}:${item.linha}`, item]));
+  return {
+    locais: [...locaisUnicos.values()], modulos: [...new Set(modulos)], arquivos: [...new Set(arquivos)],
+    incertezas: [...incertezas.values()],
+  };
 }
 
 /** Extensão do fonte TypeScript que corresponde ao teste compilado. */
@@ -325,8 +488,8 @@ export function testeSobeProcesso(texto: string): boolean {
 }
 
 /**
- * Cada teste tem seu próprio fecho. Dependência incerta prende somente esse teste; os fechos inteiramente resolvidos
- * continuam selecionáveis. Pacotes e módulos `node:` não participam do mapa porque não aparecem no diff da F5.
+ * Cada teste tem seu próprio fecho. Só arquivos formados por cargas que o seletor resolve participam do grafo;
+ * qualquer outra forma prende o teste e deixa causa, arquivo e linha no plano.
  */
 export function planejarSelecaoNode(distTest: string, arquivosDaLane: readonly string[], alteradosRecebidos: readonly string[]): PlanoDaSelecaoNode {
   const completos = [...new Set(arquivosDaLane)].sort();
@@ -349,6 +512,17 @@ export function planejarSelecaoNode(distTest: string, arquivosDaLane: readonly s
   const fechos = new Map<string, Set<string>>();
   const processos = new Set<string>();
   const incertos = new Set<string>();
+  const causas = new Map<string, {
+    testes: Set<string>; arquivo: string; linha: number; forma: string;
+  }>();
+  const registrarCausa = (teste: string, arquivo: string, linha: number, forma: string): void => {
+    const arquivoFonte = caminhoDeFonte(distTest, arquivo);
+    const chave = `${arquivoFonte}:${linha}:${forma}`;
+    const existente = causas.get(chave);
+    if (existente) existente.testes.add(teste);
+    else causas.set(chave, { testes: new Set([teste]), arquivo: arquivoFonte, linha, forma });
+    incertos.add(teste);
+  };
   for (const nome of completos) {
     const raiz = path.join(dirDosTestes, nome);
     if (!fs.statSync(raiz, { throwIfNoEntry: false })?.isFile()) {
@@ -361,10 +535,18 @@ export function planejarSelecaoNode(distTest: string, arquivosDaLane: readonly s
     while (pilha.length) {
       const atual = pilha.pop()!;
       const dependencias = ler(atual);
-      if (dependencias.incertezas.length) incertos.add(nome);
-      for (const pedido of dependencias.locais) {
-        const resolvido = resolverModulo(distTest, atual, pedido);
-        if (!resolvido) { incertos.add(nome); continue; }
+      for (const incerteza of dependencias.incertezas) {
+        registrarCausa(nome, atual, incerteza.linha, incerteza.forma);
+      }
+      for (const dependencia of dependencias.locais) {
+        const resolvido = resolverModulo(distTest, atual, dependencia.pedido);
+        if (!resolvido) {
+          registrarCausa(nome, atual, dependencia.linha, `caminho local não resolvido: ${dependencia.forma}`);
+          continue;
+        }
+        if (!vistos.has(resolvido)) { vistos.add(resolvido); pilha.push(resolvido); }
+      }
+      for (const resolvido of dependencias.modulos) {
         if (!vistos.has(resolvido)) { vistos.add(resolvido); pilha.push(resolvido); }
       }
       for (const resolvido of dependencias.arquivos) arquivosLidos.add(resolvido);
@@ -375,6 +557,11 @@ export function planejarSelecaoNode(distTest: string, arquivosDaLane: readonly s
   const mudou = new Set(alterados);
   const selecionados = completos.filter((nome) => processos.has(nome) || incertos.has(nome)
     || [...(fechos.get(nome) ?? [])].some((arquivo) => mudou.has(arquivo)));
+  const incertezas = [...causas.values()].map((causa) => ({
+    ...causa, testes: [...causa.testes].sort(),
+  })).sort((a, b) => a.arquivo.localeCompare(b.arquivo) || a.linha - b.linha
+    || a.forma.localeCompare(b.forma));
   return { modo: 'selecionada', motivo: 'selecionada', arquivos: selecionados, alterados,
-    sempre: { processoFilho: [...processos].sort(), dependenciaIncerta: [...incertos].sort() } };
+    sempre: { processoFilho: [...processos].sort(), dependenciaIncerta: [...incertos].sort() },
+    incertezas };
 }

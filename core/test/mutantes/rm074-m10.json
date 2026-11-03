@@ -15,8 +15,8 @@
       "id": "M2",
       "descricao": "require dinâmico deixa de prender o teste incerto",
       "modulo": "seletor-node-test",
-      "de": "if (dependencias.incertezas.length)\n                incertos.add(nome);",
-      "para": "if (false)\n                incertos.add(nome);",
+      "de": "incertos.add(teste);",
+      "para": "if (false) incertos.add(teste);",
       "teste": "selecionar-testes-node",
       "nome": "^RM074 M10 S3:"
     },
@@ -69,8 +69,8 @@
       "id": "M8",
       "descricao": "caminho de fs não resolvido deixa de prender o teste incerto",
       "modulo": "seletor-node-test",
-      "de": "if (arquivoResolvido)\n            arquivos.push(arquivoResolvido);\n        else\n            incertezas.push(argumento?.getText(fonte) ?? '<ausente>');",
-      "para": "if (arquivoResolvido)\n            arquivos.push(arquivoResolvido);\n        else if (false)\n            incertezas.push(argumento?.getText(fonte) ?? '<ausente>');",
+      "de": "else\n            marcar(argumento ?? chamada, `caminho de fs não resolvido em ${operacao}`);",
+      "para": "else if (false)\n            marcar(argumento ?? chamada, `caminho de fs não resolvido em ${operacao}`);",
       "teste": "selecionar-testes-node",
       "nome": "^RM074 M10 S9:"
     },
@@ -96,10 +96,73 @@
       "id": "M11",
       "descricao": "importação por código construído deixa de prender o teste incerto",
       "modulo": "seletor-node-test",
-      "de": "if (typescript_1.default.isNewExpression(no) && ((typescript_1.default.isIdentifier(no.expression) && no.expression.text === 'Function')\n            || operacaoDoModulo(no.expression, ligacoesVm) !== null)) {",
-      "para": "if (typescript_1.default.isNewExpression(no) && ((typescript_1.default.isIdentifier(no.expression) && false)\n            || operacaoDoModulo(no.expression, ligacoesVm) !== null)) {",
+      "de": "typescript_1.default.isIdentifier(no.expression) && no.expression.text === 'Function'",
+      "para": "typescript_1.default.isIdentifier(no.expression) && false",
       "teste": "selecionar-testes-node",
       "nome": "^RM074 M10 S13:"
+    },
+    {
+      "id": "M12",
+      "descricao": "alias do require deixa de prender o teste",
+      "modulo": "seletor-node-test",
+      "de": "if (no.text === 'require' && !nomeDePropriedade && !usoPermitidoDeRequire(no, sombreado)) {",
+      "para": "if (false && !nomeDePropriedade && !usoPermitidoDeRequire(no, sombreado)) {",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S15:"
+    },
+    {
+      "id": "M13",
+      "descricao": "module.require passa a ser tratado como propriedade segura",
+      "modulo": "seletor-node-test",
+      "de": "const PROPRIEDADES_SEGURAS_DE_MODULE = new Set(['exports']);",
+      "para": "const PROPRIEDADES_SEGURAS_DE_MODULE = new Set(['exports', 'require']);",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S16:"
+    },
+    {
+      "id": "M14",
+      "descricao": "createRequire deixa de prender o teste",
+      "modulo": "seletor-node-test",
+      "de": "function eCreateRequire(no) {\n    return (typescript_1.default.isIdentifier(no) && no.text === 'createRequire')\n        || (typescript_1.default.isPropertyAccessExpression(no) && no.name.text === 'createRequire');\n}",
+      "para": "function eCreateRequire(no) {\n    return false;\n}",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S17:"
+    },
+    {
+      "id": "M15",
+      "descricao": "process.getBuiltinModule deixa de prender o teste",
+      "modulo": "seletor-node-test",
+      "de": "'getBuiltinModule', 'binding', 'dlopen', 'mainModule',",
+      "para": "'binding', 'dlopen', 'mainModule',",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S18:"
+    },
+    {
+      "id": "M16",
+      "descricao": "Worker deixa de prender o teste",
+      "modulo": "seletor-node-test",
+      "de": "function eConstrutorWorker(no) {\n    return (typescript_1.default.isIdentifier(no) && no.text === 'Worker')\n        || (typescript_1.default.isPropertyAccessExpression(no) && no.name.text === 'Worker');\n}",
+      "para": "function eConstrutorWorker(no) {\n    return false;\n}",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S19:"
+    },
+    {
+      "id": "M17",
+      "descricao": "acesso computado em globalThis deixa de prender o teste",
+      "modulo": "seletor-node-test",
+      "de": "['globalThis', 'global', 'process', 'module', 'require'].includes(base.text)",
+      "para": "['global', 'process', 'module', 'require'].includes(base.text)",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S20:"
+    },
+    {
+      "id": "M18",
+      "descricao": "nativo fora da lista curta passa a ser tratado como seguro",
+      "modulo": "seletor-node-test",
+      "de": "return MODULOS_FS.has(pedido) || MODULOS_NATIVOS_SEGUROS.has(pedido);",
+      "para": "return MODULOS_FS.has(pedido) || MODULOS_NATIVOS_SEGUROS.has(pedido) || pedido === 'node:querystring';",
+      "teste": "selecionar-testes-node",
+      "nome": "^RM074 M10 S21:"
     }
   ]
 }
