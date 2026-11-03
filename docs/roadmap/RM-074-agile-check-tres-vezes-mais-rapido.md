@@ -378,11 +378,12 @@ mas não mede o resultado dela.
 
 ### M10: seleção do `node --test` pelo grafo de importação
 
-A Sonda 4 mostrou os dois limites que orientam esta fatia. Um diff distante dos
-módulos centrais alcança poucos testes pelo grafo estático, enquanto a cadeia de
-`locale-*` alcança quase toda a lane. O runner nativo não oferece seleção pelo
-diff, por isso a rodada morna do próprio projeto continuava integral mesmo depois
-da F5 da RM-081.
+A Sonda 4 mostrou os dois limites que orientam esta fatia. O grafo estático pode
+reduzir a seleção numa suíte menos presa ao CLI, enquanto a cadeia de `locale-*`
+alcança quase toda a lane. No próprio Orkastery, quase todos os testes exercitam o
+CLI, abrem processo ou usam uma dependência que o analisador conserva como
+incerta; por isso a seleção atual quase não reduz a lane hermética. O ganho
+esperado desta capacidade está em suítes menos presas ao CLI.
 
 O Agile morno passa a usar a própria declaração `selecao` da F5 na lane
 hermética. O comando:
@@ -392,8 +393,11 @@ hermética. O comando:
   scripts;
 - mantém sempre somente o teste cujo fecho contém dependência incerta, sem
   prender os demais testes da lane;
-- transforma `require.resolve` e leituras resolvidas por `fs` em arestas,
-  inclusive para fonte TypeScript, JSON e fixtures;
+- transforma `require.resolve` e caminhos resolvidos de `fs.readFileSync`,
+  `fs.readFile`, `fs.existsSync` e `fs.statSync` em arestas, inclusive para fonte
+  TypeScript, JSON e fixtures;
+- prende o teste quando ele usa outro membro de `fs`, enumera por glob ou carrega
+  código por `new Function`, `eval`, `vm` ou importação dinâmica;
 - executa a lista pelo mesmo runner da lane, preservando reporter, isolamento e
   cache de duração;
 - devolve a lane inteira diante de diff vazio ou mudança fora de `core/src` e
