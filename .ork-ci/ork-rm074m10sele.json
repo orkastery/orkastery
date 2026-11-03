@@ -467,20 +467,6 @@
       "lint": []
     },
     {
-      "id": "C42",
-      "thread": "ork-rm074m10sele",
-      "fase": "GO",
-      "arquivo": "core/src/seletor-node-test.ts",
-      "alegacao": "O seletor prende formas de carga fora da lista segura e inclui no plano a forma, o arquivo e a linha da incerteza.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='RM074 M10 S1[5-9]:|RM074 M10 S2[0-2]:' core/dist-test/test/selecionar-testes-node.test.js"
-      ],
-      "criadoEm": "2026-11-03T01:51:18.974Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C43",
       "thread": "ork-rm074m10sele",
       "fase": "GO",
@@ -593,44 +579,240 @@
       "lint": []
     },
     {
-      "id": "C51",
+      "id": "C55",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/src/seletor-node-test.ts",
+      "alegacao": "O seletor classifica ocorrências de capacidades pela posição e prende os cenários focados quando a posição não é segura.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='RM074 M10 S1[5-9]:|RM074 M10 S2[0-9]:|RM074 M10 S30:' core/dist-test/test/selecionar-testes-node.test.js"
+      ],
+      "criadoEm": "2026-11-03T03:32:15.414Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C56",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/test/selecionar-testes-node.test.ts",
+      "alegacao": "Os casos focados exercitam as contraprovas das duas rodadas, a regra geral, erro de parse, interoperabilidade emitida pelo TypeScript e fecho seguro.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='RM074 M10 S1[5-9]:|RM074 M10 S2[0-9]:|RM074 M10 S30:' core/dist-test/test/selecionar-testes-node.test.js"
+      ],
+      "criadoEm": "2026-11-03T03:32:15.492Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C57",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M19 morre quando Reflect deixa de prender o cenário focado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M19"
+      ],
+      "criadoEm": "2026-11-03T03:32:15.573Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C58",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M20 morre quando Proxy deixa de prender o cenário focado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M20"
+      ],
+      "criadoEm": "2026-11-03T03:32:15.646Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C59",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M21 morre quando getter de fs deixa de prender o cenário focado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M21"
+      ],
+      "criadoEm": "2026-11-03T03:32:15.753Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M22 morre quando rest destructuring de fs perde o diagnóstico focado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M22"
+      ],
+      "criadoEm": "2026-11-03T03:32:15.914Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M23 morre quando alias de fs por atribuição deixa de prender pela ligação.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M23"
+      ],
+      "criadoEm": "2026-11-03T03:32:16.016Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C62",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M24 morre quando posição nova de capacidade deixa de cair na regra geral.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M24"
+      ],
+      "criadoEm": "2026-11-03T03:32:16.114Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C63",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M25 morre quando erro de parse deixa de prender o cenário focado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M25"
+      ],
+      "criadoEm": "2026-11-03T03:32:16.202Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C64",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M26 morre quando __importStar emitido pelo TypeScript deixa de ser reconhecido.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M26"
+      ],
+      "criadoEm": "2026-11-03T03:32:16.276Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C65",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M27 morre quando leituras seguras de process deixam de ser reconhecidas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M27"
+      ],
+      "criadoEm": "2026-11-03T03:32:16.363Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C66",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M28 morre quando atribuições seguras de exportação deixam de ser reconhecidas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M28"
+      ],
+      "criadoEm": "2026-11-03T03:32:16.438Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C67",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m10.json",
+      "alegacao": "Mutante M29 morre quando chamadas diretas das operações modeladas de fs deixam de ser reconhecidas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m10.json M29"
+      ],
+      "criadoEm": "2026-11-03T03:32:16.503Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C68",
       "thread": "ork-rm074m10sele",
       "fase": "GO",
       "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
-      "alegacao": "A seção M10 descreve a fronteira por formas seguras, as causas no plano e a baixa redução atual no Orkastery.",
+      "alegacao": "A narrativa da M10 descreve a fronteira por posição das capacidades e ressalva a baixa redução atual no Orkastery.",
       "negativa": false,
       "verificar": [
-        "grep -F 'fronteira é uma lista de formas seguras' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md && grep -F 'registra no plano cada incerteza com a forma, o arquivo e a linha' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md && grep -F 'quase não reduz a lane hermética' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md"
+        "grep -F 'A fronteira é a posição de cada capacidade' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md && grep -F 'quase não reduz a lane hermética' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md"
       ],
-      "criadoEm": "2026-11-03T01:51:19.713Z",
+      "criadoEm": "2026-11-03T03:32:16.561Z",
       "estado": "verificado",
       "lint": []
     },
     {
-      "id": "C52",
+      "id": "C69",
       "thread": "ork-rm074m10sele",
       "fase": "GO",
       "arquivo": "CHANGELOG.md",
-      "alegacao": "A linha M10 do Não publicado descreve as formas seguras e conserva a ressalva de baixa redução sem publicar ganho.",
+      "alegacao": "A linha M10 em Não publicado descreve posições resolvidas e conserva a ressalva da lane do Orkastery sem publicar ganho.",
       "negativa": false,
       "verificar": [
-        "grep -F 'formas seguras que o seletor resolve' CHANGELOG.md && grep -F 'quase não reduz a lane' CHANGELOG.md"
+        "grep -F 'cada capacidade do fecho aparece numa posição resolvida' CHANGELOG.md && grep -F 'quase não reduz a lane' CHANGELOG.md"
       ],
-      "criadoEm": "2026-11-03T01:51:19.790Z",
+      "criadoEm": "2026-11-03T03:32:16.611Z",
       "estado": "verificado",
       "lint": []
     },
     {
-      "id": "C53",
+      "id": "C70",
+      "thread": "ork-rm074m10sele",
+      "fase": "GO",
+      "arquivo": "core/src/seletor-node-test.ts",
+      "alegacao": "A medição de horario.ts informa a quantidade selecionada e o tamanho da lane após um único build do produto.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node -e \"const path=require('node:path');const {planejarSelecaoNode}=require('./core/dist/seletor-node-test.js');const arquivos=require('./core/scripts/test-lanes.cjs').listasDasLanes().hermetica;const plano=planejarSelecaoNode(path.resolve('core/dist-test'),arquivos,['core/src/horario.ts']);console.log(JSON.stringify({selecionados:plano.arquivos.length,lane:arquivos.length}));if(!arquivos.length||plano.arquivos.length>arquivos.length)process.exit(1)\""
+      ],
+      "criadoEm": "2026-11-03T03:33:38.311Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C71",
       "thread": "ork-rm074m10sele",
       "fase": "GO",
       "arquivo": ".ork-ci/ork-rm074m10sele.json",
-      "alegacao": "O bundle final inclui as claims do GO-FIX 3 e os comandos do manifesto para reexecução independente.",
+      "alegacao": "O bundle final do GO-FIX 4 reúne as claims desta correção, omite as claims retiradas e conserva os comandos de verificação.",
       "negativa": false,
       "verificar": [
-        "node -e \"const b=require('./.ork-ci/ork-rm074m10sele.json');const ids=['C42','C43','C44','C45','C46','C47','C48','C49','C50','C51','C52','C53'];if(!ids.every(id=>b.claims.some(c=>c.id===id))||!Array.isArray(b.commands)||!b.commands.length)process.exit(1)\""
+        "node -e \"const b=require('./.ork-ci/ork-rm074m10sele.json');const ids=b.claims.map(c=>c.id);const ativas=['C55','C56','C57','C58','C59','C60','C61','C62','C63','C64','C65','C66','C67','C68','C69','C70','C71'];const retiradas=['C42','C51','C52','C53','C54'];if(!ativas.every(id=>ids.includes(id))||retiradas.some(id=>ids.includes(id))||!Array.isArray(b.commands)||!b.commands.length)process.exit(1)\""
       ],
-      "criadoEm": "2026-11-03T02:48:57.524Z",
+      "criadoEm": "2026-11-03T05:05:32.031Z",
       "estado": "pendente",
       "lint": []
     }
