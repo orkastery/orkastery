@@ -264,7 +264,7 @@ test('TL14: a varredura devolve a vaga a hermetica e a integracao espera folga, 
       { nome: 'test:hermetica', papelCpu: 'hermetica', cwd: dir, prazoMs: 10_000, comando: hermetica },
       { nome: 'security_scan', papelCpu: 'varredura', cwd: dir, prazoMs: 10_000, comando: 'sleep 0.1' },
       { nome: 'test:integracao', papelCpu: 'integracao', cwd: dir, prazoMs: 10_000,
-        comando: `test -f ${liberada} && touch ${path.join(dir, 'integracao.inicio')}` },
+        comando: `test -f ${liberada} && test "$ORK_CHECK_CPUS_DOCKER" = "1" && touch ${path.join(dir, 'integracao.inicio')}` },
     ], process.env, { cpus: 4, medicaoCpu: { carga1: 0, stealPct: 0 } });
     assert.ok(processos.every((p) => p.ok), processos.map((p) => p.stderr).join('\n'));
     assert.ok(fs.existsSync(path.join(dir, 'integracao.inicio')));
