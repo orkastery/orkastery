@@ -454,14 +454,14 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
     const varreduras = reservados.filter((item) => item.papelCpu === 'varredura');
     const integracoes = reservados.filter((item) => item.papelCpu === 'integracao');
     const claims = reservados.filter((item) => item.papelCpu === 'claim');
-    let vagasDaHermetica = plano!.cpusHermetica;
+    let vagas = plano!.cpusHermetica;
     const degrau = async (origem: 'varredura' | 'integracao' | 'claims', pecas: ItemParalelo[], libera: number) => {
       if (!pecas.length) return;
       await Promise.all(pecas.map((item) => vezDoItem(item, indice.get(item.nome)!)));
-      const antes = vagasDaHermetica;
-      vagasDaHermetica = Math.min(plano!.capacidadeEfetiva, vagasDaHermetica + libera);
+      const antes = vagas;
+      vagas = Math.min(plano!.capacidadeEfetiva, vagas + libera);
       fs.appendFileSync(sinalDaReserva, JSON.stringify({ contrato: 'ork.check.reserva-devolvida/v2', origem,
-        em: new Date().toISOString(), vagasGanhas: vagasDaHermetica - antes, vagas: vagasDaHermetica }) + '\n', { mode: 0o600 });
+        em: new Date().toISOString(), vagasGanhas: vagas - antes, vagas }) + '\n', { mode: 0o600 });
     };
     const liberadaPelaVarredura = plano!.integracaoEmParalelo
       ? plano!.cpusDaFatia : Math.max(0, plano!.cpusDaFatia - plano!.cpusIntegracao);
