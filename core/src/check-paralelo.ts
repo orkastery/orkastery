@@ -25,6 +25,8 @@ const NICE_BIN = '/usr/bin/nice';
 const TIME_BIN = '/usr/bin/time';
 const CONTRATO_PERFIL_INTEGRACAO = 'ork.check.cpu-integracao/v2';
 const INTERVALO_CPU_MS = 100;
+export const ENV_FOLGA_DA_HERMETICA = 'ORK_CHECK_FOLGA_DA_HERMETICA';
+const CONTRATO_FOLGA_DA_HERMETICA = 'ork.check.folga-hermetica/v1';
 
 /** Um comando do grupo. */
 export interface ItemParalelo {
@@ -391,6 +393,37 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
   const totalDeLanes = itens.filter((item) => item.nome.startsWith('test:')).length;
   const porNome = new Map<string, Promise<Terminado>>();
   const indice = new Map(itens.map((item, i) => [item.nome, i]));
+  let decisaoDaFolgaRegistrada = false;
+  const esperarFolgaDaHermetica = async (item: ItemParalelo): Promise<void> => {
+    if (!plano || plano.integracaoEmParalelo || item.papelCpu !== 'integracao') return;
+    const arquivo = item.ambiente?.[ENV_FOLGA_DA_HERMETICA];
+    const hermetica = itens.find((i) => i.papelCpu === 'hermetica');
+    if (!arquivo || !hermetica || !fs.existsSync(arquivo)) {
+      if (!decisaoDaFolgaRegistrada) plano.motivo += '; integracao sem protocolo de folga: manteve o encadeamento depois da varredura';
+      decisaoDaFolgaRegistrada = true;
+      return;
+    }
+    const lerFolga = (): number | null => {
+      try {
+        const f = JSON.parse(fs.readFileSync(arquivo, 'utf8')) as { contrato?: unknown; livres?: unknown };
+        return f.contrato === CONTRATO_FOLGA_DA_HERMETICA && Number.isInteger(f.livres) && Number(f.livres) >= 0
+          ? Number(f.livres) : null;
+      } catch { return null; }
+    };
+    let relogio: ReturnType<typeof setInterval> | null = null;
+    const folga = new Promise<'folga'>((resolve) => {
+      const conferir = () => { if ((lerFolga() ?? -1) >= plano.cpusIntegracao) resolve('folga'); };
+      relogio = setInterval(conferir, 25);
+      conferir();
+    });
+    const terminou = vezDoItem(hermetica, indice.get(hermetica.nome)!).then(() => 'fim' as const);
+    const motivo = await Promise.race([folga, terminou]);
+    if (relogio) clearInterval(relogio);
+    if (!decisaoDaFolgaRegistrada) plano.motivo += motivo === 'folga'
+      ? `; integracao encadeada esperou ${plano.cpusIntegracao} vaga(s) livres da hermetica`
+      : '; integracao encadeada comecou depois do fim da hermetica';
+    decisaoDaFolgaRegistrada = true;
+  };
   const vezDoItem = (item: ItemParalelo, i: number): Promise<Terminado> => {
     const existente = porNome.get(item.nome);
     if (existente) return existente;
@@ -401,6 +434,7 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
         const j = indice.get(nome);
         if (j !== undefined) await vezDoItem(itens[j], j);
       }
+      await esperarFolgaDaHermetica(item);
       const soltarRecursos = await exclusivos.tomar(item.recursos ?? []);
       if (item.papelCpu === 'claim') await limiteDasClaims?.tomar();
       await limite.tomar();
@@ -518,7 +552,9 @@ function aplicarPlano(originais: ItemParalelo[], plano: PlanoCpuDoGrupo, sinalDa
     if (item) item.ambiente = { ...item.ambiente, ...valores };
   };
   const cpusContainer = String(plano.cpusPorContainer);
+  const arquivoDaFolga = sinalDaReserva ? `${sinalDaReserva}.folga` : undefined;
   ambiente(hermetica, { [ENV_CPUS_DA_LANE]: String(plano.cpusHermetica), [ENV_CPUS_DOCKER]: cpusContainer,
+    ...(arquivoDaFolga ? { [ENV_FOLGA_DA_HERMETICA]: arquivoDaFolga } : {}),
     ...(sinalDaReserva && (varredura || integracoes.length > 0 || claims.length > 0) ? {
       [ENV_CPUS_DA_LANE_APOS_VARREDURA]: String(plano.cpusHermeticaAposVarredura),
       [ENV_CPUS_DA_LANE_APOS_RESERVA]: String(plano.cpusHermeticaAposReserva), [ENV_SINAL_DA_RESERVA]: sinalDaReserva,
@@ -528,11 +564,16 @@ function aplicarPlano(originais: ItemParalelo[], plano: PlanoCpuDoGrupo, sinalDa
     [ENV_CPUS_DOCKER]: cpusContainer,
   });
   let anteriorIntegracao: string | undefined;
+  const workersDaIntegracao = workersDaReserva(plano.cpusIntegracao);
+  const cotaDoContainerDaIntegracao = String(Math.floor((plano.cpusIntegracao / workersDaIntegracao) * 100) / 100);
   for (const item of integracoes) {
-    ambiente(item, { [ENV_CPUS_DA_LANE]: String(plano.cpusIntegracao), [ENV_CPUS_DOCKER]: cpusContainer });
+    ambiente(item, { [ENV_CPUS_DA_LANE]: String(plano.cpusIntegracao),
+      [ENV_CPUS_DOCKER]: cotaDoContainerDaIntegracao,
+      ...(arquivoDaFolga ? { [ENV_FOLGA_DA_HERMETICA]: arquivoDaFolga } : {}) });
     depender(item, [anteriorIntegracao ?? (plano.integracaoEmParalelo ? undefined : varredura?.nome)]);
     anteriorIntegracao = item.nome;
   }
+  if (integracoes.length) plano.motivo += `; conteineres da integracao com cota ${cotaDoContainerDaIntegracao} CPU por worker`;
   if (plano.cpusClaims === 0) {
     let anteriorClaim = anteriorIntegracao;
     for (const item of claims) {

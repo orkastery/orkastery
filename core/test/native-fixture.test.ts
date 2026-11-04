@@ -13,6 +13,8 @@ import { semPostgres } from './ambiente-de-teste';
 test('a fixture da lane recebe a mesma cota de CPU do grupo e o Classic preserva o docker run', () => {
   assert.deepEqual(argsDockerDaLane(['run', '--rm', 'imagem'], { [ENV_CPUS_DOCKER]: '1' }),
     ['run', '--cpus', '1', '--rm', 'imagem']);
+  assert.deepEqual(argsDockerDaLane(['run', '--rm', 'imagem'], { [ENV_CPUS_DOCKER]: '0.25' }),
+    ['run', '--cpus', '0.25', '--rm', 'imagem'], 'a divisao da reserva pode produzir cota fracionaria');
   assert.deepEqual(argsDockerDaLane(['run', '--rm', 'imagem'], {}), ['run', '--rm', 'imagem']);
   assert.deepEqual(argsDockerDaLane(['inspect', 'x'], { [ENV_CPUS_DOCKER]: '1' }), ['inspect', 'x']);
   assert.deepEqual(argsDockerDaLane(['run', '--cpus', '0.5', 'imagem'], { [ENV_CPUS_DOCKER]: '1' }),

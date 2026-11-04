@@ -44,6 +44,8 @@ const ENV_CPUS_APOS_VARREDURA = 'ORK_CHECK_CPUS_DA_LANE_APOS_VARREDURA';
 const ENV_CPUS_APOS_RESERVA = 'ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA';
 const ENV_SINAL_DA_RESERVA = 'ORK_CHECK_RESERVA_DEVOLVIDA';
 const ENV_CONTAINERS_DA_LANE = 'ORK_CHECK_CONTAINERS_DA_LANE';
+const ENV_FOLGA_DA_HERMETICA = 'ORK_CHECK_FOLGA_DA_HERMETICA';
+const CONTRATO_FOLGA_DA_HERMETICA = 'ork.check.folga-hermetica/v1';
 const TMPFS_MAGIC = 0x01021994;
 
 /**
@@ -64,7 +66,9 @@ function planoDoPool(lane, cpus = os.availableParallelism(), env = process.env) 
   const aposVarredura = Number.isFinite(intermediariaInformada) && intermediariaInformada > 0
     ? Math.max(inicial, Math.min(final, Math.floor(intermediariaInformada))) : inicial;
   const sinal = env[ENV_SINAL_DA_RESERVA];
-  return lane === 'hermetica' && sinal && final > inicial ? { inicial, aposVarredura, final, sinal } : null;
+  const folga = env[ENV_FOLGA_DA_HERMETICA];
+  return lane === 'hermetica' && sinal && final > inicial
+    ? { inicial, aposVarredura, final, sinal, ...(folga ? { folga } : {}) } : null;
 }
 
 /** Linhas completas e monotonicas do sinal; duplicata, regressao e excesso nunca abrem vaga. */
@@ -74,7 +78,7 @@ function degrausDaReserva(texto, vagasAtuais, final, vistos = new Set()) {
   for (const linha of texto.split('\n').filter(Boolean)) {
     let r;
     try { r = JSON.parse(linha); } catch { continue; }
-    if (r?.contrato !== 'ork.check.reserva-devolvida/v2' || !['varredura', 'integracao'].includes(r.origem)
+    if (r?.contrato !== 'ork.check.reserva-devolvida/v2' || !['varredura', 'integracao', 'claims'].includes(r.origem)
       || vistos.has(r.origem) || !Number.isInteger(r.vagas) || !Number.isInteger(r.vagasGanhas)
       || r.vagas < vagas || r.vagas > final || r.vagasGanhas !== r.vagas - vagas || typeof r.em !== 'string') continue;
     vistos.add(r.origem);
@@ -223,7 +227,7 @@ function lerResultadosDoReporter(arquivo) {
 function assinaturaDoAmbiente(env) {
   const ignorada = (nome) => nome.startsWith('npm_') || nome.startsWith('NPM_')
     || ['ORK_CHECK_RELATORIO', 'ORK_CHECK_CPUS_DA_LANE', ENV_CPUS_APOS_VARREDURA, ENV_CPUS_APOS_RESERVA, ENV_SINAL_DA_RESERVA,
-      ENV_CONTAINERS_DA_LANE, 'ORK_CHECK_CPUS_DOCKER', 'ORK_WORKERS',
+      ENV_CONTAINERS_DA_LANE, ENV_FOLGA_DA_HERMETICA, 'ORK_CHECK_CPUS_DOCKER', 'ORK_WORKERS',
       'NODE_TEST_CONTEXT', 'NODE_COMPILE_CACHE', 'PWD', 'OLDPWD', 'SHLVL', '_', 'INIT_CWD'].includes(nome);
   const pares = Object.entries(env).filter(([nome, valor]) => valor !== undefined && !ignorada(nome))
     .sort(([a], [b]) => a.localeCompare(b));
@@ -269,6 +273,13 @@ function rodarPoolDeArquivos({ arquivos, dir, env, pastaDaLane, plano }) {
   let proximo = 0, ativos = 0, concluidos = 0, vagas = plano.inicial;
   const vistos = new Set();
   const caminho = (nome) => (process.env.ORK_LANES_DIR ? path.join(dir, nome) : path.join('dist-test', 'test', nome));
+  const publicarFolga = () => {
+    if (!plano.folga) return;
+    const pendentes = arquivos.length - proximo;
+    const livres = pendentes === 0 ? Math.max(0, vagas - ativos) : 0;
+    try { fs.writeFileSync(plano.folga, JSON.stringify({ contrato: CONTRATO_FOLGA_DA_HERMETICA,
+      vagas, ativos, pendentes, livres }) + '\n', { mode: 0o600 }); } catch { /* sem protocolo, o auxiliar conserva a ordem */ }
+  };
   const observarSinal = () => {
     if (!fs.existsSync(plano.sinal)) return;
     let texto = '';
@@ -295,12 +306,14 @@ function rodarPoolDeArquivos({ arquivos, dir, env, pastaDaLane, plano }) {
           ativos--; concluidos++;
           if (concluidos === arquivos.length) {
             clearInterval(sonda);
+            publicarFolga();
             emitirTapDoPool(resultados, Date.now() - inicio);
             resolve({ code: resultados.some((r) => r.code !== 0) ? 1 : 0,
               medidas: Object.assign({}, ...resultados.map((r) => r.medidas)), testes: resultados.flatMap((r) => r.testes) });
           } else lancar();
         });
       }
+      publicarFolga();
     };
     const sonda = setInterval(lancar, 25);
     lancar();
@@ -325,6 +338,7 @@ function rodarLane(lane) {
   // O ambiente e o de quem chama, como no `npm test`: quem exporta ORK_TESTE_EXIGE_AMBIENTE exige as dependencias nos dois
   // modos (S4 do CHECK).
   const env = { ...process.env };
+  const cotaDockerDaIntegracao = lane === 'integracao' ? env.ORK_CHECK_CPUS_DOCKER : undefined;
   // A lane e sempre uma rodada de topo: sob outro `node --test`, o pai marca o filho com NODE_TEST_CONTEXT e o `node
   // --test` da lane falaria o protocolo do runner, sem o TAP e sem o reporter das duracoes.
   delete env.NODE_TEST_CONTEXT;
@@ -338,7 +352,9 @@ function rodarLane(lane) {
   delete env[ENV_CPUS_APOS_VARREDURA];
   delete env[ENV_CPUS_APOS_RESERVA];
   delete env[ENV_SINAL_DA_RESERVA];
-  delete env.ORK_CHECK_CPUS_DOCKER;
+  delete env[ENV_FOLGA_DA_HERMETICA];
+  if (cotaDockerDaIntegracao) env.ORK_CHECK_CPUS_DOCKER = cotaDockerDaIntegracao;
+  else delete env.ORK_CHECK_CPUS_DOCKER;
   delete env.ORK_WORKERS;
   env.TMPDIR = pastaDaLane;
   let casa = null;
@@ -380,7 +396,7 @@ function rodarLane(lane) {
 
 module.exports = { listasDasLanes, ordenarPorDuracao, lerDuracoesDoReporter, lerResultadosDoReporter, assinaturaDoAmbiente,
   globDoNpmTest, concorrenciaDaLane, planoDoPool, degrausDaReserva, selecionarTemporario, sondarTmpfs, ENV_TMPFS,
-  ENV_CPUS_APOS_VARREDURA, ENV_CPUS_APOS_RESERVA, ENV_SINAL_DA_RESERVA, LANES, REPORTER };
+  ENV_CPUS_APOS_VARREDURA, ENV_CPUS_APOS_RESERVA, ENV_SINAL_DA_RESERVA, ENV_FOLGA_DA_HERMETICA, LANES, REPORTER };
 
 if (require.main === module) {
   const [alvo] = process.argv.slice(2);
