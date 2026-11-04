@@ -395,6 +395,20 @@ de `require` alcança o que o diff mudou. O dono arquivou a fatia sem merge em
   pedir seleção no `node --test`, o caminho é uma fatia nova com seleção
   declarada pelo projeto, sem análise do código.
 
+### GL2 e GL3 sob disputa de CPU
+
+A prova no host mostrou que a espera da fixture não era a causa de fundo. O
+runtime falso e o supervisor já tinham saído, mas o watcher de sessão não havia
+se anunciado: os dois lados do aperto de mão desistiam por um prazo curto fixo.
+Quando a CPU estava disputada, a partida do watcher podia ultrapassar esse prazo,
+gerar `session_watcher_error` e deixar a fase sem `phase_result`.
+
+O dispatcher agora espera a prontidão enquanto a identidade completa do watcher
+continua viva, e o watcher espera a confirmação enquanto a identidade completa
+do pai continua viva. A saída do processo observado antecipa a falha, e um teto
+absoluto permanece como rede contra travamento. GL2 e GL3 também encerram a espera
+ao encontrar o erro registrado para a própria sessão.
+
 ### O que falta
 
 - Fechar a bancada fria e morna da M8 e da M9 no host, com três pares válidos e
@@ -721,4 +735,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-31 | A bancada da M5 fecha três pares válidos; a M6 mede a reserva da integração, devolve CPU por peça, reduz preparo dos arquivos caros restantes e descarta carga externa acima do limiar | Três pares AB/BA da M5, evidência de eficiência e implementação da thread `ork-rm074m6medid` | Thread `ork-rm074m6medid` (#Auto) |
 | 2026-11-01 | A M8 troca o fallback binário por capacidade em degraus, usa mediana de várias amostras e registra o estado `degradado`; a razão nova fica pendente da bancada | Rodadas frias e mornas da M7, pico isolado de `steal`, cenários sintéticos e mutantes da M8 | Thread `ork-rm074m8agend` (#Fast) |
 | 2026-11-03 | M8 e M9 em produção na 0.6.5. M10 (seleção do `node --test` pelo grafo de import) arquivada sem merge | Cinco CHECKs da thread `ork-rm074m10sele` com PRECISA DE MUDANÇA; decisão 2a do dono em 03/11/2026 | Julio |
-| 2026-11-03 | GL2 e GL3 do confinamento deixam de julgar a fase por prazo fixo e acompanham o Grok e o supervisor até o resultado ou a saída da árvore | Reprodução sob disputa de CPU e quatro cenários herméticos da espera pelo fim da fase | Thread `ork-rm074gl2gl3s` (#Auto) |
+| 2026-11-03 | GL2 e GL3 passam a encerrar no erro do watcher, e os dois lados do aperto de mão acompanham a identidade do outro processo até confirmação, saída ou teto absoluto | A prova sob disputa de CPU mostrou o watcher sem anúncio e a fase sem `phase_result`; testes herméticos usam tempo injetado e mutantes independentes | Thread `ork-rm074gl2gl3s` (#Auto) |

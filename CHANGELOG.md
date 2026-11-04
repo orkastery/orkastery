@@ -8,7 +8,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
-- **Confinamento do Grok sob disputa de CPU ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** os testes GL2 e GL3 esperam pelo fim da fase, e não por um prazo fixo, enquanto o Grok ou seu supervisor ainda estão trabalhando.
+- **Watcher de sessão sob disputa de CPU ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** o despacho espera o watcher de sessão ficar pronto enquanto ele vive, em vez de desistir num prazo curto fixo; com a CPU disputada, a fase podia não fechar. GL2 e GL3 encerram a espera assim que o watcher registra uma falha.
 
 ## [0.6.5] - 2026-11-02
 
