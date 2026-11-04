@@ -6,7 +6,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
-O Agile antecipa claims independentes, devolve primeiro à hermética a vaga da varredura e limita os contêineres da integração à reserva medida, sem mudar o Classic; o ganho aguarda a bancada (RM-074, M11).
+### Alterado
+
+- **Claims e CPU fora do caminho crítico — M11 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** o Agile antecipa claims independentes, devolve primeiro à hermética a vaga da varredura e limita os contêineres da integração à reserva medida, sem mudar o Classic; o ganho aguarda a bancada (RM-074, M11).
 
 ## [0.6.5] - 2026-11-02
 
