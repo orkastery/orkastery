@@ -8,16 +8,16 @@
       "de": "        if (arvoreViva) {",
       "para": "        if (true) {",
       "teste": "controller-simulado",
-      "nome": "^esperarFimDaFase: falha cedo"
+      "nome": "^esperarFimDaFase: com tempo injetado falha cedo"
     },
     {
       "id": "GL23-2",
       "descricao": "a espera ignora a identidade adicional do watcher",
       "arquivo": "core/dist-test/test/controller-simulado.js",
       "de": "...(opcoes.identidades ?? [])",
-      "para": "...[]",
+      "para": "...(opcoes.identidades ?? []).slice(0, -1)",
       "teste": "controller-simulado",
-      "nome": "^esperarFimDaFase: aguarda o watcher"
+      "nome": "^esperarFimDaFase: com tempo injetado aguarda o watcher"
     },
     {
       "id": "GL23-3",
@@ -26,7 +26,7 @@
       "de": "const lerIdentidadePendente = opcoes.lerIdentidadePendente;",
       "para": "const primeiraIdentidadePendente = opcoes.lerIdentidadePendente?.() ?? null;\n    const lerIdentidadePendente = opcoes.lerIdentidadePendente ? () => primeiraIdentidadePendente : undefined;",
       "teste": "controller-simulado",
-      "nome": "^esperarFimDaFase: relê o watcher"
+      "nome": "^esperarFimDaFase: com tempo injetado relê o watcher"
     }
   ]
 }

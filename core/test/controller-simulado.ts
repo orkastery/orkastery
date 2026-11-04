@@ -76,6 +76,12 @@ export interface ProcessoDaFase { pid: number; pai: number }
 interface OpcoesDaEsperaDaFase {
   folgaAposSaidaMs?: number;
   tetoMs?: number;
+  /** Fonte de tempo monotônica para a espera; por padrão usa o relógio real. */
+  agora?: () => number;
+  /** Pausa entre consultas; por padrão bloqueia pelo intervalo solicitado. */
+  pausar?: (ms: number) => void;
+  /** Consulta o estado da identidade completa; por padrão lê o processo real. */
+  estadoDoProcesso?: typeof estadoProcesso;
   /** Processos externos à árvore do runtime que ainda podem registrar o resultado da fase. */
   identidades?: readonly IdentidadeProcesso[];
   /** Devolve null enquanto o processo externo ainda não anunciou a própria identidade. */
@@ -96,6 +102,9 @@ export function esperarFimDaFase(resultadoNoLedger: () => boolean, processos: re
   opcoes: OpcoesDaEsperaDaFase = {}): void {
   const folgaAposSaidaMs = opcoes.folgaAposSaidaMs ?? FOLGA_APOS_SAIDA_MS;
   const tetoMs = opcoes.tetoMs ?? TETO_DA_FASE_MS;
+  const agora = opcoes.agora ?? Date.now;
+  const pausar = opcoes.pausar ?? ((ms: number) => { Atomics.wait(PAUSA_DA_ESPERA, 0, 0, ms); });
+  const consultarEstado = opcoes.estadoDoProcesso ?? estadoProcesso;
   if (!Number.isFinite(folgaAposSaidaMs) || folgaAposSaidaMs < 0 || !Number.isFinite(tetoMs) || tetoMs <= 0) {
     throw new Error('prazos inválidos para esperar o fim da fase');
   }
@@ -107,13 +116,13 @@ export function esperarFimDaFase(resultadoNoLedger: () => boolean, processos: re
   const lerErroDoWatcher = opcoes.lerErroDoWatcher;
   let identidadePendente: IdentidadeProcesso | null = null;
   let haviaProcessoObservavel = identidades.size > 0;
-  const inicio = Date.now();
+  const inicio = agora();
   let arvoreSaiuEm: number | null = null;
-  while (Date.now() - inicio < tetoMs) {
+  while (agora() - inicio < tetoMs) {
     if (resultadoNoLedger()) return;
     const erroDoWatcher = lerErroDoWatcher?.() ?? null;
     if (erroDoWatcher !== null) throw new Error(erroDoWatcher);
-    const agora = Date.now();
+    const instante = agora();
     if (lerIdentidadePendente && identidadePendente === null) {
       identidadePendente = lerIdentidadePendente();
       if (identidadePendente !== null) {
@@ -125,17 +134,17 @@ export function esperarFimDaFase(resultadoNoLedger: () => boolean, processos: re
     if (anuncioPendente) {
       arvoreSaiuEm = null;
     } else if (haviaProcessoObservavel) {
-      const arvoreViva = [...identidades.values()].some((id) => estadoProcesso(id) !== 'ausente');
+      const arvoreViva = [...identidades.values()].some((id) => consultarEstado(id) !== 'ausente');
       if (arvoreViva) {
         arvoreSaiuEm = null;
       } else if (arvoreSaiuEm === null) {
-        arvoreSaiuEm = agora;
-      } else if (agora - arvoreSaiuEm >= folgaAposSaidaMs) {
+        arvoreSaiuEm = instante;
+      } else if (instante - arvoreSaiuEm >= folgaAposSaidaMs) {
         if (resultadoNoLedger()) return;
         throw new Error('a árvore de processos da fase saiu, mas faltou phase_result no ledger');
       }
     }
-    Atomics.wait(PAUSA_DA_ESPERA, 0, 0, Math.min(30, Math.max(1, tetoMs - (agora - inicio))));
+    pausar(Math.min(30, Math.max(1, tetoMs - (instante - inicio))));
   }
   if (resultadoNoLedger()) return;
   const erroDoWatcher = lerErroDoWatcher?.() ?? null;
@@ -143,7 +152,7 @@ export function esperarFimDaFase(resultadoNoLedger: () => boolean, processos: re
   if (lerIdentidadePendente && identidadePendente === null) {
     throw new Error('teto absoluto da espera pelo fim da fase: faltou phase_result no ledger; o watcher da sessão não se anunciou');
   }
-  if (identidadePendente !== null && estadoProcesso(identidadePendente) !== 'ausente') {
+  if (identidadePendente !== null && consultarEstado(identidadePendente) !== 'ausente') {
     throw new Error('teto absoluto da espera pelo fim da fase: faltou phase_result no ledger; o watcher da sessão ainda estava vivo');
   }
   throw new Error(haviaProcessoObservavel
