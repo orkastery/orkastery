@@ -946,6 +946,7 @@ async function acompanhar(): Promise<void> {
       if (!identidade) throw new Error('watcher sem identidade propria');
       gravarAtomico(readyPath, { token, sessionId, despachoEm: sessao.despachadaEm, identidade });
       await esperarConfirmacaoDoPaiWatcher(() => {
+        if (!threadPresente(dirThread(carregado.raiz, threadId))) return 'invalido';
         const ackPath = readyPath + '.ack';
         if (!fs.existsSync(ackPath)) return 'pendente';
         let ack: { token: string } | null;
