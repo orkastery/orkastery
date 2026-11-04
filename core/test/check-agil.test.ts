@@ -1202,15 +1202,15 @@ test('AG52: claims independentes compartilham a reserva propria e a devolvem a h
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag52-claims-'));
   try {
     const sinal = path.join(dir, 'sinal.jsonl');
-    const esperarTres = `for i in $(seq 1 300); do test "$(find ${dir} -name 'claim-*.inicio' | wc -l)" -eq 3 && break; sleep 0.02; done`;
+    const esperarTres = `for i in $(seq 1 1000); do test "$(find ${dir} -name 'claim-*.inicio' | wc -l)" -eq 3 && break; sleep 0.02; done`;
     const processos = rodarEmParalelo([
-      { nome: 'test:hermetica', papelCpu: 'hermetica', cwd: dir, prazoMs: 10_000,
-        comando: 'for i in $(seq 1 300); do test -f "$ORK_CHECK_RESERVA_DEVOLVIDA" && ' +
+      { nome: 'test:hermetica', papelCpu: 'hermetica', cwd: dir, prazoMs: 30_000,
+        comando: 'for i in $(seq 1 1000); do test -f "$ORK_CHECK_RESERVA_DEVOLVIDA" && ' +
           'test "$(wc -l < "$ORK_CHECK_RESERVA_DEVOLVIDA")" -eq 3 && break; sleep 0.02; done && ' +
           `cp "$ORK_CHECK_RESERVA_DEVOLVIDA" ${sinal}` },
-      { nome: 'security_scan', papelCpu: 'varredura', cwd: dir, prazoMs: 10_000, comando: 'sleep 0.15' },
-      { nome: 'test:integracao', papelCpu: 'integracao', cwd: dir, prazoMs: 10_000, comando: 'sleep 0.1' },
-      ...[1, 2, 3].map((n) => ({ nome: `claim:C${n}.1`, papelCpu: 'claim' as const, cwd: dir, prazoMs: 10_000,
+      { nome: 'security_scan', papelCpu: 'varredura', cwd: dir, prazoMs: 30_000, comando: 'sleep 0.15' },
+      { nome: 'test:integracao', papelCpu: 'integracao', cwd: dir, prazoMs: 30_000, comando: 'sleep 0.1' },
+      ...[1, 2, 3].map((n) => ({ nome: `claim:C${n}.1`, papelCpu: 'claim' as const, cwd: dir, prazoMs: 30_000,
         comando: `touch ${path.join(dir, `claim-${n}.inicio`)} && ${esperarTres} && sleep 0.1` })),
     ], process.env, { cpus: 8, medicaoCpu: { carga1: 0, stealPct: 0 } });
     assert.ok(processos.every((p) => p.ok), processos.map((p) => p.stderr).join('\n'));

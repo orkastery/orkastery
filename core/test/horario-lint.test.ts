@@ -154,6 +154,8 @@ const EXCECOES: { arquivo: string; trecho: string; razao: string }[] = [
   { arquivo: 'locale-forja.ts', trecho: 'try again after ${e.tentarEm}', razao: 'motivo do forja.limite no catalogo sem import do nucleo; quem imprime localiza' },
   { arquivo: 'agendador-cpu.ts', trecho: 'JSON.stringify({ nome, em: new Date().toISOString() })',
     razao: 'registro de container da lane em JSONL de máquina, lido só pela medição de CPU; nunca é texto para pessoa' },
+  { arquivo: 'agendador-cpu.ts', trecho: "JSON.stringify({ tipo: 'cota-docker', ...evidencia, em: new Date().toISOString() })",
+    razao: 'evidência da decisão do runtime no JSONL privado da lane; nunca é texto apresentado a uma pessoa' },
   { arquivo: 'check-paralelo.ts', trecho: 'em: new Date().toISOString(), vagasGanhas: vagas - antes, vagas })',
     razao: 'degrau da reserva no sinal JSONL que a lane hermética lê; a evidência da lane mostra o tempo desde a largada, não o carimbo' },
 ];
