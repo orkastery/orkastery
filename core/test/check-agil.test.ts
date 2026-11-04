@@ -1212,8 +1212,10 @@ test('AG52: claims independentes compartilham a reserva propria e a devolvem a h
       { nome: 'test:integracao', papelCpu: 'integracao', cwd: dir, prazoMs: 30_000, comando: 'sleep 0.1' },
       ...[1, 2, 3].map((n) => ({ nome: `claim:C${n}.1`, papelCpu: 'claim' as const, cwd: dir, prazoMs: 30_000,
         comando: `touch ${path.join(dir, `claim-${n}.inicio`)} && ${esperarTres} && sleep 0.1` })),
-    ], process.env, { cpus: 8, medicaoCpu: { carga1: 0, stealPct: 0 } });
-    assert.ok(processos.every((p) => p.ok), processos.map((p) => p.stderr).join('\n'));
+    ], process.env, { cpus: 8, medicaoCpu: { carga1: 0, stealPct: 0,
+      cpusIntegracao: null, fonteCpusIntegracao: 'conservadora' } });
+    assert.ok(processos.every((p) => p.ok), JSON.stringify(processos.map((p) => ({ nome: p.nome, ok: p.ok,
+      code: p.code, error: p.error, duracaoMs: p.duracaoMs, stderr: p.stderr }))));
     const plano = processos.agendamentoCpu!;
     assert.deepEqual([plano.cpusHermetica, plano.cpusClaims, plano.cadeiasDeClaims], [3, 3, 3]);
     assert.ok(plano.cpusHermetica + plano.cpusDaFatia + plano.cpusClaims <= plano.capacidadeEfetiva);
@@ -1223,6 +1225,14 @@ test('AG52: claims independentes compartilham a reserva propria e a devolvem a h
     assert.ok(degraus.every((d) => d.vagas <= plano.capacidadeEfetiva));
     assert.equal(degraus.at(-1)!.vagas, plano.capacidadeEfetiva);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('AG57: o auxiliar nao herda o contexto privado do harness node --test', () => {
+  const processos = rodarEmParalelo([
+    { nome: 'sem-contexto-do-harness', cwd: process.cwd(), prazoMs: 5_000,
+      comando: 'test -z "${NODE_TEST_CONTEXT+x}"' },
+  ], { ...process.env, NODE_TEST_CONTEXT: 'child-v8' });
+  assert.equal(processos[0].ok, true, JSON.stringify(processos[0]));
 });
 
 test('AG45: saturacao medida pelo verify ordena hermetica, varredura e integracao e registra a peca no verify_run', () => {

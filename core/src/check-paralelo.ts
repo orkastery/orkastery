@@ -672,7 +672,10 @@ export function rodarEmParalelo(itens: ItemParalelo[], ambiente: NodeJS.ProcessE
       ...(opcoes.cpus ? { cpus: opcoes.cpus } : {}), ...(opcoes.medicaoCpu ? { medicaoCpu: opcoes.medicaoCpu } : {}) };
     fs.writeFileSync(especificacao, JSON.stringify(esp), { mode: 0o600 });
     const prazo = esperaDoGrupo(itens, opcoes.maxParalelo) + 60_000;
-    const r = spawnSync(process.execPath, [__filename, especificacao], { env: ambiente, encoding: 'utf8', timeout: prazo,
+    const ambienteDoAuxiliar = { ...ambiente };
+    // Contexto privado do harness: herdá-lo faz este Node comum falar o protocolo binário de um filho de `node --test`.
+    delete ambienteDoAuxiliar.NODE_TEST_CONTEXT;
+    const r = spawnSync(process.execPath, [__filename, especificacao], { env: ambienteDoAuxiliar, encoding: 'utf8', timeout: prazo,
       killSignal: 'SIGKILL' });
     let lido: { terminados: Terminado[]; agendamentoCpu?: PlanoCpuDoGrupo } = { terminados: [] };
     try { lido = JSON.parse(fs.readFileSync(path.join(dir, 'resultado.json'), 'utf8')) as typeof lido; } catch { /* abaixo */ }
