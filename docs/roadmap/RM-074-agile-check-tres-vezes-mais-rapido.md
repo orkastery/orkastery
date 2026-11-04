@@ -405,9 +405,9 @@ gerar `session_watcher_error` e deixar a fase sem `phase_result`.
 
 O dispatcher agora espera a prontidão enquanto a identidade completa do watcher
 continua viva, e o watcher espera a confirmação enquanto a identidade completa
-do pai continua viva. A saída do processo observado antecipa a falha, e um teto
-absoluto permanece como rede contra travamento. GL2 e GL3 também encerram a espera
-ao encontrar o erro registrado para a própria sessão.
+do pai continua viva. A saída do processo observado antecipa a falha, e um limite
+máximo de espera permanece para o caso de o processo travar. GL2 e GL3 também
+encerram a espera ao encontrar o erro registrado para a própria sessão.
 
 ### O que falta
 
