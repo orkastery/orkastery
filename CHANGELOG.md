@@ -8,7 +8,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Alterado
 
-- **Claims e CPU fora do caminho crítico — M11 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** o Agile antecipa claims independentes, devolve primeiro à hermética a vaga da varredura e limita os contêineres da integração à reserva medida, sem mudar o Classic; o ganho aguarda a bancada (RM-074, M11).
+- **Claims e CPU fora do caminho crítico — M11 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** o Agile antecipa claims independentes; depois da varredura, a integração começa logo ou espera quando a previsão histórica termina a rodada antes, e a reserva vai imediatamente ao caminho em execução; o adaptador aplica a cota aceita pelo runtime ou recua para o `argv` anterior, sem mudar o Classic; o ganho aguarda a bancada (RM-074, M11).
 
 ## [0.6.5] - 2026-11-02
 
