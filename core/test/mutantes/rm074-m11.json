@@ -1,0 +1,33 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-074 M11: claims independentes saem do caminho critico, a hermetica recebe a folga e a integracao respeita sua cota.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "claim que reaproveita a lane e antecipada junto das claims independentes",
+      "modulo": "check-agil",
+      "de": "comandoDaClaimDependeDasLanes(manifesto, comando, cwd)\n            || usaPreparo(comando)",
+      "para": "usaPreparo(comando)",
+      "teste": "check-agil",
+      "nome": "^AG47:"
+    },
+    {
+      "id": "M2",
+      "descricao": "integracao encadeada ignora a folga da hermetica",
+      "modulo": "check-paralelo",
+      "de": "await esperarFolgaDaHermetica(item);",
+      "para": "await Promise.resolve();",
+      "teste": "test-lanes",
+      "nome": "^TL14:"
+    },
+    {
+      "id": "M3",
+      "descricao": "integracao perde a cota reservada dos conteineres",
+      "modulo": "check-paralelo",
+      "de": "[agendador_cpu_1.ENV_CPUS_DOCKER]: cotaDoContainerDaIntegracao,",
+      "para": "[agendador_cpu_1.ENV_CPUS_DOCKER]: '',",
+      "teste": "test-lanes",
+      "nome": "^TL14:"
+    }
+  ]
+}
