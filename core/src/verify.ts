@@ -55,7 +55,7 @@ import { ENV_MODO_DO_CHECK, ENV_RELATORIO_DO_CHECK, ENV_VARREDURA_PARALELA_DO_CH
   resolverModo } from './check-modo';
 import { comandosNoAgile, ComandosDoAgile, executorDaClaimNoAgile, executorDaClaimPelasLanes, ExecutorDeGrupo, GuardaDoProduto, listasDasLanes,
   MAXIMO_DE_PREPAROS_REFEITOS, PecaDoAgile, paralelismoDaVarreduraNoGrupo, PECA_SEM_RELATORIO, pecasDoRelatorio,
-  porQueDasLanes, prepararNoAgile, PreparoVigente, refazerPreparo, RefazerPreparo, RelatorioDoCheck,
+  planejarClaimsNoAgile, porQueDasLanes, prepararNoAgile, PreparoVigente, refazerPreparo, RefazerPreparo, RelatorioDoCheck,
   resultadosDasLanes } from './check-agil';
 import { esperaDoGrupo, rodarEmParalelo } from './check-paralelo';
 import { ENV_CPUS_DA_LANE, ENV_CPUS_DOCKER, ENV_WORKERS, MedicaoCpuDoGrupo, PlanoCpuDoGrupo, workersDaReserva } from './agendador-cpu';
@@ -1031,6 +1031,7 @@ function verificarSobConducao(
   // `ork verify` roda em toda fase, e uma claim por criterio por rodada viraria
   // acumulador em vez de verificacao.
   registrarCriteriosDePronto(raiz, threadId);
+  const claimsAtivas = lerClaims(raiz, threadId).filter((c) => c.estado !== 'retirada');
 
   // RM-037 (fatia 6): o registro de instabilidade da arvore verificada e a janela de steal da rodada.
   const instabilidade = lerRegistroDeInstabilidade(cwd, opcoes.agoraMs);
@@ -1109,14 +1110,18 @@ function verificarSobConducao(
   let doAgile: ComandosDoAgile | null = null;
   const grupoAntesDasClaims = !opcoes.soClaims && !!vigente && vigente.guarda.conferir() === null
     && Object.keys(manifesto.check?.agile?.test ?? {}).length > 0;
+  const planoDasClaims = grupoAntesDasClaims
+    ? planejarClaimsNoAgile(manifesto, claimsAtivas, cwd, vigente!.guarda, vigente!.preparo) : undefined;
   let comandosDoManifestoExecutados = grupoAntesDasClaims
     ? (opcoes.progresso?.('grupo-agile'), doAgile = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executorDosComandos,
       executorDoGrupo(manifesto, ambienteDaRodada, instabilidade, leitor, conducao, opcoes.executor ? executor : undefined,
         opcoes.medicaoCpuAgendador), vigente!.guarda, vigente!.preparo, selecaoAnterior,
       (nome, comando, dir, filtro, testes) => executarPassagemParcial(nome, comando, dir, executorDosComandos, filtro, testes),
-      selecaoPorMudanca.lanes)).comandos
+      selecaoPorMudanca.lanes, planoDasClaims)).comandos
     : [];
   if (doAgile) pecas.push(...doAgile.pecas);
+  const claimsAntecipadas = doAgile?.claimsAntecipadas ?? {};
+  if (Object.keys(claimsAntecipadas).length > 0 && vigente?.guarda.conferir()) lanesVigentes = false;
   const evidenciasDasLanes = relatorio && doAgile ? resultadosDasLanes(relatorio.ler()) : [];
   const ambienteEfetivoDasClaims = { ...ambienteDoVerify(), ...ambienteFuncionalDasLanes };
   const executorComLanes = evidenciasDasLanes.length > 0
@@ -1127,9 +1132,9 @@ function verificarSobConducao(
 
   // Claim retirada sai do gate: o historico guarda a alegacao e o motivo da retirada.
   const executorDaClaim = vigente ? executorDaClaimNoAgile(manifesto, executorComLanes, vigente, refazerAntesDaClaim) : executorComLanes;
-  const claims = lerClaims(raiz, threadId)
-    .filter((c) => c.estado !== 'retirada')
-    .map((c) => verificarClaim(c, cwd, executorDaClaim));
+  const executorComAntecipadas: ExecutorVerify = (nome, comando, dir) =>
+    claimsAntecipadas[nome] ?? executorDaClaim(nome, comando, dir);
+  const claims = claimsAtivas.map((c) => verificarClaim(c, cwd, executorComAntecipadas));
   for (const r of claims) {
     // Estouro de prazo e comando que nao rodou nao julgam a alegacao: o estado anterior vale.
     if (r.motivo === 'verify.timeout' || r.motivo === 'verify.sem-veredito') continue;

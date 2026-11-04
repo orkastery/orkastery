@@ -41,7 +41,7 @@ export interface ItemParalelo {
   /** RM-081 F4: servicos exclusivos locais a esta rodada, adquiridos como um conjunto indivisivel. */
   recursos?: string[];
   /** Papel na conta de CPU do grupo do Agile. Ausente nos outros usos deste auxiliar. */
-  papelCpu?: 'hermetica' | 'integracao' | 'varredura' | 'outro';
+  papelCpu?: 'hermetica' | 'integracao' | 'varredura' | 'claim' | 'outro';
   /**
    * RM-074 (F4): o programa e os argumentos, lancados sem shell; com eles, `comando` so identifica o item. Sem eles, o
    * `comando` roda por `bash -c`, como as lanes e a varredura do manifesto.

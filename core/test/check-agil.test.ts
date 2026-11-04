@@ -536,7 +536,7 @@ test('AG26: a claim que muda o produto apos as lanes refaz preparo e grupo sobre
     });
     const r = verificar(p.carregado, t.id, { executor: g.executor });
     assert.equal(r.ok, true, r.motivos.join(','));
-    assert.deepEqual(g.lista.map(([n]) => n), ['preparo', 'test:h', 'security_scan', 'C1.1', 'preparo', 'test:h', 'security_scan']);
+    assert.deepEqual(g.lista.map(([n]) => n), ['preparo', 'test:h', 'security_scan', 'claim:C1.1', 'preparo', 'test:h', 'security_scan']);
     const pecas = (ultimoVerify(p, t.id).agile as { pecas: Array<Record<string, unknown>> }).pecas;
     assert.ok(pecas.some((x) => x.peca === 'preparo-refeito' && x.estado === 'agile' && /rodou de novo depois das claims/.test(String(x.motivo))),
       JSON.stringify(pecas));
@@ -795,18 +795,26 @@ test('AG48: skip ou todo em node --test nunca prova a claim pela lane', () => {
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('AG47: com lanes validas, o Agile roda preparo e lanes antes das claims; o Classic conserva a ordem', () => {
+test('AG47: claim independente entra no grupo, a dependente espera a lane e o Classic conserva a ordem', () => {
   const p = projetoTemporario('ag35');
   try {
     comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      h: "echo h"');
     const { thread: t } = novaThread(p.carregado, { nome: 'ordem lane claim', modo: 'auto' });
-    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'depois da lane', verificar: ['echo claim'] });
+    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'independente',
+      verificar: ['echo claim'] });
+    adicionarClaim(p.dir, t.id, { arquivo: 'core/test/check-agil.test.ts', alegacao: 'depende da lane',
+      verificar: ['node --test core/dist-test/test/check-agil.test.js'] });
     const agile = gravador();
-    verificar(p.carregado, t.id, { executor: agile.executor });
-    assert.deepEqual(agile.lista.map(([nome]) => nome), ['preparo', 'test:h', 'C1.1']);
+    const r = verificar(p.carregado, t.id, { executor: agile.executor });
+    assert.deepEqual(agile.lista.map(([nome]) => nome), ['preparo', 'test:h', 'claim:C1.1', 'C2.1']);
+    assert.deepEqual(r.claims.map((c) => [c.claim.id, c.verificado, c.execucoes[0].nome, c.execucoes[0].comando,
+      c.execucoes[0].comandoExecutado ?? null, c.execucoes[0].preparo ?? null]), [
+      ['C1', true, 'C1.1', 'echo claim', null, null],
+      ['C2', true, 'C2.1', 'node --test core/dist-test/test/check-agil.test.js', null, null],
+    ], 'o recibo permanece canonico mesmo quando o processo usa nome interno');
     const classic = gravador();
     verificar(p.carregado, t.id, { executor: classic.executor, check: 'classic' });
-    assert.deepEqual(classic.lista.map(([nome]) => nome), ['preparo', 'C1.1', 'build', 'test']);
+    assert.deepEqual(classic.lista.map(([nome]) => nome), ['preparo', 'C1.1', 'C2.1', 'build', 'test']);
   } finally { p.limpar(); }
 });
 

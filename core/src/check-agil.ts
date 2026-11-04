@@ -32,7 +32,7 @@ import * as path from 'node:path';
 import { ENV_RELATORIO_DO_CHECK } from './check-modo';
 import { planejarCpuDoGrupo } from './agendador-cpu';
 import { redigirCredenciaisUrl } from './redacao-url';
-import { CausaDoComando, EvidenciaJUnit, Manifesto, ResultadoDeComando } from './types';
+import { CausaDoComando, Claim, EvidenciaJUnit, Manifesto, ResultadoDeComando } from './types';
 import { PlanoDaLane } from './check-selecao';
 
 /** Uma peca do Agile e o que aconteceu com ela; `degradado` preserva o Agile com menos capacidade. */
@@ -75,7 +75,7 @@ export interface ItemDoGrupo {
   /** RM-081 F4: servicos que esta lane precisa usar sozinha durante a rodada. */
   recursos?: string[];
   /** Papel usado pelo agendador de CPU do auxiliar. */
-  papelCpu?: 'hermetica' | 'integracao' | 'varredura' | 'outro';
+  papelCpu?: 'hermetica' | 'integracao' | 'varredura' | 'claim' | 'outro';
 }
 
 /** Quantas ferramentas cabem na fatia de duas CPUs reservada pelo plano paralelo. */
@@ -455,11 +455,94 @@ export function porQueDasLanes(c: ResultadoDeComando): string {
 /** O que o grupo do Agile entrega ao verify. */
 export interface ComandosDoAgile {
   comandos: ResultadoDeComando[];
+  /** Resultados que o mesmo grupo produziu para claims fora do caminho critico, pelo nome canonico Cn.m. */
+  claimsAntecipadas: Record<string, ResultadoDeComando>;
   pecas: PecaDoAgile[];
   /** O grupo rodou em paralelo (com a guarda valendo e mais de um comando). */
   paralelo: boolean;
   /** As lanes que rodaram e o comando de cada uma. */
   lanes: string[];
+}
+
+interface ExecucaoAntecipada {
+  nome: string;
+  comando: string;
+  item?: ItemDoGrupo;
+  resultado?: ResultadoDeComando;
+  comandoExecutado?: string;
+  preparo?: UsoDoPreparo;
+}
+
+/** Plano conservador das claims que podem compartilhar o grupo sem depender da evidencia nominal das lanes. */
+export interface PlanoDasClaimsAntecipadas {
+  execucoes: ExecucaoAntecipada[];
+  ids: string[];
+  cadeias: number;
+}
+
+/** A mesma gramatica fechada que o reaproveitamento usa, sem precisar esperar a lane para classificar a dependencia. */
+export function comandoDaClaimDependeDasLanes(manifesto: Manifesto, comando: string, cwd: string): boolean {
+  const passosDoPreparo = manifesto.verify.preparo ? passosDoComando(manifesto.verify.preparo) : [];
+  const daFrente = tirarPassosDoPreparo(comando, passosDoPreparo);
+  const { resto } = daFrente.passos.length > 0 ? daFrente : tirarPassosDoPreparoAposLeituras(comando, passosDoPreparo);
+  if (!resto) return false;
+  const elos = elosDoComando(resto);
+  return !!elos?.length && elos.every((elo) => comandoGrepQ(elo) || !!auditoriaTap(elo, cwd) || !!comandoNodeTest(elo, cwd))
+    && elos.some((elo) => !!auditoriaTap(elo, cwd) || !!comandoNodeTest(elo, cwd));
+}
+
+/**
+ * Claims dependentes de lane conservam a ordem antiga. As demais entram no grupo; a ordem interna e claims sobre o
+ * mesmo arquivo formam cadeias, enquanto arquivos distintos podem usar vagas diferentes do pool de claims.
+ */
+export function planejarClaimsNoAgile(manifesto: Manifesto, claims: Claim[], cwd: string, guarda: GuardaDoProduto,
+  preparo: ResultadoDeComando | null): PlanoDasClaimsAntecipadas {
+  if (guarda.conferir()) return { execucoes: [], ids: [], cadeias: 0 };
+  const passosDoPreparo = manifesto.verify.preparo ? passosDoComando(manifesto.verify.preparo) : [];
+  const ultimosPorArquivo = new Map<string, string>();
+  const execucoes: ExecucaoAntecipada[] = [];
+  const ids: string[] = [];
+  for (const claim of claims) {
+    const usaPreparo = (comando: string): boolean => {
+      const daFrente = tirarPassosDoPreparo(comando, passosDoPreparo);
+      return (daFrente.passos.length > 0 ? daFrente : tirarPassosDoPreparoAposLeituras(comando, passosDoPreparo)).passos.length > 0;
+    };
+    // A guarda e o teto de refacoes sao seriais: claim que consome o preparo continua no caminho anterior.
+    if (!claim.verificar.length || claim.verificar.some((comando) => comandoDaClaimDependeDasLanes(manifesto, comando, cwd)
+      || usaPreparo(comando))) continue;
+    ids.push(claim.id);
+    let anterior = ultimosPorArquivo.get(claim.arquivo);
+    claim.verificar.forEach((comando, i) => {
+      const nome = `${claim.id}.${i + 1}`;
+      const daFrente = tirarPassosDoPreparo(comando, passosDoPreparo);
+      const tirado = daFrente.passos.length > 0 ? daFrente : tirarPassosDoPreparoAposLeituras(comando, passosDoPreparo);
+      if (tirado.passos.length > 0 && tirado.resto === '') {
+        execucoes.push({ nome, comando, resultado: doPreparo(nome, comando, preparo!, tirado.passos) });
+        return;
+      }
+      const executado = tirado.passos.length > 0 ? tirado.resto : comando;
+      const item: ItemDoGrupo = { nome: `claim:${nome}`, comando: executado, papelCpu: 'claim',
+        ...(anterior ? { apos: [anterior] } : {}) };
+      execucoes.push({ nome, comando, item,
+        ...(executado !== comando ? { comandoExecutado: executado,
+          preparo: { reaproveitado: true, passos: tirado.passos } } : {}) });
+      anterior = item.nome;
+    });
+    if (anterior) ultimosPorArquivo.set(claim.arquivo, anterior);
+  }
+  return { execucoes, ids, cadeias: ultimosPorArquivo.size };
+}
+
+function resultadosDasClaimsAntecipadas(plano: PlanoDasClaimsAntecipadas | undefined,
+  porItem: Map<string, ResultadoDeComando>): Record<string, ResultadoDeComando> {
+  if (!plano) return {};
+  return Object.fromEntries(plano.execucoes.map((e) => {
+    if (e.resultado) return [e.nome, e.resultado];
+    const bruto = porItem.get(e.item!.nome)!;
+    return [e.nome, { ...bruto, nome: e.nome, comando: e.comando,
+      ...(e.comandoExecutado ? { comandoExecutado: e.comandoExecutado } : {}),
+      ...(e.preparo ? { preparo: e.preparo } : {}) }];
+  }));
 }
 
 /**
@@ -470,7 +553,8 @@ export function comandosNoAgile(manifesto: Manifesto, cwd: string,
   lista: { nome: string; comando: string; junit?: string; filtro?: string }[], executor: ExecutorUnico,
   grupo: ExecutorDeGrupo, guarda: GuardaDoProduto, preparo: ResultadoDeComando | null,
   selecao: SelecaoAnteriorDoAgile = { comandos: {}, lanes: {} }, passagemParcial?: ExecutorDaPassagemParcial,
-  selecaoPorMudanca: Record<string, PlanoDaLane> = {}): ComandosDoAgile {
+  selecaoPorMudanca: Record<string, PlanoDaLane> = {},
+  claimsAntecipadas?: PlanoDasClaimsAntecipadas): ComandosDoAgile {
   const pecas: PecaDoAgile[] = [];
   const passosDoPreparo = manifesto.verify.preparo ? passosDoComando(manifesto.verify.preparo) : [];
   const lanesDeclaradas = Object.entries(manifesto.check?.agile?.test ?? {});
@@ -488,7 +572,7 @@ export function comandosNoAgile(manifesto: Manifesto, cwd: string,
         ? passagemParcial?.(c.nome, c.comando, cwd, c.filtro, selecao.comandos[c.nome]) : null;
       return parcial && !parcial.ok ? parcial : executor(c.nome, c.comando, cwd);
     };
-    return { comandos: lista.map(executar), pecas, paralelo: false, lanes: [] };
+    return { comandos: lista.map(executar), claimsAntecipadas: {}, pecas, paralelo: false, lanes: [] };
   }
   // Com a guarda: o build primeiro (do preparo, quando e so passos dele), e o resto junto.
   const build = lista.find((c) => c.nome === 'build');
@@ -525,7 +609,7 @@ export function comandosNoAgile(manifesto: Manifesto, cwd: string,
       ...(c.filtro ? { filtro: c.filtro } : {}), ...(selecao.comandos[c.nome] ? { testesFiltrados: selecao.comandos[c.nome] } : {}),
       papelCpu: c.nome === 'security_scan' ? 'varredura' : 'outro' });
   }
-  itens.push(...encadeados);
+  itens.push(...(claimsAntecipadas?.execucoes.flatMap((e) => e.item ? [e.item] : []) ?? []), ...encadeados);
   const parciaisVermelhas = new Map<string, ResultadoDeComando>();
   for (const item of itens) {
     if (!item.filtro || !item.testesFiltrados?.length || !passagemParcial) continue;
@@ -550,7 +634,7 @@ export function comandosNoAgile(manifesto: Manifesto, cwd: string,
   const lanes: Array<{ lane: string; resultado: ResultadoDeComando }> = [];
   itens.forEach((item, i) => {
     if (item.nome.startsWith('test:')) lanes.push({ lane: item.nome.slice('test:'.length), resultado: resultados[i] });
-    else porNome.set(item.nome, resultados[i]);
+    else if (!item.nome.startsWith('claim:')) porNome.set(item.nome, resultados[i]);
   });
   // As lanes voltam na ordem do manifesto, mesmo com a encadeada no fim do grupo.
   const ordem = (lane: string): number => lanesDeclaradas.findIndex(([nome]) => nome === lane);
@@ -560,7 +644,9 @@ export function comandosNoAgile(manifesto: Manifesto, cwd: string,
     pecas.push({ peca: 'lanes', estado: 'agile' });
   }
   if (itens.length > 1) pecas.push({ peca: 'grupo', estado: 'agile' });
-  return { comandos: lista.map((c) => porNome.get(c.nome)!), pecas, paralelo: itens.length > 1, lanes: lanes.map((l) => l.lane) };
+  return { comandos: lista.map((c) => porNome.get(c.nome)!),
+    claimsAntecipadas: resultadosDasClaimsAntecipadas(claimsAntecipadas, porItemInteiro),
+    pecas, paralelo: itens.length > 1, lanes: lanes.map((l) => l.lane) };
 }
 
 /** O teto da leitura do relatorio da rodada. */
