@@ -80,6 +80,8 @@ interface OpcoesDaEsperaDaFase {
   identidades?: readonly IdentidadeProcesso[];
   /** Devolve null enquanto o processo externo ainda não anunciou a própria identidade. */
   lerIdentidadePendente?: () => IdentidadeProcesso | null;
+  /** Devolve a mensagem registrada quando o watcher da sessão falhou. */
+  lerErroDoWatcher?: () => string | null;
 }
 
 const PAUSA_DA_ESPERA = new Int32Array(new SharedArrayBuffer(4));
@@ -102,12 +104,15 @@ export function esperarFimDaFase(resultadoNoLedger: () => boolean, processos: re
   const identidades = new Map([...capturadas, ...(opcoes.identidades ?? [])]
     .map((id) => [`${id.boot}:${id.pid}:${id.inicio}`, id]));
   const lerIdentidadePendente = opcoes.lerIdentidadePendente;
+  const lerErroDoWatcher = opcoes.lerErroDoWatcher;
   let identidadePendente: IdentidadeProcesso | null = null;
   let haviaProcessoObservavel = identidades.size > 0;
   const inicio = Date.now();
   let arvoreSaiuEm: number | null = null;
   while (Date.now() - inicio < tetoMs) {
     if (resultadoNoLedger()) return;
+    const erroDoWatcher = lerErroDoWatcher?.() ?? null;
+    if (erroDoWatcher !== null) throw new Error(erroDoWatcher);
     const agora = Date.now();
     if (lerIdentidadePendente && identidadePendente === null) {
       identidadePendente = lerIdentidadePendente();
@@ -133,6 +138,8 @@ export function esperarFimDaFase(resultadoNoLedger: () => boolean, processos: re
     Atomics.wait(PAUSA_DA_ESPERA, 0, 0, Math.min(30, Math.max(1, tetoMs - (agora - inicio))));
   }
   if (resultadoNoLedger()) return;
+  const erroDoWatcher = lerErroDoWatcher?.() ?? null;
+  if (erroDoWatcher !== null) throw new Error(erroDoWatcher);
   if (lerIdentidadePendente && identidadePendente === null) {
     throw new Error('teto absoluto da espera pelo fim da fase: faltou phase_result no ledger; o watcher da sessão não se anunciou');
   }

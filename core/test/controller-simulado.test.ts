@@ -35,6 +35,18 @@ test('esperarFimDaFase: retorna assim que o phase_result aparece no ledger', () 
   esperarFimDaFase(() => true, [], { tetoMs: 100 });
 });
 
+test('esperarFimDaFase: propaga o erro registrado do watcher sem aguardar o teto', () => {
+  let leituras = 0;
+  assert.throws(
+    () => esperarFimDaFase(() => false, [], {
+      lerErroDoWatcher: () => { leituras++; return 'falha ao confirmar prontidao do watcher'; },
+      tetoMs: 100000,
+    }),
+    /falha ao confirmar prontidao do watcher/,
+  );
+  assert.equal(leituras, 1);
+});
+
 test('esperarFimDaFase: acompanha o processo vivo além de um prazo fixo curto', () => {
   const dir = dirTemporario('esperar-fim-da-fase-viva');
   const marcador = path.join(dir, 'phase-result');
