@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.5",
-  "publicadoEm": "2026-11-04T22:16:34.047Z",
+  "publicadoEm": "2026-11-04T22:43:01.313Z",
   "threads": [
     {
       "id": "ork-rm074gl2gl3s",
@@ -32,11 +32,11 @@
       "id": "ork-rm074m11clai",
       "nome": "rm074m11",
       "modo": "#Auto",
-      "fase": "GO",
+      "fase": "CHECK",
       "status": "aberta",
       "roadmap": "RM-074",
       "branch": "ork/ork-rm074m11clai-full",
-      "atualizadaEm": "2026-11-04T22:16:33.569Z",
+      "atualizadaEm": "2026-11-04T22:43:00.870Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
