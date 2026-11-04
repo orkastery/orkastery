@@ -13,21 +13,39 @@
     },
     {
       "id": "M2",
-      "descricao": "integracao encadeada ignora a folga da hermetica",
+      "descricao": "a reserva da varredura devolve zero a hermetica quando a previsao manda esperar",
       "modulo": "check-paralelo",
-      "de": "await esperarFolgaDaHermetica(item);",
-      "para": "await Promise.resolve();",
+      "de": "decisao.esperar ? plano.cpusDaFatia\n            : Math.max(0, plano.cpusDaFatia - plano.cpusIntegracaoEmUso)",
+      "para": "decisao.esperar ? 0\n            : Math.max(0, plano.cpusDaFatia - plano.cpusIntegracaoEmUso)",
       "teste": "test-lanes",
       "nome": "^TL14:"
     },
     {
       "id": "M3",
       "descricao": "integracao perde a cota reservada dos conteineres",
-      "modulo": "check-paralelo",
-      "de": "[agendador_cpu_1.ENV_CPUS_DOCKER]: cotaDoContainerDaIntegracao,",
-      "para": "[agendador_cpu_1.ENV_CPUS_DOCKER]: '',",
+      "arquivo": "core/dist-test/test/native-fixture.js",
+      "de": "return ['run', '--cpus', String(cpus), ...args.slice(1)];",
+      "para": "return args;",
+      "teste": "native-fixture",
+      "nome": "^a fixture da lane recebe"
+    },
+    {
+      "id": "M4",
+      "descricao": "a previsao nunca escolhe esperar mesmo quando esse caminho termina antes",
+      "modulo": "agendador-cpu",
+      "de": "const esperar = esperarFolgaMs < iniciarLogoMs;",
+      "para": "const esperar = false;",
       "teste": "test-lanes",
       "nome": "^TL14:"
+    },
+    {
+      "id": "M5",
+      "descricao": "a falha de uma claim antecipada e convertida em verde",
+      "modulo": "verify",
+      "de": "claimsAntecipadas[nome] ?? executorDaClaim(nome, comando, dir)",
+      "para": "claimsAntecipadas[nome] ? { ...claimsAntecipadas[nome], ok: true, code: 0 } : executorDaClaim(nome, comando, dir)",
+      "teste": "check-agil",
+      "nome": "^AG53:"
     }
   ]
 }

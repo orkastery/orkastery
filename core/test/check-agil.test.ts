@@ -818,6 +818,63 @@ test('AG47: claim independente entra no grupo, a dependente espera a lane e o Cl
   } finally { p.limpar(); }
 });
 
+test('AG53: falha de claim antecipada deixa o verify vermelho e conserva recibo e ordem canonicos', () => {
+  const p = projetoTemporario('ag53');
+  try {
+    comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      h: "echo h"');
+    const { thread: t } = novaThread(p.carregado, { nome: 'claim antecipada vermelha', modo: 'auto' });
+    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'primeira falha', verificar: ['echo falha'] });
+    adicionarClaim(p.dir, t.id, { arquivo: 'outro.md', alegacao: 'segunda passa', verificar: ['echo passa'] });
+    const g = gravador((nome) => nome === 'claim:C1.1' ? { ok: false, code: 1, resumo: 'falha antecipada' } : {});
+    const r = verificar(p.carregado, t.id, { executor: g.executor });
+    assert.equal(r.ok, false);
+    assert.ok(r.motivos.includes('claims.failed'), r.motivos.join(','));
+    assert.deepEqual(r.claims.map((c) => [c.claim.id, c.verificado, c.execucoes[0].nome, c.execucoes[0].comando]), [
+      ['C1', false, 'C1.1', 'echo falha'], ['C2', true, 'C2.1', 'echo passa'],
+    ]);
+    const recibo = ultimoVerify(p, t.id).claims as Array<Record<string, unknown>>;
+    assert.deepEqual(recibo.map((c) => [c.id, c.verificado]), [['C1', false], ['C2', true]]);
+    assert.equal((recibo[0].execucao as Record<string, unknown>).nome, 'C1.1');
+  } finally { p.limpar(); }
+});
+
+test('AG54: varias claims antecipadas do mesmo arquivo rodam na ordem declarada', () => {
+  const p = projetoTemporario('ag54');
+  try {
+    comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      h: "echo h"');
+    const { thread: t } = novaThread(p.carregado, { nome: 'cadeia de claims antecipadas', modo: 'auto' });
+    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'duas verificacoes', verificar: ['echo um', 'echo dois'] });
+    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'mesmo arquivo', verificar: ['echo tres'] });
+    const g = gravador();
+    const r = verificar(p.carregado, t.id, { executor: g.executor });
+    assert.equal(r.ok, true, r.motivos.join(','));
+    assert.deepEqual(g.lista.map(([nome]) => nome).filter((nome) => nome.startsWith('claim:')),
+      ['claim:C1.1', 'claim:C1.2', 'claim:C2.1']);
+    assert.deepEqual(r.claims.flatMap((c) => c.execucoes.map((e) => e.nome)), ['C1.1', 'C1.2', 'C2.1']);
+  } finally { p.limpar(); }
+});
+
+test('AG55: claim antecipada vermelha, lane caida e lane em timeout permanecem no mesmo veredito', () => {
+  const p = projetoTemporario('ag55');
+  try {
+    comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      cai: "echo cai"\n      estoura: "echo estoura"');
+    const { thread: t } = novaThread(p.carregado, { nome: 'falhas concorrentes', modo: 'auto' });
+    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'claim cai', verificar: ['echo claim'] });
+    const g = gravador((nome) => nome === 'claim:C1.1' ? { ok: false, code: 1 }
+      : nome === 'test:cai' ? { ok: false, code: 1 }
+        : nome === 'test:estoura' ? { ok: false, code: 124, causa: 'timeout' } : {});
+    const r = verificar(p.carregado, t.id, { executor: g.executor });
+    assert.equal(r.ok, false);
+    assert.ok(r.motivos.includes('claims.failed'), r.motivos.join(','));
+    assert.ok(r.motivos.includes('verify.timeout') || r.motivos.includes('verify.sem-veredito'), r.motivos.join(','));
+    assert.equal(r.claims[0].verificado, false);
+    const testAgregado = r.comandos.find((c) => c.nome === 'test')!;
+    assert.deepEqual(testAgregado.lanes?.map((l) => [l.lane, l.ok, l.code, l.causa]), [
+      ['cai', false, 1, 'exit'], ['estoura', false, 124, 'timeout'],
+    ]);
+  } finally { p.limpar(); }
+});
+
 test('AG34: o preparo refeito que falha fica em fallback no ledger, e o resto da rodada roda inteiro, em serie', () => {
   const p = projetoTemporario('ag34');
   try {
@@ -1197,6 +1254,21 @@ test('AG45: saturacao medida pelo verify ordena hermetica, varredura e integraca
     assert.equal(degradado.fallback, undefined);
     assert.match(String(degradado.motivo), /capacidade 7\/8 CPU\(s\).*amostras \[12, 12, 12\], mediana 12%/);
   } finally { p.limpar(); }
+});
+
+test('AG56: a peca so confirma a cota da integracao depois da evidencia do adaptador e registra o recuo', () => {
+  const plano = planejarCpuDoGrupo(4, { carga1: 0, stealPct: 0 });
+  let peca = pecaDoAgendadorCpu(plano);
+  assert.match(String(peca.motivo), /cota dos conteineres da integracao sem evidencia do adaptador/);
+  assert.doesNotMatch(String(peca.motivo), /adaptador confirmou cota/);
+  plano.cotaDosContainersDaIntegracao = { estado: 'aplicada', cota: 1, motivo: 'runtime aceitou' };
+  peca = pecaDoAgendadorCpu(plano);
+  assert.match(String(peca.motivo), /adaptador confirmou cota de 1 CPU.*runtime aceitou/);
+  plano.cotaDosContainersDaIntegracao = { estado: 'fallback', cota: 1, motivo: 'runtime recusou --cpus' };
+  peca = pecaDoAgendadorCpu(plano);
+  assert.equal(peca.estado, 'degradado');
+  assert.equal(peca.fallback, 'argv anterior do runtime de conteiner');
+  assert.match(String(peca.motivo), /adaptador recuou a cota.*runtime recusou --cpus/);
 });
 
 test('AG49: a reserva medida da integracao abre um degrau apos a varredura sem ultrapassar a CPU', () => {
