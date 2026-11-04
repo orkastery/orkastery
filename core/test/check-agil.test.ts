@@ -14,8 +14,8 @@ import { adicionarClaim } from '../src/claims';
 import { assinaturaDoAmbiente, comandosNoAgile, elosDoComando, executorDaClaimPelasLanes, GuardaDoProduto, hashDoProduto,
   MAXIMO_DE_PREPAROS_REFEITOS, paralelismoDaVarreduraNoGrupo, passosDoComando, PECA_SEM_RELATORIO, RelatorioDoCheck,
   testDasLanes, TETO_DO_RELATORIO_BYTES, tirarPassosDoPreparo, tirarPassosDoPreparoAposLeituras } from '../src/check-agil';
-import { argvDoItem, chaveDoPerfilIntegracao, picoCpuPorFonte, picoDaArvoreParaPerfil, rodarEmParalelo,
-  workersDaLane } from '../src/check-paralelo';
+import { aplicarDevolucaoDaReserva, argvDoItem, chaveDoPerfilIntegracao, devolucoesDaReserva, limiteDeVagas,
+  OrigemDaReserva, picoCpuPorFonte, picoDaArvoreParaPerfil, rodarEmParalelo, workersDaLane } from '../src/check-paralelo';
 import { cargaDoProcLoadavg, MINIMO_ESTRUTURAL_DO_GRUPO, paredeAgileSimulada, paredeClassicaSimulada, planejarCpuDoGrupo,
   resumirMedicaoCpuDoGrupo, workersDaReserva } from '../src/agendador-cpu';
 import { lerLedger } from '../src/ledger';
@@ -1198,36 +1198,44 @@ test('AG44: carga e steal degradam a capacidade em degraus; so o minimo estrutur
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('AG52: claims independentes compartilham a reserva propria e a devolvem a hermetica sem exceder a capacidade', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag52-claims-'));
-  try {
-    const sinal = path.join(dir, 'sinal.jsonl');
-    const esperarTres = `for i in $(seq 1 1000); do test "$(find ${dir} -name 'claim-*.inicio' | wc -l)" -eq 3 && break; sleep 0.02; done`;
-    const processos = rodarEmParalelo([
-      { nome: 'test:hermetica', papelCpu: 'hermetica', cwd: dir, prazoMs: 30_000,
-        comando: 'for i in $(seq 1 1000); do test -f "$ORK_CHECK_RESERVA_DEVOLVIDA" && ' +
-          'test "$(wc -l < "$ORK_CHECK_RESERVA_DEVOLVIDA")" -eq 3 && break; sleep 0.02; done && ' +
-          `cp "$ORK_CHECK_RESERVA_DEVOLVIDA" ${sinal}` },
-      { nome: 'security_scan', papelCpu: 'varredura', cwd: dir, prazoMs: 30_000, comando: 'sleep 0.15' },
-      { nome: 'test:integracao', papelCpu: 'integracao', cwd: dir, prazoMs: 30_000, comando: 'sleep 0.1' },
-      ...[1, 2, 3].map((n) => ({ nome: `claim:C${n}.1`, papelCpu: 'claim' as const, cwd: dir, prazoMs: 30_000,
-        comando: `touch ${path.join(dir, `claim-${n}.inicio`)} && ${esperarTres} && sleep 0.1` })),
-    ], process.env, { cpus: 8, medicaoCpu: { carga1: 0, stealPct: 0,
-      cpusIntegracao: null, fonteCpusIntegracao: 'conservadora' } });
-    assert.ok(processos.every((p) => p.ok), JSON.stringify(processos.map((p) => ({ nome: p.nome, ok: p.ok,
-      code: p.code, error: p.error, duracaoMs: p.duracaoMs, stderr: p.stderr }))));
-    const plano = processos.agendamentoCpu!;
-    assert.deepEqual([plano.cpusHermetica, plano.cpusClaims, plano.cadeiasDeClaims], [3, 3, 3]);
-    assert.ok(plano.cpusHermetica + plano.cpusDaFatia + plano.cpusClaims <= plano.capacidadeEfetiva);
-    const degraus = fs.readFileSync(sinal, 'utf8').trim().split('\n').map((l) => JSON.parse(l) as
-      { origem: string; vagasGanhas: number; vagas: number });
-    assert.deepEqual([...new Set(degraus.map((d) => d.origem))].sort(), ['claims', 'integracao', 'varredura']);
-    assert.ok(degraus.every((d) => d.vagas <= plano.capacidadeEfetiva));
-    assert.equal(degraus.at(-1)!.vagas, plano.capacidadeEfetiva);
-  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+test('AG52: estado e pausas injetados prendem a reserva das claims e sua devolucao sem relogio de parede', async () => {
+  const plano = planejarCpuDoGrupo(8, { carga1: 0, stealPct: 0,
+    cpusIntegracao: null, fonteCpusIntegracao: 'conservadora' }, { cadeiasDeClaims: 3 });
+  assert.deepEqual([plano.cpusHermetica, plano.cpusClaims, plano.cadeiasDeClaims], [3, 3, 3]);
+  assert.ok(plano.cpusHermetica + plano.cpusDaFatia + plano.cpusClaims <= plano.capacidadeEfetiva);
+
+  const limite = limiteDeVagas(plano.cpusClaims);
+  const iniciadas: number[] = [];
+  const liberar: Array<() => void> = [];
+  const tarefas = [0, 1, 2, 3].map(async (n) => {
+    await limite.tomar();
+    iniciadas.push(n);
+    await new Promise<void>((resolve) => { liberar[n] = resolve; });
+    limite.soltar();
+  });
+  const drenarMicrotarefas = async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); };
+  await drenarMicrotarefas();
+  assert.deepEqual(iniciadas, [0, 1, 2], 'a reserva deixa tres claims independentes sobrepor');
+  liberar[0]();
+  await drenarMicrotarefas();
+  assert.deepEqual(iniciadas, [0, 1, 2, 3], 'a claim seguinte avanca pelo sinal da pausa liberada');
+  liberar[1](); liberar[2](); liberar[3]();
+  await Promise.all(tarefas);
+
+  const devolucoes = devolucoesDaReserva(plano);
+  let vagas = plano.cpusHermetica;
+  const degraus = (['varredura', 'claims', 'integracao'] as OrigemDaReserva[]).map((origem, indice) => {
+    const degrau = aplicarDevolucaoDaReserva(vagas, plano.capacidadeEfetiva, origem, devolucoes[origem],
+      `2026-11-04T00:01:0${indice}.000Z`);
+    vagas = degrau.vagas;
+    return degrau;
+  });
+  assert.deepEqual([...new Set(degraus.map((d) => d.origem))].sort(), ['claims', 'integracao', 'varredura']);
+  assert.ok(degraus.every((d) => d.vagas <= plano.capacidadeEfetiva));
+  assert.equal(degraus.at(-1)!.vagas, plano.capacidadeEfetiva);
 });
 
-test('AG57: o auxiliar nao herda o contexto privado do harness node --test', () => {
+test('AG57: processo real do auxiliar nao herda o contexto privado do harness node --test', () => {
   const processos = rodarEmParalelo([
     { nome: 'sem-contexto-do-harness', cwd: process.cwd(), prazoMs: 5_000,
       comando: 'test -z "${NODE_TEST_CONTEXT+x}"' },
