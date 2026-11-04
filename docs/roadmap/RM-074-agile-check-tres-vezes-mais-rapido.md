@@ -395,17 +395,46 @@ de `require` alcança o que o diff mudou. O dono arquivou a fatia sem merge em
   pedir seleção no `node --test`, o caminho é uma fatia nova com seleção
   declarada pelo projeto, sem análise do código.
 
+### M11: claims e CPU fora do caminho crítico
+
+A bancada de M8 e M9 mostrou que a lane hermética permanece no caminho crítico:
+a varredura devolvia sua reserva à integração encadeada antes de devolvê-la à
+hermética, enquanto as claims independentes começavam somente depois das lanes.
+A M11 reorganiza esse trabalho sem reduzir a bateria:
+
+- claim que não reaproveita resultado de lane começa com as lanes; claims de
+  arquivos distintos podem rodar juntas, enquanto comandos do mesmo arquivo
+  conservam sua ordem;
+- claim `node --test` que reaproveita a lane continua esperando a evidência dela;
+  claim que usa o preparo também conserva a guarda e o limite de refações já
+  existentes;
+- o agendador deriva da capacidade efetiva uma reserva própria para as claims e
+  mantém na hermética uma parcela pelo menos equivalente;
+- a vaga devolvida pela varredura vai primeiro à hermética. A integração
+  encadeada começa quando cabe na folga publicada pela hermética, ou depois do
+  fim dela quando a folga não chega; a peça `agendador-cpu` registra qual caminho
+  foi usado;
+- cada contêiner da integração recebe a cota da reserva da lane dividida entre
+  seus trabalhadores pelo argumento de CPU do Docker; fora do Agile, o comando
+  do contêiner permanece igual.
+
+Capacidade, reservas, trabalhadores e cotas continuam derivados da medição da
+rodada. O Classic, os comandos, as claims e as asserções não mudam. Os mutantes
+da fatia cobrem a dependência das lanes, a prioridade da hermética e a cota da
+integração. A razão da M11 só entra nesta página depois da bancada oficial.
+
 ### O que falta
 
-- Fechar a bancada fria e morna da M8 e da M9 no host, com três pares válidos e
+- Fechar a bancada fria e morna da M8, da M9 e da M11 no host, com três pares válidos e
   os mesmos critérios de carga externa e divergência de `steal`.
 - Estabilizar sob carga os casos GL2 e GL3 do confinamento do Grok: com a
   máquina ocupada, eles estouram a espera nos dois modos e invalidam pares da
   bancada.
-- Confirmar na evidência que o perfil da árvore fecha mesmo quando um contêiner
-  fica sem cgroup e que a reserva medida devolve antes a capacidade ociosa.
-- Reavaliar a distância para a meta de cerca de 1,7 vez; a M9 remove a reserva
-  conservadora diagnosticada, mas não publica uma razão antes dessa coleta.
+- Confirmar na evidência que a hermética recebe a vaga da varredura, que a
+  integração só usa a folga disponível e que claims independentes deixam a
+  cauda serial sem mudar os recibos.
+- Reavaliar a distância para a meta de cerca de 1,7 vez; a M11 muda o
+  agendamento diagnosticado, mas não publica uma razão antes dessa coleta.
 
 ## Problema e resultado
 
@@ -592,6 +621,7 @@ A numeração segue a ordem do pedido. A ordem de execução recomendada é a da
 | M6 Reserva medida e carga externa | CPU da integração inclui containers, devolução ocorre por peça, concorrência só abre com perfil completo; modelos restantes são copiados por caso e a bancada mede carga externa | Nenhum degrau ultrapassa a capacidade; perfil incompleto conserva reserva; par acima do limiar de carga externa é descartado; mesmos casos e asserções; cinco mutantes mortos; ganho depende da bancada do host |
 | M7 Atribuição e cache por conteúdo | A bancada separa CPU da rodada e carga externa; integração mede deltas por fonte; o Agile reaproveita a varredura somente com conteúdo compatível; razões fria e morna ficam separadas | Atribuição incerta entra na carga externa; pico impossível não vira perfil; regra entre arquivos ou registro indisponível força varredura integral; ganho depende da bancada do host |
 | M8 Agendador em degraus | Sonda com várias amostras, capacidade efetiva proporcional e estado `degradado` distinto de `fallback` | Pico isolado não muda o plano; `steal` acima do limiar reduz cotas e preserva o paralelo; carga do próprio verify não tira CPU; só a perda do mínimo estrutural ou a máquina ocupada voltam à ordem do Classic, com a paralelização do Classic; sete mutantes mortos; Classic intacto |
+| M11 Claims e CPU fora do caminho crítico | Claims independentes começam com as lanes; a hermética recebe a vaga da varredura; a integração espera folga e limita seus contêineres à reserva medida | Claims que reaproveitam lanes continuam esperando; preparo, guarda e recibos permanecem iguais; reservas e cotas derivam da capacidade; mutantes das três regras mortos; Classic intacto; ganho pendente da bancada |
 | F2 CPU da suíte (demais fatias) | Os arquivos de teste mais caros que continuam fora da M1, a eficiência de paralelismo das lanes e a cadeia varredura e integração, com orçamento que vigia o crescimento | Evolução até cerca de 1,7 vez contra o Classic, no mesmo commit, máquina e bateria; nenhum caso removido; cada ganho medido em razão e CPU da suíte |
 | F3 Memória | O teto da D2 aplicado à varredura do grupo e às lanes, medindo o que isso custa na razão contra o Classic | Pico agregado dentro do teto em três rodadas; varredura com as nove ferramentas e zero achado novo ou desaparecido por impressão digital; custo na razão medido e registrado, e aceito pelo dono se tirar a meta da D1 do alcance |
 | F4 Dívida da RM-072 que pesa no tempo ou na confiança | O que a tabela "A dívida da RM-072" diz que entra: redação do motivo da peça `imagem-de-lint`, a lane caída sem veredito e o texto do gate, a data sem ano e o caso de `GMT+0` do snapshot de locale, os casos que faltam, a paridade do `tsgo` fora da thread de origem e as peças em fallback | Cada item da tabela com caso de teste que falha sem a correção; nenhum arquivo ou categoria de varredura removido; peças `tsgo`, `cache-semgrep` e binários nativos com o motivo do fallback medido e, onde o fallback some, o ganho em percentual da parede pelo ledger |
@@ -724,3 +754,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-31 | A bancada da M5 fecha três pares válidos; a M6 mede a reserva da integração, devolve CPU por peça, reduz preparo dos arquivos caros restantes e descarta carga externa acima do limiar | Três pares AB/BA da M5, evidência de eficiência e implementação da thread `ork-rm074m6medid` | Thread `ork-rm074m6medid` (#Auto) |
 | 2026-11-01 | A M8 troca o fallback binário por capacidade em degraus, usa mediana de várias amostras e registra o estado `degradado`; a razão nova fica pendente da bancada | Rodadas frias e mornas da M7, pico isolado de `steal`, cenários sintéticos e mutantes da M8 | Thread `ork-rm074m8agend` (#Fast) |
 | 2026-11-03 | M8 e M9 em produção na 0.6.5. M10 (seleção do `node --test` pelo grafo de import) arquivada sem merge | Cinco CHECKs da thread `ork-rm074m10sele` com PRECISA DE MUDANÇA; decisão 2a do dono em 03/11/2026 | Julio |
+| 2026-11-04 | M11 tira claims independentes da cauda serial, prioriza a hermética na devolução da varredura e limita a integração à reserva medida; a razão fica pendente da bancada | Diagnóstico da bancada M8/M9, decisões D1 a D4 e mutantes da thread `ork-rm074m11clai` | Thread `ork-rm074m11clai` (#Auto) |

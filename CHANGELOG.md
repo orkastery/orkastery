@@ -6,6 +6,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+O Agile antecipa claims independentes, devolve primeiro à hermética a vaga da varredura e limita os contêineres da integração à reserva medida, sem mudar o Classic; o ganho aguarda a bancada (RM-074, M11).
+
 ## [0.6.5] - 2026-11-02
 
 O Check passa a entender qualquer runner de teste: o manifesto declara o relatório JUnit de pytest, Vitest, Jest, Playwright ou gotestsum,
