@@ -19,20 +19,6 @@
       "lint": []
     },
     {
-      "id": "C4",
-      "thread": "ork-rm074gl2gl3s",
-      "fase": "GOAL",
-      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
-      "alegacao": "A RM-074 registra a estabilização de GL2 e GL3 no histórico, e o CHANGELOG não publicado descreve a espera pelo fim da fase sem métricas de hardware.",
-      "negativa": false,
-      "verificar": [
-        "node -e \"const fs=require('node:fs');const r=fs.readFileSync('docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md','utf8'),c=fs.readFileSync('CHANGELOG.md','utf8'),f=r.slice(r.indexOf('### O que falta'),r.indexOf('## Problema e resultado')),h=r.slice(r.indexOf('## Responsabilidades e histórico'));if(f.includes('Estabilizar sob carga os casos GL2 e GL3')||!h.includes('GL2 e GL3')||!c.slice(c.indexOf('## Não publicado'),c.indexOf('## [0.6.5]')).includes('fim da fase'))process.exit(1)\""
-      ],
-      "criadoEm": "2026-11-03T22:16:50.753Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C5",
       "thread": "ork-rm074gl2gl3s",
       "fase": "GOAL",
@@ -57,34 +43,6 @@
         "npm --prefix core run build:test && node core/dist-test/test/controller-simulado.test.js"
       ],
       "criadoEm": "2026-11-03T22:21:56.912Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C8",
-      "thread": "ork-rm074gl2gl3s",
-      "fase": "GOAL",
-      "arquivo": "CHANGELOG.md",
-      "alegacao": "O CHANGELOG não publicado descreve que GL2 e GL3 esperam o fim da fase, sem métricas de hardware.",
-      "negativa": false,
-      "verificar": [
-        "node -e \"const fs=require('node:fs');const c=fs.readFileSync('CHANGELOG.md','utf8').slice(0,fs.readFileSync('CHANGELOG.md','utf8').indexOf('## [0.6.5]'));if(!c.includes('fim da fase')||/minutos|núcleos|porcentagem de CPU/.test(c))process.exit(1)\""
-      ],
-      "criadoEm": "2026-11-03T22:24:41.939Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C9",
-      "thread": "ork-rm074gl2gl3s",
-      "fase": "GOAL",
-      "arquivo": ".ork-ci/ork-rm074gl2gl3s.json",
-      "alegacao": "O bundle de CI identifica a thread e exporta as claims verificadas desta fatia.",
-      "negativa": false,
-      "verificar": [
-        "node -e \"const b=require('./.ork-ci/ork-rm074gl2gl3s.json');if(b.schema!=='ork.ci-bundle/v1'||b.thread!=='ork-rm074gl2gl3s'||!b.claims.some(c=>c.id==='C3')||!b.claims.some(c=>c.id==='C8'))process.exit(1)\""
-      ],
-      "criadoEm": "2026-11-03T22:51:50.690Z",
       "estado": "verificado",
       "lint": []
     },
@@ -170,6 +128,146 @@
       ],
       "criadoEm": "2026-11-03T23:47:22.398Z",
       "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm074gl2gl3s",
+      "fase": "GO",
+      "arquivo": "core/src/session-watcher.ts",
+      "alegacao": "O aperto de mão do watcher acompanha a identidade viva nos lados da prontidão e da confirmação, antecipa a falha na saída e preserva um teto absoluto com tempo injetado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/session-watcher-handshake.test.js"
+      ],
+      "criadoEm": "2026-11-04T00:22:50.737Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm074gl2gl3s",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-gl2gl3-watcher.json",
+      "alegacao": "Mutante que restaura o prazo curto na espera da prontidão é morto pelo caso focado de watcher vivo e sinal tardio.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-gl2gl3-watcher.json WATCHER-READY-1"
+      ],
+      "criadoEm": "2026-11-04T00:22:50.777Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm074gl2gl3s",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-gl2gl3-watcher.json",
+      "alegacao": "Mutante que restaura o prazo curto na espera da confirmação é morto pelo caso focado de pai vivo e sinal tardio.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-gl2gl3-watcher.json WATCHER-ACK-1"
+      ],
+      "criadoEm": "2026-11-04T00:22:50.822Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm074gl2gl3s",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG não publicado e a RM-074 explicam a causa no aperto de mão e a espera orientada à vida do watcher sem métricas de hardware.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const fs=require('node:fs');const todo=fs.readFileSync('CHANGELOG.md','utf8'),c=todo.slice(0,todo.indexOf('## [0.6.5]')),r=fs.readFileSync('docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md','utf8'),h=r.slice(r.indexOf('## Responsabilidades e histórico'));if(!c.includes('watcher de sessão')||!c.includes('disputada')||!h.includes('aperto de mão')||/minutos|segundos|núcleos|porcentagem/.test(c))process.exit(1)\""
+      ],
+      "criadoEm": "2026-11-04T00:22:50.909Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm074gl2gl3s",
+      "fase": "GO",
+      "arquivo": "core/test/session-watcher-handshake.test.ts",
+      "alegacao": "Os testes herméticos do aperto exercitam sinal tardio com processo vivo, saída antecipada, teto e vínculo inválido com tempo lógico.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/session-watcher-handshake.test.js"
+      ],
+      "criadoEm": "2026-11-04T00:26:02.068Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm074gl2gl3s",
+      "fase": "GO",
+      "arquivo": "core/test/controller-simulado.test.ts",
+      "alegacao": "A espera focada encerra quando o leitor informa falha do watcher e preserva a mensagem sem consumir o teto.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/controller-simulado.test.js"
+      ],
+      "criadoEm": "2026-11-04T00:27:18.190Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm074gl2gl3s",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+      "alegacao": "A seção da RM-074 explica que os prazos fixos dos dois lados do aperto impediam o watcher de anunciar e a fase de fechar sob CPU disputada.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const r=require('node:fs').readFileSync('docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md','utf8'),s=r.slice(r.indexOf('### GL2 e GL3 sob disputa de CPU'),r.indexOf('### O que falta'));if(!s.includes('aperto de mão')||!s.includes('session_watcher_error')||!s.includes('phase_result')||!s.includes('identidade completa'))process.exit(1)\""
+      ],
+      "criadoEm": "2026-11-04T00:28:14.860Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm074gl2gl3s",
+      "fase": "GO",
+      "arquivo": "core/src/session-watcher.ts",
+      "alegacao": "O watcher que aguarda a confirmação encerra quando a thread canônica some, sem recriar a pasta do projeto.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/watcher-thread-removida.test.js"
+      ],
+      "criadoEm": "2026-11-04T00:43:56.389Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm074gl2gl3s",
+      "fase": "GO",
+      "arquivo": "core/test/rm067-grok-landlock.test.ts",
+      "alegacao": "GL2 e GL3 consultam a mensagem de erro do watcher da própria sessão durante a espera pelo resultado.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const s=require('node:fs').readFileSync('core/test/rm067-grok-landlock.test.ts','utf8');if(!/GL2:[\\\\s\\\\S]*?lerErroDoWatcher:[\\\\s\\\\S]*?mensagemDoErroDoWatcher[\\\\s\\\\S]*?GL3:[\\\\s\\\\S]*?lerErroDoWatcher:[\\\\s\\\\S]*?mensagemDoErroDoWatcher/.test(s))process.exit(1)\""
+      ],
+      "criadoEm": "2026-11-04T00:43:56.460Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm074gl2gl3s",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-rm074gl2gl3s.json",
+      "alegacao": "O bundle de CI identifica a thread e exporta as provas atuais do aperto do watcher e da reação de GL2 e GL3.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const b=require('./.ork-ci/ork-rm074gl2gl3s.json'),ids=new Set(b.claims.map(c=>c.id));if(b.schema!=='ork.ci-bundle/v1'||b.thread!=='ork-rm074gl2gl3s'||!['C17','C18','C24','C25'].every(id=>ids.has(id)))process.exit(1)\""
+      ],
+      "criadoEm": "2026-11-04T00:59:24.108Z",
+      "estado": "pendente",
       "lint": []
     }
   ],
