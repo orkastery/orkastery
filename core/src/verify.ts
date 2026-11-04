@@ -569,6 +569,7 @@ function soAVarreduraEAsLanesComRelatorio(comRelatorio: ExecutorVerify, semRelat
 /** A evidencia publica do plano: estado, capacidade usada, amostras e, no fallback, o equivalente do Classic. */
 export function pecaDoAgendadorCpu(p: PlanoCpuDoGrupo): PecaDoAgile {
   const medida = p.medicaoCpuIntegracao;
+  const cota = p.cotaDosContainersDaIntegracao;
   const evidencia = medida
     ? `; CPU da integracao: arvore ${Math.round(medida.arvoreMs)} ms + conteineres ${Math.round(medida.containersMs)} ms` +
       ` = ${Math.round(medida.totalMs)} ms, pico da arvore ${medida.picoCpusDaArvore ?? 'indisponivel'} CPU ` +
@@ -578,15 +579,21 @@ export function pecaDoAgendadorCpu(p: PlanoCpuDoGrupo): PecaDoAgile {
         ? `medida anomala (${medida.anomalia})`
         : `medida incompleta (${medida.motivosDosAusentes.map((x) => `${x.container}: ${x.motivo}`).join('; ')})`)
     : '';
-  return { peca: 'agendador-cpu', estado: p.estado,
+  const evidenciaDaCota = cota?.estado === 'aplicada'
+    ? `; adaptador confirmou cota de ${cota.cota} CPU nos conteineres da integracao (${cota.motivo})`
+    : cota?.estado === 'fallback'
+      ? `; adaptador recuou a cota dos conteineres da integracao (${cota.motivo})`
+      : '; cota dos conteineres da integracao sem evidencia do adaptador';
+  return { peca: 'agendador-cpu', estado: !p.saturado && cota?.estado === 'fallback' ? 'degradado' : p.estado,
     motivo: p.saturado
       ? `${p.motivo}; hermetica com ${p.cpusHermetica}/${p.capacidadeEfetiva} CPUs, varredura e integracao depois dela`
       : `${p.motivo}; ${p.cpusHermetica}/${p.capacidadeEfetiva} CPUs na hermetica; depois da varredura ` +
         `${p.cpusHermeticaAposVarredura} e depois da integracao ${p.cpusHermeticaAposReserva}; integracao ` +
         `${p.integracaoEmParalelo ? 'em paralelo com a varredura' : 'encadeada depois da varredura'}; ` +
-        `conteineres com ${p.cpusPorContainer} CPU${evidencia}`,
-    reservaIntegracao: { cpus: p.cpusIntegracao, fonte: p.fonteCpusIntegracao },
-    ...(p.saturado ? { fallback: 'ordem do Classic para hermetica, varredura e integracao' } : {}) };
+        `conteineres da varredura com ${p.cpusPorContainer} CPU${evidenciaDaCota}${evidencia}`,
+    reservaIntegracao: { cpus: p.cpusIntegracaoEmUso, fonte: p.fonteCpusIntegracao },
+    ...(p.saturado ? { fallback: 'ordem do Classic para hermetica, varredura e integracao' }
+      : cota?.estado === 'fallback' ? { fallback: 'argv anterior do runtime de conteiner' } : {}) };
 }
 
 function executorDoGrupo(manifesto: Manifesto, ambienteDaRodada: Record<string, string>, instabilidade: RegistroLido,

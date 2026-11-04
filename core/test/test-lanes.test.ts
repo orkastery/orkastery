@@ -227,7 +227,8 @@ test('TL9: a hermetica devolve as vagas sem passar da CPU, e a integracao preser
     assert.ok(linhas.some((l) => l.peca === 'agendador-cpu' && /varredura devolveu 1 vaga.*passou a 2 vagas/.test(String(l.motivo))));
     assert.ok(linhas.some((l) => l.peca === 'agendador-cpu' && /integracao devolveu 1 vaga.*passou a 3 vagas/.test(String(l.motivo))));
     assert.deepEqual(JSON.parse(fs.readFileSync(folga, 'utf8')),
-      { contrato: 'ork.check.folga-hermetica/v1', vagas: 3, ativos: 0, pendentes: 0, livres: 3 });
+      { contrato: 'ork.check.folga-hermetica/v1', vagas: 3, ativos: 0, pendentes: 0, livres: 3,
+        trabalhosRestantesMs: [], duracaoIntegracaoMs: null });
     const resultados = linhas.find((l) => l.tipo === 'resultados')!;
     assert.deepEqual((resultados.testes as Array<{ arquivo: string; estado: string }>).map((t) => [t.arquivo, t.estado]).sort(),
       ['a', 'b', 'c', 'd'].map((n) => [`${n}.test.js`, 'pass']));
@@ -252,32 +253,57 @@ test('TL13: degrau duplicado, regressivo ou acima da CPU nunca abre vaga', () =>
   assert.deepEqual(claims.aplicados.map((d) => d.origem), ['claims']);
 });
 
-test('TL14: a varredura devolve a vaga a hermetica e a integracao espera folga, com fallback explicito', () => {
+test('TL14: o caminho previsto recebe a reserva da varredura sem vaga ociosa nem excesso de capacidade', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-tl14-folga-'));
   try {
-    const liberada = path.join(dir, 'folga-liberada');
-    const hermetica = `printf '%s\\n' '{"contrato":"ork.check.folga-hermetica/v1","livres":0}' > ` +
-      `"$ORK_CHECK_FOLGA_DA_HERMETICA" && sleep 0.3 && touch ${liberada} && ` +
-      `printf '%s\\n' '{"contrato":"ork.check.folga-hermetica/v1","livres":2}' > ` +
-      '"$ORK_CHECK_FOLGA_DA_HERMETICA" && sleep 0.2';
-    const processos = rodarEmParalelo([
-      { nome: 'test:hermetica', papelCpu: 'hermetica', cwd: dir, prazoMs: 10_000, comando: hermetica },
-      { nome: 'security_scan', papelCpu: 'varredura', cwd: dir, prazoMs: 10_000, comando: 'sleep 0.1' },
-      { nome: 'test:integracao', papelCpu: 'integracao', cwd: dir, prazoMs: 10_000,
-        comando: `test -f ${liberada} && test "$ORK_CHECK_CPUS_DOCKER" = "1" && touch ${path.join(dir, 'integracao.inicio')}` },
-    ], process.env, { cpus: 4, medicaoCpu: { carga1: 0, stealPct: 0 } });
-    assert.ok(processos.every((p) => p.ok), processos.map((p) => p.stderr).join('\n'));
-    assert.ok(fs.existsSync(path.join(dir, 'integracao.inicio')));
-    assert.match(processos.agendamentoCpu!.motivo, /integracao encadeada esperou 2 vaga\(s\) livres da hermetica/);
-    assert.match(processos.agendamentoCpu!.motivo, /conteineres da integracao com cota 1 CPU por worker/);
+    const rodar = (nome: string, trabalhosRestantesMs: number[] | null, duracaoIntegracaoMs: number | null,
+      espera: boolean): ReturnType<typeof rodarEmParalelo> => {
+      const capturado = path.join(dir, `${nome}.jsonl`), liberada = path.join(dir, `${nome}.folga`);
+      const historico = JSON.stringify({ contrato: 'ork.check.folga-hermetica/v1', livres: 0,
+        trabalhosRestantesMs, duracaoIntegracaoMs });
+      const depois = espera
+        ? `sleep 0.1 && touch ${liberada} && printf '%s\\n' '${JSON.stringify({ contrato: 'ork.check.folga-hermetica/v1',
+          livres: 2, trabalhosRestantesMs: [], duracaoIntegracaoMs })}' > "$ORK_CHECK_FOLGA_DA_HERMETICA" && sleep 0.15`
+        : 'sleep 0.25';
+      const hermetica = `printf '%s\\n' '${historico}' > "$ORK_CHECK_FOLGA_DA_HERMETICA" && ` +
+        'for i in $(seq 1 300); do test -s "$ORK_CHECK_RESERVA_DEVOLVIDA" && break; sleep 0.02; done && ' +
+        `cp "$ORK_CHECK_RESERVA_DEVOLVIDA" ${capturado} && ${depois}`;
+      const processos = rodarEmParalelo([
+        { nome: 'test:hermetica', papelCpu: 'hermetica', cwd: dir, prazoMs: 10_000, comando: hermetica },
+        { nome: 'security_scan', papelCpu: 'varredura', cwd: dir, prazoMs: 10_000, comando: 'sleep 0.05' },
+        { nome: 'test:integracao', papelCpu: 'integracao', cwd: dir, prazoMs: 10_000,
+          comando: `${espera ? `test -f ${liberada} && ` : ''}test "$ORK_CHECK_CPUS_DOCKER" = "1" && ` +
+            `printf '%s\\n' '{"tipo":"cota-docker","estado":"aplicada","cota":1,"motivo":"adaptador confirmou"}' ` +
+            `>> "$ORK_CHECK_CONTAINERS_DA_LANE" && touch ${path.join(dir, `${nome}.integracao`)}` },
+      ], process.env, { cpus: 4, medicaoCpu: { carga1: 0, stealPct: 0 } });
+      assert.ok(processos.every((p) => p.ok), processos.map((p) => p.stderr).join('\n'));
+      assert.ok(fs.existsSync(path.join(dir, `${nome}.integracao`)));
+      const sinais = fs.readFileSync(capturado, 'utf8').trim().split('\n').map((linha) => JSON.parse(linha) as
+        { origem: string; vagasGanhas: number; vagas: number });
+      assert.deepEqual([sinais[0].origem, sinais[0].vagasGanhas, sinais[0].vagas],
+        espera ? ['varredura', 2, 4] : ['varredura', 0, 2]);
+      assert.ok(sinais.every((s) => s.vagas <= processos.agendamentoCpu!.capacidadeEfetiva));
+      assert.deepEqual(processos.agendamentoCpu!.cotaDosContainersDaIntegracao,
+        { estado: 'aplicada', cota: 1, motivo: 'adaptador confirmou' });
+      if (espera) assert.equal(sinais[0].vagas, processos.agendamentoCpu!.capacidadeEfetiva,
+        'enquanto a integracao espera, toda a reserva vai ao pool hermetico');
+      else assert.ok(processos.agendamentoCpu!.cpusHermeticaAposVarredura +
+        processos.agendamentoCpu!.cpusIntegracaoEmUso <= processos.agendamentoCpu!.capacidadeEfetiva,
+      'quando a integracao inicia, sua reserva e a hermetica cabem juntas');
+      return processos;
+    };
 
-    const fallback = rodarEmParalelo([
-      { nome: 'test:hermetica', papelCpu: 'hermetica', cwd: dir, prazoMs: 10_000, comando: 'sleep 0.2' },
-      { nome: 'security_scan', papelCpu: 'varredura', cwd: dir, prazoMs: 10_000, comando: 'sleep 0.05' },
-      { nome: 'test:integracao', papelCpu: 'integracao', cwd: dir, prazoMs: 10_000, comando: 'true' },
-    ], process.env, { cpus: 4, medicaoCpu: { carga1: 0, stealPct: 0 } });
-    assert.ok(fallback.every((p) => p.ok), fallback.map((p) => p.stderr).join('\n'));
-    assert.match(fallback.agendamentoCpu!.motivo, /sem protocolo de folga: manteve o encadeamento depois da varredura/);
+    const semHistorico = rodar('sem-historico', null, null, false);
+    assert.equal(semHistorico.agendamentoCpu!.previsaoDoMomentoDaIntegracao!.caminho, 'iniciar-logo');
+    assert.match(semHistorico.agendamentoCpu!.motivo, /sem historico completo.*caminho escolhido: iniciar-logo/);
+
+    const espera = rodar('espera', [150, 150, 100, 100, 100], 10, true);
+    assert.equal(espera.agendamentoCpu!.previsaoDoMomentoDaIntegracao!.caminho, 'esperar-folga');
+    assert.match(espera.agendamentoCpu!.motivo, /esperar a folga preve.*integracao esperou 2 vaga/);
+
+    const imediato = rodar('imediato', [50, 50, 50], 60, false);
+    assert.equal(imediato.agendamentoCpu!.previsaoDoMomentoDaIntegracao!.caminho, 'iniciar-logo');
+    assert.match(imediato.agendamentoCpu!.motivo, /iniciar logo preve.*caminho escolhido: iniciar-logo/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
