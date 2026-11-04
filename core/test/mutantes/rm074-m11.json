@@ -13,10 +13,10 @@
     },
     {
       "id": "M2",
-      "descricao": "a reserva da varredura devolve zero a hermetica quando a previsao manda esperar",
+      "descricao": "a integracao encadeada deixa de receber a reserva da varredura",
       "modulo": "check-paralelo",
-      "de": "decisao.esperar ? plano.cpusDaFatia\n            : Math.max(0, plano.cpusDaFatia - plano.cpusIntegracaoEmUso)",
-      "para": "decisao.esperar ? 0\n            : Math.max(0, plano.cpusDaFatia - plano.cpusIntegracaoEmUso)",
+      "de": "varredura: plano.integracaoEmParalelo ? plano.cpusDaFatia : 0,",
+      "para": "varredura: plano.cpusDaFatia,",
       "teste": "test-lanes",
       "nome": "^TL14:"
     },
@@ -30,15 +30,6 @@
       "nome": "^a fixture da lane recebe"
     },
     {
-      "id": "M4",
-      "descricao": "a previsao nunca escolhe esperar mesmo quando esse caminho termina antes",
-      "modulo": "agendador-cpu",
-      "de": "const esperar = esperarFolgaMs < iniciarLogoMs;",
-      "para": "const esperar = false;",
-      "teste": "test-lanes",
-      "nome": "^TL14:"
-    },
-    {
       "id": "M5",
       "descricao": "a falha de uma claim antecipada e convertida em verde",
       "modulo": "verify",
@@ -46,6 +37,15 @@
       "para": "claimsAntecipadas[nome] ? { ...claimsAntecipadas[nome], ok: true, code: 0 } : executorDaClaim(nome, comando, dir)",
       "teste": "check-agil",
       "nome": "^AG53:"
+    },
+    {
+      "id": "M6",
+      "descricao": "o adaptador mantem o resultado recusado e nao executa o argv anterior",
+      "arquivo": "core/dist-test/test/native-fixture.js",
+      "de": "registrar({ estado: 'fallback', cota, motivo: 'runtime recusou --cpus; argv anterior executado' }, ambiente);\n        return executar(args);",
+      "para": "registrar({ estado: 'fallback', cota, motivo: 'runtime recusou --cpus; argv anterior executado' }, ambiente);\n        return limitado;",
+      "teste": "native-fixture",
+      "nome": "^o adaptador repete o argv anterior"
     }
   ]
 }
