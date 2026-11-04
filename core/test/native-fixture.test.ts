@@ -5,9 +5,9 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { argsDockerDaLane, assets, fixtureEnv, pythonFixture, usingFixture, prepareFixture,
+import { argsDockerDaLane, assets, executarDockerDaLane, fixtureEnv, pythonFixture, usingFixture, prepareFixture,
   FIXTURE_TTL_PADRAO_MS, FIXTURE_TTL_MIN_MS, FIXTURE_TTL_MAX_MS } from './native-fixture';
-import { ENV_CPUS_DOCKER } from '../src/agendador-cpu';
+import { ENV_CONTAINERS_DA_LANE, ENV_CPUS_DOCKER } from '../src/agendador-cpu';
 import { semPostgres } from './ambiente-de-teste';
 
 test('a fixture da lane recebe a mesma cota de CPU do grupo e o Classic preserva o docker run', () => {
@@ -19,6 +19,56 @@ test('a fixture da lane recebe a mesma cota de CPU do grupo e o Classic preserva
   assert.deepEqual(argsDockerDaLane(['inspect', 'x'], { [ENV_CPUS_DOCKER]: '1' }), ['inspect', 'x']);
   assert.deepEqual(argsDockerDaLane(['run', '--cpus', '0.5', 'imagem'], { [ENV_CPUS_DOCKER]: '1' }),
     ['run', '--cpus', '0.5', 'imagem']);
+});
+
+test('o adaptador preserva o argv anterior quando o runtime nao anuncia cota de CPU', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-cota-sem-suporte-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const registro = path.join(dir, 'registro.jsonl'), chamadas: string[][] = [];
+  const r = executarDockerDaLane(['run', '--rm', 'imagem'],
+    { [ENV_CPUS_DOCKER]: '1', [ENV_CONTAINERS_DA_LANE]: registro }, (args) => {
+      chamadas.push(args);
+      return args[1] === '--help' ? { status: 0, stdout: 'usage: run --memory', stderr: '' }
+        : { status: 0, stdout: 'container', stderr: '' };
+    });
+  assert.equal(r.status, 0);
+  assert.deepEqual(chamadas, [['run', '--help'], ['run', '--rm', 'imagem']]);
+  assert.deepEqual(JSON.parse(fs.readFileSync(registro, 'utf8')), {
+    tipo: 'cota-docker', estado: 'fallback', cota: 1, motivo: 'runtime sem suporte anunciado para --cpus',
+    em: JSON.parse(fs.readFileSync(registro, 'utf8')).em,
+  });
+});
+
+test('o adaptador repete o argv anterior quando o runtime recusa a cota e so confirma depois de aceitar', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-cota-recusada-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const registro = path.join(dir, 'registro.jsonl'), chamadas: string[][] = [];
+  const env = { [ENV_CPUS_DOCKER]: '0.5', [ENV_CONTAINERS_DA_LANE]: registro };
+  const recusado = executarDockerDaLane(['run', '--rm', 'imagem'], env, (args) => {
+    chamadas.push(args);
+    if (args[1] === '--help') return { status: 0, stdout: '  --cpus decimal', stderr: '' };
+    if (args.includes('--cpus')) return { status: 125, stdout: '', stderr: 'unknown flag: --cpus' };
+    return { status: 0, stdout: 'sem-cota', stderr: '' };
+  });
+  assert.equal(recusado.status, 0);
+  assert.deepEqual(chamadas, [['run', '--help'], ['run', '--cpus', '0.5', '--rm', 'imagem'], ['run', '--rm', 'imagem']]);
+  let linhas = fs.readFileSync(registro, 'utf8').trim().split('\n').map((linha) => JSON.parse(linha));
+  assert.deepEqual(linhas.map(({ estado, cota, motivo }) => ({ estado, cota, motivo })), [
+    { estado: 'fallback', cota: 0.5, motivo: 'runtime recusou --cpus; argv anterior executado' },
+  ]);
+
+  fs.writeFileSync(registro, ''); chamadas.length = 0;
+  const aceito = executarDockerDaLane(['run', '--rm', 'imagem'], env, (args) => {
+    chamadas.push(args);
+    return args[1] === '--help' ? { status: 0, stdout: '  --cpus decimal', stderr: '' }
+      : { status: 0, stdout: 'com-cota', stderr: '' };
+  });
+  assert.equal(aceito.status, 0);
+  assert.deepEqual(chamadas, [['run', '--help'], ['run', '--cpus', '0.5', '--rm', 'imagem']]);
+  linhas = fs.readFileSync(registro, 'utf8').trim().split('\n').map((linha) => JSON.parse(linha));
+  assert.deepEqual(linhas.map(({ estado, cota, motivo }) => ({ estado, cota, motivo })), [
+    { estado: 'aplicada', cota: 0.5, motivo: 'runtime aceitou a execucao com --cpus' },
+  ]);
 });
 
 test('fixture ausente e Docker indisponivel falham runtime.unavailable sem skip ou ensaio falso', t => {
