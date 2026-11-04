@@ -439,8 +439,7 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
     const degrau = async (origem: OrigemDaReserva, pecas: ItemParalelo[]) => {
       if (!pecas.length) return;
       await Promise.all(pecas.map((item) => vezDoItem(item, indice.get(item.nome)!)));
-      const registro = aplicarDevolucaoDaReserva(vagas, plano!.capacidadeEfetiva, origem, devolucoes[origem],
-        new Date().toISOString());
+      const registro = aplicarDevolucaoDaReserva(vagas, plano!.capacidadeEfetiva, origem, devolucoes[origem], new Date().toISOString());
       vagas = registro.vagas;
       fs.appendFileSync(sinalDaReserva, JSON.stringify(registro) + '\n', { mode: 0o600 });
     };
