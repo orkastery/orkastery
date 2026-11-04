@@ -819,6 +819,66 @@ export function prepararFonteWatcher(raiz: string, sessionId: string, fonte?: Re
   }
 }
 
+type SinalDoApertoWatcher = 'pendente' | 'confirmado' | 'invalido';
+interface OpcoesDoApertoWatcher {
+  agora?: () => number;
+  pausar?: (ms: number) => void | Promise<void>;
+  estado?: (identidade: IdentidadeProcesso) => ReturnType<typeof estadoProcesso>;
+  tetoMs?: number;
+}
+class ErroDoApertoWatcher extends Error {
+  constructor(message: string, readonly encerrarOutro: boolean) { super(message); }
+}
+const TETO_ABSOLUTO_APERTO_WATCHER_MS = 60000;
+const PAUSA_APERTO_WATCHER = new Int32Array(new SharedArrayBuffer(4));
+
+function conferirTetoDoAperto(tetoMs: number): void {
+  if (!Number.isFinite(tetoMs) || tetoMs <= 0) throw new Error('teto invalido para o aperto de mao do watcher');
+}
+
+/** Lado do dispatcher: lentidao nao encerra um watcher cuja identidade continua viva. */
+export function esperarProntidaoWatcher(lerSinal: () => SinalDoApertoWatcher, identidade: IdentidadeProcesso,
+    opcoes: OpcoesDoApertoWatcher = {}): void {
+  const agora = opcoes.agora ?? Date.now;
+  const estado = opcoes.estado ?? estadoProcesso;
+  const pausar = opcoes.pausar ?? ((ms: number) => { Atomics.wait(PAUSA_APERTO_WATCHER, 0, 0, ms); });
+  const tetoProntidaoMs = opcoes.tetoMs ?? TETO_ABSOLUTO_APERTO_WATCHER_MS;
+  conferirTetoDoAperto(tetoProntidaoMs);
+  const inicio = agora();
+  for (;;) {
+    if (agora() - inicio >= tetoProntidaoMs)
+      throw new ErroDoApertoWatcher('watcher sem prontidao confirmada', true);
+    const sinal = lerSinal();
+    if (sinal === 'confirmado') return;
+    if (sinal === 'invalido') throw new ErroDoApertoWatcher('watcher com prontidao invalida', true);
+    if (estado(identidade) === 'ausente')
+      throw new ErroDoApertoWatcher('watcher sem prontidao confirmada', false);
+    const restante = tetoProntidaoMs - (agora() - inicio);
+    pausar(Math.min(10, Math.max(1, restante)));
+  }
+}
+
+/** Lado do watcher: o ack continua pendente somente enquanto o pai capturado na partida nao saiu. */
+export async function esperarConfirmacaoDoPaiWatcher(lerSinal: () => SinalDoApertoWatcher,
+    identidadePai: IdentidadeProcesso, opcoes: OpcoesDoApertoWatcher = {}): Promise<void> {
+  const agora = opcoes.agora ?? Date.now;
+  const estado = opcoes.estado ?? estadoProcesso;
+  const pausar = opcoes.pausar ?? ((ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)));
+  const tetoConfirmacaoMs = opcoes.tetoMs ?? TETO_ABSOLUTO_APERTO_WATCHER_MS;
+  conferirTetoDoAperto(tetoConfirmacaoMs);
+  const inicio = agora();
+  for (;;) {
+    if (agora() - inicio >= tetoConfirmacaoMs)
+      throw new ErroDoApertoWatcher('watcher sem confirmacao do pai', false);
+    const sinal = lerSinal();
+    if (sinal === 'confirmado') return;
+    if (sinal === 'invalido' || estado(identidadePai) === 'ausente')
+      throw new ErroDoApertoWatcher('watcher sem confirmacao do pai', false);
+    const restante = tetoConfirmacaoMs - (agora() - inicio);
+    await pausar(Math.min(10, Math.max(1, restante)));
+  }
+}
+
 export function iniciarWatcher(raiz: string, sessionId: string): number {
   const { thread, sessao: registrada } = resolverSessao(raiz, sessionId);
   const sessao = exigirSessaoDespachada(registrada, sessionId);
@@ -852,25 +912,23 @@ export function iniciarWatcher(raiz: string, sessionId: string): number {
   const identidade = child.pid ? identidadeProcesso(child.pid) : null;
   try {
     if (!identidade) throw new Error('watcher sem identidade de processo');
-    const deadline = Date.now() + 5000;
-    const pausa = new Int32Array(new SharedArrayBuffer(4));
-    while (Date.now() < deadline) {
-      const ready = lerJson<{ token: string; sessionId: string; despachoEm: string; identidade: IdentidadeProcesso }>(readyPath);
-      if (ready && ready.token === token && ready.sessionId === sessionId && ready.despachoEm === sessao.despachadaEm &&
-          JSON.stringify(ready.identidade) === JSON.stringify(identidade) && estadoProcesso(identidade) === 'vivo') {
-        registrar(dir, thread.id, 'session_watcher_started', { fase: sessao.fase, sessionId,
-          despachoEm: sessao.despachadaEm, pid: identidade.pid, identidade, readyPath, token });
-        gravarAtomico(ackPath, { token });
-        return identidade.pid;
-      }
-      if (estadoProcesso(identidade) === 'ausente') break;
-      Atomics.wait(pausa, 0, 0, 10);
-    }
-    throw new Error('watcher sem prontidao confirmada');
+    esperarProntidaoWatcher(() => {
+      if (!fs.existsSync(readyPath)) return 'pendente';
+      let ready: { token: string; sessionId: string; despachoEm: string; identidade: IdentidadeProcesso } | null;
+      try { ready = lerJson(readyPath); } catch { return 'invalido'; }
+      return ready && ready.token === token && ready.sessionId === sessionId && ready.despachoEm === sessao.despachadaEm &&
+        JSON.stringify(ready.identidade) === JSON.stringify(identidade) && estadoProcesso(identidade) === 'vivo'
+        ? 'confirmado' : 'invalido';
+    }, identidade);
+    registrar(dir, thread.id, 'session_watcher_started', { fase: sessao.fase, sessionId,
+      despachoEm: sessao.despachadaEm, pid: identidade.pid, identidade, readyPath, token });
+    gravarAtomico(ackPath, { token });
+    return identidade.pid;
   } catch (e) {
     falha();
-    // Encerrar apenas o filho cuja identidade continua sendo a capturada no spawn.
-    if (identidade && estadoProcesso(identidade) === 'vivo') child.kill('SIGTERM');
+    // Lentidao dentro do teto nao encerra o filho; so teto ou prontidao invalida autorizam o sinal.
+    if (e instanceof ErroDoApertoWatcher && e.encerrarOutro && identidade && estadoProcesso(identidade) === 'vivo')
+      child.kill('SIGTERM');
     throw e;
   }
 }
@@ -880,16 +938,20 @@ async function acompanhar(): Promise<void> {
   try {
     const readyPath = process.argv[5], token = process.argv[6];
     if (readyPath && token) {
+      const identidadePai = identidadeProcesso(process.ppid);
+      if (!identidadePai) throw new Error('watcher sem confirmacao do pai');
       validarRegistroWatcher(carregado.raiz, sessionId);
       const sessao = exigirSessaoDespachada(resolverSessao(carregado.raiz, sessionId, threadId).sessao, sessionId);
       const identidade = identidadeProcesso(process.pid);
       if (!identidade) throw new Error('watcher sem identidade propria');
       gravarAtomico(readyPath, { token, sessionId, despachoEm: sessao.despachadaEm, identidade });
-      const deadline = Date.now() + 5000;
-      while (lerJson<{ token: string }>(readyPath + '.ack')?.token !== token) {
-        if (Date.now() >= deadline) throw new Error('watcher sem confirmacao do pai');
-        await new Promise(r => setTimeout(r, 10));
-      }
+      await esperarConfirmacaoDoPaiWatcher(() => {
+        const ackPath = readyPath + '.ack';
+        if (!fs.existsSync(ackPath)) return 'pendente';
+        let ack: { token: string } | null;
+        try { ack = lerJson(ackPath); } catch { return 'invalido'; }
+        return ack?.token === token ? 'confirmado' : 'invalido';
+      }, identidadePai);
     }
     await acompanharSessao(carregado, sessionId, { threadId });
   } catch (e) {
