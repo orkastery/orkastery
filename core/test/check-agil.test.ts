@@ -1071,6 +1071,14 @@ test('AG44: carga e steal degradam a capacidade em degraus; so o minimo estrutur
   assert.ok(paredeAgileSimulada(livre, trabalho) < Math.max(trabalho.hermetica / livre.cpusHermetica,
     trabalho.varredura / livre.cpusDaFatia + trabalho.integracao / livre.cpusIntegracao), 'a devolucao reduz a parede modelada');
 
+  const comClaims = planejarCpuDoGrupo(8, { carga1: 0, stealPct: 0 }, { cadeiasDeClaims: 3 });
+  assert.deepEqual([comClaims.cpusHermetica, comClaims.cpusDaFatia, comClaims.cpusClaims], [3, 2, 3],
+    'a reserva deriva da folga e preserva na hermetica ao menos a parcela das claims');
+  assert.equal(comClaims.cpusHermetica + comClaims.cpusDaFatia + comClaims.cpusClaims, comClaims.capacidadeEfetiva);
+  assert.match(comClaims.motivo, /claims com 3 vaga\(s\) para 3 cadeia\(s\)/);
+  const semFolgaParaClaim = planejarCpuDoGrupo(3, { carga1: 0, stealPct: 0 }, { cadeiasDeClaims: 2 });
+  assert.equal(semFolgaParaClaim.cpusClaims, 0, 'sem dividir a hermetica, as claims conservam a ordem anterior');
+
   const degradado = planejarCpuDoGrupo(8, resumirMedicaoCpuDoGrupo([0, 0, 0], [12, 12, 12]));
   assert.equal(degradado.ordem, 'paralela', 'steal acima do limiar antigo nao derruba o grupo inteiro');
   assert.equal(degradado.estado, 'degradado');
@@ -1130,6 +1138,33 @@ test('AG44: carga e steal degradam a capacidade em degraus; so o minimo estrutur
       { origem: string; vagasGanhas: number; vagas: number; em: string });
     assert.deepEqual(sinais.map((s) => [s.origem, s.vagasGanhas, s.vagas]), [['varredura', 0, 2], ['integracao', 2, 4]]);
     assert.ok(sinais.every((s) => /^\d{4}-\d{2}-\d{2}T/.test(s.em)));
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('AG52: claims independentes compartilham a reserva propria e a devolvem a hermetica sem exceder a capacidade', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag52-claims-'));
+  try {
+    const sinal = path.join(dir, 'sinal.jsonl');
+    const esperarTres = `for i in $(seq 1 300); do test "$(find ${dir} -name 'claim-*.inicio' | wc -l)" -eq 3 && break; sleep 0.02; done`;
+    const processos = rodarEmParalelo([
+      { nome: 'test:hermetica', papelCpu: 'hermetica', cwd: dir, prazoMs: 10_000,
+        comando: 'for i in $(seq 1 300); do test -f "$ORK_CHECK_RESERVA_DEVOLVIDA" && ' +
+          'test "$(wc -l < "$ORK_CHECK_RESERVA_DEVOLVIDA")" -eq 3 && break; sleep 0.02; done && ' +
+          `cp "$ORK_CHECK_RESERVA_DEVOLVIDA" ${sinal}` },
+      { nome: 'security_scan', papelCpu: 'varredura', cwd: dir, prazoMs: 10_000, comando: 'sleep 0.15' },
+      { nome: 'test:integracao', papelCpu: 'integracao', cwd: dir, prazoMs: 10_000, comando: 'sleep 0.1' },
+      ...[1, 2, 3].map((n) => ({ nome: `claim:C${n}.1`, papelCpu: 'claim' as const, cwd: dir, prazoMs: 10_000,
+        comando: `touch ${path.join(dir, `claim-${n}.inicio`)} && ${esperarTres} && sleep 0.1` })),
+    ], process.env, { cpus: 8, medicaoCpu: { carga1: 0, stealPct: 0 } });
+    assert.ok(processos.every((p) => p.ok), processos.map((p) => p.stderr).join('\n'));
+    const plano = processos.agendamentoCpu!;
+    assert.deepEqual([plano.cpusHermetica, plano.cpusClaims, plano.cadeiasDeClaims], [3, 3, 3]);
+    assert.ok(plano.cpusHermetica + plano.cpusDaFatia + plano.cpusClaims <= plano.capacidadeEfetiva);
+    const degraus = fs.readFileSync(sinal, 'utf8').trim().split('\n').map((l) => JSON.parse(l) as
+      { origem: string; vagasGanhas: number; vagas: number });
+    assert.deepEqual([...new Set(degraus.map((d) => d.origem))].sort(), ['claims', 'integracao', 'varredura']);
+    assert.ok(degraus.every((d) => d.vagas <= plano.capacidadeEfetiva));
+    assert.equal(degraus.at(-1)!.vagas, plano.capacidadeEfetiva);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 

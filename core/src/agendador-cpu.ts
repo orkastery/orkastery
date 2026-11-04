@@ -73,6 +73,9 @@ export interface PlanoCpuDoGrupo {
   /** Vagas da hermetica depois que varredura e integracao devolvem a reserva. */
   cpusHermeticaAposReserva: number;
   cpusIntegracao: number;
+  /** Vagas do pool de claims independentes; zero conserva a ordem posterior as lanes. */
+  cpusClaims: number;
+  cadeiasDeClaims: number;
   fonteCpusIntegracao: 'medida' | 'conservadora' | 'classic';
   /** Só vale com perfil completo e compatível; a primeira rodada preserva a cadeia. */
   integracaoEmParalelo: boolean;
@@ -83,6 +86,8 @@ export interface PlanoCpuDoGrupo {
   /** Preenchida pelo auxiliar depois que a lane termina; nao participa do plano da propria rodada. */
   medicaoCpuIntegracao?: MedicaoCpuDaIntegracao;
 }
+
+export interface CargaCpuDoGrupo { cadeiasDeClaims?: number }
 
 /** Registra o container antes do `docker run`; falha de evidencia nunca impede a ferramenta de rodar. */
 export function registrarContainerDaLane(nome: string, ambiente: NodeJS.ProcessEnv = process.env): void {
@@ -147,7 +152,8 @@ export async function medirCpuDoGrupo(janelaMs = JANELA_DA_SONDA_MS): Promise<Me
 }
 
 /** O plano unico que alimenta concorrencia das lanes, varredura e `docker run --cpus`. */
-export function planejarCpuDoGrupo(cpusInformadas: number, medicao: MedicaoCpuDoGrupo): PlanoCpuDoGrupo {
+export function planejarCpuDoGrupo(cpusInformadas: number, medicao: MedicaoCpuDoGrupo,
+  carga: CargaCpuDoGrupo = {}): PlanoCpuDoGrupo {
   const cpus = cpusValidas(cpusInformadas);
   const steal = Math.min(100, Math.max(0, medicao.stealPct ?? 0));
   // So o steal desconta capacidade. A carga de um minuto do /proc/loadavg inclui o build do proprio verify e a rodada
@@ -172,6 +178,12 @@ export function planejarCpuDoGrupo(cpusInformadas: number, medicao: MedicaoCpuDo
     ? Math.max(1, Math.min(capacidadeEfetiva - 1, Math.ceil(medida as number)))
     : ferramentas;
   const integracaoEmParalelo = !saturado && medidaCompativel && capacidadeEfetiva - fatia - cpusIntegracao >= 1;
+  const cadeiasDeClaims = Math.max(0, Math.floor(carga.cadeiasDeClaims ?? 0));
+  const hermeticaSemClaims = saturado ? classic
+    : Math.max(1, capacidadeEfetiva - fatia - (integracaoEmParalelo ? cpusIntegracao : 0));
+  // Cada cadeia recebe uma vaga, mas a lane critica conserva ao menos a mesma parcela. Sem duas vagas livres, a claim
+  // continua depois das lanes. A conta e proporcional a capacidade efetiva, nunca a uma maquina especifica.
+  const cpusClaims = saturado ? 0 : Math.min(cadeiasDeClaims, Math.floor(hermeticaSemClaims / 2));
   const amostras = (xs: number[] | undefined, resumo: number | null): string =>
     `[${(xs?.length ? xs : resumo === null ? [] : [resumo]).join(', ')}]`;
   const evidencia = `carga em /proc/loadavg: amostras ${amostras(medicao.amostrasCarga1, medicao.carga1)}, mediana ` +
@@ -181,7 +193,8 @@ export function planejarCpuDoGrupo(cpusInformadas: number, medicao: MedicaoCpuDo
     ? `${motivos.join('; ')}; ${evidencia}`
     : `capacidade ${capacidadeEfetiva}/${cpus} CPU(s)${estado === 'degradado' ? ' depois do desconto do steal' : ' inteira'}; ${evidencia}; ` +
       `${fatia} CPU(s) reservadas a varredura; ` +
-      (integracaoEmParalelo ? `integracao medida cabe em paralelo com ${cpusIntegracao} CPU(s)` : 'integracao permanece encadeada');
+      (integracaoEmParalelo ? `integracao medida cabe em paralelo com ${cpusIntegracao} CPU(s)` : 'integracao permanece encadeada') +
+      (cadeiasDeClaims ? `; claims com ${cpusClaims} vaga(s) para ${cadeiasDeClaims} cadeia(s)` : '');
   return {
     cpus,
     ordem: saturado ? 'classic' : 'paralela',
@@ -189,10 +202,12 @@ export function planejarCpuDoGrupo(cpusInformadas: number, medicao: MedicaoCpuDo
     capacidadeEfetiva,
     saturado,
     motivo,
-    cpusHermetica: saturado ? classic : Math.max(1, capacidadeEfetiva - fatia - (integracaoEmParalelo ? cpusIntegracao : 0)),
+    cpusHermetica: Math.max(1, hermeticaSemClaims - cpusClaims),
     cpusHermeticaAposVarredura: saturado ? classic : Math.max(1, capacidadeEfetiva - cpusIntegracao),
     cpusHermeticaAposReserva: saturado ? classic : capacidadeEfetiva,
     cpusIntegracao,
+    cpusClaims,
+    cadeiasDeClaims,
     fonteCpusIntegracao: saturado ? 'classic' : medidaCompativel
       ? 'medida' : 'conservadora',
     integracaoEmParalelo,

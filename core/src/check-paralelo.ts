@@ -378,11 +378,15 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
   const medicao = esp.medicaoCpu ?? await medirCpuDoGrupo();
   if (perfil) Object.assign(medicao, { cpusIntegracao: perfil.picoCpusDaArvore, fonteCpusIntegracao: 'medida' as const });
   else if (medicao.cpusIntegracao === undefined) Object.assign(medicao, { cpusIntegracao: null, fonteCpusIntegracao: 'conservadora' as const });
-  const plano = usaAgendador ? planejarCpuDoGrupo(cpus, medicao) : undefined;
+  const nomesDasClaims = new Set(esp.itens.filter((i) => i.papelCpu === 'claim').map((i) => i.nome));
+  const cadeiasDeClaims = esp.itens.filter((i) => i.papelCpu === 'claim'
+    && !(i.apos ?? []).some((nome) => nomesDasClaims.has(nome))).length;
+  const plano = usaAgendador ? planejarCpuDoGrupo(cpus, medicao, { cadeiasDeClaims }) : undefined;
   const sinalDaReserva = plano && !plano.saturado ? path.join(esp.dir, 'reserva-devolvida.json') : undefined;
   const itens = plano ? aplicarPlano(esp.itens, plano, sinalDaReserva) : esp.itens;
   const tetoInformado = esp.maxParalelo && esp.maxParalelo > 0 ? esp.maxParalelo : itens.length;
   const limite = vagas(Math.max(1, Math.min(tetoInformado, workersDaReserva(cpus))));
+  const limiteDasClaims = plano?.cpusClaims ? vagas(plano.cpusClaims) : null;
   const exclusivos = recursosExclusivos();
   const totalDeLanes = itens.filter((item) => item.nome.startsWith('test:')).length;
   const porNome = new Map<string, Promise<Terminado>>();
@@ -398,40 +402,46 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
         if (j !== undefined) await vezDoItem(itens[j], j);
       }
       const soltarRecursos = await exclusivos.tomar(item.recursos ?? []);
+      if (item.papelCpu === 'claim') await limiteDasClaims?.tomar();
       await limite.tomar();
-      try { return await lancar(item, i); } finally { limite.soltar(); soltarRecursos(); }
+      try { return await lancar(item, i); } finally {
+        limite.soltar();
+        if (item.papelCpu === 'claim') limiteDasClaims?.soltar();
+        soltarRecursos();
+      }
     });
     porNome.set(item.nome, vez);
     return vez;
   };
   const todos = Promise.all(itens.map(vezDoItem));
-  const reservados = itens.filter((item) => item.papelCpu === 'varredura' || item.papelCpu === 'integracao');
+  const reservados = itens.filter((item) => ['varredura', 'integracao', 'claim'].includes(item.papelCpu ?? ''));
   const devolverReserva = async (): Promise<void> => {
-    if (!sinalDaReserva || !reservados.some((item) => item.papelCpu === 'varredura')
-      || !reservados.some((item) => item.papelCpu === 'integracao')) return;
+    if (!sinalDaReserva || !reservados.length) return;
     const varreduras = reservados.filter((item) => item.papelCpu === 'varredura');
     const integracoes = reservados.filter((item) => item.papelCpu === 'integracao');
-    const degrau = async (origem: 'varredura' | 'integracao', pecas: ItemParalelo[], vagas: number, antes: number) => {
+    const claims = reservados.filter((item) => item.papelCpu === 'claim');
+    let vagasDaHermetica = plano!.cpusHermetica;
+    const degrau = async (origem: 'varredura' | 'integracao' | 'claims', pecas: ItemParalelo[], libera: number) => {
+      if (!pecas.length) return;
       await Promise.all(pecas.map((item) => vezDoItem(item, indice.get(item.nome)!)));
+      const antes = vagasDaHermetica;
+      vagasDaHermetica = Math.min(plano!.capacidadeEfetiva, vagasDaHermetica + libera);
       fs.appendFileSync(sinalDaReserva, JSON.stringify({ contrato: 'ork.check.reserva-devolvida/v2', origem,
-        em: new Date().toISOString(), vagasGanhas: vagas - antes, vagas }) + '\n', { mode: 0o600 });
+        em: new Date().toISOString(), vagasGanhas: vagasDaHermetica - antes, vagas: vagasDaHermetica }) + '\n', { mode: 0o600 });
     };
-    if (!plano!.integracaoEmParalelo) {
-      await degrau('varredura', varreduras, plano!.cpusHermeticaAposVarredura, plano!.cpusHermetica);
-      await degrau('integracao', integracoes, plano!.cpusHermeticaAposReserva, plano!.cpusHermeticaAposVarredura);
-    } else {
-      // As promessas escrevem em série no event loop; o primeiro término recebe somente a reserva da própria peça.
-      let vagas = plano!.cpusHermetica;
-      const aoTerminar = async (origem: 'varredura' | 'integracao', pecas: ItemParalelo[], libera: number) => {
-        await Promise.all(pecas.map((item) => vezDoItem(item, indice.get(item.nome)!)));
-        const antes = vagas;
-        vagas = Math.min(plano!.cpus, vagas + libera);
-        fs.appendFileSync(sinalDaReserva, JSON.stringify({ contrato: 'ork.check.reserva-devolvida/v2', origem,
-          em: new Date().toISOString(), vagasGanhas: vagas - antes, vagas }) + '\n', { mode: 0o600 });
-      };
-      await Promise.all([aoTerminar('varredura', varreduras, plano!.cpusDaFatia),
-        aoTerminar('integracao', integracoes, plano!.cpusIntegracao)]);
-    }
+    const liberadaPelaVarredura = plano!.integracaoEmParalelo
+      ? plano!.cpusDaFatia : Math.max(0, plano!.cpusDaFatia - plano!.cpusIntegracao);
+    const devolverInfraestrutura = plano!.integracaoEmParalelo
+      ? Promise.all([degrau('varredura', varreduras, liberadaPelaVarredura),
+        degrau('integracao', integracoes, plano!.cpusIntegracao)])
+      : (async () => {
+        await degrau('varredura', varreduras, liberadaPelaVarredura);
+        await degrau('integracao', integracoes, plano!.cpusIntegracao);
+      })();
+    await Promise.all([
+      degrau('claims', claims, plano!.cpusClaims),
+      devolverInfraestrutura,
+    ]);
   };
   const [, terminados] = await Promise.all([devolverReserva(), todos]);
   const medidaDaIntegracao = terminados.find((t) => t.medicaoCpu)?.medicaoCpu;
@@ -498,6 +508,7 @@ function aplicarPlano(originais: ItemParalelo[], plano: PlanoCpuDoGrupo, sinalDa
   const hermetica = porPapel('hermetica')[0];
   const varredura = porPapel('varredura')[0];
   const integracoes = porPapel('integracao');
+  const claims = porPapel('claim');
   const outros = porPapel('outro');
   const depender = (item: ItemParalelo | undefined, nomes: Array<string | undefined>): void => {
     if (!item) return;
@@ -508,7 +519,7 @@ function aplicarPlano(originais: ItemParalelo[], plano: PlanoCpuDoGrupo, sinalDa
   };
   const cpusContainer = String(plano.cpusPorContainer);
   ambiente(hermetica, { [ENV_CPUS_DA_LANE]: String(plano.cpusHermetica), [ENV_CPUS_DOCKER]: cpusContainer,
-    ...(sinalDaReserva && varredura && integracoes.length > 0 ? {
+    ...(sinalDaReserva && (varredura || integracoes.length > 0 || claims.length > 0) ? {
       [ENV_CPUS_DA_LANE_APOS_VARREDURA]: String(plano.cpusHermeticaAposVarredura),
       [ENV_CPUS_DA_LANE_APOS_RESERVA]: String(plano.cpusHermeticaAposReserva), [ENV_SINAL_DA_RESERVA]: sinalDaReserva,
     } : {}) });
@@ -521,6 +532,13 @@ function aplicarPlano(originais: ItemParalelo[], plano: PlanoCpuDoGrupo, sinalDa
     ambiente(item, { [ENV_CPUS_DA_LANE]: String(plano.cpusIntegracao), [ENV_CPUS_DOCKER]: cpusContainer });
     depender(item, [anteriorIntegracao ?? (plano.integracaoEmParalelo ? undefined : varredura?.nome)]);
     anteriorIntegracao = item.nome;
+  }
+  if (plano.cpusClaims === 0) {
+    let anteriorClaim = anteriorIntegracao;
+    for (const item of claims) {
+      depender(item, [anteriorClaim ?? varredura?.nome, hermetica?.nome]);
+      anteriorClaim = item.nome;
+    }
   }
   if (plano.saturado) depender(varredura, [hermetica?.nome]);
   // Comandos sem papel conhecido nao disputam CPU com as tres pecas: fecham a cadeia, um por vez.
