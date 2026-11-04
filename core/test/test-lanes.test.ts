@@ -12,7 +12,8 @@ import * as path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { TESTES_DE_INTEGRACAO_LOCAL } from '../src/integracoes-locais';
 import { assinaturaDoAmbiente as assinaturaDoVerify } from '../src/check-agil';
-import { rodarEmParalelo } from '../src/check-paralelo';
+import { aplicarDevolucaoDaReserva, aplicarPlanoCpu, devolucoesDaReserva, OrigemDaReserva } from '../src/check-paralelo';
+import { planejarCpuDoGrupo, PlanoCpuDoGrupo } from '../src/agendador-cpu';
 
 const CORE = path.resolve(__dirname, '../..');
 const SCRIPT = path.join(CORE, 'scripts', 'test-lanes.cjs');
@@ -27,13 +28,12 @@ const lanes = require(SCRIPT) as {
   globDoNpmTest: () => string[];
   concorrenciaDaLane: (lane: string, cpus?: number, limiteDoGrupo?: number) => number;
   planoDoPool: (lane: string, cpus?: number, env?: NodeJS.ProcessEnv) =>
-    { inicial: number; aposVarredura: number; final: number; sinal: string; folga?: string } | null;
+    { inicial: number; aposVarredura: number; final: number; sinal: string } | null;
   degrausDaReserva: (texto: string, vagas: number, final: number, vistos?: Set<string>) =>
     { vagas: number; aplicados: Array<{ origem: string; em: string; vagasGanhas: number; vagas: number }> };
   ENV_CPUS_APOS_VARREDURA: string;
   ENV_CPUS_APOS_RESERVA: string;
   ENV_SINAL_DA_RESERVA: string;
-  ENV_FOLGA_DA_HERMETICA: string;
   selecionarTemporario: (opcoes?: Record<string, unknown>) => { diretorio: string; estado: 'agile' | 'fallback'; motivo: string };
 };
 
@@ -166,10 +166,9 @@ test('TL9: a hermetica devolve as vagas sem passar da CPU, e a integracao preser
   assert.equal(lanes.concorrenciaDaLane('hermetica', 8, 7), 7, 'o fallback usa CPUs menos uma');
   assert.equal(lanes.concorrenciaDaLane('integracao', 8, 7), 7, 'depois da hermetica, a integracao usa a fatia Classic');
   assert.deepEqual(lanes.planoDoPool('hermetica', 8, { ORK_CHECK_CPUS_DA_LANE: '6',
-    [lanes.ENV_CPUS_APOS_VARREDURA]: '7', [lanes.ENV_CPUS_APOS_RESERVA]: '8', [lanes.ENV_SINAL_DA_RESERVA]: '/tmp/sinal',
-    [lanes.ENV_FOLGA_DA_HERMETICA]: '/tmp/folga' }),
-  { inicial: 6, aposVarredura: 7, final: 8, sinal: '/tmp/sinal', folga: '/tmp/folga' },
-  'a hermetica recebe um degrau por peca e publica a folga');
+    [lanes.ENV_CPUS_APOS_VARREDURA]: '7', [lanes.ENV_CPUS_APOS_RESERVA]: '8', [lanes.ENV_SINAL_DA_RESERVA]: '/tmp/sinal' }),
+  { inicial: 6, aposVarredura: 7, final: 8, sinal: '/tmp/sinal' },
+  'a hermetica recebe um degrau por peca pelo sinal da reserva');
   assert.equal(lanes.planoDoPool('integracao', 8, { ORK_CHECK_CPUS_DA_LANE: '2',
     [lanes.ENV_CPUS_APOS_RESERVA]: '8', [lanes.ENV_SINAL_DA_RESERVA]: '/tmp/sinal' }), null, 'a integracao nunca abre o pool');
   const texto = fs.readFileSync(SCRIPT, 'utf8');
@@ -190,11 +189,10 @@ test('TL9: a hermetica devolve as vagas sem passar da CPU, e a integracao preser
         `while (!fs.existsSync(${JSON.stringify(liberar)})) await new Promise((r) => setTimeout(r, 20)); ` +
         `fs.writeFileSync(path.join(process.env.MARCAS, '${nome}.fim'), ''); });\n`);
     }
-    const sinal = path.join(dir, 'reserva.json'), folga = path.join(dir, 'folga.json'), relatorio = path.join(dir, 'relatorio.jsonl');
+    const sinal = path.join(dir, 'reserva.json'), relatorio = path.join(dir, 'relatorio.jsonl');
     const env = { ...process.env, ORK_LANES_DIR: testes, ORK_LANES_INTEGRACAO: '', ORK_CHECK_RELATORIO: relatorio,
       ORK_CHECK_CPUS_DA_LANE: '1', ORK_CHECK_CPUS_DA_LANE_APOS_VARREDURA: '2',
       ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA: '3', ORK_CHECK_RESERVA_DEVOLVIDA: sinal,
-      ORK_CHECK_FOLGA_DA_HERMETICA: folga,
       XDG_CACHE_HOME: path.join(dir, 'cache'), MARCAS: marcas };
     let stdout = '', stderr = '';
     filho = spawn(process.execPath, [SCRIPT, 'hermetica'], { env, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -226,9 +224,6 @@ test('TL9: a hermetica devolve as vagas sem passar da CPU, e a integracao preser
     const linhas = fs.readFileSync(relatorio, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Record<string, unknown>);
     assert.ok(linhas.some((l) => l.peca === 'agendador-cpu' && /varredura devolveu 1 vaga.*passou a 2 vagas/.test(String(l.motivo))));
     assert.ok(linhas.some((l) => l.peca === 'agendador-cpu' && /integracao devolveu 1 vaga.*passou a 3 vagas/.test(String(l.motivo))));
-    assert.deepEqual(JSON.parse(fs.readFileSync(folga, 'utf8')),
-      { contrato: 'ork.check.folga-hermetica/v1', vagas: 3, ativos: 0, pendentes: 0, livres: 3,
-        trabalhosRestantesMs: [], duracaoIntegracaoMs: null });
     const resultados = linhas.find((l) => l.tipo === 'resultados')!;
     assert.deepEqual((resultados.testes as Array<{ arquivo: string; estado: string }>).map((t) => [t.arquivo, t.estado]).sort(),
       ['a', 'b', 'c', 'd'].map((n) => [`${n}.test.js`, 'pass']));
@@ -253,58 +248,52 @@ test('TL13: degrau duplicado, regressivo ou acima da CPU nunca abre vaga', () =>
   assert.deepEqual(claims.aplicados.map((d) => d.origem), ['claims']);
 });
 
-test('TL14: o caminho previsto recebe a reserva da varredura sem vaga ociosa nem excesso de capacidade', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-tl14-folga-'));
-  try {
-    const rodar = (nome: string, trabalhosRestantesMs: number[] | null, duracaoIntegracaoMs: number | null,
-      espera: boolean): ReturnType<typeof rodarEmParalelo> => {
-      const capturado = path.join(dir, `${nome}.jsonl`), liberada = path.join(dir, `${nome}.folga`);
-      const historico = JSON.stringify({ contrato: 'ork.check.folga-hermetica/v1', livres: 0,
-        trabalhosRestantesMs, duracaoIntegracaoMs });
-      const depois = espera
-        ? `sleep 0.1 && touch ${liberada} && printf '%s\\n' '${JSON.stringify({ contrato: 'ork.check.folga-hermetica/v1',
-          livres: 2, trabalhosRestantesMs: [], duracaoIntegracaoMs })}' > "$ORK_CHECK_FOLGA_DA_HERMETICA" && sleep 0.15`
-        : 'sleep 0.25';
-      const hermetica = `printf '%s\\n' '${historico}' > "$ORK_CHECK_FOLGA_DA_HERMETICA" && ` +
-        'for i in $(seq 1 300); do test -s "$ORK_CHECK_RESERVA_DEVOLVIDA" && break; sleep 0.02; done && ' +
-        `cp "$ORK_CHECK_RESERVA_DEVOLVIDA" ${capturado} && ${depois}`;
-      const processos = rodarEmParalelo([
-        { nome: 'test:hermetica', papelCpu: 'hermetica', cwd: dir, prazoMs: 10_000, comando: hermetica },
-        { nome: 'security_scan', papelCpu: 'varredura', cwd: dir, prazoMs: 10_000, comando: 'sleep 0.05' },
-        { nome: 'test:integracao', papelCpu: 'integracao', cwd: dir, prazoMs: 10_000,
-          comando: `${espera ? `test -f ${liberada} && ` : ''}test "$ORK_CHECK_CPUS_DOCKER" = "1" && ` +
-            `printf '%s\\n' '{"tipo":"cota-docker","estado":"aplicada","cota":1,"motivo":"adaptador confirmou"}' ` +
-            `>> "$ORK_CHECK_CONTAINERS_DA_LANE" && touch ${path.join(dir, `${nome}.integracao`)}` },
-      ], process.env, { cpus: 4, medicaoCpu: { carga1: 0, stealPct: 0 } });
-      assert.ok(processos.every((p) => p.ok), processos.map((p) => p.stderr).join('\n'));
-      assert.ok(fs.existsSync(path.join(dir, `${nome}.integracao`)));
-      const sinais = fs.readFileSync(capturado, 'utf8').trim().split('\n').map((linha) => JSON.parse(linha) as
-        { origem: string; vagasGanhas: number; vagas: number });
-      assert.deepEqual([sinais[0].origem, sinais[0].vagasGanhas, sinais[0].vagas],
-        espera ? ['varredura', 2, 4] : ['varredura', 0, 2]);
-      assert.ok(sinais.every((s) => s.vagas <= processos.agendamentoCpu!.capacidadeEfetiva));
-      assert.deepEqual(processos.agendamentoCpu!.cotaDosContainersDaIntegracao,
-        { estado: 'aplicada', cota: 1, motivo: 'adaptador confirmou' });
-      if (espera) assert.equal(sinais[0].vagas, processos.agendamentoCpu!.capacidadeEfetiva,
-        'enquanto a integracao espera, toda a reserva vai ao pool hermetico');
-      else assert.ok(processos.agendamentoCpu!.cpusHermeticaAposVarredura +
-        processos.agendamentoCpu!.cpusIntegracaoEmUso <= processos.agendamentoCpu!.capacidadeEfetiva,
-      'quando a integracao inicia, sua reserva e a hermetica cabem juntas');
-      return processos;
-    };
+test('TL14: estado e relogio injetados provam a reserva do caminho usado sem depender da parede', () => {
+  const itens = [
+    { nome: 'test:hermetica', papelCpu: 'hermetica' as const, cwd: '/tmp', prazoMs: 1, comando: 'hermetica' },
+    { nome: 'security_scan', papelCpu: 'varredura' as const, cwd: '/tmp', prazoMs: 1, comando: 'varredura' },
+    { nome: 'test:integracao', papelCpu: 'integracao' as const, cwd: '/tmp', prazoMs: 1, comando: 'integracao' },
+  ];
+  const transicoes = (plano: PlanoCpuDoGrupo, ordem: OrigemDaReserva[]) => {
+    const devolucoes = devolucoesDaReserva(plano);
+    let vagas = plano.cpusHermetica;
+    return ordem.map((origem, indice) => {
+      const degrau = aplicarDevolucaoDaReserva(vagas, plano.capacidadeEfetiva, origem, devolucoes[origem],
+        `2026-11-04T00:00:0${indice}.000Z`);
+      vagas = degrau.vagas;
+      return degrau;
+    });
+  };
 
-    const semHistorico = rodar('sem-historico', null, null, false);
-    assert.equal(semHistorico.agendamentoCpu!.previsaoDoMomentoDaIntegracao!.caminho, 'iniciar-logo');
-    assert.match(semHistorico.agendamentoCpu!.motivo, /sem historico completo.*caminho escolhido: iniciar-logo/);
+  const encadeado = planejarCpuDoGrupo(4, { carga1: 0, stealPct: 0 });
+  const aplicados = aplicarPlanoCpu(itens, encadeado, '/tmp/sinal');
+  const integracao = aplicados.find((item) => item.papelCpu === 'integracao')!;
+  assert.equal(encadeado.integracaoEmParalelo, false);
+  assert.equal(encadeado.cpusIntegracaoEmUso, encadeado.cpusDaFatia,
+    'a integracao encadeada herda toda a reserva da varredura');
+  assert.deepEqual(integracao.apos, ['security_scan'], 'a integracao inicia assim que a varredura termina');
+  assert.deepEqual([integracao.ambiente?.ORK_CHECK_CPUS_DA_LANE, integracao.ambiente?.ORK_CHECK_CPUS_DOCKER], ['2', '1']);
+  assert.match(encadeado.motivo, /integracao encadeada inicia depois da varredura/);
+  assert.doesNotMatch(encadeado.motivo, /previs|historico|folga/i);
+  const sinaisEncadeados = transicoes(encadeado, ['varredura', 'integracao']);
+  assert.deepEqual(sinaisEncadeados.map((s) => [s.origem, s.vagasGanhas, s.vagas]),
+    [['varredura', 0, 2], ['integracao', 2, 4]]);
+  const consumido = lanes.degrausDaReserva(sinaisEncadeados.map((s) => JSON.stringify(s)).join('\n'),
+    encadeado.cpusHermetica, encadeado.capacidadeEfetiva);
+  assert.equal(consumido.vagas, encadeado.capacidadeEfetiva);
 
-    const espera = rodar('espera', [150, 150, 100, 100, 100], 10, true);
-    assert.equal(espera.agendamentoCpu!.previsaoDoMomentoDaIntegracao!.caminho, 'esperar-folga');
-    assert.match(espera.agendamentoCpu!.motivo, /esperar a folga preve.*integracao esperou 2 vaga/);
-
-    const imediato = rodar('imediato', [50, 50, 50], 60, false);
-    assert.equal(imediato.agendamentoCpu!.previsaoDoMomentoDaIntegracao!.caminho, 'iniciar-logo');
-    assert.match(imediato.agendamentoCpu!.motivo, /iniciar logo preve.*caminho escolhido: iniciar-logo/);
-  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  const paralelo = planejarCpuDoGrupo(8,
+    { carga1: 0, stealPct: 0, cpusIntegracao: 0.64, fonteCpusIntegracao: 'medida' });
+  const integracaoParalela = aplicarPlanoCpu(itens, paralelo, '/tmp/sinal')
+    .find((item) => item.papelCpu === 'integracao')!;
+  assert.equal(paralelo.integracaoEmParalelo, true);
+  assert.deepEqual(integracaoParalela.apos, [], 'a integracao medida ja comeca em paralelo');
+  const sinaisParalelos = transicoes(paralelo, ['varredura', 'integracao']);
+  assert.deepEqual(sinaisParalelos.map((s) => [s.origem, s.vagasGanhas, s.vagas]),
+    [['varredura', 2, 7], ['integracao', 1, 8]],
+  'quando a integracao ja roda, a reserva da varredura volta inteira a hermetica');
+  assert.ok(sinaisEncadeados.every((s) => s.vagas <= encadeado.capacidadeEfetiva));
+  assert.ok(sinaisParalelos.every((s) => s.vagas <= paralelo.capacidadeEfetiva));
 });
 
 test('TL10: o teste da lane nao herda modo, relatorio nem plano de CPU da rodada, mas herda o ambiente exigido', () => {

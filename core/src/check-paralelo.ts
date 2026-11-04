@@ -17,7 +17,6 @@ import * as path from 'node:path';
 import { ENV_CONTAINERS_DA_LANE, ENV_CPUS_DA_LANE, ENV_CPUS_DA_LANE_APOS_RESERVA, ENV_CPUS_DA_LANE_APOS_VARREDURA,
   ENV_CPUS_DOCKER, ENV_SINAL_DA_RESERVA, ENV_WORKERS,
   EvidenciaDaCotaDocker, medirCpuDoGrupo, MedicaoCpuDaIntegracao, MedicaoCpuDoGrupo, PlanoCpuDoGrupo, planejarCpuDoGrupo,
-  preverMomentoDaIntegracao,
   workersDaReserva } from './agendador-cpu';
 import { TESTES_DE_INTEGRACAO_LOCAL } from './integracoes-locais';
 
@@ -26,8 +25,6 @@ const NICE_BIN = '/usr/bin/nice';
 const TIME_BIN = '/usr/bin/time';
 const CONTRATO_PERFIL_INTEGRACAO = 'ork.check.cpu-integracao/v2';
 const INTERVALO_CPU_MS = 100;
-export const ENV_FOLGA_DA_HERMETICA = 'ORK_CHECK_FOLGA_DA_HERMETICA';
-const CONTRATO_FOLGA_DA_HERMETICA = 'ork.check.folga-hermetica/v1';
 
 /** Um comando do grupo. */
 export interface ItemParalelo {
@@ -97,7 +94,7 @@ export function argvDoItem(item: ItemParalelo, comGrupo = fs.existsSync(TIMEOUT_
 }
 
 /** As vagas do grupo: no maximo `max` comandos ao mesmo tempo, na ordem em que pediram. */
-function vagas(max: number): { tomar: () => Promise<void>; soltar: () => void } {
+export function limiteDeVagas(max: number): { tomar: () => Promise<void>; soltar: () => void } {
   let livres = max;
   const fila: Array<() => void> = [];
   return {
@@ -400,77 +397,14 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
     && !(i.apos ?? []).some((nome) => nomesDasClaims.has(nome))).length;
   const plano = usaAgendador ? planejarCpuDoGrupo(cpus, medicao, { cadeiasDeClaims }) : undefined;
   const sinalDaReserva = plano && !plano.saturado ? path.join(esp.dir, 'reserva-devolvida.json') : undefined;
-  const itens = plano ? aplicarPlano(esp.itens, plano, sinalDaReserva) : esp.itens;
+  const itens = plano ? aplicarPlanoCpu(esp.itens, plano, sinalDaReserva) : esp.itens;
   const tetoInformado = esp.maxParalelo && esp.maxParalelo > 0 ? esp.maxParalelo : itens.length;
-  const limite = vagas(Math.max(1, Math.min(tetoInformado, workersDaReserva(cpus))));
-  const limiteDasClaims = plano?.cpusClaims ? vagas(plano.cpusClaims) : null;
+  const limite = limiteDeVagas(Math.max(1, Math.min(tetoInformado, workersDaReserva(cpus))));
+  const limiteDasClaims = plano?.cpusClaims ? limiteDeVagas(plano.cpusClaims) : null;
   const exclusivos = recursosExclusivos();
   const totalDeLanes = itens.filter((item) => item.nome.startsWith('test:')).length;
   const porNome = new Map<string, Promise<Terminado>>();
   const indice = new Map(itens.map((item, i) => [item.nome, i]));
-  type EstadoDaFolga = { vagas: number | null; livres: number | null; trabalhosRestantesMs: number[] | null;
-    duracaoIntegracaoMs: number | null };
-  type DecisaoDaIntegracao = { esperar: boolean };
-  let decisaoDaIntegracao: Promise<DecisaoDaIntegracao> | null = null;
-  const lerEstadoDaFolga = (arquivo: string | undefined): EstadoDaFolga => {
-    if (!arquivo) return { vagas: null, livres: null, trabalhosRestantesMs: null, duracaoIntegracaoMs: null };
-    try {
-      const f = JSON.parse(fs.readFileSync(arquivo, 'utf8')) as Record<string, unknown>;
-      if (f.contrato !== CONTRATO_FOLGA_DA_HERMETICA) throw new Error('contrato');
-      const vagas = Number.isInteger(f.vagas) && Number(f.vagas) > 0 ? Number(f.vagas) : null;
-      const livres = Number.isInteger(f.livres) && Number(f.livres) >= 0 ? Number(f.livres) : null;
-      const trabalhos = Array.isArray(f.trabalhosRestantesMs) && f.trabalhosRestantesMs.every((x) => Number.isFinite(x) && Number(x) >= 0)
-        ? f.trabalhosRestantesMs.map(Number) : null;
-      const integracao = Number.isFinite(f.duracaoIntegracaoMs) && Number(f.duracaoIntegracaoMs) >= 0
-        ? Number(f.duracaoIntegracaoMs) : null;
-      return { vagas, livres, trabalhosRestantesMs: trabalhos, duracaoIntegracaoMs: integracao };
-    } catch { return { vagas: null, livres: null, trabalhosRestantesMs: null, duracaoIntegracaoMs: null }; }
-  };
-  const decidirMomentoDaIntegracao = (item: ItemParalelo): Promise<DecisaoDaIntegracao> => {
-    if (decisaoDaIntegracao) return decisaoDaIntegracao;
-    decisaoDaIntegracao = Promise.resolve().then(() => {
-      if (!plano || plano.integracaoEmParalelo || item.papelCpu !== 'integracao') return { esperar: false };
-      const estado = lerEstadoDaFolga(item.ambiente?.[ENV_FOLGA_DA_HERMETICA]);
-      const vagasAtuais = estado.vagas ?? plano.cpusHermetica;
-      const vagasComVarredura = Math.min(plano.capacidadeEfetiva, vagasAtuais + plano.cpusDaFatia);
-      const previsao = preverMomentoDaIntegracao(estado.trabalhosRestantesMs, vagasAtuais,
-        vagasComVarredura, plano.cpusIntegracao, estado.duracaoIntegracaoMs);
-      plano.previsaoDoMomentoDaIntegracao = previsao;
-      const esperar = previsao.caminho === 'esperar-folga';
-      plano.cpusIntegracaoEmUso = esperar ? plano.cpusIntegracao : plano.cpusDaFatia;
-      const workers = workersDaReserva(plano.cpusIntegracaoEmUso);
-      const cota = String(Math.floor((plano.cpusIntegracaoEmUso / workers) * 100) / 100);
-      for (const integracao of itens.filter((i) => i.papelCpu === 'integracao')) {
-        integracao.ambiente = { ...integracao.ambiente, [ENV_CPUS_DA_LANE]: String(plano.cpusIntegracaoEmUso),
-          [ENV_CPUS_DOCKER]: cota };
-      }
-      const liberada = esperar ? plano.cpusDaFatia : Math.max(0, plano.cpusDaFatia - plano.cpusIntegracaoEmUso);
-      plano.cpusHermeticaAposVarredura = Math.min(plano.capacidadeEfetiva, vagasAtuais + liberada);
-      plano.motivo += `; ${previsao.motivo}; caminho escolhido: ${previsao.caminho}`;
-      return { esperar };
-    });
-    return decisaoDaIntegracao;
-  };
-  const esperarFolgaDaHermetica = async (item: ItemParalelo): Promise<void> => {
-    if (!plano || plano.integracaoEmParalelo || item.papelCpu !== 'integracao') return;
-    const decisao = await decidirMomentoDaIntegracao(item);
-    if (!decisao.esperar) return;
-    const arquivo = item.ambiente?.[ENV_FOLGA_DA_HERMETICA];
-    const hermetica = itens.find((i) => i.papelCpu === 'hermetica');
-    if (!arquivo || !hermetica) return;
-    let relogio: ReturnType<typeof setInterval> | null = null;
-    const folga = new Promise<'folga'>((resolve) => {
-      const conferir = () => { if ((lerEstadoDaFolga(arquivo).livres ?? -1) >= plano.cpusIntegracaoEmUso) resolve('folga'); };
-      relogio = setInterval(conferir, 25);
-      conferir();
-    });
-    const terminou = vezDoItem(hermetica, indice.get(hermetica.nome)!).then(() => 'fim' as const);
-    const motivo = await Promise.race([folga, terminou]);
-    if (relogio) clearInterval(relogio);
-    plano.motivo += motivo === 'folga'
-      ? `; integracao esperou ${plano.cpusIntegracaoEmUso} vaga(s) livres da hermetica`
-      : '; integracao comecou depois do fim da hermetica';
-  };
   const vezDoItem = (item: ItemParalelo, i: number): Promise<Terminado> => {
     const existente = porNome.get(item.nome);
     if (existente) return existente;
@@ -481,7 +415,6 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
         const j = indice.get(nome);
         if (j !== undefined) await vezDoItem(itens[j], j);
       }
-      await esperarFolgaDaHermetica(item);
       const soltarRecursos = await exclusivos.tomar(item.recursos ?? []);
       if (item.papelCpu === 'claim') await limiteDasClaims?.tomar();
       await limite.tomar();
@@ -502,33 +435,23 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
     const integracoes = reservados.filter((item) => item.papelCpu === 'integracao');
     const claims = reservados.filter((item) => item.papelCpu === 'claim');
     let vagas = plano!.cpusHermetica;
-    const degrau = async (origem: 'varredura' | 'integracao' | 'claims', pecas: ItemParalelo[], libera: number) => {
+    const devolucoes = devolucoesDaReserva(plano!);
+    const degrau = async (origem: OrigemDaReserva, pecas: ItemParalelo[]) => {
       if (!pecas.length) return;
       await Promise.all(pecas.map((item) => vezDoItem(item, indice.get(item.nome)!)));
-      const antes = vagas;
-      vagas = Math.min(plano!.capacidadeEfetiva, vagas + libera);
-      fs.appendFileSync(sinalDaReserva, JSON.stringify({ contrato: 'ork.check.reserva-devolvida/v2', origem,
-        em: new Date().toISOString(), vagasGanhas: vagas - antes, vagas }) + '\n', { mode: 0o600 });
+      const registro = aplicarDevolucaoDaReserva(vagas, plano!.capacidadeEfetiva, origem, devolucoes[origem],
+        new Date().toISOString());
+      vagas = registro.vagas;
+      fs.appendFileSync(sinalDaReserva, JSON.stringify(registro) + '\n', { mode: 0o600 });
     };
-    const itemIntegracao = integracoes[0];
-    if (itemIntegracao && !plano!.integracaoEmParalelo) {
-      await Promise.all(varreduras.map((item) => vezDoItem(item, indice.get(item.nome)!)));
-    }
-    const decisao = itemIntegracao && !plano!.integracaoEmParalelo
-      ? await decidirMomentoDaIntegracao(itemIntegracao) : { esperar: false };
-    const liberadaPelaVarredura = plano!.integracaoEmParalelo
-      ? plano!.cpusDaFatia : decisao.esperar ? plano!.cpusDaFatia
-        : Math.max(0, plano!.cpusDaFatia - plano!.cpusIntegracaoEmUso);
-    const liberadaPelaIntegracao = plano!.integracaoEmParalelo || !decisao.esperar ? plano!.cpusIntegracaoEmUso : 0;
     const devolverInfraestrutura = plano!.integracaoEmParalelo
-      ? Promise.all([degrau('varredura', varreduras, liberadaPelaVarredura),
-        degrau('integracao', integracoes, liberadaPelaIntegracao)])
+      ? Promise.all([degrau('varredura', varreduras), degrau('integracao', integracoes)])
       : (async () => {
-        await degrau('varredura', varreduras, liberadaPelaVarredura);
-        await degrau('integracao', integracoes, liberadaPelaIntegracao);
+        await degrau('varredura', varreduras);
+        await degrau('integracao', integracoes);
       })();
     await Promise.all([
-      degrau('claims', claims, plano!.cpusClaims),
+      degrau('claims', claims),
       devolverInfraestrutura,
     ]);
   };
@@ -596,7 +519,33 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
 }
 
 /** Aplica a mesma conta aos processos, as lanes e aos conteineres que eles criarem. */
-function aplicarPlano(originais: ItemParalelo[], plano: PlanoCpuDoGrupo, sinalDaReserva?: string): ItemParalelo[] {
+export type OrigemDaReserva = 'varredura' | 'integracao' | 'claims';
+
+export interface DegrauDaReserva {
+  contrato: 'ork.check.reserva-devolvida/v2';
+  origem: OrigemDaReserva;
+  em: string;
+  vagasGanhas: number;
+  vagas: number;
+}
+
+/** Reservas que cada peça devolve; a integração encadeada usa a fatia da varredura desde que ela termina. */
+export function devolucoesDaReserva(plano: PlanoCpuDoGrupo): Record<OrigemDaReserva, number> {
+  return {
+    varredura: plano.integracaoEmParalelo ? plano.cpusDaFatia : 0,
+    integracao: plano.cpusIntegracaoEmUso,
+    claims: plano.cpusClaims,
+  };
+}
+
+/** Transição pura do sinal; relógio e estado entram por argumento para a prova não depender da parede da máquina. */
+export function aplicarDevolucaoDaReserva(vagasAtuais: number, capacidade: number, origem: OrigemDaReserva,
+  libera: number, em: string): DegrauDaReserva {
+  const vagas = Math.min(capacidade, vagasAtuais + Math.max(0, libera));
+  return { contrato: 'ork.check.reserva-devolvida/v2', origem, em, vagasGanhas: vagas - vagasAtuais, vagas };
+}
+
+export function aplicarPlanoCpu(originais: ItemParalelo[], plano: PlanoCpuDoGrupo, sinalDaReserva?: string): ItemParalelo[] {
   const itens = originais.map((item) => ({ ...item, ambiente: { ...item.ambiente } }));
   const porPapel = (papel: ItemParalelo['papelCpu']): ItemParalelo[] => itens.filter((i) => i.papelCpu === papel);
   const hermetica = porPapel('hermetica')[0];
@@ -612,9 +561,7 @@ function aplicarPlano(originais: ItemParalelo[], plano: PlanoCpuDoGrupo, sinalDa
     if (item) item.ambiente = { ...item.ambiente, ...valores };
   };
   const cpusContainer = String(plano.cpusPorContainer);
-  const arquivoDaFolga = sinalDaReserva ? `${sinalDaReserva}.folga` : undefined;
   ambiente(hermetica, { [ENV_CPUS_DA_LANE]: String(plano.cpusHermetica), [ENV_CPUS_DOCKER]: cpusContainer,
-    ...(arquivoDaFolga ? { [ENV_FOLGA_DA_HERMETICA]: arquivoDaFolga } : {}),
     ...(sinalDaReserva && (varredura || integracoes.length > 0 || claims.length > 0) ? {
       [ENV_CPUS_DA_LANE_APOS_VARREDURA]: String(plano.cpusHermeticaAposVarredura),
       [ENV_CPUS_DA_LANE_APOS_RESERVA]: String(plano.cpusHermeticaAposReserva), [ENV_SINAL_DA_RESERVA]: sinalDaReserva,
@@ -624,12 +571,11 @@ function aplicarPlano(originais: ItemParalelo[], plano: PlanoCpuDoGrupo, sinalDa
     [ENV_CPUS_DOCKER]: cpusContainer,
   });
   let anteriorIntegracao: string | undefined;
-  const workersDaIntegracao = workersDaReserva(plano.cpusIntegracao);
-  const cotaDoContainerDaIntegracao = String(Math.floor((plano.cpusIntegracao / workersDaIntegracao) * 100) / 100);
+  const workersDaIntegracao = workersDaReserva(plano.cpusIntegracaoEmUso);
+  const cotaDoContainerDaIntegracao = String(Math.floor((plano.cpusIntegracaoEmUso / workersDaIntegracao) * 100) / 100);
   for (const item of integracoes) {
-    ambiente(item, { [ENV_CPUS_DA_LANE]: String(plano.cpusIntegracao),
-      [ENV_CPUS_DOCKER]: cotaDoContainerDaIntegracao,
-      ...(arquivoDaFolga ? { [ENV_FOLGA_DA_HERMETICA]: arquivoDaFolga } : {}) });
+    ambiente(item, { [ENV_CPUS_DA_LANE]: String(plano.cpusIntegracaoEmUso),
+      [ENV_CPUS_DOCKER]: cotaDoContainerDaIntegracao });
     depender(item, [anteriorIntegracao ?? (plano.integracaoEmParalelo ? undefined : varredura?.nome)]);
     anteriorIntegracao = item.nome;
   }

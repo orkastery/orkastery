@@ -44,8 +44,6 @@ const ENV_CPUS_APOS_VARREDURA = 'ORK_CHECK_CPUS_DA_LANE_APOS_VARREDURA';
 const ENV_CPUS_APOS_RESERVA = 'ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA';
 const ENV_SINAL_DA_RESERVA = 'ORK_CHECK_RESERVA_DEVOLVIDA';
 const ENV_CONTAINERS_DA_LANE = 'ORK_CHECK_CONTAINERS_DA_LANE';
-const ENV_FOLGA_DA_HERMETICA = 'ORK_CHECK_FOLGA_DA_HERMETICA';
-const CONTRATO_FOLGA_DA_HERMETICA = 'ork.check.folga-hermetica/v1';
 const TMPFS_MAGIC = 0x01021994;
 
 /**
@@ -66,9 +64,8 @@ function planoDoPool(lane, cpus = os.availableParallelism(), env = process.env) 
   const aposVarredura = Number.isFinite(intermediariaInformada) && intermediariaInformada > 0
     ? Math.max(inicial, Math.min(final, Math.floor(intermediariaInformada))) : inicial;
   const sinal = env[ENV_SINAL_DA_RESERVA];
-  const folga = env[ENV_FOLGA_DA_HERMETICA];
   return lane === 'hermetica' && sinal && final > inicial
-    ? { inicial, aposVarredura, final, sinal, ...(folga ? { folga } : {}) } : null;
+    ? { inicial, aposVarredura, final, sinal } : null;
 }
 
 /** Linhas completas e monotonicas do sinal; duplicata, regressao e excesso nunca abrem vaga. */
@@ -186,13 +183,6 @@ function lerDuracoes(arquivo) {
   } catch { return {}; }
 }
 
-function lerDuracaoDaLane(arquivo) {
-  try {
-    const dados = JSON.parse(fs.readFileSync(arquivo, 'utf8'));
-    return Number.isFinite(dados?.duracaoMs) && dados.duracaoMs >= 0 ? dados.duracaoMs : null;
-  } catch { return null; }
-}
-
 /** Do mais longo para o mais curto pela ultima duracao; arquivo sem medida vai antes (pode ser o longo novo). */
 function ordenarPorDuracao(arquivos, duracoes) {
   const conhecida = (n) => (typeof duracoes[n] === 'number' && Number.isFinite(duracoes[n]) ? duracoes[n] : null);
@@ -234,7 +224,7 @@ function lerResultadosDoReporter(arquivo) {
 function assinaturaDoAmbiente(env) {
   const ignorada = (nome) => nome.startsWith('npm_') || nome.startsWith('NPM_')
     || ['ORK_CHECK_RELATORIO', 'ORK_CHECK_CPUS_DA_LANE', ENV_CPUS_APOS_VARREDURA, ENV_CPUS_APOS_RESERVA, ENV_SINAL_DA_RESERVA,
-      ENV_CONTAINERS_DA_LANE, ENV_FOLGA_DA_HERMETICA, 'ORK_CHECK_CPUS_DOCKER', 'ORK_WORKERS',
+      ENV_CONTAINERS_DA_LANE, 'ORK_CHECK_CPUS_DOCKER', 'ORK_WORKERS',
       'NODE_TEST_CONTEXT', 'NODE_COMPILE_CACHE', 'PWD', 'OLDPWD', 'SHLVL', '_', 'INIT_CWD'].includes(nome);
   const pares = Object.entries(env).filter(([nome, valor]) => valor !== undefined && !ignorada(nome))
     .sort(([a], [b]) => a.localeCompare(b));
@@ -278,27 +268,8 @@ function rodarPoolDeArquivos({ arquivos, dir, env, pastaDaLane, plano }) {
   const inicio = Date.now();
   const resultados = new Array(arquivos.length);
   let proximo = 0, ativos = 0, concluidos = 0, vagas = plano.inicial;
-  const ativosDesde = new Map();
   const vistos = new Set();
   const caminho = (nome) => (process.env.ORK_LANES_DIR ? path.join(dir, nome) : path.join('dist-test', 'test', nome));
-  const publicarFolga = () => {
-    if (!plano.folga) return;
-    const pendentes = arquivos.length - proximo;
-    const livres = pendentes === 0 ? Math.max(0, vagas - ativos) : 0;
-    const agora = Date.now();
-    const restantes = [...ativosDesde].map(([arquivo, desde]) => {
-      const duracao = plano.duracoes?.[arquivo];
-      return Number.isFinite(duracao) && duracao >= 0 ? Math.max(0, duracao - (agora - desde)) : null;
-    });
-    for (const arquivo of arquivos.slice(proximo)) {
-      const duracao = plano.duracoes?.[arquivo];
-      restantes.push(Number.isFinite(duracao) && duracao >= 0 ? duracao : null);
-    }
-    const trabalhosRestantesMs = restantes.every((x) => x !== null) ? restantes : null;
-    try { fs.writeFileSync(plano.folga, JSON.stringify({ contrato: CONTRATO_FOLGA_DA_HERMETICA,
-      vagas, ativos, pendentes, livres, trabalhosRestantesMs,
-      duracaoIntegracaoMs: plano.duracaoIntegracaoMs ?? null }) + '\n', { mode: 0o600 }); } catch { /* sem protocolo, usa a ordem anterior */ }
-  };
   const observarSinal = () => {
     if (!fs.existsSync(plano.sinal)) return;
     let texto = '';
@@ -317,22 +288,20 @@ function rodarPoolDeArquivos({ arquivos, dir, env, pastaDaLane, plano }) {
         const tap = path.join(pastaDaLane, `${i}.tap`), reporter = path.join(pastaDaLane, `${i}.json`);
         const args = ['--test', '--test-concurrency=1', '--test-reporter=tap', `--test-reporter-destination=${tap}`,
           `--test-reporter=${REPORTER}`, `--test-reporter-destination=${reporter}`, caminho(arquivo)];
-        ativos++; ativosDesde.set(arquivo, Date.now());
+        ativos++;
         const filho = spawn(process.execPath, args, { cwd: CORE, env, stdio: ['ignore', 'ignore', 'inherit'] });
         filho.on('close', (code, signal) => {
           resultados[i] = { arquivo, code: code ?? (signal ? 1 : 1), tap: (() => { try { return fs.readFileSync(tap, 'utf8'); } catch { return ''; } })(),
             medidas: lerDuracoesDoReporter(reporter), testes: lerResultadosDoReporter(reporter) };
-          ativos--; ativosDesde.delete(arquivo); concluidos++;
+          ativos--; concluidos++;
           if (concluidos === arquivos.length) {
             clearInterval(sonda);
-            publicarFolga();
             emitirTapDoPool(resultados, Date.now() - inicio);
             resolve({ code: resultados.some((r) => r.code !== 0) ? 1 : 0,
               medidas: Object.assign({}, ...resultados.map((r) => r.medidas)), testes: resultados.flatMap((r) => r.testes) });
           } else lancar();
         });
       }
-      publicarFolga();
     };
     const sonda = setInterval(lancar, 25);
     lancar();
@@ -340,14 +309,11 @@ function rodarPoolDeArquivos({ arquivos, dir, env, pastaDaLane, plano }) {
 }
 
 function rodarLane(lane) {
-  const inicioDaLane = Date.now();
   const { dir } = origem();
   const listas = listasDasLanes();
   const cache = dirDoCache();
   const arquivoDeDuracoes = path.join(cache, `duracoes-${lane}.json`);
-  const arquivoDaDuracaoDaLane = path.join(cache, `duracao-${lane}.json`);
   const anteriores = lerDuracoes(arquivoDeDuracoes);
-  const duracaoAnteriorDaIntegracao = lerDuracaoDaLane(path.join(cache, 'duracao-integracao.json'));
   const arquivos = ordenarPorDuracao(listas[lane], anteriores);
   const orcamento = Number(process.env.ORK_CHECK_ORCAMENTO_MS) > 0 ? Number(process.env.ORK_CHECK_ORCAMENTO_MS) : ORCAMENTO_PADRAO_MS;
   relatar({ tipo: 'lista', lane, arquivos: [...listas[lane]] });
@@ -374,7 +340,6 @@ function rodarLane(lane) {
   delete env[ENV_CPUS_APOS_VARREDURA];
   delete env[ENV_CPUS_APOS_RESERVA];
   delete env[ENV_SINAL_DA_RESERVA];
-  delete env[ENV_FOLGA_DA_HERMETICA];
   if (cotaDockerDaIntegracao) env.ORK_CHECK_CPUS_DOCKER = cotaDockerDaIntegracao;
   else delete env.ORK_CHECK_CPUS_DOCKER;
   delete env.ORK_WORKERS;
@@ -392,7 +357,6 @@ function rodarLane(lane) {
       try {
         fs.mkdirSync(cache, { recursive: true });
         fs.writeFileSync(arquivoDeDuracoes, JSON.stringify({ ...anteriores, ...medidas }, null, 1) + '\n');
-        fs.writeFileSync(arquivoDaDuracaoDaLane, JSON.stringify({ duracaoMs: Date.now() - inicioDaLane }) + '\n');
       } catch { /* sem cache de duracao, a proxima rodada usa a ordem alfabetica */ }
       const acima = Object.entries(medidas).filter(([, ms]) => ms > orcamento).sort((a, b) => b[1] - a[1])
         .map(([arquivo, ms]) => ({ arquivo, ms }));
@@ -403,8 +367,7 @@ function rodarLane(lane) {
       return code;
   };
   const plano = planoDoPool(lane);
-  if (plano) return rodarPoolDeArquivos({ arquivos, dir, env, pastaDaLane,
-    plano: { ...plano, duracoes: anteriores, duracaoIntegracaoMs: duracaoAnteriorDaIntegracao } }).then(terminar);
+  if (plano) return rodarPoolDeArquivos({ arquivos, dir, env, pastaDaLane, plano }).then(terminar);
   const arquivoDoReporter = path.join(pastaDaLane, 'duracoes.json');
   const args = ['--test', '--test-reporter=tap', '--test-reporter-destination=stdout',
     `--test-reporter=${REPORTER}`, `--test-reporter-destination=${arquivoDoReporter}`,
@@ -420,7 +383,7 @@ function rodarLane(lane) {
 
 module.exports = { listasDasLanes, ordenarPorDuracao, lerDuracoesDoReporter, lerResultadosDoReporter, assinaturaDoAmbiente,
   globDoNpmTest, concorrenciaDaLane, planoDoPool, degrausDaReserva, selecionarTemporario, sondarTmpfs, ENV_TMPFS,
-  ENV_CPUS_APOS_VARREDURA, ENV_CPUS_APOS_RESERVA, ENV_SINAL_DA_RESERVA, ENV_FOLGA_DA_HERMETICA, LANES, REPORTER };
+  ENV_CPUS_APOS_VARREDURA, ENV_CPUS_APOS_RESERVA, ENV_SINAL_DA_RESERVA, LANES, REPORTER };
 
 if (require.main === module) {
   const [alvo] = process.argv.slice(2);

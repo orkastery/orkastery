@@ -79,10 +79,8 @@ export interface PlanoCpuDoGrupo {
   fonteCpusIntegracao: 'medida' | 'conservadora' | 'classic';
   /** Só vale com perfil completo e compatível; a primeira rodada preserva a cadeia. */
   integracaoEmParalelo: boolean;
-  /** Reserva realmente usada pela integração nesta rodada; depois da varredura ela pode herdar a fatia inteira. */
+  /** Reserva realmente usada pela integração nesta rodada; a encadeada herda a fatia da varredura. */
   cpusIntegracaoEmUso: number;
-  /** Escolha feita ao fim da varredura, com as duas previsões derivadas do histórico das lanes. */
-  previsaoDoMomentoDaIntegracao?: PrevisaoDoMomentoDaIntegracao;
   /** Evidência emitida pelo adaptador do runtime, nunca inferida só porque a cota foi pedida. */
   cotaDosContainersDaIntegracao?: EvidenciaDaCotaDocker;
   cpusDaFatia: number;
@@ -98,13 +96,6 @@ export interface CargaCpuDoGrupo { cadeiasDeClaims?: number }
 export interface EvidenciaDaCotaDocker {
   estado: 'aplicada' | 'fallback';
   cota: number;
-  motivo: string;
-}
-
-export interface PrevisaoDoMomentoDaIntegracao {
-  caminho: 'iniciar-logo' | 'esperar-folga';
-  iniciarLogoMs: number | null;
-  esperarFolgaMs: number | null;
   motivo: string;
 }
 
@@ -128,51 +119,6 @@ export function registrarContainerDaLane(nome: string, ambiente: NodeJS.ProcessE
 /** Reserva publicada para runners: entrada invalida, fracionaria ou zero nunca produz menos de um worker. */
 export function workersDaReserva(cpus: number): number {
   return Math.max(1, Math.floor(Number.isFinite(cpus) ? cpus : 1));
-}
-
-function cargasLpt(trabalhosMs: readonly number[], disponibilidades: number[]): number[] {
-  const cargas = disponibilidades.map((x) => Math.max(0, x));
-  const trabalhos = trabalhosMs.filter((x) => Number.isFinite(x) && x >= 0).sort((a, b) => b - a);
-  for (const trabalho of trabalhos) {
-    let indice = 0;
-    for (let i = 1; i < cargas.length; i++) if (cargas[i] < cargas[indice]) indice = i;
-    cargas[indice] += trabalho;
-  }
-  return cargas;
-}
-
-/**
- * Compara os dois caminhos no instante em que a varredura termina. O pool LPT recebe somente durações restantes
- * publicadas pela lane; sem o histórico inteiro, a ordem anterior à M11 (integração logo após a varredura) vence.
- */
-export function preverMomentoDaIntegracao(trabalhosHermeticaMs: readonly number[] | null,
-  vagasDaHermetica: number, vagasComAReservaDaVarredura: number, reservaIntegracao: number,
-  duracaoIntegracaoMs: number | null): PrevisaoDoMomentoDaIntegracao {
-  const trabalhosValidos = Array.isArray(trabalhosHermeticaMs) && trabalhosHermeticaMs.length > 0
-    && trabalhosHermeticaMs.every((x) => Number.isFinite(x) && x >= 0);
-  const integracaoValida = Number.isFinite(duracaoIntegracaoMs) && Number(duracaoIntegracaoMs) >= 0;
-  if (!trabalhosValidos || !integracaoValida) return {
-    caminho: 'iniciar-logo', iniciarLogoMs: null, esperarFolgaMs: null,
-    motivo: 'sem historico completo; preservou a ordem anterior, com integracao depois da varredura',
-  };
-  const vagasTotais = workersDaReserva(vagasComAReservaDaVarredura);
-  const reserva = Math.min(vagasTotais, workersDaReserva(reservaIntegracao));
-  const vagasEnquantoIntegra = Math.max(workersDaReserva(vagasDaHermetica), vagasTotais - reserva);
-  const duracao = Number(duracaoIntegracaoMs);
-  const iniciarLogoMs = Math.max(...cargasLpt(trabalhosHermeticaMs!, [
-    ...Array(vagasEnquantoIntegra).fill(0), ...Array(Math.max(0, vagasTotais - vagasEnquantoIntegra)).fill(duracao),
-  ]), duracao);
-  const cargasEsperando = cargasLpt(trabalhosHermeticaMs!, Array(vagasTotais).fill(0));
-  const ordenadas = [...cargasEsperando].sort((a, b) => a - b);
-  const inicioDaIntegracao = ordenadas[Math.min(reserva, ordenadas.length) - 1] ?? 0;
-  const esperarFolgaMs = Math.max(...cargasEsperando, inicioDaIntegracao + duracao);
-  const esperar = esperarFolgaMs < iniciarLogoMs;
-  return {
-    caminho: esperar ? 'esperar-folga' : 'iniciar-logo', iniciarLogoMs, esperarFolgaMs,
-    motivo: esperar
-      ? `esperar a folga preve ${Math.round(esperarFolgaMs)} ms contra ${Math.round(iniciarLogoMs)} ms iniciando logo`
-      : `iniciar logo preve ${Math.round(iniciarLogoMs)} ms contra ${Math.round(esperarFolgaMs)} ms esperando a folga`,
-  };
 }
 
 const cpusValidas = workersDaReserva;
@@ -251,6 +197,7 @@ export function planejarCpuDoGrupo(cpusInformadas: number, medicao: MedicaoCpuDo
     ? Math.max(1, Math.min(capacidadeEfetiva - 1, Math.ceil(medida as number)))
     : ferramentas;
   const integracaoEmParalelo = !saturado && medidaCompativel && capacidadeEfetiva - fatia - cpusIntegracao >= 1;
+  const cpusIntegracaoEmUso = integracaoEmParalelo ? cpusIntegracao : fatia;
   const cadeiasDeClaims = Math.max(0, Math.floor(carga.cadeiasDeClaims ?? 0));
   const hermeticaSemClaims = saturado ? classic
     : Math.max(1, capacidadeEfetiva - fatia - (integracaoEmParalelo ? cpusIntegracao : 0));
@@ -266,7 +213,8 @@ export function planejarCpuDoGrupo(cpusInformadas: number, medicao: MedicaoCpuDo
     ? `${motivos.join('; ')}; ${evidencia}`
     : `capacidade ${capacidadeEfetiva}/${cpus} CPU(s)${estado === 'degradado' ? ' depois do desconto do steal' : ' inteira'}; ${evidencia}; ` +
       `${fatia} CPU(s) reservadas a varredura; ` +
-      (integracaoEmParalelo ? `integracao medida cabe em paralelo com ${cpusIntegracao} CPU(s)` : 'integracao permanece encadeada') +
+      (integracaoEmParalelo ? `integracao medida cabe em paralelo com ${cpusIntegracao} CPU(s)`
+        : `integracao encadeada inicia depois da varredura com ${cpusIntegracaoEmUso} CPU(s)`) +
       (cadeiasDeClaims ? `; claims com ${cpusClaims} vaga(s) para ${cadeiasDeClaims} cadeia(s)` : '');
   return {
     cpus,
@@ -276,7 +224,7 @@ export function planejarCpuDoGrupo(cpusInformadas: number, medicao: MedicaoCpuDo
     saturado,
     motivo,
     cpusHermetica: Math.max(1, hermeticaSemClaims - cpusClaims),
-    cpusHermeticaAposVarredura: saturado ? classic : Math.max(1, capacidadeEfetiva - cpusIntegracao),
+    cpusHermeticaAposVarredura: saturado ? classic : Math.max(1, capacidadeEfetiva - cpusIntegracaoEmUso),
     cpusHermeticaAposReserva: saturado ? classic : capacidadeEfetiva,
     cpusIntegracao,
     cpusClaims,
@@ -284,7 +232,7 @@ export function planejarCpuDoGrupo(cpusInformadas: number, medicao: MedicaoCpuDo
     fonteCpusIntegracao: saturado ? 'classic' : medidaCompativel
       ? 'medida' : 'conservadora',
     integracaoEmParalelo,
-    cpusIntegracaoEmUso: cpusIntegracao,
+    cpusIntegracaoEmUso,
     cpusDaFatia: fatia,
     ferramentasDaVarredura: ferramentas,
     cpusPorContainer: Math.max(0.01, Math.floor((fatia / ferramentas) * 100) / 100),
