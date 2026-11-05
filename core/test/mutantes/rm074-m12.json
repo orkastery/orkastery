@@ -55,6 +55,33 @@
       "para": "motivoTipado: 'comando-nao-elegivel'",
       "teste": "check-agil",
       "nome": "^AG55:"
+    },
+    {
+      "id": "M7",
+      "descricao": "a lane ignora o TMPDIR da rodada e volta a criar o proprio",
+      "arquivo": "core/scripts/test-lanes.cjs",
+      "de": "const tmpdirDaRodada = process.env[ENV_TMPDIR_DA_RODADA] === '1' && process.env.TMPDIR\n    ? path.resolve(process.env.TMPDIR) : null;",
+      "para": "const tmpdirDaRodada = null;",
+      "teste": "check-agil",
+      "nome": "^AG55:"
+    },
+    {
+      "id": "M8",
+      "descricao": "a claim elegivel roda sem o TMPDIR da rodada",
+      "modulo": "verify",
+      "de": "const ambienteFuncionalDasLanes = { ...temporarioDaRodada?.ambiente,",
+      "para": "const ambienteFuncionalDasLanes = {",
+      "teste": "check-agil",
+      "nome": "^AG55:"
+    },
+    {
+      "id": "M9",
+      "descricao": "a assinatura deixa de considerar o valor literal de TMPDIR",
+      "modulo": "check-agil",
+      "de": "'NODE_TEST_CONTEXT', 'NODE_COMPILE_CACHE'",
+      "para": "'TMPDIR', 'NODE_TEST_CONTEXT', 'NODE_COMPILE_CACHE'",
+      "teste": "check-agil",
+      "nome": "^AG55:"
     }
   ]
 }
