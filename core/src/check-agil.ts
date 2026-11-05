@@ -42,6 +42,9 @@ export interface PecaDoAgile {
   estado: 'agile' | 'degradado' | 'fallback';
   motivo?: string;
   fallback?: string;
+  /** M12: decisao da prova nominal no comando exato da claim (C1.1, C2.1...). */
+  claim?: string;
+  motivoTipado?: MotivoDaRecusaPelasLanes;
   /** Dado do agendador que a apresentacao localiza sem tentar traduzir o motivo livre. */
   reservaIntegracao?: { cpus: number; fonte: 'medida' | 'conservadora' | 'classic' };
 }
@@ -846,7 +849,8 @@ export function executorDaClaimPelasLanes(base: ExecutorUnico, evidencias: Resul
     const plano = planejarClaimPelasLanes(comando, cwd, evidencias, esperado);
     if (!plano.decisao.reaproveitada) {
       const r = (plano.usarExecutorEquivalente ? executar : base)(nome, comando, cwd);
-      return { ...r, lane: plano.decisao };
+      // Comando fora da gramatica das lanes nao foi recusado por elas: ele segue sem inventar uma decisao nominal.
+      return plano.candidata ? { ...r, lane: plano.decisao } : r;
     }
     let duracaoMs = 0;
     const resumos: string[] = [];
