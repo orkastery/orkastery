@@ -193,14 +193,17 @@ test('AG7: o preparo do Agile que passa e o usado; o que falha cai para o verify
     const passa = gravador();
     verificar(p.carregado, t.id, { executor: passa.executor });
     assert.deepEqual(passa.lista[0], ['preparo', 'echo rapido']);
-    assert.deepEqual((ultimoVerify(p, t.id).agile as Record<string, unknown>).pecas, [{ peca: 'preparo', estado: 'agile' }, PECA_SEM_RELATORIO],
+    const pecasDaPassagem = (ultimoVerify(p, t.id).agile as Record<string, unknown>).pecas as Array<Record<string, unknown>>;
+    assert.ok(pecasDaPassagem.some((x) => x.peca === 'tmpfs-das-lanes' && /TMPDIR compartilhado/.test(String(x.motivo))));
+    assert.deepEqual(pecasDaPassagem.filter((x) => x.peca !== 'tmpfs-das-lanes'), [{ peca: 'preparo', estado: 'agile' }, PECA_SEM_RELATORIO],
       'com executor injetado, o ledger diz que o ambiente da rodada nao chegou aos comandos');
     const falha = gravador((_nome, comando) => (comando === 'echo rapido' ? { ok: false, code: 127, causa: 'nao-encontrado' } : {}));
     const r = verificar(p.carregado, t.id, { executor: falha.executor });
     assert.deepEqual(falha.lista.slice(0, 2), [['preparo', 'echo rapido'], ['preparo', 'echo passo-a && echo passo-b']]);
     assert.equal(r.preparo?.resultado.comando, 'echo passo-a && echo passo-b');
     const pecas = (ultimoVerify(p, t.id).agile as Record<string, unknown>).pecas as Array<Record<string, unknown>>;
-    assert.deepEqual(pecas[0], { peca: 'preparo', estado: 'fallback', motivo: 'saiu com codigo 127: echo rapido', fallback: 'verify.preparo' });
+    assert.deepEqual(pecas.find((x) => x.peca === 'preparo'),
+      { peca: 'preparo', estado: 'fallback', motivo: 'saiu com codigo 127: echo rapido', fallback: 'verify.preparo' });
   } finally { p.limpar(); }
 });
 
@@ -233,7 +236,8 @@ test('AG9: lanes sem a guarda caem para o verify.test, em serie, com as pecas em
     verificar(p.carregado, t.id, { executor: g.executor });
     assert.deepEqual(g.lista.slice(1), [['build', 'echo passo-a'], ['test', 'echo test'], ['security_scan', 'echo scan']]);
     const pecas = (ultimoVerify(p, t.id).agile as Record<string, unknown>).pecas as Array<Record<string, unknown>>;
-    assert.deepEqual(pecas, [PECA_SEM_RELATORIO,
+    assert.ok(pecas.some((x) => x.peca === 'tmpfs-das-lanes' && /TMPDIR compartilhado/.test(String(x.motivo))));
+    assert.deepEqual(pecas.filter((x) => x.peca !== 'tmpfs-das-lanes'), [PECA_SEM_RELATORIO,
       { peca: 'grupo', estado: 'fallback', motivo: 'produto-nao-declarado', fallback: 'comandos em serie' },
       { peca: 'lanes', estado: 'fallback', motivo: 'produto-nao-declarado', fallback: 'verify.test' }]);
   } finally { p.limpar(); }
@@ -850,45 +854,126 @@ test('AG54: recusas consecutivas usam vagas entre arquivos e preservam a ordem d
     const claims = [claim('C1', 'core/src/a.ts', 'node --test a.test.js'),
       claim('C2', 'core/src/b.ts', 'node --test b.test.js'), claim('C3', 'core/src/a.ts', 'node --test a2.test.js'),
       claim('C4', 'core/src/barreira.ts', 'echo barreira'), claim('C5', 'core/src/c.ts', 'node --test c.test.js')];
-    const seriais: string[] = [];
-    const executor: ExecutorVerify = (nome, comando) => {
-      seriais.push(nome);
-      return { nome, comando, ok: true, code: 0, resumo: '', causa: 'exit', duracaoMs: 1, executado: true };
-    };
     const planejar: ExecutorVerify = (nome, comando) => ({ nome, comando, ok: true, code: 0, resumo: '', causa: 'exit',
       duracaoMs: 0, executado: true, ...(comando.startsWith('node --test') ? {
         lane: { reaproveitada: false as const, motivo: 'ambiente-funcional-divergente' as const, arquivos: [`${nome}.test.js`],
           head: 'a'.repeat(40), ambiente: 'ambiente' },
       } : { lane: { reaproveitada: false as const, motivo: 'comando-nao-elegivel' as const, arquivos: [],
         head: 'a'.repeat(40), ambiente: 'ambiente' } }) });
-    const grupos: Array<Array<{ nome: string; apos?: string[] }>> = [];
-    const grupo = (itens: Array<{ nome: string; comando: string; apos?: string[] }>) => {
-      grupos.push(itens.map(({ nome, apos }) => ({ nome, ...(apos ? { apos } : {}) })));
-      return itens.map((item) => ({ nome: item.nome, comando: item.comando, ok: true, code: 0, resumo: '', causa: 'exit' as const,
-        duracaoMs: 1, executado: true }));
+    const rodar = (ordemDeTermino: string[]) => {
+      const seriais: string[] = [], grupos: Array<Array<{ nome: string; apos?: string[] }>> = [];
+      const executor: ExecutorVerify = (nome, comando) => {
+        seriais.push(nome);
+        return { nome, comando, ok: true, code: 0, resumo: '', causa: 'exit', duracaoMs: 1, executado: true };
+      };
+      const grupo = (itens: Array<{ nome: string; comando: string; apos?: string[] }>) => {
+        grupos.push(itens.map(({ nome, apos }) => ({ nome, ...(apos ? { apos } : {}) })));
+        const porNome = new Map(ordemDeTermino.map((nome) => {
+          const item = itens.find((x) => x.nome === nome)!;
+          return [nome, { nome, comando: item.comando, ok: nome !== 'C2.1', code: nome === 'C2.1' ? 7 : 0,
+            resumo: '', causa: 'exit' as const, duracaoMs: 1, executado: true }] as const;
+        }));
+        return itens.map((item) => porNome.get(item.nome)!);
+      };
+      return { resultados: verificarClaimsAgendadas(claims, dir, executor, planejar, grupo), seriais, grupos };
     };
-    const resultados = verificarClaimsAgendadas(claims, dir, executor, planejar, grupo);
-    assert.deepEqual(grupos, [[{ nome: 'C1.1' }, { nome: 'C2.1' }, { nome: 'C3.1', apos: ['C1.1'] }]]);
-    assert.deepEqual(seriais, ['C4.1', 'C5.1'], 'a barreira fecha o lote; um arquivo sozinho continua no executor serial');
-    assert.ok(resultados.every((r) => r.verificado), JSON.stringify(resultados));
+    for (const ordem of [['C2.1', 'C1.1', 'C3.1'], ['C1.1', 'C3.1', 'C2.1']]) {
+      const { resultados, seriais, grupos } = rodar(ordem);
+      assert.deepEqual(grupos, [[{ nome: 'C1.1' }, { nome: 'C2.1' }, { nome: 'C3.1', apos: ['C1.1'] }]]);
+      assert.deepEqual(seriais, ['C4.1', 'C5.1'], 'a barreira fecha o lote; um arquivo sozinho continua no executor serial');
+      assert.deepEqual(resultados.map((r) => [r.claim.id, r.verificado, r.motivo]), [
+        ['C1', true, null], ['C2', false, 'claims.failed'], ['C3', true, null],
+        ['C4', true, null], ['C5', true, null],
+      ]);
+      const falha = resultados[1].execucoes[0];
+      assert.equal(falha.code, 7);
+      assert.equal(falha.lane?.reaproveitada, false);
+      if (falha.lane && !falha.lane.reaproveitada) assert.equal(falha.lane.motivo, 'ambiente-funcional-divergente');
+    }
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('AG55: verify_run e texto dizem por claim a recusa tipada ou o reaproveitamento das lanes', () => {
-  const p = projetoTemporario('ag55');
-  try {
-    comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      hermetica: "echo lane"');
-    const { thread: t } = novaThread(p.carregado, { nome: 'recibo por claim', modo: 'auto' });
-    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'audita arquivo',
-      verificar: ['echo passo-a && echo passo-b && node --test core/dist-test/test/a.test.js'] });
-    const r = verificar(p.carregado, t.id, { executor: gravador().executor });
-    const peca = r.agile?.pecas.find((x) => x.peca === 'claim-lane' && x.claim === 'C1.1');
-    assert.deepEqual(peca, { peca: 'claim-lane', estado: 'fallback', claim: 'C1.1', motivo: 'evidencia-vazia',
-      motivoTipado: 'evidencia-vazia', fallback: 'claim inteira' });
-    assert.match(textoDoVerify(r), /claim-lane  C1\.1: recusada \(evidencia-vazia\); rodou a claim inteira/);
-    r.agile!.pecas.push({ peca: 'claim-lane', estado: 'agile', claim: 'C2.1', motivo: 'reaproveitada das lanes hermetica desta rodada' });
-    assert.match(textoDoVerify(r), /claim-lane  C2\.1: reaproveitada das lanes/);
-  } finally { p.limpar(); }
+test('AG55: o verify_run do HEAD prova TMPDIR da rodada, reaproveitamento, recusa e os dois idiomas', () => {
+  const SCRIPT_DAS_LANES = path.resolve(__dirname, '../../scripts/test-lanes.cjs');
+  const rodar = (tmpdirDivergente: boolean) => {
+    const p = projetoTemporario(`ag55-${tmpdirDivergente ? 'divergente' : 'igual'}`);
+    const apoio = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag55-apoio-'));
+    const nomesDoAmbiente = ['ORK_LANES_DIR', 'ORK_LANES_INTEGRACAO', 'XDG_CACHE_HOME', 'PROVA_TMPDIR', 'NODE_TEST_CONTEXT'];
+    const antes = Object.fromEntries(nomesDoAmbiente.map((nome) => [nome, process.env[nome]]));
+    try {
+      const testes = path.join(p.dir, 'core', 'dist-test', 'test'), prova = path.join(apoio, 'tmpdir-visto.jsonl');
+      const probe = "const fs = require('node:fs'); const p = process.env.TMPDIR; const s = fs.statSync(p);\n" +
+        "fs.appendFileSync(process.env.PROVA_TMPDIR, JSON.stringify({ papel: process.argv[2] || 'lane', literal: p, " +
+        "realpath: fs.realpathSync(p), dev: String(s.dev), mode: s.mode & 0o777 }) + '\\n');\n";
+      commitar(p.dir, 'core/probe.cjs', probe, 'fixture probe');
+      commitar(p.dir, 'core/dist-test/test/tmpdir.test.js',
+        "const { test } = require('node:test'); test('AG1: observa TMPDIR', () => { require('../../probe.cjs'); });\n", 'fixture teste');
+      process.env.ORK_LANES_DIR = testes;
+      process.env.ORK_LANES_INTEGRACAO = '';
+      process.env.XDG_CACHE_HOME = path.join(apoio, 'cache');
+      process.env.PROVA_TMPDIR = prova;
+      delete process.env.NODE_TEST_CONTEXT;
+      const tmpDaLaneDivergente = path.join(apoio, 'tmp-divergente');
+      if (tmpdirDivergente) fs.mkdirSync(tmpDaLaneDivergente);
+      const comandoDaLane = `${tmpdirDivergente ? `TMPDIR=${tmpDaLaneDivergente} ` : ''}node ${SCRIPT_DAS_LANES} hermetica`;
+      comAgile(p, `  agile:\n    produto:\n      - "README.md"\n    test:\n      hermetica: "${comandoDaLane.replaceAll('"', '\\"')}"`);
+      const { thread: t } = novaThread(p.carregado, { nome: 'recibo por claim', modo: 'auto' });
+      adicionarClaim(p.dir, t.id, { arquivo: 'core/src/c1.ts', alegacao: 'forma C1',
+        verificar: ['echo passo-a && echo passo-b && node --test core/dist-test/test/tmpdir.test.js'] });
+      adicionarClaim(p.dir, t.id, { arquivo: 'core/probe.cjs', alegacao: 'claim executada observa o temporario',
+        verificar: ['node core/probe.cjs claim'] });
+      adicionarClaim(p.dir, t.id, { arquivo: 'core/src/c3.ts', alegacao: 'forma C3', verificar: [
+        "echo passo-a && echo passo-b && node --test-reporter=tap core/dist-test/test/tmpdir.test.js | " +
+        "awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AG[0-9]+:/{p++} END{exit !(p>=1 && f==0 && s==0)}'",
+      ] });
+      const r = verificar(p.carregado, t.id);
+      const evento = ultimoVerify(p, t.id);
+      const observacoes = fs.readFileSync(prova, 'utf8').trim().split('\n').map((l) => JSON.parse(l) as Record<string, unknown>);
+      const evidencia = (evento.agile as { evidencia?: string }).evidencia;
+      const nominal = evidencia
+        ? JSON.parse(fs.readFileSync(path.join(p.dir, evidencia), 'utf8')) as Record<string, unknown> : null;
+      return { r, evento, observacoes, nominal,
+        tmpdirExisteDepois: fs.existsSync(String(observacoes.find((x) => x.papel === 'lane')?.literal)) };
+    } finally {
+      for (const [nome, valor] of Object.entries(antes)) {
+        if (valor === undefined) delete process.env[nome]; else process.env[nome] = valor;
+      }
+      p.limpar();
+      fs.rmSync(apoio, { recursive: true, force: true });
+    }
+  };
+  const laneDaClaim = (evento: Record<string, unknown>, id: string) => {
+    const claim = (evento.claims as Array<Record<string, unknown>>).find((x) => x.id === id)!;
+    return (claim.lane as Array<Record<string, unknown>>)[0];
+  };
+  const compartilhado = rodar(false);
+  assert.equal(compartilhado.r.ok, true, compartilhado.r.motivos.join(','));
+  assert.equal(compartilhado.tmpdirExisteDepois, false, 'o verify remove o TMPDIR depois de lanes, claims e recibo');
+  assert.equal(laneDaClaim(compartilhado.evento, 'C1').reaproveitada, true);
+  assert.equal(laneDaClaim(compartilhado.evento, 'C3').reaproveitada, true,
+    JSON.stringify({ lane: laneDaClaim(compartilhado.evento, 'C3'), nominal: compartilhado.nominal }));
+  const [vistaPelaLane, vistaPelaClaim] = ['lane', 'claim'].map((papel) => compartilhado.observacoes.find((x) => x.papel === papel)!);
+  assert.deepEqual({ ...vistaPelaLane, papel: undefined }, { ...vistaPelaClaim, papel: undefined },
+    'lane e claim executada veem o mesmo valor literal, realpath, dispositivo e permissoes');
+  const pecasIguais = (compartilhado.evento.agile as { pecas: Array<Record<string, unknown>> }).pecas;
+  assert.ok(pecasIguais.some((x) => x.peca === 'tmpfs-das-lanes' && /TMPDIR compartilhado pela rodada/.test(String(x.motivo))));
+  assert.ok(pecasIguais.some((x) => x.peca === 'claim-lane' && x.claim === 'C1.1' && x.estado === 'agile'));
+  assert.ok(pecasIguais.some((x) => x.peca === 'claim-lane' && x.claim === 'C3.1' && x.estado === 'agile'));
+  assert.match(comLocale('pt-BR', () => textoDoVerify(compartilhado.r)), /C1\.1: reaproveitada das lanes/);
+  assert.match(comLocale('en', () => textoDoVerify(compartilhado.r)), /C1\.1: reused from lanes/);
+
+  const divergente = rodar(true);
+  assert.equal(divergente.r.ok, true, JSON.stringify({ motivos: divergente.r.motivos, comandos: divergente.r.comandos,
+    claims: divergente.r.claims, preparo: divergente.r.preparo }));
+  for (const id of ['C1', 'C3']) {
+    assert.deepEqual(laneDaClaim(divergente.evento, id).reaproveitada, false);
+    assert.equal(laneDaClaim(divergente.evento, id).motivo, 'ambiente-funcional-divergente');
+  }
+  const pecasDivergentes = (divergente.evento.agile as { pecas: Array<Record<string, unknown>> }).pecas;
+  assert.ok(pecasDivergentes.some((x) => x.peca === 'claim-lane' && x.claim === 'C1.1'
+    && x.motivoTipado === 'ambiente-funcional-divergente'));
+  assert.match(comLocale('pt-BR', () => textoDoVerify(divergente.r)), /C1\.1: recusada \(ambiente-funcional-divergente\)/);
+  assert.match(comLocale('en', () => textoDoVerify(divergente.r)), /C1\.1: refused \(ambiente-funcional-divergente\)/);
 });
 
 test('AG48: skip ou todo em node --test nunca prova a claim pela lane', () => {

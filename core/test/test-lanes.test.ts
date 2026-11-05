@@ -32,6 +32,7 @@ const lanes = require(SCRIPT) as {
   ENV_CPUS_APOS_VARREDURA: string;
   ENV_CPUS_APOS_RESERVA: string;
   ENV_SINAL_DA_RESERVA: string;
+  ENV_TMPDIR_DA_RODADA: string;
   selecionarTemporario: (opcoes?: Record<string, unknown>) => { diretorio: string; estado: 'agile' | 'fallback'; motivo: string };
 };
 
@@ -170,7 +171,8 @@ test('TL9: a hermetica devolve as vagas sem passar da CPU, e a integracao preser
     [lanes.ENV_CPUS_APOS_RESERVA]: '8', [lanes.ENV_SINAL_DA_RESERVA]: '/tmp/sinal' }), null, 'a integracao nunca abre o pool');
   const texto = fs.readFileSync(SCRIPT, 'utf8');
   assert.match(texto, /function rodarPoolDeArquivos/, 'a hermetica tem o pool dinamico por arquivo');
-  assert.match(texto, /`--test-concurrency=\$\{concorrenciaDaLane\(lane\)\}`/, 'sem sinal, as lanes preservam o runner atual');
+  assert.match(texto, /const plano = dinamico \?\? \{ inicial: vagas, aposVarredura: vagas, final: vagas, sinal: '' \}/,
+    'sem sinal, o mesmo pool conserva a concorrencia da lane');
   assert.doesNotMatch(texto, /setPriority/, 'o nice baixava so o processo do teste, nunca os containers dele');
 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-tl9-pool-'));
@@ -279,4 +281,23 @@ test('TL12: tmpfs e opt-in, exige memoria e espaco com folga e cai para disco co
     { diretorio: '/disco', estado: 'fallback', motivo: 'memoria-livre-sem-folga' });
   assert.deepEqual(lanes.selecionarTemporario({ ...base, chave: 'auto', sondar: () => ({ ok: false, motivo: 'nao-tmpfs' }) }),
     { diretorio: '/disco', estado: 'fallback', motivo: '/memoria:nao-tmpfs' });
+});
+
+test('TL14: a lane usa e preserva o TMPDIR que pertence a rodada do verify', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-tl14-'));
+  try {
+    const testes = path.join(dir, 'testes'), tmpdir = path.join(dir, 'tmp-da-rodada'), visto = path.join(dir, 'visto.json');
+    fs.mkdirSync(testes); fs.mkdirSync(tmpdir);
+    fs.writeFileSync(path.join(testes, 'tmpdir.test.js'), "const { test } = require('node:test'); const fs = require('node:fs');\n" +
+      `test('tmpdir', () => { const p = process.env.TMPDIR; const s = fs.statSync(p); fs.writeFileSync(${JSON.stringify(visto)}, ` +
+      "JSON.stringify({ literal: p, realpath: fs.realpathSync(p), dev: String(s.dev), mode: s.mode & 0o777 })); });\n");
+    const env = { ...process.env, ORK_LANES_DIR: testes, ORK_LANES_INTEGRACAO: '', XDG_CACHE_HOME: path.join(dir, 'cache'),
+      TMPDIR: tmpdir, [lanes.ENV_TMPDIR_DA_RODADA]: '1' };
+    delete env.ORK_CHECK_RELATORIO;
+    const r = spawnSync(process.execPath, [SCRIPT, 'hermetica'], { encoding: 'utf8', env });
+    assert.equal(r.status, 0, r.stderr + r.stdout);
+    const stat = fs.statSync(tmpdir), observado = JSON.parse(fs.readFileSync(visto, 'utf8')) as Record<string, unknown>;
+    assert.deepEqual(observado, { literal: tmpdir, realpath: fs.realpathSync(tmpdir), dev: String(stat.dev), mode: stat.mode & 0o777 });
+    assert.ok(fs.existsSync(tmpdir), 'a lane nao remove o TMPDIR cujo ciclo de vida pertence ao verify');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

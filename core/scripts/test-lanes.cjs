@@ -32,6 +32,8 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawn, spawnSync } = require('node:child_process');
 const { createHash } = require('node:crypto');
+const { ENV_TMPDIR_DA_RODADA, ENV_TMPFS, selecionarTemporario, sondarTmpfs } =
+  require('../dist/temporario-das-lanes.js');
 
 const CORE = path.resolve(__dirname, '..');
 const DIR_DOS_TESTES = path.join(CORE, 'dist-test', 'test');
@@ -39,12 +41,10 @@ const LANES = ['hermetica', 'integracao'];
 const ORCAMENTO_PADRAO_MS = 120000;
 const REPORTER = path.join(__dirname, 'reporter-duracoes.mjs');
 const CONCORRENCIA_DA_INTEGRACAO = 2;
-const ENV_TMPFS = 'ORK_CHECK_TMPFS';
 const ENV_CPUS_APOS_VARREDURA = 'ORK_CHECK_CPUS_DA_LANE_APOS_VARREDURA';
 const ENV_CPUS_APOS_RESERVA = 'ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA';
 const ENV_SINAL_DA_RESERVA = 'ORK_CHECK_RESERVA_DEVOLVIDA';
 const ENV_CONTAINERS_DA_LANE = 'ORK_CHECK_CONTAINERS_DA_LANE';
-const TMPFS_MAGIC = 0x01021994;
 
 /**
  * Quantos arquivos a lane roda ao mesmo tempo. O agendador passa a fatia calculada para esta rodada; sem ela, vale o
@@ -137,42 +137,6 @@ function conferir() {
 function dirDoCache() {
   const xdg = process.env.XDG_CACHE_HOME;
   return path.join(xdg && path.isAbsolute(xdg) ? xdg : path.join(os.homedir(), '.cache'), 'orkastery', 'check');
-}
-
-/** Confere filesystem em memoria, espaco e escrita sem depender do nome ou do tamanho de uma maquina. */
-function sondarTmpfs(dir) {
-  try {
-    if (!path.isAbsolute(dir) || !fs.statSync(dir).isDirectory()) return { ok: false, motivo: 'candidato-ausente' };
-    const s = fs.statfsSync(dir, { bigint: true });
-    if (Number(s.type) !== TMPFS_MAGIC) return { ok: false, motivo: 'filesystem-nao-e-tmpfs' };
-    const teste = fs.mkdtempSync(path.join(dir, 'ork-check-sonda-'));
-    try { fs.writeFileSync(path.join(teste, 'gravavel'), 'ok', { mode: 0o600 }); }
-    finally { fs.rmSync(teste, { recursive: true, force: true }); }
-    return { ok: true, livres: Number(s.bavail * s.bsize) };
-  } catch (e) {
-    return { ok: false, motivo: `sonda-falhou:${String(e.code || e.message)}` };
-  }
-}
-
-/**
- * O tmpfs e opt-in ate a bancada provar ganho. `auto` exige ao menos um quarto da memoria livre e espaco no tmpfs
- * equivalente ao menor entre um quarto da memoria livre e um decimo da memoria total; qualquer duvida usa disco.
- */
-function selecionarTemporario({ chave = process.env[ENV_TMPFS], disco = os.tmpdir(),
-  candidatos = [process.env.XDG_RUNTIME_DIR, '/dev/shm'].filter(Boolean), memoriaLivre = os.freemem(), memoriaTotal = os.totalmem(),
-  sondar = sondarTmpfs } = {}) {
-  if (chave !== 'auto') return { diretorio: disco, estado: 'fallback', motivo: chave ? `chave-${chave}` : 'desligado-por-padrao' };
-  if (!(memoriaTotal > 0) || memoriaLivre / memoriaTotal < 0.25) {
-    return { diretorio: disco, estado: 'fallback', motivo: 'memoria-livre-sem-folga' };
-  }
-  const necessario = Math.min(memoriaLivre / 4, memoriaTotal / 10);
-  const motivos = [];
-  for (const candidato of [...new Set(candidatos)]) {
-    const r = sondar(candidato);
-    if (r.ok && r.livres >= necessario) return { diretorio: candidato, estado: 'agile', motivo: 'tmpfs-gravavel-com-folga' };
-    motivos.push(`${candidato}:${r.ok ? 'espaco-sem-folga' : r.motivo}`);
-  }
-  return { diretorio: disco, estado: 'fallback', motivo: motivos.length ? motivos.join(';') : 'sem-candidato-tmpfs' };
 }
 
 function lerDuracoes(arquivo) {
@@ -285,7 +249,10 @@ function rodarPoolDeArquivos({ arquivos, dir, env, pastaDaLane, plano }) {
       while (ativos < vagas && proximo < arquivos.length) {
         const i = proximo++, arquivo = arquivos[i];
         const tap = path.join(pastaDaLane, `${i}.tap`), reporter = path.join(pastaDaLane, `${i}.json`);
-        const args = ['--test', '--test-concurrency=1', '--test-reporter=tap', `--test-reporter-destination=${tap}`,
+        // Um processo da lane ja cobre um unico arquivo. Sem o segundo nivel de isolamento, o reporter recebe os nomes
+        // dos casos (nao apenas o nome do arquivo) sem misturar estado entre arquivos.
+        const args = ['--test', '--experimental-test-isolation=none', '--test-concurrency=1', '--test-reporter=tap',
+          `--test-reporter-destination=${tap}`,
           `--test-reporter=${REPORTER}`, `--test-reporter-destination=${reporter}`, caminho(arquivo)];
         ativos++;
         const filho = spawn(process.execPath, args, { cwd: CORE, env, stdio: ['ignore', 'ignore', 'inherit'] });
@@ -316,15 +283,28 @@ function rodarLane(lane) {
   const arquivos = ordenarPorDuracao(listas[lane], anteriores);
   const orcamento = Number(process.env.ORK_CHECK_ORCAMENTO_MS) > 0 ? Number(process.env.ORK_CHECK_ORCAMENTO_MS) : ORCAMENTO_PADRAO_MS;
   relatar({ tipo: 'lista', lane, arquivos: [...listas[lane]] });
-  const temporario = selecionarTemporario();
-  relatar({ tipo: 'peca', peca: 'tmpfs-das-lanes', estado: temporario.estado, motivo: temporario.motivo,
-    ...(temporario.estado === 'fallback' ? { fallback: 'disco' } : {}) });
-  const pastaDaLane = fs.mkdtempSync(path.join(temporario.diretorio, 'ork-lanes-'));
-  const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: CORE, encoding: 'utf8' }).stdout.trim();
+  const tmpdirDaRodada = process.env[ENV_TMPDIR_DA_RODADA] === '1' && process.env.TMPDIR
+    ? path.resolve(process.env.TMPDIR) : null;
+  let pastaDaLane;
+  if (tmpdirDaRodada) {
+    if (!path.isAbsolute(tmpdirDaRodada) || !fs.statSync(tmpdirDaRodada).isDirectory()) {
+      throw new Error('TMPDIR da rodada nao e um diretorio absoluto');
+    }
+    pastaDaLane = path.join(tmpdirDaRodada, `ork-lane-${lane}`);
+    fs.mkdirSync(pastaDaLane, { recursive: true });
+  } else {
+    const temporario = selecionarTemporario();
+    relatar({ tipo: 'peca', peca: 'tmpfs-das-lanes', estado: temporario.estado, motivo: temporario.motivo,
+      ...(temporario.estado === 'fallback' ? { fallback: 'disco' } : {}) });
+    pastaDaLane = fs.mkdtempSync(path.join(temporario.diretorio, 'ork-lanes-'));
+  }
+  const raizDoHead = process.env.ORK_LANES_DIR ? path.resolve(dir, '../../..') : CORE;
+  const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: raizDoHead, encoding: 'utf8' }).stdout.trim();
 
   // O ambiente e o de quem chama, como no `npm test`: quem exporta ORK_TESTE_EXIGE_AMBIENTE exige as dependencias nos dois
   // modos (S4 do CHECK).
   const env = { ...process.env };
+  delete env[ENV_TMPDIR_DA_RODADA];
   // A lane e sempre uma rodada de topo: sob outro `node --test`, o pai marca o filho com NODE_TEST_CONTEXT e o `node
   // --test` da lane falaria o protocolo do runner, sem o TAP e sem o reporter das duracoes.
   delete env.NODE_TEST_CONTEXT;
@@ -340,7 +320,7 @@ function rodarLane(lane) {
   delete env[ENV_SINAL_DA_RESERVA];
   delete env.ORK_CHECK_CPUS_DOCKER;
   delete env.ORK_WORKERS;
-  env.TMPDIR = pastaDaLane;
+  env.TMPDIR = tmpdirDaRodada ?? pastaDaLane;
   let casa = null;
   if (!(env.ORKASTERY_HOME || '').trim()) { casa = fs.mkdtempSync(path.join(pastaDaLane, 'ork-casa-')); env.ORKASTERY_HOME = casa; }
   const ambiente = assinaturaDoAmbiente(env);
@@ -360,26 +340,18 @@ function rodarLane(lane) {
       const maiores = Object.entries(medidas).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([arquivo, ms]) => ({ arquivo, ms }));
       relatar({ tipo: 'duracoes', lane, orcamentoMs: orcamento, medidos: Object.keys(medidas).length, acima, maiores });
       relatar({ tipo: 'resultados', lane, head, ambiente, testes });
-      fs.rmSync(pastaDaLane, { recursive: true, force: true });
+      if (!tmpdirDaRodada) fs.rmSync(pastaDaLane, { recursive: true, force: true });
       return code;
   };
-  const plano = planoDoPool(lane);
-  if (plano) return rodarPoolDeArquivos({ arquivos, dir, env, pastaDaLane, plano }).then(terminar);
-  const arquivoDoReporter = path.join(pastaDaLane, 'duracoes.json');
-  const args = ['--test', '--test-reporter=tap', '--test-reporter-destination=stdout',
-    `--test-reporter=${REPORTER}`, `--test-reporter-destination=${arquivoDoReporter}`,
-    `--test-concurrency=${concorrenciaDaLane(lane)}`,
-    ...arquivos.map((n) => (process.env.ORK_LANES_DIR ? path.join(dir, n) : path.join('dist-test', 'test', n)))];
-  return new Promise((resolve) => {
-    const filho = spawn(process.execPath, args, { cwd: CORE, env, stdio: ['ignore', 'pipe', 'inherit'] });
-    filho.stdout.on('data', (d) => process.stdout.write(d));
-    filho.on('close', (code, signal) => resolve(terminar({ code: code ?? (signal ? 1 : 1),
-      medidas: lerDuracoesDoReporter(arquivoDoReporter), testes: lerResultadosDoReporter(arquivoDoReporter) })));
-  });
+  const dinamico = planoDoPool(lane);
+  const vagas = concorrenciaDaLane(lane);
+  const plano = dinamico ?? { inicial: vagas, aposVarredura: vagas, final: vagas, sinal: '' };
+  return rodarPoolDeArquivos({ arquivos, dir, env, pastaDaLane, plano }).then(terminar);
 }
 
 module.exports = { listasDasLanes, ordenarPorDuracao, lerDuracoesDoReporter, lerResultadosDoReporter, assinaturaDoAmbiente,
   globDoNpmTest, concorrenciaDaLane, planoDoPool, degrausDaReserva, selecionarTemporario, sondarTmpfs, ENV_TMPFS,
+  ENV_TMPDIR_DA_RODADA,
   ENV_CPUS_APOS_VARREDURA, ENV_CPUS_APOS_RESERVA, ENV_SINAL_DA_RESERVA, LANES, REPORTER };
 
 if (require.main === module) {
