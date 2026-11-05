@@ -1,0 +1,24 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-074 M12: as recusas tipadas preservam as cercas da prova nominal das lanes.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "uma falha nominal da lane passa a provar a claim",
+      "modulo": "check-agil",
+      "de": "vistos.some((t) => t.estado === 'fail')",
+      "para": "false",
+      "teste": "check-agil",
+      "nome": "^AG46:"
+    },
+    {
+      "id": "M2",
+      "descricao": "uma lane de outro HEAD passa a provar a claim",
+      "modulo": "check-agil",
+      "de": "const noHead = comArquivo.filter((e) => e.head === esperado.head);",
+      "para": "const noHead = comArquivo;",
+      "teste": "check-agil",
+      "nome": "^AG46:"
+    }
+  ]
+}

@@ -11,8 +11,9 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { adicionarClaim } from '../src/claims';
-import { assinaturaDoAmbiente, comandosNoAgile, elosDoComando, executorDaClaimPelasLanes, GuardaDoProduto, hashDoProduto,
-  MAXIMO_DE_PREPAROS_REFEITOS, paralelismoDaVarreduraNoGrupo, passosDoComando, PECA_SEM_RELATORIO, RelatorioDoCheck,
+import { assinaturaDoAmbiente, comandosNoAgile, elosDoComando, executorDaClaimNoAgile, executorDaClaimPelasLanes,
+  GuardaDoProduto, hashDoProduto, MAXIMO_DE_PREPAROS_REFEITOS, paralelismoDaVarreduraNoGrupo, passosDoComando,
+  PECA_SEM_RELATORIO, RelatorioDoCheck,
   testDasLanes, TETO_DO_RELATORIO_BYTES, tirarPassosDoPreparo, tirarPassosDoPreparoAposLeituras } from '../src/check-agil';
 import { argvDoItem, chaveDoPerfilIntegracao, picoCpuPorFonte, picoDaArvoreParaPerfil, rodarEmParalelo,
   workersDaLane } from '../src/check-paralelo';
@@ -746,25 +747,29 @@ test('AG46: claim node --test reaproveita somente arquivos verdes no mesmo HEAD 
     const executar = executorDaClaimPelasLanes(base.executor, evidencias, { head, ambiente });
     const a = executar('C1.1', "node --test --test-name-pattern='caso A$' core/dist-test/test/a.test.js", dir);
     assert.equal(a.ok, true);
-    assert.deepEqual(a.lane?.arquivos, ['a.test.js']);
-    assert.deepEqual(a.lane?.nomes, ['a.test.js:/caso A$/']);
+    assert.equal(a.lane?.reaproveitada, true);
+    if (a.lane?.reaproveitada) {
+      assert.deepEqual(a.lane.arquivos, ['a.test.js']);
+      assert.deepEqual(a.lane.nomes, ['a.test.js:/caso A$/']);
+    }
     const dois = executar('C2.1', 'node --test core/dist-test/test/a.test.js core/dist-test/test/b.test.js', dir);
     assert.deepEqual(dois.lane?.arquivos, ['a.test.js', 'b.test.js']);
     const fechada = executar('C2.2', "grep -q 'conteudo' README.md && node --test-reporter=tap core/dist-test/test/a.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AG[0-9]+:/{p++} END{exit !(p>=2 && f==0 && s==0)}' && node --test core/dist-test/test/b.test.js", dir);
     assert.deepEqual(fechada.lane?.arquivos, ['a.test.js', 'b.test.js']);
-    assert.ok(fechada.lane?.nomes.includes('a.test.js:AG>=2;sem-falha;sem-skip'));
+    assert.equal(fechada.lane?.reaproveitada, true);
+    if (fechada.lane?.reaproveitada) assert.ok(fechada.lane.nomes.includes('a.test.js:AG>=2;sem-falha;sem-skip'));
     const grepFalhou = executar('C2.3', "grep -q ausente README.md && node --test core/dist-test/test/a.test.js", dir);
     assert.equal(grepFalhou.ok, false, 'a cadeia conserva o curto-circuito do grep');
-    executar('C3.1', 'node --test core/dist-test/test/c.test.js', dir);
+    const falha = executar('C3.1', 'node --test core/dist-test/test/c.test.js', dir);
     executar('C4.1', 'node --test core/dist-test/test/a.test.js && echo aberto', dir);
-    executorDaClaimPelasLanes(base.executor, evidencias, { head, ambiente: { ...ambiente, FEATURE_X: '2' } })(
+    const ambienteDiferente = executorDaClaimPelasLanes(base.executor, evidencias, { head, ambiente: { ...ambiente, FEATURE_X: '2' } })(
       'C5.1', 'node --test core/dist-test/test/a.test.js', dir);
-    executorDaClaimPelasLanes(base.executor, evidencias, { head: 'b'.repeat(40), ambiente })(
+    const headDiferente = executorDaClaimPelasLanes(base.executor, evidencias, { head: 'b'.repeat(40), ambiente })(
       'C6.1', 'node --test core/dist-test/test/a.test.js', dir);
     executar('C7.1', 'bun --test core/dist-test/test/a.test.js', dir);
     executar('C8.1', 'node --test core/dist-test/test/sub/a.test.js', dir);
     executar('C10.1', "node --test --test-name-pattern='[' core/dist-test/test/a.test.js", dir);
-    executar('C11.1', "node --test-reporter=tap core/dist-test/test/d.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AG[0-9]+:/{p++} END{exit !(p>=1 && f==0 && s==0)}'", dir);
+    const skip = executar('C11.1', "node --test-reporter=tap core/dist-test/test/d.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AG[0-9]+:/{p++} END{exit !(p>=1 && f==0 && s==0)}'", dir);
     executar('C12.1', "node --test-reporter=tap core/dist-test/test/a.test.js | awk 'END{exit 0}'", dir);
     const equivalente = gravador();
     executorDaClaimPelasLanes(base.executor, evidencias, { head, ambiente, podeReaproveitar: () => false,
@@ -772,7 +777,68 @@ test('AG46: claim node --test reaproveita somente arquivos verdes no mesmo HEAD 
       'C9.1', 'node --test core/dist-test/test/a.test.js', dir);
     assert.deepEqual(base.lista.map(([nome]) => nome), ['C2.2', 'C2.3', 'C3.1', 'C4.1', 'C5.1', 'C6.1', 'C7.1', 'C8.1', 'C10.1', 'C11.1', 'C12.1'],
       'so o grep da cadeia fechada roda; falha, shell aberto, ambiente ou HEAD diferente, outro runner, subdiretorio, regex invalida, skip auditado, awk aberto e produto mudado executam de verdade');
+    assert.equal(falha.lane?.reaproveitada ? null : falha.lane?.motivo, 'falha-na-lane');
+    assert.equal(ambienteDiferente.lane?.reaproveitada ? null : ambienteDiferente.lane?.motivo, 'ambiente-funcional-divergente');
+    assert.equal(headDiferente.lane?.reaproveitada ? null : headDiferente.lane?.motivo, 'head-divergente');
+    assert.equal(skip.lane?.reaproveitada ? null : skip.lane?.motivo, 'skip-ou-todo-na-lane');
     assert.deepEqual(equivalente.lista.map(([nome]) => nome), ['C9.1'], 'o fallback node --test usa o ambiente das lanes');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('AG52: preparo sai, mas TMPDIR funcional diferente recusa C1 e C3 com motivo tipado', () => {
+  const p = projetoTemporario('ag52');
+  try {
+    comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      hermetica: "echo lane"');
+    const head = 'a'.repeat(40);
+    const ambienteDaClaim = { LANG: 'C.UTF-8', ORKASTERY_HOME: path.join(p.dir, 'casa') };
+    const ambienteDaLane = { ...ambienteDaClaim, TMPDIR: path.join(p.dir, 'tmp-da-lane') };
+    const evidencias = [{ lane: 'hermetica', head, ambiente: assinaturaDoAmbiente(ambienteDaLane), testes: [
+      { arquivo: 'check-agil.test.js', nome: 'AG1: primeiro', nesting: 0, estado: 'pass' as const },
+      { arquivo: 'check-agil.test.js', nome: 'AG2: segundo', nesting: 0, estado: 'pass' as const },
+    ] }];
+    const real = gravador();
+    const pelasLanes = executorDaClaimPelasLanes(real.executor, evidencias, { head, ambiente: ambienteDaClaim });
+    const preparo: ResultadoDeComando = { nome: 'preparo', comando: 'echo passo-a && echo passo-b', ok: true, code: 0,
+      resumo: '', causa: 'exit', prazoMs: 1000, duracaoMs: 1, executado: true };
+    const vigente = { guarda: new GuardaDoProduto(p.dir, ['README.md'], () => head, null), preparo };
+    const executar = executorDaClaimNoAgile(p.carregado.manifesto, pelasLanes, vigente);
+    const auditoria = "node --test-reporter=tap core/dist-test/test/check-agil.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AG[0-9]+:/{p++} END{exit !(p>=2 && f==0 && s==0)}'";
+    const r = executar('C3.1', `echo passo-a && echo passo-b && ${auditoria}`, p.dir);
+    assert.deepEqual(real.lista, [['C3.1', auditoria]], 'o preparo do manifesto sai antes da classificacao da forma C3');
+    assert.deepEqual(r.preparo, { reaproveitado: true, passos: ['echo passo-a', 'echo passo-b'] });
+    assert.equal(r.lane?.reaproveitada, false);
+    if (r.lane && !r.lane.reaproveitada) assert.equal(r.lane.motivo, 'ambiente-funcional-divergente');
+  } finally { p.limpar(); }
+});
+
+test('AG53: cada cerca da prova nominal devolve a recusa tipada que conserva a claim inteira', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag53-'));
+  try {
+    const head = 'a'.repeat(40);
+    const ambiente = { LANG: 'C.UTF-8', ORKASTERY_HOME: path.join(dir, 'casa') };
+    const evidencia = [{ lane: 'hermetica', head, ambiente: assinaturaDoAmbiente(ambiente), testes: [
+      { arquivo: 'a.test.js', nome: 'AG1: primeiro', nesting: 0, estado: 'pass' as const },
+      { arquivo: 'a.test.js', nome: 'AG2: segundo', nesting: 0, estado: 'pass' as const },
+    ] }];
+    const base = gravador();
+    const motivo = (nome: string, comando: string, evidencias = evidencia,
+      opcoes: { head?: string; ambiente?: NodeJS.ProcessEnv; podeReaproveitar?: () => false | 'produto-mudou' } = {}) => {
+      const r = executorDaClaimPelasLanes(base.executor, evidencias, { head: opcoes.head ?? head,
+        ambiente: opcoes.ambiente ?? ambiente, ...(opcoes.podeReaproveitar ? { podeReaproveitar: opcoes.podeReaproveitar } : {}) })(
+        nome, comando, dir);
+      assert.equal(r.lane?.reaproveitada, false, nome);
+      return r.lane && !r.lane.reaproveitada ? r.lane.motivo : null;
+    };
+    assert.equal(motivo('vazia', 'node --test core/dist-test/test/a.test.js', []), 'evidencia-vazia');
+    assert.equal(motivo('ausente', 'node --test core/dist-test/test/b.test.js'), 'arquivo-nao-executado');
+    assert.equal(motivo('head', 'node --test core/dist-test/test/a.test.js', evidencia, { head: 'b'.repeat(40) }), 'head-divergente');
+    assert.equal(motivo('ambiente', 'node --test core/dist-test/test/a.test.js', evidencia,
+      { ambiente: { ...ambiente, FEATURE_X: '2' } }), 'ambiente-funcional-divergente');
+    assert.equal(motivo('prefixo', "node --test-reporter=tap core/dist-test/test/a.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - ZZ[0-9]+:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"), 'prefixo-divergente');
+    assert.equal(motivo('minimo', "node --test-reporter=tap core/dist-test/test/a.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AG[0-9]+:/{p++} END{exit !(p>=3 && f==0 && s==0)}'"), 'contagem-abaixo-do-minimo');
+    assert.equal(motivo('padrao-tap', "node --test-reporter=tap --test-name-pattern='AG' core/dist-test/test/a.test.js | awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AG[0-9]+:/{p++} END{exit !(p>=1 && f==0 && s==0)}'"), 'tap-com-test-name-pattern');
+    assert.equal(motivo('produto', 'node --test core/dist-test/test/a.test.js', evidencia,
+      { podeReaproveitar: () => 'produto-mudou' }), 'produto-mudou');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -789,7 +855,8 @@ test('AG48: skip ou todo em node --test nunca prova a claim pela lane', () => {
       ] }];
       const r = executorDaClaimPelasLanes(base.executor, evidencias, { head, ambiente })(
         `C-${estado}`, `node --test core/dist-test/test/${estado}.test.js`, dir);
-      assert.equal(r.lane, undefined, `${estado} deve executar a claim de verdade`);
+      assert.equal(r.lane?.reaproveitada, false, `${estado} deve executar a claim de verdade`);
+      if (r.lane && !r.lane.reaproveitada) assert.equal(r.lane.motivo, 'skip-ou-todo-na-lane');
     }
     assert.deepEqual(base.lista.map(([nome]) => nome), ['C-skip', 'C-todo']);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }

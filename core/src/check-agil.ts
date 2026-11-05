@@ -32,7 +32,8 @@ import * as path from 'node:path';
 import { ENV_RELATORIO_DO_CHECK } from './check-modo';
 import { planejarCpuDoGrupo } from './agendador-cpu';
 import { redigirCredenciaisUrl } from './redacao-url';
-import { CausaDoComando, EvidenciaJUnit, Manifesto, ResultadoDeComando } from './types';
+import { CausaDoComando, DecisaoDaClaimPelasLanes, EvidenciaJUnit, Manifesto, MotivoDaRecusaPelasLanes,
+  ResultadoDeComando } from './types';
 import { PlanoDaLane } from './check-selecao';
 
 /** Uma peca do Agile e o que aconteceu com ela; `degradado` preserva o Agile com menos capacidade. */
@@ -722,56 +723,152 @@ function resultadoReaproveitado(nome: string, comando: string, pedido: ComandoNo
       head: esperado.head, ambiente: esperado.ambiente } };
 }
 
+type EloPlanejadoPelasLanes = { tipo: 'grep'; comando: string }
+  | { tipo: 'lane'; comando: string; pedido: ComandoNodeTest; usadas: ResultadoNominalDaLane[]; nomes?: string[] };
+
+interface PlanoDaClaimPelasLanes {
+  decisao: DecisaoDaClaimPelasLanes;
+  candidata: boolean;
+  usarExecutorEquivalente: boolean;
+  elos: EloPlanejadoPelasLanes[];
+}
+
+export interface ClassificacaoDaClaimPelasLanes {
+  decisao: DecisaoDaClaimPelasLanes;
+  /** Cadeira fechada que aguardava prova nominal das lanes; uma recusa desta classe pode entrar no lote do agendador. */
+  candidata: boolean;
+  usarExecutorEquivalente: boolean;
+}
+
+type VigenciaDasLanes = boolean | MotivoDaRecusaPelasLanes | null;
+
+function recusaPelasLanes(motivo: MotivoDaRecusaPelasLanes, arquivos: string[], esperado: { head: string },
+  assinatura: string, candidata: boolean, usarExecutorEquivalente = candidata): PlanoDaClaimPelasLanes {
+  return { decisao: { reaproveitada: false, motivo, arquivos: [...new Set(arquivos)], head: esperado.head, ambiente: assinatura },
+    candidata, usarExecutorEquivalente, elos: [] };
+}
+
+/** Reconhece especificamente o TAP com filtro: ele e fechado, mas a lane inteira nao prova a auditoria filtrada. */
+function tapComPadraoDeNome(comando: string, cwd: string): ComandoNodeTest | null {
+  const divisor = ' | ';
+  const i = comando.indexOf(divisor);
+  if (i < 0 || comando.indexOf(divisor, i + divisor.length) >= 0) return null;
+  const node = comando.slice(0, i).trim();
+  if (!/^node --test-reporter=tap\b/.test(node)) return null;
+  const pedido = comandoNodeTest(node.replace(/^node --test-reporter=tap\b/, 'node --test'), cwd);
+  return pedido?.padrao !== undefined ? pedido : null;
+}
+
+function planejarClaimPelasLanes(comando: string, cwd: string, evidencias: ResultadoNominalDaLane[], esperado: {
+  head: string; ambiente: NodeJS.ProcessEnv; podeReaproveitar?: () => VigenciaDasLanes;
+}): PlanoDaClaimPelasLanes {
+  const assinatura = assinaturaDoAmbiente(esperado.ambiente);
+  const elos = elosDoComando(comando);
+  if (!elos) return recusaPelasLanes('comando-aberto', [], esperado, assinatura, false, false);
+  const planejados: EloPlanejadoPelasLanes[] = [];
+  const arquivos: string[] = [];
+  for (const elo of elos) {
+    if (comandoGrepQ(elo)) { planejados.push({ tipo: 'grep', comando: elo }); continue; }
+    const tap = auditoriaTap(elo, cwd);
+    const comPadrao = tap ? null : tapComPadraoDeNome(elo, cwd);
+    if (comPadrao) return recusaPelasLanes('tap-com-test-name-pattern', [...arquivos, ...comPadrao.arquivos],
+      esperado, assinatura, true);
+    const pedido = tap?.pedido ?? comandoNodeTest(elo, cwd);
+    if (!pedido) return recusaPelasLanes('comando-nao-elegivel', arquivos, esperado, assinatura, false, false);
+    arquivos.push(...pedido.arquivos);
+    planejados.push({ tipo: 'lane', comando: elo, pedido, usadas: [],
+      ...(tap ? { nomes: pedido.arquivos.map((a) => `${a}:${tap.prefixo}>=${tap.minimo};sem-falha;sem-skip`) } : {}) });
+  }
+  if (!planejados.some((p) => p.tipo === 'lane')) {
+    return recusaPelasLanes('comando-nao-elegivel', arquivos, esperado, assinatura, false, false);
+  }
+  const vigencia = esperado.podeReaproveitar?.();
+  if (vigencia === false) return recusaPelasLanes('lanes-invigentes', arquivos, esperado, assinatura, true);
+  if (typeof vigencia === 'string') return recusaPelasLanes(vigencia, arquivos, esperado, assinatura, true);
+  if (evidencias.length === 0) return recusaPelasLanes('evidencia-vazia', arquivos, esperado, assinatura, true);
+
+  for (const item of planejados) {
+    if (item.tipo !== 'lane') continue;
+    const tap = auditoriaTap(item.comando, cwd);
+    const usadasDoElo = new Set<ResultadoNominalDaLane>();
+    for (const arquivo of item.pedido.arquivos) {
+      const comArquivo = evidencias.filter((e) => e.testes.some((t) => t.arquivo === arquivo));
+      if (comArquivo.length === 0) return recusaPelasLanes('arquivo-nao-executado', arquivos, esperado, assinatura, true);
+      const noHead = comArquivo.filter((e) => e.head === esperado.head);
+      if (noHead.length === 0) return recusaPelasLanes('head-divergente', arquivos, esperado, assinatura, true);
+      const noAmbiente = noHead.filter((e) => e.ambiente === assinatura);
+      if (noAmbiente.length === 0) {
+        return recusaPelasLanes('ambiente-funcional-divergente', arquivos, esperado, assinatura, true);
+      }
+      const vistos = noAmbiente.flatMap((e) => e.testes.filter((t) => t.arquivo === arquivo));
+      if (vistos.some((t) => t.estado === 'fail')) return recusaPelasLanes('falha-na-lane', arquivos, esperado, assinatura, true);
+      if (vistos.some((t) => t.estado === 'skip' || t.estado === 'todo')) {
+        return recusaPelasLanes('skip-ou-todo-na-lane', arquivos, esperado, assinatura, true);
+      }
+      if (tap) {
+        const doArquivo = vistos.filter((t) => t.nesting === 0 && t.estado === 'pass');
+        const doPrefixo = doArquivo.filter((t) => new RegExp(`^${tap.prefixo}[0-9]+:`).test(t.nome));
+        if (doPrefixo.length === 0) return recusaPelasLanes('prefixo-divergente', arquivos, esperado, assinatura, true);
+        if (doPrefixo.length < tap.minimo) {
+          return recusaPelasLanes('contagem-abaixo-do-minimo', arquivos, esperado, assinatura, true);
+        }
+      }
+      noAmbiente.forEach((e) => usadasDoElo.add(e));
+    }
+    item.usadas = [...usadasDoElo];
+  }
+
+  const usadas = planejados.flatMap((p) => p.tipo === 'lane' ? p.usadas : []);
+  const lanes = [...new Set(usadas.map((e) => e.lane))];
+  const nomes = planejados.flatMap((p) => p.tipo !== 'lane' ? [] : p.nomes ?? (p.pedido.padrao === undefined
+    ? p.pedido.arquivos.map((a) => `${a}:todos`) : p.pedido.arquivos.map((a) => `${a}:/${p.pedido.padrao}/`)));
+  return { decisao: { reaproveitada: true, lanes, arquivos: [...new Set(arquivos)], nomes: [...new Set(nomes)],
+    head: esperado.head, ambiente: assinatura }, candidata: true, usarExecutorEquivalente: false, elos: planejados };
+}
+
+/** A classificacao pura usada pelo executor e, na M12, pelo planejador dos lotes de claims. */
+export function classificarClaimPelasLanes(comando: string, cwd: string, evidencias: ResultadoNominalDaLane[], esperado: {
+  head: string; ambiente: NodeJS.ProcessEnv; podeReaproveitar?: () => VigenciaDasLanes;
+}): ClassificacaoDaClaimPelasLanes {
+  const p = planejarClaimPelasLanes(comando, cwd, evidencias, esperado);
+  return { decisao: p.decisao, candidata: p.candidata, usarExecutorEquivalente: p.usarExecutorEquivalente };
+}
+
 /**
  * Reaproveita uma claim somente quando a lane terminou todos os arquivos pedidos no mesmo HEAD e ambiente. Um arquivo
  * inteiro verde e evidencia mais forte que `--test-name-pattern`: o padrao fica registrado em `nomes`.
  */
 export function executorDaClaimPelasLanes(base: ExecutorUnico, evidencias: ResultadoNominalDaLane[], esperado: {
-  head: string; ambiente: NodeJS.ProcessEnv; podeReaproveitar?: () => boolean; executorEquivalente?: ExecutorUnico;
+  head: string; ambiente: NodeJS.ProcessEnv; podeReaproveitar?: () => VigenciaDasLanes; executorEquivalente?: ExecutorUnico;
 }): ExecutorUnico {
-  const assinatura = assinaturaDoAmbiente(esperado.ambiente);
   return (nome, comando, cwd) => {
     const executar = esperado.executorEquivalente ?? base;
-    if (esperado.podeReaproveitar?.() === false) return executar(nome, comando, cwd);
-    const elos = elosDoComando(comando);
-    if (!elos) return base(nome, comando, cwd);
-    const planejados: Array<{ tipo: 'grep'; comando: string } | { tipo: 'lane'; resultado: ResultadoDeComando }> = [];
-    for (const elo of elos) {
-      if (comandoGrepQ(elo)) { planejados.push({ tipo: 'grep', comando: elo }); continue; }
-      const tap = auditoriaTap(elo, cwd);
-      const pedido = tap?.pedido ?? comandoNodeTest(elo, cwd);
-      if (!pedido) return base(nome, comando, cwd);
-      const usadas = evidencias.filter((e) => e.head === esperado.head && e.ambiente === assinatura
-        && e.testes.some((t) => pedido.arquivos.includes(t.arquivo)));
-      const cobertos = pedido.arquivos.every((arquivo) => {
-        const vistos = usadas.flatMap((e) => e.testes.filter((t) => t.arquivo === arquivo));
-        if (vistos.length === 0 || vistos.some((t) => t.estado === 'fail')) return false;
-        if (vistos.some((t) => t.estado === 'skip' || t.estado === 'todo')) return false;
-        if (!tap) return true;
-        const doArquivo = vistos.filter((t) => t.nesting === 0);
-        return doArquivo.filter((t) => t.estado === 'pass' && new RegExp(`^${tap.prefixo}[0-9]+:`).test(t.nome)).length >= tap.minimo;
-      });
-      if (!cobertos) return executar(nome, comando, cwd);
-      const nomes = tap ? pedido.arquivos.map((a) => `${a}:${tap.prefixo}>=${tap.minimo};sem-falha;sem-skip`) : undefined;
-      planejados.push({ tipo: 'lane', resultado: resultadoReaproveitado(nome, elo, pedido, usadas,
-        { head: esperado.head, ambiente: assinatura }, nomes) });
+    const plano = planejarClaimPelasLanes(comando, cwd, evidencias, esperado);
+    if (!plano.decisao.reaproveitada) {
+      const r = (plano.usarExecutorEquivalente ? executar : base)(nome, comando, cwd);
+      return { ...r, lane: plano.decisao };
     }
     let duracaoMs = 0;
     const resumos: string[] = [];
     let ultimo: ResultadoDeComando | null = null;
     const lanes = new Set<string>(), arquivos = new Set<string>(), nomes = new Set<string>();
-    for (const item of planejados) {
-      const r = item.tipo === 'grep' ? base(nome, item.comando, cwd) : item.resultado;
+    for (const item of plano.elos) {
+      const r = item.tipo === 'grep' ? base(nome, item.comando, cwd)
+        : resultadoReaproveitado(nome, item.comando, item.pedido, item.usadas,
+          { head: esperado.head, ambiente: plano.decisao.ambiente }, item.nomes);
       duracaoMs += r.duracaoMs ?? 0;
       resumos.push(r.resumo);
       ultimo = r;
-      if (!r.ok) return { ...r, comando, comandoExecutado: item.tipo === 'grep' ? item.comando : r.comando, duracaoMs };
-      for (const lane of r.lane?.lanes ?? []) lanes.add(lane);
-      for (const arquivo of r.lane?.arquivos ?? []) arquivos.add(arquivo);
-      for (const n of r.lane?.nomes ?? []) nomes.add(n);
+      if (!r.ok) return { ...r, comando, comandoExecutado: item.comando, duracaoMs, lane: plano.decisao };
+      if (r.lane?.reaproveitada) {
+        for (const lane of r.lane.lanes) lanes.add(lane);
+        for (const arquivo of r.lane.arquivos) arquivos.add(arquivo);
+        for (const n of r.lane.nomes) nomes.add(n);
+      }
     }
     if (!ultimo || lanes.size === 0) return base(nome, comando, cwd);
     return { ...ultimo, nome, comando, duracaoMs, resumo: resumos.filter(Boolean).join('\n'),
-      lane: { reaproveitada: true, lanes: [...lanes], arquivos: [...arquivos], nomes: [...nomes], head: esperado.head, ambiente: assinatura } };
+      lane: { reaproveitada: true, lanes: [...lanes], arquivos: [...arquivos], nomes: [...nomes], head: esperado.head,
+        ambiente: plano.decisao.ambiente } };
   };
 }
