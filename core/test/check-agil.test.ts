@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { adicionarClaim } from '../src/claims';
+import { adicionarClaim, montarClaim } from '../src/claims';
 import { assinaturaDoAmbiente, comandosNoAgile, elosDoComando, executorDaClaimNoAgile, executorDaClaimPelasLanes,
   GuardaDoProduto, hashDoProduto, MAXIMO_DE_PREPAROS_REFEITOS, paralelismoDaVarreduraNoGrupo, passosDoComando,
   PECA_SEM_RELATORIO, RelatorioDoCheck,
@@ -22,8 +22,8 @@ import { cargaDoProcLoadavg, MINIMO_ESTRUTURAL_DO_GRUPO, paredeAgileSimulada, pa
 import { lerLedger } from '../src/ledger';
 import { carregarManifesto } from '../src/manifest';
 import { dirThread, novaThread } from '../src/thread';
-import { ambienteDoModo, gravarBaseline, identidadeDoProduto, pecaDoAgendadorCpu, semVereditoPorTempo, textoDoVerify, vereditoDaBaseline, verificar,
-  ExecutorVerify } from '../src/verify';
+import { ambienteDoModo, gravarBaseline, identidadeDoProduto, pecaDoAgendadorCpu, semVereditoPorTempo, textoDoVerify,
+  vereditoDaBaseline, verificar, verificarClaimsAgendadas, ExecutorVerify } from '../src/verify';
 import { comLocale } from '../src/locale';
 import type { ResultadoDeComando } from '../src/types';
 import { exec } from '../src/util';
@@ -840,6 +840,55 @@ test('AG53: cada cerca da prova nominal devolve a recusa tipada que conserva a c
     assert.equal(motivo('produto', 'node --test core/dist-test/test/a.test.js', evidencia,
       { podeReaproveitar: () => 'produto-mudou' }), 'produto-mudou');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('AG54: recusas consecutivas usam vagas entre arquivos e preservam a ordem do mesmo claim.arquivo', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag54-'));
+  try {
+    const claim = (id: string, arquivo: string, comando: string) => montarClaim({ id, dono: 't', fase: 'GO', arquivo,
+      alegacao: `prova ${id}`, verificar: [comando] });
+    const claims = [claim('C1', 'core/src/a.ts', 'node --test a.test.js'),
+      claim('C2', 'core/src/b.ts', 'node --test b.test.js'), claim('C3', 'core/src/a.ts', 'node --test a2.test.js'),
+      claim('C4', 'core/src/barreira.ts', 'echo barreira'), claim('C5', 'core/src/c.ts', 'node --test c.test.js')];
+    const seriais: string[] = [];
+    const executor: ExecutorVerify = (nome, comando) => {
+      seriais.push(nome);
+      return { nome, comando, ok: true, code: 0, resumo: '', causa: 'exit', duracaoMs: 1, executado: true };
+    };
+    const planejar: ExecutorVerify = (nome, comando) => ({ nome, comando, ok: true, code: 0, resumo: '', causa: 'exit',
+      duracaoMs: 0, executado: true, ...(comando.startsWith('node --test') ? {
+        lane: { reaproveitada: false as const, motivo: 'ambiente-funcional-divergente' as const, arquivos: [`${nome}.test.js`],
+          head: 'a'.repeat(40), ambiente: 'ambiente' },
+      } : { lane: { reaproveitada: false as const, motivo: 'comando-nao-elegivel' as const, arquivos: [],
+        head: 'a'.repeat(40), ambiente: 'ambiente' } }) });
+    const grupos: Array<Array<{ nome: string; apos?: string[] }>> = [];
+    const grupo = (itens: Array<{ nome: string; comando: string; apos?: string[] }>) => {
+      grupos.push(itens.map(({ nome, apos }) => ({ nome, ...(apos ? { apos } : {}) })));
+      return itens.map((item) => ({ nome: item.nome, comando: item.comando, ok: true, code: 0, resumo: '', causa: 'exit' as const,
+        duracaoMs: 1, executado: true }));
+    };
+    const resultados = verificarClaimsAgendadas(claims, dir, executor, planejar, grupo);
+    assert.deepEqual(grupos, [[{ nome: 'C1.1' }, { nome: 'C2.1' }, { nome: 'C3.1', apos: ['C1.1'] }]]);
+    assert.deepEqual(seriais, ['C4.1', 'C5.1'], 'a barreira fecha o lote; um arquivo sozinho continua no executor serial');
+    assert.ok(resultados.every((r) => r.verificado), JSON.stringify(resultados));
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('AG55: verify_run e texto dizem por claim a recusa tipada ou o reaproveitamento das lanes', () => {
+  const p = projetoTemporario('ag55');
+  try {
+    comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      hermetica: "echo lane"');
+    const { thread: t } = novaThread(p.carregado, { nome: 'recibo por claim', modo: 'auto' });
+    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'audita arquivo',
+      verificar: ['echo passo-a && echo passo-b && node --test core/dist-test/test/a.test.js'] });
+    const r = verificar(p.carregado, t.id, { executor: gravador().executor });
+    const peca = r.agile?.pecas.find((x) => x.peca === 'claim-lane' && x.claim === 'C1.1');
+    assert.deepEqual(peca, { peca: 'claim-lane', estado: 'fallback', claim: 'C1.1', motivo: 'evidencia-vazia',
+      motivoTipado: 'evidencia-vazia', fallback: 'claim inteira' });
+    assert.match(textoDoVerify(r), /claim-lane  C1\.1: recusada \(evidencia-vazia\); rodou a claim inteira/);
+    r.agile!.pecas.push({ peca: 'claim-lane', estado: 'agile', claim: 'C2.1', motivo: 'reaproveitada das lanes hermetica desta rodada' });
+    assert.match(textoDoVerify(r), /claim-lane  C2\.1: reaproveitada das lanes/);
+  } finally { p.limpar(); }
 });
 
 test('AG48: skip ou todo em node --test nunca prova a claim pela lane', () => {

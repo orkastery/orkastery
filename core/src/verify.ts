@@ -658,13 +658,21 @@ function agileNoLedger(raiz: string, threadId: string, commit: string, pecasDoVe
   const listas = listasDasLanes(linhas);
   const resultados = resultadosDasLanes(linhas);
   const usos = claims.flatMap((c) => c.execucoes.map((e) => e.preparo).filter((u): u is NonNullable<typeof u> => !!u));
-  const usosDasLanes = claims.flatMap((c) => c.execucoes.filter((e) => e.lane));
+  const usosDasLanes = claims.flatMap((c) => c.execucoes.filter((e) => e.lane).map((e) => e.lane!));
+  const pecasDasClaims: PecaDoAgile[] = claims.flatMap((c) => c.execucoes.filter((e) => e.lane).map((e) => {
+    const lane = e.lane!;
+    return lane.reaproveitada
+      ? { peca: 'claim-lane', estado: 'agile', claim: e.nome,
+        motivo: `reaproveitada das lanes ${lane.lanes.join(', ')} desta rodada` }
+      : { peca: 'claim-lane', estado: 'fallback', claim: e.nome, motivo: lane.motivo, motivoTipado: lane.motivo,
+        fallback: 'claim inteira' };
+  }));
   const resumo: ResumoDoAgile = {
-    pecas: [...pecasDoVerify, ...doRelatorio],
+    pecas: [...pecasDoVerify, ...doRelatorio, ...pecasDasClaims],
     grupo: { paralelo: doAgile?.paralelo ?? false, lanes: doAgile?.lanes ?? [] },
     produto: guarda.hashCurto(),
     claims: { reaproveitadas: usos.filter((u) => u.reaproveitado).length, inteiras: usos.filter((u) => !u.reaproveitado).length,
-      lanes: usosDasLanes.length },
+      lanes: usosDasLanes.filter((u) => u.reaproveitada).length },
     lanes: listas.map((l) => ({ lane: l.lane, arquivos: l.arquivos.length, sha256: l.sha256 })),
     orcamento: linhas.filter((l) => l.tipo === 'duracoes').map(({ tipo: _tipo, ...resto }) => resto),
   };
@@ -987,6 +995,72 @@ export function verificarClaim(claim: ResultadoDeClaim['claim'], cwd: string, ex
   };
 }
 
+const RECUSAS_AGENDAVEIS_DAS_LANES = new Set([
+  'evidencia-vazia', 'arquivo-nao-executado', 'head-divergente', 'ambiente-funcional-divergente', 'falha-na-lane',
+  'skip-ou-todo-na-lane', 'prefixo-divergente', 'contagem-abaixo-do-minimo', 'tap-com-test-name-pattern',
+]);
+
+function claimRecusadaAgendavel(planos: ResultadoDeComando[]): boolean {
+  return planos.length > 0 && planos.every((p) => p.lane && !p.lane.reaproveitada
+    && RECUSAS_AGENDAVEIS_DAS_LANES.has(p.lane.motivo));
+}
+
+/**
+ * RM-074 M12: claims consecutivas que aguardavam as lanes, mas preservaram a execucao real, recebem vagas do mesmo
+ * executor paralelo. O campo canonico `claim.arquivo` encadeia o mesmo domicilio; uma claim de outra classe e barreira.
+ */
+export function verificarClaimsAgendadas(claims: ResultadoDeClaim['claim'][], cwd: string, executor: ExecutorVerify,
+  planejar: ExecutorVerify, grupo: ExecutorDeGrupo): ResultadoDeClaim[] {
+  const saida: ResultadoDeClaim[] = [];
+  let indice = 0;
+  while (indice < claims.length) {
+    const planosDa = (claim: ResultadoDeClaim['claim']): ResultadoDeComando[] =>
+      claim.verificar.map((comando, i) => planejar(`${claim.id}.${i + 1}`, comando, cwd));
+    const primeiro = planosDa(claims[indice]);
+    if (!claimRecusadaAgendavel(primeiro)) {
+      saida.push(verificarClaim(claims[indice], cwd, executor));
+      indice++;
+      continue;
+    }
+    const lote: Array<{ claim: ResultadoDeClaim['claim']; planos: ResultadoDeComando[] }> = [
+      { claim: claims[indice], planos: primeiro },
+    ];
+    let fim = indice + 1;
+    while (fim < claims.length) {
+      const planos = planosDa(claims[fim]);
+      if (!claimRecusadaAgendavel(planos)) break;
+      lote.push({ claim: claims[fim], planos });
+      fim++;
+    }
+    if (new Set(lote.map((x) => x.claim.arquivo)).size < 2) {
+      for (const x of lote) saida.push(verificarClaim(x.claim, cwd, executor));
+      indice = fim;
+      continue;
+    }
+    const ultimoPorArquivo = new Map<string, string>();
+    const itens = lote.flatMap(({ claim, planos }) => planos.map((plano) => {
+      const anterior = ultimoPorArquivo.get(claim.arquivo);
+      ultimoPorArquivo.set(claim.arquivo, plano.nome);
+      return { nome: plano.nome, comando: plano.comandoExecutado ?? plano.comando,
+        ...(anterior ? { apos: [anterior] } : {}) };
+    }));
+    const reais = grupo(itens, cwd);
+    const porNome = new Map<string, ResultadoDeComando>();
+    let posicao = 0;
+    for (const { planos } of lote) for (const plano of planos) {
+      const real = reais[posicao++];
+      porNome.set(plano.nome, { ...real, nome: plano.nome, comando: plano.comando,
+        ...(plano.comandoExecutado ? { comandoExecutado: plano.comandoExecutado } : {}),
+        ...(plano.preparo ? { preparo: plano.preparo } : {}), ...(plano.lane ? { lane: plano.lane } : {}) });
+    }
+    for (const { claim } of lote) {
+      saida.push(verificarClaim(claim, cwd, (nome) => porNome.get(nome)!));
+    }
+    indice = fim;
+  }
+  return saida;
+}
+
 /**
  * `ork verify`: reexecuta claims e comandos do manifesto e classifica cada falha.
  * Nao decide pausa, decide VERDADE: quem pausa e o gate do modo de conducao.
@@ -1119,17 +1193,26 @@ function verificarSobConducao(
   if (doAgile) pecas.push(...doAgile.pecas);
   const evidenciasDasLanes = relatorio && doAgile ? resultadosDasLanes(relatorio.ler()) : [];
   const ambienteEfetivoDasClaims = { ...ambienteDoVerify(), ...ambienteFuncionalDasLanes };
-  const executorComLanes = evidenciasDasLanes.length > 0
+  const vigenciaDasLanes = () => !lanesVigentes ? 'lanes-invigentes' as const : vigente?.guarda.conferir() ?? null;
+  const executorComLanes = agil
     ? executorDaClaimPelasLanes(executorDasClaims, evidenciasDasLanes, { head: commit, ambiente: ambienteEfetivoDasClaims,
-      podeReaproveitar: () => lanesVigentes && vigente?.guarda.conferir() === null,
-      executorEquivalente: executorDasClaimsComoLane })
+      podeReaproveitar: vigenciaDasLanes, executorEquivalente: executorDasClaimsComoLane })
     : executorDasClaims;
 
   // Claim retirada sai do gate: o historico guarda a alegacao e o motivo da retirada.
   const executorDaClaim = vigente ? executorDaClaimNoAgile(manifesto, executorComLanes, vigente, refazerAntesDaClaim) : executorComLanes;
-  const claims = lerClaims(raiz, threadId)
-    .filter((c) => c.estado !== 'retirada')
-    .map((c) => verificarClaim(c, cwd, executorDaClaim));
+  const claimsAtivas = lerClaims(raiz, threadId).filter((c) => c.estado !== 'retirada');
+  const claims = vigente ? (() => {
+    const executorDePlano: ExecutorVerify = (nome, comando) => ({ nome, comando, ok: true, code: 0, resumo: '', causa: 'exit',
+      prazoMs: prazoDaExecucao(manifesto, nome, comando), duracaoMs: 0, executado: true });
+    const planoComLanes = executorDaClaimPelasLanes(executorDePlano, evidenciasDasLanes,
+      { head: commit, ambiente: ambienteEfetivoDasClaims, podeReaproveitar: vigenciaDasLanes, executorEquivalente: executorDePlano });
+    // Planejar nunca refaz preparo nem toca no produto: guarda invalida vira barreira e a execucao serial decide o refazer.
+    const planejar = executorDaClaimNoAgile(manifesto, planoComLanes, vigente);
+    const grupoDasClaims = executorDoGrupo(manifesto, ambienteFuncionalDasLanes, instabilidade, leitor, conducao,
+      opcoes.executor ? executorDasClaimsComoLane : undefined);
+    return verificarClaimsAgendadas(claimsAtivas, cwd, executorDaClaim, planejar, grupoDasClaims);
+  })() : claimsAtivas.map((c) => verificarClaim(c, cwd, executorDaClaim));
   for (const r of claims) {
     // Estouro de prazo e comando que nao rodou nao julgam a alegacao: o estado anterior vale.
     if (r.motivo === 'verify.timeout' || r.motivo === 'verify.sem-veredito') continue;
@@ -1442,9 +1525,19 @@ export function textoDoVerify(r: ResultadoVerify): string {
   const motivoDaPeca = (p: PecaDoAgile): string => [p.motivo,
     p.reservaIntegracao ? m.reservaIntegracao(p.reservaIntegracao.cpus, p.reservaIntegracao.fonte) : null]
     .filter((x): x is string => !!x).join('; ');
-  for (const p of a?.pecas.filter((x) => x.estado === 'fallback') ?? []) linhas.push(m.agileFallback(p.peca, motivoDaPeca(p), p.fallback ?? ''));
-  for (const p of a?.pecas.filter((x) => x.estado === 'degradado') ?? []) linhas.push(m.agileDegradado(p.peca, motivoDaPeca(p)));
-  for (const p of a?.pecas.filter((x) => x.estado === 'agile' && x.reservaIntegracao) ?? []) linhas.push(m.agilePeca(p.peca, motivoDaPeca(p)));
+  for (const p of a?.pecas.filter((x) => x.peca === 'claim-lane') ?? []) {
+    linhas.push(p.estado === 'agile' ? m.claimLaneReaproveitada(p.claim ?? '', motivoDaPeca(p))
+      : m.claimLaneRecusada(p.claim ?? '', p.motivoTipado ?? p.motivo ?? 'motivo-ausente'));
+  }
+  for (const p of a?.pecas.filter((x) => x.peca !== 'claim-lane' && x.estado === 'fallback') ?? []) {
+    linhas.push(m.agileFallback(p.peca, motivoDaPeca(p), p.fallback ?? ''));
+  }
+  for (const p of a?.pecas.filter((x) => x.peca !== 'claim-lane' && x.estado === 'degradado') ?? []) {
+    linhas.push(m.agileDegradado(p.peca, motivoDaPeca(p)));
+  }
+  for (const p of a?.pecas.filter((x) => x.peca !== 'claim-lane' && x.estado === 'agile' && x.reservaIntegracao) ?? []) {
+    linhas.push(m.agilePeca(p.peca, motivoDaPeca(p)));
+  }
   linhas.push(r.baseline ? m.baseline(shaCurto(r.baseline.commit), formatarDataHoraRotulada(r.baseline.gravadaEm)) : m.semBaseline);
   if (r.preparo) {
     const p = r.preparo;

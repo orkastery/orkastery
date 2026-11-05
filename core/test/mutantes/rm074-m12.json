@@ -19,6 +19,42 @@
       "para": "const noHead = comArquivo;",
       "teste": "check-agil",
       "nome": "^AG46:"
+    },
+    {
+      "id": "M3",
+      "descricao": "uma claim de outra classe deixa de fechar o lote",
+      "modulo": "verify",
+      "de": "!claimRecusadaAgendavel(planos)",
+      "para": "false",
+      "teste": "check-agil",
+      "nome": "^AG54:"
+    },
+    {
+      "id": "M4",
+      "descricao": "claims do mesmo arquivo perdem a dependencia de ordem",
+      "modulo": "verify",
+      "de": "ultimoPorArquivo.get(claim.arquivo)",
+      "para": "undefined",
+      "teste": "check-agil",
+      "nome": "^AG54:"
+    },
+    {
+      "id": "M5",
+      "descricao": "arquivos distintos deixam de receber um lote do agendador",
+      "modulo": "verify",
+      "de": "new Set(lote.map((x) => x.claim.arquivo)).size < 2",
+      "para": "true",
+      "teste": "check-agil",
+      "nome": "^AG54:"
+    },
+    {
+      "id": "M6",
+      "descricao": "o recibo troca o motivo tipado da recusa",
+      "modulo": "verify",
+      "de": "motivoTipado: lane.motivo",
+      "para": "motivoTipado: 'comando-nao-elegivel'",
+      "teste": "check-agil",
+      "nome": "^AG55:"
     }
   ]
 }
