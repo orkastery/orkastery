@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { dirTemporario } from './apoio';
 import { DespachoCodexPedido, despachar } from '../src/adapters/codex';
 import { controleDoController, lerEstadoController } from '../src/adapters/codex-controller';
+import { estadoProcesso, identidadeProcesso, IdentidadeProcesso } from '../src/adapters/codex-runner';
 
 export function controllerSimulado(raiz?: string,
   opcoes: { launcherExec?: boolean; cenario?: string; capturarEnv?: { arquivo: string; nomes: string[] };
@@ -68,4 +69,93 @@ export function esperarCondicao(f: () => boolean, ms = 5000): void {
   const fim = Date.now() + ms;
   while (!f() && Date.now() < fim) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 30);
   if (!f()) throw new Error('condição de fixture não ocorreu');
+}
+
+export interface ProcessoDaFase { pid: number; pai: number }
+
+interface OpcoesDaEsperaDaFase {
+  folgaAposSaidaMs?: number;
+  tetoMs?: number;
+  /** Fonte de tempo monotônica para a espera; por padrão usa o relógio real. */
+  agora?: () => number;
+  /** Pausa entre consultas; por padrão bloqueia pelo intervalo solicitado. */
+  pausar?: (ms: number) => void;
+  /** Consulta o estado da identidade completa; por padrão lê o processo real. */
+  estadoDoProcesso?: typeof estadoProcesso;
+  /** Processos externos à árvore do runtime que ainda podem registrar o resultado da fase. */
+  identidades?: readonly IdentidadeProcesso[];
+  /** Devolve null enquanto o processo externo ainda não anunciou a própria identidade. */
+  lerIdentidadePendente?: () => IdentidadeProcesso | null;
+  /** Devolve a mensagem registrada quando o watcher da sessão falhou. */
+  lerErroDoWatcher?: () => string | null;
+}
+
+const PAUSA_DA_ESPERA = new Int32Array(new SharedArrayBuffer(4));
+const FOLGA_APOS_SAIDA_MS = 1500;
+const TETO_DA_FASE_MS = 600000;
+
+/**
+ * Aguarda o resultado da fase enquanto o runtime ou o supervisor ainda podem produzi-lo.
+ * A identidade completa impede que a reutilização de um PID prolongue a espera por outro processo.
+ */
+export function esperarFimDaFase(resultadoNoLedger: () => boolean, processos: readonly ProcessoDaFase[],
+  opcoes: OpcoesDaEsperaDaFase = {}): void {
+  const folgaAposSaidaMs = opcoes.folgaAposSaidaMs ?? FOLGA_APOS_SAIDA_MS;
+  const tetoMs = opcoes.tetoMs ?? TETO_DA_FASE_MS;
+  const agora = opcoes.agora ?? Date.now;
+  const pausar = opcoes.pausar ?? ((ms: number) => { Atomics.wait(PAUSA_DA_ESPERA, 0, 0, ms); });
+  const consultarEstado = opcoes.estadoDoProcesso ?? estadoProcesso;
+  if (!Number.isFinite(folgaAposSaidaMs) || folgaAposSaidaMs < 0 || !Number.isFinite(tetoMs) || tetoMs <= 0) {
+    throw new Error('prazos inválidos para esperar o fim da fase');
+  }
+  const pids = new Set(processos.flatMap(({ pid, pai }) => [pid, pai]));
+  const capturadas = [...pids].map(identidadeProcesso).filter((id): id is IdentidadeProcesso => id !== null);
+  const identidades = new Map([...capturadas, ...(opcoes.identidades ?? [])]
+    .map((id) => [`${id.boot}:${id.pid}:${id.inicio}`, id]));
+  const lerIdentidadePendente = opcoes.lerIdentidadePendente;
+  const lerErroDoWatcher = opcoes.lerErroDoWatcher;
+  let identidadePendente: IdentidadeProcesso | null = null;
+  let haviaProcessoObservavel = identidades.size > 0;
+  const inicio = agora();
+  let arvoreSaiuEm: number | null = null;
+  while (agora() - inicio < tetoMs) {
+    if (resultadoNoLedger()) return;
+    const erroDoWatcher = lerErroDoWatcher?.() ?? null;
+    if (erroDoWatcher !== null) throw new Error(erroDoWatcher);
+    const instante = agora();
+    if (lerIdentidadePendente && identidadePendente === null) {
+      identidadePendente = lerIdentidadePendente();
+      if (identidadePendente !== null) {
+        identidades.set(`${identidadePendente.boot}:${identidadePendente.pid}:${identidadePendente.inicio}`, identidadePendente);
+        haviaProcessoObservavel = true;
+      }
+    }
+    const anuncioPendente = lerIdentidadePendente !== undefined && identidadePendente === null;
+    if (anuncioPendente) {
+      arvoreSaiuEm = null;
+    } else if (haviaProcessoObservavel) {
+      const arvoreViva = [...identidades.values()].some((id) => consultarEstado(id) !== 'ausente');
+      if (arvoreViva) {
+        arvoreSaiuEm = null;
+      } else if (arvoreSaiuEm === null) {
+        arvoreSaiuEm = instante;
+      } else if (instante - arvoreSaiuEm >= folgaAposSaidaMs) {
+        if (resultadoNoLedger()) return;
+        throw new Error('a árvore de processos da fase saiu, mas faltou phase_result no ledger');
+      }
+    }
+    pausar(Math.min(30, Math.max(1, tetoMs - (instante - inicio))));
+  }
+  if (resultadoNoLedger()) return;
+  const erroDoWatcher = lerErroDoWatcher?.() ?? null;
+  if (erroDoWatcher !== null) throw new Error(erroDoWatcher);
+  if (lerIdentidadePendente && identidadePendente === null) {
+    throw new Error('teto absoluto da espera pelo fim da fase: faltou phase_result no ledger; o watcher da sessão não se anunciou');
+  }
+  if (identidadePendente !== null && consultarEstado(identidadePendente) !== 'ausente') {
+    throw new Error('teto absoluto da espera pelo fim da fase: faltou phase_result no ledger; o watcher da sessão ainda estava vivo');
+  }
+  throw new Error(haviaProcessoObservavel
+    ? 'teto absoluto da espera pelo fim da fase: faltou phase_result no ledger'
+    : 'teto absoluto da espera pelo fim da fase: faltou phase_result no ledger; não havia processo observável');
 }

@@ -20,12 +20,12 @@ import { spawn, spawnSync } from 'node:child_process';
 import { configuracaoServidorMcp, instalarMcp } from '../src/mcp-install';
 import { MARCA_DA_CONFIG_DO_FILHO } from '../src/adapters/grok';
 import { arquivosDoServidorGrok, ENV_DO_TOKEN_DO_SERVIDOR_GROK, iniciarServidorDoGrok, lerReciboServidorGrok } from '../src/adapters/grok-mcp';
-import { estadoProcesso, gravarAtomico, identidadeProcesso } from '../src/adapters/codex-runner';
+import { estadoProcesso, gravarAtomico, identidadeProcesso, IdentidadeProcesso } from '../src/adapters/codex-runner';
 import { dirThread, novaThread } from '../src/thread';
 import { lerLedger } from '../src/ledger';
 import { rodarFase } from '../src/phase';
 import { dirTemporario, projetoTemporario } from './apoio';
-import { esperarCondicao } from './controller-simulado';
+import { esperarCondicao, esperarFimDaFase } from './controller-simulado';
 import { grokFalso } from './grok-falso';
 import { LANCADOR_DO_LANDLOCK, semLandlock } from './ambiente-de-teste';
 
@@ -53,6 +53,21 @@ const decisao = (threadId: string, decidido: string) => ({ nome: 'ork_decision_r
   porque: 'Conferir o servidor MCP do ork sob o confinamento do workspace', comoMudar: 'Nao se aplica', custoAgora: 'Nenhum',
   custoDepois: 'Nenhum', criterio: { tipo: 'medicao', referencia: 'core/test/rm067-grok-landlock.test.ts' },
   quemDecidiu: 'sessao grok SIMULADA', evidencia: 'teste' } });
+
+function identidadeDoWatcher(dir: string, sessionId: string): IdentidadeProcesso | null {
+  const evento = lerLedger(dir).filter((e) => e.tipo === 'session_watcher_started' && e.sessionId === sessionId).at(-1);
+  if (!evento) return null;
+  const identidade = evento?.identidade as IdentidadeProcesso | undefined;
+  assert.ok(identidade, `session_watcher_started sem identidade para ${sessionId}`);
+  assert.equal(evento?.pid, identidade.pid, 'o pid do watcher corresponde à identidade completa registrada');
+  return identidade;
+}
+
+function mensagemDoErroDoWatcher(dir: string, sessionId: string): string | null {
+  const evento = lerLedger(dir).filter((e) => e.tipo === 'session_watcher_error' && e.sessionId === sessionId).at(-1);
+  if (!evento) return null;
+  return typeof evento.erro === 'string' ? evento.erro : 'session_watcher_error sem mensagem registrada';
+}
 
 test('GL1: confinado como o workspace, o grok falso nao grava o ledger pelo servidor stdio filho dele, o limite da F4b', { skip: semLandlock() }, () => {
   const stub = grokFalso('gl1-stdio');
@@ -106,7 +121,12 @@ test('GL2: com o mesmo confinamento, pelo despacho da F4c o filho grava decisao,
     assert.equal(r.comando[r.comando.indexOf('--sandbox') + 1], 'workspace');
     stub.liberarMcp();
     const sid = r.sessionId!;
-    esperarCondicao(() => lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.sessionId === sid), 60000);
+    esperarFimDaFase(
+      () => lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.sessionId === sid),
+      stub.pids(),
+      { lerIdentidadePendente: () => identidadeDoWatcher(dirThread(p.dir, t.id), sid),
+        lerErroDoWatcher: () => mensagemDoErroDoWatcher(dirThread(p.dir, t.id), sid) },
+    );
     assert.equal(stub.sondaResultado(), 'recusada', 'o filho seguia confinado');
     assert.equal(fs.existsSync(sonda), false);
     const mcp = stub.mcpResultado();
@@ -163,7 +183,12 @@ test('GL3: a sessao de outra thread, confinada no proprio dominio, nao acha o to
     });
     assert.equal(status, 403, 'o token certo, de um processo fora da arvore do grok, recusa');
     stub.liberarMcp();
-    esperarCondicao(() => lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.sessionId === sid), 60000);
+    esperarFimDaFase(
+      () => lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.sessionId === sid),
+      stub.pids(),
+      { lerIdentidadePendente: () => identidadeDoWatcher(dirThread(p.dir, t.id), sid),
+        lerErroDoWatcher: () => mensagemDoErroDoWatcher(dirThread(p.dir, t.id), sid) },
+    );
     assert.deepEqual(stub.mcpResultado()?.chamadas.map((c) => c.isError), [false], 'e a sessao desta thread segue com o MCP');
   } finally { p.limpar(); stub.restaurar(); fs.rmSync(irma, { recursive: true, force: true }); }
 });

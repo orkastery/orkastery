@@ -6,6 +6,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Corrigido
+
+- **Watcher de sessão sob disputa de CPU ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** o despacho espera o watcher de sessão ficar pronto enquanto ele vive, em vez de desistir num prazo curto fixo; com a CPU disputada, a fase podia não fechar. GL2 e GL3 encerram a espera assim que o watcher registra uma falha.
+
 ## [0.6.5] - 2026-11-02
 
 O Check passa a entender qualquer runner de teste: o manifesto declara o relatório JUnit de pytest, Vitest, Jest, Playwright ou gotestsum,

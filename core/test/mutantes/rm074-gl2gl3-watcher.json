@@ -1,0 +1,23 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "mutantes": [
+    {
+      "id": "WATCHER-READY-1",
+      "descricao": "a prontidão volta a usar o prazo fixo curto",
+      "modulo": "session-watcher",
+      "de": "const tetoProntidaoMs = opcoes.tetoMs ?? TETO_ABSOLUTO_APERTO_WATCHER_MS;",
+      "para": "const tetoProntidaoMs = opcoes.tetoMs ?? 5000;",
+      "teste": "session-watcher-handshake",
+      "nome": "^aperto do watcher: prontidao lenta"
+    },
+    {
+      "id": "WATCHER-ACK-1",
+      "descricao": "a confirmação volta a usar o prazo fixo curto",
+      "modulo": "session-watcher",
+      "de": "const tetoConfirmacaoMs = opcoes.tetoMs ?? TETO_ABSOLUTO_APERTO_WATCHER_MS;",
+      "para": "const tetoConfirmacaoMs = opcoes.tetoMs ?? 5000;",
+      "teste": "session-watcher-handshake",
+      "nome": "^aperto do watcher: ack lento"
+    }
+  ]
+}
