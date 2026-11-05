@@ -8,6 +8,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Claims auditadas pelas lanes — M12 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** quando o ambiente funcional impede reaproveitar a evidência nominal, o Agile explica a recusa por claim e entrega ao agendador as claims consecutivas de arquivos distintos, preservando a ordem do mesmo arquivo. Falha, `skip`/`todo`, HEAD, ambiente e guarda divergentes continuam executando a claim inteira; o Classic não muda, e o ganho aguarda a bancada.
+
 - **Watcher de sessão sob disputa de CPU ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** o despacho espera o watcher de sessão ficar pronto enquanto ele vive, em vez de desistir num prazo curto fixo; com a CPU disputada, a fase podia não fechar. GL2 e GL3 encerram a espera assim que o watcher registra uma falha.
 
 ## [0.6.5] - 2026-11-02

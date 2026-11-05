@@ -409,6 +409,30 @@ do pai continua viva. A saída do processo observado antecipa a falha, e permane
 um limite máximo de espera para o caso de o processo travar. GL2 e GL3 também
 encerram a espera ao encontrar o erro registrado para a própria sessão.
 
+### M12: claims recusadas pelas lanes usam o agendador
+
+A bancada encontrou claims com preparo e auditoria TAP que repetiam arquivos já
+verdes nas lanes, mas não mostrou o motivo da recusa. O caso focado reproduziu a
+diferença: a lane hermética assina o ambiente depois de criar seu `TMPDIR` isolado,
+enquanto a claim roda com o temporário do verify. Como o teste pode observar e usar
+esse diretório, as duas execuções não provam o mesmo resultado. A M12 conserva a
+recusa por ambiente funcional divergente em vez de tratar `TMPDIR` como transporte.
+
+Quando uma cadeia fechada de `grep -q`, `node --test` ou auditoria TAP aguardava as
+lanes e foi recusada, claims consecutivas de arquivos distintos recebem vagas do
+agendador. Claims com o mesmo `claim.arquivo` mantêm a ordem; uma claim de outra
+classe ou uma guarda inválida fecha o lote. Os passos do preparo continuam saindo
+somente quando a guarda vale, e o comando restante, as claims do usuário e suas
+asserções permanecem os mesmos. O Classic Check conserva seu caminho anterior.
+
+O `verify_run` passa a trazer uma peça `claim-lane` por comando de claim. Ela registra
+se a evidência nominal foi reaproveitada ou a recusa tipada: evidência ausente,
+arquivo não executado, HEAD ou ambiente divergente, falha, `skip`/`todo`, prefixo,
+contagem mínima, forma TAP incompatível ou guarda do produto. O relatório apresenta
+a mesma decisão por claim. Casos focados e mutantes independentes cobrem as cercas
+de falha e HEAD, a barreira do lote, a ordem por arquivo, a concessão de vagas e o
+motivo do recibo. O efeito na razão fria ou morna aguarda a bancada da condução.
+
 ### O que falta
 
 - Fechar a bancada fria e morna da M8 e da M9 no host, com três pares válidos e
