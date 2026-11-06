@@ -15,7 +15,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { commitar, projetoTemporario, ProjetoDeTeste } from './apoio';
-import { esperarCondicao } from './controller-simulado';
+import { esperarEvento } from './espera-evento';
 import { grokFalso } from './grok-falso';
 import { dirThread, lerThread, novaThread } from '../src/thread';
 import { lerLedger } from '../src/ledger';
@@ -119,7 +119,8 @@ test('GS3: a worktree da thread vai confiada, e o AGENTS.md dela entra na partid
     assert.equal(chamada[chamada.indexOf('--cwd') + 2], '--trust', 'a confianca e da pasta do --cwd, a worktree da thread');
     assert.equal(stub.agentsCarregado(), instrucoes, 'o AGENTS.md da worktree entrou na partida headless');
     const sid = r.sessionId!;
-    esperarCondicao(() => lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.sessionId === sid), 60000);
+    esperarEvento(() => lerLedger(dirThread(p.dir, t.id)).find((e) => e.tipo === 'phase_result' && e.sessionId === sid) ?? null,
+      'phase_result do Grok com AGENTS');
   } finally { p.limpar(); stub.restaurar(); }
 });
 
@@ -175,7 +176,8 @@ test('GS5: num projeto com o MCP do ork, o retry troca o perfil do grok, e desde
     assert.ok(r.sessionId, r.detalhe);
     assert.ok(acharSessaoGrok(r.sessionId!, casaB), 'a sessao esta na casa do perfil b');
     const sid = r.sessionId!;
-    esperarCondicao(() => lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.sessionId === sid), 60000);
+    esperarEvento(() => lerLedger(dirThread(p.dir, t.id)).find((e) => e.tipo === 'phase_result' && e.sessionId === sid) ?? null,
+      'phase_result do Grok após rotação');
 
     // RM-067 (F4c, D9): o claude-bg sem conta livre cai no grok do fallback, na conta livre dele; no piso workspace, a fase
     // grava pelo servidor do ork fora do sandbox.

@@ -1,0 +1,15 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "O phase_result do Grok chega com conteúdo adulterado depois da espera por evento.",
+  "mutantes": [
+    {
+      "id": "GROK-PHASE-RESULT",
+      "descricao": "o resultado de fase deixa de identificar o runtime Grok",
+      "modulo": "session-watcher-grok",
+      "de": "gravar('phase_result', dados);",
+      "para": "gravar('phase_result', { ...dados, runtime: 'mutante' });",
+      "teste": "despacho-grok",
+      "nome": "^GD3:"
+    }
+  ]
+}

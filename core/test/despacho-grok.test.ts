@@ -10,7 +10,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
 import { projetoTemporario } from './apoio';
-import { esperarCondicao } from './controller-simulado';
+import { esperarEvento } from './espera-evento';
 import { grokFalso } from './grok-falso';
 import { dirThread, lerThread, novaThread } from '../src/thread';
 import { lerLedger } from '../src/ledger';
@@ -102,7 +102,7 @@ test('GD3: o despacho real verifica a sessao, registra a fonte do grok e o watch
     assert.equal(registro.logPath, path.join(c.dir, 'sessoes', `${sid}.grok.jsonl`));
     assert.deepEqual(registro.artefato, { arquivo: 'docs/plan.md', sha256: null }, 'a base do artefato e de antes do despacho');
     assert.ok(c.eventos().some((e) => e.tipo === 'session_watcher_started' && e.sessionId === sid), 'watcher iniciado');
-    esperarCondicao(() => resultadoDa(c, sid) !== undefined, 60000);
+    esperarEvento(() => resultadoDa(c, sid) ?? null, 'phase_result do despacho Grok');
     const res = resultadoDa(c, sid)!;
     assert.equal(res.runtime, 'grok');
     assert.equal(res.classificacao, 'fase_concluida');
@@ -131,7 +131,7 @@ test('GD4: o redespacho do retry pelo grok leva os sensores ao registro e inicia
     assert.equal(registro.grok, 'streaming-json');
     assert.equal(registro.logPath, path.join(c.dir, 'sessoes', `${r.sessionId}.grok.jsonl`));
     assert.ok(c.eventos().some((e) => e.tipo === 'session_watcher_started' && e.sessionId === r.sessionId));
-    esperarCondicao(() => resultadoDa(c, r.sessionId!) !== undefined, 60000);
+    esperarEvento(() => resultadoDa(c, r.sessionId!) ?? null, 'phase_result do retry Grok');
     assert.equal(resultadoDa(c, r.sessionId!)!.runtime, 'grok');
   } finally { c.limpar(); }
 });
@@ -146,7 +146,7 @@ test('GD5: o GO pelo grok guarda na fonte o HEAD da worktree lido antes do despa
     const registro = c.eventos().find((e) => e.tipo === 'session_sensor_registered' && e.sessionId === r.sessionId)!;
     assert.equal(registro.head, head);
     assert.equal(registro.artefato, undefined, 'o GO nao tem artefato de documento');
-    esperarCondicao(() => resultadoDa(c, r.sessionId!) !== undefined, 60000);
+    esperarEvento(() => resultadoDa(c, r.sessionId!) ?? null, 'phase_result do GO Grok');
     const res = resultadoDa(c, r.sessionId!)!;
     assert.equal(res.classificacao, 'fase_concluida');
     assert.equal(res.motivo, null, 'GO limpo, sem commit e com HEAD igual conclui pelo resultado tipado');
@@ -161,7 +161,7 @@ test('GD6: a interrupcao real (SIGTERM) vira human.pending com a retomada, e o r
     c.stub!.sinal('TERM');
     const r = despachar(c, 'GOAL');
     assert.ok(r.sessionId, r.erro);
-    esperarCondicao(() => resultadoDa(c, r.sessionId!) !== undefined, 60000);
+    esperarEvento(() => resultadoDa(c, r.sessionId!) ?? null, 'phase_result da interrupção Grok');
     const res = resultadoDa(c, r.sessionId!)!;
     assert.equal(res.motivo, 'human.pending');
     assert.equal((res.interrupcao as { sinal: string }).sinal, 'SIGTERM');
@@ -232,7 +232,7 @@ test('GD9: pelo grok falso, comando fora da lista deixa a fase seguir ou bloquei
     continua.stub!.artefato(path.join(continua.dir, 'docs', 'plan.md'));
     const segue = despachar(continua, 'PLAN');
     assert.ok(segue.sessionId, segue.erro);
-    esperarCondicao(() => resultadoDa(continua, segue.sessionId!) !== undefined, 60000);
+    esperarEvento(() => resultadoDa(continua, segue.sessionId!) ?? null, 'phase_result da política Grok permissiva');
     assert.equal(continua.stub!.comandoTerminalNegado(), true);
     assert.equal(fs.existsSync(marca), false, 'a política negou antes de executar');
     assert.equal(resultadoDa(continua, segue.sessionId!)!.classificacao, 'fase_concluida');
@@ -243,7 +243,7 @@ test('GD9: pelo grok falso, comando fora da lista deixa a fase seguir ou bloquei
     encerra.stub!.comandoTerminal('curl https://example.invalid', true);
     const para = despachar(encerra, 'GOAL');
     assert.ok(para.sessionId, para.erro);
-    esperarCondicao(() => resultadoDa(encerra, para.sessionId!) !== undefined, 60000);
+    esperarEvento(() => resultadoDa(encerra, para.sessionId!) ?? null, 'phase_result da política Grok bloqueada');
     const res = resultadoDa(encerra, para.sessionId!)!;
     assert.equal(res.classificacao, 'gate_blocked');
     assert.equal(res.motivo, 'policy.violation');
