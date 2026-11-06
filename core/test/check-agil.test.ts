@@ -912,8 +912,10 @@ async function executarAg55(t: TestContext): Promise<void> {
       const home = path.join(apoio, 'home'), codexArg0 = path.join(apoio, 'codex-arg0'), codexPath = path.join(apoio, 'codex-path');
       fs.mkdirSync(home); fs.mkdirSync(codexArg0); fs.mkdirSync(codexPath);
       fs.writeFileSync(path.join(home, '.bashrc'), 'export PATH="/usr/bin:$PATH"\n');
+      // O PATH minimo leva a pasta do node que roda o teste: fora desta maquina, node e npm nao moram em /usr/bin.
+      const binDoNode = path.dirname(process.execPath);
       const pathDaFixture = variante === 'verify-minimo'
-        ? `${codexArg0}:${codexPath}:/usr/bin:/bin` : '/usr/bin:/bin';
+        ? `${codexArg0}:${codexPath}:${binDoNode}:/usr/bin:/bin` : `${binDoNode}:/usr/bin:/bin`;
       for (const nome of Object.keys(process.env)) delete process.env[nome];
       Object.assign(process.env, {
         HOME: home, LANG: 'C.UTF-8', LOGNAME: 'pessoa', USER: 'pessoa', SHELL: '/usr/bin/bash', TERM: 'xterm',
