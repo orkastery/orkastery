@@ -40,6 +40,49 @@ test('RM079 fix: parser bilíngue preserva arquivo, linha e reprodução como ev
   } finally { p.limpar(); }
 });
 
+test('RM079 fix: parecer ausente falha com motivo tipado', () => {
+  const p = projetoTemporario('rm079-fix-parecer-ausente');
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'parecer ausente', modo: 'auto' });
+    assert.throws(() => abrirRodada(p.carregado, thread.id, { soClaims: true }),
+      /fix\.check\.ausente: docs\/check\.md/);
+  } finally { p.limpar(); }
+});
+
+test('RM079 fix: parecer sem veredito reconhecido falha com motivo tipado', () => {
+  const p = projetoTemporario('rm079-fix-sem-veredito');
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'parecer sem veredito', modo: 'auto' });
+    gravarParecer(p.dir, thread.id, '# CHECK\n\nNenhum veredito foi escrito.\n');
+    assert.throws(() => abrirRodada(p.carregado, thread.id, { soClaims: true }),
+      /fix\.check\.veredito-ausente/);
+  } finally { p.limpar(); }
+});
+
+test('RM079 fix: parecer com veredito malformado falha com motivo tipado', () => {
+  const p = projetoTemporario('rm079-fix-veredito-malformado');
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'veredito malformado', modo: 'auto' });
+    gravarParecer(p.dir, thread.id, '# CHECK\n\nVeredito: TALVEZ\n');
+    assert.throws(() => abrirRodada(p.carregado, thread.id, { soClaims: true }),
+      /fix\.check\.veredito-malformado.*Veredito: TALVEZ/);
+  } finally { p.limpar(); }
+});
+
+test('RM079 fix: linha de achado malformada e listada e falha a rodada', () => {
+  const p = projetoTemporario('rm079-fix-achado-malformado');
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'achado malformado', modo: 'auto' });
+    gravarParecer(p.dir, thread.id, [
+      'Veredito: PRECISA DE MUDANCA',
+      '- A1 [bloqueador] alvo.ts:1 - achado valido',
+      '- A2 sem formato e sem alvo',
+    ].join('\n'));
+    assert.throws(() => abrirRodada(p.carregado, thread.id, { soClaims: true }),
+      /fix\.check\.finding\.malformado.*A2 sem formato e sem alvo/);
+  } finally { p.limpar(); }
+});
+
 test('RM079 fix: parecer negativo sem claim abre rodada e um CHECK novo fecha no HEAD', () => {
   const p = projetoTemporario('rm079-fix-parecer');
   try {

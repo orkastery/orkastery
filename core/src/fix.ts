@@ -41,7 +41,6 @@ import { agora, anexarJsonl, lerJsonl, proximoIdSequencial, shaCurto, tabela } f
 import { commitReal, ConducaoDoVerify, cwdDaThread, executar, ResultadoVerify, verificar } from './verify';
 import { canalDoProcesso, comConducao, identidadeDoAmbiente, prazoDaVerificacao } from './conducao';
 import { msg } from './locale';
-import { vereditoDoParecer } from './session-watcher-claude';
 
 export interface AchadoEstruturadoDoCheck {
   id: string;
@@ -60,19 +59,29 @@ export interface ParecerParaFix {
 
 const LIMITE_DO_PARECER = 128 * 1024;
 
-function vereditoBilíngue(texto: string): string | null {
-  const canonico = vereditoDoParecer(texto);
-  if (canonico) return canonico;
+function vereditoBilíngue(texto: string): string {
+  const linhasDeVeredito: string[] = [];
+  const malformadas: string[] = [];
   const achados = new Set<string>();
   const mapa: Record<string, string> = {
+    passou: 'PASSOU', reprovou: 'REPROVOU', 'precisa de mudanca': 'PRECISA DE MUDANCA', bloqueado: 'BLOQUEADO',
     passed: 'PASSOU', failed: 'REPROVOU', 'needs changes': 'PRECISA DE MUDANCA', blocked: 'BLOQUEADO',
   };
-  for (const linha of texto.split('\n')) {
-    const m = /^[#>*_`\s-]*verdict[*_`\s]*:[*_`\s]*(passed|failed|needs changes|blocked)(?![\p{L}\p{N}])/iu.exec(linha);
-    if (!m) continue;
-    achados.add(mapa[m[1].toLowerCase()]);
+  for (const [i, linha] of texto.split(/\r?\n/).entries()) {
+    const rotulo = /^[#>*_`\s-]*(?:veredito|verdict)[*_`\s]*:[*_`\s]*(.*?)\s*$/iu.exec(linha);
+    if (!rotulo) continue;
+    const listada = `${i + 1}: ${linha}`;
+    linhasDeVeredito.push(listada);
+    const valor = rotulo[1].replace(/[*_`]+$/g, '').replace(/[.!]$/g, '').trim()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const canonico = mapa[valor];
+    if (canonico) achados.add(canonico); else malformadas.push(listada);
   }
-  return achados.size === 1 ? [...achados][0] : null;
+  if (linhasDeVeredito.length === 0) throw new Error('fix.check.veredito-ausente: docs/check.md');
+  if (malformadas.length > 0 || achados.size !== 1) {
+    throw new Error(`fix.check.veredito-malformado: ${[...malformadas, ...linhasDeVeredito].join(' | ')}`);
+  }
+  return [...achados][0];
 }
 
 /** RM-079: le somente docs/check.md e extrai achados sem claim no contrato bilíngue do CHECK. */
@@ -81,7 +90,9 @@ export function lerParecerParaFix(raiz: string, threadId: string): ParecerParaFi
   let fd: number;
   try { fd = fs.openSync(arquivo, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK); }
   catch (e) {
-    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return { veredito: null, sha256: null, achados: [] };
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new Error('fix.check.ausente: docs/check.md');
+    }
     throw new Error('fix.check.unsafe');
   }
   try {
@@ -92,6 +103,7 @@ export function lerParecerParaFix(raiz: string, threadId: string): ParecerParaFi
     const texto = bytes.toString('utf8');
     const linhas = texto.split(/\r?\n/);
     const achados: AchadoEstruturadoDoCheck[] = [];
+    const linhasMalformadas: string[] = [];
     const vistos = new Set<string>();
     const regra = /^\s*-\s+(A\d+)\s+\[(bloqueador|aviso|sugestao|blocker|warning|suggestion)\]\s+([A-Za-z0-9_./-]+):(\d+)\s+-\s+(.+?)\s*$/i;
     const severidade = (valor: string): AchadoEstruturadoDoCheck['severidade'] =>
@@ -99,7 +111,10 @@ export function lerParecerParaFix(raiz: string, threadId: string): ParecerParaFi
       ?? valor.toLowerCase() as AchadoEstruturadoDoCheck['severidade'];
     for (let i = 0; i < linhas.length; i++) {
       const m = regra.exec(linhas[i]);
-      if (!m) continue;
+      if (!m) {
+        if (/^\s*-\s+A\d+\b/i.test(linhas[i])) linhasMalformadas.push(`${i + 1}: ${linhas[i]}`);
+        continue;
+      }
       if (vistos.has(m[1])) throw new Error(`fix.check.finding.duplicado: ${m[1]}`);
       const relativo = path.posix.normalize(m[3]);
       if (relativo.startsWith('../') || relativo === '..' || path.posix.isAbsolute(relativo) || relativo.includes('\\')) {
@@ -111,6 +126,9 @@ export function lerParecerParaFix(raiz: string, threadId: string): ParecerParaFi
       achados.push({ id: m[1], severidade: severidade(m[2]), arquivo: relativo, linha: Number(m[4]),
         descricao: m[5], ...(reproducao ? { reproduzir: reproducao[1] } : {}) });
       vistos.add(m[1]);
+    }
+    if (linhasMalformadas.length > 0) {
+      throw new Error(`fix.check.finding.malformado: ${linhasMalformadas.join(' | ')}`);
     }
     return { veredito: vereditoBilíngue(texto), sha256: createHash('sha256').update(bytes).digest('hex'), achados };
   } finally { fs.closeSync(fd); }
@@ -377,7 +395,7 @@ function abrirRodadaSobConducao(
   const resultado = verificar(carregado, threadId, { soClaims: opcoes.soClaims, conducao: { filaPesada: opcoes.conducao?.filaPesada } });
   const rodada = ultimaRodada(raiz, threadId) + 1;
   const parecer = lerParecerParaFix(raiz, threadId);
-  const parecerNegativo = parecer.veredito !== null && parecer.veredito !== 'PASSOU';
+  const parecerNegativo = parecer.veredito !== 'PASSOU';
 
   if (resultado.ok && resultado.motivos.length === 0 && !parecerNegativo) {
     return {

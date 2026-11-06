@@ -42,10 +42,46 @@
       "id": "M5",
       "descricao": "o fix open ignora o parecer negativo quando o verify esta verde",
       "modulo": "fix",
-      "de": "const parecerNegativo = parecer.veredito !== null && parecer.veredito !== 'PASSOU';",
+      "de": "const parecerNegativo = parecer.veredito !== 'PASSOU';",
       "para": "const parecerNegativo = false;",
       "teste": "rm079-fix",
       "nome": "^RM079 fix: parecer negativo"
+    },
+    {
+      "id": "M10",
+      "descricao": "o fix open trata parecer ausente como rodada vazia",
+      "modulo": "fix",
+      "de": "if ((e as NodeJS.ErrnoException).code === 'ENOENT') {\n      throw new Error('fix.check.ausente: docs/check.md');\n    }",
+      "para": "if ((e as NodeJS.ErrnoException).code === 'ENOENT') return { veredito: null, sha256: null, achados: [] };",
+      "teste": "rm079-fix",
+      "nome": "^RM079 fix: parecer ausente"
+    },
+    {
+      "id": "M11",
+      "descricao": "o fix open aceita parecer sem veredito reconhecido",
+      "modulo": "fix",
+      "de": "if (linhasDeVeredito.length === 0) throw new Error('fix.check.veredito-ausente: docs/check.md');",
+      "para": "if (false) throw new Error('fix.check.veredito-ausente: docs/check.md');",
+      "teste": "rm079-fix",
+      "nome": "^RM079 fix: parecer sem veredito"
+    },
+    {
+      "id": "M12",
+      "descricao": "o fix open aceita veredito malformado",
+      "modulo": "fix",
+      "de": "if (malformadas.length > 0 || achados.size !== 1) {",
+      "para": "if (false) {",
+      "teste": "rm079-fix",
+      "nome": "^RM079 fix: parecer com veredito malformado"
+    },
+    {
+      "id": "M13",
+      "descricao": "o fix open ignora linha de achado malformada",
+      "modulo": "fix",
+      "de": "if (linhasMalformadas.length > 0) {",
+      "para": "if (false) {",
+      "teste": "rm079-fix",
+      "nome": "^RM079 fix: linha de achado malformada"
     },
     {
       "id": "M6",
