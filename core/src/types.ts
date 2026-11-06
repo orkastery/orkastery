@@ -815,6 +815,8 @@ export interface ResultadoDeComando {
   parcial?: { testes: string[] };
   /** RM-081 F5: decisão por mudanças desta lane; seleção usada também torna o resultado parcial. */
   selecao?: RegistroDaSelecaoNativa;
+  /** RM-074 M11: o comando da claim já rodou no grupo das lanes e não volta ao caminho serial. */
+  agendamento?: 'antecipada';
   /** RM-074 M1/M12: decisao e prova de usar, ou recusar, as lanes desta mesma rodada. */
   lane?: DecisaoDaClaimPelasLanes;
   /** RM-072 (D4): as lanes que compuseram o `test` do Agile. */

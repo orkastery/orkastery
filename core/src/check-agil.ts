@@ -546,9 +546,10 @@ function resultadosDasClaimsAntecipadas(plano: PlanoDasClaimsAntecipadas | undef
   porItem: Map<string, ResultadoDeComando>): Record<string, ResultadoDeComando> {
   if (!plano) return {};
   return Object.fromEntries(plano.execucoes.map((e) => {
-    if (e.resultado) return [e.nome, e.resultado];
+    if (e.resultado) return [e.nome, { ...e.resultado, agendamento: 'antecipada' as const }];
     const bruto = porItem.get(e.item!.nome)!;
     return [e.nome, { ...bruto, nome: e.nome, comando: e.comando,
+      agendamento: 'antecipada' as const,
       ...(e.comandoExecutado ? { comandoExecutado: e.comandoExecutado } : {}),
       ...(e.preparo ? { preparo: e.preparo } : {}) }];
   }));

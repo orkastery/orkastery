@@ -918,7 +918,8 @@ async function executarAg55(t: TestContext): Promise<void> {
       Object.assign(process.env, {
         HOME: home, LANG: 'C.UTF-8', LOGNAME: 'pessoa', USER: 'pessoa', SHELL: '/usr/bin/bash', TERM: 'xterm',
         CODEX_HOME: path.join(apoio, 'codex-home'), ORKASTERY_HOME: path.join(apoio, 'ork-home'), PATH: pathDaFixture,
-        XDG_CACHE_HOME: path.join(apoio, 'cache'), ORK_LANES_DIR: testes, ORK_LANES_INTEGRACAO: '', PROVA_TMPDIR: prova,
+        XDG_CACHE_HOME: path.join(apoio, 'cache'), ORK_LANES_DIR: testes,
+        ORK_LANES_INTEGRACAO: 'cota.test.js', PROVA_TMPDIR: prova,
       });
       fs.mkdirSync(process.env.CODEX_HOME!); fs.mkdirSync(process.env.ORKASTERY_HOME!);
       const probe = "const fs = require('node:fs'); " +
@@ -929,20 +930,28 @@ async function executarAg55(t: TestContext): Promise<void> {
       commitar(p.dir, 'core/probe.cjs', probe, 'fixture probe');
       commitar(p.dir, 'core/dist-test/test/tmpdir.test.js',
         "const { test } = require('node:test'); test('AG1: observa TMPDIR', () => { require('../../probe.cjs'); });\n", 'fixture teste');
+      commitar(p.dir, 'core/dist-test/test/cota.test.js',
+        "const { test } = require('node:test'); const fs = require('node:fs'); test('AG2: observa a cota', () => { " +
+        "fs.appendFileSync(process.env.PROVA_TMPDIR, JSON.stringify({ papel: process.env.ORK_CHECK_CPUS_DOCKER ? " +
+        "'integracao' : 'recusada', cota: process.env.ORK_CHECK_CPUS_DOCKER || null, ambiente: process.env }) + '\\n'); });\n",
+        'fixture cota');
       const tmpDaLaneDivergente = path.join(apoio, 'tmp-divergente');
       if (divergencia === 'tmpdir') fs.mkdirSync(tmpDaLaneDivergente);
       const prefixo = divergencia === 'tmpdir' ? `TMPDIR=${tmpDaLaneDivergente} `
         : divergencia === 'path' ? `${ENV_PATH_FUNCIONAL_DA_RODADA}=/outro:${pathDaFixture} ` : '';
-      const comandoDaLane = `${prefixo}npm --prefix ${path.resolve(path.dirname(SCRIPT_DAS_LANES), '..')} run test:hermetica`;
-      comAgile(p, `  agile:\n    produto:\n      - "README.md"\n    test:\n      hermetica: "${comandoDaLane.replaceAll('"', '\\"')}"`);
+      const core = path.resolve(path.dirname(SCRIPT_DAS_LANES), '..');
+      const comandoHermetica = `${prefixo}npm --prefix ${core} run test:hermetica`;
+      const comandoIntegracao = `${prefixo}npm --prefix ${core} run test:integracao`;
+      comAgile(p, `  agile:\n    produto:\n      - "README.md"\n    test:\n` +
+        `      hermetica: "${comandoHermetica.replaceAll('"', '\\"')}"\n` +
+        `      integracao: "${comandoIntegracao.replaceAll('"', '\\"')}"`);
       const { thread: t } = novaThread(p.carregado, { nome: 'recibo por claim', modo: 'auto' });
       adicionarClaim(p.dir, t.id, { arquivo: 'core/src/c1.ts', alegacao: 'forma C1',
         verificar: ['echo passo-a && echo passo-b && node --test core/dist-test/test/tmpdir.test.js'] });
-      adicionarClaim(p.dir, t.id, { arquivo: 'core/probe.cjs', alegacao: 'claim executada observa o temporario',
-        verificar: ['node core/probe.cjs claim'] });
+      adicionarClaim(p.dir, t.id, { arquivo: 'core/probe.cjs', alegacao: 'claim antecipada observa o temporario',
+        verificar: ['node core/probe.cjs antecipada'] });
       adicionarClaim(p.dir, t.id, { arquivo: 'core/src/c3.ts', alegacao: 'forma C3', verificar: [
-        "echo passo-a && echo passo-b && node --test-reporter=tap core/dist-test/test/tmpdir.test.js | " +
-        "awk '/^ *not ok/{f++} /# SKIP/{s++} /^ *ok [0-9]+ - AG[0-9]+:/{p++} END{exit !(p>=1 && f==0 && s==0)}'",
+        'echo passo-a && echo passo-b && node --test core/dist-test/test/cota.test.js',
       ] });
       const r = verificar(p.carregado, t.id);
       const evento = ultimoVerify(p, t.id);
@@ -964,8 +973,9 @@ async function executarAg55(t: TestContext): Promise<void> {
     const compartilhado = rodar(variante, 'nenhuma');
     await t.test(`${variante}: o ambiente compartilhado reaproveita as claims`, () => {
       const c1 = laneDaClaim(compartilhado.evento, 'C1'), c3 = laneDaClaim(compartilhado.evento, 'C3');
-      const [vistaPelaLane, vistaPelaClaim] = ['lane', 'claim']
+      const [vistaPelaLane, vistaPelaClaim] = ['lane', 'recusada']
         .map((papel) => compartilhado.observacoes.find((x) => x.papel === papel)!);
+      const vistaPelaIntegracao = compartilhado.observacoes.find((x) => x.papel === 'integracao')!;
       const pecas = (compartilhado.evento.agile as { pecas: Array<Record<string, unknown>> }).pecas;
       const textoPt = comLocale('pt-BR', () => textoDoVerify(compartilhado.r));
       const textoEn = comLocale('en', () => textoDoVerify(compartilhado.r));
@@ -974,9 +984,26 @@ async function executarAg55(t: TestContext): Promise<void> {
       assert.equal(compartilhado.r.ok, true, JSON.stringify({ motivos: compartilhado.r.motivos,
         comandos: compartilhado.r.comandos, claims: compartilhado.r.claims, preparo: compartilhado.r.preparo }));
       assert.equal(compartilhado.tmpdirExisteDepois, false);
+      assert.deepEqual(compartilhado.r.claims.map((claim) => {
+        const execucao = claim.execucoes[0];
+        return [claim.claim.id, claim.verificado, execucao.nome, execucao.agendamento ?? null,
+          execucao.lane?.reaproveitada ?? null,
+          execucao.lane && !execucao.lane.reaproveitada ? execucao.lane.motivo : null];
+      }), [
+        ['C1', true, 'C1.1', null, true, null],
+        ['C2', true, 'C2.1', 'antecipada', null, null],
+        ['C3', true, 'C3.1', null, false, 'ambiente-funcional-divergente'],
+      ], 'o recibo conserva ordem, veredito e motivo tipado dos tres caminhos');
+      const papeis = compartilhado.observacoes.map((x) => x.papel);
+      assert.equal(papeis.filter((x) => x === 'lane').length, 1, 'a claim reaproveitada nao roda de novo');
+      assert.equal(papeis.filter((x) => x === 'antecipada').length, 1, 'a claim antecipada roda uma vez no grupo');
+      assert.equal(papeis.filter((x) => x === 'recusada').length, 1, 'a claim recusada roda de verdade');
+      assert.equal(vistaPelaIntegracao.cota === null, false, 'a lane de integracao recebe sua cota');
+      assert.equal((vistaPelaClaim.ambiente as NodeJS.ProcessEnv).ORK_CHECK_CPUS_DOCKER, undefined,
+        'a claim recusada nao recebe a cota da integracao');
       assert.equal(c1.reaproveitada, true, JSON.stringify({ lane: c1, ambienteDaLane, ambienteDaClaim }));
       assert.equal(c3.reaproveitada, false, JSON.stringify(c3));
-      if (!c3.reaproveitada) assert.equal(c3.motivo, 'prefixo-divergente');
+      if (!c3.reaproveitada) assert.equal(c3.motivo, 'ambiente-funcional-divergente');
       assert.deepEqual(ambienteDaLane, ambienteDaClaim, 'lane e claim executada usam o mesmo ambiente funcional');
       assert.deepEqual({ literal: vistaPelaLane.literal, realpath: vistaPelaLane.realpath, dev: vistaPelaLane.dev,
         mode: vistaPelaLane.mode }, { literal: vistaPelaClaim.literal, realpath: vistaPelaClaim.realpath,
@@ -985,11 +1012,11 @@ async function executarAg55(t: TestContext): Promise<void> {
       assert.ok(pecas.some((x) => x.peca === 'tmpfs-das-lanes' && x.tmpdirDaRodada === true));
       assert.ok(pecas.some((x) => x.peca === 'claim-lane' && x.claim === 'C1.1' && x.estado === 'agile'));
       assert.ok(pecas.some((x) => x.peca === 'claim-lane' && x.claim === 'C3.1'
-        && x.estado === 'fallback' && x.motivoTipado === 'prefixo-divergente'));
+        && x.estado === 'fallback' && x.motivoTipado === 'ambiente-funcional-divergente'));
       assert.match(textoPt, /TMPDIR compartilhado pela rodada/); assert.match(textoPt, /C1\.1: reaproveitada das lanes/);
-      assert.match(textoPt, /C3\.1: recusada \(prefixo-divergente\)/);
+      assert.match(textoPt, /C3\.1: recusada \(ambiente-funcional-divergente\)/);
       assert.match(textoEn, /TMPDIR shared by the run/); assert.match(textoEn, /C1\.1: reused from lanes/);
-      assert.match(textoEn, /C3\.1: refused \(prefixo-divergente\)/);
+      assert.match(textoEn, /C3\.1: refused \(ambiente-funcional-divergente\)/);
     });
   }
 

@@ -118,6 +118,15 @@
       "para": "const baseDoFilho = { ...process.env, ...item.ambiente };",
       "teste": "check-agil",
       "nome": "^AG58:"
+    },
+    {
+      "id": "M14",
+      "descricao": "a regra funcional retira a cota Docker acrescentada pela integracao",
+      "modulo": "ambiente-funcional",
+      "de": "if (valor !== undefined) ambiente[nome] = valor;",
+      "para": "if (valor !== undefined && nome !== 'ORK_CHECK_CPUS_DOCKER') ambiente[nome] = valor;",
+      "teste": "check-agil",
+      "nome": "^AG55:"
     }
   ]
 }

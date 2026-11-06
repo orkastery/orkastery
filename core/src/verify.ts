@@ -317,6 +317,7 @@ export function comandoNoLedger(c: ResultadoDeComando): Record<string, unknown> 
   // RM-072 (D2): a duracao vai tambem no comando que passa, para a meta do CHECK ser medida pelo ledger. RM-072 (D4, D5):
   // no Agile, o uso do preparo e as lanes; o Classic nao tem esses campos.
   const doAgile = { ...(c.preparo ? { preparo: c.preparo } : {}),
+    ...(c.agendamento ? { agendamento: c.agendamento } : {}),
     ...(c.lane ? { lane: c.lane } : {}),
     ...(c.lanes ? { lanes: c.lanes.map((l) => ({ ...l, comando: redigirCredenciaisUrl(l.comando),
       ...(l.comandoExecutado ? { comandoExecutado: redigirCredenciaisUrl(l.comandoExecutado) } : {}) })) } : {}),
@@ -1414,6 +1415,7 @@ function verificarSobConducao(
         duracaoMs: c.execucoes.reduce((t, e) => t + (e.duracaoMs ?? 0), 0),
         // RM-072 (D5): no Agile, o que a guarda fez com cada comando da claim.
         ...(c.execucoes.some((e) => e.preparo) ? { preparo: c.execucoes.map((e) => e.preparo ?? null) } : {}),
+        ...(c.execucoes.some((e) => e.agendamento) ? { agendamento: c.execucoes.map((e) => e.agendamento ?? null) } : {}),
         ...(c.execucoes.some((e) => e.lane) ? { lane: c.execucoes.map((e) => e.lane ?? null) } : {}),
         ...(falhou ? { execucao: comandoNoLedger(falhou) } : {}),
       };
