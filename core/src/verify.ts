@@ -617,6 +617,7 @@ function executorDoGrupo(manifesto: Manifesto, ambienteDaRodada: Record<string, 
     const prazos = itens.map((i) => prazoDaExecucao(manifesto, i.nome, i.comando));
     const paraOAuxiliar = itens.map((i, k) => ({ nome: i.nome, comando: i.comando, cwd, prazoMs: prazos[k],
       ...(i.nice ? { nice: i.nice } : {}), ...(i.apos?.length ? { apos: i.apos } : {}), ...(i.papelCpu ? { papelCpu: i.papelCpu } : {}),
+      ...(i.ambienteFuncional ? { ambienteFuncional: true } : {}),
       ...(i.recursos?.length ? { recursos: i.recursos } : {}),
       ambiente: { ...(recebeORelatorio(i.nome) ? ambienteDaRodada : semRelatorio), ...(ehComandoDoScan(manifesto, i.nome, i.comando)
         // RM-072: ao lado das lanes, a varredura roda poucas ferramentas por vez, para o grupo nao passar da CPU.
@@ -1090,7 +1091,8 @@ export function verificarClaimsAgendadas(claims: ResultadoDeClaim['claim'][], cw
     const itens = lote.flatMap(({ claim, planos }) => planos.map((plano) => {
       const anterior = ultimoPorArquivo.get(claim.arquivo);
       ultimoPorArquivo.set(claim.arquivo, plano.nome);
-      return { nome: plano.nome, comando: plano.comandoExecutado ?? plano.comando,
+      return { nome: plano.nome, comando: plano.comandoExecutado ?? plano.comando, papelCpu: 'claim' as const,
+        ambienteFuncional: true,
         ...(anterior ? { apos: [anterior] } : {}) };
     }));
     const reais = grupo(itens, cwd);

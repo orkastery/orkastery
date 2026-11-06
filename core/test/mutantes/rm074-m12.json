@@ -109,6 +109,15 @@
       "para": "const args = ['--test', '--experimental-test-isolation=none', '--test-concurrency=1', '--test-reporter=tap'",
       "teste": "test-lanes",
       "nome": "^TL9:"
+    },
+    {
+      "id": "M13",
+      "descricao": "o filho da claim volta a herdar o ambiente bruto do auxiliar",
+      "modulo": "check-paralelo",
+      "de": "const baseDoFilho = item.ambienteFuncional\n        ? ambienteFuncionalDosTestes(process.env, item.ambiente ?? {})\n        : { ...process.env, ...item.ambiente };",
+      "para": "const baseDoFilho = { ...process.env, ...item.ambiente };",
+      "teste": "check-agil",
+      "nome": "^AG58:"
     }
   ]
 }

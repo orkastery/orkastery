@@ -83,6 +83,8 @@ export interface ItemDoGrupo {
   recursos?: string[];
   /** Papel usado pelo agendador de CPU do auxiliar. */
   papelCpu?: 'hermetica' | 'integracao' | 'varredura' | 'claim' | 'outro';
+  /** A claim recusada usa na ponta a mesma regra de ambiente cuja assinatura foi comparada. */
+  ambienteFuncional?: boolean;
 }
 
 /** Quantas ferramentas cabem na fatia de duas CPUs reservada pelo plano paralelo. */

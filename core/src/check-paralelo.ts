@@ -19,6 +19,7 @@ import { ENV_CONTAINERS_DA_LANE, ENV_CPUS_DA_LANE, ENV_CPUS_DA_LANE_APOS_RESERVA
   EvidenciaDaCotaDocker, medirCpuDoGrupo, MedicaoCpuDaIntegracao, MedicaoCpuDoGrupo, PlanoCpuDoGrupo, planejarCpuDoGrupo,
   workersDaReserva } from './agendador-cpu';
 import { TESTES_DE_INTEGRACAO_LOCAL } from './integracoes-locais';
+import { ambienteFuncionalDosTestes } from './ambiente-funcional';
 
 const TIMEOUT_BIN = '/usr/bin/timeout';
 const NICE_BIN = '/usr/bin/nice';
@@ -43,6 +44,8 @@ export interface ItemParalelo {
   recursos?: string[];
   /** Papel na conta de CPU do grupo do Agile. Ausente nos outros usos deste auxiliar. */
   papelCpu?: 'hermetica' | 'integracao' | 'varredura' | 'claim' | 'outro';
+  /** Monta o ambiente exato da claim na ponta, sem herdar o ambiente bruto do auxiliar. */
+  ambienteFuncional?: boolean;
   /**
    * RM-074 (F4): o programa e os argumentos, lancados sem shell; com eles, `comando` so identifica o item. Sem eles, o
    * `comando` roda por `bash -c`, como as lanes e a varredura do manifesto.
@@ -500,7 +503,10 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
       };
       // Sem o `timeout(1)`, o proprio auxiliar mata pelo prazo, como o `spawnSync` do `exec` faria.
       const workers = workersDaLane(item, plano, cpus, totalDeLanes);
-      const ambiente = { ...process.env, ...item.ambiente, ...(workers === null ? {} : { [ENV_WORKERS]: String(workers) }),
+      const baseDoFilho = item.ambienteFuncional
+        ? ambienteFuncionalDosTestes(process.env, item.ambiente ?? {})
+        : { ...process.env, ...item.ambiente };
+      const ambiente = { ...baseDoFilho, ...(workers === null ? {} : { [ENV_WORKERS]: String(workers) }),
         ...(medirIntegracao ? { [ENV_CONTAINERS_DA_LANE]: registro } : {}) };
       const filho = spawn(bin, args, { cwd: item.cwd, env: ambiente, stdio: ['ignore', saida, erro],
         ...(comGrupo ? {} : { timeout: item.prazoMs, killSignal: 'SIGTERM' as const }) });

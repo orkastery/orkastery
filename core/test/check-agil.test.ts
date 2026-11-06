@@ -1507,6 +1507,22 @@ test('AG57: processo real do auxiliar nao herda o contexto privado do harness no
   assert.equal(processos[0].ok, true, JSON.stringify(processos[0]));
 });
 
+test('AG58: processo real do filho da claim recebe o ambiente funcional sem herdar o auxiliar', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag58-'));
+  try {
+    const bashEnv = path.join(dir, 'bash-env');
+    const pathFuncional = '/usr/bin:/bin';
+    fs.writeFileSync(bashEnv, 'export MARCA_BASH_ENV=entrou\n');
+    const processos = rodarEmParalelo([
+      { nome: 'claim:C1.1', cwd: process.cwd(), prazoMs: 5_000, papelCpu: 'claim', ambienteFuncional: true,
+        ambiente: { TMPDIR: dir },
+        comando: 'test -z "${MARCA_BASH_ENV+x}" && test -z "${ENV+x}" && test "$PATH" = "/usr/bin:/bin"' },
+    ], { ...process.env, BASH_ENV: bashEnv, ENV: path.join(dir, 'env'), PATH: path.join(dir, 'path-da-base'),
+      [ENV_PATH_FUNCIONAL_DA_RODADA]: pathFuncional });
+    assert.equal(processos[0].ok, true, JSON.stringify(processos[0]));
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('AG45: saturacao medida pelo verify ordena hermetica, varredura e integracao e registra a peca no verify_run', () => {
   const p = projetoTemporario('ag40');
   try {
