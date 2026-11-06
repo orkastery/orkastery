@@ -1,0 +1,15 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "A recusa tipada da fila deixa de chegar ao terminal do verify assíncrono.",
+  "mutantes": [
+    {
+      "id": "FILA-TERMINAL",
+      "descricao": "a ocupação da fila vira falha genérica do worker",
+      "modulo": "mcp-verify-async",
+      "de": "if (e instanceof fila_pesada_1.ErroDaFilaPesada)\n        return { motivo: e.recusa.motivo, detalhe: e.message, recusa: e.recusa };",
+      "para": "if (e instanceof fila_pesada_1.ErroDaFilaPesada && process.env.ORK_MUTANTE_NUNCA === 'x')\n        return { motivo: e.recusa.motivo, detalhe: e.message, recusa: e.recusa };",
+      "teste": "fila-pesada-verify",
+      "nome": "^V6 \\(processo real\\):"
+    }
+  ]
+}

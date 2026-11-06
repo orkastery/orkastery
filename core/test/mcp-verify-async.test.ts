@@ -30,13 +30,11 @@ function fixture(nome: string, comando = 'true') {
   return { p, thread };
 }
 
-async function esperar<T>(ler: () => T, pronto: (v: T) => boolean, prazoMs = 20_000): Promise<T> {
-  const ate = Date.now() + prazoMs;
+async function esperar<T>(ler: () => T, pronto: (v: T) => boolean): Promise<T> {
   for (;;) {
     const v = ler();
     if (pronto(v)) return v;
-    if (Date.now() >= ate) throw Error('prazo da fixture assíncrona');
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise<void>((resolve) => setImmediate(resolve));
   }
 }
 
@@ -60,7 +58,7 @@ test('fila pesada ocupada aparece como na-fila e libera a mesma rodada para conc
     const script = `const fs=require('node:fs');const f=require(${JSON.stringify(modulo)});` +
       `f.comRecursoPesado(${JSON.stringify(f.p.dir)},{artefato:${JSON.stringify(f.p.dir)},operacao:'fixture',thread:'ork-outra',slots:1,esperarMs:0},()=>{fs.writeFileSync(${JSON.stringify(pronto)},'ok');Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,15000)});`;
     holder = spawn(process.execPath, ['-e', script], { stdio: 'ignore' });
-    await esperar(() => fs.existsSync(pronto), Boolean, 10_000);
+    await esperar(() => fs.existsSync(pronto), Boolean);
     const rodada = iniciarVerifyMcp(f.p.dir, f.thread.id, { host: 'codex', despacho: null });
     const naFila = await esperar(() => consultarVerifyMcp(f.p.dir, f.thread.id, rodada.rodadaId),
       (s) => s.estado === 'na-fila' && s.lane === 'fila-pesada' && (s.ocupantes?.length ?? 0) > 0);

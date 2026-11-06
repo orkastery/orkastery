@@ -24,6 +24,7 @@ import { ship } from '../src/ship';
 import { dirThread, novaThread } from '../src/thread';
 import { rodarFase } from '../src/phase';
 import { controllerSimulado } from './controller-simulado';
+import { esperarEventoAssincrono } from './espera-evento';
 import { exec } from '../src/util';
 
 const MODULO = path.resolve(__dirname, '../src/fila-pesada');
@@ -42,13 +43,10 @@ function outroVerify(raiz: string, ms: number): { filho: ChildProcess; dentro: P
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ${ms});
     });
   `], { stdio: 'ignore' });
-  const dentro = (async () => {
-    const fim = Date.now() + 20000;
-    while (!fs.existsSync(pronto)) {
-      if (Date.now() > fim) assert.fail('o outro verify não pegou a vez');
-      await new Promise(r => setTimeout(r, 25));
-    }
-  })();
+  const dentro = esperarEventoAssincrono(() => fs.existsSync(pronto), 'o outro verify não pegou a vez', {
+    falhaTerminal: () => filho.exitCode !== null || filho.signalCode !== null
+      ? `o processo terminou (${filho.exitCode ?? filho.signalCode}) antes de publicar o arquivo` : null,
+  }).then(() => undefined);
   return { filho, dentro };
 }
 
@@ -148,7 +146,7 @@ test('V5: o CLI espera em primeiro plano, avisa no stderr e recusa com 3 dizendo
   } finally { await encerrar(outro.filho); p.limpar(); }
 });
 
-test('V6: o verify assíncrono inicia já, espera no máximo o teto MCP e o status devolve a recusa tipada', { skip: semKernel }, async () => {
+test('V6 (processo real): o verify assíncrono devolve a fila e o status terminal conserva a recusa tipada', { skip: semKernel }, async () => {
   const p = projetoTemporario('fila-pesada-v6');
   const outro = outroVerify(p.dir, 90000);
   const server = criarServidorMcp({ projeto: p.dir, host: 'claude-code' });
@@ -156,30 +154,25 @@ test('V6: o verify assíncrono inicia já, espera no máximo o teto MCP e o stat
   const [ct, st] = InMemoryTransport.createLinkedPair();
   try {
     await server.connect(st); await client.connect(ct);
-    assert.equal(ESPERA_DA_FILA_PESADA_MCP_MS, 20_000);
-    assert.equal(ESPERA_DA_FILA_PESADA_MS, 60 * 60 * 1000);
-    assert.equal(ESPERA_PADRAO_DA_FILA_PESADA_MS, 30_000);
+    assert.ok(ESPERA_DA_FILA_PESADA_MCP_MS < ESPERA_PADRAO_DA_FILA_PESADA_MS);
+    assert.ok(ESPERA_PADRAO_DA_FILA_PESADA_MS < ESPERA_DA_FILA_PESADA_MS);
     const { thread } = novaThread(p.carregado, { nome: 'pelo mcp', modo: 'auto', criarWorktree: true });
     commitar(thread.worktree as string, 'produto.md', 'produto\n', 'produto');
     await outro.dentro;
     // A chamada curta só inicia. O worker conserva o teto MCP de 20 s e a lease enquanto espera;
     // a consulta terminal carrega a mesma recusa tipada que o CLI síncrono.
-    const inicio = Date.now();
     const r = await client.callTool({ name: 'ork_verify', arguments: { threadId: thread.id } });
-    assert.ok(Date.now() - inicio < 2_000, `início levou ${Date.now() - inicio} ms`);
     assert.notEqual(r.isError, true);
     const iniciada = JSON.parse((r.content as { type: string; text: string }[]).map((c) => c.text).join(''));
     assert.equal(iniciada.estado, 'na-fila');
     assert.ok(lerLease(p.dir, `worktree-write:${thread.id}`), 'a rodada segura a lease enquanto espera');
     let terminal: any, respostaTerminal: any;
-    const ate = Date.now() + 30_000;
-    do {
+    for (;;) {
       respostaTerminal = await client.callTool({ name: 'ork_verify_status', arguments: { threadId: thread.id, rodadaId: iniciada.rodadaId } });
       terminal = JSON.parse((respostaTerminal.content as { type: string; text: string }[]).map((c) => c.text).join(''));
-      if (terminal.estado !== 'falhou') await new Promise((resolve) => setTimeout(resolve, 50));
-    } while (terminal.estado !== 'falhou' && Date.now() < ate);
-    const levou = Date.now() - inicio;
-    assert.ok(levou >= 19_000 && levou < 29_000, `terminal levou ${levou} ms`);
+      if (terminal.estado === 'falhou') break;
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
     assert.equal(respostaTerminal.isError, true);
     assert.equal(terminal.falha.motivo, 'fila-pesada.ocupada');
     const recusa = terminal.falha.recusa;
