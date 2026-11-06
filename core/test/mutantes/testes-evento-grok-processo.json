@@ -32,9 +32,9 @@
     {
       "id": "GROK-EXTERNO-ESPERA",
       "descricao": "a espera do MCP externo rejeita o evento real retido",
-      "arquivo": "core/dist-test/test/espera-evento.js",
-      "de": "function esperarEvento(ler, descricao, opcoes = {}) {\n    for (;;) {\n        const evento = ler();\n        if (evento !== false && evento !== null && evento !== undefined)\n            return evento;",
-      "para": "function esperarEvento(ler, descricao, opcoes = {}) {\n    for (;;) {\n        const evento = ler();\n        if (evento !== false && evento !== null && evento !== undefined)\n            throw new Error('mutante: evento do MCP externo rejeitado');",
+      "arquivo": "core/dist-test/test/rm067-grok-mcp-externo.test.js",
+      "de": "function confirmarEventoConvertido(evento) {\n    return evento;\n}",
+      "para": "function confirmarEventoConvertido(evento) {\n    throw new Error('mutante: evento do MCP externo rejeitado');\n}",
       "teste": "rm067-grok-mcp-externo",
       "nome": "^GX(?:3|4|6|7|13):"
     }

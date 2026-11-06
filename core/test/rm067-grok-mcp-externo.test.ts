@@ -40,6 +40,11 @@ const FONTE = (arquivo: string) => fs.readFileSync(path.join(RAIZ, 'core/src', a
 const textoDe = (r: unknown) => JSON.parse(((r as { content: { text: string }[] }).content[0]).text) as Record<string, unknown>;
 const ordenadas = (nomes: readonly string[]) => [...nomes].sort();
 
+/** Mantém o evento real como ponto único para o mutante dos casos convertidos, sem afetar a limpeza das bancadas. */
+function confirmarEventoConvertido<T>(evento: T): T {
+  return evento;
+}
+
 /** Os arquivos comuns sob estas pastas (sem seguir link) que contem o texto: o token nunca pode aparecer em nenhum. */
 function arquivosCom(texto: string, pastas: string[]): string[] {
   const achados: string[] = [];
@@ -262,8 +267,8 @@ test('GX3: o servidor morre com a sessao: recibo do supervisor, grok ausente, se
 
     const identidadeDoGrok = identidadeProcesso(reciboAtrasado.grok!.pid!)!;
     reciboAtrasado.grok!.kill('SIGKILL');
-    esperarEventoDepoisDaFronteira(() => estadoProcesso(identidadeDoGrok) === 'ausente' ? true : null,
-      'processo Grok ausente', 30_000);
+    confirmarEventoConvertido(esperarEventoDepoisDaFronteira(
+      () => estadoProcesso(identidadeDoGrok) === 'ausente' ? true : null, 'processo Grok ausente', 30_000));
     assert.equal(motivoDeEncerramentoDoGrok(reciboAtrasado.logPath, Date.now(), PRAZO_DA_PARTIDA_MS), null,
       'o supervisor vivo torna a ausencia do filho uma janela, nao um fim');
     assert.equal(lerReciboServidorGrok(reciboAtrasado.s.reciboPath)?.estado, 'pronto',
@@ -389,9 +394,9 @@ test('GX4: o despacho real sobe o servidor fora do grok, e o filho no workspace 
     assert.equal(grok.pai, supervisor.supervisor?.pid, 'o grok e filho do supervisor');
     assert.notEqual(recibo.processo?.pid, grok.pid);
     assert.notEqual(recibo.pai, grok.pid);
-    esperarEventoDepoisDaFronteira(
+    confirmarEventoConvertido(esperarEventoDepoisDaFronteira(
       () => lerReciboServidorGrok(arquivos.reciboPath)?.estado === 'encerrado' && estadoProcesso(recibo.processo) === 'ausente'
-        ? true : null, 'recibo terminal e processo ausente do despacho Grok', 30_000);
+        ? true : null, 'recibo terminal e processo ausente do despacho Grok', 30_000));
     assert.equal(lerReciboServidorGrok(arquivos.reciboPath)?.motivo, 'recibo', 'o servidor sai com o recibo do supervisor');
   } finally { p.limpar(); stub.restaurar(); }
 });
@@ -439,8 +444,9 @@ test('GX6: a config que ficaria visivel ao git recusa depois de o servidor subir
     const sessoes = path.join(dirThread(p.dir, t.id), 'sessoes');
     const recibos = fs.readdirSync(sessoes).filter((f) => f.endsWith('.grok-mcp.json')).map((f) => path.join(sessoes, f));
     assert.equal(recibos.length, 1, 'o servidor deste despacho chegou a subir');
-    esperarEventoDepoisDaFronteira(() => lerReciboServidorGrok(recibos[0])?.estado === 'encerrado' ? true : null,
-      'recibo terminal do servidor interrompido', 30_000);
+    confirmarEventoConvertido(esperarEventoDepoisDaFronteira(
+      () => lerReciboServidorGrok(recibos[0])?.estado === 'encerrado' ? true : null,
+      'recibo terminal do servidor interrompido', 30_000));
     const recibo = lerReciboServidorGrok(recibos[0])!;
     assert.equal(recibo.motivo, 'sinal', 'encerrado pelo despacho');
     esperarEventoDepoisDaFronteira(() => estadoProcesso(recibo.processo) === 'ausente' ? true : null,
@@ -469,8 +475,9 @@ test('GX7: a sessao com o MCP interrompida vai ao dono com a retomada, e o aviso
     assert.match(AVISO_DA_RETOMADA_COM_MCP, /ork retry, que sobe outro servidor e reescreve a config/);
     // O servidor terminou com a sessao: a config que a retomada manual reusa aponta para um token que nao existe mais.
     const arquivos = doDespacho(p, t.id, r.sessionId!);
-    esperarEventoDepoisDaFronteira(() => lerReciboServidorGrok(arquivos.reciboPath)?.estado === 'encerrado' ? true : null,
-      'recibo terminal do servidor da sessão', 30_000);
+    confirmarEventoConvertido(esperarEventoDepoisDaFronteira(
+      () => lerReciboServidorGrok(arquivos.reciboPath)?.estado === 'encerrado' ? true : null,
+      'recibo terminal do servidor da sessão', 30_000));
     const entrada = (parse(fs.readFileSync(path.join(t.worktree!, '.grok', 'config.toml'), 'utf8')) as
       { mcp_servers: Record<string, Record<string, unknown>> }).mcp_servers.orkastery;
     assert.deepEqual(Object.keys(entrada).sort(), ['bearer_token_env_var', 'url'], 'a config so nomeia a variavel do token');
@@ -638,7 +645,8 @@ test('GX13: os pedidos em pipeline que ficam sem resposta, depois da recusa com 
       `Accept: application/json, text/event-stream\r\nContent-Length: ${Buffer.byteLength(corpo)}\r\n\r\n${corpo}`;
     // Doze pedidos de uma vez: o primeiro recebe o 403 com Connection: close, e as respostas dos outros nunca ganham o socket.
     sock.write(pedido.repeat(12));
-    await esperarEventoAssincronoDepoisDaFronteira(() => fechou ? true : null, 'fecho do pipeline recusado', 30_000);
+    confirmarEventoConvertido(await esperarEventoAssincronoDepoisDaFronteira(
+      () => fechou ? true : null, 'fecho do pipeline recusado', 30_000));
     // O despacho encerra o servidor: sem pedido preso na conta, ele sai na hora, sem o teto de 10 min do fecho.
     b.s.encerrar();
     esperarEventoDepoisDaFronteira(() => lerReciboServidorGrok(b.s.reciboPath)?.estado === 'encerrado' ? true : null,
