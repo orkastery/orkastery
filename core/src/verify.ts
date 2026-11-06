@@ -67,6 +67,18 @@ import { planejarSelecaoNativa } from './check-selecao';
 /** Teto de tempo de um comando de verificacao (build e suite completa cabem). */
 export const TIMEOUT_VERIFY_MS = 10 * 60 * 1000;
 
+/**
+ * RM-079 GO-FIX 2: identidade estável da lista `verificar` sem persistir o texto.
+ * A ordem faz parte da prova; o prefixo permite trocar a forma canônica sem
+ * confundir recibos produzidos por versões diferentes.
+ */
+export function impressaoDosComandos(verificar: readonly string[]): string {
+  return createHash('sha256')
+    .update('ork.verify-command-list/v1\0')
+    .update(JSON.stringify(verificar))
+    .digest('hex');
+}
+
 /** Ultimas linhas da saida real, o suficiente para servir de evidencia no ledger. */
 function resumirSaida(stdout: string, stderr: string): string {
   const bruto = (stdout + (stderr ? '\n' + stderr : '')).trim();
@@ -1252,7 +1264,7 @@ function verificarSobConducao(
       const falhou = c.execucoes.find((e) => !e.ok);
       return {
         id: c.claim.id,
-        verificar: c.claim.verificar,
+        verificarSha256: impressaoDosComandos(c.claim.verificar),
         verificado: c.verificado,
         motivo: c.motivo,
         detalhe: c.detalhe,

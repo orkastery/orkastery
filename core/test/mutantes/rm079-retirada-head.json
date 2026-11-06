@@ -22,9 +22,9 @@
     },
     {
       "id": "M3",
-      "descricao": "a substituta aceita comando verificar alterado depois do verify_run",
+      "descricao": "a substituta aceita impressão verificar alterada depois do verify_run",
       "modulo": "claims",
-      "de": "if (!Array.isArray(prova.verificar)\n            || JSON.stringify(prova.verificar) !== JSON.stringify(substituta.verificar)) {",
+      "de": "if (typeof prova.verificarSha256 !== 'string'\n            || prova.verificarSha256 !== (0, verify_1.impressaoDosComandos)(substituta.verificar)) {",
       "para": "if (false) {",
       "teste": "rm079-claims",
       "nome": "^RM079 retirada: substituta ativa"
@@ -37,6 +37,15 @@
       "para": "if (false) {",
       "teste": "rm079-claims",
       "nome": "^RM079 retirada: substituta retirada"
+    },
+    {
+      "id": "M5",
+      "descricao": "o verify_run volta a gravar o texto bruto da lista verificar",
+      "modulo": "verify",
+      "de": "verificarSha256: impressaoDosComandos(c.claim.verificar),",
+      "para": "verificar: c.claim.verificar,",
+      "teste": "verify-timeout",
+      "nome": "^verify: estouro vira verify.timeout"
     }
   ]
 }

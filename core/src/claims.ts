@@ -18,11 +18,12 @@ import { cicloSemCheck, validarProvaSemCheck } from './prova-minima';
 import { dirThread, gravarThread, lerThread } from './thread';
 import { Claim, Fase, ResultadoDeComando } from './types';
 import { avaliarPolicies, avisos, policyDeProvaLocal, ViolacaoDePolicy } from './policies';
-import { commitReal, cwdDaThread, executar, TIMEOUT_VERIFY_MS } from './verify';
+import { commitReal, cwdDaThread, executar, impressaoDosComandos, TIMEOUT_VERIFY_MS } from './verify';
 import { agora, anexarJsonl, lerJsonl, proximoIdSequencial, tabela } from './util';
 import { analisarComandos, linhaDoLintDeClaim, regraFatalDeClaim } from './claim-lint';
 import { ErroDoCatalogo, msg } from './locale';
 import { registrarGateBloqueado } from './gates';
+import { redigirSegredos } from './hitl';
 
 /** Caminho do `claims.jsonl` da thread (append-only, como o ledger). */
 export function caminhoClaims(raiz: string, threadId: string): string {
@@ -309,13 +310,14 @@ const AUTOR_LEGADO: AutorDaRetirada = { tipo: 'sessao', id: 'api:legada' };
 function retirarERegistrar(raiz: string, threadId: string, claim: Claim, motivo: string,
   autor: AutorDaRetirada, tipada: boolean, motivoTipo?: MotivoTipoDaRetirada, substituidaPor?: string): Claim {
   if (claim.estado === 'retirada') throw new Error(`claim "${claim.id}" ja foi retirada`);
-  const atualizada: Claim = { ...claim, estado: 'retirada', motivoDaRetirada: motivo };
+  const motivoSeguro = redigirSegredos(motivo);
+  const atualizada: Claim = { ...claim, estado: 'retirada', motivoDaRetirada: motivoSeguro };
   gravarClaim(raiz, atualizada);
   registrar(dirThread(raiz, threadId), threadId, TIPOS_DE_EVENTO.claimRegistrada, {
     claim: claim.id,
     alteracao: 'claim retirada',
     alegacao: claim.alegacao,
-    motivoDaRetirada: motivo,
+    motivoDaRetirada: motivoSeguro,
     estado: 'retirada',
     tipada,
     autor,
@@ -371,8 +373,8 @@ export function retirarClaimTipada(raiz: string, threadId: string, claimId: stri
       throw repetirVerify('claims.substituta.nao-verificada',
         `claim substituta "${substituta.id}" nao passou no ultimo verify_run`);
     }
-    if (!Array.isArray(prova.verificar)
-        || JSON.stringify(prova.verificar) !== JSON.stringify(substituta.verificar)) {
+    if (typeof prova.verificarSha256 !== 'string'
+        || prova.verificarSha256 !== impressaoDosComandos(substituta.verificar)) {
       throw repetirVerify('claims.substituta.alterada-depois-do-verify',
         `claim substituta "${substituta.id}" mudou o comando verificar depois do ultimo verify_run`);
     }
@@ -387,7 +389,7 @@ export function retirarClaimTipada(raiz: string, threadId: string, claimId: stri
     motivo: 'claims.retirada-sem-substituta',
     modo: thread.modo,
     fase: thread.faseAtual,
-    detalhe: `${claim.id}: ${opcoes.motivoTipo}; ${opcoes.motivo.trim()}`,
+    detalhe: `${claim.id}: ${opcoes.motivoTipo}; ${redigirSegredos(opcoes.motivo.trim())}`,
     evidencia: `claim ativa ${claim.id}`,
     correcao: 'o dono decide pelo pedido tipado ou uma substituta verde e informada',
     claim: claim.id,
