@@ -267,7 +267,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m12.json M9"
       ],
       "criadoEm": "2026-11-05T23:25:33.717Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -309,7 +309,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m12.json M10"
       ],
       "criadoEm": "2026-11-06T08:17:53.592Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -351,7 +351,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m12.json M13"
       ],
       "criadoEm": "2026-11-06T11:37:45.735Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -379,7 +379,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m12.json M14"
       ],
       "criadoEm": "2026-11-06T11:42:35.175Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
