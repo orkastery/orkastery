@@ -78,7 +78,8 @@ export const PROMPTS_PT_BR: MensagensDePrompts = {
     PLAN: 'PLAN (F2): plano com tarefas, touch_paths, decisoes D1..Dn com domicilio unico e verify executavel por tarefa. Nao implementa.',
     GO: 'GO (F3): implementacao slice por slice, um commit atomico por tarefa, dentro da worktree da thread.',
     CHECK: 'CHECK (F4): verificacao contra a baseline (regressao versus divida pre-existente), review de codigo, testes, seguranca e performance; ' +
-      'o parecer diz o modo do CHECK da rodada (Agile Check ou Classic Check, da linha `check` do `ork verify`).',
+      'o parecer diz o modo do CHECK da rodada (Agile Check ou Classic Check, da linha `check` do `ork verify`). ' +
+      'Claim nova afirma o comportamento correto e passa com a correcao; a reproducao do defeito fica como comando no parecer e nunca vira claim.',
     SHIP: 'SHIP (F5): merge serializado, push provado por comando, roadmap atualizado e plano de rollback.',
     MASTER: 'MASTER (F6): MASTER log com postmortem tipado, licoes e o score humano de 0 a 5. Uma entrega sem MASTER log nao aconteceu.',
   },
@@ -173,7 +174,8 @@ export const PROMPTS_EN: MensagensDePrompts = {
     PLAN: 'PLAN (F2): sliced tasks, queryable touch_paths, D1..Dn decisions with one home, and executable verify per task. Does not implement.',
     GO: 'GO (F3): implement slice by slice, one atomic commit per task, inside the thread worktree.',
     CHECK: 'CHECK (F4): verify against the baseline (regressions versus pre-existing debt), then review code, tests, security, and performance; ' +
-      'the verdict names the CHECK mode of the round (Agile Check or Classic Check, from the `check` line of `ork verify`).',
+      'the verdict names the CHECK mode of the round (Agile Check or Classic Check, from the `check` line of `ork verify`). ' +
+      'A new claim states the correct behavior and passes with the fix; defect reproduction stays as a command in the report and never becomes a claim.',
     SHIP: 'SHIP (F5): serialized merge, command-proven push, updated roadmap, and rollback plan.',
     MASTER: 'MASTER (F6): typed POSTMORTEM, MASTER log, lessons, and a human score from 0 to 5. A delivery without a MASTER log did not happen.',
   },

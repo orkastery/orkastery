@@ -19,6 +19,10 @@ ork phase list <thread>        # o que ja aconteceu, com evidencia
 ## Rules for this phase
 
 - **CHECK does not fix.** A finding becomes a GO task, with its own commit.
+- A new claim states the correct behavior and passes after the fix; defect reproduction stays as
+  a command in the report and never becomes a claim.
+- A finding without a claim uses `- A<n> [blocker|warning|suggestion] path:line - description`;
+  the following line may use `reproduce: \`command\``.
 - An axis without findings comes out with an explicit "none".
 - Zero security blockers is a hard condition, in any mode.
 - A type B fix goes back to GO, and the next CHECK is a full re-run.

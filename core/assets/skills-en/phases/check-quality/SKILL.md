@@ -42,6 +42,19 @@ verdict up to a human in any mode, including `#Auto`.
 The catalog's four reviewers come in here: `code-reviewer`, `security-auditor`, `test-engineer`
 and `web-performance-auditor`. Each one runs in its own scope and returns categorized findings.
 
+## Claims and defect reproductions
+
+- A claim created during CHECK states the expected correct behavior and must pass after the fix.
+  It never states that the defect still occurs.
+- The command that reproduces the defect stays only in the report (`docs/check.md`) as finding
+  evidence; that command never becomes a claim.
+- A finding without a claim uses a machine-readable line for the correction cycle:
+
+  `- A<n> [blocker|warning|suggestion] path:line - description`
+
+  The following line may record `reproduce: \`command\``. The command remains report evidence,
+  not claim verification.
+
 ## What CHECK delivers
 
 1. **Comparison against the baseline**, separating regression from pre-existing debt. Without that
