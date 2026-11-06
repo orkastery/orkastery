@@ -6,7 +6,7 @@
  * por "AGn:".
  */
 import { strict as assert } from 'node:assert';
-import { after, test } from 'node:test';
+import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -892,13 +892,7 @@ test('AG54: recusas consecutivas usam vagas entre arquivos e preservam a ordem d
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-let erroDaAg55: unknown;
-after(() => {
-  if (erroDaAg55 instanceof Error) process.stderr.write(`AG55_DIAGNOSTICO ${erroDaAg55.name}: ${erroDaAg55.message}\n`);
-});
-
-test('AG55: o verify_run do HEAD prova TMPDIR da rodada, reaproveitamento, recusa e os dois idiomas', () => {
-  try {
+function executarAg55(): void {
   const SCRIPT_DAS_LANES = path.resolve(__dirname, '../../scripts/test-lanes.cjs');
   const rodar = (tmpdirDivergente: boolean) => {
     const p = projetoTemporario(`ag55-${tmpdirDivergente ? 'divergente' : 'igual'}`);
@@ -987,11 +981,7 @@ test('AG55: o verify_run do HEAD prova TMPDIR da rodada, reaproveitamento, recus
     && x.motivoTipado === 'ambiente-funcional-divergente'));
   assert.match(comLocale('pt-BR', () => textoDoVerify(divergente.r)), /C1\.1: recusada \(ambiente-funcional-divergente\)/);
   assert.match(comLocale('en', () => textoDoVerify(divergente.r)), /C1\.1: refused \(ambiente-funcional-divergente\)/);
-  } catch (erro) {
-    erroDaAg55 = erro;
-    throw erro;
-  }
-});
+}
 
 test('AG48: skip ou todo em node --test nunca prova a claim pela lane', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag48-'));
@@ -1652,3 +1642,5 @@ test('RM081F4-classic: o Classic exporta ORK_WORKERS com a capacidade inteira da
   assert.equal(Number(ambiente.ORK_WORKERS), os.availableParallelism());
   assert.equal(ambiente.ORK_CHECK_MODO, 'classic');
 });
+
+test('AG55: o verify_run do HEAD prova TMPDIR da rodada, reaproveitamento, recusa e os dois idiomas', executarAg55);
