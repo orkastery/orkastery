@@ -8,7 +8,7 @@ não edite à mão. Antes de começar um item: `ork roadmap reservas`.
 | RM-065 | Paschoal Diniz | dsk1 | forja-gitlab | 14/10 12:56 | Suporte a GitLab com paridade ao GitHub, PR da branch forja/gitlab |
 | RM-068 | Paschoal | note | — | 20/10 14:12 | security scan no CHECK (forja/security-scan) |
 | RM-074 | Julio Pessoa | vps | ork-rm074m12clai | 03/11 18:55 | — |
-| RM-079 | Julio Pessoa | vps | — | 06/11 08:00 | — |
+| RM-079 | Julio Pessoa | vps | ork-rm079claimsq | 06/11 08:00 | — |
 
 ## Números de FEAT reservados
 
