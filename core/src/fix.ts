@@ -105,6 +105,7 @@ export function lerParecerParaFix(raiz: string, threadId: string): ParecerParaFi
       if (relativo.startsWith('../') || relativo === '..' || path.posix.isAbsolute(relativo) || relativo.includes('\\')) {
         throw new Error(`fix.check.finding.path: ${m[3]}`);
       }
+      if (Number(m[4]) < 1) throw new Error(`fix.check.finding.line: ${m[4]}`);
       const proxima = linhas[i + 1] ?? '';
       const reproducao = /^\s*(?:reproduzir|reproduce)\s*:\s*`([^`]+)`\s*$/i.exec(proxima);
       achados.push({ id: m[1], severidade: severidade(m[2]), arquivo: relativo, linha: Number(m[4]),
@@ -434,7 +435,7 @@ function carimbar(raiz: string, correcao: Correcao, aprovada: boolean, detalhe: 
     estado: aprovada ? 'aprovada' : 'reprovada',
     vereditoEm: agora(),
     detalheDoVeredito: detalhe,
-    commitQueFechou: aprovada ? commit : null,
+    commitQueFechou: aprovada ? (correcao.commitQueFechou ?? commit) : null,
   };
   anexarJsonl(caminhoDosFixes(raiz, correcao.thread), atualizada);
   return atualizada;

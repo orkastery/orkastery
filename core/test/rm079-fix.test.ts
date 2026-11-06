@@ -35,6 +35,8 @@ test('RM079 fix: parser bilíngue preserva arquivo, linha e reprodução como ev
     const [achado] = lerParecerParaFix(p.dir, thread.id).achados;
     assert.deepEqual(achado, { id: 'A7', severidade: 'aviso', arquivo: 'core/src/example.ts', linha: 23,
       descricao: 'public behavior diverges', reproduzir: 'node --test core/dist-test/test/example.test.js' });
+    gravarParecer(p.dir, thread.id, 'Veredito: PRECISA DE MUDANCA\n- A8 [aviso] core/src/example.ts:0 - linha invalida\n');
+    assert.throws(() => lerParecerParaFix(p.dir, thread.id), /fix\.check\.finding\.line/);
   } finally { p.limpar(); }
 });
 
