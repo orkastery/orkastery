@@ -27,8 +27,13 @@ test('RM-078 chave: HEAD, id/comandos das claims e bytes do plano invalidam isol
     assert.equal(mesmaChaveDoRecibo(inicial, chaveDoReciboDeProva(p.dir, t.id, head)), true);
     assert.equal(mesmaChaveDoRecibo(inicial, chaveDoReciboDeProva(p.dir, t.id, 'b'.repeat(40))), false, 'HEAD');
 
+    adicionarClaim(p.dir, t.id, { arquivo: 'core/src/y.ts', alegacao: 'y devolve o valor',
+      verificar: ['node -e "process.exit(0)"'], semProvaLocal: true });
+    assert.equal(mesmaChaveDoRecibo(inicial, chaveDoReciboDeProva(p.dir, t.id, head)), false, 'id da claim');
+
+    const depoisDoId = chaveDoReciboDeProva(p.dir, t.id, head);
     anexarComando(p.dir, t.id, 'C1', 'node -e "process.exit(0)"');
-    assert.equal(mesmaChaveDoRecibo(inicial, chaveDoReciboDeProva(p.dir, t.id, head)), false, 'comando da claim');
+    assert.equal(mesmaChaveDoRecibo(depoisDoId, chaveDoReciboDeProva(p.dir, t.id, head)), false, 'comando da claim');
 
     const depoisDaClaim = chaveDoReciboDeProva(p.dir, t.id, head);
     fs.appendFileSync(path.join(dirThread(p.dir, t.id), 'docs', 'plan.md'), '\nT2\n');
