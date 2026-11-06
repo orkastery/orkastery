@@ -9,7 +9,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { commitar, envPtBr, projetoTemporario, shaDaBranch } from './apoio';
 import { adicionarClaim } from '../src/claims';
-import { ENV_DONO_DA_FILA, ErroDaFilaPesada, kernelDisponivel, OcupanteDaFila } from '../src/fila-pesada';
+import { comRecursoPesado, ENV_DONO_DA_FILA, ErroDaFilaPesada, kernelDisponivel, OcupanteDaFila } from '../src/fila-pesada';
 import { ESPERA_DA_FILA_PESADA_MS, ESPERA_PADRAO_DA_FILA_PESADA_MS, ExecutorVerify, gravarBaseline, textoDoVerify,
   verificar } from '../src/verify';
 import { ESPERA_DA_FILA_PESADA_MCP_MS } from '../src/mcp-verify';
@@ -154,11 +154,21 @@ test('V6 (processo real): o verify assíncrono devolve a fila e o status termina
   const [ct, st] = InMemoryTransport.createLinkedPair();
   try {
     await server.connect(st); await client.connect(ct);
-    assert.ok(ESPERA_DA_FILA_PESADA_MCP_MS < ESPERA_PADRAO_DA_FILA_PESADA_MS);
-    assert.ok(ESPERA_PADRAO_DA_FILA_PESADA_MS < ESPERA_DA_FILA_PESADA_MS);
+    assert.equal(ESPERA_DA_FILA_PESADA_MCP_MS, 20_000, 'o teto curto do MCP é promessa do transporte');
+    assert.equal(ESPERA_PADRAO_DA_FILA_PESADA_MS, 30_000, 'a biblioteca conserva a espera padrão');
+    assert.equal(ESPERA_DA_FILA_PESADA_MS, 60 * 60 * 1000, 'o CLI conserva a espera longa explícita');
     const { thread } = novaThread(p.carregado, { nome: 'pelo mcp', modo: 'auto', criarWorktree: true });
     commitar(thread.worktree as string, 'produto.md', 'produto\n', 'produto');
     await outro.dentro;
+    let relogio = 0;
+    const pausas: number[] = [];
+    assert.throws(() => comRecursoPesado(p.dir, { artefato: thread.worktree!, operacao: 'mcp.verify', thread: thread.id,
+      slots: 1, esperarMs: ESPERA_DA_FILA_PESADA_MCP_MS }, () => assert.fail('não deve adquirir a vaga'), {
+      agora: () => relogio,
+      pausar: (intervaloMs) => { pausas.push(intervaloMs); relogio += intervaloMs; },
+    }), (e: unknown) => e instanceof ErroDaFilaPesada && e.recusa.esperouMs === ESPERA_DA_FILA_PESADA_MCP_MS);
+    assert.equal(relogio, ESPERA_DA_FILA_PESADA_MCP_MS, 'o término coincide com o teto no relógio injetado');
+    assert.ok(pausas.length > 1 && pausas.every((ms) => ms > 0), 'a espera termina pelas pausas injetadas, sem laço ocupado');
     // A chamada curta só inicia. O worker conserva o teto MCP de 20 s e a lease enquanto espera;
     // a consulta terminal carrega a mesma recusa tipada que o CLI síncrono.
     const r = await client.callTool({ name: 'ork_verify', arguments: { threadId: thread.id } });
@@ -166,13 +176,14 @@ test('V6 (processo real): o verify assíncrono devolve a fila e o status termina
     const iniciada = JSON.parse((r.content as { type: string; text: string }[]).map((c) => c.text).join(''));
     assert.equal(iniciada.estado, 'na-fila');
     assert.ok(lerLease(p.dir, `worktree-write:${thread.id}`), 'a rodada segura a lease enquanto espera');
-    let terminal: any, respostaTerminal: any;
-    for (;;) {
-      respostaTerminal = await client.callTool({ name: 'ork_verify_status', arguments: { threadId: thread.id, rodadaId: iniciada.rodadaId } });
-      terminal = JSON.parse((respostaTerminal.content as { type: string; text: string }[]).map((c) => c.text).join(''));
-      if (terminal.estado === 'falhou') break;
-      await new Promise<void>((resolve) => setImmediate(resolve));
-    }
+    const concluida = await esperarEventoAssincrono(async () => {
+      const resposta = await client.callTool({ name: 'ork_verify_status', arguments: { threadId: thread.id, rodadaId: iniciada.rodadaId } });
+      const estado = JSON.parse((resposta.content as { type: string; text: string }[]).map((c) => c.text).join(''));
+      return estado.estado === 'falhou' ? { estado, resposta } : null;
+    }, 'status terminal do verify assíncrono', { falhaTerminal: () => outro.filho.exitCode !== null || outro.filho.signalCode !== null
+      ? 'o ocupante saiu antes de a fronteira terminal ser observada' : null });
+    const terminal = concluida.estado;
+    const respostaTerminal = concluida.resposta;
     assert.equal(respostaTerminal.isError, true);
     assert.equal(terminal.falha.motivo, 'fila-pesada.ocupada');
     const recusa = terminal.falha.recusa;
