@@ -26,13 +26,15 @@
  * ok e e o nome que a baseline compara). Nada aqui decide veredito: a classificacao e a do verify.
  */
 import { createHash } from 'node:crypto';
+import { assinaturaDoAmbiente } from './ambiente-funcional';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { ENV_RELATORIO_DO_CHECK } from './check-modo';
 import { planejarCpuDoGrupo } from './agendador-cpu';
 import { redigirCredenciaisUrl } from './redacao-url';
-import { CausaDoComando, EvidenciaJUnit, Manifesto, ResultadoDeComando } from './types';
+import { CausaDoComando, Claim, DecisaoDaClaimPelasLanes, EvidenciaJUnit, Manifesto, MotivoDaRecusaPelasLanes,
+  ResultadoDeComando } from './types';
 import { PlanoDaLane } from './check-selecao';
 
 /** Uma peca do Agile e o que aconteceu com ela; `degradado` preserva o Agile com menos capacidade. */
@@ -41,6 +43,11 @@ export interface PecaDoAgile {
   estado: 'agile' | 'degradado' | 'fallback';
   motivo?: string;
   fallback?: string;
+  /** M12: decisao da prova nominal no comando exato da claim (C1.1, C2.1...). */
+  claim?: string;
+  motivoTipado?: MotivoDaRecusaPelasLanes;
+  /** M12: a peca usa o TMPDIR unico cujo ciclo de vida pertence ao verify. */
+  tmpdirDaRodada?: boolean;
   /** Dado do agendador que a apresentacao localiza sem tentar traduzir o motivo livre. */
   reservaIntegracao?: { cpus: number; fonte: 'medida' | 'conservadora' | 'classic' };
 }
@@ -75,7 +82,9 @@ export interface ItemDoGrupo {
   /** RM-081 F4: servicos que esta lane precisa usar sozinha durante a rodada. */
   recursos?: string[];
   /** Papel usado pelo agendador de CPU do auxiliar. */
-  papelCpu?: 'hermetica' | 'integracao' | 'varredura' | 'outro';
+  papelCpu?: 'hermetica' | 'integracao' | 'varredura' | 'claim' | 'outro';
+  /** A claim recusada usa na ponta a mesma regra de ambiente cuja assinatura foi comparada. */
+  ambienteFuncional?: boolean;
 }
 
 /** Quantas ferramentas cabem na fatia de duas CPUs reservada pelo plano paralelo. */
@@ -455,11 +464,95 @@ export function porQueDasLanes(c: ResultadoDeComando): string {
 /** O que o grupo do Agile entrega ao verify. */
 export interface ComandosDoAgile {
   comandos: ResultadoDeComando[];
+  /** Resultados que o mesmo grupo produziu para claims fora do caminho critico, pelo nome canonico Cn.m. */
+  claimsAntecipadas: Record<string, ResultadoDeComando>;
   pecas: PecaDoAgile[];
   /** O grupo rodou em paralelo (com a guarda valendo e mais de um comando). */
   paralelo: boolean;
   /** As lanes que rodaram e o comando de cada uma. */
   lanes: string[];
+}
+
+interface ExecucaoAntecipada {
+  nome: string;
+  comando: string;
+  item?: ItemDoGrupo;
+  resultado?: ResultadoDeComando;
+  comandoExecutado?: string;
+  preparo?: UsoDoPreparo;
+}
+
+/** Plano conservador das claims que podem compartilhar o grupo sem depender da evidencia nominal das lanes. */
+export interface PlanoDasClaimsAntecipadas {
+  execucoes: ExecucaoAntecipada[];
+  ids: string[];
+  cadeias: number;
+}
+
+/** A mesma gramatica fechada que o reaproveitamento usa, sem precisar esperar a lane para classificar a dependencia. */
+export function comandoDaClaimDependeDasLanes(manifesto: Manifesto, comando: string, cwd: string): boolean {
+  const passosDoPreparo = manifesto.verify.preparo ? passosDoComando(manifesto.verify.preparo) : [];
+  const daFrente = tirarPassosDoPreparo(comando, passosDoPreparo);
+  const { resto } = daFrente.passos.length > 0 ? daFrente : tirarPassosDoPreparoAposLeituras(comando, passosDoPreparo);
+  if (!resto) return false;
+  const elos = elosDoComando(resto);
+  return !!elos?.length && elos.every((elo) => comandoGrepQ(elo) || !!auditoriaTap(elo, cwd) || !!comandoNodeTest(elo, cwd))
+    && elos.some((elo) => !!auditoriaTap(elo, cwd) || !!comandoNodeTest(elo, cwd));
+}
+
+/**
+ * Claims dependentes de lane conservam a ordem antiga. As demais entram no grupo; a ordem interna e claims sobre o
+ * mesmo arquivo formam cadeias, enquanto arquivos distintos podem usar vagas diferentes do pool de claims.
+ */
+export function planejarClaimsNoAgile(manifesto: Manifesto, claims: Claim[], cwd: string, guarda: GuardaDoProduto,
+  preparo: ResultadoDeComando | null): PlanoDasClaimsAntecipadas {
+  if (guarda.conferir()) return { execucoes: [], ids: [], cadeias: 0 };
+  const passosDoPreparo = manifesto.verify.preparo ? passosDoComando(manifesto.verify.preparo) : [];
+  const ultimosPorArquivo = new Map<string, string>();
+  const execucoes: ExecucaoAntecipada[] = [];
+  const ids: string[] = [];
+  for (const claim of claims) {
+    const usaPreparo = (comando: string): boolean => {
+      const daFrente = tirarPassosDoPreparo(comando, passosDoPreparo);
+      return (daFrente.passos.length > 0 ? daFrente : tirarPassosDoPreparoAposLeituras(comando, passosDoPreparo)).passos.length > 0;
+    };
+    // A guarda e o teto de refacoes sao seriais: claim que consome o preparo continua no caminho anterior.
+    if (!claim.verificar.length || claim.verificar.some((comando) => comandoDaClaimDependeDasLanes(manifesto, comando, cwd)
+      || usaPreparo(comando))) continue;
+    ids.push(claim.id);
+    let anterior = ultimosPorArquivo.get(claim.arquivo);
+    claim.verificar.forEach((comando, i) => {
+      const nome = `${claim.id}.${i + 1}`;
+      const daFrente = tirarPassosDoPreparo(comando, passosDoPreparo);
+      const tirado = daFrente.passos.length > 0 ? daFrente : tirarPassosDoPreparoAposLeituras(comando, passosDoPreparo);
+      if (tirado.passos.length > 0 && tirado.resto === '') {
+        execucoes.push({ nome, comando, resultado: doPreparo(nome, comando, preparo!, tirado.passos) });
+        return;
+      }
+      const executado = tirado.passos.length > 0 ? tirado.resto : comando;
+      const item: ItemDoGrupo = { nome: `claim:${nome}`, comando: executado, papelCpu: 'claim',
+        ...(anterior ? { apos: [anterior] } : {}) };
+      execucoes.push({ nome, comando, item,
+        ...(executado !== comando ? { comandoExecutado: executado,
+          preparo: { reaproveitado: true, passos: tirado.passos } } : {}) });
+      anterior = item.nome;
+    });
+    if (anterior) ultimosPorArquivo.set(claim.arquivo, anterior);
+  }
+  return { execucoes, ids, cadeias: ultimosPorArquivo.size };
+}
+
+function resultadosDasClaimsAntecipadas(plano: PlanoDasClaimsAntecipadas | undefined,
+  porItem: Map<string, ResultadoDeComando>): Record<string, ResultadoDeComando> {
+  if (!plano) return {};
+  return Object.fromEntries(plano.execucoes.map((e) => {
+    if (e.resultado) return [e.nome, { ...e.resultado, agendamento: 'antecipada' as const }];
+    const bruto = porItem.get(e.item!.nome)!;
+    return [e.nome, { ...bruto, nome: e.nome, comando: e.comando,
+      agendamento: 'antecipada' as const,
+      ...(e.comandoExecutado ? { comandoExecutado: e.comandoExecutado } : {}),
+      ...(e.preparo ? { preparo: e.preparo } : {}) }];
+  }));
 }
 
 /**
@@ -470,7 +563,8 @@ export function comandosNoAgile(manifesto: Manifesto, cwd: string,
   lista: { nome: string; comando: string; junit?: string; filtro?: string }[], executor: ExecutorUnico,
   grupo: ExecutorDeGrupo, guarda: GuardaDoProduto, preparo: ResultadoDeComando | null,
   selecao: SelecaoAnteriorDoAgile = { comandos: {}, lanes: {} }, passagemParcial?: ExecutorDaPassagemParcial,
-  selecaoPorMudanca: Record<string, PlanoDaLane> = {}): ComandosDoAgile {
+  selecaoPorMudanca: Record<string, PlanoDaLane> = {},
+  claimsAntecipadas?: PlanoDasClaimsAntecipadas): ComandosDoAgile {
   const pecas: PecaDoAgile[] = [];
   const passosDoPreparo = manifesto.verify.preparo ? passosDoComando(manifesto.verify.preparo) : [];
   const lanesDeclaradas = Object.entries(manifesto.check?.agile?.test ?? {});
@@ -488,7 +582,7 @@ export function comandosNoAgile(manifesto: Manifesto, cwd: string,
         ? passagemParcial?.(c.nome, c.comando, cwd, c.filtro, selecao.comandos[c.nome]) : null;
       return parcial && !parcial.ok ? parcial : executor(c.nome, c.comando, cwd);
     };
-    return { comandos: lista.map(executar), pecas, paralelo: false, lanes: [] };
+    return { comandos: lista.map(executar), claimsAntecipadas: {}, pecas, paralelo: false, lanes: [] };
   }
   // Com a guarda: o build primeiro (do preparo, quando e so passos dele), e o resto junto.
   const build = lista.find((c) => c.nome === 'build');
@@ -525,7 +619,7 @@ export function comandosNoAgile(manifesto: Manifesto, cwd: string,
       ...(c.filtro ? { filtro: c.filtro } : {}), ...(selecao.comandos[c.nome] ? { testesFiltrados: selecao.comandos[c.nome] } : {}),
       papelCpu: c.nome === 'security_scan' ? 'varredura' : 'outro' });
   }
-  itens.push(...encadeados);
+  itens.push(...(claimsAntecipadas?.execucoes.flatMap((e) => e.item ? [e.item] : []) ?? []), ...encadeados);
   const parciaisVermelhas = new Map<string, ResultadoDeComando>();
   for (const item of itens) {
     if (!item.filtro || !item.testesFiltrados?.length || !passagemParcial) continue;
@@ -550,7 +644,7 @@ export function comandosNoAgile(manifesto: Manifesto, cwd: string,
   const lanes: Array<{ lane: string; resultado: ResultadoDeComando }> = [];
   itens.forEach((item, i) => {
     if (item.nome.startsWith('test:')) lanes.push({ lane: item.nome.slice('test:'.length), resultado: resultados[i] });
-    else porNome.set(item.nome, resultados[i]);
+    else if (!item.nome.startsWith('claim:')) porNome.set(item.nome, resultados[i]);
   });
   // As lanes voltam na ordem do manifesto, mesmo com a encadeada no fim do grupo.
   const ordem = (lane: string): number => lanesDeclaradas.findIndex(([nome]) => nome === lane);
@@ -560,7 +654,9 @@ export function comandosNoAgile(manifesto: Manifesto, cwd: string,
     pecas.push({ peca: 'lanes', estado: 'agile' });
   }
   if (itens.length > 1) pecas.push({ peca: 'grupo', estado: 'agile' });
-  return { comandos: lista.map((c) => porNome.get(c.nome)!), pecas, paralelo: itens.length > 1, lanes: lanes.map((l) => l.lane) };
+  return { comandos: lista.map((c) => porNome.get(c.nome)!),
+    claimsAntecipadas: resultadosDasClaimsAntecipadas(claimsAntecipadas, porItemInteiro),
+    pecas, paralelo: itens.length > 1, lanes: lanes.map((l) => l.lane) };
 }
 
 /** O teto da leitura do relatorio da rodada. */
@@ -660,16 +756,7 @@ export function resultadosDasLanes(linhas: Array<Record<string, unknown>>): Resu
       }) }));
 }
 
-/** Hash do ambiente funcional; transporte do CHECK, npm e bookkeeping do shell nao mudam o teste. */
-export function assinaturaDoAmbiente(env: NodeJS.ProcessEnv): string {
-  const ignorada = (nome: string): boolean => nome.startsWith('npm_') || nome.startsWith('NPM_')
-    || ['ORK_CHECK_RELATORIO', 'ORK_CHECK_CPUS_DA_LANE', 'ORK_CHECK_CPUS_DA_LANE_APOS_VARREDURA',
-      'ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA', 'ORK_CHECK_RESERVA_DEVOLVIDA', 'ORK_CHECK_CONTAINERS_DA_LANE', 'ORK_CHECK_CPUS_DOCKER',
-      'NODE_TEST_CONTEXT', 'NODE_COMPILE_CACHE', 'PWD', 'OLDPWD', 'SHLVL', '_', 'INIT_CWD'].includes(nome);
-  const pares = Object.entries(env).filter(([nome, valor]) => valor !== undefined && !ignorada(nome))
-    .sort(([a], [b]) => a.localeCompare(b));
-  return createHash('sha256').update(JSON.stringify(pares)).digest('hex');
-}
+export { assinaturaDoAmbiente } from './ambiente-funcional';
 
 interface ComandoNodeTest { arquivos: string[]; padrao?: string }
 
@@ -722,56 +809,161 @@ function resultadoReaproveitado(nome: string, comando: string, pedido: ComandoNo
       head: esperado.head, ambiente: esperado.ambiente } };
 }
 
+type EloPlanejadoPelasLanes = { tipo: 'grep'; comando: string }
+  | { tipo: 'lane'; comando: string; pedido: ComandoNodeTest; usadas: ResultadoNominalDaLane[]; nomes?: string[] };
+
+interface PlanoDaClaimPelasLanes {
+  decisao: DecisaoDaClaimPelasLanes;
+  candidata: boolean;
+  usarExecutorEquivalente: boolean;
+  elos: EloPlanejadoPelasLanes[];
+}
+
+export interface ClassificacaoDaClaimPelasLanes {
+  decisao: DecisaoDaClaimPelasLanes;
+  /** Cadeira fechada que aguardava prova nominal das lanes; uma recusa desta classe pode entrar no lote do agendador. */
+  candidata: boolean;
+  usarExecutorEquivalente: boolean;
+}
+
+type VigenciaDasLanes = boolean | MotivoDaRecusaPelasLanes | null;
+
+function recusaPelasLanes(motivo: MotivoDaRecusaPelasLanes, arquivos: string[], esperado: { head: string },
+  assinatura: string, candidata: boolean, usarExecutorEquivalente = candidata): PlanoDaClaimPelasLanes {
+  return { decisao: { reaproveitada: false, motivo, arquivos: [...new Set(arquivos)], head: esperado.head, ambiente: assinatura },
+    candidata, usarExecutorEquivalente, elos: [] };
+}
+
+/** Casos nominais ficam exatamente um nivel abaixo do evento que representa o arquivo no runner isolado. */
+function casosNominaisDoArquivo(vistos: ResultadoNominalDaLane['testes'], arquivo: string) {
+  const niveisDoArquivo = vistos.filter((t) => path.basename(t.nome) === arquivo).map((t) => t.nesting);
+  if (niveisDoArquivo.length === 0) return [];
+  const nivelDosCasos = Math.min(...niveisDoArquivo) + 1;
+  return vistos.filter((t) => t.nesting === nivelDosCasos);
+}
+
+/** Reconhece especificamente o TAP com filtro: ele e fechado, mas a lane inteira nao prova a auditoria filtrada. */
+function tapComPadraoDeNome(comando: string, cwd: string): ComandoNodeTest | null {
+  const divisor = ' | ';
+  const i = comando.indexOf(divisor);
+  if (i < 0 || comando.indexOf(divisor, i + divisor.length) >= 0) return null;
+  const node = comando.slice(0, i).trim();
+  if (!/^node --test-reporter=tap\b/.test(node)) return null;
+  const pedido = comandoNodeTest(node.replace(/^node --test-reporter=tap\b/, 'node --test'), cwd);
+  return pedido?.padrao !== undefined ? pedido : null;
+}
+
+function planejarClaimPelasLanes(comando: string, cwd: string, evidencias: ResultadoNominalDaLane[], esperado: {
+  head: string; ambiente: NodeJS.ProcessEnv; podeReaproveitar?: () => VigenciaDasLanes;
+}): PlanoDaClaimPelasLanes {
+  const assinatura = assinaturaDoAmbiente(esperado.ambiente);
+  const elos = elosDoComando(comando);
+  if (!elos) return recusaPelasLanes('comando-aberto', [], esperado, assinatura, false, false);
+  const planejados: EloPlanejadoPelasLanes[] = [];
+  const arquivos: string[] = [];
+  for (const elo of elos) {
+    if (comandoGrepQ(elo)) { planejados.push({ tipo: 'grep', comando: elo }); continue; }
+    const tap = auditoriaTap(elo, cwd);
+    const comPadrao = tap ? null : tapComPadraoDeNome(elo, cwd);
+    if (comPadrao) return recusaPelasLanes('tap-com-test-name-pattern', [...arquivos, ...comPadrao.arquivos],
+      esperado, assinatura, true);
+    const pedido = tap?.pedido ?? comandoNodeTest(elo, cwd);
+    if (!pedido) return recusaPelasLanes('comando-nao-elegivel', arquivos, esperado, assinatura, false, false);
+    arquivos.push(...pedido.arquivos);
+    planejados.push({ tipo: 'lane', comando: elo, pedido, usadas: [],
+      ...(tap ? { nomes: pedido.arquivos.map((a) => `${a}:${tap.prefixo}>=${tap.minimo};sem-falha;sem-skip`) } : {}) });
+  }
+  if (!planejados.some((p) => p.tipo === 'lane')) {
+    return recusaPelasLanes('comando-nao-elegivel', arquivos, esperado, assinatura, false, false);
+  }
+  const vigencia = esperado.podeReaproveitar?.();
+  if (vigencia === false) return recusaPelasLanes('lanes-invigentes', arquivos, esperado, assinatura, true);
+  if (typeof vigencia === 'string') return recusaPelasLanes(vigencia, arquivos, esperado, assinatura, true);
+  if (evidencias.length === 0) return recusaPelasLanes('evidencia-vazia', arquivos, esperado, assinatura, true);
+
+  for (const item of planejados) {
+    if (item.tipo !== 'lane') continue;
+    const tap = auditoriaTap(item.comando, cwd);
+    const usadasDoElo = new Set<ResultadoNominalDaLane>();
+    for (const arquivo of item.pedido.arquivos) {
+      const comArquivo = evidencias.filter((e) => e.testes.some((t) => t.arquivo === arquivo));
+      if (comArquivo.length === 0) return recusaPelasLanes('arquivo-nao-executado', arquivos, esperado, assinatura, true);
+      const noHead = comArquivo.filter((e) => e.head === esperado.head);
+      if (noHead.length === 0) return recusaPelasLanes('head-divergente', arquivos, esperado, assinatura, true);
+      const noAmbiente = noHead.filter((e) => e.ambiente === assinatura);
+      if (noAmbiente.length === 0) {
+        return recusaPelasLanes('ambiente-funcional-divergente', arquivos, esperado, assinatura, true);
+      }
+      const vistos = noAmbiente.flatMap((e) => e.testes.filter((t) => t.arquivo === arquivo));
+      if (vistos.some((t) => t.estado === 'fail')) return recusaPelasLanes('falha-na-lane', arquivos, esperado, assinatura, true);
+      if (vistos.some((t) => t.estado === 'skip' || t.estado === 'todo')) {
+        return recusaPelasLanes('skip-ou-todo-na-lane', arquivos, esperado, assinatura, true);
+      }
+      if (tap) {
+        const doArquivo = casosNominaisDoArquivo(vistos, arquivo).filter((t) => t.estado === 'pass');
+        const doPrefixo = doArquivo.filter((t) => new RegExp(`^${tap.prefixo}[0-9]+:`).test(t.nome));
+        if (doPrefixo.length === 0) return recusaPelasLanes('prefixo-divergente', arquivos, esperado, assinatura, true);
+        if (doPrefixo.length < tap.minimo) {
+          return recusaPelasLanes('contagem-abaixo-do-minimo', arquivos, esperado, assinatura, true);
+        }
+      }
+      noAmbiente.forEach((e) => usadasDoElo.add(e));
+    }
+    item.usadas = [...usadasDoElo];
+  }
+
+  const usadas = planejados.flatMap((p) => p.tipo === 'lane' ? p.usadas : []);
+  const lanes = [...new Set(usadas.map((e) => e.lane))];
+  const nomes = planejados.flatMap((p) => p.tipo !== 'lane' ? [] : p.nomes ?? (p.pedido.padrao === undefined
+    ? p.pedido.arquivos.map((a) => `${a}:todos`) : p.pedido.arquivos.map((a) => `${a}:/${p.pedido.padrao}/`)));
+  return { decisao: { reaproveitada: true, lanes, arquivos: [...new Set(arquivos)], nomes: [...new Set(nomes)],
+    head: esperado.head, ambiente: assinatura }, candidata: true, usarExecutorEquivalente: false, elos: planejados };
+}
+
+/** A classificacao pura usada pelo executor e, na M12, pelo planejador dos lotes de claims. */
+export function classificarClaimPelasLanes(comando: string, cwd: string, evidencias: ResultadoNominalDaLane[], esperado: {
+  head: string; ambiente: NodeJS.ProcessEnv; podeReaproveitar?: () => VigenciaDasLanes;
+}): ClassificacaoDaClaimPelasLanes {
+  const p = planejarClaimPelasLanes(comando, cwd, evidencias, esperado);
+  return { decisao: p.decisao, candidata: p.candidata, usarExecutorEquivalente: p.usarExecutorEquivalente };
+}
+
 /**
  * Reaproveita uma claim somente quando a lane terminou todos os arquivos pedidos no mesmo HEAD e ambiente. Um arquivo
  * inteiro verde e evidencia mais forte que `--test-name-pattern`: o padrao fica registrado em `nomes`.
  */
 export function executorDaClaimPelasLanes(base: ExecutorUnico, evidencias: ResultadoNominalDaLane[], esperado: {
-  head: string; ambiente: NodeJS.ProcessEnv; podeReaproveitar?: () => boolean; executorEquivalente?: ExecutorUnico;
+  head: string; ambiente: NodeJS.ProcessEnv; podeReaproveitar?: () => VigenciaDasLanes; executorEquivalente?: ExecutorUnico;
 }): ExecutorUnico {
-  const assinatura = assinaturaDoAmbiente(esperado.ambiente);
   return (nome, comando, cwd) => {
     const executar = esperado.executorEquivalente ?? base;
-    if (esperado.podeReaproveitar?.() === false) return executar(nome, comando, cwd);
-    const elos = elosDoComando(comando);
-    if (!elos) return base(nome, comando, cwd);
-    const planejados: Array<{ tipo: 'grep'; comando: string } | { tipo: 'lane'; resultado: ResultadoDeComando }> = [];
-    for (const elo of elos) {
-      if (comandoGrepQ(elo)) { planejados.push({ tipo: 'grep', comando: elo }); continue; }
-      const tap = auditoriaTap(elo, cwd);
-      const pedido = tap?.pedido ?? comandoNodeTest(elo, cwd);
-      if (!pedido) return base(nome, comando, cwd);
-      const usadas = evidencias.filter((e) => e.head === esperado.head && e.ambiente === assinatura
-        && e.testes.some((t) => pedido.arquivos.includes(t.arquivo)));
-      const cobertos = pedido.arquivos.every((arquivo) => {
-        const vistos = usadas.flatMap((e) => e.testes.filter((t) => t.arquivo === arquivo));
-        if (vistos.length === 0 || vistos.some((t) => t.estado === 'fail')) return false;
-        if (vistos.some((t) => t.estado === 'skip' || t.estado === 'todo')) return false;
-        if (!tap) return true;
-        const doArquivo = vistos.filter((t) => t.nesting === 0);
-        return doArquivo.filter((t) => t.estado === 'pass' && new RegExp(`^${tap.prefixo}[0-9]+:`).test(t.nome)).length >= tap.minimo;
-      });
-      if (!cobertos) return executar(nome, comando, cwd);
-      const nomes = tap ? pedido.arquivos.map((a) => `${a}:${tap.prefixo}>=${tap.minimo};sem-falha;sem-skip`) : undefined;
-      planejados.push({ tipo: 'lane', resultado: resultadoReaproveitado(nome, elo, pedido, usadas,
-        { head: esperado.head, ambiente: assinatura }, nomes) });
+    const plano = planejarClaimPelasLanes(comando, cwd, evidencias, esperado);
+    if (!plano.decisao.reaproveitada) {
+      const r = (plano.usarExecutorEquivalente ? executar : base)(nome, comando, cwd);
+      // Comando fora da gramatica das lanes nao foi recusado por elas: ele segue sem inventar uma decisao nominal.
+      return plano.candidata ? { ...r, lane: plano.decisao } : r;
     }
     let duracaoMs = 0;
     const resumos: string[] = [];
     let ultimo: ResultadoDeComando | null = null;
     const lanes = new Set<string>(), arquivos = new Set<string>(), nomes = new Set<string>();
-    for (const item of planejados) {
-      const r = item.tipo === 'grep' ? base(nome, item.comando, cwd) : item.resultado;
+    for (const item of plano.elos) {
+      const r = item.tipo === 'grep' ? base(nome, item.comando, cwd)
+        : resultadoReaproveitado(nome, item.comando, item.pedido, item.usadas,
+          { head: esperado.head, ambiente: plano.decisao.ambiente }, item.nomes);
       duracaoMs += r.duracaoMs ?? 0;
       resumos.push(r.resumo);
       ultimo = r;
-      if (!r.ok) return { ...r, comando, comandoExecutado: item.tipo === 'grep' ? item.comando : r.comando, duracaoMs };
-      for (const lane of r.lane?.lanes ?? []) lanes.add(lane);
-      for (const arquivo of r.lane?.arquivos ?? []) arquivos.add(arquivo);
-      for (const n of r.lane?.nomes ?? []) nomes.add(n);
+      if (!r.ok) return { ...r, comando, comandoExecutado: item.comando, duracaoMs, lane: plano.decisao };
+      if (r.lane?.reaproveitada) {
+        for (const lane of r.lane.lanes) lanes.add(lane);
+        for (const arquivo of r.lane.arquivos) arquivos.add(arquivo);
+        for (const n of r.lane.nomes) nomes.add(n);
+      }
     }
     if (!ultimo || lanes.size === 0) return base(nome, comando, cwd);
     return { ...ultimo, nome, comando, duracaoMs, resumo: resumos.filter(Boolean).join('\n'),
-      lane: { reaproveitada: true, lanes: [...lanes], arquivos: [...arquivos], nomes: [...nomes], head: esperado.head, ambiente: assinatura } };
+      lane: { reaproveitada: true, lanes: [...lanes], arquivos: [...arquivos], nomes: [...nomes], head: esperado.head,
+        ambiente: plano.decisao.ambiente } };
   };
 }

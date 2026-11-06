@@ -409,14 +409,121 @@ do pai continua viva. A saída do processo observado antecipa a falha, e permane
 um limite máximo de espera para o caso de o processo travar. GL2 e GL3 também
 encerram a espera ao encontrar o erro registrado para a própria sessão.
 
+### M11: claims e CPU fora do caminho crítico
+
+A bancada de M8 e M9 mostrou que a lane hermética permanece no caminho crítico:
+a varredura devolvia sua reserva à integração encadeada antes de devolvê-la à
+hermética, enquanto as claims independentes começavam somente depois das lanes.
+A M11 reorganiza esse trabalho sem reduzir a bateria:
+
+- claim que não reaproveita resultado de lane começa com as lanes; claims de
+  arquivos distintos podem rodar juntas, enquanto comandos do mesmo arquivo
+  conservam sua ordem;
+- claim `node --test` que reaproveita a lane continua esperando a evidência dela;
+  claim que usa o preparo também conserva a guarda e o limite de refações já
+  existentes;
+- o agendador deriva da capacidade efetiva uma reserva própria para as claims e
+  mantém na hermética uma parcela pelo menos equivalente;
+- quando a varredura termina, sua reserva vai imediatamente para a integração,
+  que começa em seguida como antes da M11. Quando a integração medida já roda em
+  paralelo desde o início, a reserva devolvida pela varredura vai para a
+  hermética;
+- a peça `agendador-cpu` registra o caminho usado, as reservas e a capacidade
+  efetiva. A soma das vagas em uso permanece dentro dessa capacidade;
+- o adaptador de contêiner só acrescenta a cota da reserva depois de conferir
+  que o runtime a aceita. Runtime sem suporte anunciado ou que recusa o
+  argumento roda com o `argv` anterior e deixa o recuo na peça; fora do Agile,
+  o comando do contêiner permanece igual.
+
+Capacidade, reservas, trabalhadores e cotas continuam derivados da medição da
+rodada. O Classic, os comandos, as claims e as asserções não mudam. Os mutantes
+da fatia cobrem a dependência e a falha das claims antecipadas, a conta da
+devolução, a aplicação da cota e o recuo para o `argv` anterior. A razão da M11
+só entra nesta página depois da bancada oficial.
+
+### M12: claims recusadas pelas lanes usam o agendador
+
+A bancada encontrou claims com preparo e auditoria TAP que repetiam arquivos já
+verdes nas lanes, mas não mostrou o motivo da recusa. O caso focado reproduziu a
+diferença: a lane hermética criava um `TMPDIR` próprio, enquanto a claim observava
+outro temporário. Como o teste pode ler o caminho, o `realpath`, as propriedades e o
+conteúdo desse diretório, normalizar somente o tipo não provaria o mesmo resultado.
+
+O verify Agile com lanes configuradas agora cria um `TMPDIR` por rodada com a mesma seleção de tmpfs ou
+disco das lanes e o passa, literalmente, às lanes e às claims junto da casa da
+rodada. A lane conserva esse caminho, separa apenas os artefatos internos e não o
+remove; o verify encerra seu ciclo de vida depois das lanes e das claims. A
+assinatura continua comparando o valor literal. Uma fixture diferencial relê o
+recibo persistido e prova caminho, `realpath`, dispositivo e permissões iguais;
+quando a lane recebe outro `TMPDIR` de propósito, a recusa por ambiente funcional
+divergente permanece.
+
+O GO-FIX mostrou uma segunda divergência no ambiente mínimo do verify: um shell
+não interativo podia carregar a inicialização do usuário na cadeia aninhada e
+prefixar `/usr/bin` ao `PATH` da lane. Além disso, a lane retirava
+`ORK_CHECK_MODO`, enquanto a assinatura esperada da claim ainda o conservava.
+Agora uma única função produz o ambiente que o teste executa e a assinatura que o
+verify compara. Ela restaura o `PATH` recebido antes do transporte por shell e npm,
+retira das duas rotas as mesmas variáveis da rodada e aplica os mesmos acréscimos.
+`PATH` continua funcional e qualquer valor diferente continua recusando o
+reaproveitamento; `ORK_CHECK_MODO` sai do ambiente real das duas rotas antes do
+teste. O filho de cada claim recusada em lote aplica essa função no momento do
+lançamento: não recompõe seu ambiente a partir do `process.env` bruto do auxiliar e,
+por isso, não recupera `BASH_ENV`, `ENV`, transporte do npm ou diretórios retirados
+da assinatura. Os shells da cadeia também são abertos sem arquivos de inicialização.
+
+A fixture da AG55 monta o próprio ambiente, inclusive a forma mínima usada pelo
+verify, sem herdar o processo que a chamou. Na mesma rodada ela registra uma claim
+antecipada, uma reaproveitada e uma recusada, com execução, decisão tipada, veredito
+e ordem canônica. A cota de contêiner permanece um acréscimo funcional exclusivo da
+integração: a claim sem essa cota é recusada e roda de verdade. Outro caso abre o
+filho do lote e confere que `BASH_ENV` e `ENV` não entram e que o `PATH` funcional é
+o restaurado pela regra única. A fixture também recusa quando o `TMPDIR` ou o `PATH`
+da lane divergem. Uma
+auditoria TAP por nome só reaproveita a lane quando o reporter entrega os casos no
+nível imediatamente abaixo do evento do arquivo; sem essa evidência, a recusa
+tipada executa a claim de verdade. O diagnóstico temporário por nome, gancho final
+e HMAC não faz parte do produto.
+
+Relatório, `TMPDIR` funcional e casa da rodada têm um único dono no verify e na
+baseline. O fechamento fica em `finally`, inclusive quando preparo, claim, lane ou
+comando propaga uma exceção; a rodada não deixa esses diretórios no disco ou tmpfs.
+
+O script das lanes não traz chave de fixture nem desliga o isolamento do runner.
+Chamada externa sem plano nem relatório conserva um único `node --test` com
+concorrência; a rota do verify usa processos por arquivo, cada um ainda com o
+isolamento padrão, igual ao Classic. A leitura alternativa do HEAD só aceita o
+layout de checkout criado pela fixture.
+
+Quando uma cadeia fechada de `grep -q`, `node --test` ou auditoria TAP aguardava as
+lanes e foi recusada, claims consecutivas de arquivos distintos recebem vagas do
+agendador. Claims com o mesmo `claim.arquivo` mantêm a ordem; uma claim de outra
+classe ou uma guarda inválida fecha o lote. Os passos do preparo continuam saindo
+somente quando a guarda vale, e o comando restante, as claims do usuário e suas
+asserções permanecem os mesmos. O Classic Check conserva seu caminho anterior.
+
+O `verify_run` traz a peça do `TMPDIR` da rodada e uma peça `claim-lane` por comando de claim. Ela registra
+se a evidência nominal foi reaproveitada ou a recusa tipada: evidência ausente,
+arquivo não executado, HEAD ou ambiente divergente, falha, `skip`/`todo`, prefixo,
+contagem mínima, forma TAP incompatível ou guarda do produto. O relatório apresenta
+a mesma decisão por claim, em pt-BR e inglês. Casos focados e mutantes independentes
+cobrem o temporário compartilhado, as cercas de falha e HEAD, a barreira do lote, a
+ordem por arquivo, a concessão de vagas e o motivo do recibo. O efeito na razão fria
+ou morna aguarda a bancada da condução.
+
 ### O que falta
 
-- Fechar a bancada fria e morna da M8 e da M9 no host, com três pares válidos e
-  os mesmos critérios de carga externa e divergência de `steal`.
+- Fechar a bancada fria e morna da M8, da M9, da M11 e da M12 no host, com três
+  pares válidos e os mesmos critérios de carga externa e divergência de `steal`.
 - Confirmar na evidência que o perfil da árvore fecha mesmo quando um contêiner
   fica sem cgroup e que a reserva medida devolve antes a capacidade ociosa.
+- Confirmar na evidência que a reserva da varredura vai para a integração
+  encadeada ou para a hermética quando a integração já roda em paralelo, e que
+  claims independentes deixam a execução sequencial das claims depois das lanes
+  sem mudar os recibos.
 - Reavaliar a distância para a meta de cerca de 1,7 vez; a M9 remove a reserva
-  conservadora diagnosticada, mas não publica uma razão antes dessa coleta.
+  conservadora diagnosticada, a M11 muda o agendamento e a M12 reaproveita claims
+  pelas lanes, mas nenhuma publica uma razão antes dessa coleta.
 
 ## Problema e resultado
 
@@ -603,6 +710,8 @@ A numeração segue a ordem do pedido. A ordem de execução recomendada é a da
 | M6 Reserva medida e carga externa | CPU da integração inclui containers, devolução ocorre por peça, concorrência só abre com perfil completo; modelos restantes são copiados por caso e a bancada mede carga externa | Nenhum degrau ultrapassa a capacidade; perfil incompleto conserva reserva; par acima do limiar de carga externa é descartado; mesmos casos e asserções; cinco mutantes mortos; ganho depende da bancada do host |
 | M7 Atribuição e cache por conteúdo | A bancada separa CPU da rodada e carga externa; integração mede deltas por fonte; o Agile reaproveita a varredura somente com conteúdo compatível; razões fria e morna ficam separadas | Atribuição incerta entra na carga externa; pico impossível não vira perfil; regra entre arquivos ou registro indisponível força varredura integral; ganho depende da bancada do host |
 | M8 Agendador em degraus | Sonda com várias amostras, capacidade efetiva proporcional e estado `degradado` distinto de `fallback` | Pico isolado não muda o plano; `steal` acima do limiar reduz cotas e preserva o paralelo; carga do próprio verify não tira CPU; só a perda do mínimo estrutural ou a máquina ocupada voltam à ordem do Classic, com a paralelização do Classic; sete mutantes mortos; Classic intacto |
+| M11 Claims e CPU fora do caminho crítico | Claims independentes começam com as lanes; a integração encadeada começa depois da varredura com a reserva dela; quando a integração já roda em paralelo, a reserva da varredura volta à hermética; o adaptador aplica a cota aceita ou recua para o `argv` anterior | Claims que reaproveitam lanes continuam esperando; falhas e ordem das claims permanecem no recibo; nenhuma vaga reservada fica ociosa nem excede a capacidade efetiva; mutantes da devolução, da falha, da aplicação e do recuo da cota mortos; Classic intacto; ganho pendente da bancada |
+| M12 Claims pelas lanes | Nas rodadas Agile com lanes, uma regra única monta e assina o ambiente funcional executado por lanes e claims, inclusive na ponta do filho recusado; o `TMPDIR` pertence à rodada, o `PATH` permanece funcional e recusas elegíveis usam o agendador | A junção registra antecipada, reaproveitada e recusada em ordem canônica; a claim sem a cota da integração roda de verdade; o filho não herda `BASH_ENV` ou `ENV`; exceções fecham relatório, temporário e casa; as demais recusas, o runner, as barreiras e o Classic permanecem intactos |
 | F2 CPU da suíte (demais fatias) | Os arquivos de teste mais caros que continuam fora da M1, a eficiência de paralelismo das lanes e a cadeia varredura e integração, com orçamento que vigia o crescimento | Evolução até cerca de 1,7 vez contra o Classic, no mesmo commit, máquina e bateria; nenhum caso removido; cada ganho medido em razão e CPU da suíte |
 | F3 Memória | O teto da D2 aplicado à varredura do grupo e às lanes, medindo o que isso custa na razão contra o Classic | Pico agregado dentro do teto em três rodadas; varredura com as nove ferramentas e zero achado novo ou desaparecido por impressão digital; custo na razão medido e registrado, e aceito pelo dono se tirar a meta da D1 do alcance |
 | F4 Dívida da RM-072 que pesa no tempo ou na confiança | O que a tabela "A dívida da RM-072" diz que entra: redação do motivo da peça `imagem-de-lint`, a lane caída sem veredito e o texto do gate, a data sem ano e o caso de `GMT+0` do snapshot de locale, os casos que faltam, a paridade do `tsgo` fora da thread de origem e as peças em fallback | Cada item da tabela com caso de teste que falha sem a correção; nenhum arquivo ou categoria de varredura removido; peças `tsgo`, `cache-semgrep` e binários nativos com o motivo do fallback medido e, onde o fallback some, o ganho em percentual da parede pelo ledger |
@@ -736,3 +845,6 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-11-01 | A M8 troca o fallback binário por capacidade em degraus, usa mediana de várias amostras e registra o estado `degradado`; a razão nova fica pendente da bancada | Rodadas frias e mornas da M7, pico isolado de `steal`, cenários sintéticos e mutantes da M8 | Thread `ork-rm074m8agend` (#Fast) |
 | 2026-11-03 | M8 e M9 em produção na 0.6.5. M10 (seleção do `node --test` pelo grafo de import) arquivada sem merge | Cinco CHECKs da thread `ork-rm074m10sele` com PRECISA DE MUDANÇA; decisão 2a do dono em 03/11/2026 | Julio |
 | 2026-11-03 | GL2 e GL3 passam a encerrar no erro do watcher, e os dois lados do aperto de mão acompanham a identidade do outro processo até confirmação, saída ou teto absoluto | A prova sob disputa de CPU mostrou o watcher sem anúncio e a fase sem `phase_result`; testes herméticos usam tempo injetado e mutantes independentes | Thread `ork-rm074gl2gl3s` (#Auto) |
+| 2026-11-04 | M11 tira claims independentes da execução sequencial depois das lanes, inicia a integração encadeada depois da varredura com a reserva dela, devolve essa reserva à hermética quando a integração já roda em paralelo e recua a cota quando o runtime não a aceita; a razão fica pendente da bancada | Diagnóstico da bancada M8/M9; D1, D2 e D4 do GOAL; D3 vigente decidida no GO e revisada no GO-FIX; revisão independente e mutantes da thread `ork-rm074m11clai` | Thread `ork-rm074m11clai` (#Auto) |
+| 2026-11-05 | M12 passa a compartilhar o `TMPDIR` da rodada entre lanes e claims, mantém a recusa quando o ambiente diverge, agenda recusas elegíveis e grava a decisão por claim | CHECK independente da thread `ork-rm074m12clai`, fixture diferencial, recibo `verify_run` e mutantes do contrato | Thread `ork-rm074m12clai` (#Auto) |
+| 2026-11-06 | GO-FIX da junção aplica a regra funcional no filho das claims recusadas, prova antecipação, reaproveitamento e recusa com a exceção de cota da integração e fecha recursos da rodada em exceções | Processos reais do auxiliar, recibo canônico, mutantes M11/M12 e limpeza injetada; ganho continua pendente da bancada | Thread `ork-rm074m12clai` (#Auto) |

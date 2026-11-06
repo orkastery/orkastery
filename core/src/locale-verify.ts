@@ -59,9 +59,15 @@ export const VERIFY_PT_BR = {
     `${paralelo ? `grupo em paralelo${lanes.length ? ` com as lanes ${lanes.join(', ')}` : ''}` : 'comandos do manifesto em serie'}`,
   agileFallback: (peca: string, motivo: string, fallback: string) =>
     `  fallback    ${peca}: ${motivo || 'sem motivo dito'}; rodou ${fallback || 'o equivalente do Classic'}`,
+  tmpdirDaRodada: 'TMPDIR compartilhado pela rodada',
+  discoComTmpdirDaRodada: 'disco com TMPDIR da rodada',
   agileDegradado: (peca: string, motivo: string) =>
     `  degradado   ${peca}: ${motivo || 'sem motivo dito'}; preservou o plano paralelo`,
   agilePeca: (peca: string, motivo: string) => `  agile       ${peca}: ${motivo || 'sem motivo dito'}`,
+  claimLaneReaproveitada: (claim: string, evidencia: string) =>
+    `  claim-lane  ${claim}: reaproveitada das lanes (${evidencia || 'evidencia nominal da rodada'})`,
+  claimLaneRecusada: (claim: string, motivo: string) =>
+    `  claim-lane  ${claim}: recusada (${motivo}); rodou a claim inteira`,
   reservaIntegracao: (cpus: number, fonte: 'medida' | 'conservadora' | 'classic') =>
     `reserva da integracao ${cpus} CPU(s), origem ${{ medida: 'medida', conservadora: 'conservadora', classic: 'Classic' }[fonte]}`,
   preparo: (situacao: string, segundos: number, alterado: boolean) => `  preparo     ${situacao} em ` +
@@ -201,8 +207,14 @@ export const VERIFY_EN: typeof VERIFY_PT_BR = {
     `  agile       ${reaproveitadas} claim command(s) against the prepared product, ${inteiras} in full; ` +
     `${paralelo ? `parallel group${lanes.length ? ` with lanes ${lanes.join(', ')}` : ''}` : 'manifest commands in series'}`,
   agileFallback: (peca, motivo, fallback) => `  fallback    ${peca}: ${motivo || 'no reason given'}; ran ${fallback || 'the Classic equivalent'}`,
+  tmpdirDaRodada: 'TMPDIR shared by the run',
+  discoComTmpdirDaRodada: 'disk with the run TMPDIR',
   agileDegradado: (peca, motivo) => `  degraded    ${peca}: ${motivo || 'no reason given'}; kept the parallel plan`,
   agilePeca: (peca, motivo) => `  agile       ${peca}: ${motivo || 'no reason given'}`,
+  claimLaneReaproveitada: (claim, evidencia) =>
+    `  claim-lane  ${claim}: reused from lanes (${evidencia || 'nominal evidence from this run'})`,
+  claimLaneRecusada: (claim, motivo) =>
+    `  claim-lane  ${claim}: refused (${motivo}); ran the full claim`,
   reservaIntegracao: (cpus, fonte) => `integration reservation ${cpus} CPU(s), ` +
     `source ${{ medida: 'measured', conservadora: 'conservative', classic: 'Classic' }[fonte]}`,
   preparo: (situacao, segundos, alterado) => `  prepare     ${situacao} in ${segundos} s, once for the run; product ` +
