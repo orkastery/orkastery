@@ -25,7 +25,8 @@ import { dirThread, novaThread } from '../src/thread';
 import { lerLedger } from '../src/ledger';
 import { rodarFase } from '../src/phase';
 import { dirTemporario, projetoTemporario } from './apoio';
-import { esperarCondicao, esperarFimDaFase } from './controller-simulado';
+import { esperarFimDaFase } from './controller-simulado';
+import { esperarEvento } from './espera-evento';
 import { grokFalso } from './grok-falso';
 import { LANCADOR_DO_LANDLOCK, semLandlock } from './ambiente-de-teste';
 
@@ -87,7 +88,7 @@ test('GL1: confinado como o workspace, o grok falso nao grava o ledger pelo serv
     stub.mcp([{ nome: 'ork_thread_status', argumentos: { threadId: t.id } }, decisao(t.id, 'Fixture SIMULADA pelo servidor stdio confinado')]);
     const antes = lerLedger(dirThread(p.dir, t.id)).length;
     const r = spawnSync('grok', ['-p', 'Fixture SIMULADA', '--output-format', 'streaming-json', '-s', randomUUID(), '--cwd', wt,
-      '--trust', '--sandbox', 'workspace'], { encoding: 'utf8', env: process.env, timeout: 120000 });
+      '--trust', '--sandbox', 'workspace'], { encoding: 'utf8', env: process.env });
     assert.equal(r.status, 0, r.stderr);
     assert.equal(stub.sondaResultado(), 'recusada', 'o filho confinado nao cria arquivo no estado do ork');
     assert.equal(fs.existsSync(sonda), false);
@@ -167,7 +168,7 @@ test('GL3: a sessao de outra thread, confinada no proprio dominio, nao acha o to
     const lista = path.join(irma, 'pastas');
     fs.writeFileSync(lista, `${irma}\n`);
     for (const [quem, pid] of [['grok', grok.pid], ['supervisor', grok.pai]] as const) {
-      const leitura = spawnSync('python3', ['-I', LANCADOR_DO_LANDLOCK, lista, '/bin/cat', `/proc/${pid}/environ`], { encoding: 'utf8', timeout: 60000 });
+      const leitura = spawnSync('python3', ['-I', LANCADOR_DO_LANDLOCK, lista, '/bin/cat', `/proc/${pid}/environ`], { encoding: 'utf8' });
       assert.notEqual(leitura.status, 0, `a irma confinada nao le o environ do ${quem}`);
       assert.equal(leitura.stdout.includes(token!), false);
     }
@@ -213,7 +214,8 @@ test('GL4: com o grok nao despejavel, o dono legivel de fora da arvore recusa, e
     const t = novaThread(p.carregado, { nome: 'gl4', modo: 'auto', criarWorktree: true }).thread;
     const logPath = path.join(dirThread(p.dir, t.id), 'sessoes', `${randomUUID()}.grok.jsonl`);
     fs.mkdirSync(path.dirname(logPath), { recursive: true });
-    esperarCondicao(() => { try { fs.readdirSync(`/proc/${grok.pid}/fd`); return false; } catch { return true; } }, 10000);
+    esperarEvento(() => { try { fs.readdirSync(`/proc/${grok.pid}/fd`); return null; } catch { return true; } },
+      'descritores do processo Grok ficam inacessíveis');
     gravarAtomico(`${logPath}.process.json`, { schema: 'ork.codex-process/v1', iniciadoEm: new Date().toISOString(),
       supervisor: identidadeProcesso(process.pid), filho: identidadeProcesso(grok.pid!) });
     const s = iniciarServidorDoGrok({ projeto: fs.realpathSync(p.dir), threadId: t.id, dispatchId: randomUUID(), permissoesFilho: 'worktree',
@@ -231,11 +233,14 @@ test('GL4: com o grok nao despejavel, o dono legivel de fora da arvore recusa, e
       assert.equal(doTeste, 403, 'o dono legivel de fora da arvore recusa, mesmo com o token certo');
       // O cliente que tambem nao se le, como o proprio grok nao despejavel: vale so o token, e o log diz isso.
       const cliente = spawnSync('python3', ['-I', '-c', CLIENTE_NAO_DESPEJAVEL, String(s.porta)],
-        { encoding: 'utf8', timeout: 30000, env: { ...process.env, ORK_TESTE_TOKEN: s.token } });
+        { encoding: 'utf8', env: { ...process.env, ORK_TESTE_TOKEN: s.token } });
       assert.equal(cliente.stdout.trim(), '200', cliente.stderr);
       const log = fs.readFileSync(arquivosDoServidorGrok(logPath).stderrPath, 'utf8');
       assert.match(log, /conexao recusada: conexao de processo fora da arvore do grok/);
       assert.match(log, /o grok nao deixa ler os descritores dele; a conexao vale so pelo token/);
-    } finally { s.encerrar(); esperarCondicao(() => estadoProcesso(s.processo) === 'ausente', 15000); }
+    } finally {
+      s.encerrar();
+      esperarEvento(() => estadoProcesso(s.processo) === 'ausente' ? true : null, 'processo do servidor Grok termina');
+    }
   } finally { grok.kill('SIGKILL'); p.limpar(); }
 });

@@ -1,0 +1,15 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "O recibo do processo Grok chega com um código de saída defeituoso depois da espera pelo arquivo.",
+  "mutantes": [
+    {
+      "id": "GROK-RECIBO-SAIDA",
+      "descricao": "o recibo de sucesso informa falha",
+      "modulo": "adapters/codex-runner",
+      "de": "exitCode: code,",
+      "para": "exitCode: code === 0 ? 1 : code,",
+      "teste": "grok",
+      "nome": "^GK8:"
+    }
+  ]
+}
