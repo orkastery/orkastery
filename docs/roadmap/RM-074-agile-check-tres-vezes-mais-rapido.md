@@ -426,6 +426,26 @@ recibo persistido e prova caminho, `realpath`, dispositivo e permissões iguais;
 quando a lane recebe outro `TMPDIR` de propósito, a recusa por ambiente funcional
 divergente permanece.
 
+O GO-FIX mostrou uma segunda divergência no ambiente mínimo do verify: um shell
+não interativo podia carregar a inicialização do usuário na cadeia aninhada e
+prefixar `/usr/bin` ao `PATH` da lane. Além disso, a lane retirava
+`ORK_CHECK_MODO`, enquanto a assinatura esperada da claim ainda o conservava.
+Agora uma única função produz o ambiente que o teste executa e a assinatura que o
+verify compara. Ela restaura o `PATH` recebido antes do transporte por shell e npm,
+retira das duas rotas as mesmas variáveis da rodada e aplica os mesmos acréscimos.
+`PATH` continua funcional e qualquer valor diferente continua recusando o
+reaproveitamento; `ORK_CHECK_MODO` sai do ambiente real das duas rotas antes do
+teste. Os shells da cadeia também são abertos sem arquivos de inicialização.
+
+A fixture da AG55 monta o próprio ambiente, inclusive a forma mínima usada pelo
+verify, sem herdar o processo que a chamou. Ela prova reaproveitamento nas duas
+formas e recusa quando o `TMPDIR` ou o `PATH` da lane divergem. Os nomes dos casos
+voltam a ser estáveis e o diagnóstico temporário por nome, gancho final e HMAC não
+faz parte do produto. O script das lanes não traz chave de fixture: chamada externa
+sem plano nem relatório conserva um único `node --test` com concorrência; a rota
+do verify usa processos isolados por arquivo para produzir a evidência nominal. A
+leitura alternativa do HEAD só aceita o layout de checkout criado pela fixture.
+
 Quando uma cadeia fechada de `grep -q`, `node --test` ou auditoria TAP aguardava as
 lanes e foi recusada, claims consecutivas de arquivos distintos recebem vagas do
 agendador. Claims com o mesmo `claim.arquivo` mantêm a ordem; uma claim de outra
@@ -636,7 +656,7 @@ A numeração segue a ordem do pedido. A ordem de execução recomendada é a da
 | M6 Reserva medida e carga externa | CPU da integração inclui containers, devolução ocorre por peça, concorrência só abre com perfil completo; modelos restantes são copiados por caso e a bancada mede carga externa | Nenhum degrau ultrapassa a capacidade; perfil incompleto conserva reserva; par acima do limiar de carga externa é descartado; mesmos casos e asserções; cinco mutantes mortos; ganho depende da bancada do host |
 | M7 Atribuição e cache por conteúdo | A bancada separa CPU da rodada e carga externa; integração mede deltas por fonte; o Agile reaproveita a varredura somente com conteúdo compatível; razões fria e morna ficam separadas | Atribuição incerta entra na carga externa; pico impossível não vira perfil; regra entre arquivos ou registro indisponível força varredura integral; ganho depende da bancada do host |
 | M8 Agendador em degraus | Sonda com várias amostras, capacidade efetiva proporcional e estado `degradado` distinto de `fallback` | Pico isolado não muda o plano; `steal` acima do limiar reduz cotas e preserva o paralelo; carga do próprio verify não tira CPU; só a perda do mínimo estrutural ou a máquina ocupada voltam à ordem do Classic, com a paralelização do Classic; sete mutantes mortos; Classic intacto |
-| M12 Claims pelas lanes | Nas rodadas Agile com lanes, um `TMPDIR` pertence à rodada e é compartilhado literalmente por lanes e claims; recusas elegíveis usam o agendador e o recibo explica cada decisão | Fixture diferencial confere o ambiente observado e o `verify_run`; TMPDIR divergente, falha, `skip`/`todo`, HEAD, prefixo, mínimo, forma TAP e guarda divergentes continuam executando a claim inteira; ordem e barreiras permanecem; Classic intacto |
+| M12 Claims pelas lanes | Nas rodadas Agile com lanes, uma regra única monta e assina o ambiente funcional executado por lanes e claims; o `TMPDIR` pertence à rodada, o `PATH` permanece funcional e recusas elegíveis usam o agendador | Fixture autocontida confere o ambiente comum e o `verify_run`; TMPDIR ou PATH divergente, falha, `skip`/`todo`, HEAD, prefixo, mínimo, forma TAP e guarda divergentes continuam executando a claim inteira; chamada externa das lanes conserva um único runner, ordem e barreiras permanecem e o Classic fica intacto |
 | F2 CPU da suíte (demais fatias) | Os arquivos de teste mais caros que continuam fora da M1, a eficiência de paralelismo das lanes e a cadeia varredura e integração, com orçamento que vigia o crescimento | Evolução até cerca de 1,7 vez contra o Classic, no mesmo commit, máquina e bateria; nenhum caso removido; cada ganho medido em razão e CPU da suíte |
 | F3 Memória | O teto da D2 aplicado à varredura do grupo e às lanes, medindo o que isso custa na razão contra o Classic | Pico agregado dentro do teto em três rodadas; varredura com as nove ferramentas e zero achado novo ou desaparecido por impressão digital; custo na razão medido e registrado, e aceito pelo dono se tirar a meta da D1 do alcance |
 | F4 Dívida da RM-072 que pesa no tempo ou na confiança | O que a tabela "A dívida da RM-072" diz que entra: redação do motivo da peça `imagem-de-lint`, a lane caída sem veredito e o texto do gate, a data sem ano e o caso de `GMT+0` do snapshot de locale, os casos que faltam, a paridade do `tsgo` fora da thread de origem e as peças em fallback | Cada item da tabela com caso de teste que falha sem a correção; nenhum arquivo ou categoria de varredura removido; peças `tsgo`, `cache-semgrep` e binários nativos com o motivo do fallback medido e, onde o fallback some, o ganho em percentual da parede pelo ledger |
@@ -771,3 +791,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-11-03 | M8 e M9 em produção na 0.6.5. M10 (seleção do `node --test` pelo grafo de import) arquivada sem merge | Cinco CHECKs da thread `ork-rm074m10sele` com PRECISA DE MUDANÇA; decisão 2a do dono em 03/11/2026 | Julio |
 | 2026-11-03 | GL2 e GL3 passam a encerrar no erro do watcher, e os dois lados do aperto de mão acompanham a identidade do outro processo até confirmação, saída ou teto absoluto | A prova sob disputa de CPU mostrou o watcher sem anúncio e a fase sem `phase_result`; testes herméticos usam tempo injetado e mutantes independentes | Thread `ork-rm074gl2gl3s` (#Auto) |
 | 2026-11-05 | M12 passa a compartilhar o `TMPDIR` da rodada entre lanes e claims, mantém a recusa quando o ambiente diverge, agenda recusas elegíveis e grava a decisão por claim | CHECK independente da thread `ork-rm074m12clai`, fixture diferencial, recibo `verify_run` e mutantes do contrato | Thread `ork-rm074m12clai` (#Auto) |
+| 2026-11-06 | GO-FIX 2 centraliza o ambiente funcional executado e assinado, preserva o PATH original através de shell e npm, retira variáveis da rodada nas duas rotas e fecha o escopo de fixture do script das lanes | Reprodução autocontida do ambiente mínimo do verify, AG55, testes do script e mutantes de TMPDIR e PATH; ganho continua pendente da bancada | Thread `ork-rm074m12clai` (#Auto) |
