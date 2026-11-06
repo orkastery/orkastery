@@ -198,6 +198,8 @@ test('TL9: a hermetica devolve as vagas sem passar da CPU, e a integracao preser
   const texto = fs.readFileSync(SCRIPT, 'utf8');
   assert.match(texto, /function rodarPoolDeArquivos/, 'a hermetica tem o pool dinamico por arquivo');
   assert.match(texto, /function rodarProcessoUnico/, 'sem plano, um unico node --test conserva o contrato externo');
+  assert.match(texto, /process\.env\.ORK_LANES_DIR \? \['--experimental-test-isolation=none'\] : \[\]/,
+    'somente a pasta declarada de fixture retira o segundo isolamento do runner unico');
   assert.match(texto, /dinamico \|\| precisaDeEvidenciaNominal[\s\S]*\? rodarPoolDeArquivos[\s\S]*: rodarProcessoUnico/,
     'plano ou recibo nominal usam processos por arquivo; chamada externa simples usa um node --test');
   assert.doesNotMatch(texto, /ORK_LANES_EVIDENCIA_NOMINAL/,

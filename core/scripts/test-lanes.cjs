@@ -222,7 +222,10 @@ const caminhoDoTeste = (dir, nome) => (process.env.ORK_LANES_DIR
 function rodarProcessoUnico({ arquivos, dir, env, pastaDaLane, vagas }) {
   return new Promise((resolve) => {
     const reporter = path.join(pastaDaLane, 'lane.json');
-    const args = ['--test', `--test-concurrency=${vagas}`, '--test-reporter=tap', '--test-reporter-destination=stdout',
+    // ORK_LANES_DIR ja declara uma fixture com arquivos descartaveis. Ela recebe um processo exclusivo e pode retirar
+    // o segundo isolamento para que o TAP preserve o nome do caso; a lane real conserva o isolamento padrao do runner.
+    const isolamentoDaFixture = process.env.ORK_LANES_DIR ? ['--experimental-test-isolation=none'] : [];
+    const args = ['--test', ...isolamentoDaFixture, `--test-concurrency=${vagas}`, '--test-reporter=tap', '--test-reporter-destination=stdout',
       `--test-reporter=${REPORTER}`, `--test-reporter-destination=${reporter}`, ...arquivos.map((nome) => caminhoDoTeste(dir, nome))];
     const filho = spawn(process.execPath, args, { cwd: CORE, env, stdio: ['ignore', 'inherit', 'inherit'] });
     filho.on('error', () => resolve({ code: 1, medidas: {}, testes: [] }));
