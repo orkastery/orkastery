@@ -97,7 +97,7 @@ import {
   textoDoAchado,
 } from './divida';
 import { definicaoDaVariante, parseVariante, tabelaDeVariantes, VARIANTES } from './ciclos';
-import { adicionarClaim, anexarComando, retirarClaim, tabelaDeClaims } from './claims';
+import { adicionarClaim, anexarComando, MotivoTipoDaRetirada, retirarClaim, retirarClaimTipada, tabelaDeClaims } from './claims';
 import { conferirClaims, ErroDeConferencia, FORMATO_DA_CONFERENCIA, idsDeClaims, textoDaConferencia } from './claims-conferir';
 import { exigirCatalogoDoPacote } from './catalogo';
 import { doctor, doctorJson } from './doctor';
@@ -204,7 +204,7 @@ import { ambienteDoDespacho as ambienteDoDespachoCodex, conferirAuth as conferir
 import { ambienteDoFilho as ambienteDoFilhoGrok, comandoDeLogin as comandoDeLoginGrok, conferirAuth as conferirAuthGrok } from './adapters/grok';
 import {
   assumirConducao, canalDoProcesso, conducaoDaThread, ErroDeConducao, ESPERA_PADRAO_MS, esperarConducaoLivre, liberarSeOrfa,
-  textoDoPedidoRepetido, textoDoStatusDaConducao,
+  identidadeDoAmbiente, textoDoPedidoRepetido, textoDoStatusDaConducao,
 } from './conducao';
 import { baterSentinela, desligarSentinela, statusDaSentinela, textoDoStatusDaSentinela } from './conducao-sentinela';
 import { gravarAutorizacao, lerAutorizacao, linhaDaAutorizacao, textoDaAutorizacao } from './autorizacao-duravel';
@@ -1445,13 +1445,39 @@ function comandoClaims(args: Args): number {
     const id = args.posicionais[2];
     const claimId = args.posicionais[3];
     const motivo = texto(args.opcoes.motivo);
+    const motivoTipo = texto(args.opcoes['motivo-tipo']) as MotivoTipoDaRetirada | undefined;
+    const substituidaPor = texto(args.opcoes['substituida-por']);
     if (!id || !claimId || !motivo) {
       console.error(mc.usoRetirar);
       return 2;
     }
-    const claim = comLocale('pt-BR', () => retirarClaim(carregado.raiz, id, claimId, motivo));
-    console.log(mc.retirada(claim.id, id));
-    console.log(mc.campoAlegacao(claim.alegacao));
+    const dispatchId = identidadeDoAmbiente(id, process.env, carregado.raiz);
+    const autor = dispatchId ? { tipo: 'sessao' as const, id: dispatchId } : { tipo: 'dono' as const, id: 'terminal-local' };
+    if (!motivoTipo) {
+      const claim = comLocale('pt-BR', () => retirarClaim(carregado.raiz, id, claimId, motivo, autor));
+      console.log(mc.retirada(claim.id, id));
+      console.log(mc.retiradaTipada(false));
+      console.log(mc.autorDaRetirada(autor.tipo, autor.id));
+      console.log(mc.campoAlegacao(claim.alegacao));
+      console.log(mc.campoMotivo(motivo));
+      console.log(mc.historicoContinua);
+      return 0;
+    }
+    const resultado = comLocale('pt-BR', () => retirarClaimTipada(carregado.raiz, id, claimId,
+      { motivoTipo, substituidaPor, motivo, autor }));
+    if (resultado.estado === 'pendente-do-dono') {
+      abrirPedidoGate(carregado.raiz, id, resultado.motivo);
+      console.log(mc.retiradaPendente(claimId));
+      console.log(mc.retiradaTipada(true));
+      console.log(mc.autorDaRetirada(autor.tipo, autor.id));
+      console.log(mc.campoMotivo(motivo));
+      return 1;
+    }
+    console.log(mc.retirada(resultado.claim.id, id));
+    console.log(mc.retiradaTipada(true));
+    console.log(mc.autorDaRetirada(autor.tipo, autor.id));
+    console.log(mc.substitutaDaRetirada(resultado.substituidaPor));
+    console.log(mc.campoAlegacao(resultado.claim.alegacao));
     console.log(mc.campoMotivo(motivo));
     console.log(mc.historicoContinua);
     return 0;
