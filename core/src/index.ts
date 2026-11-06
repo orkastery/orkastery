@@ -250,7 +250,7 @@ import { ehNomeDeForja } from './rede-forja';
 import { jsonDaRede, lerRede, textoDaRede } from './rede-status';
 import { lerLedger } from './ledger';
 import { gateDeTokens, textoDoGateDeTokens } from './tokens';
-import { ClasseDeFalha, ColecaoDoOrk, Fase, FASES, FonteDeMedida, Modo, MotivoGate, UniversoDaBusca } from './types';
+import { ClasseDeFalha, ColecaoDoOrk, DependenciaExternaDaClaim, Fase, FASES, FonteDeMedida, Modo, MotivoGate, UniversoDaBusca } from './types';
 import { PreparoDasDependencias, ultimaLinhaDoPreparo } from './dependencias-da-worktree';
 import { ESPERA_DA_FILA_PESADA_MS, gravarBaseline, linhasDaBaseline, textoDoVerify, verificar } from './verify';
 import { ErroDaFilaPesada, OcupanteDaFila } from './fila-pesada';
@@ -1366,12 +1366,14 @@ function comandoClaims(args: Args): number {
       return 2;
     }
     const comando = texto(args.opcoes.verificar) ?? texto(args.opcoes.verify);
+    const dependenciasExternas = (texto(args.opcoes['dependencia-externa']) ?? '').split(',').map((d) => d.trim()).filter(Boolean) as DependenciaExternaDaClaim[];
     const faseBruta = texto(args.opcoes.fase);
     const thread = lerThread(carregado.raiz, id);
     const claim = comLocale('pt-BR', () => adicionarClaim(carregado.raiz, id, {
       arquivo,
       alegacao,
       verificar: comando ? [comando] : [],
+      dependenciasExternas,
       fase: faseBruta ? exigirFase(thread, faseBruta) : undefined,
     }));
     console.log(mc.registrada(claim.id, id));

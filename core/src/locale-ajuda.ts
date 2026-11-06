@@ -150,7 +150,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
         [--limiares <arquivo>]                  os limiares do dono; o que faltar fica com a proposta, marcada
         [--publicar <arquivo>]                  grava a versão publicável, sem dado pessoal
 
-  claims add <thread-id> <arquivo> --claim "<alegacao>" [--verificar "<comando>"] [--fase F]
+  claims add <thread-id> <arquivo> --claim "<alegacao>" [--verificar "<comando>"] [--dependencia-externa rede,relogio] [--fase F]
                                             Registra alegacao verificavel da thread
   claims list <thread-id>                   Claims da thread e o estado de cada uma
   claims conferir <thread-id> --claims C1,C2|--tarefa T1 [--prazo S] [--json]
@@ -565,7 +565,7 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
         [--limiares <file>]                     the owner's thresholds; what is missing stays with the proposal, marked
         [--publicar <file>]                     writes the publishable version, without personal data
 
-  claims add <thread-id> <file> --claim "<claim>" [--verificar "<command>"] [--fase F]
+  claims add <thread-id> <file> --claim "<claim>" [--verificar "<command>"] [--dependencia-externa rede,relogio] [--fase F]
                                             Records a verifiable claim of the thread
   claims list <thread-id>                   Claims of the thread and the state of each one
   claims conferir <thread-id> --claims C1,C2|--tarefa T1 [--prazo S] [--json]

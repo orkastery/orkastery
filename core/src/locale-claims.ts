@@ -36,7 +36,7 @@ const ESTADOS_EN: Readonly<Record<string, string>> = {
 
 export const CLAIMS_PT_BR = {
   // ork claims add
-  usoAdd: 'uso: ork claims add <thread-id> <arquivo> --claim "<alegacao>" [--verificar "<comando>"]',
+  usoAdd: 'uso: ork claims add <thread-id> <arquivo> --claim "<alegacao>" [--verificar "<comando>"] [--dependencia-externa rede,relogio]',
   registrada: (id: string, thread: string) => `Claim ${id} registrada na thread ${thread}.`,
   campoArquivo: (arquivo: string) => `  arquivo    ${arquivo}`,
   campoAlegacao: (alegacao: string) => `  alegacao   ${alegacao}`,
@@ -138,7 +138,7 @@ export const CLAIMS_PT_BR = {
 export type MensagensDeClaims = typeof CLAIMS_PT_BR;
 
 export const CLAIMS_EN: MensagensDeClaims = {
-  usoAdd: 'usage: ork claims add <thread-id> <file> --claim "<statement>" [--verificar "<command>"]',
+  usoAdd: 'usage: ork claims add <thread-id> <file> --claim "<statement>" [--verificar "<command>"] [--dependencia-externa rede,relogio]',
   registrada: (id, thread) => `Claim ${id} recorded in thread ${thread}.`,
   campoArquivo: (arquivo) => `  file       ${arquivo}`,
   campoAlegacao: (alegacao) => `  statement  ${alegacao}`,
