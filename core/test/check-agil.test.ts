@@ -914,7 +914,8 @@ test('AG55: o verify_run do HEAD prova TMPDIR da rodada, reaproveitamento, recus
       delete process.env.NODE_TEST_CONTEXT;
       const tmpDaLaneDivergente = path.join(apoio, 'tmp-divergente');
       if (tmpdirDivergente) fs.mkdirSync(tmpDaLaneDivergente);
-      const comandoDaLane = `${tmpdirDivergente ? `TMPDIR=${tmpDaLaneDivergente} ` : ''}node ${SCRIPT_DAS_LANES} hermetica`;
+      const comandoDaLane = `${tmpdirDivergente ? `TMPDIR=${tmpDaLaneDivergente} ` : ''}` +
+        `ORK_LANES_EVIDENCIA_NOMINAL=1 node ${SCRIPT_DAS_LANES} hermetica`;
       comAgile(p, `  agile:\n    produto:\n      - "README.md"\n    test:\n      hermetica: "${comandoDaLane.replaceAll('"', '\\"')}"`);
       const { thread: t } = novaThread(p.carregado, { nome: 'recibo por claim', modo: 'auto' });
       adicionarClaim(p.dir, t.id, { arquivo: 'core/src/c1.ts', alegacao: 'forma C1',

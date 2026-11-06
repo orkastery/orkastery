@@ -173,7 +173,7 @@ test('TL9: a hermetica devolve as vagas sem passar da CPU, e a integracao preser
   assert.match(texto, /function rodarPoolDeArquivos/, 'a hermetica tem o pool dinamico por arquivo');
   assert.match(texto, /const plano = dinamico \?\? \{ inicial: vagas, aposVarredura: vagas, final: vagas, sinal: '' \}/,
     'sem sinal, o mesmo pool conserva a concorrencia da lane');
-  assert.match(texto, /process\.env\.ORK_LANES_DIR \? \['--experimental-test-isolation=none'\] : \[\]/,
+  assert.match(texto, /process\.env\[ENV_EVIDENCIA_NOMINAL_DA_FIXTURE\] === '1'/,
     'somente a fixture de arquivo exclusivo abre os nomes; a suite real conserva o isolamento do node --test');
   assert.doesNotMatch(texto, /setPriority/, 'o nice baixava so o processo do teste, nunca os containers dele');
 

@@ -45,6 +45,7 @@ const ENV_CPUS_APOS_VARREDURA = 'ORK_CHECK_CPUS_DA_LANE_APOS_VARREDURA';
 const ENV_CPUS_APOS_RESERVA = 'ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA';
 const ENV_SINAL_DA_RESERVA = 'ORK_CHECK_RESERVA_DEVOLVIDA';
 const ENV_CONTAINERS_DA_LANE = 'ORK_CHECK_CONTAINERS_DA_LANE';
+const ENV_EVIDENCIA_NOMINAL_DA_FIXTURE = 'ORK_LANES_EVIDENCIA_NOMINAL';
 
 /**
  * Quantos arquivos a lane roda ao mesmo tempo. O agendador passa a fatia calculada para esta rodada; sem ela, vale o
@@ -252,7 +253,8 @@ function rodarPoolDeArquivos({ arquivos, dir, env, pastaDaLane, plano }) {
         // A suite real conserva o isolamento por processo do `node --test`. A pasta de fixture, que ja entrega um
         // processo exclusivo para cada arquivo ao controlador, deixa o runner expor os casos ao reporter: assim a
         // prova operacional cobre o recibo nominal sem mudar a semantica da suite do produto.
-        const args = ['--test', ...(process.env.ORK_LANES_DIR ? ['--experimental-test-isolation=none'] : []),
+        const args = ['--test', ...(process.env[ENV_EVIDENCIA_NOMINAL_DA_FIXTURE] === '1'
+          ? ['--experimental-test-isolation=none'] : []),
           '--test-concurrency=1', '--test-reporter=tap',
           `--test-reporter-destination=${tap}`,
           `--test-reporter=${REPORTER}`, `--test-reporter-destination=${reporter}`, caminho(arquivo)];
@@ -322,6 +324,7 @@ function rodarLane(lane) {
   delete env[ENV_CPUS_APOS_VARREDURA];
   delete env[ENV_CPUS_APOS_RESERVA];
   delete env[ENV_SINAL_DA_RESERVA];
+  delete env[ENV_EVIDENCIA_NOMINAL_DA_FIXTURE];
   delete env.ORK_CHECK_CPUS_DOCKER;
   delete env.ORK_WORKERS;
   env.TMPDIR = tmpdirDaRodada ?? pastaDaLane;
