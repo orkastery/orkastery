@@ -51,8 +51,8 @@
       "id": "M10",
       "descricao": "o fix open trata parecer ausente como rodada vazia",
       "modulo": "fix",
-      "de": "if ((e as NodeJS.ErrnoException).code === 'ENOENT') {\n      throw new Error('fix.check.ausente: docs/check.md');\n    }",
-      "para": "if ((e as NodeJS.ErrnoException).code === 'ENOENT') return { veredito: null, sha256: null, achados: [] };",
+      "de": "if (e.code === 'ENOENT') {\n            throw new Error('fix.check.ausente: docs/check.md');\n        }",
+      "para": "if (e.code === 'ENOENT') return { veredito: null, sha256: null, achados: [] };",
       "teste": "rm079-fix",
       "nome": "^RM079 fix: parecer ausente"
     },
@@ -60,8 +60,8 @@
       "id": "M11",
       "descricao": "o fix open aceita parecer sem veredito reconhecido",
       "modulo": "fix",
-      "de": "if (linhasDeVeredito.length === 0) throw new Error('fix.check.veredito-ausente: docs/check.md');",
-      "para": "if (false) throw new Error('fix.check.veredito-ausente: docs/check.md');",
+      "de": "if (linhasDeVeredito.length === 0)\n        throw new Error('fix.check.veredito-ausente: docs/check.md');",
+      "para": "if (false)\n        throw new Error('fix.check.veredito-ausente: docs/check.md');",
       "teste": "rm079-fix",
       "nome": "^RM079 fix: parecer sem veredito"
     },

@@ -24,7 +24,7 @@
       "id": "M3",
       "descricao": "a substituta aceita comando verificar alterado depois do verify_run",
       "modulo": "claims",
-      "de": "if (!Array.isArray(prova.verificar)\n        || JSON.stringify(prova.verificar) !== JSON.stringify(substituta.verificar)) {",
+      "de": "if (!Array.isArray(prova.verificar)\n            || JSON.stringify(prova.verificar) !== JSON.stringify(substituta.verificar)) {",
       "para": "if (false) {",
       "teste": "rm079-claims",
       "nome": "^RM079 retirada: substituta ativa"
