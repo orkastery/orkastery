@@ -200,6 +200,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   fix open <thread-id> [--so-claims]        GO-FIX: deriva a spec exata do CHECK reprovado
         [--reverify] [--json]                    (uma correcao por motivo tipado, tipo A ou B)
   fix list <thread-id> [--rodada N]         Correcoes da rodada e o veredito de cada uma
+  fix status <thread-id> [--rodada N]       Achados, commit que fechou e o que falta
+        [--json]
   fix reverify <thread-id> [--rodada N]     CHECK-REVERIFY com veredito POR correcao
         [--parcial] [--json]                     (--parcial e RECUSADO se houver tipo B)
 
@@ -615,6 +617,8 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
   fix open <thread-id> [--so-claims]        GO-FIX: derives the exact spec of the failed CHECK
         [--reverify] [--json]                    (one fix per typed reason, type A or B)
   fix list <thread-id> [--rodada N]         Fixes of the round and the verdict of each one
+  fix status <thread-id> [--rodada N]       Findings, closing commit, and remaining work
+        [--json]
   fix reverify <thread-id> [--rodada N]     CHECK-REVERIFY with a verdict PER fix
         [--parcial] [--json]                     (--parcial is REFUSED if there is a type B)
 

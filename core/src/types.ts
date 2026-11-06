@@ -1986,8 +1986,8 @@ export interface Correcao {
   /** Rodada de GO-FIX em que a correcao nasceu (1-based). */
   rodada: number;
   tipo: TipoDeCorrecao;
-  /** Motivo tipado que originou a correcao. Nunca prosa: sempre do catalogo do B1. */
-  origem: MotivoGate;
+  /** Motivo tipado do verify ou achado estruturado do parecer independente. */
+  origem: MotivoGate | 'check.finding';
   /** O que exatamente falhou: `claim C2`, `comando test`, `artefato X`. */
   alvo: string;
   /** A spec exata do que corrigir, montada do resultado real do `ork verify`. */
@@ -1999,6 +1999,13 @@ export interface Correcao {
   estado: 'aberta' | 'aprovada' | 'reprovada';
   vereditoEm: string | null;
   detalheDoVeredito: string;
+  /** HEAD que fechou a correcao; null enquanto ela nao foi aprovada. */
+  commitQueFechou?: string | null;
+  /** Localizacao estruturada quando a correcao nasceu do parecer. */
+  achado?: { id: string; severidade: 'bloqueador' | 'aviso' | 'sugestao'; arquivo: string; linha: number;
+    reproduzir?: string };
+  /** Parecer negativo que abriu a correcao; um CHECK novo precisa muda-lo para fecha-la. */
+  parecerSha256?: string;
   criadaEm: string;
 }
 

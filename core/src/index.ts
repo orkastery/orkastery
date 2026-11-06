@@ -168,6 +168,7 @@ import {
   abrirRodada,
   correcoesDaRodada,
   reverificar,
+  statusDaRodada,
   textoDaRodada as textoDaRodadaDeFix,
   textoDoReverify,
   ultimaRodada,
@@ -1103,6 +1104,7 @@ function comandoPhase(args: Args): number {
     console.log(tabelaDoLedger(carregado.raiz, id));
     return 0;
   }
+
   console.error(msg().cli.subcomandoDesconhecido('phase', sub));
   return 2;
 }
@@ -1997,6 +1999,28 @@ function comandoFix(args: Args): number {
         ])
       )
     );
+    return 0;
+  }
+
+  if (sub === 'status') {
+    if (!id) {
+      console.error(mf.usoStatus);
+      return 2;
+    }
+    const rodadaBruta = texto(args.opcoes.rodada);
+    const status = statusDaRodada(carregado.raiz, id, rodadaBruta ? Number(rodadaBruta) : undefined);
+    if (args.opcoes.json === true) {
+      console.log(JSON.stringify(status, null, 2));
+      return 0;
+    }
+    console.log(mf.status(status.rodada, id));
+    console.log(mf.estado(status.estado));
+    console.log(mf.faltam(status.faltam.length ? status.faltam.join(', ') : mf.semFaltas));
+    if (status.achados.length) {
+      console.log('');
+      console.log(tabela([...mf.colunasStatus], status.achados.map((a) => [a.correcao, a.achado ?? '-', a.origem,
+        a.arquivo && a.linha ? `${a.arquivo}:${a.linha}` : '-', a.estado, a.commitQueFechou ?? '-'])));
+    }
     return 0;
   }
 
