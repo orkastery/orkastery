@@ -6,6 +6,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Alterado
+
+- **Recibos de verify e revisão por conteúdo ([RM-078](docs/roadmap/RM-078-recibo-valido-enquanto-nada-muda.md)):** o recibo passa a depender do HEAD provado, das claims ativas e do plano; GO sem commit não repete prova quando essa chave permanece equivalente, e só sessão com commit confirmado conta como autora.
+
 ## [0.6.6] - 2026-11-06
 
 O despacho espera o watcher de sessão ficar pronto enquanto ele vive, em vez de desistir num prazo curto fixo; com a CPU disputada, a fase volta a fechar (RM-074).

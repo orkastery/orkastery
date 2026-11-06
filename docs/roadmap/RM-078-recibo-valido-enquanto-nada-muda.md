@@ -8,20 +8,22 @@ features: []
 owner: Julio
 atualizado_em: 2026-10-31T12:00:00-03:00
 estado:
-  ciclo: Discovery
-  documentacao: Rascunho
-  codigo: Não iniciado
-  testes: Não iniciados
+  ciclo: Em desenvolvimento
+  documentacao: Em revisão
+  codigo: Em desenvolvimento
+  testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
+    commit: f9685ef
     pr: null
 sdlc:
-  thread: null
-  modo: null
+  thread: ork-rm078recibod
+  modo: "#Auto"
+  fase: GO
+  status: aberta
 ---
 
 # RM-078: Recibo de verify e de revisão válido enquanto HEAD, claims e plano não mudam
@@ -32,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Discovery | Não iniciado | Não iniciados | Não implantado | Flag desligada |
+| Em desenvolvimento | Em desenvolvimento | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -75,16 +77,21 @@ sdlc:
 
 ## Estado com evidências
 
+A thread `ork-rm078recibod` implementa a chave canônica em `core/src/recibo-prova.ts`, grava o recibo no
+`verify_run` e o reavalia em `core/src/noctum-provas.ts`. Os casos focados estão em
+`core/test/rm078-recibo.test.ts`; os mutantes de HEAD, claims e plano estão em
+`core/test/mutantes/rm078.json`. O verify oficial, o CHECK independente e o SHIP continuam pendentes.
+
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
 <!-- ork-docs:estado:inicio -->
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-10-31 | Julio |
-| Documentação | Rascunho | — | 2026-10-31 | Julio |
-| Código | Não iniciado | — | 2026-10-31 | Julio |
-| Testes | Não iniciados | — | 2026-10-31 | Julio |
+| Ciclo do item | Em desenvolvimento | thread `ork-rm078recibod` | 2026-11-06 | Julio |
+| Documentação | Em revisão | esta página | 2026-11-06 | Julio |
+| Código | Em desenvolvimento | commit `f9685ef` | 2026-11-06 | Julio |
+| Testes | Em execução | `core/test/rm078-recibo.test.ts` | 2026-11-06 | Julio |
 | Deploy | Não implantado | — | 2026-10-31 | Julio |
 | Exposição | Flag desligada | — | 2026-10-31 | Julio |
 | Habilitação | Pendente | — | 2026-10-31 | Julio |
@@ -100,3 +107,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-31 | Item criado em Discovery | Achados de condução em rede, conferidos contra a 0.6.2 | Julio (pedido de 31/10/2026) |
+| 2026-11-06 | Implementação e testes focados em andamento | Thread `ork-rm078recibod`, commits atômicos até `f9685ef` | Codex, modo `#Auto` |
