@@ -10,6 +10,33 @@
       "para": "exitCode: code === 0 ? 1 : code,",
       "teste": "grok",
       "nome": "^GK8:"
+    },
+    {
+      "id": "GROK-PROCESSO-ESPERA",
+      "descricao": "a espera dos recibos e streams rejeita o evento real retido",
+      "arquivo": "core/dist-test/test/espera-evento.js",
+      "de": "function esperarEvento(ler, descricao, opcoes = {}) {\n    for (;;) {\n        const evento = ler();\n        if (evento !== false && evento !== null && evento !== undefined)\n            return evento;",
+      "para": "function esperarEvento(ler, descricao, opcoes = {}) {\n    for (;;) {\n        const evento = ler();\n        if (evento !== false && evento !== null && evento !== undefined)\n            throw new Error('mutante: evento do processo rejeitado');",
+      "teste": "grok",
+      "nome": "^GK(?:8|16|17):"
+    },
+    {
+      "id": "GROK-LANDLOCK-RESTRICAO",
+      "descricao": "o processo deixa de se tornar não despejável",
+      "arquivo": "core/dist-test/test/rm067-grok-landlock.test.js",
+      "de": "'import ctypes,time; ctypes.CDLL(None).prctl(4,0,0,0,0); time.sleep(120)'",
+      "para": "'import time; time.sleep(120)'",
+      "teste": "rm067-grok-landlock",
+      "nome": "^GL4:"
+    },
+    {
+      "id": "GROK-EXTERNO-ESPERA",
+      "descricao": "a espera do MCP externo rejeita o evento real retido",
+      "arquivo": "core/dist-test/test/espera-evento.js",
+      "de": "function esperarEvento(ler, descricao, opcoes = {}) {\n    for (;;) {\n        const evento = ler();\n        if (evento !== false && evento !== null && evento !== undefined)\n            return evento;",
+      "para": "function esperarEvento(ler, descricao, opcoes = {}) {\n    for (;;) {\n        const evento = ler();\n        if (evento !== false && evento !== null && evento !== undefined)\n            throw new Error('mutante: evento do MCP externo rejeitado');",
+      "teste": "rm067-grok-mcp-externo",
+      "nome": "^GX(?:3|4|6|7|13):"
     }
   ]
 }

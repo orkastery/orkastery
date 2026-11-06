@@ -26,7 +26,7 @@ import { lerLedger } from '../src/ledger';
 import { rodarFase } from '../src/phase';
 import { dirTemporario, projetoTemporario } from './apoio';
 import { esperarFimDaFase } from './controller-simulado';
-import { esperarEvento } from './espera-evento';
+import { esperarEventoDepoisDaFronteira } from './espera-evento';
 import { grokFalso } from './grok-falso';
 import { LANCADOR_DO_LANDLOCK, semLandlock } from './ambiente-de-teste';
 
@@ -214,8 +214,21 @@ test('GL4: com o grok nao despejavel, o dono legivel de fora da arvore recusa, e
     const t = novaThread(p.carregado, { nome: 'gl4', modo: 'auto', criarWorktree: true }).thread;
     const logPath = path.join(dirThread(p.dir, t.id), 'sessoes', `${randomUUID()}.grok.jsonl`);
     fs.mkdirSync(path.dirname(logPath), { recursive: true });
-    esperarEvento(() => { try { fs.readdirSync(`/proc/${grok.pid}/fd`); return null; } catch { return true; } },
-      'descritores do processo Grok ficam inacessíveis');
+    const identidadeDoGrok = esperarEventoDepoisDaFronteira(() => identidadeProcesso(grok.pid!) ?? null,
+      'identidade do processo Grok fica observável', 30_000, { falhaTerminal: () => grok.exitCode !== null || grok.signalCode !== null
+        ? `processo saiu (${grok.exitCode ?? grok.signalCode}) antes de publicar a identidade` : null });
+    esperarEventoDepoisDaFronteira(() => {
+      if (estadoProcesso(identidadeDoGrok) !== 'vivo') return null;
+      try { fs.readdirSync(`/proc/${identidadeDoGrok.pid}/fd`); return null; }
+      catch (e) {
+        const codigo = (e as NodeJS.ErrnoException).code;
+        if (codigo !== 'EACCES' && codigo !== 'EPERM') throw e;
+        return estadoProcesso(identidadeDoGrok) === 'vivo' ? true : null;
+      }
+    }, 'descritores do mesmo processo Grok vivo ficam inacessíveis por permissão', 30_000, {
+      falhaTerminal: () => estadoProcesso(identidadeDoGrok) === 'vivo' ? null :
+        'o processo Grok saiu antes de o acesso aos descritores ser negado',
+    });
     gravarAtomico(`${logPath}.process.json`, { schema: 'ork.codex-process/v1', iniciadoEm: new Date().toISOString(),
       supervisor: identidadeProcesso(process.pid), filho: identidadeProcesso(grok.pid!) });
     const s = iniciarServidorDoGrok({ projeto: fs.realpathSync(p.dir), threadId: t.id, dispatchId: randomUUID(), permissoesFilho: 'worktree',
@@ -240,7 +253,8 @@ test('GL4: com o grok nao despejavel, o dono legivel de fora da arvore recusa, e
       assert.match(log, /o grok nao deixa ler os descritores dele; a conexao vale so pelo token/);
     } finally {
       s.encerrar();
-      esperarEvento(() => estadoProcesso(s.processo) === 'ausente' ? true : null, 'processo do servidor Grok termina');
+      esperarEventoDepoisDaFronteira(() => estadoProcesso(s.processo) === 'ausente' ? true : null,
+        'processo do servidor Grok termina', 30_000);
     }
   } finally { grok.kill('SIGKILL'); p.limpar(); }
 });
