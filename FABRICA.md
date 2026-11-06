@@ -5,9 +5,9 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado | Sessão |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| vps | ork-rm074m11clai | #Auto | CHECK | codex gpt-5.6-sol/xhigh | RM-074 | — | 06/11 11:45 | parada desde 04/11 19:53: sessão 01a1a8ba encerrada (completed) |
-| vps | ork-rm074m12clai | #Auto | GO | codex gpt-5.6-sol/xhigh | RM-074 | — | 06/11 11:45 | parada desde 11:34: sessão 01a1b0a0 encerrada (completed) |
-| vps | ork-rm079claimsq | #Auto | GOAL | codex gpt-5.6-sol/xhigh | RM-079 | — | 06/11 11:45 | viva |
-| vps | ork-testesdoprod | #Auto | GOAL | codex gpt-5.6-sol/xhigh | — | — | 06/11 11:45 | parada desde 10:58: sessão 01a1b0bd encerrada (completed) |
+| vps | ork-rm074m11clai | #Auto | CHECK | codex gpt-5.6-sol/xhigh | RM-074 | — | 06/11 12:00 | parada desde 04/11 19:53: sessão 01a1a8ba encerrada (completed) |
+| vps | ork-rm074m12clai | #Auto | GO | codex gpt-5.6-sol/xhigh | RM-074 | — | 06/11 12:00 | parada desde 11:34: sessão 01a1b0a0 encerrada (completed) |
+| vps | ork-rm079claimsq | #Auto | GOAL | codex gpt-5.6-sol/xhigh | RM-079 | — | 06/11 12:00 | viva |
+| vps | ork-testesdoprod | #Auto | GOAL | codex gpt-5.6-sol/xhigh | — | — | 06/11 12:00 | parada desde 10:58: sessão 01a1b0bd encerrada (completed) |
 
 Horários de Brasília.
