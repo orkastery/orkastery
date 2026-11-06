@@ -85,7 +85,7 @@
   "cli claims: verificar": "[saida 0]\nClaim C2 agora tem comando de verificacao.\n  verificar  test -f README.md\n  estado     pendente\n\nProve agora: ork verify loc-locc\n",
   "cli claims: verificar claim que nao existe": "[saida 1]\n[stderr]\nerro: claim \"C99\" nao existe na thread loc-locc\n",
   "cli claims: retirar sem argumentos": "[saida 2]\n[stderr]\nuso: ork claims retirar <thread-id> <claim-id> --motivo \"<motivo>\"\n",
-  "cli claims: retirar": "[saida 0]\nClaim C3 retirada da thread loc-locc.\n  alegacao   a suite passa\n  motivo     suite inteira nao cabe na claim\n  o historico da alegacao continua no claims.jsonl e no ledger.\n",
+  "cli claims: retirar": "[saida 0]\nClaim C3 retirada da thread loc-locc.\n  retirada    nao tipada (compatibilidade)\n  autor       dono:terminal-local\n  alegacao   a suite passa\n  motivo     suite inteira nao cabe na claim\n  o historico da alegacao continua no claims.jsonl e no ledger.\n",
   "cli claims: ausente sem argumentos": "[saida 2]\n[stderr]\nuso: ork claims ausente <thread-id> --paths A,B --motivo \"<motivo>\" [--commit SHA]\n",
   "cli claims: ausente": "[saida 0]\nAusencia de prova registrada na thread loc-locc: a.ts, b.ts.\n  motivo     so docs\n",
   "cli claims: list sem id": "[saida 2]\n[stderr]\nuso: ork claims list <thread-id>\n",
