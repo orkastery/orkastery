@@ -23,6 +23,7 @@ import { TESTES_DE_INTEGRACAO_LOCAL } from './integracoes-locais';
 const TIMEOUT_BIN = '/usr/bin/timeout';
 const NICE_BIN = '/usr/bin/nice';
 const TIME_BIN = '/usr/bin/time';
+const BASH_BIN = '/usr/bin/bash';
 const CONTRATO_PERFIL_INTEGRACAO = 'ork.check.cpu-integracao/v2';
 const INTERVALO_CPU_MS = 100;
 
@@ -88,7 +89,7 @@ interface PerfilCpuIntegracao {
 
 /** O argv de um item: `nice` (se pedido e existir), `timeout(1)` (se existir) e o `argv` do item ou `bash -c`. */
 export function argvDoItem(item: ItemParalelo, comGrupo = fs.existsSync(TIMEOUT_BIN), comNice = fs.existsSync(NICE_BIN)): string[] {
-  const programa = item.argv?.length ? item.argv : ['bash', '-c', item.comando];
+  const programa = item.argv?.length ? item.argv : [BASH_BIN, '--noprofile', '--norc', '-c', item.comando];
   const base = comGrupo ? [TIMEOUT_BIN, '--kill-after=15', `${Math.ceil(item.prazoMs / 1000)}`, ...programa] : programa;
   return item.nice && comNice ? [NICE_BIN, '-n', String(item.nice), ...base] : base;
 }

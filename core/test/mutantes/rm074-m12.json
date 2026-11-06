@@ -77,9 +77,18 @@
     {
       "id": "M9",
       "descricao": "a assinatura deixa de considerar o valor literal de TMPDIR",
-      "modulo": "check-agil",
-      "de": "'NODE_TEST_CONTEXT', 'NODE_COMPILE_CACHE'",
-      "para": "'TMPDIR', 'NODE_TEST_CONTEXT', 'NODE_COMPILE_CACHE'",
+      "modulo": "ambiente-funcional",
+      "de": "Object.entries(ambienteFuncionalDosTestes(base)).sort(([a], [b]) => a.localeCompare(b))",
+      "para": "Object.entries(ambienteFuncionalDosTestes(base)).filter(([nome]) => nome !== 'TMPDIR').sort(([a], [b]) => a.localeCompare(b))",
+      "teste": "check-agil",
+      "nome": "^AG55:"
+    },
+    {
+      "id": "M10",
+      "descricao": "a assinatura deixa de considerar o PATH funcional",
+      "modulo": "ambiente-funcional",
+      "de": "Object.entries(ambienteFuncionalDosTestes(base)).sort(([a], [b]) => a.localeCompare(b))",
+      "para": "Object.entries(ambienteFuncionalDosTestes(base)).filter(([nome]) => nome !== 'PATH').sort(([a], [b]) => a.localeCompare(b))",
       "teste": "check-agil",
       "nome": "^AG55:"
     }

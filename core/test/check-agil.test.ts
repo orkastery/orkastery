@@ -6,7 +6,7 @@
  * por "AGn:".
  */
 import { strict as assert } from 'node:assert';
-import { randomBytes } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { test, type TestContext } from 'node:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -24,10 +24,11 @@ import { lerLedger } from '../src/ledger';
 import { carregarManifesto } from '../src/manifest';
 import { dirThread, novaThread } from '../src/thread';
 import { ambienteDoModo, gravarBaseline, identidadeDoProduto, pecaDoAgendadorCpu, semVereditoPorTempo, textoDoVerify,
-  vereditoDaBaseline, verificar, verificarClaimsAgendadas, ExecutorVerify } from '../src/verify';
+  vereditoDaBaseline, verificar, verificarClaimsAgendadas, executar, ExecutorVerify } from '../src/verify';
 import { comLocale } from '../src/locale';
 import type { ResultadoDeComando } from '../src/types';
 import { exec } from '../src/util';
+import { ambienteFuncionalDosTestes, ENV_PATH_FUNCIONAL_DA_RODADA } from '../src/ambiente-funcional';
 import { ajustarManifesto, commitar, projetoTemporario } from './apoio';
 
 type Projeto = ReturnType<typeof projetoTemporario>;
@@ -895,35 +896,39 @@ test('AG54: recusas consecutivas usam vagas entre arquivos e preservam a ordem d
 
 async function executarAg55(t: TestContext): Promise<void> {
   const SCRIPT_DAS_LANES = path.resolve(__dirname, '../../scripts/test-lanes.cjs');
-  const rodar = (tmpdirDivergente: boolean) => {
-    const p = projetoTemporario(`ag55-${tmpdirDivergente ? 'divergente' : 'igual'}`);
+  type Variante = 'fixture' | 'verify-minimo';
+  type Divergencia = 'nenhuma' | 'tmpdir' | 'path';
+  const rodar = (variante: Variante, divergencia: Divergencia) => {
+    const p = projetoTemporario(`ag55-${variante}-${divergencia}`);
     const apoio = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag55-apoio-'));
-    const nomesDoAmbiente = ['ORK_LANES_DIR', 'ORK_LANES_INTEGRACAO', 'ORKASTERY_HOME', 'XDG_CACHE_HOME',
-      'PROVA_TMPDIR', 'PROVA_SAL', 'NODE_TEST_CONTEXT'];
-    const antes = Object.fromEntries(nomesDoAmbiente.map((nome) => [nome, process.env[nome]]));
+    const antes = { ...process.env };
     try {
       const testes = path.join(p.dir, 'core', 'dist-test', 'test'), prova = path.join(apoio, 'tmpdir-visto.jsonl');
-      const probe = "const fs = require('node:fs'); const { createHmac } = require('node:crypto'); " +
+      const home = path.join(apoio, 'home'), codexArg0 = path.join(apoio, 'codex-arg0'), codexPath = path.join(apoio, 'codex-path');
+      fs.mkdirSync(home); fs.mkdirSync(codexArg0); fs.mkdirSync(codexPath);
+      fs.writeFileSync(path.join(home, '.bashrc'), 'export PATH="/usr/bin:$PATH"\n');
+      const pathDaFixture = variante === 'verify-minimo'
+        ? `${codexArg0}:${codexPath}:/usr/bin:/bin` : '/usr/bin:/bin';
+      for (const nome of Object.keys(process.env)) delete process.env[nome];
+      Object.assign(process.env, {
+        HOME: home, LANG: 'C.UTF-8', LOGNAME: 'pessoa', USER: 'pessoa', SHELL: '/usr/bin/bash', TERM: 'xterm',
+        CODEX_HOME: path.join(apoio, 'codex-home'), ORKASTERY_HOME: path.join(apoio, 'ork-home'), PATH: pathDaFixture,
+        XDG_CACHE_HOME: path.join(apoio, 'cache'), ORK_LANES_DIR: testes, ORK_LANES_INTEGRACAO: '', PROVA_TMPDIR: prova,
+      });
+      fs.mkdirSync(process.env.CODEX_HOME!); fs.mkdirSync(process.env.ORKASTERY_HOME!);
+      const probe = "const fs = require('node:fs'); " +
         "const p = process.env.TMPDIR; const s = fs.statSync(p);\n" +
-        "const ambiente = Object.fromEntries(Object.entries(process.env).map(([k, v]) => " +
-        "[k, createHmac('sha256', process.env.PROVA_SAL).update(v).digest('hex')]));\n" +
         "fs.appendFileSync(process.env.PROVA_TMPDIR, JSON.stringify({ papel: process.argv[2] || 'lane', literal: p, " +
-        "realpath: fs.realpathSync(p), dev: String(s.dev), mode: s.mode & 0o777, ambiente }) + '\\n');\n";
+        "realpath: fs.realpathSync(p), dev: String(s.dev), mode: s.mode & 0o777, path: process.env.PATH, " +
+        "modo: process.env.ORK_CHECK_MODO || null, lang: process.env.LANG, ambiente: process.env }) + '\\n');\n";
       commitar(p.dir, 'core/probe.cjs', probe, 'fixture probe');
       commitar(p.dir, 'core/dist-test/test/tmpdir.test.js',
         "const { test } = require('node:test'); test('AG1: observa TMPDIR', () => { require('../../probe.cjs'); });\n", 'fixture teste');
-      process.env.ORK_LANES_DIR = testes;
-      process.env.ORK_LANES_INTEGRACAO = '';
-      process.env.ORKASTERY_HOME = path.join(apoio, 'home');
-      fs.mkdirSync(process.env.ORKASTERY_HOME);
-      process.env.XDG_CACHE_HOME = path.join(apoio, 'cache');
-      process.env.PROVA_TMPDIR = prova;
-      process.env.PROVA_SAL = randomBytes(32).toString('hex');
-      delete process.env.NODE_TEST_CONTEXT;
       const tmpDaLaneDivergente = path.join(apoio, 'tmp-divergente');
-      if (tmpdirDivergente) fs.mkdirSync(tmpDaLaneDivergente);
-      const comandoDaLane = `${tmpdirDivergente ? `TMPDIR=${tmpDaLaneDivergente} ` : ''}` +
-        `ORK_LANES_EVIDENCIA_NOMINAL=1 node ${SCRIPT_DAS_LANES} hermetica`;
+      if (divergencia === 'tmpdir') fs.mkdirSync(tmpDaLaneDivergente);
+      const prefixo = divergencia === 'tmpdir' ? `TMPDIR=${tmpDaLaneDivergente} `
+        : divergencia === 'path' ? `${ENV_PATH_FUNCIONAL_DA_RODADA}=/outro:${pathDaFixture} ` : '';
+      const comandoDaLane = `${prefixo}npm --prefix ${path.resolve(path.dirname(SCRIPT_DAS_LANES), '..')} run test:hermetica`;
       comAgile(p, `  agile:\n    produto:\n      - "README.md"\n    test:\n      hermetica: "${comandoDaLane.replaceAll('"', '\\"')}"`);
       const { thread: t } = novaThread(p.carregado, { nome: 'recibo por claim', modo: 'auto' });
       adicionarClaim(p.dir, t.id, { arquivo: 'core/src/c1.ts', alegacao: 'forma C1',
@@ -937,15 +942,11 @@ async function executarAg55(t: TestContext): Promise<void> {
       const r = verificar(p.carregado, t.id);
       const evento = ultimoVerify(p, t.id);
       const observacoes = fs.readFileSync(prova, 'utf8').trim().split('\n').map((l) => JSON.parse(l) as Record<string, unknown>);
-      const evidencia = (evento.agile as { evidencia?: string }).evidencia;
-      const nominal = evidencia
-        ? JSON.parse(fs.readFileSync(path.join(p.dir, evidencia), 'utf8')) as Record<string, unknown> : null;
-      return { r, evento, observacoes, nominal,
+      return { r, evento, observacoes,
         tmpdirExisteDepois: fs.existsSync(String(observacoes.find((x) => x.papel === 'lane')?.literal)) };
     } finally {
-      for (const [nome, valor] of Object.entries(antes)) {
-        if (valor === undefined) delete process.env[nome]; else process.env[nome] = valor;
-      }
+      for (const nome of Object.keys(process.env)) delete process.env[nome];
+      Object.assign(process.env, antes);
       p.limpar();
       fs.rmSync(apoio, { recursive: true, force: true });
     }
@@ -954,72 +955,57 @@ async function executarAg55(t: TestContext): Promise<void> {
     const claim = (evento.claims as Array<Record<string, unknown>>).find((x) => x.id === id)!;
     return (claim.lane as Array<Record<string, unknown>>)[0];
   };
-  const compartilhado = rodar(false);
-  const c1Compartilhada = laneDaClaim(compartilhado.evento, 'C1');
-  const c3Compartilhada = laneDaClaim(compartilhado.evento, 'C3');
-  const [vistaPelaLane, vistaPelaClaim] = ['lane', 'claim'].map((papel) => compartilhado.observacoes.find((x) => x.papel === papel)!);
-  const pecasIguais = (compartilhado.evento.agile as { pecas: Array<Record<string, unknown>> }).pecas;
-  const textoPt = comLocale('pt-BR', () => textoDoVerify(compartilhado.r));
-  const textoEn = comLocale('en', () => textoDoVerify(compartilhado.r));
-  const visaoDoTemporario = ({ papel: _papel, ambiente: _ambiente, ...visao }: Record<string, unknown>) => visao;
-  const observacoesIguais = JSON.stringify(visaoDoTemporario(vistaPelaLane))
-    === JSON.stringify(visaoDoTemporario(vistaPelaClaim));
-  const ambienteDaLane = vistaPelaLane.ambiente as Record<string, string>;
-  const ambienteDaClaim = vistaPelaClaim.ambiente as Record<string, string>;
-  const ignorada = (nome: string) => nome.startsWith('npm_') || nome.startsWith('NPM_')
-    || ['ORK_CHECK_RELATORIO', 'ORK_CHECK_CPUS_DA_LANE', 'ORK_CHECK_CPUS_DA_LANE_APOS_VARREDURA',
-      'ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA', 'ORK_CHECK_RESERVA_DEVOLVIDA', 'ORK_CHECK_CONTAINERS_DA_LANE',
-      'ORK_CHECK_CPUS_DOCKER', 'ORK_WORKERS', 'NODE_TEST_CONTEXT', 'NODE_COMPILE_CACHE', 'PWD', 'OLDPWD', 'SHLVL', '_',
-      'INIT_CWD'].includes(nome);
-  const ambienteDivergente = [...new Set([...Object.keys(ambienteDaLane), ...Object.keys(ambienteDaClaim)])]
-    .filter((nome) => !ignorada(nome) && ambienteDaLane[nome] !== ambienteDaClaim[nome]).sort();
-  const temPecaTmp = pecasIguais.some((x) => x.peca === 'tmpfs-das-lanes' && x.tmpdirDaRodada === true);
-  const temPecaC1 = pecasIguais.some((x) => x.peca === 'claim-lane' && x.claim === 'C1.1' && x.estado === 'agile');
-  const temPecaC3 = pecasIguais.some((x) => x.peca === 'claim-lane' && x.claim === 'C3.1' && x.estado === 'agile');
-  await t.test(`AG55 compartilhado ok=${Number(compartilhado.r.ok)} tmp=${Number(!compartilhado.tmpdirExisteDepois)} ` +
-    `c1=${c1Compartilhada.reaproveitada ? 'R' : c1Compartilhada.motivo} ` +
-    `c3=${c3Compartilhada.reaproveitada ? 'R' : c3Compartilhada.motivo} obs=${Number(observacoesIguais)} ` +
-    `pecas=${Number(temPecaTmp)}${Number(temPecaC1)}${Number(temPecaC3)} ` +
-    `diff=${ambienteDivergente.join(',') || '-'} ` +
-    `locale=${Number(/TMPDIR compartilhado pela rodada/.test(textoPt) && /C1\.1: reaproveitada das lanes/.test(textoPt))}` +
-    `${Number(/TMPDIR shared by the run/.test(textoEn) && /C1\.1: reused from lanes/.test(textoEn))}`, () => {
-    assert.equal(compartilhado.r.ok, true, compartilhado.r.motivos.join(','));
-    assert.equal(compartilhado.tmpdirExisteDepois, false, 'o verify remove o TMPDIR depois de lanes, claims e recibo');
-    assert.equal(c1Compartilhada.reaproveitada, true);
-    assert.equal(c3Compartilhada.reaproveitada, true,
-      JSON.stringify({ lane: c3Compartilhada, nominal: compartilhado.nominal }));
-    assert.deepEqual(visaoDoTemporario(vistaPelaLane), visaoDoTemporario(vistaPelaClaim),
-      'lane e claim executada veem o mesmo valor literal, realpath, dispositivo e permissoes');
-    assert.ok(temPecaTmp); assert.ok(temPecaC1); assert.ok(temPecaC3);
-    assert.match(textoPt, /TMPDIR compartilhado pela rodada/);
-    assert.match(textoPt, /C1\.1: reaproveitada das lanes/);
-    assert.match(textoEn, /TMPDIR shared by the run/);
-    assert.match(textoEn, /C1\.1: reused from lanes/);
-  });
+  for (const variante of ['fixture', 'verify-minimo'] as const) {
+    const compartilhado = rodar(variante, 'nenhuma');
+    await t.test(`${variante}: o ambiente compartilhado reaproveita as claims`, () => {
+      const c1 = laneDaClaim(compartilhado.evento, 'C1'), c3 = laneDaClaim(compartilhado.evento, 'C3');
+      const [vistaPelaLane, vistaPelaClaim] = ['lane', 'claim']
+        .map((papel) => compartilhado.observacoes.find((x) => x.papel === papel)!);
+      const pecas = (compartilhado.evento.agile as { pecas: Array<Record<string, unknown>> }).pecas;
+      const textoPt = comLocale('pt-BR', () => textoDoVerify(compartilhado.r));
+      const textoEn = comLocale('en', () => textoDoVerify(compartilhado.r));
+      const ambienteDaLane = ambienteFuncionalDosTestes(vistaPelaLane.ambiente as NodeJS.ProcessEnv);
+      const ambienteDaClaim = ambienteFuncionalDosTestes(vistaPelaClaim.ambiente as NodeJS.ProcessEnv);
+      assert.equal(compartilhado.r.ok, true, JSON.stringify({ motivos: compartilhado.r.motivos,
+        comandos: compartilhado.r.comandos, claims: compartilhado.r.claims, preparo: compartilhado.r.preparo }));
+      assert.equal(compartilhado.tmpdirExisteDepois, false);
+      assert.equal(c1.reaproveitada, true, JSON.stringify({ lane: c1, ambienteDaLane, ambienteDaClaim }));
+      assert.equal(c3.reaproveitada, true, JSON.stringify(c3));
+      assert.deepEqual(ambienteDaLane, ambienteDaClaim, 'lane e claim executada usam o mesmo ambiente funcional');
+      assert.deepEqual({ literal: vistaPelaLane.literal, realpath: vistaPelaLane.realpath, dev: vistaPelaLane.dev,
+        mode: vistaPelaLane.mode }, { literal: vistaPelaClaim.literal, realpath: vistaPelaClaim.realpath,
+        dev: vistaPelaClaim.dev, mode: vistaPelaClaim.mode });
+      assert.equal(vistaPelaLane.modo, null); assert.equal(vistaPelaLane.lang, 'C.UTF-8');
+      assert.ok(pecas.some((x) => x.peca === 'tmpfs-das-lanes' && x.tmpdirDaRodada === true));
+      assert.ok(pecas.some((x) => x.peca === 'claim-lane' && x.claim === 'C1.1' && x.estado === 'agile'));
+      assert.ok(pecas.some((x) => x.peca === 'claim-lane' && x.claim === 'C3.1' && x.estado === 'agile'));
+      assert.match(textoPt, /TMPDIR compartilhado pela rodada/); assert.match(textoPt, /C1\.1: reaproveitada das lanes/);
+      assert.match(textoEn, /TMPDIR shared by the run/); assert.match(textoEn, /C1\.1: reused from lanes/);
+    });
+  }
 
-  const divergente = rodar(true);
-  const c1Divergente = laneDaClaim(divergente.evento, 'C1');
-  const c3Divergente = laneDaClaim(divergente.evento, 'C3');
-  const pecasDivergentes = (divergente.evento.agile as { pecas: Array<Record<string, unknown>> }).pecas;
-  const temRecusaTipada = pecasDivergentes.some((x) => x.peca === 'claim-lane' && x.claim === 'C1.1'
-    && x.motivoTipado === 'ambiente-funcional-divergente');
-  const textoDivergentePt = comLocale('pt-BR', () => textoDoVerify(divergente.r));
-  const textoDivergenteEn = comLocale('en', () => textoDoVerify(divergente.r));
-  await t.test(`AG55 divergente ok=${Number(divergente.r.ok)} c1=${c1Divergente.reaproveitada ? 'R' : c1Divergente.motivo} ` +
-    `c3=${c3Divergente.reaproveitada ? 'R' : c3Divergente.motivo} peca=${Number(temRecusaTipada)} ` +
-    `locale=${Number(/C1\.1: recusada \(ambiente-funcional-divergente\)/.test(textoDivergentePt))}` +
-    `${Number(/C1\.1: refused \(ambiente-funcional-divergente\)/.test(textoDivergenteEn))}`, () => {
-    assert.equal(divergente.r.ok, true, JSON.stringify({ motivos: divergente.r.motivos, comandos: divergente.r.comandos,
-      claims: divergente.r.claims, preparo: divergente.r.preparo }));
-    for (const lane of [c1Divergente, c3Divergente]) {
-      assert.deepEqual(lane.reaproveitada, false);
-      assert.equal(lane.motivo, 'ambiente-funcional-divergente');
-    }
-    assert.ok(temRecusaTipada);
-    assert.match(textoDivergentePt, /C1\.1: recusada \(ambiente-funcional-divergente\)/);
-    assert.match(textoDivergenteEn, /C1\.1: refused \(ambiente-funcional-divergente\)/);
-  });
+  for (const divergencia of ['tmpdir', 'path'] as const) {
+    const divergente = rodar('verify-minimo', divergencia);
+    await t.test(`${divergencia}: ambiente diferente recusa o reaproveitamento`, () => {
+      const c1 = laneDaClaim(divergente.evento, 'C1'), c3 = laneDaClaim(divergente.evento, 'C3');
+      const pecas = (divergente.evento.agile as { pecas: Array<Record<string, unknown>> }).pecas;
+      const textoPt = comLocale('pt-BR', () => textoDoVerify(divergente.r));
+      const textoEn = comLocale('en', () => textoDoVerify(divergente.r));
+      assert.equal(divergente.r.ok, true, JSON.stringify({ motivos: divergente.r.motivos,
+        comandos: divergente.r.comandos, claims: divergente.r.claims, preparo: divergente.r.preparo }));
+      for (const lane of [c1, c3]) {
+        assert.equal(lane.reaproveitada, false);
+        if (!lane.reaproveitada) assert.equal(lane.motivo, 'ambiente-funcional-divergente');
+      }
+      assert.ok(pecas.some((x) => x.peca === 'claim-lane' && x.claim === 'C1.1'
+        && x.motivoTipado === 'ambiente-funcional-divergente'));
+      assert.match(textoPt, /C1\.1: recusada \(ambiente-funcional-divergente\)/);
+      assert.match(textoEn, /C1\.1: refused \(ambiente-funcional-divergente\)/);
+    });
+  }
 }
+
+test('AG55: a lane e a claim usam o mesmo ambiente funcional', executarAg55);
 
 test('AG48: skip ou todo em node --test nunca prova a claim pela lane', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag48-'));
@@ -1286,12 +1272,35 @@ test('AG43: o item do grupo com argv roda sem shell: o argumento chega literal, 
     cwd: os.tmpdir(), prazoMs: 30_000 };
   assert.deepEqual(argvDoItem(comArgv, true, false), ['/usr/bin/timeout', '--kill-after=15', '30', ...comArgv.argv]);
   assert.deepEqual(argvDoItem(comArgv, false, false), comArgv.argv);
-  assert.ok(!argvDoItem(comArgv, true, false).includes('bash'), 'sem shell');
-  assert.deepEqual(argvDoItem({ nome: 'c', comando: 'echo x', cwd: os.tmpdir(), prazoMs: 1000 }, false, false), ['bash', '-c', 'echo x']);
+  assert.ok(!argvDoItem(comArgv, true, false).includes('-c'), 'sem shell');
+  assert.deepEqual(argvDoItem({ nome: 'c', comando: 'echo x', cwd: os.tmpdir(), prazoMs: 1000 }, false, false),
+    ['/usr/bin/bash', '--noprofile', '--norc', '-c', 'echo x']);
   const [r, c] = rodarEmParalelo([comArgv, { nome: 'shell', comando: 'echo $((1 + 1))', cwd: os.tmpdir(), prazoMs: 30_000 }]);
   assert.equal(r.ok, true, r.stderr);
   assert.equal(r.stdout, literal, 'nada expandido nem quebrado pelo shell');
   assert.equal(c.stdout.trim(), '2', 'o item sem argv segue pelo bash -c');
+});
+
+test('AG56: o rc do bash remoto é o único elo que prefixa o PATH, e o verify não o lê', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag56-'));
+  try {
+    fs.writeFileSync(path.join(dir, '.bashrc'), 'export PATH="/usr/bin:$PATH"\n');
+    const pathInicial = '/opt/codex-arg0:/opt/codex-path:/usr/bin:/bin';
+    const env = { HOME: dir, LANG: 'C.UTF-8', PATH: pathInicial,
+      SSH_CONNECTION: '127.0.0.1 1 127.0.0.1 2' };
+    const caminho = (bin: string, args: string[]) => spawnSync(bin, args,
+      { encoding: 'utf8', env }).stdout.trim();
+    assert.equal(caminho('/usr/bin/printenv', ['PATH']), pathInicial, 'executor direto');
+    assert.equal(caminho('/usr/bin/timeout', ['5', '/usr/bin/printenv', 'PATH']), pathInicial, 'timeout');
+    assert.equal(caminho('/usr/bin/nice', ['-n', '5', '/usr/bin/timeout', '5', '/usr/bin/printenv', 'PATH']),
+      pathInicial, 'nice e timeout');
+    assert.equal(caminho('/usr/bin/bash', ['-c', '/usr/bin/printenv PATH']), `/usr/bin:${pathInicial}`,
+      'bash remoto lê o rc da casa');
+    assert.equal(caminho('/usr/bin/bash', ['--noprofile', '--norc', '-c', '/usr/bin/printenv PATH']), pathInicial,
+      'o shell hermético não lê o rc');
+    assert.equal(executar('path', '/usr/bin/printenv PATH', dir, 10_000, undefined, env).resumo, pathInicial,
+      'o executor do verify usa o shell hermético');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('AG44: carga e steal degradam a capacidade em degraus; so o minimo estrutural volta a ordem do Classic', () => {
@@ -1680,5 +1689,3 @@ test('RM081F4-classic: o Classic exporta ORK_WORKERS com a capacidade inteira da
   assert.equal(Number(ambiente.ORK_WORKERS), os.availableParallelism());
   assert.equal(ambiente.ORK_CHECK_MODO, 'classic');
 });
-
-test('AG55: o verify_run do HEAD prova TMPDIR da rodada, reaproveitamento, recusa e os dois idiomas', executarAg55);
