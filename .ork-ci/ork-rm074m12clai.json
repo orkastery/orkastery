@@ -173,20 +173,6 @@
       "lint": []
     },
     {
-      "id": "C13",
-      "thread": "ork-rm074m12clai",
-      "fase": "GOAL",
-      "arquivo": "CHANGELOG.md",
-      "alegacao": "O CHANGELOG não publicado registra a M12 como correção e deixa a medida de ganho para a bancada.",
-      "negativa": false,
-      "verificar": [
-        "grep -q 'Claims auditadas pelas lanes — M12' CHANGELOG.md && node core/scripts/checar-changelog.cjs --base main"
-      ],
-      "criadoEm": "2026-11-05T21:34:08.482Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C16",
       "thread": "ork-rm074m12clai",
       "fase": "GO",
@@ -495,20 +481,6 @@
       "lint": []
     },
     {
-      "id": "C38",
-      "thread": "ork-rm074m12clai",
-      "fase": "GO",
-      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
-      "alegacao": "A narrativa da M12 descreve o ambiente na ponta do filho, a convivência das claims, a cota da integração e a limpeza excepcional sem antecipar ganho.",
-      "negativa": false,
-      "verificar": [
-        "grep -q 'inclusive na ponta do filho recusado' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md && grep -q 'exceções fecham relatório, temporário e casa' CHANGELOG.md && node core/scripts/checar-changelog.cjs --base main"
-      ],
-      "criadoEm": "2026-11-06T11:45:26.211Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C39",
       "thread": "ork-rm074m12clai",
       "fase": "GO",
@@ -520,6 +492,34 @@
       ],
       "criadoEm": "2026-11-06T12:48:41.727Z",
       "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm074m12clai",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG não publicado registra a M12 como correção e deixa a medida de ganho para a bancada.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'Claims auditadas pelas lanes — M12' CHANGELOG.md && node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-11-06T22:41:05.652Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm074m12clai",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+      "alegacao": "A narrativa da M12 descreve o ambiente na ponta do filho, a convivência das claims, a cota da integração e a limpeza excepcional sem antecipar ganho.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'inclusive na ponta do filho recusado' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md && grep -q 'exceções fecham relatório, temporário e casa' CHANGELOG.md && node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-11-06T22:41:06.253Z",
+      "estado": "pendente",
       "lint": []
     }
   ],
