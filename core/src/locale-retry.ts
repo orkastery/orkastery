@@ -24,6 +24,10 @@ export const RETRY_PT_BR = {
       porque: 'alegacao sem comando de verificacao vira correcao tipo A: anexar o comando (ou retirar a alegacao com motivo) e uma linha, nao um GO inteiro',
       correcao: 'ork claims verificar <thread> <claim> --comando "<comando>"',
     },
+    'claims.retirada-sem-substituta': {
+      porque: 'retirar uma regra sem substituta verde apaga evidencia ativa: a maquina nao decide sozinha que a alegacao deixou de valer',
+      correcao: 'o dono decide pelo pedido tipado; ou registre e verifique uma claim substituta antes de repetir a retirada',
+    },
     'policy.violation': {
       porque: 'policy com severidade block reprova em qualquer modo: reexecutar sozinho seria a maquina revogando a policy do manifesto',
       correcao: 'corrija a violacao no pedido/manifesto; policy block nao se resolve por repeticao',
@@ -321,6 +325,10 @@ export const RETRY_EN: typeof RETRY_PT_BR = {
     'claims.unverifiable': {
       porque: 'a claim without a verification command becomes a type A fix: attaching the command (or withdrawing the claim with a reason) is one line, not a whole GO',
       correcao: 'ork claims verificar <thread> <claim> --comando "<command>"',
+    },
+    'claims.retirada-sem-substituta': {
+      porque: 'withdrawing a rule without a green replacement removes active evidence: the machine cannot decide by itself that the claim no longer applies',
+      correcao: 'the owner decides through the typed request; or record and verify a replacement claim before retrying the withdrawal',
     },
     'policy.violation': {
       porque: 'a policy with block severity fails in any mode: rerunning on its own would be the machine revoking the manifest policy',

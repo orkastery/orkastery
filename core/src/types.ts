@@ -621,6 +621,7 @@ export type MotivoGate =
   | 'artifact.missing'
   | 'claims.failed'
   | 'claims.unverifiable'
+  | 'claims.retirada-sem-substituta'
   | 'policy.violation'
   /**
    * I-43 (D4, viga a): o CHECK foi despachado no MESMO runtime que fez o GO, numa
