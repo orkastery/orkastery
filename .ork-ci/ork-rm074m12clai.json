@@ -15,7 +15,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js core/dist-test/test/verify.test.js core/dist-test/test/locale-verify.test.js"
       ],
       "criadoEm": "2026-11-05T21:14:30.023Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -71,7 +71,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js"
       ],
       "criadoEm": "2026-11-05T21:23:50.758Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -85,7 +85,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js"
       ],
       "criadoEm": "2026-11-05T21:23:50.828Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -99,7 +99,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js core/dist-test/test/verify.test.js core/dist-test/test/locale-verify.test.js"
       ],
       "criadoEm": "2026-11-05T21:32:57.617Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -113,7 +113,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js core/dist-test/test/verify.test.js core/dist-test/test/locale-verify.test.js"
       ],
       "criadoEm": "2026-11-05T21:32:57.723Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -141,7 +141,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m12.json M6"
       ],
       "criadoEm": "2026-11-05T21:32:57.921Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -197,7 +197,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js core/dist-test/test/test-lanes.test.js core/dist-test/test/verify.test.js core/dist-test/test/locale-verify.test.js"
       ],
       "criadoEm": "2026-11-05T23:19:39.149Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -211,7 +211,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js core/dist-test/test/test-lanes.test.js core/dist-test/test/verify.test.js core/dist-test/test/locale-verify.test.js"
       ],
       "criadoEm": "2026-11-05T23:19:39.217Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -225,7 +225,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js core/dist-test/test/test-lanes.test.js core/dist-test/test/verify.test.js core/dist-test/test/locale-verify.test.js"
       ],
       "criadoEm": "2026-11-05T23:19:39.300Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -239,7 +239,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m12.json M7"
       ],
       "criadoEm": "2026-11-05T23:25:33.554Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -253,7 +253,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m12.json M8"
       ],
       "criadoEm": "2026-11-05T23:25:33.621Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -267,7 +267,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m12.json M9"
       ],
       "criadoEm": "2026-11-05T23:25:33.717Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -281,7 +281,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js core/dist-test/test/test-lanes.test.js core/dist-test/test/verify.test.js core/dist-test/test/locale-verify.test.js"
       ],
       "criadoEm": "2026-11-06T08:17:53.470Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -295,7 +295,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js core/dist-test/test/verify.test.js core/dist-test/test/locale-verify.test.js"
       ],
       "criadoEm": "2026-11-06T08:17:53.534Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -309,7 +309,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m12.json M10"
       ],
       "criadoEm": "2026-11-06T08:17:53.592Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -324,6 +324,202 @@
       ],
       "criadoEm": "2026-11-06T08:17:53.635Z",
       "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm074m12clai",
+      "fase": "GO",
+      "arquivo": "core/src/check-paralelo.ts",
+      "alegacao": "O filho das claims recusadas em lote aplica a regra funcional na ponta e não recebe variáveis retiradas da base do auxiliar.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-06T11:37:45.644Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm074m12clai",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m12.json",
+      "alegacao": "Mutante: restaurar a herança do ambiente bruto no filho agrupado é detectado pela prova com processo real.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m12.json M13"
+      ],
+      "criadoEm": "2026-11-06T11:37:45.735Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm074m12clai",
+      "fase": "GO",
+      "arquivo": "core/test/check-agil.test.ts",
+      "alegacao": "O caso operacional reúne claim antecipada, reaproveitada e recusada, registra execução, decisão tipada, veredito e ordem canônica na mesma rodada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-06T11:42:35.071Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm074m12clai",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m12.json",
+      "alegacao": "Mutante: retirar da regra funcional a cota acrescentada pela integração é detectado porque a claim sem cota deve ser recusada e executada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m12.json M14"
+      ],
+      "criadoEm": "2026-11-06T11:42:35.175Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm074m12clai",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m11.json",
+      "alegacao": "Mutante: antecipar uma claim que depende das lanes é detectado pelo contrato da junção.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m11.json M1"
+      ],
+      "criadoEm": "2026-11-06T11:42:35.286Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm074m12clai",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m11.json",
+      "alegacao": "Mutante: a integração encadeada perder a reserva devolvida pela varredura é detectado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m11.json M2"
+      ],
+      "criadoEm": "2026-11-06T11:42:35.349Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm074m12clai",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m11.json",
+      "alegacao": "Mutante: o adaptador deixar de aplicar a cota da integração é detectado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m11.json M3"
+      ],
+      "criadoEm": "2026-11-06T11:42:35.421Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm074m12clai",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m11.json",
+      "alegacao": "Mutante: converter a falha de uma claim antecipada em sucesso é detectado pelo veredito.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m11.json M5"
+      ],
+      "criadoEm": "2026-11-06T11:42:35.495Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm074m12clai",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m11.json",
+      "alegacao": "Mutante: conservar o resultado recusado do runtime em vez de executar o argv anterior é detectado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m11.json M6"
+      ],
+      "criadoEm": "2026-11-06T11:42:35.600Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm074m12clai",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m12.json",
+      "alegacao": "Mutante: desligar o isolamento padrão no runner único das lanes é detectado pela fixture.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m12.json M11"
+      ],
+      "criadoEm": "2026-11-06T11:42:35.708Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm074m12clai",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m12.json",
+      "alegacao": "Mutante: desligar o isolamento padrão no pool por arquivo é detectado pela fixture.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m12.json M12"
+      ],
+      "criadoEm": "2026-11-06T11:42:35.792Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm074m12clai",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "Verify e baseline fecham relatório, temporário funcional e casa da rodada ao propagar uma exceção.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-06T11:44:30.312Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm074m12clai",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+      "alegacao": "A narrativa da M12 descreve o ambiente na ponta do filho, a convivência das claims, a cota da integração e a limpeza excepcional sem antecipar ganho.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'inclusive na ponta do filho recusado' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md && grep -q 'exceções fecham relatório, temporário e casa' CHANGELOG.md && node core/scripts/checar-changelog.cjs --base main"
+      ],
+      "criadoEm": "2026-11-06T11:45:26.211Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm074m12clai",
+      "fase": "GO",
+      "arquivo": "core/src/ambiente-funcional.ts",
+      "alegacao": "A assinatura da lane inclui os acréscimos funcionais usados na execução, como a cota exclusiva da integração.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js core/dist-test/test/test-lanes.test.js"
+      ],
+      "criadoEm": "2026-11-06T12:48:41.727Z",
+      "estado": "reprovado",
       "lint": []
     }
   ],
