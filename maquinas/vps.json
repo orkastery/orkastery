@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.5",
-  "publicadoEm": "2026-11-06T18:48:02.898Z",
+  "publicadoEm": "2026-11-06T18:55:55.995Z",
   "threads": [
     {
       "id": "ork-rm074m11clai",
@@ -58,7 +58,7 @@
       "status": "aberta",
       "roadmap": "RM-078",
       "branch": "ork/ork-rm078recibod-full",
-      "atualizadaEm": "2026-11-06T18:48:01.329Z",
+      "atualizadaEm": "2026-11-06T18:52:39.110Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -76,11 +76,11 @@
       "id": "ork-rm079claimsq",
       "nome": "rm079claims",
       "modo": "#Auto",
-      "fase": "CHECK",
+      "fase": "GO",
       "status": "aberta",
       "roadmap": "RM-079",
       "branch": "ork/ork-rm079claimsq-full",
-      "atualizadaEm": "2026-11-06T18:17:09.079Z",
+      "atualizadaEm": "2026-11-06T18:55:55.453Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -89,9 +89,9 @@
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
       "sessao": {
-        "viva": false,
-        "desdeEm": "2026-11-06T18:29:26.138Z",
-        "motivo": "sessão 01a1b214 encerrada (completed)"
+        "viva": true,
+        "desdeEm": null,
+        "motivo": null
       }
     },
     {
@@ -112,8 +112,8 @@
       "esforco": "xhigh",
       "sessao": {
         "viva": false,
-        "desdeEm": "2026-11-06T18:28:01.530Z",
-        "motivo": "sessão 01a1b214 encerrada (completed)"
+        "desdeEm": "2026-11-06T18:56:03.752Z",
+        "motivo": "sessão 01a1b237 não aparece no runtime"
       }
     }
   ]
