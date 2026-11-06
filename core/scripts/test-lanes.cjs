@@ -31,9 +31,9 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawn, spawnSync } = require('node:child_process');
-const { createHash } = require('node:crypto');
 const { ENV_TMPDIR_DA_RODADA, ENV_TMPFS, selecionarTemporario, sondarTmpfs } =
   require('../dist/temporario-das-lanes.js');
+const { ambienteFuncionalDosTestes, assinaturaDoAmbiente } = require('../dist/ambiente-funcional.js');
 
 const CORE = path.resolve(__dirname, '..');
 const DIR_DOS_TESTES = path.join(CORE, 'dist-test', 'test');
@@ -45,7 +45,6 @@ const ENV_CPUS_APOS_VARREDURA = 'ORK_CHECK_CPUS_DA_LANE_APOS_VARREDURA';
 const ENV_CPUS_APOS_RESERVA = 'ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA';
 const ENV_SINAL_DA_RESERVA = 'ORK_CHECK_RESERVA_DEVOLVIDA';
 const ENV_CONTAINERS_DA_LANE = 'ORK_CHECK_CONTAINERS_DA_LANE';
-const ENV_EVIDENCIA_NOMINAL_DA_FIXTURE = 'ORK_LANES_EVIDENCIA_NOMINAL';
 
 /**
  * Quantos arquivos a lane roda ao mesmo tempo. O agendador passa a fatia calculada para esta rodada; sem ela, vale o
@@ -184,17 +183,6 @@ function lerResultadosDoReporter(arquivo) {
     .map((t) => ({ arquivo: path.basename(t.arquivo), nome: t.nome, nesting: Number.isInteger(t.nesting) ? t.nesting : 0, estado: t.estado }));
 }
 
-/** Mesmo ambiente funcional entre a lane e a claim; variaveis de transporte/runner nao mudam o teste. */
-function assinaturaDoAmbiente(env) {
-  const ignorada = (nome) => nome.startsWith('npm_') || nome.startsWith('NPM_')
-    || ['ORK_CHECK_RELATORIO', 'ORK_CHECK_CPUS_DA_LANE', ENV_CPUS_APOS_VARREDURA, ENV_CPUS_APOS_RESERVA, ENV_SINAL_DA_RESERVA,
-      ENV_CONTAINERS_DA_LANE, 'ORK_CHECK_CPUS_DOCKER', 'ORK_WORKERS',
-      'NODE_TEST_CONTEXT', 'NODE_COMPILE_CACHE', 'PWD', 'OLDPWD', 'SHLVL', '_', 'INIT_CWD'].includes(nome);
-  const pares = Object.entries(env).filter(([nome, valor]) => valor !== undefined && !ignorada(nome))
-    .sort(([a], [b]) => a.localeCompare(b));
-  return createHash('sha256').update(JSON.stringify(pares)).digest('hex');
-}
-
 function relatar(linha) {
   const arquivo = process.env.ORK_CHECK_RELATORIO;
   if (!arquivo) return;
@@ -224,6 +212,25 @@ function emitirTapDoPool(resultados, duracaoMs) {
   process.stdout.write(`# duration_ms ${duracaoMs}\n`);
 }
 
+const caminhoDoTeste = (dir, nome) => (process.env.ORK_LANES_DIR
+  ? path.join(dir, nome) : path.join('dist-test', 'test', nome));
+
+/**
+ * Sem plano dinamico, conserva o contrato externo: um unico `node --test`, com a concorrencia da lane. O reporter
+ * nominal corre ao lado do TAP normal e nao muda isolamento, resultado ou quantidade de processos do runner.
+ */
+function rodarProcessoUnico({ arquivos, dir, env, pastaDaLane, vagas }) {
+  return new Promise((resolve) => {
+    const reporter = path.join(pastaDaLane, 'lane.json');
+    const args = ['--test', `--test-concurrency=${vagas}`, '--test-reporter=tap', '--test-reporter-destination=stdout',
+      `--test-reporter=${REPORTER}`, `--test-reporter-destination=${reporter}`, ...arquivos.map((nome) => caminhoDoTeste(dir, nome))];
+    const filho = spawn(process.execPath, args, { cwd: CORE, env, stdio: ['ignore', 'inherit', 'inherit'] });
+    filho.on('error', () => resolve({ code: 1, medidas: {}, testes: [] }));
+    filho.on('close', (code, signal) => resolve({ code: code ?? (signal ? 1 : 1),
+      medidas: lerDuracoesDoReporter(reporter), testes: lerResultadosDoReporter(reporter) }));
+  });
+}
+
 /**
  * Pool LPT da hermetica. Cada arquivo conserva o isolamento do runner e grava TAP/reporter proprios; o controlador
  * so abre vagas novas quando o grupo cria o sinal depois de varredura e integracao.
@@ -233,7 +240,6 @@ function rodarPoolDeArquivos({ arquivos, dir, env, pastaDaLane, plano }) {
   const resultados = new Array(arquivos.length);
   let proximo = 0, ativos = 0, concluidos = 0, vagas = plano.inicial;
   const vistos = new Set();
-  const caminho = (nome) => (process.env.ORK_LANES_DIR ? path.join(dir, nome) : path.join('dist-test', 'test', nome));
   const observarSinal = () => {
     if (!fs.existsSync(plano.sinal)) return;
     let texto = '';
@@ -250,14 +256,11 @@ function rodarPoolDeArquivos({ arquivos, dir, env, pastaDaLane, plano }) {
       while (ativos < vagas && proximo < arquivos.length) {
         const i = proximo++, arquivo = arquivos[i];
         const tap = path.join(pastaDaLane, `${i}.tap`), reporter = path.join(pastaDaLane, `${i}.json`);
-        // A suite real conserva o isolamento por processo do `node --test`. A pasta de fixture, que ja entrega um
-        // processo exclusivo para cada arquivo ao controlador, deixa o runner expor os casos ao reporter: assim a
-        // prova operacional cobre o recibo nominal sem mudar a semantica da suite do produto.
-        const args = ['--test', ...(process.env[ENV_EVIDENCIA_NOMINAL_DA_FIXTURE] === '1'
-          ? ['--experimental-test-isolation=none'] : []),
-          '--test-concurrency=1', '--test-reporter=tap',
+        // O controlador ja cria um processo exclusivo por arquivo. Desligar o segundo nivel de isolamento deixa o
+        // reporter nominal enxergar os casos sem aproximar estados de arquivos diferentes.
+        const args = ['--test', '--experimental-test-isolation=none', '--test-concurrency=1', '--test-reporter=tap',
           `--test-reporter-destination=${tap}`,
-          `--test-reporter=${REPORTER}`, `--test-reporter-destination=${reporter}`, caminho(arquivo)];
+          `--test-reporter=${REPORTER}`, `--test-reporter-destination=${reporter}`, caminhoDoTeste(dir, arquivo)];
         ativos++;
         const filho = spawn(process.execPath, args, { cwd: CORE, env, stdio: ['ignore', 'ignore', 'inherit'] });
         filho.on('close', (code, signal) => {
@@ -276,6 +279,14 @@ function rodarPoolDeArquivos({ arquivos, dir, env, pastaDaLane, plano }) {
     const sonda = setInterval(lancar, 25);
     lancar();
   });
+}
+
+/** A fixture so troca o HEAD quando tem a forma de um checkout: <raiz>/core/dist-test/test e .git na raiz. */
+function raizDoHead(dir) {
+  if (!process.env.ORK_LANES_DIR) return CORE;
+  const candidata = path.resolve(dir, '../../..');
+  const relativo = path.relative(candidata, dir).split(path.sep).join('/');
+  return relativo === 'core/dist-test/test' && fs.existsSync(path.join(candidata, '.git')) ? candidata : CORE;
 }
 
 function rodarLane(lane) {
@@ -302,34 +313,14 @@ function rodarLane(lane) {
       ...(temporario.estado === 'fallback' ? { fallback: 'disco' } : {}) });
     pastaDaLane = fs.mkdtempSync(path.join(temporario.diretorio, 'ork-lanes-'));
   }
-  const raizDaFixture = process.env.ORK_LANES_DIR ? path.resolve(dir, '../../..') : CORE;
-  const headDaFixture = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: raizDaFixture, encoding: 'utf8' });
-  const head = (headDaFixture.status === 0 ? headDaFixture
-    : spawnSync('git', ['rev-parse', 'HEAD'], { cwd: CORE, encoding: 'utf8' })).stdout.trim();
+  const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: raizDoHead(dir), encoding: 'utf8' }).stdout.trim();
 
-  // O ambiente e o de quem chama, como no `npm test`: quem exporta ORK_TESTE_EXIGE_AMBIENTE exige as dependencias nos dois
-  // modos (S4 do CHECK).
-  const env = { ...process.env };
-  delete env[ENV_TMPDIR_DA_RODADA];
-  // A lane e sempre uma rodada de topo: sob outro `node --test`, o pai marca o filho com NODE_TEST_CONTEXT e o `node
-  // --test` da lane falaria o protocolo do runner, sem o TAP e sem o reporter das duracoes.
-  delete env.NODE_TEST_CONTEXT;
-  // O modo, o relatorio e o plano de CPU sao da rodada do verify, nao dos testes: o teste que roda a varredura
-  // gravaria pecas no relatorio da rodada, o que confia no modo padrao rodaria no modo do verify, e os testes que
-  // conferem concorrencia ou argv do Docker observariam a fatia da lane. A propria lane ja consumiu a fatia acima,
-  // ao montar --test-concurrency; so o node --test filho deve ficar sem ela.
-  delete env.ORK_CHECK_MODO;
-  delete env.ORK_CHECK_RELATORIO;
-  delete env.ORK_CHECK_CPUS_DA_LANE;
-  delete env[ENV_CPUS_APOS_VARREDURA];
-  delete env[ENV_CPUS_APOS_RESERVA];
-  delete env[ENV_SINAL_DA_RESERVA];
-  delete env[ENV_EVIDENCIA_NOMINAL_DA_FIXTURE];
-  delete env.ORK_CHECK_CPUS_DOCKER;
-  delete env.ORK_WORKERS;
-  env.TMPDIR = tmpdirDaRodada ?? pastaDaLane;
+  // A mesma funcao monta o ambiente esperado pela claim e o ambiente real do node --test. Ela restaura o PATH anterior
+  // ao shell/npm e retira modo, relatorio e plano depois que o controlador da lane ja os consumiu.
   let casa = null;
-  if (!(env.ORKASTERY_HOME || '').trim()) { casa = fs.mkdtempSync(path.join(pastaDaLane, 'ork-casa-')); env.ORKASTERY_HOME = casa; }
+  if (!(process.env.ORKASTERY_HOME || '').trim()) casa = fs.mkdtempSync(path.join(pastaDaLane, 'ork-casa-'));
+  const env = ambienteFuncionalDosTestes(process.env, { TMPDIR: tmpdirDaRodada ?? pastaDaLane,
+    ...(casa ? { ORKASTERY_HOME: casa } : {}) });
   const ambiente = assinaturaDoAmbiente(env);
   try {
     fs.mkdirSync(path.join(cache, 'compile-cache'), { recursive: true });
@@ -352,14 +343,18 @@ function rodarLane(lane) {
   };
   const dinamico = planoDoPool(lane);
   const vagas = concorrenciaDaLane(lane);
+  // O verify pede evidencia nominal pelo relatorio e usa um processo por arquivo. Chamadas externas sem plano nem
+  // relatorio conservam um unico node --test com --test-concurrency.
+  const precisaDeEvidenciaNominal = !!process.env.ORK_CHECK_RELATORIO;
   const plano = dinamico ?? { inicial: vagas, aposVarredura: vagas, final: vagas, sinal: '' };
-  return rodarPoolDeArquivos({ arquivos, dir, env, pastaDaLane, plano }).then(terminar);
+  return (dinamico || precisaDeEvidenciaNominal
+    ? rodarPoolDeArquivos({ arquivos, dir, env, pastaDaLane, plano })
+    : rodarProcessoUnico({ arquivos, dir, env, pastaDaLane, vagas })).then(terminar);
 }
 
 module.exports = { listasDasLanes, ordenarPorDuracao, lerDuracoesDoReporter, lerResultadosDoReporter, assinaturaDoAmbiente,
-  globDoNpmTest, concorrenciaDaLane, planoDoPool, degrausDaReserva, selecionarTemporario, sondarTmpfs, ENV_TMPFS,
+  globDoNpmTest, concorrenciaDaLane, planoDoPool, degrausDaReserva, raizDoHead, selecionarTemporario, sondarTmpfs, ENV_TMPFS,
   ENV_TMPDIR_DA_RODADA,
-  ENV_EVIDENCIA_NOMINAL_DA_FIXTURE,
   ENV_CPUS_APOS_VARREDURA, ENV_CPUS_APOS_RESERVA, ENV_SINAL_DA_RESERVA, LANES, REPORTER };
 
 if (require.main === module) {

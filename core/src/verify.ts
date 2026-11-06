@@ -64,6 +64,8 @@ import { anexarRelatorioJUnit, caminhoJUnitDoComando, marcacaoDeRelogioDoComando
   RelatorioJUnitPreparado } from './junit';
 import { planejarSelecaoNativa } from './check-selecao';
 import { ENV_TMPDIR_DA_RODADA, selecionarTemporario } from './temporario-das-lanes';
+import { ambienteFuncionalDosTestes, ENV_PATH_FUNCIONAL_DA_RODADA,
+  transporteDoAmbienteFuncional } from './ambiente-funcional';
 
 /** Teto de tempo de um comando de verificacao (build e suite completa cabem). */
 export const TIMEOUT_VERIFY_MS = 10 * 60 * 1000;
@@ -95,6 +97,7 @@ export const PREFIXO_BLOQUEADO_NO_VERIFY = 'ORK_HITL_';
  */
 const VARIAVEIS_DA_RODADA: ReadonlySet<string> = new Set([
   ENV_RELATORIO_DO_CHECK, ENV_VARREDURA_PARALELA_DO_CHECK, ENV_CPUS_DA_LANE, ENV_CPUS_DOCKER, ENV_WORKERS,
+  ENV_PATH_FUNCIONAL_DA_RODADA,
 ]);
 
 export function ambienteDoVerify(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
@@ -142,13 +145,15 @@ export function prazoDaExecucao(manifesto: Manifesto, nome: string, comando: str
  * O executor resolvido pelo manifesto: prazo de cada comando e, no scan, o prazo interno no ambiente. RM-072 (D2):
  * `ambienteDaRodada` e o que a rodada passa a todo comando dela (o modo do CHECK); o CI hospedado nao passa nada.
  */
-export function executorDoManifesto(manifesto: Manifesto, ambienteDaRodada?: Record<string, string>): ExecutorVerify {
+export function executorDoManifesto(manifesto: Manifesto, ambienteDaRodada?: Record<string, string>,
+  ambienteBase?: NodeJS.ProcessEnv): ExecutorVerify {
   return (nome, comando, cwd) => {
     const prazo = prazoDaExecucao(manifesto, nome, comando);
     const extra = ehComandoDoScan(manifesto, nome, comando)
       ? { ORK_SECURITY_SCAN_DEADLINE_MS: String(prazoInternoDoScan(prazo)) }
       : undefined;
-    return executar(nome, comando, cwd, prazo, ambienteDaRodada || extra ? { ...ambienteDaRodada, ...extra } : undefined);
+    return executar(nome, comando, cwd, prazo, ambienteDaRodada || extra ? { ...ambienteDaRodada, ...extra } : undefined,
+      ambienteBase);
   };
 }
 
@@ -162,14 +167,14 @@ export function executorDoManifesto(manifesto: Manifesto, ambienteDaRodada?: Rec
  * O estouro continua saindo como `code: -1`, o contrato de antes.
  */
 export function executar(nome: string, comando: string, cwd: string,
-  tetoMs = TIMEOUT_VERIFY_MS, ambienteExtra?: Record<string, string>): ResultadoDeComando {
+  tetoMs = TIMEOUT_VERIFY_MS, ambienteExtra?: Record<string, string>, ambienteBase?: NodeJS.ProcessEnv): ResultadoDeComando {
   const comGrupo = existsSync(TIMEOUT_BIN);
   const inicio = Date.now();
-  const ambiente = { ...ambienteDoVerify(), ...ambienteExtra };
+  const ambiente = { ...(ambienteBase ?? ambienteDoVerify()), ...ambienteExtra };
   const r = comGrupo
-    ? exec(TIMEOUT_BIN, ['--kill-after=15', `${Math.ceil(tetoMs / 1000)}`, 'bash', '-c', comando],
+    ? exec(TIMEOUT_BIN, ['--kill-after=15', `${Math.ceil(tetoMs / 1000)}`, '/usr/bin/bash', '--noprofile', '--norc', '-c', comando],
       cwd, tetoMs + 30_000, ambiente)
-    : exec('bash', ['-c', comando], cwd, tetoMs, ambiente);
+    : exec('/usr/bin/bash', ['--noprofile', '--norc', '-c', comando], cwd, tetoMs, ambiente);
   return resultadoDoProcesso(nome, comando, r, comGrupo, Date.now() - inicio, tetoMs);
 }
 
@@ -610,7 +615,10 @@ function executorDoGrupo(manifesto: Manifesto, ambienteDaRodada: Record<string, 
         // RM-072: ao lado das lanes, a varredura roda poucas ferramentas por vez, para o grupo nao passar da CPU.
         ? { ORK_SECURITY_SCAN_DEADLINE_MS: String(prazoInternoDoScan(prazos[k])),
           ...(itens.length > 1 ? { [ENV_VARREDURA_PARALELA_DO_CHECK]: String(paralelismoDaVarreduraNoGrupo()) } : {}) } : {}),
-        ...(i.nome.startsWith('test:') && ambienteDaRodada.TMPDIR ? { [ENV_TMPDIR_DA_RODADA]: '1' } : {}) } }));
+        ...(i.nome.startsWith('test:') ? {
+          ...(ambienteDaRodada.TMPDIR ? { [ENV_TMPDIR_DA_RODADA]: '1' } : {}),
+          ...transporteDoAmbienteFuncional(ambienteDoVerify()),
+        } : {}) } }));
     // A conducao cobre o grupo inteiro: com a lane encadeada, a varredura e a lane somam.
     conducao.renovar(esperaDoGrupo(paraOAuxiliar));
     const janela = abrirJanela(leitor);
@@ -790,7 +798,7 @@ function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: stri
   // RM-072 (S-b do CHECK 2): fora do preparo, so a varredura e as lanes recebem o relatorio.
   const executorDaLane = temporarioDaRodada
     ? executorSobConducao(executorDaRodada(manifesto, instabilidade, base, leitor,
-      { ...ambienteDaRodada, [ENV_TMPDIR_DA_RODADA]: '1' }), manifesto, tomada)
+      { ...ambienteDaRodada, [ENV_TMPDIR_DA_RODADA]: '1', ...transporteDoAmbienteFuncional(ambienteDoVerify()) }), manifesto, tomada)
     : executor;
   const executorDosComandos = relatorio
     ? soAVarreduraEAsLanesComRelatorio(executor,
@@ -1155,6 +1163,9 @@ function verificarSobConducao(
   const ambienteFuncional = { ...ambienteDoModo(check), ...temporarioDaRodada?.ambiente,
     ...(casaDaRodada ? { ORKASTERY_HOME: casaDaRodada } : {}) };
   const ambienteDaRodada = { ...ambienteFuncional, ...relatorio?.ambiente() };
+  const ambienteFuncionalDasLanes = { ...temporarioDaRodada?.ambiente,
+    ...(casaDaRodada ? { ORKASTERY_HOME: casaDaRodada } : {}) };
+  const ambienteEfetivoDasClaims = ambienteFuncionalDosTestes(ambienteDoVerify(), ambienteFuncionalDasLanes);
 
   // I-37 (D2, D3): o prazo de cada comando sai do manifesto carregado no inicio da rodada;
   // editar o manifesto no meio dela nao muda o teto de quem ainda vai rodar.
@@ -1170,15 +1181,15 @@ function verificarSobConducao(
     : executor;
   // Uma claim `node --test` elegivel usa o mesmo ambiente funcional das lanes: casa compartilhada, sem o modo da
   // orquestracao. Assim o fallback da claim e a prova reaproveitada observam exatamente a mesma bateria.
-  const ambienteFuncionalDasLanes = { ...temporarioDaRodada?.ambiente,
-    ...(casaDaRodada ? { ORKASTERY_HOME: casaDaRodada } : {}) };
+  const baseDasClaimsComoLane = opcoes.executor
+    ?? executorDoManifesto(manifesto, undefined, ambienteEfetivoDasClaims);
   const executorDasClaimsComoLane: ExecutorVerify = relatorio
-    ? executorSobConducao(observar(executorDaRodada(manifesto, instabilidade, opcoes.executor, leitor, ambienteFuncionalDasLanes)),
+    ? executorSobConducao(observar(executorDaRodada(manifesto, instabilidade, baseDasClaimsComoLane, leitor)),
       manifesto, conducao)
     : executor;
   const executorDaLane: ExecutorVerify = relatorio && temporarioDaRodada
     ? executorSobConducao(observar(executorDaRodada(manifesto, instabilidade, opcoes.executor, leitor,
-      { ...ambienteDaRodada, [ENV_TMPDIR_DA_RODADA]: '1' })), manifesto, conducao)
+      { ...ambienteDaRodada, [ENV_TMPDIR_DA_RODADA]: '1', ...transporteDoAmbienteFuncional(ambienteDoVerify()) })), manifesto, conducao)
     : executor;
   // RM-072 (S-b do CHECK 2): fora do preparo, so a varredura e as lanes recebem o relatorio.
   const executorDosComandos = relatorio
@@ -1235,7 +1246,6 @@ function verificarSobConducao(
     : [];
   if (doAgile) pecas.push(...doAgile.pecas);
   const evidenciasDasLanes = relatorio && doAgile ? resultadosDasLanes(relatorio.ler()) : [];
-  const ambienteEfetivoDasClaims = { ...ambienteDoVerify(), ...ambienteFuncionalDasLanes };
   const vigenciaDasLanes = () => !lanesVigentes ? 'lanes-invigentes' as const : vigente?.guarda.conferir() ?? null;
   const executorComLanes = agil
     ? executorDaClaimPelasLanes(executorDasClaims, evidenciasDasLanes, { head: commit, ambiente: ambienteEfetivoDasClaims,
