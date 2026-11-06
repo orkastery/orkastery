@@ -48,11 +48,12 @@ e `web-performance-auditor`. Cada um roda no seu escopo e devolve achados catego
   correcao. Ela nunca afirma que o defeito ainda acontece.
 - O comando que reproduz o defeito fica somente no parecer (`docs/check.md`), como evidencia do
   achado; esse comando nunca vira claim.
-- Achado sem claim usa uma linha analisavel pelo ciclo de correcao:
+- Achado sem claim usa uma linha analisavel pelo ciclo de correcao; os tokens do formato sao
+  estaveis nas duas linguas:
 
-  `- A<n> [bloqueador|aviso|sugestao] caminho:linha - descricao`
+  `- A<n> [blocker|warning|suggestion] path:line - description`
 
-  A linha seguinte pode registrar `reproduzir: \`comando\``. O comando continua sendo evidencia
+  A linha seguinte pode registrar `reproduce: \`command\``. O comando continua sendo evidencia
   do parecer, nao verificacao da claim.
 
 ## O que o CHECK entrega

@@ -15,7 +15,7 @@ test('RM079 orientacao: CHECK separa claim positiva da reproducao em pt-BR', () 
   const agente = ler('adapters/claude-code/agents/ork-check.md');
   assert.match(skill, /claim nascida no CHECK afirma o comportamento correto esperado/i);
   assert.match(skill, /comando que reproduz o defeito fica somente no parecer/i);
-  assert.match(skill, /- A<n> \[bloqueador\|aviso\|sugestao\] caminho:linha - descricao/);
+  assert.match(skill, /- A<n> \[blocker\|warning\|suggestion\] path:line - description/);
   assert.match(agente, /reproducao do defeito[\s\S]*nunca vira claim/i);
   assert.match(PROMPTS_PT_BR.contratoDasFases.CHECK, /Claim nova afirma o comportamento correto/);
 });

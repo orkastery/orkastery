@@ -48,7 +48,8 @@ and `web-performance-auditor`. Each one runs in its own scope and returns catego
   It never states that the defect still occurs.
 - The command that reproduces the defect stays only in the report (`docs/check.md`) as finding
   evidence; that command never becomes a claim.
-- A finding without a claim uses a machine-readable line for the correction cycle:
+- A finding without a claim uses a machine-readable line for the correction cycle; the format
+  tokens stay the same in both languages:
 
   `- A<n> [blocker|warning|suggestion] path:line - description`
 
