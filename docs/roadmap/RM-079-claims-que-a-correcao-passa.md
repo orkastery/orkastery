@@ -6,12 +6,12 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-31T12:00:00-03:00
+atualizado_em: 2026-11-06T12:18:00-03:00
 estado:
-  ciclo: Discovery
-  documentacao: Rascunho
-  codigo: Não iniciado
-  testes: Não iniciados
+  ciclo: Em desenvolvimento
+  documentacao: Em revisão
+  codigo: Em desenvolvimento
+  testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
@@ -20,8 +20,8 @@ evidencias:
     commit: null
     pr: null
 sdlc:
-  thread: null
-  modo: null
+  thread: ork-rm079claimsq
+  modo: Auto
 ---
 
 # RM-079: Claims de revisão que a correção passa e retirada tipada com substituta
@@ -32,7 +32,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Discovery | Não iniciado | Não iniciados | Não implantado | Flag desligada |
+| Em desenvolvimento | Em desenvolvimento | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -57,14 +57,17 @@ sdlc:
 - **Incluído:**
   - uma regra, em pt-BR e EN, na orientação do CHECK: a claim nova afirma o comportamento correto e passa com a correção, e a reprodução do defeito vai no parecer;
   - regra de lint que avisa quando a claim executa função isolada com contexto artificial (por exemplo `node -e` com parser de AST, `vm.runIn*`, `new Function`);
+  - regra de lint que avisa quando a claim lê o bundle `.ork-ci` da própria thread ou outro artefato gerado pelo fechamento;
   - `ork claims retirar ... --substituida-por <Cn>` com motivo tipado (`substituicao`, `obsoleta`, `erro`) e autor (sessão ou dono) no ledger, conferindo que a substituta existe, está ativa e passou no último `verify_run`;
   - retirada sem substituta abre pedido tipado ao dono (por exemplo `claims.retirada-sem-substituta`);
   - a mesma operação como ferramenta MCP.
+  - `ork fix open` lê o veredito e os achados estruturados de `docs/check.md`; `ork fix status` mostra arquivo, linha, estado, commit de fechamento e o que falta.
 - **Fora de escopo:** mudar o formato das claims.
 - **Entregáveis e critérios de aceite:**
   - claim nascida no CHECK passa com uma implementação correta, sem retirada pelo dono;
   - troca de regra com substituta verde não para a thread;
   - retirada sem substituta vira pedido ao dono;
+  - parecer negativo com achado sem claim abre uma rodada de correção e exige um novo CHECK verde para fechar;
   - um mutante por regra morre.
 - **Piloto, medição e critérios de expansão/interrupção:** piloto nos próximos CHECKs `#Auto`.
 
@@ -86,10 +89,10 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-10-31 | Julio |
-| Documentação | Rascunho | — | 2026-10-31 | Julio |
-| Código | Não iniciado | — | 2026-10-31 | Julio |
-| Testes | Não iniciados | — | 2026-10-31 | Julio |
+| Ciclo do item | Em desenvolvimento | thread `ork-rm079claimsq` | 2026-11-06 | sessão Codex |
+| Documentação | Em revisão | orientação do CHECK e contrato público atualizados na thread | 2026-11-06 | sessão Codex |
+| Código | Em desenvolvimento | commits atômicos da thread `ork-rm079claimsq` | 2026-11-06 | sessão Codex |
+| Testes | Em execução | suítes focadas verdes; verify oficial pendente | 2026-11-06 | sessão Codex |
 | Deploy | Não implantado | — | 2026-10-31 | Julio |
 | Exposição | Flag desligada | — | 2026-10-31 | Julio |
 | Habilitação | Pendente | — | 2026-10-31 | Julio |
@@ -105,3 +108,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-31 | Item criado em Discovery | Achados de condução em rede, conferidos contra a 0.6.2 | Julio (pedido de 31/10/2026) |
+| 2026-11-06 | Implementação em GO na thread `ork-rm079claimsq` | orientação bilíngue, lint educativo, retirada tipada e ciclo de correção derivados dos critérios da RM-079 | sessão Codex (#Auto) |
