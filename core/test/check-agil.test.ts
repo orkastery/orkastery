@@ -6,6 +6,7 @@
  * por "AGn:".
  */
 import { strict as assert } from 'node:assert';
+import { randomBytes } from 'node:crypto';
 import { test, type TestContext } from 'node:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -898,13 +899,16 @@ async function executarAg55(t: TestContext): Promise<void> {
     const p = projetoTemporario(`ag55-${tmpdirDivergente ? 'divergente' : 'igual'}`);
     const apoio = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag55-apoio-'));
     const nomesDoAmbiente = ['ORK_LANES_DIR', 'ORK_LANES_INTEGRACAO', 'ORKASTERY_HOME', 'XDG_CACHE_HOME',
-      'PROVA_TMPDIR', 'NODE_TEST_CONTEXT'];
+      'PROVA_TMPDIR', 'PROVA_SAL', 'NODE_TEST_CONTEXT'];
     const antes = Object.fromEntries(nomesDoAmbiente.map((nome) => [nome, process.env[nome]]));
     try {
       const testes = path.join(p.dir, 'core', 'dist-test', 'test'), prova = path.join(apoio, 'tmpdir-visto.jsonl');
-      const probe = "const fs = require('node:fs'); const p = process.env.TMPDIR; const s = fs.statSync(p);\n" +
+      const probe = "const fs = require('node:fs'); const { createHmac } = require('node:crypto'); " +
+        "const p = process.env.TMPDIR; const s = fs.statSync(p);\n" +
+        "const ambiente = Object.fromEntries(Object.entries(process.env).map(([k, v]) => " +
+        "[k, createHmac('sha256', process.env.PROVA_SAL).update(v).digest('hex')]));\n" +
         "fs.appendFileSync(process.env.PROVA_TMPDIR, JSON.stringify({ papel: process.argv[2] || 'lane', literal: p, " +
-        "realpath: fs.realpathSync(p), dev: String(s.dev), mode: s.mode & 0o777 }) + '\\n');\n";
+        "realpath: fs.realpathSync(p), dev: String(s.dev), mode: s.mode & 0o777, ambiente }) + '\\n');\n";
       commitar(p.dir, 'core/probe.cjs', probe, 'fixture probe');
       commitar(p.dir, 'core/dist-test/test/tmpdir.test.js',
         "const { test } = require('node:test'); test('AG1: observa TMPDIR', () => { require('../../probe.cjs'); });\n", 'fixture teste');
@@ -914,6 +918,7 @@ async function executarAg55(t: TestContext): Promise<void> {
       fs.mkdirSync(process.env.ORKASTERY_HOME);
       process.env.XDG_CACHE_HOME = path.join(apoio, 'cache');
       process.env.PROVA_TMPDIR = prova;
+      process.env.PROVA_SAL = randomBytes(32).toString('hex');
       delete process.env.NODE_TEST_CONTEXT;
       const tmpDaLaneDivergente = path.join(apoio, 'tmp-divergente');
       if (tmpdirDivergente) fs.mkdirSync(tmpDaLaneDivergente);
@@ -956,8 +961,18 @@ async function executarAg55(t: TestContext): Promise<void> {
   const pecasIguais = (compartilhado.evento.agile as { pecas: Array<Record<string, unknown>> }).pecas;
   const textoPt = comLocale('pt-BR', () => textoDoVerify(compartilhado.r));
   const textoEn = comLocale('en', () => textoDoVerify(compartilhado.r));
-  const observacoesIguais = JSON.stringify({ ...vistaPelaLane, papel: undefined })
-    === JSON.stringify({ ...vistaPelaClaim, papel: undefined });
+  const visaoDoTemporario = ({ papel: _papel, ambiente: _ambiente, ...visao }: Record<string, unknown>) => visao;
+  const observacoesIguais = JSON.stringify(visaoDoTemporario(vistaPelaLane))
+    === JSON.stringify(visaoDoTemporario(vistaPelaClaim));
+  const ambienteDaLane = vistaPelaLane.ambiente as Record<string, string>;
+  const ambienteDaClaim = vistaPelaClaim.ambiente as Record<string, string>;
+  const ignorada = (nome: string) => nome.startsWith('npm_') || nome.startsWith('NPM_')
+    || ['ORK_CHECK_RELATORIO', 'ORK_CHECK_CPUS_DA_LANE', 'ORK_CHECK_CPUS_DA_LANE_APOS_VARREDURA',
+      'ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA', 'ORK_CHECK_RESERVA_DEVOLVIDA', 'ORK_CHECK_CONTAINERS_DA_LANE',
+      'ORK_CHECK_CPUS_DOCKER', 'ORK_WORKERS', 'NODE_TEST_CONTEXT', 'NODE_COMPILE_CACHE', 'PWD', 'OLDPWD', 'SHLVL', '_',
+      'INIT_CWD'].includes(nome);
+  const ambienteDivergente = [...new Set([...Object.keys(ambienteDaLane), ...Object.keys(ambienteDaClaim)])]
+    .filter((nome) => !ignorada(nome) && ambienteDaLane[nome] !== ambienteDaClaim[nome]).sort();
   const temPecaTmp = pecasIguais.some((x) => x.peca === 'tmpfs-das-lanes' && x.tmpdirDaRodada === true);
   const temPecaC1 = pecasIguais.some((x) => x.peca === 'claim-lane' && x.claim === 'C1.1' && x.estado === 'agile');
   const temPecaC3 = pecasIguais.some((x) => x.peca === 'claim-lane' && x.claim === 'C3.1' && x.estado === 'agile');
@@ -965,6 +980,7 @@ async function executarAg55(t: TestContext): Promise<void> {
     `c1=${c1Compartilhada.reaproveitada ? 'R' : c1Compartilhada.motivo} ` +
     `c3=${c3Compartilhada.reaproveitada ? 'R' : c3Compartilhada.motivo} obs=${Number(observacoesIguais)} ` +
     `pecas=${Number(temPecaTmp)}${Number(temPecaC1)}${Number(temPecaC3)} ` +
+    `diff=${ambienteDivergente.join(',') || '-'} ` +
     `locale=${Number(/TMPDIR compartilhado pela rodada/.test(textoPt) && /C1\.1: reaproveitada das lanes/.test(textoPt))}` +
     `${Number(/TMPDIR shared by the run/.test(textoEn) && /C1\.1: reused from lanes/.test(textoEn))}`, () => {
     assert.equal(compartilhado.r.ok, true, compartilhado.r.motivos.join(','));
@@ -972,7 +988,7 @@ async function executarAg55(t: TestContext): Promise<void> {
     assert.equal(c1Compartilhada.reaproveitada, true);
     assert.equal(c3Compartilhada.reaproveitada, true,
       JSON.stringify({ lane: c3Compartilhada, nominal: compartilhado.nominal }));
-    assert.deepEqual({ ...vistaPelaLane, papel: undefined }, { ...vistaPelaClaim, papel: undefined },
+    assert.deepEqual(visaoDoTemporario(vistaPelaLane), visaoDoTemporario(vistaPelaClaim),
       'lane e claim executada veem o mesmo valor literal, realpath, dispositivo e permissoes');
     assert.ok(temPecaTmp); assert.ok(temPecaC1); assert.ok(temPecaC3);
     assert.match(textoPt, /TMPDIR compartilhado pela rodada/);
