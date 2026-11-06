@@ -932,8 +932,10 @@ async function executarAg55(t: TestContext): Promise<void> {
         "const { test } = require('node:test'); test('AG1: observa TMPDIR', () => { require('../../probe.cjs'); });\n", 'fixture teste');
       commitar(p.dir, 'core/dist-test/test/cota.test.js',
         "const { test } = require('node:test'); const fs = require('node:fs'); test('AG2: observa a cota', () => { " +
+        "const p = process.env.TMPDIR; const s = fs.statSync(p); " +
         "fs.appendFileSync(process.env.PROVA_TMPDIR, JSON.stringify({ papel: process.env.ORK_CHECK_CPUS_DOCKER ? " +
-        "'integracao' : 'recusada', cota: process.env.ORK_CHECK_CPUS_DOCKER || null, ambiente: process.env }) + '\\n'); });\n",
+        "'integracao' : 'recusada', cota: process.env.ORK_CHECK_CPUS_DOCKER || null, literal: p, realpath: fs.realpathSync(p), " +
+        "dev: String(s.dev), mode: s.mode & 0o777, ambiente: process.env }) + '\\n'); });\n",
         'fixture cota');
       const tmpDaLaneDivergente = path.join(apoio, 'tmp-divergente');
       if (divergencia === 'tmpdir') fs.mkdirSync(tmpDaLaneDivergente);
@@ -942,9 +944,11 @@ async function executarAg55(t: TestContext): Promise<void> {
       const core = path.resolve(path.dirname(SCRIPT_DAS_LANES), '..');
       const comandoHermetica = `${prefixo}npm --prefix ${core} run test:hermetica`;
       const comandoIntegracao = `${prefixo}npm --prefix ${core} run test:integracao`;
+      // A cota dos conteineres so chega a integracao encadeada depois da varredura, como no manifesto do produto.
       comAgile(p, `  agile:\n    produto:\n      - "README.md"\n    test:\n` +
         `      hermetica: "${comandoHermetica.replaceAll('"', '\\"')}"\n` +
-        `      integracao: "${comandoIntegracao.replaceAll('"', '\\"')}"`);
+        `      integracao: "${comandoIntegracao.replaceAll('"', '\\"')}"\n    apos_a_varredura: ["integracao"]`,
+        { scan: 'echo varredura' });
       const { thread: t } = novaThread(p.carregado, { nome: 'recibo por claim', modo: 'auto' });
       adicionarClaim(p.dir, t.id, { arquivo: 'core/src/c1.ts', alegacao: 'forma C1',
         verificar: ['echo passo-a && echo passo-b && node --test core/dist-test/test/tmpdir.test.js'] });
@@ -953,7 +957,8 @@ async function executarAg55(t: TestContext): Promise<void> {
       adicionarClaim(p.dir, t.id, { arquivo: 'core/src/c3.ts', alegacao: 'forma C3', verificar: [
         'echo passo-a && echo passo-b && node --test core/dist-test/test/cota.test.js',
       ] });
-      const r = verificar(p.carregado, t.id);
+      // Medicao injetada: a carga da maquina nao decide se o plano de CPU (e a cota) se aplica.
+      const r = verificar(p.carregado, t.id, { medicaoCpuAgendador: { carga1: 0, stealPct: 0 } });
       const evento = ultimoVerify(p, t.id);
       const observacoes = fs.readFileSync(prova, 'utf8').trim().split('\n').map((l) => JSON.parse(l) as Record<string, unknown>);
       return { r, evento, observacoes,
