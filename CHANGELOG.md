@@ -6,6 +6,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Corrigido
+
+- **Testes de processo sob disputa de CPU ([RM-081](docs/roadmap/RM-081-check-por-qualquer-runner.md)):** fixtures que aguardam fila, recibo, estado, resultado ou término de processo passam a fechar pelo evento e pelo conteúdo observado; regras temporais continuam com relógio injetado ou com a proteção explícita do verify.
+
 ## [0.6.6] - 2026-11-06
 
 O despacho espera o watcher de sessão ficar pronto enquanto ele vive, em vez de desistir num prazo curto fixo; com a CPU disputada, a fase volta a fechar (RM-074).
