@@ -549,6 +549,7 @@ function montarApoio(raiz, n, sabotar) {
     function verifyDaSessao(threadId, commit, ts) {
       const claims = n.claims.lerClaims(proj.dir, threadId).filter((x) => x.estado !== 'retirada').map((x) => ({ id: x.id, verificado: true, motivo: null }));
       return n.ledger.registrar(n.thread.dirThread(proj.dir, threadId), threadId, 'verify_run', { ...(ts ? { ts } : {}), commit,
+        recibo: n.recibo.chaveDoReciboDeProva(proj.dir, threadId, commit),
         veredito: 'verdade sustentada', motivos: [], claims, baseline: { commit: 'baseline-simulada', gravadaEm: ts ?? iso(Date.now()) }, comandos: [],
         simulado: true });
     }
@@ -1547,7 +1548,7 @@ function rodar(args) {
       execucao: doNucleo('noctum-execucao'), vigia: doNucleo('noctum-vigia'), claims: doNucleo('claims'), ci: doNucleo('ci'),
       worktree: doNucleo('worktree'), perfis: doNucleo('runtime-profiles'), supervisao: doNucleo('noctum-supervisao'),
       pulseResposta: doNucleo('pulse-resposta'), pulseConsentimento: doNucleo('pulse-consentimento'), terminal: doNucleo('noctum-terminal'),
-      aceite: doNucleo('noctum-aceite'), transporte: doNucleo('noctum-transporte'),
+      aceite: doNucleo('noctum-aceite'), transporte: doNucleo('noctum-transporte'), recibo: doNucleo('recibo-prova'),
     };
     if (!n.filaPesada.kernelDisponivel()) throw new ErroDeUso('o ensaio exige a trava do kernel (/usr/bin/flock)');
     for (const def of CENARIOS.filter((x) => escolhidos.includes(x.nome))) {

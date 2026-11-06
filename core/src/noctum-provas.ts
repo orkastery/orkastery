@@ -264,11 +264,14 @@ function lacunaDaCadeia(f: FatosDaEntrega): string | null {
   return c ? `o commit ${curto(c.sha)} da cadeia não se classificou: ${c.detalhe}` : null;
 }
 
-/** Os `verify_run` que valem para a fonte (D3: no SHA, ou num ancestral seguido só de commits de bundle), na ordem do ledger. */
+/**
+ * Os `verify_run` do SHA da fonte, na ordem do ledger.
+ *
+ * A chave decide se um resultado verde ainda pode ser reaproveitado; ela nao tira uma
+ * rodada da historia. Assim, uma chave antiga nunca esconde reprovacao nem reduz o teto.
+ */
 function verifiesDaFonte(f: FatosDaEntrega): VerifyLido[] {
-  return f.verifies.filter(v => equivalente(f.cadeia, v.commit, NEUTROS_DO_VERIFY).ok &&
-    !!v.chaveAtual && mesmaChaveDoRecibo(v.recibo, v.chaveAtual) &&
-    !(v.reavaliadoSemMudanca && v.chaveAtual.dependenciasExternas.length > 0));
+  return f.verifies.filter(v => equivalente(f.cadeia, v.commit, NEUTROS_DO_VERIFY).ok);
 }
 
 const reprovado = (v: VerifyLido): boolean => !v.ok && v.motivos.some(m => MOTIVOS_DE_REPROVACAO.includes(m));
@@ -302,6 +305,14 @@ function provaDoVerify(f: FatosDaEntrega): VerifyDaFonte {
     if (semExecucao.length) {
       return repetir('noctum.entrega.verify-ausente', `claim(s) ativa(s) que o verify ${ultimo.eventId} não executou: ${semExecucao.slice(0, 10).join(', ')}`,
         { semExecucao });
+    }
+    if (!ultimo.chaveAtual || !mesmaChaveDoRecibo(ultimo.recibo, ultimo.chaveAtual)) {
+      return repetir('noctum.entrega.verify-ausente',
+        `a chave do recibo verde ${ultimo.eventId} não confere com HEAD, claims ativas e plano atuais`);
+    }
+    if (ultimo.reavaliadoSemMudanca && ultimo.chaveAtual.dependenciasExternas.length > 0) {
+      return repetir('noctum.entrega.verify-ausente',
+        `o verify ${ultimo.eventId} tem dependência externa e precisa rodar depois da reavaliação sem mudança`);
     }
     return fim(prova('verify', null, `verify verde em ${curto(ultimo.commit)} (${ultimo.eventId})` +
       (falhas.length ? `, com ${falhas.length} reprovação(ões) anterior(es) no mesmo SHA registrada(s)` : ''), evidencia));

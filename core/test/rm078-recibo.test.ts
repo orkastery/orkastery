@@ -25,6 +25,12 @@ test('RM-078 chave: HEAD, id/comandos das claims e bytes do plano invalidam isol
     const head = 'a'.repeat(40);
     const inicial = chaveDoReciboDeProva(p.dir, t.id, head);
     assert.equal(mesmaChaveDoRecibo(inicial, chaveDoReciboDeProva(p.dir, t.id, head)), true);
+    const somenteHead = { ...inicial, head: 'b'.repeat(40) };
+    const somenteClaims = { ...inicial, claimsSha256: 'c'.repeat(64) };
+    const somentePlano = { ...inicial, planoSha256: 'd'.repeat(64) };
+    assert.equal(mesmaChaveDoRecibo(somenteHead, inicial), false, 'recibo difere só no HEAD');
+    assert.equal(mesmaChaveDoRecibo(somenteClaims, inicial), false, 'recibo difere só nas claims');
+    assert.equal(mesmaChaveDoRecibo(somentePlano, inicial), false, 'recibo difere só no plano');
     assert.equal(mesmaChaveDoRecibo(inicial, chaveDoReciboDeProva(p.dir, t.id, 'b'.repeat(40))), false, 'HEAD');
 
     adicionarClaim(p.dir, t.id, { arquivo: 'core/src/y.ts', alegacao: 'y devolve o valor',
