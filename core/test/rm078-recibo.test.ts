@@ -2,10 +2,12 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { adicionarClaim, anexarComando } from '../src/claims';
+import { adicionarClaim, anexarComando, gravarClaim, lerClaims } from '../src/claims';
+import { registrar } from '../src/ledger';
+import { provasDaEntrega } from '../src/noctum-provas';
 import { chaveDoReciboDeProva, mesmaChaveDoRecibo } from '../src/recibo-prova';
 import { dirThread } from '../src/thread';
-import { projetoDaEntrega, threadComWorktree } from './noctum-entrega-apoio';
+import { ciFalso, concluirRevisao, entregaPronta, FORJA, projetoDaEntrega, sessaoDespachada, threadComWorktree } from './noctum-entrega-apoio';
 
 function fixture(nome: string) {
   const p = projetoDaEntrega(nome);
@@ -45,5 +47,46 @@ test('RM-078 chave: dependência externa é explícita e plano ausente não vira
     const semPlano = chaveDoReciboDeProva(p.dir, t.id, 'c'.repeat(40));
     assert.equal(semPlano.planoSha256, null);
     assert.equal(mesmaChaveDoRecibo(semPlano, semPlano), false);
+  } finally { p.limpar(); }
+});
+
+const motivo = (p: ReturnType<typeof provasDaEntrega>, id: string) => p.provas.find((x) => x.id === id)?.motivo ?? null;
+
+test('RM-078 recibos: GO sem commit conserva verify e revisão; mudança do plano invalida ambos', () => {
+  const p = projetoDaEntrega('rm078-reuso');
+  try {
+    const e = entregaPronta(p, 'rm078reuso');
+    const opcoes = { forja: FORJA, executorCi: ciFalso({ [e.fonte]: 'success' as const }) };
+    assert.deepEqual([motivo(provasDaEntrega(p.carregado, e.t.id, opcoes), 'verify'),
+      motivo(provasDaEntrega(p.carregado, e.t.id, opcoes), 'revisao')], [null, null]);
+
+    const go = sessaoDespachada(p, e.t.id, 'GO');
+    registrar(dirThread(p.dir, e.t.id), e.t.id, 'phase_result', { fase: 'GO', sessionId: go.sessionId,
+      classificacao: 'fase_concluida', ok: true, resultado: 'go.sem-mudanca' });
+    const reutilizado = provasDaEntrega(p.carregado, e.t.id, opcoes);
+    assert.deepEqual([motivo(reutilizado, 'verify'), motivo(reutilizado, 'revisao')], [null, null]);
+
+    fs.appendFileSync(path.join(dirThread(p.dir, e.t.id), 'docs', 'plan.md'), '\nTarefa alterada\n');
+    const planoMudou = provasDaEntrega(p.carregado, e.t.id, opcoes);
+    assert.deepEqual([motivo(planoMudou, 'verify'), motivo(planoMudou, 'revisao')],
+      ['noctum.entrega.verify-ausente', 'noctum.entrega.revisao-antiga']);
+  } finally { p.limpar(); }
+});
+
+test('RM-078 recibos: dependência externa exige verify depois do GO sem commit', () => {
+  const p = projetoDaEntrega('rm078-rede');
+  try {
+    const e = entregaPronta(p, 'rm078rede');
+    const claim = lerClaims(p.dir, e.t.id)[0];
+    gravarClaim(p.dir, { ...claim, dependenciasExternas: ['rede'] });
+    const revisor = sessaoDespachada(p, e.t.id, 'CHECK');
+    concluirRevisao(p, e.t.id, revisor, 'PASSOU', e.fonte);
+    const opcoes = { forja: FORJA, executorCi: ciFalso({ [e.fonte]: 'success' as const }) };
+    assert.equal(motivo(provasDaEntrega(p.carregado, e.t.id, opcoes), 'verify'), null);
+
+    const go = sessaoDespachada(p, e.t.id, 'GO');
+    registrar(dirThread(p.dir, e.t.id), e.t.id, 'phase_result', { fase: 'GO', sessionId: go.sessionId,
+      classificacao: 'fase_concluida', ok: true, resultado: 'go.sem-mudanca' });
+    assert.equal(motivo(provasDaEntrega(p.carregado, e.t.id, opcoes), 'verify'), 'noctum.entrega.verify-ausente');
   } finally { p.limpar(); }
 });

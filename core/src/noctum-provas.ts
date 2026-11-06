@@ -35,9 +35,10 @@ import { procurarSegredos } from './policies';
 import { estadoDoArtefato, eventosDoIntervalo, fonteRegistrada, provaDoOrk } from './session-watcher-claude';
 import { conferirBundle, manifestoDaBranch } from './ship-publicar';
 import { dirThread, lerThread } from './thread';
-import { EventoLedger, FASES, Thread } from './types';
+import { EventoLedger, Thread } from './types';
 import { comandosDoManifesto } from './verify';
 import { branchDaWorktree } from './worktree';
+import { ChaveDoReciboDeProva, CONTRATO_DO_RECIBO_DE_PROVA, chaveDoReciboDeProva, mesmaChaveDoRecibo } from './recibo-prova';
 
 export const CONTRATO_DAS_PROVAS = 'ork.noctum-provas/v1' as const;
 
@@ -103,6 +104,9 @@ export interface RevisaoLida {
   prova: { ok: boolean; fonte: string; veredito: string | null };
   /** O commit do último `verify_run` do intervalo do CHECK: o SHA que o revisor verificou. */
   revisado: string | null;
+  /** RM-078: chave gravada pelo verify do CHECK e a mesma chave recalculada agora. */
+  recibo: ChaveDoReciboDeProva | null;
+  chaveAtual: ChaveDoReciboDeProva | null;
   /** O parecer em disco não é mais o que o observador viu no resultado do CHECK. */
   parecerMudou: boolean;
 }
@@ -116,6 +120,9 @@ export interface VerifyLido {
   comBaseline: boolean;
   comComandos: boolean;
   claims: Array<{ id: string; verificado: boolean; motivo: string | null }>;
+  recibo: ChaveDoReciboDeProva | null;
+  chaveAtual: ChaveDoReciboDeProva | null;
+  reavaliadoSemMudanca: boolean;
 }
 
 export interface FatosDaEntrega {
@@ -259,7 +266,9 @@ function lacunaDaCadeia(f: FatosDaEntrega): string | null {
 
 /** Os `verify_run` que valem para a fonte (D3: no SHA, ou num ancestral seguido só de commits de bundle), na ordem do ledger. */
 function verifiesDaFonte(f: FatosDaEntrega): VerifyLido[] {
-  return f.verifies.filter(v => equivalente(f.cadeia, v.commit, NEUTROS_DO_VERIFY).ok);
+  return f.verifies.filter(v => equivalente(f.cadeia, v.commit, NEUTROS_DO_VERIFY).ok &&
+    !!v.chaveAtual && mesmaChaveDoRecibo(v.recibo, v.chaveAtual) &&
+    !(v.reavaliadoSemMudanca && v.chaveAtual.dependenciasExternas.length > 0));
 }
 
 const reprovado = (v: VerifyLido): boolean => !v.ok && v.motivos.some(m => MOTIVOS_DE_REPROVACAO.includes(m));
@@ -346,9 +355,6 @@ function provaDaRevisao(f: FatosDaEntrega): ProvaDaEntrega {
   if (f.autores.includes(r.sessionId)) {
     return prova('revisao', 'noctum.entrega.revisor-autor', `a sessão ${r.sessionId.slice(0, 8)} também é autora do candidato: não é revisão independente`, ev);
   }
-  if (f.ultimoDespachoDeAutor && !(Date.parse(r.despachadaEm) > Date.parse(f.ultimoDespachoDeAutor))) {
-    return prova('revisao', 'noctum.entrega.revisao-antiga', 'o CHECK foi despachado antes do último despacho de quem escreveu o candidato', ev);
-  }
   if (r.resultado === 'em-curso') return prova('revisao', 'noctum.entrega.revisao-em-curso', `a sessão de CHECK ${r.sessionId.slice(0, 8)} ainda não tem resultado`, ev);
   if (r.prova.veredito && r.prova.veredito !== 'PASSOU') {
     return prova('revisao', 'noctum.entrega.revisao-reprovada', `o CHECK independente concluiu ${r.prova.veredito}`, ev);
@@ -359,6 +365,9 @@ function provaDaRevisao(f: FatosDaEntrega): ProvaDaEntrega {
   if (!r.prova.ok) return prova('revisao', 'noctum.entrega.revisao-sem-vinculo', `o CHECK concluiu sem a prova do núcleo: ${r.prova.fonte}`, ev);
   if (r.parecerMudou) return prova('revisao', 'noctum.entrega.revisao-antiga', 'o parecer do CHECK mudou depois do resultado que o observador gravou', ev);
   if (!r.revisado) return prova('revisao', 'noctum.entrega.revisao-sem-sha', 'o CHECK não rodou verify no intervalo: o SHA revisado é desconhecido', ev);
+  if (!r.chaveAtual || !mesmaChaveDoRecibo(r.recibo, r.chaveAtual)) {
+    return prova('revisao', 'noctum.entrega.revisao-antiga', 'a chave do recibo do CHECK não confere com HEAD, claims ativas e plano atuais', ev);
+  }
   const lacuna = lacunaDaCadeia(f);
   if (lacuna) return prova('revisao', LACUNA, lacuna, ev);
   const eq = equivalente(f.cadeia, r.revisado, NEUTROS_DA_REVISAO);
@@ -687,21 +696,18 @@ export function segredosDaHistoria(raiz: string, base: string, fonte: string):
   return { lido: true, commits: blocos.length, polvos, achados };
 }
 
-/** Os autores do candidato: as sessões de GO, as que começaram antes do GO num bloco com GO, e as que commitaram. */
-function autoresDaThread(t: Thread, eventos: readonly EventoLedger[]): { autores: string[]; ultimoDespacho: string | null } {
+/** RM-078: autores do candidato são somente sessões com commit confirmado na cadeia da fonte. */
+function autoresDaThread(raiz: string, t: Thread, eventos: readonly EventoLedger[], fonte: string | null): { autores: string[]; ultimoDespacho: string | null } {
   const autores = new Set<string>();
   let ultimo: string | null = null;
   const marcar = (id: string, em?: string) => {
     autores.add(id);
     if (em && (!ultimo || Date.parse(em) > Date.parse(ultimo))) ultimo = em;
   };
-  for (const s of t.sessoes ?? []) {
-    const fases = (s.bloco ?? '').split('-');
-    const antesDoGo = fases.includes('GO') && FASES.indexOf(s.fase) <= FASES.indexOf('GO');
-    if (s.fase === 'GO' || antesDoGo) marcar(s.sessionId, s.despachadaEm);
-  }
   for (const e of eventos) {
-    if ((e.tipo === 'mcp_git_committed' || e.tipo === 'commit') && typeof e.sessionId === 'string' && e.sessionId) {
+    const commit = typeof e.commit === 'string' && SHA.test(e.commit) ? e.commit : null;
+    const naCadeia = !!commit && !!fonte && git(raiz, ['merge-base', '--is-ancestor', commit, fonte]).ok;
+    if ((e.tipo === 'mcp_git_committed' || e.tipo === 'commit') && naCadeia && typeof e.sessionId === 'string' && e.sessionId) {
       const s = (t.sessoes ?? []).find(x => x.sessionId === e.sessionId);
       marcar(e.sessionId, s?.despachadaEm);
     }
@@ -747,15 +753,19 @@ function revisoesDaThread(raiz: string, t: Thread, eventos: readonly EventoLedge
     const gravada = resultado?.provaOrk as { ok?: unknown; fonte?: unknown; veredito?: unknown; verify?: { commit?: unknown } | null } | undefined;
     let prova: RevisaoLida['prova'];
     let revisado: string | null;
+    let eventoDoVerify: EventoLedger | undefined;
+    const ate = resultado ? posicao.get(resultado) ?? eventos.length : eventos.length;
     if (gravada && typeof gravada.ok === 'boolean') {
       prova = { ok: gravada.ok, fonte: texto(gravada.fonte) ?? 'a prova do núcleo gravada no resultado do CHECK', veredito: texto(gravada.veredito) };
       revisado = texto(gravada.verify?.commit);
+      eventoDoVerify = [...intervalo].reverse().find(e => e.tipo === TIPOS_DE_EVENTO.verificacao &&
+        (posicao.get(e) ?? eventos.length) < ate && e.commit === revisado);
     } else {
       const p = provaDoOrk(raiz, t.id, sessao, eventos, fonteRegistrada(eventos, sessao));
       prova = { ok: p.ok, fonte: p.fonte, veredito: p.veredito ?? null };
       // Pela posição no ledger, e não pela hora: dois eventos no mesmo milissegundo não trocam de lado.
-      const ate = resultado ? posicao.get(resultado) ?? eventos.length : eventos.length;
-      revisado = texto(intervalo.filter(e => e.tipo === TIPOS_DE_EVENTO.verificacao && (posicao.get(e) ?? eventos.length) < ate).at(-1)?.commit);
+      eventoDoVerify = intervalo.filter(e => e.tipo === TIPOS_DE_EVENTO.verificacao && (posicao.get(e) ?? eventos.length) < ate).at(-1);
+      revisado = texto(eventoDoVerify?.commit);
     }
     // O parecer do resultado: o sha que o observador viu; sem ele (o observador do codex não grava), a data do arquivo, que
     // não pode ser depois do resultado (A5 da rodada 1). O `ts` do ledger é de milissegundo; a data do arquivo, mais fina.
@@ -763,12 +773,27 @@ function revisoesDaThread(raiz: string, t: Thread, eventos: readonly EventoLedge
     const parecer = estadoDoArtefato(raiz, t.id, 'docs/check.md');
     const parecerMudou = viu ? parecer.sha256 !== viu
       : !!resultado && parecer.mtimeMs !== null && Math.floor(parecer.mtimeMs) > Date.parse(resultado.ts);
+    const shaRevisado = revisado && SHA.test(revisado) ? revisado : null;
     return { sessionId: s.sessionId, runtime: s.runtime, despachadaEm: s.despachadaEm!, semVinculo: vinculoDaSessao(raiz, t, s, eventos),
-      resultado: estado, prova, revisado: revisado && SHA.test(revisado) ? revisado : null, parecerMudou };
+      resultado: estado, prova, revisado: shaRevisado, recibo: reciboDoEvento(eventoDoVerify?.recibo),
+      chaveAtual: shaRevisado ? chaveAtualSegura(raiz, t.id, shaRevisado) : null, parecerMudou };
   });
 }
 
-function verifiesDoLedger(eventos: readonly EventoLedger[]): VerifyLido[] {
+function reciboDoEvento(valor: unknown): ChaveDoReciboDeProva | null {
+  if (!valor || typeof valor !== 'object') return null;
+  const r = valor as Partial<ChaveDoReciboDeProva>;
+  return r.contrato === CONTRATO_DO_RECIBO_DE_PROVA && typeof r.head === 'string' && typeof r.claimsSha256 === 'string' &&
+    (typeof r.planoSha256 === 'string' || r.planoSha256 === null) && Array.isArray(r.dependenciasExternas) && typeof r.sha256 === 'string'
+    ? r as ChaveDoReciboDeProva : null;
+}
+
+function chaveAtualSegura(raiz: string, threadId: string, head: string): ChaveDoReciboDeProva | null {
+  try { return chaveDoReciboDeProva(raiz, threadId, head); } catch { return null; }
+}
+
+function verifiesDoLedger(raiz: string, threadId: string, eventos: readonly EventoLedger[]): VerifyLido[] {
+  const posicao = new Map(eventos.map((e, i) => [e, i] as const));
   return eventos.filter(e => e.tipo === TIPOS_DE_EVENTO.verificacao && typeof e.commit === 'string' && SHA.test(e.commit)).map(e => ({
     eventId: texto(e.eventId) ?? '-', ts: e.ts, commit: e.commit as string, ok: e.veredito === 'verdade sustentada',
     motivos: Array.isArray(e.motivos) ? e.motivos.map(String) : [],
@@ -776,6 +801,9 @@ function verifiesDoLedger(eventos: readonly EventoLedger[]): VerifyLido[] {
     comComandos: Array.isArray(e.comandos) && e.comandos.length > 0,
     claims: Array.isArray(e.claims) ? (e.claims as Array<Record<string, unknown>>).filter(c => typeof c?.id === 'string')
       .map(c => ({ id: c.id as string, verificado: c.verificado === true, motivo: texto(c.motivo) })) : [],
+    recibo: reciboDoEvento(e.recibo), chaveAtual: chaveAtualSegura(raiz, threadId, e.commit as string),
+    reavaliadoSemMudanca: eventos.slice((posicao.get(e) ?? eventos.length) + 1)
+      .some(x => x.tipo === 'phase_result' && x.resultado === 'go.sem-mudanca'),
   }));
 }
 
@@ -807,12 +835,12 @@ export function lerFatosDaEntrega(carregado: ManifestoCarregado, threadId: strin
     base.erro = `o commit ${curto(base.sha)} da base não chegou a esta cópia`;
     base.sha = null;
   }
-  const { autores, ultimoDespacho } = autoresDaThread(t, eventos);
+  const { autores, ultimoDespacho } = autoresDaThread(raiz, t, eventos, fonte);
   const claimsAtivas = (() => { try { return lerClaims(raiz, threadId).filter(c => c.estado !== 'retirada'); } catch { return []; } })();
   const daBranch = manifestoDaBranch(carregado, fonte);
   const fatos: FatosDaEntrega = {
     thread: t.id, branch, fonte, base, integrada: null, cadeia: [], cadeiaLida: false, autores, ultimoDespachoDeAutor: ultimoDespacho,
-    revisoes: revisoesDaThread(raiz, t, eventos), verifies: verifiesDoLedger(eventos),
+    revisoes: revisoesDaThread(raiz, t, eventos), verifies: verifiesDoLedger(raiz, t.id, eventos),
     comandosEsperados: comandosDoManifesto(daBranch.manifesto).length,
     // A2 da rodada 1: a claim de mutante sem comando não executa nada e nunca prova a guarda; ela não conta como mutante.
     claims: claimsAtivas.map(c => ({ id: c.id, mutante: ALEGACAO_DE_MUTANTE.test(c.alegacao) && c.verificar.length > 0 })),

@@ -63,6 +63,7 @@ import { changelogAplicavel, checarChangelog } from './changelog-check';
 import { anexarRelatorioJUnit, caminhoJUnitDoComando, marcacaoDeRelogioDoComando, prepararRelatorioJUnit,
   RelatorioJUnitPreparado } from './junit';
 import { planejarSelecaoNativa } from './check-selecao';
+import { chaveDoReciboDeProva } from './recibo-prova';
 
 /** Teto de tempo de um comando de verificacao (build e suite completa cabem). */
 export const TIMEOUT_VERIFY_MS = 10 * 60 * 1000;
@@ -1247,6 +1248,7 @@ function verificarSobConducao(
 
   registrar(dir, threadId, TIPOS_DE_EVENTO.verificacao, {
     commit,
+    recibo: chaveDoReciboDeProva(raiz, threadId, commit),
     cwd,
     claims: claims.map((c) => {
       const falhou = c.execucoes.find((e) => !e.ok);
