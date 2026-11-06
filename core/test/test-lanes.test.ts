@@ -24,7 +24,7 @@ const lanes = require(SCRIPT) as {
   ordenarPorDuracao: (arquivos: string[], duracoes: Record<string, number>) => string[];
   lerDuracoesDoReporter: (arquivo: string) => Record<string, number>;
   lerResultadosDoReporter: (arquivo: string) => Array<{ arquivo: string; nome: string; nesting: number; estado: string }>;
-  assinaturaDoAmbiente: (env: NodeJS.ProcessEnv) => string;
+  assinaturaDoAmbiente: (env: NodeJS.ProcessEnv, acrescimos?: NodeJS.ProcessEnv) => string;
   REPORTER: string;
   globDoNpmTest: () => string[];
   concorrenciaDaLane: (lane: string, cpus?: number, limiteDoGrupo?: number) => number;
@@ -148,6 +148,8 @@ test('TL11: a assinatura ignora transporte do runner, mas muda com ambiente func
   assert.equal(lanes.assinaturaDoAmbiente(base), lanes.assinaturaDoAmbiente({ ...base, ORK_CHECK_MODO: 'agile' }),
     'o modo da orquestracao e removido do ambiente real das duas rotas');
   assert.notEqual(lanes.assinaturaDoAmbiente(base), lanes.assinaturaDoAmbiente({ ...base, FEATURE_X: '2' }));
+  assert.notEqual(lanes.assinaturaDoAmbiente(base),
+    lanes.assinaturaDoAmbiente(base, { ORK_CHECK_CPUS_DOCKER: '1' }), 'acrescimo funcional entra na assinatura');
 });
 
 test('TL15: a regra unica recompõe o ambiente mínimo do verify antes de assinar e executar', () => {

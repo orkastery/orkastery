@@ -321,10 +321,11 @@ function rodarLane(lane) {
   const cotaDockerDaIntegracao = lane === 'integracao' ? process.env.ORK_CHECK_CPUS_DOCKER : undefined;
   let casa = null;
   if (!(process.env.ORKASTERY_HOME || '').trim()) casa = fs.mkdtempSync(path.join(pastaDaLane, 'ork-casa-'));
-  const env = ambienteFuncionalDosTestes(process.env, { TMPDIR: tmpdirDaRodada ?? pastaDaLane,
+  const acrescimosDoAmbiente = { TMPDIR: tmpdirDaRodada ?? pastaDaLane,
     ...(casa ? { ORKASTERY_HOME: casa } : {}),
-    ...(cotaDockerDaIntegracao ? { ORK_CHECK_CPUS_DOCKER: cotaDockerDaIntegracao } : {}) });
-  const ambiente = assinaturaDoAmbiente(env);
+    ...(cotaDockerDaIntegracao ? { ORK_CHECK_CPUS_DOCKER: cotaDockerDaIntegracao } : {}) };
+  const env = ambienteFuncionalDosTestes(process.env, acrescimosDoAmbiente);
+  const ambiente = assinaturaDoAmbiente(process.env, acrescimosDoAmbiente);
   try {
     fs.mkdirSync(path.join(cache, 'compile-cache'), { recursive: true });
     env.NODE_COMPILE_CACHE = path.join(cache, 'compile-cache');

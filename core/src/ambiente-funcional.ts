@@ -66,8 +66,8 @@ export function transporteDoAmbienteFuncional(base: NodeJS.ProcessEnv): Record<s
   };
 }
 
-/** Assina exatamente o ambiente funcional montado pela regra unica. */
-export function assinaturaDoAmbiente(base: NodeJS.ProcessEnv): string {
-  const pares = Object.entries(ambienteFuncionalDosTestes(base)).sort(([a], [b]) => a.localeCompare(b));
+/** Assina exatamente o ambiente funcional montado pela regra unica, inclusive seus acrescimos. */
+export function assinaturaDoAmbiente(base: NodeJS.ProcessEnv, acrescimos: NodeJS.ProcessEnv = {}): string {
+  const pares = Object.entries(ambienteFuncionalDosTestes(base, acrescimos)).sort(([a], [b]) => a.localeCompare(b));
   return createHash('sha256').update(JSON.stringify(pares)).digest('hex');
 }
