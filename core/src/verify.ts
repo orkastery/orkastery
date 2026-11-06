@@ -688,6 +688,16 @@ function abrirTemporarioDaRodada(): TemporarioDaRodada {
   };
 }
 
+/** O dono da rodada fecha todos os recursos mesmo quando uma execução lança exceção. */
+function fecharRecursosDaRodada(relatorio: RelatorioDoCheck | null, temporario: TemporarioDaRodada | null,
+  casa: string | null = null): void {
+  try { relatorio?.fechar(); } finally {
+    try { temporario?.fechar(); } finally {
+      if (casa && !temporario) fs.rmSync(casa, { recursive: true, force: true });
+    }
+  }
+}
+
 /**
  * RM-072 (D8): le o relatorio das pecas da rodada, grava a lista inteira de cada lane em
  * `.orkastery/threads/<id>/check/<commit>-lanes.json` e devolve o resumo do Agile para o `verify_run`.
@@ -695,7 +705,6 @@ function abrirTemporarioDaRodada(): TemporarioDaRodada {
 function agileNoLedger(raiz: string, threadId: string, commit: string, pecasDoVerify: PecaDoAgile[], doAgile: ComandosDoAgile | null,
   guarda: GuardaDoProduto, relatorio: RelatorioDoCheck, claims: ResultadoDeClaim[]): ResumoDoAgile {
   const linhas = relatorio.ler();
-  relatorio.fechar();
   const doRelatorio = pecasDoRelatorio(linhas);
   const listas = listasDasLanes(linhas);
   const resultados = resultadosDasLanes(linhas);
@@ -797,8 +806,11 @@ function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: stri
   exigirDependenciasDaWorktree(carregado, threadId, cwd, 'baseline', tomada, base);
   // RM-072 (D1, D2): a baseline roda e grava no modo da rodada, como o verify.
   const check = resolverModo(manifesto.check?.mode, modo);
-  const relatorio = check.modo === 'agile' ? new RelatorioDoCheck() : null;
-  const temporarioDaRodada = relatorio && Object.keys(manifesto.check?.agile?.test ?? {}).length > 0
+  let relatorio: RelatorioDoCheck | null = null;
+  let temporarioDaRodada: TemporarioDaRodada | null = null;
+  try {
+  relatorio = check.modo === 'agile' ? new RelatorioDoCheck() : null;
+  temporarioDaRodada = relatorio && Object.keys(manifesto.check?.agile?.test ?? {}).length > 0
     ? abrirTemporarioDaRodada() : null;
   const ambienteFuncional = { ...ambienteDoModo(check), ...temporarioDaRodada?.ambiente };
   const ambienteDaRodada = { ...ambienteFuncional, ...relatorio?.ambiente() };
@@ -834,9 +846,7 @@ function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: stri
   if (relatorio) {
     if (base) pecasDaBaseline.push(PECA_SEM_RELATORIO);
     pecasDaBaseline.push(...pecasDoRelatorio(relatorio.ler()));
-    relatorio.fechar();
   }
-  temporarioDaRodada?.fechar();
   // N1 do CHECK 2: a lane que saiu com 127 tambem e dependencia ausente, como o comando so do Classic.
   const naoEncontrado = comandos.find((c) => c.causa === 'nao-encontrado')
     ?? comandos.flatMap((c) => (c.lanes ?? []).filter((l) => l.causa === 'nao-encontrado')
@@ -867,6 +877,7 @@ function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: stri
     origem,
   });
   return baseline;
+  } finally { fecharRecursosDaRodada(relatorio, temporarioDaRodada); }
 }
 
 export type GranularidadeDaComparacao = 'teste' | 'comando';
@@ -1166,10 +1177,14 @@ function verificarSobConducao(
 
   // RM-072 (D8): no Agile, as pecas contam o que rodaram num relatorio da rodada, lido no fim.
   const agil = check.modo === 'agile';
-  const relatorio = agil ? new RelatorioDoCheck() : null;
-  const temporarioDaRodada = agil && Object.keys(manifesto.check?.agile?.test ?? {}).length > 0
+  let relatorio: RelatorioDoCheck | null = null;
+  let temporarioDaRodada: TemporarioDaRodada | null = null;
+  let casaDaRodada: string | null = null;
+  try {
+  relatorio = agil ? new RelatorioDoCheck() : null;
+  temporarioDaRodada = agil && Object.keys(manifesto.check?.agile?.test ?? {}).length > 0
     ? abrirTemporarioDaRodada() : null;
-  const casaDaRodada = agil && !(process.env.ORKASTERY_HOME || '').trim()
+  casaDaRodada = agil && !(process.env.ORKASTERY_HOME || '').trim()
     ? fs.mkdtempSync(path.join(temporarioDaRodada?.dir ?? os.tmpdir(), 'ork-verify-casa-')) : null;
   const ambienteFuncional = { ...ambienteDoModo(check), ...temporarioDaRodada?.ambiente,
     ...(casaDaRodada ? { ORKASTERY_HOME: casaDaRodada } : {}) };
@@ -1328,9 +1343,6 @@ function verificarSobConducao(
     : changelog ? [...comandosDoManifestoExecutados, changelog] : comandosDoManifestoExecutados;
   const parcial = comandos.some((c) => !!c.parcial || c.lanes?.some((l) => !!l.parcial));
   const resumoDoAgile = vigente ? agileNoLedger(raiz, threadId, commit, pecas, doAgile, vigente.guarda, relatorio!, claims) : null;
-  if (relatorio && !vigente) relatorio.fechar();
-  temporarioDaRodada?.fechar();
-  if (casaDaRodada && !temporarioDaRodada) fs.rmSync(casaDaRodada, { recursive: true, force: true });
 
   // RM-062 (F2): a barreira de dado privado no diff da thread, so com a policy `dado_privado` no manifesto.
   const dadoPrivado = barreiraDaThread(carregado, thread, cwd, 'verify');
@@ -1533,6 +1545,7 @@ function verificarSobConducao(
     ok,
     parcial,
   };
+  } finally { fecharRecursosDaRodada(relatorio, temporarioDaRodada, casaDaRodada); }
 }
 
 /**

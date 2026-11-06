@@ -1550,6 +1550,41 @@ test('AG58: processo real do filho da claim recebe o ambiente funcional sem herd
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('AG59: excecao fecha relatorio e temporario da rodada no verify e na baseline', () => {
+  const prefixos = ['ork-check-relatorio-', 'ork-verify-tmp-'];
+  const listar = (): string[] => fs.readdirSync(os.tmpdir()).filter((nome) => prefixos.some((p) => nome.startsWith(p)));
+  for (const operacao of ['verify', 'baseline'] as const) {
+    const p = projetoTemporario(`ag59-${operacao}`);
+    const tmpfsAnterior = process.env.ORK_CHECK_TMPFS;
+    const casaAnterior = process.env.ORKASTERY_HOME;
+    try {
+      process.env.ORK_CHECK_TMPFS = 'off';
+      delete process.env.ORKASTERY_HOME;
+      comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      hermetica: "echo lane"');
+      const { thread: t } = novaThread(p.carregado, { nome: `limpeza ${operacao}`, modo: 'auto' });
+      const antes = new Set(listar());
+      let criados: string[] = [];
+      const excecao: ExecutorVerify = () => {
+        criados = listar().filter((nome) => !antes.has(nome));
+        throw new Error(`excecao injetada no ${operacao}`);
+      };
+      assert.throws(() => operacao === 'verify'
+        ? verificar(p.carregado, t.id, { executor: excecao })
+        : gravarBaseline(p.carregado, t.id, excecao), new RegExp(`excecao injetada no ${operacao}`));
+      for (const prefixo of prefixos) assert.ok(criados.some((nome) => nome.startsWith(prefixo)),
+        `${operacao} abriu ${prefixo}`);
+      assert.deepEqual(criados.filter((nome) => fs.existsSync(path.join(os.tmpdir(), nome))), [],
+        `${operacao} remove os recursos abertos antes de propagar a excecao`);
+    } finally {
+      if (tmpfsAnterior === undefined) delete process.env.ORK_CHECK_TMPFS;
+      else process.env.ORK_CHECK_TMPFS = tmpfsAnterior;
+      if (casaAnterior === undefined) delete process.env.ORKASTERY_HOME;
+      else process.env.ORKASTERY_HOME = casaAnterior;
+      p.limpar();
+    }
+  }
+});
+
 test('AG45: saturacao medida pelo verify ordena hermetica, varredura e integracao e registra a peca no verify_run', () => {
   const p = projetoTemporario('ag40');
   try {
