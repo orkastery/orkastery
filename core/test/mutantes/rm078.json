@@ -1,0 +1,33 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-078: cada mutante remove um componente da chave do recibo e precisa morrer no teste focado.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "o HEAD deixa de participar da igualdade do recibo",
+      "modulo": "recibo-prova",
+      "de": "recibo.head === atual.head && recibo.claimsSha256 === atual.claimsSha256",
+      "para": "recibo.claimsSha256 === atual.claimsSha256",
+      "teste": "rm078-recibo",
+      "nome": "^RM-078 chave: HEAD, id/comandos"
+    },
+    {
+      "id": "M2",
+      "descricao": "o hash das claims deixa de participar da igualdade do recibo",
+      "modulo": "recibo-prova",
+      "de": "recibo.head === atual.head && recibo.claimsSha256 === atual.claimsSha256",
+      "para": "recibo.head === atual.head",
+      "teste": "rm078-recibo",
+      "nome": "^RM-078 chave: HEAD, id/comandos"
+    },
+    {
+      "id": "M3",
+      "descricao": "o hash do plano deixa de participar da igualdade do recibo",
+      "modulo": "recibo-prova",
+      "de": "recibo.planoSha256 === atual.planoSha256 &&",
+      "para": "true &&",
+      "teste": "rm078-recibo",
+      "nome": "^RM-078 chave: HEAD, id/comandos"
+    }
+  ]
+}

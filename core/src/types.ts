@@ -706,6 +706,8 @@ export interface Claim {
   negativa: boolean;
   /** Comandos que reexecutam a alegacao no HEAD real. Vazio = nao verificavel. */
   verificar: string[];
+  /** RM-078: fonte fora do HEAD que impede reaproveitar o recibo sem reexecutar a claim. */
+  dependenciasExternas?: DependenciaExternaDaClaim[];
   criadoEm: string;
   /** `retirada`: o autor retirou a alegacao em vez de tentar sustenta-la. */
   estado: 'pendente' | 'verificado' | 'reprovado' | 'nao-verificavel' | 'retirada';
@@ -727,6 +729,9 @@ export interface Claim {
    */
   lint?: AchadoDoLint[];
 }
+
+/** RM-078: dependencias externas declaradas, nunca inferidas do texto do comando. */
+export type DependenciaExternaDaClaim = 'rede' | 'relogio';
 
 /** Execucao real de um comando de verificacao. */
 /** I-37 (D8): por que o comando terminou. Separa "nao rodou ate o fim" de "rodou e falhou". */
