@@ -26,6 +26,12 @@ function toqueHumano(dir: string, threadId: string): number {
   ).length;
 }
 
+function gravarParecerPassou(dir: string, threadId: string): void {
+  const docs = path.join(dirThread(dir, threadId), 'docs');
+  fs.mkdirSync(docs, { recursive: true });
+  fs.writeFileSync(path.join(docs, 'check.md'), 'Veredito: PASSOU\n');
+}
+
 test('a classificacao A/B sai do motivo tipado, com o padrao conservador', () => {
   // O nucleo nao sabe medir "uma linha ou equivalente", entao ele nao finge saber:
   // so a alegacao sem comando nasce tipo A, porque a correcao E anexar o comando.
@@ -41,6 +47,7 @@ test('CHECK com CHANGES NEEDED tipo B abre GO-FIX com spec exata e fecha sem hum
 
   // `#Auto`: o sub-loop inteiro tem que andar sozinho ate o veredito final.
   const { thread } = novaThread(p.carregado, { nome: 'go fix auto', modo: 'auto' });
+  gravarParecerPassou(p.dir, thread.id);
   adicionarClaim(p.dir, thread.id, {
     arquivo: 'alvo.txt',
     alegacao: 'o arquivo alvo.txt existe no HEAD',
@@ -128,6 +135,7 @@ test('regressao contra a baseline vira correcao tipo B com o alvo e a baseline c
   ajustarManifesto(p, /^verify:$/m, 'verify:\n  test: "test -f alvo.txt"');
 
   const { thread } = novaThread(p.carregado, { nome: 'regressao b3', modo: 'maestro' });
+  gravarParecerPassou(p.dir, thread.id);
   commitar(p.dir, 'alvo.txt', 'estado bom\n', 'estado bom antes do GO');
   const baseline = gravarBaseline(p.carregado, thread.id);
   assert.equal(baseline.comandos.find((c) => c.nome === 'test')?.ok, true);
@@ -160,6 +168,7 @@ test('estourado o limite de escalacao, o CHECK-REVERIFY pausa ate o modo #Auto',
   ajustarManifesto(p, /  max_tentativas: 3/, '  max_tentativas: 2');
 
   const { thread } = novaThread(p.carregado, { nome: 'limite auto', modo: 'auto' });
+  gravarParecerPassou(p.dir, thread.id);
 
   // Rodada 1: dentro do limite, o sub-loop segue sozinho.
   abrirRodada(p.carregado, thread.id);
@@ -195,6 +204,7 @@ test('alegacao sem comando vira correcao tipo A e a rodada aceita reverify parci
   t.after(p.limpar);
 
   const { thread } = novaThread(p.carregado, { nome: 'tipo a', modo: 'auto' });
+  gravarParecerPassou(p.dir, thread.id);
   adicionarClaim(p.dir, thread.id, {
     arquivo: 'README.md',
     alegacao: 'o README descreve o projeto de teste',
