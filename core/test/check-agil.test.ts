@@ -897,7 +897,8 @@ test('AG55: o verify_run do HEAD prova TMPDIR da rodada, reaproveitamento, recus
   const rodar = (tmpdirDivergente: boolean) => {
     const p = projetoTemporario(`ag55-${tmpdirDivergente ? 'divergente' : 'igual'}`);
     const apoio = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ag55-apoio-'));
-    const nomesDoAmbiente = ['ORK_LANES_DIR', 'ORK_LANES_INTEGRACAO', 'XDG_CACHE_HOME', 'PROVA_TMPDIR', 'NODE_TEST_CONTEXT'];
+    const nomesDoAmbiente = ['ORK_LANES_DIR', 'ORK_LANES_INTEGRACAO', 'ORKASTERY_HOME', 'XDG_CACHE_HOME',
+      'PROVA_TMPDIR', 'NODE_TEST_CONTEXT'];
     const antes = Object.fromEntries(nomesDoAmbiente.map((nome) => [nome, process.env[nome]]));
     try {
       const testes = path.join(p.dir, 'core', 'dist-test', 'test'), prova = path.join(apoio, 'tmpdir-visto.jsonl');
@@ -909,6 +910,8 @@ test('AG55: o verify_run do HEAD prova TMPDIR da rodada, reaproveitamento, recus
         "const { test } = require('node:test'); test('AG1: observa TMPDIR', () => { require('../../probe.cjs'); });\n", 'fixture teste');
       process.env.ORK_LANES_DIR = testes;
       process.env.ORK_LANES_INTEGRACAO = '';
+      process.env.ORKASTERY_HOME = path.join(apoio, 'home');
+      fs.mkdirSync(process.env.ORKASTERY_HOME);
       process.env.XDG_CACHE_HOME = path.join(apoio, 'cache');
       process.env.PROVA_TMPDIR = prova;
       delete process.env.NODE_TEST_CONTEXT;
