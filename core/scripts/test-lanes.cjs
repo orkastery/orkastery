@@ -359,6 +359,7 @@ function rodarLane(lane) {
 module.exports = { listasDasLanes, ordenarPorDuracao, lerDuracoesDoReporter, lerResultadosDoReporter, assinaturaDoAmbiente,
   globDoNpmTest, concorrenciaDaLane, planoDoPool, degrausDaReserva, selecionarTemporario, sondarTmpfs, ENV_TMPFS,
   ENV_TMPDIR_DA_RODADA,
+  ENV_EVIDENCIA_NOMINAL_DA_FIXTURE,
   ENV_CPUS_APOS_VARREDURA, ENV_CPUS_APOS_RESERVA, ENV_SINAL_DA_RESERVA, LANES, REPORTER };
 
 if (require.main === module) {

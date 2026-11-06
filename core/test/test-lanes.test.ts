@@ -33,6 +33,7 @@ const lanes = require(SCRIPT) as {
   ENV_CPUS_APOS_RESERVA: string;
   ENV_SINAL_DA_RESERVA: string;
   ENV_TMPDIR_DA_RODADA: string;
+  ENV_EVIDENCIA_NOMINAL_DA_FIXTURE: string;
   selecionarTemporario: (opcoes?: Record<string, unknown>) => { diretorio: string; estado: 'agile' | 'fallback'; motivo: string };
 };
 
@@ -147,11 +148,14 @@ test('TL8: teste que falha numa lane faz a lane sair diferente de zero, com o TA
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-tl8-'));
   try {
     fs.writeFileSync(path.join(dir, 'cai.test.js'), "const { test } = require('node:test'); test('cai', () => { throw new Error('x'); });\n");
-    const env: NodeJS.ProcessEnv = { ...process.env, ORK_LANES_DIR: dir, ORK_LANES_INTEGRACAO: '', XDG_CACHE_HOME: path.join(dir, 'cache') };
+    const env: NodeJS.ProcessEnv = { ...process.env, ORK_LANES_DIR: dir, ORK_LANES_INTEGRACAO: '',
+      XDG_CACHE_HOME: path.join(dir, 'cache'), [lanes.ENV_EVIDENCIA_NOMINAL_DA_FIXTURE]: '1' };
     delete env.ORK_CHECK_RELATORIO;
+    delete env.NODE_TEST_CONTEXT;
     const r = spawnSync(process.execPath, [SCRIPT, 'hermetica'], { encoding: 'utf8', env });
     assert.notEqual(r.status, 0);
-    assert.match(r.stdout, /^not ok 1 - cai$/m);
+    assert.match(r.stdout, /^    not ok 1 - cai$/m,
+      'o caso que falha permanece no TAP aninhado do arquivo');
     assert.match(r.stdout, /location: '.*cai\.test\.js:1:\d+'/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
