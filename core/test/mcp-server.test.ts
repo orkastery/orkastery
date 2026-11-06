@@ -87,6 +87,7 @@ test('MCP filho fixa thread e omite criacao, redespacho e decisao do dono',async
     const beforeOther=fs.readFileSync(path.join(dirThread(p.dir,outra.id),'ledger.jsonl'));
     for(const [name,args] of [
       ['ork_claim_add',{arquivo:'sum.cjs',alegacao:'x',verificar:['true']}],
+      ['ork_claim_withdraw',{claimId:'C1',motivoTipo:'erro',motivo:'fixture'}],
       ['ork_artifact_write',{tipo:'goal',conteudo:'fora',expectedSha256:null}],
       ['ork_ship',{expectedSource:'0'.repeat(40),expectedDestination:'0'.repeat(40)}],
     ] as const) {

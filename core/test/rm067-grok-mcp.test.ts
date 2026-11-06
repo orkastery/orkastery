@@ -38,7 +38,7 @@ const grokDe = (raiz: string) => path.join(raiz, '.grok', 'config.toml');
 const entradaDe = (texto: string) => (parse(texto) as { mcp_servers: Record<string, Record<string, unknown>> }).mcp_servers.orkastery;
 const semPrefixo = (nomes: readonly string[]) => nomes.map((n) => n.replace(/^mcp__orkastery__/, ''));
 const CONSULTAS = ['ork_thread_status', 'ork_phase_list', 'ork_hitl_pending', 'ork_observe', 'ork_artifact_read', 'ork_claims_list', 'ork_verify_status'];
-const MUTACOES = ['ork_artifact_write', 'ork_claim_add', 'ork_decision_record', 'ork_request_conduction',
+const MUTACOES = ['ork_artifact_write', 'ork_claim_add', 'ork_claim_withdraw', 'ork_decision_record', 'ork_request_conduction',
   'ork_git_commit', 'ork_verify', 'ork_ship'];
 
 /** Um cliente MCP em memoria ligado ao servidor, fechado no fim. */
@@ -153,7 +153,7 @@ test('GM4: o servidor --host grok so existe com a thread, lista so as ferramenta
     await comCliente(criarServidorMcp({ projeto: p.dir, host: 'grok', threadId: t.id, dispatchId,
       permissoesFilho: 'worktree' }), async (c) => {
       const nomes = (await c.listTools()).tools.map((x) => x.name).sort();
-      assert.deepEqual(nomes, [...CONSULTAS, 'ork_git_status', ...MUTACOES].sort(), 'worktree: mais o ork_git_status e as sete mutacoes');
+      assert.deepEqual(nomes, [...CONSULTAS, 'ork_git_status', ...MUTACOES].sort(), 'worktree: mais o ork_git_status e as mutacoes exatas');
       const r = await c.callTool({ name: 'ork_decision_record', arguments: { threadId: t.id,
         decidido: 'Fixture SIMULADA de decisao pelo servidor do grok', porque: 'Conferir o canal do host',
         comoMudar: 'Nao se aplica', custoAgora: 'Nenhum', custoDepois: 'Nenhum',
@@ -174,7 +174,7 @@ test('GM5: as listas do grok saem das constantes do claude-bg, sem o prefixo, no
     assert.deepEqual(ferramentasDoGrok(perfil, true, false), [...semPrefixo(CONSULTAS_MCP), 'ork_artifact_write', 'ork_decision_record']);
   assert.deepEqual(ferramentasDoGrok('interactive', false, true), [...semPrefixo(CONSULTAS_MCP), ...TOOLS_DO_GRAFO]);
   assert.deepEqual(semPrefixo(CONSULTAS_MCP), CONSULTAS, 'as consultas incluem o status assíncrono do verify');
-  assert.deepEqual(semPrefixo(MUTACOES_WORKTREE), MUTACOES, 'as mutacoes sao as sete exatas');
+  assert.deepEqual(semPrefixo(MUTACOES_WORKTREE), MUTACOES, 'as mutacoes sao as exatas');
   assert.deepEqual(ferramentasServidasAoGrok('interactive', false).sort(), [...CONSULTAS, 'ork_artifact_write', 'ork_decision_record'].sort());
   assert.deepEqual(ferramentasServidasAoGrok('worktree', true).sort(), [...CONSULTAS, ...TOOLS_DO_GRAFO, 'ork_git_status', ...MUTACOES].sort());
 });
