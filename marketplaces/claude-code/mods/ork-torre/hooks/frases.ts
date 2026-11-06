@@ -7,6 +7,7 @@ export const FRASE_DO_MOTIVO: Readonly<Record<string, string>> = {
   'artifact.missing': 'falta um artefato que a fase exige',
   'claims.failed': 'uma claim reprovou no HEAD',
   'claims.unverifiable': 'há claim sem comando de verificação',
+  'claims.retirada-sem-substituta': 'uma retirada sem substituta espera sua decisão',
   'concurrency.lease-indeterminado': 'não foi possível provar se a vaga está livre',
   'conducao.acao-necessaria': 'a condução precisa executar uma ação',
   'policy.violation': 'uma policy de bloqueio foi violada',
@@ -36,7 +37,7 @@ export const FRASE_DO_MOTIVO: Readonly<Record<string, string>> = {
 
 /** Os motivos que so o dono resolve (D6): a linha fica em "espera voce", nao em "parada". */
 export const MOTIVOS_DO_DONO: readonly string[] = ['human.pending', 'runtime.workspace-untrusted', 'runtime.consent-pending',
-  'runtime.auth-missing']
+  'runtime.auth-missing', 'claims.retirada-sem-substituta']
 
 /** A frase do motivo; motivo que a tabela nao conhece aparece cru, nunca some. */
 export function fraseDoMotivo(motivo: string): string {

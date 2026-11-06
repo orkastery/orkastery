@@ -140,9 +140,11 @@ test('frases: uma por motivo tipado do nucleo, nem mais nem menos, e motivo desc
   for (const [motivo, frase] of Object.entries(FRASE_DO_MOTIVO)) {
     assert.ok(typeof frase === 'string' && frase.length > 0 && frase.length <= 60 && !/[\n.]$/.test(frase), motivo);
   }
-  assert.deepEqual([...MOTIVOS_DO_DONO], ['human.pending', 'runtime.workspace-untrusted', 'runtime.consent-pending', 'runtime.auth-missing']);
+  assert.deepEqual([...MOTIVOS_DO_DONO], ['human.pending', 'runtime.workspace-untrusted', 'runtime.consent-pending',
+    'runtime.auth-missing', 'claims.retirada-sem-substituta']);
   for (const m of MOTIVOS_DO_DONO) assert.ok(m in DESCRICAO_DO_MOTIVO, m);
   assert.equal(fraseDoMotivo('claims.failed'), 'uma claim reprovou no HEAD');
+  assert.equal(fraseDoMotivo('claims.retirada-sem-substituta'), 'uma retirada sem substituta espera sua decisão');
   assert.equal(fraseDoMotivo('motivo.novo'), 'motivo.novo');
   assert.equal(fraseDoMotivo('constructor'), 'constructor');
 });
