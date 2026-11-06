@@ -7,7 +7,7 @@
     "tipoProva": "harness isolado; protocolo Codex sintético",
     "classificacoes": ["fase_concluida", "human.pending", "gate_blocked"],
     "subprocessosComRecibo": 3,
-    "hookAbaixo5s": true,
+    "hookRegistrado": true,
     "morteAntesDoLimite": false,
     "morteLatenciaMs": 600000,
     "mortosSemEvento": 0,

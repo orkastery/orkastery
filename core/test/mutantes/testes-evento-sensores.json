@@ -1,0 +1,15 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "O T8 deixa de exigir o evento sessao_bloqueada publicado pelo hook.",
+  "mutantes": [
+    {
+      "id": "SENSOR-REGISTRO",
+      "descricao": "o cenário perde o registro do hook observado no ledger",
+      "modulo": "cenarios-sensores",
+      "de": "hookRegistrado: !!bloqueio,",
+      "para": "hookRegistrado: false,",
+      "teste": "sensores-cenarios",
+      "nome": "^cenário integrado"
+    }
+  ]
+}
