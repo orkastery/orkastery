@@ -1,0 +1,60 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-079: cada mutante remove uma guarda nova e precisa morrer no teste focado correspondente.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "o lint deixa de avisar sobre contexto artificial isolado",
+      "modulo": "claim-lint",
+      "de": "if (artificial)\n        achados.push({",
+      "para": "if (false)\n        achados.push({",
+      "teste": "rm079-claims",
+      "nome": "^RM079 lint: contexto artificial"
+    },
+    {
+      "id": "M2",
+      "descricao": "o lint deixa de avisar sobre artefato gerado pelo fechamento",
+      "modulo": "claim-lint",
+      "de": "if (fechamento)\n        achados.push({",
+      "para": "if (false)\n        achados.push({",
+      "teste": "rm079-claims",
+      "nome": "^RM079 lint: artefato de fechamento"
+    },
+    {
+      "id": "M3",
+      "descricao": "a substituta deixa de precisar passar no ultimo verify_run",
+      "modulo": "claims",
+      "de": "if (prova?.verificado !== true) {",
+      "para": "if (false) {",
+      "teste": "rm079-claims",
+      "nome": "^RM079 retirada: substituta ativa"
+    },
+    {
+      "id": "M4",
+      "descricao": "a retirada sem substituta deixa de seguir o caminho do pedido ao dono",
+      "modulo": "claims",
+      "de": "if (opcoes.substituidaPor) {",
+      "para": "if (true) {",
+      "teste": "rm079-claims",
+      "nome": "^RM079 retirada: sem substituta"
+    },
+    {
+      "id": "M5",
+      "descricao": "o fix open ignora o parecer negativo quando o verify esta verde",
+      "modulo": "fix",
+      "de": "const parecerNegativo = parecer.veredito !== null && parecer.veredito !== 'PASSOU';",
+      "para": "const parecerNegativo = false;",
+      "teste": "rm079-fix",
+      "nome": "^RM079 fix: parecer negativo"
+    },
+    {
+      "id": "M6",
+      "descricao": "o achado fecha com verify verde sem um novo parecer independente",
+      "modulo": "fix",
+      "de": "const checkNovoPassou = eAchado && parecer.veredito === 'PASSOU' && parecer.sha256 !== v.correcao.parecerSha256;",
+      "para": "const checkNovoPassou = eAchado && Boolean(verify?.ok);",
+      "teste": "rm079-fix",
+      "nome": "^RM079 fix: parecer negativo"
+    }
+  ]
+}
