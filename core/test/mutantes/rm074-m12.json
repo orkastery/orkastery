@@ -78,8 +78,8 @@
       "id": "M9",
       "descricao": "a assinatura deixa de considerar o valor literal de TMPDIR",
       "modulo": "ambiente-funcional",
-      "de": "Object.entries(ambienteFuncionalDosTestes(base)).sort(([a], [b]) => a.localeCompare(b))",
-      "para": "Object.entries(ambienteFuncionalDosTestes(base)).filter(([nome]) => nome !== 'TMPDIR').sort(([a], [b]) => a.localeCompare(b))",
+      "de": "Object.entries(ambienteFuncionalDosTestes(base, acrescimos)).sort(([a], [b]) => a.localeCompare(b))",
+      "para": "Object.entries(ambienteFuncionalDosTestes(base, acrescimos)).filter(([nome]) => nome !== 'TMPDIR').sort(([a], [b]) => a.localeCompare(b))",
       "teste": "check-agil",
       "nome": "^AG55:"
     },
@@ -87,8 +87,8 @@
       "id": "M10",
       "descricao": "a assinatura deixa de considerar o PATH funcional",
       "modulo": "ambiente-funcional",
-      "de": "Object.entries(ambienteFuncionalDosTestes(base)).sort(([a], [b]) => a.localeCompare(b))",
-      "para": "Object.entries(ambienteFuncionalDosTestes(base)).filter(([nome]) => nome !== 'PATH').sort(([a], [b]) => a.localeCompare(b))",
+      "de": "Object.entries(ambienteFuncionalDosTestes(base, acrescimos)).sort(([a], [b]) => a.localeCompare(b))",
+      "para": "Object.entries(ambienteFuncionalDosTestes(base, acrescimos)).filter(([nome]) => nome !== 'PATH').sort(([a], [b]) => a.localeCompare(b))",
       "teste": "check-agil",
       "nome": "^AG55:"
     },
@@ -114,17 +114,17 @@
       "id": "M13",
       "descricao": "o filho da claim volta a herdar o ambiente bruto do auxiliar",
       "modulo": "check-paralelo",
-      "de": "const baseDoFilho = item.ambienteFuncional\n        ? ambienteFuncionalDosTestes(process.env, item.ambiente ?? {})\n        : { ...process.env, ...item.ambiente };",
-      "para": "const baseDoFilho = { ...process.env, ...item.ambiente };",
+      "de": "? (0, ambiente_funcional_1.ambienteFuncionalDosTestes)(process.env, item.ambiente ?? {})",
+      "para": "? { ...process.env, ...item.ambiente }",
       "teste": "check-agil",
       "nome": "^AG58:"
     },
     {
       "id": "M14",
-      "descricao": "a regra funcional retira a cota Docker acrescentada pela integracao",
-      "modulo": "ambiente-funcional",
-      "de": "if (valor !== undefined) ambiente[nome] = valor;",
-      "para": "if (valor !== undefined && nome !== 'ORK_CHECK_CPUS_DOCKER') ambiente[nome] = valor;",
+      "descricao": "a lane de integracao deixa de levar a cota Docker para a regra funcional",
+      "arquivo": "core/scripts/test-lanes.cjs",
+      "de": "...(cotaDockerDaIntegracao ? { ORK_CHECK_CPUS_DOCKER: cotaDockerDaIntegracao } : {})",
+      "para": "...{}",
       "teste": "check-agil",
       "nome": "^AG55:"
     }
