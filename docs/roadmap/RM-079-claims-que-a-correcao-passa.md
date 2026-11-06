@@ -6,11 +6,11 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-06T12:18:00-03:00
+atualizado_em: 2026-11-06T09:20:15-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
-  codigo: Em desenvolvimento
+  codigo: Branch criada
   testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
@@ -22,6 +22,8 @@ evidencias:
 sdlc:
   thread: ork-rm079claimsq
   modo: Auto
+  fase: GOAL
+  status: aberta
 ---
 
 # RM-079: Claims de revisão que a correção passa e retirada tipada com substituta
@@ -32,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Em desenvolvimento | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -89,13 +91,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | thread `ork-rm079claimsq` | 2026-11-06 | sessão Codex |
-| Documentação | Em revisão | orientação do CHECK e contrato público atualizados na thread | 2026-11-06 | sessão Codex |
-| Código | Em desenvolvimento | commits atômicos da thread `ork-rm079claimsq` | 2026-11-06 | sessão Codex |
-| Testes | Em execução | suítes focadas verdes; verify oficial pendente | 2026-11-06 | sessão Codex |
-| Deploy | Não implantado | — | 2026-10-31 | Julio |
-| Exposição | Flag desligada | — | 2026-10-31 | Julio |
-| Habilitação | Pendente | — | 2026-10-31 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-06 | Julio |
+| Documentação | Em revisão | — | 2026-11-06 | Julio |
+| Código | Branch criada | — | 2026-11-06 | Julio |
+| Testes | Em execução | — | 2026-11-06 | Julio |
+| Deploy | Não implantado | — | 2026-11-06 | Julio |
+| Exposição | Flag desligada | — | 2026-11-06 | Julio |
+| Habilitação | Pendente | — | 2026-11-06 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
