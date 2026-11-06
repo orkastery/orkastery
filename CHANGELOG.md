@@ -8,7 +8,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
-- **Claims e ciclo de correção ([RM-079](docs/roadmap/RM-079-claims-que-a-correcao-passa.md)):** o CHECK registra claims que passam com a correção, o lint avisa sobre provas artificiais ou circulares, a retirada tipada exige substituta verde ou decisão do dono, e `ork fix` abre e acompanha achados do parecer sem claim.
+- **Claims e ciclo de correção ([RM-079](docs/roadmap/RM-079-claims-que-a-correcao-passa.md)):** o CHECK registra claims que passam com a correção, o lint avisa sobre provas artificiais ou circulares, a retirada tipada exige substituta verde ou decisão do dono, e `ork fix` abre e acompanha achados do parecer sem claim. O recibo vincula a substituta pela impressão da lista de comandos, sem guardar o texto bruto, e textos livres chegam redigidos ao ledger e à CLI.
 
 ## [0.6.6] - 2026-11-06
 

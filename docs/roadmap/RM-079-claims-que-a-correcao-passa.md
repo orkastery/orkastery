@@ -61,6 +61,8 @@ sdlc:
   - regra de lint que avisa quando a claim executa função isolada com contexto artificial (por exemplo `node -e` com parser de AST, `vm.runIn*`, `new Function`);
   - regra de lint que avisa quando a claim lê o bundle `.ork-ci` da própria thread ou outro artefato gerado pelo fechamento;
   - `ork claims retirar ... --substituida-por <Cn>` com motivo tipado (`substituicao`, `obsoleta`, `erro`) e autor (sessão ou dono) no ledger, conferindo que a substituta existe, está ativa e passou no último `verify_run`;
+  - o `verify_run` guarda a impressão SHA-256 da lista `verificar`, nunca o texto bruto, e a retirada compara essa impressão com a substituta atual;
+  - motivos e textos derivados do parecer passam pela redação de credenciais antes de recibo, ledger ou saída da CLI;
   - retirada sem substituta abre pedido tipado ao dono (por exemplo `claims.retirada-sem-substituta`);
   - a mesma operação como ferramenta MCP.
   - `ork fix open` lê o veredito e os achados estruturados de `docs/check.md`; `ork fix status` mostra arquivo, linha, estado, commit de fechamento e o que falta.
@@ -69,6 +71,7 @@ sdlc:
   - claim criada no CHECK passa com uma implementação correta, sem retirada pelo dono;
   - troca de regra com substituta verde não para a thread;
   - retirada sem substituta vira pedido ao dono;
+  - alteração do comando da substituta depois do verify é recusada pela impressão, sem copiar o comando para o recibo;
   - parecer negativo com achado sem claim abre uma rodada de correção e exige um novo CHECK verde para fechar;
   - um mutante por regra morre.
 - **Piloto, medição e critérios de expansão/interrupção:** piloto nos próximos CHECKs `#Auto`.
@@ -111,3 +114,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- |
 | 2026-10-31 | Item criado em Discovery | Achados de condução em rede, conferidos contra a 0.6.2 | Julio (pedido de 31/10/2026) |
 | 2026-11-06 | Implementação em GO na thread `ork-rm079claimsq` | orientação bilíngue, lint educativo, retirada tipada e ciclo de correção derivados dos critérios da RM-079 | sessão Codex (#Auto) |
+| 2026-11-06 | GO-FIX 2 substituiu o comando bruto do recibo por impressão versionada e redigiu textos livres do fluxo | falha determinística de `verify-timeout` e auditoria dos campos novos da RM-079 | sessão Codex (#Auto) |
