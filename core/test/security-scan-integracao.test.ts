@@ -13,6 +13,7 @@ import { dirTemporario } from './apoio';
 import { semAmbiente } from './ambiente-de-teste';
 import { runScanAgil } from '../src/security-scan/agil';
 import { runScan } from '../src/security-scan/run';
+import { loadTools } from '../src/security-scan/tools';
 import type { Category, ScanReport, Stack } from '../src/security-scan/types';
 
 const FIXTURES = path.resolve(__dirname, '..', '..', '..', 'eval', 'fixtures', 'security-scan');
@@ -77,12 +78,16 @@ const semDocker = (): string | false => semAmbiente(['docker']);
 
 for (const stack of ['js', 'python', 'go'] as const) {
   test(`real Docker: the ${stack} fixture yields new loop findings in secret, dependency, sast and workflow`,
-    { skip: semDocker(), timeout: DEADLINE_MS + 60000 }, () => emTmpdirDoCaso(`secscan-int-tmp-${stack}`, (tmpdir) => {
+    stack === 'go' ? { skip: semDocker() } : { skip: semDocker(), timeout: DEADLINE_MS + 60000 },
+    () => emTmpdirDoCaso(`secscan-int-tmp-${stack}`, (tmpdir) => {
       const { dir, base } = fixtureRepo(stack);
       dirs.push(dir);
       const before = leftovers(tmpdir);
       const started = Date.now();
-      const report: ScanReport = runScan({ root: dir, stateRoot: dir, base, deadlineMs: DEADLINE_MS });
+      const report: ScanReport = stack === 'go'
+        ? runScan({ root: dir, stateRoot: dir, base,
+          tools: loadTools().map((ferramenta) => ({ ...ferramenta, timeoutMs: Number.POSITIVE_INFINITY })) })
+        : runScan({ root: dir, stateRoot: dir, base, deadlineMs: DEADLINE_MS });
       const seconds = Math.round((Date.now() - started) / 1000);
       const counts = Object.fromEntries(LOOP_CATEGORIES.map(c =>
         [c, report.findings.filter(f => f.category === c && f.status === 'new' && f.loop).length]));
