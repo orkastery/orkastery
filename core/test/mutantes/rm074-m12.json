@@ -91,6 +91,24 @@
       "para": "Object.entries(ambienteFuncionalDosTestes(base)).filter(([nome]) => nome !== 'PATH').sort(([a], [b]) => a.localeCompare(b))",
       "teste": "check-agil",
       "nome": "^AG55:"
+    },
+    {
+      "id": "M11",
+      "descricao": "o processo unico desliga o isolamento padrao do runner",
+      "arquivo": "core/scripts/test-lanes.cjs",
+      "de": "const args = ['--test', `--test-concurrency=${vagas}`, '--test-reporter=tap'",
+      "para": "const args = ['--test', '--experimental-test-isolation=none', `--test-concurrency=${vagas}`, '--test-reporter=tap'",
+      "teste": "test-lanes",
+      "nome": "^TL9:"
+    },
+    {
+      "id": "M12",
+      "descricao": "o pool por arquivo desliga o isolamento padrao do runner",
+      "arquivo": "core/scripts/test-lanes.cjs",
+      "de": "const args = ['--test', '--test-concurrency=1', '--test-reporter=tap'",
+      "para": "const args = ['--test', '--experimental-test-isolation=none', '--test-concurrency=1', '--test-reporter=tap'",
+      "teste": "test-lanes",
+      "nome": "^TL9:"
     }
   ]
 }

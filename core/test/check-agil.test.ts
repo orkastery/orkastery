@@ -741,13 +741,16 @@ test('AG46: claim node --test reaproveita somente arquivos verdes no mesmo HEAD 
     const head = 'a'.repeat(40);
     const ambiente = { LANG: 'C.UTF-8', ORKASTERY_HOME: path.join(dir, 'casa'), FEATURE_X: '1' };
     const evidencias = [{ lane: 'hermetica', head, ambiente: assinaturaDoAmbiente(ambiente), testes: [
-      { arquivo: 'a.test.js', nome: 'AG1: primeiro', nesting: 0, estado: 'pass' as const },
-      { arquivo: 'a.test.js', nome: 'AG2: segundo', nesting: 0, estado: 'pass' as const },
-      { arquivo: 'b.test.js', nome: 'AG9: terceiro', nesting: 0, estado: 'pass' as const },
-      { arquivo: 'b.test.js', nome: 'AG10: quarto', nesting: 0, estado: 'pass' as const },
+      { arquivo: 'a.test.js', nome: 'core/dist-test/test/a.test.js', nesting: 0, estado: 'pass' as const },
+      { arquivo: 'a.test.js', nome: 'AG1: primeiro', nesting: 1, estado: 'pass' as const },
+      { arquivo: 'a.test.js', nome: 'AG2: segundo', nesting: 1, estado: 'pass' as const },
+      { arquivo: 'b.test.js', nome: 'core/dist-test/test/b.test.js', nesting: 0, estado: 'pass' as const },
+      { arquivo: 'b.test.js', nome: 'AG9: terceiro', nesting: 1, estado: 'pass' as const },
+      { arquivo: 'b.test.js', nome: 'AG10: quarto', nesting: 1, estado: 'pass' as const },
       { arquivo: 'c.test.js', nome: 'c.test.js', nesting: 0, estado: 'fail' as const },
-      { arquivo: 'd.test.js', nome: 'AG11: quinto', nesting: 0, estado: 'pass' as const },
-      { arquivo: 'd.test.js', nome: 'dispensado', nesting: 0, estado: 'skip' as const },
+      { arquivo: 'd.test.js', nome: 'core/dist-test/test/d.test.js', nesting: 0, estado: 'pass' as const },
+      { arquivo: 'd.test.js', nome: 'AG11: quinto', nesting: 1, estado: 'pass' as const },
+      { arquivo: 'd.test.js', nome: 'dispensado', nesting: 1, estado: 'skip' as const },
     ] }];
     const executar = executorDaClaimPelasLanes(base.executor, evidencias, { head, ambiente });
     const a = executar('C1.1', "node --test --test-name-pattern='caso A$' core/dist-test/test/a.test.js", dir);
@@ -798,8 +801,9 @@ test('AG52: preparo sai, mas TMPDIR funcional diferente recusa C1 e C3 com motiv
     const ambienteDaClaim = { LANG: 'C.UTF-8', ORKASTERY_HOME: path.join(p.dir, 'casa') };
     const ambienteDaLane = { ...ambienteDaClaim, TMPDIR: path.join(p.dir, 'tmp-da-lane') };
     const evidencias = [{ lane: 'hermetica', head, ambiente: assinaturaDoAmbiente(ambienteDaLane), testes: [
-      { arquivo: 'check-agil.test.js', nome: 'AG1: primeiro', nesting: 0, estado: 'pass' as const },
-      { arquivo: 'check-agil.test.js', nome: 'AG2: segundo', nesting: 0, estado: 'pass' as const },
+      { arquivo: 'check-agil.test.js', nome: 'core/dist-test/test/check-agil.test.js', nesting: 0, estado: 'pass' as const },
+      { arquivo: 'check-agil.test.js', nome: 'AG1: primeiro', nesting: 1, estado: 'pass' as const },
+      { arquivo: 'check-agil.test.js', nome: 'AG2: segundo', nesting: 1, estado: 'pass' as const },
     ] }];
     const real = gravador();
     const pelasLanes = executorDaClaimPelasLanes(real.executor, evidencias, { head, ambiente: ambienteDaClaim });
@@ -822,8 +826,9 @@ test('AG53: cada cerca da prova nominal devolve a recusa tipada que conserva a c
     const head = 'a'.repeat(40);
     const ambiente = { LANG: 'C.UTF-8', ORKASTERY_HOME: path.join(dir, 'casa') };
     const evidencia = [{ lane: 'hermetica', head, ambiente: assinaturaDoAmbiente(ambiente), testes: [
-      { arquivo: 'a.test.js', nome: 'AG1: primeiro', nesting: 0, estado: 'pass' as const },
-      { arquivo: 'a.test.js', nome: 'AG2: segundo', nesting: 0, estado: 'pass' as const },
+      { arquivo: 'a.test.js', nome: 'core/dist-test/test/a.test.js', nesting: 0, estado: 'pass' as const },
+      { arquivo: 'a.test.js', nome: 'AG1: primeiro', nesting: 1, estado: 'pass' as const },
+      { arquivo: 'a.test.js', nome: 'AG2: segundo', nesting: 1, estado: 'pass' as const },
     ] }];
     const base = gravador();
     const motivo = (nome: string, comando: string, evidencias = evidencia,
@@ -970,7 +975,8 @@ async function executarAg55(t: TestContext): Promise<void> {
         comandos: compartilhado.r.comandos, claims: compartilhado.r.claims, preparo: compartilhado.r.preparo }));
       assert.equal(compartilhado.tmpdirExisteDepois, false);
       assert.equal(c1.reaproveitada, true, JSON.stringify({ lane: c1, ambienteDaLane, ambienteDaClaim }));
-      assert.equal(c3.reaproveitada, true, JSON.stringify(c3));
+      assert.equal(c3.reaproveitada, false, JSON.stringify(c3));
+      if (!c3.reaproveitada) assert.equal(c3.motivo, 'prefixo-divergente');
       assert.deepEqual(ambienteDaLane, ambienteDaClaim, 'lane e claim executada usam o mesmo ambiente funcional');
       assert.deepEqual({ literal: vistaPelaLane.literal, realpath: vistaPelaLane.realpath, dev: vistaPelaLane.dev,
         mode: vistaPelaLane.mode }, { literal: vistaPelaClaim.literal, realpath: vistaPelaClaim.realpath,
@@ -978,9 +984,12 @@ async function executarAg55(t: TestContext): Promise<void> {
       assert.equal(vistaPelaLane.modo, null); assert.equal(vistaPelaLane.lang, 'C.UTF-8');
       assert.ok(pecas.some((x) => x.peca === 'tmpfs-das-lanes' && x.tmpdirDaRodada === true));
       assert.ok(pecas.some((x) => x.peca === 'claim-lane' && x.claim === 'C1.1' && x.estado === 'agile'));
-      assert.ok(pecas.some((x) => x.peca === 'claim-lane' && x.claim === 'C3.1' && x.estado === 'agile'));
+      assert.ok(pecas.some((x) => x.peca === 'claim-lane' && x.claim === 'C3.1'
+        && x.estado === 'fallback' && x.motivoTipado === 'prefixo-divergente'));
       assert.match(textoPt, /TMPDIR compartilhado pela rodada/); assert.match(textoPt, /C1\.1: reaproveitada das lanes/);
+      assert.match(textoPt, /C3\.1: recusada \(prefixo-divergente\)/);
       assert.match(textoEn, /TMPDIR shared by the run/); assert.match(textoEn, /C1\.1: reused from lanes/);
+      assert.match(textoEn, /C3\.1: refused \(prefixo-divergente\)/);
     });
   }
 

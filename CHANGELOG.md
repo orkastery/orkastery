@@ -8,7 +8,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
-- **Claims auditadas pelas lanes — M12 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** o Agile com lanes usa uma única regra para montar e assinar o ambiente funcional executado por lanes e claims, preserva `TMPDIR` e `PATH` e registra no recibo o reaproveitamento ou a recusa tipada. Ambiente divergente, falha, `skip`/`todo`, HEAD e guarda divergentes continuam executando a claim inteira; chamadas externas das lanes conservam um único runner, o Classic não muda e o ganho aguarda a bancada.
+- **Claims auditadas pelas lanes — M12 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** o Agile com lanes usa uma única regra para montar e assinar o ambiente funcional executado por lanes e claims, preserva `TMPDIR` e `PATH` e registra no recibo o reaproveitamento ou a recusa tipada. Ambiente divergente, evidência nominal insuficiente, falha, `skip`/`todo`, HEAD e guarda divergentes continuam executando a claim inteira; o pool e o runner único conservam o isolamento padrão do `node --test`, o Classic não muda e o ganho aguarda a bancada.
 
 - **Watcher de sessão sob disputa de CPU ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** o despacho espera o watcher de sessão ficar pronto enquanto ele vive, em vez de desistir num prazo curto fixo; com a CPU disputada, a fase podia não fechar. GL2 e GL3 encerram a espera assim que o watcher registra uma falha.
 

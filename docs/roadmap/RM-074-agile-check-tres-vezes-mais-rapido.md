@@ -438,13 +438,18 @@ reaproveitamento; `ORK_CHECK_MODO` sai do ambiente real das duas rotas antes do
 teste. Os shells da cadeia também são abertos sem arquivos de inicialização.
 
 A fixture da AG55 monta o próprio ambiente, inclusive a forma mínima usada pelo
-verify, sem herdar o processo que a chamou. Ela prova reaproveitamento nas duas
-formas e recusa quando o `TMPDIR` ou o `PATH` da lane divergem. Os nomes dos casos
-voltam a ser estáveis e o diagnóstico temporário por nome, gancho final e HMAC não
-faz parte do produto. O script das lanes não traz chave de fixture: chamada externa
-sem plano nem relatório conserva um único `node --test` com concorrência; a rota
-do verify usa processos isolados por arquivo para produzir a evidência nominal. A
-leitura alternativa do HEAD só aceita o layout de checkout criado pela fixture.
+verify, sem herdar o processo que a chamou. Ela prova o reaproveitamento da claim
+de arquivo inteiro e recusa quando o `TMPDIR` ou o `PATH` da lane divergem. Uma
+auditoria TAP por nome só reaproveita a lane quando o reporter entrega os casos no
+nível imediatamente abaixo do evento do arquivo; sem essa evidência, a recusa
+tipada executa a claim de verdade. O diagnóstico temporário por nome, gancho final
+e HMAC não faz parte do produto.
+
+O script das lanes não traz chave de fixture nem desliga o isolamento do runner.
+Chamada externa sem plano nem relatório conserva um único `node --test` com
+concorrência; a rota do verify usa processos por arquivo, cada um ainda com o
+isolamento padrão, igual ao Classic. A leitura alternativa do HEAD só aceita o
+layout de checkout criado pela fixture.
 
 Quando uma cadeia fechada de `grep -q`, `node --test` ou auditoria TAP aguardava as
 lanes e foi recusada, claims consecutivas de arquivos distintos recebem vagas do

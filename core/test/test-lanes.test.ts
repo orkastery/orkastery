@@ -170,14 +170,11 @@ test('TL8: teste que falha numa lane faz a lane sair diferente de zero, com o TA
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-tl8-'));
   try {
     fs.writeFileSync(path.join(dir, 'cai.test.js'), "const { test } = require('node:test'); test('cai', () => { throw new Error('x'); });\n");
-    const env: NodeJS.ProcessEnv = { ...process.env, ORK_LANES_DIR: dir, ORK_LANES_INTEGRACAO: '',
-      XDG_CACHE_HOME: path.join(dir, 'cache') };
+    const env: NodeJS.ProcessEnv = { ...process.env, ORK_LANES_DIR: dir, ORK_LANES_INTEGRACAO: '', XDG_CACHE_HOME: path.join(dir, 'cache') };
     delete env.ORK_CHECK_RELATORIO;
-    delete env.NODE_TEST_CONTEXT;
     const r = spawnSync(process.execPath, [SCRIPT, 'hermetica'], { encoding: 'utf8', env });
     assert.notEqual(r.status, 0);
-    assert.match(r.stdout, /^    not ok 1 - cai$/m,
-      'o caso que falha permanece no TAP aninhado do arquivo');
+    assert.match(r.stdout, /^not ok 1 - cai$/m);
     assert.match(r.stdout, /location: '.*cai\.test\.js:1:\d+'/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
@@ -198,14 +195,16 @@ test('TL9: a hermetica devolve as vagas sem passar da CPU, e a integracao preser
   const texto = fs.readFileSync(SCRIPT, 'utf8');
   assert.match(texto, /function rodarPoolDeArquivos/, 'a hermetica tem o pool dinamico por arquivo');
   assert.match(texto, /function rodarProcessoUnico/, 'sem plano, um unico node --test conserva o contrato externo');
-  assert.match(texto, /process\.env\.ORK_LANES_DIR \? \['--experimental-test-isolation=none'\] : \[\]/,
-    'somente a pasta declarada de fixture retira o segundo isolamento do runner unico');
   assert.match(texto, /dinamico \|\| precisaDeEvidenciaNominal[\s\S]*\? rodarPoolDeArquivos[\s\S]*: rodarProcessoUnico/,
     'plano ou recibo nominal usam processos por arquivo; chamada externa simples usa um node --test');
   assert.doesNotMatch(texto, /ORK_LANES_EVIDENCIA_NOMINAL/,
     'o script do produto nao tem chave de fixture');
-  assert.match(texto, /processo exclusivo por arquivo[\s\S]*--experimental-test-isolation=none/,
-    'o reporter abre nomes somente dentro do processo ja isolado por arquivo');
+  const processoUnico = texto.slice(texto.indexOf('function rodarProcessoUnico'), texto.indexOf('function rodarPoolDeArquivos'));
+  const pool = texto.slice(texto.indexOf('function rodarPoolDeArquivos'), texto.indexOf('function raizDoHead'));
+  assert.doesNotMatch(processoUnico, /experimental-test-isolation/,
+    'a chamada externa conserva o isolamento padrao mesmo sob ORK_LANES_DIR');
+  assert.doesNotMatch(pool, /experimental-test-isolation/,
+    'cada arquivo do pool conserva o mesmo isolamento do Classic');
   assert.doesNotMatch(texto, /setPriority/, 'o nice baixava so o processo do teste, nunca os containers dele');
 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-tl9-pool-'));

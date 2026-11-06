@@ -222,10 +222,7 @@ const caminhoDoTeste = (dir, nome) => (process.env.ORK_LANES_DIR
 function rodarProcessoUnico({ arquivos, dir, env, pastaDaLane, vagas }) {
   return new Promise((resolve) => {
     const reporter = path.join(pastaDaLane, 'lane.json');
-    // ORK_LANES_DIR ja declara uma fixture com arquivos descartaveis. Ela recebe um processo exclusivo e pode retirar
-    // o segundo isolamento para que o TAP preserve o nome do caso; a lane real conserva o isolamento padrao do runner.
-    const isolamentoDaFixture = process.env.ORK_LANES_DIR ? ['--experimental-test-isolation=none'] : [];
-    const args = ['--test', ...isolamentoDaFixture, `--test-concurrency=${vagas}`, '--test-reporter=tap', '--test-reporter-destination=stdout',
+    const args = ['--test', `--test-concurrency=${vagas}`, '--test-reporter=tap', '--test-reporter-destination=stdout',
       `--test-reporter=${REPORTER}`, `--test-reporter-destination=${reporter}`, ...arquivos.map((nome) => caminhoDoTeste(dir, nome))];
     const filho = spawn(process.execPath, args, { cwd: CORE, env, stdio: ['ignore', 'inherit', 'inherit'] });
     filho.on('error', () => resolve({ code: 1, medidas: {}, testes: [] }));
@@ -259,9 +256,7 @@ function rodarPoolDeArquivos({ arquivos, dir, env, pastaDaLane, plano }) {
       while (ativos < vagas && proximo < arquivos.length) {
         const i = proximo++, arquivo = arquivos[i];
         const tap = path.join(pastaDaLane, `${i}.tap`), reporter = path.join(pastaDaLane, `${i}.json`);
-        // O controlador ja cria um processo exclusivo por arquivo. Desligar o segundo nivel de isolamento deixa o
-        // reporter nominal enxergar os casos sem aproximar estados de arquivos diferentes.
-        const args = ['--test', '--experimental-test-isolation=none', '--test-concurrency=1', '--test-reporter=tap',
+        const args = ['--test', '--test-concurrency=1', '--test-reporter=tap',
           `--test-reporter-destination=${tap}`,
           `--test-reporter=${REPORTER}`, `--test-reporter-destination=${reporter}`, caminhoDoTeste(dir, arquivo)];
         ativos++;

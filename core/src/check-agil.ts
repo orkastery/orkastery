@@ -745,6 +745,14 @@ function recusaPelasLanes(motivo: MotivoDaRecusaPelasLanes, arquivos: string[], 
     candidata, usarExecutorEquivalente, elos: [] };
 }
 
+/** Casos nominais ficam exatamente um nivel abaixo do evento que representa o arquivo no runner isolado. */
+function casosNominaisDoArquivo(vistos: ResultadoNominalDaLane['testes'], arquivo: string) {
+  const niveisDoArquivo = vistos.filter((t) => path.basename(t.nome) === arquivo).map((t) => t.nesting);
+  if (niveisDoArquivo.length === 0) return [];
+  const nivelDosCasos = Math.min(...niveisDoArquivo) + 1;
+  return vistos.filter((t) => t.nesting === nivelDosCasos);
+}
+
 /** Reconhece especificamente o TAP com filtro: ele e fechado, mas a lane inteira nao prova a auditoria filtrada. */
 function tapComPadraoDeNome(comando: string, cwd: string): ComandoNodeTest | null {
   const divisor = ' | ';
@@ -803,7 +811,7 @@ function planejarClaimPelasLanes(comando: string, cwd: string, evidencias: Resul
         return recusaPelasLanes('skip-ou-todo-na-lane', arquivos, esperado, assinatura, true);
       }
       if (tap) {
-        const doArquivo = vistos.filter((t) => t.nesting === 0 && t.estado === 'pass');
+        const doArquivo = casosNominaisDoArquivo(vistos, arquivo).filter((t) => t.estado === 'pass');
         const doPrefixo = doArquivo.filter((t) => new RegExp(`^${tap.prefixo}[0-9]+:`).test(t.nome));
         if (doPrefixo.length === 0) return recusaPelasLanes('prefixo-divergente', arquivos, esperado, assinatura, true);
         if (doPrefixo.length < tap.minimo) {
