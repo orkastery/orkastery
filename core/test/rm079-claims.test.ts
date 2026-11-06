@@ -1,13 +1,14 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { analisarComando, regraFatalDeClaim } from '../src/claim-lint';
-import { adicionarClaim, lerClaims, montarClaim, retirarClaim, retirarClaimTipada } from '../src/claims';
+import { adicionarClaim, anexarComando, lerClaims, montarClaim, retirarClaim, retirarClaimTipada } from '../src/claims';
 import { lintDoBundle } from '../src/ci';
 import { abrirPedidoGate } from '../src/hitl-gates';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from '../src/ledger';
 import { dirThread, novaThread } from '../src/thread';
 import { retirarClaimMcp } from '../src/mcp-artifacts';
 import { projetoTemporario } from './apoio';
+import { commitReal } from '../src/verify';
 
 const regras = (comando: string) => analisarComando(comando).map((a) => a.regra);
 
@@ -68,14 +69,45 @@ test('RM079 retirada: substituta ativa precisa ter passado no ultimo verify_run'
   try {
     const { thread } = novaThread(p.carregado, { nome: 'retirada substituta', modo: 'auto' });
     const antiga = adicionarClaim(p.dir, thread.id, { arquivo: 'README.md', alegacao: 'regra anterior', semProvaLocal: true });
-    const nova = adicionarClaim(p.dir, thread.id, { arquivo: 'README.md', alegacao: 'regra corrigida', semProvaLocal: true });
+    const nova = adicionarClaim(p.dir, thread.id, { arquivo: 'README.md', alegacao: 'regra corrigida',
+      verificar: ['node --version'], semProvaLocal: true });
     const autor = { tipo: 'sessao' as const, id: 'dispatch-teste' };
     assert.throws(() => retirarClaimTipada(p.dir, thread.id, antiga.id, {
       motivoTipo: 'substituicao', substituidaPor: nova.id, motivo: 'regra corrigida', autor,
-    }), /nao passou no ultimo verify_run/);
+    }), /claims\.substituta\.verify-head.*rode node core\/dist\/index\.js verify/);
 
     registrar(dirThread(p.dir, thread.id), thread.id, TIPOS_DE_EVENTO.verificacao, {
-      commit: 'head-teste', claims: [{ id: antiga.id, verificado: false }, { id: nova.id, verificado: true }],
+      commit: commitReal(p.dir), claims: [{ id: antiga.id, verificar: antiga.verificar, verificado: false },
+        { id: nova.id, verificar: nova.verificar, verificado: false }],
+      motivos: ['claims.failed'], veredito: 'reprovado',
+    });
+    assert.throws(() => retirarClaimTipada(p.dir, thread.id, antiga.id, {
+      motivoTipo: 'substituicao', substituidaPor: nova.id, motivo: 'regra corrigida', autor,
+    }), /claims\.substituta\.nao-verificada/);
+
+    registrar(dirThread(p.dir, thread.id), thread.id, TIPOS_DE_EVENTO.verificacao, {
+      commit: 'outro-head', claims: [{ id: antiga.id, verificar: antiga.verificar, verificado: false },
+        { id: nova.id, verificar: nova.verificar, verificado: true }],
+      motivos: [], veredito: 'verdade sustentada',
+    });
+    assert.throws(() => retirarClaimTipada(p.dir, thread.id, antiga.id, {
+      motivoTipo: 'substituicao', substituidaPor: nova.id, motivo: 'regra corrigida', autor,
+    }), /claims\.substituta\.verify-head/);
+
+    registrar(dirThread(p.dir, thread.id), thread.id, TIPOS_DE_EVENTO.verificacao, {
+      commit: commitReal(p.dir), claims: [{ id: antiga.id, verificar: antiga.verificar, verificado: false },
+        { id: nova.id, verificar: nova.verificar, verificado: true }],
+      motivos: [], veredito: 'verdade sustentada',
+    });
+    anexarComando(p.dir, thread.id, nova.id, 'node -p process.version');
+    assert.throws(() => retirarClaimTipada(p.dir, thread.id, antiga.id, {
+      motivoTipo: 'substituicao', substituidaPor: nova.id, motivo: 'regra corrigida', autor,
+    }), /claims\.substituta\.alterada-depois-do-verify/);
+
+    const novaAlterada = lerClaims(p.dir, thread.id).find((c) => c.id === nova.id)!;
+    registrar(dirThread(p.dir, thread.id), thread.id, TIPOS_DE_EVENTO.verificacao, {
+      commit: commitReal(p.dir), claims: [{ id: antiga.id, verificar: antiga.verificar, verificado: false },
+        { id: nova.id, verificar: novaAlterada.verificar, verificado: true }],
       motivos: [], veredito: 'verdade sustentada',
     });
     const resultado = retirarClaimTipada(p.dir, thread.id, antiga.id, {
@@ -87,6 +119,25 @@ test('RM079 retirada: substituta ativa precisa ter passado no ultimo verify_run'
     assert.equal(evento.tipada, true);
     assert.equal(evento.substituidaPor, nova.id);
     assert.deepEqual(evento.autor, autor);
+  } finally { p.limpar(); }
+});
+
+test('RM079 retirada: substituta retirada depois do verify_run e recusada', () => {
+  const p = projetoTemporario('rm079-retirada-substituta-inativa');
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'substituta inativa', modo: 'auto' });
+    const antiga = adicionarClaim(p.dir, thread.id, { arquivo: 'README.md', alegacao: 'regra anterior', semProvaLocal: true });
+    const nova = adicionarClaim(p.dir, thread.id, { arquivo: 'README.md', alegacao: 'regra corrigida',
+      verificar: ['node --version'], semProvaLocal: true });
+    registrar(dirThread(p.dir, thread.id), thread.id, TIPOS_DE_EVENTO.verificacao, {
+      commit: commitReal(p.dir), claims: [{ id: nova.id, verificar: nova.verificar, verificado: true }],
+      motivos: [], veredito: 'verdade sustentada',
+    });
+    retirarClaim(p.dir, thread.id, nova.id, 'a substituta foi retirada');
+    assert.throws(() => retirarClaimTipada(p.dir, thread.id, antiga.id, {
+      motivoTipo: 'substituicao', substituidaPor: nova.id, motivo: 'regra corrigida',
+      autor: { tipo: 'sessao', id: 'dispatch-teste' },
+    }), /claims\.substituta\.inativa.*rode node core\/dist\/index\.js verify/);
   } finally { p.limpar(); }
 });
 

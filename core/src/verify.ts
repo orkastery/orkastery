@@ -1252,6 +1252,7 @@ function verificarSobConducao(
       const falhou = c.execucoes.find((e) => !e.ok);
       return {
         id: c.claim.id,
+        verificar: c.claim.verificar,
         verificado: c.verificado,
         motivo: c.motivo,
         detalhe: c.detalhe,

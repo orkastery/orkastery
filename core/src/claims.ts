@@ -18,7 +18,7 @@ import { cicloSemCheck, validarProvaSemCheck } from './prova-minima';
 import { dirThread, gravarThread, lerThread } from './thread';
 import { Claim, Fase, ResultadoDeComando } from './types';
 import { avaliarPolicies, avisos, policyDeProvaLocal, ViolacaoDePolicy } from './policies';
-import { cwdDaThread, executar, TIMEOUT_VERIFY_MS } from './verify';
+import { commitReal, cwdDaThread, executar, TIMEOUT_VERIFY_MS } from './verify';
 import { agora, anexarJsonl, lerJsonl, proximoIdSequencial, tabela } from './util';
 import { analisarComandos, linhaDoLintDeClaim, regraFatalDeClaim } from './claim-lint';
 import { ErroDoCatalogo, msg } from './locale';
@@ -351,15 +351,30 @@ export function retirarClaimTipada(raiz: string, threadId: string, claimId: stri
   if (claim.estado === 'retirada') throw new Error(`claim "${claim.id}" ja foi retirada`);
 
   if (opcoes.substituidaPor) {
+    const repetirVerify = (motivo: string, detalhe: string): Error =>
+      new Error(`${motivo}: ${detalhe}; rode node core/dist/index.js verify ${threadId}`);
     if (opcoes.substituidaPor === claimId) throw new Error('a claim substituta precisa ser diferente da retirada');
     const substituta = exigirClaim(raiz, threadId, opcoes.substituidaPor);
-    if (substituta.estado === 'retirada') throw new Error(`claim substituta "${substituta.id}" nao esta ativa`);
+    if (substituta.estado === 'retirada') {
+      throw repetirVerify('claims.substituta.inativa', `claim substituta "${substituta.id}" nao esta ativa`);
+    }
     const rodada = lerLedger(dirThread(raiz, threadId)).filter((e) => e.tipo === TIPOS_DE_EVENTO.verificacao).at(-1);
+    const headAtual = commitReal(cwdDaThread(raiz, lerThread(raiz, threadId)));
+    if (rodada?.commit !== headAtual) {
+      throw repetirVerify('claims.substituta.verify-head',
+        `o ultimo verify_run pertence a ${String(rodada?.commit ?? 'commit ausente')}, nao ao HEAD ${headAtual}`);
+    }
     const prova = Array.isArray(rodada?.claims)
       ? (rodada.claims as Array<Record<string, unknown>>).find((c) => c.id === substituta.id)
       : undefined;
     if (prova?.verificado !== true) {
-      throw new Error(`claim substituta "${substituta.id}" nao passou no ultimo verify_run`);
+      throw repetirVerify('claims.substituta.nao-verificada',
+        `claim substituta "${substituta.id}" nao passou no ultimo verify_run`);
+    }
+    if (!Array.isArray(prova.verificar)
+        || JSON.stringify(prova.verificar) !== JSON.stringify(substituta.verificar)) {
+      throw repetirVerify('claims.substituta.alterada-depois-do-verify',
+        `claim substituta "${substituta.id}" mudou o comando verificar depois do ultimo verify_run`);
     }
     const retirada = retirarERegistrar(raiz, threadId, claim, opcoes.motivo, opcoes.autor, true,
       opcoes.motivoTipo, substituta.id);
