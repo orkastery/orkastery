@@ -13,6 +13,8 @@ import { spawn, spawnSync } from 'node:child_process';
 import { TESTES_DE_INTEGRACAO_LOCAL } from '../src/integracoes-locais';
 import { assinaturaDoAmbiente as assinaturaDoVerify } from '../src/check-agil';
 import { ambienteFuncionalDosTestes, ENV_PATH_FUNCIONAL_DA_RODADA } from '../src/ambiente-funcional';
+import { aplicarDevolucaoDaReserva, aplicarPlanoCpu, devolucoesDaReserva, OrigemDaReserva } from '../src/check-paralelo';
+import { planejarCpuDoGrupo, PlanoCpuDoGrupo } from '../src/agendador-cpu';
 
 const CORE = path.resolve(__dirname, '../..');
 const SCRIPT = path.join(CORE, 'scripts', 'test-lanes.cjs');
@@ -189,7 +191,8 @@ test('TL9: a hermetica devolve as vagas sem passar da CPU, e a integracao preser
   assert.equal(lanes.concorrenciaDaLane('integracao', 8, 7), 7, 'depois da hermetica, a integracao usa a fatia Classic');
   assert.deepEqual(lanes.planoDoPool('hermetica', 8, { ORK_CHECK_CPUS_DA_LANE: '6',
     [lanes.ENV_CPUS_APOS_VARREDURA]: '7', [lanes.ENV_CPUS_APOS_RESERVA]: '8', [lanes.ENV_SINAL_DA_RESERVA]: '/tmp/sinal' }),
-  { inicial: 6, aposVarredura: 7, final: 8, sinal: '/tmp/sinal' }, 'a hermetica recebe um degrau por peca');
+  { inicial: 6, aposVarredura: 7, final: 8, sinal: '/tmp/sinal' },
+  'a hermetica recebe um degrau por peca pelo sinal da reserva');
   assert.equal(lanes.planoDoPool('integracao', 8, { ORK_CHECK_CPUS_DA_LANE: '2',
     [lanes.ENV_CPUS_APOS_RESERVA]: '8', [lanes.ENV_SINAL_DA_RESERVA]: '/tmp/sinal' }), null, 'a integracao nunca abre o pool');
   const texto = fs.readFileSync(SCRIPT, 'utf8');
@@ -276,6 +279,56 @@ test('TL13: degrau duplicado, regressivo ou acima da CPU nunca abre vaga', () =>
   assert.deepEqual(primeiro.aplicados.map((d) => [d.origem, d.vagasGanhas, d.vagas]), [['varredura', 1, 2]]);
   const segundo = lanes.degrausDaReserva(linha('integracao', 1, 3), primeiro.vagas, 3, vistos);
   assert.deepEqual(segundo, { vagas: 3, aplicados: [{ origem: 'integracao', em: '2026-10-31T00:00:00.000Z', vagasGanhas: 1, vagas: 3 }] });
+  const claims = lanes.degrausDaReserva(linha('claims', 1, 2), 1, 3, new Set());
+  assert.deepEqual(claims.aplicados.map((d) => d.origem), ['claims']);
+});
+
+test('TL14: estado e relogio injetados provam a reserva do caminho usado sem depender da parede', () => {
+  const itens = [
+    { nome: 'test:hermetica', papelCpu: 'hermetica' as const, cwd: '/tmp', prazoMs: 1, comando: 'hermetica' },
+    { nome: 'security_scan', papelCpu: 'varredura' as const, cwd: '/tmp', prazoMs: 1, comando: 'varredura' },
+    { nome: 'test:integracao', papelCpu: 'integracao' as const, cwd: '/tmp', prazoMs: 1, comando: 'integracao' },
+  ];
+  const transicoes = (plano: PlanoCpuDoGrupo, ordem: OrigemDaReserva[]) => {
+    const devolucoes = devolucoesDaReserva(plano);
+    let vagas = plano.cpusHermetica;
+    return ordem.map((origem, indice) => {
+      const degrau = aplicarDevolucaoDaReserva(vagas, plano.capacidadeEfetiva, origem, devolucoes[origem],
+        `2026-11-04T00:00:0${indice}.000Z`);
+      vagas = degrau.vagas;
+      return degrau;
+    });
+  };
+
+  const encadeado = planejarCpuDoGrupo(4, { carga1: 0, stealPct: 0 });
+  const aplicados = aplicarPlanoCpu(itens, encadeado, '/tmp/sinal');
+  const integracao = aplicados.find((item) => item.papelCpu === 'integracao')!;
+  assert.equal(encadeado.integracaoEmParalelo, false);
+  assert.equal(encadeado.cpusIntegracaoEmUso, encadeado.cpusDaFatia,
+    'a integracao encadeada herda toda a reserva da varredura');
+  assert.deepEqual(integracao.apos, ['security_scan'], 'a integracao inicia assim que a varredura termina');
+  assert.deepEqual([integracao.ambiente?.ORK_CHECK_CPUS_DA_LANE, integracao.ambiente?.ORK_CHECK_CPUS_DOCKER], ['2', '1']);
+  assert.match(encadeado.motivo, /integracao encadeada inicia depois da varredura/);
+  assert.doesNotMatch(encadeado.motivo, /previs|historico|folga/i);
+  const sinaisEncadeados = transicoes(encadeado, ['varredura', 'integracao']);
+  assert.deepEqual(sinaisEncadeados.map((s) => [s.origem, s.vagasGanhas, s.vagas]),
+    [['varredura', 0, 2], ['integracao', 2, 4]]);
+  const consumido = lanes.degrausDaReserva(sinaisEncadeados.map((s) => JSON.stringify(s)).join('\n'),
+    encadeado.cpusHermetica, encadeado.capacidadeEfetiva);
+  assert.equal(consumido.vagas, encadeado.capacidadeEfetiva);
+
+  const paralelo = planejarCpuDoGrupo(8,
+    { carga1: 0, stealPct: 0, cpusIntegracao: 0.64, fonteCpusIntegracao: 'medida' });
+  const integracaoParalela = aplicarPlanoCpu(itens, paralelo, '/tmp/sinal')
+    .find((item) => item.papelCpu === 'integracao')!;
+  assert.equal(paralelo.integracaoEmParalelo, true);
+  assert.deepEqual(integracaoParalela.apos, [], 'a integracao medida ja comeca em paralelo');
+  const sinaisParalelos = transicoes(paralelo, ['varredura', 'integracao']);
+  assert.deepEqual(sinaisParalelos.map((s) => [s.origem, s.vagasGanhas, s.vagas]),
+    [['varredura', 2, 7], ['integracao', 1, 8]],
+  'quando a integracao ja roda, a reserva da varredura volta inteira a hermetica');
+  assert.ok(sinaisEncadeados.every((s) => s.vagas <= encadeado.capacidadeEfetiva));
+  assert.ok(sinaisParalelos.every((s) => s.vagas <= paralelo.capacidadeEfetiva));
 });
 
 test('TL10: o teste da lane nao herda modo, relatorio nem plano de CPU da rodada, mas herda o ambiente exigido', () => {
@@ -297,6 +350,13 @@ test('TL10: o teste da lane nao herda modo, relatorio nem plano de CPU da rodada
     assert.deepEqual(JSON.parse(fs.readFileSync(visto, 'utf8')),
       { modo: null, relatorio: null, cpusDaLane: null, cpusApos: null, sinal: null, cpusDocker: null, workers: null, exige: '1' },
       'quem exporta ORK_TESTE_EXIGE_AMBIENTE exige as dependencias nos dois modos, como no npm test');
+    const integracao = spawnSync(process.execPath, [SCRIPT, 'integracao'], { encoding: 'utf8', env: {
+      ...env, ORK_LANES_INTEGRACAO: 've.test.js', ORK_CHECK_CPUS_DOCKER: '0.5',
+    } });
+    assert.equal(integracao.status, 0, integracao.stderr + integracao.stdout);
+    assert.deepEqual(JSON.parse(fs.readFileSync(visto, 'utf8')),
+      { modo: null, relatorio: null, cpusDaLane: null, cpusApos: null, sinal: null, cpusDocker: '0.5', workers: null, exige: '1' },
+      'somente a integracao leva aos testes a cota dos conteineres');
     assert.ok(fs.readFileSync(relatorio, 'utf8').split('\n').filter(Boolean).some((l) => (JSON.parse(l) as { tipo: string }).tipo === 'lista'));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

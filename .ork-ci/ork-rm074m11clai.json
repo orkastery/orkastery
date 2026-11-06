@@ -1,0 +1,326 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm074m11clai",
+  "branch": "ork/ork-rm074m11clai-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm074m11clai",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-agil.ts",
+      "alegacao": "O Agile antecipa claims sem evidência de lane quando o planejador prova independência, mantém as claims reaproveitáveis depois das lanes e conserva resultado e recibo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-04T16:09:08.485Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm074m11clai",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m11.json",
+      "alegacao": "Mutante M11-claims: antecipar uma claim dependente de lane é detectado por uma prova autocontida.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m11.json M1"
+      ],
+      "criadoEm": "2026-11-04T16:09:08.740Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm074m11clai",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm074-m11.json",
+      "alegacao": "Mutante M11-cota: retirar dos contêineres da integração a cota da reserva é detectado por uma prova autocontida.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m11.json M3"
+      ],
+      "criadoEm": "2026-11-04T16:09:08.934Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm074m11clai",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+      "alegacao": "A narrativa registra a M11 e a seção Não publicado sem atribuir ganho antes da bancada.",
+      "negativa": false,
+      "verificar": [
+        "grep -q '### M11:' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md && grep -q 'RM-074, M11' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-11-04T16:09:09.021Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm074m11clai",
+      "fase": "GOAL",
+      "arquivo": "core/test/check-classic-intacto.test.ts",
+      "alegacao": "O Classic preserva comandos, ordem e ambiente enquanto as novas decisões pertencem somente ao Agile.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/check-classic-intacto.test.js"
+      ],
+      "criadoEm": "2026-11-04T16:09:09.114Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm074m11clai",
+      "fase": "GOAL",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "O verify integra resultados antecipados sem reordenar o recibo canônico e invalida evidência de lane quando a guarda muda.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-04T16:13:56.429Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm074m11clai",
+      "fase": "GOAL",
+      "arquivo": "core/test/check-agil.test.ts",
+      "alegacao": "As provas focadas cobrem paralelismo das claims, espera das dependentes, equivalência do recibo e decisões de CPU.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-04T16:13:56.585Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm074m11clai",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A seção Não publicado descreve a M11 sem número de ganho antes da bancada.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'RM-074, M11' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-11-04T16:13:56.815Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm074m11clai",
+      "fase": "GO",
+      "arquivo": "core/test/check-agil.test.ts",
+      "alegacao": "As provas do Agile mantem vermelho o resultado de claim antecipada que falha, conservam a ordem de claims do mesmo arquivo e acumulam a falha com lanes caida e expirada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-04T18:22:22.386Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm074m11clai",
+      "fase": "GO",
+      "arquivo": "core/test/horario-lint.test.ts",
+      "alegacao": "O carimbo da evidencia da cota permanece classificado como dado de maquina em JSONL, com excecao justificada e viva no lint de horario.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/horario-lint.test.js"
+      ],
+      "criadoEm": "2026-11-04T19:07:33.666Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm074m11clai",
+      "fase": "GO",
+      "arquivo": "core/src/check-paralelo.ts",
+      "alegacao": "O processo auxiliar do grupo nao herda o contexto interno do harness node --test, e os comandos continuam com o ambiente normal da rodada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-04T19:47:30.516Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm074m11clai",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-rm074m11clai.json",
+      "alegacao": "O bundle regenerado identifica a thread e preserva os comandos de CI e de varredura de seguranca declarados pelo manifesto.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const p=require('./.ork-ci/ork-rm074m11clai.json'); if(p.schema!=='ork.ci-bundle/v1'||p.thread!=='ork-rm074m11clai'||!p.commands.some(c=>c.name==='ci')||!p.commands.some(c=>c.name==='security_scan')) process.exit(1)\""
+      ],
+      "criadoEm": "2026-11-04T20:29:49.494Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm074m11clai",
+      "fase": "GO",
+      "arquivo": "core/src/agendador-cpu.ts",
+      "alegacao": "O agendador faz a integracao encadeada com a reserva da varredura assim que ela termina e devolve a reserva da varredura a hermetica quando a integracao ja roda em paralelo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/test-lanes.test.js core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-04T21:30:11.617Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm074m11clai",
+      "fase": "GO",
+      "arquivo": "core/src/check-paralelo.ts",
+      "alegacao": "O executor inicia a integracao encadeada depois da varredura, aplica a cota derivada da reserva usada e registra os degraus de devolucao dentro da capacidade efetiva.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/test-lanes.test.js core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-04T21:30:11.804Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm074m11clai",
+      "fase": "GO",
+      "arquivo": "core/scripts/test-lanes.cjs",
+      "alegacao": "A lane hermetica amplia o pool pelos degraus validos do sinal de reserva, preservando a ordem LPT dos arquivos sem transportar previsao de espera.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/test-lanes.test.js core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-04T21:30:11.973Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm074m11clai",
+      "fase": "GO",
+      "arquivo": "core/test/test-lanes.test.ts",
+      "alegacao": "A prova do caminho da integracao injeta estado e relogio para conferir encadeamento, cota e devolucoes sem ordenar eventos pela parede da maquina.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/test-lanes.test.js core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-04T21:30:12.106Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm074m11clai",
+      "fase": "GO",
+      "arquivo": "core/test/check-agil.test.ts",
+      "alegacao": "A prova da reserva das claims injeta estado e pausas, e a fronteira que exige o auxiliar declara processo real no nome.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-04T21:32:09.192Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm074m11clai",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m11.json",
+      "alegacao": "Os mutantes da M11 prendem a entrega da reserva da varredura a integracao encadeada e o recuo para o argv anterior quando o runtime recusa a cota.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m11.json M2 && node core/scripts/mutante.cjs core/test/mutantes/rm074-m11.json M6"
+      ],
+      "criadoEm": "2026-11-04T21:33:20.781Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm074m11clai",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+      "alegacao": "A narrativa da M11 registra o caminho sem espera, o mutante do recuo da cota e a origem de D1, D2, D3 e D4 sem publicar ganho da fatia.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'D1, D2 e D4 do GOAL; D3 vigente decidida no GO e revisada no GO-FIX' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md && grep -q 'mutantes da devolução, da falha, da aplicação e do recuo da cota mortos' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md"
+      ],
+      "criadoEm": "2026-11-04T21:34:28.122Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm074m11clai",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A linha da M11 descreve a integracao encadeada depois da varredura e a devolucao da reserva no caminho paralelo sem atribuir ganho a mudanca.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'integração encadeada começa depois da varredura com a reserva dela' CHANGELOG.md && grep -q 'o ganho aguarda a bancada (RM-074, M11)' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-11-04T21:34:28.273Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm074m11clai",
+      "fase": "GO",
+      "arquivo": "core/test/horario-lint.test.ts",
+      "alegacao": "O carimbo do degrau permanece classificado como dado de maquina em JSONL, com excecao justificada e exercitada pelo lint de horario.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/horario-lint.test.js"
+      ],
+      "criadoEm": "2026-11-04T21:39:03.418Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C3",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C13",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C17",
+      "reason": "local-integration-required"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}

@@ -55,7 +55,7 @@ import { ENV_MODO_DO_CHECK, ENV_RELATORIO_DO_CHECK, ENV_VARREDURA_PARALELA_DO_CH
   resolverModo } from './check-modo';
 import { comandosNoAgile, ComandosDoAgile, executorDaClaimNoAgile, executorDaClaimPelasLanes, ExecutorDeGrupo, GuardaDoProduto, listasDasLanes,
   MAXIMO_DE_PREPAROS_REFEITOS, PecaDoAgile, paralelismoDaVarreduraNoGrupo, PECA_SEM_RELATORIO, pecasDoRelatorio,
-  porQueDasLanes, prepararNoAgile, PreparoVigente, refazerPreparo, RefazerPreparo, RelatorioDoCheck,
+  planejarClaimsNoAgile, porQueDasLanes, prepararNoAgile, PreparoVigente, refazerPreparo, RefazerPreparo, RelatorioDoCheck,
   resultadosDasLanes } from './check-agil';
 import { esperaDoGrupo, rodarEmParalelo } from './check-paralelo';
 import { ENV_CPUS_DA_LANE, ENV_CPUS_DOCKER, ENV_WORKERS, MedicaoCpuDoGrupo, PlanoCpuDoGrupo, workersDaReserva } from './agendador-cpu';
@@ -577,6 +577,7 @@ function soAVarreduraEAsLanesComRelatorio(comRelatorio: ExecutorVerify, semRelat
 /** A evidencia publica do plano: estado, capacidade usada, amostras e, no fallback, o equivalente do Classic. */
 export function pecaDoAgendadorCpu(p: PlanoCpuDoGrupo): PecaDoAgile {
   const medida = p.medicaoCpuIntegracao;
+  const cota = p.cotaDosContainersDaIntegracao;
   const evidencia = medida
     ? `; CPU da integracao: arvore ${Math.round(medida.arvoreMs)} ms + conteineres ${Math.round(medida.containersMs)} ms` +
       ` = ${Math.round(medida.totalMs)} ms, pico da arvore ${medida.picoCpusDaArvore ?? 'indisponivel'} CPU ` +
@@ -586,15 +587,21 @@ export function pecaDoAgendadorCpu(p: PlanoCpuDoGrupo): PecaDoAgile {
         ? `medida anomala (${medida.anomalia})`
         : `medida incompleta (${medida.motivosDosAusentes.map((x) => `${x.container}: ${x.motivo}`).join('; ')})`)
     : '';
-  return { peca: 'agendador-cpu', estado: p.estado,
+  const evidenciaDaCota = cota?.estado === 'aplicada'
+    ? `; adaptador confirmou cota de ${cota.cota} CPU nos conteineres da integracao (${cota.motivo})`
+    : cota?.estado === 'fallback'
+      ? `; adaptador recuou a cota dos conteineres da integracao (${cota.motivo})`
+      : '; cota dos conteineres da integracao sem evidencia do adaptador';
+  return { peca: 'agendador-cpu', estado: !p.saturado && cota?.estado === 'fallback' ? 'degradado' : p.estado,
     motivo: p.saturado
       ? `${p.motivo}; hermetica com ${p.cpusHermetica}/${p.capacidadeEfetiva} CPUs, varredura e integracao depois dela`
       : `${p.motivo}; ${p.cpusHermetica}/${p.capacidadeEfetiva} CPUs na hermetica; depois da varredura ` +
         `${p.cpusHermeticaAposVarredura} e depois da integracao ${p.cpusHermeticaAposReserva}; integracao ` +
         `${p.integracaoEmParalelo ? 'em paralelo com a varredura' : 'encadeada depois da varredura'}; ` +
-        `conteineres com ${p.cpusPorContainer} CPU${evidencia}`,
-    reservaIntegracao: { cpus: p.cpusIntegracao, fonte: p.fonteCpusIntegracao },
-    ...(p.saturado ? { fallback: 'ordem do Classic para hermetica, varredura e integracao' } : {}) };
+        `conteineres da varredura com ${p.cpusPorContainer} CPU${evidenciaDaCota}${evidencia}`,
+    reservaIntegracao: { cpus: p.cpusIntegracaoEmUso, fonte: p.fonteCpusIntegracao },
+    ...(p.saturado ? { fallback: 'ordem do Classic para hermetica, varredura e integracao' }
+      : cota?.estado === 'fallback' ? { fallback: 'argv anterior do runtime de conteiner' } : {}) };
 }
 
 function executorDoGrupo(manifesto: Manifesto, ambienteDaRodada: Record<string, string>, instabilidade: RegistroLido,
@@ -1147,6 +1154,7 @@ function verificarSobConducao(
   // `ork verify` roda em toda fase, e uma claim por criterio por rodada viraria
   // acumulador em vez de verificacao.
   registrarCriteriosDePronto(raiz, threadId);
+  const claimsAtivas = lerClaims(raiz, threadId).filter((c) => c.estado !== 'retirada');
 
   // RM-037 (fatia 6): o registro de instabilidade da arvore verificada e a janela de steal da rodada.
   const instabilidade = lerRegistroDeInstabilidade(cwd, opcoes.agoraMs);
@@ -1237,14 +1245,18 @@ function verificarSobConducao(
   let doAgile: ComandosDoAgile | null = null;
   const grupoAntesDasClaims = !opcoes.soClaims && !!vigente && vigente.guarda.conferir() === null
     && Object.keys(manifesto.check?.agile?.test ?? {}).length > 0;
+  const planoDasClaims = grupoAntesDasClaims
+    ? planejarClaimsNoAgile(manifesto, claimsAtivas, cwd, vigente!.guarda, vigente!.preparo) : undefined;
   let comandosDoManifestoExecutados = grupoAntesDasClaims
     ? (opcoes.progresso?.('grupo-agile'), doAgile = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executorDosComandos,
       executorDoGrupo(manifesto, ambienteDaRodada, instabilidade, leitor, conducao, opcoes.executor ? executor : undefined,
         opcoes.medicaoCpuAgendador), vigente!.guarda, vigente!.preparo, selecaoAnterior,
       (nome, comando, dir, filtro, testes) => executarPassagemParcial(nome, comando, dir, executorDosComandos, filtro, testes),
-      selecaoPorMudanca.lanes)).comandos
+      selecaoPorMudanca.lanes, planoDasClaims)).comandos
     : [];
   if (doAgile) pecas.push(...doAgile.pecas);
+  const claimsAntecipadas = doAgile?.claimsAntecipadas ?? {};
+  if (Object.keys(claimsAntecipadas).length > 0 && vigente?.guarda.conferir()) lanesVigentes = false;
   const evidenciasDasLanes = relatorio && doAgile ? resultadosDasLanes(relatorio.ler()) : [];
   const vigenciaDasLanes = () => !lanesVigentes ? 'lanes-invigentes' as const : vigente?.guarda.conferir() ?? null;
   const executorComLanes = agil
@@ -1254,18 +1266,22 @@ function verificarSobConducao(
 
   // Claim retirada sai do gate: o historico guarda a alegacao e o motivo da retirada.
   const executorDaClaim = vigente ? executorDaClaimNoAgile(manifesto, executorComLanes, vigente, refazerAntesDaClaim) : executorComLanes;
-  const claimsAtivas = lerClaims(raiz, threadId).filter((c) => c.estado !== 'retirada');
+  // RM-074 M11 com M12: a claim antecipada ja tem o resultado real do grupo. O plano a devolve como esta, ela nunca
+  // entra num lote de claims recusadas pelas lanes e segue pelo caminho serial com o mesmo resultado.
+  const executorComAntecipadas: ExecutorVerify = (nome, comando, dir) =>
+    claimsAntecipadas[nome] ?? executorDaClaim(nome, comando, dir);
   const claims = vigente ? (() => {
     const executorDePlano: ExecutorVerify = (nome, comando) => ({ nome, comando, ok: true, code: 0, resumo: '', causa: 'exit',
       prazoMs: prazoDaExecucao(manifesto, nome, comando), duracaoMs: 0, executado: true });
     const planoComLanes = executorDaClaimPelasLanes(executorDePlano, evidenciasDasLanes,
       { head: commit, ambiente: ambienteEfetivoDasClaims, podeReaproveitar: vigenciaDasLanes, executorEquivalente: executorDePlano });
     // Planejar nunca refaz preparo nem toca no produto: guarda invalida vira barreira e a execucao serial decide o refazer.
-    const planejar = executorDaClaimNoAgile(manifesto, planoComLanes, vigente);
+    const planejarPelasLanes = executorDaClaimNoAgile(manifesto, planoComLanes, vigente);
+    const planejar: ExecutorVerify = (nome, comando, dir) => claimsAntecipadas[nome] ?? planejarPelasLanes(nome, comando, dir);
     const grupoDasClaims = executorDoGrupo(manifesto, ambienteFuncionalDasLanes, instabilidade, leitor, conducao,
       opcoes.executor ? executorDasClaimsComoLane : undefined);
-    return verificarClaimsAgendadas(claimsAtivas, cwd, executorDaClaim, planejar, grupoDasClaims);
-  })() : claimsAtivas.map((c) => verificarClaim(c, cwd, executorDaClaim));
+    return verificarClaimsAgendadas(claimsAtivas, cwd, executorComAntecipadas, planejar, grupoDasClaims);
+  })() : claimsAtivas.map((c) => verificarClaim(c, cwd, executorComAntecipadas));
   for (const r of claims) {
     // Estouro de prazo e comando que nao rodou nao julgam a alegacao: o estado anterior vale.
     if (r.motivo === 'verify.timeout' || r.motivo === 'verify.sem-veredito') continue;

@@ -64,7 +64,8 @@ function planoDoPool(lane, cpus = os.availableParallelism(), env = process.env) 
   const aposVarredura = Number.isFinite(intermediariaInformada) && intermediariaInformada > 0
     ? Math.max(inicial, Math.min(final, Math.floor(intermediariaInformada))) : inicial;
   const sinal = env[ENV_SINAL_DA_RESERVA];
-  return lane === 'hermetica' && sinal && final > inicial ? { inicial, aposVarredura, final, sinal } : null;
+  return lane === 'hermetica' && sinal && final > inicial
+    ? { inicial, aposVarredura, final, sinal } : null;
 }
 
 /** Linhas completas e monotonicas do sinal; duplicata, regressao e excesso nunca abrem vaga. */
@@ -74,7 +75,7 @@ function degrausDaReserva(texto, vagasAtuais, final, vistos = new Set()) {
   for (const linha of texto.split('\n').filter(Boolean)) {
     let r;
     try { r = JSON.parse(linha); } catch { continue; }
-    if (r?.contrato !== 'ork.check.reserva-devolvida/v2' || !['varredura', 'integracao'].includes(r.origem)
+    if (r?.contrato !== 'ork.check.reserva-devolvida/v2' || !['varredura', 'integracao', 'claims'].includes(r.origem)
       || vistos.has(r.origem) || !Number.isInteger(r.vagas) || !Number.isInteger(r.vagasGanhas)
       || r.vagas < vagas || r.vagas > final || r.vagasGanhas !== r.vagas - vagas || typeof r.em !== 'string') continue;
     vistos.add(r.origem);
@@ -315,10 +316,14 @@ function rodarLane(lane) {
 
   // A mesma funcao monta o ambiente esperado pela claim e o ambiente real do node --test. Ela restaura o PATH anterior
   // ao shell/npm e retira modo, relatorio e plano depois que o controlador da lane ja os consumiu.
+  // RM-074 M11: so a integracao conserva a cota de CPU dos conteineres da rodada. Ela entra como acrescimo da regra
+  // unica, e a assinatura da lane passa a diferir da claim que rode sem a cota: essa claim e recusada e roda de verdade.
+  const cotaDockerDaIntegracao = lane === 'integracao' ? process.env.ORK_CHECK_CPUS_DOCKER : undefined;
   let casa = null;
   if (!(process.env.ORKASTERY_HOME || '').trim()) casa = fs.mkdtempSync(path.join(pastaDaLane, 'ork-casa-'));
   const env = ambienteFuncionalDosTestes(process.env, { TMPDIR: tmpdirDaRodada ?? pastaDaLane,
-    ...(casa ? { ORKASTERY_HOME: casa } : {}) });
+    ...(casa ? { ORKASTERY_HOME: casa } : {}),
+    ...(cotaDockerDaIntegracao ? { ORK_CHECK_CPUS_DOCKER: cotaDockerDaIntegracao } : {}) });
   const ambiente = assinaturaDoAmbiente(env);
   try {
     fs.mkdirSync(path.join(cache, 'compile-cache'), { recursive: true });

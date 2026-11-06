@@ -16,8 +16,8 @@ import { assinaturaDoAmbiente, comandosNoAgile, elosDoComando, executorDaClaimNo
   GuardaDoProduto, hashDoProduto, MAXIMO_DE_PREPAROS_REFEITOS, paralelismoDaVarreduraNoGrupo, passosDoComando,
   PECA_SEM_RELATORIO, RelatorioDoCheck,
   testDasLanes, TETO_DO_RELATORIO_BYTES, tirarPassosDoPreparo, tirarPassosDoPreparoAposLeituras } from '../src/check-agil';
-import { argvDoItem, chaveDoPerfilIntegracao, picoCpuPorFonte, picoDaArvoreParaPerfil, rodarEmParalelo,
-  workersDaLane } from '../src/check-paralelo';
+import { aplicarDevolucaoDaReserva, argvDoItem, chaveDoPerfilIntegracao, devolucoesDaReserva, limiteDeVagas,
+  OrigemDaReserva, picoCpuPorFonte, picoDaArvoreParaPerfil, rodarEmParalelo, workersDaLane } from '../src/check-paralelo';
 import { cargaDoProcLoadavg, MINIMO_ESTRUTURAL_DO_GRUPO, paredeAgileSimulada, paredeClassicaSimulada, planejarCpuDoGrupo,
   resumirMedicaoCpuDoGrupo, workersDaReserva } from '../src/agendador-cpu';
 import { lerLedger } from '../src/ledger';
@@ -542,7 +542,7 @@ test('AG26: a claim que muda o produto apos as lanes refaz preparo e grupo sobre
     });
     const r = verificar(p.carregado, t.id, { executor: g.executor });
     assert.equal(r.ok, true, r.motivos.join(','));
-    assert.deepEqual(g.lista.map(([n]) => n), ['preparo', 'test:h', 'security_scan', 'C1.1', 'preparo', 'test:h', 'security_scan']);
+    assert.deepEqual(g.lista.map(([n]) => n), ['preparo', 'test:h', 'security_scan', 'claim:C1.1', 'preparo', 'test:h', 'security_scan']);
     const pecas = (ultimoVerify(p, t.id).agile as { pecas: Array<Record<string, unknown>> }).pecas;
     assert.ok(pecas.some((x) => x.peca === 'preparo-refeito' && x.estado === 'agile' && /rodou de novo depois das claims/.test(String(x.motivo))),
       JSON.stringify(pecas));
@@ -1036,18 +1036,83 @@ test('AG48: skip ou todo em node --test nunca prova a claim pela lane', () => {
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('AG47: com lanes validas, o Agile roda preparo e lanes antes das claims; o Classic conserva a ordem', () => {
+test('AG47: claim independente entra no grupo, a dependente espera a lane e o Classic conserva a ordem', () => {
   const p = projetoTemporario('ag35');
   try {
     comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      h: "echo h"');
     const { thread: t } = novaThread(p.carregado, { nome: 'ordem lane claim', modo: 'auto' });
-    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'depois da lane', verificar: ['echo claim'] });
+    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'independente',
+      verificar: ['echo claim'] });
+    adicionarClaim(p.dir, t.id, { arquivo: 'core/test/check-agil.test.ts', alegacao: 'depende da lane',
+      verificar: ['node --test core/dist-test/test/check-agil.test.js'] });
     const agile = gravador();
-    verificar(p.carregado, t.id, { executor: agile.executor });
-    assert.deepEqual(agile.lista.map(([nome]) => nome), ['preparo', 'test:h', 'C1.1']);
+    const r = verificar(p.carregado, t.id, { executor: agile.executor });
+    assert.deepEqual(agile.lista.map(([nome]) => nome), ['preparo', 'test:h', 'claim:C1.1', 'C2.1']);
+    assert.deepEqual(r.claims.map((c) => [c.claim.id, c.verificado, c.execucoes[0].nome, c.execucoes[0].comando,
+      c.execucoes[0].comandoExecutado ?? null, c.execucoes[0].preparo ?? null]), [
+      ['C1', true, 'C1.1', 'echo claim', null, null],
+      ['C2', true, 'C2.1', 'node --test core/dist-test/test/check-agil.test.js', null, null],
+    ], 'o recibo permanece canonico mesmo quando o processo usa nome interno');
     const classic = gravador();
     verificar(p.carregado, t.id, { executor: classic.executor, check: 'classic' });
-    assert.deepEqual(classic.lista.map(([nome]) => nome), ['preparo', 'C1.1', 'build', 'test']);
+    assert.deepEqual(classic.lista.map(([nome]) => nome), ['preparo', 'C1.1', 'C2.1', 'build', 'test']);
+  } finally { p.limpar(); }
+});
+
+test('AG53: falha de claim antecipada deixa o verify vermelho e conserva recibo e ordem canonicos', () => {
+  const p = projetoTemporario('ag53');
+  try {
+    comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      h: "echo h"');
+    const { thread: t } = novaThread(p.carregado, { nome: 'claim antecipada vermelha', modo: 'auto' });
+    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'primeira falha', verificar: ['echo falha'] });
+    adicionarClaim(p.dir, t.id, { arquivo: 'outro.md', alegacao: 'segunda passa', verificar: ['echo passa'] });
+    const g = gravador((nome) => nome === 'claim:C1.1' ? { ok: false, code: 1, resumo: 'falha antecipada' } : {});
+    const r = verificar(p.carregado, t.id, { executor: g.executor });
+    assert.equal(r.ok, false);
+    assert.ok(r.motivos.includes('claims.failed'), r.motivos.join(','));
+    assert.deepEqual(r.claims.map((c) => [c.claim.id, c.verificado, c.execucoes[0].nome, c.execucoes[0].comando]), [
+      ['C1', false, 'C1.1', 'echo falha'], ['C2', true, 'C2.1', 'echo passa'],
+    ]);
+    const recibo = ultimoVerify(p, t.id).claims as Array<Record<string, unknown>>;
+    assert.deepEqual(recibo.map((c) => [c.id, c.verificado]), [['C1', false], ['C2', true]]);
+    assert.equal((recibo[0].execucao as Record<string, unknown>).nome, 'C1.1');
+  } finally { p.limpar(); }
+});
+
+test('AG54: varias claims antecipadas do mesmo arquivo rodam na ordem declarada', () => {
+  const p = projetoTemporario('ag54');
+  try {
+    comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      h: "echo h"');
+    const { thread: t } = novaThread(p.carregado, { nome: 'cadeia de claims antecipadas', modo: 'auto' });
+    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'duas verificacoes', verificar: ['echo um', 'echo dois'] });
+    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'mesmo arquivo', verificar: ['echo tres'] });
+    const g = gravador();
+    const r = verificar(p.carregado, t.id, { executor: g.executor });
+    assert.equal(r.ok, true, r.motivos.join(','));
+    assert.deepEqual(g.lista.map(([nome]) => nome).filter((nome) => nome.startsWith('claim:')),
+      ['claim:C1.1', 'claim:C1.2', 'claim:C2.1']);
+    assert.deepEqual(r.claims.flatMap((c) => c.execucoes.map((e) => e.nome)), ['C1.1', 'C1.2', 'C2.1']);
+  } finally { p.limpar(); }
+});
+
+test('AG55: claim antecipada vermelha, lane caida e lane em timeout permanecem no mesmo veredito', () => {
+  const p = projetoTemporario('ag55');
+  try {
+    comAgile(p, '  agile:\n    produto:\n      - "README.md"\n    test:\n      cai: "echo cai"\n      estoura: "echo estoura"');
+    const { thread: t } = novaThread(p.carregado, { nome: 'falhas concorrentes', modo: 'auto' });
+    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'claim cai', verificar: ['echo claim'] });
+    const g = gravador((nome) => nome === 'claim:C1.1' ? { ok: false, code: 1 }
+      : nome === 'test:cai' ? { ok: false, code: 1 }
+        : nome === 'test:estoura' ? { ok: false, code: 124, causa: 'timeout' } : {});
+    const r = verificar(p.carregado, t.id, { executor: g.executor });
+    assert.equal(r.ok, false);
+    assert.ok(r.motivos.includes('claims.failed'), r.motivos.join(','));
+    assert.ok(r.motivos.includes('verify.timeout') || r.motivos.includes('verify.sem-veredito'), r.motivos.join(','));
+    assert.equal(r.claims[0].verificado, false);
+    const testAgregado = r.comandos.find((c) => c.nome === 'test')!;
+    assert.deepEqual(testAgregado.lanes?.map((l) => [l.lane, l.ok, l.code, l.causa]), [
+      ['cai', false, 1, 'exit'], ['estoura', false, 124, 'timeout'],
+    ]);
   } finally { p.limpar(); }
 });
 
@@ -1327,6 +1392,14 @@ test('AG44: carga e steal degradam a capacidade em degraus; so o minimo estrutur
   assert.ok(paredeAgileSimulada(livre, trabalho) < Math.max(trabalho.hermetica / livre.cpusHermetica,
     trabalho.varredura / livre.cpusDaFatia + trabalho.integracao / livre.cpusIntegracao), 'a devolucao reduz a parede modelada');
 
+  const comClaims = planejarCpuDoGrupo(8, { carga1: 0, stealPct: 0 }, { cadeiasDeClaims: 3 });
+  assert.deepEqual([comClaims.cpusHermetica, comClaims.cpusDaFatia, comClaims.cpusClaims], [3, 2, 3],
+    'a reserva deriva da folga e preserva na hermetica ao menos a parcela das claims');
+  assert.equal(comClaims.cpusHermetica + comClaims.cpusDaFatia + comClaims.cpusClaims, comClaims.capacidadeEfetiva);
+  assert.match(comClaims.motivo, /claims com 3 vaga\(s\) para 3 cadeia\(s\)/);
+  const semFolgaParaClaim = planejarCpuDoGrupo(3, { carga1: 0, stealPct: 0 }, { cadeiasDeClaims: 2 });
+  assert.equal(semFolgaParaClaim.cpusClaims, 0, 'sem dividir a hermetica, as claims conservam a ordem anterior');
+
   const degradado = planejarCpuDoGrupo(8, resumirMedicaoCpuDoGrupo([0, 0, 0], [12, 12, 12]));
   assert.equal(degradado.ordem, 'paralela', 'steal acima do limiar antigo nao derruba o grupo inteiro');
   assert.equal(degradado.estado, 'degradado');
@@ -1389,6 +1462,51 @@ test('AG44: carga e steal degradam a capacidade em degraus; so o minimo estrutur
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('AG52: estado e pausas injetados prendem a reserva das claims e sua devolucao sem relogio de parede', async () => {
+  const plano = planejarCpuDoGrupo(8, { carga1: 0, stealPct: 0,
+    cpusIntegracao: null, fonteCpusIntegracao: 'conservadora' }, { cadeiasDeClaims: 3 });
+  assert.deepEqual([plano.cpusHermetica, plano.cpusClaims, plano.cadeiasDeClaims], [3, 3, 3]);
+  assert.ok(plano.cpusHermetica + plano.cpusDaFatia + plano.cpusClaims <= plano.capacidadeEfetiva);
+
+  const limite = limiteDeVagas(plano.cpusClaims);
+  const iniciadas: number[] = [];
+  const liberar: Array<() => void> = [];
+  const tarefas = [0, 1, 2, 3].map(async (n) => {
+    await limite.tomar();
+    iniciadas.push(n);
+    await new Promise<void>((resolve) => { liberar[n] = resolve; });
+    limite.soltar();
+  });
+  const drenarMicrotarefas = async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); };
+  await drenarMicrotarefas();
+  assert.deepEqual(iniciadas, [0, 1, 2], 'a reserva deixa tres claims independentes sobrepor');
+  liberar[0]();
+  await drenarMicrotarefas();
+  assert.deepEqual(iniciadas, [0, 1, 2, 3], 'a claim seguinte avanca pelo sinal da pausa liberada');
+  liberar[1](); liberar[2](); liberar[3]();
+  await Promise.all(tarefas);
+
+  const devolucoes = devolucoesDaReserva(plano);
+  let vagas = plano.cpusHermetica;
+  const degraus = (['varredura', 'claims', 'integracao'] as OrigemDaReserva[]).map((origem, indice) => {
+    const degrau = aplicarDevolucaoDaReserva(vagas, plano.capacidadeEfetiva, origem, devolucoes[origem],
+      `2026-11-04T00:01:0${indice}.000Z`);
+    vagas = degrau.vagas;
+    return degrau;
+  });
+  assert.deepEqual([...new Set(degraus.map((d) => d.origem))].sort(), ['claims', 'integracao', 'varredura']);
+  assert.ok(degraus.every((d) => d.vagas <= plano.capacidadeEfetiva));
+  assert.equal(degraus.at(-1)!.vagas, plano.capacidadeEfetiva);
+});
+
+test('AG57: processo real do auxiliar nao herda o contexto privado do harness node --test', () => {
+  const processos = rodarEmParalelo([
+    { nome: 'sem-contexto-do-harness', cwd: process.cwd(), prazoMs: 5_000,
+      comando: 'test -z "${NODE_TEST_CONTEXT+x}"' },
+  ], { ...process.env, NODE_TEST_CONTEXT: 'child-v8' });
+  assert.equal(processos[0].ok, true, JSON.stringify(processos[0]));
+});
+
 test('AG45: saturacao medida pelo verify ordena hermetica, varredura e integracao e registra a peca no verify_run', () => {
   const p = projetoTemporario('ag40');
   try {
@@ -1418,6 +1536,21 @@ test('AG45: saturacao medida pelo verify ordena hermetica, varredura e integraca
     assert.equal(degradado.fallback, undefined);
     assert.match(String(degradado.motivo), /capacidade 7\/8 CPU\(s\).*amostras \[12, 12, 12\], mediana 12%/);
   } finally { p.limpar(); }
+});
+
+test('AG56: a peca so confirma a cota da integracao depois da evidencia do adaptador e registra o recuo', () => {
+  const plano = planejarCpuDoGrupo(4, { carga1: 0, stealPct: 0 });
+  let peca = pecaDoAgendadorCpu(plano);
+  assert.match(String(peca.motivo), /cota dos conteineres da integracao sem evidencia do adaptador/);
+  assert.doesNotMatch(String(peca.motivo), /adaptador confirmou cota/);
+  plano.cotaDosContainersDaIntegracao = { estado: 'aplicada', cota: 1, motivo: 'runtime aceitou' };
+  peca = pecaDoAgendadorCpu(plano);
+  assert.match(String(peca.motivo), /adaptador confirmou cota de 1 CPU.*runtime aceitou/);
+  plano.cotaDosContainersDaIntegracao = { estado: 'fallback', cota: 1, motivo: 'runtime recusou --cpus' };
+  peca = pecaDoAgendadorCpu(plano);
+  assert.equal(peca.estado, 'degradado');
+  assert.equal(peca.fallback, 'argv anterior do runtime de conteiner');
+  assert.match(String(peca.motivo), /adaptador recuou a cota.*runtime recusou --cpus/);
 });
 
 test('AG49: a reserva medida da integracao abre um degrau apos a varredura sem ultrapassar a CPU', () => {
