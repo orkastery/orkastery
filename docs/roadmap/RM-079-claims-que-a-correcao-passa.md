@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-06T09:20:15-03:00
+atualizado_em: 2026-11-06T16:02:33-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -22,13 +22,13 @@ evidencias:
 sdlc:
   thread: ork-rm079claimsq
   modo: Auto
-  fase: GOAL
+  fase: GO
   status: aberta
 ---
 
 # RM-079: Claims de revisão que a correção passa e retirada tipada com substituta
 
-> **Em uma frase:** toda claim nova afirma o comportamento correto e passa com a correção; retirar uma claim registra quem retirou e por quê, e a troca por uma substituta verde não para a thread.
+> **Em uma frase:** toda claim nova afirma o comportamento correto e passa com a correção; a retirada tipada registra autor e motivo, e a forma em texto livre continua aceita com recibo não tipado.
 
 <!-- ork-docs:relance:inicio -->
 
@@ -40,7 +40,7 @@ sdlc:
 
 ## Problema e resultado
 
-- **Público e problema/oportunidade:** quem conduz em `#Auto` e vira gargalo de claims que nenhuma implementação correta passa, ou de retiradas sem trilha.
+- **Público e problema/oportunidade:** quem conduz em `#Auto` precisa resolver claims que nenhuma implementação correta passa e retiradas sem registro suficiente.
 - **Evidências e fonte:** Achados de uma rede de três VPS que conduz um roadmap em `#Auto` com o ork 0.5.6 (30 e 31/10/2026), conferidos contra a main da 0.6.2 em 31/10/2026.
   - Um CHECK registrou como claim uma sonda que reproduz o defeito, isolando uma função com contexto mínimo; com o código corrigido, a função recusa e a sonda também falha. A claim ficou impossível e só o dono podia retirá-la.
   - Um agente GO retirou uma claim obsoleta depois de uma mudança de regra; a thread esperou a dispensa do dono mesmo com a cobertura nova verde.
@@ -48,9 +48,9 @@ sdlc:
   - O lint de claims (`claim-lint.ts`) não pega sonda isolada.
   - Qualquer um retira uma claim, com motivo em texto livre e sem registro de quem retirou (`claims.ts`).
   - Não existe ferramenta MCP para retirar claim.
-  - A trava de dispensa vista na outra rede não existe no núcleo: vem do processo dela. O núcleo precisa de uma regra tipada para não repetir o problema.
-- **Objetivo/OKR:** nenhuma claim nascida no CHECK precisa ser retirada pelo dono; toda retirada tem autor e motivo tipado.
-- **Hipótese:** se a orientação e o lint exigirem claim que passa com a correção, e a retirada com substituta verde for tipada, então o dono deixa de ser gargalo de claims, porque o caso comum se resolve na revisão.
+  - A exigência de dispensa vista na outra rede não existe no núcleo: vem do processo dela. O núcleo precisa de uma regra tipada para não repetir o problema.
+- **Objetivo/OKR:** uma claim criada no CHECK passa com a correção; a retirada tipada registra autor e motivo, enquanto a retirada em texto livre continua aceita e o recibo a marca como não tipada.
+- **Hipótese:** se a orientação e o lint exigirem claim que passa com a correção, e a retirada com substituta verificada for tipada, então o caso comum se resolve na revisão sem pedir uma decisão ao dono.
 - **Métrica principal / linha de base / meta / janela / fonte:** retiradas de claim que precisaram do dono. Linha de base: a medir. Meta: só retiradas sem substituta. Janela: por release. Fonte: `claims.jsonl` e ledger.
 - **Métricas de proteção:** retirada sem substituta continua indo ao dono; nenhuma claim é enfraquecida para passar.
 
@@ -66,7 +66,7 @@ sdlc:
   - `ork fix open` lê o veredito e os achados estruturados de `docs/check.md`; `ork fix status` mostra arquivo, linha, estado, commit de fechamento e o que falta.
 - **Fora de escopo:** mudar o formato das claims.
 - **Entregáveis e critérios de aceite:**
-  - claim nascida no CHECK passa com uma implementação correta, sem retirada pelo dono;
+  - claim criada no CHECK passa com uma implementação correta, sem retirada pelo dono;
   - troca de regra com substituta verde não para a thread;
   - retirada sem substituta vira pedido ao dono;
   - parecer negativo com achado sem claim abre uma rodada de correção e exige um novo CHECK verde para fechar;
