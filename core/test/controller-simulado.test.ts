@@ -63,7 +63,6 @@ test('esperarFimDaFase: com tempo injetado acompanha processo vivo além do praz
     estadoDoProcesso: () => 'vivo',
     identidades: [processo],
     folgaAposSaidaMs: 20,
-    tetoMs: 300,
   });
   assert.ok(tempo.agora() > prazoAntigo, 'a espera não julgou pelo prazo antigo');
 });
