@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { abrirRodada, lerParecerParaFix, reverificar, statusDaRodada } from '../src/fix';
+import { abrirRodada, lerParecerParaFix, reverificar, statusDaRodada, textoDaRodada } from '../src/fix';
 import { dirThread, novaThread } from '../src/thread';
 import { commitReal } from '../src/verify';
 import { commitar, projetoTemporario } from './apoio';
@@ -80,6 +80,42 @@ test('RM079 fix: linha de achado malformada e listada e falha a rodada', () => {
     ].join('\n'));
     assert.throws(() => abrirRodada(p.carregado, thread.id, { soClaims: true }),
       /fix\.check\.finding\.malformado.*A2 sem formato e sem alvo/);
+  } finally { p.limpar(); }
+});
+
+test('RM079 fix: texto do parecer chega redigido ao recibo e a saida CLI', () => {
+  const p = projetoTemporario('rm079-fix-redacao-parecer');
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'fix redacao parecer', modo: 'auto' });
+    gravarParecer(p.dir, thread.id, [
+      'Veredito: PRECISA DE MUDANCA',
+      '- A1 [bloqueador] alvo.txt:1 - falha em postgres://u:segredo@h/db',
+      '  reproduzir: `node -e "console.log(\'postgres://u:segredo@h/db\')"`',
+    ].join('\n'));
+    const rodada = abrirRodada(p.carregado, thread.id, { soClaims: true });
+    const serializado = JSON.stringify(rodada);
+    const texto = textoDaRodada(rodada);
+    assert.match(serializado, /\[credencial redigida\]@h\/db/);
+    assert.match(texto, /\[credencial redigida\]@h\/db/);
+    assert.doesNotMatch(serializado, /segredo@/);
+    assert.doesNotMatch(texto, /segredo@/);
+  } finally { p.limpar(); }
+});
+
+test('RM079 fix: linha malformada chega redigida ao erro da CLI', () => {
+  const p = projetoTemporario('rm079-fix-redacao-erro');
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'fix redacao erro', modo: 'auto' });
+    gravarParecer(p.dir, thread.id, [
+      'Veredito: PRECISA DE MUDANCA',
+      '- A2 sem formato em postgres://u:segredo@h/db',
+    ].join('\n'));
+    assert.throws(() => lerParecerParaFix(p.dir, thread.id), (erro: unknown) => {
+      const mensagem = String((erro as Error).message);
+      assert.match(mensagem, /\[credencial redigida\]@h\/db/);
+      assert.doesNotMatch(mensagem, /segredo@/);
+      return true;
+    });
   } finally { p.limpar(); }
 });
 

@@ -41,6 +41,7 @@ import { agora, anexarJsonl, lerJsonl, proximoIdSequencial, shaCurto, tabela } f
 import { commitReal, ConducaoDoVerify, cwdDaThread, executar, ResultadoVerify, verificar } from './verify';
 import { canalDoProcesso, comConducao, identidadeDoAmbiente, prazoDaVerificacao } from './conducao';
 import { msg } from './locale';
+import { redigirSegredos } from './hitl';
 
 export interface AchadoEstruturadoDoCheck {
   id: string;
@@ -70,7 +71,7 @@ function vereditoBilíngue(texto: string): string {
   for (const [i, linha] of texto.split(/\r?\n/).entries()) {
     const rotulo = /^[#>*_`\s-]*(?:veredito|verdict)[*_`\s]*:[*_`\s]*(.*?)\s*$/iu.exec(linha);
     if (!rotulo) continue;
-    const listada = `${i + 1}: ${linha}`;
+    const listada = `${i + 1}: ${redigirSegredos(linha)}`;
     linhasDeVeredito.push(listada);
     const valor = rotulo[1].replace(/[*_`]+$/g, '').replace(/[.!]$/g, '').trim()
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -112,7 +113,7 @@ export function lerParecerParaFix(raiz: string, threadId: string): ParecerParaFi
     for (let i = 0; i < linhas.length; i++) {
       const m = regra.exec(linhas[i]);
       if (!m) {
-        if (/^\s*-\s+A\d+\b/i.test(linhas[i])) linhasMalformadas.push(`${i + 1}: ${linhas[i]}`);
+        if (/^\s*-\s+A\d+\b/i.test(linhas[i])) linhasMalformadas.push(`${i + 1}: ${redigirSegredos(linhas[i])}`);
         continue;
       }
       if (vistos.has(m[1])) throw new Error(`fix.check.finding.duplicado: ${m[1]}`);
@@ -124,7 +125,7 @@ export function lerParecerParaFix(raiz: string, threadId: string): ParecerParaFi
       const proxima = linhas[i + 1] ?? '';
       const reproducao = /^\s*(?:reproduzir|reproduce)\s*:\s*`([^`]+)`\s*$/i.exec(proxima);
       achados.push({ id: m[1], severidade: severidade(m[2]), arquivo: relativo, linha: Number(m[4]),
-        descricao: m[5], ...(reproducao ? { reproduzir: reproducao[1] } : {}) });
+        descricao: redigirSegredos(m[5]), ...(reproducao ? { reproduzir: redigirSegredos(reproducao[1]) } : {}) });
       vistos.add(m[1]);
     }
     if (linhasMalformadas.length > 0) {
@@ -534,7 +535,7 @@ function reverificarSobConducao(
       aprovada: !falhou,
       execucoes,
       detalhe: falhou
-        ? `"${falhou.comando}" ainda sai com codigo ${falhou.code}`
+        ? `"${redigirSegredos(falhou.comando)}" ainda sai com codigo ${falhou.code}`
         : `${execucoes.length} comando(s) reexecutado(s) com sucesso no HEAD real`,
     };
   });
