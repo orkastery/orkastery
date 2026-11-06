@@ -6,6 +6,7 @@ import { lintDoBundle } from '../src/ci';
 import { abrirPedidoGate } from '../src/hitl-gates';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from '../src/ledger';
 import { dirThread, novaThread } from '../src/thread';
+import { retirarClaimMcp } from '../src/mcp-artifacts';
 import { projetoTemporario } from './apoio';
 
 const regras = (comando: string) => analisarComando(comando).map((a) => a.regra);
@@ -116,5 +117,20 @@ test('RM079 retirada: forma livre segue aceita e o ledger declara que nao e tipa
     const evento = lerLedger(dirThread(p.dir, thread.id)).filter((e) => e.tipo === TIPOS_DE_EVENTO.claimRegistrada).at(-1)!;
     assert.equal(evento.tipada, false);
     assert.deepEqual(evento.autor, { tipo: 'dono', id: 'terminal-local' });
+  } finally { p.limpar(); }
+});
+
+test('RM079 retirada: transporte MCP aplica a guarda e devolve o pedido tipado', () => {
+  const p = projetoTemporario('rm079-retirada-mcp');
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'retirada mcp', modo: 'auto' });
+    const claim = adicionarClaim(p.dir, thread.id, { arquivo: 'README.md', alegacao: 'regra em revisao', semProvaLocal: true });
+    const resultado = retirarClaimMcp(p.dir, thread.id, {
+      claimId: claim.id, motivoTipo: 'erro', motivo: 'a regra precisa de decisao do dono',
+      autor: { tipo: 'sessao', id: 'dispatch-mcp' },
+    });
+    assert.equal(resultado.estado, 'pendente-do-dono');
+    assert.match(resultado.pedidoId, /^[a-f0-9-]{36}$/);
+    assert.notEqual(lerClaims(p.dir, thread.id).find((c) => c.id === claim.id)?.estado, 'retirada');
   } finally { p.limpar(); }
 });
