@@ -13,7 +13,6 @@
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { conducaoDosDados } from '../src/conducao';
@@ -25,6 +24,7 @@ import { dirThread, gravarThread, novaThread } from '../src/thread';
 import { ConsultaAgentesNativos, RegistroAgenteClaude } from '../src/adapters/claude-bg';
 import { Fase, Lease } from '../src/types';
 import { dirTemporario, projetoTemporario } from './apoio';
+import { executarProcessoPorEvento } from './processo-evento';
 
 const sid = '11111111-2222-3333-4444-555555555555';
 const inicio = Date.parse('2026-09-01T00:00:00.000Z');
@@ -235,13 +235,13 @@ test('defeito 4 (CHECK 3): o sensor grava as contagens no runtime_stop e recusa 
   } finally { f.limpar(); }
 });
 
-test('defeito 4 (CHECK 3): o hook do Stop conta background_tasks e session_crons do Claude Code; com o ork de antes, o Stop vai sem elas', () => {
+test('defeito 4 (CHECK 3): o hook do Stop conta background_tasks e session_crons do Claude Code; com o ork de antes, o Stop vai sem elas', async () => {
   const f = fixture();
   const pasta = dirTemporario('rm037d2010-ociosa-hook');
   try {
-    const hook = (entrada: Record<string, unknown>, cli: string) => spawnSync(process.execPath, [HOOK], {
+    const hook = (entrada: Record<string, unknown>, cli: string) => executarProcessoPorEvento(process.execPath, [HOOK], {
       cwd: f.dir, input: JSON.stringify({ session_id: sid, cwd: f.dir, hook_event_name: 'Stop', stop_hook_active: false, ...entrada }),
-      env: { ...process.env, ORK_SENSOR_CLI: cli }, encoding: 'utf8', timeout: 60000,
+      env: { ...process.env, ORK_SENSOR_CLI: cli }, descricao: 'hook Stop termina',
     });
     const tarefa = { id: 'b1', type: 'monitor', status: 'running', description: 'tarefa SIMULADA' };
     const despertar = { id: 'c1', schedule: '30 10 20 10 *', recurring: false, prompt: 'despertar SIMULADO' };
@@ -250,7 +250,7 @@ test('defeito 4 (CHECK 3): o hook do Stop conta background_tasks e session_crons
       [{ background_tasks: [], session_crons: [] }, { backgroundTasks: 0, sessionCrons: 0 }],
       [{}, {}],
     ] as [Record<string, unknown>, Record<string, number>][]) {
-      const r = hook(entrada, CLI);
+      const r = await hook(entrada, CLI);
       assert.equal(r.status, 0); assert.equal(r.stderr, '', JSON.stringify(entrada));
       const stop = f.ledger().filter((e) => e.tipo === 'runtime_stop').at(-1)!;
       assert.deepEqual({ ...(stop.backgroundTasks !== undefined ? { backgroundTasks: stop.backgroundTasks } : {}),
@@ -264,7 +264,7 @@ test('defeito 4 (CHECK 3): o hook do Stop conta background_tasks e session_crons
       `for (const k of Object.keys(p)) if (!['observedAt', 'eventId', 'notificationType', 'commit', 'accountFailure'].includes(k)) ` +
       `{ console.error('evento recusado: campo de payload inválido: ' + k); process.exit(1); }\n` +
       `fs.appendFileSync(${JSON.stringify(recebidos)}, JSON.stringify({ args: process.argv.slice(2), p }) + '\\n');\n`, { mode: 0o755 });
-    const r = hook({ background_tasks: [tarefa], session_crons: [] }, antigo);
+    const r = await hook({ background_tasks: [tarefa], session_crons: [] }, antigo);
     assert.equal(r.status, 0); assert.equal(r.stderr, '', 'o Stop foi ingerido na segunda tentativa');
     const linhas = fs.readFileSync(recebidos, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
     assert.equal(linhas.length, 1);

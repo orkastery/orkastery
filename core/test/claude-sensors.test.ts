@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { projetoTemporario, commitar } from './apoio';
 import { novaThread, gravarThread, dirThread } from '../src/thread';
 import { lerLedger } from '../src/ledger';
+import { executarProcessoPorEvento } from './processo-evento';
 
 const hook = path.resolve(__dirname, '../../../adapters/claude-code/hooks/ork-sensor.js');
 const cli = path.resolve(__dirname, '../../dist/index.js');
@@ -23,7 +24,11 @@ function fixture() {
     // cascata. Aqui ele serve so para nao pendurar; o orcamento e afirmado abaixo.
     env: { ...process.env, ORK_SENSOR_CLI: cliPath }, encoding: 'utf8', timeout: 60000,
   });
-  return { ...p, run, eventos: () => lerLedger(dirThread(p.dir, t.id)) };
+  const runEvento = (name: string, extra = {}, cliPath = cli) => executarProcessoPorEvento(process.execPath, [hook], {
+    cwd: p.dir, input: JSON.stringify({ session_id: sessionId, cwd: p.dir, hook_event_name: name, ...extra }),
+    env: { ...process.env, ORK_SENSOR_CLI: cliPath }, descricao: `hook ${name} termina`,
+  });
+  return { ...p, run, runEvento, eventos: () => lerLedger(dirThread(p.dir, t.id)) };
 }
 
 test('hooks preservam guard e carimbam PermissionRequest via CLI real abaixo de 5000 ms, sem duplicar', () => {
@@ -82,14 +87,17 @@ test('falha de CLI e entrada hostil não bloqueiam nem autorizam a sessão', () 
   } finally { p.limpar(); }
 });
 
-test('A7: novo episódio de permissão e Stop não colapsam com transcript inalterado', () => {
+test('A7: novo episódio de permissão e Stop não colapsam com transcript inalterado', async () => {
   const p = fixture();
   try {
     const transcript_path = path.join(p.dir, 'transcript.jsonl'); fs.writeFileSync(transcript_path, '{}\n');
     const entrada = { transcript_path, notification_type: 'permission_prompt' };
-    p.run('Notification', entrada); p.run('PostToolUse'); p.run('Notification', entrada);
+    assert.equal((await p.runEvento('Notification', entrada)).status, 0);
+    assert.equal((await p.runEvento('PostToolUse')).status, 0);
+    assert.equal((await p.runEvento('Notification', entrada)).status, 0);
     assert.equal(p.eventos().filter(e => e.tipo === 'sessao_bloqueada').length, 2);
-    p.run('Stop', { transcript_path }); p.run('Stop', { transcript_path });
+    assert.equal((await p.runEvento('Stop', { transcript_path })).status, 0);
+    assert.equal((await p.runEvento('Stop', { transcript_path })).status, 0);
     assert.equal(p.eventos().filter(e => e.tipo === 'runtime_stop').length, 2);
   } finally { p.limpar(); }
 });
