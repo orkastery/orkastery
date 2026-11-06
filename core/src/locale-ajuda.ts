@@ -163,7 +163,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   decisao placar <thread-id> [--json]       Decididas contra perguntas por fase, reversoes e o limiar
   claims verificar <thread-id> <claim-id> --comando "<comando>"
                                             Anexa o comando que comprova uma claim ja feita
-  claims retirar <thread-id> <claim-id> --motivo "<motivo>"
+  claims retirar <thread-id> <claim-id> [--motivo-tipo substituicao|obsoleta|erro]
+        [--substituida-por <claim-id>] --motivo "<motivo>"
                                             Retira a alegacao (o historico fica no claims.jsonl)
   claims ausente <thread-id> --paths A,B --motivo "<motivo>" [--commit SHA]
                                             Ciclo sem CHECK: declara no ledger o que ficou sem prova
@@ -580,7 +581,8 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
   decisao placar <thread-id> [--json]       Decided versus asked per phase, reversals and the threshold
   claims verificar <thread-id> <claim-id> --comando "<command>"
                                             Attaches the command that proves a claim already made
-  claims retirar <thread-id> <claim-id> --motivo "<reason>"
+  claims retirar <thread-id> <claim-id> [--motivo-tipo substituicao|obsoleta|erro]
+        [--substituida-por <claim-id>] --motivo "<reason>"
                                             Withdraws the claim (the history stays in claims.jsonl)
   claims ausente <thread-id> --paths A,B --motivo "<reason>" [--commit SHA]
                                             Cycle without CHECK: declares in the ledger what was left without proof
