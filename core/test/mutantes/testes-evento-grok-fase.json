@@ -10,6 +10,42 @@
       "para": "gravar('phase_result', { ...dados, runtime: 'mutante' });",
       "teste": "despacho-grok",
       "nome": "^GD3:"
+    },
+    {
+      "id": "GROK-PERFIS-ESPERA",
+      "descricao": "a espera dos perfis rejeita o evento real retido",
+      "arquivo": "core/dist-test/test/espera-evento.js",
+      "de": "function esperarEvento(ler, descricao, opcoes = {}) {\n    for (;;) {\n        const evento = ler();\n        if (evento !== false && evento !== null && evento !== undefined)\n            return evento;",
+      "para": "function esperarEvento(ler, descricao, opcoes = {}) {\n    for (;;) {\n        const evento = ler();\n        if (evento !== false && evento !== null && evento !== undefined)\n            throw new Error('mutante: evento dos perfis rejeitado');",
+      "teste": "rm067-grok-perfis",
+      "nome": "^GP2:"
+    },
+    {
+      "id": "GROK-MCP-ESPERA",
+      "descricao": "a espera dos casos MCP rejeita o evento real retido",
+      "arquivo": "core/dist-test/test/espera-evento.js",
+      "de": "function esperarEvento(ler, descricao, opcoes = {}) {\n    for (;;) {\n        const evento = ler();\n        if (evento !== false && evento !== null && evento !== undefined)\n            return evento;",
+      "para": "function esperarEvento(ler, descricao, opcoes = {}) {\n    for (;;) {\n        const evento = ler();\n        if (evento !== false && evento !== null && evento !== undefined)\n            throw new Error('mutante: evento MCP rejeitado');",
+      "teste": "rm067-grok-mcp",
+      "nome": "^GM(?:9|11):"
+    },
+    {
+      "id": "GROK-SETUP-ESPERA",
+      "descricao": "a espera dos casos de setup rejeita o evento real retido",
+      "arquivo": "core/dist-test/test/espera-evento.js",
+      "de": "function esperarEvento(ler, descricao, opcoes = {}) {\n    for (;;) {\n        const evento = ler();\n        if (evento !== false && evento !== null && evento !== undefined)\n            return evento;",
+      "para": "function esperarEvento(ler, descricao, opcoes = {}) {\n    for (;;) {\n        const evento = ler();\n        if (evento !== false && evento !== null && evento !== undefined)\n            throw new Error('mutante: evento de setup rejeitado');",
+      "teste": "rm067-grok-setup",
+      "nome": "^GS(?:3|5):"
+    },
+    {
+      "id": "GROK-DESPACHO-ESPERA",
+      "descricao": "a espera dos despachos rejeita o evento real retido",
+      "arquivo": "core/dist-test/test/espera-evento.js",
+      "de": "function esperarEvento(ler, descricao, opcoes = {}) {\n    for (;;) {\n        const evento = ler();\n        if (evento !== false && evento !== null && evento !== undefined)\n            return evento;",
+      "para": "function esperarEvento(ler, descricao, opcoes = {}) {\n    for (;;) {\n        const evento = ler();\n        if (evento !== false && evento !== null && evento !== undefined)\n            throw new Error('mutante: evento do despacho rejeitado');",
+      "teste": "despacho-grok",
+      "nome": "^GD(?:3|4|5|6|9):"
     }
   ]
 }
