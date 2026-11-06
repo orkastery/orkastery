@@ -15,7 +15,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js core/dist-test/test/verify.test.js core/dist-test/test/locale-verify.test.js"
       ],
       "criadoEm": "2026-11-05T21:14:30.023Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -71,7 +71,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js"
       ],
       "criadoEm": "2026-11-05T21:23:50.758Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -85,7 +85,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js"
       ],
       "criadoEm": "2026-11-05T21:23:50.828Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -99,7 +99,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js core/dist-test/test/verify.test.js core/dist-test/test/locale-verify.test.js"
       ],
       "criadoEm": "2026-11-05T21:32:57.617Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -113,7 +113,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js core/dist-test/test/verify.test.js core/dist-test/test/locale-verify.test.js"
       ],
       "criadoEm": "2026-11-05T21:32:57.723Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -141,7 +141,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m12.json M6"
       ],
       "criadoEm": "2026-11-05T21:32:57.921Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -197,7 +197,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js core/dist-test/test/test-lanes.test.js core/dist-test/test/verify.test.js core/dist-test/test/locale-verify.test.js"
       ],
       "criadoEm": "2026-11-05T23:19:39.149Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -211,7 +211,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js core/dist-test/test/test-lanes.test.js core/dist-test/test/verify.test.js core/dist-test/test/locale-verify.test.js"
       ],
       "criadoEm": "2026-11-05T23:19:39.217Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -225,7 +225,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js core/dist-test/test/test-lanes.test.js core/dist-test/test/verify.test.js core/dist-test/test/locale-verify.test.js"
       ],
       "criadoEm": "2026-11-05T23:19:39.300Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -239,7 +239,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m12.json M7"
       ],
       "criadoEm": "2026-11-05T23:25:33.554Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -253,7 +253,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm074-m12.json M8"
       ],
       "criadoEm": "2026-11-05T23:25:33.621Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -281,7 +281,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js core/dist-test/test/test-lanes.test.js core/dist-test/test/verify.test.js core/dist-test/test/locale-verify.test.js"
       ],
       "criadoEm": "2026-11-06T08:17:53.470Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -295,7 +295,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js core/dist-test/test/verify.test.js core/dist-test/test/locale-verify.test.js"
       ],
       "criadoEm": "2026-11-06T08:17:53.534Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -337,7 +337,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js"
       ],
       "criadoEm": "2026-11-06T11:37:45.644Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -365,7 +365,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js"
       ],
       "criadoEm": "2026-11-06T11:42:35.071Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -491,7 +491,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js"
       ],
       "criadoEm": "2026-11-06T11:44:30.312Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -519,7 +519,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js core/dist-test/test/test-lanes.test.js"
       ],
       "criadoEm": "2026-11-06T12:48:41.727Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     }
   ],
