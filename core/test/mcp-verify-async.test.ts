@@ -9,6 +9,7 @@ import { dirThread, novaThread } from '../src/thread';
 import { consultarVerifyMcp, executarVerifyMcpWorker, iniciarVerifyMcp } from '../src/mcp-verify-async';
 import { textoDoVerify, verificar } from '../src/verify';
 import { commitar, projetoTemporario } from './apoio';
+import { esperarEventoAssincrono } from './espera-evento';
 
 function inicio(pid = process.pid): string | null {
   try {
@@ -31,11 +32,10 @@ function fixture(nome: string, comando = 'true') {
 }
 
 async function esperar<T>(ler: () => T, pronto: (v: T) => boolean): Promise<T> {
-  for (;;) {
+  return esperarEventoAssincrono(() => {
     const v = ler();
-    if (pronto(v)) return v;
-    await new Promise<void>((resolve) => setImmediate(resolve));
-  }
+    return pronto(v) ? v : null;
+  }, 'condição assíncrona da fixture de verify');
 }
 
 test('rodada é iniciada e consultada imediatamente por UUID', () => {
@@ -63,7 +63,9 @@ test('fila pesada ocupada aparece como na-fila e libera a mesma rodada para conc
     const naFila = await esperar(() => consultarVerifyMcp(f.p.dir, f.thread.id, rodada.rodadaId),
       (s) => s.estado === 'na-fila' && s.lane === 'fila-pesada' && (s.ocupantes?.length ?? 0) > 0);
     assert.equal(naFila.ocupantes?.[0]?.thread, 'ork-outra');
-    holder.kill('SIGTERM');
+    const holderSaiu = new Promise<void>((resolve) => holder!.once('exit', () => resolve()));
+    assert.equal(holder.kill('SIGTERM'), true, 'o processo que segura a fila recebeu o sinal terminal');
+    await holderSaiu;
     const terminal = await esperar(() => consultarVerifyMcp(f.p.dir, f.thread.id, rodada.rodadaId),
       (s) => s.estado === 'concluido' || s.estado === 'falhou');
     assert.equal(terminal.estado, 'concluido', JSON.stringify(terminal.falha));
