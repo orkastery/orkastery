@@ -547,6 +547,10 @@ function montarApoio(raiz, n, sabotar) {
 
     /** O `verify_run` da sessão no SHA: verde, com a baseline e todas as claims ativas verificadas, marcado SIMULADO. */
     function verifyDaSessao(threadId, commit, ts) {
+      const docs = path.join(n.thread.dirThread(proj.dir, threadId), 'docs');
+      fs.mkdirSync(docs, { recursive: true });
+      const plano = path.join(docs, 'plan.md');
+      if (!fs.existsSync(plano)) fs.writeFileSync(plano, '# PLAN SIMULADO\n');
       const claims = n.claims.lerClaims(proj.dir, threadId).filter((x) => x.estado !== 'retirada').map((x) => ({ id: x.id, verificado: true, motivo: null }));
       return n.ledger.registrar(n.thread.dirThread(proj.dir, threadId), threadId, 'verify_run', { ...(ts ? { ts } : {}), commit,
         recibo: n.recibo.chaveDoReciboDeProva(proj.dir, threadId, commit),
