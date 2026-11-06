@@ -12,7 +12,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
-- **Claims auditadas pelas lanes — M12 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** o Agile com lanes usa uma única regra para montar e assinar o ambiente funcional executado por lanes e claims, preserva `TMPDIR` e `PATH` e registra no recibo o reaproveitamento ou a recusa tipada. Ambiente divergente, evidência nominal insuficiente, falha, `skip`/`todo`, HEAD e guarda divergentes continuam executando a claim inteira; o pool e o runner único conservam o isolamento padrão do `node --test`, o Classic não muda e o ganho aguarda a bancada.
+- **Claims auditadas pelas lanes — M12 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** o Agile com lanes usa uma única regra para montar, executar e assinar o ambiente funcional de lanes e claims, inclusive no filho das recusadas em lote, sem recuperar `BASH_ENV`, `ENV` ou outro transporte retirado. O recibo conserva a ordem de claims antecipadas, reaproveitadas e recusadas; a claim sem a cota exclusiva da integração roda de verdade, e exceções fecham relatório, temporário e casa da rodada. As recusas tipadas, o isolamento padrão do `node --test` e o Classic permanecem, e o ganho aguarda a bancada.
 
 ## [0.6.6] - 2026-11-06
 
