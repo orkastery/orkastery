@@ -194,8 +194,7 @@ test('AG7: o preparo do Agile que passa e o usado; o que falha cai para o verify
     verificar(p.carregado, t.id, { executor: passa.executor });
     assert.deepEqual(passa.lista[0], ['preparo', 'echo rapido']);
     const pecasDaPassagem = (ultimoVerify(p, t.id).agile as Record<string, unknown>).pecas as Array<Record<string, unknown>>;
-    assert.ok(pecasDaPassagem.some((x) => x.peca === 'tmpfs-das-lanes' && /TMPDIR compartilhado/.test(String(x.motivo))));
-    assert.deepEqual(pecasDaPassagem.filter((x) => x.peca !== 'tmpfs-das-lanes'), [{ peca: 'preparo', estado: 'agile' }, PECA_SEM_RELATORIO],
+    assert.deepEqual(pecasDaPassagem, [{ peca: 'preparo', estado: 'agile' }, PECA_SEM_RELATORIO],
       'com executor injetado, o ledger diz que o ambiente da rodada nao chegou aos comandos');
     const falha = gravador((_nome, comando) => (comando === 'echo rapido' ? { ok: false, code: 127, causa: 'nao-encontrado' } : {}));
     const r = verificar(p.carregado, t.id, { executor: falha.executor });
@@ -236,7 +235,7 @@ test('AG9: lanes sem a guarda caem para o verify.test, em serie, com as pecas em
     verificar(p.carregado, t.id, { executor: g.executor });
     assert.deepEqual(g.lista.slice(1), [['build', 'echo passo-a'], ['test', 'echo test'], ['security_scan', 'echo scan']]);
     const pecas = (ultimoVerify(p, t.id).agile as Record<string, unknown>).pecas as Array<Record<string, unknown>>;
-    assert.ok(pecas.some((x) => x.peca === 'tmpfs-das-lanes' && /TMPDIR compartilhado/.test(String(x.motivo))));
+    assert.ok(pecas.some((x) => x.peca === 'tmpfs-das-lanes' && x.tmpdirDaRodada === true));
     assert.deepEqual(pecas.filter((x) => x.peca !== 'tmpfs-das-lanes'), [PECA_SEM_RELATORIO,
       { peca: 'grupo', estado: 'fallback', motivo: 'produto-nao-declarado', fallback: 'comandos em serie' },
       { peca: 'lanes', estado: 'fallback', motivo: 'produto-nao-declarado', fallback: 'verify.test' }]);
@@ -956,11 +955,15 @@ test('AG55: o verify_run do HEAD prova TMPDIR da rodada, reaproveitamento, recus
   assert.deepEqual({ ...vistaPelaLane, papel: undefined }, { ...vistaPelaClaim, papel: undefined },
     'lane e claim executada veem o mesmo valor literal, realpath, dispositivo e permissoes');
   const pecasIguais = (compartilhado.evento.agile as { pecas: Array<Record<string, unknown>> }).pecas;
-  assert.ok(pecasIguais.some((x) => x.peca === 'tmpfs-das-lanes' && /TMPDIR compartilhado pela rodada/.test(String(x.motivo))));
+  assert.ok(pecasIguais.some((x) => x.peca === 'tmpfs-das-lanes' && x.tmpdirDaRodada === true));
   assert.ok(pecasIguais.some((x) => x.peca === 'claim-lane' && x.claim === 'C1.1' && x.estado === 'agile'));
   assert.ok(pecasIguais.some((x) => x.peca === 'claim-lane' && x.claim === 'C3.1' && x.estado === 'agile'));
-  assert.match(comLocale('pt-BR', () => textoDoVerify(compartilhado.r)), /C1\.1: reaproveitada das lanes/);
-  assert.match(comLocale('en', () => textoDoVerify(compartilhado.r)), /C1\.1: reused from lanes/);
+  const textoPt = comLocale('pt-BR', () => textoDoVerify(compartilhado.r));
+  const textoEn = comLocale('en', () => textoDoVerify(compartilhado.r));
+  assert.match(textoPt, /TMPDIR compartilhado pela rodada/);
+  assert.match(textoPt, /C1\.1: reaproveitada das lanes/);
+  assert.match(textoEn, /TMPDIR shared by the run/);
+  assert.match(textoEn, /C1\.1: reused from lanes/);
 
   const divergente = rodar(true);
   assert.equal(divergente.r.ok, true, JSON.stringify({ motivos: divergente.r.motivos, comandos: divergente.r.comandos,

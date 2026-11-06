@@ -665,8 +665,8 @@ function abrirTemporarioDaRodada(): TemporarioDaRodada {
     dir,
     ambiente: { TMPDIR: dir },
     peca: { peca: 'tmpfs-das-lanes', estado: selecao.estado,
-      motivo: `${selecao.motivo}; TMPDIR compartilhado pela rodada`,
-      ...(selecao.estado === 'fallback' ? { fallback: 'disco com TMPDIR da rodada' } : {}) },
+      motivo: selecao.motivo, tmpdirDaRodada: true,
+      ...(selecao.estado === 'fallback' ? { fallback: 'disco' } : {}) },
     fechar: () => fs.rmSync(dir, { recursive: true, force: true }),
   };
 }
@@ -781,7 +781,8 @@ function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: stri
   // RM-072 (D1, D2): a baseline roda e grava no modo da rodada, como o verify.
   const check = resolverModo(manifesto.check?.mode, modo);
   const relatorio = check.modo === 'agile' ? new RelatorioDoCheck() : null;
-  const temporarioDaRodada = relatorio ? abrirTemporarioDaRodada() : null;
+  const temporarioDaRodada = relatorio && Object.keys(manifesto.check?.agile?.test ?? {}).length > 0
+    ? abrirTemporarioDaRodada() : null;
   const ambienteFuncional = { ...ambienteDoModo(check), ...temporarioDaRodada?.ambiente };
   const ambienteDaRodada = { ...ambienteFuncional, ...relatorio?.ambiente() };
   const instabilidade = lerRegistroDeInstabilidade(cwd);
@@ -1147,9 +1148,10 @@ function verificarSobConducao(
   // RM-072 (D8): no Agile, as pecas contam o que rodaram num relatorio da rodada, lido no fim.
   const agil = check.modo === 'agile';
   const relatorio = agil ? new RelatorioDoCheck() : null;
-  const temporarioDaRodada = agil ? abrirTemporarioDaRodada() : null;
+  const temporarioDaRodada = agil && Object.keys(manifesto.check?.agile?.test ?? {}).length > 0
+    ? abrirTemporarioDaRodada() : null;
   const casaDaRodada = agil && !(process.env.ORKASTERY_HOME || '').trim()
-    ? fs.mkdtempSync(path.join(temporarioDaRodada!.dir, 'ork-verify-casa-')) : null;
+    ? fs.mkdtempSync(path.join(temporarioDaRodada?.dir ?? os.tmpdir(), 'ork-verify-casa-')) : null;
   const ambienteFuncional = { ...ambienteDoModo(check), ...temporarioDaRodada?.ambiente,
     ...(casaDaRodada ? { ORKASTERY_HOME: casaDaRodada } : {}) };
   const ambienteDaRodada = { ...ambienteFuncional, ...relatorio?.ambiente() };
@@ -1299,6 +1301,7 @@ function verificarSobConducao(
   const resumoDoAgile = vigente ? agileNoLedger(raiz, threadId, commit, pecas, doAgile, vigente.guarda, relatorio!, claims) : null;
   if (relatorio && !vigente) relatorio.fechar();
   temporarioDaRodada?.fechar();
+  if (casaDaRodada && !temporarioDaRodada) fs.rmSync(casaDaRodada, { recursive: true, force: true });
 
   // RM-062 (F2): a barreira de dado privado no diff da thread, so com a policy `dado_privado` no manifesto.
   const dadoPrivado = barreiraDaThread(carregado, thread, cwd, 'verify');
@@ -1563,7 +1566,7 @@ export function textoDoVerify(r: ResultadoVerify): string {
   if (a && (a.claims.reaproveitadas + a.claims.inteiras > 0 || a.grupo.paralelo)) {
     linhas.push(m.agile(a.claims.reaproveitadas, a.claims.inteiras, a.grupo.paralelo, a.grupo.lanes));
   }
-  const motivoDaPeca = (p: PecaDoAgile): string => [p.motivo,
+  const motivoDaPeca = (p: PecaDoAgile): string => [p.motivo, p.tmpdirDaRodada ? m.tmpdirDaRodada : null,
     p.reservaIntegracao ? m.reservaIntegracao(p.reservaIntegracao.cpus, p.reservaIntegracao.fonte) : null]
     .filter((x): x is string => !!x).join('; ');
   for (const p of a?.pecas.filter((x) => x.peca === 'claim-lane') ?? []) {
@@ -1571,7 +1574,8 @@ export function textoDoVerify(r: ResultadoVerify): string {
       : m.claimLaneRecusada(p.claim ?? '', p.motivoTipado ?? p.motivo ?? 'motivo-ausente'));
   }
   for (const p of a?.pecas.filter((x) => x.peca !== 'claim-lane' && x.estado === 'fallback') ?? []) {
-    linhas.push(m.agileFallback(p.peca, motivoDaPeca(p), p.fallback ?? ''));
+    linhas.push(m.agileFallback(p.peca, motivoDaPeca(p),
+      p.tmpdirDaRodada && p.fallback === 'disco' ? m.discoComTmpdirDaRodada : p.fallback ?? ''));
   }
   for (const p of a?.pecas.filter((x) => x.peca !== 'claim-lane' && x.estado === 'degradado') ?? []) {
     linhas.push(m.agileDegradado(p.peca, motivoDaPeca(p)));

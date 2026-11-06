@@ -59,6 +59,8 @@ export const VERIFY_PT_BR = {
     `${paralelo ? `grupo em paralelo${lanes.length ? ` com as lanes ${lanes.join(', ')}` : ''}` : 'comandos do manifesto em serie'}`,
   agileFallback: (peca: string, motivo: string, fallback: string) =>
     `  fallback    ${peca}: ${motivo || 'sem motivo dito'}; rodou ${fallback || 'o equivalente do Classic'}`,
+  tmpdirDaRodada: 'TMPDIR compartilhado pela rodada',
+  discoComTmpdirDaRodada: 'disco com TMPDIR da rodada',
   agileDegradado: (peca: string, motivo: string) =>
     `  degradado   ${peca}: ${motivo || 'sem motivo dito'}; preservou o plano paralelo`,
   agilePeca: (peca: string, motivo: string) => `  agile       ${peca}: ${motivo || 'sem motivo dito'}`,
@@ -205,6 +207,8 @@ export const VERIFY_EN: typeof VERIFY_PT_BR = {
     `  agile       ${reaproveitadas} claim command(s) against the prepared product, ${inteiras} in full; ` +
     `${paralelo ? `parallel group${lanes.length ? ` with lanes ${lanes.join(', ')}` : ''}` : 'manifest commands in series'}`,
   agileFallback: (peca, motivo, fallback) => `  fallback    ${peca}: ${motivo || 'no reason given'}; ran ${fallback || 'the Classic equivalent'}`,
+  tmpdirDaRodada: 'TMPDIR shared by the run',
+  discoComTmpdirDaRodada: 'disk with the run TMPDIR',
   agileDegradado: (peca, motivo) => `  degraded    ${peca}: ${motivo || 'no reason given'}; kept the parallel plan`,
   agilePeca: (peca, motivo) => `  agile       ${peca}: ${motivo || 'no reason given'}`,
   claimLaneReaproveitada: (claim, evidencia) =>

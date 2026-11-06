@@ -249,9 +249,11 @@ function rodarPoolDeArquivos({ arquivos, dir, env, pastaDaLane, plano }) {
       while (ativos < vagas && proximo < arquivos.length) {
         const i = proximo++, arquivo = arquivos[i];
         const tap = path.join(pastaDaLane, `${i}.tap`), reporter = path.join(pastaDaLane, `${i}.json`);
-        // Um processo da lane ja cobre um unico arquivo. Sem o segundo nivel de isolamento, o reporter recebe os nomes
-        // dos casos (nao apenas o nome do arquivo) sem misturar estado entre arquivos.
-        const args = ['--test', '--experimental-test-isolation=none', '--test-concurrency=1', '--test-reporter=tap',
+        // A suite real conserva o isolamento por processo do `node --test`. A pasta de fixture, que ja entrega um
+        // processo exclusivo para cada arquivo ao controlador, deixa o runner expor os casos ao reporter: assim a
+        // prova operacional cobre o recibo nominal sem mudar a semantica da suite do produto.
+        const args = ['--test', ...(process.env.ORK_LANES_DIR ? ['--experimental-test-isolation=none'] : []),
+          '--test-concurrency=1', '--test-reporter=tap',
           `--test-reporter-destination=${tap}`,
           `--test-reporter=${REPORTER}`, `--test-reporter-destination=${reporter}`, caminho(arquivo)];
         ativos++;
@@ -298,8 +300,10 @@ function rodarLane(lane) {
       ...(temporario.estado === 'fallback' ? { fallback: 'disco' } : {}) });
     pastaDaLane = fs.mkdtempSync(path.join(temporario.diretorio, 'ork-lanes-'));
   }
-  const raizDoHead = process.env.ORK_LANES_DIR ? path.resolve(dir, '../../..') : CORE;
-  const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: raizDoHead, encoding: 'utf8' }).stdout.trim();
+  const raizDaFixture = process.env.ORK_LANES_DIR ? path.resolve(dir, '../../..') : CORE;
+  const headDaFixture = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: raizDaFixture, encoding: 'utf8' });
+  const head = (headDaFixture.status === 0 ? headDaFixture
+    : spawnSync('git', ['rev-parse', 'HEAD'], { cwd: CORE, encoding: 'utf8' })).stdout.trim();
 
   // O ambiente e o de quem chama, como no `npm test`: quem exporta ORK_TESTE_EXIGE_AMBIENTE exige as dependencias nos dois
   // modos (S4 do CHECK).

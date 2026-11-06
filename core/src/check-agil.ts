@@ -45,6 +45,8 @@ export interface PecaDoAgile {
   /** M12: decisao da prova nominal no comando exato da claim (C1.1, C2.1...). */
   claim?: string;
   motivoTipado?: MotivoDaRecusaPelasLanes;
+  /** M12: a peca usa o TMPDIR unico cujo ciclo de vida pertence ao verify. */
+  tmpdirDaRodada?: boolean;
   /** Dado do agendador que a apresentacao localiza sem tentar traduzir o motivo livre. */
   reservaIntegracao?: { cpus: number; fonte: 'medida' | 'conservadora' | 'classic' };
 }
