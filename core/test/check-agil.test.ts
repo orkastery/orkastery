@@ -6,7 +6,7 @@
  * por "AGn:".
  */
 import { strict as assert } from 'node:assert';
-import { test } from 'node:test';
+import { test, type TestContext } from 'node:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -892,7 +892,7 @@ test('AG54: recusas consecutivas usam vagas entre arquivos e preservam a ordem d
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-function executarAg55(): void {
+async function executarAg55(t: TestContext): Promise<void> {
   const SCRIPT_DAS_LANES = path.resolve(__dirname, '../../scripts/test-lanes.cjs');
   const rodar = (tmpdirDivergente: boolean) => {
     const p = projetoTemporario(`ag55-${tmpdirDivergente ? 'divergente' : 'igual'}`);
@@ -950,37 +950,59 @@ function executarAg55(): void {
     return (claim.lane as Array<Record<string, unknown>>)[0];
   };
   const compartilhado = rodar(false);
-  assert.equal(compartilhado.r.ok, true, compartilhado.r.motivos.join(','));
-  assert.equal(compartilhado.tmpdirExisteDepois, false, 'o verify remove o TMPDIR depois de lanes, claims e recibo');
-  assert.equal(laneDaClaim(compartilhado.evento, 'C1').reaproveitada, true);
-  assert.equal(laneDaClaim(compartilhado.evento, 'C3').reaproveitada, true,
-    JSON.stringify({ lane: laneDaClaim(compartilhado.evento, 'C3'), nominal: compartilhado.nominal }));
+  const c1Compartilhada = laneDaClaim(compartilhado.evento, 'C1');
+  const c3Compartilhada = laneDaClaim(compartilhado.evento, 'C3');
   const [vistaPelaLane, vistaPelaClaim] = ['lane', 'claim'].map((papel) => compartilhado.observacoes.find((x) => x.papel === papel)!);
-  assert.deepEqual({ ...vistaPelaLane, papel: undefined }, { ...vistaPelaClaim, papel: undefined },
-    'lane e claim executada veem o mesmo valor literal, realpath, dispositivo e permissoes');
   const pecasIguais = (compartilhado.evento.agile as { pecas: Array<Record<string, unknown>> }).pecas;
-  assert.ok(pecasIguais.some((x) => x.peca === 'tmpfs-das-lanes' && x.tmpdirDaRodada === true));
-  assert.ok(pecasIguais.some((x) => x.peca === 'claim-lane' && x.claim === 'C1.1' && x.estado === 'agile'));
-  assert.ok(pecasIguais.some((x) => x.peca === 'claim-lane' && x.claim === 'C3.1' && x.estado === 'agile'));
   const textoPt = comLocale('pt-BR', () => textoDoVerify(compartilhado.r));
   const textoEn = comLocale('en', () => textoDoVerify(compartilhado.r));
-  assert.match(textoPt, /TMPDIR compartilhado pela rodada/);
-  assert.match(textoPt, /C1\.1: reaproveitada das lanes/);
-  assert.match(textoEn, /TMPDIR shared by the run/);
-  assert.match(textoEn, /C1\.1: reused from lanes/);
+  const observacoesIguais = JSON.stringify({ ...vistaPelaLane, papel: undefined })
+    === JSON.stringify({ ...vistaPelaClaim, papel: undefined });
+  const temPecaTmp = pecasIguais.some((x) => x.peca === 'tmpfs-das-lanes' && x.tmpdirDaRodada === true);
+  const temPecaC1 = pecasIguais.some((x) => x.peca === 'claim-lane' && x.claim === 'C1.1' && x.estado === 'agile');
+  const temPecaC3 = pecasIguais.some((x) => x.peca === 'claim-lane' && x.claim === 'C3.1' && x.estado === 'agile');
+  await t.test(`AG55 compartilhado ok=${Number(compartilhado.r.ok)} tmp=${Number(!compartilhado.tmpdirExisteDepois)} ` +
+    `c1=${c1Compartilhada.reaproveitada ? 'R' : c1Compartilhada.motivo} ` +
+    `c3=${c3Compartilhada.reaproveitada ? 'R' : c3Compartilhada.motivo} obs=${Number(observacoesIguais)} ` +
+    `pecas=${Number(temPecaTmp)}${Number(temPecaC1)}${Number(temPecaC3)} ` +
+    `locale=${Number(/TMPDIR compartilhado pela rodada/.test(textoPt) && /C1\.1: reaproveitada das lanes/.test(textoPt))}` +
+    `${Number(/TMPDIR shared by the run/.test(textoEn) && /C1\.1: reused from lanes/.test(textoEn))}`, () => {
+    assert.equal(compartilhado.r.ok, true, compartilhado.r.motivos.join(','));
+    assert.equal(compartilhado.tmpdirExisteDepois, false, 'o verify remove o TMPDIR depois de lanes, claims e recibo');
+    assert.equal(c1Compartilhada.reaproveitada, true);
+    assert.equal(c3Compartilhada.reaproveitada, true,
+      JSON.stringify({ lane: c3Compartilhada, nominal: compartilhado.nominal }));
+    assert.deepEqual({ ...vistaPelaLane, papel: undefined }, { ...vistaPelaClaim, papel: undefined },
+      'lane e claim executada veem o mesmo valor literal, realpath, dispositivo e permissoes');
+    assert.ok(temPecaTmp); assert.ok(temPecaC1); assert.ok(temPecaC3);
+    assert.match(textoPt, /TMPDIR compartilhado pela rodada/);
+    assert.match(textoPt, /C1\.1: reaproveitada das lanes/);
+    assert.match(textoEn, /TMPDIR shared by the run/);
+    assert.match(textoEn, /C1\.1: reused from lanes/);
+  });
 
   const divergente = rodar(true);
-  assert.equal(divergente.r.ok, true, JSON.stringify({ motivos: divergente.r.motivos, comandos: divergente.r.comandos,
-    claims: divergente.r.claims, preparo: divergente.r.preparo }));
-  for (const id of ['C1', 'C3']) {
-    assert.deepEqual(laneDaClaim(divergente.evento, id).reaproveitada, false);
-    assert.equal(laneDaClaim(divergente.evento, id).motivo, 'ambiente-funcional-divergente');
-  }
+  const c1Divergente = laneDaClaim(divergente.evento, 'C1');
+  const c3Divergente = laneDaClaim(divergente.evento, 'C3');
   const pecasDivergentes = (divergente.evento.agile as { pecas: Array<Record<string, unknown>> }).pecas;
-  assert.ok(pecasDivergentes.some((x) => x.peca === 'claim-lane' && x.claim === 'C1.1'
-    && x.motivoTipado === 'ambiente-funcional-divergente'));
-  assert.match(comLocale('pt-BR', () => textoDoVerify(divergente.r)), /C1\.1: recusada \(ambiente-funcional-divergente\)/);
-  assert.match(comLocale('en', () => textoDoVerify(divergente.r)), /C1\.1: refused \(ambiente-funcional-divergente\)/);
+  const temRecusaTipada = pecasDivergentes.some((x) => x.peca === 'claim-lane' && x.claim === 'C1.1'
+    && x.motivoTipado === 'ambiente-funcional-divergente');
+  const textoDivergentePt = comLocale('pt-BR', () => textoDoVerify(divergente.r));
+  const textoDivergenteEn = comLocale('en', () => textoDoVerify(divergente.r));
+  await t.test(`AG55 divergente ok=${Number(divergente.r.ok)} c1=${c1Divergente.reaproveitada ? 'R' : c1Divergente.motivo} ` +
+    `c3=${c3Divergente.reaproveitada ? 'R' : c3Divergente.motivo} peca=${Number(temRecusaTipada)} ` +
+    `locale=${Number(/C1\.1: recusada \(ambiente-funcional-divergente\)/.test(textoDivergentePt))}` +
+    `${Number(/C1\.1: refused \(ambiente-funcional-divergente\)/.test(textoDivergenteEn))}`, () => {
+    assert.equal(divergente.r.ok, true, JSON.stringify({ motivos: divergente.r.motivos, comandos: divergente.r.comandos,
+      claims: divergente.r.claims, preparo: divergente.r.preparo }));
+    for (const lane of [c1Divergente, c3Divergente]) {
+      assert.deepEqual(lane.reaproveitada, false);
+      assert.equal(lane.motivo, 'ambiente-funcional-divergente');
+    }
+    assert.ok(temRecusaTipada);
+    assert.match(textoDivergentePt, /C1\.1: recusada \(ambiente-funcional-divergente\)/);
+    assert.match(textoDivergenteEn, /C1\.1: refused \(ambiente-funcional-divergente\)/);
+  });
 }
 
 test('AG48: skip ou todo em node --test nunca prova a claim pela lane', () => {
