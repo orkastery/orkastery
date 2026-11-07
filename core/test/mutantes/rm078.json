@@ -28,6 +28,15 @@
       "para": "true &&",
       "teste": "rm078-recibo",
       "nome": "^RM-078 chave: HEAD, id/comandos"
+    },
+    {
+      "id": "M4",
+      "descricao": "a fixture F2b deixa de injetar a data de autor no amend",
+      "arquivo": "core/dist-test/test/locale-f2b-apoio.js",
+      "de": "['commit', '--amend', '--no-edit', `--date=${dataDoCommit}`]",
+      "para": "['commit', '--amend', '--no-edit']",
+      "teste": "locale-verify",
+      "nome": "^locale F2b fixture: fixa datas"
     }
   ]
 }

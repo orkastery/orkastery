@@ -14,6 +14,7 @@ import { cenario, EN, linhasEmPortugues, ork, PT } from './locale-apoio';
 import { comVerify, dadoDoLedger } from './locale-f2b-apoio';
 import { ativarLocale, ligarRemontagem, msg, remontar, textoDoCatalogo } from '../src/locale';
 import { VERIFY_EN, VERIFY_PT_BR } from '../src/locale-verify';
+import { noPath } from '../src/util';
 
 /** Os textos das claims sao dado (pt-BR de quem as registrou). */
 const CLAIMS = ['o readme existe', 'reprova sempre', 'sem comando'];
@@ -23,6 +24,29 @@ const subprocessoIndisponivel = (() => {
   const code = (r.error as NodeJS.ErrnoException | undefined)?.code;
   return code ? `skip: subprocesso Node indisponivel neste executor (${code})` : false;
 })();
+
+test('locale F2b fixture: fixa datas de autor e committer e produz o mesmo HEAD sem espera',
+  { skip: subprocessoIndisponivel }, () => {
+  const a = cenario('verify-data-a'), b = cenario('verify-data-b');
+  const git = noPath('git');
+  if (!git) throw new Error('git fora do PATH de quem roda os testes');
+  try {
+    comVerify(a);
+    comVerify(b);
+    const commit = (dir: string) => {
+      const r = spawnSync(git, ['log', '-1', '--format=%aI%n%cI%n%H'], { cwd: dir, encoding: 'utf8' });
+      assert.equal(r.status, 0, r.stderr || r.error?.message);
+      const [autor, committer, head] = r.stdout.trimEnd().split('\n');
+      return { autor, committer, head };
+    };
+    const commitA = commit(a.dir), commitB = commit(b.dir);
+    assert.equal(commitA.autor, '2000-01-01T00:00:00+00:00');
+    assert.equal(commitA.committer, commitA.autor);
+    assert.equal(commitB.autor, commitA.autor);
+    assert.equal(commitB.committer, commitA.committer);
+    assert.equal(commitB.head, commitA.head);
+  } finally { a.limpar(); b.limpar(); }
+});
 
 function comClaims(c: ReturnType<typeof cenario>, id: string): void {
   comVerify(c);
