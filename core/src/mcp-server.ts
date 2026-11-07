@@ -444,7 +444,8 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     });
   registrarTool('ork_claim_add',{description:'Registra alegacao prospectiva e comandos como dados. Nao executa comandos nem declara a alegacao verificada.',
     inputSchema:daThread.extend({arquivo:z.string().min(1).max(500),alegacao:z.string().min(1).max(8192),
-      verificar:z.array(z.string().min(1).max(8192)).max(20)}).strict(),annotations:{readOnlyHint:false,destructiveHint:false}},
+      verificar:z.array(z.string().min(1).max(8192)).max(20),
+      dependenciasExternas:z.array(z.enum(['rede','relogio'])).max(2).optional()}).strict(),annotations:{readOnlyHint:false,destructiveHint:false}},
     async({threadId,...entrada})=>{thread(threadId);livre(threadId);return resposta(adicionarClaimMcp(raiz,threadId,entrada));});
   registrarTool('ork_claim_withdraw',{description:'Retira claim com motivo tipado. Exige substituta ativa e verde no ultimo verify; sem substituta, preserva a claim e abre pedido ao dono.',
     inputSchema:daThread.extend({claimId:z.string().regex(/^C\d+$/),motivoTipo:z.enum(['substituicao','obsoleta','erro']),

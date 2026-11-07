@@ -6,7 +6,7 @@ import {dirThread,lerThread,blocoDaThread} from './thread';
 import {abrirPedidoGate,comLockHitl} from './hitl-gates';
 import {adquirirRegiao,lerLease,leasesColidentes,liberar,podarRegioesDeThreadsFechadas} from './leases';
 import {adicionarClaim,AutorDaRetirada,lerClaims,MotivoTipoDaRetirada,retirarClaimTipada} from './claims';
-import {Claim,Fase} from './types';
+import {Claim,DependenciaExternaDaClaim,Fase} from './types';
 import {impressaoDosComandos} from './verify';
 
 export type DocumentoMcp='goal'|'plan'|'check';
@@ -156,12 +156,13 @@ export function escreverArtefatoMcp(raiz:string,id:string,tipo:DocumentoMcp,cont
 export function listarClaimsMcp(raiz:string,id:string) {
   return comDocs(raiz,id,()=>{validarArquivosEstadoMcp(raiz,id);lerThread(raiz,id);return lerClaims(raiz,id);});
 }
-export function adicionarClaimMcp(raiz:string,id:string,entrada:{arquivo:string;alegacao:string;verificar:string[]}) {
+export function adicionarClaimMcp(raiz:string,id:string,entrada:{arquivo:string;alegacao:string;verificar:string[];dependenciasExternas?:DependenciaExternaDaClaim[]}) {
   validarId(id);
   if(!entrada.arquivo || entrada.arquivo.length>500 || path.isAbsolute(entrada.arquivo) ||
       entrada.arquivo.split(/[\\/]/).some(p=>!p || p==='..' || p==='.' || p==='.git')) throw Error('mcp.claim.path.invalid');
   if(!entrada.alegacao.trim() || entrada.alegacao.length>8192 || entrada.verificar.length>20 ||
       entrada.verificar.some(c=>typeof c!=='string' || !c.trim() || c.length>8192)) throw Error('mcp.claim.invalid');
+  if(entrada.dependenciasExternas?.some(d=>d!=='rede' && d!=='relogio')) throw Error('mcp.claim.external-dependency.invalid');
   return comDocs(raiz,id,()=>comEscrita(raiz,id,()=>{
     if(lerThread(raiz,id).status==='fechada') throw Error('mcp.claim.closed');
     // Strings sao dados da claim; a reexecucao MCP deve usar o executor confinado.

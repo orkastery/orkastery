@@ -19,6 +19,7 @@ import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
 import { Fase, SessaoDaThread, Thread } from '../src/types';
 import { exec } from '../src/util';
 import { CONTRATO_REDE_DO_ARCO, RedeDoArco } from '../src/noctum-rede';
+import { chaveDoReciboDeProva } from '../src/recibo-prova';
 
 /** O GitHub que os testes fixam para o remoto bare; o envelope de `noctum-apoio` autoriza este repositório. */
 export const FORJA = { host: 'github.com', repositorio: 'exemplo/produto' };
@@ -122,9 +123,14 @@ export function commitDaSessao(p: ProjetoDeTeste, threadId: string, sessao: Sess
 export function verifyNoLedger(p: ProjetoDeTeste, threadId: string, commit: string, o: { ok?: boolean; motivos?: string[];
   baseline?: boolean; comandos?: boolean; claims?: Array<{ id: string; verificado: boolean; motivo?: string | null }> } = {}): string {
   const ok = o.ok ?? true;
+  const docs = path.join(dirThread(p.dir, threadId), 'docs');
+  fs.mkdirSync(docs, { recursive: true });
+  const plano = path.join(docs, 'plan.md');
+  if (!fs.existsSync(plano)) fs.writeFileSync(plano, '# PLAN SIMULADO\n');
   const claims = o.claims ?? lerClaims(p.dir, threadId).filter(c => c.estado !== 'retirada')
     .map(c => ({ id: c.id, verificado: true, motivo: null }));
-  const e = registrar(dirThread(p.dir, threadId), threadId, TIPOS_DE_EVENTO.verificacao, { commit, veredito: ok ? 'verdade sustentada' : 'reprovado',
+  const e = registrar(dirThread(p.dir, threadId), threadId, TIPOS_DE_EVENTO.verificacao, { commit,
+    recibo: chaveDoReciboDeProva(p.dir, threadId, commit), veredito: ok ? 'verdade sustentada' : 'reprovado',
     motivos: o.motivos ?? (ok ? [] : ['verify.regression']), claims,
     baseline: o.baseline === false ? null : { commit: 'baseline-simulada', gravadaEm: new Date().toISOString() },
     comandos: o.comandos === false ? [] : [{ nome: 'build', ok, code: ok ? 0 : 1 }] });

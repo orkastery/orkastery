@@ -16,7 +16,7 @@ import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { carregarManifesto } from './manifest';
 import { cicloSemCheck, validarProvaSemCheck } from './prova-minima';
 import { dirThread, gravarThread, lerThread } from './thread';
-import { Claim, Fase, ResultadoDeComando } from './types';
+import { Claim, DependenciaExternaDaClaim, Fase, ResultadoDeComando } from './types';
 import { avaliarPolicies, avisos, policyDeProvaLocal, ViolacaoDePolicy } from './policies';
 import { commitReal, cwdDaThread, executar, impressaoDosComandos, TIMEOUT_VERIFY_MS } from './verify';
 import { agora, anexarJsonl, lerJsonl, proximoIdSequencial, tabela } from './util';
@@ -83,10 +83,15 @@ export function montarClaim(entrada: {
   arquivo: string;
   alegacao: string;
   verificar?: string[];
+  dependenciasExternas?: DependenciaExternaDaClaim[];
   /** I-43: `nucleo.doneWhen` quando a claim veio de um criterio de pronto da thread. */
   origem?: Claim['origem'];
 }): Claim {
   const verificar = (entrada.verificar ?? []).filter((c) => c.trim() !== '');
+  const dependenciasExternas = [...new Set(entrada.dependenciasExternas ?? [])].sort();
+  if (dependenciasExternas.some((d) => d !== 'rede' && d !== 'relogio')) {
+    throw new Error('claim.dependencia-externa-invalida: use rede ou relogio');
+  }
   return {
     id: entrada.id,
     thread: entrada.dono,
@@ -95,6 +100,7 @@ export function montarClaim(entrada: {
     alegacao: entrada.alegacao.trim(),
     negativa: ehAlegacaoNegativa(entrada.alegacao),
     verificar,
+    ...(dependenciasExternas.length ? { dependenciasExternas } : {}),
     criadoEm: agora(),
     estado: verificar.length > 0 ? 'pendente' : 'nao-verificavel',
     ...(entrada.origem ? { origem: entrada.origem } : {}),
@@ -113,6 +119,8 @@ export interface OpcoesDeClaim {
   alegacao: string;
   /** Comandos que reexecutam a alegacao. Vazio deixa a claim nao verificavel. */
   verificar?: string[];
+  /** RM-078: rede/relogio tornam o recibo dependente de nova execucao depois de GO sem mudanca. */
+  dependenciasExternas?: DependenciaExternaDaClaim[];
   fase?: Fase | null;
   /** I-43: `nucleo.doneWhen` quando o nucleo registra um criterio de pronto. */
   origem?: Claim['origem'];
@@ -145,6 +153,7 @@ export function adicionarClaim(raiz: string, threadId: string, opcoes: OpcoesDeC
     arquivo: opcoes.arquivo,
     alegacao: opcoes.alegacao,
     verificar: opcoes.verificar,
+    dependenciasExternas: opcoes.dependenciasExternas,
     origem: opcoes.origem,
   });
   const recusas = (claim.lint ?? []).filter((a) => regraFatalDeClaim(a.regra));
@@ -166,6 +175,7 @@ export function adicionarClaim(raiz: string, threadId: string, opcoes: OpcoesDeC
     alegacao: claim.alegacao,
     negativa,
     verificar,
+    ...(claim.dependenciasExternas?.length ? { dependenciasExternas: claim.dependenciasExternas } : {}),
     estado: claim.estado,
     ...(claim.lint?.length ? { lint: claim.lint.map((a) => a.regra) } : {}),
   });

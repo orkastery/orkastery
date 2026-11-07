@@ -64,6 +64,7 @@ import { changelogAplicavel, checarChangelog } from './changelog-check';
 import { anexarRelatorioJUnit, caminhoJUnitDoComando, marcacaoDeRelogioDoComando, prepararRelatorioJUnit,
   RelatorioJUnitPreparado } from './junit';
 import { planejarSelecaoNativa } from './check-selecao';
+import { chaveDoReciboDeProva } from './recibo-prova';
 import { ENV_TMPDIR_DA_RODADA, selecionarTemporario } from './temporario-das-lanes';
 import { ambienteFuncionalDosTestes, ENV_PATH_FUNCIONAL_DA_RODADA,
   transporteDoAmbienteFuncional } from './ambiente-funcional';
@@ -1496,6 +1497,7 @@ function verificarSobConducao(
 
   registrar(dir, threadId, TIPOS_DE_EVENTO.verificacao, {
     commit,
+    recibo: chaveDoReciboDeProva(raiz, threadId, commit),
     cwd,
     claims: claims.map((c) => {
       const falhou = c.execucoes.find((e) => !e.ok);

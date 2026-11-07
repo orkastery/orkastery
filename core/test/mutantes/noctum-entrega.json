@@ -130,10 +130,10 @@
     },
     {
       "id": "M15",
-      "descricao": "o CHECK despachado antes do último despacho de autor vale",
+      "descricao": "uma sessão sem commit confirmado na cadeia conta como autora",
       "modulo": "noctum-provas",
-      "de": "if (f.ultimoDespachoDeAutor && !(Date.parse(r.despachadaEm) > Date.parse(f.ultimoDespachoDeAutor)))",
-      "para": "if (false)",
+      "de": "if ((e.tipo === 'mcp_git_committed' || e.tipo === 'commit') && naCadeia && typeof e.sessionId === 'string' && e.sessionId)",
+      "para": "if (typeof e.sessionId === 'string' && e.sessionId)",
       "teste": "noctum-provas",
       "nome": "^QP11:"
     },
