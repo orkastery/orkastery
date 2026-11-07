@@ -425,18 +425,17 @@
       "lint": []
     },
     {
-      "id": "C33",
+      "id": "C35",
       "thread": "ork-rm078recibod",
       "fase": "GO",
       "arquivo": "docs/roadmap/RM-078-recibo-valido-enquanto-nada-muda.md",
       "alegacao": "A página RM-078 permanece estruturalmente válida após separar, no histórico, a tentativa insuficiente da correção F2b e da correção independente do M15.",
       "negativa": false,
       "verificar": [
-        "node core/dist/index.js docs verificar --pr",
-        "node core/scripts/checar-changelog.cjs --base main"
+        "node core/dist/index.js docs verificar --pr && node core/scripts/checar-changelog.cjs --base origin/main"
       ],
-      "criadoEm": "2026-11-07T05:30:20.361Z",
-      "estado": "verificado",
+      "criadoEm": "2026-11-07T08:10:12.726Z",
+      "estado": "pendente",
       "lint": []
     }
   ],
