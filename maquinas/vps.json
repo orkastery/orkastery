@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.5",
-  "publicadoEm": "2026-11-07T07:18:39.898Z",
+  "publicadoEm": "2026-11-07T07:30:03.726Z",
   "threads": [
     {
       "id": "ork-rm074m13banc",
@@ -14,7 +14,7 @@
       "status": "aberta",
       "roadmap": "RM-074",
       "branch": "ork/ork-rm074m13banc-full",
-      "atualizadaEm": "2026-11-07T06:56:37.095Z",
+      "atualizadaEm": "2026-11-07T07:27:05.680Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -23,9 +23,9 @@
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-11-07T07:29:15.913Z",
+        "motivo": "sessão 01a1b4b8 encerrada (completed)"
       }
     },
     {
@@ -45,28 +45,10 @@
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-11-07T07:19:14.200Z",
+        "motivo": "sessão 01a1b4da encerrada (completed)"
       }
-    },
-    {
-      "id": "ork-rm079claimsq",
-      "nome": "rm079claims",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-079",
-      "branch": "ork/ork-rm079claimsq-full",
-      "atualizadaEm": "2026-11-07T07:18:39.250Z",
-      "entregue": "96a7b5c",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh",
-      "sessao": null
     }
   ]
 }
