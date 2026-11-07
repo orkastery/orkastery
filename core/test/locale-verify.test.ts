@@ -40,7 +40,7 @@ test('locale F2b fixture: fixa datas de autor e committer e produz o mesmo HEAD 
       return { autor, committer, head };
     };
     const commitA = commit(a.dir), commitB = commit(b.dir);
-    assert.equal(commitA.autor, '2000-01-01T00:00:00+00:00');
+    assert.equal(commitA.autor, '2000-01-01T00:00:00Z');
     assert.equal(commitA.committer, commitA.autor);
     assert.equal(commitB.autor, commitA.autor);
     assert.equal(commitB.committer, commitA.committer);

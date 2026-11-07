@@ -14,7 +14,7 @@ import { noPath } from '../src/util';
 export function comVerify(c: Cenario): void {
   const git = noPath('git');
   if (!git) throw new Error('git fora do PATH de quem roda os testes');
-  const dataDoCommit = '2000-01-01T00:00:00+00:00';
+  const dataDoCommit = '2000-01-01T00:00:00Z';
   const commit = spawnSync(git, ['commit', '--amend', '--no-edit', `--date=${dataDoCommit}`], {
     cwd: c.dir,
     encoding: 'utf8',
