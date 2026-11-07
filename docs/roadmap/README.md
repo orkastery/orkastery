@@ -45,6 +45,16 @@ Achados de uma rede de três VPS que conduz um roadmap em `#Auto` com o ork 0.5.
 | 7 | [RM-081](RM-081-check-por-qualquer-runner.md) CHECK que entende qualquer runner de teste | Alta | Fora do Node, o CHECK não nomeia o teste que caiu nem protege teste de relógio, e cada correção paga a suíte inteira (relato de 01/11/2026, conferido contra a 0.6.3) |
 | 7 | [RM-064](RM-064-conta-esgotada-nao-para-a-fase.md), fatia 4 | Média | O rodízio no mesmo runtime já existe desde a 0.6.0; falta a trava entre runtimes e o histórico |
 
+## Achados de condução em 06 e 07/11/2026
+
+Estes itens ainda não têm ordem de prioridade definida pelo dono.
+
+| Item | Origem | Resultado pretendido |
+| --- | --- | --- |
+| [RM-082](RM-082-credenciais-redigidas-em-toda-superficie.md) Credenciais redigidas em toda superfície de comando, motivo e detalhe | Dívida A7 a A12 da RM-079 e bundle do CI | Nenhuma superfície incluída grava ou mostra credencial em texto, e as rodadas continuam comparáveis pela impressão do comando original |
+| [RM-083](RM-083-estado-do-roadmap-acompanha-a-entrega.md) Estado do roadmap acompanha a entrega | CI da `main` após a RM-079 | O próprio PR prepara o estado pós-merge da página e do índice, sem PR manual de sincronização |
+| [RM-084](RM-084-sessao-continua-com-muitos-objetos-soltos-do-git.md) Sessão continua com muitos objetos soltos do Git | Recusa de `ork_git_status` durante GO | O núcleo empacota sem perda fora do sandbox ou avisa antes do limite, sem afrouxar `arvoreMetadados` |
+
 ## Itens
 
 Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
@@ -121,6 +131,9 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-079](RM-079-claims-que-a-correcao-passa.md) | Claims de revisão que a correção passa e retirada tipada com substituta | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-07 |
 | [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md) | Saída completa e causa tipada em todo comando do verify | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-31 |
 | [RM-081](RM-081-check-por-qualquer-runner.md) | CHECK que entende qualquer runner de teste e só roda de novo o necessário | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-06 |
+| [RM-082](RM-082-credenciais-redigidas-em-toda-superficie.md) | Credenciais redigidas em toda superfície de comando, motivo e detalhe | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-07 |
+| [RM-083](RM-083-estado-do-roadmap-acompanha-a-entrega.md) | Estado do roadmap acompanha a entrega | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-07 |
+| [RM-084](RM-084-sessao-continua-com-muitos-objetos-soltos-do-git.md) | Sessão continua com muitos objetos soltos do Git | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-07 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->
