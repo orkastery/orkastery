@@ -83,6 +83,14 @@ export function impressaoDosComandos(verificar: readonly string[]): string {
     .digest('hex');
 }
 
+/** RM-079 GO-FIX 4: identidade do comando executável, separada da sua projeção pública. */
+export function impressaoDoComando(comando: string): string {
+  return createHash('sha256')
+    .update('ork.verify-command/v1\0')
+    .update(comando)
+    .digest('hex');
+}
+
 /** RM-079 GO-FIX 3: texto de comando cru fica no domínio de execução; cópias de saída usam o redator geral. */
 function redigirTextoDoComando(comando: string): string {
   return redigirSegredos(comando);
@@ -374,20 +382,30 @@ export function causaDoEncerramento(r: { code: number; signal: string | null; er
 /** I-37 (D8): o que o ledger grava de um comando. Sucesso e o codigo 0; falha leva a evidencia. */
 export function comandoNoLedger(c: ResultadoDeComando): Record<string, unknown> {
   const seguro = resultadoDeComandoRedigido(c);
+  const preparo = seguro.preparo ? { ...seguro.preparo,
+    ...(c.preparo?.passos ? { passosSha256: c.preparo.passos.map(impressaoDoComando) } : {}) } : undefined;
+  const lanes = seguro.lanes?.map((lane, indice) => {
+    const original = c.lanes![indice];
+    return { ...lane, comandoSha256: impressaoDoComando(original.comando),
+      ...(original.comandoExecutado
+        ? { comandoExecutadoSha256: impressaoDoComando(original.comandoExecutado) } : {}) };
+  });
   // RM-072 (D2): a duracao vai tambem no comando que passa, para a meta do CHECK ser medida pelo ledger. RM-072 (D4, D5):
   // no Agile, o uso do preparo e as lanes; o Classic nao tem esses campos.
-  const doAgile = { ...(seguro.preparo ? { preparo: seguro.preparo } : {}),
+  const doAgile = { ...(preparo ? { preparo } : {}),
     ...(seguro.agendamento ? { agendamento: seguro.agendamento } : {}),
     ...(seguro.lane ? { lane: seguro.lane } : {}),
-    ...(seguro.lanes ? { lanes: seguro.lanes } : {}),
-    ...(seguro.comandoExecutado ? { comandoExecutado: seguro.comandoExecutado } : {}),
+    ...(lanes ? { lanes } : {}),
+    ...(seguro.comandoExecutado ? { comandoExecutado: seguro.comandoExecutado,
+      comandoExecutadoSha256: impressaoDoComando(c.comandoExecutado!) } : {}),
     ...(seguro.parcial ? { parcial: seguro.parcial } : {}),
     ...(seguro.junit ? { junit: seguro.junit } : {}),
     ...(seguro.retesteDeRelogio ? { retesteDeRelogio: seguro.retesteDeRelogio } : {}) };
   if (seguro.ok) return { nome: seguro.nome, ok: true, code: seguro.code,
     ...(seguro.duracaoMs !== undefined ? { duracaoMs: seguro.duracaoMs } : {}), ...doAgile };
   return {
-    nome: seguro.nome, comando: seguro.comando, ok: false, code: seguro.code, ...doAgile,
+    nome: seguro.nome, comando: seguro.comando, comandoSha256: impressaoDoComando(c.comando),
+    ok: false, code: seguro.code, ...doAgile,
     ...(seguro.causa ? { causa: seguro.causa } : {}),
     ...(seguro.prazoMs !== undefined ? { prazoMs: seguro.prazoMs } : {}),
     ...(seguro.duracaoMs !== undefined ? { duracaoMs: seguro.duracaoMs } : {}),
@@ -461,6 +479,14 @@ function nomesPersistidos(v: unknown): string[] {
   return Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === 'string' && !!x))] : [];
 }
 
+/** Evento novo usa a identidade original; só evento legado sem impressão compara a projeção histórica. */
+function mesmoComandoDaRodadaAnterior(anterior: Record<string, unknown> | null, atual: string): boolean {
+  if (!anterior) return false;
+  if (typeof anterior.comandoSha256 === 'string')
+    return anterior.comandoSha256 === impressaoDoComando(atual);
+  return anterior.comando === redigirCredenciaisUrl(atual);
+}
+
 /**
  * So o ultimo verify_run da thread vale. Comando, JUnit lido e nomes precisam conferir; uma
  * baseline, um stdout heuristico ou um comando antigo nunca autorizam reduzir a cobertura.
@@ -474,7 +500,7 @@ export function selecaoDaRodadaAnterior(eventos: readonly EventoLedger[], manife
     const anterior = rodada.comandos.map(objeto).find((c) => c?.nome === atual.nome);
     const junit = objeto(anterior?.junit);
     const nomes = nomesPersistidos(anterior?.testeQueCaiu);
-    if (anterior?.ok === false && anterior.comando === redigirCredenciaisUrl(atual.comando)
+    if (anterior?.ok === false && mesmoComandoDaRodadaAnterior(anterior, atual.comando)
         && junit?.estado === 'lido' && nomes.length > 0) comandos[atual.nome] = nomes;
   }
   const anteriorTest = rodada.comandos.map(objeto).find((c) => c?.nome === 'test');
@@ -484,7 +510,7 @@ export function selecaoDaRodadaAnterior(eventos: readonly EventoLedger[], manife
     const anterior = lanesAnteriores.find((l) => l?.lane === lane);
     const junit = objeto(anterior?.junit);
     const nomes = nomesPersistidos(anterior?.testeQueCaiu);
-    if (anterior?.ok === false && anterior.comando === redigirCredenciaisUrl(comando)
+    if (anterior?.ok === false && mesmoComandoDaRodadaAnterior(anterior, comando)
         && junit?.estado === 'lido' && nomes.length > 0) lanes[lane] = nomes;
   }
   return { comandos, lanes };

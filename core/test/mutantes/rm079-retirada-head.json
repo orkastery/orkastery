@@ -82,6 +82,15 @@
       "para": ".update(JSON.stringify([...verificar].sort()))",
       "teste": "rm079-claims",
       "nome": "^RM079 impressão:"
+    },
+    {
+      "id": "M10",
+      "descricao": "a seleção da rodada anterior volta a comparar o texto redigido",
+      "modulo": "verify",
+      "de": "return anterior.comandoSha256 === impressaoDoComando(atual);",
+      "para": "return anterior.comando === (0, hitl_1.redigirSegredos)(atual);",
+      "teste": "rm081-f3",
+      "nome": "^RM079 A6: comando original diferente"
     }
   ]
 }
