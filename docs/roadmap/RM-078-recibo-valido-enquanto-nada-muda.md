@@ -6,24 +6,24 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-06T12:00:00-03:00
+atualizado_em: 2026-11-07T05:36:54-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
-  codigo: Branch criada
+  codigo: Mesclado
   testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: b771cfa
+    commit: bf89470
     pr: null
 sdlc:
   thread: ork-rm078recibod
   modo: "#Auto"
-  fase: GO
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-078: Recibo de verify e de revisão válido enquanto HEAD, claims e plano não mudam
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -104,13 +104,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-11-06 | Julio |
-| Documentação | Em revisão | — | 2026-11-06 | Julio |
-| Código | Branch criada | commit `b771cfa` | 2026-11-06 | Julio |
-| Testes | Em execução | — | 2026-11-06 | Julio |
-| Deploy | Não implantado | — | 2026-11-06 | Julio |
-| Exposição | Flag desligada | — | 2026-11-06 | Julio |
-| Habilitação | Pendente | — | 2026-11-06 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-07 | Julio |
+| Documentação | Em revisão | — | 2026-11-07 | Julio |
+| Código | Mesclado | commit `bf89470` | 2026-11-07 | Julio |
+| Testes | Em execução | — | 2026-11-07 | Julio |
+| Deploy | Não implantado | — | 2026-11-07 | Julio |
+| Exposição | Flag desligada | — | 2026-11-07 | Julio |
+| Habilitação | Pendente | — | 2026-11-07 | Julio |
 
 <!-- ork-docs:estado:fim -->
 

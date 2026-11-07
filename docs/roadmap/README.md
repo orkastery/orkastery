@@ -117,7 +117,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-075](RM-075-fim-de-fase-lido-pelo-resultado.md) | Fim de fase lido pelo resultado: sessão que termina sem pergunta não vira espera humana | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-03 |
 | [RM-076](RM-076-fila-pesada-com-prioridade.md) | Fila pesada com prioridade e reserva de vaga | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-31 |
 | [RM-077](RM-077-revisao-independente-pelo-construtor-do-head.md) | Revisão independente medida pelo construtor do HEAD | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-31 |
-| [RM-078](RM-078-recibo-valido-enquanto-nada-muda.md) | Recibo de verify e de revisão válido enquanto HEAD, claims e plano não mudam | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-11-06 |
+| [RM-078](RM-078-recibo-valido-enquanto-nada-muda.md) | Recibo de verify e de revisão válido enquanto HEAD, claims e plano não mudam | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-07 |
 | [RM-079](RM-079-claims-que-a-correcao-passa.md) | Claims de revisão que a correção passa e retirada tipada com substituta | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-07 |
 | [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md) | Saída completa e causa tipada em todo comando do verify | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-31 |
 | [RM-081](RM-081-check-por-qualquer-runner.md) | CHECK que entende qualquer runner de teste e só roda de novo o necessário | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-06 |
