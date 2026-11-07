@@ -6,11 +6,32 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { Cenario } from './locale-apoio';
 import { noPath } from '../src/util';
 
 /** O manifesto do cenario com `build: true` e `test: test -f passa.txt`, e o `bash` no PATH do cenario. */
 export function comVerify(c: Cenario): void {
+  const git = noPath('git');
+  if (!git) throw new Error('git fora do PATH de quem roda os testes');
+  const dataDoCommit = '2000-01-01T00:00:00Z';
+  const commit = spawnSync(git, ['commit', '--amend', '--no-edit', `--date=${dataDoCommit}`], {
+    cwd: c.dir,
+    encoding: 'utf8',
+    env: { ...process.env, GIT_COMMITTER_DATE: dataDoCommit },
+  });
+  if (commit.status !== 0 || commit.error) {
+    throw new Error(`nao foi possivel fixar a data do commit do cenario: ${commit.stderr || commit.error?.message || commit.status}`);
+  }
+  const datas = spawnSync(git, ['log', '-1', '--format=%aI%n%cI'], { cwd: c.dir, encoding: 'utf8' });
+  if (datas.status !== 0 || datas.error) {
+    throw new Error(`nao foi possivel conferir as datas do commit do cenario: ${datas.stderr || datas.error?.message || datas.status}`);
+  }
+  const [dataDoAutor, dataDoCommitter] = datas.stdout.trimEnd().split('\n');
+  if (dataDoAutor !== dataDoCommit || dataDoCommitter !== dataDoCommit) {
+    throw new Error(`datas do commit do cenario nao foram fixadas: autor=${dataDoAutor || '<vazia>'}, ` +
+      `committer=${dataDoCommitter || '<vazia>'}, esperada=${dataDoCommit}`);
+  }
   const bash = noPath('bash');
   if (!bash) throw new Error('bash fora do PATH de quem roda os testes');
   if (!fs.existsSync(path.join(c.bin, 'bash'))) fs.symlinkSync(path.resolve(bash), path.join(c.bin, 'bash'));

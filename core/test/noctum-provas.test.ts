@@ -401,14 +401,18 @@ test('QP10: o teto de rodadas por SHA vale para toda repetição; a claim de mut
   } finally { p.limpar(); }
 });
 
-test('QP11: guardas da revisão e da recomputação: autor despachado depois do CHECK, commit de bundle e produto, CHANGELOG fora da regra e conflito sem conteúdo', () => {
+test('QP11: guardas da revisão e da recomputação: GO sem commit, commit de bundle e produto, CHANGELOG fora da regra e conflito sem conteúdo', () => {
   const p = projetoDaEntrega('noctum-qp11');
   try {
     const e = entregaPronta(p, 'qp11');
     assert.equal(motivo(provas(p, e.t.id, verde(e)), 'revisao'), null);
-    // X1: uma sessão de GO despachada depois do CHECK escreve depois da revisão: a revisão ficou antiga.
-    sessaoDespachada(p, e.t.id, 'GO');
-    assert.equal(motivo(provas(p, e.t.id, verde(e)), 'revisao'), 'noctum.entrega.revisao-antiga');
+    // RM-078: despacho de GO sem commit não é autoria e não invalida a revisão por horário.
+    const go = sessaoDespachada(p, e.t.id, 'GO');
+    registrar(dirThread(p.dir, e.t.id), e.t.id, 'phase_result', { fase: 'GO', sessionId: go.sessionId,
+      classificacao: 'fase_concluida', ok: true, resultado: 'go.sem-mudanca' });
+    const depoisDoGo = lerFatosDaEntrega(p.carregado, e.t.id, { forja: FORJA, executorCi: ciFalso(verde(e)) });
+    assert.equal(depoisDoGo.autores.includes(go.sessionId), false);
+    assert.equal(motivo(avaliarProvas(depoisDoGo), 'revisao'), null);
   } finally { p.limpar(); }
   const q = projetoDaEntrega('noctum-qp11b');
   try {
