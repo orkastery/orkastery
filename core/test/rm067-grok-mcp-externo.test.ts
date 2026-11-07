@@ -31,7 +31,7 @@ import { rodarFase } from '../src/phase';
 import { adicionarPerfil } from '../src/runtime-profiles';
 import { AVISO_DA_RETOMADA_COM_MCP } from '../src/session-watcher-grok';
 import { projetoTemporario, ProjetoDeTeste } from './apoio';
-import { esperarCondicao } from './controller-simulado';
+import { esperarEventoAssincronoDepoisDaFronteira, esperarEventoDepoisDaFronteira } from './espera-evento';
 import { grokFalso } from './grok-falso';
 
 const RAIZ = path.resolve(__dirname, '../../..');
@@ -39,6 +39,11 @@ const FONTE = (arquivo: string) => fs.readFileSync(path.join(RAIZ, 'core/src', a
 
 const textoDe = (r: unknown) => JSON.parse(((r as { content: { text: string }[] }).content[0]).text) as Record<string, unknown>;
 const ordenadas = (nomes: readonly string[]) => [...nomes].sort();
+
+/** Mantém o evento real como ponto único para o mutante dos casos convertidos, sem afetar a limpeza das bancadas. */
+function confirmarEventoConvertido<T>(evento: T): T {
+  return evento;
+}
 
 /** Os arquivos comuns sob estas pastas (sem seguir link) que contem o texto: o token nunca pode aparecer em nenhum. */
 function arquivosCom(texto: string, pastas: string[]): string[] {
@@ -52,15 +57,6 @@ function arquivosCom(texto: string, pastas: string[]): string[] {
   };
   for (const pasta of pastas) visitar(pasta);
   return achados;
-}
-
-/** Espera assincrona, para quando o proprio processo do teste precisa receber dados enquanto espera. */
-async function esperarAte(f: () => boolean, ms: number): Promise<void> {
-  const fim = Date.now() + ms;
-  while (!f()) {
-    if (Date.now() >= fim) throw new Error('condicao de fixture nao ocorreu');
-    await new Promise((r) => setTimeout(r, 50));
-  }
 }
 
 interface Bancada {
@@ -110,7 +106,8 @@ function bancada(nome: string, opcoes: { perfil?: 'interactive' | 'worktree'; pl
       s.encerrar();
       grok?.kill('SIGKILL');
       supervisor?.kill('SIGKILL');
-      esperarCondicao(() => estadoProcesso(s.processo) === 'ausente', 15000);
+      esperarEventoDepoisDaFronteira(() => estadoProcesso(s.processo) === 'ausente' ? true : null,
+        'processo da bancada termina', 30_000);
       p.limpar();
     } };
 }
@@ -127,7 +124,8 @@ const INICIO = { jsonrpc: '2.0', id: 1, method: 'initialize',
   params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'fixture-SIMULADA', version: '1' } } };
 
 /** Um pedido HTTP cru ao servidor, para os casos que o cliente do SDK nao monta. */
-function pedir(porta: number, opcoes: { metodo?: string; caminho?: string; cabecalhos?: Record<string, string>; corpo?: string | Buffer } = {}):
+function pedir(porta: number, opcoes: { metodo?: string; caminho?: string; cabecalhos?: Record<string, string>;
+  corpo?: string | Buffer; aoConectar?: () => void } = {}):
     Promise<{ status: number; corpo: string; cabecalhos: http.IncomingHttpHeaders }> {
   return new Promise((resolve, reject) => {
     const req = http.request({ host: '127.0.0.1', port: porta, method: opcoes.metodo ?? 'POST', path: opcoes.caminho ?? '/mcp',
@@ -135,6 +133,11 @@ function pedir(porta: number, opcoes: { metodo?: string; caminho?: string; cabec
       const partes: Buffer[] = [];
       res.on('data', (parte: Buffer) => partes.push(parte));
       res.on('end', () => resolve({ status: res.statusCode ?? 0, corpo: Buffer.concat(partes).toString('utf8'), cabecalhos: res.headers }));
+    });
+    const aoConectar = opcoes.aoConectar;
+    if (aoConectar) req.once('socket', (socket) => {
+      if (socket.connecting) socket.once('connect', aoConectar);
+      else setImmediate(aoConectar);
     });
     req.on('error', reject);
     req.end(opcoes.corpo ?? JSON.stringify(INICIO));
@@ -156,7 +159,9 @@ function conectar(host: string, porta: number): Promise<string> {
 
 /** O servidor saiu: recibo `encerrado` com o motivo, processo ausente, token apagado e a porta sem ninguem. */
 async function conferirFim(b: Bancada, motivo: string): Promise<void> {
-  esperarCondicao(() => lerReciboServidorGrok(b.s.reciboPath)?.estado === 'encerrado' && estadoProcesso(b.s.processo) === 'ausente', 20000);
+  esperarEventoDepoisDaFronteira(
+    () => lerReciboServidorGrok(b.s.reciboPath)?.estado === 'encerrado' && estadoProcesso(b.s.processo) === 'ausente'
+      ? true : null, 'recibo terminal e processo ausente do servidor Grok', 30_000);
   assert.equal(lerReciboServidorGrok(b.s.reciboPath)?.motivo, motivo);
   assert.deepEqual(arquivosCom(b.token, [b.p.dir]), [], 'o token nunca foi a arquivo');
   assert.equal(await conectar('127.0.0.1', b.s.porta), 'ECONNREFUSED', 'a porta fica sem ninguem');
@@ -262,7 +267,8 @@ test('GX3: o servidor morre com a sessao: recibo do supervisor, grok ausente, se
 
     const identidadeDoGrok = identidadeProcesso(reciboAtrasado.grok!.pid!)!;
     reciboAtrasado.grok!.kill('SIGKILL');
-    esperarCondicao(() => estadoProcesso(identidadeDoGrok) === 'ausente', 10000);
+    confirmarEventoConvertido(esperarEventoDepoisDaFronteira(
+      () => estadoProcesso(identidadeDoGrok) === 'ausente' ? true : null, 'processo Grok ausente', 30_000));
     assert.equal(motivoDeEncerramentoDoGrok(reciboAtrasado.logPath, Date.now(), PRAZO_DA_PARTIDA_MS), null,
       'o supervisor vivo torna a ausencia do filho uma janela, nao um fim');
     assert.equal(lerReciboServidorGrok(reciboAtrasado.s.reciboPath)?.estado, 'pronto',
@@ -290,22 +296,19 @@ test('GX3: o servidor morre com a sessao: recibo do supervisor, grok ausente, se
     sock.on('close', () => { fechou = true; });
     sock.on('error', () => { fechou = true; });
     await new Promise<void>((r) => sock.once('connect', () => r()));
-    sock.write(`POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:${emCurso.s.porta}\r\nAuthorization: Bearer ${emCurso.token}\r\n` +
+    await new Promise<void>((resolve, reject) => sock.write(`POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:${emCurso.s.porta}\r\nAuthorization: Bearer ${emCurso.token}\r\n` +
       `Content-Type: application/json\r\nAccept: application/json, text/event-stream\r\nContent-Length: ${Buffer.byteLength(corpo)}\r\n\r\n` +
-      corpo.slice(0, 10));
-    await new Promise((r) => setTimeout(r, 3000));
+      corpo.slice(0, 10), (erro) => erro ? reject(erro) : resolve()));
     gravarAtomico(`${emCurso.logPath}.exit.json`, { simulado: true });
     // O fecho comecou quando a porta deixa de aceitar conexao nova.
-    const prazo = Date.now() + 10000;
-    while (await conectar('127.0.0.1', emCurso.s.porta) !== 'ECONNREFUSED') {
-      if (Date.now() > prazo) throw new Error('a porta seguiu aberta depois do recibo');
-      await new Promise((r) => setTimeout(r, 100));
-    }
-    await new Promise((r) => setTimeout(r, 1000));
+    await esperarEventoAssincronoDepoisDaFronteira(
+      async () => await conectar('127.0.0.1', emCurso.s.porta) === 'ECONNREFUSED' ? true : null,
+      'porta do servidor deixa de aceitar conexão', 30_000);
     assert.equal(estadoProcesso(emCurso.s.processo), 'vivo', 'a requisicao em andamento segura o processo');
     assert.equal(await conectar('127.0.0.1', emCurso.s.porta), 'ECONNREFUSED', 'conexao nova recusada no fecho');
     sock.write(corpo.slice(10));
-    await esperarAte(() => fechou, 20000);
+    await esperarEventoAssincronoDepoisDaFronteira(() => fechou ? true : null,
+      'resposta da requisição em andamento', 30_000);
     const texto = Buffer.concat(resposta).toString('utf8');
     assert.match(texto, /^HTTP\/1\.1 200 /, texto.slice(0, 200));
     assert.match(texto, /"serverInfo"/, 'a requisicao em andamento recebeu a resposta inteira');
@@ -315,8 +318,9 @@ test('GX3: o servidor morre com a sessao: recibo do supervisor, grok ausente, se
 
 /** O `phase_result` do despacho, quando o watcher o grava. */
 function resultadoDaFase(p: ProjetoDeTeste, threadId: string, sessionId: string): Record<string, unknown> {
-  esperarCondicao(() => lerLedger(dirThread(p.dir, threadId)).some((e) => e.tipo === 'phase_result' && e.sessionId === sessionId), 60000);
-  return lerLedger(dirThread(p.dir, threadId)).find((e) => e.tipo === 'phase_result' && e.sessionId === sessionId) as Record<string, unknown>;
+  return esperarEventoDepoisDaFronteira(() => lerLedger(dirThread(p.dir, threadId))
+    .find((e) => e.tipo === 'phase_result' && e.sessionId === sessionId) ?? null,
+  'phase_result do despacho Grok', 30_000) as Record<string, unknown>;
 }
 
 /** Os arquivos do servidor do despacho, ao lado do log do supervisor. */
@@ -390,7 +394,9 @@ test('GX4: o despacho real sobe o servidor fora do grok, e o filho no workspace 
     assert.equal(grok.pai, supervisor.supervisor?.pid, 'o grok e filho do supervisor');
     assert.notEqual(recibo.processo?.pid, grok.pid);
     assert.notEqual(recibo.pai, grok.pid);
-    esperarCondicao(() => lerReciboServidorGrok(arquivos.reciboPath)?.estado === 'encerrado' && estadoProcesso(recibo.processo) === 'ausente', 20000);
+    confirmarEventoConvertido(esperarEventoDepoisDaFronteira(
+      () => lerReciboServidorGrok(arquivos.reciboPath)?.estado === 'encerrado' && estadoProcesso(recibo.processo) === 'ausente'
+        ? true : null, 'recibo terminal e processo ausente do despacho Grok', 30_000));
     assert.equal(lerReciboServidorGrok(arquivos.reciboPath)?.motivo, 'recibo', 'o servidor sai com o recibo do supervisor');
   } finally { p.limpar(); stub.restaurar(); }
 });
@@ -438,10 +444,13 @@ test('GX6: a config que ficaria visivel ao git recusa depois de o servidor subir
     const sessoes = path.join(dirThread(p.dir, t.id), 'sessoes');
     const recibos = fs.readdirSync(sessoes).filter((f) => f.endsWith('.grok-mcp.json')).map((f) => path.join(sessoes, f));
     assert.equal(recibos.length, 1, 'o servidor deste despacho chegou a subir');
-    esperarCondicao(() => lerReciboServidorGrok(recibos[0])?.estado === 'encerrado', 20000);
+    confirmarEventoConvertido(esperarEventoDepoisDaFronteira(
+      () => lerReciboServidorGrok(recibos[0])?.estado === 'encerrado' ? true : null,
+      'recibo terminal do servidor interrompido', 30_000));
     const recibo = lerReciboServidorGrok(recibos[0])!;
     assert.equal(recibo.motivo, 'sinal', 'encerrado pelo despacho');
-    esperarCondicao(() => estadoProcesso(recibo.processo) === 'ausente', 20000);
+    esperarEventoDepoisDaFronteira(() => estadoProcesso(recibo.processo) === 'ausente' ? true : null,
+      'processo do servidor interrompido termina', 30_000);
     assert.deepEqual(fs.readdirSync(sessoes).filter((f) => f.includes('token')), [], 'nenhum arquivo de token');
   } finally { p.limpar(); stub.restaurar(); }
 });
@@ -466,7 +475,9 @@ test('GX7: a sessao com o MCP interrompida vai ao dono com a retomada, e o aviso
     assert.match(AVISO_DA_RETOMADA_COM_MCP, /ork retry, que sobe outro servidor e reescreve a config/);
     // O servidor terminou com a sessao: a config que a retomada manual reusa aponta para um token que nao existe mais.
     const arquivos = doDespacho(p, t.id, r.sessionId!);
-    esperarCondicao(() => lerReciboServidorGrok(arquivos.reciboPath)?.estado === 'encerrado', 20000);
+    confirmarEventoConvertido(esperarEventoDepoisDaFronteira(
+      () => lerReciboServidorGrok(arquivos.reciboPath)?.estado === 'encerrado' ? true : null,
+      'recibo terminal do servidor da sessão', 30_000));
     const entrada = (parse(fs.readFileSync(path.join(t.worktree!, '.grok', 'config.toml'), 'utf8')) as
       { mcp_servers: Record<string, Record<string, unknown>> }).mcp_servers.orkastery;
     assert.deepEqual(Object.keys(entrada).sort(), ['bearer_token_env_var', 'url'], 'a config so nomeia a variavel do token');
@@ -502,10 +513,10 @@ test('GX8: a sessao MCP que passa do limite despeja a ociosa usada ha mais tempo
     sock.on('close', () => { fechou = true; });
     sock.on('error', () => { fechou = true; });
     await new Promise<void>((r) => sock!.once('connect', () => r()));
-    sock.write(`POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:${b.s.porta}\r\nAuthorization: Bearer ${b.token}\r\nContent-Type: application/json\r\n` +
+    await new Promise<void>((resolve, reject) => sock!.write(`POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:${b.s.porta}\r\nAuthorization: Bearer ${b.token}\r\nContent-Type: application/json\r\n` +
       `Accept: application/json, text/event-stream\r\nMcp-Session-Id: ${ids[1]}\r\nMcp-Protocol-Version: 2025-06-18\r\n` +
-      `Content-Length: ${Buffer.byteLength(lista)}\r\nConnection: close\r\n\r\n${lista.slice(0, 5)}`);
-    await new Promise((r) => setTimeout(r, 1500));
+      `Content-Length: ${Buffer.byteLength(lista)}\r\nConnection: close\r\n\r\n${lista.slice(0, 5)}`,
+    (erro) => erro ? reject(erro) : resolve()));
     // As outras tres sao usadas depois: a ocupada fica com o uso mais antigo de todas.
     for (const outra of ids.slice(2))
       assert.equal((await pedir(b.s.porta, { cabecalhos: { ...autorizado, ...versao, 'Mcp-Session-Id': outra }, corpo: lista })).status, 200);
@@ -514,7 +525,8 @@ test('GX8: a sessao MCP que passa do limite despeja a ociosa usada ha mais tempo
     assert.equal((await pedir(b.s.porta, { cabecalhos: { ...autorizado, ...versao, 'Mcp-Session-Id': ids[2] }, corpo: lista })).status, 404,
       'saiu a ociosa seguinte, nao a ocupada');
     sock.write(lista.slice(5));
-    await esperarAte(() => fechou, 20000);
+    confirmarEventoConvertido(await esperarEventoAssincronoDepoisDaFronteira(
+      () => fechou ? true : null, 'resposta da sessão ocupada', 30_000));
     assert.match(Buffer.concat(resposta).toString('utf8'), /^HTTP\/1\.1 200 /, 'a sessao ocupada seguiu de pe e respondeu');
   } finally { sock?.destroy(); b.limpar(); }
 });
@@ -537,7 +549,7 @@ test('GX9: no sandbox, a conexao tem de vir da arvore de processos do grok do de
       const req = require('node:http').request({ host: '127.0.0.1', port: ${dentro.s.porta}, method: 'POST', path: '/mcp',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', Authorization: 'Bearer ${dentro.token}' } },
         (res) => { process.stdout.write(String(res.statusCode)); res.resume(); });
-      req.end(${JSON.stringify(JSON.stringify(INICIO))});`], { encoding: 'utf8', timeout: 30000 });
+      req.end(${JSON.stringify(JSON.stringify(INICIO))});`], { encoding: 'utf8' });
     assert.equal(filho.stdout, '200', filho.stderr);
     // GO-FIX 3: o cliente da arvore com socket IPv6, no endereco v4-mapeado, aparece no /proc/net/tcp6 e tambem entra.
     const v6 = await new Promise<number | string>((resolve) => {
@@ -559,8 +571,10 @@ test('GX9: no sandbox, a conexao tem de vir da arvore de processos do grok do de
 test('GX10: a conexao que chega antes do .process.json do supervisor espera por ele e entra; a recusa so vem depois de ve-lo', async () => {
   const b = bancada('gx10-corrida', { semPartida: true, prazoDaPartidaMs: 20000 });
   try {
-    const pedido = pedir(b.s.porta, { cabecalhos: { Authorization: `Bearer ${b.token}` } });
-    await new Promise((r) => setTimeout(r, 1500));
+    let confirmarConexao!: () => void;
+    const conexao = new Promise<void>((resolve) => { confirmarConexao = resolve; });
+    const pedido = pedir(b.s.porta, { cabecalhos: { Authorization: `Bearer ${b.token}` }, aoConectar: confirmarConexao });
+    await conexao;
     // O supervisor grava o .process.json depois: o "grok" e o proprio processo do teste.
     gravarAtomico(`${b.logPath}.process.json`, { schema: 'ork.codex-process/v1', iniciadoEm: new Date().toISOString(),
       supervisor: identidadeProcesso(process.pid), filho: identidadeProcesso(process.pid) });
@@ -604,7 +618,8 @@ test('GX12: a recusa da conferencia fecha a conexao, e o log das recusas tem tet
     const corpo = JSON.stringify(INICIO);
     sock.write(`POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:${b.s.porta}\r\nAuthorization: Bearer ${b.token}\r\nContent-Type: application/json\r\n` +
       `Accept: application/json, text/event-stream\r\nConnection: keep-alive\r\nContent-Length: ${Buffer.byteLength(corpo)}\r\n\r\n${corpo}`);
-    await esperarAte(() => fechou, 20000);
+    confirmarEventoConvertido(await esperarEventoAssincronoDepoisDaFronteira(
+      () => fechou ? true : null, 'resposta da conexão recusada', 30_000));
     const resposta = Buffer.concat(partes).toString('utf8');
     assert.match(resposta, /^HTTP\/1\.1 403 /);
     assert.match(resposta, /\r\nConnection: close\r\n/i);
@@ -632,10 +647,12 @@ test('GX13: os pedidos em pipeline que ficam sem resposta, depois da recusa com 
       `Accept: application/json, text/event-stream\r\nContent-Length: ${Buffer.byteLength(corpo)}\r\n\r\n${corpo}`;
     // Doze pedidos de uma vez: o primeiro recebe o 403 com Connection: close, e as respostas dos outros nunca ganham o socket.
     sock.write(pedido.repeat(12));
-    await esperarAte(() => fechou, 20000);
+    confirmarEventoConvertido(await esperarEventoAssincronoDepoisDaFronteira(
+      () => fechou ? true : null, 'fecho do pipeline recusado', 30_000));
     // O despacho encerra o servidor: sem pedido preso na conta, ele sai na hora, sem o teto de 10 min do fecho.
     b.s.encerrar();
-    esperarCondicao(() => lerReciboServidorGrok(b.s.reciboPath)?.estado === 'encerrado', 15000);
+    esperarEventoDepoisDaFronteira(() => lerReciboServidorGrok(b.s.reciboPath)?.estado === 'encerrado' ? true : null,
+      'recibo terminal do servidor após o pipeline', 30_000);
     assert.equal(lerReciboServidorGrok(b.s.reciboPath)?.motivo, 'sinal');
     // GO-FIX 5: um ouvinte de close por socket, e nao um por pedido: o aviso de ouvintes demais do Node nao vai ao log.
     assert.equal(logDoServidor(b).includes('MaxListenersExceededWarning'), false, logDoServidor(b));

@@ -30,7 +30,7 @@ import { capacidadeDaRotacao, capacidadeDoRuntimeNoProjeto, contextoDoProjeto, n
   RUNTIMES_FORA_DOS_DESTINOS_AUTOMATICOS, validarContextoDoGrok, validarContextoRuntime } from '../src/runtime-context';
 import { lerLedger } from '../src/ledger';
 import { commitar, projetoTemporario } from './apoio';
-import { esperarCondicao } from './controller-simulado';
+import { esperarEventoDepoisDaFronteira } from './espera-evento';
 import { grokFalso } from './grok-falso';
 
 const CLI = path.resolve(__dirname, '../src/index.js');
@@ -310,7 +310,9 @@ test('GM9: o despacho real grava a config da worktree vinculada a thread e ao de
     assert.deepEqual(liberadasMcpNoGrok(r.comando), [...CONSULTAS, 'ork_git_status', ...MUTACOES].map((f) => `MCPTool(orkastery__${f})`));
     assert.deepEqual(liberadasTerminalNoGrok(r.comando), regrasDosComandosDoGrok());
     assert.deepEqual(stub.compat(), [['0', '0']], 'o filho nao carrega o MCP do Claude nem o do Cursor');
-    esperarCondicao(() => lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.sessionId === sid), 60000);
+    esperarEventoDepoisDaFronteira(
+      () => lerLedger(dirThread(p.dir, t.id)).find((e) => e.tipo === 'phase_result' && e.sessionId === sid) ?? null,
+      'phase_result do despacho Grok com MCP', 20_000);
   } finally { p.limpar(); stub.restaurar(); }
 });
 
@@ -399,7 +401,9 @@ test('GM11: sem o MCP do ork, o filho do grok tambem roda sem o MCP do Claude e 
     assert.deepEqual(liberadasNoGrok(r.comando), regrasDosComandosDoGrok(), 'sem MCP, ficam somente os comandos fechados');
     assert.equal(r.comando[r.comando.indexOf('--permission-mode') + 1], 'dontAsk');
     assert.equal(fs.existsSync(path.join(t.worktree!, '.grok')), false);
-    esperarCondicao(() => lerLedger(dirThread(p.dir, t.id)).some((e) => e.tipo === 'phase_result' && e.sessionId === sid), 60000);
+    esperarEventoDepoisDaFronteira(
+      () => lerLedger(dirThread(p.dir, t.id)).find((e) => e.tipo === 'phase_result' && e.sessionId === sid) ?? null,
+      'phase_result do despacho Grok sem MCP herdado', 20_000);
   } finally {
     if (herdada === undefined) delete process.env.GROK_CLAUDE_MCPS_ENABLED; else process.env.GROK_CLAUDE_MCPS_ENABLED = herdada;
     p.limpar(); stub.restaurar();

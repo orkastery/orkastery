@@ -103,12 +103,14 @@ function launch(pgidFile: string, timeoutMs: number, bin: string, args: string[]
   const kill = (): void => { if (child.pid) try { process.kill(-child.pid, 'SIGKILL'); } catch { /* gone */ } };
   child.on('error', e => { process.stderr.write(`${(e as Error).message}\n`); process.exit(127); });
   if (child.pid) fs.writeFileSync(pgidFile, String(child.pid));
-  const timer = setTimeout(() => { fs.writeFileSync(`${pgidFile}${LAUNCH_TIMEOUT_SUFFIX}`, ''); kill(); }, timeoutMs);
+  const timer = Number.isFinite(timeoutMs)
+    ? setTimeout(() => { fs.writeFileSync(`${pgidFile}${LAUNCH_TIMEOUT_SUFFIX}`, ''); kill(); }, timeoutMs)
+    : undefined;
   for (const s of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) {
     process.on(s, () => { kill(); process.exit(128 + (os.constants.signals[s] ?? 15)); });
   }
   child.on('exit', (code, signal) => {
-    clearTimeout(timer);
+    if (timer) clearTimeout(timer);
     kill(); // background processes the tool left in its group
     fs.rmSync(pgidFile, { force: true });
     process.exit(code ?? 128 + (signal ? os.constants.signals[signal] ?? 9 : 9));

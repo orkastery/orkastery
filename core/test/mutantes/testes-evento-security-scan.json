@@ -1,0 +1,15 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "A fixture real do security-scan delega o teto ao verificador externo.",
+  "mutantes": [
+    {
+      "id": "SECURITY-SCAN-PRAZO-INTERNO",
+      "descricao": "o executor volta a enviar um timeout inválido para a espera sem teto interno",
+      "modulo": "security-scan/executor",
+      "de": "return Number.isFinite(timeoutMs) ? { timeout: timeoutMs } : {};",
+      "para": "return { timeout: timeoutMs };",
+      "teste": "security-scan-run",
+      "nome": "^prazo do executor:"
+    }
+  ]
+}

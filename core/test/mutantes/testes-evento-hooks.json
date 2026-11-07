@@ -1,0 +1,24 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "Os hooks convertidos aguardam a saída real e preservam o status terminal.",
+  "mutantes": [
+    {
+      "id": "HOOK-A7-STATUS",
+      "descricao": "a saída bem-sucedida do hook de A7 chega como falha",
+      "arquivo": "core/dist-test/test/processo-evento.js",
+      "de": "filho.once('close', (status, signal) => { terminal = { status, signal, stdout, stderr }; });",
+      "para": "filho.once('close', (status, signal) => { terminal = { status: status === 0 ? 1 : status, signal, stdout, stderr }; });",
+      "teste": "claude-sensors",
+      "nome": "^A7:"
+    },
+    {
+      "id": "HOOK-STOP-STATUS",
+      "descricao": "a saída bem-sucedida do hook do Stop chega como falha",
+      "arquivo": "core/dist-test/test/processo-evento.js",
+      "de": "filho.once('close', (status, signal) => { terminal = { status, signal, stdout, stderr }; });",
+      "para": "filho.once('close', (status, signal) => { terminal = { status: status === 0 ? 1 : status, signal, stdout, stderr }; });",
+      "teste": "rm037-defeitos2010-ociosa",
+      "nome": "^defeito 4 \\(CHECK 3\\): o hook do Stop conta"
+    }
+  ]
+}

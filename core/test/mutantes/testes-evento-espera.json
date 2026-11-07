@@ -1,0 +1,15 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "A espera por evento volta a encerrar por uma quantidade fixa de consultas.",
+  "mutantes": [
+    {
+      "id": "ESPERA-EVENTO",
+      "descricao": "a espera sincrona abandona o evento depois de poucas consultas",
+      "arquivo": "core/dist-test/test/espera-evento.js",
+      "de": "function esperarEvento(ler, descricao, opcoes = {}) {\n    for (;;) {",
+      "para": "function esperarEvento(ler, descricao, opcoes = {}) {\n    for (let tentativas = 0; tentativas < 2; tentativas++) {",
+      "teste": "espera-evento",
+      "nome": "^espera por evento síncrona aceita"
+    }
+  ]
+}
