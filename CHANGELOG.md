@@ -6,7 +6,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Alterado
+
+- **Claims e CPU fora do caminho crítico — M11 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** o Agile antecipa claims independentes; a integração encadeada começa depois da varredura com a reserva dela, enquanto a varredura devolve essa reserva à hermética quando a integração já roda em paralelo; o adaptador aplica a cota aceita pelo runtime ou recua para o `argv` anterior, sem mudar o Classic; o ganho aguarda a bancada (RM-074, M11).
+
 ### Corrigido
+
+- **Claims auditadas pelas lanes — M12 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** o Agile com lanes usa uma única regra para montar, executar e assinar o ambiente funcional de lanes e claims, inclusive no filho das recusadas em lote, sem recuperar `BASH_ENV`, `ENV` ou outro transporte retirado. O recibo conserva a ordem de claims antecipadas, reaproveitadas e recusadas; a claim sem a cota exclusiva da integração roda de verdade, e exceções fecham relatório, temporário e casa da rodada. As recusas tipadas, o isolamento padrão do `node --test` e o Classic permanecem, e o ganho aguarda a bancada.
 
 - **Testes de processo sob disputa de CPU ([RM-081](docs/roadmap/RM-081-check-por-qualquer-runner.md)):** fixtures que aguardam fila, recibo, estado, resultado ou término de processo passam a fechar pelo evento e pelo conteúdo observado; regras temporais continuam com relógio injetado ou com a proteção explícita do verify.
 
