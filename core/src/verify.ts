@@ -382,22 +382,17 @@ export function causaDoEncerramento(r: { code: number; signal: string | null; er
 /** I-37 (D8): o que o ledger grava de um comando. Sucesso e o codigo 0; falha leva a evidencia. */
 export function comandoNoLedger(c: ResultadoDeComando): Record<string, unknown> {
   const seguro = resultadoDeComandoRedigido(c);
-  const preparo = seguro.preparo ? { ...seguro.preparo,
-    ...(c.preparo?.passos ? { passosSha256: c.preparo.passos.map(impressaoDoComando) } : {}) } : undefined;
   const lanes = seguro.lanes?.map((lane, indice) => {
     const original = c.lanes![indice];
-    return { ...lane, comandoSha256: impressaoDoComando(original.comando),
-      ...(original.comandoExecutado
-        ? { comandoExecutadoSha256: impressaoDoComando(original.comandoExecutado) } : {}) };
+    return { ...lane, comandoSha256: impressaoDoComando(original.comando) };
   });
   // RM-072 (D2): a duracao vai tambem no comando que passa, para a meta do CHECK ser medida pelo ledger. RM-072 (D4, D5):
   // no Agile, o uso do preparo e as lanes; o Classic nao tem esses campos.
-  const doAgile = { ...(preparo ? { preparo } : {}),
+  const doAgile = { ...(seguro.preparo ? { preparo: seguro.preparo } : {}),
     ...(seguro.agendamento ? { agendamento: seguro.agendamento } : {}),
     ...(seguro.lane ? { lane: seguro.lane } : {}),
     ...(lanes ? { lanes } : {}),
-    ...(seguro.comandoExecutado ? { comandoExecutado: seguro.comandoExecutado,
-      comandoExecutadoSha256: impressaoDoComando(c.comandoExecutado!) } : {}),
+    ...(seguro.comandoExecutado ? { comandoExecutado: seguro.comandoExecutado } : {}),
     ...(seguro.parcial ? { parcial: seguro.parcial } : {}),
     ...(seguro.junit ? { junit: seguro.junit } : {}),
     ...(seguro.retesteDeRelogio ? { retesteDeRelogio: seguro.retesteDeRelogio } : {}) };
