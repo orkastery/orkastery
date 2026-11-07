@@ -1,0 +1,42 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-079 F2: cada mutante devolve um defeito observado e precisa morrer no teste focado correspondente.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "o parser volta a sobrescrever uma opção repetível com a última ocorrência",
+      "modulo": "index",
+      "de": "(multiplas[grupo] ??= []).push(ocorrencia.valor);",
+      "para": "multiplas[grupo] = [ocorrencia.valor];",
+      "teste": "rm079-f2-args",
+      "nome": "^RM-079 F2: o parser preserva"
+    },
+    {
+      "id": "M2",
+      "descricao": "a regra da referência local sai das regras fatais de claim",
+      "modulo": "claim-lint",
+      "de": "'binario-rg', 'ork-fora-do-path', 'estado-local', 'aspas-escapadas', 'ref-local-do-ramo-base',",
+      "para": "'binario-rg', 'ork-fora-do-path', 'estado-local', 'aspas-escapadas',",
+      "teste": "rm079-f2-claim-lint",
+      "nome": "^RM-079 F2: a ref local configurada"
+    },
+    {
+      "id": "M3",
+      "descricao": "a regra passa a confundir origin/base com a referência local do ramo base",
+      "modulo": "claim-lint",
+      "de": "return token === ramoBase || token.startsWith(`${ramoBase}..`) || token.endsWith(`..${ramoBase}`);",
+      "para": "return token === ramoBase || token.endsWith(`/${ramoBase}`) || token.startsWith(`${ramoBase}..`) || token.endsWith(`..${ramoBase}`);",
+      "teste": "rm079-f2-claim-lint",
+      "nome": "^RM-079 F2: refs remotas"
+    },
+    {
+      "id": "M4",
+      "descricao": "o fim de fase deixa de produzir o aviso de artefato fora do estado",
+      "modulo": "ledger",
+      "de": "return (0, phase_artifact_warning_1.avisosDeArtefatoForaDoEstado)(dir).map((aviso) => ({ ts: (0, util_1.agora)(), thread: threadId, ...aviso,\n        fase: dados.fase, origem: 'phase_result', eventId: (0, node_crypto_1.randomUUID)() }));",
+      "para": "return [];",
+      "teste": "rm079-f2-artifact-warning",
+      "nome": "^RM-079 F2: phase_result registra"
+    }
+  ]
+}
