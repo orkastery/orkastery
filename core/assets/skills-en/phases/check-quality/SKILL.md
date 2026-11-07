@@ -44,9 +44,13 @@ and `web-performance-auditor`. Each one runs in its own scope and returns catego
 
 ## Claims and defect reproductions
 
+The canonical CHECK report lives in the thread state: write it with `ork_artifact_write`, using
+the `check` type. A `docs/check.md` file in the worktree is not the report and does not replace
+that artifact.
+
 - A claim created during CHECK states the expected correct behavior and must pass after the fix.
   It never states that the defect still occurs.
-- The command that reproduces the defect stays only in the report (`docs/check.md`) as finding
+- The command that reproduces the defect stays only in the canonical report as finding
   evidence; that command never becomes a claim.
 - A finding without a claim uses a machine-readable line for the correction cycle; the format
   tokens stay the same in both languages:
