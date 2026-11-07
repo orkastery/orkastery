@@ -1326,30 +1326,30 @@
       "lint": []
     },
     {
-      "id": "C97",
+      "id": "C99",
       "thread": "ork-rm079claimsq",
       "fase": "GO",
       "arquivo": "docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
       "alegacao": "A página da RM-079 passa no verificador de documentação, e a redação que ela descreve é provada pelos testes do produto.",
       "negativa": false,
       "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/verify-timeout.test.js core/dist-test/test/rm079-claims.test.js"
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/verify-timeout.test.js core/dist-test/test/rm079-claims.test.js && node core/dist/index.js docs verificar --pr"
       ],
-      "criadoEm": "2026-11-07T05:56:40.487Z",
+      "criadoEm": "2026-11-07T05:56:59.032Z",
       "estado": "pendente",
       "lint": []
     },
     {
-      "id": "C98",
+      "id": "C100",
       "thread": "ork-rm079claimsq",
       "fase": "GO",
       "arquivo": "CHANGELOG.md",
       "alegacao": "O bloco Não publicado segue a regra do CHANGELOG, e a redação de comando, CLI e MCP que ele anuncia é provada pelos testes do produto.",
       "negativa": false,
       "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/verify-timeout.test.js core/dist-test/test/rm079-claims.test.js"
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/verify-timeout.test.js core/dist-test/test/rm079-claims.test.js && node core/scripts/checar-changelog.cjs --base origin/main"
       ],
-      "criadoEm": "2026-11-07T05:56:40.980Z",
+      "criadoEm": "2026-11-07T05:56:59.520Z",
       "estado": "pendente",
       "lint": []
     }
