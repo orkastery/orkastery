@@ -687,13 +687,15 @@ export type MotivoGate =
 /** I-53 (RM-037, P6): as regras do lint de comando de claim (`claim-lint.ts`). */
 export type RegraDoLint = 'suite-inteira' | 'sha-intermediario' | 'contagem-de-commits'
   | 'binario-rg' | 'ork-fora-do-path' | 'estado-local' | 'aspas-escapadas'
-  | 'contexto-artificial' | 'artefato-de-fechamento';
+  | 'contexto-artificial' | 'artefato-de-fechamento' | 'ref-local-do-ramo-base';
 
 /** Um achado do lint: a regra, o pedaco do comando que casou e a forma certa. */
 export interface AchadoDoLint {
   regra: RegraDoLint;
   trecho: string;
   correcao: string;
+  /** Parametro da regra configuravel; permite remontar a correcao no locale de quem le. */
+  ramoBase?: string;
 }
 
 export interface Claim {
@@ -726,10 +728,14 @@ export interface Claim {
   origem?: 'nucleo.doneWhen';
   /**
    * I-53 (RM-037, P6): o lint dos comandos, calculado quando a claim nasce (vazio quando nada
-   * casou). A presenca do campo marca a claim nascida sob a regra: so ela pode ser recusada no
-   * `ci prepare`; a claim antiga recebe aviso (D16).
+   * casou). Os achados nao dizem quais regras foram avaliadas; essa marca fica em `regrasDoLint`.
    */
   lint?: AchadoDoLint[];
+  /**
+   * RM-079 F2 (D7): conjunto de regras avaliado quando a claim nasceu. Ausente significa claim
+   * anterior a essa marca; no `ci prepare`, uma regra fatal omitida daqui produz aviso, nunca recusa.
+   */
+  regrasDoLint?: RegraDoLint[];
 }
 
 /** RM-078: dependencias externas declaradas, nunca inferidas do texto do comando. */

@@ -1,0 +1,891 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm079f2aclai",
+  "branch": "ork/ork-rm079f2aclai-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "A CLI preserva na ordem as provas repetidas de claims e recusa duplicata escalar divergente com saída 2.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-args.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:10:31.452Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/src/claim-lint.ts",
+      "alegacao": "O lint usa o ramo-base configurado para recusar ref local nova sem marcar refs remotas nem argumentos apenas parecidos.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-claim-lint.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:10:31.515Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/src/ledger.ts",
+      "alegacao": "O fim de fase registra e expõe no status o caminho de artefato de fase não versionado fora do estado da thread.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-artifact-warning.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:10:31.575Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "skills/phases/check-quality/SKILL.md",
+      "alegacao": "A orientação CHECK e a narrativa pública descrevem o parecer no artefato canônico de tipo check.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-narrative.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:10:31.640Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-claims.ts",
+      "alegacao": "A ajuda bilíngue declara os comandos de claim que aceitam repetição e a recusa nomeia a opção divergente.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-args.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:15:25.183Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-ajuda.ts",
+      "alegacao": "A ajuda bilíngue declara os comandos de claim que aceitam repetição e a recusa nomeia a opção divergente.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-args.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:15:25.252Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm079-f2-args.test.ts",
+      "alegacao": "Os testes focados matam a sobrescrita de opção repetida e cobrem a recusa de escalar divergente.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-args.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:15:25.334Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f2a-pt-BR.json",
+      "alegacao": "A base de locale preserva a saída anterior e incorpora somente a ajuda ou uso repetível de claims.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-f2a-snapshot.test.js core/dist-test/test/locale-f3b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:18:23.574Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "A base de locale preserva a saída anterior e incorpora somente a ajuda ou uso repetível de claims.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-f2a-snapshot.test.js core/dist-test/test/locale-f3b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:18:23.658Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "O registro de claim propaga o ramo-base configurado e representa a nova regra fatal com correção localizada.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-claim-lint.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:22:14.819Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/src/claims.ts",
+      "alegacao": "O registro de claim propaga o ramo-base configurado e representa a nova regra fatal com correção localizada.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-claim-lint.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:22:14.891Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm079-f2-claim-lint.test.ts",
+      "alegacao": "Os testes autocontidos cobrem a fatalidade configurável e as exclusões de ref remota e tokens parecidos.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-claim-lint.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:22:14.947Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/src/ci.ts",
+      "alegacao": "O preparo do bundle relê a ref local contra o ramo-base configurado e mantém claims anteriores à regra como aviso.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-claim-lint.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:23:42.068Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/src/phase-artifact-warning.ts",
+      "alegacao": "A detecção de artefatos de fase fora do estado diferencia arquivos não versionados de arquivos rastreados e preserva a worktree.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-artifact-warning.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:27:24.869Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/src/ledger.ts",
+      "alegacao": "O resultado concluído de uma fase registra no ledger cada aviso tipado de artefato de fase fora do estado.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-artifact-warning.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:27:24.926Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm079-f2-artifact-warning.test.ts",
+      "alegacao": "A suíte cobre o registro do aviso, a preservação do arquivo, a exclusão de arquivo rastreado e a ausência do aviso em resultado bloqueado.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-artifact-warning.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:27:24.977Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/src/thread.ts",
+      "alegacao": "O resumo da thread apresenta o caminho de cada aviso registrado de artefato de fase fora do estado.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-artifact-warning.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:31:15.988Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-thread.ts",
+      "alegacao": "O aviso de artefato fora do estado tem redação localizada em português e inglês.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-artifact-warning.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:31:16.064Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "O status da thread inclui os avisos estruturados em JSON e no resumo textual.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-artifact-warning.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:31:16.145Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-server.ts",
+      "alegacao": "ork_thread_status devolve o aviso tipado, o caminho e o resumo correspondente.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-artifact-warning.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:31:16.220Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "skills/phases/check-quality/SKILL.md",
+      "alegacao": "A orientação em português define o artefato check como parecer canônico e rejeita docs/check.md na worktree como substituto.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-orientacao.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:32:50.974Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/claude-code/agents/ork-check.md",
+      "alegacao": "The English CHECK agent directs the report to ork_artifact_write with the check type.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-orientacao.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:32:51.046Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/agents/ork-check.md",
+      "alegacao": "O agente de CHECK em português orienta a gravação do parecer pelo ork_artifact_write com o tipo check.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-orientacao.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:32:51.117Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/assets/skills-en/phases/check-quality/SKILL.md",
+      "alegacao": "The English guidance defines the check artifact as the canonical report and rejects a worktree docs/check.md as its substitute.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-orientacao.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:32:51.183Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm079-orientacao.test.ts",
+      "alegacao": "A suíte de orientação cobre em português e inglês o artefato canônico de CHECK e a exclusão de docs/check.md na worktree.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-orientacao.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:33:07.905Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/orkastery/skills/phases/check-quality/SKILL.md",
+      "alegacao": "A cópia de marketplace para Claude Code corresponde à orientação CHECK em português.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-11-07T12:33:34.046Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/codex/orkastery/skills/phases/check-quality/SKILL.md",
+      "alegacao": "A cópia de marketplace para Codex corresponde à orientação CHECK em português.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-11-07T12:33:34.100Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/orkastery/agents/ork-check.md",
+      "alegacao": "A cópia de marketplace do agente CHECK corresponde à fonte em português.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-11-07T12:33:34.147Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
+      "alegacao": "A página da RM-079 registra o escopo e os critérios de aceite da fatia F2 sem prometer ganho não medido.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-narrative.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:34:57.523Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A seção Não publicado resume a execução de claims no CI, a ref remota do ramo base e o parecer canônico do CHECK.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-narrative.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:34:57.576Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm079-f2-narrative.test.ts",
+      "alegacao": "A suíte narrativa confere a página, o changelog e a paridade das cópias de marketplace com suas fontes.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-narrative.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:34:57.643Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm079-f2.json",
+      "alegacao": "Mutante da sobrescrita de opção repetível morre no teste do parser.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-f2.json M1"
+      ],
+      "criadoEm": "2026-11-07T12:36:10.669Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm079-f2.json",
+      "alegacao": "Mutante que retira a referência local das regras fatais morre no teste do lint.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-f2.json M2"
+      ],
+      "criadoEm": "2026-11-07T12:36:10.714Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm079-f2.json",
+      "alegacao": "Mutante que perde a exclusão de origin/base morre no teste de falsos positivos.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-f2.json M3"
+      ],
+      "criadoEm": "2026-11-07T12:36:10.762Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm079-f2.json",
+      "alegacao": "Mutante que deixa de registrar o aviso de artefato fora do estado morre no teste do ledger.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-f2.json M4"
+      ],
+      "criadoEm": "2026-11-07T12:36:10.817Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/variantes-en.json",
+      "alegacao": "A variante inglesa da orientação CHECK conserva a estrutura e referencia a versão atual da fonte em português.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-skills.test.js"
+      ],
+      "criadoEm": "2026-11-07T12:58:40.731Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/test/mcp-install.test.ts",
+      "alegacao": "As rotas MCP preservam suas recusas específicas e esperam saída 2 com o nome da opção quando uma opção escalar diverge.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/mcp-install.test.js"
+      ],
+      "criadoEm": "2026-11-07T13:00:17.779Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-claims.test.ts",
+      "alegacao": "A suíte de locale espera a ajuda inglesa que declara a repetição de comandos de claim.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-claims.test.js"
+      ],
+      "criadoEm": "2026-11-07T13:00:17.864Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/test/consulta-restrita-cli.test.ts",
+      "alegacao": "A consulta restrita continua fechada antes da memória e distingue uma opção escalar divergente pelo nome.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/consulta-restrita-cli.test.js"
+      ],
+      "criadoEm": "2026-11-07T13:00:17.967Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GOAL",
+      "arquivo": "core/test/preflight.test.ts",
+      "alegacao": "O teste de doctor distingue a recusa de uso da nova recusa global para opção escalar divergente.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/preflight.test.js"
+      ],
+      "criadoEm": "2026-11-07T13:00:18.112Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm079f2aclai",
+      "fase": "CHECK",
+      "arquivo": "core/src/ci.ts",
+      "alegacao": "Claims criadas antes da regra ref-local-do-ramo-base continuam somente como aviso no ci prepare mesmo quando já possuem o campo lint de regras anteriores.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-claim-lint.test.js"
+      ],
+      "criadoEm": "2026-11-07T15:18:56.190Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm079f2aclai",
+      "fase": "CHECK",
+      "arquivo": "core/src/claim-lint.ts",
+      "alegacao": "O lint detecta git rev-parse com o ramo-base configurado e não classifica texto citado por comando sem Git como referência local.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-claim-lint.test.js"
+      ],
+      "criadoEm": "2026-11-07T15:18:56.241Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm079f2aclai",
+      "fase": "CHECK",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "Toda opção escalar da CLI, inclusive --projeto e rotas com parser próprio, aceita repetição idêntica e recusa valores divergentes com saída 2 nomeando a opção.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-args.test.js"
+      ],
+      "criadoEm": "2026-11-07T15:18:56.294Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm079f2aclai",
+      "fase": "CHECK",
+      "arquivo": "core/test/rm079-f2-cli-reference.test.ts",
+      "alegacao": "A referência bilíngue da CLI é sustentada por teste de comportamento e pela paridade do docs verificar, sem grep circular do próprio documento.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-cli-reference.test.js && node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-11-07T15:18:56.351Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm079f2aclai",
+      "fase": "CHECK",
+      "arquivo": "docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
+      "alegacao": "A narrativa da RM-079 distingue as regras de lint que são somente aviso da regra fatal ref-local-do-ramo-base, sem afirmar que todo lint nunca recusa.",
+      "negativa": true,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-narrative.test.js"
+      ],
+      "criadoEm": "2026-11-07T15:19:21.681Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/src/maestro-cli.ts",
+      "alegacao": "O parser próprio do maestro aceita escalares idênticos e identifica a opção divergente no erro JSON.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-args.test.js"
+      ],
+      "criadoEm": "2026-11-07T15:36:08.325Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/test/rm079-f2-claim-lint.test.ts",
+      "alegacao": "A suíte focada cobre a marca legada, leitores de revisão, texto citado e shell com comando.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-claim-lint.test.js"
+      ],
+      "criadoEm": "2026-11-07T15:36:08.385Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/test/rm079-f2-args.test.ts",
+      "alegacao": "A suíte focada cobre a opção global e as rotas anteriores ao parser comum.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-args.test.js"
+      ],
+      "criadoEm": "2026-11-07T15:36:08.457Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/test/rm079-f2-narrative.test.ts",
+      "alegacao": "A suíte narrativa distingue lints de aviso da regra fatal de referência local.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-narrative.test.js"
+      ],
+      "criadoEm": "2026-11-07T15:36:08.542Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C52",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm079-f2.json",
+      "alegacao": "Os mutantes acrescentados devolvem isoladamente as regressões corrigidas nesta volta.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-f2.json M5",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-f2.json M6",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-f2.json M7",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-f2.json M8"
+      ],
+      "criadoEm": "2026-11-07T15:36:08.604Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/src/claims.ts",
+      "alegacao": "Claims novas recebem a marca de regras e claims legadas preservam a compatibilidade ao anexar prova.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/claim-lint.test.js",
+        "node --test core/dist-test/test/rm079-f2-claim-lint.test.js"
+      ],
+      "criadoEm": "2026-11-07T15:36:08.661Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C54",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "A claim persiste o conjunto de regras de lint avaliado no nascimento.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-claim-lint.test.js"
+      ],
+      "criadoEm": "2026-11-07T15:36:08.725Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/test/locale-claims.test.ts",
+      "alegacao": "A suíte de locale preserva a montagem bilíngue do aviso para claim anterior à marca.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-claims.test.js"
+      ],
+      "criadoEm": "2026-11-07T15:36:08.784Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C56",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/test/claim-lint.test.ts",
+      "alegacao": "A suíte legada preserva a recusa de claim marcada e o aviso de claim anterior à marca.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/claim-lint.test.js"
+      ],
+      "criadoEm": "2026-11-07T15:36:08.836Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C57",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3d-casos-produto.ts",
+      "alegacao": "O snapshot de locale representa claim nova com a marca da regra de suíte inteira.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-f3d-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-07T16:04:18.465Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C58",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/test/projeto-alvo-cli.test.ts",
+      "alegacao": "A suíte de projeto-alvo espera saída 2 e o nome de --projeto quando valores divergentes se repetem.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/projeto-alvo-cli.test.js"
+      ],
+      "criadoEm": "2026-11-07T16:04:18.534Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C59",
+      "thread": "ork-rm079f2aclai",
+      "fase": "CHECK",
+      "arquivo": "core/test/projeto-alvo-cli.test.ts",
+      "alegacao": "A suíte de projeto-alvo confere integralmente a mensagem de saída 2 para --projeto repetido com valores divergentes.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/projeto-alvo-cli.test.js"
+      ],
+      "criadoEm": "2026-11-07T17:06:07.358Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-rm079f2aclai",
+      "fase": "CHECK",
+      "arquivo": "core/src/intelligence-graph-cli.ts",
+      "alegacao": "A rota grafo aceita opção escalar ou flag repetida com valor idêntico e recusa somente valores divergentes com saída 2 e o nome da opção, inclusive em JSON.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-args.test.js"
+      ],
+      "criadoEm": "2026-11-07T17:06:07.443Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm079-f2.json",
+      "alegacao": "Mutante que restaura a recusa da repetição idêntica no grafo morre no teste focado.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-f2.json M9"
+      ],
+      "criadoEm": "2026-11-07T17:21:58.052Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C62",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/test/intelligence-graph-index.test.ts",
+      "alegacao": "A suíte histórica do grafo preserva as recusas de uso e aceita repetições idênticas de bandeira e de opção com valor.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/intelligence-graph-index.test.js"
+      ],
+      "criadoEm": "2026-11-07T17:21:58.129Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C63",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3d-casos-memoria.ts",
+      "alegacao": "Os casos de locale do grafo representam a recusa de valores escalares divergentes sem tratar repetição idêntica como erro.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-f3d-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-07T17:21:58.207Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C64",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3d-pt-BR.json",
+      "alegacao": "O snapshot de locale do grafo conserva a mensagem pública da recusa de opção escalar divergente.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-f3d-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-07T17:21:58.276Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}

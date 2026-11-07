@@ -12,6 +12,7 @@ import { agora } from './util';
 import { randomUUID } from 'node:crypto';
 import { durableAppend } from './company-brain-journal';
 import { ErroDoCatalogo } from './locale';
+import { avisosDeArtefatoForaDoEstado, TIPO_AVISO_ARTEFATO_FORA_DO_ESTADO } from './phase-artifact-warning';
 
 /** Tipos de evento do ledger. B0 abriu a lista; o B1 acrescenta os seus. */
 export const TIPOS_DE_EVENTO = {
@@ -178,7 +179,15 @@ export const TIPOS_DE_EVENTO = {
   entregaNaFila: 'session_delivery_queued',
   entregaEnviada: 'session_delivery_sent',
   entregaReservada: 'session_delivery_reserved',
+  /** RM-079 F2: cópia não versionada de GOAL/PLAN/CHECK deixada na raiz da worktree. */
+  artefatoDeFaseForaDoEstado: TIPO_AVISO_ARTEFATO_FORA_DO_ESTADO,
 } as const;
+
+function eventosDeArtefatoSolto(dir: string, threadId: string, dados: Record<string, unknown>): EventoLedger[] {
+  if (dados.classificacao !== undefined && dados.classificacao !== 'fase_concluida') return [];
+  return avisosDeArtefatoForaDoEstado(dir).map((aviso) => ({ ts: agora(), thread: threadId, ...aviso,
+    fase: dados.fase, origem: 'phase_result', eventId: randomUUID() } as EventoLedger));
+}
 
 /**
  * I-41 (GO-FIX 1, B4 e D11): o rastro tipado da decisao autonoma.
@@ -213,8 +222,11 @@ export function registrar(
   dados: Record<string, unknown> = {}
 ): EventoLedger {
   if (tipo === TIPOS_DE_EVENTO.decisaoAutonoma) exigirRastroDeDecisaoAutonoma(dados);
-  const evento: EventoLedger = { ts: agora(), thread: threadId, tipo, ...dados, eventId: randomUUID() };
   fs.mkdirSync(dirThread, { recursive: true });
+  if (tipo === 'phase_result') {
+    for (const aviso of eventosDeArtefatoSolto(dirThread, threadId, dados)) durableAppend(caminhoLedger(dirThread), aviso);
+  }
+  const evento: EventoLedger = { ts: agora(), thread: threadId, tipo, ...dados, eventId: randomUUID() };
   durableAppend(caminhoLedger(dirThread), evento);
   return evento;
 }
@@ -244,7 +256,12 @@ export function registrarSeExiste(
     throw e;
   }
   const evento: EventoLedger = { ts: agora(), thread: threadId, tipo, ...dados, eventId: randomUUID() };
-  try { fs.writeFileSync(fd, JSON.stringify(evento) + '\n'); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+  try {
+    if (tipo === 'phase_result') {
+      for (const aviso of eventosDeArtefatoSolto(dirThread, threadId, dados)) fs.writeFileSync(fd, JSON.stringify(aviso) + '\n');
+    }
+    fs.writeFileSync(fd, JSON.stringify(evento) + '\n'); fs.fsyncSync(fd);
+  } finally { fs.closeSync(fd); }
   return evento;
 }
 

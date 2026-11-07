@@ -39,7 +39,8 @@ function casosDaCriacao(casos: Casos, amb: Ambiente): void {
 
 function casosDoCi(casos: Casos, amb: Ambiente): void {
   const claim = (id: string, verificar: string[], lint?: boolean) =>
-    ({ id, arquivo: 'README.md', alegacao: 'x', verificar, estado: 'pendente', ...(lint ? { lint: { versao: 1 } } : {}) });
+    ({ id, arquivo: 'README.md', alegacao: 'x', verificar, estado: 'pendente',
+      ...(lint ? { lint: [], regrasDoLint: ['suite-inteira'] } : {}) });
   caso(casos, 'ci: lint do bundle com claim anterior ao lint', () => JSON.stringify(lintDoBundle([claim('C1', ['npm --prefix core test'])] as never), null, 1));
   caso(casos, 'ci: lint do bundle com recusa', () => JSON.stringify(lintDoBundle([claim('C2', ['npm --prefix core test'], true)] as never), null, 1));
   const repo = projeto('ci', 'ork', amb);

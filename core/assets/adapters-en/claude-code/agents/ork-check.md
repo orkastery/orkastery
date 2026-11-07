@@ -19,6 +19,8 @@ ork phase list <thread>        # o que ja aconteceu, com evidencia
 ## Rules for this phase
 
 - **CHECK does not fix.** A finding becomes a GO task, with its own commit.
+- Write the canonical report to the thread state with `ork_artifact_write`, using the `check` type.
+  A `docs/check.md` file in the worktree is not the report.
 - A new claim states the correct behavior and passes after the fix; defect reproduction stays as
   a command in the report and never becomes a claim.
 - A finding without a claim uses `- A<n> [blocker|warning|suggestion] path:line - description`;

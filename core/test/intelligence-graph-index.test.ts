@@ -711,13 +711,12 @@ function grafo(dir: string, ...argv: string[]): { codigo: number | null; saida: 
   }
 }
 
-test('KG3 cli: o parser recusa subcomando, opcao desconhecida ou repetida, bandeira com valor, valor ausente e posicionais errados', () => {
+test('KG3 cli: o parser aceita repeticao identica e recusa opcao divergente, desconhecida ou malformada', () => {
   const recusa = (re: RegExp, ...argv: string[]) => assert.throws(() => lerPedido(argv), re, argv.join(' '));
   recusa(/^Error: grafo\.uso: falta o subcomando/);
   recusa(/subcomando desconhecido: apagar/, 'apagar');
   recusa(/subcomando desconhecido: constructor/, 'constructor');
   recusa(/opcao desconhecida para vizinhos: --forcar/, 'vizinhos', 'x', '--forcar');
-  recusa(/--json repetida/, 'status', '--json', '--json');
   recusa(/--limite repetida/, 'vizinhos', 'x', '--limite', '1', '--limite=2');
   recusa(/--json nao leva valor/, 'status', '--json=sim');
   recusa(/--profundidade exige valor/, 'vizinhos', 'x', '--profundidade');
@@ -728,6 +727,8 @@ test('KG3 cli: o parser recusa subcomando, opcao desconhecida ou repetida, bande
   // `--json` seguido de posicional nao engole o no, como o parser geral do ork faria.
   const p = lerPedido(['chamadores', '--json', 'soma']);
   assert.deepEqual([p.posicionais, [...p.bandeiras]], [['soma'], ['json']]);
+  assert.deepEqual([...lerPedido(['status', '--json', '--json']).bandeiras], ['json']);
+  assert.deepEqual([...lerPedido(['vizinhos', 'x', '--limite', '1', '--limite=1']).valores], [['limite', '1']]);
   assert.deepEqual([...lerPedido(['vizinhos', 'x', '--tipo=calls,imports']).valores], [['tipo', 'calls,imports']]);
 });
 

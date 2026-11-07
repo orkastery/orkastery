@@ -77,6 +77,22 @@ sdlc:
   - um mutante por regra morre.
 - **Piloto, medição e critérios de expansão/interrupção:** piloto nos próximos CHECKs `#Auto`.
 
+## F2 — A claim roda no CI como a sessão escreveu
+
+**O que entrou:** `claims add` preserva, na ordem, cada `--verificar` ou `--verify` repetido, e
+`claims verificar` faz o mesmo com `--comando`; opção de valor único repetida com valores diferentes
+é recusada e nomeada. O lint usa o ramo base do manifesto para recusar em claims novas uma referência
+local inexequível no runner e orienta `origin/<base>`, sem confundir a referência remota, texto de
+`grep`, nome de arquivo ou opção parecida. O parecer canônico do CHECK fica no artefato `check` do
+estado da thread; uma cópia não versionada em `docs/goal.md`, `docs/plan.md` ou `docs/check.md` gera
+aviso tipado no status e permanece na worktree.
+
+**Critérios de aceite:** a CLI e o MCP persistem todas as provas repetidas no formato existente; a
+regra da referência local é fatal na criação, mas continua aviso para claim anterior à regra; a ajuda
+bilíngue e suas bases de locale descrevem a repetição; a orientação bilíngue manda usar
+`ork_artifact_write` com o tipo `check`; e testes autocontidos protegem a preservação das opções, a
+fatalidade e a exclusão de `origin/`, além do registro do aviso do artefato fora do estado.
+
 ## Fora do escopo
 
 Os itens abaixo já existem na `main`, não foram introduzidos pela RM-079 e serão tratados em item próprio de roadmap:
@@ -95,7 +111,9 @@ Também fica fora mudar o formato persistido das claims.
 - **Prioridade / método / pontuação / justificativa / data:** 5ª da fila de achados de condução em rede (31/10/2026). Média: é menos frequente, mas cada caso vira trabalho do dono.
 - **Horizonte / alvo / previsão / confiança / marcos:** a definir pelo dono.
 - **Dependências e bloqueios (ID, owner, próxima revisão):** lint de claims da [RM-037](RM-037-verify-rapido-e-confiavel.md); políticas do [RM-008](RM-008-loop-de-aprendizado.md); "só sobe ao dono o que é ato dele" da [RM-063](RM-063-fabrica-que-nao-para.md).
-- **Premissas / riscos / mitigação:** lint com falso positivo; mitigação: só aviso, nunca recusa.
+- **Premissas / riscos / mitigação:** as regras de orientação do lint continuam somente aviso; a regra
+  `ref-local-do-ramo-base` é fatal para claims nascidas sob ela. Falsos positivos dessa regra são
+  mitigados pela análise do contexto executado e pelos casos negativos da suíte.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):**
   1. Só orientação: barato, mas não pega o erro.
   2. Orientação, lint de aviso e retirada tipada (recomendada).

@@ -385,7 +385,7 @@ function casosDoGrafoCli(casos: Casos, amb: Ambiente): void {
   const usos: ReadonlyArray<readonly [string, string[]]> = [
     ['sem subcomando', []],
     ['subcomando desconhecido em json', ['voar', '--json']],
-    ['opcao repetida', ['indexar', '--forcar', '--forcar']],
+    ['opcao repetida', ['vizinhos', 'src/a.ts', '--limite', '1', '--limite', '2']],
     ['bandeira com valor', ['indexar', '--forcar=sim']],
     ['opcao sem valor', ['vizinhos', 'src/a.ts', '--limite']],
     ['opcao desconhecida', ['status', '--rapido']],

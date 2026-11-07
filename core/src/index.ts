@@ -250,6 +250,7 @@ import { jsonSemInvisivel } from './saida-segura';
 import { ehNomeDeForja } from './rede-forja';
 import { jsonDaRede, lerRede, textoDaRede } from './rede-status';
 import { lerLedger } from './ledger';
+import { avisosDeArtefatoRegistrados } from './phase-artifact-warning';
 import { gateDeTokens, textoDoGateDeTokens } from './tokens';
 import { ClasseDeFalha, ColecaoDoOrk, DependenciaExternaDaClaim, Fase, FASES, FonteDeMedida, Modo, MotivoGate, UniversoDaBusca } from './types';
 import { PreparoDasDependencias, ultimaLinhaDoPreparo } from './dependencias-da-worktree';
@@ -287,36 +288,67 @@ const VERSAO = VERSAO_DO_ORK;
 interface Args {
   posicionais: string[];
   opcoes: Record<string, string | boolean>;
+  /** Opcoes que o comando declara como repetiveis, preservadas na ordem do argv. */
+  multiplas: Record<string, Array<string | boolean>>;
+  /** Opcoes escalares repetidas com valores diferentes; a borda responde com saida 2. */
+  repetidasDivergentes: string[];
 }
 
 /** Parse simples de argumentos: `--chave valor`, `--chave=valor` e flags booleanas. */
 export function parseArgs(argv: string[]): Args {
   const posicionais: string[] = [];
   const opcoes: Record<string, string | boolean> = {};
+  const ocorrencias: Array<{ nome: string; valor: string | boolean }> = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a.startsWith('--')) {
       const igual = a.indexOf('=');
       if (igual > 0) {
-        opcoes[a.slice(2, igual)] = a.slice(igual + 1);
+        ocorrencias.push({ nome: a.slice(2, igual), valor: a.slice(igual + 1) });
       } else {
         const proximo = argv[i + 1];
         if (proximo !== undefined && !proximo.startsWith('--')) {
-          opcoes[a.slice(2)] = proximo;
+          ocorrencias.push({ nome: a.slice(2), valor: proximo });
           i++;
         } else {
-          opcoes[a.slice(2)] = true;
+          ocorrencias.push({ nome: a.slice(2), valor: true });
         }
       }
     } else {
       posicionais.push(a);
     }
   }
-  return { posicionais, opcoes };
+  const grupoRepetivel = (nome: string): string | null => {
+    if (posicionais[0] !== 'claims') return null;
+    if (posicionais[1] === 'add' && (nome === 'verificar' || nome === 'verify')) return 'verificar';
+    if (posicionais[1] === 'verificar' && (nome === 'comando' || nome === 'verificar')) return 'comando';
+    return null;
+  };
+  const multiplas: Record<string, Array<string | boolean>> = {};
+  const repetidasDivergentes: string[] = [];
+  for (const ocorrencia of ocorrencias) {
+    const grupo = grupoRepetivel(ocorrencia.nome);
+    if (grupo) {
+      (multiplas[grupo] ??= []).push(ocorrencia.valor);
+      if (!(grupo in opcoes)) opcoes[grupo] = ocorrencia.valor;
+      continue;
+    }
+    const anterior = opcoes[ocorrencia.nome];
+    if (anterior === undefined) opcoes[ocorrencia.nome] = ocorrencia.valor;
+    else if (anterior !== ocorrencia.valor && !repetidasDivergentes.includes(ocorrencia.nome)) {
+      repetidasDivergentes.push(ocorrencia.nome);
+    }
+  }
+  return { posicionais, opcoes, multiplas, repetidasDivergentes };
 }
 
 function texto(v: string | boolean | undefined): string | undefined {
   return typeof v === 'string' ? v : undefined;
+}
+
+function textos(args: Args, nome: string): string[] | null {
+  const valores = args.multiplas[nome] ?? [];
+  return valores.length > 0 && valores.every((v): v is string => typeof v === 'string') ? valores : null;
 }
 
 /**
@@ -637,14 +669,15 @@ function comandoThread(args: Args): number {
       return 2;
     }
     const thread = lerThread(carregado.raiz, id);
+    const avisos = avisosDeArtefatoRegistrados(lerLedger(dirThread(carregado.raiz, id)));
     if (args.opcoes.json === true) {
       // Idem: `ork thread status <id> --json` imprimia o TEXTO e saia 0.
-      console.log(JSON.stringify(thread, null, 2));
+      console.log(JSON.stringify({ ...thread, avisos }, null, 2));
       return 0;
     }
     console.log(`Thread ${thread.id}`);
     // I-36 (T17): a linha de conducao vem da leitura unica do nucleo.
-    console.log(resumoDaThread(thread, conducaoDaThread(carregado.raiz, thread.id)));
+    console.log(resumoDaThread(thread, conducaoDaThread(carregado.raiz, thread.id), avisos));
     console.log('');
     if (thread.sessoes.length === 0) {
       console.log(mt.nenhumaSessao);
@@ -1367,14 +1400,14 @@ function comandoClaims(args: Args): number {
       console.error(mc.usoAdd);
       return 2;
     }
-    const comando = texto(args.opcoes.verificar) ?? texto(args.opcoes.verify);
+    const comandos = textos(args, 'verificar');
     const dependenciasExternas = (texto(args.opcoes['dependencia-externa']) ?? '').split(',').map((d) => d.trim()).filter(Boolean) as DependenciaExternaDaClaim[];
     const faseBruta = texto(args.opcoes.fase);
     const thread = lerThread(carregado.raiz, id);
     const claim = comLocale('pt-BR', () => adicionarClaim(carregado.raiz, id, {
       arquivo,
       alegacao,
-      verificar: comando ? [comando] : [],
+      verificar: comandos ?? [],
       dependenciasExternas,
       fase: faseBruta ? exigirFase(thread, faseBruta) : undefined,
     }));
@@ -1432,12 +1465,14 @@ function comandoClaims(args: Args): number {
   if (sub === 'verificar') {
     const id = args.posicionais[2];
     const claimId = args.posicionais[3];
-    const comando = texto(args.opcoes.comando) ?? texto(args.opcoes.verificar);
-    if (!id || !claimId || !comando) {
+    const comandos = textos(args, 'comando');
+    if (!id || !claimId || !comandos) {
       console.error(mc.usoVerificar);
       return 2;
     }
-    const claim = comLocale('pt-BR', () => anexarComando(carregado.raiz, id, claimId, comando));
+    let claim: ReturnType<typeof anexarComando> | undefined;
+    for (const comando of comandos) claim = comLocale('pt-BR', () => anexarComando(carregado.raiz, id, claimId, comando));
+    if (!claim) throw new Error(mc.usoVerificar);
     console.log(mc.comandoAnexado(claim.id));
     console.log(mc.campoVerificar(claim.verificar.join(' && ')));
     console.log(mc.campoEstado(mc.estado(claim.estado)));
@@ -4265,21 +4300,35 @@ function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
 
 /**
  * RM-052: `--projeto <nome|caminho>` e opcao GLOBAL. Sai do argv em qualquer posicao, antes de
- * qualquer despacho (inclusive do `maestro`, que tem parse proprio), e so aparece uma vez.
+ * qualquer despacho (inclusive do `maestro`, que tem parse proprio); repeticoes identicas valem
+ * como uma ocorrencia, e valores divergentes sao recusados.
  */
-export function extrairOpcaoDeProjeto(argv: readonly string[]): { argv: string[]; projeto: string | undefined } {
+export function extrairOpcaoDeProjeto(argv: readonly string[]): {
+  argv: string[]; projeto: string | undefined; repetidaDivergente?: 'projeto'
+} {
   const resto: string[] = [];
   let projeto: string | undefined;
+  let encontrou = false, repetidaDivergente = false;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a !== '--projeto' && !a.startsWith('--projeto=')) { resto.push(a); continue; }
-    if (projeto !== undefined) throw new Error('uso: --projeto <nome|caminho> aparece uma vez só');
-    if (a !== '--projeto') { projeto = a.slice('--projeto='.length); continue; }
-    const valor = argv[i + 1];
-    projeto = valor !== undefined && !valor.startsWith('--') ? valor : '';
-    if (projeto) i++;
+    let valor: string;
+    if (a !== '--projeto') valor = a.slice('--projeto='.length);
+    else {
+      const proximo = argv[i + 1];
+      valor = proximo !== undefined && !proximo.startsWith('--') ? proximo : '';
+      if (valor) i++;
+    }
+    if (!encontrou) { projeto = valor; encontrou = true; }
+    else if (projeto !== valor) repetidaDivergente = true;
   }
-  return { argv: resto, projeto };
+  return { argv: resto, projeto, ...(repetidaDivergente ? { repetidaDivergente: 'projeto' as const } : {}) };
+}
+
+function recusarOpcaoRepetida(nome: string, json: boolean): number {
+  const mensagem = msg().claims.opcaoRepetida(nome);
+  console.error(json ? JSON.stringify({ error: 'cli.option.repeated', option: `--${nome}`, message: mensagem }) : mensagem);
+  return 2;
 }
 
 /** Comandos que nao leem projeto: o alvo nao e resolvido (nem recusado) para eles. */
@@ -4339,13 +4388,23 @@ export function main(argvBruto: string[]): number {
 
 function executarComando(argvBruto: string[]): number {
   const extraida = extrairOpcaoDeProjeto(argvBruto);
+  if (extraida.repetidaDivergente) {
+    ativarLocale(localeDaAjuda(extraida.projeto));
+    return recusarOpcaoRepetida(extraida.repetidaDivergente, extraida.argv.includes('--json'));
+  }
   const proprio = COMANDOS_COM_PROJETO_PROPRIO.has(parseArgs(extraida.argv).posicionais[0] ?? '');
   const argv = proprio && extraida.projeto !== undefined
     ? [...extraida.argv, ...(extraida.projeto ? ['--projeto', extraida.projeto] : ['--projeto'])] : extraida.argv;
   const projeto = proprio ? undefined : extraida.projeto;
+  // RM-079 F2 (D10): estas duas rotas desviam antes do parser comum; a checagem fica antes delas.
+  const argsDaBorda = parseArgs(argv);
+  if (argsDaBorda.repetidasDivergentes.length > 0) {
+    ativarLocale(localeDaAjuda(projeto));
+    return recusarOpcaoRepetida(argsDaBorda.repetidasDivergentes[0], argsDaBorda.opcoes.json === true);
+  }
   // Helper fixo do host confiável: o projeto vem da instalação, nunca de toolargs.
   if (argv[0] === 'receipt-verifiers') {
-    if (argv.length !== 2 || argv[1] !== '--json' || projeto !== undefined) {
+    if (argv.length < 2 || !argv.slice(1).every((arg) => arg === '--json') || projeto !== undefined) {
       ativarLocale(localeDaAjuda());
       throw new ErroDoCatalogo((m) => m.cli.receiptVerifiersUso);
     }

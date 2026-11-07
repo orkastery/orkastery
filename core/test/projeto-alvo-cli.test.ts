@@ -65,8 +65,8 @@ test('precedencia no CLI: --projeto (em qualquer posicao) > ORK_PROJETO > cwd; s
     assert.equal(projetoDoStatus(ork(usuario, '/', ['roadmap', 'status', '--json', '--projeto', 'workspace'])), 'workspace', 'fora de qualquer projeto');
 
     const duas = ork(usuario, b.dir, ['--projeto', 'orkastery', 'roadmap', 'status', '--projeto', 'workspace']);
-    assert.equal(duas.status, 1);
-    assert.match(duas.stderr, /--projeto <nome\|caminho> aparece uma vez só/);
+    assert.equal(duas.status, 2);
+    assert.equal(duas.stderr.trim(), 'opcao --projeto repetida com valores diferentes');
 
     const maestro = ork(usuario, b.dir, ['maestro', '--json', '--projeto', 'orkastery']);
     assert.equal(maestro.status, 0, maestro.stderr);

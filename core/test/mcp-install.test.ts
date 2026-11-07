@@ -158,7 +158,8 @@ test('MCP CLI install aceita somente enum de transporte e serve recusa extras se
     assert.deepEqual(JSON.parse(bytes.toString()).mcpServers.orkastery.args.slice(-2),['--ship-transport','bare-local']);
     for(const extra of [['--ship-transport','https'],['--ship-transport'],['--ship-transport','bare-local','--ship-transport=github-ssh'],['--ship-transport','bare-local','--env','FREE=1']]) {
       const bad=spawnSync(process.execPath,[cli,'mcp','serve','--project',p.dir,'--host','claude-code',...extra],{encoding:'utf8',timeout:5000});
-      assert.equal(bad.status,1);assert.match(bad.stderr,/uso: ork mcp/);
+      const repetida=extra.filter(a=>a==='--ship-transport'||a.startsWith('--ship-transport=')).length>1;
+      assert.equal(bad.status,repetida?2:1);assert.match(bad.stderr,repetida?/--ship-transport/:/uso: ork mcp/);
     }
     assert.deepEqual(fs.readFileSync(file),bytes);
   } finally {p.limpar();}
@@ -196,7 +197,8 @@ test('MCP CLI C33: perfil de filho é enum fechado de startup, sem duplicatas/en
     assert.deepEqual(JSON.parse(bytes.toString()).mcpServers.orkastery.args.slice(-2),['--child-permissions','worktree']);
     for(const extra of [['--child-permissions','auto'],['--child-permissions'],['--child-permissions','interactive','--child-permissions=worktree'],['--child-permissions','worktree','--env','GRANT=1']]) {
       const bad=spawnSync(process.execPath,[cli,'mcp','serve',...base,...extra],{encoding:'utf8',timeout:5000});
-      assert.equal(bad.status,1);assert.match(bad.stderr,/uso: ork mcp/);
+      const repetida=extra.filter(a=>a==='--child-permissions'||a.startsWith('--child-permissions=')).length>1;
+      assert.equal(bad.status,repetida?2:1);assert.match(bad.stderr,repetida?/--child-permissions/:/uso: ork mcp/);
     }
     assert.deepEqual(fs.readFileSync(file),bytes);
   } finally {p.limpar();}
@@ -247,7 +249,8 @@ test('C40 owner flag exclusivo install Codex, enum fechado e sem duplicatas',()=
       ['install','codex',['--owner-permissions','interactive','--owner-permissions=orchestrate']],
     ] as const){
       const bad=spawnSync(process.execPath,[cli,'mcp',acao,'--project',p.dir,'--host',host,...extra],{encoding:'utf8',timeout:5000});
-      assert.equal(bad.status,1);assert.match(bad.stderr,/uso: ork mcp/);
+      const repetida=extra.filter(a=>a==='--owner-permissions'||a.startsWith('--owner-permissions=')).length>1;
+      assert.equal(bad.status,repetida?2:1);assert.match(bad.stderr,repetida?/--owner-permissions/:/uso: ork mcp/);
     }
     assert.deepEqual(fs.readFileSync(file),bytes);
   }finally{p.limpar();}

@@ -19,6 +19,8 @@ ork phase list <thread>        # o que ja aconteceu, com evidencia
 ## Regras desta fase
 
 - **CHECK nao corrige.** Achado vira tarefa de GO, com commit proprio.
+- O parecer canonico vai para o estado da thread por `ork_artifact_write`, com o tipo `check`.
+  `docs/check.md` na worktree nao e o parecer.
 - Claim nova afirma o comportamento correto e passa depois da correcao; a reproducao do defeito
   fica como comando no parecer e nunca vira claim.
 - Achado sem claim usa `- A<n> [blocker|warning|suggestion] path:line - description`; a linha

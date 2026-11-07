@@ -1,0 +1,87 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-079 F2: cada mutante devolve um defeito observado e precisa morrer no teste focado correspondente.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "o parser volta a sobrescrever uma opção repetível com a última ocorrência",
+      "modulo": "index",
+      "de": "(multiplas[grupo] ??= []).push(ocorrencia.valor);",
+      "para": "multiplas[grupo] = [ocorrencia.valor];",
+      "teste": "rm079-f2-args",
+      "nome": "^RM-079 F2: o parser preserva"
+    },
+    {
+      "id": "M2",
+      "descricao": "a regra da referência local sai das regras fatais de claim",
+      "modulo": "claim-lint",
+      "de": "'binario-rg', 'ork-fora-do-path', 'estado-local', 'aspas-escapadas', 'ref-local-do-ramo-base',",
+      "para": "'binario-rg', 'ork-fora-do-path', 'estado-local', 'aspas-escapadas',",
+      "teste": "rm079-f2-claim-lint",
+      "nome": "^RM-079 F2: a ref local configurada"
+    },
+    {
+      "id": "M3",
+      "descricao": "a regra passa a confundir origin/base com a referência local do ramo base",
+      "modulo": "claim-lint",
+      "de": "return token === ramoBase || token.startsWith(`${ramoBase}..`) || token.endsWith(`..${ramoBase}`);",
+      "para": "return token === ramoBase || token.endsWith(`/${ramoBase}`) || token.startsWith(`${ramoBase}..`) || token.endsWith(`..${ramoBase}`);",
+      "teste": "rm079-f2-claim-lint",
+      "nome": "^RM-079 F2: refs remotas"
+    },
+    {
+      "id": "M4",
+      "descricao": "o fim de fase deixa de produzir o aviso de artefato fora do estado",
+      "modulo": "ledger",
+      "de": "return (0, phase_artifact_warning_1.avisosDeArtefatoForaDoEstado)(dir).map((aviso) => ({ ts: (0, util_1.agora)(), thread: threadId, ...aviso,\n        fase: dados.fase, origem: 'phase_result', eventId: (0, node_crypto_1.randomUUID)() }));",
+      "para": "return [];",
+      "teste": "rm079-f2-artifact-warning",
+      "nome": "^RM-079 F2: phase_result registra"
+    },
+    {
+      "id": "M5",
+      "descricao": "uma claim anterior a marca explicita, mas com lint vazio, volta a ser fatal no bundle",
+      "modulo": "ci",
+      "de": "if (bloqueiaNova && claim.regrasDoLint?.includes(achado.regra))",
+      "para": "if (bloqueiaNova && claim.lint !== undefined)",
+      "teste": "rm079-f2-claim-lint",
+      "nome": "^RM-079 F2: no bundle"
+    },
+    {
+      "id": "M6",
+      "descricao": "rev-parse sai da lista de subcomandos Git que leem revisao",
+      "modulo": "claim-lint",
+      "de": "'merge-base', 'rev-parse', 'cat-file'",
+      "para": "'merge-base', 'cat-file'",
+      "teste": "rm079-f2-claim-lint",
+      "nome": "^RM-079 F2: a ref local configurada"
+    },
+    {
+      "id": "M7",
+      "descricao": "texto citado por um comando que nao executa Git volta a ser analisado como Git",
+      "modulo": "claim-lint",
+      "de": "if (executavelDoSegmento(segmento) === 'git')\n        return [segmento];\n    return [];",
+      "para": "if (executavelDoSegmento(segmento) === 'git')\n        return [segmento];\n    return segmento.flatMap((token) => /\\bgit\\s/.test(token.valor) ? segmentosDoComando(token.valor) : []);",
+      "teste": "rm079-f2-claim-lint",
+      "nome": "^RM-079 F2: refs remotas"
+    },
+    {
+      "id": "M8",
+      "descricao": "a opcao global projeto volta a recusar uma repeticao com o mesmo valor",
+      "modulo": "index",
+      "de": "else if (projeto !== valor)\n            repetidaDivergente = true;",
+      "para": "else\n            repetidaDivergente = true;",
+      "teste": "rm079-f2-args",
+      "nome": "^RM-079 F2: opcao global projeto"
+    },
+    {
+      "id": "M9",
+      "descricao": "o parser do grafo volta a recusar uma bandeira repetida com o mesmo valor",
+      "modulo": "intelligence-graph-cli",
+      "de": "if (bandeiras.has(nome))\n                continue;",
+      "para": "if (bandeiras.has(nome))\n                uso(t.motivos.repetida(nome), t);",
+      "teste": "rm079-f2-args",
+      "nome": "^RM-079 F2: rotas anteriores ao parser comum"
+    }
+  ]
+}

@@ -26,7 +26,7 @@ export const THREAD_PT_BR = {
   /** Largura do rotulo no resumo (`  id        valor`). */
   largura: 9,
   rotulos: { id: 'id', slug: 'slug', nome: 'nome', modo: 'modo', ciclo: 'ciclo', fase: 'fase', status: 'status', base: 'base',
-    worktree: 'worktree', conducao: 'conducao', score: 'score', check: 'check' },
+    worktree: 'worktree', conducao: 'conducao', score: 'score', check: 'check', aviso: 'aviso' },
   modo: (tag: string, pausas: number) => `${tag} (${pausas} pausas humanas previstas)`,
   cicloPadrao: 'padrao do modo',
   status: (status: string) => status,
@@ -39,6 +39,8 @@ export const THREAD_PT_BR = {
   check: (nome: string, origem: 'opcao' | 'manifesto' | 'padrao', quando: string, sha: string) =>
     `${nome}, ${origem === 'opcao' ? 'pela opcao --check' : origem === 'manifesto' ? 'pelo manifesto' : 'pelo padrao'}, ` +
     `no verify de ${quando} (${sha})`,
+  artefatoForaDoEstado: (caminho: string) => `${caminho} nao versionado na worktree nao e o artefato canonico; ` +
+    'grave pelo ork_artifact_write',
   blocosPrevistos: '  blocos previstos',
   pausaPrevista: (sobre: string) => `pausa prevista: ${sobre}`,
   pausaSobre: (sobre: string) => sobre,
@@ -241,7 +243,7 @@ export const THREAD_PT_BR = {
 export const THREAD_EN: typeof THREAD_PT_BR = {
   largura: 10,
   rotulos: { id: 'id', slug: 'slug', nome: 'name', modo: 'mode', ciclo: 'cycle', fase: 'phase', status: 'status', base: 'base',
-    worktree: 'worktree', conducao: 'conduction', score: 'score', check: 'check' },
+    worktree: 'worktree', conducao: 'conduction', score: 'score', check: 'check', aviso: 'warning' },
   modo: (tag, pausas) => `${tag} (${pausas} planned human pause${pausas === 1 ? '' : 's'})`,
   cicloPadrao: 'default for the mode',
   status: (status) => STATUS_EN[status] ?? status,
@@ -252,6 +254,8 @@ export const THREAD_EN: typeof THREAD_PT_BR = {
   score: (valor, por, regime, quando) => `${valor}/5 by ${por} (${regime}) on ${quando}`,
   check: (nome, origem, quando, sha) => `${nome}, ${origem === 'opcao' ? 'by the --check option' : origem === 'manifesto'
     ? 'by the manifest' : 'by default'}, in the verify of ${quando} (${sha})`,
+  artefatoForaDoEstado: (caminho) => `${caminho} is untracked in the worktree and is not the canonical artifact; ` +
+    'write it with ork_artifact_write',
   blocosPrevistos: '  planned blocks',
   pausaPrevista: (sobre) => `planned pause: ${sobre}`,
   pausaSobre: (sobre) => PAUSA_SOBRE_EN[sobre] ?? sobre,

@@ -74,8 +74,8 @@ test('locale en F3b claims: usos, recusas e a conferencia sem alvo saem em ingle
   try {
     assert.equal(ork(c, PT, false, 'thread', 'new', 'loc-r', '--sem-worktree').status, 0);
     const erro = (...args: string[]) => ork(c, EN, false, 'claims', ...args).stderr;
-    assert.equal(erro('add', 'loc-locr'), 'usage: ork claims add <thread-id> <file> --claim "<statement>" [--verificar "<command>"] [--dependencia-externa rede,relogio]\n');
-    assert.equal(erro('verificar', 'loc-locr'), 'usage: ork claims verificar <thread-id> <claim-id> --comando "<command>"\n');
+    assert.equal(erro('add', 'loc-locr'), 'usage: ork claims add <thread-id> <file> --claim "<statement>" [--verificar "<command>"]... [--dependencia-externa rede,relogio]\n');
+    assert.equal(erro('verificar', 'loc-locr'), 'usage: ork claims verificar <thread-id> <claim-id> --comando "<command>" [--comando "<command>"]...\n');
     assert.equal(erro('retirar', 'loc-locr'), 'usage: ork claims retirar <thread-id> <claim-id> [--motivo-tipo substituicao|obsoleta|erro] [--substituida-por <claim-id>] --motivo "<reason>"\n');
     assert.equal(erro('ausente', 'loc-locr'), 'usage: ork claims ausente <thread-id> --paths A,B --motivo "<reason>" [--commit SHA]\n');
     assert.equal(erro('list'), 'usage: ork claims list <thread-id>\n');
@@ -123,8 +123,8 @@ test('locale en F3d ci prepare: o lint do bundle nasce em pt-BR e se remonta em 
     const recusa = comLocale('en', () => mensagemDoErro(erro));
     assert.match(recusa, /^claims\.lint: the bundle was not generated; .*:\n {2}C1 runs the whole suite \(npm --prefix core test\); /);
     assert.deepEqual(linhasEmPortugues(recusa, ['claims.lint']), [], recusa);
-    // A claim anterior ao lint (sem o campo) so avisa: a linha nasce em pt-BR e se remonta inteira em ingles.
-    const antigas = lerClaims(p.dir, thread.id).map(({ lint: _lint, ...resto }) => resto);
+    // A claim anterior a marca das regras so avisa: a linha nasce em pt-BR e se remonta inteira em ingles.
+    const antigas = lerClaims(p.dir, thread.id).map(({ lint: _lint, regrasDoLint: _regras, ...resto }) => resto);
     fs.writeFileSync(caminhoClaims(p.dir, thread.id), antigas.map((c) => JSON.stringify(c)).join('\n') + '\n');
     const avisos: string[] = [];
     comLocale('pt-BR', () => prepararBundleCi(p.carregado, thread.id, { aoAvisar: (l) => avisos.push(l) }));
