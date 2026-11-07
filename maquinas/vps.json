@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.5",
-  "publicadoEm": "2026-11-07T01:26:03.727Z",
+  "publicadoEm": "2026-11-07T01:37:48.713Z",
   "threads": [
     {
       "id": "ork-rm078recibod",
@@ -54,11 +54,11 @@
       "id": "ork-testesdoprod",
       "nome": "testesrelogio",
       "modo": "#Auto",
-      "fase": "CHECK",
+      "fase": "GO",
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-testesdoprod-full",
-      "atualizadaEm": "2026-11-07T01:26:01.981Z",
+      "atualizadaEm": "2026-11-07T01:37:48.281Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
