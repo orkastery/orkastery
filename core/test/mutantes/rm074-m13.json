@@ -37,6 +37,33 @@
       "para": "variacaoAjustada?.cv > CV_RAZAO_AJUSTADA_MAX",
       "teste": "medir-check",
       "nome": "^MC25:"
+    },
+    {
+      "id": "M5",
+      "descricao": "a correção causal volta a ser aplicada somente ao Classic",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "de": "const paredesAjustadasMs = { agile: correcaoAgile.paredeAjustadaMs, classic: correcaoClassic.paredeAjustadaMs };",
+      "para": "const paredesAjustadasMs = { agile: paredeAgile, classic: correcaoClassic.paredeAjustadaMs };",
+      "teste": "medir-check",
+      "nome": "^MC23:"
+    },
+    {
+      "id": "M6",
+      "descricao": "a razão bruta volta a alimentar a razão oficial",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "de": "razaoAjustada: razao(paredesAjustadasMs.classic, paredesAjustadasMs.agile),",
+      "para": "razaoAjustada: razao(paredeClassic, paredeAgile),",
+      "teste": "medir-check",
+      "nome": "^MC23:"
+    },
+    {
+      "id": "M7",
+      "descricao": "um par acima da fronteira de desequilíbrio volta a ser aceito",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "de": "function validarPar(a, classic, ordem, esperada, desequilibrioCpuMaxPp = DESEQUILIBRIO_CPU_MAX_PP) {",
+      "para": "function validarPar(a, classic, ordem, esperada, desequilibrioCpuMaxPp = Number.POSITIVE_INFINITY) {",
+      "teste": "medir-check",
+      "nome": "^MC24:"
     }
   ]
 }
