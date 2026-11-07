@@ -287,36 +287,67 @@ const VERSAO = VERSAO_DO_ORK;
 interface Args {
   posicionais: string[];
   opcoes: Record<string, string | boolean>;
+  /** Opcoes que o comando declara como repetiveis, preservadas na ordem do argv. */
+  multiplas: Record<string, Array<string | boolean>>;
+  /** Opcoes escalares repetidas com valores diferentes; a borda responde com saida 2. */
+  repetidasDivergentes: string[];
 }
 
 /** Parse simples de argumentos: `--chave valor`, `--chave=valor` e flags booleanas. */
 export function parseArgs(argv: string[]): Args {
   const posicionais: string[] = [];
   const opcoes: Record<string, string | boolean> = {};
+  const ocorrencias: Array<{ nome: string; valor: string | boolean }> = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a.startsWith('--')) {
       const igual = a.indexOf('=');
       if (igual > 0) {
-        opcoes[a.slice(2, igual)] = a.slice(igual + 1);
+        ocorrencias.push({ nome: a.slice(2, igual), valor: a.slice(igual + 1) });
       } else {
         const proximo = argv[i + 1];
         if (proximo !== undefined && !proximo.startsWith('--')) {
-          opcoes[a.slice(2)] = proximo;
+          ocorrencias.push({ nome: a.slice(2), valor: proximo });
           i++;
         } else {
-          opcoes[a.slice(2)] = true;
+          ocorrencias.push({ nome: a.slice(2), valor: true });
         }
       }
     } else {
       posicionais.push(a);
     }
   }
-  return { posicionais, opcoes };
+  const grupoRepetivel = (nome: string): string | null => {
+    if (posicionais[0] !== 'claims') return null;
+    if (posicionais[1] === 'add' && (nome === 'verificar' || nome === 'verify')) return 'verificar';
+    if (posicionais[1] === 'verificar' && (nome === 'comando' || nome === 'verificar')) return 'comando';
+    return null;
+  };
+  const multiplas: Record<string, Array<string | boolean>> = {};
+  const repetidasDivergentes: string[] = [];
+  for (const ocorrencia of ocorrencias) {
+    const grupo = grupoRepetivel(ocorrencia.nome);
+    if (grupo) {
+      (multiplas[grupo] ??= []).push(ocorrencia.valor);
+      if (!(grupo in opcoes)) opcoes[grupo] = ocorrencia.valor;
+      continue;
+    }
+    const anterior = opcoes[ocorrencia.nome];
+    if (anterior === undefined) opcoes[ocorrencia.nome] = ocorrencia.valor;
+    else if (anterior !== ocorrencia.valor && !repetidasDivergentes.includes(ocorrencia.nome)) {
+      repetidasDivergentes.push(ocorrencia.nome);
+    }
+  }
+  return { posicionais, opcoes, multiplas, repetidasDivergentes };
 }
 
 function texto(v: string | boolean | undefined): string | undefined {
   return typeof v === 'string' ? v : undefined;
+}
+
+function textos(args: Args, nome: string): string[] | null {
+  const valores = args.multiplas[nome] ?? [];
+  return valores.length > 0 && valores.every((v): v is string => typeof v === 'string') ? valores : null;
 }
 
 /**
@@ -1367,14 +1398,14 @@ function comandoClaims(args: Args): number {
       console.error(mc.usoAdd);
       return 2;
     }
-    const comando = texto(args.opcoes.verificar) ?? texto(args.opcoes.verify);
+    const comandos = textos(args, 'verificar');
     const dependenciasExternas = (texto(args.opcoes['dependencia-externa']) ?? '').split(',').map((d) => d.trim()).filter(Boolean) as DependenciaExternaDaClaim[];
     const faseBruta = texto(args.opcoes.fase);
     const thread = lerThread(carregado.raiz, id);
     const claim = comLocale('pt-BR', () => adicionarClaim(carregado.raiz, id, {
       arquivo,
       alegacao,
-      verificar: comando ? [comando] : [],
+      verificar: comandos ?? [],
       dependenciasExternas,
       fase: faseBruta ? exigirFase(thread, faseBruta) : undefined,
     }));
@@ -1432,12 +1463,14 @@ function comandoClaims(args: Args): number {
   if (sub === 'verificar') {
     const id = args.posicionais[2];
     const claimId = args.posicionais[3];
-    const comando = texto(args.opcoes.comando) ?? texto(args.opcoes.verificar);
-    if (!id || !claimId || !comando) {
+    const comandos = textos(args, 'comando');
+    if (!id || !claimId || !comandos) {
       console.error(mc.usoVerificar);
       return 2;
     }
-    const claim = comLocale('pt-BR', () => anexarComando(carregado.raiz, id, claimId, comando));
+    let claim: ReturnType<typeof anexarComando> | undefined;
+    for (const comando of comandos) claim = comLocale('pt-BR', () => anexarComando(carregado.raiz, id, claimId, comando));
+    if (!claim) throw new Error(mc.usoVerificar);
     console.log(mc.comandoAnexado(claim.id));
     console.log(mc.campoVerificar(claim.verificar.join(' && ')));
     console.log(mc.campoEstado(mc.estado(claim.estado)));
@@ -4387,6 +4420,10 @@ function executarComando(argvBruto: string[]): number {
   if (cobreLocale(args.posicionais, args.opcoes)) {
     ativarLocale(localeDaAjuda(projeto));
     ligarRemontagem(true);
+  }
+  if (args.repetidasDivergentes.length > 0) {
+    console.error(msg().claims.opcaoRepetida(args.repetidasDivergentes[0]));
+    return 2;
   }
   if (!COMANDOS_SEM_PROJETO.has(comando) && !proprio) {
     fixarAlvoDoProcesso(projeto, !SEM_DECLARACAO_DO_PROJETO.has(`${comando} ${args.posicionais[1] ?? ''}`.trim()));

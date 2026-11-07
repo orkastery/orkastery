@@ -150,7 +150,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
         [--limiares <arquivo>]                  os limiares do dono; o que faltar fica com a proposta, marcada
         [--publicar <arquivo>]                  grava a versão publicável, sem dado pessoal
 
-  claims add <thread-id> <arquivo> --claim "<alegacao>" [--verificar "<comando>"] [--dependencia-externa rede,relogio] [--fase F]
+  claims add <thread-id> <arquivo> --claim "<alegacao>" [--verificar "<comando>"]... [--dependencia-externa rede,relogio] [--fase F]
                                             Registra alegacao verificavel da thread
   claims list <thread-id>                   Claims da thread e o estado de cada uma
   claims conferir <thread-id> --claims C1,C2|--tarefa T1 [--prazo S] [--json]
@@ -161,7 +161,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
         --criterio manifesto:CHAVE|ledger:REF|medicao:COMANDO --quem Q --evidencia E [--razao R] [--reverte ID]
                                             Decisao tomada sem perguntar: chega ao dono no resumo
   decisao placar <thread-id> [--json]       Decididas contra perguntas por fase, reversoes e o limiar
-  claims verificar <thread-id> <claim-id> --comando "<comando>"
+  claims verificar <thread-id> <claim-id> --comando "<comando>" [--comando "<comando>"]...
                                             Anexa o comando que comprova uma claim ja feita
   claims retirar <thread-id> <claim-id> [--motivo-tipo substituicao|obsoleta|erro]
         [--substituida-por <claim-id>] --motivo "<motivo>"
@@ -568,7 +568,7 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
         [--limiares <file>]                     the owner's thresholds; what is missing stays with the proposal, marked
         [--publicar <file>]                     writes the publishable version, without personal data
 
-  claims add <thread-id> <file> --claim "<claim>" [--verificar "<command>"] [--dependencia-externa rede,relogio] [--fase F]
+  claims add <thread-id> <file> --claim "<claim>" [--verificar "<command>"]... [--dependencia-externa rede,relogio] [--fase F]
                                             Records a verifiable claim of the thread
   claims list <thread-id>                   Claims of the thread and the state of each one
   claims conferir <thread-id> --claims C1,C2|--tarefa T1 [--prazo S] [--json]
@@ -579,7 +579,7 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
         --criterio manifesto:KEY|ledger:REF|medicao:COMMAND --quem Q --evidencia E [--razao R] [--reverte ID]
                                             Decision taken without asking: reaches the owner in the summary
   decisao placar <thread-id> [--json]       Decided versus asked per phase, reversals and the threshold
-  claims verificar <thread-id> <claim-id> --comando "<command>"
+  claims verificar <thread-id> <claim-id> --comando "<command>" [--comando "<command>"]...
                                             Attaches the command that proves a claim already made
   claims retirar <thread-id> <claim-id> [--motivo-tipo substituicao|obsoleta|erro]
         [--substituida-por <claim-id>] --motivo "<reason>"

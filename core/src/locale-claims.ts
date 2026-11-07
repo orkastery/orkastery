@@ -36,7 +36,8 @@ const ESTADOS_EN: Readonly<Record<string, string>> = {
 
 export const CLAIMS_PT_BR = {
   // ork claims add
-  usoAdd: 'uso: ork claims add <thread-id> <arquivo> --claim "<alegacao>" [--verificar "<comando>"] [--dependencia-externa rede,relogio]',
+  usoAdd: 'uso: ork claims add <thread-id> <arquivo> --claim "<alegacao>" [--verificar "<comando>"]... [--dependencia-externa rede,relogio]',
+  opcaoRepetida: (opcao: string) => `opcao --${opcao} repetida com valores diferentes`,
   registrada: (id: string, thread: string) => `Claim ${id} registrada na thread ${thread}.`,
   campoArquivo: (arquivo: string) => `  arquivo    ${arquivo}`,
   campoAlegacao: (alegacao: string) => `  alegacao   ${alegacao}`,
@@ -113,7 +114,7 @@ export const CLAIMS_PT_BR = {
   retiradaNaConferencia: (id: string, motivo: string | undefined) => `${id} foi retirada (${motivo ?? 'sem motivo'})`,
   planoAusente: (thread: string) => `a thread ${thread} nao tem docs/plan.md`,
   // ork claims verificar, retirar, ausente e list
-  usoVerificar: 'uso: ork claims verificar <thread-id> <claim-id> --comando "<comando>"',
+  usoVerificar: 'uso: ork claims verificar <thread-id> <claim-id> --comando "<comando>" [--comando "<comando>"]...',
   comandoAnexado: (id: string) => `Claim ${id} agora tem comando de verificacao.`,
   proveAgora: (thread: string) => `Prove agora: ork verify ${thread}`,
   usoRetirar: 'uso: ork claims retirar <thread-id> <claim-id> [--motivo-tipo substituicao|obsoleta|erro] [--substituida-por <claim-id>] --motivo "<motivo>"',
@@ -146,7 +147,8 @@ export const CLAIMS_PT_BR = {
 export type MensagensDeClaims = typeof CLAIMS_PT_BR;
 
 export const CLAIMS_EN: MensagensDeClaims = {
-  usoAdd: 'usage: ork claims add <thread-id> <file> --claim "<statement>" [--verificar "<command>"] [--dependencia-externa rede,relogio]',
+  usoAdd: 'usage: ork claims add <thread-id> <file> --claim "<statement>" [--verificar "<command>"]... [--dependencia-externa rede,relogio]',
+  opcaoRepetida: (opcao) => `option --${opcao} repeated with different values`,
   registrada: (id, thread) => `Claim ${id} recorded in thread ${thread}.`,
   campoArquivo: (arquivo) => `  file       ${arquivo}`,
   campoAlegacao: (alegacao) => `  statement  ${alegacao}`,
@@ -218,7 +220,7 @@ export const CLAIMS_EN: MensagensDeClaims = {
   desconhecida: (id, thread) => `${id} does not exist in thread ${thread}`,
   retiradaNaConferencia: (id, motivo) => `${id} was withdrawn (${motivo ?? 'no reason'})`,
   planoAusente: (thread) => `thread ${thread} has no \`docs/plan.md\``,
-  usoVerificar: 'usage: ork claims verificar <thread-id> <claim-id> --comando "<command>"',
+  usoVerificar: 'usage: ork claims verificar <thread-id> <claim-id> --comando "<command>" [--comando "<command>"]...',
   comandoAnexado: (id) => `Claim ${id} now has a verification command.`,
   proveAgora: (thread) => `Prove it now: \`ork verify ${thread}\``,
   usoRetirar: 'usage: ork claims retirar <thread-id> <claim-id> [--motivo-tipo substituicao|obsoleta|erro] [--substituida-por <claim-id>] --motivo "<reason>"',
