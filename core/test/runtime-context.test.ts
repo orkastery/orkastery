@@ -48,7 +48,7 @@ test('contexto: Claude recebe MCP estrito da thread e somente sete grants de con
       'mcp__orkastery__ork_claims_list',
       'mcp__orkastery__ork_verify_status',
     ]);
-    for (const nome of ['ork_thread_new', 'ork_phase_run', 'ork_gate_request', 'ork_request_decision', 'ork_artifact_write', 'ork_claim_add', 'ork_verify', 'ork_ship'])
+    for (const nome of ['ork_thread_new', 'ork_phase_run', 'ork_gate_request', 'ork_request_decision', 'ork_artifact_write', 'ork_claim_add', 'ork_claim_withdraw', 'ork_verify', 'ork_ship'])
       assert.equal(consultas.includes(`mcp__orkastery__${nome}`), false);
     assert.equal(consultas.some(nome => nome.includes('*') || nome.startsWith('Bash')), false);
     const entrada = fs.readFileSync(path.join(instalado.destino, 'commands/ork.md'), 'utf8');

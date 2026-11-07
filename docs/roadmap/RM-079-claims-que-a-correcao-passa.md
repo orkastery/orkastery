@@ -6,12 +6,12 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-31T12:00:00-03:00
+atualizado_em: 2026-11-06T16:02:33-03:00
 estado:
-  ciclo: Discovery
-  documentacao: Rascunho
-  codigo: Não iniciado
-  testes: Não iniciados
+  ciclo: Em desenvolvimento
+  documentacao: Em revisão
+  codigo: Branch criada
+  testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
@@ -20,25 +20,27 @@ evidencias:
     commit: null
     pr: null
 sdlc:
-  thread: null
-  modo: null
+  thread: ork-rm079claimsq
+  modo: Auto
+  fase: GO
+  status: aberta
 ---
 
 # RM-079: Claims de revisão que a correção passa e retirada tipada com substituta
 
-> **Em uma frase:** toda claim nova afirma o comportamento correto e passa com a correção; retirar uma claim registra quem retirou e por quê, e a troca por uma substituta verde não para a thread.
+> **Em uma frase:** toda claim nova afirma o comportamento correto e passa com a correção; a retirada tipada registra autor e motivo, e a forma em texto livre continua aceita com recibo não tipado.
 
 <!-- ork-docs:relance:inicio -->
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Discovery | Não iniciado | Não iniciados | Não implantado | Flag desligada |
+| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
 ## Problema e resultado
 
-- **Público e problema/oportunidade:** quem conduz em `#Auto` e vira gargalo de claims que nenhuma implementação correta passa, ou de retiradas sem trilha.
+- **Público e problema/oportunidade:** quem conduz em `#Auto` precisa resolver claims que nenhuma implementação correta passa e retiradas sem registro suficiente.
 - **Evidências e fonte:** Achados de uma rede de três VPS que conduz um roadmap em `#Auto` com o ork 0.5.6 (30 e 31/10/2026), conferidos contra a main da 0.6.2 em 31/10/2026.
   - Um CHECK registrou como claim uma sonda que reproduz o defeito, isolando uma função com contexto mínimo; com o código corrigido, a função recusa e a sonda também falha. A claim ficou impossível e só o dono podia retirá-la.
   - Um agente GO retirou uma claim obsoleta depois de uma mudança de regra; a thread esperou a dispensa do dono mesmo com a cobertura nova verde.
@@ -46,9 +48,9 @@ sdlc:
   - O lint de claims (`claim-lint.ts`) não pega sonda isolada.
   - Qualquer um retira uma claim, com motivo em texto livre e sem registro de quem retirou (`claims.ts`).
   - Não existe ferramenta MCP para retirar claim.
-  - A trava de dispensa vista na outra rede não existe no núcleo: vem do processo dela. O núcleo precisa de uma regra tipada para não repetir o problema.
-- **Objetivo/OKR:** nenhuma claim nascida no CHECK precisa ser retirada pelo dono; toda retirada tem autor e motivo tipado.
-- **Hipótese:** se a orientação e o lint exigirem claim que passa com a correção, e a retirada com substituta verde for tipada, então o dono deixa de ser gargalo de claims, porque o caso comum se resolve na revisão.
+  - A exigência de dispensa vista na outra rede não existe no núcleo: vem do processo dela. O núcleo precisa de uma regra tipada para não repetir o problema.
+- **Objetivo/OKR:** uma claim criada no CHECK passa com a correção; a retirada tipada registra autor e motivo, enquanto a retirada em texto livre continua aceita e o recibo a marca como não tipada.
+- **Hipótese:** se a orientação e o lint exigirem claim que passa com a correção, e a retirada com substituta verificada for tipada, então o caso comum se resolve na revisão sem pedir uma decisão ao dono.
 - **Métrica principal / linha de base / meta / janela / fonte:** retiradas de claim que precisaram do dono. Linha de base: a medir. Meta: só retiradas sem substituta. Janela: por release. Fonte: `claims.jsonl` e ledger.
 - **Métricas de proteção:** retirada sem substituta continua indo ao dono; nenhuma claim é enfraquecida para passar.
 
@@ -57,16 +59,36 @@ sdlc:
 - **Incluído:**
   - uma regra, em pt-BR e EN, na orientação do CHECK: a claim nova afirma o comportamento correto e passa com a correção, e a reprodução do defeito vai no parecer;
   - regra de lint que avisa quando a claim executa função isolada com contexto artificial (por exemplo `node -e` com parser de AST, `vm.runIn*`, `new Function`);
+  - regra de lint que avisa quando a claim lê o bundle `.ork-ci` da própria thread ou outro artefato gerado pelo fechamento;
   - `ork claims retirar ... --substituida-por <Cn>` com motivo tipado (`substituicao`, `obsoleta`, `erro`) e autor (sessão ou dono) no ledger, conferindo que a substituta existe, está ativa e passou no último `verify_run`;
+  - o `verify_run` guarda a impressão SHA-256 da lista `verificar` e a impressão do comando original para comparar a prova; o próprio `verify_run`, os recibos e as execuções do verify redigem o texto público sem alterar execução nem identidade;
+  - motivos e textos do `fix` vindo do parecer passam pela redação geral antes de recibo, ledger ou saída da CLI;
+  - as três respostas de `claims retirar` na CLI mostram o mesmo motivo seguro, e a resposta MCP omite a lista `verificar` e devolve sua impressão;
   - retirada sem substituta abre pedido tipado ao dono (por exemplo `claims.retirada-sem-substituta`);
-  - a mesma operação como ferramenta MCP.
-- **Fora de escopo:** mudar o formato das claims.
+  - `ork fix open` lê o veredito e os achados estruturados de `docs/check.md`; `ork fix status` mostra arquivo, linha, estado, commit de fechamento e o que falta.
 - **Entregáveis e critérios de aceite:**
-  - claim nascida no CHECK passa com uma implementação correta, sem retirada pelo dono;
+  - claim criada no CHECK passa com uma implementação correta, sem retirada pelo dono;
   - troca de regra com substituta verde não para a thread;
   - retirada sem substituta vira pedido ao dono;
+  - alteração do comando da substituta depois do verify é recusada pela impressão, sem copiar o comando para o recibo;
+  - `verify_run`, recibos e execuções do verify redigem credenciais em textos de comando sem mudar execução, comparação ou reaproveitamento;
+  - a retirada MCP não devolve o texto dos comandos da claim;
+  - parecer negativo com achado sem claim abre uma rodada de correção e exige um novo CHECK verde para fechar;
   - um mutante por regra morre.
 - **Piloto, medição e critérios de expansão/interrupção:** piloto nos próximos CHECKs `#Auto`.
+
+## Fora do escopo
+
+Os itens abaixo já existem na `main`, não foram introduzidos pela RM-079 e serão tratados em item próprio de roadmap:
+
+- A7: `textoDoVerify` e sua publicação na CLI e no veredito do verify MCP assíncrono;
+- A8: baseline no ledger e na CLI;
+- A9: correções derivadas do verify; o `fix` vindo do parecer permanece no escopo entregue acima;
+- A10: `ork_claims_list`, `claims add` e `claims conferir`;
+- A11: `claims ausente`;
+- A12: ledger, board e saída de auditoria.
+
+Também fica fora mudar o formato persistido das claims.
 
 ## Plano e decisões
 
@@ -86,13 +108,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-10-31 | Julio |
-| Documentação | Rascunho | — | 2026-10-31 | Julio |
-| Código | Não iniciado | — | 2026-10-31 | Julio |
-| Testes | Não iniciados | — | 2026-10-31 | Julio |
-| Deploy | Não implantado | — | 2026-10-31 | Julio |
-| Exposição | Flag desligada | — | 2026-10-31 | Julio |
-| Habilitação | Pendente | — | 2026-10-31 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-06 | Julio |
+| Documentação | Em revisão | — | 2026-11-06 | Julio |
+| Código | Branch criada | — | 2026-11-06 | Julio |
+| Testes | Em execução | — | 2026-11-06 | Julio |
+| Deploy | Não implantado | — | 2026-11-06 | Julio |
+| Exposição | Flag desligada | — | 2026-11-06 | Julio |
+| Habilitação | Pendente | — | 2026-11-06 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -105,3 +127,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-31 | Item criado em Discovery | Achados de condução em rede, conferidos contra a 0.6.2 | Julio (pedido de 31/10/2026) |
+| 2026-11-06 | Implementação em GO na thread `ork-rm079claimsq` | orientação bilíngue, lint educativo, retirada tipada e ciclo de correção derivados dos critérios da RM-079 | sessão Codex (#Auto) |
+| 2026-11-06 | GO-FIX 2 substituiu o comando bruto do recibo por impressão versionada e redigiu textos livres do fluxo | falha determinística de `verify-timeout` e auditoria dos campos novos da RM-079 | sessão Codex (#Auto) |
+| 2026-11-06 | GO-FIX 3 fechou a redação de comandos, das três saídas CLI e da resposta MCP, com mutantes por regra | bloqueadores A1 a A5 do segundo CHECK | sessão Codex (#Auto) |
+| 2026-11-07 | GO-FIX 4 separou a identidade original do texto público e delimitou a narrativa às superfícies entregues | A6 e A4 do terceiro CHECK; A7–A12 seguem como dívida da `main` | sessão Codex (#Auto) |

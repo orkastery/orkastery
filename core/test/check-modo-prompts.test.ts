@@ -11,9 +11,13 @@ import { threadDeExemplo } from '../src/prompts';
 
 test('CP1: o contrato do CHECK pede o modo da rodada no parecer, nas duas linguas', () => {
   assert.match(PROMPTS_PT_BR.contratoDasFases.CHECK,
-    /; o parecer diz o modo do CHECK da rodada \(Agile Check ou Classic Check, da linha `check` do `ork verify`\)\.$/);
+    /; o parecer diz o modo do CHECK da rodada \(Agile Check ou Classic Check, da linha `check` do `ork verify`\)\./);
+  assert.match(PROMPTS_PT_BR.contratoDasFases.CHECK,
+    /Claim nova afirma o comportamento correto e passa com a correcao; a reproducao do defeito fica como comando no parecer e nunca vira claim\.$/);
   assert.match(PROMPTS_EN.contratoDasFases.CHECK,
-    /; the verdict names the CHECK mode of the round \(Agile Check or Classic Check, from the `check` line of `ork verify`\)\.$/);
+    /; the verdict names the CHECK mode of the round \(Agile Check or Classic Check, from the `check` line of `ork verify`\)\./);
+  assert.match(PROMPTS_EN.contratoDasFases.CHECK,
+    /A new claim states the correct behavior and passes with the fix; defect reproduction stays as a command in the report and never becomes a claim\.$/);
   for (const fase of ['GOAL', 'PLAN', 'GO', 'SHIP', 'MASTER'] as const) {
     assert.doesNotMatch(PROMPTS_PT_BR.contratoDasFases[fase], /Agile Check|Classic Check/, fase);
   }

@@ -6,6 +6,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Adicionado
+
+- **Claims e ciclo de correção ([RM-079](docs/roadmap/RM-079-claims-que-a-correcao-passa.md)):** o CHECK registra claims que passam com a correção, o lint avisa sobre provas artificiais ou circulares e a retirada tipada exige substituta verde ou decisão do dono. O `verify_run`, os recibos e as execuções do verify redigem textos de comando sem alterar execução ou identidade; a retirada na CLI redige o motivo, a resposta MCP omite a lista `verificar`, e o `fix` vindo do parecer redige seus textos antes de recibo, ledger ou saída.
+
 ### Alterado
 
 - **Recibos de verify e revisão por conteúdo ([RM-078](docs/roadmap/RM-078-recibo-valido-enquanto-nada-muda.md)):** o recibo passa a depender do HEAD provado, das claims ativas e do plano; GO sem commit não repete prova quando essa chave permanece equivalente, exceto quando uma claim declara dependência externa de rede ou relógio, que exige novo verify depois do GO sem mudança; só sessão com commit confirmado na cadeia conta como autora.

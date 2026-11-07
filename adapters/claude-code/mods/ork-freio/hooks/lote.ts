@@ -126,7 +126,7 @@ export function soLeitura(chamadas: readonly Chamada[]): boolean {
 
 /** O lote registrou, retirou ou mudou claim: a lista do nucleo precisa ser relida. */
 export function mexeuNasClaims(chamadas: readonly Chamada[]): boolean {
-  return chamadas.some(c => nomeDa(c) === 'mcp__orkastery__ork_claim_add'
+  return chamadas.some(c => ['mcp__orkastery__ork_claim_add', 'mcp__orkastery__ork_claim_withdraw'].includes(nomeDa(c))
     || (nomeDa(c) === 'Bash' && CLI_DE_CLAIMS.test(String((c.tool_input as { command?: unknown } | null)?.command ?? ''))))
 }
 

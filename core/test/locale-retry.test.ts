@@ -25,6 +25,9 @@ function preparar(c: Cenario): void {
   assert.equal(ork(c, PT, false, 'thread', 'new', 'Falha', '--modo', 'auto', '--sem-worktree').status, 0);
   assert.equal(ork(c, PT, false, 'claims', 'add', 'loc-falha', 'README.md', '--claim', DADOS[1], '--verificar', 'false').status, 0);
   assert.equal(ork(c, PT, false, 'thread', 'new', 'Limpa', '--modo', 'auto', '--sem-worktree').status, 0);
+  const docs = path.join(c.dir, '.orkastery', 'threads', 'loc-falha', 'docs');
+  fs.mkdirSync(docs, { recursive: true });
+  fs.writeFileSync(path.join(docs, 'check.md'), 'Veredito: PASSOU\n');
   fs.writeFileSync(path.join(c.dir, 'passa.txt'), 'sim\n');
   ork(c, PT, false, 'verify', 'loc-falha', '--so-claims');
 }

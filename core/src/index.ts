@@ -81,7 +81,7 @@ import {
   varrerSuperficie,
 } from './superficie';
 import { devolverVagas, textoDoBoard, textoDoPlano, textoDoReap, planejar, threadsDeTodosOsPerfis } from './board';
-import { textoDoRadar, varrerSessoes } from './hitl';
+import { redigirSegredos, textoDoRadar, varrerSessoes } from './hitl';
 import { filaDoDono, montarPulse, textoDoPulse } from './pulse';
 import { codigosEmUso, interpretarRespostaDoPulse, responderPeloPulse } from './pulse-resposta';
 import { referenciaDoReplyValida } from './pulse-consentimento';
@@ -97,7 +97,7 @@ import {
   textoDoAchado,
 } from './divida';
 import { definicaoDaVariante, parseVariante, tabelaDeVariantes, VARIANTES } from './ciclos';
-import { adicionarClaim, anexarComando, retirarClaim, tabelaDeClaims } from './claims';
+import { adicionarClaim, anexarComando, MotivoTipoDaRetirada, retirarClaim, retirarClaimTipada, tabelaDeClaims } from './claims';
 import { conferirClaims, ErroDeConferencia, FORMATO_DA_CONFERENCIA, idsDeClaims, textoDaConferencia } from './claims-conferir';
 import { exigirCatalogoDoPacote } from './catalogo';
 import { doctor, doctorJson } from './doctor';
@@ -168,6 +168,7 @@ import {
   abrirRodada,
   correcoesDaRodada,
   reverificar,
+  statusDaRodada,
   textoDaRodada as textoDaRodadaDeFix,
   textoDoReverify,
   ultimaRodada,
@@ -204,7 +205,7 @@ import { ambienteDoDespacho as ambienteDoDespachoCodex, conferirAuth as conferir
 import { ambienteDoFilho as ambienteDoFilhoGrok, comandoDeLogin as comandoDeLoginGrok, conferirAuth as conferirAuthGrok } from './adapters/grok';
 import {
   assumirConducao, canalDoProcesso, conducaoDaThread, ErroDeConducao, ESPERA_PADRAO_MS, esperarConducaoLivre, liberarSeOrfa,
-  textoDoPedidoRepetido, textoDoStatusDaConducao,
+  identidadeDoAmbiente, textoDoPedidoRepetido, textoDoStatusDaConducao,
 } from './conducao';
 import { baterSentinela, desligarSentinela, statusDaSentinela, textoDoStatusDaSentinela } from './conducao-sentinela';
 import { gravarAutorizacao, lerAutorizacao, linhaDaAutorizacao, textoDaAutorizacao } from './autorizacao-duravel';
@@ -1103,6 +1104,7 @@ function comandoPhase(args: Args): number {
     console.log(tabelaDoLedger(carregado.raiz, id));
     return 0;
   }
+
   console.error(msg().cli.subcomandoDesconhecido('phase', sub));
   return 2;
 }
@@ -1447,14 +1449,41 @@ function comandoClaims(args: Args): number {
     const id = args.posicionais[2];
     const claimId = args.posicionais[3];
     const motivo = texto(args.opcoes.motivo);
+    const motivoTipo = texto(args.opcoes['motivo-tipo']) as MotivoTipoDaRetirada | undefined;
+    const substituidaPor = texto(args.opcoes['substituida-por']);
     if (!id || !claimId || !motivo) {
       console.error(mc.usoRetirar);
       return 2;
     }
-    const claim = comLocale('pt-BR', () => retirarClaim(carregado.raiz, id, claimId, motivo));
-    console.log(mc.retirada(claim.id, id));
-    console.log(mc.campoAlegacao(claim.alegacao));
-    console.log(mc.campoMotivo(motivo));
+    const dispatchId = identidadeDoAmbiente(id, process.env, carregado.raiz);
+    const autor = dispatchId ? { tipo: 'sessao' as const, id: dispatchId } : { tipo: 'dono' as const, id: 'terminal-local' };
+    const motivoSeguro = redigirSegredos(motivo);
+    if (!motivoTipo) {
+      const claim = comLocale('pt-BR', () => retirarClaim(carregado.raiz, id, claimId, motivo, autor));
+      console.log(mc.retirada(claim.id, id));
+      console.log(mc.retiradaTipada(false));
+      console.log(mc.autorDaRetirada(autor.tipo, autor.id));
+      console.log(mc.campoAlegacao(claim.alegacao));
+      console.log(mc.campoMotivo(motivoSeguro));
+      console.log(mc.historicoContinua);
+      return 0;
+    }
+    const resultado = comLocale('pt-BR', () => retirarClaimTipada(carregado.raiz, id, claimId,
+      { motivoTipo, substituidaPor, motivo, autor }));
+    if (resultado.estado === 'pendente-do-dono') {
+      abrirPedidoGate(carregado.raiz, id, resultado.motivo);
+      console.log(mc.retiradaPendente(claimId));
+      console.log(mc.retiradaTipada(true));
+      console.log(mc.autorDaRetirada(autor.tipo, autor.id));
+      console.log(mc.campoMotivo(motivoSeguro));
+      return 1;
+    }
+    console.log(mc.retirada(resultado.claim.id, id));
+    console.log(mc.retiradaTipada(true));
+    console.log(mc.autorDaRetirada(autor.tipo, autor.id));
+    console.log(mc.substitutaDaRetirada(resultado.substituidaPor));
+    console.log(mc.campoAlegacao(resultado.claim.alegacao));
+    console.log(mc.campoMotivo(motivoSeguro));
     console.log(mc.historicoContinua);
     return 0;
   }
@@ -1973,6 +2002,28 @@ function comandoFix(args: Args): number {
         ])
       )
     );
+    return 0;
+  }
+
+  if (sub === 'status') {
+    if (!id) {
+      console.error(mf.usoStatus);
+      return 2;
+    }
+    const rodadaBruta = texto(args.opcoes.rodada);
+    const status = statusDaRodada(carregado.raiz, id, rodadaBruta ? Number(rodadaBruta) : undefined);
+    if (args.opcoes.json === true) {
+      console.log(JSON.stringify(status, null, 2));
+      return 0;
+    }
+    console.log(mf.status(status.rodada, id));
+    console.log(mf.estado(status.estado));
+    console.log(mf.faltam(status.faltam.length ? status.faltam.join(', ') : mf.semFaltas));
+    if (status.achados.length) {
+      console.log('');
+      console.log(tabela([...mf.colunasStatus], status.achados.map((a) => [a.correcao, a.achado ?? '-', a.origem,
+        a.arquivo && a.linha ? `${a.arquivo}:${a.linha}` : '-', a.estado, a.commitQueFechou ?? '-'])));
+    }
     return 0;
   }
 

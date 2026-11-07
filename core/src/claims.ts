@@ -12,16 +12,18 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { registrar, TIPOS_DE_EVENTO } from './ledger';
+import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { carregarManifesto } from './manifest';
 import { cicloSemCheck, validarProvaSemCheck } from './prova-minima';
 import { dirThread, gravarThread, lerThread } from './thread';
 import { Claim, DependenciaExternaDaClaim, Fase, ResultadoDeComando } from './types';
 import { avaliarPolicies, avisos, policyDeProvaLocal, ViolacaoDePolicy } from './policies';
-import { cwdDaThread, executar, TIMEOUT_VERIFY_MS } from './verify';
+import { commitReal, cwdDaThread, executar, impressaoDosComandos, TIMEOUT_VERIFY_MS } from './verify';
 import { agora, anexarJsonl, lerJsonl, proximoIdSequencial, tabela } from './util';
 import { analisarComandos, linhaDoLintDeClaim, regraFatalDeClaim } from './claim-lint';
 import { ErroDoCatalogo, msg } from './locale';
+import { registrarGateBloqueado } from './gates';
+import { redigirSegredos } from './hitl';
 
 /** Caminho do `claims.jsonl` da thread (append-only, como o ledger). */
 export function caminhoClaims(raiz: string, threadId: string): string {
@@ -301,23 +303,110 @@ export function anexarComando(
  * O `claims.jsonl` e append-only: a alegacao errada continua no historico, com a retirada
  * registrada em cima. `ork verify` para de exigir prova dela, e o ledger guarda o porque.
  */
+export interface AutorDaRetirada {
+  tipo: 'sessao' | 'dono';
+  id: string;
+}
+
+export type MotivoTipoDaRetirada = 'substituicao' | 'obsoleta' | 'erro';
+
+export type ResultadoDaRetiradaTipada =
+  | { estado: 'retirada'; claim: Claim; tipada: true; autor: AutorDaRetirada; substituidaPor: string }
+  | { estado: 'pendente-do-dono'; claim: Claim; tipada: true; autor: AutorDaRetirada;
+      motivo: 'claims.retirada-sem-substituta' };
+
+const AUTOR_LEGADO: AutorDaRetirada = { tipo: 'sessao', id: 'api:legada' };
+
+function retirarERegistrar(raiz: string, threadId: string, claim: Claim, motivo: string,
+  autor: AutorDaRetirada, tipada: boolean, motivoTipo?: MotivoTipoDaRetirada, substituidaPor?: string): Claim {
+  if (claim.estado === 'retirada') throw new Error(`claim "${claim.id}" ja foi retirada`);
+  const motivoSeguro = redigirSegredos(motivo);
+  const atualizada: Claim = { ...claim, estado: 'retirada', motivoDaRetirada: motivoSeguro };
+  gravarClaim(raiz, atualizada);
+  registrar(dirThread(raiz, threadId), threadId, TIPOS_DE_EVENTO.claimRegistrada, {
+    claim: claim.id,
+    alteracao: 'claim retirada',
+    alegacao: claim.alegacao,
+    motivoDaRetirada: motivoSeguro,
+    estado: 'retirada',
+    tipada,
+    autor,
+    ...(motivoTipo ? { motivoTipo } : {}),
+    ...(substituidaPor ? { substituidaPor } : {}),
+  });
+  return atualizada;
+}
+
 export function retirarClaim(
   raiz: string,
   threadId: string,
   claimId: string,
-  motivo: string
+  motivo: string,
+  autor: AutorDaRetirada = AUTOR_LEGADO
 ): Claim {
   const claim = exigirClaim(raiz, threadId, claimId);
-  const atualizada: Claim = { ...claim, estado: 'retirada', motivoDaRetirada: motivo };
-  gravarClaim(raiz, atualizada);
-  registrar(dirThread(raiz, threadId), threadId, TIPOS_DE_EVENTO.claimRegistrada, {
-    claim: claimId,
-    alteracao: 'claim retirada',
-    alegacao: claim.alegacao,
-    motivoDaRetirada: motivo,
-    estado: 'retirada',
+  return retirarERegistrar(raiz, threadId, claim, motivo, autor, false);
+}
+
+/** RM-079: troca tipada de regra; sem substituta, preserva a claim e escala ao dono. */
+export function retirarClaimTipada(raiz: string, threadId: string, claimId: string, opcoes: {
+  motivoTipo: MotivoTipoDaRetirada;
+  substituidaPor?: string;
+  motivo: string;
+  autor: AutorDaRetirada;
+}): ResultadoDaRetiradaTipada {
+  if (!['substituicao', 'obsoleta', 'erro'].includes(opcoes.motivoTipo)) {
+    throw new Error(`motivo-tipo invalido: ${opcoes.motivoTipo}`);
+  }
+  if (!opcoes.motivo.trim()) throw new Error('o motivo da retirada e obrigatorio');
+  const claim = exigirClaim(raiz, threadId, claimId);
+  if (claim.estado === 'retirada') throw new Error(`claim "${claim.id}" ja foi retirada`);
+
+  if (opcoes.substituidaPor) {
+    const repetirVerify = (motivo: string, detalhe: string): Error =>
+      new Error(`${motivo}: ${detalhe}; rode node core/dist/index.js verify ${threadId}`);
+    if (opcoes.substituidaPor === claimId) throw new Error('a claim substituta precisa ser diferente da retirada');
+    const substituta = exigirClaim(raiz, threadId, opcoes.substituidaPor);
+    if (substituta.estado === 'retirada') {
+      throw repetirVerify('claims.substituta.inativa', `claim substituta "${substituta.id}" nao esta ativa`);
+    }
+    const rodada = lerLedger(dirThread(raiz, threadId)).filter((e) => e.tipo === TIPOS_DE_EVENTO.verificacao).at(-1);
+    const headAtual = commitReal(cwdDaThread(raiz, lerThread(raiz, threadId)));
+    if (rodada?.commit !== headAtual) {
+      throw repetirVerify('claims.substituta.verify-head',
+        `o ultimo verify_run pertence a ${String(rodada?.commit ?? 'commit ausente')}, nao ao HEAD ${headAtual}`);
+    }
+    const prova = Array.isArray(rodada?.claims)
+      ? (rodada.claims as Array<Record<string, unknown>>).find((c) => c.id === substituta.id)
+      : undefined;
+    if (prova?.verificado !== true) {
+      throw repetirVerify('claims.substituta.nao-verificada',
+        `claim substituta "${substituta.id}" nao passou no ultimo verify_run`);
+    }
+    if (typeof prova.verificarSha256 !== 'string'
+        || prova.verificarSha256 !== impressaoDosComandos(substituta.verificar)) {
+      throw repetirVerify('claims.substituta.alterada-depois-do-verify',
+        `claim substituta "${substituta.id}" mudou o comando verificar depois do ultimo verify_run`);
+    }
+    const retirada = retirarERegistrar(raiz, threadId, claim, opcoes.motivo, opcoes.autor, true,
+      opcoes.motivoTipo, substituta.id);
+    return { estado: 'retirada', claim: retirada, tipada: true, autor: opcoes.autor, substituidaPor: substituta.id };
+  }
+
+  const thread = lerThread(raiz, threadId);
+  registrarGateBloqueado(dirThread(raiz, threadId), threadId, {
+    gate: 'claims.retirar',
+    motivo: 'claims.retirada-sem-substituta',
+    modo: thread.modo,
+    fase: thread.faseAtual,
+    detalhe: `${claim.id}: ${opcoes.motivoTipo}; ${redigirSegredos(opcoes.motivo.trim())}`,
+    evidencia: `claim ativa ${claim.id}`,
+    correcao: 'o dono decide pelo pedido tipado ou uma substituta verde e informada',
+    claim: claim.id,
+    autor: opcoes.autor,
   });
-  return atualizada;
+  return { estado: 'pendente-do-dono', claim, tipada: true, autor: opcoes.autor,
+    motivo: 'claims.retirada-sem-substituta' };
 }
 
 /** Regrava a claim com o estado carimbado pelo `ork verify` (o append mais novo vence). */

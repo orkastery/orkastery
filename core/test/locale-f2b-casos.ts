@@ -412,6 +412,9 @@ function casosDoRetry(casos: Record<string, string>): void {
   ork(repo, amb, 'thread', 'new', 'Falha', '--modo', 'auto', '--sem-worktree');
   ork(repo, amb, 'claims', 'add', 'rty-falha', 'README.md', '--claim', 'reprova sempre', '--verificar', 'false');
   ork(repo, amb, 'thread', 'new', 'Limpa', '--modo', 'auto', '--sem-worktree');
+  const docsDoRetry = path.join(repo, '.orkastery', 'threads', 'rty-falha', 'docs');
+  fs.mkdirSync(docsDoRetry, { recursive: true });
+  fs.writeFileSync(path.join(docsDoRetry, 'check.md'), 'Veredito: PASSOU\n');
   fs.writeFileSync(path.join(repo, 'passa.txt'), 'sim\n');
   ork(repo, amb, 'verify', 'rty-falha', '--so-claims');
   caso(casos, 'retry cli: plan sem thread', () => texto(ork(repo, amb, 'retry', 'plan')));

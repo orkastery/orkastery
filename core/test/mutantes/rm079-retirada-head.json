@@ -1,0 +1,96 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-079 GO-FIX: guardas que vinculam a substituta ao recibo atual.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "a substituta aceita recibo de verify_run pertencente a outro HEAD",
+      "modulo": "claims",
+      "de": "if (rodada?.commit !== headAtual) {",
+      "para": "if (false) {",
+      "teste": "rm079-claims",
+      "nome": "^RM079 retirada: substituta ativa"
+    },
+    {
+      "id": "M2",
+      "descricao": "a substituta aceita o recibo executado para outra claim",
+      "modulo": "claims",
+      "de": ".find((c) => c.id === substituta.id)",
+      "para": ".find(() => true)",
+      "teste": "rm079-claims",
+      "nome": "^RM079 retirada: substituta ativa"
+    },
+    {
+      "id": "M3",
+      "descricao": "a substituta aceita impressão verificar alterada depois do verify_run",
+      "modulo": "claims",
+      "de": "if (typeof prova.verificarSha256 !== 'string'\n            || prova.verificarSha256 !== (0, verify_1.impressaoDosComandos)(substituta.verificar)) {",
+      "para": "if (false) {",
+      "teste": "rm079-claims",
+      "nome": "^RM079 retirada: substituta ativa"
+    },
+    {
+      "id": "M4",
+      "descricao": "a substituta retirada depois do verify_run continua autorizando a troca",
+      "modulo": "claims",
+      "de": "if (substituta.estado === 'retirada') {",
+      "para": "if (false) {",
+      "teste": "rm079-claims",
+      "nome": "^RM079 retirada: substituta retirada"
+    },
+    {
+      "id": "M5",
+      "descricao": "o verify_run volta a gravar o texto bruto da lista verificar",
+      "modulo": "verify",
+      "de": "verificarSha256: impressaoDosComandos(c.claim.verificar),",
+      "para": "verificar: c.claim.verificar,",
+      "teste": "verify-timeout",
+      "nome": "^verify: estouro vira verify.timeout"
+    },
+    {
+      "id": "M6",
+      "descricao": "comandoNoLedger volta a publicar o texto de comando sem a redação geral",
+      "modulo": "verify",
+      "de": "return (0, hitl_1.redigirSegredos)(comando);",
+      "para": "return comando;",
+      "teste": "verify-timeout",
+      "nome": "^RM079 comando:"
+    },
+    {
+      "id": "M7",
+      "descricao": "a CLI de retirada volta a imprimir o motivo bruto",
+      "modulo": "index",
+      "de": "const motivoSeguro = (0, hitl_1.redigirSegredos)(motivo);",
+      "para": "const motivoSeguro = motivo;",
+      "teste": "rm079-claims",
+      "nome": "^RM079 retirada CLI:"
+    },
+    {
+      "id": "M8",
+      "descricao": "a resposta MCP de retirada volta a carregar a lista verificar bruta",
+      "modulo": "mcp-artifacts",
+      "de": "const { verificar, ...projecao } = claim;",
+      "para": "const verificar = claim.verificar, projecao = claim;",
+      "teste": "rm079-claims",
+      "nome": "^RM079 retirada: transporte MCP"
+    },
+    {
+      "id": "M9",
+      "descricao": "a impressão deixa de distinguir a ordem canônica da lista verificar",
+      "modulo": "verify",
+      "de": ".update(JSON.stringify(verificar))",
+      "para": ".update(JSON.stringify([...verificar].sort()))",
+      "teste": "rm079-claims",
+      "nome": "^RM079 impressão:"
+    },
+    {
+      "id": "M10",
+      "descricao": "a seleção da rodada anterior volta a comparar o texto redigido",
+      "modulo": "verify",
+      "de": "return anterior.comandoSha256 === impressaoDoComando(atual);",
+      "para": "return anterior.comando === (0, hitl_1.redigirSegredos)(atual);",
+      "teste": "rm081-f3",
+      "nome": "^RM079 A6: comando original diferente"
+    }
+  ]
+}

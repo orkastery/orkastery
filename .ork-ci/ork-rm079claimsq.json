@@ -1,0 +1,1373 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm079claimsq",
+  "branch": "ork/ork-rm079claimsq-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "skills/phases/check-quality/SKILL.md",
+      "alegacao": "A orientação do CHECK registra claims sobre o comportamento correto e leva a reprodução do defeito ao parecer",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-orientacao.test.js"
+      ],
+      "criadoEm": "2026-11-06T11:46:57.997Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/src/claim-lint.ts",
+      "alegacao": "O lint avisa sobre contexto artificial e artefato de fechamento sem recusar a claim",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-06T11:46:58.064Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/src/claims.ts",
+      "alegacao": "A retirada tipada usa substituta verde ou encaminha a ausência de substituta ao dono com autoria registrada",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-06T11:46:58.140Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-server.ts",
+      "alegacao": "A superfície MCP oferece a retirada tipada com as mesmas guardas da CLI",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-06T11:46:58.210Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/src/fix.ts",
+      "alegacao": "A rodada de correção incorpora achados estruturados do parecer e expõe o estado de fechamento",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-fix.test.js"
+      ],
+      "criadoEm": "2026-11-06T11:46:58.307Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/assets/skills-en/phases/check-quality/SKILL.md",
+      "alegacao": "A orientação em inglês do CHECK mantém a reprodução do defeito no parecer e define uma claim positiva.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-orientacao.test.js"
+      ],
+      "criadoEm": "2026-11-06T11:53:44.638Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/agents/ork-check.md",
+      "alegacao": "O agente de CHECK em pt-BR orienta claim positiva e achado sem claim em formato analisável.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-orientacao.test.js"
+      ],
+      "criadoEm": "2026-11-06T11:53:44.704Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/assets/adapters-en/claude-code/agents/ork-check.md",
+      "alegacao": "O agente de CHECK em inglês orienta claim positiva e achado sem claim em formato analisável.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-orientacao.test.js"
+      ],
+      "criadoEm": "2026-11-06T11:53:44.762Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-prompts.ts",
+      "alegacao": "O contrato bilíngue de CHECK separa a claim correta do comando de reprodução do defeito.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-orientacao.test.js"
+      ],
+      "criadoEm": "2026-11-06T11:53:44.849Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/orkastery/skills/phases/check-quality/SKILL.md",
+      "alegacao": "A cópia Claude Code da orientação de CHECK mantém o contrato de claim positiva.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-orientacao.test.js"
+      ],
+      "criadoEm": "2026-11-06T11:54:18.921Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/codex/orkastery/skills/phases/check-quality/SKILL.md",
+      "alegacao": "A cópia Codex da orientação de CHECK mantém o contrato de claim positiva.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-orientacao.test.js"
+      ],
+      "criadoEm": "2026-11-06T11:54:19.019Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/orkastery/agents/ork-check.md",
+      "alegacao": "A cópia distribuída do agente de CHECK orienta claim positiva e achado analisável.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-orientacao.test.js"
+      ],
+      "criadoEm": "2026-11-06T11:54:19.110Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm079-orientacao.test.ts",
+      "alegacao": "A suíte bilíngue prova a orientação de claim positiva e reprodução no parecer.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-orientacao.test.js"
+      ],
+      "criadoEm": "2026-11-06T11:54:19.211Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "O contrato de lint inclui avisos tipados para contexto artificial e artefato de fechamento.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-06T11:57:59.064Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-claims.ts",
+      "alegacao": "O catálogo bilíngue explica os avisos novos e a correção recomendada.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-06T11:57:59.143Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm079-claims.test.ts",
+      "alegacao": "A suíte prova que os avisos novos não recusam a claim nem o bundle.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-06T11:57:59.219Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "A retirada tipada sem substituta tem política não automática de escalação ao dono.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build"
+      ],
+      "criadoEm": "2026-11-06T12:00:20.822Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-retry.ts",
+      "alegacao": "A política de retirada sem substituta tem orientação equivalente em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build"
+      ],
+      "criadoEm": "2026-11-06T12:00:21.032Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-pulse.ts",
+      "alegacao": "O motivo de retirada sem substituta tem descrição bilíngue no catálogo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build"
+      ],
+      "criadoEm": "2026-11-06T12:00:21.586Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/src/hitl-gates.ts",
+      "alegacao": "O pedido de retirada sem substituta pertence ao catálogo fechado de escalações humanas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build"
+      ],
+      "criadoEm": "2026-11-06T12:00:21.963Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/src/gates.ts",
+      "alegacao": "O catálogo de pontos de gate reconhece a retirada de claim como operação própria.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-06T12:05:02.005Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "A CLI aceita retirada tipada e mantém a forma livre com recibo de compatibilidade.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-06T12:05:02.218Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-artifacts.ts",
+      "alegacao": "O transporte MCP aplica a retirada tipada sob lock e abre o pedido após liberar o estado.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-06T12:07:01.498Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-install.ts",
+      "alegacao": "O perfil worktree do Codex concede a ferramenta exata de retirada tipada.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-06T12:07:01.917Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/claude-bg.ts",
+      "alegacao": "O perfil worktree do Claude concede a ferramenta exata de retirada tipada.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-06T12:07:02.252Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-operacao-restante.ts",
+      "alegacao": "A saída bilíngue de fix status mostra estado, pendências e commit de fechamento.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-fix.test.js"
+      ],
+      "criadoEm": "2026-11-06T12:13:22.466Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-ajuda.ts",
+      "alegacao": "A ajuda bilíngue documenta ork fix status e sua saída JSON.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-fix.test.js"
+      ],
+      "criadoEm": "2026-11-06T12:13:22.785Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm079-fix.test.ts",
+      "alegacao": "A suíte prova que achado sem claim abre rodada e fecha após novo CHECK verde.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-fix.test.js"
+      ],
+      "criadoEm": "2026-11-06T12:13:22.956Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm079.json",
+      "alegacao": "Mutante M1 morre quando o aviso de contexto artificial é removido.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079.json M1"
+      ],
+      "criadoEm": "2026-11-06T12:16:56.678Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm079.json",
+      "alegacao": "Mutante M2 morre quando o aviso de artefato de fechamento é removido.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079.json M2"
+      ],
+      "criadoEm": "2026-11-06T12:16:56.916Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm079.json",
+      "alegacao": "Mutante M3 morre quando a substituta deixa de exigir o último verify verde.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079.json M3"
+      ],
+      "criadoEm": "2026-11-06T12:16:57.099Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm079.json",
+      "alegacao": "Mutante M4 morre quando a retirada sem substituta deixa de pedir decisão ao dono.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079.json M4"
+      ],
+      "criadoEm": "2026-11-06T12:16:57.247Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm079.json",
+      "alegacao": "Mutante M5 morre quando o fix open ignora o achado do parecer.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079.json M5"
+      ],
+      "criadoEm": "2026-11-06T12:16:57.466Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/test/mutantes/rm079.json",
+      "alegacao": "Mutante M6 morre quando o achado fecha sem um novo CHECK verde.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079.json M6"
+      ],
+      "criadoEm": "2026-11-06T12:16:57.643Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm067-grok-mcp.test.ts",
+      "alegacao": "A lista fechada do Grok inclui a retirada tipada no perfil worktree.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm067-grok-mcp.test.js"
+      ],
+      "criadoEm": "2026-11-06T12:17:42.741Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/test/runtime-context.test.ts",
+      "alegacao": "O perfil interativo continua excluindo a retirada tipada e outras mutações.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/runtime-context.test.js"
+      ],
+      "criadoEm": "2026-11-06T12:17:42.946Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-freio/hooks/lote.ts",
+      "alegacao": "A cópia distribuída do Freio invalida claims após retirada MCP.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/ork-freio.test.js"
+      ],
+      "criadoEm": "2026-11-06T12:17:43.310Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/test/ork-freio.test.ts",
+      "alegacao": "A suíte do Freio cobre a retirada MCP como mutação de claims.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/ork-freio.test.js"
+      ],
+      "criadoEm": "2026-11-06T12:17:43.465Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-claims.test.ts",
+      "alegacao": "A suíte de locale cobre o recibo não tipado e a sintaxe nova de retirada.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-claims.test.js"
+      ],
+      "criadoEm": "2026-11-06T12:17:43.641Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
+      "alegacao": "A página RM-079 descreve o escopo implementado e o estado da thread.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-06T12:17:43.815Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "O snapshot pt-BR registra explicitamente a retirada livre como não tipada.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-f3b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-06T12:17:43.948Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O bloco Não publicado registra a entrega da RM-079 sem prometer deploy.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-06T12:17:44.074Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/hooks/lote.ts",
+      "alegacao": "O Freio invalida a leitura de claims após uma retirada pela ferramenta MCP.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/ork-freio.test.js"
+      ],
+      "criadoEm": "2026-11-06T12:17:44.189Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice do roadmap reflete o estado em desenvolvimento da RM-079.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-06T12:20:50.895Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/test/projeto-alvo-mcp.test.ts",
+      "alegacao": "O catálogo MCP mantém projeto opcional e schema fechado também para a retirada tipada",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/projeto-alvo-mcp.test.js"
+      ],
+      "criadoEm": "2026-11-06T13:42:25.306Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/test/mcp-grafo.test.ts",
+      "alegacao": "A retirada tipada integra o catálogo MCP sem alterar as ferramentas opcionais de grafo",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-11-06T13:42:25.595Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/test/claude-worktree-permissions.test.ts",
+      "alegacao": "O perfil worktree do Claude concede a retirada tipada sem ampliar permissões de arquivo",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/claude-worktree-permissions.test.js"
+      ],
+      "criadoEm": "2026-11-06T13:42:25.760Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f2a-pt-BR.json",
+      "alegacao": "A ajuda pt-BR documenta a retirada tipada e a consulta do estado da correção",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-f2a-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-06T13:42:25.888Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f2b-pt-BR.json",
+      "alegacao": "O snapshot pt-BR inclui a política e a descrição da retirada sem substituta",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-f2b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-06T13:42:26.004Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f3c-pt-BR.json",
+      "alegacao": "O snapshot de prompts preserva a orientação de claim positiva no CHECK",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-f3c-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-06T13:42:26.159Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C52",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f3d-pt-BR.json",
+      "alegacao": "O snapshot de correção inclui a retirada sem substituta no catálogo de retry",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-f3d-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-06T13:42:26.408Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-torre/hooks/frases.ts",
+      "alegacao": "A Torre apresenta a retirada sem substituta como decisão pendente do dono",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/ork-torre.test.js"
+      ],
+      "criadoEm": "2026-11-06T13:42:26.892Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C54",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-torre/hooks/frases.ts",
+      "alegacao": "A cópia distribuída da Torre apresenta a retirada sem substituta ao dono",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/ork-torre.test.js"
+      ],
+      "criadoEm": "2026-11-06T13:42:27.341Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/test/ork-torre.test.ts",
+      "alegacao": "A suíte da Torre cobre o motivo tipado de retirada sem substituta",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/ork-torre.test.js"
+      ],
+      "criadoEm": "2026-11-06T13:42:27.503Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C56",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referência pt-BR documenta retirada tipada e estado da rodada de correção",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm044-paridade-cli-md.test.js"
+      ],
+      "criadoEm": "2026-11-06T13:42:27.741Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C57",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "A referência em inglês documenta retirada tipada e estado da rodada de correção",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm044-paridade-cli-md.test.js"
+      ],
+      "criadoEm": "2026-11-06T13:42:28.101Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C58",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/variantes-en.json",
+      "alegacao": "A variante inglesa do CHECK corresponde à orientação atual em pt-BR",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-skills.test.js"
+      ],
+      "criadoEm": "2026-11-06T13:42:28.237Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C59",
+      "thread": "ork-rm079claimsq",
+      "fase": "GOAL",
+      "arquivo": "core/test/check-modo-prompts.test.ts",
+      "alegacao": "O contrato do CHECK preserva o modo da rodada e acrescenta a orientação de claim positiva",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/check-modo-prompts.test.js"
+      ],
+      "criadoEm": "2026-11-06T13:42:28.322Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/src/claims.ts",
+      "alegacao": "A retirada com substituta exige recibo do HEAD atual, da mesma claim e do mesmo comando, mantendo a substituta ativa.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-06T19:05:30.776Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "O recibo de verify registra o comando verificar usado para julgar cada claim.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-06T19:05:30.861Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C62",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/rm079-claims.test.ts",
+      "alegacao": "A suíte recusa recibo antigo, comando alterado e substituta retirada, e aceita o recibo do HEAD real.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-06T19:05:31.046Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C63",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm079-retirada-head.json",
+      "alegacao": "Os mutantes do vínculo entre substituta e recibo morrem quando removem as guardas de HEAD, identidade, comando ou atividade.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-retirada-head.json M1",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-retirada-head.json M2",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-retirada-head.json M3",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-retirada-head.json M4"
+      ],
+      "criadoEm": "2026-11-06T19:05:31.214Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C64",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/src/fix.ts",
+      "alegacao": "O fix open recusa parecer ausente, veredito inválido e achado malformado com motivos tipados.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-fix.test.js"
+      ],
+      "criadoEm": "2026-11-06T19:05:31.632Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C65",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/rm079-fix.test.ts",
+      "alegacao": "A suíte cobre falhas visíveis para parecer ausente, veredito inválido e linha de achado malformada.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-fix.test.js"
+      ],
+      "criadoEm": "2026-11-06T19:05:31.861Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C66",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm079.json",
+      "alegacao": "Os mutantes do parser do parecer morrem quando removem as recusas de entrada inválida.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079.json M10",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079.json M11",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079.json M12",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079.json M13"
+      ],
+      "criadoEm": "2026-11-06T19:05:32.031Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C67",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
+      "alegacao": "A página registra a fase GO e explica a compatibilidade da retirada livre com recibo não tipado.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'fase: GO' docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
+        "grep -q 'forma em texto livre continua aceita com recibo não tipado' docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-06T19:05:32.564Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C68",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/fix.test.ts",
+      "alegacao": "As fixtures do subloop GO-FIX fornecem um parecer valido sem alterar as assercoes do fluxo.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/fix.test.js"
+      ],
+      "criadoEm": "2026-11-06T20:21:45.293Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C69",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/cli-b3.test.ts",
+      "alegacao": "O fluxo de fix pelo binario parte de um parecer valido e preserva os contratos de saida existentes.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/cli-b3.test.js"
+      ],
+      "criadoEm": "2026-11-06T20:21:45.406Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C70",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/retry.test.ts",
+      "alegacao": "Os retries que abrem uma rodada de correcao fornecem o parecer exigido pelo fluxo.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/retry.test.js"
+      ],
+      "criadoEm": "2026-11-06T20:21:45.729Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C71",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/locale-retry.test.ts",
+      "alegacao": "A fixture bilingue de retry fornece parecer valido sem mudar os textos esperados.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-retry.test.js"
+      ],
+      "criadoEm": "2026-11-06T20:21:45.877Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C72",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f2b-casos.ts",
+      "alegacao": "O snapshot de retry em pt-BR prepara o parecer exigido e preserva a saida de referencia.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-f2b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-06T20:21:45.975Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C73",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3d-casos-correcao.ts",
+      "alegacao": "O snapshot complementar de fix prepara um parecer valido e preserva a saida de referencia.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-f3d-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-06T20:21:46.110Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C74",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "O verify_run representa a lista verificar de cada claim por uma impressão canônica e omite o texto bruto.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/verify-timeout.test.js core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-06T22:27:12.973Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C75",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/src/claims.ts",
+      "alegacao": "A retirada tipada compara a impressão atual da substituta com a impressão registrada no recibo.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-06T22:27:13.034Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C76",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/rm079-claims.test.ts",
+      "alegacao": "A suíte de retirada cobre recibo por impressão e alteração da lista verificar depois do verify.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-06T22:27:13.101Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C77",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm079-retirada-head.json",
+      "alegacao": "Mutantes do recibo reprovam ao restaurar texto bruto ou retirar a comparação da impressão.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-retirada-head.json M3",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-retirada-head.json M5"
+      ],
+      "criadoEm": "2026-11-06T22:27:13.163Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C78",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/src/fix.ts",
+      "alegacao": "O fluxo de correção aplica redação ao texto de parecer antes de recibo, ledger e saída CLI.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-fix.test.js"
+      ],
+      "criadoEm": "2026-11-06T22:27:13.236Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C79",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/rm079-fix.test.ts",
+      "alegacao": "A suíte de correção prova a redação de credencial em achado, reprodução e erro do parser.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-fix.test.js"
+      ],
+      "criadoEm": "2026-11-06T22:27:13.305Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C80",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
+      "alegacao": "A página da RM-079 descreve a impressão do recibo e a redação dos textos derivados.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-06T22:27:13.365Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C81",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O bloco Não publicado registra o recibo por impressão e a redação das superfícies da RM-079.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-06T22:27:13.423Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C82",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "A projeção de saída redige credenciais genéricas e em URL nos textos de comando sem alterar o valor usado pela execução ou pela impressão.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/verify-timeout.test.js core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-07T01:46:46.692Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C83",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/src/ship.ts",
+      "alegacao": "O resultado de SHIP publica a projeção redigida do verify e mantém a decisão sobre o resultado original.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'r.verificacao = resultadoVerifyRedigido(verificacao)' core/src/ship.ts",
+        "node --test core/dist-test/test/verify-timeout.test.js"
+      ],
+      "criadoEm": "2026-11-07T01:46:46.780Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C84",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-verify-async.ts",
+      "alegacao": "O verify MCP assíncrono publica a projeção redigida do resultado terminal.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'resultado: resultadoVerifyRedigido(resultado)' core/src/mcp-verify-async.ts",
+        "node --test core/dist-test/test/verify-timeout.test.js"
+      ],
+      "criadoEm": "2026-11-07T01:46:46.839Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C85",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "As saídas da retirada de claim mostram o motivo redigido nos fluxos livre, pendente e com substituta.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-07T01:46:46.911Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C86",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-artifacts.ts",
+      "alegacao": "A retirada MCP omite a lista verificar da claim e fornece sua impressão canônica.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-07T01:46:46.975Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C87",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/rm079-claims.test.ts",
+      "alegacao": "A suíte da RM-079 cobre redação na CLI e no MCP e identidade da impressão por ordem e forma da lista.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-07T01:46:47.070Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C88",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/verify-timeout.test.ts",
+      "alegacao": "A suíte de verify cobre credenciais genéricas e em URL no recibo e na projeção serializável, preservando o resultado original.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/verify-timeout.test.js"
+      ],
+      "criadoEm": "2026-11-07T01:46:47.142Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C89",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm079-retirada-head.json",
+      "alegacao": "Mutantes da redação de comando, do motivo CLI, da projeção MCP e da ordem canônica da impressão morrem nas provas da RM-079.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-retirada-head.json M6",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-retirada-head.json M7",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-retirada-head.json M8",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-retirada-head.json M9"
+      ],
+      "criadoEm": "2026-11-07T01:46:47.222Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C92",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "O verify_run associa o texto redigido à impressão do comando original e a seleção anterior usa essa identidade, preservando o fallback de eventos legados.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm081-f3.test.js core/dist-test/test/verify-timeout.test.js"
+      ],
+      "criadoEm": "2026-11-07T04:12:36.804Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C93",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm079-retirada-head.json",
+      "alegacao": "O mutante que volta a comparar o texto redigido não sobrevive à prova de identidade do comando original.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-retirada-head.json M10"
+      ],
+      "criadoEm": "2026-11-07T04:12:36.857Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C94",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/rm081-f3.test.ts",
+      "alegacao": "A suíte de seleção anterior cobre evento novo com credencial genérica, evento legado sem impressão e comando original diferente.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm081-f3.test.js"
+      ],
+      "criadoEm": "2026-11-07T04:12:36.915Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C95",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
+      "alegacao": "A página enumera as superfícies redigidas pela RM-079 e declara A7 a A12 como dívida preexistente fora do escopo desta entrega.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'os recibos e as execuções do verify redigem' docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
+        "grep -q '## Fora do escopo' docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
+        "grep -q 'A12: ledger, board e saída de auditoria' docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-07T04:13:48.190Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C96",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O bloco Não publicado delimita a redação ao verify_run, aos recibos e execuções do verify, à retirada CLI e MCP e ao fix vindo do parecer.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'O `verify_run`, os recibos e as execuções do verify' CHANGELOG.md",
+        "grep -q 'o `fix` vindo do parecer' CHANGELOG.md",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-07T04:13:48.269Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C99",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
+      "alegacao": "A página da RM-079 passa no verificador de documentação, e a redação que ela descreve é provada pelos testes do produto.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/verify-timeout.test.js core/dist-test/test/rm079-claims.test.js && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-07T05:56:59.032Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C100",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O bloco Não publicado segue a regra do CHANGELOG, e a redação de comando, CLI e MCP que ele anuncia é provada pelos testes do produto.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/verify-timeout.test.js core/dist-test/test/rm079-claims.test.js && node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-11-07T05:56:59.520Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C37",
+      "reason": "local-integration-required"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
