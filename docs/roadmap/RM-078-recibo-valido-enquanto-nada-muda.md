@@ -124,4 +124,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- |
 | 2026-10-31 | Item criado em Discovery | Achados de condução em rede, conferidos contra a 0.6.2 | Julio (pedido de 31/10/2026) |
 | 2026-11-06 | Implementação e testes focados em andamento | Thread `ork-rm078recibod`, commits atômicos até `f9685ef` | Codex, modo `#Auto` |
-| 2026-11-06 | GO-FIX estabiliza a fixture de idioma e atualiza M15 para autoria por commit confirmado na cadeia | Queda e repetição do verify em `1145660b`; correções em `6c3ea33f` e `b771cfa0` | Codex, modo `#Auto` |
+| 2026-11-06 | GO-FIX corrige o F2b e, em separado, atualiza M15 para autoria por commit confirmado na cadeia | Tentativa insuficiente em `6c3ea33f`; correção do F2b em `f51f33a5`, com `--date=`, conferência das datas, teste focado e mutante, e em `dd570a0e`, com formato UTC e verify verde; correção do M15 em `b771cfa0` | Codex, modo `#Auto` |
