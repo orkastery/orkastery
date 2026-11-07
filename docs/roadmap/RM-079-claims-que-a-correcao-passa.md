@@ -61,10 +61,10 @@ sdlc:
   - regra de lint que avisa quando a claim executa função isolada com contexto artificial (por exemplo `node -e` com parser de AST, `vm.runIn*`, `new Function`);
   - regra de lint que avisa quando a claim lê o bundle `.ork-ci` da própria thread ou outro artefato gerado pelo fechamento;
   - `ork claims retirar ... --substituida-por <Cn>` com motivo tipado (`substituicao`, `obsoleta`, `erro`) e autor (sessão ou dono) no ledger, conferindo que a substituta existe, está ativa e passou no último `verify_run`;
-  - o `verify_run` guarda a impressão SHA-256 da lista `verificar`, nunca o texto bruto, e a retirada compara essa impressão com a substituta atual;
-  - motivos e textos derivados do parecer passam pela redação de credenciais antes de recibo, ledger ou saída da CLI;
+  - o `verify_run` guarda a impressão SHA-256 da lista `verificar` para comparar a prova; quando uma execução precisa registrar texto de comando, a cópia de saída passa pela redação geral, sem alterar o texto executado nem a impressão;
+  - motivos e textos derivados do parecer passam pela redação de credenciais antes de recibo, ledger ou saída da CLI, e as três respostas de `claims retirar` mostram o mesmo motivo seguro;
   - retirada sem substituta abre pedido tipado ao dono (por exemplo `claims.retirada-sem-substituta`);
-  - a mesma operação como ferramenta MCP.
+  - a mesma operação como ferramenta MCP; a resposta MCP omite a lista `verificar` da claim e devolve `verificarSha256` como identidade;
   - `ork fix open` lê o veredito e os achados estruturados de `docs/check.md`; `ork fix status` mostra arquivo, linha, estado, commit de fechamento e o que falta.
 - **Fora de escopo:** mudar o formato das claims.
 - **Entregáveis e critérios de aceite:**
@@ -72,6 +72,8 @@ sdlc:
   - troca de regra com substituta verde não para a thread;
   - retirada sem substituta vira pedido ao dono;
   - alteração do comando da substituta depois do verify é recusada pela impressão, sem copiar o comando para o recibo;
+  - recibo, resposta serializada e SHIP redigem credenciais em textos de comando sem mudar execução, comparação ou reaproveitamento;
+  - a retirada MCP não devolve o texto dos comandos da claim;
   - parecer negativo com achado sem claim abre uma rodada de correção e exige um novo CHECK verde para fechar;
   - um mutante por regra morre.
 - **Piloto, medição e critérios de expansão/interrupção:** piloto nos próximos CHECKs `#Auto`.
@@ -115,3 +117,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-31 | Item criado em Discovery | Achados de condução em rede, conferidos contra a 0.6.2 | Julio (pedido de 31/10/2026) |
 | 2026-11-06 | Implementação em GO na thread `ork-rm079claimsq` | orientação bilíngue, lint educativo, retirada tipada e ciclo de correção derivados dos critérios da RM-079 | sessão Codex (#Auto) |
 | 2026-11-06 | GO-FIX 2 substituiu o comando bruto do recibo por impressão versionada e redigiu textos livres do fluxo | falha determinística de `verify-timeout` e auditoria dos campos novos da RM-079 | sessão Codex (#Auto) |
+| 2026-11-06 | GO-FIX 3 fechou a redação de comandos, das três saídas CLI e da resposta MCP, com mutantes por regra | bloqueadores A1 a A5 do segundo CHECK | sessão Codex (#Auto) |
