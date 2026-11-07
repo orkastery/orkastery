@@ -25,7 +25,7 @@ export type { AchadoDoLint, RegraDoLint };
  * vale para qualquer projeto. RM-061 (F3b): o texto mora no catalogo (`claims.correcoesDoLint`), e a impressao do
  * `claims add` a mostra no locale do comando, pela regra.
  */
-const CORRECAO: Record<RegraDoLint, string> = {
+const CORRECAO: Record<Exclude<RegraDoLint, 'ref-local-do-ramo-base'>, string> = {
   'suite-inteira': msg('pt-BR').claims.correcoesDoLint['suite-inteira'],
   'sha-intermediario': msg('pt-BR').claims.correcoesDoLint['sha-intermediario'],
   'contagem-de-commits': msg('pt-BR').claims.correcoesDoLint['contagem-de-commits'],
@@ -39,7 +39,7 @@ const CORRECAO: Record<RegraDoLint, string> = {
 
 /** RM-037: estes achados tornam uma claim nova inexequivel no checkout do runner. */
 export const REGRAS_FATAIS_DE_CLAIM = new Set<RegraDoLint>([
-  'binario-rg', 'ork-fora-do-path', 'estado-local', 'aspas-escapadas',
+  'binario-rg', 'ork-fora-do-path', 'estado-local', 'aspas-escapadas', 'ref-local-do-ramo-base',
 ]);
 
 export function regraFatalDeClaim(regra: RegraDoLint): boolean {
@@ -73,7 +73,68 @@ function executavelDireto(comando: string, nome: string): RegExpExecArray | null
   return new RegExp(`(?:^|&&|\\|\\||[;|(])\\s*(?:command\\s+|env\\s+)?(${nome})(?=\\s|$)`).exec(comando);
 }
 
-export function analisarComando(comando: string): AchadoDoLint[] {
+/** Lexer pequeno: basta separar argumentos e operadores sem interpretar nem executar o shell. */
+function segmentosDoComando(comando: string): string[][] {
+  const segmentos: string[][] = [];
+  let atual: string[] = [], token = '', aspas: string | null = null;
+  const fecharToken = () => { if (token) { atual.push(token); token = ''; } };
+  const fecharSegmento = () => { fecharToken(); if (atual.length) { segmentos.push(atual); atual = []; } };
+  for (let i = 0; i < comando.length; i++) {
+    const c = comando[i];
+    if (aspas) {
+      if (c === aspas) aspas = null;
+      else if (c === '\\' && aspas === '"' && i + 1 < comando.length) token += comando[++i];
+      else token += c;
+      continue;
+    }
+    if (c === '"' || c === "'") { aspas = c; continue; }
+    if (/\s/.test(c)) { fecharToken(); continue; }
+    if (';&|()'.includes(c)) { fecharSegmento(); continue; }
+    if (c === '\\' && i + 1 < comando.length) token += comando[++i];
+    else token += c;
+  }
+  fecharSegmento();
+  return segmentos;
+}
+
+function executavelDoSegmento(tokens: readonly string[]): string | null {
+  let i = 0;
+  while (i < tokens.length && (/^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i]) || tokens[i] === 'env' || tokens[i] === 'command')) i++;
+  return tokens[i] ? tokens[i].split('/').at(-1) ?? null : null;
+}
+
+function refLocalDoRamo(token: string, ramoBase: string): boolean {
+  return token === ramoBase || token.startsWith(`${ramoBase}..`) || token.endsWith(`..${ramoBase}`);
+}
+
+/** Ref local do ramo-base em opcao de produto ou em argumento de um comando Git. */
+function refLocalDoRamoBase(comando: string, ramoBase: string): string | null {
+  for (const segmento of segmentosDoComando(comando)) {
+    // O texto procurado e dado do grep, mesmo quando parece um comando ou uma opcao.
+    if (executavelDoSegmento(segmento) === 'grep') continue;
+    for (let i = 0; i < segmento.length; i++) {
+      const token = segmento[i];
+      if (token === '--base' && segmento[i + 1] === ramoBase || token === `--base=${ramoBase}`) return ramoBase;
+    }
+    // Expande apenas tokens compostos que contem um comando Git (por exemplo "$(git merge-base ...)").
+    const tokens = segmento.flatMap((token) => /\bgit\s/.test(token)
+      ? segmentosDoComando(token).flat() : [token]);
+    for (let i = 0; i < tokens.length; i++) {
+      if (tokens[i] !== 'git') continue;
+      let sub = i + 1;
+      while (sub < tokens.length && tokens[sub].startsWith('-')) {
+        sub += tokens[sub] === '-C' || tokens[sub] === '--git-dir' || tokens[sub] === '--work-tree' ? 2 : 1;
+      }
+      if (!['diff', 'log', 'show', 'rev-list', 'merge-base'].includes(tokens[sub] ?? '')) continue;
+      const argumentos = tokens.slice(sub + 1, tokens.indexOf('--', sub + 1) < 0 ? undefined : tokens.indexOf('--', sub + 1));
+      const ref = argumentos.find((token) => refLocalDoRamo(token, ramoBase));
+      if (ref) return ref;
+    }
+  }
+  return null;
+}
+
+export function analisarComando(comando: string, ramoBase?: string): AchadoDoLint[] {
   const achados: AchadoDoLint[] = [];
   const rg = executavelDireto(comando, 'rg');
   if (rg) achados.push({ regra: 'binario-rg', trecho: rg[1], correcao: CORRECAO['binario-rg'] });
@@ -98,6 +159,12 @@ export function analisarComando(comando: string): AchadoDoLint[] {
     regra: 'artefato-de-fechamento', trecho: fechamento[1], correcao: CORRECAO['artefato-de-fechamento'],
   });
 
+  const refLocal = ramoBase ? refLocalDoRamoBase(comando, ramoBase) : null;
+  if (refLocal && ramoBase) achados.push({
+    regra: 'ref-local-do-ramo-base', trecho: refLocal, ramoBase,
+    correcao: msg('pt-BR').claims.correcaoRefLocalDoRamoBase(ramoBase),
+  });
+
   const suite = SUITE_INTEIRA.exec(comando);
   if (suite) achados.push({ regra: 'suite-inteira', trecho: suite[0].trim(), correcao: CORRECAO['suite-inteira'] });
 
@@ -115,8 +182,8 @@ export function analisarComando(comando: string): AchadoDoLint[] {
 }
 
 /** O lint de todos os comandos de uma claim, na ordem. */
-export function analisarComandos(comandos: readonly string[]): AchadoDoLint[] {
-  return comandos.flatMap(analisarComando);
+export function analisarComandos(comandos: readonly string[], ramoBase?: string): AchadoDoLint[] {
+  return comandos.flatMap((comando) => analisarComando(comando, ramoBase));
 }
 
 /** Uma linha por achado, para o terminal e para o ledger. */
@@ -124,5 +191,6 @@ export function linhaDoLintDeClaim(claimId: string, a: AchadoDoLint): string {
   // RM-061 (F3b): nome e correcao pela regra, no locale ativo. F3d (GO-FIX 1): o montador fica registrado, e o `ci prepare`,
   // que grava a linha no ledger no escopo pt-BR, a remonta no locale do comando ao imprimir.
   return textoDoCatalogo((m) => m.claims.linhaDoLint(claimId, m.claims.nomesDoLint[a.regra] ?? a.regra, a.trecho,
-    m.claims.correcoesDoLint[a.regra] ?? a.correcao));
+    a.regra === 'ref-local-do-ramo-base' && a.ramoBase
+      ? m.claims.correcaoRefLocalDoRamoBase(a.ramoBase) : m.claims.correcoesDoLint[a.regra] ?? a.correcao));
 }

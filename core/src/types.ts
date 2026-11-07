@@ -687,13 +687,15 @@ export type MotivoGate =
 /** I-53 (RM-037, P6): as regras do lint de comando de claim (`claim-lint.ts`). */
 export type RegraDoLint = 'suite-inteira' | 'sha-intermediario' | 'contagem-de-commits'
   | 'binario-rg' | 'ork-fora-do-path' | 'estado-local' | 'aspas-escapadas'
-  | 'contexto-artificial' | 'artefato-de-fechamento';
+  | 'contexto-artificial' | 'artefato-de-fechamento' | 'ref-local-do-ramo-base';
 
 /** Um achado do lint: a regra, o pedaco do comando que casou e a forma certa. */
 export interface AchadoDoLint {
   regra: RegraDoLint;
   trecho: string;
   correcao: string;
+  /** Parametro da regra configuravel; permite remontar a correcao no locale de quem le. */
+  ramoBase?: string;
 }
 
 export interface Claim {
