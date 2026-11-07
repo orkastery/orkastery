@@ -791,6 +791,90 @@
       "criadoEm": "2026-11-07T16:04:18.534Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C59",
+      "thread": "ork-rm079f2aclai",
+      "fase": "CHECK",
+      "arquivo": "core/test/projeto-alvo-cli.test.ts",
+      "alegacao": "A suíte de projeto-alvo confere integralmente a mensagem de saída 2 para --projeto repetido com valores divergentes.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/projeto-alvo-cli.test.js"
+      ],
+      "criadoEm": "2026-11-07T17:06:07.358Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-rm079f2aclai",
+      "fase": "CHECK",
+      "arquivo": "core/src/intelligence-graph-cli.ts",
+      "alegacao": "A rota grafo aceita opção escalar ou flag repetida com valor idêntico e recusa somente valores divergentes com saída 2 e o nome da opção, inclusive em JSON.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-args.test.js"
+      ],
+      "criadoEm": "2026-11-07T17:06:07.443Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm079-f2.json",
+      "alegacao": "Mutante que restaura a recusa da repetição idêntica no grafo morre no teste focado.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-f2.json M9"
+      ],
+      "criadoEm": "2026-11-07T17:21:58.052Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C62",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/test/intelligence-graph-index.test.ts",
+      "alegacao": "A suíte histórica do grafo preserva as recusas de uso e aceita repetições idênticas de bandeira e de opção com valor.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/intelligence-graph-index.test.js"
+      ],
+      "criadoEm": "2026-11-07T17:21:58.129Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C63",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3d-casos-memoria.ts",
+      "alegacao": "Os casos de locale do grafo representam a recusa de valores escalares divergentes sem tratar repetição idêntica como erro.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-f3d-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-07T17:21:58.207Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C64",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3d-pt-BR.json",
+      "alegacao": "O snapshot de locale do grafo conserva a mensagem pública da recusa de opção escalar divergente.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-f3d-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-07T17:21:58.276Z",
+      "estado": "pendente",
+      "lint": []
     }
   ],
   "deferredClaims": [],
