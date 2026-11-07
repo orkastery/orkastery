@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.5",
-  "publicadoEm": "2026-11-07T01:24:41.919Z",
+  "publicadoEm": "2026-11-07T01:26:03.727Z",
   "threads": [
     {
       "id": "ork-rm078recibod",
@@ -54,11 +54,11 @@
       "id": "ork-testesdoprod",
       "nome": "testesrelogio",
       "modo": "#Auto",
-      "fase": "GO",
+      "fase": "CHECK",
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-testesdoprod-full",
-      "atualizadaEm": "2026-11-07T00:38:30.265Z",
+      "atualizadaEm": "2026-11-07T01:26:01.981Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -67,9 +67,9 @@
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
       "sessao": {
-        "viva": false,
-        "desdeEm": "2026-11-07T00:40:11.051Z",
-        "motivo": "sessão 01a1b237 encerrada (completed)"
+        "viva": true,
+        "desdeEm": null,
+        "motivo": null
       }
     }
   ]
