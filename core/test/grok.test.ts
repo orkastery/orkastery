@@ -13,7 +13,7 @@ import {
 } from '../src/adapters/grok';
 import { ENVS_DE_PROVIDER_PAGO } from '../src/runtime-ambiente';
 import { dirTemporario } from './apoio';
-import { esperarCondicao } from './controller-simulado';
+import { esperarEventoDepoisDaFronteira } from './espera-evento';
 import { grokFalso } from './grok-falso';
 
 const SESSAO = '0193c4a2-7b1e-7c3d-9f00-1234567890ab';
@@ -144,7 +144,7 @@ test('GK8: o despacho real roda pelo supervisor, acha a pasta da sessao pelo id 
     assert.equal(r.logPath, path.join(c.logs, `${r.sessionId}.grok.jsonl`));
     assert.equal(r.processoPath, `${r.logPath}.process.json`);
     assert.equal(r.reciboPath, `${r.logPath}.exit.json`);
-    esperarCondicao(() => fs.existsSync(r.reciboPath!), 30000);
+    esperarEventoDepoisDaFronteira(() => fs.existsSync(r.reciboPath!) ? true : null, 'recibo do despacho Grok', 30_000);
     const recibo = JSON.parse(fs.readFileSync(r.reciboPath!, 'utf8'));
     assert.equal(recibo.exitCode, 0);
     assert.deepEqual(c.stub.chamadas(), [r.comando.slice(1)], 'o grok rodou com o comando montado');
@@ -292,8 +292,11 @@ test('GK16: o grok simulado executa comando da lista e termina o turno normalmen
     c.stub.comandoTerminal('node --version');
     const r = despachar({ ...PEDIDO, sessionId: undefined, cwd: c.wt, logDir: c.logs, esperaMs: 30000 });
     assert.equal(r.ok, true, r.erro);
-    esperarCondicao(() => !!r.reciboPath && fs.existsSync(r.reciboPath), 30000);
-    esperarCondicao(() => !!r.logPath && fs.readFileSync(r.logPath, 'utf8').includes('"stopReason":"end_turn"'), 30000);
+    esperarEventoDepoisDaFronteira(() => !!r.reciboPath && fs.existsSync(r.reciboPath) ? true : null,
+      'recibo do comando permitido', 30_000);
+    esperarEventoDepoisDaFronteira(
+      () => !!r.logPath && fs.readFileSync(r.logPath, 'utf8').includes('"stopReason":"end_turn"') ? true : null,
+      'resultado do comando permitido no stream', 30_000);
     assert.match(c.stub.saidaDoComandoTerminal() ?? '', /^v\d+/);
     assert.equal(c.stub.comandoTerminalNegado(), false);
     assert.match(fs.readFileSync(r.logPath!, 'utf8'), /"stopReason":"end_turn"/);
@@ -307,8 +310,11 @@ test('GK17: o grok simulado nega comando fora da lista sem executa-lo e a sessao
     c.stub.comandoTerminal(`sh -c 'printf executou > ${marca}'`);
     const r = despachar({ ...PEDIDO, sessionId: undefined, cwd: c.wt, logDir: c.logs, esperaMs: 30000 });
     assert.equal(r.ok, true, r.erro);
-    esperarCondicao(() => !!r.reciboPath && fs.existsSync(r.reciboPath), 30000);
-    esperarCondicao(() => !!r.logPath && fs.readFileSync(r.logPath, 'utf8').includes('Denied by permission policy'), 30000);
+    esperarEventoDepoisDaFronteira(() => !!r.reciboPath && fs.existsSync(r.reciboPath) ? true : null,
+      'recibo do comando recusado', 30_000);
+    esperarEventoDepoisDaFronteira(
+      () => !!r.logPath && fs.readFileSync(r.logPath, 'utf8').includes('Denied by permission policy') ? true : null,
+      'recusa do comando no stream', 30_000);
     assert.equal(c.stub.comandoTerminalNegado(), true);
     assert.equal(fs.existsSync(marca), false, 'o comando negado nao rodou');
     const stream = fs.readFileSync(r.logPath!, 'utf8');

@@ -92,7 +92,6 @@ interface OpcoesDaEsperaDaFase {
 
 const PAUSA_DA_ESPERA = new Int32Array(new SharedArrayBuffer(4));
 const FOLGA_APOS_SAIDA_MS = 1500;
-const TETO_DA_FASE_MS = 600000;
 
 /**
  * Aguarda o resultado da fase enquanto o runtime ou o supervisor ainda podem produzi-lo.
@@ -101,11 +100,12 @@ const TETO_DA_FASE_MS = 600000;
 export function esperarFimDaFase(resultadoNoLedger: () => boolean, processos: readonly ProcessoDaFase[],
   opcoes: OpcoesDaEsperaDaFase = {}): void {
   const folgaAposSaidaMs = opcoes.folgaAposSaidaMs ?? FOLGA_APOS_SAIDA_MS;
-  const tetoMs = opcoes.tetoMs ?? TETO_DA_FASE_MS;
+  const tetoMs = opcoes.tetoMs;
   const agora = opcoes.agora ?? Date.now;
   const pausar = opcoes.pausar ?? ((ms: number) => { Atomics.wait(PAUSA_DA_ESPERA, 0, 0, ms); });
   const consultarEstado = opcoes.estadoDoProcesso ?? estadoProcesso;
-  if (!Number.isFinite(folgaAposSaidaMs) || folgaAposSaidaMs < 0 || !Number.isFinite(tetoMs) || tetoMs <= 0) {
+  if (!Number.isFinite(folgaAposSaidaMs) || folgaAposSaidaMs < 0 ||
+      (tetoMs !== undefined && (!Number.isFinite(tetoMs) || tetoMs <= 0))) {
     throw new Error('prazos inválidos para esperar o fim da fase');
   }
   const pids = new Set(processos.flatMap(({ pid, pai }) => [pid, pai]));
@@ -118,7 +118,7 @@ export function esperarFimDaFase(resultadoNoLedger: () => boolean, processos: re
   let haviaProcessoObservavel = identidades.size > 0;
   const inicio = agora();
   let arvoreSaiuEm: number | null = null;
-  while (agora() - inicio < tetoMs) {
+  while (tetoMs === undefined || agora() - inicio < tetoMs) {
     if (resultadoNoLedger()) return;
     const erroDoWatcher = lerErroDoWatcher?.() ?? null;
     if (erroDoWatcher !== null) throw new Error(erroDoWatcher);
@@ -144,7 +144,7 @@ export function esperarFimDaFase(resultadoNoLedger: () => boolean, processos: re
         throw new Error('a árvore de processos da fase saiu, mas faltou phase_result no ledger');
       }
     }
-    pausar(Math.min(30, Math.max(1, tetoMs - (instante - inicio))));
+    pausar(tetoMs === undefined ? 30 : Math.min(30, Math.max(1, tetoMs - (instante - inicio))));
   }
   if (resultadoNoLedger()) return;
   const erroDoWatcher = lerErroDoWatcher?.() ?? null;

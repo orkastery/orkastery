@@ -9,6 +9,7 @@ import { dirThread, novaThread } from '../src/thread';
 import { consultarVerifyMcp, executarVerifyMcpWorker, iniciarVerifyMcp } from '../src/mcp-verify-async';
 import { textoDoVerify, verificar } from '../src/verify';
 import { commitar, projetoTemporario } from './apoio';
+import { esperarEventoAssincrono } from './espera-evento';
 
 function inicio(pid = process.pid): string | null {
   try {
@@ -30,14 +31,11 @@ function fixture(nome: string, comando = 'true') {
   return { p, thread };
 }
 
-async function esperar<T>(ler: () => T, pronto: (v: T) => boolean, prazoMs = 20_000): Promise<T> {
-  const ate = Date.now() + prazoMs;
-  for (;;) {
+async function esperar<T>(ler: () => T, pronto: (v: T) => boolean): Promise<T> {
+  return esperarEventoAssincrono(() => {
     const v = ler();
-    if (pronto(v)) return v;
-    if (Date.now() >= ate) throw Error('prazo da fixture assíncrona');
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
+    return pronto(v) ? v : null;
+  }, 'condição assíncrona da fixture de verify');
 }
 
 test('rodada é iniciada e consultada imediatamente por UUID', () => {
@@ -60,12 +58,14 @@ test('fila pesada ocupada aparece como na-fila e libera a mesma rodada para conc
     const script = `const fs=require('node:fs');const f=require(${JSON.stringify(modulo)});` +
       `f.comRecursoPesado(${JSON.stringify(f.p.dir)},{artefato:${JSON.stringify(f.p.dir)},operacao:'fixture',thread:'ork-outra',slots:1,esperarMs:0},()=>{fs.writeFileSync(${JSON.stringify(pronto)},'ok');Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,15000)});`;
     holder = spawn(process.execPath, ['-e', script], { stdio: 'ignore' });
-    await esperar(() => fs.existsSync(pronto), Boolean, 10_000);
+    await esperar(() => fs.existsSync(pronto), Boolean);
     const rodada = iniciarVerifyMcp(f.p.dir, f.thread.id, { host: 'codex', despacho: null });
     const naFila = await esperar(() => consultarVerifyMcp(f.p.dir, f.thread.id, rodada.rodadaId),
       (s) => s.estado === 'na-fila' && s.lane === 'fila-pesada' && (s.ocupantes?.length ?? 0) > 0);
     assert.equal(naFila.ocupantes?.[0]?.thread, 'ork-outra');
-    holder.kill('SIGTERM');
+    const holderSaiu = new Promise<void>((resolve) => holder!.once('exit', () => resolve()));
+    assert.equal(holder.kill('SIGTERM'), true, 'o processo que segura a fila recebeu o sinal terminal');
+    await holderSaiu;
     const terminal = await esperar(() => consultarVerifyMcp(f.p.dir, f.thread.id, rodada.rodadaId),
       (s) => s.estado === 'concluido' || s.estado === 'falhou');
     assert.equal(terminal.estado, 'concluido', JSON.stringify(terminal.falha));

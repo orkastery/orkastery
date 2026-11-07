@@ -16,7 +16,7 @@ import * as path from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { dirTemporario, envPtBr, projetoTemporario } from './apoio';
-import { esperarCondicao } from './controller-simulado';
+import { esperarEventoDepoisDaFronteira } from './espera-evento';
 import { grokFalso } from './grok-falso';
 import { dirThread, lerThread, novaThread } from '../src/thread';
 import { lerLedger } from '../src/ledger';
@@ -113,7 +113,7 @@ test('GP2: com dois perfis simulados, esgotar o primeiro move a thread para o se
     assert.deepEqual(d1.perfil, { id: 'a', runtime: 'grok', grokHome: casaA });
     const registro = c.eventos().find((e) => e.tipo === 'session_sensor_registered' && e.sessionId === sid1)!;
     assert.equal(registro.grokHome, casaA, 'o watcher procura a sessao na casa do perfil');
-    esperarCondicao(() => resultadoDa(c, sid1) !== undefined, 60000);
+    esperarEventoDepoisDaFronteira(() => resultadoDa(c, sid1) ?? null, 'phase_result do primeiro perfil Grok', 20_000);
 
     // 2. O perfil a esgota: o sinal tipado cai no store pelo mesmo domicilio de todo runtime, com prazo de volta.
     const prazo = new Date(Date.now() + 2 * 3600_000).toISOString();
@@ -135,13 +135,13 @@ test('GP2: com dois perfis simulados, esgotar o primeiro move a thread para o se
     assert.equal(acharSessaoGrok(r2.sessionId!, casaA), null);
     const d2 = c.eventos().find((e) => e.tipo === 'phase_dispatch' && e.sessionId === r2.sessionId)!;
     assert.deepEqual(d2.perfil, { id: 'b', runtime: 'grok', grokHome: casaB });
-    esperarCondicao(() => resultadoDa(c, r2.sessionId!) !== undefined, 60000);
+    esperarEventoDepoisDaFronteira(() => resultadoDa(c, r2.sessionId!) ?? null, 'phase_result do segundo perfil Grok', 20_000);
 
     // 4. O despacho novo da thread tambem pula o perfil esgotado.
     const r3 = despachar(c, 'GOAL');
     assert.equal(r3.bloqueado, false, r3.erro);
     assert.ok(acharSessaoGrok(r3.sessionId!, casaB));
-    esperarCondicao(() => resultadoDa(c, r3.sessionId!) !== undefined, 60000);
+    esperarEventoDepoisDaFronteira(() => resultadoDa(c, r3.sessionId!) ?? null, 'phase_result da retomada Grok', 20_000);
 
     // 5. O auth.json nao foi tocado nem copiado: nenhum arquivo do projeto (estado, ledger, store, logs) tem a credencial.
     const depois = fs.statSync(path.join(casaA, 'auth.json'));

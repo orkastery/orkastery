@@ -56,6 +56,12 @@ export interface PedidoDeRecursoPesado {
   comandoDeEsperar?: string;
 }
 
+/** Dependências injetáveis para provar as fronteiras temporais sem depender da velocidade da máquina. */
+export interface DependenciasDaFilaPesada {
+  agora?: () => number;
+  pausar?: (ms: number) => void;
+}
+
 /** Quem segura uma vaga agora, como ele mesmo gravou ao pegá-la. */
 export interface OcupanteDaFila {
   slot: number;
@@ -441,7 +447,8 @@ function vagaDoAncestral(chave: string, dir: string): number | null {
  * artefato e uma das `slots` vagas, todas do kernel. Espera em primeiro plano até `esperarMs` e, sem a vez, lança
  * `ErroDaFilaPesada` sem rodar nada. Dentro de quem já segura a vez neste processo, roda direto.
  */
-export function comRecursoPesado<T>(raiz: string, pedido: PedidoDeRecursoPesado, executar: (uso: UsoDaFilaPesada) => T): T {
+export function comRecursoPesado<T>(raiz: string, pedido: PedidoDeRecursoPesado, executar: (uso: UsoDaFilaPesada) => T,
+  dependencias: DependenciasDaFilaPesada = {}): T {
   if (!(pedido.slots > 0)) return executar({ situacao: 'desligada', slot: null, esperouMs: 0 });
   const chave = path.resolve(raizDoEstado(raiz));
   const atual = emCurso.get(chave);
@@ -450,7 +457,9 @@ export function comRecursoPesado<T>(raiz: string, pedido: PedidoDeRecursoPesado,
   const dir = dirDaFilaPesada(raiz);
   const doAncestral = vagaDoAncestral(chave, dir);
   if (doAncestral !== null) return executar({ situacao: 'reentrada', slot: doAncestral, esperouMs: 0 });
-  const inicio = Date.now();
+  const agora = dependencias.agora ?? Date.now;
+  const pausar = dependencias.pausar ?? dormir;
+  const inicio = agora();
   const prazo = inicio + Math.max(0, pedido.esperarMs);
   let senha: Senha | null = tirarSenha(dir);
   let avisou = false;
@@ -466,19 +475,19 @@ export function comRecursoPesado<T>(raiz: string, pedido: PedidoDeRecursoPesado,
         const marcaAnterior = process.env[ENV_DONO_DA_FILA];
         process.env[ENV_DONO_DA_FILA] = JSON.stringify({ raiz: chave, pid: process.pid, inicio: inicioDoProcesso(process.pid), slot: posse.slot,
           posse: posse.id });
-        try { return executar({ situacao: 'adquirida', slot: posse.slot, esperouMs: Date.now() - inicio }); }
+        try { return executar({ situacao: 'adquirida', slot: posse.slot, esperouMs: agora() - inicio }); }
         finally {
           if (marcaAnterior === undefined) delete process.env[ENV_DONO_DA_FILA]; else process.env[ENV_DONO_DA_FILA] = marcaAnterior;
           emCurso.delete(chave);
           soltar(posse);
         }
       }
-      if (Date.now() >= prazo) throw new ErroDaFilaPesada(recusaDaFila(pedido, Date.now() - inicio, ocupantesDaFilaPesada(raiz)));
+      if (agora() >= prazo) throw new ErroDaFilaPesada(recusaDaFila(pedido, agora() - inicio, ocupantesDaFilaPesada(raiz)));
       if (!avisou) {
         avisou = true;
         try { pedido.aoEsperar?.(ocupantesDaFilaPesada(raiz)); } catch { /* o aviso nunca derruba a espera */ }
       }
-      dormir(Math.min(PAUSA_MS, prazo - Date.now()));
+      pausar(Math.min(PAUSA_MS, prazo - agora()));
     }
   } finally { devolverSenha(dir, senha); }
 }
