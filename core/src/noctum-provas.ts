@@ -136,7 +136,6 @@ export interface FatosDaEntrega {
   /** A cadeia de primeiro pai saiu inteira, cada commit classificado; sem ela, revisão e verify são lacuna. */
   cadeiaLida: boolean;
   autores: string[];
-  ultimoDespachoDeAutor: string | null;
   revisoes: RevisaoLida[];
   verifies: VerifyLido[];
   comandosEsperados: number;
@@ -708,22 +707,16 @@ export function segredosDaHistoria(raiz: string, base: string, fonte: string):
 }
 
 /** RM-078: autores do candidato são somente sessões com commit confirmado na cadeia da fonte. */
-function autoresDaThread(raiz: string, t: Thread, eventos: readonly EventoLedger[], fonte: string | null): { autores: string[]; ultimoDespacho: string | null } {
+function autoresDaThread(raiz: string, eventos: readonly EventoLedger[], fonte: string | null): string[] {
   const autores = new Set<string>();
-  let ultimo: string | null = null;
-  const marcar = (id: string, em?: string) => {
-    autores.add(id);
-    if (em && (!ultimo || Date.parse(em) > Date.parse(ultimo))) ultimo = em;
-  };
   for (const e of eventos) {
     const commit = typeof e.commit === 'string' && SHA.test(e.commit) ? e.commit : null;
     const naCadeia = !!commit && !!fonte && git(raiz, ['merge-base', '--is-ancestor', commit, fonte]).ok;
     if ((e.tipo === 'mcp_git_committed' || e.tipo === 'commit') && naCadeia && typeof e.sessionId === 'string' && e.sessionId) {
-      const s = (t.sessoes ?? []).find(x => x.sessionId === e.sessionId);
-      marcar(e.sessionId, s?.despachadaEm);
+      autores.add(e.sessionId);
     }
   }
-  return { autores: [...autores], ultimoDespacho: ultimo };
+  return [...autores];
 }
 
 /** O vínculo da sessão de CHECK provado pelo núcleo, como o Maestro confere (`maestro-authority.ts`), ou o que faltou. */
@@ -846,11 +839,11 @@ export function lerFatosDaEntrega(carregado: ManifestoCarregado, threadId: strin
     base.erro = `o commit ${curto(base.sha)} da base não chegou a esta cópia`;
     base.sha = null;
   }
-  const { autores, ultimoDespacho } = autoresDaThread(raiz, t, eventos, fonte);
+  const autores = autoresDaThread(raiz, eventos, fonte);
   const claimsAtivas = (() => { try { return lerClaims(raiz, threadId).filter(c => c.estado !== 'retirada'); } catch { return []; } })();
   const daBranch = manifestoDaBranch(carregado, fonte);
   const fatos: FatosDaEntrega = {
-    thread: t.id, branch, fonte, base, integrada: null, cadeia: [], cadeiaLida: false, autores, ultimoDespachoDeAutor: ultimoDespacho,
+    thread: t.id, branch, fonte, base, integrada: null, cadeia: [], cadeiaLida: false, autores,
     revisoes: revisoesDaThread(raiz, t, eventos), verifies: verifiesDoLedger(raiz, t.id, eventos),
     comandosEsperados: comandosDoManifesto(daBranch.manifesto).length,
     // A2 da rodada 1: a claim de mutante sem comando não executa nada e nunca prova a guarda; ela não conta como mutante.
