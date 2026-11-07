@@ -1,0 +1,79 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-roadmaptresi",
+  "branch": "ork/ork-roadmaptresi-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-roadmaptresi",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-082-credenciais-redigidas-em-toda-superficie.md",
+      "alegacao": "RM-082 está em Discovery, usa o owner da RM-079, cobre A7 a A12 e o bundle de CI, preserva a impressão do comando original e aparece no índice.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "grep -F '[RM-082](RM-082-credenciais-redigidas-em-toda-superficie.md)' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-11-07T19:45:51.501Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-roadmaptresi",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-084-sessao-continua-com-muitos-objetos-soltos-do-git.md",
+      "alegacao": "RM-084 está em Discovery, usa o owner da RM-079, mantém as recusas de arvoreMetadados e atribui a manutenção segura ao núcleo fora do sandbox, e aparece no índice.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "grep -F '[RM-084](RM-084-sessao-continua-com-muitos-objetos-soltos-do-git.md)' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-11-07T19:45:51.563Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-roadmaptresi",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-083-estado-do-roadmap-acompanha-a-entrega.md",
+      "alegacao": "RM-083 está em Discovery, usa o owner da RM-079, define o próprio PR como domicílio do estado pós-merge e aparece no índice.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "grep -F '[RM-083](RM-083-estado-do-roadmap-acompanha-a-entrega.md)' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-11-07T19:45:51.624Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-roadmaptresi",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O README registra RM-082, RM-083 e RM-084 na tabela de achados e no índice gerado, sem atribuir prioridade ainda não decidida pelo dono.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "node -e \"const s=require('fs').readFileSync('docs/roadmap/README.md','utf8'); for (const x of ['RM-082-credenciais-redigidas-em-toda-superficie.md','RM-083-estado-do-roadmap-acompanha-a-entrega.md','RM-084-sessao-continua-com-muitos-objetos-soltos-do-git.md']) if (!s.includes(x)) process.exit(1)\""
+      ],
+      "criadoEm": "2026-11-07T19:46:01.681Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
