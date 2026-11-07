@@ -4,6 +4,29 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.5",
-  "publicadoEm": "2026-11-07T19:15:02.811Z",
-  "threads": []
+  "publicadoEm": "2026-11-07T19:24:10.877Z",
+  "threads": [
+    {
+      "id": "ork-roadmaptresi",
+      "nome": "roadmapitens0711",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-roadmaptresi-go",
+      "atualizadaEm": "2026-11-07T19:24:07.893Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-11-07T19:24:10.433Z",
+        "motivo": "nenhuma sessão despachada na fase GO"
+      }
+    }
+  ]
 }

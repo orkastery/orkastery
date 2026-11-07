@@ -5,6 +5,6 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado | Sessão |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| — | nenhuma thread ativa | — | — |  | — | — | — | — |
+| vps | ork-roadmaptresi | #Fast | GO | sem despacho | — | — | 07/11 16:24 | parada desde 16:24: nenhuma sessão despachada na fase GO |
 
 Horários de Brasília.
