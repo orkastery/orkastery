@@ -1,0 +1,33 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-074 M13: os dois modos recebem a mesma correção, a razão ajustada é oficial e o teto fecha sem veredito.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "somente a parede do Classic recebe a correção",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "de": "const correcaoAgile = correcaoDaRodada(a);",
+      "para": "const correcaoAgile = { ...correcaoDaRodada(a), fatorDisponivel: 1, paredeAjustadaMs: paredeAgile };",
+      "teste": "medir-check",
+      "nome": "^MC23:"
+    },
+    {
+      "id": "M2",
+      "descricao": "a razão bruta volta a ser a razão oficial",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "de": "p.razao = p.razaoAjustada;",
+      "para": "p.razao = p.razaoBruta;",
+      "teste": "medir-check",
+      "nome": "^MC21:"
+    },
+    {
+      "id": "M3",
+      "descricao": "o par acima do teto de perda continua válido",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "de": "(correcaoAgile.perdaPct > perdaCpuMaxPct || correcaoClassic.perdaPct > perdaCpuMaxPct)",
+      "para": "false",
+      "teste": "medir-check",
+      "nome": "^MC24:"
+    }
+  ]
+}

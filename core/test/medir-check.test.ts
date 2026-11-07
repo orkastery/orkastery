@@ -36,13 +36,13 @@ const medir = require(path.join(RAIZ, 'core', 'scripts', 'medir-check.cjs')) as 
   encerrarArvore: (raiz: number, sinal?: NodeJS.Signals) => number;
   CLAIMS_REPRESENTATIVAS: Array<{ arquivo: string; alegacao: string; verificar: string }>;
   MIN_PARES_CONFIAVEIS: number;
-  TOLERANCIA_STEAL_PP: number;
-  CARGA_FORA_MAX_PCT: number;
+  PERDA_CPU_MAX_PCT: number;
+  CV_RAZAO_AJUSTADA_MAX: number;
   ordemDosPares: (total: number) => string[][];
   paredeSemPreparo: (rodada: unknown) => number | null;
-  validarPar: (agile: unknown, classic: unknown, ordem: string[], esperada: string[], tolerancia?: number,
-    cargaForaMaxPct?: number) => Record<string, any>;
-  validarOpcoesDaBancada: (opcoes: { pares: number; cargaForaMaxPct?: number }) => void;
+  correcaoDaRodada: (rodada: unknown) => Record<string, number | null>;
+  validarPar: (agile: unknown, classic: unknown, ordem: string[], esperada: string[], perdaCpuMaxPct?: number) => Record<string, any>;
+  validarOpcoesDaBancada: (opcoes: { pares: number }) => void;
   razao: (classicMs: unknown, agileMs: unknown) => number | null;
   eficiencia: (cpuMs: unknown, nucleos: number, paredeMs: unknown) => number | null;
   corte: (cpuMs: unknown, baseMs: unknown) => number | null;
@@ -387,13 +387,13 @@ test('MC21: a bancada inteira com tres pares ABBA validos: razao sem preparo, CP
     duracoesPorArquivo: modo === 'agile' ? { 'a.test.js': 60, 'b.test.js': 30, 'c.test.js': 10 } : undefined });
   const rodadas = [
     { par: 1, temperatura: 'frio', ...verifyRun('agile', 1010, { hermetica: 500, integracao: 200 }, 10) },
-    { par: 1, temperatura: 'morno', ...verifyRun('agile', 610, { hermetica: 500, integracao: 200 }, 11) },
-    { par: 1, ...verifyRun('classic', 3010, null, 12) },
+    { par: 1, temperatura: 'morno', ...verifyRun('agile', 1010, { hermetica: 500, integracao: 200 }, 11) },
+    { par: 1, ...verifyRun('classic', 2010, null, 12) },
     { par: 2, ...verifyRun('classic', 2510, null, 9) },
     { par: 2, temperatura: 'frio', ...verifyRun('agile', 1260, { hermetica: 625, integracao: 250 }, 8) },
-    { par: 2, temperatura: 'morno', ...verifyRun('agile', 1010, { hermetica: 625, integracao: 250 }, 8.5) },
+    { par: 2, temperatura: 'morno', ...verifyRun('agile', 1260, { hermetica: 625, integracao: 250 }, 8.5) },
     { par: 3, temperatura: 'frio', ...verifyRun('agile', 1010, { hermetica: 500, integracao: 200 }, 5) },
-    { par: 3, temperatura: 'morno', ...verifyRun('agile', 810, { hermetica: 500, integracao: 200 }, 5.5) },
+    { par: 3, temperatura: 'morno', ...verifyRun('agile', 1010, { hermetica: 500, integracao: 200 }, 5.5) },
     { par: 3, ...verifyRun('classic', 2010, null, 6) },
   ];
   const medidas = (fator: number) => ({ 'a.test.js': { userMs: 2000 * fator, sysMs: 1000 * fator, paredeMs: 30, picoKb: 1, testes: 3, saida: 0 },
@@ -402,27 +402,36 @@ test('MC21: a bancada inteira com tres pares ABBA validos: razao sem preparo, CP
   const passes = [{ passe: 1, stealPct: 11, medidas: medidas(1) }, { passe: 2, stealPct: 9, medidas: medidas(1.2) },
     { passe: 3, stealPct: 5.5, medidas: medidas(0.8) }];
   const b = medir.analisarBancada({ rodadas, passes, lanes, nucleos: 2 });
-  const confiavel = { estado: 'com-confianca', motivos: [], pares: 3, paresValidos: 3, minimo: 3,
-    toleranciaStealPp: 2, cargaForaMaxPct: 10 };
-  assert.deepEqual(b.confianca, { fria: confiavel, morna: confiavel });
-  perto(b.pares[0].razao, 3);
-  perto(b.pares[1].razao, 2);
-  perto(b.pares[2].razao, 2);
-  perto(b.variacao.razaoFria.media, 7 / 3);
-  perto(b.pares[0].morna.razao, 5);
-  perto(b.pares[1].morna.razao, 2.5);
-  perto(b.pares[2].morna.razao, 2.5);
-  perto(b.variacao.razaoMorna.media, 10 / 3);
+  assert.equal(b.confianca.fria.estado, 'com-confianca');
+  assert.equal(b.confianca.morna.estado, 'com-confianca');
+  assert.equal(b.confianca.fria.paresValidos, 3);
+  assert.equal(b.confianca.fria.perdaCpuMaxPct, 50);
+  assert.equal(b.confianca.fria.cvRazaoAjustadaMax, 0.1);
+  assert.ok(b.confianca.fria.cvRazaoAjustada < 0.1);
+  perto(b.pares[0].razaoBruta, 2);
+  perto(b.pares[0].razaoAjustada, 2 * 0.87 / 0.89);
+  perto(b.pares[0].razao, b.pares[0].razaoAjustada, 'a razao oficial e a ajustada');
+  perto(b.pares[1].razao, 2 * 0.90 / 0.91);
+  perto(b.pares[2].razao, 2 * 0.93 / 0.94);
+  perto(b.pares[0].morna.razao, 2 * 0.87 / 0.88);
+  perto(b.variacao.razaoFria.media, b.variacao.razaoAjustadaFria.media);
+  perto(b.variacao.razaoBrutaFria.media, 2);
   assert.deepEqual(b.pares.map((p: { ordem: string[] }) => p.ordem),
     [['agile', 'classic'], ['classic', 'agile'], ['agile', 'classic']]);
   assert.deepEqual(b.pares[0].preparoMs, { agile: 10, classic: 10 });
-  assert.deepEqual(b.pares[0].paredesSemPreparoMs, { agile: 1000, classic: 3000 });
-  assert.deepEqual(b.pares[0].cpuDaArvore, { agile: { ms: 2020, stealPct: 10 }, classic: { ms: 6020, stealPct: 12 } });
+  assert.deepEqual(b.pares[0].paredesSemPreparoMs, { agile: 1000, classic: 2000 });
+  assert.deepEqual(b.pares[0].paredesAjustadasMs, { agile: 890, classic: 1740 });
+  assert.deepEqual(b.pares[0].correcao, {
+    agile: { stealPct: 10, cargaExternaPct: 1, perdaPct: 11, fatorDisponivel: 0.89, paredeAjustadaMs: 890 },
+    classic: { stealPct: 12, cargaExternaPct: 1, perdaPct: 13, fatorDisponivel: 0.87, paredeAjustadaMs: 1740 },
+    perdaCpuMaxPct: 50,
+  });
+  assert.deepEqual(b.pares[0].cpuDaArvore, { agile: { ms: 2020, stealPct: 10 }, classic: { ms: 4020, stealPct: 12 } });
   perto(b.pares[0].eficiencia.hermetica, 4000 / 2 / 500);
   perto(b.pares[0].eficiencia.integracao, 800 / 2 / 200);
   perto(b.pares[1].eficiencia.hermetica, 4800 / 2 / 625, 'o par 2 usa a CPU do passe 2');
   perto(b.pares[0].eficiencia.suiteNoAgile, 4800 / 2 / 500);
-  perto(b.pares[0].eficiencia.suiteNoClassic, 4800 / 2 / 1505);
+  perto(b.pares[0].eficiencia.suiteNoClassic, 4800 / 2 / 1005);
   perto(b.pares[0].picoAgileSobreClassic, 1.2);
   assert.deepEqual(b.lanes.hermetica, { arquivos: 2, testes: 5, lista: lanes.hermetica });
   assert.equal(b.lanes.integracao.testes, 1);
@@ -444,9 +453,10 @@ test('MC21: a bancada inteira com tres pares ABBA validos: razao sem preparo, CP
   perto(comBase.corte.porPasse[0].corte, 0.5);
 });
 
-test('MC23: menos de tres pares, ordem errada, preparo ausente e steal divergente deixam a bancada sem confianca e sem razao', () => {
+test('MC23: steal divergente abaixo do teto ajusta os dois lados; falha e dados estruturais ausentes continuam invalidando', () => {
   assert.equal(medir.MIN_PARES_CONFIAVEIS, 3);
-  assert.equal(medir.TOLERANCIA_STEAL_PP, 2);
+  assert.equal(medir.PERDA_CPU_MAX_PCT, 50);
+  assert.equal(medir.CV_RAZAO_AJUSTADA_MAX, 0.1);
   assert.deepEqual(medir.ordemDosPares(4), [
     ['agile', 'classic'], ['classic', 'agile'], ['agile', 'classic'], ['classic', 'agile'],
   ]);
@@ -460,17 +470,26 @@ test('MC23: menos de tres pares, ordem errada, preparo ausente e steal divergent
   const b = medir.analisarBancada({ rodadas, passes: [], lanes: {}, nucleos: 2 });
   assert.equal(b.confianca.fria.estado, 'sem-confianca');
   assert.deepEqual(b.confianca.fria.motivos, ['menos-de-3-pares', 'menos-de-3-pares-validos']);
-  assert.deepEqual(b.pares[0].motivos, ['steal-divergente']);
-  assert.equal(b.pares[0].razao, null, 'nem a razao individual sai sem tres pares validos');
+  assert.deepEqual(b.pares[0].motivos, []);
+  perto(b.pares[0].razaoBruta, 1);
+  perto(b.pares[0].razaoAjustada, 0.94 / 0.97);
+  assert.equal(b.pares[0].razao, null, 'a ajustada individual fica visivel, mas nao vira oficial sem confianca');
   assert.equal(b.variacao.razaoFria, null);
+  perto(b.variacao.razaoBrutaFria.media, 1);
+  perto(b.variacao.razaoAjustadaFria.media, 0.94 / 0.97);
+  const simetrico = medir.validarPar(rodada('agile', 5), { ...rodada('classic', 5), duracaoMs: 210 },
+    ['agile', 'classic'], ['agile', 'classic']);
+  perto(simetrico.razaoBruta, 2);
+  perto(simetrico.razaoAjustada, 2, 'a mesma perda dos dois lados conserva a razao bruta');
+  assert.deepEqual(medir.validarPar({ ...rodada('agile', 2), ok: false }, rodada('classic', 5),
+    ['agile', 'classic'], ['agile', 'classic']).motivos, ['rodada-reprovada']);
   assert.deepEqual(medir.validarPar(rodada('agile', null, null), rodada('classic', 1), ['classic', 'agile'], ['agile', 'classic']).motivos,
     ['preparo-ou-parede-ausente', 'ordem-nao-ABBA', 'steal-ausente']);
   assert.throws(() => medir.validarOpcoesDaBancada({ pares: 2 }), /exige pelo menos 3 pares/);
   assert.doesNotThrow(() => medir.validarOpcoesDaBancada({ pares: 3 }));
 });
 
-test('MC24: carga externa durante a rodada traz nome e CPU e descarta o par acima do limiar configurado', () => {
-  assert.equal(medir.CARGA_FORA_MAX_PCT, 10);
+test('MC24: carga externa continua visivel, mas so a perda total acima do teto tira o veredito com motivo tipado', () => {
   const carga = medir.resumirCargaExterna([
     [{ chave: '1:a', nome: 'antivirus', cpuMs: 100 }, { chave: '2:b', nome: 'indexador', cpuMs: 20 }],
     [{ chave: '1:a', nome: 'antivirus', cpuMs: 260 }, { chave: '3:c', nome: 'curto', cpuMs: 40 }],
@@ -530,11 +549,31 @@ test('MC24: carga externa durante a rodada traz nome e CPU e descarta o par acim
   assert.deepEqual(externaComDuvida.processos[0], { nome: 'infraestrutura-de-contêiner-não-atribuída', cpuMs: 200 });
   const rodada = (pct: number) => ({ ok: true, duracaoMs: 110, preparoMs: 10, stealPct: 1,
     cargaExterna: { pct, cpuMs: pct, processos: [{ nome: 'antivirus', cpuMs: pct }] } });
-  const par = medir.validarPar(rodada(11), rodada(2), ['agile', 'classic'], ['agile', 'classic'], 2, 10);
+  const aindaValido = medir.validarPar(rodada(11), rodada(2), ['agile', 'classic'], ['agile', 'classic']);
+  assert.equal(aindaValido.valido, true, 'o limiar antigo de carga externa nao invalida o par');
+  const par = medir.validarPar(rodada(50), rodada(2), ['agile', 'classic'], ['agile', 'classic']);
   assert.equal(par.valido, false);
-  assert.deepEqual(par.motivos, ['carga-de-fora-acima-do-limiar']);
-  assert.deepEqual(par.cargaDeFora, { agilePct: 11, classicPct: 2, limiarPct: 10 });
-  assert.throws(() => medir.validarOpcoesDaBancada({ pares: 3, cargaForaMaxPct: -1 }), /maior ou igual a zero/);
+  assert.deepEqual(par.motivos, ['perda-de-cpu-acima-do-teto']);
+  assert.deepEqual(par.cargaDeFora, { agilePct: 50, classicPct: 2 });
+  assert.equal(par.correcao.agile.perdaPct, 51);
+  assert.equal(par.correcao.perdaCpuMaxPct, 50);
+});
+
+test('MC25: variacao da razao ajustada no limite ou acima deixa a bancada sem confianca', () => {
+  const rodada = (par: number, pedido: string, parede: number) => ({ par, pedido, ok: true, duracaoMs: parede + 10, preparoMs: 10,
+    stealPct: 5, cargaExterna: { pct: 5, cpuMs: 1, processos: [] }, cpuDaArvoreMs: 100, comandos: [], claims: [], pecas: [] });
+  const rodadas = [
+    rodada(1, 'agile', 100), rodada(1, 'classic', 100),
+    rodada(2, 'classic', 200), rodada(2, 'agile', 100),
+    rodada(3, 'agile', 100), rodada(3, 'classic', 300),
+  ];
+  const b = medir.analisarBancada({ rodadas, passes: [], lanes: {}, nucleos: 2 });
+  assert.equal(b.confianca.fria.paresValidos, 3);
+  assert.equal(b.confianca.fria.estado, 'sem-confianca');
+  assert.deepEqual(b.confianca.fria.motivos, ['variacao-da-razao-ajustada-acima-do-limite']);
+  assert.ok(b.confianca.fria.cvRazaoAjustada >= medir.CV_RAZAO_AJUSTADA_MAX);
+  assert.deepEqual(b.pares.map((p: Record<string, unknown>) => p.razao), [null, null, null]);
+  assert.deepEqual(b.pares.map((p: Record<string, unknown>) => p.razaoAjustada), [1, 2, 3]);
 });
 
 test('MC22: o JSON da bancada e indentado ate o nivel pedido e compacto abaixo dele, e volta ao mesmo valor', () => {
