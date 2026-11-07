@@ -1,33 +1,42 @@
 {
   "contrato": "ork.mutantes/v1",
-  "descricao": "RM-074 M13: os dois modos recebem a mesma correção, a razão ajustada é oficial e o teto fecha sem veredito.",
+  "descricao": "RM-074 M13: só contenção causal recebe crédito; indisponibilidade e a fronteira do CV fecham de modo conservador.",
   "mutantes": [
     {
       "id": "M1",
-      "descricao": "somente a parede do Classic recebe a correção",
+      "descricao": "a carga externa agregada volta a receber crédito multiplicativo",
       "arquivo": "core/scripts/medir-check.cjs",
-      "de": "const correcaoAgile = correcaoDaRodada(a);",
-      "para": "const correcaoAgile = { ...correcaoDaRodada(a), fatorDisponivel: 1, paredeAjustadaMs: paredeAgile };",
+      "de": "const paredeAjustadaMs = parede !== null ? parede - atrasoCausalMs : null;",
+      "para": "const paredeAjustadaMs = parede !== null ? parede * (1 - (carga ?? 0) / 100) : null;",
       "teste": "medir-check",
       "nome": "^MC23:"
     },
     {
       "id": "M2",
-      "descricao": "a razão bruta volta a ser a razão oficial",
+      "descricao": "PSI some credita a contenção causada pelos workers da própria rodada",
       "arquivo": "core/scripts/medir-check.cjs",
-      "de": "p.razao = p.razaoAjustada;",
-      "para": "p.razao = p.razaoBruta;",
+      "de": "const linha = String(texto).split('\\n').find((l) => l.startsWith('full '));",
+      "para": "const linha = String(texto).split('\\n').find((l) => l.startsWith('some '));",
       "teste": "medir-check",
-      "nome": "^MC21:"
+      "nome": "^MC24:"
     },
     {
       "id": "M3",
-      "descricao": "o par acima do teto de perda continua válido",
+      "descricao": "uma fonte indisponível recebe crédito residual",
       "arquivo": "core/scripts/medir-check.cjs",
-      "de": "(correcaoAgile.perdaPct > perdaCpuMaxPct || correcaoClassic.perdaPct > perdaCpuMaxPct)",
-      "para": "false",
+      "de": "const disponivel = medida?.estado === 'medida' &&",
+      "para": "const disponivel = medida?.estado !== 'medida' &&",
       "teste": "medir-check",
-      "nome": "^MC24:"
+      "nome": "^MC23:"
+    },
+    {
+      "id": "M4",
+      "descricao": "CV exatamente igual ao limite passa a ser aceito",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "de": "variacaoAjustada?.cv >= CV_RAZAO_AJUSTADA_MAX",
+      "para": "variacaoAjustada?.cv > CV_RAZAO_AJUSTADA_MAX",
+      "teste": "medir-check",
+      "nome": "^MC25:"
     }
   ]
 }
