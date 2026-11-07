@@ -1132,6 +1132,153 @@
       "criadoEm": "2026-11-06T22:27:13.423Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C82",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "A projeção de saída redige credenciais genéricas e em URL nos textos de comando sem alterar o valor usado pela execução ou pela impressão.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/verify-timeout.test.js core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-07T01:46:46.692Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C83",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/src/ship.ts",
+      "alegacao": "O resultado de SHIP publica a projeção redigida do verify e mantém a decisão sobre o resultado original.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'r.verificacao = resultadoVerifyRedigido(verificacao)' core/src/ship.ts",
+        "node --test core/dist-test/test/verify-timeout.test.js"
+      ],
+      "criadoEm": "2026-11-07T01:46:46.780Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C84",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-verify-async.ts",
+      "alegacao": "O verify MCP assíncrono publica a projeção redigida do resultado terminal.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'resultado: resultadoVerifyRedigido(resultado)' core/src/mcp-verify-async.ts",
+        "node --test core/dist-test/test/verify-timeout.test.js"
+      ],
+      "criadoEm": "2026-11-07T01:46:46.839Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C85",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "As saídas da retirada de claim mostram o motivo redigido nos fluxos livre, pendente e com substituta.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-07T01:46:46.911Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C86",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-artifacts.ts",
+      "alegacao": "A retirada MCP omite a lista verificar da claim e fornece sua impressão canônica.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-07T01:46:46.975Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C87",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/rm079-claims.test.ts",
+      "alegacao": "A suíte da RM-079 cobre redação na CLI e no MCP e identidade da impressão por ordem e forma da lista.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-07T01:46:47.070Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C88",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/verify-timeout.test.ts",
+      "alegacao": "A suíte de verify cobre credenciais genéricas e em URL no recibo e na projeção serializável, preservando o resultado original.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/verify-timeout.test.js"
+      ],
+      "criadoEm": "2026-11-07T01:46:47.142Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C89",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm079-retirada-head.json",
+      "alegacao": "Mutantes da redação de comando, do motivo CLI, da projeção MCP e da ordem canônica da impressão morrem nas provas da RM-079.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-retirada-head.json M6",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-retirada-head.json M7",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-retirada-head.json M8",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-retirada-head.json M9"
+      ],
+      "criadoEm": "2026-11-07T01:46:47.222Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C90",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
+      "alegacao": "A página da RM-079 descreve a redação de comandos, motivos e resposta MCP de acordo com o comportamento implementado.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'resposta MCP omite a lista' docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-07T01:46:47.292Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C91",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O bloco Não publicado registra a redação das superfícies de comando, CLI e MCP da RM-079.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'resposta MCP omite a lista' CHANGELOG.md",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-07T01:46:47.393Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
   "deferredClaims": [
