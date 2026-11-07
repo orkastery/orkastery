@@ -1,4 +1,6 @@
 import { strict as assert } from 'node:assert';
+import { spawnSync } from 'node:child_process';
+import * as path from 'node:path';
 import { test } from 'node:test';
 import { analisarComando, regraFatalDeClaim } from '../src/claim-lint';
 import { adicionarClaim, anexarComando, lerClaims, montarClaim, retirarClaim, retirarClaimTipada } from '../src/claims';
@@ -9,6 +11,8 @@ import { dirThread, novaThread } from '../src/thread';
 import { retirarClaimMcp } from '../src/mcp-artifacts';
 import { projetoTemporario } from './apoio';
 import { commitReal, impressaoDosComandos } from '../src/verify';
+
+const CLI = path.resolve(__dirname, '../src/index.js');
 
 const regras = (comando: string) => analisarComando(comando).map((a) => a.regra);
 
@@ -62,6 +66,15 @@ test('RM079 lint: comandos no contexto real permanecem sem os avisos novos', () 
     assert.equal(regras(comando).includes('contexto-artificial'), false, comando);
     assert.equal(regras(comando).includes('artefato-de-fechamento'), false, comando);
   }
+});
+
+test('RM079 impressão: ordem e forma da lista participam da identidade canônica', () => {
+  const generica = 'sk-' + 'ant-' + 'C'.repeat(24);
+  const url = 'postgres://' + 'usuario:' + 'segredo' + '@host/banco';
+  const lista = [`node -e ${generica}`, `node -e ${url}`];
+  assert.equal(impressaoDosComandos(lista), impressaoDosComandos([...lista]));
+  assert.notEqual(impressaoDosComandos(lista), impressaoDosComandos([...lista].reverse()));
+  assert.notEqual(impressaoDosComandos(lista), impressaoDosComandos([lista.join(' && ')]));
 });
 
 test('RM079 retirada: substituta ativa precisa ter passado no ultimo verify_run', () => {
@@ -185,17 +198,61 @@ test('RM079 retirada: motivo livre chega redigido ao estado e ao ledger', () => 
   } finally { p.limpar(); }
 });
 
+test('RM079 retirada CLI: motivo sai redigido nos fluxos livre, pendente e com substituta', () => {
+  const p = projetoTemporario('rm079-retirada-cli-redacao');
+  const generica = 'sk-' + 'ant-' + 'D'.repeat(24);
+  const url = 'postgres://' + 'usuario:' + 'segredo' + '@host/banco';
+  const motivo = `troca ${generica} por ${url}`;
+  const rodar = (...args: string[]) => spawnSync(process.execPath, [CLI, 'claims', 'retirar', ...args],
+    { cwd: p.dir, encoding: 'utf8', timeout: 30_000 });
+  const conferir = (saida: ReturnType<typeof rodar>, status: number) => {
+    assert.equal(saida.error, undefined);
+    assert.equal(saida.status, status, `${saida.stdout}\n${saida.stderr}`);
+    const texto = `${saida.stdout}\n${saida.stderr}`;
+    assert.doesNotMatch(texto, new RegExp(generica));
+    assert.doesNotMatch(texto, /segredo@/);
+    assert.match(texto, /\[redigido\]/);
+    assert.match(texto, /\[credencial redigida\]@host\/banco/);
+  };
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'retirada cli redacao', modo: 'auto' });
+    const livre = adicionarClaim(p.dir, thread.id, { arquivo: 'README.md', alegacao: 'regra livre', semProvaLocal: true });
+    const pendente = adicionarClaim(p.dir, thread.id, { arquivo: 'README.md', alegacao: 'regra pendente', semProvaLocal: true });
+    const antiga = adicionarClaim(p.dir, thread.id, { arquivo: 'README.md', alegacao: 'regra antiga', semProvaLocal: true });
+    const nova = adicionarClaim(p.dir, thread.id, { arquivo: 'README.md', alegacao: 'regra nova',
+      verificar: ['node --version'], semProvaLocal: true });
+
+    conferir(rodar(thread.id, livre.id, '--motivo', motivo), 0);
+    conferir(rodar(thread.id, pendente.id, '--motivo-tipo', 'erro', '--motivo', motivo), 1);
+
+    registrar(dirThread(p.dir, thread.id), thread.id, TIPOS_DE_EVENTO.verificacao, {
+      commit: commitReal(p.dir), claims: [{ id: nova.id, verificarSha256: impressaoDosComandos(nova.verificar), verificado: true }],
+      motivos: [], veredito: 'verdade sustentada',
+    });
+    conferir(rodar(thread.id, antiga.id, '--motivo-tipo', 'substituicao', '--substituida-por', nova.id,
+      '--motivo', motivo), 0);
+  } finally { p.limpar(); }
+});
+
 test('RM079 retirada: transporte MCP aplica a guarda e devolve o pedido tipado', () => {
   const p = projetoTemporario('rm079-retirada-mcp');
   try {
     const { thread } = novaThread(p.carregado, { nome: 'retirada mcp', modo: 'auto' });
-    const claim = adicionarClaim(p.dir, thread.id, { arquivo: 'README.md', alegacao: 'regra em revisao', semProvaLocal: true });
+    const generica = 'sk-' + 'ant-' + 'E'.repeat(24);
+    const url = 'postgres://' + 'usuario:' + 'segredo' + '@host/banco';
+    const claim = adicionarClaim(p.dir, thread.id, { arquivo: 'README.md', alegacao: 'regra em revisao',
+      verificar: [`node -e ${generica}`, `node -e ${url}`], semProvaLocal: true });
     const resultado = retirarClaimMcp(p.dir, thread.id, {
       claimId: claim.id, motivoTipo: 'erro', motivo: 'a regra precisa de decisao do dono',
       autor: { tipo: 'sessao', id: 'dispatch-mcp' },
     });
     assert.equal(resultado.estado, 'pendente-do-dono');
+    if (!('pedidoId' in resultado)) assert.fail('a retirada pendente precisa devolver o pedido tipado');
     assert.match(resultado.pedidoId, /^[a-f0-9-]{36}$/);
+    assert.equal('verificar' in resultado.claim, false);
+    assert.equal(resultado.claim.verificarSha256, impressaoDosComandos(claim.verificar));
+    assert.doesNotMatch(JSON.stringify(resultado), new RegExp(generica));
+    assert.doesNotMatch(JSON.stringify(resultado), /segredo@/);
     assert.notEqual(lerClaims(p.dir, thread.id).find((c) => c.id === claim.id)?.estado, 'retirada');
   } finally { p.limpar(); }
 });

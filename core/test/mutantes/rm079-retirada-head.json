@@ -55,6 +55,33 @@
       "para": "return comando;",
       "teste": "verify-timeout",
       "nome": "^RM079 comando:"
+    },
+    {
+      "id": "M7",
+      "descricao": "a CLI de retirada volta a imprimir o motivo bruto",
+      "modulo": "index",
+      "de": "const motivoSeguro = (0, hitl_1.redigirSegredos)(motivo);",
+      "para": "const motivoSeguro = motivo;",
+      "teste": "rm079-claims",
+      "nome": "^RM079 retirada CLI:"
+    },
+    {
+      "id": "M8",
+      "descricao": "a resposta MCP de retirada volta a carregar a lista verificar bruta",
+      "modulo": "mcp-artifacts",
+      "de": "const { verificar, ...projecao } = claim;",
+      "para": "const verificar = claim.verificar, projecao = claim;",
+      "teste": "rm079-claims",
+      "nome": "^RM079 retirada: transporte MCP"
+    },
+    {
+      "id": "M9",
+      "descricao": "a impressão deixa de distinguir a ordem canônica da lista verificar",
+      "modulo": "verify",
+      "de": ".update(JSON.stringify(verificar))",
+      "para": ".update(JSON.stringify([...verificar].sort()))",
+      "teste": "rm079-claims",
+      "nome": "^RM079 impressão:"
     }
   ]
 }

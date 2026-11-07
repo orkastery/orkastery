@@ -81,7 +81,7 @@ import {
   varrerSuperficie,
 } from './superficie';
 import { devolverVagas, textoDoBoard, textoDoPlano, textoDoReap, planejar, threadsDeTodosOsPerfis } from './board';
-import { textoDoRadar, varrerSessoes } from './hitl';
+import { redigirSegredos, textoDoRadar, varrerSessoes } from './hitl';
 import { filaDoDono, montarPulse, textoDoPulse } from './pulse';
 import { codigosEmUso, interpretarRespostaDoPulse, responderPeloPulse } from './pulse-resposta';
 import { referenciaDoReplyValida } from './pulse-consentimento';
@@ -1455,13 +1455,14 @@ function comandoClaims(args: Args): number {
     }
     const dispatchId = identidadeDoAmbiente(id, process.env, carregado.raiz);
     const autor = dispatchId ? { tipo: 'sessao' as const, id: dispatchId } : { tipo: 'dono' as const, id: 'terminal-local' };
+    const motivoSeguro = redigirSegredos(motivo);
     if (!motivoTipo) {
       const claim = comLocale('pt-BR', () => retirarClaim(carregado.raiz, id, claimId, motivo, autor));
       console.log(mc.retirada(claim.id, id));
       console.log(mc.retiradaTipada(false));
       console.log(mc.autorDaRetirada(autor.tipo, autor.id));
       console.log(mc.campoAlegacao(claim.alegacao));
-      console.log(mc.campoMotivo(motivo));
+      console.log(mc.campoMotivo(motivoSeguro));
       console.log(mc.historicoContinua);
       return 0;
     }
@@ -1472,7 +1473,7 @@ function comandoClaims(args: Args): number {
       console.log(mc.retiradaPendente(claimId));
       console.log(mc.retiradaTipada(true));
       console.log(mc.autorDaRetirada(autor.tipo, autor.id));
-      console.log(mc.campoMotivo(motivo));
+      console.log(mc.campoMotivo(motivoSeguro));
       return 1;
     }
     console.log(mc.retirada(resultado.claim.id, id));
@@ -1480,7 +1481,7 @@ function comandoClaims(args: Args): number {
     console.log(mc.autorDaRetirada(autor.tipo, autor.id));
     console.log(mc.substitutaDaRetirada(resultado.substituidaPor));
     console.log(mc.campoAlegacao(resultado.claim.alegacao));
-    console.log(mc.campoMotivo(motivo));
+    console.log(mc.campoMotivo(motivoSeguro));
     console.log(mc.historicoContinua);
     return 0;
   }

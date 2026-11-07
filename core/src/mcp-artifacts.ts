@@ -6,7 +6,8 @@ import {dirThread,lerThread,blocoDaThread} from './thread';
 import {abrirPedidoGate,comLockHitl} from './hitl-gates';
 import {adquirirRegiao,lerLease,leasesColidentes,liberar,podarRegioesDeThreadsFechadas} from './leases';
 import {adicionarClaim,AutorDaRetirada,lerClaims,MotivoTipoDaRetirada,retirarClaimTipada} from './claims';
-import {Fase} from './types';
+import {Claim,Fase} from './types';
+import {impressaoDosComandos} from './verify';
 
 export type DocumentoMcp='goal'|'plan'|'check';
 const fases:Record<DocumentoMcp,Fase>={goal:'GOAL',plan:'PLAN',check:'CHECK'};
@@ -167,6 +168,10 @@ export function adicionarClaimMcp(raiz:string,id:string,entrada:{arquivo:string;
     return adicionarClaim(raiz,id,{...entrada,semProvaLocal:true});
   }));
 }
+function claimDaRetiradaMcp(claim:Claim) {
+  const {verificar,...projecao}=claim;
+  return {...projecao,verificarSha256:impressaoDosComandos(verificar)};
+}
 export function retirarClaimMcp(raiz:string,id:string,entrada:{claimId:string;motivoTipo:MotivoTipoDaRetirada;
   substituidaPor?:string;motivo:string;autor:AutorDaRetirada}) {
   validarId(id);
@@ -176,7 +181,8 @@ export function retirarClaimMcp(raiz:string,id:string,entrada:{claimId:string;mo
     if(lerThread(raiz,id).status==='fechada') throw Error('mcp.claim.closed');
     return retirarClaimTipada(raiz,id,entrada.claimId,entrada);
   }));
-  if(resultado.estado!=='pendente-do-dono') return resultado;
+  const resposta={...resultado,claim:claimDaRetiradaMcp(resultado.claim)};
+  if(resultado.estado!=='pendente-do-dono') return resposta;
   const pedido=abrirPedidoGate(raiz,id,resultado.motivo);
-  return {...resultado,pedidoId:pedido.id};
+  return {...resposta,pedidoId:pedido.id};
 }
