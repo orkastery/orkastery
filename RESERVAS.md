@@ -9,6 +9,7 @@ não edite à mão. Antes de começar um item: `ork roadmap reservas`.
 | RM-068 | Paschoal | note | — | 20/10 14:12 | security scan no CHECK (forja/security-scan) |
 | RM-082 | Codex | vps | ork-roadmaptresi | 07/11 16:49 | Redação de credenciais nas superfícies remanescentes |
 | RM-083 | Codex | vps | ork-roadmaptresi | 07/11 16:49 | Estado do roadmap acompanha a entrega |
+| RM-084 | Codex | vps | ork-roadmaptresi | 07/11 16:49 | Sessão continua com muitos objetos soltos do Git |
 
 ## Números de FEAT reservados
 
