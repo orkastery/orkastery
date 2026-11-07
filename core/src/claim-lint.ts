@@ -10,9 +10,10 @@
  *   (b1) SHA intermediario       avisa          avisa
  *   (b2) contagem de commits     avisa          avisa
  *
- * Toda claim nova nasce com o campo `lint` (vazio quando nada casou). E ele que separa a claim
- * nascida sob a regra da claim antiga: a antiga so recebe aviso, porque corrigir claim de thread
- * alheia e mexer em estado de quem nao pediu (D16). Nada de data de corte no codigo.
+ * Toda claim nova nasce com `lint` (vazio quando nada casou) e `regrasDoLint` (o conjunto avaliado).
+ * A marca `regrasDoLint` separa a claim nascida sob uma regra da claim antiga: a antiga so recebe
+ * aviso, porque corrigir claim de thread alheia e mexer em estado de quem nao pediu (D16). Nada de
+ * data de corte no codigo.
  */
 
 import { AchadoDoLint, RegraDoLint } from './types';

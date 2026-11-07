@@ -4300,7 +4300,8 @@ function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
 
 /**
  * RM-052: `--projeto <nome|caminho>` e opcao GLOBAL. Sai do argv em qualquer posicao, antes de
- * qualquer despacho (inclusive do `maestro`, que tem parse proprio), e so aparece uma vez.
+ * qualquer despacho (inclusive do `maestro`, que tem parse proprio); repeticoes identicas valem
+ * como uma ocorrencia, e valores divergentes sao recusados.
  */
 export function extrairOpcaoDeProjeto(argv: readonly string[]): {
   argv: string[]; projeto: string | undefined; repetidaDivergente?: 'projeto'
