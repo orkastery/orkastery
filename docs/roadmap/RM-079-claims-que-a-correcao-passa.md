@@ -63,7 +63,7 @@ sdlc:
   - `ork claims retirar ... --substituida-por <Cn>` com motivo tipado (`substituicao`, `obsoleta`, `erro`) e autor (sessão ou dono) no ledger, conferindo que a substituta existe, está ativa e passou no último `verify_run`;
   - o `verify_run` guarda a impressão SHA-256 da lista `verificar` e a impressão do comando original para comparar a prova; o próprio `verify_run`, os recibos e as execuções do verify redigem o texto público sem alterar execução nem identidade;
   - motivos e textos do `fix` vindo do parecer passam pela redação geral antes de recibo, ledger ou saída da CLI;
-  - as três respostas de `claims retirar` na CLI mostram o mesmo motivo seguro, e a retirada no MCP omite a lista `verificar` e devolve sua impressão;
+  - as três respostas de `claims retirar` na CLI mostram o mesmo motivo seguro, e a resposta MCP omite a lista `verificar` e devolve sua impressão;
   - retirada sem substituta abre pedido tipado ao dono (por exemplo `claims.retirada-sem-substituta`);
   - `ork fix open` lê o veredito e os achados estruturados de `docs/check.md`; `ork fix status` mostra arquivo, linha, estado, commit de fechamento e o que falta.
 - **Entregáveis e critérios de aceite:**
