@@ -82,6 +82,7 @@ test('quatro comandos incompatíveis: claims add e MCP recusam antes de persisti
 test('toda claim nova nasce com o lint; a anexacao refaz o lint so de quem nasceu com ele', () => {
   const limpa = montarClaim({ id: 'C1', dono: 'ork-x', fase: 'GO', arquivo: 'a', alegacao: 'x', verificar: ['node --test a.test.js'] });
   assert.deepEqual(limpa.lint, []);
+  assert.ok(limpa.regrasDoLint?.includes('ref-local-do-ramo-base'));
   const suja = montarClaim({ id: 'C2', dono: 'ork-x', fase: 'GO', arquivo: 'a', alegacao: 'x', verificar: ['npm test'] });
   assert.deepEqual(suja.lint?.map((a) => a.regra), ['suite-inteira']);
 });
@@ -97,8 +98,8 @@ test('ci prepare recusa a suite inteira em claim nascida sob a regra; claim anti
     const evento = lerLedger(dirThread(p.dir, thread.id)).filter((e) => e.tipo === 'claim_lint').at(-1)!;
     assert.equal((evento.recusas as string[]).length, 1);
 
-    // A mesma claim gravada antes do lint (sem o campo) nao pode ser reprovada pela regra nova.
-    const antigas = lerClaims(p.dir, thread.id).map(({ lint: _lint, ...resto }) => resto);
+    // A mesma claim gravada antes da marca das regras nao pode ser reprovada pela regra nova.
+    const antigas = lerClaims(p.dir, thread.id).map(({ lint: _lint, regrasDoLint: _regras, ...resto }) => resto);
     fs.writeFileSync(caminhoClaims(p.dir, thread.id), antigas.map((c) => JSON.stringify(c)).join('\n') + '\n');
     const avisos: string[] = [];
     const arquivo = prepararBundleCi(p.carregado, thread.id, { aoAvisar: (l) => avisos.push(l) });
@@ -128,7 +129,7 @@ test('quatro casos no bundle: claim nova recusa e a equivalente anterior ao lint
     assert.deepEqual(lintNovo.avisos, []);
     assert.throws(() => prepararBundleCi(p.carregado, thread.id), /claims\.lint: o bundle nao foi gerado/);
 
-    const antigas = lerClaims(p.dir, thread.id).map(({ lint: _lint, ...resto }) => resto);
+    const antigas = lerClaims(p.dir, thread.id).map(({ lint: _lint, regrasDoLint: _regras, ...resto }) => resto);
     fs.writeFileSync(caminhoClaims(p.dir, thread.id), antigas.map((c) => JSON.stringify(c)).join('\n') + '\n');
     const avisos: string[] = [];
     prepararBundleCi(p.carregado, thread.id, { aoAvisar: (linha) => avisos.push(linha) });

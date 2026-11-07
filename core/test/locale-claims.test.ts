@@ -123,8 +123,8 @@ test('locale en F3d ci prepare: o lint do bundle nasce em pt-BR e se remonta em 
     const recusa = comLocale('en', () => mensagemDoErro(erro));
     assert.match(recusa, /^claims\.lint: the bundle was not generated; .*:\n {2}C1 runs the whole suite \(npm --prefix core test\); /);
     assert.deepEqual(linhasEmPortugues(recusa, ['claims.lint']), [], recusa);
-    // A claim anterior ao lint (sem o campo) so avisa: a linha nasce em pt-BR e se remonta inteira em ingles.
-    const antigas = lerClaims(p.dir, thread.id).map(({ lint: _lint, ...resto }) => resto);
+    // A claim anterior a marca das regras so avisa: a linha nasce em pt-BR e se remonta inteira em ingles.
+    const antigas = lerClaims(p.dir, thread.id).map(({ lint: _lint, regrasDoLint: _regras, ...resto }) => resto);
     fs.writeFileSync(caminhoClaims(p.dir, thread.id), antigas.map((c) => JSON.stringify(c)).join('\n') + '\n');
     const avisos: string[] = [];
     comLocale('pt-BR', () => prepararBundleCi(p.carregado, thread.id, { aoAvisar: (l) => avisos.push(l) }));
