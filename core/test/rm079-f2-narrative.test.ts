@@ -12,6 +12,8 @@ test('RM-079 F2: página e changelog descrevem o comportamento entregue', () => 
   assert.match(pagina, /opção de valor único repetida com valores diferentes[\s\S]*recusada e nomeada/i);
   assert.match(pagina, /ramo base do manifesto[\s\S]*origin\/<base>/i);
   assert.match(pagina, /artefato `check`[\s\S]*aviso tipado no status/i);
+  assert.match(pagina, /regras de orientação[\s\S]*somente aviso[\s\S]*`ref-local-do-ramo-base`[\s\S]*fatal/i);
+  assert.doesNotMatch(pagina, /lint com falso positivo; mitigação: só aviso, nunca recusa/i);
 
   const naoPublicado = ler('CHANGELOG.md').split('## [0.6.7]')[0];
   assert.match(naoPublicado, /Claims executáveis no CI — F2/);

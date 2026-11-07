@@ -111,7 +111,9 @@ Também fica fora mudar o formato persistido das claims.
 - **Prioridade / método / pontuação / justificativa / data:** 5ª da fila de achados de condução em rede (31/10/2026). Média: é menos frequente, mas cada caso vira trabalho do dono.
 - **Horizonte / alvo / previsão / confiança / marcos:** a definir pelo dono.
 - **Dependências e bloqueios (ID, owner, próxima revisão):** lint de claims da [RM-037](RM-037-verify-rapido-e-confiavel.md); políticas do [RM-008](RM-008-loop-de-aprendizado.md); "só sobe ao dono o que é ato dele" da [RM-063](RM-063-fabrica-que-nao-para.md).
-- **Premissas / riscos / mitigação:** lint com falso positivo; mitigação: só aviso, nunca recusa.
+- **Premissas / riscos / mitigação:** as regras de orientação do lint continuam somente aviso; a regra
+  `ref-local-do-ramo-base` é fatal para claims nascidas sob ela. Falsos positivos dessa regra são
+  mitigados pela análise do contexto executado e pelos casos negativos da suíte.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):**
   1. Só orientação: barato, mas não pega o erro.
   2. Orientação, lint de aviso e retirada tipada (recomendada).

@@ -37,6 +37,42 @@
       "para": "return [];",
       "teste": "rm079-f2-artifact-warning",
       "nome": "^RM-079 F2: phase_result registra"
+    },
+    {
+      "id": "M5",
+      "descricao": "uma claim anterior a marca explicita, mas com lint vazio, volta a ser fatal no bundle",
+      "modulo": "ci",
+      "de": "if (bloqueiaNova && claim.regrasDoLint?.includes(achado.regra))",
+      "para": "if (bloqueiaNova && claim.lint !== undefined)",
+      "teste": "rm079-f2-claim-lint",
+      "nome": "^RM-079 F2: no bundle"
+    },
+    {
+      "id": "M6",
+      "descricao": "rev-parse sai da lista de subcomandos Git que leem revisao",
+      "modulo": "claim-lint",
+      "de": "'merge-base', 'rev-parse', 'cat-file'",
+      "para": "'merge-base', 'cat-file'",
+      "teste": "rm079-f2-claim-lint",
+      "nome": "^RM-079 F2: a ref local configurada"
+    },
+    {
+      "id": "M7",
+      "descricao": "texto citado por um comando que nao executa Git volta a ser analisado como Git",
+      "modulo": "claim-lint",
+      "de": "if (executavelDoSegmento(segmento) === 'git')\n        return [segmento];\n    return [];",
+      "para": "if (executavelDoSegmento(segmento) === 'git')\n        return [segmento];\n    return segmento.flatMap((token) => /\\bgit\\s/.test(token.valor) ? segmentosDoComando(token.valor) : []);",
+      "teste": "rm079-f2-claim-lint",
+      "nome": "^RM-079 F2: refs remotas"
+    },
+    {
+      "id": "M8",
+      "descricao": "a opcao global projeto volta a recusar uma repeticao com o mesmo valor",
+      "modulo": "index",
+      "de": "else if (projeto !== valor)\n            repetidaDivergente = true;",
+      "para": "else\n            repetidaDivergente = true;",
+      "teste": "rm079-f2-args",
+      "nome": "^RM-079 F2: opcao global projeto"
     }
   ]
 }
