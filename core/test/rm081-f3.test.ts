@@ -9,6 +9,7 @@ import { dirThread, novaThread } from '../src/thread';
 import { ResultadoDeComando } from '../src/types';
 import { comandoComTestesFiltrados, comandoNoLedger, verificar, textoDoVerify } from '../src/verify';
 import { verificacaoCompletaParaShip } from '../src/ship';
+import { redigirCredenciaisUrl } from '../src/redacao-url';
 import { projetoTemporario, ProjetoDeTeste } from './apoio';
 
 function comVerify(p: ProjetoDeTeste, linhas: string, check = '') {
@@ -91,6 +92,70 @@ function rodadaAnterior(p: ProjetoDeTeste, thread: { id: string }, comando = 'ru
       testeQueCaiu: nomes, junit: { caminho: 'reports/junit.xml', estado: 'lido' } }],
   });
 }
+
+function rodadaAnteriorComImpressao(p: ProjetoDeTeste, thread: { id: string }, comando: string,
+  nomes = ['suite :: falha']): Record<string, unknown> {
+  const registro = comandoNoLedger({ ...resultado('test', comando, false), testeQueCaiu: nomes,
+    junit: { caminho: 'reports/junit.xml', estado: 'lido' } });
+  registrar(dirThread(p.dir, thread.id), thread.id, TIPOS_DE_EVENTO.verificacao, {
+    commit: 'a'.repeat(40), comandos: [registro],
+  });
+  return registro;
+}
+
+test('RM079 A6: rodada nova encontra credencial generica pela impressao do comando original', () => {
+  const { p, thread, relatorio } = projetoClassic('rm079-a6-impressao');
+  try {
+    const generica = 'sk-' + 'ant-' + 'A'.repeat(24);
+    const comando = `runner completo --token ${generica}`;
+    p.carregado.manifesto.verify.test = comando;
+    const registro = rodadaAnteriorComImpressao(p, thread, comando);
+    assert.notEqual(registro.comando, comando);
+    assert.equal(typeof registro.comandoSha256, 'string');
+    const executados: string[] = [];
+    verificar(p.carregado, thread.id, { executor: (nome, executado) => {
+      executados.push(executado);
+      fs.writeFileSync(path.join(p.dir, relatorio), xml('falha', true));
+      return resultado(nome, executado, false);
+    } });
+    assert.deepEqual(executados, ["runner parcial 'suite :: falha'"]);
+  } finally { p.limpar(); }
+});
+
+test('RM079 A6: rodada legada sem impressao preserva a comparacao historica', () => {
+  const { p, thread, relatorio } = projetoClassic('rm079-a6-legado');
+  try {
+    const comando = 'runner completo https://usuario:' + ['seg', 'redo'].join('') + '@host/base';
+    p.carregado.manifesto.verify.test = comando;
+    rodadaAnterior(p, thread, redigirCredenciaisUrl(comando));
+    const executados: string[] = [];
+    verificar(p.carregado, thread.id, { executor: (nome, executado) => {
+      executados.push(executado);
+      fs.writeFileSync(path.join(p.dir, relatorio), xml('falha', true));
+      return resultado(nome, executado, false);
+    } });
+    assert.deepEqual(executados, ["runner parcial 'suite :: falha'"]);
+  } finally { p.limpar(); }
+});
+
+test('RM079 A6: comando original diferente nao reaproveita texto publico igual', () => {
+  const { p, thread, relatorio } = projetoClassic('rm079-a6-diferente');
+  try {
+    const anterior = 'runner completo token=' + ['valor', 'anterior'].join('-');
+    const atual = 'runner completo token=' + ['valor', 'atual'].join('-');
+    p.carregado.manifesto.verify.test = atual;
+    const registro = rodadaAnteriorComImpressao(p, thread, anterior);
+    assert.equal(registro.comando, 'runner completo token=[redigido]');
+    const executados: string[] = [];
+    const r = verificar(p.carregado, thread.id, { executor: (nome, executado) => {
+      executados.push(executado);
+      fs.writeFileSync(path.join(p.dir, relatorio), xml('falha', true));
+      return resultado(nome, executado, false);
+    } });
+    assert.deepEqual(executados, [atual]);
+    assert.equal(r.parcial, false);
+  } finally { p.limpar(); }
+});
 
 test('RM081 F3 V1: sem rodada anterior nominal o filtro nao e aplicado', () => {
   const { p, thread, relatorio } = projetoClassic('rm081-f3-sem-anterior');

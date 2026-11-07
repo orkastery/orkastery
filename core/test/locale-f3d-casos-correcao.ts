@@ -34,6 +34,12 @@ function dirDaThread(repo: string, id: string): string {
   return path.join(repo, '.orkastery', 'threads', id);
 }
 
+function gravarParecerPassou(repo: string, id: string): void {
+  const docs = path.join(dirDaThread(repo, id), 'docs');
+  fs.mkdirSync(docs, { recursive: true });
+  fs.writeFileSync(path.join(docs, 'check.md'), 'Veredito: PASSOU\n');
+}
+
 function correcao(id: string, tipo: 'A' | 'B', origem: string, alvo: string, verificar: string[], estado = 'aberta') {
   return { id, thread: 'loc-fix', rodada: 1, tipo, origem, alvo, spec: `corrigir ${alvo}`, verificar, evidencia: 'saida real',
     estado, vereditoEm: null, detalheDoVeredito: '', criadaEm: T0 };
@@ -158,6 +164,7 @@ function casosDoLedgerPuro(casos: Casos): void {
 function casosDoFixCli(casos: Casos, amb: Ambiente): void {
   const repo = projeto('fix', 'loc', amb);
   const id = idDaThread(ork(repo, amb, 'thread', 'new', 'fix-a', '--sem-worktree'));
+  gravarParecerPassou(repo, id);
   caso(casos, 'cli fix: sem subcomando', () => texto(ork(repo, amb, 'fix')));
   caso(casos, 'cli fix: subcomando desconhecido', () => texto(ork(repo, amb, 'fix', 'voar', id)));
   caso(casos, 'cli fix: open sem thread', () => texto(ork(repo, amb, 'fix', 'open')));

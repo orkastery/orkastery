@@ -249,6 +249,7 @@ test('lote: caminhos das ferramentas de escrita; leitura, claims e plano reconhe
   assert.equal(soLeitura([{ tool_name: 'Read' }, { tool_name: 'Bash' }]), false);
   assert.equal(soLeitura([{ tool_name: 'mcp__orkastery__ork_git_commit' }]), false);
   assert.equal(mexeuNasClaims([{ tool_name: 'mcp__orkastery__ork_claim_add' }]), true);
+  assert.equal(mexeuNasClaims([{ tool_name: 'mcp__orkastery__ork_claim_withdraw' }]), true);
   assert.equal(mexeuNasClaims([{ tool_name: 'Bash', tool_input: { command: 'ork claims retirar ork-a C3 --motivo x' } }]), true);
   assert.equal(mexeuNasClaims([{ tool_name: 'Bash', tool_input: { command: 'ork claims list ork-a' } }]), false);
   assert.equal(mexeuNasClaims([{ tool_name: 'Edit' }]), false);

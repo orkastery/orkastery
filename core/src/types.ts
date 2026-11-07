@@ -621,6 +621,7 @@ export type MotivoGate =
   | 'artifact.missing'
   | 'claims.failed'
   | 'claims.unverifiable'
+  | 'claims.retirada-sem-substituta'
   | 'policy.violation'
   /**
    * I-43 (D4, viga a): o CHECK foi despachado no MESMO runtime que fez o GO, numa
@@ -685,7 +686,8 @@ export type MotivoGate =
 /** Uma alegacao verificavel feita por uma fase (`claims.jsonl` da thread). */
 /** I-53 (RM-037, P6): as regras do lint de comando de claim (`claim-lint.ts`). */
 export type RegraDoLint = 'suite-inteira' | 'sha-intermediario' | 'contagem-de-commits'
-  | 'binario-rg' | 'ork-fora-do-path' | 'estado-local' | 'aspas-escapadas';
+  | 'binario-rg' | 'ork-fora-do-path' | 'estado-local' | 'aspas-escapadas'
+  | 'contexto-artificial' | 'artefato-de-fechamento';
 
 /** Um achado do lint: a regra, o pedaco do comando que casou e a forma certa. */
 export interface AchadoDoLint {
@@ -2011,8 +2013,8 @@ export interface Correcao {
   /** Rodada de GO-FIX em que a correcao nasceu (1-based). */
   rodada: number;
   tipo: TipoDeCorrecao;
-  /** Motivo tipado que originou a correcao. Nunca prosa: sempre do catalogo do B1. */
-  origem: MotivoGate;
+  /** Motivo tipado do verify ou achado estruturado do parecer independente. */
+  origem: MotivoGate | 'check.finding';
   /** O que exatamente falhou: `claim C2`, `comando test`, `artefato X`. */
   alvo: string;
   /** A spec exata do que corrigir, montada do resultado real do `ork verify`. */
@@ -2024,6 +2026,13 @@ export interface Correcao {
   estado: 'aberta' | 'aprovada' | 'reprovada';
   vereditoEm: string | null;
   detalheDoVeredito: string;
+  /** HEAD que fechou a correcao; null enquanto ela nao foi aprovada. */
+  commitQueFechou?: string | null;
+  /** Localizacao estruturada quando a correcao nasceu do parecer. */
+  achado?: { id: string; severidade: 'bloqueador' | 'aviso' | 'sugestao'; arquivo: string; linha: number;
+    reproduzir?: string };
+  /** Parecer negativo que abriu a correcao; um CHECK novo precisa muda-lo para fecha-la. */
+  parecerSha256?: string;
   criadaEm: string;
 }
 

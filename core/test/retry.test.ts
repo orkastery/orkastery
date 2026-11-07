@@ -11,6 +11,8 @@ import { aprovarSimulado, comCredencialSimulada } from './hitl-simulado';
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { DESCRICAO_DO_MOTIVO } from '../src/gates';
 import { lerLedger } from '../src/ledger';
 import { rodarFase } from '../src/phase';
@@ -30,6 +32,12 @@ import { dirThread, lerThread, novaThread } from '../src/thread';
 import { AcaoDeRetry, MotivoGate } from '../src/types';
 import { verificar } from '../src/verify';
 import { ajustarManifesto, projetoTemporario, runtimeFalso } from './apoio';
+
+function gravarParecerPassou(dir: string, threadId: string): void {
+  const docs = path.join(dirThread(dir, threadId), 'docs');
+  fs.mkdirSync(docs, { recursive: true });
+  fs.writeFileSync(path.join(docs, 'check.md'), 'Veredito: PASSOU\n');
+}
 
 test('runtime.silencio retoma despacho bem-sucedido, conta tentativa e escala no limite em Auto', t => {
   const runtime=runtimeFalso('retry-silencio');
@@ -180,6 +188,7 @@ test('o modo afrouxa a pausa e nunca a politica: #Default espera, #Maestro anda'
 
   // #Maestro: o bloco GO-CHECK-SHIP nao pausa, e o mesmo motivo anda sozinho.
   const maestro = novaThread(p.carregado, { nome: 'modo maestro', modo: 'maestro' }).thread;
+  gravarParecerPassou(p.dir, maestro.id);
   adicionarClaim(p.dir, maestro.id, { ...claim, fase: 'CHECK' });
   verificar(p.carregado, maestro.id);
   const planoMaestro = planejarRetry(p.carregado, maestro.id);
@@ -208,6 +217,7 @@ test('o limite de escalacao pausa QUALQUER modo, inclusive #Auto', (t) => {
   ajustarManifesto(p, /  max_tentativas: 3/, '  max_tentativas: 2');
 
   const { thread } = novaThread(p.carregado, { nome: 'escalacao auto', modo: 'auto' });
+  gravarParecerPassou(p.dir, thread.id);
   adicionarClaim(p.dir, thread.id, {
     arquivo: 'alvo.txt',
     alegacao: 'alvo.txt existe',

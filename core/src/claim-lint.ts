@@ -33,6 +33,8 @@ const CORRECAO: Record<RegraDoLint, string> = {
   'ork-fora-do-path': msg('pt-BR').claims.correcoesDoLint['ork-fora-do-path'],
   'estado-local': msg('pt-BR').claims.correcoesDoLint['estado-local'],
   'aspas-escapadas': msg('pt-BR').claims.correcoesDoLint['aspas-escapadas'],
+  'contexto-artificial': msg('pt-BR').claims.correcoesDoLint['contexto-artificial'],
+  'artefato-de-fechamento': msg('pt-BR').claims.correcoesDoLint['artefato-de-fechamento'],
 };
 
 /** RM-037: estes achados tornam uma claim nova inexequivel no checkout do runner. */
@@ -58,6 +60,14 @@ const SO_ANCESTRALIDADE = /merge-base\s+--is-ancestor\s+\S+\s+\S+/g;
 const CONTAGEM = /rev-list\s+(?:[^|;&]*\s)?--count\b|\bgit\s+log\b[^|;&]*\|\s*wc\s+-l\b/;
 const COMPARACAO = /-(?:eq|ne|gt|lt|ge|le)\s+['"]?\d|[^=!<>]==?\s*['"]?\d|grep\s+-(?:q?x|xq)\s+['"]?\d/;
 
+/** RM-079: execucao isolada que reconstrói contexto do produto dentro da propria claim. */
+const NODE_EVAL = /\bnode\b[^;&|]*(?:\s-e\b|\s--eval\b)/;
+const PARSER_DE_AST = /\b(?:@babel\/parser|acorn|esprima|recast|ts-morph|typescript)\b|\b(?:createSourceFile|parseExpression|parseScript|parseModule)\s*\(/;
+const EXECUCAO_ARTIFICIAL = /\brunIn(?:Context|NewContext|ThisContext)\s*\(|\bnew\s+Function\s*\(/;
+
+/** Artefatos produzidos pelo proprio fechamento nao podem ser a fonte circular da claim. */
+const ARTEFATO_DE_FECHAMENTO = /(?:^|[\s"'=])((?:\.\/)?\.ork-ci\/[\w./-]+\.json|(?:\.\/)?docs\/check\.md|(?:\.\/)?pr-body\.md|(?:\.\/)?(?:POSTMORTEM|MASTER)\.(?:json|md))(?=$|[\s"'])/;
+
 /** Executavel em posicao de comando, no inicio ou depois de um operador do shell. */
 function executavelDireto(comando: string, nome: string): RegExpExecArray | null {
   return new RegExp(`(?:^|&&|\\|\\||[;|(])\\s*(?:command\\s+|env\\s+)?(${nome})(?=\\s|$)`).exec(comando);
@@ -76,6 +86,17 @@ export function analisarComando(comando: string): AchadoDoLint[] {
 
   const aspas = /\\x(?:22|27)/i.exec(comando);
   if (aspas) achados.push({ regra: 'aspas-escapadas', trecho: aspas[0], correcao: CORRECAO['aspas-escapadas'] });
+
+  const artificial = EXECUCAO_ARTIFICIAL.exec(comando)
+    ?? (NODE_EVAL.test(comando) ? PARSER_DE_AST.exec(comando) : null);
+  if (artificial) achados.push({
+    regra: 'contexto-artificial', trecho: artificial[0].trim(), correcao: CORRECAO['contexto-artificial'],
+  });
+
+  const fechamento = ARTEFATO_DE_FECHAMENTO.exec(comando);
+  if (fechamento) achados.push({
+    regra: 'artefato-de-fechamento', trecho: fechamento[1], correcao: CORRECAO['artefato-de-fechamento'],
+  });
 
   const suite = SUITE_INTEIRA.exec(comando);
   if (suite) achados.push({ regra: 'suite-inteira', trecho: suite[0].trim(), correcao: CORRECAO['suite-inteira'] });

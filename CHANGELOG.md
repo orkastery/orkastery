@@ -6,6 +6,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Adicionado
+
+- **Claims e ciclo de correção ([RM-079](docs/roadmap/RM-079-claims-que-a-correcao-passa.md)):** o CHECK registra claims que passam com a correção, o lint avisa sobre provas artificiais ou circulares e a retirada tipada exige substituta verde ou decisão do dono. O `verify_run`, os recibos e as execuções do verify redigem textos de comando sem alterar execução ou identidade; a retirada na CLI redige o motivo, a resposta MCP omite a lista `verificar`, e o `fix` vindo do parecer redige seus textos antes de recibo, ledger ou saída.
+
 ### Alterado
 
 - **Parede ajustada por rodada — M13 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** a bancada só desconta a contenção causal medida por PSI `full` em um cgroup exclusivo da rodada. Sem essa medida, não há crédito; carga externa e `steal` agregados apenas validam o equilíbrio entre os dois lados do par. A razão bruta continua visível, a confiança recusa a fronteira de variação, o AG59 preserva a prova de limpeza e Classic e Agile não mudam.

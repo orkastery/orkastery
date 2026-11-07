@@ -34,6 +34,12 @@ function ork(cwd: string, args: string[]): { saida: string; codigo: number } {
   }
 }
 
+function gravarParecerPassou(cwd: string, threadId: string): void {
+  const docs = path.join(cwd, '.orkastery', 'threads', threadId, 'docs');
+  fs.mkdirSync(docs, { recursive: true });
+  fs.writeFileSync(path.join(docs, 'check.md'), 'Veredito: PASSOU\n');
+}
+
 test('ork --help anuncia os comandos do bloco B3', () => {
   const { saida, codigo } = ork(process.cwd(), ['--help']);
   assert.equal(codigo, 0);
@@ -167,6 +173,7 @@ test('ork fix open/list/reverify conduz o sub-loop pelo binario, sem humano', (t
   // que a chave worktree.por_thread do `ork init` daria; o assunto aqui e o sub-loop, nao a worktree.
   ork(p.dir, ['thread', 'new', 'cli go fix', '--modo', 'auto', '--sem-worktree']);
   const id = 'ork-cligofix';
+  gravarParecerPassou(p.dir, id);
   ork(p.dir, [
     'claims',
     'add',
@@ -224,6 +231,7 @@ test('ork fix open sai 0 e nao inventa correcao quando o CHECK passa', (t) => {
   t.after(p.limpar);
 
   ork(p.dir, ['thread', 'new', 'cli fix ok', '--modo', 'auto']);
+  gravarParecerPassou(p.dir, 'ork-clifixok');
   const r = ork(p.dir, ['fix', 'open', 'ork-clifixok']);
   assert.equal(r.codigo, 0);
   assert.ok(r.saida.includes('o CHECK PASSOU no HEAD real'));

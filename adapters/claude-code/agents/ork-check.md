@@ -19,6 +19,10 @@ ork phase list <thread>        # o que ja aconteceu, com evidencia
 ## Regras desta fase
 
 - **CHECK nao corrige.** Achado vira tarefa de GO, com commit proprio.
+- Claim nova afirma o comportamento correto e passa depois da correcao; a reproducao do defeito
+  fica como comando no parecer e nunca vira claim.
+- Achado sem claim usa `- A<n> [blocker|warning|suggestion] path:line - description`; a linha
+  seguinte pode usar `reproduce: \`command\``. Os tokens do formato sao estaveis nas duas linguas.
 - Eixo sem achado sai com "nenhum" explicito.
 - Zero bloqueadores de seguranca e condicao dura, em qualquer modo.
 - Correcao tipo B devolve ao GO e o CHECK seguinte e reexecucao completa.

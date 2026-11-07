@@ -42,6 +42,20 @@ veredito para humano em qualquer modo, inclusive `#Auto`.
 Os quatro reviewers do catalogo entram aqui: `code-reviewer`, `security-auditor`, `test-engineer`
 e `web-performance-auditor`. Cada um roda no seu escopo e devolve achados categorizados.
 
+## Claims e reproducoes de defeito
+
+- Uma claim nascida no CHECK afirma o comportamento correto esperado e precisa passar depois da
+  correcao. Ela nunca afirma que o defeito ainda acontece.
+- O comando que reproduz o defeito fica somente no parecer (`docs/check.md`), como evidencia do
+  achado; esse comando nunca vira claim.
+- Achado sem claim usa uma linha analisavel pelo ciclo de correcao; os tokens do formato sao
+  estaveis nas duas linguas:
+
+  `- A<n> [blocker|warning|suggestion] path:line - description`
+
+  A linha seguinte pode registrar `reproduce: \`command\``. O comando continua sendo evidencia
+  do parecer, nao verificacao da claim.
+
 ## O que o CHECK entrega
 
 1. **Comparacao contra a baseline**, separando regressao de divida pre-existente. Sem essa

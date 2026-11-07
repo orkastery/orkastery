@@ -3,10 +3,11 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
 import {dirThread,lerThread,blocoDaThread} from './thread';
-import {comLockHitl} from './hitl-gates';
+import {abrirPedidoGate,comLockHitl} from './hitl-gates';
 import {adquirirRegiao,lerLease,leasesColidentes,liberar,podarRegioesDeThreadsFechadas} from './leases';
-import {adicionarClaim,lerClaims} from './claims';
-import {Fase} from './types';
+import {adicionarClaim,AutorDaRetirada,lerClaims,MotivoTipoDaRetirada,retirarClaimTipada} from './claims';
+import {Claim,Fase} from './types';
+import {impressaoDosComandos} from './verify';
 
 export type DocumentoMcp='goal'|'plan'|'check';
 const fases:Record<DocumentoMcp,Fase>={goal:'GOAL',plan:'PLAN',check:'CHECK'};
@@ -166,4 +167,22 @@ export function adicionarClaimMcp(raiz:string,id:string,entrada:{arquivo:string;
     // Strings sao dados da claim; a reexecucao MCP deve usar o executor confinado.
     return adicionarClaim(raiz,id,{...entrada,semProvaLocal:true});
   }));
+}
+function claimDaRetiradaMcp(claim:Claim) {
+  const {verificar,...projecao}=claim;
+  return {...projecao,verificarSha256:impressaoDosComandos(verificar)};
+}
+export function retirarClaimMcp(raiz:string,id:string,entrada:{claimId:string;motivoTipo:MotivoTipoDaRetirada;
+  substituidaPor?:string;motivo:string;autor:AutorDaRetirada}) {
+  validarId(id);
+  if(!/^C\d+$/.test(entrada.claimId) || entrada.substituidaPor!==undefined && !/^C\d+$/.test(entrada.substituidaPor) ||
+      !entrada.motivo.trim() || entrada.motivo.length>8192) throw Error('mcp.claim.withdraw.invalid');
+  const resultado=comDocs(raiz,id,()=>comEscrita(raiz,id,()=>{
+    if(lerThread(raiz,id).status==='fechada') throw Error('mcp.claim.closed');
+    return retirarClaimTipada(raiz,id,entrada.claimId,entrada);
+  }));
+  const resposta={...resultado,claim:claimDaRetiradaMcp(resultado.claim)};
+  if(resultado.estado!=='pendente-do-dono') return resposta;
+  const pedido=abrirPedidoGate(raiz,id,resultado.motivo);
+  return {...resposta,pedidoId:pedido.id};
 }

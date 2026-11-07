@@ -53,7 +53,8 @@ test('locale en F3b claims: add, verificar, retirar, ausente e list saem em ingl
     assert.match(en[2].stdout, /\n\nWARNING: C3 runs the whole suite \(npm --prefix core test\); run only the claim test \(`node --test` on the test file, or the project command that runs one file\) or a hermetic project script\. `ci prepare` refuses this claim\.\n$/);
     assert.equal(en[3].stdout, 'Claim C2 now has a verification command.\n  verify     test -f README.md\n  state      pending\n\n' +
       'Prove it now: `ork verify loc-locen`\n');
-    assert.equal(en[4].stdout, 'Claim C3 withdrawn from thread loc-locen.\n  statement  a suite passa\n  reason     suite inteira\n' +
+    assert.equal(en[4].stdout, 'Claim C3 withdrawn from thread loc-locen.\n  withdrawal  untyped (compatibility)\n' +
+      '  author      dono:terminal-local\n  statement  a suite passa\n  reason     suite inteira\n' +
       '  the history of the statement stays in claims.jsonl and in the ledger.\n');
     assert.equal(en[5].stdout, 'Missing proof recorded in thread loc-locen: a.ts, b.ts.\n  reason     so docs\n');
     const tabela = en[6].stdout.split('\n');
@@ -75,7 +76,7 @@ test('locale en F3b claims: usos, recusas e a conferencia sem alvo saem em ingle
     const erro = (...args: string[]) => ork(c, EN, false, 'claims', ...args).stderr;
     assert.equal(erro('add', 'loc-locr'), 'usage: ork claims add <thread-id> <file> --claim "<statement>" [--verificar "<command>"]\n');
     assert.equal(erro('verificar', 'loc-locr'), 'usage: ork claims verificar <thread-id> <claim-id> --comando "<command>"\n');
-    assert.equal(erro('retirar', 'loc-locr'), 'usage: ork claims retirar <thread-id> <claim-id> --motivo "<reason>"\n');
+    assert.equal(erro('retirar', 'loc-locr'), 'usage: ork claims retirar <thread-id> <claim-id> [--motivo-tipo substituicao|obsoleta|erro] [--substituida-por <claim-id>] --motivo "<reason>"\n');
     assert.equal(erro('ausente', 'loc-locr'), 'usage: ork claims ausente <thread-id> --paths A,B --motivo "<reason>" [--commit SHA]\n');
     assert.equal(erro('list'), 'usage: ork claims list <thread-id>\n');
     assert.equal(erro(), 'usage: ork claims list <thread-id>\n');

@@ -163,7 +163,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   decisao placar <thread-id> [--json]       Decididas contra perguntas por fase, reversoes e o limiar
   claims verificar <thread-id> <claim-id> --comando "<comando>"
                                             Anexa o comando que comprova uma claim ja feita
-  claims retirar <thread-id> <claim-id> --motivo "<motivo>"
+  claims retirar <thread-id> <claim-id> [--motivo-tipo substituicao|obsoleta|erro]
+        [--substituida-por <claim-id>] --motivo "<motivo>"
                                             Retira a alegacao (o historico fica no claims.jsonl)
   claims ausente <thread-id> --paths A,B --motivo "<motivo>" [--commit SHA]
                                             Ciclo sem CHECK: declara no ledger o que ficou sem prova
@@ -200,6 +201,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   fix open <thread-id> [--so-claims]        GO-FIX: deriva a spec exata do CHECK reprovado
         [--reverify] [--json]                    (uma correcao por motivo tipado, tipo A ou B)
   fix list <thread-id> [--rodada N]         Correcoes da rodada e o veredito de cada uma
+  fix status <thread-id> [--rodada N]       Achados, commit que fechou e o que falta
+        [--json]
   fix reverify <thread-id> [--rodada N]     CHECK-REVERIFY com veredito POR correcao
         [--parcial] [--json]                     (--parcial e RECUSADO se houver tipo B)
 
@@ -578,7 +581,8 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
   decisao placar <thread-id> [--json]       Decided versus asked per phase, reversals and the threshold
   claims verificar <thread-id> <claim-id> --comando "<command>"
                                             Attaches the command that proves a claim already made
-  claims retirar <thread-id> <claim-id> --motivo "<reason>"
+  claims retirar <thread-id> <claim-id> [--motivo-tipo substituicao|obsoleta|erro]
+        [--substituida-por <claim-id>] --motivo "<reason>"
                                             Withdraws the claim (the history stays in claims.jsonl)
   claims ausente <thread-id> --paths A,B --motivo "<reason>" [--commit SHA]
                                             Cycle without CHECK: declares in the ledger what was left without proof
@@ -615,6 +619,8 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
   fix open <thread-id> [--so-claims]        GO-FIX: derives the exact spec of the failed CHECK
         [--reverify] [--json]                    (one fix per typed reason, type A or B)
   fix list <thread-id> [--rodada N]         Fixes of the round and the verdict of each one
+  fix status <thread-id> [--rodada N]       Findings, closing commit, and remaining work
+        [--json]
   fix reverify <thread-id> [--rodada N]     CHECK-REVERIFY with a verdict PER fix
         [--parcial] [--json]                     (--parcial is REFUSED if there is a type B)
 

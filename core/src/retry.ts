@@ -132,6 +132,12 @@ export const POLITICA_DE_RETRY: Readonly<Record<MotivoGate, PoliticaDeRetry>> = 
     automatica: true,
     ...TEXTOS_DA_POLITICA['claims.unverifiable'],
   },
+  'claims.retirada-sem-substituta': {
+    motivo: 'claims.retirada-sem-substituta',
+    acao: 'escalar-humano',
+    automatica: false,
+    ...TEXTOS_DA_POLITICA['claims.retirada-sem-substituta'],
+  },
   'policy.violation': {
     motivo: 'policy.violation',
     acao: 'escalar-humano',
