@@ -4,6 +4,29 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.5",
-  "publicadoEm": "2026-11-07T11:15:02.409Z",
-  "threads": []
+  "publicadoEm": "2026-11-07T11:50:48.690Z",
+  "threads": [
+    {
+      "id": "ork-rm079f2aclai",
+      "nome": "rm079f2claim",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-079",
+      "branch": "ork/ork-rm079f2aclai-full",
+      "atualizadaEm": "2026-11-07T11:50:42.842Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-11-07T11:50:45.670Z",
+        "motivo": "nenhuma sessão despachada na fase GOAL"
+      }
+    }
+  ]
 }
