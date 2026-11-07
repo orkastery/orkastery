@@ -511,10 +511,44 @@ cobrem o temporário compartilhado, as cercas de falha e HEAD, a barreira do lot
 ordem por arquivo, a concessão de vagas e o motivo do recibo. O efeito na razão fria
 ou morna aguarda a bancada da condução.
 
+### M13: parede ajustada pela carga medida
+
+A bancada passa a comparar cada rodada pela parede sem preparo ajustada à
+capacidade que permaneceu disponível. O ajuste desconta da capacidade anunciada o
+`steal` e a carga externa medidos naquela rodada e multiplica a parede pela
+fração restante. Agile e Classic usam a mesma fórmula; a razão bruta continua no
+resultado, e a razão oficial passa a ser a ajustada.
+
+As ausências e falhas estruturais continuam fechadas: rodada reprovada, parede ou
+preparo ausente, ordem fora de AB/BA, `steal` ausente ou carga externa ausente
+retiram o par. A divergência entre as perdas dos dois modos e o limiar antigo de
+carga externa deixam de descartar uma comparação que pode ser normalizada. Quando
+mais da metade da capacidade fica indisponível numa rodada, o ajuste deixa de dar
+veredito e registra o motivo tipado.
+
+A confiança conserva o mínimo vigente de pares válidos e passa a exigir que o
+coeficiente de variação da razão ajustada fique abaixo de 10%, limite da decisão
+D3 desta thread conferido pelos testes sintéticos e pela reanálise das bancadas
+arquivadas. Cada par mostra as paredes bruta e ajustada, o `steal`, a carga externa,
+a perda total e o fator aplicado nos dois modos. Assim, o resultado explicita tanto
+a observação quanto a correção em vez de esconder a carga da máquina no descarte
+do par.
+
+As bancadas arquivadas serviram para conferir a fórmula e a fronteira, mas não são
+uma coleta nova e não publicam ganho da M13. A bancada histórica que antecede a
+medição da carga externa permanece apenas como diagnóstico, porque dado ausente não
+vira zero. A próxima coleta da condução é que pode medir o resultado do produto.
+
+O caso AG59 também cria e remove seu próprio `TMPDIR`, restaura o ambiente e
+ignora diretórios concorrentes de mesmo prefixo no temporário global. As asserções
+de limpeza do verify e da baseline permanecem. O Classic e o Agile não mudam nesta
+fatia; muda somente a forma como a bancada compara as rodadas.
+
 ### O que falta
 
-- Fechar a bancada fria e morna da M8, da M9, da M11 e da M12 no host, com três
-  pares válidos e os mesmos critérios de carga externa e divergência de `steal`.
+- Fechar uma bancada fria e morna nova no host, com o mínimo vigente de pares
+  válidos, a perda de cada rodada dentro da fronteira da M13 e a variação da razão
+  ajustada abaixo do limite de confiança.
 - Confirmar na evidência que o perfil da árvore fecha mesmo quando um contêiner
   fica sem cgroup e que a reserva medida devolve antes a capacidade ociosa.
 - Confirmar na evidência que a reserva da varredura vai para a integração
@@ -523,7 +557,8 @@ ou morna aguarda a bancada da condução.
   sem mudar os recibos.
 - Reavaliar a distância para a meta de cerca de 1,7 vez; a M9 remove a reserva
   conservadora diagnosticada, a M11 muda o agendamento e a M12 reaproveita claims
-  pelas lanes, mas nenhuma publica uma razão antes dessa coleta.
+  pelas lanes, e a M13 normaliza a carga medida, mas nenhuma publica uma razão
+  nova antes dessa coleta.
 
 ## Problema e resultado
 

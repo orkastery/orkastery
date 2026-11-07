@@ -8,6 +8,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Alterado
 
+- **Parede ajustada por rodada — M13 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** a bancada desconta o `steal` e a carga externa medidos em cada rodada dos dois modos, conserva a razão bruta e usa a ajustada como oficial; perda acima da fronteira sai sem veredito e a confiança passa a exigir estabilidade entre os pares. O AG59 isola o próprio temporário sem esconder a prova de limpeza; Classic e Agile não mudam, e o ganho aguarda uma bancada nova.
+
 - **Claims e CPU fora do caminho crítico — M11 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** o Agile antecipa claims independentes; a integração encadeada começa depois da varredura com a reserva dela, enquanto a varredura devolve essa reserva à hermética quando a integração já roda em paralelo; o adaptador aplica a cota aceita pelo runtime ou recua para o `argv` anterior, sem mudar o Classic; o ganho aguarda a bancada (RM-074, M11).
 
 ### Corrigido
