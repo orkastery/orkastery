@@ -381,6 +381,239 @@
       "criadoEm": "2026-11-06T12:47:30.605Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-testesdoprod",
+      "fase": "GO",
+      "arquivo": "core/test/espera-evento.ts",
+      "alegacao": "A espera assíncrona usa pausa real com intervalo crescente e injetável, e a retenção por relógio devolve o evento produzido sem alterar seu conteúdo.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/espera-evento.test.js"
+      ],
+      "criadoEm": "2026-11-06T19:15:50.610Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-testesdoprod",
+      "fase": "GO",
+      "arquivo": "core/test/espera-evento.test.ts",
+      "alegacao": "O relógio injetado mostra que as leituras assíncronas acompanham os intervalos de pausa e que o evento retido conserva sua identidade.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/espera-evento.test.js"
+      ],
+      "criadoEm": "2026-11-06T19:15:50.745Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-testesdoprod",
+      "fase": "GO",
+      "arquivo": "core/test/rm067-grok-mcp-externo.test.ts",
+      "alegacao": "O MCP externo reutiliza a primitiva comum nas esperas assíncronas e conserva as verificações de resposta, recibo e encerramento.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/rm067-grok-mcp-externo.test.js"
+      ],
+      "criadoEm": "2026-11-06T19:15:50.846Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-testesdoprod",
+      "fase": "GO",
+      "arquivo": "core/src/fila-pesada.ts",
+      "alegacao": "A fila aceita relógio e pausa injetados para provar sua fronteira temporal sem depender da velocidade da máquina.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/fila-pesada-verify.test.js"
+      ],
+      "criadoEm": "2026-11-06T19:15:51.048Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-testesdoprod",
+      "fase": "GO",
+      "arquivo": "core/test/fila-pesada-verify.test.ts",
+      "alegacao": "V6 afirma os valores exatos do contrato, o início assíncrono e a recusa terminal, com fronteira injetada e espera do processo real pelo evento.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/fila-pesada-verify.test.js"
+      ],
+      "criadoEm": "2026-11-06T19:15:51.149Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-testesdoprod",
+      "fase": "GO",
+      "arquivo": "core/test/processo-evento.ts",
+      "alegacao": "A execução de fixture aguarda o evento terminal do processo e preserva status, sinal e saídas sem teto interno de parede.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/claude-sensors.test.js",
+        "node core/dist-test/test/rm037-defeitos2010-ociosa.test.js"
+      ],
+      "criadoEm": "2026-11-06T19:15:51.361Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-testesdoprod",
+      "fase": "GO",
+      "arquivo": "core/test/claude-sensors.test.ts",
+      "alegacao": "A7 aguarda cada hook pelo evento terminal e preserva as asserções de episódios e eventos registrados.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/claude-sensors.test.js"
+      ],
+      "criadoEm": "2026-11-06T19:15:51.547Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-testesdoprod",
+      "fase": "GO",
+      "arquivo": "core/test/rm037-defeitos2010-ociosa.test.ts",
+      "alegacao": "O caso do Stop aguarda o hook pelo evento terminal e preserva contagens, compatibilidade e conteúdo ingerido.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/rm037-defeitos2010-ociosa.test.js"
+      ],
+      "criadoEm": "2026-11-06T19:15:51.646Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-testesdoprod",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/testes-evento-hooks.json",
+      "alegacao": "Os mutantes de status são rejeitados por A7 e pelo caso do Stop executados por nome.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/testes-evento-hooks.json HOOK-A7-STATUS",
+        "node core/scripts/mutante.cjs core/test/mutantes/testes-evento-hooks.json HOOK-STOP-STATUS"
+      ],
+      "criadoEm": "2026-11-06T19:15:51.754Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-testesdoprod",
+      "fase": "GO",
+      "arquivo": "core/test/despacho-grok.test.ts",
+      "alegacao": "Os despachos Grok convertidos recebem o phase_result real depois da fronteira injetada e preservam as verificações de conteúdo.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/despacho-grok.test.js"
+      ],
+      "criadoEm": "2026-11-06T19:15:51.821Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-testesdoprod",
+      "fase": "GO",
+      "arquivo": "core/test/rm067-grok-perfis.test.ts",
+      "alegacao": "Os perfis Grok recebem os resultados reais depois da fronteira injetada e preservam as verificações de rotação e retomada.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/rm067-grok-perfis.test.js"
+      ],
+      "criadoEm": "2026-11-06T19:15:51.923Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-testesdoprod",
+      "fase": "GO",
+      "arquivo": "core/test/rm067-grok-mcp.test.ts",
+      "alegacao": "Os casos MCP do Grok recebem o phase_result real depois da fronteira injetada e preservam as garantias do despacho.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/rm067-grok-mcp.test.js"
+      ],
+      "criadoEm": "2026-11-06T19:15:52.028Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-testesdoprod",
+      "fase": "GO",
+      "arquivo": "core/test/rm067-grok-setup.test.ts",
+      "alegacao": "Os casos de setup Grok recebem o phase_result real depois da fronteira injetada e preservam as verificações de configuração.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/rm067-grok-setup.test.js"
+      ],
+      "criadoEm": "2026-11-06T19:15:52.123Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-testesdoprod",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/testes-evento-grok-fase.json",
+      "alegacao": "Os descritores executam por nome as famílias de perfis, MCP, setup e despacho e rejeitam a perda do evento esperado.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/testes-evento-grok-fase.json GROK-PHASE-RESULT",
+        "node core/scripts/mutante.cjs core/test/mutantes/testes-evento-grok-fase.json GROK-PERFIS-ESPERA",
+        "node core/scripts/mutante.cjs core/test/mutantes/testes-evento-grok-fase.json GROK-MCP-ESPERA",
+        "node core/scripts/mutante.cjs core/test/mutantes/testes-evento-grok-fase.json GROK-SETUP-ESPERA",
+        "node core/scripts/mutante.cjs core/test/mutantes/testes-evento-grok-fase.json GROK-DESPACHO-ESPERA"
+      ],
+      "criadoEm": "2026-11-06T19:15:52.212Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-testesdoprod",
+      "fase": "GO",
+      "arquivo": "core/test/grok.test.ts",
+      "alegacao": "Os casos de recibo e stream do Grok recebem os eventos reais depois da fronteira injetada e preservam as asserções de conteúdo.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/grok.test.js"
+      ],
+      "criadoEm": "2026-11-06T19:15:52.302Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-testesdoprod",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/testes-evento-grok-processo.json",
+      "alegacao": "Os descritores executam por nome as esperas de processo e fazem GL4 cair quando a restrição de acesso é retirada.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/testes-evento-grok-processo.json GROK-RECIBO-SAIDA",
+        "node core/scripts/mutante.cjs core/test/mutantes/testes-evento-grok-processo.json GROK-PROCESSO-ESPERA",
+        "node core/scripts/mutante.cjs core/test/mutantes/testes-evento-grok-processo.json GROK-LANDLOCK-RESTRICAO",
+        "node core/scripts/mutante.cjs core/test/mutantes/testes-evento-grok-processo.json GROK-EXTERNO-ESPERA"
+      ],
+      "criadoEm": "2026-11-06T19:15:52.378Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
   "deferredClaims": [
@@ -390,6 +623,10 @@
     },
     {
       "id": "C24",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C36",
       "reason": "local-integration-required"
     }
   ],
