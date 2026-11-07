@@ -28,6 +28,7 @@ import { linhaDeConducao } from './conducao-texto';
 import { ErroDoCatalogo, msg } from './locale';
 import { CasoSemWorktree } from './locale-thread';
 import { exigirRemoto, refRemota } from './branch-de-estado';
+import type { AvisoArtefatoForaDoEstado } from './phase-artifact-warning';
 import { eventoDoPreparo, ExecutorDoPreparo, PreparoDasDependencias, prepararDependencias } from './dependencias-da-worktree';
 
 /** Diretorio de threads do projeto. */
@@ -783,7 +784,8 @@ export function canalDaSessao(s: SessaoDaThread): CanalDeConducao | 'desconhecid
   return s.canal ?? 'desconhecido';
 }
 
-export function resumoDaThread(thread: Thread, conducao?: ConducaoAtual | null): string {
+export function resumoDaThread(thread: Thread, conducao?: ConducaoAtual | null,
+  avisos: readonly AvisoArtefatoForaDoEstado[] = []): string {
   const def = definicaoDoModo(thread.modo);
   const m = msg().thread, r = m.rotulos;
   // RM-061 (F2a): o rotulo vem do catalogo, na largura do locale; o valor gravado (nome, criterio) sai como esta.
@@ -818,6 +820,7 @@ export function resumoDaThread(thread: Thread, conducao?: ConducaoAtual | null):
     linhas.push(campo(r.check, m.check(NOME_DO_MODO[thread.check.modo], thread.check.origem, formatarDataHoraRotulada(thread.check.em),
       shaCurto(thread.check.commit))));
   }
+  for (const aviso of avisos) linhas.push(campo(r.aviso, m.artefatoForaDoEstado(aviso.caminho)));
   linhas.push(m.blocosPrevistos);
   for (const b of thread.blocos) {
     const marca = b.pausa ? m.pausaPrevista(m.pausaSobre(b.pausaSobre)) : m.semPausa;

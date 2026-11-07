@@ -250,6 +250,7 @@ import { jsonSemInvisivel } from './saida-segura';
 import { ehNomeDeForja } from './rede-forja';
 import { jsonDaRede, lerRede, textoDaRede } from './rede-status';
 import { lerLedger } from './ledger';
+import { avisosDeArtefatoRegistrados } from './phase-artifact-warning';
 import { gateDeTokens, textoDoGateDeTokens } from './tokens';
 import { ClasseDeFalha, ColecaoDoOrk, DependenciaExternaDaClaim, Fase, FASES, FonteDeMedida, Modo, MotivoGate, UniversoDaBusca } from './types';
 import { PreparoDasDependencias, ultimaLinhaDoPreparo } from './dependencias-da-worktree';
@@ -668,14 +669,15 @@ function comandoThread(args: Args): number {
       return 2;
     }
     const thread = lerThread(carregado.raiz, id);
+    const avisos = avisosDeArtefatoRegistrados(lerLedger(dirThread(carregado.raiz, id)));
     if (args.opcoes.json === true) {
       // Idem: `ork thread status <id> --json` imprimia o TEXTO e saia 0.
-      console.log(JSON.stringify(thread, null, 2));
+      console.log(JSON.stringify({ ...thread, avisos }, null, 2));
       return 0;
     }
     console.log(`Thread ${thread.id}`);
     // I-36 (T17): a linha de conducao vem da leitura unica do nucleo.
-    console.log(resumoDaThread(thread, conducaoDaThread(carregado.raiz, thread.id)));
+    console.log(resumoDaThread(thread, conducaoDaThread(carregado.raiz, thread.id), avisos));
     console.log('');
     if (thread.sessoes.length === 0) {
       console.log(mt.nenhumaSessao);

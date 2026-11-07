@@ -14,6 +14,7 @@ import { carregarManifesto, exigirManifesto } from './manifest';
 import { fusoDoManifesto, registrarFonteDoFuso } from './horario';
 import { dirThread, lerThread, novaThread, resumoDaThread, exigirFase, pausaNaThread } from './thread';
 import { lerLedger } from './ledger';
+import { avisosDeArtefatoRegistrados } from './phase-artifact-warning';
 import { rodarFase } from './phase';
 import { leasesColidentes, podarRegioesDeThreadsFechadas } from './leases';
 import { contextoHitl, abrirPedidoGate } from './hitl-gates';
@@ -458,7 +459,8 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
   registrarTool('ork_thread_status',{description:'Estado canonico de uma thread deste projeto; pausas previstas nao sao pedidos abertos.',
     inputSchema:daThread,annotations:{readOnlyHint:true}}, async ({threadId}) => {
       const t=thread(threadId); const c=conducaoDaThread(raiz,threadId);
-      return resposta({thread:t,conducao:c,linhaDeConducao:c?linhaDeConducao(c):null,resumo:resumoDaThread(t,c)});
+      const avisos=avisosDeArtefatoRegistrados(lerLedger(dirThread(raiz,threadId)));
+      return resposta({thread:t,conducao:c,avisos,linhaDeConducao:c?linhaDeConducao(c):null,resumo:resumoDaThread(t,c,avisos)});
     });
   registrarTool('ork_phase_list',{description:'Despachos e resultados registrados da thread, sem despachar ou consultar outros projetos.',
     inputSchema:daThread,annotations:{readOnlyHint:true}},async ({threadId}) => {
