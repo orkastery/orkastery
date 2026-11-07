@@ -85,12 +85,18 @@ A thread `ork-rm078recibod` implementa a chave canônica em `core/src/recibo-pro
 `core/test/rm078-recibo.test.ts`; os mutantes de HEAD, claims e plano estão em
 `core/test/mutantes/rm078.json`.
 
-O GO-FIX estabiliza o HEAD artificial dos cenários de idioma no commit `6c3ea33f` e alinha o mutante M15
-à autoria por commit confirmado na cadeia no commit `b771cfa0`. O verify oficial anterior, no commit
-`1145660b`, caiu uma vez no caso de idioma e passou quando repetido no mesmo HEAD do produto. A queda
-veio dos dois repositórios da fixture terem commits criados em instantes diferentes; a correção injeta a
-data do commit e mantém a asserção do `recibo.sha256`. O recibo terminal verde posterior a estes commits
-e à narrativa é a evidência que fecha este GO; CHECK independente e SHIP continuam com a condução.
+O commit `6c3ea33f` tentou estabilizar o HEAD artificial dos cenários de idioma ao fixar a data do commit
+da fixture, mas não bastou: `git commit --amend` ignora `GIT_AUTHOR_DATE` e mantém a data de autor
+original. A correção efetiva está em `f51f33a5`, que passa `--date=`, confere as datas de autor e de
+committer e prova o mesmo HEAD com o teste focado e o mutante, e em `dd570a0e`, que alinha o formato UTC
+e é o commit do verify verde.
+
+Em separado, `b771cfa0` alinha o mutante M15 à autoria por commit confirmado na cadeia.
+
+O verify oficial no commit `1145660b` caiu uma vez no caso de idioma e passou quando repetido no mesmo
+HEAD do produto; a comparação continua incluindo a asserção do `recibo.sha256`. O recibo terminal verde
+posterior a estes commits e à narrativa é a evidência que fecha este GO; CHECK independente e SHIP
+continuam com a condução.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
