@@ -815,6 +815,323 @@
       "criadoEm": "2026-11-06T13:42:28.322Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/src/claims.ts",
+      "alegacao": "A retirada com substituta exige recibo do HEAD atual, da mesma claim e do mesmo comando, mantendo a substituta ativa.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-06T19:05:30.776Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "O recibo de verify registra o comando verificar usado para julgar cada claim.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-06T19:05:30.861Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C62",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/rm079-claims.test.ts",
+      "alegacao": "A suíte recusa recibo antigo, comando alterado e substituta retirada, e aceita o recibo do HEAD real.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-06T19:05:31.046Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C63",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm079-retirada-head.json",
+      "alegacao": "Os mutantes do vínculo entre substituta e recibo morrem quando removem as guardas de HEAD, identidade, comando ou atividade.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-retirada-head.json M1",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-retirada-head.json M2",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-retirada-head.json M3",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-retirada-head.json M4"
+      ],
+      "criadoEm": "2026-11-06T19:05:31.214Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C64",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/src/fix.ts",
+      "alegacao": "O fix open recusa parecer ausente, veredito inválido e achado malformado com motivos tipados.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-fix.test.js"
+      ],
+      "criadoEm": "2026-11-06T19:05:31.632Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C65",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/rm079-fix.test.ts",
+      "alegacao": "A suíte cobre falhas visíveis para parecer ausente, veredito inválido e linha de achado malformada.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-fix.test.js"
+      ],
+      "criadoEm": "2026-11-06T19:05:31.861Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C66",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm079.json",
+      "alegacao": "Os mutantes do parser do parecer morrem quando removem as recusas de entrada inválida.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079.json M10",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079.json M11",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079.json M12",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079.json M13"
+      ],
+      "criadoEm": "2026-11-06T19:05:32.031Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C67",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
+      "alegacao": "A página registra a fase GO e explica a compatibilidade da retirada livre com recibo não tipado.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'fase: GO' docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
+        "grep -q 'forma em texto livre continua aceita com recibo não tipado' docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-06T19:05:32.564Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C68",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/fix.test.ts",
+      "alegacao": "As fixtures do subloop GO-FIX fornecem um parecer valido sem alterar as assercoes do fluxo.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/fix.test.js"
+      ],
+      "criadoEm": "2026-11-06T20:21:45.293Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C69",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/cli-b3.test.ts",
+      "alegacao": "O fluxo de fix pelo binario parte de um parecer valido e preserva os contratos de saida existentes.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/cli-b3.test.js"
+      ],
+      "criadoEm": "2026-11-06T20:21:45.406Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C70",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/retry.test.ts",
+      "alegacao": "Os retries que abrem uma rodada de correcao fornecem o parecer exigido pelo fluxo.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/retry.test.js"
+      ],
+      "criadoEm": "2026-11-06T20:21:45.729Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C71",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/locale-retry.test.ts",
+      "alegacao": "A fixture bilingue de retry fornece parecer valido sem mudar os textos esperados.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-retry.test.js"
+      ],
+      "criadoEm": "2026-11-06T20:21:45.877Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C72",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f2b-casos.ts",
+      "alegacao": "O snapshot de retry em pt-BR prepara o parecer exigido e preserva a saida de referencia.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-f2b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-06T20:21:45.975Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C73",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3d-casos-correcao.ts",
+      "alegacao": "O snapshot complementar de fix prepara um parecer valido e preserva a saida de referencia.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-f3d-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-06T20:21:46.110Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C74",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "O verify_run representa a lista verificar de cada claim por uma impressão canônica e omite o texto bruto.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/verify-timeout.test.js core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-06T22:27:12.973Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C75",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/src/claims.ts",
+      "alegacao": "A retirada tipada compara a impressão atual da substituta com a impressão registrada no recibo.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-06T22:27:13.034Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C76",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/rm079-claims.test.ts",
+      "alegacao": "A suíte de retirada cobre recibo por impressão e alteração da lista verificar depois do verify.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-claims.test.js"
+      ],
+      "criadoEm": "2026-11-06T22:27:13.101Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C77",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm079-retirada-head.json",
+      "alegacao": "Mutantes do recibo reprovam ao restaurar texto bruto ou retirar a comparação da impressão.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-retirada-head.json M3",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-retirada-head.json M5"
+      ],
+      "criadoEm": "2026-11-06T22:27:13.163Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C78",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/src/fix.ts",
+      "alegacao": "O fluxo de correção aplica redação ao texto de parecer antes de recibo, ledger e saída CLI.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-fix.test.js"
+      ],
+      "criadoEm": "2026-11-06T22:27:13.236Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C79",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/rm079-fix.test.ts",
+      "alegacao": "A suíte de correção prova a redação de credencial em achado, reprodução e erro do parser.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-fix.test.js"
+      ],
+      "criadoEm": "2026-11-06T22:27:13.305Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C80",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
+      "alegacao": "A página da RM-079 descreve a impressão do recibo e a redação dos textos derivados.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-06T22:27:13.365Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C81",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O bloco Não publicado registra o recibo por impressão e a redação das superfícies da RM-079.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-06T22:27:13.423Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
   "deferredClaims": [
