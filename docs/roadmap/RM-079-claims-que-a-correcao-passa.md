@@ -77,6 +77,22 @@ sdlc:
   - um mutante por regra morre.
 - **Piloto, medição e critérios de expansão/interrupção:** piloto nos próximos CHECKs `#Auto`.
 
+## F2 — A claim roda no CI como a sessão escreveu
+
+**O que entrou:** `claims add` preserva, na ordem, cada `--verificar` ou `--verify` repetido, e
+`claims verificar` faz o mesmo com `--comando`; opção de valor único repetida com valores diferentes
+é recusada e nomeada. O lint usa o ramo base do manifesto para recusar em claims novas uma referência
+local inexequível no runner e orienta `origin/<base>`, sem confundir a referência remota, texto de
+`grep`, nome de arquivo ou opção parecida. O parecer canônico do CHECK fica no artefato `check` do
+estado da thread; uma cópia não versionada em `docs/goal.md`, `docs/plan.md` ou `docs/check.md` gera
+aviso tipado no status e permanece na worktree.
+
+**Critérios de aceite:** a CLI e o MCP persistem todas as provas repetidas no formato existente; a
+regra da referência local é fatal na criação, mas continua aviso para claim anterior à regra; a ajuda
+bilíngue e suas bases de locale descrevem a repetição; a orientação bilíngue manda usar
+`ork_artifact_write` com o tipo `check`; e testes autocontidos protegem a preservação das opções, a
+fatalidade e a exclusão de `origin/`, além do registro do aviso do artefato fora do estado.
+
 ## Fora do escopo
 
 Os itens abaixo já existem na `main`, não foram introduzidos pela RM-079 e serão tratados em item próprio de roadmap:
