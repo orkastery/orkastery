@@ -728,10 +728,14 @@ export interface Claim {
   origem?: 'nucleo.doneWhen';
   /**
    * I-53 (RM-037, P6): o lint dos comandos, calculado quando a claim nasce (vazio quando nada
-   * casou). A presenca do campo marca a claim nascida sob a regra: so ela pode ser recusada no
-   * `ci prepare`; a claim antiga recebe aviso (D16).
+   * casou). Os achados nao dizem quais regras foram avaliadas; essa marca fica em `regrasDoLint`.
    */
   lint?: AchadoDoLint[];
+  /**
+   * RM-079 F2 (D7): conjunto de regras avaliado quando a claim nasceu. Ausente significa claim
+   * anterior a essa marca; no `ci prepare`, uma regra fatal omitida daqui produz aviso, nunca recusa.
+   */
+  regrasDoLint?: RegraDoLint[];
 }
 
 /** RM-078: dependencias externas declaradas, nunca inferidas do texto do comando. */

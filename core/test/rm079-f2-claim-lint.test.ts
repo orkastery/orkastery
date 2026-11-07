@@ -18,9 +18,17 @@ test('RM-079 F2: a ref local configurada casa nos contextos de claim pedidos', (
     'git diff trunk -- core/src',
     'git log trunk..HEAD --oneline',
     'git merge-base trunk HEAD',
+    'git rev-parse trunk',
     'git diff "$(git merge-base trunk HEAD)" HEAD',
   ]) assert.ok(regras(comando).includes('ref-local-do-ramo-base'), comando);
   assert.equal(regraFatalDeClaim('ref-local-do-ramo-base'), true);
+});
+
+test('RM-079 F2: os leitores de revisao do Git reconhecem a ref local configurada', () => {
+  for (const subcomando of [
+    'rev-parse', 'cat-file', 'ls-tree', 'diff-tree', 'archive', 'describe', 'name-rev', 'shortlog',
+    'format-patch', 'range-diff', 'cherry', 'merge-tree', 'show-ref', 'verify-commit', 'verify-tag',
+  ]) assert.ok(regras(`git ${subcomando} trunk`).includes('ref-local-do-ramo-base'), subcomando);
 });
 
 test('RM-079 F2: refs remotas e tokens apenas parecidos nao casam', () => {
@@ -29,9 +37,18 @@ test('RM-079 F2: refs remotas e tokens apenas parecidos nao casam', () => {
     'git diff refs/remotes/origin/trunk -- core/src',
     'grep -q trunk core/src/index.ts',
     'grep -q "git diff trunk" README.md',
+    "grep -q 'git rev-parse trunk' README.md",
+    'echo "git log trunk"',
+    "echo '$(git diff trunk)'",
     'node --test core/dist-test/test/trunk.ts',
     'node script.js --trunk-only',
   ]) assert.equal(regras(comando).includes('ref-local-do-ramo-base'), false, comando);
+});
+
+test('RM-079 F2: comando entregue a um shell continua sendo analisado como execucao', () => {
+  for (const comando of ['sh -c "git diff trunk"', "bash -c 'git log trunk..HEAD'"]) {
+    assert.ok(regras(comando).includes('ref-local-do-ramo-base'), comando);
+  }
 });
 
 test('RM-079 F2: CLI e MCP recusam antes de persistir usando o ramo do manifesto', () => {
@@ -58,7 +75,8 @@ test('RM-079 F2: no bundle a claim nova recusa e a anterior a regra recebe somen
   assert.ok(lintNovo.recusas.some((linha) => linha.includes('origin/trunk')));
   assert.deepEqual(lintNovo.avisos, []);
 
-  const { lint: _lint, ...antiga } = nova;
+  const { regrasDoLint: _regrasDoLint, ...antiga } = nova;
+  antiga.lint = [];
   const lintAntigo = lintDoBundle([antiga], 'trunk');
   assert.deepEqual(lintAntigo.recusas, []);
   assert.ok(lintAntigo.avisos.some((linha) => linha.includes('claim anterior ao lint: so aviso')));

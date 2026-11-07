@@ -20,7 +20,7 @@ import { Claim, DependenciaExternaDaClaim, Fase, ResultadoDeComando } from './ty
 import { avaliarPolicies, avisos, policyDeProvaLocal, ViolacaoDePolicy } from './policies';
 import { commitReal, cwdDaThread, executar, impressaoDosComandos, TIMEOUT_VERIFY_MS } from './verify';
 import { agora, anexarJsonl, lerJsonl, proximoIdSequencial, tabela } from './util';
-import { analisarComandos, linhaDoLintDeClaim, regraFatalDeClaim } from './claim-lint';
+import { analisarComandos, linhaDoLintDeClaim, regraFatalDeClaim, REGRAS_DO_LINT_DE_CLAIM } from './claim-lint';
 import { ErroDoCatalogo, msg } from './locale';
 import { registrarGateBloqueado } from './gates';
 import { redigirSegredos } from './hitl';
@@ -108,6 +108,8 @@ export function montarClaim(entrada: {
     ...(entrada.origem ? { origem: entrada.origem } : {}),
     // I-53 (RM-037, P6): a mesma regra para CLI, MCP, cenarios e auditor, porque todos passam aqui.
     lint: analisarComandos(verificar, entrada.ramoBase),
+    // RM-079 F2 (D7): achado vazio nao informa quais regras foram avaliadas; a marca explicita informa.
+    regrasDoLint: [...REGRAS_DO_LINT_DE_CLAIM],
   };
 }
 
@@ -289,8 +291,8 @@ export function anexarComando(
     ...claim,
     verificar: [...claim.verificar, comando],
     estado: 'pendente',
-    // I-53: claim nascida sob a regra refaz o lint; a antiga continua sem o campo (so aviso).
-    ...(claim.lint ? { lint: analisarComandos([...claim.verificar, comando], ramoBase) } : {}),
+    // I-53/RM-079: claim marcada refaz o lint; a antiga continua sem a marca (so aviso).
+    ...(claim.regrasDoLint ? { lint: analisarComandos([...claim.verificar, comando], ramoBase) } : {}),
   };
   gravarClaim(raiz, atualizada);
   registrar(dirThread(raiz, threadId), threadId, TIPOS_DE_EVENTO.claimRegistrada, {

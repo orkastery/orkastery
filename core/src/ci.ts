@@ -398,7 +398,7 @@ export function comandosDoBundle(carregado: ManifestoCarregado): { name: string;
 }
 
 /**
- * I-53 (RM-037, P6): o lint no `ci prepare`. Claim nascida sob a regra (com o campo `lint`) que
+ * I-53 (RM-037, P6): o lint no `ci prepare`. Claim nascida sob a regra (marcada em `regrasDoLint`) que
  * roda a suite inteira e recusada: o bundle vai para o runner hospedado e reprovaria la, depois de
  * gastar o tempo todo. O resto so avisa, e o aviso fica no ledger da thread.
  */
@@ -408,7 +408,7 @@ export function lintDoBundle(claims: readonly Claim[], ramoBase?: string): { rec
     for (const achado of analisarComandos(claim.verificar, ramoBase)) {
       const linha = linhaDoLintDeClaim(claim.id, achado);
       const bloqueiaNova = achado.regra === 'suite-inteira' || regraFatalDeClaim(achado.regra);
-      if (bloqueiaNova && claim.lint !== undefined) recusas.push(linha);
+      if (bloqueiaNova && claim.regrasDoLint?.includes(achado.regra)) recusas.push(linha);
       else avisos.push(bloqueiaNova ? anteriorAoLint(linha) : linha);
     }
   }

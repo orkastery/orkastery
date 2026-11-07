@@ -37,6 +37,13 @@ const CORRECAO: Record<Exclude<RegraDoLint, 'ref-local-do-ramo-base'>, string> =
   'artefato-de-fechamento': msg('pt-BR').claims.correcoesDoLint['artefato-de-fechamento'],
 };
 
+/** RM-079 F2 (D7): a marca persistida na claim enumera o conjunto realmente avaliado. */
+export const REGRAS_DO_LINT_DE_CLAIM: readonly RegraDoLint[] = [
+  'suite-inteira', 'sha-intermediario', 'contagem-de-commits', 'binario-rg', 'ork-fora-do-path',
+  'estado-local', 'aspas-escapadas', 'contexto-artificial', 'artefato-de-fechamento',
+  'ref-local-do-ramo-base',
+];
+
 /** RM-037: estes achados tornam uma claim nova inexequivel no checkout do runner. */
 export const REGRAS_FATAIS_DE_CLAIM = new Set<RegraDoLint>([
   'binario-rg', 'ork-fora-do-path', 'estado-local', 'aspas-escapadas', 'ref-local-do-ramo-base',
@@ -73,21 +80,54 @@ function executavelDireto(comando: string, nome: string): RegExpExecArray | null
   return new RegExp(`(?:^|&&|\\|\\||[;|(])\\s*(?:command\\s+|env\\s+)?(${nome})(?=\\s|$)`).exec(comando);
 }
 
-/** Lexer pequeno: basta separar argumentos e operadores sem interpretar nem executar o shell. */
-function segmentosDoComando(comando: string): string[][] {
-  const segmentos: string[][] = [];
-  let atual: string[] = [], token = '', aspas: string | null = null;
-  const fecharToken = () => { if (token) { atual.push(token); token = ''; } };
+interface TokenDoShell { valor: string; substituicoes: string[] }
+
+/** Le o corpo de `$(...)` sem executar, preservando aninhamento e aspas internas. */
+function lerSubstituicao(comando: string, inicio: number): { corpo: string; fim: number } | null {
+  let profundidade = 1, aspas: string | null = null;
+  for (let i = inicio; i < comando.length; i++) {
+    const c = comando[i];
+    if (aspas) {
+      if (c === aspas) aspas = null;
+      else if (c === '\\' && aspas === '"') i++;
+      continue;
+    }
+    if (c === '"' || c === "'") { aspas = c; continue; }
+    if (c === '\\') { i++; continue; }
+    if (c === '(') profundidade++;
+    else if (c === ')' && --profundidade === 0) return { corpo: comando.slice(inicio, i), fim: i };
+  }
+  return null;
+}
+
+/** Lexer pequeno: separa argumentos e operadores e conserva quais substituicoes o shell executa. */
+function segmentosDoComando(comando: string): TokenDoShell[][] {
+  const segmentos: TokenDoShell[][] = [];
+  let atual: TokenDoShell[] = [], token = '', substituicoes: string[] = [], aspas: string | null = null;
+  const fecharToken = () => {
+    if (token) atual.push({ valor: token, substituicoes });
+    token = '';
+    substituicoes = [];
+  };
   const fecharSegmento = () => { fecharToken(); if (atual.length) { segmentos.push(atual); atual = []; } };
   for (let i = 0; i < comando.length; i++) {
     const c = comando[i];
     if (aspas) {
       if (c === aspas) aspas = null;
+      else if (c === '$' && comando[i + 1] === '(' && aspas === '"') {
+        const lida = lerSubstituicao(comando, i + 2);
+        if (lida) { token += `$(${lida.corpo})`; substituicoes.push(lida.corpo); i = lida.fim; }
+        else token += c;
+      }
       else if (c === '\\' && aspas === '"' && i + 1 < comando.length) token += comando[++i];
       else token += c;
       continue;
     }
     if (c === '"' || c === "'") { aspas = c; continue; }
+    if (c === '$' && comando[i + 1] === '(') {
+      const lida = lerSubstituicao(comando, i + 2);
+      if (lida) { token += `$(${lida.corpo})`; substituicoes.push(lida.corpo); i = lida.fim; continue; }
+    }
     if (/\s/.test(c)) { fecharToken(); continue; }
     if (';&|()'.includes(c)) { fecharSegmento(); continue; }
     if (c === '\\' && i + 1 < comando.length) token += comando[++i];
@@ -97,37 +137,72 @@ function segmentosDoComando(comando: string): string[][] {
   return segmentos;
 }
 
-function executavelDoSegmento(tokens: readonly string[]): string | null {
+function indiceDoExecutavel(tokens: readonly TokenDoShell[]): number {
   let i = 0;
-  while (i < tokens.length && (/^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i]) || tokens[i] === 'env' || tokens[i] === 'command')) i++;
-  return tokens[i] ? tokens[i].split('/').at(-1) ?? null : null;
+  while (i < tokens.length && (/^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i].valor) || tokens[i].valor === 'env' || tokens[i].valor === 'command')) i++;
+  return i;
+}
+
+function executavelDoSegmento(tokens: readonly TokenDoShell[]): string | null {
+  const token = tokens[indiceDoExecutavel(tokens)]?.valor;
+  return token ? token.split('/').at(-1) ?? null : null;
+}
+
+/** Forma original mantida como unidade mutável M3: cobre a ref exata e intervalos. */
+function refLocalDoRamoBasica(token: string, ramoBase: string): boolean {
+  return token === ramoBase || token.startsWith(`${ramoBase}..`) || token.endsWith(`..${ramoBase}`);
 }
 
 function refLocalDoRamo(token: string, ramoBase: string): boolean {
-  return token === ramoBase || token.startsWith(`${ramoBase}..`) || token.endsWith(`..${ramoBase}`);
+  return refLocalDoRamoBasica(token, ramoBase)
+    || [`${ramoBase}~`, `${ramoBase}^`, `${ramoBase}:`, `${ramoBase}@{`].some((prefixo) => token.startsWith(prefixo));
+}
+
+const SUBCOMANDOS_GIT_COM_REF = new Set([
+  'diff', 'log', 'show', 'rev-list', 'merge-base', 'rev-parse', 'cat-file', 'ls-tree', 'diff-tree',
+  'archive', 'describe', 'name-rev', 'shortlog', 'format-patch', 'range-diff', 'cherry', 'merge-tree',
+  'show-ref', 'verify-commit', 'verify-tag',
+]);
+const SHELLS_COM_COMANDO = new Set(['sh', 'bash', 'dash', 'ksh', 'zsh']);
+
+/** Segmentos cujo Git e executado, sem reanalisar texto citado por outro programa. */
+function segmentosGitExecutados(segmento: readonly TokenDoShell[]): readonly TokenDoShell[][] {
+  if (executavelDoSegmento(segmento) === 'git') return [segmento as TokenDoShell[]];
+  return [];
 }
 
 /** Ref local do ramo-base em opcao de produto ou em argumento de um comando Git. */
 function refLocalDoRamoBase(comando: string, ramoBase: string): string | null {
   for (const segmento of segmentosDoComando(comando)) {
     // O texto procurado e dado do grep, mesmo quando parece um comando ou uma opcao.
-    if (executavelDoSegmento(segmento) === 'grep') continue;
+    const executavel = executavelDoSegmento(segmento);
+    if (['grep', 'egrep', 'fgrep'].includes(executavel ?? '')) continue;
     for (let i = 0; i < segmento.length; i++) {
-      const token = segmento[i];
-      if (token === '--base' && segmento[i + 1] === ramoBase || token === `--base=${ramoBase}`) return ramoBase;
+      const token = segmento[i].valor;
+      if (token === '--base' && segmento[i + 1]?.valor === ramoBase || token === `--base=${ramoBase}`) return ramoBase;
     }
-    // Expande apenas tokens compostos que contem um comando Git (por exemplo "$(git merge-base ...)").
-    const tokens = segmento.flatMap((token) => /\bgit\s/.test(token)
-      ? segmentosDoComando(token).flat() : [token]);
-    for (let i = 0; i < tokens.length; i++) {
-      if (tokens[i] !== 'git') continue;
-      let sub = i + 1;
-      while (sub < tokens.length && tokens[sub].startsWith('-')) {
-        sub += tokens[sub] === '-C' || tokens[sub] === '--git-dir' || tokens[sub] === '--work-tree' ? 2 : 1;
+    if (SHELLS_COM_COMANDO.has(executavel ?? '')) {
+      const inicio = indiceDoExecutavel(segmento) + 1;
+      const flag = segmento.findIndex((token, i) => i >= inicio && /^-[A-Za-z]*c[A-Za-z]*$/.test(token.valor));
+      const ref = flag >= 0 && segmento[flag + 1]
+        ? refLocalDoRamoBase(segmento[flag + 1].valor, ramoBase) : null;
+      if (ref) return ref;
+    }
+    for (const token of segmento) {
+      for (const substituicao of token.substituicoes) {
+        const ref = refLocalDoRamoBase(substituicao, ramoBase);
+        if (ref) return ref;
       }
-      if (!['diff', 'log', 'show', 'rev-list', 'merge-base'].includes(tokens[sub] ?? '')) continue;
-      const argumentos = tokens.slice(sub + 1, tokens.indexOf('--', sub + 1) < 0 ? undefined : tokens.indexOf('--', sub + 1));
-      const ref = argumentos.find((token) => refLocalDoRamo(token, ramoBase));
+    }
+    for (const tokens of segmentosGitExecutados(segmento)) {
+      let sub = indiceDoExecutavel(tokens) + 1;
+      while (sub < tokens.length && tokens[sub].valor.startsWith('-')) {
+        sub += tokens[sub].valor === '-C' || tokens[sub].valor === '--git-dir' || tokens[sub].valor === '--work-tree' ? 2 : 1;
+      }
+      if (!SUBCOMANDOS_GIT_COM_REF.has(tokens[sub]?.valor ?? '')) continue;
+      const separador = tokens.findIndex((token, i) => i > sub && token.valor === '--');
+      const argumentos = tokens.slice(sub + 1, separador < 0 ? undefined : separador);
+      const ref = argumentos.map((token) => token.valor).find((token) => refLocalDoRamo(token, ramoBase));
       if (ref) return ref;
     }
   }
