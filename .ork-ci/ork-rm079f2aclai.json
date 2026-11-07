@@ -565,36 +565,230 @@
       "lint": []
     },
     {
-      "id": "C41",
+      "id": "C43",
       "thread": "ork-rm079f2aclai",
-      "fase": "GO",
-      "arquivo": "docs/referencia/cli.md",
-      "alegacao": "A referência pt-BR descreve provas repetidas em ordem, dependências externas e a ref remota do ramo-base.",
+      "fase": "CHECK",
+      "arquivo": "core/src/ci.ts",
+      "alegacao": "Claims criadas antes da regra ref-local-do-ramo-base continuam somente como aviso no ci prepare mesmo quando já possuem o campo lint de regras anteriores.",
       "negativa": false,
       "verificar": [
-        "grep -Fq -- '--verificar \"<comando>\"]...' docs/referencia/cli.md",
-        "grep -Fq -- '--dependencia-externa rede,relogio' docs/referencia/cli.md",
-        "grep -Fq 'ref-local-do-ramo-base' docs/referencia/cli.md",
-        "grep -Fq -- '--comando \"<cmd>\"]...' docs/referencia/cli.md"
+        "node --test core/dist-test/test/rm079-f2-claim-lint.test.js"
       ],
-      "criadoEm": "2026-11-07T13:50:47.386Z",
+      "criadoEm": "2026-11-07T15:18:56.190Z",
       "estado": "verificado",
       "lint": []
     },
     {
-      "id": "C42",
+      "id": "C44",
       "thread": "ork-rm079f2aclai",
-      "fase": "GO",
-      "arquivo": "docs/referencia/cli.en.md",
-      "alegacao": "The English reference describes repeated proofs in order, external dependencies, and the remote base-branch ref.",
+      "fase": "CHECK",
+      "arquivo": "core/src/claim-lint.ts",
+      "alegacao": "O lint detecta git rev-parse com o ramo-base configurado e não classifica texto citado por comando sem Git como referência local.",
       "negativa": false,
       "verificar": [
-        "grep -Fq -- '--verificar \"<command>\"]...' docs/referencia/cli.en.md",
-        "grep -Fq -- '--dependencia-externa rede,relogio' docs/referencia/cli.en.md",
-        "grep -Fq 'ref-local-do-ramo-base' docs/referencia/cli.en.md",
-        "grep -Fq -- '--comando \"<cmd>\"]...' docs/referencia/cli.en.md"
+        "node --test core/dist-test/test/rm079-f2-claim-lint.test.js"
       ],
-      "criadoEm": "2026-11-07T13:50:47.442Z",
+      "criadoEm": "2026-11-07T15:18:56.241Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm079f2aclai",
+      "fase": "CHECK",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "Toda opção escalar da CLI, inclusive --projeto e rotas com parser próprio, aceita repetição idêntica e recusa valores divergentes com saída 2 nomeando a opção.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-args.test.js"
+      ],
+      "criadoEm": "2026-11-07T15:18:56.294Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm079f2aclai",
+      "fase": "CHECK",
+      "arquivo": "core/test/rm079-f2-cli-reference.test.ts",
+      "alegacao": "A referência bilíngue da CLI é sustentada por teste de comportamento e pela paridade do docs verificar, sem grep circular do próprio documento.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-cli-reference.test.js && node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-11-07T15:18:56.351Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm079f2aclai",
+      "fase": "CHECK",
+      "arquivo": "docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
+      "alegacao": "A narrativa da RM-079 distingue as regras de lint que são somente aviso da regra fatal ref-local-do-ramo-base, sem afirmar que todo lint nunca recusa.",
+      "negativa": true,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-narrative.test.js"
+      ],
+      "criadoEm": "2026-11-07T15:19:21.681Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/src/maestro-cli.ts",
+      "alegacao": "O parser próprio do maestro aceita escalares idênticos e identifica a opção divergente no erro JSON.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-args.test.js"
+      ],
+      "criadoEm": "2026-11-07T15:36:08.325Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/test/rm079-f2-claim-lint.test.ts",
+      "alegacao": "A suíte focada cobre a marca legada, leitores de revisão, texto citado e shell com comando.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-claim-lint.test.js"
+      ],
+      "criadoEm": "2026-11-07T15:36:08.385Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/test/rm079-f2-args.test.ts",
+      "alegacao": "A suíte focada cobre a opção global e as rotas anteriores ao parser comum.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-args.test.js"
+      ],
+      "criadoEm": "2026-11-07T15:36:08.457Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/test/rm079-f2-narrative.test.ts",
+      "alegacao": "A suíte narrativa distingue lints de aviso da regra fatal de referência local.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-narrative.test.js"
+      ],
+      "criadoEm": "2026-11-07T15:36:08.542Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C52",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm079-f2.json",
+      "alegacao": "Os mutantes acrescentados devolvem isoladamente as regressões corrigidas nesta volta.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-f2.json M5",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-f2.json M6",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-f2.json M7",
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-f2.json M8"
+      ],
+      "criadoEm": "2026-11-07T15:36:08.604Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/src/claims.ts",
+      "alegacao": "Claims novas recebem a marca de regras e claims legadas preservam a compatibilidade ao anexar prova.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/claim-lint.test.js",
+        "node --test core/dist-test/test/rm079-f2-claim-lint.test.js"
+      ],
+      "criadoEm": "2026-11-07T15:36:08.661Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C54",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "A claim persiste o conjunto de regras de lint avaliado no nascimento.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm079-f2-claim-lint.test.js"
+      ],
+      "criadoEm": "2026-11-07T15:36:08.725Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/test/locale-claims.test.ts",
+      "alegacao": "A suíte de locale preserva a montagem bilíngue do aviso para claim anterior à marca.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-claims.test.js"
+      ],
+      "criadoEm": "2026-11-07T15:36:08.784Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C56",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/test/claim-lint.test.ts",
+      "alegacao": "A suíte legada preserva a recusa de claim marcada e o aviso de claim anterior à marca.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/claim-lint.test.js"
+      ],
+      "criadoEm": "2026-11-07T15:36:08.836Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C57",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3d-casos-produto.ts",
+      "alegacao": "O snapshot de locale representa claim nova com a marca da regra de suíte inteira.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/locale-f3d-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-07T16:04:18.465Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C58",
+      "thread": "ork-rm079f2aclai",
+      "fase": "GO",
+      "arquivo": "core/test/projeto-alvo-cli.test.ts",
+      "alegacao": "A suíte de projeto-alvo espera saída 2 e o nome de --projeto quando valores divergentes se repetem.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/projeto-alvo-cli.test.js"
+      ],
+      "criadoEm": "2026-11-07T16:04:18.534Z",
       "estado": "verificado",
       "lint": []
     }
