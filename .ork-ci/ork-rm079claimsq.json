@@ -1279,6 +1279,81 @@
       "criadoEm": "2026-11-07T01:46:47.393Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C92",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "O verify_run associa o texto redigido à impressão do comando original e a seleção anterior usa essa identidade, preservando o fallback de eventos legados.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm081-f3.test.js core/dist-test/test/verify-timeout.test.js"
+      ],
+      "criadoEm": "2026-11-07T04:12:36.804Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C93",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm079-retirada-head.json",
+      "alegacao": "O mutante que volta a comparar o texto redigido não sobrevive à prova de identidade do comando original.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/mutante.cjs core/test/mutantes/rm079-retirada-head.json M10"
+      ],
+      "criadoEm": "2026-11-07T04:12:36.857Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C94",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "core/test/rm081-f3.test.ts",
+      "alegacao": "A suíte de seleção anterior cobre evento novo com credencial genérica, evento legado sem impressão e comando original diferente.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm081-f3.test.js"
+      ],
+      "criadoEm": "2026-11-07T04:12:36.915Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C95",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
+      "alegacao": "A página enumera as superfícies redigidas pela RM-079 e declara A7 a A12 como dívida preexistente fora do escopo desta entrega.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'os recibos e as execuções do verify redigem' docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
+        "grep -q '## Fora do escopo' docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
+        "grep -q 'A12: ledger, board e saída de auditoria' docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-07T04:13:48.190Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C96",
+      "thread": "ork-rm079claimsq",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O bloco Não publicado delimita a redação ao verify_run, aos recibos e execuções do verify, à retirada CLI e MCP e ao fix vindo do parecer.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'O `verify_run`, os recibos e as execuções do verify' CHANGELOG.md",
+        "grep -q 'o `fix` vindo do parecer' CHANGELOG.md",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-07T04:13:48.269Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
   "deferredClaims": [
