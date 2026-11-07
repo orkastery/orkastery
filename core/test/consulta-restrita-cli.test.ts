@@ -50,8 +50,9 @@ test('CLI recusa consultas restritas inválidas antes de abrir memória', () => 
       ['--thread','ork-consulta','--colecao','decision','--tags','{"project":["alheio"]}'],
     ]) {
       const r = executar(p.dir, ['memory','search','--tags','{}',...extras], true);
-      assert.equal(r.status, 1, r.stderr);
-      assert.match(r.stderr, /memory.query./);
+      const tagsDivergentes = extras[0] === '--thread' && extras.includes('--tags');
+      assert.equal(r.status, tagsDivergentes ? 2 : 1, r.stderr);
+      assert.match(r.stderr, tagsDivergentes ? /--tags/ : /memory.query./);
       assert.equal(fs.existsSync(path.join(p.dir, 'consultas-fixture.jsonl')), false);
     }
   } finally { p.limpar(); }

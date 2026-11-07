@@ -76,7 +76,8 @@ test('doctor contextual CLI recusa flags inválidas antes de sondar runtime',()=
     const cli=path.resolve(__dirname,'../src/index.js');
     for(const args of [['--modo'],['--modo','auto','--modo','classic'],['--modo','auto','--cwd','/tmp']]) {
       const r=spawnSync(process.execPath,[cli,'doctor',...args],{cwd:p.dir,encoding:'utf8',timeout:10000});
-      assert.equal(r.status,1);assert.match(r.stderr,/uso: ork doctor/);
+      const repetida=args.filter(a=>a==='--modo'||a.startsWith('--modo=')).length>1;
+      assert.equal(r.status,repetida?2:1);assert.match(r.stderr,repetida?/--modo/:/uso: ork doctor/);
     }
     // I-43: o VALOR do modo tem recusa tipada propria, porque a acao do dono e outra.
     // Modo que nunca existiu e typo; modo aposentado pede troca de #TAG.
