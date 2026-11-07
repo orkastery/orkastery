@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-004]
 owner: Julio
-atualizado_em: 2026-11-03T17:30:00-03:00
+atualizado_em: 2026-11-06T00:00:00-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -111,13 +111,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-11-03 | Julio |
-| Documentação | Em revisão | — | 2026-11-03 | Julio |
-| Código | Mesclado | commit `e17ab8e` | 2026-11-03 | Julio |
-| Testes | Em execução | — | 2026-11-03 | Julio |
-| Deploy | Produção | — | 2026-11-03 | Julio |
-| Exposição | Flag desligada | — | 2026-11-03 | Julio |
-| Habilitação | Pendente | — | 2026-11-03 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-06 | Julio |
+| Documentação | Em revisão | — | 2026-11-06 | Julio |
+| Código | Mesclado | commit `e17ab8e` | 2026-11-06 | Julio |
+| Testes | Em execução | — | 2026-11-06 | Julio |
+| Deploy | Produção | — | 2026-11-06 | Julio |
+| Exposição | Flag desligada | — | 2026-11-06 | Julio |
+| Habilitação | Pendente | — | 2026-11-06 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -164,3 +164,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-11-02 | F5 usa seleção nativa somente no Agile morno e cai para a suíte inteira na dúvida | Testes focados e mutantes da thread `ork-rm081f5selec`; decisões autônomas registradas no ledger; CHECK pendente | Codex (#Auto) |
 | 2026-11-02 | F4 entra sobre a pilha com workers por reserva e recursos exclusivos na declaração única da lane | Testes focados e mutantes M1–M4 da thread `ork-rm081f4sobre`; decisões D1–D4 registradas no ledger; CHECK pendente | Codex (#Auto) |
 | 2026-11-03 | F1 a F5 mescladas e em produção na 0.6.5 | PRs #251, #253, #254, #255 e #256 (último merge `e17ab8e`) e tag `v0.6.5` publicada no npm | Julio |
+| 2026-11-06 | Fixtures que apenas aguardam fila, recibo, estado, resultado ou processo deixam o prazo de parede para o limite externo da rodada | Código, testes e mutantes da thread `ork-testesdoprod`; CHECK pendente | Codex (#Auto) |

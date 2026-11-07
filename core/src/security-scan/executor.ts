@@ -79,7 +79,7 @@ export interface Invocation {
   configHost?: string;
   /** Host paths mounted read-only at the same path in the container (the main `.git` of a worktree). */
   sameMounts?: string[];
-  /** Time limit of this run: the tool `timeoutMs` capped by what is left of the round deadline. */
+  /** Time limit of this run: the tool `timeoutMs` capped by what is left of the round deadline; Infinity delegates it to the outer round. */
   timeoutMs: number;
   /** The round guard: records the container name and the native process group while they live. */
   guard?: RoundGuard;
@@ -88,6 +88,11 @@ export interface InvocationResult { status: number | null; timedOut: boolean; st
 
 const CONTAINER = { src: '/src', out: '/out', config: '/config' };
 const MAX_BUFFER = 512 * 1024 * 1024;
+
+/** `spawnSync` rejects Infinity; an unbounded fixture omits the inner timeout and remains bounded by the outer round. */
+export function opcoesDoPrazo(timeoutMs: number): { timeout?: number } {
+  return Number.isFinite(timeoutMs) ? { timeout: timeoutMs } : {};
+}
 
 /** A cota so existe no grupo Agile; sem a variavel, o Classic continua com o argv de sempre. */
 export function argumentosDeCpuDoDocker(ambiente: NodeJS.ProcessEnv = process.env): string[] {
@@ -113,7 +118,7 @@ export function ensureImage(image: string, timeoutMs: number): boolean {
   if (timeoutMs <= 0) return false;
   const present = spawnSync('docker', ['image', 'inspect', image], { stdio: 'ignore', timeout: Math.min(PROBE_TIMEOUT_MS, timeoutMs) });
   if (!present.error && present.status === 0) return true;
-  const pull = spawnSync('docker', ['pull', '--quiet', image], { stdio: 'ignore', timeout: timeoutMs, killSignal: 'SIGKILL' });
+  const pull = spawnSync('docker', ['pull', '--quiet', image], { stdio: 'ignore', ...opcoesDoPrazo(timeoutMs), killSignal: 'SIGKILL' });
   return !pull.error && pull.status === 0;
 }
 
@@ -144,7 +149,7 @@ export function runDocker(inv: Invocation): InvocationResult {
     ...inv.argv.slice(1).map(a => expand(a, values))];
   registrarContainerDaLane(name);
   inv.guard?.add('containers', name);
-  const r = spawnSync('docker', args, { encoding: 'utf8', timeout: inv.timeoutMs, killSignal: 'SIGKILL', maxBuffer: MAX_BUFFER, env: process.env });
+  const r = spawnSync('docker', args, { encoding: 'utf8', ...opcoesDoPrazo(inv.timeoutMs), killSignal: 'SIGKILL', maxBuffer: MAX_BUFFER, env: process.env });
   const timedOut = (r.error as NodeJS.ErrnoException | undefined)?.code === 'ETIMEDOUT';
   if (timedOut || r.error) spawnSync('docker', ['rm', '-f', name], { stdio: 'ignore', timeout: PROBE_TIMEOUT_MS });
   inv.guard?.remove('containers', name);
@@ -166,8 +171,9 @@ export function runNative(inv: Invocation): InvocationResult {
   const pgidFile = inv.guard?.pgidFile() ?? path.join(inv.outHost, '.native.pgid');
   const marker = `${pgidFile}${LAUNCH_TIMEOUT_SUFFIX}`;
   try {
+    const prazoDoLauncher = Number.isFinite(inv.timeoutMs) ? inv.timeoutMs + 10000 : inv.timeoutMs;
     const r = spawnSync(process.execPath, launcherArgs(pgidFile, inv.timeoutMs, bin, rest),
-      { cwd: inv.srcHost, encoding: 'utf8', timeout: inv.timeoutMs + 10000, killSignal: 'SIGKILL', maxBuffer: MAX_BUFFER, env });
+      { cwd: inv.srcHost, encoding: 'utf8', ...opcoesDoPrazo(prazoDoLauncher), killSignal: 'SIGKILL', maxBuffer: MAX_BUFFER, env });
     const timedOut = fs.existsSync(marker) || (r.error as NodeJS.ErrnoException | undefined)?.code === 'ETIMEDOUT';
     return { status: r.status, timedOut, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
   } finally {

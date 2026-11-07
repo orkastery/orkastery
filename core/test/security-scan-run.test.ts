@@ -6,7 +6,7 @@ import { afterEach, beforeEach, test } from 'node:test';
 import { dirTemporario } from './apoio';
 import { repositorioSecurityScan, totalDeModelosSecurityScan, type OpcoesRepoSecurityScan, type RepoSecurityScan } from './security-scan-repo-fixture';
 import { installFakeTools, type FakeTools } from './security-scan-docker-falso';
-import { argumentosDeCpuDoDocker, chooseExecutor, defaultProbe, type Probe } from '../src/security-scan/executor';
+import { argumentosDeCpuDoDocker, chooseExecutor, defaultProbe, opcoesDoPrazo, type Probe } from '../src/security-scan/executor';
 import { runScan } from '../src/security-scan/run';
 import { loadTools } from '../src/security-scan/tools';
 import type { ScanReport, ToolSpec } from '../src/security-scan/types';
@@ -80,6 +80,11 @@ test('CPU limit: o Docker do grupo Agile recebe --cpus e o Classic sem cota pres
   assert.deepEqual(argumentosDeCpuDoDocker({ [ENV_CPUS_DOCKER]: '0.5' }), ['--cpus', '0.5']);
   assert.deepEqual(argumentosDeCpuDoDocker({}), []);
   assert.deepEqual(argumentosDeCpuDoDocker({ [ENV_CPUS_DOCKER]: 'invalido' }), []);
+});
+
+test('prazo do executor: a fixture sem teto interno omite o timeout e o prazo finito continua explícito', () => {
+  assert.deepEqual(opcoesDoPrazo(Number.POSITIVE_INFINITY), {});
+  assert.deepEqual(opcoesDoPrazo(123), { timeout: 123 });
 });
 
 test('without Docker and without binaries every tool is unavailable and the report has no finding', () => {
