@@ -13,7 +13,7 @@ import { validarArquivosEstadoMcp } from './mcp-artifacts';
 import { adquirirRegiao, lerLease, leasesColidentes, liberar, podarRegioesDeThreadsFechadas } from './leases';
 import { dirThread, lerThread } from './thread';
 import { Lease } from './types';
-import { ResultadoVerify, textoDoVerify, verificar } from './verify';
+import { ResultadoVerify, resultadoVerifyRedigido, textoDoVerify, verificar } from './verify';
 import { ErroDeConducao, PRAZO_DE_SESSAO_PADRAO_MS, RecusaDeConducao, prazoDaVerificacao } from './conducao';
 import { ErroDaFilaPesada, RecusaDaFilaPesada } from './fila-pesada';
 import { ESPERA_DA_FILA_PESADA_MCP_MS } from './mcp-verify';
@@ -311,7 +311,8 @@ export function executarVerifyMcpWorker(raiz: string, threadId: string, rodadaId
     }));
     const locale = resolverLocale(carregado.manifesto.owner?.language).locale;
     const veredito: VereditoVerifyMcp = { ok: resultado.ok, commit: resultado.commit, motivos: resultado.motivos,
-      check: resultado.check, texto: comLocale(locale, () => textoDoVerify(resultado)), resultado };
+      check: resultado.check, texto: comLocale(locale, () => textoDoVerify(resultado)),
+      resultado: resultadoVerifyRedigido(resultado) };
     terminal = { estado: 'concluido', lane: null, veredito, falha: undefined, ocupantes: undefined };
   } catch (e) {
     terminal = { estado: 'falhou', lane: null, falha: falhaDaExecucao(e), ocupantes: undefined };

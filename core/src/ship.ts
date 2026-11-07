@@ -31,7 +31,7 @@ import { LOOP_CATEGORIES, type Category } from './security-scan/types';
 import { dirThread, gravarThread, lerThread } from './thread';
 import { Lease, MotivoGate, Thread } from './types';
 import { agora, exec, shaCurto } from './util';
-import { comandoNoLedger, ConducaoDoVerify, ExecutorVerify, ResultadoVerify, verificar } from './verify';
+import { comandoNoLedger, ConducaoDoVerify, ExecutorVerify, ResultadoVerify, resultadoVerifyRedigido, verificar } from './verify';
 import { consultarCi, ExecutorCi, ResultadoCi } from './ci';
 import { detalheDoPush, pushRecusadoPelaProtecao } from './forja';
 import { contratosTocados } from './contrato-publico';
@@ -664,7 +664,7 @@ export function ship(
   // 3. Verificacao independente: reexecuta claims e comandos no HEAD real da thread.
   const verificacao = verificar(carregado, threadId, { executor: opcoes.executorVerify,
     conducao: { filaPesada: { ...opcoes.avisoDaFilaPesada, esperarMs: opcoes.esperarFilaPesadaMs } } });
-  r.verificacao = verificacao;
+  r.verificacao = resultadoVerifyRedigido(verificacao);
   if (!verificacaoCompletaParaShip(verificacao)) {
     const motivo = (verificacao.parcial ? 'verify.failed'
       : verificacao.motivos.find((m) => m !== 'claims.unverifiable')) as MotivoGate;

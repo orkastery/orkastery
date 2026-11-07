@@ -46,6 +46,15 @@
       "para": "verificar: c.claim.verificar,",
       "teste": "verify-timeout",
       "nome": "^verify: estouro vira verify.timeout"
+    },
+    {
+      "id": "M6",
+      "descricao": "comandoNoLedger volta a publicar o texto de comando sem a redação geral",
+      "modulo": "verify",
+      "de": "return (0, hitl_1.redigirSegredos)(comando);",
+      "para": "return comando;",
+      "teste": "verify-timeout",
+      "nome": "^RM079 comando:"
     }
   ]
 }

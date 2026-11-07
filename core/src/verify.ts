@@ -47,6 +47,7 @@ import { abrirJanela, FONTE_STEAL, LeitorProcStat, LIMIAR_STEAL_PCT, lerProcStat
 import { lerRegistroDeInstabilidade, RegistroLido, testesDeRelogioVigentes } from './instabilidade';
 import { comRecursoPesado, OcupanteDaFila, UsoDaFilaPesada } from './fila-pesada';
 import { redigirCredenciaisUrl } from './redacao-url';
+import { redigirSegredos } from './hitl';
 import { canalDoProcesso, comConducao, ConducaoTomada, identidadeDoAmbiente, prazoDaVerificacao } from './conducao';
 import { diretorioDaThread } from './procedencia';
 import { BarreiraDaThread, barreiraDaThread, resumoNoLedger } from './dado-privado';
@@ -80,6 +81,51 @@ export function impressaoDosComandos(verificar: readonly string[]): string {
     .update('ork.verify-command-list/v1\0')
     .update(JSON.stringify(verificar))
     .digest('hex');
+}
+
+/** RM-079 GO-FIX 3: texto de comando cru fica no domínio de execução; cópias de saída usam o redator geral. */
+function redigirTextoDoComando(comando: string): string {
+  return redigirSegredos(comando);
+}
+
+/** Cópia segura para recibo, ledger, SHIP e saída serializada; nunca muta o resultado executável. */
+export function resultadoDeComandoRedigido(c: ResultadoDeComando): ResultadoDeComando {
+  return {
+    ...c,
+    comando: redigirTextoDoComando(c.comando),
+    resumo: redigirSegredos(c.resumo),
+    ...(c.trecho !== undefined ? { trecho: redigirSegredos(c.trecho) } : {}),
+    ...(c.comandoExecutado ? { comandoExecutado: redigirTextoDoComando(c.comandoExecutado) } : {}),
+    ...(c.preparo ? { preparo: { ...c.preparo,
+      ...(c.preparo.passos ? { passos: c.preparo.passos.map(redigirTextoDoComando) } : {}),
+      ...(c.preparo.motivo ? { motivo: redigirSegredos(c.preparo.motivo) } : {}) } } : {}),
+    ...(c.lanes ? { lanes: c.lanes.map((lane) => ({
+      ...lane,
+      comando: redigirTextoDoComando(lane.comando),
+      ...(lane.comandoExecutado ? { comandoExecutado: redigirTextoDoComando(lane.comandoExecutado) } : {}),
+    })) } : {}),
+  };
+}
+
+/** Projeção do verify para fronteiras públicas; a decisão continua usando o `ResultadoVerify` original. */
+export function resultadoVerifyRedigido(r: ResultadoVerify): ResultadoVerify {
+  const comandos = (lista: ResultadoDeComando[]) => lista.map(resultadoDeComandoRedigido);
+  return {
+    ...r,
+    claims: r.claims.map((c) => ({
+      ...c,
+      claim: { ...c.claim, verificar: c.claim.verificar.map(redigirTextoDoComando) },
+      detalhe: redigirSegredos(c.detalhe),
+      execucoes: comandos(c.execucoes),
+    })),
+    comandos: comandos(r.comandos),
+    baseline: r.baseline ? { ...r.baseline, comandos: comandos(r.baseline.comandos) } : null,
+    regressoes: comandos(r.regressoes),
+    preExistentes: comandos(r.preExistentes),
+    falhasSemBaseline: comandos(r.falhasSemBaseline),
+    estouros: comandos(r.estouros),
+    preparo: r.preparo ? { ...r.preparo, resultado: resultadoDeComandoRedigido(r.preparo.resultado) } : null,
+  };
 }
 
 /** Ultimas linhas da saida real, o suficiente para servir de evidencia no ledger. */
@@ -326,27 +372,28 @@ export function causaDoEncerramento(r: { code: number; signal: string | null; er
 
 /** I-37 (D8): o que o ledger grava de um comando. Sucesso e o codigo 0; falha leva a evidencia. */
 export function comandoNoLedger(c: ResultadoDeComando): Record<string, unknown> {
+  const seguro = resultadoDeComandoRedigido(c);
   // RM-072 (D2): a duracao vai tambem no comando que passa, para a meta do CHECK ser medida pelo ledger. RM-072 (D4, D5):
   // no Agile, o uso do preparo e as lanes; o Classic nao tem esses campos.
-  const doAgile = { ...(c.preparo ? { preparo: c.preparo } : {}),
-    ...(c.agendamento ? { agendamento: c.agendamento } : {}),
-    ...(c.lane ? { lane: c.lane } : {}),
-    ...(c.lanes ? { lanes: c.lanes.map((l) => ({ ...l, comando: redigirCredenciaisUrl(l.comando),
-      ...(l.comandoExecutado ? { comandoExecutado: redigirCredenciaisUrl(l.comandoExecutado) } : {}) })) } : {}),
-    ...(c.comandoExecutado ? { comandoExecutado: redigirCredenciaisUrl(c.comandoExecutado) } : {}),
-    ...(c.parcial ? { parcial: c.parcial } : {}),
-    ...(c.junit ? { junit: c.junit } : {}),
-    ...(c.retesteDeRelogio ? { retesteDeRelogio: c.retesteDeRelogio } : {}) };
-  if (c.ok) return { nome: c.nome, ok: true, code: c.code, ...(c.duracaoMs !== undefined ? { duracaoMs: c.duracaoMs } : {}), ...doAgile };
+  const doAgile = { ...(seguro.preparo ? { preparo: seguro.preparo } : {}),
+    ...(seguro.agendamento ? { agendamento: seguro.agendamento } : {}),
+    ...(seguro.lane ? { lane: seguro.lane } : {}),
+    ...(seguro.lanes ? { lanes: seguro.lanes } : {}),
+    ...(seguro.comandoExecutado ? { comandoExecutado: seguro.comandoExecutado } : {}),
+    ...(seguro.parcial ? { parcial: seguro.parcial } : {}),
+    ...(seguro.junit ? { junit: seguro.junit } : {}),
+    ...(seguro.retesteDeRelogio ? { retesteDeRelogio: seguro.retesteDeRelogio } : {}) };
+  if (seguro.ok) return { nome: seguro.nome, ok: true, code: seguro.code,
+    ...(seguro.duracaoMs !== undefined ? { duracaoMs: seguro.duracaoMs } : {}), ...doAgile };
   return {
-    nome: c.nome, comando: redigirCredenciaisUrl(c.comando), ok: false, code: c.code, ...doAgile,
-    ...(c.causa ? { causa: c.causa } : {}),
-    ...(c.prazoMs !== undefined ? { prazoMs: c.prazoMs } : {}),
-    ...(c.duracaoMs !== undefined ? { duracaoMs: c.duracaoMs } : {}),
-    ...(c.testeQueCaiu?.length ? { testeQueCaiu: c.testeQueCaiu } : {}),
-    ...(c.trecho !== undefined ? { trecho: c.trecho } : {}),
-    ...(c.stealPct !== undefined ? { stealPct: c.stealPct } : {}),
-    ...(c.relogioSobSteal?.length ? { relogioSobSteal: c.relogioSobSteal } : {}),
+    nome: seguro.nome, comando: seguro.comando, ok: false, code: seguro.code, ...doAgile,
+    ...(seguro.causa ? { causa: seguro.causa } : {}),
+    ...(seguro.prazoMs !== undefined ? { prazoMs: seguro.prazoMs } : {}),
+    ...(seguro.duracaoMs !== undefined ? { duracaoMs: seguro.duracaoMs } : {}),
+    ...(seguro.testeQueCaiu?.length ? { testeQueCaiu: seguro.testeQueCaiu } : {}),
+    ...(seguro.trecho !== undefined ? { trecho: seguro.trecho } : {}),
+    ...(seguro.stealPct !== undefined ? { stealPct: seguro.stealPct } : {}),
+    ...(seguro.relogioSobSteal?.length ? { relogioSobSteal: seguro.relogioSobSteal } : {}),
   };
 }
 
@@ -1430,6 +1477,7 @@ function verificarSobConducao(
     cwd,
     claims: claims.map((c) => {
       const falhou = c.execucoes.find((e) => !e.ok);
+      const execucoesSeguras = c.execucoes.map(resultadoDeComandoRedigido);
       return {
         id: c.claim.id,
         verificarSha256: impressaoDosComandos(c.claim.verificar),
@@ -1439,7 +1487,7 @@ function verificarSobConducao(
         // RM-072 (D2): a soma da parede dos comandos da claim.
         duracaoMs: c.execucoes.reduce((t, e) => t + (e.duracaoMs ?? 0), 0),
         // RM-072 (D5): no Agile, o que a guarda fez com cada comando da claim.
-        ...(c.execucoes.some((e) => e.preparo) ? { preparo: c.execucoes.map((e) => e.preparo ?? null) } : {}),
+        ...(execucoesSeguras.some((e) => e.preparo) ? { preparo: execucoesSeguras.map((e) => e.preparo ?? null) } : {}),
         ...(c.execucoes.some((e) => e.agendamento) ? { agendamento: c.execucoes.map((e) => e.agendamento ?? null) } : {}),
         ...(c.execucoes.some((e) => e.lane) ? { lane: c.execucoes.map((e) => e.lane ?? null) } : {}),
         ...(falhou ? { execucao: comandoNoLedger(falhou) } : {}),
