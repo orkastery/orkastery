@@ -295,7 +295,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-verify.test.js"
       ],
       "criadoEm": "2026-11-07T02:03:59.880Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -309,7 +309,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/noctum-provas.test.js"
       ],
       "criadoEm": "2026-11-07T02:04:16.498Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -323,7 +323,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/noctum-entrega.json M15"
       ],
       "criadoEm": "2026-11-07T02:04:16.572Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -337,7 +337,7 @@
         "node core/dist/index.js docs verificar --pr"
       ],
       "criadoEm": "2026-11-07T02:06:26.395Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -351,7 +351,7 @@
         "node core/scripts/checar-changelog.cjs --base origin/main"
       ],
       "criadoEm": "2026-11-07T02:06:26.465Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -365,7 +365,7 @@
         "node core/dist/index.js docs verificar --pr"
       ],
       "criadoEm": "2026-11-07T02:06:26.528Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -379,7 +379,7 @@
         "node core/dist/index.js docs verificar --pr"
       ],
       "criadoEm": "2026-11-07T02:06:26.586Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -393,7 +393,35 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm078-recibo.test.js core/dist-test/test/noctum-provas.test.js"
       ],
       "criadoEm": "2026-11-07T02:06:26.645Z",
-      "estado": "pendente",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm078recibod",
+      "fase": "GO",
+      "arquivo": "core/test/locale-verify.test.ts",
+      "alegacao": "O caso focado prepara cenários F2b sem espera, confere a data de autor injetada e exige o mesmo HEAD.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-verify.test.js"
+      ],
+      "criadoEm": "2026-11-07T02:37:36.231Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm078recibod",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm078.json",
+      "alegacao": "O mutante que retira a data de autor do amend é rejeitado pela conferência determinística da fixture.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm078.json M4"
+      ],
+      "criadoEm": "2026-11-07T02:37:36.342Z",
+      "estado": "verificado",
       "lint": []
     }
   ],
