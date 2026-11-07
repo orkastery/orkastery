@@ -143,7 +143,7 @@ test('verify: estouro vira verify.timeout, fica fora das falhas e nao reprova a 
     const generica = 'sk-' + 'ant-' + 'B'.repeat(24);
     const url = 'postgres://' + 'u:' + 'segredo' + '@h/db';
     const quebrada = adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'quebra',
-      verificar: [`echo "not ok 1 - caso ruim"; echo "${generica} ${url}"; exit 1`] });
+      verificar: [`test -n "${generica}"; echo "not ok 1 - caso ruim"; echo "${url}"; exit 1`] });
 
     const r = verificar(p.carregado, t.id);
     assert.equal(r.ok, false);

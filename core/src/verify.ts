@@ -109,10 +109,11 @@ export function resultadoDeComandoRedigido(c: ResultadoDeComando): ResultadoDeCo
 
 /** Projeção do verify para fronteiras públicas; a decisão continua usando o `ResultadoVerify` original. */
 export function resultadoVerifyRedigido(r: ResultadoVerify): ResultadoVerify {
-  const comandos = (lista: ResultadoDeComando[]) => lista.map(resultadoDeComandoRedigido);
+  const comandos = (lista: ResultadoDeComando[] | undefined) => (lista ?? []).map(resultadoDeComandoRedigido);
+  const claims = r.claims ?? [];
   return {
     ...r,
-    claims: r.claims.map((c) => ({
+    claims: claims.map((c) => ({
       ...c,
       claim: { ...c.claim, verificar: c.claim.verificar.map(redigirTextoDoComando) },
       detalhe: redigirSegredos(c.detalhe),
@@ -1483,7 +1484,7 @@ function verificarSobConducao(
         verificarSha256: impressaoDosComandos(c.claim.verificar),
         verificado: c.verificado,
         motivo: c.motivo,
-        detalhe: c.detalhe,
+        detalhe: redigirSegredos(c.detalhe),
         // RM-072 (D2): a soma da parede dos comandos da claim.
         duracaoMs: c.execucoes.reduce((t, e) => t + (e.duracaoMs ?? 0), 0),
         // RM-072 (D5): no Agile, o que a guarda fez com cada comando da claim.
