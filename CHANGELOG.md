@@ -6,6 +6,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+## [0.6.7] - 2026-11-07
+
+O CHECK passa a guiar a correção: claims que passam com o defeito corrigido, retirada tipada com substituta e `ork fix` lendo o parecer, com comandos e motivos redigidos no recibo, na CLI e no MCP (RM-079). O recibo do verify e o da revisão valem enquanto o HEAD, as claims e o plano não mudam (RM-078). No Agile, claims independentes saem do caminho crítico e as auditadas pelas lanes reaproveitam a prova delas (RM-074, M11 e M12). Os testes do produto esperam o evento, e não um prazo fixo de relógio (RM-081). A bancada só desconta o atraso medido em cada rodada (RM-074, M13).
+Nenhum teste sai e o Classic não muda.
+
+O #Noctum segue **em desenvolvimento, não anunciado**.
+
 ### Adicionado
 
 - **Claims e ciclo de correção ([RM-079](docs/roadmap/RM-079-claims-que-a-correcao-passa.md)):** o CHECK registra claims que passam com a correção, o lint avisa sobre provas artificiais ou circulares e a retirada tipada exige substituta verde ou decisão do dono. O `verify_run`, os recibos e as execuções do verify redigem textos de comando sem alterar execução ou identidade; a retirada na CLI redige o motivo, a resposta MCP omite a lista `verificar`, e o `fix` vindo do parecer redige seus textos antes de recibo, ledger ou saída.
