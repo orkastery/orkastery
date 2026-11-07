@@ -511,10 +511,57 @@ cobrem o temporário compartilhado, as cercas de falha e HEAD, a barreira do lot
 ordem por arquivo, a concessão de vagas e o motivo do recibo. O efeito na razão fria
 ou morna aguarda a bancada da condução.
 
+### M13: parede ajustada pela carga medida
+
+A bancada passa a comparar cada rodada pela parede sem preparo, descontando
+somente a contenção que comprovadamente impediu a rodada de executar. A fonte é o
+PSI `full` de CPU em um cgroup exclusivo: ele só avança quando todo o trabalho
+executável da rodada está sem CPU. Enquanto um worker executa, a disputa entre os
+workers da própria rodada não gera crédito.
+
+A medida causal só vale quando a rodada inteira herda um escopo de cgroup exclusivo
+e sem cota de CPU. Os contêineres da varredura são criados sem cgroup pai; quando a
+varredura depende deles, eles ficam fora da hierarquia da rodada e tornam a fonte
+causal indisponível.
+
+A janela medida também cobre partes que ficam fora da razão. A correção presume
+primeiro que todo o atraso ocorreu nessas partes e subtrai da parede somente o
+excedente inevitável. PSI ausente, cgroup compartilhado ou parte da rodada fora da
+hierarquia deixam a correção sem crédito, com motivo tipado. Nesse caso, a parede
+ajustada permanece igual à bruta. A bancada usa a razão bruta com validade pareada
+e crédito zero.
+
+`Steal` e carga externa agregados continuam visíveis, mas não entram na fórmula.
+Sem atribuição causal, eles validam o equilíbrio entre os dois lados do mesmo par:
+uma diferença acima de cinco pontos percentuais retira o par, em vez de comparar
+cada rodada com um limiar absoluto. Assim, CPU de fora que ocupou capacidade
+ociosa não cria vantagem para Agile nem para Classic.
+
+As ausências e falhas estruturais continuam fechadas: rodada reprovada, parede ou
+preparo ausente, ordem fora de AB/BA, `steal` ausente ou carga externa ausente
+retiram o par. Agile e Classic usam a mesma regra; a razão bruta e a correção
+causal ficam explícitas, e a razão oficial só aparece quando a confiança fecha.
+
+A confiança conserva o mínimo vigente de pares válidos e exige que o coeficiente
+de variação da razão ajustada fique estritamente abaixo de 10%; a igualdade é
+recusada. Cada par mostra as paredes bruta e ajustada, a fonte causal, o atraso
+aceito, o motivo de crédito zero, o `steal` e a carga externa dos dois modos.
+
+As bancadas arquivadas não contêm PSI causal. Elas servem apenas para conferir o
+fallback sem crédito e a fronteira pareada; não são uma coleta nova e não publicam
+ganho da M13. Dado ausente não vira zero. A próxima coleta da condução precisa
+gravar a fonte causal em cada rodada antes de sustentar uma razão corrigida.
+
+O caso AG59 também cria e remove seu próprio `TMPDIR`, restaura o ambiente e
+ignora diretórios concorrentes de mesmo prefixo no temporário global. As asserções
+de limpeza do verify e da baseline permanecem. O Classic e o Agile não mudam nesta
+fatia; muda somente a forma como a bancada compara as rodadas.
+
 ### O que falta
 
-- Fechar a bancada fria e morna da M8, da M9, da M11 e da M12 no host, com três
-  pares válidos e os mesmos critérios de carga externa e divergência de `steal`.
+- Fechar uma bancada fria e morna nova no host, com o mínimo vigente de pares
+  válidos, PSI `full` exclusivo coletado em cada rodada, medidas agregadas
+  equilibradas no par e variação abaixo do limite de confiança.
 - Confirmar na evidência que o perfil da árvore fecha mesmo quando um contêiner
   fica sem cgroup e que a reserva medida devolve antes a capacidade ociosa.
 - Confirmar na evidência que a reserva da varredura vai para a integração
@@ -523,7 +570,8 @@ ou morna aguarda a bancada da condução.
   sem mudar os recibos.
 - Reavaliar a distância para a meta de cerca de 1,7 vez; a M9 remove a reserva
   conservadora diagnosticada, a M11 muda o agendamento e a M12 reaproveita claims
-  pelas lanes, mas nenhuma publica uma razão antes dessa coleta.
+  pelas lanes, e a M13 retira somente a contenção causal, mas nenhuma publica uma razão
+  nova antes dessa coleta.
 
 ## Problema e resultado
 

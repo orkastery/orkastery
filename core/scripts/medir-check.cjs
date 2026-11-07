@@ -6,7 +6,6 @@
  *                                     [--cache-compartilhado] [--manter] [--commit <ref>]
  *   node core/scripts/medir-check.cjs --bancada [--pares N] [--por-arquivo N] [--commit <ref>] [--saida <arquivo.json>]
  *                                     [--linha-de-base <bancada.json>] [--claims-de <claims.jsonl>] [--carga-max L]
- *                                     [--carga-fora-max-pct P]
  *                                     [--janela-quieta-s S] [--espera-max-min M] [--prazo-min M]
  *   node core/scripts/medir-check.cjs --bancada --reanalisar <saida.json.d/bruto.json> [--saida <arquivo.json>]
  *
@@ -33,8 +32,9 @@
  * passe por arquivo, que roda cada arquivo de teste sozinho sob o `/usr/bin/time` (parede, `user`, `sys` e o pico do maior
  * processo, com os filhos que ele esperou) e conta os testes pelo TAP. Antes de cada rodada e de cada passe, espera a carga
  * de 1 minuto ficar abaixo de `--carga-max` (2) por `--janela-quieta-s` (120 s) sem outro `ork verify`, `node --test` ou
- * lane na maquina, e grava a espera; cada rodada grava o roubo de CPU (`steal`, pelo `/proc/stat`) e a CPU da arvore do
- * verify (sem os containers). O JSON traz a razao Classic/Agile de cada par, a eficiencia de paralelismo de cada lane (a
+ * lane na maquina, e grava a espera; cada rodada grava o roubo de CPU (`steal`, pelo `/proc/stat`), a CPU da arvore do
+ * verify (sem os containers) e o PSI `full` quando toda a rodada cabe numa hierarquia de cgroup exclusiva. O JSON traz a
+ * razao Classic/Agile de cada par, a eficiencia de paralelismo de cada lane (a
  * CPU da lane no passe dividida pelos nucleos, contra a parede da lane no `verify_run`), o corte de CPU contra a
  * `--linha-de-base` (sem ela, contra a media desta medicao), a variacao entre rodadas e as sondas 1 a 5 da pagina da
  * RM-074 refeitas. Os metadados sao o commit, os nucleos e a memoria; o nome da maquina, a casa e as pastas da copia saem
@@ -54,8 +54,8 @@ const TETO_DA_RODADA_MS = 3 * 60 * 1000;
 const TETO_DO_PICO_BYTES = 4 * 1024 ** 3;
 const PREFIXO_DOS_CONTAINERS = 'ork-security-scan-';
 const MIN_PARES_CONFIAVEIS = 3;
-const TOLERANCIA_STEAL_PP = 2;
-const CARGA_FORA_MAX_PCT = 10;
+const DESEQUILIBRIO_CPU_MAX_PP = 5;
+const CV_RAZAO_AJUSTADA_MAX = 0.10;
 const TEMPO = '/usr/bin/time';
 const FORMATO_DO_TEMPO = '%e %U %S %M';
 const PRAZO_DO_ARQUIVO_MS = 20 * 60 * 1000;
@@ -183,6 +183,107 @@ function lerProcessos() {
     } catch { /* o processo acabou entre a lista e a leitura */ }
   }
   return tabela;
+}
+
+function caminhoCgroupV2(texto) {
+  const relativo = /^0::([^\n]+)$/m.exec(String(texto))?.[1];
+  if (!relativo) return null;
+  const absoluto = path.resolve('/sys/fs/cgroup', `.${relativo}`);
+  return absoluto === '/sys/fs/cgroup' || absoluto.startsWith('/sys/fs/cgroup/') ? absoluto : null;
+}
+
+/** O total acumulado de CPU PSI `full`, em microssegundos. `some` inclui disputa entre workers da própria rodada. */
+function lerPressaoCpu(texto) {
+  const linha = String(texto).split('\n').find((l) => l.startsWith('full '));
+  const total = Number(/(?:^|\s)total=(\d+)(?:\s|$)/.exec(linha ?? '')?.[1]);
+  return Number.isFinite(total) && total >= 0 ? total : null;
+}
+
+function dentroDoCgroup(caminho, raiz) {
+  return caminho === raiz || caminho.startsWith(`${raiz}${path.sep}`);
+}
+
+function descendentesDe(raiz, tabela) {
+  const filhos = new Map();
+  for (const [pid, p] of tabela) {
+    if (!filhos.has(p.ppid)) filhos.set(p.ppid, []);
+    filhos.get(p.ppid).push(pid);
+  }
+  const vistos = new Set(), pilha = [raiz];
+  while (pilha.length) {
+    const pid = pilha.pop();
+    if (vistos.has(pid)) continue;
+    vistos.add(pid);
+    pilha.push(...(filhos.get(pid) ?? []));
+  }
+  return vistos;
+}
+
+/**
+ * PSI so vira credito quando a hierarquia e exclusiva da rodada. A arvore do verify, o medidor que a espera e os
+ * containers vinculados podem estar nela; qualquer outro processo ou parte da rodada fora dela invalida a fonte.
+ */
+function conferirExclusividadeDaPressao(raiz, tabela, containers, cgroupRaiz) {
+  const arvore = descendentesDe(raiz, tabela);
+  const permitidos = new Set(arvore);
+  for (let pid = process.pid; pid > 1; pid = tabela.get(pid)?.ppid ?? 0) permitidos.add(pid);
+  const ids = containers.filter((c) => c.daRodada).map((c) => c.id);
+  const raizesDosContainers = containers.filter((c) => c.daRodada && c.pid > 0).map((c) => c.pid);
+  for (const pid of raizesDosContainers) for (const filho of descendentesDe(pid, tabela)) permitidos.add(filho);
+  for (const pid of arvore) {
+    const cgroup = caminhoCgroupV2(tabela.get(pid)?.cgroup);
+    if (!cgroup || !dentroDoCgroup(cgroup, cgroupRaiz)) return 'arvore-fora-do-cgroup';
+  }
+  for (const c of containers.filter((item) => item.daRodada)) {
+    const dir = c.fonte ? path.dirname(c.fonte) : null;
+    if (!dir || !dentroDoCgroup(dir, cgroupRaiz)) return 'container-fora-do-cgroup';
+  }
+  for (const [pid, p] of tabela) {
+    const cgroup = caminhoCgroupV2(p.cgroup);
+    if (!cgroup || !dentroDoCgroup(cgroup, cgroupRaiz)) continue;
+    if (!permitidos.has(pid) && !ids.some((id) => p.cgroup.includes(id))) return 'cgroup-nao-exclusivo';
+  }
+  return null;
+}
+
+function iniciarPressaoCpu(pid) {
+  try {
+    const cgroup = caminhoCgroupV2(fs.readFileSync(`/proc/${pid}/cgroup`, 'utf8'));
+    if (!cgroup) return { estado: 'indisponivel', fonte: 'cgroup-v2-cpu.pressure.full', motivo: 'cgroup-v2-ausente', amostras: 0 };
+    const arquivo = path.join(cgroup, 'cpu.pressure');
+    const inicioUs = lerPressaoCpu(fs.readFileSync(arquivo, 'utf8'));
+    if (inicioUs === null) return { estado: 'indisponivel', fonte: 'cgroup-v2-cpu.pressure.full', motivo: 'psi-full-ausente', amostras: 0 };
+    return { estado: 'medindo', fonte: 'cgroup-v2-cpu.pressure.full', cgroup, arquivo, inicioUs, fimUs: inicioUs,
+      motivos: new Set(), amostras: 0, arvoreObservada: false };
+  } catch {
+    return { estado: 'indisponivel', fonte: 'cgroup-v2-cpu.pressure.full', motivo: 'psi-cpu-indisponivel', amostras: 0 };
+  }
+}
+
+function amostrarPressaoCpu(sonda, pid, tabela, containers) {
+  if (sonda.estado !== 'medindo') return;
+  sonda.amostras++;
+  if (tabela.has(pid)) {
+    sonda.arvoreObservada = true;
+    const motivo = conferirExclusividadeDaPressao(pid, tabela, containers, sonda.cgroup);
+    if (motivo) sonda.motivos.add(motivo);
+  }
+  try {
+    const atual = lerPressaoCpu(fs.readFileSync(sonda.arquivo, 'utf8'));
+    if (atual === null || atual < sonda.fimUs) sonda.motivos.add('psi-full-invalido');
+    else sonda.fimUs = atual;
+  } catch { sonda.motivos.add('psi-cpu-indisponivel'); }
+}
+
+function fecharPressaoCpu(sonda, janelaMs) {
+  if (sonda.estado !== 'medindo') return { estado: 'indisponivel', fonte: sonda.fonte, motivo: sonda.motivo,
+    atrasoTotalMs: null, janelaMs, amostras: sonda.amostras };
+  if (!sonda.arvoreObservada) sonda.motivos.add('arvore-nao-observada');
+  const motivos = [...sonda.motivos];
+  if (motivos.length) return { estado: 'indisponivel', fonte: sonda.fonte, motivo: motivos[0], motivos,
+    atrasoTotalMs: null, janelaMs, amostras: sonda.amostras };
+  return { estado: 'medida', fonte: sonda.fonte, motivo: null, atrasoTotalMs: (sonda.fimUs - sonda.inicioUs) / 1000,
+    janelaMs, amostras: sonda.amostras };
 }
 
 /** CPU de processos que nao pertencem a esta bancada, agregada por nome e normalizada pela capacidade da maquina. */
@@ -408,23 +509,61 @@ function paredeSemPreparo(rodada) {
   return parede > 0 ? parede : null;
 }
 
+/**
+ * Retira somente o limite inferior do atraso causal. A janela da sonda inclui preparo e invólucro; todo esse tempo
+ * excluído e debitado primeiro do PSI `full`. Sem fonte exclusiva e completa, a rodada recebe credito zero.
+ */
+function correcaoDaRodada(rodada) {
+  const parede = paredeSemPreparo(rodada);
+  const steal = Number.isFinite(rodada?.stealPct) && rodada.stealPct >= 0 ? rodada.stealPct : null;
+  const carga = Number.isFinite(rodada?.cargaExterna?.pct) && rodada.cargaExterna.pct >= 0 ? rodada.cargaExterna.pct : null;
+  const medida = rodada?.contencaoCpu;
+  const disponivel = medida?.estado === 'medida' && Number.isFinite(medida.atrasoTotalMs) && medida.atrasoTotalMs >= 0
+    && Number.isFinite(medida.janelaMs) && medida.janelaMs >= 0;
+  const janelaExcluidaMs = parede !== null && disponivel ? Math.max(0, medida.janelaMs - parede) : null;
+  const atrasoCausalMs = parede !== null && disponivel
+    ? Math.max(0, Math.min(parede, medida.atrasoTotalMs - janelaExcluidaMs)) : 0;
+  const paredeAjustadaMs = parede !== null ? parede - atrasoCausalMs : null;
+  const atrasoCausalPct = parede !== null ? atrasoCausalMs / parede * 100 : null;
+  return { stealPct: steal, cargaExternaPct: carga, estado: disponivel ? 'medida' : 'sem-credito',
+    fonte: medida?.fonte ?? 'cgroup-v2-cpu.pressure.full',
+    motivo: disponivel ? null : medida?.motivo ?? (medida ? 'medida-causal-invalida' : 'pressao-cpu-ausente'),
+    atrasoTotalMs: disponivel ? medida.atrasoTotalMs : null, janelaMs: disponivel ? medida.janelaMs : null,
+    janelaExcluidaMs, atrasoCausalMs, atrasoCausalPct, paredeAjustadaMs };
+}
+
 /** Validade de um par antes de ele poder participar da razao oficial. */
-function validarPar(a, classic, ordem, esperada, toleranciaStealPp = TOLERANCIA_STEAL_PP,
-  cargaForaMaxPct = CARGA_FORA_MAX_PCT) {
+function validarPar(a, classic, ordem, esperada, desequilibrioCpuMaxPp = DESEQUILIBRIO_CPU_MAX_PP) {
   const motivos = [];
   if (!a?.ok || !classic?.ok) motivos.push('rodada-reprovada');
   const paredeAgile = paredeSemPreparo(a), paredeClassic = paredeSemPreparo(classic);
   if (paredeAgile === null || paredeClassic === null) motivos.push('preparo-ou-parede-ausente');
   if (ordem.join(',') !== esperada.join(',')) motivos.push('ordem-nao-ABBA');
-  const stealAgile = a?.stealPct, stealClassic = classic?.stealPct;
-  if (typeof stealAgile !== 'number' || typeof stealClassic !== 'number') motivos.push('steal-ausente');
-  else if (Math.abs(stealAgile - stealClassic) > toleranciaStealPp) motivos.push('steal-divergente');
-  const cargaAgile = a?.cargaExterna?.pct, cargaClassic = classic?.cargaExterna?.pct;
-  if (typeof cargaAgile !== 'number' || typeof cargaClassic !== 'number') motivos.push('carga-de-fora-ausente');
-  else if (cargaAgile > cargaForaMaxPct || cargaClassic > cargaForaMaxPct) motivos.push('carga-de-fora-acima-do-limiar');
-  return { valido: motivos.length === 0, motivos, paredesSemPreparoMs: { agile: paredeAgile, classic: paredeClassic },
-    divergenciaStealPp: typeof stealAgile === 'number' && typeof stealClassic === 'number' ? Math.abs(stealAgile - stealClassic) : null,
-    cargaDeFora: { agilePct: cargaAgile ?? null, classicPct: cargaClassic ?? null, limiarPct: cargaForaMaxPct } };
+  const correcaoAgile = correcaoDaRodada(a);
+  const correcaoClassic = correcaoDaRodada(classic);
+  if (correcaoAgile.stealPct === null || correcaoClassic.stealPct === null) motivos.push('steal-ausente');
+  if (correcaoAgile.cargaExternaPct === null || correcaoClassic.cargaExternaPct === null) motivos.push('carga-de-fora-ausente');
+  const divergenciaStealPp = correcaoAgile.stealPct !== null && correcaoClassic.stealPct !== null
+    ? Math.abs(correcaoAgile.stealPct - correcaoClassic.stealPct) : null;
+  const divergenciaCargaExternaPp = correcaoAgile.cargaExternaPct !== null && correcaoClassic.cargaExternaPct !== null
+    ? Math.abs(correcaoAgile.cargaExternaPct - correcaoClassic.cargaExternaPct) : null;
+  if (divergenciaStealPp !== null && divergenciaStealPp > desequilibrioCpuMaxPp) motivos.push('steal-desequilibrado');
+  if (divergenciaCargaExternaPp !== null && divergenciaCargaExternaPp > desequilibrioCpuMaxPp) {
+    motivos.push('carga-de-fora-desequilibrada');
+  }
+  const paredesAjustadasMs = { agile: correcaoAgile.paredeAjustadaMs, classic: correcaoClassic.paredeAjustadaMs };
+  return {
+    valido: motivos.length === 0,
+    motivos,
+    paredesSemPreparoMs: { agile: paredeAgile, classic: paredeClassic },
+    paredesAjustadasMs,
+    razaoBruta: razao(paredeClassic, paredeAgile),
+    razaoAjustada: razao(paredesAjustadasMs.classic, paredesAjustadasMs.agile),
+    correcao: { agile: correcaoAgile, classic: correcaoClassic, desequilibrioCpuMaxPp },
+    divergenciaStealPp,
+    cargaDeFora: { agilePct: correcaoAgile.cargaExternaPct, classicPct: correcaoClassic.cargaExternaPct,
+      divergenciaPp: divergenciaCargaExternaPp },
+  };
 }
 
 /**
@@ -688,6 +827,7 @@ function executar(cmd, args, { cwd, env, log, prazoMs, memoria = false, tempo = 
     const [bin, argv] = tempo ? [TEMPO, ['-f', FORMATO_DO_TEMPO, '-o', tempo, cmd, ...args]] : [cmd, args];
     const p = spawn(bin, argv, { cwd, env, stdio: ['ignore', fd, fd] });
     emCurso = p.pid;
+    const pressaoCpu = cargaExterna ? iniciarPressaoCpu(p.pid) : null;
     const amostras = [];
     const amostrasExternas = [];
     const amostrasInfraestrutura = [];
@@ -702,6 +842,7 @@ function executar(cmd, args, { cwd, env, log, prazoMs, memoria = false, tempo = 
         amostrasExternas.push(classificados.externos);
         amostrasInfraestrutura.push(classificados.infraestrutura);
         amostrasContainers.push(containers);
+        amostrarPressaoCpu(pressaoCpu, p.pid, tabela, containers);
       }
     } catch { /* segue */ } };
     if (memoria || cargaExterna) amostrar();
@@ -719,7 +860,7 @@ function executar(cmd, args, { cwd, env, log, prazoMs, memoria = false, tempo = 
       const externa = resumirCargaExterna(amostrasExternas, paredeMs, os.availableParallelism());
       resolve({ code, sinal, paredeMs, pico: picoAgregado(amostras), amostras: amostras.length,
         ...(cargaExterna ? { cargaExterna: cargaExternaComInfraestrutura(externa, cpuDaInfraestrutura, paredeMs, os.availableParallelism()),
-          cpuDosContainers, cpuDaInfraestrutura } : {}) });
+          cpuDosContainers, cpuDaInfraestrutura, contencaoCpu: fecharPressaoCpu(pressaoCpu, paredeMs) } : {}) });
     });
   });
 }
@@ -843,7 +984,6 @@ function opcoes(args) {
     prazoMs: Number(valor('--prazo-min', '60')) * 60000, compartilhado: args.includes('--cache-compartilhado'), manter: args.includes('--manter'),
     commit: valor('--commit', null), bancada: args.includes('--bancada'), pares, porArquivo: Number(valor('--por-arquivo', String(pares))),
     linhaDeBase: valor('--linha-de-base', null), claimsDe: valor('--claims-de', null), cargaMax: Number(valor('--carga-max', '2')),
-    cargaForaMaxPct: Number(valor('--carga-fora-max-pct', String(CARGA_FORA_MAX_PCT))),
     janelaMs: Number(valor('--janela-quieta-s', '120')) * 1000, esperaMaxMs: Number(valor('--espera-max-min', '60')) * 60000,
     reanalisar: valor('--reanalisar', null) };
 }
@@ -852,8 +992,6 @@ function validarOpcoesDaBancada(o) {
   if (!Number.isInteger(o.pares) || o.pares < MIN_PARES_CONFIAVEIS) {
     throw new Error(`a bancada confiavel exige pelo menos ${MIN_PARES_CONFIAVEIS} pares (--pares ${MIN_PARES_CONFIAVEIS} ou mais)`);
   }
-  const cargaForaMaxPct = o.cargaForaMaxPct ?? CARGA_FORA_MAX_PCT;
-  if (!Number.isFinite(cargaForaMaxPct) || cargaForaMaxPct < 0) throw new Error('--carga-fora-max-pct exige numero maior ou igual a zero');
 }
 
 /**
@@ -946,7 +1084,8 @@ async function principal(args) {
       if (logs) fs.copyFileSync(log, path.join(logs, path.basename(log)));
       const ultima = ultimaRodada(c.ledger, resultado.length);
       resultado.push({ n: i + 1, pedido: modo, saida: r.code, sinal: r.sinal, paredeMs: r.paredeMs, picoBytes: r.pico.bytes,
-        picoArvore: r.pico.arvore, picoContainers: r.pico.containers, amostras: r.amostras, ...(ultima ?? { modo: null, ok: false, duracaoMs: null }) });
+        picoArvore: r.pico.arvore, picoContainers: r.pico.containers, amostras: r.amostras, contencaoCpu: r.contencaoCpu,
+        ...(ultima ?? { modo: null, ok: false, duracaoMs: null }) });
       process.stderr.write(`medir-check: rodada ${i + 1} (${modo}) ${ultima?.duracaoMs ?? '?'} ms no ledger, ${r.paredeMs} ms de parede, ` +
         `pico ${(r.pico.bytes / 1024 ** 3).toFixed(2)} GiB, saida ${r.code}\n`);
     }
@@ -1044,6 +1183,7 @@ async function bancada(o) {
         const cpu = lerTempo(lerOuVazio(tempo));
         const registro = { par: k, pedido: modo, espera: esperou, stealPct: steal, saida: r.code, sinal: r.sinal, paredeMs: r.paredeMs,
           ...(temperatura ? { temperatura } : {}), cargaExterna: r.cargaExterna,
+          contencaoCpu: r.contencaoCpu,
           cpuDaArvoreMs: cpu ? cpu.userMs + cpu.sysMs : null, userMs: cpu?.userMs ?? null, sysMs: cpu?.sysMs ?? null,
           infraestruturaDeContainer: r.cpuDaInfraestrutura,
           cpuDaRodada: { arvoreMs: cpu ? cpu.userMs + cpu.sysMs : null,
@@ -1102,12 +1242,13 @@ function escreverBancada(bruto, o) {
   const linhaDeBase = o.linhaDeBase ? JSON.parse(fs.readFileSync(o.linhaDeBase, 'utf8')) : null;
   const fechos = Object.fromEntries(Object.entries(bruto.fechos ?? {}).map(([t, f]) => [t, new Set(f)]));
   const resumo = analisarBancada({ rodadas: bruto.rodadas, passes: bruto.passes, lanes: bruto.lanes ?? {}, nucleos: bruto.nucleos,
-    linhaDeBase, fechos, sobeProcesso: bruto.sobeProcesso ?? [], diffs: bruto.diffs ?? [], claimsRef: bruto.claimsRef ?? null,
-    cargaForaMaxPct: o.cargaForaMaxPct });
+    linhaDeBase, fechos, sobeProcesso: bruto.sobeProcesso ?? [], diffs: bruto.diffs ?? [], claimsRef: bruto.claimsRef ?? null });
   const saida = {
     contrato: 'ork.medir-check.bancada/v1', commit: bruto.commit, base: bruto.base, cache: bruto.cache,
     maquina: { nucleos: bruto.nucleos, memoriaBytes: bruto.memoriaBytes, node: process.version, plataforma: process.platform },
-    criterios: { cargaMax: o.cargaMax, cargaForaMaxPct: o.cargaForaMaxPct, janelaQuietaMs: o.janelaMs, esperaMaxMs: o.esperaMaxMs,
+    criterios: { cargaMax: o.cargaMax, desequilibrioCpuMaxPp: DESEQUILIBRIO_CPU_MAX_PP,
+      cvRazaoAjustadaMax: CV_RAZAO_AJUSTADA_MAX,
+      janelaQuietaMs: o.janelaMs, esperaMaxMs: o.esperaMaxMs,
       pares: bruto.rodadas.filter((r) => r.pedido === 'agile' && r.temperatura !== 'morno').length,
       porArquivo: bruto.passes.length },
     claims: CLAIMS_REPRESENTATIVAS,
@@ -1125,8 +1266,7 @@ function escreverBancada(bruto, o) {
  * As contas da bancada sobre as rodadas e os passes ja medidos: a razao de cada par, a CPU da suite por passe e por lane,
  * a eficiencia de cada lane, o corte de CPU, a variacao entre rodadas e as sondas 1 a 5.
  */
-function analisarBancada({ rodadas, passes, lanes, nucleos, linhaDeBase = null, fechos = {}, sobeProcesso = [], diffs = [], claimsRef = null,
-  cargaForaMaxPct = CARGA_FORA_MAX_PCT }) {
+function analisarBancada({ rodadas, passes, lanes, nucleos, linhaDeBase = null, fechos = {}, sobeProcesso = [], diffs = [], claimsRef = null }) {
   const laneDe = {};
   for (const [lane, arquivos] of Object.entries(lanes)) for (const a of arquivos) laneDe[a] = lane;
   const cpuDoPasse = (p) => {
@@ -1155,8 +1295,8 @@ function analisarBancada({ rodadas, passes, lanes, nucleos, linhaDeBase = null, 
     const morno = rodadas.find((r) => r.par === k && r.pedido === 'agile' && r.temperatura === 'morno');
     const cl = rodadas.find((r) => r.par === k && r.pedido === 'classic');
     const ordem = rodadas.filter((r) => r.par === k).map((r) => r.pedido).filter((modo, i, todos) => i === 0 || modo !== todos[i - 1]);
-    const validade = validarPar(a, cl, ordem, ordensEsperadas[indice], TOLERANCIA_STEAL_PP, cargaForaMaxPct);
-    const validadeMorna = validarPar(morno, cl, ordem, ordensEsperadas[indice], TOLERANCIA_STEAL_PP, cargaForaMaxPct);
+    const validade = validarPar(a, cl, ordem, ordensEsperadas[indice]);
+    const validadeMorna = validarPar(morno, cl, ordem, ordensEsperadas[indice]);
     const passe = cpuPorPasse.find((p) => p.passe === k) ?? cpuPorPasse[cpuPorPasse.length - 1] ?? null;
     const laneMs = (r, lane) => r?.comandos.find((x) => x.nome === 'test')?.lanes?.find((l) => l.lane === lane)?.duracaoMs ?? null;
     const testMs = (r) => r?.comandos.find((x) => x.nome === 'test')?.duracaoMs ?? null;
@@ -1180,21 +1320,29 @@ function analisarBancada({ rodadas, passes, lanes, nucleos, linhaDeBase = null, 
         razao: null, razaoDaCpu: null, stealPct: { agile: morno?.stealPct ?? null, classic: cl?.stealPct ?? null } },
     });
   }
-  const confiancaDe = (validos) => {
+  const confiancaDe = (validos, razaoDoPar) => {
     const motivos = [];
     if (pares.length < MIN_PARES_CONFIAVEIS) motivos.push(`menos-de-${MIN_PARES_CONFIAVEIS}-pares`);
     if (validos.length < MIN_PARES_CONFIAVEIS) motivos.push(`menos-de-${MIN_PARES_CONFIAVEIS}-pares-validos`);
+    const variacaoAjustada = variacao(validos.map(razaoDoPar));
+    if (validos.length >= MIN_PARES_CONFIAVEIS &&
+        (variacaoAjustada?.cv === null || variacaoAjustada?.cv >= CV_RAZAO_AJUSTADA_MAX)) {
+      motivos.push('variacao-da-razao-ajustada-acima-do-limite');
+    }
     return { estado: motivos.length ? 'sem-confianca' : 'com-confianca', motivos, pares: pares.length, paresValidos: validos.length,
-      minimo: MIN_PARES_CONFIAVEIS, toleranciaStealPp: TOLERANCIA_STEAL_PP, cargaForaMaxPct };
+      minimo: MIN_PARES_CONFIAVEIS, desequilibrioCpuMaxPp: DESEQUILIBRIO_CPU_MAX_PP,
+      cvRazaoAjustada: variacaoAjustada?.cv ?? null,
+      cvRazaoAjustadaMax: CV_RAZAO_AJUSTADA_MAX };
   };
   const validos = pares.filter((p) => p.valido), validosMornos = pares.filter((p) => p.morna.valido);
-  const confiancaFria = confiancaDe(validos), confiancaMorna = confiancaDe(validosMornos);
+  const confiancaFria = confiancaDe(validos, (p) => p.razaoAjustada);
+  const confiancaMorna = confiancaDe(validosMornos, (p) => p.morna.razaoAjustada);
   if (confiancaFria.estado === 'com-confianca') for (const p of validos) {
-    p.razao = razao(p.paredesSemPreparoMs.classic, p.paredesSemPreparoMs.agile);
+    p.razao = p.razaoAjustada;
     p.razaoDaCpu = razao(p.cpuDaArvore.classic.ms, p.cpuDaArvore.agile.ms);
   }
   if (confiancaMorna.estado === 'com-confianca') for (const p of validosMornos) {
-    p.morna.razao = razao(p.morna.paredesSemPreparoMs.classic, p.morna.paredesSemPreparoMs.agile);
+    p.morna.razao = p.morna.razaoAjustada;
     p.morna.razaoDaCpu = razao(p.morna.cpuDaArvore.classic.ms, p.morna.cpuDaArvore.agile.ms);
   }
   const baseCpu = linhaDeBase?.cpuDaSuite?.variacao?.media ?? variacao(cpuPorPasse.map((p) => p.total))?.media ?? null;
@@ -1220,6 +1368,9 @@ function analisarBancada({ rodadas, passes, lanes, nucleos, linhaDeBase = null, 
     pares,
     variacao: {
       razaoFria: variacao(pares.map((p) => p.razao)), razaoMorna: variacao(pares.map((p) => p.morna.razao)),
+      razaoBrutaFria: variacao(pares.map((p) => p.razaoBruta)), razaoBrutaMorna: variacao(pares.map((p) => p.morna.razaoBruta)),
+      razaoAjustadaFria: variacao(validos.map((p) => p.razaoAjustada)),
+      razaoAjustadaMorna: variacao(validosMornos.map((p) => p.morna.razaoAjustada)),
       razaoDaCpuFria: variacao(pares.map((p) => p.razaoDaCpu)), razaoDaCpuMorna: variacao(pares.map((p) => p.morna.razaoDaCpu)),
       agileFrioMs: variacao(agiles.map((r) => r.duracaoMs)), agileMornoMs: variacao(agilesMornos.map((r) => r.duracaoMs)),
       classicMs: variacao(classics.map((r) => r.duracaoMs)),
@@ -1240,7 +1391,8 @@ function analisarBancada({ rodadas, passes, lanes, nucleos, linhaDeBase = null, 
 }
 
 module.exports = { lerRodadas, tresConsecutivas, rssDaArvore, picoAgregado, pastaDasCopias, encerrarArvore, CLAIMS_REPRESENTATIVAS,
-  MIN_PARES_CONFIAVEIS, TOLERANCIA_STEAL_PP, CARGA_FORA_MAX_PCT, ordemDosPares, paredeSemPreparo, validarPar,
+  MIN_PARES_CONFIAVEIS, DESEQUILIBRIO_CPU_MAX_PP, CV_RAZAO_AJUSTADA_MAX, ordemDosPares, paredeSemPreparo,
+  correcaoDaRodada, validarPar, lerPressaoCpu, conferirExclusividadeDaPressao,
   validarOpcoesDaBancada,
   razao, eficiencia, corte, variacao, quantil, lerCpuStat, stealPct, quieta, eSuite, lerTempo, contarTap, concentracao,
   custoDosMaiores, claimsQueRepetem, pesoNaRodada, selecionarPorDiff, sondaDoGrafo, pecasEmFallback, redigir, comandosDeClaims,

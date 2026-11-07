@@ -1,0 +1,69 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-074 M13: só contenção causal recebe crédito; indisponibilidade e a fronteira do CV fecham de modo conservador.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "a carga externa agregada volta a receber crédito multiplicativo",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "de": "const paredeAjustadaMs = parede !== null ? parede - atrasoCausalMs : null;",
+      "para": "const paredeAjustadaMs = parede !== null ? parede * (1 - (carga ?? 0) / 100) : null;",
+      "teste": "medir-check",
+      "nome": "^MC23:"
+    },
+    {
+      "id": "M2",
+      "descricao": "PSI some credita a contenção causada pelos workers da própria rodada",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "de": "const linha = String(texto).split('\\n').find((l) => l.startsWith('full '));",
+      "para": "const linha = String(texto).split('\\n').find((l) => l.startsWith('some '));",
+      "teste": "medir-check",
+      "nome": "^MC24:"
+    },
+    {
+      "id": "M3",
+      "descricao": "uma fonte indisponível recebe crédito residual",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "de": "const disponivel = medida?.estado === 'medida' &&",
+      "para": "const disponivel = medida?.estado !== 'medida' &&",
+      "teste": "medir-check",
+      "nome": "^MC23:"
+    },
+    {
+      "id": "M4",
+      "descricao": "CV exatamente igual ao limite passa a ser aceito",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "de": "variacaoAjustada?.cv >= CV_RAZAO_AJUSTADA_MAX",
+      "para": "variacaoAjustada?.cv > CV_RAZAO_AJUSTADA_MAX",
+      "teste": "medir-check",
+      "nome": "^MC25:"
+    },
+    {
+      "id": "M5",
+      "descricao": "a correção causal volta a ser aplicada somente ao Classic",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "de": "const paredesAjustadasMs = { agile: correcaoAgile.paredeAjustadaMs, classic: correcaoClassic.paredeAjustadaMs };",
+      "para": "const paredesAjustadasMs = { agile: paredeAgile, classic: correcaoClassic.paredeAjustadaMs };",
+      "teste": "medir-check",
+      "nome": "^MC23:"
+    },
+    {
+      "id": "M6",
+      "descricao": "a razão bruta volta a alimentar a razão oficial",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "de": "razaoAjustada: razao(paredesAjustadasMs.classic, paredesAjustadasMs.agile),",
+      "para": "razaoAjustada: razao(paredeClassic, paredeAgile),",
+      "teste": "medir-check",
+      "nome": "^MC23:"
+    },
+    {
+      "id": "M7",
+      "descricao": "um par acima da fronteira de desequilíbrio volta a ser aceito",
+      "arquivo": "core/scripts/medir-check.cjs",
+      "de": "function validarPar(a, classic, ordem, esperada, desequilibrioCpuMaxPp = DESEQUILIBRIO_CPU_MAX_PP) {",
+      "para": "function validarPar(a, classic, ordem, esperada, desequilibrioCpuMaxPp = Number.POSITIVE_INFINITY) {",
+      "teste": "medir-check",
+      "nome": "^MC24:"
+    }
+  ]
+}
