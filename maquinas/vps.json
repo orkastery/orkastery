@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.5",
-  "publicadoEm": "2026-11-07T19:24:10.877Z",
+  "publicadoEm": "2026-11-07T19:30:04.974Z",
   "threads": [
     {
       "id": "ork-roadmaptresi",
@@ -24,7 +24,7 @@
       "esforco": null,
       "sessao": {
         "viva": false,
-        "desdeEm": "2026-11-07T19:24:10.433Z",
+        "desdeEm": "2026-11-07T19:24:37.107Z",
         "motivo": "nenhuma sessão despachada na fase GO"
       }
     }
