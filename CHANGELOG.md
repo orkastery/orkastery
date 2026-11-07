@@ -8,7 +8,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
-- **Claims e ciclo de correção ([RM-079](docs/roadmap/RM-079-claims-que-a-correcao-passa.md)):** o CHECK registra claims que passam com a correção, o lint avisa sobre provas artificiais ou circulares, a retirada tipada exige substituta verde ou decisão do dono, e `ork fix` abre e acompanha achados do parecer sem claim. O recibo vincula a substituta pela impressão canônica da lista; textos de comando em recibo, saída serializada ou SHIP e motivos na CLI passam pela redação geral sem alterar execução ou comparação, e a resposta MCP omite a lista `verificar` da claim.
+- **Claims e ciclo de correção ([RM-079](docs/roadmap/RM-079-claims-que-a-correcao-passa.md)):** o CHECK registra claims que passam com a correção, o lint avisa sobre provas artificiais ou circulares e a retirada tipada exige substituta verde ou decisão do dono. O `verify_run`, os recibos e as execuções do verify redigem textos de comando sem alterar execução ou identidade; a retirada na CLI redige o motivo, a retirada no MCP omite a lista `verificar`, e o `fix` vindo do parecer redige seus textos antes de recibo, ledger ou saída.
 
 ### Alterado
 
