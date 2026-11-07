@@ -1,0 +1,132 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-074 M12: as recusas tipadas preservam as cercas da prova nominal das lanes.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "uma falha nominal da lane passa a provar a claim",
+      "modulo": "check-agil",
+      "de": "vistos.some((t) => t.estado === 'fail')",
+      "para": "false",
+      "teste": "check-agil",
+      "nome": "^AG46:"
+    },
+    {
+      "id": "M2",
+      "descricao": "uma lane de outro HEAD passa a provar a claim",
+      "modulo": "check-agil",
+      "de": "const noHead = comArquivo.filter((e) => e.head === esperado.head);",
+      "para": "const noHead = comArquivo;",
+      "teste": "check-agil",
+      "nome": "^AG46:"
+    },
+    {
+      "id": "M3",
+      "descricao": "uma claim de outra classe deixa de fechar o lote",
+      "modulo": "verify",
+      "de": "!claimRecusadaAgendavel(planos)",
+      "para": "false",
+      "teste": "check-agil",
+      "nome": "^AG54:"
+    },
+    {
+      "id": "M4",
+      "descricao": "claims do mesmo arquivo perdem a dependencia de ordem",
+      "modulo": "verify",
+      "de": "ultimoPorArquivo.get(claim.arquivo)",
+      "para": "undefined",
+      "teste": "check-agil",
+      "nome": "^AG54:"
+    },
+    {
+      "id": "M5",
+      "descricao": "arquivos distintos deixam de receber um lote do agendador",
+      "modulo": "verify",
+      "de": "new Set(lote.map((x) => x.claim.arquivo)).size < 2",
+      "para": "true",
+      "teste": "check-agil",
+      "nome": "^AG54:"
+    },
+    {
+      "id": "M6",
+      "descricao": "o recibo troca o motivo tipado da recusa",
+      "modulo": "verify",
+      "de": "motivoTipado: lane.motivo",
+      "para": "motivoTipado: 'comando-nao-elegivel'",
+      "teste": "check-agil",
+      "nome": "^AG55:"
+    },
+    {
+      "id": "M7",
+      "descricao": "a lane ignora o TMPDIR da rodada e volta a criar o proprio",
+      "arquivo": "core/scripts/test-lanes.cjs",
+      "de": "const tmpdirDaRodada = process.env[ENV_TMPDIR_DA_RODADA] === '1' && process.env.TMPDIR\n    ? path.resolve(process.env.TMPDIR) : null;",
+      "para": "const tmpdirDaRodada = null;",
+      "teste": "check-agil",
+      "nome": "^AG55:"
+    },
+    {
+      "id": "M8",
+      "descricao": "a claim elegivel roda sem o TMPDIR da rodada",
+      "modulo": "verify",
+      "de": "const ambienteFuncionalDasLanes = { ...temporarioDaRodada?.ambiente,",
+      "para": "const ambienteFuncionalDasLanes = {",
+      "teste": "check-agil",
+      "nome": "^AG55:"
+    },
+    {
+      "id": "M9",
+      "descricao": "a assinatura deixa de considerar o valor literal de TMPDIR",
+      "modulo": "ambiente-funcional",
+      "de": "Object.entries(ambienteFuncionalDosTestes(base, acrescimos)).sort(([a], [b]) => a.localeCompare(b))",
+      "para": "Object.entries(ambienteFuncionalDosTestes(base, acrescimos)).filter(([nome]) => nome !== 'TMPDIR').sort(([a], [b]) => a.localeCompare(b))",
+      "teste": "check-agil",
+      "nome": "^AG55:"
+    },
+    {
+      "id": "M10",
+      "descricao": "a assinatura deixa de considerar o PATH funcional",
+      "modulo": "ambiente-funcional",
+      "de": "Object.entries(ambienteFuncionalDosTestes(base, acrescimos)).sort(([a], [b]) => a.localeCompare(b))",
+      "para": "Object.entries(ambienteFuncionalDosTestes(base, acrescimos)).filter(([nome]) => nome !== 'PATH').sort(([a], [b]) => a.localeCompare(b))",
+      "teste": "check-agil",
+      "nome": "^AG55:"
+    },
+    {
+      "id": "M11",
+      "descricao": "o processo unico desliga o isolamento padrao do runner",
+      "arquivo": "core/scripts/test-lanes.cjs",
+      "de": "const args = ['--test', `--test-concurrency=${vagas}`, '--test-reporter=tap'",
+      "para": "const args = ['--test', '--experimental-test-isolation=none', `--test-concurrency=${vagas}`, '--test-reporter=tap'",
+      "teste": "test-lanes",
+      "nome": "^TL9:"
+    },
+    {
+      "id": "M12",
+      "descricao": "o pool por arquivo desliga o isolamento padrao do runner",
+      "arquivo": "core/scripts/test-lanes.cjs",
+      "de": "const args = ['--test', '--test-concurrency=1', '--test-reporter=tap'",
+      "para": "const args = ['--test', '--experimental-test-isolation=none', '--test-concurrency=1', '--test-reporter=tap'",
+      "teste": "test-lanes",
+      "nome": "^TL9:"
+    },
+    {
+      "id": "M13",
+      "descricao": "o filho da claim volta a herdar o ambiente bruto do auxiliar",
+      "modulo": "check-paralelo",
+      "de": "? (0, ambiente_funcional_1.ambienteFuncionalDosTestes)(process.env, item.ambiente ?? {})",
+      "para": "? { ...process.env, ...item.ambiente }",
+      "teste": "check-agil",
+      "nome": "^AG58:"
+    },
+    {
+      "id": "M14",
+      "descricao": "a lane de integracao deixa de levar a cota Docker para a regra funcional",
+      "arquivo": "core/scripts/test-lanes.cjs",
+      "de": "...(cotaDockerDaIntegracao ? { ORK_CHECK_CPUS_DOCKER: cotaDockerDaIntegracao } : {})",
+      "para": "...{}",
+      "teste": "check-agil",
+      "nome": "^AG55:"
+    }
+  ]
+}

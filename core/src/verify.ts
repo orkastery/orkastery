@@ -55,7 +55,7 @@ import { ENV_MODO_DO_CHECK, ENV_RELATORIO_DO_CHECK, ENV_VARREDURA_PARALELA_DO_CH
   resolverModo } from './check-modo';
 import { comandosNoAgile, ComandosDoAgile, executorDaClaimNoAgile, executorDaClaimPelasLanes, ExecutorDeGrupo, GuardaDoProduto, listasDasLanes,
   MAXIMO_DE_PREPAROS_REFEITOS, PecaDoAgile, paralelismoDaVarreduraNoGrupo, PECA_SEM_RELATORIO, pecasDoRelatorio,
-  porQueDasLanes, prepararNoAgile, PreparoVigente, refazerPreparo, RefazerPreparo, RelatorioDoCheck,
+  planejarClaimsNoAgile, porQueDasLanes, prepararNoAgile, PreparoVigente, refazerPreparo, RefazerPreparo, RelatorioDoCheck,
   resultadosDasLanes } from './check-agil';
 import { esperaDoGrupo, rodarEmParalelo } from './check-paralelo';
 import { ENV_CPUS_DA_LANE, ENV_CPUS_DOCKER, ENV_WORKERS, MedicaoCpuDoGrupo, PlanoCpuDoGrupo, workersDaReserva } from './agendador-cpu';
@@ -64,6 +64,9 @@ import { anexarRelatorioJUnit, caminhoJUnitDoComando, marcacaoDeRelogioDoComando
   RelatorioJUnitPreparado } from './junit';
 import { planejarSelecaoNativa } from './check-selecao';
 import { chaveDoReciboDeProva } from './recibo-prova';
+import { ENV_TMPDIR_DA_RODADA, selecionarTemporario } from './temporario-das-lanes';
+import { ambienteFuncionalDosTestes, ENV_PATH_FUNCIONAL_DA_RODADA,
+  transporteDoAmbienteFuncional } from './ambiente-funcional';
 
 /** Teto de tempo de um comando de verificacao (build e suite completa cabem). */
 export const TIMEOUT_VERIFY_MS = 10 * 60 * 1000;
@@ -95,6 +98,7 @@ export const PREFIXO_BLOQUEADO_NO_VERIFY = 'ORK_HITL_';
  */
 const VARIAVEIS_DA_RODADA: ReadonlySet<string> = new Set([
   ENV_RELATORIO_DO_CHECK, ENV_VARREDURA_PARALELA_DO_CHECK, ENV_CPUS_DA_LANE, ENV_CPUS_DOCKER, ENV_WORKERS,
+  ENV_PATH_FUNCIONAL_DA_RODADA,
 ]);
 
 export function ambienteDoVerify(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
@@ -142,13 +146,15 @@ export function prazoDaExecucao(manifesto: Manifesto, nome: string, comando: str
  * O executor resolvido pelo manifesto: prazo de cada comando e, no scan, o prazo interno no ambiente. RM-072 (D2):
  * `ambienteDaRodada` e o que a rodada passa a todo comando dela (o modo do CHECK); o CI hospedado nao passa nada.
  */
-export function executorDoManifesto(manifesto: Manifesto, ambienteDaRodada?: Record<string, string>): ExecutorVerify {
+export function executorDoManifesto(manifesto: Manifesto, ambienteDaRodada?: Record<string, string>,
+  ambienteBase?: NodeJS.ProcessEnv): ExecutorVerify {
   return (nome, comando, cwd) => {
     const prazo = prazoDaExecucao(manifesto, nome, comando);
     const extra = ehComandoDoScan(manifesto, nome, comando)
       ? { ORK_SECURITY_SCAN_DEADLINE_MS: String(prazoInternoDoScan(prazo)) }
       : undefined;
-    return executar(nome, comando, cwd, prazo, ambienteDaRodada || extra ? { ...ambienteDaRodada, ...extra } : undefined);
+    return executar(nome, comando, cwd, prazo, ambienteDaRodada || extra ? { ...ambienteDaRodada, ...extra } : undefined,
+      ambienteBase);
   };
 }
 
@@ -162,14 +168,14 @@ export function executorDoManifesto(manifesto: Manifesto, ambienteDaRodada?: Rec
  * O estouro continua saindo como `code: -1`, o contrato de antes.
  */
 export function executar(nome: string, comando: string, cwd: string,
-  tetoMs = TIMEOUT_VERIFY_MS, ambienteExtra?: Record<string, string>): ResultadoDeComando {
+  tetoMs = TIMEOUT_VERIFY_MS, ambienteExtra?: Record<string, string>, ambienteBase?: NodeJS.ProcessEnv): ResultadoDeComando {
   const comGrupo = existsSync(TIMEOUT_BIN);
   const inicio = Date.now();
-  const ambiente = { ...ambienteDoVerify(), ...ambienteExtra };
+  const ambiente = { ...(ambienteBase ?? ambienteDoVerify()), ...ambienteExtra };
   const r = comGrupo
-    ? exec(TIMEOUT_BIN, ['--kill-after=15', `${Math.ceil(tetoMs / 1000)}`, 'bash', '-c', comando],
+    ? exec(TIMEOUT_BIN, ['--kill-after=15', `${Math.ceil(tetoMs / 1000)}`, '/usr/bin/bash', '--noprofile', '--norc', '-c', comando],
       cwd, tetoMs + 30_000, ambiente)
-    : exec('bash', ['-c', comando], cwd, tetoMs, ambiente);
+    : exec('/usr/bin/bash', ['--noprofile', '--norc', '-c', comando], cwd, tetoMs, ambiente);
   return resultadoDoProcesso(nome, comando, r, comGrupo, Date.now() - inicio, tetoMs);
 }
 
@@ -312,6 +318,7 @@ export function comandoNoLedger(c: ResultadoDeComando): Record<string, unknown> 
   // RM-072 (D2): a duracao vai tambem no comando que passa, para a meta do CHECK ser medida pelo ledger. RM-072 (D4, D5):
   // no Agile, o uso do preparo e as lanes; o Classic nao tem esses campos.
   const doAgile = { ...(c.preparo ? { preparo: c.preparo } : {}),
+    ...(c.agendamento ? { agendamento: c.agendamento } : {}),
     ...(c.lane ? { lane: c.lane } : {}),
     ...(c.lanes ? { lanes: c.lanes.map((l) => ({ ...l, comando: redigirCredenciaisUrl(l.comando),
       ...(l.comandoExecutado ? { comandoExecutado: redigirCredenciaisUrl(l.comandoExecutado) } : {}) })) } : {}),
@@ -558,8 +565,10 @@ function recebeORelatorio(nome: string): boolean {
   return nome === 'security_scan' || nome.startsWith('test:');
 }
 
-function soAVarreduraEAsLanesComRelatorio(comRelatorio: ExecutorVerify, semRelatorio: ExecutorVerify): ExecutorVerify {
-  return (nome, comando, cwd) => (recebeORelatorio(nome) ? comRelatorio : semRelatorio)(nome, comando, cwd);
+function soAVarreduraEAsLanesComRelatorio(comRelatorio: ExecutorVerify, semRelatorio: ExecutorVerify,
+  laneComTmpdirDaRodada = comRelatorio): ExecutorVerify {
+  return (nome, comando, cwd) => (nome.startsWith('test:') ? laneComTmpdirDaRodada
+    : recebeORelatorio(nome) ? comRelatorio : semRelatorio)(nome, comando, cwd);
 }
 
 /**
@@ -570,6 +579,7 @@ function soAVarreduraEAsLanesComRelatorio(comRelatorio: ExecutorVerify, semRelat
 /** A evidencia publica do plano: estado, capacidade usada, amostras e, no fallback, o equivalente do Classic. */
 export function pecaDoAgendadorCpu(p: PlanoCpuDoGrupo): PecaDoAgile {
   const medida = p.medicaoCpuIntegracao;
+  const cota = p.cotaDosContainersDaIntegracao;
   const evidencia = medida
     ? `; CPU da integracao: arvore ${Math.round(medida.arvoreMs)} ms + conteineres ${Math.round(medida.containersMs)} ms` +
       ` = ${Math.round(medida.totalMs)} ms, pico da arvore ${medida.picoCpusDaArvore ?? 'indisponivel'} CPU ` +
@@ -579,15 +589,21 @@ export function pecaDoAgendadorCpu(p: PlanoCpuDoGrupo): PecaDoAgile {
         ? `medida anomala (${medida.anomalia})`
         : `medida incompleta (${medida.motivosDosAusentes.map((x) => `${x.container}: ${x.motivo}`).join('; ')})`)
     : '';
-  return { peca: 'agendador-cpu', estado: p.estado,
+  const evidenciaDaCota = cota?.estado === 'aplicada'
+    ? `; adaptador confirmou cota de ${cota.cota} CPU nos conteineres da integracao (${cota.motivo})`
+    : cota?.estado === 'fallback'
+      ? `; adaptador recuou a cota dos conteineres da integracao (${cota.motivo})`
+      : '; cota dos conteineres da integracao sem evidencia do adaptador';
+  return { peca: 'agendador-cpu', estado: !p.saturado && cota?.estado === 'fallback' ? 'degradado' : p.estado,
     motivo: p.saturado
       ? `${p.motivo}; hermetica com ${p.cpusHermetica}/${p.capacidadeEfetiva} CPUs, varredura e integracao depois dela`
       : `${p.motivo}; ${p.cpusHermetica}/${p.capacidadeEfetiva} CPUs na hermetica; depois da varredura ` +
         `${p.cpusHermeticaAposVarredura} e depois da integracao ${p.cpusHermeticaAposReserva}; integracao ` +
         `${p.integracaoEmParalelo ? 'em paralelo com a varredura' : 'encadeada depois da varredura'}; ` +
-        `conteineres com ${p.cpusPorContainer} CPU${evidencia}`,
-    reservaIntegracao: { cpus: p.cpusIntegracao, fonte: p.fonteCpusIntegracao },
-    ...(p.saturado ? { fallback: 'ordem do Classic para hermetica, varredura e integracao' } : {}) };
+        `conteineres da varredura com ${p.cpusPorContainer} CPU${evidenciaDaCota}${evidencia}`,
+    reservaIntegracao: { cpus: p.cpusIntegracaoEmUso, fonte: p.fonteCpusIntegracao },
+    ...(p.saturado ? { fallback: 'ordem do Classic para hermetica, varredura e integracao' }
+      : cota?.estado === 'fallback' ? { fallback: 'argv anterior do runtime de conteiner' } : {}) };
 }
 
 function executorDoGrupo(manifesto: Manifesto, ambienteDaRodada: Record<string, string>, instabilidade: RegistroLido,
@@ -603,11 +619,16 @@ function executorDoGrupo(manifesto: Manifesto, ambienteDaRodada: Record<string, 
     const prazos = itens.map((i) => prazoDaExecucao(manifesto, i.nome, i.comando));
     const paraOAuxiliar = itens.map((i, k) => ({ nome: i.nome, comando: i.comando, cwd, prazoMs: prazos[k],
       ...(i.nice ? { nice: i.nice } : {}), ...(i.apos?.length ? { apos: i.apos } : {}), ...(i.papelCpu ? { papelCpu: i.papelCpu } : {}),
+      ...(i.ambienteFuncional ? { ambienteFuncional: true } : {}),
       ...(i.recursos?.length ? { recursos: i.recursos } : {}),
       ambiente: { ...(recebeORelatorio(i.nome) ? ambienteDaRodada : semRelatorio), ...(ehComandoDoScan(manifesto, i.nome, i.comando)
         // RM-072: ao lado das lanes, a varredura roda poucas ferramentas por vez, para o grupo nao passar da CPU.
         ? { ORK_SECURITY_SCAN_DEADLINE_MS: String(prazoInternoDoScan(prazos[k])),
-          ...(itens.length > 1 ? { [ENV_VARREDURA_PARALELA_DO_CHECK]: String(paralelismoDaVarreduraNoGrupo()) } : {}) } : {}) } }));
+          ...(itens.length > 1 ? { [ENV_VARREDURA_PARALELA_DO_CHECK]: String(paralelismoDaVarreduraNoGrupo()) } : {}) } : {}),
+        ...(i.nome.startsWith('test:') ? {
+          ...(ambienteDaRodada.TMPDIR ? { [ENV_TMPDIR_DA_RODADA]: '1' } : {}),
+          ...transporteDoAmbienteFuncional(ambienteDoVerify()),
+        } : {}) } }));
     // A conducao cobre o grupo inteiro: com a lane encadeada, a varredura e a lane somam.
     conducao.renovar(esperaDoGrupo(paraOAuxiliar));
     const janela = abrirJanela(leitor);
@@ -647,6 +668,37 @@ export interface ResumoDoAgile {
   orcamento: Array<Record<string, unknown>>;
 }
 
+interface TemporarioDaRodada {
+  dir: string;
+  ambiente: Record<string, string>;
+  peca: PecaDoAgile;
+  fechar: () => void;
+}
+
+/** Um unico TMPDIR observavel por lanes e claims; o verify e o unico dono da limpeza. */
+function abrirTemporarioDaRodada(): TemporarioDaRodada {
+  const selecao = selecionarTemporario();
+  const dir = fs.mkdtempSync(path.join(selecao.diretorio, 'ork-verify-tmp-'));
+  return {
+    dir,
+    ambiente: { TMPDIR: dir },
+    peca: { peca: 'tmpfs-das-lanes', estado: selecao.estado,
+      motivo: selecao.motivo, tmpdirDaRodada: true,
+      ...(selecao.estado === 'fallback' ? { fallback: 'disco' } : {}) },
+    fechar: () => fs.rmSync(dir, { recursive: true, force: true }),
+  };
+}
+
+/** O dono da rodada fecha todos os recursos mesmo quando uma execução lança exceção. */
+function fecharRecursosDaRodada(relatorio: RelatorioDoCheck | null, temporario: TemporarioDaRodada | null,
+  casa: string | null = null): void {
+  try { relatorio?.fechar(); } finally {
+    try { temporario?.fechar(); } finally {
+      if (casa && !temporario) fs.rmSync(casa, { recursive: true, force: true });
+    }
+  }
+}
+
 /**
  * RM-072 (D8): le o relatorio das pecas da rodada, grava a lista inteira de cada lane em
  * `.orkastery/threads/<id>/check/<commit>-lanes.json` e devolve o resumo do Agile para o `verify_run`.
@@ -654,18 +706,25 @@ export interface ResumoDoAgile {
 function agileNoLedger(raiz: string, threadId: string, commit: string, pecasDoVerify: PecaDoAgile[], doAgile: ComandosDoAgile | null,
   guarda: GuardaDoProduto, relatorio: RelatorioDoCheck, claims: ResultadoDeClaim[]): ResumoDoAgile {
   const linhas = relatorio.ler();
-  relatorio.fechar();
   const doRelatorio = pecasDoRelatorio(linhas);
   const listas = listasDasLanes(linhas);
   const resultados = resultadosDasLanes(linhas);
   const usos = claims.flatMap((c) => c.execucoes.map((e) => e.preparo).filter((u): u is NonNullable<typeof u> => !!u));
-  const usosDasLanes = claims.flatMap((c) => c.execucoes.filter((e) => e.lane));
+  const usosDasLanes = claims.flatMap((c) => c.execucoes.filter((e) => e.lane).map((e) => e.lane!));
+  const pecasDasClaims: PecaDoAgile[] = claims.flatMap((c) => c.execucoes.filter((e) => e.lane).map((e) => {
+    const lane = e.lane!;
+    return lane.reaproveitada
+      ? { peca: 'claim-lane', estado: 'agile', claim: e.nome,
+        motivo: `reaproveitada das lanes ${lane.lanes.join(', ')} desta rodada` }
+      : { peca: 'claim-lane', estado: 'fallback', claim: e.nome, motivo: lane.motivo, motivoTipado: lane.motivo,
+        fallback: 'claim inteira' };
+  }));
   const resumo: ResumoDoAgile = {
-    pecas: [...pecasDoVerify, ...doRelatorio],
+    pecas: [...pecasDoVerify, ...doRelatorio, ...pecasDasClaims],
     grupo: { paralelo: doAgile?.paralelo ?? false, lanes: doAgile?.lanes ?? [] },
     produto: guarda.hashCurto(),
     claims: { reaproveitadas: usos.filter((u) => u.reaproveitado).length, inteiras: usos.filter((u) => !u.reaproveitado).length,
-      lanes: usosDasLanes.length },
+      lanes: usosDasLanes.filter((u) => u.reaproveitada).length },
     lanes: listas.map((l) => ({ lane: l.lane, arquivos: l.arquivos.length, sha256: l.sha256 })),
     orcamento: linhas.filter((l) => l.tipo === 'duracoes').map(({ tipo: _tipo, ...resto }) => resto),
   };
@@ -748,19 +807,30 @@ function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: stri
   exigirDependenciasDaWorktree(carregado, threadId, cwd, 'baseline', tomada, base);
   // RM-072 (D1, D2): a baseline roda e grava no modo da rodada, como o verify.
   const check = resolverModo(manifesto.check?.mode, modo);
-  const relatorio = check.modo === 'agile' ? new RelatorioDoCheck() : null;
-  const ambienteDaRodada = { ...ambienteDoModo(check), ...relatorio?.ambiente() };
+  let relatorio: RelatorioDoCheck | null = null;
+  let temporarioDaRodada: TemporarioDaRodada | null = null;
+  try {
+  relatorio = check.modo === 'agile' ? new RelatorioDoCheck() : null;
+  temporarioDaRodada = relatorio && Object.keys(manifesto.check?.agile?.test ?? {}).length > 0
+    ? abrirTemporarioDaRodada() : null;
+  const ambienteFuncional = { ...ambienteDoModo(check), ...temporarioDaRodada?.ambiente };
+  const ambienteDaRodada = { ...ambienteFuncional, ...relatorio?.ambiente() };
   const instabilidade = lerRegistroDeInstabilidade(cwd);
   const executor = executorSobConducao(executorDaRodada(manifesto, instabilidade, base, leitor, ambienteDaRodada), manifesto, tomada);
   // RM-072 (S-b do CHECK 2): fora do preparo, so a varredura e as lanes recebem o relatorio.
+  const executorDaLane = temporarioDaRodada
+    ? executorSobConducao(executorDaRodada(manifesto, instabilidade, base, leitor,
+      { ...ambienteDaRodada, [ENV_TMPDIR_DA_RODADA]: '1', ...transporteDoAmbienteFuncional(ambienteDoVerify()) }), manifesto, tomada)
+    : executor;
   const executorDosComandos = relatorio
     ? soAVarreduraEAsLanesComRelatorio(executor,
-      executorSobConducao(executorDaRodada(manifesto, instabilidade, base, leitor, ambienteDoModo(check)), manifesto, tomada))
+      executorSobConducao(executorDaRodada(manifesto, instabilidade, base, leitor, ambienteFuncional), manifesto, tomada),
+      executorDaLane)
     : executor;
   // RM-072 (D4): no Agile com o produto declarado, o preparo, a guarda e o mesmo grupo do verify; sem o produto, nada
   // seria reaproveitado e os comandos rodam como no Classic.
   // RM-072 (A6 do CHECK): as pecas do preparo, do grupo e do relatorio vao ao `baseline_recorded`, como no `verify_run`.
-  const pecasDaBaseline: PecaDoAgile[] = [];
+  const pecasDaBaseline: PecaDoAgile[] = temporarioDaRodada ? [temporarioDaRodada.peca] : [];
   const comandosDoManifestoExecutados = relatorio && manifesto.check?.agile?.produto?.length
     ? (() => {
       const p = prepararNoAgile(manifesto, cwd, executor);
@@ -777,7 +847,6 @@ function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: stri
   if (relatorio) {
     if (base) pecasDaBaseline.push(PECA_SEM_RELATORIO);
     pecasDaBaseline.push(...pecasDoRelatorio(relatorio.ler()));
-    relatorio.fechar();
   }
   // N1 do CHECK 2: a lane que saiu com 127 tambem e dependencia ausente, como o comando so do Classic.
   const naoEncontrado = comandos.find((c) => c.causa === 'nao-encontrado')
@@ -809,6 +878,7 @@ function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: stri
     origem,
   });
   return baseline;
+  } finally { fecharRecursosDaRodada(relatorio, temporarioDaRodada); }
 }
 
 export type GranularidadeDaComparacao = 'teste' | 'comando';
@@ -988,6 +1058,73 @@ export function verificarClaim(claim: ResultadoDeClaim['claim'], cwd: string, ex
   };
 }
 
+const RECUSAS_AGENDAVEIS_DAS_LANES = new Set([
+  'evidencia-vazia', 'arquivo-nao-executado', 'head-divergente', 'ambiente-funcional-divergente', 'falha-na-lane',
+  'skip-ou-todo-na-lane', 'prefixo-divergente', 'contagem-abaixo-do-minimo', 'tap-com-test-name-pattern',
+]);
+
+function claimRecusadaAgendavel(planos: ResultadoDeComando[]): boolean {
+  return planos.length > 0 && planos.every((p) => p.lane && !p.lane.reaproveitada
+    && RECUSAS_AGENDAVEIS_DAS_LANES.has(p.lane.motivo));
+}
+
+/**
+ * RM-074 M12: claims consecutivas que aguardavam as lanes, mas preservaram a execucao real, recebem vagas do mesmo
+ * executor paralelo. O campo canonico `claim.arquivo` encadeia o mesmo domicilio; uma claim de outra classe e barreira.
+ */
+export function verificarClaimsAgendadas(claims: ResultadoDeClaim['claim'][], cwd: string, executor: ExecutorVerify,
+  planejar: ExecutorVerify, grupo: ExecutorDeGrupo): ResultadoDeClaim[] {
+  const saida: ResultadoDeClaim[] = [];
+  let indice = 0;
+  while (indice < claims.length) {
+    const planosDa = (claim: ResultadoDeClaim['claim']): ResultadoDeComando[] =>
+      claim.verificar.map((comando, i) => planejar(`${claim.id}.${i + 1}`, comando, cwd));
+    const primeiro = planosDa(claims[indice]);
+    if (!claimRecusadaAgendavel(primeiro)) {
+      saida.push(verificarClaim(claims[indice], cwd, executor));
+      indice++;
+      continue;
+    }
+    const lote: Array<{ claim: ResultadoDeClaim['claim']; planos: ResultadoDeComando[] }> = [
+      { claim: claims[indice], planos: primeiro },
+    ];
+    let fim = indice + 1;
+    while (fim < claims.length) {
+      const planos = planosDa(claims[fim]);
+      if (!claimRecusadaAgendavel(planos)) break;
+      lote.push({ claim: claims[fim], planos });
+      fim++;
+    }
+    if (new Set(lote.map((x) => x.claim.arquivo)).size < 2) {
+      for (const x of lote) saida.push(verificarClaim(x.claim, cwd, executor));
+      indice = fim;
+      continue;
+    }
+    const ultimoPorArquivo = new Map<string, string>();
+    const itens = lote.flatMap(({ claim, planos }) => planos.map((plano) => {
+      const anterior = ultimoPorArquivo.get(claim.arquivo);
+      ultimoPorArquivo.set(claim.arquivo, plano.nome);
+      return { nome: plano.nome, comando: plano.comandoExecutado ?? plano.comando, papelCpu: 'claim' as const,
+        ambienteFuncional: true,
+        ...(anterior ? { apos: [anterior] } : {}) };
+    }));
+    const reais = grupo(itens, cwd);
+    const porNome = new Map<string, ResultadoDeComando>();
+    let posicao = 0;
+    for (const { planos } of lote) for (const plano of planos) {
+      const real = reais[posicao++];
+      porNome.set(plano.nome, { ...real, nome: plano.nome, comando: plano.comando,
+        ...(plano.comandoExecutado ? { comandoExecutado: plano.comandoExecutado } : {}),
+        ...(plano.preparo ? { preparo: plano.preparo } : {}), ...(plano.lane ? { lane: plano.lane } : {}) });
+    }
+    for (const { claim } of lote) {
+      saida.push(verificarClaim(claim, cwd, (nome) => porNome.get(nome)!));
+    }
+    indice = fim;
+  }
+  return saida;
+}
+
 /**
  * `ork verify`: reexecuta claims e comandos do manifesto e classifica cada falha.
  * Nao decide pausa, decide VERDADE: quem pausa e o gate do modo de conducao.
@@ -1032,6 +1169,7 @@ function verificarSobConducao(
   // `ork verify` roda em toda fase, e uma claim por criterio por rodada viraria
   // acumulador em vez de verificacao.
   registrarCriteriosDePronto(raiz, threadId);
+  const claimsAtivas = lerClaims(raiz, threadId).filter((c) => c.estado !== 'retirada');
 
   // RM-037 (fatia 6): o registro de instabilidade da arvore verificada e a janela de steal da rodada.
   const instabilidade = lerRegistroDeInstabilidade(cwd, opcoes.agoraMs);
@@ -1040,11 +1178,21 @@ function verificarSobConducao(
 
   // RM-072 (D8): no Agile, as pecas contam o que rodaram num relatorio da rodada, lido no fim.
   const agil = check.modo === 'agile';
-  const relatorio = agil ? new RelatorioDoCheck() : null;
-  const casaDaRodada = agil && !(process.env.ORKASTERY_HOME || '').trim()
-    ? fs.mkdtempSync(path.join(os.tmpdir(), 'ork-verify-casa-')) : null;
-  const ambienteFuncional = { ...ambienteDoModo(check), ...(casaDaRodada ? { ORKASTERY_HOME: casaDaRodada } : {}) };
+  let relatorio: RelatorioDoCheck | null = null;
+  let temporarioDaRodada: TemporarioDaRodada | null = null;
+  let casaDaRodada: string | null = null;
+  try {
+  relatorio = agil ? new RelatorioDoCheck() : null;
+  temporarioDaRodada = agil && Object.keys(manifesto.check?.agile?.test ?? {}).length > 0
+    ? abrirTemporarioDaRodada() : null;
+  casaDaRodada = agil && !(process.env.ORKASTERY_HOME || '').trim()
+    ? fs.mkdtempSync(path.join(temporarioDaRodada?.dir ?? os.tmpdir(), 'ork-verify-casa-')) : null;
+  const ambienteFuncional = { ...ambienteDoModo(check), ...temporarioDaRodada?.ambiente,
+    ...(casaDaRodada ? { ORKASTERY_HOME: casaDaRodada } : {}) };
   const ambienteDaRodada = { ...ambienteFuncional, ...relatorio?.ambiente() };
+  const ambienteFuncionalDasLanes = { ...temporarioDaRodada?.ambiente,
+    ...(casaDaRodada ? { ORKASTERY_HOME: casaDaRodada } : {}) };
+  const ambienteEfetivoDasClaims = ambienteFuncionalDosTestes(ambienteDoVerify(), ambienteFuncionalDasLanes);
 
   // I-37 (D2, D3): o prazo de cada comando sai do manifesto carregado no inicio da rodada;
   // editar o manifesto no meio dela nao muda o teto de quem ainda vai rodar.
@@ -1060,19 +1208,25 @@ function verificarSobConducao(
     : executor;
   // Uma claim `node --test` elegivel usa o mesmo ambiente funcional das lanes: casa compartilhada, sem o modo da
   // orquestracao. Assim o fallback da claim e a prova reaproveitada observam exatamente a mesma bateria.
-  const ambienteFuncionalDasLanes = { ...(casaDaRodada ? { ORKASTERY_HOME: casaDaRodada } : {}) };
+  const baseDasClaimsComoLane = opcoes.executor
+    ?? executorDoManifesto(manifesto, undefined, ambienteEfetivoDasClaims);
   const executorDasClaimsComoLane: ExecutorVerify = relatorio
-    ? executorSobConducao(observar(executorDaRodada(manifesto, instabilidade, opcoes.executor, leitor, ambienteFuncionalDasLanes)),
+    ? executorSobConducao(observar(executorDaRodada(manifesto, instabilidade, baseDasClaimsComoLane, leitor)),
       manifesto, conducao)
     : executor;
+  const executorDaLane: ExecutorVerify = relatorio && temporarioDaRodada
+    ? executorSobConducao(observar(executorDaRodada(manifesto, instabilidade, opcoes.executor, leitor,
+      { ...ambienteDaRodada, [ENV_TMPDIR_DA_RODADA]: '1', ...transporteDoAmbienteFuncional(ambienteDoVerify()) })), manifesto, conducao)
+    : executor;
   // RM-072 (S-b do CHECK 2): fora do preparo, so a varredura e as lanes recebem o relatorio.
-  const executorDosComandos = relatorio ? soAVarreduraEAsLanesComRelatorio(executor, executorDasClaims) : executor;
+  const executorDosComandos = relatorio
+    ? soAVarreduraEAsLanesComRelatorio(executor, executorDasClaims, executorDaLane) : executor;
 
   // I-54 (D10): o preparo roda UMA vez, antes das claims. Ele nunca e condicao para uma claim
   // passar (cada uma roda o proprio comando inteiro); ele so deixa pronta a compilacao. A
   // identidade do produto e tomada logo depois dele e conferida no fim da rodada.
   // RM-072 (D4): no Agile, o preparo do Agile primeiro, com o `verify.preparo` de fallback.
-  const pecas: PecaDoAgile[] = [];
+  const pecas: PecaDoAgile[] = temporarioDaRodada ? [temporarioDaRodada.peca] : [];
   const preparo = agil
     ? (() => {
       const p = prepararNoAgile(manifesto, cwd, executor);
@@ -1110,27 +1264,43 @@ function verificarSobConducao(
   let doAgile: ComandosDoAgile | null = null;
   const grupoAntesDasClaims = !opcoes.soClaims && !!vigente && vigente.guarda.conferir() === null
     && Object.keys(manifesto.check?.agile?.test ?? {}).length > 0;
+  const planoDasClaims = grupoAntesDasClaims
+    ? planejarClaimsNoAgile(manifesto, claimsAtivas, cwd, vigente!.guarda, vigente!.preparo) : undefined;
   let comandosDoManifestoExecutados = grupoAntesDasClaims
     ? (opcoes.progresso?.('grupo-agile'), doAgile = comandosNoAgile(manifesto, cwd, comandosDoManifesto(manifesto), executorDosComandos,
       executorDoGrupo(manifesto, ambienteDaRodada, instabilidade, leitor, conducao, opcoes.executor ? executor : undefined,
         opcoes.medicaoCpuAgendador), vigente!.guarda, vigente!.preparo, selecaoAnterior,
       (nome, comando, dir, filtro, testes) => executarPassagemParcial(nome, comando, dir, executorDosComandos, filtro, testes),
-      selecaoPorMudanca.lanes)).comandos
+      selecaoPorMudanca.lanes, planoDasClaims)).comandos
     : [];
   if (doAgile) pecas.push(...doAgile.pecas);
+  const claimsAntecipadas = doAgile?.claimsAntecipadas ?? {};
+  if (Object.keys(claimsAntecipadas).length > 0 && vigente?.guarda.conferir()) lanesVigentes = false;
   const evidenciasDasLanes = relatorio && doAgile ? resultadosDasLanes(relatorio.ler()) : [];
-  const ambienteEfetivoDasClaims = { ...ambienteDoVerify(), ...ambienteFuncionalDasLanes };
-  const executorComLanes = evidenciasDasLanes.length > 0
+  const vigenciaDasLanes = () => !lanesVigentes ? 'lanes-invigentes' as const : vigente?.guarda.conferir() ?? null;
+  const executorComLanes = agil
     ? executorDaClaimPelasLanes(executorDasClaims, evidenciasDasLanes, { head: commit, ambiente: ambienteEfetivoDasClaims,
-      podeReaproveitar: () => lanesVigentes && vigente?.guarda.conferir() === null,
-      executorEquivalente: executorDasClaimsComoLane })
+      podeReaproveitar: vigenciaDasLanes, executorEquivalente: executorDasClaimsComoLane })
     : executorDasClaims;
 
   // Claim retirada sai do gate: o historico guarda a alegacao e o motivo da retirada.
   const executorDaClaim = vigente ? executorDaClaimNoAgile(manifesto, executorComLanes, vigente, refazerAntesDaClaim) : executorComLanes;
-  const claims = lerClaims(raiz, threadId)
-    .filter((c) => c.estado !== 'retirada')
-    .map((c) => verificarClaim(c, cwd, executorDaClaim));
+  // RM-074 M11 com M12: a claim antecipada ja tem o resultado real do grupo. O plano a devolve como esta, ela nunca
+  // entra num lote de claims recusadas pelas lanes e segue pelo caminho serial com o mesmo resultado.
+  const executorComAntecipadas: ExecutorVerify = (nome, comando, dir) =>
+    claimsAntecipadas[nome] ?? executorDaClaim(nome, comando, dir);
+  const claims = vigente ? (() => {
+    const executorDePlano: ExecutorVerify = (nome, comando) => ({ nome, comando, ok: true, code: 0, resumo: '', causa: 'exit',
+      prazoMs: prazoDaExecucao(manifesto, nome, comando), duracaoMs: 0, executado: true });
+    const planoComLanes = executorDaClaimPelasLanes(executorDePlano, evidenciasDasLanes,
+      { head: commit, ambiente: ambienteEfetivoDasClaims, podeReaproveitar: vigenciaDasLanes, executorEquivalente: executorDePlano });
+    // Planejar nunca refaz preparo nem toca no produto: guarda invalida vira barreira e a execucao serial decide o refazer.
+    const planejarPelasLanes = executorDaClaimNoAgile(manifesto, planoComLanes, vigente);
+    const planejar: ExecutorVerify = (nome, comando, dir) => claimsAntecipadas[nome] ?? planejarPelasLanes(nome, comando, dir);
+    const grupoDasClaims = executorDoGrupo(manifesto, ambienteFuncionalDasLanes, instabilidade, leitor, conducao,
+      opcoes.executor ? executorDasClaimsComoLane : undefined);
+    return verificarClaimsAgendadas(claimsAtivas, cwd, executorComAntecipadas, planejar, grupoDasClaims);
+  })() : claimsAtivas.map((c) => verificarClaim(c, cwd, executorComAntecipadas));
   for (const r of claims) {
     // Estouro de prazo e comando que nao rodou nao julgam a alegacao: o estado anterior vale.
     if (r.motivo === 'verify.timeout' || r.motivo === 'verify.sem-veredito') continue;
@@ -1174,8 +1344,6 @@ function verificarSobConducao(
     : changelog ? [...comandosDoManifestoExecutados, changelog] : comandosDoManifestoExecutados;
   const parcial = comandos.some((c) => !!c.parcial || c.lanes?.some((l) => !!l.parcial));
   const resumoDoAgile = vigente ? agileNoLedger(raiz, threadId, commit, pecas, doAgile, vigente.guarda, relatorio!, claims) : null;
-  if (relatorio && !vigente) relatorio.fechar();
-  if (casaDaRodada) fs.rmSync(casaDaRodada, { recursive: true, force: true });
 
   // RM-062 (F2): a barreira de dado privado no diff da thread, so com a policy `dado_privado` no manifesto.
   const dadoPrivado = barreiraDaThread(carregado, thread, cwd, 'verify');
@@ -1261,6 +1429,7 @@ function verificarSobConducao(
         duracaoMs: c.execucoes.reduce((t, e) => t + (e.duracaoMs ?? 0), 0),
         // RM-072 (D5): no Agile, o que a guarda fez com cada comando da claim.
         ...(c.execucoes.some((e) => e.preparo) ? { preparo: c.execucoes.map((e) => e.preparo ?? null) } : {}),
+        ...(c.execucoes.some((e) => e.agendamento) ? { agendamento: c.execucoes.map((e) => e.agendamento ?? null) } : {}),
         ...(c.execucoes.some((e) => e.lane) ? { lane: c.execucoes.map((e) => e.lane ?? null) } : {}),
         ...(falhou ? { execucao: comandoNoLedger(falhou) } : {}),
       };
@@ -1378,6 +1547,7 @@ function verificarSobConducao(
     ok,
     parcial,
   };
+  } finally { fecharRecursosDaRodada(relatorio, temporarioDaRodada, casaDaRodada); }
 }
 
 /**
@@ -1441,12 +1611,23 @@ export function textoDoVerify(r: ResultadoVerify): string {
   if (a && (a.claims.reaproveitadas + a.claims.inteiras > 0 || a.grupo.paralelo)) {
     linhas.push(m.agile(a.claims.reaproveitadas, a.claims.inteiras, a.grupo.paralelo, a.grupo.lanes));
   }
-  const motivoDaPeca = (p: PecaDoAgile): string => [p.motivo,
+  const motivoDaPeca = (p: PecaDoAgile): string => [p.motivo, p.tmpdirDaRodada ? m.tmpdirDaRodada : null,
     p.reservaIntegracao ? m.reservaIntegracao(p.reservaIntegracao.cpus, p.reservaIntegracao.fonte) : null]
     .filter((x): x is string => !!x).join('; ');
-  for (const p of a?.pecas.filter((x) => x.estado === 'fallback') ?? []) linhas.push(m.agileFallback(p.peca, motivoDaPeca(p), p.fallback ?? ''));
-  for (const p of a?.pecas.filter((x) => x.estado === 'degradado') ?? []) linhas.push(m.agileDegradado(p.peca, motivoDaPeca(p)));
-  for (const p of a?.pecas.filter((x) => x.estado === 'agile' && x.reservaIntegracao) ?? []) linhas.push(m.agilePeca(p.peca, motivoDaPeca(p)));
+  for (const p of a?.pecas.filter((x) => x.peca === 'claim-lane') ?? []) {
+    linhas.push(p.estado === 'agile' ? m.claimLaneReaproveitada(p.claim ?? '', motivoDaPeca(p))
+      : m.claimLaneRecusada(p.claim ?? '', p.motivoTipado ?? p.motivo ?? 'motivo-ausente'));
+  }
+  for (const p of a?.pecas.filter((x) => x.peca !== 'claim-lane' && x.estado === 'fallback') ?? []) {
+    linhas.push(m.agileFallback(p.peca, motivoDaPeca(p),
+      p.tmpdirDaRodada && p.fallback === 'disco' ? m.discoComTmpdirDaRodada : p.fallback ?? ''));
+  }
+  for (const p of a?.pecas.filter((x) => x.peca !== 'claim-lane' && x.estado === 'degradado') ?? []) {
+    linhas.push(m.agileDegradado(p.peca, motivoDaPeca(p)));
+  }
+  for (const p of a?.pecas.filter((x) => x.peca !== 'claim-lane' && x.estado === 'agile' && x.reservaIntegracao) ?? []) {
+    linhas.push(m.agilePeca(p.peca, motivoDaPeca(p)));
+  }
   linhas.push(r.baseline ? m.baseline(shaCurto(r.baseline.commit), formatarDataHoraRotulada(r.baseline.gravadaEm)) : m.semBaseline);
   if (r.preparo) {
     const p = r.preparo;
