@@ -525,7 +525,8 @@ test('GX8: a sessao MCP que passa do limite despeja a ociosa usada ha mais tempo
     assert.equal((await pedir(b.s.porta, { cabecalhos: { ...autorizado, ...versao, 'Mcp-Session-Id': ids[2] }, corpo: lista })).status, 404,
       'saiu a ociosa seguinte, nao a ocupada');
     sock.write(lista.slice(5));
-    await esperarEventoAssincronoDepoisDaFronteira(() => fechou ? true : null, 'resposta da sessão ocupada', 30_000);
+    confirmarEventoConvertido(await esperarEventoAssincronoDepoisDaFronteira(
+      () => fechou ? true : null, 'resposta da sessão ocupada', 30_000));
     assert.match(Buffer.concat(resposta).toString('utf8'), /^HTTP\/1\.1 200 /, 'a sessao ocupada seguiu de pe e respondeu');
   } finally { sock?.destroy(); b.limpar(); }
 });
@@ -617,7 +618,8 @@ test('GX12: a recusa da conferencia fecha a conexao, e o log das recusas tem tet
     const corpo = JSON.stringify(INICIO);
     sock.write(`POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:${b.s.porta}\r\nAuthorization: Bearer ${b.token}\r\nContent-Type: application/json\r\n` +
       `Accept: application/json, text/event-stream\r\nConnection: keep-alive\r\nContent-Length: ${Buffer.byteLength(corpo)}\r\n\r\n${corpo}`);
-    await esperarEventoAssincronoDepoisDaFronteira(() => fechou ? true : null, 'resposta da conexão recusada', 30_000);
+    confirmarEventoConvertido(await esperarEventoAssincronoDepoisDaFronteira(
+      () => fechou ? true : null, 'resposta da conexão recusada', 30_000));
     const resposta = Buffer.concat(partes).toString('utf8');
     assert.match(resposta, /^HTTP\/1\.1 403 /);
     assert.match(resposta, /\r\nConnection: close\r\n/i);

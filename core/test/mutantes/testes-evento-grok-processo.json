@@ -36,7 +36,7 @@
       "de": "function confirmarEventoConvertido(evento) {\n    return evento;\n}",
       "para": "function confirmarEventoConvertido(evento) {\n    throw new Error('mutante: evento do MCP externo rejeitado');\n}",
       "teste": "rm067-grok-mcp-externo",
-      "nome": "^GX(?:3|4|6|7|13):"
+      "nome": "^GX(?:3|4|6|7|8|12|13):"
     }
   ]
 }
