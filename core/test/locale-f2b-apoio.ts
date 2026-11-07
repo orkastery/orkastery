@@ -6,11 +6,23 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { Cenario } from './locale-apoio';
 import { noPath } from '../src/util';
 
 /** O manifesto do cenario com `build: true` e `test: test -f passa.txt`, e o `bash` no PATH do cenario. */
 export function comVerify(c: Cenario): void {
+  const git = noPath('git');
+  if (!git) throw new Error('git fora do PATH de quem roda os testes');
+  const dataDoCommit = '2000-01-01T00:00:00Z';
+  const commit = spawnSync(git, ['commit', '--amend', '--no-edit'], {
+    cwd: c.dir,
+    encoding: 'utf8',
+    env: { ...process.env, GIT_AUTHOR_DATE: dataDoCommit, GIT_COMMITTER_DATE: dataDoCommit },
+  });
+  if (commit.status !== 0 || commit.error) {
+    throw new Error(`nao foi possivel fixar a data do commit do cenario: ${commit.stderr || commit.error?.message || commit.status}`);
+  }
   const bash = noPath('bash');
   if (!bash) throw new Error('bash fora do PATH de quem roda os testes');
   if (!fs.existsSync(path.join(c.bin, 'bash'))) fs.symlinkSync(path.resolve(bash), path.join(c.bin, 'bash'));
