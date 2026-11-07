@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.5",
-  "publicadoEm": "2026-11-07T19:38:20.536Z",
+  "publicadoEm": "2026-11-07T19:49:31.514Z",
   "threads": [
     {
       "id": "ork-roadmaptresi",
@@ -12,9 +12,9 @@
       "modo": "#Fast",
       "fase": "GO",
       "status": "aberta",
-      "roadmap": null,
+      "roadmap": "RM-084",
       "branch": "ork/ork-roadmaptresi-go",
-      "atualizadaEm": "2026-11-07T19:38:20.104Z",
+      "atualizadaEm": "2026-11-07T19:49:31.087Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,

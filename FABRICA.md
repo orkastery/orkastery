@@ -5,6 +5,6 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado | Sessão |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| vps | ork-roadmaptresi | #Fast | GO | codex gpt-5.6-sol/xhigh | — | — | 07/11 16:38 | viva |
+| vps | ork-roadmaptresi | #Fast | GO | codex gpt-5.6-sol/xhigh | RM-084 | — | 07/11 16:49 | viva |
 
 Horários de Brasília.
