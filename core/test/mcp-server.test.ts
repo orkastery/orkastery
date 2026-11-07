@@ -87,6 +87,7 @@ test('MCP filho fixa thread e omite criacao, redespacho e decisao do dono',async
     const beforeOther=fs.readFileSync(path.join(dirThread(p.dir,outra.id),'ledger.jsonl'));
     for(const [name,args] of [
       ['ork_claim_add',{arquivo:'sum.cjs',alegacao:'x',verificar:['true']}],
+      ['ork_claim_withdraw',{claimId:'C1',motivoTipo:'erro',motivo:'fixture'}],
       ['ork_artifact_write',{tipo:'goal',conteudo:'fora',expectedSha256:null}],
       ['ork_ship',{expectedSource:'0'.repeat(40),expectedDestination:'0'.repeat(40)}],
     ] as const) {
@@ -136,8 +137,8 @@ test('pedido à condução é estreito, correlacionado ao despacho e idempotente
 test('MCP schemas fechados recusam shell, raiz, traversal e resposta gerada pelo modelo sem efeito',()=>fixture(async(p,c)=>{
   const {t,q}=pedido(p),before=fs.readFileSync(path.join(dirThread(p.dir,t.id),'ledger.jsonl'));
   const tools=(await c.listTools()).tools;
-  // O status assíncrono do verify soma uma consulta ao catálogo anterior de 40 ferramentas.
-  assert.equal(tools.length,41);assert.ok(tools.some(t=>t.name==='ork_verify_status'));assert.ok(tools.some(t=>t.name==='ork_noctum_autorizar'));assert.ok(tools.some(t=>t.name==='ork_network_status'));assert.ok(tools.some(t=>t.name==='ork_conhecimento_verificar'));assert.ok(tools.some(t=>t.name==='ork_request_master_note'));assert.ok(tools.some(t=>t.name==='ork_network_roadmap'));assert.ok(tools.some(t=>t.name==='ork_decision_record'));assert.ok(tools.some(t=>t.name==='ork_brain_dossie'));
+  // A retirada tipada soma uma mutação ao catálogo anterior de 41 ferramentas.
+  assert.equal(tools.length,42);assert.ok(tools.some(t=>t.name==='ork_claim_withdraw'));assert.ok(tools.some(t=>t.name==='ork_verify_status'));assert.ok(tools.some(t=>t.name==='ork_noctum_autorizar'));assert.ok(tools.some(t=>t.name==='ork_network_status'));assert.ok(tools.some(t=>t.name==='ork_conhecimento_verificar'));assert.ok(tools.some(t=>t.name==='ork_request_master_note'));assert.ok(tools.some(t=>t.name==='ork_network_roadmap'));assert.ok(tools.some(t=>t.name==='ork_decision_record'));assert.ok(tools.some(t=>t.name==='ork_brain_dossie'));
   assert.ok(tools.some(t=>t.name==='ork_roadmap_reservas'));assert.ok(tools.some(t=>t.name==='ork_fabrica'));assert.ok(!tools.some(t=>/shell|answer/.test(t.name)));
   assert.equal(tools.find(t=>t.name==='ork_brain_context')?.annotations?.readOnlyHint,true);
   for(const tool of tools) assert.equal(tool.inputSchema.additionalProperties,false);
@@ -280,7 +281,7 @@ test('CLI mcp serve negocia stdio real sem banner e sem configuracao global',asy
   const transport=new StdioClientTransport({command:process.execPath,
     args:[path.resolve(__dirname,'../src/index.js'),'mcp','serve','--project',p.dir,'--host','codex'],
     cwd:p.dir,env:{PATH:process.env.PATH??'',HOME:p.dir},stderr:'pipe'});
-  try {await c.connect(transport);assert.equal((await c.listTools()).tools.length,41);}
+  try {await c.connect(transport);assert.equal((await c.listTools()).tools.length,42);}
   finally {await c.close();await transport.close();p.limpar();}
 });
 

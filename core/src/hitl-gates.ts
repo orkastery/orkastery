@@ -212,7 +212,7 @@ function diagnosticoSemConclusao(resultado: EventoLedger): string | null {
  * gate e quem pergunta se um gate ainda espera o dono leem a mesma.
  */
 export const MOTIVOS_DE_ESCALACAO_HUMANA = ['policy.violation', 'cost.violation', 'retry.max_tentativas',
-  'hitl.credencial', 'runtime.unavailable'] as const;
+  'hitl.credencial', 'runtime.unavailable', 'claims.retirada-sem-substituta'] as const;
 
 /** Uma pausa do modo cria pedido, nunca human_gate. Escalação exige evento tipado. */
 export function abrirPedidoGate(raiz: string, id: string, motivo = 'human.pending', quando = new Date().toISOString()): PedidoHitlQualquer {

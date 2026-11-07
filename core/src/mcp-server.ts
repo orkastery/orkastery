@@ -27,7 +27,7 @@ import { controleNativo } from './hitl-sessions';
 import { criarIngressoLocal } from './hitl-local';
 import { criarIngressoDaNota } from './master-nota-local';
 import { CONTRATO_DA_ENTREGA, confirmarNoReceptor, conferirNoReceptor, LIMITE_DA_MENSAGEM, novaCaixaDeSaida } from './entrega-por-mod';
-import {lerArtefatoMcp,escreverArtefatoMcp,listarClaimsMcp,adicionarClaimMcp,validarArquivosEstadoMcp} from './mcp-artifacts';
+import {lerArtefatoMcp,escreverArtefatoMcp,listarClaimsMcp,adicionarClaimMcp,retirarClaimMcp,validarArquivosEstadoMcp} from './mcp-artifacts';
 import {commitMcp,estadoGitMcp} from './mcp-git';
 import {preflight} from './preflight';
 import {exigirModoVivo,ORDEM_DOS_MODOS} from './modos';
@@ -446,6 +446,14 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     inputSchema:daThread.extend({arquivo:z.string().min(1).max(500),alegacao:z.string().min(1).max(8192),
       verificar:z.array(z.string().min(1).max(8192)).max(20)}).strict(),annotations:{readOnlyHint:false,destructiveHint:false}},
     async({threadId,...entrada})=>{thread(threadId);livre(threadId);return resposta(adicionarClaimMcp(raiz,threadId,entrada));});
+  registrarTool('ork_claim_withdraw',{description:'Retira claim com motivo tipado. Exige substituta ativa e verde no ultimo verify; sem substituta, preserva a claim e abre pedido ao dono.',
+    inputSchema:daThread.extend({claimId:z.string().regex(/^C\d+$/),motivoTipo:z.enum(['substituicao','obsoleta','erro']),
+      substituidaPor:z.string().regex(/^C\d+$/).optional(),motivo:z.string().min(1).max(8192)}).strict(),
+    annotations:{readOnlyHint:false,destructiveHint:true}},async({threadId,...entrada})=>{
+      thread(threadId);livre(threadId);
+      const autor={tipo:'sessao' as const,id:opcoes.dispatchId??`mcp:${opcoes.host}`};
+      return resposta(retirarClaimMcp(raiz,threadId,{...entrada,autor}));
+    });
   registrarTool('ork_thread_status',{description:'Estado canonico de uma thread deste projeto; pausas previstas nao sao pedidos abertos.',
     inputSchema:daThread,annotations:{readOnlyHint:true}}, async ({threadId}) => {
       const t=thread(threadId); const c=conducaoDaThread(raiz,threadId);

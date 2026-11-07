@@ -1,0 +1,96 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-079: cada mutante remove uma guarda nova e precisa morrer no teste focado correspondente.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "o lint deixa de avisar sobre contexto artificial isolado",
+      "modulo": "claim-lint",
+      "de": "if (artificial)\n        achados.push({",
+      "para": "if (false)\n        achados.push({",
+      "teste": "rm079-claims",
+      "nome": "^RM079 lint: contexto artificial"
+    },
+    {
+      "id": "M2",
+      "descricao": "o lint deixa de avisar sobre artefato gerado pelo fechamento",
+      "modulo": "claim-lint",
+      "de": "if (fechamento)\n        achados.push({",
+      "para": "if (false)\n        achados.push({",
+      "teste": "rm079-claims",
+      "nome": "^RM079 lint: artefato de fechamento"
+    },
+    {
+      "id": "M3",
+      "descricao": "a substituta deixa de precisar passar no ultimo verify_run",
+      "modulo": "claims",
+      "de": "if (prova?.verificado !== true) {",
+      "para": "if (false) {",
+      "teste": "rm079-claims",
+      "nome": "^RM079 retirada: substituta ativa"
+    },
+    {
+      "id": "M4",
+      "descricao": "a retirada sem substituta deixa de seguir o caminho do pedido ao dono",
+      "modulo": "claims",
+      "de": "if (opcoes.substituidaPor) {",
+      "para": "if (true) {",
+      "teste": "rm079-claims",
+      "nome": "^RM079 retirada: sem substituta"
+    },
+    {
+      "id": "M5",
+      "descricao": "o fix open ignora o parecer negativo quando o verify esta verde",
+      "modulo": "fix",
+      "de": "const parecerNegativo = parecer.veredito !== 'PASSOU';",
+      "para": "const parecerNegativo = false;",
+      "teste": "rm079-fix",
+      "nome": "^RM079 fix: parecer negativo"
+    },
+    {
+      "id": "M10",
+      "descricao": "o fix open trata parecer ausente como rodada vazia",
+      "modulo": "fix",
+      "de": "if (e.code === 'ENOENT') {\n            throw new Error('fix.check.ausente: docs/check.md');\n        }",
+      "para": "if (e.code === 'ENOENT') return { veredito: null, sha256: null, achados: [] };",
+      "teste": "rm079-fix",
+      "nome": "^RM079 fix: parecer ausente"
+    },
+    {
+      "id": "M11",
+      "descricao": "o fix open aceita parecer sem veredito reconhecido",
+      "modulo": "fix",
+      "de": "if (linhasDeVeredito.length === 0)\n        throw new Error('fix.check.veredito-ausente: docs/check.md');",
+      "para": "if (false)\n        throw new Error('fix.check.veredito-ausente: docs/check.md');",
+      "teste": "rm079-fix",
+      "nome": "^RM079 fix: parecer sem veredito"
+    },
+    {
+      "id": "M12",
+      "descricao": "o fix open aceita veredito malformado",
+      "modulo": "fix",
+      "de": "if (malformadas.length > 0 || achados.size !== 1) {",
+      "para": "if (false) {",
+      "teste": "rm079-fix",
+      "nome": "^RM079 fix: parecer com veredito malformado"
+    },
+    {
+      "id": "M13",
+      "descricao": "o fix open ignora linha de achado malformada",
+      "modulo": "fix",
+      "de": "if (linhasMalformadas.length > 0) {",
+      "para": "if (false) {",
+      "teste": "rm079-fix",
+      "nome": "^RM079 fix: linha de achado malformada"
+    },
+    {
+      "id": "M6",
+      "descricao": "o achado fecha com verify verde sem um novo parecer independente",
+      "modulo": "fix",
+      "de": "const checkNovoPassou = eAchado && parecer.veredito === 'PASSOU' && parecer.sha256 !== v.correcao.parecerSha256;",
+      "para": "const checkNovoPassou = eAchado && Boolean(verify?.ok);",
+      "teste": "rm079-fix",
+      "nome": "^RM079 fix: parecer negativo"
+    }
+  ]
+}

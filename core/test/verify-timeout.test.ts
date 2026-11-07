@@ -12,7 +12,8 @@ import { redigirSaida, testesQueCairam } from '../src/redacao-saida';
 import { POLITICA_DE_RETRY } from '../src/retry';
 import { DESCRICAO_DO_MOTIVO } from '../src/gates';
 import { dirThread, novaThread } from '../src/thread';
-import { ambienteDoVerify, causaDoEncerramento, executar, prazoDoComando, TIMEOUT_VERIFY_MS, verificar } from '../src/verify';
+import { ambienteDoVerify, causaDoEncerramento, comandoNoLedger, executar, prazoDoComando, resultadoVerifyRedigido,
+  TIMEOUT_VERIFY_MS, verificar } from '../src/verify';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { ajustarManifesto, projetoTemporario } from './apoio';
@@ -87,6 +88,28 @@ test('o trecho vai redigido: credencial de URL some, e segredo descarta o trecho
   assert.deepEqual(testesQueCairam('ok 1 - a\nnot ok 2 - b # TODO\nFAIL src/c.test.ts\nnot ok 2 - b'), ['b', 'src/c.test.ts']);
 });
 
+test('RM079 comando: recibo e saída serializável redigem comando, lane e preparo sem mutar a execução', () => {
+  const generica = 'sk-' + 'ant-' + 'A'.repeat(24);
+  const url = 'postgres://' + 'usuario:' + 'segredo' + '@host/banco';
+  const comando = `node -e ${generica} ${url}`;
+  const executado = `${comando} --executado`;
+  const entrada = {
+    nome: 'C1.1', comando, comandoExecutado: executado, ok: false, code: 1, causa: 'exit' as const,
+    resumo: '', executado: true, preparo: { reaproveitado: true, passos: [comando] },
+    lanes: [{ lane: 'integracao', comando, comandoExecutado: executado, ok: false, code: 1,
+      duracaoMs: 1, causa: 'exit' as const }],
+  };
+  const recibo = comandoNoLedger(entrada);
+  const texto = JSON.stringify(recibo);
+  assert.doesNotMatch(texto, new RegExp(generica));
+  assert.doesNotMatch(texto, /segredo@/);
+  assert.match(texto, /\[redigido\]/);
+  assert.match(texto, /\[credencial redigida\]@host\/banco/);
+  assert.equal(entrada.comando, comando);
+  assert.equal(entrada.preparo.passos[0], comando);
+  assert.equal(entrada.lanes[0].comando, comando);
+});
+
 test('o motivo verify.timeout existe nos dois mapas, e o retry reexecuta em vez de abrir GO-FIX', () => {
   assert.match(DESCRICAO_DO_MOTIVO['verify.timeout'], /estourou o prazo/);
   assert.equal(POLITICA_DE_RETRY['verify.timeout'].acao, 'reexecutar');
@@ -117,8 +140,10 @@ test('verify: estouro vira verify.timeout, fica fora das falhas e nao reprova a 
     ajustarManifesto(p, '  # test: nao detectado', '  test: "sleep 3"\n  timeout_ms: 1000');
     const t = novaThread(p.carregado, { nome: 'estouro', modo: 'auto' }).thread;
     const lenta = adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'demora', verificar: ['sleep 3'] });
+    const generica = 'sk-' + 'ant-' + 'B'.repeat(24);
+    const url = 'postgres://' + 'u:' + 'segredo' + '@h/db';
     const quebrada = adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'quebra',
-      verificar: ['echo "not ok 1 - caso ruim"; echo "senha em postgres://u:segredo@h/db"; exit 1'] });
+      verificar: [`test -n "${generica}"; echo "not ok 1 - caso ruim"; echo "${url}"; exit 1`] });
 
     const r = verificar(p.carregado, t.id);
     assert.equal(r.ok, false);
@@ -140,6 +165,12 @@ test('verify: estouro vira verify.timeout, fica fora das falhas e nao reprova a 
     assert.deepEqual(claimQuebrada.execucao.testeQueCaiu, ['caso ruim']);
     assert.match(String(claimQuebrada.execucao.trecho), /\[credencial redigida\]@h\/db/);
     assert.doesNotMatch(JSON.stringify(evento), /segredo@/);
+    assert.doesNotMatch(JSON.stringify(evento), new RegExp(generica));
+    const saida = resultadoVerifyRedigido(r);
+    assert.doesNotMatch(JSON.stringify(saida), /segredo@/);
+    assert.doesNotMatch(JSON.stringify(saida), new RegExp(generica));
+    assert.match(JSON.stringify(r), /segredo@/);
+    assert.match(JSON.stringify(r), new RegExp(generica));
   } finally {
     p.limpar();
   }

@@ -6,6 +6,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Adicionado
+
+- **Claims e ciclo de correção ([RM-079](docs/roadmap/RM-079-claims-que-a-correcao-passa.md)):** o CHECK registra claims que passam com a correção, o lint avisa sobre provas artificiais ou circulares e a retirada tipada exige substituta verde ou decisão do dono. O `verify_run`, os recibos e as execuções do verify redigem textos de comando sem alterar execução ou identidade; a retirada na CLI redige o motivo, a resposta MCP omite a lista `verificar`, e o `fix` vindo do parecer redige seus textos antes de recibo, ledger ou saída.
+
 ### Alterado
 
 - **Claims e CPU fora do caminho crítico — M11 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** o Agile antecipa claims independentes; a integração encadeada começa depois da varredura com a reserva dela, enquanto a varredura devolve essa reserva à hermética quando a integração já roda em paralelo; o adaptador aplica a cota aceita pelo runtime ou recua para o `argv` anterior, sem mudar o Classic; o ganho aguarda a bancada (RM-074, M11).

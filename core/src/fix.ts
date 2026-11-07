@@ -22,7 +22,9 @@
  * `ork verify` do B1, reexecutado no HEAD real.
  */
 
+import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { createHash } from 'node:crypto';
 import { registrarGateBloqueado } from './gates';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
@@ -36,9 +38,102 @@ import {
   TipoDeCorrecao,
 } from './types';
 import { agora, anexarJsonl, lerJsonl, proximoIdSequencial, shaCurto, tabela } from './util';
-import { ConducaoDoVerify, cwdDaThread, executar, ResultadoVerify, verificar } from './verify';
+import { commitReal, ConducaoDoVerify, cwdDaThread, executar, ResultadoVerify, verificar } from './verify';
 import { canalDoProcesso, comConducao, identidadeDoAmbiente, prazoDaVerificacao } from './conducao';
 import { msg } from './locale';
+import { redigirSegredos } from './hitl';
+
+export interface AchadoEstruturadoDoCheck {
+  id: string;
+  severidade: 'bloqueador' | 'aviso' | 'sugestao';
+  arquivo: string;
+  linha: number;
+  descricao: string;
+  reproduzir?: string;
+}
+
+export interface ParecerParaFix {
+  veredito: string | null;
+  sha256: string | null;
+  achados: AchadoEstruturadoDoCheck[];
+}
+
+const LIMITE_DO_PARECER = 128 * 1024;
+
+function vereditoBilíngue(texto: string): string {
+  const linhasDeVeredito: string[] = [];
+  const malformadas: string[] = [];
+  const achados = new Set<string>();
+  const mapa: Record<string, string> = {
+    passou: 'PASSOU', reprovou: 'REPROVOU', 'precisa de mudanca': 'PRECISA DE MUDANCA', bloqueado: 'BLOQUEADO',
+    passed: 'PASSOU', failed: 'REPROVOU', 'needs changes': 'PRECISA DE MUDANCA', blocked: 'BLOQUEADO',
+  };
+  for (const [i, linha] of texto.split(/\r?\n/).entries()) {
+    const rotulo = /^[#>*_`\s-]*(?:veredito|verdict)[*_`\s]*:[*_`\s]*(.*?)\s*$/iu.exec(linha);
+    if (!rotulo) continue;
+    const listada = `${i + 1}: ${redigirSegredos(linha)}`;
+    linhasDeVeredito.push(listada);
+    const valor = rotulo[1].replace(/[*_`]+$/g, '').replace(/[.!]$/g, '').trim()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const canonico = mapa[valor];
+    if (canonico) achados.add(canonico); else malformadas.push(listada);
+  }
+  if (linhasDeVeredito.length === 0) throw new Error('fix.check.veredito-ausente: docs/check.md');
+  if (malformadas.length > 0 || achados.size !== 1) {
+    throw new Error(`fix.check.veredito-malformado: ${[...malformadas, ...linhasDeVeredito].join(' | ')}`);
+  }
+  return [...achados][0];
+}
+
+/** RM-079: le somente docs/check.md e extrai achados sem claim no contrato bilíngue do CHECK. */
+export function lerParecerParaFix(raiz: string, threadId: string): ParecerParaFix {
+  const arquivo = path.join(dirThread(raiz, threadId), 'docs', 'check.md');
+  let fd: number;
+  try { fd = fs.openSync(arquivo, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK); }
+  catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new Error('fix.check.ausente: docs/check.md');
+    }
+    throw new Error('fix.check.unsafe');
+  }
+  try {
+    const st = fs.fstatSync(fd);
+    if (!st.isFile() || st.nlink !== 1 || st.size > LIMITE_DO_PARECER) throw new Error('fix.check.unsafe');
+    const bytes = fs.readFileSync(fd);
+    if (bytes.length > LIMITE_DO_PARECER) throw new Error('fix.check.too-large');
+    const texto = bytes.toString('utf8');
+    const linhas = texto.split(/\r?\n/);
+    const achados: AchadoEstruturadoDoCheck[] = [];
+    const linhasMalformadas: string[] = [];
+    const vistos = new Set<string>();
+    const regra = /^\s*-\s+(A\d+)\s+\[(bloqueador|aviso|sugestao|blocker|warning|suggestion)\]\s+([A-Za-z0-9_./-]+):(\d+)\s+-\s+(.+?)\s*$/i;
+    const severidade = (valor: string): AchadoEstruturadoDoCheck['severidade'] =>
+      ({ blocker: 'bloqueador', warning: 'aviso', suggestion: 'sugestao' }[valor.toLowerCase()] as AchadoEstruturadoDoCheck['severidade'] | undefined)
+      ?? valor.toLowerCase() as AchadoEstruturadoDoCheck['severidade'];
+    for (let i = 0; i < linhas.length; i++) {
+      const m = regra.exec(linhas[i]);
+      if (!m) {
+        if (/^\s*-\s+A\d+\b/i.test(linhas[i])) linhasMalformadas.push(`${i + 1}: ${redigirSegredos(linhas[i])}`);
+        continue;
+      }
+      if (vistos.has(m[1])) throw new Error(`fix.check.finding.duplicado: ${m[1]}`);
+      const relativo = path.posix.normalize(m[3]);
+      if (relativo.startsWith('../') || relativo === '..' || path.posix.isAbsolute(relativo) || relativo.includes('\\')) {
+        throw new Error(`fix.check.finding.path: ${m[3]}`);
+      }
+      if (Number(m[4]) < 1) throw new Error(`fix.check.finding.line: ${m[4]}`);
+      const proxima = linhas[i + 1] ?? '';
+      const reproducao = /^\s*(?:reproduzir|reproduce)\s*:\s*`([^`]+)`\s*$/i.exec(proxima);
+      achados.push({ id: m[1], severidade: severidade(m[2]), arquivo: relativo, linha: Number(m[4]),
+        descricao: redigirSegredos(m[5]), ...(reproducao ? { reproduzir: redigirSegredos(reproducao[1]) } : {}) });
+      vistos.add(m[1]);
+    }
+    if (linhasMalformadas.length > 0) {
+      throw new Error(`fix.check.finding.malformado: ${linhasMalformadas.join(' | ')}`);
+    }
+    return { veredito: vereditoBilíngue(texto), sha256: createHash('sha256').update(bytes).digest('hex'), achados };
+  } finally { fs.closeSync(fd); }
+}
 
 /** Veredito de UMA correcao no CHECK-REVERIFY. */
 export interface VereditoDeCorrecao {
@@ -94,7 +189,7 @@ export function ultimaRodada(raiz: string, threadId: string): number {
  * caso que nasce tipo A e a alegacao sem comando de verificacao, em que a correcao E
  * literalmente anexar o comando (`ork claims verificar`), sem tocar em codigo.
  */
-export function tipoDoMotivo(motivo: MotivoGate): TipoDeCorrecao {
+export function tipoDoMotivo(motivo: MotivoGate | 'check.finding'): TipoDeCorrecao {
   return motivo === 'claims.unverifiable' ? 'A' : 'B';
 }
 
@@ -138,6 +233,7 @@ export function derivarCorrecoes(
       estado: 'aberta',
       vereditoEm: null,
       detalheDoVeredito: '',
+      commitQueFechou: null,
       criadaEm: agora(),
     });
   };
@@ -193,6 +289,30 @@ export function derivarCorrecoes(
   }
 
   return correcoes;
+}
+
+/** Achados sem claim entram na mesma rodada, mas so um novo parecer PASSOU consegue fecha-los. */
+export function derivarCorrecoesDoParecer(thread: Thread, rodada: number, parecer: ParecerParaFix,
+  idsUsados: string[]): Correcao[] {
+  const ids = [...idsUsados];
+  return parecer.achados.map((achado) => {
+    const id = proximoIdSequencial(ids, 'FX');
+    ids.push(id);
+    return {
+      id, thread: thread.id, rodada, tipo: 'B', origem: 'check.finding',
+      alvo: `${achado.arquivo}:${achado.linha}`,
+      spec: `${achado.id} [${achado.severidade}]: ${achado.descricao}. Corrija o artefato indicado; ` +
+        'o fechamento exige um novo parecer independente com veredito PASSOU.',
+      verificar: [],
+      evidencia: [achado.reproduzir ? `reproduzir: ${achado.reproduzir}` : '',
+        `parecer sha256 ${parecer.sha256 ?? 'ausente'}`].filter(Boolean).join('\n'),
+      estado: 'aberta' as const, vereditoEm: null, detalheDoVeredito: '', commitQueFechou: null,
+      achado: { id: achado.id, severidade: achado.severidade, arquivo: achado.arquivo, linha: achado.linha,
+        ...(achado.reproduzir ? { reproduzir: achado.reproduzir } : {}) },
+      parecerSha256: parecer.sha256 ?? undefined,
+      criadaEm: agora(),
+    };
+  });
 }
 
 /** A spec EXATA que vai no prompt do GO-FIX. Sai dos dados, nunca de prosa livre. */
@@ -275,8 +395,10 @@ function abrirRodadaSobConducao(
   // RM-058 N2 (A1 da rodada 2 do CHECK): a espera da fila pesada que o `--esperar` do CLI pediu.
   const resultado = verificar(carregado, threadId, { soClaims: opcoes.soClaims, conducao: { filaPesada: opcoes.conducao?.filaPesada } });
   const rodada = ultimaRodada(raiz, threadId) + 1;
+  const parecer = lerParecerParaFix(raiz, threadId);
+  const parecerNegativo = parecer.veredito !== 'PASSOU';
 
-  if (resultado.ok && resultado.motivos.length === 0) {
+  if (resultado.ok && resultado.motivos.length === 0 && !parecerNegativo) {
     return {
       thread: threadId,
       rodada: rodada - 1,
@@ -290,7 +412,12 @@ function abrirRodadaSobConducao(
   }
 
   const idsUsados = lerCorrecoes(raiz, threadId).map((c) => c.id);
-  const correcoes = derivarCorrecoes(thread, rodada, resultado, idsUsados);
+  if (parecerNegativo && parecer.achados.length === 0 && resultado.ok) {
+    throw new Error('fix.check.findings: parecer negativo sem achado estruturado; use A<n> [severidade] caminho:linha - descricao');
+  }
+  const doVerify = derivarCorrecoes(thread, rodada, resultado, idsUsados);
+  const correcoes = [...doVerify, ...(parecerNegativo ? derivarCorrecoesDoParecer(thread, rodada, parecer,
+    [...idsUsados, ...doVerify.map((c) => c.id)]) : [])];
   for (const c of correcoes) anexarJsonl(caminhoDosFixes(raiz, threadId), c);
 
   const temTipoB = correcoes.some((c) => c.tipo === 'B');
@@ -304,6 +431,7 @@ function abrirRodadaSobConducao(
     motivos: resultado.motivos,
     commit: resultado.commit,
     evidencia: `ork verify reexecutado no HEAD ${resultado.commit} em ${resultado.cwd}`,
+    parecer: parecer.sha256 ? { sha256: parecer.sha256, veredito: parecer.veredito, achados: parecer.achados.map((a) => a.id) } : null,
     reexecucaoCompletaObrigatoria: temTipoB,
   });
 
@@ -320,12 +448,13 @@ function abrirRodadaSobConducao(
 }
 
 /** Regrava uma correcao com o veredito do reverify. */
-function carimbar(raiz: string, correcao: Correcao, aprovada: boolean, detalhe: string): Correcao {
+function carimbar(raiz: string, correcao: Correcao, aprovada: boolean, detalhe: string, commit: string | null): Correcao {
   const atualizada: Correcao = {
     ...correcao,
     estado: aprovada ? 'aprovada' : 'reprovada',
     vereditoEm: agora(),
     detalheDoVeredito: detalhe,
+    commitQueFechou: aprovada ? (correcao.commitQueFechou ?? commit) : null,
   };
   anexarJsonl(caminhoDosFixes(raiz, correcao.thread), atualizada);
   return atualizada;
@@ -406,19 +535,27 @@ function reverificarSobConducao(
       aprovada: !falhou,
       execucoes,
       detalhe: falhou
-        ? `"${falhou.comando}" ainda sai com codigo ${falhou.code}`
+        ? `"${redigirSegredos(falhou.comando)}" ainda sai com codigo ${falhou.code}`
         : `${execucoes.length} comando(s) reexecutado(s) com sucesso no HEAD real`,
     };
   });
 
   const verify = cobertura === 'completa' ? verificar(carregado, threadId, { conducao: { filaPesada: opcoes.conducao?.filaPesada } }) : null;
+  const parecer = lerParecerParaFix(raiz, threadId);
 
   for (const v of vereditos) {
     // Correcao sem comando proprio herda o veredito do verify completo, e so quando ele
     // roda: sem ele, ela continua aberta em vez de virar aprovada por conveniencia.
-    const aprovada = v.correcao.verificar.length === 0 ? (verify?.ok ?? false) : v.aprovada;
+    const eAchado = v.correcao.origem === 'check.finding';
+    const checkNovoPassou = eAchado && parecer.veredito === 'PASSOU' && parecer.sha256 !== v.correcao.parecerSha256;
+    const aprovada = eAchado ? Boolean(verify?.ok && checkNovoPassou)
+      : v.correcao.verificar.length === 0 ? (verify?.ok ?? false) : v.aprovada;
     v.aprovada = aprovada;
-    carimbar(raiz, v.correcao, aprovada, v.detalhe);
+    if (eAchado) v.detalhe = checkNovoPassou
+      ? 'novo parecer independente PASSOU e o verify completo ficou verde'
+      : 'aguarda novo parecer independente com veredito PASSOU';
+    v.correcao = carimbar(raiz, v.correcao, aprovada, v.detalhe,
+      aprovada ? (verify?.commit ?? commitReal(cwd)) : null);
   }
 
   const rodadas = rodada;
@@ -511,6 +648,27 @@ function reverificarSobConducao(
 export function rodadasGastas(raiz: string, threadId: string): number {
   return lerLedger(dirThread(raiz, threadId)).filter((e) => e.tipo === TIPOS_DE_EVENTO.fixAberto)
     .length;
+}
+
+export interface StatusDaRodadaDeFix {
+  thread: string;
+  rodada: number;
+  estado: 'sem-rodada' | 'aberta' | 'concluida';
+  achados: Array<{ correcao: string; achado: string | null; origem: Correcao['origem']; arquivo: string | null;
+    linha: number | null; estado: Correcao['estado']; commitQueFechou: string | null }>;
+  faltam: string[];
+}
+
+export function statusDaRodada(raiz: string, threadId: string, rodada = ultimaRodada(raiz, threadId)): StatusDaRodadaDeFix {
+  lerThread(raiz, threadId);
+  if (rodada === 0) return { thread: threadId, rodada: 0, estado: 'sem-rodada', achados: [], faltam: [] };
+  const correcoes = correcoesDaRodada(raiz, threadId, rodada);
+  if (correcoes.length === 0) throw new Error(`rodada ${rodada} nao existe na thread ${threadId}`);
+  const achados = correcoes.map((c) => ({ correcao: c.id, achado: c.achado?.id ?? null, origem: c.origem,
+    arquivo: c.achado?.arquivo ?? null, linha: c.achado?.linha ?? null, estado: c.estado,
+    commitQueFechou: c.commitQueFechou ?? null }));
+  const faltam = achados.filter((a) => a.estado !== 'aprovada').map((a) => a.correcao);
+  return { thread: threadId, rodada, estado: faltam.length ? 'aberta' : 'concluida', achados, faltam };
 }
 
 /** Texto de `ork fix open`. */
