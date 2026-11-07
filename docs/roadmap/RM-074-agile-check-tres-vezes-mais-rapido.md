@@ -513,31 +513,38 @@ ou morna aguarda a bancada da condução.
 
 ### M13: parede ajustada pela carga medida
 
-A bancada passa a comparar cada rodada pela parede sem preparo ajustada à
-capacidade que permaneceu disponível. O ajuste desconta da capacidade anunciada o
-`steal` e a carga externa medidos naquela rodada e multiplica a parede pela
-fração restante. Agile e Classic usam a mesma fórmula; a razão bruta continua no
-resultado, e a razão oficial passa a ser a ajustada.
+A bancada passa a comparar cada rodada pela parede sem preparo, descontando
+somente a contenção que comprovadamente impediu a rodada de executar. A fonte é o
+PSI `full` de CPU em um cgroup exclusivo: ele só avança quando todo o trabalho
+executável da rodada está sem CPU. Enquanto um worker executa, a disputa entre os
+workers da própria rodada não gera crédito.
+
+A janela medida também cobre partes que ficam fora da razão. A correção presume
+primeiro que todo o atraso ocorreu nessas partes e subtrai da parede somente o
+excedente inevitável. PSI ausente, cgroup compartilhado ou parte da rodada fora da
+hierarquia deixam a correção sem crédito, com motivo tipado. Nesse caso, a parede
+ajustada permanece igual à bruta.
+
+`Steal` e carga externa agregados continuam visíveis, mas não entram na fórmula.
+Sem atribuição causal, eles validam o equilíbrio entre os dois lados do mesmo par:
+uma diferença acima de cinco pontos percentuais retira o par, em vez de comparar
+cada rodada com um limiar absoluto. Assim, CPU de fora que ocupou capacidade
+ociosa não cria vantagem para Agile nem para Classic.
 
 As ausências e falhas estruturais continuam fechadas: rodada reprovada, parede ou
 preparo ausente, ordem fora de AB/BA, `steal` ausente ou carga externa ausente
-retiram o par. A divergência entre as perdas dos dois modos e o limiar antigo de
-carga externa deixam de descartar uma comparação que pode ser normalizada. Quando
-mais da metade da capacidade fica indisponível numa rodada, o ajuste deixa de dar
-veredito e registra o motivo tipado.
+retiram o par. Agile e Classic usam a mesma regra; a razão bruta e a correção
+causal ficam explícitas, e a razão oficial só aparece quando a confiança fecha.
 
-A confiança conserva o mínimo vigente de pares válidos e passa a exigir que o
-coeficiente de variação da razão ajustada fique abaixo de 10%, limite da decisão
-D3 desta thread conferido pelos testes sintéticos e pela reanálise das bancadas
-arquivadas. Cada par mostra as paredes bruta e ajustada, o `steal`, a carga externa,
-a perda total e o fator aplicado nos dois modos. Assim, o resultado explicita tanto
-a observação quanto a correção em vez de esconder a carga da máquina no descarte
-do par.
+A confiança conserva o mínimo vigente de pares válidos e exige que o coeficiente
+de variação da razão ajustada fique estritamente abaixo de 10%; a igualdade é
+recusada. Cada par mostra as paredes bruta e ajustada, a fonte causal, o atraso
+aceito, o motivo de crédito zero, o `steal` e a carga externa dos dois modos.
 
-As bancadas arquivadas serviram para conferir a fórmula e a fronteira, mas não são
-uma coleta nova e não publicam ganho da M13. A bancada histórica que antecede a
-medição da carga externa permanece apenas como diagnóstico, porque dado ausente não
-vira zero. A próxima coleta da condução é que pode medir o resultado do produto.
+As bancadas arquivadas não contêm PSI causal. Elas servem apenas para conferir o
+fallback sem crédito e a fronteira pareada; não são uma coleta nova e não publicam
+ganho da M13. Dado ausente não vira zero. A próxima coleta da condução precisa
+gravar a fonte causal em cada rodada antes de sustentar uma razão corrigida.
 
 O caso AG59 também cria e remove seu próprio `TMPDIR`, restaura o ambiente e
 ignora diretórios concorrentes de mesmo prefixo no temporário global. As asserções
@@ -547,8 +554,8 @@ fatia; muda somente a forma como a bancada compara as rodadas.
 ### O que falta
 
 - Fechar uma bancada fria e morna nova no host, com o mínimo vigente de pares
-  válidos, a perda de cada rodada dentro da fronteira da M13 e a variação da razão
-  ajustada abaixo do limite de confiança.
+  válidos, PSI `full` exclusivo coletado em cada rodada, medidas agregadas
+  equilibradas no par e variação abaixo do limite de confiança.
 - Confirmar na evidência que o perfil da árvore fecha mesmo quando um contêiner
   fica sem cgroup e que a reserva medida devolve antes a capacidade ociosa.
 - Confirmar na evidência que a reserva da varredura vai para a integração
@@ -557,7 +564,7 @@ fatia; muda somente a forma como a bancada compara as rodadas.
   sem mudar os recibos.
 - Reavaliar a distância para a meta de cerca de 1,7 vez; a M9 remove a reserva
   conservadora diagnosticada, a M11 muda o agendamento e a M12 reaproveita claims
-  pelas lanes, e a M13 normaliza a carga medida, mas nenhuma publica uma razão
+  pelas lanes, e a M13 retira somente a contenção causal, mas nenhuma publica uma razão
   nova antes dessa coleta.
 
 ## Problema e resultado
