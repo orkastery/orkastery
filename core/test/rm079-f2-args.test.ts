@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { main, parseArgs } from '../src/index';
 import { lerClaims } from '../src/claims';
+import { lerPedido } from '../src/intelligence-graph-cli';
 import { novaThread } from '../src/thread';
 import { projetoTemporario } from './apoio';
 
@@ -97,5 +98,17 @@ test('RM-079 F2: rotas anteriores ao parser comum seguem o contrato escalar e o 
       ['maestro', '--json', '--projeto', p.dir, '--projeto', `${p.dir}-outro`]);
     assert.equal(projetoJson.code, 2);
     assert.equal(JSON.parse(projetoJson.stderr).option, '--projeto');
+
+    const grafoIgual = executar(p.dir, ['grafo', 'status', '--json', '--json']);
+    assert.equal(grafoIgual.code, 0, grafoIgual.stderr);
+    assert.equal(typeof JSON.parse(grafoIgual.stdout).indice_do_head, 'string');
+    assert.equal(lerPedido(['vizinhos', 'x', '--limite', '1', '--limite=1']).valores.get('limite'), '1');
+
+    const grafoDiferente = executar(p.dir,
+      ['grafo', 'vizinhos', 'x', '--limite', '1', '--limite', '2', '--json']);
+    assert.equal(grafoDiferente.code, 2);
+    const erroDoGrafo = JSON.parse(grafoDiferente.stderr);
+    assert.equal(erroDoGrafo.option, '--limite');
+    assert.equal(erroDoGrafo.message, 'opcao --limite repetida com valores diferentes');
   } finally { p.limpar(); }
 });

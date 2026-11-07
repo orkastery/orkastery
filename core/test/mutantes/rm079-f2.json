@@ -73,6 +73,15 @@
       "para": "else\n            repetidaDivergente = true;",
       "teste": "rm079-f2-args",
       "nome": "^RM-079 F2: opcao global projeto"
+    },
+    {
+      "id": "M9",
+      "descricao": "o parser do grafo volta a recusar uma bandeira repetida com o mesmo valor",
+      "modulo": "intelligence-graph-cli",
+      "de": "if (bandeiras.has(nome))\n                continue;",
+      "para": "if (bandeiras.has(nome))\n                uso(t.motivos.repetida(nome), t);",
+      "teste": "rm079-f2-args",
+      "nome": "^RM-079 F2: rotas anteriores ao parser comum"
     }
   ]
 }

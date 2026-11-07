@@ -5,9 +5,9 @@
  * determinismo com a ordem de leitura trocada), e `amostra` gera e confere a amostra auditada de
  * arestas. As consultas leem o indice do HEAD e respondem em texto ou `--json`.
  *
- * O argv chega cru e o parser e estrito: subcomando conhecido, opcao conhecida uma vez so, valor
- * onde a opcao pede valor e bandeira sem valor, numero exato de posicionais. Resposta sai 0, mesmo
- * vazia; erro tipado sai 1 e, com `--json`, vem como objeto.
+ * O argv chega cru e o parser e estrito: subcomando conhecido, repeticao de opcao somente com o
+ * mesmo valor, valor onde a opcao pede valor e bandeira sem valor, numero exato de posicionais.
+ * Resposta sai 0, mesmo vazia; erro tipado sai 1 e, com `--json`, vem como objeto.
  *
  * RM-031 KG5 (D4, D5): `--teto-bytes N` limita a resposta em bytes (JSON compacto), para quem a leva
  * ao contexto de um agente, como as tools `ork_grafo_*` do MCP; sem a opcao, a saida e a de antes. Sem
@@ -299,14 +299,18 @@ export function lerPedido(argv: readonly string[], t: TextosDoGrafo = TEXTOS_DO_
     }
     const igual = a.indexOf('=');
     const nome = igual > 0 ? a.slice(2, igual) : a.slice(2);
-    if (bandeiras.has(nome) || valores.has(nome)) uso(t.motivos.repetida(nome), t);
     if (esp.bandeiras.includes(nome)) {
       if (igual > 0) uso(t.motivos.semValor(nome), t);
+      if (bandeiras.has(nome)) continue;
+      if (valores.has(nome)) uso(t.motivos.repetida(nome), t);
       bandeiras.add(nome);
     } else if (esp.valores.includes(nome)) {
       const valor = igual > 0 ? a.slice(igual + 1) : resto[++i];
       if (valor === undefined || valor === '' || (igual < 0 && valor.startsWith('--'))) uso(t.motivos.exigeValor(nome), t);
-      valores.set(nome, valor);
+      if (bandeiras.has(nome)) uso(t.motivos.repetida(nome), t);
+      const anterior = valores.get(nome);
+      if (anterior === undefined) valores.set(nome, valor);
+      else if (anterior !== valor) uso(t.motivos.repetida(nome), t);
     } else {
       uso(t.motivos.opcao(sub, a), t);
     }
