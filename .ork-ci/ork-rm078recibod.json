@@ -15,7 +15,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm078-recibo.test.js"
       ],
       "criadoEm": "2026-11-06T18:52:38.671Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -29,7 +29,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm078-recibo.test.js"
       ],
       "criadoEm": "2026-11-06T18:52:38.749Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -43,7 +43,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm078-recibo.test.js"
       ],
       "criadoEm": "2026-11-06T18:52:38.848Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -57,7 +57,7 @@
         "grep -Fq 'core/test/mutantes/rm078.json' docs/roadmap/RM-078-recibo-valido-enquanto-nada-muda.md && grep -Fq 'RM-078' CHANGELOG.md"
       ],
       "criadoEm": "2026-11-06T18:52:38.952Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -71,7 +71,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/mutante.cjs core/test/mutantes/rm078.json M1 && node core/scripts/mutante.cjs core/test/mutantes/rm078.json M2 && node core/scripts/mutante.cjs core/test/mutantes/rm078.json M3"
       ],
       "criadoEm": "2026-11-06T18:52:39.110Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -85,7 +85,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm078-recibo.test.js"
       ],
       "criadoEm": "2026-11-06T18:59:45.246Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -99,7 +99,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm078-recibo.test.js"
       ],
       "criadoEm": "2026-11-06T18:59:45.387Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -113,7 +113,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm078-recibo.test.js"
       ],
       "criadoEm": "2026-11-06T18:59:45.561Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -127,7 +127,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm078-recibo.test.js"
       ],
       "criadoEm": "2026-11-06T19:02:59.723Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -141,7 +141,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm078-recibo.test.js"
       ],
       "criadoEm": "2026-11-06T19:02:59.907Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -155,7 +155,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm078-recibo.test.js"
       ],
       "criadoEm": "2026-11-06T19:03:00.334Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -169,7 +169,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm078-recibo.test.js"
       ],
       "criadoEm": "2026-11-06T19:03:00.524Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -183,7 +183,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm078-recibo.test.js"
       ],
       "criadoEm": "2026-11-06T19:03:00.883Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -197,7 +197,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm078-recibo.test.js core/dist-test/test/noctum-provas.test.js"
       ],
       "criadoEm": "2026-11-06T19:09:13.321Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -211,7 +211,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm078-recibo.test.js core/dist-test/test/noctum-provas.test.js"
       ],
       "criadoEm": "2026-11-06T19:09:13.454Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -225,7 +225,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm078-recibo.test.js core/dist-test/test/noctum-provas.test.js"
       ],
       "criadoEm": "2026-11-06T19:09:13.589Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -239,7 +239,77 @@
         "grep -Fq 'Recibos de verify e revisão por conteúdo' CHANGELOG.md && node core/scripts/checar-changelog.cjs --base main"
       ],
       "criadoEm": "2026-11-06T19:10:02.979Z",
-      "estado": "pendente",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm078recibod",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-provas.ts",
+      "alegacao": "Reprovações de verify no mesmo SHA permanecem visíveis para o histórico e para o teto mesmo quando a chave do recibo verde deixa de ser reutilizável.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/noctum-provas.test.js"
+      ],
+      "criadoEm": "2026-11-06T22:27:25.161Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm078recibod",
+      "fase": "GO",
+      "arquivo": "core/scripts/ensaio-noctum.cjs",
+      "alegacao": "O ensaio integrado grava o recibo canônico no verify da revisão para exercer a mesma decisão usada pelo produto.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/noctum-ensaio-piloto.test.js"
+      ],
+      "criadoEm": "2026-11-06T22:27:25.242Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm078recibod",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f2a-pt-BR.json",
+      "alegacao": "O snapshot de ajuda incorpora a opção de dependência externa da claim sem mudar as demais mensagens.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f2a-snapshot.test.js core/dist-test/test/locale-ajuda.test.js"
+      ],
+      "criadoEm": "2026-11-06T22:27:25.324Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm078recibod",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "O snapshot de uso de claims add incorpora a opção de dependência externa sem mudar as demais mensagens.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f3b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-06T22:27:25.377Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm078recibod",
+      "fase": "GO",
+      "arquivo": "core/test/locale-claims.test.ts",
+      "alegacao": "O caso de locale em inglês exige que o uso de claims add exponha a opção de dependência externa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-claims.test.js"
+      ],
+      "criadoEm": "2026-11-07T00:09:28.433Z",
+      "estado": "verificado",
       "lint": []
     }
   ],
