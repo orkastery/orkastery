@@ -49,13 +49,18 @@ export function runMaestroCli(argv:string[], cwd=process.cwd(), trusted:Omit<Dis
   }
   try {
     let json=false,threadId:string|undefined,section:SectionName|undefined,offset:number|undefined;
-    const seen=new Set<string>();
+    const vistos=new Map<string,string|boolean>();
+    const repetida=(opcao:string,valor:string|boolean):boolean=>{
+      if(!vistos.has(opcao)){vistos.set(opcao,valor);return false;}
+      if(vistos.get(opcao)===valor)return true;
+      const erro=Error('maestro.arguments.invalid') as Error&{opcao?:string};erro.opcao=opcao;throw erro;
+    };
     for(let i=0;i<argv.length;i++) {
-      const arg=argv[i];if(seen.has(arg))throw Error('maestro.arguments.invalid');seen.add(arg);
-      if(arg==='--json')json=true;
-      else if(arg==='--thread') {threadId=argv[++i];if(!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/.test(threadId??''))throw Error('maestro.arguments.invalid');}
-      else if(arg==='--section') {section=argv[++i] as SectionName;if(!SECTION_NAMES.includes(section))throw Error('maestro.arguments.invalid');}
-      else if(arg==='--offset') {const raw=argv[++i];if(!/^\d+$/.test(raw??''))throw Error('maestro.arguments.invalid');offset=Number(raw);if(!Number.isSafeInteger(offset))throw Error('maestro.arguments.invalid');}
+      const arg=argv[i];
+      if(arg==='--json') {repetida(arg,true);json=true;}
+      else if(arg==='--thread') {const raw=argv[++i];if(!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/.test(raw??''))throw Error('maestro.arguments.invalid');if(!repetida(arg,raw))threadId=raw;}
+      else if(arg==='--section') {const raw=argv[++i] as SectionName;if(!SECTION_NAMES.includes(raw))throw Error('maestro.arguments.invalid');if(!repetida(arg,raw))section=raw;}
+      else if(arg==='--offset') {const raw=argv[++i];if(!/^\d+$/.test(raw??''))throw Error('maestro.arguments.invalid');const valor=Number(raw);if(!Number.isSafeInteger(valor))throw Error('maestro.arguments.invalid');if(!repetida(arg,raw))offset=valor;}
       else throw Error('maestro.arguments.invalid');
     }
     if((section===undefined)!==(offset===undefined))throw Error('maestro.arguments.invalid');
@@ -65,6 +70,8 @@ export function runMaestroCli(argv:string[], cwd=process.cwd(), trusted:Omit<Dis
     io.out(json?JSON.stringify(snapshot):maestroText(snapshot,textos));return 0;
   } catch(e) {
     const message=(e as Error).message;const code=/^maestro\.[a-z_.]+$/.test(message)?message:'maestro.source.unavailable';
-    io.err(JSON.stringify({error:code}));return code==='maestro.arguments.invalid'?2:1;
+    const opcao=(e as Error&{opcao?:string}).opcao;
+    io.err(JSON.stringify({error:code,...(opcao?{option:opcao,message:`option ${opcao} repeated with different values`}:{})}));
+    return code==='maestro.arguments.invalid'?2:1;
   }
 }

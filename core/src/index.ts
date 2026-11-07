@@ -4302,19 +4302,32 @@ function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
  * RM-052: `--projeto <nome|caminho>` e opcao GLOBAL. Sai do argv em qualquer posicao, antes de
  * qualquer despacho (inclusive do `maestro`, que tem parse proprio), e so aparece uma vez.
  */
-export function extrairOpcaoDeProjeto(argv: readonly string[]): { argv: string[]; projeto: string | undefined } {
+export function extrairOpcaoDeProjeto(argv: readonly string[]): {
+  argv: string[]; projeto: string | undefined; repetidaDivergente?: 'projeto'
+} {
   const resto: string[] = [];
   let projeto: string | undefined;
+  let encontrou = false, repetidaDivergente = false;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a !== '--projeto' && !a.startsWith('--projeto=')) { resto.push(a); continue; }
-    if (projeto !== undefined) throw new Error('uso: --projeto <nome|caminho> aparece uma vez só');
-    if (a !== '--projeto') { projeto = a.slice('--projeto='.length); continue; }
-    const valor = argv[i + 1];
-    projeto = valor !== undefined && !valor.startsWith('--') ? valor : '';
-    if (projeto) i++;
+    let valor: string;
+    if (a !== '--projeto') valor = a.slice('--projeto='.length);
+    else {
+      const proximo = argv[i + 1];
+      valor = proximo !== undefined && !proximo.startsWith('--') ? proximo : '';
+      if (valor) i++;
+    }
+    if (!encontrou) { projeto = valor; encontrou = true; }
+    else if (projeto !== valor) repetidaDivergente = true;
   }
-  return { argv: resto, projeto };
+  return { argv: resto, projeto, ...(repetidaDivergente ? { repetidaDivergente: 'projeto' as const } : {}) };
+}
+
+function recusarOpcaoRepetida(nome: string, json: boolean): number {
+  const mensagem = msg().claims.opcaoRepetida(nome);
+  console.error(json ? JSON.stringify({ error: 'cli.option.repeated', option: `--${nome}`, message: mensagem }) : mensagem);
+  return 2;
 }
 
 /** Comandos que nao leem projeto: o alvo nao e resolvido (nem recusado) para eles. */
@@ -4374,13 +4387,23 @@ export function main(argvBruto: string[]): number {
 
 function executarComando(argvBruto: string[]): number {
   const extraida = extrairOpcaoDeProjeto(argvBruto);
+  if (extraida.repetidaDivergente) {
+    ativarLocale(localeDaAjuda(extraida.projeto));
+    return recusarOpcaoRepetida(extraida.repetidaDivergente, extraida.argv.includes('--json'));
+  }
   const proprio = COMANDOS_COM_PROJETO_PROPRIO.has(parseArgs(extraida.argv).posicionais[0] ?? '');
   const argv = proprio && extraida.projeto !== undefined
     ? [...extraida.argv, ...(extraida.projeto ? ['--projeto', extraida.projeto] : ['--projeto'])] : extraida.argv;
   const projeto = proprio ? undefined : extraida.projeto;
+  // RM-079 F2 (D10): estas duas rotas desviam antes do parser comum; a checagem fica antes delas.
+  const argsDaBorda = parseArgs(argv);
+  if (argsDaBorda.repetidasDivergentes.length > 0) {
+    ativarLocale(localeDaAjuda(projeto));
+    return recusarOpcaoRepetida(argsDaBorda.repetidasDivergentes[0], argsDaBorda.opcoes.json === true);
+  }
   // Helper fixo do host confiável: o projeto vem da instalação, nunca de toolargs.
   if (argv[0] === 'receipt-verifiers') {
-    if (argv.length !== 2 || argv[1] !== '--json' || projeto !== undefined) {
+    if (argv.length < 2 || !argv.slice(1).every((arg) => arg === '--json') || projeto !== undefined) {
       ativarLocale(localeDaAjuda());
       throw new ErroDoCatalogo((m) => m.cli.receiptVerifiersUso);
     }
@@ -4422,10 +4445,6 @@ function executarComando(argvBruto: string[]): number {
   if (cobreLocale(args.posicionais, args.opcoes)) {
     ativarLocale(localeDaAjuda(projeto));
     ligarRemontagem(true);
-  }
-  if (args.repetidasDivergentes.length > 0) {
-    console.error(msg().claims.opcaoRepetida(args.repetidasDivergentes[0]));
-    return 2;
   }
   if (!COMANDOS_SEM_PROJETO.has(comando) && !proprio) {
     fixarAlvoDoProcesso(projeto, !SEM_DECLARACAO_DO_PROJETO.has(`${comando} ${args.posicionais[1] ?? ''}`.trim()));

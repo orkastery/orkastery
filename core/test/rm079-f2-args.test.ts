@@ -61,3 +61,41 @@ test('RM-079 F2: escalar divergente sai 2 e nomeia a opcao; valor identico segue
     assert.equal(igual.code, 0, igual.stderr);
   } finally { p.limpar(); }
 });
+
+test('RM-079 F2: opcao global projeto aceita valor identico e recusa divergencia', () => {
+  const p = projetoTemporario('rm079-f2-args-projeto');
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'projeto repetido', modo: 'auto' });
+    const igual = executar(p.dir, ['--projeto', p.dir, '--projeto', p.dir, 'claims', 'list', thread.id]);
+    assert.equal(igual.code, 0, igual.stderr);
+
+    const diferente = executar(p.dir, ['--projeto', p.dir, '--projeto', `${p.dir}-outro`, 'claims', 'list', thread.id]);
+    assert.equal(diferente.code, 2);
+    assert.match(diferente.stderr, /--projeto/);
+  } finally { p.limpar(); }
+});
+
+test('RM-079 F2: rotas anteriores ao parser comum seguem o contrato escalar e o erro JSON nomeia a opcao', () => {
+  const p = projetoTemporario('rm079-f2-args-rotas');
+  try {
+    const maestroIgual = executar(p.dir,
+      ['maestro', '--json', '--section', 'threads', '--section', 'threads', '--offset', '0', '--offset', '0']);
+    assert.equal(maestroIgual.code, 0, maestroIgual.stderr);
+
+    const maestroDiferente = executar(p.dir,
+      ['maestro', '--json', '--section', 'threads', '--section', 'blockers']);
+    assert.equal(maestroDiferente.code, 2);
+    assert.equal(JSON.parse(maestroDiferente.stderr).option, '--section');
+
+    const receiptIgual = executar(p.dir, ['receipt-verifiers', '--json', '--json']);
+    assert.equal(receiptIgual.code, 0, receiptIgual.stderr);
+    const receiptDiferente = executar(p.dir, ['receipt-verifiers', '--json=a', '--json=b']);
+    assert.equal(receiptDiferente.code, 2);
+    assert.match(receiptDiferente.stderr, /--json/);
+
+    const projetoJson = executar(p.dir,
+      ['maestro', '--json', '--projeto', p.dir, '--projeto', `${p.dir}-outro`]);
+    assert.equal(projetoJson.code, 2);
+    assert.equal(JSON.parse(projetoJson.stderr).option, '--projeto');
+  } finally { p.limpar(); }
+});
