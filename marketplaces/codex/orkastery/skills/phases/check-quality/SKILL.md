@@ -44,8 +44,7 @@ e `web-performance-auditor`. Cada um roda no seu escopo e devolve achados catego
 
 ## Claims e reproducoes de defeito
 
-O parecer canonico do CHECK fica no estado da thread: grave-o com `ork_artifact_write`, usando o
-tipo `check`. Um `docs/check.md` na worktree nao e o parecer e nao substitui esse artefato.
+O parecer canonico do CHECK fica no estado da thread: grave-o com `ork_artifact_write`, usando o tipo `check`. Um `docs/check.md` na worktree nao e o parecer e nao substitui esse artefato.
 
 - Uma claim nascida no CHECK afirma o comportamento correto esperado e precisa passar depois da
   correcao. Ela nunca afirma que o defeito ainda acontece.
