@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.5",
-  "publicadoEm": "2026-11-07T03:33:37.231Z",
+  "publicadoEm": "2026-11-07T03:45:05.066Z",
   "threads": [
     {
       "id": "ork-rm078recibod",
@@ -36,7 +36,7 @@
       "status": "aberta",
       "roadmap": "RM-079",
       "branch": "ork/ork-rm079claimsq-full",
-      "atualizadaEm": "2026-11-07T02:57:40.037Z",
+      "atualizadaEm": "2026-11-07T03:42:05.088Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -45,28 +45,10 @@
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-11-07T03:43:37.922Z",
+        "motivo": "sessão 01a1b3a9 encerrada (completed)"
       }
-    },
-    {
-      "id": "ork-testesdoprod",
-      "nome": "testesrelogio",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-testesdoprod-full",
-      "atualizadaEm": "2026-11-07T03:33:36.518Z",
-      "entregue": "0c75f57",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh",
-      "sessao": null
     }
   ]
 }
