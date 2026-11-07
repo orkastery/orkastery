@@ -402,10 +402,10 @@ export function comandosDoBundle(carregado: ManifestoCarregado): { name: string;
  * roda a suite inteira e recusada: o bundle vai para o runner hospedado e reprovaria la, depois de
  * gastar o tempo todo. O resto so avisa, e o aviso fica no ledger da thread.
  */
-export function lintDoBundle(claims: readonly Claim[]): { recusas: string[]; avisos: string[] } {
+export function lintDoBundle(claims: readonly Claim[], ramoBase?: string): { recusas: string[]; avisos: string[] } {
   const recusas: string[] = [], avisos: string[] = [];
   for (const claim of claims) {
-    for (const achado of analisarComandos(claim.verificar)) {
+    for (const achado of analisarComandos(claim.verificar, ramoBase)) {
       const linha = linhaDoLintDeClaim(claim.id, achado);
       const bloqueiaNova = achado.regra === 'suite-inteira' || regraFatalDeClaim(achado.regra);
       if (bloqueiaNova && claim.lint !== undefined) recusas.push(linha);
@@ -442,7 +442,7 @@ export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string
   const activeClaims = lerClaims(carregado.raiz, threadId).filter(
     (claim) => claim.estado !== 'retirada'
   );
-  const lint = lintDoBundle(activeClaims);
+  const lint = lintDoBundle(activeClaims, carregado.manifesto.worktree.base_branch);
   if (lint.recusas.length || lint.avisos.length) {
     registrar(dirThread(carregado.raiz, threadId), threadId, TIPOS_DE_EVENTO.lintDeClaim,
       { recusas: lint.recusas, avisos: lint.avisos });

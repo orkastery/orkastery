@@ -3,7 +3,8 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { analisarComando, regraFatalDeClaim } from '../src/claim-lint';
-import { adicionarClaim, lerClaims } from '../src/claims';
+import { adicionarClaim, lerClaims, montarClaim } from '../src/claims';
+import { lintDoBundle } from '../src/ci';
 import { adicionarClaimMcp } from '../src/mcp-artifacts';
 import { exigirManifesto } from '../src/manifest';
 import { novaThread } from '../src/thread';
@@ -48,4 +49,17 @@ test('RM-079 F2: CLI e MCP recusam antes de persistir usando o ramo do manifesto
       e.message.includes('origin/trunk'));
     assert.deepEqual(lerClaims(p.dir, thread.id), []);
   } finally { p.limpar(); }
+});
+
+test('RM-079 F2: no bundle a claim nova recusa e a anterior a regra recebe somente aviso', () => {
+  const nova = montarClaim({ id: 'C1', dono: 'ork-x', fase: 'GO', arquivo: 'README.md', alegacao: 'prova portatil',
+    verificar: ['git diff trunk -- README.md'], ramoBase: 'trunk' });
+  const lintNovo = lintDoBundle([nova], 'trunk');
+  assert.ok(lintNovo.recusas.some((linha) => linha.includes('origin/trunk')));
+  assert.deepEqual(lintNovo.avisos, []);
+
+  const { lint: _lint, ...antiga } = nova;
+  const lintAntigo = lintDoBundle([antiga], 'trunk');
+  assert.deepEqual(lintAntigo.recusas, []);
+  assert.ok(lintAntigo.avisos.some((linha) => linha.includes('claim anterior ao lint: so aviso')));
 });
