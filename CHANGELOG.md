@@ -8,7 +8,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Alterado
 
-- **Recibos de verify e revisão por conteúdo ([RM-078](docs/roadmap/RM-078-recibo-valido-enquanto-nada-muda.md)):** o recibo passa a depender do HEAD provado, das claims ativas e do plano; GO sem commit não repete prova quando essa chave permanece equivalente, e só sessão com commit confirmado conta como autora.
+- **Recibos de verify e revisão por conteúdo ([RM-078](docs/roadmap/RM-078-recibo-valido-enquanto-nada-muda.md)):** o recibo passa a depender do HEAD provado, das claims ativas e do plano; GO sem commit não repete prova quando essa chave permanece equivalente, exceto quando uma claim declara dependência externa de rede ou relógio, que exige novo verify depois do GO sem mudança; só sessão com commit confirmado na cadeia conta como autora.
 
 - **Claims e CPU fora do caminho crítico — M11 ([RM-074](docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md)):** o Agile antecipa claims independentes; a integração encadeada começa depois da varredura com a reserva dela, enquanto a varredura devolve essa reserva à hermética quando a integração já roda em paralelo; o adaptador aplica a cota aceita pelo runtime ou recua para o `argv` anterior, sem mudar o Classic; o ganho aguarda a bancada (RM-074, M11).
 
