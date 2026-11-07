@@ -4,7 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { ENV_CONTAINERS_DA_LANE, ENV_CPUS_DOCKER, registrarContainerDaLane } from '../src/agendador-cpu';
+import { ENV_CONTAINERS_DA_LANE, ENV_CPUS_DOCKER, registrarContainerDaLane, registrarCotaDockerDaLane } from '../src/agendador-cpu';
 
 export const fixtureEnv = () => ({ PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: os.tmpdir(), PYTHONDONTWRITEBYTECODE: '1',
   ...(process.env[ENV_CPUS_DOCKER] ? { [ENV_CPUS_DOCKER]: process.env[ENV_CPUS_DOCKER] } : {}),
@@ -27,8 +27,38 @@ export function argsDockerDaLane(args: string[], ambiente: NodeJS.ProcessEnv = p
   return ['run', '--cpus', String(cpus), ...args.slice(1)];
 }
 
+export type ResultadoDockerDaLane = { status: number | null; stdout: string; stderr: string };
+export type ExecutorDockerDaLane = (args: string[]) => ResultadoDockerDaLane;
+
+function recusouCota(resultado: ResultadoDockerDaLane): boolean {
+  return /(?:unknown|unrecognized) (?:flag|option)[^\n]*--cpus|flag provided but not defined[^\n]*cpus/i
+    .test(`${resultado.stderr}\n${resultado.stdout}`);
+}
+
+/** Sonda a capacidade, tenta a cota e recua para o argv anterior somente quando o runtime recusa esse argumento. */
+export function executarDockerDaLane(args: string[], ambiente: NodeJS.ProcessEnv, executar: ExecutorDockerDaLane,
+  registrar = registrarCotaDockerDaLane): ResultadoDockerDaLane {
+  const comCota = argsDockerDaLane(args, ambiente);
+  if (comCota === args || comCota.length === args.length) return executar(args);
+  const cota = Number(ambiente[ENV_CPUS_DOCKER]);
+  const ajuda = executar(['run', '--help']);
+  if (ajuda.status !== 0 || !/(?:^|\s)--cpus(?:[=\s]|$)/m.test(`${ajuda.stdout}\n${ajuda.stderr}`)) {
+    registrar({ estado: 'fallback', cota, motivo: 'runtime sem suporte anunciado para --cpus' }, ambiente);
+    return executar(args);
+  }
+  const limitado = executar(comCota);
+  if (recusouCota(limitado)) {
+    registrar({ estado: 'fallback', cota, motivo: 'runtime recusou --cpus; argv anterior executado' }, ambiente);
+    return executar(args);
+  }
+  if (limitado.status === 0) registrar({ estado: 'aplicada', cota, motivo: 'runtime aceitou a execucao com --cpus' }, ambiente);
+  return limitado;
+}
+
 function docker(args: string[], timeout: number = DOCKER_TIMEOUT_PADRAO_MS) {
-  return spawnSync('docker', argsDockerDaLane(args), { encoding: 'utf8', env: fixtureEnv(), timeout });
+  const env = fixtureEnv();
+  return executarDockerDaLane(args, process.env,
+    (argv) => spawnSync('docker', argv, { encoding: 'utf8', env, timeout }) as ResultadoDockerDaLane);
 }
 /**
  * O entrypoint do PostgreSQL sobe um servidor temporario para inicializar o cluster e o derruba antes

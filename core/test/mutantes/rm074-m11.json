@@ -1,0 +1,51 @@
+{
+  "contrato": "ork.mutantes/v1",
+  "descricao": "RM-074 M11: claims independentes saem do caminho critico, a hermetica recebe a folga e a integracao respeita sua cota.",
+  "mutantes": [
+    {
+      "id": "M1",
+      "descricao": "claim que reaproveita a lane e antecipada junto das claims independentes",
+      "modulo": "check-agil",
+      "de": "comandoDaClaimDependeDasLanes(manifesto, comando, cwd)\n            || usaPreparo(comando)",
+      "para": "usaPreparo(comando)",
+      "teste": "check-agil",
+      "nome": "^AG47:"
+    },
+    {
+      "id": "M2",
+      "descricao": "a integracao encadeada deixa de receber a reserva da varredura",
+      "modulo": "check-paralelo",
+      "de": "varredura: plano.integracaoEmParalelo ? plano.cpusDaFatia : 0,",
+      "para": "varredura: plano.cpusDaFatia,",
+      "teste": "test-lanes",
+      "nome": "^TL14:"
+    },
+    {
+      "id": "M3",
+      "descricao": "integracao perde a cota reservada dos conteineres",
+      "arquivo": "core/dist-test/test/native-fixture.js",
+      "de": "return ['run', '--cpus', String(cpus), ...args.slice(1)];",
+      "para": "return args;",
+      "teste": "native-fixture",
+      "nome": "^a fixture da lane recebe"
+    },
+    {
+      "id": "M5",
+      "descricao": "a falha de uma claim antecipada e convertida em verde",
+      "modulo": "verify",
+      "de": "claimsAntecipadas[nome] ?? executorDaClaim(nome, comando, dir)",
+      "para": "claimsAntecipadas[nome] ? { ...claimsAntecipadas[nome], ok: true, code: 0 } : executorDaClaim(nome, comando, dir)",
+      "teste": "check-agil",
+      "nome": "^AG53:"
+    },
+    {
+      "id": "M6",
+      "descricao": "o adaptador mantem o resultado recusado e nao executa o argv anterior",
+      "arquivo": "core/dist-test/test/native-fixture.js",
+      "de": "registrar({ estado: 'fallback', cota, motivo: 'runtime recusou --cpus; argv anterior executado' }, ambiente);\n        return executar(args);",
+      "para": "registrar({ estado: 'fallback', cota, motivo: 'runtime recusou --cpus; argv anterior executado' }, ambiente);\n        return limitado;",
+      "teste": "native-fixture",
+      "nome": "^o adaptador repete o argv anterior"
+    }
+  ]
+}

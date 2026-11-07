@@ -12,6 +12,9 @@ import * as path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { TESTES_DE_INTEGRACAO_LOCAL } from '../src/integracoes-locais';
 import { assinaturaDoAmbiente as assinaturaDoVerify } from '../src/check-agil';
+import { ambienteFuncionalDosTestes, ENV_PATH_FUNCIONAL_DA_RODADA } from '../src/ambiente-funcional';
+import { aplicarDevolucaoDaReserva, aplicarPlanoCpu, devolucoesDaReserva, OrigemDaReserva } from '../src/check-paralelo';
+import { planejarCpuDoGrupo, PlanoCpuDoGrupo } from '../src/agendador-cpu';
 
 const CORE = path.resolve(__dirname, '../..');
 const SCRIPT = path.join(CORE, 'scripts', 'test-lanes.cjs');
@@ -21,7 +24,7 @@ const lanes = require(SCRIPT) as {
   ordenarPorDuracao: (arquivos: string[], duracoes: Record<string, number>) => string[];
   lerDuracoesDoReporter: (arquivo: string) => Record<string, number>;
   lerResultadosDoReporter: (arquivo: string) => Array<{ arquivo: string; nome: string; nesting: number; estado: string }>;
-  assinaturaDoAmbiente: (env: NodeJS.ProcessEnv) => string;
+  assinaturaDoAmbiente: (env: NodeJS.ProcessEnv, acrescimos?: NodeJS.ProcessEnv) => string;
   REPORTER: string;
   globDoNpmTest: () => string[];
   concorrenciaDaLane: (lane: string, cpus?: number, limiteDoGrupo?: number) => number;
@@ -29,9 +32,11 @@ const lanes = require(SCRIPT) as {
     { inicial: number; aposVarredura: number; final: number; sinal: string } | null;
   degrausDaReserva: (texto: string, vagas: number, final: number, vistos?: Set<string>) =>
     { vagas: number; aplicados: Array<{ origem: string; em: string; vagasGanhas: number; vagas: number }> };
+  raizDoHead: (dir: string) => string;
   ENV_CPUS_APOS_VARREDURA: string;
   ENV_CPUS_APOS_RESERVA: string;
   ENV_SINAL_DA_RESERVA: string;
+  ENV_TMPDIR_DA_RODADA: string;
   selecionarTemporario: (opcoes?: Record<string, unknown>) => { diretorio: string; estado: 'agile' | 'fallback'; motivo: string };
 };
 
@@ -52,7 +57,9 @@ test('TL2: a lane hermetica e o conjunto do test:ci (o glob menos as integracoes
 test('TL3: a uniao das lanes e exatamente o glob que o npm test expande', () => {
   const l = lanes.listasDasLanes();
   assert.deepEqual([...l.hermetica, ...l.integracao].sort(), lanes.globDoNpmTest());
-  const r = spawnSync(process.execPath, [SCRIPT, '--conferir'], { encoding: 'utf8', env: process.env });
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  delete env.NODE_TEST_CONTEXT;
+  const r = spawnSync(process.execPath, [SCRIPT, '--conferir'], { encoding: 'utf8', env });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /^lanes conferidas: \d+ arquivos no glob do npm test = \d+ na hermetica \+ \d+ na integracao\n$/);
 });
@@ -106,8 +113,9 @@ test('TL7: a lane roda os arquivos pela duracao guardada, conta a lista e acusa 
     fs.writeFileSync(path.join(testes, 'rapido.test.js'), "const { test } = require('node:test'); test('rapido', () => {});\n");
     fs.writeFileSync(path.join(testes, 'integra.test.js'), "const { test } = require('node:test'); test('integra', () => {});\n");
     const relatorio = path.join(dir, 'relatorio.jsonl');
-    const env = { ...process.env, ORK_LANES_DIR: testes, ORK_LANES_INTEGRACAO: 'integra.test.js', ORK_CHECK_ORCAMENTO_MS: '200',
+    const env: NodeJS.ProcessEnv = { ...process.env, ORK_LANES_DIR: testes, ORK_LANES_INTEGRACAO: 'integra.test.js', ORK_CHECK_ORCAMENTO_MS: '200',
       ORK_CHECK_RELATORIO: relatorio, XDG_CACHE_HOME: path.join(dir, 'cache') };
+    delete env.NODE_TEST_CONTEXT;
     const r = spawnSync(process.execPath, [SCRIPT, 'hermetica'], { encoding: 'utf8', env });
     assert.equal(r.status, 0, r.stderr + r.stdout);
     assert.match(r.stdout, /^# tests 2$/m, 'a hermetica roda so os dois que nao sao de integracao');
@@ -137,9 +145,29 @@ test('TL11: a assinatura ignora transporte do runner, mas muda com ambiente func
     ORK_CHECK_RELATORIO: '/tmp/relatorio', ORK_CHECK_CPUS_DA_LANE: '5', npm_lifecycle_event: 'test:hermetica',
     ORK_WORKERS: '5', NODE_COMPILE_CACHE: '/tmp/cache', PWD: '/outra' }));
   assert.equal(lanes.assinaturaDoAmbiente(base), assinaturaDoVerify(base), 'a lane e o verify assinam o mesmo contrato');
-  assert.notEqual(lanes.assinaturaDoAmbiente(base), lanes.assinaturaDoAmbiente({ ...base, ORK_CHECK_MODO: 'agile' }),
-    'o modo muda o comportamento de testes e nao pode sumir da assinatura');
+  assert.equal(lanes.assinaturaDoAmbiente(base), lanes.assinaturaDoAmbiente({ ...base, ORK_CHECK_MODO: 'agile' }),
+    'o modo da orquestracao e removido do ambiente real das duas rotas');
   assert.notEqual(lanes.assinaturaDoAmbiente(base), lanes.assinaturaDoAmbiente({ ...base, FEATURE_X: '2' }));
+  assert.notEqual(lanes.assinaturaDoAmbiente(base),
+    lanes.assinaturaDoAmbiente(base, { ORK_CHECK_CPUS_DOCKER: '1' }), 'acrescimo funcional entra na assinatura');
+});
+
+test('TL15: a regra unica recompõe o ambiente mínimo do verify antes de assinar e executar', () => {
+  const pathDoVerify = '/opt/codex-arg0:/opt/codex-path:/usr/bin:/bin';
+  const base: NodeJS.ProcessEnv = { HOME: '/tmp/casa', LANG: 'C.UTF-8', LOGNAME: 'pessoa', USER: 'pessoa',
+    SHELL: '/usr/bin/bash', TERM: 'xterm', CODEX_HOME: '/tmp/codex', ORKASTERY_HOME: '/tmp/ork', PATH: pathDoVerify };
+  const acrescimos = { TMPDIR: '/tmp/rodada' };
+  const esperado = ambienteFuncionalDosTestes(base, acrescimos);
+  const recebidoPelaLane = ambienteFuncionalDosTestes({ ...base,
+    PATH: `/usr/bin:${pathDoVerify}`, ORK_CHECK_MODO: 'agile', ORK_CHECK_RELATORIO: '/tmp/relatorio',
+    npm_lifecycle_event: 'test:hermetica', PWD: '/tmp/outra',
+    [ENV_PATH_FUNCIONAL_DA_RODADA]: pathDoVerify }, acrescimos);
+  assert.deepEqual(recebidoPelaLane, esperado, 'PATH, remocoes e acrescimos ficam iguais de fato');
+  assert.equal(recebidoPelaLane.PATH, pathDoVerify);
+  assert.equal(recebidoPelaLane.ORK_CHECK_MODO, undefined);
+  assert.equal(lanes.assinaturaDoAmbiente(recebidoPelaLane), assinaturaDoVerify(esperado));
+  assert.notEqual(lanes.assinaturaDoAmbiente(esperado),
+    lanes.assinaturaDoAmbiente({ ...esperado, PATH: `/outro:${pathDoVerify}` }), 'PATH continua funcional');
 });
 
 test('TL8: teste que falha numa lane faz a lane sair diferente de zero, com o TAP inteiro na saida', () => {
@@ -165,12 +193,23 @@ test('TL9: a hermetica devolve as vagas sem passar da CPU, e a integracao preser
   assert.equal(lanes.concorrenciaDaLane('integracao', 8, 7), 7, 'depois da hermetica, a integracao usa a fatia Classic');
   assert.deepEqual(lanes.planoDoPool('hermetica', 8, { ORK_CHECK_CPUS_DA_LANE: '6',
     [lanes.ENV_CPUS_APOS_VARREDURA]: '7', [lanes.ENV_CPUS_APOS_RESERVA]: '8', [lanes.ENV_SINAL_DA_RESERVA]: '/tmp/sinal' }),
-  { inicial: 6, aposVarredura: 7, final: 8, sinal: '/tmp/sinal' }, 'a hermetica recebe um degrau por peca');
+  { inicial: 6, aposVarredura: 7, final: 8, sinal: '/tmp/sinal' },
+  'a hermetica recebe um degrau por peca pelo sinal da reserva');
   assert.equal(lanes.planoDoPool('integracao', 8, { ORK_CHECK_CPUS_DA_LANE: '2',
     [lanes.ENV_CPUS_APOS_RESERVA]: '8', [lanes.ENV_SINAL_DA_RESERVA]: '/tmp/sinal' }), null, 'a integracao nunca abre o pool');
   const texto = fs.readFileSync(SCRIPT, 'utf8');
   assert.match(texto, /function rodarPoolDeArquivos/, 'a hermetica tem o pool dinamico por arquivo');
-  assert.match(texto, /`--test-concurrency=\$\{concorrenciaDaLane\(lane\)\}`/, 'sem sinal, as lanes preservam o runner atual');
+  assert.match(texto, /function rodarProcessoUnico/, 'sem plano, um unico node --test conserva o contrato externo');
+  assert.match(texto, /dinamico \|\| precisaDeEvidenciaNominal[\s\S]*\? rodarPoolDeArquivos[\s\S]*: rodarProcessoUnico/,
+    'plano ou recibo nominal usam processos por arquivo; chamada externa simples usa um node --test');
+  assert.doesNotMatch(texto, /ORK_LANES_EVIDENCIA_NOMINAL/,
+    'o script do produto nao tem chave de fixture');
+  const processoUnico = texto.slice(texto.indexOf('function rodarProcessoUnico'), texto.indexOf('function rodarPoolDeArquivos'));
+  const pool = texto.slice(texto.indexOf('function rodarPoolDeArquivos'), texto.indexOf('function raizDoHead'));
+  assert.doesNotMatch(processoUnico, /experimental-test-isolation/,
+    'a chamada externa conserva o isolamento padrao mesmo sob ORK_LANES_DIR');
+  assert.doesNotMatch(pool, /experimental-test-isolation/,
+    'cada arquivo do pool conserva o mesmo isolamento do Classic');
   assert.doesNotMatch(texto, /setPriority/, 'o nice baixava so o processo do teste, nunca os containers dele');
 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-tl9-pool-'));
@@ -187,10 +226,11 @@ test('TL9: a hermetica devolve as vagas sem passar da CPU, e a integracao preser
         `fs.writeFileSync(path.join(process.env.MARCAS, '${nome}.fim'), ''); });\n`);
     }
     const sinal = path.join(dir, 'reserva.json'), relatorio = path.join(dir, 'relatorio.jsonl');
-    const env = { ...process.env, ORK_LANES_DIR: testes, ORK_LANES_INTEGRACAO: '', ORK_CHECK_RELATORIO: relatorio,
+    const env: NodeJS.ProcessEnv = { ...process.env, ORK_LANES_DIR: testes, ORK_LANES_INTEGRACAO: '', ORK_CHECK_RELATORIO: relatorio,
       ORK_CHECK_CPUS_DA_LANE: '1', ORK_CHECK_CPUS_DA_LANE_APOS_VARREDURA: '2',
       ORK_CHECK_CPUS_DA_LANE_APOS_RESERVA: '3', ORK_CHECK_RESERVA_DEVOLVIDA: sinal,
       XDG_CACHE_HOME: path.join(dir, 'cache'), MARCAS: marcas };
+    delete env.NODE_TEST_CONTEXT;
     let stdout = '', stderr = '';
     filho = spawn(process.execPath, [SCRIPT, 'hermetica'], { env, stdio: ['ignore', 'pipe', 'pipe'] });
     filho.stdout!.on('data', (d) => { stdout += d; });
@@ -241,6 +281,56 @@ test('TL13: degrau duplicado, regressivo ou acima da CPU nunca abre vaga', () =>
   assert.deepEqual(primeiro.aplicados.map((d) => [d.origem, d.vagasGanhas, d.vagas]), [['varredura', 1, 2]]);
   const segundo = lanes.degrausDaReserva(linha('integracao', 1, 3), primeiro.vagas, 3, vistos);
   assert.deepEqual(segundo, { vagas: 3, aplicados: [{ origem: 'integracao', em: '2026-10-31T00:00:00.000Z', vagasGanhas: 1, vagas: 3 }] });
+  const claims = lanes.degrausDaReserva(linha('claims', 1, 2), 1, 3, new Set());
+  assert.deepEqual(claims.aplicados.map((d) => d.origem), ['claims']);
+});
+
+test('TL14: estado e relogio injetados provam a reserva do caminho usado sem depender da parede', () => {
+  const itens = [
+    { nome: 'test:hermetica', papelCpu: 'hermetica' as const, cwd: '/tmp', prazoMs: 1, comando: 'hermetica' },
+    { nome: 'security_scan', papelCpu: 'varredura' as const, cwd: '/tmp', prazoMs: 1, comando: 'varredura' },
+    { nome: 'test:integracao', papelCpu: 'integracao' as const, cwd: '/tmp', prazoMs: 1, comando: 'integracao' },
+  ];
+  const transicoes = (plano: PlanoCpuDoGrupo, ordem: OrigemDaReserva[]) => {
+    const devolucoes = devolucoesDaReserva(plano);
+    let vagas = plano.cpusHermetica;
+    return ordem.map((origem, indice) => {
+      const degrau = aplicarDevolucaoDaReserva(vagas, plano.capacidadeEfetiva, origem, devolucoes[origem],
+        `2026-11-04T00:00:0${indice}.000Z`);
+      vagas = degrau.vagas;
+      return degrau;
+    });
+  };
+
+  const encadeado = planejarCpuDoGrupo(4, { carga1: 0, stealPct: 0 });
+  const aplicados = aplicarPlanoCpu(itens, encadeado, '/tmp/sinal');
+  const integracao = aplicados.find((item) => item.papelCpu === 'integracao')!;
+  assert.equal(encadeado.integracaoEmParalelo, false);
+  assert.equal(encadeado.cpusIntegracaoEmUso, encadeado.cpusDaFatia,
+    'a integracao encadeada herda toda a reserva da varredura');
+  assert.deepEqual(integracao.apos, ['security_scan'], 'a integracao inicia assim que a varredura termina');
+  assert.deepEqual([integracao.ambiente?.ORK_CHECK_CPUS_DA_LANE, integracao.ambiente?.ORK_CHECK_CPUS_DOCKER], ['2', '1']);
+  assert.match(encadeado.motivo, /integracao encadeada inicia depois da varredura/);
+  assert.doesNotMatch(encadeado.motivo, /previs|historico|folga/i);
+  const sinaisEncadeados = transicoes(encadeado, ['varredura', 'integracao']);
+  assert.deepEqual(sinaisEncadeados.map((s) => [s.origem, s.vagasGanhas, s.vagas]),
+    [['varredura', 0, 2], ['integracao', 2, 4]]);
+  const consumido = lanes.degrausDaReserva(sinaisEncadeados.map((s) => JSON.stringify(s)).join('\n'),
+    encadeado.cpusHermetica, encadeado.capacidadeEfetiva);
+  assert.equal(consumido.vagas, encadeado.capacidadeEfetiva);
+
+  const paralelo = planejarCpuDoGrupo(8,
+    { carga1: 0, stealPct: 0, cpusIntegracao: 0.64, fonteCpusIntegracao: 'medida' });
+  const integracaoParalela = aplicarPlanoCpu(itens, paralelo, '/tmp/sinal')
+    .find((item) => item.papelCpu === 'integracao')!;
+  assert.equal(paralelo.integracaoEmParalelo, true);
+  assert.deepEqual(integracaoParalela.apos, [], 'a integracao medida ja comeca em paralelo');
+  const sinaisParalelos = transicoes(paralelo, ['varredura', 'integracao']);
+  assert.deepEqual(sinaisParalelos.map((s) => [s.origem, s.vagasGanhas, s.vagas]),
+    [['varredura', 2, 7], ['integracao', 1, 8]],
+  'quando a integracao ja roda, a reserva da varredura volta inteira a hermetica');
+  assert.ok(sinaisEncadeados.every((s) => s.vagas <= encadeado.capacidadeEfetiva));
+  assert.ok(sinaisParalelos.every((s) => s.vagas <= paralelo.capacidadeEfetiva));
 });
 
 test('TL10: o teste da lane nao herda modo, relatorio nem plano de CPU da rodada, mas herda o ambiente exigido', () => {
@@ -262,6 +352,13 @@ test('TL10: o teste da lane nao herda modo, relatorio nem plano de CPU da rodada
     assert.deepEqual(JSON.parse(fs.readFileSync(visto, 'utf8')),
       { modo: null, relatorio: null, cpusDaLane: null, cpusApos: null, sinal: null, cpusDocker: null, workers: null, exige: '1' },
       'quem exporta ORK_TESTE_EXIGE_AMBIENTE exige as dependencias nos dois modos, como no npm test');
+    const integracao = spawnSync(process.execPath, [SCRIPT, 'integracao'], { encoding: 'utf8', env: {
+      ...env, ORK_LANES_INTEGRACAO: 've.test.js', ORK_CHECK_CPUS_DOCKER: '0.5',
+    } });
+    assert.equal(integracao.status, 0, integracao.stderr + integracao.stdout);
+    assert.deepEqual(JSON.parse(fs.readFileSync(visto, 'utf8')),
+      { modo: null, relatorio: null, cpusDaLane: null, cpusApos: null, sinal: null, cpusDocker: '0.5', workers: null, exige: '1' },
+      'somente a integracao leva aos testes a cota dos conteineres');
     assert.ok(fs.readFileSync(relatorio, 'utf8').split('\n').filter(Boolean).some((l) => (JSON.parse(l) as { tipo: string }).tipo === 'lista'));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
@@ -279,4 +376,42 @@ test('TL12: tmpfs e opt-in, exige memoria e espaco com folga e cai para disco co
     { diretorio: '/disco', estado: 'fallback', motivo: 'memoria-livre-sem-folga' });
   assert.deepEqual(lanes.selecionarTemporario({ ...base, chave: 'auto', sondar: () => ({ ok: false, motivo: 'nao-tmpfs' }) }),
     { diretorio: '/disco', estado: 'fallback', motivo: '/memoria:nao-tmpfs' });
+});
+
+test('TL14: a lane usa e preserva o TMPDIR que pertence a rodada do verify', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-tl14-'));
+  try {
+    const testes = path.join(dir, 'testes'), tmpdir = path.join(dir, 'tmp-da-rodada'), visto = path.join(dir, 'visto.json');
+    fs.mkdirSync(testes); fs.mkdirSync(tmpdir);
+    fs.writeFileSync(path.join(testes, 'tmpdir.test.js'), "const { test } = require('node:test'); const fs = require('node:fs');\n" +
+      `test('tmpdir', () => { const p = process.env.TMPDIR; const s = fs.statSync(p); fs.writeFileSync(${JSON.stringify(visto)}, ` +
+      "JSON.stringify({ literal: p, realpath: fs.realpathSync(p), dev: String(s.dev), mode: s.mode & 0o777 })); });\n");
+    const env = { ...process.env, ORK_LANES_DIR: testes, ORK_LANES_INTEGRACAO: '', XDG_CACHE_HOME: path.join(dir, 'cache'),
+      TMPDIR: tmpdir, [lanes.ENV_TMPDIR_DA_RODADA]: '1' };
+    delete env.ORK_CHECK_RELATORIO;
+    const r = spawnSync(process.execPath, [SCRIPT, 'hermetica'], { encoding: 'utf8', env });
+    assert.equal(r.status, 0, r.stderr + r.stdout);
+    const stat = fs.statSync(tmpdir), observado = JSON.parse(fs.readFileSync(visto, 'utf8')) as Record<string, unknown>;
+    assert.deepEqual(observado, { literal: tmpdir, realpath: fs.realpathSync(tmpdir), dev: String(stat.dev), mode: stat.mode & 0o777 });
+    assert.ok(fs.existsSync(tmpdir), 'a lane nao remove o TMPDIR cujo ciclo de vida pertence ao verify');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('TL16: a leitura alternativa de HEAD só aceita o layout de checkout da fixture', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-tl16-'));
+  const anterior = process.env.ORK_LANES_DIR;
+  try {
+    const testes = path.join(dir, 'repo', 'core', 'dist-test', 'test');
+    fs.mkdirSync(testes, { recursive: true });
+    fs.mkdirSync(path.join(dir, 'repo', '.git'));
+    process.env.ORK_LANES_DIR = testes;
+    assert.equal(lanes.raizDoHead(testes), path.join(dir, 'repo'));
+    const arbitraria = path.join(dir, 'fora');
+    fs.mkdirSync(arbitraria);
+    process.env.ORK_LANES_DIR = arbitraria;
+    assert.equal(lanes.raizDoHead(arbitraria), CORE, 'pasta arbitraria nao autoriza subir ../../..');
+  } finally {
+    if (anterior === undefined) delete process.env.ORK_LANES_DIR; else process.env.ORK_LANES_DIR = anterior;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

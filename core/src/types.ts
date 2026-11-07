@@ -741,6 +741,31 @@ export interface RetesteDeRelogio {
   code?: number;
 }
 
+/** RM-074 M12: por que a prova nominal das lanes nao substituiu um comando da claim. */
+export type MotivoDaRecusaPelasLanes =
+  | 'evidencia-vazia'
+  | 'arquivo-nao-executado'
+  | 'head-divergente'
+  | 'ambiente-funcional-divergente'
+  | 'falha-na-lane'
+  | 'skip-ou-todo-na-lane'
+  | 'prefixo-divergente'
+  | 'contagem-abaixo-do-minimo'
+  | 'tap-com-test-name-pattern'
+  | 'comando-aberto'
+  | 'comando-nao-elegivel'
+  | 'lanes-invigentes'
+  | 'sem-preparo'
+  | 'preparo-falhou'
+  | 'produto-nao-declarado'
+  | 'arvore-mudou'
+  | 'produto-mudou';
+
+/** A decisao auditavel de usar, ou nao, a evidencia nominal das lanes numa claim. */
+export type DecisaoDaClaimPelasLanes =
+  | { reaproveitada: true; lanes: string[]; arquivos: string[]; nomes: string[]; head: string; ambiente: string }
+  | { reaproveitada: false; motivo: MotivoDaRecusaPelasLanes; arquivos: string[]; head: string; ambiente: string };
+
 export interface ResultadoDeComando {
   nome: string;
   comando: string;
@@ -792,8 +817,10 @@ export interface ResultadoDeComando {
   parcial?: { testes: string[] };
   /** RM-081 F5: decisão por mudanças desta lane; seleção usada também torna o resultado parcial. */
   selecao?: RegistroDaSelecaoNativa;
-  /** RM-074 M1: prova de que um `node --test` da claim veio das lanes desta mesma rodada e ambiente. */
-  lane?: { reaproveitada: true; lanes: string[]; arquivos: string[]; nomes: string[]; head: string; ambiente: string };
+  /** RM-074 M11: o comando da claim já rodou no grupo das lanes e não volta ao caminho serial. */
+  agendamento?: 'antecipada';
+  /** RM-074 M1/M12: decisao e prova de usar, ou recusar, as lanes desta mesma rodada. */
+  lane?: DecisaoDaClaimPelasLanes;
   /** RM-072 (D4): as lanes que compuseram o `test` do Agile. */
   lanes?: Array<{ lane: string; comando: string; ok: boolean; code: number; causa?: CausaDoComando; duracaoMs: number;
     /** RM-037 (29/10/2026): nomes que esta lane extraiu do TAP; ausente em baselines antigas ou sem TAP. */
