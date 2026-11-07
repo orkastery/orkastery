@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.5",
-  "publicadoEm": "2026-11-07T19:49:31.514Z",
+  "publicadoEm": "2026-11-07T20:15:04.677Z",
   "threads": [
     {
       "id": "ork-roadmaptresi",
@@ -14,7 +14,7 @@
       "status": "aberta",
       "roadmap": "RM-084",
       "branch": "ork/ork-roadmaptresi-go",
-      "atualizadaEm": "2026-11-07T19:49:31.087Z",
+      "atualizadaEm": "2026-11-07T20:08:19.344Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -23,9 +23,9 @@
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-11-07T20:10:09.545Z",
+        "motivo": "sessão 01a1b78f encerrada (completed)"
       }
     }
   ]
