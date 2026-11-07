@@ -73,7 +73,7 @@ test('locale en F3b claims: usos, recusas e a conferencia sem alvo saem em ingle
   try {
     assert.equal(ork(c, PT, false, 'thread', 'new', 'loc-r', '--sem-worktree').status, 0);
     const erro = (...args: string[]) => ork(c, EN, false, 'claims', ...args).stderr;
-    assert.equal(erro('add', 'loc-locr'), 'usage: ork claims add <thread-id> <file> --claim "<statement>" [--verificar "<command>"]\n');
+    assert.equal(erro('add', 'loc-locr'), 'usage: ork claims add <thread-id> <file> --claim "<statement>" [--verificar "<command>"] [--dependencia-externa rede,relogio]\n');
     assert.equal(erro('verificar', 'loc-locr'), 'usage: ork claims verificar <thread-id> <claim-id> --comando "<command>"\n');
     assert.equal(erro('retirar', 'loc-locr'), 'usage: ork claims retirar <thread-id> <claim-id> --motivo "<reason>"\n');
     assert.equal(erro('ausente', 'loc-locr'), 'usage: ork claims ausente <thread-id> --paths A,B --motivo "<reason>" [--commit SHA]\n');
