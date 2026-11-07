@@ -119,20 +119,6 @@
       "lint": []
     },
     {
-      "id": "C13",
-      "thread": "ork-rm074m13banc",
-      "fase": "GO",
-      "arquivo": "core/test/mutantes/rm074-m13.json",
-      "alegacao": "Quatro mutantes autocontidos morrem ao tentar creditar carga agregada, creditar disputa própria, creditar fonte indisponível ou aceitar CV no limite.",
-      "negativa": false,
-      "verificar": [
-        "node core/scripts/mutante.cjs core/test/mutantes/rm074-m13.json M1 && node core/scripts/mutante.cjs core/test/mutantes/rm074-m13.json M2 && node core/scripts/mutante.cjs core/test/mutantes/rm074-m13.json M3 && node core/scripts/mutante.cjs core/test/mutantes/rm074-m13.json M4"
-      ],
-      "criadoEm": "2026-11-07T06:56:09.629Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C15",
       "thread": "ork-rm074m13banc",
       "fase": "GO",
@@ -157,6 +143,34 @@
         "grep -q -- 'PSI `full`' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md && grep -q -- 'cinco pontos percentuais' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md"
       ],
       "criadoEm": "2026-11-07T06:56:37.095Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm074m13banc",
+      "fase": "GO",
+      "arquivo": "core/test/mutantes/rm074-m13.json",
+      "alegacao": "Os mutantes vigentes da M13 exercitam isoladamente as inversões do contrato da bancada e são mortos pelos testes focados.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node -e \"const fs=require('node:fs'),cp=require('node:child_process'),p='core/test/mutantes/rm074-m13.json';for(const {id} of JSON.parse(fs.readFileSync(p,'utf8')).mutantes){const r=cp.spawnSync(process.execPath,['core/scripts/mutante.cjs',p,id],{stdio:'inherit'});if(r.status!==0)process.exit(r.status??1)}\""
+      ],
+      "criadoEm": "2026-11-07T07:47:59.222Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm074m13banc",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+      "alegacao": "A seção M13 documenta a medida causal do cgroup, a hierarquia dos contêineres e a conservação da razão bruta sob validade pareada.",
+      "negativa": false,
+      "verificar": [
+        "grep -q -- 'só vale quando a rodada inteira herda um escopo de cgroup exclusivo' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md && grep -q -- 'contêineres da varredura são criados sem cgroup pai' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md && grep -q -- 'razão bruta com validade pareada' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md && grep -q -- 'crédito zero' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md"
+      ],
+      "criadoEm": "2026-11-07T07:48:25.263Z",
       "estado": "verificado",
       "lint": []
     }
