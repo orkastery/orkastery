@@ -10,6 +10,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **Claims executáveis no CI — F2 ([RM-079](docs/roadmap/RM-079-claims-que-a-correcao-passa.md)):** opções de prova repetidas preservam a ordem; refs locais do ramo base são recusadas em claims novas em favor de `origin/<base>`; e o parecer do CHECK fica no artefato `check`, com aviso tipado para cópia não versionada na worktree.
 
+### Corrigido
+
+- **GX3 estável sob contenção:** a prova da requisição em andamento observa o aceite do servidor antes de publicar o fim da sessão; recibo, processo e porta continuam decidindo o resultado.
+
 ## [0.6.7] - 2026-11-07
 
 O CHECK passa a guiar a correção: claims que passam com o defeito corrigido, retirada tipada com substituta e `ork fix` lendo o parecer, com comandos e motivos redigidos no recibo, na CLI e no MCP (RM-079). O recibo do verify e o da revisão valem enquanto o HEAD, as claims e o plano não mudam (RM-078). No Agile, claims independentes saem do caminho crítico e as auditadas pelas lanes reaproveitam a prova delas (RM-074, M11 e M12). Os testes do produto esperam o evento, e não um prazo fixo de relógio (RM-081). A bancada só desconta o atraso medido em cada rodada (RM-074, M13).
