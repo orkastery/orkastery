@@ -6,6 +6,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+## [0.6.8] - 2026-11-08
+
+As claims rodam no CI do jeito que a sessão escreveu: opções de prova repetidas preservam a ordem, refs locais do ramo base são recusadas em claims novas em favor de `origin/<base>` e o parecer do CHECK fica só no artefato `check` (RM-079, F2). A prova do GX3 fica estável sob contenção, sem mudar o produto.
+Nenhum teste sai e o Classic não muda.
+
+O #Noctum segue **em desenvolvimento, não anunciado**.
+
 ### Alterado
 
 - **Claims executáveis no CI — F2 ([RM-079](docs/roadmap/RM-079-claims-que-a-correcao-passa.md)):** opções de prova repetidas preservam a ordem; refs locais do ramo base são recusadas em claims novas em favor de `origin/<base>`; e o parecer do CHECK fica no artefato `check`, com aviso tipado para cópia não versionada na worktree.
