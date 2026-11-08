@@ -4,6 +4,29 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.5",
-  "publicadoEm": "2026-11-08T11:00:06.542Z",
-  "threads": []
+  "publicadoEm": "2026-11-08T11:00:44.955Z",
+  "threads": [
+    {
+      "id": "ork-gx3dogrokest",
+      "nome": "gx3estavel",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-gx3dogrokest-go",
+      "atualizadaEm": "2026-11-08T11:00:41.391Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-11-08T11:00:44.439Z",
+        "motivo": "nenhuma sessão despachada na fase GO"
+      }
+    }
+  ]
 }
