@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.5",
-  "publicadoEm": "2026-11-08T12:00:03.490Z",
+  "publicadoEm": "2026-11-08T12:21:18.286Z",
   "threads": [
     {
       "id": "ork-gx3dogrokest",
@@ -15,18 +15,14 @@
       "roadmap": null,
       "branch": "ork/ork-gx3dogrokest-go",
       "atualizadaEm": "2026-11-08T11:56:55.958Z",
-      "entregue": null,
+      "entregue": "75ebe94",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
       "runtime": "codex",
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
-      "sessao": {
-        "viva": false,
-        "desdeEm": "2026-11-08T11:38:31.625Z",
-        "motivo": "sessão 01a1bade caiu (runtime.unavailable)"
-      }
+      "sessao": null
     }
   ]
 }
