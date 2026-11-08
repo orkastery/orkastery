@@ -31,7 +31,8 @@ import { rodarFase } from '../src/phase';
 import { adicionarPerfil } from '../src/runtime-profiles';
 import { AVISO_DA_RETOMADA_COM_MCP } from '../src/session-watcher-grok';
 import { projetoTemporario, ProjetoDeTeste } from './apoio';
-import { esperarEventoAssincronoDepoisDaFronteira, esperarEventoDepoisDaFronteira } from './espera-evento';
+import { esperarEventoAssincrono, esperarEventoAssincronoDepoisDaFronteira,
+  esperarEventoDepoisDaFronteira } from './espera-evento';
 import { grokFalso } from './grok-falso';
 
 const RAIZ = path.resolve(__dirname, '../../..');
@@ -286,8 +287,8 @@ test('GX3: o servidor morre com a sessao: recibo do supervisor, grok ausente, se
     encerrado.s.encerrar();
     await conferirFim(encerrado, 'sinal');
 
-    // Uma requisicao autenticada com o corpo pela metade segura o fecho: o servidor apaga o token e para de aceitar
-    // conexao, mas so sai depois de responder a ela.
+    // Uma requisicao autenticada com o corpo pendente segura o fecho: o `100 Continue` prova que o servidor ja contou o
+    // pedido, antes de o recibo provocar o fecho. A porta para de aceitar conexao, mas o processo so sai depois da resposta.
     const corpo = JSON.stringify(INICIO);
     const resposta: Buffer[] = [];
     let fechou = false;
@@ -297,8 +298,11 @@ test('GX3: o servidor morre com a sessao: recibo do supervisor, grok ausente, se
     sock.on('error', () => { fechou = true; });
     await new Promise<void>((r) => sock.once('connect', () => r()));
     await new Promise<void>((resolve, reject) => sock.write(`POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:${emCurso.s.porta}\r\nAuthorization: Bearer ${emCurso.token}\r\n` +
-      `Content-Type: application/json\r\nAccept: application/json, text/event-stream\r\nContent-Length: ${Buffer.byteLength(corpo)}\r\n\r\n` +
-      corpo.slice(0, 10), (erro) => erro ? reject(erro) : resolve()));
+      `Content-Type: application/json\r\nAccept: application/json, text/event-stream\r\nExpect: 100-continue\r\n` +
+      `Content-Length: ${Buffer.byteLength(corpo)}\r\n\r\n`, (erro) => erro ? reject(erro) : resolve()));
+    confirmarEventoConvertido(await esperarEventoAssincrono(
+      () => Buffer.concat(resposta).includes(Buffer.from('HTTP/1.1 100 Continue\r\n\r\n')) ? true : null,
+      'servidor contou a requisição antes do fecho'));
     gravarAtomico(`${emCurso.logPath}.exit.json`, { simulado: true });
     // O fecho comecou quando a porta deixa de aceitar conexao nova.
     await esperarEventoAssincronoDepoisDaFronteira(
@@ -306,11 +310,12 @@ test('GX3: o servidor morre com a sessao: recibo do supervisor, grok ausente, se
       'porta do servidor deixa de aceitar conexão', 30_000);
     assert.equal(estadoProcesso(emCurso.s.processo), 'vivo', 'a requisicao em andamento segura o processo');
     assert.equal(await conectar('127.0.0.1', emCurso.s.porta), 'ECONNREFUSED', 'conexao nova recusada no fecho');
-    sock.write(corpo.slice(10));
+    sock.write(corpo);
     await esperarEventoAssincronoDepoisDaFronteira(() => fechou ? true : null,
       'resposta da requisição em andamento', 30_000);
     const texto = Buffer.concat(resposta).toString('utf8');
-    assert.match(texto, /^HTTP\/1\.1 200 /, texto.slice(0, 200));
+    assert.match(texto, /^HTTP\/1\.1 100 Continue\r\n\r\n/, texto.slice(0, 200));
+    assert.match(texto, /HTTP\/1\.1 200 /, texto.slice(0, 400));
     assert.match(texto, /"serverInfo"/, 'a requisicao em andamento recebeu a resposta inteira');
     await conferirFim(emCurso, 'recibo');
   } finally { for (const b of [recibo, reciboAtrasado, ausente, semPartida, encerrado, emCurso]) b.limpar(); }
