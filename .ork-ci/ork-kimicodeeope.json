@@ -150,7 +150,7 @@
         "grep -F '| F6 Host de condução |' docs/roadmap/RM-086-kimi-code-homologado.md && grep -F '| F6 Host de condução |' docs/roadmap/RM-087-opencode-homologado.md"
       ],
       "criadoEm": "2026-11-09T20:27:20.389Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
