@@ -4,6 +4,29 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.8",
-  "publicadoEm": "2026-11-09T17:30:04.553Z",
-  "threads": []
+  "publicadoEm": "2026-11-09T18:34:08.750Z",
+  "threads": [
+    {
+      "id": "ork-kimicodeeope",
+      "nome": "ork-kimiopencode",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-kimicodeeope-go",
+      "atualizadaEm": "2026-11-09T18:34:05.033Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-11-09T18:34:07.993Z",
+        "motivo": "nenhuma sessão despachada na fase GO"
+      }
+    }
+  ]
 }
