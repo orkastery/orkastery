@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.8",
-  "publicadoEm": "2026-11-09T19:15:07.234Z",
+  "publicadoEm": "2026-11-09T19:45:05.862Z",
   "threads": [
     {
       "id": "ork-kimicodeeope",
@@ -14,7 +14,7 @@
       "status": "aberta",
       "roadmap": "RM-087",
       "branch": "ork/ork-kimicodeeope-go",
-      "atualizadaEm": "2026-11-09T19:10:17.937Z",
+      "atualizadaEm": "2026-11-09T19:34:02.686Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -23,9 +23,9 @@
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-11-09T19:36:28.496Z",
+        "motivo": "sessão 01a1c1aa encerrada (completed)"
       }
     }
   ]
