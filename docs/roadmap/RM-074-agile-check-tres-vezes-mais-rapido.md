@@ -1,40 +1,40 @@
 ---
 id: RM-074
 tipo: roadmap
-titulo: Agile Check cerca de 1,7 vez mais rápido que o Classic
+titulo: Agile Check mais rápido que o Classic pelo paralelismo, sem perder cobertura
 categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-03T17:30:00-03:00
+atualizado_em: 2026-11-08T23:59:18-03:00
 estado:
-  ciclo: Em desenvolvimento
-  documentacao: Em revisão
+  ciclo: Concluído
+  documentacao: Aprovada
   codigo: Mesclado
-  testes: Em execução
+  testes: Aprovados
   deploy: Produção
-  exposicao: Flag desligada
-  habilitacao: Pendente
+  exposicao: Geral
+  habilitacao: Concluída
 evidencias:
   codigo:
     commit: a1059ce
     pr: null
 sdlc:
-  thread: ork-rm074m8agend
+  thread: ork-rm074fechada
   modo: "#Fast"
   fase: GO
-  status: fechada
+  status: aberta
 ---
 
-# RM-074: Agile Check cerca de 1,7 vez mais rápido que o Classic, sem perder cobertura
+# RM-074: Agile Check mais rápido que o Classic pelo paralelismo, sem perder cobertura
 
-> **Em uma frase:** o Agile Check completo, com a mesma bateria na mesma máquina, mira cerca de 1,7 vez o Classic, sem remover testes e com perda de qualidade de mutação limitada a 10%.
+> **Em uma frase:** o Agile Check completo ficou mais rápido que o Classic na bancada pelo paralelismo, com a mesma CPU e sem remover teste, arquivo, asserção ou categoria de varredura.
 
 <!-- ork-docs:relance:inicio -->
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Mesclado | Em execução | Produção | Flag desligada |
+| Concluído | Mesclado | Aprovados | Produção | Geral |
 
 <!-- ork-docs:relance:fim -->
 
@@ -557,30 +557,57 @@ ignora diretórios concorrentes de mesmo prefixo no temporário global. As asser
 de limpeza do verify e da baseline permanecem. O Classic e o Agile não mudam nesta
 fatia; muda somente a forma como a bancada compara as rodadas.
 
+### Resultado da bancada M13 e fechamento
+
+Em 07 e 08/11/2026, a condução executou `medir-check.cjs` na `main` `23d71942`,
+em uma rede de três VPS, com seis pares em ordem alternada AB/BA, rodada fria e
+morna e o critério da M13 de razão bruta com validade pareada. Esta é a medida
+desta bancada; a razão varia com a máquina de cada usuário.
+
+- **Fria:** quatro pares válidos de seis. A razão do Agile contra o Classic ficou
+  de 1,18 a 1,25, com média de 1,21, coeficiente de variação de 2,3% e estado
+  `com-confianca`.
+- **Morna:** quatro pares válidos de seis. A razão ficou de 1,17 a 1,35, com média
+  de 1,28, coeficiente de variação de 6,2% e estado `com-confianca`.
+- **Pares retirados:** o par 2 saiu por `rodada-reprovada`, porque o Classic caiu
+  no GX3, um teste instável sob carga corrigido depois no #276. O par 6 saiu por
+  `carga-de-fora-desequilibrada`.
+- **Crédito causal:** zero em todas as rodadas. A fonte é o PSI `full` do cgroup e
+  o motivo gravado é `cgroup-nao-exclusivo`; portanto a razão oficial é a bruta.
+- **CPU:** os dois modos gastaram a mesma CPU, e o ganho do Agile veio somente do
+  paralelismo. A CPU da suíte variou 0,9% entre os passes. A lane hermética levou
+  96% da CPU da suíte e 89% da parede do Agile.
+- **Teto:** com a mesma CPU e a máquina inteira ocupada, o teto do Agile fica perto
+  de 1,6 vez o Classic. Passar disso exige deixar de executar trabalho. A seleção
+  do `node --test` pelo grafo, tentada na M10, foi arquivada porque não fecha sem
+  falso negativo nesta suíte.
+- **Qualidade:** o Agile aprovou todas as rodadas. Nenhum teste, arquivo, asserção
+  ou categoria de varredura saiu, e o Classic não mudou.
+
+A meta de cerca de 1,7 vez, decidida pelo dono em 29/10/2026 na alternativa 2.c,
+não foi alcançada. A bancada mostra que os dois modos já gastam a mesma CPU e que o
+ganho restante vem do paralelismo; com a máquina inteira ocupada, esse mecanismo
+fica abaixo da meta. Ultrapassar o teto exigiria deixar de executar trabalho, em
+conflito com a proteção de qualidade. Por decisão do dono em 08/11/2026, a RM-074
+fecha com o resultado medido, e as lacunas de produto observadas seguem para a
+[RM-085](RM-085-verify-com-escopo-causal-mensagem-de-assercao-e-check-fast.md).
+
 ### O que falta
 
-- Fechar uma bancada fria e morna nova no host, com o mínimo vigente de pares
-  válidos, PSI `full` exclusivo coletado em cada rodada, medidas agregadas
-  equilibradas no par e variação abaixo do limite de confiança.
-- Confirmar na evidência que o perfil da árvore fecha mesmo quando um contêiner
-  fica sem cgroup e que a reserva medida devolve antes a capacidade ociosa.
-- Confirmar na evidência que a reserva da varredura vai para a integração
-  encadeada ou para a hermética quando a integração já roda em paralelo, e que
-  claims independentes deixam a execução sequencial das claims depois das lanes
-  sem mudar os recibos.
-- Reavaliar a distância para a meta de cerca de 1,7 vez; a M9 remove a reserva
-  conservadora diagnosticada, a M11 muda o agendamento e a M12 reaproveita claims
-  pelas lanes, e a M13 retira somente a contenção causal, mas nenhuma publica uma razão
-  nova antes dessa coleta.
+O resultado e as proteções da RM-074 estão fechados. As três lacunas que a bancada
+deixou visíveis — escopo causal para todo o trabalho criado pela rodada, mensagem da
+asserção no ledger e CHECK independente acrescentado a uma thread #Fast — estão na
+[RM-085](RM-085-verify-com-escopo-causal-mensagem-de-assercao-e-check-fast.md), em
+Discovery.
 
 ## Problema e resultado
 
 - **Público e problema/oportunidade:** quem conduz o `ork` e o próprio Orkastery. A RM-072 deixou o Agile Check de 1,43 a 1,52 vez mais rápido que o Classic no mesmo commit e parou aí: a lane hermética ocupa 94% da parede do Agile, e ela é presa em CPU, não em espera. Cada rodada de GO-FIX e de CHECK paga a suíte inteira, mesmo quando o diff toca uma tela de texto.
 - **Evidências e fonte:** os números de partida são da RM-072 (seção "Fatos de partida"); o que esta página mediu em 26/10/2026 está em "Sondas desta página" e é sonda, não linha de base. A linha de base da RM-074 é a M0 (fatia abaixo), medida pelo ledger numa cópia descartável.
-- **Objetivo/OKR:** o gate completo chega a cerca de 1,7 vez o Classic na mesma máquina e com a mesma bateria, sem tirar arquivo, teste, asserção ou categoria de varredura.
+- **Objetivo/OKR:** o gate completo buscou cerca de 1,7 vez o Classic na mesma máquina e com a mesma bateria, sem tirar arquivo, teste, asserção ou categoria de varredura. No fechamento, a bancada M13 mediu médias de 1,21 na rodada fria e 1,28 na morna, com confiança, e preservou toda a bateria.
 - **Hipótese da M1:** executar o CLI no processo dos testes que não verificam fronteiras reais de processo, e reaproveitar nas claims o resultado nominal das lanes no mesmo HEAD e ambiente, corta criação de processos e trabalho duplicado sem mudar a bateria observável.
-- **Métrica principal / linha de base / meta / janela / fonte:** a razão entre a parede do Classic Check e a do Agile Check completo, na mesma máquina, no mesmo commit e com a mesma bateria. Linha de base vigente: 0,973 na recoleta M0 de 30/10/2026. Meta: cerca de 1,7 vez, decisão 2.c do dono em 29/10/2026. Fonte: pares da bancada `medir-check.cjs`; a CPU da suíte é comparada em percentual contra a recoleta M0.
-- **Métricas de proteção:** a bateria mantém arquivos, testes e asserções; nenhum teste vira `skip`; a mutação dos arquivos tocados não piora mais de 10%; as nove ferramentas de varredura continuam declaradas e comparadas por impressão digital; o Classic Check continua intacto.
+- **Métrica principal / linha de base / meta / janela / fonte:** a razão entre a parede do Classic Check e a do Agile Check completo, na mesma máquina, no mesmo commit e com a mesma bateria. Linha de base: 0,973 na recoleta M0 de 30/10/2026. Meta: cerca de 1,7 vez, decisão 2.c do dono em 29/10/2026. Resultado: média de 1,21 fria e 1,28 morna na bancada M13 de 07 e 08/11/2026, com quatro pares válidos de seis em cada regime e razão bruta oficial. Fonte: pares de `medir-check.cjs`; a CPU da suíte é comparada em percentual contra a recoleta M0.
+- **Métricas de proteção:** cumpridas no fechamento: a bateria manteve arquivos, testes e asserções; nenhum teste virou `skip`; as categorias de varredura permaneceram; o Agile aprovou todas as rodadas; o Classic Check continuou intacto.
 
 ## Fatos de partida (RM-072)
 
@@ -783,8 +810,8 @@ Origem: a seção "Dívida aceita no CHECK" da RM-072. A tabela diz o que pesa n
 
 ## Plano e decisões
 
-- **Prioridade / método / pontuação / justificativa / data:** a posição no índice de prioridade é decisão do dono; esta página registra a origem (D3 da RM-072, 24/10/2026), o pedido de abrir o item em Discovery (26/10/2026) e a meta vigente decidida pelo dono em 29/10/2026 (alternativa 2.c).
-- **Horizonte / alvo / previsão / confiança / marcos:** sem data. Marcos: M0 com a linha de base e a razão pelo ledger; cada fatia com três rodadas medidas; revisão do dono depois da F2, quando a razão do gate estiver medida. Confiança: alta para a F4 e a F3; média para a F2, porque a aritmética pede um corte grande de CPU; baixa para a F1 até a M0 medir o mapa por cobertura, e a F1 não move a meta.
+- **Prioridade / método / pontuação / justificativa / data:** a posição no índice de prioridade foi decisão do dono; esta página registra a origem (D3 da RM-072, 24/10/2026), a abertura em Discovery (26/10/2026), a meta decidida em 29/10/2026 (alternativa 2.c) e o fechamento pelo resultado medido decidido em 08/11/2026.
+- **Horizonte / alvo / previsão / confiança / marcos:** concluído em 08/11/2026 pela decisão do dono, depois da bancada M13 com confiança nas rodadas fria e morna. A meta ficou acima do teto observado com a mesma CPU; as lacunas de produto seguem na RM-085.
 - **Dependências e bloqueios (ID, owner, próxima revisão):**
   - [RM-072](RM-072-check-cinco-vezes-mais-rapido.md): origem. Entrega o Agile Check, o `verify_run` com `duracaoMs`, as lanes, `core/scripts/medir-check.cjs`, o reporter de durações e a F3 (seletividade) que esta página assume. Mesclada e em produção na versão 0.6.0; a dívida dela entra aqui pela D3 dela.
   - [RM-073](RM-073-modelos-de-decisao-no-ork-e-no-orkmind.md), frente 1 (F1: modelos de decisão que escolhem testes pelo diff): o mapa determinístico desta página é a base e a verdade de comparação da frente dela; o modelo só entra como sinal sobre o mapa, nunca como prova. As duas partilham o limiar de falso negativo (D1 da RM-073) e a regra de que o gate roda a suíte completa. Ordem proposta: o mapa (esta página) antes do modelo.
@@ -806,7 +833,7 @@ Origem: a seção "Dívida aceita no CHECK" da RM-072. A tabela diz o que pesa n
 
 ### Decisões do dono
 
-A D1 original foi decidida em 27/10/2026 e substituída pelo dono em 29/10/2026, na alternativa 2.c. D2, D3 e D4 seguem pendentes.
+A D1 original foi decidida em 27/10/2026 e substituída pelo dono em 29/10/2026, na alternativa 2.c. D2, D3 e D4 ficam como histórico do plano; o fechamento e o destino do trabalho restante são regidos pela D5.
 
 **D1. O que a meta mede. Decisão vigente do dono em 29/10/2026: o gate completo, em razão contra o Classic na mesma máquina e com a mesma bateria.**
 
@@ -845,6 +872,12 @@ O que mudou na recomendação: o motor recomendado é o mesmo; a F1 deixa de ser
 
 O que mudou na recomendação: a F2 sobe para antes da F3 e passa a ser a frente da meta, começando pelas alavancas exclusivas do Agile; a F1 fica fora da meta, por último; a F4 continua cedo, pelo prazo de 01/01/2027.
 
+**D5. Fechamento pelo resultado medido. Decisão do dono em 08/11/2026.**
+
+1. A RM-074 fecha com a bancada M13: médias de 1,21 na rodada fria e 1,28 na morna, ambas `com-confianca`, sem atribuir crédito causal e sem remover trabalho.
+2. A meta de cerca de 1,7 vez não foi alcançada. Os dois modos gastam a mesma CPU, o ganho vem do paralelismo e o teto observado com a máquina inteira ocupada fica perto de 1,6 vez; passar disso exigiria deixar de executar trabalho.
+3. A RM-085 recebe as três lacunas de produto encontradas pela bancada: escopo causal que inclua os contêineres, mensagem da asserção no ledger e CHECK independente acrescentável a uma #Fast existente.
+
 ## Fontes
 
 - Página da RM-072 lida inteira em 26/10/2026 e de novo em 27/10/2026, depois da troca dos minutos por razão: "Medição da linha de base", "Medição do GO", "O piso físico", D2, D3 e "Dívida aceita no CHECK".
@@ -864,21 +897,21 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-11-03 | Julio |
-| Documentação | Em revisão | — | 2026-11-03 | Julio |
-| Código | Mesclado | commit `a1059ce` | 2026-11-03 | Julio |
-| Testes | Em execução | — | 2026-11-03 | Julio |
-| Deploy | Produção | — | 2026-11-03 | Julio |
-| Exposição | Flag desligada | — | 2026-11-03 | Julio |
-| Habilitação | Pendente | — | 2026-11-03 | Julio |
+| Ciclo do item | Concluído | — | 2026-11-08 | Julio |
+| Documentação | Aprovada | — | 2026-11-08 | Julio |
+| Código | Mesclado | commit `a1059ce` | 2026-11-08 | Julio |
+| Testes | Aprovados | — | 2026-11-08 | Julio |
+| Deploy | Produção | — | 2026-11-08 | Julio |
+| Exposição | Geral | — | 2026-11-08 | Julio |
+| Habilitação | Concluída | — | 2026-11-08 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
 ## Responsabilidades e histórico
 
-- **RACI (R / A / C / I):** R: sessão condutora da thread `ork-rm074m6medid` para a M6; A: Julio; C: a definir; I: a definir.
-- **Agentes envolvidos, atuação, autonomia e revisor humano:** a M6 é conduzida em `#Auto` pela thread `ork-rm074m6medid`; decisões autônomas ficam no ledger, enquanto a meta 2.c e o limite de qualidade são do dono; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** a condução roda verify e a bancada no host; no fechamento, ajusta `sdlc.thread`. A M6 não publica ganho antes dessa medida.
+- **RACI (R / A / C / I):** R: sessão condutora da thread `ork-rm074fechada` para o fechamento; A: Julio; C: a definir; I: a definir.
+- **Agentes envolvidos, atuação, autonomia e revisor humano:** a thread `ork-rm074fechada` registra em `#Fast` o resultado medido fornecido pela condução e abre a RM-085; a meta e o fechamento são decisões de Julio; revisor humano: Julio.
+- **Próxima ação, responsável e prazo:** a condução fecha esta thread; a prioridade e o planejamento da RM-085 cabem ao dono e à thread que reservar o item.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -896,3 +929,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-11-04 | M11 tira claims independentes da execução sequencial depois das lanes, inicia a integração encadeada depois da varredura com a reserva dela, devolve essa reserva à hermética quando a integração já roda em paralelo e recua a cota quando o runtime não a aceita; a razão fica pendente da bancada | Diagnóstico da bancada M8/M9; D1, D2 e D4 do GOAL; D3 vigente decidida no GO e revisada no GO-FIX; revisão independente e mutantes da thread `ork-rm074m11clai` | Thread `ork-rm074m11clai` (#Auto) |
 | 2026-11-05 | M12 passa a compartilhar o `TMPDIR` da rodada entre lanes e claims, mantém a recusa quando o ambiente diverge, agenda recusas elegíveis e grava a decisão por claim | CHECK independente da thread `ork-rm074m12clai`, fixture diferencial, recibo `verify_run` e mutantes do contrato | Thread `ork-rm074m12clai` (#Auto) |
 | 2026-11-06 | GO-FIX da junção aplica a regra funcional no filho das claims recusadas, prova antecipação, reaproveitamento e recusa com a exceção de cota da integração e fecha recursos da rodada em exceções | Processos reais do auxiliar, recibo canônico, mutantes M11/M12 e limpeza injetada; ganho continua pendente da bancada | Thread `ork-rm074m12clai` (#Auto) |
+| 2026-11-08 | Item concluído pelo resultado medido; a meta de cerca de 1,7 vez não foi alcançada e as três lacunas observadas seguem para a RM-085 | Bancada M13 de 07 e 08/11/2026 na `main` `23d71942`, com quatro pares válidos de seis nas rodadas fria e morna, razão bruta oficial e proteções preservadas | Julio |
