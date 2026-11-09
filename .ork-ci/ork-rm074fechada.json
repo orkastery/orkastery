@@ -65,12 +65,7 @@
       "lint": []
     }
   ],
-  "deferredClaims": [
-    {
-      "id": "C5",
-      "reason": "artifact-not-in-checkout"
-    }
-  ],
+  "deferredClaims": [],
   "commands": [
     {
       "name": "ci",
