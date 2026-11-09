@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-09T16:00:43-03:00
+atualizado_em: 2026-11-09T17:26:45-03:00
 estado:
   ciclo: Discovery
   documentacao: Rascunho
@@ -53,9 +53,9 @@ sdlc:
 
 ## Escopo e validação
 
-- **Incluído:** adaptador e despacho headless; fim da sessão e watcher; perfis, login e cota esgotada; setup, sandbox, MCP, documentação e onboarding; ensaio real.
+- **Incluído:** adaptador e despacho headless; fim da sessão e watcher; perfis, login e cota esgotada; setup, sandbox, MCP, documentação e onboarding; ensaio real; depois dele, o host de condução (F6), como o Codex.
 - **Fora de escopo:** tornar o `kimi` o runtime padrão; integrar o `kimi-cli` arquivado; usar o pacote npm sem escopo; alterar a identidade do aplicativo; comprar assinatura, chave ou cota; supor sandbox, evento ou campo que a fonte não documente.
-- **Entregáveis e critérios de aceite:** as cinco fatias da seção "Plano e decisões", cada uma com prova reproduzível.
+- **Entregáveis e critérios de aceite:** as seis fatias da seção "Plano e decisões", cada uma com prova reproduzível.
 - **Piloto, medição e critérios de expansão/interrupção:** A definir pelo dono. O ensaio interrompe se o modo de autenticação escolhido contrariar a política vigente ou se faltar sinal externo suficiente para provar o fim.
 
 ### O que o Orkastery exige e o que o Kimi Code oferece
@@ -90,6 +90,7 @@ As colunas sobre o runtime citam as fontes da seção "Fontes". "Não confirmado
 | F3 Perfis, login e cota esgotada | `KIMI_CODE_HOME` por perfil, `kimi login` pelo próprio CLI, modo de autenticação de D1 e sinal conservador de cota para rotação e fallback | Com dois perfis simulados, cada sessão fica no diretório do perfil correto; nenhum segredo é lido; autenticação ausente tira só o perfil correspondente; o primeiro perfil só cede ao segundo quando há sinal tipado e prazo. A fatia só começa após D1 |
 | F4 Setup, sandbox, MCP, documentação e onboarding | Runtime no setup, mapeamento de esforço e permissões, host MCP por sessão, `AGENTS.md`, playbook, referência e onboarding | A postura mais frouxa sem confirmação recusa; o MCP expõe apenas as ferramentas autorizadas; projeto sem confiança não ativa MCP; `node core/dist/index.js docs verificar` passa com a documentação do runtime |
 | F5 Ensaio real | Uma thread `#Fast` conduzida de ponta a ponta pelo `kimi`, com credencial autorizada no modo decidido | A sessão real fecha com fonte externa, claims verificados e verify verde; o ledger não usa auto-relato como prova; qualquer divergência da política, do stream ou da cota interrompe a homologação e volta ao dono |
+| F6 Host de condução | Adaptador de Camada 1 `kimi` em `ork adapter install`, como o do Codex: entrada de condução e catálogo em arquivos do projeto que o runtime lê (`AGENTS.md` e agentes de `--agent-file` (K1, K9)), sem configuração global; MCP do dono por `ork mcp serve --host kimi`; prova de ativação lida da transcrição da sessão (`wire.jsonl`, K3) | `ork adapter install kimi --dry-run` lista só arquivos do projeto; numa sessão nova do dono, a entrada chama o `ork` e a prova de ativação acha a frase de entrada; o MCP do dono expõe só as ferramentas de condução enumeradas; a #TAG vira `--mode` e a validação fica no núcleo. Só começa depois da F5 aprovada |
 
 - **Premissas / riscos / mitigação:**
   - **Política da assinatura:** K15 restringe assinaturas a uso pessoal interativo e exclui automação não interativa. Mitigação: recomendar a chave da Kimi Platform e impedir OAuth de assinatura no despacho até decisão explícita do dono.
@@ -164,3 +165,4 @@ Pontos que a página não confirma: se `SessionEnd` dispara no modo `-p`; motivo
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-11-09 | Item criado em Discovery, com cinco fatias propostas e D1 aberta | Pedido do dono de 09/11/2026; código atual e fontes K1 a K19 | Julio |
+| 2026-11-09 | F6 "host de condução" acrescentada, para depois do ensaio real, na mesma ordem que o Codex seguiu | Decisão do dono no terminal, em 09/11/2026 (alternativa a) | Julio |

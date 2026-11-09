@@ -62,8 +62,8 @@ Estes itens ainda não têm ordem de prioridade definida pelo dono.
 
 | Item | Origem | Resultado pretendido |
 | --- | --- | --- |
-| [RM-086](RM-086-kimi-code-homologado.md) Kimi Code homologado ao lado de Codex e Claude Code | Pedido do dono no terminal, em 09/11/2026 | O Kimi Code despacha fases com perfis, fim observado e prova do núcleo, no modo de autenticação que o dono decidir |
-| [RM-087](RM-087-opencode-homologado.md) OpenCode homologado ao lado de Codex e Claude Code | Pedido do dono no terminal, em 09/11/2026 | O OpenCode despacha fases com linha, provedor e conta explícitos, fim observado e prova do núcleo |
+| [RM-086](RM-086-kimi-code-homologado.md) Kimi Code homologado ao lado de Codex e Claude Code | Pedido do dono no terminal, em 09/11/2026 | O Kimi Code despacha fases com perfis, fim observado e prova do núcleo, no modo de autenticação que o dono decidir; depois do ensaio, também conduz a fábrica, como o Codex |
+| [RM-087](RM-087-opencode-homologado.md) OpenCode homologado ao lado de Codex e Claude Code | Pedido do dono no terminal, em 09/11/2026 | O OpenCode despacha fases com linha, provedor e conta explícitos, fim observado e prova do núcleo; depois do ensaio, também conduz a fábrica, como o Codex |
 
 ## Itens
 

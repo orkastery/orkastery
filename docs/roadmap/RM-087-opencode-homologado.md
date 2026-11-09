@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-09T16:00:43-03:00
+atualizado_em: 2026-11-09T17:26:45-03:00
 estado:
   ciclo: Discovery
   documentacao: Rascunho
@@ -53,9 +53,9 @@ sdlc:
 
 ## Escopo e validação
 
-- **Incluído:** escolha entre V1 e V2; adaptador e despacho headless; fim da sessão e watcher; perfis, provedor, conta, login e cota esgotada; setup, sandbox, MCP, documentação e onboarding; ensaio real.
+- **Incluído:** escolha entre V1 e V2; adaptador e despacho headless; fim da sessão e watcher; perfis, provedor, conta, login e cota esgotada; setup, sandbox, MCP, documentação e onboarding; ensaio real; depois dele, o host de condução (F6), como o Codex.
 - **Fora de escopo:** tornar o `opencode` o runtime padrão; homologar todos os provedores; assumir que os termos do OpenCode cobrem o CLI local com chave de terceiro; reutilizar login de outra assinatura sem decisão; comprar plano, chave ou cota; supor sandbox ou evento não documentado.
-- **Entregáveis e critérios de aceite:** as cinco fatias da seção "Plano e decisões", cada uma com prova reproduzível.
+- **Entregáveis e critérios de aceite:** as seis fatias da seção "Plano e decisões", cada uma com prova reproduzível.
 - **Piloto, medição e critérios de expansão/interrupção:** A definir pelo dono. O ensaio interrompe se a linha, o provedor ou a conta não tiverem contrato e política suficientes para o uso escolhido.
 
 ### O que o Orkastery exige e o que o OpenCode oferece
@@ -90,6 +90,7 @@ As colunas sobre o runtime citam as fontes da seção "Fontes". Os fatos sem mar
 | F3 Perfis, login e cota esgotada | Perfil isolado, provedor e conta de D2, login pelo próprio CLI, seleção de conta, erros de cota e integração com o estado compartilhado | Com dois perfis simulados, cada despacho usa o rótulo correto sem ler o SQLite; cota e autenticação retiram a conta correta; se a mesma assinatura existir em outro runtime, uma falha impede novo despacho nos dois. A fatia só começa após D1, D2 e D3 |
 | F4 Setup, sandbox, MCP, documentação e onboarding | Runtime no setup, mapeamento de variante e permissões, host MCP por sessão, `AGENTS.md`, playbook, referência e onboarding | A postura mais frouxa sem confirmação recusa; regras `deny` não são removidas; o MCP expõe apenas as ferramentas autorizadas; `node core/dist/index.js docs verificar` passa com a documentação do runtime e do provedor escolhido |
 | F5 Ensaio real | Uma thread `#Fast` conduzida de ponta a ponta pelo `opencode`, na linha, no provedor e na conta decididos | A sessão real fecha com fonte externa, claims verificados e verify verde; consumo identifica provedor e conta; o ledger não usa auto-relato como prova; divergência dos termos ou contratos interrompe a homologação e volta ao dono |
+| F6 Host de condução | Adaptador de Camada 1 `opencode` em `ork adapter install`, como o do Codex: entrada de condução e catálogo em arquivos do projeto que o runtime lê (`AGENTS.md` e agentes do projeto (O10, O20)), sem configuração global; MCP do dono por `ork mcp serve --host opencode`; prova de ativação lida da exportação da sessão (`opencode session export`, O1), sem ler o banco do runtime | `ork adapter install opencode --dry-run` lista só arquivos do projeto; numa sessão nova do dono, a entrada chama o `ork` e a prova de ativação acha a frase de entrada; o MCP do dono expõe só as ferramentas de condução enumeradas; a #TAG vira `--mode` e a validação fica no núcleo. Só começa depois da F5 aprovada |
 
 - **Premissas / riscos / mitigação:**
   - **Duas linhas ativas:** V1 e V2 compartilham o binário, mas mudam API, plugins e pacotes (O3). Mitigação: D3 fixa a linha e o adaptador recusa versão fora da faixa homologada.
@@ -185,3 +186,4 @@ Pontos que a página não confirma: flag de diretório da V2; eventos finais de 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-11-09 | Item criado em Discovery, com cinco fatias propostas e D1 a D3 abertas | Pedido do dono de 09/11/2026; código atual e fontes O1 a O21 | Julio |
+| 2026-11-09 | F6 "host de condução" acrescentada, para depois do ensaio real, na mesma ordem que o Codex seguiu | Decisão do dono no terminal, em 09/11/2026 (alternativa a) | Julio |
