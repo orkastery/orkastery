@@ -36,7 +36,7 @@ sdlc:
 
 <!-- ork-docs:relance:fim -->
 
-**Pedido do dono de 09/11/2026, no terminal:** "Inclua no roadmap a integração/homologação do orkastery com os runtimes https://www.kimi.com/code/ e https://opencode.ai/". Esta página é só planejamento: nenhum código nem teste foi escrito, e os critérios de aceite abaixo são o que cada fatia terá de provar.
+**Pedido do dono de 09/11/2026, no terminal:** "Inclua no roadmap a integração/homologação do orkastery com os runtimes <https://www.kimi.com/code/> e <https://opencode.ai/>". Esta página é só planejamento: nenhum código nem teste foi escrito, e os critérios de aceite abaixo são o que cada fatia terá de provar.
 
 **Decisão de condução:** uma página por runtime, porque cada um avança no próprio ritmo. O Google Antigravity tem a [RM-066](RM-066-google-antigravity-homologado.md), o Grok Build tem a [RM-067](RM-067-grok-build-homologado.md) e o Kimi Code tem a [RM-086](RM-086-kimi-code-homologado.md).
 
