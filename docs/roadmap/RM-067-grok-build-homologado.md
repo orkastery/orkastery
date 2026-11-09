@@ -44,7 +44,7 @@ sdlc:
 
 O dono decidiu a D1 em 27/10/2026 (alternativa b, a assinatura agora), a D2 no mesmo dia (alternativa a, o servidor do `ork` fora do sandbox) e a D3 em 31/10/2026 (alternativa a, lista fechada de comandos sem pergunta). O ensaio real F5b fica para depois do merge, e meta, janela e piloto continuam a definir pelo dono. O que existe e o que falta estão em "Estado com evidências".
 
-**Decisão de condução:** uma página por runtime, porque cada um avança no próprio ritmo. O Google Antigravity tem a [RM-066](RM-066-google-antigravity-homologado.md).
+**Decisão de condução:** uma página por runtime, porque cada um avança no próprio ritmo. O Google Antigravity tem a [RM-066](RM-066-google-antigravity-homologado.md), o Kimi Code tem a [RM-086](RM-086-kimi-code-homologado.md) e o OpenCode tem a [RM-087](RM-087-opencode-homologado.md).
 
 **Nome:** o produto é o Grok Build e o binário é `grok`; o pacote npm é `@xai-official/grok` (E1). A documentação fica em `docs.x.ai` e o repositório oficial se apresenta como SpaceXAI (G4).
 
