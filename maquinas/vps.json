@@ -3,8 +3,8 @@
   "maquina": "vps",
   "por": "Julio Pessoa",
   "projeto": "orkastery",
-  "versaoOrk": "0.6.5",
-  "publicadoEm": "2026-11-09T03:30:02.009Z",
+  "versaoOrk": "0.6.8",
+  "publicadoEm": "2026-11-09T04:00:02.752Z",
   "threads": [
     {
       "id": "ork-rm074fechada",
@@ -14,7 +14,7 @@
       "status": "aberta",
       "roadmap": "RM-074",
       "branch": "ork/ork-rm074fechada-go",
-      "atualizadaEm": "2026-11-09T03:22:36.700Z",
+      "atualizadaEm": "2026-11-09T03:45:23.309Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
