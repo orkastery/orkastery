@@ -138,6 +138,32 @@
         "artefato-de-fechamento",
         "ref-local-do-ramo-base"
       ]
+    },
+    {
+      "id": "C6",
+      "thread": "ork-kimicodeeope",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-086-kimi-code-homologado.md",
+      "alegacao": "A RM-086 e a RM-087 trazem a fatia F6 host de condução, depois do ensaio real.",
+      "negativa": false,
+      "verificar": [
+        "grep -F '| F6 Host de condução |' docs/roadmap/RM-086-kimi-code-homologado.md && grep -F '| F6 Host de condução |' docs/roadmap/RM-087-opencode-homologado.md"
+      ],
+      "criadoEm": "2026-11-09T20:27:20.389Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
     }
   ],
   "deferredClaims": [],
