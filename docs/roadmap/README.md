@@ -55,6 +55,7 @@ Estes itens ainda não têm ordem de prioridade definida pelo dono.
 | [RM-083](RM-083-estado-do-roadmap-acompanha-a-entrega.md) Estado do roadmap acompanha a entrega | CI da `main` após a RM-079 | O próprio PR prepara o estado pós-merge da página e do índice, sem PR manual de sincronização |
 | [RM-084](RM-084-sessao-continua-com-muitos-objetos-soltos-do-git.md) Sessão continua com muitos objetos soltos do Git | Recusa de `ork_git_status` durante GO | O núcleo empacota sem perda fora do sandbox ou avisa antes do limite, sem afrouxar `arvoreMetadados` |
 | [RM-085](RM-085-verify-com-escopo-causal-mensagem-de-assercao-e-check-fast.md) Verify com escopo causal, mensagem de asserção e CHECK independente no #Fast | Bancada M13 e condução de fechamento da RM-074 | O verify mede todo o trabalho que cria, registra o detalhe seguro da asserção e aceita CHECK independente pedido numa #Fast existente |
+| [RM-088](RM-088-versao-mais-antiga-nunca-vira-a-latest-do-npm.md) Versão mais antiga nunca vira a latest do npm | Publicação das tags `v0.6.7` e `v0.6.8` | Uma versão menor continua publicável sem substituir a `latest`, e falhas de consulta nunca liberam publicação como `latest` |
 
 ## Pedidos do dono de 09/11/2026
 
@@ -147,6 +148,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-085](RM-085-verify-com-escopo-causal-mensagem-de-assercao-e-check-fast.md) | Verify com escopo causal, mensagem de asserção e CHECK independente no #Fast | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-08 |
 | [RM-086](RM-086-kimi-code-homologado.md) | Kimi Code homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-09 |
 | [RM-087](RM-087-opencode-homologado.md) | OpenCode homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-09 |
+| [RM-088](RM-088-versao-mais-antiga-nunca-vira-a-latest-do-npm.md) | Versão mais antiga nunca vira a latest do npm | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-10 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->
