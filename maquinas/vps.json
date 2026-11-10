@@ -4,6 +4,29 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.8",
-  "publicadoEm": "2026-11-10T13:15:04.701Z",
-  "threads": []
+  "publicadoEm": "2026-11-10T13:42:22.828Z",
+  "threads": [
+    {
+      "id": "ork-versaomaisan",
+      "nome": "ork-guardaversao",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-versaomaisan-go",
+      "atualizadaEm": "2026-11-10T13:42:17.662Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-11-10T13:42:22.319Z",
+        "motivo": "nenhuma sessão despachada na fase GO"
+      }
+    }
+  ]
 }
