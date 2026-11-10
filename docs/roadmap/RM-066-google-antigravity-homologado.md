@@ -38,7 +38,7 @@ sdlc:
 
 **Pedido do dono de 19/10/2026:** "adicione no roadmap a inclusão do Google Antigravity como homologado ao lado de codex e claude code". Esta página é só planejamento: nenhum código nem teste foi escrito, e os critérios de aceite abaixo são o que cada fatia terá de provar.
 
-**Decisão de condução:** uma página por runtime, porque cada um avança no próprio ritmo. O Grok Build tem a [RM-067](RM-067-grok-build-homologado.md).
+**Decisão de condução:** uma página por runtime, porque cada um avança no próprio ritmo. O Grok Build tem a [RM-067](RM-067-grok-build-homologado.md), o Kimi Code tem a [RM-086](RM-086-kimi-code-homologado.md) e o OpenCode tem a [RM-087](RM-087-opencode-homologado.md).
 
 ## Problema e resultado
 
