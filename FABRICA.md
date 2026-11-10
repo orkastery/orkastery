@@ -7,4 +7,4 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | — | nenhuma thread ativa | — | — |  | — | — | — | — |
 
-Horários de Brasília.
+Horários em UTC.
