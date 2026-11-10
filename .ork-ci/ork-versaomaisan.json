@@ -1,0 +1,73 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-versaomaisan",
+  "branch": "ork/ork-versaomaisan-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-versaomaisan",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O README registra a RM-088 no achado das publicações v0.6.7 e v0.6.8 e no índice gerado do roadmap.",
+      "negativa": false,
+      "verificar": [
+        "grep -Fq '| [RM-088](RM-088-versao-mais-antiga-nunca-vira-a-latest-do-npm.md) Versão mais antiga nunca vira a latest do npm | Publicação das tags `v0.6.7` e `v0.6.8` |' docs/roadmap/README.md",
+        "grep -Fq '| [RM-088](RM-088-versao-mais-antiga-nunca-vira-a-latest-do-npm.md) | Versão mais antiga nunca vira a latest do npm | Discovery | Não iniciado | Não iniciados | Não implantado |' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-11-10T14:07:24.769Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C2",
+      "thread": "ork-versaomaisan",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-088-versao-mais-antiga-nunca-vira-a-latest-do-npm.md",
+      "alegacao": "A RM-088 passa a verificação documental e está citada no índice do roadmap.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "grep -Fq '[RM-088](RM-088-versao-mais-antiga-nunca-vira-a-latest-do-npm.md)' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-11-10T14:07:30.713Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
