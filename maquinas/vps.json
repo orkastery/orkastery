@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.8",
-  "publicadoEm": "2026-11-10T15:30:07.013Z",
+  "publicadoEm": "2026-11-10T16:15:03.399Z",
   "threads": [
     {
       "id": "ork-versaomaisan",
@@ -14,7 +14,7 @@
       "status": "aberta",
       "roadmap": "RM-088",
       "branch": "ork/ork-versaomaisan-go",
-      "atualizadaEm": "2026-11-10T14:26:03.959Z",
+      "atualizadaEm": "2026-11-10T16:11:36.471Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
