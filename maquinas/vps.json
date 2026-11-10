@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.8",
-  "publicadoEm": "2026-11-10T14:15:03.173Z",
+  "publicadoEm": "2026-11-10T14:30:04.328Z",
   "threads": [
     {
       "id": "ork-versaomaisan",
@@ -14,7 +14,7 @@
       "status": "aberta",
       "roadmap": "RM-088",
       "branch": "ork/ork-versaomaisan-go",
-      "atualizadaEm": "2026-11-10T14:07:30.713Z",
+      "atualizadaEm": "2026-11-10T14:26:03.959Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -23,9 +23,9 @@
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-11-10T14:28:15.646Z",
+        "motivo": "sessão 01a1c5c4 encerrada (completed)"
       }
     }
   ]
