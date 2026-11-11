@@ -14,6 +14,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **Inscrição na rede coletiva** (RM-089): a família `ork network empresa` cria a rede privada; a empresa registra a identidade esperada e o maestro aceita com a conta autenticada; cada publicação revalida o `accountId`, envia uma projeção fechada sem dado local e cessa por saída ou revogação, com GitHub e GitLab pela mesma porta.
 
+- **Reserva coletiva obrigatória — F2 (RM-089):** `thread new --roadmap`, `roadmap pegar` e `ork_thread_new` usam a mesma saga coletiva-local; uma segunda identidade só continua como colaboradora ou com acordo autenticado, e as coberturas observar, avisar e exigir tornam indisponibilidade e reparo explícitos.
+
 ### Alterado
 
 - **RM-089 — política de recibo no CI:** cada repositório pode observar, avisar ou exigir no `ork ci run` um recibo de verify ligado ao HEAD do PR/MR, com o mesmo contrato no GitHub e no GitLab; sem a chave, o comportamento anterior permanece.
