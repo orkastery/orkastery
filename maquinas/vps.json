@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.8",
-  "publicadoEm": "2026-11-11T18:45:03.260Z",
+  "publicadoEm": "2026-11-11T18:54:26.102Z",
   "threads": [
     {
       "id": "ork-rm088guardad",
@@ -36,7 +36,29 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm089f2dupli-full",
-      "atualizadaEm": "2026-11-11T18:42:41.848Z",
+      "atualizadaEm": "2026-11-11T18:45:34.336Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": "codex",
+      "modelo": "gpt-5.6-sol",
+      "esforco": "xhigh",
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-11-11T18:47:19.535Z",
+        "motivo": "sessão 01a1cbc6 encerrada (completed)"
+      }
+    },
+    {
+      "id": "ork-rm090f3corre",
+      "nome": "rm090f3",
+      "modo": "#Auto",
+      "fase": "CHECK",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-rm090f3corre-full",
+      "atualizadaEm": "2026-11-11T18:54:25.541Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -48,28 +70,6 @@
         "viva": true,
         "desdeEm": null,
         "motivo": null
-      }
-    },
-    {
-      "id": "ork-rm090f3corre",
-      "nome": "rm090f3",
-      "modo": "#Auto",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-rm090f3corre-full",
-      "atualizadaEm": "2026-11-11T18:03:27.309Z",
-      "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh",
-      "sessao": {
-        "viva": false,
-        "desdeEm": "2026-11-11T17:07:16.912Z",
-        "motivo": "sessão 01a1cb6f encerrada (completed)"
       }
     },
     {
@@ -112,7 +112,7 @@
       "esforco": null,
       "sessao": {
         "viva": false,
-        "desdeEm": "2026-11-11T18:12:08.981Z",
+        "desdeEm": "2026-11-11T18:54:27.826Z",
         "motivo": "nenhuma sessão despachada na fase GOAL"
       }
     },
