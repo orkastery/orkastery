@@ -6,7 +6,8 @@ import type { ProjetoNoPanorama } from '../src/network-roadmap';
 import { revogarInscricaoEmpresa, sairDaRedeEmpresa } from '../src/rede-empresa';
 import { CONTRATO_INSCRICAO_EMPRESA, CONTRATO_POLITICA_EMPRESA, type InscricaoDaEmpresa,
   MAX_BYTES_PUBLICACAO_EMPRESA, MAX_ITENS_PUBLICACAO_EMPRESA, MAX_LACUNAS_PUBLICACAO_EMPRESA,
-  MAX_RESERVAS_PUBLICACAO_EMPRESA, MAX_TRABALHOS_PUBLICACAO_EMPRESA, type ReferenciaDaForja } from '../src/rede-empresa-contrato';
+  MAX_RESERVAS_PUBLICACAO_EMPRESA, MAX_TRABALHOS_PUBLICACAO_EMPRESA, type PublicacaoDaEmpresa,
+  type ReferenciaDaForja } from '../src/rede-empresa-contrato';
 import { publicarNaRedeEmpresa, type PedidoDePublicacaoEmpresa } from '../src/rede-empresa-publicacao';
 import { statusDaRedeEmpresa } from '../src/rede-empresa-status';
 import type { PortaDaBranchEmpresa } from '../src/rede-empresa-transporte';
@@ -88,6 +89,16 @@ test('duas redes inscritas publicam em caminhos próprios', () => {
   assert.equal(a.ok && c.ok, true);
   assert.ok(b.arquivos.has('publicacoes/inscricao-a/projeto-a.json'));
   assert.ok(b.arquivos.has('publicacoes/inscricao-b/projeto-a.json'));
+  for (const id of ['inscricao-a', 'inscricao-b']) {
+    const publicada = JSON.parse(b.arquivos.get(`publicacoes/${id}/projeto-a.json`)!) as PublicacaoDaEmpresa;
+    assert.deepEqual(publicada.itens, [{ id: 'RM-089', estado: 'desenvolvimento' }]);
+    assert.equal(publicada.reservas[0].itemId, 'RM-089');
+    assert.match(String(publicada.reservas[0].threadRef), /^thread-[0-9a-f]{24}$/);
+    assert.deepEqual([publicada.trabalhos[0].fase, publicada.trabalhos[0].itemId], ['GO', 'RM-089']);
+    assert.match(publicada.trabalhos[0].threadRef, /^thread-[0-9a-f]{24}$/);
+    assert.deepEqual(publicada.fontes, [{ parte: 'roadmap', atualizado: true, lidoEm: agora, commit: 'abcdef0' }]);
+    assert.deepEqual(publicada.lacunas, [{ tipo: 'reservas.sem-branch', parte: 'reservas' }]);
+  }
 });
 
 test('publicação recompõe depois da concorrência na branch', () => {
