@@ -288,7 +288,7 @@
         "node --test core/dist-test/test/locale-f3a-referencia.test.js core/dist-test/test/docs.test.js"
       ],
       "criadoEm": "2026-11-11T13:23:58.706Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -315,7 +315,7 @@
         "node --test core/dist-test/test/locale-f3a-referencia.test.js core/dist-test/test/docs.test.js"
       ],
       "criadoEm": "2026-11-11T13:26:33.321Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -342,6 +342,141 @@
         "node --test core/dist-test/test/locale-f3a-referencia.test.js core/dist-test/test/docs.test.js"
       ],
       "criadoEm": "2026-11-11T13:26:39.286Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm090f2promp",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-prompt.test.ts",
+      "alegacao": "A telemetria do prompt usa o arquivo carimbado após conferir contenção, tipo, limite e SHA-256; ausência ou divergência recusa o evento sem incluir conteúdo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-prompt.test.js"
+      ],
+      "criadoEm": "2026-11-11T14:20:44.196Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm090f2promp",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-prompt.test.ts",
+      "alegacao": "O prompt é lido, limitado e validado pelo mesmo descritor; só o texto com segredo e dado privado removidos é devolvido, e falhas retornam motivos seguros sem path, hash ou conteúdo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-prompt.test.js"
+      ],
+      "criadoEm": "2026-11-11T14:20:44.389Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm090f2promp",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria.test.ts",
+      "alegacao": "O texto restante que cabe chega no LogRecord estruturado de entrada GenAI com versão da política e sem campo duplicado; conteúdo maior é cortado depois da remoção dentro do limite da F1.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria.test.js core/dist-test/test/telemetria-exportador.test.js"
+      ],
+      "criadoEm": "2026-11-11T14:20:44.550Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm090f2promp",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-exportador.test.ts",
+      "alegacao": "O dry-run apresenta o conteúdo preparado pelo mesmo caminho do envio e não usa transporte, cabeçalhos, lock ou cursor.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-cli.test.js core/dist-test/test/telemetria-exportador.test.js"
+      ],
+      "criadoEm": "2026-11-11T14:20:44.640Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm090f2promp",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-exportador.test.ts",
+      "alegacao": "Envio e dry-run usam o mesmo preparador do arquivo carimbado; o dry-run expõe payload seguro sem transporte, cabeçalhos, lock ou cursor.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-cli.test.js core/dist-test/test/telemetria-exportador.test.js"
+      ],
+      "criadoEm": "2026-11-11T14:20:44.775Z",
       "estado": "pendente",
       "lint": [],
       "regrasDoLint": [
