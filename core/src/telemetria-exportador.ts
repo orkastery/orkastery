@@ -188,6 +188,11 @@ function ajustarAoLimite(registros: readonly OtlpLogRecord[], registro: OtlpLogR
   const tamanho = (candidato: OtlpLogRecord): number => Buffer.byteLength(serializar(
     montarExportLogsServiceRequest([...registros, candidato], contexto)));
   if (tamanho(registro) <= maxBytes) return { registro, bloqueio: null };
+  if (registros.length) {
+    const tamanhoIsolado = Buffer.byteLength(serializar(
+      montarExportLogsServiceRequest([registro], contexto)));
+    if (tamanhoIsolado <= maxBytes) return { registro: null, bloqueio: null };
+  }
   const conteudo = conteudoDoPrompt(registro);
   if (conteudo === null) {
     if (registros.length) return { registro: null, bloqueio: null };

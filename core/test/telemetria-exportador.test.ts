@@ -222,6 +222,48 @@ test('falha transitória ou da remoção bloqueia antes do evento e não chama t
   }
 });
 
+test('registro vizinho fecha o lote e o prompt que cabe sozinho segue inteiro', async () => {
+  const prompt = 'p'.repeat(500_000);
+  const f = fixture([
+    linha('autonomous_decision', 'antes', { decisao: 'x'.repeat(700_000) }),
+    linha('phase_prompt_recorded', 'prompt', { promptPath: 'prompts/go.md', promptSha256: '0'.repeat(64) }),
+  ]);
+  const contexto = { ...ctx, prepararPrompt: () => ({
+    estado: 'conteudo' as const,
+    texto: prompt,
+    tamanhoOriginal: Buffer.byteLength(prompt),
+    tamanhoExportado: Buffer.byteLength(prompt),
+    versaoDaRemocao: 'ork.telemetria-redacao/v1' as const,
+  }) };
+  const corpos: string[] = [];
+  const enviar = () => exportarLedger({ arquivoLedger: f.ledger, arquivoCursor: f.cursor, arquivoLock: f.lock,
+    thread: 'ork-teste', contexto, arquivos: f.arquivos, env, transporte: async (pedido) => {
+      corpos.push(pedido.body); return { status: 200, body: '' };
+    } });
+  const primeiro = await enviar();
+  const segundo = await enviar();
+  assert.equal(primeiro.estado, 'enviado');
+  assert.equal(segundo.estado, 'enviado');
+  const registrosPrimeiro = JSON.parse(corpos[0]).resourceLogs[0].scopeLogs[0].logRecords;
+  assert.equal(registrosPrimeiro.length, 1);
+  assert.equal(registrosPrimeiro[0].eventName, 'orkastery.ledger.autonomous_decision');
+
+  const registrosSegundo = JSON.parse(corpos[1]).resourceLogs[0].scopeLogs[0].logRecords;
+  assert.equal(registrosSegundo.length, 1);
+  const atributos = Object.fromEntries(registrosSegundo[0].attributes.map(
+    (item: { key: string; value: unknown }) => [item.key, item.value]));
+  const mensagens = (atributos['gen_ai.input.messages'] as { arrayValue: { values: Array<{
+    kvlistValue: { values: Array<{ key: string; value: unknown }> }
+  }> } }).arrayValue.values;
+  const partes = mensagens[0].kvlistValue.values.find((item) => item.key === 'parts')!.value as {
+    arrayValue: { values: Array<{ kvlistValue: { values: Array<{ key: string; value: { stringValue: string } }> } }> }
+  };
+  const texto = partes.arrayValue.values[0].kvlistValue.values.find((item) => item.key === 'content')!
+    .value.stringValue;
+  assert.equal(texto, prompt);
+  assert.equal(atributos['orkastery.prompt.truncated'], undefined);
+});
+
 test('corta depois da remoção em ponto de código, limita o pedido e não relê nem reprocessa o prompt', async () => {
   const f = fixture([]);
   const raizPrompts = path.join(f.dir, 'prompts');
@@ -231,7 +273,7 @@ test('corta depois da remoção em ponto de código, limita o pedido e não rel�
   const arquivo = path.join(raizPrompts, 'go.md');
   fs.writeFileSync(arquivo, texto);
   const sha = createHash('sha256').update(texto).digest('hex');
-  fs.writeFileSync(f.ledger, [linha('thread_created', 'antes'), linha('phase_prompt_recorded', 'prompt', {
+  fs.writeFileSync(f.ledger, [linha('phase_prompt_recorded', 'prompt', {
     promptPath: path.relative(f.dir, arquivo), promptSha256: sha, model: 'gpt-exemplo' }),
   linha('phase_dispatch', 'depois')].join('\n') + '\n');
   let preparacoes = 0, serializacoes = 0, corpo = '';
