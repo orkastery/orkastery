@@ -1,11 +1,13 @@
 import { strict as assert } from 'node:assert';
+import { createHash } from 'node:crypto';
+import * as fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { main } from '../src/index';
 import { ativarLocale, chaveDoLocale, cobreLocale, msg } from '../src/locale';
 import { AJUDA_EN, AJUDA_PT_BR, DadosDaAjuda } from '../src/locale-ajuda';
-import { comandoTelemetria, CONTRATO_CLI_TELEMETRIA, DependenciasTelemetriaCli,
+import { comandoTelemetria, contextoPadrao, CONTRATO_CLI_TELEMETRIA, DependenciasTelemetriaCli,
   FonteDaTelemetria } from '../src/telemetria-cli';
 import { envPtBr, projetoTemporario } from './apoio';
 
@@ -76,6 +78,43 @@ test('dry-run encaminha a opção sem transporte e expõe somente o payload mape
     offset: 123, json: true, escrever: () => {}, dependencias });
   assert.equal(dryRun, true); assert.equal(offset, 123); assert.equal(r.codigo, 0);
   assert.deepEqual((r.resposta.results as Array<Record<string, unknown>>)[0].payload, payload);
+});
+
+test('contexto padrão prepara o arquivo carimbado com remoção antes do mapeamento', (t) => {
+  const projeto = projetoTemporario('telemetria-cli-prompt');
+  t.after(() => projeto.limpar());
+  const prompts = path.join(projeto.dir, '.orkastery', 'threads', 'ork-teste', 'prompts');
+  fs.mkdirSync(prompts, { recursive: true });
+  const segredo = 'sk-' + 'A'.repeat(32);
+  const texto = `antes ${segredo} depois`;
+  const arquivo = path.join(prompts, 'go.md');
+  fs.writeFileSync(arquivo, texto);
+  const contextoReal = contextoPadrao(projeto.dir, 'a'.repeat(64), {});
+  const resultado = contextoReal.prepararPrompt!({ ts: '2026-11-10T12:00:00.000Z', thread: 'ork-teste',
+    tipo: 'phase_prompt_recorded', promptPath: path.relative(projeto.dir, arquivo),
+    promptSha256: createHash('sha256').update(texto).digest('hex') });
+  assert.equal(resultado.estado, 'conteudo');
+  if (resultado.estado !== 'conteudo') return;
+  assert.equal(resultado.texto.includes(segredo), false);
+  assert.match(resultado.texto, /antes \[segredo omitido\] depois/);
+});
+
+test('saída humana de bloqueio usa somente o motivo tipado seguro em pt-BR e inglês', async () => {
+  const segredo = 'sk-' + 'B'.repeat(32);
+  for (const locale of ['pt-BR', 'en'] as const) {
+    ativarLocale(locale);
+    try {
+      const linhas: string[] = [];
+      const r = await comandoTelemetria({ raiz: '/projeto', subcomando: 'enviar', escrever: (linha) => linhas.push(linha),
+        env: { OTEL_EXPORTER_OTLP_HEADERS: segredo }, dependencias: deps({ exportar: async () => ({
+          estado: 'bloqueado', registros: 0, uids: [],
+          bloqueio: { offset: 0, linha: 1, motivo: 'prompt_redaction_failed' },
+        }) }) });
+      assert.equal(r.codigo, 1);
+      assert.match(linhas.join('\n'), /prompt_redaction_failed/);
+      assert.equal(linhas.join('\n').includes(segredo), false);
+    } finally { ativarLocale(undefined); }
+  }
 });
 
 test('index valida opções públicas de telemetria e a rota do locale inglês cobre a família', () => {
