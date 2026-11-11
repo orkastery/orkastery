@@ -17,6 +17,8 @@ const RAIZ = path.resolve(__dirname, '../../..');
 const ler = (rel: string): string => fs.readFileSync(path.join(RAIZ, rel), 'utf8');
 const PT = 'docs/referencia/cli.md';
 const EN = 'docs/referencia/cli.en.md';
+const GUIA_PT = 'docs/guias/telemetria-opentelemetry.pt-BR.md';
+const GUIA_EN = 'docs/guias/telemetria-opentelemetry.md';
 
 interface Secao { titulo: string; ork: string[]; tabela: number; codigo: string[] }
 
@@ -107,6 +109,65 @@ test('locale F3a referencia: telemetria carimba origem, ordem de remoção, opt-
     assert.ok(secao.includes(caso.optIn), `${caso.idioma}: opt-in`);
     assert.ok(secao.includes(caso.sensivel), `${caso.idioma}: sensibilidade`);
     assert.ok(secao.includes(caso.development), `${caso.idioma}: estado Development`);
+  }
+});
+
+test('locale F3a referencia: guias da telemetria cobrem o contrato completo de prompts da F2', () => {
+  const casos = [
+    {
+      idioma: 'pt-BR', texto: ler(GUIA_PT), titulo: '## Conteúdo de prompts', proximo: '## Privacidade e entrega',
+      antiga: 'Nenhum hook automático de fase, métrica, trace, texto de prompt, painel ou política empresarial',
+      metadadosAntigos: 'Prompt sai somente com metadados já presentes',
+      segredo: 'os detectores de segredo processam o texto inteiro', privado: 'Só depois o núcleo aplica `dado_privado`',
+      trechos: [
+        'arquivo carimbado', 'no mesmo descritor', 'limite de 4 MiB', 'SHA-256 registrado no evento',
+        'strings JSON aninhadas por até 16 níveis',
+        '`orkastery.prompt.redaction.policy.version=ork.telemetria-redacao/v1`',
+        'fecha o fluxo antes do evento', 'JSON OTLP aninhado de `gen_ai.input.messages`',
+        'pedido é limitado a 1 MiB', '`metadata_missing`', '`file_missing`', '`unsafe_path`',
+        '`invalid_type`', '`too_large`', '`invalid_encoding`', '`hash_mismatch`',
+        '`orkastery.prompt.content.state=gap`', '`orkastery.prompt.gap.reason`',
+        'a fila continua com o evento seguinte', 'a perda do prompt fica observável',
+        'Só um prompt que não cabe sozinho', 'fronteira de ponto de código Unicode',
+        '`orkastery.prompt.truncated=true`', 'é idêntica ao envio', 'opt-in',
+        'a empresa que recebe os logs vê o texto restante', 'Semantic Conventions GenAI 1.37.0',
+        'estado **Development**',
+      ],
+    },
+    {
+      idioma: 'en', texto: ler(GUIA_EN), titulo: '## Prompt content', proximo: '## Privacy and delivery',
+      antiga: 'This slice creates no automatic phase hook, metric, trace, prompt text, dashboard or enterprise policy',
+      metadadosAntigos: 'A prompt exports only metadata already present',
+      segredo: 'the secret detectors process the entire text', privado: 'Only then does the core apply `dado_privado`',
+      trechos: [
+        'stamped file', 'on the same descriptor', '4 MiB limit', 'SHA-256 recorded in the event',
+        'JSON strings nested up to 16 levels',
+        '`orkastery.prompt.redaction.policy.version=ork.telemetria-redacao/v1`',
+        'fails closed before the event', 'nested OTLP JSON in `gen_ai.input.messages`',
+        'request is limited to 1 MiB', '`metadata_missing`', '`file_missing`', '`unsafe_path`',
+        '`invalid_type`', '`too_large`', '`invalid_encoding`', '`hash_mismatch`',
+        '`orkastery.prompt.content.state=gap`', '`orkastery.prompt.gap.reason`',
+        'the queue continues with the next event', 'makes the prompt loss observable',
+        'Only a prompt that does not fit by itself', 'Unicode code point boundary',
+        '`orkastery.prompt.truncated=true`', 'is identical to sending', 'opt-in',
+        'the company receiving the logs can see the remaining text', 'GenAI Semantic Conventions 1.37.0',
+        'in **Development** status',
+      ],
+    },
+  ];
+  for (const caso of casos) {
+    const inicio = caso.texto.indexOf(caso.titulo);
+    const fim = caso.texto.indexOf(caso.proximo, inicio);
+    assert.notEqual(inicio, -1, `${caso.idioma}: seção`);
+    assert.notEqual(fim, -1, `${caso.idioma}: fim da seção`);
+    const secao = caso.texto.slice(inicio, fim);
+    assert.ok(secao.indexOf(caso.segredo) < secao.indexOf(caso.privado),
+      `${caso.idioma}: segredo antecede dado privado`);
+    for (const trecho of caso.trechos) assert.ok(secao.includes(trecho), `${caso.idioma}: ${trecho}`);
+    assert.ok(secao.includes('https://github.com/open-telemetry/semantic-conventions/blob/v1.37.0/docs/gen-ai/gen-ai-events.md'),
+      `${caso.idioma}: link oficial da 1.37.0`);
+    assert.equal(caso.texto.includes(caso.antiga), false, `${caso.idioma}: frase antiga da F1`);
+    assert.equal(caso.texto.includes(caso.metadadosAntigos), false, `${caso.idioma}: negação antiga do conteúdo`);
   }
 });
 

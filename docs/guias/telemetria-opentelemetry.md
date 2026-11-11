@@ -90,7 +90,19 @@ Each OTLP value uses a typed `AnyValue`. 64-bit integers, including nanoseconds,
 | `orkastery.runtime.name` | `stringValue` | Dispatch and session with a runtime |
 | `orkastery.prompt.size` | decimal `intValue`, bytes | `phase_prompt_recorded` when size already exists on the event |
 
-`orkastery.event.id`, `orkastery.maestro.id`, `orkastery.verify.round_id` and `orkastery.network.id` are not part of the contract. Heartbeats, `ledger_corrupted` and fields outside the allowlist do not become attributes. A prompt exports only metadata already present; its path, hash and text are neither read nor exported.
+`orkastery.event.id`, `orkastery.maestro.id`, `orkastery.verify.round_id` and `orkastery.network.id` are not part of the contract. Heartbeats, `ledger_corrupted` and fields outside the allowlist do not become attributes.
+
+## Prompt content
+
+Prompt content enters telemetry only after the opt-in performed by `ork telemetria ligar`. For each `phase_prompt_recorded`, the core opens the stamped file and checks, on the same descriptor, its type, the 4 MiB limit, its bytes, and the SHA-256 recorded in the event. A missing path or metadata, missing file, unsafe path, invalid type, excessive size, invalid UTF-8, or hash mismatch produces a permanent gap with one of the typed reasons `metadata_missing`, `file_missing`, `unsafe_path`, `invalid_type`, `too_large`, `invalid_encoding`, or `hash_mismatch`.
+
+Before building the LogRecord, the secret detectors process the entire text, including literal and separated forms, Base64, Base64URL, and JSON strings nested up to 16 levels. Only then does the core apply `dado_privado` and check again that no secret remains. The log declares `orkastery.prompt.redaction.policy.version=ork.telemetria-redacao/v1`. A transient read or redaction failure fails closed before the event, with no content in the payload and no cursor advance.
+
+The remaining text occupies the nested OTLP JSON in `gen_ai.input.messages`: one `user` message with a `text` part and its content in `content`. The request is limited to 1 MiB. A gap carries no prompt, path, or hash, and uses `orkastery.prompt.content.state=gap` with `orkastery.prompt.gap.reason`; after remote confirmation of that LogRecord, the cursor advances and the queue continues with the next event. This makes the prompt loss observable instead of silently discarding it.
+
+Only a prompt that does not fit by itself in the 1 MiB request is truncated, after redaction, at a Unicode code point boundary. The LogRecord marks `orkastery.prompt.truncated=true`; a prompt that fits by itself proceeds intact in the next batch. The `ork telemetria enviar --dry-run` preview uses the same preparer and, for the same inputs and clock, is identical to sending, including gaps and truncation.
+
+The [GenAI Semantic Conventions 1.37.0](https://github.com/open-telemetry/semantic-conventions/blob/v1.37.0/docs/gen-ai/gen-ai-events.md) adopted for the event and `gen_ai.input.messages` are in **Development** status. Content can be sensitive and, under RM-090 D1, the company receiving the logs can see the remaining text after redaction; activation is therefore private opt-in by the person or machine.
 
 ## Privacy and delivery
 
@@ -98,4 +110,4 @@ Free text passes through the secret catalog first and the local private-data lis
 
 The cursor advances incrementally by position in each ledger. A historical event without `eventId` receives a stable derived UID. A corrupt or truncated line blocks at the first bad point without advancing. The cursor is persisted only after remote confirmation; a crash between POST and cursor sends the same UIDs again. The guarantee is at least once, not exactly once.
 
-Manual delivery uses a non-blocking lock, bounded batch and response, and at most one retry for a connection failure or retryable status. `partialSuccess` and non-retryable responses are terminal and visible in status, without a silent retry. This slice creates no automatic phase hook, metric, trace, prompt text, dashboard or enterprise policy.
+Manual delivery uses a non-blocking lock, bounded batch and response, and at most one retry for a connection failure or retryable status. `partialSuccess` and non-retryable responses are terminal and visible in status, without a silent retry. This slice creates no automatic phase hook, metric, trace, dashboard or enterprise policy; prompt text is exported only by manual opt-in delivery with the protections described above.
