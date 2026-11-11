@@ -24,7 +24,8 @@ function semAdicaoDaTelemetria(texto: string): string {
 
 const BLOCO_NETWORK_EMPRESA =
   '  network empresa criar|inscrever|aceitar   Rede coletiva privada da empresa: cria o repositório privado dedicado;\n' +
-  '        publicar|status|sair|revogar [--json]    empresa registra e maestro aceita por accountId (RM-089)\n';
+  '        publicar|status|sair|revogar [--json]    empresa registra e maestro aceita por accountId (RM-089)\n' +
+  '        criar ... [--nivel observar|avisar|exigir] [--recibo-versao V]  cobertura da reserva coletiva\n';
 
 /** A família nova não pertence à base congelada da F2a; todo o restante continua byte a byte. */
 const semNetworkEmpresa = (texto: string): string => texto.replace(BLOCO_NETWORK_EMPRESA, '');

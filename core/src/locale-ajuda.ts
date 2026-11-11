@@ -68,7 +68,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
         [--sem-worktree]                         cria sem worktree (na branch base, o ship barra a entrega com
                                                  push_direto_na_base: block, o padrão do ork init); com
                                                  worktree.por_thread: true, a worktree nasce sem flag
-        [--roadmap RM-NNN]                       reserva primeiro na rede coletiva, depois localmente, cria e vincula
+        [--roadmap RM-NNN]                       com rede coletiva, reserva nela primeiro; sempre reserva localmente antes de criar
         [--pedido "<texto>"]                     guarda o pedido do builder (pedido.md, com sha256): o
                                                  prompt render usa quando falta --pedido (RM-059)
   thread list [--todas] [--json]            Threads NAO fechadas do projeto (--todas inclui as fechadas)
@@ -492,7 +492,7 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
         [--sem-worktree]                         creates without a worktree (on the base branch, ship blocks the delivery with
                                                  push_direto_na_base: block, the ork init default); with
                                                  worktree.por_thread: true, the worktree is created without a flag
-        [--roadmap RM-NNN]                       reserves collectively first, then locally, creates and links
+        [--roadmap RM-NNN]                       with a collective network, reserves there first; always reserves locally before creating
         [--pedido "<text>"]                      saves the builder request (pedido.md, with sha256):
                                                  prompt render uses it when --pedido is missing (RM-059)
   thread list [--todas] [--json]            Project threads that are NOT closed (--todas includes the closed ones)
