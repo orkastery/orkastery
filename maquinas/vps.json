@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.8",
-  "publicadoEm": "2026-11-11T15:40:48.710Z",
+  "publicadoEm": "2026-11-11T15:54:20.112Z",
   "threads": [
     {
       "id": "ork-rm089f1inscr",
@@ -54,11 +54,11 @@
       "id": "ork-rm090f4colet",
       "nome": "rm090f4",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "CHECK",
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm090f4colet-full",
-      "atualizadaEm": "2026-11-11T15:40:48.131Z",
+      "atualizadaEm": "2026-11-11T15:54:19.498Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
