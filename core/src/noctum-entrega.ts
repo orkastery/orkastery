@@ -600,7 +600,7 @@ function gravarArquivoDaWorktree(wt: string, arquivo: string, texto: string): vo
 /**
  * D4: atualiza o candidato contra a base lida no remoto, na worktree limpa da thread e sob a condução do verify: merge
  * diff3, conflito só aditivo pela regra do núcleo, a entrada da thread em "Não publicado", nenhuma linha da base perdida, o
- * bundle regravado e o verify logo depois. A recusa aborta o merge, grava a base recusada e bloqueia; a leitura que falha
+ * verify executado no commit atualizado e o bundle regravado logo depois. A recusa aborta o merge, grava a base recusada e bloqueia; a leitura que falha
  * aborta e espera, sem gravar recusa.
  */
 function atualizarCandidato(carregado: ManifestoCarregado, arco: string, trabalho: TrabalhoNaFila, t: Thread, base: string,
@@ -632,36 +632,41 @@ function atualizarCandidato(carregado: ManifestoCarregado, arco: string, trabalh
       conflitos = mesclarABase(carregado, t, wt, branch, antes, base, arco);
       rastro.efeito = true;
     }
-    const daBranch = manifestoDaBranch(carregado, ler(['rev-parse', 'HEAD'], 'o HEAD depois do merge').trim());
-    const arquivo = prepararBundleCi(daBranch, t.id);
-    const relativo = path.relative(wt, arquivo);
-    const bundleMudou = ler(['status', '--porcelain', '--', relativo], 'o estado do bundle').trim() !== '';
-    if (bundleMudou) {
-      // R3-A4 da rodada 3: o bundle que não commita (um gancho, a trava do índice) volta ao que a branch tinha, e o passo
-      // espera, como no commit do merge (R2-A2), sem deixar a worktree suja para o passo seguinte.
-      const desfazerBundle = (): void => {
-        git(wt, ['reset', '-q', '--', relativo]);
-        const naBranch = git(wt, ['cat-file', '-p', `HEAD:${relativo}`]);
-        if (naBranch.ok) fs.writeFileSync(path.join(wt, relativo), naBranch.stdout);
-        else fs.rmSync(path.join(wt, relativo), { force: true });
-      };
-      const a = git(wt, ['add', '--', relativo]);
-      if (!a.ok) {
-        desfazerBundle();
-        throw new RecusaDaEntrega('noctum.entrega.git-falhou', `o git add do bundle ${relativo} falhou: ${primeira(a.stderr)}`);
-      }
-      const c = git(wt, ['commit', '-q', '-m', `ci(${t.id}): bundle regravado na atualização do arco ${arco}`]);
-      if (!c.ok) {
-        desfazerBundle();
-        throw new RecusaDaEntrega('noctum.entrega.git-falhou', `o commit do bundle falhou: ${primeira(c.stderr)}`);
-      }
-      rastro.efeito = true;
-    }
-    const depois = ler(['rev-parse', 'HEAD'], 'o HEAD depois do bundle').trim();
+    const depoisDoMerge = ler(['rev-parse', 'HEAD'], 'o HEAD depois do merge').trim();
     // O verify que não teve a vez na fila pesada não desfaz a atualização: ele fica para o passo seguinte (`verify: null`).
+    // RM-089: o bundle nasce DEPOIS do verify verde, para o recibo apontar ao pai provado e ser o único diff posterior.
     let verify: boolean | null = null;
     try { verify = (opcoes.verificar ?? ((k, id, c) => verificar(k, id, { conducao: c })))(carregado, t.id, conducao).ok; }
     catch (e) { if (!(e instanceof ErroDaFilaPesada || e instanceof ErroDeConducao)) throw e; }
+    let bundleMudou = false;
+    if (verify === true) {
+      const daBranch = manifestoDaBranch(carregado, depoisDoMerge);
+      const arquivo = prepararBundleCi(daBranch, t.id);
+      const relativo = path.relative(wt, arquivo);
+      bundleMudou = ler(['status', '--porcelain', '--', relativo], 'o estado do bundle').trim() !== '';
+      if (bundleMudou) {
+        // R3-A4 da rodada 3: o bundle que não commita (um gancho, a trava do índice) volta ao que a branch tinha, e o passo
+        // espera, como no commit do merge (R2-A2), sem deixar a worktree suja para o passo seguinte.
+        const desfazerBundle = (): void => {
+          git(wt, ['reset', '-q', '--', relativo]);
+          const naBranch = git(wt, ['cat-file', '-p', `HEAD:${relativo}`]);
+          if (naBranch.ok) fs.writeFileSync(path.join(wt, relativo), naBranch.stdout);
+          else fs.rmSync(path.join(wt, relativo), { force: true });
+        };
+        const a = git(wt, ['add', '--', relativo]);
+        if (!a.ok) {
+          desfazerBundle();
+          throw new RecusaDaEntrega('noctum.entrega.git-falhou', `o git add do bundle ${relativo} falhou: ${primeira(a.stderr)}`);
+        }
+        const c = git(wt, ['commit', '-q', '-m', `ci(${t.id}): bundle regravado na atualização do arco ${arco}`]);
+        if (!c.ok) {
+          desfazerBundle();
+          throw new RecusaDaEntrega('noctum.entrega.git-falhou', `o commit do bundle falhou: ${primeira(c.stderr)}`);
+        }
+        rastro.efeito = true;
+      }
+    }
+    const depois = ler(['rev-parse', 'HEAD'], 'o HEAD depois do bundle').trim();
     return { acao: 'atualizou', ...ids, de: antes, para: depois, conflitos, bundle: bundleMudou, verify };
   });
 }

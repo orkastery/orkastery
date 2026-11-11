@@ -13,7 +13,7 @@ import { avancarBase, CAB, CHANGELOG_DA_BASE, ciFalso, claimDe, commitarBundle, 
   concluirRevisao, despachoDoCheck, ENTRADA_DA_THREAD, entregaPronta, EstadoDoCheck, FORJA, ghFalso, git, head, projetoDaEntrega,
   SessaoSimulada, sessaoDespachada, threadComWorktree, totalDeModelosDaEntrega, verifyDoPasso,
   verifyNoLedger } from './noctum-entrega-apoio';
-import { ExecutorCi } from '../src/ci';
+import { estadoDoReciboCi, ExecutorCi } from '../src/ci';
 import { kernelDisponivel } from '../src/fila-pesada';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from '../src/ledger';
 import { blocosNaoPublicados, linhasDaBasePerdidas } from '../src/noctum-changelog';
@@ -144,8 +144,17 @@ test('QE3: a base publicou uma versão: o passo mescla com o conflito do CHANGEL
     assert.ok(r.acao === 'atualizou');
     assert.deepEqual(r.conflitos, ['CHANGELOG.md']);
     assert.equal(r.verify, true, 'o verify roda na mesma condução, no SHA novo');
-    assert.deepEqual(m.verifies, [r.para]);
+    assert.equal(m.verifies.length, 1);
     const wt = e.t.worktree!;
+    const headVerificado = m.verifies[0];
+    const bundle = path.posix.join('.ork-ci', `${e.t.id}.json`);
+    assert.equal(git(wt, 'merge-base', '--is-ancestor', headVerificado, r.para).ok, true,
+      'o HEAD do verify é ancestral do candidato');
+    assert.equal(git(wt, 'diff', '--name-only', headVerificado, r.para, '--').stdout.trim(), bundle,
+      'depois do verify só mudou o bundle da thread');
+    const recibo = JSON.parse(fs.readFileSync(path.join(wt, bundle), 'utf8')).recibo;
+    assert.equal(recibo.head, headVerificado);
+    assert.equal(estadoDoReciboCi(wt, recibo, r.para, bundle), 'presente');
     const final = fs.readFileSync(path.join(wt, 'CHANGELOG.md'), 'utf8');
     assert.deepEqual(linhasDaBasePerdidas(daBase, final), []);
     assert.ok((blocosNaoPublicados(final) ?? []).some(b => b.linhas.join('\n') === ENTRADA_DA_THREAD('qe3')), 'a entrada da thread em Não publicado');
