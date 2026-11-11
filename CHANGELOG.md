@@ -10,6 +10,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **Logs OpenTelemetry do ledger — F1 (RM-090):** adesão privada, comandos manuais de status e envio, payload OTLP/HTTP JSON redigido e cursor incremental por thread, com guia em português e inglês.
 
+- **Conteúdo removido dos prompts na telemetria — F2 (RM-090):** o LogRecord GenAI usa o arquivo carimbado, remove segredos e dados privados localmente, representa origem irrecuperável como lacuna sem conteúdo e mostra a mesma preparação no dry-run.
+
 ### Alterado
 
 - **RM-089 — política de recibo no CI:** cada repositório pode observar, avisar ou exigir no `ork ci run` um recibo de verify ligado ao HEAD do PR/MR, com o mesmo contrato no GitHub e no GitLab; sem a chave, o comportamento anterior permanece.
