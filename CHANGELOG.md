@@ -8,6 +8,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Collector e Grafana de referência — F4 (RM-090):** modelos públicos recebem OTLP, descartam registros incoerentes, exportam para OTLP genérico ou Loki e provisionam painéis de condução, prompts e saúde.
+
 - **Logs OpenTelemetry do ledger — F1 (RM-090):** adesão privada, comandos manuais de status e envio, payload OTLP/HTTP JSON redigido e cursor incremental por thread, com guia em português e inglês.
 
 - **Conteúdo removido dos prompts na telemetria — F2 (RM-090):** o LogRecord GenAI usa o arquivo carimbado, remove segredos e dados privados localmente, representa origem irrecuperável como lacuna sem conteúdo e mostra a mesma preparação no dry-run.

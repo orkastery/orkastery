@@ -45,7 +45,21 @@ ork telemetria enviar
 
 The official [OpenTelemetry Collector configuration](https://opentelemetry.io/docs/collector/configuration/) explains receivers, processors, exporters and the `logs` pipeline. The [OTLP Exporter specification](https://opentelemetry.io/docs/specs/otel/protocol/exporter/) defines endpoint precedence, the `/v1/logs` path and the header format.
 
-For Grafana Cloud, use the endpoint and credential displayed by your stack. The official [Grafana Cloud OTLP endpoint documentation](https://grafana.com/docs/grafana-cloud/send-data/otlp/send-data-otlp/) recommends a Collector or Grafana Alloy for production and explains how logs reach Loki and Explore. Orkastery does not create a Collector, Alloy, Loki or dashboard in this slice.
+For Grafana Cloud, use the endpoint and credential displayed by your stack. The official [Grafana Cloud OTLP endpoint documentation](https://grafana.com/docs/grafana-cloud/send-data/otlp/send-data-otlp/) recommends a Collector or Grafana Alloy for production and explains how logs reach Loki and Explore. The public models do not provision Collector, Alloy, Loki, Grafana or a datasource.
+
+## Use the reference models
+
+Choose `templates/telemetria/collector-otlp.yaml` for a generic OTLP/HTTP destination or `templates/telemetria/collector-loki.yaml` for Loki's native OTLP base. The files use `otelcol` core v0.165.0 as the observed reference; the `otelcol-contrib` v0.165.1 inventory also contains the components. Compatibility with earlier versions and acceptance by an external binary remain **not confirmed**.
+
+`filter/required` is an OTTL discard filter, not a schema validator. A true condition discards the inconsistent record; an evaluation error under `propagate` fails the payload; secret or private-data rejection already happened in F2 and creates no event to revalidate. The hermetic suite checks structure. The operator can run `otelcol validate --config=<file>` separately.
+
+The public receiver does not provision TLS or authentication. Use a local bind or a trusted network by default, and apply a private TLS and authentication overlay before exposing the receiver.
+
+Copy or mount `templates/telemetria/grafana/provisioning/dashboards/orkastery.yaml` and the `templates/telemetria/grafana/dashboards/` folder. Select Loki for conduction and prompts; select Prometheus for health metrics produced by the Collector itself. The dashboards do not fix a URL or datasource.
+
+Loki queries begin with `{service_name="orkastery"}` and filter structured metadata afterwards. Runtime correlation is F3 and `orkastery-correlacao-runtime.json` does not exist in this slice. Maestro maturity is F5 and `orkastery-maturidade-maestro.json` does not exist either; there is no placeholder.
+
+Sources: [filter processor and OTTL](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/filterprocessor/README.md), [OTTL functions](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/pkg/ottl/ottlfuncs/README.md), [native OTLP ingestion in Loki](https://grafana.com/docs/loki/latest/send-data/otel/), [Grafana provisioning](https://grafana.com/docs/grafana/latest/administration/provisioning/) and [Collector internal telemetry](https://opentelemetry.io/docs/collector/internal-telemetry/).
 
 ## Inspect before sending
 
@@ -110,4 +124,4 @@ Free text passes through the secret catalog first and the local private-data lis
 
 The cursor advances incrementally by position in each ledger. A historical event without `eventId` receives a stable derived UID. A corrupt or truncated line blocks at the first bad point without advancing. The cursor is persisted only after remote confirmation; a crash between POST and cursor sends the same UIDs again. The guarantee is at least once, not exactly once.
 
-Manual delivery uses a non-blocking lock, bounded batch and response, and at most one retry for a connection failure or retryable status. `partialSuccess` and non-retryable responses are terminal and visible in status, without a silent retry. This slice creates no automatic phase hook, metric, trace, dashboard or enterprise policy; prompt text is exported only by manual opt-in delivery with the protections described above.
+Manual delivery uses a non-blocking lock, bounded batch and response, and at most one retry for a connection failure or retryable status. `partialSuccess` and non-retryable responses are terminal and visible in status, without a silent retry. This slice creates no automatic phase hook, metric, trace or enterprise policy; Collector and dashboards are reference models only. Prompt text is exported only by manual opt-in delivery with the protections described above.
