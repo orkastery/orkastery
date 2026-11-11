@@ -174,14 +174,19 @@ test('CLI real sem política fixa JSON, texto e código de saída históricos na
 });
 
 test('todos os erros de recibo têm mensagem e ação em pt-BR e EN', () => {
+  const acaoPorEstado = {
+    ausente: /ork thread new.*ork adotar/,
+    invalido: /ork ci prepare/,
+    'sha-divergente': /ork verify.*ork ci prepare/,
+  } as const;
   for (const caso of ['sem-bundle', 'invalido', 'sha-divergente'] as const) {
     const f = fixtureDaMatriz('feature', caso);
     try {
       const carregado = comNivel(f.p.carregado, 'exigir');
       const pt = comLocale('pt-BR', () => executarCiDaBranch(carregado, f.branch, f.contexto)) as ResultadoComPolitica;
       const en = comLocale('en', () => executarCiDaBranch(carregado, f.branch, f.contexto)) as ResultadoComPolitica;
-      const estado = estadoEsperado[caso];
-      const acao = estado === 'ausente' ? /ork thread new.*ork adotar/ : /ork verify.*ork ci prepare.*ork adotar/;
+      const estado = caso === 'sem-bundle' ? 'ausente' : caso;
+      const acao = acaoPorEstado[estado];
       assert.equal(pt.error?.code, `ci.recibo.${estado}`);
       assert.match(pt.error?.message ?? '', acao);
       assert.equal(en.error?.code, `ci.recibo.${estado}`);
