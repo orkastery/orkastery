@@ -85,6 +85,28 @@ test('index valida opções públicas de telemetria e a rota do locale inglês c
   finally { ativarLocale(undefined); }
 });
 
+test('as quatro rotas reais da telemetria participam do catálogo em pt-BR e inglês', () => {
+  const dados: DadosDaAjuda = { versao: 'teste', modos: 4, segredos: 'fora do arquivo', tags: '#Classic #Auto' };
+  const rotasDaAjuda = (ajuda: string) => ajuda.split('\n')
+    .filter((linha) => /^  telemetria [a-z]/.test(linha))
+    .flatMap((linha) => linha.trim().split(/\s+/)[1].split('|'));
+  const pt = rotasDaAjuda(AJUDA_PT_BR.texto(dados));
+  const en = rotasDaAjuda(AJUDA_EN.texto(dados));
+  assert.equal(pt.length, 4, 'a ajuda pública define as quatro rotas da família');
+  assert.deepEqual(en, pt, 'pt-BR e inglês expõem as mesmas rotas públicas');
+
+  for (const subcomando of pt) {
+    const posicionais = ['telemetria', subcomando];
+    assert.equal(chaveDoLocale(posicionais, {}), `telemetria ${subcomando}`);
+    assert.equal(cobreLocale(posicionais, {}), true);
+    for (const locale of ['pt-BR', 'en'] as const) {
+      ativarLocale(locale);
+      try { assert.match(msg().telemetria.uso, new RegExp(`telemetria .*\\b${subcomando}\\b`)); }
+      finally { ativarLocale(undefined); }
+    }
+  }
+});
+
 test('ajuda real mantém paridade de opções de telemetria em pt-BR e inglês', () => {
   const dados: DadosDaAjuda = { versao: 'teste', modos: 4, segredos: 'fora do arquivo', tags: '#Classic #Auto' };
   const linhas = (texto: string) => texto.split('\n').filter((linha) => /telemetria enviar|--offset <byte>/.test(linha));
