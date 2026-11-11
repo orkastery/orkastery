@@ -542,58 +542,6 @@
       ]
     },
     {
-      "id": "C30",
-      "thread": "ork-rm089f1inscr",
-      "fase": "GO",
-      "arquivo": "docs/referencia/cli.md",
-      "alegacao": "A referência pt-BR declara os seis comandos da rede coletiva, suas opções e as barreiras de publicação e status.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-cli-docs.test.js && node core/dist/index.js docs verificar --pr"
-      ],
-      "criadoEm": "2026-11-11T08:42:29.352Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C31",
-      "thread": "ork-rm089f1inscr",
-      "fase": "GO",
-      "arquivo": "docs/referencia/cli.en.md",
-      "alegacao": "The English CLI reference declares all six collective-network commands, options, publication barriers, and status behavior.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-cli-docs.test.js && node core/dist/index.js docs verificar --pr"
-      ],
-      "criadoEm": "2026-11-11T08:42:29.501Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C32",
       "thread": "ork-rm089f1inscr",
       "fase": "GO",
@@ -999,6 +947,162 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-cli.test.js"
       ],
       "criadoEm": "2026-11-11T11:05:41.402Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referência pt-BR declara os sete comandos da rede coletiva (criar, inscrever, aceitar, publicar, status, sair e revogar), suas opções e as barreiras de publicação e status.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-cli-docs.test.js && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-11T12:29:16.614Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "The English CLI reference declares all seven collective-network commands (criar, inscrever, aceitar, publicar, status, sair and revogar), options, publication barriers, and status behavior.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-cli-docs.test.js && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-11T12:29:17.294Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-transporte.ts",
+      "alegacao": "O leitor remoto distingue documento ausente, inválido e indisponível; JSON ou contrato inválido de política, inscrição ou publicação vira erro rede-empresa.documento-remoto-invalido pelos caminhos públicos de registrar, publicar e status, sem ecoar conteúdo nem virar ausência.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-publicacao.test.js"
+      ],
+      "criadoEm": "2026-11-11T12:36:04.387Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C52",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/src/locale-network-empresa.ts",
+      "alegacao": "O erro rede-empresa.documento-remoto-invalido tem mensagem e ação específicas em pt-BR e EN para corrigir o documento no repositório privado, sem exibir conteúdo não confiável.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-cli.test.js"
+      ],
+      "criadoEm": "2026-11-11T12:36:51.107Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/test/rede-empresa-forja.test.ts",
+      "alegacao": "No GitHub, se o POST de criação falha de forma incerta, o fluxo relê o repositório, encontra a referência privada e a devolve; a prova exige a sequência GET, POST, GET e falha sem a segunda leitura.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-forja.test.js"
+      ],
+      "criadoEm": "2026-11-11T12:37:36.452Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C54",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/test/rede-empresa-contrato.test.ts",
+      "alegacao": "O status trata contrato remoto inválido, inclusive tipo de lacuna desconhecido, como erro rede-empresa.documento-remoto-invalido e não ecoa o valor não confiável.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-contrato.test.js core/dist-test/test/rede-empresa-publicacao.test.js"
+      ],
+      "criadoEm": "2026-11-11T12:56:04.530Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
