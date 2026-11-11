@@ -251,6 +251,7 @@ import { registrarNaRede } from './rede-adesao';
 import { jsonSemInvisivel } from './saida-segura';
 import { ehNomeDeForja } from './rede-forja';
 import { jsonDaRede, lerRede, textoDaRede } from './rede-status';
+import { executarCliRedeEmpresa } from './rede-empresa-cli';
 import { lerLedger } from './ledger';
 import { avisosDeArtefatoRegistrados } from './phase-artifact-warning';
 import { gateDeTokens, textoDoGateDeTokens } from './tokens';
@@ -2741,6 +2742,12 @@ function comandoDaBatida(carregado: ManifestoCarregado, args: Args): number {
  */
 function comandoNetwork(args: Args): number {
   const sub = args.posicionais[1];
+  if (sub === 'empresa') {
+    const r = executarCliRedeEmpresa(args.posicionais[2], args.opcoes, localeAtivo());
+    if (r.stdout) process.stdout.write(r.stdout);
+    if (r.stderr) process.stderr.write(r.stderr);
+    return r.codigo;
+  }
   // RM-054: `network roadmap` tem o proprio --projeto e o proprio uso (e segue em pt-BR, G6 da RM-061 F3b).
   if (sub === 'roadmap') return comandoNetworkRoadmap(args);
   const diretorio = process.cwd();
