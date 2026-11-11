@@ -16,6 +16,8 @@ export interface AmbienteDeCi {
    * GitHub, a do PR ou a do push. `null` em tag.
    */
   branch: string | null;
+  /** A branch de destino do PR/MR; `null` em push, tag ou quando a forja não a informou. */
+  targetBranch: string | null;
   /** A pagina do job (GitLab) ou do run (GitHub). */
   url: string | null;
 }
@@ -34,13 +36,15 @@ function valor(v: string | undefined, forma?: RegExp): string | null {
 export function ambienteDeCi(env: NodeJS.ProcessEnv = process.env): AmbienteDeCi | null {
   if (env.GITLAB_CI === 'true') {
     return { tipo: 'gitlab', produtor: 'gitlab-ci', repository: valor(env.CI_PROJECT_PATH, CAMINHO),
-      branch: valor(env.CI_MERGE_REQUEST_SOURCE_BRANCH_NAME) ?? valor(env.CI_COMMIT_BRANCH), url: valor(env.CI_JOB_URL, URL_WEB) };
+      branch: valor(env.CI_MERGE_REQUEST_SOURCE_BRANCH_NAME) ?? valor(env.CI_COMMIT_BRANCH),
+      targetBranch: valor(env.CI_MERGE_REQUEST_TARGET_BRANCH_NAME), url: valor(env.CI_JOB_URL, URL_WEB) };
   }
   if (env.GITHUB_ACTIONS === 'true') {
     const repository = valor(env.GITHUB_REPOSITORY, CAMINHO);
     const servidor = valor(env.GITHUB_SERVER_URL, URL_WEB), run = valor(env.GITHUB_RUN_ID, NUMERO);
     return { tipo: 'github', produtor: 'github-actions', repository,
       branch: valor(env.GITHUB_HEAD_REF) ?? (env.GITHUB_REF_TYPE === 'branch' ? valor(env.GITHUB_REF_NAME) : null),
+      targetBranch: valor(env.GITHUB_BASE_REF),
       url: servidor && repository && run ? `${servidor}/${repository}/actions/runs/${run}` : null };
   }
   return null;

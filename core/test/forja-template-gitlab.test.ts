@@ -43,6 +43,9 @@ test('componente: spec com as entradas, o mesmo job e a mesma versão do modelo'
 });
 
 test('a branch que o modelo passa é a que o ambienteDeCi lê', () => {
-  assert.equal(ambienteDeCi({ GITLAB_CI: 'true', CI_MERGE_REQUEST_SOURCE_BRANCH_NAME: 'ork/ork-a', CI_COMMIT_BRANCH: 'outra' })?.branch, 'ork/ork-a');
+  const mr = ambienteDeCi({ GITLAB_CI: 'true', CI_MERGE_REQUEST_SOURCE_BRANCH_NAME: 'ork/ork-a',
+    CI_MERGE_REQUEST_TARGET_BRANCH_NAME: 'release', CI_COMMIT_BRANCH: 'outra' });
+  assert.equal(mr?.branch, 'ork/ork-a');
+  assert.equal(mr?.targetBranch, 'release');
   assert.equal(ambienteDeCi({ GITLAB_CI: 'true', CI_COMMIT_BRANCH: 'main' })?.branch, 'main');
 });

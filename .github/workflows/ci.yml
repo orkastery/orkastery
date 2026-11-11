@@ -24,7 +24,8 @@ jobs:
         run: npm ci && npm run build
         working-directory: core
       # RM-037 (rm037noite, defeito 1): cada thread tem o proprio .ork-ci/<thread>.json, achado pela
-      # branch da PR (GITHUB_HEAD_REF) ou pela do push (GITHUB_REF_NAME, a main: so os comandos).
+      # branch da PR (GITHUB_HEAD_REF) ou pela do push (GITHUB_REF_NAME). A politica de recibo le o
+      # destino do PR de GITHUB_BASE_REF; no push da branch protegida essa variavel nao existe.
       - name: CHECK independente
         run: node core/dist/index.js ci run --branch "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
 

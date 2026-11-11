@@ -88,6 +88,23 @@ caracteres, sem repetição. Lista vazia, item que não é texto ou nome repetid
 **Limite dito:** o `ork ship` e o `ork ci status` seguem lendo só o `ci.context`; só a prova da entrega do arco lê a
 lista.
 
+## Política de recibo no CI: `ci.politica_recibo`
+
+O manifesto aceita `observar`, `avisar` ou `exigir`. Sem a chave, o resultado e o código de saída de
+`ork ci run --branch` permanecem como antes. Com a chave, todo resultado inclui o nível e o estado do recibo
+(`presente`, `ausente`, `invalido` ou `sha-divergente`). Valor desconhecido é erro do manifesto.
+
+Em `exigir`, PR ou MR destinado a `worktree.base_branch` reprova com `ci.recibo.*` quando o recibo não está presente.
+Push na própria branch protegida não ganha essa reprovação. O bundle continua no schema `ork.ci-bundle/v1`: o campo
+opcional `recibo` leva `contrato`, `head` e `sha256`, e leitores aceitam a forma anterior. O guia
+[política de recibo da empresa](../../guias/politica-de-recibo-da-empresa.pt-BR.md) descreve os níveis, o
+`CODEOWNERS` e a configuração da regra obrigatória no GitHub e no GitLab.
+
+**Fronteira de confiança:** o bundle e o `sha256` chegam no próprio PR/MR e podem ser forjados. O runner não consulta nem
+confere o recibo contra o ledger. O nível básico somente reexecuta as claims e os comandos do bundle no HEAD e confere a
+ancestralidade e o diff depois do HEAD declarado no recibo. A garantia contra forja é do recibo assinado da F7 da página
+da RM-089, fora desta fatia; `presente` aqui significa consistência operacional, não autoria criptograficamente provada.
+
 ## A CI no GitLab
 
 `ork ci status` e o gate do `ork ship` leem a CI pela forja resolvida (o mesmo resolvedor do restante do contrato).
