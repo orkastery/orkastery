@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.8",
-  "publicadoEm": "2026-11-11T11:45:03.725Z",
+  "publicadoEm": "2026-11-11T12:00:07.310Z",
   "threads": [
     {
       "id": "ork-rm089f1inscr",
@@ -45,9 +45,9 @@
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-11-11T11:47:41.888Z",
+        "motivo": "sessão 01a1ca2c encerrada (completed)"
       }
     }
   ]
