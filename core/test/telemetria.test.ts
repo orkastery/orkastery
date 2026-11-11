@@ -112,6 +112,9 @@ test('prompt preparado vira entrada GenAI estruturada com versão, sem conteúdo
     ] } }] } } },
   ] } }] } });
   assert.deepEqual(r.body, { stringValue: 'phase_prompt_recorded' });
+  assert.deepEqual(r.attributes.filter((item) => JSON.stringify(item.value).includes(texto))
+    .map((item) => item.key), ['gen_ai.input.messages']);
+  assert.equal(JSON.stringify(r.body).includes(texto), false);
   assert.equal(JSON.stringify(r).includes('/nao/exportar'), false);
   assert.equal(JSON.stringify(r).includes('f'.repeat(64)), false);
 });
