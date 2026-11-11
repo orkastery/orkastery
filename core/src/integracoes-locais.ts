@@ -19,6 +19,8 @@ export const TESTES_DE_INTEGRACAO_LOCAL: ReadonlySet<string> = new Set([
   'claims-conferir-sandbox.test.js',
   // Security scan (Task 13a): o scanner com o Docker real e as imagens do catalogo.
   'security-scan-integracao.test.js',
+  // RM-090 F1: receptor OTLP/HTTP real em loopback; a lane hermética usa transporte injetado.
+  'telemetria-integracao.test.js',
   // RM-067 (F4c, D11): o grok falso confinado pelo Landlock do kernel, com o lancador em python3.
   'rm067-grok-landlock.test.js',
 ]);

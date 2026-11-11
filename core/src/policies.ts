@@ -102,7 +102,7 @@ const ENVS_QUE_REDIRECIONAM = [
  * O `ork` reporta o NOME do padrao e a posicao, nunca o trecho casado: relatorio de
  * vazamento que imprime o segredo e um segundo vazamento.
  */
-const PADROES_DE_SEGREDO: { nome: string; regex: RegExp }[] = [
+export const PADROES_DE_SEGREDO: readonly { nome: string; regex: RegExp }[] = [
   { nome: 'chave da Anthropic', regex: /sk-ant-[A-Za-z0-9_-]{16,}/ },
   // I-38 (T7): chave do OpenRouter; o hifen depois de `sk-or-v1` escapa do padrao da OpenAI.
   { nome: 'chave do OpenRouter', regex: /sk-or-v1-[A-Za-z0-9]{32,}/ },
@@ -120,6 +120,35 @@ const PADROES_DE_SEGREDO: { nome: string; regex: RegExp }[] = [
 export interface AchadoDeSegredo {
   nome: string;
   linha: number;
+}
+
+/** Resultado seguro da transformação: categorias e quantidade, nunca o valor casado. */
+export interface RedacaoDeSegredo {
+  texto: string;
+  categorias: string[];
+  total: number;
+}
+
+/**
+ * Redige os mesmos padrões usados pelo gate `segredo_em_prompt`.
+ *
+ * A função não devolve o casamento e recompila cada expressão com `g` para que todas as
+ * ocorrências sejam substituídas sem alterar o catálogo que também atende `procurarSegredos`.
+ */
+export function redigirSegredos(texto: string, marcador = '[segredo omitido]'): RedacaoDeSegredo {
+  let redigido = texto;
+  const categorias = new Set<string>();
+  let total = 0;
+  for (const padrao of PADROES_DE_SEGREDO) {
+    const flags = [...new Set((padrao.regex.flags + 'g').split(''))].join('');
+    const regex = new RegExp(padrao.regex.source, flags);
+    redigido = redigido.replace(regex, () => {
+      categorias.add(padrao.nome);
+      total += 1;
+      return marcador;
+    });
+  }
+  return { texto: redigido, categorias: [...categorias], total };
 }
 
 /**
