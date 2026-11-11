@@ -633,18 +633,14 @@ function atualizarCandidato(carregado: ManifestoCarregado, arco: string, trabalh
       rastro.efeito = true;
     }
     const depoisDoMerge = ler(['rev-parse', 'HEAD'], 'o HEAD depois do merge').trim();
-    // O verify que não teve a vez na fila pesada não desfaz a atualização: ele fica para o passo seguinte (`verify: null`).
-    // RM-089: o bundle nasce DEPOIS do verify verde, para o recibo apontar ao pai provado e ser o único diff posterior.
-    let verify: boolean | null = null;
-    try { verify = (opcoes.verificar ?? ((k, id, c) => verificar(k, id, { conducao: c })))(carregado, t.id, conducao).ok; }
-    catch (e) { if (!(e instanceof ErroDaFilaPesada || e instanceof ErroDeConducao)) throw e; }
+    const daBranch = manifestoDaBranch(carregado, depoisDoMerge);
+    const politicaDeRecibo = daBranch.manifesto.ci.politica_recibo !== undefined;
     let bundleMudou = false;
-    if (verify === true) {
-      const daBranch = manifestoDaBranch(carregado, depoisDoMerge);
+    const regravarBundle = (): boolean => {
       const arquivo = prepararBundleCi(daBranch, t.id);
       const relativo = path.relative(wt, arquivo);
-      bundleMudou = ler(['status', '--porcelain', '--', relativo], 'o estado do bundle').trim() !== '';
-      if (bundleMudou) {
+      const mudou = ler(['status', '--porcelain', '--', relativo], 'o estado do bundle').trim() !== '';
+      if (mudou) {
         // R3-A4 da rodada 3: o bundle que não commita (um gancho, a trava do índice) volta ao que a branch tinha, e o passo
         // espera, como no commit do merge (R2-A2), sem deixar a worktree suja para o passo seguinte.
         const desfazerBundle = (): void => {
@@ -665,7 +661,16 @@ function atualizarCandidato(carregado: ManifestoCarregado, arco: string, trabalh
         }
         rastro.efeito = true;
       }
-    }
+      return mudou;
+    };
+    // Sem opt-in, preserva a sequência histórica: o bundle é regravado primeiro e o verify carimba o candidato final.
+    // Com a RM-089 ligada, o verify carimba o pai e o filho posterior muda somente o bundle que leva esse recibo.
+    if (!politicaDeRecibo) bundleMudou = regravarBundle();
+    // O verify que não teve a vez na fila pesada não desfaz a atualização: ele fica para o passo seguinte (`verify: null`).
+    let verify: boolean | null = null;
+    try { verify = (opcoes.verificar ?? ((k, id, c) => verificar(k, id, { conducao: c })))(carregado, t.id, conducao).ok; }
+    catch (e) { if (!(e instanceof ErroDaFilaPesada || e instanceof ErroDeConducao)) throw e; }
+    if (politicaDeRecibo && verify === true) bundleMudou = regravarBundle();
     const depois = ler(['rev-parse', 'HEAD'], 'o HEAD depois do bundle').trim();
     return { acao: 'atualizou', ...ids, de: antes, para: depois, conflitos, bundle: bundleMudou, verify };
   });

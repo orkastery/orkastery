@@ -7,7 +7,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { ProjetoDeTeste } from './apoio';
+import { ajustarManifesto, ProjetoDeTeste } from './apoio';
 import { autorizarPedido, passar, pedidoV2, prepararIngressoSimulado, revogarArco } from './noctum-apoio';
 import { avancarBase, CAB, CHANGELOG_DA_BASE, ciFalso, claimDe, commitarBundle, commitarNaWorktree, commitDaSessao, concluirBloco,
   concluirRevisao, despachoDoCheck, ENTRADA_DA_THREAD, entregaPronta, EstadoDoCheck, FORJA, ghFalso, git, head, projetoDaEntrega,
@@ -129,10 +129,14 @@ test('QE2: sem revisão independente (o bloco inteiro numa sessão), o arco desp
   } finally { m.p.limpar(); }
 });
 
-test('QE3: a base publicou uma versão: o passo mescla com o conflito do CHANGELOG pela regra, a entrada fica em Não publicado, e a revisão sobrevive', { skip: semKernel }, () => {
+test('QE3: com política de recibo, a atualização verifica o pai e cria o filho exclusivo do bundle', { skip: semKernel }, () => {
   const m = mundo('noctum-qe3');
   m.gh = ghFalso(m.p);
   try {
+    ajustarManifesto(m.p, '  context: ork-verify\n', '  context: ork-verify\n  politica_recibo: exigir\n');
+    assert.equal(git(m.p.dir, 'add', '--', 'orkastery.yaml').ok, true);
+    assert.equal(git(m.p.dir, 'commit', '-q', '-m', 'test: ligar politica de recibo').ok, true);
+    assert.equal(git(m.p.dir, 'push', '-q', 'origin', 'main').ok, true);
     const e = entregaPronta(m.p, 'qe3');
     arco(m.p, 'arco-qe3', e.t.id);
     // A base faz a versão 0.2.0 (a antiga sai de Não publicado) e outra thread entra com a linha dela.
@@ -163,6 +167,25 @@ test('QE3: a base publicou uma versão: o passo mescla com o conflito do CHANGEL
     // A revisão vale no SHA novo; o próximo passo publica.
     const r2 = passo(m, 'arco-qe3');
     assert.equal(r2.acao, 'publicou', resumo(r2));
+  } finally { m.p.limpar(); }
+});
+
+test('QE3b: sem política, o bundle antecede o verify e o candidato final é o SHA verificado', { skip: semKernel }, () => {
+  const m = mundo('noctum-qe3b');
+  m.gh = ghFalso(m.p);
+  try {
+    const e = entregaPronta(m.p, 'qe3b');
+    arco(m.p, 'arco-qe3b', e.t.id);
+    avancarBase(m.p, { 'notas/base.md': '# Base nova\n' }, 'docs: base nova');
+    claimDe(m.p, e.t.id, 'CHANGELOG.md', 'Mutante M2: o bundle precisa ser regravado antes do verify legado');
+    const r = passo(m, 'arco-qe3b');
+    assert.equal(r.acao, 'atualizou', resumo(r));
+    assert.ok(r.acao === 'atualizou');
+    assert.equal(r.bundle, true, 'a claim nova força a regravação do bundle');
+    assert.equal(r.verify, true);
+    assert.deepEqual(m.verifies, [r.para], 'sem política, o verify carimba o candidato final depois do bundle');
+    assert.equal(git(e.t.worktree!, 'diff', '--name-only', m.verifies[0], r.para, '--').stdout, '');
+    assert.equal(git(e.t.worktree!, 'status', '--porcelain').stdout, '');
   } finally { m.p.limpar(); }
 });
 

@@ -1370,6 +1370,12 @@ function cenarioCondutorMorto(c, a, n) {
  */
 function cenarioBaseQueAnda(c, a, n) {
   const m = a.mundo('base-que-anda');
+  const arquivoDoManifesto = path.join(m.proj.dir, 'orkastery.yaml');
+  const manifesto = fs.readFileSync(arquivoDoManifesto, 'utf8');
+  const comPolitica = manifesto.replace('  context: ork-verify\n', '  context: ork-verify\n  politica_recibo: exigir\n');
+  if (comPolitica === manifesto) throw new Error('o cenário base-que-anda não encontrou ci.context para ligar a política de recibo');
+  fs.writeFileSync(arquivoDoManifesto, comPolitica);
+  m.proj.carregado = n.manifest.exigirManifesto(m.proj.dir);
   const itens = ['RM-952'];
   a.abrirArco(m.proj, a.pedido('arco-base', { trabalhos: [{ id: 't1', item: 'RM-952', prioridade: 1, dependeDe: [],
     pedido: 'Fatia SIMULADA da base que anda.' }], permissoes: ['push', 'pr', 'merge'], revisao: 1 }));
