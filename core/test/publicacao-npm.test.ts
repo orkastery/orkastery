@@ -6,6 +6,7 @@ import * as path from 'node:path';
 import { dirTemporario } from './apoio';
 
 const SCRIPT = path.resolve(__dirname, '../../scripts/decidir-publicacao-npm.cjs');
+const RAIZ_DO_REPO = path.resolve(__dirname, '../../..');
 const regra = require(SCRIPT) as {
   analisarSemver: (v: string) => unknown;
   compararSemver: (a: string, b: string) => number;
@@ -134,4 +135,28 @@ test('PN13: a CLI valida a dist-tag antes da consulta e só então grava tag no 
     assert.equal(r.status, 0);
     assert.equal(fs.readFileSync(saida, 'utf8'), 'tag=rc\n');
   } finally { fs.rmSync(raiz, { recursive: true, force: true }); }
+});
+
+test('PN14: workflow preserva as guardas e publica somente com a saída validada da RM-088', () => {
+  const workflow = fs.readFileSync(path.join(RAIZ_DO_REPO, '.github/workflows/publicar.yml'), 'utf8');
+  const job = workflow.slice(workflow.indexOf('\n  publicar:'));
+  const noctum = job.indexOf('run: node core/scripts/checar-release-noctum.cjs');
+  const decisao = job.indexOf('id: decidir-publicacao');
+  const comandoDaDecisao = job.indexOf('run: node core/scripts/decidir-publicacao-npm.cjs');
+  const publish = job.indexOf('run: npm publish --access public --tag "${{ steps.decidir-publicacao.outputs.tag }}"');
+  assert.ok(noctum > 0 && decisao > noctum && comandoDaDecisao > decisao && publish > comandoDaDecisao,
+    'a decisão fica entre #Noctum e publish');
+  assert.equal(job.split('id: decidir-publicacao').length - 1, 1, 'o id da decisão é único');
+  assert.equal(job.split('run: node core/scripts/decidir-publicacao-npm.cjs').length - 1, 1, 'o adaptador é chamado uma vez');
+  assert.equal(job.split('npm publish').length - 1, 1, 'há um único publish');
+  assert.doesNotMatch(job, /run: npm publish --access public\s*$/m, 'não existe publish sem --tag');
+  assert.doesNotMatch(job.slice(comandoDaDecisao, publish), /latest|\|\||\?\?/, 'não existe fallback para latest');
+  assert.match(workflow, /tags: \['v\*'\]/, 'o gatilho v* permanece');
+  assert.match(workflow, /permissions:\n  contents: read\n  id-token: write/, 'o Trusted Publishing permanece');
+  assert.match(job, /needs: provar-grafo/, 'a prova do grafo permanece como dependência');
+  assert.match(job, /registry-url: 'https:\/\/registry\.npmjs\.org'/, 'o registry permanece');
+  assert.match(job, /run: npm install -g npm@latest/, 'npm@latest permanece');
+  assert.match(job, /run: git merge-base --is-ancestor "\$GITHUB_SHA" origin\/main/, 'a tag continua presa à main');
+  assert.match(job, /run: node core\/dist\/index\.js eval --so-cenarios/, 'os cenários permanecem');
+  assert.match(job.slice(publish), /working-directory: core/, 'o publish continua no core');
 });
