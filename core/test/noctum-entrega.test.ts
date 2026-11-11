@@ -159,7 +159,7 @@ test('QE3: a base publicou uma versão: o passo mescla com o conflito do CHANGEL
     assert.deepEqual(linhasDaBasePerdidas(daBase, final), []);
     assert.ok((blocosNaoPublicados(final) ?? []).some(b => b.linhas.join('\n') === ENTRADA_DA_THREAD('qe3')), 'a entrada da thread em Não publicado');
     assert.equal(git(wt, 'status', '--porcelain').stdout.trim(), '');
-    assert.equal(classificarCommit(m.p.dir, r.para, nova).tipo, 'merge-mecanico', 'o merge que o núcleo fez se recomputa');
+    assert.equal(classificarCommit(m.p.dir, headVerificado, nova).tipo, 'merge-mecanico', 'o merge verificado que o núcleo fez se recomputa');
     // A revisão vale no SHA novo; o próximo passo publica.
     const r2 = passo(m, 'arco-qe3');
     assert.equal(r2.acao, 'publicou', resumo(r2));

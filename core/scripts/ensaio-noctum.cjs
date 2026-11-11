@@ -1365,8 +1365,8 @@ function cenarioCondutorMorto(c, a, n) {
 
 /**
  * A base que anda: com o candidato publicado e o CI verde, um commit chega à base do remoto antes da integração. O condutor
- * atualiza o candidato sobre a base nova (o CHANGELOG em "Não publicado" e o bundle regravado) e roda o verify real no SHA
- * novo, publica de novo, e a integração mescla na base nova, com a prova do push.
+ * atualiza o candidato sobre a base nova (o CHANGELOG em "Não publicado"), roda o verify real nesse SHA e regrava o bundle
+ * com o recibo do pai provado; depois publica de novo e integra na base nova, com a prova do push.
  */
 function cenarioBaseQueAnda(c, a, n) {
   const m = a.mundo('base-que-anda');
@@ -1394,8 +1394,14 @@ function cenarioBaseQueAnda(c, a, n) {
     at?.acao === 'atualizou' && m.ancestral(t.worktree, baseNova, at.para) && naoPublicado.includes(`o que a thread ${t.id} acrescenta`) &&
       naoPublicado.includes('Antiga SIMULADA'), JSON.stringify({ at: resumoDoPasso(kAt.ultimo), naoPublicado }));
   const reais = m.ledger(t.id).filter((e) => e.tipo === 'verify_run' && !e.simulado);
-  c.esperar('o condutor roda o verify real no SHA novo, na mesma atualização (sem a fila pesada ocupada)',
-    at?.verify === true && reais.length === 1 && reais[0].commit === at.para, JSON.stringify({ verify: at?.verify, reais: reais.map((e) => e.commit) }));
+  const bundle = path.posix.join('.ork-ci', `${t.id}.json`);
+  const recibo = JSON.parse(fs.readFileSync(path.join(t.worktree, bundle), 'utf8')).recibo;
+  const diffDepoisDoVerify = reais.length === 1 && at?.para
+    ? m.git(t.worktree, ['diff', '--name-only', reais[0].commit, at.para, '--']) : null;
+  c.esperar('o condutor roda o verify real no pai provado do bundle, cujo recibo aponta para esse HEAD',
+    at?.verify === true && reais.length === 1 && m.ancestral(t.worktree, reais[0].commit, at.para) &&
+      diffDepoisDoVerify === bundle && recibo?.head === reais[0].commit,
+    JSON.stringify({ verify: at?.verify, reais: reais.map((e) => e.commit), para: at?.para, diffDepoisDoVerify, recibo }));
   const kRepub = m.conduzir('arco-base', itens, 1);
   c.esperar('a entrega publica de novo o SHA atualizado: a branch do remoto anda até ele',
     kRepub.ultimo?.entrega?.acao === 'publicou' && m.lsRemote(`refs/heads/${branch}`) === at?.para, JSON.stringify(resumoDoPasso(kRepub.ultimo)));
