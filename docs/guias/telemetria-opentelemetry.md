@@ -96,10 +96,12 @@ Each OTLP value uses a typed `AnyValue`. 64-bit integers, including nanoseconds,
 
 When private opt-in is enabled, each successful dispatch produces an `orkastery.ledger.phase_dispatch` LogRecord. The link carries `session.id` for Claude Code or `conversation.id` for Codex, together with the thread, phase, dispatch, runtime and `user.hash`. Orkastery does not re-emit `claude_code.*`, `codex.*`, native bodies or native payloads. Resuming or observing the same session does not create another link; a retry or redispatch after termination uses the new native identity. A physical retransmission of the same LogRecord preserves `log.record.uid`, so delivery remains at least once and consumers can deduplicate by UID.
 
+D2 and all public names from RM-089 and RM-090 were ratified by the owner on 11 November 2026, in the terminal, with the response “1a”.
+
 Configuration exists only in the dispatched session and overrides permissive inherited values:
 
 - Claude Code: `OTEL_LOG_USER_PROMPTS=0`, `OTEL_LOG_ASSISTANT_RESPONSES=0`, `OTEL_LOG_TOOL_DETAILS=0`, `OTEL_LOG_TOOL_CONTENT=0`, with traces set to `none`. Settings live in a transient `0600` file, only its path is placed in argv, and the file is removed after dispatch.
-- Codex: `otel.log_user_prompt=false`, `otel.log_agent_responses=false`, `otel.log_guardian_assessments=false`, `otel.tool_result.max_bytes=0`, `otel.metrics_exporter="none"` and `otel.trace_exporter="none"`. Headers use references to variables in the child process environment, without a secret value in argv.
+- Codex: `otel.log_user_prompt=false`, `otel.log_agent_responses=false`, `otel.log_guardian_assessments=false`, `otel.tool_result.max_bytes=0`, `otel.metrics_exporter="none"` and `otel.trace_exporter="none"`. The endpoint and headers use references to variables in the child process environment, without their values in argv, the adapter response, or the command recorded in the ledger.
 
 The remaining full text continues exclusively through the Orkastery prompt pipeline described below, after local redaction. Native logs contain no prompt, response, assessment, tool argument or tool result content. Correlation of Codex metrics by `conversation.id` is **not confirmed** and is not inferred from time, content, PID or files.
 
