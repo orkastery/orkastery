@@ -2,10 +2,10 @@ import type { AdaptadorDeForja, NomeDaCapacidade } from './adaptador';
 import type { TipoDeForja } from './contrato';
 import { metadadosGithub } from './github/metadados';
 import { metadadosGitlab } from './gitlab/metadados';
-import { donoDaRedeGithub } from './github/dono-da-rede';
+import { contaAtualGithub, criarRepositorioPrivadoGithub, donoDaRedeGithub, repositorioPrivadoGithub } from './github/dono-da-rede';
 import { checksNoCommitGithub, estadoDeCiGithub } from './github/ci';
 import { estadoDeCiGitlab } from './gitlab/ci';
-import { donoDaRedeGitlab } from './gitlab/dono-da-rede';
+import { contaAtualGitlab, criarRepositorioPrivadoGitlab, donoDaRedeGitlab, repositorioPrivadoGitlab } from './gitlab/dono-da-rede';
 import { abrirPedidoGitlab, branchPadraoGitlab, compararGitlab, pedidoMescladoGitlab, pedidosDaBranchGitlab, pontaDaBranchGitlab } from './gitlab/pedidos';
 import { pedidosAbertosGitlab } from './gitlab/pedidos-abertos';
 import { abrirPedidoGithub, branchPadraoGithub, compararGithub, pedidoMescladoGithub, pedidosAbertosGithub, pedidosDaBranchGithub, pontaDaBranchGithub } from './github/pedidos';
@@ -14,11 +14,13 @@ const ADAPTADORES: Record<TipoDeForja, AdaptadorDeForja> = {
   github: { tipo: 'github', checksNoCommit: checksNoCommitGithub, estadoDeCi: estadoDeCiGithub,
     pedidoMesclado: pedidoMescladoGithub, branchPadrao: branchPadraoGithub, pontaDaBranch: pontaDaBranchGithub, comparar: compararGithub,
     pedidosDaBranch: pedidosDaBranchGithub, abrirPedido: abrirPedidoGithub, metadados: metadadosGithub,
-    pedidosAbertos: pedidosAbertosGithub, donoDaRede: donoDaRedeGithub },
+    pedidosAbertos: pedidosAbertosGithub, donoDaRede: donoDaRedeGithub, contaAtual: contaAtualGithub,
+    repositorioPrivado: repositorioPrivadoGithub, criarRepositorioPrivado: criarRepositorioPrivadoGithub },
   // O GitLab le a CI so pelo `estadoDeCi`: o `checksNoCommit` e o caminho antigo do executor do `gh`, e o doctor nao o cobra.
   gitlab: { tipo: 'gitlab', estadoDeCi: estadoDeCiGitlab, metadados: metadadosGitlab, pedidosAbertos: pedidosAbertosGitlab,
     donoDaRede: donoDaRedeGitlab, pedidosDaBranch: pedidosDaBranchGitlab, abrirPedido: abrirPedidoGitlab,
-    pedidoMesclado: pedidoMescladoGitlab, branchPadrao: branchPadraoGitlab, pontaDaBranch: pontaDaBranchGitlab, comparar: compararGitlab },
+    pedidoMesclado: pedidoMescladoGitlab, branchPadrao: branchPadraoGitlab, pontaDaBranch: pontaDaBranchGitlab, comparar: compararGitlab,
+    contaAtual: contaAtualGitlab, repositorioPrivado: repositorioPrivadoGitlab, criarRepositorioPrivado: criarRepositorioPrivadoGitlab },
 };
 
 export const adaptadorDaForja = (tipo: TipoDeForja): AdaptadorDeForja => ADAPTADORES[tipo];
