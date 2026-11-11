@@ -252,6 +252,10 @@ import { jsonSemInvisivel } from './saida-segura';
 import { ehNomeDeForja } from './rede-forja';
 import { jsonDaRede, lerRede, textoDaRede } from './rede-status';
 import { executarCliRedeEmpresa } from './rede-empresa-cli';
+import type { ResultadoDaCobertura } from './rede-empresa-config';
+import { textoDaCoberturaEmpresa } from './locale-network-empresa';
+import { executarReservaCoordenada, executarSagaDaThread, portaColetivaDoProjeto, portaLocalDoRoadmap,
+  reconciliarOperacaoDaRedeEmpresa } from './rede-empresa-operacao';
 import { lerLedger } from './ledger';
 import { avisosDeArtefatoRegistrados } from './phase-artifact-warning';
 import { gateDeTokens, textoDoGateDeTokens } from './tokens';
@@ -584,11 +588,7 @@ function comandoThread(args: Args): number {
     // atomico entre maquinas (o primeiro push vence); a thread e local. Se a criacao falhar,
     // a reserva e devolvida; se der certo, ela passa a apontar para a thread.
     const itemDoRoadmap = dryRun ? undefined : texto(args.opcoes.roadmap);
-    // RM-061 (F2a, D6): o que grava estado (reserva, thread, ledger, worktree, registro, publicacoes) roda em pt-BR.
-    const itemReservado = itemDoRoadmap ? comLocale('pt-BR', () => pegarItem(carregado.raiz, itemDoRoadmap).item) : undefined;
-    let criada: ReturnType<typeof novaThread>;
-    try {
-      criada = comLocale('pt-BR', () => novaThread(carregado, {
+    const criar = () => comLocale('pt-BR', () => novaThread(carregado, {
         nome,
         modo,
         slug: texto(args.opcoes.slug),
@@ -602,18 +602,23 @@ function comandoThread(args: Args): number {
         fatias: brutoFatias !== undefined ? Number(brutoFatias) : undefined,
         exigeRuntimeDiferente,
         doneWhen,
-        roadmap: itemReservado,
+        roadmap: itemDoRoadmap?.trim().toUpperCase(),
         ...(pedidoDoBuilder !== undefined ? { pedido: pedidoDoBuilder } : {}),
       }));
-    } catch (e) {
-      if (itemDoRoadmap) {
-        try { comLocale('pt-BR', () => soltarItem(carregado.raiz, itemDoRoadmap)); } catch { /* fica reservado; `ork roadmap soltar` resolve */ }
-      }
-      throw e;
-    }
+    let criada: ReturnType<typeof novaThread>;
+    let reservaDoItem: ReturnType<typeof pegarItem> | null = null;
+    let coberturaColetiva: ResultadoDaCobertura | null = null;
+    if (itemDoRoadmap) {
+      const coletiva = portaColetivaDoProjeto(carregado.raiz, carregado.manifesto, itemDoRoadmap.trim().toUpperCase());
+      const saga = comLocale('pt-BR', () => executarSagaDaThread({ raiz: carregado.raiz, projectKey: coletiva.projectKey,
+        itemId: itemDoRoadmap.trim().toUpperCase(), coletiva: coletiva.porta,
+        local: portaLocalDoRoadmap(carregado.raiz, itemDoRoadmap),
+        criarThread: () => { const valor = criar(); return { threadId: valor.thread.id, valor }; } }));
+      criada = saga.thread;
+      reservaDoItem = saga.local;
+      coberturaColetiva = saga.cobertura;
+    } else criada = criar();
     const { thread, gravada } = criada;
-    const reservaDoItem = itemDoRoadmap && gravada
-      ? comLocale('pt-BR', () => pegarItem(carregado.raiz, itemDoRoadmap, { thread: thread.id })) : null;
     // I-51 (RM-047): com a fabrica compartilhada, as outras maquinas veem a thread nova.
     if (gravada) comLocale('pt-BR', () => publicarEmSegundoPlano(carregado.raiz));
     // RM-052 (D7): quem abre thread aqui conhece este projeto; o aviso nunca derruba a criacao.
@@ -621,6 +626,7 @@ function comandoThread(args: Args): number {
     if (avisoDoRegistro) console.error(avisoDoRegistro);
     console.log(gravada ? mt.criada : mt.simulacao);
     if (reservaDoItem) console.log(mt.roadmapReservado(reservaDoItem.item, reservaDoItem.reserva?.maquina));
+    if (coberturaColetiva) console.log(textoDaCoberturaEmpresa(coberturaColetiva, localeAtivo()));
     console.log(resumoDaThread(thread));
     console.log('');
     console.log(mt.slugEm3Partes(descreverSlug(thread.slug)));
@@ -3273,6 +3279,20 @@ function comandoRoadmap(args: Args): number {
     return 0;
   }
   const item = args.posicionais[2];
+  if (sub === 'reconciliar') {
+    const operationId = texto(args.opcoes.operacao);
+    if (!item || !operationId) { console.error(msg().reservas.uso); return 2; }
+    const coletiva = portaColetivaDoProjeto(carregado.raiz, carregado.manifesto, item.trim().toUpperCase());
+    const reparada = comLocale('pt-BR', () => reconciliarOperacaoDaRedeEmpresa(carregado.raiz, operationId, {
+      coletiva: coletiva.porta, local: portaLocalDoRoadmap(carregado.raiz, item),
+    }));
+    if (reparada.itemId !== item.trim().toUpperCase() || reparada.projectKey !== coletiva.projectKey) {
+      throw new Error('rede-empresa.reconciliacao-escopo-divergente');
+    }
+    if (args.opcoes.json === true) console.log(JSON.stringify(reparada, null, 2));
+    else console.log(msg().reservas.reconciliada(reparada.itemId, reparada.operationId, reparada.estado));
+    return reparada.estado === 'reconciliacao-pendente' ? 1 : 0;
+  }
   if ((sub !== 'pegar' && sub !== 'soltar') || !item) {
     console.error(msg().reservas.uso);
     return 2;
@@ -3286,15 +3306,24 @@ function comandoRoadmap(args: Args): number {
     forcar: args.opcoes.forcar === true,
     motivo: texto(args.opcoes.motivo),
   };
-  const r = comLocale('pt-BR', () => sub === 'pegar' ? pegarItem(carregado.raiz, item, opcoes) : soltarItem(carregado.raiz, item, opcoes));
+  let cobertura: ResultadoDaCobertura | null = null;
+  const r = comLocale('pt-BR', () => {
+    if (sub === 'soltar') return soltarItem(carregado.raiz, item, opcoes);
+    const coletiva = portaColetivaDoProjeto(carregado.raiz, carregado.manifesto, item.trim().toUpperCase());
+    const coordenada = executarReservaCoordenada({ raiz: carregado.raiz, projectKey: coletiva.projectKey,
+      itemId: item.trim().toUpperCase(), coletiva: coletiva.porta, local: portaLocalDoRoadmap(carregado.raiz, item, opcoes) });
+    cobertura = coordenada.cobertura;
+    return coordenada.local;
+  });
   if (args.opcoes.json === true) {
-    console.log(JSON.stringify(r, null, 2));
+    console.log(JSON.stringify({ ...r, ...(cobertura ? { cobertura } : {}) }, null, 2));
     return 0;
   }
   const mr = msg().reservas;
   console.log(mr.itemAcao(r.item, mr.acao(r.acao)));
   if (r.reserva && r.acao !== 'soltou') console.log(mr.com(r.reserva.por, r.reserva.maquina, r.reserva.thread ?? null));
   if (r.commit) console.log(mr.branch(r.commit.slice(0, 7)));
+  if (cobertura) console.log(textoDaCoberturaEmpresa(cobertura, localeAtivo()));
   return 0;
 }
 

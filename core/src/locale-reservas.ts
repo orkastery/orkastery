@@ -37,8 +37,10 @@ export const RESERVAS_PT_BR = {
     soltou: 'devolvido', nada: 'ja estava livre' } as Record<string, string>)[acao] ?? acao,
   itemAcao: (item: string, acao: string) => `${item}: ${acao}.`,
   com: (por: string, maquina: string, thread: string | null) => `  com ${por} em ${maquina}${thread ? `, thread ${thread}` : ''}`,
+  cobertura: (estado: string) => `  cobertura coletiva: ${estado}`,
+  reconciliada: (item: string, operationId: string, estado: string) => `${item}: operação ${operationId} em ${estado}.`,
   uso: 'uso: ork roadmap status [--json] | reservas [--soltar-orfas] | pegar <RM-NNN> [--thread T] [--nota N] | ' +
-    'soltar <RM-NNN> [--forcar --motivo M] | feat [--thread T] [--nota N]',
+    'soltar <RM-NNN> [--forcar --motivo M] | reconciliar <RM-NNN> --operacao ID | feat [--thread T] [--nota N]',
   // As recusas (roadmap-reservas.ts)
   descricao: (item: string, por: string, maquina: string, desde: string, thread: string | null) =>
     `${item} esta com ${por} em ${maquina} desde ${desde}${thread ? ` (thread ${thread})` : ''}`,
@@ -78,8 +80,10 @@ export const RESERVAS_EN: MensagensDeReservas = {
     soltou: 'released', nada: 'was already free' } as Record<string, string>)[acao] ?? acao,
   itemAcao: (item, acao) => `${item}: ${acao}.`,
   com: (por, maquina, thread) => `  with ${por} on ${maquina}${thread ? `, thread ${thread}` : ''}`,
+  cobertura: (estado) => `  collective coverage: ${estado}`,
+  reconciliada: (item, operationId, estado) => `${item}: operation ${operationId} is ${estado}.`,
   uso: 'usage: ork roadmap status [--json] | reservas [--soltar-orfas] | pegar <RM-NNN> [--thread T] [--nota N] | ' +
-    'soltar <RM-NNN> [--forcar --motivo M] | feat [--thread T] [--nota N]',
+    'soltar <RM-NNN> [--forcar --motivo M] | reconciliar <RM-NNN> --operacao ID | feat [--thread T] [--nota N]',
   descricao: (item, por, maquina, desde, thread) => `${item} has been with ${por} on ${maquina} since ${desde}${thread ? ` (thread ${thread})` : ''}`,
   semRemotoParaReservar: (branch, remoto) => `roadmap.sem-remoto: could not read ${branch} in ${remoto}; reserving needs the network`,
   semRemotoParaSoltar: (branch, remoto) => `roadmap.sem-remoto: could not read ${branch} in ${remoto}; releasing needs the network`,
