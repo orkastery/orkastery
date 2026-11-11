@@ -226,6 +226,31 @@ test('avisar usa anotação e resumo no GitHub e log no GitLab', () => {
   } finally { p.limpar(); }
 });
 
+test('referências públicas fixam níveis, estados e a fronteira de confiança em pt-BR e EN', () => {
+  const raiz = path.resolve(__dirname, '../../..');
+  const ler = (arquivo: string) => fs.readFileSync(path.join(raiz, arquivo), 'utf8');
+  const cliPt = ler('docs/referencia/cli.md'), cliEn = ler('docs/referencia/cli.en.md');
+  assert.match(cliPt, /ci\.politica_recibo.*observar.*avisar.*exigir.*ausente.*inválido.*divergente.*guia da política/s);
+  assert.match(cliEn, /ci\.politica_recibo.*observar.*avisar.*exigir.*missing.*invalid.*divergent.*company policy guide/s);
+
+  const guiaPt = ler('docs/guias/politica-de-recibo-da-empresa.pt-BR.md');
+  assert.match(guiaPt, /bundle e o `sha256`.*próprio PR\/MR.*podem ser forjados/s);
+  assert.match(guiaPt, /runner não consulta nem confere.*ledger/s);
+  assert.match(guiaPt, /reexecuta no HEAD.*claims.*comandos.*ancestralidade.*diff posterior/s);
+  assert.match(guiaPt, /garantia contra forja.*recibo assinado.*F7/s);
+
+  const guiaEn = ler('docs/guias/politica-de-recibo-da-empresa.md');
+  assert.match(guiaEn, /bundle and the receipt's `sha256`.*PR\/MR itself.*forge them/s);
+  assert.match(guiaEn, /runner does not query.*ledger.*compare the receipt/s);
+  assert.match(guiaEn, /reruns.*claims and commands.*HEAD.*ancestry.*diff/s);
+  assert.match(guiaEn, /Protection against forgery.*signed receipt.*F7/s);
+
+  const forja = ler('docs/referencia/contratos/forja.md');
+  assert.match(forja, /bundle e o `sha256`.*próprio PR\/MR.*podem ser forjados/s);
+  assert.match(forja, /não consulta nem.*ledger.*somente reexecuta.*claims.*comandos.*HEAD.*ancestralidade.*diff/s);
+  assert.match(forja, /garantia contra forja.*recibo assinado.*F7/s);
+});
+
 test('ci prepare projeta somente o recibo do verify verde integral mais recente', () => {
   const p = projetoTemporario('rm089-prepare-recibo', false);
   try {

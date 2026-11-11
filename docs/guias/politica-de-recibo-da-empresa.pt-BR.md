@@ -24,6 +24,12 @@ Valor diferente desses três torna o manifesto inválido. O push na própria bra
 
 `ork ci prepare <thread>` copia para o bundle o HEAD e o SHA-256 do último recibo `ork.recibo-prova/v1` produzido por um verify verde e integral. O leitor continua aceitando bundle anterior sem `recibo`; em `exigir`, ele aparece como `ausente`. Um recibo fica `presente` quando o HEAD provado é ancestral do HEAD atual e somente o bundle daquela thread mudou em `.ork-ci/` depois do verify. Outra mudança produz `sha-divergente`.
 
+## Limite de confiança do nível básico
+
+O bundle e o `sha256` do recibo vêm do próprio PR/MR e, portanto, podem ser forjados por quem controla essa mudança. O runner não consulta nem confere o recibo contra o ledger do Orkastery. Neste nível básico, ele apenas reexecuta no HEAD as claims e os comandos declarados pelo bundle e confere a ancestralidade do HEAD do recibo e o diff posterior. Isso detecta divergência operacional, mas não prova a autoria do bundle.
+
+A garantia contra forja pertence ao recibo assinado da F7 da página da RM-089; ela não faz parte desta fatia. Até essa etapa, a proteção administrativa da forja reduz quem pode alterar manifesto, workflow e bundle, mas não transforma o recibo básico em prova criptográfica.
+
 ## Tornar o check obrigatório
 
 O manifesto define o comportamento do job; a regra da organização na forja impede o merge. Proteja também a mudança da política com `CODEOWNERS`, por exemplo:

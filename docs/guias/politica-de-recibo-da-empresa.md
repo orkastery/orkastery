@@ -24,6 +24,12 @@ Any other value makes the manifest invalid. A push to the protected branch itsel
 
 `ork ci prepare <thread>` copies the HEAD and SHA-256 of the latest green, complete `ork.recibo-prova/v1` verify receipt into the bundle. The reader still accepts an older bundle without `recibo`; under `exigir`, its state is `ausente`. A receipt is `presente` when its proven HEAD is an ancestor of the current HEAD and only that thread's bundle under `.ork-ci/` changed after the verify. Any other change produces `sha-divergente`.
 
+## Basic-level trust boundary
+
+The bundle and the receipt's `sha256` come from the PR/MR itself, so whoever controls that change can forge them. The runner does not query the Orkastery ledger or compare the receipt against it. At this basic level, it only reruns the claims and commands declared by the bundle on the HEAD, then checks receipt-HEAD ancestry and the later diff. That detects operational divergence, but it does not prove who authored the bundle.
+
+Protection against forgery belongs to the signed receipt in F7 of the RM-089 page; it is not part of this slice. Until that step, forge administration limits who can change the manifest, workflow, and bundle, but it does not turn the basic receipt into cryptographic proof.
+
 ## Make the check mandatory
 
 The manifest defines job behavior; the organization rule in the forge prevents the merge. Protect policy changes with `CODEOWNERS` too, for example:

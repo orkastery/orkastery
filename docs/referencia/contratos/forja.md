@@ -100,6 +100,11 @@ opcional `recibo` leva `contrato`, `head` e `sha256`, e leitores aceitam a forma
 [política de recibo da empresa](../../guias/politica-de-recibo-da-empresa.pt-BR.md) descreve os níveis, o
 `CODEOWNERS` e a configuração da regra obrigatória no GitHub e no GitLab.
 
+**Fronteira de confiança:** o bundle e o `sha256` chegam no próprio PR/MR e podem ser forjados. O runner não consulta nem
+confere o recibo contra o ledger. O nível básico somente reexecuta as claims e os comandos do bundle no HEAD e confere a
+ancestralidade e o diff depois do HEAD declarado no recibo. A garantia contra forja é do recibo assinado da F7 da página
+da RM-089, fora desta fatia; `presente` aqui significa consistência operacional, não autoria criptograficamente provada.
+
 ## A CI no GitLab
 
 `ork ci status` e o gate do `ork ship` leem a CI pela forja resolvida (o mesmo resolvedor do restante do contrato).
