@@ -29,7 +29,6 @@ processors:
         statements:
           - 'set(attributes["gen_ai.input.messages"], String(attributes["gen_ai.input.messages"])) where attributes["gen_ai.input.messages"] != nil'
           - 'keep_keys(attributes, ["log.record.uid", "user.hash", "vcs.ref.head.revision", "vcs.ref.head.name", "vcs.ref.type", "cicd.pipeline.name", "cicd.pipeline.run.id", "cicd.pipeline.result", "gen_ai.operation.name", "gen_ai.request.model", "gen_ai.conversation.id", "gen_ai.input.messages", "session.id", "error.type", "orkastery.thread.id", "orkastery.phase.name", "orkastery.dispatch.id", "orkastery.mode", "orkastery.decision.id", "orkastery.claim.id", "orkastery.ledger.sequence", "orkastery.check.mode", "orkastery.receipt.id", "orkastery.runtime.name", "orkastery.prompt.size", "orkastery.prompt.redaction.policy.version", "orkastery.prompt.size.original", "orkastery.prompt.size.exported", "orkastery.prompt.content.state", "orkastery.prompt.gap.reason", "orkastery.prompt.truncated"])'
-    metric_statements:
       - context: resource
         statements:
           - 'keep_keys(attributes, ["service.name", "service.version"])'

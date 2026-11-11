@@ -20,6 +20,8 @@ test('modelos declaram receiver, filtro OTTL, allowlist, limite e lote na ordem 
     }
     assert.match(yaml, /event_name == "gen_ai\.client\.inference\.operation\.details"[^\n]+gen_ai\.input\.messages[^\n]+orkastery\.prompt\.content\.state/);
     assert.match(yaml, /keep_keys\(attributes, \["log\.record\.uid"/);
+    assert.match(yaml, /log_statements:[\s\S]+context: resource[\s\S]+keep_keys\(attributes, \["service\.name", "service\.version"\]\)/);
+    assert.doesNotMatch(yaml, /metric_statements:/);
     assert.match(yaml, /^      processors: \[memory_limiter, filter\/required, transform\/sanitize, batch\]$/m);
   }
 });
@@ -55,4 +57,3 @@ test('README limita a compatibilidade, separa descarte de privacidade e recomend
     'otelcol validate --config=<arquivo>', 'fora do gate hermético', 'bind local ou uma rede confiável',
     'overlay privado com TLS e autenticação']) assert.ok(readme.includes(trecho), trecho);
 });
-
