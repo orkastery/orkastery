@@ -45,6 +45,31 @@ As escritas usam uma única branch sem `force`. Cada inscrição tem um caminho 
 branch, a operação relê política e inscrição, descarta a mudança anterior e recompõe a projeção. Sem alcance à
 forja, nada entra numa fila de payload: o status local fica pendente e orienta conferir login, acesso e alcance.
 
+## Coordenar um item do roadmap
+
+`ork thread new <nome> --roadmap RM-NNN`, `ork roadmap pegar RM-NNN` e `ork_thread_new` com `roadmap` usam a
+mesma operação. Antes de qualquer efeito local, ela normaliza o remoto em uma `projectKey`, tenta criar a reserva
+principal coletiva e só então grava a reserva local. Ao criar uma thread, a sequência termina vinculando a thread
+à reserva. Uma segunda identidade recebe a inscrição, o login atual, o projeto e a fase da titular, sem contornar a
+guarda local da RM-047.
+
+O documento coletivo mantém uma única titular. Uma identidade adicional só entra como colaboradora, preservando
+a titular, ou por acordo autenticado. O acordo referencia um comentário ou nota da issue de coordenação e confere,
+pela API da forja, o autor numérico, o destinatário, a `projectKey`, o item, a versão e a fingerprint da reserva,
+a validade e o hash do corpo. Ausência, edição, expiração ou divergência recusam antes do efeito local.
+
+A política criada com `--nivel observar|avisar|exigir` e `--recibo-versao V` controla a cobertura coletiva:
+
+- `observar` e `avisar` deixam a operação seguir quando a rede não está configurada ou não pôde ser conferida,
+  mas mostram essa condição; a reserva local continua obrigatória;
+- `exigir` recusa nova reserva ou thread sem conferência atual. Apenas uma exceção autenticada, específica para a
+  `projectKey` e o item, com responsável, justificativa e expiração pode liberar a operação.
+
+Cada tentativa recebe um `operationId`. Se um efeito posterior falhar, o Orkastery compensa local e coletivo na
+ordem inversa, somente quando as fingerprints ainda correspondem. Divergência deixa a operação pendente e bloqueia
+uma nova tentativa do mesmo projeto e item. Repare de forma idempotente com
+`ork roadmap reconciliar RM-NNN --operacao op-...`; repetir após o reparo não remove uma reserva renovada.
+
 ## O que é publicado
 
 Esta tabela é a lista fechada. Campo não listado não sai. Antes do blob, o serializado passa pela policy
