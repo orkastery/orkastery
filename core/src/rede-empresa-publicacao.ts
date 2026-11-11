@@ -6,7 +6,8 @@ import type { ProjetoNoPanorama } from './network-roadmap';
 import { procurarSegredos } from './policies';
 import { adesaoRedeEmpresa, gravarAdesaoRedeEmpresa } from './rede-empresa-config';
 import { CONTRATO_PUBLICACAO_EMPRESA, ehInscricaoDaEmpresa, ehPoliticaDaEmpresa, ehPublicacaoDaEmpresa,
-  type InscricaoDaEmpresa, type PublicacaoDaEmpresa, type ReferenciaDaForja } from './rede-empresa-contrato';
+  ehTipoDeLacunaPublicada, type InscricaoDaEmpresa, type LacunaPublicada, type PublicacaoDaEmpresa,
+  type ReferenciaDaForja } from './rede-empresa-contrato';
 import { caminhoDaPublicacao, type PortaDaBranchEmpresa, type ResultadoDaTransacaoEmpresa,
   transacionarRedeEmpresa } from './rede-empresa-transporte';
 
@@ -45,7 +46,7 @@ const fase = (v: string): FasePublicada | null => FASES.includes(v.toUpperCase()
 const threadRef = (inscricaoId: string, id: string): string =>
   `thread-${createHash('sha256').update(`${inscricaoId}\n${id}`, 'utf8').digest('hex').slice(0, 24)}`;
 
-function montarProjecao(inscricao: InscricaoDaEmpresa, pedido: PedidoDePublicacaoEmpresa): PublicacaoDaEmpresa {
+function montarProjecao(inscricao: InscricaoDaEmpresa, pedido: PedidoDePublicacaoEmpresa): PublicacaoDaEmpresa | null {
   const itens = (pedido.panorama.roadmap?.grupos ?? []).flatMap((g) => g.itens)
     .map((item) => ({ id: item.id, estado: item.grupo }))
     .sort((a, b) => a.id.localeCompare(b.id));
@@ -59,7 +60,11 @@ function montarProjecao(inscricao: InscricaoDaEmpresa, pedido: PedidoDePublicaca
   }).sort((a, b) => a.threadRef.localeCompare(b.threadRef));
   const fontes = pedido.panorama.fontes.map((fonte) => ({ parte: fonte.parte, atualizado: fonte.atualizado,
     lidoEm: fonte.lidoEm, ...(fonte.commit ? { commit: fonte.commit } : {}) }));
-  const lacunas = pedido.panorama.lacunas.map((lacuna) => ({ tipo: lacuna.tipo, parte: lacuna.parte }));
+  const lacunas: LacunaPublicada[] = [];
+  for (const lacuna of pedido.panorama.lacunas) {
+    if (!ehTipoDeLacunaPublicada(lacuna.tipo)) return null;
+    lacunas.push({ tipo: lacuna.tipo, parte: lacuna.parte });
+  }
   return { contrato: CONTRATO_PUBLICACAO_EMPRESA, politicaVersao: inscricao.politicaVersao,
     inscricaoId: inscricao.inscricaoId, publicadoEm: pedido.agora,
     maestro: { ...inscricao.maestroRef, loginAtual: inscricao.loginAtual }, rede: inscricao.rede, projeto: pedido.projeto,
@@ -70,7 +75,7 @@ function montarProjecao(inscricao: InscricaoDaEmpresa, pedido: PedidoDePublicaca
 export function projetarPublicacaoEmpresa(inscricao: InscricaoDaEmpresa, pedido: PedidoDePublicacaoEmpresa):
 { ok: true; valor: PublicacaoDaEmpresa; texto: string } | { ok: false; codigo: CodigoDaPublicacaoEmpresa } {
   const valor = montarProjecao(inscricao, pedido);
-  if (!ehPublicacaoDaEmpresa(valor)) return { ok: false, codigo: 'rede-empresa.projecao-invalida' };
+  if (!valor || !ehPublicacaoDaEmpresa(valor)) return { ok: false, codigo: 'rede-empresa.projecao-invalida' };
   const texto = json(valor);
   const varredura = varrerTexto(pedido.privacidade, caminhoDaPublicacao(inscricao.inscricaoId, pedido.projetoRef), texto);
   if (varredura.erro || varredura.achados.length) return { ok: false, codigo: 'rede-empresa.dado-privado' };
@@ -101,9 +106,12 @@ export function publicarNaRedeEmpresa(porta: PortaDaBranchEmpresa, pedido: Pedid
     if (!inscricao.projetos.some((p) => mesmaRef(p, pedido.projeto))) { falha = 'rede-empresa.projeto-nao-autorizado'; return null; }
     const projetada = projetarPublicacaoEmpresa(inscricao, pedido);
     if (!projetada.ok) { falha = projetada.codigo; return null; }
-    publicacao = projetada.valor;
     const caminho = caminhoDaPublicacao(pedido.inscricaoId, pedido.projetoRef);
-    return ponta.ler(caminho) === projetada.texto ? null : { mensagem: `rede empresa: publica ${pedido.inscricaoId}/${pedido.projetoRef}`,
+    const anterior = ler(ponta.ler(caminho), ehPublicacaoDaEmpresa);
+    const semInstante = (p: PublicacaoDaEmpresa): string => JSON.stringify({ ...p, publicadoEm: '' });
+    if (anterior && semInstante(anterior) === semInstante(projetada.valor)) { publicacao = anterior; return null; }
+    publicacao = projetada.valor;
+    return { mensagem: `rede empresa: publica ${pedido.inscricaoId}/${pedido.projetoRef}`,
       mudancas: [{ caminho, conteudo: projetada.texto }] };
   });
   if (falha) return { ok: false, codigo: falha, transacao: t };
@@ -115,6 +123,6 @@ export function publicarNaRedeEmpresa(porta: PortaDaBranchEmpresa, pedido: Pedid
     atualizarConfig(pedido, inscricao, { codigo: t.codigo, em: pedido.agora });
     return { ok: false, codigo: t.codigo, transacao: t };
   }
-  atualizarConfig(pedido, inscricao, null, pedido.agora);
+  atualizarConfig(pedido, inscricao, null, publicacao!.publicadoEm);
   return { ok: true, valor: publicacao!, transacao: t };
 }

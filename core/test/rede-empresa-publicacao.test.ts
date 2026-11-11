@@ -5,7 +5,8 @@ import type { MudancaNaBranch } from '../src/branch-de-estado';
 import type { ProjetoNoPanorama } from '../src/network-roadmap';
 import { revogarInscricaoEmpresa, sairDaRedeEmpresa } from '../src/rede-empresa';
 import { CONTRATO_INSCRICAO_EMPRESA, CONTRATO_POLITICA_EMPRESA, type InscricaoDaEmpresa,
-  type ReferenciaDaForja } from '../src/rede-empresa-contrato';
+  MAX_BYTES_PUBLICACAO_EMPRESA, MAX_ITENS_PUBLICACAO_EMPRESA, MAX_LACUNAS_PUBLICACAO_EMPRESA,
+  MAX_RESERVAS_PUBLICACAO_EMPRESA, MAX_TRABALHOS_PUBLICACAO_EMPRESA, type ReferenciaDaForja } from '../src/rede-empresa-contrato';
 import { publicarNaRedeEmpresa, type PedidoDePublicacaoEmpresa } from '../src/rede-empresa-publicacao';
 import { statusDaRedeEmpresa } from '../src/rede-empresa-status';
 import type { PortaDaBranchEmpresa } from '../src/rede-empresa-transporte';
@@ -16,9 +17,14 @@ class Branch implements PortaDaBranchEmpresa {
   rejeicoes = 0;
   arquivos = new Map<string, string>();
   historico: string[] = [];
+  aoRejeitar: (() => void) | null = null;
   ler() { return { id: this.id, atualizada: this.atualizada, ler: (c: string) => this.arquivos.get(c) ?? null }; }
   gravar(_ponta: string | null, mudancas: readonly MudancaNaBranch[]) {
-    if (this.rejeicoes-- > 0) { this.id = `c${Number(this.id?.slice(1) ?? 0) + 1}`; return false; }
+    if (this.rejeicoes-- > 0) {
+      this.id = `c${Number(this.id?.slice(1) ?? 0) + 1}`;
+      const corrida = this.aoRejeitar; this.aoRejeitar = null; corrida?.();
+      return false;
+    }
     for (const m of mudancas) if (m.conteudo === null) this.arquivos.delete(m.caminho); else {
       this.arquivos.set(m.caminho, m.conteudo); this.historico.push(m.conteudo);
     }
@@ -61,8 +67,8 @@ function panorama(): ProjetoNoPanorama {
   };
 }
 
-function pedido(id: string): PedidoDePublicacaoEmpresa {
-  return { inscricaoId: id, projetoRef: 'projeto-a', projeto: ref('time/projeto'), panorama: panorama(), agora, privacidade };
+function pedido(id: string, instante = agora, projeto = panorama()): PedidoDePublicacaoEmpresa {
+  return { inscricaoId: id, projetoRef: 'projeto-a', projeto: ref('time/projeto'), panorama: projeto, agora: instante, privacidade };
 }
 
 function preparada(): Branch {
@@ -87,6 +93,71 @@ test('publicação recompõe depois da concorrência na branch', () => {
   const r = publicarNaRedeEmpresa(b, pedido('inscricao-a'));
   assert.equal(r.ok, true);
   if (r.ok) assert.equal(r.transacao.tentativas, 2);
+});
+
+test('projeção idêntica em outro instante é no-op e preserva o carimbo publicado', () => {
+  const b = preparada();
+  const primeira = publicarNaRedeEmpresa(b, pedido('inscricao-a', agora));
+  const gravacoes = b.historico.length;
+  const depois = '2026-11-11T01:00:00.000Z';
+  const segunda = publicarNaRedeEmpresa(b, pedido('inscricao-a', depois));
+  assert.equal(primeira.ok, true);
+  assert.equal(segunda.ok, true);
+  if (segunda.ok) assert.deepEqual([segunda.transacao.acao, segunda.valor.publicadoEm], ['sem-mudanca', agora]);
+  assert.equal(b.historico.length, gravacoes);
+});
+
+test('cinco conflitos esgotam as tentativas sem criar publicação', () => {
+  const b = preparada(); b.rejeicoes = 5;
+  const r = publicarNaRedeEmpresa(b, pedido('inscricao-a'));
+  assert.deepEqual([r.ok, r.ok ? '' : r.codigo, r.transacao?.tentativas, b.historico.length],
+    [false, 'rede-empresa.concorrencia', 5, 0]);
+  assert.equal(b.arquivos.has('publicacoes/inscricao-a/projeto-a.json'), false);
+});
+
+test('revogação ou saída que vence entre tentativas barra a publicação concorrente', () => {
+  for (const estado of ['revogada', 'encerrada'] as const) {
+    const b = preparada(); b.rejeicoes = 1;
+    b.aoRejeitar = () => {
+      const atual = JSON.parse(b.arquivos.get('inscricoes/inscricao-a.json')!) as InscricaoDaEmpresa;
+      b.arquivos.set('inscricoes/inscricao-a.json', `${JSON.stringify({ ...atual, estado }, null, 2)}\n`);
+    };
+    const r = publicarNaRedeEmpresa(b, pedido('inscricao-a'));
+    assert.deepEqual([estado, r.ok, r.ok ? '' : r.codigo, b.historico.length],
+      [estado, false, 'rede-empresa.inscricao-inativa', 0]);
+    assert.equal(b.arquivos.has('publicacoes/inscricao-a/projeto-a.json'), false);
+  }
+});
+
+test('caminho público recusa excesso de itens, reservas, trabalhos e lacunas antes de gravar', () => {
+  const casos: Array<[string, (p: ProjetoNoPanorama) => void]> = [
+    ['itens', (p) => { p.roadmap!.grupos[0].itens = Array.from({ length: MAX_ITENS_PUBLICACAO_EMPRESA + 1 }, (_, i) =>
+      ({ id: `RM-${i}`, titulo: 'x', ciclo: 'x', grupo: 'proposto', emAberto: [], threads: [] })); }],
+    ['reservas', (p) => { p.reservas = Array.from({ length: MAX_RESERVAS_PUBLICACAO_EMPRESA + 1 }, (_, i) =>
+      ({ contrato: 'ork.roadmap-reserva/v1', item: `RM-${i}`, por: 'x', maquina: 'x', thread: null, nota: '', desdeEm: agora, atualizadaEm: agora })); }],
+    ['trabalhos', (p) => { p.maquinas![0].ativas = Array.from({ length: MAX_TRABALHOS_PUBLICACAO_EMPRESA + 1 }, (_, i) =>
+      ({ id: `thread-${i}`, nome: 'x', modo: '#Auto', fase: 'GO', status: 'aberta', roadmap: null, branch: 'x', atualizadaEm: agora,
+        entregue: null, esperaVoce: false, pergunta: null, paradaDesde: null })); }],
+    ['lacunas', (p) => { p.lacunas = Array.from({ length: MAX_LACUNAS_PUBLICACAO_EMPRESA + 1 }, () =>
+      ({ tipo: 'roadmap.sem-leitura', parte: 'roadmap', detalhe: 'x', correcao: 'x' })); }],
+  ];
+  for (const [nome, alterar] of casos) {
+    const b = preparada(), p = panorama(); alterar(p);
+    const r = publicarNaRedeEmpresa(b, pedido('inscricao-a', agora, p));
+    assert.deepEqual([nome, r.ok, r.ok ? '' : r.codigo, b.historico.length], [nome, false, 'rede-empresa.projecao-invalida', 0]);
+  }
+});
+
+test('caminho público recusa serializado acima do limite de bytes dentro das cardinalidades', () => {
+  const b = preparada(), p = panorama();
+  const longo = (i: number) => `RM-${String(i).padStart(5, '0')}-${'x'.repeat(115)}`;
+  p.roadmap!.grupos[0].itens = Array.from({ length: MAX_ITENS_PUBLICACAO_EMPRESA }, (_, i) =>
+    ({ id: longo(i), titulo: 'x', ciclo: 'x', grupo: 'proposto', emAberto: [], threads: [] }));
+  p.reservas = Array.from({ length: MAX_RESERVAS_PUBLICACAO_EMPRESA }, (_, i) =>
+    ({ contrato: 'ork.roadmap-reserva/v1', item: longo(i), por: 'x', maquina: 'x', thread: null, nota: '', desdeEm: agora, atualizadaEm: agora }));
+  assert.ok(Buffer.byteLength(JSON.stringify(p), 'utf8') > MAX_BYTES_PUBLICACAO_EMPRESA);
+  const r = publicarNaRedeEmpresa(b, pedido('inscricao-a', agora, p));
+  assert.deepEqual([r.ok, r.ok ? '' : r.codigo, b.historico.length], [false, 'rede-empresa.projecao-invalida', 0]);
 });
 
 test('revogação e saída cessam novos envios', () => {

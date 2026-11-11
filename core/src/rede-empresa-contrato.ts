@@ -1,4 +1,5 @@
 /** RM-089 F1: contratos fechados da rede coletiva da empresa. */
+import type { TipoDeLacunaDaRede } from './network-roadmap';
 import type { GrupoDoRoadmap } from './roadmap-status';
 
 export const CONTRATO_POLITICA_EMPRESA = 'ork.rede-empresa-politica/v1' as const;
@@ -41,7 +42,20 @@ export interface ItemPublicado { id: string; estado: GrupoDoRoadmap }
 export interface ReservaPublicada { itemId: string; threadRef?: string; iniciadaEm: string }
 export interface TrabalhoPublicado { threadRef: string; fase: 'GOAL' | 'PLAN' | 'GO' | 'CHECK' | 'SHIP' | 'MASTER'; itemId?: string }
 export interface FontePublicada { parte: 'roadmap' | 'reservas' | 'fabrica' | 'estado-local'; atualizado: boolean; lidoEm: string; commit?: string }
-export interface LacunaPublicada { tipo: string; parte: 'roadmap' | 'reservas' | 'fabrica' | 'estado-local' | 'forja' | 'registro' | 'rede' | 'projeto' }
+export const TIPOS_DE_LACUNA_PUBLICADA = [
+  'projeto.sem-clone', 'projeto.sem-fonte', 'projeto.sem-leitura', 'projeto.remoto-invalido', 'projeto.base-invalida',
+  'estado-local.sem-leitura',
+  'roadmap.sem-base', 'roadmap.sem-itens', 'roadmap.pagina-invalida', 'roadmap.entregas-parciais', 'roadmap.sem-leitura',
+  'reservas.sem-branch', 'reservas.sem-leitura', 'reserva.invalida',
+  'fabrica.sem-branch', 'fabrica.sem-leitura', 'retrato.invalido', 'maquina.sem-batida',
+  'forja.ausente', 'forja.sem-login', 'forja.resposta-invalida', 'forja.sem-permissao', 'forja.nao-achei', 'forja.limite',
+  'forja.conflito', 'forja.indisponivel', 'forja.pedido-recusado', 'forja.incompleto', 'forja.desconhecida', 'forja.ambigua',
+  'forja.remoto-divergente', 'forja.sem-capacidade', 'forja.versao-abaixo-do-piso', 'forja.nao-consultada', 'forja.leitura-parcial',
+  'registro.invalido', 'rede.sem-projeto', 'rede.sem-repositorio', 'rede.repositorio-publico', 'rede.sem-leitura',
+  'maquina.nome-em-uso', 'maquina.sem-fabrica',
+] as const satisfies readonly TipoDeLacunaDaRede[];
+export type TipoDeLacunaPublicada = typeof TIPOS_DE_LACUNA_PUBLICADA[number];
+export interface LacunaPublicada { tipo: TipoDeLacunaPublicada; parte: 'roadmap' | 'reservas' | 'fabrica' | 'estado-local' | 'forja' | 'registro' | 'rede' | 'projeto' }
 
 export interface PublicacaoDaEmpresa {
   contrato: typeof CONTRATO_PUBLICACAO_EMPRESA;
@@ -114,6 +128,13 @@ const GRUPOS: readonly GrupoDoRoadmap[] = ['concluidos', 'disponiveis', 'hoje', 
 const FASES = ['GOAL', 'PLAN', 'GO', 'CHECK', 'SHIP', 'MASTER'] as const;
 const PARTES = ['roadmap', 'reservas', 'fabrica', 'estado-local'] as const;
 const PARTES_LACUNA = [...PARTES, 'forja', 'registro', 'rede', 'projeto'] as const;
+const TIPOS_DE_LACUNA = new Set<string>(TIPOS_DE_LACUNA_PUBLICADA);
+
+export function ehTipoDeLacunaPublicada(v: unknown): v is TipoDeLacunaPublicada {
+  const cobertura: Exclude<TipoDeLacunaDaRede, TipoDeLacunaPublicada> extends never ? true : never = true;
+  void cobertura;
+  return typeof v === 'string' && TIPOS_DE_LACUNA.has(v);
+}
 
 function item(v: unknown): v is ItemPublicado { return obj(v) && chaves(v, ['id', 'estado']) && id(v.id) && GRUPOS.includes(v.estado as GrupoDoRoadmap); }
 function reserva(v: unknown): v is ReservaPublicada {
@@ -130,7 +151,8 @@ function fonte(v: unknown): v is FontePublicada {
     && typeof v.atualizado === 'boolean' && iso(v.lidoEm) && (v.commit === undefined || id(v.commit, 64));
 }
 function lacuna(v: unknown): v is LacunaPublicada {
-  return obj(v) && chaves(v, ['tipo', 'parte']) && id(v.tipo, 100) && PARTES_LACUNA.includes(v.parte as typeof PARTES_LACUNA[number]);
+  return obj(v) && chaves(v, ['tipo', 'parte']) && ehTipoDeLacunaPublicada(v.tipo)
+    && PARTES_LACUNA.includes(v.parte as typeof PARTES_LACUNA[number]);
 }
 
 export function ehPublicacaoDaEmpresa(v: unknown): v is PublicacaoDaEmpresa {

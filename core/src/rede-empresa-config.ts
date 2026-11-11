@@ -7,6 +7,13 @@ import { ehMaestroRef, ehReferenciaDaForja, MaestroRef, ReferenciaDaForja } from
 export const CONTRATO_CONFIG_REDE_EMPRESA = 'ork.rede-empresa-config/v1' as const;
 const ARQUIVO = 'rede-empresa.json';
 
+export class ErroDaConfigRedeEmpresa extends Error {
+  readonly codigo = 'rede-empresa.config-invalida';
+  readonly acao = 'corrija ou remova rede-empresa.json e refaça o aceite';
+  readonly arquivo = ARQUIVO;
+  constructor() { super('rede-empresa.config-invalida'); }
+}
+
 export interface AdesaoRedeEmpresa {
   inscricaoId: string;
   empresa: ReferenciaDaForja;
@@ -40,12 +47,18 @@ function ehAdesao(v: unknown): v is AdesaoRedeEmpresa {
 const arquivo = (env: NodeJS.ProcessEnv): string => path.join(pastaDoUsuario(env), ARQUIVO);
 
 export function lerConfigRedeEmpresa(env: NodeJS.ProcessEnv = process.env): ConfigRedeEmpresa {
+  let texto: string;
   try {
-    const v = JSON.parse(fs.readFileSync(arquivo(env), 'utf8')) as unknown;
-    if (!obj(v) || Object.keys(v).some((k) => k !== 'contrato' && k !== 'inscricoes') || v.contrato !== CONTRATO_CONFIG_REDE_EMPRESA
-      || !Array.isArray(v.inscricoes) || !v.inscricoes.every(ehAdesao)) return { contrato: CONTRATO_CONFIG_REDE_EMPRESA, inscricoes: [] };
-    return { contrato: CONTRATO_CONFIG_REDE_EMPRESA, inscricoes: v.inscricoes };
-  } catch { return { contrato: CONTRATO_CONFIG_REDE_EMPRESA, inscricoes: [] }; }
+    texto = fs.readFileSync(arquivo(env), 'utf8');
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return { contrato: CONTRATO_CONFIG_REDE_EMPRESA, inscricoes: [] };
+    throw new ErroDaConfigRedeEmpresa();
+  }
+  let v: unknown;
+  try { v = JSON.parse(texto) as unknown; } catch { throw new ErroDaConfigRedeEmpresa(); }
+  if (!obj(v) || Object.keys(v).some((k) => k !== 'contrato' && k !== 'inscricoes') || v.contrato !== CONTRATO_CONFIG_REDE_EMPRESA
+    || !Array.isArray(v.inscricoes) || !v.inscricoes.every(ehAdesao)) throw new ErroDaConfigRedeEmpresa();
+  return { contrato: CONTRATO_CONFIG_REDE_EMPRESA, inscricoes: v.inscricoes };
 }
 
 export function gravarAdesaoRedeEmpresa(adesao: AdesaoRedeEmpresa, env: NodeJS.ProcessEnv = process.env): ConfigRedeEmpresa {
