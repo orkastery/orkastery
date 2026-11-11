@@ -1,5 +1,4 @@
 /** RM-089 F1: borda do CLI da rede coletiva, sem credencial em argumento ou estado. */
-import { createHash } from 'node:crypto';
 import { contextoDaVarredura } from './dado-privado';
 import type { ContextoDaVarredura } from './dado-privado';
 import { raizDoEstado } from './estado-thread';
@@ -9,19 +8,20 @@ import { rodarCli } from './forja/executor';
 import { adaptadorDaForja, exigirCapacidade } from './forja/registro';
 import type { ContaNaForja, Resultado, TipoDeForja } from './forja/contrato';
 import type { Locale } from './locale';
-import { textoDaFalhaEmpresa, USO_REDE_EMPRESA_EN, USO_REDE_EMPRESA_PT_BR } from './locale-network-empresa';
+import { textoDaCoberturaEmpresa, textoDaFalhaEmpresa, USO_REDE_EMPRESA_EN, USO_REDE_EMPRESA_PT_BR } from './locale-network-empresa';
 import { exigirManifesto } from './manifest';
 import { montarPanoramaDaRede } from './network-roadmap';
 import type { ProjetoNoPanorama } from './network-roadmap';
 import { cachePronto, dirDoCache, prepararCache, type CasaDaRede } from './rede';
 import { comGitIsolado, forjaPorNome } from './rede-forja';
 import { aceitarInscricaoEmpresa, criarPoliticaEmpresa, registrarInscricaoEmpresa, revogarInscricaoEmpresa, sairDaRedeEmpresa } from './rede-empresa';
-import { adesaoRedeEmpresa } from './rede-empresa-config';
-import type { ForjaDaEmpresa, ReferenciaDaForja } from './rede-empresa-contrato';
+import { adesaoRedeEmpresa, cacheDaPoliticaEmpresa, gravarAdesaoRedeEmpresa } from './rede-empresa-config';
+import { ehPoliticaDaEmpresa, type ForjaDaEmpresa, type ReferenciaDaForja } from './rede-empresa-contrato';
 import { criarRedeColetiva } from './rede-empresa-forja';
 import { publicarNaRedeEmpresa } from './rede-empresa-publicacao';
 import { statusDaRedeEmpresa } from './rede-empresa-status';
-import { portaGitDaRedeEmpresa, type PortaDaBranchEmpresa } from './rede-empresa-transporte';
+import { lerDocumentoRemoto, portaGitDaRedeEmpresa, type PortaDaBranchEmpresa } from './rede-empresa-transporte';
+import { normalizarProjeto, segmentoDaProjectKey } from './rede-empresa-projeto';
 
 export const CONTRATO_CLI_REDE_EMPRESA = 'ork.rede-empresa-cli/v1' as const;
 const ACOES = ['criar', 'inscrever', 'aceitar', 'publicar', 'status', 'sair', 'revogar'] as const;
@@ -126,8 +126,7 @@ function prepararPublicacao(ref: ReferenciaDaForja, agora: string, env: NodeJS.P
   return { panorama, privacidade: contexto.valor };
 }
 
-const projetoRef = (ref: ReferenciaDaForja): string => `${ref.forja}-${createHash('sha256')
-  .update(`${ref.host}/${ref.caminho}`, 'utf8').digest('hex').slice(0, 16)}`;
+const projetoRef = (ref: ReferenciaDaForja): string => segmentoDaProjectKey(normalizarProjeto(ref).projectKey);
 const pedidoDoPanorama = (ref: ReferenciaDaForja): string => {
   const padrao = (ref.forja === 'github' && ref.host === 'github.com') || (ref.forja === 'gitlab' && ref.host === 'gitlab.com');
   return padrao ? `${ref.forja}:${ref.caminho}` : `https://${ref.host}/${ref.caminho}`;
@@ -151,7 +150,11 @@ function textoSucesso(acao: Acao, locale: Locale): string {
 
 function sucesso(acao: Acao, dados: unknown, json: boolean, locale: Locale): SaidaCliRedeEmpresa {
   const envelope = { contrato: CONTRATO_CLI_REDE_EMPRESA, ok: true, operacao: acao, dados };
-  return { codigo: 0, stdout: json ? `${JSON.stringify(envelope, null, 2)}\n` : `${textoSucesso(acao, locale)}\n`, stderr: '' };
+  const coberturas = acao === 'status' && Array.isArray(dados)
+    ? dados.flatMap((d) => d && typeof d === 'object' && 'cobertura' in d
+      ? [textoDaCoberturaEmpresa((d as { cobertura: Parameters<typeof textoDaCoberturaEmpresa>[0] }).cobertura, locale)] : []) : [];
+  return { codigo: 0, stdout: json ? `${JSON.stringify(envelope, null, 2)}\n`
+    : `${[textoSucesso(acao, locale), ...coberturas].join('\n')}\n`, stderr: '' };
 }
 
 function erro(codigo: string, json: boolean, locale: Locale): SaidaCliRedeEmpresa {
@@ -166,7 +169,7 @@ function executar(acao: Acao, opcoes: Opcoes, env: NodeJS.ProcessEnv, dependenci
   const acessar = dependencias.acesso ?? acesso;
   const abrirPorta = dependencias.portaDaEmpresa ?? portaDaEmpresa;
   if (acao === 'criar') {
-    opcoesValidas(opcoes, ['forja', 'host', 'dono', 'repositorio', 'politica', 'saida', 'json']);
+    opcoesValidas(opcoes, ['forja', 'host', 'dono', 'repositorio', 'politica', 'saida', 'nivel', 'recibo-versao', 'json']);
     const forja = valor(opcoes, 'forja', true);
     if (forja !== 'github' && forja !== 'gitlab') falhar('rede-empresa.uso');
     const dono = valor(opcoes, 'dono', true)!, nome = valor(opcoes, 'repositorio', true)!;
@@ -175,7 +178,11 @@ function executar(acao: Acao, opcoes: Opcoes, env: NodeJS.ProcessEnv, dependenci
     const saidaBruta = valor(opcoes, 'saida') ?? 'permitida';
     if (saidaBruta !== 'permitida' && saidaBruta !== 'negada') throw new FalhaCli('rede-empresa.uso');
     const saida: 'permitida' | 'negada' = saidaBruta;
-    const politica = comGitIsolado(() => criarPoliticaEmpresa(criada.porta, valor(opcoes, 'politica') ?? 'v1', saida));
+    const nivel = valor(opcoes, 'nivel') ?? 'observar';
+    if (nivel !== 'observar' && nivel !== 'avisar' && nivel !== 'exigir') throw new FalhaCli('rede-empresa.uso');
+    const politicaVersao = valor(opcoes, 'politica') ?? 'v1';
+    const politica = comGitIsolado(() => criarPoliticaEmpresa(criada.porta, politicaVersao, saida,
+      { nivel, reciboVersao: valor(opcoes, 'recibo-versao') ?? politicaVersao }));
     if (!politica.ok) throw new FalhaCli(politica.codigo);
     return { rede: ref, criada: criada.criada, conta: criada.conta, politica: politica.valor };
   }
@@ -211,10 +218,16 @@ function executar(acao: Acao, opcoes: Opcoes, env: NodeJS.ProcessEnv, dependenci
       falhar('rede-empresa.uso');
     const conta = acessar(rede, env).conta;
     for (const p of projetos) acessar(p, env, false);
-    const aceite = comGitIsolado(() => aceitarInscricaoEmpresa(abrirPorta(empresa, true, env), {
+    const porta = abrirPorta(empresa, true, env);
+    const aceite = comGitIsolado(() => aceitarInscricaoEmpresa(porta, {
       inscricaoId: valor(opcoes, 'inscricao', true)!, conta, forja: rede.forja, host: rede.host, rede,
       projetosAcessiveis: projetos, agora, empresa, env }));
     if (!aceite.ok) throw new FalhaCli(aceite.codigo);
+    const politica = lerDocumentoRemoto(porta.ler(), 'politica.json', ehPoliticaDaEmpresa);
+    const local = adesaoRedeEmpresa(aceite.valor.inscricaoId, env);
+    if (politica.estado === 'presente' && local) {
+      gravarAdesaoRedeEmpresa({ ...local, politicaCache: cacheDaPoliticaEmpresa(politica.valor, agora) }, env);
+    }
     return { inscricao: aceite.valor, resumo: { empresa, politicaVersao: aceite.valor.politicaVersao, projetos,
       maestroRef: aceite.valor.maestroRef, categorias: ['itens', 'reservas', 'trabalhos', 'fontes', 'lacunas'] } };
   }
