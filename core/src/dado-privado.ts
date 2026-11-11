@@ -95,6 +95,18 @@ export interface ContextoDaVarredura {
   lista: ListaLocal;
 }
 
+export interface RedacaoDeDadoPrivado {
+  ok: true;
+  texto: string;
+  categorias: Padrao[];
+  total: number;
+}
+
+export interface RecusaDeRedacaoPrivada {
+  ok: false;
+  erro: string;
+}
+
 export type EscopoDaVarredura =
   | { tipo: 'arvore' }
   /** `ref` é de onde veio a base (`origin/main`, `main`); `null` é o commit carimbado da thread. */
@@ -240,6 +252,37 @@ function casamentos(texto: string, termos: readonly RegExp[]): Casamento[] {
     vistos.add(chave);
     return true;
   }).sort((a, b) => a.inicio - b.inicio || a.fim - b.fim);
+}
+
+/**
+ * Redige texto destinado a sair do núcleo.
+ *
+ * Exceções versionadas não participam: uma permissão para manter exemplo no repositório não é
+ * permissão para exportar identidade. Lista local recusada falha fechada e o erro não leva o termo.
+ */
+export function redigirDadoPrivado(texto: string, lista: ListaLocal,
+  marcador = OMITIDO): RedacaoDeDadoPrivado | RecusaDeRedacaoPrivada {
+  if (lista.recusada) return { ok: false, erro: 'lista local de dados privados recusada' };
+  if (lista.versionados.length) return { ok: false, erro: 'lista local de dados privados versionada' };
+  let termos: RegExp[];
+  try { termos = lista.termos.map((t) => new RegExp(escaparRegex(t), 'giu')); }
+  catch { return { ok: false, erro: 'lista local de dados privados inválida' }; }
+  const achados = casamentos(texto, termos);
+  if (!achados.length) return { ok: true, texto, categorias: [], total: 0 };
+  const categorias = new Set<Padrao>();
+  let redigido = '';
+  let ate = 0;
+  for (const achado of achados) {
+    categorias.add(achado.padrao);
+    if (achado.inicio < ate) {
+      ate = Math.max(ate, achado.fim);
+      continue;
+    }
+    redigido += texto.slice(ate, achado.inicio) + marcador;
+    ate = achado.fim;
+  }
+  redigido += texto.slice(ate);
+  return { ok: true, texto: redigido, categorias: [...categorias], total: achados.length };
 }
 
 // ---------------------------------------------------------------------------
