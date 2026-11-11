@@ -41,7 +41,7 @@ export OTEL_EXPORTER_OTLP_LOGS_HEADERS='authorization=Bearer%20<credential>'
 ork telemetria enviar
 ```
 
-`OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` takes precedence over `OTEL_EXPORTER_OTLP_ENDPOINT`; the same precedence applies to `OTEL_EXPORTER_OTLP_LOGS_HEADERS` and `OTEL_EXPORTER_OTLP_HEADERS`. Headers use comma-separated `key=value` pairs and percent-encoding when needed. Invalid values are rejected without echo. The timeout comes from `OTEL_EXPORTER_OTLP_LOGS_TIMEOUT`, then `OTEL_EXPORTER_OTLP_TIMEOUT`, in milliseconds.
+`OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` takes precedence over `OTEL_EXPORTER_OTLP_ENDPOINT`; the same precedence applies to `OTEL_EXPORTER_OTLP_LOGS_HEADERS` and `OTEL_EXPORTER_OTLP_HEADERS`. Headers use comma-separated `key=value` pairs and percent-encoding when needed. Invalid values are rejected without echo, and configurable headers cannot replace `content-type: application/json`. The timeout comes from `OTEL_EXPORTER_OTLP_LOGS_TIMEOUT`, then `OTEL_EXPORTER_OTLP_TIMEOUT`, in milliseconds, and applies to the whole export: one retry uses only the remaining time, honors `Retry-After` when it fits, and otherwise uses exponential backoff with jitter. The response body is limited while its stream is read.
 
 The official [OpenTelemetry Collector configuration](https://opentelemetry.io/docs/collector/configuration/) explains receivers, processors, exporters and the `logs` pipeline. The [OTLP Exporter specification](https://opentelemetry.io/docs/specs/otel/protocol/exporter/) defines endpoint precedence, the `/v1/logs` path and the header format.
 
@@ -52,13 +52,14 @@ For Grafana Cloud, use the endpoint and credential displayed by your stack. The 
 ```bash
 ork telemetria status --json
 ork telemetria enviar --dry-run --json
+ork telemetria enviar --dry-run --offset <byte> --json
 ```
 
-Status reports the activation source, the destination without userinfo, query or fragment, pending bytes per thread, the last confirmed UID and any terminal rejection. Dry-run reads the pending suffix and shows the already-redacted `ExportLogsServiceRequest`, but does not resolve headers, create a transport, use the network, take a lock, or write a cursor or receipt.
+Status reports the activation source, the destination without userinfo, query or fragment, pending bytes per thread, the last confirmed UID and any terminal rejection. Dry-run ignores the persisted cursor: it starts at byte zero or at the line boundary given by `--offset`, and shows the already-redacted `ExportLogsServiceRequest`. It does not resolve headers, create a transport, use the network, take a lock, or write a cursor or receipt.
 
 ## Attribute mapping
 
-Each OTLP value uses a typed `AnyValue`. 64-bit integers, including nanoseconds, are decimal strings. The event name lives in `eventName`; no custom attribute duplicates it.
+Each OTLP value uses a typed `AnyValue`. 64-bit integers, including nanoseconds, are decimal strings. The event name lives in `eventName`; no custom attribute duplicates it. The `gen_ai.*` attributes in this slice follow OpenTelemetry GenAI semantic conventions 1.37.0.
 
 | Field | OTLP type | When present |
 | --- | --- | --- |
