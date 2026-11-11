@@ -3,7 +3,7 @@ import test from 'node:test';
 import type { ContextoDaVarredura } from '../src/dado-privado';
 import type { MudancaNaBranch } from '../src/branch-de-estado';
 import type { ProjetoNoPanorama } from '../src/network-roadmap';
-import { revogarInscricaoEmpresa, sairDaRedeEmpresa } from '../src/rede-empresa';
+import { registrarInscricaoEmpresa, revogarInscricaoEmpresa, sairDaRedeEmpresa } from '../src/rede-empresa';
 import { CONTRATO_INSCRICAO_EMPRESA, CONTRATO_POLITICA_EMPRESA, type InscricaoDaEmpresa,
   MAX_BYTES_PUBLICACAO_EMPRESA, MAX_ITENS_PUBLICACAO_EMPRESA, MAX_LACUNAS_PUBLICACAO_EMPRESA,
   MAX_RESERVAS_PUBLICACAO_EMPRESA, MAX_TRABALHOS_PUBLICACAO_EMPRESA, type PublicacaoDaEmpresa,
@@ -206,4 +206,32 @@ test('forja indisponível não grava e o status mostra a pendência', () => {
   const status = statusDaRedeEmpresa(b, 'inscricao-a', 'projeto-a', {});
   assert.equal(status.forjaAtualizada, false);
   assert.equal(status.pendencia?.codigo, 'rede-empresa.forja-indisponivel');
+});
+
+test('JSON remoto inválido vira erro tipado em registrar, publicar e status sem ecoar conteúdo', () => {
+  const invalido = '{json-invalido-conteudo-nao-confiavel';
+
+  const politica = new Branch();
+  politica.arquivos.set('politica.json', invalido);
+  const registro = registrarInscricaoEmpresa(politica, { inscricaoId: 'inscricao-a', rede: ref('time/rede'),
+    maestroRef: { forja: 'github', host: 'github.com', accountId: 41 }, loginAtual: 'login', projetos: [ref('time/projeto')],
+    politicaVersao: 'v1', agora });
+  assert.deepEqual([registro.ok, registro.ok ? '' : registro.codigo, politica.historico.length],
+    [false, 'rede-empresa.documento-remoto-invalido', 0]);
+
+  const inscricaoInvalida = preparada();
+  inscricaoInvalida.arquivos.set('inscricoes/inscricao-a.json', invalido);
+  const publicacao = publicarNaRedeEmpresa(inscricaoInvalida, pedido('inscricao-a'));
+  assert.deepEqual([publicacao.ok, publicacao.ok ? '' : publicacao.codigo, inscricaoInvalida.historico.length],
+    [false, 'rede-empresa.documento-remoto-invalido', 0]);
+
+  const publicacaoInvalida = preparada();
+  publicacaoInvalida.arquivos.set('publicacoes/inscricao-a/projeto-a.json', invalido);
+  assert.throws(() => statusDaRedeEmpresa(publicacaoInvalida, 'inscricao-a', 'projeto-a', {}), (erro: unknown) => {
+    const tipado = erro as { codigo?: string; message?: string };
+    assert.equal(tipado.codigo, 'rede-empresa.documento-remoto-invalido');
+    assert.doesNotMatch(JSON.stringify(tipado), /json-invalido-conteudo-nao-confiavel/);
+    return true;
+  });
+  assert.doesNotMatch(JSON.stringify({ registro, publicacao }), /json-invalido-conteudo-nao-confiavel/);
 });

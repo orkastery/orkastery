@@ -10,12 +10,13 @@ import { CONTRATO_PUBLICACAO_EMPRESA, ehInscricaoDaEmpresa, ehPoliticaDaEmpresa,
   ehTipoDeLacunaPublicada, type InscricaoDaEmpresa, type LacunaPublicada, type PublicacaoDaEmpresa,
   type ReferenciaDaForja } from './rede-empresa-contrato';
 import { caminhoDaPublicacao, type PortaDaBranchEmpresa, type ResultadoDaTransacaoEmpresa,
-  transacionarRedeEmpresa } from './rede-empresa-transporte';
+  lerDocumentoRemoto, transacionarRedeEmpresa, type CodigoDocumentoRemotoInvalido } from './rede-empresa-transporte';
 
 const FASES = ['GOAL', 'PLAN', 'GO', 'CHECK', 'SHIP', 'MASTER'] as const;
 type FasePublicada = typeof FASES[number];
 
-export type CodigoDaPublicacaoEmpresa = 'rede-empresa.politica-ausente' | 'rede-empresa.politica-incompativel'
+export type CodigoDaPublicacaoEmpresa = CodigoDocumentoRemotoInvalido
+  | 'rede-empresa.politica-ausente' | 'rede-empresa.politica-incompativel'
   | 'rede-empresa.inscricao-ausente' | 'rede-empresa.inscricao-inativa' | 'rede-empresa.projeto-nao-autorizado'
   | 'rede-empresa.identidade-divergente'
   | 'rede-empresa.projecao-invalida' | 'rede-empresa.dado-privado' | 'rede-empresa.segredo'
@@ -39,10 +40,6 @@ export interface PedidoDePublicacaoEmpresa {
 }
 
 const json = (v: unknown): string => `${JSON.stringify(v, null, 2)}\n`;
-const ler = <T>(texto: string | null, valido: (v: unknown) => v is T): T | null => {
-  if (!texto) return null;
-  try { const v = JSON.parse(texto) as unknown; return valido(v) ? v : null; } catch { return null; }
-};
 const caminhoDaInscricao = (id: string): string => `inscricoes/${id}.json`;
 const mesmaRef = (a: ReferenciaDaForja, b: ReferenciaDaForja): boolean =>
   a.forja === b.forja && a.host.toLowerCase() === b.host.toLowerCase() && a.caminho.toLowerCase() === b.caminho.toLowerCase();
@@ -106,9 +103,18 @@ export function publicarNaRedeEmpresa(porta: PortaDaBranchEmpresa, pedido: Pedid
   let inscricao: InscricaoDaEmpresa | null = null;
   let falha: CodigoDaPublicacaoEmpresa | null = null;
   const t = transacionarRedeEmpresa(porta, (ponta) => {
-    const politica = ler(ponta.ler('politica.json'), ehPoliticaDaEmpresa);
-    inscricao = ler(ponta.ler(caminhoDaInscricao(pedido.inscricaoId)), ehInscricaoDaEmpresa);
-    if (!politica || !inscricao) { falha = !politica ? 'rede-empresa.politica-ausente' : 'rede-empresa.inscricao-ausente'; return null; }
+    const politicaLida = lerDocumentoRemoto(ponta, 'politica.json', ehPoliticaDaEmpresa);
+    if (politicaLida.estado !== 'presente') {
+      falha = politicaLida.estado === 'ausente' ? 'rede-empresa.politica-ausente' : politicaLida.codigo;
+      return null;
+    }
+    const inscricaoLida = lerDocumentoRemoto(ponta, caminhoDaInscricao(pedido.inscricaoId), ehInscricaoDaEmpresa);
+    if (inscricaoLida.estado !== 'presente') {
+      falha = inscricaoLida.estado === 'ausente' ? 'rede-empresa.inscricao-ausente' : inscricaoLida.codigo;
+      return null;
+    }
+    const politica = politicaLida.valor;
+    inscricao = inscricaoLida.valor;
     if (politica.versao !== inscricao.politicaVersao) { falha = 'rede-empresa.politica-incompativel'; return null; }
     if (inscricao.estado !== 'ativa') { falha = 'rede-empresa.inscricao-inativa'; return null; }
     if (!mesmaConta(inscricao, pedido)) { falha = 'rede-empresa.identidade-divergente'; return null; }
@@ -116,7 +122,9 @@ export function publicarNaRedeEmpresa(porta: PortaDaBranchEmpresa, pedido: Pedid
     const projetada = projetarPublicacaoEmpresa(inscricao, pedido);
     if (!projetada.ok) { falha = projetada.codigo; return null; }
     const caminho = caminhoDaPublicacao(pedido.inscricaoId, pedido.projetoRef);
-    const anterior = ler(ponta.ler(caminho), ehPublicacaoDaEmpresa);
+    const anteriorLida = lerDocumentoRemoto(ponta, caminho, ehPublicacaoDaEmpresa);
+    if (anteriorLida.estado === 'invalido' || anteriorLida.estado === 'indisponivel') { falha = anteriorLida.codigo; return null; }
+    const anterior = anteriorLida.estado === 'presente' ? anteriorLida.valor : null;
     const semInstante = (p: PublicacaoDaEmpresa): string => JSON.stringify({ ...p, publicadoEm: '' });
     if (anterior && semInstante(anterior) === semInstante(projetada.valor)) { publicacao = anterior; return null; }
     publicacao = projetada.valor;

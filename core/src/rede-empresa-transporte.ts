@@ -16,6 +16,37 @@ export interface PortaDaBranchEmpresa {
   gravar(ponta: string | null, mudancas: readonly MudancaNaBranch[], mensagem: string): string | false;
 }
 
+export const CODIGO_DOCUMENTO_REMOTO_INVALIDO = 'rede-empresa.documento-remoto-invalido' as const;
+export type CodigoDocumentoRemotoInvalido = typeof CODIGO_DOCUMENTO_REMOTO_INVALIDO;
+
+export type LeituraDocumentoRemoto<T> =
+  | { estado: 'presente'; valor: T }
+  | { estado: 'ausente' }
+  | { estado: 'invalido'; codigo: CodigoDocumentoRemotoInvalido }
+  | { estado: 'indisponivel'; codigo: 'rede-empresa.forja-indisponivel' };
+
+export class ErroDocumentoRemotoInvalido extends Error {
+  readonly codigo = CODIGO_DOCUMENTO_REMOTO_INVALIDO;
+  constructor() { super(CODIGO_DOCUMENTO_REMOTO_INVALIDO); }
+}
+
+/** Lê documento não confiável sem converter JSON/contrato inválido em ausência nem ecoar seu conteúdo. */
+export function lerDocumentoRemoto<T>(ponta: PontaDaRedeEmpresa, caminho: string,
+  valido: (valor: unknown) => valor is T): LeituraDocumentoRemoto<T> {
+  if (!ponta.atualizada) return { estado: 'indisponivel', codigo: 'rede-empresa.forja-indisponivel' };
+  let texto: string | null;
+  try { texto = ponta.ler(caminho); }
+  catch { return { estado: 'indisponivel', codigo: 'rede-empresa.forja-indisponivel' }; }
+  if (texto === null) return { estado: 'ausente' };
+  try {
+    const valor = JSON.parse(texto) as unknown;
+    return valido(valor) ? { estado: 'presente', valor }
+      : { estado: 'invalido', codigo: CODIGO_DOCUMENTO_REMOTO_INVALIDO };
+  } catch {
+    return { estado: 'invalido', codigo: CODIGO_DOCUMENTO_REMOTO_INVALIDO };
+  }
+}
+
 export type ResultadoDaTransacaoEmpresa =
   | { acao: 'publicou'; commit: string; tentativas: number }
   | { acao: 'sem-mudanca'; commit: string | null; tentativas: number }
