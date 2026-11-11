@@ -165,9 +165,9 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-085](RM-085-verify-com-escopo-causal-mensagem-de-assercao-e-check-fast.md) | Verify com escopo causal, mensagem de asserção e CHECK independente no #Fast | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-08 |
 | [RM-086](RM-086-kimi-code-homologado.md) | Kimi Code homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-09 |
 | [RM-087](RM-087-opencode-homologado.md) | OpenCode homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-09 |
-| [RM-088](RM-088-versao-mais-antiga-nunca-vira-a-latest-do-npm.md) | Versão mais antiga nunca vira a latest do npm | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-10 |
-| [RM-089](RM-089-orkastery-network-coletiva-da-empresa.md) | Orkastery Network coletiva da empresa, com uso obrigatório | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-10 |
-| [RM-090](RM-090-telemetria-opentelemetry-para-sdlc-analytics.md) | Telemetria compatível com OpenTelemetry e Grafana para SDLC Analytics | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-10 |
+| [RM-088](RM-088-versao-mais-antiga-nunca-vira-a-latest-do-npm.md) | Versão mais antiga nunca vira a latest do npm | Em desenvolvimento | Branch criada | Não iniciados | Não implantado | 2026-11-11 |
+| [RM-089](RM-089-orkastery-network-coletiva-da-empresa.md) | Orkastery Network coletiva da empresa, com uso obrigatório | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-11-11 |
+| [RM-090](RM-090-telemetria-opentelemetry-para-sdlc-analytics.md) | Telemetria compatível com OpenTelemetry e Grafana para SDLC Analytics | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-11-11 |
 | [RM-091](RM-091-ork-mesh-no-site-para-empresas-e-times.md) | Ork Mesh no site, para empresas e times | Em desenvolvimento | Não iniciado | Não iniciados | Não implantado | 2026-11-11 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
