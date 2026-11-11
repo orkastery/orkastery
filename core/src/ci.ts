@@ -25,11 +25,12 @@ import * as path from 'node:path';
 import { Claim } from './types';
 import { analisarComandos, linhaDoLintDeClaim, regraFatalDeClaim } from './claim-lint';
 import { TESTES_DE_INTEGRACAO_LOCAL } from './integracoes-locais';
-import { registrar, TIPOS_DE_EVENTO } from './ledger';
+import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { dirThread, lerThread } from './thread';
 import { ErroDoCatalogo, montadorDe, textoDoCatalogo, type Mensagens } from './locale';
 import { barreiraDaThread, linhaDoAchado, textoDaListaLocal, textoDoEscopo, varrerTexto } from './dado-privado';
 import { avisos as avisosDePolicy, bloqueantes as bloqueantesDePolicy } from './policies';
+import { CONTRATO_DO_RECIBO_DE_PROVA } from './recibo-prova';
 
 export type EstadoCi = 'disabled' | 'success' | 'pending' | 'failure' | 'missing' | 'unavailable';
 
@@ -83,6 +84,23 @@ export interface BundleCi {
   /** Claims that require the installation host and remain mandatory in local SHIP verify. */
   deferredClaims?: Array<{ id: string; reason: 'artifact-not-in-checkout' | 'host-runtime-required' | 'local-integration-required' }>;
   commands: { name: string; command: string }[];
+  /** RM-089 F1: projeção mínima da prova vigente; ausente mantém o bundle legado válido. */
+  recibo?: ReciboDoBundleCi;
+}
+
+export interface ReciboDoBundleCi {
+  contrato: typeof CONTRATO_DO_RECIBO_DE_PROVA;
+  head: string;
+  sha256: string;
+}
+
+export type EstadoDoReciboCi = 'presente' | 'ausente' | 'invalido' | 'sha-divergente';
+
+export interface ContextoDaPoliticaCi {
+  /** Branch de destino informada pela forja em PR/MR; ausente em push. */
+  destino?: string | null;
+  /** Permite ao adaptador declarar explicitamente que a execução é de PR/MR. */
+  pullRequest?: boolean;
 }
 
 const MARCADORES_DE_HOST = [
@@ -472,6 +490,7 @@ export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string
       .filter((item) => item.reason !== null)
       .map((item) => ({ id: item.claim.id, reason: item.reason! })),
     commands,
+    ...reciboDoUltimoVerify(carregado.raiz, threadId),
   };
   const texto = JSON.stringify(bundle, null, 2) + '\n';
   barreiraDoBundle(carregado, threadId, destino, path.posix.join(DIR_DO_BUNDLE, nomeDoArquivo), texto, opcoes);
@@ -480,6 +499,16 @@ export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string
   const file = path.join(dir, nomeDoArquivo);
   fs.writeFileSync(file, texto, 'utf8');
   return file;
+}
+
+/** O último verify decide: uma reprovação ou rodada parcial posterior não reaproveita um verde antigo. */
+function reciboDoUltimoVerify(raiz: string, threadId: string): { recibo?: ReciboDoBundleCi } {
+  const ultimo = lerLedger(dirThread(raiz, threadId)).filter((e) => e.tipo === TIPOS_DE_EVENTO.verificacao).at(-1);
+  const bruto = ultimo?.recibo as Record<string, unknown> | undefined;
+  if (ultimo?.veredito !== 'verdade sustentada' || ultimo.parcial === true || !bruto ||
+      bruto.contrato !== CONTRATO_DO_RECIBO_DE_PROVA || typeof bruto.head !== 'string' || !/^[a-f0-9]{40}$/.test(bruto.head) ||
+      typeof bruto.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(bruto.sha256)) return {};
+  return { recibo: { contrato: CONTRATO_DO_RECIBO_DE_PROVA, head: bruto.head, sha256: bruto.sha256 } };
 }
 
 /**
@@ -556,7 +585,15 @@ export function bundleDaBranch(raiz: string, branch: string): { arquivo: string;
  * dela e reprova sem ele; outra branch (a `main`, por exemplo) nao tem thread e roda so os comandos
  * do manifesto.
  */
-export function executarCiDaBranch(carregado: ManifestoCarregado, branch: string) {
+export function executarCiDaBranch(carregado: ManifestoCarregado, branch: string,
+  contexto: ContextoDaPoliticaCi = {}) {
+  const politica = carregado.manifesto.ci.politica_recibo;
+  // Guarda de compatibilidade: sem opt-in, este é o caminho anterior sem nenhum campo, comando ou erro novo.
+  if (!politica) return executarCiDaBranchSemPolitica(carregado, branch);
+  return executarCiDaBranchComPolitica(carregado, branch, politica, contexto);
+}
+
+function executarCiDaBranchSemPolitica(carregado: ManifestoCarregado, branch: string) {
   const achado = bundleDaBranch(carregado.raiz, branch);
   if (achado) return { ...rodarBundle(carregado, achado.bundle), branch, bundle: achado.arquivo };
   if (branch.startsWith('ork/')) {
@@ -566,6 +603,101 @@ export function executarCiDaBranch(carregado: ManifestoCarregado, branch: string
   const semThread: BundleCi = { schema: 'ork.ci-bundle/v1', thread: '', base: carregado.manifesto.worktree.base_branch,
     claims: [], commands: comandosDoBundle(carregado) };
   return { ...rodarBundle(carregado, semThread), thread: null, branch, bundle: null };
+}
+
+/** Forma explícita usada pelo runner; o terceiro argumento permanece opcional para chamadas antigas. */
+export function executarCiDaBranchComContexto(carregado: ManifestoCarregado, branch: string, contexto: ContextoDaPoliticaCi) {
+  const politica = carregado.manifesto.ci.politica_recibo;
+  return politica ? executarCiDaBranchComPolitica(carregado, branch, politica, contexto)
+    : executarCiDaBranchSemPolitica(carregado, branch);
+}
+
+function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: string,
+  nivel: NonNullable<ManifestoCarregado['manifesto']['ci']['politica_recibo']>, contexto: ContextoDaPoliticaCi = {}) {
+  let achado: ReturnType<typeof bundleDaBranch> = null;
+  let bundleInvalido: { code: 'ci.bundle.invalido'; message: string } | null = null;
+  try { achado = bundleDaBranch(carregado.raiz, branch); }
+  catch (erro) {
+    const message = (erro as Error).message;
+    if (!message.startsWith('ci.bundle.invalido:')) throw erro;
+    bundleInvalido = { code: 'ci.bundle.invalido', message };
+  }
+  // Um arquivo que o seletor reconhece como o bundle da branch, mas que nem abre, também participa da política. O
+  // caminho sem política continua chamando `bundleDaBranch` diretamente e preserva a exceção histórica.
+  const recibo = bundleInvalido ? 'invalido'
+    : estadoDoReciboCi(carregado.raiz, achado?.bundle.recibo, undefined, achado?.arquivo);
+  const destino = contexto.destino ?? null;
+  const pullRequest = contexto.pullRequest ?? destino !== null;
+  const protegida = carregado.manifesto.worktree.base_branch;
+  const policy = { level: nivel, receipt: recibo, sourceBranch: branch, targetBranch: destino, protectedBranch: protegida,
+    ...(recibo === 'presente' ? {} : { message: mensagemDoRecibo(recibo, branch) }) };
+  const erroDoBundle = bundleInvalido ?? (branch.startsWith('ork/') && !achado
+    ? { code: 'ci.bundle.ausente', message: `ci.bundle.ausente: a branch ${branch} e de thread e nao tem bundle em ${DIR_DO_BUNDLE}/; ` +
+        'rode ork ci prepare <thread> na worktree e versione o arquivo' }
+    : null);
+  const erroDoRecibo = nivel === 'exigir' && pullRequest && destino === protegida && recibo !== 'presente'
+    ? { code: `ci.recibo.${recibo}`, message: mensagemDoRecibo(recibo, branch) }
+    : null;
+  if (!achado && erroDoBundle) {
+    return { schema: 'ork.ci-run/v1' as const, ok: false, thread: null, commit: commitReal(carregado.raiz), preparo: null,
+      claims: [], commands: [], branch, bundle: null, policy, error: erroDoRecibo ?? erroDoBundle! };
+  }
+  const bundle = achado?.bundle ?? { schema: 'ork.ci-bundle/v1' as const, thread: '',
+    base: carregado.manifesto.worktree.base_branch, claims: [], commands: comandosDoBundle(carregado) };
+  const executado = rodarBundle(carregado, bundle);
+  const error = erroDoRecibo;
+  return { ...executado, ok: executado.ok && !error, ...(achado ? {} : { thread: null }), branch,
+    bundle: achado?.arquivo ?? null, policy, ...(error ? { error } : {}) };
+}
+
+/** Validação fechada: falha do Git nunca transforma recibo em presente. */
+export function estadoDoReciboCi(raiz: string, recibo: unknown, headAtual = commitReal(raiz),
+  arquivoDoBundle?: string): EstadoDoReciboCi {
+  if (recibo === undefined || recibo === null) return 'ausente';
+  if (!recibo || typeof recibo !== 'object' || Array.isArray(recibo)) return 'invalido';
+  const r = recibo as Record<string, unknown>;
+  if (r.contrato !== CONTRATO_DO_RECIBO_DE_PROVA || typeof r.head !== 'string' || !/^[a-f0-9]{40}$/.test(r.head) ||
+      typeof r.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(r.sha256) || !/^[a-f0-9]{40}$/.test(headAtual)) return 'invalido';
+  const objeto = exec('git', ['rev-parse', '--verify', '--end-of-options', `${r.head}^{commit}`], raiz);
+  if (!objeto.ok || exec('git', ['merge-base', '--is-ancestor', r.head, headAtual], raiz).code !== 0) return 'invalido';
+  const diff = exec('git', ['diff', '--name-only', '--no-renames', '-z', r.head, headAtual, '--'], raiz);
+  if (!diff.ok) return 'invalido';
+  const caminhos = diff.stdout.split('\0').filter(Boolean);
+  const esperado = arquivoDoBundle?.replaceAll('\\', '/');
+  return caminhos.every((caminho) => esperado ? caminho === esperado : caminho.startsWith(`${DIR_DO_BUNDLE}/`))
+    ? 'presente' : 'sha-divergente';
+}
+
+function mensagemDoRecibo(estado: Exclude<EstadoDoReciboCi, 'presente'>, branch: string): string {
+  return textoDoCatalogo((m) => estado === 'ausente' ? m.operacao.produto.ci.reciboAusente(branch)
+    : estado === 'invalido' ? m.operacao.produto.ci.reciboInvalido(branch)
+      : m.operacao.produto.ci.reciboShaDivergente(branch));
+}
+
+/** Em `avisar`, traduz o mesmo diagnóstico para o canal nativo de cada runner sem alterar o JSON nem a saída. */
+export function publicarAvisoDaPolitica(resultado: unknown,
+  env: NodeJS.ProcessEnv = process.env, aoLogar: (linha: string) => void = (linha) => console.error(linha)): string[] {
+  const policy = resultado && typeof resultado === 'object' && !Array.isArray(resultado)
+    ? (resultado as { policy?: unknown }).policy : undefined;
+  if (!policy || typeof policy !== 'object' || Array.isArray(policy)) return [];
+  const p = policy as { level?: unknown; receipt?: unknown; message?: unknown };
+  if (p.level !== 'avisar' || p.receipt === 'presente' || typeof p.message !== 'string') return [];
+  const runner = ambienteDeCi(env);
+  if (!runner) return [];
+  const linhas: string[] = [];
+  if (runner.tipo === 'github') {
+    const segura = p.message.replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A');
+    linhas.push(`::warning title=Orkastery::${segura}`);
+    const resumo = env.GITHUB_STEP_SUMMARY;
+    if (resumo) {
+      try { fs.appendFileSync(resumo, `### Orkastery\n\n> [!WARNING]\n> ${p.message}\n\n`, 'utf8'); }
+      catch { /* o aviso continua na anotação; `avisar` nunca transforma falha de relatório em reprovação */ }
+    }
+  } else {
+    linhas.push(...p.message.split(/\r\n|\r|\n/).map((linha) => `WARNING: ${linha}`));
+  }
+  for (const linha of linhas) aoLogar(linha);
+  return linhas;
 }
 
 export function executarBundleCi(carregado: ManifestoCarregado, file = path.posix.join(DIR_DO_BUNDLE, BUNDLE_LEGADO)) {

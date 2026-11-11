@@ -230,7 +230,8 @@ import {
 import { comandoDeAttach, limparFantasmas, logsDaSessao, pararSessao, textoDaLimpeza } from './sessoes';
 import { exec, shaCurto, tabela } from './util';
 import { ship, textoDoShip } from './ship';
-import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi } from './ci';
+import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi, publicarAvisoDaPolitica } from './ci';
+import { ambienteDeCi } from './forja/ambiente-de-ci';
 import { contextoDaVarredura, mergeBase, relatorioDoDadoPrivado, varrerArvore, varrerDiff } from './dado-privado';
 import { avisoDaWorktree, avisoDeThreadSemBase, avisoDeWorktreeQueFalharia, caminhoThread, canalDaSessao, dirThread, exigirFase, lerThread,
   linhaDaWorktree, listarIds, novaThread, pedidoDaThread, pedidoDeWorktree, PedidoDeWorktree, prepararPedido, resumoDaThread, tabelaDeThreads,
@@ -2427,7 +2428,10 @@ function comandoCi(args: Args): number {
     // RM-037 (rm037noite, defeito 1): o CI passa a branch e acha o `.ork-ci/<thread>.json` dela.
     const branch = texto(args.opcoes.branch);
     if (branch) {
-      const result = executarCiDaBranch(carregado, branch);
+      const runner = ambienteDeCi();
+      const result = executarCiDaBranch(carregado, branch,
+        { destino: runner?.targetBranch ?? null, pullRequest: runner?.targetBranch !== null && runner?.targetBranch !== undefined });
+      publicarAvisoDaPolitica(result);
       console.log(JSON.stringify(result, null, 2));
       return result.ok ? 0 : 1;
     }

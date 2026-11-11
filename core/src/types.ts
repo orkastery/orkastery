@@ -170,6 +170,9 @@ export interface RegistroDaSelecaoNativa {
   base?: string;
 }
 
+/** RM-089 F1: intensidade opt-in da política empresarial de recibo no CI. */
+export type PoliticaDeReciboCi = 'observar' | 'avisar' | 'exigir';
+
 /** Manifesto do projeto (`orkastery.yaml`), na fatia v1 do bloco B0. */
 export interface Manifesto {
   project: {
@@ -250,6 +253,8 @@ export interface Manifesto {
   ci: {
     required_for_ship: boolean;
     context: string;
+    /** Ausente preserva integralmente o comportamento anterior do `ork ci run`. */
+    politica_recibo?: PoliticaDeReciboCi;
     /**
      * RM-058, integração (T6, D10 da ork-rm058integra): os contextos que a proteção da base exige, todos verdes no SHA fonte
      * para a prova do CI da entrega do arco #Noctum. Ausente, vale `[context]`. O `ork ship` segue lendo só o `context`.

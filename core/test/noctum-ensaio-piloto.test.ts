@@ -188,7 +188,7 @@ test('EP10: a base que anda: o condutor atualiza o candidato, roda o verify real
   const c = cenario('base-que-anda');
   provada(c, /^o candidato chega publicado no remoto de fixture, com o PR aberto na forja SIMULADA/);
   provada(c, /^com a base nova, o condutor atualiza o candidato sobre ela, com a linha da thread em "Não publicado" e o bundle regravado/);
-  provada(c, /^o condutor roda o verify real no SHA novo, na mesma atualização/);
+  provada(c, /^o condutor roda o verify real no pai provado do bundle, cujo recibo aponta para esse HEAD/);
   provada(c, /^a entrega publica de novo o SHA atualizado: a branch do remoto anda até ele/);
   provada(c, /^com o CI verde no SHA novo, a integração mescla na base nova, e o ship_done leva a prova do push/);
   provada(c, /^o CI SIMULADO foi lido nos dois SHAs publicados, e nenhum outro PR foi aberto/);

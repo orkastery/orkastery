@@ -13,19 +13,21 @@ const GITLAB = { GITLAB_CI: 'true', CI_PROJECT_PATH: 'grupo/sub/projeto', CI_COM
   CI_JOB_URL: 'https://gitlab.empresa.com/grupo/sub/projeto/-/jobs/7' };
 
 test('GitLab CI: projeto com subgrupo, branch do MR antes da do push, página do job; tag sem branch', () => {
-  assert.deepEqual(ambienteDeCi(GITLAB), { tipo: 'gitlab', produtor: 'gitlab-ci', repository: 'grupo/sub/projeto', branch: 'ork/ork-a-full',
+  assert.deepEqual(ambienteDeCi(GITLAB), { tipo: 'gitlab', produtor: 'gitlab-ci', repository: 'grupo/sub/projeto', branch: 'ork/ork-a-full', targetBranch: null,
     url: 'https://gitlab.empresa.com/grupo/sub/projeto/-/jobs/7' });
   assert.equal(ambienteDeCi({ ...GITLAB, CI_MERGE_REQUEST_SOURCE_BRANCH_NAME: 'ork/ork-b-full', CI_MERGE_REQUEST_EVENT_TYPE: 'merged_result' })?.branch,
     'ork/ork-b-full');
+  assert.equal(ambienteDeCi({ ...GITLAB, CI_MERGE_REQUEST_TARGET_BRANCH_NAME: 'release' })?.targetBranch, 'release');
   assert.equal(ambienteDeCi({ GITLAB_CI: 'true', CI_COMMIT_TAG: 'v1.0.0', CI_COMMIT_REF_NAME: 'v1.0.0' })?.branch, null);
 });
 
 test('GitHub Actions: repositório, branch do PR antes da do push, página do run; tag sem branch', () => {
   const gh = { GITHUB_ACTIONS: 'true', GITHUB_REPOSITORY: 'o/r', GITHUB_SERVER_URL: 'https://github.com', GITHUB_RUN_ID: '42',
     GITHUB_REF_NAME: 'main', GITHUB_REF_TYPE: 'branch' };
-  assert.deepEqual(ambienteDeCi(gh), { tipo: 'github', produtor: 'github-actions', repository: 'o/r', branch: 'main',
+  assert.deepEqual(ambienteDeCi(gh), { tipo: 'github', produtor: 'github-actions', repository: 'o/r', branch: 'main', targetBranch: null,
     url: 'https://github.com/o/r/actions/runs/42' });
   assert.equal(ambienteDeCi({ ...gh, GITHUB_HEAD_REF: 'ork/ork-a-full' })?.branch, 'ork/ork-a-full');
+  assert.equal(ambienteDeCi({ ...gh, GITHUB_HEAD_REF: 'ork/ork-a-full', GITHUB_BASE_REF: 'release' })?.targetBranch, 'release');
   assert.equal(ambienteDeCi({ ...gh, GITHUB_HEAD_REF: '', GITHUB_REF_TYPE: 'tag', GITHUB_REF_NAME: 'v1' })?.branch, null);
 });
 

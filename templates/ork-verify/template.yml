@@ -4,7 +4,8 @@
 #     - component: $CI_SERVER_FQDN/<grupo>/orkastery/ork-verify@<versao>
 #
 # As regras de pipeline de MR vao no .gitlab-ci.yml do projeto, fora do include: veja templates/gitlab/ork-verify.yml.
-# O job e o proprio sinal: nao publica status e nao usa token.
+# O job e o proprio sinal: nao publica status e nao usa token. Em MR, o runner le origem e destino das variaveis
+# CI_MERGE_REQUEST_SOURCE_BRANCH_NAME e CI_MERGE_REQUEST_TARGET_BRANCH_NAME; em push, o destino fica ausente.
 spec:
   inputs:
     contexto:

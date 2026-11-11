@@ -738,6 +738,12 @@ const PT_BR = {
         worktreeSumiu: (worktree: string) => `a worktree ${worktree} da thread nao existe mais; o bundle vai para a raiz do projeto`,
         lintRecusado: (recusas: string) =>
           `claims.lint: o bundle nao foi gerado; retire a claim e registre de novo com o comando focado:\n  ${recusas}`,
+        reciboAusente: (branch: string) => `ci.recibo.ausente: a branch ${branch} nao tem recibo do verify vigente; ` +
+          'abra a entrega com `ork thread new` ou, no proximo passo da RM-089, use `ork adotar`',
+        reciboInvalido: (branch: string) => `ci.recibo.invalido: o recibo da branch ${branch} nao referencia um verify ancestral valido; ` +
+          'rode `ork verify` e `ork ci prepare` de novo, ou adote a branch quando `ork adotar` estiver disponivel',
+        reciboShaDivergente: (branch: string) => `ci.recibo.sha-divergente: a branch ${branch} mudou fora de .ork-ci/ depois do verify; ` +
+          'rode `ork verify` e `ork ci prepare` de novo',
       },
     },
   },
@@ -1251,6 +1257,12 @@ const EN: Mensagens = {
         worktreeSumiu: (worktree) => `the thread worktree ${worktree} no longer exists; the bundle goes to the project root`,
         lintRecusado: (refusals) =>
           `claims.lint: the bundle was not generated; withdraw the claim and register it again with the focused command:\n  ${refusals}`,
+        reciboAusente: (branch) => `ci.recibo.ausente: branch ${branch} has no receipt for the current verify; ` +
+          'start the delivery with `ork thread new` or, in the next RM-089 step, use `ork adotar`',
+        reciboInvalido: (branch) => `ci.recibo.invalido: the receipt for branch ${branch} does not reference a valid ancestor verify; ` +
+          'run `ork verify` and `ork ci prepare` again, or adopt the branch when `ork adotar` becomes available',
+        reciboShaDivergente: (branch) => `ci.recibo.sha-divergente: branch ${branch} changed outside .ork-ci/ after verify; ` +
+          'run `ork verify` and `ork ci prepare` again',
       },
     },
   },

@@ -66,6 +66,15 @@ Estes itens ainda não têm ordem de prioridade definida pelo dono.
 | [RM-086](RM-086-kimi-code-homologado.md) Kimi Code homologado ao lado de Codex e Claude Code | Pedido do dono no terminal, em 09/11/2026 | O Kimi Code despacha fases com perfis, fim observado e prova do núcleo, no modo de autenticação que o dono decidir; depois do ensaio, também conduz a fábrica, como o Codex |
 | [RM-087](RM-087-opencode-homologado.md) OpenCode homologado ao lado de Codex e Claude Code | Pedido do dono no terminal, em 09/11/2026 | O OpenCode despacha fases com linha, provedor e conta explícitos, fim observado e prova do núcleo; depois do ensaio, também conduz a fábrica, como o Codex |
 
+## Pedidos do dono de 10/11/2026
+
+Estes itens ainda não têm ordem de prioridade definida pelo dono.
+
+| Item | Origem | Resultado pretendido |
+| --- | --- | --- |
+| [RM-089](RM-089-orkastery-network-coletiva-da-empresa.md) Orkastery Network coletiva da empresa, com uso obrigatório | Pedidos do dono no terminal, em 10/11/2026 | A empresa reúne as redes dos builders, coordena roadmaps e trabalho em andamento, evita duplicidade, ajuda na ordem dos merges e exige recibos no Git quando essa é a diretriz |
+| [RM-090](RM-090-telemetria-opentelemetry-para-sdlc-analytics.md) Telemetria compatível com OpenTelemetry e Grafana para SDLC Analytics | Pedidos do dono no terminal, em 10/11/2026 | Prompts e dados de condução viram logs OpenTelemetry, legíveis no Grafana, para analytics do builder e da empresa sem impor backend |
+
 ## Itens
 
 Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
@@ -149,6 +158,8 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-086](RM-086-kimi-code-homologado.md) | Kimi Code homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-09 |
 | [RM-087](RM-087-opencode-homologado.md) | OpenCode homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-09 |
 | [RM-088](RM-088-versao-mais-antiga-nunca-vira-a-latest-do-npm.md) | Versão mais antiga nunca vira a latest do npm | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-10 |
+| [RM-089](RM-089-orkastery-network-coletiva-da-empresa.md) | Orkastery Network coletiva da empresa, com uso obrigatório | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-10 |
+| [RM-090](RM-090-telemetria-opentelemetry-para-sdlc-analytics.md) | Telemetria compatível com OpenTelemetry e Grafana para SDLC Analytics | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-10 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->
