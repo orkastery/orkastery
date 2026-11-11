@@ -778,32 +778,6 @@
         "artefato-de-fechamento",
         "ref-local-do-ramo-base"
       ]
-    },
-    {
-      "id": "C34",
-      "thread": "ork-rm090f1logsd",
-      "fase": "GO",
-      "arquivo": ".ork-ci/ork-rm090f1logsd.json",
-      "alegacao": "A candidata de CI mantém provas versionadas para as quatro rotas de locale e para o despacho público da família telemetria.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/telemetria-cli.test.js"
-      ],
-      "criadoEm": "2026-11-11T08:08:12.550Z",
-      "estado": "pendente",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
     }
   ],
   "deferredClaims": [],
