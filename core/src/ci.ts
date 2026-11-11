@@ -614,21 +614,31 @@ export function executarCiDaBranchComContexto(carregado: ManifestoCarregado, bra
 
 function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: string,
   nivel: NonNullable<ManifestoCarregado['manifesto']['ci']['politica_recibo']>, contexto: ContextoDaPoliticaCi = {}) {
-  const achado = bundleDaBranch(carregado.raiz, branch);
-  const recibo = estadoDoReciboCi(carregado.raiz, achado?.bundle.recibo, undefined, achado?.arquivo);
+  let achado: ReturnType<typeof bundleDaBranch> = null;
+  let bundleInvalido: { code: 'ci.bundle.invalido'; message: string } | null = null;
+  try { achado = bundleDaBranch(carregado.raiz, branch); }
+  catch (erro) {
+    const message = (erro as Error).message;
+    if (!message.startsWith('ci.bundle.invalido:')) throw erro;
+    bundleInvalido = { code: 'ci.bundle.invalido', message };
+  }
+  // Um arquivo que o seletor reconhece como o bundle da branch, mas que nem abre, também participa da política. O
+  // caminho sem política continua chamando `bundleDaBranch` diretamente e preserva a exceção histórica.
+  const recibo = bundleInvalido ? 'invalido'
+    : estadoDoReciboCi(carregado.raiz, achado?.bundle.recibo, undefined, achado?.arquivo);
   const destino = contexto.destino ?? null;
   const pullRequest = contexto.pullRequest ?? destino !== null;
   const protegida = carregado.manifesto.worktree.base_branch;
   const policy = { level: nivel, receipt: recibo, sourceBranch: branch, targetBranch: destino, protectedBranch: protegida,
     ...(recibo === 'presente' ? {} : { message: mensagemDoRecibo(recibo, branch) }) };
-  const erroDoBundle = branch.startsWith('ork/') && !achado
+  const erroDoBundle = bundleInvalido ?? (branch.startsWith('ork/') && !achado
     ? { code: 'ci.bundle.ausente', message: `ci.bundle.ausente: a branch ${branch} e de thread e nao tem bundle em ${DIR_DO_BUNDLE}/; ` +
         'rode ork ci prepare <thread> na worktree e versione o arquivo' }
-    : null;
+    : null);
   const erroDoRecibo = nivel === 'exigir' && pullRequest && destino === protegida && recibo !== 'presente'
     ? { code: `ci.recibo.${recibo}`, message: mensagemDoRecibo(recibo, branch) }
     : null;
-  if (!achado && branch.startsWith('ork/')) {
+  if (!achado && erroDoBundle) {
     return { schema: 'ork.ci-run/v1' as const, ok: false, thread: null, commit: commitReal(carregado.raiz), preparo: null,
       claims: [], commands: [], branch, bundle: null, policy, error: erroDoRecibo ?? erroDoBundle! };
   }

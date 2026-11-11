@@ -1,5 +1,6 @@
 /** RM-089 F1: política empresarial de recibo no `ork ci run`. */
 import { strict as assert } from 'node:assert';
+import { spawnSync } from 'node:child_process';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -11,6 +12,8 @@ import { CONTRATO_DO_RECIBO_DE_PROVA } from '../src/recibo-prova';
 import { dirThread, novaThread } from '../src/thread';
 import type { PoliticaDeReciboCi } from '../src/types';
 import { commitar, projetoTemporario, shaDaBranch } from './apoio';
+
+const CLI = path.resolve(__dirname, '../../dist/index.js');
 
 function comPolitica(valor?: string) {
   const p = projetoTemporario(`rm089-politica-${valor ?? 'ausente'}`, false);
@@ -115,6 +118,24 @@ test('matriz de política, ramo e recibo preserva aprovação opt-in e aplica ex
   }
 });
 
+test('bundle realmente truncado entra na política e preserva o erro legado sem opt-in', () => {
+  const f = fixtureDaMatriz('ork', 'legado');
+  try {
+    fs.writeFileSync(path.join(f.p.dir, '.ork-ci/ork-rm089.json'), '{"schema":"ork.ci-bundle/v1",\n', 'utf8');
+    assert.throws(() => executarCiDaBranch(comNivel(f.p.carregado), f.branch, f.contexto), /ci\.bundle\.invalido/);
+    for (const nivel of ['observar', 'avisar'] as const) {
+      const resultado = executarCiDaBranch(comNivel(f.p.carregado, nivel), f.branch, f.contexto) as ResultadoComPolitica;
+      assert.equal(resultado.policy.receipt, 'invalido');
+      assert.equal(resultado.ok, false);
+      assert.equal(resultado.error?.code, 'ci.bundle.invalido');
+    }
+    const exigido = executarCiDaBranch(comNivel(f.p.carregado, 'exigir'), f.branch, f.contexto) as ResultadoComPolitica;
+    assert.equal(exigido.policy.receipt, 'invalido');
+    assert.equal(exigido.ok, false);
+    assert.equal(exigido.error?.code, 'ci.recibo.invalido');
+  } finally { f.p.limpar(); }
+});
+
 test('sem política mantém a forma histórica para branch de thread e para outra branch', () => {
   const thread = fixtureDaMatriz('ork', 'legado');
   const outra = fixtureDaMatriz('feature', 'sem-bundle');
@@ -129,18 +150,45 @@ test('sem política mantém a forma histórica para branch de thread e para outr
   } finally { thread.p.limpar(); outra.p.limpar(); }
 });
 
-test('erros de recibo têm código estável e ação em pt-BR e EN', () => {
-  const f = fixtureDaMatriz('feature', 'sem-bundle');
+test('CLI real sem política fixa JSON, texto e código de saída históricos nas três classes de branch', () => {
+  const fixtures = [fixtureDaMatriz('ork', 'legado'), fixtureDaMatriz('feature', 'sem-bundle'),
+    fixtureDaMatriz('protegida', 'sem-bundle')];
+  const chavesHistoricas = ['branch', 'bundle', 'claims', 'commands', 'commit', 'ok', 'preparo', 'schema', 'thread'];
   try {
-    const carregado = comNivel(f.p.carregado, 'exigir');
-    const pt = comLocale('pt-BR', () => executarCiDaBranch(carregado, f.branch, f.contexto)) as ResultadoComPolitica;
-    const en = comLocale('en', () => executarCiDaBranch(carregado, f.branch, f.contexto)) as ResultadoComPolitica;
-    assert.equal(pt.error?.code, 'ci.recibo.ausente');
-    assert.match(pt.error?.message ?? '', /ork thread new.*ork adotar/);
-    assert.equal(en.error?.code, 'ci.recibo.ausente');
-    assert.match(en.error?.message ?? '', /ork thread new.*ork adotar/);
-    assert.notEqual(pt.error?.message, en.error?.message);
-  } finally { f.p.limpar(); }
+    for (const f of fixtures) {
+      const r = spawnSync(process.execPath, [CLI, 'ci', 'run', '--branch', f.branch],
+        { cwd: f.p.dir, encoding: 'utf8', env: process.env, timeout: 60_000 });
+      assert.equal(r.error, undefined, `${f.branch}: ${r.error?.message ?? ''}`);
+      assert.equal(r.status, 0, `${f.branch}: ${r.stderr}${r.stdout}`);
+      assert.equal(r.stderr, '', `${f.branch}: stderr histórico`);
+      const json = JSON.parse(r.stdout) as Record<string, unknown>;
+      assert.equal(r.stdout, `${JSON.stringify(json, null, 2)}\n`, `${f.branch}: stdout contém somente o JSON histórico`);
+      assert.deepEqual(Object.keys(json).sort(), chavesHistoricas, `${f.branch}: forma histórica`);
+      assert.equal(json.ok, true);
+      assert.equal('policy' in json, false);
+      assert.equal('error' in json, false);
+      if (f.branch.startsWith('ork/')) assert.equal(json.bundle, '.ork-ci/ork-rm089.json');
+      else assert.deepEqual([json.thread, json.bundle], [null, null]);
+    }
+  } finally { for (const f of fixtures) f.p.limpar(); }
+});
+
+test('todos os erros de recibo têm mensagem e ação em pt-BR e EN', () => {
+  for (const caso of ['sem-bundle', 'invalido', 'sha-divergente'] as const) {
+    const f = fixtureDaMatriz('feature', caso);
+    try {
+      const carregado = comNivel(f.p.carregado, 'exigir');
+      const pt = comLocale('pt-BR', () => executarCiDaBranch(carregado, f.branch, f.contexto)) as ResultadoComPolitica;
+      const en = comLocale('en', () => executarCiDaBranch(carregado, f.branch, f.contexto)) as ResultadoComPolitica;
+      const estado = estadoEsperado[caso];
+      const acao = estado === 'ausente' ? /ork thread new.*ork adotar/ : /ork verify.*ork ci prepare.*ork adotar/;
+      assert.equal(pt.error?.code, `ci.recibo.${estado}`);
+      assert.match(pt.error?.message ?? '', acao);
+      assert.equal(en.error?.code, `ci.recibo.${estado}`);
+      assert.match(en.error?.message ?? '', acao);
+      assert.notEqual(pt.error?.message, en.error?.message);
+    } finally { f.p.limpar(); }
+  }
 });
 
 test('exigir não trata PR para outro destino como PR para a branch protegida', () => {
@@ -159,17 +207,20 @@ test('avisar usa anotação e resumo no GitHub e log no GitLab', () => {
   const p = projetoTemporario('rm089-avisos', false);
   try {
     const summary = path.join(p.dir, 'summary.md');
-    const resultado = { policy: { level: 'avisar', receipt: 'ausente', message: 'falta recibo; use ork thread new ou ork adotar' } };
+    const resultado = { policy: { level: 'avisar', receipt: 'ausente',
+      message: 'falta 100% do recibo\nuse ork thread new ou ork adotar' } };
     const log: string[] = [];
     const github = publicarAvisoDaPolitica(resultado,
       { GITHUB_ACTIONS: 'true', GITHUB_STEP_SUMMARY: summary }, (linha) => log.push(linha));
     assert.deepEqual(github, log);
-    assert.match(github[0], /^::warning title=Orkastery::/);
-    assert.match(fs.readFileSync(summary, 'utf8'), /\[!WARNING\].*ork thread new ou ork adotar/s);
+    assert.equal(github[0], '::warning title=Orkastery::falta 100%25 do recibo%0Ause ork thread new ou ork adotar');
+    assert.match(fs.readFileSync(summary, 'utf8'), /\[!WARNING\].*falta 100% do recibo\nuse ork thread new ou ork adotar/s);
     const gitlab = publicarAvisoDaPolitica(resultado, { GITLAB_CI: 'true' }, () => undefined);
     assert.match(gitlab[0], /^WARNING: .*ork adotar/);
     assert.doesNotThrow(() => publicarAvisoDaPolitica(resultado,
       { GITHUB_ACTIONS: 'true', GITHUB_STEP_SUMMARY: path.join(p.dir, 'inexistente', 'summary.md') }, () => undefined));
+    assert.equal(publicarAvisoDaPolitica(resultado, { GITHUB_ACTIONS: 'true' }, () => undefined)[0], github[0],
+      'a anotação continua disponível sem GITHUB_STEP_SUMMARY');
     assert.deepEqual(publicarAvisoDaPolitica({ policy: { ...resultado.policy, level: 'observar' } },
       { GITHUB_ACTIONS: 'true' }), []);
   } finally { p.limpar(); }
