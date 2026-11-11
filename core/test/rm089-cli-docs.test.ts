@@ -35,8 +35,8 @@ test('Não publicado registra a entrega coletiva sem alterar o roadmap', () => {
 
 test('ajuda publica ordem coletiva, cobertura e reconciliação em ambos os idiomas', () => {
   const ajuda = ler('core/src/locale-ajuda.ts');
-  assert.match(ajuda, /reserva primeiro na rede coletiva/);
-  assert.match(ajuda, /Reserves in the collective network first/);
+  assert.match(ajuda, /Reserva para esta maquina; com rede coletiva, reserva nela primeiro/);
+  assert.match(ajuda, /Reserves for this machine; with a collective network, reserves there first/);
   assert.match(ajuda, /roadmap reconciliar <RM-NNN> --operacao ID/g);
   assert.match(ajuda, /--nivel observar\|avisar\|exigir/g);
   assert.match(ajuda, /nunca toma a reserva coletiva/);
