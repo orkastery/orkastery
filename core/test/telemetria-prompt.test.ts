@@ -4,6 +4,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { test, TestContext } from 'node:test';
+import { PROFUNDIDADE_MAXIMA_DAS_REPRESENTACOES_JSON } from '../src/policies';
 import { arquivosDoPromptNoNode, prepararPrompt } from '../src/telemetria-prompt';
 
 function fixture(t: TestContext, conteudo: string | Buffer) {
@@ -45,6 +46,27 @@ test('representação JSON de segredo com escape inválido falha fechada', (t) =
   const r = prepararPrompt({ ...f, promptSha256: f.sha, redigirPrivado: privado });
   assert.deepEqual(r, { estado: 'bloqueio', motivo: 'prompt_redaction_failed' });
   assert.equal(JSON.stringify(r).includes('sk-'), false);
+});
+
+test('remove marcador sintético em cada nível JSON declarado e falha fechada além do limite', (t) => {
+  const tokenEscapado = ['\\u0073', '\\u006b', '\\u002d', ...Array(32).fill('\\u0041')].join('');
+  const aninhar = (niveis: number) => {
+    let representacao = `"${tokenEscapado}"`;
+    for (let nivel = 1; nivel < niveis; nivel += 1) representacao = JSON.stringify(representacao);
+    return representacao;
+  };
+  for (let nivel = 1; nivel <= PROFUNDIDADE_MAXIMA_DAS_REPRESENTACOES_JSON; nivel += 1) {
+    const f = fixture(t, `nivel-${nivel}: ${aninhar(nivel)}`);
+    const r = prepararPrompt({ ...f, promptSha256: f.sha, redigirPrivado: privado });
+    assert.equal(r.estado, 'conteudo', `nível ${nivel}`);
+    if (r.estado !== 'conteudo') continue;
+    assert.match(r.texto, /\[segredo omitido\]/u, `marcador do nível ${nivel}`);
+    assert.equal(r.texto.includes('u0073'), false, `escapes do nível ${nivel}`);
+  }
+
+  const excedente = fixture(t, aninhar(PROFUNDIDADE_MAXIMA_DAS_REPRESENTACOES_JSON + 1));
+  assert.deepEqual(prepararPrompt({ ...excedente, promptSha256: excedente.sha, redigirPrivado: privado }),
+    { estado: 'bloqueio', motivo: 'prompt_redaction_failed' });
 });
 
 test('todas as conferências usam o mesmo descritor e uma troca do nome é recusada', (t) => {

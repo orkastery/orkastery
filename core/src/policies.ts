@@ -139,6 +139,7 @@ export type RedacaoDeRepresentacoes = RedacaoDeSegredo & { ok: true } | {
 };
 
 const LIMITE_PADRAO_DAS_REPRESENTACOES = 4 * 1024 * 1024;
+export const PROFUNDIDADE_MAXIMA_DAS_REPRESENTACOES_JSON = 16;
 
 interface PadraoSeparado { nome: string; regex: RegExp }
 
@@ -221,6 +222,56 @@ function pareceStringJsonDeSegredo(token: string): boolean {
   return /(?:sk-|AKIA|gh[pousr]_).*\\/isu.test(token);
 }
 
+const REGEX_STRING_JSON =
+  /"(?:\\(?:["\\/bfnrt]|u[0-9A-Fa-f]{4})|[^"\\\u0000-\u001f])*"|"[^"\r\n]*\\[^"\r\n]*"/g;
+
+type RedacaoJson = RedacaoDeSegredo & { falhou: boolean };
+
+/**
+ * Analisa strings JSON serializadas dentro de outras strings. Ao encontrar um segredo em qualquer
+ * representação decodificada, remove a string externa inteira. Se o limite termina com outra
+ * string JSON analisável, a decisão deixa de ser segura e a chamada falha fechada.
+ */
+function redigirStringsJson(texto: string, marcador: string, profundidade: number): RedacaoJson {
+  let falhou = false, total = 0;
+  const categorias = new Set<string>();
+  REGEX_STRING_JSON.lastIndex = 0;
+  const redigido = texto.replace(REGEX_STRING_JSON, (token) => {
+    let decodificado: unknown;
+    try { decodificado = JSON.parse(token) as unknown; }
+    catch {
+      if (pareceStringJsonDeSegredo(token)) falhou = true;
+      return token;
+    }
+    if (typeof decodificado !== 'string') return token;
+    const interno = redigirSemJson(decodificado, marcador);
+    if (interno.total > 0) {
+      total += interno.total;
+      acrescentarCategorias(categorias, interno.categorias);
+      return JSON.stringify(marcador);
+    }
+
+    REGEX_STRING_JSON.lastIndex = 0;
+    const temOutraRepresentacao = REGEX_STRING_JSON.test(decodificado);
+    REGEX_STRING_JSON.lastIndex = 0;
+    if (!temOutraRepresentacao) return token;
+    if (profundidade >= PROFUNDIDADE_MAXIMA_DAS_REPRESENTACOES_JSON) {
+      falhou = true;
+      return token;
+    }
+    const aninhado = redigirStringsJson(decodificado, marcador, profundidade + 1);
+    if (aninhado.falhou) {
+      falhou = true;
+      return token;
+    }
+    if (aninhado.total === 0) return token;
+    total += aninhado.total;
+    acrescentarCategorias(categorias, aninhado.categorias);
+    return JSON.stringify(marcador);
+  });
+  return { texto: redigido, categorias: [...categorias], total, falhou };
+}
+
 /**
  * Redige o catalogo no texto bruto, em tokens separados, em strings JSON e em Base64/Base64URL.
  * A funcao nunca devolve o candidato que falhou: uma string JSON com aparencia de segredo mas
@@ -232,26 +283,10 @@ export function redigirRepresentacoesDeSegredo(texto: string, marcador = '[segre
     return { ok: false, texto: '', categorias: [], total: 0, erro: 'limite-excedido' };
   }
   const inicial = redigirSemJson(texto, marcador);
-  let falhou = false, totalJson = 0;
-  const categoriasJson = new Set<string>();
-  const regexStringJson = /"(?:\\(?:["\\/bfnrt]|u[0-9A-Fa-f]{4})|[^"\\\u0000-\u001f])*"|"[^"\r\n]*\\[^"\r\n]*"/g;
-  const comJson = inicial.texto.replace(regexStringJson, (token) => {
-    let decodificado: unknown;
-    try { decodificado = JSON.parse(token) as unknown; }
-    catch {
-      if (pareceStringJsonDeSegredo(token)) falhou = true;
-      return token;
-    }
-    if (typeof decodificado !== 'string') return token;
-    const interno = redigirSemJson(decodificado, marcador);
-    if (interno.total === 0) return token;
-    totalJson += interno.total;
-    acrescentarCategorias(categoriasJson, interno.categorias);
-    return JSON.stringify(marcador);
-  });
-  if (falhou) return { ok: false, texto: '', categorias: [], total: 0, erro: 'representacao-invalida' };
-  return { ok: true, texto: comJson, total: inicial.total + totalJson,
-    categorias: [...new Set([...inicial.categorias, ...categoriasJson])] };
+  const json = redigirStringsJson(inicial.texto, marcador, 1);
+  if (json.falhou) return { ok: false, texto: '', categorias: [], total: 0, erro: 'representacao-invalida' };
+  return { ok: true, texto: json.texto, total: inicial.total + json.total,
+    categorias: [...new Set([...inicial.categorias, ...json.categorias])] };
 }
 
 /**
