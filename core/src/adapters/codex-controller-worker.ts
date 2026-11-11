@@ -11,6 +11,21 @@ import type { DespachoCodexPedido } from './codex';
 import type { ConfirmacaoSessao, EntregaSessao, IdentidadeSessao } from '../hitl-sessions';
 import { comandoCodexAppServer } from '../telemetria-runtime';
 
+/** Fronteira testável da identidade que o app-server devolve em `thread/start`. */
+export function identidadeNativaCodex(resposta: unknown, cwd: string): { sessionId: string; cwd: string; path: string } {
+  const thread = (resposta as { thread?: { id?: unknown; cwd?: unknown; path?: unknown } } | null)?.thread;
+  if (!thread || thread.cwd !== cwd || typeof thread.path !== 'string' || thread.path === '' ||
+      typeof thread.id !== 'string' || !/^[a-f0-9-]{36}$/.test(thread.id)) {
+    throw new Error('runtime.unavailable: despacho sem identidade');
+  }
+  return { sessionId: thread.id, cwd, path: thread.path };
+}
+
+/** O worker e o launcher derivam o argv pelo mesmo contrato, sem duplicar configuração OTEL. */
+export function comandoDoWorker(pedido: DespachoCodexPedido): string[] {
+  return comandoCodexAppServer(pedido.telemetria);
+}
+
 /** RM-064: interrupção nativa testável sem descobrir PID, sessão ou turno fora do controller vinculado. */
 export async function interromperTurnoAtivo(state: EstadoController, sessao: IdentidadeSessao,
   perguntaAtiva: boolean, enviar: (metodo: string, dados: unknown) => Promise<unknown>,
@@ -44,7 +59,7 @@ async function servidor(): Promise<void> {
     sessionId: '', pid: process.pid, estado: 'starting' };
   const salvar = () => gravar('state.json', state);
   salvar();
-  const comando = comandoCodexAppServer(pedido.telemetria);
+  const comando = comandoDoWorker(pedido);
   const child = spawn(comando[0], comando.slice(1),
     { cwd: pedido.cwd, env: process.env, stdio: ['pipe', 'pipe', 'pipe'] });
   state.runtimePid = child.pid;
@@ -204,8 +219,8 @@ async function servidor(): Promise<void> {
       sandbox: pedido.sandbox ?? 'workspace-write', approvalPolicy: 'never',
       config: { ...(pedido.effort ? { model_reasoning_effort: pedido.effort } : {}),
         ...(contexto ? { mcp_servers: { orkastery: contexto.servidor } } : {}) } });
-    if (t.thread.cwd !== pedido.cwd || !t.thread.path || !/^[a-f0-9-]{36}$/.test(t.thread.id)) throw new Error('runtime.unavailable: despacho sem identidade');
-    state.sessionId = t.thread.id; state.rollout = t.thread.path;
+    const identidadeNativa = identidadeNativaCodex(t, pedido.cwd);
+    state.sessionId = identidadeNativa.sessionId; state.rollout = identidadeNativa.path;
     const observado = await rpc('thread/read', { threadId: state.sessionId, includeTurns: false });
     if (observado.thread.id !== state.sessionId || observado.thread.cwd !== state.cwd || observado.thread.path !== state.rollout) throw new Error('runtime.unavailable: despacho não confirmado');
     if (contexto) {

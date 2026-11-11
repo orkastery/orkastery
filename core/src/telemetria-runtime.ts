@@ -20,6 +20,8 @@ export interface TelemetriaCodexDoDespacho {
   ambiente: Record<string, string>;
 }
 
+export const ENV_ENDPOINT_OTLP_CODEX = 'ORK_TELEMETRIA_OTLP_ENDPOINT';
+
 export type TelemetriaDoDespacho = TelemetriaClaudeDoDespacho | TelemetriaCodexDoDespacho;
 
 export interface DependenciasTelemetriaRuntime {
@@ -74,7 +76,7 @@ function tabelaToml(valor: Readonly<Record<string, string>>): string {
 
 /**
  * Preparação pura: ausência/desligamento/configuração insegura não decora o despacho.
- * Valores de cabeçalho nunca entram nos argumentos do Codex.
+ * Endpoint e valores de cabeçalho nunca entram nos argumentos do Codex.
  */
 export function prepararTelemetriaDoRuntime(runtime: string, contexto: Omit<ContextoTelemetriaRuntime, 'pseudonimo'>,
   ativacao: ResolucaoTelemetria, destino: DestinoOtlp | null): TelemetriaDoDespacho | undefined {
@@ -99,8 +101,9 @@ export function prepararTelemetriaDoRuntime(runtime: string, contexto: Omit<Cont
     } };
   }
   const headers = ambienteDosHeaders(destino.headers);
-  const exporter = `{ "otlp-http" = { endpoint = ${JSON.stringify(endpoint)}, protocol = "binary", headers = ${tabelaToml(headers.referencias)} } }`;
-  return { runtime: 'codex', ambiente: headers.ambiente, argumentos: [
+  const referenciaDoEndpoint = `\${${ENV_ENDPOINT_OTLP_CODEX}}`;
+  const exporter = `{ "otlp-http" = { endpoint = ${JSON.stringify(referenciaDoEndpoint)}, protocol = "binary", headers = ${tabelaToml(headers.referencias)} } }`;
+  return { runtime: 'codex', ambiente: { [ENV_ENDPOINT_OTLP_CODEX]: endpoint, ...headers.ambiente }, argumentos: [
     '-c', `otel.exporter=${exporter}`,
     '-c', 'otel.log_user_prompt=false',
     '-c', 'otel.log_agent_responses=false',

@@ -503,9 +503,16 @@ export interface ContextoDeDespacho {
   prazoDaSessaoMs?: number;
 }
 
-/** O comando com o prompt mascarado pelo hash: o ledger nao guarda o texto inteiro. */
+/** O comando com prompt e decoração OTEL mascarados: o ledger não guarda texto nem configuração efêmera. */
 function comandoMascarado(comando: string[], sha: string): string[] {
-  return comando.map((c, i) => (i === 2 ? `<prompt:${sha.slice(0, 8)}>` : c));
+  return comando.map((c, i) => {
+    if (i === 2) return `<prompt:${sha.slice(0, 8)}>`;
+    if (c.startsWith('otel.') || (comando[i - 1] === '--settings' &&
+        (c === '<settings-efemeros-privados>' || c.includes('/ork-telemetria-')))) {
+      return '<telemetria:redigida>';
+    }
+    return c;
+  });
 }
 
 /** Os campos que todo evento de despacho carrega, no caminho normal e na retomada. */
