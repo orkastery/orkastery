@@ -17,7 +17,7 @@
         "node --test core/dist-test/test/rede-empresa-publicacao.test.js"
       ],
       "criadoEm": "2026-11-11T07:52:13.722Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -45,7 +45,7 @@
         "node --test core/dist-test/test/rede-empresa-inscricao.test.js"
       ],
       "criadoEm": "2026-11-11T07:52:13.781Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -73,7 +73,7 @@
         "node --test core/dist-test/test/rede-empresa-seguranca.test.js"
       ],
       "criadoEm": "2026-11-11T07:52:13.829Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -101,7 +101,7 @@
         "node --test core/dist-test/test/rede-empresa-cli.test.js core/dist-test/test/rm089-cli-docs.test.js"
       ],
       "criadoEm": "2026-11-11T07:52:13.876Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -130,7 +130,7 @@
         "npm --prefix core run build:test"
       ],
       "criadoEm": "2026-11-11T08:13:34.479Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -158,7 +158,7 @@
         "npm --prefix core run build"
       ],
       "criadoEm": "2026-11-11T08:13:56.356Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -186,7 +186,7 @@
         "npm --prefix core run build"
       ],
       "criadoEm": "2026-11-11T08:13:56.433Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -214,7 +214,7 @@
         "npm --prefix core run build"
       ],
       "criadoEm": "2026-11-11T08:13:56.489Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -242,7 +242,7 @@
         "npm --prefix core run build"
       ],
       "criadoEm": "2026-11-11T08:13:56.553Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -270,7 +270,7 @@
         "node --test core/dist-test/test/rede-empresa-forja.test.js"
       ],
       "criadoEm": "2026-11-11T08:16:21.529Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -298,7 +298,7 @@
         "node --test core/dist-test/test/rede-empresa-forja.test.js"
       ],
       "criadoEm": "2026-11-11T08:16:21.604Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -326,7 +326,7 @@
         "node --test core/dist-test/test/rede-empresa-forja.test.js"
       ],
       "criadoEm": "2026-11-11T08:16:21.677Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -354,7 +354,7 @@
         "node --test core/dist-test/test/rede-empresa-contrato.test.js"
       ],
       "criadoEm": "2026-11-11T08:19:03.842Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -382,7 +382,7 @@
         "node --test core/dist-test/test/rede-empresa-contrato.test.js"
       ],
       "criadoEm": "2026-11-11T08:19:03.923Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -410,7 +410,7 @@
         "node --test core/dist-test/test/rede-empresa-contrato.test.js"
       ],
       "criadoEm": "2026-11-11T08:19:04.007Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -438,7 +438,7 @@
         "node --test core/dist-test/test/rede-empresa-inscricao.test.js"
       ],
       "criadoEm": "2026-11-11T08:21:29.285Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -464,7 +464,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-publicacao.test.js core/dist-test/test/rede-empresa-seguranca.test.js"
       ],
       "criadoEm": "2026-11-11T08:27:15.188Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -490,7 +490,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-publicacao.test.js core/dist-test/test/rede-empresa-seguranca.test.js"
       ],
       "criadoEm": "2026-11-11T08:27:15.234Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -516,7 +516,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-publicacao.test.js core/dist-test/test/rede-empresa-seguranca.test.js"
       ],
       "criadoEm": "2026-11-11T08:27:15.277Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -542,7 +542,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-publicacao.test.js core/dist-test/test/rede-empresa-seguranca.test.js"
       ],
       "criadoEm": "2026-11-11T08:27:15.315Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -568,7 +568,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/rm089-guia.test.js"
       ],
       "criadoEm": "2026-11-11T08:29:29.655Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -594,7 +594,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/rm089-guia.test.js"
       ],
       "criadoEm": "2026-11-11T08:29:29.702Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -620,7 +620,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/rm089-guia.test.js"
       ],
       "criadoEm": "2026-11-11T08:29:29.748Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -646,7 +646,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-cli.test.js"
       ],
       "criadoEm": "2026-11-11T08:37:52.593Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -672,7 +672,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-cli.test.js"
       ],
       "criadoEm": "2026-11-11T08:37:52.650Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -698,7 +698,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-cli.test.js"
       ],
       "criadoEm": "2026-11-11T08:37:52.693Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -724,7 +724,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-cli.test.js"
       ],
       "criadoEm": "2026-11-11T08:37:52.733Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -750,7 +750,7 @@
         "npm --prefix core run build && node core/dist/index.js network empresa desconhecida --json | node -e \"let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const j=JSON.parse(s);if(j.contrato!=='ork.rede-empresa-cli/v1'||j.erro?.codigo!=='rede-empresa.uso'||!j.erro?.acao)process.exit(1)})\""
       ],
       "criadoEm": "2026-11-11T08:37:52.782Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -776,7 +776,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-cli-docs.test.js && node core/dist/index.js docs verificar --pr"
       ],
       "criadoEm": "2026-11-11T08:42:29.149Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -802,7 +802,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-cli-docs.test.js && node core/dist/index.js docs verificar --pr"
       ],
       "criadoEm": "2026-11-11T08:42:29.352Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -828,7 +828,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-cli-docs.test.js && node core/dist/index.js docs verificar --pr"
       ],
       "criadoEm": "2026-11-11T08:42:29.501Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -854,7 +854,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-cli-docs.test.js && node core/dist/index.js docs verificar --pr"
       ],
       "criadoEm": "2026-11-11T08:42:29.568Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -880,7 +880,143 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-cli-docs.test.js && node core/dist/index.js docs verificar --pr"
       ],
       "criadoEm": "2026-11-11T08:42:29.667Z",
-      "estado": "pendente",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f2a-snapshot.test.ts",
+      "alegacao": "O snapshot F2a ignora somente o bloco novo e exato da família network empresa e continua comparando todo o restante da ajuda pt-BR byte a byte.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/locale-f2a-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-11T09:13:24.981Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/test/forja-doctor-api.test.ts",
+      "alegacao": "O doctor expõe contaAtual, repositorioPrivado e criarRepositorioPrivado como capacidades ligadas nos adaptadores GitHub e GitLab.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/forja-doctor-api.test.js"
+      ],
+      "criadoEm": "2026-11-11T09:13:25.061Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "As referências pt-BR e EN usam as mesmas invocações da família network empresa e mantêm paridade de tabelas, blocos e quantidade de títulos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/locale-f3a-referencia.test.js core/dist-test/test/rm089-cli-docs.test.js"
+      ],
+      "criadoEm": "2026-11-11T09:13:25.115Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/src/forja/github/dono-da-rede.ts",
+      "alegacao": "No GitHub, a rede pessoal continua aceitando somente o próprio login, enquanto a resolução de organização fica disponível apenas para a criação da rede coletiva.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/forja-dono-da-rede.test.js core/dist-test/test/rede-empresa-forja.test.js"
+      ],
+      "criadoEm": "2026-11-11T09:13:25.194Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-rm089f1inscr.json",
+      "alegacao": "O gerador de CI grava na worktree da thread um bundle próprio com as claims ativas e os comandos do manifesto.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/ci.test.js core/dist-test/test/rm037-ci-prepare-worktree.test.js"
+      ],
+      "criadoEm": "2026-11-11T09:40:46.607Z",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
