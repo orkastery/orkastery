@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.8",
-  "publicadoEm": "2026-11-11T06:30:03.020Z",
+  "publicadoEm": "2026-11-11T06:36:16.213Z",
   "threads": [
     {
       "id": "ork-orkasteryobr",
@@ -54,11 +54,11 @@
       "id": "ork-rm090f1logsd",
       "nome": "rm090f1",
       "modo": "#Auto",
-      "fase": "GO",
+      "fase": "CHECK",
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm090f1logsd-full",
-      "atualizadaEm": "2026-11-11T06:12:57.972Z",
+      "atualizadaEm": "2026-11-11T06:36:15.767Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -67,9 +67,9 @@
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
       "sessao": {
-        "viva": false,
-        "desdeEm": "2026-11-11T06:02:00.729Z",
-        "motivo": "sessão 01a1c925 encerrada (completed)"
+        "viva": true,
+        "desdeEm": null,
+        "motivo": null
       }
     }
   ]
