@@ -6,6 +6,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Adicionado
+
+- **Logs OpenTelemetry do ledger — F1 (RM-090):** adesão privada, comandos manuais de status e envio, payload OTLP/HTTP JSON redigido e cursor incremental por thread, com guia em português e inglês.
+
 ### Alterado
 
 - **RM-074 fechada pela bancada:** o resultado medido ficou abaixo da meta, e as lacunas encontradas seguem para a [RM-085](docs/roadmap/RM-085-verify-com-escopo-causal-mensagem-de-assercao-e-check-fast.md).
