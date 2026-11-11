@@ -40,6 +40,17 @@ test('remove o catálogo no texto, JSON, separadores, Base64 e Base64URL antes d
   assert.equal(r.versaoDaRemocao, 'ork.telemetria-redacao/v1');
 });
 
+test('o leitor real devolve somente o texto com segredo e dado privado removidos', (t) => {
+  const segredo = 'sk-' + 'R'.repeat(32);
+  const f = fixture(t, `início ${segredo} CLIENTE_SIMULADO fim`);
+  const r = prepararPrompt({ ...f, promptSha256: f.sha, redigirPrivado: privado });
+  assert.equal(r.estado, 'conteudo');
+  if (r.estado !== 'conteudo') return;
+  assert.equal(r.texto, 'início [segredo omitido] [dado omitido] fim');
+  assert.equal(r.texto.includes(segredo), false);
+  assert.equal(r.texto.includes('CLIENTE_SIMULADO'), false);
+});
+
 test('representação JSON de segredo com escape inválido falha fechada', (t) => {
   const texto = 'prefixo "sk-' + '\\u00G0'.repeat(32) + '" sufixo';
   const f = fixture(t, texto);
@@ -145,6 +156,21 @@ test('classifica metadado, ausência, tipo, teto, UTF-8 e hash sem ecoar entrada
   const serializado = JSON.stringify([...casos, r]);
   assert.equal(serializado.includes(f.arquivo), false);
   assert.equal(serializado.includes(f.sha), false);
+});
+
+test('recusa caminho lexical externo e arquivo válido fornece o texto carimbado', (t) => {
+  const textoCarimbado = 'texto carimbado do prompt';
+  const f = fixture(t, textoCarimbado);
+  const fora = path.join(path.dirname(f.raizPrompts), 'fora.md');
+  fs.writeFileSync(fora, 'conteúdo externo');
+  const externo = prepararPrompt({ ...f, promptPath: path.relative(f.raizProjeto, fora),
+    promptSha256: f.sha, redigirPrivado: privado });
+  assert.deepEqual(externo, { estado: 'lacuna', motivo: 'unsafe_path' });
+
+  const valido = prepararPrompt({ ...f, promptSha256: f.sha, redigirPrivado: privado });
+  assert.equal(valido.estado, 'conteudo');
+  if (valido.estado !== 'conteudo') return;
+  assert.equal(valido.texto, textoCarimbado);
 });
 
 test('erro transitório e recusa de dado privado permanecem antes do evento', (t) => {
