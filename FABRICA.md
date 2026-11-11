@@ -5,8 +5,8 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado | Sessão |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| vps | ork-orkasteryobr | #Fast | GO | codex gpt-5.6-sol/xhigh | RM-090 | — | 10/11 23:34 | parada desde 22:55: sessão 01a1c847 encerrada (completed) |
-| vps | ork-rm089f1polit | #Auto | GOAL | codex gpt-5.6-sol/xhigh | — | — | 10/11 23:34 | viva |
-| vps | ork-rm090f1logsd | #Auto | GOAL | codex gpt-5.6-sol/xhigh | — | — | 10/11 23:34 | viva |
+| vps | ork-orkasteryobr | #Fast | GO | codex gpt-5.6-sol/xhigh | RM-090 | — | 10/11 23:45 | parada desde 22:55: sessão 01a1c847 encerrada (completed) |
+| vps | ork-rm089f1polit | #Auto | GOAL | codex gpt-5.6-sol/xhigh | — | — | 10/11 23:45 | viva |
+| vps | ork-rm090f1logsd | #Auto | GOAL | codex gpt-5.6-sol/xhigh | — | — | 10/11 23:45 | parada desde 23:44: sessão 01a1c874 encerrada (completed) |
 
 Horários de Brasília.
