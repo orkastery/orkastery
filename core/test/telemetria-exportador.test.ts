@@ -7,6 +7,7 @@ import { dirTemporario } from './apoio';
 import { arquivosDoNode, ArquivosTelemetria, exportarLedger, lerLoteIncremental, resolverDestinoOtlp,
   analisarHeadersOtlp, MAXIMO_DA_REQUISICAO, MAXIMO_DA_RESPOSTA, sanitizarEndpoint,
   transporteHttp } from '../src/telemetria-exportador';
+import { redigirRepresentacoesDeSegredo } from '../src/policies';
 import { prepararPrompt } from '../src/telemetria-prompt';
 
 const dirs = new Set<string>();
@@ -181,6 +182,20 @@ test('dry-run ignora cursor, começa no zero ou no offset informado e não usa t
     { lerJson: 0, escrever: 0, lock: 0 });
 });
 
+test('dry-run e envio produzem o mesmo payload inteiro com relógio e entradas iguais', async () => {
+  const f = fixture([linha('thread_created', 'e1'), linha('phase_dispatch', 'e2', { runtime: 'codex' })]);
+  const previa = await exportarLedger({ arquivoLedger: f.ledger, arquivoCursor: f.cursor, arquivoLock: f.lock,
+    thread: 'ork-teste', contexto: ctx, arquivos: f.arquivos, dryRun: true });
+  let corpo = '';
+  const envio = await exportarLedger({ arquivoLedger: f.ledger, arquivoCursor: f.cursor, arquivoLock: f.lock,
+    thread: 'ork-teste', contexto: ctx, arquivos: f.arquivos, env, transporte: async (pedido) => {
+      corpo = pedido.body; return { status: 200, body: '' };
+    } });
+  assert.equal(previa.estado, 'dry-run');
+  assert.equal(envio.estado, 'enviado');
+  assert.deepEqual(previa.payload, JSON.parse(corpo));
+});
+
 test('lacuna confirmada avança e permite exportar o evento válido seguinte', async () => {
   const f = fixture([
     linha('phase_prompt_recorded', 'lacuna', { promptPath: 'ausente.md', promptSha256: '0'.repeat(64) }),
@@ -262,6 +277,52 @@ test('registro vizinho fecha o lote e o prompt que cabe sozinho segue inteiro', 
     .value.stringValue;
   assert.equal(texto, prompt);
   assert.equal(atributos['orkastery.prompt.truncated'], undefined);
+});
+
+test('remove segredo sintético que atravessaria a fronteira candidata antes do corte', () => {
+  const f = fixture([linha('phase_prompt_recorded', 'prompt', {
+    promptPath: 'prompts/go.md', promptSha256: '0'.repeat(64),
+  })]);
+  const id = f.arquivos.identidade(f.ledger);
+  const cursor = { contrato: 'ork.telemetria-cursor/v1' as const, ledger: { dev: id.dev, ino: id.ino },
+    proximoOffset: 0, proximaSequencia: 1, ultimoUidConfirmado: null, terminal: null };
+  const conteudo = (registro: { attributes: Array<{ key: string; value: unknown }> }): string => {
+    const atributos = Object.fromEntries(registro.attributes.map((item) => [item.key, item.value]));
+    const mensagens = (atributos['gen_ai.input.messages'] as { arrayValue: { values: Array<{
+      kvlistValue: { values: Array<{ key: string; value: unknown }> }
+    }> } }).arrayValue.values;
+    const partes = mensagens[0].kvlistValue.values.find((item) => item.key === 'parts')!.value as {
+      arrayValue: { values: Array<{ kvlistValue: { values: Array<{
+        key: string; value: { stringValue: string }
+      }> } }> }
+    };
+    return partes.arrayValue.values[0].kvlistValue.values.find((item) => item.key === 'content')!
+      .value.stringValue;
+  };
+  const ler = (texto: string) => lerLoteIncremental({
+    arquivo: f.ledger, thread: 'ork-teste', cursor, arquivos: f.arquivos, maxBytes: 4096,
+    contexto: { ...ctx, prepararPrompt: () => {
+      const removido = redigirRepresentacoesDeSegredo(texto);
+      if (!removido.ok) return { estado: 'bloqueio' as const, motivo: 'prompt_redaction_failed' as const };
+      return { estado: 'conteudo' as const, texto: removido.texto,
+        tamanhoOriginal: Buffer.byteLength(texto), tamanhoExportado: Buffer.byteLength(removido.texto),
+        versaoDaRemocao: 'ork.telemetria-redacao/v1' as const };
+    } },
+  });
+
+  const tamanhoDaFronteira = conteudo(ler('a'.repeat(8000)).registros[0]).length;
+  const marcador = 'sk-' + 'Q'.repeat(32);
+  const inicioDoMarcador = tamanhoDaFronteira - 7;
+  const original = 'a'.repeat(inicioDoMarcador) + marcador +
+    'b'.repeat(8000 - inicioDoMarcador - marcador.length);
+  const lote = ler(original);
+  const exportado = conteudo(lote.registros[0]);
+  assert.ok(inicioDoMarcador < tamanhoDaFronteira &&
+    tamanhoDaFronteira < inicioDoMarcador + marcador.length,
+  'o marcador sintético atravessa a fronteira candidata medida sem remoção');
+  assert.equal(exportado.includes('[segredo omitido]'), true, 'a remoção antecede o corte');
+  assert.equal(exportado.includes(marcador), false);
+  assert.equal(JSON.stringify(lote).includes(marcador), false);
 });
 
 test('corta depois da remoção em ponto de código, limita o pedido e não relê nem reprocessa o prompt', async () => {

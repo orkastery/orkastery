@@ -81,6 +81,35 @@ test('locale F3a referencia: as duas trazem a linha de troca de lingua, e o indi
   assert.ok(ler('README.pt-BR.md').includes('](docs/referencia/cli.md)'), 'o espelho em portugues segue na de pt-BR');
 });
 
+test('locale F3a referencia: telemetria carimba origem, ordem de remoção, opt-in, sensibilidade e Development', () => {
+  const casos = [
+    {
+      idioma: 'pt-BR', texto: ler(PT), titulo: '### Conteúdo de prompts na telemetria',
+      origem: 'arquivo exato e do SHA-256 registrados por `phase_prompt_recorded`',
+      segredo: 'remove o catálogo de segredos', privado: 'depois aplica `dado_privado`',
+      optIn: 'o conteúdo é opt-in', sensivel: 'pode ser sensível', development: 'estado **Development**',
+    },
+    {
+      idioma: 'en', texto: ler(EN), titulo: '### Prompt content in telemetry',
+      origem: 'exact file and SHA-256 recorded by `phase_prompt_recorded`',
+      segredo: 'removes the secret catalog', privado: 'it then applies `dado_privado`',
+      optIn: 'content is opt-in', sensivel: 'can be sensitive', development: 'in **Development** status',
+    },
+  ];
+  for (const caso of casos) {
+    const inicio = caso.texto.indexOf(caso.titulo);
+    const fim = caso.texto.indexOf('\n---', inicio);
+    const secao = caso.texto.slice(inicio, fim);
+    assert.notEqual(inicio, -1, caso.idioma);
+    assert.ok(secao.includes(caso.origem), `${caso.idioma}: origem carimbada`);
+    assert.ok(secao.indexOf(caso.segredo) < secao.indexOf(caso.privado),
+      `${caso.idioma}: segredo antecede dado privado`);
+    assert.ok(secao.includes(caso.optIn), `${caso.idioma}: opt-in`);
+    assert.ok(secao.includes(caso.sensivel), `${caso.idioma}: sensibilidade`);
+    assert.ok(secao.includes(caso.development), `${caso.idioma}: estado Development`);
+  }
+});
+
 test('locale F3a referencia: os links relativos da versao em ingles existem, e o texto esta em ingles e sem travessao', () => {
   const en = ler(EN);
   for (const m of en.matchAll(/\]\(([^)#\s]+)(?:#[^)]*)?\)/g)) {
