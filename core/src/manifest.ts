@@ -6,7 +6,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { lerYaml, ValorYaml } from './yaml';
-import { ConfigDeEmbedding, ConfigDoAgile, Manifesto, MarcacaoDeRelogio, Modo, SelecaoNativa } from './types';
+import { ConfigDeEmbedding, ConfigDoAgile, Manifesto, MarcacaoDeRelogio, Modo, PoliticaDeReciboCi, SelecaoNativa } from './types';
 import { modoAposentado, ORDEM_DOS_MODOS, parseModo, substitutosVivos } from './modos';
 import { ORDEM_DOS_RUNTIMES, RUNTIME_PADRAO, runtimeConhecido, runtimeDoManifesto } from './runtimes';
 import { SANDBOX_PADRAO, SANDBOXES_DO_CODEX } from './adapters/codex';
@@ -839,6 +839,13 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
   const forja = lerBlocoForja(dados.forja, erros, avisos);
   const produtores = lerProdutores(ci.produtor, erros);
   const contextos = lerContextos(ci.contexts, erros);
+  let politicaDeRecibo: PoliticaDeReciboCi | undefined;
+  if (ci.politica_recibo !== undefined && ci.politica_recibo !== null) {
+    const valor = typeof ci.politica_recibo === 'string' ? ci.politica_recibo.trim() : '';
+    if (valor === 'observar' || valor === 'avisar' || valor === 'exigir') politicaDeRecibo = valor;
+    else erros.push(`ci.politica_recibo invalida: ${JSON.stringify(ci.politica_recibo)} ` +
+      '(esperado observar, avisar ou exigir)');
+  }
 
   const abbrev = texto(project.abbrev, '');
   const checkAbbrev = validarAbbrev(abbrev);
@@ -1035,6 +1042,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
     ci: {
       required_for_ship: booleano(ci.required_for_ship, false),
       context: texto(ci.context, 'ork-verify'),
+      ...(politicaDeRecibo ? { politica_recibo: politicaDeRecibo } : {}),
       ...(contextos ? { contexts: contextos } : {}),
       command: ci.command === null || ci.command === undefined ? undefined : texto(ci.command, ''),
       external_repositories: repositoriosExternos(ci.external_repositories, erros),

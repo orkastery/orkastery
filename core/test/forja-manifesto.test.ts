@@ -24,6 +24,17 @@ test('sem o bloco forja e sem ci.produtor, o manifesto lê como antes', () => {
   assert.deepEqual(c.erros, []);
   assert.equal('forja' in c.manifesto, false);
   assert.equal('produtor' in c.manifesto.ci, false);
+  assert.equal('politica_recibo' in c.manifesto.ci, false);
+});
+
+test('ci.politica_recibo aceita os três níveis e recusa valor desconhecido com a chave no erro', () => {
+  for (const nivel of ['observar', 'avisar', 'exigir'] as const) {
+    const c = ler(`politica-recibo-${nivel}`, { ci: `  politica_recibo: ${nivel}` });
+    assert.deepEqual(c.erros, []);
+    assert.equal(c.manifesto.ci.politica_recibo, nivel);
+  }
+  const invalida = ler('politica-recibo-invalida', { ci: '  politica_recibo: tolerar' });
+  assert.ok(invalida.erros.some((e) => /^ci\.politica_recibo invalida: "tolerar"/.test(e)), invalida.erros.join(' | '));
 });
 
 test('o bloco forja inteiro é lido, com o host em minúsculas e o caminho base sem a barra final', () => {
