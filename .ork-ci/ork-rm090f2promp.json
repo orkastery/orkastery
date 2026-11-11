@@ -5,114 +5,6 @@
   "base": "main",
   "claims": [
     {
-      "id": "C1",
-      "thread": "ork-rm090f2promp",
-      "fase": "GOAL",
-      "arquivo": "core/test/telemetria-prompt.test.ts",
-      "alegacao": "A telemetria do prompt usa o arquivo carimbado após conferir contenção, tipo, limite e SHA-256; ausência ou divergência recusa o evento sem incluir conteúdo.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node --test core/dist-test/test/telemetria-prompt.test.js core/dist-test/test/telemetria-exportador.test.js"
-      ],
-      "criadoEm": "2026-11-11T10:22:07.498Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C2",
-      "thread": "ork-rm090f2promp",
-      "fase": "GOAL",
-      "arquivo": "core/test/telemetria-prompt.test.ts",
-      "alegacao": "Os detectores de segredo antecedem dado_privado no texto inteiro; marcadores sintéticos junto à fronteira de corte não aparecem no payload, e falha da remoção não transporta conteúdo.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node --test core/dist-test/test/telemetria-prompt.test.js core/dist-test/test/telemetria.test.js core/dist-test/test/telemetria-exportador.test.js"
-      ],
-      "criadoEm": "2026-11-11T10:22:07.585Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C3",
-      "thread": "ork-rm090f2promp",
-      "fase": "GOAL",
-      "arquivo": "core/test/telemetria.test.ts",
-      "alegacao": "O texto restante que cabe chega no LogRecord estruturado de entrada GenAI com versão da política e sem campo duplicado; conteúdo maior é cortado depois da remoção dentro do limite da F1.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node --test core/dist-test/test/telemetria.test.js core/dist-test/test/telemetria-exportador.test.js"
-      ],
-      "criadoEm": "2026-11-11T10:22:07.692Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C4",
-      "thread": "ork-rm090f2promp",
-      "fase": "GOAL",
-      "arquivo": "core/test/telemetria-cli.test.ts",
-      "alegacao": "O dry-run apresenta o conteúdo preparado pelo mesmo caminho do envio e não usa transporte, cabeçalhos, lock ou cursor.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node --test core/dist-test/test/telemetria-cli.test.js core/dist-test/test/telemetria-exportador.test.js"
-      ],
-      "criadoEm": "2026-11-11T10:22:07.791Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C5",
       "thread": "ork-rm090f2promp",
       "fase": "GO",
@@ -140,60 +32,6 @@
       ]
     },
     {
-      "id": "C6",
-      "thread": "ork-rm090f2promp",
-      "fase": "GO",
-      "arquivo": "core/src/policies.ts",
-      "alegacao": "O catálogo de segredos remove token literal ou separado, JSON escapado, Base64 e Base64URL, e falha fechado diante de representação suportada inválida.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node --test core/dist-test/test/telemetria-prompt.test.js"
-      ],
-      "criadoEm": "2026-11-11T10:44:23.618Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C7",
-      "thread": "ork-rm090f2promp",
-      "fase": "GO",
-      "arquivo": "core/src/telemetria-prompt.ts",
-      "alegacao": "O prompt é lido, limitado e validado pelo mesmo descritor; só o texto com segredo e dado privado removidos é devolvido, e falhas retornam motivos seguros sem path, hash ou conteúdo.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node --test core/dist-test/test/telemetria-prompt.test.js"
-      ],
-      "criadoEm": "2026-11-11T10:44:23.673Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C8",
       "thread": "ork-rm090f2promp",
       "fase": "GO",
@@ -205,60 +43,6 @@
         "node --test core/dist-test/test/telemetria.test.js core/dist-test/test/telemetria-exportador.test.js"
       ],
       "criadoEm": "2026-11-11T10:49:31.796Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C9",
-      "thread": "ork-rm090f2promp",
-      "fase": "GO",
-      "arquivo": "core/src/telemetria-exportador.ts",
-      "alegacao": "O exportador confirma lacunas antes de avançar, preserva bloqueios retentáveis, limita o pedido real e corta somente conteúdo já removido em fronteira Unicode sem impedir o evento seguinte.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node --test core/dist-test/test/telemetria.test.js core/dist-test/test/telemetria-exportador.test.js core/dist-test/test/telemetria-prompt.test.js"
-      ],
-      "criadoEm": "2026-11-11T10:49:31.842Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C10",
-      "thread": "ork-rm090f2promp",
-      "fase": "GO",
-      "arquivo": "core/src/telemetria-cli.ts",
-      "alegacao": "Envio e dry-run usam o mesmo preparador do arquivo carimbado; o dry-run expõe payload seguro sem transporte, cabeçalhos, lock ou cursor.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node --test core/dist-test/test/telemetria-cli.test.js core/dist-test/test/telemetria-exportador.test.js"
-      ],
-      "criadoEm": "2026-11-11T10:52:16.879Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
@@ -330,18 +114,17 @@
       ]
     },
     {
-      "id": "C13",
+      "id": "C15",
       "thread": "ork-rm090f2promp",
       "fase": "GO",
-      "arquivo": "docs/referencia/cli.md",
-      "alegacao": "O guia pt-BR documenta origem carimbada, remoção local, lacuna, corte, prévia, opt-in, sensibilidade e estado Development da GenAI 1.37.0.",
+      "arquivo": "core/src/policies.ts",
+      "alegacao": "A remoção de segredos cobre texto literal ou separado, Base64, Base64URL e strings JSON serializadas em cada um dos 16 níveis declarados; representação inválida ou aninhamento além do limite falha fechado sem devolver conteúdo.",
       "negativa": false,
       "verificar": [
         "npm --prefix core run build:test",
-        "node --test core/dist-test/test/locale-f3a-referencia.test.js core/dist-test/test/docs.test.js",
-        "node core/scripts/checar-changelog.cjs"
+        "node --test core/dist-test/test/telemetria-prompt.test.js"
       ],
-      "criadoEm": "2026-11-11T10:53:49.648Z",
+      "criadoEm": "2026-11-11T12:48:20.056Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
@@ -358,19 +141,208 @@
       ]
     },
     {
-      "id": "C14",
+      "id": "C16",
       "thread": "ork-rm090f2promp",
       "fase": "GO",
-      "arquivo": "docs/referencia/cli.en.md",
-      "alegacao": "O guia em inglês documenta origem carimbada, remoção local, lacuna, corte, prévia, opt-in, sensibilidade e estado Development da GenAI 1.37.0.",
+      "arquivo": "core/src/telemetria-prompt.ts",
+      "alegacao": "O leitor real classifica como file_missing um arquivo ausente dentro da raiz e recusa como unsafe_path symlink no arquivo, em diretório intermediário, na raiz prompts ou na raiz da thread; tipo, teto, bytes e SHA-256 são conferidos no mesmo descritor e nenhuma falha devolve conteúdo, path ou hash.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-prompt.test.js"
+      ],
+      "criadoEm": "2026-11-11T12:49:48.239Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm090f2promp",
+      "fase": "GO",
+      "arquivo": "core/src/telemetria-exportador.ts",
+      "alegacao": "O exportador envia inteiro no lote seguinte todo LogRecord de prompt que cabe sozinho, mesmo quando um vizinho ocupa o lote atual; somente prompt que excede o limite isolado é cortado depois da remoção, em fronteira Unicode, sem exceder o pedido nem impedir o evento seguinte.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria.test.js core/dist-test/test/telemetria-exportador.test.js"
+      ],
+      "criadoEm": "2026-11-11T12:51:40.470Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm090f2promp",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-exportador.test.ts",
+      "alegacao": "Os detectores de segredo antecedem dado_privado e o corte: um marcador sintético que atravessa a fronteira candidata é removido antes do truncamento, nenhuma forma suportada aparece no payload e falha da remoção não chama transporte nem avança cursor.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-prompt.test.js core/dist-test/test/telemetria-exportador.test.js"
+      ],
+      "criadoEm": "2026-11-11T12:55:16.398Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm090f2promp",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-exportador.test.ts",
+      "alegacao": "Com o mesmo relógio e as mesmas entradas, dry-run e envio produzem payloads inteiros idênticos; o dry-run não resolve cabeçalhos, cria transporte, adquire lock, lê ou grava cursor.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-cli.test.js core/dist-test/test/telemetria-exportador.test.js"
+      ],
+      "criadoEm": "2026-11-11T12:55:16.472Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm090f2promp",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3a-referencia.test.ts",
+      "alegacao": "Os guias pt-BR e inglês afirmam semanticamente a origem no arquivo e SHA-256 carimbados, a remoção de segredos antes de dado_privado, o opt-in, a sensibilidade do conteúdo e o estado Development da GenAI 1.37.0.",
       "negativa": false,
       "verificar": [
         "npm --prefix core run build:test",
         "node --test core/dist-test/test/locale-f3a-referencia.test.js core/dist-test/test/docs.test.js",
         "node core/scripts/checar-changelog.cjs"
       ],
-      "criadoEm": "2026-11-11T10:53:49.694Z",
+      "criadoEm": "2026-11-11T12:55:16.536Z",
       "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm090f2promp",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3a-referencia.test.ts",
+      "alegacao": "Os guias pt-BR e inglês documentam em paridade a origem carimbada e o SHA-256 no mesmo descritor; a ordem segredo, dado_privado e versão; JSON aninhado e limites; lacuna tipada com fila e perda observável; corte Unicode somente do prompt que não cabe sozinho; dry-run idêntico; opt-in, sensibilidade para a empresa e estado Development da GenAI 1.37.0, sem as frases antigas que negavam o conteúdo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/locale-f3a-referencia.test.js core/dist-test/test/docs.test.js"
+      ],
+      "criadoEm": "2026-11-11T13:23:58.706Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm090f2promp",
+      "fase": "GO",
+      "arquivo": "docs/guias/telemetria-opentelemetry.pt-BR.md",
+      "alegacao": "Cobertura auxiliar de path: o guia pt-BR participa do contrato bilíngue de prompts provado por C21.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/locale-f3a-referencia.test.js core/dist-test/test/docs.test.js"
+      ],
+      "criadoEm": "2026-11-11T13:26:33.321Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm090f2promp",
+      "fase": "GO",
+      "arquivo": "docs/guias/telemetria-opentelemetry.md",
+      "alegacao": "Cobertura auxiliar de path: o guia inglês participa do contrato bilíngue de prompts provado por C21.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/locale-f3a-referencia.test.js core/dist-test/test/docs.test.js"
+      ],
+      "criadoEm": "2026-11-11T13:26:39.286Z",
+      "estado": "pendente",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
