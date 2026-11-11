@@ -188,6 +188,7 @@ import {
 } from './retry';
 import { registrarProvaAusente } from './prova-minima';
 import { VERSAO_DO_ORK } from './versao';
+import { comandoTelemetria } from './telemetria-cli';
 import { comandoNoctum } from './noctum-cli';
 import { RecusaDoArco } from './noctum-envelope';
 import { aceitarModoNoctum, ehModoNoctum, recusaDoModoNaThread, tagNoctumNoPedido } from './noctum-modo';
@@ -4759,6 +4760,20 @@ function executarComando(argvBruto: string[]): number {
     }
     case 'ship':
       return comandoShip(args);
+    case 'telemetria': {
+      const permitidas = new Set(['json', 'dry-run']);
+      if (args.posicionais.length > 2 || Object.keys(args.opcoes).some((nome) => !permitidas.has(nome)) ||
+          (args.opcoes.json !== undefined && args.opcoes.json !== true) ||
+          (args.opcoes['dry-run'] !== undefined && args.opcoes['dry-run'] !== true)) {
+        throw new Error(msg().telemetria.uso);
+      }
+      const carregado = exigirManifesto();
+      void comandoTelemetria({ raiz: carregado.raiz, subcomando: args.posicionais[1],
+        json: args.opcoes.json === true, dryRun: args.opcoes['dry-run'] === true })
+        .then((resultado) => { if (resultado.codigo !== 0) process.exitCode = resultado.codigo; })
+        .catch((e) => { console.error(msg().cli.erro(mensagemDoErro(e))); process.exitCode = 1; });
+      return 0;
+    }
     case 'activation':
       try { return comLocale('pt-BR', () => comandoAtivacao(exigirManifesto(), args)); }
       catch (e) {
