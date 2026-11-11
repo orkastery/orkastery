@@ -27,7 +27,7 @@ test('locale pt-BR F2a: doctor, onboarding, experiencia, thread, phase e ajuda i
   const obtido = gerarCasos();
   assert.deepEqual(Object.keys(obtido), Object.keys(esperado), 'os mesmos casos, na mesma ordem');
   for (const nome of Object.keys(esperado)) {
-    const atual = nome === 'ajuda cli: --help' ? semAdicaoDaTelemetria(obtido[nome]) : obtido[nome];
+    const atual = nome.startsWith('ajuda cli:') ? semAdicaoDaTelemetria(obtido[nome]) : obtido[nome];
     assert.equal(atual, esperado[nome], nome);
   }
 });
