@@ -1,0 +1,591 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm089f1polit",
+  "branch": "ork/ork-rm089f1polit-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm089f1polit",
+      "fase": "GOAL",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "O manifesto aceita a política opt-in de recibo somente nos níveis suportados e preserva o comportamento anterior quando a chave está ausente.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm089-f1-politica-ci.test.js"
+      ],
+      "criadoEm": "2026-11-11T02:05:33.173Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm089f1polit",
+      "fase": "GOAL",
+      "arquivo": "core/src/ci.ts",
+      "alegacao": "O CI classifica o recibo por estado, preserva bundles antigos e só bloqueia PR para a branch protegida quando a política exige um recibo válido ligado ao HEAD.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm089-f1-politica-ci.test.js"
+      ],
+      "criadoEm": "2026-11-11T02:05:33.254Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm089f1polit",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A seção Não publicado registra a política de recibo empresarial no CI.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'política de recibo' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-11-11T02:05:33.469Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm089f1polit",
+      "fase": "GOAL",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "O tipo do manifesto representa apenas os níveis suportados da política de recibo.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/forja-manifesto.test.js core/dist-test/test/rm089-f1-politica-ci.test.js"
+      ],
+      "criadoEm": "2026-11-11T02:11:51.323Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm089f1polit",
+      "fase": "GOAL",
+      "arquivo": "core/test/forja-manifesto.test.ts",
+      "alegacao": "A validação do manifesto cobre ausência, níveis aceitos e valor desconhecido da política de recibo.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/forja-manifesto.test.js"
+      ],
+      "criadoEm": "2026-11-11T02:11:51.399Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm089f1polit",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm089-f1-politica-ci.test.ts",
+      "alegacao": "A prova focada da RM-089 cobre o contrato opt-in da política de recibo.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm089-f1-politica-ci.test.js"
+      ],
+      "criadoEm": "2026-11-11T02:11:51.446Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm089f1polit",
+      "fase": "GOAL",
+      "arquivo": ".github/workflows/ci.yml",
+      "alegacao": "O job ork-verify do GitHub entrega a branch de origem e preserva as variáveis nativas usadas para identificar o destino do pull request.",
+      "negativa": false,
+      "verificar": [
+        "grep -E 'GITHUB_HEAD_REF|GITHUB_BASE_REF|ork-verify' .github/workflows/ci.yml"
+      ],
+      "criadoEm": "2026-11-11T02:23:50.236Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm089f1polit",
+      "fase": "GOAL",
+      "arquivo": "templates/ork-verify/template.yml",
+      "alegacao": "O componente GitLab executa ork ci run com a origem do merge request e documenta a leitura do destino nativo sem token adicional.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/forja-template-gitlab.test.js"
+      ],
+      "criadoEm": "2026-11-11T02:23:50.449Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm089f1polit",
+      "fase": "GOAL",
+      "arquivo": "core/test/forja-ambiente-de-ci.test.ts",
+      "alegacao": "Os testes simulam as variáveis de origem e destino de GitHub e GitLab e preservam a ausência de destino em push.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/forja-ambiente-de-ci.test.js"
+      ],
+      "criadoEm": "2026-11-11T02:23:50.522Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm089f1polit",
+      "fase": "GOAL",
+      "arquivo": "core/test/forja-template-gitlab.test.ts",
+      "alegacao": "Os testes conferem o template GitLab e a interpretação das branches nativas de origem e destino.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/forja-template-gitlab.test.js"
+      ],
+      "criadoEm": "2026-11-11T02:23:50.589Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm089f1polit",
+      "fase": "GOAL",
+      "arquivo": "core/src/noctum-entrega.ts",
+      "alegacao": "A atualização Noctum verifica o HEAD atualizado antes de gerar um commit que muda somente o bundle com o recibo dessa prova.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/noctum-entrega.test.js"
+      ],
+      "criadoEm": "2026-11-11T03:27:50.824Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm089f1polit",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-entrega.test.ts",
+      "alegacao": "QE3 prova que o recibo aponta para um ancestral verificado e que somente o bundle da thread muda depois dele.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/noctum-entrega.test.js"
+      ],
+      "criadoEm": "2026-11-11T03:27:50.868Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm089f1polit",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/ensaio-noctum.cjs",
+      "alegacao": "O cenário da base que anda prova que o verify antecede o commit exclusivo do bundle e que o recibo aponta para o HEAD provado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/scripts/ensaio-noctum.cjs --cenario base-que-anda --json"
+      ],
+      "criadoEm": "2026-11-11T03:51:46.099Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm089f1polit",
+      "fase": "GOAL",
+      "arquivo": "core/test/noctum-ensaio-piloto.test.ts",
+      "alegacao": "A prova do piloto Noctum exige a ordem verify, recibo do pai e commit exclusivo do bundle no cenário de atualização da base.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/noctum-ensaio-piloto.test.js"
+      ],
+      "criadoEm": "2026-11-11T03:51:46.170Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm089f1polit",
+      "fase": "GO",
+      "arquivo": "core/src/forja/ambiente-de-ci.ts",
+      "alegacao": "As suítes executam a leitura das branches nativas de origem e destino no GitHub e no GitLab e provam os canais de aviso: anotação GitHub escapada, resumo opcional e log GitLab.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/forja-ambiente-de-ci.test.js core/dist-test/test/rm089-f1-politica-ci.test.js"
+      ],
+      "criadoEm": "2026-11-11T05:15:51.363Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm089f1polit",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referência CLI pt-BR documenta ci.politica_recibo, os três níveis, os estados ausente, inválido e divergente, a compatibilidade sem a chave e encaminha ao guia administrativo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f1-politica-ci.test.js && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-11T05:15:51.418Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm089f1polit",
+      "fase": "GO",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "A suíte executa ci.recibo.ausente, ci.recibo.invalido e ci.recibo.sha-divergente e confere código, mensagem localizada e ação corretiva em pt-BR e EN.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f1-politica-ci.test.js"
+      ],
+      "criadoEm": "2026-11-11T05:15:51.471Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm089f1polit",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "A suíte invoca a CLI real sem ci.politica_recibo para branch ork/*, outra branch e a protegida e confere o JSON, o texto integral de stdout e o código de saída históricos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f1-politica-ci.test.js"
+      ],
+      "criadoEm": "2026-11-11T05:15:51.518Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm089f1polit",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "A referência CLI inglesa documenta ci.politica_recibo, os três níveis, os estados missing, invalid e divergent, a compatibilidade sem a chave e encaminha ao guia administrativo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f1-politica-ci.test.js && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-11T05:15:51.558Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm089f1polit",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/forja.md",
+      "alegacao": "A referência da forja declara que bundle e sha256 do PR podem ser forjados, que o runner não confere o ledger, o que o nível básico reexecuta e que a garantia contra forja pertence ao recibo assinado da F7.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f1-politica-ci.test.js && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-11T05:15:51.606Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm089f1polit",
+      "fase": "GO",
+      "arquivo": "docs/guias/politica-de-recibo-da-empresa.pt-BR.md",
+      "alegacao": "O guia pt-BR declara a origem forjável do bundle e sha256, a ausência de conferência do ledger, os limites do nível básico e a garantia futura do recibo assinado da F7.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f1-politica-ci.test.js && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-11T05:15:51.651Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm089f1polit",
+      "fase": "GO",
+      "arquivo": "docs/guias/politica-de-recibo-da-empresa.md",
+      "alegacao": "O guia inglês declara a origem forjável do bundle e sha256, a ausência de conferência do ledger, os limites do nível básico e a garantia futura do recibo assinado da F7.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f1-politica-ci.test.js && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-11T05:15:51.704Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
