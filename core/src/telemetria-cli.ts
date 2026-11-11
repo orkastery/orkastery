@@ -97,6 +97,7 @@ export interface EntradaTelemetriaCli {
   subcomando?: string;
   json?: boolean;
   dryRun?: boolean;
+  offset?: number;
   env?: NodeJS.ProcessEnv;
   escrever?: (texto: string) => void;
   dependencias?: Partial<DependenciasTelemetriaCli>;
@@ -121,7 +122,9 @@ function habilitada(ativacao: ResolucaoTelemetria): boolean {
 export async function comandoTelemetria(entrada: EntradaTelemetriaCli): Promise<ResultadoTelemetriaCli> {
   const sub = entrada.subcomando as SubcomandoTelemetria | undefined;
   if (!sub || !['status', 'ligar', 'desligar', 'enviar'].includes(sub) ||
-      (entrada.dryRun === true && sub !== 'enviar')) throw new Error(msg().telemetria.uso);
+      (entrada.dryRun === true && sub !== 'enviar') ||
+      (entrada.offset !== undefined && (sub !== 'enviar' || entrada.dryRun !== true ||
+        !Number.isSafeInteger(entrada.offset) || entrada.offset < 0))) throw new Error(msg().telemetria.uso);
   const env = entrada.env ?? process.env;
   const d = { ...DEPENDENCIAS_PADRAO, ...entrada.dependencias } as DependenciasTelemetriaCli;
 
@@ -160,7 +163,8 @@ export async function comandoTelemetria(entrada: EntradaTelemetriaCli): Promise<
   const resultados: Array<{ thread: string; result: ResultadoDaExportacao }> = [];
   for (const fonte of fontes) {
     const result = await d.exportar({ arquivoLedger: fonte.ledger, arquivoCursor: fonte.cursor,
-      arquivoLock: fonte.lock, thread: fonte.thread, contexto, env, dryRun: entrada.dryRun === true });
+      arquivoLock: fonte.lock, thread: fonte.thread, contexto, env, dryRun: entrada.dryRun === true,
+      ...(entrada.offset !== undefined ? { dryRunOffset: entrada.offset } : {}) });
     resultados.push({ thread: fonte.thread, result });
   }
   const serializados = resultados.map(({ thread, result }) => ({ thread, state: result.estado,

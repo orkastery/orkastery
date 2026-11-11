@@ -1,6 +1,6 @@
 /** Texto humano da telemetria. O JSON do comando permanece independente de locale. */
 export const TELEMETRIA_PT_BR = {
-  uso: 'uso: ork telemetria status|ligar|desligar|enviar [--dry-run] [--json]',
+  uso: 'uso: ork telemetria status|ligar|desligar|enviar [--dry-run [--offset <byte>]] [--json]',
   status: (ligada: boolean, origem: string, motivo: string) =>
     `Telemetria: ${ligada ? 'ligada' : 'desligada'} (${origem}: ${motivo}).`,
   destino: (valor: string | null) => `Destino: ${valor ?? 'não configurado'}.`,
@@ -13,7 +13,7 @@ export const TELEMETRIA_PT_BR = {
 };
 
 export const TELEMETRIA_EN: typeof TELEMETRIA_PT_BR = {
-  uso: 'usage: ork telemetria status|ligar|desligar|enviar [--dry-run] [--json]',
+  uso: 'usage: ork telemetria status|ligar|desligar|enviar [--dry-run [--offset <byte>]] [--json]',
   status: (enabled, source, reason) => `Telemetry: ${enabled ? 'enabled' : 'disabled'} (${source}: ${reason}).`,
   destino: (value) => `Destination: ${value ?? 'not configured'}.`,
   pendencias: (threads, bytes) => `Pending: ${threads} thread(s), ${bytes} byte(s).`,

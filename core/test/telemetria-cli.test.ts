@@ -1,5 +1,8 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import { main } from '../src/index';
+import { ativarLocale, chaveDoLocale, cobreLocale, msg } from '../src/locale';
+import { AJUDA_EN, AJUDA_PT_BR, DadosDaAjuda } from '../src/locale-ajuda';
 import { comandoTelemetria, CONTRATO_CLI_TELEMETRIA, DependenciasTelemetriaCli,
   FonteDaTelemetria } from '../src/telemetria-cli';
 
@@ -59,16 +62,38 @@ test('status JSON é estável, usa destino sanitizado e informa pendências', as
 });
 
 test('dry-run encaminha a opção sem transporte e expõe somente o payload mapeado', async () => {
-  let dryRun = false;
+  let dryRun = false, offset: number | undefined;
   const payload = { resourceLogs: [{ resource: { attributes: [] }, scopeLogs: [] }] };
   const dependencias = deps({ exportar: async (opcoes) => {
     dryRun = opcoes.dryRun === true;
+    offset = opcoes.dryRunOffset;
     return { estado: 'dry-run', registros: 1, uids: ['uid'], payload };
   } });
   const r = await comandoTelemetria({ raiz: '/projeto', subcomando: 'enviar', dryRun: true,
-    json: true, escrever: () => {}, dependencias });
-  assert.equal(dryRun, true); assert.equal(r.codigo, 0);
+    offset: 123, json: true, escrever: () => {}, dependencias });
+  assert.equal(dryRun, true); assert.equal(offset, 123); assert.equal(r.codigo, 0);
   assert.deepEqual((r.resposta.results as Array<Record<string, unknown>>)[0].payload, payload);
+});
+
+test('index valida opções públicas de telemetria e a rota do locale inglês cobre a família', () => {
+  assert.throws(() => main(['telemetria', 'enviar', '--offset', '1']), /telemetria/);
+  assert.throws(() => main(['telemetria', 'enviar', '--dry-run', '--offset', 'invalido']), /telemetria/);
+  assert.equal(chaveDoLocale(['telemetria', 'enviar'], { 'dry-run': true, offset: '1' }), 'telemetria enviar');
+  assert.equal(cobreLocale(['telemetria', 'enviar'], { 'dry-run': true, offset: '1' }), true);
+  ativarLocale('en');
+  try { assert.match(msg().telemetria.uso, /^usage: .*--offset <byte>/); }
+  finally { ativarLocale(undefined); }
+});
+
+test('ajuda real mantém paridade de opções de telemetria em pt-BR e inglês', () => {
+  const dados: DadosDaAjuda = { versao: 'teste', modos: 4, segredos: 'fora do arquivo', tags: '#Classic #Auto' };
+  const linhas = (texto: string) => texto.split('\n').filter((linha) => /telemetria enviar|--offset <byte>/.test(linha));
+  const opcoes = (linha: string) => linha.match(/--[a-z-]+(?: <byte>)?/g) ?? [];
+  const pt = linhas(AJUDA_PT_BR.texto(dados)), en = linhas(AJUDA_EN.texto(dados));
+  assert.equal(pt.length, 2); assert.equal(en.length, 2);
+  assert.deepEqual(pt.map(opcoes), en.map(opcoes));
+  assert.match(en.join('\n'), /Sends OTLP\/HTTP logs; --dry-run shows from the start without reading the cursor/);
+  assert.match(en.join('\n'), /In dry-run, starts at this ledger byte instead of the beginning/);
 });
 
 test('falha de envio produz código diferente de zero sem cabeçalhos na resposta', async () => {
