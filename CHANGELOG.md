@@ -12,6 +12,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **Conteúdo removido dos prompts na telemetria — F2 (RM-090):** o LogRecord GenAI usa o arquivo carimbado, remove segredos e dados privados localmente, representa origem irrecuperável como lacuna sem conteúdo e mostra a mesma preparação no dry-run.
 
+- **Correlação nativa de sessões — F3 (RM-090):** Claude Code e Codex recebem configuração efêmera sem conteúdo nativo e cada sessão bem-sucedida ganha um vínculo lógico pelo identificador oficial do runtime.
+
 ### Alterado
 
 - **RM-089 — política de recibo no CI:** cada repositório pode observar, avisar ou exigir no `ork ci run` um recibo de verify ligado ao HEAD do PR/MR, com o mesmo contrato no GitHub e no GitLab; sem a chave, o comportamento anterior permanece.

@@ -75,8 +75,8 @@ Cada valor OTLP usa `AnyValue` tipado. Inteiros de 64 bits, inclusive nanossegun
 | `cicd.pipeline.result` | `stringValue` | Verify e CHECK com resultado |
 | `gen_ai.operation.name` | `stringValue` | Despacho que representa invocação |
 | `gen_ai.request.model` | `stringValue` | Mesmo despacho com modelo |
-| `gen_ai.conversation.id` | `stringValue` | Despacho com conversa nativa |
-| `session.id` | `stringValue` | Evento com sessão nativa |
+| `conversation.id` | `stringValue` | Despacho Codex com conversa nativa |
+| `session.id` | `stringValue` | Despacho Claude Code com sessão nativa |
 | `error.type` | `stringValue` | Falha com tipo conhecido e redigido |
 | `orkastery.thread.id` | `stringValue` | Evento vinculado a thread |
 | `orkastery.phase.name` | `stringValue` | Despacho, resultado, gate, prompt, verify e CHECK |
@@ -91,6 +91,19 @@ Cada valor OTLP usa `AnyValue` tipado. Inteiros de 64 bits, inclusive nanossegun
 | `orkastery.prompt.size` | `intValue` decimal, bytes | `phase_prompt_recorded` quando o tamanho já existe no evento |
 
 `orkastery.event.id`, `orkastery.maestro.id`, `orkastery.verify.round_id` e `orkastery.network.id` não fazem parte do contrato. Heartbeat, `ledger_corrupted` e campos fora da lista não viram atributos.
+
+## Correlação com Claude Code e Codex
+
+Quando a adesão privada está ligada, cada despacho bem-sucedido produz um LogRecord `orkastery.ledger.phase_dispatch`. O vínculo leva `session.id` no Claude Code ou `conversation.id` no Codex, além de thread, fase, despacho, runtime e `user.hash`. O Orkastery não reemite `claude_code.*`, `codex.*`, corpo ou payload nativo. Retomada e observação da mesma sessão não criam outro vínculo; retry ou redespacho depois do fim usa a nova identidade nativa. Uma retransmissão física do mesmo LogRecord mantém `log.record.uid`, portanto a entrega continua sendo ao menos uma vez e o consumidor pode deduplicar pelo UID.
+
+A configuração existe somente na sessão despachada e vence valores permissivos herdados:
+
+- Claude Code: `OTEL_LOG_USER_PROMPTS=0`, `OTEL_LOG_ASSISTANT_RESPONSES=0`, `OTEL_LOG_TOOL_DETAILS=0`, `OTEL_LOG_TOOL_CONTENT=0` e traces em `none`. Os settings ficam em arquivo transitório `0600`, cujo caminho é o único dado passado no argv, e são removidos ao fim do despacho.
+- Codex: `otel.log_user_prompt=false`, `otel.log_agent_responses=false`, `otel.log_guardian_assessments=false`, `otel.tool_result.max_bytes=0`, `otel.metrics_exporter="none"` e `otel.trace_exporter="none"`. Cabeçalhos entram por referências a variáveis do ambiente do processo filho, sem valor secreto no argv.
+
+O texto completo restante continua exclusivamente no pipeline de prompts do Orkastery descrito abaixo, depois da remoção local. Os logs nativos ficam sem prompt, resposta, avaliação, argumento ou resultado de ferramenta. A correlação de métricas do Codex por `conversation.id` está **não confirmada** e não é inferida por horário, conteúdo, PID ou arquivo.
+
+Fontes oficiais: [monitoramento do Claude Code](https://code.claude.com/docs/en/monitoring-usage#security-and-privacy), [telemetria e overrides do Codex](https://learn.chatgpt.com/docs/config-file/config-advanced#observability-and-telemetry) e [referência de configuração do Codex](https://learn.chatgpt.com/docs/config-file/config-reference).
 
 ## Conteúdo de prompts
 
@@ -110,4 +123,4 @@ Texto livre passa primeiro pelo catálogo de segredos e depois pela lista local 
 
 O cursor é incremental por posição em cada ledger. Um evento histórico sem `eventId` recebe UID derivado estável. Linha corrompida ou truncada bloqueia no primeiro ponto ruim sem avançar. O cursor só é persistido depois da confirmação remota; uma queda entre POST e cursor reenvia os mesmos UIDs. A garantia é ao menos uma vez, não exatamente uma vez.
 
-O envio manual usa lock não bloqueante, lote e resposta limitados e no máximo uma repetição para falha de conexão ou status retentável. `partialSuccess` e resposta não retentável são terminais e visíveis no status, sem repetir silenciosamente. Nenhum hook automático de fase, métrica, trace, painel ou política empresarial é criado nesta fatia; o texto do prompt sai somente no envio manual com opt-in e com as proteções descritas acima.
+O envio manual usa lock não bloqueante, lote e resposta limitados e no máximo uma repetição para falha de conexão ou status retentável. `partialSuccess` e resposta não retentável são terminais e visíveis no status, sem repetir silenciosamente. A configuração nativa é preparada somente para o despacho com opt-in; não há trace, painel ou política empresarial criada por esta fatia. O texto do prompt sai somente no envio manual com opt-in e com as proteções descritas acima.
