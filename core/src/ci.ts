@@ -694,7 +694,7 @@ export function publicarAvisoDaPolitica(resultado: unknown,
       catch { /* o aviso continua na anotação; `avisar` nunca transforma falha de relatório em reprovação */ }
     }
   } else {
-    linhas.push(`WARNING: ${p.message}`);
+    linhas.push(...p.message.split(/\r\n|\r|\n/).map((linha) => `WARNING: ${linha}`));
   }
   for (const linha of linhas) aoLogar(linha);
   return linhas;
