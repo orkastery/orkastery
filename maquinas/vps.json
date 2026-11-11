@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.8",
-  "publicadoEm": "2026-11-11T18:54:26.102Z",
+  "publicadoEm": "2026-11-11T19:08:08.502Z",
   "threads": [
     {
       "id": "ork-rm088guardad",
@@ -54,11 +54,11 @@
       "id": "ork-rm090f3corre",
       "nome": "rm090f3",
       "modo": "#Auto",
-      "fase": "CHECK",
+      "fase": "GO",
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm090f3corre-full",
-      "atualizadaEm": "2026-11-11T18:54:25.541Z",
+      "atualizadaEm": "2026-11-11T19:08:07.758Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
