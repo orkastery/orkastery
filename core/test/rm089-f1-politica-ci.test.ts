@@ -250,7 +250,9 @@ test('referências públicas fixam níveis, estados e a fronteira de confiança 
   const ler = (arquivo: string) => fs.readFileSync(path.join(raiz, arquivo), 'utf8');
   const cliPt = ler('docs/referencia/cli.md'), cliEn = ler('docs/referencia/cli.en.md');
   assert.match(cliPt, /ci\.politica_recibo.*observar.*avisar.*exigir.*ausente.*inválido.*divergente.*guia da política/s);
+  assert.match(cliPt, /Sem a chave, preserva o resultado anterior\./);
   assert.match(cliEn, /ci\.politica_recibo.*observar.*avisar.*exigir.*missing.*invalid.*divergent.*company policy guide/s);
+  assert.match(cliEn, /Without the key, the previous result is preserved\./);
 
   const guiaPt = ler('docs/guias/politica-de-recibo-da-empresa.pt-BR.md');
   assert.match(guiaPt, /bundle e o `sha256`.*próprio PR\/MR.*podem ser forjados/s);
