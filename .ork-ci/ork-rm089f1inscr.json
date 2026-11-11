@@ -1,0 +1,910 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm089f1inscr",
+  "branch": "ork/ork-rm089f1inscr-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-empresa-publicacao.ts",
+      "alegacao": "Redes pessoais distintas com inscrição ativa publicam, por projeto, itens e estado do roadmap, reservas e trabalho em andamento com thread, fase e item, com fonte e lacunas declaradas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rede-empresa-publicacao.test.js"
+      ],
+      "criadoEm": "2026-11-11T07:52:13.722Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-empresa.ts",
+      "alegacao": "Revogação pela empresa e saída permitida do maestro recusam publicações posteriores e mantêm a autenticação na origem local.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rede-empresa-inscricao.test.js"
+      ],
+      "criadoEm": "2026-11-11T07:52:13.781Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-empresa-publicacao.ts",
+      "alegacao": "A publicação coletiva aceita somente o schema versionado permitido e bloqueia segredo ou dado privado antes de gravar na forja.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rede-empresa-seguranca.test.js"
+      ],
+      "criadoEm": "2026-11-11T07:52:13.829Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "A família ork network empresa expõe criar, inscrever, publicar, status, sair e revogar com JSON versionado e texto em pt-BR e EN.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rede-empresa-cli.test.js core/dist-test/test/rm089-cli-docs.test.js"
+      ],
+      "criadoEm": "2026-11-11T07:52:13.876Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/src/forja/adaptador.ts",
+      "alegacao": "A porta neutra da forja declara a identidade numérica da conta e a leitura e criação de repositório privado nos adaptadores GitHub e GitLab.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'contaAtual: contaAtualGithub' core/src/forja/registro.ts",
+        "grep -q 'contaAtual: contaAtualGitlab' core/src/forja/registro.ts",
+        "npm --prefix core run build",
+        "npm --prefix core run build:test"
+      ],
+      "criadoEm": "2026-11-11T08:13:34.479Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/src/forja/contrato.ts",
+      "alegacao": "O contrato neutro representa a conta por accountId e login e o repositório relido por caminho, privacidade e URL HTTPS.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'interface ContaNaForja' core/src/forja/contrato.ts",
+        "grep -q 'interface RepositorioPrivadoNaForja' core/src/forja/contrato.ts",
+        "npm --prefix core run build"
+      ],
+      "criadoEm": "2026-11-11T08:13:56.356Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/src/forja/github/dono-da-rede.ts",
+      "alegacao": "O adaptador GitHub resolve accountId e cria o repositório privado no owner pedido, relendo o caminho depois de resposta incerta.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"orgs/.*repos\" core/src/forja/github/dono-da-rede.ts",
+        "grep -q 'repositorioPrivadoGithub' core/src/forja/github/dono-da-rede.ts",
+        "npm --prefix core run build"
+      ],
+      "criadoEm": "2026-11-11T08:13:56.433Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/src/forja/gitlab/dono-da-rede.ts",
+      "alegacao": "O adaptador GitLab resolve accountId e cria o repositório privado no namespace pedido, relendo o caminho depois de resposta incerta.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'namespace_id' core/src/forja/gitlab/dono-da-rede.ts",
+        "grep -q 'repositorioPrivadoGitlab' core/src/forja/gitlab/dono-da-rede.ts",
+        "npm --prefix core run build"
+      ],
+      "criadoEm": "2026-11-11T08:13:56.489Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/src/forja/registro.ts",
+      "alegacao": "O registro da porta expõe as capacidades de conta e repositório privado nos adaptadores GitHub e GitLab.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'criarRepositorioPrivado: criarRepositorioPrivadoGithub' core/src/forja/registro.ts",
+        "grep -q 'criarRepositorioPrivado: criarRepositorioPrivadoGitlab' core/src/forja/registro.ts",
+        "npm --prefix core run build"
+      ],
+      "criadoEm": "2026-11-11T08:13:56.553Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-forja.ts",
+      "alegacao": "A rede coletiva usa a porta neutra para resolver a conta, criar no owner correto, reler escrita incerta e recusar repositório público.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rede-empresa-forja.test.js"
+      ],
+      "criadoEm": "2026-11-11T08:16:21.529Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-transporte.ts",
+      "alegacao": "A branch coletiva recompõe a mudança depois de push recusado, separa publicações por inscrição e mantém indisponibilidade como pendência sem gravação.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rede-empresa-forja.test.js"
+      ],
+      "criadoEm": "2026-11-11T08:16:21.604Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/test/rede-empresa-forja.test.ts",
+      "alegacao": "A suíte hermética cobre criação em owner GitHub e namespace GitLab, resposta perdida, privacidade, concorrência e indisponibilidade.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rede-empresa-forja.test.js"
+      ],
+      "criadoEm": "2026-11-11T08:16:21.677Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-contrato.ts",
+      "alegacao": "Os contratos da rede coletiva aceitam somente campos previstos e recusam chave desconhecida, cardinalidade ou serializado acima dos limites publicados.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rede-empresa-contrato.test.js"
+      ],
+      "criadoEm": "2026-11-11T08:19:03.842Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-config.ts",
+      "alegacao": "A configuração local das inscrições usa permissão restrita e guarda referências e pendência sem credencial, caminho local ou nome de máquina.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rede-empresa-contrato.test.js"
+      ],
+      "criadoEm": "2026-11-11T08:19:03.923Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/test/rede-empresa-contrato.test.ts",
+      "alegacao": "A suíte hermética cobre schema fechado, limites da projeção e configuração local sem campos privados.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rede-empresa-contrato.test.js"
+      ],
+      "criadoEm": "2026-11-11T08:19:04.007Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/test/rede-empresa-inscricao.test.ts",
+      "alegacao": "A suíte hermética prova aceite por accountId com login mutável, recusa de outra conta ou projeto e transições de revogação e saída.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rede-empresa-inscricao.test.js"
+      ],
+      "criadoEm": "2026-11-11T08:21:29.285Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-publicacao.ts",
+      "alegacao": "A publicação coletiva recompõe a projeção fechada em cada tentativa, varre dado privado e segredo antes do blob e cessa quando a inscrição deixa de estar ativa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-publicacao.test.js core/dist-test/test/rede-empresa-seguranca.test.js"
+      ],
+      "criadoEm": "2026-11-11T08:27:15.188Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-status.ts",
+      "alegacao": "O status coletivo distingue leitura atualizada de forja indisponível e mostra a pendência sem transformar ausência de leitura em estado remoto.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-publicacao.test.js core/dist-test/test/rede-empresa-seguranca.test.js"
+      ],
+      "criadoEm": "2026-11-11T08:27:15.234Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/test/rede-empresa-publicacao.test.ts",
+      "alegacao": "A suíte hermética cobre duas inscrições publicando, concorrência da branch, revogação e saída cessando envios e forja indisponível.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-publicacao.test.js core/dist-test/test/rede-empresa-seguranca.test.js"
+      ],
+      "criadoEm": "2026-11-11T08:27:15.277Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/test/rede-empresa-seguranca.test.ts",
+      "alegacao": "A suíte hermética prova que a projeção não contém segredo, caminho local, e-mail, nome de máquina nem campos livres do panorama.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-publicacao.test.js core/dist-test/test/rede-empresa-seguranca.test.js"
+      ],
+      "criadoEm": "2026-11-11T08:27:15.315Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "docs/guias/rede-da-empresa.md",
+      "alegacao": "The English guide mirrors creation, enrollment, synchronization, closed projection, concurrency, revocation, and limits with official sources and unconfirmed caveats.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-guia.test.js"
+      ],
+      "criadoEm": "2026-11-11T08:29:29.655Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-guia.test.ts",
+      "alegacao": "A suíte documental confere a paridade dos fluxos, fontes oficiais e categorias da projeção nos dois guias.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-guia.test.js"
+      ],
+      "criadoEm": "2026-11-11T08:29:29.702Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "docs/guias/rede-da-empresa.pt-BR.md",
+      "alegacao": "O guia em pt-BR explica criação, inscrição, sincronização, projeção fechada, concorrência, revogação e limites com fontes oficiais e ressalvas não confirmadas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-guia.test.js"
+      ],
+      "criadoEm": "2026-11-11T08:29:29.748Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/src/locale-network-empresa.ts",
+      "alegacao": "Toda falha conhecida da rede coletiva tem mensagem e ação em pt-BR e EN sem traduzir o código JSON.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-cli.test.js"
+      ],
+      "criadoEm": "2026-11-11T08:37:52.593Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-cli.ts",
+      "alegacao": "A borda do CLI executa criar, inscrever, publicar, status, sair e revogar com contrato JSON versionado, identidade numérica e barreiras da rede coletiva.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-cli.test.js"
+      ],
+      "criadoEm": "2026-11-11T08:37:52.650Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "A rota network empresa participa da seleção de locale sem alterar as rotas network existentes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-cli.test.js"
+      ],
+      "criadoEm": "2026-11-11T08:37:52.693Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/test/rede-empresa-cli.test.ts",
+      "alegacao": "A suíte hermética confere códigos JSON estáveis e mensagens com ação em pt-BR e EN sem abrir processo externo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-cli.test.js"
+      ],
+      "criadoEm": "2026-11-11T08:37:52.733Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "A raiz existente network encaminha o subcomando empresa e devolve o envelope acionável da família.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js network empresa desconhecida --json | node -e \"let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const j=JSON.parse(s);if(j.contrato!=='ork.rede-empresa-cli/v1'||j.erro?.codigo!=='rede-empresa.uso'||!j.erro?.acao)process.exit(1)})\""
+      ],
+      "criadoEm": "2026-11-11T08:37:52.782Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/src/locale-ajuda.ts",
+      "alegacao": "A ajuda em pt-BR e EN apresenta a família network empresa e seu vínculo a accountId, projeção fechada e escrita sem force.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-cli-docs.test.js && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-11T08:42:29.149Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referência pt-BR declara os seis comandos da rede coletiva, suas opções e as barreiras de publicação e status.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-cli-docs.test.js && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-11T08:42:29.352Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "The English CLI reference declares all six collective-network commands, options, publication barriers, and status behavior.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-cli-docs.test.js && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-11T08:42:29.501Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-cli-docs.test.ts",
+      "alegacao": "A suíte documental confere paridade entre ajuda, referências bilíngues, rota do CLI e changelog.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-cli-docs.test.js && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-11T08:42:29.568Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm089f1inscr",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "Não publicado registra a inscrição e sincronização coletiva entregue pela RM-089.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-cli-docs.test.js && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-11T08:42:29.667Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
