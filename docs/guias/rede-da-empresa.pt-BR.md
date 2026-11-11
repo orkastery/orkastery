@@ -27,13 +27,16 @@ garantida pelas fontes: o Orkastery relê o caminho completo antes de decidir.
 
 ## Inscrever e sincronizar
 
-`ork network empresa inscrever` registra a inscrição e liga o aceite à conta autenticada. A identidade é
-`forja + host + accountId` numérico; o login atual é apenas apresentação e pode mudar. Antes de ativar, confira no
-resumo o destino, a versão da política, os projetos autorizados e as categorias publicadas.
+O fluxo tem duas operações e duas autoridades. Primeiro, a empresa roda `ork network empresa inscrever` e registra
+a identidade esperada do maestro com `forja + host + accountId` numérico; essa operação não aceita a inscrição nem
+cria configuração local para o maestro. Depois, o maestro entra na conta esperada e roda
+`ork network empresa aceitar`. O aceite relê a inscrição administrativa, resolve a conta autenticada e recusa outra
+forja, outro host ou outro `accountId`. O login atual é apenas apresentação e pode mudar. Antes de aceitar, confira
+no resumo o destino, a versão da política, os projetos autorizados e as categorias publicadas.
 
 Depois do aceite:
 
-- `ork network empresa publicar` recompõe e varre a projeção antes de gravar;
+- `ork network empresa publicar` resolve novamente a conta autenticada, recompõe e varre a projeção antes de gravar;
 - `ork network empresa status` mostra a projeção publicada, a fonte e uma publicação pendente;
 - `ork network empresa sair` encerra a inscrição quando a política permite;
 - `ork network empresa revogar` cessa novas publicações de uma inscrição administrada.

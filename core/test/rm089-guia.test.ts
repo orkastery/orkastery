@@ -9,11 +9,14 @@ const en = fs.readFileSync(path.join(raiz, 'docs/guias/rede-da-empresa.md'), 'ut
 
 test('guia bilíngue mantém fluxo, fontes oficiais e condição não confirmada', () => {
   for (const texto of [pt, en]) {
-    for (const comando of ['criar', 'inscrever', 'publicar', 'status', 'sair', 'revogar'])
+    for (const comando of ['criar', 'inscrever', 'aceitar', 'publicar', 'status', 'sair', 'revogar'])
       assert.match(texto, new RegExp(`network empresa ${comando}`));
     assert.match(texto, /docs\.github\.com\/en\/rest\/users\/users/);
     assert.match(texto, /docs\.gitlab\.com\/api\/projects/);
     assert.match(texto, /accountId/);
+    assert.match(texto, /empresa.*inscrever|company.*inscrever/is);
+    assert.match(texto, /maestro.*aceitar/is);
+    assert.match(texto, /outra\s+forja|different\s+forge/i);
     assert.match(texto, /not confirmed|não (?:é |estão )?confirmad[ao]s?/i);
   }
 });

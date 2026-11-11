@@ -27,13 +27,17 @@ response either: Orkastery reads the full path again before deciding.
 
 ## Enroll and synchronize
 
-`ork network empresa inscrever` registers the enrollment and binds acceptance to the authenticated account. The
-identity is the numeric `forge + host + accountId`; the current login is presentation only and may change. Before
-activation, check the destination, policy version, authorized projects, and published categories in the summary.
+The flow has two operations and two authorities. First, the company runs `ork network empresa inscrever` and
+registers the maestro's expected numeric `forge + host + accountId`; this operation neither accepts the enrollment
+nor creates local configuration for the maestro. Then the maestro signs in to the expected account and runs
+`ork network empresa aceitar`. Acceptance reads the administrative enrollment again, resolves the authenticated
+account, and refuses a different forge, host, or `accountId`. The current login is presentation only and may change.
+Before accepting, check the destination, policy version, authorized projects, and published categories in the
+summary.
 
 After acceptance:
 
-- `ork network empresa publicar` rebuilds and scans the projection before writing;
+- `ork network empresa publicar` resolves the authenticated account again, then rebuilds and scans the projection before writing;
 - `ork network empresa status` shows the published projection, its source, and a pending publication;
 - `ork network empresa sair` closes the enrollment when policy permits;
 - `ork network empresa revogar` stops new publications from an administered enrollment.
