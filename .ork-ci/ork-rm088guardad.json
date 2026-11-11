@@ -1,0 +1,151 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm088guardad",
+  "branch": "ork/ork-rm088guardad-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm088guardad",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/decidir-publicacao-npm.cjs",
+      "alegacao": "A regra de publicação decide dist-tags por SemVer e falha fechada, incluindo maior, igual, menor, primeira publicação, pré-release, ausência de latest, registro inacessível e divergência tag/pacote, sem rede nos testes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/publicacao-npm.test.js"
+      ],
+      "criadoEm": "2026-11-11T19:57:16.529Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm088guardad",
+      "fase": "GOAL",
+      "arquivo": ".github/workflows/publicar.yml",
+      "alegacao": "O job publicar consulta o registro e decide a dist-tag antes do npm publish, que sempre recebe --tag explícita; erro, igualdade, versão menor e pré-release nunca caem implicitamente em latest.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/publicacao-npm.test.js"
+      ],
+      "criadoEm": "2026-11-11T19:57:21.627Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm088guardad",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/contribuir/versoes-e-publicacao.md",
+      "alegacao": "O guia de publicação documenta a política D1, a exceção de primeira publicação e as falhas fechadas com os mesmos termos do script e do workflow.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "grep -F \"previous\" docs/guias/contribuir/versoes-e-publicacao.md",
+        "grep -F \"pré-release\" docs/guias/contribuir/versoes-e-publicacao.md"
+      ],
+      "criadoEm": "2026-11-11T19:57:30.696Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm088guardad",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A seção Não publicado do CHANGELOG registra a guarda de versão da RM-088.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const t=require('node:fs').readFileSync('CHANGELOG.md','utf8');const i=t.indexOf('## Não publicado');const j=t.indexOf('\\n## [',i);if(i<0||!t.slice(i,j<0?t.length:j).includes('RM-088'))process.exit(1)\""
+      ],
+      "criadoEm": "2026-11-11T19:57:36.422Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm088guardad",
+      "fase": "GO",
+      "arquivo": "core/test/publicacao-npm.test.ts",
+      "alegacao": "A suíte hermética da RM-088 prova a matriz de decisão, as dist-tags recusadas, a precedência SemVer exata, os formatos npm 11/12, as consultas inválidas e a validação anterior a qualquer executor.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/publicacao-npm.test.js"
+      ],
+      "criadoEm": "2026-11-11T20:23:50.590Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
