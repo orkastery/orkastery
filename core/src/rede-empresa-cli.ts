@@ -149,9 +149,10 @@ function executar(acao: Acao, opcoes: Opcoes, env: NodeJS.ProcessEnv): unknown {
 
   if (acao === 'inscrever') {
     opcoesValidas(opcoes, ['empresa', 'host', 'inscricao', 'rede', 'projetos', 'politica', 'json']);
-    const empresa = referencia(valor(opcoes, 'empresa', true)!, valor(opcoes, 'host'));
-    const rede = referencia(valor(opcoes, 'rede', true)!);
-    const projetos = (valor(opcoes, 'projetos', true) ?? '').split(',').map((p) => referencia(p.trim()));
+    const host = valor(opcoes, 'host');
+    const empresa = referencia(valor(opcoes, 'empresa', true)!, host);
+    const rede = referencia(valor(opcoes, 'rede', true)!, host);
+    const projetos = (valor(opcoes, 'projetos', true) ?? '').split(',').map((p) => referencia(p.trim(), host));
     if (!projetos.length || projetos.some((p, i) => projetos.findIndex((x) => x.forja === p.forja && x.host === p.host && x.caminho === p.caminho) !== i))
       falhar('rede-empresa.uso');
     const porta = portaDaEmpresa(empresa, true, env), conta = contaDaReferencia(rede, env), politicaVersao = valor(opcoes, 'politica') ?? 'v1';
@@ -189,7 +190,9 @@ function executar(acao: Acao, opcoes: Opcoes, env: NodeJS.ProcessEnv): unknown {
   }
 
   const selecionado = valor(opcoes, 'projeto');
-  const projetos = selecionado ? [referencia(selecionado)] : adesao!.projetos;
+  const pedido = selecionado ? referencia(selecionado) : null;
+  const projetos = pedido ? adesao!.projetos.filter((p) => p.forja === pedido.forja && p.caminho === pedido.caminho) : adesao!.projetos;
+  if (pedido && !projetos.length) falhar('rede-empresa.projeto-nao-autorizado');
   if (projetos.some((p) => !adesao!.projetos.some((a) => a.forja === p.forja && a.host === p.host && a.caminho === p.caminho)))
     falhar('rede-empresa.projeto-nao-autorizado');
 

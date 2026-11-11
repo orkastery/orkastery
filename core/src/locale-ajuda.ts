@@ -357,6 +357,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   network roadmap [--projeto P] [--json]    Roadmap, reservas e threads de cada maquina de cada projeto, de qualquer diretorio:
         [--sem-remoto]                           fonte e hora de cada parte, lacuna tipada no que nao leu. P = caminho do clone,
                                                  github:dono/repo, gitlab:grupo/repo ou nome conhecido; sem clone, le a forja (RM-054)
+  network empresa criar|inscrever           Rede coletiva privada da empresa: cria a casa ou aceita uma inscricao
+        publicar|status|sair|revogar [--json]    por accountId; publicacao fechada, varrida e sem force (RM-089)
   docs verificar [--json] [--pr]            Documentacao de produto e roadmap contra o codigo e o git; no PR (--pr),
                                             o merge de outra thread e o indice que divergem da main so avisam
                                             (padrao do dono: frontmatter, leitura, paridade; sai != 0 com erro)
@@ -775,6 +777,8 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
   network roadmap [--projeto P] [--json]    Roadmap, reservations and threads of each machine of each project, from any directory:
         [--sem-remoto]                           source and time of each part, typed gap on what it did not read. P = clone path,
                                                  github:owner/repo, gitlab:group/repo or a known name; without a clone, it reads the forge (RM-054)
+  network empresa criar|inscrever           Private company collective network: creates its home or accepts an enrollment
+        publicar|status|sair|revogar [--json]    bound to accountId; closed, scanned publication without force (RM-089)
   docs verificar [--json] [--pr]            Product and roadmap documentation against the code and git; on the PR (--pr),
                                             the merge of another thread and the index that diverge from main only warn
                                             (owner standard: frontmatter, reading, parity; exits != 0 with an error)
