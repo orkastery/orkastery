@@ -58,6 +58,17 @@ export interface PublicacaoDaEmpresa {
   lacunas: LacunaPublicada[];
 }
 
+export interface StatusDaRedeEmpresa {
+  contrato: typeof CONTRATO_STATUS_EMPRESA;
+  inscricaoId: string;
+  estado: InscricaoDaEmpresa['estado'] | 'ausente';
+  forjaAtualizada: boolean;
+  politicaVersao: string | null;
+  ultimaPublicacao: string | null;
+  pendencia: { codigo: string; em: string } | null;
+  publicacao: PublicacaoDaEmpresa | null;
+}
+
 export interface FalhaDaRedeEmpresa {
   contrato: 'ork.rede-empresa-erro/v1';
   codigo: string;
@@ -135,4 +146,16 @@ export function ehPublicacaoDaEmpresa(v: unknown): v is PublicacaoDaEmpresa {
     || v.trabalhos.length > MAX_TRABALHOS_PUBLICACAO_EMPRESA || v.lacunas.length > MAX_LACUNAS_PUBLICACAO_EMPRESA) return false;
   if (!v.itens.every(item) || !v.reservas.every(reserva) || !v.trabalhos.every(trabalho) || !v.fontes.every(fonte) || !v.lacunas.every(lacuna)) return false;
   return Buffer.byteLength(JSON.stringify(v), 'utf8') <= MAX_BYTES_PUBLICACAO_EMPRESA;
+}
+
+export function ehStatusDaRedeEmpresa(v: unknown): v is StatusDaRedeEmpresa {
+  if (!obj(v) || !chaves(v, ['contrato', 'inscricaoId', 'estado', 'forjaAtualizada', 'politicaVersao', 'ultimaPublicacao',
+    'pendencia', 'publicacao'])) return false;
+  const pendencia = v.pendencia;
+  return v.contrato === CONTRATO_STATUS_EMPRESA && id(v.inscricaoId)
+    && ['pendente', 'ativa', 'revogada', 'encerrada', 'ausente'].includes(String(v.estado))
+    && typeof v.forjaAtualizada === 'boolean' && (v.politicaVersao === null || id(v.politicaVersao, 64))
+    && (v.ultimaPublicacao === null || iso(v.ultimaPublicacao))
+    && (pendencia === null || (obj(pendencia) && chaves(pendencia, ['codigo', 'em']) && id(pendencia.codigo) && iso(pendencia.em)))
+    && (v.publicacao === null || ehPublicacaoDaEmpresa(v.publicacao));
 }
