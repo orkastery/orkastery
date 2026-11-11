@@ -1,0 +1,47 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: ${env:ORK_OTELCOL_GRPC_ENDPOINT}
+      http:
+        endpoint: ${env:ORK_OTELCOL_HTTP_ENDPOINT}
+
+processors:
+  memory_limiter:
+    check_interval: ${env:ORK_OTELCOL_MEMORY_CHECK_INTERVAL}
+    limit_mib: ${env:ORK_OTELCOL_MEMORY_LIMIT_MIB}
+  filter/required:
+    error_mode: propagate
+    logs:
+      log_record:
+        - 'resource.attributes["service.name"] != "orkastery"'
+        - 'instrumentation_scope.name != "orkastery.telemetria"'
+        - 'attributes["log.record.uid"] == nil'
+        - 'attributes["orkastery.thread.id"] == nil'
+        - '(IsMatch(event_name, "^orkastery\\.ledger\\.phase_") or event_name == "gen_ai.client.inference.operation.details") and attributes["orkastery.phase.name"] == nil'
+        - 'attributes["orkastery.prompt.content.state"] == "gap" and attributes["orkastery.prompt.gap.reason"] == nil'
+        - 'attributes["orkastery.prompt.content.state"] == "gap" and attributes["gen_ai.input.messages"] != nil'
+        - 'event_name == "gen_ai.client.inference.operation.details" and attributes["gen_ai.input.messages"] == nil and attributes["orkastery.prompt.content.state"] != "gap"'
+  transform/sanitize:
+    error_mode: propagate
+    log_statements:
+      - context: log
+        statements:
+          - 'set(attributes["gen_ai.input.messages"], String(attributes["gen_ai.input.messages"])) where attributes["gen_ai.input.messages"] != nil'
+          - 'keep_keys(attributes, ["log.record.uid", "user.hash", "vcs.ref.head.revision", "vcs.ref.head.name", "vcs.ref.type", "cicd.pipeline.name", "cicd.pipeline.run.id", "cicd.pipeline.result", "gen_ai.operation.name", "gen_ai.request.model", "gen_ai.conversation.id", "gen_ai.input.messages", "session.id", "error.type", "orkastery.thread.id", "orkastery.phase.name", "orkastery.dispatch.id", "orkastery.mode", "orkastery.decision.id", "orkastery.claim.id", "orkastery.ledger.sequence", "orkastery.check.mode", "orkastery.receipt.id", "orkastery.runtime.name", "orkastery.prompt.size", "orkastery.prompt.redaction.policy.version", "orkastery.prompt.size.original", "orkastery.prompt.size.exported", "orkastery.prompt.content.state", "orkastery.prompt.gap.reason", "orkastery.prompt.truncated"])'
+    metric_statements:
+      - context: resource
+        statements:
+          - 'keep_keys(attributes, ["service.name", "service.version"])'
+  batch: {}
+
+exporters:
+  otlphttp/generic:
+    endpoint: ${env:OTEL_EXPORTER_OTLP_ENDPOINT}
+
+service:
+  pipelines:
+    logs/orkastery:
+      receivers: [otlp]
+      processors: [memory_limiter, filter/required, transform/sanitize, batch]
+      exporters: [otlphttp/generic]
