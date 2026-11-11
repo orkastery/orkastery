@@ -32,9 +32,12 @@ test('status recusa tipo de lacuna desconhecido vindo do repositório sem ecoar 
   const forjada = { ...base(), lacunas: [{ tipo: `categoria-${marcador}`, parte: 'rede' }] };
   const porta: PortaDaBranchEmpresa = { ler: () => ({ id: 'c1', atualizada: true,
     ler: (caminho) => caminho.startsWith('publicacoes/') ? `${JSON.stringify(forjada)}\n` : null }), gravar: () => false };
-  const status = statusDaRedeEmpresa(porta, 'inscricao-a', 'projeto-a', {});
-  assert.equal(status.publicacao, null);
-  assert.doesNotMatch(JSON.stringify(status), new RegExp(marcador));
+  assert.throws(() => statusDaRedeEmpresa(porta, 'inscricao-a', 'projeto-a', {}), (erro: unknown) => {
+    const tipado = erro as { codigo?: string; message?: string };
+    assert.equal(tipado.codigo, 'rede-empresa.documento-remoto-invalido');
+    assert.doesNotMatch(JSON.stringify(tipado), new RegExp(marcador));
+    return true;
+  });
 });
 
 test('contrato recusa cardinalidade acima do limite antes do blob', () => {
