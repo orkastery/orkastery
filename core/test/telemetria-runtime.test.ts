@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { prepararTelemetriaDoRuntime } from '../src/telemetria-runtime';
+import { prepararTelemetriaDoRuntime, resolverTelemetriaDoRuntime } from '../src/telemetria-runtime';
 import type { ResolucaoTelemetria } from '../src/telemetria-config';
 
 const ligada: ResolucaoTelemetria = { ligada: true, origem: 'builder', motivo: 'teste', pseudonimo: 'a'.repeat(64) };
@@ -50,4 +50,18 @@ test('Codex recebe logs sem conteúdo, métricas ou traces; segredo fica só no 
   assert.match(argv, /otel\.trace_exporter="none"/);
   assert.match(argv, /\$\{ORK_TELEMETRIA_OTLP_HEADER_0\}/);
   assert.equal(argv.includes('Bearer VALOR-SINTETICO'), false);
+});
+
+test('resolução não consulta destino quando desligada e falha fechada sem alterar o pedido', () => {
+  let destinos = 0;
+  const dependencias = {
+    ativacao: () => desligada,
+    destino: () => { destinos += 1; return destino; },
+  };
+  assert.equal(resolverTelemetriaDoRuntime('codex', contexto, {}, dependencias), undefined);
+  assert.equal(destinos, 0);
+  assert.equal(resolverTelemetriaDoRuntime('codex', contexto, {}, {
+    ativacao: () => { throw new Error('configuração sintética inválida'); },
+    destino: () => destino,
+  }), undefined);
 });

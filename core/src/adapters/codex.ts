@@ -12,6 +12,7 @@ import { ambienteDeAssinatura, ENVS_DE_PROVIDER_PAGO } from '../runtime-ambiente
 import { parseFalhaDeConta, parseRateLimit, StatusDeAuth } from './claude-bg';
 import { ambienteComPerfil, diretorioEfetivo, PerfilDeDespacho } from '../runtime-profiles';
 import { textoDoErro } from '../locale';
+import type { TelemetriaDoDespacho } from '../telemetria-runtime';
 
 export const NOME_ADAPTER = 'codex';
 
@@ -76,6 +77,8 @@ export interface DespachoCodexPedido {
   esperaMs?: number;
   /** I-36 (D4): identidade, thread e canal do despacho no ambiente da sessao filha. */
   ambienteExtra?: Record<string, string>;
+  /** RM-090 F3: overrides e ambiente OTEL exclusivos desta execução. */
+  telemetria?: TelemetriaDoDespacho;
   /** Limite explícito do turno; ao vencer solicita interrupção nativa e fecha stdin próprio. */
   duracaoMaximaMs?: number;
   /** I-33 (D2): perfil de conta do despacho (`codexHome`); ausente, vale o `CODEX_HOME` do processo. */
@@ -333,9 +336,10 @@ export function parseRateLimitCodex(saida: string, agoraMs = Date.now()): SinalD
  * CIMA. RM-052 (fatia 2, D2): a ordem importa, porque e o extra que neutraliza o `ORK_PROJETO` e o
  * modo host herdados de quem despachou.
  */
-export function ambienteDoFilho(pedido: Pick<DespachoCodexPedido, 'perfil' | 'ambienteExtra'>,
+export function ambienteDoFilho(pedido: Pick<DespachoCodexPedido, 'perfil' | 'ambienteExtra' | 'telemetria'>,
     base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  return { ...ambienteDoDespacho(base, pedido.perfil), ...(pedido.ambienteExtra ?? {}) };
+  return { ...ambienteDoDespacho(base, pedido.perfil), ...(pedido.ambienteExtra ?? {}),
+    ...(pedido.telemetria?.runtime === 'codex' ? pedido.telemetria.ambiente : {}) };
 }
 
 /** Despacho governado exige vínculo: nenhum fallback implícito para codex exec. */

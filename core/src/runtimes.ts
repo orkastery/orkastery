@@ -26,6 +26,7 @@ import type { ContextoRuntime } from './runtime-context';
 import { prepararRecibosParaDespacho } from './hitl-ingress-receipt';
 import type { PerfilDeDespacho } from './runtime-profiles';
 import { ErroDoCatalogo } from './locale';
+import type { TelemetriaDoDespacho } from './telemetria-runtime';
 
 /** Pedido de despacho comum aos runtimes (os campos extras sao ignorados por quem nao usa). */
 export interface PedidoDeDespacho {
@@ -62,6 +63,8 @@ export interface PedidoDeDespacho {
    * conducao que ela mesma segura. Nenhuma concede autoridade.
    */
   ambienteExtra?: Record<string, string>;
+  /** RM-090 F3: decoração OTEL efêmera, ausente quando o opt-in privado está desligado. */
+  telemetria?: TelemetriaDoDespacho;
 }
 
 /** Resultado de despacho comum aos runtimes. */
@@ -95,22 +98,32 @@ function comRecibosPublicos(p: PedidoDeDespacho, dispatch: (p: PedidoDeDespacho)
   return dispatch(p);
 }
 
+function pedidoClaude(p: PedidoDeDespacho): claudeBg.DespachoPedido {
+  if (p.telemetria && p.telemetria.runtime !== 'claude-bg') throw new Error('telemetria.runtime: configuração Codex no Claude Code');
+  return { ...p, telemetria: p.telemetria };
+}
+
+function pedidoCodex(p: PedidoDeDespacho): codex.DespachoCodexPedido {
+  if (p.telemetria && p.telemetria.runtime !== 'codex') throw new Error('telemetria.runtime: configuração Claude Code no Codex');
+  return { ...p, telemetria: p.telemetria };
+}
+
 export const RUNTIMES: Readonly<Record<string, RuntimeAdapter>> = {
   'claude-bg': {
     nome: claudeBg.NOME_ADAPTER,
     fonteVerificacao: 'claude agents --json',
     disponivel: claudeBg.disponivel,
     versao: claudeBg.versao,
-    montarComando: (p) => claudeBg.montarComando(p),
-    despachar: (p) => comRecibosPublicos(p, claudeBg.despachar),
+    montarComando: (p) => claudeBg.montarComando(pedidoClaude(p)),
+    despachar: (p) => comRecibosPublicos(p, pedido => claudeBg.despachar(pedidoClaude(pedido))),
   },
   codex: {
     nome: codex.NOME_ADAPTER,
     fonteVerificacao: 'rollout do codex em $CODEX_HOME/sessions',
     disponivel: codex.disponivel,
     versao: codex.versao,
-    montarComando: (p) => codex.montarComando(p),
-    despachar: (p) => comRecibosPublicos(p, codex.despachar),
+    montarComando: (p) => codex.montarComando(pedidoCodex(p)),
+    despachar: (p) => comRecibosPublicos(p, pedido => codex.despachar(pedidoCodex(pedido))),
   },
   grok: {
     nome: grok.NOME_ADAPTER,

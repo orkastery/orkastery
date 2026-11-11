@@ -62,6 +62,7 @@ import { nomeDaMaquina } from './maquina';
 import { caminhoDoTrabalho, garantirDiretorioDoTrabalho } from './trabalho-thread';
 import { diretorioDaThread } from './procedencia';
 import { comandoDeConfirmacao, posturaAfrouxada, recusaDePostura } from './postura-local';
+import { resolverTelemetriaDoRuntime } from './telemetria-runtime';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import {
   ambienteDaConducao, canalDoProcesso, ConducaoOcupada, ConducaoTomada, conducaoDaThread, dormir, ErroDeConducao, esperarConducaoLivre,
@@ -1105,6 +1106,11 @@ function rodarFaseSobLock(
     const headNoDespacho = fase === 'GO' && (runtime === 'codex' || runtime === 'grok') && !opcoes.dryRun ? headDaWorktree(cwd) : undefined;
     // RM-067 (D8): a base do artefato do grok tambem sai antes do despacho, que espera a pasta da sessao.
     const artefatoNoDespacho = runtime === 'grok' && !opcoes.dryRun ? baseDoArtefato(raiz, thread.id, fase) : undefined;
+    const telemetria = resolverTelemetriaDoRuntime(runtime, {
+      thread: thread.id,
+      fase,
+      dispatchId: identidade.dispatchId,
+    });
     const pedidoAoRuntime: PedidoDeDespacho = {
       prompt,
       nome: slug,
@@ -1126,6 +1132,7 @@ function rodarFaseSobLock(
       ...(limites ? { duracaoMaximaMs: limites.duracaoMs } : {}),
       // I-36 (D4): a sessao filha herda a identidade do despacho e o canal; e assim que ela reentra.
       ambienteExtra: ambienteDaConducao(identidade.dispatchId, thread.id, canal),
+      ...(telemetria ? { telemetria } : {}),
     };
     const ctx: ContextoDeDespacho = {
       identidade,

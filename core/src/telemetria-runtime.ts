@@ -1,6 +1,6 @@
 /** RM-090 F3: configuração OTEL efêmera, restrita a um despacho nativo. */
-import type { ResolucaoTelemetria } from './telemetria-config';
-import type { DestinoOtlp } from './telemetria-exportador';
+import { ativacaoTelemetria, type ResolucaoTelemetria } from './telemetria-config';
+import { resolverDestinoOtlp, type DestinoOtlp } from './telemetria-exportador';
 
 export interface ContextoTelemetriaRuntime {
   thread: string;
@@ -21,6 +21,11 @@ export interface TelemetriaCodexDoDespacho {
 }
 
 export type TelemetriaDoDespacho = TelemetriaClaudeDoDespacho | TelemetriaCodexDoDespacho;
+
+export interface DependenciasTelemetriaRuntime {
+  ativacao: (env: NodeJS.ProcessEnv) => ResolucaoTelemetria;
+  destino: (env: NodeJS.ProcessEnv) => DestinoOtlp;
+}
 
 function endpointSeguro(endpoint: string): string | null {
   try {
@@ -94,4 +99,17 @@ export function prepararTelemetriaDoRuntime(runtime: string, contexto: Omit<Cont
     '-c', 'otel.metrics_exporter="none"',
     '-c', 'otel.trace_exporter="none"',
   ] };
+}
+
+/** Resolve fontes privadas sem deixar a telemetria opcional interromper o despacho. */
+export function resolverTelemetriaDoRuntime(runtime: string, contexto: Omit<ContextoTelemetriaRuntime, 'pseudonimo'>,
+  env: NodeJS.ProcessEnv = process.env, dependencias: DependenciasTelemetriaRuntime = {
+    ativacao: ativacaoTelemetria,
+    destino: resolverDestinoOtlp,
+  }): TelemetriaDoDespacho | undefined {
+  try {
+    const ativacao = dependencias.ativacao(env);
+    if (!ativacao.ligada) return undefined;
+    return prepararTelemetriaDoRuntime(runtime, contexto, ativacao, dependencias.destino(env));
+  } catch { return undefined; }
 }
