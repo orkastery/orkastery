@@ -65,6 +65,14 @@ Estes itens ainda não têm ordem de prioridade definida pelo dono.
 | [RM-086](RM-086-kimi-code-homologado.md) Kimi Code homologado ao lado de Codex e Claude Code | Pedido do dono no terminal, em 09/11/2026 | O Kimi Code despacha fases com perfis, fim observado e prova do núcleo, no modo de autenticação que o dono decidir; depois do ensaio, também conduz a fábrica, como o Codex |
 | [RM-087](RM-087-opencode-homologado.md) OpenCode homologado ao lado de Codex e Claude Code | Pedido do dono no terminal, em 09/11/2026 | O OpenCode despacha fases com linha, provedor e conta explícitos, fim observado e prova do núcleo; depois do ensaio, também conduz a fábrica, como o Codex |
 
+## Pedidos do dono de 10/11/2026
+
+Estes itens ainda não têm ordem de prioridade definida pelo dono.
+
+| Item | Origem | Resultado pretendido |
+| --- | --- | --- |
+| [RM-089](RM-089-orkastery-obrigatorio-por-politica-da-empresa.md) Orkastery obrigatório por política da empresa, com telemetria de SDLC agêntico | Pedidos do dono no terminal, em 10/11/2026 | A empresa aplica uma política verificável na forja e reúne telemetria OpenTelemetry das redes inscritas para governar o SDLC agêntico sem impor ferramenta de desenvolvimento nem backend |
+
 ## Itens
 
 Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
@@ -147,6 +155,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-085](RM-085-verify-com-escopo-causal-mensagem-de-assercao-e-check-fast.md) | Verify com escopo causal, mensagem de asserção e CHECK independente no #Fast | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-08 |
 | [RM-086](RM-086-kimi-code-homologado.md) | Kimi Code homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-09 |
 | [RM-087](RM-087-opencode-homologado.md) | OpenCode homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-09 |
+| [RM-089](RM-089-orkastery-obrigatorio-por-politica-da-empresa.md) | Orkastery obrigatório por política da empresa, com telemetria de SDLC agêntico | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-10 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->
