@@ -15,7 +15,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-duplicidade.test.js"
       ],
       "criadoEm": "2026-11-11T17:41:08.868Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -41,7 +41,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f2-entradas.test.js"
       ],
       "criadoEm": "2026-11-11T17:41:09.095Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -67,7 +67,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f2-entradas.test.js"
       ],
       "criadoEm": "2026-11-11T17:41:09.269Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -93,7 +93,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-status-f2.test.js"
       ],
       "criadoEm": "2026-11-11T17:41:09.469Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -119,7 +119,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-cli-docs.test.js"
       ],
       "criadoEm": "2026-11-11T17:41:09.746Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -145,7 +145,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-projeto-f2.test.js core/dist-test/test/rede-empresa-duplicidade.test.js"
       ],
       "criadoEm": "2026-11-11T18:00:33.566Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -171,7 +171,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f2-saga.test.js core/dist-test/test/rm089-f2-entradas.test.js"
       ],
       "criadoEm": "2026-11-11T18:00:33.653Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -197,7 +197,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-status-f2.test.js"
       ],
       "criadoEm": "2026-11-11T18:00:33.982Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -223,7 +223,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-guia.test.js core/dist-test/test/rm089-cli-docs.test.js"
       ],
       "criadoEm": "2026-11-11T18:00:34.214Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -249,7 +249,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-projeto-f2.test.js core/dist-test/test/rede-empresa-contrato.test.js core/dist-test/test/rede-empresa-publicacao.test.js"
       ],
       "criadoEm": "2026-11-11T18:13:23.361Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -275,7 +275,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-projeto-f2.test.js core/dist-test/test/rede-empresa-contrato.test.js core/dist-test/test/rede-empresa-publicacao.test.js"
       ],
       "criadoEm": "2026-11-11T18:13:23.588Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -301,7 +301,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-projeto-f2.test.js core/dist-test/test/rede-empresa-contrato.test.js core/dist-test/test/rede-empresa-publicacao.test.js"
       ],
       "criadoEm": "2026-11-11T18:13:23.866Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -327,7 +327,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-projeto-f2.test.js core/dist-test/test/rede-empresa-contrato.test.js core/dist-test/test/rede-empresa-publicacao.test.js"
       ],
       "criadoEm": "2026-11-11T18:13:24.102Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -353,7 +353,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-projeto-f2.test.js core/dist-test/test/rede-empresa-contrato.test.js core/dist-test/test/rede-empresa-publicacao.test.js"
       ],
       "criadoEm": "2026-11-11T18:13:24.229Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -379,7 +379,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-duplicidade.test.js core/dist-test/test/rede-empresa-forja.test.js"
       ],
       "criadoEm": "2026-11-11T18:17:43.556Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -405,7 +405,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-duplicidade.test.js core/dist-test/test/rede-empresa-forja.test.js"
       ],
       "criadoEm": "2026-11-11T18:17:43.741Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -431,7 +431,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-duplicidade.test.js core/dist-test/test/rede-empresa-forja.test.js"
       ],
       "criadoEm": "2026-11-11T18:17:43.836Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -457,7 +457,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-duplicidade.test.js core/dist-test/test/rede-empresa-forja.test.js"
       ],
       "criadoEm": "2026-11-11T18:17:43.924Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -483,7 +483,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-status-f2.test.js core/dist-test/test/rede-empresa-cli.test.js"
       ],
       "criadoEm": "2026-11-11T18:22:22.602Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -509,7 +509,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-status-f2.test.js core/dist-test/test/rede-empresa-cli.test.js"
       ],
       "criadoEm": "2026-11-11T18:22:22.803Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -535,7 +535,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-status-f2.test.js core/dist-test/test/rede-empresa-cli.test.js"
       ],
       "criadoEm": "2026-11-11T18:22:22.936Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -561,7 +561,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-status-f2.test.js core/dist-test/test/rede-empresa-cli.test.js"
       ],
       "criadoEm": "2026-11-11T18:22:23.476Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -587,7 +587,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-status-f2.test.js core/dist-test/test/rede-empresa-cli.test.js"
       ],
       "criadoEm": "2026-11-11T18:22:23.690Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -613,7 +613,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f2-saga.test.js core/dist-test/test/roadmap-reservas.test.js core/dist-test/test/thread-roadmap-aviso.test.js"
       ],
       "criadoEm": "2026-11-11T18:33:25.295Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -639,7 +639,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f2-saga.test.js core/dist-test/test/roadmap-reservas.test.js core/dist-test/test/thread-roadmap-aviso.test.js"
       ],
       "criadoEm": "2026-11-11T18:33:25.456Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -665,7 +665,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f2-saga.test.js core/dist-test/test/roadmap-reservas.test.js core/dist-test/test/thread-roadmap-aviso.test.js"
       ],
       "criadoEm": "2026-11-11T18:33:25.581Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -691,7 +691,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f2-saga.test.js core/dist-test/test/roadmap-reservas.test.js core/dist-test/test/thread-roadmap-aviso.test.js"
       ],
       "criadoEm": "2026-11-11T18:33:25.674Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -717,7 +717,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f2-saga.test.js core/dist-test/test/roadmap-reservas.test.js core/dist-test/test/thread-roadmap-aviso.test.js"
       ],
       "criadoEm": "2026-11-11T18:33:25.760Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -743,7 +743,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-guia.test.js"
       ],
       "criadoEm": "2026-11-11T18:42:41.272Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -769,7 +769,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-guia.test.js"
       ],
       "criadoEm": "2026-11-11T18:42:41.449Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -795,7 +795,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-guia.test.js"
       ],
       "criadoEm": "2026-11-11T18:42:41.623Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -821,7 +821,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-guia.test.js"
       ],
       "criadoEm": "2026-11-11T18:42:41.753Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -847,7 +847,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-guia.test.js"
       ],
       "criadoEm": "2026-11-11T18:42:41.848Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -873,7 +873,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-cli-docs.test.js core/dist-test/test/locale-ajuda.test.js"
       ],
       "criadoEm": "2026-11-11T18:45:34.138Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -899,7 +899,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-cli-docs.test.js core/dist-test/test/locale-ajuda.test.js"
       ],
       "criadoEm": "2026-11-11T18:45:34.240Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -925,6 +925,240 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-cli-docs.test.js core/dist-test/test/locale-ajuda.test.js"
       ],
       "criadoEm": "2026-11-11T18:45:34.335Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "Sem inscrição coletiva ativa, `roadmap pegar` preserva o fluxo e a saída históricos da RM-047; a saga coletiva só entra quando a configuração existe.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-reservas.test.js core/dist-test/test/rm089-f2-entradas.test.js"
+      ],
+      "criadoEm": "2026-11-11T21:48:31.196Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "As referências CLI em português e inglês usam a mesma invocação canônica de `thread new --roadmap` e descrevem corretamente o fallback local sem rede coletiva.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/locale-f3a-referencia.test.js core/dist-test/test/rm089-guia.test.js"
+      ],
+      "criadoEm": "2026-11-11T21:51:24.891Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/locale-ajuda.ts",
+      "alegacao": "A ajuda de `thread new --roadmap` permanece verdadeira com ou sem rede coletiva, e a snapshot F2a exclui integralmente apenas a nova família `network empresa`.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f2a-snapshot.test.js core/dist-test/test/locale-ajuda.test.js"
+      ],
+      "criadoEm": "2026-11-11T21:52:08.271Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f2a-snapshot.test.ts",
+      "alegacao": "A snapshot F2a remove integralmente a família nova `network empresa` antes da comparação e mantém todo o restante byte a byte.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/locale-f2a-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-11T21:53:37.933Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f2a-pt-BR.json",
+      "alegacao": "A fixture F2a muda somente a descrição de `--roadmap` para refletir o fallback local quando não há rede coletiva.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/locale-f2a-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-11T21:53:38.053Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "A fixture F3b acompanha a linha de uso pública do roadmap com o subcomando `reconciliar`, preservando os demais casos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/locale-f3b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-11T21:54:00.859Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/locale-ajuda.ts",
+      "alegacao": "A ajuda de `roadmap pegar` informa em pt-BR e EN que a reserva é para esta máquina e que a rede coletiva é usada primeiro quando configurada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f2a-snapshot.test.js core/dist-test/test/locale-ajuda.test.js"
+      ],
+      "criadoEm": "2026-11-11T22:07:59.726Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f2a-snapshot.test.ts",
+      "alegacao": "O snapshot F2a confirma uma ocorrência exata do bloco `network empresa` de três linhas antes de removê-lo de cada saída de ajuda.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/locale-f2a-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-11T22:07:59.814Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f2a-pt-BR.json",
+      "alegacao": "Os três casos globais da ajuda F2a registram as linhas atuais de `roadmap pegar`, `--forcar` e `roadmap reconciliar`, preservando os casos específicos congelados.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/locale-f2a-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-11T22:07:59.938Z",
       "estado": "pendente",
       "lint": [],
       "regrasDoLint": [
