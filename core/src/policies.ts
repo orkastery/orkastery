@@ -129,6 +129,131 @@ export interface RedacaoDeSegredo {
   total: number;
 }
 
+/** Resultado fechado da varredura das representacoes aceitas pela telemetria de prompts. */
+export type RedacaoDeRepresentacoes = RedacaoDeSegredo & { ok: true } | {
+  ok: false;
+  texto: '';
+  categorias: [];
+  total: 0;
+  erro: 'representacao-invalida' | 'limite-excedido';
+};
+
+const LIMITE_PADRAO_DAS_REPRESENTACOES = 4 * 1024 * 1024;
+
+interface PadraoSeparado { nome: string; regex: RegExp }
+
+/**
+ * As mesmas familias do catalogo, admitindo espaco ou quebra de linha dentro do valor. O prefixo
+ * continua contiguo para nao transformar prosa comum em candidato de credencial. O casamento
+ * inteiro e removido; o espaco final, quando houver, fica fora do intervalo substituido.
+ */
+const PADROES_DE_SEGREDO_SEPARADO: readonly PadraoSeparado[] = [
+  { nome: 'chave da Anthropic', regex: /sk-ant-(?:[A-Za-z0-9_-]\s*){16,}/g },
+  { nome: 'chave do OpenRouter', regex: /sk-or-v1-(?:[A-Za-z0-9]\s*){32,}/g },
+  { nome: 'chave da OpenAI', regex: /sk-(?:[A-Za-z0-9]\s*){32,}/g },
+  { nome: 'chave de acesso AWS', regex: /AKIA(?:[0-9A-Z]\s*){16}/g },
+  { nome: 'token do GitHub', regex: /gh[pousr]_(?:[A-Za-z0-9]\s*){20,}/g },
+];
+
+function acrescentarCategorias(destino: Set<string>, origem: readonly string[]): void {
+  for (const categoria of origem) destino.add(categoria);
+}
+
+function redigirSeparadores(texto: string, marcador: string): RedacaoDeSegredo {
+  let redigido = texto, total = 0;
+  const categorias = new Set<string>();
+  for (const padrao of PADROES_DE_SEGREDO_SEPARADO) {
+    padrao.regex.lastIndex = 0;
+    redigido = redigido.replace(padrao.regex, (casado) => {
+      const fim = casado.match(/\s+$/u)?.[0] ?? '';
+      categorias.add(padrao.nome);
+      total += 1;
+      return marcador + fim;
+    });
+  }
+  return { texto: redigido, categorias: [...categorias], total };
+}
+
+function decodificarBase64Canonico(candidato: string): string | null {
+  const semPadding = candidato.replace(/=+$/u, '');
+  if (semPadding.length < 20 || semPadding.length % 4 === 1) return null;
+  const alfabetoUrl = /[-_]/u.test(semPadding);
+  if (alfabetoUrl && /[+/]/u.test(semPadding)) return null;
+  const normalizado = semPadding.replace(/-/gu, '+').replace(/_/gu, '/');
+  try {
+    const bytes = Buffer.from(normalizado + '='.repeat((4 - normalizado.length % 4) % 4), 'base64');
+    const volta = bytes.toString('base64').replace(/=+$/u, '');
+    if (volta !== normalizado) return null;
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch { return null; }
+}
+
+function redigirBase64(texto: string, marcador: string): RedacaoDeSegredo {
+  let total = 0;
+  const categorias = new Set<string>();
+  const regex = /[A-Za-z0-9+/_-]{20,}={0,2}/g;
+  const redigido = texto.replace(regex, (candidato, deslocamento: number, entrada: string) => {
+    const anterior = deslocamento > 0 ? entrada[deslocamento - 1] : '';
+    const posterior = entrada[deslocamento + candidato.length] ?? '';
+    if (/[A-Za-z0-9+/_=-]/u.test(anterior) || /[A-Za-z0-9+/_=-]/u.test(posterior)) return candidato;
+    const decodificado = decodificarBase64Canonico(candidato);
+    if (decodificado === null) return candidato;
+    const literal = redigirSegredos(decodificado, marcador);
+    const separado = redigirSeparadores(literal.texto, marcador);
+    if (literal.total + separado.total === 0) return candidato;
+    acrescentarCategorias(categorias, literal.categorias);
+    acrescentarCategorias(categorias, separado.categorias);
+    total += literal.total + separado.total;
+    return marcador;
+  });
+  return { texto: redigido, categorias: [...categorias], total };
+}
+
+function redigirSemJson(texto: string, marcador: string): RedacaoDeSegredo {
+  const literal = redigirSegredos(texto, marcador);
+  const separado = redigirSeparadores(literal.texto, marcador);
+  const base64 = redigirBase64(separado.texto, marcador);
+  return { texto: base64.texto, total: literal.total + separado.total + base64.total,
+    categorias: [...new Set([...literal.categorias, ...separado.categorias, ...base64.categorias])] };
+}
+
+function pareceStringJsonDeSegredo(token: string): boolean {
+  return /(?:sk-|AKIA|gh[pousr]_).*\\/isu.test(token);
+}
+
+/**
+ * Redige o catalogo no texto bruto, em tokens separados, em strings JSON e em Base64/Base64URL.
+ * A funcao nunca devolve o candidato que falhou: uma string JSON com aparencia de segredo mas
+ * escape invalido fecha a preparacao antes que o chamador possa mapear o prompt.
+ */
+export function redigirRepresentacoesDeSegredo(texto: string, marcador = '[segredo omitido]',
+  limiteBytes = LIMITE_PADRAO_DAS_REPRESENTACOES): RedacaoDeRepresentacoes {
+  if (Buffer.byteLength(texto) > limiteBytes) {
+    return { ok: false, texto: '', categorias: [], total: 0, erro: 'limite-excedido' };
+  }
+  const inicial = redigirSemJson(texto, marcador);
+  let falhou = false, totalJson = 0;
+  const categoriasJson = new Set<string>();
+  const regexStringJson = /"(?:\\(?:["\\/bfnrt]|u[0-9A-Fa-f]{4})|[^"\\\u0000-\u001f])*"|"[^"\r\n]*\\[^"\r\n]*"/g;
+  const comJson = inicial.texto.replace(regexStringJson, (token) => {
+    let decodificado: unknown;
+    try { decodificado = JSON.parse(token) as unknown; }
+    catch {
+      if (pareceStringJsonDeSegredo(token)) falhou = true;
+      return token;
+    }
+    if (typeof decodificado !== 'string') return token;
+    const interno = redigirSemJson(decodificado, marcador);
+    if (interno.total === 0) return token;
+    totalJson += interno.total;
+    acrescentarCategorias(categoriasJson, interno.categorias);
+    return JSON.stringify(marcador);
+  });
+  if (falhou) return { ok: false, texto: '', categorias: [], total: 0, erro: 'representacao-invalida' };
+  return { ok: true, texto: comJson, total: inicial.total + totalJson,
+    categorias: [...new Set([...inicial.categorias, ...categoriasJson])] };
+}
+
 /**
  * Redige os mesmos padrões usados pelo gate `segredo_em_prompt`.
  *
