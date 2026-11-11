@@ -191,6 +191,10 @@ test('todos os erros de recibo têm mensagem e ação em pt-BR e EN', () => {
       assert.match(pt.error?.message ?? '', acao);
       assert.equal(en.error?.code, `ci.recibo.${estado}`);
       assert.match(en.error?.message ?? '', acao);
+      if (estado === 'sha-divergente') {
+        assert.doesNotMatch(pt.error?.message ?? '', /ork adotar/);
+        assert.doesNotMatch(en.error?.message ?? '', /ork adotar/);
+      }
       assert.notEqual(pt.error?.message, en.error?.message);
     } finally { f.p.limpar(); }
   }
@@ -220,13 +224,18 @@ test('avisar usa anotação e resumo no GitHub e log no GitLab', () => {
     assert.deepEqual(github, log);
     assert.equal(github[0], '::warning title=Orkastery::falta 100%25 do recibo%0Ause ork thread new ou ork adotar');
     assert.match(fs.readFileSync(summary, 'utf8'), /\[!WARNING\].*falta 100% do recibo\nuse ork thread new ou ork adotar/s);
-    const logGitlab: string[] = [];
-    const gitlab = publicarAvisoDaPolitica(resultado, { GITLAB_CI: 'true' }, (linha) => logGitlab.push(linha));
-    assert.deepEqual(gitlab, [
-      'WARNING: falta 100% do recibo',
-      'WARNING: use ork thread new ou ork adotar',
-    ]);
-    assert.deepEqual(logGitlab, gitlab);
+    for (const separador of ['\n', '\r\n', '\r']) {
+      const comQuebra = { policy: { ...resultado.policy,
+        message: `falta 100% do recibo${separador}use ork thread new ou ork adotar` } };
+      const logGitlab: string[] = [];
+      const gitlab = publicarAvisoDaPolitica(comQuebra, { GITLAB_CI: 'true' },
+        (linha) => logGitlab.push(linha));
+      assert.deepEqual(gitlab, [
+        'WARNING: falta 100% do recibo',
+        'WARNING: use ork thread new ou ork adotar',
+      ]);
+      assert.deepEqual(logGitlab, gitlab);
+    }
     assert.doesNotThrow(() => publicarAvisoDaPolitica(resultado,
       { GITHUB_ACTIONS: 'true', GITHUB_STEP_SUMMARY: path.join(p.dir, 'inexistente', 'summary.md') }, () => undefined));
     assert.equal(publicarAvisoDaPolitica(resultado, { GITHUB_ACTIONS: 'true' }, () => undefined)[0], github[0],
