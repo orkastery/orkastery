@@ -40,8 +40,24 @@ A publicação sai do CI, nunca de uma máquina. O workflow [publicar.yml](../..
    git push origin v<versao>
    ```
 
-3. O workflow confere que a tag bate com o `package.json`, que o commit está na `main` e que os cenários passam. Só então publica.
+3. O workflow confere que a tag bate com o `package.json`, que o commit está na `main`, que os cenários passam e que há uma dist-tag segura. Só então publica, sempre com `npm publish --tag <dist-tag>`.
 4. O mantenedor confere no npm com `npm view @orkastery/cli version`.
+
+### Como a dist-tag é escolhida
+
+A guarda consulta a `latest` de `@orkastery/cli` no mesmo registro configurado para a publicação e aplica a política da RM-088:
+
+- uma versão estável maior que a `latest` estável usa `latest`;
+- uma versão estável com a mesma precedência falha, porque já foi publicada;
+- uma versão estável menor usa `previous` e não move a `latest` para trás;
+- uma pré-release usa o primeiro identificador como canal, por exemplo `rc` ou `beta`, mesmo quando sua versão é maior que a `latest`;
+- na primeira publicação, a estável usa `latest` e a pré-release mantém seu canal próprio.
+
+O canal da pré-release é validado antes da consulta. A guarda recusa identificador vazio, numérico, iniciado por número ou por `v`/`V`, `x`/`X` e os nomes reservados `latest` e `previous`. A recusa é `publicacao.dist-tag-invalida` e não produz uma tag para o passo seguinte.
+
+O job preserva a instalação de `npm@latest`. A consulta aceita as duas formas escalares conhecidas do `npm view --json`: a string SemVer usada pelo npm 11 e o array unitário usado pelo npm 12. Array vazio ou com mais de um item, objeto e qualquer outra forma desconhecida falham como `publicacao.consulta-invalida`.
+
+Primeira publicação só significa pacote ausente quando a consulta exata devolve um `E404` estruturado e `npm ping` confirma o mesmo registro. Registro inacessível, erro não estruturado, pacote existente sem `latest`, `latest` apontando para pré-release e qualquer SemVer inválida falham antes do publish. A guarda não interpreta texto humano do npm e não usa fallback para `latest`.
 
 ## Versão com defeito
 
