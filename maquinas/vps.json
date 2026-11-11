@@ -4,25 +4,29 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.8",
-  "publicadoEm": "2026-11-11T07:25:47.102Z",
+  "publicadoEm": "2026-11-11T07:26:41.423Z",
   "threads": [
     {
-      "id": "ork-orkasteryobr",
-      "nome": "rm089",
-      "modo": "#Fast",
-      "fase": "GO",
+      "id": "ork-rm089f1inscr",
+      "nome": "rm089f1rede",
+      "modo": "#Auto",
+      "fase": "GOAL",
       "status": "aberta",
-      "roadmap": "RM-090",
-      "branch": "ork/ork-orkasteryobr-go",
-      "atualizadaEm": "2026-11-11T02:34:44.926Z",
-      "entregue": "5c7c045",
+      "roadmap": null,
+      "branch": "ork/ork-rm089f1inscr-full",
+      "atualizadaEm": "2026-11-11T07:26:38.687Z",
+      "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh",
-      "sessao": null
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-11-11T07:26:41.009Z",
+        "motivo": "nenhuma sessão despachada na fase GOAL"
+      }
     },
     {
       "id": "ork-rm090f1logsd",
