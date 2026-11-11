@@ -9,6 +9,7 @@ export const TELEMETRIA_PT_BR = {
   envioDesligado: 'Telemetria desligada: nenhum ledger, cabeçalho ou transporte foi aberto.',
   resultado: (thread: string, estado: string, registros: number) =>
     `${thread}: ${estado}; ${registros} LogRecord(s).`,
+  bloqueio: (thread: string, motivo: string) => `${thread}: preparação interrompida (${motivo}).`,
   payload: (thread: string) => `Payload de ${thread}:`,
 };
 
@@ -20,5 +21,6 @@ export const TELEMETRIA_EN: typeof TELEMETRIA_PT_BR = {
   alterada: (enabled) => `Telemetry ${enabled ? 'enabled' : 'disabled'} in the private configuration.`,
   envioDesligado: 'Telemetry is disabled: no ledger, header or transport was opened.',
   resultado: (thread, state, records) => `${thread}: ${state}; ${records} LogRecord(s).`,
+  bloqueio: (thread, reason) => `${thread}: preparation stopped (${reason}).`,
   payload: (thread) => `Payload for ${thread}:`,
 };

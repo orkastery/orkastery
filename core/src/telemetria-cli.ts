@@ -9,6 +9,7 @@ import { redigirSegredos } from './policies';
 import { ativacaoTelemetria, gravarAtivacaoTelemetria, ResolucaoTelemetria } from './telemetria-config';
 import { exportarLedger, resolverDestinoOtlp, ResultadoDaExportacao, sanitizarEndpoint } from './telemetria-exportador';
 import { ContextoDoMapeamento } from './telemetria';
+import { prepararPrompt } from './telemetria-prompt';
 import { dirThread, listarIds } from './thread';
 import { VERSAO_DO_ORK } from './versao';
 
@@ -63,7 +64,7 @@ function estadoPadrao(fonte: FonteDaTelemetria): EstadoDaFonte {
   return { thread: fonte.thread, pendingBytes: Math.max(0, tamanho - offset), lastConfirmedUid, terminal };
 }
 
-function contextoPadrao(raiz: string, pseudonimo: string, env: NodeJS.ProcessEnv): ContextoDoMapeamento {
+export function contextoPadrao(raiz: string, pseudonimo: string, env: NodeJS.ProcessEnv): ContextoDoMapeamento {
   const estado = raizDoEstado(raiz), lista = lerListaLocal(estado, raiz, env);
   return {
     serviceVersion: VERSAO_DO_ORK,
@@ -76,6 +77,14 @@ function contextoPadrao(raiz: string, pseudonimo: string, env: NodeJS.ProcessEnv
     },
     // Carimbo de máquina exigido pelo protocolo; não é horário apresentado à pessoa.
     observadoEmNano: () => BigInt(Date.now()) * 1_000_000n,
+    prepararPrompt(evento) {
+      return prepararPrompt({ raizProjeto: raiz, raizPrompts: path.join(dirThread(raiz, evento.thread), 'prompts'),
+        promptPath: evento.promptPath, promptSha256: evento.promptSha256,
+        redigirPrivado(entrada) {
+          const resultado = redigirDadoPrivado(entrada, lista);
+          return resultado.ok ? { ok: true, texto: resultado.texto } : { ok: false, erro: resultado.erro };
+        } });
+    },
   };
 }
 
@@ -174,6 +183,7 @@ export async function comandoTelemetria(entrada: EntradaTelemetriaCli): Promise<
   const resposta = { schema: CONTRATO_CLI_TELEMETRIA, command: sub, enabled: true,
     source: ativacao.origem, dryRun: entrada.dryRun === true, results: serializados };
   const linhas = resultados.flatMap(({ thread, result }) => [msg().telemetria.resultado(thread, result.estado, result.registros),
+    ...(result.bloqueio ? [msg().telemetria.bloqueio(thread, result.bloqueio.motivo)] : []),
     ...(entrada.dryRun === true && result.payload
       ? [msg().telemetria.payload(thread), JSON.stringify(result.payload, null, 2)] : [])]);
   imprimir(resposta, entrada, linhas);

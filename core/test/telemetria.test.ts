@@ -92,6 +92,47 @@ test('prompt só leva tamanho preexistente e nunca caminho, hash ou texto', () =
   assert.equal(saida.includes('conteudo'), false);
 });
 
+test('prompt preparado vira entrada GenAI estruturada com versão, sem conteúdo duplicado', () => {
+  const texto = 'texto restante com Unicode 🔐';
+  const ctx = { ...contexto, prepararPrompt: () => ({ estado: 'conteudo' as const, texto,
+    tamanhoOriginal: Buffer.byteLength(texto), tamanhoExportado: Buffer.byteLength(texto),
+    versaoDaRemocao: 'ork.telemetria-redacao/v1' as const }) };
+  const r = mapearEventoDoLedger(evento('phase_prompt_recorded', { fase: 'GO', runtime: 'codex',
+    model: 'gpt-exemplo', promptPath: '/nao/exportar', promptSha256: 'f'.repeat(64) }), ctx,
+  { sequencia: 9 }).registro!;
+  const a = attrs(r);
+  assert.equal(r.eventName, 'gen_ai.client.inference.operation.details');
+  assert.deepEqual(a['gen_ai.operation.name'], { stringValue: 'invoke_agent' });
+  assert.deepEqual(a['orkastery.prompt.redaction.policy.version'], { stringValue: 'ork.telemetria-redacao/v1' });
+  assert.deepEqual(a['gen_ai.input.messages'], { arrayValue: { values: [{ kvlistValue: { values: [
+    { key: 'role', value: { stringValue: 'user' } },
+    { key: 'parts', value: { arrayValue: { values: [{ kvlistValue: { values: [
+      { key: 'type', value: { stringValue: 'text' } },
+      { key: 'content', value: { stringValue: texto } },
+    ] } }] } } },
+  ] } }] } });
+  assert.deepEqual(r.body, { stringValue: 'phase_prompt_recorded' });
+  assert.deepEqual(r.attributes.filter((item) => JSON.stringify(item.value).includes(texto))
+    .map((item) => item.key), ['gen_ai.input.messages']);
+  assert.equal(JSON.stringify(r.body).includes(texto), false);
+  assert.equal(JSON.stringify(r).includes('/nao/exportar'), false);
+  assert.equal(JSON.stringify(r).includes('f'.repeat(64)), false);
+});
+
+test('falha permanente vira lacuna GenAI e falha retentável fica antes do evento', () => {
+  const lacuna = mapearEventoDoLedger(evento('phase_prompt_recorded'), { ...contexto,
+    prepararPrompt: () => ({ estado: 'lacuna', motivo: 'hash_mismatch' }) }).registro!;
+  assert.equal(lacuna.eventName, 'gen_ai.client.inference.operation.details');
+  assert.deepEqual(attrs(lacuna)['orkastery.prompt.content.state'], { stringValue: 'gap' });
+  assert.deepEqual(attrs(lacuna)['orkastery.prompt.gap.reason'], { stringValue: 'hash_mismatch' });
+  assert.equal('gen_ai.input.messages' in attrs(lacuna), false);
+
+  const bloqueado = mapearEventoDoLedger(evento('phase_prompt_recorded'), { ...contexto,
+    prepararPrompt: () => ({ estado: 'bloqueio', motivo: 'prompt_redaction_failed' }) });
+  assert.equal(bloqueado.registro, null);
+  assert.equal(bloqueado.bloqueioRetentavel, 'prompt_redaction_failed');
+});
+
 test('heartbeat e corrupção não viram LogRecord; legado aceita UID derivado injetado', () => {
   assert.equal(mapearEventoDoLedger(evento('heartbeat'), contexto).registro, null);
   assert.equal(mapearEventoDoLedger(evento('ledger_corrupted'), contexto).registro, null);

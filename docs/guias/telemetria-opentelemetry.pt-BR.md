@@ -90,7 +90,19 @@ Cada valor OTLP usa `AnyValue` tipado. Inteiros de 64 bits, inclusive nanossegun
 | `orkastery.runtime.name` | `stringValue` | Despacho e sessão com runtime |
 | `orkastery.prompt.size` | `intValue` decimal, bytes | `phase_prompt_recorded` quando o tamanho já existe no evento |
 
-`orkastery.event.id`, `orkastery.maestro.id`, `orkastery.verify.round_id` e `orkastery.network.id` não fazem parte do contrato. Heartbeat, `ledger_corrupted` e campos fora da lista não viram atributos. Prompt sai somente com metadados já presentes; caminho, hash e texto não são lidos nem exportados.
+`orkastery.event.id`, `orkastery.maestro.id`, `orkastery.verify.round_id` e `orkastery.network.id` não fazem parte do contrato. Heartbeat, `ledger_corrupted` e campos fora da lista não viram atributos.
+
+## Conteúdo de prompts
+
+O conteúdo de prompts só entra na telemetria depois do opt-in feito por `ork telemetria ligar`. Para cada `phase_prompt_recorded`, o núcleo abre o arquivo carimbado e confere, no mesmo descritor, o tipo, o limite de 4 MiB, os bytes e o SHA-256 registrado no evento. Caminho ou metadados ausentes, arquivo ausente, caminho inseguro, tipo inválido, excesso de tamanho, UTF-8 inválido ou hash divergente produzem uma lacuna permanente com um dos motivos tipados `metadata_missing`, `file_missing`, `unsafe_path`, `invalid_type`, `too_large`, `invalid_encoding` ou `hash_mismatch`.
+
+Antes de montar o LogRecord, os detectores de segredo processam o texto inteiro, incluindo formas literais, separadas, Base64, Base64URL e strings JSON aninhadas por até 16 níveis. Só depois o núcleo aplica `dado_privado` e confere novamente que nenhum segredo permaneceu. O log declara `orkastery.prompt.redaction.policy.version=ork.telemetria-redacao/v1`. Falha de leitura transitória ou de remoção fecha o fluxo antes do evento, sem conteúdo no payload e sem avanço do cursor.
+
+O texto restante ocupa o JSON OTLP aninhado de `gen_ai.input.messages`: uma mensagem `user`, com uma parte `text` e o conteúdo em `content`. O pedido é limitado a 1 MiB. Uma lacuna sai sem prompt, caminho ou hash, com `orkastery.prompt.content.state=gap` e `orkastery.prompt.gap.reason`; depois da confirmação remota desse LogRecord, o cursor avança e a fila continua com o evento seguinte. Assim, a perda do prompt fica observável em vez de desaparecer silenciosamente.
+
+Só um prompt que não cabe sozinho no pedido de 1 MiB é cortado, depois da remoção, em uma fronteira de ponto de código Unicode. O LogRecord marca `orkastery.prompt.truncated=true`; um prompt que cabe sozinho segue inteiro no lote seguinte. A prévia `ork telemetria enviar --dry-run` usa o mesmo preparador e, para as mesmas entradas e o mesmo relógio, é idêntica ao envio, inclusive na lacuna e no corte.
+
+A [Semantic Conventions GenAI 1.37.0](https://github.com/open-telemetry/semantic-conventions/blob/v1.37.0/docs/gen-ai/gen-ai-events.md) adotada para o evento e para `gen_ai.input.messages` está em estado **Development**. O conteúdo pode ser sensível e, pela D1 da RM-090, a empresa que recebe os logs vê o texto restante depois da remoção; por isso a ativação é opt-in e privada da pessoa ou da máquina.
 
 ## Privacidade e entrega
 
@@ -98,4 +110,4 @@ Texto livre passa primeiro pelo catálogo de segredos e depois pela lista local 
 
 O cursor é incremental por posição em cada ledger. Um evento histórico sem `eventId` recebe UID derivado estável. Linha corrompida ou truncada bloqueia no primeiro ponto ruim sem avançar. O cursor só é persistido depois da confirmação remota; uma queda entre POST e cursor reenvia os mesmos UIDs. A garantia é ao menos uma vez, não exatamente uma vez.
 
-O envio manual usa lock não bloqueante, lote e resposta limitados e no máximo uma repetição para falha de conexão ou status retentável. `partialSuccess` e resposta não retentável são terminais e visíveis no status, sem repetir silenciosamente. Nenhum hook automático de fase, métrica, trace, texto de prompt, painel ou política empresarial é criado nesta fatia.
+O envio manual usa lock não bloqueante, lote e resposta limitados e no máximo uma repetição para falha de conexão ou status retentável. `partialSuccess` e resposta não retentável são terminais e visíveis no status, sem repetir silenciosamente. Nenhum hook automático de fase, métrica, trace, painel ou política empresarial é criado nesta fatia; o texto do prompt sai somente no envio manual com opt-in e com as proteções descritas acima.
