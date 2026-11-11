@@ -27,6 +27,16 @@ export interface DependenciasTelemetriaRuntime {
   destino: (env: NodeJS.ProcessEnv) => DestinoOtlp;
 }
 
+/** A forma observável e a executada pelo worker são derivadas pelo mesmo helper. */
+export function comandoCodexAppServer(telemetria?: TelemetriaDoDespacho): string[] {
+  if (telemetria && telemetria.runtime !== 'codex') {
+    throw new Error('telemetria.runtime: configuração Claude Code no Codex');
+  }
+  return ['codex', 'app-server', '--listen', 'stdio://',
+    ...(telemetria?.runtime === 'codex' ? telemetria.argumentos : []),
+    '-c', 'model_provider="openai"'];
+}
+
 function endpointSeguro(endpoint: string): string | null {
   try {
     const url = new URL(endpoint);

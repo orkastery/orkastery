@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { prepararTelemetriaDoRuntime, resolverTelemetriaDoRuntime } from '../src/telemetria-runtime';
+import { comandoCodexAppServer, prepararTelemetriaDoRuntime, resolverTelemetriaDoRuntime } from '../src/telemetria-runtime';
 import type { ResolucaoTelemetria } from '../src/telemetria-config';
 
 const ligada: ResolucaoTelemetria = { ligada: true, origem: 'builder', motivo: 'teste', pseudonimo: 'a'.repeat(64) };
@@ -50,6 +50,12 @@ test('Codex recebe logs sem conteúdo, métricas ou traces; segredo fica só no 
   assert.match(argv, /otel\.trace_exporter="none"/);
   assert.match(argv, /\$\{ORK_TELEMETRIA_OTLP_HEADER_0\}/);
   assert.equal(argv.includes('Bearer VALOR-SINTETICO'), false);
+  const comando = comandoCodexAppServer(preparado), executavel = comando.join(' ');
+  for (const esperado of ['otel.log_user_prompt=false', 'otel.log_agent_responses=false',
+    'otel.log_guardian_assessments=false', 'otel.tool_result.max_bytes=0',
+    'otel.metrics_exporter="none"', 'otel.trace_exporter="none"']) assert.ok(comando.includes(esperado), esperado);
+  assert.equal(executavel.includes('Bearer VALOR-SINTETICO'), false);
+  assert.match(executavel, /\$\{ORK_TELEMETRIA_OTLP_HEADER_0\}/);
 });
 
 test('resolução não consulta destino quando desligada e falha fechada sem alterar o pedido', () => {

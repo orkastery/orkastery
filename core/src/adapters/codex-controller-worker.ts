@@ -9,6 +9,7 @@ import { validarContextoRuntime } from '../runtime-context';
 import { conferirDiretorio, EstadoController, BootstrapController, erroNativoDoTurno, identidadeDoProcesso } from './codex-controller';
 import type { DespachoCodexPedido } from './codex';
 import type { ConfirmacaoSessao, EntregaSessao, IdentidadeSessao } from '../hitl-sessions';
+import { comandoCodexAppServer } from '../telemetria-runtime';
 
 /** RM-064: interrupção nativa testável sem descobrir PID, sessão ou turno fora do controller vinculado. */
 export async function interromperTurnoAtivo(state: EstadoController, sessao: IdentidadeSessao,
@@ -43,7 +44,8 @@ async function servidor(): Promise<void> {
     sessionId: '', pid: process.pid, estado: 'starting' };
   const salvar = () => gravar('state.json', state);
   salvar();
-  const child = spawn('codex', ['app-server', '--listen', 'stdio://', '-c', 'model_provider="openai"'],
+  const comando = comandoCodexAppServer(pedido.telemetria);
+  const child = spawn(comando[0], comando.slice(1),
     { cwd: pedido.cwd, env: process.env, stdio: ['pipe', 'pipe', 'pipe'] });
   state.runtimePid = child.pid;
   // PID vem do ChildProcess criado aqui; starttime evita confundir reutilização de PID.
