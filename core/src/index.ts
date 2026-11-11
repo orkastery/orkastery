@@ -3310,6 +3310,8 @@ function comandoRoadmap(args: Args): number {
   const r = comLocale('pt-BR', () => {
     if (sub === 'soltar') return soltarItem(carregado.raiz, item, opcoes);
     const coletiva = portaColetivaDoProjeto(carregado.raiz, carregado.manifesto, item.trim().toUpperCase());
+    // Sem inscrição coletiva, preserve integralmente a RM-047: mesma escrita, mesma saída e nenhum estado da saga.
+    if (!coletiva.configurada) return pegarItem(carregado.raiz, item, opcoes);
     const coordenada = executarReservaCoordenada({ raiz: carregado.raiz, projectKey: coletiva.projectKey,
       itemId: item.trim().toUpperCase(), coletiva: coletiva.porta, local: portaLocalDoRoadmap(carregado.raiz, item, opcoes) });
     cobertura = coordenada.cobertura;

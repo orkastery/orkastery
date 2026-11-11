@@ -215,7 +215,7 @@ function referenciaDaEmpresa(caminho: string): { dono: string; repositorio: stri
 
 /** Adaptador da saga para a inscrição ativa do projeto; sem inscrição, observar/avisar seguem visíveis e sem CAS coletivo. */
 export function portaColetivaDoProjeto(raiz: string, manifesto: Manifesto, itemId: string,
-  fase: IdentidadeColetiva['fase'] = 'GOAL'): { projectKey: string; porta: PortaColetivaDaSaga } {
+  fase: IdentidadeColetiva['fase'] = 'GOAL'): { projectKey: string; configurada: boolean; porta: PortaColetivaDaSaga } {
   const remoto = remotoDoProjeto(raiz, 'origin');
   let projectKey = `github:local.invalid/${manifesto.project.abbrev.toLowerCase()}`;
   if (remoto) {
@@ -227,14 +227,15 @@ export function portaColetivaDoProjeto(raiz: string, manifesto: Manifesto, itemI
   }));
   if (!adesao) {
     const cobertura = coberturaSemRede(projectKey, itemId);
-    return { projectKey, porta: { reservar: () => ({ fingerprint: null, valor: { cobertura } }), soltar: () => true } };
+    return { projectKey, configurada: false,
+      porta: { reservar: () => ({ fingerprint: null, valor: { cobertura } }), soltar: () => true } };
   }
   const casaPartes = referenciaDaEmpresa(adesao.empresa.caminho);
   const casa: CasaDaRede = { forja: adesao.empresa.forja, host: adesao.empresa.host, ...casaPartes, origem: 'opcao' };
   const cache = dirDoCache(casa);
   if (!cachePronto(cache)) {
     const cobertura = coberturaSemRede(projectKey, itemId, adesao.politicaCache);
-    return { projectKey, porta: {
+    return { projectKey, configurada: true, porta: {
       reservar: () => {
         if (!cobertura.permite) throw new ErroDaReservaColetiva(cobertura.codigo);
         return { fingerprint: null, valor: { cobertura } };
@@ -245,7 +246,7 @@ export function portaColetivaDoProjeto(raiz: string, manifesto: Manifesto, itemI
   const identidade: IdentidadeColetiva = { inscricaoId: adesao.inscricaoId, accountId: adesao.maestroRef.accountId,
     loginAtual: adesao.loginAtual, fase };
   const caminho = `coordenacao/${segmentoDaProjectKey(projectKey)}/${itemId}.json`;
-  return { projectKey, porta: {
+  return { projectKey, configurada: true, porta: {
     reservar(operationId) {
       const r = coordenarTrabalho(branch, { acao: 'reserva', operationId, projectKey, itemId, identidade,
         agora: new Date().toISOString(), timeoutMs: 15_000 });
