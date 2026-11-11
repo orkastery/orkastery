@@ -23,7 +23,7 @@ function semAdicaoDaTelemetria(texto: string): string {
 }
 
 const BLOCO_NETWORK_EMPRESA =
-  '  network empresa criar|inscrever|aceitar   Rede coletiva privada da empresa: cria o repositório privado dedicado;\n' +
+  '  network empresa criar|inscrever|aceitar   Rede coletiva privada da empresa: cria o repositorio privado dedicado;\n' +
   '        publicar|status|sair|revogar [--json]    empresa registra e maestro aceita por accountId (RM-089)\n' +
   '        criar ... [--nivel observar|avisar|exigir] [--recibo-versao V]  cobertura da reserva coletiva\n';
 
