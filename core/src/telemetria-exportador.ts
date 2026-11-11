@@ -14,6 +14,7 @@ export const MAXIMO_DA_REQUISICAO = 1024 * 1024;
 export const MAXIMO_DA_RESPOSTA = 64 * 1024;
 export const TIMEOUT_PADRAO_MS = 10_000;
 export const VALIDADE_DO_LOCK_MS = 120_000;
+export const BACKOFF_INICIAL_MS = 100;
 
 export interface IdentidadeDoLedger { dev: string; ino: string; tamanho: number }
 
@@ -243,25 +244,63 @@ export interface PedidoTransporte {
 export interface RespostaTransporte { status: number; body: string; headers?: Record<string, string> }
 export type TransporteOtlp = (pedido: PedidoTransporte) => Promise<RespostaTransporte>;
 
+async function lerCorpoLimitado(resposta: Response): Promise<string> {
+  if (!resposta.body) return '';
+  const leitor = resposta.body.getReader(), partes: Buffer[] = [];
+  let total = 0;
+  try {
+    while (total <= MAXIMO_DA_RESPOSTA) {
+      const { done, value } = await leitor.read();
+      if (done) break;
+      if (!value?.byteLength) continue;
+      const bytes = Buffer.from(value), restante = MAXIMO_DA_RESPOSTA + 1 - total;
+      const parte = bytes.subarray(0, Math.min(bytes.length, restante));
+      partes.push(parte);
+      total += parte.length;
+      if (bytes.length > parte.length || total > MAXIMO_DA_RESPOSTA) {
+        await leitor.cancel().catch(() => undefined);
+        break;
+      }
+    }
+  } finally { leitor.releaseLock(); }
+  return Buffer.concat(partes, total).toString('utf8');
+}
+
 export const transporteHttp: TransporteOtlp = async (pedido) => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), pedido.timeoutMs);
   try {
+    const headersDoPedido = Object.fromEntries(Object.entries(pedido.headers)
+      .filter(([chave]) => chave.toLowerCase() !== 'content-type'));
+    headersDoPedido['content-type'] = 'application/json';
     const resposta = await fetch(pedido.endpoint, { method: 'POST', body: pedido.body, signal: controller.signal,
-      headers: { 'content-type': 'application/json', ...pedido.headers } });
-    const body = (await resposta.text()).slice(0, MAXIMO_DA_RESPOSTA + 1);
-    const headers: Record<string, string> = {};
-    resposta.headers.forEach((v, k) => { headers[k.toLowerCase()] = v; });
-    return { status: resposta.status, body, headers };
+      headers: headersDoPedido });
+    const body = await lerCorpoLimitado(resposta);
+    const headersDaResposta: Record<string, string> = {};
+    resposta.headers.forEach((v, k) => { headersDaResposta[k.toLowerCase()] = v; });
+    return { status: resposta.status, body, headers: headersDaResposta };
   } finally { clearTimeout(timer); }
 };
 
-function retryAfterMs(resposta: RespostaTransporte, agoraMs: number, timeoutMs: number): number {
+function retryAfterMs(resposta: RespostaTransporte, agoraMs: number): number | null {
   const valor = resposta.headers?.['retry-after'];
-  if (!valor) return 0;
+  if (!valor) return null;
   const segundos = Number(valor);
   const espera = Number.isFinite(segundos) ? segundos * 1000 : Date.parse(valor) - agoraMs;
-  return Number.isFinite(espera) && espera > 0 && espera <= timeoutMs ? Math.floor(espera) : 0;
+  return Number.isFinite(espera) && espera >= 0 ? Math.floor(espera) : null;
+}
+
+function backoffMs(tentativa: number, aleatorio: () => number): number {
+  const amostra = Math.min(1, Math.max(0, aleatorio()));
+  return Math.floor(BACKOFF_INICIAL_MS * (2 ** tentativa) * (0.5 + amostra));
+}
+
+function int64Decimal(valor: unknown): string | null {
+  if (typeof valor !== 'string' || !/^-?(?:0|[1-9][0-9]*)$/.test(valor)) return null;
+  try {
+    const numero = BigInt(valor);
+    return numero >= -(2n ** 63n) && numero <= (2n ** 63n) - 1n ? valor : null;
+  } catch { return null; }
 }
 
 function parcial(body: string, redigir: ContextoDoMapeamento['redigir']): RejeicaoTerminal | null {
@@ -274,12 +313,17 @@ function parcial(body: string, redigir: ContextoDoMapeamento['redigir']): Rejeic
   if (!valor || typeof valor !== 'object' || Array.isArray(valor) || !('partialSuccess' in valor)) return null;
   const p = (valor as { partialSuccess?: unknown }).partialSuccess;
   const objeto = p && typeof p === 'object' && !Array.isArray(p) ? p as Record<string, unknown> : {};
-  const rejeitados = typeof objeto.rejectedLogRecords === 'string' || typeof objeto.rejectedLogRecords === 'number'
-    ? String(objeto.rejectedLogRecords) : undefined;
+  let rejeitados: string | undefined;
+  if ('rejectedLogRecords' in objeto) {
+    const valido = int64Decimal(objeto.rejectedLogRecords);
+    if (valido === null) return { contrato: CONTRATO_REJEICAO_TELEMETRIA,
+      tipo: 'protocolo', status: 200, mensagem: 'resposta OTLP inválida' };
+    rejeitados = valido;
+  }
   let mensagem: string | undefined;
   if (typeof objeto.errorMessage === 'string' && objeto.errorMessage.trim()) {
-    const segura = redigir(objeto.errorMessage.slice(0, 512));
-    mensagem = segura.ok && segura.texto ? segura.texto : 'mensagem recusada pela privacidade';
+    const segura = redigir(objeto.errorMessage);
+    mensagem = segura.ok && segura.texto ? segura.texto.slice(0, 512) : 'mensagem recusada pela privacidade';
   }
   return { contrato: CONTRATO_REJEICAO_TELEMETRIA, tipo: 'parcial', status: 200,
     ...(rejeitados ? { rejectedLogRecords: rejeitados } : {}), ...(mensagem ? { mensagem } : {}) };
@@ -301,19 +345,35 @@ export async function exportarLedger(opcoes: {
   arquivoLedger: string; arquivoCursor: string; arquivoLock: string; thread: string;
   contexto: ContextoDoMapeamento; env?: NodeJS.ProcessEnv; arquivos?: ArquivosTelemetria;
   transporte?: TransporteOtlp; dryRun?: boolean; agoraMs?: () => number; dormir?: (ms: number) => Promise<void>;
-  depoisDoEnvio?: () => void;
+  dryRunOffset?: number; aleatorio?: () => number; depoisDoEnvio?: () => void;
 }): Promise<ResultadoDaExportacao> {
   const io = opcoes.arquivos ?? arquivosDoNode, agoraMs = opcoes.agoraMs ?? Date.now;
-  const preparar = () => {
+  const preparar = (cursorInformado?: CursorTelemetria) => {
     const id = io.identidade(opcoes.arquivoLedger);
-    const cursor = cursorValido(io.lerJson(opcoes.arquivoCursor), id);
+    const cursor = cursorInformado ?? cursorValido(io.lerJson(opcoes.arquivoCursor), id);
     const lote = lerLoteIncremental({ arquivo: opcoes.arquivoLedger, thread: opcoes.thread, cursor,
       contexto: opcoes.contexto, arquivos: io });
     const payload = montarExportLogsServiceRequest(lote.registros, opcoes.contexto);
     return { cursor, lote, payload };
   };
+  if (opcoes.dryRunOffset !== undefined && !opcoes.dryRun) {
+    throw new Error('telemetria.dry-run: offset exige --dry-run');
+  }
   if (opcoes.dryRun) {
-    const { lote, payload } = preparar();
+    const id = io.identidade(opcoes.arquivoLedger), offset = opcoes.dryRunOffset ?? 0;
+    if (!Number.isSafeInteger(offset) || offset < 0 || offset > id.tamanho) {
+      throw new Error('telemetria.dry-run: offset inválido');
+    }
+    let posicao = 0, sequencia = 1, ultimoByte: number | undefined;
+    while (posicao < offset) {
+      const trecho = io.ler(opcoes.arquivoLedger, posicao, Math.min(MAXIMO_DE_LEITURA, offset - posicao));
+      if (!trecho.length) throw new Error('telemetria.dry-run: offset inválido');
+      for (const byte of trecho) if (byte === 0x0a) sequencia += 1;
+      posicao += trecho.length;
+      ultimoByte = trecho.at(-1);
+    }
+    if (offset > 0 && ultimoByte !== 0x0a) throw new Error('telemetria.dry-run: offset não inicia uma linha');
+    const { lote, payload } = preparar({ ...cursorInicial(id), proximoOffset: offset, proximaSequencia: sequencia });
     return { estado: 'dry-run', registros: lote.registros.length, uids: lote.uids, payload,
       ...(lote.bloqueio ? { bloqueio: lote.bloqueio } : {}) };
   }
@@ -332,14 +392,20 @@ export async function exportarLedger(opcoes: {
     const body = JSON.stringify(payload);
     if (Buffer.byteLength(body) > MAXIMO_DA_REQUISICAO) throw new Error('telemetria.lote: requisição excede o limite');
     const transporte = opcoes.transporte ?? transporteHttp, dormir = opcoes.dormir ?? ((ms) => new Promise(r => setTimeout(r, ms)));
+    const aleatorio = opcoes.aleatorio ?? Math.random, limite = agoraMs() + destino.timeoutMs;
     let resposta: RespostaTransporte | null = null, falhaDeConexao = false;
     for (let tentativa = 0; tentativa < 2; tentativa += 1) {
+      const restante = Math.floor(limite - agoraMs());
+      if (restante <= 0) { falhaDeConexao = true; resposta = null; break; }
       falhaDeConexao = false;
-      try { resposta = await transporte({ ...destino, body }); }
+      try { resposta = await transporte({ ...destino, timeoutMs: restante, body }); }
       catch { falhaDeConexao = true; resposta = null; }
       const retentar = falhaDeConexao || (resposta !== null && RETENTAVEIS.has(resposta.status));
       if (!retentar || tentativa === 1) break;
-      const espera = resposta ? retryAfterMs(resposta, agoraMs(), destino.timeoutMs) : 0;
+      const porHeader = resposta ? retryAfterMs(resposta, agoraMs()) : null;
+      const espera = porHeader ?? backoffMs(tentativa, aleatorio);
+      const restanteAposTentativa = Math.floor(limite - agoraMs());
+      if (espera >= restanteAposTentativa) break;
       if (espera > 0) await dormir(espera);
     }
     if (falhaDeConexao || resposta === null || RETENTAVEIS.has(resposta.status)) {

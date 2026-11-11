@@ -4,7 +4,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { dirTemporario } from './apoio';
 import { arquivosDoNode, ArquivosTelemetria, exportarLedger, lerLoteIncremental, resolverDestinoOtlp,
-  analisarHeadersOtlp, sanitizarEndpoint } from '../src/telemetria-exportador';
+  analisarHeadersOtlp, MAXIMO_DA_RESPOSTA, sanitizarEndpoint, transporteHttp } from '../src/telemetria-exportador';
 
 const dirs = new Set<string>();
 after(() => { for (const dir of dirs) fs.rmSync(dir, { recursive: true, force: true }); });
@@ -12,9 +12,10 @@ function fixture(linhas: string[]) {
   const dir = dirTemporario('telemetria-exportador'); dirs.add(dir);
   const ledger = path.join(dir, 'ledger.jsonl'), cursor = path.join(dir, 'cursor.json'), lock = path.join(dir, 'lock');
   fs.writeFileSync(ledger, linhas.join('\n') + '\n');
-  const contagem = { ler: 0, escrever: 0, lock: 0 };
+  const contagem = { ler: 0, lerJson: 0, escrever: 0, lock: 0 };
   const arquivos: ArquivosTelemetria = { ...arquivosDoNode,
     ler(...args) { contagem.ler += 1; return arquivosDoNode.ler(...args); },
+    lerJson(...args) { contagem.lerJson += 1; return arquivosDoNode.lerJson(...args); },
     escreverJsonAtomico(...args) { contagem.escrever += 1; return arquivosDoNode.escreverJsonAtomico(...args); },
     adquirirLock(...args) { contagem.lock += 1; return arquivosDoNode.adquirirLock(...args); },
   };
@@ -79,7 +80,8 @@ test('partialSuccess é terminal, não repete e redige mensagem externa', async 
   const contexto = { ...ctx, redigir: (texto: string) => ({ ok: true, texto: texto.replace(segredo, '[omitido]') }) };
   const r = await exportarLedger({ arquivoLedger: f.ledger, arquivoCursor: f.cursor, arquivoLock: f.lock,
     thread: 'ork-teste', contexto, arquivos: f.arquivos, env, transporte: async () => {
-      chamadas += 1; return { status: 200, body: JSON.stringify({ partialSuccess: { rejectedLogRecords: '1', errorMessage: `recusado ${segredo}` } }) };
+      chamadas += 1; return { status: 200, body: JSON.stringify({ partialSuccess: { rejectedLogRecords: '1',
+        errorMessage: `${'x'.repeat(500)}${segredo}` } }) };
     } });
   assert.equal(chamadas, 1);
   assert.equal(r.estado, 'rejeitado');
@@ -89,6 +91,22 @@ test('partialSuccess é terminal, não repete e redige mensagem externa', async 
     thread: 'ork-teste', contexto: ctx, arquivos: f.arquivos, env, transporte: async () => { chamadas += 1; return { status: 200, body: '' }; } });
   assert.equal(deNovo.estado, 'rejeitado');
   assert.equal(chamadas, 1);
+});
+
+test('partialSuccess recusa rejectedLogRecords fora de int64 decimal sem persistir entrada externa', async () => {
+  for (const rejeitados of ['authorization=Bearer segredo', '9223372036854775808', 1]) {
+    const f = fixture([linha('thread_created', 'e1')]);
+    const r = await exportarLedger({ arquivoLedger: f.ledger, arquivoCursor: f.cursor, arquivoLock: f.lock,
+      thread: 'ork-teste', contexto: ctx, arquivos: f.arquivos, env, transporte: async () => ({ status: 200,
+        body: JSON.stringify({ partialSuccess: { rejectedLogRecords: rejeitados, errorMessage: 'externo' } }) }) });
+    assert.equal(r.estado, 'rejeitado');
+    assert.equal(r.rejeicao?.tipo, 'protocolo');
+    assert.equal(r.rejeicao?.rejectedLogRecords, undefined);
+    const persistido = JSON.parse(fs.readFileSync(f.cursor, 'utf8'));
+    assert.equal(persistido.terminal.rejectedLogRecords, undefined);
+    if (typeof rejeitados === 'string') assert.equal(JSON.stringify(r).includes(rejeitados), false);
+    assert.equal(JSON.stringify(persistido).includes('externo'), false);
+  }
 });
 
 test('400 não repete; respostas retentáveis e falha de conexão repetem uma vez e preservam pendência', async () => {
@@ -113,13 +131,66 @@ test('400 não repete; respostas retentáveis e falha de conexão repetem uma ve
   assert.equal(rc.estado, 'pendente'); assert.equal(conexoes, 2);
 });
 
-test('dry-run não resolve headers, não chama transporte, não grava cursor nem lock', async () => {
-  const f = fixture([linha('thread_created', 'e1')]); let chamadas = 0;
+test('retry compartilha o orçamento total e usa Retry-After ou backoff com jitter sem espera real', async () => {
+  const a = fixture([linha('thread_created', 'a')]);
+  let agora = 0; const esperasA: number[] = [], prazosA: number[] = [];
+  const rA = await exportarLedger({ arquivoLedger: a.ledger, arquivoCursor: a.cursor, arquivoLock: a.lock,
+    thread: 'ork-teste', contexto: ctx, arquivos: a.arquivos,
+    env: { OTEL_EXPORTER_OTLP_ENDPOINT: 'https://collector.test', OTEL_EXPORTER_OTLP_TIMEOUT: '100' },
+    agoraMs: () => agora, dormir: async (ms) => { esperasA.push(ms); agora += ms; },
+    transporte: async (pedido) => { prazosA.push(pedido.timeoutMs); return { status: 429, body: '', headers: { 'retry-after': '0.04' } }; } });
+  assert.equal(rA.estado, 'pendente');
+  assert.deepEqual(prazosA, [100, 60]);
+  assert.deepEqual(esperasA, [40]);
+
+  const b = fixture([linha('thread_created', 'b')]);
+  agora = 0; const esperasB: number[] = [], prazosB: number[] = [];
+  await exportarLedger({ arquivoLedger: b.ledger, arquivoCursor: b.cursor, arquivoLock: b.lock,
+    thread: 'ork-teste', contexto: ctx, arquivos: b.arquivos,
+    env: { OTEL_EXPORTER_OTLP_ENDPOINT: 'https://collector.test', OTEL_EXPORTER_OTLP_TIMEOUT: '1000' },
+    agoraMs: () => agora, aleatorio: () => 0.5, dormir: async (ms) => { esperasB.push(ms); agora += ms; },
+    transporte: async (pedido) => { prazosB.push(pedido.timeoutMs); throw new Error('fora'); } });
+  assert.deepEqual(prazosB, [1000, 900]);
+  assert.deepEqual(esperasB, [100]);
+
+  const c = fixture([linha('thread_created', 'c')]); let chamadasC = 0;
+  await exportarLedger({ arquivoLedger: c.ledger, arquivoCursor: c.cursor, arquivoLock: c.lock,
+    thread: 'ork-teste', contexto: ctx, arquivos: c.arquivos,
+    env: { OTEL_EXPORTER_OTLP_ENDPOINT: 'https://collector.test', OTEL_EXPORTER_OTLP_TIMEOUT: '100' },
+    agoraMs: () => 0, dormir: async () => { throw new Error('não cabe no orçamento'); },
+    transporte: async () => { chamadasC += 1; return { status: 503, body: '', headers: { 'retry-after': '1' } }; } });
+  assert.equal(chamadasC, 1);
+});
+
+test('dry-run ignora cursor, começa no zero ou no offset informado e não usa transporte nem lock', async () => {
+  const f = fixture([linha('thread_created', 'e1'), linha('phase_dispatch', 'e2')]); let chamadas = 0;
+  fs.writeFileSync(f.cursor, JSON.stringify({ segredo: 'cursor que não pode ser lido' }));
   const r = await exportarLedger({ arquivoLedger: f.ledger, arquivoCursor: f.cursor, arquivoLock: f.lock,
     thread: 'ork-teste', contexto: ctx, arquivos: f.arquivos, dryRun: true,
     env: { OTEL_EXPORTER_OTLP_HEADERS: 'invalido-e-segredo' }, transporte: async () => { chamadas += 1; return { status: 200, body: '' }; } });
   assert.equal(r.estado, 'dry-run'); assert.equal(chamadas, 0);
-  assert.deepEqual({ escrever: f.contagem.escrever, lock: f.contagem.lock }, { escrever: 0, lock: 0 });
+  assert.deepEqual(r.uids, ['e1', 'e2']);
+  const offset = Buffer.byteLength(linha('thread_created', 'e1') + '\n');
+  const doOffset = await exportarLedger({ arquivoLedger: f.ledger, arquivoCursor: f.cursor, arquivoLock: f.lock,
+    thread: 'ork-teste', contexto: ctx, arquivos: f.arquivos, dryRun: true, dryRunOffset: offset });
+  assert.deepEqual(doOffset.uids, ['e2']);
+  assert.deepEqual({ lerJson: f.contagem.lerJson, escrever: f.contagem.escrever, lock: f.contagem.lock },
+    { lerJson: 0, escrever: 0, lock: 0 });
+});
+
+test('transporte limita o stream durante a leitura e fixa application/json contra override configurado', async () => {
+  const fetchOriginal = global.fetch;
+  let textChamado = false, headersObservados: HeadersInit | undefined;
+  try {
+    const resposta = new Response(Buffer.alloc(MAXIMO_DA_RESPOSTA + 4096, 0x78), { status: 200 });
+    resposta.text = async () => { textChamado = true; return 'não deve materializar'; };
+    global.fetch = (async (_url, init) => { headersObservados = init?.headers; return resposta; }) as typeof fetch;
+    const r = await transporteHttp({ endpoint: 'https://collector.test/v1/logs',
+      headers: { 'Content-Type': 'text/plain' }, body: '{}', timeoutMs: 1000 });
+    assert.equal(textChamado, false);
+    assert.equal(Buffer.byteLength(r.body), MAXIMO_DA_RESPOSTA + 1);
+    assert.equal(new Headers(headersObservados).get('content-type'), 'application/json');
+  } finally { global.fetch = fetchOriginal; }
 });
 
 test('lock concorrente sai ocupado sem transporte ou cursor', async () => {
