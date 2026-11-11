@@ -12,7 +12,8 @@ import type { PortaDaBranchEmpresa } from '../src/rede-empresa-transporte';
 import { textoDaFalhaEmpresa } from '../src/locale-network-empresa';
 
 const codigos = [
-  'rede-empresa.uso', 'rede-empresa.config-ausente', 'rede-empresa.config-invalida', 'rede-empresa.politica-ausente',
+  'rede-empresa.uso', 'rede-empresa.config-ausente', 'rede-empresa.config-invalida', 'rede-empresa.documento-remoto-invalido',
+  'rede-empresa.politica-ausente',
   'rede-empresa.politica-incompativel', 'rede-empresa.inscricao-ausente', 'rede-empresa.inscricao-inativa',
   'rede-empresa.identidade-divergente', 'rede-empresa.rede-divergente', 'rede-empresa.projeto-nao-autorizado',
   'rede-empresa.saida-negada', 'rede-empresa.projecao-invalida', 'rede-empresa.dado-privado', 'rede-empresa.segredo',
@@ -27,6 +28,15 @@ test('toda falha conhecida tem mensagem e ação em pt-BR e EN', () => {
     assert.ok(texto.mensagem.trim(), `${codigo}/${locale}/mensagem`);
     assert.ok(texto.acao.trim(), `${codigo}/${locale}/acao`);
   }
+});
+
+test('documento remoto inválido orienta correção em pt-BR e EN sem ecoar conteúdo', () => {
+  const marcador = 'json-invalido-conteudo-nao-confiavel';
+  const pt = textoDaFalhaEmpresa('rede-empresa.documento-remoto-invalido', 'pt-BR');
+  const en = textoDaFalhaEmpresa('rede-empresa.documento-remoto-invalido', 'en');
+  assert.match(pt.acao, /administração.*corrigir.*repositório privado/);
+  assert.match(en.acao, /administrator.*repair.*private repository/);
+  assert.doesNotMatch(JSON.stringify({ pt, en }), new RegExp(marcador));
 });
 
 test('JSON preserva código e contrato enquanto localiza mensagem e ação', () => {
