@@ -11,6 +11,7 @@ import { portaGitDaRedeEmpresa, transacionarRedeEmpresa } from './rede-empresa-t
 import { fingerprintDaReserva, pegarItem, soltarItem, type OpcoesDeReserva, type ResultadoDeReserva } from './roadmap-reservas';
 import { remotoDoProjeto } from './projeto-alvo';
 import type { Manifesto } from './types';
+import { carregarManifesto } from './manifest';
 
 export const CONTRATO_OPERACAO_REDE_EMPRESA = 'ork.rede-empresa-operacao/v1' as const;
 
@@ -276,4 +277,19 @@ export function portaColetivaDoProjeto(raiz: string, manifesto: Manifesto, itemI
       return !divergiu && (t.acao === 'publicou' || t.acao === 'sem-mudanca');
     },
   } };
+}
+
+export interface SolturaColetivaDaThread { itemId: string; operationId: string; acao: 'solta' | 'intocada'; }
+
+/** O fechamento libera a reserva coletiva da mesma saga, sem tocar uma renovação posterior. */
+export function soltarReservaColetivaDaThread(raiz: string, threadId: string): SolturaColetivaDaThread[] {
+  const carregado = carregarManifesto(raiz);
+  if (!carregado) return [];
+  const candidatas = operacoes(raiz).filter((o) => o.threadId === threadId && o.estado === 'concluida' && !!o.coletivaFingerprint);
+  return candidatas.map((op) => {
+    const coletiva = portaColetivaDoProjeto(raiz, carregado.manifesto, op.itemId);
+    const ok = coletiva.projectKey === op.projectKey && coletiva.porta.soltar(op.coletivaFingerprint!);
+    if (ok) avanca(raiz, op, { coletivaFingerprint: null });
+    return { itemId: op.itemId, operationId: op.operationId, acao: ok ? 'solta' : 'intocada' };
+  });
 }

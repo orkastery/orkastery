@@ -54,6 +54,7 @@ import { grafoLigado, registrarConsultasDoGrafo } from './mcp-grafo';
 import { registrarConsultasDoConhecimento } from './mcp-conhecimento';
 import { comLocale, ErroDoCatalogo, resolverLocale } from './locale';
 import { MOTIVOS_DE_PEDIDO_A_CONDUCAO, registrarPedidoAConducao } from './pedido-conducao';
+import { executarSagaDaThread, portaColetivaDoProjeto, portaLocalDoRoadmap } from './rede-empresa-operacao';
 
 const identidade = z.string().min(1).max(80).regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/);
 const daThread = z.object({ threadId: identidade }).strict();
@@ -77,7 +78,7 @@ const modoDeConducao = z.string().trim().min(1).max(40)
   .transform((bruto) => exigirModoVivo(bruto));
 
 const nova = z.object({ nome: z.string().trim().min(1).max(200),
-  modo: modoDeConducao.optional() }).strict();
+  modo: modoDeConducao.optional(), roadmap: z.string().regex(/^RM-[0-9]{3}$/).optional() }).strict();
 const fase = daThread.extend({ fase: z.enum(['GOAL','PLAN','GO','CHECK','SHIP','MASTER']),
   // RM-067 (F4b): o grok tambem, como o --runtime do CLI, sempre com o model dele.
   prompt: z.string().min(1).max(65536), runtime: z.enum(['claude-bg','codex','grok']).optional(),
@@ -505,17 +506,24 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
       return resposta(observar(threadId));
     });
   registrarTool('ork_thread_new',{description:'Cria uma thread para a demanda autorizada, com worktree isolada; modo validado pelo nucleo. Nao inicia modelo.',
-    inputSchema:nova,annotations:{readOnlyHint:false,destructiveHint:false}},async ({nome,modo}) => {
+    inputSchema:nova,annotations:{readOnlyHint:false,destructiveHint:false}},async ({nome,modo,roadmap}) => {
       const c=carregar(); livre();
       const destino=path.resolve(raiz,c.manifesto.worktree.dir);
       if (!destino.startsWith(raiz+path.sep)) throw Error('mcp.scope.violation: worktree.dir fora do projeto');
       // Validar ancestrais existentes antes de o nucleo criar o diretorio.
       let existente=destino; while (!fs.existsSync(existente)) existente=path.dirname(existente);
       confinado(existente);
-      const criada=novaThread(c,{nome,modo:modo??c.manifesto.conduction.default_mode,criarWorktree:true});
+      const criar=()=>novaThread(c,{nome,modo:modo??c.manifesto.conduction.default_mode,criarWorktree:true,...(roadmap?{roadmap}:{})});
+      const coordenada=roadmap?comLocale('pt-BR',()=>{
+        const coletiva=portaColetivaDoProjeto(raiz,c.manifesto,roadmap);
+        return executarSagaDaThread({raiz,projectKey:coletiva.projectKey,itemId:roadmap,coletiva:coletiva.porta,
+          local:portaLocalDoRoadmap(raiz,roadmap),criarThread:()=>{const valor=criar();return{threadId:valor.thread.id,valor};}});
+      }):null;
+      const criada=coordenada?.thread??criar();
       // RM-052 (D7): thread nova, projeto conhecido pelo nome nesta maquina; o registro nunca derruba a criacao.
       if(criada.gravada) registrarProjetoEmSilencio(raiz,'mcp thread new');
-      return resposta(criada);
+      return resposta({...criada,...(coordenada?{coordenacao:{operationId:coordenada.operationId,cobertura:coordenada.cobertura,
+        reserva:coordenada.local}}:{})});
     });
   registrarTool('ork_phase_run',{description:'Despacha fase autorizada pelo nucleo, preservando policies, estado e runtime/modelo. dryRun nao inicia modelo, mas pode registrar prompt/eventos.',
     inputSchema:fase,annotations:{readOnlyHint:false,destructiveHint:false}},async (args) => {
