@@ -4,8 +4,8 @@ As mudanças do pacote [`@orkastery/cli`](https://www.npmjs.com/package/@orkaste
 nova para a mais antiga. O detalhe de cada item, com a evidência de merge, está no
 [roadmap](docs/roadmap/README.md).
 
-A D2 e todos os nomes públicos da RM-089 e da RM-090 foram ratificados pelo dono em
-11/11/2026, no terminal, com a resposta “1a”.
+A correlação nativa da RM-090 usa `session.id` no Claude Code e `conversation.id` no Codex;
+o LogRecord do Orkastery não copia corpo nem nome de evento nativo.
 
 ## Não publicado
 

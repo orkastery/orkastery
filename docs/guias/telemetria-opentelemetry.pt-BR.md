@@ -96,7 +96,7 @@ Cada valor OTLP usa `AnyValue` tipado. Inteiros de 64 bits, inclusive nanossegun
 
 Quando a adesão privada está ligada, cada despacho bem-sucedido produz um LogRecord `orkastery.ledger.phase_dispatch`. O vínculo leva `session.id` no Claude Code ou `conversation.id` no Codex, além de thread, fase, despacho, runtime e `user.hash`. O Orkastery não reemite `claude_code.*`, `codex.*`, corpo ou payload nativo. Retomada e observação da mesma sessão não criam outro vínculo; retry ou redespacho depois do fim usa a nova identidade nativa. Uma retransmissão física do mesmo LogRecord mantém `log.record.uid`, portanto a entrega continua sendo ao menos uma vez e o consumidor pode deduplicar pelo UID.
 
-A D2 e todos os nomes públicos da RM-089 e da RM-090 foram ratificados pelo dono em 11/11/2026, no terminal, com a resposta “1a”.
+Como regra do produto, a identidade nativa usa `session.id` no Claude Code e `conversation.id` no Codex; o corpo e o nome de eventos nativos não entram no LogRecord do Orkastery.
 
 A configuração existe somente na sessão despachada e vence valores permissivos herdados:
 
