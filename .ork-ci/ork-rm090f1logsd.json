@@ -674,6 +674,32 @@
         "artefato-de-fechamento",
         "ref-local-do-ramo-base"
       ]
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GO",
+      "arquivo": "core/src/telemetria-exportador.ts",
+      "alegacao": "O envio OTLP/HTTP preserva pendências em falha, avança cursor após confirmação e não expõe cabeçalhos ou texto privado na saída observável.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/telemetria-exportador.test.js"
+      ],
+      "criadoEm": "2026-11-11T06:48:40.095Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
     }
   ],
   "deferredClaims": [],
