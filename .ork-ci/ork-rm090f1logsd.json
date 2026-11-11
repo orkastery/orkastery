@@ -1,0 +1,690 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm090f1logsd",
+  "branch": "ork/ork-rm090f1logsd-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GOAL",
+      "arquivo": "core/src/telemetria.ts",
+      "alegacao": "Eventos de condução do ledger são convertidos em LogRecords OTLP/JSON com atributos semânticos aplicáveis, identidade estável e exclusões declaradas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria.test.js"
+      ],
+      "criadoEm": "2026-11-11T02:37:46.738Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "Os comandos de telemetria informam ativação e pendências, e o dry-run apresenta LogRecords sem usar rede; a configuração ausente permanece inativa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-cli.test.js"
+      ],
+      "criadoEm": "2026-11-11T02:37:46.866Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/telemetria-opentelemetry.pt-BR.md",
+      "alegacao": "A documentação em português e inglês descreve ativação, mapeamento, Collector, Grafana e os limites desta fatia com paridade verificável.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-11T02:37:46.935Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GO",
+      "arquivo": "core/src/dado-privado.ts",
+      "alegacao": "A transformação de dado privado redige padrões genéricos e termos locais e recusa contexto local inseguro sem devolver os valores encontrados.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria.test.js"
+      ],
+      "criadoEm": "2026-11-11T03:19:56.635Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GO",
+      "arquivo": "core/src/policies.ts",
+      "alegacao": "A transformação de segredos reutiliza o catálogo do gate e substitui ocorrências sem devolver o conteúdo casado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria.test.js"
+      ],
+      "criadoEm": "2026-11-11T03:19:56.740Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria.test.ts",
+      "alegacao": "A suíte hermética de telemetria cobre o wire OTLP tipado, o mapeamento permitido e a barreira de privacidade do mapper.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria.test.js"
+      ],
+      "criadoEm": "2026-11-11T03:19:56.812Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-integracao.test.ts",
+      "alegacao": "A lane de integração exerce um POST OTLP/HTTP JSON contra receptor local em /v1/logs.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "npm --prefix core run test:integracao"
+      ],
+      "dependenciasExternas": [
+        "rede"
+      ],
+      "criadoEm": "2026-11-11T03:28:35.261Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GO",
+      "arquivo": "core/src/integracoes-locais.ts",
+      "alegacao": "O teste com receptor HTTP local de telemetria pertence à lane de integração e não à lane hermética.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "npm --prefix core run test:integracao"
+      ],
+      "dependenciasExternas": [
+        "rede"
+      ],
+      "criadoEm": "2026-11-11T03:28:35.324Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GO",
+      "arquivo": "core/src/telemetria-config.ts",
+      "alegacao": "A ativação da telemetria usa configuração privada local v1, ausente por padrão, com pseudônimo estável e fronteira futura de empresa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-config.test.js"
+      ],
+      "criadoEm": "2026-11-11T03:28:35.389Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-config.test.ts",
+      "alegacao": "A suíte hermética da configuração cobre ausência, persistência 0600, pseudônimo, recusa segura e precedência futura.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-config.test.js"
+      ],
+      "criadoEm": "2026-11-11T03:28:35.455Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GO",
+      "arquivo": "core/src/telemetria-cli.ts",
+      "alegacao": "A CLI manual liga e desliga a configuração privada, informa o estado e envia ou apresenta LogRecords sem usar rede no dry-run.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-cli.test.js"
+      ],
+      "criadoEm": "2026-11-11T03:38:29.918Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-cli.test.ts",
+      "alegacao": "A suíte hermética da CLI cobre configuração ausente, ativação, status, dry-run e falha de transporte sem expor cabeçalhos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-cli.test.js"
+      ],
+      "criadoEm": "2026-11-11T03:38:30.037Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GO",
+      "arquivo": "core/src/locale-telemetria.ts",
+      "alegacao": "As mensagens humanas da telemetria existem em português e inglês sem alterar o contrato JSON.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-cli.test.js"
+      ],
+      "criadoEm": "2026-11-11T03:38:30.123Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "A referência em inglês mantém paridade com os comandos e limites da telemetria.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-11T03:40:23.706Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referência em português descreve ativação privada, status e envio manual da telemetria.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-11T03:40:23.806Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GO",
+      "arquivo": "docs/guias/telemetria-opentelemetry.md",
+      "alegacao": "O guia em inglês mantém paridade sobre ativação, OTLP, Collector, Grafana, atributos, privacidade, cursor e limites.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-11T03:42:18.121Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GO",
+      "arquivo": "docs/README.md",
+      "alegacao": "O índice de documentação liga os guias de telemetria em português e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-11T03:42:18.217Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O changelog registra a nova base opt-in de logs OpenTelemetry no grupo não publicado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-11T03:42:18.289Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GO",
+      "arquivo": "docs/guias/telemetria-opentelemetry.pt-BR.md",
+      "alegacao": "O guia em português descreve ativação, OTLP, Collector, Grafana, atributos, privacidade, cursor e limites da fatia.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-11T03:42:18.377Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f2a-snapshot.test.ts",
+      "alegacao": "O snapshot legado da ajuda pt-BR continua byte a byte igual à base após retirar exatamente uma ocorrência das duas linhas deliberadamente adicionadas pela telemetria.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/locale-f2a-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-11T04:17:22.940Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-exportador.test.ts",
+      "alegacao": "O transporte OTLP limita o corpo durante a leitura de Response.body, sem materializar a resposta por text(), e devolve o marcador limitado para rejeitar excesso.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-exportador.test.js"
+      ],
+      "criadoEm": "2026-11-11T05:55:01.578Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-exportador.test.ts",
+      "alegacao": "O transporte OTLP mantém content-type application/json mesmo quando os cabeçalhos configuráveis tentam substituí-lo com outra capitalização.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-exportador.test.js"
+      ],
+      "criadoEm": "2026-11-11T05:55:01.862Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-cli.test.ts",
+      "alegacao": "A suíte renderiza os textos reais AJUDA_PT_BR e AJUDA_EN e comprova a mesma lista de opções da telemetria e a redação inglesa do dry-run e do offset.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-cli.test.js"
+      ],
+      "criadoEm": "2026-11-11T05:56:37.406Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm090f1logsd",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-cli.test.ts",
+      "alegacao": "A suíte da telemetria importa index.ts e locale.ts, exerce a validação pública de --offset e comprova que a rota telemetria enviar ativa o locale inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-cli.test.js"
+      ],
+      "criadoEm": "2026-11-11T05:56:37.458Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
