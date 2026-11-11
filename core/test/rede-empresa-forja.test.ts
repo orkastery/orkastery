@@ -35,6 +35,25 @@ test('rede empresa cria no owner GitHub com accountId estável', () => {
   assert.ok(a.chamadas.some((p) => p.caminho === 'orgs/time/repos'));
 });
 
+test('rede empresa relê o GitHub depois de resposta incerta do POST', () => {
+  let leituras = 0;
+  const a = api([
+    (p) => p.metodo === 'GET' && p.caminho === 'user' ? resposta({ id: 41, login: 'login-atual' }) : null,
+    (p) => p.metodo === 'GET' && p.caminho === 'orgs/time' ? resposta({ id: 7, login: 'time' }) : null,
+    (p) => p.metodo === 'GET' && p.caminho === 'repos/time/rede' ? (++leituras === 1
+      ? erro('forja.nao-achei')
+      : resposta({ full_name: 'time/rede', visibility: 'private', clone_url: 'https://github.com/time/rede.git' })) : null,
+    (p) => p.metodo === 'POST' && p.caminho === 'orgs/time/repos' ? erro('forja.indisponivel') : null,
+  ]);
+  const r = criarRedeColetiva({ tipo: 'github' }, a, 'time', 'rede');
+  assert.ok(r.ok);
+  assert.deepEqual([r.valor.criada, r.valor.repositorio.caminho, r.valor.repositorio.privado], [true, 'time/rede', true]);
+  assert.deepEqual(a.chamadas.filter((p) => p.caminho === 'repos/time/rede' || p.caminho === 'orgs/time/repos')
+    .map((p) => `${p.metodo} ${p.caminho}`),
+  ['GET repos/time/rede', 'POST orgs/time/repos', 'GET repos/time/rede']);
+  assert.equal(leituras, 2);
+});
+
 test('rede empresa cria no namespace GitLab e relê resposta perdida', () => {
   let leituras = 0;
   const a = api([
