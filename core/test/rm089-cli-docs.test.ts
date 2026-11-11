@@ -9,13 +9,16 @@ const pt = ler('docs/referencia/cli.md'), en = ler('docs/referencia/cli.en.md');
 
 test('referência e ajuda declaram toda a família coletiva nos dois idiomas', () => {
   const ajuda = ler('core/src/locale-ajuda.ts');
-  for (const acao of ['criar', 'inscrever', 'publicar', 'status', 'sair', 'revogar']) {
+  for (const acao of ['criar', 'inscrever', 'aceitar', 'publicar', 'status', 'sair', 'revogar']) {
     assert.match(pt, new RegExp(`network empresa ${acao}`));
     assert.match(en, new RegExp(`network empresa ${acao}`));
     assert.match(ajuda, new RegExp(acao));
   }
   for (const texto of [pt, en]) {
     assert.match(texto, /accountId/);
+    assert.match(texto, /--account-id/);
+    assert.match(texto, /empresa.*inscri|company.*enroll/is);
+    assert.match(texto, /maestro.*aceit|maestro.*accept/is);
     assert.match(texto, /dado_privado/);
     assert.match(texto, /sem `force`|never using `force`/);
   }

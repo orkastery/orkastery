@@ -8,7 +8,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
-- **Inscrição na rede coletiva** (RM-089): a família `ork network empresa` cria a rede privada, vincula o aceite ao `accountId`, publica uma projeção fechada sem dado local e cessa envios por saída ou revogação, com GitHub e GitLab pela mesma porta.
+- **Inscrição na rede coletiva** (RM-089): a família `ork network empresa` cria a rede privada; a empresa registra a identidade esperada e o maestro aceita com a conta autenticada; cada publicação revalida o `accountId`, envia uma projeção fechada sem dado local e cessa por saída ou revogação, com GitHub e GitLab pela mesma porta.
 
 ### Alterado
 
