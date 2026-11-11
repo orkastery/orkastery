@@ -5,84 +5,6 @@
   "base": "main",
   "claims": [
     {
-      "id": "C1",
-      "thread": "ork-rm090f3corre",
-      "fase": "GOAL",
-      "arquivo": "core/test/telemetria.test.ts",
-      "alegacao": "Cada despacho bem-sucedido de Claude Code ou Codex produz um LogRecord de correlação do Orkastery com thread, fase, despacho, runtime, pseudônimo do maestro e o identificador nativo no atributo oficial do runtime.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria.test.js"
-      ],
-      "criadoEm": "2026-11-11T16:10:22.839Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C2",
-      "thread": "ork-rm090f3corre",
-      "fase": "GOAL",
-      "arquivo": "core/test/telemetria-runtime.test.ts",
-      "alegacao": "A configuração de correlação entra apenas no despacho cuja telemetria privada do builder está ativa; com a telemetria ausente ou desligada, comando e ambiente do despacho permanecem inalterados e nenhuma configuração global do usuário é escrita.",
-      "negativa": true,
-      "verificar": [
-        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-runtime.test.js"
-      ],
-      "criadoEm": "2026-11-11T16:10:22.953Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C3",
-      "thread": "ork-rm090f3corre",
-      "fase": "GOAL",
-      "arquivo": "core/test/telemetria-runtime.test.ts",
-      "alegacao": "Os testes herméticos provam a identidade de uma sessão de cada runtime, um vínculo por sessão e a ausência de cópia de evento nativo, sem rede nem execução de Claude Code ou Codex real.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-runtime.test.js"
-      ],
-      "criadoEm": "2026-11-11T16:10:23.132Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C4",
       "thread": "ork-rm090f3corre",
       "fase": "GO",
@@ -135,110 +57,6 @@
       ]
     },
     {
-      "id": "C6",
-      "thread": "ork-rm090f3corre",
-      "fase": "GO",
-      "arquivo": "core/src/phase.ts",
-      "alegacao": "O phase run resolve a telemetria privada por despacho e anexa a configuração somente quando válida, sem interromper o trabalho quando a telemetria opcional falha.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-runtime.test.js"
-      ],
-      "criadoEm": "2026-11-11T16:42:55.146Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C7",
-      "thread": "ork-rm090f3corre",
-      "fase": "GO",
-      "arquivo": "core/src/runtimes.ts",
-      "alegacao": "O contrato de PedidoDeDespacho transporta configuração OTEL tipada e recusa configuração de um runtime aplicada ao outro.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-runtime.test.js"
-      ],
-      "criadoEm": "2026-11-11T16:42:55.231Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C8",
-      "thread": "ork-rm090f3corre",
-      "fase": "GO",
-      "arquivo": "core/src/adapters/codex.ts",
-      "alegacao": "O ambiente do filho Codex preserva perfil e contexto e aplica por cima os valores efêmeros de cabeçalho somente para configuração Codex.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-runtime.test.js"
-      ],
-      "criadoEm": "2026-11-11T16:42:55.347Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C9",
-      "thread": "ork-rm090f3corre",
-      "fase": "GO",
-      "arquivo": "core/src/adapters/claude-bg.ts",
-      "alegacao": "O despacho Claude Code aplica settings OTEL privados 0600 por sessão, força conteúdo e traces desligados, mantém segredos fora do argv e remove o arquivo efêmero.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/adapter.test.js core/dist-test/test/telemetria-runtime.test.js"
-      ],
-      "criadoEm": "2026-11-11T16:46:12.717Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C10",
       "thread": "ork-rm090f3corre",
       "fase": "GO",
@@ -249,84 +67,6 @@
         "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/adapter.test.js core/dist-test/test/telemetria-runtime.test.js"
       ],
       "criadoEm": "2026-11-11T16:46:13.030Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C11",
-      "thread": "ork-rm090f3corre",
-      "fase": "GO",
-      "arquivo": "core/src/adapters/codex-controller.ts",
-      "alegacao": "O launcher Codex ativo devolve o mesmo comando OTEL derivado pelo helper testado, sem valor de cabeçalho no argv.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-runtime.test.js && grep -q 'comandoCodexAppServer(pedido.telemetria)' core/src/adapters/codex-controller.ts"
-      ],
-      "criadoEm": "2026-11-11T16:58:13.405Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C12",
-      "thread": "ork-rm090f3corre",
-      "fase": "GO",
-      "arquivo": "core/src/adapters/codex-controller-worker.ts",
-      "alegacao": "O worker que cria o app-server usa o helper OTEL testado e passa somente referências de ambiente no argv.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-runtime.test.js && grep -q 'comandoCodexAppServer(pedido.telemetria)' core/src/adapters/codex-controller-worker.ts"
-      ],
-      "criadoEm": "2026-11-11T16:58:13.485Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C13",
-      "thread": "ork-rm090f3corre",
-      "fase": "GO",
-      "arquivo": "core/test/conducao-despacho.test.ts",
-      "alegacao": "Os testes herméticos provam replay e retomada sem novo vínculo, redespacho da mesma fase com nova identidade e vínculo próprios e ausência de sessão concorrente; reentrega física conserva o UID lógico e não copia evento nativo.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/conducao-despacho.test.js core/dist-test/test/rm063-retry-prompt.test.js core/dist-test/test/telemetria-runtime.test.js"
-      ],
-      "criadoEm": "2026-11-11T17:00:55.638Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
@@ -483,6 +223,266 @@
         "node -e \"const s=require('node:fs').readFileSync('CHANGELOG.md','utf8'); const u=s.indexOf('## Não publicado'); const n=s.indexOf('\\n## ',u+3); const x=s.slice(u,n<0?undefined:n); if(!x.includes('Correlação nativa de sessões — F3 (RM-090)')||x.toLowerCase().includes('ratificad')) process.exit(1)\""
       ],
       "criadoEm": "2026-11-11T17:04:18.845Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm090f3corre",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-despacho.test.ts",
+      "alegacao": "Cada despacho bem-sucedido de Claude Code ou Codex produz um LogRecord de correlação do Orkastery com thread, fase, despacho, runtime, pseudônimo do maestro e o identificador nativo no atributo oficial do runtime.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-despacho.test.js"
+      ],
+      "criadoEm": "2026-11-11T19:29:47.225Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm090f3corre",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-despacho.test.ts",
+      "alegacao": "A configuração de correlação entra apenas no despacho cuja telemetria privada do builder está ativa; com a telemetria ausente ou desligada, comando e ambiente do despacho permanecem inalterados e nenhuma configuração global do usuário é escrita.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-runtime.test.js core/dist-test/test/telemetria-despacho.test.js"
+      ],
+      "criadoEm": "2026-11-11T19:29:47.304Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm090f3corre",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-despacho.test.ts",
+      "alegacao": "Os testes herméticos provam a identidade de uma sessão de cada runtime, um vínculo por sessão e a ausência de cópia de evento nativo, sem rede nem execução de Claude Code ou Codex real.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-despacho.test.js"
+      ],
+      "criadoEm": "2026-11-11T19:29:47.384Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm090f3corre",
+      "fase": "GO",
+      "arquivo": "core/src/phase.ts",
+      "alegacao": "O phase run resolve a telemetria privada por despacho e anexa a configuração somente quando válida, sem interromper o trabalho quando a telemetria opcional falha.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-despacho.test.js"
+      ],
+      "criadoEm": "2026-11-11T19:29:47.513Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm090f3corre",
+      "fase": "GO",
+      "arquivo": "core/src/runtimes.ts",
+      "alegacao": "O contrato de PedidoDeDespacho transporta configuração OTEL tipada e recusa configuração de um runtime aplicada ao outro.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-despacho.test.js"
+      ],
+      "criadoEm": "2026-11-11T19:29:47.645Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm090f3corre",
+      "fase": "GO",
+      "arquivo": "core/src/adapters/codex.ts",
+      "alegacao": "O ambiente do filho Codex preserva perfil e contexto e aplica por cima endpoint e valores efêmeros de cabeçalho somente para configuração Codex.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-despacho.test.js"
+      ],
+      "criadoEm": "2026-11-11T19:29:47.764Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm090f3corre",
+      "fase": "GO",
+      "arquivo": "core/src/adapters/claude-bg.ts",
+      "alegacao": "O despacho Claude Code aplica settings OTEL privados 0600 por sessão, força conteúdo e traces desligados, mantém segredos fora do argv e remove o arquivo efêmero em sucesso e falha.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-runtime.test.js core/dist-test/test/telemetria-despacho.test.js"
+      ],
+      "criadoEm": "2026-11-11T19:29:47.899Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm090f3corre",
+      "fase": "GO",
+      "arquivo": "core/src/adapters/codex-controller.ts",
+      "alegacao": "O launcher Codex ativo devolve o mesmo comando OTEL derivado pelo contrato executado pelo worker, sem endpoint ou valor de cabeçalho no argv.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-despacho.test.js"
+      ],
+      "criadoEm": "2026-11-11T19:29:47.998Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm090f3corre",
+      "fase": "GO",
+      "arquivo": "core/src/adapters/codex-controller-worker.ts",
+      "alegacao": "O worker que cria o app-server executa o contrato OTEL testado e passa somente referências de ambiente no argv.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-despacho.test.js"
+      ],
+      "criadoEm": "2026-11-11T19:29:48.145Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm090f3corre",
+      "fase": "GO",
+      "arquivo": "core/test/conducao-despacho.test.ts",
+      "alegacao": "Os testes herméticos provam replay e retomada sem novo vínculo, redespacho da mesma fase com nova identidade e vínculo próprios e ausência de sessão concorrente; reentrega física conserva o UID lógico e não copia evento nativo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria.test.js core/dist-test/test/telemetria-despacho.test.js core/dist-test/test/conducao-despacho.test.js core/dist-test/test/rm063-retry-prompt.test.js"
+      ],
+      "criadoEm": "2026-11-11T19:29:48.240Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
