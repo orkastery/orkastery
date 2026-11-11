@@ -107,18 +107,37 @@ test('recusa symlink final e ancestral sem abrir conteúdo externo', (t) => {
   assert.deepEqual(ancestral, { estado: 'lacuna', motivo: 'unsafe_path' });
 });
 
+test('recusa symlink na raiz prompts e na raiz da thread', (t) => {
+  const raizPromptsLink = fixture(t, 'conteúdo externo');
+  const promptsReais = path.join(raizPromptsLink.raizProjeto, 'prompts-reais');
+  fs.renameSync(raizPromptsLink.raizPrompts, promptsReais);
+  fs.symlinkSync(promptsReais, raizPromptsLink.raizPrompts);
+  assert.deepEqual(prepararPrompt({ ...raizPromptsLink, promptSha256: raizPromptsLink.sha,
+    redigirPrivado: privado }), { estado: 'lacuna', motivo: 'unsafe_path' });
+
+  const raizThreadLink = fixture(t, 'outro conteúdo externo');
+  const raizThread = path.dirname(raizThreadLink.raizPrompts);
+  const threadReal = path.join(raizThreadLink.raizProjeto, 'thread-real');
+  fs.renameSync(raizThread, threadReal);
+  fs.symlinkSync(threadReal, raizThread);
+  assert.deepEqual(prepararPrompt({ ...raizThreadLink, promptSha256: raizThreadLink.sha,
+    redigirPrivado: privado }), { estado: 'lacuna', motivo: 'unsafe_path' });
+});
+
 test('classifica metadado, ausência, tipo, teto, UTF-8 e hash sem ecoar entrada', (t) => {
   const f = fixture(t, 'conteúdo');
+  const ausenteDentroDaRaiz = path.join(f.raizPrompts, 'ausente.md');
   const casos = [
     prepararPrompt({ ...f, promptPath: undefined, promptSha256: f.sha, redigirPrivado: privado }),
-    prepararPrompt({ ...f, promptPath: 'ausente.md', promptSha256: f.sha, redigirPrivado: privado }),
+    prepararPrompt({ ...f, promptPath: path.relative(f.raizProjeto, ausenteDentroDaRaiz),
+      promptSha256: f.sha, redigirPrivado: privado }),
     prepararPrompt({ ...f, promptPath: path.relative(f.raizProjeto, f.raizPrompts), promptSha256: f.sha,
       redigirPrivado: privado }),
     prepararPrompt({ ...f, promptSha256: f.sha, redigirPrivado: privado, teto: 2 }),
     prepararPrompt({ ...f, promptSha256: '0'.repeat(64), redigirPrivado: privado }),
   ];
   assert.deepEqual(casos.map((r) => r.estado === 'lacuna' ? r.motivo : r.estado),
-    ['metadata_missing', 'unsafe_path', 'invalid_type', 'too_large', 'hash_mismatch']);
+    ['metadata_missing', 'file_missing', 'invalid_type', 'too_large', 'hash_mismatch']);
 
   const invalido = fixture(t, Buffer.from([0xc3, 0x28]));
   const r = prepararPrompt({ ...invalido, promptSha256: invalido.sha, redigirPrivado: privado });

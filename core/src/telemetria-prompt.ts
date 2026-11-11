@@ -63,6 +63,10 @@ function ancestraisSemLink(raiz: string, arquivo: string, io: ArquivosDoPrompt):
   const relativo = path.relative(raiz, arquivo);
   const partes = relativo.split(path.sep).filter(Boolean);
   let atual = raiz;
+  try {
+    const st = io.lstat(atual);
+    if (st.isSymbolicLink() || !st.isDirectory()) return { estado: 'lacuna', motivo: 'unsafe_path' };
+  } catch (erro) { return falhaDeArquivo(erro); }
   for (const parte of partes.slice(0, -1)) {
     atual = path.join(atual, parte);
     try {
@@ -111,15 +115,21 @@ export function prepararPrompt(entrada: EntradaDoPrompt): ResultadoDoPrompt {
   const io = entrada.arquivos ?? arquivosDoPromptNoNode;
   const teto = entrada.teto ?? MAXIMO_DO_PROMPT_TELEMETRIA;
   const raizLexica = path.resolve(entrada.raizPrompts);
+  const raizThreadLexica = path.dirname(raizLexica);
   const arquivo = path.isAbsolute(entrada.promptPath)
     ? path.resolve(entrada.promptPath) : path.resolve(entrada.raizProjeto, entrada.promptPath);
   if (!contido(raizLexica, arquivo)) return { estado: 'lacuna', motivo: 'unsafe_path' };
 
-  let raizCanonica: string;
-  try { raizCanonica = io.realpath(raizLexica); }
-  catch (erro) { return falhaDeArquivo(erro); }
-  const ancestral = ancestraisSemLink(raizLexica, arquivo, io);
+  const ancestral = ancestraisSemLink(raizThreadLexica, arquivo, io);
   if (ancestral) return ancestral;
+  let raizThreadCanonica: string, raizCanonica: string;
+  try {
+    raizThreadCanonica = io.realpath(raizThreadLexica);
+    raizCanonica = io.realpath(raizLexica);
+  }
+  catch (erro) { return falhaDeArquivo(erro); }
+  const raizEsperada = path.resolve(raizThreadCanonica, path.relative(raizThreadLexica, raizLexica));
+  if (raizCanonica !== raizEsperada) return { estado: 'lacuna', motivo: 'unsafe_path' };
 
   let fd: number;
   try { fd = io.abrir(arquivo, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW); }
