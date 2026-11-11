@@ -13,14 +13,15 @@ test('modelos declaram receiver, filtro OTTL, allowlist, limite e lote na ordem 
     const yaml = ler(arquivo);
     assert.match(yaml, /^receivers:\n  otlp:\n    protocols:\n      grpc:/m, arquivo);
     assert.match(yaml, /^      http:$/m, arquivo);
-    assert.match(yaml, /^  filter\/required:\n    error_mode: propagate\n    logs:\n      log_record:/m, arquivo);
+    assert.match(yaml, /^  filter\/required:\n    error_mode: propagate\n    log_conditions:/m, arquivo);
+    assert.doesNotMatch(yaml, /^    logs:\n      log_record:/m, arquivo);
     for (const trecho of ['service.name', 'orkastery.telemetria', 'log.record.uid', 'orkastery.thread.id',
       'orkastery.phase.name', 'orkastery.prompt.gap.reason', 'gen_ai.input.messages']) {
       assert.ok(yaml.includes(trecho), `${arquivo}: condição ou allowlist ausente para ${trecho}`);
     }
-    assert.match(yaml, /event_name == "gen_ai\.client\.inference\.operation\.details"[^\n]+gen_ai\.input\.messages[^\n]+orkastery\.prompt\.content\.state/);
-    assert.match(yaml, /keep_keys\(attributes, \["log\.record\.uid"/);
-    assert.match(yaml, /log_statements:[\s\S]+context: resource[\s\S]+keep_keys\(attributes, \["service\.name", "service\.version"\]\)/);
+    assert.match(yaml, /log\.event_name == "gen_ai\.client\.inference\.operation\.details"[^\n]+gen_ai\.input\.messages[^\n]+orkastery\.prompt\.content\.state/);
+    assert.match(yaml, /keep_keys\(log\.attributes, \["log\.record\.uid"/);
+    assert.match(yaml, /log_statements:[\s\S]+keep_keys\(resource\.attributes, \["service\.name", "service\.version"\]\)/);
     assert.doesNotMatch(yaml, /metric_statements:/);
     assert.match(yaml, /^      processors: \[memory_limiter, filter\/required, transform\/sanitize, batch\]$/m);
   }

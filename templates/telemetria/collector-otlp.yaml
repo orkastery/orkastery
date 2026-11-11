@@ -12,26 +12,21 @@ processors:
     limit_mib: ${env:ORK_OTELCOL_MEMORY_LIMIT_MIB}
   filter/required:
     error_mode: propagate
-    logs:
-      log_record:
-        - 'resource.attributes["service.name"] != "orkastery"'
-        - 'instrumentation_scope.name != "orkastery.telemetria"'
-        - 'attributes["log.record.uid"] == nil'
-        - 'attributes["orkastery.thread.id"] == nil'
-        - '(IsMatch(event_name, "^orkastery\\.ledger\\.phase_") or event_name == "gen_ai.client.inference.operation.details") and attributes["orkastery.phase.name"] == nil'
-        - 'attributes["orkastery.prompt.content.state"] == "gap" and attributes["orkastery.prompt.gap.reason"] == nil'
-        - 'attributes["orkastery.prompt.content.state"] == "gap" and attributes["gen_ai.input.messages"] != nil'
-        - 'event_name == "gen_ai.client.inference.operation.details" and attributes["gen_ai.input.messages"] == nil and attributes["orkastery.prompt.content.state"] != "gap"'
+    log_conditions:
+      - 'resource.attributes["service.name"] != "orkastery"'
+      - 'scope.name != "orkastery.telemetria"'
+      - 'log.attributes["log.record.uid"] == nil'
+      - 'log.attributes["orkastery.thread.id"] == nil'
+      - '(IsMatch(log.event_name, "^orkastery\\.ledger\\.phase_") or log.event_name == "gen_ai.client.inference.operation.details") and log.attributes["orkastery.phase.name"] == nil'
+      - 'log.attributes["orkastery.prompt.content.state"] == "gap" and log.attributes["orkastery.prompt.gap.reason"] == nil'
+      - 'log.attributes["orkastery.prompt.content.state"] == "gap" and log.attributes["gen_ai.input.messages"] != nil'
+      - 'log.event_name == "gen_ai.client.inference.operation.details" and log.attributes["gen_ai.input.messages"] == nil and log.attributes["orkastery.prompt.content.state"] != "gap"'
   transform/sanitize:
     error_mode: propagate
     log_statements:
-      - context: log
-        statements:
-          - 'set(attributes["gen_ai.input.messages"], String(attributes["gen_ai.input.messages"])) where attributes["gen_ai.input.messages"] != nil'
-          - 'keep_keys(attributes, ["log.record.uid", "user.hash", "vcs.ref.head.revision", "vcs.ref.head.name", "vcs.ref.type", "cicd.pipeline.name", "cicd.pipeline.run.id", "cicd.pipeline.result", "gen_ai.operation.name", "gen_ai.request.model", "gen_ai.conversation.id", "gen_ai.input.messages", "session.id", "error.type", "orkastery.thread.id", "orkastery.phase.name", "orkastery.dispatch.id", "orkastery.mode", "orkastery.decision.id", "orkastery.claim.id", "orkastery.ledger.sequence", "orkastery.check.mode", "orkastery.receipt.id", "orkastery.runtime.name", "orkastery.prompt.size", "orkastery.prompt.redaction.policy.version", "orkastery.prompt.size.original", "orkastery.prompt.size.exported", "orkastery.prompt.content.state", "orkastery.prompt.gap.reason", "orkastery.prompt.truncated"])'
-      - context: resource
-        statements:
-          - 'keep_keys(attributes, ["service.name", "service.version"])'
+      - 'set(log.attributes["gen_ai.input.messages"], String(log.attributes["gen_ai.input.messages"])) where log.attributes["gen_ai.input.messages"] != nil'
+      - 'keep_keys(log.attributes, ["log.record.uid", "user.hash", "vcs.ref.head.revision", "vcs.ref.head.name", "vcs.ref.type", "cicd.pipeline.name", "cicd.pipeline.run.id", "cicd.pipeline.result", "gen_ai.operation.name", "gen_ai.request.model", "gen_ai.conversation.id", "gen_ai.input.messages", "session.id", "error.type", "orkastery.thread.id", "orkastery.phase.name", "orkastery.dispatch.id", "orkastery.mode", "orkastery.decision.id", "orkastery.claim.id", "orkastery.ledger.sequence", "orkastery.check.mode", "orkastery.receipt.id", "orkastery.runtime.name", "orkastery.prompt.size", "orkastery.prompt.redaction.policy.version", "orkastery.prompt.size.original", "orkastery.prompt.size.exported", "orkastery.prompt.content.state", "orkastery.prompt.gap.reason", "orkastery.prompt.truncated"])'
+      - 'keep_keys(resource.attributes, ["service.name", "service.version"])'
   batch: {}
 
 exporters:
