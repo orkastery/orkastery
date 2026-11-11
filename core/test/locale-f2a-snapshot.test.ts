@@ -14,8 +14,8 @@ import { gerarCasos } from './locale-f2a-casos';
 const FIXTURE = path.resolve(__dirname, '../../test/fixtures/locale-f2a-pt-BR.json');
 
 const BLOCO_NETWORK_EMPRESA =
-  '  network empresa criar|inscrever           Rede coletiva privada da empresa: cria a casa ou aceita uma inscricao\n' +
-  '        publicar|status|sair|revogar [--json]    por accountId; publicacao fechada, varrida e sem force (RM-089)\n';
+  '  network empresa criar|inscrever|aceitar   Rede coletiva privada da empresa: cria o repositório privado dedicado;\n' +
+  '        publicar|status|sair|revogar [--json]    empresa registra e maestro aceita por accountId (RM-089)\n';
 
 /** A família nova não pertence à base congelada da F2a; todo o restante continua byte a byte. */
 const semNetworkEmpresa = (texto: string): string => texto.replace(BLOCO_NETWORK_EMPRESA, '');

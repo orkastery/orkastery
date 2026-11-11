@@ -5,10 +5,11 @@ export interface TextoDaFalhaEmpresa { mensagem: string; acao: string }
 
 const PT: Record<string, TextoDaFalhaEmpresa> = {
   'rede-empresa.uso': { mensagem: 'os argumentos da rede coletiva são inválidos', acao: 'confira o uso e informe referências no formato github:dono/repo ou gitlab:grupo/repo' },
-  'rede-empresa.config-ausente': { mensagem: 'a inscrição não está configurada nesta máquina', acao: 'rode `ork network empresa inscrever` antes de publicar, consultar ou sair' },
+  'rede-empresa.config-ausente': { mensagem: 'a inscrição não está configurada nesta máquina', acao: 'o maestro deve rodar `ork network empresa aceitar` antes de publicar, consultar ou sair' },
+  'rede-empresa.config-invalida': { mensagem: 'a configuração local da rede coletiva tem JSON ou contrato inválido', acao: 'corrija ou remova `rede-empresa.json` e repita `ork network empresa aceitar`; o conteúdo inválido não é exibido' },
   'rede-empresa.politica-ausente': { mensagem: 'a rede coletiva não tem política válida', acao: 'a administração deve rodar `ork network empresa criar` e confirmar a política' },
   'rede-empresa.politica-incompativel': { mensagem: 'a versão da política diverge da inscrição', acao: 'consulte o status e refaça a inscrição com a versão vigente' },
-  'rede-empresa.inscricao-ausente': { mensagem: 'a inscrição não existe na rede coletiva', acao: 'rode `ork network empresa inscrever` com o identificador fornecido pela administração' },
+  'rede-empresa.inscricao-ausente': { mensagem: 'a inscrição não existe na rede coletiva', acao: 'a empresa deve rodar `ork network empresa inscrever`; depois o maestro roda `ork network empresa aceitar`' },
   'rede-empresa.inscricao-inativa': { mensagem: 'a inscrição não está ativa', acao: 'consulte o status e peça uma nova inscrição se ela foi revogada ou encerrada' },
   'rede-empresa.identidade-divergente': { mensagem: 'a conta autenticada não é a conta vinculada ao aceite', acao: 'entre na forja com a conta correta e repita; não troque o identificador da inscrição' },
   'rede-empresa.rede-divergente': { mensagem: 'a rede pessoal diverge da inscrição', acao: 'use a referência registrada ou peça à administração uma nova inscrição' },
@@ -32,10 +33,11 @@ const PT: Record<string, TextoDaFalhaEmpresa> = {
 
 const EN: Record<string, TextoDaFalhaEmpresa> = {
   'rede-empresa.uso': { mensagem: 'the collective network arguments are invalid', acao: 'check usage and provide references as github:owner/repo or gitlab:group/repo' },
-  'rede-empresa.config-ausente': { mensagem: 'this machine has no configuration for the enrollment', acao: 'run `ork network empresa inscrever` before publishing, checking status, or leaving' },
+  'rede-empresa.config-ausente': { mensagem: 'this machine has no configuration for the enrollment', acao: 'the maestro must run `ork network empresa aceitar` before publishing, checking status, or leaving' },
+  'rede-empresa.config-invalida': { mensagem: 'the local collective-network configuration has invalid JSON or contract data', acao: 'repair or remove `rede-empresa.json` and run `ork network empresa aceitar` again; invalid content is not displayed' },
   'rede-empresa.politica-ausente': { mensagem: 'the collective network has no valid policy', acao: 'an administrator must run `ork network empresa criar` and confirm the policy' },
   'rede-empresa.politica-incompativel': { mensagem: 'the policy version does not match the enrollment', acao: 'check status and enroll again with the current version' },
-  'rede-empresa.inscricao-ausente': { mensagem: 'the enrollment does not exist in the collective network', acao: 'run `ork network empresa inscrever` with the id supplied by an administrator' },
+  'rede-empresa.inscricao-ausente': { mensagem: 'the enrollment does not exist in the collective network', acao: 'the company must run `ork network empresa inscrever`; then the maestro runs `ork network empresa aceitar`' },
   'rede-empresa.inscricao-inativa': { mensagem: 'the enrollment is not active', acao: 'check status and request a new enrollment if it was revoked or closed' },
   'rede-empresa.identidade-divergente': { mensagem: 'the authenticated account is not the account bound to acceptance', acao: 'sign in to the forge with the correct account and retry; do not replace the enrollment id' },
   'rede-empresa.rede-divergente': { mensagem: 'the personal network does not match the enrollment', acao: 'use the registered reference or ask an administrator for a new enrollment' },
@@ -57,8 +59,8 @@ const EN: Record<string, TextoDaFalhaEmpresa> = {
   'forja.conflito': { mensagem: 'the forge reported a concurrent change', acao: 'read status again and retry without `force`' },
 };
 
-export const USO_REDE_EMPRESA_PT_BR = 'uso: ork network empresa criar|inscrever|publicar|status|sair|revogar [opções]';
-export const USO_REDE_EMPRESA_EN = 'usage: ork network empresa criar|inscrever|publicar|status|sair|revogar [options]';
+export const USO_REDE_EMPRESA_PT_BR = 'uso: ork network empresa criar|inscrever|aceitar|publicar|status|sair|revogar [opções]';
+export const USO_REDE_EMPRESA_EN = 'usage: ork network empresa criar|inscrever|aceitar|publicar|status|sair|revogar [options]';
 
 export function textoDaFalhaEmpresa(codigo: string, locale: Locale): TextoDaFalhaEmpresa {
   const catalogo = locale === 'en' ? EN : PT;

@@ -12,7 +12,7 @@ import type { PortaDaBranchEmpresa } from '../src/rede-empresa-transporte';
 import { textoDaFalhaEmpresa } from '../src/locale-network-empresa';
 
 const codigos = [
-  'rede-empresa.uso', 'rede-empresa.config-ausente', 'rede-empresa.politica-ausente',
+  'rede-empresa.uso', 'rede-empresa.config-ausente', 'rede-empresa.config-invalida', 'rede-empresa.politica-ausente',
   'rede-empresa.politica-incompativel', 'rede-empresa.inscricao-ausente', 'rede-empresa.inscricao-inativa',
   'rede-empresa.identidade-divergente', 'rede-empresa.rede-divergente', 'rede-empresa.projeto-nao-autorizado',
   'rede-empresa.saida-negada', 'rede-empresa.projecao-invalida', 'rede-empresa.dado-privado', 'rede-empresa.segredo',
@@ -50,7 +50,20 @@ test('uso e configuração ausente retornam ação sem abrir processo', () => {
     const status = executarCliRedeEmpresa('status', { inscricao: 'inscricao-a' }, 'en', { ORKASTERY_HOME: dir });
     assert.equal(status.codigo, 1);
     assert.match(status.stderr, /Action:/);
-    assert.match(status.stderr, /network empresa inscrever/);
+    assert.match(status.stderr, /network empresa aceitar/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('JSON inválido da configuração vira erro tipado com ação e sem eco', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rede-empresa-cli-config-invalida-'));
+  try {
+    const marcador = 'conteudo-nao-confiavel';
+    fs.writeFileSync(path.join(dir, 'rede-empresa.json'), `{"${marcador}":`, { mode: 0o600 });
+    const saida = executarCliRedeEmpresa('status', { inscricao: 'inscricao-a', json: true }, 'pt-BR', { ORKASTERY_HOME: dir });
+    const json = JSON.parse(saida.stdout);
+    assert.equal(json.erro.codigo, 'rede-empresa.config-invalida');
+    assert.match(json.erro.acao, /corrija|remova/);
+    assert.doesNotMatch(saida.stdout, new RegExp(marcador));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
