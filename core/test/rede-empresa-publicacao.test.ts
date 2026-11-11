@@ -68,7 +68,9 @@ function panorama(): ProjetoNoPanorama {
 }
 
 function pedido(id: string, instante = agora, projeto = panorama()): PedidoDePublicacaoEmpresa {
-  return { inscricaoId: id, projetoRef: 'projeto-a', projeto: ref('time/projeto'), panorama: projeto, agora: instante, privacidade };
+  return { inscricaoId: id, projetoRef: 'projeto-a', projeto: ref('time/projeto'), panorama: projeto,
+    conta: { accountId: id === 'inscricao-a' ? 41 : 42, login: `login-${id}` }, forja: 'github', host: 'github.com',
+    agora: instante, privacidade };
 }
 
 function preparada(): Branch {
@@ -105,6 +107,20 @@ test('projeção idêntica em outro instante é no-op e preserva o carimbo publi
   assert.equal(segunda.ok, true);
   if (segunda.ok) assert.deepEqual([segunda.transacao.acao, segunda.valor.publicadoEm], ['sem-mudanca', agora]);
   assert.equal(b.historico.length, gravacoes);
+});
+
+test('outra conta, outro host ou outra forja não publicam nem criam commit depois do aceite', () => {
+  const divergencias: Array<[string, Partial<PedidoDePublicacaoEmpresa>]> = [
+    ['conta', { conta: { accountId: 99, login: 'outra' } }],
+    ['host', { host: 'git.exemplo.invalid' }],
+    ['forja', { forja: 'gitlab' }],
+  ];
+  for (const [nome, mudanca] of divergencias) {
+    const b = preparada(), r = publicarNaRedeEmpresa(b, { ...pedido('inscricao-a'), ...mudanca });
+    assert.deepEqual([nome, r.ok, r.ok ? '' : r.codigo, b.historico.length],
+      [nome, false, 'rede-empresa.identidade-divergente', 0]);
+    assert.equal(b.arquivos.has('publicacoes/inscricao-a/projeto-a.json'), false);
+  }
 });
 
 test('cinco conflitos esgotam as tentativas sem criar publicação', () => {

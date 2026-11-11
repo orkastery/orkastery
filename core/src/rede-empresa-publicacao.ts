@@ -2,6 +2,7 @@
 import { createHash } from 'node:crypto';
 import type { ContextoDaVarredura } from './dado-privado';
 import { varrerTexto } from './dado-privado';
+import type { ContaNaForja } from './forja/contrato';
 import type { ProjetoNoPanorama } from './network-roadmap';
 import { procurarSegredos } from './policies';
 import { adesaoRedeEmpresa, gravarAdesaoRedeEmpresa } from './rede-empresa-config';
@@ -16,6 +17,7 @@ type FasePublicada = typeof FASES[number];
 
 export type CodigoDaPublicacaoEmpresa = 'rede-empresa.politica-ausente' | 'rede-empresa.politica-incompativel'
   | 'rede-empresa.inscricao-ausente' | 'rede-empresa.inscricao-inativa' | 'rede-empresa.projeto-nao-autorizado'
+  | 'rede-empresa.identidade-divergente'
   | 'rede-empresa.projecao-invalida' | 'rede-empresa.dado-privado' | 'rede-empresa.segredo'
   | 'rede-empresa.forja-indisponivel' | 'rede-empresa.concorrencia';
 
@@ -28,6 +30,9 @@ export interface PedidoDePublicacaoEmpresa {
   projetoRef: string;
   projeto: ReferenciaDaForja;
   panorama: ProjetoNoPanorama;
+  conta: ContaNaForja;
+  forja: InscricaoDaEmpresa['maestroRef']['forja'];
+  host: string;
   agora: string;
   privacidade: ContextoDaVarredura;
   env?: NodeJS.ProcessEnv;
@@ -41,6 +46,9 @@ const ler = <T>(texto: string | null, valido: (v: unknown) => v is T): T | null 
 const caminhoDaInscricao = (id: string): string => `inscricoes/${id}.json`;
 const mesmaRef = (a: ReferenciaDaForja, b: ReferenciaDaForja): boolean =>
   a.forja === b.forja && a.host.toLowerCase() === b.host.toLowerCase() && a.caminho.toLowerCase() === b.caminho.toLowerCase();
+const mesmaConta = (inscricao: InscricaoDaEmpresa, pedido: PedidoDePublicacaoEmpresa): boolean =>
+  inscricao.maestroRef.forja === pedido.forja && inscricao.maestroRef.host.toLowerCase() === pedido.host.toLowerCase()
+  && inscricao.maestroRef.accountId === pedido.conta.accountId;
 const fase = (v: string): FasePublicada | null => FASES.includes(v.toUpperCase() as FasePublicada)
   ? v.toUpperCase() as FasePublicada : null;
 const threadRef = (inscricaoId: string, id: string): string =>
@@ -103,6 +111,7 @@ export function publicarNaRedeEmpresa(porta: PortaDaBranchEmpresa, pedido: Pedid
     if (!politica || !inscricao) { falha = !politica ? 'rede-empresa.politica-ausente' : 'rede-empresa.inscricao-ausente'; return null; }
     if (politica.versao !== inscricao.politicaVersao) { falha = 'rede-empresa.politica-incompativel'; return null; }
     if (inscricao.estado !== 'ativa') { falha = 'rede-empresa.inscricao-inativa'; return null; }
+    if (!mesmaConta(inscricao, pedido)) { falha = 'rede-empresa.identidade-divergente'; return null; }
     if (!inscricao.projetos.some((p) => mesmaRef(p, pedido.projeto))) { falha = 'rede-empresa.projeto-nao-autorizado'; return null; }
     const projetada = projetarPublicacaoEmpresa(inscricao, pedido);
     if (!projetada.ok) { falha = projetada.codigo; return null; }

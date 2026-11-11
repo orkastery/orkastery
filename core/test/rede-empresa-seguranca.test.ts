@@ -27,7 +27,8 @@ const panorama = { projeto: { nome: 'cliente-real', forja: 'github', clone: '/ho
 
 test('projeção omite segredo, caminho local, e-mail, nome de máquina e texto livre', () => {
   const r = projetarPublicacaoEmpresa(inscricao, { inscricaoId: 'inscricao-a', projetoRef: 'projeto-a',
-    projeto: inscricao.projetos[0], panorama, agora, privacidade: contexto });
+    projeto: inscricao.projetos[0], panorama, conta: { accountId: 41, login: 'login-atual' },
+    forja: 'github', host: 'github.com', agora, privacidade: contexto });
   assert.equal(r.ok, true);
   if (!r.ok) return;
   assert.doesNotMatch(r.texto, /cliente-real|maquina-pessoal|pessoa@|\/home\/pessoa|slug-interno|ramo/);
@@ -36,6 +37,7 @@ test('projeção omite segredo, caminho local, e-mail, nome de máquina e texto 
 
 test('barreira recusa segredo em campo permitido antes da escrita', () => {
   const r = projetarPublicacaoEmpresa({ ...inscricao, loginAtual: 'ghp_12345678901234567890' }, {
-    inscricaoId: 'inscricao-a', projetoRef: 'projeto-a', projeto: inscricao.projetos[0], panorama, agora, privacidade: contexto });
+    inscricaoId: 'inscricao-a', projetoRef: 'projeto-a', projeto: inscricao.projetos[0], panorama,
+    conta: { accountId: 41, login: 'login-atual' }, forja: 'github', host: 'github.com', agora, privacidade: contexto });
   assert.deepEqual(r, { ok: false, codigo: 'rede-empresa.segredo' });
 });
