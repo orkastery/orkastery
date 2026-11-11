@@ -395,32 +395,6 @@
       ]
     },
     {
-      "id": "C24",
-      "thread": "ork-rm089f1polit",
-      "fase": "GO",
-      "arquivo": "docs/referencia/cli.md",
-      "alegacao": "A referência CLI pt-BR documenta ci.politica_recibo, os três níveis, os estados ausente, inválido e divergente, a compatibilidade sem a chave e encaminha ao guia administrativo.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f1-politica-ci.test.js && node core/dist/index.js docs verificar --pr"
-      ],
-      "criadoEm": "2026-11-11T05:15:51.418Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C25",
       "thread": "ork-rm089f1polit",
       "fase": "GO",
@@ -457,32 +431,6 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f1-politica-ci.test.js"
       ],
       "criadoEm": "2026-11-11T05:15:51.518Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C27",
-      "thread": "ork-rm089f1polit",
-      "fase": "GO",
-      "arquivo": "docs/referencia/cli.en.md",
-      "alegacao": "A referência CLI inglesa documenta ci.politica_recibo, os três níveis, os estados missing, invalid e divergent, a compatibilidade sem a chave e encaminha ao guia administrativo.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f1-politica-ci.test.js && node core/dist/index.js docs verificar --pr"
-      ],
-      "criadoEm": "2026-11-11T05:15:51.558Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
@@ -561,6 +509,84 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f1-politica-ci.test.js && node core/dist/index.js docs verificar --pr"
       ],
       "criadoEm": "2026-11-11T05:15:51.704Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm089f1polit",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f1-politica-ci.test.ts",
+      "alegacao": "A prova focada fixa que ci.recibo.sha-divergente não orienta ork adotar em pt-BR nem EN e que o aviso GitLab prefixa cada linha lógica com WARNING para entradas LF, CRLF e CR.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f1-politica-ci.test.js"
+      ],
+      "criadoEm": "2026-11-11T06:15:07.191Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm089f1polit",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referência CLI pt-BR documenta ci.politica_recibo, os três níveis, os estados ausente, inválido e divergente, a frase de compatibilidade sem a chave e encaminha ao guia administrativo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f1-politica-ci.test.js && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-11T06:15:52.868Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm089f1polit",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "A referência CLI inglesa documenta ci.politica_recibo, os três níveis, os estados missing, invalid e divergent, a frase de compatibilidade sem a chave e encaminha ao guia administrativo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f1-politica-ci.test.js && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-11T06:15:57.262Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
