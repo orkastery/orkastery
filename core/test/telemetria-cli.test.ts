@@ -1,10 +1,13 @@
 import { strict as assert } from 'node:assert';
+import { spawnSync } from 'node:child_process';
+import * as path from 'node:path';
 import { test } from 'node:test';
 import { main } from '../src/index';
 import { ativarLocale, chaveDoLocale, cobreLocale, msg } from '../src/locale';
 import { AJUDA_EN, AJUDA_PT_BR, DadosDaAjuda } from '../src/locale-ajuda';
 import { comandoTelemetria, CONTRATO_CLI_TELEMETRIA, DependenciasTelemetriaCli,
   FonteDaTelemetria } from '../src/telemetria-cli';
+import { envPtBr, projetoTemporario } from './apoio';
 
 const ligada = { ligada: true, origem: 'builder' as const, motivo: 'ativada pelo builder', pseudonimo: 'a'.repeat(64) };
 const desligada = { ligada: false, origem: 'ausente' as const, motivo: 'configuração privada ausente', pseudonimo: null };
@@ -104,6 +107,52 @@ test('as quatro rotas reais da telemetria participam do catálogo em pt-BR e ing
       try { assert.match(msg().telemetria.uso, new RegExp(`telemetria .*\\b${subcomando}\\b`)); }
       finally { ativarLocale(undefined); }
     }
+  }
+});
+
+test('o executável real despacha a família e valida json, dry-run e offset na borda pública', (t) => {
+  const projeto = projetoTemporario('telemetria-cli-real');
+  t.after(() => projeto.limpar());
+  const cli = path.resolve(__dirname, '../../dist/index.js');
+  const executar = (args: string[]) => {
+    const resultado = spawnSync(process.execPath, [cli, ...args], {
+      cwd: projeto.dir,
+      encoding: 'utf8',
+      timeout: 30_000,
+      env: envPtBr(),
+    });
+    assert.equal(resultado.error, undefined, args.join(' '));
+    return { status: resultado.status, stdout: resultado.stdout ?? '', stderr: resultado.stderr ?? '' };
+  };
+
+  const aceitas = [
+    ['telemetria', 'status', '--json'],
+    ['telemetria', 'ligar', '--json'],
+    ['telemetria', 'enviar', '--dry-run', '--offset', '0', '--json'],
+    ['telemetria', 'desligar', '--json'],
+  ];
+  for (const args of aceitas) {
+    const resultado = executar(args);
+    assert.equal(resultado.status, 0, `${args.join(' ')}\n${resultado.stdout}${resultado.stderr}`);
+    const resposta = JSON.parse(resultado.stdout) as Record<string, unknown>;
+    assert.equal(resposta.schema, CONTRATO_CLI_TELEMETRIA);
+    assert.equal(resposta.command, args[1]);
+    if (args[1] === 'enviar') assert.equal(resposta.dryRun, true);
+  }
+
+  const recusadas = [
+    ['telemetria', 'status', '--json=texto'],
+    ['telemetria', 'status', '--dry-run'],
+    ['telemetria', 'enviar', '--dry-run=sim'],
+    ['telemetria', 'enviar', '--offset', '0'],
+    ['telemetria', 'enviar', '--dry-run', '--offset', '-1'],
+    ['telemetria', 'enviar', '--dry-run', '--offset', '9007199254740992'],
+    ['telemetria', 'status', '--desconhecida'],
+  ];
+  for (const args of recusadas) {
+    const resultado = executar(args);
+    assert.equal(resultado.status, 1, `${args.join(' ')}\n${resultado.stdout}${resultado.stderr}`);
+    assert.match(resultado.stderr, /uso: ork telemetria status\|ligar\|desligar\|enviar/);
   }
 });
 
