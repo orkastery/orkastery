@@ -1,0 +1,980 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm089f2dupli",
+  "branch": "ork/ork-rm089f2dupli-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-empresa-contrato.ts",
+      "alegacao": "A coordenação coletiva identifica titular, projeto e fase, bloqueia uma segunda reserva, aceita colaboração ou acordo válido, rejeita acordo forjado e resolve a corrida com um único titular.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-duplicidade.test.js"
+      ],
+      "criadoEm": "2026-11-11T17:41:08.868Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "thread new --roadmap e roadmap pegar aplicam a coordenação antes de gravar e preservam a regra existente da RM-047 quando a cobertura coletiva não está configurada ou não pôde ser lida.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f2-entradas.test.js"
+      ],
+      "criadoEm": "2026-11-11T17:41:09.095Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-server.ts",
+      "alegacao": "ork_thread_new com roadmap usa as mesmas regras de reserva principal, colaboração e acordo da CLI.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f2-entradas.test.js"
+      ],
+      "criadoEm": "2026-11-11T17:41:09.269Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-empresa-status.ts",
+      "alegacao": "A ausência de configuração ou de leitura da rede coletiva aparece no aviso e no status sem acrescentar bloqueio ao fluxo existente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-status-f2.test.js"
+      ],
+      "criadoEm": "2026-11-11T17:41:09.469Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A ajuda e a referência descrevem em pt-BR e EN o bloqueio, a colaboração, o acordo e os estados de cobertura da checagem coletiva.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-cli-docs.test.js"
+      ],
+      "criadoEm": "2026-11-11T17:41:09.746Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-coordenacao.ts",
+      "alegacao": "A coordenação coletiva usa projectKey canônica, identifica titular/projeto/fase, mantém um único titular em corrida, preserva colaboradores e só aceita acordo cuja atestação da forja prova autor, destinatário, escopo, fingerprint, integridade e validade temporal.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-projeto-f2.test.js core/dist-test/test/rede-empresa-duplicidade.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:00:33.566Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-operacao.ts",
+      "alegacao": "thread new --roadmap e roadmap pegar executam a mesma saga com operationId e fingerprints, compensam em ordem inversa sem remover renovação posterior, bloqueiam em reconciliação pendente e aplicam fail-open visível em observar/avisar e fail-closed em exigir sem enfraquecer a RM-047.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f2-saga.test.js core/dist-test/test/rm089-f2-entradas.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:00:33.653Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-status.ts",
+      "alegacao": "Aviso e status em pt-BR e EN distinguem cobertura conferida, não configurada, não conferida e reconciliação pendente; observar/avisar permitem continuidade visível e exigir bloqueia salvo exceção autenticada e auditável.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-status-f2.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:00:33.982Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "docs/guias/rede-da-empresa.pt-BR.md",
+      "alegacao": "Guia, ajuda, referências pt-BR/EN e Não publicado documentam aviso, reserva, colaboração, acordo autenticado, fail-open por nível, fail-closed em exigir e reparo idempotente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-guia.test.js core/dist-test/test/rm089-cli-docs.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:00:34.214Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-projeto.ts",
+      "alegacao": "A projectKey canônica converge formas equivalentes do mesmo remoto, preserva forjas e projetos distintos e só aplica espelhos por mapa explícito não ambíguo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-projeto-f2.test.js core/dist-test/test/rede-empresa-contrato.test.js core/dist-test/test/rede-empresa-publicacao.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:13:23.361Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-contrato.ts",
+      "alegacao": "Os contratos coletivos leem as versões v1 compatíveis e validam política e publicação v2 com nível de cobertura, versão de recibo e projectKey.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-projeto-f2.test.js core/dist-test/test/rede-empresa-contrato.test.js core/dist-test/test/rede-empresa-publicacao.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:13:23.588Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa.ts",
+      "alegacao": "A inscrição e a autorização de projeto usam a mesma projectKey canônica e a política criada declara nível de cobertura e versão de recibo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-projeto-f2.test.js core/dist-test/test/rede-empresa-contrato.test.js core/dist-test/test/rede-empresa-publicacao.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:13:23.866Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/rede-empresa-projeto-f2.test.ts",
+      "alegacao": "A suíte hermética cobre HTTPS, SSH, SCP, sufixo .git, caixa, barras, porta padrão, hosts homônimos, espelho explícito e alias ambíguo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-projeto-f2.test.js core/dist-test/test/rede-empresa-contrato.test.js core/dist-test/test/rede-empresa-publicacao.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:13:24.102Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-publicacao.ts",
+      "alegacao": "A publicação v2 carrega a projectKey canônica e autoriza o projeto pela mesma identidade usada na inscrição.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-projeto-f2.test.js core/dist-test/test/rede-empresa-contrato.test.js core/dist-test/test/rede-empresa-publicacao.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:13:24.229Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-coordenacao.ts",
+      "alegacao": "O CAS coletivo mantém um único titular por projectKey e item, correlaciona publicação existente, preserva o titular em colaboração e acordo e retorna inscrição, login e fase no conflito.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-duplicidade.test.js core/dist-test/test/rede-empresa-forja.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:17:43.556Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-atestacao.ts",
+      "alegacao": "O acordo só é aceito quando a API simulada da forja comprova autor titular, destinatário, escopo, fingerprint, hash, ausência de edição e validade temporal.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-duplicidade.test.js core/dist-test/test/rede-empresa-forja.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:17:43.741Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-transporte.ts",
+      "alegacao": "Cada tentativa de coordenação lê uma única snapshot e pode enumerar os documentos da branch em um lote Git com timeout explícito.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-duplicidade.test.js core/dist-test/test/rede-empresa-forja.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:17:43.836Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/rede-empresa-duplicidade.test.ts",
+      "alegacao": "A suíte hermética prova titular único, colaboração, acordo válido e recusas por edição, autoria, destinatário, escopo, reserva antiga e expiração.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-duplicidade.test.js core/dist-test/test/rede-empresa-forja.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:17:43.924Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-cli.ts",
+      "alegacao": "A CLI cria políticas com nível e recibo versionados, usa a projectKey canônica e mostra o estado de cobertura no status.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-status-f2.test.js core/dist-test/test/rede-empresa-cli.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:22:22.602Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-config.ts",
+      "alegacao": "A política efetiva aplica fail-open visível em observar/avisar, fail-closed em exigir e só libera exceção específica, vigente e autenticada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-status-f2.test.js core/dist-test/test/rede-empresa-cli.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:22:22.803Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-status.ts",
+      "alegacao": "O status distingue cobertura conferida, não configurada, não conferida e exceção, usando o último cache apenas para orientar o nível durante indisponibilidade.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-status-f2.test.js core/dist-test/test/rede-empresa-cli.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:22:22.936Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/locale-network-empresa.ts",
+      "alegacao": "As mensagens pt-BR e EN tornam aviso, bloqueio e exceção de cobertura acionáveis sem traduzir códigos públicos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-status-f2.test.js core/dist-test/test/rede-empresa-cli.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:22:23.476Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/rede-empresa-status-f2.test.ts",
+      "alegacao": "A suíte hermética cobre a matriz de níveis, indisponibilidade, cache, exceção autenticada e política versionada da CLI.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-status-f2.test.js core/dist-test/test/rede-empresa-cli.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:22:23.690Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-operacao.ts",
+      "alegacao": "A saga cria operationId antes do primeiro efeito, executa coletivo, local, thread e vínculo, compensa local e coletivo por fingerprint e mantém reparo idempotente para reconciliação pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f2-saga.test.js core/dist-test/test/roadmap-reservas.test.js core/dist-test/test/thread-roadmap-aviso.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:33:25.295Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/roadmap-reservas.ts",
+      "alegacao": "A reserva local carrega operationId e só é renovada, vinculada ou removida quando a fingerprint da snapshot ainda coincide, preservando renovações posteriores.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f2-saga.test.js core/dist-test/test/roadmap-reservas.test.js core/dist-test/test/thread-roadmap-aviso.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:33:25.456Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "thread new --roadmap e roadmap pegar usam a saga coletiva antes da RM-047, e roadmap reconciliar executa o reparo idempotente pelo operationId.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f2-saga.test.js core/dist-test/test/roadmap-reservas.test.js core/dist-test/test/thread-roadmap-aviso.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:33:25.581Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/locale-reservas.ts",
+      "alegacao": "A ajuda e a saída do roadmap apresentam cobertura coletiva e o comando acionável de reconciliação em pt-BR e EN.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f2-saga.test.js core/dist-test/test/roadmap-reservas.test.js core/dist-test/test/thread-roadmap-aviso.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:33:25.674Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f2-saga.test.ts",
+      "alegacao": "A suíte hermética cobre sucesso, falha em cada fronteira, ordem inversa de compensação, divergência de fingerprint e repetição do reparo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f2-saga.test.js core/dist-test/test/roadmap-reservas.test.js core/dist-test/test/thread-roadmap-aviso.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:33:25.760Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "docs/guias/rede-da-empresa.pt-BR.md",
+      "alegacao": "O guia em português descreve a saga de reserva coletiva, colaboração, acordo autenticado, níveis de cobertura e reparo idempotente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-guia.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:42:41.272Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "docs/guias/rede-da-empresa.md",
+      "alegacao": "O guia em inglês mantém paridade operacional com a coordenação coletiva documentada em português.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-guia.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:42:41.449Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referência CLI em português publica as opções de cobertura, a ordem coletiva-local e o comando de reconciliação.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-guia.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:42:41.623Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "A referência CLI em inglês publica as mesmas opções e garantias de coordenação da versão em português.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-guia.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:42:41.753Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-guia.test.ts",
+      "alegacao": "A prova documental confere em ambos os idiomas os termos públicos da saga, da cobertura e do reparo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-guia.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:42:41.848Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/locale-ajuda.ts",
+      "alegacao": "A ajuda em português e inglês publica a ordem coletiva-local, a reconciliação e os níveis de cobertura da reserva.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-cli-docs.test.js core/dist-test/test/locale-ajuda.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:45:34.138Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A seção Não publicado registra a reserva coletiva obrigatória da RM-089 F2 com sua saga e alternativas autenticadas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-cli-docs.test.js core/dist-test/test/locale-ajuda.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:45:34.240Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-cli-docs.test.ts",
+      "alegacao": "A prova documental confere ajuda e changelog bilíngues para coordenação, cobertura e reparo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-cli-docs.test.js core/dist-test/test/locale-ajuda.test.js"
+      ],
+      "criadoEm": "2026-11-11T18:45:34.335Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C8",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C30",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C31",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C32",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C33",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C34",
+      "reason": "local-integration-required"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
