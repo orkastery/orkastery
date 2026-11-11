@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.8",
-  "publicadoEm": "2026-11-11T21:08:12.439Z",
+  "publicadoEm": "2026-11-11T21:15:02.805Z",
   "threads": [
     {
       "id": "ork-rm088guardad",
@@ -122,9 +122,9 @@
       "modo": "#Fast",
       "fase": "GO",
       "status": "aberta",
-      "roadmap": null,
+      "roadmap": "RM-091",
       "branch": "ork/ork-rm091orkmesh-go",
-      "atualizadaEm": "2026-11-11T21:08:11.829Z",
+      "atualizadaEm": "2026-11-11T21:12:16.510Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
