@@ -1005,17 +1005,16 @@
       ]
     },
     {
-      "id": "C38",
+      "id": "C39",
       "thread": "ork-rm089f1inscr",
       "fase": "GO",
-      "arquivo": ".ork-ci/ork-rm089f1inscr.json",
+      "arquivo": "core/src/ci.ts",
       "alegacao": "O gerador de CI grava na worktree da thread um bundle próprio com as claims ativas e os comandos do manifesto.",
       "negativa": false,
       "verificar": [
-        "npm --prefix core run build:test",
-        "node --test core/dist-test/test/ci.test.js core/dist-test/test/rm037-ci-prepare-worktree.test.js"
+        "npm --prefix core run build:test && node --test core/dist-test/test/ci.test.js core/dist-test/test/rm037-ci-prepare-worktree.test.js"
       ],
-      "criadoEm": "2026-11-11T09:40:46.607Z",
+      "criadoEm": "2026-11-11T09:55:56.294Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
