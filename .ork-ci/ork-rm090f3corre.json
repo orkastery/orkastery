@@ -93,7 +93,7 @@
         "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/conducao-despacho.test.js core/dist-test/test/rm063-retry-prompt.test.js core/dist-test/test/telemetria-runtime.test.js"
       ],
       "criadoEm": "2026-11-11T17:00:55.928Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -119,7 +119,7 @@
         "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/conducao-despacho.test.js core/dist-test/test/rm063-retry-prompt.test.js core/dist-test/test/telemetria-runtime.test.js"
       ],
       "criadoEm": "2026-11-11T17:00:56.077Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -145,7 +145,7 @@
         "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria.test.js core/dist-test/test/telemetria-runtime.test.js core/dist-test/test/conducao-despacho.test.js core/dist-test/test/rm063-retry-prompt.test.js"
       ],
       "criadoEm": "2026-11-11T17:01:07.124Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -249,7 +249,7 @@
         "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-despacho.test.js"
       ],
       "criadoEm": "2026-11-11T19:29:47.225Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -275,7 +275,7 @@
         "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-runtime.test.js core/dist-test/test/telemetria-despacho.test.js"
       ],
       "criadoEm": "2026-11-11T19:29:47.304Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -301,7 +301,7 @@
         "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-despacho.test.js"
       ],
       "criadoEm": "2026-11-11T19:29:47.384Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -327,7 +327,7 @@
         "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-despacho.test.js"
       ],
       "criadoEm": "2026-11-11T19:29:47.513Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -353,7 +353,7 @@
         "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-despacho.test.js"
       ],
       "criadoEm": "2026-11-11T19:29:47.645Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -379,7 +379,7 @@
         "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-despacho.test.js"
       ],
       "criadoEm": "2026-11-11T19:29:47.764Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -405,7 +405,7 @@
         "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-runtime.test.js core/dist-test/test/telemetria-despacho.test.js"
       ],
       "criadoEm": "2026-11-11T19:29:47.899Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -431,7 +431,7 @@
         "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-despacho.test.js"
       ],
       "criadoEm": "2026-11-11T19:29:47.998Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -457,7 +457,7 @@
         "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-despacho.test.js"
       ],
       "criadoEm": "2026-11-11T19:29:48.145Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -483,7 +483,85 @@
         "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria.test.js core/dist-test/test/telemetria-despacho.test.js core/dist-test/test/conducao-despacho.test.js core/dist-test/test/rm063-retry-prompt.test.js"
       ],
       "criadoEm": "2026-11-11T19:29:48.240Z",
-      "estado": "verificado",
+      "estado": "reprovado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm090f3corre",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-despacho.test.ts",
+      "alegacao": "Cada despacho bem-sucedido de Claude Code ou Codex produz um LogRecord de correlação do Orkastery com thread, fase, despacho, runtime, pseudônimo do maestro e o identificador nativo no atributo oficial do runtime.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-despacho.test.js core/dist-test/test/telemetria-runtime.test.js"
+      ],
+      "criadoEm": "2026-11-11T22:30:53.333Z",
+      "estado": "reprovado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm090f3corre",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-despacho.test.ts",
+      "alegacao": "A configuração de correlação entra apenas no despacho cuja telemetria privada do builder está ativa; com a telemetria ausente ou desligada, comando e ambiente do despacho permanecem inalterados e nenhuma configuração global do usuário é escrita.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-despacho.test.js core/dist-test/test/telemetria-runtime.test.js"
+      ],
+      "criadoEm": "2026-11-11T22:30:53.421Z",
+      "estado": "reprovado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm090f3corre",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-despacho.test.ts",
+      "alegacao": "Os testes herméticos provam a identidade de uma sessão de cada runtime, um vínculo por sessão e a ausência de cópia de evento nativo, sem rede nem execução de Claude Code ou Codex real.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/telemetria-despacho.test.js core/dist-test/test/telemetria-runtime.test.js"
+      ],
+      "criadoEm": "2026-11-11T22:30:53.747Z",
+      "estado": "reprovado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
