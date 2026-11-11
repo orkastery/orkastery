@@ -45,7 +45,21 @@ ork telemetria enviar
 
 A [configuração oficial do OpenTelemetry Collector](https://opentelemetry.io/docs/collector/configuration/) explica receivers, processors, exporters e o pipeline `logs`. A [especificação do OTLP Exporter](https://opentelemetry.io/docs/specs/otel/protocol/exporter/) define a precedência dos endpoints, o caminho `/v1/logs` e a forma dos cabeçalhos.
 
-Para Grafana Cloud, use endpoint e credencial mostrados pela sua stack. A [documentação oficial do endpoint OTLP do Grafana Cloud](https://grafana.com/docs/grafana-cloud/send-data/otlp/send-data-otlp/) recomenda um Collector ou Grafana Alloy para produção e explica como os logs chegam ao Loki e ao Explore. O Orkastery não cria Collector, Alloy, Loki ou dashboard nesta fatia.
+Para Grafana Cloud, use endpoint e credencial mostrados pela sua stack. A [documentação oficial do endpoint OTLP do Grafana Cloud](https://grafana.com/docs/grafana-cloud/send-data/otlp/send-data-otlp/) recomenda um Collector ou Grafana Alloy para produção e explica como os logs chegam ao Loki e ao Explore. Os modelos públicos não provisionam Collector, Alloy, Loki, Grafana nem datasource.
+
+## Usar os modelos de referência
+
+Escolha `templates/telemetria/collector-otlp.yaml` para um destino OTLP/HTTP genérico ou `templates/telemetria/collector-loki.yaml` para a base OTLP nativa do Loki. Os arquivos usam o `otelcol` core v0.165.0 como referência observada; o inventário do `otelcol-contrib` v0.165.1 também contém os componentes. Compatibilidade com versões anteriores e aceitação pelo binário externo permanecem **não confirmadas**.
+
+O `filter/required` é um filtro OTTL de descarte, não um validador de schema. Uma condição verdadeira descarta o registro incoerente; um erro de avaliação com `propagate` falha o payload; a recusa de segredo ou dado privado já ocorreu na F2 e não gera evento para revalidar. A suíte hermética confere a estrutura. O operador pode executar `otelcol validate --config=<arquivo>` separadamente.
+
+O receiver público não provisiona TLS nem autenticação. Use bind local ou rede confiável por padrão e aplique um overlay privado com TLS e autenticação antes de expor o receiver.
+
+Copie ou monte `templates/telemetria/grafana/provisioning/dashboards/orkastery.yaml` e a pasta `templates/telemetria/grafana/dashboards/`. Selecione Loki para condução e prompts; selecione Prometheus para as métricas de saúde produzidas pelo próprio Collector. Os dashboards não fixam URL nem datasource.
+
+As consultas Loki começam por `{service_name="orkastery"}` e filtram os metadados estruturados depois. Correlação com runtimes é F3 e `orkastery-correlacao-runtime.json` não existe nesta fatia. Maturidade por maestro é F5 e `orkastery-maturidade-maestro.json` também não existe; não há placeholder.
+
+Fontes: [filter processor e OTTL](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/filterprocessor/README.md), [funções OTTL](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/pkg/ottl/ottlfuncs/README.md), [OTLP nativo do Loki](https://grafana.com/docs/loki/latest/send-data/otel/), [provisionamento do Grafana](https://grafana.com/docs/grafana/latest/administration/provisioning/) e [telemetria interna do Collector](https://opentelemetry.io/docs/collector/internal-telemetry/).
 
 ## Conferir antes de enviar
 
@@ -125,4 +139,4 @@ Texto livre passa primeiro pelo catálogo de segredos e depois pela lista local 
 
 O cursor é incremental por posição em cada ledger. Um evento histórico sem `eventId` recebe UID derivado estável. Linha corrompida ou truncada bloqueia no primeiro ponto ruim sem avançar. O cursor só é persistido depois da confirmação remota; uma queda entre POST e cursor reenvia os mesmos UIDs. A garantia é ao menos uma vez, não exatamente uma vez.
 
-O envio manual usa lock não bloqueante, lote e resposta limitados e no máximo uma repetição para falha de conexão ou status retentável. `partialSuccess` e resposta não retentável são terminais e visíveis no status, sem repetir silenciosamente. A configuração nativa é preparada somente para o despacho com opt-in; não há trace, painel ou política empresarial criada por esta fatia. O texto do prompt sai somente no envio manual com opt-in e com as proteções descritas acima.
+O envio manual usa lock não bloqueante, lote e resposta limitados e no máximo uma repetição para falha de conexão ou status retentável. `partialSuccess` e resposta não retentável são terminais e visíveis no status, sem repetir silenciosamente. A configuração nativa é preparada somente para o despacho com opt-in. Não há métrica, trace nem política empresarial; o Collector e os painéis são somente modelos de referência. O texto do prompt sai somente no envio manual com opt-in e com as proteções descritas acima.
