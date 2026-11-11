@@ -196,6 +196,50 @@ test('dry-run e envio produzem o mesmo payload inteiro com relógio e entradas i
   assert.deepEqual(previa.payload, JSON.parse(corpo));
 });
 
+test('dry-run e envio têm payload inteiro igual para phase_prompt_recorded e arquivo carimbado', async () => {
+  const f = fixture([]);
+  const raizPrompts = path.join(f.dir, 'prompts');
+  fs.mkdirSync(raizPrompts);
+  const segredo = 'sk-' + 'P'.repeat(32);
+  const privado = 'CLIENTE_SIMULADO';
+  const texto = `permitido ${segredo} ${privado} final`;
+  const arquivo = path.join(raizPrompts, 'go.md');
+  fs.writeFileSync(arquivo, texto);
+  const sha = createHash('sha256').update(texto).digest('hex');
+  fs.writeFileSync(f.ledger, linha('phase_prompt_recorded', 'prompt-real', {
+    promptPath: path.relative(f.dir, arquivo), promptSha256: sha, model: 'gpt-exemplo',
+  }) + '\n');
+  const contexto = { ...ctx, prepararPrompt: (evento: Record<string, unknown>) => prepararPrompt({
+    raizProjeto: f.dir, raizPrompts, promptPath: evento.promptPath, promptSha256: evento.promptSha256,
+    redigirPrivado: (entrada) => ({ ok: true, texto: entrada.replaceAll(privado, '[dado omitido]') }),
+  }) };
+
+  fs.writeFileSync(f.cursor, JSON.stringify({ segredo: 'cursor inválido que não deve ser lido' }));
+  let transportes = 0;
+  const previa = await exportarLedger({ arquivoLedger: f.ledger, arquivoCursor: f.cursor, arquivoLock: f.lock,
+    thread: 'ork-teste', contexto, arquivos: f.arquivos, dryRun: true,
+    env: { OTEL_EXPORTER_OTLP_HEADERS: 'cabeçalho-inválido' },
+    transporte: async () => { transportes += 1; return { status: 200, body: '' }; } });
+  assert.equal(previa.estado, 'dry-run');
+  assert.equal(transportes, 0);
+  assert.deepEqual({ lerJson: f.contagem.lerJson, escrever: f.contagem.escrever, lock: f.contagem.lock },
+    { lerJson: 0, escrever: 0, lock: 0 });
+
+  fs.rmSync(f.cursor);
+  let corpo = '';
+  const envio = await exportarLedger({ arquivoLedger: f.ledger, arquivoCursor: f.cursor, arquivoLock: f.lock,
+    thread: 'ork-teste', contexto, arquivos: f.arquivos, env, transporte: async (pedido) => {
+      corpo = pedido.body; return { status: 200, body: '' };
+    } });
+  assert.equal(envio.estado, 'enviado');
+  assert.deepEqual(previa.payload, JSON.parse(corpo));
+  const payload = JSON.stringify(previa.payload);
+  assert.match(payload, /\[segredo omitido\]/u);
+  assert.match(payload, /\[dado omitido\]/u);
+  assert.equal(payload.includes(segredo), false);
+  assert.equal(payload.includes(privado), false);
+});
+
 test('lacuna confirmada avança e permite exportar o evento válido seguinte', async () => {
   const f = fixture([
     linha('phase_prompt_recorded', 'lacuna', { promptPath: 'ausente.md', promptSha256: '0'.repeat(64) }),
