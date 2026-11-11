@@ -2,7 +2,10 @@
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { extrairSessionId, limparAnsi, montarComando } from '../src/adapters/claude-bg';
+import * as fs from 'node:fs';
+import { dirTemporario } from './apoio';
+import { CAMINHO_SETTINGS_EFEMEROS, criarSettingsEfemeros, extrairSessionId, limparAnsi, montarComando,
+  settingsDoDespacho } from '../src/adapters/claude-bg';
 
 test('o comando de despacho usa --bg com prompt inline e --name com o slug', () => {
   const cmd = montarComando({
@@ -41,6 +44,38 @@ test('I-34: PLAN claude-bg roda sem plan mode, sem subagente e com escrita de ar
   assert.equal(cmd.includes('--agent'), false);
   assert.deepEqual(montarComando({ prompt: 'faca', nome: 'ork-x-go', cwd: '/tmp', colaboracao: 'default' }),
     ['claude', '--bg', 'faca', '--name', 'ork-x-go']);
+});
+
+test('telemetria Claude vence valores permissivos e usa settings privados fora do argv', () => {
+  const base = dirTemporario('settings-telemetria');
+  const pedido = {
+    prompt: 'faca', nome: 'ork-x-go', cwd: '/tmp',
+    ambienteExtra: {
+      OTEL_LOG_USER_PROMPTS: '1', OTEL_LOG_ASSISTANT_RESPONSES: '1',
+      OTEL_LOG_TOOL_DETAILS: '1', OTEL_LOG_TOOL_CONTENT: '1', OTEL_TRACES_EXPORTER: 'otlp',
+    },
+    telemetria: { runtime: 'claude-bg' as const, settingsEnv: {
+      OTEL_LOG_USER_PROMPTS: '0', OTEL_LOG_ASSISTANT_RESPONSES: '0',
+      OTEL_LOG_TOOL_DETAILS: '0', OTEL_LOG_TOOL_CONTENT: '0', OTEL_TRACES_EXPORTER: 'none',
+      OTEL_EXPORTER_OTLP_LOGS_HEADERS: 'authorization=VALOR-SINTETICO',
+    } },
+  };
+  const settings = settingsDoDespacho(pedido)! as { env: Record<string, string> };
+  assert.deepEqual(Object.fromEntries(Object.entries(settings.env).filter(([chave]) =>
+    chave.startsWith('OTEL_LOG_') || chave === 'OTEL_TRACES_EXPORTER')), {
+    OTEL_LOG_USER_PROMPTS: '0', OTEL_LOG_ASSISTANT_RESPONSES: '0',
+    OTEL_LOG_TOOL_DETAILS: '0', OTEL_LOG_TOOL_CONTENT: '0', OTEL_TRACES_EXPORTER: 'none',
+  });
+  const comando = montarComando(pedido);
+  assert.equal(comando[comando.indexOf('--settings') + 1], CAMINHO_SETTINGS_EFEMEROS);
+  assert.equal(comando.join(' ').includes('VALOR-SINTETICO'), false);
+
+  const efemero = criarSettingsEfemeros(settings, base);
+  assert.equal(fs.statSync(efemero.caminho).mode & 0o777, 0o600);
+  assert.match(fs.readFileSync(efemero.caminho, 'utf8'), /VALOR-SINTETICO/);
+  efemero.limpar();
+  assert.equal(fs.existsSync(efemero.caminho), false);
+  fs.rmdirSync(base);
 });
 
 test('extracao do sessionId aceita UUID e id curto', () => {
