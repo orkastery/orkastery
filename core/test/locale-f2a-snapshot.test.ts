@@ -13,9 +13,16 @@ import { gerarCasos } from './locale-f2a-casos';
 
 const FIXTURE = path.resolve(__dirname, '../../test/fixtures/locale-f2a-pt-BR.json');
 
+const BLOCO_NETWORK_EMPRESA =
+  '  network empresa criar|inscrever           Rede coletiva privada da empresa: cria a casa ou aceita uma inscricao\n' +
+  '        publicar|status|sair|revogar [--json]    por accountId; publicacao fechada, varrida e sem force (RM-089)\n';
+
+/** A família nova não pertence à base congelada da F2a; todo o restante continua byte a byte. */
+const semNetworkEmpresa = (texto: string): string => texto.replace(BLOCO_NETWORK_EMPRESA, '');
+
 test('locale pt-BR F2a: doctor, onboarding, experiencia, thread, phase e ajuda iguais byte a byte a base', () => {
   const esperado = JSON.parse(fs.readFileSync(FIXTURE, 'utf8')) as Record<string, string>;
   const obtido = gerarCasos();
   assert.deepEqual(Object.keys(obtido), Object.keys(esperado), 'os mesmos casos, na mesma ordem');
-  for (const nome of Object.keys(esperado)) assert.equal(obtido[nome], esperado[nome], nome);
+  for (const nome of Object.keys(esperado)) assert.equal(semNetworkEmpresa(obtido[nome]), esperado[nome], nome);
 });
