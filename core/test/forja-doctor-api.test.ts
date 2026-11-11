@@ -27,7 +27,7 @@ test('GitLab CE 19.2 gravado: CLI, login, servidor testado, escopo api e mensage
   assert.equal(p.detalhe, 'merge merge; squash default_off; merged results não disponível nesta edição; merge train não disponível nesta edição');
   const cap = linha(checks, 'forja capacidades')!;
   assert.equal(cap.nivel, 'ok', 'o checksNoCommit é do executor do gh; o GitLab lê a CI pelo estadoDeCi');
-  assert.match(cap.detalhe, /estadoDeCi, pedidoMesclado, branchPadrao, pontaDaBranch, comparar, pedidosDaBranch, abrirPedido, metadados, pedidosAbertos, donoDaRede$/);
+  assert.match(cap.detalhe, /estadoDeCi, pedidoMesclado, branchPadrao, pontaDaBranch, comparar, pedidosDaBranch, abrirPedido, metadados, pedidosAbertos, donoDaRede, contaAtual, repositorioPrivado, criarRepositorioPrivado$/);
   assert.doesNotMatch(cap.detalhe, /checksNoCommit|desligadas/);
   assert.equal(checks.filter((c) => c.nivel === 'fail').length, 0);
   // Um `auth status` so: as chamadas da API reusam o login conferido.
@@ -123,7 +123,8 @@ test('GitHub github.com: escopos do x-oauth-scopes, o repositório gravado e tod
   assert.equal(linha(checks, 'forja servidor')!.detalhe, 'github.com');
   assert.equal(linha(checks, 'forja escopo')!.detalhe, 'escopos do token: gist, read:org, repo, workflow');
   assert.equal(linha(checks, 'forja projeto')!.detalhe, 'merge commit permitido; squash permitido; rebase permitido');
-  assert.match(linha(checks, 'forja capacidades')!.detalhe, /^ligadas: checksNoCommit, .*metadados, pedidosAbertos, donoDaRede$/);
+  assert.match(linha(checks, 'forja capacidades')!.detalhe,
+    /^ligadas: checksNoCommit, .*metadados, pedidosAbertos, donoDaRede, contaAtual, repositorioPrivado, criarRepositorioPrivado$/);
 });
 
 test('GitHub: gh 2.17 não tem headRefOid e reprova; token fine-grained não é medível', () => {

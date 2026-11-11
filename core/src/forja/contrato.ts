@@ -79,3 +79,13 @@ export interface PedidoMesclado {
  * inclusive (GitLab: 30 Developer, 40 Maintainer, 50 Owner; 0 fora do grupo); `null` no usuario.
  */
 export interface DonoDaRede { tipo: 'usuario' | 'grupo'; caminho: string; namespaceId: number; nivel: number | null }
+
+/** A conta autenticada na forja. O id numerico permanece estavel quando o login muda. */
+export interface ContaNaForja { accountId: number; login: string }
+
+/** Repositorio relido pela API depois de criar ou de uma escrita com resposta incerta. */
+export interface RepositorioPrivadoNaForja {
+  caminho: string;
+  privado: boolean;
+  urlHttps: string;
+}

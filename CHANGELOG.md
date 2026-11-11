@@ -15,6 +15,8 @@ A D2 e todos os nomes públicos da RM-089 e da RM-090 foram ratificados pelo don
 
 - **Conteúdo removido dos prompts na telemetria — F2 (RM-090):** o LogRecord GenAI usa o arquivo carimbado, remove segredos e dados privados localmente, representa origem irrecuperável como lacuna sem conteúdo e mostra a mesma preparação no dry-run.
 
+- **Inscrição na rede coletiva** (RM-089): a família `ork network empresa` cria a rede privada; a empresa registra a identidade esperada e o maestro aceita com a conta autenticada; cada publicação revalida o `accountId`, envia uma projeção fechada sem dado local e cessa por saída ou revogação, com GitHub e GitLab pela mesma porta.
+
 - **Correlação nativa de sessões — F3 (RM-090):** Claude Code e Codex recebem configuração efêmera sem conteúdo nativo e cada sessão bem-sucedida ganha um vínculo lógico pelo identificador oficial do runtime.
 
 ### Alterado

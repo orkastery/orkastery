@@ -5,7 +5,7 @@
  * minimo e decisao da rede, nao daqui.
  */
 import type { ChamadorDaApi } from '../api';
-import type { DonoDaRede, Resultado } from '../contrato';
+import type { ContaNaForja, DonoDaRede, RepositorioPrivadoNaForja, Resultado } from '../contrato';
 
 type Json = Record<string, unknown>;
 const obj = (v: unknown): v is Json => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -15,6 +15,38 @@ const invalida = (detalhe: string): { ok: false; erro: { codigo: 'forja.resposta
 
 const naoAchei = (detalhe: string): { ok: false; erro: { codigo: 'forja.nao-achei'; detalhe: string } } =>
   ({ ok: false, erro: { codigo: 'forja.nao-achei', detalhe } });
+
+export function contaAtualGitlab(e: { api: ChamadorDaApi }): Resultado<ContaNaForja> {
+  const eu = e.api({ metodo: 'GET', caminho: 'user' });
+  if (!eu.ok) return eu;
+  const p = eu.valor.corpo;
+  if (!obj(p) || !id(p.id) || typeof p.username !== 'string' || !p.username) return invalida('user');
+  return { ok: true, valor: { accountId: p.id, login: p.username } };
+}
+
+const projetoNaApi = (caminho: string): string => `projects/${encodeURIComponent(caminho)}`;
+function projeto(v: unknown, esperado: string): Resultado<RepositorioPrivadoNaForja> {
+  if (!obj(v) || typeof v.path_with_namespace !== 'string' || v.path_with_namespace.toLowerCase() !== esperado.toLowerCase()
+    || typeof v.http_url_to_repo !== 'string' || !v.http_url_to_repo.startsWith('https://')) return invalida(projetoNaApi(esperado));
+  return { ok: true, valor: { caminho: v.path_with_namespace, privado: v.visibility === 'private', urlHttps: v.http_url_to_repo } };
+}
+
+export function repositorioPrivadoGitlab(e: { api: ChamadorDaApi; dono: string; nome: string }): Resultado<RepositorioPrivadoNaForja | null> {
+  const caminho = `${e.dono}/${e.nome}`;
+  const r = e.api({ metodo: 'GET', caminho: projetoNaApi(caminho) });
+  if (!r.ok && r.erro.codigo === 'forja.nao-achei') return { ok: true, valor: null };
+  if (!r.ok) return r;
+  return projeto(r.valor.corpo, caminho);
+}
+
+export function criarRepositorioPrivadoGitlab(e: { api: ChamadorDaApi; dono: DonoDaRede; nome: string; descricao: string }): Resultado<RepositorioPrivadoNaForja> {
+  const caminho = `${e.dono.caminho}/${e.nome}`;
+  const criado = e.api({ metodo: 'POST', caminho: 'projects', corpo: { name: e.nome, path: e.nome, namespace_id: e.dono.namespaceId,
+    visibility: 'private', description: e.descricao } });
+  if (criado.ok) return projeto(criado.valor.corpo, caminho);
+  const relido = repositorioPrivadoGitlab({ api: e.api, dono: e.dono.caminho, nome: e.nome });
+  return relido.ok && relido.valor ? { ok: true, valor: relido.valor } : criado;
+}
 
 export function donoDaRedeGitlab(e: { api: ChamadorDaApi; dono: string }): Resultado<DonoDaRede> {
   if (!e.dono.trim()) return naoAchei('dono vazio');

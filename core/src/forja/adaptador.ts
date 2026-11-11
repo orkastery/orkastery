@@ -2,13 +2,16 @@ import type { ExecutorCi } from '../ci';
 import type { ExecutorGitHub } from '../entrega-pr';
 import type { ExecutorDoGh, PrDaForja } from '../parado-no-condutor';
 import type { ChamadorDaApi } from './api';
-import type { CheckNoCommit, ChecksDoCommit, DonoDaRede, ForjaResolvida, PedidoMesclado, Resultado, TipoDeForja, VersaoDoServidor } from './contrato';
+import type { CheckNoCommit, ChecksDoCommit, ContaNaForja, DonoDaRede, ForjaResolvida, PedidoMesclado,
+  RepositorioPrivadoNaForja, Resultado, TipoDeForja, VersaoDoServidor } from './contrato';
 
 export type NomeDaCapacidade = 'checksNoCommit' | 'estadoDeCi' | 'pedidoMesclado' | 'branchPadrao' | 'pontaDaBranch' | 'comparar'
-  | 'pedidosDaBranch' | 'abrirPedido' | 'metadados' | 'pedidosAbertos' | 'donoDaRede';
+  | 'pedidosDaBranch' | 'abrirPedido' | 'metadados' | 'pedidosAbertos' | 'donoDaRede'
+  | 'contaAtual' | 'repositorioPrivado' | 'criarRepositorioPrivado';
 /** Todas as capacidades, na ordem em que o `doctor` as mostra. */
 export const CAPACIDADES: readonly NomeDaCapacidade[] = ['checksNoCommit', 'estadoDeCi', 'pedidoMesclado', 'branchPadrao', 'pontaDaBranch',
-  'comparar', 'pedidosDaBranch', 'abrirPedido', 'metadados', 'pedidosAbertos', 'donoDaRede'];
+  'comparar', 'pedidosDaBranch', 'abrirPedido', 'metadados', 'pedidosAbertos', 'donoDaRede',
+  'contaAtual', 'repositorioPrivado', 'criarRepositorioPrivado'];
 
 /** A leitura da CI pela API da forja ja resolvida. `edicao` vem dos metadados (`null`: desconhecida). */
 export interface EntradaDoEstadoDeCi { api: ChamadorDaApi; repo: string; sha: string; context: string; edicao: VersaoDoServidor['edicao'] }
@@ -23,6 +26,12 @@ export interface AdaptadorDeForja {
   pedidoMesclado?(e: { repo: string; numero: number; executor: ExecutorGitHub; api?: ChamadorDaApi }): PedidoMesclado | null;
   /** O namespace do dono pedido para a casa da rede e, quando e grupo, o nivel da pessoa nele. */
   donoDaRede?(e: { api: ChamadorDaApi; dono: string }): Resultado<DonoDaRede>;
+  /** A conta autenticada, com id numerico estavel e login apenas para apresentacao. */
+  contaAtual?(e: { api: ChamadorDaApi }): Resultado<ContaNaForja>;
+  /** Le o repositorio pedido; `null` significa 404, nunca falha de rede convertida em ausencia. */
+  repositorioPrivado?(e: { api: ChamadorDaApi; dono: string; nome: string }): Resultado<RepositorioPrivadoNaForja | null>;
+  /** Cria no dono resolvido; em resposta incerta, rele o caminho antes de devolver falha. */
+  criarRepositorioPrivado?(e: { api: ChamadorDaApi; dono: DonoDaRede; nome: string; descricao: string }): Resultado<RepositorioPrivadoNaForja>;
   /** A branch padrão do repositório; `''` se a resposta não a traz; `null` quando a consulta falha. */
   branchPadrao?(e: { repo: string; executor: ExecutorGitHub; api?: ChamadorDaApi }): string | null;
   /** O sha da ponta da branch; `null` quando a consulta falha ou não há sha válido. */
