@@ -56,6 +56,13 @@ export function donoDaRedeGithub(e: { api: ChamadorDaApi; dono: string }): Resul
   if (atual.valor.login.toLowerCase() === e.dono.toLowerCase()) {
     return { ok: true, valor: { tipo: 'usuario', caminho: atual.valor.login, namespaceId: atual.valor.accountId, nivel: null } };
   }
+  return { ok: false, erro: { codigo: 'forja.nao-achei', detalhe: `dono ${e.dono} não é a pessoa logada` } };
+}
+
+/** A rede coletiva também pode criar no owner de uma organização, sem ampliar a casa da rede pessoal. */
+export function donoDaRedeColetivaGithub(e: { api: ChamadorDaApi; dono: string }): Resultado<DonoDaRede> {
+  const pessoal = donoDaRedeGithub(e);
+  if (pessoal.ok || pessoal.erro.codigo !== 'forja.nao-achei' || !e.dono.trim()) return pessoal;
   const org = e.api({ metodo: 'GET', caminho: `orgs/${segmento(e.dono)}` });
   if (!org.ok) return org;
   const p = org.valor.corpo;

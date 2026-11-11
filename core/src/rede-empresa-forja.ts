@@ -3,7 +3,7 @@
  * O consumidor não conhece argv de gh/glab e nunca recebe credencial.
  */
 import type { ChamadorDaApi } from './forja/api';
-import { adaptadorDaForja, exigirCapacidade } from './forja/registro';
+import { adaptadorDaForja, donoDaRedeColetiva, exigirCapacidade } from './forja/registro';
 import type { ContaNaForja, DonoDaRede, ForjaResolvida, RepositorioPrivadoNaForja, Resultado } from './forja/contrato';
 
 const PARTE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
@@ -38,7 +38,7 @@ export function criarRedeColetiva(forja: Pick<ForjaResolvida, 'tipo'>, api: Cham
   const adaptador = adaptadorDaForja(forja.tipo);
   const conta = exigirCapacidade(adaptador, 'contaAtual')({ api });
   if (!conta.ok) return conta;
-  const dono = exigirCapacidade(adaptador, 'donoDaRede')({ api, dono: donoPedido });
+  const dono = donoDaRedeColetiva(forja.tipo, { api, dono: donoPedido });
   if (!dono.ok) return dono;
   const ler = exigirCapacidade(adaptador, 'repositorioPrivado');
   const atual = ler({ api, dono: dono.valor.caminho, nome });

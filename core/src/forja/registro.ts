@@ -2,7 +2,8 @@ import type { AdaptadorDeForja, NomeDaCapacidade } from './adaptador';
 import type { TipoDeForja } from './contrato';
 import { metadadosGithub } from './github/metadados';
 import { metadadosGitlab } from './gitlab/metadados';
-import { contaAtualGithub, criarRepositorioPrivadoGithub, donoDaRedeGithub, repositorioPrivadoGithub } from './github/dono-da-rede';
+import { contaAtualGithub, criarRepositorioPrivadoGithub, donoDaRedeColetivaGithub, donoDaRedeGithub,
+  repositorioPrivadoGithub } from './github/dono-da-rede';
 import { checksNoCommitGithub, estadoDeCiGithub } from './github/ci';
 import { estadoDeCiGitlab } from './gitlab/ci';
 import { contaAtualGitlab, criarRepositorioPrivadoGitlab, donoDaRedeGitlab, repositorioPrivadoGitlab } from './gitlab/dono-da-rede';
@@ -24,6 +25,11 @@ const ADAPTADORES: Record<TipoDeForja, AdaptadorDeForja> = {
 };
 
 export const adaptadorDaForja = (tipo: TipoDeForja): AdaptadorDeForja => ADAPTADORES[tipo];
+
+/** Resolve o owner empresarial sem ampliar o contrato legado da casa pessoal no GitHub. */
+export function donoDaRedeColetiva(tipo: TipoDeForja, e: Parameters<NonNullable<AdaptadorDeForja['donoDaRede']>>[0]) {
+  return tipo === 'github' ? donoDaRedeColetivaGithub(e) : donoDaRedeGitlab(e);
+}
 
 export function exigirCapacidade<K extends NomeDaCapacidade>(a: AdaptadorDeForja, k: K): NonNullable<AdaptadorDeForja[K]> {
   const f = a[k];
