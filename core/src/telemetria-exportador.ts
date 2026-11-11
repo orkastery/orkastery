@@ -4,7 +4,9 @@ import * as path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import type { EventoLedger } from './types';
 import { ContextoDoMapeamento, ExportLogsServiceRequest, mapearEventoDoLedger,
-  montarExportLogsServiceRequest, OtlpLogRecord } from './telemetria';
+  montarExportLogsServiceRequest, OtlpLogRecord, entradaGenAi, OtlpKeyValue } from './telemetria';
+import { MotivoRetentavelDoPrompt } from './telemetria-prompt';
+import { redigirRepresentacoesDeSegredo } from './policies';
 
 export const CONTRATO_CURSOR_TELEMETRIA = 'ork.telemetria-cursor/v1' as const;
 export const CONTRATO_REJEICAO_TELEMETRIA = 'ork.telemetria-rejeicao/v1' as const;
@@ -127,7 +129,8 @@ function uidDerivado(thread: string, offset: number, linha: Buffer): string {
   return createHash('sha256').update(thread).update('\0').update(String(offset)).update('\0').update(linhaHash).digest('hex');
 }
 
-export interface BloqueioDoLedger { offset: number; linha: number; motivo: 'corrompida' | 'truncada' | 'grande' }
+export interface BloqueioDoLedger { offset: number; linha: number;
+  motivo: 'corrompida' | 'truncada' | 'grande' | MotivoRetentavelDoPrompt }
 export interface LoteIncremental {
   registros: OtlpLogRecord[];
   uids: string[];
@@ -138,8 +141,82 @@ export interface LoteIncremental {
 }
 
 /** Lê somente o sufixo desde o cursor; conteúdo corrompido nunca entra no retorno. */
+function atributo(registro: OtlpLogRecord, chave: string): OtlpKeyValue | undefined {
+  return registro.attributes.find((item) => item.key === chave);
+}
+
+function conteudoDoPrompt(registro: OtlpLogRecord): string | null {
+  const entrada = atributo(registro, 'gen_ai.input.messages')?.value;
+  if (!entrada || !('arrayValue' in entrada)) return null;
+  const mensagem = entrada.arrayValue.values[0];
+  if (!mensagem || !('kvlistValue' in mensagem)) return null;
+  const partes = mensagem.kvlistValue.values.find((item) => item.key === 'parts')?.value;
+  if (!partes || !('arrayValue' in partes)) return null;
+  const parte = partes.arrayValue.values[0];
+  if (!parte || !('kvlistValue' in parte)) return null;
+  const conteudo = parte.kvlistValue.values.find((item) => item.key === 'content')?.value;
+  return conteudo && 'stringValue' in conteudo ? conteudo.stringValue : null;
+}
+
+function registroComPrefixo(registro: OtlpLogRecord, prefixo: string): OtlpLogRecord {
+  const semMetadadosDeCorte = registro.attributes.filter((item) =>
+    item.key !== 'gen_ai.input.messages' && item.key !== 'orkastery.prompt.truncated' &&
+    item.key !== 'orkastery.prompt.size.exported');
+  return { ...registro, attributes: [
+    ...semMetadadosDeCorte,
+    { key: 'gen_ai.input.messages', value: entradaGenAi(prefixo) },
+    { key: 'orkastery.prompt.truncated', value: { boolValue: true } },
+    { key: 'orkastery.prompt.size.exported', value: { intValue: String(Buffer.byteLength(prefixo)) } },
+  ] };
+}
+
+function fronteirasDePontoDeCodigo(texto: string): number[] {
+  const fronteiras = [0];
+  for (let i = 0; i < texto.length;) {
+    const ponto = texto.codePointAt(i)!;
+    i += ponto > 0xffff ? 2 : 1;
+    fronteiras.push(i);
+  }
+  return fronteiras;
+}
+
+type SerializadorDoPayload = (payload: ExportLogsServiceRequest) => string;
+
+function ajustarAoLimite(registros: readonly OtlpLogRecord[], registro: OtlpLogRecord,
+  contexto: ContextoDoMapeamento, maxBytes: number, serializar: SerializadorDoPayload):
+  { registro: OtlpLogRecord | null; bloqueio: MotivoRetentavelDoPrompt | null } {
+  const tamanho = (candidato: OtlpLogRecord): number => Buffer.byteLength(serializar(
+    montarExportLogsServiceRequest([...registros, candidato], contexto)));
+  if (tamanho(registro) <= maxBytes) return { registro, bloqueio: null };
+  const conteudo = conteudoDoPrompt(registro);
+  if (conteudo === null) {
+    if (registros.length) return { registro: null, bloqueio: null };
+    throw new Error('telemetria.lote: registro excede o limite');
+  }
+  const fronteiras = fronteirasDePontoDeCodigo(conteudo);
+  const vazio = registroComPrefixo(registro, '');
+  if (tamanho(vazio) > maxBytes) {
+    if (registros.length) return { registro: null, bloqueio: null };
+    throw new Error('telemetria.lote: registro excede o limite');
+  }
+  let menor = 0, maior = fronteiras.length - 1, melhor = vazio;
+  while (menor <= maior) {
+    const meio = Math.floor((menor + maior) / 2);
+    const candidato = registroComPrefixo(registro, conteudo.slice(0, fronteiras[meio]));
+    if (tamanho(candidato) <= maxBytes) { melhor = candidato; menor = meio + 1; }
+    else maior = meio - 1;
+  }
+  const final = conteudoDoPrompt(melhor) ?? '';
+  const posCondicao = redigirRepresentacoesDeSegredo(final);
+  if (!posCondicao.ok || posCondicao.total > 0) {
+    return { registro: null, bloqueio: 'prompt_redaction_failed' };
+  }
+  return { registro: melhor, bloqueio: null };
+}
+
 export function lerLoteIncremental(opcoes: { arquivo: string; thread: string; cursor: CursorTelemetria;
-  contexto: ContextoDoMapeamento; arquivos?: ArquivosTelemetria; maxRegistros?: number }): LoteIncremental {
+  contexto: ContextoDoMapeamento; arquivos?: ArquivosTelemetria; maxRegistros?: number;
+  maxBytes?: number; serializarPayload?: SerializadorDoPayload }): LoteIncremental {
   const io = opcoes.arquivos ?? arquivosDoNode;
   const id = io.identidade(opcoes.arquivo);
   if (id.dev !== opcoes.cursor.ledger.dev || id.ino !== opcoes.cursor.ledger.ino) {
@@ -153,6 +230,8 @@ export function lerLoteIncremental(opcoes: { arquivo: string; thread: string; cu
   let inicio = 0, offset = opcoes.cursor.proximoOffset, sequencia = opcoes.cursor.proximaSequencia;
   let bloqueio: BloqueioDoLedger | null = null;
   const max = opcoes.maxRegistros ?? MAXIMO_DE_REGISTROS;
+  const maxBytes = opcoes.maxBytes ?? MAXIMO_DA_REQUISICAO;
+  const serializar = opcoes.serializarPayload ?? JSON.stringify;
   while (inicio < bytes.length && registros.length < max) {
     const quebra = bytes.indexOf(0x0a, inicio);
     if (quebra < 0) {
@@ -177,7 +256,17 @@ export function lerLoteIncremental(opcoes: { arquivo: string; thread: string; cu
     }
     const uid = typeof evento.eventId === 'string' && evento.eventId.trim() ? evento.eventId : uidDerivado(opcoes.thread, offset, linha);
     const mapeado = mapearEventoDoLedger(evento, opcoes.contexto, { uid, sequencia });
-    if (mapeado.registro) { registros.push(mapeado.registro); uids.push(uid); }
+    if (mapeado.bloqueioRetentavel) {
+      bloqueio = { offset, linha: sequencia, motivo: mapeado.bloqueioRetentavel };
+      break;
+    }
+    if (mapeado.registro) {
+      const ajustado = ajustarAoLimite(registros, mapeado.registro, opcoes.contexto, maxBytes, serializar);
+      if (ajustado.bloqueio) { bloqueio = { offset, linha: sequencia, motivo: ajustado.bloqueio }; break; }
+      if (ajustado.registro === null) break;
+      registros.push(ajustado.registro);
+      uids.push(uid);
+    }
     offset = proximoOffset;
     sequencia += 1;
   }
@@ -346,13 +435,14 @@ export async function exportarLedger(opcoes: {
   contexto: ContextoDoMapeamento; env?: NodeJS.ProcessEnv; arquivos?: ArquivosTelemetria;
   transporte?: TransporteOtlp; dryRun?: boolean; agoraMs?: () => number; dormir?: (ms: number) => Promise<void>;
   dryRunOffset?: number; aleatorio?: () => number; depoisDoEnvio?: () => void;
+  serializarPayload?: SerializadorDoPayload;
 }): Promise<ResultadoDaExportacao> {
   const io = opcoes.arquivos ?? arquivosDoNode, agoraMs = opcoes.agoraMs ?? Date.now;
   const preparar = (cursorInformado?: CursorTelemetria) => {
     const id = io.identidade(opcoes.arquivoLedger);
     const cursor = cursorInformado ?? cursorValido(io.lerJson(opcoes.arquivoCursor), id);
     const lote = lerLoteIncremental({ arquivo: opcoes.arquivoLedger, thread: opcoes.thread, cursor,
-      contexto: opcoes.contexto, arquivos: io });
+      contexto: opcoes.contexto, arquivos: io, serializarPayload: opcoes.serializarPayload });
     const payload = montarExportLogsServiceRequest(lote.registros, opcoes.contexto);
     return { cursor, lote, payload };
   };
@@ -389,7 +479,7 @@ export async function exportarLedger(opcoes: {
         ...(lote.bloqueio ? { bloqueio: lote.bloqueio } : {}) };
     }
     const destino = resolverDestinoOtlp(opcoes.env ?? process.env);
-    const body = JSON.stringify(payload);
+    const body = (opcoes.serializarPayload ?? JSON.stringify)(payload);
     if (Buffer.byteLength(body) > MAXIMO_DA_REQUISICAO) throw new Error('telemetria.lote: requisição excede o limite');
     const transporte = opcoes.transporte ?? transporteHttp, dormir = opcoes.dormir ?? ((ms) => new Promise(r => setTimeout(r, ms)));
     const aleatorio = opcoes.aleatorio ?? Math.random, limite = agoraMs() + destino.timeoutMs;

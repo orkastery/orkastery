@@ -1,10 +1,13 @@
 import { strict as assert } from 'node:assert';
+import { createHash } from 'node:crypto';
 import { after, test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { dirTemporario } from './apoio';
 import { arquivosDoNode, ArquivosTelemetria, exportarLedger, lerLoteIncremental, resolverDestinoOtlp,
-  analisarHeadersOtlp, MAXIMO_DA_RESPOSTA, sanitizarEndpoint, transporteHttp } from '../src/telemetria-exportador';
+  analisarHeadersOtlp, MAXIMO_DA_REQUISICAO, MAXIMO_DA_RESPOSTA, sanitizarEndpoint,
+  transporteHttp } from '../src/telemetria-exportador';
+import { prepararPrompt } from '../src/telemetria-prompt';
 
 const dirs = new Set<string>();
 after(() => { for (const dir of dirs) fs.rmSync(dir, { recursive: true, force: true }); });
@@ -176,6 +179,94 @@ test('dry-run ignora cursor, começa no zero ou no offset informado e não usa t
   assert.deepEqual(doOffset.uids, ['e2']);
   assert.deepEqual({ lerJson: f.contagem.lerJson, escrever: f.contagem.escrever, lock: f.contagem.lock },
     { lerJson: 0, escrever: 0, lock: 0 });
+});
+
+test('lacuna confirmada avança e permite exportar o evento válido seguinte', async () => {
+  const f = fixture([
+    linha('phase_prompt_recorded', 'lacuna', { promptPath: 'ausente.md', promptSha256: '0'.repeat(64) }),
+    linha('phase_dispatch', 'depois', { runtime: 'codex' }),
+  ]);
+  const contexto = { ...ctx, prepararPrompt: () => ({ estado: 'lacuna' as const, motivo: 'file_missing' as const }) };
+  let chamadas = 0;
+  const pendente = await exportarLedger({ arquivoLedger: f.ledger, arquivoCursor: f.cursor, arquivoLock: f.lock,
+    thread: 'ork-teste', contexto, arquivos: f.arquivos, env, dormir: async () => {}, transporte: async () => {
+      chamadas += 1; return { status: 503, body: '' };
+    } });
+  assert.equal(pendente.estado, 'pendente');
+  assert.equal(chamadas, 2);
+  assert.equal(fs.existsSync(f.cursor), false, 'a lacuna não avança sem confirmação');
+
+  let nomes: string[] = [];
+  const enviado = await exportarLedger({ arquivoLedger: f.ledger, arquivoCursor: f.cursor, arquivoLock: f.lock,
+    thread: 'ork-teste', contexto, arquivos: f.arquivos, env, transporte: async (pedido) => {
+      nomes = JSON.parse(pedido.body).resourceLogs[0].scopeLogs[0].logRecords.map((r: { eventName: string }) => r.eventName);
+      return { status: 200, body: '' };
+    } });
+  assert.equal(enviado.estado, 'enviado');
+  assert.deepEqual(nomes, ['gen_ai.client.inference.operation.details', 'orkastery.ledger.phase_dispatch']);
+  const cursor = JSON.parse(fs.readFileSync(f.cursor, 'utf8'));
+  assert.equal(cursor.ultimoUidConfirmado, 'depois');
+});
+
+test('falha transitória ou da remoção bloqueia antes do evento e não chama transporte', async () => {
+  for (const motivo of ['prompt_io_transient', 'prompt_redaction_failed'] as const) {
+    const f = fixture([linha('phase_prompt_recorded', motivo)]);
+    let transportes = 0;
+    const r = await exportarLedger({ arquivoLedger: f.ledger, arquivoCursor: f.cursor, arquivoLock: f.lock,
+      thread: 'ork-teste', contexto: { ...ctx, prepararPrompt: () => ({ estado: 'bloqueio' as const, motivo }) },
+      arquivos: f.arquivos, env, transporte: async () => { transportes += 1; return { status: 200, body: '' }; } });
+    assert.equal(r.estado, 'bloqueado');
+    assert.equal(r.bloqueio?.motivo, motivo);
+    assert.equal(transportes, 0);
+    assert.equal(fs.existsSync(f.cursor), false);
+  }
+});
+
+test('corta depois da remoção em ponto de código, limita o pedido e não relê nem reprocessa o prompt', async () => {
+  const f = fixture([]);
+  const raizPrompts = path.join(f.dir, 'prompts');
+  fs.mkdirSync(raizPrompts);
+  const segredo = 'sk-' + 'Z'.repeat(32);
+  const texto = 'a'.repeat(900_000) + segredo + '🔐'.repeat(100_000);
+  const arquivo = path.join(raizPrompts, 'go.md');
+  fs.writeFileSync(arquivo, texto);
+  const sha = createHash('sha256').update(texto).digest('hex');
+  fs.writeFileSync(f.ledger, [linha('thread_created', 'antes'), linha('phase_prompt_recorded', 'prompt', {
+    promptPath: path.relative(f.dir, arquivo), promptSha256: sha, model: 'gpt-exemplo' }),
+  linha('phase_dispatch', 'depois')].join('\n') + '\n');
+  let preparacoes = 0, serializacoes = 0, corpo = '';
+  const contexto = { ...ctx, prepararPrompt: (evento: Record<string, unknown>) => {
+    preparacoes += 1;
+    return prepararPrompt({ raizProjeto: f.dir, raizPrompts, promptPath: evento.promptPath,
+      promptSha256: evento.promptSha256, redigirPrivado: (entrada) => ({ ok: true, texto: entrada }) });
+  } };
+  const serializarPayload = (payload: unknown) => { serializacoes += 1; return JSON.stringify(payload); };
+  const r = await exportarLedger({ arquivoLedger: f.ledger, arquivoCursor: f.cursor, arquivoLock: f.lock,
+    thread: 'ork-teste', contexto, arquivos: f.arquivos, env, serializarPayload, transporte: async (pedido) => {
+      corpo = pedido.body; return { status: 200, body: '' };
+    } });
+  assert.equal(r.estado, 'enviado');
+  assert.equal(preparacoes, 1);
+  assert.ok(serializacoes <= Math.ceil(Math.log2(texto.length + 1)) + 5, String(serializacoes));
+  assert.ok(Buffer.byteLength(corpo) <= MAXIMO_DA_REQUISICAO);
+  assert.equal(corpo.includes(segredo), false);
+  assert.equal(corpo.includes('[segredo omitido]'), true);
+  const registros = JSON.parse(corpo).resourceLogs[0].scopeLogs[0].logRecords as Array<{
+    eventName: string; attributes: Array<{ key: string; value: { boolValue?: boolean; intValue?: string;
+      arrayValue?: { values: Array<{ kvlistValue: { values: Array<{ key: string; value: unknown }> } }> } } }> }>;
+  const prompt = registros.find((registro) => registro.eventName === 'gen_ai.client.inference.operation.details')!;
+  const mapa = Object.fromEntries(prompt.attributes.map((item) => [item.key, item.value]));
+  assert.deepEqual(mapa['orkastery.prompt.truncated'], { boolValue: true });
+  assert.ok(Number((mapa['orkastery.prompt.size.exported'] as { intValue: string }).intValue) < Buffer.byteLength(texto));
+  assert.equal(corpo.includes('�'), false);
+
+  let segundo = '';
+  const proximo = await exportarLedger({ arquivoLedger: f.ledger, arquivoCursor: f.cursor, arquivoLock: f.lock,
+    thread: 'ork-teste', contexto, arquivos: f.arquivos, env, transporte: async (pedido) => {
+      segundo = pedido.body; return { status: 200, body: '' };
+    } });
+  assert.equal(proximo.estado, 'enviado');
+  assert.equal(segundo.includes('orkastery.ledger.phase_dispatch'), true, 'registro vizinho fica para o lote seguinte');
 });
 
 test('transporte limita o stream durante a leitura e fixa application/json contra override configurado', async () => {

@@ -5,6 +5,7 @@
  * relógio e redator por injeção, para que testes herméticos não dependam de rede, disco ou relógio.
  */
 import type { EventoLedger } from './types';
+import type { MotivoRetentavelDoPrompt, ResultadoDoPrompt } from './telemetria-prompt';
 
 export const NOME_DO_SCOPE_OTLP = 'orkastery.telemetria' as const;
 export const VERSAO_SEMCONV_GENAI = '1.37.0' as const;
@@ -54,6 +55,7 @@ export interface ContextoDoMapeamento {
   pseudonimo: string;
   redigir: RedatorDaTelemetria;
   observadoEmNano: () => bigint;
+  prepararPrompt?: (evento: EventoLedger) => ResultadoDoPrompt;
 }
 
 export interface MetadadosDoLedger {
@@ -64,6 +66,7 @@ export interface MetadadosDoLedger {
 export interface EventoMapeado {
   registro: OtlpLogRecord | null;
   motivoDaExclusao?: string;
+  bloqueioRetentavel?: MotivoRetentavelDoPrompt;
 }
 
 const EVENTOS_SEM_LOG = new Set(['heartbeat', 'ledger_corrupted']);
@@ -153,6 +156,16 @@ function attrsGenAi(evento: EventoLedger, attrs: OtlpKeyValue[]): void {
   adicionar(attrs, attrString('gen_ai.conversation.id', primeiro(evento, 'conversationId', 'conversation')));
 }
 
+export function entradaGenAi(textoDoPrompt: string): OtlpAnyValue {
+  return { arrayValue: { values: [{ kvlistValue: { values: [
+    { key: 'role', value: { stringValue: 'user' } },
+    { key: 'parts', value: { arrayValue: { values: [{ kvlistValue: { values: [
+      { key: 'type', value: { stringValue: 'text' } },
+      { key: 'content', value: { stringValue: textoDoPrompt } },
+    ] } }] } } },
+  ] } }] } };
+}
+
 /** Converte um evento sem nunca copiar o objeto de origem. */
 export function mapearEventoDoLedger(evento: EventoLedger, contexto: ContextoDoMapeamento,
   meta: MetadadosDoLedger = {}): EventoMapeado {
@@ -163,6 +176,14 @@ export function mapearEventoDoLedger(evento: EventoLedger, contexto: ContextoDoM
   if (uid === null) return { registro: null, motivoDaExclusao: 'uid ausente' };
   const timeUnixNano = nanos(evento.ts);
   if (timeUnixNano === null) return { registro: null, motivoDaExclusao: 'horário inválido' };
+  let prompt: ResultadoDoPrompt | null = null;
+  if (evento.tipo === 'phase_prompt_recorded' && contexto.prepararPrompt) {
+    try { prompt = contexto.prepararPrompt(evento); }
+    catch { prompt = { estado: 'bloqueio', motivo: 'prompt_io_transient' }; }
+    if (prompt.estado === 'bloqueio') {
+      return { registro: null, motivoDaExclusao: prompt.motivo, bloqueioRetentavel: prompt.motivo };
+    }
+  }
   const corpo = corpoSeguro(evento, contexto.redigir);
   if (!corpo.ok || typeof corpo.texto !== 'string') {
     throw new Error('telemetria.privacidade: campo livre recusado pelo redator');
@@ -193,11 +214,25 @@ export function mapearEventoDoLedger(evento: EventoLedger, contexto: ContextoDoM
   adicionar(attrs, attrString('orkastery.receipt.id', primeiro(evento, 'receiptId', 'reciboId', 'pedidoId')));
   adicionar(attrs, attrString('orkastery.runtime.name', evento.runtime));
   if (evento.tipo === 'phase_prompt_recorded') {
-    adicionar(attrs, attrInt('orkastery.prompt.size', primeiro(evento, 'promptBytes', 'tamanhoBytes')));
+    adicionar(attrs, attrString('gen_ai.operation.name', 'invoke_agent'));
+    adicionar(attrs, attrString('gen_ai.request.model', evento.model));
+    if (prompt?.estado === 'conteudo') {
+      adicionar(attrs, { key: 'gen_ai.input.messages', value: entradaGenAi(prompt.texto) });
+      adicionar(attrs, attrString('orkastery.prompt.redaction.policy.version', prompt.versaoDaRemocao));
+      adicionar(attrs, attrInt('orkastery.prompt.size.original', prompt.tamanhoOriginal));
+      adicionar(attrs, attrInt('orkastery.prompt.size.exported', prompt.tamanhoExportado));
+    } else if (prompt?.estado === 'lacuna') {
+      adicionar(attrs, attrString('orkastery.prompt.content.state', 'gap'));
+      adicionar(attrs, attrString('orkastery.prompt.gap.reason', prompt.motivo));
+    } else {
+      adicionar(attrs, attrInt('orkastery.prompt.size', primeiro(evento, 'promptBytes', 'tamanhoBytes')));
+    }
   }
   const nivel = severidade(evento);
   return { registro: { timeUnixNano, observedTimeUnixNano: contexto.observadoEmNano().toString(), ...nivel,
-    body: { stringValue: corpo.texto }, attributes: attrs, eventName: eventName(evento.tipo) } };
+    body: { stringValue: corpo.texto }, attributes: attrs,
+    eventName: evento.tipo === 'phase_prompt_recorded' && prompt
+      ? 'gen_ai.client.inference.operation.details' : eventName(evento.tipo) } };
 }
 
 export function montarExportLogsServiceRequest(registros: readonly OtlpLogRecord[],
