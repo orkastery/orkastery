@@ -53,7 +53,7 @@ export function donoDaRedeGithub(e: { api: ChamadorDaApi; dono: string }): Resul
   if (!eu.ok) return eu;
   const atual = conta(eu.valor.corpo);
   if (!atual.ok) return atual;
-  if (atual.valor.login.toLowerCase() === e.dono.toLowerCase()) {
+  if (atual.valor.login === e.dono) {
     return { ok: true, valor: { tipo: 'usuario', caminho: atual.valor.login, namespaceId: atual.valor.accountId, nivel: null } };
   }
   return { ok: false, erro: { codigo: 'forja.nao-achei', detalhe: `dono ${e.dono} não é a pessoa logada` } };
