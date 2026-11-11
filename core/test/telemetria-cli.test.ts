@@ -1,0 +1,215 @@
+import { strict as assert } from 'node:assert';
+import { createHash } from 'node:crypto';
+import * as fs from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import * as path from 'node:path';
+import { test } from 'node:test';
+import { main } from '../src/index';
+import { ativarLocale, chaveDoLocale, cobreLocale, msg } from '../src/locale';
+import { AJUDA_EN, AJUDA_PT_BR, DadosDaAjuda } from '../src/locale-ajuda';
+import { comandoTelemetria, contextoPadrao, CONTRATO_CLI_TELEMETRIA, DependenciasTelemetriaCli,
+  FonteDaTelemetria } from '../src/telemetria-cli';
+import { envPtBr, projetoTemporario } from './apoio';
+
+const ligada = { ligada: true, origem: 'builder' as const, motivo: 'ativada pelo builder', pseudonimo: 'a'.repeat(64) };
+const desligada = { ligada: false, origem: 'ausente' as const, motivo: 'configuração privada ausente', pseudonimo: null };
+const fonte: FonteDaTelemetria = { thread: 'ork-teste', ledger: '/ledger', cursor: '/cursor', lock: '/lock' };
+const contexto = { serviceVersion: 'teste', instrumentacaoVersion: 'teste', pseudonimo: 'a'.repeat(64),
+  redigir: (texto: string) => ({ ok: true, texto }), observadoEmNano: () => 1n };
+
+function deps(parcial: Partial<DependenciasTelemetriaCli> = {}): Partial<DependenciasTelemetriaCli> {
+  return {
+    resolverAtivacao: () => ligada,
+    gravarAtivacao: () => ({}),
+    fontes: () => [fonte],
+    estado: () => ({ thread: fonte.thread, pendingBytes: 12, lastConfirmedUid: 'anterior', terminal: false }),
+    contexto: () => contexto,
+    destino: () => 'https://collector.test/v1/logs',
+    exportar: async () => ({ estado: 'enviado', registros: 1, uids: ['uid'] }),
+    ...parcial,
+  };
+}
+
+test('desligada, status e envio não enumeram thread, ledger, header ou transporte', async () => {
+  let fontes = 0, exportacoes = 0, destinos = 0;
+  const dependencias = deps({ resolverAtivacao: () => desligada,
+    fontes: () => { fontes += 1; throw new Error('não deveria enumerar'); },
+    destino: () => { destinos += 1; throw new Error('não deveria ler destino'); },
+    exportar: async () => { exportacoes += 1; throw new Error('não deveria transportar'); } });
+  for (const subcomando of ['status', 'enviar']) {
+    const r = await comandoTelemetria({ raiz: '/projeto', subcomando, json: true, escrever: () => {}, dependencias });
+    assert.equal(r.codigo, 0); assert.equal(r.resposta.enabled, false);
+    assert.deepEqual(r.resposta.threads, []);
+  }
+  assert.deepEqual({ fontes, exportacoes, destinos }, { fontes: 0, exportacoes: 0, destinos: 0 });
+});
+
+test('ligar e desligar alteram somente a configuração privada', async () => {
+  const valores: boolean[] = [];
+  const dependencias = deps({ gravarAtivacao: (enabled) => { valores.push(enabled); return {}; },
+    fontes: () => { throw new Error('não deveria enumerar'); } });
+  const a = await comandoTelemetria({ raiz: '/projeto', subcomando: 'ligar', escrever: () => {}, dependencias });
+  const b = await comandoTelemetria({ raiz: '/projeto', subcomando: 'desligar', escrever: () => {}, dependencias });
+  assert.deepEqual(valores, [true, false]);
+  assert.deepEqual([a.resposta.enabled, b.resposta.enabled], [true, false]);
+});
+
+test('status JSON é estável, usa destino sanitizado e informa pendências', async () => {
+  const linhas: string[] = [];
+  const r = await comandoTelemetria({ raiz: '/projeto', subcomando: 'status', json: true,
+    escrever: (linha) => linhas.push(linha), dependencias: deps() });
+  assert.equal(r.resposta.schema, CONTRATO_CLI_TELEMETRIA);
+  assert.equal(r.resposta.command, 'status');
+  assert.equal(r.resposta.destination, 'https://collector.test/v1/logs');
+  assert.deepEqual(r.resposta.threads, [{ thread: 'ork-teste', pendingBytes: 12,
+    lastConfirmedUid: 'anterior', terminal: false }]);
+  assert.deepEqual(JSON.parse(linhas[0]), r.resposta);
+});
+
+test('dry-run encaminha a opção sem transporte e expõe somente o payload mapeado', async () => {
+  let dryRun = false, offset: number | undefined;
+  const payload = { resourceLogs: [{ resource: { attributes: [] }, scopeLogs: [] }] };
+  const dependencias = deps({ exportar: async (opcoes) => {
+    dryRun = opcoes.dryRun === true;
+    offset = opcoes.dryRunOffset;
+    return { estado: 'dry-run', registros: 1, uids: ['uid'], payload };
+  } });
+  const r = await comandoTelemetria({ raiz: '/projeto', subcomando: 'enviar', dryRun: true,
+    offset: 123, json: true, escrever: () => {}, dependencias });
+  assert.equal(dryRun, true); assert.equal(offset, 123); assert.equal(r.codigo, 0);
+  assert.deepEqual((r.resposta.results as Array<Record<string, unknown>>)[0].payload, payload);
+});
+
+test('contexto padrão prepara o arquivo carimbado com remoção antes do mapeamento', (t) => {
+  const projeto = projetoTemporario('telemetria-cli-prompt');
+  t.after(() => projeto.limpar());
+  const prompts = path.join(projeto.dir, '.orkastery', 'threads', 'ork-teste', 'prompts');
+  fs.mkdirSync(prompts, { recursive: true });
+  const segredo = 'sk-' + 'A'.repeat(32);
+  const texto = `antes ${segredo} depois`;
+  const arquivo = path.join(prompts, 'go.md');
+  fs.writeFileSync(arquivo, texto);
+  const contextoReal = contextoPadrao(projeto.dir, 'a'.repeat(64), {});
+  const resultado = contextoReal.prepararPrompt!({ ts: '2026-11-10T12:00:00.000Z', thread: 'ork-teste',
+    tipo: 'phase_prompt_recorded', promptPath: path.relative(projeto.dir, arquivo),
+    promptSha256: createHash('sha256').update(texto).digest('hex') });
+  assert.equal(resultado.estado, 'conteudo');
+  if (resultado.estado !== 'conteudo') return;
+  assert.equal(resultado.texto.includes(segredo), false);
+  assert.match(resultado.texto, /antes \[segredo omitido\] depois/);
+});
+
+test('saída humana de bloqueio usa somente o motivo tipado seguro em pt-BR e inglês', async () => {
+  const segredo = 'sk-' + 'B'.repeat(32);
+  for (const locale of ['pt-BR', 'en'] as const) {
+    ativarLocale(locale);
+    try {
+      const linhas: string[] = [];
+      const r = await comandoTelemetria({ raiz: '/projeto', subcomando: 'enviar', escrever: (linha) => linhas.push(linha),
+        env: { OTEL_EXPORTER_OTLP_HEADERS: segredo }, dependencias: deps({ exportar: async () => ({
+          estado: 'bloqueado', registros: 0, uids: [],
+          bloqueio: { offset: 0, linha: 1, motivo: 'prompt_redaction_failed' },
+        }) }) });
+      assert.equal(r.codigo, 1);
+      assert.match(linhas.join('\n'), /prompt_redaction_failed/);
+      assert.equal(linhas.join('\n').includes(segredo), false);
+    } finally { ativarLocale(undefined); }
+  }
+});
+
+test('index valida opções públicas de telemetria e a rota do locale inglês cobre a família', () => {
+  assert.throws(() => main(['telemetria', 'enviar', '--offset', '1']), /telemetria/);
+  assert.throws(() => main(['telemetria', 'enviar', '--dry-run', '--offset', 'invalido']), /telemetria/);
+  assert.equal(chaveDoLocale(['telemetria', 'enviar'], { 'dry-run': true, offset: '1' }), 'telemetria enviar');
+  assert.equal(cobreLocale(['telemetria', 'enviar'], { 'dry-run': true, offset: '1' }), true);
+  ativarLocale('en');
+  try { assert.match(msg().telemetria.uso, /^usage: .*--offset <byte>/); }
+  finally { ativarLocale(undefined); }
+});
+
+test('as quatro rotas reais da telemetria participam do catálogo em pt-BR e inglês', () => {
+  const dados: DadosDaAjuda = { versao: 'teste', modos: 4, segredos: 'fora do arquivo', tags: '#Classic #Auto' };
+  const rotasDaAjuda = (ajuda: string) => ajuda.split('\n')
+    .filter((linha) => /^  telemetria [a-z]/.test(linha))
+    .flatMap((linha) => linha.trim().split(/\s+/)[1].split('|'));
+  const pt = rotasDaAjuda(AJUDA_PT_BR.texto(dados));
+  const en = rotasDaAjuda(AJUDA_EN.texto(dados));
+  assert.equal(pt.length, 4, 'a ajuda pública define as quatro rotas da família');
+  assert.deepEqual(en, pt, 'pt-BR e inglês expõem as mesmas rotas públicas');
+
+  for (const subcomando of pt) {
+    const posicionais = ['telemetria', subcomando];
+    assert.equal(chaveDoLocale(posicionais, {}), `telemetria ${subcomando}`);
+    assert.equal(cobreLocale(posicionais, {}), true);
+    for (const locale of ['pt-BR', 'en'] as const) {
+      ativarLocale(locale);
+      try { assert.match(msg().telemetria.uso, new RegExp(`telemetria .*\\b${subcomando}\\b`)); }
+      finally { ativarLocale(undefined); }
+    }
+  }
+});
+
+test('o executável real despacha a família e valida json, dry-run e offset na borda pública', (t) => {
+  const projeto = projetoTemporario('telemetria-cli-real');
+  t.after(() => projeto.limpar());
+  const cli = path.resolve(__dirname, '../../dist/index.js');
+  const executar = (args: string[]) => {
+    const resultado = spawnSync(process.execPath, [cli, ...args], {
+      cwd: projeto.dir,
+      encoding: 'utf8',
+      timeout: 30_000,
+      env: envPtBr(),
+    });
+    assert.equal(resultado.error, undefined, args.join(' '));
+    return { status: resultado.status, stdout: resultado.stdout ?? '', stderr: resultado.stderr ?? '' };
+  };
+
+  const aceitas = [
+    ['telemetria', 'status', '--json'],
+    ['telemetria', 'ligar', '--json'],
+    ['telemetria', 'enviar', '--dry-run', '--offset', '0', '--json'],
+    ['telemetria', 'desligar', '--json'],
+  ];
+  for (const args of aceitas) {
+    const resultado = executar(args);
+    assert.equal(resultado.status, 0, `${args.join(' ')}\n${resultado.stdout}${resultado.stderr}`);
+    const resposta = JSON.parse(resultado.stdout) as Record<string, unknown>;
+    assert.equal(resposta.schema, CONTRATO_CLI_TELEMETRIA);
+    assert.equal(resposta.command, args[1]);
+    if (args[1] === 'enviar') assert.equal(resposta.dryRun, true);
+  }
+
+  const recusadas = [
+    ['telemetria', 'status', '--json=texto'],
+    ['telemetria', 'status', '--dry-run'],
+    ['telemetria', 'enviar', '--dry-run=sim'],
+    ['telemetria', 'enviar', '--offset', '0'],
+    ['telemetria', 'enviar', '--dry-run', '--offset', '-1'],
+    ['telemetria', 'enviar', '--dry-run', '--offset', '9007199254740992'],
+    ['telemetria', 'status', '--desconhecida'],
+  ];
+  for (const args of recusadas) {
+    const resultado = executar(args);
+    assert.equal(resultado.status, 1, `${args.join(' ')}\n${resultado.stdout}${resultado.stderr}`);
+    assert.match(resultado.stderr, /uso: ork telemetria status\|ligar\|desligar\|enviar/);
+  }
+});
+
+test('ajuda real mantém paridade de opções de telemetria em pt-BR e inglês', () => {
+  const dados: DadosDaAjuda = { versao: 'teste', modos: 4, segredos: 'fora do arquivo', tags: '#Classic #Auto' };
+  const linhas = (texto: string) => texto.split('\n').filter((linha) => /telemetria enviar|--offset <byte>/.test(linha));
+  const opcoes = (linha: string) => linha.match(/--[a-z-]+(?: <byte>)?/g) ?? [];
+  const pt = linhas(AJUDA_PT_BR.texto(dados)), en = linhas(AJUDA_EN.texto(dados));
+  assert.equal(pt.length, 1); assert.equal(en.length, 1);
+  assert.deepEqual(pt.map(opcoes), en.map(opcoes));
+  assert.match(en[0], /Sends OTLP\/HTTP logs; dry-run starts at the beginning or offset without reading the cursor/);
+});
+
+test('falha de envio produz código diferente de zero sem cabeçalhos na resposta', async () => {
+  const dependencias = deps({ exportar: async () => ({ estado: 'pendente', registros: 1, uids: ['uid'] }) });
+  const r = await comandoTelemetria({ raiz: '/projeto', subcomando: 'enviar', json: true,
+    env: { OTEL_EXPORTER_OTLP_HEADERS: 'authorization=segredo' }, escrever: () => {}, dependencias });
+  assert.equal(r.codigo, 1);
+  assert.equal(JSON.stringify(r.resposta).includes('authorization'), false);
+  assert.equal(JSON.stringify(r.resposta).includes('segredo'), false);
+});

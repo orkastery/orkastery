@@ -8,6 +8,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Logs OpenTelemetry do ledger — F1 (RM-090):** adesão privada, comandos manuais de status e envio, payload OTLP/HTTP JSON redigido e cursor incremental por thread, com guia em português e inglês.
+
+- **Conteúdo removido dos prompts na telemetria — F2 (RM-090):** o LogRecord GenAI usa o arquivo carimbado, remove segredos e dados privados localmente, representa origem irrecuperável como lacuna sem conteúdo e mostra a mesma preparação no dry-run.
+
 - **Inscrição na rede coletiva** (RM-089): a família `ork network empresa` cria a rede privada; a empresa registra a identidade esperada e o maestro aceita com a conta autenticada; cada publicação revalida o `accountId`, envia uma projeção fechada sem dado local e cessa por saída ou revogação, com GitHub e GitLab pela mesma porta.
 
 ### Alterado

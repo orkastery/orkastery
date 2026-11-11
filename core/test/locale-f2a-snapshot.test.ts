@@ -12,6 +12,15 @@ import * as path from 'node:path';
 import { gerarCasos } from './locale-f2a-casos';
 
 const FIXTURE = path.resolve(__dirname, '../../test/fixtures/locale-f2a-pt-BR.json');
+const AJUDA_TELEMETRIA =
+  '  telemetria status|ligar|desligar [--json] Adesão privada e estado do exportador OpenTelemetry\n' +
+  '  telemetria enviar [--dry-run] [--offset <byte>] [--json]  Envia logs OTLP/HTTP; dry-run começa no início ou no offset, sem ler cursor\n';
+
+function semAdicaoDaTelemetria(texto: string): string {
+  const partes = texto.split(AJUDA_TELEMETRIA);
+  assert.equal(partes.length, 2, 'ajuda da telemetria existe uma vez, com os bytes esperados');
+  return partes.join('');
+}
 
 const BLOCO_NETWORK_EMPRESA =
   '  network empresa criar|inscrever|aceitar   Rede coletiva privada da empresa: cria o repositório privado dedicado;\n' +
@@ -24,5 +33,8 @@ test('locale pt-BR F2a: doctor, onboarding, experiencia, thread, phase e ajuda i
   const esperado = JSON.parse(fs.readFileSync(FIXTURE, 'utf8')) as Record<string, string>;
   const obtido = gerarCasos();
   assert.deepEqual(Object.keys(obtido), Object.keys(esperado), 'os mesmos casos, na mesma ordem');
-  for (const nome of Object.keys(esperado)) assert.equal(semNetworkEmpresa(obtido[nome]), esperado[nome], nome);
+  for (const nome of Object.keys(esperado)) {
+    const semTelemetria = nome.startsWith('ajuda cli:') ? semAdicaoDaTelemetria(obtido[nome]) : obtido[nome];
+    assert.equal(semNetworkEmpresa(semTelemetria), esperado[nome], nome);
+  }
 });

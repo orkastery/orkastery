@@ -92,6 +92,7 @@ import { GRAFO_EN, GRAFO_PT_BR } from './locale-grafo';
 import { AUDIT_EN, AUDIT_PT_BR } from './locale-audit';
 import { PREFLIGHT_EN, PREFLIGHT_PT_BR } from './locale-preflight';
 import { MAESTRO_EN, MAESTRO_PT_BR } from './locale-maestro';
+import { TELEMETRIA_EN, TELEMETRIA_PT_BR } from './locale-telemetria';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
@@ -111,7 +112,7 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'retry policy', 'retry parse', 'retry list', 'retry resume', 'retry cancel', 'retry ?',
   'master', 'master <thread>', 'master aceitar-omissao', 'master pedir', 'master audit', 'master digest', 'master migrar',
   'master classes', 'master ratificar', 'master batch', 'master propor',
-  'pulse', 'roadmap status', 'docs init',
+  'pulse', 'roadmap status', 'docs init', 'telemetria status', 'telemetria ligar', 'telemetria desligar', 'telemetria enviar',
   // F3b (D1): o resto do CLI, na ordem do pedido.
   'thread list', 'thread close', 'thread entrega', 'worktree ensure', 'worktree sync', 'worktree audit', 'worktree release', 'worktree ?',
   'claims add', 'claims conferir', 'claims verificar', 'claims retirar', 'claims ausente', 'claims list', 'claims ?',
@@ -175,6 +176,7 @@ const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonl
   ['memory', { padrao: 'status', conhecidos: ['status', 'inventory', 'migrate', 'sync', 'search', 'index'] }],
   ['mcp', { padrao: null, conhecidos: ['install', 'serve'] }],
   ['conducao', { padrao: null, conhecidos: ['status', 'assumir', 'atualizar', 'autorizar', 'autorizacao', 'batida', 'sentinela'] }],
+  ['telemetria', { padrao: 'status', conhecidos: ['status', 'ligar', 'desligar', 'enviar'] }],
   ['audit', { padrao: 'packs', conhecidos: ['packs', 'pack', 'lint', 'run', 'list', 'show', 'prompt', 'ingest', 'finding', 'achado', 'verify', 'report', 'relatorio', 'divida', 'board', 'surface', 'superficie'] }],
 ]);
 
@@ -597,6 +599,7 @@ const PT_BR = {
   conducao: CONDUCAO_PT_BR,
   grafo: GRAFO_PT_BR,
   audit: AUDIT_PT_BR,
+  telemetria: TELEMETRIA_PT_BR,
   forja: FORJA_PT_BR,
   operacao: {
     restante: OPERACAO_RESTANTE_PT_BR,
@@ -1116,6 +1119,7 @@ const EN: Mensagens = {
   conducao: CONDUCAO_EN,
   grafo: GRAFO_EN,
   audit: AUDIT_EN,
+  telemetria: TELEMETRIA_EN,
   forja: FORJA_EN,
   operacao: {
     restante: OPERACAO_RESTANTE_EN,
