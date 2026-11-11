@@ -3,7 +3,12 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import test from 'node:test';
-import { CONTRATO_CLI_REDE_EMPRESA, executarCliRedeEmpresa } from '../src/rede-empresa-cli';
+import type { MudancaNaBranch } from '../src/branch-de-estado';
+import type { ContextoDaVarredura } from '../src/dado-privado';
+import { CONTRATO_CLI_REDE_EMPRESA, type DependenciasCliRedeEmpresa, executarCliRedeEmpresa } from '../src/rede-empresa-cli';
+import type { ProjetoNoPanorama } from '../src/network-roadmap';
+import type { ReferenciaDaForja } from '../src/rede-empresa-contrato';
+import type { PortaDaBranchEmpresa } from '../src/rede-empresa-transporte';
 import { textoDaFalhaEmpresa } from '../src/locale-network-empresa';
 
 const codigos = [
@@ -46,5 +51,82 @@ test('uso e configuração ausente retornam ação sem abrir processo', () => {
     assert.equal(status.codigo, 1);
     assert.match(status.stderr, /Action:/);
     assert.match(status.stderr, /network empresa inscrever/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+class BranchCli implements PortaDaBranchEmpresa {
+  id: string | null = null;
+  arquivos = new Map<string, string>();
+  gravacoes = 0;
+  ler() { return { id: this.id, atualizada: true, ler: (c: string) => this.arquivos.get(c) ?? null }; }
+  gravar(_ponta: string | null, mudancas: readonly MudancaNaBranch[]) {
+    for (const m of mudancas) if (m.conteudo === null) this.arquivos.delete(m.caminho); else this.arquivos.set(m.caminho, m.conteudo);
+    this.gravacoes++;
+    this.id = `c${this.gravacoes}`;
+    return this.id;
+  }
+}
+
+const privacidade: ContextoDaVarredura = { raiz: '/tmp/rede-empresa-cli-simulada',
+  excecoes: { presente: false, emailsPermitidos: [], excecoes: [] },
+  lista: { presente: true, procurada: ['simulada'], lidos: ['simulada'], termos: [], ignorados: 0,
+    versionados: [], recusada: null } };
+
+const panorama: ProjetoNoPanorama = {
+  projeto: { nome: 'simulado', forja: 'github', clone: null, base: 'main', origem: 'argumento', fuso: 'UTC' },
+  roadmap: null, reservas: null, maquinas: null, fontes: [], lacunas: [],
+};
+
+test('CLI executa os sete fluxos com forja e branch simuladas, separando registro e aceite', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rede-empresa-cli-fluxos-'));
+  const env = { ORKASTERY_HOME: dir };
+  const branch = new BranchCli();
+  const acessos: ReferenciaDaForja[] = [];
+  let conta = { accountId: 41, login: 'maestro-autenticado' };
+  const dependencias: DependenciasCliRedeEmpresa = {
+    acesso: (ref) => { acessos.push(ref); return { conta, url: `https://${ref.host}/${ref.caminho}`, helper: 'simulado' }; },
+    portaDaEmpresa: () => branch,
+    criarPelaForja: () => ({ criada: true, conta, porta: branch }),
+    prepararPublicacao: () => ({ panorama, privacidade }),
+  };
+  const operacoes: string[] = [];
+  const rodar = (acao: string, opcoes: Record<string, string | boolean>) => {
+    const saida = executarCliRedeEmpresa(acao, { ...opcoes, json: true }, 'pt-BR', env, dependencias);
+    assert.equal(saida.codigo, 0, `${acao}: ${saida.stderr || saida.stdout}`);
+    const json = JSON.parse(saida.stdout);
+    assert.equal(json.contrato, CONTRATO_CLI_REDE_EMPRESA);
+    assert.equal(json.ok, true);
+    operacoes.push(json.operacao);
+    return json.dados;
+  };
+  const comuns = { empresa: 'github:time/rede-coletiva', rede: 'github:pessoa/rede', projetos: 'github:time/projeto' };
+  try {
+    rodar('criar', { forja: 'github', dono: 'time', repositorio: 'rede-coletiva' });
+    const registro = rodar('inscrever', { ...comuns, inscricao: 'inscricao-a', 'account-id': '41', login: 'maestro-esperado' });
+    assert.equal(registro.inscricao.estado, 'pendente');
+    assert.equal(registro.inscricao.maestroRef.accountId, 41);
+    assert.equal(acessos.length, 0, 'o registro administrativo não resolve a conta que aceitará');
+    assert.equal(fs.existsSync(path.join(dir, 'rede-empresa.json')), false, 'registro não cria adesão local');
+
+    const aceite = rodar('aceitar', { ...comuns, inscricao: 'inscricao-a' });
+    assert.equal(aceite.inscricao.estado, 'ativa');
+    assert.equal(aceite.inscricao.loginAtual, 'maestro-autenticado');
+    assert.deepEqual(acessos.map((r) => r.caminho), ['pessoa/rede', 'time/projeto']);
+
+    const antes = branch.gravacoes;
+    rodar('publicar', { inscricao: 'inscricao-a' });
+    assert.equal(branch.gravacoes, antes + 1);
+    assert.equal(acessos.at(-1)?.caminho, 'pessoa/rede', 'cada publicação resolve de novo a conta autenticada');
+    conta = { accountId: 99, login: 'outra-conta' };
+    const negada = executarCliRedeEmpresa('publicar', { inscricao: 'inscricao-a', json: true }, 'pt-BR', env, dependencias);
+    assert.equal(JSON.parse(negada.stdout).erro.codigo, 'rede-empresa.identidade-divergente');
+    assert.equal(branch.gravacoes, antes + 1, 'a conta divergente não cria commit');
+    conta = { accountId: 41, login: 'maestro-autenticado' };
+    rodar('status', { inscricao: 'inscricao-a' });
+    rodar('sair', { inscricao: 'inscricao-a' });
+
+    rodar('inscrever', { ...comuns, inscricao: 'inscricao-b', 'account-id': '41', login: 'maestro-esperado' });
+    rodar('revogar', { empresa: comuns.empresa, inscricao: 'inscricao-b' });
+    assert.deepEqual([...new Set(operacoes)], ['criar', 'inscrever', 'aceitar', 'publicar', 'status', 'sair', 'revogar']);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

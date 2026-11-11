@@ -56,6 +56,19 @@ test('aceite recusa outra conta e projeto não acessível', () => {
   } finally { fs.rmSync(casa, { recursive: true, force: true }); }
 });
 
+test('aceite sem registro administrativo não cria a identidade esperada', () => {
+  const b = new Branch(), casa = fs.mkdtempSync(path.join(os.tmpdir(), 'aceite-sem-registro-'));
+  try {
+    assert.equal(criarPoliticaEmpresa(b, 'v1', 'permitida').ok, true);
+    const antes = b.id;
+    const r = aceitarInscricaoEmpresa(b, { inscricaoId: 'inscricao-a', conta: { accountId: 41, login: 'login' },
+      forja: 'github', host: 'github.com', rede: ref('pessoa/rede'), projetosAcessiveis: [ref('time/projeto')],
+      empresa: ref('time/rede-coletiva'), agora, env: { ORKASTERY_HOME: casa } });
+    assert.deepEqual([r.ok, r.ok ? '' : r.codigo, b.id], [false, 'rede-empresa.inscricao-ausente', antes]);
+    assert.equal(b.arquivos.has('inscricoes/inscricao-a.json'), false);
+  } finally { fs.rmSync(casa, { recursive: true, force: true }); }
+});
+
 test('revogação e saída usam a mesma ponta e deixam a inscrição inativa', () => {
   const revogada = revogarInscricaoEmpresa(preparada(), 'inscricao-a', agora);
   assert.equal(revogada.ok && revogada.valor.estado, 'revogada');
