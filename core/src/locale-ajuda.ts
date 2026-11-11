@@ -176,8 +176,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
         [--branch B]                         acha o bundle da thread pelo nome da branch (o CI usa)
   ci status [--sha SHA] [--remoto origin]   Consulta o check exato publicado no GitHub
   telemetria status|ligar|desligar [--json] Adesão privada e estado do exportador OpenTelemetry
-  telemetria enviar [--dry-run] [--json]    Envia logs OTLP/HTTP; --dry-run mostra desde o início sem ler o cursor
-        [--offset <byte>]                    No dry-run, começa nesse byte do ledger em vez do início
+  telemetria enviar [--dry-run] [--offset <byte>] [--json]  Envia logs OTLP/HTTP; dry-run começa no início ou no offset, sem ler cursor
   privado varrer [--base REF] [--json]      Dado privado (home, e-mail fora da lista, hostname de maquina e a lista
                                             local fora do git) nas linhas e nomes versionados; --base: so o diff (RM-062)
 
@@ -597,8 +596,7 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
         [--branch B]                         finds the thread bundle by the branch name (the CI uses it)
   ci status [--sha SHA] [--remoto origin]   Queries the exact check published on GitHub
   telemetria status|ligar|desligar [--json] Private opt-in and OpenTelemetry exporter status
-  telemetria enviar [--dry-run] [--json]    Sends OTLP/HTTP logs; --dry-run shows from the start without reading the cursor
-        [--offset <byte>]                    In dry-run, starts at this ledger byte instead of the beginning
+  telemetria enviar [--dry-run] [--offset <byte>] [--json]  Sends OTLP/HTTP logs; dry-run starts at the beginning or offset without reading the cursor
   privado varrer [--base REF] [--json]      Private data (home, e-mail off the allow list, machine hostname and the local
                                             list outside git) in versioned lines and names; --base: only the diff (RM-062)
 

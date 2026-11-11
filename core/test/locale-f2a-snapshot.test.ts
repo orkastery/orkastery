@@ -14,7 +14,7 @@ import { gerarCasos } from './locale-f2a-casos';
 const FIXTURE = path.resolve(__dirname, '../../test/fixtures/locale-f2a-pt-BR.json');
 const AJUDA_TELEMETRIA =
   '  telemetria status|ligar|desligar [--json] Adesão privada e estado do exportador OpenTelemetry\n' +
-  '  telemetria enviar [--dry-run] [--json]    Envia logs OTLP/HTTP; --dry-run mostra o payload sem rede nem cursor\n';
+  '  telemetria enviar [--dry-run] [--offset <byte>] [--json]  Envia logs OTLP/HTTP; dry-run começa no início ou no offset, sem ler cursor\n';
 
 function semAdicaoDaTelemetria(texto: string): string {
   const partes = texto.split(AJUDA_TELEMETRIA);

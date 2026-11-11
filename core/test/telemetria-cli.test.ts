@@ -90,10 +90,9 @@ test('ajuda real mantém paridade de opções de telemetria em pt-BR e inglês',
   const linhas = (texto: string) => texto.split('\n').filter((linha) => /telemetria enviar|--offset <byte>/.test(linha));
   const opcoes = (linha: string) => linha.match(/--[a-z-]+(?: <byte>)?/g) ?? [];
   const pt = linhas(AJUDA_PT_BR.texto(dados)), en = linhas(AJUDA_EN.texto(dados));
-  assert.equal(pt.length, 2); assert.equal(en.length, 2);
+  assert.equal(pt.length, 1); assert.equal(en.length, 1);
   assert.deepEqual(pt.map(opcoes), en.map(opcoes));
-  assert.match(en.join('\n'), /Sends OTLP\/HTTP logs; --dry-run shows from the start without reading the cursor/);
-  assert.match(en.join('\n'), /In dry-run, starts at this ledger byte instead of the beginning/);
+  assert.match(en[0], /Sends OTLP\/HTTP logs; dry-run starts at the beginning or offset without reading the cursor/);
 });
 
 test('falha de envio produz código diferente de zero sem cabeçalhos na resposta', async () => {
