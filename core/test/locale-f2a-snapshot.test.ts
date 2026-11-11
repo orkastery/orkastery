@@ -28,14 +28,20 @@ const BLOCO_NETWORK_EMPRESA =
   '        criar ... [--nivel observar|avisar|exigir] [--recibo-versao V]  cobertura da reserva coletiva\n';
 
 /** A família nova não pertence à base congelada da F2a; todo o restante continua byte a byte. */
-const semNetworkEmpresa = (texto: string): string => texto.replace(BLOCO_NETWORK_EMPRESA, '');
+function semNetworkEmpresa(texto: string): string {
+  const partes = texto.split(BLOCO_NETWORK_EMPRESA);
+  assert.equal(partes.length, 2, 'ajuda de network empresa existe uma vez, com os bytes esperados');
+  return partes.join('');
+}
 
 test('locale pt-BR F2a: doctor, onboarding, experiencia, thread, phase e ajuda iguais byte a byte a base', () => {
   const esperado = JSON.parse(fs.readFileSync(FIXTURE, 'utf8')) as Record<string, string>;
   const obtido = gerarCasos();
   assert.deepEqual(Object.keys(obtido), Object.keys(esperado), 'os mesmos casos, na mesma ordem');
   for (const nome of Object.keys(esperado)) {
-    const semTelemetria = nome.startsWith('ajuda cli:') ? semAdicaoDaTelemetria(obtido[nome]) : obtido[nome];
-    assert.equal(semNetworkEmpresa(semTelemetria), esperado[nome], nome);
+    const ajuda = nome.startsWith('ajuda cli:');
+    const semTelemetria = ajuda ? semAdicaoDaTelemetria(obtido[nome]) : obtido[nome];
+    const semFamiliasNovas = ajuda ? semNetworkEmpresa(semTelemetria) : semTelemetria;
+    assert.equal(semFamiliasNovas, esperado[nome], nome);
   }
 });

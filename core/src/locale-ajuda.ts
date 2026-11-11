@@ -332,7 +332,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   roadmap reservas [--json] [--remoto R]    Quem esta com cada item do roadmap, lido da branch ork/roadmap-reservas
         [--soltar-orfas]                     marca a reserva de thread ja fechada (orfa) e, com a opcao, solta
                                              ou passa para outra thread aberta do mesmo item, com registro
-  roadmap pegar <RM-NNN> [--thread T]       Reserva primeiro na rede coletiva e depois localmente (o primeiro vence)
+  roadmap pegar <RM-NNN> [--thread T]       Reserva para esta maquina; com rede coletiva, reserva nela primeiro (o primeiro vence)
         [--nota N] [--por Q] [--maquina M]       maquina = --maquina, ORK_MAQUINA ou o hostname
         [--forcar --motivo M]                    atua so na guarda local; nunca toma a reserva coletiva
   roadmap soltar <RM-NNN> [--forcar --motivo M]  Devolve o item
@@ -756,7 +756,7 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
   roadmap reservas [--json] [--remoto R]    Who holds each roadmap item, read from the ork/roadmap-reservas branch
         [--soltar-orfas]                     marks the reservation of a thread already closed (orphan) and, with the option, releases
                                              it or passes it to another open thread of the same item, with a record
-  roadmap pegar <RM-NNN> [--thread T]       Reserves in the collective network first, then locally (the first wins)
+  roadmap pegar <RM-NNN> [--thread T]       Reserves for this machine; with a collective network, reserves there first (the first wins)
         [--nota N] [--por Q] [--maquina M]       machine = --maquina, ORK_MAQUINA or the hostname
         [--forcar --motivo M]                    only affects the local guard; never takes the collective reservation
   roadmap soltar <RM-NNN> [--forcar --motivo M]  Gives the item back
