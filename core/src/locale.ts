@@ -119,6 +119,7 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'accounts list', 'accounts add', 'accounts remove', 'accounts check', 'accounts esgotamentos', 'accounts ?',
   // F3c preserva as tres linhas contratuais do panorama; o restante do texto segue o locale.
   'network status', 'network entrar', 'network sair', 'network publicar', 'network roadmap', 'network ?',
+  'network empresa',
   'roadmap reservas', 'roadmap pegar', 'roadmap soltar', 'roadmap feat', 'roadmap ?',
   // O contrato que o `docs verificar` le nas paginas (chaves, valores, secoes, marcadores) segue em pt-BR; so a mensagem muda.
   'docs verificar', 'docs sincronizar', 'docs ?',
@@ -180,6 +181,7 @@ const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonl
 /** A entrada de `COMANDOS_COM_LOCALE` que a linha de comando pede, com o subcomando padrao de cada um. */
 export function chaveDoLocale(posicionais: readonly (string | undefined)[], opcoes: Readonly<Record<string, unknown>>): string {
   const [comando = '', bruto] = posicionais;
+  if (comando === 'network' && bruto === 'empresa') return 'network empresa';
   // F2b (D2): `ork ship <thread>` tem a thread no lugar do subcomando; so `registrar-pr` e rota propria.
   if (comando === 'ship') return bruto === 'registrar-pr' ? 'ship registrar-pr' : 'ship';
   if (comando === 'master') return chaveDoMaster(bruto, opcoes);
