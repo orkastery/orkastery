@@ -20,7 +20,8 @@ test('registro é único, versionado e reserva taxas somente para A1 e A2', () =
 
 test('nomes públicos ficam concentrados no contrato sem identidade paralela', () => {
   assert.deepEqual(CONTRATO_SDLC_ANALYTICS.eventos,
-    { deployment: 'orkastery.sdlc.deployment.v1', incident: 'orkastery.sdlc.incident.v1' });
+    { deployment: 'orkastery.sdlc.deployment.v1', incident: 'orkastery.sdlc.incident.v1',
+      resultado: 'orkastery.sdlc.analytics.result.v1' });
   assert.equal(CONTRATO_SDLC_ANALYTICS.atributos.incidentId, 'orkastery.incident.id');
   assert.equal(CONTRATO_SDLC_ANALYTICS.atributos.incidentState, 'orkastery.incident.state');
   assert.equal(CONTRATO_SDLC_ANALYTICS.atributos.incidentRecoveryDeploymentId,
@@ -30,14 +31,12 @@ test('nomes públicos ficam concentrados no contrato sem identidade paralela', (
   assert.equal(serializado.includes('orkastery.team.id'), false);
 });
 
-test('evento de resultado fica proposto com alternativas e ratificação pendente', () => {
-  const proposta = CONTRATO_SDLC_ANALYTICS.propostas.eventoResultado;
-  assert.equal(proposta.estado, 'ratificacao_pendente');
-  assert.equal(proposta.recomendado, 'orkastery.sdlc.analytics.result.v1');
-  assert.deepEqual(proposta.alternativas, [
-    'orkastery.sdlc.indicator.result.v1',
-    'orkastery.sdlc.analytics.snapshot.v1',
-  ]);
+test('evento de resultado e atributos de incidente usam somente os nomes ratificados', () => {
+  assert.equal(CONTRATO_SDLC_ANALYTICS.eventos.resultado, 'orkastery.sdlc.analytics.result.v1');
+  const serializado = JSON.stringify(CONTRATO_SDLC_ANALYTICS);
+  assert.equal(serializado.includes('ratificacao_pendente'), false);
+  assert.equal(serializado.includes('orkastery.sdlc.indicator.result.v1'), false);
+  assert.equal(serializado.includes('orkastery.sdlc.analytics.snapshot.v1'), false);
   assert.equal(new Set(Object.values(CONTRATO_SDLC_ANALYTICS.atributosResultado)).size,
     Object.keys(CONTRATO_SDLC_ANALYTICS.atributosResultado).length);
 });

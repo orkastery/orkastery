@@ -70,7 +70,7 @@ test('A2 e A4 comparam sem normalização cada target agêntico com o renderizad
     assert.deepEqual(painel.targets, renderizados[definicao.id], definicao.id);
     assert.equal(indicadores.has(definicao.id), true, `${definicao.id}: resultado não emitido`);
     for (const target of painel.targets as Array<{ expr: string }>) {
-      assert.equal(target.expr.includes(C.propostas.eventoResultado.recomendado.replaceAll('.', '\\.')), true);
+      assert.equal(target.expr.includes(C.eventos.resultado.replaceAll('.', '\\.')), true);
       assert.equal(target.expr.includes('orkastery\\.ledger'), false);
       for (const campo of camposConsultados(target.expr)) {
         assert.equal(campos.has(campo), true, `${definicao.id}: ${campo} não existe no resultado emitido`);

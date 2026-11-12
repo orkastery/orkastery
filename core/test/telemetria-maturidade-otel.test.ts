@@ -106,7 +106,7 @@ test('A2 projeta o resultado calculado de cada indicador e janela no schema OTLP
     assert.equal(doIndicador.length > 0, true, indicador.id);
     for (const registro of doIndicador) {
       const a = attrs(registro);
-      assert.equal(registro.eventName, C.propostas.eventoResultado.recomendado);
+      assert.equal(registro.eventName, C.eventos.resultado);
       assert.deepEqual(a[C.atributos.userHash], { stringValue: contexto.pseudonimo });
       assert.deepEqual(a[C.atributosResultado.formulaId], { stringValue: indicador.id });
       assert.deepEqual(a[C.atributosResultado.formulaVersao], { stringValue: indicador.versao });

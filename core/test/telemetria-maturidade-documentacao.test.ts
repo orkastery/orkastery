@@ -30,10 +30,10 @@ test('contratos DORA e identidade de política aparecem nos dois idiomas', () =>
     assert.match(texto, /service\.namespace/);
     assert.match(texto, /team_source_missing/);
     assert.match(texto, /TLS/);
-    const proposta = CONTRATO_SDLC_ANALYTICS.propostas.eventoResultado;
-    assert.equal(texto.includes(proposta.recomendado), true);
-    for (const alternativa of proposta.alternativas) assert.equal(texto.includes(alternativa), true);
-    assert.match(texto, /ratificacao_pendente/);
+    assert.equal(texto.includes(CONTRATO_SDLC_ANALYTICS.eventos.resultado), true);
+    assert.equal(texto.includes('orkastery.sdlc.indicator.result.v1'), false);
+    assert.equal(texto.includes('orkastery.sdlc.analytics.snapshot.v1'), false);
+    assert.equal(texto.includes('ratificacao_pendente'), false);
   }
 });
 
