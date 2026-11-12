@@ -3,8 +3,9 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import test from 'node:test';
-import { ErroDeReconciliacao, executarReservaCoordenada, executarSagaDaThread, lerOperacaoDaRedeEmpresa,
-  reconciliarOperacaoDaRedeEmpresa, type PortaColetivaDaSaga, type PortaLocalDaSaga } from '../src/rede-empresa-operacao';
+import { ErroDeOperacaoCorrompida, ErroDeReconciliacao, executarReservaCoordenada, executarSagaDaThread,
+  exigirSemReconciliacaoPendente, lerOperacaoDaRedeEmpresa, reconciliarOperacaoDaRedeEmpresa,
+  type PortaColetivaDaSaga, type PortaLocalDaSaga } from '../src/rede-empresa-operacao';
 
 const cobertura = { nivel: 'exigir' as const, estado: 'conferida' as const, permite: true,
   codigo: 'rede-empresa.cobertura-ok' as const, reciboVersao: 'v2', auditavel: true };
@@ -55,14 +56,33 @@ test('falha no vínculo deixa reconciliação pendente e reparo repetido é idem
   const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'rm089-saga-vinculo-')), eventos: string[] = [];
   try {
     let erro: ErroDeReconciliacao | null = null;
-    try { executarSagaDaThread({ ...base(raiz, portas(eventos, 'vinculo')),
+    try { executarSagaDaThread({ ...base(raiz, portas(eventos, 'vinculo')), thread: { finalizar: () => false },
       criarThread: () => ({ threadId: 'ork-t1', valor: 'thread' }) }); } catch (e) { erro = e as ErroDeReconciliacao; }
     assert.ok(erro instanceof ErroDeReconciliacao);
     assert.match(erro.message, /ork roadmap reconciliar RM-089 --operacao op-1234567890abcdef/);
     const reparo = portas([], undefined);
-    const a = reconciliarOperacaoDaRedeEmpresa(raiz, erro.operacao.operationId, reparo);
-    const b = reconciliarOperacaoDaRedeEmpresa(raiz, erro.operacao.operationId, reparo);
+    let threadExiste = true;
+    const thread = { finalizar: () => { threadExiste = false; return true; } };
+    const a = reconciliarOperacaoDaRedeEmpresa(raiz, erro.operacao.operationId, { ...reparo, thread });
+    const b = reconciliarOperacaoDaRedeEmpresa(raiz, erro.operacao.operationId, { ...reparo, thread });
     assert.deepEqual([a.estado, b.estado], ['compensada', 'compensada']);
+    assert.equal(threadExiste, false);
+    assert.equal(a.threadId, null);
+  } finally { fs.rmSync(raiz, { recursive: true, force: true }); }
+});
+
+test('B4: falha no vínculo finaliza a thread órfã antes de compensar as reservas', () => {
+  const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'rm089-saga-orfa-')), eventos: string[] = [];
+  let threadExiste = true;
+  try {
+    assert.throws(() => executarSagaDaThread({ ...base(raiz, portas(eventos, 'vinculo')),
+      thread: { finalizar: () => { eventos.push('finaliza-thread'); threadExiste = false; return true; } },
+      criarThread: () => ({ threadId: 'ork-t1', valor: 'thread' }) }), /vinculo/);
+    assert.equal(threadExiste, false);
+    assert.deepEqual(eventos.slice(-3), ['finaliza-thread', 'solta-local:local-1', 'solta-coletiva:coletiva-1']);
+    const op = lerOperacaoDaRedeEmpresa(raiz, 'op-1234567890abcdef');
+    assert.deepEqual([op.estado, op.threadId, op.localFingerprint, op.coletivaFingerprint],
+      ['compensada', null, null, null]);
   } finally { fs.rmSync(raiz, { recursive: true, force: true }); }
 });
 
@@ -87,5 +107,18 @@ test('reserva sem thread ainda compensa o coletivo quando a RM-047 recusa', () =
     const p = portas(eventos, 'local');
     assert.throws(() => executarReservaCoordenada(base(raiz, p)), /local/);
     assert.deepEqual(eventos, ['coletiva', 'local', 'solta-coletiva:coletiva-1']);
+  } finally { fs.rmSync(raiz, { recursive: true, force: true }); }
+});
+
+test('B8: reconciliação corrompida bloqueia com código e caminho relativo auditável', () => {
+  const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'rm089-saga-corrompida-'));
+  try {
+    const pasta = path.join(raiz, '.orkastery', 'reconciliacoes-rede');
+    fs.mkdirSync(pasta, { recursive: true });
+    fs.writeFileSync(path.join(pasta, 'op-1234567890abcdef.json'), '{invalido', 'utf8');
+    assert.throws(() => exigirSemReconciliacaoPendente(raiz, 'github:github.com/time/projeto', 'RM-089'),
+      (e: unknown) => e instanceof ErroDeOperacaoCorrompida && e.codigo === 'rede-empresa.operacao-invalida'
+        && e.caminho === 'reconciliacoes-rede/op-1234567890abcdef.json'
+        && !e.message.includes(raiz));
   } finally { fs.rmSync(raiz, { recursive: true, force: true }); }
 });

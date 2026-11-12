@@ -54,7 +54,7 @@ import { grafoLigado, registrarConsultasDoGrafo } from './mcp-grafo';
 import { registrarConsultasDoConhecimento } from './mcp-conhecimento';
 import { comLocale, ErroDoCatalogo, resolverLocale } from './locale';
 import { MOTIVOS_DE_PEDIDO_A_CONDUCAO, registrarPedidoAConducao } from './pedido-conducao';
-import { executarSagaDaThread, portaColetivaDoProjeto, portaLocalDoRoadmap } from './rede-empresa-operacao';
+import { executarSagaDaThread, portaColetivaDoProjeto, portaLocalDoRoadmap, portaThreadOrfa } from './rede-empresa-operacao';
 
 const identidade = z.string().min(1).max(80).regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/);
 const daThread = z.object({ threadId: identidade }).strict();
@@ -517,6 +517,7 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
       const coordenada=roadmap?comLocale('pt-BR',()=>{
         const coletiva=portaColetivaDoProjeto(raiz,c.manifesto,roadmap);
         return executarSagaDaThread({raiz,projectKey:coletiva.projectKey,itemId:roadmap,coletiva:coletiva.porta,
+          thread:portaThreadOrfa(raiz),
           local:portaLocalDoRoadmap(raiz,roadmap),criarThread:()=>{const valor=criar();return{threadId:valor.thread.id,valor};}});
       }):null;
       const criada=coordenada?.thread??criar();

@@ -12,6 +12,7 @@ import { fingerprintDaReserva, pegarItem, soltarItem, type OpcoesDeReserva, type
 import { remotoDoProjeto } from './projeto-alvo';
 import type { Manifesto } from './types';
 import { carregarManifesto } from './manifest';
+import { fecharAdministrativamente } from './thread-close';
 
 export const CONTRATO_OPERACAO_REDE_EMPRESA = 'ork.rede-empresa-operacao/v1' as const;
 
@@ -25,6 +26,7 @@ export interface PortaLocalDaSaga<T = unknown> {
   vincular(threadId: string, fingerprint: string, operationId: string): EfeitoComFingerprint<T>;
   soltar(fingerprint: string): boolean;
 }
+export interface PortaThreadDaSaga { finalizar(threadId: string): boolean }
 
 export interface OperacaoDaRedeEmpresa {
   contrato: typeof CONTRATO_OPERACAO_REDE_EMPRESA;
@@ -49,6 +51,11 @@ export class ErroDeReconciliacao extends Error {
   }
 }
 
+export class ErroDeOperacaoCorrompida extends Error {
+  readonly codigo = 'rede-empresa.operacao-invalida';
+  constructor(readonly caminho: string) { super(`rede-empresa.operacao-invalida: ${caminho}`); }
+}
+
 const dir = (raiz: string): string => path.join(raizDoEstado(raiz), '.orkastery', 'reconciliacoes-rede');
 const arquivo = (raiz: string, operationId: string): string => {
   if (!/^op-[a-f0-9-]{16,64}$/.test(operationId)) throw new Error('rede-empresa.operation-id-invalido');
@@ -64,17 +71,32 @@ function gravar(raiz: string, op: OperacaoDaRedeEmpresa): void {
 }
 
 export function lerOperacaoDaRedeEmpresa(raiz: string, operationId: string): OperacaoDaRedeEmpresa {
-  const v = JSON.parse(fs.readFileSync(arquivo(raiz, operationId), 'utf8')) as OperacaoDaRedeEmpresa;
-  if (v.contrato !== CONTRATO_OPERACAO_REDE_EMPRESA || v.operationId !== operationId) throw new Error('rede-empresa.operacao-invalida');
+  const destino = arquivo(raiz, operationId), relativo = `reconciliacoes-rede/${path.basename(destino)}`;
+  let v: OperacaoDaRedeEmpresa;
+  try { v = JSON.parse(fs.readFileSync(destino, 'utf8')) as OperacaoDaRedeEmpresa; }
+  catch { throw new ErroDeOperacaoCorrompida(relativo); }
+  const fingerprint = (f: unknown) => f === null || typeof f === 'string' && f.length > 0 && f.length <= 256;
+  const iso = (s: unknown) => typeof s === 'string' && Number.isFinite(Date.parse(s));
+  const chaves = ['contrato', 'operationId', 'projectKey', 'itemId', 'estado', 'etapa', 'coletivaFingerprint',
+    'localFingerprint', 'threadId', 'criadaEm', 'atualizadaEm', 'erro'];
+  if (!v || typeof v !== 'object' || Object.keys(v).length !== chaves.length || !chaves.every((k) => k in v)
+    || v.contrato !== CONTRATO_OPERACAO_REDE_EMPRESA || v.operationId !== operationId
+    || typeof v.projectKey !== 'string' || !/^RM-[0-9]{3,}$/.test(v.itemId)
+    || !['em-andamento', 'concluida', 'compensada', 'reconciliacao-pendente'].includes(v.estado)
+    || !['inicio', 'coletiva', 'local', 'thread', 'vinculo', 'fim'].includes(v.etapa)
+    || !fingerprint(v.coletivaFingerprint) || !fingerprint(v.localFingerprint)
+    || !(v.threadId === null || typeof v.threadId === 'string' && v.threadId.length > 0)
+    || !iso(v.criadaEm) || !iso(v.atualizadaEm) || !(v.erro === null || typeof v.erro === 'string')) {
+    throw new ErroDeOperacaoCorrompida(relativo);
+  }
   return v;
 }
 
 function operacoes(raiz: string): OperacaoDaRedeEmpresa[] {
   const pasta = dir(raiz);
   if (!fs.existsSync(pasta)) return [];
-  return fs.readdirSync(pasta).filter((n) => /^op-[a-f0-9-]{16,64}\.json$/.test(n)).flatMap((n) => {
-    try { return [JSON.parse(fs.readFileSync(path.join(pasta, n), 'utf8')) as OperacaoDaRedeEmpresa]; } catch { return []; }
-  });
+  return fs.readdirSync(pasta).filter((n) => /^op-[a-f0-9-]{16,64}\.json$/.test(n))
+    .map((n) => lerOperacaoDaRedeEmpresa(raiz, n.slice(0, -'.json'.length)));
 }
 
 export function exigirSemReconciliacaoPendente(raiz: string, projectKey: string, itemId: string): void {
@@ -93,6 +115,7 @@ interface BaseDaSaga<TLocal> {
   itemId: string;
   coletiva: PortaColetivaDaSaga;
   local: PortaLocalDaSaga<TLocal>;
+  thread?: PortaThreadDaSaga;
   operationId?: string;
   agora?: string;
 }
@@ -114,16 +137,20 @@ function avanca(raiz: string, op: OperacaoDaRedeEmpresa, mudanca: Partial<Operac
 }
 
 function compensar<T>(p: BaseDaSaga<T>, op: OperacaoDaRedeEmpresa, erro: unknown): never {
-  let localOk = true, coletivaOk = true;
+  let threadOk = true, localOk = true, coletivaOk = true;
+  if (op.threadId) {
+    try { threadOk = p.thread?.finalizar(op.threadId) === true; } catch { threadOk = false; }
+  }
   if (op.localFingerprint) {
     try { localOk = p.local.soltar(op.localFingerprint); } catch { localOk = false; }
   }
   if (op.coletivaFingerprint) {
     try { coletivaOk = p.coletiva.soltar(op.coletivaFingerprint); } catch { coletivaOk = false; }
   }
-  const precisaReconciliar = !!op.threadId || !localOk || !coletivaOk;
+  const precisaReconciliar = !threadOk || !localOk || !coletivaOk;
   const final = avanca(p.raiz, op, { estado: precisaReconciliar ? 'reconciliacao-pendente' : 'compensada', etapa: 'fim',
-    erro: erroCurto(erro), ...(localOk ? { localFingerprint: null } : {}), ...(coletivaOk ? { coletivaFingerprint: null } : {}) });
+    erro: erroCurto(erro), ...(threadOk ? { threadId: null } : {}), ...(localOk ? { localFingerprint: null } : {}),
+    ...(coletivaOk ? { coletivaFingerprint: null } : {}) });
   if (precisaReconciliar) throw new ErroDeReconciliacao(final);
   throw erro;
 }
@@ -164,19 +191,33 @@ export function executarSagaDaThread<TThread, TLocal>(p: BaseDaSaga<TLocal> & {
 
 /** Relê os dois lados e só remove a snapshot que ainda tem a fingerprint gravada. Repetir depois do fim é no-op. */
 export function reconciliarOperacaoDaRedeEmpresa<T>(raiz: string, operationId: string,
-  portas: { coletiva: Pick<PortaColetivaDaSaga, 'soltar'>; local: Pick<PortaLocalDaSaga<T>, 'soltar'> }): OperacaoDaRedeEmpresa {
+  portas: { coletiva: Pick<PortaColetivaDaSaga, 'soltar'>; local: Pick<PortaLocalDaSaga<T>, 'soltar'>;
+    thread?: PortaThreadDaSaga }): OperacaoDaRedeEmpresa {
   let op = lerOperacaoDaRedeEmpresa(raiz, operationId);
   if (op.estado === 'concluida' || op.estado === 'compensada') return op;
-  let localOk = true, coletivaOk = true;
+  let threadOk = true, localOk = true, coletivaOk = true;
+  if (op.threadId) {
+    try { threadOk = portas.thread?.finalizar(op.threadId) === true; } catch { threadOk = false; }
+  }
   if (op.localFingerprint) {
     try { localOk = portas.local.soltar(op.localFingerprint); } catch { localOk = false; }
   }
   if (op.coletivaFingerprint) {
     try { coletivaOk = portas.coletiva.soltar(op.coletivaFingerprint); } catch { coletivaOk = false; }
   }
-  op = avanca(raiz, op, { estado: localOk && coletivaOk ? 'compensada' : 'reconciliacao-pendente', etapa: 'fim',
-    ...(localOk ? { localFingerprint: null } : {}), ...(coletivaOk ? { coletivaFingerprint: null } : {}) });
+  op = avanca(raiz, op, { estado: threadOk && localOk && coletivaOk ? 'compensada' : 'reconciliacao-pendente', etapa: 'fim',
+    ...(threadOk ? { threadId: null } : {}), ...(localOk ? { localFingerprint: null } : {}),
+    ...(coletivaOk ? { coletivaFingerprint: null } : {}) });
   return op;
+}
+
+/** Finaliza de modo auditável a thread que a saga criou e não conseguiu vincular. */
+export function portaThreadOrfa(raiz: string): PortaThreadDaSaga {
+  return { finalizar(threadId) {
+    const fechada = fecharAdministrativamente(raiz, threadId, { motivo: 'orfa', por: 'ork.rede-empresa-saga',
+      justificativa: 'falha ao vincular a reserva coletiva à thread criada' });
+    return fechada.status === 'fechada' && fechada.fechamentoAdmin?.motivo === 'orfa';
+  } };
 }
 
 export function portaLocalDoRoadmap(raiz: string, itemId: string, opcoes: OpcoesDeReserva = {}): PortaLocalDaSaga<ResultadoDeReserva> {

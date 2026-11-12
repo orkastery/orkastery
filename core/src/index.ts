@@ -254,7 +254,7 @@ import { jsonDaRede, lerRede, textoDaRede } from './rede-status';
 import { executarCliRedeEmpresa } from './rede-empresa-cli';
 import type { ResultadoDaCobertura } from './rede-empresa-config';
 import { textoDaCoberturaEmpresa } from './locale-network-empresa';
-import { executarReservaCoordenada, executarSagaDaThread, portaColetivaDoProjeto, portaLocalDoRoadmap,
+import { executarReservaCoordenada, executarSagaDaThread, portaColetivaDoProjeto, portaLocalDoRoadmap, portaThreadOrfa,
   reconciliarOperacaoDaRedeEmpresa } from './rede-empresa-operacao';
 import { lerLedger } from './ledger';
 import { avisosDeArtefatoRegistrados } from './phase-artifact-warning';
@@ -611,7 +611,7 @@ function comandoThread(args: Args): number {
     if (itemDoRoadmap) {
       const coletiva = portaColetivaDoProjeto(carregado.raiz, carregado.manifesto, itemDoRoadmap.trim().toUpperCase());
       const saga = comLocale('pt-BR', () => executarSagaDaThread({ raiz: carregado.raiz, projectKey: coletiva.projectKey,
-        itemId: itemDoRoadmap.trim().toUpperCase(), coletiva: coletiva.porta,
+        itemId: itemDoRoadmap.trim().toUpperCase(), coletiva: coletiva.porta, thread: portaThreadOrfa(carregado.raiz),
         local: portaLocalDoRoadmap(carregado.raiz, itemDoRoadmap),
         criarThread: () => { const valor = criar(); return { threadId: valor.thread.id, valor }; } }));
       criada = saga.thread;
@@ -3284,7 +3284,7 @@ function comandoRoadmap(args: Args): number {
     if (!item || !operationId) { console.error(msg().reservas.uso); return 2; }
     const coletiva = portaColetivaDoProjeto(carregado.raiz, carregado.manifesto, item.trim().toUpperCase());
     const reparada = comLocale('pt-BR', () => reconciliarOperacaoDaRedeEmpresa(carregado.raiz, operationId, {
-      coletiva: coletiva.porta, local: portaLocalDoRoadmap(carregado.raiz, item),
+      coletiva: coletiva.porta, local: portaLocalDoRoadmap(carregado.raiz, item), thread: portaThreadOrfa(carregado.raiz),
     }));
     if (reparada.itemId !== item.trim().toUpperCase() || reparada.projectKey !== coletiva.projectKey) {
       throw new Error('rede-empresa.reconciliacao-escopo-divergente');
