@@ -10,9 +10,14 @@ const base: ResultadoPreflightEmpresa = { estado: 'inconclusivo', consultivo: tr
 test('status em pt-BR e inglês distingue conflito, completo e lacuna com fonte e ação', () => {
   assert.match(textoDoPreflightEmpresa(base, 'pt-BR'), /inconclusivo.*historia\.rasa.*Ação/);
   assert.match(textoDoPreflightEmpresa(base, 'en'), /inconclusive.*historia\.rasa.*Action/);
-  assert.match(textoDoPreflightEmpresa({ ...base, estado: 'conflito', conflitos: [{ a: { inscricaoId: 'a', builder: 'a', threadRef: 'a' },
-    b: { inscricaoId: 'b', builder: 'b', threadRef: 'b' }, projectKey: 'p', regioes: [], fontes: ['item'] }] }, 'pt-BR'), /1 conflito/);
-  assert.match(textoDoPreflightEmpresa({ ...base, estado: 'sem-conflito', lacunas: [], cobertura: 'completa' }, 'en'), /no conflict.*complete snapshot/);
+  const conflito: ResultadoPreflightEmpresa = { ...base, estado: 'conflito', conflitos: [{
+    a: { inscricaoId: 'a', builder: 'a', threadRef: 'a' },
+    b: { inscricaoId: 'b', builder: 'b', threadRef: 'b' }, projectKey: 'p', regioes: [], fontes: ['item'] }] };
+  assert.match(textoDoPreflightEmpresa(conflito, 'pt-BR'), /1 conflito.*ordem sugerida.*consultiva/);
+  assert.match(textoDoPreflightEmpresa(conflito, 'en'), /1 conflict.*Suggested order.*advisory/);
+  const completo: ResultadoPreflightEmpresa = { ...base, estado: 'sem-conflito', lacunas: [], cobertura: 'completa' };
+  assert.match(textoDoPreflightEmpresa(completo, 'pt-BR'), /nenhum conflito.*fotografia completa/);
+  assert.match(textoDoPreflightEmpresa(completo, 'en'), /no conflict.*complete snapshot/);
 });
 
 test('a análise é explicitamente consultiva e performance fica indisponível sem medição', () => {
