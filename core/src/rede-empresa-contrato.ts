@@ -3,8 +3,10 @@ import type { TipoDeLacunaDaRede } from './network-roadmap';
 import type { GrupoDoRoadmap } from './roadmap-status';
 
 export const CONTRATO_POLITICA_EMPRESA = 'ork.rede-empresa-politica/v1' as const;
+export const CONTRATO_POLITICA_EMPRESA_V2 = 'ork.rede-empresa-politica/v2' as const;
 export const CONTRATO_INSCRICAO_EMPRESA = 'ork.rede-empresa-inscricao/v1' as const;
 export const CONTRATO_PUBLICACAO_EMPRESA = 'ork.rede-empresa-publicacao/v1' as const;
+export const CONTRATO_PUBLICACAO_EMPRESA_V2 = 'ork.rede-empresa-publicacao/v2' as const;
 export const CONTRATO_STATUS_EMPRESA = 'ork.rede-empresa-status/v1' as const;
 
 export const MAX_BYTES_PUBLICACAO_EMPRESA = 1024 * 1024;
@@ -17,12 +19,24 @@ export type ForjaDaEmpresa = 'github' | 'gitlab';
 export interface ReferenciaDaForja { forja: ForjaDaEmpresa; host: string; caminho: string }
 export interface MaestroRef { forja: ForjaDaEmpresa; host: string; accountId: number }
 
-export interface PoliticaDaEmpresa {
+export interface PoliticaDaEmpresaV1 {
   contrato: typeof CONTRATO_POLITICA_EMPRESA;
   versao: string;
   saida: 'permitida' | 'negada';
   publicacaoMinima: 1;
 }
+
+export type NivelDaCoberturaEmpresa = 'observar' | 'avisar' | 'exigir';
+export interface PoliticaDaEmpresaV2 {
+  contrato: typeof CONTRATO_POLITICA_EMPRESA_V2;
+  versao: string;
+  saida: 'permitida' | 'negada';
+  publicacaoMinima: 1;
+  nivel: NivelDaCoberturaEmpresa;
+  reciboVersao: string;
+  espelhos: Array<{ projectKey: string; canonico: string }>;
+}
+export type PoliticaDaEmpresa = PoliticaDaEmpresaV1 | PoliticaDaEmpresaV2;
 
 export interface InscricaoDaEmpresa {
   contrato: typeof CONTRATO_INSCRICAO_EMPRESA;
@@ -57,8 +71,7 @@ export const TIPOS_DE_LACUNA_PUBLICADA = [
 export type TipoDeLacunaPublicada = typeof TIPOS_DE_LACUNA_PUBLICADA[number];
 export interface LacunaPublicada { tipo: TipoDeLacunaPublicada; parte: 'roadmap' | 'reservas' | 'fabrica' | 'estado-local' | 'forja' | 'registro' | 'rede' | 'projeto' }
 
-export interface PublicacaoDaEmpresa {
-  contrato: typeof CONTRATO_PUBLICACAO_EMPRESA;
+interface PublicacaoDaEmpresaBase {
   politicaVersao: string;
   inscricaoId: string;
   publicadoEm: string;
@@ -71,6 +84,12 @@ export interface PublicacaoDaEmpresa {
   fontes: FontePublicada[];
   lacunas: LacunaPublicada[];
 }
+export interface PublicacaoDaEmpresaV1 extends PublicacaoDaEmpresaBase { contrato: typeof CONTRATO_PUBLICACAO_EMPRESA }
+export interface PublicacaoDaEmpresaV2 extends PublicacaoDaEmpresaBase {
+  contrato: typeof CONTRATO_PUBLICACAO_EMPRESA_V2;
+  projectKey: string;
+}
+export type PublicacaoDaEmpresa = PublicacaoDaEmpresaV1 | PublicacaoDaEmpresaV2;
 
 export interface StatusDaRedeEmpresa {
   contrato: typeof CONTRATO_STATUS_EMPRESA;
@@ -110,9 +129,17 @@ export function ehMaestroRef(v: unknown): v is MaestroRef {
 }
 
 export function ehPoliticaDaEmpresa(v: unknown): v is PoliticaDaEmpresa {
-  return obj(v) && chaves(v, ['contrato', 'versao', 'saida', 'publicacaoMinima']) && v.contrato === CONTRATO_POLITICA_EMPRESA
-    && id(v.versao, 64) && (v.saida === 'permitida' || v.saida === 'negada') && v.publicacaoMinima === 1;
+  if (!obj(v) || !id(v.versao, 64) || (v.saida !== 'permitida' && v.saida !== 'negada') || v.publicacaoMinima !== 1) return false;
+  if (v.contrato === CONTRATO_POLITICA_EMPRESA) return chaves(v, ['contrato', 'versao', 'saida', 'publicacaoMinima']);
+  return v.contrato === CONTRATO_POLITICA_EMPRESA_V2
+    && chaves(v, ['contrato', 'versao', 'saida', 'publicacaoMinima', 'nivel', 'reciboVersao', 'espelhos'])
+    && (v.nivel === 'observar' || v.nivel === 'avisar' || v.nivel === 'exigir') && id(v.reciboVersao, 64)
+    && Array.isArray(v.espelhos) && v.espelhos.length <= 1_000 && v.espelhos.every((e) => obj(e)
+      && chaves(e, ['projectKey', 'canonico']) && texto(e.projectKey, 500) && texto(e.canonico, 500));
 }
+
+export const nivelDaPolitica = (p: PoliticaDaEmpresa): NivelDaCoberturaEmpresa =>
+  p.contrato === CONTRATO_POLITICA_EMPRESA_V2 ? p.nivel : 'avisar';
 
 export function ehInscricaoDaEmpresa(v: unknown): v is InscricaoDaEmpresa {
   if (!obj(v) || !chaves(v, ['contrato', 'inscricaoId', 'rede', 'maestroRef', 'loginAtual', 'projetos', 'politicaVersao', 'estado',
@@ -156,12 +183,16 @@ function lacuna(v: unknown): v is LacunaPublicada {
 }
 
 export function ehPublicacaoDaEmpresa(v: unknown): v is PublicacaoDaEmpresa {
-  if (!obj(v) || !chaves(v, ['contrato', 'politicaVersao', 'inscricaoId', 'publicadoEm', 'maestro', 'rede', 'projeto', 'itens',
-    'reservas', 'trabalhos', 'fontes', 'lacunas'])) return false;
+  if (!obj(v)) return false;
+  const v2 = v.contrato === CONTRATO_PUBLICACAO_EMPRESA_V2;
+  const permitidas = ['contrato', 'politicaVersao', 'inscricaoId', 'publicadoEm', 'maestro', 'rede', 'projeto', 'itens',
+    'reservas', 'trabalhos', 'fontes', 'lacunas', ...(v2 ? ['projectKey'] : [])];
+  if (!chaves(v, permitidas)) return false;
   const maestro = v.maestro;
   if (!obj(maestro) || !Object.keys(maestro).every((k) => ['forja', 'host', 'accountId', 'loginAtual'].includes(k))
     || !ehMaestroRef({ forja: maestro.forja, host: maestro.host, accountId: maestro.accountId }) || !id(maestro.loginAtual, 255)) return false;
-  if (v.contrato !== CONTRATO_PUBLICACAO_EMPRESA || !id(v.politicaVersao, 64) || !id(v.inscricaoId) || !iso(v.publicadoEm)
+  if ((v.contrato !== CONTRATO_PUBLICACAO_EMPRESA && !v2) || (v2 && !texto(v.projectKey, 500))
+    || !id(v.politicaVersao, 64) || !id(v.inscricaoId) || !iso(v.publicadoEm)
     || !ehReferenciaDaForja(v.rede) || !ehReferenciaDaForja(v.projeto) || !Array.isArray(v.itens) || !Array.isArray(v.reservas)
     || !Array.isArray(v.trabalhos) || !Array.isArray(v.fontes) || !Array.isArray(v.lacunas)) return false;
   if (v.itens.length > MAX_ITENS_PUBLICACAO_EMPRESA || v.reservas.length > MAX_RESERVAS_PUBLICACAO_EMPRESA

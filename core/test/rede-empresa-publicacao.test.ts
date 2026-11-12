@@ -4,11 +4,12 @@ import type { ContextoDaVarredura } from '../src/dado-privado';
 import type { MudancaNaBranch } from '../src/branch-de-estado';
 import type { ProjetoNoPanorama } from '../src/network-roadmap';
 import { registrarInscricaoEmpresa, revogarInscricaoEmpresa, sairDaRedeEmpresa } from '../src/rede-empresa';
-import { CONTRATO_INSCRICAO_EMPRESA, CONTRATO_POLITICA_EMPRESA, type InscricaoDaEmpresa,
+import { CONTRATO_INSCRICAO_EMPRESA, CONTRATO_POLITICA_EMPRESA, CONTRATO_POLITICA_EMPRESA_V2, type InscricaoDaEmpresa,
   MAX_BYTES_PUBLICACAO_EMPRESA, MAX_ITENS_PUBLICACAO_EMPRESA, MAX_LACUNAS_PUBLICACAO_EMPRESA,
   MAX_RESERVAS_PUBLICACAO_EMPRESA, MAX_TRABALHOS_PUBLICACAO_EMPRESA, type PublicacaoDaEmpresa,
   type ReferenciaDaForja } from '../src/rede-empresa-contrato';
 import { publicarNaRedeEmpresa, type PedidoDePublicacaoEmpresa } from '../src/rede-empresa-publicacao';
+import { coordenarTrabalho } from '../src/rede-empresa-coordenacao';
 import { statusDaRedeEmpresa } from '../src/rede-empresa-status';
 import type { PortaDaBranchEmpresa } from '../src/rede-empresa-transporte';
 
@@ -19,7 +20,10 @@ class Branch implements PortaDaBranchEmpresa {
   arquivos = new Map<string, string>();
   historico: string[] = [];
   aoRejeitar: (() => void) | null = null;
-  ler() { return { id: this.id, atualizada: this.atualizada, ler: (c: string) => this.arquivos.get(c) ?? null }; }
+  ler() { const snapshot = new Map(this.arquivos); return { id: this.id, atualizada: this.atualizada,
+    ler: (c: string) => snapshot.get(c) ?? null,
+    listar: (prefixo: string) => [...snapshot].filter(([c]) => c.startsWith(prefixo))
+      .map(([caminho, conteudo]) => ({ caminho, conteudo })) }; }
   gravar(_ponta: string | null, mudancas: readonly MudancaNaBranch[]) {
     if (this.rejeicoes-- > 0) {
       this.id = `c${Number(this.id?.slice(1) ?? 0) + 1}`;
@@ -99,6 +103,27 @@ test('duas redes inscritas publicam em caminhos próprios', () => {
     assert.deepEqual(publicada.fontes, [{ parte: 'roadmap', atualizado: true, lidoEm: agora, commit: 'abcdef0' }]);
     assert.deepEqual(publicada.lacunas, [{ tipo: 'reservas.sem-branch', parte: 'reservas' }]);
   }
+});
+
+test('B7: espelho explícito usa a mesma projectKey em publicação, status e coordenação', () => {
+  const b = new Branch();
+  const espelho = { projectKey: 'github:mirror.example.invalid/time/projeto', canonico: 'github:github.com/time/projeto' };
+  b.arquivos.set('politica.json', JSON.stringify({ contrato: CONTRATO_POLITICA_EMPRESA_V2, versao: 'v2',
+    saida: 'permitida', publicacaoMinima: 1, nivel: 'exigir', reciboVersao: 'v2', espelhos: [espelho] }));
+  b.arquivos.set('inscricoes/inscricao-a.json', JSON.stringify({ ...inscricao('inscricao-a', 'time/rede-a'), politicaVersao: 'v2' }));
+  const espelhado = { forja: 'github' as const, host: 'mirror.example.invalid', caminho: 'time/projeto' };
+  const publicada = publicarNaRedeEmpresa(b, { ...pedido('inscricao-a'), projeto: espelhado });
+  assert.ok(publicada.ok);
+  assert.equal('projectKey' in publicada.valor ? publicada.valor.projectKey : null, espelho.canonico);
+  const status = statusDaRedeEmpresa(b, 'inscricao-a', 'projeto-a', {});
+  assert.equal(status.publicacao && 'projectKey' in status.publicacao ? status.publicacao.projectKey : null, espelho.canonico);
+  const segunda = coordenarTrabalho(b, { acao: 'reserva', operationId: 'operacao-42-abcdef',
+    projectKey: espelho.canonico, itemId: 'RM-089',
+    identidade: { inscricaoId: 'inscricao-b', accountId: 42, loginAtual: 'login-b', fase: 'GO' },
+    agora, timeoutMs: 2_000 });
+  assert.equal(segunda.ok, false);
+  if (!segunda.ok) assert.deepEqual([segunda.codigo, segunda.existente?.titular.accountId],
+    ['rede-empresa.reserva-existente', 41]);
 });
 
 test('publicação recompõe depois da concorrência na branch', () => {

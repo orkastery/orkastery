@@ -1,0 +1,181 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm091orkmesh",
+  "branch": "ork/ork-rm091orkmesh-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm091orkmesh",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-091-ork-mesh-no-site-para-empresas-e-times.md",
+      "alegacao": "A RM-091 registra a Ork Mesh no site com estado de código não iniciado, rotas bilíngues, dez seções, quatro fatias verificáveis, relações, riscos e prioridade junto com a 0.6.9.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "grep -E 'codigo: Não iniciado|F4 \\| Selo de estado em cada bloco|Junto com a 0.6.9' docs/roadmap/RM-091-ork-mesh-no-site-para-empresas-e-times.md"
+      ],
+      "criadoEm": "2026-11-11T21:12:16.427Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm091orkmesh",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O README inclui o pedido do dono de 11/11/2026 e o índice sincronizado da RM-091 com o estado solicitado.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "grep -F '| [RM-091](RM-091-ork-mesh-no-site-para-empresas-e-times.md) | Ork Mesh no site, para empresas e times | Em desenvolvimento | Não iniciado | Não iniciados | Não implantado | 2026-11-11 |' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-11-11T21:12:16.509Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm091orkmesh",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-088-versao-mais-antiga-nunca-vira-a-latest-do-npm.md",
+      "alegacao": "A RM-088 registra o ciclo em desenvolvimento, a construção aberta, a prioridade da 0.6.9 e a D1 ratificada para `previous`, tags de pré-release e `latest`.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "grep -F 'D1 — Nome da dist-tag e regra para pré-release:** alternativa A decidida pelo dono em 11/11/2026' docs/roadmap/RM-088-versao-mais-antiga-nunca-vira-a-latest-do-npm.md"
+      ],
+      "criadoEm": "2026-11-11T21:17:10.663Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm091orkmesh",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-089-orkastery-network-coletiva-da-empresa.md",
+      "alegacao": "A RM-089 registra o estado real das fatias, os merges de F4 e F1, os nomes ratificados e as duas decisões reversíveis da condução.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "grep -E 'PR #282, merge `4c196ae`|PR #285, merge `3673d07`|ci\\.politica_recibo|rede indisponível bloqueia|acordo de colaboração é atestado' docs/roadmap/RM-089-orkastery-network-coletiva-da-empresa.md"
+      ],
+      "criadoEm": "2026-11-11T21:17:10.788Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm091orkmesh",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice sincronizado cita RM-088, RM-089 e RM-090 em desenvolvimento, com construção representada pelo estado válido `Branch criada` e os testes correspondentes.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "grep -E '^\\| \\[RM-08(8|9)\\]|^\\| \\[RM-090\\]' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-11-11T21:17:11.022Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm091orkmesh",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-090-telemetria-opentelemetry-para-sdlc-analytics.md",
+      "alegacao": "A RM-090 registra o estado real das fatias, os merges de F1 e F2, a D4 decidida e os nomes públicos ratificados.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "grep -E 'PR #283, merge `9f1e643`|PR #284, merge `7346009`|A\\. Escolhida pelo dono em 11/11/2026|session\\.id|conversation\\.id|user\\.hash' docs/roadmap/RM-090-telemetria-opentelemetry-para-sdlc-analytics.md"
+      ],
+      "criadoEm": "2026-11-11T21:17:18.297Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
