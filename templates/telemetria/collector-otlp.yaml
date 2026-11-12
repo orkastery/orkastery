@@ -26,7 +26,7 @@ processors:
     error_mode: propagate
     log_statements:
       - 'set(log.attributes["gen_ai.input.messages"], String(log.attributes["gen_ai.input.messages"])) where log.attributes["gen_ai.input.messages"] != nil'
-      - 'keep_keys(log.attributes, ["log.record.uid", "user.hash", "vcs.ref.head.revision", "vcs.ref.head.name", "vcs.ref.type", "cicd.pipeline.name", "cicd.pipeline.run.id", "cicd.pipeline.result", "gen_ai.operation.name", "gen_ai.request.model", "gen_ai.conversation.id", "gen_ai.input.messages", "session.id", "error.type", "orkastery.thread.id", "orkastery.phase.name", "orkastery.dispatch.id", "orkastery.mode", "orkastery.decision.id", "orkastery.decision.reverts", "orkastery.claim.id", "orkastery.ledger.sequence", "orkastery.check.mode", "orkastery.receipt.id", "orkastery.receipt.contract", "orkastery.receipt.verdict", "orkastery.receipt.partial", "orkastery.receipt.head", "orkastery.receipt.policy.version", "orkastery.push.verified", "orkastery.go_fix.round", "orkastery.finding.id", "orkastery.policy.name", "orkastery.policy.reason", "orkastery.policy.writer", "orkastery.runtime.name", "orkastery.prompt.size", "orkastery.prompt.redaction.policy.version", "orkastery.prompt.size.original", "orkastery.prompt.size.exported", "orkastery.prompt.content.state", "orkastery.prompt.gap.reason", "orkastery.prompt.truncated", "orkastery.team.source.state"])'
+      - 'keep_keys(log.attributes, ["log.record.uid", "user.hash", "vcs.ref.head.revision", "vcs.ref.head.name", "vcs.ref.type", "cicd.pipeline.name", "cicd.pipeline.run.id", "cicd.pipeline.result", "gen_ai.operation.name", "gen_ai.request.model", "gen_ai.conversation.id", "gen_ai.input.messages", "session.id", "error.type", "orkastery.thread.id", "orkastery.phase.name", "orkastery.dispatch.id", "orkastery.mode", "orkastery.decision.id", "orkastery.claim.id", "orkastery.ledger.sequence", "orkastery.check.mode", "orkastery.receipt.id", "orkastery.runtime.name", "orkastery.prompt.size", "orkastery.prompt.redaction.policy.version", "orkastery.prompt.size.original", "orkastery.prompt.size.exported", "orkastery.prompt.content.state", "orkastery.prompt.gap.reason", "orkastery.prompt.truncated"])'
       - 'keep_keys(resource.attributes, ["service.name", "service.version"])'
   filter/dora:
     error_mode: propagate
@@ -49,7 +49,7 @@ processors:
     error_mode: propagate
     log_statements:
       - 'set(resource.attributes["service.namespace"], "${env:ORK_DORA_SERVICE_NAMESPACE}") where "${env:ORK_DORA_SERVICE_NAMESPACE}" != ""'
-      - 'set(log.attributes["orkastery.team.source.state"], "team_source_missing") where "${env:ORK_DORA_SERVICE_NAMESPACE}" == ""'
+      - 'set(resource.attributes["service.namespace"], "team_source_missing") where "${env:ORK_DORA_SERVICE_NAMESPACE}" == ""'
       - 'set(log.attributes["user.hash"], "${env:ORK_DORA_USER_HASH}") where "${env:ORK_DORA_USER_HASH}" != ""'
   batch: {}
 

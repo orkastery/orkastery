@@ -29,7 +29,6 @@ export const CONTRATO_SDLC_ANALYTICS = {
     incidentState: 'orkastery.incident.state',
     incidentDeploymentId: 'orkastery.incident.deployment.id',
     incidentRecoveryDeploymentId: 'orkastery.incident.recovery.deployment.id',
-    teamSourceState: 'orkastery.team.source.state',
   },
   valores: {
     production: 'production',

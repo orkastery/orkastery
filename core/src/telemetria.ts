@@ -78,8 +78,8 @@ const CAMPOS_LIVRES = ['decisao', 'decidido', 'porque', 'razao', 'alegacao', 'pe
 const EVENTOS_COM_USUARIO = new Set(['autonomous_decision', 'hitl_requested', 'human_gate', 'session_answered']);
 const EVENTOS_ANALITICOS = new Set(['verify_run', 'go_fix_opened', 'check_reverify', 'ship_done',
   'thread_created', 'ship_unscanned_authorized', 'autonomous_decision', 'hitl_requested']);
-const EVENTOS_CICD = new Set(['verify_run', 'check_reverify']);
-const EVENTOS_VCS = new Set(['thread_created', 'commit', 'mcp_git_committed', 'ship_done']);
+const EVENTOS_CICD = new Set(['verify_run', 'check_reverify', 'go_fix_opened', 'ship_done']);
+const EVENTOS_VCS = new Set(['thread_created', 'commit', 'mcp_git_committed', 'verify_run', 'ship_done']);
 
 function texto(v: unknown): string | null {
   return typeof v === 'string' && v.trim() ? v.trim() : null;
@@ -94,24 +94,14 @@ function attrString(chave: string, valor: unknown): OtlpKeyValue | null {
   return v === null ? null : { key: chave, value: { stringValue: v } };
 }
 
+function attrStringEscalar(chave: string, valor: unknown): OtlpKeyValue | null {
+  return typeof valor === 'number' && Number.isSafeInteger(valor)
+    ? { key: chave, value: { stringValue: String(valor) } } : attrString(chave, valor);
+}
+
 function attrInt(chave: string, valor: unknown): OtlpKeyValue | null {
   const v = inteiro(valor);
   return v === null ? null : { key: chave, value: { intValue: String(v) } };
-}
-
-function attrBool(chave: string, valor: unknown): OtlpKeyValue | null {
-  return typeof valor === 'boolean' ? { key: chave, value: { boolValue: valor } } : null;
-}
-
-function attrStrings(chave: string, valor: unknown): OtlpKeyValue | null {
-  if (!Array.isArray(valor)) return null;
-  const values = valor.map((item) => typeof item === 'string' ? item : texto(idObjeto(item)))
-    .filter((item): item is string => Boolean(item)).map((item) => ({ stringValue: item }));
-  return values.length ? { key: chave, value: { arrayValue: { values } } } : null;
-}
-
-function idObjeto(valor: unknown): unknown {
-  return valor && typeof valor === 'object' && !Array.isArray(valor) ? (valor as Record<string, unknown>).id : undefined;
 }
 
 function primeiro(evento: EventoLedger, ...campos: string[]): unknown {
@@ -163,9 +153,15 @@ function attrsVcs(evento: EventoLedger, attrs: OtlpKeyValue[]): void {
 function attrsCicd(evento: EventoLedger, attrs: OtlpKeyValue[]): void {
   const fase = texto(evento.fase)?.toUpperCase();
   if (!EVENTOS_CICD.has(evento.tipo) && !(evento.tipo === 'phase_result' && fase === 'CHECK')) return;
-  adicionar(attrs, attrString('cicd.pipeline.name', fase === 'CHECK' ? 'orkastery.check' : 'orkastery.verify'));
-  adicionar(attrs, attrString('cicd.pipeline.run.id', primeiro(evento, 'roundId', 'rodadaId')));
-  adicionar(attrs, attrString('cicd.pipeline.result', primeiro(evento, 'resultado', 'classificacao', 'estado')));
+  const nome = evento.tipo === 'go_fix_opened' ? 'orkastery.go-fix'
+    : evento.tipo === 'ship_done' ? 'orkastery.ship'
+      : fase === 'CHECK' || evento.tipo === 'check_reverify' ? 'orkastery.check' : 'orkastery.verify';
+  const resultado = evento.tipo === 'ship_done' ? (evento.pushVerificado === true ? 'success' : 'failed')
+    : evento.parcial === true ? 'partial' : primeiro(evento, 'veredito', 'resultado', 'classificacao', 'estado');
+  adicionar(attrs, attrString('cicd.pipeline.name', nome));
+  adicionar(attrs, attrStringEscalar('cicd.pipeline.run.id',
+    primeiro(evento, 'rodada', 'roundId', 'rodadaId', 'mergeSha', 'eventId')));
+  adicionar(attrs, attrString('cicd.pipeline.result', resultado));
   adicionar(attrs, attrString('orkastery.check.mode', primeiro(evento, 'checkMode', 'modoCheck')));
 }
 
@@ -176,29 +172,6 @@ function attrsGenAi(evento: EventoLedger, attrs: OtlpKeyValue[]): void {
   const sessao = primeiro(evento, 'sessionId', 'sessao');
   if (evento.runtime === 'codex') adicionar(attrs, attrString('conversation.id', sessao));
   else if (evento.runtime === 'claude-bg') adicionar(attrs, attrString('session.id', sessao));
-}
-
-function attrsAnaliticos(evento: EventoLedger, attrs: OtlpKeyValue[]): void {
-  if (!EVENTOS_ANALITICOS.has(evento.tipo)) return;
-  const recibo = evento.recibo && typeof evento.recibo === 'object' && !Array.isArray(evento.recibo)
-    ? evento.recibo as Record<string, unknown> : {};
-  const evidencia = evento.evidencia && typeof evento.evidencia === 'object' && !Array.isArray(evento.evidencia)
-    ? evento.evidencia as Record<string, unknown> : {};
-  const parecer = evento.parecer && typeof evento.parecer === 'object' && !Array.isArray(evento.parecer)
-    ? evento.parecer as Record<string, unknown> : {};
-  adicionar(attrs, attrString('orkastery.receipt.contract', recibo.contrato ?? recibo.schema));
-  adicionar(attrs, attrString('orkastery.receipt.verdict', primeiro(evento, 'veredito', 'resultado') ?? recibo.veredito));
-  adicionar(attrs, attrBool('orkastery.receipt.partial', evento.parcial ?? recibo.parcial));
-  adicionar(attrs, attrString('orkastery.receipt.head', primeiro(evento, 'head', 'sha') ?? recibo.head ?? recibo.commit));
-  adicionar(attrs, attrString('orkastery.receipt.policy.version',
-    primeiro(evento, 'receiptPolicyVersion', 'politicaReciboVersao')));
-  adicionar(attrs, attrBool('orkastery.push.verified', evento.pushVerificado ?? evidencia.pushVerificado));
-  adicionar(attrs, attrString('orkastery.go_fix.round', primeiro(evento, 'rodada', 'roundId', 'rodadaId')));
-  adicionar(attrs, attrStrings('orkastery.finding.id', evento.achadoIds ?? parecer.achados));
-  adicionar(attrs, attrString('orkastery.decision.reverts', evento.reverte));
-  adicionar(attrs, attrString('orkastery.policy.name', primeiro(evento, 'politica', 'policy')));
-  adicionar(attrs, attrString('orkastery.policy.reason', primeiro(evento, 'motivo', 'reason')));
-  adicionar(attrs, attrString('orkastery.policy.writer', primeiro(evento, 'writer', 'escritor')));
 }
 
 export function entradaGenAi(textoDoPrompt: string): OtlpAnyValue {
@@ -242,11 +215,6 @@ export function mapearEventoDoLedger(evento: EventoLedger, contexto: ContextoDoM
   attrsVcs(evento, attrs);
   attrsCicd(evento, attrs);
   attrsGenAi(evento, attrs);
-  attrsAnaliticos(evento, attrs);
-  if (!texto(contexto.serviceNamespace)) {
-    adicionar(attrs, attrString(CONTRATO_SDLC_ANALYTICS.atributos.teamSourceState,
-      CONTRATO_SDLC_ANALYTICS.valores.teamSourceMissing));
-  }
   if (evento.tipo !== 'phase_dispatch') adicionar(attrs, attrString('session.id', primeiro(evento, 'sessionId', 'sessao')));
   if (severidade(evento).severityNumber === 17) {
     const causa = texto(primeiro(evento, 'motivo', 'errorType', 'classificacao'));
@@ -293,10 +261,10 @@ export function montarExportLogsServiceRequest(registros: readonly OtlpLogRecord
     { key: 'service.name', value: { stringValue: 'orkastery' } },
     { key: 'service.version', value: { stringValue: contexto.serviceVersion } },
   ];
-  if ('serviceNamespace' in contexto && texto((contexto as Pick<ContextoDoMapeamento, 'serviceNamespace'>).serviceNamespace)) {
-    atributosDoRecurso.push({ key: CONTRATO_SDLC_ANALYTICS.atributos.serviceNamespace,
-      value: { stringValue: (contexto as Pick<ContextoDoMapeamento, 'serviceNamespace'>).serviceNamespace! } });
-  }
+  const namespace = texto((contexto as Pick<ContextoDoMapeamento, 'serviceNamespace'>).serviceNamespace)
+    ?? CONTRATO_SDLC_ANALYTICS.valores.teamSourceMissing;
+  atributosDoRecurso.push({ key: CONTRATO_SDLC_ANALYTICS.atributos.serviceNamespace,
+    value: { stringValue: namespace } });
   return { resourceLogs: [{ resource: { attributes: atributosDoRecurso }, scopeLogs: [{
     scope: { name: NOME_DO_SCOPE_OTLP, version: contexto.instrumentacaoVersion,
     attributes: [] },
