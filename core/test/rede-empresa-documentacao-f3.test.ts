@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import test from 'node:test';
 
-const ler = (caminho: string): string => readFileSync(caminho, 'utf8');
+const raizDoRepositorio = resolve(__dirname, '../../..');
+const ler = (caminho: string): string => readFileSync(resolve(raizDoRepositorio, caminho), 'utf8');
 
 test('o guia pt-BR prova cada cláusula operacional do preflight coletivo', () => {
   const guia = ler('docs/guias/rede-da-empresa.pt-BR.md');
