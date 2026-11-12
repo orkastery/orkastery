@@ -6,19 +6,19 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-10T22:47:15-03:00
+atualizado_em: 2026-11-11T18:15:00-03:00
 estado:
-  ciclo: Discovery
+  ciclo: Em desenvolvimento
   documentacao: Rascunho
-  codigo: Não iniciado
-  testes: Não iniciados
+  codigo: Branch criada
+  testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
-    pr: null
+    commit: 7346009
+    pr: 284
 sdlc:
   thread: null
   modo: null
@@ -32,7 +32,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Discovery | Não iniciado | Não iniciados | Não implantado | Flag desligada |
+| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -154,13 +154,15 @@ As [métricas DORA](https://dora.dev/guides/dora-metrics/) só aparecem quando a
 | F4 | Coletor e painéis de referência para Grafana | A configuração recebe OTLP, aplica os processadores e exporta para dois destinos compatíveis trocando somente o exporter; os painéis provisionáveis consultam condução, prompts, correlação, maturidade e saúde |
 | F5 | SDLC Analytics por maestro e por time | Cada indicador mostra fórmula, população, fonte e lacunas; pessoas autorizadas da empresa veem individual e agregado, e cada maestro vê tudo o que a máquina dele envia |
 
+**Estado em 11/11/2026:** F1 está na `main` pelo PR #283, merge `9f1e643`; F2 está na `main` pelo PR #284, merge `7346009`; F3 e F4 estão em fechamento; F5 está em planejamento. O conjunto ainda não foi implantado.
+
 ## Plano e decisões
 
 - **Prioridade / método / pontuação / justificativa / data:** Discovery e documentação despachadas em 10/11/2026 a pedido do dono; prioridade de construção a definir pelo dono.
 - **Horizonte / alvo / previsão / confiança / marcos:** meta e piloto: **A definir pelo dono**. Marcos propostos são F1 a F5; não há previsão de implantação nesta Discovery.
-- **Dependências e bloqueios (ID, owner, próxima revisão):** integrações oficiais de OpenTelemetry dos runtimes; RM-089 somente para distribuição empresarial do endereço do coletor; D4 pelo dono; revisão jurídica, de segurança e de retenção antes do piloto; owner: Julio; próxima revisão no planejamento da primeira fatia.
+- **Dependências e bloqueios (ID, owner, próxima revisão):** integrações oficiais de OpenTelemetry dos runtimes; RM-089 somente para distribuição empresarial do endereço do coletor; revisão jurídica, de segurança e de retenção antes do piloto; owner: Julio; próxima revisão no fechamento de F3 e F4.
 - **Premissas / riscos / mitigação:** detalhados abaixo; capacidades não cobertas pelas fontes oficiais permanecem não confirmadas.
-- **Decisões, alternativas e ADRs (ID, decisor, data, link):** D1 e D2 foram decididas pelo dono no terminal em 10/11/2026; D3 foi decidida pela condução a partir da resposta de D1 e pode ser revertida pelo dono; D4 continua aberta ao dono.
+- **Decisões, alternativas e ADRs (ID, decisor, data, link):** D1 e D2 foram decididas pelo dono no terminal em 10/11/2026; D3 foi decidida pela condução a partir da resposta de D1 e pode ser revertida pelo dono; D4 e os nomes públicos foram decididos pelo dono em 11/11/2026.
 
 ### Decisões
 
@@ -196,11 +198,13 @@ O dono pode reverter D3 sem mudar o schema dos logs: a reversão altera a origem
 
 #### D4 — Base do modelo de maturidade
 
-- **A. Recomendada.** DORA para entrega, acrescido dos indicadores agênticos desta página, exibidos separadamente e sem nota composta. Preserva fórmulas rastreáveis e evita peso arbitrário.
+- **A. Escolhida pelo dono em 11/11/2026.** DORA para entrega, acrescido dos indicadores agênticos desta página, exibidos separadamente e sem nota composta. Preserva fórmulas rastreáveis e evita peso arbitrário.
 - **B.** Índice composto próprio do Orkastery, com pesos definidos pela empresa e trilha de cada componente.
 - **C.** Estágios qualitativos de maturidade, avaliados por critérios observáveis, sem ranking entre maestros.
 
-D4 continua aberta ao dono.
+#### D5 — Nomes públicos da telemetria
+
+O dono ratificou em 11/11/2026 o comando `ork telemetria`, o prefixo `orkastery.*` para os atributos próprios e os nomes `session.id`, `conversation.id` e `user.hash` para os vínculos correspondentes.
 
 ### Premissas e riscos
 
@@ -226,23 +230,24 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-11-10 | Julio |
-| Documentação | Rascunho | — | 2026-11-10 | Julio |
-| Código | Não iniciado | — | 2026-11-10 | Julio |
-| Testes | Não iniciados | — | 2026-11-10 | Julio |
-| Deploy | Não implantado | — | 2026-11-10 | Julio |
-| Exposição | Flag desligada | — | 2026-11-10 | Julio |
-| Habilitação | Pendente | — | 2026-11-10 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-11 | Julio |
+| Documentação | Rascunho | — | 2026-11-11 | Julio |
+| Código | Branch criada | commit `7346009` · PR #284 | 2026-11-11 | Julio |
+| Testes | Em execução | — | 2026-11-11 | Julio |
+| Deploy | Não implantado | — | 2026-11-11 | Julio |
+| Exposição | Flag desligada | — | 2026-11-11 | Julio |
+| Habilitação | Pendente | — | 2026-11-11 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
 ## Responsabilidades e histórico
 
 - **RACI (R / A / C / I):** R: equipe Orkastery; A: Julio; C: segurança, privacidade, observabilidade e maestros inscritos; I: times da empresa.
-- **Agentes envolvidos, atuação, autonomia e revisor humano:** a sessão GO separou a telemetria da rede coletiva em modo `#Fast`; o dono decidiu D1 e D2; a condução decidiu D3 com reversão explícita pelo dono; D4 aguarda decisão do dono.
-- **Próxima ação, responsável e prazo:** dono decide D4 e a prioridade de construção; prazo a definir pelo dono.
+- **Agentes envolvidos, atuação, autonomia e revisor humano:** a sessão GO separou a telemetria da rede coletiva em modo `#Fast`; o dono decidiu D1, D2, D4 e os nomes públicos; a condução decidiu D3 com reversão explícita pelo dono.
+- **Próxima ação, responsável e prazo:** fechar F3 e F4 e planejar F5; responsáveis: threads de construção da RM-090.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-11-10 | Telemetria foi proposta dentro da RM-089, junto com a rede coletiva e a trava empresarial | Pedido do dono no terminal na primeira rodada | Julio |
 | 2026-11-10 | RM-090 criada para logs OpenTelemetry e Grafana, com D1 e D2 respondidas e D3 decidida de forma reversível | Esclarecimento do dono, respostas `"1a (a empresa ve tudo)"` e `"2b"`, e critério de ativação derivado pela condução | Julio em D1 e D2; sessão GO em D3 |
+| 2026-11-11 | Estado atualizado para Em desenvolvimento: F1 e F2 estão na `main`, F3 e F4 estão em fechamento e F5 está em planejamento; D4 e nomes públicos ratificados | PR #283, merge `9f1e643`; PR #284, merge `7346009`; decisões do dono em 11/11/2026 | Julio |
