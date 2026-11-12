@@ -42,6 +42,7 @@ import { chaveRecusadaDaConfigDeRede, criarGitdirDoPush, enderecoDoOrigin, proto
 import { branchValida, exigirRemoto, shaValido } from './branch-de-estado';
 import { ErroDoCatalogo, Mensagens, msg, remontar, textoDoCatalogo } from './locale';
 import { guardaDaThread, MotivoDaGuarda } from './noctum-guarda';
+import { CONTRATO_DO_RECIBO_DE_PROVA } from './recibo-prova';
 import type { ResultadoPreflightEmpresa } from './rede-empresa-preflight';
 
 export interface OpcoesShip {
@@ -1023,6 +1024,8 @@ export function ship(
       fonteDaProva: r.pushVerificado ? `git ls-remote ${remoto} refs/heads/${para}` : null,
       autorizadoPor: autorizacao.por,
       tipoDeAutorizacao: autorizacao.tipo,
+      // A política histórica nasce no produtor. Leitores antigos sem o campo declaram lacuna.
+      politicaReciboVersao: CONTRATO_DO_RECIBO_DE_PROVA,
       modo: thread.modo,
       tag: tagDoModo(thread.modo),
       evidencia: {

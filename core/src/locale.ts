@@ -113,6 +113,7 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'master', 'master <thread>', 'master aceitar-omissao', 'master pedir', 'master audit', 'master digest', 'master migrar',
   'master classes', 'master ratificar', 'master batch', 'master propor',
   'pulse', 'roadmap status', 'docs init', 'telemetria status', 'telemetria ligar', 'telemetria desligar', 'telemetria enviar',
+  'telemetria maturidade',
   // F3b (D1): o resto do CLI, na ordem do pedido.
   'thread list', 'thread close', 'thread entrega', 'worktree ensure', 'worktree sync', 'worktree audit', 'worktree release', 'worktree ?',
   'claims add', 'claims conferir', 'claims verificar', 'claims retirar', 'claims ausente', 'claims list', 'claims ?',
@@ -176,7 +177,7 @@ const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonl
   ['memory', { padrao: 'status', conhecidos: ['status', 'inventory', 'migrate', 'sync', 'search', 'index'] }],
   ['mcp', { padrao: null, conhecidos: ['install', 'serve'] }],
   ['conducao', { padrao: null, conhecidos: ['status', 'assumir', 'atualizar', 'autorizar', 'autorizacao', 'batida', 'sentinela'] }],
-  ['telemetria', { padrao: 'status', conhecidos: ['status', 'ligar', 'desligar', 'enviar'] }],
+  ['telemetria', { padrao: 'status', conhecidos: ['status', 'ligar', 'desligar', 'enviar', 'maturidade'] }],
   ['audit', { padrao: 'packs', conhecidos: ['packs', 'pack', 'lint', 'run', 'list', 'show', 'prompt', 'ingest', 'finding', 'achado', 'verify', 'report', 'relatorio', 'divida', 'board', 'surface', 'superficie'] }],
 ]);
 

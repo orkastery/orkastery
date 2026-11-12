@@ -9,6 +9,7 @@ import { ativarLocale, chaveDoLocale, cobreLocale, msg } from '../src/locale';
 import { AJUDA_EN, AJUDA_PT_BR, DadosDaAjuda } from '../src/locale-ajuda';
 import { comandoTelemetria, contextoPadrao, CONTRATO_CLI_TELEMETRIA, DependenciasTelemetriaCli,
   FonteDaTelemetria } from '../src/telemetria-cli';
+import { CONTRATO_CLI_MATURIDADE } from '../src/telemetria-maturidade-cli';
 import { envPtBr, projetoTemporario } from './apoio';
 
 const ligada = { ligada: true, origem: 'builder' as const, motivo: 'ativada pelo builder', pseudonimo: 'a'.repeat(64) };
@@ -127,14 +128,14 @@ test('index valida opções públicas de telemetria e a rota do locale inglês c
   finally { ativarLocale(undefined); }
 });
 
-test('as quatro rotas reais da telemetria participam do catálogo em pt-BR e inglês', () => {
+test('as cinco rotas reais da telemetria participam do catálogo em pt-BR e inglês', () => {
   const dados: DadosDaAjuda = { versao: 'teste', modos: 4, segredos: 'fora do arquivo', tags: '#Classic #Auto' };
   const rotasDaAjuda = (ajuda: string) => ajuda.split('\n')
     .filter((linha) => /^  telemetria [a-z]/.test(linha))
     .flatMap((linha) => linha.trim().split(/\s+/)[1].split('|'));
   const pt = rotasDaAjuda(AJUDA_PT_BR.texto(dados));
   const en = rotasDaAjuda(AJUDA_EN.texto(dados));
-  assert.equal(pt.length, 4, 'a ajuda pública define as quatro rotas da família');
+  assert.equal(pt.length, 5, 'a ajuda pública define as cinco rotas da família');
   assert.deepEqual(en, pt, 'pt-BR e inglês expõem as mesmas rotas públicas');
 
   for (const subcomando of pt) {
@@ -168,13 +169,14 @@ test('o executável real despacha a família e valida json, dry-run e offset na 
     ['telemetria', 'status', '--json'],
     ['telemetria', 'ligar', '--json'],
     ['telemetria', 'enviar', '--dry-run', '--offset', '0', '--json'],
+    ['telemetria', 'maturidade', '--desde', '2026-11-01T00:00:00.000Z', '--ate', '2026-12-01T00:00:00.000Z', '--json'],
     ['telemetria', 'desligar', '--json'],
   ];
   for (const args of aceitas) {
     const resultado = executar(args);
     assert.equal(resultado.status, 0, `${args.join(' ')}\n${resultado.stdout}${resultado.stderr}`);
     const resposta = JSON.parse(resultado.stdout) as Record<string, unknown>;
-    assert.equal(resposta.schema, CONTRATO_CLI_TELEMETRIA);
+    assert.equal(resposta.schema, args[1] === 'maturidade' ? CONTRATO_CLI_MATURIDADE : CONTRATO_CLI_TELEMETRIA);
     assert.equal(resposta.command, args[1]);
     if (args[1] === 'enviar') assert.equal(resposta.dryRun, true);
   }
@@ -186,12 +188,15 @@ test('o executável real despacha a família e valida json, dry-run e offset na 
     ['telemetria', 'enviar', '--offset', '0'],
     ['telemetria', 'enviar', '--dry-run', '--offset', '-1'],
     ['telemetria', 'enviar', '--dry-run', '--offset', '9007199254740992'],
+    ['telemetria', 'maturidade', '--json'],
+    ['telemetria', 'maturidade', '--desde', '2026-11-01T00:00:00.000Z', '--json'],
+    ['telemetria', 'status', '--desde', '2026-11-01T00:00:00.000Z'],
     ['telemetria', 'status', '--desconhecida'],
   ];
   for (const args of recusadas) {
     const resultado = executar(args);
     assert.equal(resultado.status, 1, `${args.join(' ')}\n${resultado.stdout}${resultado.stderr}`);
-    assert.match(resultado.stderr, /uso: ork telemetria status\|ligar\|desligar\|enviar/);
+    assert.match(resultado.stderr, /uso: ork telemetria status\|ligar\|desligar\|enviar\|maturidade/);
   }
 });
 

@@ -21,7 +21,7 @@ test('modelos declaram receiver, filtro OTTL, allowlist, limite e lote na ordem 
     }
     assert.match(yaml, /log\.event_name == "gen_ai\.client\.inference\.operation\.details"[^\n]+gen_ai\.input\.messages[^\n]+orkastery\.prompt\.content\.state/);
     assert.match(yaml, /keep_keys\(log\.attributes, \["log\.record\.uid"/);
-    assert.match(yaml, /log_statements:[\s\S]+keep_keys\(resource\.attributes, \["service\.name", "service\.version"\]\)/);
+    assert.match(yaml, /log_statements:[\s\S]+keep_keys\(resource\.attributes, \["service\.name", "service\.version", "service\.namespace"\]\)/);
     assert.doesNotMatch(yaml, /metric_statements:/);
     assert.match(yaml, /^      processors: \[memory_limiter, filter\/required, transform\/sanitize, batch\]$/m);
   }
