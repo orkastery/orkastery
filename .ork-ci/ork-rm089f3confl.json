@@ -1069,6 +1069,32 @@
         "artefato-de-fechamento",
         "ref-local-do-ramo-base"
       ]
+    },
+    {
+      "id": "C95",
+      "thread": "ork-rm089f3confl",
+      "fase": "GO",
+      "arquivo": "core/test/rede-empresa-documentacao-f3.test.ts",
+      "alegacao": "O teste documental lê os guias da rede da empresa nos dois idiomas, a Pista de entrega, a política de recibo nos dois idiomas, a referência do CLI nos dois idiomas e o contrato da forja, e mantém uma asserção sensível para cada cláusula provada pelas claims C84 a C91.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-documentacao-f3.test.js"
+      ],
+      "criadoEm": "2026-11-12T10:34:39.696Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
     }
   ],
   "deferredClaims": [
