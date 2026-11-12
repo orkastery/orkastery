@@ -118,7 +118,10 @@ export function preflightDaPontaEmpresa(ponta: PontaDaRedeEmpresa): ResultadoPre
 
 /** A única leitura da porta para um preflight. */
 export function preflightDaRedeEmpresa(porta: PortaDaBranchEmpresa): ResultadoPreflightEmpresa {
-  return preflightDaPontaEmpresa(porta.ler());
+  let ponta: PontaDaRedeEmpresa;
+  try { ponta = porta.ler(); }
+  catch { return preflightNaoRealizado('rede.leitura-indisponivel'); }
+  return preflightDaPontaEmpresa(ponta);
 }
 
 /** Lê somente o cache da inscrição deste projeto. Sem inscrição, não acrescenta superfície à saída existente. */
