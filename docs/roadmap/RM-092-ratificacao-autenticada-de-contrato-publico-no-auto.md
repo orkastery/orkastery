@@ -38,7 +38,7 @@ sdlc:
 
 ## Origem
 
-Pedido do dono no terminal, em 12/11/2026. Diante da alternativa **1a**, ele respondeu que vale a ratificação dada naquela condução e pediu a abertura deste item:
+Pedido do dono no terminal, em 12/11/2026. A condução apresentou alternativas para a ratificação dos nomes públicos da RM-090 F3, e o dono respondeu "1a", escolhendo esta:
 
 > "Vale a ratificação de hoje: faço o merge da F3 e abro no roadmap uma fatia que dá ao Orkastery um pedido de ratificação autenticado."
 
