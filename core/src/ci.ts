@@ -34,7 +34,7 @@ import { CONTRATO_DO_RECIBO_DE_PROVA } from './recibo-prova';
 import { preflightCiDoProjeto, type ResultadoPreflightEmpresa } from './rede-empresa-preflight';
 import { CODIGO_DA_DEGRADACAO_REPLAY_CI, CONTRATO_PROJECAO_REPLAY_CI, criarProjecaoReplayCi,
   estadoDoReciboRunnerCi, motivoClaimNaoHermeticaReplayCi, reexecutarProjecaoReplayCi,
-  type OpcoesReplayCi, type ProjecaoReplayCi } from './ci-recibo-basico';
+  type OpcoesReplayCi, type ProjecaoReplayCi, type ReceitaConfiavelReplayCi } from './ci-recibo-basico';
 
 export type EstadoCi = 'disabled' | 'success' | 'pending' | 'failure' | 'missing' | 'unavailable';
 
@@ -113,17 +113,19 @@ export interface ContextoDaPoliticaCi {
   /** HEAD já resolvido pelo adaptador; ausente, lê o checkout uma vez. */
   head?: string;
   /** Injeção pura dos testes; produção lê a receita da ref protegida de destino. */
-  comandosConfiaveis?: ReadonlyArray<{ name: string; command: string }> | null;
+  receitaConfiavel?: ReceitaConfiavelReplayCi | null;
+  /** Leitor hermético dos testes; produção usa `git show` fora do checkout do PR/MR. */
+  lerManifestoDestino?: (ref: string, arquivo: string) => string | null;
 }
 
 type LeitorDoManifestoNaRef = (ref: string, arquivo: string) => string | null;
 
-/** Comandos verify da branch de destino, fora do conteúdo controlado pelo PR/MR. */
-export function comandosConfiaveisDoDestino(raiz: string, destino: string,
+/** Comandos e preparo de verify da branch de destino, fora do conteúdo controlado pelo PR/MR. */
+export function receitaConfiavelDoDestino(raiz: string, destino: string,
   ler: LeitorDoManifestoNaRef = (ref, arquivo) => {
     const r = exec('git', ['show', '--no-ext-diff', '--end-of-options', `${ref}:./${arquivo}`], raiz);
     return r.ok ? r.stdout : null;
-  }): Array<{ name: string; command: string }> | null {
+  }): ReceitaConfiavelReplayCi | null {
   if (!/^[A-Za-z0-9][A-Za-z0-9._/-]{0,254}$/.test(destino) || destino.includes('..') ||
       destino.includes('//') || destino.includes('@{') || destino.endsWith('/') || destino.endsWith('.lock')) return null;
   for (const ref of [`refs/remotes/origin/${destino}`, `refs/heads/${destino}`]) {
@@ -132,12 +134,13 @@ export function comandosConfiaveisDoDestino(raiz: string, destino: string,
       if (bruto === null) continue;
       const manifesto = comandosDoTextoDoManifesto(bruto);
       if (!manifesto) return null;
-      return [
+      const commands = [
         { name: 'typecheck', command: manifesto.typecheck },
         { name: 'build', command: manifesto.build },
         { name: 'test', command: manifesto.test },
         { name: 'security_scan', command: manifesto.securityScan },
       ].filter((item): item is { name: string; command: string } => !!item.command?.trim());
+      return { commands, ...(manifesto.preparo?.trim() ? { preparo: manifesto.preparo } : {}) };
     }
   }
   return null;
@@ -697,11 +700,14 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
   const head = contexto.head ?? commitReal(carregado.raiz);
   const destino = contexto.destino ?? null;
   const pullRequest = contexto.pullRequest ?? destino !== null;
-  const comandosConfiaveis = contexto.comandosConfiaveis !== undefined
-    ? contexto.comandosConfiaveis
+  const receitaConfiavel = contexto.receitaConfiavel !== undefined
+    ? contexto.receitaConfiavel
     : pullRequest && destino
-      ? comandosConfiaveisDoDestino(carregado.raiz, destino)
-      : comandosDoManifesto(carregado.manifesto).map(({ nome, comando }) => ({ name: nome, command: comando }));
+      ? receitaConfiavelDoDestino(carregado.raiz, destino, contexto.lerManifestoDestino)
+      : {
+        commands: comandosDoManifesto(carregado.manifesto).map(({ nome, comando }) => ({ name: nome, command: comando })),
+        ...(carregado.manifesto.verify.preparo ? { preparo: carregado.manifesto.verify.preparo } : {}),
+      };
   const replay = ehProjecao ? reexecutarProjecaoReplayCi(entrada, {
     raiz: carregado.raiz,
     manifesto: carregado.manifesto,
@@ -709,7 +715,7 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
     ambiente: contexto.env ?? process.env,
     hermeticidade: (claim) => motivoClaimNaoHermeticaReplayCi(claim) ?? motivoDiferimentoCi(claim as Claim, carregado.raiz),
     ...contexto.replay,
-    comandosConfiaveis,
+    receitaConfiavel,
   }) : null;
   const recibo = bundleInvalido ? 'invalido'
     : replay ? replay.degradacao || replay.invalida ? 'invalido'

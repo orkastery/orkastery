@@ -105,6 +105,12 @@ export interface ResultadoReplayCi {
 export type ExecutorReplayCi = (entrada: { nome: string; comando: string; cwd: string; prazoMs: number;
   ambiente: NodeJS.ProcessEnv }) => ResultadoDeComando;
 
+/** Receita lida fora do checkout do PR/MR, no manifesto da branch de destino. */
+export interface ReceitaConfiavelReplayCi {
+  commands: ReadonlyArray<{ name: string; command: string }>;
+  preparo?: string;
+}
+
 export interface OpcoesReplayCi {
   raiz: string;
   manifesto: Manifesto;
@@ -118,7 +124,7 @@ export interface OpcoesReplayCi {
   capacidade?: () => boolean;
   casaEfemera?: string;
   /** Receita externa ao PR/MR; `null` falha fechada quando a fonte protegida não pode ser lida. */
-  comandosConfiaveis?: ReadonlyArray<{ name: string; command: string }> | null;
+  receitaConfiavel?: ReceitaConfiavelReplayCi | null;
 }
 
 export type EstadoDoReciboRunnerCi = 'presente' | 'invalido' | 'sha-divergente';
@@ -226,6 +232,10 @@ export function validarProjecaoReplayCi(valor: unknown):
   const rodada = p.rodada as Record<string, unknown>;
   if ((rodada.check !== 'agile' && rodada.check !== 'classic') || !HEX_64.test(String(rodada.claimsSha256)) ||
       !HEX_64.test(String(rodada.commandsSha256))) return { ok: false, causa: 'invalida' };
+  if (rodada.preparo !== undefined && (!rodada.preparo || typeof rodada.preparo !== 'object' ||
+      Array.isArray(rodada.preparo) || (rodada.preparo as Record<string, unknown>).name !== 'preparo' ||
+      typeof (rodada.preparo as Record<string, unknown>).command !== 'string' ||
+      !(rodada.preparo as Record<string, string>).command.trim())) return { ok: false, causa: 'invalida' };
   const projecao = valor as ProjecaoReplayCi;
   if (rodada.claimsSha256 !== sha256Ci(JSON.stringify(projecao.claims)) ||
       rodada.commandsSha256 !== sha256Ci(JSON.stringify(projecao.commands)) ||
@@ -308,17 +318,6 @@ function claimDoReplay(claim: ClaimProjetadaReplayCi): Claim {
   return { ...claim, criadoEm: '', estado: 'pendente' };
 }
 
-function baselineDoReplay(projecao: ProjecaoReplayCi) {
-  const baseline = projecao.baseline;
-  if (!baseline) return null;
-  return {
-    commit: baseline.commit,
-    gravadaEm: '',
-    comandos: baseline.comandos.map((comando) => ({ ...comando, comando: '', resumo: '' })),
-    ...(baseline.check ? { check: { modo: baseline.check.modo, origem: 'manifesto' as const } } : {}),
-  };
-}
-
 function causaDaExecucao(resultados: readonly ResultadoDeComando[]): CausaDegradacaoReplayCi | null {
   if (resultados.some((resultado) => resultado.executado === false || resultado.causa === 'nao-encontrado')) {
     return 'comando-nao-iniciado';
@@ -337,9 +336,10 @@ export function reexecutarProjecaoReplayCi(valor: unknown, opcoes: OpcoesReplayC
     julgamento: null, ...(validacao.causa === 'projecao-acima-do-limite'
       ? { degradacao: validacao.causa } : { invalida: true as const }) };
   const projecao = validacao.projecao;
-  if (projecao.claims.length === 0 || opcoes.comandosConfiaveis === null ||
-      (opcoes.comandosConfiaveis !== undefined &&
-        JSON.stringify(projecao.commands) !== JSON.stringify(opcoes.comandosConfiaveis))) {
+  if (projecao.claims.length === 0 || opcoes.receitaConfiavel === null ||
+      (opcoes.receitaConfiavel !== undefined &&
+        (JSON.stringify(projecao.commands) !== JSON.stringify(opcoes.receitaConfiavel.commands) ||
+          projecao.rodada.preparo?.command !== opcoes.receitaConfiavel.preparo))) {
     return { ok: true, thread: projecao.thread, commit: opcoes.head, preparo: null, claims: [], commands: [],
       julgamento: null, invalida: true };
   }
@@ -380,7 +380,9 @@ export function reexecutarProjecaoReplayCi(valor: unknown, opcoes: OpcoesReplayC
     const produtoAlterado = identidade !== identidadeFinal;
     const todos = [...(preparo ? [preparo] : []), ...claims.flatMap((claim) => claim.execucoes), ...commands];
     const degradacao = causaDaExecucao(todos) ?? (produtoAlterado ? 'produto-alterado' : null);
-    const julgamento = julgarResultadoDoVerify({ claims, comandos: commands, baseline: baselineDoReplay(projecao),
+    // A baseline projetada continua no contrato de entrada para compatibilidade, mas não tem autoridade no runner:
+    // ela vem do PR/MR. Sem fonte externa confiável, toda falha atual é julgada sem baseline e reprova.
+    const julgamento = julgarResultadoDoVerify({ claims, comandos: commands, baseline: null,
       preparo, produtoAlterado });
     const falhaReal = preparo?.ok === false || claims.some((claim) => !claim.verificado) || commands.some((command) => !command.ok);
     if (degradacao) return { ok: !falhaReal, thread: projecao.thread, commit: opcoes.head, preparo, claims, commands,

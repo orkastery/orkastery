@@ -1129,6 +1129,7 @@ export interface ComandosDoManifesto {
   build: string | undefined;
   test: string | undefined;
   securityScan: string | undefined;
+  preparo: string | undefined;
   ciCommand: string | undefined;
 }
 
@@ -1145,7 +1146,8 @@ export function comandosDoTextoDoManifesto(bruto: string): ComandosDoManifesto |
   }
   const verify = mapa(dados.verify), ci = mapa(dados.ci);
   const opcional = (v: ValorYaml | undefined): string | undefined => (v === null || v === undefined ? undefined : texto(v, ''));
-  return { typecheck: opcional(verify.typecheck), build: opcional(verify.build), test: opcional(verify.test), securityScan: opcional(verify.security_scan), ciCommand: opcional(ci.command) };
+  return { typecheck: opcional(verify.typecheck), build: opcional(verify.build), test: opcional(verify.test),
+    securityScan: opcional(verify.security_scan), preparo: opcional(verify.preparo), ciCommand: opcional(ci.command) };
 }
 
 /** Carrega o manifesto ou encerra com mensagem acionavel (uso nos subcomandos). */
