@@ -4845,20 +4845,25 @@ function executarComando(argvBruto: string[]): number {
     case 'ship':
       return comandoShip(args);
     case 'telemetria': {
-      const permitidas = new Set(['json', 'dry-run', 'offset']);
+      const permitidas = new Set(['json', 'dry-run', 'offset', 'desde', 'ate']);
+      const subcomando = args.posicionais[1];
       const offsetBruto = args.opcoes.offset;
       const offset = typeof offsetBruto === 'string' && /^(?:0|[1-9][0-9]*)$/.test(offsetBruto)
         ? Number(offsetBruto) : undefined;
+      const desde = typeof args.opcoes.desde === 'string' ? args.opcoes.desde : undefined;
+      const ate = typeof args.opcoes.ate === 'string' ? args.opcoes.ate : undefined;
       if (args.posicionais.length > 2 || Object.keys(args.opcoes).some((nome) => !permitidas.has(nome)) ||
           (args.opcoes.json !== undefined && args.opcoes.json !== true) ||
           (args.opcoes['dry-run'] !== undefined && args.opcoes['dry-run'] !== true) ||
-          (offsetBruto !== undefined && (args.posicionais[1] !== 'enviar' || args.opcoes['dry-run'] !== true ||
-            offset === undefined || !Number.isSafeInteger(offset)))) {
+          (offsetBruto !== undefined && (subcomando !== 'enviar' || args.opcoes['dry-run'] !== true ||
+            offset === undefined || !Number.isSafeInteger(offset))) ||
+          (subcomando === 'maturidade' && (!desde || !ate || args.opcoes['dry-run'] !== undefined)) ||
+          (subcomando !== 'maturidade' && (args.opcoes.desde !== undefined || args.opcoes.ate !== undefined))) {
         throw new Error(msg().telemetria.uso);
       }
       const carregado = exigirManifesto();
-      void comandoTelemetria({ raiz: carregado.raiz, subcomando: args.posicionais[1],
-        json: args.opcoes.json === true, dryRun: args.opcoes['dry-run'] === true, offset })
+      void comandoTelemetria({ raiz: carregado.raiz, subcomando,
+        json: args.opcoes.json === true, dryRun: args.opcoes['dry-run'] === true, offset, desde, ate })
         .then((resultado) => { if (resultado.codigo !== 0) process.exitCode = resultado.codigo; })
         .catch((e) => { console.error(msg().cli.erro(mensagemDoErro(e))); process.exitCode = 1; });
       return 0;
