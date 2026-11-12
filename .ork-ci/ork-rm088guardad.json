@@ -15,7 +15,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/publicacao-npm.test.js"
       ],
       "criadoEm": "2026-11-11T19:57:16.529Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -41,35 +41,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/publicacao-npm.test.js"
       ],
       "criadoEm": "2026-11-11T19:57:21.627Z",
-      "estado": "pendente",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C3",
-      "thread": "ork-rm088guardad",
-      "fase": "GOAL",
-      "arquivo": "docs/guias/contribuir/versoes-e-publicacao.md",
-      "alegacao": "O guia de publicação documenta a política D1, a exceção de primeira publicação e as falhas fechadas com os mesmos termos do script e do workflow.",
-      "negativa": false,
-      "verificar": [
-        "node core/dist/index.js docs verificar",
-        "grep -F \"previous\" docs/guias/contribuir/versoes-e-publicacao.md",
-        "grep -F \"pré-release\" docs/guias/contribuir/versoes-e-publicacao.md"
-      ],
-      "criadoEm": "2026-11-11T19:57:30.696Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -95,7 +67,7 @@
         "node -e \"const t=require('node:fs').readFileSync('CHANGELOG.md','utf8');const i=t.indexOf('## Não publicado');const j=t.indexOf('\\n## [',i);if(i<0||!t.slice(i,j<0?t.length:j).includes('RM-088'))process.exit(1)\""
       ],
       "criadoEm": "2026-11-11T19:57:36.422Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -121,7 +93,33 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/publicacao-npm.test.js"
       ],
       "criadoEm": "2026-11-11T20:23:50.590Z",
-      "estado": "pendente",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm088guardad",
+      "fase": "GO",
+      "arquivo": "docs/guias/contribuir/versoes-e-publicacao.md",
+      "alegacao": "Uma única prova semântica mantém o guia em paridade com o script e o workflow para previous, pré-release, primeira publicação somente com E404 estruturado e ping verde, falhas fechadas e os formatos npm 11 e npm 12.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/publicacao-npm.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:21:15.917Z",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
