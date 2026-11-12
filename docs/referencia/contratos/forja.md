@@ -115,12 +115,13 @@ As causas fechadas mapeiam, na mesma ordem, para `ci.recibo.projecao-acima-do-li
 `ci.recibo.prazo-excedido` e `ci.recibo.produto-alterado`, cada uma com mensagem e ação bilíngues e
 `policy.receipt: invalido`. Não há recibo verde parcial.
 
-**Fronteira de confiança:** o bundle e o `sha256` chegam no próprio PR/MR. A âncora exige claims não vazias e os comandos
-de `verify` do manifesto da branch de destino, protegido administrativamente por `CODEOWNERS` e pela regra obrigatória.
-Ela prova que o PR não esvaziou as claims nem trocou ou omitiu esses comandos, mas o runner não consulta o ledger e não
-prova completude ou autenticidade das claims, autoria do bundle, integridade do código/workflow nem autoria criptográfica.
-O nível básico somente reexecuta preparo, claims e comandos ancorados no HEAD; não usa ancestralidade nem diff posterior
-para aceitar outro HEAD. A garantia criptográfica contra forja é do recibo assinado da F7, fora desta fatia.
+**Fronteira de confiança:** o bundle e o `sha256` chegam no próprio PR/MR e podem ser forjados por quem controla essa
+mudança. A âncora exige claims não vazias e os comandos de `verify` do manifesto da branch de destino, protegido
+administrativamente por `CODEOWNERS` e pela regra obrigatória. Ela prova que a receita aceita não esvaziou as claims nem
+trocou ou omitiu esses comandos, mas o runner não consulta nem confere a projeção contra o ledger. O nível básico somente reexecuta
+preparo, claims e comandos ancorados no HEAD; não usa ancestralidade nem diff posterior para aceitar outro HEAD.
+Isso não prova completude ou autenticidade das claims, autoria do bundle, integridade do código/workflow nem autoria criptográfica.
+A garantia contra forja é do recibo assinado da F7, fora desta fatia.
 
 ## Preflight coletivo e credencial do CI
 

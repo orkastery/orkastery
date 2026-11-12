@@ -57,12 +57,13 @@ continua reprovando nos três níveis.
 
 ## Limite de confiança do nível básico
 
-O bundle e o `sha256` da projeção vêm do próprio PR/MR. O runner exige um conjunto não vazio de claims e ancora os
-comandos nos comandos de `verify` do manifesto da branch de destino, cuja proteção administrativa por `CODEOWNERS` e
-regra obrigatória está fora do controle isolado do PR. Isso prova que a receita não esvaziou as claims nem trocou ou
-omitiu os comandos protegidos. O runner não consulta o ledger e ainda não prova que as claims são completas ou autênticas,
-nem prova a autoria do bundle, do código ou do workflow. Ele reexecuta no HEAD o preparo, as claims e os comandos ancorados
-e emite o recibo do HEAD que acabou de executar.
+O bundle e o `sha256` da projeção vêm do próprio PR/MR e podem ser forjados por quem controla essa mudança. O runner exige
+um conjunto não vazio de claims e ancora os comandos nos comandos de `verify` do manifesto da branch de destino, cuja
+proteção administrativa por `CODEOWNERS` e regra obrigatória está fora do controle isolado do PR. Isso prova que a receita
+aceita não esvaziou as claims nem trocou ou omitiu os comandos protegidos. O runner não consulta nem confere a projeção
+contra o ledger do Orkastery e ainda não prova que as claims são completas ou autênticas, nem prova a autoria do bundle,
+do código ou do workflow. Ele reexecuta no HEAD o preparo, as claims e os comandos ancorados e emite o recibo do HEAD que
+acabou de executar.
 Não usa ancestralidade nem diff posterior para transformar um HEAD antigo em presente. Isso detecta divergência operacional, mas não prova a autoria
 do bundle nem do código.
 
