@@ -191,7 +191,7 @@ test('a âncora lê os comandos e o preparo somente do manifesto da ref de desti
   const receita = receitaConfiavelDoDestino('/checkout', 'main', (ref, arquivo) => {
     lidas.push({ ref, arquivo });
     return ref === 'refs/remotes/origin/main' && arquivo === 'orkastery.yaml'
-      ? 'verify:\n  preparo: npm --prefix core run build:test\n  build: npm --prefix core run build\n  test: npm --prefix core test\n' : null;
+      ? 'verify:\n  preparo: npm --prefix core run build:test\n  timeout_ms: 7000\n  timeout_ms_por_comando:\n    build: 3000\n  build: npm --prefix core run build\n  test: npm --prefix core test\n' : null;
   });
   assert.deepEqual(receita, {
     commands: [
@@ -199,9 +199,35 @@ test('a âncora lê os comandos e o preparo somente do manifesto da ref de desti
       { name: 'test', command: 'npm --prefix core test' },
     ],
     preparo: 'npm --prefix core run build:test',
+    timeout_ms: 7_000,
+    timeout_ms_por_comando: { build: 3_000 },
   });
   assert.deepEqual(lidas, [{ ref: 'refs/remotes/origin/main', arquivo: 'orkastery.yaml' }]);
   assert.equal(receitaConfiavelDoDestino('/checkout', '../main', () => { throw new Error('não lê'); }), null);
+});
+
+test('B1 integrado: prazo maior no PR não substitui o prazo da receita protegida', () => {
+  const f = fixtureDaPolitica();
+  try {
+    const doPr = carregado(f.raiz, 'exigir');
+    doPr.manifesto.verify.timeout_ms = 10_000;
+    const prazos: number[] = [];
+    const saida = executarCiDaBranchComContexto(doPr, f.branch, {
+      destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A,
+      lerManifestoDestino: (ref, arquivo) => ref === 'refs/remotes/origin/main' && arquivo === 'orkastery.yaml'
+        ? 'verify:\n  timeout_ms: 1000\n  build: npm --prefix core run build\n' : null,
+      replay: { casaEfemera: path.join(f.raiz, 'casa'), identidadeProduto: () => 'produto',
+        hermeticidade: () => null, executor: ({ nome, comando, prazoMs }) => {
+          prazos.push(prazoMs);
+          return { ...resultado(nome, comando, prazoMs >= 5_000), prazoMs,
+            causa: prazoMs >= 5_000 ? 'exit' : 'timeout' };
+        } },
+    }) as { ok: boolean; policy: { receipt: string }; error: { code: string } };
+    assert.equal(saida.ok, false);
+    assert.equal(saida.policy.receipt, 'invalido');
+    assert.equal(saida.error.code, 'ci.recibo.prazo-excedido');
+    assert.deepEqual(prazos, [1_000, 1_000]);
+  } finally { f.limpar(); }
 });
 
 test('o caminho integrado usa a leitura de produção da receita protegida', () => {

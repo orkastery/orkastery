@@ -109,6 +109,8 @@ export type ExecutorReplayCi = (entrada: { nome: string; comando: string; cwd: s
 export interface ReceitaConfiavelReplayCi {
   commands: ReadonlyArray<{ name: string; command: string }>;
   preparo?: string;
+  timeout_ms?: number;
+  timeout_ms_por_comando?: Manifesto['verify']['timeout_ms_por_comando'];
 }
 
 export interface OpcoesReplayCi {
@@ -369,8 +371,18 @@ export function reexecutarProjecaoReplayCi(valor: unknown, opcoes: OpcoesReplayC
     });
     const executorBruto: ExecutorReplayCi = opcoes.executor ?? ((entrada) => executar(entrada.nome, entrada.comando,
       entrada.cwd, entrada.prazoMs, undefined, entrada.ambiente));
+    // No PR/MR, todos os campos do manifesto que participam do julgamento vêm da receita protegida. Os demais campos
+    // de `opcoes.manifesto` não são consultados por este replay.
+    const manifestoDosPrazos = opcoes.receitaConfiavel === undefined ? opcoes.manifesto : {
+      ...opcoes.manifesto,
+      verify: {
+        ...opcoes.manifesto.verify,
+        timeout_ms: opcoes.receitaConfiavel?.timeout_ms,
+        timeout_ms_por_comando: opcoes.receitaConfiavel?.timeout_ms_por_comando,
+      },
+    };
     const executor: ExecutorVerify = (nome, comando, cwd) => executorBruto({ nome, comando, cwd,
-      prazoMs: prazoDoComando(opcoes.manifesto, nome === 'preparo' ? 'preparo' : nome), ambiente });
+      prazoMs: prazoDoComando(manifestoDosPrazos, nome === 'preparo' ? 'preparo' : nome), ambiente });
     const preparo = projecao.rodada.preparo
       ? executor('preparo', projecao.rodada.preparo.command, opcoes.raiz) : null;
     const identidade = (opcoes.identidadeProduto ?? (() => identidadeDoProduto(opcoes.raiz)))();

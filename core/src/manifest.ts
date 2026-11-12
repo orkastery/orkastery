@@ -1130,6 +1130,8 @@ export interface ComandosDoManifesto {
   test: string | undefined;
   securityScan: string | undefined;
   preparo: string | undefined;
+  timeoutMs: number | undefined;
+  timeoutMsPorComando: Manifesto['verify']['timeout_ms_por_comando'] | undefined;
   ciCommand: string | undefined;
 }
 
@@ -1144,10 +1146,14 @@ export function comandosDoTextoDoManifesto(bruto: string): ComandosDoManifesto |
   } catch {
     return null;
   }
-  const verify = mapa(dados.verify), ci = mapa(dados.ci);
+  const verify = mapa(dados.verify), ci = mapa(dados.ci), erros: string[] = [];
+  const prazos = prazosDoVerify(verify, erros);
+  if (erros.length > 0) return null;
   const opcional = (v: ValorYaml | undefined): string | undefined => (v === null || v === undefined ? undefined : texto(v, ''));
   return { typecheck: opcional(verify.typecheck), build: opcional(verify.build), test: opcional(verify.test),
-    securityScan: opcional(verify.security_scan), preparo: opcional(verify.preparo), ciCommand: opcional(ci.command) };
+    securityScan: opcional(verify.security_scan), preparo: opcional(verify.preparo),
+    timeoutMs: prazos.timeout_ms, timeoutMsPorComando: prazos.timeout_ms_por_comando,
+    ciCommand: opcional(ci.command) };
 }
 
 /** Carrega o manifesto ou encerra com mensagem acionavel (uso nos subcomandos). */

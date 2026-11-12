@@ -140,7 +140,9 @@ export function receitaConfiavelDoDestino(raiz: string, destino: string,
         { name: 'test', command: manifesto.test },
         { name: 'security_scan', command: manifesto.securityScan },
       ].filter((item): item is { name: string; command: string } => !!item.command?.trim());
-      return { commands, ...(manifesto.preparo?.trim() ? { preparo: manifesto.preparo } : {}) };
+      return { commands, ...(manifesto.preparo?.trim() ? { preparo: manifesto.preparo } : {}),
+        ...(manifesto.timeoutMs !== undefined ? { timeout_ms: manifesto.timeoutMs } : {}),
+        ...(manifesto.timeoutMsPorComando ? { timeout_ms_por_comando: manifesto.timeoutMsPorComando } : {}) };
     }
   }
   return null;
@@ -707,6 +709,10 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
       : {
         commands: comandosDoManifesto(carregado.manifesto).map(({ nome, comando }) => ({ name: nome, command: comando })),
         ...(carregado.manifesto.verify.preparo ? { preparo: carregado.manifesto.verify.preparo } : {}),
+        ...(carregado.manifesto.verify.timeout_ms !== undefined
+          ? { timeout_ms: carregado.manifesto.verify.timeout_ms } : {}),
+        ...(carregado.manifesto.verify.timeout_ms_por_comando
+          ? { timeout_ms_por_comando: carregado.manifesto.verify.timeout_ms_por_comando } : {}),
       };
   const replay = ehProjecao ? reexecutarProjecaoReplayCi(entrada, {
     raiz: carregado.raiz,
