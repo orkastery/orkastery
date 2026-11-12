@@ -75,6 +75,14 @@ Estes itens ainda não têm ordem de prioridade definida pelo dono.
 | [RM-089](RM-089-orkastery-network-coletiva-da-empresa.md) Orkastery Network coletiva da empresa, com uso obrigatório | Pedidos do dono no terminal, em 10/11/2026 | A empresa reúne as redes dos builders, coordena roadmaps e trabalho em andamento, evita duplicidade, ajuda na ordem dos merges e exige recibos no Git quando essa é a diretriz |
 | [RM-090](RM-090-telemetria-opentelemetry-para-sdlc-analytics.md) Telemetria compatível com OpenTelemetry e Grafana para SDLC Analytics | Pedidos do dono no terminal, em 10/11/2026 | Prompts e dados de condução viram logs OpenTelemetry, legíveis no Grafana, para analytics do builder e da empresa sem impor backend |
 
+## Pedidos do dono de 11/11/2026
+
+Estes itens seguem a prioridade definida pelo dono.
+
+| Item | Origem | Resultado pretendido |
+| --- | --- | --- |
+| [RM-091](RM-091-ork-mesh-no-site-para-empresas-e-times.md) Ork Mesh no site, para empresas e times | Pedido do dono no terminal, em 11/11/2026 | O site apresenta a Ork Mesh a empresas e times de builders, separa o que já está disponível do que está em desenvolvimento e orienta a adoção gradual |
+
 ## Itens
 
 Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
@@ -155,11 +163,12 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-083](RM-083-estado-do-roadmap-acompanha-a-entrega.md) | Estado do roadmap acompanha a entrega | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-07 |
 | [RM-084](RM-084-sessao-continua-com-muitos-objetos-soltos-do-git.md) | Sessão continua com muitos objetos soltos do Git | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-07 |
 | [RM-085](RM-085-verify-com-escopo-causal-mensagem-de-assercao-e-check-fast.md) | Verify com escopo causal, mensagem de asserção e CHECK independente no #Fast | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-08 |
-| [RM-086](RM-086-kimi-code-homologado.md) | Kimi Code homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-09 |
-| [RM-087](RM-087-opencode-homologado.md) | OpenCode homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-09 |
-| [RM-088](RM-088-versao-mais-antiga-nunca-vira-a-latest-do-npm.md) | Versão mais antiga nunca vira a latest do npm | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-10 |
-| [RM-089](RM-089-orkastery-network-coletiva-da-empresa.md) | Orkastery Network coletiva da empresa, com uso obrigatório | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-10 |
-| [RM-090](RM-090-telemetria-opentelemetry-para-sdlc-analytics.md) | Telemetria compatível com OpenTelemetry e Grafana para SDLC Analytics | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-10 |
+| [RM-086](RM-086-kimi-code-homologado.md) | Kimi Code homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-11 |
+| [RM-087](RM-087-opencode-homologado.md) | OpenCode homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-11 |
+| [RM-088](RM-088-versao-mais-antiga-nunca-vira-a-latest-do-npm.md) | Versão mais antiga nunca vira a latest do npm | Em desenvolvimento | Branch criada | Não iniciados | Não implantado | 2026-11-11 |
+| [RM-089](RM-089-orkastery-network-coletiva-da-empresa.md) | Orkastery Network coletiva da empresa, com uso obrigatório | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-11-11 |
+| [RM-090](RM-090-telemetria-opentelemetry-para-sdlc-analytics.md) | Telemetria compatível com OpenTelemetry e Grafana para SDLC Analytics | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-11-11 |
+| [RM-091](RM-091-ork-mesh-no-site-para-empresas-e-times.md) | Ork Mesh no site, para empresas e times | Em desenvolvimento | Não iniciado | Não iniciados | Não implantado | 2026-11-11 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->

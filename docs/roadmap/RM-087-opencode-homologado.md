@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-09T17:26:45-03:00
+atualizado_em: 2026-11-11T18:30:00-03:00
 estado:
   ciclo: Discovery
   documentacao: Rascunho
@@ -101,7 +101,7 @@ As colunas sobre o runtime citam as fontes da seção "Fontes". Os fatos sem mar
   - **Permissão não é sandbox:** o runtime tem regras detalhadas, mas isolamento do sistema no Linux não está confirmado. Mitigação: manter a proteção do host e provar o acesso real antes de habilitar GO.
 - **Não-objetivos:** homologar todos os provedores ou as duas linhas; prometer que a licença MIT autoriza o uso de um serviço hospedado; reutilizar conta sem estado compartilhado; escolher prioridade, meta, janela ou piloto pelo dono.
 
-### Decisões que esperam o dono
+### Decisões do dono
 
 **D1. Modo de autenticação do OpenCode no Orkastery.** O runtime aceita chave, OAuth, comando e ambiente (O4). Os termos do OpenCode vigentes desde 08/11/2026 limitam os serviços hospedados ao uso interno, vedam processos ativos quando a pessoa não está autenticada e dizem que o software aberto executado localmente segue a própria licença; os termos do provedor de modelo continuam aplicáveis (O16). Os termos da OpenAI e da Anthropic para uso de assinatura pelo OpenCode não foram verificados.
 
@@ -129,6 +129,12 @@ OpenCode Go, Copilot, Bedrock, Vertex, Azure e outros provedores permanecem fora
 | b | Homologar V1, pacote `opencode-ai` | Preserva compatibilidade com instalações existentes, mas usa API e pacotes anteriores e cria migração futura já conhecida |
 | c | Esperar a consolidação das linhas | Evita manter dois contratos ou migrar cedo; adia toda homologação real |
 
+**Decididas pelo dono em 11/11/2026, no terminal:**
+
+- **D1, alternativa a:** chave de API do provedor escolhido em D2, em conta dedicada ao OpenCode. Exige a exceção explícita e restrita para perfil pago, porque hoje `provider-pago` nunca recebe despacho.
+- **D2, alternativa a com a ressalva do dono:** o OpenCode **não** usa OpenAI. O provedor é o OpenRouter ou servidores de GPU locais com endpoint no padrão OpenAI, sempre por chave de API, em conta e perfil dedicados. A chave do OpenRouter fica no cofre de segredos e nunca entra em repositório, log ou ledger. A escolha entre OpenRouter e GPU local fica por perfil, e a RM-064 observa a cota de cada um.
+- **D3, alternativa a:** homologar a linha V2, pacote `@opencode/cli`, com faixa de versão fechada.
+
 Prioridade, meta, janela e piloto: **A definir pelo dono**.
 
 ## Estado com evidências
@@ -139,13 +145,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-11-09 | Julio |
-| Documentação | Rascunho | — | 2026-11-09 | Julio |
-| Código | Não iniciado | — | 2026-11-09 | Julio |
-| Testes | Não iniciados | — | 2026-11-09 | Julio |
-| Deploy | Não implantado | — | 2026-11-09 | Julio |
-| Exposição | Flag desligada | — | 2026-11-09 | Julio |
-| Habilitação | Pendente | — | 2026-11-09 | Julio |
+| Ciclo do item | Discovery | — | 2026-11-11 | Julio |
+| Documentação | Rascunho | — | 2026-11-11 | Julio |
+| Código | Não iniciado | — | 2026-11-11 | Julio |
+| Testes | Não iniciados | — | 2026-11-11 | Julio |
+| Deploy | Não implantado | — | 2026-11-11 | Julio |
+| Exposição | Flag desligada | — | 2026-11-11 | Julio |
+| Habilitação | Pendente | — | 2026-11-11 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -187,3 +193,4 @@ Pontos que a página não confirma: flag de diretório da V2; eventos finais de 
 | --- | --- | --- | --- |
 | 2026-11-09 | Item criado em Discovery, com cinco fatias propostas e D1 a D3 abertas | Pedido do dono de 09/11/2026; código atual e fontes O1 a O21 | Julio |
 | 2026-11-09 | F6 "host de condução" acrescentada, para depois do ensaio real, na mesma ordem que o Codex seguiu | Decisão do dono no terminal, em 09/11/2026 (alternativa a) | Julio |
+| 2026-11-11 | D1 a D3 decididas: chave de API; OpenRouter ou GPU local com endpoint no padrão OpenAI, sem OpenAI; linha V2 | Decisão do dono no terminal, em 11/11/2026 | Julio |
