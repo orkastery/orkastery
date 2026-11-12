@@ -94,10 +94,10 @@ function ehReserva(v: unknown): v is ReservaColetiva {
     && r.fingerprint === fingerprint(semFingerprint);
 }
 
-function projectKeyDaPublicacao(p: PublicacaoDaEmpresa, politica: PoliticaDaEmpresa): string {
+function projectKeyDaPublicacao(p: PublicacaoDaEmpresa, politica: PoliticaDaEmpresa): string | null {
   const espelhos = politica.contrato === 'ork.rede-empresa-politica/v2' ? politica.espelhos : [];
-  return 'projectKey' in p ? normalizarProjeto(p.projeto, { espelhos }).projectKey
-    : normalizarProjeto(p.projeto, { espelhos }).projectKey;
+  const normalizada = normalizarProjeto(p.projeto, { espelhos }).projectKey;
+  return 'projectKey' in p && p.projectKey !== normalizada ? null : normalizada;
 }
 
 function dePublicacoes(documentos: Array<{ caminho: string; conteudo: string }>, politica: PoliticaDaEmpresa,
@@ -154,7 +154,9 @@ export function coordenarTrabalho(porta: PortaDaBranchEmpresa, pedido: PedidoDeC
     if (atualLida.estado === 'invalido' || atualLida.estado === 'indisponivel') {
       falha = atualLida.estado === 'invalido' ? atualLida.codigo : 'rede-empresa.forja-indisponivel'; return null;
     }
-    const publicacoes = ponta.listar?.('publicacoes/') ?? [];
+    let publicacoes: Array<{ caminho: string; conteudo: string }> = [];
+    try { publicacoes = ponta.listar?.('publicacoes/') ?? []; }
+    catch { falha = 'rede-empresa.forja-indisponivel'; return null; }
     const atual = atualLida.estado === 'presente' ? atualLida.valor
       : dePublicacoes(publicacoes, politicaLida.valor, pedido.projectKey, pedido.itemId);
     existente = atual ?? undefined;

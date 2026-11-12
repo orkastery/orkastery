@@ -54,6 +54,16 @@ test('B1: adulterar o titular no JSON coletivo invalida a reserva em vez de tran
   if (!r.ok) assert.equal(r.codigo, 'rede-empresa.documento-remoto-invalido');
 });
 
+test('B5: falha ao enumerar a snapshot da forja nunca vira lista vazia', () => {
+  const b = new Branch();
+  const ler = b.ler.bind(b);
+  b.ler = () => ({ ...ler(), listar: () => { throw new Error('falha de leitura simulada'); } });
+  const r = coordenarTrabalho(b, pedido(41));
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.equal(r.codigo, 'rede-empresa.forja-indisponivel');
+  assert.equal([...b.arquivos.keys()].some((k) => k.startsWith('coordenacao/')), false);
+});
+
 test('B3: renovação, colaboração e acordo mudam versão e fingerprint da reserva inteira', () => {
   const b = new Branch();
   const primeira = coordenarTrabalho(b, pedido(41)); assert.ok(primeira.ok);
