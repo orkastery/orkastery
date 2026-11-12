@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import { pastaDoUsuario } from './maquina';
 import { ehMaestroRef, ehReferenciaDaForja, MaestroRef, ReferenciaDaForja, type NivelDaCoberturaEmpresa,
   type PoliticaDaEmpresa } from './rede-empresa-contrato';
+import type { EspelhoDeProjeto } from './rede-empresa-projeto';
 
 export const CONTRATO_CONFIG_REDE_EMPRESA = 'ork.rede-empresa-config/v1' as const;
 const ARQUIVO = 'rede-empresa.json';
@@ -34,6 +35,7 @@ export interface PoliticaCacheDaEmpresa {
   nivel: NivelDaCoberturaEmpresa;
   reciboVersao: string;
   conferidaEm: string;
+  espelhos?: EspelhoDeProjeto[];
 }
 
 export interface ExcecaoDeCobertura {
@@ -71,9 +73,12 @@ function ehAdesao(v: unknown): v is AdesaoRedeEmpresa {
     && (v.estado === 'pendente' || v.estado === 'ativa' || v.estado === 'revogada' || v.estado === 'encerrada')
     && (v.ultimaPublicacao === null || iso(v.ultimaPublicacao))
     && (pendencia === null || (obj(pendencia) && Object.keys(pendencia).length === 2 && id(pendencia.codigo) && iso(pendencia.em)))
-    && (cache === undefined || (obj(cache) && Object.keys(cache).length === 4 && id(cache.versao)
+    && (cache === undefined || (obj(cache) && Object.keys(cache).every((k) =>
+      ['versao', 'nivel', 'reciboVersao', 'conferidaEm', 'espelhos'].includes(k)) && id(cache.versao)
       && (cache.nivel === 'observar' || cache.nivel === 'avisar' || cache.nivel === 'exigir')
-      && id(cache.reciboVersao) && iso(cache.conferidaEm)));
+      && id(cache.reciboVersao) && iso(cache.conferidaEm)
+      && (cache.espelhos === undefined || (Array.isArray(cache.espelhos) && cache.espelhos.every((e) => obj(e)
+        && Object.keys(e).length === 2 && typeof e.projectKey === 'string' && typeof e.canonico === 'string')))));
 }
 
 const arquivo = (env: NodeJS.ProcessEnv): string => path.join(pastaDoUsuario(env), ARQUIVO);
@@ -116,7 +121,7 @@ export function cacheDaPoliticaEmpresa(politica: PoliticaDaEmpresa, conferidaEm:
   return { versao: politica.versao,
     nivel: politica.contrato === 'ork.rede-empresa-politica/v2' ? politica.nivel : 'avisar',
     reciboVersao: politica.contrato === 'ork.rede-empresa-politica/v2' ? politica.reciboVersao : politica.versao,
-    conferidaEm };
+    conferidaEm, ...(politica.contrato === 'ork.rede-empresa-politica/v2' ? { espelhos: politica.espelhos } : {}) };
 }
 
 function excecaoValida(excecao: ExcecaoDeCobertura | undefined, pedido: { projectKey: string; itemId: string; agora: string },

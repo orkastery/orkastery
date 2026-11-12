@@ -223,13 +223,17 @@ export function portaColetivaDoProjeto(raiz: string, manifesto: Manifesto, itemI
   }
   const inscricoes = lerConfigRedeEmpresa().inscricoes.filter((i) => i.estado === 'ativa');
   const adesao = inscricoes.find((i) => i.projetos.some((p) => {
-    try { return normalizarProjeto(p).projectKey === projectKey; } catch { return false; }
+    const espelhos = i.politicaCache?.espelhos ?? [];
+    try { return !!remoto && normalizarProjeto(p, { espelhos }).projectKey
+      === normalizarProjeto(remoto, { forja: manifesto.forja, espelhos }).projectKey; } catch { return false; }
   }));
   if (!adesao) {
     const cobertura = coberturaSemRede(projectKey, itemId);
     return { projectKey, configurada: false,
       porta: { reservar: () => ({ fingerprint: null, valor: { cobertura } }), soltar: () => true } };
   }
+  if (remoto) projectKey = normalizarProjeto(remoto, { forja: manifesto.forja,
+    espelhos: adesao.politicaCache?.espelhos ?? [] }).projectKey;
   const casaPartes = referenciaDaEmpresa(adesao.empresa.caminho);
   const casa: CasaDaRede = { forja: adesao.empresa.forja, host: adesao.empresa.host, ...casaPartes, origem: 'opcao' };
   const cache = dirDoCache(casa);
