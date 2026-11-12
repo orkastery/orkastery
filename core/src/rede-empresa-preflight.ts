@@ -4,6 +4,12 @@ import { CONTRATO_PUBLICACAO_EMPRESA_V3, ehPublicacaoDaEmpresa, MAX_CAMINHOS_PUB
 import { analisarConflitosColetivos, type ResultadoDeConflitos, type TrabalhoColetivo } from './rede-empresa-conflitos';
 import { lerHistoriaDaEmpresa, type PontaDaRedeEmpresa, type PortaDaBranchEmpresa,
   type RegistroDaHistoriaEmpresa } from './rede-empresa-transporte';
+import { portaGitDaRedeEmpresa } from './rede-empresa-transporte';
+import { lerConfigRedeEmpresa } from './rede-empresa-config';
+import { cachePronto, dirDoCache, type CasaDaRede } from './rede';
+import { remotoDoProjeto } from './projeto-alvo';
+import { normalizarProjeto } from './rede-empresa-projeto';
+import type { Manifesto } from './types';
 
 export interface FotografiaDoPreflightEmpresa {
   ponta: string | null;
@@ -82,4 +88,25 @@ export function preflightDaPontaEmpresa(ponta: PontaDaRedeEmpresa): ResultadoPre
 /** A única leitura da porta para um preflight. */
 export function preflightDaRedeEmpresa(porta: PortaDaBranchEmpresa): ResultadoPreflightEmpresa {
   return preflightDaPontaEmpresa(porta.ler());
+}
+
+/** Lê somente o cache da inscrição deste projeto. Sem inscrição, não acrescenta superfície à saída existente. */
+export function preflightDoProjeto(raiz: string, manifesto: Manifesto,
+  env: NodeJS.ProcessEnv = process.env): ResultadoPreflightEmpresa | null {
+  const remoto = remotoDoProjeto(raiz, 'origin');
+  if (!remoto) return null;
+  const adesao = lerConfigRedeEmpresa(env).inscricoes.find((i) => i.estado === 'ativa' && i.projetos.some((p) => {
+    try { return normalizarProjeto(p, { espelhos: i.politicaCache?.espelhos ?? [] }).projectKey
+      === normalizarProjeto(remoto, { forja: manifesto.forja, espelhos: i.politicaCache?.espelhos ?? [] }).projectKey; }
+    catch { return false; }
+  }));
+  if (!adesao) return null;
+  const partes = adesao.empresa.caminho.split('/');
+  const casa: CasaDaRede = { forja: adesao.empresa.forja, host: adesao.empresa.host,
+    dono: partes.slice(0, -1).join('/'), repositorio: partes.at(-1)!, origem: 'opcao' };
+  const cache = dirDoCache(casa);
+  const porta: PortaDaBranchEmpresa = cachePronto(cache) ? portaGitDaRedeEmpresa(cache) : {
+    ler: () => ({ id: null, atualizada: false, ler: () => null }), gravar: () => false,
+  };
+  return preflightDaRedeEmpresa(porta);
 }

@@ -253,6 +253,8 @@ import { ehNomeDeForja } from './rede-forja';
 import { jsonDaRede, lerRede, textoDaRede } from './rede-status';
 import { executarCliRedeEmpresa } from './rede-empresa-cli';
 import type { ResultadoDaCobertura } from './rede-empresa-config';
+import { preflightDoProjeto, type ResultadoPreflightEmpresa } from './rede-empresa-preflight';
+import { textoDoPreflightEmpresa } from './rede-empresa-status';
 import { textoDaCoberturaEmpresa } from './locale-network-empresa';
 import { executarReservaCoordenada, executarSagaDaThread, portaColetivaDoProjeto, portaLocalDoRoadmap, portaThreadOrfa,
   reconciliarOperacaoDaRedeEmpresa, type OpcoesDaCoordenacaoColetiva } from './rede-empresa-operacao';
@@ -448,6 +450,11 @@ function localeDaAjuda(projeto?: string): Locale {
   return resolverLocale(ownerLanguage).locale;
 }
 
+
+export function respostaDoStatusDaThread(thread: ReturnType<typeof lerThread>,
+  avisos: ReturnType<typeof avisosDeArtefatoRegistrados>, preflightEmpresa: ResultadoPreflightEmpresa | null): object {
+  return { ...thread, avisos, ...(preflightEmpresa ? { preflightEmpresa } : {}) };
+}
 
 function comandoThread(args: Args): number {
   if (args.posicionais[1] === 'close' || args.posicionais[1] === 'entrega') {
@@ -717,14 +724,16 @@ function comandoThread(args: Args): number {
     }
     const thread = lerThread(carregado.raiz, id);
     const avisos = avisosDeArtefatoRegistrados(lerLedger(dirThread(carregado.raiz, id)));
+    const preflightEmpresa = preflightDoProjeto(carregado.raiz, carregado.manifesto);
     if (args.opcoes.json === true) {
       // Idem: `ork thread status <id> --json` imprimia o TEXTO e saia 0.
-      console.log(JSON.stringify({ ...thread, avisos }, null, 2));
+      console.log(JSON.stringify(respostaDoStatusDaThread(thread, avisos, preflightEmpresa), null, 2));
       return 0;
     }
     console.log(`Thread ${thread.id}`);
     // I-36 (T17): a linha de conducao vem da leitura unica do nucleo.
-    console.log(resumoDaThread(thread, conducaoDaThread(carregado.raiz, thread.id), avisos));
+    console.log(resumoDaThread(thread, conducaoDaThread(carregado.raiz, thread.id), avisos,
+      preflightEmpresa ? textoDoPreflightEmpresa(preflightEmpresa, localeAtivo()) : undefined));
     console.log('');
     if (thread.sessoes.length === 0) {
       console.log(mt.nenhumaSessao);
