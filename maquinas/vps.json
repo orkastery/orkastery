@@ -4,29 +4,25 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.8",
-  "publicadoEm": "2026-11-12T07:00:06.431Z",
+  "publicadoEm": "2026-11-12T07:11:08.051Z",
   "threads": [
     {
       "id": "ork-rm088guardad",
       "nome": "rm088guarda",
       "modo": "#Auto",
-      "fase": "CHECK",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm088guardad-full",
-      "atualizadaEm": "2026-11-12T02:12:52.921Z",
-      "entregue": null,
+      "atualizadaEm": "2026-11-12T07:11:07.495Z",
+      "entregue": "1f31547",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
       "runtime": "codex",
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
-      "sessao": {
-        "viva": false,
-        "desdeEm": "2026-11-12T02:20:47.432Z",
-        "motivo": "sessão 01a1cd87 encerrada (completed)"
-      }
+      "sessao": null
     },
     {
       "id": "ork-rm089f3confl",
@@ -36,7 +32,7 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm089f3confl-full",
-      "atualizadaEm": "2026-11-12T06:59:28.971Z",
+      "atualizadaEm": "2026-11-12T07:08:33.442Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -80,7 +76,7 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm090f5sdlca-full",
-      "atualizadaEm": "2026-11-12T06:59:10.858Z",
+      "atualizadaEm": "2026-11-12T07:10:28.597Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
