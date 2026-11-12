@@ -28,13 +28,15 @@ export function renderizarTarget(definicao: DefinicaoDeIndicador, refId = 'A',
   nome = 'numerador', atributo: string = A.numerador): TargetGrafana {
   const eventName = CONTRATO_SDLC_ANALYTICS.eventos.resultado.replaceAll('.', '\\.');
   const indicador = label(A.indicadorId), serie = label(A.serieId), bucket = label(A.serieBucket);
-  const grupos = ['user_hash', 'service_namespace', indicador, serie, bucket];
+  const agrupamentos = definicao.agrupamentos.map(label);
+  const grupos = ['user_hash', 'service_namespace', ...agrupamentos, indicador, serie, bucket];
+  const gruposDaLegenda = ['user_hash', 'service_namespace', ...agrupamentos, serie, bucket];
   const expr = `sum by (${grupos.join(', ')}) (sum_over_time({service_name="orkastery"} | json`
     + ` | event_name="${eventName}" | ${indicador}="${definicao.id}"`
     + ' | user_hash=~"${user_hash:regex}" | service_namespace=~"${service_namespace:regex}"'
     + ` | unwrap ${label(atributo)} [$__interval]))`;
   return { refId, datasource: { type: 'loki', uid: '${DS_LOKI}' }, editorMode: 'code', expr,
-    legendFormat: `${definicao.id} · ${nome} · {{user_hash}} · {{service_namespace}} · {{${serie}}} · {{${bucket}}}`,
+    legendFormat: `${definicao.id} · ${nome} · ${gruposDaLegenda.map((grupo) => `{{${grupo}}}`).join(' · ')}`,
     queryType: 'range' };
 }
 
