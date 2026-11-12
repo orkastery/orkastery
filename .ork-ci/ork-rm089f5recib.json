@@ -5,110 +5,6 @@
   "base": "main",
   "claims": [
     {
-      "id": "C1",
-      "thread": "ork-rm089f5recib",
-      "fase": "GOAL",
-      "arquivo": "core/src/ci.ts",
-      "alegacao": "Em runners simulados de GitHub e GitLab, o CI reexecuta todas as claims ativas e a rodada integral de verify da thread no HEAD exato do PR, aceitando o recibo desse HEAD e recusando o de outro HEAD.",
-      "negativa": true,
-      "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-basico.test.js"
-      ],
-      "criadoEm": "2026-11-12T06:02:02.736Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C2",
-      "thread": "ork-rm089f5recib",
-      "fase": "GOAL",
-      "arquivo": "core/src/forja/ambiente-de-ci.ts",
-      "alegacao": "Os níveis observar, avisar e exigir aplicam a mesma medição a branches ork, branches externas e PRs de fork nas duas forjas; somente exigir reprova por recibo, e a ausência de política preserva a saída anterior.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-basico.test.js"
-      ],
-      "criadoEm": "2026-11-12T06:02:02.997Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C3",
-      "thread": "ork-rm089f5recib",
-      "fase": "GOAL",
-      "arquivo": "core/src/ci.ts",
-      "alegacao": "Claims retiradas depois da rodada invalidam a ligação da prova, e claims adiadas ou comandos dependentes de estado local nunca contam como reexecutados; timeout ou capacidade insuficiente do runner produz diagnóstico visível sem aprovação parcial.",
-      "negativa": true,
-      "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-basico.test.js"
-      ],
-      "criadoEm": "2026-11-12T06:02:03.148Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C4",
-      "thread": "ork-rm089f5recib",
-      "fase": "GOAL",
-      "arquivo": "docs/referencia/contratos/forja.md",
-      "alegacao": "O contrato público e os guias em pt-BR e inglês descrevem HEAD, thread, claims, rodada e o ponto reservado de assinatura, mantêm explícito que o recibo básico não prova autoria e oferecem ação para ausência, outro HEAD e falha da reexecução.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-basico.test.js"
-      ],
-      "criadoEm": "2026-11-12T06:02:03.292Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C5",
       "thread": "ork-rm089f5recib",
       "fase": "GO",
@@ -119,214 +15,6 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-basico.test.js"
       ],
       "criadoEm": "2026-11-12T13:48:34.375Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C6",
-      "thread": "ork-rm089f5recib",
-      "fase": "GO",
-      "arquivo": "core/test/rm089-f5-recibo-basico.test.ts",
-      "alegacao": "A suíte hermética da F5 prova projeção sem HEAD presente, recibo do HEAD executado, adulteração e outro HEAD.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-basico.test.js"
-      ],
-      "criadoEm": "2026-11-12T13:48:34.488Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C7",
-      "thread": "ork-rm089f5recib",
-      "fase": "GO",
-      "arquivo": "core/src/verify.ts",
-      "alegacao": "O verify local e o replay do runner compartilham a mesma função pura que classifica claims, baseline, comandos, preparo, timeout e alteração do produto.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-basico.test.js"
-      ],
-      "criadoEm": "2026-11-12T13:54:01.078Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C8",
-      "thread": "ork-rm089f5recib",
-      "fase": "GO",
-      "arquivo": "core/src/locale.ts",
-      "alegacao": "As seis causas fechadas do replay têm mensagem e ação correspondentes em pt-BR e inglês, preservando os códigos públicos do contrato.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-basico.test.js"
-      ],
-      "criadoEm": "2026-11-12T13:59:11.926Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C9",
-      "thread": "ork-rm089f5recib",
-      "fase": "GO",
-      "arquivo": "docs/guias/politica-de-recibo-da-empresa.pt-BR.md",
-      "alegacao": "O guia em pt-BR documenta a separação entre projeção e recibo, o replay allowlisted, as degradações e o limite de autoria.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-basico.test.js"
-      ],
-      "criadoEm": "2026-11-12T14:02:11.690Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C10",
-      "thread": "ork-rm089f5recib",
-      "fase": "GO",
-      "arquivo": "docs/guias/politica-de-recibo-da-empresa.md",
-      "alegacao": "O guia em inglês documenta o mesmo contrato de projeção, recibo, replay allowlisted, degradações e limite de autoria.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-basico.test.js"
-      ],
-      "criadoEm": "2026-11-12T14:02:11.761Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C11",
-      "thread": "ork-rm089f5recib",
-      "fase": "GO",
-      "arquivo": "docs/referencia/cli.md",
-      "alegacao": "A referência em pt-BR de ci prepare e ci run descreve a projeção, o replay allowlisted e o recibo do HEAD executado.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-basico.test.js"
-      ],
-      "criadoEm": "2026-11-12T14:03:40.836Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C12",
-      "thread": "ork-rm089f5recib",
-      "fase": "GO",
-      "arquivo": "docs/referencia/cli.en.md",
-      "alegacao": "A referência em inglês de ci prepare e ci run descreve a projeção, o replay allowlisted e o recibo do HEAD executado.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-basico.test.js"
-      ],
-      "criadoEm": "2026-11-12T14:03:40.925Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C13",
-      "thread": "ork-rm089f5recib",
-      "fase": "GO",
-      "arquivo": "CHANGELOG.md",
-      "alegacao": "A seção Não publicado registra a F5 da RM-089 com projeção, replay integral e recibo do HEAD executado nas duas forjas.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-basico.test.js"
-      ],
-      "criadoEm": "2026-11-12T14:03:40.984Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
@@ -457,6 +145,344 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/noctum-ensaio-piloto.test.js"
       ],
       "criadoEm": "2026-11-12T15:41:37.049Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm089f5recib",
+      "fase": "GO",
+      "arquivo": "core/src/ci.ts",
+      "alegacao": "Em PRs e MRs simulados de GitHub e GitLab, o runner exige uma claim, ancora os comandos no manifesto da ref de destino, executa a projeção e aceita somente o recibo ligado ao HEAD exato.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-basico.test.js"
+      ],
+      "criadoEm": "2026-11-12T18:49:02.717Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm089f5recib",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f5-recibo-basico.test.ts",
+      "alegacao": "A matriz hermética aplica os três níveis a branch ork, branch externa, PR ou MR interno e fork nas duas forjas, e mantém o caminho sem política compatível.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-basico.test.js"
+      ],
+      "criadoEm": "2026-11-12T18:49:02.798Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm089f5recib",
+      "fase": "GO",
+      "arquivo": "core/src/ci-recibo-basico.ts",
+      "alegacao": "As seis degradações ficam tipadas e sem recibo; uma falha real de claim ou comando continua vermelha nos três níveis mesmo quando há degradação.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-basico.test.js"
+      ],
+      "criadoEm": "2026-11-12T18:49:03.065Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm089f5recib",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f5-recibo-basico.test.ts",
+      "alegacao": "A suíte recusa projeção vazia e receita trocada mesmo com hashes recalculados, e recusa recibo emitido para outro HEAD.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-basico.test.js"
+      ],
+      "criadoEm": "2026-11-12T18:49:03.184Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm089f5recib",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/forja.md",
+      "alegacao": "O contrato da forja descreve projeção, recibo do runner, HEAD exato, receita ancorada e o limite criptográfico reservado à F7.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-publico.test.js"
+      ],
+      "criadoEm": "2026-11-12T18:49:03.313Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm089f5recib",
+      "fase": "GO",
+      "arquivo": "core/src/ci-recibo-basico.ts",
+      "alegacao": "O replay usa o julgamento compartilhado e conserva os motivos de falha de claim e regressão de comando no resultado vermelho.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-basico.test.js"
+      ],
+      "criadoEm": "2026-11-12T18:49:03.453Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm089f5recib",
+      "fase": "GO",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "As mensagens pt-BR e inglês de recibo inválido descrevem receita, recibo do runner e HEAD exato, sem ancestralidade; as seis degradações têm código e ação.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-basico.test.js"
+      ],
+      "criadoEm": "2026-11-12T18:49:03.562Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm089f5recib",
+      "fase": "GO",
+      "arquivo": "docs/guias/politica-de-recibo-da-empresa.pt-BR.md",
+      "alegacao": "O guia pt-BR documenta âncora no manifesto de destino, claims não vazias, allowlist, seis degradações e o que não é provado antes da F7.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-publico.test.js"
+      ],
+      "criadoEm": "2026-11-12T18:49:03.668Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm089f5recib",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "A referência em inglês descreve ci prepare com projeção e allowlist e ci run com recibo no executed HEAD.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-publico.test.js"
+      ],
+      "criadoEm": "2026-11-12T18:49:03.814Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm089f5recib",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "Não publicado registra projeção de replay, julgamento integral, ambiente allowlisted, branch externa e fork nas duas forjas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-publico.test.js"
+      ],
+      "criadoEm": "2026-11-12T18:49:03.950Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm089f5recib",
+      "fase": "GO",
+      "arquivo": "docs/guias/politica-de-recibo-da-empresa.md",
+      "alegacao": "O guia em inglês documenta a mesma âncora no target manifest, claims não vazias, allowlist, seis degradações e o limite anterior à F7.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-publico.test.js"
+      ],
+      "criadoEm": "2026-11-12T18:49:04.139Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm089f5recib",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f5-recibo-publico.test.ts",
+      "alegacao": "A suíte pública prova os limites declarados nos guias, no contrato, nas referências da CLI e no changelog sem depender do bundle.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-publico.test.js"
+      ],
+      "criadoEm": "2026-11-12T18:49:04.224Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm089f5recib",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referência pt-BR descreve ci prepare com projeção e allowlist e ci run com recibo no HEAD executado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-publico.test.js"
+      ],
+      "criadoEm": "2026-11-12T18:49:04.383Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
