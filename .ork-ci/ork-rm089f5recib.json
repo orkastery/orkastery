@@ -551,32 +551,6 @@
       ]
     },
     {
-      "id": "C34",
-      "thread": "ork-rm089f5recib",
-      "fase": "GO",
-      "arquivo": "core/test/rm089-f5-recibo-publico.test.ts",
-      "alegacao": "A suíte pública prova os campos do contrato, âncora de comandos e preparo, baseline sem autoridade no CI, HEAD exato, ações bilíngues e o limite anterior à F7.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-publico.test.js"
-      ],
-      "criadoEm": "2026-11-12T20:38:47.369Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C35",
       "thread": "ork-rm089f5recib",
       "fase": "GO",
@@ -639,6 +613,58 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-publico.test.js"
       ],
       "criadoEm": "2026-11-12T20:38:47.561Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm089f5recib",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f5-recibo-basico.test.ts",
+      "alegacao": "A suíte hermética prova que comandos, preparo, verify.timeout_ms e verify.timeout_ms_por_comando vêm do manifesto da branch de destino e que ampliar o prazo no PR não produz recibo presente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/rm089-f5-recibo-basico.test.js"
+      ],
+      "criadoEm": "2026-11-12T21:40:13.471Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm089f5recib",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f5-recibo-basico.test.ts",
+      "alegacao": "A suíte hermética exige código, mensagem e ação não vazias e com conteúdo exato em pt-BR e inglês para as seis degradações; apagar a ação de produto-alterado deixa a suíte vermelha.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/rm089-f5-recibo-basico.test.js"
+      ],
+      "criadoEm": "2026-11-12T21:41:32.339Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
