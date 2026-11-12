@@ -94,7 +94,8 @@ test('A2 projeta o resultado calculado de cada indicador e janela no schema OTLP
   const resultado = calcularMaturidade(fatos, janela);
   const registros = mapearResultadoDaMaturidade(resultado, contexto);
   const chavesEmitidas = new Set(registros.flatMap((registro) => registro.attributes.map((atributo) => atributo.key)));
-  assert.deepEqual(chavesEmitidas, new Set([C.atributos.uid, C.atributos.userHash,
+  assert.deepEqual(chavesEmitidas, new Set([C.atributos.uid, C.atributos.userHash, C.atributos.threadId,
+    'orkastery.phase.name',
     ...Object.values(C.atributosResultado)]));
   assert.equal(new Set(registros.map((registro) => textoOtlp(attrs(registro)[C.atributosResultado.indicadorId])))
     .size, resultado.indicadores.length);
@@ -117,7 +118,16 @@ test('A2 projeta o resultado calculado de cada indicador e janela no schema OTLP
       assert.equal(numeroOtlp(a[C.atributosResultado.coberturaConfirmados]), indicador.cobertura.confirmados);
       assert.equal(numeroOtlp(a[C.atributosResultado.coberturaTotal]), indicador.cobertura.total);
       assert.equal(numeroOtlp(a[C.atributosResultado.lacunas]),
-        Object.values(indicador.lacunas).reduce((total, quantidade) => total + quantidade, 0));
+        Object.values(indicador.id === 'agent.decisions_questions_reversals'
+          ? indicador.agrupamentos[0].lacunas : indicador.lacunas)
+          .reduce((total, quantidade) => total + quantidade, 0));
+      if (indicador.id === 'agent.decisions_questions_reversals') {
+        assert.deepEqual(a[C.atributos.threadId], { stringValue: 'ork-a' });
+        assert.deepEqual(a['orkastery.phase.name'], { stringValue: 'GO' });
+      } else {
+        assert.equal(a[C.atributos.threadId], undefined);
+        assert.equal(a['orkastery.phase.name'], undefined);
+      }
     }
   }
   const payload = montarExportLogsServiceRequest(registros, contexto);

@@ -267,20 +267,28 @@ interface SerieDoResultadoProjetada {
   denominador: number;
 }
 
-function projetarSeries(indicador: ResultadoDeIndicador): SerieDoResultadoProjetada[] {
-  const definicao = definicaoDoIndicador(indicador.id);
-  if (!definicao) throw new Error(`indicador sem definição: ${indicador.id}`);
+interface FonteDoResultadoProjetada {
+  populacao: number;
+  cobertura: ResultadoDeIndicador['cobertura'];
+  series: ResultadoDeIndicador['series'];
+  lacunas: ResultadoDeIndicador['lacunas'];
+  chaves: Record<string, string>;
+}
+
+function projetarSeries(indicadorId: string, fonte: FonteDoResultadoProjetada): SerieDoResultadoProjetada[] {
+  const definicao = definicaoDoIndicador(indicadorId);
+  if (!definicao) throw new Error(`indicador sem definição: ${indicadorId}`);
   const formula = definicao.formula;
   if (formula.operador === 'razao') {
-    const positivos = Number(indicador.series.find((serie) => serie.id === formula.positivo)?.valor ?? 0);
-    const negativos = Number(indicador.series.find((serie) => serie.id === formula.negativo)?.valor ?? 0);
+    const positivos = Number(fonte.series.find((serie) => serie.id === formula.positivo)?.valor ?? 0);
+    const negativos = Number(fonte.series.find((serie) => serie.id === formula.negativo)?.valor ?? 0);
     return [{ id: 'taxa', numerador: positivos, denominador: positivos + negativos }];
   }
-  return indicador.series.flatMap((serie) => {
+  return fonte.series.flatMap((serie) => {
     if (typeof serie.valor === 'number') {
-      return [{ id: serie.id, numerador: serie.valor, denominador: indicador.populacao }];
+      return [{ id: serie.id, numerador: serie.valor, denominador: fonte.populacao }];
     }
-    if (!serie.valor) return [{ id: serie.id, numerador: 0, denominador: indicador.populacao }];
+    if (!serie.valor) return [{ id: serie.id, numerador: 0, denominador: fonte.populacao }];
     const entradas = Object.entries(serie.valor), denominador = entradas.reduce((total, [, valor]) => total + valor, 0);
     return entradas.length ? entradas.map(([bucket, numerador]) => ({ id: serie.id, bucket, numerador, denominador }))
       : [{ id: serie.id, numerador: 0, denominador: 0 }];
@@ -297,13 +305,22 @@ export function mapearResultadoDaMaturidade(resultado: ResultadoDaMaturidade,
   return resultado.indicadores.flatMap((indicador) => {
     const definicao = definicaoDoIndicador(indicador.id);
     if (!definicao) throw new Error(`telemetria.maturidade: definição ausente para ${indicador.id}`);
-    const lacunas = Object.values(indicador.lacunas).reduce((total, quantidade) => total + quantidade, 0);
-    return projetarSeries(indicador).map((serie) => {
+    const fontes: FonteDoResultadoProjetada[] = definicao.agrupamentos.length && indicador.agrupamentos.length
+      ? indicador.agrupamentos.map((grupo) => ({ ...grupo, chaves: grupo.chaves }))
+      : [{ populacao: indicador.populacao, cobertura: indicador.cobertura, series: indicador.series,
+        lacunas: indicador.lacunas, chaves: {} }];
+    return fontes.flatMap((fonte) => projetarSeries(indicador.id, fonte).map((serie) => {
+      const lacunas = Object.values(fonte.lacunas).reduce((total, quantidade) => total + quantidade, 0);
+      const chaveDoGrupo = definicao.agrupamentos.map((agrupamento) =>
+        `${agrupamento}=${fonte.chaves[agrupamento] ?? ''}`).join(':') || 'total';
       const uid = [eventName, contexto.pseudonimo, resultado.janela.desde, resultado.janela.ate,
-        indicador.id, indicador.versao, serie.id, serie.bucket ?? 'total'].join(':');
+        indicador.id, indicador.versao, chaveDoGrupo, serie.id, serie.bucket ?? 'total'].join(':');
       const attributes: OtlpKeyValue[] = [];
       adicionar(attributes, attrString(CONTRATO_SDLC_ANALYTICS.atributos.uid, uid));
       adicionar(attributes, attrString(CONTRATO_SDLC_ANALYTICS.atributos.userHash, contexto.pseudonimo));
+      for (const agrupamento of definicao.agrupamentos) {
+        adicionar(attributes, attrString(agrupamento, fonte.chaves[agrupamento]));
+      }
       adicionar(attributes, attrString(A.indicadorId, indicador.id));
       adicionar(attributes, attrString(A.indicadorVersao, indicador.versao));
       adicionar(attributes, attrString(A.formulaId, indicador.id));
@@ -315,14 +332,14 @@ export function mapearResultadoDaMaturidade(resultado: ResultadoDaMaturidade,
       adicionar(attributes, attrString(A.janelaFim, resultado.janela.ate));
       adicionar(attributes, attrInt(A.numerador, serie.numerador));
       adicionar(attributes, attrInt(A.denominador, serie.denominador));
-      adicionar(attributes, attrInt(A.coberturaConfirmados, indicador.cobertura.confirmados));
-      adicionar(attributes, attrInt(A.coberturaTotal, indicador.cobertura.total));
-      adicionar(attributes, attrDouble(A.coberturaRazao, indicador.cobertura.razao));
+      adicionar(attributes, attrInt(A.coberturaConfirmados, fonte.cobertura.confirmados));
+      adicionar(attributes, attrInt(A.coberturaTotal, fonte.cobertura.total));
+      adicionar(attributes, attrDouble(A.coberturaRazao, fonte.cobertura.razao));
       adicionar(attributes, attrInt(A.lacunas, lacunas));
       return { timeUnixNano, observedTimeUnixNano: contexto.observadoEmNano().toString(),
         severityNumber: 9, severityText: 'INFO', eventName,
         body: { stringValue: `${indicador.id}/${indicador.versao}:${serie.id}` }, attributes };
-    });
+    }));
   });
 }
 

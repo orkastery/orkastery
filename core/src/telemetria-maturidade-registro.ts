@@ -112,7 +112,7 @@ export const REGISTRO_DE_INDICADORES_AGENTICOS = [
     id: 'agent.merge_receipt_coverage', versao: 'v1', tipo: 'razao',
     populacao: 'ship_done único por merge na janela',
     fontes: ['ship_done', 'verify_run'], deduplicacao: ['eventId', 'mergeSha'],
-    agrupamentos: ['user.hash', 'service.namespace'],
+    agrupamentos: [],
     lacunas: ['event_id_ausente', 'politica_historica_ausente', 'recibo_ausente', 'head_ausente',
       'merge_ausente', 'push_nao_provado'],
     cobertura: 'merges confirmados / merges na população',
@@ -122,7 +122,7 @@ export const REGISTRO_DE_INDICADORES_AGENTICOS = [
     id: 'agent.first_truth_sustained', versao: 'v1', tipo: 'razao',
     populacao: 'threads únicas com ship_done na janela',
     fontes: ['verify_run', 'go_fix_opened', 'check_reverify', 'ship_done'],
-    deduplicacao: ['eventId', 'orkastery.thread.id'], agrupamentos: ['user.hash', 'service.namespace'],
+    deduplicacao: ['eventId', 'orkastery.thread.id'], agrupamentos: [],
     lacunas: ['event_id_ausente', 'sequencia_incompleta', 'primeira_rodada_ausente', 'recibo_final_ausente'],
     cobertura: 'threads confirmadas / threads entregues',
     formula: { operador: 'razao', acumulador: 'first_truth', positivo: 'positivos', negativo: 'negativos' },
@@ -131,7 +131,7 @@ export const REGISTRO_DE_INDICADORES_AGENTICOS = [
     id: 'agent.check_rework', versao: 'v1', tipo: 'contagem_distinta',
     populacao: 'threads com CHECK terminal ou GO-FIX na janela',
     fontes: ['go_fix_opened', 'check_reverify'], deduplicacao: ['eventId', 'achado.id', 'thread+rodada'],
-    agrupamentos: ['user.hash', 'service.namespace', 'orkastery.thread.id'],
+    agrupamentos: [],
     lacunas: ['event_id_ausente', 'achado_estruturado_ausente', 'rodada_ausente'],
     cobertura: 'threads com vínculo estruturado / população',
     formula: { operador: 'contagem_distinta', acumulador: 'check_rework', series: [
@@ -142,7 +142,7 @@ export const REGISTRO_DE_INDICADORES_AGENTICOS = [
     id: 'agent.decisions_questions_reversals', versao: 'v1', tipo: 'contagem_distinta',
     populacao: 'eventos únicos de decisão ou pergunta na janela',
     fontes: ['autonomous_decision', 'hitl_requested'], deduplicacao: ['eventId', 'decisionId', 'requestId'],
-    agrupamentos: ['user.hash', 'service.namespace', 'orkastery.thread.id', 'orkastery.phase.name'],
+    agrupamentos: ['orkastery.thread.id', 'orkastery.phase.name'],
     lacunas: ['event_id_ausente', 'id_ausente', 'rastro_ausente', 'alvo_tipado_ausente'],
     cobertura: 'eventos com ID, alvo e rastro / população',
     formula: { operador: 'contagem_distinta', acumulador: 'decisions_questions_reversals', series: [
@@ -154,7 +154,7 @@ export const REGISTRO_DE_INDICADORES_AGENTICOS = [
     id: 'agent.policy_exceptions', versao: 'v1', tipo: 'contagem_distinta',
     populacao: 'exceções ou dispensas autorizadas na janela',
     fontes: ['ship_unscanned_authorized'], deduplicacao: ['eventId'],
-    agrupamentos: ['user.hash', 'service.namespace', 'orkastery.thread.id'],
+    agrupamentos: [],
     lacunas: ['event_id_ausente', 'autorizador_ausente', 'categorias_ausentes', 'sha_ausente'],
     cobertura: 'exceções reconhecidas / população conhecida',
     formula: { operador: 'contagem_distinta', acumulador: 'policy_exceptions',
@@ -163,7 +163,7 @@ export const REGISTRO_DE_INDICADORES_AGENTICOS = [
   definirIndicador({
     id: 'agent.mode_usage', versao: 'v1', tipo: 'distribuicao',
     populacao: 'thread_created e ship_done na janela', fontes: ['thread_created', 'ship_done'],
-    deduplicacao: ['eventId', 'orkastery.thread.id'], agrupamentos: ['service.namespace'],
+    deduplicacao: ['eventId', 'orkastery.thread.id'], agrupamentos: [],
     lacunas: ['event_id_ausente', 'modo_ausente', 'modo_invalido', 'thread_ausente'],
     cobertura: 'eventos com modo válido e vínculo / população de cada distribuição',
     formula: { operador: 'distribuicao', acumulador: 'mode_usage', series: [
