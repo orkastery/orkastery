@@ -145,14 +145,16 @@ Manual delivery uses a non-blocking lock, bounded batch and response, and at mos
 
 `ork telemetria maturidade --desde <ISO> --ate <ISO>` reads only ledgers accessible on the machine and calculates the half-open `[from, to)` window. It does not consult opt-in, endpoints, headers, or the network. `--json` uses `ork.telemetria-maturidade-cli/v1`.
 
-The `ork.sdlc-analytics/v1` registry is the executable representation for local-engine aggregations. The renderer reads sources and groupings from the same registry, but the dashboard projects only source facts preserved by the Collector; exact calculation, coverage, and the remaining gaps stay in the local reading. Every local result carries its population, coverage, and gaps. Retransmissions are deduplicated by ledger `eventId` and log `log.record.uid`; a missing UID is a gap. An incomplete historical event does not become a negative case.
+The `ork.sdlc-analytics/v1` registry drives predicates, population and confirmation units, gaps, groupings, and formulas in the local engine. Every calculated result carries its population, series, coverage, gaps, and materialized groupings. The OTLP projection emits formula ID and version, numerator, denominator, coverage, and gaps for each indicator and window; `user.hash` identifies the pseudonym and policy supplies `service.namespace`. The dashboard sums those fields by maestro and team without executing the formula again in LogQL. Retransmissions are deduplicated by ledger `eventId` and log `log.record.uid`; a missing UID is a gap. An incomplete historical event does not become a negative case.
+
+The recommended event name is `orkastery.sdlc.analytics.result.v1`; alternatives are `orkastery.sdlc.indicator.result.v1` and `orkastery.sdlc.analytics.snapshot.v1`. The contract marks the recommendation as `ratificacao_pendente`: code and templates use the proposal on this branch, while the merge gate stays open until owner ratification.
 
 | Indicator | Formula and population | Source | Main gaps |
 | --- | --- | --- | --- |
 | `agent.merge_receipt_coverage/v1` | Valid receipts over confirmed cases; distinct merges represented by `ship_done` | `ship_done`, `verify_run`, and `ork.recibo-prova/v1` | missing historical policy, receipt, HEAD, merge, or proven push |
 | `agent.first_truth_sustained/v1` | Sustained first-green rounds over confirmed cases; threads with `ship_done`. “First” follows ledger sequence | `verify_run`, `go_fix_opened`, `check_reverify`, `ship_done` | missing sequence, first complete round, final receipt, or link |
 | `agent.check_rework/v1` | Distinct finding IDs and distinct `(thread, round)` pairs; never a ratio | `go_fix_opened`, `check_reverify` | missing structured finding, round, or link |
-| `agent.decisions_questions_reversals/v1` | Separate decision, question, and reversal counts by thread and phase | `autonomous_decision`, `hitl_requested` | missing ID, typed target, trace, or reverted decision |
+| `agent.decisions_questions_reversals/v1` | Separate decision, question, and reversal counts; population and confirmation both use unique events, coverage is bounded by 1, and thread/phase groupings are materialized | `autonomous_decision`, `hitl_requested` | missing ID, typed target, trace, or reverted decision |
 | `agent.policy_exceptions/v1` | Explicit waivers with authorizer, categories, and SHA | `ship_unscanned_authorized` | missing authorizer, categories, SHA, or UID |
 | `agent.mode_usage/v1` | Separate distributions of created threads and merges by mode | `thread_created`, `ship_done` | missing valid mode or correlatable thread |
 
@@ -162,7 +164,7 @@ Only the first two indicators are ratios. The others are counts or distributions
 
 `user.hash` is the maestro's stable pseudonym. `service.namespace` is the team assigned by policy; the payload cannot create or overwrite either value. Without a team, policy assigns `service.namespace=team_source_missing` as an explicit gap without inferring membership. Collective enrollment is not an inference source, and neither `orkastery.maestro.id` nor `orkastery.team.id` exists.
 
-The local command shows ledgers accessible to the maestro. The enterprise dashboard filters source facts by pseudonym and groups them by `service.namespace`; it does not execute the local formulas. Authorization and nominal mapping belong to the company's private backend. Before exposing a receiver or dashboard, apply a private overlay with TLS, authentication, and access control. Public templates contain no company data, endpoint, or credential.
+The local command shows ledgers accessible to the maestro. The enterprise dashboard filters calculated results by pseudonym and sums numerators and denominators by `service.namespace`; it does not execute the local formulas. Authorization and nominal mapping belong to the company's private backend. Before exposing a receiver or dashboard, apply a private overlay with TLS, authentication, and access control. Public templates contain no company data, endpoint, or credential.
 
 ### DORA remains separate
 
@@ -178,4 +180,4 @@ The DORA measures are deployment frequency, change lead time, change fail rate, 
 
 Sources: OpenTelemetry attributes for [CI/CD](https://opentelemetry.io/docs/specs/semconv/registry/attributes/cicd/), [deployment](https://opentelemetry.io/docs/specs/semconv/registry/attributes/deployment/), [service](https://opentelemetry.io/docs/specs/semconv/registry/attributes/service/), [VCS](https://opentelemetry.io/docs/specs/semconv/registry/attributes/vcs/), [events](https://opentelemetry.io/docs/specs/semconv/general/events/), and the [DORA measures](https://dora.dev/guides/dora-metrics/).
 
-The hermetic suite confronts every field queried by the real dashboard JSON with the schema emitted by the mapper and preserved by the Collector. Operational equivalence of the expressions in Loki remains **unconfirmed** until evidence exists in a comparable environment; that does not permit filling a gap with zero.
+The hermetic suite calculates synthetic facts in the engine, projects the result through the mapper, confronts the schema preserved by the Collector, and compares every target in the real JSON with the renderer without permissive normalization. Operational equivalence of the expressions in Loki remains **unconfirmed** until evidence exists in a comparable environment; that does not permit filling a gap with zero.

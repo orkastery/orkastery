@@ -11,6 +11,8 @@ for (const arquivo of arquivos) test(`${arquivo} publica fórmulas, fontes, cobe
   const texto = fs.readFileSync(path.join(raiz, arquivo), 'utf8');
   for (const definicao of REGISTRO_DE_INDICADORES_AGENTICOS) {
     assert.equal(texto.includes(`${definicao.id}/v1`), true, definicao.id);
+    for (const fonte of definicao.fontes) assert.equal(texto.includes(`\`${fonte}\``), true,
+      `${definicao.id}: ${fonte}`);
   }
   assert.match(texto, /popula|population/i);
   assert.match(texto, /cobertura|coverage/i);
@@ -28,6 +30,10 @@ test('contratos DORA e identidade de política aparecem nos dois idiomas', () =>
     assert.match(texto, /service\.namespace/);
     assert.match(texto, /team_source_missing/);
     assert.match(texto, /TLS/);
+    const proposta = CONTRATO_SDLC_ANALYTICS.propostas.eventoResultado;
+    assert.equal(texto.includes(proposta.recomendado), true);
+    for (const alternativa of proposta.alternativas) assert.equal(texto.includes(alternativa), true);
+    assert.match(texto, /ratificacao_pendente/);
   }
 });
 
@@ -53,10 +59,12 @@ test('B7 changelog, guias e README descrevem somente a capacidade executável', 
     for (const nome of proibidos) assert.equal(texto.includes(nome), false, `${arquivo}: ${nome}`);
   }
   const canon = Object.values(textos).join('\n').toLowerCase();
-  assert.match(canon, /fatos de origem|source facts/);
-  assert.match(canon, /cálculo exato.*local|exact calculation.*local/s);
+  assert.match(canon, /resultado calculado|calculated result/);
+  assert.match(canon, /numerador|numerator/);
+  assert.match(canon, /denominador|denominator/);
+  assert.match(canon, /dashboard.*soma|dashboard.*sums/s);
   assert.match(canon, /entrada inválida.*não confirmad|invalid input.*unconfirmed/s);
   assert.match(canon, /equivalência operacional.*não confirmada|operational equivalence.*unconfirmed/s);
-  assert.equal(canon.includes('gera o dashboard'), false);
-  assert.equal(canon.includes('generates the dashboard'), false);
+  assert.equal(canon.includes('fatos de origem'), false);
+  assert.equal(canon.includes('source facts'), false);
 });
