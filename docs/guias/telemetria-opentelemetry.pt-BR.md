@@ -147,7 +147,7 @@ O envio manual usa lock não bloqueante, lote e resposta limitados e no máximo 
 
 O registro `ork.sdlc-analytics/v1` dirige no motor local os predicados, as unidades de população e confirmação, as lacunas, os agrupamentos e as fórmulas. Todo resultado calculado traz população, séries, cobertura, lacunas e agrupamentos materializados. A projeção OTLP emite, por indicador e janela, ID e versão da fórmula, numerador, denominador, cobertura e lacunas; `user.hash` identifica o pseudônimo e `service.namespace` vem da política. O dashboard soma esses campos por maestro e time sem reexecutar a fórmula em LogQL. Retransmissões são deduplicadas por `eventId` no ledger e por `log.record.uid` nos logs; UID ausente é lacuna. Evento histórico incompleto não vira negativo.
 
-O nome recomendado para esse evento é `orkastery.sdlc.analytics.result.v1`; as alternativas são `orkastery.sdlc.indicator.result.v1` e `orkastery.sdlc.analytics.snapshot.v1`. O contrato marca a recomendação como `ratificacao_pendente`: o código e os modelos usam a proposta nesta branch, mas o gate de merge continua aberto até a ratificação do dono.
+O evento de resultado usa o nome ratificado `orkastery.sdlc.analytics.result.v1`. Seus atributos pertencem ao contrato único `orkastery.sdlc.analytics.*` descrito acima.
 
 | Indicador | Fórmula e população | Fonte | Lacunas principais |
 | --- | --- | --- | --- |
@@ -174,7 +174,7 @@ As medidas DORA são frequência de deployment, lead time de mudança, taxa de f
 
 `orkastery.sdlc.incident.v1` usa `orkastery.incident.id`, `orkastery.incident.state` (`opened` ou `resolved`) e `orkastery.incident.deployment.id`. A abertura exige `error.type`; a resolução pode usar `orkastery.incident.recovery.deployment.id`. Incidente, deployment original e deployment de recuperação precisam de IDs e thread compatíveis. Entrada inválida, UID divergente ou vínculo ausente deixa a medida afetada `não confirmado`, sem estimativa.
 
-`orkastery.incident.id`, `orkastery.incident.state` e `orkastery.incident.recovery.deployment.id` continuam pendentes de ratificação do dono. Até essa ratificação, os modelos descrevem o contrato proposto, mas o gate de merge permanece aberto.
+Os nomes ratificados do contrato de incidente são `orkastery.incident.id`, `orkastery.incident.state` e `orkastery.incident.recovery.deployment.id`.
 
 `logs/dora` é separada de `logs/orkastery`, tem allowlist própria e fecha por padrão para versão, campo obrigatório, identidade de payload ou schema desconhecido. A política acrescenta `user.hash` e `service.namespace` somente depois da validação.
 

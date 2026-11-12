@@ -19,7 +19,7 @@ A pipeline dos logs Orkastery mantém esta ordem: `memory_limiter`, `filter/requ
 - um erro ao avaliar a condição, com `error_mode: propagate`, falha o payload;
 - a recusa de segredo ou dado privado acontece antes, na F2, e não produz evento para o Collector revalidar.
 
-O filtro exige o serviço, o scope e o UID. Ele exige thread nos eventos do ledger, mas não no resultado calculado de SDLC Analytics; exige fase nos eventos de fase e prompt; e descarta estados de prompt incoerentes. `transform/sanitize` conserva apenas o mapeamento publicado e os campos tipados do resultado calculado.
+O filtro exige o serviço, o scope e o UID. Ele exige thread nos eventos do ledger, mas não no resultado calculado de SDLC Analytics; exige fase nos eventos de fase e prompt; e descarta estados de prompt incoerentes. O resultado usa o evento ratificado `orkastery.sdlc.analytics.result.v1` e os atributos do contrato único `orkastery.sdlc.analytics.*`. `transform/sanitize` conserva apenas o mapeamento publicado e os campos tipados do resultado calculado.
 
 ### Pipeline DORA
 
@@ -27,7 +27,7 @@ O filtro exige o serviço, o scope e o UID. Ele exige thread nos eventos do ledg
 
 Depois da validação e da allowlist, `transform/dora-policy` atribui `user.hash` por `ORK_DORA_USER_HASH` e `service.namespace` por `ORK_DORA_SERVICE_NAMESPACE`. Se a política não informar time, ela atribui `service.namespace=team_source_missing` como lacuna explícita. O payload externo não escolhe pessoa nem time.
 
-Deploy só vira insumo analítico depois que o motor confirmar thread e revisão contra um `ship_done` com push provado. Incidente e deployment de recuperação usam os IDs do contrato; proximidade de horário não cria vínculo.
+Deploy só vira insumo analítico depois que o motor confirmar thread e revisão contra um `ship_done` com push provado. O contrato de incidente usa os nomes ratificados `orkastery.incident.id`, `orkastery.incident.state` e `orkastery.incident.recovery.deployment.id`; proximidade de horário não cria vínculo.
 
 A suíte do repositório extrai e aplica as condições OTTL dos dois modelos às variantes válidas e inválidas, inclusive campos desconhecidos em `opened` e `resolved`, e confronta o resultado com o validador local, sem rede nem processo externo. Como conferência operacional separada, rode o comando oficial do Collector sobre o arquivo escolhido:
 
