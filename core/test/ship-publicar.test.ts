@@ -23,6 +23,7 @@ import { dirThread, novaThread } from '../src/thread';
 import { Modo } from '../src/types';
 import { exec } from '../src/util';
 import { branchDaWorktree } from '../src/worktree';
+import type { ResultadoPreflightEmpresa } from '../src/rede-empresa-preflight';
 import { commitar, dirTemporario, envPtBr, projetoTemporario, ProjetoDeTeste, shaNoRemotoDeTeste } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
@@ -1056,5 +1057,28 @@ test('QS3: o gancho que deixa seguir e chamado antes do push e antes do PR, e a 
       antesDoEfeito: (efeito) => { chamados.push(`de novo ${efeito}`); return null; } });
     assert.equal(de.acao, 'ja-publicada');
     assert.deepEqual(chamados, ['push', 'pr']);
+  } finally { p.limpar(); }
+});
+
+test('preflight consultivo já está no resultado e no corpo antes do push e da abertura do PR', () => {
+  const p = projetoTemporario('publicar-preflight-ordem', true);
+  try {
+    const gh = ghFalso(p), e = prepararEntrega(p, 'preflight ordem', 'auto');
+    const preflight: ResultadoPreflightEmpresa = { estado: 'inconclusivo', consultivo: true, conflitos: [], ordemSugerida: [],
+      lacunas: ['historia.rasa'], performance: { estado: 'unavailable' }, cobertura: 'incompleta',
+      fotografia: { ponta: 'c1', publicacoes: 1, trabalhos: 1, caminhos: 1, commitsLidos: 0, fonte: 'rede-coletiva' } };
+    const vistos: Array<{ efeito: string; remota: string; prs: number }> = [];
+    const r = publicarEntrega(p.carregado, e.id, { executorGh: gh.executor, forja: FORJA, preflightEmpresa: preflight,
+      antesDoEfeito: (efeito, pr) => {
+        vistos.push({ efeito, remota: shaNoRemotoDeTeste(p.dir, 'origin', e.branch), prs: gh.criacoes() });
+        if (efeito === 'pr') assert.match(pr?.corpo ?? '', /Preflight coletivo inconclusivo/);
+        return null;
+      } });
+    assert.equal(r.acao, 'publicou', `${r.detalhe} ${r.correcao}`);
+    assert.equal(r.preflightEmpresa, preflight);
+    assert.deepEqual(vistos.map((x) => [x.efeito, x.prs]), [['push', 0], ['pr', 0]]);
+    assert.equal(vistos[0].remota, '');
+    assert.notEqual(vistos[1].remota, '');
+    assert.match(gh.corpos[0], /Preflight coletivo inconclusivo/);
   } finally { p.limpar(); }
 });
