@@ -105,6 +105,19 @@ confere o recibo contra o ledger. O nível básico somente reexecuta as claims e
 ancestralidade e o diff depois do HEAD declarado no recibo. A garantia contra forja é do recibo assinado da F7 da página
 da RM-089, fora desta fatia; `presente` aqui significa consistência operacional, não autoria criptograficamente provada.
 
+## Preflight coletivo e credencial do CI
+
+Com inscrição ativa na rede da empresa, as superfícies de entrega leem uma fotografia coletiva e executam a mesma
+análise pura de conflito e ordem sugerida. `ork ship publicar` e `ork ship pista` usam o cache somente leitura;
+`ork_thread_status` apresenta a fotografia antes de `ork_ship`, e o SHIP direto a imprime antes do merge. O
+resultado é consultivo nos três níveis da política e não altera `ok`, autorização, verify, CI, lease, merge ou push.
+
+No PR/MR, `ork ci run` só atualiza o cache da rede quando `ORK_REDE_EMPRESA_READ_TOKEN` existe e o evento não vem de
+fork. O segredo deve ter acesso somente de leitura; segue pelo ambiente `http.extraHeader` do Git, não por argv, e
+não entra em saída, bundle ou publicação. Ausência da credencial e PR de fork produzem o estado
+`nao-realizado`, com lacuna tipada, sem mudar o resultado do CI. Sem inscrição, as superfícies preservam o contrato
+anterior e a ausência continua visível apenas em `ork network empresa status`.
+
 ## A CI no GitLab
 
 `ork ci status` e o gate do `ork ship` leem a CI pela forja resolvida (o mesmo resolvedor do restante do contrato).
