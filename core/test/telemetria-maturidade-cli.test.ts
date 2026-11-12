@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { comandoMaturidade, CONTRATO_CLI_MATURIDADE } from '../src/telemetria-maturidade-cli';
 import { comandoTelemetria, contextoPadrao } from '../src/telemetria-cli';
+import { comLocale } from '../src/locale';
 import { projetoTemporario } from './apoio';
 
 const desde = '2026-11-01T00:00:00.000Z', ate = '2026-12-01T00:00:00.000Z';
@@ -40,6 +41,17 @@ test('saída humana declara janela, cobertura e lacuna DORA sem nota ou meta', (
   assert.match(texto, /cobertura/);
   assert.match(texto, /DORA: não confirmado/);
   assert.doesNotMatch(texto.toLowerCase(), /nota|ranking|meta/);
+});
+
+test('saída humana em inglês declara window, coverage e DORA unconfirmed', () => {
+  const linhas: string[] = [];
+  comLocale('en', () => comandoMaturidade({ raiz: '/projeto', desde, ate,
+    escrever: (linha) => linhas.push(linha), dependencias: { eventos: () => eventos } }));
+  const texto = linhas.join('\n');
+  assert.match(texto, /window \[/);
+  assert.match(texto, /coverage/);
+  assert.match(texto, /DORA: unconfirmed/);
+  assert.doesNotMatch(texto.toLowerCase(), /score|ranking|target/);
 });
 
 test('janela inválida ou implícita é recusada', () => {
