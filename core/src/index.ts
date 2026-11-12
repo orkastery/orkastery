@@ -654,7 +654,7 @@ function comandoThread(args: Args): number {
         criarThread: () => { const valor = criar(); return { threadId: valor.thread.id, valor }; } }));
       criada = saga.thread;
       reservaDoItem = saga.local;
-      coberturaColetiva = saga.cobertura;
+      coberturaColetiva = coletiva.coberturaParaSaida(saga.cobertura);
     } else criada = criar();
     const { thread, gravada } = criada;
     // I-51 (RM-047): com a fabrica compartilhada, as outras maquinas veem a thread nova.
@@ -3349,14 +3349,14 @@ function comandoRoadmap(args: Args): number {
     if (sub === 'soltar') return soltarItem(carregado.raiz, item, opcoes);
     const coletiva = portaColetivaDoProjeto(carregado.raiz, carregado.manifesto, item.trim().toUpperCase(),
       'GOAL', coordenacaoColetivaDosArgs(args.opcoes));
-    // Sem inscrição coletiva, a RM-047 continua sendo a única escrita, mas o fail-open coletivo fica visível.
+    // Sem inscrição coletiva, a RM-047 continua sendo a única escrita e a saída pública também permanece intacta.
     if (!coletiva.configurada) {
-      cobertura = coletiva.porta.reservar('op-cobertura-visivel').valor.cobertura;
+      cobertura = coletiva.coberturaParaSaida(coletiva.porta.reservar('op-cobertura-visivel').valor.cobertura);
       return pegarItem(carregado.raiz, item, opcoes);
     }
     const coordenada = executarReservaCoordenada({ raiz: carregado.raiz, projectKey: coletiva.projectKey,
       itemId: item.trim().toUpperCase(), coletiva: coletiva.porta, local: portaLocalDoRoadmap(carregado.raiz, item, opcoes) });
-    cobertura = coordenada.cobertura;
+    cobertura = coletiva.coberturaParaSaida(coordenada.cobertura);
     return coordenada.local;
   });
   if (args.opcoes.json === true) {

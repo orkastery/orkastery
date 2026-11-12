@@ -263,6 +263,20 @@ export interface OpcoesDaCoordenacaoColetiva {
   env?: NodeJS.ProcessEnv;
 }
 
+export interface PortaColetivaDoProjeto {
+  projectKey: string;
+  configurada: boolean;
+  porta: PortaColetivaDaSaga;
+  /** A cobertura só pertence à saída pública quando esta máquina participa da rede coletiva. */
+  coberturaParaSaida(cobertura: ResultadoDaCobertura): ResultadoDaCobertura | null;
+}
+
+function resultadoColetivoDoProjeto(projectKey: string, configurada: boolean,
+  porta: PortaColetivaDaSaga): PortaColetivaDoProjeto {
+  return { projectKey, configurada, porta,
+    coberturaParaSaida: (cobertura) => configurada ? cobertura : null };
+}
+
 function coberturaSemRede(projectKey: string, itemId: string, configurada: boolean,
   cache: Parameters<typeof avaliarCoberturaEmpresa>[0]['cache'] | undefined,
   opcoes: OpcoesDaCoordenacaoColetiva, portaAtestacao?: PortaDeAtestacao): ResultadoDaCobertura {
@@ -282,10 +296,9 @@ function referenciaDaEmpresa(caminho: string): { dono: string; repositorio: stri
   return { dono: partes.slice(0, -1).join('/'), repositorio: partes.at(-1)! };
 }
 
-/** Adaptador da saga para a inscrição ativa do projeto; sem inscrição, observar/avisar seguem visíveis e sem CAS coletivo. */
+/** Adaptador da saga para a inscrição ativa do projeto; sem inscrição, a saída pública permanece a da RM-047. */
 export function portaColetivaDoProjeto(raiz: string, manifesto: Manifesto, itemId: string,
-  fase: IdentidadeColetiva['fase'] = 'GOAL', opcoes: OpcoesDaCoordenacaoColetiva = {}):
-  { projectKey: string; configurada: boolean; porta: PortaColetivaDaSaga } {
+  fase: IdentidadeColetiva['fase'] = 'GOAL', opcoes: OpcoesDaCoordenacaoColetiva = {}): PortaColetivaDoProjeto {
   const remoto = remotoDoProjeto(raiz, 'origin');
   let projectKey = `github:local.invalid/${manifesto.project.abbrev.toLowerCase()}`;
   if (remoto) {
@@ -300,8 +313,8 @@ export function portaColetivaDoProjeto(raiz: string, manifesto: Manifesto, itemI
   if (!adesao) {
     if ((opcoes.acao ?? 'reserva') !== 'reserva') throw new ErroDaReservaColetiva('rede-empresa.inscricao-ausente');
     const cobertura = coberturaSemRede(projectKey, itemId, false, undefined, opcoes);
-    return { projectKey, configurada: false,
-      porta: { reservar: () => ({ fingerprint: null, valor: { cobertura } }), soltar: () => true } };
+    return resultadoColetivoDoProjeto(projectKey, false,
+      { reservar: () => ({ fingerprint: null, valor: { cobertura } }), soltar: () => true });
   }
   if (remoto) projectKey = normalizarProjeto(remoto, { forja: manifesto.forja,
     espelhos: adesao.politicaCache?.espelhos ?? [] }).projectKey;
@@ -312,18 +325,18 @@ export function portaColetivaDoProjeto(raiz: string, manifesto: Manifesto, itemI
   if (!cachePronto(cache)) {
     if ((opcoes.acao ?? 'reserva') !== 'reserva') throw new ErroDaReservaColetiva('rede-empresa.forja-indisponivel');
     const cobertura = coberturaSemRede(projectKey, itemId, true, adesao.politicaCache, opcoes, portaAtestacao);
-    return { projectKey, configurada: true, porta: {
+    return resultadoColetivoDoProjeto(projectKey, true, {
       reservar: () => {
         if (!cobertura.permite) throw new ErroDaReservaColetiva(cobertura.codigo);
         return { fingerprint: null, valor: { cobertura } };
       }, soltar: () => true,
-    } };
+    });
   }
   const branch = portaGitDaRedeEmpresa(cache);
   const identidade: IdentidadeColetiva = { inscricaoId: adesao.inscricaoId, accountId: adesao.maestroRef.accountId,
     loginAtual: adesao.loginAtual, fase };
   const caminho = `coordenacao/${segmentoDaProjectKey(projectKey)}/${itemId}.json`;
-  return { projectKey, configurada: true, porta: {
+  return resultadoColetivoDoProjeto(projectKey, true, {
     reservar(operationId) {
       const acao = opcoes.acao ?? 'reserva';
       const r = coordenarTrabalho(branch, { acao, operationId, projectKey, itemId, identidade,
@@ -357,7 +370,7 @@ export function portaColetivaDoProjeto(raiz: string, manifesto: Manifesto, itemI
       });
       return !divergiu && (t.acao === 'publicou' || t.acao === 'sem-mudanca');
     },
-  } };
+  });
 }
 
 export interface SolturaColetivaDaThread { itemId: string; operationId: string; acao: 'solta' | 'intocada'; }

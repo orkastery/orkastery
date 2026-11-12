@@ -37,7 +37,8 @@ test('ork_thread_new aceita roadmap, usa a saga e preserva o contrato sem roadma
     assert.equal(antiga.erro, false); assert.equal(antiga.dados.thread.roadmap, undefined); assert.equal(antiga.dados.coordenacao, undefined);
     const nova = await chamar(client, 'ork_thread_new', { nome: 'com item', modo: 'auto', roadmap: 'RM-089' });
     assert.equal(nova.erro, false);
-    assert.deepEqual([nova.dados.thread.roadmap, nova.dados.coordenacao.cobertura.permite], ['RM-089', true]);
+    assert.equal(nova.dados.thread.roadmap, 'RM-089');
+    assert.equal(nova.dados.coordenacao.cobertura, undefined, 'sem inscrição não há aviso coletivo no MCP');
     assert.match(nova.dados.coordenacao.operationId, /^op-/);
     const reserva = listarReservas(p.dir).reservas.find((r) => r.item === 'RM-089');
     assert.equal(reserva?.thread, nova.dados.thread.id);
@@ -75,6 +76,32 @@ test('B6: inscrição ativa sem cache fica configurada e não conferida no fail-
     const cobertura = coletiva.porta.reservar('op-cobertura1234567890').valor.cobertura;
     assert.deepEqual([coletiva.configurada, cobertura.estado, cobertura.codigo, cobertura.permite],
       [true, 'nao-conferida', 'rede-empresa.cobertura-aviso', true]);
+    assert.equal(coletiva.coberturaParaSaida(cobertura), cobertura, 'a inscrição torna o aviso público');
+  } finally { fs.rmSync(home, { recursive: true, force: true }); p.limpar(); }
+});
+
+test('B6: sem inscrição a cobertura não entra na saída; inscrita em exigir bloqueia', () => {
+  const p = projetoTemporario('rm089-cobertura-condicionada', true);
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'rm089-cobertura-condicionada-home-'));
+  const ref = (caminho: string) => ({ forja: 'github' as const, host: 'github.com', caminho });
+  try {
+    exec('git', ['remote', 'set-url', 'origin', 'https://github.com/time/projeto.git'], p.dir);
+    const semInscricao = portaColetivaDoProjeto(p.dir, p.carregado.manifesto, 'RM-089', 'GOAL',
+      { env: { ORKASTERY_HOME: home } });
+    const oculta = semInscricao.porta.reservar('op-sem-inscricao123456').valor.cobertura;
+    assert.deepEqual([semInscricao.configurada, oculta.estado, semInscricao.coberturaParaSaida(oculta)],
+      [false, 'nao-configurada', null]);
+
+    gravarAdesaoRedeEmpresa({ inscricaoId: 'inscricao-exigir', empresa: ref('time/rede'), rede: ref('pessoa/rede'),
+      maestroRef: { forja: 'github', host: 'github.com', accountId: 41 }, loginAtual: 'login', politicaVersao: 'v2',
+      projetos: [ref('time/projeto')], estado: 'ativa', ultimaPublicacao: null, pendencia: null,
+      politicaCache: { versao: 'v2', nivel: 'exigir', reciboVersao: 'recibo-v2',
+        conferidaEm: '2026-11-11T12:00:00.000Z' } }, { ORKASTERY_HOME: home });
+    const exigir = portaColetivaDoProjeto(p.dir, p.carregado.manifesto, 'RM-089', 'GOAL',
+      { env: { ORKASTERY_HOME: home }, agora: () => '2026-11-11T13:00:00.000Z' });
+    assert.equal(exigir.configurada, true);
+    assert.throws(() => exigir.porta.reservar('op-exigir1234567890'),
+      (e: unknown) => (e as { codigo?: string }).codigo === 'rede-empresa.cobertura-exigida');
   } finally { fs.rmSync(home, { recursive: true, force: true }); p.limpar(); }
 });
 

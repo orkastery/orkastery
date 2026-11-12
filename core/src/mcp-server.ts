@@ -525,14 +525,16 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
       const criar=()=>novaThread(c,{nome,modo:modo??c.manifesto.conduction.default_mode,criarWorktree:true,...(roadmap?{roadmap}:{})});
       const coordenada=roadmap?comLocale('pt-BR',()=>{
         const coletiva=portaColetivaDoProjeto(raiz,c.manifesto,roadmap,'GOAL',coordenacao??{});
-        return executarSagaDaThread({raiz,projectKey:coletiva.projectKey,itemId:roadmap,coletiva:coletiva.porta,
+        const saga=executarSagaDaThread({raiz,projectKey:coletiva.projectKey,itemId:roadmap,coletiva:coletiva.porta,
           thread:portaThreadOrfa(raiz),
           local:portaLocalDoRoadmap(raiz,roadmap),criarThread:()=>{const valor=criar();return{threadId:valor.thread.id,valor};}});
+        return {...saga,cobertura:coletiva.coberturaParaSaida(saga.cobertura)};
       }):null;
       const criada=coordenada?.thread??criar();
       // RM-052 (D7): thread nova, projeto conhecido pelo nome nesta maquina; o registro nunca derruba a criacao.
       if(criada.gravada) registrarProjetoEmSilencio(raiz,'mcp thread new');
-      return resposta({...criada,...(coordenada?{coordenacao:{operationId:coordenada.operationId,cobertura:coordenada.cobertura,
+      return resposta({...criada,...(coordenada?{coordenacao:{operationId:coordenada.operationId,
+        ...(coordenada.cobertura?{cobertura:coordenada.cobertura}:{}),
         reserva:coordenada.local}}:{})});
     });
   registrarTool('ork_phase_run',{description:'Despacha fase autorizada pelo nucleo, preservando policies, estado e runtime/modelo. dryRun nao inicia modelo, mas pode registrar prompt/eventos.',
