@@ -12,9 +12,10 @@ import { ContextoDoMapeamento } from './telemetria';
 import { prepararPrompt } from './telemetria-prompt';
 import { dirThread, listarIds } from './thread';
 import { VERSAO_DO_ORK } from './versao';
+import { comandoMaturidade } from './telemetria-maturidade-cli';
 
 export const CONTRATO_CLI_TELEMETRIA = 'ork.telemetria-cli/v1' as const;
-export type SubcomandoTelemetria = 'status' | 'ligar' | 'desligar' | 'enviar';
+export type SubcomandoTelemetria = 'status' | 'ligar' | 'desligar' | 'enviar' | 'maturidade';
 
 export interface FonteDaTelemetria {
   thread: string;
@@ -70,6 +71,8 @@ export function contextoPadrao(raiz: string, pseudonimo: string, env: NodeJS.Pro
     serviceVersion: VERSAO_DO_ORK,
     instrumentacaoVersion: VERSAO_DO_ORK,
     pseudonimo,
+    ...(typeof env.OTEL_SERVICE_NAMESPACE === 'string' && env.OTEL_SERVICE_NAMESPACE.trim()
+      ? { serviceNamespace: env.OTEL_SERVICE_NAMESPACE.trim() } : {}),
     redigir(entrada) {
       const semSegredo = redigirSegredos(entrada);
       const privado = redigirDadoPrivado(semSegredo.texto, lista);
@@ -107,6 +110,8 @@ export interface EntradaTelemetriaCli {
   json?: boolean;
   dryRun?: boolean;
   offset?: number;
+  desde?: string;
+  ate?: string;
   env?: NodeJS.ProcessEnv;
   escrever?: (texto: string) => void;
   dependencias?: Partial<DependenciasTelemetriaCli>;
@@ -130,10 +135,12 @@ function habilitada(ativacao: ResolucaoTelemetria): boolean {
 
 export async function comandoTelemetria(entrada: EntradaTelemetriaCli): Promise<ResultadoTelemetriaCli> {
   const sub = entrada.subcomando as SubcomandoTelemetria | undefined;
-  if (!sub || !['status', 'ligar', 'desligar', 'enviar'].includes(sub) ||
+  if (!sub || !['status', 'ligar', 'desligar', 'enviar', 'maturidade'].includes(sub) ||
       (entrada.dryRun === true && sub !== 'enviar') ||
       (entrada.offset !== undefined && (sub !== 'enviar' || entrada.dryRun !== true ||
         !Number.isSafeInteger(entrada.offset) || entrada.offset < 0))) throw new Error(msg().telemetria.uso);
+  if (sub === 'maturidade') return comandoMaturidade({ raiz: entrada.raiz, desde: entrada.desde,
+    ate: entrada.ate, json: entrada.json, escrever: entrada.escrever });
   const env = entrada.env ?? process.env;
   const d = { ...DEPENDENCIAS_PADRAO, ...entrada.dependencias } as DependenciasTelemetriaCli;
 
