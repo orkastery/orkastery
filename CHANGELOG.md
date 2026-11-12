@@ -11,6 +11,8 @@ o LogRecord do Orkastery não copia corpo nem nome de evento nativo.
 
 ### Adicionado
 
+- **SDLC Analytics por maestro e por time — F5 (RM-090):** registro executável único calcula seis indicadores agênticos no comando local e gera o dashboard; DORA usa pipeline externa separada, vínculos exatos e lacunas explícitas, sem nota, peso, ranking ou meta.
+
 - **Collector e Grafana de referência — F4 (RM-090):** modelos públicos recebem OTLP, descartam registros incoerentes, exportam para OTLP genérico ou Loki e provisionam painéis de condução, prompts e saúde.
 
 - **Logs OpenTelemetry do ledger — F1 (RM-090):** adesão privada, comandos manuais de status e envio, payload OTLP/HTTP JSON redigido e cursor incremental por thread, com guia em português e inglês.
