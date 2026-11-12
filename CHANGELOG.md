@@ -6,6 +6,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Adicionado
+
+- **Conflito coletivo antes do merge — F3 (RM-089):** publicação v2 e v3 na mesma transação, interseção fechada de globs e ordem determinística pela história de primeiro pai alimentam um preflight consultivo no status, na Pista, no SHIP, no MCP e no CI; história ou padrão inconclusivo vira lacuna, e ausência de credencial de leitura no CI não muda seu resultado.
+
 ## [0.6.9] - 2026-11-12
 
 A empresa reúne as redes dos builders numa rede coletiva, com reserva obrigatória e política de recibo no CI (RM-089, F1, F2 e F4). A condução vira logs compatíveis com OpenTelemetry para SDLC Analytics, com prompts sem segredo, correlação com as sessões nativas e modelos de Collector e Grafana (RM-090, F1 a F4). A publicação no npm escolhe uma dist-tag explícita e nunca move a `latest` para trás (RM-088).
@@ -25,8 +29,6 @@ O #Noctum segue **em desenvolvimento, não anunciado**.
 - **Correlação nativa de sessões — F3 (RM-090):** Claude Code e Codex recebem configuração efêmera sem conteúdo nativo e cada sessão bem-sucedida ganha um vínculo lógico pelo identificador oficial do runtime: `session.id` no Claude Code e `conversation.id` no Codex. O LogRecord do Orkastery não copia corpo nem nome de evento nativo.
 
 - **Reserva coletiva obrigatória — F2 (RM-089):** `thread new --roadmap`, `roadmap pegar` e `ork_thread_new` usam a mesma saga coletiva-local; uma segunda identidade só continua como colaboradora ou com acordo autenticado, e as coberturas observar, avisar e exigir tornam indisponibilidade e reparo explícitos.
-
-- **Conflito coletivo antes do merge — F3 (RM-089):** publicação v2 e v3 na mesma transação, interseção fechada de globs e ordem determinística pela história de primeiro pai alimentam um preflight consultivo no status, na Pista, no SHIP, no MCP e no CI; história ou padrão inconclusivo vira lacuna, e ausência de credencial de leitura no CI não muda seu resultado.
 
 ### Alterado
 
