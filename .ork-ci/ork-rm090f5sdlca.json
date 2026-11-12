@@ -117,34 +117,6 @@
       ]
     },
     {
-      "id": "C5",
-      "thread": "ork-rm090f5sdlca",
-      "fase": "GOAL",
-      "arquivo": "templates/telemetria/grafana/dashboards/orkastery-maturidade-maestro.json",
-      "alegacao": "Os modelos do Collector e do Grafana mostram os indicadores individuais e agregados por time, exibem lacunas e mantêm indicadores e DORA separados sem nota composta.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build",
-        "npm --prefix core run build:test",
-        "node --test core/dist-test/test/telemetria-maturidade-modelos.test.js"
-      ],
-      "criadoEm": "2026-11-11T19:31:18.786Z",
-      "estado": "reprovado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C6",
       "thread": "ork-rm090f5sdlca",
       "fase": "GOAL",
@@ -859,6 +831,32 @@
         "node --test core/dist-test/test/telemetria-maturidade-publicacao.test.js"
       ],
       "criadoEm": "2026-11-12T07:16:50.888Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm090f5sdlca",
+      "fase": "GO",
+      "arquivo": "templates/telemetria/grafana/dashboards/orkastery-maturidade-maestro.json",
+      "alegacao": "Os modelos do Collector e do Grafana mostram os indicadores individuais e agregados por time, exibem lacunas e mantêm indicadores e DORA separados sem nota composta.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/telemetria-maturidade-collector.test.js core/dist-test/test/telemetria-maturidade-dashboard.test.js"
+      ],
+      "criadoEm": "2026-11-12T08:16:46.040Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
