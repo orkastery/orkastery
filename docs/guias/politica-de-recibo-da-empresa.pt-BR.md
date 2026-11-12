@@ -30,7 +30,9 @@ satisfaz a prova desta etapa.
 No checkout do PR/MR, o runner valida a projeção, reexecuta preparo, claims e comandos canônicos pelo mesmo julgamento
 puro do verify e emite `ork.ci-recibo-runner/v1` no campo `recibo` do resultado `ork.ci-run/v1`. O recibo fica
 `presente` somente quando `resultado.recibo.head`, `resultado.commit` e o HEAD executado são iguais e a rodada integral
-fica verde. Recibo de outro HEAD é `sha-divergente`; contrato ou hash inválido é `invalido`.
+fica verde. A projeção precisa ter ao menos uma claim e seus comandos devem ser idênticos aos comandos de `verify` do
+manifesto lido da ref da branch de destino; ref ausente ou manifesto ilegível falha fechado. Recibo de outro HEAD é
+`sha-divergente`; contrato, hash ou receita inválida é `invalido`.
 
 O replay monta um ambiente novo por allowlist. Primitivas de execução, locale, fuso, marcador de CI e valores
 sintéticos da rodada entram; `GITHUB_TOKEN`, `CI_JOB_TOKEN`, chaves `*_TOKEN` e `*_SECRET`, credenciais de runtime ou
@@ -55,9 +57,12 @@ continua reprovando nos três níveis.
 
 ## Limite de confiança do nível básico
 
-O bundle e o `sha256` da projeção vêm do próprio PR/MR e podem ser forjados por quem controla essa mudança.
-O runner não consulta nem confere a projeção contra o ledger do Orkastery. Neste nível básico, ele reexecuta no HEAD
-o preparo, as claims e os comandos da projeção e emite o recibo do HEAD que acabou de executar.
+O bundle e o `sha256` da projeção vêm do próprio PR/MR. O runner exige um conjunto não vazio de claims e ancora os
+comandos nos comandos de `verify` do manifesto da branch de destino, cuja proteção administrativa por `CODEOWNERS` e
+regra obrigatória está fora do controle isolado do PR. Isso prova que a receita não esvaziou as claims nem trocou ou
+omitiu os comandos protegidos. O runner não consulta o ledger e ainda não prova que as claims são completas ou autênticas,
+nem prova a autoria do bundle, do código ou do workflow. Ele reexecuta no HEAD o preparo, as claims e os comandos ancorados
+e emite o recibo do HEAD que acabou de executar.
 Não usa ancestralidade nem diff posterior para transformar um HEAD antigo em presente. Isso detecta divergência operacional, mas não prova a autoria
 do bundle nem do código.
 

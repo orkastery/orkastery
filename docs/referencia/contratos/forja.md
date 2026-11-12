@@ -105,7 +105,8 @@ prova F5. O guia
 O runner valida a projeção, reexecuta preparo, claims e comandos pelo julgamento compartilhado com o verify e emite
 `ork.ci-recibo-runner/v1` no resultado `ork.ci-run/v1`. A saída leva `contrato`, `head`, `thread`, `claimsSha256`,
 `rodadaSha256`, `check`, `resultado`, `sha256` e reserva `assinatura` para a F7. `presente` exige
-`resultado.recibo.head === resultado.commit === HEAD` e rodada integral verde. Branch externa e fork não ganham
+`resultado.recibo.head === resultado.commit === HEAD`, ao menos uma claim, comandos idênticos aos comandos de `verify`
+do manifesto da branch de destino e rodada integral verde. A ref ou o manifesto de destino ilegível falha fechado. Branch externa e fork não ganham
 exceção; o ambiente do replay é allowlisted e não recebe token, segredo, credencial de runtime ou forja nem
 `ORK_HITL_*`.
 
@@ -114,10 +115,12 @@ As causas fechadas mapeiam, na mesma ordem, para `ci.recibo.projecao-acima-do-li
 `ci.recibo.prazo-excedido` e `ci.recibo.produto-alterado`, cada uma com mensagem e ação bilíngues e
 `policy.receipt: invalido`. Não há recibo verde parcial.
 
-**Fronteira de confiança:** o bundle e o `sha256` chegam no próprio PR/MR e podem ser forjados. O runner não consulta nem
-confere a projeção contra o ledger. O nível básico somente reexecuta preparo, claims e comandos no HEAD; não usa
-ancestralidade nem diff posterior para aceitar outro HEAD. A garantia contra forja é do recibo assinado da F7 da página
-da RM-089, fora desta fatia; `presente` aqui significa consistência operacional, não autoria criptograficamente provada.
+**Fronteira de confiança:** o bundle e o `sha256` chegam no próprio PR/MR. A âncora exige claims não vazias e os comandos
+de `verify` do manifesto da branch de destino, protegido administrativamente por `CODEOWNERS` e pela regra obrigatória.
+Ela prova que o PR não esvaziou as claims nem trocou ou omitiu esses comandos, mas o runner não consulta o ledger e não
+prova completude ou autenticidade das claims, autoria do bundle, integridade do código/workflow nem autoria criptográfica.
+O nível básico somente reexecuta preparo, claims e comandos ancorados no HEAD; não usa ancestralidade nem diff posterior
+para aceitar outro HEAD. A garantia criptográfica contra forja é do recibo assinado da F7, fora desta fatia.
 
 ## Preflight coletivo e credencial do CI
 

@@ -30,8 +30,9 @@ compatibility; it never satisfies this stage's proof.
 In the PR/MR checkout, the runner validates the projection, reruns preparation, claims, and canonical commands through
 the same pure judgment used by verify, and emits `ork.ci-recibo-runner/v1` in the `recibo` field of the
 `ork.ci-run/v1` result. A receipt is `presente` only when `resultado.recibo.head`, `resultado.commit`, and the executed
-HEAD are equal and the complete round is green. A receipt for another HEAD is `sha-divergente`; an invalid contract or
-hash is `invalido`.
+HEAD are equal and the complete round is green. The projection must contain at least one claim, and its commands must
+exactly match the `verify` commands from the manifest read at the target branch ref; a missing ref or unreadable
+manifest fails closed. A receipt for another HEAD is `sha-divergente`; an invalid contract, hash, or recipe is `invalido`.
 
 The replay builds a new allowlisted environment. Execution primitives, locale, time zone, the CI marker, and synthetic
 round values enter it; `GITHUB_TOKEN`, `CI_JOB_TOKEN`, `*_TOKEN` and `*_SECRET` keys, runtime or forge credentials, and
@@ -56,11 +57,13 @@ still fails under all three levels.
 
 ## Basic-level trust boundary
 
-The bundle and the receipt's `sha256` come from the PR/MR itself, so whoever controls that change can forge them. The
-runner does not query the Orkastery ledger or compare the receipt or the projection against it. At this basic level, it
-reruns preparation and the claims and commands on the HEAD, then emits a receipt for the HEAD it just executed. It does
-not use ancestry or a later diff to turn an older HEAD into a present receipt. This detects operational divergence, but
-it does not prove who authored the bundle or code.
+The bundle and projection `sha256` come from the PR/MR itself. The runner requires a non-empty claim set and anchors the
+commands to the target branch manifest's `verify` commands, whose administrative protection through `CODEOWNERS` and a
+required rule is outside the PR author's control alone. This proves the recipe neither emptied the claims nor replaced
+or omitted protected commands. The runner does not query the ledger and still does not prove claim completeness or
+authenticity, or authorship of the bundle, code, or workflow. At this basic level, it reruns preparation and the anchored
+claims and commands on the HEAD, then emits a receipt for the HEAD it just executed. It does not use ancestry or a later
+diff to turn an older HEAD into a present receipt. This detects operational divergence, but it does not prove who authored the bundle or code.
 
 Protection against forgery belongs to the signed receipt in F7 of the RM-089 page; it is not part of this slice. The
 `assinatura` field is reserved in the output receipt and remains absent at this stage. Until F7, forge administration
