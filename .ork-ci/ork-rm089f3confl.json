@@ -731,6 +731,344 @@
         "artefato-de-fechamento",
         "ref-local-do-ramo-base"
       ]
+    },
+    {
+      "id": "C82",
+      "thread": "ork-rm089f3confl",
+      "fase": "GO",
+      "arquivo": "core/test/rede-empresa-preflight-f3.test.ts",
+      "alegacao": "Quando v2 e v3 válidos coexistem para a mesma identidade sem história disponível, v3 prevalece independentemente do ordinal; o conflito conhecido por caminho e as lacunas históricas aparecem na mesma resposta.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/dist-test/test/rede-empresa-preflight-f3.test.js"
+      ],
+      "criadoEm": "2026-11-12T09:11:28.692Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C83",
+      "thread": "ork-rm089f3confl",
+      "fase": "GO",
+      "arquivo": "core/test/rede-empresa-status-f3.test.ts",
+      "alegacao": "Cada preflight usa uma fotografia remota, deriva a primeira aparição da história limitada, analisa em memória, mantém performance indisponível sem medição e mostra conflito, ausência conclusiva ou lacuna no status coletivo em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-preflight-f3.test.js core/dist-test/test/rede-empresa-status-f3.test.js"
+      ],
+      "criadoEm": "2026-11-12T09:11:28.755Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C84",
+      "thread": "ork-rm089f3confl",
+      "fase": "GO",
+      "arquivo": "docs/guias/rede-da-empresa.pt-BR.md",
+      "alegacao": "O guia pt-BR documenta v2/v3, globs, ordem histórica, tetos, lacunas, cinco superfícies, credencial de leitura e caráter consultivo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-documentacao-f3.test.js"
+      ],
+      "criadoEm": "2026-11-12T09:11:28.815Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C85",
+      "thread": "ork-rm089f3confl",
+      "fase": "GO",
+      "arquivo": "docs/guias/rede-da-empresa.md",
+      "alegacao": "The English guide documents v2/v3, globs, historical order, caps, gaps, five surfaces, read-only credentials, and advisory behavior.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-documentacao-f3.test.js"
+      ],
+      "criadoEm": "2026-11-12T09:11:28.874Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C86",
+      "thread": "ork-rm089f3confl",
+      "fase": "GO",
+      "arquivo": "docs/guias/pista-de-entrega.md",
+      "alegacao": "O guia da Pista explica a superfície, o aviso na Pista e no PR antes do push, a credencial opcional do CI e que o preflight não muda entrega nem CI.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-documentacao-f3.test.js"
+      ],
+      "criadoEm": "2026-11-12T09:11:28.933Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C87",
+      "thread": "ork-rm089f3confl",
+      "fase": "GO",
+      "arquivo": "docs/guias/politica-de-recibo-da-empresa.pt-BR.md",
+      "alegacao": "A política pt-BR declara que o preflight e a falta de credencial não alteram ok, a decisão da política nem o código de saída.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-documentacao-f3.test.js"
+      ],
+      "criadoEm": "2026-11-12T09:11:28.990Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C88",
+      "thread": "ork-rm089f3confl",
+      "fase": "GO",
+      "arquivo": "docs/guias/politica-de-recibo-da-empresa.md",
+      "alegacao": "The English receipt policy states that preflight and missing credentials do not change ok, the policy decision, or the exit code.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-documentacao-f3.test.js"
+      ],
+      "criadoEm": "2026-11-12T09:11:29.047Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C89",
+      "thread": "ork-rm089f3confl",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referência CLI pt-BR descreve v2/v3, preflight no status coletivo, Pista e SHIP, aviso no corpo do PR e credencial opcional do CI.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-documentacao-f3.test.js"
+      ],
+      "criadoEm": "2026-11-12T09:11:29.109Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C90",
+      "thread": "ork-rm089f3confl",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "The English CLI reference covers v2/v3, collective status, delivery-lane and SHIP preflight, PR-body warnings, and optional CI credentials.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-documentacao-f3.test.js"
+      ],
+      "criadoEm": "2026-11-12T09:11:29.173Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C91",
+      "thread": "ork-rm089f3confl",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/forja.md",
+      "alegacao": "O contrato da forja fixa transporte da credencial, tratamento de fork e natureza consultiva na publicação, Pista, status/MCP, SHIP direto e CI.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-documentacao-f3.test.js"
+      ],
+      "criadoEm": "2026-11-12T09:11:29.248Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C92",
+      "thread": "ork-rm089f3confl",
+      "fase": "GO",
+      "arquivo": "core/test/rede-empresa-documentacao-f3.test.ts",
+      "alegacao": "O teste documental lê os sete documentos públicos citados no CHECK e mantém uma asserção sensível para cada cláusula exigida de C53 a C61.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-documentacao-f3.test.js"
+      ],
+      "criadoEm": "2026-11-12T09:11:29.309Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C93",
+      "thread": "ork-rm089f3confl",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-conflitos.ts",
+      "alegacao": "A deduplicação do preflight registra a versão da publicação e escolhe v3 antes do ordinal histórico, usando o legado apenas para propriedades ausentes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/dist-test/test/rede-empresa-preflight-f3.test.js"
+      ],
+      "criadoEm": "2026-11-12T09:11:57.558Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C94",
+      "thread": "ork-rm089f3confl",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-preflight.ts",
+      "alegacao": "A deduplicação do preflight registra a versão da publicação e escolhe v3 antes do ordinal histórico, usando o legado apenas para propriedades ausentes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/dist-test/test/rede-empresa-preflight-f3.test.js"
+      ],
+      "criadoEm": "2026-11-12T09:11:57.623Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
     }
   ],
   "deferredClaims": [
