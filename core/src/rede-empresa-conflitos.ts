@@ -97,6 +97,7 @@ export interface TrabalhoColetivo {
   caminhos: CaminhoPublicado[];
   primeiraAparicao: { ordinal: number; commit: string } | null;
   instanteLocal: { valor: string; fonte: 'auto-relato-autenticado' };
+  versaoPublicacao?: 1 | 2 | 3;
 }
 export interface ConflitoColetivo {
   a: Pick<TrabalhoColetivo, 'inscricaoId' | 'builder' | 'threadRef'>;
@@ -117,6 +118,17 @@ export interface ResultadoDeConflitos {
 
 const identidade = (t: TrabalhoColetivo): string => `${t.inscricaoId}\0${t.accountId}\0${t.threadRef}`;
 const resumo = (t: TrabalhoColetivo) => ({ inscricaoId: t.inscricaoId, builder: t.builder, threadRef: t.threadRef });
+
+function mesclarDuplicata(anterior: TrabalhoColetivo, atual: TrabalhoColetivo): TrabalhoColetivo {
+  const versaoAnterior = anterior.versaoPublicacao ?? 3, versaoAtual = atual.versaoPublicacao ?? 3;
+  const ordinalAnterior = anterior.primeiraAparicao?.ordinal ?? Number.MAX_SAFE_INTEGER;
+  const ordinalAtual = atual.primeiraAparicao?.ordinal ?? Number.MAX_SAFE_INTEGER;
+  const atualTemPrecedencia = versaoAtual > versaoAnterior
+    || (versaoAtual === versaoAnterior && ordinalAtual < ordinalAnterior);
+  const principal = atualTemPrecedencia ? atual : anterior;
+  const complemento = atualTemPrecedencia ? anterior : atual;
+  return { ...complemento, ...principal };
+}
 
 /** Primeiro segmento literal: regiões distintas por essa chave não podem se intersectar. */
 function regiaoDoPadrao(padrao: string): string | null {
@@ -141,8 +153,7 @@ export function analisarConflitosColetivos(entrada: readonly TrabalhoColetivo[],
   const unicos = new Map<string, TrabalhoColetivo>();
   for (const trabalho of entrada) {
     const chave = identidade(trabalho), anterior = unicos.get(chave);
-    if (!anterior || ((trabalho.primeiraAparicao?.ordinal ?? Number.MAX_SAFE_INTEGER)
-      < (anterior.primeiraAparicao?.ordinal ?? Number.MAX_SAFE_INTEGER))) unicos.set(chave, trabalho);
+    unicos.set(chave, anterior ? mesclarDuplicata(anterior, trabalho) : trabalho);
   }
   const trabalhos = [...unicos.values()].sort((a, b) => identidade(a).localeCompare(identidade(b)));
   const conflitos: ConflitoColetivo[] = [], lacunas = [...lacunasIniciais];

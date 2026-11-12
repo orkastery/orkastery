@@ -94,7 +94,8 @@ export function preflightDaPontaEmpresa(ponta: PontaDaRedeEmpresa): ResultadoPre
     for (const trabalho of publicacao.trabalhos) trabalhos.push({ inscricaoId: publicacao.inscricaoId,
       accountId: publicacao.maestro.accountId, builder: publicacao.maestro.loginAtual, threadRef: trabalho.threadRef,
       projectKey, ...(trabalho.itemId ? { itemId: trabalho.itemId } : {}), caminhos: [], primeiraAparicao: null,
-      instanteLocal: { valor: publicacao.publicadoEm, fonte: 'auto-relato-autenticado' } });
+      instanteLocal: { valor: publicacao.publicadoEm, fonte: 'auto-relato-autenticado' },
+      versaoPublicacao: publicacao.contrato === CONTRATO_PUBLICACAO_EMPRESA_V2 ? 2 : 1 });
   }
   for (const documento of atuais) {
     const publicacao = publicacaoV3(documento.conteudo);
@@ -106,7 +107,7 @@ export function preflightDaPontaEmpresa(ponta: PontaDaRedeEmpresa): ResultadoPre
         builder: publicacao.maestro.loginAtual, threadRef: trabalho.threadRef, projectKey: publicacao.projectKey,
         ...(trabalho.itemId ? { itemId: trabalho.itemId } : {}), caminhos: trabalho.caminhos,
         primeiraAparicao: primeiras.get(identidade(publicacao.inscricaoId, publicacao.maestro.accountId, trabalho.threadRef)) ?? null,
-        instanteLocal: trabalho.instanteLocal });
+        instanteLocal: trabalho.instanteLocal, versaoPublicacao: 3 });
     }
   }
   if (caminhos > publicacoes * MAX_CAMINHOS_PUBLICACAO_EMPRESA) lacunas.push('caminhos.excedeu-teto');
