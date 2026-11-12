@@ -5,10 +5,10 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado | Sessão |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| vps | ork-rm088guardad | #Auto | CHECK | codex gpt-5.6-sol/xhigh | — | — | 12/11 03:07 | parada desde 11/11 23:20: sessão 01a1cd87 encerrada (completed) |
-| vps | ork-rm089f3confl | #Auto | GO | codex gpt-5.6-sol/xhigh | — | — | 12/11 03:07 | parada desde 02:17: sessão 01a1cddd encerrada (completed) |
-| vps | ork-rm089f5recib | #Auto | CHECK | codex gpt-5.6-sol/xhigh | — | — | 12/11 03:07 | viva |
-| vps | ork-rm090f5sdlca | #Auto | CHECK | codex gpt-5.6-sol/xhigh | — | — | 12/11 03:07 | parada desde 02:44: sessão 01a1ce44 encerrada (completed) |
-| vps | ork-rm092ratific | #Auto | GOAL | sem despacho | — | — | 12/11 03:07 | parada desde 02:48: nenhuma sessão despachada na fase GOAL |
+| vps | ork-rm088guardad | #Auto | CHECK | codex gpt-5.6-sol/xhigh | — | — | 12/11 03:10 | parada desde 11/11 23:20: sessão 01a1cd87 encerrada (completed) |
+| vps | ork-rm089f3confl | #Auto | GO | codex gpt-5.6-sol/xhigh | — | — | 12/11 03:10 | parada desde 02:17: sessão 01a1cddd encerrada (completed) |
+| vps | ork-rm089f5recib | #Auto | CHECK | codex gpt-5.6-sol/xhigh | — | — | 12/11 03:10 | viva |
+| vps | ork-rm090f5sdlca | #Auto | CHECK | codex gpt-5.6-sol/xhigh | — | — | 12/11 03:10 | parada desde 02:44: sessão 01a1ce44 encerrada (completed) |
+| vps | ork-rm092ratific | #Auto | GOAL | codex gpt-5.6-sol/xhigh | — | — | 12/11 03:10 | viva |
 
 Horários de Brasília.
