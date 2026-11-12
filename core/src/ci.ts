@@ -35,6 +35,7 @@ import { preflightCiDoProjeto, type ResultadoPreflightEmpresa } from './rede-emp
 import { CODIGO_DA_DEGRADACAO_REPLAY_CI, CONTRATO_PROJECAO_REPLAY_CI, criarProjecaoReplayCi,
   estadoDoReciboRunnerCi, motivoClaimNaoHermeticaReplayCi, reexecutarProjecaoReplayCi,
   type OpcoesReplayCi, type ProjecaoReplayCi, type ReceitaConfiavelReplayCi } from './ci-recibo-basico';
+import { resolverModo } from './check-modo';
 
 export type EstadoCi = 'disabled' | 'success' | 'pending' | 'failure' | 'missing' | 'unavailable';
 
@@ -120,7 +121,7 @@ export interface ContextoDaPoliticaCi {
 
 type LeitorDoManifestoNaRef = (ref: string, arquivo: string) => string | null;
 
-/** Comandos e preparo de verify da branch de destino, fora do conteúdo controlado pelo PR/MR. */
+/** Modo, comandos, preparo e prazos de verify da branch de destino, fora do conteúdo controlado pelo PR/MR. */
 export function receitaConfiavelDoDestino(raiz: string, destino: string,
   ler: LeitorDoManifestoNaRef = (ref, arquivo) => {
     const r = exec('git', ['show', '--no-ext-diff', '--end-of-options', `${ref}:./${arquivo}`], raiz);
@@ -142,7 +143,8 @@ export function receitaConfiavelDoDestino(raiz: string, destino: string,
       ].filter((item): item is { name: string; command: string } => !!item.command?.trim());
       return { commands, ...(manifesto.preparo?.trim() ? { preparo: manifesto.preparo } : {}),
         ...(manifesto.timeoutMs !== undefined ? { timeout_ms: manifesto.timeoutMs } : {}),
-        ...(manifesto.timeoutMsPorComando ? { timeout_ms_por_comando: manifesto.timeoutMsPorComando } : {}) };
+        ...(manifesto.timeoutMsPorComando ? { timeout_ms_por_comando: manifesto.timeoutMsPorComando } : {}),
+        check: manifesto.checkMode };
     }
   }
   return null;
@@ -713,6 +715,7 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
           ? { timeout_ms: carregado.manifesto.verify.timeout_ms } : {}),
         ...(carregado.manifesto.verify.timeout_ms_por_comando
           ? { timeout_ms_por_comando: carregado.manifesto.verify.timeout_ms_por_comando } : {}),
+        check: resolverModo(carregado.manifesto.check?.mode).modo,
       };
   const replay = ehProjecao ? reexecutarProjecaoReplayCi(entrada, {
     raiz: carregado.raiz,

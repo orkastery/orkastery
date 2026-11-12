@@ -35,16 +35,17 @@ const claim = (id = 'C1'): Claim => ({
 });
 
 function projecao(opcoes: { claims?: Claim[]; commands?: Array<{ name: string; command: string }>;
-  preparo?: string; baselineOk?: boolean } = {}) {
+  preparo?: string; baselineOk?: boolean; check?: 'agile' | 'classic' } = {}) {
   const commands = opcoes.commands ?? [{ name: 'build', command: 'npm --prefix core run build' }];
+  const check = opcoes.check ?? 'agile';
   return criarProjecaoReplayCi({
     thread: 'ork-rm089f5recib',
     claims: opcoes.claims ?? [claim()],
-    check: 'agile',
+    check,
     baseline: { commit: 'c'.repeat(40), comandos: commands.map((command) => ({
       nome: command.name, comando: command.command, ok: opcoes.baselineOk ?? true,
       code: opcoes.baselineOk === false ? 1 : 0, resumo: '', causa: 'exit', executado: true,
-    })), check: { modo: 'agile' } },
+    })), check: { modo: check } },
     commands,
     preparo: opcoes.preparo,
   });
@@ -138,6 +139,7 @@ test('R1: o replay recusa preparo ausente ou diferente da receita protegida', ()
   const receitaConfiavel = {
     commands: [{ name: 'build', command: 'npm --prefix core run build' }],
     preparo: 'npm --prefix core run build:test',
+    check: 'agile' as const,
   };
   for (const preparo of [undefined, 'node -e "process.exit(0)"']) {
     const entrada = projecao({ preparo });
@@ -157,7 +159,7 @@ test('R2: baseline projetada não transforma falha atual em dívida preexistente
   const replay = reexecutarProjecaoReplayCi(entrada, {
     raiz: '/checkout-sintetico', manifesto, head: HEAD_A, casaEfemera: '/tmp/ork-ci-replay-fixture',
     identidadeProduto: () => 'produto-estavel', hermeticidade: () => null,
-    receitaConfiavel: { commands: entrada.commands },
+    receitaConfiavel: { commands: entrada.commands, check: 'agile' },
     executor: ({ nome, comando }) => resultado(nome, comando, nome !== 'build'),
   });
   assert.equal(replay.ok, false);
@@ -191,7 +193,7 @@ test('a âncora lê os comandos e o preparo somente do manifesto da ref de desti
   const receita = receitaConfiavelDoDestino('/checkout', 'main', (ref, arquivo) => {
     lidas.push({ ref, arquivo });
     return ref === 'refs/remotes/origin/main' && arquivo === 'orkastery.yaml'
-      ? 'verify:\n  preparo: npm --prefix core run build:test\n  timeout_ms: 7000\n  timeout_ms_por_comando:\n    build: 3000\n  build: npm --prefix core run build\n  test: npm --prefix core test\n' : null;
+      ? 'check:\n  mode: classic\nverify:\n  preparo: npm --prefix core run build:test\n  timeout_ms: 7000\n  timeout_ms_por_comando:\n    build: 3000\n  build: npm --prefix core run build\n  test: npm --prefix core test\n' : null;
   });
   assert.deepEqual(receita, {
     commands: [
@@ -201,6 +203,7 @@ test('a âncora lê os comandos e o preparo somente do manifesto da ref de desti
     preparo: 'npm --prefix core run build:test',
     timeout_ms: 7_000,
     timeout_ms_por_comando: { build: 3_000 },
+    check: 'classic',
   });
   assert.deepEqual(lidas, [{ ref: 'refs/remotes/origin/main', arquivo: 'orkastery.yaml' }]);
   assert.equal(receitaConfiavelDoDestino('/checkout', '../main', () => { throw new Error('não lê'); }), null);
@@ -227,6 +230,57 @@ test('B1 integrado: prazo maior no PR não substitui o prazo da receita protegid
     assert.equal(saida.policy.receipt, 'invalido');
     assert.equal(saida.error.code, 'ci.recibo.prazo-excedido');
     assert.deepEqual(prazos, [1_000, 1_000]);
+  } finally { f.limpar(); }
+});
+
+test('N1 integrado: o modo da projeção não substitui o modo do manifesto de destino', () => {
+  for (const modoDaProjecao of ['agile', 'classic'] as const) {
+    const f = fixtureDaPolitica();
+    try {
+      const entrada = projecao({ check: modoDaProjecao });
+      fs.writeFileSync(path.join(f.raiz, '.ork-ci/ork-rm089f5recib.json'), JSON.stringify({
+        schema: 'ork.ci-bundle/v1', thread: 'ork-rm089f5recib', branch: f.branch, base: 'main',
+        claims: entrada.claims, commands: entrada.commands, recibo: entrada,
+      }));
+      const modos: Array<string | undefined> = [];
+      const saida = executarCiDaBranchComContexto(carregado(f.raiz, 'exigir'), f.branch, {
+        destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A,
+        lerManifestoDestino: (ref, arquivo) => ref === 'refs/remotes/origin/main' && arquivo === 'orkastery.yaml'
+          ? 'check:\n  mode: classic\nverify:\n  build: npm --prefix core run build\n' : null,
+        replay: { casaEfemera: path.join(f.raiz, 'casa'), identidadeProduto: () => 'produto',
+          hermeticidade: () => null, executor: ({ nome, comando, ambiente }) => {
+            modos.push(ambiente.ORK_CHECK_MODO);
+            return resultado(nome, comando, ambiente.ORK_CHECK_MODO === 'classic');
+          } },
+      }) as { ok: boolean; policy: { receipt: string }; recibo?: { check: string; resultado: { ok: boolean } } };
+      assert.equal(saida.ok, true, modoDaProjecao);
+      assert.equal(saida.policy.receipt, 'presente', modoDaProjecao);
+      assert.equal(saida.recibo?.check, 'classic', modoDaProjecao);
+      assert.equal(saida.recibo?.resultado.ok, true, modoDaProjecao);
+      assert.ok(modos.length > 0 && modos.every((modo) => modo === 'classic'), modoDaProjecao);
+    } finally { f.limpar(); }
+  }
+});
+
+test('N2 integrado: o prazo protegido por comando prevalece sobre o prazo global', () => {
+  const f = fixtureDaPolitica();
+  try {
+    const prazos: number[] = [];
+    const saida = executarCiDaBranchComContexto(carregado(f.raiz, 'exigir'), f.branch, {
+      destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A,
+      lerManifestoDestino: (ref, arquivo) => ref === 'refs/remotes/origin/main' && arquivo === 'orkastery.yaml'
+        ? 'verify:\n  timeout_ms: 10000\n  timeout_ms_por_comando:\n    build: 1000\n  build: npm --prefix core run build\n' : null,
+      replay: { casaEfemera: path.join(f.raiz, 'casa'), identidadeProduto: () => 'produto',
+        hermeticidade: () => null, executor: ({ nome, comando, prazoMs }) => {
+          prazos.push(prazoMs);
+          return { ...resultado(nome, comando, prazoMs >= 5_000), prazoMs,
+            causa: prazoMs >= 5_000 ? 'exit' : 'timeout' };
+        } },
+    }) as { ok: boolean; policy: { receipt: string }; error: { code: string } };
+    assert.equal(saida.ok, false);
+    assert.equal(saida.policy.receipt, 'invalido');
+    assert.equal(saida.error.code, 'ci.recibo.prazo-excedido');
+    assert.deepEqual(prazos, [10_000, 1_000]);
   } finally { f.limpar(); }
 });
 
@@ -266,7 +320,7 @@ test('R1 integrado: exigir recusa preparo ausente ou trocado pelo PR', () => {
       }));
       const saida = executarCiDaBranchComContexto(carregado(f.raiz, 'exigir'), f.branch, {
         destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A,
-        receitaConfiavel: { commands: entrada.commands, preparo: 'npm --prefix core run build:test' },
+        receitaConfiavel: { commands: entrada.commands, preparo: 'npm --prefix core run build:test', check: 'agile' },
         replay: { casaEfemera: path.join(f.raiz, 'casa'), identidadeProduto: () => 'produto',
           hermeticidade: () => null, executor: () => { throw new Error('preparo inválido não executa'); } },
       }) as { ok: boolean; policy: { receipt: string }; error: { code: string } };
@@ -288,7 +342,7 @@ test('R2 integrado: baseline do PR não mascara comando vermelho em nenhum níve
     for (const nivel of ['observar', 'avisar', 'exigir'] as const) {
       const saida = executarCiDaBranchComContexto(carregado(f.raiz, nivel), f.branch, {
         destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A,
-        receitaConfiavel: { commands: entrada.commands },
+        receitaConfiavel: { commands: entrada.commands, check: 'agile' },
         replay: { casaEfemera: path.join(f.raiz, 'casa'), identidadeProduto: () => 'produto',
           hermeticidade: () => null,
           executor: ({ nome, comando }) => resultado(nome, comando, nome !== 'build') },
@@ -312,7 +366,7 @@ test('exigir recusa de forma tipada projeção vazia ou com receita trocada pelo
       }));
       return executarCiDaBranchComContexto(carregado(f.raiz, 'exigir'), f.branch, {
         destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A,
-        receitaConfiavel: { commands: [{ name: 'build', command: 'npm --prefix core run build' }] },
+        receitaConfiavel: { commands: [{ name: 'build', command: 'npm --prefix core run build' }], check: 'agile' },
         replay: { casaEfemera: path.join(f.raiz, 'casa'), identidadeProduto: () => 'produto',
           hermeticidade: () => null, executor: () => { throw new Error('receita inválida não executa'); } },
       } as Parameters<typeof executarCiDaBranchComContexto>[2]) as {
@@ -327,7 +381,7 @@ test('exigir recusa de forma tipada projeção vazia ou com receita trocada pelo
     }));
     const resultadoVazio = executarCiDaBranchComContexto(carregado(f.raiz, 'exigir'), f.branch, {
       destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A,
-      receitaConfiavel: { commands: [{ name: 'build', command: 'npm --prefix core run build' }] },
+      receitaConfiavel: { commands: [{ name: 'build', command: 'npm --prefix core run build' }], check: 'agile' },
       replay: { casaEfemera: path.join(f.raiz, 'casa'), identidadeProduto: () => 'produto',
         hermeticidade: () => null, executor: () => { throw new Error('receita vazia não executa'); } },
     } as Parameters<typeof executarCiDaBranchComContexto>[2]) as {
@@ -362,7 +416,7 @@ test('GitHub e GitLab aplicam a mesma política a branch ork, externa, interna e
       for (const env of ambientes) for (const nivel of ['observar', 'avisar', 'exigir'] as const) {
         const saida = executarCiDaBranchComContexto(carregado(f.raiz, nivel), f.branch, {
           env, destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A,
-          receitaConfiavel: { commands: f.entrada.commands },
+          receitaConfiavel: { commands: f.entrada.commands, check: 'agile' },
           replay: { casaEfemera: path.join(f.raiz, 'casa'), identidadeProduto: () => 'produto',
             hermeticidade: () => null, executor: ({ nome, comando }) => resultadoComando(nome, comando) },
         }) as { ok: boolean; commit: string; recibo?: { head: string }; policy: { receipt: string } };
@@ -388,7 +442,7 @@ test('falha real de claim e comando reprova os três níveis mesmo junto de degr
       const identidades = ['antes', 'depois'];
       const saida = executarCiDaBranchComContexto(carregado(f.raiz, nivel), f.branch, {
         destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A,
-        receitaConfiavel: { commands: entrada.commands },
+        receitaConfiavel: { commands: entrada.commands, check: 'agile' },
         replay: { casaEfemera: path.join(f.raiz, 'casa'), identidadeProduto: () => identidades.shift()!,
           hermeticidade: () => null, executor: ({ nome, comando }) => resultado(nome, comando, false) },
       } as Parameters<typeof executarCiDaBranchComContexto>[2]) as unknown as {
@@ -413,7 +467,7 @@ test('recibo inválido descreve receita, recibo do runner e HEAD exato em pt-BR 
     }));
     const executar = () => executarCiDaBranchComContexto(carregado(f.raiz, 'exigir'), f.branch, {
       destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A,
-      receitaConfiavel: { commands: entrada.commands },
+      receitaConfiavel: { commands: entrada.commands, check: 'agile' },
     } as Parameters<typeof executarCiDaBranchComContexto>[2]) as { error: { message: string } };
     const pt = comLocale('pt-BR', executar).error.message;
     const en = comLocale('en', executar).error.message;
@@ -538,7 +592,7 @@ test('as cinco degradações de execução percorrem a política integrada nas d
       }));
       const executar = () => executarCiDaBranchComContexto(carregado(f.raiz, 'exigir'), f.branch, {
         destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A,
-        receitaConfiavel: { commands: caso.entrada.commands },
+        receitaConfiavel: { commands: caso.entrada.commands, check: 'agile' },
         replay: { casaEfemera: path.join(f.raiz, 'casa'), identidadeProduto: () => 'produto',
           hermeticidade: () => null,
           ...caso.replay() },
@@ -562,7 +616,7 @@ test('degradação não reprova observar ou avisar, exige no protegido e sai com
       const executar = () => executarCiDaBranchComContexto(carregado(f.raiz, nivel), f.branch, {
         destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A,
         env: { GITHUB_ACTIONS: 'true', GITHUB_REPOSITORY: 'empresa/projeto', GITHUB_BASE_REF: 'main' },
-        receitaConfiavel: { commands: f.entrada.commands },
+        receitaConfiavel: { commands: f.entrada.commands, check: 'agile' },
         replay: { casaEfemera: path.join(f.raiz, 'casa'), identidadeProduto: () => 'produto',
           hermeticidade: () => null, capacidade: () => false },
       }) as { ok: boolean; policy: { receipt: string; message: string; action: string };
@@ -603,7 +657,7 @@ test('avisar publica diagnóstico sem expor os segredos sintéticos do ambiente'
     ]) {
       const resultado = executarCiDaBranchComContexto(carregado(f.raiz, 'avisar'), f.branch, {
         destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A, env,
-        receitaConfiavel: { commands: entrada.commands },
+        receitaConfiavel: { commands: entrada.commands, check: 'agile' },
       } as Parameters<typeof executarCiDaBranchComContexto>[2]);
       const linhas: string[] = [];
       publicarAvisoDaPolitica(resultado, env, (linha) => linhas.push(linha));

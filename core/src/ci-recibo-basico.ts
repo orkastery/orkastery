@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { ModoDoCheck } from './check-modo';
+import { resolverModo, type ModoDoCheck } from './check-modo';
 import type { Manifesto } from './types';
 import type { Claim, CausaDoComando, DependenciaExternaDaClaim, ResultadoDeClaim, ResultadoDeComando } from './types';
 import { executar, identidadeDoProduto, julgarResultadoDoVerify, prazoDoComando, verificarClaim,
@@ -111,6 +111,7 @@ export interface ReceitaConfiavelReplayCi {
   preparo?: string;
   timeout_ms?: number;
   timeout_ms_por_comando?: Manifesto['verify']['timeout_ms_por_comando'];
+  check: ModoDoCheck;
 }
 
 export interface OpcoesReplayCi {
@@ -258,14 +259,14 @@ function corpoDoRecibo(recibo: Omit<ReciboRunnerCi, 'sha256' | 'assinatura'> | R
 }
 
 export function emitirReciboRunnerCi(projecao: ProjecaoReplayCi, head: string,
-  resultado: { ok: boolean; motivos: string[] }): ReciboRunnerCi {
+  resultado: { ok: boolean; motivos: string[] }, check = projecao.rodada.check): ReciboRunnerCi {
   const corpo = {
     contrato: CONTRATO_RECIBO_RUNNER_CI,
     head,
     thread: projecao.thread,
     claimsSha256: projecao.rodada.claimsSha256,
     rodadaSha256: sha256Ci(JSON.stringify(projecao.rodada)),
-    check: projecao.rodada.check,
+    check,
     resultado: { ok: resultado.ok, motivos: [...resultado.motivos] },
   };
   return { ...corpo, sha256: sha256Ci(JSON.stringify(corpo)) };
@@ -340,7 +341,8 @@ export function reexecutarProjecaoReplayCi(valor: unknown, opcoes: OpcoesReplayC
   const projecao = validacao.projecao;
   if (projecao.claims.length === 0 || opcoes.receitaConfiavel === null ||
       (opcoes.receitaConfiavel !== undefined &&
-        (JSON.stringify(projecao.commands) !== JSON.stringify(opcoes.receitaConfiavel.commands) ||
+        ((opcoes.receitaConfiavel.check !== 'agile' && opcoes.receitaConfiavel.check !== 'classic') ||
+          JSON.stringify(projecao.commands) !== JSON.stringify(opcoes.receitaConfiavel.commands) ||
           projecao.rodada.preparo?.command !== opcoes.receitaConfiavel.preparo))) {
     return { ok: true, thread: projecao.thread, commit: opcoes.head, preparo: null, claims: [], commands: [],
       julgamento: null, invalida: true };
@@ -363,11 +365,16 @@ export function reexecutarProjecaoReplayCi(valor: unknown, opcoes: OpcoesReplayC
       julgamento: null, degradacao: 'runner-sem-capacidade' };
   }
   try {
+    // rodada.check pertence à projeção não confiável e fica apenas no vínculo/hash do contrato v1.
+    // O modo funcional vem do manifesto protegido, ou do manifesto do próprio checkout fora de PR/MR.
+    const check = opcoes.receitaConfiavel === undefined
+      ? resolverModo(opcoes.manifesto.check?.mode).modo
+      : opcoes.receitaConfiavel.check;
     const ambiente = ambienteDoReplayCi(opcoes.ambiente, {
       HOME: casa,
       ORKASTERY_HOME: casa,
       TMPDIR: casa,
-      ORK_CHECK_MODO: projecao.rodada.check,
+      ORK_CHECK_MODO: check,
     });
     const executorBruto: ExecutorReplayCi = opcoes.executor ?? ((entrada) => executar(entrada.nome, entrada.comando,
       entrada.cwd, entrada.prazoMs, undefined, entrada.ambiente));
@@ -399,7 +406,7 @@ export function reexecutarProjecaoReplayCi(valor: unknown, opcoes: OpcoesReplayC
     const falhaReal = preparo?.ok === false || claims.some((claim) => !claim.verificado) || commands.some((command) => !command.ok);
     if (degradacao) return { ok: !falhaReal, thread: projecao.thread, commit: opcoes.head, preparo, claims, commands,
       julgamento, degradacao };
-    const recibo = emitirReciboRunnerCi(projecao, opcoes.head, { ok: julgamento.ok, motivos: julgamento.motivos });
+    const recibo = emitirReciboRunnerCi(projecao, opcoes.head, { ok: julgamento.ok, motivos: julgamento.motivos }, check);
     return { ok: julgamento.ok, thread: projecao.thread, commit: opcoes.head, preparo, claims, commands, julgamento, recibo };
   } finally {
     if (criada) fs.rmSync(casa, { recursive: true, force: true });

@@ -21,7 +21,7 @@ import { arquivoDaDsnValido, PREFIXO_DO_ARQUIVO_DA_DSN } from './dsn-da-memoria'
 import { ErroDoCatalogo } from './locale';
 import { TIPOS_DE_FORJA, TipoDeForja } from './forja/contrato';
 import { branchValida } from './branch-de-estado';
-import { lerModo, MODOS_DO_CHECK } from './check-modo';
+import { lerModo, MODOS_DO_CHECK, resolverModo, type ModoDoCheck } from './check-modo';
 
 export const NOME_MANIFESTO = 'orkastery.yaml';
 export const NOME_MANIFESTO_LEGADO = 'devmaster.yaml';
@@ -1132,6 +1132,7 @@ export interface ComandosDoManifesto {
   preparo: string | undefined;
   timeoutMs: number | undefined;
   timeoutMsPorComando: Manifesto['verify']['timeout_ms_por_comando'] | undefined;
+  checkMode: ModoDoCheck;
   ciCommand: string | undefined;
 }
 
@@ -1147,12 +1148,14 @@ export function comandosDoTextoDoManifesto(bruto: string): ComandosDoManifesto |
     return null;
   }
   const verify = mapa(dados.verify), ci = mapa(dados.ci), erros: string[] = [];
+  const check = lerCheck(dados.check, erros, []);
   const prazos = prazosDoVerify(verify, erros);
   if (erros.length > 0) return null;
   const opcional = (v: ValorYaml | undefined): string | undefined => (v === null || v === undefined ? undefined : texto(v, ''));
   return { typecheck: opcional(verify.typecheck), build: opcional(verify.build), test: opcional(verify.test),
     securityScan: opcional(verify.security_scan), preparo: opcional(verify.preparo),
     timeoutMs: prazos.timeout_ms, timeoutMsPorComando: prazos.timeout_ms_por_comando,
+    checkMode: resolverModo(check?.mode).modo,
     ciCommand: opcional(ci.command) };
 }
 
