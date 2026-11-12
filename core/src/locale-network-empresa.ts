@@ -1,6 +1,7 @@
 /** Mensagens acionáveis da rede coletiva; o código JSON não é traduzido. */
 import type { Locale } from './locale';
 import type { ResultadoDaCobertura } from './rede-empresa-config';
+import type { ResultadoPreflightEmpresa } from './rede-empresa-preflight';
 
 export interface TextoDaFalhaEmpresa { mensagem: string; acao: string }
 
@@ -91,4 +92,17 @@ export function textoDaCoberturaEmpresa(c: ResultadoDaCobertura, locale: Locale)
       : `AVISO: cobertura coletiva ${estado}; ${c.nivel} permite continuar.`)
     : (en ? `BLOCKED: collective coverage ${estado}; ${c.nivel} requires verification or an authenticated exception.`
       : `BLOQUEADO: cobertura coletiva ${estado}; ${c.nivel} exige conferência ou exceção autenticada.`);
+}
+
+export function textoDoPreflightEmpresa(r: ResultadoPreflightEmpresa, locale: Locale): string {
+  const en = locale === 'en';
+  if (r.estado === 'conflito') return en
+    ? `Collective preflight: ${r.conflitos.length} conflict(s). Suggested order is advisory; delivery continues.`
+    : `Preflight coletivo: ${r.conflitos.length} conflito(s). A ordem sugerida é consultiva; a entrega continua.`;
+  if (r.estado === 'sem-conflito') return en
+    ? 'Collective preflight: no conflict in the complete snapshot; delivery continues.'
+    : 'Preflight coletivo: nenhum conflito na fotografia completa; a entrega continua.';
+  return en
+    ? `Collective preflight inconclusive (${r.lacunas.join(', ')}). Action: review the gaps; delivery continues.`
+    : `Preflight coletivo inconclusivo (${r.lacunas.join(', ')}). Ação: revise as lacunas; a entrega continua.`;
 }
