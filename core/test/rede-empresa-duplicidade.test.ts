@@ -42,6 +42,31 @@ test('CAS mantém um único titular e informa inscrição, login, projeto e fase
   assert.equal(b.listas, 2, 'uma enumeração em lote por tentativa');
 });
 
+test('B1: adulterar o titular no JSON coletivo invalida a reserva em vez de transferi-la', () => {
+  const b = new Branch();
+  const criada = coordenarTrabalho(b, pedido(41)); assert.ok(criada.ok);
+  const caminho = [...b.arquivos.keys()].find((k) => k.startsWith('coordenacao/'))!;
+  const adulterada = JSON.parse(b.arquivos.get(caminho)!) as Record<string, unknown>;
+  adulterada.titular = { inscricaoId: 'inscricao-42', accountId: 42, loginAtual: 'login-42', fase: 'GO' };
+  b.arquivos.set(caminho, JSON.stringify(adulterada));
+  const r = coordenarTrabalho(b, pedido(42));
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.equal(r.codigo, 'rede-empresa.documento-remoto-invalido');
+});
+
+test('B3: renovação, colaboração e acordo mudam versão e fingerprint da reserva inteira', () => {
+  const b = new Branch();
+  const primeira = coordenarTrabalho(b, pedido(41)); assert.ok(primeira.ok);
+  const renovada = coordenarTrabalho(b, pedido(41)); assert.ok(renovada.ok);
+  const colaborada = coordenarTrabalho(b, pedido(42, 'colaborador')); assert.ok(colaborada.ok);
+  const acordada = coordenarTrabalho(b, { ...pedido(42, 'acordo'), atestacao: acordo(colaborada.reserva) });
+  assert.ok(acordada.ok);
+  assert.deepEqual([primeira.reserva.versao, renovada.reserva.versao, colaborada.reserva.versao, acordada.reserva.versao],
+    [1, 2, 3, 4]);
+  assert.equal(new Set([primeira.reserva.fingerprint, renovada.reserva.fingerprint, colaborada.reserva.fingerprint,
+    acordada.reserva.fingerprint]).size, 4);
+});
+
 test('colaboração preserva o titular principal', () => {
   const b = new Branch(); coordenarTrabalho(b, pedido(41));
   const r = coordenarTrabalho(b, pedido(42, 'colaborador'));
