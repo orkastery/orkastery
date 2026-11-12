@@ -2,7 +2,9 @@ import { strict as assert } from 'node:assert';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { mapearEventoDoLedger, montarExportLogsServiceRequest, OtlpAnyValue } from '../src/telemetria';
+import { mapearEventoDoLedger, mapearResultadoDaMaturidade,
+  montarExportLogsServiceRequest, OtlpAnyValue } from '../src/telemetria';
+import { calcularMaturidade, EventoAnalitico } from '../src/telemetria-maturidade';
 import { CONTRATO_SDLC_ANALYTICS as C } from '../src/telemetria-maturidade-registro';
 import type { EventoLedger } from '../src/types';
 
@@ -16,6 +18,17 @@ function attrs(registro: { attributes: Array<{ key: string; value: OtlpAnyValue 
 
 function evento(tipo: string, extras: Record<string, unknown> = {}): EventoLedger {
   return { tipo, ts: '2026-11-10T12:00:00.000Z', thread: 'ork-a', eventId: `uid-${tipo}`, ...extras };
+}
+
+function numeroOtlp(valor: OtlpAnyValue | undefined): number | null {
+  if (!valor) return null;
+  if ('intValue' in valor) return Number(valor.intValue);
+  if ('doubleValue' in valor) return valor.doubleValue;
+  return null;
+}
+
+function textoOtlp(valor: OtlpAnyValue | undefined): string | null {
+  return valor && 'stringValue' in valor ? valor.stringValue : null;
 }
 
 function allowlistDeRecursoDoModelo(arquivo: string): Set<string> {
@@ -68,6 +81,48 @@ test('rodada usa o atributo oficial de pipeline sem copiar correções livres', 
   assert.deepEqual(attrs(registro)['cicd.pipeline.run.id'], { stringValue: '1' });
   assert.equal(JSON.stringify(registro).includes('não exportar'), false);
   assert.equal(JSON.stringify(registro).includes('B1'), false);
+});
+
+test('A2 projeta o resultado calculado de cada indicador e janela no schema OTLP', () => {
+  const janela = { desde: '2026-11-01T00:00:00.000Z', ate: '2026-12-01T00:00:00.000Z' };
+  const fatos: EventoAnalitico[] = [
+    { tipo: 'thread_created', ts: '2026-11-10T12:00:00.000Z', thread: 'ork-a',
+      eventId: 'thread-a', modo: '#Auto' },
+    { tipo: 'autonomous_decision', ts: '2026-11-10T12:01:00.000Z', thread: 'ork-a', fase: 'GO',
+      eventId: 'decision-a', pedido: { id: 'd1' }, quemDecidiu: 'sessão', evidencia: 'medição', razao: 'critério' },
+  ];
+  const resultado = calcularMaturidade(fatos, janela);
+  const registros = mapearResultadoDaMaturidade(resultado, contexto);
+  const chavesEmitidas = new Set(registros.flatMap((registro) => registro.attributes.map((atributo) => atributo.key)));
+  assert.deepEqual(chavesEmitidas, new Set([C.atributos.uid, C.atributos.userHash,
+    ...Object.values(C.atributosResultado)]));
+  assert.equal(new Set(registros.map((registro) => textoOtlp(attrs(registro)[C.atributosResultado.indicadorId])))
+    .size, resultado.indicadores.length);
+  for (const indicador of resultado.indicadores) {
+    const doIndicador = registros.filter((registro) => {
+      const valor = attrs(registro)[C.atributosResultado.indicadorId];
+      return textoOtlp(valor) === indicador.id;
+    });
+    assert.equal(doIndicador.length > 0, true, indicador.id);
+    for (const registro of doIndicador) {
+      const a = attrs(registro);
+      assert.equal(registro.eventName, C.propostas.eventoResultado.recomendado);
+      assert.deepEqual(a[C.atributos.userHash], { stringValue: contexto.pseudonimo });
+      assert.deepEqual(a[C.atributosResultado.formulaId], { stringValue: indicador.id });
+      assert.deepEqual(a[C.atributosResultado.formulaVersao], { stringValue: indicador.versao });
+      assert.deepEqual(a[C.atributosResultado.janelaInicio], { stringValue: janela.desde });
+      assert.deepEqual(a[C.atributosResultado.janelaFim], { stringValue: janela.ate });
+      assert.equal(numeroOtlp(a[C.atributosResultado.numerador])! >= 0, true);
+      assert.equal(numeroOtlp(a[C.atributosResultado.denominador])! >= 0, true);
+      assert.equal(numeroOtlp(a[C.atributosResultado.coberturaConfirmados]), indicador.cobertura.confirmados);
+      assert.equal(numeroOtlp(a[C.atributosResultado.coberturaTotal]), indicador.cobertura.total);
+      assert.equal(numeroOtlp(a[C.atributosResultado.lacunas]),
+        Object.values(indicador.lacunas).reduce((total, quantidade) => total + quantidade, 0));
+    }
+  }
+  const payload = montarExportLogsServiceRequest(registros, contexto);
+  const recurso = Object.fromEntries(payload.resourceLogs[0].resource.attributes.map((item) => [item.key, item.value]));
+  assert.deepEqual(recurso[C.atributos.serviceNamespace], { stringValue: contexto.serviceNamespace });
 });
 
 test('B5 remove os treze nomes públicos não autorizados da projeção e dos modelos', () => {

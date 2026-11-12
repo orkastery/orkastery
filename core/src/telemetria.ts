@@ -6,7 +6,8 @@
  */
 import type { EventoLedger } from './types';
 import type { MotivoRetentavelDoPrompt, ResultadoDoPrompt } from './telemetria-prompt';
-import { CONTRATO_SDLC_ANALYTICS } from './telemetria-maturidade-registro';
+import type { ResultadoDaMaturidade, ResultadoDeIndicador } from './telemetria-maturidade';
+import { CONTRATO_SDLC_ANALYTICS, definicaoDoIndicador } from './telemetria-maturidade-registro';
 
 export const NOME_DO_SCOPE_OTLP = 'orkastery.telemetria' as const;
 export const VERSAO_SEMCONV_GENAI = '1.37.0' as const;
@@ -102,6 +103,10 @@ function attrStringEscalar(chave: string, valor: unknown): OtlpKeyValue | null {
 function attrInt(chave: string, valor: unknown): OtlpKeyValue | null {
   const v = inteiro(valor);
   return v === null ? null : { key: chave, value: { intValue: String(v) } };
+}
+
+function attrDouble(chave: string, valor: number | null): OtlpKeyValue | null {
+  return valor !== null && Number.isFinite(valor) ? { key: chave, value: { doubleValue: valor } } : null;
 }
 
 function primeiro(evento: EventoLedger, ...campos: string[]): unknown {
@@ -253,6 +258,72 @@ export function mapearEventoDoLedger(evento: EventoLedger, contexto: ContextoDoM
     body: { stringValue: corpo.texto }, attributes: attrs,
     eventName: evento.tipo === 'phase_prompt_recorded' && prompt
       ? 'gen_ai.client.inference.operation.details' : eventName(evento.tipo) } };
+}
+
+interface SerieDoResultadoProjetada {
+  id: string;
+  bucket?: string;
+  numerador: number;
+  denominador: number;
+}
+
+function projetarSeries(indicador: ResultadoDeIndicador): SerieDoResultadoProjetada[] {
+  const definicao = definicaoDoIndicador(indicador.id);
+  if (!definicao) throw new Error(`indicador sem definição: ${indicador.id}`);
+  const formula = definicao.formula;
+  if (formula.operador === 'razao') {
+    const positivos = Number(indicador.series.find((serie) => serie.id === formula.positivo)?.valor ?? 0);
+    const negativos = Number(indicador.series.find((serie) => serie.id === formula.negativo)?.valor ?? 0);
+    return [{ id: 'taxa', numerador: positivos, denominador: positivos + negativos }];
+  }
+  return indicador.series.flatMap((serie) => {
+    if (typeof serie.valor === 'number') {
+      return [{ id: serie.id, numerador: serie.valor, denominador: indicador.populacao }];
+    }
+    if (!serie.valor) return [{ id: serie.id, numerador: 0, denominador: indicador.populacao }];
+    const entradas = Object.entries(serie.valor), denominador = entradas.reduce((total, [, valor]) => total + valor, 0);
+    return entradas.length ? entradas.map(([bucket, numerador]) => ({ id: serie.id, bucket, numerador, denominador }))
+      : [{ id: serie.id, numerador: 0, denominador: 0 }];
+  });
+}
+
+/** Projeta somente resultados já calculados; nenhuma fórmula é reexecutada na camada OTLP. */
+export function mapearResultadoDaMaturidade(resultado: ResultadoDaMaturidade,
+  contexto: ContextoDoMapeamento): OtlpLogRecord[] {
+  const A = CONTRATO_SDLC_ANALYTICS.atributosResultado;
+  const eventName = CONTRATO_SDLC_ANALYTICS.propostas.eventoResultado.recomendado;
+  const timeUnixNano = nanos(resultado.janela.ate);
+  if (!timeUnixNano) throw new Error('telemetria.maturidade: janela final inválida');
+  return resultado.indicadores.flatMap((indicador) => {
+    const definicao = definicaoDoIndicador(indicador.id);
+    if (!definicao) throw new Error(`telemetria.maturidade: definição ausente para ${indicador.id}`);
+    const lacunas = Object.values(indicador.lacunas).reduce((total, quantidade) => total + quantidade, 0);
+    return projetarSeries(indicador).map((serie) => {
+      const uid = [eventName, contexto.pseudonimo, resultado.janela.desde, resultado.janela.ate,
+        indicador.id, indicador.versao, serie.id, serie.bucket ?? 'total'].join(':');
+      const attributes: OtlpKeyValue[] = [];
+      adicionar(attributes, attrString(CONTRATO_SDLC_ANALYTICS.atributos.uid, uid));
+      adicionar(attributes, attrString(CONTRATO_SDLC_ANALYTICS.atributos.userHash, contexto.pseudonimo));
+      adicionar(attributes, attrString(A.indicadorId, indicador.id));
+      adicionar(attributes, attrString(A.indicadorVersao, indicador.versao));
+      adicionar(attributes, attrString(A.formulaId, indicador.id));
+      adicionar(attributes, attrString(A.formulaVersao, indicador.versao));
+      adicionar(attributes, attrString(A.formulaOperador, definicao.formula.operador));
+      adicionar(attributes, attrString(A.serieId, serie.id));
+      adicionar(attributes, attrString(A.serieBucket, serie.bucket));
+      adicionar(attributes, attrString(A.janelaInicio, resultado.janela.desde));
+      adicionar(attributes, attrString(A.janelaFim, resultado.janela.ate));
+      adicionar(attributes, attrInt(A.numerador, serie.numerador));
+      adicionar(attributes, attrInt(A.denominador, serie.denominador));
+      adicionar(attributes, attrInt(A.coberturaConfirmados, indicador.cobertura.confirmados));
+      adicionar(attributes, attrInt(A.coberturaTotal, indicador.cobertura.total));
+      adicionar(attributes, attrDouble(A.coberturaRazao, indicador.cobertura.razao));
+      adicionar(attributes, attrInt(A.lacunas, lacunas));
+      return { timeUnixNano, observedTimeUnixNano: contexto.observadoEmNano().toString(),
+        severityNumber: 9, severityText: 'INFO', eventName,
+        body: { stringValue: `${indicador.id}/${indicador.versao}:${serie.id}` }, attributes };
+    });
+  });
 }
 
 export function montarExportLogsServiceRequest(registros: readonly OtlpLogRecord[],
