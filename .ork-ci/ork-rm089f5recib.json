@@ -499,32 +499,6 @@
       ]
     },
     {
-      "id": "C32",
-      "thread": "ork-rm089f5recib",
-      "fase": "GO",
-      "arquivo": "core/src/ci.ts",
-      "alegacao": "O caminho de PR/MR lê comandos e preparo do manifesto da ref de destino, falha fechado sem essa receita e só emite recibo do HEAD executado após replay atual verde; isso não prova completude das claims.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f5-recibo-basico.test.js"
-      ],
-      "criadoEm": "2026-11-12T20:38:47.216Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C33",
       "thread": "ork-rm089f5recib",
       "fase": "GO",
@@ -665,6 +639,58 @@
         "npm --prefix core run build:test && node core/dist-test/test/rm089-f5-recibo-basico.test.js"
       ],
       "criadoEm": "2026-11-12T21:41:32.339Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm089f5recib",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f5-recibo-basico.test.ts",
+      "alegacao": "A suíte integrada prova que ORK_CHECK_MODO, o modo gravado no recibo e o veredito vêm do manifesto da branch de destino; mudar somente rodada.check da projeção não altera nenhum deles.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/rm089-f5-recibo-basico.test.js"
+      ],
+      "criadoEm": "2026-11-12T22:39:00.002Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm089f5recib",
+      "fase": "GO",
+      "arquivo": "core/src/ci.ts",
+      "alegacao": "O caminho de PR/MR lê modo, comandos, preparo e prazos do manifesto da branch de destino e emite recibo do HEAD executado após replay verde ou vermelho; o recibo vermelho conserva resultado.ok=false e nunca aprova a execução, sem provar completude das claims.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/rm089-f5-recibo-basico.test.js"
+      ],
+      "criadoEm": "2026-11-12T22:39:00.100Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
