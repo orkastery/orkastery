@@ -546,7 +546,7 @@ function montarApoio(raiz, n, sabotar) {
     }
 
     /** O `verify_run` da sessão no SHA: verde, com a baseline e todas as claims ativas verificadas, marcado SIMULADO. */
-    function verifyDaSessao(threadId, commit, ts) {
+    function verifyDaSessao(threadId, commit, ts, comCheck = false) {
       const docs = path.join(n.thread.dirThread(proj.dir, threadId), 'docs');
       fs.mkdirSync(docs, { recursive: true });
       const plano = path.join(docs, 'plan.md');
@@ -555,7 +555,7 @@ function montarApoio(raiz, n, sabotar) {
       return n.ledger.registrar(n.thread.dirThread(proj.dir, threadId), threadId, 'verify_run', { ...(ts ? { ts } : {}), commit,
         recibo: n.recibo.chaveDoReciboDeProva(proj.dir, threadId, commit),
         veredito: 'verdade sustentada', motivos: [], claims, baseline: { commit: 'baseline-simulada', gravadaEm: ts ?? iso(Date.now()) }, comandos: [],
-        check: { modo: 'agile', origem: 'manifesto', nome: 'Agile Check' },
+        ...(comCheck ? { check: { modo: 'agile', origem: 'manifesto', nome: 'Agile Check' } } : {}),
         simulado: true });
     }
 
@@ -581,13 +581,15 @@ function montarApoio(raiz, n, sabotar) {
         sessionId, despachoEm: sessao.despachadaEm });
       n.claims.adicionarClaim(proj.dir, threadId, { arquivo, alegacao: `a nota do ${t.roadmap} existe`, verificar: [`test -f '${arquivo}'`],
         semProvaLocal: true });
+      const politicaDeRecibo = proj.carregado.manifesto.ci.politica_recibo !== undefined;
+      if (politicaDeRecibo) verifyDaSessao(threadId, produto, ts, true);
       const bundle = n.ci.prepararBundleCi(proj.carregado, threadId);
       git(wt, ['add', '--', path.relative(wt, bundle)]);
       git(wt, ['commit', '-q', '-m', `ci(${threadId}): bundle`]);
       const fonte = git(wt, ['rev-parse', 'HEAD']);
       passar(30);
       gravarParecer(path.join(n.thread.dirThread(proj.dir, threadId), 'docs', 'check.md'), '# CHECK SIMULADO da própria sessão\n\nVeredito: PASSOU\n', ts);
-      verifyDaSessao(threadId, fonte, ts);
+      if (!politicaDeRecibo) verifyDaSessao(threadId, fonte, ts);
       registrar(proj, threadId, 'phase_result', { ...(ts ? { ts } : {}), fase: sessao.fase, sessionId, despachoEm: sessao.despachadaEm, origem: 'sessions.watch',
         sensorResultId: `claude-bg:${sessionId}`, classificacao: 'fase_concluida', ok: true, runtime: 'claude-bg', simulado: true });
       rt.estados.set(sessionId, 'completed');
@@ -602,7 +604,7 @@ function montarApoio(raiz, n, sabotar) {
       const parecer = `# CHECK SIMULADO\n\nVeredito: ${veredito}\n`;
       gravarParecer(path.join(n.thread.dirThread(proj.dir, threadId), 'docs', 'check.md'), parecer, ts);
       const commit = git(t.worktree, ['rev-parse', 'HEAD']);
-      const v = verifyDaSessao(threadId, commit, ts);
+      const v = verifyDaSessao(threadId, commit, ts, true);
       registrar(proj, threadId, 'phase_result', { ...(ts ? { ts } : {}), fase: 'CHECK', sessionId, despachoEm: sessao.despachadaEm, origem: 'sessions.watch',
         sensorResultId: `claude-bg:${sessionId}`, classificacao: 'fase_concluida', ok: true, runtime: 'claude-bg',
         provaOrk: { ok: true, fonte: `docs/check.md gravado com veredito ${veredito}`, veredito, verify: { eventId: v.eventId, commit, ts: v.ts } },
@@ -1386,13 +1388,14 @@ function cenarioBaseQueAnda(c, a, n) {
   const t = m.threadDoItem('RM-952');
   if (!t || !m.rt.despachos[0]) { c.esperar('o arco abre e despacha a thread do item', false, JSON.stringify(m.rt.despachos)); return; }
   const { fonte } = m.sessaoDoBloco(t.id, m.rt.despachos[0].sessionId);
-  m.conduzir('arco-base', itens, 1);
-  if (!m.rt.despachos[1]) { c.esperar('a entrega pede a revisão independente', false, JSON.stringify(m.rt.despachos)); return; }
+  const kRev = m.conduzir('arco-base', itens, 1);
+  if (!m.rt.despachos[1]) {
+    c.esperar('a entrega pede a revisão independente', false,
+      JSON.stringify({ despachos: m.rt.despachos, passo: resumoDoPasso(kRev.ultimo) }));
+    return;
+  }
   m.revisaoConcluida(t.id, m.rt.despachos[1].sessionId);
-  const bundleInicial = n.ci.prepararBundleCi(m.proj.carregado, t.id);
-  m.git(t.worktree, ['add', '--', path.relative(t.worktree, bundleInicial)]);
-  m.git(t.worktree, ['commit', '-q', '-m', `ci(${t.id}): projeção da rodada verde`]);
-  const fontePublicada = m.git(t.worktree, ['rev-parse', 'HEAD']);
+  const fontePublicada = fonte;
   const kPub = m.conduzir('arco-base', itens, 1);
   const branch = n.worktree.branchDaWorktree(n.thread.lerThread(m.proj.dir, t.id));
   c.esperar('o candidato chega publicado no remoto de fixture, com o PR aberto na forja SIMULADA',
