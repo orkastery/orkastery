@@ -1,0 +1,97 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm092ratific",
+  "branch": "ork/ork-rm092ratific-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm092ratific",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice do roadmap contém a RM-092 em Discovery.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"[RM-092](RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md) | Ratificação autenticada de contrato público no #Auto | Discovery\" docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-11-12T06:18:28.509Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm092ratific",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md",
+      "alegacao": "A página da RM-092 cita literalmente o pedido do dono que originou o item.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"Vale a ratificação de hoje: faço o merge da F3 e abro no roadmap uma fatia que dá ao Orkastery um pedido de ratificação autenticado.\" docs/roadmap/RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md"
+      ],
+      "criadoEm": "2026-11-12T06:18:28.607Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm092ratific",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md",
+      "alegacao": "A página da RM-092 foi criada com o título público ratificação autenticada de contrato público no #Auto.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"RM-092 — Ratificação autenticada de contrato público no #Auto\" docs/roadmap/RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md"
+      ],
+      "criadoEm": "2026-11-12T06:18:28.667Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
