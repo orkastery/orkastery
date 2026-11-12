@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import type { MudancaNaBranch } from '../src/branch-de-estado';
-import { CONTRATO_ATESTACAO_ACORDO, type CorpoDaAtestacao, type PortaDeAtestacao } from '../src/rede-empresa-atestacao';
+import { CONTRATO_ATESTACAO_ACORDO, portaDeAtestacaoDaApi, type CorpoDaAtestacao,
+  type PortaDeAtestacao } from '../src/rede-empresa-atestacao';
+import type { ChamadorDaApi } from '../src/forja/api';
 import { coordenarTrabalho, type PedidoDeCoordenacao } from '../src/rede-empresa-coordenacao';
 import { CONTRATO_POLITICA_EMPRESA_V2 } from '../src/rede-empresa-contrato';
 import type { PortaDaBranchEmpresa } from '../src/rede-empresa-transporte';
@@ -102,6 +104,26 @@ test('acordo autenticado aceita o destinatário sem substituir a reserva', () =>
   const r = coordenarTrabalho(b, { ...pedido(42, 'acordo'), atestacao: acordo(inicial.reserva) });
   assert.equal(r.ok && r.codigo, 'rede-empresa.acordo-aceito');
   if (r.ok) assert.deepEqual([r.reserva.titular.accountId, r.reserva.acordos[0].destinatarioAccountId], [41, 42]);
+});
+
+test('B2: adaptadores GitHub e GitLab usam a autoria autenticada da API no acordo real', () => {
+  for (const forja of ['github', 'gitlab'] as const) {
+    const b = new Branch(), inicial = coordenarTrabalho(b, pedido(41)); assert.ok(inicial.ok);
+    const corpo: CorpoDaAtestacao = { contrato: CONTRATO_ATESTACAO_ACORDO, projectKey, itemId: 'RM-089',
+      reservaVersao: inicial.reserva.versao, reservaFingerprint: inicial.reserva.fingerprint, emissorAccountId: 41,
+      destinatarioAccountId: 42, emitidoEm: '2026-11-11T11:00:00.000Z', expiraEm: '2026-11-12T11:00:00.000Z',
+      nonce: 'nonce-adaptador-123456' };
+    const body = JSON.stringify(corpo), id = 77;
+    const endpoint = forja === 'github' ? `repos/time/rede/issues/comments/${id}` : `projects/time%2Frede/issues/1/notes/${id}`;
+    const referencia = { forja, id, endpoint, sha256: createHash('sha256').update(body).digest('hex') };
+    const api: ChamadorDaApi = () => ({ ok: true, valor: { status: 200, cabecalhos: {},
+      limite: { restante: null, total: null, reiniciaEm: null }, corpo: forja === 'github'
+        ? { id, user: { id: 41 }, body, created_at: corpo.emitidoEm, updated_at: corpo.emitidoEm }
+        : { id, author: { id: 41 }, body, created_at: corpo.emitidoEm, updated_at: corpo.emitidoEm } } });
+    const porta = portaDeAtestacaoDaApi({ forja, host: `${forja}.example.invalid`, caminho: 'time/rede' }, api);
+    const r = coordenarTrabalho(b, { ...pedido(42, 'acordo'), atestacao: { porta, referencia } });
+    assert.equal(r.ok && r.codigo, 'rede-empresa.acordo-aceito');
+  }
 });
 
 test('acordo forjado, autor errado, destinatário errado, reserva antiga e expiração são recusados', () => {

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -10,6 +11,8 @@ import { CONTRATO_POLITICA_EMPRESA_V2, type PoliticaDaEmpresa } from '../src/red
 import { textoDaCoberturaEmpresa } from '../src/locale-network-empresa';
 import { statusDaRedeEmpresa } from '../src/rede-empresa-status';
 import type { PortaDaBranchEmpresa } from '../src/rede-empresa-transporte';
+import { CONTRATO_ATESTACAO_EXCECAO, verificarExcecaoAutenticada, type CorpoDaExcecaoAutenticada,
+  type PortaDeAtestacao } from '../src/rede-empresa-atestacao';
 
 const agora = '2026-11-11T12:00:00.000Z';
 const projectKey = 'github:github.com/time/projeto';
@@ -35,13 +38,23 @@ test('exceção só libera exigir quando é específica, vigente e autenticada',
   const base = { configurada: true, conferida: false,
     cache: { versao: 'v2', nivel: 'exigir' as const, reciboVersao: 'recibo-v2', conferidaEm: agora },
     projectKey, itemId: 'RM-089', agora };
+  const corpo: CorpoDaExcecaoAutenticada = { contrato: CONTRATO_ATESTACAO_EXCECAO, projectKey, itemId: 'RM-089',
+    responsavelAccountId: 7, justificativaId: 'incidente-17', emitidoEm: '2026-11-11T11:00:00.000Z',
+    expiraEm: '2026-11-11T13:00:00.000Z', nonce: 'nonce-excecao-123456' };
+  const body = JSON.stringify(corpo);
+  const referencia = { forja: 'github' as const, id: 77, endpoint: '/repos/time/rede/issues/comments/77',
+    sha256: createHash('sha256').update(body).digest('hex') };
+  const porta: PortaDeAtestacao = { ler: () => ({ id: 77, authorId: 7, body,
+    createdAt: corpo.emitidoEm, updatedAt: corpo.emitidoEm }) };
   const excecao = { projectKey, itemId: 'RM-089', responsavelAccountId: 7,
-    justificativaId: 'incidente-17', expiraEm: '2026-11-11T13:00:00.000Z', referencia: 'comentario-77' };
+    justificativaId: 'incidente-17', expiraEm: corpo.expiraEm, referencia };
+  const autenticarExcecao = () => verificarExcecaoAutenticada(porta, referencia, { projectKey, itemId: 'RM-089',
+    responsavelAccountId: 7, justificativaId: 'incidente-17', expiraEm: corpo.expiraEm, agora, timeoutMs: 2_000 });
   assert.equal(avaliarCoberturaEmpresa({ ...base, excecao, autenticarExcecao: () => false }).permite, false);
-  const aceita = avaliarCoberturaEmpresa({ ...base, excecao, autenticarExcecao: () => true });
+  const aceita = avaliarCoberturaEmpresa({ ...base, excecao, autenticarExcecao });
   assert.deepEqual([aceita.permite, aceita.estado, aceita.auditavel], [true, 'excecao-autenticada', true]);
   assert.equal(avaliarCoberturaEmpresa({ ...base, excecao: { ...excecao, itemId: 'RM-090' },
-    autenticarExcecao: () => true }).permite, false);
+    autenticarExcecao }).permite, false);
 });
 
 class Branch implements PortaDaBranchEmpresa {

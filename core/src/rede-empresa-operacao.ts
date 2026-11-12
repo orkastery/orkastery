@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { raizDoEstado } from './estado-thread';
-import { avaliarCoberturaEmpresa, lerConfigRedeEmpresa, type ResultadoDaCobertura } from './rede-empresa-config';
+import { avaliarCoberturaEmpresa, lerConfigRedeEmpresa, type ExcecaoDeCobertura, type ResultadoDaCobertura } from './rede-empresa-config';
 import { cachePronto, dirDoCache, type CasaDaRede } from './rede';
 import { coordenarTrabalho, type IdentidadeColetiva } from './rede-empresa-coordenacao';
 import { normalizarProjeto, segmentoDaProjectKey } from './rede-empresa-projeto';
@@ -13,6 +13,8 @@ import { remotoDoProjeto } from './projeto-alvo';
 import type { Manifesto } from './types';
 import { carregarManifesto } from './manifest';
 import { fecharAdministrativamente } from './thread-close';
+import { portaDeAtestacaoDaForja, verificarExcecaoAutenticada, type PortaDeAtestacao,
+  type ReferenciaDaAtestacao } from './rede-empresa-atestacao';
 
 export const CONTRATO_OPERACAO_REDE_EMPRESA = 'ork.rede-empresa-operacao/v1' as const;
 
@@ -245,9 +247,35 @@ export class ErroDaReservaColetiva extends Error {
   }
 }
 
-const coberturaSemRede = (projectKey: string, itemId: string, cache?: Parameters<typeof avaliarCoberturaEmpresa>[0]['cache']): ResultadoDaCobertura =>
-  avaliarCoberturaEmpresa({ configurada: !!cache, conferida: false, ...(cache ? { cache } : {}), projectKey, itemId,
-    agora: new Date().toISOString() });
+export interface PedidoPublicoDeExcecao {
+  responsavelAccountId: number;
+  justificativaId: string;
+  expiraEm: string;
+  referencia: ReferenciaDaAtestacao;
+}
+export interface OpcoesDaCoordenacaoColetiva {
+  acao?: 'reserva' | 'colaborador' | 'acordo';
+  atestacao?: ReferenciaDaAtestacao;
+  excecao?: PedidoPublicoDeExcecao;
+  portaAtestacao?: PortaDeAtestacao;
+  autenticarExcecao?: (e: ExcecaoDeCobertura) => boolean;
+  agora?: () => string;
+  env?: NodeJS.ProcessEnv;
+}
+
+function coberturaSemRede(projectKey: string, itemId: string,
+  cache: Parameters<typeof avaliarCoberturaEmpresa>[0]['cache'] | undefined,
+  opcoes: OpcoesDaCoordenacaoColetiva, portaAtestacao?: PortaDeAtestacao): ResultadoDaCobertura {
+  const agora = opcoes.agora?.() ?? new Date().toISOString();
+  const excecao: ExcecaoDeCobertura | undefined = opcoes.excecao
+    ? { ...opcoes.excecao, projectKey, itemId } : undefined;
+  const autenticarExcecao = opcoes.autenticarExcecao ?? (portaAtestacao && excecao ? ((e: ExcecaoDeCobertura) =>
+    verificarExcecaoAutenticada(portaAtestacao, e.referencia, { projectKey: e.projectKey, itemId: e.itemId,
+      responsavelAccountId: e.responsavelAccountId, justificativaId: e.justificativaId,
+      expiraEm: e.expiraEm, agora, timeoutMs: 15_000 })) : undefined);
+  return avaliarCoberturaEmpresa({ configurada: !!cache, conferida: false, ...(cache ? { cache } : {}), projectKey, itemId,
+    agora, ...(excecao ? { excecao } : {}), ...(autenticarExcecao ? { autenticarExcecao } : {}) });
+}
 
 function referenciaDaEmpresa(caminho: string): { dono: string; repositorio: string } {
   const partes = caminho.split('/');
@@ -256,30 +284,34 @@ function referenciaDaEmpresa(caminho: string): { dono: string; repositorio: stri
 
 /** Adaptador da saga para a inscrição ativa do projeto; sem inscrição, observar/avisar seguem visíveis e sem CAS coletivo. */
 export function portaColetivaDoProjeto(raiz: string, manifesto: Manifesto, itemId: string,
-  fase: IdentidadeColetiva['fase'] = 'GOAL'): { projectKey: string; configurada: boolean; porta: PortaColetivaDaSaga } {
+  fase: IdentidadeColetiva['fase'] = 'GOAL', opcoes: OpcoesDaCoordenacaoColetiva = {}):
+  { projectKey: string; configurada: boolean; porta: PortaColetivaDaSaga } {
   const remoto = remotoDoProjeto(raiz, 'origin');
   let projectKey = `github:local.invalid/${manifesto.project.abbrev.toLowerCase()}`;
   if (remoto) {
     try { projectKey = normalizarProjeto(remoto, { forja: manifesto.forja }).projectKey; } catch { /* remoto local não entra na rede coletiva */ }
   }
-  const inscricoes = lerConfigRedeEmpresa().inscricoes.filter((i) => i.estado === 'ativa');
+  const inscricoes = lerConfigRedeEmpresa(opcoes.env).inscricoes.filter((i) => i.estado === 'ativa');
   const adesao = inscricoes.find((i) => i.projetos.some((p) => {
     const espelhos = i.politicaCache?.espelhos ?? [];
     try { return !!remoto && normalizarProjeto(p, { espelhos }).projectKey
       === normalizarProjeto(remoto, { forja: manifesto.forja, espelhos }).projectKey; } catch { return false; }
   }));
   if (!adesao) {
-    const cobertura = coberturaSemRede(projectKey, itemId);
+    if ((opcoes.acao ?? 'reserva') !== 'reserva') throw new ErroDaReservaColetiva('rede-empresa.inscricao-ausente');
+    const cobertura = coberturaSemRede(projectKey, itemId, undefined, opcoes);
     return { projectKey, configurada: false,
       porta: { reservar: () => ({ fingerprint: null, valor: { cobertura } }), soltar: () => true } };
   }
   if (remoto) projectKey = normalizarProjeto(remoto, { forja: manifesto.forja,
     espelhos: adesao.politicaCache?.espelhos ?? [] }).projectKey;
+  const portaAtestacao = opcoes.portaAtestacao ?? portaDeAtestacaoDaForja(adesao.empresa, opcoes.env);
   const casaPartes = referenciaDaEmpresa(adesao.empresa.caminho);
   const casa: CasaDaRede = { forja: adesao.empresa.forja, host: adesao.empresa.host, ...casaPartes, origem: 'opcao' };
   const cache = dirDoCache(casa);
   if (!cachePronto(cache)) {
-    const cobertura = coberturaSemRede(projectKey, itemId, adesao.politicaCache);
+    if ((opcoes.acao ?? 'reserva') !== 'reserva') throw new ErroDaReservaColetiva('rede-empresa.forja-indisponivel');
+    const cobertura = coberturaSemRede(projectKey, itemId, adesao.politicaCache, opcoes, portaAtestacao);
     return { projectKey, configurada: true, porta: {
       reservar: () => {
         if (!cobertura.permite) throw new ErroDaReservaColetiva(cobertura.codigo);
@@ -293,8 +325,10 @@ export function portaColetivaDoProjeto(raiz: string, manifesto: Manifesto, itemI
   const caminho = `coordenacao/${segmentoDaProjectKey(projectKey)}/${itemId}.json`;
   return { projectKey, configurada: true, porta: {
     reservar(operationId) {
-      const r = coordenarTrabalho(branch, { acao: 'reserva', operationId, projectKey, itemId, identidade,
-        agora: new Date().toISOString(), timeoutMs: 15_000 });
+      const acao = opcoes.acao ?? 'reserva';
+      const r = coordenarTrabalho(branch, { acao, operationId, projectKey, itemId, identidade,
+        agora: opcoes.agora?.() ?? new Date().toISOString(), timeoutMs: 15_000,
+        ...(acao === 'acordo' && opcoes.atestacao ? { atestacao: { porta: portaAtestacao, referencia: opcoes.atestacao } } : {}) });
       if (r.ok) {
         const nivel = adesao.politicaCache?.nivel ?? 'observar';
         const cobertura: ResultadoDaCobertura = { nivel, estado: 'conferida', permite: true,
@@ -302,7 +336,8 @@ export function portaColetivaDoProjeto(raiz: string, manifesto: Manifesto, itemI
         return { fingerprint: r.reserva.fingerprint, valor: { cobertura } };
       }
       if (r.codigo === 'rede-empresa.forja-indisponivel' || r.codigo === 'rede-empresa.politica-ausente') {
-        const cobertura = coberturaSemRede(projectKey, itemId, adesao.politicaCache);
+        if (acao !== 'reserva') throw new ErroDaReservaColetiva(r.codigo);
+        const cobertura = coberturaSemRede(projectKey, itemId, adesao.politicaCache, opcoes, portaAtestacao);
         if (cobertura.permite) return { fingerprint: null, valor: { cobertura } };
         throw new ErroDaReservaColetiva(cobertura.codigo);
       }

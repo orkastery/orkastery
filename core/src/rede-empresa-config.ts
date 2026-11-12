@@ -5,6 +5,7 @@ import { pastaDoUsuario } from './maquina';
 import { ehMaestroRef, ehReferenciaDaForja, MaestroRef, ReferenciaDaForja, type NivelDaCoberturaEmpresa,
   type PoliticaDaEmpresa } from './rede-empresa-contrato';
 import type { EspelhoDeProjeto } from './rede-empresa-projeto';
+import type { ReferenciaDaAtestacao } from './rede-empresa-atestacao';
 
 export const CONTRATO_CONFIG_REDE_EMPRESA = 'ork.rede-empresa-config/v1' as const;
 const ARQUIVO = 'rede-empresa.json';
@@ -44,7 +45,7 @@ export interface ExcecaoDeCobertura {
   responsavelAccountId: number;
   justificativaId: string;
   expiraEm: string;
-  referencia: string;
+  referencia: ReferenciaDaAtestacao;
 }
 
 export interface ResultadoDaCobertura {
@@ -128,7 +129,9 @@ function excecaoValida(excecao: ExcecaoDeCobertura | undefined, pedido: { projec
   autenticar: ((e: ExcecaoDeCobertura) => boolean) | undefined): boolean {
   return !!excecao && excecao.projectKey === pedido.projectKey && excecao.itemId === pedido.itemId
     && Number.isSafeInteger(excecao.responsavelAccountId) && excecao.responsavelAccountId > 0
-    && id(excecao.justificativaId) && id(excecao.referencia) && iso(excecao.expiraEm)
+    && id(excecao.justificativaId) && !!excecao.referencia && (excecao.referencia.forja === 'github' || excecao.referencia.forja === 'gitlab')
+    && Number.isSafeInteger(excecao.referencia.id) && excecao.referencia.id > 0
+    && typeof excecao.referencia.endpoint === 'string' && /^[a-f0-9]{64}$/.test(excecao.referencia.sha256) && iso(excecao.expiraEm)
     && Date.parse(excecao.expiraEm) > Date.parse(pedido.agora) && !!autenticar?.(excecao);
 }
 
