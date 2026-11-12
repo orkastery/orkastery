@@ -58,12 +58,22 @@ a titular, ou por acordo autenticado. O acordo referencia um comentário ou nota
 pela API da forja, o autor numérico, o destinatário, a `projectKey`, o item, a versão e a fingerprint da reserva,
 a validade e o hash do corpo. Ausência, edição, expiração ou divergência recusam antes do efeito local.
 
+Na CLI, `--coordenacao colaborador` adiciona a identidade autenticada sem trocar a titular. Um acordo usa
+`--coordenacao acordo` com `--atestacao-forja`, `--atestacao-id`, `--atestacao-endpoint` e
+`--atestacao-sha256`. No MCP, `ork_thread_new` recebe os mesmos dados no objeto `coordenacao`, com `acao` e uma
+`atestacao` composta por `forja`, `id`, `endpoint` e `sha256`. O Orkastery consulta a referência pela sessão
+autenticada da forja; nenhum autor declarado no documento substitui essa identidade.
+
 A política criada com `--nivel observar|avisar|exigir` e `--recibo-versao V` controla a cobertura coletiva:
 
 - `observar` e `avisar` deixam a operação seguir quando a rede não está configurada ou não pôde ser conferida,
   mas mostram essa condição; a reserva local continua obrigatória;
 - `exigir` recusa nova reserva ou thread sem conferência atual. Apenas uma exceção autenticada, específica para a
   `projectKey` e o item, com responsável, justificativa e expiração pode liberar a operação.
+
+A exceção da CLI informa `--excecao-responsavel`, `--excecao-justificativa`, `--excecao-expira-em` e a referência
+fechada `--excecao-forja`, `--excecao-id`, `--excecao-endpoint`, `--excecao-sha256`. No MCP, esses campos ficam em
+`coordenacao.excecao`. A referência só libera `exigir` se a API confirmar autor, corpo, escopo, validade e hash.
 
 Cada tentativa recebe um `operationId`. Se um efeito posterior falhar, o Orkastery compensa local e coletivo na
 ordem inversa, somente quando as fingerprints ainda correspondem. Divergência deixa a operação pendente e bloqueia

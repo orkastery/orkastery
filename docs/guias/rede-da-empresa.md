@@ -60,12 +60,23 @@ holder, or through an authenticated agreement. The agreement refers to a coordin
 checks through the forge API the numeric author, recipient, `projectKey`, item, reservation version and fingerprint,
 validity window, and body hash. Absence, editing, expiry, or any mismatch refuses before a local effect.
 
+On the CLI, `--coordenacao colaborador` adds the authenticated identity without replacing the holder. An agreement
+uses `--coordenacao acordo` with `--atestacao-forja`, `--atestacao-id`, `--atestacao-endpoint`, and
+`--atestacao-sha256`. In MCP, `ork_thread_new` takes the same data in the `coordenacao` object, with `acao` and an
+`atestacao` made of `forja`, `id`, `endpoint`, and `sha256`. Orkastery reads the reference through the authenticated
+forge session; an author declared inside the document never replaces that identity.
+
 The policy created with `--nivel observar|avisar|exigir` and `--recibo-versao V` controls collective coverage:
 
 - `observar` and `avisar` allow the operation to proceed when the network is not configured or could not be
   checked, but show that condition; the local reservation remains mandatory;
 - `exigir` refuses a new reservation or thread without a current check. Only an authenticated exception scoped to
   the `projectKey` and item, with an owner, justification, and expiry, can allow the operation.
+
+The CLI exception supplies `--excecao-responsavel`, `--excecao-justificativa`, `--excecao-expira-em`, and the closed
+reference `--excecao-forja`, `--excecao-id`, `--excecao-endpoint`, `--excecao-sha256`. In MCP, those fields belong
+under `coordenacao.excecao`. The reference only releases `exigir` when the API confirms author, body, scope,
+validity, and hash.
 
 Each attempt receives an `operationId`. If a later effect fails, Orkastery compensates local and collective effects
 in reverse order, only while their fingerprints still match. A mismatch leaves the operation pending and blocks a

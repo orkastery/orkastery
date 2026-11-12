@@ -41,6 +41,9 @@ test('guia bilíngue explica coordenação, cobertura e reparo sem prometer toma
     assert.match(texto, /roadmap reconciliar RM-NNN --operacao op-/);
     assert.match(texto, /ordem inversa|reverse order/i);
     assert.match(texto, /reserva local|local reservation/i);
+    for (const opcao of ['--coordenacao', '--atestacao-forja', '--excecao-responsavel', '--excecao-sha256'])
+      assert.match(texto, new RegExp(opcao));
+    assert.match(texto, /coordenacao\.excecao/);
   }
 });
 
@@ -51,5 +54,8 @@ test('referência bilíngue publica a saga e as novas opções de política', ()
     assert.match(texto, /--nivel observar\\\|avisar\\\|exigir/);
     assert.match(texto, /--recibo-versao V/);
     assert.match(texto, /ork_thread_new/);
+    for (const opcao of ['--coordenacao', '--atestacao-forja', '--excecao-responsavel', '--excecao-sha256'])
+      assert.match(texto, new RegExp(opcao));
+    assert.match(texto, /coordenacao: \{ acao/);
   }
 });
