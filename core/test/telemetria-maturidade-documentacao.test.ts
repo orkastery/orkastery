@@ -39,3 +39,24 @@ test('documentação separa DORA e não promete dado ou equivalência ausente', 
     assert.equal(texto.includes('orkastery.team.id` é'), false);
   }
 });
+
+test('B7 changelog, guias e README descrevem somente a capacidade executável', () => {
+  const publicos = [...arquivos, 'templates/telemetria/README.md', 'CHANGELOG.md'];
+  const textos = Object.fromEntries(publicos.map((arquivo) =>
+    [arquivo, fs.readFileSync(path.join(raiz, arquivo), 'utf8')]));
+  const proibidos = [
+    ['team', 'source', 'state'], ['receipt', 'contract'], ['receipt', 'verdict'], ['receipt', 'partial'],
+    ['receipt', 'head'], ['receipt', 'policy', 'version'], ['push', 'verified'], ['go_fix', 'round'],
+    ['finding', 'id'], ['decision', 'reverts'], ['policy', 'name'], ['policy', 'reason'], ['policy', 'writer'],
+  ].map((partes) => `orkastery.${partes.join('.')}`);
+  for (const [arquivo, texto] of Object.entries(textos)) {
+    for (const nome of proibidos) assert.equal(texto.includes(nome), false, `${arquivo}: ${nome}`);
+  }
+  const canon = Object.values(textos).join('\n').toLowerCase();
+  assert.match(canon, /fatos de origem|source facts/);
+  assert.match(canon, /cálculo exato.*local|exact calculation.*local/s);
+  assert.match(canon, /entrada inválida.*não confirmad|invalid input.*unconfirmed/s);
+  assert.match(canon, /equivalência operacional.*não confirmada|operational equivalence.*unconfirmed/s);
+  assert.equal(canon.includes('gera o dashboard'), false);
+  assert.equal(canon.includes('generates the dashboard'), false);
+});
