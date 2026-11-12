@@ -32,6 +32,7 @@ import { barreiraDaThread, linhaDoAchado, textoDaListaLocal, textoDoEscopo, varr
 import { avisos as avisosDePolicy, bloqueantes as bloqueantesDePolicy } from './policies';
 import { CONTRATO_DO_RECIBO_DE_PROVA } from './recibo-prova';
 import { preflightCiDoProjeto, type ResultadoPreflightEmpresa } from './rede-empresa-preflight';
+import { criarProjecaoReplayCi, type ProjecaoReplayCi } from './ci-recibo-basico';
 
 export type EstadoCi = 'disabled' | 'success' | 'pending' | 'failure' | 'missing' | 'unavailable';
 
@@ -86,7 +87,7 @@ export interface BundleCi {
   deferredClaims?: Array<{ id: string; reason: 'artifact-not-in-checkout' | 'host-runtime-required' | 'local-integration-required' }>;
   commands: { name: string; command: string }[];
   /** RM-089 F1: projeção mínima da prova vigente; ausente mantém o bundle legado válido. */
-  recibo?: ReciboDoBundleCi;
+  recibo?: ReciboDoBundleCi | ProjecaoReplayCi;
 }
 
 export interface ReciboDoBundleCi {
@@ -499,7 +500,9 @@ export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string
       .filter((item) => item.reason !== null)
       .map((item) => ({ id: item.claim.id, reason: item.reason! })),
     commands,
-    ...reciboDoUltimoVerify(carregado.raiz, threadId),
+    ...(carregado.manifesto.ci.politica_recibo
+      ? projecaoDoUltimoVerify(carregado, threadId, activeClaims, commands)
+      : reciboDoUltimoVerify(carregado.raiz, threadId)),
   };
   const texto = JSON.stringify(bundle, null, 2) + '\n';
   barreiraDoBundle(carregado, threadId, destino, path.posix.join(DIR_DO_BUNDLE, nomeDoArquivo), texto, opcoes);
@@ -518,6 +521,22 @@ function reciboDoUltimoVerify(raiz: string, threadId: string): { recibo?: Recibo
       bruto.contrato !== CONTRATO_DO_RECIBO_DE_PROVA || typeof bruto.head !== 'string' || !/^[a-f0-9]{40}$/.test(bruto.head) ||
       typeof bruto.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(bruto.sha256)) return {};
   return { recibo: { contrato: CONTRATO_DO_RECIBO_DE_PROVA, head: bruto.head, sha256: bruto.sha256 } };
+}
+
+/** A projeção nasce do último verify integral verde, mas não leva o HEAD desse verify como recibo presente. */
+function projecaoDoUltimoVerify(carregado: ManifestoCarregado, threadId: string, claims: Claim[],
+  commands: Array<{ name: string; command: string }>): { recibo?: ProjecaoReplayCi } {
+  const ultimo = lerLedger(dirThread(carregado.raiz, threadId)).filter((e) => e.tipo === TIPOS_DE_EVENTO.verificacao).at(-1);
+  const check = ultimo?.check as { modo?: unknown } | undefined;
+  if (ultimo?.veredito !== 'verdade sustentada' || ultimo.parcial === true ||
+      (check?.modo !== 'agile' && check?.modo !== 'classic')) return {};
+  return { recibo: criarProjecaoReplayCi({
+    thread: threadId,
+    claims,
+    check: check.modo,
+    baseline: lerThread(carregado.raiz, threadId).baseline,
+    commands,
+  }) };
 }
 
 /**
