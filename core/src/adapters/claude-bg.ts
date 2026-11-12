@@ -17,6 +17,9 @@ import { ContextoRuntime, ModDeFase, validarContextoRuntime } from '../runtime-c
 import { ambienteComPerfil, diretorioEfetivo, PerfilDeDespacho } from '../runtime-profiles';
 import { TOOLS_DO_GRAFO } from '../mcp-grafo';
 import { textoDoCatalogo, textoDoErro } from '../locale';
+import type { TelemetriaDoDespacho } from '../telemetria-runtime';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
 
 function exec(cmd: string, args: string[], cwd?: string, timeoutMs?: number, ambiente: NodeJS.ProcessEnv = ambienteDeAssinatura()) {
   return executar(cmd, args, cwd, timeoutMs, ambiente);
@@ -95,6 +98,7 @@ export interface DespachoPedido {
   perfil?: PerfilDeDespacho;
   /** I-36 (D4): identidade, thread e canal do despacho no ambiente da sessao filha. */
   ambienteExtra?: Record<string, string>;
+  telemetria?: TelemetriaDoDespacho;
   /**
    * RM-059 (T0.7): a saida do `claude --version` que vai rodar a sessao. Ausente, ela e lida so quando
    * a instalacao tem mod de fase; `null` (ilegivel) deixa todos os mods de fora.
@@ -209,8 +213,43 @@ export function entradaDoDespacho(mods: readonly ModDeFase[], env: Readonly<Reco
   return typeof despacho === 'string' && despacho.trim() !== '' ? { crossSessionInbound: 'accept' } : null;
 }
 
+export const CAMINHO_SETTINGS_EFEMEROS = '<settings-efemeros-privados>';
+
+export function criarSettingsEfemeros(settings: unknown, base = os.tmpdir()): { caminho: string; limpar: () => void } {
+  const dir = fs.mkdtempSync(path.join(base, 'ork-telemetria-'));
+  fs.chmodSync(dir, 0o700);
+  const caminho = path.join(dir, 'settings.json');
+  fs.writeFileSync(caminho, JSON.stringify(settings), { flag: 'wx', mode: 0o600 });
+  fs.chmodSync(caminho, 0o600);
+  return { caminho, limpar: () => {
+    try { fs.unlinkSync(caminho); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
+    try { fs.rmdirSync(dir); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
+  } };
+}
+
+function prepararComando(pedido: DespachoPedido) {
+  if (pedido.telemetria && pedido.telemetria.runtime !== 'claude-bg') {
+    throw new Error('telemetria.runtime: configuração Codex no Claude Code');
+  }
+  const contexto = pedido.contextoRuntime ? validarDoClaude(pedido.contextoRuntime, pedido.cwd) : null;
+  const mods = !contexto || contexto.modsDeFase.length === 0 ? []
+    : modsParaOClaude(contexto.modsDeFase, pedido.versaoClaude !== undefined ? pedido.versaoClaude : versao());
+  const teams = agentTeamsDoDespacho(contexto?.agentTeams, mods);
+  const entrada = entradaDoDespacho(mods, pedido.ambienteExtra);
+  const env = { ...(pedido.ambienteExtra ?? {}), ...(teams ? teams.env : {}),
+    ...(pedido.telemetria?.runtime === 'claude-bg' ? pedido.telemetria.settingsEnv : {}) };
+  const settings = Object.keys(env).length
+    ? { env, ...(teams ? { teammateMode: teams.teammateMode } : {}), ...(entrada ?? {}) }
+    : null;
+  return { contexto, mods, settings, telemetriaAtiva: pedido.telemetria?.runtime === 'claude-bg' };
+}
+
+export function settingsDoDespacho(pedido: DespachoPedido): Record<string, unknown> | null {
+  return prepararComando(pedido).settings;
+}
+
 /** Monta a linha de comando exata do despacho (usada tambem pelo `--dry-run`). */
-export function montarComando(pedido: DespachoPedido): string[] {
+export function montarComando(pedido: DespachoPedido, caminhoSettings?: string): string[] {
   const args = ['--bg', pedido.prompt, '--name', pedido.nome];
   // I-34 (D6): plan mode em `--bg` desabilita ExitPlanMode, grava o plano em ~/.claude/plans
   // e bloqueia ork_artifact_write. O PLAN roda como sessão comum, sem escrita de arquivo e
@@ -222,17 +261,9 @@ export function montarComando(pedido: DespachoPedido): string[] {
   // O `claude --bg` entrega a sessao a um processo reserva do daemon da conta, e o daemon guarda o
   // ambiente de quem o iniciou: pelo ambiente, a sessao nascia com a identidade de outro despacho.
   // Medido em 28/09/2026 (2.1.284): o `env` de `--settings` chega ao Bash da sessao e vence o herdado.
-  const contexto = pedido.contextoRuntime ? validarDoClaude(pedido.contextoRuntime, pedido.cwd) : null;
-  // RM-059 (T0.7): cada mod de fase conferido entra com o proprio --plugin-dir, depois do plugin do Orkastery.
-  const mods = !contexto || contexto.modsDeFase.length === 0 ? []
-    : modsParaOClaude(contexto.modsDeFase, pedido.versaoClaude !== undefined ? pedido.versaoClaude : versao());
-  // RM-059 (T10.4): agent teams so no piloto, com os tetos no env e o Portao na sessao; sem eles, o --settings de antes.
-  const teams = agentTeamsDoDespacho(contexto?.agentTeams, mods);
-  // RM-059 (T9.4): a resposta do dono pelo Mensageiro so na sessao despachada e com ele na sessao.
-  const entrada = entradaDoDespacho(mods, pedido.ambienteExtra);
-  const doDespacho = { ...(pedido.ambienteExtra ?? {}), ...(teams ? teams.env : {}) };
-  if (Object.keys(doDespacho).length) {
-    args.push('--settings', JSON.stringify({ env: doDespacho, ...(teams ? { teammateMode: teams.teammateMode } : {}), ...(entrada ?? {}) }));
+  const { contexto, mods, settings, telemetriaAtiva } = prepararComando(pedido);
+  if (settings) {
+    args.push('--settings', telemetriaAtiva ? caminhoSettings ?? CAMINHO_SETTINGS_EFEMEROS : JSON.stringify(settings));
   }
   if (contexto) {
     const consultas = [...CONSULTAS_MCP, ...(contexto.grafoMcp ? consultasDoGrafoMcp() : [])];
@@ -367,30 +398,43 @@ export function acharSessao(chave: string, sessoes?: SessaoRuntime[]): SessaoRun
  * Nao confiar no self-report do despacho e a regra 4 da paridade.
  */
 export function despachar(pedido: DespachoPedido): DespachoResultado {
-  const comando = montarComando(pedido);
+  let settingsEfemeros: ReturnType<typeof criarSettingsEfemeros> | undefined;
+  let comando: string[];
+  try {
+    const preparado = prepararComando(pedido);
+    if (preparado.telemetriaAtiva && preparado.settings) settingsEfemeros = criarSettingsEfemeros(preparado.settings);
+    comando = montarComando(pedido, settingsEfemeros?.caminho);
+  } catch (e) {
+    settingsEfemeros?.limpar();
+    return { ok: false, comando: [], sessionId: null, verificada: false, stdout: '', stderr: '', erro: (e as Error).message };
+  }
   let ambiente: NodeJS.ProcessEnv;
   // D-4: nada do contexto do despacho vai ao ambiente do processo `claude`, para um daemon novo nunca
   // nascer com ele; a identidade herdada ja sai em `ambienteDeAssinatura`, e o canal sai aqui.
   try { ambiente = semContextoDeDespacho(ambienteDoPerfil(pedido.perfil), pedido.ambienteExtra); }
-  catch (e) { return { ok: false, comando, sessionId: null, verificada: false, stdout: '', stderr: '', erro: (e as Error).message }; }
-  if (pedido.dryRun) {
-    return { ok: true, comando, sessionId: null, verificada: false, stdout: '', stderr: '' };
+  catch (e) {
+    settingsEfemeros?.limpar();
+    return { ok: false, comando, sessionId: null, verificada: false, stdout: '', stderr: '', erro: (e as Error).message };
   }
-  if (!disponivel()) {
-    return {
-      ok: false,
-      comando,
-      sessionId: null,
-      verificada: false,
-      stdout: '',
-      stderr: '',
-      erro: 'binario `claude` nao encontrado no PATH',
-    };
-  }
-  const r = exec(comando[0], comando.slice(1), pedido.cwd, 180000, ambiente);
-  const saida = r.stdout + '\n' + r.stderr;
-  const sessionId = extrairSessionId(saida);
-  if (!r.ok || !sessionId) {
+  try {
+    if (pedido.dryRun) {
+      return { ok: true, comando, sessionId: null, verificada: false, stdout: '', stderr: '' };
+    }
+    if (!disponivel()) {
+      return {
+        ok: false,
+        comando,
+        sessionId: null,
+        verificada: false,
+        stdout: '',
+        stderr: '',
+        erro: 'binario `claude` nao encontrado no PATH',
+      };
+    }
+    const r = exec(comando[0], comando.slice(1), pedido.cwd, 180000, ambiente);
+    const saida = r.stdout + '\n' + r.stderr;
+    const sessionId = extrairSessionId(saida);
+    if (!r.ok || !sessionId) {
     // Bloco B3: rate limit nao e "runtime indisponivel". Ele tem horario de reset, e por
     // isso volta tipado daqui para virar pedido na fila duravel em vez de falha seca.
     // I-33 (D1): falha da CONTA vem antes, porque e mais especifica e pede outro perfil.
@@ -400,34 +444,35 @@ export function despachar(pedido: DespachoPedido): DespachoResultado {
     const legado = parseRateLimit(saida);
     const falhaDeConta = lida?.motivo === 'runtime.quota-exhausted' && !pedido.perfil && legado ? null : lida;
     const rateLimit = falhaDeConta ? null : legado;
+      return {
+        ok: false,
+        comando,
+        sessionId,
+        verificada: false,
+        stdout: r.stdout,
+        stderr: r.stderr,
+        rateLimit,
+        falhaDeConta,
+        erro: falhaDeConta
+          ? `${falhaDeConta.motivo}: ${falhaDeConta.trecho}`
+          : rateLimit
+            ? `limite de uso do runtime atingido: ${rateLimit.trecho}`
+            : `despacho falhou (code ${r.code})`,
+      };
+    }
+    // I-33 (D4): a reverificacao consulta a MESMA conta que despachou.
+    const sessoes = listarSessoes(undefined, true, ambiente);
+    const achada = acharSessao(sessionId, sessoes);
+    const verificada = achada !== null || acharSessao(pedido.nome, sessoes) !== null;
     return {
-      ok: false,
+      ok: true,
       comando,
-      sessionId,
-      verificada: false,
+      sessionId: achada?.sessionId ?? sessionId,
+      verificada,
       stdout: r.stdout,
       stderr: r.stderr,
-      rateLimit,
-      falhaDeConta,
-      erro: falhaDeConta
-        ? `${falhaDeConta.motivo}: ${falhaDeConta.trecho}`
-        : rateLimit
-          ? `limite de uso do runtime atingido: ${rateLimit.trecho}`
-          : `despacho falhou (code ${r.code})`,
     };
-  }
-  // I-33 (D4): a reverificacao consulta a MESMA conta que despachou.
-  const sessoes = listarSessoes(undefined, true, ambiente);
-  const achada = acharSessao(sessionId, sessoes);
-  const verificada = achada !== null || acharSessao(pedido.nome, sessoes) !== null;
-  return {
-    ok: true,
-    comando,
-    sessionId: achada?.sessionId ?? sessionId,
-    verificada,
-    stdout: r.stdout,
-    stderr: r.stderr,
-  };
+  } finally { settingsEfemeros?.limpar(); }
 }
 
 /**

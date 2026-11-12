@@ -8,6 +8,7 @@ import type { ControleSessao, ConfirmacaoSessao, IdentidadeSessao } from '../hit
 
 import type { PerguntaNativa } from './codex-question';
 import { validarSchemaPlaybook } from '../playbook-contracts';
+import { comandoCodexAppServer } from '../telemetria-runtime';
 
 export interface VinculoController { thread: string; fase: string; promptSha256: string }
 export interface IdentidadeProcesso { pid: number; uid: number; inicio: string; bootId: string; executavel: string; cwd: string }
@@ -105,7 +106,11 @@ export function controleDoController(dir: string, vinculo: VinculoController, se
   };
 }
 export function despacharComController(pedido: DespachoCodexPedido, env: NodeJS.ProcessEnv): DespachoCodexResultado {
-  const comando = ['codex', 'app-server', '--listen', 'stdio://'];
+  let comandoReal: string[];
+  try { comandoReal = comandoCodexAppServer(pedido.telemetria); }
+  catch (e) { return { ok: false, comando: [], sessionId: null, verificada: false, stdout: '', stderr: '', erro: (e as Error).message }; }
+  const comando = pedido.telemetria?.runtime === 'codex'
+    ? comandoReal : ['codex', 'app-server', '--listen', 'stdio://'];
   const vazio = { comando, sessionId: null, verificada: false, stdout: '', stderr: '' };
   if (!pedido.vinculo || createHash('sha256').update(pedido.prompt).digest('hex') !== pedido.vinculo.promptSha256) {
     return { ...vazio, ok: false, erro: 'runtime.unavailable: prompt não corresponde ao vínculo do despacho' };

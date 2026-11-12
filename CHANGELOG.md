@@ -4,6 +4,9 @@ As mudanças do pacote [`@orkastery/cli`](https://www.npmjs.com/package/@orkaste
 nova para a mais antiga. O detalhe de cada item, com a evidência de merge, está no
 [roadmap](docs/roadmap/README.md).
 
+A correlação nativa da RM-090 usa `session.id` no Claude Code e `conversation.id` no Codex;
+o LogRecord do Orkastery não copia corpo nem nome de evento nativo.
+
 ## Não publicado
 
 ### Adicionado
@@ -16,6 +19,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **Inscrição na rede coletiva** (RM-089): a família `ork network empresa` cria a rede privada; a empresa registra a identidade esperada e o maestro aceita com a conta autenticada; cada publicação revalida o `accountId`, envia uma projeção fechada sem dado local e cessa por saída ou revogação, com GitHub e GitLab pela mesma porta.
 
+- **Correlação nativa de sessões — F3 (RM-090):** Claude Code e Codex recebem configuração efêmera sem conteúdo nativo e cada sessão bem-sucedida ganha um vínculo lógico pelo identificador oficial do runtime.
 - **Reserva coletiva obrigatória — F2 (RM-089):** `thread new --roadmap`, `roadmap pegar` e `ork_thread_new` usam a mesma saga coletiva-local; uma segunda identidade só continua como colaboradora ou com acordo autenticado, e as coberturas observar, avisar e exigir tornam indisponibilidade e reparo explícitos.
 
 ### Alterado
