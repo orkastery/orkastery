@@ -10,6 +10,7 @@ export const CONTRATO_SDLC_ANALYTICS = {
   eventos: {
     deployment: 'orkastery.sdlc.deployment.v1',
     incident: 'orkastery.sdlc.incident.v1',
+    resultado: 'orkastery.sdlc.analytics.result.v1',
   },
   atributos: {
     uid: 'log.record.uid',
@@ -46,16 +47,6 @@ export const CONTRATO_SDLC_ANALYTICS = {
     coberturaTotal: 'orkastery.sdlc.analytics.result.coverage.total',
     coberturaRazao: 'orkastery.sdlc.analytics.result.coverage.ratio',
     lacunas: 'orkastery.sdlc.analytics.result.gaps',
-  },
-  propostas: {
-    eventoResultado: {
-      estado: 'ratificacao_pendente',
-      recomendado: 'orkastery.sdlc.analytics.result.v1',
-      alternativas: [
-        'orkastery.sdlc.indicator.result.v1',
-        'orkastery.sdlc.analytics.snapshot.v1',
-      ],
-    },
   },
   valores: {
     production: 'production',

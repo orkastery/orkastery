@@ -291,7 +291,7 @@ function projetarSeries(indicador: ResultadoDeIndicador): SerieDoResultadoProjet
 export function mapearResultadoDaMaturidade(resultado: ResultadoDaMaturidade,
   contexto: ContextoDoMapeamento): OtlpLogRecord[] {
   const A = CONTRATO_SDLC_ANALYTICS.atributosResultado;
-  const eventName = CONTRATO_SDLC_ANALYTICS.propostas.eventoResultado.recomendado;
+  const eventName = CONTRATO_SDLC_ANALYTICS.eventos.resultado;
   const timeUnixNano = nanos(resultado.janela.ate);
   if (!timeUnixNano) throw new Error('telemetria.maturidade: janela final inválida');
   return resultado.indicadores.flatMap((indicador) => {

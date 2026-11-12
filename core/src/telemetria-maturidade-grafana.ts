@@ -26,7 +26,7 @@ const CAMPOS_DO_RESULTADO = [
 /** Soma somente campos do resultado calculado; a consulta não reimplementa a fórmula. */
 export function renderizarTarget(definicao: DefinicaoDeIndicador, refId = 'A',
   nome = 'numerador', atributo: string = A.numerador): TargetGrafana {
-  const eventName = CONTRATO_SDLC_ANALYTICS.propostas.eventoResultado.recomendado.replaceAll('.', '\\.');
+  const eventName = CONTRATO_SDLC_ANALYTICS.eventos.resultado.replaceAll('.', '\\.');
   const indicador = label(A.indicadorId), serie = label(A.serieId), bucket = label(A.serieBucket);
   const grupos = ['user_hash', 'service_namespace', indicador, serie, bucket];
   const expr = `sum by (${grupos.join(', ')}) (sum_over_time({service_name="orkastery"} | json`
