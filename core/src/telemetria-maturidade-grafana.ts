@@ -3,7 +3,7 @@ import { CONTRATO_SDLC_ANALYTICS, DefinicaoDeIndicador,
   REGISTRO_DE_INDICADORES_AGENTICOS } from './telemetria-maturidade-registro';
 
 export interface TargetGrafana {
-  refId: 'A';
+  refId: string;
   datasource: { type: 'loki'; uid: '${DS_LOKI}' };
   editorMode: 'code';
   expr: string;
@@ -11,33 +11,37 @@ export interface TargetGrafana {
   queryType: 'range';
 }
 
-const LABELS: Record<string, string> = {
-  'user.hash': 'user_hash',
-  'service.namespace': 'service_namespace',
-  'orkastery.thread.id': 'orkastery_thread_id',
-  'orkastery.phase.name': 'orkastery_phase_name',
-};
+const A = CONTRATO_SDLC_ANALYTICS.atributosResultado;
 
-function regexDosEventos(fontes: readonly string[]): string {
-  return fontes.map((fonte) => `orkastery\\.ledger\\.${fonte.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).join('|');
-}
+function label(atributo: string): string { return atributo.replaceAll('.', '_'); }
 
-/** A projeção consulta somente os fatos brutos emitidos; a fórmula exata continua no motor local. */
-export function renderizarTarget(definicao: DefinicaoDeIndicador): TargetGrafana {
-  const grupos = definicao.agrupamentos.map((grupo) => LABELS[grupo]);
-  const filtros = grupos.filter((grupo) => grupo === 'user_hash' || grupo === 'service_namespace')
-    .map((grupo) => ` | ${grupo}=~"\${${grupo}:regex}"`).join('');
-  const by = ` by (${['event_name', ...grupos].join(', ')})`;
-  const expr = `sum${by} (count_over_time({service_name="orkastery"} | json`
-    + ` | event_name=~"${regexDosEventos(definicao.fontes)}"`
-    + `${filtros} [$__interval]))`;
-  return { refId: 'A', datasource: { type: 'loki', uid: '${DS_LOKI}' }, editorMode: 'code', expr,
-    legendFormat: `${definicao.id} · {{event_name}} · {{${grupos.join('}} · {{')}}}`, queryType: 'range' };
+const CAMPOS_DO_RESULTADO = [
+  ['A', 'numerador', A.numerador],
+  ['B', 'denominador', A.denominador],
+  ['C', 'cobertura_confirmados', A.coberturaConfirmados],
+  ['D', 'cobertura_total', A.coberturaTotal],
+  ['E', 'lacunas', A.lacunas],
+] as const;
+
+/** Soma somente campos do resultado calculado; a consulta não reimplementa a fórmula. */
+export function renderizarTarget(definicao: DefinicaoDeIndicador, refId = 'A',
+  nome = 'numerador', atributo: string = A.numerador): TargetGrafana {
+  const eventName = CONTRATO_SDLC_ANALYTICS.propostas.eventoResultado.recomendado.replaceAll('.', '\\.');
+  const indicador = label(A.indicadorId), serie = label(A.serieId), bucket = label(A.serieBucket);
+  const grupos = ['user_hash', 'service_namespace', indicador, serie, bucket];
+  const expr = `sum by (${grupos.join(', ')}) (sum_over_time({service_name="orkastery"} | json`
+    + ` | event_name="${eventName}" | ${indicador}="${definicao.id}"`
+    + ' | user_hash=~"${user_hash:regex}" | service_namespace=~"${service_namespace:regex}"'
+    + ` | unwrap ${label(atributo)} [$__interval]))`;
+  return { refId, datasource: { type: 'loki', uid: '${DS_LOKI}' }, editorMode: 'code', expr,
+    legendFormat: `${definicao.id} · ${nome} · {{user_hash}} · {{service_namespace}} · {{${serie}}} · {{${bucket}}}`,
+    queryType: 'range' };
 }
 
 export function renderizarTargetsAgenticos(): Record<string, TargetGrafana[]> {
   return Object.fromEntries(REGISTRO_DE_INDICADORES_AGENTICOS.map((definicao) =>
-    [definicao.id, [renderizarTarget(definicao)]]));
+    [definicao.id, CAMPOS_DO_RESULTADO.map(([refId, nome, atributo]) =>
+      renderizarTarget(definicao, refId, nome, atributo))]));
 }
 
 export const MEDIDAS_DORA = ['deployment_frequency', 'change_lead_time', 'change_fail_rate',
