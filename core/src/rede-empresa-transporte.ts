@@ -161,6 +161,8 @@ export function portaGitDaRedeEmpresa(cache: string, remoto = 'origin', rede: Op
           const descendente = revs.stdout.trim().split('\n').filter(Boolean).map((linha) => linha.trim().split(/\s+/));
           if (!descendente.length || descendente[0][0] !== lida.ponta)
             return { estado: 'inconclusiva', ponta: lida.ponta, lacuna: 'historia.truncada', registros: [] };
+          if (descendente.some((commit) => commit.length > 2))
+            return { estado: 'inconclusiva', ponta: lida.ponta, lacuna: 'historia.nao-linear', registros: [] };
           for (let i = 0; i + 1 < descendente.length; i++) if (descendente[i][1] !== descendente[i + 1][0])
             return { estado: 'inconclusiva', ponta: lida.ponta, lacuna: 'historia.nao-linear', registros: [] };
           const excedeu = descendente.length === limite && descendente.at(-1)!.length > 1;
