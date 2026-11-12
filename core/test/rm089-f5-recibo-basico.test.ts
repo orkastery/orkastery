@@ -455,12 +455,51 @@ test('as seis causas de degradação formam união fechada e nunca geram recibo'
 });
 
 test('as seis degradações têm código, mensagem e ação em pt-BR e inglês', () => {
+  const esperados = {
+    'projecao-acima-do-limite': {
+      pt: ['A projeção de replay excede o limite do bundle.',
+        'Reduza a projeção aos campos canônicos exigidos, rode verify no HEAD atual e prepare de novo.'],
+      en: ['The replay projection exceeds the bundle limit.',
+        'Reduce the projection to the required canonical fields, run verify at the current HEAD, and prepare it again.'],
+    },
+    'claim-nao-hermetica': {
+      pt: ['A claim não pode ser reexecutada integralmente neste runner.',
+        'Torne a claim hermética ou remova a dependência incompatível, rode verify e prepare de novo.'],
+      en: ['The claim cannot be replayed in full on this runner.',
+        'Make the claim hermetic or remove the incompatible dependency, run verify, and prepare it again.'],
+    },
+    'runner-sem-capacidade': {
+      pt: ['O runner não oferece a capacidade exigida pelo replay.',
+        'Disponibilize a capacidade declarada ou revise a claim ou o comando e reexecute.'],
+      en: ['The runner does not provide a capability required by the replay.',
+        'Provide the declared capability or revise the claim or command and run it again.'],
+    },
+    'comando-nao-iniciado': {
+      pt: ['Um comando do replay não foi iniciado.',
+        'Restaure o executável ou runtime declarado e reexecute o replay.'],
+      en: ['A replay command was not started.',
+        'Restore the declared executable or runtime and run the replay again.'],
+    },
+    'prazo-excedido': {
+      pt: ['Um comando do replay excedeu o prazo do verify.',
+        'Corrija ou divida o comando, ou ajuste o prazo no manifesto, rode verify e prepare de novo.'],
+      en: ['A replay command exceeded the verify timeout.',
+        'Fix or split the command, or adjust the manifest timeout, run verify, and prepare it again.'],
+    },
+    'produto-alterado': {
+      pt: ['O produto mudou entre o preparo e o fim do replay.',
+        'Remova a mutação ou edição concorrente, restaure o checkout e reexecute.'],
+      en: ['The product changed between preparation and the end of the replay.',
+        'Remove the concurrent mutation or edit, restore the checkout, and run it again.'],
+    },
+  } as const;
   for (const causa of CAUSAS_DEGRADACAO_REPLAY_CI) {
     const pt = comLocale('pt-BR', () => msg().operacao.produto.ci.degradacaoReplay[causa]);
     const en = comLocale('en', () => msg().operacao.produto.ci.degradacaoReplay[causa]);
     assert.equal(CODIGO_DA_DEGRADACAO_REPLAY_CI[causa], `ci.recibo.${causa}`);
-    assert.notEqual(pt.mensagem, en.mensagem, causa);
-    assert.notEqual(pt.acao, en.acao, causa);
+    assert.ok(pt.mensagem.trim() && pt.acao.trim() && en.mensagem.trim() && en.acao.trim(), causa);
+    assert.deepEqual([pt.mensagem, pt.acao], esperados[causa].pt, `${causa}: pt-BR`);
+    assert.deepEqual([en.mensagem, en.acao], esperados[causa].en, `${causa}: en`);
   }
 });
 
