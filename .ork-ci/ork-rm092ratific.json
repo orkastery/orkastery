@@ -15,7 +15,7 @@
         "grep -F \"[RM-092](RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md) | Ratificação autenticada de contrato público no #Auto | Discovery\" docs/roadmap/README.md"
       ],
       "criadoEm": "2026-11-12T06:18:28.509Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -41,7 +41,7 @@
         "grep -F \"Vale a ratificação de hoje: faço o merge da F3 e abro no roadmap uma fatia que dá ao Orkastery um pedido de ratificação autenticado.\" docs/roadmap/RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md"
       ],
       "criadoEm": "2026-11-12T06:18:28.607Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -67,7 +67,7 @@
         "grep -F \"RM-092 — Ratificação autenticada de contrato público no #Auto\" docs/roadmap/RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md"
       ],
       "criadoEm": "2026-11-12T06:18:28.667Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
