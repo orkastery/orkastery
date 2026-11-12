@@ -96,6 +96,9 @@ export function textoDaCoberturaEmpresa(c: ResultadoDaCobertura, locale: Locale)
 
 export function textoDoPreflightEmpresa(r: ResultadoPreflightEmpresa, locale: Locale): string {
   const en = locale === 'en';
+  if (r.estado === 'nao-realizado') return en
+    ? `Collective check not performed (${r.lacunas.join(', ')}); the CI result is unchanged.`
+    : `Checagem coletiva não realizada (${r.lacunas.join(', ')}); o resultado do CI não muda.`;
   if (r.estado === 'conflito') return en
     ? `Collective preflight: ${r.conflitos.length} conflict(s). Suggested order is advisory; delivery continues.`
     : `Preflight coletivo: ${r.conflitos.length} conflito(s). A ordem sugerida é consultiva; a entrega continua.`;
