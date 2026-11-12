@@ -17,6 +17,14 @@ export interface JanelaAnalitica { desde: string; ate: string }
 
 export interface SerieAnalitica { id: string; valor: number | Record<string, number> | null }
 
+export interface AgrupamentoDeIndicador {
+  chaves: Record<string, string>;
+  populacao: number;
+  cobertura: { confirmados: number; total: number; razao: number | null };
+  series: SerieAnalitica[];
+  lacunas: Record<string, number>;
+}
+
 export interface ResultadoDeIndicador {
   id: string;
   versao: 'v1';
@@ -26,6 +34,7 @@ export interface ResultadoDeIndicador {
   series: SerieAnalitica[];
   lacunas: Record<string, number>;
   fontes: readonly string[];
+  agrupamentos: AgrupamentoDeIndicador[];
 }
 
 export interface ResultadoDaMaturidade {
@@ -148,16 +157,42 @@ function alvoTipado(valor: unknown): boolean {
     && (texto(alvo.id) || texto(alvo.sobre) || texto(alvo.sessionId)));
 }
 
+interface EstadoDoGrupoA4 {
+  chaves: Record<string, string>;
+  populacao: Set<string>;
+  confirmados: Set<string>;
+  decisoes: Set<string>;
+  perguntas: Set<string>;
+  reversoes: Set<string>;
+  lacunas: Record<string, number>;
+}
+
+function valorDoAgrupamento(evento: EventoAnalitico, agrupamento: string): string | null {
+  if (agrupamento === 'orkastery.thread.id') return texto(evento.thread);
+  if (agrupamento === 'orkastery.phase.name') return texto(evento.fase);
+  if (agrupamento === 'user.hash') return texto(primeiro(evento, 'user.hash', 'userHash'));
+  if (agrupamento === 'service.namespace') return texto(primeiro(evento, 'service.namespace', 'serviceNamespace'));
+  return null;
+}
+
+function chavesDoAgrupamento(definicao: DefinicaoDeIndicador,
+  evento: EventoAnalitico): Record<string, string> {
+  return Object.fromEntries(definicao.execucao.agrupamentos.flatMap((agrupamento) => {
+    const valor = valorDoAgrupamento(evento, agrupamento);
+    return valor ? [[agrupamento, valor]] : [];
+  }));
+}
+
 export interface AcumuladoExecutavel {
   populacao: number;
   confirmados: number;
   valores: Record<string, number | Record<string, number>>;
   lacunas: Record<string, number>;
+  agrupamentos?: Array<AcumuladoExecutavel & { chaves: Record<string, string> }>;
 }
 
-/** Interpreta fórmula, séries e cobertura diretamente da definição versionada. */
-export function interpretarDefinicao(definicao: DefinicaoDeIndicador,
-  acumulado: AcumuladoExecutavel): ResultadoDeIndicador {
+function interpretarAcumulado(definicao: DefinicaoDeIndicador, acumulado: AcumuladoExecutavel):
+  Pick<ResultadoDeIndicador, 'populacao' | 'cobertura' | 'series' | 'lacunas'> {
   let confirmados = acumulado.confirmados;
   let series: SerieAnalitica[];
   if (definicao.formula.operador === 'razao') {
@@ -171,11 +206,27 @@ export function interpretarDefinicao(definicao: DefinicaoDeIndicador,
     series = definicao.formula.series.map((serie) =>
       ({ id: serie.id, valor: acumulado.valores[serie.chave] ?? 0 }));
   }
-  return { id: definicao.id, versao: definicao.versao, tipo: definicao.tipo,
-    populacao: acumulado.populacao,
+  if (definicao.execucao.populacao.unidade !== definicao.execucao.confirmacao.unidade) {
+    throw new Error(`${definicao.id}: população e confirmação usam unidades diferentes`);
+  }
+  if (confirmados > acumulado.populacao) {
+    throw new Error(`${definicao.id}: confirmação excede a população`);
+  }
+  return { populacao: acumulado.populacao,
     cobertura: { confirmados, total: acumulado.populacao,
       razao: acumulado.populacao ? confirmados / acumulado.populacao : null },
-    series, lacunas: acumulado.lacunas, fontes: definicao.fontes };
+    series, lacunas: acumulado.lacunas };
+}
+
+/** Interpreta fórmula, séries, cobertura e agrupamentos diretamente da definição versionada. */
+export function interpretarDefinicao(definicao: DefinicaoDeIndicador,
+  acumulado: AcumuladoExecutavel): ResultadoDeIndicador {
+  const total = interpretarAcumulado(definicao, acumulado);
+  const agrupamentos = (acumulado.agrupamentos ?? []).map((grupo) => ({
+    chaves: grupo.chaves, ...interpretarAcumulado(definicao, grupo),
+  }));
+  return { id: definicao.id, versao: definicao.versao, tipo: definicao.tipo,
+    ...total, fontes: definicao.fontes, agrupamentos };
 }
 
 /**
@@ -183,18 +234,35 @@ export function interpretarDefinicao(definicao: DefinicaoDeIndicador,
  * contadores necessários; a finalização percorre somente mapas e conjuntos, sem reordenar eventos.
  */
 export function calcularMaturidade(eventos: readonly EventoAnalitico[], janela: JanelaAnalitica): ResultadoDaMaturidade {
+  const definicoes = new Map(REGISTRO_DE_INDICADORES_AGENTICOS.map((definicao) =>
+    [definicao.formula.acumulador, definicao]));
+  const fonteAtiva = (acumulador: AcumuladorDoIndicador, evento: EventoAnalitico): boolean =>
+    definicoes.get(acumulador)!.execucao.predicados.eventos.includes(evento.tipo);
+  const definicaoA4 = definicoes.get('decisions_questions_reversals')!;
   const vistos = new Set<string>(), lacunasGlobais: Record<string, number> = {};
   const estados = new Map<string, EstadoDaThread>();
   const mergesA1 = new Set<string>(), threadsEntreguesA2 = new Set<string>();
   const threadsA3 = new Set<string>(), checksA3 = new Set<string>();
   const achadosDistintos = new Set<string>(), rodadasDistintas = new Set<string>();
   const decisoes = new Set<string>(), perguntas = new Set<string>(), reversoes = new Set<string>();
-  const threadsA4 = new Set<string>(), decisoesVistas = new Set<string>();
+  const eventosA4 = new Set<string>(), confirmadosA4 = new Set<string>(), decisoesVistas = new Set<string>();
+  const gruposA4 = new Map<string, EstadoDoGrupoA4>();
   const excecoes = new Set<string>(), lacunasA4: Record<string, number> = {}, lacunasA5: Record<string, number> = {};
   const modosCriacao: Record<string, number> = {}, modosMerge: Record<string, number> = {};
   const lacunasA1: Record<string, number> = {}, lacunasA2: Record<string, number> = {};
   let positivosA1 = 0, negativosA1 = 0, positivosA2 = 0, negativosA2 = 0;
   let populacaoA5 = 0, populacaoCriacao = 0, populacaoMerge = 0, confirmadosA6 = 0;
+
+  const grupoA4 = (evento: EventoAnalitico): EstadoDoGrupoA4 => {
+    const chaves = chavesDoAgrupamento(definicaoA4, evento), id = JSON.stringify(chaves);
+    let grupo = gruposA4.get(id);
+    if (!grupo) {
+      grupo = { chaves, populacao: new Set(), confirmados: new Set(), decisoes: new Set(),
+        perguntas: new Set(), reversoes: new Set(), lacunas: {} };
+      gruposA4.set(id, grupo);
+    }
+    return grupo;
+  };
 
   for (let indice = 0; indice < eventos.length; indice += 1) {
     const evento = eventos[indice];
@@ -206,14 +274,14 @@ export function calcularMaturidade(eventos: readonly EventoAnalitico[], janela: 
     const thread = texto(evento.thread);
     const estado = thread ? estadoDaThread(estados, thread) : null;
 
-    if (evento.tipo === 'verify_run' && estado) {
+    if (fonteAtiva('first_truth', evento) && evento.tipo === 'verify_run' && estado) {
       const verify = normalizarVerify(evento);
       if (verify.integral && verify.recibo) estado.ultimoReciboIntegral = verify;
       if (verify.integral && verify.veredito && !estado.primeiroTerminal) estado.primeiroTerminal = verify;
       if (verify.integral && verify.veredito === 'vermelho') estado.invalidado = true;
     }
 
-    if (evento.tipo === 'go_fix_opened' && thread && estado) {
+    if (fonteAtiva('check_rework', evento) && evento.tipo === 'go_fix_opened' && thread && estado) {
       threadsA3.add(thread);
       estado.teveFix = true;
       estado.invalidado = true;
@@ -225,37 +293,58 @@ export function calcularMaturidade(eventos: readonly EventoAnalitico[], janela: 
       estado.fixInvalido ||= !rodada || ids.length === 0;
     }
 
-    if ((evento.tipo === 'check_reverify' || (evento.tipo === 'phase_result' && evento.fase === 'CHECK')) && thread) {
+    if (fonteAtiva('check_rework', evento) && evento.tipo === 'check_reverify' && thread) {
       checksA3.add(thread);
       threadsA3.add(thread);
     }
 
-    if (evento.tipo === 'autonomous_decision' && thread) {
-      threadsA4.add(thread);
+    if (fonteAtiva('decisions_questions_reversals', evento) && evento.tipo === 'autonomous_decision' && thread) {
+      eventosA4.add(uid);
+      const grupo = grupoA4(evento);
+      grupo.populacao.add(uid);
       const pedido = objeto(evento.pedido);
       const id = texto(pedido?.id);
       const rastroCompleto = Boolean(texto(evento.quemDecidiu) && texto(evento.evidencia) && texto(evento.razao));
       if (!id) incrementar(lacunasA4, 'id_ausente');
       if (!rastroCompleto) incrementar(lacunasA4, 'rastro_ausente');
       if (id && rastroCompleto) {
+        confirmadosA4.add(uid);
+        grupo.confirmados.add(uid);
         decisoes.add(id);
+        grupo.decisoes.add(id);
         decisoesVistas.add(id);
         const reverte = texto(evento.reverte);
-        if (reverte && decisoesVistas.has(reverte)) reversoes.add(reverte);
-        else if (reverte) incrementar(lacunasA4, 'reversao_sem_decisao');
+        if (reverte && decisoesVistas.has(reverte)) {
+          reversoes.add(reverte);
+          grupo.reversoes.add(reverte);
+        } else if (reverte) {
+          incrementar(lacunasA4, 'reversao_sem_decisao');
+          incrementar(grupo.lacunas, 'reversao_sem_decisao');
+        }
       }
+      if (!id) incrementar(grupo.lacunas, 'id_ausente');
+      if (!rastroCompleto) incrementar(grupo.lacunas, 'rastro_ausente');
     }
 
-    if (evento.tipo === 'hitl_requested' && thread) {
-      threadsA4.add(thread);
+    if (fonteAtiva('decisions_questions_reversals', evento) && evento.tipo === 'hitl_requested' && thread) {
+      eventosA4.add(uid);
+      const grupo = grupoA4(evento);
+      grupo.populacao.add(uid);
       const pedido = objeto(evento.pedido);
       const id = texto(pedido?.id);
       if (!id) incrementar(lacunasA4, 'id_ausente');
       if (!alvoTipado(pedido?.alvo)) incrementar(lacunasA4, 'alvo_tipado_ausente');
-      if (id && alvoTipado(pedido?.alvo)) perguntas.add(id);
+      if (id && alvoTipado(pedido?.alvo)) {
+        confirmadosA4.add(uid);
+        grupo.confirmados.add(uid);
+        perguntas.add(id);
+        grupo.perguntas.add(id);
+      }
+      if (!id) incrementar(grupo.lacunas, 'id_ausente');
+      if (!alvoTipado(pedido?.alvo)) incrementar(grupo.lacunas, 'alvo_tipado_ausente');
     }
 
-    if (evento.tipo === 'ship_unscanned_authorized') {
+    if (fonteAtiva('policy_exceptions', evento) && evento.tipo === 'ship_unscanned_authorized') {
       populacaoA5 += 1;
       const por = texto(evento.por), sha = texto(evento.sha);
       const categorias = Array.isArray(evento.categorias)
@@ -266,13 +355,14 @@ export function calcularMaturidade(eventos: readonly EventoAnalitico[], janela: 
       if (por && sha && categorias.length) excecoes.add(uid);
     }
 
-    if (evento.tipo === 'thread_created') {
+    if (fonteAtiva('mode_usage', evento) && evento.tipo === 'thread_created') {
       populacaoCriacao += 1;
       const m = modo(evento);
       if (m && thread) { incrementar(modosCriacao, m); confirmadosA6 += 1; }
     }
 
-    if (evento.tipo === 'ship_done') {
+    if ((fonteAtiva('merge_receipt', evento) || fonteAtiva('first_truth', evento)
+      || fonteAtiva('mode_usage', evento)) && evento.tipo === 'ship_done') {
       populacaoMerge += 1;
       const m = modo(evento);
       if (m && thread) { incrementar(modosMerge, m); confirmadosA6 += 1; }
@@ -329,7 +419,6 @@ export function calcularMaturidade(eventos: readonly EventoAnalitico[], janela: 
 
   const populacaoA1 = mergesA1.size, confirmadosA1 = positivosA1 + negativosA1;
   const populacaoA2 = threadsEntreguesA2.size, confirmadosA2 = positivosA2 + negativosA2;
-  const confirmadosA4 = decisoes.size + perguntas.size + reversoes.size;
   const confirmadosA5 = excecoes.size;
   const populacaoA6 = populacaoCriacao + populacaoMerge;
   const acumulados: Record<AcumuladorDoIndicador, AcumuladoExecutavel> = {
@@ -339,9 +428,13 @@ export function calcularMaturidade(eventos: readonly EventoAnalitico[], janela: 
       valores: { positivos: positivosA2, negativos: negativosA2 }, lacunas: lacunasComunsA2 },
     check_rework: { populacao: threadsA3.size, confirmados: confirmadosA3,
       valores: { achados: achadosDistintos.size, rodadas: rodadasDistintas.size }, lacunas: lacunasA3 },
-    decisions_questions_reversals: { populacao: threadsA4.size, confirmados: confirmadosA4,
+    decisions_questions_reversals: { populacao: eventosA4.size, confirmados: confirmadosA4.size,
       valores: { decisoes: decisoes.size, perguntas: perguntas.size, reversoes: reversoes.size },
-      lacunas: { ...lacunasGlobais, ...lacunasA4 } },
+      lacunas: { ...lacunasGlobais, ...lacunasA4 },
+      agrupamentos: [...gruposA4.values()].map((grupo) => ({ chaves: grupo.chaves,
+        populacao: grupo.populacao.size, confirmados: grupo.confirmados.size,
+        valores: { decisoes: grupo.decisoes.size, perguntas: grupo.perguntas.size,
+          reversoes: grupo.reversoes.size }, lacunas: grupo.lacunas })) },
     policy_exceptions: { populacao: populacaoA5, confirmados: confirmadosA5,
       valores: { excecoes: excecoes.size }, lacunas: { ...lacunasGlobais, ...lacunasA5 } },
     mode_usage: { populacao: populacaoA6, confirmados: confirmadosA6,

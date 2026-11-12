@@ -30,6 +30,33 @@ export const CONTRATO_SDLC_ANALYTICS = {
     incidentDeploymentId: 'orkastery.incident.deployment.id',
     incidentRecoveryDeploymentId: 'orkastery.incident.recovery.deployment.id',
   },
+  atributosResultado: {
+    indicadorId: 'orkastery.sdlc.analytics.indicator.id',
+    indicadorVersao: 'orkastery.sdlc.analytics.indicator.version',
+    formulaId: 'orkastery.sdlc.analytics.formula.id',
+    formulaVersao: 'orkastery.sdlc.analytics.formula.version',
+    formulaOperador: 'orkastery.sdlc.analytics.formula.operator',
+    serieId: 'orkastery.sdlc.analytics.series.id',
+    serieBucket: 'orkastery.sdlc.analytics.series.bucket',
+    janelaInicio: 'orkastery.sdlc.analytics.window.start',
+    janelaFim: 'orkastery.sdlc.analytics.window.end',
+    numerador: 'orkastery.sdlc.analytics.result.numerator',
+    denominador: 'orkastery.sdlc.analytics.result.denominator',
+    coberturaConfirmados: 'orkastery.sdlc.analytics.result.coverage.confirmed',
+    coberturaTotal: 'orkastery.sdlc.analytics.result.coverage.total',
+    coberturaRazao: 'orkastery.sdlc.analytics.result.coverage.ratio',
+    lacunas: 'orkastery.sdlc.analytics.result.gaps',
+  },
+  propostas: {
+    eventoResultado: {
+      estado: 'ratificacao_pendente',
+      recomendado: 'orkastery.sdlc.analytics.result.v1',
+      alternativas: [
+        'orkastery.sdlc.indicator.result.v1',
+        'orkastery.sdlc.analytics.snapshot.v1',
+      ],
+    },
+  },
   valores: {
     production: 'production',
     succeeded: 'succeeded',
@@ -46,6 +73,8 @@ export type TipoDeAgregacao = 'razao' | 'contagem_distinta' | 'distribuicao';
 
 export type AcumuladorDoIndicador = 'merge_receipt' | 'first_truth' | 'check_rework'
   | 'decisions_questions_reversals' | 'policy_exceptions' | 'mode_usage';
+
+export type UnidadeDaExecucao = 'merge' | 'thread' | 'evento';
 
 export type FormulaExecutavel =
   | { operador: 'razao'; acumulador: AcumuladorDoIndicador; positivo: string; negativo: string }
@@ -65,10 +94,30 @@ export interface DefinicaoDeIndicador {
   lacunas: readonly string[];
   cobertura: string;
   formula: FormulaExecutavel;
+  execucao: {
+    predicados: { eventos: readonly string[] };
+    populacao: { unidade: UnidadeDaExecucao; chave: string };
+    confirmacao: { unidade: UnidadeDaExecucao; chave: string };
+    lacunas: readonly string[];
+    agrupamentos: DefinicaoDeIndicador['agrupamentos'];
+  };
+}
+
+type DefinicaoSemExecucao = Omit<DefinicaoDeIndicador, 'execucao'>;
+
+function definirIndicador<T extends DefinicaoSemExecucao>(definicao: T,
+  unidade: UnidadeDaExecucao, chave: string): T & Pick<DefinicaoDeIndicador, 'execucao'> {
+  return { ...definicao, execucao: {
+    predicados: { eventos: definicao.fontes },
+    populacao: { unidade, chave },
+    confirmacao: { unidade, chave },
+    lacunas: definicao.lacunas,
+    agrupamentos: definicao.agrupamentos,
+  } };
 }
 
 export const REGISTRO_DE_INDICADORES_AGENTICOS = [
-  {
+  definirIndicador({
     id: 'agent.merge_receipt_coverage', versao: 'v1', tipo: 'razao',
     populacao: 'ship_done único por merge na janela',
     fontes: ['ship_done', 'verify_run'], deduplicacao: ['eventId', 'mergeSha'],
@@ -77,8 +126,8 @@ export const REGISTRO_DE_INDICADORES_AGENTICOS = [
       'merge_ausente', 'push_nao_provado'],
     cobertura: 'merges confirmados / merges na população',
     formula: { operador: 'razao', acumulador: 'merge_receipt', positivo: 'positivos', negativo: 'negativos' },
-  },
-  {
+  }, 'merge', 'mergeSha'),
+  definirIndicador({
     id: 'agent.first_truth_sustained', versao: 'v1', tipo: 'razao',
     populacao: 'threads únicas com ship_done na janela',
     fontes: ['verify_run', 'go_fix_opened', 'check_reverify', 'ship_done'],
@@ -86,8 +135,8 @@ export const REGISTRO_DE_INDICADORES_AGENTICOS = [
     lacunas: ['event_id_ausente', 'sequencia_incompleta', 'primeira_rodada_ausente', 'recibo_final_ausente'],
     cobertura: 'threads confirmadas / threads entregues',
     formula: { operador: 'razao', acumulador: 'first_truth', positivo: 'positivos', negativo: 'negativos' },
-  },
-  {
+  }, 'thread', 'orkastery.thread.id'),
+  definirIndicador({
     id: 'agent.check_rework', versao: 'v1', tipo: 'contagem_distinta',
     populacao: 'threads com CHECK terminal ou GO-FIX na janela',
     fontes: ['go_fix_opened', 'check_reverify'], deduplicacao: ['eventId', 'achado.id', 'thread+rodada'],
@@ -97,10 +146,10 @@ export const REGISTRO_DE_INDICADORES_AGENTICOS = [
     formula: { operador: 'contagem_distinta', acumulador: 'check_rework', series: [
       { id: 'achados', chave: 'achados' }, { id: 'rodadas', chave: 'rodadas' },
     ] },
-  },
-  {
+  }, 'thread', 'orkastery.thread.id'),
+  definirIndicador({
     id: 'agent.decisions_questions_reversals', versao: 'v1', tipo: 'contagem_distinta',
-    populacao: 'threads com decisão ou pergunta na janela',
+    populacao: 'eventos únicos de decisão ou pergunta na janela',
     fontes: ['autonomous_decision', 'hitl_requested'], deduplicacao: ['eventId', 'decisionId', 'requestId'],
     agrupamentos: ['user.hash', 'service.namespace', 'orkastery.thread.id', 'orkastery.phase.name'],
     lacunas: ['event_id_ausente', 'id_ausente', 'rastro_ausente', 'alvo_tipado_ausente'],
@@ -109,8 +158,8 @@ export const REGISTRO_DE_INDICADORES_AGENTICOS = [
       { id: 'decisoes', chave: 'decisoes' }, { id: 'perguntas', chave: 'perguntas' },
       { id: 'reversoes', chave: 'reversoes' },
     ] },
-  },
-  {
+  }, 'evento', 'eventId'),
+  definirIndicador({
     id: 'agent.policy_exceptions', versao: 'v1', tipo: 'contagem_distinta',
     populacao: 'exceções ou dispensas autorizadas na janela',
     fontes: ['ship_unscanned_authorized'], deduplicacao: ['eventId'],
@@ -119,8 +168,8 @@ export const REGISTRO_DE_INDICADORES_AGENTICOS = [
     cobertura: 'exceções reconhecidas / população conhecida',
     formula: { operador: 'contagem_distinta', acumulador: 'policy_exceptions',
       series: [{ id: 'excecoes', chave: 'excecoes' }] },
-  },
-  {
+  }, 'evento', 'eventId'),
+  definirIndicador({
     id: 'agent.mode_usage', versao: 'v1', tipo: 'distribuicao',
     populacao: 'thread_created e ship_done na janela', fontes: ['thread_created', 'ship_done'],
     deduplicacao: ['eventId', 'orkastery.thread.id'], agrupamentos: ['service.namespace'],
@@ -129,7 +178,7 @@ export const REGISTRO_DE_INDICADORES_AGENTICOS = [
     formula: { operador: 'distribuicao', acumulador: 'mode_usage', series: [
       { id: 'threads_criadas', chave: 'threads_criadas' }, { id: 'merges', chave: 'merges' },
     ] },
-  },
+  }, 'evento', 'eventId'),
 ] as const satisfies readonly DefinicaoDeIndicador[];
 
 export function definicaoDoIndicador(id: string): DefinicaoDeIndicador | undefined {
