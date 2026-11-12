@@ -1,6 +1,7 @@
 /** RM-090 F5: avaliador local, puro e de passagem única dos seis indicadores agênticos. */
 import { CONTRATO_DO_RECIBO_DE_PROVA } from './recibo-prova';
-import { REGISTRO_DE_INDICADORES_AGENTICOS, TipoDeAgregacao } from './telemetria-maturidade-registro';
+import { AcumuladorDoIndicador, DefinicaoDeIndicador, REGISTRO_DE_INDICADORES_AGENTICOS,
+  TipoDeAgregacao } from './telemetria-maturidade-registro';
 
 export interface EventoAnalitico {
   tipo: string;
@@ -147,12 +148,34 @@ function alvoTipado(valor: unknown): boolean {
     && (texto(alvo.id) || texto(alvo.sobre) || texto(alvo.sessionId)));
 }
 
-function resultadoBase(id: string, populacao: number, confirmados: number, series: SerieAnalitica[],
-  lacunas: Record<string, number>): ResultadoDeIndicador {
-  const definicao = REGISTRO_DE_INDICADORES_AGENTICOS.find((item) => item.id === id)!;
-  return { id, versao: definicao.versao, tipo: definicao.tipo, populacao,
-    cobertura: { confirmados, total: populacao, razao: populacao ? confirmados / populacao : null },
-    series, lacunas, fontes: definicao.fontes };
+export interface AcumuladoExecutavel {
+  populacao: number;
+  confirmados: number;
+  valores: Record<string, number | Record<string, number>>;
+  lacunas: Record<string, number>;
+}
+
+/** Interpreta fórmula, séries e cobertura diretamente da definição versionada. */
+export function interpretarDefinicao(definicao: DefinicaoDeIndicador,
+  acumulado: AcumuladoExecutavel): ResultadoDeIndicador {
+  let confirmados = acumulado.confirmados;
+  let series: SerieAnalitica[];
+  if (definicao.formula.operador === 'razao') {
+    const positivos = Number(acumulado.valores[definicao.formula.positivo] ?? 0);
+    const negativos = Number(acumulado.valores[definicao.formula.negativo] ?? 0);
+    confirmados = positivos + negativos;
+    series = [{ id: 'taxa', valor: confirmados ? positivos / confirmados : null },
+      { id: definicao.formula.positivo, valor: positivos },
+      { id: definicao.formula.negativo, valor: negativos }];
+  } else {
+    series = definicao.formula.series.map((serie) =>
+      ({ id: serie.id, valor: acumulado.valores[serie.chave] ?? 0 }));
+  }
+  return { id: definicao.id, versao: definicao.versao, tipo: definicao.tipo,
+    populacao: acumulado.populacao,
+    cobertura: { confirmados, total: acumulado.populacao,
+      razao: acumulado.populacao ? confirmados / acumulado.populacao : null },
+    series, lacunas: acumulado.lacunas, fontes: definicao.fontes };
 }
 
 /**
@@ -309,23 +332,24 @@ export function calcularMaturidade(eventos: readonly EventoAnalitico[], janela: 
   const confirmadosA4 = decisoes.size + perguntas.size + reversoes.size;
   const confirmadosA5 = excecoes.size;
   const populacaoA6 = populacaoCriacao + populacaoMerge;
-  const indicadores = [
-    resultadoBase('agent.merge_receipt_coverage', populacaoA1, confirmadosA1,
-      [{ id: 'taxa', valor: confirmadosA1 ? positivosA1 / confirmadosA1 : null },
-        { id: 'positivos', valor: positivosA1 }, { id: 'negativos', valor: negativosA1 }], lacunasComunsA1),
-    resultadoBase('agent.first_truth_sustained', populacaoA2, confirmadosA2,
-      [{ id: 'taxa', valor: confirmadosA2 ? positivosA2 / confirmadosA2 : null },
-        { id: 'positivos', valor: positivosA2 }, { id: 'negativos', valor: negativosA2 }], lacunasComunsA2),
-    resultadoBase('agent.check_rework', threadsA3.size, confirmadosA3,
-      [{ id: 'achados', valor: achadosDistintos.size }, { id: 'rodadas', valor: rodadasDistintas.size }], lacunasA3),
-    resultadoBase('agent.decisions_questions_reversals', threadsA4.size, confirmadosA4,
-      [{ id: 'decisoes', valor: decisoes.size }, { id: 'perguntas', valor: perguntas.size },
-        { id: 'reversoes', valor: reversoes.size }], { ...lacunasGlobais, ...lacunasA4 }),
-    resultadoBase('agent.policy_exceptions', populacaoA5, confirmadosA5,
-      [{ id: 'excecoes', valor: excecoes.size }], { ...lacunasGlobais, ...lacunasA5 }),
-    resultadoBase('agent.mode_usage', populacaoA6, confirmadosA6,
-      [{ id: 'threads_criadas', valor: modosCriacao }, { id: 'merges', valor: modosMerge }],
-      { ...lacunasGlobais, ...(confirmadosA6 < populacaoA6 ? { modo_ou_thread_ausente: populacaoA6 - confirmadosA6 } : {}) }),
-  ];
+  const acumulados: Record<AcumuladorDoIndicador, AcumuladoExecutavel> = {
+    merge_receipt: { populacao: populacaoA1, confirmados: confirmadosA1,
+      valores: { positivos: positivosA1, negativos: negativosA1 }, lacunas: lacunasComunsA1 },
+    first_truth: { populacao: populacaoA2, confirmados: confirmadosA2,
+      valores: { positivos: positivosA2, negativos: negativosA2 }, lacunas: lacunasComunsA2 },
+    check_rework: { populacao: threadsA3.size, confirmados: confirmadosA3,
+      valores: { achados: achadosDistintos.size, rodadas: rodadasDistintas.size }, lacunas: lacunasA3 },
+    decisions_questions_reversals: { populacao: threadsA4.size, confirmados: confirmadosA4,
+      valores: { decisoes: decisoes.size, perguntas: perguntas.size, reversoes: reversoes.size },
+      lacunas: { ...lacunasGlobais, ...lacunasA4 } },
+    policy_exceptions: { populacao: populacaoA5, confirmados: confirmadosA5,
+      valores: { excecoes: excecoes.size }, lacunas: { ...lacunasGlobais, ...lacunasA5 } },
+    mode_usage: { populacao: populacaoA6, confirmados: confirmadosA6,
+      valores: { threads_criadas: modosCriacao, merges: modosMerge },
+      lacunas: { ...lacunasGlobais,
+        ...(confirmadosA6 < populacaoA6 ? { modo_ou_thread_ausente: populacaoA6 - confirmadosA6 } : {}) } },
+  };
+  const indicadores = REGISTRO_DE_INDICADORES_AGENTICOS.map((definicao) =>
+    interpretarDefinicao(definicao, acumulados[definicao.formula.acumulador]));
   return { contrato: 'ork.sdlc-analytics-result/v1', janela, indicadores };
 }
