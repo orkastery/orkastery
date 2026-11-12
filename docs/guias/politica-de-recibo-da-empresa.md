@@ -57,7 +57,7 @@ still fails under all three levels.
 ## Basic-level trust boundary
 
 The bundle and the receipt's `sha256` come from the PR/MR itself, so whoever controls that change can forge them. The
-runner does not query the Orkastery ledger or compare the projection or receipt against it. At this basic level, it
+runner does not query the Orkastery ledger or compare the receipt or the projection against it. At this basic level, it
 reruns preparation and the claims and commands on the HEAD, then emits a receipt for the HEAD it just executed. It does
 not use ancestry or a later diff to turn an older HEAD into a present receipt. This detects operational divergence, but
 it does not prove who authored the bundle or code.

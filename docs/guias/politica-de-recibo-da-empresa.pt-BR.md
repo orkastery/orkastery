@@ -55,10 +55,10 @@ continua reprovando nos três níveis.
 
 ## Limite de confiança do nível básico
 
-O bundle e o `sha256` da projeção vêm do próprio PR/MR e podem ser forjados por quem controla essa mudança. O runner
-não consulta nem confere a projeção contra o ledger do Orkastery. Neste nível básico, ele reexecuta no HEAD o preparo,
-as claims e os comandos da projeção e emite o recibo do HEAD que acabou de executar. Não usa ancestralidade nem diff
-posterior para transformar um HEAD antigo em presente. Isso detecta divergência operacional, mas não prova a autoria
+O bundle e o `sha256` da projeção vêm do próprio PR/MR e podem ser forjados por quem controla essa mudança.
+O runner não consulta nem confere a projeção contra o ledger do Orkastery. Neste nível básico, ele reexecuta no HEAD
+o preparo, as claims e os comandos da projeção e emite o recibo do HEAD que acabou de executar.
+Não usa ancestralidade nem diff posterior para transformar um HEAD antigo em presente. Isso detecta divergência operacional, mas não prova a autoria
 do bundle nem do código.
 
 A garantia contra forja pertence ao recibo assinado da F7 da página da RM-089; ela não faz parte desta fatia. O campo
