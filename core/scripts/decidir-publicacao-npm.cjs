@@ -133,12 +133,15 @@ function jsonEstruturado(texto) {
   } catch { return null; }
 }
 
-function codigoDoErro(resultado) {
+function codigosDoErro(resultado) {
+  const codigos = new Set();
   for (const texto of [resultado.stdout, resultado.stderr]) {
     const valor = jsonEstruturado(texto);
-    if (valor && valor.error && typeof valor.error === 'object' && typeof valor.error.code === 'string') return valor.error.code;
+    if (valor && valor.error && typeof valor.error === 'object' && typeof valor.error.code === 'string') {
+      codigos.add(valor.error.code);
+    }
   }
-  return null;
+  return codigos;
 }
 
 function classificarSucessoDaConsulta(stdout) {
@@ -156,7 +159,8 @@ function classificarSucessoDaConsulta(stdout) {
 function consultarRegistro(executor = executorPadrao, registro = REGISTRO) {
   const consulta = executor('npm', ['view', PACOTE, 'dist-tags.latest', '--json', `--registry=${registro}`]);
   if (consulta.status === 0) return classificarSucessoDaConsulta(consulta.stdout);
-  if (codigoDoErro(consulta) !== 'E404') return { tipo: 'inacessivel' };
+  const codigos = codigosDoErro(consulta);
+  if (codigos.size !== 1 || !codigos.has('E404')) return { tipo: 'inacessivel' };
   const ping = executor('npm', ['ping', `--registry=${registro}`]);
   return ping.status === 0 ? { tipo: 'pacote-ausente' } : { tipo: 'inacessivel' };
 }

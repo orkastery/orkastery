@@ -110,6 +110,8 @@ test('PN12: E404 com ping vermelho e erros não E404 ou não estruturados falham
   const resultado = (status: number, stdout: string, stderr = ''): Resultado => ({ status, stdout, stderr });
   for (const respostas of [
     [resultado(1, JSON.stringify({ error: { code: 'E404' } })), resultado(1, '', 'fora')],
+    [resultado(1, JSON.stringify({ error: { code: 'E404' } }), JSON.stringify({ error: { code: 'E401' } })),
+      resultado(0, '{}')],
     [resultado(1, JSON.stringify({ error: { code: 'E401' } }))],
     [resultado(1, '', 'npm error humano')],
   ]) {
