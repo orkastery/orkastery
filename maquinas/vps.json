@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.8",
-  "publicadoEm": "2026-11-12T00:45:18.315Z",
+  "publicadoEm": "2026-11-12T01:00:08.452Z",
   "threads": [
     {
       "id": "ork-rm088guardad",
@@ -36,7 +36,7 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm089f2dupli-full",
-      "atualizadaEm": "2026-11-12T00:45:17.567Z",
+      "atualizadaEm": "2026-11-12T00:54:45.783Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -124,7 +124,7 @@
       "status": "aberta",
       "roadmap": "RM-091",
       "branch": "ork/ork-rm091orkmesh-go",
-      "atualizadaEm": "2026-11-12T00:32:41.782Z",
+      "atualizadaEm": "2026-11-12T00:48:08.308Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
