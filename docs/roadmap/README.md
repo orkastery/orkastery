@@ -83,6 +83,14 @@ Estes itens seguem a prioridade definida pelo dono.
 | --- | --- | --- |
 | [RM-091](RM-091-ork-mesh-no-site-para-empresas-e-times.md) Ork Mesh no site, para empresas e times | Pedido do dono no terminal, em 11/11/2026 | O site apresenta a Ork Mesh a empresas e times de builders, separa o que já está disponível do que está em desenvolvimento e orienta a adoção gradual |
 
+## Pedidos do dono de 12/11/2026
+
+Este item ainda não tem ordem de prioridade definida pelo dono.
+
+| Item | Origem | Resultado pretendido |
+| --- | --- | --- |
+| [RM-092](RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md) Ratificação autenticada de contrato público no #Auto | Pedido do dono no terminal, em 12/11/2026, pela alternativa `1a` | Um contrato público novo só segue no `#Auto` depois que o dono ratifica seus nomes exatos por canal autenticado e o CHECK confere o recibo sem ampliar seu alcance |
+
 ## Itens
 
 Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
@@ -169,6 +177,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-089](RM-089-orkastery-network-coletiva-da-empresa.md) | Orkastery Network coletiva da empresa, com uso obrigatório | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-11-11 |
 | [RM-090](RM-090-telemetria-opentelemetry-para-sdlc-analytics.md) | Telemetria compatível com OpenTelemetry e Grafana para SDLC Analytics | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-11-11 |
 | [RM-091](RM-091-ork-mesh-no-site-para-empresas-e-times.md) | Ork Mesh no site, para empresas e times | Em desenvolvimento | Não iniciado | Não iniciados | Não implantado | 2026-11-11 |
+| [RM-092](RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md) | Ratificação autenticada de contrato público no #Auto | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-12 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->
