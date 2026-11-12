@@ -38,8 +38,8 @@ processors:
       - 'log.attributes["log.record.uid"] == nil or log.attributes["orkastery.thread.id"] == nil'
       - 'log.event_name == "orkastery.sdlc.deployment.v1" and (Len(log.attributes) != 9 or log.attributes["deployment.id"] == nil or log.attributes["deployment.status"] != "succeeded" or log.attributes["cicd.pipeline.name"] == nil or log.attributes["cicd.pipeline.run.id"] == nil or log.attributes["cicd.pipeline.result"] != "success" or log.attributes["cicd.pipeline.task.type"] != "deploy" or log.attributes["vcs.ref.head.revision"] == nil)'
       - 'log.event_name == "orkastery.sdlc.incident.v1" and (log.attributes["orkastery.incident.id"] == nil or log.attributes["orkastery.incident.deployment.id"] == nil or (log.attributes["orkastery.incident.state"] != "opened" and log.attributes["orkastery.incident.state"] != "resolved"))'
-      - 'log.event_name == "orkastery.sdlc.incident.v1" and log.attributes["orkastery.incident.state"] == "opened" and (Len(log.attributes) != 7 or log.attributes["error.type"] == nil)'
-      - 'log.event_name == "orkastery.sdlc.incident.v1" and log.attributes["orkastery.incident.state"] == "resolved" and (Len(log.attributes) < 6 or Len(log.attributes) > 7 or log.attributes["error.type"] != nil)'
+      - 'log.event_name == "orkastery.sdlc.incident.v1" and log.attributes["orkastery.incident.state"] == "opened" and (Len(log.attributes) != 6 or log.attributes["error.type"] == nil)'
+      - 'log.event_name == "orkastery.sdlc.incident.v1" and log.attributes["orkastery.incident.state"] == "resolved" and (Len(log.attributes) < 5 or Len(log.attributes) > 6 or log.attributes["error.type"] != nil)'
   transform/dora-sanitize:
     error_mode: propagate
     log_statements:

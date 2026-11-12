@@ -60,6 +60,24 @@ test('UID repetido é deduplicado e conteúdo divergente fecha a entrada', () =>
   assert.equal(deduplicado.medidas[0].valor, 1);
   const fechado = calcularDora([primeiro, divergente], ships);
   assert.equal(fechado.medidas[0].lacunas.includes('uid_divergente'), true);
+  assert.equal(fechado.medidas[0].estado, 'não confirmado');
+  assert.equal(fechado.medidas[0].valor, null);
+});
+
+test('B4 incidente inválido e campo desconhecido invalidam somente as medidas afetadas', () => {
+  uid = 0;
+  const semErro = incident('opened');
+  delete semErro.attributes['error.type'];
+  const incidenteInvalido = calcularDora([deploy(), semErro], ships);
+  assert.equal(incidenteInvalido.medidas[0].estado, 'confirmado');
+  assert.equal(incidenteInvalido.medidas[2].estado, 'não confirmado');
+  assert.equal(incidenteInvalido.medidas[2].valor, null);
+
+  const deployComCampoExtra = deploy();
+  deployComCampoExtra.attributes['campo.desconhecido'] = 'valor';
+  const deploymentInvalido = calcularDora([deployComCampoExtra], ships);
+  assert.equal(deploymentInvalido.medidas[0].estado, 'não confirmado');
+  assert.equal(deploymentInvalido.medidas[0].valor, null);
 });
 
 test('ausência de evento ou vínculo deixa apenas a medida afetada não confirmada', () => {
