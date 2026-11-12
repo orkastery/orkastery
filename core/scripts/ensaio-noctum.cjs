@@ -555,6 +555,7 @@ function montarApoio(raiz, n, sabotar) {
       return n.ledger.registrar(n.thread.dirThread(proj.dir, threadId), threadId, 'verify_run', { ...(ts ? { ts } : {}), commit,
         recibo: n.recibo.chaveDoReciboDeProva(proj.dir, threadId, commit),
         veredito: 'verdade sustentada', motivos: [], claims, baseline: { commit: 'baseline-simulada', gravadaEm: ts ?? iso(Date.now()) }, comandos: [],
+        check: { modo: 'agile', origem: 'manifesto', nome: 'Agile Check' },
         simulado: true });
     }
 
@@ -1365,8 +1366,9 @@ function cenarioCondutorMorto(c, a, n) {
 
 /**
  * A base que anda: com o candidato publicado e o CI verde, um commit chega à base do remoto antes da integração. O condutor
- * atualiza o candidato sobre a base nova (o CHANGELOG em "Não publicado"), roda o verify real nesse SHA e regrava o bundle
- * com o recibo do pai provado; depois publica de novo e integra na base nova, com a prova do push.
+ * atualiza o candidato sobre a base nova (o CHANGELOG em "Não publicado"), roda o verify real nesse SHA e confere a
+ * projeção estável. Sem mudança nos bytes não nasce filho: o runner emite o recibo do candidato publicado e a entrega o
+ * integra na base nova, com a prova do push.
  */
 function cenarioBaseQueAnda(c, a, n) {
   const m = a.mundo('base-que-anda');
@@ -1387,30 +1389,51 @@ function cenarioBaseQueAnda(c, a, n) {
   m.conduzir('arco-base', itens, 1);
   if (!m.rt.despachos[1]) { c.esperar('a entrega pede a revisão independente', false, JSON.stringify(m.rt.despachos)); return; }
   m.revisaoConcluida(t.id, m.rt.despachos[1].sessionId);
+  const bundleInicial = n.ci.prepararBundleCi(m.proj.carregado, t.id);
+  m.git(t.worktree, ['add', '--', path.relative(t.worktree, bundleInicial)]);
+  m.git(t.worktree, ['commit', '-q', '-m', `ci(${t.id}): projeção da rodada verde`]);
+  const fontePublicada = m.git(t.worktree, ['rev-parse', 'HEAD']);
   const kPub = m.conduzir('arco-base', itens, 1);
   const branch = n.worktree.branchDaWorktree(n.thread.lerThread(m.proj.dir, t.id));
   c.esperar('o candidato chega publicado no remoto de fixture, com o PR aberto na forja SIMULADA',
-    kPub.ultimo?.entrega?.acao === 'publicou' && m.lsRemote(`refs/heads/${branch}`) === fonte, JSON.stringify(resumoDoPasso(kPub.ultimo)));
+    kPub.ultimo?.entrega?.acao === 'publicou' && m.lsRemote(`refs/heads/${branch}`) === fontePublicada,
+    JSON.stringify(resumoDoPasso(kPub.ultimo)));
   const baseNova = m.avancarBase({ 'notas/outra.md': '# Outra nota SIMULADA, de fora do arco\n' }, 'docs: outra nota que chegou na base');
   const kAt = m.conduzir('arco-base', itens, 1);
   const at = kAt.ultimo?.entrega;
   const changelog = fs.readFileSync(path.join(t.worktree, 'CHANGELOG.md'), 'utf8');
   const naoPublicado = changelog.slice(changelog.indexOf('## Não publicado'), changelog.indexOf('## [0.1.0]'));
-  c.esperar('com a base nova, o condutor atualiza o candidato sobre ela, com a linha da thread em "Não publicado" e o bundle regravado',
-    at?.acao === 'atualizou' && m.ancestral(t.worktree, baseNova, at.para) && naoPublicado.includes(`o que a thread ${t.id} acrescenta`) &&
+  c.esperar('com a base nova, o condutor atualiza o candidato sobre ela, com a linha da thread em "Não publicado" e a projeção preservada',
+    at?.acao === 'atualizou' && at.bundle === false && m.ancestral(t.worktree, baseNova, at.para) && naoPublicado.includes(`o que a thread ${t.id} acrescenta`) &&
       naoPublicado.includes('Antiga SIMULADA'), JSON.stringify({ at: resumoDoPasso(kAt.ultimo), naoPublicado }));
   const reais = m.ledger(t.id).filter((e) => e.tipo === 'verify_run' && !e.simulado);
   const bundle = path.posix.join('.ork-ci', `${t.id}.json`);
-  const recibo = JSON.parse(fs.readFileSync(path.join(t.worktree, bundle), 'utf8')).recibo;
+  const projecao = JSON.parse(fs.readFileSync(path.join(t.worktree, bundle), 'utf8')).recibo;
   const diffDepoisDoVerify = reais.length === 1 && at?.para
     ? m.git(t.worktree, ['diff', '--name-only', reais[0].commit, at.para, '--']) : null;
-  c.esperar('o condutor roda o verify real no pai provado do bundle, cujo recibo aponta para esse HEAD',
-    at?.verify === true && reais.length === 1 && m.ancestral(t.worktree, reais[0].commit, at.para) &&
-      diffDepoisDoVerify === bundle && recibo?.head === reais[0].commit,
-    JSON.stringify({ verify: at?.verify, reais: reais.map((e) => e.commit), para: at?.para, diffDepoisDoVerify, recibo }));
+  const claimsSha256 = projecao?.claims && createHash('sha256').update(JSON.stringify(projecao.claims)).digest('hex');
+  const commandsSha256 = projecao?.commands && createHash('sha256').update(JSON.stringify(projecao.commands)).digest('hex');
+  c.esperar('o condutor confere a projeção com a rodada verde; sem mudança, o candidato é o próprio HEAD verificado',
+    at?.verify === true && reais.length === 1 && reais[0].commit === at.para && diffDepoisDoVerify === '' &&
+      projecao?.contrato === 'ork.ci-projecao-replay/v1' && !Object.hasOwn(projecao, 'head') &&
+      projecao.rodada?.claimsSha256 === claimsSha256 && projecao.rodada?.commandsSha256 === commandsSha256 &&
+      projecao.rodada?.check === reais[0].check?.modo,
+    JSON.stringify({ verify: at?.verify, reais: reais.map((e) => e.commit), para: at?.para, diffDepoisDoVerify, projecao }));
   const kRepub = m.conduzir('arco-base', itens, 1);
+  const publicado = m.lsRemote(`refs/heads/${branch}`);
   c.esperar('a entrega publica de novo o SHA atualizado: a branch do remoto anda até ele',
-    kRepub.ultimo?.entrega?.acao === 'publicou' && m.lsRemote(`refs/heads/${branch}`) === at?.para, JSON.stringify(resumoDoPasso(kRepub.ultimo)));
+    kRepub.ultimo?.entrega?.acao === 'publicou' && publicado === at?.para, JSON.stringify(resumoDoPasso(kRepub.ultimo)));
+  const resultadoRunner = n.ci.executarCiDaBranchComContexto(n.manifest.exigirManifesto(t.worktree), branch, {
+    head: publicado, destino: 'main', pullRequest: true, preflightEmpresa: null,
+    replay: { casaEfemera: t.worktree, identidadeProduto: () => 'produto-estavel', hermeticidade: () => null,
+      executor: ({ nome, comando }) => ({ nome, comando, ok: true, code: 0, resumo: 'ok', causa: 'exit',
+        prazoMs: 5_000, duracaoMs: 1, executado: true }) },
+  });
+  c.esperar('o runner executa o HEAD publicado e emite o recibo desse mesmo HEAD, ligado aos hashes da projeção',
+    resultadoRunner.ok === true && resultadoRunner.commit === publicado && resultadoRunner.recibo?.head === publicado &&
+      resultadoRunner.recibo?.contrato === 'ork.ci-recibo-runner/v1' &&
+      resultadoRunner.recibo?.claimsSha256 === projecao.rodada.claimsSha256,
+    JSON.stringify({ publicado, commit: resultadoRunner.commit, recibo: resultadoRunner.recibo }));
   const kInt = m.conduzir('arco-base', itens, 1);
   const base = m.lsRemote('refs/heads/main');
   const ship = m.ledger(t.id).filter((e) => e.tipo === 'ship_done');
@@ -1418,7 +1441,8 @@ function cenarioBaseQueAnda(c, a, n) {
     kInt.ultimo?.entrega?.acao === 'integrou' && ship.length === 1 && ship[0].pushVerificado === true && m.ancestral(m.proj.dir, baseNova, base) &&
       m.ancestral(m.proj.dir, at.para, base), JSON.stringify({ k: resumoDoPasso(kInt.ultimo), ship: ship.length }));
   c.esperar('o CI SIMULADO foi lido nos dois SHAs publicados, e nenhum outro PR foi aberto',
-    m.ci.chamadas.includes(fonte) && m.ci.chamadas.includes(at?.para) && m.criacoesDePr() === 1, JSON.stringify({ ci: m.ci.chamadas, prs: m.criacoesDePr() }));
+    m.ci.chamadas.includes(fontePublicada) && m.ci.chamadas.includes(at?.para) && m.criacoesDePr() === 1,
+    JSON.stringify({ ci: m.ci.chamadas, prs: m.criacoesDePr() }));
 }
 
 /**
