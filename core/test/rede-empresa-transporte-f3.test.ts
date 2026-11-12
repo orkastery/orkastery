@@ -38,7 +38,7 @@ function git(cwd: string, ...args: string[]): string {
 
 function repositorioLinear(total: number, raso = false): { raiz: string; cache: string; limpar: () => void } {
   const raiz = dirTemporario('rede-empresa-historia-real'), remoto = path.join(raiz, 'remoto.git');
-  execFileSync('git', ['init', '--bare', '-q', remoto]);
+  execFileSync('git', ['init', '--bare', '-q', '-b', 'main', remoto]);
   const linhas = ['blob', 'mark :1', 'data 3', '{}\n'];
   for (let i = 1; i <= total; i++) {
     linhas.push('commit refs/heads/main', `mark :${i + 1}`, `author Teste <teste@invalid> ${1700000000 + i} +0000`,
