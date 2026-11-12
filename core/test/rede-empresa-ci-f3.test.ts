@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import test from 'node:test';
 import { anexarPreflightAoResultadoCi } from '../src/ci';
 import { ambienteDeCi } from '../src/forja/ambiente-de-ci';
-import { preflightNaoRealizado } from '../src/rede-empresa-preflight';
+import { gravarAdesaoRedeEmpresa } from '../src/rede-empresa-config';
+import { CREDENCIAL_DE_LEITURA_DA_REDE, preflightCiDoProjeto, preflightNaoRealizado } from '../src/rede-empresa-preflight';
 import { textoDoPreflightEmpresa } from '../src/locale-network-empresa';
+import { projetoTemporario } from './apoio';
 
 test('sem credencial a checagem coletiva não é realizada e o resultado do CI não muda', () => {
   const preflight = preflightNaoRealizado('ci.credencial-ausente');
@@ -54,4 +57,44 @@ test('resultado não realizado de fork não expõe a credencial', () => {
 test('sem inscrição o resultado anterior permanece sem campo coletivo', () => {
   const resultado = anexarPreflightAoResultadoCi({ ok: false, error: 'falha existente' }, null);
   assert.deepEqual(resultado, { ok: false, error: 'falha existente' });
+});
+
+test('preflightCiDoProjeto leva http.extraHeader somente no ambiente do Git sob a carga oficial do GitHub', () => {
+  const p = projetoTemporario('rede-empresa-ci-transporte', true), home = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ci-home-'));
+  try {
+    execFileSync('git', ['remote', 'set-url', 'origin', 'https://github.com/time/projeto.git'], { cwd: p.dir });
+    const ref = (caminho: string) => ({ forja: 'github' as const, host: 'github.com', caminho });
+    const env: NodeJS.ProcessEnv = { ORK_USUARIO_DIR: home, GITHUB_ACTIONS: 'true', GITHUB_REPOSITORY: 'time/projeto',
+      GITHUB_EVENT_NAME: 'pull_request', GITHUB_HEAD_REF: 'mudanca', GITHUB_BASE_REF: 'main',
+      [CREDENCIAL_DE_LEITURA_DA_REDE]: 'token-de-fixture' };
+    gravarAdesaoRedeEmpresa({ inscricaoId: 'inscricao-a', empresa: ref('time/rede'), rede: ref('time/rede'),
+      maestroRef: { forja: 'github', host: 'github.com', accountId: 41 }, loginAtual: 'builder', politicaVersao: 'v2',
+      projetos: [ref('time/projeto')], estado: 'ativa', ultimaPublicacao: null, pendencia: null }, env);
+    const evento = path.join(home, 'evento.json');
+    fs.writeFileSync(evento, JSON.stringify({ pull_request: { head: { repo: { full_name: 'time/projeto' } },
+      base: { repo: { full_name: 'time/projeto' } } } })); env.GITHUB_EVENT_PATH = evento;
+    const fork = ambienteDeCi(env)?.fork;
+    assert.equal(fork, false);
+    let url = '', opcoes: { env?: NodeJS.ProcessEnv } | undefined;
+    const resultado = preflightCiDoProjeto(p.dir, p.carregado.manifesto, env, fork ?? null, {
+      prepararCache: (_casa, recebida) => { url = recebida; return path.join(home, 'cache'); },
+      portaGit: (_cache, _remoto, rede) => { opcoes = rede; return { ler: () => ({ id: null, atualizada: false,
+        ler: () => null }), gravar: () => false }; },
+    });
+    assert.equal(resultado?.estado, 'inconclusivo');
+    assert.equal(opcoes?.env?.GIT_CONFIG_KEY_0, 'http.extraHeader');
+    assert.match(opcoes?.env?.GIT_CONFIG_VALUE_0 ?? '', /^Authorization: Basic /);
+    assert.equal(opcoes?.env?.[CREDENCIAL_DE_LEITURA_DA_REDE], '');
+    assert.doesNotMatch(JSON.stringify({ url, cache: path.join(home, 'cache'), remoto: 'origin' }), /token-de-fixture/);
+    let leuCredencial = false;
+    const privilegiado = new Proxy(env, { get(alvo, chave, receptor) {
+      if (chave === CREDENCIAL_DE_LEITURA_DA_REDE) { leuCredencial = true; throw new Error('credencial lida'); }
+      return Reflect.get(alvo, chave, receptor) as unknown;
+    } });
+    const forkBloqueado = preflightCiDoProjeto(p.dir, p.carregado.manifesto, privilegiado, true, {
+      prepararCache: () => { throw new Error('transporte não deve ser preparado'); },
+    });
+    assert.deepEqual([forkBloqueado?.estado, forkBloqueado?.lacunas, leuCredencial],
+      ['nao-realizado', ['ci.pr-de-fork'], false]);
+  } finally { p.limpar(); fs.rmSync(home, { recursive: true, force: true }); }
 });

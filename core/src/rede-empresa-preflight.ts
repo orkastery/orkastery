@@ -147,9 +147,14 @@ export function preflightDoProjeto(raiz: string, manifesto: Manifesto,
 
 export const CREDENCIAL_DE_LEITURA_DA_REDE = 'ORK_REDE_EMPRESA_READ_TOKEN' as const;
 
+export interface DependenciasDoPreflightCi {
+  prepararCache?: typeof prepararCache;
+  portaGit?: typeof portaGitDaRedeEmpresa;
+}
+
 /** CI: a credencial fica apenas no ambiente do transporte Git e nunca entra em argv, resultado, bundle ou publicação. */
 export function preflightCiDoProjeto(raiz: string, manifesto: Manifesto, env: NodeJS.ProcessEnv,
-  fork: boolean | null): ResultadoPreflightEmpresa | null {
+  fork: boolean | null, dependencias: DependenciasDoPreflightCi = {}): ResultadoPreflightEmpresa | null {
   const remoto = remotoDoProjeto(raiz, 'origin');
   if (!remoto) return null;
   const adesao = lerConfigRedeEmpresa(env).inscricoes.find((i) => i.estado === 'ativa' && i.projetos.some((p) => {
@@ -166,10 +171,10 @@ export function preflightCiDoProjeto(raiz: string, manifesto: Manifesto, env: No
   const casa: CasaDaRede = { forja: adesao.empresa.forja, host: adesao.empresa.host,
     dono: partes.slice(0, -1).join('/'), repositorio: partes.at(-1)!, origem: 'opcao' };
   const url = `https://${adesao.empresa.host}/${adesao.empresa.caminho}.git`;
-  const cache = prepararCache(casa, url, null, 'ci-readonly');
+  const cache = (dependencias.prepararCache ?? prepararCache)(casa, url, null, 'ci-readonly');
   const usuario = adesao.empresa.forja === 'github' ? 'x-access-token' : 'oauth2';
   const autorizacao = Buffer.from(`${usuario}:${token}`, 'utf8').toString('base64');
   const gitEnv: NodeJS.ProcessEnv = { ...env, [CREDENCIAL_DE_LEITURA_DA_REDE]: '', GIT_CONFIG_COUNT: '1',
     GIT_CONFIG_KEY_0: 'http.extraHeader', GIT_CONFIG_VALUE_0: `Authorization: Basic ${autorizacao}` };
-  return preflightDaRedeEmpresa(portaGitDaRedeEmpresa(cache, 'origin', { env: gitEnv }));
+  return preflightDaRedeEmpresa((dependencias.portaGit ?? portaGitDaRedeEmpresa)(cache, 'origin', { env: gitEnv }));
 }
