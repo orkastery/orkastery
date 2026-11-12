@@ -8,7 +8,7 @@ import { lerMetadados, recusaAbaixoDoPiso } from './forja/versao';
 import { resolverForja, SONDAS_PADRAO, SondasDaForja } from './forja/resolver';
 import { dirDoCacheDaForja } from './forja/cache';
 import { exigirRemoto } from './branch-de-estado';
-import { ManifestoCarregado } from './manifest';
+import { comandosDoTextoDoManifesto, ManifestoCarregado, NOME_MANIFESTO, NOME_MANIFESTO_LEGADO } from './manifest';
 import { exec } from './util';
 import { rodarCli } from './forja/executor';
 import { estadoDoCheck } from './forja/estado';
@@ -112,6 +112,35 @@ export interface ContextoDaPoliticaCi {
   replay?: Omit<OpcoesReplayCi, 'raiz' | 'manifesto' | 'head' | 'ambiente'>;
   /** HEAD já resolvido pelo adaptador; ausente, lê o checkout uma vez. */
   head?: string;
+  /** Injeção pura dos testes; produção lê a receita da ref protegida de destino. */
+  comandosConfiaveis?: ReadonlyArray<{ name: string; command: string }> | null;
+}
+
+type LeitorDoManifestoNaRef = (ref: string, arquivo: string) => string | null;
+
+/** Comandos verify da branch de destino, fora do conteúdo controlado pelo PR/MR. */
+export function comandosConfiaveisDoDestino(raiz: string, destino: string,
+  ler: LeitorDoManifestoNaRef = (ref, arquivo) => {
+    const r = exec('git', ['show', '--no-ext-diff', '--end-of-options', `${ref}:./${arquivo}`], raiz);
+    return r.ok ? r.stdout : null;
+  }): Array<{ name: string; command: string }> | null {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._/-]{0,254}$/.test(destino) || destino.includes('..') ||
+      destino.includes('//') || destino.includes('@{') || destino.endsWith('/') || destino.endsWith('.lock')) return null;
+  for (const ref of [`refs/remotes/origin/${destino}`, `refs/heads/${destino}`]) {
+    for (const arquivo of [NOME_MANIFESTO, NOME_MANIFESTO_LEGADO]) {
+      const bruto = ler(ref, arquivo);
+      if (bruto === null) continue;
+      const manifesto = comandosDoTextoDoManifesto(bruto);
+      if (!manifesto) return null;
+      return [
+        { name: 'typecheck', command: manifesto.typecheck },
+        { name: 'build', command: manifesto.build },
+        { name: 'test', command: manifesto.test },
+        { name: 'security_scan', command: manifesto.securityScan },
+      ].filter((item): item is { name: string; command: string } => !!item.command?.trim());
+    }
+  }
+  return null;
 }
 
 export function anexarPreflightAoResultadoCi<T extends { ok: boolean }>(resultado: T,
@@ -666,6 +695,13 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
   const ehProjecao = !!entrada && typeof entrada === 'object' && !Array.isArray(entrada) &&
     (entrada as { contrato?: unknown }).contrato === CONTRATO_PROJECAO_REPLAY_CI;
   const head = contexto.head ?? commitReal(carregado.raiz);
+  const destino = contexto.destino ?? null;
+  const pullRequest = contexto.pullRequest ?? destino !== null;
+  const comandosConfiaveis = contexto.comandosConfiaveis !== undefined
+    ? contexto.comandosConfiaveis
+    : pullRequest && destino
+      ? comandosConfiaveisDoDestino(carregado.raiz, destino)
+      : comandosDoManifesto(carregado.manifesto).map(({ nome, comando }) => ({ name: nome, command: comando }));
   const replay = ehProjecao ? reexecutarProjecaoReplayCi(entrada, {
     raiz: carregado.raiz,
     manifesto: carregado.manifesto,
@@ -673,13 +709,12 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
     ambiente: contexto.env ?? process.env,
     hermeticidade: (claim) => motivoClaimNaoHermeticaReplayCi(claim) ?? motivoDiferimentoCi(claim as Claim, carregado.raiz),
     ...contexto.replay,
+    comandosConfiaveis,
   }) : null;
   const recibo = bundleInvalido ? 'invalido'
     : replay ? replay.degradacao || replay.invalida ? 'invalido'
       : estadoDoReciboRunnerCi(replay.recibo, head)
       : estadoDoReciboCi(carregado.raiz, entrada, head, achado?.arquivo);
-  const destino = contexto.destino ?? null;
-  const pullRequest = contexto.pullRequest ?? destino !== null;
   const protegida = carregado.manifesto.worktree.base_branch;
   const degradacao = replay?.degradacao ? diagnosticoDaDegradacaoReplay(replay.degradacao) : null;
   const mensagem = degradacao ? `${degradacao.message} ${degradacao.action}` : recibo === 'presente'
@@ -707,7 +742,7 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
       : replay.invalida ? { code: 'ci.recibo.invalido', message: mensagemDoRecibo('invalido', branch) } : null;
     const defeitoDoReciboReprova = nivel === 'exigir' && pullRequest && destino === protegida && recibo !== 'presente';
     // Observar e avisar não transformam sozinhos um diagnóstico de recibo em reprovação.
-    const medicaoOk = diagnostico ? true : replay.ok;
+    const medicaoOk = replay.ok;
     return {
       schema: 'ork.ci-run/v1' as const,
       ok: medicaoOk && !defeitoDoReciboReprova,

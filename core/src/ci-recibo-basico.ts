@@ -117,6 +117,8 @@ export interface OpcoesReplayCi {
   hermeticidade?: (claim: ClaimProjetadaReplayCi) => string | null;
   capacidade?: () => boolean;
   casaEfemera?: string;
+  /** Receita externa ao PR/MR; `null` falha fechada quando a fonte protegida não pode ser lida. */
+  comandosConfiaveis?: ReadonlyArray<{ name: string; command: string }> | null;
 }
 
 export type EstadoDoReciboRunnerCi = 'presente' | 'invalido' | 'sha-divergente';
@@ -331,17 +333,23 @@ function causaDaExecucao(resultados: readonly ResultadoDeComando[]): CausaDegrad
  */
 export function reexecutarProjecaoReplayCi(valor: unknown, opcoes: OpcoesReplayCi): ResultadoReplayCi {
   const validacao = validarProjecaoReplayCi(valor);
-  if (!validacao.ok) return { ok: false, thread: '', commit: opcoes.head, preparo: null, claims: [], commands: [],
+  if (!validacao.ok) return { ok: true, thread: '', commit: opcoes.head, preparo: null, claims: [], commands: [],
     julgamento: null, ...(validacao.causa === 'projecao-acima-do-limite'
       ? { degradacao: validacao.causa } : { invalida: true as const }) };
   const projecao = validacao.projecao;
+  if (projecao.claims.length === 0 || opcoes.comandosConfiaveis === null ||
+      (opcoes.comandosConfiaveis !== undefined &&
+        JSON.stringify(projecao.commands) !== JSON.stringify(opcoes.comandosConfiaveis))) {
+    return { ok: true, thread: projecao.thread, commit: opcoes.head, preparo: null, claims: [], commands: [],
+      julgamento: null, invalida: true };
+  }
   const hermeticidade = opcoes.hermeticidade ?? motivoClaimNaoHermeticaReplayCi;
   if (projecao.claims.some((claim) => hermeticidade(claim) !== null)) {
-    return { ok: false, thread: projecao.thread, commit: opcoes.head, preparo: null, claims: [], commands: [],
+    return { ok: true, thread: projecao.thread, commit: opcoes.head, preparo: null, claims: [], commands: [],
       julgamento: null, degradacao: 'claim-nao-hermetica' };
   }
   if (opcoes.capacidade && !opcoes.capacidade()) {
-    return { ok: false, thread: projecao.thread, commit: opcoes.head, preparo: null, claims: [], commands: [],
+    return { ok: true, thread: projecao.thread, commit: opcoes.head, preparo: null, claims: [], commands: [],
       julgamento: null, degradacao: 'runner-sem-capacidade' };
   }
 
@@ -349,7 +357,7 @@ export function reexecutarProjecaoReplayCi(valor: unknown, opcoes: OpcoesReplayC
   let casa: string;
   try { casa = opcoes.casaEfemera ?? fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ci-replay-')); }
   catch {
-    return { ok: false, thread: projecao.thread, commit: opcoes.head, preparo: null, claims: [], commands: [],
+    return { ok: true, thread: projecao.thread, commit: opcoes.head, preparo: null, claims: [], commands: [],
       julgamento: null, degradacao: 'runner-sem-capacidade' };
   }
   try {
@@ -374,7 +382,8 @@ export function reexecutarProjecaoReplayCi(valor: unknown, opcoes: OpcoesReplayC
     const degradacao = causaDaExecucao(todos) ?? (produtoAlterado ? 'produto-alterado' : null);
     const julgamento = julgarResultadoDoVerify({ claims, comandos: commands, baseline: baselineDoReplay(projecao),
       preparo, produtoAlterado });
-    if (degradacao) return { ok: false, thread: projecao.thread, commit: opcoes.head, preparo, claims, commands,
+    const falhaReal = preparo?.ok === false || claims.some((claim) => !claim.verificado) || commands.some((command) => !command.ok);
+    if (degradacao) return { ok: !falhaReal, thread: projecao.thread, commit: opcoes.head, preparo, claims, commands,
       julgamento, degradacao };
     const recibo = emitirReciboRunnerCi(projecao, opcoes.head, { ok: julgamento.ok, motivos: julgamento.motivos });
     return { ok: julgamento.ok, thread: projecao.thread, commit: opcoes.head, preparo, claims, commands, julgamento, recibo };

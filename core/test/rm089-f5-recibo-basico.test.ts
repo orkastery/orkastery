@@ -15,7 +15,7 @@ import {
   reexecutarProjecaoReplayCi,
   validarProjecaoReplayCi,
 } from '../src/ci-recibo-basico';
-import { executarCiDaBranchComContexto } from '../src/ci';
+import { comandosConfiaveisDoDestino, executarCiDaBranchComContexto, publicarAvisoDaPolitica } from '../src/ci';
 import { comLocale } from '../src/locale';
 import type { ManifestoCarregado } from '../src/manifest';
 import type { Claim, Manifesto, ResultadoDeComando } from '../src/types';
@@ -143,41 +143,152 @@ function carregado(raiz: string, nivel?: 'observar' | 'avisar' | 'exigir'): Mani
   } as Manifesto };
 }
 
-function fixtureDaPolitica() {
+function fixtureDaPolitica(branch = 'feature/externa') {
   const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-rm089-f5-'));
-  const branch = 'feature/externa';
-  const entrada = projecao({ claims: [], commands: [] });
+  const entrada = projecao();
   fs.mkdirSync(path.join(raiz, '.ork-ci'), { recursive: true });
   fs.writeFileSync(path.join(raiz, '.ork-ci/ork-rm089f5recib.json'), JSON.stringify({
-    schema: 'ork.ci-bundle/v1', thread: 'ork-rm089f5recib', branch, base: 'main', claims: [], commands: [], recibo: entrada,
+    schema: 'ork.ci-bundle/v1', thread: 'ork-rm089f5recib', branch, base: 'main',
+    claims: entrada.claims, commands: entrada.commands, recibo: entrada,
   }));
-  return { raiz, branch, limpar: () => fs.rmSync(raiz, { recursive: true, force: true }) };
+  return { raiz, branch, entrada, limpar: () => fs.rmSync(raiz, { recursive: true, force: true }) };
 }
 
-test('GitHub e GitLab aplicam a mesma política a branch externa e fork', () => {
+test('a âncora lê os comandos verify somente do manifesto da ref de destino', () => {
+  const lidas: Array<{ ref: string; arquivo: string }> = [];
+  const comandos = comandosConfiaveisDoDestino('/checkout', 'main', (ref, arquivo) => {
+    lidas.push({ ref, arquivo });
+    return ref === 'refs/remotes/origin/main' && arquivo === 'orkastery.yaml'
+      ? 'verify:\n  build: npm --prefix core run build\n  test: npm --prefix core test\n' : null;
+  });
+  assert.deepEqual(comandos, [
+    { name: 'build', command: 'npm --prefix core run build' },
+    { name: 'test', command: 'npm --prefix core test' },
+  ]);
+  assert.deepEqual(lidas, [{ ref: 'refs/remotes/origin/main', arquivo: 'orkastery.yaml' }]);
+  assert.equal(comandosConfiaveisDoDestino('/checkout', '../main', () => { throw new Error('não lê'); }), null);
+});
+
+test('exigir recusa de forma tipada projeção vazia ou com receita trocada pelo PR', () => {
   const f = fixtureDaPolitica();
   try {
-    const evento = path.join(f.raiz, 'evento.json');
-    fs.writeFileSync(evento, JSON.stringify({ pull_request: { head: { repo: { full_name: 'fork/projeto' } },
-      base: { repo: { full_name: 'empresa/projeto' } } } }));
-    const ambientes = [
-      { GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'pull_request', GITHUB_EVENT_PATH: evento,
-        GITHUB_REPOSITORY: 'empresa/projeto', GITHUB_BASE_REF: 'main', GITHUB_HEAD_REF: f.branch },
-      { GITLAB_CI: 'true', CI_PROJECT_PATH: 'empresa/projeto', CI_PROJECT_ID: '1',
-        CI_MERGE_REQUEST_SOURCE_PROJECT_PATH: 'fork/projeto', CI_MERGE_REQUEST_SOURCE_PROJECT_ID: '2',
-        CI_MERGE_REQUEST_SOURCE_BRANCH_NAME: f.branch, CI_MERGE_REQUEST_TARGET_BRANCH_NAME: 'main' },
-    ];
-    for (const env of ambientes) for (const nivel of ['observar', 'avisar', 'exigir'] as const) {
-      const resultado = executarCiDaBranchComContexto(carregado(f.raiz, nivel), f.branch, {
-        env, destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A,
+    const executar = (commands: Array<{ name: string; command: string }>) => {
+      const entrada = projecao({ claims: [claim()], commands });
+      fs.writeFileSync(path.join(f.raiz, '.ork-ci/ork-rm089f5recib.json'), JSON.stringify({
+        schema: 'ork.ci-bundle/v1', thread: 'ork-rm089f5recib', branch: f.branch, base: 'main',
+        claims: entrada.claims, commands, recibo: entrada,
+      }));
+      return executarCiDaBranchComContexto(carregado(f.raiz, 'exigir'), f.branch, {
+        destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A,
+        comandosConfiaveis: [{ name: 'build', command: 'npm --prefix core run build' }],
         replay: { casaEfemera: path.join(f.raiz, 'casa'), identidadeProduto: () => 'produto',
-          hermeticidade: () => null, executor: ({ nome, comando }) => resultadoComando(nome, comando) },
-      }) as { ok: boolean; commit: string; recibo?: { head: string }; policy: { receipt: string } };
-      assert.equal(resultado.ok, true, `${nivel}/${'GITHUB_ACTIONS' in env ? 'github' : 'gitlab'}`);
-      assert.equal(resultado.commit, HEAD_A);
-      assert.equal(resultado.recibo?.head, HEAD_A);
-      assert.equal(resultado.policy.receipt, 'presente');
+          hermeticidade: () => null, executor: () => { throw new Error('receita inválida não executa'); } },
+      } as Parameters<typeof executarCiDaBranchComContexto>[2]) as {
+        ok: boolean; policy: { receipt: string }; error: { code: string };
+      };
+    };
+
+    const vazia = projecao({ claims: [], commands: [] });
+    fs.writeFileSync(path.join(f.raiz, '.ork-ci/ork-rm089f5recib.json'), JSON.stringify({
+      schema: 'ork.ci-bundle/v1', thread: 'ork-rm089f5recib', branch: f.branch, base: 'main',
+      claims: [], commands: [], recibo: vazia,
+    }));
+    const resultadoVazio = executarCiDaBranchComContexto(carregado(f.raiz, 'exigir'), f.branch, {
+      destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A,
+      comandosConfiaveis: [{ name: 'build', command: 'npm --prefix core run build' }],
+      replay: { casaEfemera: path.join(f.raiz, 'casa'), identidadeProduto: () => 'produto',
+        hermeticidade: () => null, executor: () => { throw new Error('receita vazia não executa'); } },
+    } as Parameters<typeof executarCiDaBranchComContexto>[2]) as {
+      ok: boolean; policy: { receipt: string }; error: { code: string };
+    };
+    assert.equal(resultadoVazio.ok, false);
+    assert.equal(resultadoVazio.policy.receipt, 'invalido');
+    assert.equal(resultadoVazio.error.code, 'ci.recibo.invalido');
+
+    const trocada = executar([{ name: 'build', command: 'node -e "process.exit(0)"' }]);
+    assert.equal(trocada.ok, false);
+    assert.equal(trocada.policy.receipt, 'invalido');
+    assert.equal(trocada.error.code, 'ci.recibo.invalido');
+  } finally { f.limpar(); }
+});
+
+test('GitHub e GitLab aplicam a mesma política a branch ork, externa, interna e fork', () => {
+  for (const branch of ['ork/ork-rm089f5recib-full', 'feature/externa']) for (const fork of [false, true]) {
+    const f = fixtureDaPolitica(branch);
+    try {
+      const origem = fork ? 'fork/projeto' : 'empresa/projeto';
+      const evento = path.join(f.raiz, 'evento.json');
+      fs.writeFileSync(evento, JSON.stringify({ pull_request: { head: { repo: { full_name: origem } },
+        base: { repo: { full_name: 'empresa/projeto' } } } }));
+      const ambientes = [
+        { GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'pull_request', GITHUB_EVENT_PATH: evento,
+          GITHUB_REPOSITORY: 'empresa/projeto', GITHUB_BASE_REF: 'main', GITHUB_HEAD_REF: f.branch },
+        { GITLAB_CI: 'true', CI_PROJECT_PATH: 'empresa/projeto', CI_PROJECT_ID: '1',
+          CI_MERGE_REQUEST_SOURCE_PROJECT_PATH: origem, CI_MERGE_REQUEST_SOURCE_PROJECT_ID: fork ? '2' : '1',
+          CI_MERGE_REQUEST_SOURCE_BRANCH_NAME: f.branch, CI_MERGE_REQUEST_TARGET_BRANCH_NAME: 'main' },
+      ];
+      for (const env of ambientes) for (const nivel of ['observar', 'avisar', 'exigir'] as const) {
+        const saida = executarCiDaBranchComContexto(carregado(f.raiz, nivel), f.branch, {
+          env, destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A,
+          comandosConfiaveis: f.entrada.commands,
+          replay: { casaEfemera: path.join(f.raiz, 'casa'), identidadeProduto: () => 'produto',
+            hermeticidade: () => null, executor: ({ nome, comando }) => resultadoComando(nome, comando) },
+        }) as { ok: boolean; commit: string; recibo?: { head: string }; policy: { receipt: string } };
+        assert.equal(saida.ok, true, `${branch}/${fork}/${nivel}/${'GITHUB_ACTIONS' in env ? 'github' : 'gitlab'}`);
+        assert.equal(saida.commit, HEAD_A);
+        assert.equal(saida.recibo?.head, HEAD_A);
+        assert.equal(saida.policy.receipt, 'presente');
+      }
+    } finally { f.limpar(); }
+  }
+});
+
+test('falha real de claim e comando reprova os três níveis mesmo junto de degradação', () => {
+  const f = fixtureDaPolitica();
+  try {
+    const entrada = projecao({ claims: [{ ...claim(), verificar: ['falhar claim'] }],
+      commands: [{ name: 'build', command: 'falhar comando' }] });
+    fs.writeFileSync(path.join(f.raiz, '.ork-ci/ork-rm089f5recib.json'), JSON.stringify({
+      schema: 'ork.ci-bundle/v1', thread: 'ork-rm089f5recib', branch: f.branch, base: 'main',
+      claims: entrada.claims, commands: entrada.commands, recibo: entrada,
+    }));
+    for (const nivel of ['observar', 'avisar', 'exigir'] as const) {
+      const identidades = ['antes', 'depois'];
+      const saida = executarCiDaBranchComContexto(carregado(f.raiz, nivel), f.branch, {
+        destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A,
+        comandosConfiaveis: entrada.commands,
+        replay: { casaEfemera: path.join(f.raiz, 'casa'), identidadeProduto: () => identidades.shift()!,
+          hermeticidade: () => null, executor: ({ nome, comando }) => resultado(nome, comando, false) },
+      } as Parameters<typeof executarCiDaBranchComContexto>[2]) as unknown as {
+        ok: boolean; verify: { ok: boolean; motivos: string[] }; error: { code: string };
+      };
+      assert.equal(saida.ok, false, nivel);
+      assert.equal(saida.verify.ok, false, nivel);
+      assert.ok(saida.verify.motivos.includes('claims.failed'), nivel);
+      assert.ok(saida.verify.motivos.includes('verify.regression'), nivel);
+      assert.equal(saida.error.code, 'ci.recibo.produto-alterado', nivel);
     }
+  } finally { f.limpar(); }
+});
+
+test('recibo inválido descreve receita, recibo do runner e HEAD exato em pt-BR e inglês', () => {
+  const f = fixtureDaPolitica();
+  try {
+    const entrada = projecao();
+    fs.writeFileSync(path.join(f.raiz, '.ork-ci/ork-rm089f5recib.json'), JSON.stringify({
+      schema: 'ork.ci-bundle/v1', thread: 'ork-rm089f5recib', branch: f.branch, base: 'main',
+      claims: entrada.claims, commands: entrada.commands, recibo: { ...entrada, sha256: '0'.repeat(64) },
+    }));
+    const executar = () => executarCiDaBranchComContexto(carregado(f.raiz, 'exigir'), f.branch, {
+      destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A,
+      comandosConfiaveis: entrada.commands,
+    } as Parameters<typeof executarCiDaBranchComContexto>[2]) as { error: { message: string } };
+    const pt = comLocale('pt-BR', executar).error.message;
+    const en = comLocale('en', executar).error.message;
+    assert.match(pt, /receita.*recibo do runner.*HEAD exato/i);
+    assert.match(en, /recipe.*runner receipt.*exact HEAD/i);
+    assert.doesNotMatch(pt, /ancestral/i);
+    assert.doesNotMatch(en, /ancestor/i);
   } finally { f.limpar(); }
 });
 
@@ -218,6 +329,7 @@ test('degradação não reprova observar ou avisar, exige no protegido e sai com
       const executar = () => executarCiDaBranchComContexto(carregado(f.raiz, nivel), f.branch, {
         destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A,
         env: { GITHUB_ACTIONS: 'true', GITHUB_REPOSITORY: 'empresa/projeto', GITHUB_BASE_REF: 'main' },
+        comandosConfiaveis: f.entrada.commands,
         replay: { casaEfemera: path.join(f.raiz, 'casa'), identidadeProduto: () => 'produto',
           hermeticidade: () => null, capacidade: () => false },
       }) as { ok: boolean; policy: { receipt: string; message: string; action: string };
@@ -239,6 +351,32 @@ test('degradação não reprova observar ou avisar, exige no protegido e sai com
     assert.deepEqual(Object.keys(historico).sort(),
       ['branch', 'bundle', 'claims', 'commands', 'commit', 'ok', 'preparo', 'schema', 'thread']);
     assert.equal(historico.ok, true);
+  } finally { f.limpar(); }
+});
+
+test('avisar publica diagnóstico sem expor os segredos sintéticos do ambiente', () => {
+  const f = fixtureDaPolitica();
+  try {
+    const entrada = projecao();
+    fs.writeFileSync(path.join(f.raiz, '.ork-ci/ork-rm089f5recib.json'), JSON.stringify({
+      schema: 'ork.ci-bundle/v1', thread: 'ork-rm089f5recib', branch: f.branch, base: 'main',
+      claims: entrada.claims, commands: entrada.commands, recibo: { ...entrada, sha256: '0'.repeat(64) },
+    }));
+    for (const env of [
+      { GITHUB_ACTIONS: 'true', GITHUB_REPOSITORY: 'empresa/projeto', GITHUB_BASE_REF: 'main',
+        GITHUB_TOKEN: 'segredo-github', DEPLOY_SECRET: 'segredo-deploy' },
+      { GITLAB_CI: 'true', CI_PROJECT_PATH: 'empresa/projeto', CI_MERGE_REQUEST_TARGET_BRANCH_NAME: 'main',
+        CI_JOB_TOKEN: 'segredo-gitlab', DEPLOY_SECRET: 'segredo-deploy' },
+    ]) {
+      const resultado = executarCiDaBranchComContexto(carregado(f.raiz, 'avisar'), f.branch, {
+        destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A, env,
+        comandosConfiaveis: entrada.commands,
+      } as Parameters<typeof executarCiDaBranchComContexto>[2]);
+      const linhas: string[] = [];
+      publicarAvisoDaPolitica(resultado, env, (linha) => linhas.push(linha));
+      assert.ok(linhas.length > 0);
+      assert.doesNotMatch(JSON.stringify(linhas), /segredo-(?:github|gitlab|deploy)/);
+    }
   } finally { f.limpar(); }
 });
 
