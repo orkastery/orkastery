@@ -18,6 +18,7 @@ import {ship,ResultadoShip,arvoreComBranch} from './ship';
 import {comandosDoManifesto,ExecutorVerify} from './verify';
 import {lerClaims} from './claims';
 import {criarExecutorSandbox} from './verify-sandbox';
+import {preflightDoProjeto,ResultadoPreflightEmpresa} from './rede-empresa-preflight';
 
 // Mesmo mecanismo subreaper do executor C17: também cobre Git/SSH e o worker inteiro.
 const SUPERVISOR_SHIP = String.raw`
@@ -76,6 +77,12 @@ print(json.dumps({'code': -1 if state['failure'] else code,
 const PRAZO=240000,RESERVA=15000,LIMITE=1048576;
 export interface PedidoShipMcp {threadId:string;expectedSource:string;expectedDestination:string}
 export interface PerfilShipMcp {readonly transporte:TransporteShipMcp;readonly destino:string}
+
+/** Anexa ao resultado do SHIP exatamente a fotografia consultiva lida antes das leases e dos efeitos. */
+export function opcoesDoShipMcpComPreflight<T extends object>(opcoes:T,preflight:ResultadoPreflightEmpresa|null):
+    T & {preflightEmpresa?:ResultadoPreflightEmpresa} {
+  return Object.assign({},opcoes,preflight?{preflightEmpresa:preflight}:{});
+}
 interface Fixacao {raiz:string;dev:number;ino:number;url:string;config:string;perfil:PerfilShipMcp;env:NodeJS.ProcessEnv;bare?:{dev:number;ino:number};
   /** Transporte fixado na instalacao: a fixacao lida no startup e o `-c` do push e do ls-remote, calculado uma vez so. */
   pino?:FixacaoLida;rede:string[]}
@@ -208,6 +215,7 @@ function executar(f:Fixacao,p:PedidoShipMcp):ResultadoShip {
     metadados(path.join(raiz,'.orkastery'),path.join(raiz,'.orkastery/leases'));metadados(path.join(raiz,'.orkastery'),caminhoFila(raiz));
   };
   guardEstado();const c=exigirManifesto(raiz),t=lerThread(raiz,p.threadId),wt=t.worktree;
+  const preflightEmpresa=preflightDoProjeto(raiz,c.manifesto);
   if(!wt || t.id!==p.threadId || t.status==='fechada' || !blocoDaThread(t,t.faseAtual).fases.includes('SHIP'))erro('thread.invalid');
   fisico(raiz,wt);const de=branchDaWorktree(t),para=f.perfil.destino;
   if(c.manifesto.worktree.base_branch!==para)erro('destination.changed');
@@ -248,9 +256,9 @@ function executar(f:Fixacao,p:PedidoShipMcp):ResultadoShip {
       try{return sandbox.executar(nomeComando,comando,cwd);}finally{sandbox.fechar();}
     };
     // RM-058 N2 (B1 do CHECK): a fila pesada espera so o que cabe no prazo do worker, para o finally soltar as leases.
-    return ship(c,t.id,{de,para,remoto:'origin',configDoRemoto:f.rede,...(f.pino?{conferirDepoisDoPush:depoisDoPush(f),urlFixada:f.pino.fixacao.url}:{}),executorVerify:executor,ttlLeaseMs:PRAZO+RESERVA,retomarLeaseVencido:false,
+    return ship(c,t.id,opcoesDoShipMcpComPreflight({de,para,remoto:'origin',configDoRemoto:f.rede,...(f.pino?{conferirDepoisDoPush:depoisDoPush(f),urlFixada:f.pino.fixacao.url}:{}),executorVerify:executor,ttlLeaseMs:PRAZO+RESERVA,retomarLeaseVencido:false,
       esperarFilaPesadaMs:Math.max(0,Math.min(20000,deadline-Date.now()-RESERVA)),
-      revalidarGit:(etapa,dir)=>{if(!leasesIntactas())erro('lease.changed');guard(etapa,dir);}});
+      revalidarGit:(etapa,dir)=>{if(!leasesIntactas())erro('lease.changed');guard(etapa,dir);}},preflightEmpresa));
   } finally {for(const l of proprias.reverse())if(JSON.stringify(lerLease(raiz,l.nome))===JSON.stringify(l))liberar(raiz,l.nome,t.id);}
 }
 export type RespostaShipMcp={ok:boolean;resultado?:ResultadoShip;erro?:string;cleanupConfirmado?:boolean};

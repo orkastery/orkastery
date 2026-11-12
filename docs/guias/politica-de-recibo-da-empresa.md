@@ -60,3 +60,9 @@ See the official documentation for [protected branches](https://docs.gitlab.com/
 On GitHub, the PR source and target come from `GITHUB_HEAD_REF` and `GITHUB_BASE_REF`. On GitLab, they come from `CI_MERGE_REQUEST_SOURCE_BRANCH_NAME` and `CI_MERGE_REQUEST_TARGET_BRANCH_NAME`. The target variable is absent on a push, so the policy does not treat that event as a PR/MR.
 
 When a receipt is missing, the guidance offers `ork thread new`; `ork adotar` is the next RM-089 step and is not part of this delivery. The current forge adapters have no PR/MR comment capability, so `avisar` uses a GitHub annotation and summary or the GitLab job log. Automatic comments remain a declared gap.
+
+When the project also participates in the company network, `ork ci run` attaches an advisory collective preflight
+to the PR/MR result. The optional `ORK_REDE_EMPRESA_READ_TOKEN` secret must have read-only access to the private
+network repository and stays only in the Git transport environment. Without the secret, or on a fork PR, output
+says “Collective check not performed.” That state does not change `ok`, this receipt-policy decision, or the exit
+code.

@@ -98,12 +98,39 @@ serialized projection passes the `dado_privado` policy and secret scan.
 | Items | id and state | title, description, cycle, and other free text |
 | Reservations | item id, optional opaque thread reference, and start time | person, machine, note, and reservation takeover |
 | Work | opaque thread reference, phase, and optional item id | slug, name, branch, question, runtime, model, effort, and session |
+| Paths | relative patterns from `touch_paths`, leases, and diff, with each pattern's source | content, absolute paths, home, and worktree directory |
 | Sources | part, freshness, read time, and optional commit | textual origin, location, local ref, and free-form message |
 | Gaps | type and part | target, detail, correction, and raw error |
 
 The thread reference is a deterministic hash scoped to the enrollment, not its slug. Local paths, user
 directories, and machine names never enter the contract. An unavailable scanner or a finding blocks publication
 without echoing the matched value.
+
+Publication writes the compatible `ork.rede-empresa-publicacao/v2` document and the
+`ork.rede-empresa-publicacao/v3` document in one transaction. v3 adds paths per work item. A work item accepts up
+to 64 patterns and one publication up to 4096; the reader traverses at most 2000 first-parent commits. These caps
+make input invalid or analysis inconclusive; they are not performance claims.
+
+## Preflight before merge
+
+Preflight compares work from different builders in the same project. It reports a conflict when the roadmap item
+matches or path globs intersect. The language accepts literal segments, `*`, `?`, and a standalone `**` segment.
+Classes, groups, negation, extglobs, and `**` embedded in another segment produce the typed
+`padrao.nao-suportado` gap. Absolute paths and empty, `.` or `..` segments produce `padrao.invalido`.
+
+Suggested order follows each work item's first appearance on the first-parent path to the stamped tip. Shallow,
+truncated, or over-limit history produces `inconclusivo`; equal appearances are resolved by
+`(inscricaoId, threadRef)`. Local clocks never decide order.
+
+The same pure, read-only analysis appears in `ork network empresa status`, `ork ship publicar`, `ork ship pista`,
+`ork ci run`, `ork_thread_status` before `ork_ship`, and before direct `ork ship`. It is advisory under
+`observar`, `avisar`, and `exigir`: it does not change `ok`, authorization, policy, verify, CI, leases, merge, or
+push. Without an active enrollment, only network status reports the absence; other output stays unchanged.
+
+For PR/MR CI, configure `ORK_REDE_EMPRESA_READ_TOKEN` as an optional secret with read-only access to the private
+network repository. The credential stays in the Git transport environment and never enters argv, a bundle, a
+publication, or output. Without it, or on a fork PR, the result is “Collective check not performed” and the CI
+result is unchanged.
 
 ## Revocation, exit, and limits
 

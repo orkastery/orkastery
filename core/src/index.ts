@@ -229,7 +229,7 @@ import {
 } from './prompts';
 import { comandoDeAttach, limparFantasmas, logsDaSessao, pararSessao, textoDaLimpeza } from './sessoes';
 import { exec, shaCurto, tabela } from './util';
-import { ship, textoDoShip } from './ship';
+import { executarShipAposPreflight, ship, textoDoShip } from './ship';
 import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi, publicarAvisoDaPolitica } from './ci';
 import { ambienteDeCi } from './forja/ambiente-de-ci';
 import { contextoDaVarredura, mergeBase, relatorioDoDadoPrivado, varrerArvore, varrerDiff } from './dado-privado';
@@ -253,6 +253,8 @@ import { ehNomeDeForja } from './rede-forja';
 import { jsonDaRede, lerRede, textoDaRede } from './rede-status';
 import { executarCliRedeEmpresa } from './rede-empresa-cli';
 import type { ResultadoDaCobertura } from './rede-empresa-config';
+import { preflightDoProjeto, type ResultadoPreflightEmpresa } from './rede-empresa-preflight';
+import { textoDoPreflightEmpresa } from './rede-empresa-status';
 import { textoDaCoberturaEmpresa } from './locale-network-empresa';
 import { executarReservaCoordenada, executarSagaDaThread, portaColetivaDoProjeto, portaLocalDoRoadmap, portaThreadOrfa,
   reconciliarOperacaoDaRedeEmpresa, type OpcoesDaCoordenacaoColetiva } from './rede-empresa-operacao';
@@ -448,6 +450,11 @@ function localeDaAjuda(projeto?: string): Locale {
   return resolverLocale(ownerLanguage).locale;
 }
 
+
+export function respostaDoStatusDaThread(thread: ReturnType<typeof lerThread>,
+  avisos: ReturnType<typeof avisosDeArtefatoRegistrados>, preflightEmpresa: ResultadoPreflightEmpresa | null): object {
+  return { ...thread, avisos, ...(preflightEmpresa ? { preflightEmpresa } : {}) };
+}
 
 function comandoThread(args: Args): number {
   if (args.posicionais[1] === 'close' || args.posicionais[1] === 'entrega') {
@@ -717,14 +724,16 @@ function comandoThread(args: Args): number {
     }
     const thread = lerThread(carregado.raiz, id);
     const avisos = avisosDeArtefatoRegistrados(lerLedger(dirThread(carregado.raiz, id)));
+    const preflightEmpresa = preflightDoProjeto(carregado.raiz, carregado.manifesto);
     if (args.opcoes.json === true) {
       // Idem: `ork thread status <id> --json` imprimia o TEXTO e saia 0.
-      console.log(JSON.stringify({ ...thread, avisos }, null, 2));
+      console.log(JSON.stringify(respostaDoStatusDaThread(thread, avisos, preflightEmpresa), null, 2));
       return 0;
     }
     console.log(`Thread ${thread.id}`);
     // I-36 (T17): a linha de conducao vem da leitura unica do nucleo.
-    console.log(resumoDaThread(thread, conducaoDaThread(carregado.raiz, thread.id), avisos));
+    console.log(resumoDaThread(thread, conducaoDaThread(carregado.raiz, thread.id), avisos,
+      preflightEmpresa ? textoDoPreflightEmpresa(preflightEmpresa, localeAtivo()) : undefined));
     console.log('');
     if (thread.sessoes.length === 0) {
       console.log(mt.nenhumaSessao);
@@ -2203,19 +2212,21 @@ function comandoShipPublicar(carregado: ManifestoCarregado, args: Args): number 
 }
 
 /** RM-059 (F7, T7.1): `ork ship pista [<thread>]`, as etapas da entrega e o proximo passo que o nucleo declara. */
-function comandoShipPista(carregado: ManifestoCarregado, args: Args): number {
+export function comandoShipPista(carregado: ManifestoCarregado, args: Args,
+  obterPista: typeof pistaDeEntrega = pistaDeEntrega): number {
   const p = msg().ship.publicar;
   if (args.posicionais.length > 3) {
     console.error(p.usoPista);
     return 2;
   }
   if (args.opcoes.remoto !== undefined) exigirRemoto(args.opcoes.remoto, 'ship');
-  const r = comLocale('pt-BR', () => pistaDeEntrega(carregado, { remoto: texto(args.opcoes.remoto), thread: args.posicionais[2] }));
+  const r = comLocale('pt-BR', () => obterPista(carregado, { remoto: texto(args.opcoes.remoto), thread: args.posicionais[2] }));
   if (args.opcoes.json === true) {
     console.log(JSON.stringify(r, null, 2));
     return 0;
   }
   console.log(p.cabecalhoPista(formatarDataHora(r.lidoEm), r.remoto, r.base));
+  if (r.preflightEmpresa) console.log(textoDoPreflightEmpresa(r.preflightEmpresa, localeAtivo()));
   if (!r.remotoLido) console.log(p.remotoNaoRespondeu(r.remoto));
   if (!r.prsLidos) console.log(p.prsNaoResponderam(remontar(r.prsNaoLidos ?? '-')));
   if (!r.pistas.length) console.log(p.semPistas);
@@ -2301,19 +2312,23 @@ function comandoShip(args: Args): number {
     return 2;
   }
   // RM-061 (F2b, G2): o que o ship grava (ledger, verificacao, mensagem do merge) nasce em pt-BR.
-  const r = comLocale('pt-BR', () => ship(carregado, id, {
-    para,
-    de: texto(args.opcoes.de),
-    remoto: texto(args.opcoes.remoto),
-    mensagem: texto(args.opcoes.mensagem),
-    dryRun: args.opcoes['dry-run'] === true,
-    autorizarPush: typeof autorizar === 'string' ? autorizar : undefined,
-    allowUnscanned: typeof semScan === 'string' ? semScan.trim() : undefined,
-    semPush: args.opcoes['sem-push'] === true,
-    // RM-058 N2 (A1 da rodada 2 do CHECK): o `--esperar` chega à fila pesada da verificação do ship, com aviso.
-    ...((f) => ({ esperarFilaPesadaMs: f.esperarMs, avisoDaFilaPesada: { aoEsperar: f.aoEsperar, comandoDeEsperar: f.comandoDeEsperar } }))(
-      filaPesadaDoCli(args, 'verify', `ork ship ${id} --para ${para} --esperar 30`)),
-  }));
+  const preflightEmpresa = preflightDoProjeto(carregado.raiz, carregado.manifesto);
+  const r = executarShipAposPreflight(preflightEmpresa,
+    (preflight) => console.log(textoDoPreflightEmpresa(preflight, localeAtivo())),
+    (preflight) => comLocale('pt-BR', () => ship(carregado, id, {
+      para,
+      de: texto(args.opcoes.de),
+      remoto: texto(args.opcoes.remoto),
+      mensagem: texto(args.opcoes.mensagem),
+      dryRun: args.opcoes['dry-run'] === true,
+      autorizarPush: typeof autorizar === 'string' ? autorizar : undefined,
+      allowUnscanned: typeof semScan === 'string' ? semScan.trim() : undefined,
+      semPush: args.opcoes['sem-push'] === true,
+      preflightEmpresa: preflight,
+      // RM-058 N2 (A1 da rodada 2 do CHECK): o `--esperar` chega à fila pesada da verificação do ship, com aviso.
+      ...((f) => ({ esperarFilaPesadaMs: f.esperarMs, avisoDaFilaPesada: { aoEsperar: f.aoEsperar, comandoDeEsperar: f.comandoDeEsperar } }))(
+        filaPesadaDoCli(args, 'verify', `ork ship ${id} --para ${para} --esperar 30`)),
+    })));
   console.log(textoDoShip(r));
   return r.ok ? 0 : 1;
 }

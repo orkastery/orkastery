@@ -51,7 +51,9 @@ import { Claim, ConducaoAtual, EventoLedger, MotivoGate, Thread } from './types'
 import { exec, ResultadoExec } from './util';
 import { comandosDoManifesto } from './verify';
 import { branchDaWorktree } from './worktree';
-import { Mensagens, msg, remontar, textoDoCatalogo } from './locale';
+import { localeAtivo, Mensagens, msg, remontar, textoDoCatalogo } from './locale';
+import { preflightDoProjeto, type ResultadoPreflightEmpresa } from './rede-empresa-preflight';
+import { textoDoPreflightEmpresa } from './locale-network-empresa';
 
 export const CONTRATO_DA_PUBLICACAO = 'ork.ship-publicar/v1' as const;
 export const CONTRATO_DA_PISTA = 'ork.ship-pista/v1' as const;
@@ -471,6 +473,8 @@ export interface Publicacao {
   /** Os comandos realmente executados, na ordem (no ensaio, os que o real executaria). */
   passos: string[];
   dryRun: boolean;
+  /** Análise consultiva feita antes do primeiro efeito; ausência preserva a saída sem inscrição coletiva. */
+  preflightEmpresa?: ResultadoPreflightEmpresa;
   /** RM-058, integração (T1.1): a recusa da guarda das threads do arco #Noctum, com o motivo `policy.violation`. */
   codigo?: MotivoDaGuarda;
 }
@@ -504,6 +508,13 @@ export interface OpcoesDaPublicacao {
    * ensaio e no efeito. A thread de um arco que a guarda só é publicada por ele; sem isto, a guarda recusa. Nunca vem da CLI.
    */
   doArco?: string;
+  /** Injeção hermética da análise; nunca vem da CLI. */
+  preflightEmpresa?: ResultadoPreflightEmpresa | null;
+}
+
+export function corpoComPreflightEmpresa(corpo: string, preflight: ResultadoPreflightEmpresa | null,
+  locale = localeAtivo()): string {
+  return preflight ? `${corpo.trimEnd()}\n\n${textoDoPreflightEmpresa(preflight, locale)}\n` : corpo;
 }
 
 /**
@@ -579,6 +590,9 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
   if (f.check.estado === 'pendente') return recusar('artifact.missing', f.check.texto, textoDoCatalogo((m) => p(m).checkCorrecao(t.id)));
   if (f.verify.estado === 'pendente') return recusar('verify.failed', f.verify.texto, textoDoCatalogo((m) => p(m).verifyCorrecao(t.id)));
   if (f.bundle.estado === 'pendente') return recusar('artifact.missing', f.bundle.texto, textoDoCatalogo((m) => p(m).bundleCorrecao(t.id)));
+  const preflightEmpresa = opcoes.preflightEmpresa === undefined
+    ? preflightDoProjeto(raiz, carregado.manifesto) : opcoes.preflightEmpresa;
+  if (preflightEmpresa) r.preflightEmpresa = preflightEmpresa;
   // 8. O remoto e a forja. S3 da revisao: sem o remoto, a publicacao nao tem para onde ir (runtime.unavailable).
   if (!git(raiz, ['remote', 'get-url', '--', remoto]).ok) {
     return recusar('runtime.unavailable', textoDoCatalogo((m) => p(m).semRemoto(remoto)), textoDoCatalogo((m) => p(m).semRemotoCorrecao));
@@ -631,8 +645,8 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
   const titulo = tituloDoPr(t, corpo?.texto ?? null);
   // A5 da revisao: o corpo e o texto lido agora, gravado num arquivo temporario 600 so para o `gh pr create`
   // (`--body-file`); o gh nunca reabre o `pr-body.md`.
-  const textoDoCorpo = corpo?.texto ?? textoDoCatalogo((m) => p(m).corpoPadrao(tagDoModo(t.modo), f.branch, curto(head),
-    carregado.manifesto.ci.context || 'ork-verify', noGitlab));
+  const textoDoCorpo = corpoComPreflightEmpresa(corpo?.texto ?? textoDoCatalogo((m) => p(m).corpoPadrao(tagDoModo(t.modo), f.branch, curto(head),
+    carregado.manifesto.ci.context || 'ork-verify', noGitlab)), preflightEmpresa);
   // B1 da revisao: o push leva o sha conferido, e nao a ref: o commit que chegue a branch depois das conferencias fica
   // fora desta publicacao.
   const refspec = `${head}:refs/heads/${f.branch}`;
@@ -739,6 +753,7 @@ export function linhasDaPublicacao(r: Publicacao): string[] {
   // O MR do GitLab se reconhece pelos passos, que dizem a CLI de cada forja.
   if (r.pr) linhas.push(p.linhaPr(r.pr.numero, r.pr.criado, r.pr.url ?? '', r.passos.some((x) => x.startsWith('glab '))));
   if (r.corpo) linhas.push(p.linhaCorpo(r.corpo));
+  if (r.preflightEmpresa) linhas.push(textoDoPreflightEmpresa(r.preflightEmpresa, localeAtivo()));
   if (r.acao === 'recusada') linhas.push(m.bloqueado(r.motivo ?? '-'), m.detalhe(remontar(r.detalhe)));
   else {
     linhas.push(p.resultado(p.acoes[r.acao] ?? r.acao));
@@ -800,6 +815,7 @@ export interface PistaDeEntrega {
   ciExigido: boolean;
   contextoDoCi: string;
   pistas: PistaDaThread[];
+  preflightEmpresa?: ResultadoPreflightEmpresa;
 }
 
 export interface OpcoesDaPista {
@@ -814,6 +830,8 @@ export interface OpcoesDaPista {
   sondas?: SondasDaForja;
   /** A CI do head de um MR do GitLab; padrao: `consultarCi` no remoto. Nunca vem da CLI. */
   ciDoHead?: (sha: string) => ResultadoCi;
+  /** Injeção hermética da análise; nunca vem da CLI. */
+  preflightEmpresa?: ResultadoPreflightEmpresa | null;
 }
 
 /**
@@ -1010,6 +1028,8 @@ export function pistaDeEntrega(carregado: ManifestoCarregado, opcoes: OpcoesDaPi
   const lidoEm = opcoes.quando ?? new Date().toISOString();
   const contexto = carregado.manifesto.ci.context || 'ork-verify';
   const ciExigido = carregado.manifesto.ci.required_for_ship === true;
+  const preflightEmpresa = opcoes.preflightEmpresa === undefined
+    ? preflightDoProjeto(raiz, carregado.manifesto) : opcoes.preflightEmpresa;
   const refs = refsLocais(raiz, remoto);
   const baseRef = refDaBase(refs, remoto, base);
   const ids = opcoes.thread ? [opcoes.thread] : listarIds(raiz);
@@ -1092,5 +1112,5 @@ export function pistaDeEntrega(carregado: ManifestoCarregado, opcoes: OpcoesDaPi
     return x ? [x] : [];
   });
   return { contrato: CONTRATO_DA_PISTA, lidoEm, base, remoto, remotoLido: remotas !== null, prsLidos: prs !== null, prsNaoLidos,
-    ciExigido, contextoDoCi: contexto, pistas };
+    ciExigido, contextoDoCi: contexto, pistas, ...(preflightEmpresa ? { preflightEmpresa } : {}) };
 }

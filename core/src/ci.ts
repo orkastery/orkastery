@@ -31,6 +31,7 @@ import { ErroDoCatalogo, montadorDe, textoDoCatalogo, type Mensagens } from './l
 import { barreiraDaThread, linhaDoAchado, textoDaListaLocal, textoDoEscopo, varrerTexto } from './dado-privado';
 import { avisos as avisosDePolicy, bloqueantes as bloqueantesDePolicy } from './policies';
 import { CONTRATO_DO_RECIBO_DE_PROVA } from './recibo-prova';
+import { preflightCiDoProjeto, type ResultadoPreflightEmpresa } from './rede-empresa-preflight';
 
 export type EstadoCi = 'disabled' | 'success' | 'pending' | 'failure' | 'missing' | 'unavailable';
 
@@ -101,6 +102,14 @@ export interface ContextoDaPoliticaCi {
   destino?: string | null;
   /** Permite ao adaptador declarar explicitamente que a execução é de PR/MR. */
   pullRequest?: boolean;
+  /** Ambiente e injeção usados apenas pelo preflight coletivo; não entram no resultado. */
+  env?: NodeJS.ProcessEnv;
+  preflightEmpresa?: ResultadoPreflightEmpresa | null;
+}
+
+export function anexarPreflightAoResultadoCi<T extends { ok: boolean }>(resultado: T,
+  preflightEmpresa: ResultadoPreflightEmpresa | null): T & { preflightEmpresa?: ResultadoPreflightEmpresa } {
+  return preflightEmpresa ? { ...resultado, preflightEmpresa } : resultado;
 }
 
 const MARCADORES_DE_HOST = [
@@ -587,10 +596,15 @@ export function bundleDaBranch(raiz: string, branch: string): { arquivo: string;
  */
 export function executarCiDaBranch(carregado: ManifestoCarregado, branch: string,
   contexto: ContextoDaPoliticaCi = {}) {
+  const runner = ambienteDeCi(contexto.env ?? process.env);
+  const pullRequest = contexto.pullRequest ?? (runner?.pullRequest === true);
+  const preflightEmpresa = contexto.preflightEmpresa === undefined && pullRequest
+    ? preflightCiDoProjeto(carregado.raiz, carregado.manifesto, contexto.env ?? process.env, runner?.fork ?? null)
+    : contexto.preflightEmpresa ?? null;
   const politica = carregado.manifesto.ci.politica_recibo;
   // Guarda de compatibilidade: sem opt-in, este é o caminho anterior sem nenhum campo, comando ou erro novo.
-  if (!politica) return executarCiDaBranchSemPolitica(carregado, branch);
-  return executarCiDaBranchComPolitica(carregado, branch, politica, contexto);
+  if (!politica) return anexarPreflightAoResultadoCi(executarCiDaBranchSemPolitica(carregado, branch), preflightEmpresa);
+  return anexarPreflightAoResultadoCi(executarCiDaBranchComPolitica(carregado, branch, politica, contexto), preflightEmpresa);
 }
 
 function executarCiDaBranchSemPolitica(carregado: ManifestoCarregado, branch: string) {
@@ -607,9 +621,7 @@ function executarCiDaBranchSemPolitica(carregado: ManifestoCarregado, branch: st
 
 /** Forma explícita usada pelo runner; o terceiro argumento permanece opcional para chamadas antigas. */
 export function executarCiDaBranchComContexto(carregado: ManifestoCarregado, branch: string, contexto: ContextoDaPoliticaCi) {
-  const politica = carregado.manifesto.ci.politica_recibo;
-  return politica ? executarCiDaBranchComPolitica(carregado, branch, politica, contexto)
-    : executarCiDaBranchSemPolitica(carregado, branch);
+  return executarCiDaBranch(carregado, branch, contexto);
 }
 
 function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: string,
