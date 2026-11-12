@@ -628,33 +628,6 @@
       ]
     },
     {
-      "id": "C42",
-      "thread": "ork-rm090f5sdlca",
-      "fase": "GO",
-      "arquivo": "core/test/telemetria-maturidade-dashboard.test.ts",
-      "alegacao": "B2: os onze targets reais consultam somente campos emitidos pelo mapper e preservados pelo Collector; a projeção deixa explícito que mostra fatos de origem.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node --test core/dist-test/test/telemetria-maturidade-dashboard.test.js"
-      ],
-      "criadoEm": "2026-11-12T09:47:14.186Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C44",
       "thread": "ork-rm090f5sdlca",
       "fase": "GO",
@@ -733,33 +706,6 @@
       ]
     },
     {
-      "id": "C47",
-      "thread": "ork-rm090f5sdlca",
-      "fase": "GO",
-      "arquivo": "core/src/telemetria-maturidade.ts",
-      "alegacao": "Os seis indicadores são calculados pelo motor a partir do registro executável, com população e confirmação na mesma unidade, cobertura limitada a 1, deduplicação, lacunas e agrupamentos materializados, sem nota nem meta.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node --test core/dist-test/test/telemetria-maturidade-registro.test.js core/dist-test/test/telemetria-maturidade.test.js"
-      ],
-      "criadoEm": "2026-11-12T12:36:18.465Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C48",
       "thread": "ork-rm090f5sdlca",
       "fase": "GO",
@@ -771,33 +717,6 @@
         "node --test core/dist-test/test/telemetria-maturidade-dora.test.js core/dist-test/test/telemetria-maturidade-collector.test.js"
       ],
       "criadoEm": "2026-11-12T12:36:18.579Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C50",
-      "thread": "ork-rm090f5sdlca",
-      "fase": "GO",
-      "arquivo": "core/src/telemetria-maturidade-registro.ts",
-      "alegacao": "O registro versionado concentra nomes públicos e dirige predicados, unidades de população e confirmação, lacunas, agrupamentos e fórmulas consumidos pelo motor, pela projeção OTLP e pelo renderizador.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node --test core/dist-test/test/telemetria-maturidade-registro.test.js core/dist-test/test/telemetria-maturidade.test.js core/dist-test/test/telemetria-maturidade-otel.test.js core/dist-test/test/telemetria-maturidade-dashboard.test.js"
-      ],
-      "criadoEm": "2026-11-12T12:36:18.958Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
@@ -1205,6 +1124,249 @@
         "node --test core/dist-test/test/telemetria-maturidade-registro.test.js core/dist-test/test/telemetria-maturidade-otel.test.js core/dist-test/test/telemetria-maturidade-dashboard.test.js"
       ],
       "criadoEm": "2026-11-12T12:55:33.695Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C68",
+      "thread": "ork-rm090f5sdlca",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-maturidade-dashboard.test.ts",
+      "alegacao": "Substitui C42: os targets dos painéis agênticos e DORA consultam somente campos emitidos e preservados.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-maturidade-dashboard.test.js core/dist-test/test/telemetria-maturidade-collector.test.js core/dist-test/test/telemetria-maturidade-otel.test.js"
+      ],
+      "criadoEm": "2026-11-12T14:33:00.174Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C69",
+      "thread": "ork-rm090f5sdlca",
+      "fase": "GO",
+      "arquivo": "core/src/telemetria-maturidade.ts",
+      "alegacao": "Substitui C47: os seis indicadores são calculados pelo motor a partir do registro executável, com população e confirmação na mesma unidade, cobertura limitada a 1, deduplicação e lacunas, sem nota nem meta; A4 também materializa por thread e fase os agrupamentos que declara.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-maturidade-registro.test.js core/dist-test/test/telemetria-maturidade.test.js core/dist-test/test/telemetria-maturidade-otel.test.js core/dist-test/test/telemetria-maturidade-dashboard.test.js"
+      ],
+      "criadoEm": "2026-11-12T14:33:00.302Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C70",
+      "thread": "ork-rm090f5sdlca",
+      "fase": "GO",
+      "arquivo": "core/src/telemetria-maturidade-registro.ts",
+      "alegacao": "Substitui C50: o registro versionado concentra nomes públicos e dirige predicados, unidades de população e confirmação, lacunas e fórmulas consumidos pelo motor; somente A4 declara agrupamentos por thread e fase, materializados pelo motor, emitidos pela projeção OTLP e derivados pelo renderizador.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-maturidade-registro.test.js core/dist-test/test/telemetria-maturidade.test.js core/dist-test/test/telemetria-maturidade-otel.test.js core/dist-test/test/telemetria-maturidade-dashboard.test.js"
+      ],
+      "criadoEm": "2026-11-12T14:33:00.468Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C71",
+      "thread": "ork-rm090f5sdlca",
+      "fase": "GO",
+      "arquivo": "docs/guias/telemetria-opentelemetry.pt-BR.md",
+      "alegacao": "Substitui integralmente C6: a documentação pública declara fórmula, população, fonte e lacunas de cada indicador, o contrato de deploy/incidente e as convenções oficiais usadas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-maturidade-documentacao.test.js core/dist-test/test/telemetria-maturidade-publicacao.test.js core/dist-test/test/telemetria-documentacao-modelos.test.js"
+      ],
+      "criadoEm": "2026-11-12T14:33:00.570Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C72",
+      "thread": "ork-rm090f5sdlca",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-maturidade-documentacao.test.ts",
+      "alegacao": "Substitui integralmente C23: a suíte hermética confere os dois guias contra o registro de indicadores e o contrato DORA concentrado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-maturidade-documentacao.test.js core/dist-test/test/telemetria-maturidade-registro.test.js core/dist-test/test/telemetria-maturidade-collector.test.js"
+      ],
+      "criadoEm": "2026-11-12T14:33:00.665Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C73",
+      "thread": "ork-rm090f5sdlca",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-maturidade-otel.test.ts",
+      "alegacao": "Substitui integralmente C37: B5, a projeção e os dois modelos removem os treze nomes públicos não autorizados e usam somente atributos oficiais ou já adotados; o payload continua sem controlar pessoa ou time.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-maturidade-otel.test.js core/dist-test/test/telemetria-maturidade-collector.test.js"
+      ],
+      "criadoEm": "2026-11-12T14:33:00.767Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C74",
+      "thread": "ork-rm090f5sdlca",
+      "fase": "GO",
+      "arquivo": "docs/guias/telemetria-opentelemetry.pt-BR.md",
+      "alegacao": "Substitui integralmente C49: a documentação pública enumera fórmulas, populações, fontes, cobertura e lacunas dos seis indicadores e publica os contratos DORA e de resultado calculado; o evento de resultado e os nomes de incidente estão ratificados, sem estado pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-maturidade-documentacao.test.js core/dist-test/test/telemetria-maturidade-publicacao.test.js core/dist-test/test/telemetria-maturidade-registro.test.js"
+      ],
+      "criadoEm": "2026-11-12T14:33:00.856Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C75",
+      "thread": "ork-rm090f5sdlca",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-maturidade-documentacao.test.ts",
+      "alegacao": "Substitui integralmente C58: a suíte confere nos dois guias os seis IDs e versões, todas as fontes do registro, cobertura, lacunas e os atributos DORA; também exige o evento de resultado ratificado e recusa o estado pendente e as alternativas descartadas.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-maturidade-documentacao.test.js core/dist-test/test/telemetria-maturidade-publicacao.test.js core/dist-test/test/telemetria-maturidade-registro.test.js"
+      ],
+      "criadoEm": "2026-11-12T14:33:00.931Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C76",
+      "thread": "ork-rm090f5sdlca",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-maturidade-otel.test.ts",
+      "alegacao": "Substitui integralmente C62: a projeção de resultado emite exatamente UID, user.hash e os atributos declarados no contrato ratificado; as superfícies removem os treze nomes revogados e o payload não controla pessoa nem time.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-maturidade-otel.test.js core/dist-test/test/telemetria-maturidade-registro.test.js core/dist-test/test/telemetria-maturidade-dashboard.test.js"
+      ],
+      "criadoEm": "2026-11-12T14:33:01.018Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
