@@ -672,16 +672,32 @@ function atualizarCandidato(carregado: ManifestoCarregado, arco: string, trabalh
       const arquivo = prepararBundleCi(daBranch, t.id);
       if (politicaDeRecibo) conferirProjecaoDaRodadaVerde(carregado.raiz, t.id, arquivo, depoisDoMerge);
       const relativo = path.relative(wt, arquivo);
+      const naBranch = git(wt, ['cat-file', '-p', `HEAD:${relativo}`]);
+      const textoNaBranch = naBranch.ok ? naBranch.stdout : null;
+      const projecaoDe = (texto: string | null): ReturnType<typeof validarProjecaoReplayCi> => {
+        if (texto === null) return { ok: false, causa: 'invalida' };
+        try { return validarProjecaoReplayCi((JSON.parse(texto) as { recibo?: unknown }).recibo); }
+        catch { return { ok: false, causa: 'invalida' }; }
+      };
+      const anterior = projecaoDe(textoNaBranch);
+      const atual = projecaoDe(fs.readFileSync(arquivo, 'utf8'));
+      const projecaoMudou = !politicaDeRecibo || !anterior.ok || !atual.ok ||
+        JSON.stringify(anterior.projecao) !== JSON.stringify(atual.projecao);
       const mudou = ler(['status', '--porcelain', '--', relativo], 'o estado do bundle').trim() !== '';
+      const desfazerBundle = (): void => {
+        git(wt, ['reset', '-q', '--', relativo]);
+        if (textoNaBranch !== null) fs.writeFileSync(path.join(wt, relativo), textoNaBranch);
+        else fs.rmSync(path.join(wt, relativo), { force: true });
+      };
+      // O estado transitório das claims no envelope legado não cria filho quando a receita fechada é idêntica. Nesse caso,
+      // o candidato mantém exatamente o bundle que já estava versionado e o runner prova o HEAD publicado no recibo novo.
+      if (mudou && !projecaoMudou) {
+        desfazerBundle();
+        return false;
+      }
       if (mudou) {
         // R3-A4 da rodada 3: o bundle que não commita (um gancho, a trava do índice) volta ao que a branch tinha, e o passo
         // espera, como no commit do merge (R2-A2), sem deixar a worktree suja para o passo seguinte.
-        const desfazerBundle = (): void => {
-          git(wt, ['reset', '-q', '--', relativo]);
-          const naBranch = git(wt, ['cat-file', '-p', `HEAD:${relativo}`]);
-          if (naBranch.ok) fs.writeFileSync(path.join(wt, relativo), naBranch.stdout);
-          else fs.rmSync(path.join(wt, relativo), { force: true });
-        };
         const a = git(wt, ['add', '--', relativo]);
         if (!a.ok) {
           desfazerBundle();

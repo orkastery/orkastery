@@ -1379,6 +1379,9 @@ function cenarioBaseQueAnda(c, a, n) {
   const comPolitica = manifesto.replace('  context: ork-verify\n', '  context: ork-verify\n  politica_recibo: exigir\n');
   if (comPolitica === manifesto) throw new Error('o cenário base-que-anda não encontrou ci.context para ligar a política de recibo');
   fs.writeFileSync(arquivoDoManifesto, comPolitica);
+  m.git(m.proj.dir, ['add', '--', 'orkastery.yaml']);
+  m.git(m.proj.dir, ['commit', '-q', '-m', 'test: ligar política de recibo']);
+  m.git(m.proj.dir, ['push', '-q', 'origin', 'main']);
   m.proj.carregado = n.manifest.exigirManifesto(m.proj.dir);
   const itens = ['RM-952'];
   a.abrirArco(m.proj, a.pedido('arco-base', { trabalhos: [{ id: 't1', item: 'RM-952', prioridade: 1, dependeDe: [],

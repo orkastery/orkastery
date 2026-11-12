@@ -15,6 +15,7 @@ import { avancarBase, CAB, CHANGELOG_DA_BASE, ciFalso, claimDe, commitarBundle, 
   verifyNoLedger } from './noctum-entrega-apoio';
 import { executarCiDaBranchComContexto, ExecutorCi } from '../src/ci';
 import { CONTRATO_PROJECAO_REPLAY_CI, CONTRATO_RECIBO_RUNNER_CI } from '../src/ci-recibo-basico';
+import { carimbarEstado, lerClaims } from '../src/claims';
 import { kernelDisponivel } from '../src/fila-pesada';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from '../src/ledger';
 import { blocosNaoPublicados, linhasDaBasePerdidas } from '../src/noctum-changelog';
@@ -142,6 +143,9 @@ test('QE3: com política de recibo, projeção estável não cria filho e o runn
     const e = entregaPronta(m.p, 'qe3');
     const comProjecao = commitarBundle(m.p, e.t);
     assert.notEqual(comProjecao, e.fonte, 'a projeção da primeira rodada verde entra antes da atualização da base');
+    const bundle = path.posix.join('.ork-ci', `${e.t.id}.json`);
+    const bundleVersionado = fs.readFileSync(path.join(e.t.worktree!, bundle), 'utf8');
+    for (const claim of lerClaims(m.p.dir, e.t.id)) carimbarEstado(m.p.dir, claim, 'verificado');
     arco(m.p, 'arco-qe3', e.t.id);
     // A base faz a versão 0.2.0 (a antiga sai de Não publicado) e outra thread entra com a linha dela.
     const daBase = `${CAB}## Não publicado\n\n### Adicionado\n\n- **Outra SIMULADA** (RM-959): da base.\n\n## [0.2.0] - 2026-10-13\n\n### Adicionado\n\n` +
@@ -155,10 +159,11 @@ test('QE3: com política de recibo, projeção estável não cria filho e o runn
     assert.equal(m.verifies.length, 1);
     const wt = e.t.worktree!;
     const headVerificado = m.verifies[0];
-    const bundle = path.posix.join('.ork-ci', `${e.t.id}.json`);
     assert.equal(r.bundle, false, 'projeção idêntica não cria commit vazio nem filho exclusivo do bundle');
     assert.equal(r.para, headVerificado, 'o candidato final é o próprio HEAD da rodada verde');
     assert.equal(git(wt, 'diff', '--name-only', headVerificado, r.para, '--').stdout.trim(), '');
+    assert.equal(fs.readFileSync(path.join(wt, bundle), 'utf8'), bundleVersionado,
+      'a mudança transitória do estado das claims não altera a receita versionada');
     const projecao = JSON.parse(fs.readFileSync(path.join(wt, bundle), 'utf8')).recibo;
     assert.equal(projecao.contrato, CONTRATO_PROJECAO_REPLAY_CI);
     assert.equal('head' in projecao, false, 'a receita versionada não declara HEAD presente');
