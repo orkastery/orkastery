@@ -1,0 +1,369 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm090f4colet",
+  "branch": "ork/ork-rm090f4colet-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C2",
+      "thread": "ork-rm090f4colet",
+      "fase": "GOAL",
+      "arquivo": "core/test/telemetria-grafana-modelos.test.ts",
+      "alegacao": "Os dashboards provisionáveis são JSON válido, consultam somente atributos reais das F1/F2 ou métricas internas documentadas, não mostram conteúdo recusado, não têm metas inventadas e não criam placeholders para F3/F5.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-grafana-modelos.test.js"
+      ],
+      "criadoEm": "2026-11-11T15:50:37.935Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm090f4colet",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-collector-modelos.test.ts",
+      "alegacao": "Os modelos declaram receiver OTLP, filtro OTTL de descarte com erro propagado, allowlist, limite e lote na ordem documentada; as variantes diferem apenas no exporter e sua referência, sem host, endpoint ou credencial literais; compatibilidade operacional externa permanece não confirmada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-collector-modelos.test.js"
+      ],
+      "criadoEm": "2026-11-11T16:13:36.816Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm090f4colet",
+      "fase": "GO",
+      "arquivo": "templates/telemetria/README.md",
+      "alegacao": "O README identifica as versões de referência, separa descarte OTTL de recusa anterior da F2, deixa a validação externa fora do gate e documenta bind seguro e overlay privado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-collector-modelos.test.js"
+      ],
+      "criadoEm": "2026-11-11T16:13:36.882Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm090f4colet",
+      "fase": "GO",
+      "arquivo": "templates/telemetria/collector-otlp.yaml",
+      "alegacao": "O modelo OTLP genérico contém a pipeline estrutural prevista, usa somente ambiente e não contém configuração pública sensível.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-collector-modelos.test.js"
+      ],
+      "criadoEm": "2026-11-11T16:13:36.942Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm090f4colet",
+      "fase": "GO",
+      "arquivo": "templates/telemetria/collector-loki.yaml",
+      "alegacao": "O modelo Loki contém a mesma pipeline do modelo genérico, trocando somente o exporter e sua referência, e não contém configuração pública sensível.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-collector-modelos.test.js"
+      ],
+      "criadoEm": "2026-11-11T16:13:37.001Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm090f4colet",
+      "fase": "GO",
+      "arquivo": "templates/telemetria/grafana/provisioning/dashboards/orkastery.yaml",
+      "alegacao": "O provider do Grafana usa caminho por ambiente e não fixa URL, endpoint ou datasource.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-grafana-modelos.test.js"
+      ],
+      "criadoEm": "2026-11-11T16:16:34.974Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm090f4colet",
+      "fase": "GO",
+      "arquivo": "templates/telemetria/grafana/dashboards/orkastery-conducao.json",
+      "alegacao": "O dashboard de condução é JSON provisionável e suas consultas partem do serviço indexado antes de filtrar atributos reais de thread, fase, decisões e revisão.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-grafana-modelos.test.js"
+      ],
+      "criadoEm": "2026-11-11T16:16:35.046Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm090f4colet",
+      "fase": "GO",
+      "arquivo": "templates/telemetria/grafana/dashboards/orkastery-prompts.json",
+      "alegacao": "O dashboard de prompts separa conteúdo permitido de lacunas; a consulta de lacuna não referencia conteúdo e nenhuma consulta mostra evento recusado.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-grafana-modelos.test.js"
+      ],
+      "criadoEm": "2026-11-11T16:16:35.134Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm090f4colet",
+      "fase": "GO",
+      "arquivo": "templates/telemetria/grafana/dashboards/orkastery-exportacao.json",
+      "alegacao": "O dashboard de exportação é JSON provisionável e consulta somente métricas internas oficiais do Collector, sem endpoint, meta ou threshold.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-grafana-modelos.test.js"
+      ],
+      "criadoEm": "2026-11-11T16:16:35.188Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm090f4colet",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-documentacao-modelos.test.ts",
+      "alegacao": "Os guias bilíngues e o README documentam os dois modelos, versões de referência, compatibilidade externa não confirmada, fontes oficiais, ausência de F3/F5, métricas do Collector e segurança do receiver.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-documentacao-modelos.test.js"
+      ],
+      "criadoEm": "2026-11-11T16:19:44.998Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm090f4colet",
+      "fase": "GO",
+      "arquivo": "docs/guias/telemetria-opentelemetry.pt-BR.md",
+      "alegacao": "O guia em português ensina a usar Collector e Grafana, cita as fontes oficiais, declara os limites externos e mantém F3/F5 ausentes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-documentacao-modelos.test.js"
+      ],
+      "criadoEm": "2026-11-11T16:19:45.084Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm090f4colet",
+      "fase": "GO",
+      "arquivo": "docs/guias/telemetria-opentelemetry.md",
+      "alegacao": "O guia em inglês ensina a usar Collector e Grafana, cita as fontes oficiais, declara os limites externos e mantém F3/F5 ausentes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-documentacao-modelos.test.js"
+      ],
+      "criadoEm": "2026-11-11T16:19:45.170Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm090f4colet",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O bloco Não publicado registra a entrega dos modelos de Collector e Grafana da F4.",
+      "negativa": false,
+      "verificar": [
+        "grep -n \"Collector e Grafana de referência — F4 (RM-090)\" CHANGELOG.md"
+      ],
+      "criadoEm": "2026-11-11T16:19:45.242Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}

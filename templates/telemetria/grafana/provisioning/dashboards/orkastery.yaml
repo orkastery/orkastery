@@ -1,0 +1,11 @@
+apiVersion: 1
+providers:
+  - name: Orkastery
+    orgId: 1
+    folder: Orkastery
+    type: file
+    disableDeletion: true
+    editable: false
+    options:
+      path: ${ORK_GRAFANA_DASHBOARDS_PATH}
+      foldersFromFilesStructure: false
