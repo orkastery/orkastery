@@ -241,3 +241,21 @@ test('degradação não reprova observar ou avisar, exige no protegido e sai com
     assert.equal(historico.ok, true);
   } finally { f.limpar(); }
 });
+
+test('guias e contrato distinguem projeção, replay e recibo sem prometer autoria', () => {
+  const raiz = path.resolve(__dirname, '../../..');
+  const ler = (arquivo: string) => fs.readFileSync(path.join(raiz, arquivo), 'utf8');
+  const pt = ler('docs/guias/politica-de-recibo-da-empresa.pt-BR.md');
+  const en = ler('docs/guias/politica-de-recibo-da-empresa.md');
+  const forja = ler('docs/referencia/contratos/forja.md');
+  for (const texto of [pt, en, forja]) {
+    assert.match(texto, /ork\.ci-projecao-replay\/v1/);
+    assert.match(texto, /ork\.ci-recibo-runner\/v1/);
+    assert.match(texto, /resultado\.recibo\.head/);
+    assert.match(texto, /assinatura/);
+    assert.match(texto, /ci\.recibo\.claim-nao-hermetica/);
+  }
+  assert.match(pt, /não prova a autoria/);
+  assert.match(en, /does not prove who authored/);
+  assert.match(forja, /não usa\s+ancestralidade nem diff posterior/);
+});

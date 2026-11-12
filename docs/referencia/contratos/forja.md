@@ -96,13 +96,27 @@ O manifesto aceita `observar`, `avisar` ou `exigir`. Sem a chave, o resultado e 
 
 Em `exigir`, PR ou MR destinado a `worktree.base_branch` reprova com `ci.recibo.*` quando o recibo não está presente.
 Push na própria branch protegida não ganha essa reprovação. O bundle continua no schema `ork.ci-bundle/v1`: o campo
-opcional `recibo` leva `contrato`, `head` e `sha256`, e leitores aceitam a forma anterior. O guia
+opcional `recibo` passa a ser a entrada `ork.ci-projecao-replay/v1`, com `contrato`, `thread`, `claims`, `rodada`,
+`baseline`, `commands` e `sha256`. Leitores aceitam a forma anterior somente para compatibilidade; ela não satisfaz a
+prova F5. O guia
 [política de recibo da empresa](../../guias/politica-de-recibo-da-empresa.pt-BR.md) descreve os níveis, o
 `CODEOWNERS` e a configuração da regra obrigatória no GitHub e no GitLab.
 
+O runner valida a projeção, reexecuta preparo, claims e comandos pelo julgamento compartilhado com o verify e emite
+`ork.ci-recibo-runner/v1` no resultado `ork.ci-run/v1`. A saída leva `contrato`, `head`, `thread`, `claimsSha256`,
+`rodadaSha256`, `check`, `resultado`, `sha256` e reserva `assinatura` para a F7. `presente` exige
+`resultado.recibo.head === resultado.commit === HEAD` e rodada integral verde. Branch externa e fork não ganham
+exceção; o ambiente do replay é allowlisted e não recebe token, segredo, credencial de runtime ou forja nem
+`ORK_HITL_*`.
+
+As causas fechadas mapeiam, na mesma ordem, para `ci.recibo.projecao-acima-do-limite`,
+`ci.recibo.claim-nao-hermetica`, `ci.recibo.runner-sem-capacidade`, `ci.recibo.comando-nao-iniciado`,
+`ci.recibo.prazo-excedido` e `ci.recibo.produto-alterado`, cada uma com mensagem e ação bilíngues e
+`policy.receipt: invalido`. Não há recibo verde parcial.
+
 **Fronteira de confiança:** o bundle e o `sha256` chegam no próprio PR/MR e podem ser forjados. O runner não consulta nem
-confere o recibo contra o ledger. O nível básico somente reexecuta as claims e os comandos do bundle no HEAD e confere a
-ancestralidade e o diff depois do HEAD declarado no recibo. A garantia contra forja é do recibo assinado da F7 da página
+confere a projeção contra o ledger. O nível básico somente reexecuta preparo, claims e comandos no HEAD; não usa
+ancestralidade nem diff posterior para aceitar outro HEAD. A garantia contra forja é do recibo assinado da F7 da página
 da RM-089, fora desta fatia; `presente` aqui significa consistência operacional, não autoria criptograficamente provada.
 
 ## Preflight coletivo e credencial do CI
