@@ -3,14 +3,35 @@ import { adesaoRedeEmpresa, avaliarCoberturaEmpresa, type ResultadoDaCobertura }
 import { CONTRATO_STATUS_EMPRESA, ehInscricaoDaEmpresa, ehPoliticaDaEmpresa, ehPublicacaoDaEmpresa, type InscricaoDaEmpresa,
   type StatusDaRedeEmpresa } from './rede-empresa-contrato';
 import { caminhoDaPublicacao, ErroDocumentoRemotoInvalido, lerDocumentoRemoto,
-  type PortaDaBranchEmpresa } from './rede-empresa-transporte';
+  type PontaDaRedeEmpresa, type PortaDaBranchEmpresa } from './rede-empresa-transporte';
+import { preflightDaPontaEmpresa, type ResultadoPreflightEmpresa } from './rede-empresa-preflight';
+import type { Locale } from './locale';
 
-export type StatusDaRedeEmpresaComCobertura = StatusDaRedeEmpresa & { cobertura: ResultadoDaCobertura };
+export type StatusDaRedeEmpresaComCobertura = StatusDaRedeEmpresa & { cobertura: ResultadoDaCobertura;
+  preflightEmpresa: ResultadoPreflightEmpresa };
+
+export function textoDoPreflightEmpresa(r: ResultadoPreflightEmpresa, locale: Locale): string {
+  const en = locale === 'en';
+  if (r.estado === 'nao-realizado') return en
+    ? `Collective check not performed (${r.lacunas.join(', ')}). Action: restore the reading transport; delivery continues.`
+    : `Checagem coletiva não realizada (${r.lacunas.join(', ')}). Ação: restabeleça o transporte de leitura; a entrega continua.`;
+  if (r.estado === 'conflito') return en
+    ? `Collective preflight: ${r.conflitos.length} conflict(s). Suggested order is advisory; delivery continues.`
+    : `Preflight coletivo: ${r.conflitos.length} conflito(s). A ordem sugerida é consultiva; a entrega continua.`;
+  if (r.estado === 'sem-conflito') return en
+    ? 'Collective preflight: no conflict in the complete snapshot; delivery continues.'
+    : 'Preflight coletivo: nenhum conflito na fotografia completa; a entrega continua.';
+  return en
+    ? `Collective preflight inconclusive (${r.lacunas.join(', ')}). Action: review the gaps; delivery continues.`
+    : `Preflight coletivo inconclusivo (${r.lacunas.join(', ')}). Ação: revise as lacunas; a entrega continua.`;
+}
 
 export function statusDaRedeEmpresa(porta: PortaDaBranchEmpresa, inscricaoId: string, projetoRef: string,
   env: NodeJS.ProcessEnv = process.env): StatusDaRedeEmpresaComCobertura {
   const local = adesaoRedeEmpresa(inscricaoId, env);
-  const ponta = porta.ler();
+  let ponta: PontaDaRedeEmpresa;
+  try { ponta = porta.ler(); }
+  catch { ponta = { id: null, atualizada: false, ler: () => null }; }
   const inscricaoLida = lerDocumentoRemoto(ponta, `inscricoes/${inscricaoId}.json`, ehInscricaoDaEmpresa);
   const politicaLida = lerDocumentoRemoto(ponta, 'politica.json', ehPoliticaDaEmpresa);
   const publicacaoLida = lerDocumentoRemoto(ponta, caminhoDaPublicacao(inscricaoId, projetoRef), ehPublicacaoDaEmpresa);
@@ -31,5 +52,5 @@ export function statusDaRedeEmpresa(porta: PortaDaBranchEmpresa, inscricaoId: st
     ultimaPublicacao: publicacao?.publicadoEm ?? local?.ultimaPublicacao ?? null,
     pendencia: forjaAtualizada ? local?.pendencia ?? null
       : local?.pendencia ?? { codigo: 'rede-empresa.forja-indisponivel', em: new Date().toISOString() },
-    publicacao, cobertura };
+    publicacao, cobertura, preflightEmpresa: preflightDaPontaEmpresa(ponta) };
 }

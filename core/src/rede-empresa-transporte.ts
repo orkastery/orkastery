@@ -1,5 +1,6 @@
 /** RM-089 F1: CAS da branch única, injetável para a suíte hermética. */
 import { buscarBranch, git, gravarNaBranch, MudancaNaBranch, OpcoesDeGit } from './branch-de-estado';
+import { MAX_COMMITS_HISTORIA_EMPRESA } from './rede-empresa-contrato';
 
 export const BRANCH_DA_REDE_EMPRESA = 'main';
 export const TENTATIVAS_DA_REDE_EMPRESA = 5;
@@ -11,7 +12,21 @@ export interface PontaDaRedeEmpresa {
   ler(caminho: string): string | null;
   /** Uma enumeração em lote da mesma snapshot; nunca busca a branch de novo. */
   listar?(prefixo: string): Array<{ caminho: string; conteudo: string }>;
+  /** História local da ponta já carimbada; não atualiza nem consulta o remoto. */
+  historicoPrimeiroPai?(limite: number): LeituraDaHistoriaEmpresa;
 }
+
+export type LacunaDaHistoriaEmpresa = 'historia.indisponivel' | 'historia.rasa' | 'historia.truncada'
+  | 'historia.nao-linear' | 'historia.excedeu-teto';
+export interface RegistroDaHistoriaEmpresa {
+  id: string;
+  primeiroPai: string | null;
+  ordinal: number;
+  documentos: Array<{ caminho: string; conteudo: string }>;
+}
+export type LeituraDaHistoriaEmpresa =
+  | { estado: 'completa'; ponta: string; registros: RegistroDaHistoriaEmpresa[] }
+  | { estado: 'inconclusiva'; ponta: string | null; lacuna: LacunaDaHistoriaEmpresa; registros: RegistroDaHistoriaEmpresa[] };
 
 export interface PortaDaBranchEmpresa {
   ler(): PontaDaRedeEmpresa;
@@ -61,6 +76,16 @@ export function caminhoDaPublicacao(inscricaoId: string, projetoRef: string): st
   const seguro = (v: string) => /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(v);
   if (!seguro(inscricaoId) || !seguro(projetoRef)) throw new Error('rede-empresa.caminho-invalido');
   return `publicacoes/${inscricaoId}/${projetoRef}.json`;
+}
+
+export function lerHistoriaDaEmpresa(ponta: PontaDaRedeEmpresa,
+  limite = MAX_COMMITS_HISTORIA_EMPRESA): LeituraDaHistoriaEmpresa {
+  if (!ponta.atualizada || !ponta.id || !ponta.historicoPrimeiroPai)
+    return { estado: 'inconclusiva', ponta: ponta.id, lacuna: 'historia.indisponivel', registros: [] };
+  if (!Number.isSafeInteger(limite) || limite < 1 || limite > MAX_COMMITS_HISTORIA_EMPRESA)
+    return { estado: 'inconclusiva', ponta: ponta.id, lacuna: 'historia.excedeu-teto', registros: [] };
+  try { return ponta.historicoPrimeiroPai(limite); }
+  catch { return { estado: 'inconclusiva', ponta: ponta.id, lacuna: 'historia.indisponivel', registros: [] }; }
 }
 
 function validarMudancas(mudancas: readonly MudancaNaBranch[]): void {
@@ -125,6 +150,40 @@ export function portaGitDaRedeEmpresa(cache: string, remoto = 'origin', rede: Op
             offset = fim + 1;
           }
           return saida;
+        },
+        historicoPrimeiroPai(limite: number): LeituraDaHistoriaEmpresa {
+          if (!lida.ponta) return { estado: 'inconclusiva', ponta: null, lacuna: 'historia.indisponivel', registros: [] };
+          const rasa = git(cache, ['rev-parse', '--is-shallow-repository'], rede);
+          if (!rasa.ok) return { estado: 'inconclusiva', ponta: lida.ponta, lacuna: 'historia.indisponivel', registros: [] };
+          if (rasa.stdout.trim() === 'true') return { estado: 'inconclusiva', ponta: lida.ponta, lacuna: 'historia.rasa', registros: [] };
+          const revs = git(cache, ['rev-list', '--first-parent', '--parents', `--max-count=${limite}`, lida.ponta], rede);
+          if (!revs.ok) return { estado: 'inconclusiva', ponta: lida.ponta, lacuna: 'historia.truncada', registros: [] };
+          const descendente = revs.stdout.trim().split('\n').filter(Boolean).map((linha) => linha.trim().split(/\s+/));
+          if (!descendente.length || descendente[0][0] !== lida.ponta)
+            return { estado: 'inconclusiva', ponta: lida.ponta, lacuna: 'historia.truncada', registros: [] };
+          if (descendente.some((commit) => commit.length > 2))
+            return { estado: 'inconclusiva', ponta: lida.ponta, lacuna: 'historia.nao-linear', registros: [] };
+          for (let i = 0; i + 1 < descendente.length; i++) if (descendente[i][1] !== descendente[i + 1][0])
+            return { estado: 'inconclusiva', ponta: lida.ponta, lacuna: 'historia.nao-linear', registros: [] };
+          const excedeu = descendente.length === limite && descendente.at(-1)!.length > 1;
+          if (excedeu) return { estado: 'inconclusiva', ponta: lida.ponta, lacuna: 'historia.excedeu-teto', registros: [] };
+          const raizPrimeiro = [...descendente].reverse();
+          const registros: RegistroDaHistoriaEmpresa[] = [];
+          for (let i = 0; i < raizPrimeiro.length; i++) {
+            const [id, primeiroPai] = raizPrimeiro[i];
+            const arvore = git(cache, ['ls-tree', '-r', id, '--', 'publicacoes-v3/'], rede);
+            if (!arvore.ok) return { estado: 'inconclusiva', ponta: lida.ponta, lacuna: 'historia.truncada', registros };
+            const documentos: Array<{ caminho: string; conteudo: string }> = [];
+            for (const linha of arvore.stdout.split('\n')) {
+              const m = /^[0-7]+ blob [0-9a-f]{7,64}\t(publicacoes-v3\/.+\.json)$/.exec(linha);
+              if (!m || !CAMINHO.test(m[1])) continue;
+              const conteudo = git(cache, ['show', `${id}:${m[1]}`], rede);
+              if (!conteudo.ok) return { estado: 'inconclusiva', ponta: lida.ponta, lacuna: 'historia.truncada', registros };
+              documentos.push({ caminho: m[1], conteudo: conteudo.stdout });
+            }
+            registros.push({ id, primeiroPai: primeiroPai ?? null, ordinal: i + 1, documentos });
+          }
+          return { estado: 'completa', ponta: lida.ponta, registros };
         } };
     },
     gravar(ponta, mudancas, mensagem) {

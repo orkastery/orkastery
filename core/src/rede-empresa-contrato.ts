@@ -7,6 +7,7 @@ export const CONTRATO_POLITICA_EMPRESA_V2 = 'ork.rede-empresa-politica/v2' as co
 export const CONTRATO_INSCRICAO_EMPRESA = 'ork.rede-empresa-inscricao/v1' as const;
 export const CONTRATO_PUBLICACAO_EMPRESA = 'ork.rede-empresa-publicacao/v1' as const;
 export const CONTRATO_PUBLICACAO_EMPRESA_V2 = 'ork.rede-empresa-publicacao/v2' as const;
+export const CONTRATO_PUBLICACAO_EMPRESA_V3 = 'ork.rede-empresa-publicacao/v3' as const;
 export const CONTRATO_STATUS_EMPRESA = 'ork.rede-empresa-status/v1' as const;
 
 export const MAX_BYTES_PUBLICACAO_EMPRESA = 1024 * 1024;
@@ -14,6 +15,9 @@ export const MAX_ITENS_PUBLICACAO_EMPRESA = 5_000;
 export const MAX_RESERVAS_PUBLICACAO_EMPRESA = 5_000;
 export const MAX_TRABALHOS_PUBLICACAO_EMPRESA = 2_000;
 export const MAX_LACUNAS_PUBLICACAO_EMPRESA = 1_000;
+export const MAX_CAMINHOS_POR_TRABALHO_EMPRESA = 64;
+export const MAX_CAMINHOS_PUBLICACAO_EMPRESA = 4_096;
+export const MAX_COMMITS_HISTORIA_EMPRESA = MAX_TRABALHOS_PUBLICACAO_EMPRESA;
 
 export type ForjaDaEmpresa = 'github' | 'gitlab';
 export interface ReferenciaDaForja { forja: ForjaDaEmpresa; host: string; caminho: string }
@@ -55,6 +59,12 @@ export interface InscricaoDaEmpresa {
 export interface ItemPublicado { id: string; estado: GrupoDoRoadmap }
 export interface ReservaPublicada { itemId: string; threadRef?: string; iniciadaEm: string }
 export interface TrabalhoPublicado { threadRef: string; fase: 'GOAL' | 'PLAN' | 'GO' | 'CHECK' | 'SHIP' | 'MASTER'; itemId?: string }
+export type FonteDoCaminhoPublicado = 'plan' | 'lease' | 'diff';
+export interface CaminhoPublicado { padrao: string; fontes: FonteDoCaminhoPublicado[] }
+export interface TrabalhoPublicadoV3 extends TrabalhoPublicado {
+  caminhos: CaminhoPublicado[];
+  instanteLocal: { valor: string; fonte: 'auto-relato-autenticado' };
+}
 export interface FontePublicada { parte: 'roadmap' | 'reservas' | 'fabrica' | 'estado-local'; atualizado: boolean; lidoEm: string; commit?: string }
 export const TIPOS_DE_LACUNA_PUBLICADA = [
   'projeto.sem-clone', 'projeto.sem-fonte', 'projeto.sem-leitura', 'projeto.remoto-invalido', 'projeto.base-invalida',
@@ -89,7 +99,12 @@ export interface PublicacaoDaEmpresaV2 extends PublicacaoDaEmpresaBase {
   contrato: typeof CONTRATO_PUBLICACAO_EMPRESA_V2;
   projectKey: string;
 }
-export type PublicacaoDaEmpresa = PublicacaoDaEmpresaV1 | PublicacaoDaEmpresaV2;
+export interface PublicacaoDaEmpresaV3 extends Omit<PublicacaoDaEmpresaBase, 'trabalhos'> {
+  contrato: typeof CONTRATO_PUBLICACAO_EMPRESA_V3;
+  projectKey: string;
+  trabalhos: TrabalhoPublicadoV3[];
+}
+export type PublicacaoDaEmpresa = PublicacaoDaEmpresaV1 | PublicacaoDaEmpresaV2 | PublicacaoDaEmpresaV3;
 
 export interface StatusDaRedeEmpresa {
   contrato: typeof CONTRATO_STATUS_EMPRESA;
@@ -113,7 +128,10 @@ const obj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'o
 const chaves = (v: Record<string, unknown>, permitidas: readonly string[]): boolean =>
   Object.keys(v).every((k) => permitidas.includes(k)) && permitidas.every((k) => k in v);
 const texto = (v: unknown, teto = 200): v is string => typeof v === 'string' && v.length > 0 && v.length <= teto && !/[\x00-\x1f\x7f]/.test(v);
-const iso = (v: unknown): v is string => texto(v, 40) && Number.isFinite(Date.parse(v));
+export const ehIsoEstrito = (v: unknown): v is string => typeof v === 'string'
+  && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(v)
+  && new Date(v).toISOString() === v;
+const iso = ehIsoEstrito;
 const id = (v: unknown, teto = 128): v is string => texto(v, teto) && /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(v);
 const inteiro = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) > 0;
 
@@ -172,6 +190,24 @@ function trabalho(v: unknown): v is TrabalhoPublicado {
   return obj(v) && Object.keys(v).every((k) => ['threadRef', 'fase', 'itemId'].includes(k)) && 'threadRef' in v && 'fase' in v
     && id(v.threadRef) && FASES.includes(v.fase as typeof FASES[number]) && (v.itemId === undefined || id(v.itemId));
 }
+function caminhoPublicado(v: unknown): v is CaminhoPublicado {
+  if (!obj(v) || !chaves(v, ['padrao', 'fontes']) || !texto(v.padrao, 400) || !Array.isArray(v.fontes)
+    || v.fontes.length < 1 || v.fontes.length > 3
+    || v.fontes.some((f) => f !== 'plan' && f !== 'lease' && f !== 'diff')) return false;
+  const segmentos = v.padrao.split('/');
+  return !v.padrao.startsWith('/') && !v.padrao.includes('\\') && !segmentos.some((s) => !s || s === '.' || s === '..')
+    && new Set(v.fontes).size === v.fontes.length;
+}
+function trabalhoV3(v: unknown): v is TrabalhoPublicadoV3 {
+  if (!obj(v) || !Object.keys(v).every((k) => ['threadRef', 'fase', 'itemId', 'caminhos', 'instanteLocal'].includes(k))
+    || !('threadRef' in v) || !('fase' in v) || !id(v.threadRef) || !FASES.includes(v.fase as typeof FASES[number])
+    || (v.itemId !== undefined && !id(v.itemId))
+    || !Array.isArray(v.caminhos) || v.caminhos.length > MAX_CAMINHOS_POR_TRABALHO_EMPRESA
+    || !v.caminhos.every(caminhoPublicado)) return false;
+  const instante = v.instanteLocal;
+  return obj(instante) && chaves(instante, ['valor', 'fonte']) && ehIsoEstrito(instante.valor)
+    && instante.fonte === 'auto-relato-autenticado';
+}
 function fonte(v: unknown): v is FontePublicada {
   return obj(v) && Object.keys(v).every((k) => ['parte', 'atualizado', 'lidoEm', 'commit'].includes(k))
     && 'parte' in v && 'atualizado' in v && 'lidoEm' in v && PARTES.includes(v.parte as typeof PARTES[number])
@@ -185,19 +221,22 @@ function lacuna(v: unknown): v is LacunaPublicada {
 export function ehPublicacaoDaEmpresa(v: unknown): v is PublicacaoDaEmpresa {
   if (!obj(v)) return false;
   const v2 = v.contrato === CONTRATO_PUBLICACAO_EMPRESA_V2;
+  const v3 = v.contrato === CONTRATO_PUBLICACAO_EMPRESA_V3;
   const permitidas = ['contrato', 'politicaVersao', 'inscricaoId', 'publicadoEm', 'maestro', 'rede', 'projeto', 'itens',
-    'reservas', 'trabalhos', 'fontes', 'lacunas', ...(v2 ? ['projectKey'] : [])];
+    'reservas', 'trabalhos', 'fontes', 'lacunas', ...(v2 || v3 ? ['projectKey'] : [])];
   if (!chaves(v, permitidas)) return false;
   const maestro = v.maestro;
   if (!obj(maestro) || !Object.keys(maestro).every((k) => ['forja', 'host', 'accountId', 'loginAtual'].includes(k))
     || !ehMaestroRef({ forja: maestro.forja, host: maestro.host, accountId: maestro.accountId }) || !id(maestro.loginAtual, 255)) return false;
-  if ((v.contrato !== CONTRATO_PUBLICACAO_EMPRESA && !v2) || (v2 && !texto(v.projectKey, 500))
+  if ((v.contrato !== CONTRATO_PUBLICACAO_EMPRESA && !v2 && !v3) || ((v2 || v3) && !texto(v.projectKey, 500))
     || !id(v.politicaVersao, 64) || !id(v.inscricaoId) || !iso(v.publicadoEm)
     || !ehReferenciaDaForja(v.rede) || !ehReferenciaDaForja(v.projeto) || !Array.isArray(v.itens) || !Array.isArray(v.reservas)
     || !Array.isArray(v.trabalhos) || !Array.isArray(v.fontes) || !Array.isArray(v.lacunas)) return false;
   if (v.itens.length > MAX_ITENS_PUBLICACAO_EMPRESA || v.reservas.length > MAX_RESERVAS_PUBLICACAO_EMPRESA
     || v.trabalhos.length > MAX_TRABALHOS_PUBLICACAO_EMPRESA || v.lacunas.length > MAX_LACUNAS_PUBLICACAO_EMPRESA) return false;
-  if (!v.itens.every(item) || !v.reservas.every(reserva) || !v.trabalhos.every(trabalho) || !v.fontes.every(fonte) || !v.lacunas.every(lacuna)) return false;
+  if (!v.itens.every(item) || !v.reservas.every(reserva) || !(v3 ? v.trabalhos.every(trabalhoV3) : v.trabalhos.every(trabalho))
+    || !v.fontes.every(fonte) || !v.lacunas.every(lacuna)) return false;
+  if (v3 && v.trabalhos.reduce((n, t) => n + (t as TrabalhoPublicadoV3).caminhos.length, 0) > MAX_CAMINHOS_PUBLICACAO_EMPRESA) return false;
   return Buffer.byteLength(JSON.stringify(v), 'utf8') <= MAX_BYTES_PUBLICACAO_EMPRESA;
 }
 
