@@ -50,7 +50,7 @@ As consultas Loki começam por `{service_name="orkastery"}`. Thread, decisão, c
 ## Modelos planejados
 
 - `orkastery-correlacao-runtime.json` não existe nesta fatia; a correlação com runtimes pertence à F3.
-- `orkastery-maturidade-maestro.json` existe na F5 e consulta somente campos emitidos pelo mapper e preservados pelo Collector.
+- `orkastery-maturidade-maestro.json` existe na F5, vem do mesmo registro executável do motor local e consulta somente campos emitidos pelo mapper e preservados pelo Collector. O painel projeta fatos de origem; o cálculo exato continua local.
 
 Não há JSON placeholder para dado ainda ausente.
 
