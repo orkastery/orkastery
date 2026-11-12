@@ -19,17 +19,17 @@ A pipeline dos logs Orkastery mantém esta ordem: `memory_limiter`, `filter/requ
 - um erro ao avaliar a condição, com `error_mode: propagate`, falha o payload;
 - a recusa de segredo ou dado privado acontece antes, na F2, e não produz evento para o Collector revalidar.
 
-O filtro exige o serviço, o scope, o UID e a thread; exige fase nos eventos de fase e prompt; e descarta estados de prompt incoerentes. `transform/sanitize` conserva apenas o mapeamento publicado pelas F1/F2.
+O filtro exige o serviço, o scope e o UID. Ele exige thread nos eventos do ledger, mas não no resultado calculado de SDLC Analytics; exige fase nos eventos de fase e prompt; e descarta estados de prompt incoerentes. `transform/sanitize` conserva apenas o mapeamento publicado e os campos tipados do resultado calculado.
 
 ### Pipeline DORA
 
-`logs/dora` é separada de `logs/orkastery` e aceita somente `orkastery.sdlc.deployment.v1` e `orkastery.sdlc.incident.v1`. O filtro exige o conjunto exato de campos de cada variante; atributo extra, campo obrigatório ausente, versão desconhecida ou identidade trazida pelo payload descarta o LogRecord. A pipeline original descarta todo evento `orkastery.sdlc.*`.
+`logs/dora` é separada de `logs/orkastery` e aceita somente `orkastery.sdlc.deployment.v1` e `orkastery.sdlc.incident.v1`. O filtro exige o conjunto exato de campos de cada variante; atributo extra, campo obrigatório ausente, versão desconhecida ou identidade trazida pelo payload descarta o LogRecord. A pipeline original descarta esses dois eventos DORA e preserva o resultado calculado de SDLC Analytics.
 
 Depois da validação e da allowlist, `transform/dora-policy` atribui `user.hash` por `ORK_DORA_USER_HASH` e `service.namespace` por `ORK_DORA_SERVICE_NAMESPACE`. Se a política não informar time, ela atribui `service.namespace=team_source_missing` como lacuna explícita. O payload externo não escolhe pessoa nem time.
 
 Deploy só vira insumo analítico depois que o motor confirmar thread e revisão contra um `ship_done` com push provado. Incidente e deployment de recuperação usam os IDs do contrato; proximidade de horário não cria vínculo.
 
-A suíte do repositório exercita as variantes válidas e inválidas no schema comportamental, confere as cardinalidades dos dois modelos e faz isso sem rede nem processo externo. Como conferência operacional separada, rode o comando oficial do Collector sobre o arquivo escolhido:
+A suíte do repositório extrai e aplica as condições OTTL dos dois modelos às variantes válidas e inválidas, inclusive campos desconhecidos em `opened` e `resolved`, e confronta o resultado com o validador local, sem rede nem processo externo. Como conferência operacional separada, rode o comando oficial do Collector sobre o arquivo escolhido:
 
 ```text
 otelcol validate --config=<arquivo>
@@ -45,12 +45,12 @@ Os modelos públicos não provisionam TLS nem autenticação. Use bind local ou 
 
 Copie ou monte `grafana/provisioning/dashboards/orkastery.yaml` no diretório de provisionamento e disponibilize `grafana/dashboards/` no caminho indicado por `ORK_GRAFANA_DASHBOARDS_PATH`. Selecione uma fonte Loki nos dashboards de condução e prompts e uma fonte Prometheus que raspe a telemetria interna do Collector no dashboard de exportação. Os modelos não provisionam datasource, URL nem credencial.
 
-As consultas Loki começam por `{service_name="orkastery"}`. Thread, decisão, claim, recibo e prompt permanecem metadados estruturados; não são labels indexadas. O dashboard de maturidade projeta fatos de origem; o cálculo exato, a cobertura e as lacunas permanecem na leitura local. A equivalência operacional das consultas em Loki continua não confirmada. Não há benchmark hermético de Loki ou Grafana, portanto o custo observado permanece indisponível nesta referência.
+As consultas Loki começam por `{service_name="orkastery"}`. Thread, decisão, claim, recibo e prompt permanecem metadados estruturados; não são labels indexadas. O motor local emite um resultado calculado por indicador e janela, com numerador, denominador, cobertura e lacunas. O dashboard soma numerador, denominador, confirmados, população e lacunas por `user.hash` e `service.namespace`, sem reexecutar a fórmula em LogQL. A equivalência operacional das consultas em Loki continua não confirmada. Não há benchmark hermético de Loki ou Grafana, portanto o custo observado permanece indisponível nesta referência.
 
 ## Modelos planejados
 
 - `orkastery-correlacao-runtime.json` não existe nesta fatia; a correlação com runtimes pertence à F3.
-- `orkastery-maturidade-maestro.json` existe na F5, vem do mesmo registro executável do motor local e consulta somente campos emitidos pelo mapper e preservados pelo Collector. O painel projeta fatos de origem; o cálculo exato continua local.
+- `orkastery-maturidade-maestro.json` existe na F5, vem do mesmo registro executável do motor local e consulta somente o resultado calculado emitido pelo mapper e preservado pelo Collector. O teste compara cada target do JSON com o renderizador sem normalização permissiva.
 
 Não há JSON placeholder para dado ainda ausente.
 
