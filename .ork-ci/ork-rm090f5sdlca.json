@@ -871,6 +871,354 @@
         "artefato-de-fechamento",
         "ref-local-do-ramo-base"
       ]
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm090f5sdlca",
+      "fase": "GO",
+      "arquivo": "core/src/ship.ts",
+      "alegacao": "B1: o produtor ship_done grava a versão histórica da política de recibo para entregas novas; eventos antigos sem o campo permanecem lacuna.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "grep -n -F \"politicaReciboVersao: CONTRATO_DO_RECIBO_DE_PROVA\" core/src/ship.ts"
+      ],
+      "criadoEm": "2026-11-12T09:32:07.429Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm090f5sdlca",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-maturidade.test.ts",
+      "alegacao": "B6: a suíte prova que o avaliador retém o estado terminal em uma passagem e não ordena novamente a sequência acumulada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-maturidade.test.js"
+      ],
+      "criadoEm": "2026-11-12T09:32:07.494Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm090f5sdlca",
+      "fase": "GO",
+      "arquivo": "core/src/telemetria-maturidade.ts",
+      "alegacao": "B1: o avaliador normaliza verify, GO-FIX, decisões, HITL, exceções e SHIP no formato emitido pelo núcleo, chaveia A1 por merge e trata política histórica ausente como lacuna.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-maturidade.test.js"
+      ],
+      "criadoEm": "2026-11-12T09:32:07.566Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm090f5sdlca",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-maturidade-otel.test.ts",
+      "alegacao": "B5: a projeção e os dois modelos removem os treze nomes públicos não autorizados e usam somente atributos oficiais ou já adotados; o payload continua sem controlar pessoa ou time.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-maturidade-otel.test.js"
+      ],
+      "criadoEm": "2026-11-12T09:36:09.893Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm090f5sdlca",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-maturidade-otel.test.ts",
+      "alegacao": "B3: a suíte aplica a allowlist de recurso dos dois modelos ao payload OTLP real e prova que service.namespace da política chega ao destino sem aceitar pessoa ou time do evento.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-maturidade-otel.test.js"
+      ],
+      "criadoEm": "2026-11-12T09:37:06.060Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm090f5sdlca",
+      "fase": "GO",
+      "arquivo": "core/src/telemetria-maturidade-dora.ts",
+      "alegacao": "B4: entrada DORA inválida ou UID divergente invalida as medidas afetadas e nunca conserva valor confirmado.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-maturidade-dora.test.js"
+      ],
+      "criadoEm": "2026-11-12T09:41:11.820Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm090f5sdlca",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-maturidade-collector.test.ts",
+      "alegacao": "B4: a suíte comportamental aceita somente as cardinalidades DORA válidas e confronta os dois modelos do Collector com o mesmo schema.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-maturidade-collector.test.js"
+      ],
+      "criadoEm": "2026-11-12T09:41:11.911Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm090f5sdlca",
+      "fase": "GO",
+      "arquivo": "core/src/telemetria-maturidade.ts",
+      "alegacao": "B2: o motor materializa fórmulas, séries e cobertura a partir da representação executável versionada do registro único.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-maturidade-registro.test.js core/dist-test/test/telemetria-maturidade.test.js"
+      ],
+      "criadoEm": "2026-11-12T09:47:14.130Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm090f5sdlca",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-maturidade-dashboard.test.ts",
+      "alegacao": "B2: os onze targets reais consultam somente campos emitidos pelo mapper e preservados pelo Collector; a projeção deixa explícito que mostra fatos de origem.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-maturidade-dashboard.test.js"
+      ],
+      "criadoEm": "2026-11-12T09:47:14.186Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm090f5sdlca",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-maturidade-documentacao.test.ts",
+      "alegacao": "B7: CHANGELOG, guias bilíngues e README afirmam apenas cálculo local, projeção de fatos de origem, DORA fail-closed e equivalência Loki não confirmada, sem os treze nomes removidos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/telemetria-maturidade-documentacao.test.js core/dist-test/test/telemetria-maturidade-publicacao.test.js"
+      ],
+      "criadoEm": "2026-11-12T09:49:15.975Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm090f5sdlca",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria.test.ts",
+      "alegacao": "B3: o contrato OTLP de recurso inclui service.namespace com a lacuna team_source_missing quando a política não atribui time.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/telemetria.test.js core/dist-test/test/telemetria-maturidade-otel.test.js"
+      ],
+      "criadoEm": "2026-11-12T10:06:44.994Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm090f5sdlca",
+      "fase": "GO",
+      "arquivo": "core/test/telemetria-collector-modelos.test.ts",
+      "alegacao": "B3: a suíte de compatibilidade dos modelos exige que a allowlist de recurso preserve service.namespace junto de nome e versão do serviço.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/telemetria-collector-modelos.test.js core/dist-test/test/telemetria-maturidade-collector.test.js"
+      ],
+      "criadoEm": "2026-11-12T10:06:45.067Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm090f5sdlca",
+      "fase": "GO",
+      "arquivo": "templates/telemetria/README.md",
+      "alegacao": "B2 e B7: o README declara que o painel vem do registro executável e projeta apenas fatos emitidos, mantendo o cálculo exato na leitura local.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/telemetria-documentacao-modelos.test.js core/dist-test/test/telemetria-maturidade-documentacao.test.js"
+      ],
+      "criadoEm": "2026-11-12T10:06:45.149Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
     }
   ],
   "deferredClaims": [],
