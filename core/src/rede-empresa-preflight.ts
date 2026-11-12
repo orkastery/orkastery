@@ -1,6 +1,7 @@
 /** RM-089 F3: uma fotografia remota, seguida apenas por análise pura em memória. */
-import { CONTRATO_PUBLICACAO_EMPRESA_V3, ehPublicacaoDaEmpresa, MAX_CAMINHOS_PUBLICACAO_EMPRESA,
-  type PublicacaoDaEmpresaV3 } from './rede-empresa-contrato';
+import { CONTRATO_PUBLICACAO_EMPRESA, CONTRATO_PUBLICACAO_EMPRESA_V2, CONTRATO_PUBLICACAO_EMPRESA_V3,
+  ehPublicacaoDaEmpresa, MAX_CAMINHOS_PUBLICACAO_EMPRESA, type PublicacaoDaEmpresaV1,
+  type PublicacaoDaEmpresaV2, type PublicacaoDaEmpresaV3 } from './rede-empresa-contrato';
 import { analisarConflitosColetivos, type ResultadoDeConflitos, type TrabalhoColetivo } from './rede-empresa-conflitos';
 import { lerHistoriaDaEmpresa, type PontaDaRedeEmpresa, type PortaDaBranchEmpresa,
   type RegistroDaHistoriaEmpresa } from './rede-empresa-transporte';
@@ -43,6 +44,15 @@ function publicacaoV3(texto: string): PublicacaoDaEmpresaV3 | null {
   } catch { return null; }
 }
 
+function publicacaoLegada(texto: string): PublicacaoDaEmpresaV1 | PublicacaoDaEmpresaV2 | null {
+  try {
+    const valor = JSON.parse(texto) as unknown;
+    return ehPublicacaoDaEmpresa(valor)
+      && (valor.contrato === CONTRATO_PUBLICACAO_EMPRESA || valor.contrato === CONTRATO_PUBLICACAO_EMPRESA_V2)
+      ? valor : null;
+  } catch { return null; }
+}
+
 function primeirasAparicoes(registros: readonly RegistroDaHistoriaEmpresa[], lacunas: string[]): Map<string, { ordinal: number; commit: string }> {
   const primeiras = new Map<string, { ordinal: number; commit: string }>();
   for (const registro of registros) for (const documento of registro.documentos) {
@@ -59,20 +69,33 @@ function primeirasAparicoes(registros: readonly RegistroDaHistoriaEmpresa[], lac
 /** Analisa uma ponta já carimbada. Não chama porta, rede, Git, filesystem ou relógio. */
 export function preflightDaPontaEmpresa(ponta: PontaDaRedeEmpresa): ResultadoPreflightEmpresa {
   const lacunas: string[] = [];
-  let atuais: Array<{ caminho: string; conteudo: string }> = [], legadas = 0;
+  let atuais: Array<{ caminho: string; conteudo: string }> = [], legadas: Array<{ caminho: string; conteudo: string }> = [];
   if (!ponta.atualizada || !ponta.listar) lacunas.push('rede.leitura-indisponivel');
   else {
     try {
       atuais = ponta.listar('publicacoes-v3/');
-      legadas = ponta.listar('publicacoes/').length;
-    } catch { lacunas.push('rede.leitura-indisponivel'); }
+      legadas = ponta.listar('publicacoes/');
+    } catch { atuais = []; legadas = []; lacunas.push('rede.leitura-indisponivel'); }
   }
-  if (!atuais.length && legadas) lacunas.push('caminhos.desconhecidos');
+  if (legadas.length) lacunas.push('caminhos.desconhecidos');
   const historia = lerHistoriaDaEmpresa(ponta);
   if (historia.estado === 'inconclusiva') lacunas.push(historia.lacuna);
   const primeiras = primeirasAparicoes(historia.registros, lacunas);
   const trabalhos: TrabalhoColetivo[] = [];
   let caminhos = 0, publicacoes = 0;
+  for (const documento of legadas) {
+    const publicacao = publicacaoLegada(documento.conteudo);
+    if (!publicacao) { lacunas.push('publicacao-legada.invalida'); continue; }
+    let projectKey: string;
+    try { projectKey = publicacao.contrato === CONTRATO_PUBLICACAO_EMPRESA_V2
+      ? publicacao.projectKey : normalizarProjeto(publicacao.projeto).projectKey; }
+    catch { lacunas.push('publicacao-legada.projeto-invalido'); continue; }
+    publicacoes++;
+    for (const trabalho of publicacao.trabalhos) trabalhos.push({ inscricaoId: publicacao.inscricaoId,
+      accountId: publicacao.maestro.accountId, builder: publicacao.maestro.loginAtual, threadRef: trabalho.threadRef,
+      projectKey, ...(trabalho.itemId ? { itemId: trabalho.itemId } : {}), caminhos: [], primeiraAparicao: null,
+      instanteLocal: { valor: publicacao.publicadoEm, fonte: 'auto-relato-autenticado' } });
+  }
   for (const documento of atuais) {
     const publicacao = publicacaoV3(documento.conteudo);
     if (!publicacao) { lacunas.push('publicacao-v3.invalida'); continue; }
