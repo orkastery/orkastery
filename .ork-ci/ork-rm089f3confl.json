@@ -993,32 +993,6 @@
       ]
     },
     {
-      "id": "C92",
-      "thread": "ork-rm089f3confl",
-      "fase": "GO",
-      "arquivo": "core/test/rede-empresa-documentacao-f3.test.ts",
-      "alegacao": "O teste documental lê os sete documentos públicos citados no CHECK e mantém uma asserção sensível para cada cláusula exigida de C53 a C61.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-documentacao-f3.test.js"
-      ],
-      "criadoEm": "2026-11-12T09:11:29.309Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C93",
       "thread": "ork-rm089f3confl",
       "fase": "GO",
@@ -1081,7 +1055,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-documentacao-f3.test.js"
       ],
       "criadoEm": "2026-11-12T10:34:39.696Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
