@@ -20,10 +20,16 @@ test('contrato e guias declaram âncora, allowlist, diagnósticos e limite da F7
     for (const codigo of Object.values(CODIGO_DA_DEGRADACAO_REPLAY_CI)) assert.match(texto, new RegExp(codigo));
   }
   assert.match(pt, /manifesto.*branch de destino/is);
+  assert.match(pt, /comandos e o preparo.*branch de destino/is);
+  assert.match(pt, /baseline projetada.*não participa.*dívida preexistente/is);
   assert.match(pt, /não prova.*claims.*completas ou autênticas/is);
   assert.match(en, /manifest.*target branch/is);
+  assert.match(en, /commands and preparation.*target branch/is);
+  assert.match(en, /projected baseline.*does not participate.*pre-existing debt/is);
   assert.match(en, /does not prove claim completeness or\s+authenticity/is);
-  assert.match(forja, /claims não vazias.*manifesto da branch de destino/is);
+  assert.match(forja, /claims não vazias, comandos e preparo.*manifesto da branch de destino/is);
+  assert.match(forja, /baseline projetada.*não participa.*sem exceção de dívida preexistente/is);
+  assert.match(forja, /contrato.*head.*thread.*claimsSha256.*rodadaSha256.*check.*resultado.*sha256.*assinatura/is);
   assert.match(forja, /não.*autoria criptográfica/is);
 });
 
@@ -34,6 +40,7 @@ test('referências da CLI e changelog descrevem preparo, replay e recibo inteiro
   assert.match(cliEn, /ork ci prepare.*ork\.ci-projecao-replay\/v1.*allowlist/is);
   assert.match(cliEn, /ork ci run.*ork\.ci-recibo-runner\/v1.*executed HEAD/s);
   const naoPublicado = ler('CHANGELOG.md').split('## [', 1)[0];
+  assert.match(naoPublicado, /Recibo básico no HEAD executado.*HEAD do PR\/MR/is);
   assert.match(naoPublicado, /projeção de replay.*julgamento integral/is);
   assert.match(naoPublicado, /ambiente allowlisted.*branch externa.*fork.*GitHub.*GitLab/is);
 });

@@ -25,14 +25,16 @@ Valor diferente desses três torna o manifesto inválido. O push na própria bra
 `ork ci prepare <thread>` grava no campo `recibo` do `ork.ci-bundle/v1` uma entrada
 `ork.ci-projecao-replay/v1`. A projeção leva thread, claims canônicas, rodada, baseline mínima, comandos e hashes, mas
 não declara um HEAD como recibo presente. O leitor aceita o recibo legado apenas para compatibilidade; ele nunca
-satisfaz a prova desta etapa.
+satisfaz a prova desta etapa. A baseline projetada é informativa: por vir do próprio PR/MR, ela não participa do
+julgamento executado no CI e não pode classificar uma falha atual como dívida preexistente.
 
 No checkout do PR/MR, o runner valida a projeção, reexecuta preparo, claims e comandos canônicos pelo mesmo julgamento
 puro do verify e emite `ork.ci-recibo-runner/v1` no campo `recibo` do resultado `ork.ci-run/v1`. O recibo fica
 `presente` somente quando `resultado.recibo.head`, `resultado.commit` e o HEAD executado são iguais e a rodada integral
 fica verde. A projeção precisa ter ao menos uma claim e seus comandos devem ser idênticos aos comandos de `verify` do
-manifesto lido da ref da branch de destino; ref ausente ou manifesto ilegível falha fechado. Recibo de outro HEAD é
-`sha-divergente`; contrato, hash ou receita inválida é `invalido`.
+manifesto lido da ref da branch de destino. O `verify.preparo` projetado também precisa ser idêntico ao preparo desse
+mesmo manifesto: ausência, inclusão ou troca unilateral invalida a receita. Ref ausente ou manifesto ilegível falha
+fechado. Recibo de outro HEAD é `sha-divergente`; contrato, hash ou receita inválida é `invalido`.
 
 O replay monta um ambiente novo por allowlist. Primitivas de execução, locale, fuso, marcador de CI e valores
 sintéticos da rodada entram; `GITHUB_TOKEN`, `CI_JOB_TOKEN`, chaves `*_TOKEN` e `*_SECRET`, credenciais de runtime ou
@@ -45,6 +47,7 @@ o merge.
 Todas as causas abaixo deixam `policy.receipt` como `invalido`. Em `observar` e `avisar`, o diagnóstico de recibo não
 acrescenta reprovação; em `exigir`, ele reprova o PR/MR para a branch protegida. Falha real de preparo, claim ou comando
 continua reprovando nos três níveis.
+O replay julga todas as execuções atuais sem baseline: não há exceção de dívida preexistente no CI.
 
 | Código | Mensagem | Ação |
 | --- | --- | --- |
@@ -58,12 +61,12 @@ continua reprovando nos três níveis.
 ## Limite de confiança do nível básico
 
 O bundle e o `sha256` da projeção vêm do próprio PR/MR e podem ser forjados por quem controla essa mudança. O runner exige
-um conjunto não vazio de claims e ancora os comandos nos comandos de `verify` do manifesto da branch de destino, cuja
+um conjunto não vazio de claims e ancora os comandos e o preparo no `verify` do manifesto da branch de destino, cuja
 proteção administrativa por `CODEOWNERS` e regra obrigatória está fora do controle isolado do PR. Isso prova que a receita
-aceita não esvaziou as claims nem trocou ou omitiu os comandos protegidos. O runner não consulta nem confere a projeção
+aceita não esvaziou as claims nem trocou ou omitiu os comandos e o preparo protegidos. O runner não consulta nem confere a projeção
 contra o ledger do Orkastery e ainda não prova que as claims são completas ou autênticas, nem prova a autoria do bundle,
-do código ou do workflow. Ele reexecuta no HEAD o preparo, as claims e os comandos ancorados e emite o recibo do HEAD que
-acabou de executar.
+do código ou do workflow. Também não confia na baseline da projeção: reexecuta no HEAD o preparo, as claims e os comandos
+ancorados, reprova qualquer falha atual e emite o recibo do HEAD que acabou de executar.
 Não usa ancestralidade nem diff posterior para transformar um HEAD antigo em presente. Isso detecta divergência operacional, mas não prova a autoria
 do bundle nem do código.
 

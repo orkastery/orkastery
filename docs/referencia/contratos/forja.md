@@ -106,7 +106,8 @@ O runner valida a projeção, reexecuta preparo, claims e comandos pelo julgamen
 `ork.ci-recibo-runner/v1` no resultado `ork.ci-run/v1`. A saída leva `contrato`, `head`, `thread`, `claimsSha256`,
 `rodadaSha256`, `check`, `resultado`, `sha256` e reserva `assinatura` para a F7. `presente` exige
 `resultado.recibo.head === resultado.commit === HEAD`, ao menos uma claim, comandos idênticos aos comandos de `verify`
-do manifesto da branch de destino e rodada integral verde. A ref ou o manifesto de destino ilegível falha fechado. Branch externa e fork não ganham
+e preparo idêntico ao `verify.preparo` do manifesto da branch de destino e rodada integral verde. Preparo ausente,
+acrescentado ou trocado pelo PR invalida a receita. A ref ou o manifesto de destino ilegível falha fechado. Branch externa e fork não ganham
 exceção; o ambiente do replay é allowlisted e não recebe token, segredo, credencial de runtime ou forja nem
 `ORK_HITL_*`.
 
@@ -116,10 +117,12 @@ As causas fechadas mapeiam, na mesma ordem, para `ci.recibo.projecao-acima-do-li
 `policy.receipt: invalido`. Não há recibo verde parcial.
 
 **Fronteira de confiança:** o bundle e o `sha256` chegam no próprio PR/MR e podem ser forjados por quem controla essa
-mudança. A âncora exige claims não vazias e os comandos de `verify` do manifesto da branch de destino, protegido
+mudança. A âncora exige claims não vazias, comandos e preparo do `verify` do manifesto da branch de destino, protegido
 administrativamente por `CODEOWNERS` e pela regra obrigatória. Ela prova que a receita aceita não esvaziou as claims nem
-trocou ou omitiu esses comandos, mas o runner não consulta nem confere a projeção contra o ledger. O nível básico somente reexecuta
-preparo, claims e comandos ancorados no HEAD; não usa ancestralidade nem diff posterior para aceitar outro HEAD.
+trocou ou omitiu esses comandos ou o preparo, mas o runner não consulta nem confere a projeção contra o ledger. A
+baseline projetada não é uma fonte confiável e não participa do julgamento do CI: qualquer falha atual de preparo,
+claim ou comando reprova nos três níveis, sem exceção de dívida preexistente. O nível básico somente reexecuta preparo,
+claims e comandos ancorados no HEAD; não usa ancestralidade nem diff posterior para aceitar outro HEAD.
 Isso não prova completude ou autenticidade das claims, autoria do bundle, integridade do código/workflow nem autoria criptográfica.
 A garantia contra forja é do recibo assinado da F7, fora desta fatia.
 

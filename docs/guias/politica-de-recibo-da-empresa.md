@@ -25,14 +25,17 @@ Any other value makes the manifest invalid. A push to the protected branch itsel
 `ork ci prepare <thread>` writes an `ork.ci-projecao-replay/v1` input into the `recibo` field of
 `ork.ci-bundle/v1`. The projection carries the thread, canonical claims, projected round, minimal baseline, commands,
 and hashes, but it does not declare any HEAD to be a present receipt. The reader accepts the legacy receipt only for
-compatibility; it never satisfies this stage's proof.
+compatibility; it never satisfies this stage's proof. The projected baseline is informational: because it comes from
+the PR/MR itself, it does not participate in the CI judgment and cannot classify a current failure as pre-existing debt.
 
 In the PR/MR checkout, the runner validates the projection, reruns preparation, claims, and canonical commands through
 the same pure judgment used by verify, and emits `ork.ci-recibo-runner/v1` in the `recibo` field of the
 `ork.ci-run/v1` result. A receipt is `presente` only when `resultado.recibo.head`, `resultado.commit`, and the executed
 HEAD are equal and the complete round is green. The projection must contain at least one claim, and its commands must
 exactly match the `verify` commands from the manifest read at the target branch ref; a missing ref or unreadable
-manifest fails closed. A receipt for another HEAD is `sha-divergente`; an invalid contract, hash, or recipe is `invalido`.
+manifest fails closed. Projected `verify.preparo` must also exactly match preparation in that same manifest: unilateral
+removal, addition, or replacement invalidates the recipe. A receipt for another HEAD is `sha-divergente`; an invalid
+contract, hash, or recipe is `invalido`.
 
 The replay builds a new allowlisted environment. Execution primitives, locale, time zone, the CI marker, and synthetic
 round values enter it; `GITHUB_TOKEN`, `CI_JOB_TOKEN`, `*_TOKEN` and `*_SECRET` keys, runtime or forge credentials, and
@@ -44,7 +47,8 @@ merge.
 
 Every cause below sets `policy.receipt` to `invalido`. Under `observar` and `avisar`, the receipt diagnostic does not
 add a failure; under `exigir`, it fails the PR/MR to the protected branch. A real preparation, claim, or command failure
-still fails under all three levels.
+still fails under all three levels. Replay judges every current execution without a baseline; CI has no pre-existing
+debt exception.
 
 | Code | Message | Action |
 | --- | --- | --- |
@@ -58,12 +62,13 @@ still fails under all three levels.
 ## Basic-level trust boundary
 
 The bundle and the receipt's `sha256` come from the PR/MR itself, so whoever controls that change can forge them. The
-runner requires a non-empty claim set and anchors the commands to the target branch manifest's `verify` commands, whose
+runner requires a non-empty claim set and anchors commands and preparation to the target branch manifest's `verify`, whose
 administrative protection through `CODEOWNERS` and a required rule is outside the PR author's control alone. This proves
-the accepted recipe neither emptied the claims nor replaced or omitted protected commands. The runner does not query the
+the accepted recipe neither emptied the claims nor replaced or omitted protected commands or preparation. The runner does not query the
 Orkastery ledger or compare the receipt or the projection against it, and still does not prove claim completeness or
-authenticity, or authorship of the bundle, code, or workflow. At this basic level, it reruns preparation and the anchored
-claims and commands on the HEAD, then emits a receipt for the HEAD it just executed. It does not use ancestry or a later diff
+authenticity, or authorship of the bundle, code, or workflow. It also does not trust the projected baseline. At this
+basic level, it reruns protected preparation and the anchored claims and commands on the HEAD, fails every current
+failure, then emits a receipt for the HEAD it just executed. It does not use ancestry or a later diff
 to turn an older HEAD into a present receipt. This detects operational divergence, but it does not prove who authored the bundle or code.
 
 Protection against forgery belongs to the signed receipt in F7 of the RM-089 page; it is not part of this slice. The
