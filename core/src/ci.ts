@@ -599,7 +599,7 @@ export function executarCiDaBranch(carregado: ManifestoCarregado, branch: string
   const runner = ambienteDeCi(contexto.env ?? process.env);
   const pullRequest = contexto.pullRequest ?? (runner?.pullRequest === true);
   const preflightEmpresa = contexto.preflightEmpresa === undefined && pullRequest
-    ? preflightCiDoProjeto(carregado.raiz, carregado.manifesto, contexto.env ?? process.env, runner?.fork === true)
+    ? preflightCiDoProjeto(carregado.raiz, carregado.manifesto, contexto.env ?? process.env, runner?.fork ?? null)
     : contexto.preflightEmpresa ?? null;
   const politica = carregado.manifesto.ci.politica_recibo;
   // Guarda de compatibilidade: sem opt-in, este é o caminho anterior sem nenhum campo, comando ou erro novo.

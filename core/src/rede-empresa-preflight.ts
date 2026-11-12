@@ -123,7 +123,7 @@ export const CREDENCIAL_DE_LEITURA_DA_REDE = 'ORK_REDE_EMPRESA_READ_TOKEN' as co
 
 /** CI: a credencial fica apenas no ambiente do transporte Git e nunca entra em argv, resultado, bundle ou publicação. */
 export function preflightCiDoProjeto(raiz: string, manifesto: Manifesto, env: NodeJS.ProcessEnv,
-  fork: boolean): ResultadoPreflightEmpresa | null {
+  fork: boolean | null): ResultadoPreflightEmpresa | null {
   const remoto = remotoDoProjeto(raiz, 'origin');
   if (!remoto) return null;
   const adesao = lerConfigRedeEmpresa(env).inscricoes.find((i) => i.estado === 'ativa' && i.projetos.some((p) => {
@@ -133,6 +133,7 @@ export function preflightCiDoProjeto(raiz: string, manifesto: Manifesto, env: No
   }));
   if (!adesao) return null;
   if (fork) return preflightNaoRealizado('ci.pr-de-fork');
+  if (fork === null) return preflightNaoRealizado('ci.carga-do-evento-indisponivel');
   const token = env[CREDENCIAL_DE_LEITURA_DA_REDE]?.trim();
   if (!token || /[\x00-\x20\x7f]/.test(token)) return preflightNaoRealizado('ci.credencial-ausente');
   const partes = adesao.empresa.caminho.split('/');
