@@ -68,8 +68,10 @@ forge session; an author declared inside the document never replaces that identi
 
 The policy created with `--nivel observar|avisar|exigir` and `--recibo-versao V` controls collective coverage:
 
-- `observar` and `avisar` allow the operation to proceed when the network is not configured or could not be
-  checked, but show that condition; the local reservation remains mandatory;
+- without an active enrollment on this machine, `roadmap pegar`, `thread new --roadmap`, and `ork_thread_new`
+  preserve the RM-047 output with no collective warning; `ork network empresa status` still shows the unconfigured state;
+- with an active enrollment, `observar` and `avisar` allow the operation to proceed when coverage was not configured,
+  could not be checked, or has pending reconciliation, but show that condition; the local reservation remains mandatory;
 - `exigir` refuses a new reservation or thread without a current check. Only an authenticated exception scoped to
   the `projectKey` and item, with an owner, justification, and expiry, can allow the operation.
 

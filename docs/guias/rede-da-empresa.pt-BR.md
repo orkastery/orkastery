@@ -66,8 +66,10 @@ autenticada da forja; nenhum autor declarado no documento substitui essa identid
 
 A política criada com `--nivel observar|avisar|exigir` e `--recibo-versao V` controla a cobertura coletiva:
 
-- `observar` e `avisar` deixam a operação seguir quando a rede não está configurada ou não pôde ser conferida,
-  mas mostram essa condição; a reserva local continua obrigatória;
+- sem inscrição ativa nesta máquina, `roadmap pegar`, `thread new --roadmap` e `ork_thread_new` preservam a saída da
+  RM-047 sem aviso coletivo; o estado não configurado continua visível em `ork network empresa status`;
+- com inscrição ativa, `observar` e `avisar` deixam a operação seguir quando a cobertura não foi configurada, não
+  pôde ser conferida ou tem reconciliação pendente, mas mostram essa condição; a reserva local continua obrigatória;
 - `exigir` recusa nova reserva ou thread sem conferência atual. Apenas uma exceção autenticada, específica para a
   `projectKey` e o item, com responsável, justificativa e expiração pode liberar a operação.
 
