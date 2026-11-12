@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-09T17:26:45-03:00
+atualizado_em: 2026-11-11T18:30:00-03:00
 estado:
   ciclo: Discovery
   documentacao: Rascunho
@@ -100,7 +100,7 @@ As colunas sobre o runtime citam as fontes da seção "Fontes". "Não confirmado
   - **Distribuições com nomes próximos:** há pacotes antigos ou de terceiros. Mitigação: aceitar somente o pacote oficial com escopo e o binário cuja versão seja comprovada.
 - **Não-objetivos:** alterar a identidade do aplicativo; integrar o runtime Python arquivado; prometer sandbox, custo por sessão ou cota tipada sem fonte; escolher prioridade, meta, janela ou piloto pelo dono.
 
-### Decisão que espera o dono
+### Decisão do dono
 
 **D1. Modo de autenticação do `kimi` no Orkastery.** A política vigente diz que a assinatura é para uso pessoal interativo e que automação não interativa fica fora do uso normal; também proíbe alterar a identidade do aplicativo (K15). A documentação oferece OAuth de assinatura e chave da Kimi Platform (K1, K11).
 
@@ -109,6 +109,8 @@ As colunas sobre o runtime citam as fontes da seção "Fontes". "Não confirmado
 | **a (recomendada)** | Usar chave da Kimi Platform, em perfil próprio, com cobrança por uso; nunca definir `KIMI_CODE_IDENTITY_SLUG` | Evita o conflito descrito em K15. Exige política explícita para um perfil pago, porque hoje `provider-pago` nunca recebe despacho; custo varia com uso |
 | b | Usar OAuth da assinatura Plus ou Pro no headless | Contraria a restrição de uso interativo em K15. O fornecedor cita limitação de acesso concorrente como medida possível; a sanção específica para este caso não está confirmada |
 | c | Esperar uma autorização ou modalidade específica do fornecedor | Evita risco de política e custo imediato; o runtime não entra no rodízio, e apenas as fatias sem credencial real podem avançar |
+
+**Decidida pelo dono em 11/11/2026, no terminal: alternativa b.** O dono escolheu a assinatura Plus ou Pro, com login por OAuth, e não a chave da Kimi Platform ("Kimi será com assinatura Plus ou Pro, não com API"). O risco da alternativa b continua registrado na tabela: a diretriz do fornecedor descreve a assinatura como uso pessoal e interativo (K15). A construção deve manter o uso ligado à conta do próprio dono, sem alterar a identidade do aplicativo (`KIMI_CODE_IDENTITY_SLUG`), e registrar no ensaio real qualquer limitação que o fornecedor aplicar.
 
 Prioridade, meta, janela e piloto: **A definir pelo dono**.
 
@@ -120,13 +122,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-11-09 | Julio |
-| Documentação | Rascunho | — | 2026-11-09 | Julio |
-| Código | Não iniciado | — | 2026-11-09 | Julio |
-| Testes | Não iniciados | — | 2026-11-09 | Julio |
-| Deploy | Não implantado | — | 2026-11-09 | Julio |
-| Exposição | Flag desligada | — | 2026-11-09 | Julio |
-| Habilitação | Pendente | — | 2026-11-09 | Julio |
+| Ciclo do item | Discovery | — | 2026-11-11 | Julio |
+| Documentação | Rascunho | — | 2026-11-11 | Julio |
+| Código | Não iniciado | — | 2026-11-11 | Julio |
+| Testes | Não iniciados | — | 2026-11-11 | Julio |
+| Deploy | Não implantado | — | 2026-11-11 | Julio |
+| Exposição | Flag desligada | — | 2026-11-11 | Julio |
+| Habilitação | Pendente | — | 2026-11-11 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -166,3 +168,4 @@ Pontos que a página não confirma: se `SessionEnd` dispara no modo `-p`; motivo
 | --- | --- | --- | --- |
 | 2026-11-09 | Item criado em Discovery, com cinco fatias propostas e D1 aberta | Pedido do dono de 09/11/2026; código atual e fontes K1 a K19 | Julio |
 | 2026-11-09 | F6 "host de condução" acrescentada, para depois do ensaio real, na mesma ordem que o Codex seguiu | Decisão do dono no terminal, em 09/11/2026 (alternativa a) | Julio |
+| 2026-11-11 | D1 decidida: assinatura Plus ou Pro por OAuth (alternativa b) | Decisão do dono no terminal, em 11/11/2026, que corrigiu a escolha inicial pela chave da plataforma | Julio |

@@ -6,19 +6,19 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-10T22:47:15-03:00
+atualizado_em: 2026-11-11T18:15:00-03:00
 estado:
-  ciclo: Discovery
+  ciclo: Em desenvolvimento
   documentacao: Rascunho
-  codigo: Não iniciado
-  testes: Não iniciados
+  codigo: Branch criada
+  testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
-    pr: null
+    commit: 3673d07
+    pr: 285
 sdlc:
   thread: null
   modo: null
@@ -32,7 +32,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Discovery | Não iniciado | Não iniciados | Não implantado | Flag desligada |
+| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -132,6 +132,8 @@ Um hotfix urgente pode usar uma exceção auditável autorizada pela política. 
 | F6 | `ork adotar`, aviso no terminal e exceção auditável | Uma branch externa entra em thread sem perder commits; a sessão fora de thread recebe as duas ações; a exceção autorizada aparece no ledger e no relatório, e a não autorizada não libera o merge |
 | F7 | Recibo forte da fábrica da empresa | O CI aceita assinatura da fábrica para o mesmo SHA e rejeita chave, emissor ou SHA divergente; o recibo contém veredito e CHECK de conta diferente da construtora |
 
+**Estado em 11/11/2026:** F4 está na `main` pelo PR #282, merge `4c196ae`; F1 está na `main` pelo PR #285, merge `3673d07`; F2 está em construção; F3, F5, F6 e F7 estão planejadas. O conjunto ainda não foi implantado e sai na 0.6.9.
+
 ## Plano e decisões
 
 - **Prioridade / método / pontuação / justificativa / data:** Discovery e documentação despachadas em 10/11/2026 a pedido do dono; prioridade de construção a definir pelo dono.
@@ -162,6 +164,12 @@ Resposta do dono em 10/11/2026: `"1a 2a"`; para D2, foi escolhida a alternativa 
 
 Na primeira rodada, as alternativas eram: **A**, telemetria e recibos; **B**, telemetria, recibos, retratos e roadmap; **C**, tudo da alternativa B e memória do OrkMind. O esclarecimento do dono em 10/11/2026 substituiu essa divisão: a RM-089 sincroniza roadmaps e trabalho em andamento; a telemetria vai direto ao coletor pela RM-090; a memória do OrkMind fica fora. As fatias F1 a F3 seguem esse contrato.
 
+#### Decisões registradas em 11/11/2026
+
+- O dono ratificou os nomes públicos `ci.politica_recibo`, `ci.recibo.*` e `ork network empresa`.
+- A condução decidiu, com reversão disponível ao dono, que no nível `exigir` a rede indisponível bloqueia uma nova reserva e uma nova thread. O critério é falhar fechada quando não há como conferir a coordenação coletiva exigida pela política.
+- A condução decidiu que o acordo de colaboração é atestado pela forja. O critério é usar uma identidade conferível no mesmo limite em que a política protege o merge.
+
 ### Premissas e riscos
 
 - **Segredo ou credencial na rede coletiva:** roadmap e trabalho podem conter texto indevido. Mitigação: schema de campos permitidos, saneamento antes da publicação, credenciais sempre locais e recusa da sincronização quando o conteúdo não passa pela política.
@@ -184,13 +192,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-11-10 | Julio |
-| Documentação | Rascunho | — | 2026-11-10 | Julio |
-| Código | Não iniciado | — | 2026-11-10 | Julio |
-| Testes | Não iniciados | — | 2026-11-10 | Julio |
-| Deploy | Não implantado | — | 2026-11-10 | Julio |
-| Exposição | Flag desligada | — | 2026-11-10 | Julio |
-| Habilitação | Pendente | — | 2026-11-10 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-11 | Julio |
+| Documentação | Rascunho | — | 2026-11-11 | Julio |
+| Código | Branch criada | commit `3673d07` · PR #285 | 2026-11-11 | Julio |
+| Testes | Em execução | — | 2026-11-11 | Julio |
+| Deploy | Não implantado | — | 2026-11-11 | Julio |
+| Exposição | Flag desligada | — | 2026-11-11 | Julio |
+| Habilitação | Pendente | — | 2026-11-11 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -204,3 +212,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- |
 | 2026-11-10 | RM-089 aberta em Discovery com política empresarial, rede coletiva e telemetria na mesma página | Pedidos do dono no terminal e fontes oficiais da primeira rodada | Dono definiu o problema; sessão GO organizou a proposta |
 | 2026-11-10 | Telemetria saiu para a RM-090; RM-089 ficou com a rede coletiva, a prevenção de duplicidade, a ajuda nos merges e a trava no Git; D1 e D2 foram decididas | Esclarecimento do dono e respostas `"1a 2a"` no terminal | Julio |
+| 2026-11-11 | Estado atualizado para Em desenvolvimento: F4 e F1 estão na `main`, F2 está em construção e as demais fatias estão planejadas; nomes públicos ratificados e decisões de indisponibilidade e atestado registradas | PR #282, merge `4c196ae`; PR #285, merge `3673d07`; decisões de 11/11/2026 | Julio nos nomes; condução nas decisões reversíveis |
