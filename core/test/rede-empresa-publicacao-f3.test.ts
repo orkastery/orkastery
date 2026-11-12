@@ -6,7 +6,7 @@ import type { ProjetoNoPanorama } from '../src/network-roadmap';
 import { CONTRATO_INSCRICAO_EMPRESA, CONTRATO_POLITICA_EMPRESA_V2, CONTRATO_PUBLICACAO_EMPRESA_V2,
   CONTRATO_PUBLICACAO_EMPRESA_V3, MAX_CAMINHOS_POR_TRABALHO_EMPRESA, type InscricaoDaEmpresa } from '../src/rede-empresa-contrato';
 import { publicarNaRedeEmpresa, type PedidoDePublicacaoEmpresa } from '../src/rede-empresa-publicacao';
-import type { CaminhoDoTrabalho } from '../src/rede-empresa-trabalho';
+import { combinarCaminhosDoTrabalho, type CaminhoDoTrabalho } from '../src/rede-empresa-trabalho';
 import type { PortaDaBranchEmpresa } from '../src/rede-empresa-transporte';
 
 class Branch implements PortaDaBranchEmpresa {
@@ -71,4 +71,18 @@ test('normaliza fontes e rejeita excesso ou caminho privado antes da transação
   assert.deepEqual(excesso.ok ? null : excesso.codigo, 'rede-empresa.projecao-invalida');
   const privado = publicarNaRedeEmpresa(preparada(), pedido([{ padrao: '/home/pessoa/segredo', fontes: ['plan'] }]));
   assert.deepEqual(privado.ok ? null : privado.codigo, 'rede-empresa.projecao-invalida');
+});
+
+test('produtor reúne touch_paths, lease e diff sem publicar texto solto do plano', () => {
+  const caminhos = combinarCaminhosDoTrabalho({
+    plano: ['### T1 entrega', '- **touch_paths:** `core/src/**/*.ts`, `docs/guia.md`',
+      '- **verify:** `npm test`', 'Texto solto com `segredo.txt`.'].join('\n'),
+    leases: ['path:core/src/rede-empresa-*.ts', 'main-tree'], diff: ['core/src/index.ts'],
+  });
+  assert.deepEqual(caminhos, [
+    { padrao: 'core/src/**/*.ts', fontes: ['plan'] },
+    { padrao: 'core/src/index.ts', fontes: ['diff'] },
+    { padrao: 'core/src/rede-empresa-*.ts', fontes: ['lease'] },
+    { padrao: 'docs/guia.md', fontes: ['plan'] },
+  ]);
 });
