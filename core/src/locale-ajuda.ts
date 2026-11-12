@@ -68,7 +68,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
         [--sem-worktree]                         cria sem worktree (na branch base, o ship barra a entrega com
                                                  push_direto_na_base: block, o padrão do ork init); com
                                                  worktree.por_thread: true, a worktree nasce sem flag
-        [--roadmap RM-NNN]                       reserva o item do roadmap antes de criar (I-47)
+        [--roadmap RM-NNN]                       com rede coletiva, reserva nela primeiro; sempre reserva localmente antes de criar
         [--pedido "<texto>"]                     guarda o pedido do builder (pedido.md, com sha256): o
                                                  prompt render usa quando falta --pedido (RM-059)
   thread list [--todas] [--json]            Threads NAO fechadas do projeto (--todas inclui as fechadas)
@@ -332,10 +332,11 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   roadmap reservas [--json] [--remoto R]    Quem esta com cada item do roadmap, lido da branch ork/roadmap-reservas
         [--soltar-orfas]                     marca a reserva de thread ja fechada (orfa) e, com a opcao, solta
                                              ou passa para outra thread aberta do mesmo item, com registro
-  roadmap pegar <RM-NNN> [--thread T]       Reserva o item para esta maquina (push atomico: o primeiro vence)
+  roadmap pegar <RM-NNN> [--thread T]       Reserva para esta maquina; com rede coletiva, reserva nela primeiro (o primeiro vence)
         [--nota N] [--por Q] [--maquina M]       maquina = --maquina, ORK_MAQUINA ou o hostname
-        [--forcar --motivo M]                    tomar a reserva de outra maquina fica registrado
+        [--forcar --motivo M]                    atua so na guarda local; nunca toma a reserva coletiva
   roadmap soltar <RM-NNN> [--forcar --motivo M]  Devolve o item
+  roadmap reconciliar <RM-NNN> --operacao ID  Repara saga interrompida pelas fingerprints (repetir e seguro)
   roadmap feat [--thread T] [--nota N]      Reserva o proximo numero de FEAT na mesma branch (push atomico: duas
                                             maquinas nunca levam o mesmo numero; numero reservado nao volta)
   fabrica [--json] [--sem-remoto]           O que cada maquina conduz, lido da branch ork/fabrica-estado (I-51)
@@ -359,8 +360,9 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   network roadmap [--projeto P] [--json]    Roadmap, reservas e threads de cada maquina de cada projeto, de qualquer diretorio:
         [--sem-remoto]                           fonte e hora de cada parte, lacuna tipada no que nao leu. P = caminho do clone,
                                                  github:dono/repo, gitlab:grupo/repo ou nome conhecido; sem clone, le a forja (RM-054)
-  network empresa criar|inscrever|aceitar   Rede coletiva privada da empresa: cria o repositório privado dedicado;
+  network empresa criar|inscrever|aceitar   Rede coletiva privada da empresa: cria o repositorio privado dedicado;
         publicar|status|sair|revogar [--json]    empresa registra e maestro aceita por accountId (RM-089)
+        criar ... [--nivel observar|avisar|exigir] [--recibo-versao V]  cobertura da reserva coletiva
   docs verificar [--json] [--pr]            Documentacao de produto e roadmap contra o codigo e o git; no PR (--pr),
                                             o merge de outra thread e o indice que divergem da main so avisam
                                             (padrao do dono: frontmatter, leitura, paridade; sai != 0 com erro)
@@ -490,7 +492,7 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
         [--sem-worktree]                         creates without a worktree (on the base branch, ship blocks the delivery with
                                                  push_direto_na_base: block, the ork init default); with
                                                  worktree.por_thread: true, the worktree is created without a flag
-        [--roadmap RM-NNN]                       reserves the roadmap item before creating (I-47)
+        [--roadmap RM-NNN]                       with a collective network, reserves there first; always reserves locally before creating
         [--pedido "<text>"]                      saves the builder request (pedido.md, with sha256):
                                                  prompt render uses it when --pedido is missing (RM-059)
   thread list [--todas] [--json]            Project threads that are NOT closed (--todas includes the closed ones)
@@ -754,10 +756,11 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
   roadmap reservas [--json] [--remoto R]    Who holds each roadmap item, read from the ork/roadmap-reservas branch
         [--soltar-orfas]                     marks the reservation of a thread already closed (orphan) and, with the option, releases
                                              it or passes it to another open thread of the same item, with a record
-  roadmap pegar <RM-NNN> [--thread T]       Reserves the item for this machine (atomic push: the first one wins)
+  roadmap pegar <RM-NNN> [--thread T]       Reserves for this machine; with a collective network, reserves there first (the first wins)
         [--nota N] [--por Q] [--maquina M]       machine = --maquina, ORK_MAQUINA or the hostname
-        [--forcar --motivo M]                    taking the reservation of another machine is recorded
+        [--forcar --motivo M]                    only affects the local guard; never takes the collective reservation
   roadmap soltar <RM-NNN> [--forcar --motivo M]  Gives the item back
+  roadmap reconciliar <RM-NNN> --operacao ID  Repairs an interrupted saga by fingerprints (safe to repeat)
   roadmap feat [--thread T] [--nota N]      Reserves the next FEAT number on the same branch (atomic push: two
                                             machines never take the same number; a reserved number does not come back)
   fabrica [--json] [--sem-remoto]           What each machine conducts, read from the ork/fabrica-estado branch (I-51)
@@ -783,6 +786,7 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
                                                  github:owner/repo, gitlab:group/repo or a known name; without a clone, it reads the forge (RM-054)
   network empresa criar|inscrever|aceitar   Private company collective network: creates the dedicated private repository;
         publicar|status|sair|revogar [--json]    company registers and maestro accepts by accountId (RM-089)
+        criar ... [--nivel observar|avisar|exigir] [--recibo-versao V]  collective reservation coverage
   docs verificar [--json] [--pr]            Product and roadmap documentation against the code and git; on the PR (--pr),
                                             the merge of another thread and the index that diverge from main only warn
                                             (owner standard: frontmatter, reading, parity; exits != 0 with an error)

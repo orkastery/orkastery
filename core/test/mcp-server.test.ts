@@ -140,6 +140,9 @@ test('MCP schemas fechados recusam shell, raiz, traversal e resposta gerada pelo
   // A retirada tipada soma uma mutação ao catálogo anterior de 41 ferramentas.
   assert.equal(tools.length,42);assert.ok(tools.some(t=>t.name==='ork_claim_withdraw'));assert.ok(tools.some(t=>t.name==='ork_verify_status'));assert.ok(tools.some(t=>t.name==='ork_noctum_autorizar'));assert.ok(tools.some(t=>t.name==='ork_network_status'));assert.ok(tools.some(t=>t.name==='ork_conhecimento_verificar'));assert.ok(tools.some(t=>t.name==='ork_request_master_note'));assert.ok(tools.some(t=>t.name==='ork_network_roadmap'));assert.ok(tools.some(t=>t.name==='ork_decision_record'));assert.ok(tools.some(t=>t.name==='ork_brain_dossie'));
   assert.ok(tools.some(t=>t.name==='ork_roadmap_reservas'));assert.ok(tools.some(t=>t.name==='ork_fabrica'));assert.ok(!tools.some(t=>/shell|answer/.test(t.name)));
+  const threadNew=tools.find(t=>t.name==='ork_thread_new');
+  assert.ok(threadNew && 'properties' in threadNew.inputSchema &&
+    (threadNew.inputSchema.properties as Record<string,unknown>).roadmap);
   assert.equal(tools.find(t=>t.name==='ork_brain_context')?.annotations?.readOnlyHint,true);
   for(const tool of tools) assert.equal(tool.inputSchema.additionalProperties,false);
   for(const [name,args] of [

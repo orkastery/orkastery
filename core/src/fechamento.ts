@@ -12,6 +12,7 @@ import { soltarThreadFechada } from './leases';
 import { ResultadoDaSoltura, soltarReservaDaThread } from './roadmap-reservas';
 import { FantasmaTratado, limparFantasmas, sessoesSemFim } from './sessoes';
 import { dirThread } from './thread';
+import { soltarReservaColetivaDaThread, type SolturaColetivaDaThread } from './rede-empresa-operacao';
 
 export interface SolturaAoFechar {
   /** Leases de escrita soltos (o `exec:` fica com a conducao). */
@@ -20,6 +21,8 @@ export interface SolturaAoFechar {
   fila: string[];
   /** As reservas do roadmap soltas, reapontadas ou pendentes; vazio quando a thread nao tinha reserva. */
   reservas: ResultadoDaSoltura[];
+  /** Reserva principal na rede coletiva, solta só pela fingerprint da saga. */
+  reservasColetivas: SolturaColetivaDaThread[];
   /** RM-056 (ao fechar): as sessoes fantasma desta thread que receberam `sessao_morta`; sessao viva fica. */
   sessoes: FantasmaTratado[];
   /** As partes que falharam, com o erro; o fechamento segue valendo. */
@@ -27,7 +30,7 @@ export interface SolturaAoFechar {
 }
 
 export function liberarAoFechar(raiz: string, threadId: string): SolturaAoFechar {
-  const saida: SolturaAoFechar = { leases: [], fila: [], reservas: [], sessoes: [], falhas: [] };
+  const saida: SolturaAoFechar = { leases: [], fila: [], reservas: [], reservasColetivas: [], sessoes: [], falhas: [] };
   const falhou = (parte: string, e: unknown) => saida.falhas.push(`${parte}: ${(e as Error)?.message ?? String(e)}`);
   // RM-036 (D6): os leases de regiao moram todos no estado canonico, chamado de qualquer checkout, e a
   // soltura de la ja alcanca o legado que a versao anterior gravou nas worktrees. Uma soltura basta.
@@ -37,6 +40,7 @@ export function liberarAoFechar(raiz: string, threadId: string): SolturaAoFechar
     saida.fila.push(...solto.fila);
   } catch (e) { falhou(`leases em ${raiz}`, e); }
   try { saida.reservas = soltarReservaDaThread(raiz, threadId); } catch (e) { falhou('reserva', e); }
+  try { saida.reservasColetivas = soltarReservaColetivaDaThread(raiz, threadId); } catch (e) { falhou('reserva coletiva', e); }
   // RM-056 (ao fechar): a sessao fantasma presa a thread fechada seguia no inventario e no doctor ate
   // alguem rodar `ork sessions limpar-fantasmas` (624f65db e d38ae1d4, 03/10). So consulta o runtime
   // quando o ledger tem sessao sem fim; nunca para nem remove nada no runtime, e sessao viva fica.

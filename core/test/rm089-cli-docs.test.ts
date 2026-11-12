@@ -27,6 +27,18 @@ test('referência e ajuda declaram toda a família coletiva nos dois idiomas', (
 test('Não publicado registra a entrega coletiva sem alterar o roadmap', () => {
   const naoPublicado = ler('CHANGELOG.md').split('## [0.6.8]')[0];
   assert.match(naoPublicado, /Inscrição na rede coletiva.*RM-089/);
+  assert.match(naoPublicado, /Reserva coletiva obrigatória.*RM-089/);
+  assert.match(naoPublicado, /colaboradora.*acordo autenticado/);
   assert.match(naoPublicado, /accountId/);
   assert.match(ler('core/src/index.ts'), /executarCliRedeEmpresa/);
+});
+
+test('ajuda publica ordem coletiva, cobertura e reconciliação em ambos os idiomas', () => {
+  const ajuda = ler('core/src/locale-ajuda.ts');
+  assert.match(ajuda, /Reserva para esta maquina; com rede coletiva, reserva nela primeiro/);
+  assert.match(ajuda, /Reserves for this machine; with a collective network, reserves there first/);
+  assert.match(ajuda, /roadmap reconciliar <RM-NNN> --operacao ID/g);
+  assert.match(ajuda, /--nivel observar\|avisar\|exigir/g);
+  assert.match(ajuda, /nunca toma a reserva coletiva/);
+  assert.match(ajuda, /never takes the collective reservation/);
 });

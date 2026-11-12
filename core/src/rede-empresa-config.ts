@@ -2,7 +2,10 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { pastaDoUsuario } from './maquina';
-import { ehMaestroRef, ehReferenciaDaForja, MaestroRef, ReferenciaDaForja } from './rede-empresa-contrato';
+import { ehMaestroRef, ehReferenciaDaForja, MaestroRef, ReferenciaDaForja, type NivelDaCoberturaEmpresa,
+  type PoliticaDaEmpresa } from './rede-empresa-contrato';
+import type { EspelhoDeProjeto } from './rede-empresa-projeto';
+import type { ReferenciaDaAtestacao } from './rede-empresa-atestacao';
 
 export const CONTRATO_CONFIG_REDE_EMPRESA = 'ork.rede-empresa-config/v1' as const;
 const ARQUIVO = 'rede-empresa.json';
@@ -25,6 +28,34 @@ export interface AdesaoRedeEmpresa {
   estado: 'pendente' | 'ativa' | 'revogada' | 'encerrada';
   ultimaPublicacao: string | null;
   pendencia: { codigo: string; em: string } | null;
+  politicaCache?: PoliticaCacheDaEmpresa;
+}
+
+export interface PoliticaCacheDaEmpresa {
+  versao: string;
+  nivel: NivelDaCoberturaEmpresa;
+  reciboVersao: string;
+  conferidaEm: string;
+  espelhos?: EspelhoDeProjeto[];
+}
+
+export interface ExcecaoDeCobertura {
+  projectKey: string;
+  itemId: string;
+  responsavelAccountId: number;
+  justificativaId: string;
+  expiraEm: string;
+  referencia: ReferenciaDaAtestacao;
+}
+
+export interface ResultadoDaCobertura {
+  nivel: NivelDaCoberturaEmpresa;
+  estado: 'conferida' | 'nao-configurada' | 'nao-conferida' | 'excecao-autenticada';
+  permite: boolean;
+  codigo: 'rede-empresa.cobertura-ok' | 'rede-empresa.cobertura-aviso' | 'rede-empresa.cobertura-exigida'
+    | 'rede-empresa.cobertura-excecao';
+  reciboVersao: string | null;
+  auditavel: boolean;
 }
 
 export interface ConfigRedeEmpresa { contrato: typeof CONTRATO_CONFIG_REDE_EMPRESA; inscricoes: AdesaoRedeEmpresa[] }
@@ -35,13 +66,20 @@ const obj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'o
 
 function ehAdesao(v: unknown): v is AdesaoRedeEmpresa {
   if (!obj(v) || Object.keys(v).some((k) => !['inscricaoId', 'empresa', 'rede', 'maestroRef', 'loginAtual', 'politicaVersao', 'projetos',
-    'estado', 'ultimaPublicacao', 'pendencia'].includes(k))) return false;
+    'estado', 'ultimaPublicacao', 'pendencia', 'politicaCache'].includes(k))) return false;
   const pendencia = v.pendencia;
+  const cache = v.politicaCache;
   return id(v.inscricaoId) && ehReferenciaDaForja(v.empresa) && ehReferenciaDaForja(v.rede) && ehMaestroRef(v.maestroRef)
     && id(v.loginAtual) && id(v.politicaVersao) && Array.isArray(v.projetos) && v.projetos.length > 0 && v.projetos.every(ehReferenciaDaForja)
     && (v.estado === 'pendente' || v.estado === 'ativa' || v.estado === 'revogada' || v.estado === 'encerrada')
     && (v.ultimaPublicacao === null || iso(v.ultimaPublicacao))
-    && (pendencia === null || (obj(pendencia) && Object.keys(pendencia).length === 2 && id(pendencia.codigo) && iso(pendencia.em)));
+    && (pendencia === null || (obj(pendencia) && Object.keys(pendencia).length === 2 && id(pendencia.codigo) && iso(pendencia.em)))
+    && (cache === undefined || (obj(cache) && Object.keys(cache).every((k) =>
+      ['versao', 'nivel', 'reciboVersao', 'conferidaEm', 'espelhos'].includes(k)) && id(cache.versao)
+      && (cache.nivel === 'observar' || cache.nivel === 'avisar' || cache.nivel === 'exigir')
+      && id(cache.reciboVersao) && iso(cache.conferidaEm)
+      && (cache.espelhos === undefined || (Array.isArray(cache.espelhos) && cache.espelhos.every((e) => obj(e)
+        && Object.keys(e).length === 2 && typeof e.projectKey === 'string' && typeof e.canonico === 'string')))));
 }
 
 const arquivo = (env: NodeJS.ProcessEnv): string => path.join(pastaDoUsuario(env), ARQUIVO);
@@ -78,4 +116,50 @@ export function gravarAdesaoRedeEmpresa(adesao: AdesaoRedeEmpresa, env: NodeJS.P
 
 export function adesaoRedeEmpresa(inscricaoId: string, env: NodeJS.ProcessEnv = process.env): AdesaoRedeEmpresa | null {
   return lerConfigRedeEmpresa(env).inscricoes.find((i) => i.inscricaoId === inscricaoId) ?? null;
+}
+
+export function cacheDaPoliticaEmpresa(politica: PoliticaDaEmpresa, conferidaEm: string): PoliticaCacheDaEmpresa {
+  return { versao: politica.versao,
+    nivel: politica.contrato === 'ork.rede-empresa-politica/v2' ? politica.nivel : 'avisar',
+    reciboVersao: politica.contrato === 'ork.rede-empresa-politica/v2' ? politica.reciboVersao : politica.versao,
+    conferidaEm, ...(politica.contrato === 'ork.rede-empresa-politica/v2' ? { espelhos: politica.espelhos } : {}) };
+}
+
+function excecaoValida(excecao: ExcecaoDeCobertura | undefined, pedido: { projectKey: string; itemId: string; agora: string },
+  autenticar: ((e: ExcecaoDeCobertura) => boolean) | undefined): boolean {
+  return !!excecao && excecao.projectKey === pedido.projectKey && excecao.itemId === pedido.itemId
+    && Number.isSafeInteger(excecao.responsavelAccountId) && excecao.responsavelAccountId > 0
+    && id(excecao.justificativaId) && !!excecao.referencia && (excecao.referencia.forja === 'github' || excecao.referencia.forja === 'gitlab')
+    && Number.isSafeInteger(excecao.referencia.id) && excecao.referencia.id > 0
+    && typeof excecao.referencia.endpoint === 'string' && /^[a-f0-9]{64}$/.test(excecao.referencia.sha256) && iso(excecao.expiraEm)
+    && Date.parse(excecao.expiraEm) > Date.parse(pedido.agora) && !!autenticar?.(excecao);
+}
+
+/** A cobertura coletiva falha aberta em observar/avisar e fechada em exigir. Cache orienta o nível, nunca prova item livre. */
+export function avaliarCoberturaEmpresa(pedido: {
+  configurada: boolean;
+  conferida: boolean;
+  politica?: PoliticaDaEmpresa;
+  cache?: PoliticaCacheDaEmpresa;
+  projectKey: string;
+  itemId: string;
+  agora: string;
+  excecao?: ExcecaoDeCobertura;
+  autenticarExcecao?: (e: ExcecaoDeCobertura) => boolean;
+}): ResultadoDaCobertura {
+  const atual = pedido.politica ? cacheDaPoliticaEmpresa(pedido.politica, pedido.agora) : pedido.cache;
+  const nivel = atual?.nivel ?? 'observar';
+  const reciboVersao = atual?.reciboVersao ?? null;
+  if (pedido.configurada && pedido.conferida && pedido.politica) {
+    return { nivel, estado: 'conferida', permite: true, codigo: 'rede-empresa.cobertura-ok', reciboVersao, auditavel: true };
+  }
+  const estado = pedido.configurada ? 'nao-conferida' : 'nao-configurada';
+  if (nivel !== 'exigir') {
+    return { nivel, estado, permite: true, codigo: 'rede-empresa.cobertura-aviso', reciboVersao, auditavel: true };
+  }
+  if (excecaoValida(pedido.excecao, pedido, pedido.autenticarExcecao)) {
+    return { nivel, estado: 'excecao-autenticada', permite: true, codigo: 'rede-empresa.cobertura-excecao',
+      reciboVersao, auditavel: true };
+  }
+  return { nivel, estado, permite: false, codigo: 'rede-empresa.cobertura-exigida', reciboVersao, auditavel: true };
 }

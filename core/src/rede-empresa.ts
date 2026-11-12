@@ -1,8 +1,9 @@
 /** RM-089 F1: ciclo da inscrição na mesma branch das publicações. */
 import type { ContaNaForja } from './forja/contrato';
 import { AdesaoRedeEmpresa, gravarAdesaoRedeEmpresa } from './rede-empresa-config';
-import { CONTRATO_INSCRICAO_EMPRESA, CONTRATO_POLITICA_EMPRESA, ehInscricaoDaEmpresa, ehPoliticaDaEmpresa,
+import { CONTRATO_INSCRICAO_EMPRESA, CONTRATO_POLITICA_EMPRESA_V2, ehInscricaoDaEmpresa, ehPoliticaDaEmpresa,
   InscricaoDaEmpresa, MaestroRef, PoliticaDaEmpresa, ReferenciaDaForja } from './rede-empresa-contrato';
+import { mesmaProjectKey, type EspelhoDeProjeto } from './rede-empresa-projeto';
 import { lerDocumentoRemoto, PortaDaBranchEmpresa, ResultadoDaTransacaoEmpresa, transacionarRedeEmpresa,
   type CodigoDocumentoRemotoInvalido } from './rede-empresa-transporte';
 
@@ -31,8 +32,8 @@ const caminhoDaInscricao = (id: string): string => {
   return `inscricoes/${id}.json`;
 };
 const json = (v: unknown): string => `${JSON.stringify(v, null, 2)}\n`;
-const mesmaRef = (a: ReferenciaDaForja, b: ReferenciaDaForja): boolean =>
-  a.forja === b.forja && a.host.toLowerCase() === b.host.toLowerCase() && a.caminho.toLowerCase() === b.caminho.toLowerCase();
+const mesmaRef = (a: ReferenciaDaForja, b: ReferenciaDaForja, espelhos: readonly EspelhoDeProjeto[] = []): boolean =>
+  mesmaProjectKey(a, b, espelhos);
 const mesmaConta = (a: MaestroRef, conta: ContaNaForja, forja: MaestroRef['forja'], host: string): boolean =>
   a.forja === forja && a.host.toLowerCase() === host.toLowerCase() && a.accountId === conta.accountId;
 
@@ -42,8 +43,10 @@ function daTransacao<T>(t: ResultadoDaTransacaoEmpresa, valor: T): ResultadoInsc
   return { ok: true, valor, transacao: t };
 }
 
-export function criarPoliticaEmpresa(porta: PortaDaBranchEmpresa, versao: string, saida: PoliticaDaEmpresa['saida']): ResultadoInscricaoEmpresa<PoliticaDaEmpresa> {
-  const politica: PoliticaDaEmpresa = { contrato: CONTRATO_POLITICA_EMPRESA, versao, saida, publicacaoMinima: 1 };
+export function criarPoliticaEmpresa(porta: PortaDaBranchEmpresa, versao: string, saida: PoliticaDaEmpresa['saida'],
+  opcoes: { nivel?: 'observar' | 'avisar' | 'exigir'; reciboVersao?: string; espelhos?: EspelhoDeProjeto[] } = {}): ResultadoInscricaoEmpresa<PoliticaDaEmpresa> {
+  const politica: PoliticaDaEmpresa = { contrato: CONTRATO_POLITICA_EMPRESA_V2, versao, saida, publicacaoMinima: 1,
+    nivel: opcoes.nivel ?? 'observar', reciboVersao: opcoes.reciboVersao ?? versao, espelhos: opcoes.espelhos ?? [] };
   const t = transacionarRedeEmpresa(porta, (ponta) => ponta.ler('politica.json') === json(politica) ? null
     : { mensagem: `rede empresa: politica ${versao}`, mudancas: [{ caminho: 'politica.json', conteudo: json(politica) }] });
   return daTransacao(t, politica);
@@ -104,7 +107,8 @@ export function aceitarInscricaoEmpresa(porta: PortaDaBranchEmpresa, pedido: Ace
     if (atual.estado !== 'pendente' && atual.estado !== 'ativa') { falha = 'rede-empresa.inscricao-inativa'; return null; }
     if (!mesmaConta(atual.maestroRef, pedido.conta, pedido.forja, pedido.host)) { falha = 'rede-empresa.identidade-divergente'; return null; }
     if (!mesmaRef(atual.rede, pedido.rede)) { falha = 'rede-empresa.rede-divergente'; return null; }
-    if (!atual.projetos.every((p) => pedido.projetosAcessiveis.some((a) => mesmaRef(p, a)))) {
+    const espelhos = politica.contrato === CONTRATO_POLITICA_EMPRESA_V2 ? politica.espelhos : [];
+    if (!atual.projetos.every((p) => pedido.projetosAcessiveis.some((a) => mesmaRef(p, a, espelhos)))) {
       falha = 'rede-empresa.projeto-nao-autorizado'; return null;
     }
     resultado = { ...atual, loginAtual: pedido.conta.login, estado: 'ativa', aceitaEm: atual.aceitaEm ?? pedido.agora, atualizadaEm: pedido.agora };

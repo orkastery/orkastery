@@ -18,6 +18,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { createHash } from 'node:crypto';
 import { buscarBranch, git, gravarNaBranch, jsonsDaPonta, OpcoesDeGit, pontaLocal } from './branch-de-estado';
 import { formatarDataHora, legendaDoFuso } from './horario';
 import { ErroDoCatalogo, Mensagens, msg, textoDoCatalogo } from './locale';
@@ -48,6 +49,8 @@ export interface ReservaDeItem {
   atualizadaEm: string;
   /** Quando a reserva foi tomada de outra maquina com `--forcar`: de quem e por que. */
   tomadaDe?: { por: string; maquina: string; motivo: string };
+  /** Identifica a saga que criou ou renovou esta snapshot; ausente nas reservas v1 anteriores. */
+  operationId?: string;
 }
 
 export interface OpcoesDeReserva {
@@ -67,6 +70,10 @@ export interface OpcoesDeReserva {
    * Entre a leitura e a gravacao alguem pode ter reapontado o item; a mudanca entao nao acontece.
    */
   threadEsperada?: string | null;
+  /** Compara a snapshot inteira antes de renovar, vincular ou soltar. */
+  fingerprintEsperada?: string;
+  /** Saga que produz esta snapshot. */
+  operationId?: string;
 }
 
 /**
@@ -140,6 +147,11 @@ export function reservaValida(bruto: unknown): bruto is ReservaDeItem {
   const r = bruto as ReservaDeItem;
   return !!r && typeof r === 'object' && r.contrato === CONTRATO_RESERVA && typeof r.item === 'string' && ITEM.test(r.item) &&
     typeof r.por === 'string' && typeof r.maquina === 'string' && typeof r.desdeEm === 'string';
+}
+
+/** Fingerprint do conteúdo exato que a compensação pode remover; renovação posterior muda o valor. */
+export function fingerprintDaReserva(reserva: ReservaDeItem): string {
+  return createHash('sha256').update(JSON.stringify(reserva), 'utf8').digest('hex');
 }
 
 /** As reservas da ultima copia lida nesta maquina, sem rede (I-51: o retrato da fabrica usa). */
@@ -291,6 +303,9 @@ export function pegarItem(raiz: string, item: string, opcoes: OpcoesDeReserva = 
     if (!atualizado) throw new ErroDoCatalogo((m) => m.reservas.semRemotoParaReservar(BRANCH_DE_RESERVAS, remoto));
     const todas = lerDaPonta(raiz, ponta);
     const atual = todas.find((r) => r.item === id) ?? null;
+    if (opcoes.fingerprintEsperada !== undefined && (!atual || fingerprintDaReserva(atual) !== opcoes.fingerprintEsperada)) {
+      return { acao: 'nada', item: id, reserva: atual, commit: null, tentativas: tentativa };
+    }
     if (opcoes.threadEsperada !== undefined && (atual?.thread ?? null) !== opcoes.threadEsperada) {
       return { acao: 'nada', item: id, reserva: atual, commit: null, tentativas: tentativa };
     }
@@ -310,6 +325,8 @@ export function pegarItem(raiz: string, item: string, opcoes: OpcoesDeReserva = 
       desdeEm: acao === 'renovou' ? atual!.desdeEm : quando,
       atualizadaEm: quando,
       ...(tomadaDe ? { tomadaDe } : {}),
+      ...((opcoes.operationId ?? (acao === 'renovou' ? atual?.operationId : undefined))
+        ? { operationId: opcoes.operationId ?? atual!.operationId } : {}),
     };
     const novas = [...todas.filter((r) => r.item !== id), reserva].sort((a, b) => a.item.localeCompare(b.item));
     const mensagem = acao === 'tomou'
@@ -332,6 +349,9 @@ export function soltarItem(raiz: string, item: string, opcoes: OpcoesDeReserva =
     const todas = lerDaPonta(raiz, ponta);
     const atual = todas.find((r) => r.item === id);
     if (!atual) return { acao: 'nada', item: id, reserva: null, commit: null, tentativas: tentativa };
+    if (opcoes.fingerprintEsperada !== undefined && fingerprintDaReserva(atual) !== opcoes.fingerprintEsperada) {
+      return { acao: 'nada', item: id, reserva: atual, commit: null, tentativas: tentativa };
+    }
     if (opcoes.threadEsperada !== undefined && (atual.thread ?? null) !== opcoes.threadEsperada) {
       return { acao: 'nada', item: id, reserva: atual, commit: null, tentativas: tentativa };
     }

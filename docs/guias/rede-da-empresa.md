@@ -47,6 +47,44 @@ the operation reads policy and enrollment again, discards the earlier change, an
 the forge cannot be reached, no payload queue is created: local status remains pending and tells the operator to
 check login, access, and connectivity.
 
+## Coordinate a roadmap item
+
+`ork thread new <name> --roadmap RM-NNN`, `ork roadmap pegar RM-NNN`, and `ork_thread_new` with `roadmap` use the
+same operation. Before any local effect, it normalizes the remote into a `projectKey`, attempts to create the main
+collective reservation, and only then writes the local reservation. When creating a thread, the sequence ends by
+linking the thread to that reservation. A second identity sees the holder's enrollment, current login, project,
+and phase, without bypassing the RM-047 local guard.
+
+The collective document keeps one holder. An additional identity can only join as a collaborator, preserving the
+holder, or through an authenticated agreement. The agreement refers to a coordination issue comment or note and
+checks through the forge API the numeric author, recipient, `projectKey`, item, reservation version and fingerprint,
+validity window, and body hash. Absence, editing, expiry, or any mismatch refuses before a local effect.
+
+On the CLI, `--coordenacao colaborador` adds the authenticated identity without replacing the holder. An agreement
+uses `--coordenacao acordo` with `--atestacao-forja`, `--atestacao-id`, `--atestacao-endpoint`, and
+`--atestacao-sha256`. In MCP, `ork_thread_new` takes the same data in the `coordenacao` object, with `acao` and an
+`atestacao` made of `forja`, `id`, `endpoint`, and `sha256`. Orkastery reads the reference through the authenticated
+forge session; an author declared inside the document never replaces that identity.
+
+The policy created with `--nivel observar|avisar|exigir` and `--recibo-versao V` controls collective coverage:
+
+- without an active enrollment on this machine, `roadmap pegar`, `thread new --roadmap`, and `ork_thread_new`
+  preserve the RM-047 output with no collective warning; `ork network empresa status` still shows the unconfigured state;
+- with an active enrollment, `observar` and `avisar` allow the operation to proceed when coverage was not configured,
+  could not be checked, or has pending reconciliation, but show that condition; the local reservation remains mandatory;
+- `exigir` refuses a new reservation or thread without a current check. Only an authenticated exception scoped to
+  the `projectKey` and item, with an owner, justification, and expiry, can allow the operation.
+
+The CLI exception supplies `--excecao-responsavel`, `--excecao-justificativa`, `--excecao-expira-em`, and the closed
+reference `--excecao-forja`, `--excecao-id`, `--excecao-endpoint`, `--excecao-sha256`. In MCP, those fields belong
+under `coordenacao.excecao`. The reference only releases `exigir` when the API confirms author, body, scope,
+validity, and hash.
+
+Each attempt receives an `operationId`. If a later effect fails, Orkastery compensates local and collective effects
+in reverse order, only while their fingerprints still match. A mismatch leaves the operation pending and blocks a
+new attempt for the same project and item. Repair it idempotently with
+`ork roadmap reconciliar RM-NNN --operacao op-...`; repeating after repair never removes a renewed reservation.
+
 ## What is published
 
 This table is the closed allowlist. Unlisted fields do not leave the machine. Before a blob is formed, the
