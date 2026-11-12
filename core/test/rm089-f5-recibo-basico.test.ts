@@ -1,7 +1,12 @@
 /** RM-089 F5: projeção versionada e recibo de saída do runner. */
 import { strict as assert } from 'node:assert';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { test } from 'node:test';
 import {
+  CAUSAS_DEGRADACAO_REPLAY_CI,
+  CODIGO_DA_DEGRADACAO_REPLAY_CI,
   CONTRATO_PROJECAO_REPLAY_CI,
   CONTRATO_RECIBO_RUNNER_CI,
   criarProjecaoReplayCi,
@@ -10,6 +15,9 @@ import {
   reexecutarProjecaoReplayCi,
   validarProjecaoReplayCi,
 } from '../src/ci-recibo-basico';
+import { executarCiDaBranchComContexto } from '../src/ci';
+import { comLocale } from '../src/locale';
+import type { ManifestoCarregado } from '../src/manifest';
 import type { Claim, Manifesto, ResultadoDeComando } from '../src/types';
 
 const HEAD_A = 'a'.repeat(40), HEAD_B = 'b'.repeat(40);
@@ -124,4 +132,112 @@ test('falha real e guarda do produto não viram recibo verde parcial', () => {
   });
   assert.equal(alterado.degradacao, 'produto-alterado');
   assert.equal(alterado.recibo, undefined);
+});
+
+function carregado(raiz: string, nivel?: 'observar' | 'avisar' | 'exigir'): ManifestoCarregado {
+  return { raiz, caminho: path.join(raiz, 'orkastery.yaml'), legado: false, bytes: 0, erros: [], avisos: [], manifesto: {
+    ...manifesto,
+    worktree: { base_branch: 'main' },
+    ci: { required_for_ship: false, context: 'ork-verify', external_repositories: {},
+      ...(nivel ? { politica_recibo: nivel } : {}) },
+  } as Manifesto };
+}
+
+function fixtureDaPolitica() {
+  const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-rm089-f5-'));
+  const branch = 'feature/externa';
+  const entrada = projecao({ claims: [], commands: [] });
+  fs.mkdirSync(path.join(raiz, '.ork-ci'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, '.ork-ci/ork-rm089f5recib.json'), JSON.stringify({
+    schema: 'ork.ci-bundle/v1', thread: 'ork-rm089f5recib', branch, base: 'main', claims: [], commands: [], recibo: entrada,
+  }));
+  return { raiz, branch, limpar: () => fs.rmSync(raiz, { recursive: true, force: true }) };
+}
+
+test('GitHub e GitLab aplicam a mesma política a branch externa e fork', () => {
+  const f = fixtureDaPolitica();
+  try {
+    const evento = path.join(f.raiz, 'evento.json');
+    fs.writeFileSync(evento, JSON.stringify({ pull_request: { head: { repo: { full_name: 'fork/projeto' } },
+      base: { repo: { full_name: 'empresa/projeto' } } } }));
+    const ambientes = [
+      { GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'pull_request', GITHUB_EVENT_PATH: evento,
+        GITHUB_REPOSITORY: 'empresa/projeto', GITHUB_BASE_REF: 'main', GITHUB_HEAD_REF: f.branch },
+      { GITLAB_CI: 'true', CI_PROJECT_PATH: 'empresa/projeto', CI_PROJECT_ID: '1',
+        CI_MERGE_REQUEST_SOURCE_PROJECT_PATH: 'fork/projeto', CI_MERGE_REQUEST_SOURCE_PROJECT_ID: '2',
+        CI_MERGE_REQUEST_SOURCE_BRANCH_NAME: f.branch, CI_MERGE_REQUEST_TARGET_BRANCH_NAME: 'main' },
+    ];
+    for (const env of ambientes) for (const nivel of ['observar', 'avisar', 'exigir'] as const) {
+      const resultado = executarCiDaBranchComContexto(carregado(f.raiz, nivel), f.branch, {
+        env, destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A,
+        replay: { casaEfemera: path.join(f.raiz, 'casa'), identidadeProduto: () => 'produto',
+          hermeticidade: () => null, executor: ({ nome, comando }) => resultadoComando(nome, comando) },
+      }) as { ok: boolean; commit: string; recibo?: { head: string }; policy: { receipt: string } };
+      assert.equal(resultado.ok, true, `${nivel}/${'GITHUB_ACTIONS' in env ? 'github' : 'gitlab'}`);
+      assert.equal(resultado.commit, HEAD_A);
+      assert.equal(resultado.recibo?.head, HEAD_A);
+      assert.equal(resultado.policy.receipt, 'presente');
+    }
+  } finally { f.limpar(); }
+});
+
+function resultadoComando(nome: string, comando: string, opcoes: { causa?: 'exit' | 'timeout' | 'nao-encontrado';
+  executado?: boolean } = {}): ResultadoDeComando {
+  const causa = opcoes.causa ?? 'exit';
+  const ok = causa === 'exit';
+  return { nome, comando, ok, code: ok ? 0 : -1, resumo: '', causa, prazoMs: 5_000,
+    duracaoMs: 1, executado: opcoes.executado ?? causa !== 'nao-encontrado' };
+}
+
+test('as seis causas de degradação formam união fechada e nunca geram recibo', () => {
+  const base = { raiz: '/checkout-sintetico', manifesto, head: HEAD_A,
+    casaEfemera: '/tmp/ork-ci-replay-fixture', identidadeProduto: () => 'produto', hermeticidade: () => null };
+  const enorme = projecao({ claims: [], commands: [{ name: 'build', command: 'x'.repeat(1024 * 1024) }] });
+  const identidades = ['produto', 'alterado'];
+  const casos = [
+    reexecutarProjecaoReplayCi(enorme, base),
+    reexecutarProjecaoReplayCi(projecao({ claims: [{ ...claim(), arquivo: '.orkastery/claims.jsonl' }] }),
+      { ...base, hermeticidade: undefined }),
+    reexecutarProjecaoReplayCi(projecao(), { ...base, capacidade: () => false }),
+    reexecutarProjecaoReplayCi(projecao(), { ...base,
+      executor: ({ nome, comando }) => resultadoComando(nome, comando, { causa: 'nao-encontrado', executado: false }) }),
+    reexecutarProjecaoReplayCi(projecao(), { ...base,
+      executor: ({ nome, comando }) => resultadoComando(nome, comando, { causa: 'timeout' }) }),
+    reexecutarProjecaoReplayCi(projecao(), { ...base, identidadeProduto: () => identidades.shift()!,
+      executor: ({ nome, comando }) => resultadoComando(nome, comando) }),
+  ];
+  assert.deepEqual(casos.map((caso) => caso.degradacao), [...CAUSAS_DEGRADACAO_REPLAY_CI]);
+  assert.ok(casos.every((caso) => caso.recibo === undefined));
+  assert.deepEqual(Object.keys(CODIGO_DA_DEGRADACAO_REPLAY_CI).sort(), [...CAUSAS_DEGRADACAO_REPLAY_CI].sort());
+});
+
+test('degradação não reprova observar ou avisar, exige no protegido e sai com ação bilíngue', () => {
+  const f = fixtureDaPolitica();
+  try {
+    for (const nivel of ['observar', 'avisar', 'exigir'] as const) {
+      const executar = () => executarCiDaBranchComContexto(carregado(f.raiz, nivel), f.branch, {
+        destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A,
+        env: { GITHUB_ACTIONS: 'true', GITHUB_REPOSITORY: 'empresa/projeto', GITHUB_BASE_REF: 'main' },
+        replay: { casaEfemera: path.join(f.raiz, 'casa'), identidadeProduto: () => 'produto',
+          hermeticidade: () => null, capacidade: () => false },
+      }) as { ok: boolean; policy: { receipt: string; message: string; action: string };
+        error: { code: string; message: string; action: string } };
+      const pt = comLocale('pt-BR', executar), en = comLocale('en', executar);
+      assert.equal(pt.ok, nivel !== 'exigir', nivel);
+      assert.equal(pt.policy.receipt, 'invalido');
+      assert.equal(pt.error.code, 'ci.recibo.runner-sem-capacidade');
+      assert.match(pt.policy.action, /Disponibilize/);
+      assert.match(en.policy.action, /Provide/);
+      assert.notEqual(pt.policy.message, en.policy.message);
+    }
+
+    fs.writeFileSync(path.join(f.raiz, '.ork-ci/ork-rm089f5recib.json'), JSON.stringify({
+      schema: 'ork.ci-bundle/v1', thread: 'ork-rm089f5recib', branch: f.branch, base: 'main', claims: [], commands: [],
+    }));
+    const historico = executarCiDaBranchComContexto(carregado(f.raiz), f.branch,
+      { preflightEmpresa: null, head: HEAD_A });
+    assert.deepEqual(Object.keys(historico).sort(),
+      ['branch', 'bundle', 'claims', 'commands', 'commit', 'ok', 'preparo', 'schema', 'thread']);
+    assert.equal(historico.ok, true);
+  } finally { f.limpar(); }
 });

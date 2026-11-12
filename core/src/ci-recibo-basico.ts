@@ -292,7 +292,8 @@ export function ambienteDoReplayCi(base: NodeJS.ProcessEnv = {}, geradas: NodeJS
 
 /** Conservadora sem estado local; o adaptador pode acrescentar verificações do checkout. */
 export function motivoClaimNaoHermeticaReplayCi(claim: ClaimProjetadaReplayCi): string | null {
-  if (path.isAbsolute(claim.arquivo) || claim.arquivo.split(/[\\/]/).includes('..')) return 'artifact-not-in-checkout';
+  if (path.isAbsolute(claim.arquivo) || claim.arquivo.split(/[\\/]/).includes('..') ||
+      claim.arquivo.replaceAll('\\', '/').startsWith('.orkastery/')) return 'artifact-not-in-checkout';
   if (claim.dependenciasExternas?.length) return 'external-dependency';
   if (claim.verificar.length === 0) return 'without-command';
   if (claim.verificar.some((comando) => /(^|[\s'"/])\.orkastery(?:[\s'"/]|$)|(^|[\s;&|])\/home\//.test(comando))) {
@@ -345,7 +346,12 @@ export function reexecutarProjecaoReplayCi(valor: unknown, opcoes: OpcoesReplayC
   }
 
   const criada = !opcoes.casaEfemera;
-  const casa = opcoes.casaEfemera ?? fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ci-replay-'));
+  let casa: string;
+  try { casa = opcoes.casaEfemera ?? fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ci-replay-')); }
+  catch {
+    return { ok: false, thread: projecao.thread, commit: opcoes.head, preparo: null, claims: [], commands: [],
+      julgamento: null, degradacao: 'runner-sem-capacidade' };
+  }
   try {
     const ambiente = ambienteDoReplayCi(opcoes.ambiente, {
       HOME: casa,

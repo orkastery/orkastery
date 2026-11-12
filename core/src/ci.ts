@@ -27,7 +27,7 @@ import { analisarComandos, linhaDoLintDeClaim, regraFatalDeClaim } from './claim
 import { TESTES_DE_INTEGRACAO_LOCAL } from './integracoes-locais';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { dirThread, lerThread } from './thread';
-import { ErroDoCatalogo, montadorDe, textoDoCatalogo, type Mensagens } from './locale';
+import { ErroDoCatalogo, montadorDe, msg, textoDoCatalogo, type Mensagens } from './locale';
 import { barreiraDaThread, linhaDoAchado, textoDaListaLocal, textoDoEscopo, varrerTexto } from './dado-privado';
 import { avisos as avisosDePolicy, bloqueantes as bloqueantesDePolicy } from './policies';
 import { CONTRATO_DO_RECIBO_DE_PROVA } from './recibo-prova';
@@ -629,20 +629,20 @@ export function executarCiDaBranch(carregado: ManifestoCarregado, branch: string
     : contexto.preflightEmpresa ?? null;
   const politica = carregado.manifesto.ci.politica_recibo;
   // Guarda de compatibilidade: sem opt-in, este é o caminho anterior sem nenhum campo, comando ou erro novo.
-  if (!politica) return anexarPreflightAoResultadoCi(executarCiDaBranchSemPolitica(carregado, branch), preflightEmpresa);
+  if (!politica) return anexarPreflightAoResultadoCi(executarCiDaBranchSemPolitica(carregado, branch, contexto), preflightEmpresa);
   return anexarPreflightAoResultadoCi(executarCiDaBranchComPolitica(carregado, branch, politica, contexto), preflightEmpresa);
 }
 
-function executarCiDaBranchSemPolitica(carregado: ManifestoCarregado, branch: string) {
+function executarCiDaBranchSemPolitica(carregado: ManifestoCarregado, branch: string, contexto: ContextoDaPoliticaCi = {}) {
   const achado = bundleDaBranch(carregado.raiz, branch);
-  if (achado) return { ...rodarBundle(carregado, achado.bundle), branch, bundle: achado.arquivo };
+  if (achado) return { ...rodarBundle(carregado, achado.bundle, contexto.head), branch, bundle: achado.arquivo };
   if (branch.startsWith('ork/')) {
     throw new Error(`ci.bundle.ausente: a branch ${branch} e de thread e nao tem bundle em ${DIR_DO_BUNDLE}/; ` +
       'rode ork ci prepare <thread> na worktree e versione o arquivo');
   }
   const semThread: BundleCi = { schema: 'ork.ci-bundle/v1', thread: '', base: carregado.manifesto.worktree.base_branch,
     claims: [], commands: comandosDoBundle(carregado) };
-  return { ...rodarBundle(carregado, semThread), thread: null, branch, bundle: null };
+  return { ...rodarBundle(carregado, semThread, contexto.head), thread: null, branch, bundle: null };
 }
 
 /** Forma explícita usada pelo runner; o terceiro argumento permanece opcional para chamadas antigas. */
@@ -681,17 +681,18 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
   const destino = contexto.destino ?? null;
   const pullRequest = contexto.pullRequest ?? destino !== null;
   const protegida = carregado.manifesto.worktree.base_branch;
-  const mensagem = replay?.degradacao ? mensagemDaDegradacaoReplay(replay.degradacao) : recibo === 'presente'
+  const degradacao = replay?.degradacao ? diagnosticoDaDegradacaoReplay(replay.degradacao) : null;
+  const mensagem = degradacao ? `${degradacao.message} ${degradacao.action}` : recibo === 'presente'
     ? null : mensagemDoRecibo(recibo, branch);
   const policy = { level: nivel, receipt: recibo, sourceBranch: branch, targetBranch: destino, protectedBranch: protegida,
-    ...(mensagem ? { message: mensagem } : {}) };
+    ...(mensagem ? { message: mensagem } : {}), ...(degradacao ? { action: degradacao.action } : {}) };
   const erroDoBundle = bundleInvalido ?? (branch.startsWith('ork/') && !achado
     ? { code: 'ci.bundle.ausente', message: `ci.bundle.ausente: a branch ${branch} e de thread e nao tem bundle em ${DIR_DO_BUNDLE}/; ` +
         'rode ork ci prepare <thread> na worktree e versione o arquivo' }
     : null);
   const erroDoRecibo = nivel === 'exigir' && pullRequest && destino === protegida && recibo !== 'presente'
     ? replay?.degradacao
-      ? { code: CODIGO_DA_DEGRADACAO_REPLAY_CI[replay.degradacao], message: mensagemDaDegradacaoReplay(replay.degradacao) }
+      ? degradacao!
       : { code: `ci.recibo.${recibo}`, message: mensagemDoRecibo(recibo, branch) }
     : null;
   if (!achado && erroDoBundle) {
@@ -702,7 +703,7 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
     base: carregado.manifesto.worktree.base_branch, claims: [], commands: comandosDoBundle(carregado) };
   if (replay) {
     const diagnostico = replay.degradacao
-      ? { code: CODIGO_DA_DEGRADACAO_REPLAY_CI[replay.degradacao], message: mensagemDaDegradacaoReplay(replay.degradacao) }
+      ? degradacao!
       : replay.invalida ? { code: 'ci.recibo.invalido', message: mensagemDoRecibo('invalido', branch) } : null;
     const defeitoDoReciboReprova = nivel === 'exigir' && pullRequest && destino === protegida && recibo !== 'presente';
     // Observar e avisar não transformam sozinhos um diagnóstico de recibo em reprovação.
@@ -729,9 +730,10 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
     bundle: achado?.arquivo ?? null, policy, ...(error ? { error } : {}) };
 }
 
-function mensagemDaDegradacaoReplay(causa: keyof typeof CODIGO_DA_DEGRADACAO_REPLAY_CI): string {
-  const codigo = CODIGO_DA_DEGRADACAO_REPLAY_CI[causa];
-  return `${codigo}: o replay integral não produziu recibo; corrija a causa, rode ork verify e prepare o bundle de novo`;
+function diagnosticoDaDegradacaoReplay(causa: keyof typeof CODIGO_DA_DEGRADACAO_REPLAY_CI):
+  { code: string; message: string; action: string } {
+  const d = msg().operacao.produto.ci.degradacaoReplay[causa];
+  return { code: CODIGO_DA_DEGRADACAO_REPLAY_CI[causa], message: d.mensagem, action: d.acao };
 }
 
 /** Validação fechada: falha do Git nunca transforma recibo em presente. */
@@ -788,7 +790,7 @@ export function executarBundleCi(carregado: ManifestoCarregado, file = path.posi
   return rodarBundle(carregado, lerBundle(carregado.raiz, file));
 }
 
-function rodarBundle(carregado: ManifestoCarregado, bundle: BundleCi) {
+function rodarBundle(carregado: ManifestoCarregado, bundle: BundleCi, head?: string) {
   // O CI roda o mesmo preparo do `ork verify` local (I-54), uma vez e antes das claims: a claim
   // que passa na maquina de quem entrega passa aqui pelo mesmo caminho. Como no verify, o
   // preparo nao e condicao de claim; ele so deixa a compilacao pronta e sai no resultado.
@@ -804,5 +806,5 @@ function rodarBundle(carregado: ManifestoCarregado, bundle: BundleCi) {
     ? executar(item.name, item.command, carregado.raiz, prazoDoComando(carregado.manifesto, 'test'))
     : doManifesto(item.name, item.command, carregado.raiz));
   const ok = claims.every((item) => item.verificado || item.motivo === 'claims.unverifiable') && commands.every((item) => item.ok);
-  return { schema: 'ork.ci-run/v1' as const, ok, thread: bundle.thread, commit: commitReal(carregado.raiz), preparo, claims, commands };
+  return { schema: 'ork.ci-run/v1' as const, ok, thread: bundle.thread, commit: head ?? commitReal(carregado.raiz), preparo, claims, commands };
 }

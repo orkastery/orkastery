@@ -746,6 +746,32 @@ const PT_BR = {
           'rode `ork verify` e `ork ci prepare` de novo, ou adote a branch quando `ork adotar` estiver disponivel',
         reciboShaDivergente: (branch: string) => `ci.recibo.sha-divergente: a branch ${branch} mudou fora de .ork-ci/ depois do verify; ` +
           'rode `ork verify` e `ork ci prepare` de novo',
+        degradacaoReplay: {
+          'projecao-acima-do-limite': {
+            mensagem: 'A projeção de replay excede o limite do bundle.',
+            acao: 'Reduza a projeção aos campos canônicos exigidos, rode verify no HEAD atual e prepare de novo.',
+          },
+          'claim-nao-hermetica': {
+            mensagem: 'A claim não pode ser reexecutada integralmente neste runner.',
+            acao: 'Torne a claim hermética ou remova a dependência incompatível, rode verify e prepare de novo.',
+          },
+          'runner-sem-capacidade': {
+            mensagem: 'O runner não oferece a capacidade exigida pelo replay.',
+            acao: 'Disponibilize a capacidade declarada ou revise a claim ou o comando e reexecute.',
+          },
+          'comando-nao-iniciado': {
+            mensagem: 'Um comando do replay não foi iniciado.',
+            acao: 'Restaure o executável ou runtime declarado e reexecute o replay.',
+          },
+          'prazo-excedido': {
+            mensagem: 'Um comando do replay excedeu o prazo do verify.',
+            acao: 'Corrija ou divida o comando, ou ajuste o prazo no manifesto, rode verify e prepare de novo.',
+          },
+          'produto-alterado': {
+            mensagem: 'O produto mudou entre o preparo e o fim do replay.',
+            acao: 'Remova a mutação ou edição concorrente, restaure o checkout e reexecute.',
+          },
+        },
       },
     },
   },
@@ -1265,6 +1291,32 @@ const EN: Mensagens = {
           'run `ork verify` and `ork ci prepare` again, or adopt the branch when `ork adotar` becomes available',
         reciboShaDivergente: (branch) => `ci.recibo.sha-divergente: branch ${branch} changed outside .ork-ci/ after verify; ` +
           'run `ork verify` and `ork ci prepare` again',
+        degradacaoReplay: {
+          'projecao-acima-do-limite': {
+            mensagem: 'The replay projection exceeds the bundle limit.',
+            acao: 'Reduce the projection to the required canonical fields, run verify at the current HEAD, and prepare it again.',
+          },
+          'claim-nao-hermetica': {
+            mensagem: 'The claim cannot be replayed in full on this runner.',
+            acao: 'Make the claim hermetic or remove the incompatible dependency, run verify, and prepare it again.',
+          },
+          'runner-sem-capacidade': {
+            mensagem: 'The runner does not provide a capability required by the replay.',
+            acao: 'Provide the declared capability or revise the claim or command and run it again.',
+          },
+          'comando-nao-iniciado': {
+            mensagem: 'A replay command was not started.',
+            acao: 'Restore the declared executable or runtime and run the replay again.',
+          },
+          'prazo-excedido': {
+            mensagem: 'A replay command exceeded the verify timeout.',
+            acao: 'Fix or split the command, or adjust the manifest timeout, run verify, and prepare it again.',
+          },
+          'produto-alterado': {
+            mensagem: 'The product changed between preparation and the end of the replay.',
+            acao: 'Remove the concurrent mutation or edit, restore the checkout, and run it again.',
+          },
+        },
       },
     },
   },
