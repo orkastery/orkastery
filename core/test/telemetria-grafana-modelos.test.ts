@@ -91,14 +91,13 @@ test('dashboard de exportação usa somente métricas internas oficiais do Colle
   assert.deepEqual(new Set(metricas), METRICAS_INTERNAS);
 });
 
-test('modelos não inventam metas, cores, endpoint ou placeholders de F3/F5', () => {
-  for (const { bruto } of dashboards) {
+test('modelos não inventam metas, cores, endpoint nem placeholder de F3, e o painel da F5 segue as mesmas regras', () => {
+  const maturidade = fs.readFileSync(path.join(DIRETORIO, 'dashboards', 'orkastery-maturidade-maestro.json'), 'utf8');
+  for (const bruto of [...dashboards.map((item) => item.bruto), maturidade]) {
     assert.doesNotMatch(bruto, /"thresholds"/u);
     assert.doesNotMatch(bruto, /#[0-9a-f]{3,8}\b/iu);
     assert.doesNotMatch(bruto, /https?:\/\//iu);
   }
-  for (const ausente of ['orkastery-correlacao-runtime.json', 'orkastery-maturidade-maestro.json']) {
-    assert.equal(fs.existsSync(path.join(DIRETORIO, 'dashboards', ausente)), false);
-  }
+  assert.equal(fs.existsSync(path.join(DIRETORIO, 'dashboards', 'orkastery-correlacao-runtime.json')), false);
 });
 

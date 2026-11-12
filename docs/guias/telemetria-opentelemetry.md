@@ -57,7 +57,7 @@ The public receiver does not provision TLS or authentication. Use a local bind o
 
 Copy or mount `templates/telemetria/grafana/provisioning/dashboards/orkastery.yaml` and the `templates/telemetria/grafana/dashboards/` folder. Select Loki for conduction and prompts; select Prometheus for health metrics produced by the Collector itself. The dashboards do not fix a URL or datasource.
 
-Loki queries begin with `{service_name="orkastery"}` and filter structured metadata afterwards. Runtime correlation is F3 and `orkastery-correlacao-runtime.json` does not exist in this slice. Maestro maturity is F5 and `orkastery-maturidade-maestro.json` does not exist either; there is no placeholder.
+Loki queries begin with `{service_name="orkastery"}` and filter structured metadata afterwards. Runtime correlation is F3 and `orkastery-correlacao-runtime.json` does not exist in this slice. Maestro maturity is F5: `orkastery-maturidade-maestro.json` is generated from the same executable registry as the local engine.
 
 Sources: [filter processor and OTTL](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/filterprocessor/README.md), [OTTL functions](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/pkg/ottl/ottlfuncs/README.md), [native OTLP ingestion in Loki](https://grafana.com/docs/loki/latest/send-data/otel/), [Grafana provisioning](https://grafana.com/docs/grafana/latest/administration/provisioning/) and [Collector internal telemetry](https://opentelemetry.io/docs/collector/internal-telemetry/).
 
