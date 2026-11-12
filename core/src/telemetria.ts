@@ -6,6 +6,7 @@
  */
 import type { EventoLedger } from './types';
 import type { MotivoRetentavelDoPrompt, ResultadoDoPrompt } from './telemetria-prompt';
+import { CONTRATO_SDLC_ANALYTICS } from './telemetria-maturidade-registro';
 
 export const NOME_DO_SCOPE_OTLP = 'orkastery.telemetria' as const;
 export const VERSAO_SEMCONV_GENAI = '1.37.0' as const;
@@ -53,6 +54,8 @@ export interface ContextoDoMapeamento {
   serviceVersion: string;
   instrumentacaoVersion: string;
   pseudonimo: string;
+  /** Valor atribuído pela política; nunca é lido do payload do evento. */
+  serviceNamespace?: string;
   redigir: RedatorDaTelemetria;
   observadoEmNano: () => bigint;
   prepararPrompt?: (evento: EventoLedger) => ResultadoDoPrompt;
@@ -73,6 +76,8 @@ const EVENTOS_SEM_LOG = new Set(['heartbeat', 'ledger_corrupted']);
 const CAMPOS_LIVRES = ['decisao', 'decidido', 'porque', 'razao', 'alegacao', 'pergunta', 'resposta', 'detalhe',
   'justificativa', 'mensagem', 'errorMessage'] as const;
 const EVENTOS_COM_USUARIO = new Set(['autonomous_decision', 'hitl_requested', 'human_gate', 'session_answered']);
+const EVENTOS_ANALITICOS = new Set(['verify_run', 'go_fix_opened', 'check_reverify', 'ship_done',
+  'thread_created', 'ship_unscanned_authorized', 'autonomous_decision', 'hitl_requested']);
 const EVENTOS_CICD = new Set(['verify_run', 'check_reverify']);
 const EVENTOS_VCS = new Set(['thread_created', 'commit', 'mcp_git_committed', 'ship_done']);
 
@@ -92,6 +97,21 @@ function attrString(chave: string, valor: unknown): OtlpKeyValue | null {
 function attrInt(chave: string, valor: unknown): OtlpKeyValue | null {
   const v = inteiro(valor);
   return v === null ? null : { key: chave, value: { intValue: String(v) } };
+}
+
+function attrBool(chave: string, valor: unknown): OtlpKeyValue | null {
+  return typeof valor === 'boolean' ? { key: chave, value: { boolValue: valor } } : null;
+}
+
+function attrStrings(chave: string, valor: unknown): OtlpKeyValue | null {
+  if (!Array.isArray(valor)) return null;
+  const values = valor.map((item) => typeof item === 'string' ? item : texto(idObjeto(item)))
+    .filter((item): item is string => Boolean(item)).map((item) => ({ stringValue: item }));
+  return values.length ? { key: chave, value: { arrayValue: { values } } } : null;
+}
+
+function idObjeto(valor: unknown): unknown {
+  return valor && typeof valor === 'object' && !Array.isArray(valor) ? (valor as Record<string, unknown>).id : undefined;
 }
 
 function primeiro(evento: EventoLedger, ...campos: string[]): unknown {
@@ -158,6 +178,29 @@ function attrsGenAi(evento: EventoLedger, attrs: OtlpKeyValue[]): void {
   else if (evento.runtime === 'claude-bg') adicionar(attrs, attrString('session.id', sessao));
 }
 
+function attrsAnaliticos(evento: EventoLedger, attrs: OtlpKeyValue[]): void {
+  if (!EVENTOS_ANALITICOS.has(evento.tipo)) return;
+  const recibo = evento.recibo && typeof evento.recibo === 'object' && !Array.isArray(evento.recibo)
+    ? evento.recibo as Record<string, unknown> : {};
+  const evidencia = evento.evidencia && typeof evento.evidencia === 'object' && !Array.isArray(evento.evidencia)
+    ? evento.evidencia as Record<string, unknown> : {};
+  const parecer = evento.parecer && typeof evento.parecer === 'object' && !Array.isArray(evento.parecer)
+    ? evento.parecer as Record<string, unknown> : {};
+  adicionar(attrs, attrString('orkastery.receipt.contract', recibo.contrato ?? recibo.schema));
+  adicionar(attrs, attrString('orkastery.receipt.verdict', primeiro(evento, 'veredito', 'resultado') ?? recibo.veredito));
+  adicionar(attrs, attrBool('orkastery.receipt.partial', evento.parcial ?? recibo.parcial));
+  adicionar(attrs, attrString('orkastery.receipt.head', primeiro(evento, 'head', 'sha') ?? recibo.head ?? recibo.commit));
+  adicionar(attrs, attrString('orkastery.receipt.policy.version',
+    primeiro(evento, 'receiptPolicyVersion', 'politicaReciboVersao')));
+  adicionar(attrs, attrBool('orkastery.push.verified', evento.pushVerificado ?? evidencia.pushVerificado));
+  adicionar(attrs, attrString('orkastery.go_fix.round', primeiro(evento, 'rodada', 'roundId', 'rodadaId')));
+  adicionar(attrs, attrStrings('orkastery.finding.id', evento.achadoIds ?? parecer.achados));
+  adicionar(attrs, attrString('orkastery.decision.reverts', evento.reverte));
+  adicionar(attrs, attrString('orkastery.policy.name', primeiro(evento, 'politica', 'policy')));
+  adicionar(attrs, attrString('orkastery.policy.reason', primeiro(evento, 'motivo', 'reason')));
+  adicionar(attrs, attrString('orkastery.policy.writer', primeiro(evento, 'writer', 'escritor')));
+}
+
 export function entradaGenAi(textoDoPrompt: string): OtlpAnyValue {
   return { arrayValue: { values: [{ kvlistValue: { values: [
     { key: 'role', value: { stringValue: 'user' } },
@@ -193,12 +236,17 @@ export function mapearEventoDoLedger(evento: EventoLedger, contexto: ContextoDoM
 
   const attrs: OtlpKeyValue[] = [];
   adicionar(attrs, attrString('log.record.uid', uid));
-  if (EVENTOS_COM_USUARIO.has(evento.tipo) || evento.tipo === 'phase_dispatch') {
+  if (EVENTOS_COM_USUARIO.has(evento.tipo) || EVENTOS_ANALITICOS.has(evento.tipo) || evento.tipo === 'phase_dispatch') {
     adicionar(attrs, attrString('user.hash', contexto.pseudonimo));
   }
   attrsVcs(evento, attrs);
   attrsCicd(evento, attrs);
   attrsGenAi(evento, attrs);
+  attrsAnaliticos(evento, attrs);
+  if (!texto(contexto.serviceNamespace)) {
+    adicionar(attrs, attrString(CONTRATO_SDLC_ANALYTICS.atributos.teamSourceState,
+      CONTRATO_SDLC_ANALYTICS.valores.teamSourceMissing));
+  }
   if (evento.tipo !== 'phase_dispatch') adicionar(attrs, attrString('session.id', primeiro(evento, 'sessionId', 'sessao')));
   if (severidade(evento).severityNumber === 17) {
     const causa = texto(primeiro(evento, 'motivo', 'errorType', 'classificacao'));
@@ -241,10 +289,16 @@ export function mapearEventoDoLedger(evento: EventoLedger, contexto: ContextoDoM
 
 export function montarExportLogsServiceRequest(registros: readonly OtlpLogRecord[],
   contexto: Pick<ContextoDoMapeamento, 'serviceVersion' | 'instrumentacaoVersion'>): ExportLogsServiceRequest {
-  return { resourceLogs: [{ resource: { attributes: [
+  const atributosDoRecurso: OtlpKeyValue[] = [
     { key: 'service.name', value: { stringValue: 'orkastery' } },
     { key: 'service.version', value: { stringValue: contexto.serviceVersion } },
-  ] }, scopeLogs: [{ scope: { name: NOME_DO_SCOPE_OTLP, version: contexto.instrumentacaoVersion,
+  ];
+  if ('serviceNamespace' in contexto && texto((contexto as Pick<ContextoDoMapeamento, 'serviceNamespace'>).serviceNamespace)) {
+    atributosDoRecurso.push({ key: CONTRATO_SDLC_ANALYTICS.atributos.serviceNamespace,
+      value: { stringValue: (contexto as Pick<ContextoDoMapeamento, 'serviceNamespace'>).serviceNamespace! } });
+  }
+  return { resourceLogs: [{ resource: { attributes: atributosDoRecurso }, scopeLogs: [{
+    scope: { name: NOME_DO_SCOPE_OTLP, version: contexto.instrumentacaoVersion,
     attributes: [] },
   logRecords: [...registros] }] }] };
 }
