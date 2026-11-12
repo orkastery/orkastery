@@ -20,6 +20,9 @@ export interface AmbienteDeCi {
   targetBranch: string | null;
   /** A pagina do job (GitLab) ou do run (GitHub). */
   url: string | null;
+  /** Só aparece em PR/MR; fork desconhecido é false e a ausência da credencial ainda impede a consulta. */
+  pullRequest?: true;
+  fork?: boolean;
 }
 
 const CAMINHO = /^[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)+$/;
@@ -35,17 +38,24 @@ function valor(v: string | undefined, forma?: RegExp): string | null {
 
 export function ambienteDeCi(env: NodeJS.ProcessEnv = process.env): AmbienteDeCi | null {
   if (env.GITLAB_CI === 'true') {
-    return { tipo: 'gitlab', produtor: 'gitlab-ci', repository: valor(env.CI_PROJECT_PATH, CAMINHO),
-      branch: valor(env.CI_MERGE_REQUEST_SOURCE_BRANCH_NAME) ?? valor(env.CI_COMMIT_BRANCH),
-      targetBranch: valor(env.CI_MERGE_REQUEST_TARGET_BRANCH_NAME), url: valor(env.CI_JOB_URL, URL_WEB) };
+    const repository = valor(env.CI_PROJECT_PATH, CAMINHO), targetBranch = valor(env.CI_MERGE_REQUEST_TARGET_BRANCH_NAME);
+    const pullRequest = targetBranch !== null;
+    return { tipo: 'gitlab', produtor: 'gitlab-ci', repository,
+      branch: valor(env.CI_MERGE_REQUEST_SOURCE_BRANCH_NAME) ?? valor(env.CI_COMMIT_BRANCH), targetBranch,
+      url: valor(env.CI_JOB_URL, URL_WEB), ...(pullRequest ? { pullRequest: true as const,
+        fork: !!env.CI_MERGE_REQUEST_SOURCE_PROJECT_ID && !!env.CI_PROJECT_ID
+          && env.CI_MERGE_REQUEST_SOURCE_PROJECT_ID !== env.CI_PROJECT_ID } : {}) };
   }
   if (env.GITHUB_ACTIONS === 'true') {
     const repository = valor(env.GITHUB_REPOSITORY, CAMINHO);
     const servidor = valor(env.GITHUB_SERVER_URL, URL_WEB), run = valor(env.GITHUB_RUN_ID, NUMERO);
+    const pullRequest = valor(env.GITHUB_BASE_REF) !== null || /^pull_request(?:_target)?$/.test(env.GITHUB_EVENT_NAME ?? '');
+    const headRepository = valor(env.GITHUB_HEAD_REPOSITORY, CAMINHO);
     return { tipo: 'github', produtor: 'github-actions', repository,
       branch: valor(env.GITHUB_HEAD_REF) ?? (env.GITHUB_REF_TYPE === 'branch' ? valor(env.GITHUB_REF_NAME) : null),
       targetBranch: valor(env.GITHUB_BASE_REF),
-      url: servidor && repository && run ? `${servidor}/${repository}/actions/runs/${run}` : null };
+      url: servidor && repository && run ? `${servidor}/${repository}/actions/runs/${run}` : null,
+      ...(pullRequest ? { pullRequest: true as const, fork: !!headRepository && !!repository && headRepository !== repository } : {}) };
   }
   return null;
 }
