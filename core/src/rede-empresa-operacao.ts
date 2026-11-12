@@ -263,7 +263,7 @@ export interface OpcoesDaCoordenacaoColetiva {
   env?: NodeJS.ProcessEnv;
 }
 
-function coberturaSemRede(projectKey: string, itemId: string,
+function coberturaSemRede(projectKey: string, itemId: string, configurada: boolean,
   cache: Parameters<typeof avaliarCoberturaEmpresa>[0]['cache'] | undefined,
   opcoes: OpcoesDaCoordenacaoColetiva, portaAtestacao?: PortaDeAtestacao): ResultadoDaCobertura {
   const agora = opcoes.agora?.() ?? new Date().toISOString();
@@ -273,7 +273,7 @@ function coberturaSemRede(projectKey: string, itemId: string,
     verificarExcecaoAutenticada(portaAtestacao, e.referencia, { projectKey: e.projectKey, itemId: e.itemId,
       responsavelAccountId: e.responsavelAccountId, justificativaId: e.justificativaId,
       expiraEm: e.expiraEm, agora, timeoutMs: 15_000 })) : undefined);
-  return avaliarCoberturaEmpresa({ configurada: !!cache, conferida: false, ...(cache ? { cache } : {}), projectKey, itemId,
+  return avaliarCoberturaEmpresa({ configurada, conferida: false, ...(cache ? { cache } : {}), projectKey, itemId,
     agora, ...(excecao ? { excecao } : {}), ...(autenticarExcecao ? { autenticarExcecao } : {}) });
 }
 
@@ -299,7 +299,7 @@ export function portaColetivaDoProjeto(raiz: string, manifesto: Manifesto, itemI
   }));
   if (!adesao) {
     if ((opcoes.acao ?? 'reserva') !== 'reserva') throw new ErroDaReservaColetiva('rede-empresa.inscricao-ausente');
-    const cobertura = coberturaSemRede(projectKey, itemId, undefined, opcoes);
+    const cobertura = coberturaSemRede(projectKey, itemId, false, undefined, opcoes);
     return { projectKey, configurada: false,
       porta: { reservar: () => ({ fingerprint: null, valor: { cobertura } }), soltar: () => true } };
   }
@@ -311,7 +311,7 @@ export function portaColetivaDoProjeto(raiz: string, manifesto: Manifesto, itemI
   const cache = dirDoCache(casa);
   if (!cachePronto(cache)) {
     if ((opcoes.acao ?? 'reserva') !== 'reserva') throw new ErroDaReservaColetiva('rede-empresa.forja-indisponivel');
-    const cobertura = coberturaSemRede(projectKey, itemId, adesao.politicaCache, opcoes, portaAtestacao);
+    const cobertura = coberturaSemRede(projectKey, itemId, true, adesao.politicaCache, opcoes, portaAtestacao);
     return { projectKey, configurada: true, porta: {
       reservar: () => {
         if (!cobertura.permite) throw new ErroDaReservaColetiva(cobertura.codigo);
@@ -337,7 +337,7 @@ export function portaColetivaDoProjeto(raiz: string, manifesto: Manifesto, itemI
       }
       if (r.codigo === 'rede-empresa.forja-indisponivel' || r.codigo === 'rede-empresa.politica-ausente') {
         if (acao !== 'reserva') throw new ErroDaReservaColetiva(r.codigo);
-        const cobertura = coberturaSemRede(projectKey, itemId, adesao.politicaCache, opcoes, portaAtestacao);
+        const cobertura = coberturaSemRede(projectKey, itemId, true, adesao.politicaCache, opcoes, portaAtestacao);
         if (cobertura.permite) return { fingerprint: null, valor: { cobertura } };
         throw new ErroDaReservaColetiva(cobertura.codigo);
       }

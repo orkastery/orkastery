@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import test from 'node:test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { criarServidorMcp } from '../src/mcp-server';
 import { listarReservas } from '../src/roadmap-reservas';
 import { executarReservaCoordenada, executarSagaDaThread, type PortaColetivaDaSaga,
-  type PortaLocalDaSaga } from '../src/rede-empresa-operacao';
+  portaColetivaDoProjeto, type PortaLocalDaSaga } from '../src/rede-empresa-operacao';
+import { gravarAdesaoRedeEmpresa } from '../src/rede-empresa-config';
 import { commitar, projetoTemporario } from './apoio';
 import { exec } from '../src/util';
 import { coordenacaoColetivaDosArgs } from '../src/index';
@@ -55,6 +59,23 @@ test('B2/B6: CLI interpreta colaboração, acordo e exceção auditável com ref
     expiraEm: '2026-11-12T12:00:00.000Z', referencia: { forja: 'gitlab', id: 88,
       endpoint: 'projects/time%2Frede/issues/1/notes/88', sha256: sha } });
   assert.throws(() => coordenacaoColetivaDosArgs({ coordenacao: 'acordo' }), /acordo-ausente/);
+});
+
+test('B6: inscrição ativa sem cache fica configurada e não conferida no fail-open', () => {
+  const p = projetoTemporario('rm089-cobertura-configurada', true);
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'rm089-cobertura-home-'));
+  const ref = (caminho: string) => ({ forja: 'github' as const, host: 'github.com', caminho });
+  try {
+    exec('git', ['remote', 'set-url', 'origin', 'https://github.com/time/projeto.git'], p.dir);
+    gravarAdesaoRedeEmpresa({ inscricaoId: 'inscricao-a', empresa: ref('time/rede'), rede: ref('pessoa/rede'),
+      maestroRef: { forja: 'github', host: 'github.com', accountId: 41 }, loginAtual: 'login', politicaVersao: 'v2',
+      projetos: [ref('time/projeto')], estado: 'ativa', ultimaPublicacao: null, pendencia: null }, { ORKASTERY_HOME: home });
+    const coletiva = portaColetivaDoProjeto(p.dir, p.carregado.manifesto, 'RM-089', 'GOAL',
+      { env: { ORKASTERY_HOME: home } });
+    const cobertura = coletiva.porta.reservar('op-cobertura1234567890').valor.cobertura;
+    assert.deepEqual([coletiva.configurada, cobertura.estado, cobertura.codigo, cobertura.permite],
+      [true, 'nao-conferida', 'rede-empresa.cobertura-aviso', true]);
+  } finally { fs.rmSync(home, { recursive: true, force: true }); p.limpar(); }
 });
 
 test('reserva e criação de thread propagam a mesma recusa coletiva antes do efeito local', () => {
