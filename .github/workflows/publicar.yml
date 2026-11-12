@@ -83,6 +83,10 @@ jobs:
       - name: o aceite dos pilotos do #Noctum
         run: node core/scripts/checar-release-noctum.cjs
 
+      - name: a dist-tag segura da publicacao
+        id: decidir-publicacao
+        run: node core/scripts/decidir-publicacao-npm.cjs
+
       - name: publicar
-        run: npm publish --access public
+        run: npm publish --access public --tag "${{ steps.decidir-publicacao.outputs.tag }}"
         working-directory: core
