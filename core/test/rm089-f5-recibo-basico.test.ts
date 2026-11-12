@@ -379,14 +379,22 @@ test('exigir recusa de forma tipada projeção vazia ou com receita trocada pelo
       schema: 'ork.ci-bundle/v1', thread: 'ork-rm089f5recib', branch: f.branch, base: 'main',
       claims: [], commands: [], recibo: vazia,
     }));
-    const resultadoVazio = executarCiDaBranchComContexto(carregado(f.raiz, 'exigir'), f.branch, {
-      destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A,
-      receitaConfiavel: { commands: [{ name: 'build', command: 'npm --prefix core run build' }], check: 'agile' },
-      replay: { casaEfemera: path.join(f.raiz, 'casa'), identidadeProduto: () => 'produto',
-        hermeticidade: () => null, executor: () => { throw new Error('receita vazia não executa'); } },
-    } as Parameters<typeof executarCiDaBranchComContexto>[2]) as {
-      ok: boolean; policy: { receipt: string }; error: { code: string };
-    };
+    const executarVazia = (commands: Array<{ name: string; command: string }>) =>
+      executarCiDaBranchComContexto(carregado(f.raiz, 'exigir'), f.branch, {
+        destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A,
+        receitaConfiavel: { commands, check: 'agile' },
+        replay: { casaEfemera: path.join(f.raiz, 'casa'), identidadeProduto: () => 'produto',
+          hermeticidade: () => null, executor: () => { throw new Error('projeção sem claims não executa'); } },
+      } as Parameters<typeof executarCiDaBranchComContexto>[2]) as {
+        ok: boolean; policy: { receipt: string }; error: { code: string };
+      };
+
+    const resultadoSemClaims = executarVazia([]);
+    assert.equal(resultadoSemClaims.ok, false);
+    assert.equal(resultadoSemClaims.policy.receipt, 'invalido');
+    assert.equal(resultadoSemClaims.error.code, 'ci.recibo.invalido');
+
+    const resultadoVazio = executarVazia([{ name: 'build', command: 'npm --prefix core run build' }]);
     assert.equal(resultadoVazio.ok, false);
     assert.equal(resultadoVazio.policy.receipt, 'invalido');
     assert.equal(resultadoVazio.error.code, 'ci.recibo.invalido');
