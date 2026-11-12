@@ -341,6 +341,136 @@
         "artefato-de-fechamento",
         "ref-local-do-ramo-base"
       ]
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm089f5recib",
+      "fase": "GO",
+      "arquivo": "core/src/noctum-entrega.ts",
+      "alegacao": "O condutor do Noctum confere a projeção contra a última rodada verde e não cria commit filho quando os bytes da projeção permanecem iguais.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/noctum-entrega.test.js"
+      ],
+      "criadoEm": "2026-11-12T15:41:36.632Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm089f5recib",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-entrega.test.ts",
+      "alegacao": "QE3 prova que a projeção estável não declara HEAD nem cria filho e que o runner emite recibo para o candidato publicado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/noctum-entrega.test.js"
+      ],
+      "criadoEm": "2026-11-12T15:41:36.751Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm089f5recib",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-entrega-apoio.ts",
+      "alegacao": "As rodadas verdes simuladas da entrega carregam modo do CHECK, hashes de comandos das claims e comandos do manifesto usados pela projeção.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/noctum-entrega.test.js"
+      ],
+      "criadoEm": "2026-11-12T15:41:36.851Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm089f5recib",
+      "fase": "GO",
+      "arquivo": "core/scripts/ensaio-noctum.cjs",
+      "alegacao": "O cenário base-que-anda prova projeção ligada à rodada verde, candidato sem filho vazio e recibo do runner no HEAD publicado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/noctum-ensaio-piloto.test.js"
+      ],
+      "criadoEm": "2026-11-12T15:41:36.941Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm089f5recib",
+      "fase": "GO",
+      "arquivo": "core/test/noctum-ensaio-piloto.test.ts",
+      "alegacao": "EP1, EP10 e EP11 exigem o contrato novo de projeção sem HEAD e recibo emitido pelo runner para o HEAD publicado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/noctum-ensaio-piloto.test.js"
+      ],
+      "criadoEm": "2026-11-12T15:41:37.049Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
     }
   ],
   "deferredClaims": [],
