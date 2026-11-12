@@ -95,12 +95,40 @@ Esta tabela é a lista fechada. Campo não listado não sai. Antes do blob, o se
 | Itens | id e estado | título, descrição, ciclo e outros textos livres |
 | Reservas | id do item, referência opaca opcional da thread e início | pessoa, máquina, nota e tomada da reserva |
 | Trabalhos | referência opaca da thread, fase e id opcional do item | slug, nome, branch, pergunta, runtime, modelo, esforço e sessão |
+| Caminhos | padrões relativos de `touch_paths`, lease e diff, com a fonte de cada padrão | conteúdo, caminho absoluto, home e diretório da worktree |
 | Fontes | parte, atualizada, instante de leitura e commit opcional | origem textual, local, ref local e mensagem livre |
 | Lacunas | tipo e parte | alvo, detalhe, correção e erro cru |
 
 A referência da thread é um hash determinístico por inscrição, não o slug. Caminho local, diretório do usuário e
 nome de máquina nunca entram no contrato. Um scanner indisponível ou um achado impede a publicação sem repetir o
 valor encontrado.
+
+A publicação grava o documento compatível `ork.rede-empresa-publicacao/v2` e o documento
+`ork.rede-empresa-publicacao/v3` na mesma transação. A v3 acrescenta os caminhos por trabalho. Cada trabalho aceita
+até 64 padrões e cada publicação até 4096; o contrato de leitura percorre no máximo 2000 commits de primeiro pai.
+Esses tetos tornam uma entrada inválida ou uma análise inconclusiva, não são promessa de desempenho.
+
+## Preflight antes do merge
+
+O preflight compara trabalhos de builders diferentes no mesmo projeto. Há conflito quando o item coincide ou
+quando os globs de caminho se intersectam. A linguagem aceita segmentos literais, `*`, `?` e o segmento `**`;
+classes, grupos, negação, extglobs e `**` dentro de outro segmento viram a lacuna tipada `padrao.nao-suportado`.
+Caminho absoluto, segmento vazio, `.` ou `..` vira `padrao.invalido`.
+
+A ordem sugerida segue a primeira aparição de cada trabalho no percurso de primeiro pai até a ponta carimbada. A
+história rasa, truncada ou maior que o teto produz `inconclusivo`; quando duas aparições empatam, o desempate é
+`(inscricaoId, threadRef)`. Relógio local não decide a ordem.
+
+A mesma análise pura e somente leitura aparece em `ork network empresa status`, em `ork ship publicar` e
+`ork ship pista`, em `ork ci run`, no `ork_thread_status` antes de `ork_ship` e antes do `ork ship` direto. Ela é
+consultiva nos níveis `observar`, `avisar` e `exigir`: não altera `ok`, autorização, policy, verify, CI, lease,
+merge ou push. Sem inscrição ativa, somente o status da rede mostra a ausência; as outras saídas permanecem como
+antes.
+
+No CI de PR/MR, configure `ORK_REDE_EMPRESA_READ_TOKEN` como segredo opcional com acesso somente de leitura ao
+repositório privado da rede. A credencial fica no ambiente do transporte Git e não entra em argumento, bundle,
+publicação ou saída. Sem a credencial, ou em PR de fork, o resultado é “Checagem coletiva não realizada” e o
+resultado do CI não muda.
 
 ## Revogação, saída e limites
 
