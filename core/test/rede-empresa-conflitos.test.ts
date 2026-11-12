@@ -35,3 +35,19 @@ test('mesmo commit desempata por inscrição e thread; padrão inválido deixa o
   assert.deepEqual(r.ordemSugerida.map((x) => x.inscricaoId), ['inscricao-a', 'inscricao-b']);
   assert.match(r.lacunas[0], /padrao\.nao-suportado/);
 });
+
+test('o índice regional não compara pares disjuntos nem altera o conflito conhecido', () => {
+  const a = trabalho('inscricao-a', 41, 'thread-a', 1, ['core/src/**'], 'RM-A');
+  const b = trabalho('inscricao-b', 42, 'thread-b', 2, ['core/src/*.ts'], 'RM-B');
+  const fora = trabalho('inscricao-c', 43, 'thread-c', 3, ['docs/**/*.md'], 'RM-C');
+  const comparados: string[] = [];
+  const esperado = analisarConflitosColetivos([a, b]);
+  const indexado = analisarConflitosColetivos([a, b, fora], [], {
+    aoCompararCaminhos: (x, y) => { comparados.push(`${x}:${y}`); },
+  });
+  assert.equal(esperado.estado, 'conflito');
+  assert.equal(indexado.estado, 'conflito');
+  assert.deepEqual(indexado.conflitos, esperado.conflitos);
+  assert.deepEqual(indexado.lacunas, []);
+  assert.deepEqual(comparados, ['thread-a:thread-b']);
+});

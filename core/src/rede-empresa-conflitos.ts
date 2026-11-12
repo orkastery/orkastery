@@ -118,29 +118,92 @@ export interface ResultadoDeConflitos {
 const identidade = (t: TrabalhoColetivo): string => `${t.inscricaoId}\0${t.accountId}\0${t.threadRef}`;
 const resumo = (t: TrabalhoColetivo) => ({ inscricaoId: t.inscricaoId, builder: t.builder, threadRef: t.threadRef });
 
-export function analisarConflitosColetivos(entrada: readonly TrabalhoColetivo[], lacunasIniciais: readonly string[] = []): ResultadoDeConflitos {
+/** Primeiro segmento literal: regiões distintas por essa chave não podem se intersectar. */
+function regiaoDoPadrao(padrao: string): string | null {
+  if (padrao.startsWith('/') || padrao.includes('\\') || /[\x00-\x1f\x7f]/.test(padrao)) return null;
+  const primeiro = padrao.split('/')[0];
+  return primeiro && primeiro !== '.' && primeiro !== '..' && /^[A-Za-z0-9._-]+$/.test(primeiro) ? primeiro : null;
+}
+
+interface ParCandidato {
+  a: number;
+  b: number;
+  porItem: boolean;
+  caminhos: Map<string, { a: CaminhoPublicado; b: CaminhoPublicado }>;
+}
+
+export interface DiagnosticoDaAnaliseColetiva {
+  aoCompararCaminhos?: (a: string, b: string, caminhoA: string, caminhoB: string) => void;
+}
+
+export function analisarConflitosColetivos(entrada: readonly TrabalhoColetivo[], lacunasIniciais: readonly string[] = [],
+  diagnostico: DiagnosticoDaAnaliseColetiva = {}): ResultadoDeConflitos {
   const unicos = new Map<string, TrabalhoColetivo>();
   for (const trabalho of entrada) {
     const chave = identidade(trabalho), anterior = unicos.get(chave);
     if (!anterior || ((trabalho.primeiraAparicao?.ordinal ?? Number.MAX_SAFE_INTEGER)
       < (anterior.primeiraAparicao?.ordinal ?? Number.MAX_SAFE_INTEGER))) unicos.set(chave, trabalho);
   }
-  const trabalhos = [...unicos.values()], conflitos: ConflitoColetivo[] = [], lacunas = [...lacunasIniciais];
+  const trabalhos = [...unicos.values()].sort((a, b) => identidade(a).localeCompare(identidade(b)));
+  const conflitos: ConflitoColetivo[] = [], lacunas = [...lacunasIniciais];
+  const caminhosValidos = new Set<CaminhoPublicado>();
+  for (const trabalho of trabalhos) for (const caminho of trabalho.caminhos) {
+    const padrao = analisarPadrao(caminho.padrao);
+    if (padrao.ok) caminhosValidos.add(caminho);
+    else lacunas.push(`${padrao.lacuna}:${trabalho.threadRef}`);
+  }
   const grupos = new Map<string, TrabalhoColetivo[]>();
   for (const t of trabalhos) grupos.set(t.projectKey, [...(grupos.get(t.projectKey) ?? []), t]);
-  for (const [projectKey, grupo] of grupos) for (let i = 0; i < grupo.length; i++) for (let j = i + 1; j < grupo.length; j++) {
-    const a = grupo[i], b = grupo[j];
-    if (a.inscricaoId === b.inscricaoId && a.accountId === b.accountId) continue;
-    const fontes: Array<'item' | 'caminho'> = [], regioes: Array<{ a: string; b: string }> = [];
-    if (a.itemId && a.itemId === b.itemId) fontes.push('item');
-    for (const ca of a.caminhos) for (const cb of b.caminhos) {
-      const intersecao = intersecaoDeGlobs(ca.padrao, cb.padrao);
-      if (intersecao.estado === 'intersecta') regioes.push({ a: ca.padrao, b: cb.padrao });
-      else if (intersecao.estado === 'inconclusiva') lacunas.push(`${intersecao.lacuna}:${a.threadRef}:${b.threadRef}`);
+  for (const [projectKey, grupo] of grupos) {
+    const pares = new Map<string, ParCandidato>();
+    const par = (ia: number, ib: number): ParCandidato => {
+      const [a, b] = ia < ib ? [ia, ib] : [ib, ia], chave = `${a}:${b}`;
+      let atual = pares.get(chave);
+      if (!atual) { atual = { a, b, porItem: false, caminhos: new Map() }; pares.set(chave, atual); }
+      return atual;
+    };
+    const porItem = new Map<string, number[]>();
+    grupo.forEach((t, i) => { if (t.itemId) porItem.set(t.itemId, [...(porItem.get(t.itemId) ?? []), i]); });
+    for (const indices of porItem.values()) for (let i = 0; i < indices.length; i++) for (let j = i + 1; j < indices.length; j++)
+      par(indices[i], indices[j]).porItem = true;
+
+    const regioes = new Map<string, Array<{ trabalho: number; caminho: CaminhoPublicado }>>();
+    const globais: Array<{ trabalho: number; caminho: CaminhoPublicado }> = [];
+    grupo.forEach((t, trabalho) => t.caminhos.filter((caminho) => caminhosValidos.has(caminho)).forEach((caminho) => {
+      const regiao = regiaoDoPadrao(caminho.padrao);
+      if (regiao === null) globais.push({ trabalho, caminho });
+      else regioes.set(regiao, [...(regioes.get(regiao) ?? []), { trabalho, caminho }]);
+    }));
+    const registrarCaminho = (x: { trabalho: number; caminho: CaminhoPublicado },
+      y: { trabalho: number; caminho: CaminhoPublicado }): void => {
+      if (x.trabalho === y.trabalho) return;
+      const candidato = par(x.trabalho, y.trabalho);
+      const [a, b] = x.trabalho < y.trabalho ? [x.caminho, y.caminho] : [y.caminho, x.caminho];
+      candidato.caminhos.set(`${a.padrao}\0${b.padrao}`, { a, b });
+    };
+    for (const entradas of regioes.values()) {
+      for (let i = 0; i < entradas.length; i++) for (let j = i + 1; j < entradas.length; j++)
+        registrarCaminho(entradas[i], entradas[j]);
+      for (const entrada of entradas) for (const global of globais) registrarCaminho(entrada, global);
     }
-    if (regioes.length) fontes.push('caminho');
-    if (fontes.length) conflitos.push({ a: resumo(a), b: resumo(b), projectKey,
-      ...(a.itemId && a.itemId === b.itemId ? { itemId: a.itemId } : {}), regioes, fontes });
+    for (let i = 0; i < globais.length; i++) for (let j = i + 1; j < globais.length; j++)
+      registrarCaminho(globais[i], globais[j]);
+
+    for (const candidato of [...pares.values()].sort((a, b) => a.a - b.a || a.b - b.b)) {
+      const a = grupo[candidato.a], b = grupo[candidato.b];
+      if (a.inscricaoId === b.inscricaoId && a.accountId === b.accountId) continue;
+      const fontes: Array<'item' | 'caminho'> = [], regioesDoConflito: Array<{ a: string; b: string }> = [];
+      if (candidato.porItem) fontes.push('item');
+      for (const caminhos of candidato.caminhos.values()) {
+        diagnostico.aoCompararCaminhos?.(a.threadRef, b.threadRef, caminhos.a.padrao, caminhos.b.padrao);
+        const intersecao = intersecaoDeGlobs(caminhos.a.padrao, caminhos.b.padrao);
+        if (intersecao.estado === 'intersecta') regioesDoConflito.push({ a: caminhos.a.padrao, b: caminhos.b.padrao });
+        else if (intersecao.estado === 'inconclusiva') lacunas.push(`${intersecao.lacuna}:${a.threadRef}:${b.threadRef}`);
+      }
+      if (regioesDoConflito.length) fontes.push('caminho');
+      if (fontes.length) conflitos.push({ a: resumo(a), b: resumo(b), projectKey,
+        ...(candidato.porItem && a.itemId ? { itemId: a.itemId } : {}), regioes: regioesDoConflito, fontes });
+    }
   }
   if (trabalhos.some((t) => !t.primeiraAparicao)) lacunas.push('historia.primeira-aparicao-ausente');
   const ordemSugerida = [...trabalhos].sort((a, b) => (a.primeiraAparicao?.ordinal ?? Number.MAX_SAFE_INTEGER)
