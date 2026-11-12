@@ -140,3 +140,40 @@ Free text passes through the secret catalog first and the local private-data lis
 The cursor advances incrementally by position in each ledger. A historical event without `eventId` receives a stable derived UID. A corrupt or truncated line blocks at the first bad point without advancing. The cursor is persisted only after remote confirmation; a crash between POST and cursor sends the same UIDs again. The guarantee is at least once, not exactly once.
 
 Manual delivery uses a non-blocking lock, bounded batch and response, and at most one retry for a connection failure or retryable status. `partialSuccess` and non-retryable responses are terminal and visible in status, without a silent retry. Native configuration is prepared only for an opted-in dispatch. There is no metric, trace or enterprise policy; Collector and dashboards are reference models only. Prompt text is exported only by manual opt-in delivery with the protections described above.
+
+## SDLC Analytics by maestro and team
+
+`ork telemetria maturidade --desde <ISO> --ate <ISO>` reads only ledgers accessible on the machine and calculates the half-open `[from, to)` window. It does not consult opt-in, endpoints, headers, or the network. `--json` uses `ork.telemetria-maturidade-cli/v1`.
+
+The `ork.sdlc-analytics/v1` registry is the source for local-engine aggregations and dashboard targets. Every result carries its population, coverage, and gaps. Retransmissions are deduplicated by ledger `eventId` and log `log.record.uid`; a missing UID is a gap. An incomplete historical event does not become a negative case.
+
+| Indicator | Formula and population | Source | Main gaps |
+| --- | --- | --- | --- |
+| `agent.merge_receipt_coverage/v1` | Valid receipts over confirmed cases; unique `ship_done` events whose historical policy and version required a receipt | `ship_done`, `verify_run`, and `ork.recibo-prova/v1` | missing historical policy, receipt, HEAD, merge, or proven push |
+| `agent.first_truth_sustained/v1` | Sustained first-green rounds over confirmed cases; threads with `ship_done`. “First” follows ledger sequence | `verify_run`, `go_fix_opened`, `check_reverify`, `ship_done` | missing sequence, first complete round, final receipt, or link |
+| `agent.check_rework/v1` | Distinct finding IDs and distinct `(thread, round)` pairs; never a ratio | `go_fix_opened`, `check_reverify` | missing structured finding, round, or link |
+| `agent.decisions_questions_reversals/v1` | Separate decision, question, and reversal counts by thread and phase | `autonomous_decision`, `hitl_requested` | missing ID, typed target, trace, or reverted decision |
+| `agent.policy_exceptions/v1` | Explicit exceptions by policy and reason | `ship_unscanned_authorized` and the versioned writer catalog | missing policy, reason, receipt, UID, or known writer |
+| `agent.mode_usage/v1` | Separate distributions of created threads and merges by mode | `thread_created`, `ship_done` | missing valid mode or correlatable thread |
+
+Only the first two indicators are ratios. The others are counts or distributions with their own coverage. No indicator produces a composite score, weight, ranking, target, or good/bad classification.
+
+### Identity, team, and visibility
+
+`user.hash` is the maestro's stable pseudonym. `service.namespace` is the team assigned by policy; the payload cannot create or overwrite either value. Without a team, the fact carries `orkastery.team.source.state=team_source_missing`. Collective enrollment is not an inference source, and neither `orkastery.maestro.id` nor `orkastery.team.id` exists.
+
+The local command shows ledgers accessible to the maestro. The enterprise dashboard filters the pseudonym and aggregates by `service.namespace`; authorization and nominal mapping belong to the company's private backend. Before exposing a receiver or dashboard, apply a private overlay with TLS, authentication, and access control. Public templates contain no company data, endpoint, or credential.
+
+### DORA remains separate
+
+The DORA measures are deployment frequency, change lead time, change fail rate, failed deployment recovery time, and deployment rework rate. They remain separate from the six agentic indicators and never enter a sum, weight, or score. The local command marks all five as `unconfirmed` because it does not read external facts.
+
+`orkastery.sdlc.deployment.v1` requires production, a UID, service, thread, `deployment.id`, a successful pipeline, a deploy task, and `vcs.ref.head.revision`. It confirms only when `(orkastery.thread.id, vcs.ref.head.revision)` matches `ship_done.mergeSha` with a proven push. Time proximity never creates a link.
+
+`orkastery.sdlc.incident.v1` uses `orkastery.incident.id`, `orkastery.incident.state` (`opened` or `resolved`), and `orkastery.incident.deployment.id`. Opening requires `error.type`; resolution may use `orkastery.incident.recovery.deployment.id`. Incident, original deployment, and recovery deployment need compatible IDs and thread. A missing link leaves only the affected measure `unconfirmed`, without estimation.
+
+`logs/dora` is separate from `logs/orkastery`, has its own allowlist, and fails closed on an unknown version, required field, payload identity, or schema. Policy adds `user.hash` and `service.namespace` only after validation.
+
+Sources: OpenTelemetry attributes for [CI/CD](https://opentelemetry.io/docs/specs/semconv/registry/attributes/cicd/), [deployment](https://opentelemetry.io/docs/specs/semconv/registry/attributes/deployment/), [service](https://opentelemetry.io/docs/specs/semconv/registry/attributes/service/), [VCS](https://opentelemetry.io/docs/specs/semconv/registry/attributes/vcs/), [events](https://opentelemetry.io/docs/specs/semconv/general/events/), and the [DORA measures](https://dora.dev/guides/dora-metrics/).
+
+The hermetic suite compares the real dashboard JSON with the renderer. Operational equivalence of the expressions in Loki remains **unconfirmed** until evidence exists in a comparable environment; that does not permit filling a gap with zero.

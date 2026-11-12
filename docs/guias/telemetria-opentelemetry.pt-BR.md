@@ -140,3 +140,40 @@ Texto livre passa primeiro pelo catálogo de segredos e depois pela lista local 
 O cursor é incremental por posição em cada ledger. Um evento histórico sem `eventId` recebe UID derivado estável. Linha corrompida ou truncada bloqueia no primeiro ponto ruim sem avançar. O cursor só é persistido depois da confirmação remota; uma queda entre POST e cursor reenvia os mesmos UIDs. A garantia é ao menos uma vez, não exatamente uma vez.
 
 O envio manual usa lock não bloqueante, lote e resposta limitados e no máximo uma repetição para falha de conexão ou status retentável. `partialSuccess` e resposta não retentável são terminais e visíveis no status, sem repetir silenciosamente. A configuração nativa é preparada somente para o despacho com opt-in. Não há métrica, trace nem política empresarial; o Collector e os painéis são somente modelos de referência. O texto do prompt sai somente no envio manual com opt-in e com as proteções descritas acima.
+
+## SDLC Analytics por maestro e por time
+
+`ork telemetria maturidade --desde <ISO> --ate <ISO>` lê somente os ledgers acessíveis na máquina e calcula a janela semiaberta `[desde, até)`. O comando não consulta opt-in, endpoint, cabeçalho ou rede. `--json` usa `ork.telemetria-maturidade-cli/v1`.
+
+O registro `ork.sdlc-analytics/v1` é a fonte das agregações do motor local e dos targets do dashboard. Todo resultado traz população, cobertura e lacunas. Retransmissões são deduplicadas por `eventId` no ledger e por `log.record.uid` nos logs; UID ausente é lacuna. Evento histórico incompleto não vira negativo.
+
+| Indicador | Fórmula e população | Fonte | Lacunas principais |
+| --- | --- | --- | --- |
+| `agent.merge_receipt_coverage/v1` | Taxa de recibos válidos sobre casos confirmados; população de `ship_done` únicos cuja política e versão históricas exigiam recibo | `ship_done`, `verify_run` e `ork.recibo-prova/v1` | política histórica, recibo, HEAD, merge ou push provado ausente |
+| `agent.first_truth_sustained/v1` | Taxa de primeiras rodadas verdes sustentadas; população de threads com `ship_done`. “Primeira” segue a sequência do ledger | `verify_run`, `go_fix_opened`, `check_reverify`, `ship_done` | sequência, primeira rodada integral, recibo final ou vínculo ausente |
+| `agent.check_rework/v1` | Contagens distintas de IDs de achado e de pares `(thread, rodada)`; nunca é taxa | `go_fix_opened`, `check_reverify` | achado estruturado, rodada ou vínculo ausente |
+| `agent.decisions_questions_reversals/v1` | Contagens separadas de decisões, perguntas e reversões por thread e fase | `autonomous_decision`, `hitl_requested` | ID, alvo tipado, rastro ou decisão revertida ausente |
+| `agent.policy_exceptions/v1` | Contagem de exceções explícitas por política e motivo | `ship_unscanned_authorized` e catálogo versionado de escritores | política, motivo, recibo, UID ou escritor reconhecido ausente |
+| `agent.mode_usage/v1` | Distribuições separadas de threads criadas e merges por modo | `thread_created`, `ship_done` | modo válido ou thread correlacionável ausente |
+
+Somente os dois primeiros indicadores são taxas. Os demais são contagens ou distribuições com cobertura própria. Nenhum indicador produz nota composta, peso, ranking, meta ou classificação de bom e ruim.
+
+### Identidade, time e visibilidade
+
+`user.hash` é o pseudônimo estável do maestro. `service.namespace` é o time atribuído pela política; o payload não pode criar nem sobrescrever nenhum dos dois. Sem time, o fato recebe `orkastery.team.source.state=team_source_missing`. Não existe inferência pela inscrição coletiva e não há `orkastery.maestro.id` nem `orkastery.team.id`.
+
+O comando local mostra os ledgers acessíveis ao maestro. O dashboard empresarial filtra o pseudônimo e agrega por `service.namespace`; autorização e associação nominal pertencem ao backend privado da empresa. Antes de expor receiver ou dashboard, aplique o overlay privado com TLS, autenticação e controle de acesso. Os modelos públicos não contêm dado empresarial, endpoint ou credencial.
+
+### DORA permanece separado
+
+As medidas DORA são frequência de deployment, lead time de mudança, taxa de falha de mudança, tempo de recuperação de deployment com falha e taxa de retrabalho de deployment. Elas aparecem separadas dos seis indicadores e não entram em soma, peso ou nota. O comando local declara as cinco como `não confirmado` porque não lê fatos externos.
+
+`orkastery.sdlc.deployment.v1` exige produção, UID, serviço, thread, `deployment.id`, pipeline bem-sucedida, tarefa de deploy e `vcs.ref.head.revision`. O vínculo só confirma quando `(orkastery.thread.id, vcs.ref.head.revision)` corresponde ao `ship_done.mergeSha` com push provado. Proximidade de horário nunca cria correlação.
+
+`orkastery.sdlc.incident.v1` usa `orkastery.incident.id`, `orkastery.incident.state` (`opened` ou `resolved`) e `orkastery.incident.deployment.id`. A abertura exige `error.type`; a resolução pode usar `orkastery.incident.recovery.deployment.id`. Incidente, deployment original e deployment de recuperação precisam de IDs e thread compatíveis. A ausência deixa apenas a medida afetada `não confirmado`, sem estimativa.
+
+`logs/dora` é separada de `logs/orkastery`, tem allowlist própria e fecha por padrão para versão, campo obrigatório, identidade de payload ou schema desconhecido. A política acrescenta `user.hash` e `service.namespace` somente depois da validação.
+
+Fontes: [atributos CI/CD do OpenTelemetry](https://opentelemetry.io/docs/specs/semconv/registry/attributes/cicd/), [deployment](https://opentelemetry.io/docs/specs/semconv/registry/attributes/deployment/), [service](https://opentelemetry.io/docs/specs/semconv/registry/attributes/service/), [VCS](https://opentelemetry.io/docs/specs/semconv/registry/attributes/vcs/), [eventos](https://opentelemetry.io/docs/specs/semconv/general/events/) e [medidas DORA](https://dora.dev/guides/dora-metrics/).
+
+A suíte hermética compara o JSON real do dashboard com o renderizador. Equivalência operacional das expressões em Loki continua **não confirmada** até existir prova em ambiente comparável; isso não autoriza preencher lacunas com zero.
