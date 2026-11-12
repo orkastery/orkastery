@@ -4,17 +4,17 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.8",
-  "publicadoEm": "2026-11-12T01:19:06.008Z",
+  "publicadoEm": "2026-11-12T01:21:45.248Z",
   "threads": [
     {
       "id": "ork-rm088guardad",
       "nome": "rm088guarda",
       "modo": "#Auto",
-      "fase": "GO",
+      "fase": "CHECK",
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm088guardad-full",
-      "atualizadaEm": "2026-11-12T01:08:29.121Z",
+      "atualizadaEm": "2026-11-12T01:21:44.720Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -23,9 +23,9 @@
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
       "sessao": {
-        "viva": false,
-        "desdeEm": "2026-11-12T00:37:12.781Z",
-        "motivo": "sessão 01a1cd1f encerrada (completed)"
+        "viva": true,
+        "desdeEm": null,
+        "motivo": null
       }
     },
     {
@@ -115,24 +115,6 @@
         "desdeEm": "2026-11-11T19:50:35.057Z",
         "motivo": "sessão 01a1cc23 encerrada (completed)"
       }
-    },
-    {
-      "id": "ork-rm091orkmesh",
-      "nome": "rm091",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": "RM-091",
-      "branch": "ork/ork-rm091orkmesh-go",
-      "atualizadaEm": "2026-11-12T00:48:08.308Z",
-      "entregue": "88cc8b6",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh",
-      "sessao": null
     }
   ]
 }
