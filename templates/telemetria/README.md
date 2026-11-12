@@ -13,13 +13,21 @@ Defina `ORK_OTELCOL_GRPC_ENDPOINT`, `ORK_OTELCOL_HTTP_ENDPOINT`, `ORK_OTELCOL_ME
 
 A referência observada é o `otelcol` core v0.165.0. O inventário oficial do `otelcol-contrib` v0.165.1 também contém `otlp`, `otlphttp`, `memory_limiter`, `filter`, `transform` e `batch`. Compatibilidade com versões anteriores e aceitação destes arquivos por um binário externo permanecem **não confirmadas**.
 
-A pipeline mantém esta ordem: `memory_limiter`, `filter/required`, `transform/sanitize`, `batch`. `filter/required` é um filtro OTTL de descarte, não um validador de schema:
+A pipeline dos logs Orkastery mantém esta ordem: `memory_limiter`, `filter/required`, `transform/sanitize`, `batch`. `filter/required` é um filtro OTTL de descarte, não um validador de schema:
 
 - uma condição verdadeira descarta somente o LogRecord inválido;
 - um erro ao avaliar a condição, com `error_mode: propagate`, falha o payload;
 - a recusa de segredo ou dado privado acontece antes, na F2, e não produz evento para o Collector revalidar.
 
 O filtro exige o serviço, o scope, o UID e a thread; exige fase nos eventos de fase e prompt; e descarta estados de prompt incoerentes. `transform/sanitize` conserva apenas o mapeamento publicado pelas F1/F2.
+
+### Pipeline DORA
+
+`logs/dora` é separada de `logs/orkastery` e aceita somente `orkastery.sdlc.deployment.v1` e `orkastery.sdlc.incident.v1`. O filtro exige o conjunto exato de campos de cada variante; atributo extra, campo obrigatório ausente, versão desconhecida ou identidade trazida pelo payload descarta o LogRecord. A pipeline original descarta todo evento `orkastery.sdlc.*`.
+
+Depois da validação e da allowlist, `transform/dora-policy` atribui `user.hash` por `ORK_DORA_USER_HASH` e `service.namespace` por `ORK_DORA_SERVICE_NAMESPACE`. Se a política não informar time, o LogRecord recebe `orkastery.team.source.state=team_source_missing`. O payload externo não escolhe pessoa nem time.
+
+Deploy só vira insumo analítico depois que o motor confirmar thread e revisão contra um `ship_done` com push provado. Incidente e deployment de recuperação usam os IDs do contrato; proximidade de horário não cria vínculo.
 
 A suíte do repositório prova o contrato textual e estrutural sem rede nem processo externo. Como conferência operacional separada, rode o comando oficial do Collector sobre o arquivo escolhido:
 
@@ -42,7 +50,7 @@ As consultas Loki começam por `{service_name="orkastery"}`. Thread, decisão, c
 ## Modelos planejados
 
 - `orkastery-correlacao-runtime.json` não existe nesta fatia; a correlação com runtimes pertence à F3.
-- `orkastery-maturidade-maestro.json` não existe nesta fatia; a maturidade por maestro pertence à F5.
+- `orkastery-maturidade-maestro.json` é gerado na F5 a partir do mesmo registro executável do motor local.
 
 Não há JSON placeholder para dado ainda ausente.
 
