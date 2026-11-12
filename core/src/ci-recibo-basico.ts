@@ -1,7 +1,13 @@
 /** RM-089 F5: contrato concentrado da projeção de replay e do recibo emitido pelo runner. */
 import { createHash } from 'node:crypto';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import type { ModoDoCheck } from './check-modo';
-import type { Claim, CausaDoComando, DependenciaExternaDaClaim, ResultadoDeComando } from './types';
+import type { Manifesto } from './types';
+import type { Claim, CausaDoComando, DependenciaExternaDaClaim, ResultadoDeClaim, ResultadoDeComando } from './types';
+import { executar, identidadeDoProduto, julgarResultadoDoVerify, prazoDoComando, verificarClaim,
+  type ExecutorVerify, type JulgamentoVerify } from './verify';
 
 export const CONTRATO_PROJECAO_REPLAY_CI = 'ork.ci-projecao-replay/v1' as const;
 export const CONTRATO_RECIBO_RUNNER_CI = 'ork.ci-recibo-runner/v1' as const;
@@ -57,6 +63,7 @@ export interface RodadaProjetadaReplayCi {
   check: ModoDoCheck;
   claimsSha256: string;
   commandsSha256: string;
+  preparo?: { name: 'preparo'; command: string };
 }
 
 export interface ProjecaoReplayCi {
@@ -80,6 +87,36 @@ export interface ReciboRunnerCi {
   sha256: string;
   /** Reservado para a F7; a F5 nunca preenche nem eleva confiança. */
   assinatura?: unknown;
+}
+
+export interface ResultadoReplayCi {
+  ok: boolean;
+  thread: string;
+  commit: string;
+  preparo: ResultadoDeComando | null;
+  claims: ResultadoDeClaim[];
+  commands: ResultadoDeComando[];
+  julgamento: JulgamentoVerify | null;
+  recibo?: ReciboRunnerCi;
+  degradacao?: CausaDegradacaoReplayCi;
+  invalida?: true;
+}
+
+export type ExecutorReplayCi = (entrada: { nome: string; comando: string; cwd: string; prazoMs: number;
+  ambiente: NodeJS.ProcessEnv }) => ResultadoDeComando;
+
+export interface OpcoesReplayCi {
+  raiz: string;
+  manifesto: Manifesto;
+  head: string;
+  ambiente?: NodeJS.ProcessEnv;
+  executor?: ExecutorReplayCi;
+  /** Dependência pura dos testes; produção usa a identidade do produto do verify. */
+  identidadeProduto?: () => string;
+  /** Retorna o motivo de uma claim não poder ser reexecutada integralmente no checkout. */
+  hermeticidade?: (claim: ClaimProjetadaReplayCi) => string | null;
+  capacidade?: () => boolean;
+  casaEfemera?: string;
 }
 
 export type EstadoDoReciboRunnerCi = 'presente' | 'invalido' | 'sha-divergente';
@@ -140,6 +177,7 @@ export function criarProjecaoReplayCi(entrada: {
   check: ModoDoCheck;
   baseline: { commit: string; comandos: ResultadoDeComando[]; check?: { modo: ModoDoCheck } } | null | undefined;
   commands: Array<{ name: string; command: string }>;
+  preparo?: string;
 }): ProjecaoReplayCi {
   const claims = claimsProjetadas(entrada.claims);
   const commands = entrada.commands.map((command) => ({ ...command }));
@@ -147,6 +185,7 @@ export function criarProjecaoReplayCi(entrada: {
     check: entrada.check,
     claimsSha256: sha256Ci(JSON.stringify(claims)),
     commandsSha256: sha256Ci(JSON.stringify(commands)),
+    ...(entrada.preparo ? { preparo: { name: 'preparo' as const, command: entrada.preparo } } : {}),
   };
   const corpo = {
     contrato: CONTRATO_PROJECAO_REPLAY_CI,
@@ -231,4 +270,109 @@ export function estadoDoReciboRunnerCi(recibo: unknown, headAtual: string): Esta
       !resultado.motivos.every((motivo) => typeof motivo === 'string') ||
       r.sha256 !== sha256Ci(JSON.stringify(corpoDoRecibo(r as unknown as ReciboRunnerCi)))) return 'invalido';
   return r.head === headAtual ? 'presente' : 'sha-divergente';
+}
+
+const VARIAVEIS_PRIMITIVAS_DO_REPLAY = new Set([
+  'PATH', 'LANG', 'LANGUAGE', 'LC_ALL', 'LC_CTYPE', 'TZ', 'TERM', 'CI', 'GITHUB_ACTIONS', 'GITLAB_CI',
+]);
+
+function variavelBloqueada(chave: string): boolean {
+  return chave === 'GITHUB_TOKEN' || chave === 'CI_JOB_TOKEN' || chave.endsWith('_TOKEN') ||
+    chave.endsWith('_SECRET') || chave.startsWith('ORK_HITL_');
+}
+
+/** Ambiente novo: só primitivas de execução e valores sintéticos da própria rodada. */
+export function ambienteDoReplayCi(base: NodeJS.ProcessEnv = {}, geradas: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+  const permitido = Object.fromEntries(Object.entries(base).filter(([chave, valor]) =>
+    valor !== undefined && VARIAVEIS_PRIMITIVAS_DO_REPLAY.has(chave) && !variavelBloqueada(chave)));
+  const sintetico = Object.fromEntries(Object.entries(geradas).filter(([chave, valor]) =>
+    valor !== undefined && !variavelBloqueada(chave)));
+  return { ...permitido, ...sintetico, CI: 'true' };
+}
+
+/** Conservadora sem estado local; o adaptador pode acrescentar verificações do checkout. */
+export function motivoClaimNaoHermeticaReplayCi(claim: ClaimProjetadaReplayCi): string | null {
+  if (path.isAbsolute(claim.arquivo) || claim.arquivo.split(/[\\/]/).includes('..')) return 'artifact-not-in-checkout';
+  if (claim.dependenciasExternas?.length) return 'external-dependency';
+  if (claim.verificar.length === 0) return 'without-command';
+  if (claim.verificar.some((comando) => /(^|[\s'"/])\.orkastery(?:[\s'"/]|$)|(^|[\s;&|])\/home\//.test(comando))) {
+    return 'local-state';
+  }
+  return null;
+}
+
+function claimDoReplay(claim: ClaimProjetadaReplayCi): Claim {
+  return { ...claim, criadoEm: '', estado: 'pendente' };
+}
+
+function baselineDoReplay(projecao: ProjecaoReplayCi) {
+  const baseline = projecao.baseline;
+  if (!baseline) return null;
+  return {
+    commit: baseline.commit,
+    gravadaEm: '',
+    comandos: baseline.comandos.map((comando) => ({ ...comando, comando: '', resumo: '' })),
+    ...(baseline.check ? { check: { modo: baseline.check.modo, origem: 'manifesto' as const } } : {}),
+  };
+}
+
+function causaDaExecucao(resultados: readonly ResultadoDeComando[]): CausaDegradacaoReplayCi | null {
+  if (resultados.some((resultado) => resultado.executado === false || resultado.causa === 'nao-encontrado')) {
+    return 'comando-nao-iniciado';
+  }
+  if (resultados.some((resultado) => resultado.causa === 'timeout')) return 'prazo-excedido';
+  return null;
+}
+
+/**
+ * Reexecuta a projeção integralmente no checkout. Não lê thread, claims ou ledger e não grava estado.
+ * O julgamento é exatamente o auxiliar puro usado pelo `ork verify` local.
+ */
+export function reexecutarProjecaoReplayCi(valor: unknown, opcoes: OpcoesReplayCi): ResultadoReplayCi {
+  const validacao = validarProjecaoReplayCi(valor);
+  if (!validacao.ok) return { ok: false, thread: '', commit: opcoes.head, preparo: null, claims: [], commands: [],
+    julgamento: null, ...(validacao.causa === 'projecao-acima-do-limite'
+      ? { degradacao: validacao.causa } : { invalida: true as const }) };
+  const projecao = validacao.projecao;
+  const hermeticidade = opcoes.hermeticidade ?? motivoClaimNaoHermeticaReplayCi;
+  if (projecao.claims.some((claim) => hermeticidade(claim) !== null)) {
+    return { ok: false, thread: projecao.thread, commit: opcoes.head, preparo: null, claims: [], commands: [],
+      julgamento: null, degradacao: 'claim-nao-hermetica' };
+  }
+  if (opcoes.capacidade && !opcoes.capacidade()) {
+    return { ok: false, thread: projecao.thread, commit: opcoes.head, preparo: null, claims: [], commands: [],
+      julgamento: null, degradacao: 'runner-sem-capacidade' };
+  }
+
+  const criada = !opcoes.casaEfemera;
+  const casa = opcoes.casaEfemera ?? fs.mkdtempSync(path.join(os.tmpdir(), 'ork-ci-replay-'));
+  try {
+    const ambiente = ambienteDoReplayCi(opcoes.ambiente, {
+      HOME: casa,
+      ORKASTERY_HOME: casa,
+      TMPDIR: casa,
+      ORK_CHECK_MODO: projecao.rodada.check,
+    });
+    const executorBruto: ExecutorReplayCi = opcoes.executor ?? ((entrada) => executar(entrada.nome, entrada.comando,
+      entrada.cwd, entrada.prazoMs, undefined, entrada.ambiente));
+    const executor: ExecutorVerify = (nome, comando, cwd) => executorBruto({ nome, comando, cwd,
+      prazoMs: prazoDoComando(opcoes.manifesto, nome === 'preparo' ? 'preparo' : nome), ambiente });
+    const preparo = projecao.rodada.preparo
+      ? executor('preparo', projecao.rodada.preparo.command, opcoes.raiz) : null;
+    const identidade = (opcoes.identidadeProduto ?? (() => identidadeDoProduto(opcoes.raiz)))();
+    const claims = projecao.claims.map((claim) => verificarClaim(claimDoReplay(claim), opcoes.raiz, executor));
+    const commands = projecao.commands.map((command) => executor(command.name, command.command, opcoes.raiz));
+    const identidadeFinal = (opcoes.identidadeProduto ?? (() => identidadeDoProduto(opcoes.raiz)))();
+    const produtoAlterado = identidade !== identidadeFinal;
+    const todos = [...(preparo ? [preparo] : []), ...claims.flatMap((claim) => claim.execucoes), ...commands];
+    const degradacao = causaDaExecucao(todos) ?? (produtoAlterado ? 'produto-alterado' : null);
+    const julgamento = julgarResultadoDoVerify({ claims, comandos: commands, baseline: baselineDoReplay(projecao),
+      preparo, produtoAlterado });
+    if (degradacao) return { ok: false, thread: projecao.thread, commit: opcoes.head, preparo, claims, commands,
+      julgamento, degradacao };
+    const recibo = emitirReciboRunnerCi(projecao, opcoes.head, { ok: julgamento.ok, motivos: julgamento.motivos });
+    return { ok: julgamento.ok, thread: projecao.thread, commit: opcoes.head, preparo, claims, commands, julgamento, recibo };
+  } finally {
+    if (criada) fs.rmSync(casa, { recursive: true, force: true });
+  }
 }

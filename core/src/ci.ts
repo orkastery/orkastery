@@ -32,7 +32,9 @@ import { barreiraDaThread, linhaDoAchado, textoDaListaLocal, textoDoEscopo, varr
 import { avisos as avisosDePolicy, bloqueantes as bloqueantesDePolicy } from './policies';
 import { CONTRATO_DO_RECIBO_DE_PROVA } from './recibo-prova';
 import { preflightCiDoProjeto, type ResultadoPreflightEmpresa } from './rede-empresa-preflight';
-import { criarProjecaoReplayCi, type ProjecaoReplayCi } from './ci-recibo-basico';
+import { CODIGO_DA_DEGRADACAO_REPLAY_CI, CONTRATO_PROJECAO_REPLAY_CI, criarProjecaoReplayCi,
+  estadoDoReciboRunnerCi, motivoClaimNaoHermeticaReplayCi, reexecutarProjecaoReplayCi,
+  type OpcoesReplayCi, type ProjecaoReplayCi } from './ci-recibo-basico';
 
 export type EstadoCi = 'disabled' | 'success' | 'pending' | 'failure' | 'missing' | 'unavailable';
 
@@ -106,6 +108,10 @@ export interface ContextoDaPoliticaCi {
   /** Ambiente e injeção usados apenas pelo preflight coletivo; não entram no resultado. */
   env?: NodeJS.ProcessEnv;
   preflightEmpresa?: ResultadoPreflightEmpresa | null;
+  /** Dependências internas dos testes herméticos; o runner real usa os defaults fechados. */
+  replay?: Omit<OpcoesReplayCi, 'raiz' | 'manifesto' | 'head' | 'ambiente'>;
+  /** HEAD já resolvido pelo adaptador; ausente, lê o checkout uma vez. */
+  head?: string;
 }
 
 export function anexarPreflightAoResultadoCi<T extends { ok: boolean }>(resultado: T,
@@ -525,7 +531,7 @@ function reciboDoUltimoVerify(raiz: string, threadId: string): { recibo?: Recibo
 
 /** A projeção nasce do último verify integral verde, mas não leva o HEAD desse verify como recibo presente. */
 function projecaoDoUltimoVerify(carregado: ManifestoCarregado, threadId: string, claims: Claim[],
-  commands: Array<{ name: string; command: string }>): { recibo?: ProjecaoReplayCi } {
+  _commands: Array<{ name: string; command: string }>): { recibo?: ProjecaoReplayCi } {
   const ultimo = lerLedger(dirThread(carregado.raiz, threadId)).filter((e) => e.tipo === TIPOS_DE_EVENTO.verificacao).at(-1);
   const check = ultimo?.check as { modo?: unknown } | undefined;
   if (ultimo?.veredito !== 'verdade sustentada' || ultimo.parcial === true ||
@@ -535,7 +541,8 @@ function projecaoDoUltimoVerify(carregado: ManifestoCarregado, threadId: string,
     claims,
     check: check.modo,
     baseline: lerThread(carregado.raiz, threadId).baseline,
-    commands,
+    commands: comandosDoManifesto(carregado.manifesto).map(({ nome, comando }) => ({ name: nome, command: comando })),
+    preparo: carregado.manifesto.verify.preparo,
   }) };
 }
 
@@ -655,19 +662,37 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
   }
   // Um arquivo que o seletor reconhece como o bundle da branch, mas que nem abre, também participa da política. O
   // caminho sem política continua chamando `bundleDaBranch` diretamente e preserva a exceção histórica.
+  const entrada = achado?.bundle.recibo;
+  const ehProjecao = !!entrada && typeof entrada === 'object' && !Array.isArray(entrada) &&
+    (entrada as { contrato?: unknown }).contrato === CONTRATO_PROJECAO_REPLAY_CI;
+  const head = contexto.head ?? commitReal(carregado.raiz);
+  const replay = ehProjecao ? reexecutarProjecaoReplayCi(entrada, {
+    raiz: carregado.raiz,
+    manifesto: carregado.manifesto,
+    head,
+    ambiente: contexto.env ?? process.env,
+    hermeticidade: (claim) => motivoClaimNaoHermeticaReplayCi(claim) ?? motivoDiferimentoCi(claim as Claim, carregado.raiz),
+    ...contexto.replay,
+  }) : null;
   const recibo = bundleInvalido ? 'invalido'
-    : estadoDoReciboCi(carregado.raiz, achado?.bundle.recibo, undefined, achado?.arquivo);
+    : replay ? replay.degradacao || replay.invalida ? 'invalido'
+      : estadoDoReciboRunnerCi(replay.recibo, head)
+      : estadoDoReciboCi(carregado.raiz, entrada, head, achado?.arquivo);
   const destino = contexto.destino ?? null;
   const pullRequest = contexto.pullRequest ?? destino !== null;
   const protegida = carregado.manifesto.worktree.base_branch;
+  const mensagem = replay?.degradacao ? mensagemDaDegradacaoReplay(replay.degradacao) : recibo === 'presente'
+    ? null : mensagemDoRecibo(recibo, branch);
   const policy = { level: nivel, receipt: recibo, sourceBranch: branch, targetBranch: destino, protectedBranch: protegida,
-    ...(recibo === 'presente' ? {} : { message: mensagemDoRecibo(recibo, branch) }) };
+    ...(mensagem ? { message: mensagem } : {}) };
   const erroDoBundle = bundleInvalido ?? (branch.startsWith('ork/') && !achado
     ? { code: 'ci.bundle.ausente', message: `ci.bundle.ausente: a branch ${branch} e de thread e nao tem bundle em ${DIR_DO_BUNDLE}/; ` +
         'rode ork ci prepare <thread> na worktree e versione o arquivo' }
     : null);
   const erroDoRecibo = nivel === 'exigir' && pullRequest && destino === protegida && recibo !== 'presente'
-    ? { code: `ci.recibo.${recibo}`, message: mensagemDoRecibo(recibo, branch) }
+    ? replay?.degradacao
+      ? { code: CODIGO_DA_DEGRADACAO_REPLAY_CI[replay.degradacao], message: mensagemDaDegradacaoReplay(replay.degradacao) }
+      : { code: `ci.recibo.${recibo}`, message: mensagemDoRecibo(recibo, branch) }
     : null;
   if (!achado && erroDoBundle) {
     return { schema: 'ork.ci-run/v1' as const, ok: false, thread: null, commit: commitReal(carregado.raiz), preparo: null,
@@ -675,10 +700,38 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
   }
   const bundle = achado?.bundle ?? { schema: 'ork.ci-bundle/v1' as const, thread: '',
     base: carregado.manifesto.worktree.base_branch, claims: [], commands: comandosDoBundle(carregado) };
+  if (replay) {
+    const diagnostico = replay.degradacao
+      ? { code: CODIGO_DA_DEGRADACAO_REPLAY_CI[replay.degradacao], message: mensagemDaDegradacaoReplay(replay.degradacao) }
+      : replay.invalida ? { code: 'ci.recibo.invalido', message: mensagemDoRecibo('invalido', branch) } : null;
+    const defeitoDoReciboReprova = nivel === 'exigir' && pullRequest && destino === protegida && recibo !== 'presente';
+    // Observar e avisar não transformam sozinhos um diagnóstico de recibo em reprovação.
+    const medicaoOk = diagnostico ? true : replay.ok;
+    return {
+      schema: 'ork.ci-run/v1' as const,
+      ok: medicaoOk && !defeitoDoReciboReprova,
+      thread: replay.thread || bundle.thread,
+      commit: replay.commit,
+      preparo: replay.preparo,
+      claims: replay.claims,
+      commands: replay.commands,
+      ...(replay.julgamento ? { verify: replay.julgamento } : {}),
+      ...(replay.recibo ? { recibo: replay.recibo } : {}),
+      branch,
+      bundle: achado?.arquivo ?? null,
+      policy,
+      ...((erroDoRecibo ?? diagnostico) ? { error: erroDoRecibo ?? diagnostico! } : {}),
+    };
+  }
   const executado = rodarBundle(carregado, bundle);
   const error = erroDoRecibo;
   return { ...executado, ok: executado.ok && !error, ...(achado ? {} : { thread: null }), branch,
     bundle: achado?.arquivo ?? null, policy, ...(error ? { error } : {}) };
+}
+
+function mensagemDaDegradacaoReplay(causa: keyof typeof CODIGO_DA_DEGRADACAO_REPLAY_CI): string {
+  const codigo = CODIGO_DA_DEGRADACAO_REPLAY_CI[causa];
+  return `${codigo}: o replay integral não produziu recibo; corrija a causa, rode ork verify e prepare o bundle de novo`;
 }
 
 /** Validação fechada: falha do Git nunca transforma recibo em presente. */
