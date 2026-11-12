@@ -255,7 +255,8 @@ import { executarCliRedeEmpresa } from './rede-empresa-cli';
 import type { ResultadoDaCobertura } from './rede-empresa-config';
 import { textoDaCoberturaEmpresa } from './locale-network-empresa';
 import { executarReservaCoordenada, executarSagaDaThread, portaColetivaDoProjeto, portaLocalDoRoadmap, portaThreadOrfa,
-  reconciliarOperacaoDaRedeEmpresa } from './rede-empresa-operacao';
+  reconciliarOperacaoDaRedeEmpresa, type OpcoesDaCoordenacaoColetiva } from './rede-empresa-operacao';
+import type { ReferenciaDaAtestacao } from './rede-empresa-atestacao';
 import { lerLedger } from './ledger';
 import { avisosDeArtefatoRegistrados } from './phase-artifact-warning';
 import { gateDeTokens, textoDoGateDeTokens } from './tokens';
@@ -351,6 +352,42 @@ export function parseArgs(argv: string[]): Args {
 
 function texto(v: string | boolean | undefined): string | undefined {
   return typeof v === 'string' ? v : undefined;
+}
+
+function referenciaColetivaDosArgs(opcoes: Record<string, string | boolean>, prefixo: 'atestacao' | 'excecao'):
+ReferenciaDaAtestacao | undefined {
+  const forja = texto(opcoes[`${prefixo}-forja`]);
+  const idBruto = texto(opcoes[`${prefixo}-id`]);
+  const endpoint = texto(opcoes[`${prefixo}-endpoint`]);
+  const sha256 = texto(opcoes[`${prefixo}-sha256`]);
+  const presentes = [forja, idBruto, endpoint, sha256].filter((v) => v !== undefined).length;
+  if (presentes === 0) return undefined;
+  const id = idBruto && /^[1-9][0-9]*$/.test(idBruto) ? Number(idBruto) : NaN;
+  if ((forja !== 'github' && forja !== 'gitlab') || !Number.isSafeInteger(id) || !endpoint
+    || !sha256 || !/^[a-f0-9]{64}$/.test(sha256)) throw new Error('rede-empresa.uso');
+  return { forja, id, endpoint, sha256 };
+}
+
+export function coordenacaoColetivaDosArgs(opcoes: Record<string, string | boolean>): OpcoesDaCoordenacaoColetiva {
+  const acao = texto(opcoes.coordenacao);
+  if (acao !== undefined && acao !== 'reserva' && acao !== 'colaborador' && acao !== 'acordo') {
+    throw new Error('rede-empresa.uso');
+  }
+  const atestacao = referenciaColetivaDosArgs(opcoes, 'atestacao');
+  const referenciaExcecao = referenciaColetivaDosArgs(opcoes, 'excecao');
+  const responsavel = texto(opcoes['excecao-responsavel']);
+  const justificativaId = texto(opcoes['excecao-justificativa']);
+  const expiraEm = texto(opcoes['excecao-expira-em']);
+  const camposExcecao = [referenciaExcecao, responsavel, justificativaId, expiraEm].filter((v) => v !== undefined).length;
+  if (camposExcecao !== 0 && camposExcecao !== 4) throw new Error('rede-empresa.uso');
+  const responsavelAccountId = responsavel && /^[1-9][0-9]*$/.test(responsavel) ? Number(responsavel) : NaN;
+  if (camposExcecao === 4 && (!Number.isSafeInteger(responsavelAccountId) || !Number.isFinite(Date.parse(expiraEm!)))) {
+    throw new Error('rede-empresa.uso');
+  }
+  if (acao === 'acordo' && !atestacao) throw new Error('rede-empresa.acordo-ausente');
+  return { ...(acao ? { acao } : {}), ...(atestacao ? { atestacao } : {}),
+    ...(referenciaExcecao ? { excecao: { responsavelAccountId, justificativaId: justificativaId!, expiraEm: expiraEm!,
+      referencia: referenciaExcecao } } : {}) };
 }
 
 function textos(args: Args, nome: string): string[] | null {
@@ -609,7 +646,8 @@ function comandoThread(args: Args): number {
     let reservaDoItem: ReturnType<typeof pegarItem> | null = null;
     let coberturaColetiva: ResultadoDaCobertura | null = null;
     if (itemDoRoadmap) {
-      const coletiva = portaColetivaDoProjeto(carregado.raiz, carregado.manifesto, itemDoRoadmap.trim().toUpperCase());
+      const coletiva = portaColetivaDoProjeto(carregado.raiz, carregado.manifesto, itemDoRoadmap.trim().toUpperCase(),
+        'GOAL', coordenacaoColetivaDosArgs(args.opcoes));
       const saga = comLocale('pt-BR', () => executarSagaDaThread({ raiz: carregado.raiz, projectKey: coletiva.projectKey,
         itemId: itemDoRoadmap.trim().toUpperCase(), coletiva: coletiva.porta, thread: portaThreadOrfa(carregado.raiz),
         local: portaLocalDoRoadmap(carregado.raiz, itemDoRoadmap),
@@ -3309,9 +3347,13 @@ function comandoRoadmap(args: Args): number {
   let cobertura: ResultadoDaCobertura | null = null;
   const r = comLocale('pt-BR', () => {
     if (sub === 'soltar') return soltarItem(carregado.raiz, item, opcoes);
-    const coletiva = portaColetivaDoProjeto(carregado.raiz, carregado.manifesto, item.trim().toUpperCase());
-    // Sem inscrição coletiva, preserve integralmente a RM-047: mesma escrita, mesma saída e nenhum estado da saga.
-    if (!coletiva.configurada) return pegarItem(carregado.raiz, item, opcoes);
+    const coletiva = portaColetivaDoProjeto(carregado.raiz, carregado.manifesto, item.trim().toUpperCase(),
+      'GOAL', coordenacaoColetivaDosArgs(args.opcoes));
+    // Sem inscrição coletiva, a RM-047 continua sendo a única escrita, mas o fail-open coletivo fica visível.
+    if (!coletiva.configurada) {
+      cobertura = coletiva.porta.reservar('op-cobertura-visivel').valor.cobertura;
+      return pegarItem(carregado.raiz, item, opcoes);
+    }
     const coordenada = executarReservaCoordenada({ raiz: carregado.raiz, projectKey: coletiva.projectKey,
       itemId: item.trim().toUpperCase(), coletiva: coletiva.porta, local: portaLocalDoRoadmap(carregado.raiz, item, opcoes) });
     cobertura = coordenada.cobertura;

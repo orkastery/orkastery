@@ -8,6 +8,7 @@ import { executarReservaCoordenada, executarSagaDaThread, type PortaColetivaDaSa
   type PortaLocalDaSaga } from '../src/rede-empresa-operacao';
 import { commitar, projetoTemporario } from './apoio';
 import { exec } from '../src/util';
+import { coordenacaoColetivaDosArgs } from '../src/index';
 
 async function chamar(client: Client, nome: string, argumentos: Record<string, unknown>) {
   const r = await client.callTool({ name: nome, arguments: argumentos });
@@ -27,6 +28,7 @@ test('ork_thread_new aceita roadmap, usa a saga e preserva o contrato sem roadma
     await server.connect(st); await client.connect(ct);
     const tool = (await client.listTools()).tools.find((t) => t.name === 'ork_thread_new');
     assert.ok(tool && 'properties' in tool.inputSchema && (tool.inputSchema.properties as Record<string, unknown>).roadmap);
+    assert.ok(tool && 'properties' in tool.inputSchema && (tool.inputSchema.properties as Record<string, unknown>).coordenacao);
     const antiga = await chamar(client, 'ork_thread_new', { nome: 'sem item', modo: 'auto' });
     assert.equal(antiga.erro, false); assert.equal(antiga.dados.thread.roadmap, undefined); assert.equal(antiga.dados.coordenacao, undefined);
     const nova = await chamar(client, 'ork_thread_new', { nome: 'com item', modo: 'auto', roadmap: 'RM-089' });
@@ -37,6 +39,22 @@ test('ork_thread_new aceita roadmap, usa a saga e preserva o contrato sem roadma
     assert.equal(reserva?.thread, nova.dados.thread.id);
     assert.equal(reserva?.operationId, nova.dados.coordenacao.operationId);
   } finally { await client.close(); await server.close(); p.limpar(); }
+});
+
+test('B2/B6: CLI interpreta colaboração, acordo e exceção auditável com referências fechadas', () => {
+  const sha = 'a'.repeat(64);
+  const acordo = coordenacaoColetivaDosArgs({ coordenacao: 'acordo', 'atestacao-forja': 'github',
+    'atestacao-id': '77', 'atestacao-endpoint': 'repos/time/rede/issues/comments/77', 'atestacao-sha256': sha });
+  assert.deepEqual(acordo, { acao: 'acordo', atestacao: { forja: 'github', id: 77,
+    endpoint: 'repos/time/rede/issues/comments/77', sha256: sha } });
+  const excecao = coordenacaoColetivaDosArgs({ coordenacao: 'reserva', 'excecao-responsavel': '41',
+    'excecao-justificativa': 'incidente-17', 'excecao-expira-em': '2026-11-12T12:00:00.000Z',
+    'excecao-forja': 'gitlab', 'excecao-id': '88',
+    'excecao-endpoint': 'projects/time%2Frede/issues/1/notes/88', 'excecao-sha256': sha });
+  assert.deepEqual(excecao.excecao, { responsavelAccountId: 41, justificativaId: 'incidente-17',
+    expiraEm: '2026-11-12T12:00:00.000Z', referencia: { forja: 'gitlab', id: 88,
+      endpoint: 'projects/time%2Frede/issues/1/notes/88', sha256: sha } });
+  assert.throws(() => coordenacaoColetivaDosArgs({ coordenacao: 'acordo' }), /acordo-ausente/);
 });
 
 test('reserva e criação de thread propagam a mesma recusa coletiva antes do efeito local', () => {

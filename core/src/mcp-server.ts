@@ -77,8 +77,17 @@ const modoDeConducao = z.string().trim().min(1).max(40)
   })
   .transform((bruto) => exigirModoVivo(bruto));
 
+const referenciaColetiva = z.object({ forja: z.enum(['github', 'gitlab']), id: z.number().int().positive(),
+  endpoint: z.string().min(1).max(500), sha256: z.string().regex(/^[a-f0-9]{64}$/) }).strict();
+const coordenacaoColetiva = z.object({ acao: z.enum(['reserva', 'colaborador', 'acordo']).optional(),
+  atestacao: referenciaColetiva.optional(), excecao: z.object({ responsavelAccountId: z.number().int().positive(),
+    justificativaId: identidade, expiraEm: z.string().datetime(), referencia: referenciaColetiva }).strict().optional() })
+  .strict().superRefine((v, ctx) => {
+    if (v.acao === 'acordo' && !v.atestacao) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'rede-empresa.acordo-ausente' });
+  });
 const nova = z.object({ nome: z.string().trim().min(1).max(200),
-  modo: modoDeConducao.optional(), roadmap: z.string().regex(/^RM-[0-9]{3}$/).optional() }).strict();
+  modo: modoDeConducao.optional(), roadmap: z.string().regex(/^RM-[0-9]{3}$/).optional(),
+  coordenacao: coordenacaoColetiva.optional() }).strict();
 const fase = daThread.extend({ fase: z.enum(['GOAL','PLAN','GO','CHECK','SHIP','MASTER']),
   // RM-067 (F4b): o grok tambem, como o --runtime do CLI, sempre com o model dele.
   prompt: z.string().min(1).max(65536), runtime: z.enum(['claude-bg','codex','grok']).optional(),
@@ -506,7 +515,7 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
       return resposta(observar(threadId));
     });
   registrarTool('ork_thread_new',{description:'Cria uma thread para a demanda autorizada, com worktree isolada; modo validado pelo nucleo. Nao inicia modelo.',
-    inputSchema:nova,annotations:{readOnlyHint:false,destructiveHint:false}},async ({nome,modo,roadmap}) => {
+    inputSchema:nova,annotations:{readOnlyHint:false,destructiveHint:false}},async ({nome,modo,roadmap,coordenacao}) => {
       const c=carregar(); livre();
       const destino=path.resolve(raiz,c.manifesto.worktree.dir);
       if (!destino.startsWith(raiz+path.sep)) throw Error('mcp.scope.violation: worktree.dir fora do projeto');
@@ -515,7 +524,7 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
       confinado(existente);
       const criar=()=>novaThread(c,{nome,modo:modo??c.manifesto.conduction.default_mode,criarWorktree:true,...(roadmap?{roadmap}:{})});
       const coordenada=roadmap?comLocale('pt-BR',()=>{
-        const coletiva=portaColetivaDoProjeto(raiz,c.manifesto,roadmap);
+        const coletiva=portaColetivaDoProjeto(raiz,c.manifesto,roadmap,'GOAL',coordenacao??{});
         return executarSagaDaThread({raiz,projectKey:coletiva.projectKey,itemId:roadmap,coletiva:coletiva.porta,
           thread:portaThreadOrfa(raiz),
           local:portaLocalDoRoadmap(raiz,roadmap),criarThread:()=>{const valor=criar();return{threadId:valor.thread.id,valor};}});
