@@ -19,7 +19,7 @@ import { adesaoRedeEmpresa, cacheDaPoliticaEmpresa, gravarAdesaoRedeEmpresa } fr
 import { ehPoliticaDaEmpresa, type ForjaDaEmpresa, type ReferenciaDaForja } from './rede-empresa-contrato';
 import { criarRedeColetiva } from './rede-empresa-forja';
 import { publicarNaRedeEmpresa } from './rede-empresa-publicacao';
-import { statusDaRedeEmpresa } from './rede-empresa-status';
+import { statusDaRedeEmpresa, textoDoPreflightEmpresa } from './rede-empresa-status';
 import { lerDocumentoRemoto, portaGitDaRedeEmpresa, type PortaDaBranchEmpresa } from './rede-empresa-transporte';
 import { normalizarProjeto, segmentoDaProjectKey } from './rede-empresa-projeto';
 
@@ -153,8 +153,11 @@ function sucesso(acao: Acao, dados: unknown, json: boolean, locale: Locale): Sai
   const coberturas = acao === 'status' && Array.isArray(dados)
     ? dados.flatMap((d) => d && typeof d === 'object' && 'cobertura' in d
       ? [textoDaCoberturaEmpresa((d as { cobertura: Parameters<typeof textoDaCoberturaEmpresa>[0] }).cobertura, locale)] : []) : [];
+  const preflights = acao === 'status' && Array.isArray(dados)
+    ? dados.flatMap((d) => d && typeof d === 'object' && 'preflightEmpresa' in d
+      ? [textoDoPreflightEmpresa((d as { preflightEmpresa: Parameters<typeof textoDoPreflightEmpresa>[0] }).preflightEmpresa, locale)] : []) : [];
   return { codigo: 0, stdout: json ? `${JSON.stringify(envelope, null, 2)}\n`
-    : `${[textoSucesso(acao, locale), ...coberturas].join('\n')}\n`, stderr: '' };
+    : `${[textoSucesso(acao, locale), ...coberturas, ...preflights].join('\n')}\n`, stderr: '' };
 }
 
 function erro(codigo: string, json: boolean, locale: Locale): SaidaCliRedeEmpresa {

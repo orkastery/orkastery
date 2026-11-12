@@ -1,0 +1,85 @@
+/** RM-089 F3: uma fotografia remota, seguida apenas por análise pura em memória. */
+import { CONTRATO_PUBLICACAO_EMPRESA_V3, ehPublicacaoDaEmpresa, MAX_CAMINHOS_PUBLICACAO_EMPRESA,
+  type PublicacaoDaEmpresaV3 } from './rede-empresa-contrato';
+import { analisarConflitosColetivos, type ResultadoDeConflitos, type TrabalhoColetivo } from './rede-empresa-conflitos';
+import { lerHistoriaDaEmpresa, type PontaDaRedeEmpresa, type PortaDaBranchEmpresa,
+  type RegistroDaHistoriaEmpresa } from './rede-empresa-transporte';
+
+export interface FotografiaDoPreflightEmpresa {
+  ponta: string | null;
+  publicacoes: number;
+  trabalhos: number;
+  caminhos: number;
+  commitsLidos: number;
+  fonte: 'rede-coletiva';
+}
+
+export type ResultadoPreflightEmpresa = ResultadoDeConflitos & {
+  fotografia: FotografiaDoPreflightEmpresa;
+  cobertura: 'completa' | 'incompleta';
+};
+
+const identidade = (inscricaoId: string, accountId: number, threadRef: string): string =>
+  `${inscricaoId}\0${accountId}\0${threadRef}`;
+
+function publicacaoV3(texto: string): PublicacaoDaEmpresaV3 | null {
+  try {
+    const valor = JSON.parse(texto) as unknown;
+    return ehPublicacaoDaEmpresa(valor) && valor.contrato === CONTRATO_PUBLICACAO_EMPRESA_V3 ? valor : null;
+  } catch { return null; }
+}
+
+function primeirasAparicoes(registros: readonly RegistroDaHistoriaEmpresa[], lacunas: string[]): Map<string, { ordinal: number; commit: string }> {
+  const primeiras = new Map<string, { ordinal: number; commit: string }>();
+  for (const registro of registros) for (const documento of registro.documentos) {
+    const publicacao = publicacaoV3(documento.conteudo);
+    if (!publicacao) { lacunas.push('publicacao-v3.historica-invalida'); continue; }
+    for (const trabalho of publicacao.trabalhos) {
+      const chave = identidade(publicacao.inscricaoId, publicacao.maestro.accountId, trabalho.threadRef);
+      if (!primeiras.has(chave)) primeiras.set(chave, { ordinal: registro.ordinal, commit: registro.id });
+    }
+  }
+  return primeiras;
+}
+
+/** Analisa uma ponta já carimbada. Não chama porta, rede, Git, filesystem ou relógio. */
+export function preflightDaPontaEmpresa(ponta: PontaDaRedeEmpresa): ResultadoPreflightEmpresa {
+  const lacunas: string[] = [];
+  let atuais: Array<{ caminho: string; conteudo: string }> = [], legadas = 0;
+  if (!ponta.atualizada || !ponta.listar) lacunas.push('rede.leitura-indisponivel');
+  else {
+    try {
+      atuais = ponta.listar('publicacoes-v3/');
+      legadas = ponta.listar('publicacoes/').length;
+    } catch { lacunas.push('rede.leitura-indisponivel'); }
+  }
+  if (!atuais.length && legadas) lacunas.push('caminhos.desconhecidos');
+  const historia = lerHistoriaDaEmpresa(ponta);
+  if (historia.estado === 'inconclusiva') lacunas.push(historia.lacuna);
+  const primeiras = primeirasAparicoes(historia.registros, lacunas);
+  const trabalhos: TrabalhoColetivo[] = [];
+  let caminhos = 0, publicacoes = 0;
+  for (const documento of atuais) {
+    const publicacao = publicacaoV3(documento.conteudo);
+    if (!publicacao) { lacunas.push('publicacao-v3.invalida'); continue; }
+    publicacoes++;
+    for (const trabalho of publicacao.trabalhos) {
+      caminhos += trabalho.caminhos.length;
+      trabalhos.push({ inscricaoId: publicacao.inscricaoId, accountId: publicacao.maestro.accountId,
+        builder: publicacao.maestro.loginAtual, threadRef: trabalho.threadRef, projectKey: publicacao.projectKey,
+        ...(trabalho.itemId ? { itemId: trabalho.itemId } : {}), caminhos: trabalho.caminhos,
+        primeiraAparicao: primeiras.get(identidade(publicacao.inscricaoId, publicacao.maestro.accountId, trabalho.threadRef)) ?? null,
+        instanteLocal: trabalho.instanteLocal });
+    }
+  }
+  if (caminhos > publicacoes * MAX_CAMINHOS_PUBLICACAO_EMPRESA) lacunas.push('caminhos.excedeu-teto');
+  const analise = analisarConflitosColetivos(trabalhos, lacunas);
+  return { ...analise, fotografia: { ponta: ponta.id, publicacoes, trabalhos: trabalhos.length, caminhos,
+    commitsLidos: historia.registros.length, fonte: 'rede-coletiva' },
+  cobertura: analise.lacunas.length ? 'incompleta' : 'completa' };
+}
+
+/** A única leitura da porta para um preflight. */
+export function preflightDaRedeEmpresa(porta: PortaDaBranchEmpresa): ResultadoPreflightEmpresa {
+  return preflightDaPontaEmpresa(porta.ler());
+}
