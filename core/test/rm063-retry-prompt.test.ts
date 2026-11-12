@@ -152,11 +152,15 @@ test('F3 (GO-FIX): o despacho que falha depois de abrir a sessao (claude --bg le
 
   // A sessao morre (o processo some): agora o retry redespacha o mesmo prompt.
   runtime.pidDaSessao(null);
+  const novaSessao = 'bbbbbbbb-cccc-4ddd-8eee-ffffffffffff';
+  runtime.proximaSessao(novaSessao);
   const rr = executarRetry(p.carregado, thread.id);
   assert.equal(rr.executada, true, rr.detalhe);
+  assert.equal(rr.redespacho?.sessionId, novaSessao);
   const despachos = lerLedger(dir).filter((e) => e.tipo === TIPOS_DE_EVENTO.faseDespachada);
   assert.equal(despachos.length, 1);
   assert.equal(despachos[0].promptSha256, r.promptSha256);
+  assert.equal(despachos[0].sessionId, novaSessao, 'o vínculo do retry pertence à nova identidade nativa');
 });
 
 test('F3: o prompt e achado pelo sha256, so dentro do projeto; o arquivo que mudou depois do despacho e recusado, nunca redespachado', (t) => {

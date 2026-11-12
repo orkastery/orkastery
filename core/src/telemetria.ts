@@ -153,7 +153,9 @@ function attrsGenAi(evento: EventoLedger, attrs: OtlpKeyValue[]): void {
   if (evento.tipo !== 'phase_dispatch') return;
   adicionar(attrs, attrString('gen_ai.operation.name', 'invoke_agent'));
   adicionar(attrs, attrString('gen_ai.request.model', evento.model));
-  adicionar(attrs, attrString('gen_ai.conversation.id', primeiro(evento, 'conversationId', 'conversation')));
+  const sessao = primeiro(evento, 'sessionId', 'sessao');
+  if (evento.runtime === 'codex') adicionar(attrs, attrString('conversation.id', sessao));
+  else if (evento.runtime === 'claude-bg') adicionar(attrs, attrString('session.id', sessao));
 }
 
 export function entradaGenAi(textoDoPrompt: string): OtlpAnyValue {
@@ -191,11 +193,13 @@ export function mapearEventoDoLedger(evento: EventoLedger, contexto: ContextoDoM
 
   const attrs: OtlpKeyValue[] = [];
   adicionar(attrs, attrString('log.record.uid', uid));
-  if (EVENTOS_COM_USUARIO.has(evento.tipo)) adicionar(attrs, attrString('user.hash', contexto.pseudonimo));
+  if (EVENTOS_COM_USUARIO.has(evento.tipo) || evento.tipo === 'phase_dispatch') {
+    adicionar(attrs, attrString('user.hash', contexto.pseudonimo));
+  }
   attrsVcs(evento, attrs);
   attrsCicd(evento, attrs);
   attrsGenAi(evento, attrs);
-  adicionar(attrs, attrString('session.id', primeiro(evento, 'sessionId', 'sessao')));
+  if (evento.tipo !== 'phase_dispatch') adicionar(attrs, attrString('session.id', primeiro(evento, 'sessionId', 'sessao')));
   if (severidade(evento).severityNumber === 17) {
     const causa = texto(primeiro(evento, 'motivo', 'errorType', 'classificacao'));
     if (causa) {
