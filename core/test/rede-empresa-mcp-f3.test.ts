@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { respostaDoStatusMcp } from '../src/mcp-server';
+import { opcoesDoShipMcpComPreflight } from '../src/mcp-ship';
 import type { ResultadoPreflightEmpresa } from '../src/rede-empresa-preflight';
 import type { Thread } from '../src/types';
 
@@ -26,4 +27,16 @@ test('sem inscrição o contrato anterior do MCP permanece sem preflight', () =>
   const resposta = respostaDoStatusMcp(thread, null, [], null);
   assert.equal('preflightEmpresa' in resposta, false);
   assert.doesNotMatch(resposta.resumo, /Preflight coletivo/);
+});
+
+test('ork_ship preserva no resultado a mesma fotografia consultada antes dos efeitos', () => {
+  const opcoes = opcoesDoShipMcpComPreflight({ de: 'feature', para: 'main', autorizado: true }, preflight);
+  assert.equal(opcoes.preflightEmpresa, preflight);
+  assert.deepEqual({ de: opcoes.de, para: opcoes.para, autorizado: opcoes.autorizado },
+    { de: 'feature', para: 'main', autorizado: true });
+});
+
+test('ork_ship sem inscrição mantém o contrato anterior', () => {
+  const opcoes = opcoesDoShipMcpComPreflight({ de: 'feature', para: 'main' }, null);
+  assert.equal('preflightEmpresa' in opcoes, false);
 });
