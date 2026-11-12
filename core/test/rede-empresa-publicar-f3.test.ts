@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { comandoShipPista, parseArgs } from '../src/index';
 import { corpoComPreflightEmpresa, linhasDaPublicacao, type Publicacao } from '../src/ship-publicar';
 import type { ResultadoPreflightEmpresa } from '../src/rede-empresa-preflight';
 
@@ -29,4 +30,19 @@ test('resultado de publicação mostra o aviso sem alterar ação, motivo ou pro
 test('sem inscrição o corpo permanece byte a byte igual', () => {
   const corpo = '# Entrega\n\nTexto.\n';
   assert.equal(corpoComPreflightEmpresa(corpo, null, 'pt-BR'), corpo);
+});
+
+test('o comando ship pista imprime o preflight antes das pistas', () => {
+  const linhas: string[] = [], log = console.log;
+  console.log = (linha: unknown) => { linhas.push(String(linha)); };
+  try {
+    const codigo = comandoShipPista({} as never, parseArgs(['ship', 'pista']), () => ({ contrato: 'ork.ship-pista/v1',
+      lidoEm: '2026-11-12T00:00:00.000Z', base: 'main', remoto: 'origin', remotoLido: true, prsLidos: true,
+      prsNaoLidos: null, ciExigido: false, contextoDoCi: 'ork-verify', pistas: [], preflightEmpresa: preflight }));
+    assert.equal(codigo, 0);
+  } finally { console.log = log; }
+  const aviso = linhas.findIndex((linha) => /Preflight coletivo/.test(linha));
+  const pistas = linhas.findIndex((linha) => /Nenhuma thread|Nenhuma pista/.test(linha));
+  assert.ok(aviso >= 0, linhas.join('\n'));
+  assert.ok(pistas < 0 || aviso < pistas, linhas.join('\n'));
 });

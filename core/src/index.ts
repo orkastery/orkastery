@@ -2212,19 +2212,21 @@ function comandoShipPublicar(carregado: ManifestoCarregado, args: Args): number 
 }
 
 /** RM-059 (F7, T7.1): `ork ship pista [<thread>]`, as etapas da entrega e o proximo passo que o nucleo declara. */
-function comandoShipPista(carregado: ManifestoCarregado, args: Args): number {
+export function comandoShipPista(carregado: ManifestoCarregado, args: Args,
+  obterPista: typeof pistaDeEntrega = pistaDeEntrega): number {
   const p = msg().ship.publicar;
   if (args.posicionais.length > 3) {
     console.error(p.usoPista);
     return 2;
   }
   if (args.opcoes.remoto !== undefined) exigirRemoto(args.opcoes.remoto, 'ship');
-  const r = comLocale('pt-BR', () => pistaDeEntrega(carregado, { remoto: texto(args.opcoes.remoto), thread: args.posicionais[2] }));
+  const r = comLocale('pt-BR', () => obterPista(carregado, { remoto: texto(args.opcoes.remoto), thread: args.posicionais[2] }));
   if (args.opcoes.json === true) {
     console.log(JSON.stringify(r, null, 2));
     return 0;
   }
   console.log(p.cabecalhoPista(formatarDataHora(r.lidoEm), r.remoto, r.base));
+  if (r.preflightEmpresa) console.log(textoDoPreflightEmpresa(r.preflightEmpresa, localeAtivo()));
   if (!r.remotoLido) console.log(p.remotoNaoRespondeu(r.remoto));
   if (!r.prsLidos) console.log(p.prsNaoResponderam(remontar(r.prsNaoLidos ?? '-')));
   if (!r.pistas.length) console.log(p.semPistas);
