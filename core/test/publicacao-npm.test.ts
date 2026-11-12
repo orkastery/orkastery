@@ -162,3 +162,42 @@ test('PN14: workflow preserva as guardas e publica somente com a saída validada
   assert.match(job, /run: node core\/dist\/index\.js eval --so-cenarios/, 'os cenários permanecem');
   assert.match(job.slice(publish), /working-directory: core/, 'o publish continua no core');
 });
+
+test('PN15: guia e implementação mantêm a política integral de publicação', () => {
+  const guia = fs.readFileSync(path.join(RAIZ_DO_REPO, 'docs/guias/contribuir/versoes-e-publicacao.md'), 'utf8')
+    .replace(/\s+/g, ' ').trim();
+  const workflow = fs.readFileSync(path.join(RAIZ_DO_REPO, '.github/workflows/publicar.yml'), 'utf8');
+  const frases = [
+    'uma versão estável menor usa `previous` e não move a `latest` para trás;',
+    'uma pré-release usa o primeiro identificador como canal, por exemplo `rc` ou `beta`, mesmo quando sua versão é maior que a `latest`;',
+    'Primeira publicação só significa pacote ausente quando a consulta exata devolve um `E404` estruturado e `npm ping` confirma o mesmo registro.',
+    'Registro inacessível, erro não estruturado, pacote existente sem `latest`, `latest` apontando para pré-release e qualquer SemVer inválida falham antes do publish.',
+    'A consulta aceita as duas formas escalares conhecidas do `npm view --json`: a string SemVer usada pelo npm 11 e o array unitário usado pelo npm 12.',
+  ];
+  for (const frase of frases) assert.ok(guia.includes(frase), `o guia perdeu a regra: ${frase}`);
+
+  assert.equal(decidir('0.6.7', latest('0.6.8')).distTag, 'previous');
+  assert.equal(decidir('0.7.0-rc.1', latest('0.6.8')).distTag, 'rc');
+  assert.deepEqual(regra.classificarSucessoDaConsulta('"1.2.3"'), latest('1.2.3'), 'formato do npm 11');
+  assert.deepEqual(regra.classificarSucessoDaConsulta('["1.2.3"]'), latest('1.2.3'), 'formato do npm 12');
+
+  let primeira = 0;
+  const primeiraPublicacao = [
+    { status: 1, stdout: JSON.stringify({ error: { code: 'E404' } }), stderr: '' },
+    { status: 0, stdout: '{}', stderr: '' },
+  ];
+  assert.deepEqual(regra.consultarRegistro(() => primeiraPublicacao[primeira++]), { tipo: 'pacote-ausente' });
+  assert.equal(primeira, 2, 'E404 inequívoco exige ping verde');
+
+  let conflito = 0;
+  const saidasConflitantes = [
+    { status: 1, stdout: JSON.stringify({ error: { code: 'E404' } }),
+      stderr: JSON.stringify({ error: { code: 'E401' } }) },
+    { status: 0, stdout: '{}', stderr: '' },
+  ];
+  assert.deepEqual(regra.consultarRegistro(() => saidasConflitantes[conflito++]), { tipo: 'inacessivel' });
+  assert.equal(conflito, 1, 'códigos conflitantes falham fechados sem ping');
+  assert.match(workflow, /run: npm install -g npm@latest/, 'o workflow preserva npm 11/12 via npm@latest');
+  assert.match(workflow, /npm publish --access public --tag "\$\{\{ steps\.decidir-publicacao\.outputs\.tag \}\}"/,
+    'o workflow usa somente a tag decidida pelo script');
+});
