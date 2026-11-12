@@ -3,7 +3,7 @@ import { adesaoRedeEmpresa, avaliarCoberturaEmpresa, type ResultadoDaCobertura }
 import { CONTRATO_STATUS_EMPRESA, ehInscricaoDaEmpresa, ehPoliticaDaEmpresa, ehPublicacaoDaEmpresa, type InscricaoDaEmpresa,
   type StatusDaRedeEmpresa } from './rede-empresa-contrato';
 import { caminhoDaPublicacao, ErroDocumentoRemotoInvalido, lerDocumentoRemoto,
-  type PortaDaBranchEmpresa } from './rede-empresa-transporte';
+  type PontaDaRedeEmpresa, type PortaDaBranchEmpresa } from './rede-empresa-transporte';
 import { preflightDaPontaEmpresa, type ResultadoPreflightEmpresa } from './rede-empresa-preflight';
 import type { Locale } from './locale';
 
@@ -29,7 +29,9 @@ export function textoDoPreflightEmpresa(r: ResultadoPreflightEmpresa, locale: Lo
 export function statusDaRedeEmpresa(porta: PortaDaBranchEmpresa, inscricaoId: string, projetoRef: string,
   env: NodeJS.ProcessEnv = process.env): StatusDaRedeEmpresaComCobertura {
   const local = adesaoRedeEmpresa(inscricaoId, env);
-  const ponta = porta.ler();
+  let ponta: PontaDaRedeEmpresa;
+  try { ponta = porta.ler(); }
+  catch { ponta = { id: null, atualizada: false, ler: () => null }; }
   const inscricaoLida = lerDocumentoRemoto(ponta, `inscricoes/${inscricaoId}.json`, ehInscricaoDaEmpresa);
   const politicaLida = lerDocumentoRemoto(ponta, 'politica.json', ehPoliticaDaEmpresa);
   const publicacaoLida = lerDocumentoRemoto(ponta, caminhoDaPublicacao(inscricaoId, projetoRef), ehPublicacaoDaEmpresa);

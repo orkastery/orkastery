@@ -4,10 +4,11 @@ import { anexarPreflightAoResultadoCi } from '../src/ci';
 import { respostaDoStatusDaThread } from '../src/index';
 import { respostaDoStatusMcp } from '../src/mcp-server';
 import { preflightDaRedeEmpresa } from '../src/rede-empresa-preflight';
-import { textoDoPreflightEmpresa } from '../src/rede-empresa-status';
+import { statusDaRedeEmpresa, textoDoPreflightEmpresa } from '../src/rede-empresa-status';
 import { linhasDaPublicacao, type Publicacao } from '../src/ship-publicar';
 import { executarShipAposPreflight } from '../src/ship';
 import type { Thread } from '../src/types';
+import type { PortaDaBranchEmpresa } from '../src/rede-empresa-transporte';
 
 const thread = { id: 'ork-exemplo', slug: 'ork-exemplo-full', nome: 'exemplo', assunto: 'exemplo', modo: 'auto',
   fases: ['GOAL', 'PLAN', 'GO', 'CHECK', 'SHIP', 'MASTER'], blocos: [{ fases: ['GOAL', 'PLAN', 'GO', 'CHECK', 'SHIP', 'MASTER'],
@@ -17,8 +18,11 @@ const thread = { id: 'ork-exemplo', slug: 'ork-exemplo-full', nome: 'exemplo', a
   baseline: null, variante: null, score: null } as Thread;
 
 test('exceções de leitura e listagem viram indisponibilidade tipada', () => {
-  const leitura = preflightDaRedeEmpresa({ ler() { throw new Error('transporte indisponível'); }, gravar: () => false });
+  const porta: PortaDaBranchEmpresa = { ler() { throw new Error('transporte indisponível'); }, gravar: () => false };
+  const leitura = preflightDaRedeEmpresa(porta);
   assert.deepEqual([leitura.estado, leitura.lacunas], ['nao-realizado', ['rede.leitura-indisponivel']]);
+  const status = statusDaRedeEmpresa(porta, 'inscricao-a', 'projeto-a', { ORK_USUARIO_DIR: `/tmp/ork-status-ausente-${process.pid}` });
+  assert.deepEqual([status.forjaAtualizada, status.preflightEmpresa.estado], [false, 'inconclusivo']);
   const listagem = preflightDaRedeEmpresa({ ler: () => ({ id: 'c1', atualizada: true, ler: () => null,
     listar() { throw new Error('listagem indisponível'); } }), gravar: () => false });
   assert.equal(listagem.estado, 'inconclusivo');
