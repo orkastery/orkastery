@@ -96,19 +96,19 @@ Esta página registra a evolução futura. A resposta não escolhe o nome do ped
 
 As recomendações abaixo orientam a futura ratificação; não são decisões tomadas por esta página.
 
-**D1 — contrato público do pedido e do recibo**
+#### D1 — contrato público do pedido e do recibo
 
 - **A. Contrato próprio e versionado para ratificação de nomes — Recomendação.** Separa a autorização de contrato público de gates e da nota do MASTER e permite ao CHECK validar um schema específico.
 - **B. Especialização do contrato de HITL existente.** Reutiliza mais campos, mas mistura decisão de condução com recibo de contrato público.
 - **C. Evento genérico de decisão no ledger.** Exige menos estrutura nova, mas não resolve a prova de autoria nem a cobertura exata dos nomes.
 
-**D2 — vínculo e validade da ratificação**
+#### D2 — vínculo e validade da ratificação
 
 - **A. Lista exata de nomes ligada à impressão da proposta — Recomendação.** Continua válida enquanto proposta e nomes forem idênticos; qualquer alteração exige nova resposta.
 - **B. Um recibo separado por nome.** Torna o alcance explícito, mas multiplica pedidos e respostas para uma única proposta.
 - **C. Recibo válido pela fase inteira.** É mais curto, mas pode alcançar por inferência um nome que o dono não viu.
 
-**D3 — canais da primeira entrega**
+#### D3 — canais da primeira entrega
 
 - **A. Telegram e diálogo nativo do host pelo mesmo ingresso — Recomendação.** Reaproveita canais autenticados já usados pelo HITL e mantém a resposta perto de onde o dono está.
 - **B. Somente Telegram no piloto.** Reduz a primeira superfície, mas faz a ratificação depender de um canal.
