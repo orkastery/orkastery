@@ -18,6 +18,17 @@ function evento(tipo: string, extras: Record<string, unknown> = {}): EventoLedge
   return { tipo, ts: '2026-11-10T12:00:00.000Z', thread: 'ork-a', eventId: `uid-${tipo}`, ...extras };
 }
 
+function allowlistDeRecursoDoModelo(arquivo: string): Set<string> {
+  const raiz = path.resolve(__dirname, '../../..');
+  const linhas = fs.readFileSync(path.join(raiz, 'templates/telemetria', arquivo), 'utf8').split('\n');
+  const inicio = linhas.findIndex((linha) => linha.trim() === 'transform/sanitize:');
+  const fim = linhas.findIndex((linha, indice) => indice > inicio && linha.trim() === 'filter/dora:');
+  const comando = linhas.slice(inicio, fim).find((linha) => linha.includes('keep_keys(resource.attributes'));
+  assert.ok(comando, `${arquivo}: allowlist de recurso ausente`);
+  const abre = comando.indexOf('['), fecha = comando.lastIndexOf(']');
+  return new Set(JSON.parse(comando.slice(abre, fecha + 1)) as string[]);
+}
+
 test('fato analítico preserva UID e pseudônimo com atributos oficiais de CI e VCS', () => {
   const registro = mapearEventoDoLedger(evento('verify_run', { commit: 'abc', veredito: 'verdade sustentada', parcial: false,
     receiptPolicyVersion: 'v1', recibo: { contrato: 'ork.recibo-prova/v1', head: 'abc' } }), contexto).registro!;
@@ -77,3 +88,17 @@ test('B5 remove os treze nomes públicos não autorizados da projeção e dos mo
     fs.readFileSync(path.join(raiz, 'templates/telemetria/collector-otlp.yaml'), 'utf8')].join('\n');
   for (const nome of nomes) assert.equal(superficie.includes(nome), false, nome);
 });
+
+for (const arquivo of ['collector-loki.yaml', 'collector-otlp.yaml']) {
+  test(`B3 ${arquivo} preserva o time da política ponta a ponta`, () => {
+    const registro = mapearEventoDoLedger(evento('ship_done', {
+      'service.namespace': 'time-forjado', 'user.hash': 'pessoa-forjada', pushVerificado: true }), contexto).registro!;
+    const payload = montarExportLogsServiceRequest([registro], contexto);
+    const permitidos = allowlistDeRecursoDoModelo(arquivo);
+    const recursoDepoisDoCollector = Object.fromEntries(payload.resourceLogs[0].resource.attributes
+      .filter((item) => permitidos.has(item.key)).map((item) => [item.key, item.value]));
+    assert.deepEqual(recursoDepoisDoCollector[C.atributos.serviceNamespace], { stringValue: 'time-da-politica' });
+    assert.equal(JSON.stringify(recursoDepoisDoCollector).includes('time-forjado'), false);
+    assert.equal(JSON.stringify(payload).includes('pessoa-forjada'), false);
+  });
+}
