@@ -9,6 +9,8 @@ export interface PontaDaRedeEmpresa {
   id: string | null;
   atualizada: boolean;
   ler(caminho: string): string | null;
+  /** Uma enumeração em lote da mesma snapshot; nunca busca a branch de novo. */
+  listar?(prefixo: string): Array<{ caminho: string; conteudo: string }>;
 }
 
 export interface PortaDaBranchEmpresa {
@@ -89,8 +91,40 @@ export function portaGitDaRedeEmpresa(cache: string, remoto = 'origin', rede: Op
       return { id: lida.ponta, atualizada: lida.atualizado,
         ler(caminho: string) {
           if (!CAMINHO.test(caminho) || !lida.ponta) return null;
+          const existe = git(cache, ['ls-tree', '--name-only', lida.ponta, '--', caminho], rede);
+          if (!existe.ok) throw new Error('rede-empresa.forja-indisponivel');
+          if (existe.stdout.trim() !== caminho) return null;
           const r = git(cache, ['show', `${lida.ponta}:${caminho}`]);
-          return r.ok ? r.stdout : null;
+          if (!r.ok) throw new Error('rede-empresa.forja-indisponivel');
+          return r.stdout;
+        },
+        listar(prefixo: string) {
+          if (!lida.ponta || !/^(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]+\/$/.test(prefixo)) return [];
+          const arvore = git(cache, ['ls-tree', '-r', lida.ponta, '--', prefixo], rede);
+          if (!arvore.ok) throw new Error('rede-empresa.forja-indisponivel');
+          const entradas = arvore.stdout.split('\n').flatMap((linha) => {
+            const m = /^[0-7]+ blob ([0-9a-f]{7,64})\t(.+\.json)$/.exec(linha);
+            return m && CAMINHO.test(m[2]) ? [{ sha: m[1], caminho: m[2] }] : [];
+          });
+          if (!entradas.length) return [];
+          const lote = git(cache, ['cat-file', '--batch'], { ...rede, input: `${entradas.map((e) => e.sha).join('\n')}\n` });
+          if (!lote.ok) throw new Error('rede-empresa.forja-indisponivel');
+          const bytes = Buffer.from(lote.stdout, 'utf8');
+          let offset = 0;
+          const saida: Array<{ caminho: string; conteudo: string }> = [];
+          for (const entrada of entradas) {
+            const fimCabecalho = bytes.indexOf(10, offset);
+            if (fimCabecalho < 0) throw new Error('rede-empresa.forja-indisponivel');
+            const cabecalho = bytes.subarray(offset, fimCabecalho).toString('utf8');
+            const m = /^[0-9a-f]+ blob (\d+)$/.exec(cabecalho);
+            if (!m) throw new Error('rede-empresa.forja-indisponivel');
+            const tamanho = Number(m[1]);
+            const inicio = fimCabecalho + 1, fim = inicio + tamanho;
+            if (!Number.isSafeInteger(tamanho) || fim >= bytes.length) throw new Error('rede-empresa.forja-indisponivel');
+            saida.push({ caminho: entrada.caminho, conteudo: bytes.subarray(inicio, fim).toString('utf8') });
+            offset = fim + 1;
+          }
+          return saida;
         } };
     },
     gravar(ponta, mudancas, mensagem) {

@@ -89,8 +89,8 @@ Each OTLP value uses a typed `AnyValue`. 64-bit integers, including nanoseconds,
 | `cicd.pipeline.result` | `stringValue` | Verify and CHECK with a result |
 | `gen_ai.operation.name` | `stringValue` | Dispatch that represents an invocation |
 | `gen_ai.request.model` | `stringValue` | Same dispatch with a model |
-| `gen_ai.conversation.id` | `stringValue` | Dispatch with a native conversation |
-| `session.id` | `stringValue` | Event with a native session |
+| `conversation.id` | `stringValue` | Codex dispatch with a native conversation |
+| `session.id` | `stringValue` | Claude Code dispatch with a native session |
 | `error.type` | `stringValue` | Failure with a known, redacted type |
 | `orkastery.thread.id` | `stringValue` | Event linked to a thread |
 | `orkastery.phase.name` | `stringValue` | Dispatch, result, gate, prompt, verify and CHECK |
@@ -105,6 +105,21 @@ Each OTLP value uses a typed `AnyValue`. 64-bit integers, including nanoseconds,
 | `orkastery.prompt.size` | decimal `intValue`, bytes | `phase_prompt_recorded` when size already exists on the event |
 
 `orkastery.event.id`, `orkastery.maestro.id`, `orkastery.verify.round_id` and `orkastery.network.id` are not part of the contract. Heartbeats, `ledger_corrupted` and fields outside the allowlist do not become attributes.
+
+## Correlation with Claude Code and Codex
+
+When private opt-in is enabled, each successful dispatch produces an `orkastery.ledger.phase_dispatch` LogRecord. The link carries `session.id` for Claude Code or `conversation.id` for Codex, together with the thread, phase, dispatch, runtime and `user.hash`. Orkastery does not re-emit `claude_code.*`, `codex.*`, native bodies or native payloads. Resuming or observing the same session does not create another link; a retry or redispatch after termination uses the new native identity. A physical retransmission of the same LogRecord preserves `log.record.uid`, so delivery remains at least once and consumers can deduplicate by UID.
+
+As a product rule, native identity uses `session.id` for Claude Code and `conversation.id` for Codex; native event bodies and names do not enter the Orkastery LogRecord.
+
+Configuration exists only in the dispatched session and overrides permissive inherited values:
+
+- Claude Code: `OTEL_LOG_USER_PROMPTS=0`, `OTEL_LOG_ASSISTANT_RESPONSES=0`, `OTEL_LOG_TOOL_DETAILS=0`, `OTEL_LOG_TOOL_CONTENT=0`, with traces set to `none`. Settings live in a transient `0600` file, only its path is placed in argv, and the file is removed after dispatch.
+- Codex: `otel.log_user_prompt=false`, `otel.log_agent_responses=false`, `otel.log_guardian_assessments=false`, `otel.tool_result.max_bytes=0`, `otel.metrics_exporter="none"` and `otel.trace_exporter="none"`. The endpoint and headers use references to variables in the child process environment, without their values in argv, the adapter response, or the command recorded in the ledger.
+
+The remaining full text continues exclusively through the Orkastery prompt pipeline described below, after local redaction. Native logs contain no prompt, response, assessment, tool argument or tool result content. Correlation of Codex metrics by `conversation.id` is **not confirmed** and is not inferred from time, content, PID or files.
+
+Official sources: [Claude Code monitoring](https://code.claude.com/docs/en/monitoring-usage#security-and-privacy), [Codex telemetry and one-off overrides](https://learn.chatgpt.com/docs/config-file/config-advanced#observability-and-telemetry), and the [Codex configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference).
 
 ## Prompt content
 
@@ -124,4 +139,4 @@ Free text passes through the secret catalog first and the local private-data lis
 
 The cursor advances incrementally by position in each ledger. A historical event without `eventId` receives a stable derived UID. A corrupt or truncated line blocks at the first bad point without advancing. The cursor is persisted only after remote confirmation; a crash between POST and cursor sends the same UIDs again. The guarantee is at least once, not exactly once.
 
-Manual delivery uses a non-blocking lock, bounded batch and response, and at most one retry for a connection failure or retryable status. `partialSuccess` and non-retryable responses are terminal and visible in status, without a silent retry. This slice creates no automatic phase hook, metric, trace or enterprise policy; Collector and dashboards are reference models only. Prompt text is exported only by manual opt-in delivery with the protections described above.
+Manual delivery uses a non-blocking lock, bounded batch and response, and at most one retry for a connection failure or retryable status. `partialSuccess` and non-retryable responses are terminal and visible in status, without a silent retry. Native configuration is prepared only for an opted-in dispatch. There is no metric, trace or enterprise policy; Collector and dashboards are reference models only. Prompt text is exported only by manual opt-in delivery with the protections described above.

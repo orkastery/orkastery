@@ -330,6 +330,7 @@ if [ -f "$DIR/rate-limit" ]; then
   exit 1
 fi
 SESSAO="11111111-2222-3333-4444-555555555555"
+if [ -f "$DIR/proxima-sessao" ]; then SESSAO="$(cat "$DIR/proxima-sessao")"; fi
 printf '%s' "$SESSAO" > "$DIR/sessao"
 echo "Background agent started: $SESSAO"
 exit 0
@@ -343,6 +344,8 @@ export interface RuntimeFalso {
   proximoDespachoMorreDeRateLimit: (stderr: string) => void;
   /** Troca o `state` que o `claude agents --json` reporta para a sessao despachada. */
   estadoDaSessao: (state: string) => void;
+  /** Define a identidade nativa que o próximo despacho simulado devolverá. */
+  proximaSessao: (sessionId: string) => void;
   /** I-34: `pid` do processo vivo (ou `null` para omitir, como o CLI faz depois da morte). */
   pidDaSessao: (pid: number | null) => void;
   /** I-34: `status` (`idle`/`busy`) que só aparece enquanto o processo vive. */
@@ -374,6 +377,10 @@ export function runtimeFalso(nome: string): RuntimeFalso {
     sessionId: '11111111-2222-3333-4444-555555555555',
     estadoDaSessao: (state: string) => {
       fs.writeFileSync(path.join(dir, 'state'), state, 'utf8');
+    },
+    proximaSessao: (sessionId: string) => {
+      if (!/^[a-f0-9-]{36}$/i.test(sessionId)) throw new Error('sessionId simulado inválido');
+      fs.writeFileSync(path.join(dir, 'proxima-sessao'), sessionId, 'utf8');
     },
     pidDaSessao: (pid: number | null) => {
       if (pid === null) fs.rmSync(path.join(dir, 'pid'), { force: true });

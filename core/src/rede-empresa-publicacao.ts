@@ -6,11 +6,12 @@ import type { ContaNaForja } from './forja/contrato';
 import type { ProjetoNoPanorama } from './network-roadmap';
 import { procurarSegredos } from './policies';
 import { adesaoRedeEmpresa, gravarAdesaoRedeEmpresa } from './rede-empresa-config';
-import { CONTRATO_PUBLICACAO_EMPRESA, ehInscricaoDaEmpresa, ehPoliticaDaEmpresa, ehPublicacaoDaEmpresa,
+import { CONTRATO_POLITICA_EMPRESA_V2, CONTRATO_PUBLICACAO_EMPRESA_V2, ehInscricaoDaEmpresa, ehPoliticaDaEmpresa, ehPublicacaoDaEmpresa,
   ehTipoDeLacunaPublicada, type InscricaoDaEmpresa, type LacunaPublicada, type PublicacaoDaEmpresa,
   type ReferenciaDaForja } from './rede-empresa-contrato';
 import { caminhoDaPublicacao, type PortaDaBranchEmpresa, type ResultadoDaTransacaoEmpresa,
   lerDocumentoRemoto, transacionarRedeEmpresa, type CodigoDocumentoRemotoInvalido } from './rede-empresa-transporte';
+import { mesmaProjectKey, normalizarProjeto, type EspelhoDeProjeto } from './rede-empresa-projeto';
 
 const FASES = ['GOAL', 'PLAN', 'GO', 'CHECK', 'SHIP', 'MASTER'] as const;
 type FasePublicada = typeof FASES[number];
@@ -41,8 +42,6 @@ export interface PedidoDePublicacaoEmpresa {
 
 const json = (v: unknown): string => `${JSON.stringify(v, null, 2)}\n`;
 const caminhoDaInscricao = (id: string): string => `inscricoes/${id}.json`;
-const mesmaRef = (a: ReferenciaDaForja, b: ReferenciaDaForja): boolean =>
-  a.forja === b.forja && a.host.toLowerCase() === b.host.toLowerCase() && a.caminho.toLowerCase() === b.caminho.toLowerCase();
 const mesmaConta = (inscricao: InscricaoDaEmpresa, pedido: PedidoDePublicacaoEmpresa): boolean =>
   inscricao.maestroRef.forja === pedido.forja && inscricao.maestroRef.host.toLowerCase() === pedido.host.toLowerCase()
   && inscricao.maestroRef.accountId === pedido.conta.accountId;
@@ -51,7 +50,8 @@ const fase = (v: string): FasePublicada | null => FASES.includes(v.toUpperCase()
 const threadRef = (inscricaoId: string, id: string): string =>
   `thread-${createHash('sha256').update(`${inscricaoId}\n${id}`, 'utf8').digest('hex').slice(0, 24)}`;
 
-function montarProjecao(inscricao: InscricaoDaEmpresa, pedido: PedidoDePublicacaoEmpresa): PublicacaoDaEmpresa | null {
+function montarProjecao(inscricao: InscricaoDaEmpresa, pedido: PedidoDePublicacaoEmpresa,
+  espelhos: readonly EspelhoDeProjeto[]): PublicacaoDaEmpresa | null {
   const itens = (pedido.panorama.roadmap?.grupos ?? []).flatMap((g) => g.itens)
     .map((item) => ({ id: item.id, estado: item.grupo }))
     .sort((a, b) => a.id.localeCompare(b.id));
@@ -70,16 +70,18 @@ function montarProjecao(inscricao: InscricaoDaEmpresa, pedido: PedidoDePublicaca
     if (!ehTipoDeLacunaPublicada(lacuna.tipo)) return null;
     lacunas.push({ tipo: lacuna.tipo, parte: lacuna.parte });
   }
-  return { contrato: CONTRATO_PUBLICACAO_EMPRESA, politicaVersao: inscricao.politicaVersao,
+  const projectKey = normalizarProjeto(pedido.projeto, { espelhos }).projectKey;
+  return { contrato: CONTRATO_PUBLICACAO_EMPRESA_V2, projectKey, politicaVersao: inscricao.politicaVersao,
     inscricaoId: inscricao.inscricaoId, publicadoEm: pedido.agora,
     maestro: { ...inscricao.maestroRef, loginAtual: inscricao.loginAtual }, rede: inscricao.rede, projeto: pedido.projeto,
     itens, reservas, trabalhos, fontes, lacunas };
 }
 
 /** Valida o contrato e aplica as mesmas barreiras de dado privado e segredo antes de formar o blob. */
-export function projetarPublicacaoEmpresa(inscricao: InscricaoDaEmpresa, pedido: PedidoDePublicacaoEmpresa):
+export function projetarPublicacaoEmpresa(inscricao: InscricaoDaEmpresa, pedido: PedidoDePublicacaoEmpresa,
+  espelhos: readonly EspelhoDeProjeto[] = []):
 { ok: true; valor: PublicacaoDaEmpresa; texto: string } | { ok: false; codigo: CodigoDaPublicacaoEmpresa } {
-  const valor = montarProjecao(inscricao, pedido);
+  const valor = montarProjecao(inscricao, pedido, espelhos);
   if (!valor || !ehPublicacaoDaEmpresa(valor)) return { ok: false, codigo: 'rede-empresa.projecao-invalida' };
   const texto = json(valor);
   const varredura = varrerTexto(pedido.privacidade, caminhoDaPublicacao(inscricao.inscricaoId, pedido.projetoRef), texto);
@@ -118,8 +120,9 @@ export function publicarNaRedeEmpresa(porta: PortaDaBranchEmpresa, pedido: Pedid
     if (politica.versao !== inscricao.politicaVersao) { falha = 'rede-empresa.politica-incompativel'; return null; }
     if (inscricao.estado !== 'ativa') { falha = 'rede-empresa.inscricao-inativa'; return null; }
     if (!mesmaConta(inscricao, pedido)) { falha = 'rede-empresa.identidade-divergente'; return null; }
-    if (!inscricao.projetos.some((p) => mesmaRef(p, pedido.projeto))) { falha = 'rede-empresa.projeto-nao-autorizado'; return null; }
-    const projetada = projetarPublicacaoEmpresa(inscricao, pedido);
+    const espelhos = politica.contrato === CONTRATO_POLITICA_EMPRESA_V2 ? politica.espelhos : [];
+    if (!inscricao.projetos.some((p) => mesmaProjectKey(p, pedido.projeto, espelhos))) { falha = 'rede-empresa.projeto-nao-autorizado'; return null; }
+    const projetada = projetarPublicacaoEmpresa(inscricao, pedido, espelhos);
     if (!projetada.ok) { falha = projetada.codigo; return null; }
     const caminho = caminhoDaPublicacao(pedido.inscricaoId, pedido.projetoRef);
     const anteriorLida = lerDocumentoRemoto(ponta, caminho, ehPublicacaoDaEmpresa);

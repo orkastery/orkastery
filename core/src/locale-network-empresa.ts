@@ -1,5 +1,6 @@
 /** Mensagens acionáveis da rede coletiva; o código JSON não é traduzido. */
 import type { Locale } from './locale';
+import type { ResultadoDaCobertura } from './rede-empresa-config';
 
 export interface TextoDaFalhaEmpresa { mensagem: string; acao: string }
 
@@ -21,6 +22,8 @@ const PT: Record<string, TextoDaFalhaEmpresa> = {
   'rede-empresa.segredo': { mensagem: 'a projeção contém padrão de segredo', acao: 'revogue o segredo, remova-o da origem e repita sem copiar o valor para logs ou argumentos' },
   'rede-empresa.forja-indisponivel': { mensagem: 'a forja não pôde ser lida; a publicação ficou pendente', acao: 'confira login, acesso e alcance da forja e repita `ork network empresa publicar`' },
   'rede-empresa.concorrencia': { mensagem: 'a branch avançou em todas as tentativas', acao: 'aguarde a outra escrita terminar e repita; não use `force`' },
+  'rede-empresa.cobertura-exigida': { mensagem: 'a política exige a rede coletiva, mas ela não foi conferida', acao: 'restaure a leitura da rede ou apresente uma exceção autenticada para este projeto e item' },
+  'rede-empresa.cobertura-aviso': { mensagem: 'a rede coletiva não foi conferida; a política permite continuar com aviso', acao: 'confira a rede antes de outro trabalho para excluir duplicidade coletiva' },
   'rede-empresa.repositorio-publico': { mensagem: 'o repositório da rede coletiva não é privado', acao: 'torne o repositório privado na forja antes de inscrever ou publicar' },
   'forja.ausente': { mensagem: 'a CLI da forja não está disponível', acao: 'instale `gh` ou `glab`, faça login no host correto e repita' },
   'forja.sem-login': { mensagem: 'a CLI da forja não tem login válido no host', acao: 'rode `gh auth login` ou `glab auth login` para o host correto e repita' },
@@ -50,6 +53,8 @@ const EN: Record<string, TextoDaFalhaEmpresa> = {
   'rede-empresa.segredo': { mensagem: 'the projection contains a secret pattern', acao: 'revoke the secret, remove it at its source, and retry without copying it into logs or arguments' },
   'rede-empresa.forja-indisponivel': { mensagem: 'the forge could not be read; publication is pending', acao: 'check forge login, access, and connectivity, then retry `ork network empresa publicar`' },
   'rede-empresa.concorrencia': { mensagem: 'the branch advanced on every attempt', acao: 'wait for the other write to finish and retry; do not use `force`' },
+  'rede-empresa.cobertura-exigida': { mensagem: 'policy requires the collective network, but it was not verified', acao: 'restore network reads or provide an authenticated exception for this project and item' },
+  'rede-empresa.cobertura-aviso': { mensagem: 'the collective network was not verified; policy allows continuing with a warning', acao: 'verify the network before other work to rule out collective duplication' },
   'rede-empresa.repositorio-publico': { mensagem: 'the collective network repository is not private', acao: 'make the repository private in the forge before enrolling or publishing' },
   'forja.ausente': { mensagem: 'the forge CLI is unavailable', acao: 'install `gh` or `glab`, sign in to the correct host, and retry' },
   'forja.sem-login': { mensagem: 'the forge CLI has no valid login for the host', acao: 'run `gh auth login` or `glab auth login` for the correct host and retry' },
@@ -69,4 +74,21 @@ export function textoDaFalhaEmpresa(codigo: string, locale: Locale): TextoDaFalh
   return catalogo[codigo] ?? (locale === 'en'
     ? { mensagem: 'the collective network operation failed', acao: 'check `ork network empresa status`, correct the reported condition, and retry' }
     : { mensagem: 'a operação da rede coletiva falhou', acao: 'consulte `ork network empresa status`, corrija a condição informada e repita' });
+}
+
+export function textoDaCoberturaEmpresa(c: ResultadoDaCobertura, locale: Locale): string {
+  const en = locale === 'en';
+  if (c.estado === 'conferida') return en
+    ? `Collective coverage verified (${c.nivel}; receipt ${c.reciboVersao ?? 'not declared'}).`
+    : `Cobertura coletiva conferida (${c.nivel}; recibo ${c.reciboVersao ?? 'não declarado'}).`;
+  if (c.estado === 'excecao-autenticada') return en
+    ? `Authenticated collective-coverage exception used (${c.nivel}).`
+    : `Exceção autenticada de cobertura coletiva usada (${c.nivel}).`;
+  const estado = c.estado === 'nao-configurada'
+    ? (en ? 'not configured' : 'não configurada') : (en ? 'not verified' : 'não conferida');
+  return c.permite
+    ? (en ? `WARNING: collective coverage ${estado}; ${c.nivel} allows continuation.`
+      : `AVISO: cobertura coletiva ${estado}; ${c.nivel} permite continuar.`)
+    : (en ? `BLOCKED: collective coverage ${estado}; ${c.nivel} requires verification or an authenticated exception.`
+      : `BLOQUEADO: cobertura coletiva ${estado}; ${c.nivel} exige conferência ou exceção autenticada.`);
 }

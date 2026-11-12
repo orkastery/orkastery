@@ -52,16 +52,43 @@ test('verify e CHECK usam cicd oficial sem duplicar roundId', () => {
   assert.deepEqual(attrs(check)['cicd.pipeline.name'], { stringValue: 'orkastery.check' });
 });
 
-test('despacho GenAI, encerramento e revisão usam somente convenções aplicáveis', () => {
-  const dispatch = mapearEventoDoLedger(evento('phase_dispatch', { runtime: 'codex', model: 'gpt-exemplo',
-    sessionId: 'sessao-1', conversationId: 'conversa-1' }), contexto).registro!;
-  assert.deepEqual(attrs(dispatch)['gen_ai.operation.name'], { stringValue: 'invoke_agent' });
-  assert.deepEqual(attrs(dispatch)['orkastery.runtime.name'], { stringValue: 'codex' });
+test('despacho correlaciona a identidade nativa sem copiar evento do runtime', () => {
+  const contextoDoDespacho = { fase: 'GO', dispatchId: 'despacho-1', model: 'gpt-exemplo' };
+  const codex = mapearEventoDoLedger(evento('phase_dispatch', { ...contextoDoDespacho,
+    runtime: 'codex', sessionId: 'conversa-1', body: 'resposta nativa', event: 'codex.tool_result' }), contexto).registro!;
+  const claude = mapearEventoDoLedger(evento('phase_dispatch', { ...contextoDoDespacho,
+    runtime: 'claude-bg', sessionId: 'sessao-1', payload: 'prompt nativo', eventName: 'claude_code.user_prompt' }), contexto).registro!;
+  assert.deepEqual(attrs(codex)['conversation.id'], { stringValue: 'conversa-1' });
+  assert.equal('session.id' in attrs(codex), false);
+  assert.deepEqual(attrs(claude)['session.id'], { stringValue: 'sessao-1' });
+  assert.equal('conversation.id' in attrs(claude), false);
+  for (const dispatch of [codex, claude]) {
+    const a = attrs(dispatch);
+    assert.equal(dispatch.eventName, 'orkastery.ledger.phase_dispatch');
+    assert.deepEqual(a['gen_ai.operation.name'], { stringValue: 'invoke_agent' });
+    assert.deepEqual(a['user.hash'], { stringValue: 'anonimo-estavel' });
+    assert.deepEqual(a['orkastery.thread.id'], { stringValue: 'ork-exemplo' });
+    assert.deepEqual(a['orkastery.phase.name'], { stringValue: 'GO' });
+    assert.deepEqual(a['orkastery.dispatch.id'], { stringValue: 'despacho-1' });
+    assert.equal(JSON.stringify(dispatch).includes('resposta nativa'), false);
+    assert.equal(JSON.stringify(dispatch).includes('prompt nativo'), false);
+    assert.equal(JSON.stringify(dispatch).includes('codex.tool_result'), false);
+    assert.equal(JSON.stringify(dispatch).includes('claude_code.user_prompt'), false);
+  }
   const commit = mapearEventoDoLedger(evento('mcp_git_committed', { sha: 'abc', branch: 'ork/x' }), contexto).registro!;
   assert.deepEqual(attrs(commit)['vcs.ref.head.revision'], { stringValue: 'abc' });
   for (const tipo of ['master_done', 'thread_closed_admin']) {
     assert.match(mapearEventoDoLedger(evento(tipo), contexto).registro!.eventName, new RegExp(tipo));
   }
+});
+
+test('reentrega do vínculo preserva UID lógico sem prometer POST único', () => {
+  const e = evento('phase_dispatch', { runtime: 'codex', sessionId: 'conversa-1' });
+  const primeiro = mapearEventoDoLedger(e, contexto).registro!;
+  const reentregue = mapearEventoDoLedger(e, { ...contexto, observadoEmNano: () => 1_900_000_000_000_000_000n }).registro!;
+  assert.deepEqual(attrs(primeiro)['log.record.uid'], { stringValue: 'id-phase_dispatch' });
+  assert.deepEqual(attrs(reentregue)['log.record.uid'], attrs(primeiro)['log.record.uid']);
+  assert.notEqual(reentregue.observedTimeUnixNano, primeiro.observedTimeUnixNano);
 });
 
 test('identidade usa log.record.uid e user.hash; nomes duplicados não existem', () => {

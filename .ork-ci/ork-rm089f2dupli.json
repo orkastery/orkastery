@@ -1,0 +1,1368 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm089f2dupli",
+  "branch": "ork/ork-rm089f2dupli-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C43",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "Sem inscrição coletiva ativa, `roadmap pegar` preserva o fluxo e a saída históricos da RM-047; a saga coletiva só entra quando a configuração existe.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-reservas.test.js core/dist-test/test/rm089-f2-entradas.test.js"
+      ],
+      "criadoEm": "2026-11-11T21:48:31.196Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "As referências CLI em português e inglês usam a mesma invocação canônica de `thread new --roadmap` e descrevem corretamente o fallback local sem rede coletiva.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/locale-f3a-referencia.test.js core/dist-test/test/rm089-guia.test.js"
+      ],
+      "criadoEm": "2026-11-11T21:51:24.891Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/locale-ajuda.ts",
+      "alegacao": "A ajuda de `thread new --roadmap` permanece verdadeira com ou sem rede coletiva, e a snapshot F2a exclui integralmente apenas a nova família `network empresa`.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f2a-snapshot.test.js core/dist-test/test/locale-ajuda.test.js"
+      ],
+      "criadoEm": "2026-11-11T21:52:08.271Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f2a-snapshot.test.ts",
+      "alegacao": "A snapshot F2a remove integralmente a família nova `network empresa` antes da comparação e mantém todo o restante byte a byte.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/locale-f2a-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-11T21:53:37.933Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f2a-pt-BR.json",
+      "alegacao": "A fixture F2a muda somente a descrição de `--roadmap` para refletir o fallback local quando não há rede coletiva.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/locale-f2a-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-11T21:53:38.053Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "A fixture F3b acompanha a linha de uso pública do roadmap com o subcomando `reconciliar`, preservando os demais casos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/locale-f3b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-11T21:54:00.859Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/locale-ajuda.ts",
+      "alegacao": "A ajuda de `roadmap pegar` informa em pt-BR e EN que a reserva é para esta máquina e que a rede coletiva é usada primeiro quando configurada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f2a-snapshot.test.js core/dist-test/test/locale-ajuda.test.js"
+      ],
+      "criadoEm": "2026-11-11T22:07:59.726Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f2a-snapshot.test.ts",
+      "alegacao": "O snapshot F2a confirma uma ocorrência exata do bloco `network empresa` de três linhas antes de removê-lo de cada saída de ajuda.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/locale-f2a-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-11T22:07:59.814Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f2a-pt-BR.json",
+      "alegacao": "Os três casos globais da ajuda F2a registram as linhas atuais de `roadmap pegar`, `--forcar` e `roadmap reconciliar`, preservando os casos específicos congelados.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/locale-f2a-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-11T22:07:59.938Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C52",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-coordenacao.ts",
+      "alegacao": "A reserva coletiva rejeita adulteração do titular e renova versão e fingerprint em toda mutação, preservando a titularidade autenticada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-duplicidade.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:07:32.273Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/rede-empresa-duplicidade.test.ts",
+      "alegacao": "A suíte hermética prova que adulteração do titular é inválida e que renovação, colaboração e acordo produzem fingerprints distintos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-duplicidade.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:07:32.384Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C54",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-transporte.ts",
+      "alegacao": "Falhas de git show, ls-tree e cat-file são indisponibilidade tipada e nunca ausência ou lista vazia.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-duplicidade.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:11:18.967Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C55",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-coordenacao.ts",
+      "alegacao": "Falha ao enumerar publicações coletivas interrompe a coordenação como forja indisponível.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-duplicidade.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:11:19.074Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C56",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/rede-empresa-duplicidade.test.ts",
+      "alegacao": "A suíte hermética prova que falha de leitura coletiva não cria reserva nem vira lista vazia.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-duplicidade.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:11:19.173Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C57",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-publicacao.ts",
+      "alegacao": "A publicação usa os espelhos da política ao produzir a projectKey canônica.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-publicacao.test.js core/dist-test/test/rede-empresa-status-f2.test.js core/dist-test/test/rede-empresa-duplicidade.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:11:19.274Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C58",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-config.ts",
+      "alegacao": "O cache local preserva o mapa de espelhos da política para todas as superfícies.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-publicacao.test.js core/dist-test/test/rede-empresa-status-f2.test.js core/dist-test/test/rede-empresa-duplicidade.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:11:19.347Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C59",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-operacao.ts",
+      "alegacao": "A entrada de coordenação resolve inscrição e projectKey com o mesmo mapa explícito de espelhos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-publicacao.test.js core/dist-test/test/rede-empresa-status-f2.test.js core/dist-test/test/rede-empresa-duplicidade.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:11:19.429Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C60",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/rede-empresa-publicacao.test.ts",
+      "alegacao": "A suíte integrada prova a mesma projectKey em publicação, status e coordenação com espelho explícito.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-publicacao.test.js core/dist-test/test/rede-empresa-status-f2.test.js core/dist-test/test/rede-empresa-duplicidade.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:11:19.507Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C61",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-operacao.ts",
+      "alegacao": "A saga finaliza de modo auditável a thread sem vínculo, compensa em ordem inversa e bloqueia registros de reconciliação inválidos com caminho relativo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f2-saga.test.js core/dist-test/test/rm089-f2-entradas.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:14:42.535Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C62",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "A entrada CLI usa a porta auditável de finalização de thread tanto na compensação quanto no reparo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f2-saga.test.js core/dist-test/test/rm089-f2-entradas.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:14:42.602Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C63",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-server.ts",
+      "alegacao": "A entrada MCP usa a mesma porta auditável de finalização da saga da CLI.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f2-saga.test.js core/dist-test/test/rm089-f2-entradas.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:14:42.667Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C64",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f2-saga.test.ts",
+      "alegacao": "A suíte hermética prova a finalização da thread órfã, o reparo idempotente e o bloqueio de reconciliação corrompida.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f2-saga.test.js core/dist-test/test/rm089-f2-entradas.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:14:42.730Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C65",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-atestacao.ts",
+      "alegacao": "Os adaptadores oficiais autenticados de GitHub e GitLab fornecem autoria, corpo e tempos fechados para acordo e exceção.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-duplicidade.test.js core/dist-test/test/rede-empresa-status-f2.test.js core/dist-test/test/rm089-f2-entradas.test.js core/dist-test/test/rede-empresa-forja.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:21:03.725Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C66",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-config.ts",
+      "alegacao": "A política exigir aceita uma exceção específica, vigente e autenticada pela forja com referência auditável.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-duplicidade.test.js core/dist-test/test/rede-empresa-status-f2.test.js core/dist-test/test/rm089-f2-entradas.test.js core/dist-test/test/rede-empresa-forja.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:21:03.828Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C67",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-operacao.ts",
+      "alegacao": "A coordenação pública executa reserva, colaboração ou acordo e aplica exceção autenticada no fail-open visível.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-duplicidade.test.js core/dist-test/test/rede-empresa-status-f2.test.js core/dist-test/test/rm089-f2-entradas.test.js core/dist-test/test/rede-empresa-forja.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:21:03.962Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C68",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/rede-empresa-duplicidade.test.ts",
+      "alegacao": "A suíte hermética prova acordo pelos adaptadores autenticados das duas forjas e preserva o titular.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-duplicidade.test.js core/dist-test/test/rede-empresa-status-f2.test.js core/dist-test/test/rm089-f2-entradas.test.js core/dist-test/test/rede-empresa-forja.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:21:04.063Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C69",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/rede-empresa-status-f2.test.ts",
+      "alegacao": "A suíte hermética prova a exceção específica e autenticada de ponta a ponta no domínio de cobertura.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-duplicidade.test.js core/dist-test/test/rede-empresa-status-f2.test.js core/dist-test/test/rm089-f2-entradas.test.js core/dist-test/test/rede-empresa-forja.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:21:04.298Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C70",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "A CLI interpreta e encaminha reserva, colaboração, acordo e exceção auditável, e apresenta o fail-open coletivo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-duplicidade.test.js core/dist-test/test/rede-empresa-status-f2.test.js core/dist-test/test/rm089-f2-entradas.test.js core/dist-test/test/rede-empresa-forja.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:21:04.452Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C71",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-server.ts",
+      "alegacao": "O schema e a execução MCP encaminham a mesma coordenação de reserva, colaboração, acordo e exceção da CLI.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-duplicidade.test.js core/dist-test/test/rede-empresa-status-f2.test.js core/dist-test/test/rm089-f2-entradas.test.js core/dist-test/test/rede-empresa-forja.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:21:04.638Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C72",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f2-entradas.test.ts",
+      "alegacao": "A suíte de entradas prova os schemas MCP e a interpretação CLI de acordo e exceção com referências fechadas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rede-empresa-duplicidade.test.js core/dist-test/test/rede-empresa-status-f2.test.js core/dist-test/test/rm089-f2-entradas.test.js core/dist-test/test/rede-empresa-forja.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:21:04.757Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C115",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f2-entradas.test.ts",
+      "alegacao": "O teste hermético distingue inscrição coletiva ativa sem cache de rede não configurada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f2-entradas.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:25:56.782Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C116",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-operacao.ts",
+      "alegacao": "Uma inscrição coletiva ativa sem cache permanece configurada e expõe cobertura não conferida no fail-open.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-f2-entradas.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:25:56.865Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C117",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-guia.test.ts",
+      "alegacao": "O teste documental exige as entradas públicas de colaboração, atestação e exceção nos guias e referências bilíngues.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-guia.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:25:56.934Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C118",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referência de CLI em português enumera os campos públicos de coordenação coletiva e a forma equivalente do MCP.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-guia.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:25:56.988Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C119",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "A referência de CLI em inglês enumera os campos públicos de coordenação coletiva e a forma equivalente do MCP.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-guia.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:25:57.036Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C120",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "docs/guias/rede-da-empresa.pt-BR.md",
+      "alegacao": "O guia em português documenta as entradas públicas de colaboração, acordo autenticado e exceção auditável em CLI e MCP.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-guia.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:25:57.109Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C121",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "docs/guias/rede-da-empresa.md",
+      "alegacao": "O guia em inglês documenta as entradas públicas de colaboração, acordo autenticado e exceção auditável em CLI e MCP.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm089-guia.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:25:57.182Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C122",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-operacao.ts",
+      "alegacao": "A função compartilhada pelas três entradas só torna a cobertura pública quando há inscrição coletiva ativa; sem inscrição preserva a saída da RM-047, e exigir continua bloqueando.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f2-entradas.test.js core/dist-test/test/locale-f3b-snapshot.test.js core/dist-test/test/locale-reservas.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:54:45.316Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C123",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "roadmap pegar e thread new --roadmap omitem o aviso coletivo sem inscrição ativa e o exibem para cobertura não conferida de uma inscrição ativa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f2-entradas.test.js core/dist-test/test/locale-f3b-snapshot.test.js core/dist-test/test/locale-reservas.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:54:45.399Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C124",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-server.ts",
+      "alegacao": "ork_thread_new usa a mesma decisão de cobertura da CLI e só inclui cobertura na resposta quando há inscrição coletiva ativa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f2-entradas.test.js core/dist-test/test/locale-f3b-snapshot.test.js core/dist-test/test/locale-reservas.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:54:45.471Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C125",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f2-entradas.test.ts",
+      "alegacao": "Os testes herméticos provam cobertura omitida sem inscrição, aviso público com inscrição ativa e bloqueio no nível exigir.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f2-entradas.test.js core/dist-test/test/locale-f3b-snapshot.test.js core/dist-test/test/locale-reservas.test.js"
+      ],
+      "criadoEm": "2026-11-12T00:54:45.560Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C126",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "docs/guias/rede-da-empresa.pt-BR.md",
+      "alegacao": "O guia em português condiciona o aviso operacional à inscrição ativa e mantém o estado não configurado visível no status.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"sem inscrição ativa nesta máquina\" docs/guias/rede-da-empresa.pt-BR.md"
+      ],
+      "criadoEm": "2026-11-12T00:54:45.620Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C127",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "docs/guias/rede-da-empresa.md",
+      "alegacao": "O guia em inglês condiciona o aviso operacional à inscrição ativa e mantém o estado não configurado visível no status.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"without an active enrollment on this machine\" docs/guias/rede-da-empresa.md"
+      ],
+      "criadoEm": "2026-11-12T00:54:45.675Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C128",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "A referência CLI em inglês declara que as três entradas preservam a RM-047 sem inscrição e só expõem cobertura com inscrição ativa.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"Without enrollment it preserves the RM-047 output with no collective warning\" docs/referencia/cli.en.md",
+        "grep -F \"The response includes coverage only with an active enrollment\" docs/referencia/cli.en.md"
+      ],
+      "criadoEm": "2026-11-12T00:54:45.732Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C129",
+      "thread": "ork-rm089f2dupli",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referência CLI em português declara que as três entradas preservam a RM-047 sem inscrição e só expõem cobertura com inscrição ativa.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"Sem inscrição, preserva a saída da RM-047 sem aviso coletivo\" docs/referencia/cli.md",
+        "grep -F \"O campo de cobertura só entra na resposta com inscrição ativa\" docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-11-12T00:54:45.782Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C73",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C74",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C75",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C77",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C78",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C80",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C81",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C82",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C83",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C84",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C85",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C86",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C87",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C88",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C89",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C90",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C91",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C92",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C93",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C94",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C95",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C96",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C97",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C98",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C100",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C101",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C102",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C103",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C104",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C105",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C106",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C107",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C108",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C109",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C110",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C111",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C112",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C113",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C114",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C130",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C131",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C132",
+      "reason": "local-integration-required"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}
