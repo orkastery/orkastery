@@ -324,6 +324,8 @@ test('Codex instala catalogo e entrada em pasta propria e preserva configuracao 
     assert.equal(recibo.host,'codex');
     assert.ok(recibo.arquivos.some((a: { arquivo: string })=>a.arquivo==='.codex/hooks.json'));
     assert.ok(recibo.arquivos.some((a: { arquivo: string })=>a.arquivo==='.codex/hooks/ork-sessao.js'));
+    assert.equal(recibo.arquivos.find((a: { arquivo: string })=>a.arquivo==='.codex/hooks.json').destino,
+      '.codex/hooks.json');
     assert.equal(instalarAdaptador('codex',opcoes).arquivos.every(a=>a.estado==='igual'),true);
     const hook = path.join(projeto,'.codex/hooks.json');
     fs.writeFileSync(hook,'edicao local');
