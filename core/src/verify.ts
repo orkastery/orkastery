@@ -1052,6 +1052,84 @@ export interface ResultadoVerify {
   parcial: boolean;
 }
 
+/** Entrada pura do julgamento compartilhado pelo verify local e pelo replay do runner. */
+export interface EntradaDoJulgamentoVerify {
+  claims: ResultadoDeClaim[];
+  comandos: ResultadoDeComando[];
+  baseline: Baseline | null;
+  preparo?: ResultadoDeComando | null;
+  produtoAlterado?: boolean;
+  policyViolada?: boolean;
+}
+
+/** A parte decisória do verify, sem ledger, estado da instalação ou condução. */
+export interface JulgamentoVerify {
+  regressoes: ResultadoDeComando[];
+  preExistentes: ResultadoDeComando[];
+  falhasSemBaseline: ResultadoDeComando[];
+  comparacoes: ComparacaoDoVerify[];
+  estouros: ResultadoDeComando[];
+  naoExecutados: ResultadoDeComando[];
+  baselineSemVeredito: string[];
+  motivos: MotivoGate[];
+  bloqueantes: MotivoGate[];
+  ok: boolean;
+}
+
+/**
+ * Julga os resultados já executados. O adaptador local persiste o resultado; o runner usa a mesma
+ * decisão em memória e nunca recebe ledger ou diretório de estado.
+ */
+export function julgarResultadoDoVerify(entrada: EntradaDoJulgamentoVerify): JulgamentoVerify {
+  const { claims, comandos, baseline } = entrada;
+  const regressoes: ResultadoDeComando[] = [];
+  const preExistentes: ResultadoDeComando[] = [];
+  const falhasSemBaseline: ResultadoDeComando[] = [];
+  const comparacoes: ComparacaoDoVerify[] = [];
+  const estouros: ResultadoDeComando[] = [];
+  const baselineSemVeredito = (baseline?.comandos ?? [])
+    .filter((comando) => vereditoDaBaseline(comando) === 'sem-veredito').map((comando) => comando.nome);
+  for (const atual of comandos) {
+    if (atual.executado === false) continue;
+    if (!atual.ok && semVereditoPorTempo(atual)) {
+      estouros.push(atual);
+      continue;
+    }
+    const antes = baseline?.comandos.find((comando) => comando.nome === atual.nome);
+    if (!antes || vereditoDaBaseline(antes) === 'sem-veredito') {
+      if (!atual.ok) falhasSemBaseline.push(atual);
+      continue;
+    }
+    const comparacao = compararComBaseline(atual, antes);
+    if (!comparacao) continue;
+    comparacoes.push(comparacao);
+    if (comparacao.granularidade === 'teste') {
+      if (comparacao.regressoes.length > 0) regressoes.push(atual);
+      if (comparacao.preExistentes.length > 0) preExistentes.push(atual);
+    } else if (comparacao.classificacaoDoComando === 'regressao') regressoes.push(atual);
+    else if (comparacao.classificacaoDoComando === 'pre-existente') preExistentes.push(atual);
+  }
+
+  const naoExecutados = comandos.filter((comando) => comando.executado === false);
+  const preparoNaoExecutado = entrada.preparo?.executado === false;
+  const preparoSemVeredito = !!entrada.preparo && !entrada.preparo.ok && semVereditoPorTempo(entrada.preparo);
+  const preparoFalhou = !!entrada.preparo && !entrada.preparo.ok && !preparoSemVeredito && !preparoNaoExecutado;
+  const motivos: MotivoGate[] = [];
+  if (claims.some((claim) => claim.motivo === 'claims.failed')) motivos.push('claims.failed');
+  if (claims.some((claim) => claim.motivo === 'claims.unverifiable')) motivos.push('claims.unverifiable');
+  if (regressoes.length > 0) motivos.push('verify.regression');
+  if (falhasSemBaseline.length > 0 || preparoFalhou) motivos.push('verify.failed');
+  if (estouros.length > 0 || preparoSemVeredito || claims.some((claim) => claim.motivo === 'verify.timeout')) {
+    motivos.push('verify.timeout');
+  }
+  if (entrada.produtoAlterado || preparoNaoExecutado || naoExecutados.length > 0 ||
+      claims.some((claim) => claim.motivo === 'verify.sem-veredito')) motivos.push('verify.sem-veredito');
+  if (entrada.policyViolada) motivos.push('policy.violation');
+  const bloqueantes = motivos.filter((motivo) => motivo !== 'claims.unverifiable');
+  return { regressoes, preExistentes, falhasSemBaseline, comparacoes, estouros, naoExecutados,
+    baselineSemVeredito, motivos, bloqueantes, ok: bloqueantes.length === 0 };
+}
+
 /** RM-037 (fatia 6): o steal da rodada inteira e de cada comando, como vai ao `verify_run`. */
 export interface MedidaDeSteal {
   fonte: typeof FONTE_STEAL;
@@ -1430,44 +1508,14 @@ function verificarSobConducao(
   const dadoPrivado = barreiraDaThread(carregado, thread, cwd, 'verify');
   const dadoPrivadoBloqueia = bloqueantesDePolicy(dadoPrivado?.violacoes ?? []);
 
-  const baseline = thread.baseline ?? null;
-  const regressoes: ResultadoDeComando[] = [];
-  const preExistentes: ResultadoDeComando[] = [];
-  const falhasSemBaseline: ResultadoDeComando[] = [];
-  const comparacoes: ComparacaoDoVerify[] = [];
-  const estouros: ResultadoDeComando[] = [];
-  // RM-037 (defeito 1 de 19 e 20/10/2026): o comando sem veredito na baseline nao separa regressao de divida.
-  const baselineSemVeredito = (baseline?.comandos ?? []).filter((c) => vereditoDaBaseline(c) === 'sem-veredito').map((c) => c.nome);
-  for (const atual of comandos) {
-    // I-54 (D11): comando que nao rodou nao tem resultado para comparar. O motivo tipado entra abaixo como
-    // `verify.sem-veredito`, sem tambem inventar regressao ou divida a partir da ausencia de nomes.
-    if (atual.executado === false) continue;
-    if (!atual.ok && semVereditoPorTempo(atual)) {
-      estouros.push(atual);
-      continue;
-    }
-    const antes = baseline?.comandos.find((c) => c.nome === atual.nome);
-    if (!antes || vereditoDaBaseline(antes) === 'sem-veredito') {
-      if (!atual.ok) falhasSemBaseline.push(atual);
-      continue;
-    }
-    const comparacao = compararComBaseline(atual, antes);
-    if (!comparacao) continue;
-    comparacoes.push(comparacao);
-    if (comparacao.granularidade === 'teste') {
-      if (comparacao.regressoes.length > 0) regressoes.push(atual);
-      if (comparacao.preExistentes.length > 0) preExistentes.push(atual);
-    } else if (comparacao.classificacaoDoComando === 'regressao') {
-      regressoes.push(atual);
-    } else if (comparacao.classificacaoDoComando === 'pre-existente') {
-      preExistentes.push(atual);
-    }
-  }
-
   // I-54 (D11): o produto mudou entre o preparo e o fim da rodada? Entao nenhum veredito vale.
+  const baseline = thread.baseline ?? null;
   const identidadeFinal = preparo ? identidadeDoProduto(cwd) : null;
   const produtoAlterado = !!preparo && identidadeFinal !== preparo.identidade;
-  const naoExecutados = comandos.filter((c) => c.executado === false);
+  const julgamento = julgarResultadoDoVerify({ claims, comandos, baseline,
+    preparo: preparo?.resultado ?? null, produtoAlterado, policyViolada: dadoPrivadoBloqueia.length > 0 });
+  const { regressoes, preExistentes, falhasSemBaseline, comparacoes, estouros, naoExecutados,
+    baselineSemVeredito, motivos, bloqueantes, ok } = julgamento;
 
   const rodadaPct = janelaDaRodada.fechar();
   const todos = [...(preparo ? [preparo.resultado] : []), ...claims.flatMap((c) => c.execucoes), ...comandos];
@@ -1480,19 +1528,6 @@ function verificarSobConducao(
     relogioSobSteal: todos.filter((c) => c.relogioSobSteal?.length).map((c) => c.nome),
   };
 
-  const motivos: MotivoGate[] = [];
-  if (claims.some((c) => c.motivo === 'claims.failed')) motivos.push('claims.failed');
-  if (claims.some((c) => c.motivo === 'claims.unverifiable')) motivos.push('claims.unverifiable');
-  if (regressoes.length > 0) motivos.push('verify.regression');
-  if (falhasSemBaseline.length > 0) motivos.push('verify.failed');
-  if (estouros.length > 0 || claims.some((c) => c.motivo === 'verify.timeout')) motivos.push('verify.timeout');
-  if (produtoAlterado || naoExecutados.length > 0 || claims.some((c) => c.motivo === 'verify.sem-veredito')) {
-    motivos.push('verify.sem-veredito');
-  }
-  if (dadoPrivadoBloqueia.length > 0) motivos.push('policy.violation');
-
-  const bloqueantes = motivos.filter((m) => m !== 'claims.unverifiable');
-  const ok = bloqueantes.length === 0;
   const duracaoMs = Date.now() - inicioDaRodada;
 
   registrar(dir, threadId, TIPOS_DE_EVENTO.verificacao, {

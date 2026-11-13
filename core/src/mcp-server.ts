@@ -38,6 +38,8 @@ import { conducaoDaThread } from './conducao';
 import { registrarDecisao } from './decisao-autonoma';
 import { linhaDeConducao } from './conducao-texto';
 import {criarPerfilShipMcp,PerfilShipMcp,shipMcp} from './mcp-ship';
+import {preflightDoProjeto,type ResultadoPreflightEmpresa} from './rede-empresa-preflight';
+import {textoDoPreflightEmpresa} from './rede-empresa-status';
 import type { TransporteShipMcp } from './mcp-transportes';
 import type { HostMcp } from './mcp-install';
 import { ferramentasServidasAoGrok } from './adapters/grok';
@@ -110,6 +112,13 @@ export interface OpcoesServidorMcp { projeto: string; host: HostMcp;threadId?:st
   ferramentas?: readonly string[];
   /** RM-067 (F4c, D5): avisa o inicio (+1) e o fim (-1) de cada ferramenta, para o servidor externo do grok nao cortar uma no fecho. */
   emCurso?: (delta: 1 | -1) => void }
+
+export function respostaDoStatusMcp(t:ReturnType<typeof lerThread>,c:ReturnType<typeof conducaoDaThread>,
+  avisos:ReturnType<typeof avisosDeArtefatoRegistrados>,preflightEmpresa:ResultadoPreflightEmpresa|null){
+  return {thread:t,conducao:c,avisos,linhaDeConducao:c?linhaDeConducao(c):null,
+    ...(preflightEmpresa?{preflightEmpresa}:{}),
+    resumo:resumoDaThread(t,c,avisos,preflightEmpresa?textoDoPreflightEmpresa(preflightEmpresa,'pt-BR'):undefined)};
+}
 
 /** Factory publica para compor transporte nativo ou testes; nao executa ferramentas no startup. */
 export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
@@ -470,7 +479,8 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     inputSchema:daThread,annotations:{readOnlyHint:true}}, async ({threadId}) => {
       const t=thread(threadId); const c=conducaoDaThread(raiz,threadId);
       const avisos=avisosDeArtefatoRegistrados(lerLedger(dirThread(raiz,threadId)));
-      return resposta({thread:t,conducao:c,avisos,linhaDeConducao:c?linhaDeConducao(c):null,resumo:resumoDaThread(t,c,avisos)});
+      const carregado=carregar();const preflightEmpresa=preflightDoProjeto(raiz,carregado.manifesto);
+      return resposta(respostaDoStatusMcp(t,c,avisos,preflightEmpresa));
     });
   registrarTool('ork_phase_list',{description:'Despachos e resultados registrados da thread, sem despachar ou consultar outros projetos.',
     inputSchema:daThread,annotations:{readOnlyHint:true}},async ({threadId}) => {

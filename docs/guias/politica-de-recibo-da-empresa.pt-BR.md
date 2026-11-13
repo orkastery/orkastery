@@ -22,13 +22,57 @@ ci:
 
 Valor diferente desses três torna o manifesto inválido. O push na própria branch protegida não é um PR/MR e não reprova pela ausência do recibo.
 
-`ork ci prepare <thread>` copia para o bundle o HEAD e o SHA-256 do último recibo `ork.recibo-prova/v1` produzido por um verify verde e integral. O leitor continua aceitando bundle anterior sem `recibo`; em `exigir`, ele aparece como `ausente`. Um recibo fica `presente` quando o HEAD provado é ancestral do HEAD atual e somente o bundle daquela thread mudou em `.ork-ci/` depois do verify. Outra mudança produz `sha-divergente`.
+`ork ci prepare <thread>` grava no campo `recibo` do `ork.ci-bundle/v1` uma entrada
+`ork.ci-projecao-replay/v1`. A projeção leva thread, claims canônicas, rodada, baseline mínima, comandos e hashes, mas
+não declara um HEAD como recibo presente. O leitor aceita o recibo legado apenas para compatibilidade; ele nunca
+satisfaz a prova desta etapa. A baseline projetada é informativa: por vir do próprio PR/MR, ela não participa do
+julgamento executado no CI e não pode classificar uma falha atual como dívida preexistente.
+
+No checkout do PR/MR, o runner valida a projeção, reexecuta preparo, claims e comandos canônicos pelo mesmo julgamento
+puro do verify e emite `ork.ci-recibo-runner/v1` no campo `recibo` do resultado `ork.ci-run/v1`. O recibo fica
+`presente` somente quando `resultado.recibo.head`, `resultado.commit` e o HEAD executado são iguais e a rodada integral
+fica verde. A projeção precisa ter ao menos uma claim e seus comandos devem ser idênticos aos comandos de `verify` do
+manifesto lido da ref da branch de destino. O `verify.preparo` projetado também precisa ser idêntico ao preparo desse
+mesmo manifesto: ausência, inclusão ou troca unilateral invalida a receita. Ref ausente ou manifesto ilegível falha
+fechado. Recibo de outro HEAD é `sha-divergente`; contrato, hash ou receita inválida é `invalido`.
+
+O replay monta um ambiente novo por allowlist. Primitivas de execução, locale, fuso, marcador de CI e valores
+sintéticos da rodada entram; `GITHUB_TOKEN`, `CI_JOB_TOKEN`, chaves `*_TOKEN` e `*_SECRET`, credenciais de runtime ou
+forja e autoridade `ORK_HITL_*` ficam fora. Branch `ork/*`, branch externa e fork seguem a mesma medição nas duas
+forjas. Quando a forja não inicia o job de um fork, o Ork não inventa resultado; a regra de check obrigatório governa
+o merge.
+
+### Diagnósticos do replay
+
+Todas as causas abaixo deixam `policy.receipt` como `invalido`. Em `observar` e `avisar`, o diagnóstico de recibo não
+acrescenta reprovação; em `exigir`, ele reprova o PR/MR para a branch protegida. Falha real de preparo, claim ou comando
+continua reprovando nos três níveis.
+O replay julga todas as execuções atuais sem baseline: não há exceção de dívida preexistente no CI.
+
+| Código | Mensagem | Ação |
+| --- | --- | --- |
+| `ci.recibo.projecao-acima-do-limite` | A projeção excede o limite do bundle | Reduza aos campos canônicos, rode verify no HEAD atual e prepare de novo |
+| `ci.recibo.claim-nao-hermetica` | A claim não pode ser reexecutada integralmente no runner | Torne a claim hermética ou remova a dependência incompatível, rode verify e prepare de novo |
+| `ci.recibo.runner-sem-capacidade` | Falta uma capacidade exigida pelo replay | Disponibilize a capacidade ou revise a claim ou o comando e reexecute |
+| `ci.recibo.comando-nao-iniciado` | Um comando não foi iniciado | Restaure o executável ou runtime declarado e reexecute |
+| `ci.recibo.prazo-excedido` | Um comando excedeu o prazo do verify | Corrija ou divida o comando, ou ajuste o prazo no manifesto, rode verify e prepare de novo |
+| `ci.recibo.produto-alterado` | O produto mudou durante o replay | Remova a mutação concorrente, restaure o checkout e reexecute |
 
 ## Limite de confiança do nível básico
 
-O bundle e o `sha256` do recibo vêm do próprio PR/MR e, portanto, podem ser forjados por quem controla essa mudança. O runner não consulta nem confere o recibo contra o ledger do Orkastery. Neste nível básico, ele apenas reexecuta no HEAD as claims e os comandos declarados pelo bundle e confere a ancestralidade do HEAD do recibo e o diff posterior. Isso detecta divergência operacional, mas não prova a autoria do bundle.
+O bundle e o `sha256` da projeção vêm do próprio PR/MR e podem ser forjados por quem controla essa mudança. O runner exige
+um conjunto não vazio de claims e ancora os comandos e o preparo no `verify` do manifesto da branch de destino, cuja
+proteção administrativa por `CODEOWNERS` e regra obrigatória está fora do controle isolado do PR. Isso prova que a receita
+aceita não esvaziou as claims nem trocou ou omitiu os comandos e o preparo protegidos. O runner não consulta nem confere a projeção
+contra o ledger do Orkastery e ainda não prova que as claims são completas ou autênticas, nem prova a autoria do bundle,
+do código ou do workflow. Também não confia na baseline da projeção: reexecuta no HEAD o preparo, as claims e os comandos
+ancorados, reprova qualquer falha atual e emite o recibo do HEAD que acabou de executar.
+Não usa ancestralidade nem diff posterior para transformar um HEAD antigo em presente. Isso detecta divergência operacional, mas não prova a autoria
+do bundle nem do código.
 
-A garantia contra forja pertence ao recibo assinado da F7 da página da RM-089; ela não faz parte desta fatia. Até essa etapa, a proteção administrativa da forja reduz quem pode alterar manifesto, workflow e bundle, mas não transforma o recibo básico em prova criptográfica.
+A garantia contra forja pertence ao recibo assinado da F7 da página da RM-089; ela não faz parte desta fatia. O campo
+`assinatura` fica reservado no recibo de saída e ausente nesta etapa. Até a F7, a proteção administrativa da forja
+reduz quem pode alterar manifesto, workflow e bundle, mas não transforma o recibo básico em prova criptográfica.
 
 ## Tornar o check obrigatório
 
@@ -60,3 +104,8 @@ Consulte a documentação oficial sobre [branches protegidas](https://docs.gitla
 No GitHub, a origem e o destino do PR vêm de `GITHUB_HEAD_REF` e `GITHUB_BASE_REF`. No GitLab, vêm de `CI_MERGE_REQUEST_SOURCE_BRANCH_NAME` e `CI_MERGE_REQUEST_TARGET_BRANCH_NAME`. Em push, a variável de destino fica ausente e a política não confunde esse evento com PR/MR.
 
 Quando falta recibo, a orientação oferece `ork thread new`; `ork adotar` é o próximo passo da RM-089 e ainda não faz parte desta entrega. Os adaptadores atuais não têm capacidade de comentário em PR/MR, portanto `avisar` usa anotação e resumo no GitHub e log no GitLab. Comentário automático permanece uma lacuna declarada.
+
+Se o projeto também participa da rede da empresa, `ork ci run` anexa um preflight coletivo consultivo ao resultado
+do PR/MR. O segredo opcional `ORK_REDE_EMPRESA_READ_TOKEN` deve permitir somente leitura do repositório privado da
+rede e fica apenas no ambiente do transporte Git. Sem segredo, ou em PR de fork, a saída informa “Checagem
+coletiva não realizada”. Esse estado não muda `ok`, a decisão desta política de recibo nem o código de saída.

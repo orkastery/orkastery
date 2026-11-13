@@ -30,6 +30,7 @@ import * as path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { vagaDoDespacho } from './board';
 import { ExecutorCi, prepararBundleCi, repositorioGitHub } from './ci';
+import { validarProjecaoReplayCi } from './ci-recibo-basico';
 import { canalDoProcesso, comConducao, ErroDeConducao } from './conducao';
 import { docsPendentesDoMerge, sincronizarDocs, verificarDocs } from './docs';
 import { exigirEstadoSemLink, raizDoEstado } from './estado-thread';
@@ -598,10 +599,41 @@ function gravarArquivoDaWorktree(wt: string, arquivo: string, texto: string): vo
 }
 
 /**
+ * RM-089 F5: a projeção versionada não prova HEAD. Antes de publicá-la, o condutor confere que ela descreve exatamente a
+ * última rodada verde: o mesmo commit antes de um eventual commit só de bundle, o mesmo modo do CHECK, a mesma forma
+ * canônica das claims e todos os comandos do manifesto executados naquela rodada. A validação da projeção confere também
+ * os hashes fechados de claims e comandos que formam `rodada`.
+ */
+function conferirProjecaoDaRodadaVerde(raiz: string, threadId: string, arquivo: string, commit: string): void {
+  let entrada: unknown;
+  try { entrada = (JSON.parse(fs.readFileSync(arquivo, 'utf8')) as { recibo?: unknown }).recibo; }
+  catch { throw new RecusaDaEntrega('noctum.entrega.bundle-velho', 'a projeção de replay recém-gravada não se lê'); }
+  const validada = validarProjecaoReplayCi(entrada);
+  const rodada = lerLedger(dirThread(raiz, threadId)).filter((e) => e.tipo === TIPOS_DE_EVENTO.verificacao).at(-1);
+  const check = rodada?.check as { modo?: unknown } | undefined;
+  const recibo = rodada?.recibo as { claimsSha256?: unknown } | undefined;
+  const claimsDaRodada = validada.ok
+    ? createHash('sha256').update(JSON.stringify(validada.projecao.claims.map((claim) => ({
+        id: claim.id, verificar: claim.verificar,
+      })))).digest('hex')
+    : null;
+  const comandosExecutados = new Set(Array.isArray(rodada?.comandos)
+    ? rodada.comandos.map((comando: unknown) => String((comando as { nome?: unknown })?.nome ?? '')) : []);
+  const confere = validada.ok && rodada?.commit === commit && rodada.veredito === 'verdade sustentada' && rodada.parcial !== true &&
+    check?.modo === validada.projecao.rodada.check && recibo?.claimsSha256 === claimsDaRodada &&
+    validada.projecao.commands.every((comando) => comandosExecutados.has(comando.name));
+  if (!confere) {
+    throw new RecusaDaEntrega('noctum.entrega.bundle-velho',
+      `a projeção de replay não corresponde à última rodada verde no commit ${curto(commit)}`);
+  }
+}
+
+/**
  * D4: atualiza o candidato contra a base lida no remoto, na worktree limpa da thread e sob a condução do verify: merge
  * diff3, conflito só aditivo pela regra do núcleo, a entrada da thread em "Não publicado", nenhuma linha da base perdida, o
- * verify executado no commit atualizado e o bundle regravado logo depois. A recusa aborta o merge, grava a base recusada e bloqueia; a leitura que falha
- * aborta e espera, sem gravar recusa.
+ * verify executado no commit atualizado e a projeção conferida e regravada logo depois. Se seus bytes não mudam, não nasce
+ * filho exclusivo do bundle: o commit verificado é o candidato publicado e o recibo do runner prova esse HEAD. A recusa
+ * aborta o merge, grava a base recusada e bloqueia; a leitura que falha aborta e espera, sem gravar recusa.
  */
 function atualizarCandidato(carregado: ManifestoCarregado, arco: string, trabalho: TrabalhoNaFila, t: Thread, base: string,
   opcoes: OpcoesDaEntrega, rastro: Rastro): ResultadoDaEntrega {
@@ -638,17 +670,34 @@ function atualizarCandidato(carregado: ManifestoCarregado, arco: string, trabalh
     let bundleMudou = false;
     const regravarBundle = (): boolean => {
       const arquivo = prepararBundleCi(daBranch, t.id);
+      if (politicaDeRecibo) conferirProjecaoDaRodadaVerde(carregado.raiz, t.id, arquivo, depoisDoMerge);
       const relativo = path.relative(wt, arquivo);
+      const naBranch = git(wt, ['cat-file', '-p', `HEAD:${relativo}`]);
+      const textoNaBranch = naBranch.ok ? naBranch.stdout : null;
+      const projecaoDe = (texto: string | null): ReturnType<typeof validarProjecaoReplayCi> => {
+        if (texto === null) return { ok: false, causa: 'invalida' };
+        try { return validarProjecaoReplayCi((JSON.parse(texto) as { recibo?: unknown }).recibo); }
+        catch { return { ok: false, causa: 'invalida' }; }
+      };
+      const anterior = projecaoDe(textoNaBranch);
+      const atual = projecaoDe(fs.readFileSync(arquivo, 'utf8'));
+      const projecaoMudou = !politicaDeRecibo || !anterior.ok || !atual.ok ||
+        JSON.stringify(anterior.projecao) !== JSON.stringify(atual.projecao);
       const mudou = ler(['status', '--porcelain', '--', relativo], 'o estado do bundle').trim() !== '';
+      const desfazerBundle = (): void => {
+        git(wt, ['reset', '-q', '--', relativo]);
+        if (textoNaBranch !== null) fs.writeFileSync(path.join(wt, relativo), textoNaBranch);
+        else fs.rmSync(path.join(wt, relativo), { force: true });
+      };
+      // O estado transitório das claims no envelope legado não cria filho quando a receita fechada é idêntica. Nesse caso,
+      // o candidato mantém exatamente o bundle que já estava versionado e o runner prova o HEAD publicado no recibo novo.
+      if (mudou && !projecaoMudou) {
+        desfazerBundle();
+        return false;
+      }
       if (mudou) {
         // R3-A4 da rodada 3: o bundle que não commita (um gancho, a trava do índice) volta ao que a branch tinha, e o passo
         // espera, como no commit do merge (R2-A2), sem deixar a worktree suja para o passo seguinte.
-        const desfazerBundle = (): void => {
-          git(wt, ['reset', '-q', '--', relativo]);
-          const naBranch = git(wt, ['cat-file', '-p', `HEAD:${relativo}`]);
-          if (naBranch.ok) fs.writeFileSync(path.join(wt, relativo), naBranch.stdout);
-          else fs.rmSync(path.join(wt, relativo), { force: true });
-        };
         const a = git(wt, ['add', '--', relativo]);
         if (!a.ok) {
           desfazerBundle();
@@ -664,7 +713,8 @@ function atualizarCandidato(carregado: ManifestoCarregado, arco: string, trabalh
       return mudou;
     };
     // Sem opt-in, preserva a sequência histórica: o bundle é regravado primeiro e o verify carimba o candidato final.
-    // Com a RM-089 ligada, o verify carimba o pai e o filho posterior muda somente o bundle que leva esse recibo.
+    // Com a RM-089 ligada, o verify sustenta a projeção. Só há filho posterior quando os bytes da projeção mudam; o HEAD
+    // que o CI executa será provado pelo recibo emitido pelo runner, nunca por um HEAD gravado no bundle.
     if (!politicaDeRecibo) bundleMudou = regravarBundle();
     // O verify que não teve a vez na fila pesada não desfaz a atualização: ele fica para o passo seguinte (`verify: null`).
     let verify: boolean | null = null;

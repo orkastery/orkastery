@@ -546,7 +546,7 @@ function montarApoio(raiz, n, sabotar) {
     }
 
     /** O `verify_run` da sessão no SHA: verde, com a baseline e todas as claims ativas verificadas, marcado SIMULADO. */
-    function verifyDaSessao(threadId, commit, ts) {
+    function verifyDaSessao(threadId, commit, ts, comCheck = false) {
       const docs = path.join(n.thread.dirThread(proj.dir, threadId), 'docs');
       fs.mkdirSync(docs, { recursive: true });
       const plano = path.join(docs, 'plan.md');
@@ -555,6 +555,7 @@ function montarApoio(raiz, n, sabotar) {
       return n.ledger.registrar(n.thread.dirThread(proj.dir, threadId), threadId, 'verify_run', { ...(ts ? { ts } : {}), commit,
         recibo: n.recibo.chaveDoReciboDeProva(proj.dir, threadId, commit),
         veredito: 'verdade sustentada', motivos: [], claims, baseline: { commit: 'baseline-simulada', gravadaEm: ts ?? iso(Date.now()) }, comandos: [],
+        ...(comCheck ? { check: { modo: 'agile', origem: 'manifesto', nome: 'Agile Check' } } : {}),
         simulado: true });
     }
 
@@ -580,13 +581,15 @@ function montarApoio(raiz, n, sabotar) {
         sessionId, despachoEm: sessao.despachadaEm });
       n.claims.adicionarClaim(proj.dir, threadId, { arquivo, alegacao: `a nota do ${t.roadmap} existe`, verificar: [`test -f '${arquivo}'`],
         semProvaLocal: true });
+      const politicaDeRecibo = proj.carregado.manifesto.ci.politica_recibo !== undefined;
+      if (politicaDeRecibo) verifyDaSessao(threadId, produto, ts, true);
       const bundle = n.ci.prepararBundleCi(proj.carregado, threadId);
       git(wt, ['add', '--', path.relative(wt, bundle)]);
       git(wt, ['commit', '-q', '-m', `ci(${threadId}): bundle`]);
       const fonte = git(wt, ['rev-parse', 'HEAD']);
       passar(30);
       gravarParecer(path.join(n.thread.dirThread(proj.dir, threadId), 'docs', 'check.md'), '# CHECK SIMULADO da própria sessão\n\nVeredito: PASSOU\n', ts);
-      verifyDaSessao(threadId, fonte, ts);
+      if (!politicaDeRecibo) verifyDaSessao(threadId, fonte, ts);
       registrar(proj, threadId, 'phase_result', { ...(ts ? { ts } : {}), fase: sessao.fase, sessionId, despachoEm: sessao.despachadaEm, origem: 'sessions.watch',
         sensorResultId: `claude-bg:${sessionId}`, classificacao: 'fase_concluida', ok: true, runtime: 'claude-bg', simulado: true });
       rt.estados.set(sessionId, 'completed');
@@ -601,7 +604,7 @@ function montarApoio(raiz, n, sabotar) {
       const parecer = `# CHECK SIMULADO\n\nVeredito: ${veredito}\n`;
       gravarParecer(path.join(n.thread.dirThread(proj.dir, threadId), 'docs', 'check.md'), parecer, ts);
       const commit = git(t.worktree, ['rev-parse', 'HEAD']);
-      const v = verifyDaSessao(threadId, commit, ts);
+      const v = verifyDaSessao(threadId, commit, ts, true);
       registrar(proj, threadId, 'phase_result', { ...(ts ? { ts } : {}), fase: 'CHECK', sessionId, despachoEm: sessao.despachadaEm, origem: 'sessions.watch',
         sensorResultId: `claude-bg:${sessionId}`, classificacao: 'fase_concluida', ok: true, runtime: 'claude-bg',
         provaOrk: { ok: true, fonte: `docs/check.md gravado com veredito ${veredito}`, veredito, verify: { eventId: v.eventId, commit, ts: v.ts } },
@@ -1365,8 +1368,9 @@ function cenarioCondutorMorto(c, a, n) {
 
 /**
  * A base que anda: com o candidato publicado e o CI verde, um commit chega à base do remoto antes da integração. O condutor
- * atualiza o candidato sobre a base nova (o CHANGELOG em "Não publicado"), roda o verify real nesse SHA e regrava o bundle
- * com o recibo do pai provado; depois publica de novo e integra na base nova, com a prova do push.
+ * atualiza o candidato sobre a base nova (o CHANGELOG em "Não publicado"), roda o verify real nesse SHA e confere a
+ * projeção estável. Sem mudança nos bytes não nasce filho: o runner emite o recibo do candidato publicado e a entrega o
+ * integra na base nova, com a prova do push.
  */
 function cenarioBaseQueAnda(c, a, n) {
   const m = a.mundo('base-que-anda');
@@ -1375,6 +1379,9 @@ function cenarioBaseQueAnda(c, a, n) {
   const comPolitica = manifesto.replace('  context: ork-verify\n', '  context: ork-verify\n  politica_recibo: exigir\n');
   if (comPolitica === manifesto) throw new Error('o cenário base-que-anda não encontrou ci.context para ligar a política de recibo');
   fs.writeFileSync(arquivoDoManifesto, comPolitica);
+  m.git(m.proj.dir, ['add', '--', 'orkastery.yaml']);
+  m.git(m.proj.dir, ['commit', '-q', '-m', 'test: ligar política de recibo']);
+  m.git(m.proj.dir, ['push', '-q', 'origin', 'main']);
   m.proj.carregado = n.manifest.exigirManifesto(m.proj.dir);
   const itens = ['RM-952'];
   a.abrirArco(m.proj, a.pedido('arco-base', { trabalhos: [{ id: 't1', item: 'RM-952', prioridade: 1, dependeDe: [],
@@ -1384,33 +1391,55 @@ function cenarioBaseQueAnda(c, a, n) {
   const t = m.threadDoItem('RM-952');
   if (!t || !m.rt.despachos[0]) { c.esperar('o arco abre e despacha a thread do item', false, JSON.stringify(m.rt.despachos)); return; }
   const { fonte } = m.sessaoDoBloco(t.id, m.rt.despachos[0].sessionId);
-  m.conduzir('arco-base', itens, 1);
-  if (!m.rt.despachos[1]) { c.esperar('a entrega pede a revisão independente', false, JSON.stringify(m.rt.despachos)); return; }
+  const kRev = m.conduzir('arco-base', itens, 1);
+  if (!m.rt.despachos[1]) {
+    c.esperar('a entrega pede a revisão independente', false,
+      JSON.stringify({ despachos: m.rt.despachos, passo: resumoDoPasso(kRev.ultimo) }));
+    return;
+  }
   m.revisaoConcluida(t.id, m.rt.despachos[1].sessionId);
+  const fontePublicada = fonte;
   const kPub = m.conduzir('arco-base', itens, 1);
   const branch = n.worktree.branchDaWorktree(n.thread.lerThread(m.proj.dir, t.id));
   c.esperar('o candidato chega publicado no remoto de fixture, com o PR aberto na forja SIMULADA',
-    kPub.ultimo?.entrega?.acao === 'publicou' && m.lsRemote(`refs/heads/${branch}`) === fonte, JSON.stringify(resumoDoPasso(kPub.ultimo)));
+    kPub.ultimo?.entrega?.acao === 'publicou' && m.lsRemote(`refs/heads/${branch}`) === fontePublicada,
+    JSON.stringify(resumoDoPasso(kPub.ultimo)));
   const baseNova = m.avancarBase({ 'notas/outra.md': '# Outra nota SIMULADA, de fora do arco\n' }, 'docs: outra nota que chegou na base');
   const kAt = m.conduzir('arco-base', itens, 1);
   const at = kAt.ultimo?.entrega;
   const changelog = fs.readFileSync(path.join(t.worktree, 'CHANGELOG.md'), 'utf8');
   const naoPublicado = changelog.slice(changelog.indexOf('## Não publicado'), changelog.indexOf('## [0.1.0]'));
-  c.esperar('com a base nova, o condutor atualiza o candidato sobre ela, com a linha da thread em "Não publicado" e o bundle regravado',
-    at?.acao === 'atualizou' && m.ancestral(t.worktree, baseNova, at.para) && naoPublicado.includes(`o que a thread ${t.id} acrescenta`) &&
+  c.esperar('com a base nova, o condutor atualiza o candidato sobre ela, com a linha da thread em "Não publicado" e a projeção preservada',
+    at?.acao === 'atualizou' && at.bundle === false && m.ancestral(t.worktree, baseNova, at.para) && naoPublicado.includes(`o que a thread ${t.id} acrescenta`) &&
       naoPublicado.includes('Antiga SIMULADA'), JSON.stringify({ at: resumoDoPasso(kAt.ultimo), naoPublicado }));
   const reais = m.ledger(t.id).filter((e) => e.tipo === 'verify_run' && !e.simulado);
   const bundle = path.posix.join('.ork-ci', `${t.id}.json`);
-  const recibo = JSON.parse(fs.readFileSync(path.join(t.worktree, bundle), 'utf8')).recibo;
+  const projecao = JSON.parse(fs.readFileSync(path.join(t.worktree, bundle), 'utf8')).recibo;
   const diffDepoisDoVerify = reais.length === 1 && at?.para
     ? m.git(t.worktree, ['diff', '--name-only', reais[0].commit, at.para, '--']) : null;
-  c.esperar('o condutor roda o verify real no pai provado do bundle, cujo recibo aponta para esse HEAD',
-    at?.verify === true && reais.length === 1 && m.ancestral(t.worktree, reais[0].commit, at.para) &&
-      diffDepoisDoVerify === bundle && recibo?.head === reais[0].commit,
-    JSON.stringify({ verify: at?.verify, reais: reais.map((e) => e.commit), para: at?.para, diffDepoisDoVerify, recibo }));
+  const claimsSha256 = projecao?.claims && createHash('sha256').update(JSON.stringify(projecao.claims)).digest('hex');
+  const commandsSha256 = projecao?.commands && createHash('sha256').update(JSON.stringify(projecao.commands)).digest('hex');
+  c.esperar('o condutor confere a projeção com a rodada verde; sem mudança, o candidato é o próprio HEAD verificado',
+    at?.verify === true && reais.length === 1 && reais[0].commit === at.para && diffDepoisDoVerify === '' &&
+      projecao?.contrato === 'ork.ci-projecao-replay/v1' && !Object.hasOwn(projecao, 'head') &&
+      projecao.rodada?.claimsSha256 === claimsSha256 && projecao.rodada?.commandsSha256 === commandsSha256 &&
+      projecao.rodada?.check === reais[0].check?.modo,
+    JSON.stringify({ verify: at?.verify, reais: reais.map((e) => e.commit), para: at?.para, diffDepoisDoVerify, projecao }));
   const kRepub = m.conduzir('arco-base', itens, 1);
+  const publicado = m.lsRemote(`refs/heads/${branch}`);
   c.esperar('a entrega publica de novo o SHA atualizado: a branch do remoto anda até ele',
-    kRepub.ultimo?.entrega?.acao === 'publicou' && m.lsRemote(`refs/heads/${branch}`) === at?.para, JSON.stringify(resumoDoPasso(kRepub.ultimo)));
+    kRepub.ultimo?.entrega?.acao === 'publicou' && publicado === at?.para, JSON.stringify(resumoDoPasso(kRepub.ultimo)));
+  const resultadoRunner = n.ci.executarCiDaBranchComContexto(n.manifest.exigirManifesto(t.worktree), branch, {
+    head: publicado, destino: 'main', pullRequest: true, preflightEmpresa: null,
+    replay: { casaEfemera: t.worktree, identidadeProduto: () => 'produto-estavel', hermeticidade: () => null,
+      executor: ({ nome, comando }) => ({ nome, comando, ok: true, code: 0, resumo: 'ok', causa: 'exit',
+        prazoMs: 5_000, duracaoMs: 1, executado: true }) },
+  });
+  c.esperar('o runner executa o HEAD publicado e emite o recibo desse mesmo HEAD, ligado aos hashes da projeção',
+    resultadoRunner.ok === true && resultadoRunner.commit === publicado && resultadoRunner.recibo?.head === publicado &&
+      resultadoRunner.recibo?.contrato === 'ork.ci-recibo-runner/v1' &&
+      resultadoRunner.recibo?.claimsSha256 === projecao.rodada.claimsSha256,
+    JSON.stringify({ publicado, commit: resultadoRunner.commit, recibo: resultadoRunner.recibo }));
   const kInt = m.conduzir('arco-base', itens, 1);
   const base = m.lsRemote('refs/heads/main');
   const ship = m.ledger(t.id).filter((e) => e.tipo === 'ship_done');
@@ -1418,7 +1447,8 @@ function cenarioBaseQueAnda(c, a, n) {
     kInt.ultimo?.entrega?.acao === 'integrou' && ship.length === 1 && ship[0].pushVerificado === true && m.ancestral(m.proj.dir, baseNova, base) &&
       m.ancestral(m.proj.dir, at.para, base), JSON.stringify({ k: resumoDoPasso(kInt.ultimo), ship: ship.length }));
   c.esperar('o CI SIMULADO foi lido nos dois SHAs publicados, e nenhum outro PR foi aberto',
-    m.ci.chamadas.includes(fonte) && m.ci.chamadas.includes(at?.para) && m.criacoesDePr() === 1, JSON.stringify({ ci: m.ci.chamadas, prs: m.criacoesDePr() }));
+    m.ci.chamadas.includes(fontePublicada) && m.ci.chamadas.includes(at?.para) && m.criacoesDePr() === 1,
+    JSON.stringify({ ci: m.ci.chamadas, prs: m.criacoesDePr() }));
 }
 
 /**

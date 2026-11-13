@@ -21,6 +21,11 @@ Com o mod `ork-pista` ligado na sua sessão (papel `dono`), `/pista` abre um pai
 
 Cada etapa que não está feita traz o texto do núcleo. Embaixo, o próximo passo: o que o núcleo diz que destrava a entrega, com o comando que resolve. A faixa acima do prompt resume o que pede você ("1 pronta para publicar · 1 pede o seu push · /pista"); o que só anda sozinho (CI rodando, PR esperando o merge) não entra nela.
 
+Quando o projeto tem inscrição ativa na rede da empresa, a leitura também traz o preflight coletivo calculado da
+mesma fotografia usada por `ork network empresa status`. `ork ship pista` mostra o aviso e `ork ship publicar` o
+inclui no corpo do PR antes do push. Conflito, ordem sugerida e lacuna são consultivos: nenhuma etapa, ação,
+autorização ou resultado da pista muda por causa deles. Sem inscrição, a pista mantém a saída anterior.
+
 A Torre de Controle abre a Pista pelo botão Entregar de uma thread: `/pista <thread>` põe a thread em foco no alto do painel.
 
 ## Os botões
@@ -39,6 +44,10 @@ O argv sai sempre do mod, nunca do texto do JSON, e a ponte confere cada um cont
 ## O CI
 
 A etapa de CI vem da leitura da pista (o rollup de checks do PR aberto) e, quando há algo mais novo, da consulta ao núcleo no head exato do PR: `ork ci status --sha <head> --json` (`ork.ci-status/v2`, com `provider` `github`, `gitlab` ou `null`, `fonte` e `produtor`; a Pista continua lendo a v1).
+
+Em PR/MR, `ork ci run` pode ler a rede com o segredo opcional `ORK_REDE_EMPRESA_READ_TOKEN`, limitado a leitura.
+Sem ele, ou em PR de fork, informa “Checagem coletiva não realizada”; o `ok` do CI e a política de recibo não
+mudam. O segredo não entra em argumentos, saída, bundle ou publicação.
 
 - **Pelo evento do GitHub:** quando a sua sessão recebe um evento do GitHub (`session.receive` com a fonte `github`, de um PR que você acompanha), a Pista procura nele o PR (`dono/repo#N` ou o número), a branch ou o head de uma pista, só nos campos que o servidor assere; campo escrito por terceiros não conta. O evento só dispara a consulta: o conteúdo dele nunca vira estado da Pista, e a entrega segue para o modelo como chegou.
 - **Sem evento:** a reserva consulta, a cada 2 min com o painel à vista e a cada 10 min escondido, só as pistas com PR aberto e CI ainda aberto.

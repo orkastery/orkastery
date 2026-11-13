@@ -19,9 +19,10 @@ import { adesaoRedeEmpresa, cacheDaPoliticaEmpresa, gravarAdesaoRedeEmpresa } fr
 import { ehPoliticaDaEmpresa, type ForjaDaEmpresa, type ReferenciaDaForja } from './rede-empresa-contrato';
 import { criarRedeColetiva } from './rede-empresa-forja';
 import { publicarNaRedeEmpresa } from './rede-empresa-publicacao';
-import { statusDaRedeEmpresa } from './rede-empresa-status';
+import { statusDaRedeEmpresa, textoDoPreflightEmpresa } from './rede-empresa-status';
 import { lerDocumentoRemoto, portaGitDaRedeEmpresa, type PortaDaBranchEmpresa } from './rede-empresa-transporte';
 import { normalizarProjeto, segmentoDaProjectKey } from './rede-empresa-projeto';
+import { caminhosPublicadosPorThread, type CaminhosPorThread } from './rede-empresa-trabalho';
 
 export const CONTRATO_CLI_REDE_EMPRESA = 'ork.rede-empresa-cli/v1' as const;
 const ACOES = ['criar', 'inscrever', 'aceitar', 'publicar', 'status', 'sair', 'revogar'] as const;
@@ -103,7 +104,7 @@ export interface DependenciasCliRedeEmpresa {
   portaDaEmpresa?: (ref: ReferenciaDaForja, conferir: boolean, env: NodeJS.ProcessEnv) => PortaDaBranchEmpresa;
   criarPelaForja?: (ref: ReferenciaDaForja, dono: string, nome: string, env: NodeJS.ProcessEnv) => CriacaoPelaForja;
   prepararPublicacao?: (ref: ReferenciaDaForja, agora: string, env: NodeJS.ProcessEnv) =>
-    { panorama: ProjetoNoPanorama; privacidade: ContextoDaVarredura };
+    { panorama: ProjetoNoPanorama; privacidade: ContextoDaVarredura; caminhosPorThread?: CaminhosPorThread };
 }
 
 function criarPelaForja(ref: ReferenciaDaForja, dono: string, nome: string, env: NodeJS.ProcessEnv): CriacaoPelaForja {
@@ -117,13 +118,16 @@ function criarPelaForja(ref: ReferenciaDaForja, dono: string, nome: string, env:
 }
 
 function prepararPublicacao(ref: ReferenciaDaForja, agora: string, env: NodeJS.ProcessEnv):
-{ panorama: ProjetoNoPanorama; privacidade: ContextoDaVarredura } {
+{ panorama: ProjetoNoPanorama; privacidade: ContextoDaVarredura; caminhosPorThread: CaminhosPorThread } {
   const carregado = exigirManifesto();
   const contexto = contextoDaVarredura(carregado.raiz, raizDoEstado(carregado.raiz), env);
   if (!contexto.ok) throw new FalhaCli('rede-empresa.dado-privado');
   const panorama = montarPanoramaDaRede({ cwd: carregado.raiz, pedido: pedidoDoPanorama(ref), quando: agora }).projetos[0];
   if (!panorama) falhar('rede-empresa.projeto-nao-autorizado');
-  return { panorama, privacidade: contexto.valor };
+  const trabalhos = (panorama.maquinas ?? []).filter((m) => m.estaMaquina).flatMap((m) => m.ativas
+    .filter((t): t is typeof t & { branch: string } => typeof t.branch === 'string')
+    .map((t) => ({ id: t.id, branch: t.branch })));
+  return { panorama, privacidade: contexto.valor, caminhosPorThread: caminhosPublicadosPorThread(carregado.raiz, trabalhos) };
 }
 
 const projetoRef = (ref: ReferenciaDaForja): string => segmentoDaProjectKey(normalizarProjeto(ref).projectKey);
@@ -153,8 +157,11 @@ function sucesso(acao: Acao, dados: unknown, json: boolean, locale: Locale): Sai
   const coberturas = acao === 'status' && Array.isArray(dados)
     ? dados.flatMap((d) => d && typeof d === 'object' && 'cobertura' in d
       ? [textoDaCoberturaEmpresa((d as { cobertura: Parameters<typeof textoDaCoberturaEmpresa>[0] }).cobertura, locale)] : []) : [];
+  const preflights = acao === 'status' && Array.isArray(dados)
+    ? dados.flatMap((d) => d && typeof d === 'object' && 'preflightEmpresa' in d
+      ? [textoDoPreflightEmpresa((d as { preflightEmpresa: Parameters<typeof textoDoPreflightEmpresa>[0] }).preflightEmpresa, locale)] : []) : [];
   return { codigo: 0, stdout: json ? `${JSON.stringify(envelope, null, 2)}\n`
-    : `${[textoSucesso(acao, locale), ...coberturas].join('\n')}\n`, stderr: '' };
+    : `${[textoSucesso(acao, locale), ...coberturas, ...preflights].join('\n')}\n`, stderr: '' };
 }
 
 function erro(codigo: string, json: boolean, locale: Locale): SaidaCliRedeEmpresa {
@@ -273,7 +280,8 @@ function executar(acao: Acao, opcoes: Opcoes, env: NodeJS.ProcessEnv, dependenci
     const conta = acessar(adesao!.rede, env).conta;
     const preparado = preparar(p, agora, env);
     const r = publicarNaRedeEmpresa(porta, { inscricaoId, projetoRef: projetoRef(p), projeto: p, panorama: preparado.panorama,
-      conta, forja: adesao!.rede.forja, host: adesao!.rede.host, agora, privacidade: preparado.privacidade, env });
+      conta, forja: adesao!.rede.forja, host: adesao!.rede.host, agora, privacidade: preparado.privacidade,
+      caminhosPorThread: preparado.caminhosPorThread, env });
     if (!r.ok) throw new FalhaCli(r.codigo);
     return { projeto: p, publicacao: r.valor, transacao: r.transacao };
   }));

@@ -13,7 +13,9 @@ import { avancarBase, CAB, CHANGELOG_DA_BASE, ciFalso, claimDe, commitarBundle, 
   concluirRevisao, despachoDoCheck, ENTRADA_DA_THREAD, entregaPronta, EstadoDoCheck, FORJA, ghFalso, git, head, projetoDaEntrega,
   SessaoSimulada, sessaoDespachada, threadComWorktree, totalDeModelosDaEntrega, verifyDoPasso,
   verifyNoLedger } from './noctum-entrega-apoio';
-import { estadoDoReciboCi, ExecutorCi } from '../src/ci';
+import { executarCiDaBranchComContexto, ExecutorCi } from '../src/ci';
+import { CONTRATO_PROJECAO_REPLAY_CI, CONTRATO_RECIBO_RUNNER_CI } from '../src/ci-recibo-basico';
+import { carimbarEstado, lerClaims } from '../src/claims';
 import { kernelDisponivel } from '../src/fila-pesada';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from '../src/ledger';
 import { blocosNaoPublicados, linhasDaBasePerdidas } from '../src/noctum-changelog';
@@ -24,6 +26,7 @@ import { classificarCommit, ProvasDaEntrega } from '../src/noctum-provas';
 import { dirDaSupervisao, gravarNaSupervisao } from '../src/noctum-supervisao';
 import { dirThread, lerThread } from '../src/thread';
 import { branchDaWorktree } from '../src/worktree';
+import { exigirManifesto } from '../src/manifest';
 
 prepararIngressoSimulado();
 const semKernel = !kernelDisponivel();
@@ -129,7 +132,7 @@ test('QE2: sem revisão independente (o bloco inteiro numa sessão), o arco desp
   } finally { m.p.limpar(); }
 });
 
-test('QE3: com política de recibo, a atualização verifica o pai e cria o filho exclusivo do bundle', { skip: semKernel }, () => {
+test('QE3: com política de recibo, projeção estável não cria filho e o runner prova o candidato publicado', { skip: semKernel }, () => {
   const m = mundo('noctum-qe3');
   m.gh = ghFalso(m.p);
   try {
@@ -138,6 +141,11 @@ test('QE3: com política de recibo, a atualização verifica o pai e cria o filh
     assert.equal(git(m.p.dir, 'commit', '-q', '-m', 'test: ligar politica de recibo').ok, true);
     assert.equal(git(m.p.dir, 'push', '-q', 'origin', 'main').ok, true);
     const e = entregaPronta(m.p, 'qe3');
+    const comProjecao = commitarBundle(m.p, e.t);
+    assert.notEqual(comProjecao, e.fonte, 'a projeção da primeira rodada verde entra antes da atualização da base');
+    const bundle = path.posix.join('.ork-ci', `${e.t.id}.json`);
+    const bundleVersionado = fs.readFileSync(path.join(e.t.worktree!, bundle), 'utf8');
+    for (const claim of lerClaims(m.p.dir, e.t.id)) carimbarEstado(m.p.dir, claim, 'verificado');
     arco(m.p, 'arco-qe3', e.t.id);
     // A base faz a versão 0.2.0 (a antiga sai de Não publicado) e outra thread entra com a linha dela.
     const daBase = `${CAB}## Não publicado\n\n### Adicionado\n\n- **Outra SIMULADA** (RM-959): da base.\n\n## [0.2.0] - 2026-10-13\n\n### Adicionado\n\n` +
@@ -151,14 +159,14 @@ test('QE3: com política de recibo, a atualização verifica o pai e cria o filh
     assert.equal(m.verifies.length, 1);
     const wt = e.t.worktree!;
     const headVerificado = m.verifies[0];
-    const bundle = path.posix.join('.ork-ci', `${e.t.id}.json`);
-    assert.equal(git(wt, 'merge-base', '--is-ancestor', headVerificado, r.para).ok, true,
-      'o HEAD do verify é ancestral do candidato');
-    assert.equal(git(wt, 'diff', '--name-only', headVerificado, r.para, '--').stdout.trim(), bundle,
-      'depois do verify só mudou o bundle da thread');
-    const recibo = JSON.parse(fs.readFileSync(path.join(wt, bundle), 'utf8')).recibo;
-    assert.equal(recibo.head, headVerificado);
-    assert.equal(estadoDoReciboCi(wt, recibo, r.para, bundle), 'presente');
+    assert.equal(r.bundle, false, 'projeção idêntica não cria commit vazio nem filho exclusivo do bundle');
+    assert.equal(r.para, headVerificado, 'o candidato final é o próprio HEAD da rodada verde');
+    assert.equal(git(wt, 'diff', '--name-only', headVerificado, r.para, '--').stdout.trim(), '');
+    assert.equal(fs.readFileSync(path.join(wt, bundle), 'utf8'), bundleVersionado,
+      'a mudança transitória do estado das claims não altera a receita versionada');
+    const projecao = JSON.parse(fs.readFileSync(path.join(wt, bundle), 'utf8')).recibo;
+    assert.equal(projecao.contrato, CONTRATO_PROJECAO_REPLAY_CI);
+    assert.equal('head' in projecao, false, 'a receita versionada não declara HEAD presente');
     const final = fs.readFileSync(path.join(wt, 'CHANGELOG.md'), 'utf8');
     assert.deepEqual(linhasDaBasePerdidas(daBase, final), []);
     assert.ok((blocosNaoPublicados(final) ?? []).some(b => b.linhas.join('\n') === ENTRADA_DA_THREAD('qe3')), 'a entrada da thread em Não publicado');
@@ -167,6 +175,22 @@ test('QE3: com política de recibo, a atualização verifica o pai e cria o filh
     // A revisão vale no SHA novo; o próximo passo publica.
     const r2 = passo(m, 'arco-qe3');
     assert.equal(r2.acao, 'publicou', resumo(r2));
+    const branch = branchDaWorktree(e.t);
+    const publicado = lsRemote(m.p, `refs/heads/${branch}`);
+    assert.equal(publicado, r.para, 'a ponta que o condutor publicou é o candidato que o CI executa');
+    const executado = executarCiDaBranchComContexto(exigirManifesto(wt), branch, {
+      head: publicado, destino: 'main', pullRequest: true, preflightEmpresa: null,
+      replay: { casaEfemera: wt, identidadeProduto: () => 'produto-estavel', hermeticidade: () => null,
+        executor: ({ nome, comando }) => ({ nome, comando, ok: true, code: 0, resumo: 'ok', causa: 'exit',
+          prazoMs: 5_000, duracaoMs: 1, executado: true }) },
+    });
+    assert.equal(executado.ok, true);
+    assert.equal(executado.commit, publicado);
+    const reciboRunner = ('recibo' in executado ? executado.recibo : undefined) as
+      { contrato?: string; head?: string; claimsSha256?: string } | undefined;
+    assert.equal(reciboRunner?.contrato, CONTRATO_RECIBO_RUNNER_CI);
+    assert.equal(reciboRunner?.head, publicado, 'o recibo nasce no runner para o HEAD exato publicado');
+    assert.equal(reciboRunner?.claimsSha256, projecao.rodada.claimsSha256);
   } finally { m.p.limpar(); }
 });
 

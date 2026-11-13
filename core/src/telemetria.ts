@@ -6,6 +6,8 @@
  */
 import type { EventoLedger } from './types';
 import type { MotivoRetentavelDoPrompt, ResultadoDoPrompt } from './telemetria-prompt';
+import type { ResultadoDaMaturidade, ResultadoDeIndicador } from './telemetria-maturidade';
+import { CONTRATO_SDLC_ANALYTICS, definicaoDoIndicador } from './telemetria-maturidade-registro';
 
 export const NOME_DO_SCOPE_OTLP = 'orkastery.telemetria' as const;
 export const VERSAO_SEMCONV_GENAI = '1.37.0' as const;
@@ -53,6 +55,8 @@ export interface ContextoDoMapeamento {
   serviceVersion: string;
   instrumentacaoVersion: string;
   pseudonimo: string;
+  /** Valor atribuído pela política; nunca é lido do payload do evento. */
+  serviceNamespace?: string;
   redigir: RedatorDaTelemetria;
   observadoEmNano: () => bigint;
   prepararPrompt?: (evento: EventoLedger) => ResultadoDoPrompt;
@@ -73,8 +77,10 @@ const EVENTOS_SEM_LOG = new Set(['heartbeat', 'ledger_corrupted']);
 const CAMPOS_LIVRES = ['decisao', 'decidido', 'porque', 'razao', 'alegacao', 'pergunta', 'resposta', 'detalhe',
   'justificativa', 'mensagem', 'errorMessage'] as const;
 const EVENTOS_COM_USUARIO = new Set(['autonomous_decision', 'hitl_requested', 'human_gate', 'session_answered']);
-const EVENTOS_CICD = new Set(['verify_run', 'check_reverify']);
-const EVENTOS_VCS = new Set(['thread_created', 'commit', 'mcp_git_committed', 'ship_done']);
+const EVENTOS_ANALITICOS = new Set(['verify_run', 'go_fix_opened', 'check_reverify', 'ship_done',
+  'thread_created', 'ship_unscanned_authorized', 'autonomous_decision', 'hitl_requested']);
+const EVENTOS_CICD = new Set(['verify_run', 'check_reverify', 'go_fix_opened', 'ship_done']);
+const EVENTOS_VCS = new Set(['thread_created', 'commit', 'mcp_git_committed', 'verify_run', 'ship_done']);
 
 function texto(v: unknown): string | null {
   return typeof v === 'string' && v.trim() ? v.trim() : null;
@@ -89,9 +95,18 @@ function attrString(chave: string, valor: unknown): OtlpKeyValue | null {
   return v === null ? null : { key: chave, value: { stringValue: v } };
 }
 
+function attrStringEscalar(chave: string, valor: unknown): OtlpKeyValue | null {
+  return typeof valor === 'number' && Number.isSafeInteger(valor)
+    ? { key: chave, value: { stringValue: String(valor) } } : attrString(chave, valor);
+}
+
 function attrInt(chave: string, valor: unknown): OtlpKeyValue | null {
   const v = inteiro(valor);
   return v === null ? null : { key: chave, value: { intValue: String(v) } };
+}
+
+function attrDouble(chave: string, valor: number | null): OtlpKeyValue | null {
+  return valor !== null && Number.isFinite(valor) ? { key: chave, value: { doubleValue: valor } } : null;
 }
 
 function primeiro(evento: EventoLedger, ...campos: string[]): unknown {
@@ -143,9 +158,15 @@ function attrsVcs(evento: EventoLedger, attrs: OtlpKeyValue[]): void {
 function attrsCicd(evento: EventoLedger, attrs: OtlpKeyValue[]): void {
   const fase = texto(evento.fase)?.toUpperCase();
   if (!EVENTOS_CICD.has(evento.tipo) && !(evento.tipo === 'phase_result' && fase === 'CHECK')) return;
-  adicionar(attrs, attrString('cicd.pipeline.name', fase === 'CHECK' ? 'orkastery.check' : 'orkastery.verify'));
-  adicionar(attrs, attrString('cicd.pipeline.run.id', primeiro(evento, 'roundId', 'rodadaId')));
-  adicionar(attrs, attrString('cicd.pipeline.result', primeiro(evento, 'resultado', 'classificacao', 'estado')));
+  const nome = evento.tipo === 'go_fix_opened' ? 'orkastery.go-fix'
+    : evento.tipo === 'ship_done' ? 'orkastery.ship'
+      : fase === 'CHECK' || evento.tipo === 'check_reverify' ? 'orkastery.check' : 'orkastery.verify';
+  const resultado = evento.tipo === 'ship_done' ? (evento.pushVerificado === true ? 'success' : 'failed')
+    : evento.parcial === true ? 'partial' : primeiro(evento, 'veredito', 'resultado', 'classificacao', 'estado');
+  adicionar(attrs, attrString('cicd.pipeline.name', nome));
+  adicionar(attrs, attrStringEscalar('cicd.pipeline.run.id',
+    primeiro(evento, 'rodada', 'roundId', 'rodadaId', 'mergeSha', 'eventId')));
+  adicionar(attrs, attrString('cicd.pipeline.result', resultado));
   adicionar(attrs, attrString('orkastery.check.mode', primeiro(evento, 'checkMode', 'modoCheck')));
 }
 
@@ -193,7 +214,7 @@ export function mapearEventoDoLedger(evento: EventoLedger, contexto: ContextoDoM
 
   const attrs: OtlpKeyValue[] = [];
   adicionar(attrs, attrString('log.record.uid', uid));
-  if (EVENTOS_COM_USUARIO.has(evento.tipo) || evento.tipo === 'phase_dispatch') {
+  if (EVENTOS_COM_USUARIO.has(evento.tipo) || EVENTOS_ANALITICOS.has(evento.tipo) || evento.tipo === 'phase_dispatch') {
     adicionar(attrs, attrString('user.hash', contexto.pseudonimo));
   }
   attrsVcs(evento, attrs);
@@ -239,12 +260,101 @@ export function mapearEventoDoLedger(evento: EventoLedger, contexto: ContextoDoM
       ? 'gen_ai.client.inference.operation.details' : eventName(evento.tipo) } };
 }
 
+interface SerieDoResultadoProjetada {
+  id: string;
+  bucket?: string;
+  numerador: number;
+  denominador: number;
+}
+
+interface FonteDoResultadoProjetada {
+  populacao: number;
+  cobertura: ResultadoDeIndicador['cobertura'];
+  series: ResultadoDeIndicador['series'];
+  lacunas: ResultadoDeIndicador['lacunas'];
+  chaves: Record<string, string>;
+}
+
+function projetarSeries(indicadorId: string, fonte: FonteDoResultadoProjetada): SerieDoResultadoProjetada[] {
+  const definicao = definicaoDoIndicador(indicadorId);
+  if (!definicao) throw new Error(`indicador sem definição: ${indicadorId}`);
+  const formula = definicao.formula;
+  if (formula.operador === 'razao') {
+    const positivos = Number(fonte.series.find((serie) => serie.id === formula.positivo)?.valor ?? 0);
+    const negativos = Number(fonte.series.find((serie) => serie.id === formula.negativo)?.valor ?? 0);
+    return [{ id: 'taxa', numerador: positivos, denominador: positivos + negativos }];
+  }
+  return fonte.series.flatMap((serie) => {
+    if (typeof serie.valor === 'number') {
+      return [{ id: serie.id, numerador: serie.valor, denominador: fonte.populacao }];
+    }
+    if (!serie.valor) return [{ id: serie.id, numerador: 0, denominador: fonte.populacao }];
+    const entradas = Object.entries(serie.valor), denominador = entradas.reduce((total, [, valor]) => total + valor, 0);
+    return entradas.length ? entradas.map(([bucket, numerador]) => ({ id: serie.id, bucket, numerador, denominador }))
+      : [{ id: serie.id, numerador: 0, denominador: 0 }];
+  });
+}
+
+/** Projeta somente resultados já calculados; nenhuma fórmula é reexecutada na camada OTLP. */
+export function mapearResultadoDaMaturidade(resultado: ResultadoDaMaturidade,
+  contexto: ContextoDoMapeamento): OtlpLogRecord[] {
+  const A = CONTRATO_SDLC_ANALYTICS.atributosResultado;
+  const eventName = CONTRATO_SDLC_ANALYTICS.eventos.resultado;
+  const timeUnixNano = nanos(resultado.janela.ate);
+  if (!timeUnixNano) throw new Error('telemetria.maturidade: janela final inválida');
+  return resultado.indicadores.flatMap((indicador) => {
+    const definicao = definicaoDoIndicador(indicador.id);
+    if (!definicao) throw new Error(`telemetria.maturidade: definição ausente para ${indicador.id}`);
+    const fontes: FonteDoResultadoProjetada[] = definicao.agrupamentos.length && indicador.agrupamentos.length
+      ? indicador.agrupamentos.map((grupo) => ({ ...grupo, chaves: grupo.chaves }))
+      : [{ populacao: indicador.populacao, cobertura: indicador.cobertura, series: indicador.series,
+        lacunas: indicador.lacunas, chaves: {} }];
+    return fontes.flatMap((fonte) => projetarSeries(indicador.id, fonte).map((serie) => {
+      const lacunas = Object.values(fonte.lacunas).reduce((total, quantidade) => total + quantidade, 0);
+      const chaveDoGrupo = definicao.agrupamentos.map((agrupamento) =>
+        `${agrupamento}=${fonte.chaves[agrupamento] ?? ''}`).join(':') || 'total';
+      const uid = [eventName, contexto.pseudonimo, resultado.janela.desde, resultado.janela.ate,
+        indicador.id, indicador.versao, chaveDoGrupo, serie.id, serie.bucket ?? 'total'].join(':');
+      const attributes: OtlpKeyValue[] = [];
+      adicionar(attributes, attrString(CONTRATO_SDLC_ANALYTICS.atributos.uid, uid));
+      adicionar(attributes, attrString(CONTRATO_SDLC_ANALYTICS.atributos.userHash, contexto.pseudonimo));
+      for (const agrupamento of definicao.agrupamentos) {
+        adicionar(attributes, attrString(agrupamento, fonte.chaves[agrupamento]));
+      }
+      adicionar(attributes, attrString(A.indicadorId, indicador.id));
+      adicionar(attributes, attrString(A.indicadorVersao, indicador.versao));
+      adicionar(attributes, attrString(A.formulaId, indicador.id));
+      adicionar(attributes, attrString(A.formulaVersao, indicador.versao));
+      adicionar(attributes, attrString(A.formulaOperador, definicao.formula.operador));
+      adicionar(attributes, attrString(A.serieId, serie.id));
+      adicionar(attributes, attrString(A.serieBucket, serie.bucket));
+      adicionar(attributes, attrString(A.janelaInicio, resultado.janela.desde));
+      adicionar(attributes, attrString(A.janelaFim, resultado.janela.ate));
+      adicionar(attributes, attrInt(A.numerador, serie.numerador));
+      adicionar(attributes, attrInt(A.denominador, serie.denominador));
+      adicionar(attributes, attrInt(A.coberturaConfirmados, fonte.cobertura.confirmados));
+      adicionar(attributes, attrInt(A.coberturaTotal, fonte.cobertura.total));
+      adicionar(attributes, attrDouble(A.coberturaRazao, fonte.cobertura.razao));
+      adicionar(attributes, attrInt(A.lacunas, lacunas));
+      return { timeUnixNano, observedTimeUnixNano: contexto.observadoEmNano().toString(),
+        severityNumber: 9, severityText: 'INFO', eventName,
+        body: { stringValue: `${indicador.id}/${indicador.versao}:${serie.id}` }, attributes };
+    }));
+  });
+}
+
 export function montarExportLogsServiceRequest(registros: readonly OtlpLogRecord[],
   contexto: Pick<ContextoDoMapeamento, 'serviceVersion' | 'instrumentacaoVersion'>): ExportLogsServiceRequest {
-  return { resourceLogs: [{ resource: { attributes: [
+  const atributosDoRecurso: OtlpKeyValue[] = [
     { key: 'service.name', value: { stringValue: 'orkastery' } },
     { key: 'service.version', value: { stringValue: contexto.serviceVersion } },
-  ] }, scopeLogs: [{ scope: { name: NOME_DO_SCOPE_OTLP, version: contexto.instrumentacaoVersion,
+  ];
+  const namespace = texto((contexto as Pick<ContextoDoMapeamento, 'serviceNamespace'>).serviceNamespace)
+    ?? CONTRATO_SDLC_ANALYTICS.valores.teamSourceMissing;
+  atributosDoRecurso.push({ key: CONTRATO_SDLC_ANALYTICS.atributos.serviceNamespace,
+    value: { stringValue: namespace } });
+  return { resourceLogs: [{ resource: { attributes: atributosDoRecurso }, scopeLogs: [{
+    scope: { name: NOME_DO_SCOPE_OTLP, version: contexto.instrumentacaoVersion,
     attributes: [] },
   logRecords: [...registros] }] }] };
 }

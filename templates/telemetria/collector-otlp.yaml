@@ -13,10 +13,11 @@ processors:
   filter/required:
     error_mode: propagate
     log_conditions:
+      - 'log.event_name == "orkastery.sdlc.deployment.v1" or log.event_name == "orkastery.sdlc.incident.v1"'
       - 'resource.attributes["service.name"] != "orkastery"'
       - 'scope.name != "orkastery.telemetria"'
       - 'log.attributes["log.record.uid"] == nil'
-      - 'log.attributes["orkastery.thread.id"] == nil'
+      - 'log.event_name != "orkastery.sdlc.analytics.result.v1" and log.attributes["orkastery.thread.id"] == nil'
       - '(IsMatch(log.event_name, "^orkastery\\.ledger\\.phase_") or log.event_name == "gen_ai.client.inference.operation.details") and log.attributes["orkastery.phase.name"] == nil'
       - 'log.attributes["orkastery.prompt.content.state"] == "gap" and log.attributes["orkastery.prompt.gap.reason"] == nil'
       - 'log.attributes["orkastery.prompt.content.state"] == "gap" and log.attributes["gen_ai.input.messages"] != nil'
@@ -25,8 +26,31 @@ processors:
     error_mode: propagate
     log_statements:
       - 'set(log.attributes["gen_ai.input.messages"], String(log.attributes["gen_ai.input.messages"])) where log.attributes["gen_ai.input.messages"] != nil'
-      - 'keep_keys(log.attributes, ["log.record.uid", "user.hash", "vcs.ref.head.revision", "vcs.ref.head.name", "vcs.ref.type", "cicd.pipeline.name", "cicd.pipeline.run.id", "cicd.pipeline.result", "gen_ai.operation.name", "gen_ai.request.model", "gen_ai.conversation.id", "gen_ai.input.messages", "session.id", "error.type", "orkastery.thread.id", "orkastery.phase.name", "orkastery.dispatch.id", "orkastery.mode", "orkastery.decision.id", "orkastery.claim.id", "orkastery.ledger.sequence", "orkastery.check.mode", "orkastery.receipt.id", "orkastery.runtime.name", "orkastery.prompt.size", "orkastery.prompt.redaction.policy.version", "orkastery.prompt.size.original", "orkastery.prompt.size.exported", "orkastery.prompt.content.state", "orkastery.prompt.gap.reason", "orkastery.prompt.truncated"])'
-      - 'keep_keys(resource.attributes, ["service.name", "service.version"])'
+      - 'keep_keys(log.attributes, ["log.record.uid", "user.hash", "vcs.ref.head.revision", "vcs.ref.head.name", "vcs.ref.type", "cicd.pipeline.name", "cicd.pipeline.run.id", "cicd.pipeline.result", "gen_ai.operation.name", "gen_ai.request.model", "gen_ai.conversation.id", "gen_ai.input.messages", "session.id", "error.type", "orkastery.thread.id", "orkastery.phase.name", "orkastery.dispatch.id", "orkastery.mode", "orkastery.decision.id", "orkastery.claim.id", "orkastery.ledger.sequence", "orkastery.check.mode", "orkastery.receipt.id", "orkastery.runtime.name", "orkastery.prompt.size", "orkastery.prompt.redaction.policy.version", "orkastery.prompt.size.original", "orkastery.prompt.size.exported", "orkastery.prompt.content.state", "orkastery.prompt.gap.reason", "orkastery.prompt.truncated", "orkastery.sdlc.analytics.indicator.id", "orkastery.sdlc.analytics.indicator.version", "orkastery.sdlc.analytics.formula.id", "orkastery.sdlc.analytics.formula.version", "orkastery.sdlc.analytics.formula.operator", "orkastery.sdlc.analytics.series.id", "orkastery.sdlc.analytics.series.bucket", "orkastery.sdlc.analytics.window.start", "orkastery.sdlc.analytics.window.end", "orkastery.sdlc.analytics.result.numerator", "orkastery.sdlc.analytics.result.denominator", "orkastery.sdlc.analytics.result.coverage.confirmed", "orkastery.sdlc.analytics.result.coverage.total", "orkastery.sdlc.analytics.result.coverage.ratio", "orkastery.sdlc.analytics.result.gaps"])'
+      - 'keep_keys(resource.attributes, ["service.name", "service.version", "service.namespace"])'
+  filter/dora:
+    error_mode: propagate
+    log_conditions:
+      - 'log.event_name != "orkastery.sdlc.deployment.v1" and log.event_name != "orkastery.sdlc.incident.v1"'
+      - 'log.attributes["user.hash"] != nil or resource.attributes["service.namespace"] != nil'
+      - 'resource.attributes["service.name"] == nil or resource.attributes["deployment.environment.name"] != "production"'
+      - 'Len(resource.attributes) != 2'
+      - 'log.attributes["log.record.uid"] == nil or log.attributes["orkastery.thread.id"] == nil'
+      - 'log.event_name == "orkastery.sdlc.deployment.v1" and (Len(log.attributes) != 9 or log.attributes["deployment.id"] == nil or log.attributes["deployment.status"] != "succeeded" or log.attributes["cicd.pipeline.name"] == nil or log.attributes["cicd.pipeline.run.id"] == nil or log.attributes["cicd.pipeline.result"] != "success" or log.attributes["cicd.pipeline.task.type"] != "deploy" or log.attributes["vcs.ref.head.revision"] == nil)'
+      - 'log.event_name == "orkastery.sdlc.incident.v1" and (log.attributes["orkastery.incident.id"] == nil or log.attributes["orkastery.incident.deployment.id"] == nil or (log.attributes["orkastery.incident.state"] != "opened" and log.attributes["orkastery.incident.state"] != "resolved"))'
+      - 'log.event_name == "orkastery.sdlc.incident.v1" and log.attributes["orkastery.incident.state"] == "opened" and (Len(log.attributes) != 6 or log.attributes["error.type"] == nil)'
+      - 'log.event_name == "orkastery.sdlc.incident.v1" and log.attributes["orkastery.incident.state"] == "resolved" and (Len(log.attributes) < 5 or Len(log.attributes) > 6 or (Len(log.attributes) == 5 and log.attributes["orkastery.incident.recovery.deployment.id"] != nil) or (Len(log.attributes) == 6 and log.attributes["orkastery.incident.recovery.deployment.id"] == nil) or log.attributes["error.type"] != nil)'
+  transform/dora-sanitize:
+    error_mode: propagate
+    log_statements:
+      - 'keep_keys(log.attributes, ["log.record.uid", "orkastery.thread.id", "deployment.id", "deployment.status", "cicd.pipeline.name", "cicd.pipeline.run.id", "cicd.pipeline.result", "cicd.pipeline.task.type", "vcs.ref.head.revision", "orkastery.incident.id", "orkastery.incident.state", "orkastery.incident.deployment.id", "orkastery.incident.recovery.deployment.id", "error.type"])'
+      - 'keep_keys(resource.attributes, ["service.name", "deployment.environment.name"])'
+  transform/dora-policy:
+    error_mode: propagate
+    log_statements:
+      - 'set(resource.attributes["service.namespace"], "${env:ORK_DORA_SERVICE_NAMESPACE}") where "${env:ORK_DORA_SERVICE_NAMESPACE}" != ""'
+      - 'set(resource.attributes["service.namespace"], "team_source_missing") where "${env:ORK_DORA_SERVICE_NAMESPACE}" == ""'
+      - 'set(log.attributes["user.hash"], "${env:ORK_DORA_USER_HASH}") where "${env:ORK_DORA_USER_HASH}" != ""'
   batch: {}
 
 exporters:
@@ -38,4 +62,8 @@ service:
     logs/orkastery:
       receivers: [otlp]
       processors: [memory_limiter, filter/required, transform/sanitize, batch]
+      exporters: [otlphttp/generic]
+    logs/dora:
+      receivers: [otlp]
+      processors: [memory_limiter, filter/dora, transform/dora-sanitize, transform/dora-policy, batch]
       exporters: [otlphttp/generic]

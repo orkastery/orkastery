@@ -22,13 +22,59 @@ ci:
 
 Any other value makes the manifest invalid. A push to the protected branch itself is not a PR/MR and does not fail because a receipt is absent.
 
-`ork ci prepare <thread>` copies the HEAD and SHA-256 of the latest green, complete `ork.recibo-prova/v1` verify receipt into the bundle. The reader still accepts an older bundle without `recibo`; under `exigir`, its state is `ausente`. A receipt is `presente` when its proven HEAD is an ancestor of the current HEAD and only that thread's bundle under `.ork-ci/` changed after the verify. Any other change produces `sha-divergente`.
+`ork ci prepare <thread>` writes an `ork.ci-projecao-replay/v1` input into the `recibo` field of
+`ork.ci-bundle/v1`. The projection carries the thread, canonical claims, projected round, minimal baseline, commands,
+and hashes, but it does not declare any HEAD to be a present receipt. The reader accepts the legacy receipt only for
+compatibility; it never satisfies this stage's proof. The projected baseline is informational: because it comes from
+the PR/MR itself, it does not participate in the CI judgment and cannot classify a current failure as pre-existing debt.
+
+In the PR/MR checkout, the runner validates the projection, reruns preparation, claims, and canonical commands through
+the same pure judgment used by verify, and emits `ork.ci-recibo-runner/v1` in the `recibo` field of the
+`ork.ci-run/v1` result. A receipt is `presente` only when `resultado.recibo.head`, `resultado.commit`, and the executed
+HEAD are equal and the complete round is green. The projection must contain at least one claim, and its commands must
+exactly match the `verify` commands from the manifest read at the target branch ref; a missing ref or unreadable
+manifest fails closed. Projected `verify.preparo` must also exactly match preparation in that same manifest: unilateral
+removal, addition, or replacement invalidates the recipe. A receipt for another HEAD is `sha-divergente`; an invalid
+contract, hash, or recipe is `invalido`.
+
+The replay builds a new allowlisted environment. Execution primitives, locale, time zone, the CI marker, and synthetic
+round values enter it; `GITHUB_TOKEN`, `CI_JOB_TOKEN`, `*_TOKEN` and `*_SECRET` keys, runtime or forge credentials, and
+`ORK_HITL_*` authority do not. `ork/*` branches, external branches, and forks receive the same measurement on both
+forges. If the forge does not start a fork job, Orkastery does not invent a result; the required-check rule governs the
+merge.
+
+### Replay diagnostics
+
+Every cause below sets `policy.receipt` to `invalido`. Under `observar` and `avisar`, the receipt diagnostic does not
+add a failure; under `exigir`, it fails the PR/MR to the protected branch. A real preparation, claim, or command failure
+still fails under all three levels. Replay judges every current execution without a baseline; CI has no pre-existing
+debt exception.
+
+| Code | Message | Action |
+| --- | --- | --- |
+| `ci.recibo.projecao-acima-do-limite` | The projection exceeds the bundle limit | Reduce it to the canonical fields, run verify at the current HEAD, and prepare it again |
+| `ci.recibo.claim-nao-hermetica` | The claim cannot be replayed in full on the runner | Make it hermetic or remove the incompatible dependency, run verify, and prepare it again |
+| `ci.recibo.runner-sem-capacidade` | The runner lacks a required replay capability | Provide the capability or revise the claim or command and run it again |
+| `ci.recibo.comando-nao-iniciado` | A replay command was not started | Restore the declared executable or runtime and run it again |
+| `ci.recibo.prazo-excedido` | A command exceeded the verify timeout | Fix or split it, or adjust the manifest timeout, run verify, and prepare it again |
+| `ci.recibo.produto-alterado` | The product changed during replay | Remove the concurrent mutation, restore the checkout, and run it again |
 
 ## Basic-level trust boundary
 
-The bundle and the receipt's `sha256` come from the PR/MR itself, so whoever controls that change can forge them. The runner does not query the Orkastery ledger or compare the receipt against it. At this basic level, it only reruns the claims and commands declared by the bundle on the HEAD, then checks receipt-HEAD ancestry and the later diff. That detects operational divergence, but it does not prove who authored the bundle.
+The bundle and the receipt's `sha256` come from the PR/MR itself, so whoever controls that change can forge them. The
+runner requires a non-empty claim set and anchors commands and preparation to the target branch manifest's `verify`, whose
+administrative protection through `CODEOWNERS` and a required rule is outside the PR author's control alone. This proves
+the accepted recipe neither emptied the claims nor replaced or omitted protected commands or preparation. The runner does not query the
+Orkastery ledger or compare the receipt or the projection against it, and still does not prove claim completeness or
+authenticity, or authorship of the bundle, code, or workflow. It also does not trust the projected baseline. At this
+basic level, it reruns protected preparation and the anchored claims and commands on the HEAD, fails every current
+failure, then emits a receipt for the HEAD it just executed. It does not use ancestry or a later diff
+to turn an older HEAD into a present receipt. This detects operational divergence, but it does not prove who authored the bundle or code.
 
-Protection against forgery belongs to the signed receipt in F7 of the RM-089 page; it is not part of this slice. Until that step, forge administration limits who can change the manifest, workflow, and bundle, but it does not turn the basic receipt into cryptographic proof.
+Protection against forgery belongs to the signed receipt in F7 of the RM-089 page; it is not part of this slice. The
+`assinatura` field is reserved in the output receipt and remains absent at this stage. Until F7, forge administration
+limits who can change the manifest, workflow, and bundle, but it does not turn the basic receipt into cryptographic
+proof.
 
 ## Make the check mandatory
 
@@ -60,3 +106,9 @@ See the official documentation for [protected branches](https://docs.gitlab.com/
 On GitHub, the PR source and target come from `GITHUB_HEAD_REF` and `GITHUB_BASE_REF`. On GitLab, they come from `CI_MERGE_REQUEST_SOURCE_BRANCH_NAME` and `CI_MERGE_REQUEST_TARGET_BRANCH_NAME`. The target variable is absent on a push, so the policy does not treat that event as a PR/MR.
 
 When a receipt is missing, the guidance offers `ork thread new`; `ork adotar` is the next RM-089 step and is not part of this delivery. The current forge adapters have no PR/MR comment capability, so `avisar` uses a GitHub annotation and summary or the GitLab job log. Automatic comments remain a declared gap.
+
+When the project also participates in the company network, `ork ci run` attaches an advisory collective preflight
+to the PR/MR result. The optional `ORK_REDE_EMPRESA_READ_TOKEN` secret must have read-only access to the private
+network repository and stays only in the Git transport environment. Without the secret, or on a fork PR, output
+says “Collective check not performed.” That state does not change `ok`, this receipt-policy decision, or the exit
+code.

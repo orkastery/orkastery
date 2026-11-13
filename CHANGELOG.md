@@ -4,10 +4,21 @@ As mudanças do pacote [`@orkastery/cli`](https://www.npmjs.com/package/@orkaste
 nova para a mais antiga. O detalhe de cada item, com a evidência de merge, está no
 [roadmap](docs/roadmap/README.md).
 
-A correlação nativa da RM-090 usa `session.id` no Claude Code e `conversation.id` no Codex;
-o LogRecord do Orkastery não copia corpo nem nome de evento nativo.
-
 ## Não publicado
+
+### Adicionado
+
+- **SDLC Analytics por maestro e por time — F5 (RM-090):** o registro executável calcula seis indicadores agênticos e materializa cobertura e agrupamentos; a projeção emite o evento ratificado `orkastery.sdlc.analytics.result.v1` com numerador, denominador e lacunas, e o dashboard soma esses campos por pseudônimo e time de política sem refazer fórmulas. DORA usa pipeline externa separada, schema fechado e vínculos exatos, sem nota, peso, ranking ou meta. A equivalência operacional das consultas em Loki permanece não confirmada.
+
+- **Conflito coletivo antes do merge — F3 (RM-089):** publicação v2 e v3 na mesma transação, interseção fechada de globs e ordem determinística pela história de primeiro pai alimentam um preflight consultivo no status, na Pista, no SHIP, no MCP e no CI; história ou padrão inconclusivo vira lacuna, e ausência de credencial de leitura no CI não muda seu resultado.
+
+- **Recibo básico no HEAD executado — F5 (RM-089):** o bundle leva uma projeção de replay sem afirmar presença; o runner reexecuta o julgamento integral em ambiente allowlisted e emite o recibo do HEAD do PR/MR, com as mesmas regras para branch externa e fork no GitHub e no GitLab.
+
+## [0.6.9] - 2026-11-12
+
+A empresa reúne as redes dos builders numa rede coletiva, com reserva obrigatória e política de recibo no CI (RM-089, F1, F2 e F4). A condução vira logs compatíveis com OpenTelemetry para SDLC Analytics, com prompts sem segredo, correlação com as sessões nativas e modelos de Collector e Grafana (RM-090, F1 a F4). A publicação no npm escolhe uma dist-tag explícita e nunca move a `latest` para trás (RM-088).
+
+O #Noctum segue **em desenvolvimento, não anunciado**.
 
 ### Adicionado
 
@@ -19,7 +30,8 @@ o LogRecord do Orkastery não copia corpo nem nome de evento nativo.
 
 - **Inscrição na rede coletiva** (RM-089): a família `ork network empresa` cria a rede privada; a empresa registra a identidade esperada e o maestro aceita com a conta autenticada; cada publicação revalida o `accountId`, envia uma projeção fechada sem dado local e cessa por saída ou revogação, com GitHub e GitLab pela mesma porta.
 
-- **Correlação nativa de sessões — F3 (RM-090):** Claude Code e Codex recebem configuração efêmera sem conteúdo nativo e cada sessão bem-sucedida ganha um vínculo lógico pelo identificador oficial do runtime.
+- **Correlação nativa de sessões — F3 (RM-090):** Claude Code e Codex recebem configuração efêmera sem conteúdo nativo e cada sessão bem-sucedida ganha um vínculo lógico pelo identificador oficial do runtime: `session.id` no Claude Code e `conversation.id` no Codex. O LogRecord do Orkastery não copia corpo nem nome de evento nativo.
+
 - **Reserva coletiva obrigatória — F2 (RM-089):** `thread new --roadmap`, `roadmap pegar` e `ork_thread_new` usam a mesma saga coletiva-local; uma segunda identidade só continua como colaboradora ou com acordo autenticado, e as coberturas observar, avisar e exigir tornam indisponibilidade e reparo explícitos.
 
 ### Alterado

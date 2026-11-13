@@ -42,6 +42,8 @@ import { chaveRecusadaDaConfigDeRede, criarGitdirDoPush, enderecoDoOrigin, proto
 import { branchValida, exigirRemoto, shaValido } from './branch-de-estado';
 import { ErroDoCatalogo, Mensagens, msg, remontar, textoDoCatalogo } from './locale';
 import { guardaDaThread, MotivoDaGuarda } from './noctum-guarda';
+import { CONTRATO_DO_RECIBO_DE_PROVA } from './recibo-prova';
+import type { ResultadoPreflightEmpresa } from './rede-empresa-preflight';
 
 export interface OpcoesShip {
   /** Revalidação interna confiável; nunca exposta pela CLI/MCP como argumento. */
@@ -97,6 +99,8 @@ export interface OpcoesShip {
   /** Faz o merge local e nao empurra (usado quando nao ha remoto configurado). */
   semPush?: boolean;
   ttlLeaseMs?: number;
+  /** Fotografia consultiva obtida pela superfície antes da chamada; ship não relê a rede. */
+  preflightEmpresa?: ResultadoPreflightEmpresa | null;
 }
 
 export interface Autorizacao {
@@ -143,6 +147,15 @@ export interface ResultadoShip {
   /** Comandos realmente executados, na ordem: e a evidencia do ship. */
   passos: string[];
   dryRun: boolean;
+  preflightEmpresa?: ResultadoPreflightEmpresa;
+}
+
+/** Garante a ordem observável: aviso primeiro, chamada de SHIP depois, com a mesma fotografia. */
+export function executarShipAposPreflight<T>(preflightEmpresa: ResultadoPreflightEmpresa | null,
+  imprimir: (preflight: ResultadoPreflightEmpresa) => void,
+  executarShip: (preflight: ResultadoPreflightEmpresa | null) => T): T {
+  if (preflightEmpresa) imprimir(preflightEmpresa);
+  return executarShip(preflightEmpresa);
 }
 
 /** RM-081 F3: `ok` nunca basta quando a rodada nao cobriu a suite inteira. */
@@ -416,6 +429,7 @@ function baseDoResultado(thread: Thread, de: string, opcoes: OpcoesShip): Result
     leaseOcupadoPor: null,
     passos: [],
     dryRun: opcoes.dryRun === true,
+    ...(opcoes.preflightEmpresa ? { preflightEmpresa: opcoes.preflightEmpresa } : {}),
   };
 }
 
@@ -1010,6 +1024,8 @@ export function ship(
       fonteDaProva: r.pushVerificado ? `git ls-remote ${remoto} refs/heads/${para}` : null,
       autorizadoPor: autorizacao.por,
       tipoDeAutorizacao: autorizacao.tipo,
+      // A política histórica nasce no produtor. Leitores antigos sem o campo declaram lacuna.
+      politicaReciboVersao: CONTRATO_DO_RECIBO_DE_PROVA,
       modo: thread.modo,
       tag: tagDoModo(thread.modo),
       evidencia: {

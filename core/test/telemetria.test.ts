@@ -29,6 +29,7 @@ test('OTLP usa AnyValue tipado, nanossegundos textuais, resource e scope', () =>
   assert.deepEqual(payload.resourceLogs[0].resource.attributes, [
     { key: 'service.name', value: { stringValue: 'orkastery' } },
     { key: 'service.version', value: { stringValue: '0.6.8' } },
+    { key: 'service.namespace', value: { stringValue: 'team_source_missing' } },
   ]);
   assert.equal(payload.resourceLogs[0].scopeLogs[0].scope.name, 'orkastery.telemetria');
 });

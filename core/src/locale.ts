@@ -113,6 +113,7 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'master', 'master <thread>', 'master aceitar-omissao', 'master pedir', 'master audit', 'master digest', 'master migrar',
   'master classes', 'master ratificar', 'master batch', 'master propor',
   'pulse', 'roadmap status', 'docs init', 'telemetria status', 'telemetria ligar', 'telemetria desligar', 'telemetria enviar',
+  'telemetria maturidade',
   // F3b (D1): o resto do CLI, na ordem do pedido.
   'thread list', 'thread close', 'thread entrega', 'worktree ensure', 'worktree sync', 'worktree audit', 'worktree release', 'worktree ?',
   'claims add', 'claims conferir', 'claims verificar', 'claims retirar', 'claims ausente', 'claims list', 'claims ?',
@@ -176,7 +177,7 @@ const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonl
   ['memory', { padrao: 'status', conhecidos: ['status', 'inventory', 'migrate', 'sync', 'search', 'index'] }],
   ['mcp', { padrao: null, conhecidos: ['install', 'serve'] }],
   ['conducao', { padrao: null, conhecidos: ['status', 'assumir', 'atualizar', 'autorizar', 'autorizacao', 'batida', 'sentinela'] }],
-  ['telemetria', { padrao: 'status', conhecidos: ['status', 'ligar', 'desligar', 'enviar'] }],
+  ['telemetria', { padrao: 'status', conhecidos: ['status', 'ligar', 'desligar', 'enviar', 'maturidade'] }],
   ['audit', { padrao: 'packs', conhecidos: ['packs', 'pack', 'lint', 'run', 'list', 'show', 'prompt', 'ingest', 'finding', 'achado', 'verify', 'report', 'relatorio', 'divida', 'board', 'surface', 'superficie'] }],
 ]);
 
@@ -742,10 +743,36 @@ const PT_BR = {
           `claims.lint: o bundle nao foi gerado; retire a claim e registre de novo com o comando focado:\n  ${recusas}`,
         reciboAusente: (branch: string) => `ci.recibo.ausente: a branch ${branch} nao tem recibo do verify vigente; ` +
           'abra a entrega com `ork thread new` ou, no proximo passo da RM-089, use `ork adotar`',
-        reciboInvalido: (branch: string) => `ci.recibo.invalido: o recibo da branch ${branch} nao referencia um verify ancestral valido; ` +
+        reciboInvalido: (branch: string) => `ci.recibo.invalido: a receita da branch ${branch}, o recibo do runner e o HEAD exato nao satisfazem o contrato da F5; ` +
           'rode `ork verify` e `ork ci prepare` de novo, ou adote a branch quando `ork adotar` estiver disponivel',
         reciboShaDivergente: (branch: string) => `ci.recibo.sha-divergente: a branch ${branch} mudou fora de .ork-ci/ depois do verify; ` +
           'rode `ork verify` e `ork ci prepare` de novo',
+        degradacaoReplay: {
+          'projecao-acima-do-limite': {
+            mensagem: 'A projeção de replay excede o limite do bundle.',
+            acao: 'Reduza a projeção aos campos canônicos exigidos, rode verify no HEAD atual e prepare de novo.',
+          },
+          'claim-nao-hermetica': {
+            mensagem: 'A claim não pode ser reexecutada integralmente neste runner.',
+            acao: 'Torne a claim hermética ou remova a dependência incompatível, rode verify e prepare de novo.',
+          },
+          'runner-sem-capacidade': {
+            mensagem: 'O runner não oferece a capacidade exigida pelo replay.',
+            acao: 'Disponibilize a capacidade declarada ou revise a claim ou o comando e reexecute.',
+          },
+          'comando-nao-iniciado': {
+            mensagem: 'Um comando do replay não foi iniciado.',
+            acao: 'Restaure o executável ou runtime declarado e reexecute o replay.',
+          },
+          'prazo-excedido': {
+            mensagem: 'Um comando do replay excedeu o prazo do verify.',
+            acao: 'Corrija ou divida o comando, ou ajuste o prazo no manifesto, rode verify e prepare de novo.',
+          },
+          'produto-alterado': {
+            mensagem: 'O produto mudou entre o preparo e o fim do replay.',
+            acao: 'Remova a mutação ou edição concorrente, restaure o checkout e reexecute.',
+          },
+        },
       },
     },
   },
@@ -1261,10 +1288,36 @@ const EN: Mensagens = {
           `claims.lint: the bundle was not generated; withdraw the claim and register it again with the focused command:\n  ${refusals}`,
         reciboAusente: (branch) => `ci.recibo.ausente: branch ${branch} has no receipt for the current verify; ` +
           'start the delivery with `ork thread new` or, in the next RM-089 step, use `ork adotar`',
-        reciboInvalido: (branch) => `ci.recibo.invalido: the receipt for branch ${branch} does not reference a valid ancestor verify; ` +
+        reciboInvalido: (branch) => `ci.recibo.invalido: the replay recipe for branch ${branch}, the runner receipt, and the exact HEAD do not satisfy the F5 contract; ` +
           'run `ork verify` and `ork ci prepare` again, or adopt the branch when `ork adotar` becomes available',
         reciboShaDivergente: (branch) => `ci.recibo.sha-divergente: branch ${branch} changed outside .ork-ci/ after verify; ` +
           'run `ork verify` and `ork ci prepare` again',
+        degradacaoReplay: {
+          'projecao-acima-do-limite': {
+            mensagem: 'The replay projection exceeds the bundle limit.',
+            acao: 'Reduce the projection to the required canonical fields, run verify at the current HEAD, and prepare it again.',
+          },
+          'claim-nao-hermetica': {
+            mensagem: 'The claim cannot be replayed in full on this runner.',
+            acao: 'Make the claim hermetic or remove the incompatible dependency, run verify, and prepare it again.',
+          },
+          'runner-sem-capacidade': {
+            mensagem: 'The runner does not provide a capability required by the replay.',
+            acao: 'Provide the declared capability or revise the claim or command and run it again.',
+          },
+          'comando-nao-iniciado': {
+            mensagem: 'A replay command was not started.',
+            acao: 'Restore the declared executable or runtime and run the replay again.',
+          },
+          'prazo-excedido': {
+            mensagem: 'A replay command exceeded the verify timeout.',
+            acao: 'Fix or split the command, or adjust the manifest timeout, run verify, and prepare it again.',
+          },
+          'produto-alterado': {
+            mensagem: 'The product changed between preparation and the end of the replay.',
+            acao: 'Remove the concurrent mutation or edit, restore the checkout, and run it again.',
+          },
+        },
       },
     },
   },

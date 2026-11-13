@@ -20,6 +20,7 @@ import { Fase, SessaoDaThread, Thread } from '../src/types';
 import { exec } from '../src/util';
 import { CONTRATO_REDE_DO_ARCO, RedeDoArco } from '../src/noctum-rede';
 import { chaveDoReciboDeProva } from '../src/recibo-prova';
+import { comandosDoManifesto, impressaoDosComandos } from '../src/verify';
 
 /** O GitHub que os testes fixam para o remoto bare; o envelope de `noctum-apoio` autoriza este repositório. */
 export const FORJA = { host: 'github.com', repositorio: 'exemplo/produto' };
@@ -128,12 +129,14 @@ export function verifyNoLedger(p: ProjetoDeTeste, threadId: string, commit: stri
   const plano = path.join(docs, 'plan.md');
   if (!fs.existsSync(plano)) fs.writeFileSync(plano, '# PLAN SIMULADO\n');
   const claims = o.claims ?? lerClaims(p.dir, threadId).filter(c => c.estado !== 'retirada')
-    .map(c => ({ id: c.id, verificado: true, motivo: null }));
+    .map(c => ({ id: c.id, verificarSha256: impressaoDosComandos(c.verificar), verificado: true, motivo: null }));
+  const comandos = comandosDoManifesto(p.carregado.manifesto).map(({ nome }) => ({ nome, ok, code: ok ? 0 : 1 }));
   const e = registrar(dirThread(p.dir, threadId), threadId, TIPOS_DE_EVENTO.verificacao, { commit,
     recibo: chaveDoReciboDeProva(p.dir, threadId, commit), veredito: ok ? 'verdade sustentada' : 'reprovado',
     motivos: o.motivos ?? (ok ? [] : ['verify.regression']), claims,
     baseline: o.baseline === false ? null : { commit: 'baseline-simulada', gravadaEm: new Date().toISOString() },
-    comandos: o.comandos === false ? [] : [{ nome: 'build', ok, code: ok ? 0 : 1 }] });
+    comandos: o.comandos === false ? [] : comandos,
+    check: { modo: 'agile', origem: 'manifesto', nome: 'Agile Check' } });
   return String(e.eventId);
 }
 

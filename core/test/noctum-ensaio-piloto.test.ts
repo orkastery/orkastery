@@ -68,6 +68,7 @@ test('EP1: o ensaio inteiro sai 0 com todas as expectativas dos doze cenários, 
     // Cada cenário prova que nada de verdade rodou: as sentinelas do runtime, da forja e dos gateways ficaram paradas.
     provada(c, /^nenhum runtime, forja ou gateway de verdade foi chamado \(sentinelas claude, codex, gh/);
   }
+  provada(cenario('base-que-anda'), /^o runner executa o HEAD publicado e emite o recibo desse mesmo HEAD, ligado aos hashes da projeção/);
   assert.ok(json.cenarios.reduce((s, c) => s + c.expectativas.length, 0) >= 100);
   assert.equal(json.mantida, false);
   assert.equal(fs.existsSync(json.raiz), false, 'a pasta do ensaio foi apagada');
@@ -184,12 +185,13 @@ test('EP9: o condutor que morre: o vigia assume, retoma a sessão morta, atualiz
   provada(c, /^o trabalho retomado segue em curso: o arco não fecha com o t2 na sessão nova, nem no tique depois do condutor, e o t2 não é parado/);
 });
 
-test('EP10: a base que anda: o condutor atualiza o candidato, roda o verify real no SHA novo, publica de novo e integra na base nova', { skip: semKernel }, () => {
+test('EP10: a base que anda: projeção e rodada conferem, e o recibo do runner prova o HEAD publicado', { skip: semKernel }, () => {
   const c = cenario('base-que-anda');
   provada(c, /^o candidato chega publicado no remoto de fixture, com o PR aberto na forja SIMULADA/);
-  provada(c, /^com a base nova, o condutor atualiza o candidato sobre ela, com a linha da thread em "Não publicado" e o bundle regravado/);
-  provada(c, /^o condutor roda o verify real no pai provado do bundle, cujo recibo aponta para esse HEAD/);
+  provada(c, /^com a base nova, o condutor atualiza o candidato sobre ela, com a linha da thread em "Não publicado" e a projeção preservada/);
+  provada(c, /^o condutor confere a projeção com a rodada verde; sem mudança, o candidato é o próprio HEAD verificado/);
   provada(c, /^a entrega publica de novo o SHA atualizado: a branch do remoto anda até ele/);
+  provada(c, /^o runner executa o HEAD publicado e emite o recibo desse mesmo HEAD, ligado aos hashes da projeção/);
   provada(c, /^com o CI verde no SHA novo, a integração mescla na base nova, e o ship_done leva a prova do push/);
   provada(c, /^o CI SIMULADO foi lido nos dois SHAs publicados, e nenhum outro PR foi aberto/);
 });
@@ -203,6 +205,10 @@ test('EP11: o resultado do ensaio leva simulado e as marcas que o aceite do pilo
   assert.equal(r.status, 0, r.stderr);
   const recorte = JSON.parse(r.stdout) as Resultado;
   assert.deepEqual([recorte.simulado, recorte.marcas], [true, json.marcas]);
+  const base = recorte.cenarios.find(c => c.nome === 'base-que-anda');
+  assert.ok(base);
+  provada(base, /^o condutor confere a projeção com a rodada verde; sem mudança, o candidato é o próprio HEAD verificado/);
+  provada(base, /^o runner executa o HEAD publicado e emite o recibo desse mesmo HEAD, ligado aos hashes da projeção/);
 });
 
 test('EP12: o dono aprova onde estiver, com resposta curta: reply, código, palavra solta, número e o terminal desligado, com os negativos', { skip: semKernel }, () => {

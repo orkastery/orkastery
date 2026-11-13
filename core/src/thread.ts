@@ -785,7 +785,7 @@ export function canalDaSessao(s: SessaoDaThread): CanalDeConducao | 'desconhecid
 }
 
 export function resumoDaThread(thread: Thread, conducao?: ConducaoAtual | null,
-  avisos: readonly AvisoArtefatoForaDoEstado[] = []): string {
+  avisos: readonly AvisoArtefatoForaDoEstado[] = [], preflightEmpresa?: string): string {
   const def = definicaoDoModo(thread.modo);
   const m = msg().thread, r = m.rotulos;
   // RM-061 (F2a): o rotulo vem do catalogo, na largura do locale; o valor gravado (nome, criterio) sai como esta.
@@ -820,6 +820,7 @@ export function resumoDaThread(thread: Thread, conducao?: ConducaoAtual | null,
     linhas.push(campo(r.check, m.check(NOME_DO_MODO[thread.check.modo], thread.check.origem, formatarDataHoraRotulada(thread.check.em),
       shaCurto(thread.check.commit))));
   }
+  if (preflightEmpresa) linhas.push(preflightEmpresa);
   for (const aviso of avisos) linhas.push(campo(r.aviso, m.artefatoForaDoEstado(aviso.caminho)));
   linhas.push(m.blocosPrevistos);
   for (const b of thread.blocos) {

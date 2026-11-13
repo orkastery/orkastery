@@ -8,7 +8,7 @@ import { lerMetadados, recusaAbaixoDoPiso } from './forja/versao';
 import { resolverForja, SONDAS_PADRAO, SondasDaForja } from './forja/resolver';
 import { dirDoCacheDaForja } from './forja/cache';
 import { exigirRemoto } from './branch-de-estado';
-import { ManifestoCarregado } from './manifest';
+import { comandosDoTextoDoManifesto, ManifestoCarregado, NOME_MANIFESTO, NOME_MANIFESTO_LEGADO } from './manifest';
 import { exec } from './util';
 import { rodarCli } from './forja/executor';
 import { estadoDoCheck } from './forja/estado';
@@ -27,10 +27,15 @@ import { analisarComandos, linhaDoLintDeClaim, regraFatalDeClaim } from './claim
 import { TESTES_DE_INTEGRACAO_LOCAL } from './integracoes-locais';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { dirThread, lerThread } from './thread';
-import { ErroDoCatalogo, montadorDe, textoDoCatalogo, type Mensagens } from './locale';
+import { ErroDoCatalogo, montadorDe, msg, textoDoCatalogo, type Mensagens } from './locale';
 import { barreiraDaThread, linhaDoAchado, textoDaListaLocal, textoDoEscopo, varrerTexto } from './dado-privado';
 import { avisos as avisosDePolicy, bloqueantes as bloqueantesDePolicy } from './policies';
 import { CONTRATO_DO_RECIBO_DE_PROVA } from './recibo-prova';
+import { preflightCiDoProjeto, type ResultadoPreflightEmpresa } from './rede-empresa-preflight';
+import { CODIGO_DA_DEGRADACAO_REPLAY_CI, CONTRATO_PROJECAO_REPLAY_CI, criarProjecaoReplayCi,
+  estadoDoReciboRunnerCi, motivoClaimNaoHermeticaReplayCi, reexecutarProjecaoReplayCi,
+  type OpcoesReplayCi, type ProjecaoReplayCi, type ReceitaConfiavelReplayCi } from './ci-recibo-basico';
+import { resolverModo } from './check-modo';
 
 export type EstadoCi = 'disabled' | 'success' | 'pending' | 'failure' | 'missing' | 'unavailable';
 
@@ -85,7 +90,7 @@ export interface BundleCi {
   deferredClaims?: Array<{ id: string; reason: 'artifact-not-in-checkout' | 'host-runtime-required' | 'local-integration-required' }>;
   commands: { name: string; command: string }[];
   /** RM-089 F1: projeção mínima da prova vigente; ausente mantém o bundle legado válido. */
-  recibo?: ReciboDoBundleCi;
+  recibo?: ReciboDoBundleCi | ProjecaoReplayCi;
 }
 
 export interface ReciboDoBundleCi {
@@ -101,6 +106,53 @@ export interface ContextoDaPoliticaCi {
   destino?: string | null;
   /** Permite ao adaptador declarar explicitamente que a execução é de PR/MR. */
   pullRequest?: boolean;
+  /** Ambiente e injeção usados apenas pelo preflight coletivo; não entram no resultado. */
+  env?: NodeJS.ProcessEnv;
+  preflightEmpresa?: ResultadoPreflightEmpresa | null;
+  /** Dependências internas dos testes herméticos; o runner real usa os defaults fechados. */
+  replay?: Omit<OpcoesReplayCi, 'raiz' | 'manifesto' | 'head' | 'ambiente'>;
+  /** HEAD já resolvido pelo adaptador; ausente, lê o checkout uma vez. */
+  head?: string;
+  /** Injeção pura dos testes; produção lê a receita da ref protegida de destino. */
+  receitaConfiavel?: ReceitaConfiavelReplayCi | null;
+  /** Leitor hermético dos testes; produção usa `git show` fora do checkout do PR/MR. */
+  lerManifestoDestino?: (ref: string, arquivo: string) => string | null;
+}
+
+type LeitorDoManifestoNaRef = (ref: string, arquivo: string) => string | null;
+
+/** Modo, comandos, preparo e prazos de verify da branch de destino, fora do conteúdo controlado pelo PR/MR. */
+export function receitaConfiavelDoDestino(raiz: string, destino: string,
+  ler: LeitorDoManifestoNaRef = (ref, arquivo) => {
+    const r = exec('git', ['show', '--no-ext-diff', '--end-of-options', `${ref}:./${arquivo}`], raiz);
+    return r.ok ? r.stdout : null;
+  }): ReceitaConfiavelReplayCi | null {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._/-]{0,254}$/.test(destino) || destino.includes('..') ||
+      destino.includes('//') || destino.includes('@{') || destino.endsWith('/') || destino.endsWith('.lock')) return null;
+  for (const ref of [`refs/remotes/origin/${destino}`, `refs/heads/${destino}`]) {
+    for (const arquivo of [NOME_MANIFESTO, NOME_MANIFESTO_LEGADO]) {
+      const bruto = ler(ref, arquivo);
+      if (bruto === null) continue;
+      const manifesto = comandosDoTextoDoManifesto(bruto);
+      if (!manifesto) return null;
+      const commands = [
+        { name: 'typecheck', command: manifesto.typecheck },
+        { name: 'build', command: manifesto.build },
+        { name: 'test', command: manifesto.test },
+        { name: 'security_scan', command: manifesto.securityScan },
+      ].filter((item): item is { name: string; command: string } => !!item.command?.trim());
+      return { commands, ...(manifesto.preparo?.trim() ? { preparo: manifesto.preparo } : {}),
+        ...(manifesto.timeoutMs !== undefined ? { timeout_ms: manifesto.timeoutMs } : {}),
+        ...(manifesto.timeoutMsPorComando ? { timeout_ms_por_comando: manifesto.timeoutMsPorComando } : {}),
+        check: manifesto.checkMode };
+    }
+  }
+  return null;
+}
+
+export function anexarPreflightAoResultadoCi<T extends { ok: boolean }>(resultado: T,
+  preflightEmpresa: ResultadoPreflightEmpresa | null): T & { preflightEmpresa?: ResultadoPreflightEmpresa } {
+  return preflightEmpresa ? { ...resultado, preflightEmpresa } : resultado;
 }
 
 const MARCADORES_DE_HOST = [
@@ -490,7 +542,9 @@ export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string
       .filter((item) => item.reason !== null)
       .map((item) => ({ id: item.claim.id, reason: item.reason! })),
     commands,
-    ...reciboDoUltimoVerify(carregado.raiz, threadId),
+    ...(carregado.manifesto.ci.politica_recibo
+      ? projecaoDoUltimoVerify(carregado, threadId, activeClaims, commands)
+      : reciboDoUltimoVerify(carregado.raiz, threadId)),
   };
   const texto = JSON.stringify(bundle, null, 2) + '\n';
   barreiraDoBundle(carregado, threadId, destino, path.posix.join(DIR_DO_BUNDLE, nomeDoArquivo), texto, opcoes);
@@ -509,6 +563,23 @@ function reciboDoUltimoVerify(raiz: string, threadId: string): { recibo?: Recibo
       bruto.contrato !== CONTRATO_DO_RECIBO_DE_PROVA || typeof bruto.head !== 'string' || !/^[a-f0-9]{40}$/.test(bruto.head) ||
       typeof bruto.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(bruto.sha256)) return {};
   return { recibo: { contrato: CONTRATO_DO_RECIBO_DE_PROVA, head: bruto.head, sha256: bruto.sha256 } };
+}
+
+/** A projeção nasce do último verify integral verde, mas não leva o HEAD desse verify como recibo presente. */
+function projecaoDoUltimoVerify(carregado: ManifestoCarregado, threadId: string, claims: Claim[],
+  _commands: Array<{ name: string; command: string }>): { recibo?: ProjecaoReplayCi } {
+  const ultimo = lerLedger(dirThread(carregado.raiz, threadId)).filter((e) => e.tipo === TIPOS_DE_EVENTO.verificacao).at(-1);
+  const check = ultimo?.check as { modo?: unknown } | undefined;
+  if (ultimo?.veredito !== 'verdade sustentada' || ultimo.parcial === true ||
+      (check?.modo !== 'agile' && check?.modo !== 'classic')) return {};
+  return { recibo: criarProjecaoReplayCi({
+    thread: threadId,
+    claims,
+    check: check.modo,
+    baseline: lerThread(carregado.raiz, threadId).baseline,
+    commands: comandosDoManifesto(carregado.manifesto).map(({ nome, comando }) => ({ name: nome, command: comando })),
+    preparo: carregado.manifesto.verify.preparo,
+  }) };
 }
 
 /**
@@ -587,29 +658,32 @@ export function bundleDaBranch(raiz: string, branch: string): { arquivo: string;
  */
 export function executarCiDaBranch(carregado: ManifestoCarregado, branch: string,
   contexto: ContextoDaPoliticaCi = {}) {
+  const runner = ambienteDeCi(contexto.env ?? process.env);
+  const pullRequest = contexto.pullRequest ?? (runner?.pullRequest === true);
+  const preflightEmpresa = contexto.preflightEmpresa === undefined && pullRequest
+    ? preflightCiDoProjeto(carregado.raiz, carregado.manifesto, contexto.env ?? process.env, runner?.fork ?? null)
+    : contexto.preflightEmpresa ?? null;
   const politica = carregado.manifesto.ci.politica_recibo;
   // Guarda de compatibilidade: sem opt-in, este é o caminho anterior sem nenhum campo, comando ou erro novo.
-  if (!politica) return executarCiDaBranchSemPolitica(carregado, branch);
-  return executarCiDaBranchComPolitica(carregado, branch, politica, contexto);
+  if (!politica) return anexarPreflightAoResultadoCi(executarCiDaBranchSemPolitica(carregado, branch, contexto), preflightEmpresa);
+  return anexarPreflightAoResultadoCi(executarCiDaBranchComPolitica(carregado, branch, politica, contexto), preflightEmpresa);
 }
 
-function executarCiDaBranchSemPolitica(carregado: ManifestoCarregado, branch: string) {
+function executarCiDaBranchSemPolitica(carregado: ManifestoCarregado, branch: string, contexto: ContextoDaPoliticaCi = {}) {
   const achado = bundleDaBranch(carregado.raiz, branch);
-  if (achado) return { ...rodarBundle(carregado, achado.bundle), branch, bundle: achado.arquivo };
+  if (achado) return { ...rodarBundle(carregado, achado.bundle, contexto.head), branch, bundle: achado.arquivo };
   if (branch.startsWith('ork/')) {
     throw new Error(`ci.bundle.ausente: a branch ${branch} e de thread e nao tem bundle em ${DIR_DO_BUNDLE}/; ` +
       'rode ork ci prepare <thread> na worktree e versione o arquivo');
   }
   const semThread: BundleCi = { schema: 'ork.ci-bundle/v1', thread: '', base: carregado.manifesto.worktree.base_branch,
     claims: [], commands: comandosDoBundle(carregado) };
-  return { ...rodarBundle(carregado, semThread), thread: null, branch, bundle: null };
+  return { ...rodarBundle(carregado, semThread, contexto.head), thread: null, branch, bundle: null };
 }
 
 /** Forma explícita usada pelo runner; o terceiro argumento permanece opcional para chamadas antigas. */
 export function executarCiDaBranchComContexto(carregado: ManifestoCarregado, branch: string, contexto: ContextoDaPoliticaCi) {
-  const politica = carregado.manifesto.ci.politica_recibo;
-  return politica ? executarCiDaBranchComPolitica(carregado, branch, politica, contexto)
-    : executarCiDaBranchSemPolitica(carregado, branch);
+  return executarCiDaBranch(carregado, branch, contexto);
 }
 
 function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: string,
@@ -624,19 +698,52 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
   }
   // Um arquivo que o seletor reconhece como o bundle da branch, mas que nem abre, também participa da política. O
   // caminho sem política continua chamando `bundleDaBranch` diretamente e preserva a exceção histórica.
-  const recibo = bundleInvalido ? 'invalido'
-    : estadoDoReciboCi(carregado.raiz, achado?.bundle.recibo, undefined, achado?.arquivo);
+  const entrada = achado?.bundle.recibo;
+  const ehProjecao = !!entrada && typeof entrada === 'object' && !Array.isArray(entrada) &&
+    (entrada as { contrato?: unknown }).contrato === CONTRATO_PROJECAO_REPLAY_CI;
+  const head = contexto.head ?? commitReal(carregado.raiz);
   const destino = contexto.destino ?? null;
   const pullRequest = contexto.pullRequest ?? destino !== null;
+  const receitaConfiavel = contexto.receitaConfiavel !== undefined
+    ? contexto.receitaConfiavel
+    : pullRequest && destino
+      ? receitaConfiavelDoDestino(carregado.raiz, destino, contexto.lerManifestoDestino)
+      : {
+        commands: comandosDoManifesto(carregado.manifesto).map(({ nome, comando }) => ({ name: nome, command: comando })),
+        ...(carregado.manifesto.verify.preparo ? { preparo: carregado.manifesto.verify.preparo } : {}),
+        ...(carregado.manifesto.verify.timeout_ms !== undefined
+          ? { timeout_ms: carregado.manifesto.verify.timeout_ms } : {}),
+        ...(carregado.manifesto.verify.timeout_ms_por_comando
+          ? { timeout_ms_por_comando: carregado.manifesto.verify.timeout_ms_por_comando } : {}),
+        check: resolverModo(carregado.manifesto.check?.mode).modo,
+      };
+  const replay = ehProjecao ? reexecutarProjecaoReplayCi(entrada, {
+    raiz: carregado.raiz,
+    manifesto: carregado.manifesto,
+    head,
+    ambiente: contexto.env ?? process.env,
+    hermeticidade: (claim) => motivoClaimNaoHermeticaReplayCi(claim) ?? motivoDiferimentoCi(claim as Claim, carregado.raiz),
+    ...contexto.replay,
+    receitaConfiavel,
+  }) : null;
+  const recibo = bundleInvalido ? 'invalido'
+    : replay ? replay.degradacao || replay.invalida ? 'invalido'
+      : estadoDoReciboRunnerCi(replay.recibo, head)
+      : estadoDoReciboCi(carregado.raiz, entrada, head, achado?.arquivo);
   const protegida = carregado.manifesto.worktree.base_branch;
+  const degradacao = replay?.degradacao ? diagnosticoDaDegradacaoReplay(replay.degradacao) : null;
+  const mensagem = degradacao ? `${degradacao.message} ${degradacao.action}` : recibo === 'presente'
+    ? null : mensagemDoRecibo(recibo, branch);
   const policy = { level: nivel, receipt: recibo, sourceBranch: branch, targetBranch: destino, protectedBranch: protegida,
-    ...(recibo === 'presente' ? {} : { message: mensagemDoRecibo(recibo, branch) }) };
+    ...(mensagem ? { message: mensagem } : {}), ...(degradacao ? { action: degradacao.action } : {}) };
   const erroDoBundle = bundleInvalido ?? (branch.startsWith('ork/') && !achado
     ? { code: 'ci.bundle.ausente', message: `ci.bundle.ausente: a branch ${branch} e de thread e nao tem bundle em ${DIR_DO_BUNDLE}/; ` +
         'rode ork ci prepare <thread> na worktree e versione o arquivo' }
     : null);
   const erroDoRecibo = nivel === 'exigir' && pullRequest && destino === protegida && recibo !== 'presente'
-    ? { code: `ci.recibo.${recibo}`, message: mensagemDoRecibo(recibo, branch) }
+    ? replay?.degradacao
+      ? degradacao!
+      : { code: `ci.recibo.${recibo}`, message: mensagemDoRecibo(recibo, branch) }
     : null;
   if (!achado && erroDoBundle) {
     return { schema: 'ork.ci-run/v1' as const, ok: false, thread: null, commit: commitReal(carregado.raiz), preparo: null,
@@ -644,10 +751,39 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
   }
   const bundle = achado?.bundle ?? { schema: 'ork.ci-bundle/v1' as const, thread: '',
     base: carregado.manifesto.worktree.base_branch, claims: [], commands: comandosDoBundle(carregado) };
+  if (replay) {
+    const diagnostico = replay.degradacao
+      ? degradacao!
+      : replay.invalida ? { code: 'ci.recibo.invalido', message: mensagemDoRecibo('invalido', branch) } : null;
+    const defeitoDoReciboReprova = nivel === 'exigir' && pullRequest && destino === protegida && recibo !== 'presente';
+    // Observar e avisar não transformam sozinhos um diagnóstico de recibo em reprovação.
+    const medicaoOk = replay.ok;
+    return {
+      schema: 'ork.ci-run/v1' as const,
+      ok: medicaoOk && !defeitoDoReciboReprova,
+      thread: replay.thread || bundle.thread,
+      commit: replay.commit,
+      preparo: replay.preparo,
+      claims: replay.claims,
+      commands: replay.commands,
+      ...(replay.julgamento ? { verify: replay.julgamento } : {}),
+      ...(replay.recibo ? { recibo: replay.recibo } : {}),
+      branch,
+      bundle: achado?.arquivo ?? null,
+      policy,
+      ...((erroDoRecibo ?? diagnostico) ? { error: erroDoRecibo ?? diagnostico! } : {}),
+    };
+  }
   const executado = rodarBundle(carregado, bundle);
   const error = erroDoRecibo;
   return { ...executado, ok: executado.ok && !error, ...(achado ? {} : { thread: null }), branch,
     bundle: achado?.arquivo ?? null, policy, ...(error ? { error } : {}) };
+}
+
+function diagnosticoDaDegradacaoReplay(causa: keyof typeof CODIGO_DA_DEGRADACAO_REPLAY_CI):
+  { code: string; message: string; action: string } {
+  const d = msg().operacao.produto.ci.degradacaoReplay[causa];
+  return { code: CODIGO_DA_DEGRADACAO_REPLAY_CI[causa], message: d.mensagem, action: d.acao };
 }
 
 /** Validação fechada: falha do Git nunca transforma recibo em presente. */
@@ -704,7 +840,7 @@ export function executarBundleCi(carregado: ManifestoCarregado, file = path.posi
   return rodarBundle(carregado, lerBundle(carregado.raiz, file));
 }
 
-function rodarBundle(carregado: ManifestoCarregado, bundle: BundleCi) {
+function rodarBundle(carregado: ManifestoCarregado, bundle: BundleCi, head?: string) {
   // O CI roda o mesmo preparo do `ork verify` local (I-54), uma vez e antes das claims: a claim
   // que passa na maquina de quem entrega passa aqui pelo mesmo caminho. Como no verify, o
   // preparo nao e condicao de claim; ele so deixa a compilacao pronta e sai no resultado.
@@ -720,5 +856,5 @@ function rodarBundle(carregado: ManifestoCarregado, bundle: BundleCi) {
     ? executar(item.name, item.command, carregado.raiz, prazoDoComando(carregado.manifesto, 'test'))
     : doManifesto(item.name, item.command, carregado.raiz));
   const ok = claims.every((item) => item.verificado || item.motivo === 'claims.unverifiable') && commands.every((item) => item.ok);
-  return { schema: 'ork.ci-run/v1' as const, ok, thread: bundle.thread, commit: commitReal(carregado.raiz), preparo, claims, commands };
+  return { schema: 'ork.ci-run/v1' as const, ok, thread: bundle.thread, commit: head ?? commitReal(carregado.raiz), preparo, claims, commands };
 }
