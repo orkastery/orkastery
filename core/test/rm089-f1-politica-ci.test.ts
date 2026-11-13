@@ -257,13 +257,13 @@ test('referências públicas fixam níveis, estados e a fronteira de confiança 
   const guiaPt = ler('docs/guias/politica-de-recibo-da-empresa.pt-BR.md');
   assert.match(guiaPt, /bundle e o `sha256`.*próprio PR\/MR.*podem ser forjados/s);
   assert.match(guiaPt, /runner não consulta nem confere.*ledger/s);
-  assert.match(guiaPt, /reexecuta no HEAD.*claims.*comandos.*ancestralidade.*diff posterior/s);
+  assert.match(guiaPt, /reexecuta no HEAD.*claims.*comandos.*Não usa ancestralidade nem diff posterior/s);
   assert.match(guiaPt, /garantia contra forja.*recibo assinado.*F7/s);
 
   const guiaEn = ler('docs/guias/politica-de-recibo-da-empresa.md');
   assert.match(guiaEn, /bundle and the receipt's `sha256`.*PR\/MR itself.*forge them/s);
   assert.match(guiaEn, /runner does not query.*ledger.*compare the receipt/s);
-  assert.match(guiaEn, /reruns.*claims and commands.*HEAD.*ancestry.*diff/s);
+  assert.match(guiaEn, /reruns.*claims and commands on the HEAD.*does\s+not use ancestry or a later diff/s);
   assert.match(guiaEn, /Protection against forgery.*signed receipt.*F7/s);
 
   const forja = ler('docs/referencia/contratos/forja.md');
