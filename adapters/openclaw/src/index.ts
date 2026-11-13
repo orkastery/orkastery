@@ -8,6 +8,8 @@
  */
 import { registerHitlIngress } from './hitl-ingress.js';
 import { execFile } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { defineToolPlugin } from 'openclaw/plugin-sdk/tool-plugin';
 
 /**
@@ -29,6 +31,123 @@ function resolverOrkBin(): string {
   const doAmbiente = process.env.ORK_BIN;
   if (doAmbiente && doAmbiente.trim() !== '') return doAmbiente;
   return 'ork';
+}
+
+type EventoInternoOpenClaw = {
+  type: string;
+  action: string;
+  sessionKey: string;
+  messages: string[];
+  context: Record<string, unknown>;
+};
+
+type ApiDeHooksOpenClaw = {
+  registerHook: (
+    eventos: string | string[],
+    handler: (evento: EventoInternoOpenClaw) => Promise<void> | void
+  ) => void;
+};
+
+type ArquivoDeBootstrap = {
+  name: string;
+  path: string;
+  content?: string;
+  missing: boolean;
+};
+
+const PONTE_DE_ORIENTACAO = String.raw`
+const fs=require('node:fs'),path=require('node:path');
+const input=JSON.parse(fs.readFileSync(0,'utf8'));
+const dir=process.argv[1];
+const {exigirManifesto}=require(path.join(dir,'manifest.js'));
+const {orientarSessao}=require(path.join(dir,'sessao-orientacao.js'));
+process.stdout.write(JSON.stringify(orientarSessao(exigirManifesto(input.cwd),input))+'\n');
+`;
+
+function executavelNoPath(nome: string): string | null {
+  if (path.isAbsolute(nome)) return nome;
+  for (const dir of (process.env.PATH ?? '').split(path.delimiter)) {
+    const candidato = path.join(dir, nome);
+    if (fs.existsSync(candidato)) return candidato;
+  }
+  return null;
+}
+
+function diretorioDoNucleo(): string | null {
+  const explicito = process.env.ORK_NUCLEO_DIR;
+  if (explicito?.trim()) return path.resolve(explicito);
+  const executavel = executavelNoPath(resolverOrkBin());
+  if (!executavel) return null;
+  try {
+    const dir = path.dirname(fs.realpathSync(executavel));
+    return fs.existsSync(path.join(dir, 'sessao-orientacao.js')) ? dir : null;
+  } catch { return null; }
+}
+
+function textoDaOrientacao(evento: EventoInternoOpenClaw): Promise<string | null> {
+  const cwd = evento.context.workspaceDir;
+  const sessionIdDoContexto = evento.context.sessionId;
+  const sessionId = typeof sessionIdDoContexto === 'string' && sessionIdDoContexto.trim()
+    ? sessionIdDoContexto
+    : evento.sessionKey;
+  const dir = diretorioDoNucleo();
+  if (!dir || typeof cwd !== 'string' || !path.isAbsolute(cwd) || !sessionId.trim()) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const filho = execFile(process.execPath, ['-e', PONTE_DE_ORIENTACAO, dir], {
+      cwd, timeout: 10_000, maxBuffer: 16_384, env: {},
+    }, (erro, stdout) => {
+      if (erro) return resolve(null);
+      try {
+        const orientacao = JSON.parse(stdout) as Record<string, unknown>;
+        const texto = orientacao.texto;
+        resolve(
+          orientacao.contrato === 'ork.sessao-orientacao/v1' &&
+          orientacao.estado === 'fora-de-thread' &&
+          orientacao.bloqueia === false &&
+          typeof texto === 'string' && texto.trim()
+            ? texto.slice(0, 4000)
+            : null
+        );
+      } catch { resolve(null); }
+    });
+    filho.stdin?.end(JSON.stringify({ runtime: 'openclaw', sessionId, cwd }));
+  });
+}
+
+function comandoVeioDoChat(evento: EventoInternoOpenClaw): boolean {
+  const fonte = evento.context.commandSource;
+  const remetente = evento.context.senderId;
+  return typeof fonte === 'string' && fonte.trim() !== '' &&
+    !/^(?:gateway|stateful-target|tui):/.test(fonte) &&
+    typeof remetente === 'string' && remetente.trim() !== '';
+}
+
+function registrarOrientacaoDaSessao(api: ApiDeHooksOpenClaw): void {
+  api.registerHook(['command:new', 'command:reset'], async (evento) => {
+    if (evento.type !== 'command' || !['new', 'reset'].includes(evento.action) || !comandoVeioDoChat(evento)) return;
+    const texto = await textoDaOrientacao(evento);
+    if (texto) evento.messages.push(texto);
+  });
+  api.registerHook('agent:bootstrap', async (evento) => {
+    if (evento.type !== 'agent' || evento.action !== 'bootstrap') return;
+    const arquivos = evento.context.bootstrapFiles;
+    if (!Array.isArray(arquivos)) return;
+    const texto = await textoDaOrientacao(evento);
+    if (!texto) return;
+    const tipados = arquivos as ArquivoDeBootstrap[];
+    const agentes = tipados.find((arquivo) => arquivo?.name === 'AGENTS.md');
+    if (agentes) {
+      if (!agentes.content?.includes(texto)) agentes.content = `${agentes.content?.trimEnd() ?? ''}\n\n${texto}`.trimStart();
+      agentes.missing = false;
+      return;
+    }
+    tipados.push({
+      name: 'AGENTS.md',
+      path: path.join(evento.context.workspaceDir as string, '.orkastery-session-orientation.md'),
+      content: texto,
+      missing: false,
+    });
+  });
 }
 
 /** Limite generoso para saidas de board/ledger sem estourar o buffer padrao. */
@@ -622,7 +741,7 @@ const plugin = defineToolPlugin({
   id: 'orkastery',
   name: 'Orkastery',
   description:
-    'Conducao de looping threads em 6 fases pelo nucleo `ork`, exposta ao OpenClaw como tools `ork_*`. Zero regra de negocio no host: cada tool e uma chamada de CLI. Toda tool de projeto aceita projeto (nome do projeto pedido); o cwd do gateway nunca escolhe o projeto. O status do roadmap vem de ork_network_roadmap; as maquinas da pessoa, de ork_network_status (sem projeto).',
+    'Conducao de looping threads em 6 fases pelo nucleo `ork`, exposta ao OpenClaw como tools `ork_*` e orientacao de sessao pelos hooks nativos. Zero regra de negocio no host: cada tool e uma chamada de CLI e os hooks transportam a decisao do nucleo. Toda tool de projeto aceita projeto (nome do projeto pedido); o cwd do gateway nunca escolhe o projeto. O status do roadmap vem de ork_network_roadmap; as maquinas da pessoa, de ork_network_status (sem projeto).',
   tools: (tool) =>
     FERRAMENTAS.map((f) =>
       tool({
@@ -648,12 +767,13 @@ const plugin = defineToolPlugin({
     ),
 });
 
-// Preserve SDK metadata and its tool registration; add only a native ingress hook.
+// Preserve SDK metadata and its tool registration; add native ingress and session orientation hooks.
 const entry = plugin as { register?: (api: unknown) => unknown };
 const registerTools = entry.register;
 entry.register = (api: unknown) => {
   const result = registerTools?.(api);
   registerHitlIngress(api as Parameters<typeof registerHitlIngress>[0], resolverOrkBin());
+  registrarOrientacaoDaSessao(api as ApiDeHooksOpenClaw);
   return result;
 };
 export default plugin;
