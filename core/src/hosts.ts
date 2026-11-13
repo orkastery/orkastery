@@ -316,6 +316,32 @@ function listarArquivos(dir: string, prefixo = ''): { origem: string; relativo: 
   return achados;
 }
 
+interface FonteDaInstalacao {
+  origem: string;
+  relativo: string;
+  /** Alvo nativo fora da pasta própria do adaptador. */
+  destino?: string;
+  /** Raiz que o preflight precisa manter sem links ou tipos inesperados. */
+  raizDoDestino?: string;
+}
+
+function fonteDoHost(host: Host, projeto: string,
+  fonte: { origem: string; relativo: string }): FonteDaInstalacao {
+  if (host === 'hermes' && fonte.relativo.startsWith('hitl-ingress/')) {
+    return { ...fonte, relativo: fonte.relativo.replace(/^hitl-ingress\//, 'plugins/orkastery-hitl/') };
+  }
+  if (host === 'codex' && fonte.relativo === 'hooks/hooks.json') {
+    const raizDoDestino = path.join(projeto, '.codex');
+    return { ...fonte, relativo: '.codex/hooks.json', destino: path.join(raizDoDestino, 'hooks.json'), raizDoDestino };
+  }
+  if (host === 'codex' && fonte.relativo === 'hooks/ork-sessao.js') {
+    const raizDoDestino = path.join(projeto, '.codex');
+    return { ...fonte, relativo: '.codex/hooks/ork-sessao.js',
+      destino: path.join(raizDoDestino, 'hooks', 'ork-sessao.js'), raizDoDestino };
+  }
+  return fonte;
+}
+
 function mesmoArquivo(a: string, b: string): boolean {
   try { return fs.realpathSync(a) === fs.realpathSync(b); } catch { return path.resolve(a) === path.resolve(b); }
 }
@@ -371,8 +397,7 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
     throw new ErroDoCatalogo((m) => m.adapter.adaptadorNaoExiste(host, dirDoHost));
   }
 
-  const fontes = listarArquivos(dirDoHost).map(fonte => host === 'hermes' && fonte.relativo.startsWith('hitl-ingress/')
-    ? { ...fonte, relativo: fonte.relativo.replace(/^hitl-ingress\//, 'plugins/orkastery-hitl/') } : fonte);
+  const fontes: FonteDaInstalacao[] = listarArquivos(dirDoHost).map(fonte => fonteDoHost(host, projeto, fonte));
   if (def.levaCatalogo) {
     for (const skill of skillsDoCatalogo(catalogo)) {
       fontes.push({
@@ -441,8 +466,13 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
 
   // O preflight cobre o destino e os arquivos do próprio adaptador antes de copiar o primeiro. Links
   // acima do destino (.agents/skills compartilhado, diretório do usuário) são escolha de quem instala.
-  for (const alvo of [...fontes.map(f => path.join(destino, f.relativo)), path.join(destino, 'INSTALADO.json')]) {
-    for (let atual = alvo; atual !== path.dirname(destino) && atual !== path.dirname(atual); atual = path.dirname(atual)) {
+  const alvosDoPreflight = fontes.map(f => ({
+    alvo: f.destino ?? path.join(destino, f.relativo),
+    limite: f.raizDoDestino ? path.dirname(f.raizDoDestino) : path.dirname(destino),
+  }));
+  alvosDoPreflight.push({ alvo: path.join(destino, 'INSTALADO.json'), limite: path.dirname(destino) });
+  for (const { alvo, limite } of alvosDoPreflight) {
+    for (let atual = alvo; atual !== limite && atual !== path.dirname(atual); atual = path.dirname(atual)) {
       const stat = fs.lstatSync(atual, { throwIfNoEntry: false });
       if (stat && (stat.isSymbolicLink() || (atual === alvo ? !stat.isFile() || stat.nlink !== 1 : !stat.isDirectory()))) {
         throw new ErroDoCatalogo((m) => m.adapter.destinoInseguro);
@@ -477,7 +507,7 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
     const conteudo = RENDERIZAVEIS.has(ext)
       ? Buffer.from(renderizarArquivo(bruto.toString('utf8'), { orkBin, catalogo, versao }), 'utf8')
       : bruto;
-    const alvo = path.join(destino, fonte.relativo);
+    const alvo = fonte.destino ?? path.join(destino, fonte.relativo);
     let estado: ArquivoInstalado['estado'] = 'novo';
     let divergencia: ArquivoInstalado['divergencia'];
     if (fs.existsSync(alvo)) {
