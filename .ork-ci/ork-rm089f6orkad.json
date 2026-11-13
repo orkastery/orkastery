@@ -5,35 +5,6 @@
   "base": "main",
   "claims": [
     {
-      "id": "C4",
-      "thread": "ork-rm089f6orkad",
-      "fase": "GOAL",
-      "arquivo": "core/test/rm089-f6-contrato.test.ts",
-      "alegacao": "C4 — A referência pública corresponde ao comportamento ratificado de adoção, avisos por runtime e exceção auditável, marca lacunas como não confirmadas e não promete o recibo forte da F7.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node --test core/dist-test/test/rm089-f6-contrato.test.js",
-        "grep -q \"ork adotar\" docs/referencia/cli.md",
-        "grep -q \"não confirmado\" docs/referencia/cli.md"
-      ],
-      "criadoEm": "2026-11-12T10:51:33.981Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C5",
       "thread": "ork-rm089f6orkad",
       "fase": "GOAL",
@@ -1674,7 +1645,7 @@
         "node core/dist-test/test/locale-f3b-snapshot.test.js"
       ],
       "criadoEm": "2026-11-13T04:24:01.331Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -1701,7 +1672,7 @@
         "node core/dist-test/test/locale-f3b-snapshot.test.js"
       ],
       "criadoEm": "2026-11-13T04:24:01.838Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -2098,6 +2069,92 @@
         "node --test core/dist-test/test/rm089-f6-adocao-cli.test.js"
       ],
       "criadoEm": "2026-11-13T06:22:53.058Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C85",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-adocao-cli.test.ts",
+      "alegacao": "Em estado revisada, a adoção devolve um próximo passo executável que identifica a branch canônica, e a prova consome exatamente os argumentos retornados sem reconstruir ci run.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/rm089-f6-adocao-cli.test.js"
+      ],
+      "criadoEm": "2026-11-13T08:04:06.232Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C86",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/adocao.ts",
+      "alegacao": "A adoção recusa padrões do catálogo de segredos em qualquer parte da URL remota antes do fetch, normalização, persistência e saída, sem gravar nem imprimir o marcador falso.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/rm089-f6-adocao-cli.test.js"
+      ],
+      "criadoEm": "2026-11-13T08:06:36.006Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C87",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-adocao-cli.test.ts",
+      "alegacao": "Substituta de C4: a referência pública corresponde ao comportamento ratificado, e as provas públicas confirmam o próximo passo executável em revisada e a recusa de credencial em toda a URL remota sem persistência ou saída do valor.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f6-contrato.test.js core/dist-test/test/rm089-f6-adocao-cli.test.js",
+        "grep -q \"ork adotar\" docs/referencia/cli.md",
+        "grep -q \"não confirmado\" docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-11-13T08:07:00.330Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
