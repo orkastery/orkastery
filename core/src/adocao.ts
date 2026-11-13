@@ -6,6 +6,9 @@ import { lerLedger } from './ledger';
 import type { Modo, Thread } from './types';
 import { exec } from './util';
 import { worktreesDoGit } from './worktree';
+import { executarAdocaoCoordenada, portaColetivaDoProjeto, portaLocalDoRoadmap, portaThreadOrfa } from './rede-empresa-operacao';
+import { fotografarConflitoDaAdocao, type FotografiaF3DaAdocao } from './rede-empresa-conflito';
+import { preflightDoProjeto } from './rede-empresa-preflight';
 
 declare module './types' {
   interface Thread {
@@ -25,6 +28,8 @@ declare module './types' {
       verifyHead?: string;
       checkHead?: string;
       reciboHead?: string;
+      operacaoReserva?: string;
+      fotografiaF3?: FotografiaF3DaAdocao;
     };
   }
 }
@@ -50,6 +55,12 @@ export interface ResultadoDeAdocao {
   criada: boolean;
   estado: NonNullable<Thread['adocao']>['estado'];
   proximoPasso: string;
+}
+
+export interface DependenciasDaAdocao {
+  /** Testes podem substituir a saga remota sem transformar a fotografia em autorrelato. */
+  coordenar?: (criar: (operacaoId: string) => Thread) => { thread: Thread; operationId: string };
+  fotografar?: () => ReturnType<typeof preflightDoProjeto>;
 }
 
 function refValida(ref: string): boolean {
@@ -104,7 +115,8 @@ function proximoPasso(thread: Thread): string {
   return `node core/dist/index.js ship ${thread.id}`;
 }
 
-export function adotar(carregado: ManifestoCarregado, pedido: PedidoDeAdocao): ResultadoDeAdocao {
+export function adotar(carregado: ManifestoCarregado, pedido: PedidoDeAdocao,
+  dependencias: DependenciasDaAdocao = {}): ResultadoDeAdocao {
   const origem = normalizarOrigem(pedido.ref, pedido.remoto);
   if (!/^RM-[0-9]{3,}$/.test(pedido.roadmap.trim().toUpperCase())) throw new ErroDeAdocao('adocao.roadmap-invalido');
   if (!pedido.perfilCheck.trim()) throw new ErroDeAdocao('adocao.perfil-check-ausente');
@@ -123,22 +135,36 @@ export function adotar(carregado: ManifestoCarregado, pedido: PedidoDeAdocao): R
   const oids = exec('git', ['rev-list', '--reverse', antes.head, '--not', baseHead], carregado.raiz);
   if (!oids.ok) throw new ErroDeAdocao('adocao.historia-invalida');
 
-  // A origem e a base são reconsultadas antes do primeiro estado durável.
-  const depois = resolverCommit(carregado.raiz, pedido.ref, origem.remoto);
-  if (depois.head !== antes.head) throw new ErroDeAdocao('adocao.origem-movel');
-  const baseDepois = exec('git', ['rev-parse', '--verify', `${baseRef}^{commit}`], carregado.raiz).stdout.trim();
-  if (baseDepois !== baseHead) throw new ErroDeAdocao('adocao.base-movel');
-
-  const fotografia: NonNullable<Thread['adocao']> = {
+  const fotografiaBase: NonNullable<Thread['adocao']> = {
     contrato: 'ork.adocao/v1', estado: 'preparada', origem: origem.origem, origemNormalizada: origem.normalizada,
     remoto: origem.remoto, sourceHead: antes.head, baseHead, mergeBase: mergeBase.stdout.trim(),
     oidsExclusivos: oids.stdout.trim().split('\n').filter((oid) => HEAD.test(oid)), perfilCheck: pedido.perfilCheck.trim(),
     preparadaEm: new Date().toISOString(),
   };
-  const criada = novaThread(carregado, { nome: pedido.nome, modo: pedido.modo, roadmap: pedido.roadmap.trim().toUpperCase(),
-    criarWorktree: true, origemDaWorktree: 'flag', adocao: fotografia });
-  criada.thread.faseAtual = 'GO';
-  gravarThread(carregado.raiz, criada.thread);
-  return { thread: lerThread(carregado.raiz, criada.thread.id), criada: true, estado: 'preparada',
-    proximoPasso: proximoPasso(criada.thread) };
+  const criar = (operacaoId: string): Thread => {
+    // A origem e a base são reconsultadas depois da reserva e antes do primeiro estado durável.
+    const depois = resolverCommit(carregado.raiz, pedido.ref, origem.remoto);
+    if (depois.head !== antes.head) throw new ErroDeAdocao('adocao.origem-movel');
+    const baseDepois = exec('git', ['rev-parse', '--verify', `${baseRef}^{commit}`], carregado.raiz).stdout.trim();
+    if (baseDepois !== baseHead) throw new ErroDeAdocao('adocao.base-movel');
+    const preflight = (dependencias.fotografar ?? (() => preflightDoProjeto(carregado.raiz, carregado.manifesto)))();
+    const fotografiaF3 = fotografarConflitoDaAdocao(preflight);
+    const criada = novaThread(carregado, { nome: pedido.nome, modo: pedido.modo,
+      roadmap: pedido.roadmap.trim().toUpperCase(), criarWorktree: true, origemDaWorktree: 'flag',
+      adocao: { ...fotografiaBase, operacaoReserva: operacaoId, fotografiaF3 } });
+    criada.thread.faseAtual = 'GO';
+    gravarThread(carregado.raiz, criada.thread);
+    return criada.thread;
+  };
+  const coordenar = dependencias.coordenar ?? ((fn: (operacaoId: string) => Thread) => {
+    const item = pedido.roadmap.trim().toUpperCase();
+    const coletiva = portaColetivaDoProjeto(carregado.raiz, carregado.manifesto, item, 'GO');
+    const saga = executarAdocaoCoordenada({ raiz: carregado.raiz, projectKey: coletiva.projectKey, itemId: item,
+      coletiva: coletiva.porta, local: portaLocalDoRoadmap(carregado.raiz, item), thread: portaThreadOrfa(carregado.raiz),
+      criarThread: (operationId) => { const thread = fn(operationId); return { threadId: thread.id, valor: thread }; } });
+    return { thread: saga.thread, operationId: saga.operationId };
+  });
+  const coordenada = coordenar(criar);
+  return { thread: lerThread(carregado.raiz, coordenada.thread.id), criada: true, estado: 'preparada',
+    proximoPasso: proximoPasso(coordenada.thread) };
 }

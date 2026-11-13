@@ -9,7 +9,8 @@ export interface ProjetoComOrigemAdotavel extends ProjetoDeTeste {
 }
 
 export function projetoComOrigemAdotavel(nome: string): ProjetoComOrigemAdotavel {
-  const p = projetoTemporario(nome);
+  const p = projetoTemporario(nome, true);
+  commitar(p.dir, 'docs/roadmap/RM-089-adocao.md', '# RM-089\n', 'roadmap da adoção');
   const origem = 'trabalho-externo';
   assert.equal(exec('git', ['switch', '-q', '-c', origem], p.dir).ok, true);
   const primeiro = commitar(p.dir, 'externo/um.txt', 'um\n', 'externo um');
