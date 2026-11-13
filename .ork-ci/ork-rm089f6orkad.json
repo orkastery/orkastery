@@ -61,33 +61,6 @@
       ]
     },
     {
-      "id": "C6",
-      "thread": "ork-rm089f6orkad",
-      "fase": "GOAL",
-      "arquivo": "core/test/rm089-f6-sessao.test.ts",
-      "alegacao": "C6 — A orientação fora de thread usa uma decisão única do núcleo e expõe somente garantias documentadas por runtime e superfície: SessionStart/systemMessage em Claude Code e Codex; post_message/apost_message no Hermes onde há conversa e adapter ativos, sem tratar retorno de on_session_start/on_session_open como mensagem; event.messages no OpenClaw somente para command:new/command:reset originados em chat, com bootstrap apenas como contexto; todas as demais superfícies saem como não confirmado, e a ausência do aviso não cria bloqueio.",
-      "negativa": true,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node --test core/dist-test/test/rm089-f6-sessao.test.js core/dist-test/test/rm089-f6-adapters-managed.test.js"
-      ],
-      "criadoEm": "2026-11-12T11:17:19.907Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C7",
       "thread": "ork-rm089f6orkad",
       "fase": "GOAL",
@@ -1701,7 +1674,7 @@
         "node core/dist-test/test/locale-f3b-snapshot.test.js"
       ],
       "criadoEm": "2026-11-13T04:24:01.331Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -1728,7 +1701,7 @@
         "node core/dist-test/test/locale-f3b-snapshot.test.js"
       ],
       "criadoEm": "2026-11-13T04:24:01.838Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -1989,6 +1962,142 @@
         "node core/dist-test/test/hermes-installed-layout.test.js"
       ],
       "criadoEm": "2026-11-13T04:54:29.099Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C80",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/excecao-notificacao.ts",
+      "alegacao": "A API padrão da notificação auditável lê o ledger antes de enviar e uma reentrada pós-append não reenvia nem grava outro evento.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/rm089-f6-ci-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-13T05:53:48.084Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C81",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-adocao-cli.test.ts",
+      "alegacao": "O CLI ork adotar usa uma URL de fork direto para buscar a branch por argv e conserva essa URL e o HEAD resolvido no registro público da adoção.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/rm089-f6-adocao-cli.test.js"
+      ],
+      "criadoEm": "2026-11-13T05:56:00.312Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C82",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/sessao-orientacao.ts",
+      "alegacao": "Substituta de C6: Claude Code, Codex, Hermes e OpenClaw transportam o texto canônico com thread new e adotar; no Hermes a superfície comprovada é on_session_start seguida de pre_llm_call.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/rm089-f6-sessao.test.js core/dist-test/test/rm089-f6-adapters-managed.test.js"
+      ],
+      "criadoEm": "2026-11-13T05:58:12.311Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C83",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/ci.ts",
+      "alegacao": "A operação pública `ci run` resolve a exceção apenas pela fonte protegida, usa a porta gerida e o recibo assinado, anexa o envelope canônico e entrega ao runner a prova e a capacidade protegidas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f6-ci-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-13T06:05:59.430Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C84",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/adocao.ts",
+      "alegacao": "O fluxo público `adotar` avança preparada, verificada, revisada e concluida somente por verify oficial, projeção commitada antes do CHECK independente e recibo válido `ork.ci-recibo-runner/v1` no mesmo HEAD.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f6-adocao-cli.test.js"
+      ],
+      "criadoEm": "2026-11-13T06:22:53.058Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
