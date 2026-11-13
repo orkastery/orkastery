@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { main } from '../src/index';
 import { registrarEvidenciaDaAdocao, ErroDeAdocao } from '../src/adocao';
 import { projetoComOrigemAdotavel } from './rm089-f6-forja-simulada';
+import { lerThread } from '../src/thread';
 
 test('CLI adotar publica estado retomável e não duplica a thread', () => {
   const p = projetoComOrigemAdotavel('rm089-f6-adocao-cli'), cwd = process.cwd(), log = console.log;
@@ -25,7 +26,15 @@ test('transições exigem mesmo HEAD, CHECK independente e recibo do runner', ()
     const r = require('../src/adocao') as typeof import('../src/adocao');
     const adotada = r.adotar(p.carregado, { ref: p.origem, roadmap: 'RM-089', nome: 'x', modo: 'auto', perfilCheck: 'r' });
     const head = adotada.thread.adocao!.sourceHead;
+    assert.equal(lerThread(p.dir, adotada.thread.id).adocao?.estado, 'preparada');
     assert.equal(registrarEvidenciaDaAdocao(p.dir, adotada.thread.id, { tipo: 'verify', head, ok: true }).adocao?.estado, 'verificada');
+    assert.equal(lerThread(p.dir, adotada.thread.id).adocao?.estado, 'verificada');
+    assert.equal(registrarEvidenciaDaAdocao(p.dir, adotada.thread.id,
+      { tipo: 'verify', head, ok: true }).adocao?.estado, 'verificada', 'retry pós-verify não repete transição');
+    assert.throws(() => registrarEvidenciaDaAdocao(p.dir, adotada.thread.id,
+      { tipo: 'check', head: 'f'.repeat(40), ok: true, independente: true }),
+    (e: ErroDeAdocao) => e.codigo === 'adocao.evidencia-head-divergente');
+    assert.equal(lerThread(p.dir, adotada.thread.id).adocao?.estado, 'verificada');
     assert.throws(() => registrarEvidenciaDaAdocao(p.dir, adotada.thread.id,
       { tipo: 'check', head, ok: true, independente: false }), (e: ErroDeAdocao) => e.codigo === 'adocao.check-invalido');
     assert.equal(registrarEvidenciaDaAdocao(p.dir, adotada.thread.id,

@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { adotar, ErroDeAdocao } from '../src/adocao';
 import { auditarWorktree, sincronizarWorktree } from '../src/worktree';
 import { exec } from '../src/util';
+import { listarIds, novaThread } from '../src/thread';
 import { projetoComOrigemAdotavel } from './rm089-f6-forja-simulada';
 
 test('adoção preserva história, registra fotografia e retoma a mesma thread', () => {
@@ -42,5 +43,46 @@ test('história separada e referência inválida falham antes de criar estado', 
     exec('git', ['switch', '-q', 'main'], p.dir);
     assert.throws(() => adotar(p.carregado, { ref: 'historia-separada', roadmap: 'RM-089', nome: 'x', modo: 'auto',
       perfilCheck: 'revisor' }), (e: ErroDeAdocao) => e.codigo === 'adocao.historia-separada');
+  } finally { p.limpar(); }
+});
+
+test('origem ou base móvel falham antes da thread durável e a reentrada remota preserva o HEAD', () => {
+  for (const movida of ['origem', 'base'] as const) {
+    const p = projetoComOrigemAdotavel(`rm089-f6-adocao-${movida}-movel`);
+    try {
+      const antes = listarIds(p.dir);
+      assert.throws(() => adotar(p.carregado, { ref: p.origem, roadmap: 'RM-089', nome: 'x', modo: 'auto',
+        perfilCheck: 'revisor' }, { coordenar: (criar) => {
+          const ref = movida === 'origem' ? `refs/heads/${p.origem}` : 'refs/heads/main';
+          const novo = movida === 'origem' ? 'main' : 'main^';
+          assert.equal(exec('git', ['update-ref', ref, novo], p.dir).ok, true);
+          return { thread: criar('op-movimento-123456'), operationId: 'op-movimento-123456' };
+        } }), (e: ErroDeAdocao) => e.codigo === `adocao.${movida}-movel`);
+      assert.deepEqual(listarIds(p.dir), antes);
+    } finally { p.limpar(); }
+  }
+
+  const p = projetoComOrigemAdotavel('rm089-f6-adocao-remota');
+  try {
+    assert.equal(exec('git', ['remote', 'add', 'upstream', p.dir], p.dir).ok, true);
+    assert.equal(exec('git', ['fetch', 'upstream', p.origem], p.dir).ok, true);
+    const r = adotar(p.carregado, { ref: p.origem, remoto: 'upstream', roadmap: 'RM-089', nome: 'remota',
+      modo: 'auto', perfilCheck: 'revisor' });
+    assert.equal(r.thread.adocao?.sourceHead, p.sourceHead);
+    assert.equal(r.thread.adocao?.remoto, 'upstream');
+  } finally { p.limpar(); }
+});
+
+test('thread comum conserva audit e sync usuais', () => {
+  const p = projetoComOrigemAdotavel('rm089-f6-thread-comum');
+  try {
+    const thread = novaThread(p.carregado, { nome: 'comum', modo: 'auto', criarWorktree: true,
+      origemDaWorktree: 'flag' }).thread;
+    assert.equal(thread.adocao, undefined);
+    const audit = auditarWorktree(p.carregado, thread.id);
+    assert.equal(audit.checks.some((check) => check.nome === 'historia-adotada'), false);
+    assert.equal(audit.checks.some((check) => check.nome === 'base'), true);
+    const sync = sincronizarWorktree(p.carregado, thread.id, { dryRun: true });
+    assert.notEqual(sync.causa, 'adocao.preservacao');
   } finally { p.limpar(); }
 });

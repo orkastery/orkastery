@@ -7,6 +7,14 @@ import { projetoTemporario } from './apoio';
 
 const raiz = path.resolve(__dirname, '../../..');
 
+function ambienteDeterministico(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {};
+  for (const key of ['PATH', 'HOME', 'TMPDIR', 'TEMP', 'TMP', 'SystemRoot', 'HERMES_AGENT_DIR', 'HERMES_HOME']) {
+    if (process.env[key] !== undefined) env[key] = process.env[key];
+  }
+  return { ...env, CI: 'true', NO_COLOR: '1', ...extra };
+}
+
 function executarArgv(comando: string, args: string[], cwd: string, env: NodeJS.ProcessEnv,
   entrada?: string): Promise<{ codigo: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
@@ -25,7 +33,7 @@ function executarArgv(comando: string, args: string[], cwd: string, env: NodeJS.
 
 function executarHook(script: string, cwd: string, entrada: Record<string, unknown>) {
   return executarArgv(process.execPath, [script], cwd,
-    { ...process.env, ORK_NUCLEO_DIR: path.resolve(__dirname, '../src') }, JSON.stringify(entrada));
+    ambienteDeterministico({ ORK_NUCLEO_DIR: path.resolve(__dirname, '../src') }), JSON.stringify(entrada));
 }
 
 test('Claude Code e Codex consultam o núcleo no SessionStart e só transportam systemMessage', async () => {
@@ -63,7 +71,21 @@ test('plugin Hermes registra a orientação nos hooks nativos e passa a prova si
     '-m', 'unittest',
     'adapters/hermes/test/hitl_ingress_test.py',
     'adapters/hermes/test/hitl_native_confirmation_test.py',
-  ], raiz, { ...process.env, PYTHONDONTWRITEBYTECODE: '1' });
+  ], raiz, ambienteDeterministico({ PYTHONDONTWRITEBYTECODE: '1' }));
   assert.equal(r.codigo, 0, r.stdout + r.stderr);
   assert.match(r.stdout + r.stderr, /OK/);
+});
+
+test('OpenClaw executa a suíte nativa por argv em instalação temporária', async () => {
+  const r = await executarArgv(process.execPath,
+    ['--test', 'adapters/openclaw/test/sessao-fora-thread.test.mjs'], raiz, ambienteDeterministico());
+  assert.equal(r.codigo, 0, r.stdout + r.stderr);
+  assert.match(r.stdout + r.stderr, /pass 3/);
+});
+
+test('a prova gerida usa spawn assíncrono sem shell nem transporte de segredos', () => {
+  const source = fs.readFileSync(__filename, 'utf8');
+  assert.doesNotMatch(source, new RegExp(['spawn', 'Sync'].join('')));
+  assert.doesNotMatch(source, /shell\s*:\s*true/);
+  assert.doesNotMatch(JSON.stringify(ambienteDeterministico()), /(?:TOKEN|SECRET|API_KEY)/);
 });

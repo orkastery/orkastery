@@ -27,3 +27,18 @@ test('superfície sem identidade ou cwd comprovado permanece não confirmado', (
     assert.deepEqual([r.estado, r.bloqueia, r.acoes.length], ['nao-confirmado', false, 0]);
   } finally { p.limpar(); }
 });
+
+test('os quatro runtimes recebem a mesma decisão e as mesmas ações do núcleo', () => {
+  const p = projetoTemporario('rm089-f6-sessao-quatro-runtimes');
+  try {
+    const respostas = (['claude-code', 'codex', 'hermes', 'openclaw'] as const).map((runtime) =>
+      orientacaoDaSessao(p.carregado, { runtime, sessionId: `sessao-${runtime}`, cwd: p.dir }));
+    for (const resposta of respostas) {
+      assert.equal(resposta.contrato, 'ork.sessao-orientacao/v1');
+      assert.equal(resposta.estado, 'fora-de-thread');
+      assert.equal(resposta.bloqueia, false);
+      assert.deepEqual(resposta.acoes.map((acao) => acao.id), ['thread.new', 'adotar']);
+    }
+    assert.equal(new Set(respostas.map((resposta) => resposta.texto)).size, 1);
+  } finally { p.limpar(); }
+});
