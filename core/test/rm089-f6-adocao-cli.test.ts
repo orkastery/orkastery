@@ -11,6 +11,32 @@ import { exec } from '../src/util';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from '../src/ledger';
 import { sessaoDespachada } from './noctum-entrega-apoio';
 
+const AMBIENTE_GITHUB_ACTIONS = {
+  CI: 'true',
+  GITHUB_ACTIONS: 'true',
+  GITHUB_EVENT_NAME: 'pull_request',
+  GITHUB_BASE_REF: 'main',
+  GITHUB_HEAD_REF: 'ork/ork-rm089f6orkad-full',
+  GITHUB_REPOSITORY: 'orkastery/orkastery',
+  GITHUB_REF: 'refs/pull/298/merge',
+} as const;
+
+function comAmbienteSemForja<T>(executar: () => T): T {
+  const nomes = [...Object.keys(AMBIENTE_GITHUB_ACTIONS), 'GITLAB_CI'];
+  const anterior = Object.fromEntries(nomes.map((nome) => [nome, process.env[nome]]));
+  Object.assign(process.env, AMBIENTE_GITHUB_ACTIONS);
+  try {
+    assert.equal(process.env.GITHUB_ACTIONS, 'true', 'o caso reproduz o ambiente herdado do runner');
+    for (const nome of nomes) delete process.env[nome];
+    return executar();
+  } finally {
+    for (const [nome, valor] of Object.entries(anterior)) {
+      if (valor === undefined) delete process.env[nome];
+      else process.env[nome] = valor;
+    }
+  }
+}
+
 test('CLI adotar publica estado retomável e não duplica a thread', () => {
   const p = projetoComOrigemAdotavel('rm089-f6-adocao-cli'), cwd = process.cwd(), log = console.log;
   const saida: string[] = [];
@@ -80,7 +106,7 @@ test('CLI adotar recusa credencial em toda a URL sem gravar nem imprimir o valor
   }
 });
 
-test('CLI avança adoção só pelos recibos oficiais no mesmo HEAD', () => {
+test('CLI avança adoção só pelos recibos oficiais no mesmo HEAD com ambiente da forja isolado', () => comAmbienteSemForja(() => {
   const p = projetoComOrigemAdotavel('rm089-f6-adocao-estados'), cwd = process.cwd(), log = console.log;
   const saida: string[] = [];
   try {
@@ -147,4 +173,4 @@ test('CLI avança adoção só pelos recibos oficiais no mesmo HEAD', () => {
     assert.equal(lerLedger(dirThread(p.dir, id)).some((e) => e.tipo === 'phase_artifact_written' && e.head === head), true);
     assert.equal(lerThread(p.dir, id).adocao?.estado, 'concluida');
   } finally { console.log = log; process.chdir(cwd); p.limpar(); }
-});
+}));
