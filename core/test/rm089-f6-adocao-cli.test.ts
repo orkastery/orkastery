@@ -43,6 +43,43 @@ test('CLI adotar resolve branch de fork pela URL remota direta', () => {
   } finally { console.log = log; process.chdir(cwd); fs.rmSync(temp, { recursive: true, force: true }); p.limpar(); }
 });
 
+test('CLI adotar recusa credencial em toda a URL sem gravar nem imprimir o valor', () => {
+  const p = projetoComOrigemAdotavel('rm089-f6-adocao-cli-credencial'), cwd = process.cwd();
+  const log = console.log, error = console.error, saida: string[] = [], temp = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-rm089-fork-'));
+  const marcador = `github_pat_${'F'.repeat(22)}`, fork = path.join(temp, 'fork.git');
+  const contem = (dir: string): boolean => fs.existsSync(dir) && fs.readdirSync(dir, { withFileTypes: true }).some((item) => {
+    const arquivo = path.join(dir, item.name);
+    return item.isDirectory() ? contem(arquivo) : item.isFile() && fs.readFileSync(arquivo).includes(marcador);
+  });
+  try {
+    assert.equal(exec('git', ['clone', '--bare', p.dir, fork], temp).ok, true);
+    const limpa = pathToFileURL(fork).href, caminho = path.join(temp, marcador, 'fork.git');
+    fs.mkdirSync(path.dirname(caminho), { recursive: true });
+    assert.equal(exec('git', ['clone', '--bare', p.dir, caminho], temp).ok, true);
+    const remotos = [
+      `file://${marcador}@${pathToFileURL(fork).pathname}`,
+      pathToFileURL(caminho).href,
+      `${limpa}?credencial=${marcador}`,
+      `${limpa}#${marcador}`,
+    ];
+    process.chdir(p.dir);
+    console.log = (valor: unknown) => { saida.push(String(valor)); };
+    console.error = (valor: unknown) => { saida.push(String(valor)); };
+    for (const remoto of remotos) {
+      assert.throws(() => main(['adotar', p.origem, '--roadmap', 'RM-089', '--nome', 'Credencial recusada', '--modo', 'auto',
+        '--perfil-check', 'revisor', '--remoto', remoto, '--json']), (erro: Error) => {
+        assert.equal(erro.message, 'adocao.credencial-na-origem');
+        return true;
+      });
+    }
+    assert.equal(saida.join('\n').includes(marcador), false);
+    assert.equal(contem(path.join(p.dir, '.orkastery')), false);
+  } finally {
+    console.log = log; console.error = error; process.chdir(cwd);
+    fs.rmSync(temp, { recursive: true, force: true }); p.limpar();
+  }
+});
+
 test('CLI avança adoção só pelos recibos oficiais no mesmo HEAD', () => {
   const p = projetoComOrigemAdotavel('rm089-f6-adocao-estados'), cwd = process.cwd(), log = console.log;
   const saida: string[] = [];

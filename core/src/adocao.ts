@@ -16,6 +16,7 @@ import { comandosDoBundle } from './ci';
 import { conferirBundle } from './ship-publicar';
 import { chaveDoReciboDeProva } from './recibo-prova';
 import { estadoDoArtefato } from './session-watcher-claude';
+import { achadoDeSegredo } from './rede';
 
 declare module './types' {
   interface Thread {
@@ -76,8 +77,8 @@ function refValida(ref: string): boolean {
 
 function normalizarOrigem(ref: string, remoto?: string): { origem: string; normalizada: string; remoto: string | null } {
   if (!refValida(ref)) throw new ErroDeAdocao('adocao.ref-invalida', ref);
-  if (remoto && /:\/\/[^/]*@/.test(remoto)) throw new ErroDeAdocao('adocao.credencial-na-origem');
   const r = remoto?.trim() || null;
+  if (r && achadoDeSegredo(r)) throw new ErroDeAdocao('adocao.credencial-na-origem');
   return { origem: ref, normalizada: `${r ?? 'local'}:${ref}`.toLowerCase(), remoto: r };
 }
 
