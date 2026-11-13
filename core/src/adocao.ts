@@ -1,14 +1,21 @@
 /** RM-089 F6: incorpora história existente sem mover a ref externa. */
+import { createHash } from 'node:crypto';
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { ManifestoCarregado } from './manifest';
 import { dirThread, gravarThread, listarIds, lerThread, novaThread } from './thread';
-import { lerLedger } from './ledger';
+import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import type { Modo, Thread } from './types';
 import { exec } from './util';
 import { worktreesDoGit } from './worktree';
 import { executarAdocaoCoordenada, portaColetivaDoProjeto, portaLocalDoRoadmap, portaThreadOrfa } from './rede-empresa-operacao';
 import { fotografarConflitoDaAdocao, type FotografiaF3DaAdocao } from './rede-empresa-conflito';
 import { preflightDoProjeto } from './rede-empresa-preflight';
+import { CONTRATO_PROJECAO_REPLAY_CI, estadoDoReciboRunnerCi, validarProjecaoReplayCi } from './ci-recibo-basico';
+import { comandosDoBundle } from './ci';
+import { conferirBundle } from './ship-publicar';
+import { chaveDoReciboDeProva } from './recibo-prova';
+import { estadoDoArtefato } from './session-watcher-claude';
 
 declare module './types' {
   interface Thread {
@@ -56,11 +63,6 @@ export interface ResultadoDeAdocao {
   estado: NonNullable<Thread['adocao']>['estado'];
   proximoPasso: string;
 }
-
-export type EvidenciaDaAdocao =
-  | { tipo: 'verify'; head: string; ok: boolean }
-  | { tipo: 'check'; head: string; ok: boolean; independente: boolean }
-  | { tipo: 'recibo'; head: string; ok: boolean; contrato: string };
 
 export interface DependenciasDaAdocao {
   /** Testes podem substituir a saga remota sem transformar a fotografia em autorrelato. */
@@ -131,27 +133,130 @@ function proximoPasso(thread: Thread): string {
   return `node core/dist/index.js ship ${thread.id}`;
 }
 
-/** Transição linear e idempotente; bundle ou relato sem o recibo do runner nunca conclui. */
-export function registrarEvidenciaDaAdocao(raiz: string, id: string, evidencia: EvidenciaDaAdocao): Thread {
-  const thread = lerThread(raiz, id), adocao = thread.adocao;
-  if (!adocao) throw new ErroDeAdocao('adocao.registro-ausente', id);
-  const head = thread.worktree ? exec('git', ['rev-parse', 'HEAD'], thread.worktree).stdout.trim() : '';
-  if (!evidencia.ok || evidencia.head !== head || !HEAD.test(head)) throw new ErroDeAdocao('adocao.evidencia-head-divergente');
-  if (evidencia.tipo === 'verify') {
-    if (adocao.estado !== 'preparada' && adocao.verifyHead === head) return thread;
-    if (adocao.estado !== 'preparada') throw new ErroDeAdocao('adocao.transicao-invalida');
-    adocao.estado = 'verificada'; adocao.verifyHead = head;
-  } else if (evidencia.tipo === 'check') {
-    if (adocao.estado !== 'verificada' || adocao.verifyHead !== head || !evidencia.independente)
-      throw new ErroDeAdocao('adocao.check-invalido');
-    adocao.estado = 'revisada'; adocao.checkHead = head;
-  } else {
-    if (adocao.estado !== 'revisada' || adocao.checkHead !== head || evidencia.contrato !== 'ork.ci-recibo-runner/v1')
-      throw new ErroDeAdocao('adocao.recibo-invalido');
-    adocao.estado = 'concluida'; adocao.reciboHead = head;
+function reciboAtual(recibo: { head?: string; sha256?: string } | null | undefined,
+  atual: { head?: string; sha256?: string } | null | undefined, head: string): boolean {
+  return recibo?.head === head && atual?.head === head && typeof recibo.sha256 === 'string' && recibo.sha256 === atual.sha256;
+}
+
+function perfilDaSessao(sessao: Thread['sessoes'][number]): string | null {
+  const perfil = (sessao as Thread['sessoes'][number] & { perfil?: string | { id?: unknown } }).perfil;
+  return typeof perfil === 'string' ? perfil : perfil && typeof perfil.id === 'string' ? perfil.id : null;
+}
+
+function verifyOficialNoHead(eventos: ReturnType<typeof lerLedger>, head: string) {
+  const verify = eventos.filter((e) => e.tipo === TIPOS_DE_EVENTO.verificacao).at(-1);
+  const recibo = verify?.recibo as { head?: string; sha256?: string } | undefined;
+  return verify?.commit === head && verify.veredito === 'verdade sustentada' && verify.parcial !== true &&
+    recibo?.head === head && typeof recibo.sha256 === 'string' ? verify : null;
+}
+
+function checkOficialNoHead(carregado: ManifestoCarregado, thread: Thread, head: string,
+  eventos: ReturnType<typeof lerLedger>): boolean {
+  const adocao = thread.adocao!;
+  const sessao = [...thread.sessoes].reverse().find((s) => s.fase === 'CHECK' && s.origem !== 'adocao' &&
+    perfilDaSessao(s) === adocao.perfilCheck);
+  if (!sessao || !sessao.verificada || !sessao.despachadaEm || !sessao.promptPath || !sessao.promptSha256) return false;
+  const despachoIndex = eventos.findIndex((e) => e.tipo === TIPOS_DE_EVENTO.faseDespachada &&
+    e.sessionId === sessao.sessionId && e.fase === 'CHECK' && e.runtime === sessao.runtime &&
+    e.promptSha256 === sessao.promptSha256 && typeof e.eventId === 'string');
+  const resultadoIndex = eventos.findIndex((e, i) => i > despachoIndex && e.tipo === 'phase_result' &&
+    e.sessionId === sessao.sessionId && e.fase === 'CHECK' && e.despachoEm === sessao.despachadaEm &&
+    e.origem === 'sessions.watch' && typeof e.sensorResultId === 'string' && e.sensorResultId &&
+    e.classificacao === 'fase_concluida' && e.ok === true);
+  if (despachoIndex < 0 || resultadoIndex < 0 || !eventos.some((e) => e.tipo === TIPOS_DE_EVENTO.despachoVerificado &&
+      e.sessionId === sessao.sessionId && e.encontrada === true)) return false;
+  try {
+    const prompt = path.resolve(carregado.raiz, sessao.promptPath);
+    const escopo = fs.realpathSync(dirThread(carregado.raiz, thread.id)) + path.sep;
+    if (!fs.realpathSync(prompt).startsWith(escopo) ||
+        createHash('sha256').update(fs.readFileSync(prompt)).digest('hex') !== sessao.promptSha256) return false;
+  } catch { return false; }
+
+  const caminhoDoBundle = `.ork-ci/${thread.id}.json`;
+  const commitDoBundle = eventos.slice(0, despachoIndex).find((e) =>
+    (e.tipo === 'mcp_git_committed' || e.tipo === 'commit') && e.commit === head &&
+    Array.isArray(e.paths) && e.paths.includes(caminhoDoBundle) && typeof e.sessionId === 'string' &&
+    e.sessionId !== sessao.sessionId);
+  if (!commitDoBundle || conferirBundle(carregado.raiz, thread, thread.base.branch, head,
+    comandosDoBundle(carregado)).estado !== 'feita') return false;
+  const lido = exec('git', ['show', `${head}:${caminhoDoBundle}`], carregado.raiz);
+  try {
+    const bundle = JSON.parse(lido.stdout) as { recibo?: unknown };
+    const projecao = lido.ok ? validarProjecaoReplayCi(bundle.recibo) : { ok: false as const, causa: 'invalida' as const };
+    if (!projecao.ok || projecao.projecao.contrato !== CONTRATO_PROJECAO_REPLAY_CI ||
+        projecao.projecao.thread !== thread.id) return false;
+  } catch { return false; }
+
+  const verify = eventos.slice(despachoIndex + 1, resultadoIndex).filter((e) => e.tipo === TIPOS_DE_EVENTO.verificacao).at(-1);
+  const atual = chaveDoReciboDeProva(carregado.raiz, thread.id, head);
+  const prova = (eventos[resultadoIndex].provaOrk ?? {}) as { ok?: unknown; veredito?: unknown;
+    verify?: { eventId?: unknown; commit?: unknown } | null };
+  const parecer = estadoDoArtefato(carregado.raiz, thread.id, 'docs/check.md');
+  const vereditos = parecer.texto?.match(/^Veredito:\s*(PASSOU|PRECISA DE MUDANÇA)\s*$/gm) ?? [];
+  return verify?.commit === head && verify.veredito === 'verdade sustentada' && verify.parcial !== true &&
+    reciboAtual(verify.recibo as { head?: string; sha256?: string } | undefined, atual, head) &&
+    prova.ok === true && prova.veredito === 'PASSOU' && prova.verify?.eventId === verify.eventId &&
+    prova.verify?.commit === head && vereditos.length === 1 && vereditos[0].trim() === 'Veredito: PASSOU';
+}
+
+/** Relê somente recibos do núcleo; um objeto fornecido pelo chamador nunca avança a adoção. */
+export function reconciliarAdocao(carregado: ManifestoCarregado, id: string): Thread {
+  const thread = lerThread(carregado.raiz, id), adocao = thread.adocao;
+  if (!adocao || !thread.worktree) return thread;
+  const lido = exec('git', ['rev-parse', '--verify', 'HEAD^{commit}'], thread.worktree);
+  const head = lido.stdout.trim();
+  if (!lido.ok || !HEAD.test(head)) return thread;
+  const eventos = lerLedger(dirThread(carregado.raiz, id));
+  let mudou = false;
+
+  if (adocao.estado === 'preparada') {
+    if (verifyOficialNoHead(eventos, head)) {
+      adocao.estado = 'verificada'; adocao.verifyHead = head; mudou = true;
+    }
   }
-  gravarThread(raiz, thread);
+
+  if (adocao.estado === 'verificada' && adocao.verifyHead !== head && verifyOficialNoHead(eventos, head)) {
+    adocao.verifyHead = head; mudou = true;
+  }
+
+  if (adocao.estado === 'verificada' && adocao.verifyHead === head) {
+    if (checkOficialNoHead(carregado, thread, head, eventos)) {
+      adocao.estado = 'revisada'; adocao.checkHead = head; mudou = true;
+    }
+  }
+
+  if (adocao.estado === 'revisada' && adocao.checkHead === head) {
+    const entregue = eventos.filter((e) => e.tipo === 'phase_artifact_written' && e.fase === 'CHECK' && e.head === head)
+      .map((e) => e.recibo).find((recibo) => estadoDoReciboRunnerCi(recibo, head) === 'presente') as
+        { thread?: string; resultado?: { ok?: boolean } } | undefined;
+    if (entregue?.thread === id && entregue.resultado?.ok === true) {
+      adocao.estado = 'concluida'; adocao.reciboHead = head; mudou = true;
+    }
+  }
+  if (mudou) gravarThread(carregado.raiz, thread);
   return thread;
+}
+
+/** A camada pública persiste o recibo depois que o runner puro termina; repetição não duplica o evento. */
+export function registrarReciboRunnerDaAdocao(carregado: ManifestoCarregado, resultado: unknown): Thread | null {
+  if (!resultado || typeof resultado !== 'object' || Array.isArray(resultado)) return null;
+  const r = resultado as { ok?: unknown; thread?: unknown; commit?: unknown; recibo?: unknown };
+  if (r.ok !== true || typeof r.thread !== 'string' || typeof r.commit !== 'string' ||
+      estadoDoReciboRunnerCi(r.recibo, r.commit) !== 'presente') return null;
+  let thread: Thread;
+  try { thread = lerThread(carregado.raiz, r.thread); } catch { return null; }
+  if (!thread.adocao || !thread.worktree) return null;
+  const head = exec('git', ['rev-parse', '--verify', 'HEAD^{commit}'], thread.worktree).stdout.trim();
+  if (head !== r.commit) return null;
+  const recibo = r.recibo as { sha256?: unknown };
+  const eventos = lerLedger(dirThread(carregado.raiz, thread.id));
+  if (!eventos.some((e) => e.tipo === 'phase_artifact_written' && e.fase === 'CHECK' &&
+      (e.recibo as { sha256?: unknown } | undefined)?.sha256 === recibo.sha256)) {
+    registrar(dirThread(carregado.raiz, thread.id), thread.id, 'phase_artifact_written', {
+      fase: 'CHECK', arquivo: `.ork-ci/${thread.id}.json`, head, recibo: r.recibo,
+    });
+  }
+  return reconciliarAdocao(carregado, thread.id);
 }
 
 export function adotar(carregado: ManifestoCarregado, pedido: PedidoDeAdocao,
@@ -162,7 +267,11 @@ export function adotar(carregado: ManifestoCarregado, pedido: PedidoDeAdocao,
   const antes = resolverCommit(carregado.raiz, pedido.ref, origem.remoto);
   const worktrees = worktreesDoGit(carregado.raiz);
   const existente = vinculada(carregado.raiz, origem.normalizada, antes.branch, worktrees);
-  if (existente) return { thread: existente, criada: false, estado: existente.adocao?.estado ?? 'preparada', proximoPasso: proximoPasso(existente) };
+  if (existente) {
+    const reconciliada = existente.adocao ? reconciliarAdocao(carregado, existente.id) : existente;
+    return { thread: reconciliada, criada: false, estado: reconciliada.adocao?.estado ?? 'preparada',
+      proximoPasso: proximoPasso(reconciliada) };
+  }
 
   const foraDoRegistro = worktrees.find((w) => w.branch === antes.branch);
   if (foraDoRegistro) throw new ErroDeAdocao('adocao.worktree-sem-vinculo', foraDoRegistro.dir);

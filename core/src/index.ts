@@ -19,7 +19,7 @@ import { isAbsolute } from 'node:path';
 import { memoryState } from './project-state';
 import { abrirPedidoSessao, reconciliarEnvioDeSessao, responderSessao, superarSessao } from './hitl-sessions';
 import { comandoAtivacao, exigirAtivacao, PerfilPublicacao } from './write-activation';
-import { adotar } from './adocao';
+import { adotar, reconciliarAdocao, registrarReciboRunnerDaAdocao } from './adocao';
 import { validarDiretorioDeThread } from './escopo-escrita';
 import { userInfo } from 'node:os';
 import * as fs from 'node:fs';
@@ -1663,6 +1663,7 @@ function comandoVerify(args: Args): number {
     return 0;
   }
   const r = comLocale('pt-BR', () => verificar(carregado, id, { soClaims: args.opcoes['so-claims'] === true, conducao, check }));
+  reconciliarAdocao(carregado, id);
   console.log(textoDoVerify(r));
   return r.ok ? 0 : 1;
 }
@@ -2510,6 +2511,7 @@ function comandoCi(args: Args): number {
       const runner = ambienteDeCi();
       const result = executarCiDaBranch(carregado, branch,
         { destino: runner?.targetBranch ?? null, pullRequest: runner?.targetBranch !== null && runner?.targetBranch !== undefined });
+      registrarReciboRunnerDaAdocao(carregado, result);
       publicarAvisoDaPolitica(result);
       console.log(JSON.stringify(result, null, 2));
       return result.ok ? 0 : 1;
@@ -2520,6 +2522,7 @@ function comandoCi(args: Args): number {
       return 2;
     }
     const result = executarCi(carregado, thread);
+    reconciliarAdocao(carregado, thread);
     console.log(args.opcoes.json === true ? JSON.stringify(result, null, 2) : m.resultado(result.status.ok, result.status.detail));
     return result.status.ok ? 0 : 1;
   }
