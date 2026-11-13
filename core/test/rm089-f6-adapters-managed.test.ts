@@ -7,13 +7,10 @@ import { projetoTemporario } from './apoio';
 
 const raiz = path.resolve(__dirname, '../../..');
 
-function executarHook(script: string, cwd: string, entrada: Record<string, unknown>): Promise<{ codigo: number | null; stdout: string; stderr: string }> {
+function executarArgv(comando: string, args: string[], cwd: string, env: NodeJS.ProcessEnv,
+  entrada?: string): Promise<{ codigo: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const filho = spawn(process.execPath, [script], {
-      cwd,
-      env: { ...process.env, ORK_NUCLEO_DIR: path.resolve(__dirname, '../src') },
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    const filho = spawn(comando, args, { cwd, env, stdio: ['pipe', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
     filho.stdout.setEncoding('utf8').on('data', (d: string) => { stdout += d; });
@@ -22,8 +19,13 @@ function executarHook(script: string, cwd: string, entrada: Record<string, unkno
     filho.on('close', (codigo) => {
       resolve({ codigo, stdout, stderr });
     });
-    filho.stdin.end(JSON.stringify(entrada));
+    filho.stdin.end(entrada);
   });
+}
+
+function executarHook(script: string, cwd: string, entrada: Record<string, unknown>) {
+  return executarArgv(process.execPath, [script], cwd,
+    { ...process.env, ORK_NUCLEO_DIR: path.resolve(__dirname, '../src') }, JSON.stringify(entrada));
 }
 
 test('Claude Code e Codex consultam o núcleo no SessionStart e só transportam systemMessage', async () => {
@@ -54,4 +56,14 @@ test('hook não decide nem bloqueia quando a superfície nativa não está confi
   assert.deepEqual(r, { codigo: 0, stdout: '', stderr: '' });
   const fonte = fs.readFileSync(script, 'utf8');
   assert.doesNotMatch(fonte, /decision|permissionDecision/);
+});
+
+test('plugin Hermes registra a orientação nos hooks nativos e passa a prova simulada', async () => {
+  const r = await executarArgv(process.env.HERMES_TEST_PYTHON ?? 'python3', [
+    '-m', 'unittest',
+    'adapters/hermes/test/hitl_ingress_test.py',
+    'adapters/hermes/test/hitl_native_confirmation_test.py',
+  ], raiz, { ...process.env, PYTHONDONTWRITEBYTECODE: '1' });
+  assert.equal(r.codigo, 0, r.stdout + r.stderr);
+  assert.match(r.stdout + r.stderr, /OK/);
 });

@@ -261,6 +261,19 @@ hashes do pacote e preservação/rollback do agente Hermes instalado pertencem a
 checkpoint de instalação; instalação e aceite Telegram real são etapas posteriores.
 # HITL nativo e Maestro
 
+## Orientação no início da sessão
+
+O mesmo plugin nativo `orkastery-hitl` registra `on_session_start` e
+`pre_llm_call`. No início, ele envia ao núcleo o `session_id` nativo e a raiz do
+projeto; no primeiro turno, transporta como contexto somente o aviso que o
+núcleo devolveu para uma sessão fora de thread. Vínculo confirmado ou superfície
+não confirmada não injetam texto, e qualquer falha segue sem bloquear.
+
+Copiar o plugin não o habilita. O operador precisa incluir `orkastery-hitl` em
+`plugins.enabled` e abrir uma sessão nova; o cache de descoberta só é recarregado
+quando o host faz uma descoberta forçada ou reinicia. O retorno desses hooks não
+aprova gate, não muda permissões e não substitui o recibo do núcleo.
+
 `orkastery maestro` consulta panorama por `ork_maestro`. Prioridade máxima da
 conversa: tópicos, recomendação e escolhas claras, preservando resposta e cancelamento.
 Telegram é opcional. O callback instalado `pre_gateway_dispatch` pode receber
