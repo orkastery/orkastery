@@ -39,8 +39,12 @@ test('referências da CLI e changelog descrevem preparo, replay e recibo inteiro
   assert.match(cliPt, /ork ci run.*ork\.ci-recibo-runner\/v1.*HEAD executado/s);
   assert.match(cliEn, /ork ci prepare.*ork\.ci-projecao-replay\/v1.*allowlist/is);
   assert.match(cliEn, /ork ci run.*ork\.ci-recibo-runner\/v1.*executed HEAD/s);
-  const naoPublicado = ler('CHANGELOG.md').split('## [', 1)[0];
-  assert.match(naoPublicado, /Recibo básico no HEAD executado.*HEAD do PR\/MR/is);
-  assert.match(naoPublicado, /projeção de replay.*julgamento integral/is);
-  assert.match(naoPublicado, /ambiente allowlisted.*branch externa.*fork.*GitHub.*GitLab/is);
+  // A entrada da F5 sai de "## Não publicado" quando uma versão a publica; o teste lê a própria entrada.
+  const changelog = ler('CHANGELOG.md');
+  const inicio = changelog.indexOf('- **Recibo básico no HEAD executado — F5 (RM-089):**');
+  assert.ok(inicio >= 0, 'o CHANGELOG traz a entrada da F5');
+  const entrada = changelog.slice(inicio).split('\n\n', 1)[0];
+  assert.match(entrada, /Recibo básico no HEAD executado.*HEAD do PR\/MR/is);
+  assert.match(entrada, /projeção de replay.*julgamento integral/is);
+  assert.match(entrada, /ambiente allowlisted.*branch externa.*fork.*GitHub.*GitLab/is);
 });
