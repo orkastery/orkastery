@@ -693,13 +693,17 @@ test('guias e contrato distinguem projeção, replay e recibo sem prometer autor
   assert.match(forja, /não usa\s+ancestralidade nem diff posterior/);
 });
 
-test('referência do CLI e Não publicado descrevem o recibo emitido pelo runner', () => {
+test('referência do CLI e CHANGELOG descrevem o recibo emitido pelo runner', () => {
   const raiz = path.resolve(__dirname, '../../..');
   const ler = (arquivo: string) => fs.readFileSync(path.join(raiz, arquivo), 'utf8');
   const cliPt = ler('docs/referencia/cli.md'), cliEn = ler('docs/referencia/cli.en.md');
   assert.match(cliPt, /ork ci run.*ork\.ci-recibo-runner\/v1.*HEAD executado/s);
   assert.match(cliEn, /ork ci run.*ork\.ci-recibo-runner\/v1.*executed HEAD/s);
-  const naoPublicado = ler('CHANGELOG.md').split('## [', 1)[0];
-  assert.match(naoPublicado, /Recibo básico no HEAD executado.*F5 \(RM-089\)/);
-  assert.match(naoPublicado, /ambiente allowlisted.*branch externa.*fork.*GitHub.*GitLab/s);
+  // A entrada da F5 sai de "## Não publicado" quando uma versão a publica; o teste lê a própria entrada.
+  const changelog = ler('CHANGELOG.md');
+  const inicio = changelog.indexOf('- **Recibo básico no HEAD executado — F5 (RM-089):**');
+  assert.ok(inicio >= 0, 'o CHANGELOG traz a entrada da F5');
+  const entrada = changelog.slice(inicio).split('\n\n', 1)[0];
+  assert.match(entrada, /Recibo básico no HEAD executado.*F5 \(RM-089\)/);
+  assert.match(entrada, /ambiente allowlisted.*branch externa.*fork.*GitHub.*GitLab/s);
 });
