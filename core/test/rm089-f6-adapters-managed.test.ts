@@ -76,7 +76,7 @@ test('hook não decide nem bloqueia quando a superfície nativa não está confi
   assert.doesNotMatch(fonte, /decision|permissionDecision/);
 });
 
-test('plugin Hermes registra a orientação nos hooks nativos e passa a prova simulada', async () => {
+test('plugin Hermes registra a orientação pela API pública simulada sem instalação operacional', async () => {
   const runner = [
     'import os,sys,unittest',
     "sys.path.insert(0,'adapters/hermes/test')",
@@ -91,12 +91,13 @@ test('plugin Hermes registra a orientação nos hooks nativos e passa a prova si
       'hitl_ingress_test.IngressTest.test_session_start_consults_core_and_first_turn_transports_context',
     ],
     [
-      'hitl_native_confirmation_test.InstalledContractTest.test_installed_session_hooks_transport_core_context',
+      'hitl_session_hooks_simulated_test.SimulatedContractTest.test_session_hooks_transport_core_context',
     ],
   ];
   for (const casos of grupos) {
-    const r = await executarArgv(process.env.HERMES_TEST_PYTHON ?? 'python3', ['-u', '-c', runner, ...casos], raiz,
-      ambienteDeterministico({ PYTHONDONTWRITEBYTECODE: '1', HERMES_HOME: process.env.HERMES_HOME ?? '/tmp' }));
+    const r = await executarArgv(process.env.HERMES_TEST_PYTHON ?? 'python3', ['-I', '-u', '-c', runner, ...casos], raiz,
+      ambienteDeterministico({ PYTHONDONTWRITEBYTECODE: '1', PYTHONPATH: '', PYTHONNOUSERSITE: '1',
+        HERMES_HOME: '/tmp/hermes-SIMULADO-ausente' }));
     assert.equal(r.codigo, 0, r.stdout + r.stderr);
     assert.match(r.stdout + r.stderr, /OK/);
   }
