@@ -775,32 +775,6 @@
       ]
     },
     {
-      "id": "C35",
-      "thread": "ork-rm089f6orkad",
-      "fase": "GO",
-      "arquivo": "adapters/hermes/test/hitl_native_confirmation_test.py",
-      "alegacao": "A prova do plugin instalado confirma registro e transporte pelos hooks nativos do Hermes.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-adapters-managed.test.js"
-      ],
-      "criadoEm": "2026-11-13T02:59:25.995Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C36",
       "thread": "ork-rm089f6orkad",
       "fase": "GO",
@@ -2155,6 +2129,114 @@
         "grep -q \"não confirmado\" docs/referencia/cli.md"
       ],
       "criadoEm": "2026-11-13T08:07:00.330Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C88",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-adocao-cli.test.ts",
+      "alegacao": "A prova do CLI reproduz a herança do ambiente de pull request do GitHub Actions e isola as variáveis da forja antes de executar o fluxo e seus processos filhos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/rm089-f6-adocao-cli.test.js"
+      ],
+      "criadoEm": "2026-11-13T09:44:52.015Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C89",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-adapters-managed.test.ts",
+      "alegacao": "A suíte gerida executa as provas Hermes em Python isolado, com caminho de módulos e casa operacional do Hermes ausentes, sem skip.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/rm089-f6-adapters-managed.test.js"
+      ],
+      "criadoEm": "2026-11-13T09:48:39.374Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C90",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "Os recibos de instalação Hermes afetados incluem o módulo de prova simulada e o hash do conteúdo instalado.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"test/hitl_session_hooks_simulated_test.py\" core/test/fixtures/locale-f3b-pt-BR.json",
+        "grep -q \"hitl_session_hooks_simulated_test.py sha:4318cb2959ea73c6\" core/test/fixtures/locale-f3b-pt-BR.json"
+      ],
+      "criadoEm": "2026-11-13T09:48:39.447Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C91",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "adapters/hermes/test/hitl_session_hooks_simulated_test.py",
+      "alegacao": "Substituta de C35: a prova simulada carrega o plugin real e imita somente register_hook e invoke_hook da API pública do Hermes para confirmar on_session_start e pre_llm_call sem Hermes instalado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/rm089-f6-adapters-managed.test.js"
+      ],
+      "criadoEm": "2026-11-13T09:48:39.517Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
