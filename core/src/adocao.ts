@@ -57,6 +57,11 @@ export interface ResultadoDeAdocao {
   proximoPasso: string;
 }
 
+export type EvidenciaDaAdocao =
+  | { tipo: 'verify'; head: string; ok: boolean }
+  | { tipo: 'check'; head: string; ok: boolean; independente: boolean }
+  | { tipo: 'recibo'; head: string; ok: boolean; contrato: string };
+
 export interface DependenciasDaAdocao {
   /** Testes podem substituir a saga remota sem transformar a fotografia em autorrelato. */
   coordenar?: (criar: (operacaoId: string) => Thread) => { thread: Thread; operationId: string };
@@ -113,6 +118,29 @@ function proximoPasso(thread: Thread): string {
   if (estado === 'verificada') return `execute o CHECK independente de ${thread.id}`;
   if (estado === 'revisada') return `node core/dist/index.js ci run`;
   return `node core/dist/index.js ship ${thread.id}`;
+}
+
+/** Transição linear e idempotente; bundle ou relato sem o recibo do runner nunca conclui. */
+export function registrarEvidenciaDaAdocao(raiz: string, id: string, evidencia: EvidenciaDaAdocao): Thread {
+  const thread = lerThread(raiz, id), adocao = thread.adocao;
+  if (!adocao) throw new ErroDeAdocao('adocao.registro-ausente', id);
+  const head = thread.worktree ? exec('git', ['rev-parse', 'HEAD'], thread.worktree).stdout.trim() : '';
+  if (!evidencia.ok || evidencia.head !== head || !HEAD.test(head)) throw new ErroDeAdocao('adocao.evidencia-head-divergente');
+  if (evidencia.tipo === 'verify') {
+    if (adocao.estado !== 'preparada' && adocao.verifyHead === head) return thread;
+    if (adocao.estado !== 'preparada') throw new ErroDeAdocao('adocao.transicao-invalida');
+    adocao.estado = 'verificada'; adocao.verifyHead = head;
+  } else if (evidencia.tipo === 'check') {
+    if (adocao.estado !== 'verificada' || adocao.verifyHead !== head || !evidencia.independente)
+      throw new ErroDeAdocao('adocao.check-invalido');
+    adocao.estado = 'revisada'; adocao.checkHead = head;
+  } else {
+    if (adocao.estado !== 'revisada' || adocao.checkHead !== head || evidencia.contrato !== 'ork.ci-recibo-runner/v1')
+      throw new ErroDeAdocao('adocao.recibo-invalido');
+    adocao.estado = 'concluida'; adocao.reciboHead = head;
+  }
+  gravarThread(raiz, thread);
+  return thread;
 }
 
 export function adotar(carregado: ManifestoCarregado, pedido: PedidoDeAdocao,

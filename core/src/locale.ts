@@ -107,7 +107,7 @@ export const LOCALE_PADRAO: Locale = 'pt-BR';
  * (RM-026 K7, fatia 2) nasce coberto: `conhecimento listar|mostrar|colecoes|verificar` e o uso errado dele.
  */
 export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboarding show', 'onboarding set', 'onboarding reset',
-  'onboarding sync', 'onboarding ?', 'experiencia show', 'experiencia uninstall', 'experiencia ?', 'thread new', 'thread status', 'thread ?',
+  'onboarding sync', 'onboarding ?', 'experiencia show', 'experiencia uninstall', 'experiencia ?', 'adotar', 'thread new', 'thread status', 'thread ?',
   'phase list', 'phase run', 'phase ?', 'verify', 'ship', 'ship registrar-pr', 'retry plan', 'retry run',
   'retry policy', 'retry parse', 'retry list', 'retry resume', 'retry cancel', 'retry ?',
   'master', 'master <thread>', 'master aceitar-omissao', 'master pedir', 'master audit', 'master digest', 'master migrar',
@@ -1414,4 +1414,14 @@ export function remontar(texto: string): string {
 /** Nome de check como o texto o mostra no locale ativo. */
 export function nomeDoCheck(nome: string, locale: Locale = ativo): string {
   return CATALOGO[locale].doctor.nomes[nome] ?? nome;
+}
+
+/** Texto público curto da adoção; identificadores, estado e comando continuam dados do contrato. */
+export function textoDaAdocaoPublica(resultado: { thread: { id: string; adocao?: { estado: string; sourceHead: string } };
+  criada: boolean; proximoPasso: string }): string {
+  const estado = resultado.thread.adocao?.estado ?? 'preparada';
+  const sha = resultado.thread.adocao?.sourceHead.slice(0, 8) ?? '--------';
+  return localeAtivo() === 'en'
+    ? `${resultado.criada ? 'Adoption prepared' : 'Adoption resumed'}: ${resultado.thread.id} (${estado}, source ${sha})\nNext: ${resultado.proximoPasso}`
+    : `${resultado.criada ? 'Adoção preparada' : 'Adoção retomada'}: ${resultado.thread.id} (${estado}, origem ${sha})\nPróximo: ${resultado.proximoPasso}`;
 }
