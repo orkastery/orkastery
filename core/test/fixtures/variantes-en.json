@@ -40,7 +40,8 @@
   "adapters-en/claude-code/commands/plan.md": "715fde71074cca15ab8f1d3ef9d06c30d9e87e959098cce63e581a1c9d5ee2a1",
   "adapters-en/claude-code/commands/ship.md": "94a90536081c1e481a40a44cd4a258a770579a34abbce53466e4575a20c9a18b",
   "adapters-en/codex/skills/ork/SKILL.md": "fa2bb5397ff0a5c60b29fadadf5aec915630dccfda222f2faf1cce357821ebc2",
-  "adapters-en/hermes/README.md": "ee34e534e2868ca2fb29d103871f98bb9ce1302149be692cca0e7d4eab37a367",
+  "adapters-en/codex/README.md": "198b579eefc6fe7171e3480a90fe4c099268dc5c599c95eca6667f06f5245a78",
+  "adapters-en/hermes/README.md": "321e6f2928ebf7801f68fc4797dbf56275660aef549b3da10744a1da871f7d8c",
   "adapters-en/hermes/skills/orkastery-devmaster/SKILL.md": "0b5acccbac932f6d8443a9c0d36e412957eeb6b7594aa14c535e252a02b90958",
   "skills-en/phases/security-remediation/SKILL.md": "744c70a8e3f8fe059a11dd01a848f76ef0d2be2d453fd74afe260491a0698bde"
 }

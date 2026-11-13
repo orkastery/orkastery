@@ -22,11 +22,11 @@ test('contrato e guias declaram âncora, allowlist, diagnósticos e limite da F7
   assert.match(pt, /manifesto.*branch de destino/is);
   assert.match(pt, /comandos e o preparo.*branch de destino/is);
   assert.match(pt, /baseline projetada.*não participa.*dívida preexistente/is);
-  assert.match(pt, /não prova.*claims.*completas ou autênticas/is);
+  assert.match(pt, /Nenhum dos caminhos prova.*claims.*completas ou\s+autênticas/is);
   assert.match(en, /manifest.*target branch/is);
   assert.match(en, /commands and preparation.*target branch/is);
   assert.match(en, /projected baseline.*does not participate.*pre-existing debt/is);
-  assert.match(en, /does not prove claim completeness or\s+authenticity/is);
+  assert.match(en, /Neither path proves claims? completeness or\s+authenticity/is);
   assert.match(forja, /claims não vazias, comandos e preparo.*manifesto da branch de destino/is);
   assert.match(forja, /baseline projetada.*não participa.*sem exceção de dívida preexistente/is);
   assert.match(forja, /contrato.*head.*thread.*claimsSha256.*rodadaSha256.*check.*resultado.*sha256.*assinatura/is);

@@ -34,7 +34,7 @@ import type { Manifesto } from '../src/types';
 
 const NOW = '2026-11-13T03:00:00.000Z';
 const ISSUED = '2026-11-13T02:00:00.000Z';
-const EXPIRES = '2026-11-13T04:00:00.000Z';
+const EXPIRES = '2099-11-13T04:00:00.000Z';
 const HEAD = 'a'.repeat(40);
 const OTHER_HEAD = 'b'.repeat(40);
 const BRANCH = 'ork/ork-rm089f6fixture';
@@ -74,7 +74,7 @@ function fixture() {
     responsibleRef: policy.recipientRef,
     issuedAt: ISSUED, expiresAt: EXPIRES,
     review: { reference: 'review:fixture', responsibleRef: policy.recipientRef,
-      dueAt: '2026-11-14T04:00:00.000Z' },
+      dueAt: '2099-11-14T04:00:00.000Z' },
     decision: 'waived', reason: 'Continuidade auditada.',
     notification: { state: 'pending', receiptId: null, receiptHash: null },
   };
