@@ -36,8 +36,10 @@ import { CODIGO_DA_DEGRADACAO_REPLAY_CI, CONTRATO_PROJECAO_REPLAY_CI, criarProje
   estadoDoReciboRunnerCi, motivoClaimNaoHermeticaReplayCi, reexecutarProjecaoReplayCi,
   type OpcoesReplayCi, type ProjecaoReplayCi, type ReceitaConfiavelReplayCi } from './ci-recibo-basico';
 import { resolverModo } from './check-modo';
-import { validarProvaDaExcecaoNoRunner, type CapacidadeDoRunnerParaExcecao,
-  type ProvaProtegidaDaNotificacao } from './excecao-notificacao';
+import { CONTRATO_PROVA_NOTIFICACAO_EXCECAO, registrarNotificacaoAuditavel, validarProvaDaExcecaoNoRunner,
+  type CapacidadeDaNotificacaoDaExcecao, type CapacidadeDoRunnerParaExcecao,
+  type PortaGeridaDaNotificacaoDaExcecao, type ProvaProtegidaDaNotificacao } from './excecao-notificacao';
+import { resolverExcecaoDeRecibo, type FonteProtegidaDaExcecao } from './excecao-recibo';
 
 export type EstadoCi = 'disabled' | 'success' | 'pending' | 'failure' | 'missing' | 'unavailable';
 
@@ -121,6 +123,38 @@ export interface ContextoDaPoliticaCi {
   lerManifestoDestino?: (ref: string, arquivo: string) => string | null;
   /** Prova entregue ao runner por transporte protegido; nunca é lida do bundle ou do checkout do builder. */
   excecao?: { prova: ProvaProtegidaDaNotificacao | unknown; capacidade: CapacidadeDoRunnerParaExcecao | unknown };
+  /** Operação `ci run` gerida pelo núcleo; só a referência opaca vem do pedido. */
+  excecaoGerida?: {
+    threadId: string;
+    authorizationRef: string;
+    fonte: FonteProtegidaDaExcecao;
+    porta: PortaGeridaDaNotificacaoDaExcecao | null;
+    capacidadeNotificacao: CapacidadeDaNotificacaoDaExcecao | unknown;
+    dirThread: string;
+    capacidadeRunner: (prova: ProvaProtegidaDaNotificacao) => CapacidadeDoRunnerParaExcecao | unknown;
+  };
+}
+
+function executarExcecaoGerida(contexto: NonNullable<ContextoDaPoliticaCi['excecaoGerida']>):
+    { ok: true; prova: ProvaProtegidaDaNotificacao; capacidade: unknown } |
+    { ok: false; code: string } {
+  const resolvida = resolverExcecaoDeRecibo({ threadId: contexto.threadId,
+    authorizationRef: contexto.authorizationRef }, contexto.fonte);
+  if (!resolvida.ok) return resolvida;
+  let registrada: ReturnType<typeof registrarNotificacaoAuditavel>;
+  try {
+    registrada = registrarNotificacaoAuditavel(resolvida.exception, resolvida.policy, contexto.threadId,
+      contexto.dirThread, contexto.porta, contexto.capacidadeNotificacao);
+  } catch {
+    return { ok: false, code: 'ci.excecao.ledger-invalido' };
+  }
+  if (!registrada.ok) return registrada;
+  const prova: ProvaProtegidaDaNotificacao = { schema: CONTRATO_PROVA_NOTIFICACAO_EXCECAO,
+    policy: resolvida.policy, request: registrada.request, receipt: registrada.receipt, event: registrada.event };
+  let capacidade: unknown;
+  try { capacidade = contexto.capacidadeRunner(prova); }
+  catch { return { ok: false, code: 'ci.excecao.runner-capacidade-ausente' }; }
+  return { ok: true, prova, capacidade };
 }
 
 type LeitorDoManifestoNaRef = (ref: string, arquivo: string) => string | null;
@@ -736,8 +770,10 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
       : estadoDoReciboRunnerCi(replay.recibo, head)
       : estadoDoReciboCi(carregado.raiz, entrada, head, achado?.arquivo);
   const protegida = carregado.manifesto.worktree.base_branch;
-  const provaDaExcecao = contexto.excecao
-    ? validarProvaDaExcecaoNoRunner(contexto.excecao.prova, contexto.excecao.capacidade, {
+  const gerida = contexto.excecaoGerida ? executarExcecaoGerida(contexto.excecaoGerida) : null;
+  const transporteDaExcecao = contexto.excecao ?? (gerida?.ok ? { prova: gerida.prova, capacidade: gerida.capacidade } : null);
+  const provaDaExcecao = transporteDaExcecao
+    ? validarProvaDaExcecaoNoRunner(transporteDaExcecao.prova, transporteDaExcecao.capacidade, {
       project: carregado.manifesto.project.name,
       source: branch,
       target: destino ?? '',
@@ -752,17 +788,23 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
   const policy = { level: nivel, receipt: recibo, sourceBranch: branch, targetBranch: destino, protectedBranch: protegida,
     ...(excecaoAplicada ? { exception: 'applied' as const } : {}),
     ...(mensagem ? { message: mensagem } : {}), ...(degradacao ? { action: degradacao.action } : {}) };
-  const erroDoBundle = bundleInvalido ?? (branch.startsWith('ork/') && !achado
+  const erroDoBundleBase = bundleInvalido ?? (branch.startsWith('ork/') && !achado
     ? { code: 'ci.bundle.ausente', message: `ci.bundle.ausente: a branch ${branch} e de thread e nao tem bundle em ${DIR_DO_BUNDLE}/; ` +
         'rode ork ci prepare <thread> na worktree e versione o arquivo' }
     : null);
-  const erroDaExcecao = contexto.excecao && recibo !== 'presente' && provaDaExcecao && !provaDaExcecao.ok
-    ? { code: provaDaExcecao.code, message: provaDaExcecao.code }
+  const erroDoBundle = erroDoBundleBase ? { ...erroDoBundleBase, action: erroDoBundleBase.message } : null;
+  const erroDaOperacaoGerida = gerida && !gerida.ok
+    ? { code: gerida.code, message: gerida.code, action: gerida.code }
     : null;
+  const erroDaExcecao = erroDaOperacaoGerida ?? (transporteDaExcecao && recibo !== 'presente'
+    && provaDaExcecao && !provaDaExcecao.ok
+    ? { code: provaDaExcecao.code, message: provaDaExcecao.code, action: provaDaExcecao.code }
+    : null);
   const erroDoRecibo = nivel === 'exigir' && pullRequest && destino === protegida && recibo !== 'presente' && !excecaoAplicada
     ? replay?.degradacao
       ? degradacao!
-      : erroDaExcecao ?? { code: `ci.recibo.${recibo}`, message: mensagemDoRecibo(recibo, branch) }
+      : erroDaExcecao ?? { code: `ci.recibo.${recibo}`, message: mensagemDoRecibo(recibo, branch),
+        action: mensagemDoRecibo(recibo, branch) }
     : null;
   if (!achado && erroDoBundle) {
     return { schema: 'ork.ci-run/v1' as const, ok: false, thread: null, commit: commitReal(carregado.raiz), preparo: null,
@@ -773,7 +815,8 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
   if (replay) {
     const diagnostico = replay.degradacao
       ? degradacao!
-      : replay.invalida ? { code: 'ci.recibo.invalido', message: mensagemDoRecibo('invalido', branch) } : null;
+      : replay.invalida ? { code: 'ci.recibo.invalido', message: mensagemDoRecibo('invalido', branch),
+        action: mensagemDoRecibo('invalido', branch) } : null;
     const defeitoDoReciboReprova = nivel === 'exigir' && pullRequest && destino === protegida && recibo !== 'presente';
     // Observar e avisar não transformam sozinhos um diagnóstico de recibo em reprovação.
     const medicaoOk = replay.ok;
@@ -791,12 +834,12 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
       branch,
       bundle: achado?.arquivo ?? null,
       policy,
-      ...((erroDoRecibo ?? diagnostico) ? { error: erroDoRecibo ?? diagnostico! } : {}),
+      ...((erroDoRecibo ?? erroDaExcecao ?? diagnostico) ? { error: erroDoRecibo ?? erroDaExcecao ?? diagnostico! } : {}),
     };
   }
   const executado = rodarBundle(carregado, bundle);
-  const error = erroDoRecibo;
-  return { ...executado, ok: executado.ok && !error, ...(achado ? {} : { thread: null }), branch,
+  const error = erroDoRecibo ?? erroDaExcecao;
+  return { ...executado, ok: executado.ok && !erroDoRecibo, ...(achado ? {} : { thread: null }), branch,
     bundle: achado?.arquivo ?? null, policy,
     ...(excecaoAplicada && provaDaExcecao?.ok ? { exception: provaDaExcecao.exception } : {}),
     ...(error ? { error } : {}) };

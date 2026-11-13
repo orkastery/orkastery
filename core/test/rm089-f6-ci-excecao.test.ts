@@ -23,10 +23,13 @@ import {
   type ReciboDeNotificacaoDaExcecao,
 } from '../src/excecao-notificacao';
 import {
+  CONTRATO_AUTORIZACAO_EXCECAO_RECIBO,
   CONTRATO_EXCECAO_RECIBO,
   CONTRATO_POLITICA_EXCECAO_RECIBO,
   hashDaPoliticaDeExcecao,
+  type AutorizacaoDaExcecaoDeRecibo,
   type ExcecaoDeRecibo,
+  type FonteProtegidaDaExcecao,
   type PoliticaDaExcecaoDeRecibo,
 } from '../src/excecao-recibo';
 import type { ManifestoCarregado } from '../src/manifest';
@@ -78,7 +81,22 @@ function fixture() {
     decision: 'waived', reason: 'Continuidade auditada.',
     notification: { state: 'pending', receiptId: null, receiptHash: null },
   };
-  return { keys, policy, exception };
+  const authorization: AutorizacaoDaExcecaoDeRecibo = {
+    schema: CONTRATO_AUTORIZACAO_EXCECAO_RECIBO,
+    authorizationRef: exception.authorizationRef, justification: exception.justification,
+    scope: [...exception.scope], waivedReceipt: exception.waivedReceipt,
+    project: exception.project, source: exception.source, target: exception.target, head: exception.head,
+    operation: exception.operation, policyVersion: policy.version, policySha256,
+    builderPrincipal: 'account:builder', authorizerPrincipal: 'account:approver',
+    issuedAt: ISSUED, expiresAt: EXPIRES, reviewRef: exception.review.reference,
+    reviewResponsibleRef: exception.review.responsibleRef, reviewDueAt: exception.review.dueAt,
+    decision: 'waived', reason: exception.reason,
+  };
+  const source: FonteProtegidaDaExcecao = { read: (ref) => ref === authorization.authorizationRef ? {
+    authorization, policy, policySha256,
+    origin: { type: 'protected-target', target: 'main', targetHead: OTHER_HEAD, protected: true },
+  } : null };
+  return { keys, policy, exception, source };
 }
 
 function notificationCapability(f: ReturnType<typeof fixture>): CapacidadeDaNotificacaoDaExcecao {
@@ -237,6 +255,29 @@ test('F5 aceita só a prova protegida do HEAD exato e projeta JSON e relatório'
     publicarAvisoDaPolitica(output, { GITHUB_ACTIONS: 'true', GITHUB_REPOSITORY: 'org/repo' }, (line) => lines.push(line));
     assert.ok(lines.some((line) => line.startsWith('::notice') && line.includes(proof.event.ledgerEventId)));
   } finally { f.close(); }
+});
+
+test('operação pública resolve, notifica, anexa e entrega a exceção protegida ao runner', () => {
+  const managed = fixture(), calls: string[] = [], f = ciFixture();
+  const ledger = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-rm089-f6-public-flow-'));
+  try {
+    const output = executarCiDaBranchComContexto(carregado(f.raiz), BRANCH, {
+      destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD, receitaConfiavel: null,
+      excecaoGerida: {
+        threadId: 'ork-rm089f6fixture', authorizationRef: managed.exception.authorizationRef,
+        fonte: managed.source, porta: port(managed, calls), capacidadeNotificacao: notificationCapability(managed),
+        dirThread: ledger,
+        capacidadeRunner: (proof: ProvaProtegidaDaNotificacao) => runnerCapability(proof),
+      },
+    } as Parameters<typeof executarCiDaBranchComContexto>[2]) as {
+      ok: boolean; exception?: { ledgerEventId: string }; policy: { exception?: string };
+    };
+    assert.equal(output.ok, true);
+    assert.equal(output.policy.exception, 'applied');
+    assert.match(output.exception?.ledgerEventId ?? '', /^[A-Za-z0-9-]+$/);
+    assert.deepEqual(calls, ['request-receipt']);
+    assert.equal(fs.readFileSync(path.join(ledger, 'ledger.jsonl'), 'utf8').trim().split('\n').length, 1);
+  } finally { fs.rmSync(ledger, { recursive: true, force: true }); f.close(); }
 });
 
 test('runner sem capacidade, outro HEAD e projeções divergentes falham fechado', () => {
