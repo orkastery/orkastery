@@ -42,10 +42,12 @@ export function orientarSessao(carregado: ManifestoCarregado, identidade: Identi
     if (porSessao || porWorktree) return { ...base, estado: 'vinculada', threadId: id, texto: null, acoes: [],
       evidencia: [porSessao ? 'sessionId registrado na thread' : 'cwd na worktree registrada'] };
   }
+  const acoes: OrientacaoDaSessao['acoes'] = [
+    { id: 'thread.new', comando: 'node core/dist/index.js thread new <nome> --roadmap RM-NNN' },
+    { id: 'adotar', comando: 'node core/dist/index.js adotar <branch> --roadmap RM-NNN --nome <nome> --modo <modo> --perfil-check <perfil>' },
+  ];
   return { ...base, estado: 'fora-de-thread', threadId: null,
-    texto: 'Esta sessão está fora de uma thread do Orkastery. Inicie trabalho novo ou adote a história existente.',
-    acoes: [
-      { id: 'thread.new', comando: 'node core/dist/index.js thread new <nome> --roadmap RM-NNN' },
-      { id: 'adotar', comando: 'node core/dist/index.js adotar <branch> --roadmap RM-NNN --nome <nome> --modo <modo> --perfil-check <perfil>' },
-    ], evidencia: ['identidade e cwd consultados; nenhum vínculo durável encontrado'] };
+    texto: `Esta sessão está fora de uma thread do Orkastery. Inicie trabalho novo ou adote a história existente.\n` +
+      acoes.map((acao) => `- ${acao.comando}`).join('\n'),
+    acoes, evidencia: ['identidade e cwd consultados; nenhum vínculo durável encontrado'] };
 }

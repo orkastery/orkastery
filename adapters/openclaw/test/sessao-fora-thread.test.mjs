@@ -53,6 +53,8 @@ test('command:new/reset so respondem pelo event.messages quando o comando veio d
       await registrados.get(`command:${action}`)(evento);
       assert.equal(evento.messages.length, 1);
       assert.match(evento.messages[0], /fora de uma thread/);
+      assert.match(evento.messages[0], /node core\/dist\/index\.js thread new/);
+      assert.match(evento.messages[0], /node core\/dist\/index\.js adotar/);
     }
 
     const rpc = {
@@ -75,6 +77,8 @@ test('agent:bootstrap transporta a orientacao somente como contexto', async () =
     assert.deepEqual(evento.messages, []);
     assert.match(arquivo.content, /# Workspace/);
     assert.match(arquivo.content, /fora de uma thread/);
+    assert.match(arquivo.content, /node core\/dist\/index\.js thread new/);
+    assert.match(arquivo.content, /node core\/dist\/index\.js adotar/);
   });
 });
 

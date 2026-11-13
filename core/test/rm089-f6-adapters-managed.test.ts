@@ -62,6 +62,8 @@ test('Claude Code e Codex consultam o núcleo no SessionStart e só transportam 
       assert.notEqual(r, null, `${caso.runtime} não transportou a orientação`);
       assert.deepEqual(Object.keys(r!), ['systemMessage']);
       assert.match(String(r!.systemMessage), /fora de uma thread/);
+      assert.match(String(r!.systemMessage), /node core\/dist\/index\.js thread new/);
+      assert.match(String(r!.systemMessage), /node core\/dist\/index\.js adotar/);
     }
   } finally { p.limpar(); }
 });

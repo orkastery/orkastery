@@ -11,6 +11,8 @@ test('núcleo orienta sessão fora de thread sem bloquear e reconhece worktree v
     assert.deepEqual([fora.estado, fora.bloqueia, fora.threadId], ['fora-de-thread', false, null]);
     assert.deepEqual(fora.acoes.map((a) => a.id), ['thread.new', 'adotar']);
     assert.match(fora.texto ?? '', /fora de uma thread/);
+    assert.match(fora.texto ?? '', /node core\/dist\/index\.js thread new/);
+    assert.match(fora.texto ?? '', /node core\/dist\/index\.js adotar/);
 
     const thread = novaThread(p.carregado, { nome: 'vinculada', modo: 'auto', criarWorktree: true,
       origemDaWorktree: 'flag' }).thread;
@@ -38,6 +40,8 @@ test('os quatro runtimes recebem a mesma decisão e as mesmas ações do núcleo
       assert.equal(resposta.estado, 'fora-de-thread');
       assert.equal(resposta.bloqueia, false);
       assert.deepEqual(resposta.acoes.map((acao) => acao.id), ['thread.new', 'adotar']);
+      assert.match(resposta.texto ?? '', /node core\/dist\/index\.js thread new/);
+      assert.match(resposta.texto ?? '', /node core\/dist\/index\.js adotar/);
     }
     assert.equal(new Set(respostas.map((resposta) => resposta.texto)).size, 1);
   } finally { p.limpar(); }

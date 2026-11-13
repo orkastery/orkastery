@@ -83,7 +83,9 @@ class IngressTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_session_start_consults_core_and_first_turn_transports_context(self):
         orientation = {'contrato': 'ork.sessao-orientacao/v1', 'estado': 'fora-de-thread',
-                       'bloqueia': False, 'texto': 'Orientação SIMULADA do núcleo.'}
+                       'bloqueia': False, 'texto': 'Orientação SIMULADA do núcleo.\n'
+                       '- node core/dist/index.js thread new <nome> --roadmap RM-NNN\n'
+                       '- node core/dist/index.js adotar <branch> --roadmap RM-NNN --nome <nome> --modo <modo> --perfil-check <perfil>'}
         with patch.dict(os.environ, {'ORK_NUCLEO_DIR': '/nucleo-SIMULADO', 'NODE_BIN': '/node-SIMULADO'}), \
                 patch.object(ingress.subprocess, 'run', return_value=SimpleNamespace(
                     returncode=0, stdout=json.dumps(orientation))) as run:
@@ -94,9 +96,9 @@ class IngressTest(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(kwargs.get('shell', False))
             self.assertEqual(json.loads(kwargs['input']), {
                 'runtime': 'hermes', 'sessionId': 'sessao-SIMULADA', 'cwd': '/tmp'})
-            self.assertEqual(ingress._pre_llm_orientation(
-                session_id='sessao-SIMULADA', is_first_turn=True),
-                {'context': 'Orientação SIMULADA do núcleo.'})
+            transported = ingress._pre_llm_orientation(session_id='sessao-SIMULADA', is_first_turn=True)
+            self.assertIn('node core/dist/index.js thread new', transported['context'])
+            self.assertIn('node core/dist/index.js adotar', transported['context'])
             self.assertIsNone(ingress._pre_llm_orientation(
                 session_id='sessao-SIMULADA', is_first_turn=True))
 
