@@ -169,6 +169,22 @@ test('retry pós-append lê o par validado sem reenviar nem criar evento', () =>
   if (again.ok) assert.equal(again.event.ledgerEventId, first.result.event.ledgerEventId);
 });
 
+test('API padrão retoma do ledger real sem leitor injetado, reenvio ou segundo evento', () => {
+  const f = fixture(), calls: string[] = [];
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-rm089-f6-retry-ledger-'));
+  try {
+    const first = registrarNotificacaoAuditavel(f.exception, f.policy, 'ork-rm089f6fixture', dir,
+      port(f, calls), notificationCapability(f), { agora: NOW });
+    assert.equal(first.ok, true);
+    const second = registrarNotificacaoAuditavel(f.exception, f.policy, 'ork-rm089f6fixture', dir,
+      port(f, calls), notificationCapability(f), { agora: NOW });
+    assert.equal(second.ok, true);
+    assert.deepEqual(calls, ['request-receipt']);
+    if (first.ok && second.ok) assert.equal(second.event.ledgerEventId, first.event.ledgerEventId);
+    assert.equal(fs.readFileSync(path.join(dir, 'ledger.jsonl'), 'utf8').trim().split('\n').length, 1);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('par recusa recibo sem evento, troca de id/horário, hash errado e chave divergente', () => {
   const r = recorded();
   const proof = proofOf(r.result, r.f.policy), capability = runnerCapability(proof);

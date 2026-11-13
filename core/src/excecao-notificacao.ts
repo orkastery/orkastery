@@ -2,7 +2,7 @@
 import { createPublicKey, verify } from 'node:crypto';
 import { type ExcecaoDeRecibo, type PoliticaDaExcecaoDeRecibo, hashCanonicoDaExcecao,
   hashDaPoliticaDeExcecao, politicaDaExcecaoValida } from './excecao-recibo';
-import { registrarComMetadados, TIPOS_DE_EVENTO, type DependenciasDoRegistroComMetadados } from './ledger';
+import { lerLedger, registrarComMetadados, TIPOS_DE_EVENTO, type DependenciasDoRegistroComMetadados } from './ledger';
 
 export const CONTRATO_PEDIDO_NOTIFICACAO_EXCECAO = 'ork.excecao-notificacao-pedido/v1' as const;
 export const CONTRATO_RECIBO_NOTIFICACAO_EXCECAO = 'ork.excecao-notificacao-recibo/v1' as const;
@@ -394,13 +394,24 @@ export type ResultadoDoRegistroDaNotificacao = {
   request: PedidoDeNotificacaoDaExcecao;
 };
 
+function lerRegistroExistente(dir: string, request: PedidoDeNotificacaoDaExcecao):
+    { receipt: ReciboDeNotificacaoDaExcecao; event: EnvelopeDoLedgerDaNotificacao } | null {
+  const evento = [...lerLedger(dir)].reverse().find((item) => item.tipo === TIPOS_DE_EVENTO.notificacaoDeExcecao
+    && item.requestId === request.requestId && item.requestHash === request.requestHash
+    && item.idempotencyKey === request.idempotencyKey);
+  if (!evento) return null;
+  const event = envelopeDoEvento(evento);
+  if (!event) return null;
+  return { receipt: evento.receipt as ReciboDeNotificacaoDaExcecao, event };
+}
+
 /** Request -> recibo -> validação -> append -> exposição. Retry pós-append lê o par e não chama a porta. */
 export function registrarNotificacaoAuditavel(exception: ExcecaoDeRecibo, policy: PoliticaDaExcecaoDeRecibo,
   threadId: string, dirThread: string, port: PortaGeridaDaNotificacaoDaExcecao | null, capability: unknown,
   opcoes: OpcoesDoRegistroDaNotificacao = {}): ResultadoDoRegistroDaNotificacao {
   const now = opcoes.agora ?? new Date().toISOString();
   const request = criarPedidoDeNotificacao(exception, threadId, exception.issuedAt);
-  const existente = opcoes.lerExistente?.(request) ?? null;
+  const existente = (opcoes.lerExistente ?? ((pedido) => lerRegistroExistente(dirThread, pedido)))(request);
   if (existente) {
     const checked = conferirReciboDeNotificacao(existente.receipt, request, policy, now);
     if (!checked.ok || !validarEnvelopeDaNotificacao(request, existente.receipt, existente.event)) {
@@ -413,7 +424,8 @@ export function registrarNotificacaoAuditavel(exception: ExcecaoDeRecibo, policy
   const notified = notificarExcecaoDeRecibo(exception, policy, threadId, port, capability, now, exception.issuedAt);
   if (!notified.ok) return notified;
   const evento = registrarComMetadados(dirThread, threadId, TIPOS_DE_EVENTO.notificacaoDeExcecao,
-    ({ eventId, ts }) => ({ ...montarEnvelope(notified.request, notified.receipt, eventId, ts) }), opcoes.registro);
+    ({ eventId, ts }) => ({ ...montarEnvelope(notified.request, notified.receipt, eventId, ts),
+      receipt: notified.receipt }), opcoes.registro);
   const event = envelopeDoEvento(evento);
   if (!event || !validarEnvelopeDaNotificacao(notified.request, notified.receipt, event)) {
     return { ok: false, code: 'ci.excecao.ledger-invalido', request: notified.request };
