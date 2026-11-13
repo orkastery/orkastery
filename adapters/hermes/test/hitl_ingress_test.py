@@ -7,11 +7,13 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import threading
 from types import SimpleNamespace, ModuleType
 import unittest
 from unittest.mock import AsyncMock, patch
 from datetime import datetime, timezone, timedelta
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from layout import plugin_directory
 
 spec = importlib.util.spec_from_file_location('ingress', plugin_directory() / '__init__.py')
@@ -56,6 +58,7 @@ class IngressTest(unittest.IsolatedAsyncioTestCase):
         self.gateway = SimpleNamespace(_is_user_authorized=lambda _: True)
         ingress._entries.clear()
         ingress._tasks.clear()
+        ingress._session_orientations.clear()
 
     def invoke(self):
         return ingress._ingress(event=self.event, gateway=self.gateway)
@@ -68,14 +71,42 @@ class IngressTest(unittest.IsolatedAsyncioTestCase):
     async def test_native_hook_only_and_sync_skip(self):
         hooks = []
         ingress.register(SimpleNamespace(register_hook=lambda *args: hooks.append(args)))
-        self.assertEqual(hooks[0][0], 'pre_gateway_dispatch')
-        self.assertFalse(asyncio.iscoroutinefunction(hooks[0][1]))
+        self.assertEqual([hook[0] for hook in hooks],
+                         ['pre_gateway_dispatch', 'on_session_start', 'pre_llm_call'])
+        self.assertTrue(all(not asyncio.iscoroutinefunction(hook[1]) for hook in hooks))
         with patch.object(ingress.subprocess, 'run') as run:
             result = ingress._ingress(event=SimpleNamespace(**vars(self.event)), gateway=self.gateway)
             self.assertEqual(result['action'], 'skip')
             run.assert_not_called()
         self.event.text = 'conversa normal'
         self.assertIsNone(self.invoke())
+
+    async def test_session_start_consults_core_and_first_turn_transports_context(self):
+        orientation = {'contrato': 'ork.sessao-orientacao/v1', 'estado': 'fora-de-thread',
+                       'bloqueia': False, 'texto': 'Orientação SIMULADA do núcleo.\n'
+                       '- node core/dist/index.js thread new <nome> --roadmap RM-NNN\n'
+                       '- node core/dist/index.js adotar <branch> --roadmap RM-NNN --nome <nome> --modo <modo> --perfil-check <perfil>'}
+        with patch.dict(os.environ, {'ORK_NUCLEO_DIR': '/nucleo-SIMULADO', 'NODE_BIN': '/node-SIMULADO'}), \
+                patch.object(ingress.subprocess, 'run', return_value=SimpleNamespace(
+                    returncode=0, stdout=json.dumps(orientation))) as run:
+            self.assertIsNone(ingress._on_session_start(session_id='sessao-SIMULADA'))
+            argv, kwargs = run.call_args.args[0], run.call_args.kwargs
+            self.assertEqual(argv[0:2], ['/node-SIMULADO', '-e'])
+            self.assertEqual(argv[-1], '/nucleo-SIMULADO')
+            self.assertFalse(kwargs.get('shell', False))
+            self.assertEqual(json.loads(kwargs['input']), {
+                'runtime': 'hermes', 'sessionId': 'sessao-SIMULADA', 'cwd': '/tmp'})
+            transported = ingress._pre_llm_orientation(session_id='sessao-SIMULADA', is_first_turn=True)
+            self.assertIn('node core/dist/index.js thread new', transported['context'])
+            self.assertIn('node core/dist/index.js adotar', transported['context'])
+            self.assertIsNone(ingress._pre_llm_orientation(
+                session_id='sessao-SIMULADA', is_first_turn=True))
+
+        with patch.dict(os.environ, {'ORK_NUCLEO_DIR': '/nucleo-SIMULADO', 'NODE_BIN': '/node-SIMULADO'}), \
+                patch.object(ingress.subprocess, 'run', side_effect=TimeoutError('SIMULADO')):
+            self.assertIsNone(ingress._on_session_start(session_id='sessao-sem-prova'))
+            self.assertIsNone(ingress._pre_llm_orientation(
+                session_id='sessao-sem-prova', is_first_turn=True))
 
     async def test_envelope_stdin_signature_unicode_receipt_replay(self):
         with patch.object(ingress.subprocess, 'run', return_value=receipt()) as run:

@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -75,6 +76,71 @@ logger = logging.getLogger(__name__)
 # Só metadados: nunca guardar resposta, chave, stdout ou exceção nestes registros.
 _entries = {}
 _tasks = set()
+_session_orientations = {}
+
+# O pequeno programa só abre a API compilada do núcleo. A decisão (vínculo,
+# texto e ações) continua em sessao-orientacao.js; o plugin não lê estado.
+_ORIENTATION_BRIDGE = r"""
+const fs=require('node:fs'),path=require('node:path');
+const input=JSON.parse(fs.readFileSync(0,'utf8'));
+const dir=process.argv[1];
+const {exigirManifesto}=require(path.join(dir,'manifest.js'));
+const {orientarSessao}=require(path.join(dir,'sessao-orientacao.js'));
+process.stdout.write(JSON.stringify(orientarSessao(exigirManifesto(input.cwd),input))+'\n');
+"""
+
+
+def _orientation_argv():
+    explicit = os.environ.get('ORK_NUCLEO_DIR', '')
+    if explicit:
+        core_dir = os.path.abspath(explicit)
+    else:
+        ork_bin = os.environ.get('ORK_BIN', 'ork')
+        resolved = ork_bin if os.path.isabs(ork_bin) else shutil.which(ork_bin)
+        if not resolved:
+            return None
+        core_dir = os.path.dirname(os.path.realpath(resolved))
+        if not os.path.isfile(os.path.join(core_dir, 'sessao-orientacao.js')):
+            return None
+    node = os.environ.get('NODE_BIN') or shutil.which('node')
+    return [node, '-e', _ORIENTATION_BRIDGE, core_dir] if node else None
+
+
+def _on_session_start(session_id='', **_kwargs):
+    """Consulta síncrona e limitada: o retorno do evento nativo é ignorado pelo Hermes."""
+    if not isinstance(session_id, str) or not session_id:
+        return None
+    root = os.environ.get('ORK_HITL_ROOT') or os.getcwd()
+    argv = _orientation_argv()
+    if not argv or not os.path.isabs(root):
+        _session_orientations.pop(session_id, None)
+        return None
+    try:
+        result = subprocess.run(argv, input=json.dumps({
+            'runtime': 'hermes', 'sessionId': session_id, 'cwd': root,
+        }), cwd=root, text=True, encoding='utf-8', capture_output=True,
+            timeout=CORE_TIMEOUT, check=False)
+        if result.returncode or len(result.stdout.encode()) > 16384:
+            raise ValueError('orientation.unavailable')
+        orientation = json.loads(result.stdout)
+        if (orientation.get('contrato') == 'ork.sessao-orientacao/v1'
+                and orientation.get('estado') == 'fora-de-thread'
+                and orientation.get('bloqueia') is False
+                and isinstance(orientation.get('texto'), str) and orientation['texto'].strip()):
+            _session_orientations[session_id] = orientation['texto'][:4000]
+        else:
+            _session_orientations.pop(session_id, None)
+    except Exception:
+        _session_orientations.pop(session_id, None)
+    return None
+
+
+def _pre_llm_orientation(session_id='', is_first_turn=False, **_kwargs):
+    """Única superfície documentada que injeta contexto; nunca bloqueia."""
+    if is_first_turn is not True or not isinstance(session_id, str):
+        return None
+    text = _session_orientations.pop(session_id, None)
+    return {'context': text} if text else None
 
 
 def _allowed(name, value):
@@ -344,6 +410,8 @@ def _ingress(*, event, gateway, **_kwargs):
 
 def register(ctx):
     ctx.register_hook('pre_gateway_dispatch', _ingress)
+    ctx.register_hook('on_session_start', _on_session_start)
+    ctx.register_hook('pre_llm_call', _pre_llm_orientation)
 
 
 async def _native_core(argv, root, envelope=None):

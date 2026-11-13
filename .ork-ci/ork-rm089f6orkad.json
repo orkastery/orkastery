@@ -1,0 +1,2267 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm089f6orkad",
+  "branch": "ork/ork-rm089f6orkad-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C5",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm089-f6-adocao.test.ts",
+      "alegacao": "C5 — A adoção local, remota ou de fork preserva os OIDs e a ordem dos commits; identifica vínculo pela origem normalizada e pelo registro canônico, usando sourceHead apenas como evidência; fixa e reconsulta sourceHead e baseHead, recalcula merge-base, reserva e fotografia F3 quando a base muda; conflito F3 é consultivo e a adoção prossegue com a fotografia, salvo reprovação de policy versionada; história separada e origem móvel falham sem reescrever refs; e adocao.concluida só ocorre, para o HEAD exato, depois de adocao.preparada, verify verde, CHECK independente verde e recibo F5.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f6-adocao.test.js core/dist-test/test/rm089-f6-adocao-rede.test.js core/dist-test/test/rm089-f6-adocao-cli.test.js"
+      ],
+      "criadoEm": "2026-11-12T11:17:19.790Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm089-f6-ci-excecao.test.ts",
+      "alegacao": "C7 — A exceção de recibo deriva builderPrincipal, authorizerPrincipal e policyVersion/policySha256 de identidades nativas, nega autoautorização inclusive por sobreposição de grupo, autentica autoridade e alcance exato de projeto, source, target, HEAD e operação, registra ledger/JSON/relatório e, em exigir, só fica verde após recibo inequívoco de notificação ao responsável; identidade escolhida pelo chamador, policy trocada, replay, expiração, adulteração, outro alcance ou falha/ambiguidade de notificação reprovam.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f6-excecao.test.js core/dist-test/test/rm089-f6-ci-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-12T11:17:20.083Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/adocao.ts",
+      "alegacao": "A adoção resolve e reconsulta origem e base, reconhece vínculos canônicos e cria a thread no sourceHead sem reescrever a história.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f6-adocao.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:28:12.770Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/thread.ts",
+      "alegacao": "A criação de thread adotada usa o sourceHead já validado como ponto de partida da branch canônica e grava a fotografia de adoção.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f6-adocao.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:28:12.848Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/worktree.ts",
+      "alegacao": "O audit de thread adotada prova sourceHead e OIDs preservados, e o sync recusa rebase ou reset com adocao.preservacao.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f6-adocao.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:28:12.930Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-forja-simulada.ts",
+      "alegacao": "A fixture de adoção cria história externa determinística com dois commits preserváveis e devolve seus OIDs para as asserções.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f6-adocao.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:28:13.003Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/adocao.ts",
+      "alegacao": "A adoção reserva e vincula o item pela saga F2, fotografa o preflight F3 consultivo e só grava depois de reconsultar origem e base.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f6-adocao-rede.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:32:23.421Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-operacao.ts",
+      "alegacao": "A operação coordenada da adoção reutiliza a saga F2 e compensa reserva coletiva, local e thread quando a vinculação falha.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f6-adocao-rede.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:32:23.550Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-conflito.ts",
+      "alegacao": "A fotografia F3 da adoção preserva conflito, ordem, lacunas, ponta e cobertura com semântica sempre consultiva.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f6-adocao-rede.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:32:23.684Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-adocao-rede.test.ts",
+      "alegacao": "A matriz de rede prova a ordem reserva, criação e vínculo, e prova que conflito F3 consultivo não bloqueia adoção sem policy versionada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f6-adocao-rede.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:32:23.819Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/sessao-orientacao.ts",
+      "alegacao": "A orientação valida identidade e cwd nativos, reconhece vínculo durável e oferece thread new e adotar sem criar bloqueio.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f6-sessao.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:34:48.109Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/sessoes.ts",
+      "alegacao": "Os quatro adapters têm um ponto único de consulta read-only para a orientação decidida pelo núcleo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f6-sessao.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:34:48.191Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "O CLI ork adotar valida a sintaxe ratificada, delega a decisão ao núcleo e publica criação ou retomada sem duplicar estado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f6-adocao-cli.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:37:19.949Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "A saída pública da adoção apresenta estado, origem e próximo passo em pt-BR ou inglês sem traduzir identificadores.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f6-adocao-cli.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:37:20.025Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/adocao.ts",
+      "alegacao": "As transições preparada, verificada, revisada e concluída são lineares, idempotentes no mesmo HEAD e exigem verify, CHECK independente e recibo do runner.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f6-adocao-cli.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:37:20.107Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-adocao-cli.test.ts",
+      "alegacao": "A matriz CLI prova criação, retomada e as recusas de CHECK não independente, bundle como recibo e HEAD divergente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f6-adocao-cli.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:37:20.175Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "adapters/claude-code/hooks/hooks.json",
+      "alegacao": "O adaptador Claude Code registra SessionStart para a orientação gerida pelo núcleo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-adapters-managed.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:44:52.940Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "adapters/claude-code/hooks/ork-sessao.js",
+      "alegacao": "O hook Claude Code transporta somente systemMessage decidido pelo núcleo e falha sem bloquear.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-adapters-managed.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:44:52.990Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "adapters/codex/hooks/hooks.json",
+      "alegacao": "O adaptador Codex registra SessionStart para a orientação gerida pelo núcleo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-adapters-managed.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:44:53.036Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "adapters/codex/hooks/ork-sessao.js",
+      "alegacao": "O hook Codex transporta somente systemMessage decidido pelo núcleo e falha sem bloquear.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-adapters-managed.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:44:53.082Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-adapters-managed.test.ts",
+      "alegacao": "O teste gerido prova a orientação de Claude Code e Codex e a ausência de decisão nos adapters.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-adapters-managed.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:44:53.127Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/hosts.ts",
+      "alegacao": "O instalador Codex gerencia os hooks nativos no projeto, preserva config.toml e inclui os arquivos no recibo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/hosts.test.js core/dist-test/test/adapter-experiencia.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:47:47.422Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/locale-adapter.ts",
+      "alegacao": "O catálogo de mensagens explica que o hook Codex não concede autorização nem altera o sandbox.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/hosts.test.js core/dist-test/test/adapter-experiencia.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:47:47.468Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/hosts.test.ts",
+      "alegacao": "A instalação Codex prova dry-run, cópia nativa, recibo, conflito auditável e preservação de arquivos alheios.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/hosts.test.js core/dist-test/test/adapter-experiencia.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:47:47.513Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/adapter-experiencia.test.ts",
+      "alegacao": "A instalação com experiência mantém os hooks Codex nos caminhos nativos sem criar config.toml.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/hosts.test.js core/dist-test/test/adapter-experiencia.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:47:47.571Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "adapters/codex/README.md",
+      "alegacao": "A referência do adaptador Codex documenta destinos, transporte e limites de autoridade.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/hosts.test.js core/dist-test/test/adapter-experiencia.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:47:47.616Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "adapters/hermes/hitl-ingress/__init__.py",
+      "alegacao": "O plugin Hermes consulta a orientação do núcleo no início e a transporta como contexto apenas no primeiro turno.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-adapters-managed.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:59:25.852Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "adapters/hermes/hitl-ingress/plugin.yaml",
+      "alegacao": "O manifesto Hermes declara os hooks nativos usados pela orientação e pelo ingresso.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-adapters-managed.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:59:25.901Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "adapters/hermes/test/hitl_ingress_test.py",
+      "alegacao": "A prova Hermes cobre argv sem shell, resposta do núcleo, entrega única e degradação não bloqueante.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-adapters-managed.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:59:25.947Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "adapters/hermes/README.md",
+      "alegacao": "A documentação Hermes separa instalação, habilitação, orientação e autoridade.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-adapters-managed.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:59:26.040Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-adapters-managed.test.ts",
+      "alegacao": "O teste gerido executa a prova nativa Hermes por processo assíncrono e vetor de argv.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-adapters-managed.test.js"
+      ],
+      "criadoEm": "2026-11-13T02:59:26.087Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "adapters/openclaw/test/sessao-fora-thread.test.mjs",
+      "alegacao": "O OpenClaw registra command:new e command:reset e transporta a orientação decidida pelo núcleo em event.messages somente quando o comando se originou em chat.",
+      "negativa": false,
+      "verificar": [
+        "node --test adapters/openclaw/test/sessao-fora-thread.test.mjs"
+      ],
+      "criadoEm": "2026-11-13T03:09:37.688Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "adapters/openclaw/test/sessao-fora-thread.test.mjs",
+      "alegacao": "Reset ou criação de sessão por RPC no OpenClaw não recebe reply de orientação.",
+      "negativa": false,
+      "verificar": [
+        "node --test adapters/openclaw/test/sessao-fora-thread.test.mjs"
+      ],
+      "criadoEm": "2026-11-13T03:09:37.748Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "adapters/openclaw/test/sessao-fora-thread.test.mjs",
+      "alegacao": "No agent:bootstrap do OpenClaw, a orientação confirmada entra somente como contexto AGENTS.md e não como mensagem.",
+      "negativa": false,
+      "verificar": [
+        "node --test adapters/openclaw/test/sessao-fora-thread.test.mjs"
+      ],
+      "criadoEm": "2026-11-13T03:09:37.809Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "adapters/openclaw/test/sessao-fora-thread.test.mjs",
+      "alegacao": "Identidade ou workspace não confirmados no OpenClaw seguem sem reply, mutação de contexto ou bloqueio pelo adapter.",
+      "negativa": false,
+      "verificar": [
+        "node --test adapters/openclaw/test/sessao-fora-thread.test.mjs"
+      ],
+      "criadoEm": "2026-11-13T03:09:37.861Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "adapters/openclaw/src/index.ts",
+      "alegacao": "O adapter OpenClaw envia identidade nativa e workspace ao núcleo, usa event.messages somente para command:new/reset de chat e usa bootstrap somente como contexto.",
+      "negativa": false,
+      "verificar": [
+        "node --test adapters/openclaw/test/sessao-fora-thread.test.mjs"
+      ],
+      "criadoEm": "2026-11-13T03:09:58.725Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "adapters/openclaw/dist/index.js",
+      "alegacao": "O entry distribuído do OpenClaw contém os hooks de orientação compilados a partir da fonte.",
+      "negativa": false,
+      "verificar": [
+        "node --test adapters/openclaw/test/sessao-fora-thread.test.mjs"
+      ],
+      "criadoEm": "2026-11-13T03:09:58.805Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "adapters/openclaw/openclaw.plugin.json",
+      "alegacao": "O manifesto distribuído do OpenClaw declara a extensão que registra tools e orientação pelos hooks nativos.",
+      "negativa": false,
+      "verificar": [
+        "node --test adapters/openclaw/test/sessao-fora-thread.test.mjs"
+      ],
+      "criadoEm": "2026-11-13T03:09:58.867Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "adapters/openclaw/README.md",
+      "alegacao": "A documentação OpenClaw separa instalação, habilitação, reply de chat, contexto de bootstrap e degradação não confirmada.",
+      "negativa": false,
+      "verificar": [
+        "node --test adapters/openclaw/test/sessao-fora-thread.test.mjs"
+      ],
+      "criadoEm": "2026-11-13T03:09:58.935Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/excecao-recibo.ts",
+      "alegacao": "A exceção F6 é um objeto canônico separado da F2, resolvido apenas por referência opaca e fonte protegida, com identidades redigidas e independência por ator ou autoridade.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-13T03:21:27.240Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/excecao-notificacao.ts",
+      "alegacao": "A porta gerida valida capacidade, pedido, hash, destinatário, emissor, assinatura e resultado; o recibo não aceita campos de persistência do ledger.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-13T03:21:27.301Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "O leitor do manifesto expõe a policy de exceção somente a partir do texto da ref de destino fornecido ao leitor confiável.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-13T03:21:27.361Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/rede-empresa-atestacao.ts",
+      "alegacao": "Policy vinda de autoridade organizacional só é aceita com autoria, hash, escopo, prazo e assinatura Ed25519 conferidos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-13T03:21:27.414Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-excecao.test.ts",
+      "alegacao": "A fixture hermética cobre origem protegida, ator independente, aliases e grupos, expiração e revisão, porta e capacidade, recibo forjado, destinatário, replay, ambiguidade, timeout e campos proibidos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-13T03:21:27.494Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/ledger.ts",
+      "alegacao": "O registro da notificação reserva eventId e ts antes de montar o envelope, faz append durável e só então devolve o evento.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-ci-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-13T03:35:05.116Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C52",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/excecao-notificacao.ts",
+      "alegacao": "A notificação auditável valida recibo e envelope antes do append, recupera retry pós-append sem reenviar e rejeita pares adulterados.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-ci-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-13T03:35:05.204Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/ci.ts",
+      "alegacao": "A F5 aplica a exceção somente com prova protegida e capacidade do runner para projeto, branches e HEAD exatos, e recusa prova controlada pelo bundle.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-ci-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-13T03:35:05.284Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C54",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/locale-operacao-restante.ts",
+      "alegacao": "O runner publica a exceção aplicada em JSON e no relatório nativo sem expor conteúdo do ambiente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-ci-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-13T03:35:05.415Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C55",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-ci-excecao.test.ts",
+      "alegacao": "A prova integrada cobre falha de append, retries, recibo sem evento, troca de metadados, chave divergente, capacidade ausente, HEAD divergente e prova do builder.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-ci-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-13T03:35:05.518Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C56",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A seção Não publicado anuncia adoção, orientação única e exceção auditável sem métrica inventada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-contrato.test.js"
+      ],
+      "criadoEm": "2026-11-13T03:40:19.451Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C57",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referência pt-BR publica a sintaxe, estados e limites reais de adoção, orientação e exceção.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-contrato.test.js"
+      ],
+      "criadoEm": "2026-11-13T03:40:19.548Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C58",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "A referência em inglês publica a mesma sintaxe, estados e limites reais de adoção, orientação e exceção.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-contrato.test.js"
+      ],
+      "criadoEm": "2026-11-13T03:40:19.643Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C59",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "docs/guias/politica-de-recibo-da-empresa.pt-BR.md",
+      "alegacao": "O guia pt-BR separa F2 e F5, descreve o par auditável e declara as lacunas sem prometer F7.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-contrato.test.js"
+      ],
+      "criadoEm": "2026-11-13T03:40:19.727Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C60",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "docs/guias/politica-de-recibo-da-empresa.md",
+      "alegacao": "O guia em inglês separa F2 e F5, descreve o par auditável e declara as lacunas sem prometer F7.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-contrato.test.js"
+      ],
+      "criadoEm": "2026-11-13T03:40:19.811Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C61",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/forja.md",
+      "alegacao": "O contrato da forja enumera os schemas, a ordem durável e a capacidade limitada do runner.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-contrato.test.js"
+      ],
+      "criadoEm": "2026-11-13T03:40:19.913Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C62",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-contrato.test.ts",
+      "alegacao": "A prova documental confere narrativa bilíngue, contratos, caminhos reais dos adapters e Não publicado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-contrato.test.js"
+      ],
+      "criadoEm": "2026-11-13T03:40:20.000Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C63",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-adapters-managed.test.ts",
+      "alegacao": "A prova gerida executa as suítes nativas de Hermes e OpenClaw por spawn assíncrono e argv em ambiente determinístico sem transportar segredos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-adapters-managed.test.js"
+      ],
+      "criadoEm": "2026-11-13T03:44:38.384Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C64",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-adocao.test.ts",
+      "alegacao": "A matriz de adoção cobre origem e base móveis sem thread durável, origem remota e ausência da regra de preservação em thread comum.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-adocao.test.js core/dist-test/test/rm089-f6-adocao-rede.test.js core/dist-test/test/rm089-f6-adocao-cli.test.js"
+      ],
+      "criadoEm": "2026-11-13T03:44:38.448Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C65",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-adocao-cli.test.ts",
+      "alegacao": "A transição pós-verify é durável e idempotente no mesmo HEAD, e evidência divergente não avança o estado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-adocao.test.js core/dist-test/test/rm089-f6-adocao-rede.test.js core/dist-test/test/rm089-f6-adocao-cli.test.js"
+      ],
+      "criadoEm": "2026-11-13T03:44:38.517Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C66",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-sessao.test.ts",
+      "alegacao": "Claude Code, Codex, Hermes e OpenClaw recebem do núcleo a mesma orientação read-only e as mesmas ações sem bloqueio.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f6-sessao.test.js core/dist-test/test/rm089-f6-adapters-managed.test.js"
+      ],
+      "criadoEm": "2026-11-13T03:44:38.596Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C67",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/runtime-context.ts",
+      "alegacao": "A conferência do adapter Codex valida pelo recibo os hooks instalados na raiz nativa .codex, exige o destino canônico e mantém todos os bytes confinados ao projeto.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/codex-controller-params.test.js"
+      ],
+      "criadoEm": "2026-11-13T04:24:01.040Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C68",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f3b-casos.ts",
+      "alegacao": "A prova de locale resolve pelo destino registrado os arquivos nativos do Codex fora da pasta da skill sem ocultar seu caminho ou conteúdo no recibo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-13T04:24:01.331Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C69",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "O snapshot pt-BR fixa as mensagens e os recibos reais dos adapters com SessionStart e orientação nativa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/locale-f3b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-13T04:24:01.838Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C70",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f1-politica-ci.test.ts",
+      "alegacao": "A regressão pública confere a fronteira atual: o runner compara a projeção, a assinatura de notificação não assina o verify e nenhuma entrega F7 é prometida.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/rm089-f1-politica-ci.test.js"
+      ],
+      "criadoEm": "2026-11-13T04:24:02.064Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C71",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-ci-excecao.test.ts",
+      "alegacao": "A prova positiva da exceção F5 não depende do relógio da execução e as recusas de prova, capacidade e HEAD divergentes continuam fechadas.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/rm089-f6-ci-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-13T04:54:28.644Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C72",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f5-recibo-publico.test.ts",
+      "alegacao": "Os artefatos públicos em pt-BR e inglês declaram a fronteira de confiança do recibo, sem prometer completude ou autenticidade das claims.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/rm089-f5-recibo-publico.test.js"
+      ],
+      "criadoEm": "2026-11-13T04:54:28.698Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C73",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "A referência inglesa documenta ork adotar com a mesma invocação e os mesmos identificadores públicos da referência pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/locale-f3a-referencia.test.js"
+      ],
+      "criadoEm": "2026-11-13T04:54:28.745Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C74",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/locale-skills.test.ts",
+      "alegacao": "A instalação bilíngue valida variantes estruturais e confere cada arquivo no destino efetivamente registrado no recibo.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/locale-skills.test.js"
+      ],
+      "criadoEm": "2026-11-13T04:54:28.799Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C75",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/maestro-parity.test.ts",
+      "alegacao": "A prova de paridade dos hosts confere o conteúdo instalado no destino efetivamente registrado pelo recibo, inclusive hooks nativos externos ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/maestro-parity.test.js"
+      ],
+      "criadoEm": "2026-11-13T04:54:28.886Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C76",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/assets/adapters-en/hermes/README.md",
+      "alegacao": "O guia inglês do Hermes mantém paridade estrutural com o original e documenta a orientação nativa de início de sessão sem aprovação de gates.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/locale-skills.test.js"
+      ],
+      "criadoEm": "2026-11-13T04:54:28.943Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C77",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/assets/adapters-en/codex/README.md",
+      "alegacao": "O guia instalável do Codex tem variante inglesa estruturalmente equivalente e preserva os nomes dos artefatos nativos.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/locale-skills.test.js"
+      ],
+      "criadoEm": "2026-11-13T04:54:28.997Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C78",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/variantes-en.json",
+      "alegacao": "O registro de origem das variantes inglesas corresponde aos originais atuais dos guias Codex e Hermes.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/locale-skills.test.js"
+      ],
+      "criadoEm": "2026-11-13T04:54:29.050Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C79",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/hermes-installed-layout.test.ts",
+      "alegacao": "A instalação Hermes e a fonte executam a suíte de ingresso que inclui a orientação nativa de sessão e preserva recusas de layout.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/hermes-installed-layout.test.js"
+      ],
+      "criadoEm": "2026-11-13T04:54:29.099Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C80",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/excecao-notificacao.ts",
+      "alegacao": "A API padrão da notificação auditável lê o ledger antes de enviar e uma reentrada pós-append não reenvia nem grava outro evento.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/rm089-f6-ci-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-13T05:53:48.084Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C81",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-adocao-cli.test.ts",
+      "alegacao": "O CLI ork adotar usa uma URL de fork direto para buscar a branch por argv e conserva essa URL e o HEAD resolvido no registro público da adoção.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/rm089-f6-adocao-cli.test.js"
+      ],
+      "criadoEm": "2026-11-13T05:56:00.312Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C82",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/sessao-orientacao.ts",
+      "alegacao": "Substituta de C6: Claude Code, Codex, Hermes e OpenClaw transportam o texto canônico com thread new e adotar; no Hermes a superfície comprovada é on_session_start seguida de pre_llm_call.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/rm089-f6-sessao.test.js core/dist-test/test/rm089-f6-adapters-managed.test.js"
+      ],
+      "criadoEm": "2026-11-13T05:58:12.311Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C83",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/ci.ts",
+      "alegacao": "A operação pública `ci run` resolve a exceção apenas pela fonte protegida, usa a porta gerida e o recibo assinado, anexa o envelope canônico e entrega ao runner a prova e a capacidade protegidas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f6-ci-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-13T06:05:59.430Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C84",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/adocao.ts",
+      "alegacao": "O fluxo público `adotar` avança preparada, verificada, revisada e concluida somente por verify oficial, projeção commitada antes do CHECK independente e recibo válido `ork.ci-recibo-runner/v1` no mesmo HEAD.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f6-adocao-cli.test.js"
+      ],
+      "criadoEm": "2026-11-13T06:22:53.058Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C85",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-adocao-cli.test.ts",
+      "alegacao": "Em estado revisada, a adoção devolve um próximo passo executável que identifica a branch canônica, e a prova consome exatamente os argumentos retornados sem reconstruir ci run.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/rm089-f6-adocao-cli.test.js"
+      ],
+      "criadoEm": "2026-11-13T08:04:06.232Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C86",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/src/adocao.ts",
+      "alegacao": "A adoção recusa padrões do catálogo de segredos em qualquer parte da URL remota antes do fetch, normalização, persistência e saída, sem gravar nem imprimir o marcador falso.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/rm089-f6-adocao-cli.test.js"
+      ],
+      "criadoEm": "2026-11-13T08:06:36.006Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C87",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-adocao-cli.test.ts",
+      "alegacao": "Substituta de C4: a referência pública corresponde ao comportamento ratificado, e as provas públicas confirmam o próximo passo executável em revisada e a recusa de credencial em toda a URL remota sem persistência ou saída do valor.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f6-contrato.test.js core/dist-test/test/rm089-f6-adocao-cli.test.js",
+        "grep -q \"ork adotar\" docs/referencia/cli.md",
+        "grep -q \"não confirmado\" docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-11-13T08:07:00.330Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C88",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-adocao-cli.test.ts",
+      "alegacao": "A prova do CLI reproduz a herança do ambiente de pull request do GitHub Actions e isola as variáveis da forja antes de executar o fluxo e seus processos filhos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/rm089-f6-adocao-cli.test.js"
+      ],
+      "criadoEm": "2026-11-13T09:44:52.015Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C89",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-adapters-managed.test.ts",
+      "alegacao": "A suíte gerida executa as provas Hermes em Python isolado, com caminho de módulos e casa operacional do Hermes ausentes, sem skip.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/rm089-f6-adapters-managed.test.js"
+      ],
+      "criadoEm": "2026-11-13T09:48:39.374Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C90",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "Os recibos de instalação Hermes afetados incluem o módulo de prova simulada e o hash do conteúdo instalado.",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"test/hitl_session_hooks_simulated_test.py\" core/test/fixtures/locale-f3b-pt-BR.json",
+        "grep -q \"hitl_session_hooks_simulated_test.py sha:4318cb2959ea73c6\" core/test/fixtures/locale-f3b-pt-BR.json"
+      ],
+      "criadoEm": "2026-11-13T09:48:39.447Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C91",
+      "thread": "ork-rm089f6orkad",
+      "fase": "GO",
+      "arquivo": "adapters/hermes/test/hitl_session_hooks_simulated_test.py",
+      "alegacao": "Substituta de C35: a prova simulada carrega o plugin real e imita somente register_hook e invoke_hook da API pública do Hermes para confirmar on_session_start e pre_llm_call sem Hermes instalado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/dist-test/test/rm089-f6-adapters-managed.test.js"
+      ],
+      "criadoEm": "2026-11-13T09:48:39.517Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ]
+}

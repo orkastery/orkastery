@@ -189,7 +189,7 @@ export interface ResultadoSync {
   /** RM-037 (defeitosdeco D-5): branch sem commit proprio recriada no SHA da base, sem rebase. */
   recriada?: boolean;
   /** RM-037 (fatia 3, defeito 3): a recusa e de base reescrita, com ou sem ancestral comum. */
-  causa?: 'base-reescrita';
+  causa?: 'base-reescrita' | 'adocao.preservacao';
   dir: string;
   branch: string;
   base: string;
@@ -267,6 +267,15 @@ export function sincronizarWorktree(
     passos,
     dryRun: opcoes.dryRun === true,
   };
+
+  // Uma adoção conserva os objetos originais. Rebase/reset nunca é uma correção válida.
+  if (thread.adocao || thread.origem === 'adocao') {
+    const head = fs.existsSync(dir) ? exec('git', ['rev-parse', 'HEAD'], dir).stdout.trim() : '';
+    return { ...vazio, shaAntes: head, shaDepois: head, ok: false, jaAtualizada: false, rebaseFeito: false,
+      motivo: 'tree.blocked', causa: 'adocao.preservacao',
+      detalhe: 'adocao.preservacao: a história adotada não pode ser rebaseada nem recriada',
+      correcao: `rode ork worktree audit ${id} e preserve os commits da origem` };
+  }
 
   if (!fs.existsSync(dir) || !registradaNoGit(raiz, dir)) {
     return {
@@ -579,21 +588,31 @@ export function auditarWorktree(carregado: ManifestoCarregado, id: string): Resu
           }
     );
 
-    const base = manifesto.worktree.base_branch;
-    const refBase = exec('git', ['rev-parse', '--verify', base], raiz);
-    if (refBase.ok) {
-      const shaBase = refBase.stdout.trim();
-      const incorporada = exec('git', ['merge-base', '--is-ancestor', shaBase, 'HEAD'], dir).ok;
-      checks.push(
-        incorporada
-          ? { nome: 'base', nivel: 'ok', detalhe: tw((m) => m.baseIncorporada(base, shaBase.slice(0, 8))) }
-          : {
-              nome: 'base',
-              nivel: 'fail',
-              detalhe: tw((m) => m.baseAdiante(base, shaBase.slice(0, 8))),
-              correcao: `ork worktree sync ${id}`,
-            }
-      );
+    if (thread.adocao) {
+      const sourcePreservado = exec('git', ['merge-base', '--is-ancestor', thread.adocao.sourceHead, 'HEAD'], dir).ok;
+      const oidsPreservados = thread.adocao.oidsExclusivos.every((oid) =>
+        exec('git', ['cat-file', '-e', `${oid}^{commit}`], dir).ok && exec('git', ['merge-base', '--is-ancestor', oid, 'HEAD'], dir).ok);
+      checks.push(sourcePreservado && oidsPreservados
+        ? { nome: 'historia-adotada', nivel: 'ok', detalhe: `sourceHead ${thread.adocao.sourceHead.slice(0, 8)} e OIDs preservados` }
+        : { nome: 'historia-adotada', nivel: 'fail', detalhe: 'adocao.preservacao: a história registrada divergiu',
+          correcao: 'restaure a branch canônica no sourceHead registrado sem rebase, squash ou cherry-pick' });
+    } else {
+      const base = manifesto.worktree.base_branch;
+      const refBase = exec('git', ['rev-parse', '--verify', base], raiz);
+      if (refBase.ok) {
+        const shaBase = refBase.stdout.trim();
+        const incorporada = exec('git', ['merge-base', '--is-ancestor', shaBase, 'HEAD'], dir).ok;
+        checks.push(
+          incorporada
+            ? { nome: 'base', nivel: 'ok', detalhe: tw((m) => m.baseIncorporada(base, shaBase.slice(0, 8))) }
+            : {
+                nome: 'base',
+                nivel: 'fail',
+                detalhe: tw((m) => m.baseAdiante(base, shaBase.slice(0, 8))),
+                correcao: `ork worktree sync ${id}`,
+              }
+        );
+      }
     }
   }
 

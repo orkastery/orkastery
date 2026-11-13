@@ -59,22 +59,44 @@ debt exception.
 | `ci.recibo.prazo-excedido` | A command exceeded the verify timeout | Fix or split it, or adjust the manifest timeout, run verify, and prepare it again |
 | `ci.recibo.produto-alterado` | The product changed during replay | Remove the concurrent mutation, restore the checkout, and run it again |
 
+## Adopt a branch and guide the session
+
+`ork adotar <branch> --roadmap RM-NNN --nome <name> --modo <mode> --perfil-check <profile>` incorporates history that already exists. The canonical branch starts at the source commit; the external ref and its exclusive OIDs are neither moved nor rewritten. Public states are `preparada`, `verificada`, `revisada`, and `concluida`. In that order, they require a durable record, a green verify, an independent CHECK, and the runner receipt at the same HEAD. Repeating the command returns the thread and next step; it does not push, merge, or SHIP.
+
+A session that starts outside a thread queries `ork.sessao-orientacao/v1` in the core. Claude Code and Codex carry the text through `SessionStart`; Codex installs the manifest and script under `.codex/` while keeping the skill under `.agents/`. Hermes uses the native `orkastery-hitl` plugin and injects the text only into the first model call. OpenClaw replies only to chat-originated `/new` and `/reset` events; RPC gets no reply, while `agent:bootstrap` gets context only. Guidance is informational and never blocks. Installation, enablement, trust, and delivery without their own proof remain **not confirmed**.
+
+## Auditable receipt exception
+
+The F5 exception does not reuse the F2 collective-coordination exception. The builder supplies only an opaque `authorizationRef`. Authorization, policy, the principal-to-actor map, recipient, and issuer keys come from the protected target or a signed organizational authority. Builder and authorizer must resolve to independent actors; another account, alias, service, or token controlled by the same actor does not satisfy separation. Expiration plus the reference, owner, and deadline for later review are mandatory.
+
+The managed port uses three separate contracts:
+
+- `ork.excecao-notificacao-pedido/v1` binds authorization, policy, project, source, target, HEAD, operation, recipient, and idempotency;
+- `ork.excecao-notificacao-recibo/v1` carries the issuer's signed result. `ledgerEventId` and `recordedAt` are forbidden, and only `delivered` satisfies `exigir`;
+- `ork.excecao-notificacao-ledger/v1` is appended by the core after validation and binds the event to the receipt through `receiptId` and `receiptHash`.
+
+The order is request, receipt, validation, durable append, then exposure of the pair. An append failure does not expose the exception. After append, the same idempotency key returns the pair without sending again or creating an event. Before append, the idempotent port must return the same receipt. The signed receipt proves the issuer's `delivered` response for that exact request; it does not prove that a person read it.
+
+Protected execution transport gives the runner the receipt, envelope, and a capability limited to that exact pair. None is accepted from the builder's bundle or checkout. The runner revalidates policy, signature, hashes, identifiers, timestamp, recipient, branches, and HEAD and projects `exception` into `ork.ci-run/v1`, its annotation, and its report. It does not send the notification or write to the ledger or forge. The exception waives only the F5 receipt: a real preparation, claim, or command failure still fails. Without the capability, matching pair, or exact HEAD, `exigir` fails closed.
+
 ## Basic-level trust boundary
 
 The bundle and the receipt's `sha256` come from the PR/MR itself, so whoever controls that change can forge them. The
 runner requires a non-empty claim set and anchors commands and preparation to the target branch manifest's `verify`, whose
 administrative protection through `CODEOWNERS` and a required rule is outside the PR author's control alone. This proves
-the accepted recipe neither emptied the claims nor replaced or omitted protected commands or preparation. The runner does not query the
-Orkastery ledger or compare the receipt or the projection against it, and still does not prove claim completeness or
+the accepted recipe neither emptied the claims nor replaced or omitted protected commands or preparation. On the normal,
+non-exception path, the runner does not query the Orkastery ledger or compare the projection against it; when protected
+transport presents an exception, it reads only the exact notification receipt and envelope pair. Neither path proves claim completeness or
 authenticity, or authorship of the bundle, code, or workflow. It also does not trust the projected baseline. At this
 basic level, it reruns protected preparation and the anchored claims and commands on the HEAD, fails every current
 failure, then emits a receipt for the HEAD it just executed. It does not use ancestry or a later diff
 to turn an older HEAD into a present receipt. This detects operational divergence, but it does not prove who authored the bundle or code.
 
-Protection against forgery belongs to the signed receipt in F7 of the RM-089 page; it is not part of this slice. The
-`assinatura` field is reserved in the output receipt and remains absent at this stage. Until F7, forge administration
-limits who can change the manifest, workflow, and bundle, but it does not turn the basic receipt into cryptographic
-proof.
+This slice does not provide a signed verify receipt: the output receipt's `assinatura` field remains reserved and absent.
+The **notification** receipt signature described above proves only the issuer's response to the exact request; it does
+not prove authorship of the bundle, code, workflow, or verify. A future capability would need its own authority and
+contract; no F7 delivery is promised here. Forge administration limits who can change the manifest, workflow, and
+bundle, but it does not turn the basic receipt into cryptographic proof.
 
 ## Make the check mandatory
 
@@ -105,7 +127,7 @@ See the official documentation for [protected branches](https://docs.gitlab.com/
 
 On GitHub, the PR source and target come from `GITHUB_HEAD_REF` and `GITHUB_BASE_REF`. On GitLab, they come from `CI_MERGE_REQUEST_SOURCE_BRANCH_NAME` and `CI_MERGE_REQUEST_TARGET_BRANCH_NAME`. The target variable is absent on a push, so the policy does not treat that event as a PR/MR.
 
-When a receipt is missing, the guidance offers `ork thread new`; `ork adotar` is the next RM-089 step and is not part of this delivery. The current forge adapters have no PR/MR comment capability, so `avisar` uses a GitHub annotation and summary or the GitLab job log. Automatic comments remain a declared gap.
+When a receipt is missing, guidance offers `ork thread new` for new work and `ork adotar` for an existing branch. The current forge adapters have no PR/MR comment capability, so `avisar` uses a GitHub annotation and summary or the GitLab job log. Automatic comments remain a declared gap.
 
 When the project also participates in the company network, `ork ci run` attaches an advisory collective preflight
 to the PR/MR result. The optional `ORK_REDE_EMPRESA_READ_TOKEN` secret must have read-only access to the private

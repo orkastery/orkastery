@@ -23,7 +23,10 @@ test('quatro instalações reais temporárias; paridade de contrato MCP/CLI SIMU
       const host = row.host as Host, install = instalarAdaptador(host, { projeto: p.dir });
       assert.equal(install.ok, true); assert.equal(row.entry, MAESTRO_HOST_SURFACES[host].entry);
       const receipt = JSON.parse(fs.readFileSync(path.join(install.destino, 'INSTALADO.json'), 'utf8'));
-      for (const a of receipt.arquivos) assert.equal(createHash('sha256').update(fs.readFileSync(path.join(install.destino, a.arquivo))).digest('hex'), a.sha256);
+      for (const a of receipt.arquivos) {
+        const destino = a.destino ? path.join(p.dir, a.destino) : path.join(install.destino, a.arquivo);
+        assert.equal(createHash('sha256').update(fs.readFileSync(destino)).digest('hex'), a.sha256);
+      }
       assert.ok(receipt.arquivos.some((a: { arquivo: string }) => a.arquivo === row.entry));
       let raw: unknown;
       if (host === 'codex' || host === 'claude-code') {

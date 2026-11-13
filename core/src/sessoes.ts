@@ -13,6 +13,8 @@ import { raizDoEstado } from './estado-thread';
 import { lerLedger, registrar } from './ledger';
 import { dirThread, lerThread } from './thread';
 import { msg } from './locale';
+import type { ManifestoCarregado } from './manifest';
+import { orientarSessao, type IdentidadeNativaDaSessao, type OrientacaoDaSessao } from './sessao-orientacao';
 
 export function textoDoInventario(r: InventarioDeSessoes): string {
   const m = msg().operacao.restante.sessions.inventario;
@@ -35,6 +37,12 @@ export function textoDoInventario(r: InventarioDeSessoes): string {
 
 export function tabelaDeSessoes(raiz: string, todas = false): string {
   return textoDoInventario(inventariarSessoes(raiz, { todas }));
+}
+
+/** Ponto único usado pelos quatro adapters; não cria thread, sessão, gate ou bloqueio. */
+export function orientacaoDaSessao(carregado: ManifestoCarregado,
+  identidade: IdentidadeNativaDaSessao): OrientacaoDaSessao {
+  return orientarSessao(carregado, identidade);
 }
 
 /**

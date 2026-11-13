@@ -6,6 +6,10 @@
  */
 
 export const OPERACAO_RESTANTE_PT_BR = {
+  ciExcecao: {
+    aplicada: (evento: string, recibo: string) =>
+      `Exceção auditável de recibo aplicada; evento ${evento}; recibo de notificação ${recibo}.`,
+  },
   sessions: {
     atencao: (valor: string) => `--atencao espera minutos (inteiro >= 0), recebeu "${valor}"`,
     usoWatch: 'uso: ork sessions watch --thread T [--sessao ID] [--once]',
@@ -519,6 +523,10 @@ export const OPERACAO_RESTANTE_PT_BR = {
 };
 
 export const OPERACAO_RESTANTE_EN: typeof OPERACAO_RESTANTE_PT_BR = {
+  ciExcecao: {
+    aplicada: (event, receipt) =>
+      `Auditable receipt exception applied; event ${event}; notification receipt ${receipt}.`,
+  },
   sessions: {
     atencao: (value) => `--atencao expects minutes (integer >= 0), received "${value}"`,
     usoWatch: 'usage: ork sessions watch --thread T [--sessao ID] [--once]',

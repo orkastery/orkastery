@@ -19,6 +19,7 @@ import { isAbsolute } from 'node:path';
 import { memoryState } from './project-state';
 import { abrirPedidoSessao, reconciliarEnvioDeSessao, responderSessao, superarSessao } from './hitl-sessions';
 import { comandoAtivacao, exigirAtivacao, PerfilPublicacao } from './write-activation';
+import { adotar, reconciliarAdocao, registrarReciboRunnerDaAdocao } from './adocao';
 import { validarDiretorioDeThread } from './escopo-escrita';
 import { userInfo } from 'node:os';
 import * as fs from 'node:fs';
@@ -146,7 +147,7 @@ import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoF
 import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta, validarPedidoDeEtapa } from './onboarding';
 import { resolverExperiencia } from './experiencia';
 import { desinstalarExperiencia } from './hosts';
-import { ativarLocale, cobreLocale, comLocale, ErroDoCatalogo, ligarRemontagem, linguaDeclaradaDoDono, Locale, localeAtivo, mensagemDoErro, msg, remontar, resolverLocale, textoDoCatalogo } from './locale';
+import { ativarLocale, cobreLocale, comLocale, ErroDoCatalogo, ligarRemontagem, linguaDeclaradaDoDono, Locale, localeAtivo, mensagemDoErro, msg, remontar, resolverLocale, textoDaAdocaoPublica, textoDoCatalogo } from './locale';
 import { DadosDaAjuda } from './locale-ajuda';
 import {
   abrirMemoria,
@@ -749,6 +750,24 @@ function comandoThread(args: Args): number {
   }
   console.error(msg().cli.subcomandoDesconhecido('thread', sub));
   return 2;
+}
+
+function comandoAdotar(args: Args): number {
+  const permitidas = new Set(['roadmap', 'nome', 'modo', 'perfil-check', 'remoto', 'json']);
+  const ref = args.posicionais[1];
+  const roadmap = texto(args.opcoes.roadmap), nome = texto(args.opcoes.nome), modo = texto(args.opcoes.modo);
+  const perfilCheck = texto(args.opcoes['perfil-check']);
+  if (!ref || args.posicionais.length !== 2 || !roadmap || !nome || !modo || !perfilCheck ||
+      Object.keys(args.opcoes).some((opcao) => !permitidas.has(opcao)) ||
+      (args.opcoes.json !== undefined && args.opcoes.json !== true) || args.opcoes.remoto === true) {
+    console.error('uso: ork adotar <branch> --roadmap RM-NNN --nome <nome> --modo <modo> --perfil-check <perfil> [--remoto <nome-ou-url>] [--json]');
+    return 2;
+  }
+  const carregado = exigirManifesto();
+  const resultado = comLocale('pt-BR', () => adotar(carregado, { ref, roadmap, nome,
+    modo: exigirModoVivo(modo), perfilCheck, ...(texto(args.opcoes.remoto) ? { remoto: texto(args.opcoes.remoto) } : {}) }));
+  console.log(args.opcoes.json === true ? JSON.stringify(resultado, null, 2) : textoDaAdocaoPublica(resultado));
+  return 0;
 }
 
 /**
@@ -1644,6 +1663,7 @@ function comandoVerify(args: Args): number {
     return 0;
   }
   const r = comLocale('pt-BR', () => verificar(carregado, id, { soClaims: args.opcoes['so-claims'] === true, conducao, check }));
+  reconciliarAdocao(carregado, id);
   console.log(textoDoVerify(r));
   return r.ok ? 0 : 1;
 }
@@ -2491,6 +2511,7 @@ function comandoCi(args: Args): number {
       const runner = ambienteDeCi();
       const result = executarCiDaBranch(carregado, branch,
         { destino: runner?.targetBranch ?? null, pullRequest: runner?.targetBranch !== null && runner?.targetBranch !== undefined });
+      registrarReciboRunnerDaAdocao(carregado, result);
       publicarAvisoDaPolitica(result);
       console.log(JSON.stringify(result, null, 2));
       return result.ok ? 0 : 1;
@@ -2501,6 +2522,7 @@ function comandoCi(args: Args): number {
       return 2;
     }
     const result = executarCi(carregado, thread);
+    reconciliarAdocao(carregado, thread);
     console.log(args.opcoes.json === true ? JSON.stringify(result, null, 2) : m.resultado(result.status.ok, result.status.detail));
     return result.status.ok ? 0 : 1;
   }
@@ -4761,6 +4783,8 @@ function executarComando(argvBruto: string[]): number {
     }
     case 'thread':
       return comandoThread(args);
+    case 'adotar':
+      return comandoAdotar(args);
     case 'objective':
       return comandoObjective(args);
     case 'creation':

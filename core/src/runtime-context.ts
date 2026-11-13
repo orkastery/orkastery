@@ -155,8 +155,14 @@ function conferirInstalacaoDoHost(raiz: string, host: 'claude-code' | 'codex'): 
     if (typeof a.arquivo !== 'string' || path.isAbsolute(a.arquivo) || a.arquivo.split(/[\\/]/).includes('..') ||
         typeof a.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(a.sha256) || arquivos.has(a.arquivo))
       throw Error('runtime.context.installation: arquivo do recibo invalido');
-    const file = path.join(instalacao, a.arquivo);
-    if (!dentro(raiz, file).startsWith(instalacao + path.sep)) throw Error('runtime.context.installation: bytes instalados divergentes');
+    const externoCodex = host === 'codex' && a.arquivo.startsWith('.codex/');
+    const file = externoCodex ? path.join(raiz, a.arquivo) : path.join(instalacao, a.arquivo);
+    const destinoEsperado = path.relative(raiz, file).split(path.sep).join('/');
+    if (a.destino !== undefined && a.destino !== destinoEsperado)
+      throw Error('runtime.context.installation: destino instalado divergente');
+    const real = dentro(raiz, file);
+    if (!externoCodex && !real.startsWith(instalacao + path.sep))
+      throw Error('runtime.context.installation: bytes instalados divergentes');
     const bytes = ler(raiz, file, 1048576);
     if (createHash('sha256').update(bytes).digest('hex') !== a.sha256) throw Error('runtime.context.installation: bytes instalados divergentes');
     arquivos.set(a.arquivo, file);

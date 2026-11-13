@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \".codex/hooks/ork-sessao.js\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
