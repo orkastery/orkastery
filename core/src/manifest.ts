@@ -1134,6 +1134,8 @@ export interface ComandosDoManifesto {
   timeoutMsPorComando: Manifesto['verify']['timeout_ms_por_comando'] | undefined;
   checkMode: ModoDoCheck;
   ciCommand: string | undefined;
+  /** RM-089 F6: documento bruto lido somente da ref de destino protegida; o checkout fonte nunca o fornece. */
+  excecaoRecibo: Record<string, ValorYaml> | undefined;
 }
 
 /**
@@ -1152,11 +1154,18 @@ export function comandosDoTextoDoManifesto(bruto: string): ComandosDoManifesto |
   const prazos = prazosDoVerify(verify, erros);
   if (erros.length > 0) return null;
   const opcional = (v: ValorYaml | undefined): string | undefined => (v === null || v === undefined ? undefined : texto(v, ''));
+  const excecaoRecibo = ci.excecao_recibo !== null && typeof ci.excecao_recibo === 'object' && !Array.isArray(ci.excecao_recibo)
+    ? mapa(ci.excecao_recibo) : undefined;
   return { typecheck: opcional(verify.typecheck), build: opcional(verify.build), test: opcional(verify.test),
     securityScan: opcional(verify.security_scan), preparo: opcional(verify.preparo),
     timeoutMs: prazos.timeout_ms, timeoutMsPorComando: prazos.timeout_ms_por_comando,
     checkMode: resolverModo(check?.mode).modo,
-    ciCommand: opcional(ci.command) };
+    ciCommand: opcional(ci.command), excecaoRecibo };
+}
+
+/** Documento da policy F6 vindo do manifesto da target; a validação fechada mora em excecao-recibo.ts. */
+export function excecaoDeReciboDoTextoDoManifesto(bruto: string): Record<string, ValorYaml> | null {
+  return comandosDoTextoDoManifesto(bruto)?.excecaoRecibo ?? null;
 }
 
 /** Carrega o manifesto ou encerra com mensagem acionavel (uso nos subcomandos). */
