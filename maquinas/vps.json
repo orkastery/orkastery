@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.8",
-  "publicadoEm": "2026-11-13T15:45:04.306Z",
+  "publicadoEm": "2026-11-13T16:00:07.787Z",
   "threads": [
     {
       "id": "ork-orkauditestr",
@@ -14,7 +14,7 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-orkauditestr-full",
-      "atualizadaEm": "2026-11-13T15:35:27.711Z",
+      "atualizadaEm": "2026-11-13T15:53:28.177Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -23,9 +23,9 @@
       "modelo": "claude-fable-5-2",
       "esforco": "max",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-11-13T15:59:27.986Z",
+        "motivo": "sessão 53359ba0 encerrada (done)"
       }
     },
     {
