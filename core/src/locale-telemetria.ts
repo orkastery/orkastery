@@ -1,6 +1,6 @@
 /** Texto humano da telemetria. O JSON do comando permanece independente de locale. */
 export const TELEMETRIA_PT_BR = {
-  uso: 'uso: ork telemetria status|ligar|desligar|enviar [--dry-run [--offset <byte>]] [--json]',
+  uso: 'uso: ork telemetria status|ligar|desligar|enviar|maturidade [--desde ISO --ate ISO] [--dry-run [--offset <byte>]] [--json]',
   status: (ligada: boolean, origem: string, motivo: string) =>
     `Telemetria: ${ligada ? 'ligada' : 'desligada'} (${origem}: ${motivo}).`,
   destino: (valor: string | null) => `Destino: ${valor ?? 'não configurado'}.`,
@@ -11,10 +11,14 @@ export const TELEMETRIA_PT_BR = {
     `${thread}: ${estado}; ${registros} LogRecord(s).`,
   bloqueio: (thread: string, motivo: string) => `${thread}: preparação interrompida (${motivo}).`,
   payload: (thread: string) => `Payload de ${thread}:`,
+  maturidadeJanela: (desde: string, ate: string) => `SDLC Analytics local: janela [${desde}, ${ate}).`,
+  maturidadeIndicador: (id: string, series: string, confirmados: number, total: number) =>
+    `${id}: ${series}; cobertura ${confirmados}/${total}.`,
+  maturidadeDora: 'DORA: não confirmado sem fatos externos correlacionáveis.',
 };
 
 export const TELEMETRIA_EN: typeof TELEMETRIA_PT_BR = {
-  uso: 'usage: ork telemetria status|ligar|desligar|enviar [--dry-run [--offset <byte>]] [--json]',
+  uso: 'usage: ork telemetria status|ligar|desligar|enviar|maturidade [--desde ISO --ate ISO] [--dry-run [--offset <byte>]] [--json]',
   status: (enabled, source, reason) => `Telemetry: ${enabled ? 'enabled' : 'disabled'} (${source}: ${reason}).`,
   destino: (value) => `Destination: ${value ?? 'not configured'}.`,
   pendencias: (threads, bytes) => `Pending: ${threads} thread(s), ${bytes} byte(s).`,
@@ -23,4 +27,7 @@ export const TELEMETRIA_EN: typeof TELEMETRIA_PT_BR = {
   resultado: (thread, state, records) => `${thread}: ${state}; ${records} LogRecord(s).`,
   bloqueio: (thread, reason) => `${thread}: preparation stopped (${reason}).`,
   payload: (thread) => `Payload for ${thread}:`,
+  maturidadeJanela: (desde, ate) => `Local SDLC Analytics: window [${desde}, ${ate}).`,
+  maturidadeIndicador: (id, series, confirmed, total) => `${id}: ${series}; coverage ${confirmed}/${total}.`,
+  maturidadeDora: 'DORA: unconfirmed without correlatable external facts.',
 };

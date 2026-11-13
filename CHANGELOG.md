@@ -8,6 +8,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **SDLC Analytics por maestro e por time — F5 (RM-090):** o registro executável calcula seis indicadores agênticos e materializa cobertura e agrupamentos; a projeção emite o evento ratificado `orkastery.sdlc.analytics.result.v1` com numerador, denominador e lacunas, e o dashboard soma esses campos por pseudônimo e time de política sem refazer fórmulas. DORA usa pipeline externa separada, schema fechado e vínculos exatos, sem nota, peso, ranking ou meta. A equivalência operacional das consultas em Loki permanece não confirmada.
+
 - **Conflito coletivo antes do merge — F3 (RM-089):** publicação v2 e v3 na mesma transação, interseção fechada de globs e ordem determinística pela história de primeiro pai alimentam um preflight consultivo no status, na Pista, no SHIP, no MCP e no CI; história ou padrão inconclusivo vira lacuna, e ausência de credencial de leitura no CI não muda seu resultado.
 
 - **Recibo básico no HEAD executado — F5 (RM-089):** o bundle leva uma projeção de replay sem afirmar presença; o runner reexecuta o julgamento integral em ambiente allowlisted e emite o recibo do HEAD do PR/MR, com as mesmas regras para branch externa e fork no GitHub e no GitLab.

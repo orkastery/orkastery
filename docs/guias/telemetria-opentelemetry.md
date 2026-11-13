@@ -57,7 +57,7 @@ The public receiver does not provision TLS or authentication. Use a local bind o
 
 Copy or mount `templates/telemetria/grafana/provisioning/dashboards/orkastery.yaml` and the `templates/telemetria/grafana/dashboards/` folder. Select Loki for conduction and prompts; select Prometheus for health metrics produced by the Collector itself. The dashboards do not fix a URL or datasource.
 
-Loki queries begin with `{service_name="orkastery"}` and filter structured metadata afterwards. Runtime correlation is F3 and `orkastery-correlacao-runtime.json` does not exist in this slice. Maestro maturity is F5 and `orkastery-maturidade-maestro.json` does not exist either; there is no placeholder.
+Loki queries begin with `{service_name="orkastery"}` and filter structured metadata afterwards. Runtime correlation is F3 and `orkastery-correlacao-runtime.json` does not exist in this slice. Maestro maturity is F5: `orkastery-maturidade-maestro.json` is generated from the same executable registry as the local engine.
 
 Sources: [filter processor and OTTL](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/filterprocessor/README.md), [OTTL functions](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/pkg/ottl/ottlfuncs/README.md), [native OTLP ingestion in Loki](https://grafana.com/docs/loki/latest/send-data/otel/), [Grafana provisioning](https://grafana.com/docs/grafana/latest/administration/provisioning/) and [Collector internal telemetry](https://opentelemetry.io/docs/collector/internal-telemetry/).
 
@@ -140,3 +140,44 @@ Free text passes through the secret catalog first and the local private-data lis
 The cursor advances incrementally by position in each ledger. A historical event without `eventId` receives a stable derived UID. A corrupt or truncated line blocks at the first bad point without advancing. The cursor is persisted only after remote confirmation; a crash between POST and cursor sends the same UIDs again. The guarantee is at least once, not exactly once.
 
 Manual delivery uses a non-blocking lock, bounded batch and response, and at most one retry for a connection failure or retryable status. `partialSuccess` and non-retryable responses are terminal and visible in status, without a silent retry. Native configuration is prepared only for an opted-in dispatch. There is no metric, trace or enterprise policy; Collector and dashboards are reference models only. Prompt text is exported only by manual opt-in delivery with the protections described above.
+
+## SDLC Analytics by maestro and team
+
+`ork telemetria maturidade --desde <ISO> --ate <ISO>` reads only ledgers accessible on the machine and calculates the half-open `[from, to)` window. It does not consult opt-in, endpoints, headers, or the network. `--json` uses `ork.telemetria-maturidade-cli/v1`.
+
+The `ork.sdlc-analytics/v1` registry drives predicates, population and confirmation units, gaps, groupings, and formulas in the local engine. Every calculated result carries its population, series, coverage, gaps, and materialized groupings. The OTLP projection emits formula ID and version, numerator, denominator, coverage, and gaps for each indicator and window; `user.hash` identifies the pseudonym and policy supplies `service.namespace`. The dashboard sums those fields by maestro and team without executing the formula again in LogQL. Retransmissions are deduplicated by ledger `eventId` and log `log.record.uid`; a missing UID is a gap. An incomplete historical event does not become a negative case.
+
+The result event uses the ratified name `orkastery.sdlc.analytics.result.v1`. Its attributes belong to the single `orkastery.sdlc.analytics.*` contract described above.
+
+| Indicator | Formula and population | Source | Main gaps |
+| --- | --- | --- | --- |
+| `agent.merge_receipt_coverage/v1` | Valid receipts over confirmed cases; distinct merges represented by `ship_done` | `ship_done`, `verify_run`, and `ork.recibo-prova/v1` | missing historical policy, receipt, HEAD, merge, or proven push |
+| `agent.first_truth_sustained/v1` | Sustained first-green rounds over confirmed cases; threads with `ship_done`. “First” follows ledger sequence | `verify_run`, `go_fix_opened`, `check_reverify`, `ship_done` | missing sequence, first complete round, final receipt, or link |
+| `agent.check_rework/v1` | Distinct finding IDs and distinct `(thread, round)` pairs; never a ratio | `go_fix_opened`, `check_reverify` | missing structured finding, round, or link |
+| `agent.decisions_questions_reversals/v1` | Separate decision, question, and reversal counts; population and confirmation both use unique events, coverage is bounded by 1, and thread/phase groupings are materialized | `autonomous_decision`, `hitl_requested` | missing ID, typed target, trace, or reverted decision |
+| `agent.policy_exceptions/v1` | Explicit waivers with authorizer, categories, and SHA | `ship_unscanned_authorized` | missing authorizer, categories, SHA, or UID |
+| `agent.mode_usage/v1` | Separate distributions of created threads and merges by mode | `thread_created`, `ship_done` | missing valid mode or correlatable thread |
+
+Only the first two indicators are ratios. The others are counts or distributions with their own coverage. No indicator produces a composite score, weight, ranking, target, or good/bad classification.
+
+### Identity, team, and visibility
+
+`user.hash` is the maestro's stable pseudonym. `service.namespace` is the team assigned by policy; the payload cannot create or overwrite either value. Without a team, policy assigns `service.namespace=team_source_missing` as an explicit gap without inferring membership. Collective enrollment is not an inference source, and neither `orkastery.maestro.id` nor `orkastery.team.id` exists.
+
+The local command shows ledgers accessible to the maestro. The enterprise dashboard filters calculated results by pseudonym and sums numerators and denominators by `service.namespace`; it does not execute the local formulas. Authorization and nominal mapping belong to the company's private backend. Before exposing a receiver or dashboard, apply a private overlay with TLS, authentication, and access control. Public templates contain no company data, endpoint, or credential.
+
+### DORA remains separate
+
+The DORA measures are deployment frequency, change lead time, change fail rate, failed deployment recovery time, and deployment rework rate. They remain separate from the six agentic indicators and never enter a sum, weight, or score. The local command marks all five as `unconfirmed` because it does not read external facts.
+
+`orkastery.sdlc.deployment.v1` requires production, a UID, service, thread, `deployment.id`, a successful pipeline, a deploy task, and `vcs.ref.head.revision`. It confirms only when `(orkastery.thread.id, vcs.ref.head.revision)` matches `ship_done.mergeSha` with a proven push. Time proximity never creates a link.
+
+`orkastery.sdlc.incident.v1` uses `orkastery.incident.id`, `orkastery.incident.state` (`opened` or `resolved`), and `orkastery.incident.deployment.id`. Opening requires `error.type`; resolution may use `orkastery.incident.recovery.deployment.id`. Incident, original deployment, and recovery deployment need compatible IDs and thread. Invalid input, a divergent UID, or a missing link leaves the affected measure `unconfirmed`, without estimation.
+
+The ratified incident contract names are `orkastery.incident.id`, `orkastery.incident.state`, and `orkastery.incident.recovery.deployment.id`.
+
+`logs/dora` is separate from `logs/orkastery`, has its own allowlist, and fails closed on an unknown version, required field, payload identity, or schema. Policy adds `user.hash` and `service.namespace` only after validation.
+
+Sources: OpenTelemetry attributes for [CI/CD](https://opentelemetry.io/docs/specs/semconv/registry/attributes/cicd/), [deployment](https://opentelemetry.io/docs/specs/semconv/registry/attributes/deployment/), [service](https://opentelemetry.io/docs/specs/semconv/registry/attributes/service/), [VCS](https://opentelemetry.io/docs/specs/semconv/registry/attributes/vcs/), [events](https://opentelemetry.io/docs/specs/semconv/general/events/), and the [DORA measures](https://dora.dev/guides/dora-metrics/).
+
+The hermetic suite calculates synthetic facts in the engine, projects the result through the mapper, confronts the schema preserved by the Collector, and compares every target in the real JSON with the renderer without permissive normalization. Operational equivalence of the expressions in Loki remains **unconfirmed** until evidence exists in a comparable environment; that does not permit filling a gap with zero.

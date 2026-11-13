@@ -40,15 +40,17 @@ test('documentação cita as fontes oficiais do Collector, OTTL, Loki e Grafana'
   }
 });
 
-test('F3 e F5 ficam declaradas como ausentes, sem JSON placeholder', () => {
-  const ausentes = ['orkastery-correlacao-runtime.json', 'orkastery-maturidade-maestro.json'];
+test('F3 fica declarada como ausente, sem JSON placeholder, e o painel da F5 existe e vem do registro', () => {
+  const ausente = 'orkastery-correlacao-runtime.json';
+  const maturidade = 'orkastery-maturidade-maestro.json';
   for (const texto of Object.values(documentos)) {
-    for (const ausente of ausentes) assert.ok(texto.includes(ausente), ausente);
-    assert.match(texto, /(?:não (?:existe|há)|does not exist|no placeholder)/iu);
+    assert.ok(texto.includes(ausente), ausente);
+    assert.match(texto, /(?:não existe|does not exist)/iu);
+    assert.ok(texto.includes(maturidade), maturidade);
+    assert.match(texto, /(?:mesmo registro executável|same executable registry)/iu);
   }
-  for (const ausente of ausentes) {
-    assert.equal(fs.existsSync(path.join(RAIZ, 'templates/telemetria/grafana/dashboards', ausente)), false);
-  }
+  assert.equal(fs.existsSync(path.join(RAIZ, 'templates/telemetria/grafana/dashboards', ausente)), false);
+  assert.equal(fs.existsSync(path.join(RAIZ, 'templates/telemetria/grafana/dashboards', maturidade)), true);
 });
 
 test('saúde vem do Collector e o receiver público tem postura de segurança explícita', () => {
