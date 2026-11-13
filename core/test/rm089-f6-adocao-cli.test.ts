@@ -1,9 +1,14 @@
 import { strict as assert } from 'node:assert';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { test } from 'node:test';
 import { main } from '../src/index';
 import { registrarEvidenciaDaAdocao, ErroDeAdocao } from '../src/adocao';
 import { projetoComOrigemAdotavel } from './rm089-f6-forja-simulada';
 import { lerThread } from '../src/thread';
+import { exec } from '../src/util';
 
 test('CLI adotar publica estado retomável e não duplica a thread', () => {
   const p = projetoComOrigemAdotavel('rm089-f6-adocao-cli'), cwd = process.cwd(), log = console.log;
@@ -18,6 +23,23 @@ test('CLI adotar publica estado retomável e não duplica a thread', () => {
     assert.equal(main(argv), 0);
     assert.match(saida.join('\n'), /Adoção retomada/);
   } finally { console.log = log; process.chdir(cwd); p.limpar(); }
+});
+
+test('CLI adotar resolve branch de fork pela URL remota direta', () => {
+  const p = projetoComOrigemAdotavel('rm089-f6-adocao-cli-url'), cwd = process.cwd(), log = console.log;
+  const saida: string[] = [], temp = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-rm089-fork-'));
+  const fork = path.join(temp, 'fork.git');
+  try {
+    assert.equal(exec('git', ['clone', '--bare', p.dir, fork], temp).ok, true);
+    assert.equal(exec('git', ['update-ref', '-d', `refs/heads/${p.origem}`], p.dir).ok, true);
+    const remoto = pathToFileURL(fork).href;
+    process.chdir(p.dir); console.log = (valor: unknown) => { saida.push(String(valor)); };
+    assert.equal(main(['adotar', p.origem, '--roadmap', 'RM-089', '--nome', 'Fork direto', '--modo', 'auto',
+      '--perfil-check', 'revisor', '--remoto', remoto, '--json']), 0);
+    const resultado = JSON.parse(saida.join('\n')) as { thread: { adocao: { remoto: string; sourceHead: string } } };
+    assert.equal(resultado.thread.adocao.remoto, remoto);
+    assert.equal(resultado.thread.adocao.sourceHead, p.sourceHead);
+  } finally { console.log = log; process.chdir(cwd); fs.rmSync(temp, { recursive: true, force: true }); p.limpar(); }
 });
 
 test('transições exigem mesmo HEAD, CHECK independente e recibo do runner', () => {

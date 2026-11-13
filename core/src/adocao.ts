@@ -80,6 +80,14 @@ function normalizarOrigem(ref: string, remoto?: string): { origem: string; norma
 }
 
 function resolverCommit(raiz: string, ref: string, remoto: string | null): { head: string; branch: string } {
+  if (remoto?.includes('://')) {
+    const fetch = exec('git', ['fetch', '--no-tags', '--force', remoto, ref], raiz);
+    if (!fetch.ok) throw new ErroDeAdocao('adocao.origem-nao-encontrada', ref);
+    const commit = exec('git', ['rev-parse', '--verify', 'FETCH_HEAD^{commit}'], raiz);
+    const head = commit.stdout.trim();
+    if (!commit.ok || !HEAD.test(head)) throw new ErroDeAdocao('adocao.origem-nao-encontrada', ref);
+    return { head, branch: ref };
+  }
   const candidatos = remoto && !remoto.includes('://')
     ? [`refs/remotes/${remoto}/${ref}`, `${remoto}/${ref}`, ref]
     : [ref, `refs/heads/${ref}`, `refs/remotes/origin/${ref}`];
@@ -95,19 +103,22 @@ function resolverCommit(raiz: string, ref: string, remoto: string | null): { hea
   throw new ErroDeAdocao('adocao.origem-nao-encontrada', ref);
 }
 
-function branchRegistrada(thread: Thread, raiz: string): string[] {
+function branchRegistrada(thread: Thread, raiz: string,
+  worktrees: ReadonlyArray<{ dir: string; branch: string; head: string }>): string[] {
   const branches = [thread.base.branch];
   const criada = lerLedger(dirThread(raiz, thread.id)).find((e) => e.tipo === 'thread_created');
   if (typeof criada?.branchDeOrigem === 'string') branches.push(criada.branchDeOrigem);
-  const wt = worktreesDoGit(raiz).find((w) => thread.worktree && path.resolve(w.dir) === path.resolve(thread.worktree));
+  const wt = worktrees.find((w) => thread.worktree && path.resolve(w.dir) === path.resolve(thread.worktree));
   if (wt?.branch) branches.push(wt.branch);
   return branches;
 }
 
-function vinculada(raiz: string, origemNormalizada: string, branch: string): Thread | null {
+function vinculada(raiz: string, origemNormalizada: string, branch: string,
+  worktrees: ReadonlyArray<{ dir: string; branch: string; head: string }>): Thread | null {
   for (const id of listarIds(raiz)) {
     const thread = lerThread(raiz, id);
-    if (thread.adocao?.origemNormalizada === origemNormalizada || branchRegistrada(thread, raiz).includes(branch)) return thread;
+    if (thread.adocao?.origemNormalizada === origemNormalizada
+        || branchRegistrada(thread, raiz, worktrees).includes(branch)) return thread;
   }
   return null;
 }
@@ -149,10 +160,11 @@ export function adotar(carregado: ManifestoCarregado, pedido: PedidoDeAdocao,
   if (!/^RM-[0-9]{3,}$/.test(pedido.roadmap.trim().toUpperCase())) throw new ErroDeAdocao('adocao.roadmap-invalido');
   if (!pedido.perfilCheck.trim()) throw new ErroDeAdocao('adocao.perfil-check-ausente');
   const antes = resolverCommit(carregado.raiz, pedido.ref, origem.remoto);
-  const existente = vinculada(carregado.raiz, origem.normalizada, antes.branch);
+  const worktrees = worktreesDoGit(carregado.raiz);
+  const existente = vinculada(carregado.raiz, origem.normalizada, antes.branch, worktrees);
   if (existente) return { thread: existente, criada: false, estado: existente.adocao?.estado ?? 'preparada', proximoPasso: proximoPasso(existente) };
 
-  const foraDoRegistro = worktreesDoGit(carregado.raiz).find((w) => w.branch === antes.branch);
+  const foraDoRegistro = worktrees.find((w) => w.branch === antes.branch);
   if (foraDoRegistro) throw new ErroDeAdocao('adocao.worktree-sem-vinculo', foraDoRegistro.dir);
   const baseRef = carregado.manifesto.worktree.base_branch;
   const base = exec('git', ['rev-parse', '--verify', `${baseRef}^{commit}`], carregado.raiz);
