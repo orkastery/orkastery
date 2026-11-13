@@ -9,6 +9,7 @@
 import { registerHitlIngress } from './hitl-ingress.js';
 import { execFile } from 'node:child_process';
 import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
 import * as path from 'node:path';
 import { defineToolPlugin } from 'openclaw/plugin-sdk/tool-plugin';
 
@@ -55,14 +56,7 @@ type ArquivoDeBootstrap = {
   missing: boolean;
 };
 
-const PONTE_DE_ORIENTACAO = String.raw`
-const fs=require('node:fs'),path=require('node:path');
-const input=JSON.parse(fs.readFileSync(0,'utf8'));
-const dir=process.argv[1];
-const {exigirManifesto}=require(path.join(dir,'manifest.js'));
-const {orientarSessao}=require(path.join(dir,'sessao-orientacao.js'));
-process.stdout.write(JSON.stringify(orientarSessao(exigirManifesto(input.cwd),input))+'\n');
-`;
+const requireDoAdapter = createRequire(import.meta.url);
 
 function executavelNoPath(nome: string): string | null {
   if (path.isAbsolute(nome)) return nome;
@@ -92,26 +86,24 @@ function textoDaOrientacao(evento: EventoInternoOpenClaw): Promise<string | null
     : evento.sessionKey;
   const dir = diretorioDoNucleo();
   if (!dir || typeof cwd !== 'string' || !path.isAbsolute(cwd) || !sessionId.trim()) return Promise.resolve(null);
-  return new Promise((resolve) => {
-    const filho = execFile(process.execPath, ['-e', PONTE_DE_ORIENTACAO, dir], {
-      cwd, timeout: 10_000, maxBuffer: 16_384, env: {},
-    }, (erro, stdout) => {
-      if (erro) return resolve(null);
-      try {
-        const orientacao = JSON.parse(stdout) as Record<string, unknown>;
-        const texto = orientacao.texto;
-        resolve(
-          orientacao.contrato === 'ork.sessao-orientacao/v1' &&
-          orientacao.estado === 'fora-de-thread' &&
-          orientacao.bloqueia === false &&
-          typeof texto === 'string' && texto.trim()
-            ? texto.slice(0, 4000)
-            : null
-        );
-      } catch { resolve(null); }
-    });
-    filho.stdin?.end(JSON.stringify({ runtime: 'openclaw', sessionId, cwd }));
-  });
+  try {
+    const { exigirManifesto } = requireDoAdapter(path.join(dir, 'manifest.js')) as {
+      exigirManifesto(cwd: string): unknown;
+    };
+    const { orientarSessao } = requireDoAdapter(path.join(dir, 'sessao-orientacao.js')) as {
+      orientarSessao(manifesto: unknown, identidade: Record<string, unknown>): Record<string, unknown>;
+    };
+    const orientacao = orientarSessao(exigirManifesto(cwd), { runtime: 'openclaw', sessionId, cwd });
+    const texto = orientacao.texto;
+    return Promise.resolve(
+      orientacao.contrato === 'ork.sessao-orientacao/v1' &&
+      orientacao.estado === 'fora-de-thread' &&
+      orientacao.bloqueia === false &&
+      typeof texto === 'string' && texto.trim()
+        ? texto.slice(0, 4000)
+        : null
+    );
+  } catch { return Promise.resolve(null); }
 }
 
 function comandoVeioDoChat(evento: EventoInternoOpenClaw): boolean {

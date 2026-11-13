@@ -593,10 +593,13 @@ function casosDeDocs(casos: Record<string, string>, amb: Ambiente): void {
  * variam de maquina (catalogo, pasta temporaria) por marcadores. E a prova de que o dono pt-BR recebe os mesmos
  * arquivos de hoje: 16 hex do sha bastam e nao caem no normalizador.
  */
-function recibo(destino: string): string {
-  const r = JSON.parse(fs.readFileSync(path.join(destino, 'INSTALADO.json'), 'utf8')) as { arquivos: { arquivo: string }[] };
+function recibo(destino: string, projeto?: string): string {
+  const r = JSON.parse(fs.readFileSync(path.join(destino, 'INSTALADO.json'), 'utf8')) as {
+    arquivos: { arquivo: string; destino?: string }[];
+  };
   return r.arquivos.map((a) => {
-    const conteudo = normalizar(fs.readFileSync(path.join(destino, a.arquivo), 'utf8'));
+    const arquivo = projeto && a.destino ? path.join(projeto, a.destino) : path.join(destino, a.arquivo);
+    const conteudo = normalizar(fs.readFileSync(arquivo, 'utf8'));
     return `${a.arquivo} sha:${createHash('sha256').update(conteudo).digest('hex').slice(0, 16)}`;
   }).join('\n');
 }
@@ -616,7 +619,7 @@ function casosDeAdapter(casos: Record<string, string>, amb: Ambiente): void {
   fs.appendFileSync(goal, '\neditado a mao\n');
   caso(casos, 'cli adapter: install claude-code com copia editada', () => texto(ork(repo, amb, 'adapter', 'install', 'claude-code', '--ork', '/usr/bin/ork')));
   caso(casos, 'cli adapter: install codex', () => texto(ork(repo, amb, 'adapter', 'install', 'codex', '--ork', '/usr/bin/ork')));
-  caso(casos, 'cli adapter: recibo do codex', () => recibo(path.join(repo, '.agents', 'skills', 'orkastery')));
+  caso(casos, 'cli adapter: recibo do codex', () => recibo(path.join(repo, '.agents', 'skills', 'orkastery'), repo));
   const hermes = dirTemp('adapter-hermes', '<HERMES>');
   caso(casos, 'cli adapter: install hermes', () => texto(ork(repo, amb, 'adapter', 'install', 'hermes', '--dir', hermes, '--ork', '/usr/bin/ork')));
   caso(casos, 'cli adapter: recibo do hermes', () => recibo(hermes));

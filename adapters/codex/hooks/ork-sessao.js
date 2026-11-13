@@ -38,21 +38,29 @@ function diretorioDoNucleo(cwd) {
   try { return path.dirname(fs.realpathSync(cli)); } catch { return null; }
 }
 
-function executar() {
-  const h = entrada();
+function executarComEntrada(h) {
   if (!h || h.hook_event_name !== 'SessionStart' || typeof h.session_id !== 'string' ||
-      typeof h.cwd !== 'string' || !path.isAbsolute(h.cwd)) return;
+      typeof h.cwd !== 'string' || !path.isAbsolute(h.cwd)) return null;
   const dir = diretorioDoNucleo(h.cwd);
-  if (!dir) return;
+  if (!dir) return null;
   const { exigirManifesto } = require(path.join(dir, 'manifest.js'));
   const { orientarSessao } = require(path.join(dir, 'sessao-orientacao.js'));
   const orientacao = orientarSessao(exigirManifesto(h.cwd), {
     runtime: 'codex', sessionId: h.session_id, cwd: h.cwd,
   });
   if (orientacao.estado === 'fora-de-thread' && typeof orientacao.texto === 'string' && orientacao.texto.trim()) {
-    process.stdout.write(JSON.stringify({ systemMessage: orientacao.texto.slice(0, 4000) }) + '\n');
+    return { systemMessage: orientacao.texto.slice(0, 4000) };
   }
+  return null;
 }
 
-try { executar(); } catch { /* superfície não confirmada: a sessão segue sem bloqueio */ }
+function executar() {
+  const saida = executarComEntrada(entrada());
+  if (saida) process.stdout.write(JSON.stringify(saida) + '\n');
+}
+
+if (require.main === module) {
+  try { executar(); } catch { /* superfície não confirmada: a sessão segue sem bloqueio */ }
+}
+module.exports = { executarComEntrada };
 process.exitCode = 0;
