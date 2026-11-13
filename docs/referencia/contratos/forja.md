@@ -108,7 +108,7 @@ O runner valida a projeção, reexecuta preparo, claims e comandos pelo julgamen
 `resultado.recibo.head === resultado.commit === HEAD`, ao menos uma claim, comandos idênticos aos comandos de `verify`
 e preparo idêntico ao `verify.preparo` do manifesto da branch de destino e rodada integral verde. Preparo ausente,
 acrescentado ou trocado pelo PR invalida a receita. A ref ou o manifesto de destino ilegível falha fechado. Branch externa e fork não ganham
-exceção; o ambiente do replay é allowlisted e não recebe token, segredo, credencial de runtime ou forja nem
+dispensa implícita; o ambiente do replay é allowlisted e não recebe token, segredo, credencial de runtime ou forja nem
 `ORK_HITL_*`.
 
 As causas fechadas mapeiam, na mesma ordem, para `ci.recibo.projecao-acima-do-limite`,
@@ -119,12 +119,51 @@ As causas fechadas mapeiam, na mesma ordem, para `ci.recibo.projecao-acima-do-li
 **Fronteira de confiança:** o bundle e o `sha256` chegam no próprio PR/MR e podem ser forjados por quem controla essa
 mudança. A âncora exige claims não vazias, comandos e preparo do `verify` do manifesto da branch de destino, protegido
 administrativamente por `CODEOWNERS` e pela regra obrigatória. Ela prova que a receita aceita não esvaziou as claims nem
-trocou ou omitiu esses comandos ou o preparo, mas o runner não consulta nem confere a projeção contra o ledger. A
+trocou ou omitiu esses comandos ou o preparo. Sem exceção auditável, o runner não consulta nem confere a projeção contra
+o ledger; com uma exceção entregue pelo transporte protegido, lê somente o recibo e o envelope exatos. A
 baseline projetada não é uma fonte confiável e não participa do julgamento do CI: qualquer falha atual de preparo,
 claim ou comando reprova nos três níveis, sem exceção de dívida preexistente. O nível básico somente reexecuta preparo,
 claims e comandos ancorados no HEAD; não usa ancestralidade nem diff posterior para aceitar outro HEAD.
 Isso não prova completude ou autenticidade das claims, autoria do bundle, integridade do código/workflow nem autoria criptográfica.
-A garantia contra forja é do recibo assinado da F7, fora desta fatia.
+O campo `assinatura` do recibo de verify permanece reservado e ausente. A assinatura do recibo de notificação descrita
+abaixo prova somente a resposta do emissor ao pedido exato. Nenhuma entrega F7 é prometida por este contrato.
+
+## Exceção auditável do recibo
+
+A exceção da F5 é independente da exceção coletiva da F2. A entrada comum aceita somente uma `authorizationRef` opaca;
+principal, ator, grupos, policy, destinatário e chaves não vêm do builder. `ork.excecao-recibo-autorizacao/v1` liga a
+dispensa a projeto, source, target, HEAD, operação, versão/hash da policy, expiração e revisão posterior.
+`ork.excecao-recibo-policy/v1` vem da target protegida ou de autoridade organizacional assinada e liga contas, aliases,
+serviços e tokens aos atores. Builder e autorizador precisam resolver para atores ou autoridades independentes.
+`ork.excecao-recibo/v1` é a forma canônica redigida; igualdade de ator ou sobreposição de grupo falha fechado.
+
+### Pedido, recibo e envelope
+
+`ork.excecao-notificacao-pedido/v1` contém `schema`, `requestId`, `threadId`, `idempotencyKey`, `authorizationRef`,
+`policyVersion`, `policySha256`, `project`, `source`, `target`, `head`, `operation`, `recipientRef`, `requestedAt`,
+`expiresAt` e `requestHash`. A serialização canônica define o hash; o mesmo escopo estável define a idempotência.
+
+`ork.excecao-notificacao-recibo/v1` contém `schema`, `receiptId`, os IDs e hashes do pedido, `issuer`, os campos de
+escopo, `attemptedAt`, `issuedAt`, `deliveredAt`, `result`, referência/hash da prova do provedor, `receiptHash` e
+`signature`. `ledgerEventId` e `recordedAt` são proibidos. O resultado é `delivered`, `rejected`, `timeout`,
+`unavailable` ou `ambiguous`; somente `delivered` satisfaz `exigir`.
+
+Depois de validar o recibo, a primitiva do núcleo gera `eventId` e `ts` e anexa `ork.excecao-notificacao-ledger/v1`.
+O envelope contém `ledgerEventId`, `recordedAt`, IDs e hashes do pedido, `receiptRef`, `receiptId`, `receiptHash`,
+autorização, policy, escopo, destinatário e resultado. `ledgerEventId` é o `eventId` do próprio evento e `recordedAt`,
+o seu `ts`. O fluxo é pedido → recibo → validação → append durável → exposição. Falha do append não expõe o par.
+Reentrada pós-append consulta o par primeiro e não reenvia nem anexa; queda pré-append depende do mesmo recibo devolvido
+pela porta idempotente.
+
+### Runner puro
+
+`ork.excecao-notificacao-prova/v1` transporta policy, pedido, recibo e envelope fora do checkout. A capacidade
+`ork.excecao-runner-capability/v1` limita leitura a policy, evento, horário, recibo, projeto, source, target, HEAD e
+operação exatos. O bundle `ork.ci-bundle/v1` não aceita o campo `exception`; prova vinda do builder é inválida.
+O runner revalida schema, policy, assinatura, hashes, idempotência, horário, destinatário e escopo e então projeta
+`ork.ci-exception/v1` em `ork.ci-run/v1`, na anotação e no relatório. Ele não notifica, não escreve ledger ou forja e
+não recebe capacidade de escrita. A exceção dispensa apenas a ausência do recibo F5; falha de preparo, claim, comando
+ou replay continua decidindo `ok: false`. O recibo assinado prova entrega pelo emissor e não prova leitura humana.
 
 ## Preflight coletivo e credencial do CI
 
