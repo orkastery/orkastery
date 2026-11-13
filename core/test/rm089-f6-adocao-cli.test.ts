@@ -97,10 +97,13 @@ test('CLI avança adoção só pelos recibos oficiais no mesmo HEAD', () => {
     });
     saida.length = 0;
     assert.equal(main(argvAdotar), 0);
+    const retomada = JSON.parse(saida.join('\n')) as { proximoPasso: string };
     assert.equal(lerThread(p.dir, id).adocao?.estado, 'revisada');
+    const [binario, entrada, ...argvProximoPasso] = retomada.proximoPasso.split(' ');
+    assert.deepEqual([binario, entrada], ['node', 'core/dist/index.js']);
 
     process.chdir(worktree); saida.length = 0;
-    assert.equal(main(['ci', 'run', '--branch', exec('git', ['branch', '--show-current'], worktree).stdout.trim()]), 0);
+    assert.equal(main(argvProximoPasso), 0);
     const runner = JSON.parse(saida.join('\n')) as { thread: string; commit: string; recibo?: { contrato: string; resultado: { ok: boolean } } };
     assert.deepEqual([runner.thread, runner.commit, runner.recibo?.contrato, runner.recibo?.resultado.ok],
       [id, head, 'ork.ci-recibo-runner/v1', true]);

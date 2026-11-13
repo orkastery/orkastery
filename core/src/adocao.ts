@@ -129,7 +129,7 @@ function proximoPasso(thread: Thread): string {
   const estado = thread.adocao?.estado ?? 'preparada';
   if (estado === 'preparada') return `node core/dist/index.js verify ${thread.id}`;
   if (estado === 'verificada') return `execute o CHECK independente de ${thread.id}`;
-  if (estado === 'revisada') return `node core/dist/index.js ci run`;
+  if (estado === 'revisada') return `node core/dist/index.js ci run --branch ${thread.base.branch}`;
   return `node core/dist/index.js ship ${thread.id}`;
 }
 
