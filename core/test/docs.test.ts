@@ -232,7 +232,7 @@ test('frontmatter: ausente, estado fora do padrao e dimensao de roadmap fora do 
   } finally { p.limpar(); }
 });
 
-test('leitura para TDAH: resposta primeiro, frase curta, secoes fixas, paragrafo curto', () => {
+test('leitura rapida: resposta primeiro, frase curta, secoes fixas, paragrafo curto', () => {
   const p = projetoComDocs('docs-leitura');
   try {
     const longo = 'Um paragrafo que nao para. '.repeat(30);

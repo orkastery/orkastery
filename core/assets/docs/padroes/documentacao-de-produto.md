@@ -106,7 +106,7 @@ No Orkastery essa comparação tem dono e comando:
 
 Cada página é lida ao mesmo tempo por três leitores. Se um deles fica para trás, a página falhou.
 
-### 6.1 Pessoa com TDAH
+### 6.1 Pessoa com pouco tempo
 
 - **Resposta primeiro.** Logo abaixo do título, uma linha `> **Em uma frase:**` com até 240 caracteres.
 - **Estado de relance.** Estado, data de verificação e versão aparecem antes de qualquer explicação.

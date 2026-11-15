@@ -44,7 +44,7 @@ ork master <thread> --aceitar-omissao                # fecha a thread com o índ
 - Três agentes no mesmo repositório editam os mesmos arquivos, pulam os mesmos passos e entregam um relatório dizendo que deu certo. O relatório é a parte que não vale nada.
 - Falta alguém entre você e eles: que segure o roadmap, isole os loops, serialize o merge, reexecute a alegação e só interrompa você quando importa.
 - **O `ork` ocupa esse lugar.** É um CLI determinístico, em TypeScript, sem servidor e sem LLM embutido.
-- **Decisões do tamanho de um dia cheio.** Quem conduz agentes conduz também dezenas de outras frentes. Toda pergunta que o `ork` te traz é curta e organizada, com alternativas e uma recomendação, e se decide em segundos, sem reler um paredão de texto. Essa leveza é objetivo de projeto, pensado também para quem tem TDAH: é o que mantém você regendo, e não se afogando.
+- **Decisões do tamanho de um dia cheio.** Quem conduz agentes conduz também dezenas de outras frentes. Toda pergunta que o `ork` te traz é curta e organizada, com alternativas e uma recomendação, e se decide em segundos, sem reler um paredão de texto. Essa leveza é objetivo de projeto: é o que mantém você regendo, e não se afogando.
 
 ## O que muda para quem constrói
 
@@ -147,7 +147,7 @@ O modo afrouxa a PAUSA. O modo NUNCA afrouxa a VERIFICAÇÃO.
 ### Documentação como código
 
 - **Dois padrões versionados:** [documentação de produto](docs/padroes/documentacao-de-produto.md) e [roadmap de produto](docs/padroes/roadmap-de-produto.md), v1.1.
-- **Três leitores por página:** pessoa com TDAH (resposta primeiro, uma ideia por linha), verificador de paridade e agentes de IA (frontmatter YAML com IDs estáveis).
+- **Três leitores por página:** pessoa com pouco tempo (resposta primeiro, uma ideia por linha), verificador de paridade e agentes de IA (frontmatter YAML com IDs estáveis).
 - **`ork docs verificar`:** reprova fonte, símbolo, contrato ou comando que não existe mais, commit de merge fora da `main` e estado incoerente.
 - **`ork docs sincronizar --escrever`:** grava só fatos do ledger e do git (merge, fase) e regera tabelas e índices.
 - **No CI:** o job `documentacao` roda o markdownlint e o `ork docs verificar` em todo PR.

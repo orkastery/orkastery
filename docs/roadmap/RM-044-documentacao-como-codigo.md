@@ -28,7 +28,7 @@ sdlc:
 
 # RM-044 — Documentação como código com paridade
 
-> **Em uma frase:** Documentação de produto e roadmap no repositório, legíveis por pessoa com TDAH e por agentes, e conferidas contra o código e o git em todo PR.
+> **Em uma frase:** Documentação de produto e roadmap no repositório, legíveis de relance por pessoas e por agentes, e conferidas contra o código e o git em todo PR.
 
 <!-- ork-docs:relance:inicio -->
 

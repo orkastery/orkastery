@@ -44,7 +44,7 @@ ork master <thread> --aceitar-omissao                # closes the thread with th
 - Three agents in the same repository edit the same files, skip the same steps and hand over a report saying it worked. The report is the part that is worth nothing.
 - Someone is missing between you and them: someone who holds the roadmap, isolates the loops, serializes the merge, re-runs the claim and only interrupts you when it matters.
 - **`ork` takes that seat.** It is a deterministic TypeScript CLI, with no server and no embedded LLM.
-- **Decisions sized for a full day.** Whoever conducts agents is also running dozens of other things. Every question `ork` brings you is short and organized, with alternatives and one recommendation, so you decide in seconds without rereading a wall of text. That lightness is a design goal, meant also for people with ADHD: it keeps you conducting instead of drowning.
+- **Decisions sized for a full day.** Whoever conducts agents is also running dozens of other things. Every question `ork` brings you is short and organized, with alternatives and one recommendation, so you decide in seconds without rereading a wall of text. That lightness is a design goal: it keeps you conducting instead of drowning.
 
 ## What changes for builders
 
@@ -147,7 +147,7 @@ The mode loosens the PAUSE. The mode NEVER loosens the VERIFICATION.
 ### Documentation as code
 
 - **Two versioned standards:** [product documentation](docs/padroes/documentacao-de-produto.md) and [product roadmap](docs/padroes/roadmap-de-produto.md), v1.1.
-- **Three readers per page:** a person with ADHD (answer first, one idea per line), the parity checker, and AI agents (YAML frontmatter with stable IDs).
+- **Three readers per page:** a person short on time (answer first, one idea per line), the parity checker, and AI agents (YAML frontmatter with stable IDs).
 - **`ork docs verificar`:** fails a source, symbol, contract or command that no longer exists, a merge commit outside `main`, and incoherent status.
 - **`ork docs sincronizar --escrever`:** writes only facts from the ledger and git (merge, phase) and regenerates tables and indexes.
 - **In CI:** the `documentacao` job runs markdownlint and `ork docs verificar` on every PR.
