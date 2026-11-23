@@ -1,6 +1,6 @@
 // Markdown style of the product documentation and of the roadmap (Orkastery, I-44).
 // Division of labor: this linter covers the FORM of the Markdown; `ork docs verificar` covers
-// the frontmatter, reading (ADHD), and parity with the code and with git.
+// the frontmatter, quick reading, and parity with the code and with git.
 {
   "globs": [
     "docs/produto/**/*.md",

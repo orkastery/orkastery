@@ -1,6 +1,6 @@
 // Padronizacao de Markdown da documentacao de produto e do roadmap (Orkastery, I-44).
 // Divisao de trabalho: este linter cobre a FORMA do Markdown; `ork docs verificar` cobre
-// frontmatter, leitura (TDAH), paridade com o codigo e com o git.
+// frontmatter, leitura rapida, paridade com o codigo e com o git.
 {
   "globs": [
     "docs/produto/**/*.md",

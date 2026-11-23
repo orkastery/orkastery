@@ -19,7 +19,7 @@
  *    silencio e o mesmo defeito que o guard `git add -A` bloqueia.
  */
 
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 export const BRAIN_HOST_SURFACES = {
@@ -168,7 +168,7 @@ export interface ReciboDeInstalacao {
   versao: string;
   instaladoEm?: string;
   /** A chave e `arquivo`, como o recibo ja gravado em disco a escreve desde 19/09. */
-  arquivos: { arquivo: string; sha256: string }[];
+  arquivos: { arquivo: string; sha256: string; origem?: string; destino?: string }[];
 }
 
 /** Le o recibo do destino. Ausente ou ilegivel devolve null: nao se adivinha recibo. */
@@ -316,6 +316,32 @@ function listarArquivos(dir: string, prefixo = ''): { origem: string; relativo: 
   return achados;
 }
 
+interface FonteDaInstalacao {
+  origem: string;
+  relativo: string;
+  /** Alvo nativo fora da pasta própria do adaptador. */
+  destino?: string;
+  /** Raiz que o preflight precisa manter sem links ou tipos inesperados. */
+  raizDoDestino?: string;
+}
+
+function fonteDoHost(host: Host, projeto: string,
+  fonte: { origem: string; relativo: string }): FonteDaInstalacao {
+  if (host === 'hermes' && fonte.relativo.startsWith('hitl-ingress/')) {
+    return { ...fonte, relativo: fonte.relativo.replace(/^hitl-ingress\//, 'plugins/orkastery-hitl/') };
+  }
+  if (host === 'codex' && fonte.relativo === 'hooks/hooks.json') {
+    const raizDoDestino = path.join(projeto, '.codex');
+    return { ...fonte, relativo: '.codex/hooks.json', destino: path.join(raizDoDestino, 'hooks.json'), raizDoDestino };
+  }
+  if (host === 'codex' && fonte.relativo === 'hooks/ork-sessao.js') {
+    const raizDoDestino = path.join(projeto, '.codex');
+    return { ...fonte, relativo: '.codex/hooks/ork-sessao.js',
+      destino: path.join(raizDoDestino, 'hooks', 'ork-sessao.js'), raizDoDestino };
+  }
+  return fonte;
+}
+
 function mesmoArquivo(a: string, b: string): boolean {
   try { return fs.realpathSync(a) === fs.realpathSync(b); } catch { return path.resolve(a) === path.resolve(b); }
 }
@@ -371,8 +397,7 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
     throw new ErroDoCatalogo((m) => m.adapter.adaptadorNaoExiste(host, dirDoHost));
   }
 
-  const fontes = listarArquivos(dirDoHost).map(fonte => host === 'hermes' && fonte.relativo.startsWith('hitl-ingress/')
-    ? { ...fonte, relativo: fonte.relativo.replace(/^hitl-ingress\//, 'plugins/orkastery-hitl/') } : fonte);
+  const fontes: FonteDaInstalacao[] = listarArquivos(dirDoHost).map(fonte => fonteDoHost(host, projeto, fonte));
   if (def.levaCatalogo) {
     for (const skill of skillsDoCatalogo(catalogo)) {
       fontes.push({
@@ -441,8 +466,13 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
 
   // O preflight cobre o destino e os arquivos do próprio adaptador antes de copiar o primeiro. Links
   // acima do destino (.agents/skills compartilhado, diretório do usuário) são escolha de quem instala.
-  for (const alvo of [...fontes.map(f => path.join(destino, f.relativo)), path.join(destino, 'INSTALADO.json')]) {
-    for (let atual = alvo; atual !== path.dirname(destino) && atual !== path.dirname(atual); atual = path.dirname(atual)) {
+  const alvosDoPreflight = fontes.map(f => ({
+    alvo: f.destino ?? path.join(destino, f.relativo),
+    limite: f.raizDoDestino ? path.dirname(f.raizDoDestino) : path.dirname(destino),
+  }));
+  alvosDoPreflight.push({ alvo: path.join(destino, 'INSTALADO.json'), limite: path.dirname(destino) });
+  for (const { alvo, limite } of alvosDoPreflight) {
+    for (let atual = alvo; atual !== limite && atual !== path.dirname(atual); atual = path.dirname(atual)) {
       const stat = fs.lstatSync(atual, { throwIfNoEntry: false });
       if (stat && (stat.isSymbolicLink() || (atual === alvo ? !stat.isFile() || stat.nlink !== 1 : !stat.isDirectory()))) {
         throw new ErroDoCatalogo((m) => m.adapter.destinoInseguro);
@@ -477,7 +507,7 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
     const conteudo = RENDERIZAVEIS.has(ext)
       ? Buffer.from(renderizarArquivo(bruto.toString('utf8'), { orkBin, catalogo, versao }), 'utf8')
       : bruto;
-    const alvo = path.join(destino, fonte.relativo);
+    const alvo = fonte.destino ?? path.join(destino, fonte.relativo);
     let estado: ArquivoInstalado['estado'] = 'novo';
     let divergencia: ArquivoInstalado['divergencia'];
     if (fs.existsSync(alvo)) {
@@ -549,56 +579,79 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
   };
   if (opcoes.dryRun === true || barrado) return resultado;
 
-  for (const arquivo of arquivos) {
-    // `--manter-copia`: a copia local fica como esta. Ela permanece DETECTADA como
-    // divergente na proxima rodada, porque esconder a divergencia seria o defeito
-    // silencioso de R1 voltando por outra porta.
-    if (manter.has(arquivo.relativo)) continue;
-    const ext = path.extname(arquivo.origem);
-    const bruto = fs.readFileSync(arquivo.origem);
-    const conteudo = RENDERIZAVEIS.has(ext)
-      ? Buffer.from(renderizarArquivo(bruto.toString('utf8'), { orkBin, catalogo, versao }), 'utf8')
-      : bruto;
-    fs.mkdirSync(path.dirname(arquivo.destino), { recursive: true });
-    fs.writeFileSync(arquivo.destino, conteudo);
-    if (arquivo.executavel) fs.chmodSync(arquivo.destino, 0o755);
-  }
-
-  // RM-059 (T0.7, A1 do CHECK): o que saiu do catalogo em `mods/` sai da copia, com a pasta que ficar vazia.
-  for (const relativo of removidos) {
-    const alvo = path.join(destino, relativo);
-    fs.unlinkSync(alvo);
-    const raizDoMod = path.join(destino, ...relativo.split('/').slice(0, 2));
-    for (let dir = path.dirname(alvo); dir.startsWith(raizDoMod); dir = path.dirname(dir)) {
-      if (fs.readdirSync(dir).length) break;
-      fs.rmdirSync(dir);
+  interface FotografiaDoArquivo { alvo: string; existia: boolean; conteudo?: Buffer; modo?: number; limite: string }
+  const fotografias: FotografiaDoArquivo[] = [];
+  const fotografar = (alvo: string, limite: string): void => {
+    if (fotografias.some(f => f.alvo === alvo)) return;
+    const stat = fs.lstatSync(alvo, { throwIfNoEntry: false });
+    fotografias.push(stat?.isFile()
+      ? { alvo, limite, existia: true, conteudo: fs.readFileSync(alvo), modo: stat.mode & 0o777 }
+      : { alvo, limite, existia: false });
+  };
+  const reciboFinal = path.join(destino, 'INSTALADO.json');
+  const reciboTemporario = path.join(destino, `.INSTALADO-${process.pid}-${randomUUID()}.tmp`);
+  try {
+    for (const arquivo of arquivos) {
+      // `--manter-copia`: a copia local fica como esta. Ela permanece DETECTADA como
+      // divergente na proxima rodada, porque esconder a divergencia seria o defeito
+      // silencioso de R1 voltando por outra porta.
+      if (manter.has(arquivo.relativo)) continue;
+      const limite = arquivo.relativo.startsWith('.codex/') ? projeto : path.dirname(destino);
+      fotografar(arquivo.destino, limite);
+      const ext = path.extname(arquivo.origem);
+      const bruto = fs.readFileSync(arquivo.origem);
+      const conteudo = RENDERIZAVEIS.has(ext)
+        ? Buffer.from(renderizarArquivo(bruto.toString('utf8'), { orkBin, catalogo, versao }), 'utf8')
+        : bruto;
+      fs.mkdirSync(path.dirname(arquivo.destino), { recursive: true });
+      fs.writeFileSync(arquivo.destino, conteudo);
+      if (arquivo.executavel) fs.chmodSync(arquivo.destino, 0o755);
     }
-  }
 
-  // O recibo: com ele da para saber, depois, se alguem editou a copia instalada em vez do
-  // catalogo. Sem ele a instalacao e um monte de arquivo sem procedencia.
-  fs.writeFileSync(
-    path.join(destino, 'INSTALADO.json'),
-    JSON.stringify(
-      {
-        contrato: 'ork.adapter-install/v1',
-        host,
-        versao,
-        catalogo,
-        orkBin,
-        instaladoEm: new Date().toISOString(),
-        arquivos: arquivos.map((a) => ({
-          arquivo: a.relativo,
-          origem: path.relative(catalogo, a.origem),
-          sha256: a.sha256,
-          bytes: a.bytes,
-        })),
-      },
-      null,
-      2
-    ) + '\n',
-    'utf8'
-  );
+    // RM-059 (T0.7, A1 do CHECK): o que saiu do catalogo em `mods/` sai da copia, com a pasta que ficar vazia.
+    for (const relativo of removidos) {
+      const alvo = path.join(destino, relativo);
+      fotografar(alvo, path.dirname(destino));
+      fs.unlinkSync(alvo);
+      const raizDoMod = path.join(destino, ...relativo.split('/').slice(0, 2));
+      for (let dir = path.dirname(alvo); dir.startsWith(raizDoMod); dir = path.dirname(dir)) {
+        if (fs.readdirSync(dir).length) break;
+        fs.rmdirSync(dir);
+      }
+    }
+
+    // O recibo só fica visível depois que todos os destinos foram escritos. A troca atômica
+    // conserva o recibo anterior se qualquer alvo falhar.
+    fs.mkdirSync(destino, { recursive: true });
+    fs.writeFileSync(reciboTemporario, JSON.stringify({
+      contrato: 'ork.adapter-install/v1', host, versao, catalogo, orkBin,
+      instaladoEm: new Date().toISOString(),
+      arquivos: arquivos.map((a) => ({
+        arquivo: a.relativo,
+        origem: path.relative(catalogo, a.origem),
+        destino: path.relative(projeto, a.destino).split(path.sep).join('/'),
+        sha256: a.sha256,
+        bytes: a.bytes,
+      })),
+    }, null, 2) + '\n', 'utf8');
+    fs.renameSync(reciboTemporario, reciboFinal);
+  } catch (erro) {
+    try { fs.unlinkSync(reciboTemporario); } catch { /* não chegou a ser publicado */ }
+    for (const foto of [...fotografias].reverse()) {
+      if (foto.existia) {
+        fs.mkdirSync(path.dirname(foto.alvo), { recursive: true });
+        fs.writeFileSync(foto.alvo, foto.conteudo!);
+        fs.chmodSync(foto.alvo, foto.modo!);
+        continue;
+      }
+      try { fs.unlinkSync(foto.alvo); } catch { /* o alvo não chegou a ser criado */ }
+      for (let dir = path.dirname(foto.alvo); dir !== foto.limite && dir.startsWith(foto.limite + path.sep);
+        dir = path.dirname(dir)) {
+        try { if (fs.readdirSync(dir).length === 0) fs.rmdirSync(dir); else break; } catch { break; }
+      }
+    }
+    throw erro;
+  }
 
   if (planoExperiencia) aplicarExperiencia(planoExperiencia);
   return resultado;

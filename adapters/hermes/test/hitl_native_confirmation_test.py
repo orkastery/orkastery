@@ -10,11 +10,19 @@ import os
 from pathlib import Path
 import subprocess
 import shutil
+import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 from datetime import datetime, timezone
+
+TEST_DIR = Path(__file__).resolve().parent
+HERMES_AGENT = Path(os.environ.get('HERMES_AGENT_DIR', Path.home() / '.hermes' / 'hermes-agent'))
+sys.path.insert(0, str(TEST_DIR))
+sys.path.insert(0, str(HERMES_AGENT))
+for site_packages in (HERMES_AGENT / 'venv' / 'lib').glob('python*/site-packages'):
+    sys.path.append(str(site_packages))
 
 from gateway.platforms.base import MessageEvent
 from gateway.session import SessionSource
@@ -71,8 +79,9 @@ class InstalledContractTest(unittest.IsolatedAsyncioTestCase):
         self.env = patch.dict(os.environ, {
             'ORK_HITL_INGRESS_KEY_HERMES': 'chave-SIMULADA-exclusiva-dos-testes-000',
             'ORK_HITL_TELEGRAM_USERS': '42', 'ORK_HITL_TELEGRAM_CHATS': '42',
-            'ORK_HITL_TELEGRAM_BOT_ID': '99', 'ORK_HITL_ROOT': os.environ['HERMES_HOME'],
-            'ORK_BIN': 'ork-SIMULADO-nao-executar'})
+            'ORK_HITL_TELEGRAM_BOT_ID': '99', 'ORK_HITL_ROOT': os.environ.get('HERMES_HOME', str(HERMES_AGENT.parent)),
+            'ORK_BIN': 'ork-SIMULADO-nao-executar',
+            'ORK_NUCLEO_DIR': '/nucleo-SIMULADO', 'NODE_BIN': '/node-SIMULADO'})
         self.env.start(); self.addCleanup(self.env.stop)
         self.manager = plugins.PluginManager()
         plugin_dir = plugin_directory()
@@ -98,6 +107,22 @@ class InstalledContractTest(unittest.IsolatedAsyncioTestCase):
         self.event = MessageEvent(text=self.msg.text, raw_message=self.msg, message_id='8',
                                   source=SessionSource(Platform.TELEGRAM, '42', user_id='42'))
         self.gateway = SimpleNamespace(_is_user_authorized=lambda source: source is self.event.source)
+
+    def test_installed_session_hooks_transport_core_context(self):
+        orientation = {'contrato': 'ork.sessao-orientacao/v1', 'estado': 'fora-de-thread',
+                       'bloqueia': False, 'texto': 'Orientação instalada SIMULADA.'}
+        with patch.object(self.ingress.subprocess, 'run', return_value=SimpleNamespace(
+                returncode=0, stdout=json.dumps(orientation))) as run:
+            self.assertEqual(plugins.invoke_hook('on_session_start', session_id='sessao-instalada',
+                model='modelo', platform='gateway'), [])
+            results = plugins.invoke_hook('pre_llm_call', session_id='sessao-instalada',
+                user_message='pedido', conversation_history=[], is_first_turn=True,
+                model='modelo', platform='gateway')
+            self.assertEqual(results, [{'context': 'Orientação instalada SIMULADA.'}])
+            self.assertEqual(plugins.invoke_hook('pre_llm_call', session_id='sessao-instalada',
+                user_message='pedido', conversation_history=[], is_first_turn=True,
+                model='modelo', platform='gateway'), [])
+            self.assertEqual(run.call_args.args[0][0:2], ['/node-SIMULADO', '-e'])
 
     def invoke(self):
         results = plugins.invoke_hook('pre_gateway_dispatch', event=self.event, gateway=self.gateway)

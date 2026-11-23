@@ -109,7 +109,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
-| 2026-09-27 | item criado | pedido do dono no Telegram: HITL precisa ser resumido, claro, com opções e recomendação, pensado para quem tem TDAH e dezenas de atividades em paralelo | Julio |
+| 2026-09-27 | item criado | pedido do dono no Telegram: HITL precisa ser resumido, claro, com opções e recomendação, pensado para quem conduz dezenas de atividades em paralelo | Julio |
 | 2026-09-28 | decisões do dono: texto livre inequívoco registra, ambíguo volta como pergunta; padrão curto em todo canal; status report único; nota do MASTER com prova de canal; linha que não vence em uma hora | pedido direto do dono, thread `ork-hitlhumanono` | Julio |
 | 2026-09-28 | os 8 itens entregues na branch da thread (contrato `ork.hitl-curto/v1`, texto livre, linha estável, "Conosco", `ork roadmap status`, `ork master pedir`) | thread `ork-hitlhumanono`, #Auto, decisões D3 a D9 no ledger | agente condutor; decisão final de Julio |
 | 2026-09-29 | os 8 itens mesclados na `main` | PR #19, merge `8d47740` | Julio |

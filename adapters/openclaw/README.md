@@ -48,6 +48,21 @@ PATH; com outro `ork` no PATH, a saida avisa com as duas versoes. `--ork <caminh
 Se a copia nao passou pelo instalador (placeholder nao renderizado), o entry cai no
 fallback: usa `ORK_BIN` do ambiente ou o `ork` do PATH.
 
+## Orientacao de sessao
+
+Com o plugin instalado, habilitado e recarregado no Gateway, os hooks internos
+`command:new`, `command:reset` e `agent:bootstrap` consultam a decisao unica do nucleo. O
+adapter envia somente a identidade nativa da sessao e o diretorio do workspace.
+
+Nos comandos `/new` e `/reset` originados em chat, a orientacao confirmada usa
+`event.messages`, a superficie documentada que responde na conversa de origem. Uma chamada
+RPC nao recebe reply. No bootstrap, o mesmo texto entra somente no contexto `AGENTS.md` do
+turno; `event.messages` nao e usado.
+
+Instalacao nao comprova habilitacao nem reload do plugin. Identidade ausente, workspace fora
+do projeto, consulta indisponivel ou resposta fora do contrato permanecem `nao confirmado`:
+a sessao segue sem bloqueio e sem mensagem criada pelo adapter.
+
 ## As tools
 
 | Tool | O que faz |

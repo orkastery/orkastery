@@ -117,6 +117,8 @@ export interface OpcoesDeWorktree {
   branchExistente?: string;
   /** Base alternativa a `worktree.base_branch` do manifesto. */
   base?: string;
+  /** Commit já resolvido para uma adoção; não move nem consulta novamente a ref externa. */
+  commitOrigem?: string;
 }
 
 /**
@@ -231,7 +233,16 @@ export function criarWorktree(
     throw new ErroDoCatalogo((m) => m.worktree.worktreeJaExisteEm(dir));
   }
   const base = opcoes.base ?? manifesto.worktree.base_branch;
-  const resolvida = opcoes.branchExistente
+  const resolvida = opcoes.commitOrigem
+    ? (() => {
+        if (!/^[a-f0-9]{40,64}$/.test(opcoes.commitOrigem!)) {
+          throw new Error('adocao.source-head-invalido');
+        }
+        const r = exec('git', ['cat-file', '-e', `${opcoes.commitOrigem}^{commit}`], raiz);
+        if (!r.ok) throw new Error('adocao.source-head-ausente');
+        return { ref: opcoes.commitOrigem!, commit: opcoes.commitOrigem! };
+      })()
+    : opcoes.branchExistente
     ? (() => {
         const r = exec('git', ['rev-parse', '--verify', opcoes.branchExistente!], raiz);
         if (!r.ok) throw new ErroDoCatalogo((m) => m.worktree.baseInexistente(opcoes.branchExistente!));
@@ -399,6 +410,8 @@ export interface OpcoesNovaThread {
    * recursos pesados (`prepararDependenciasPendentes`).
    */
   adiarDependencias?: boolean;
+  /** Adoção já validada por `adocao.ts`; a criação usa o sourceHead sem reler a origem móvel. */
+  adocao?: NonNullable<Thread['adocao']>;
 }
 
 /** RM-059 (T6.0): o arquivo do pedido guardado, na pasta da thread. */
@@ -642,6 +655,7 @@ function criarThreadSerializada(carregado: ManifestoCarregado, opcoes: OpcoesNov
 
   const thread: Thread = {
     ...(origin ? { creationOrigin: origin } : {}),
+    ...(opcoes.adocao ? { origem: 'adocao' as const, adocao: opcoes.adocao } : {}),
     id,
     slug,
     nome: opcoes.nome,
@@ -710,6 +724,7 @@ function criarThreadSerializada(carregado: ManifestoCarregado, opcoes: OpcoesNov
   if (worktreePor) {
     worktreeCriada = criarWorktree(carregado, id, slug, {
       branchExistente: opcoes.branch,
+      commitOrigem: opcoes.adocao?.sourceHead,
     });
     thread.worktree = worktreeCriada.dir;
     thread.base = {
@@ -736,6 +751,14 @@ function criarThreadSerializada(carregado: ManifestoCarregado, opcoes: OpcoesNov
     ...(opcoes.origemDaWorktree === 'sem-worktree' ? { semWorktree: true } : {}),
     variante,
     branchDeOrigem: opcoes.branch ?? null,
+    ...(opcoes.adocao ? { adocao: {
+      contrato: opcoes.adocao.contrato,
+      origemNormalizada: opcoes.adocao.origemNormalizada,
+      sourceHead: opcoes.adocao.sourceHead,
+      baseHead: opcoes.adocao.baseHead,
+      mergeBase: opcoes.adocao.mergeBase,
+      estado: opcoes.adocao.estado,
+    } } : {}),
     maquina: thread.maquina,
     ...(thread.roadmap ? { roadmap: thread.roadmap } : {}),
     ...(pedido ? { pedido: pedido.meta } : {}),
