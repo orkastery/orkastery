@@ -304,6 +304,7 @@ test('Codex instala catalogo e entrada em pasta propria e preserva configuracao 
     const dry = instalarAdaptador('codex',{...opcoes,dryRun:true});
     assert.equal(dry.ok,true);
     assert.equal(fs.existsSync(path.join(projeto,'.agents/skills/orkastery')),false);
+    assert.equal(fs.existsSync(path.join(projeto,'.codex/hooks.json')),false);
     const instalado = instalarAdaptador('codex',opcoes);
     assert.equal(instalado.ok,true);
     assert.equal(instalado.destino,path.join(projeto,'.agents/skills/orkastery'));
@@ -315,13 +316,22 @@ test('Codex instala catalogo e entrada em pasta propria e preserva configuracao 
     const texto = fs.readFileSync(entrada,'utf8');
     assert.ok(texto.includes(ORK_FALSO)); assert.ok(!texto.includes('{{ork_bin}}'));
     assert.ok(fs.existsSync(path.join(instalado.destino,'references/definition-of-done.md')));
+    assert.equal(fs.readFileSync(path.join(projeto,'.codex/hooks.json'),'utf8'),
+      fs.readFileSync(path.join(RAIZ,'adapters/codex/hooks/hooks.json'),'utf8'));
+    assert.equal(fs.readFileSync(path.join(projeto,'.codex/hooks/ork-sessao.js'),'utf8'),
+      fs.readFileSync(path.join(RAIZ,'adapters/codex/hooks/ork-sessao.js'),'utf8'));
     const recibo = JSON.parse(fs.readFileSync(path.join(instalado.destino,'INSTALADO.json'),'utf8'));
     assert.equal(recibo.host,'codex');
+    assert.ok(recibo.arquivos.some((a: { arquivo: string })=>a.arquivo==='.codex/hooks.json'));
+    assert.ok(recibo.arquivos.some((a: { arquivo: string })=>a.arquivo==='.codex/hooks/ork-sessao.js'));
+    assert.equal(recibo.arquivos.find((a: { arquivo: string })=>a.arquivo==='.codex/hooks.json').destino,
+      '.codex/hooks.json');
     assert.equal(instalarAdaptador('codex',opcoes).arquivos.every(a=>a.estado==='igual'),true);
-    fs.writeFileSync(entrada,'edicao local');
+    const hook = path.join(projeto,'.codex/hooks.json');
+    fs.writeFileSync(hook,'edicao local');
     const conflito = instalarAdaptador('codex',opcoes);
     assert.equal(conflito.ok,false); assert.equal(conflito.conflitos.length,1);
-    assert.equal(fs.readFileSync(entrada,'utf8'),'edicao local');
+    assert.equal(fs.readFileSync(hook,'utf8'),'edicao local');
     for (const rel of preservados) assert.equal(fs.readFileSync(path.join(projeto,rel),'utf8'),`conteudo anterior: ${rel}`);
   } finally { fs.rmSync(projeto,{recursive:true,force:true}); }
 });

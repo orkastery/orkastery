@@ -133,6 +133,11 @@ for (const host of ['codex', 'claude-code'] as const) {
       assert.equal(dry.experiencia?.skill, 'orchestration-experience-pt-br');
       assert.equal(fs.readFileSync(alvo, 'utf8'), original);
       const r = instalarAdaptador(host, opts); assert.equal(r.ok, true);
+      if (host === 'codex') {
+        assert.ok(fs.existsSync(path.join(p.dir, '.codex', 'hooks.json')));
+        assert.ok(fs.existsSync(path.join(p.dir, '.codex', 'hooks', 'ork-sessao.js')));
+        assert.equal(fs.existsSync(path.join(p.dir, '.codex', 'config.toml')), false);
+      }
       const ativo = fs.readFileSync(alvo, 'utf8');
       assert.ok(ativo.includes(INICIO_EXPERIENCIA));
       // Caminho relativo: o arquivo de instruções vai ao repositório e vale em outra máquina.

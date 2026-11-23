@@ -191,6 +191,13 @@ export function executarSagaDaThread<TThread, TLocal>(p: BaseDaSaga<TLocal> & {
   } catch (e) { return compensar(p, op, e); }
 }
 
+/** Adoção usa a mesma saga F2; o nome fixa que reserva e vínculo precedem o estado durável. */
+export function executarAdocaoCoordenada<TThread, TLocal>(p: BaseDaSaga<TLocal> & {
+  criarThread(operationId: string): { threadId: string; valor: TThread };
+}): { operationId: string; thread: TThread; local: TLocal; cobertura: ResultadoDaCobertura } {
+  return executarSagaDaThread(p);
+}
+
 /** Relê os dois lados e só remove a snapshot que ainda tem a fingerprint gravada. Repetir depois do fim é no-op. */
 export function reconciliarOperacaoDaRedeEmpresa<T>(raiz: string, operationId: string,
   portas: { coletiva: Pick<PortaColetivaDaSaga, 'soltar'>; local: Pick<PortaLocalDaSaga<T>, 'soltar'>;

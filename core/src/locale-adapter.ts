@@ -37,7 +37,7 @@ const HOSTS_PT_BR: Record<NomeDoHost, HostDoCatalogo> = {
     ],
   },
   codex: {
-    descricao: 'Entrada $ork e catalogo de conducao em skills locais do projeto, sem configuracao global',
+    descricao: 'Entrada $ork, catalogo de conducao e orientação SessionStart em arquivos locais do projeto',
     pitfalls: [
       {
         titulo: 'skills instaladas fora do projeto da sessao',
@@ -50,8 +50,8 @@ const HOSTS_PT_BR: Record<NomeDoHost, HostDoCatalogo> = {
         prova: 'ork adapter install codex --dry-run',
       },
       {
-        titulo: 'skill confundida com autorizacao de runtime',
-        detalhe: 'instalar instrucoes nao habilita permissoes, hooks ou sandbox; em projeto configurado, AGENTS.md recebe apenas o bloco reversível da experiência. Gates e preflight continuam no nucleo, e descoberta nao prova a jornada conversacional',
+        titulo: 'hook confundido com autorizacao de runtime',
+        detalhe: 'o instalador prepara .codex/hooks.json sem alterar config.toml, mas isso nao concede permissoes nem muda o sandbox. Gates, vínculo e orientação continuam decididos no nucleo, e presença em disco não comprova ativação',
         prova: 'ork doctor',
       },
     ],
@@ -130,7 +130,7 @@ const HOSTS_EN: Record<NomeDoHost, HostDoCatalogo> = {
     ],
   },
   codex: {
-    descricao: 'The $ork entry and the conduction catalog as project-local skills, with no global configuration',
+    descricao: 'The $ork entry, conduction catalog, and SessionStart guidance in project-local files',
     pitfalls: [
       {
         titulo: 'skills installed outside the session project',
@@ -143,8 +143,8 @@ const HOSTS_EN: Record<NomeDoHost, HostDoCatalogo> = {
         prova: 'ork adapter install codex --dry-run',
       },
       {
-        titulo: 'a skill mistaken for runtime authorization',
-        detalhe: 'installing instructions does not enable permissions, hooks or a sandbox; in a configured project, `AGENTS.md` only gets the reversible experience block. Gates and preflight stay in the core, and discovery does not prove the conversational journey',
+        titulo: 'a hook mistaken for runtime authorization',
+        detalhe: 'the installer prepares `.codex/hooks.json` without changing `config.toml`, but that grants no permissions and does not change the sandbox. Gates, linkage, and guidance stay in the core, and presence on disk does not prove activation',
         prova: 'ork doctor',
       },
     ],

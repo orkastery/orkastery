@@ -6,6 +6,14 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Adicionado
+
+- **Adoção de trabalho existente — F6 (RM-089):** `ork adotar` cria a thread e a worktree canônicas no commit da origem sem reescrever a história, preserva os objetos exclusivos, retoma pelo último estado durável e só conclui depois de verify, CHECK independente e recibo do runner no mesmo HEAD.
+
+- **Orientação única de sessão — F6 (RM-089):** Claude Code, Codex, Hermes e OpenClaw consultam a mesma decisão read-only do núcleo quando uma sessão começa fora de thread; cada adapter apenas transporta pelas superfícies que comprova, e instalação, habilitação, confiança e entrega não comprovadas permanecem `não confirmado`.
+
+- **Exceção auditável do recibo — F6 (RM-089):** a dispensa da F5 é separada da exceção coletiva da F2, exige autorização opaca, atores independentes, policy protegida e notificação `delivered`; o recibo assinado não contém metadados do ledger, o núcleo anexa um envelope ligado por ID e hash, e o runner só projeta o par para o HEAD exato por capacidade protegida. O transporte de produção desse par até o runner fica para a F7 da RM-089; até lá, `exigir` continua pedindo o recibo da F5.
+
 ### Alterado
 
 - **Padrão de documentação:** o padrão que o `ork` instala, os READMEs e o `ork docs verificar` descrevem o leitor humano pelo modo de leitura (resposta primeiro, uma ideia por linha, pouco tempo); as regras e os limites não mudam.

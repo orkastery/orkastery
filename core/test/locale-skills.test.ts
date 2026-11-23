@@ -104,10 +104,10 @@ test('locale en F3b skills: todo .md instalavel dos hosts com catalogo e a skill
 });
 
 /** O recibo do codex: a origem e o sha256 de cada arquivo instalado. */
-function recibo(c: Cenario): Map<string, { origem: string; sha256: string }> {
+function recibo(c: Cenario): Map<string, { origem: string; sha256: string; destino?: string }> {
   const r = JSON.parse(fs.readFileSync(path.join(c.dir, '.agents', 'skills', 'orkastery', 'INSTALADO.json'), 'utf8')) as
-    { arquivos: Array<{ arquivo: string; origem: string; sha256: string }> };
-  return new Map(r.arquivos.map((a) => [a.arquivo, { origem: a.origem, sha256: a.sha256 }]));
+    { arquivos: Array<{ arquivo: string; origem: string; sha256: string; destino?: string }> };
+  return new Map(r.arquivos.map((a) => [a.arquivo, { origem: a.origem, sha256: a.sha256, destino: a.destino }]));
 }
 
 test('locale en F3b skills: com o dono em ingles, o install copia a variante; reinstalar nao muda e trocar a lingua troca no lugar', () => {
@@ -145,9 +145,10 @@ test('locale en F3b skills (negativo): sem lingua (C.UTF-8) ou com o dono em pt-
       assert.equal(ork(c, env, false, 'adapter', 'install', 'codex').status, 0, nome);
       const r = recibo(c);
       assert.ok(r.size >= 20, nome);
-      for (const [arquivo, { origem, sha256 }] of r) {
+      for (const [arquivo, { origem, sha256, destino }] of r) {
         assert.ok(!origem.startsWith('core/assets/'), `${nome}: ${arquivo} saiu de ${origem}`);
-        assert.equal(sha256, sha(fs.readFileSync(path.join(c.dir, '.agents', 'skills', 'orkastery', arquivo))), `${nome}: ${arquivo}`);
+        const instalado = destino ? path.join(c.dir, destino) : path.join(c.dir, '.agents', 'skills', 'orkastery', arquivo);
+        assert.equal(sha256, sha(fs.readFileSync(instalado)), `${nome}: ${arquivo}`);
       }
     } finally { c.limpar(); }
   }

@@ -179,6 +179,8 @@ export const TIPOS_DE_EVENTO = {
   entregaNaFila: 'session_delivery_queued',
   entregaEnviada: 'session_delivery_sent',
   entregaReservada: 'session_delivery_reserved',
+  /** RM-089 F6: a porta gerida entregou o recibo e o par foi validado antes deste append. */
+  notificacaoDeExcecao: 'exception_notification_recorded',
   /** RM-079 F2: cópia não versionada de GOAL/PLAN/CHECK deixada na raiz da worktree. */
   artefatoDeFaseForaDoEstado: TIPO_AVISO_ARTEFATO_FORA_DO_ESTADO,
 } as const;
@@ -228,6 +230,44 @@ export function registrar(
   }
   const evento: EventoLedger = { ts: agora(), thread: threadId, tipo, ...dados, eventId: randomUUID() };
   durableAppend(caminhoLedger(dirThread), evento);
+  return evento;
+}
+
+export interface MetadadosDoNovoEvento {
+  eventId: string;
+  ts: string;
+  thread: string;
+  tipo: string;
+}
+
+export interface DependenciasDoRegistroComMetadados {
+  agora?: () => string;
+  uuid?: () => string;
+  append?: (arquivo: string, evento: EventoLedger) => void;
+}
+
+/**
+ * Reserva `eventId` e `ts` antes de montar os dados que os referenciam, mas só expõe o evento
+ * depois do append durável. A fábrica não consegue sobrescrever os metadados do ledger.
+ */
+export function registrarComMetadados(
+  dirThread: string,
+  threadId: string,
+  tipo: string,
+  montar: (metadados: MetadadosDoNovoEvento) => Record<string, unknown>,
+  dependencias: DependenciasDoRegistroComMetadados = {},
+): EventoLedger {
+  const metadados: MetadadosDoNovoEvento = {
+    eventId: (dependencias.uuid ?? randomUUID)(),
+    ts: (dependencias.agora ?? agora)(),
+    thread: threadId,
+    tipo,
+  };
+  const dados = montar({ ...metadados });
+  if (tipo === TIPOS_DE_EVENTO.decisaoAutonoma) exigirRastroDeDecisaoAutonoma(dados);
+  fs.mkdirSync(dirThread, { recursive: true });
+  const evento: EventoLedger = { ...dados, ...metadados };
+  (dependencias.append ?? durableAppend)(caminhoLedger(dirThread), evento);
   return evento;
 }
 
