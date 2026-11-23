@@ -8,88 +8,32 @@
 - **Quem está com cada item:** `ork roadmap reservas`; antes de começar, `ork thread new ... --roadmap RM-NNN` reserva o item para a sua máquina ([FEAT-026](../produto/FEAT-026-reservas-do-roadmap.md))
 - **Histórico:** este repositório começa em 27/09/2026, na versão 0.3.0. Os SHAs de merge e os números de PR citados nos itens antes dessa data são do histórico de construção, que fica num arquivo privado. A evidência de código desses itens aponta para o primeiro commit público.
 
-## Prioridade para a comunidade de product builders
+## Prioridade aprovada em 23/11/2026
 
-Proposta de 26/09/2026, a confirmar pelo dono. Ordem por impacto em quem constrói produto com agentes.
+A tabela única substitui as listas anteriores e ordena o realinhamento pelas frentes A a D. As frentes A e B começam em paralelo. Dentro da frente C, a RM-071 decide a ordem entre RM-064, RM-076 e RM-077 pelo gargalo medido. A [RM-089](RM-089-orkastery-network-coletiva-da-empresa.md) F6 e F7 continua em curso sem disputar essa ordem.
 
-| # | Item | Por que nesta posição |
-| --- | --- | --- |
-| 1 | [RM-057](RM-057-hitl-por-alternativas.md) HITL de condução por alternativas | Prioridade alta definida pelo dono em 02/10: HITL em texto livre parou a fábrica uma noite inteira |
-| 2 | [RM-046](RM-046-go-to-open-source.md) GoToOpenSource | Sem repositório público, release atual e página, ninguém adota o resto |
-| 3 | [RM-042](RM-042-modo-fast.md) Modo #Fast | Tira a cerimônia do pedido pequeno, que é o primeiro contato de quem chega |
-| 4 | [RM-047](RM-047-fabrica-em-varias-maquinas.md) Fábrica em várias máquinas | Builder usa notebook, desktop e servidor; hoje cada um é uma ilha |
-| 5 | [RM-058](RM-058-modo-noctum.md) Modo #Noctum (posição proposta; decisão final do dono) | Após a base multimáquina da RM-047, planeja arcos autônomos de muitas threads; proposta de 03/10/2026 |
-| 6 | [RM-037](RM-037-verify-rapido-e-confiavel.md) Verify rápido e confiável | Confiança na prova em qualquer máquina, inclusive a de quem contribui |
-| 7 | [RM-040](RM-040-estado-de-conta-compartilhado.md) Estado de conta compartilhado | Quem tem vários projetos não bate duas vezes na mesma conta esgotada |
-| 8 | [RM-036](RM-036-maestro-multicanal.md) Condução multicanal | Conduzir do celular e do terminal como uma conversa só |
-| 9 | [RM-039](RM-039-cadencia-do-pulse-por-tag.md) Cadência do pulse por tag | O dono controla quando é interrompido, em conversa |
-| 10 | [RM-031](RM-031-grafo-de-codigo.md) Grafo de código | Menos contexto gasto por fase em bases grandes |
-| 11 | [RM-038](RM-038-busca-semantica-na-memoria.md) Busca semântica na memória | Memória útil sem depender de etiqueta |
-| 12 | [RM-008](RM-008-loop-de-aprendizado.md) Loop de aprendizado | A fábrica melhora a cada entrega, sem ninguém lembrar a lição |
-| 13 | [RM-032](RM-032-bootstrap-maestro.md) e [RM-012](RM-012-ci-check-independente.md) | Fechamentos: ativação por host e proteção da `main`, que o repositório público destrava |
-| 14 | [RM-025](RM-025-company-brain-fundacao.md) e [RM-026](RM-026-workspace-empresarial.md) Company Brain | Produto principal é o OrkMind; entra depois da adoção do núcleo |
-| 15 | [RM-050](RM-050-guia-de-contribuicao.md) Guia de contribuição | Quem é convidado a colaborar chega ao primeiro PR verde sem perguntar |
-
-## Achados de condução em rede (31/10/2026)
-
-Achados de uma rede de três VPS que conduz um roadmap em `#Auto` com o ork 0.5.6, conferidos contra a 0.6.2. A ordem segue a criticidade e o impacto no paralelismo, na fluidez e na autonomia da fábrica. A [RM-074](RM-074-agile-check-tres-vezes-mais-rapido.md) segue na frente, porque já está em andamento.
-
-| # | Item | Criticidade | Por que nesta posição |
+| Ordem | Frente | Itens | Resultado que libera a próxima etapa |
 | --- | --- | --- | --- |
-| 1 | [RM-075](RM-075-fim-de-fase-lido-pelo-resultado.md) Fim de fase lido pelo resultado | Crítica | Fase concluída vira espera humana: a thread gira em GO sem verify ou para esperando o dono |
-| 2 | [RM-077](RM-077-revisao-independente-pelo-construtor-do-head.md) Revisão independente pelo construtor do HEAD | Alta | Thread com GO nos dois runtimes fica sem revisor; hoje só sai editando estado à mão |
-| 3 | [RM-076](RM-076-fila-pesada-com-prioridade.md) Fila pesada com prioridade e reserva | Alta | A vaga pesada escapa da thread prioritária na troca de job e fica com uma que nem pode passar |
-| 4 | [RM-078](RM-078-recibo-valido-enquanto-nada-muda.md) Recibo válido enquanto nada muda | Alta | Um GO sem mudança custa um verify ou um CHECK inteiro |
-| 5 | [RM-079](RM-079-claims-que-a-correcao-passa.md) Claims que a correção passa | Média | Claim impossível ou retirada sem trilha vira trabalho do dono |
-| 6 | [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md) Saída completa e causa tipada no verify | Média | A 0.6.0 tirou o caso comum; falta a causa certa e o log inteiro para quem corrige |
-| 7 | [RM-081](RM-081-check-por-qualquer-runner.md) CHECK que entende qualquer runner de teste | Alta | Fora do Node, o CHECK não nomeia o teste que caiu nem protege teste de relógio, e cada correção paga a suíte inteira (relato de 01/11/2026, conferido contra a 0.6.3) |
-| 7 | [RM-064](RM-064-conta-esgotada-nao-para-a-fase.md), fatia 4 | Média | O rodízio no mesmo runtime já existe desde a 0.6.0; falta a trava entre runtimes e o histórico |
+| 1 | A — decisão e execução do dono | [RM-093](RM-093-acao-do-dono-executada-pela-fabrica.md) e [RM-048](RM-048-hitl-humano-no-centro.md), com [RM-092](RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md) | Pergunta curta segue um padrão único; autorização autenticada fica presa ao escopo, à validade, ao canal e à prova; a fábrica executa a ação reservada sem pedir terminal ao dono |
+| 1 | B — medição do fluxo | [RM-071](RM-071-relatorio-da-esteira-do-sdlc.md) F1 e F2 | Espera ganha motivo tipado e vazão útil passa a ter fórmula e origem, em paralelo à frente A |
+| 2 | B — ritmo, fluidez, qualidade e intenção | [RM-071](RM-071-relatorio-da-esteira-do-sdlc.md) F3 a F6 e [RM-094](RM-094-caixa-de-intencoes.md) F1 | O fluxo mostra ritmo, intervenções, qualidade e gargalo semanal; a caixa captura intenção sem autorizar execução |
+| 3 | C — habilitação medida | [RM-083](RM-083-estado-do-roadmap-acompanha-a-entrega.md), depois habilitar [RM-075](RM-075-fim-de-fase-lido-pelo-resultado.md), [RM-078](RM-078-recibo-valido-enquanto-nada-muda.md) e [RM-081](RM-081-check-por-qualquer-runner.md) | O PR leva o estado pós-merge e cada capacidade pronta é habilitada com medição antes e depois |
+| 3 | C — desobstrução conforme o gargalo | [RM-064](RM-064-conta-esgotada-nao-para-a-fase.md) fatia 4 e T6, [RM-076](RM-076-fila-pesada-com-prioridade.md) e [RM-077](RM-077-revisao-independente-pelo-construtor-do-head.md) | A thread continua entre runtimes e máquinas, a vaga pesada segue a prioridade e o CHECK encontra revisor elegível pelo construtor do HEAD |
+| 3 | C — diagnóstico e continuidade | [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md), [RM-082](RM-082-credenciais-redigidas-em-toda-superficie.md) e [RM-084](RM-084-sessao-continua-com-muitos-objetos-soltos-do-git.md) | O verify explica a causa e guarda a saída inteira; superfícies redigem credenciais e a sessão preserva a continuidade do repositório |
+| 3 | C — rede para a caixa | habilitar [RM-054](RM-054-roadmaps-e-threads-da-rede.md) antes da [RM-094](RM-094-caixa-de-intencoes.md) F3 | A rede expõe somente identificador, estado, item relacionado e origem da intenção |
+| 4 | D — resultado alimenta planejamento | [RM-095](RM-095-resultado-de-producao-vira-proposta.md) F1 e a nova fatia da [RM-008](RM-008-loop-de-aprendizado.md) | Regressão, reversão e issue de bug viram proposta; nada entra na caixa sem confirmação do dono |
+| 4 | D — previsão e custo | [RM-071](RM-071-relatorio-da-esteira-do-sdlc.md) F7 e F8 | Cada item recebe faixa de probabilidade e custo de entrega por cota e tokens |
+| 5 | D — adoção posterior | [RM-091](RM-091-ork-mesh-no-site-para-empresas-e-times.md), [RM-086](RM-086-kimi-code-homologado.md) e [RM-087](RM-087-opencode-homologado.md) | O site é replanejado a partir de estados verdadeiros; novos runtimes entram depois da política comum de contas |
 
-## Achados de condução em 06 a 08/11/2026
+A [RM-058](RM-058-modo-noctum.md) mantém os pilotos depois da frente B. #Noctum segue em desenvolvimento, não anunciado.
 
-Estes itens ainda não têm ordem de prioridade definida pelo dono.
+## Itens estacionados
 
-| Item | Origem | Resultado pretendido |
-| --- | --- | --- |
-| [RM-082](RM-082-credenciais-redigidas-em-toda-superficie.md) Credenciais redigidas em toda superfície de comando, motivo e detalhe | Dívida A7 a A12 da RM-079 e bundle do CI | Nenhuma superfície incluída grava ou mostra credencial em texto, e as rodadas continuam comparáveis pela impressão do comando original |
-| [RM-083](RM-083-estado-do-roadmap-acompanha-a-entrega.md) Estado do roadmap acompanha a entrega | CI da `main` após a RM-079 | O próprio PR prepara o estado pós-merge da página e do índice, sem PR manual de sincronização |
-| [RM-084](RM-084-sessao-continua-com-muitos-objetos-soltos-do-git.md) Sessão continua com muitos objetos soltos do Git | Recusa de `ork_git_status` durante GO | O núcleo empacota sem perda fora do sandbox ou avisa antes do limite, sem afrouxar `arvoreMetadados` |
-| [RM-085](RM-085-verify-com-escopo-causal-mensagem-de-assercao-e-check-fast.md) Verify com escopo causal, mensagem de asserção e CHECK independente no #Fast | Bancada M13 e condução de fechamento da RM-074 | O verify mede todo o trabalho que cria, registra o detalhe seguro da asserção e aceita CHECK independente pedido numa #Fast existente |
-| [RM-088](RM-088-versao-mais-antiga-nunca-vira-a-latest-do-npm.md) Versão mais antiga nunca vira a latest do npm | Publicação das tags `v0.6.7` e `v0.6.8` | Uma versão menor continua publicável sem substituir a `latest`, e falhas de consulta nunca liberam publicação como `latest` |
-
-## Pedidos do dono de 09/11/2026
-
-Estes itens ainda não têm ordem de prioridade definida pelo dono.
-
-| Item | Origem | Resultado pretendido |
-| --- | --- | --- |
-| [RM-086](RM-086-kimi-code-homologado.md) Kimi Code homologado ao lado de Codex e Claude Code | Pedido do dono no terminal, em 09/11/2026 | O Kimi Code despacha fases com perfis, fim observado e prova do núcleo, no modo de autenticação que o dono decidir; depois do ensaio, também conduz a fábrica, como o Codex |
-| [RM-087](RM-087-opencode-homologado.md) OpenCode homologado ao lado de Codex e Claude Code | Pedido do dono no terminal, em 09/11/2026 | O OpenCode despacha fases com linha, provedor e conta explícitos, fim observado e prova do núcleo; depois do ensaio, também conduz a fábrica, como o Codex |
-
-## Pedidos do dono de 10/11/2026
-
-Estes itens ainda não têm ordem de prioridade definida pelo dono.
-
-| Item | Origem | Resultado pretendido |
-| --- | --- | --- |
-| [RM-089](RM-089-orkastery-network-coletiva-da-empresa.md) Orkastery Network coletiva da empresa, com uso obrigatório | Pedidos do dono no terminal, em 10/11/2026 | A empresa reúne as redes dos builders, coordena roadmaps e trabalho em andamento, evita duplicidade, ajuda na ordem dos merges e exige recibos no Git quando essa é a diretriz |
-| [RM-090](RM-090-telemetria-opentelemetry-para-sdlc-analytics.md) Telemetria compatível com OpenTelemetry e Grafana para SDLC Analytics | Pedidos do dono no terminal, em 10/11/2026 | Prompts e dados de condução viram logs OpenTelemetry, legíveis no Grafana, para analytics do builder e da empresa sem impor backend |
-
-## Pedidos do dono de 11/11/2026
-
-Estes itens seguem a prioridade definida pelo dono.
-
-| Item | Origem | Resultado pretendido |
-| --- | --- | --- |
-| [RM-091](RM-091-ork-mesh-no-site-para-empresas-e-times.md) Ork Mesh no site, para empresas e times | Pedido do dono no terminal, em 11/11/2026 | O site apresenta a Ork Mesh a empresas e times de builders, separa o que já está disponível do que está em desenvolvimento e orienta a adoção gradual |
-
-## Pedidos do dono de 12/11/2026
-
-Este item ainda não tem ordem de prioridade definida pelo dono.
-
-| Item | Origem | Resultado pretendido |
-| --- | --- | --- |
-| [RM-092](RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md) Ratificação autenticada de contrato público no #Auto | Pedido do dono no terminal, em 12/11/2026, pela alternativa `1a` | Um contrato público novo só segue no `#Auto` depois que o dono ratifica seus nomes exatos por canal autenticado e o CHECK confere o recibo sem ampliar seu alcance |
+| Item | Gatilho de retorno |
+| --- | --- |
+| [RM-066](RM-066-google-antigravity-homologado.md) | Volta quando houver conta apta e os termos aplicáveis tiverem sido lidos |
+| [RM-070](RM-070-grok-bot-como-camada-de-conducao.md) | Volta depois da entrega da RM-093 |
+| [RM-073](RM-073-modelos-de-decisao-no-ork-e-no-orkmind.md) | Volta quando a RM-071 tiver dados suficientes para treinar e medir o resultado |
 
 ## Itens
 
@@ -106,7 +50,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-005](RM-005-master-e-digest.md) | MASTER ratificado e digest semanal | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-006](RM-006-orkmind-na-fabrica.md) | OrkMind ligado na fábrica | Concluído | Mesclado | Aprovados | Produção | 2026-09-27 |
 | [RM-007](RM-007-telemetria-economica.md) | Telemetria econômica no ledger | Concluído | Mesclado | Aprovados | Produção | 2026-09-27 |
-| [RM-008](RM-008-loop-de-aprendizado.md) | Loop de aprendizado | Piloto | Mesclado | Aprovados | Produção | 2026-10-03 |
+| [RM-008](RM-008-loop-de-aprendizado.md) | Loop de aprendizado | Piloto | Mesclado | Aprovados | Produção | 2026-11-23 |
 | [RM-009](RM-009-playbook-dos-runtimes.md) | Playbook dos runtimes | Concluído | Mesclado | Aprovados | Produção | 2026-09-27 |
 | [RM-012](RM-012-ci-check-independente.md) | CI como CHECK independente | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-013](RM-013-maestro-objetivo.md) | Maestro Mode B7: objetivo e envelope | Descontinuado | Mesclado | Aprovados | Não implantado | 2026-09-24 |
@@ -122,7 +66,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-034](RM-034-conclusao-claude-bg.md) | Conclusão nativa das sessões claude-bg | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-035](RM-035-horario-do-dono.md) | Horário do dono em toda superfície humana | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-036](RM-036-maestro-multicanal.md) | Condução multicanal do Maestro no núcleo | Piloto | Mesclado | Aprovados | Produção | 2026-10-03 |
-| [RM-037](RM-037-verify-rapido-e-confiavel.md) | Verify rápido e confiável | Piloto | Mesclado | Aprovados | Produção | 2026-10-27 |
+| [RM-037](RM-037-verify-rapido-e-confiavel.md) | Verify rápido e confiável | Piloto | Mesclado | Aprovados | Produção | 2026-11-23 |
 | [RM-038](RM-038-busca-semantica-na-memoria.md) | Busca semântica na memória | Em validação | Mesclado | Aprovados | Produção | 2026-10-10 |
 | [RM-039](RM-039-cadencia-do-pulse-por-tag.md) | Cadência do pulse por tag em qualquer canal | Piloto | Mesclado | Aprovados | Produção | 2026-10-03 |
 | [RM-040](RM-040-estado-de-conta-compartilhado.md) | Estado de conta compartilhado entre projetos | Piloto | Mesclado | Aprovados | Produção | 2026-09-27 |
@@ -133,51 +77,51 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-045](RM-045-pulse-enxuto.md) | Pulse enxuto: fila sem lixo e varredura dentro do teto | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-046](RM-046-go-to-open-source.md) | GoToOpenSource, o Orkastery aberto, seguro e fácil de adotar | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-047](RM-047-fabrica-em-varias-maquinas.md) | Fábrica em várias máquinas, com threads em mais de um computador | Piloto | Mesclado | Aprovados | Produção | 2026-10-27 |
-| [RM-048](RM-048-hitl-humano-no-centro.md) | HITL humano no centro: decisão curta, clara e com recomendação em qualquer canal | Em validação | Mesclado | Aprovados | Produção | 2026-10-01 |
+| [RM-048](RM-048-hitl-humano-no-centro.md) | HITL humano no centro: decisão curta, clara e com recomendação em qualquer canal | Em validação | Mesclado | Aprovados | Produção | 2026-11-23 |
 | [RM-049](RM-049-lancamento.md) | Lançamento do Orkastery, com documentação no site, marketplaces e anúncio | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-03 |
 | [RM-050](RM-050-guia-de-contribuicao.md) | Guia de contribuição nos repositórios e nos sites | Piloto | Mesclado | Aprovados | Produção | 2026-10-10 |
 | [RM-051](RM-051-pacote-de-experiencia.md) | Pacote de experiência de orquestração | Disponível | Mesclado | Aprovados | Produção | 2026-10-01 |
 | [RM-052](RM-052-projeto-alvo-explicito.md) | Projeto-alvo explícito e resposta honesta nos hosts | Em validação | Mesclado | Aprovados | Produção | 2026-10-10 |
 | [RM-053](RM-053-orkastery-network.md) | Orkastery Network, as máquinas de uma pessoa em rede | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-03 |
-| [RM-054](RM-054-roadmaps-e-threads-da-rede.md) | Roadmaps e threads da rede visíveis a todo agente e runtime | Em desenvolvimento | Mesclado | Aprovados | Não implantado | 2026-10-03 |
-| [RM-055](RM-055-impedimento-do-dono-vira-hitl.md) | Impedimento que só o dono resolve vira pedido a ele | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-10 |
+| [RM-054](RM-054-roadmaps-e-threads-da-rede.md) | Roadmaps e threads da rede visíveis a todo agente e runtime | Em desenvolvimento | Mesclado | Aprovados | Não implantado | 2026-11-23 |
+| [RM-055](RM-055-impedimento-do-dono-vira-hitl.md) | Impedimento que só o dono resolve vira pedido a ele | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-23 |
 | [RM-056](RM-056-perfil-por-thread-e-carga.md) | Perfil por thread, rodízio por carga e sessões dos perfis | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-02 |
-| [RM-057](RM-057-hitl-por-alternativas.md) | HITL de condução por alternativas: de 3 a 5 opções, uma recomendada, nunca texto colado | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-21 |
-| [RM-058](RM-058-modo-noctum.md) | Modo #Noctum: arcos autônomos de muitas threads e máquinas | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-27 |
+| [RM-057](RM-057-hitl-por-alternativas.md) | HITL de condução por alternativas: de 3 a 5 opções, uma recomendada, nunca texto colado | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-23 |
+| [RM-058](RM-058-modo-noctum.md) | Modo #Noctum: arcos autônomos de muitas threads e máquinas | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-23 |
 | [RM-059](RM-059-conducao-dentro-do-claude-code.md) | Condução dentro do Claude Code: dez mods para ver, decidir, destravar, entregar e pontuar sem sair do terminal | Em desenvolvimento | Mesclado | Não iniciados | Produção | 2026-10-27 |
 | [RM-060](RM-060-site-como-produto.md) | Site como produto: os dois sites públicos com o mesmo rigor do núcleo | Em desenvolvimento | Mesclado | Não iniciados | Não implantado | 2026-10-12 |
 | [RM-061](RM-061-cli-em-ingles-e-pt-br.md) | CLI em inglês e pt-BR | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-10-29 |
 | [RM-062](RM-062-repositorio-publico-sem-dado-privado.md) | Repositório público sem dado privado | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-10-29 |
-| [RM-063](RM-063-fabrica-que-nao-para.md) | Fábrica que não para | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-10-27 |
-| [RM-064](RM-064-conta-esgotada-nao-para-a-fase.md) | Conta esgotada não para a fase | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-10-27 |
+| [RM-063](RM-063-fabrica-que-nao-para.md) | Fábrica que não para | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-23 |
+| [RM-064](RM-064-conta-esgotada-nao-para-a-fase.md) | Conta esgotada não para a fase | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-23 |
 | [RM-065](RM-065-gitlab-com-paridade-ao-github.md) | GitLab com paridade ao GitHub | Disponível | Mesclado | Aprovados | Produção | 2026-10-27 |
-| [RM-066](RM-066-google-antigravity-homologado.md) | Google Antigravity homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-19 |
+| [RM-066](RM-066-google-antigravity-homologado.md) | Google Antigravity homologado ao lado de Codex e Claude Code | Backlog | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-067](RM-067-grok-build-homologado.md) | Grok Build homologado ao lado de Codex e Claude Code | Em desenvolvimento | Mesclado | Aprovados | Não implantado | 2026-10-27 |
 | [RM-068](RM-068-security-scan-no-check.md) | Security scan no CHECK | Disponível | Mesclado | Aprovados | Produção | 2026-10-27 |
 | [RM-069](RM-069-dsn-fora-do-ambiente-dos-agentes.md) | DSN com senha fora do ambiente dos agentes | Disponível | Mesclado | Aprovados | Produção | 2026-10-27 |
-| [RM-070](RM-070-grok-bot-como-camada-de-conducao.md) | Grok Bot como camada de condução do Orkastery | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-21 |
+| [RM-070](RM-070-grok-bot-como-camada-de-conducao.md) | Grok Bot como camada de condução do Orkastery | Backlog | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-071](RM-071-relatorio-da-esteira-do-sdlc.md) | Fluxo da fábrica por item | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-072](RM-072-check-cinco-vezes-mais-rapido.md) | Agile Check e Classic Check: o CHECK rápido como padrão, sem perder cobertura | Disponível | Mesclado | Aprovados | Produção | 2026-10-27 |
-| [RM-073](RM-073-modelos-de-decisao-no-ork-e-no-orkmind.md) | Modelos de decisão no ork e no OrkMind | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-27 |
+| [RM-073](RM-073-modelos-de-decisao-no-ork-e-no-orkmind.md) | Modelos de decisão no ork e no OrkMind | Backlog | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-074](RM-074-agile-check-tres-vezes-mais-rapido.md) | Agile Check mais rápido que o Classic pelo paralelismo, sem perder cobertura | Concluído | Mesclado | Aprovados | Produção | 2026-11-08 |
-| [RM-075](RM-075-fim-de-fase-lido-pelo-resultado.md) | Fim de fase lido pelo resultado: sessão que termina sem pergunta não vira espera humana | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-03 |
-| [RM-076](RM-076-fila-pesada-com-prioridade.md) | Fila pesada com prioridade e reserva de vaga | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-31 |
-| [RM-077](RM-077-revisao-independente-pelo-construtor-do-head.md) | Revisão independente medida pelo construtor do HEAD | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-31 |
-| [RM-078](RM-078-recibo-valido-enquanto-nada-muda.md) | Recibo de verify e de revisão válido enquanto HEAD, claims e plano não mudam | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-07 |
+| [RM-075](RM-075-fim-de-fase-lido-pelo-resultado.md) | Fim de fase lido pelo resultado: sessão que termina sem pergunta não vira espera humana | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-23 |
+| [RM-076](RM-076-fila-pesada-com-prioridade.md) | Fila pesada com prioridade e reserva de vaga | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
+| [RM-077](RM-077-revisao-independente-pelo-construtor-do-head.md) | Revisão independente medida pelo construtor do HEAD | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
+| [RM-078](RM-078-recibo-valido-enquanto-nada-muda.md) | Recibo de verify e de revisão válido enquanto HEAD, claims e plano não mudam | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-23 |
 | [RM-079](RM-079-claims-que-a-correcao-passa.md) | Claims de revisão que a correção passa e retirada tipada com substituta | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-07 |
-| [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md) | Saída completa e causa tipada em todo comando do verify | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-10-31 |
-| [RM-081](RM-081-check-por-qualquer-runner.md) | CHECK que entende qualquer runner de teste e só roda de novo o necessário | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-06 |
+| [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md) | Verify diz a causa e guarda a saída inteira | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
+| [RM-081](RM-081-check-por-qualquer-runner.md) | CHECK que entende qualquer runner de teste e só roda de novo o necessário | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-23 |
 | [RM-082](RM-082-credenciais-redigidas-em-toda-superficie.md) | Credenciais redigidas em toda superfície de comando, motivo e detalhe | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-07 |
-| [RM-083](RM-083-estado-do-roadmap-acompanha-a-entrega.md) | Estado do roadmap acompanha a entrega | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-07 |
+| [RM-083](RM-083-estado-do-roadmap-acompanha-a-entrega.md) | Estado do roadmap acompanha a entrega | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-084](RM-084-sessao-continua-com-muitos-objetos-soltos-do-git.md) | Sessão continua com muitos objetos soltos do Git | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-07 |
-| [RM-085](RM-085-verify-com-escopo-causal-mensagem-de-assercao-e-check-fast.md) | Verify com escopo causal, mensagem de asserção e CHECK independente no #Fast | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-08 |
-| [RM-086](RM-086-kimi-code-homologado.md) | Kimi Code homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-11 |
-| [RM-087](RM-087-opencode-homologado.md) | OpenCode homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-11 |
-| [RM-088](RM-088-versao-mais-antiga-nunca-vira-a-latest-do-npm.md) | Versão mais antiga nunca vira a latest do npm | Em desenvolvimento | Branch criada | Não iniciados | Não implantado | 2026-11-11 |
-| [RM-089](RM-089-orkastery-network-coletiva-da-empresa.md) | Orkastery Network coletiva da empresa, com uso obrigatório | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-11-11 |
-| [RM-090](RM-090-telemetria-opentelemetry-para-sdlc-analytics.md) | Telemetria compatível com OpenTelemetry e Grafana para SDLC Analytics | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-11-11 |
-| [RM-091](RM-091-ork-mesh-no-site-para-empresas-e-times.md) | Ork Mesh no site, para empresas e times | Em desenvolvimento | Não iniciado | Não iniciados | Não implantado | 2026-11-11 |
-| [RM-092](RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md) | Ratificação autenticada de contrato público no #Auto | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-12 |
+| [RM-085](RM-085-verify-com-escopo-causal-mensagem-de-assercao-e-check-fast.md) | Verify com escopo causal, mensagem de asserção e CHECK independente no #Fast | Descontinuado | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
+| [RM-086](RM-086-kimi-code-homologado.md) | Kimi Code homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
+| [RM-087](RM-087-opencode-homologado.md) | OpenCode homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
+| [RM-088](RM-088-versao-mais-antiga-nunca-vira-a-latest-do-npm.md) | Versão mais antiga nunca vira a latest do npm | Concluído | Mesclado | Aprovados | Produção | 2026-11-23 |
+| [RM-089](RM-089-orkastery-network-coletiva-da-empresa.md) | Orkastery Network coletiva da empresa, com uso obrigatório | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-23 |
+| [RM-090](RM-090-telemetria-opentelemetry-para-sdlc-analytics.md) | Telemetria compatível com OpenTelemetry e Grafana para SDLC Analytics | Concluído | Mesclado | Aprovados | Produção | 2026-11-23 |
+| [RM-091](RM-091-ork-mesh-no-site-para-empresas-e-times.md) | Ork Mesh no site, para empresas e times | Em desenvolvimento | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
+| [RM-092](RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md) | Autorização autenticada com escopo, validade, canal e prova | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-093](RM-093-acao-do-dono-executada-pela-fabrica.md) | Ação do dono executada pela fábrica | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-094](RM-094-caixa-de-intencoes.md) | Caixa de intenções | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-095](RM-095-resultado-de-producao-vira-proposta.md) | Resultado de produção vira proposta | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
