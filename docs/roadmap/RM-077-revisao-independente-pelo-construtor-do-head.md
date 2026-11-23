@@ -67,7 +67,7 @@ sdlc:
 
 - **Prioridade / método / pontuação / justificativa / data:** elevada pelo dono em 23/11/2026; sua ordem relativa com RM-064 e RM-076 segue o gargalo medido pela RM-071.
 - **Horizonte / alvo / previsão / confiança / marcos:** desobstrução da frente C; a faixa de prazo será publicada pela RM-071 quando houver amostra suficiente.
-- **Dependências e bloqueios (ID, owner, próxima revisão):** revisão independente da [RM-058](RM-058-modo-noctum.md) (D2) e da [RM-012](RM-012-ci-check-independente.md); absorve o CHECK independente no `#Fast` da [RM-085](RM-085-validacao-por-modo-do-check-e-verify.md); owner: Julio; revisão após a medição inicial da RM-071.
+- **Dependências e bloqueios (ID, owner, próxima revisão):** revisão independente da [RM-058](RM-058-modo-noctum.md) (D2) e da [RM-012](RM-012-ci-check-independente.md); absorve o CHECK independente no `#Fast` da [RM-085](RM-085-verify-com-escopo-causal-mensagem-de-assercao-e-check-fast.md); owner: Julio; revisão após a medição inicial da RM-071.
 - **Premissas / riscos / mitigação:** commit sem sessão conhecida (feito à mão); mitigação: tratar como construtor desconhecido e pedir exceção.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):**
   1. Pelo último GO: simples, mas erra quando dois GOs construíram o mesmo intervalo.

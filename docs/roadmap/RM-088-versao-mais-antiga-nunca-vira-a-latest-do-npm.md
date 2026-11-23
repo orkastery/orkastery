@@ -17,11 +17,13 @@ estado:
   habilitacao: Concluída
 evidencias:
   codigo:
-    commit: null
+    commit: 1f31547
     pr: null
 sdlc:
-  thread: null
-  modo: null
+  thread: ork-rm088guardad
+  modo: "#Auto"
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-088: Versão mais antiga nunca vira a latest do npm
@@ -117,7 +119,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Concluído | — | 2026-11-23 | Julio |
 | Documentação | Aprovada | — | 2026-11-23 | Julio |
-| Código | Mesclado | — | 2026-11-23 | Julio |
+| Código | Mesclado | commit `1f31547` | 2026-11-23 | Julio |
 | Testes | Aprovados | — | 2026-11-23 | Julio |
 | Deploy | Produção | — | 2026-11-23 | Julio |
 | Exposição | Geral | — | 2026-11-23 | Julio |
