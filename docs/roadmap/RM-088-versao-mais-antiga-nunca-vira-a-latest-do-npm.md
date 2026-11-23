@@ -6,15 +6,15 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-11T18:15:00-03:00
+atualizado_em: 2026-11-23T11:02:31-03:00
 estado:
-  ciclo: Em desenvolvimento
-  documentacao: Rascunho
-  codigo: Branch criada
-  testes: Não iniciados
-  deploy: Não implantado
-  exposicao: Flag desligada
-  habilitacao: Pendente
+  ciclo: Concluído
+  documentacao: Aprovada
+  codigo: Mesclado
+  testes: Aprovados
+  deploy: Produção
+  exposicao: Geral
+  habilitacao: Concluída
 evidencias:
   codigo:
     commit: null
@@ -32,7 +32,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Branch criada | Não iniciados | Não implantado | Flag desligada |
+| Concluído | Mesclado | Aprovados | Produção | Geral |
 
 <!-- ork-docs:relance:fim -->
 
@@ -82,7 +82,7 @@ sdlc:
 - **Entrega:** documentação operacional explica a comparação, as falhas fechadas, a exceção de primeira publicação e a política ratificada em D1; o CHANGELOG registra a guarda.
 - **Critério de aceite verificável:** `node core/dist/index.js docs verificar` conclui com sucesso, os documentos citam o comportamento efetivo do script e do workflow, e o CHANGELOG contém a mudança sem promessa não implementada.
 
-**Estado em 11/11/2026:** o item está em desenvolvimento, com código em execução numa thread de construção aberta; ainda não foi implantado.
+**Estado em 23/11/2026:** o item foi publicado na 0.6.9. O workflow escolhe uma dist-tag explícita, mantém `latest` na maior versão estável e falha fechado quando a consulta não prova a comparação.
 
 ## Plano e decisões
 
@@ -115,13 +115,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-11-11 | Julio |
-| Documentação | Rascunho | — | 2026-11-11 | Julio |
-| Código | Branch criada | — | 2026-11-11 | Julio |
-| Testes | Não iniciados | — | 2026-11-11 | Julio |
-| Deploy | Não implantado | — | 2026-11-11 | Julio |
-| Exposição | Flag desligada | — | 2026-11-11 | Julio |
-| Habilitação | Pendente | — | 2026-11-11 | Julio |
+| Ciclo do item | Concluído | — | 2026-11-23 | Julio |
+| Documentação | Aprovada | — | 2026-11-23 | Julio |
+| Código | Mesclado | — | 2026-11-23 | Julio |
+| Testes | Aprovados | — | 2026-11-23 | Julio |
+| Deploy | Produção | — | 2026-11-23 | Julio |
+| Exposição | Geral | — | 2026-11-23 | Julio |
+| Habilitação | Concluída | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -129,9 +129,10 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: a sessão condutora da thread que construir o item; A: Julio; C: dono e revisor do workflow de publicação; I: pessoas que publicam e instalam o CLI.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** item aberto pela sessão de GO a partir do achado de condução e da decisão "1a"; o dono ratificou D1; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** a thread de construção executa F1, F2 e F3 para a 0.6.9.
+- **Próxima ação, responsável e prazo:** nenhuma fatia aberta; mudanças futuras na política de publicação exigem nova decisão registrada.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-11-10 | Item criado em Discovery; código e testes não iniciados; não implantado; flag desligada; habilitação pendente | Achado de condução de 08/11/2026 e resposta "1a" do dono em 10/11/2026 | Dono para a janela; sessão de GO para o registro |
 | 2026-11-11 | Item passou a Em desenvolvimento, com código em execução; prioridade fixada junto com a 0.6.9 e D1 decidida | Thread de construção aberta e decisão do dono sobre `previous`, tags de pré-release e `latest` | Julio |
+| 2026-11-23 | Item marcado Concluído e em Produção | CHANGELOG 0.6.9 registra a guarda publicada | Julio |

@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-11T18:10:04-03:00
+atualizado_em: 2026-11-23T11:02:31-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Rascunho
@@ -104,19 +104,21 @@ Na mesma data, o dono escolheu a alternativa **A**: abrir o item no roadmap, com
 
 ## Estado com evidências
 
+Revisado em 23/11/2026 contra este repositório e o `CHANGELOG.md`: não há evidência de código, teste ou publicação da página do site. Por isso o estado permanece com código e testes não iniciados, sem deploy e com a flag desligada; a data desejada de 0.6.9 não é tratada como progresso.
+
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
 <!-- ork-docs:estado:inicio -->
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-11-11 | Julio |
-| Documentação | Rascunho | — | 2026-11-11 | Julio |
-| Código | Não iniciado | — | 2026-11-11 | Julio |
-| Testes | Não iniciados | — | 2026-11-11 | Julio |
-| Deploy | Não implantado | — | 2026-11-11 | Julio |
-| Exposição | Flag desligada | — | 2026-11-11 | Julio |
-| Habilitação | Pendente | — | 2026-11-11 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-23 | Julio |
+| Documentação | Rascunho | — | 2026-11-23 | Julio |
+| Código | Não iniciado | — | 2026-11-23 | Julio |
+| Testes | Não iniciados | — | 2026-11-23 | Julio |
+| Deploy | Não implantado | — | 2026-11-23 | Julio |
+| Exposição | Flag desligada | — | 2026-11-23 | Julio |
+| Habilitação | Pendente | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -124,8 +126,9 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: equipe do site; A: Julio; C: builders, segurança, privacidade e responsáveis pela documentação; I: empresas e times interessados.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** esta página foi aberta pela sessão de GO da thread `ork-rm091orkmesh`, em modo `#Fast`, a partir do pedido e das decisões do dono; a construção do site terá revisão no repositório próprio.
-- **Próxima ação, responsável e prazo:** planejar F1 a F4 no repositório do site para a 0.6.9; responsável: equipe do site.
+- **Próxima ação, responsável e prazo:** replanejar F1 a F4 no repositório do site, sem reutilizar a data já passada como previsão; responsável: equipe do site.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-11-11 | RM-091 criada em desenvolvimento; código e testes não iniciados; não implantada; flag desligada | Pedido do dono no terminal e escolha da alternativa A para construir junto com a 0.6.9 | Julio |
+| 2026-11-23 | Estado revisado e mantido sem implementação ou deploy | Repositório e CHANGELOG sem evidência de entrega; a meta de 0.6.9 não substitui fato | Julio |
