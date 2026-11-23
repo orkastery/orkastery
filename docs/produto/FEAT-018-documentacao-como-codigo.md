@@ -44,7 +44,7 @@ fontes:
 - **Fluxo principal:**
 
   1. `ork docs init` instala padrões, modelos, índices e o lint de Markdown, sem sobrescrever.
-  2. `ork docs verificar` cobra frontmatter, leitura para TDAH, referências, fontes, símbolos, contratos, comandos do CLI e commits na base.
+  2. `ork docs verificar` cobra frontmatter, leitura rápida, referências, fontes, símbolos, contratos, comandos do CLI e commits na base.
   3. `ork docs sincronizar --escrever` grava só fatos (merge, fase) e regera tabelas e índices.
 
 - **Alternativas, erros e recuperação:** sem `--escrever` o sincronizador só mostra; sem histórico do git a paridade com o git vira aviso.
