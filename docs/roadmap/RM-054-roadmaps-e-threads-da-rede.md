@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-032]
 owner: Julio
-atualizado_em: 2026-10-03T05:56:42+00:00
+atualizado_em: 2026-11-23T11:02:31-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -112,6 +112,10 @@ sdlc:
 
 ## Plano e decisões
 
+### Habilitação para a caixa de intenções
+
+A [RM-094 F3](RM-094-caixa-de-intencoes.md) depende de a RM-054 estar habilitada. A projeção coletiva leva somente id, estado, item relacionado e origem; o texto livre da captura não entra na rede. O estado continua `Não implantado`, `Flag desligada` e `Pendente` até existir prova de ativação.
+
 - **Prioridade:** 3 de 3 no pedido de 29/09/2026 (RM-052, RM-053, RM-054); consome as outras duas.
 - **Horizonte:** fatia 1 mesclada em 30/09; fatia 2 em 01/10; fatia 3 (as lacunas acima) em 03/10, depois da RM-053 na `main` (PR 31).
 - **Dependências:** RM-048 (formato do status report), RM-052 (registro `ork.projetos/v1`, lido aqui), RM-053 (vocabulário das lacunas e `ork.rede-status/v1`), RM-025 (fonte, frescor e lacuna do pacote citável), RM-032 (ativação por host, na fatia 2) e RM-049 (a publicação no npm destrava o uso fora do checkout).
@@ -161,13 +165,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-03 | Julio |
-| Documentação | Em revisão | — | 2026-10-03 | Julio |
-| Código | Mesclado | commit `91dd987` · PR #72 | 2026-10-03 | Julio |
-| Testes | Aprovados | — | 2026-10-03 | Julio |
-| Deploy | Não implantado | — | 2026-10-03 | Julio |
-| Exposição | Flag desligada | — | 2026-10-03 | Julio |
-| Habilitação | Pendente | — | 2026-10-03 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-23 | Julio |
+| Documentação | Em revisão | — | 2026-11-23 | Julio |
+| Código | Mesclado | commit `91dd987` · PR #72 | 2026-11-23 | Julio |
+| Testes | Aprovados | — | 2026-11-23 | Julio |
+| Deploy | Não implantado | — | 2026-11-23 | Julio |
+| Exposição | Flag desligada | — | 2026-11-23 | Julio |
+| Habilitação | Pendente | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -175,7 +179,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI:** R: agentes do Orkastery (Claude) · A: Julio · C: — · I: —
 - **Agentes e autonomia:** execução por agente no modo #Auto da thread; revisão e decisão final: Julio.
-- **Próxima ação:** publicar a versão com a fatia 3 (RM-049), reinstalar a extensão do gateway e provar ao vivo, pelo OpenClaw, o status da rede e o panorama com a rede por pessoa; o `glab` real fica para quando houver um; responsável: Julio.
+- **Próxima ação:** habilitar e provar a RM-054 antes da RM-094 F3, com a projeção fechada e sem texto livre; responsável: futura thread de habilitação.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -185,3 +189,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-30 | `ork_network_status` e a rede por pessoa passam para a fatia 3 | a RM-053 não está na `main`; D-G1 no ledger da `ork-rm054fatia2` | Claude (agente, #Auto), revisão de Julio pendente |
 | 2026-10-03 | fatia 3 aberta e entregue por PR: a rede por pessoa no panorama e `ork_network_status` nos hosts; o `glab` real segue lacuna | a RM-053 entrou na `main` (PR 31); decisões no ledger da `ork-rm054fatia3s` | Claude (agente, #Auto), revisão de Julio pendente |
 | 2026-10-03 | fatia 3 mesclada pelo PR 72 (`91dd987`), com o CI independente verde no SHA exato; MASTER por omissão | `ork ship registrar-pr` e `ork master --aceitar-omissao` no ledger da `ork-rm054fatia3s` | Claude (agente, #Auto), autorizado por Julio |
+| 2026-11-23 | Habilitação passa a preceder a projeção coletiva da RM-094 F3 | Realinhamento aprovado; somente id, estado, item relacionado e origem atravessam a rede | Julio |

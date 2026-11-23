@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-006, FEAT-028]
 owner: Julio
-atualizado_em: 2026-10-03T04:00:00+00:00
+atualizado_em: 2026-11-23T11:20:28-03:00
 estado:
   ciclo: Piloto
   documentacao: Em revisão
@@ -17,7 +17,7 @@ estado:
   habilitacao: Em andamento
 evidencias:
   codigo:
-    commit: 7af7a92
+    commit: 96a0e1c
     pr: null
 sdlc:
   thread: ork-claimsemprov
@@ -55,6 +55,7 @@ sdlc:
 - **Fatia 3, lições viram avisos (28/09/2026, thread `ork-rm008fatia3l`):** as três lições que o `ork` confere sem ambiguidade viram policy executável em `warn`, por decisão do dono. São elas: GO sem baseline (`verify_regression`, e `verify_failed` com a mesma conferência), bloco sem runtime de fallback (`runtime_unavailable`) e ship com a branch atrás da base (`tree_blocked`). O aviso grava `policy_warn` e imprime a correção; nada para. As outras propostas seguem como lição no GOAL e no PLAN.
 - **Fatia 4, conferência opt-in da claim no registro (03/10/2026, thread `ork-claimsemprov`):** a lição `claims.failed` vira a policy `claim_sem_prova_local` (alias `claims_failed`), desligada por padrão. Declarada, o `ork claims add` roda o comando da claim uma vez, no prazo do verify. Se ele reprova ou estoura o prazo, o `ork` grava `policy_warn` e imprime a correção; a claim entra e nada para. O `orkastery.yaml` deste repositório não a declara: ligar é do dono.
 - **Fatia 5, aceite por omissão só da thread indicada (03/10/2026, thread `ork-rm008aceitar`):** a lição da madrugada de 03/10 vira produto. Três vezes um condutor rodou `ork master --aceitar-omissao` para fechar a própria thread e fechou também as entregues de outras frentes paralelas (`ork-rm057fatia3t`, `ork-rm025modocon` e outras). `ork master <thread> --aceitar-omissao` (ou `--thread T`) aceita só aquela; `--dry-run` lista sem gravar; sem thread, o padrão continua, a saída lista cada uma e o processo de agente com mais de uma recebe aviso em stderr. O `registrar-pr`, as skills, os adaptadores, o `AGENTS.md` e os guias ensinam a forma com a thread.
+- **Fatia 9 proposta, lição do resultado de produção (23/11/2026):** a [RM-095](RM-095-resultado-de-producao-vira-proposta.md) liga regressão pós-merge, reversão e issue de bug à versão, ao PR, à thread e ao item. Depois da triagem humana, o caso aceito volta ao próximo GOAL e PLAN como lição com a fonte preservada; proposta recusada ou sem confirmação não ensina nem cria policy.
 - **Fora:** criar policy sozinho (é do dono); busca semântica das lições ([RM-038](RM-038-busca-semantica-na-memoria.md)).
 
 ## Plano e decisões
@@ -78,13 +79,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Piloto | — | 2026-10-03 | Julio |
-| Documentação | Em revisão | — | 2026-10-03 | Julio |
-| Código | Mesclado | commit `7af7a92` | 2026-10-03 | Julio |
-| Testes | Aprovados | — | 2026-10-03 | Julio |
-| Deploy | Produção | — | 2026-10-03 | Julio |
-| Exposição | Parcial | — | 2026-10-03 | Julio |
-| Habilitação | Em andamento | — | 2026-10-03 | Julio |
+| Ciclo do item | Piloto | — | 2026-11-23 | Julio |
+| Documentação | Em revisão | — | 2026-11-23 | Julio |
+| Código | Mesclado | commit `96a0e1c` | 2026-11-23 | Julio |
+| Testes | Aprovados | — | 2026-11-23 | Julio |
+| Deploy | Produção | — | 2026-11-23 | Julio |
+| Exposição | Parcial | — | 2026-11-23 | Julio |
+| Habilitação | Em andamento | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -105,3 +106,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-03 | fatia 6: o MASTER sem `--classe` infere a classe de falha pelo motivo tipado do gate (`CLASSE_DO_MOTIVO`), em vez de gravar sempre `outra` | 8 POSTMORTEMs de 03/10 com `outra` e gates tipados; thread `ork-rm008masteri` (#Auto), teste `rm008-classe-pelo-gate` | Claude (agente, #Auto), autorizado por Julio |
 | 2026-10-03 | fatia 7: o POSTMORTEM conta o CHECK e o SHIP pelo tipo do evento (`FASE_DO_TIPO`) quando o evento não traz fase | 34 de 35 POSTMORTEMs de 03/10 sem o CHECK; thread `ork-postmortemco` (#Auto), teste `rm008-fases-pelo-tipo` | Claude (agente, #Auto), autorizado por Julio |
 | 2026-10-03 | fatia 8: o MASTER sem `--classe` junta `base-avancou` quando a branch trouxe a base antes da entrega | 29 de 35 entregas de 03/10 com merge da `origin/main` na branch e nenhuma `base-avancou`; thread `ork-masterinfere` (#Auto), teste `rm008-base-avancou` | Claude (agente, #Auto), autorizado por Julio |
+| 2026-11-23 | Fatia futura de lição vinda do resultado de produção ligada à RM-095 | Requisito 002 e realinhamento aprovado | Julio |
