@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-07T16:41:25-03:00
+atualizado_em: 2026-11-23T11:18:00-03:00
 estado:
   ciclo: Discovery
   documentacao: Rascunho
@@ -68,8 +68,8 @@ sdlc:
 
 ## Plano e decisões
 
-- **Prioridade / método / pontuação / justificativa / data:** prioridade a definir pelo dono; incidente de documentação na entrega da RM-079 em 07/11/2026.
-- **Horizonte / alvo / previsão / confiança / marcos:** a definir pelo dono; primeiro o contrato prospectivo no PR, depois o caminho tipado para merge que contorne o fluxo.
+- **Prioridade / método / pontuação / justificativa / data:** elevada pelo dono em 23/11/2026; o PR de entrega precisa transportar o estado pós-merge antes das novas frentes ampliarem o número de entregas relacionadas.
+- **Horizonte / alvo / previsão / confiança / marcos:** frente C; primeiro o contrato prospectivo no PR, depois o caminho tipado para merge que contorne o fluxo. A RM-071 fornecerá a faixa de prazo quando houver amostra suficiente.
 - **Dependências e bloqueios (ID, owner, próxima revisão):** `docs verificar --pr`, `docs sincronizar`, `ship registrar-pr` e o contrato do índice; owner: Julio; próxima revisão no planejamento da fatia.
 - **Premissas / riscos / mitigação:** o estado prospectivo pode parecer verdadeiro antes do merge quando lido na branch; mitigação: o verificador distingue candidata e base e exige o commit candidato. Um merge que contorne CI pode deixar a base divergente; mitigação: causa tipada e recuperação pelo núcleo, nunca inferência silenciosa.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):**
@@ -85,13 +85,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-11-07 | Julio |
-| Documentação | Rascunho | — | 2026-11-07 | Julio |
-| Código | Não iniciado | — | 2026-11-07 | Julio |
-| Testes | Não iniciados | — | 2026-11-07 | Julio |
-| Deploy | Não implantado | — | 2026-11-07 | Julio |
-| Exposição | Flag desligada | — | 2026-11-07 | Julio |
-| Habilitação | Pendente | — | 2026-11-07 | Julio |
+| Ciclo do item | Discovery | — | 2026-11-23 | Julio |
+| Documentação | Rascunho | — | 2026-11-23 | Julio |
+| Código | Não iniciado | — | 2026-11-23 | Julio |
+| Testes | Não iniciados | — | 2026-11-23 | Julio |
+| Deploy | Não implantado | — | 2026-11-23 | Julio |
+| Exposição | Flag desligada | — | 2026-11-23 | Julio |
+| Habilitação | Pendente | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -99,8 +99,9 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: a sessão condutora da thread que pegar o item; A: Julio; C: a definir; I: a definir.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** item aberto pela condução a pedido do builder; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** o dono define a prioridade e a condução planeja a transição prospectiva do PR.
+- **Próxima ação, responsável e prazo:** a condução planeja a transição prospectiva do PR e o estado pós-merge; responsável: Julio.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-11-07 | Item criado em Discovery | CI da `main` reprovou após a RM-079 até um PR separado executar a sincronização documental | Builder (pedido de 07/11/2026) |
+| 2026-11-23 | Prioridade elevada | Realinhamento aprovado pelo dono exige que o próprio PR leve o estado pós-merge | Julio |
