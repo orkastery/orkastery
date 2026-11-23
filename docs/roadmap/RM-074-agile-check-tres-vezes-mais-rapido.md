@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-08T23:59:18-03:00
+atualizado_em: 2026-11-23T11:32:59-03:00
 estado:
   ciclo: Concluído
   documentacao: Aprovada
@@ -17,13 +17,13 @@ estado:
   habilitacao: Concluída
 evidencias:
   codigo:
-    commit: a1059ce
+    commit: 93696af
     pr: null
 sdlc:
   thread: ork-rm074fechada
   modo: "#Fast"
   fase: GO
-  status: aberta
+  status: fechada
 ---
 
 # RM-074: Agile Check mais rápido que o Classic pelo paralelismo, sem perder cobertura
@@ -897,13 +897,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Concluído | — | 2026-11-08 | Julio |
-| Documentação | Aprovada | — | 2026-11-08 | Julio |
-| Código | Mesclado | commit `a1059ce` | 2026-11-08 | Julio |
-| Testes | Aprovados | — | 2026-11-08 | Julio |
-| Deploy | Produção | — | 2026-11-08 | Julio |
-| Exposição | Geral | — | 2026-11-08 | Julio |
-| Habilitação | Concluída | — | 2026-11-08 | Julio |
+| Ciclo do item | Concluído | — | 2026-11-23 | Julio |
+| Documentação | Aprovada | — | 2026-11-23 | Julio |
+| Código | Mesclado | commit `93696af` | 2026-11-23 | Julio |
+| Testes | Aprovados | — | 2026-11-23 | Julio |
+| Deploy | Produção | — | 2026-11-23 | Julio |
+| Exposição | Geral | — | 2026-11-23 | Julio |
+| Habilitação | Concluída | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 

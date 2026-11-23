@@ -58,16 +58,16 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-016](RM-016-experiencia-do-builder.md) | Experiência do builder em Claude Code e Codex | Concluído | Mesclado | Aprovados | Produção | 2026-10-27 |
 | [RM-018](RM-018-ontologia-de-portfolio.md) | Ontologia de portfólio | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-019](RM-019-catalogo-multi-repositorio.md) | Catálogo multi-repositório | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
-| [RM-025](RM-025-company-brain-fundacao.md) | Company Brain: fundação | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-03 |
+| [RM-025](RM-025-company-brain-fundacao.md) | Company Brain: fundação | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-11-23 |
 | [RM-026](RM-026-workspace-empresarial.md) | Workspace empresarial e Maestro | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-27 |
-| [RM-031](RM-031-grafo-de-codigo.md) | Grafo determinístico de código e artefatos | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-10 |
+| [RM-031](RM-031-grafo-de-codigo.md) | Grafo determinístico de código e artefatos | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-11-23 |
 | [RM-032](RM-032-bootstrap-maestro.md) | Bootstrap universal Maestro | Disponível | Mesclado | Aprovados | Produção | 2026-10-01 |
 | [RM-033](RM-033-rotacao-de-contas.md) | Rotação de contas e perfis dos runtimes | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-034](RM-034-conclusao-claude-bg.md) | Conclusão nativa das sessões claude-bg | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-035](RM-035-horario-do-dono.md) | Horário do dono em toda superfície humana | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-036](RM-036-maestro-multicanal.md) | Condução multicanal do Maestro no núcleo | Piloto | Mesclado | Aprovados | Produção | 2026-10-03 |
 | [RM-037](RM-037-verify-rapido-e-confiavel.md) | Verify rápido e confiável | Piloto | Mesclado | Aprovados | Produção | 2026-11-23 |
-| [RM-038](RM-038-busca-semantica-na-memoria.md) | Busca semântica na memória | Em validação | Mesclado | Aprovados | Produção | 2026-10-10 |
+| [RM-038](RM-038-busca-semantica-na-memoria.md) | Busca semântica na memória | Em validação | Mesclado | Aprovados | Produção | 2026-11-23 |
 | [RM-039](RM-039-cadencia-do-pulse-por-tag.md) | Cadência do pulse por tag em qualquer canal | Piloto | Mesclado | Aprovados | Produção | 2026-10-03 |
 | [RM-040](RM-040-estado-de-conta-compartilhado.md) | Estado de conta compartilhado entre projetos | Piloto | Mesclado | Aprovados | Produção | 2026-09-27 |
 | [RM-041](RM-041-hitl-invertido.md) | HITL invertido: decisão tomada, lote e pergunta rara | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
@@ -81,7 +81,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-049](RM-049-lancamento.md) | Lançamento do Orkastery, com documentação no site, marketplaces e anúncio | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-03 |
 | [RM-050](RM-050-guia-de-contribuicao.md) | Guia de contribuição nos repositórios e nos sites | Piloto | Mesclado | Aprovados | Produção | 2026-10-10 |
 | [RM-051](RM-051-pacote-de-experiencia.md) | Pacote de experiência de orquestração | Disponível | Mesclado | Aprovados | Produção | 2026-10-01 |
-| [RM-052](RM-052-projeto-alvo-explicito.md) | Projeto-alvo explícito e resposta honesta nos hosts | Em validação | Mesclado | Aprovados | Produção | 2026-10-10 |
+| [RM-052](RM-052-projeto-alvo-explicito.md) | Projeto-alvo explícito e resposta honesta nos hosts | Em validação | Mesclado | Aprovados | Produção | 2026-11-23 |
 | [RM-053](RM-053-orkastery-network.md) | Orkastery Network, as máquinas de uma pessoa em rede | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-03 |
 | [RM-054](RM-054-roadmaps-e-threads-da-rede.md) | Roadmaps e threads da rede visíveis a todo agente e runtime | Em desenvolvimento | Mesclado | Aprovados | Não implantado | 2026-11-23 |
 | [RM-055](RM-055-impedimento-do-dono-vira-hitl.md) | Impedimento que só o dono resolve vira pedido a ele | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-23 |
@@ -91,19 +91,19 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-059](RM-059-conducao-dentro-do-claude-code.md) | Condução dentro do Claude Code: dez mods para ver, decidir, destravar, entregar e pontuar sem sair do terminal | Em desenvolvimento | Mesclado | Não iniciados | Produção | 2026-10-27 |
 | [RM-060](RM-060-site-como-produto.md) | Site como produto: os dois sites públicos com o mesmo rigor do núcleo | Em desenvolvimento | Mesclado | Não iniciados | Não implantado | 2026-10-12 |
 | [RM-061](RM-061-cli-em-ingles-e-pt-br.md) | CLI em inglês e pt-BR | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-10-29 |
-| [RM-062](RM-062-repositorio-publico-sem-dado-privado.md) | Repositório público sem dado privado | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-10-29 |
+| [RM-062](RM-062-repositorio-publico-sem-dado-privado.md) | Repositório público sem dado privado | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-23 |
 | [RM-063](RM-063-fabrica-que-nao-para.md) | Fábrica que não para | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-23 |
 | [RM-064](RM-064-conta-esgotada-nao-para-a-fase.md) | Conta esgotada não para a fase | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-23 |
 | [RM-065](RM-065-gitlab-com-paridade-ao-github.md) | GitLab com paridade ao GitHub | Disponível | Mesclado | Aprovados | Produção | 2026-10-27 |
 | [RM-066](RM-066-google-antigravity-homologado.md) | Google Antigravity homologado ao lado de Codex e Claude Code | Backlog | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
-| [RM-067](RM-067-grok-build-homologado.md) | Grok Build homologado ao lado de Codex e Claude Code | Em desenvolvimento | Mesclado | Aprovados | Não implantado | 2026-10-27 |
+| [RM-067](RM-067-grok-build-homologado.md) | Grok Build homologado ao lado de Codex e Claude Code | Em desenvolvimento | Mesclado | Aprovados | Não implantado | 2026-11-23 |
 | [RM-068](RM-068-security-scan-no-check.md) | Security scan no CHECK | Disponível | Mesclado | Aprovados | Produção | 2026-10-27 |
 | [RM-069](RM-069-dsn-fora-do-ambiente-dos-agentes.md) | DSN com senha fora do ambiente dos agentes | Disponível | Mesclado | Aprovados | Produção | 2026-10-27 |
 | [RM-070](RM-070-grok-bot-como-camada-de-conducao.md) | Grok Bot como camada de condução do Orkastery | Backlog | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-071](RM-071-relatorio-da-esteira-do-sdlc.md) | Fluxo da fábrica por item | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-072](RM-072-check-cinco-vezes-mais-rapido.md) | Agile Check e Classic Check: o CHECK rápido como padrão, sem perder cobertura | Disponível | Mesclado | Aprovados | Produção | 2026-10-27 |
 | [RM-073](RM-073-modelos-de-decisao-no-ork-e-no-orkmind.md) | Modelos de decisão no ork e no OrkMind | Backlog | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
-| [RM-074](RM-074-agile-check-tres-vezes-mais-rapido.md) | Agile Check mais rápido que o Classic pelo paralelismo, sem perder cobertura | Concluído | Mesclado | Aprovados | Produção | 2026-11-08 |
+| [RM-074](RM-074-agile-check-tres-vezes-mais-rapido.md) | Agile Check mais rápido que o Classic pelo paralelismo, sem perder cobertura | Concluído | Mesclado | Aprovados | Produção | 2026-11-23 |
 | [RM-075](RM-075-fim-de-fase-lido-pelo-resultado.md) | Fim de fase lido pelo resultado: sessão que termina sem pergunta não vira espera humana | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-23 |
 | [RM-076](RM-076-fila-pesada-com-prioridade.md) | Fila pesada com prioridade e reserva de vaga | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-077](RM-077-revisao-independente-pelo-construtor-do-head.md) | Revisão independente medida pelo construtor do HEAD | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |

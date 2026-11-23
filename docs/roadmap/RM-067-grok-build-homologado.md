@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-27T11:25:57-03:00
+atualizado_em: 2026-11-23T11:32:59-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -17,13 +17,13 @@ estado:
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: c3801f4
+    commit: d101f3e
     pr: "#205"
 sdlc:
   thread: ork-rm067f4cmcpd
   modo: "#Auto"
-  fase: GOAL
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-067: Grok Build homologado ao lado de Codex e Claude Code
@@ -148,13 +148,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-27 | Julio |
-| Documentação | Em revisão | — | 2026-10-27 | Julio |
-| Código | Mesclado | commit `c3801f4` · PR ##205 | 2026-10-27 | Julio |
-| Testes | Aprovados | — | 2026-10-27 | Julio |
-| Deploy | Não implantado | — | 2026-10-27 | Julio |
-| Exposição | Flag desligada | — | 2026-10-27 | Julio |
-| Habilitação | Pendente | — | 2026-10-27 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-23 | Julio |
+| Documentação | Em revisão | — | 2026-11-23 | Julio |
+| Código | Mesclado | commit `d101f3e` · PR ##205 | 2026-11-23 | Julio |
+| Testes | Aprovados | — | 2026-11-23 | Julio |
+| Deploy | Não implantado | — | 2026-11-23 | Julio |
+| Exposição | Flag desligada | — | 2026-11-23 | Julio |
+| Habilitação | Pendente | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
