@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.10",
-  "publicadoEm": "2026-11-23T12:30:02.436Z",
+  "publicadoEm": "2026-11-23T13:13:06.799Z",
   "threads": [
     {
       "id": "ork-orkauditestr",
@@ -26,6 +26,28 @@
         "viva": false,
         "desdeEm": "2026-11-13T16:00:18.818Z",
         "motivo": "sessão 53359ba0 encerrada (done)"
+      }
+    },
+    {
+      "id": "ork-realinhament",
+      "nome": "realinhamento",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-realinhament-go",
+      "atualizadaEm": "2026-11-23T13:12:59.073Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-11-23T13:13:06.053Z",
+        "motivo": "nenhuma sessão despachada na fase GO"
       }
     },
     {
