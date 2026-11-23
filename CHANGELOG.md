@@ -12,7 +12,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **Orientação única de sessão — F6 (RM-089):** Claude Code, Codex, Hermes e OpenClaw consultam a mesma decisão read-only do núcleo quando uma sessão começa fora de thread; cada adapter apenas transporta pelas superfícies que comprova, e instalação, habilitação, confiança e entrega não comprovadas permanecem `não confirmado`.
 
-- **Exceção auditável do recibo — F6 (RM-089):** a dispensa da F5 é separada da exceção coletiva da F2, exige autorização opaca, atores independentes, policy protegida e notificação `delivered`; o recibo assinado não contém metadados do ledger, o núcleo anexa um envelope ligado por ID e hash, e o runner só projeta o par para o HEAD exato por capacidade protegida.
+- **Exceção auditável do recibo — F6 (RM-089):** a dispensa da F5 é separada da exceção coletiva da F2, exige autorização opaca, atores independentes, policy protegida e notificação `delivered`; o recibo assinado não contém metadados do ledger, o núcleo anexa um envelope ligado por ID e hash, e o runner só projeta o par para o HEAD exato por capacidade protegida. O transporte de produção desse par até o runner fica para a F7 da RM-089; até lá, `exigir` continua pedindo o recibo da F5.
 
 ## [0.6.10] - 2026-11-12
 

@@ -164,6 +164,8 @@ O runner revalida schema, policy, assinatura, hashes, idempotência, horário, d
 `ork.ci-exception/v1` em `ork.ci-run/v1`, na anotação e no relatório. Ele não notifica, não escreve ledger ou forja e
 não recebe capacidade de escrita. A exceção dispensa apenas a ausência do recibo F5; falha de preparo, claim, comando
 ou replay continua decidindo `ok: false`. O recibo assinado prova entrega pelo emissor e não prova leitura humana.
+O transporte de produção que leva a prova e a capacidade da fábrica ao runner ainda não existe; ele fica para a F7
+da RM-089, junto do recibo forte da fábrica. Até lá, o runner não aplica exceção.
 
 ## Preflight coletivo e credencial do CI
 
