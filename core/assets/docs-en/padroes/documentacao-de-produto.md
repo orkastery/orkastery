@@ -108,7 +108,7 @@ In Orkastery, this comparison has an owner and a command:
 
 Every page is read by three readers at the same time. If one of them is left behind, the page has failed.
 
-### 6.1 Person with ADHD
+### 6.1 Person short on time
 
 - **Answer first.** Right below the title, a `> **Em uma frase:**` (in one sentence) line of up to 240 characters.
 - **State at a glance.** State, verification date and version appear before any explanation.

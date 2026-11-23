@@ -14,8 +14,8 @@ append-only ledger.
 - **You choose how often you are called.** One mode per #TAG, in the request itself, decides
   where the cycle pauses. Verification is the same in all of them.
 - **Decisions sized for a full day.** Every question `ork` brings you is short, with alternatives
-  and one recommendation, so a person running dozens of things at once, including people with
-  ADHD, decides in seconds.
+  and one recommendation, so a person running dozens of things at once decides in
+  seconds.
 - **Subscription, never pay-per-token.** Dispatch uses the runtime CLI's own login. `ork` never
   reads credentials, and the `subscription-only` policy blocks paid providers.
 

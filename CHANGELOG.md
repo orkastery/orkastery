@@ -14,6 +14,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **Exceção auditável do recibo — F6 (RM-089):** a dispensa da F5 é separada da exceção coletiva da F2, exige autorização opaca, atores independentes, policy protegida e notificação `delivered`; o recibo assinado não contém metadados do ledger, o núcleo anexa um envelope ligado por ID e hash, e o runner só projeta o par para o HEAD exato por capacidade protegida. O transporte de produção desse par até o runner fica para a F7 da RM-089; até lá, `exigir` continua pedindo o recibo da F5.
 
+### Alterado
+
+- **Padrão de documentação:** o padrão que o `ork` instala, os READMEs e o `ork docs verificar` descrevem o leitor humano pelo modo de leitura (resposta primeiro, uma ideia por linha, pouco tempo); as regras e os limites não mudam.
+
 ## [0.6.10] - 2026-11-12
 
 A rede coletiva da empresa avisa antes do merge quando threads de builders diferentes tocam o mesmo item ou os mesmos arquivos, com uma ordem sugerida (RM-089, F3). O CI emite o recibo básico do verify para o HEAD executado, com a receita ancorada na branch de destino (RM-089, F5). O SDLC Analytics calcula seis indicadores agênticos por maestro e por time, com o evento ratificado e o painel de referência (RM-090, F5).

@@ -5,7 +5,7 @@
  * de produto (plataforma > sistema > modulo > feature) e roadmap (itens RM). Cada pagina tem
  * TRES leitores ao mesmo tempo, e este modulo cobra os tres:
  *
- *  - humano com TDAH: resposta primeiro ("Em uma frase"), secoes previsiveis, paragrafo curto;
+ *  - humano com pouco tempo: resposta primeiro ("Em uma frase"), secoes previsiveis, paragrafo curto;
  *  - verificador de paridade: o que a pagina afirma sobre codigo, testes e merge e conferido
  *    contra o repositorio e o git; divergencia vira erro de lint, nao opiniao;
  *  - modelos e agentes: frontmatter YAML com chaves e valores fixos e IDs estaveis.
@@ -107,7 +107,7 @@ const CHAVES: Record<TipoDoc, readonly string[]> = {
 
 /** Limite da frase de abertura: cabe numa linha de leitura rapida. */
 export const LIMITE_DA_FRASE = 240;
-/** Acima disso o paragrafo pede topicos (leitura com TDAH). */
+/** Acima disso o paragrafo pede topicos (leitura rapida). */
 export const LIMITE_DO_PARAGRAFO = 600;
 
 // --------------------------------------------------------------------------------------------
@@ -700,7 +700,7 @@ function verificarIndices(raiz: string, docs: Documento[], achados: Achado[]): v
 }
 
 // --------------------------------------------------------------------------------------------
-// Saida para humano (TDAH) e para agente
+// Saida para humano e para agente
 
 /** O texto da verificacao, no locale ativo; a mensagem e a correcao de cada achado sao remontadas (G4 da F3b). */
 export function textoDaVerificacao(docs: Documento[], achados: Achado[]): string {
