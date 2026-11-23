@@ -6,9 +6,9 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-21T11:00:00-03:00
+atualizado_em: 2026-11-23T11:02:31-03:00
 estado:
-  ciclo: Discovery
+  ciclo: Backlog
   documentacao: Rascunho
   codigo: Não iniciado
   testes: Não iniciados
@@ -32,9 +32,13 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Discovery | Não iniciado | Não iniciados | Não implantado | Flag desligada |
+| Backlog | Não iniciado | Não iniciados | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
+
+## Estacionamento e gatilho de retorno
+
+O item está estacionado. Ele volta à frente ativa depois que a [RM-093](RM-093-acao-do-dono-executada-pela-fabrica.md) provar a autorização curta e a execução operacional fora da sessão do agente. Antes disso, a nova camada de condução ampliaria canais sem resolver o efeito autorizado.
 
 **Pedido do dono de 20/10/2026:** "Adicione também no roadmap incluir o Grok Bot como possível camada de orquestração do orkastery, podendo ser utilizado pra conduzir o ork." Esta página é só planejamento: nenhum código nem teste foi escrito, e os critérios de aceite abaixo são o que cada fatia terá de provar.
 
@@ -133,13 +137,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-10-21 | Julio |
-| Documentação | Rascunho | — | 2026-10-21 | Julio |
-| Código | Não iniciado | — | 2026-10-21 | Julio |
-| Testes | Não iniciados | — | 2026-10-21 | Julio |
-| Deploy | Não implantado | — | 2026-10-21 | Julio |
-| Exposição | Flag desligada | — | 2026-10-21 | Julio |
-| Habilitação | Pendente | — | 2026-10-21 | Julio |
+| Ciclo do item | Backlog | — | 2026-11-23 | Julio |
+| Documentação | Rascunho | — | 2026-11-23 | Julio |
+| Código | Não iniciado | — | 2026-11-23 | Julio |
+| Testes | Não iniciados | — | 2026-11-23 | Julio |
+| Deploy | Não implantado | — | 2026-11-23 | Julio |
+| Exposição | Flag desligada | — | 2026-11-23 | Julio |
+| Habilitação | Pendente | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -170,9 +174,10 @@ Pontos que a página não confirma: o esquema de autenticação do conector do G
 
 - **RACI (R / A / C / I):** R: condutor da thread `ork-grokbot`, só para esta página; A: Julio; C: A definir; I: A definir.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** a página foi redigida por agente em #Fast, a partir do pedido do dono e das fontes citadas; revisor humano: Julio. Nenhum código foi escrito.
-- **Próxima ação, responsável e prazo:** Julio decide a posição do item no índice de prioridade e a meta e o piloto; a D1 está decidida; sem prazo definido.
+- **Próxima ação, responsável e prazo:** revisar o item depois do aceite da RM-093; responsável: Julio; sem prazo declarado.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-20 | Item criado em Discovery, com cinco fatias propostas e a decisão D1 aberta | Pedido do dono de 20/10/2026; fontes reconferidas na mesma data | Julio |
 | 2026-10-21 | D1 decidida: alternativa a com a condução completa, não só leitura; F1 passa a incluir o despacho, a entrega vira F3, e a prova de que foi o dono segue a RM-057 para gate e `#Noctum` | Resposta do dono no terminal ao resumo das 07h: "2.a (não quero só leitura, quero completo)". O item segue em Discovery, sem código nem teste | Julio |
+| 2026-11-23 | Item estacionado em Backlog | Volta depois de a RM-093 provar autorização e execução fora da sessão | Julio |

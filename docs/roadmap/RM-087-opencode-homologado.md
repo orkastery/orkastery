@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-11T18:30:00-03:00
+atualizado_em: 2026-11-23T11:02:31-03:00
 estado:
   ciclo: Discovery
   documentacao: Rascunho
@@ -35,6 +35,10 @@ sdlc:
 | Discovery | Não iniciado | Não iniciados | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
+
+## Ordem de entrada
+
+A homologação começa depois da política de contas, incluindo identidade e estado compartilhado da [RM-040](RM-040-estado-de-conta-compartilhado.md), seleção de perfil da [RM-056](RM-056-perfil-por-thread-e-carga.md) e cota com retomada da [RM-064](RM-064-conta-esgotada-nao-para-a-fase.md). As decisões de provedor e linha já estão registradas; a dependência agora é a política comum, não nova escolha do dono.
 
 **Pedido do dono de 09/11/2026, no terminal:** "Inclua no roadmap a integração/homologação do orkastery com os runtimes <https://www.kimi.com/code/> e <https://opencode.ai/>". Esta página é só planejamento: nenhum código nem teste foi escrito, e os critérios de aceite abaixo são o que cada fatia terá de provar.
 
@@ -145,13 +149,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-11-11 | Julio |
-| Documentação | Rascunho | — | 2026-11-11 | Julio |
-| Código | Não iniciado | — | 2026-11-11 | Julio |
-| Testes | Não iniciados | — | 2026-11-11 | Julio |
-| Deploy | Não implantado | — | 2026-11-11 | Julio |
-| Exposição | Flag desligada | — | 2026-11-11 | Julio |
-| Habilitação | Pendente | — | 2026-11-11 | Julio |
+| Ciclo do item | Discovery | — | 2026-11-23 | Julio |
+| Documentação | Rascunho | — | 2026-11-23 | Julio |
+| Código | Não iniciado | — | 2026-11-23 | Julio |
+| Testes | Não iniciados | — | 2026-11-23 | Julio |
+| Deploy | Não implantado | — | 2026-11-23 | Julio |
+| Exposição | Flag desligada | — | 2026-11-23 | Julio |
+| Habilitação | Pendente | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -187,10 +191,11 @@ Pontos que a página não confirma: flag de diretório da V2; eventos finais de 
 
 - **RACI (R / A / C / I):** R: condutor da thread `ork-kimicodeeope`, somente para esta página; A: Julio; C: A definir; I: A definir.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** página redigida por agente em #Fast a partir do pedido do dono, do código atual e das fontes citadas; revisor humano: Julio. Nenhum código nem teste foi alterado.
-- **Próxima ação, responsável e prazo:** Julio decide D1, D2, D3, prioridade, meta, janela e piloto; sem prazo definido.
+- **Próxima ação, responsável e prazo:** revisar o piloto depois da política de contas; responsável: futura thread de homologação; sem prazo declarado.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-11-09 | Item criado em Discovery, com cinco fatias propostas e D1 a D3 abertas | Pedido do dono de 09/11/2026; código atual e fontes O1 a O21 | Julio |
 | 2026-11-09 | F6 "host de condução" acrescentada, para depois do ensaio real, na mesma ordem que o Codex seguiu | Decisão do dono no terminal, em 09/11/2026 (alternativa a) | Julio |
 | 2026-11-11 | D1 a D3 decididas: chave de API; OpenRouter ou GPU local com endpoint no padrão OpenAI, sem OpenAI; linha V2 | Decisão do dono no terminal, em 11/11/2026 | Julio |
+| 2026-11-23 | Item posicionado depois da política de contas | Realinhamento aprovado; provedor e linha já decididos | Julio |

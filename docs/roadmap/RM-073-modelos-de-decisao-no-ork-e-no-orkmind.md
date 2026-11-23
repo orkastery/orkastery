@@ -6,9 +6,9 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-27T00:50:00-03:00
+atualizado_em: 2026-11-23T11:02:31-03:00
 estado:
-  ciclo: Discovery
+  ciclo: Backlog
   documentacao: Rascunho
   codigo: Não iniciado
   testes: Não iniciados
@@ -32,9 +32,13 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Discovery | Não iniciado | Não iniciados | Não implantado | Flag desligada |
+| Backlog | Não iniciado | Não iniciados | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
+
+## Estacionamento e gatilho de retorno
+
+O item está estacionado. Ele volta à frente ativa quando a [RM-071](RM-071-relatorio-da-esteira-do-sdlc.md) tiver dados com cobertura suficiente para separar treino, validação e medição do efeito. Sem essa base, o item não declara linha de base nem ganho.
 
 **Pedido do dono (24/10/2026):** criar o item em Discovery, só página e pesquisa, sem código. Cinco frentes, cada uma uma fatia com critério de aceite medido, e regras inegociáveis: o modelo é sinal e não prova, código e prints só saem com opt-in e a barreira de dado privado, a chave fica no cofre, há teto de custo e fallback, e nenhum fornecedor fica fixo no código.
 
@@ -231,13 +235,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-10-27 | Julio |
-| Documentação | Rascunho | — | 2026-10-27 | Julio |
-| Código | Não iniciado | — | 2026-10-27 | Julio |
-| Testes | Não iniciados | — | 2026-10-27 | Julio |
-| Deploy | Não implantado | — | 2026-10-27 | Julio |
-| Exposição | Flag desligada | — | 2026-10-27 | Julio |
-| Habilitação | Pendente | — | 2026-10-27 | Julio |
+| Ciclo do item | Backlog | — | 2026-11-23 | Julio |
+| Documentação | Rascunho | — | 2026-11-23 | Julio |
+| Código | Não iniciado | — | 2026-11-23 | Julio |
+| Testes | Não iniciados | — | 2026-11-23 | Julio |
+| Deploy | Não implantado | — | 2026-11-23 | Julio |
+| Exposição | Flag desligada | — | 2026-11-23 | Julio |
+| Habilitação | Pendente | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -245,10 +249,11 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: sessão condutora da thread; A: Julio; C: quem conduz RM-072 e RM-071; I: quem usa o ork.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** uma sessão do Claude Code em modo #Fast escreveu esta página e fez a pesquisa pública, sem código; revisor humano: Julio, pendente.
-- **Próxima ação, responsável e prazo:** a chave do provedor já está no cofre do projeto (arquivo `0600` fora do ambiente dos agentes, o padrão da RM-069), então a M0 pode ser despachada; prioridade e data com o dono.
+- **Próxima ação, responsável e prazo:** revisar o item quando a RM-071 produzir dados com cobertura para treino e medição; responsável: Julio; sem prazo declarado.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-24 | Item criado em Discovery, só página e pesquisa | Pedido do dono; catálogo e documentação públicos do OpenRouter lidos; linha de base contada nos ledgers locais | Julio |
 | 2026-10-25 | D1 a D5 decididas pelas recomendadas; D6 nova (avaliador de telas só para mudança pequena, de baixa criticidade e verificável pelo print); chave do provedor no cofre | Respostas do dono no terminal do Claude Code | Julio |
 | 2026-10-27 | O tempo de parede do CHECK passa a razão e percentual (contra o Classic Check, contra o GO e contra a linha de base da RM-072); a dependência da RM-072 aponta a página dela, em produção na 0.6.0, e a meta de tempo na RM-074 | Regra do dono de 27/10/2026: tempo em minutos depende do hardware | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |
+| 2026-11-23 | Item estacionado em Backlog | Volta quando a RM-071 fornecer dados para treino, validação e medição | Julio |
