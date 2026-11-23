@@ -10,7 +10,7 @@
 
 ## Prioridade aprovada em 23/11/2026
 
-A tabela única substitui as listas anteriores e ordena o realinhamento pelas frentes A a D. As frentes A e B começam em paralelo. Dentro da frente C, a RM-071 decide a ordem entre RM-064, RM-076 e RM-077 pelo gargalo medido. A [RM-089](RM-089-orkastery-network-coletiva-da-empresa.md) F6 e F7 continua em curso sem disputar essa ordem.
+A tabela única substitui as listas anteriores e ordena o realinhamento pelas frentes A a D. As frentes A e B começam em paralelo. Dentro da frente C, a RM-071 decide a ordem entre RM-064, RM-076 e RM-077 pelo gargalo medido. A [RM-089](RM-089-orkastery-network-coletiva-da-empresa.md) F7 continua em curso sem disputar essa ordem.
 
 | Ordem | Frente | Itens | Resultado que libera a próxima etapa |
 | --- | --- | --- | --- |
