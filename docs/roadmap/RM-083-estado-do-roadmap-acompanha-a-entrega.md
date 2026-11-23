@@ -104,4 +104,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-11-07 | Item criado em Discovery | CI da `main` reprovou após a RM-079 até um PR separado executar a sincronização documental | Builder (pedido de 07/11/2026) |
-| 2026-11-23 | Prioridade elevada | Realinhamento aprovado pelo dono exige que o próprio PR leve o estado pós-merge | Julio |
+| 2026-11-23 | prioridade elevada | Realinhamento aprovado pelo dono exige que o próprio PR leve o estado pós-merge | Julio |
