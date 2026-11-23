@@ -178,6 +178,9 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-090](RM-090-telemetria-opentelemetry-para-sdlc-analytics.md) | Telemetria compatível com OpenTelemetry e Grafana para SDLC Analytics | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-11-11 |
 | [RM-091](RM-091-ork-mesh-no-site-para-empresas-e-times.md) | Ork Mesh no site, para empresas e times | Em desenvolvimento | Não iniciado | Não iniciados | Não implantado | 2026-11-11 |
 | [RM-092](RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md) | Ratificação autenticada de contrato público no #Auto | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-12 |
+| [RM-093](RM-093-acao-do-dono-executada-pela-fabrica.md) | Ação do dono executada pela fábrica | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
+| [RM-094](RM-094-caixa-de-intencoes.md) | Caixa de intenções | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
+| [RM-095](RM-095-resultado-de-producao-vira-proposta.md) | Resultado de produção vira proposta | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->
