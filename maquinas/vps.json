@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.10",
-  "publicadoEm": "2026-11-23T16:32:24.352Z",
+  "publicadoEm": "2026-11-23T16:43:32.837Z",
   "threads": [
     {
       "id": "ork-orkauditestr",
@@ -54,11 +54,11 @@
       "id": "ork-rm089f7recib",
       "nome": "ork-rm089f7recib",
       "modo": "#Auto",
-      "fase": "PLAN",
+      "fase": "CHECK",
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm089f7recib-full",
-      "atualizadaEm": "2026-11-23T16:32:22.985Z",
+      "atualizadaEm": "2026-11-23T16:43:31.986Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
