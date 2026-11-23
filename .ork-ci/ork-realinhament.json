@@ -1,0 +1,1211 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-realinhament",
+  "branch": "ork/ork-realinhament-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-093-acao-do-dono-executada-pela-fabrica.md",
+      "alegacao": "A RM-093 define catálogo fechado, autorização de uso único, execução fora da sessão e critérios de replay, recusa e reversão.",
+      "negativa": false,
+      "verificar": [
+        "test -f docs/roadmap/RM-093-acao-do-dono-executada-pela-fabrica.md",
+        "grep -En 'Catálogo fechado inicial|Executor separado da sessão|resposta repetida' docs/roadmap/RM-093-acao-do-dono-executada-pela-fabrica.md"
+      ],
+      "criadoEm": "2026-11-23T14:06:07.858Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C2",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-094-caixa-de-intencoes.md",
+      "alegacao": "A RM-094 define texto original imutável, promoção explícita, estados de triagem e projeção coletiva sem texto livre.",
+      "negativa": false,
+      "verificar": [
+        "test -f docs/roadmap/RM-094-caixa-de-intencoes.md",
+        "grep -En 'Texto original|Promoção explícita|texto livre não aparece' docs/roadmap/RM-094-caixa-de-intencoes.md"
+      ],
+      "criadoEm": "2026-11-23T14:06:08.029Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C3",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-095-resultado-de-producao-vira-proposta.md",
+      "alegacao": "A RM-095 transforma regressão pós-merge, reversão e issue de bug em proposta que exige confirmação humana.",
+      "negativa": false,
+      "verificar": [
+        "test -f docs/roadmap/RM-095-resultado-de-producao-vira-proposta.md",
+        "grep -En 'Regressão pós-merge|Triagem humana e destino|F5.*Deploy, incidente e DORA' docs/roadmap/RM-095-resultado-de-producao-vira-proposta.md"
+      ],
+      "criadoEm": "2026-11-23T14:06:08.124Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C4",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice gerado do roadmap referencia RM-093, RM-094 e RM-095.",
+      "negativa": false,
+      "verificar": [
+        "grep -En 'RM-093.*Ação do dono|RM-094.*Caixa de intenções|RM-095.*Resultado de produção' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-11-23T14:06:17.199Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C5",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-071-relatorio-da-esteira-do-sdlc.md",
+      "alegacao": "A RM-071 mede o fluxo da fábrica em oito fatias, com espera tipada, vazão útil, ritmo, fluidez, qualidade, gargalo semanal, previsão e custo por entrega.",
+      "negativa": false,
+      "verificar": [
+        "grep -En '^\\| F[1-8] \\|' docs/roadmap/RM-071-relatorio-da-esteira-do-sdlc.md",
+        "grep -n 'Sem backend novo' docs/roadmap/RM-071-relatorio-da-esteira-do-sdlc.md"
+      ],
+      "criadoEm": "2026-11-23T14:08:54.758Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C6",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice do roadmap apresenta a RM-071 com o resultado reformulado como fluxo da fábrica por item.",
+      "negativa": false,
+      "verificar": [
+        "grep -n 'RM-071.*Fluxo da fábrica por item' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-11-23T14:08:54.836Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C7",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-055-impedimento-do-dono-vira-hitl.md",
+      "alegacao": "A RM-055 permanece filha da RM-048, usa o padrão único e não transfere comando operacional ao dono.",
+      "negativa": false,
+      "verificar": [
+        "grep -En '^pai: RM-048|padrão de interação humana|não instrui o dono a rodar comando' docs/roadmap/RM-055-impedimento-do-dono-vira-hitl.md"
+      ],
+      "criadoEm": "2026-11-23T14:12:11.118Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C8",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/padroes/interacao-humana.md",
+      "alegacao": "O padrão único de interação humana exige de três a cinco alternativas, uma recomendada, sequência para perguntas dependentes, lote para independentes e aprofundamento em três camadas.",
+      "negativa": false,
+      "verificar": [
+        "grep -En 'de três a cinco alternativas|Perguntas dependentes|Perguntas independentes|Por quê|Evidência|Detalhe técnico' docs/padroes/interacao-humana.md"
+      ],
+      "criadoEm": "2026-11-23T14:12:11.219Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C9",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-048-hitl-humano-no-centro.md",
+      "alegacao": "A RM-048 é o guarda-chuva do HITL e aponta para o padrão único, a autorização da RM-092 e a execução operacional da RM-093.",
+      "negativa": false,
+      "verificar": [
+        "grep -En 'fonte única|RM-092|RM-093|RM-055, RM-057 e RM-092' docs/roadmap/RM-048-hitl-humano-no-centro.md"
+      ],
+      "criadoEm": "2026-11-23T14:12:11.324Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C10",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-057-hitl-por-alternativas.md",
+      "alegacao": "A RM-057 permanece filha da RM-048 e veda comando na alternativa recomendada.",
+      "negativa": false,
+      "verificar": [
+        "grep -En '^pai: RM-048|padrão de interação humana|sem comando na alternativa recomendada' docs/roadmap/RM-057-hitl-por-alternativas.md"
+      ],
+      "criadoEm": "2026-11-23T14:12:11.467Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C11",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md",
+      "alegacao": "A RM-092 consolida autorização durável, envelope do Noctum, ratificação e nota do MASTER num contrato de escopo, validade, canal e prova consumido pela RM-093.",
+      "negativa": false,
+      "verificar": [
+        "grep -En '^pai: RM-048|RM-063 F7|RM-058|MASTER|RM-093|Escopo|Validade|Canal|Prova' docs/roadmap/RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md"
+      ],
+      "criadoEm": "2026-11-23T14:12:11.681Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C12",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-080-saida-completa-e-causa-tipada-no-verify.md",
+      "alegacao": "A RM-080 consolida saída completa, causa tipada, asserção, escopo causal e pendências da RM-037 em seis fatias, deixando o CHECK independente na RM-077.",
+      "negativa": false,
+      "verificar": [
+        "grep -En '^\\| F[1-6] \\||RM-037|RM-085|RM-077' docs/roadmap/RM-080-saida-completa-e-causa-tipada-no-verify.md"
+      ],
+      "criadoEm": "2026-11-23T14:14:22.266Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C13",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-037-verify-rapido-e-confiavel.md",
+      "alegacao": "A RM-037 preserva suas entregas publicadas e encaminha pendências de diagnóstico e evidência para a RM-080, com o commit mesclado sincronizado do ledger.",
+      "negativa": false,
+      "verificar": [
+        "grep -En 'evidencias:|commit: aa3681f|Escopo remanescente consolidado|passaram para a.*RM-080' docs/roadmap/RM-037-verify-rapido-e-confiavel.md"
+      ],
+      "criadoEm": "2026-11-23T14:14:22.375Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C14",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-085-verify-com-escopo-causal-mensagem-de-assercao-e-check-fast.md",
+      "alegacao": "A RM-085 está descontinuada e aponta o trabalho de verify para RM-080 e o CHECK independente para RM-077.",
+      "negativa": false,
+      "verificar": [
+        "grep -En '^  ciclo: Descontinuado|RM-080|RM-077|Nenhuma fatia da RM-085 foi implementada' docs/roadmap/RM-085-verify-com-escopo-causal-mensagem-de-assercao-e-check-fast.md"
+      ],
+      "criadoEm": "2026-11-23T14:14:22.451Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C15",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-058-modo-noctum.md",
+      "alegacao": "A RM-058 aponta a autorização do envelope para a RM-092 e posiciona os pilotos depois da frente B, mantendo o Noctum em desenvolvimento e não anunciado.",
+      "negativa": false,
+      "verificar": [
+        "grep -En 'Fusão aprovada em 23/11/2026|pilotos começam depois da frente B|RM-092|em desenvolvimento, não anunciado' docs/roadmap/RM-058-modo-noctum.md"
+      ],
+      "criadoEm": "2026-11-23T14:17:29.942Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C16",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-063-fabrica-que-nao-para.md",
+      "alegacao": "A RM-063 preserva a F7 entregue e encaminha a evolução da autorização durável para a RM-092, com execução operacional pela fábrica.",
+      "negativa": false,
+      "verificar": [
+        "grep -En 'Fusão aprovada em 23/11/2026|autorização durável migra|sem transferir comando de terminal|RM-092' docs/roadmap/RM-063-fabrica-que-nao-para.md"
+      ],
+      "criadoEm": "2026-11-23T14:17:30.091Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C17",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md",
+      "alegacao": "A RM-064 prioriza a fatia 4/T6 para devolver a thread entre runtimes e máquinas, ordenada pelo gargalo medido na RM-071.",
+      "negativa": false,
+      "verificar": [
+        "grep -En 'T6 A rede devolve a thread|fatia 4 priorizada|gargalo medido pela RM-071|RM-092' docs/roadmap/RM-064-conta-esgotada-nao-para-a-fase.md"
+      ],
+      "criadoEm": "2026-11-23T14:17:30.277Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C18",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-075-fim-de-fase-lido-pelo-resultado.md",
+      "alegacao": "A RM-075 registra que falta habilitar a flag com medição antes e depois, sem declarar ganho.",
+      "negativa": false,
+      "verificar": [
+        "grep -En 'Habilitação e medição|flag desligada|retrato antes e depois|Nenhum ganho é declarado' docs/roadmap/RM-075-fim-de-fase-lido-pelo-resultado.md"
+      ],
+      "criadoEm": "2026-11-23T14:18:41.887Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C19",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-078-recibo-valido-enquanto-nada-muda.md",
+      "alegacao": "A RM-078 registra que falta implantar e habilitar com medição antes e depois, preservando o estado não implantado.",
+      "negativa": false,
+      "verificar": [
+        "grep -En 'Habilitação e medição|ainda não foi implantado|retrato antes e depois|Nenhum ganho é declarado' docs/roadmap/RM-078-recibo-valido-enquanto-nada-muda.md"
+      ],
+      "criadoEm": "2026-11-23T14:18:42.009Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C20",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-081-check-por-qualquer-runner.md",
+      "alegacao": "A RM-081 registra que falta habilitar a flag com medição antes e depois e mantém a suíte integral no SHIP como proteção.",
+      "negativa": false,
+      "verificar": [
+        "grep -En 'Habilitação e medição|flag desligada|suíte integral no SHIP|Nenhum ganho é declarado' docs/roadmap/RM-081-check-por-qualquer-runner.md"
+      ],
+      "criadoEm": "2026-11-23T14:18:42.133Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C21",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-008-loop-de-aprendizado.md",
+      "alegacao": "A RM-008 inclui uma fatia futura em que resultado de produção aceito pela triagem humana volta como lição por meio da RM-095.",
+      "negativa": false,
+      "verificar": [
+        "grep -En 'Fatia 9 proposta|RM-095|sem confirmação não ensina' docs/roadmap/RM-008-loop-de-aprendizado.md"
+      ],
+      "criadoEm": "2026-11-23T14:20:48.518Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C22",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-054-roadmaps-e-threads-da-rede.md",
+      "alegacao": "A RM-054 registra que precisa ser habilitada antes da RM-094 F3 e limita a projeção coletiva a id, estado, item relacionado e origem.",
+      "negativa": false,
+      "verificar": [
+        "grep -En 'Habilitação para a caixa de intenções|RM-094 F3|somente id, estado, item relacionado e origem|Não implantado' docs/roadmap/RM-054-roadmaps-e-threads-da-rede.md"
+      ],
+      "criadoEm": "2026-11-23T14:20:48.622Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C23",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-089-orkastery-network-coletiva-da-empresa.md",
+      "alegacao": "A RM-089 registra F1 a F5 publicadas, F6 em merge e F7 a construir com transporte da prova da exceção até o runner do CI.",
+      "negativa": false,
+      "verificar": [
+        "grep -En '^  codigo: Mesclado|^  deploy: Produção|F1 a F4 foram publicadas|F5 na 0.6.10|F6 está com merge em curso|prova da exceção autorizada.*runner do CI' docs/roadmap/RM-089-orkastery-network-coletiva-da-empresa.md"
+      ],
+      "criadoEm": "2026-11-23T14:20:48.767Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C24",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-090-telemetria-opentelemetry-para-sdlc-analytics.md",
+      "alegacao": "A RM-090 está concluída com F1 a F5 publicadas e funciona como canal de exportação das métricas da RM-071.",
+      "negativa": false,
+      "verificar": [
+        "grep -En '^  ciclo: Concluído|^  codigo: Mesclado|^  testes: Aprovados|^  deploy: Produção|F1 a F4 foram publicadas|F5 na 0.6.10|Canal da RM-071' docs/roadmap/RM-090-telemetria-opentelemetry-para-sdlc-analytics.md"
+      ],
+      "criadoEm": "2026-11-23T14:20:48.885Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C25",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-066-google-antigravity-homologado.md",
+      "alegacao": "A RM-066 está em Backlog e só retorna com conta disponível e termos lidos.",
+      "negativa": false,
+      "verificar": [
+        "grep -En '^  ciclo: Backlog|Estacionamento e gatilho de retorno|conta disponível e os termos.*lidos' docs/roadmap/RM-066-google-antigravity-homologado.md"
+      ],
+      "criadoEm": "2026-11-23T14:22:38.237Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C26",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-070-grok-bot-como-camada-de-conducao.md",
+      "alegacao": "A RM-070 está em Backlog e só retorna depois do aceite da RM-093.",
+      "negativa": false,
+      "verificar": [
+        "grep -En '^  ciclo: Backlog|Estacionamento e gatilho de retorno|depois.*RM-093|revisar o item depois do aceite da RM-093' docs/roadmap/RM-070-grok-bot-como-camada-de-conducao.md"
+      ],
+      "criadoEm": "2026-11-23T14:22:38.385Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C27",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-073-modelos-de-decisao-no-ork-e-no-orkmind.md",
+      "alegacao": "A RM-073 está em Backlog e só retorna quando a RM-071 fornecer dados com cobertura para treino, validação e medição.",
+      "negativa": false,
+      "verificar": [
+        "grep -En '^  ciclo: Backlog|Estacionamento e gatilho de retorno|RM-071.*cobertura.*treino.*validação.*medição' docs/roadmap/RM-073-modelos-de-decisao-no-ork-e-no-orkmind.md"
+      ],
+      "criadoEm": "2026-11-23T14:22:38.489Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C28",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-086-kimi-code-homologado.md",
+      "alegacao": "A RM-086 está posicionada depois da política comum de contas, com autenticação já decidida.",
+      "negativa": false,
+      "verificar": [
+        "grep -En 'Ordem de entrada|depois da política de contas|RM-040|RM-056|RM-064|autenticação já está registrada' docs/roadmap/RM-086-kimi-code-homologado.md"
+      ],
+      "criadoEm": "2026-11-23T14:22:38.578Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C29",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-087-opencode-homologado.md",
+      "alegacao": "A RM-087 está posicionada depois da política comum de contas, com provedor e linha já decididos.",
+      "negativa": false,
+      "verificar": [
+        "grep -En 'Ordem de entrada|depois da política de contas|RM-040|RM-056|RM-064|decisões de provedor e linha já estão registradas' docs/roadmap/RM-087-opencode-homologado.md"
+      ],
+      "criadoEm": "2026-11-23T14:22:38.674Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C31",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-091-ork-mesh-no-site-para-empresas-e-times.md",
+      "alegacao": "RM-091 explicita que não há evidência de implementação, testes ou deploy e mantém os estados pendentes.",
+      "negativa": true,
+      "verificar": [
+        "grep -q 'codigo: Não iniciado' docs/roadmap/RM-091-ork-mesh-no-site-para-empresas-e-times.md",
+        "grep -q 'não há evidência de código, teste ou publicação' docs/roadmap/RM-091-ork-mesh-no-site-para-empresas-e-times.md"
+      ],
+      "criadoEm": "2026-11-23T14:25:37.726Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C32",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-088-versao-mais-antiga-nunca-vira-a-latest-do-npm.md",
+      "alegacao": "RM-088 registra estado concluído e em produção, com publicação na 0.6.9 e guarda da latest descrita.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'ciclo: Concluído' docs/roadmap/RM-088-versao-mais-antiga-nunca-vira-a-latest-do-npm.md",
+        "grep -q 'publicado na 0.6.9' docs/roadmap/RM-088-versao-mais-antiga-nunca-vira-a-latest-do-npm.md"
+      ],
+      "criadoEm": "2026-11-23T14:26:06.202Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C33",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-076-fila-pesada-com-prioridade.md",
+      "alegacao": "RM-076 prioriza a thread pronta, exclui espera do dono e absorve a fila pesada da RM-058 N2.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'absorve a parte de fila pesada' docs/roadmap/RM-076-fila-pesada-com-prioridade.md",
+        "grep -q 'thread bloqueada pelo dono nunca recebe a vaga' docs/roadmap/RM-076-fila-pesada-com-prioridade.md"
+      ],
+      "criadoEm": "2026-11-23T14:28:25.798Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C34",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-077-revisao-independente-pelo-construtor-do-head.md",
+      "alegacao": "RM-077 mede a independência pelo construtor do HEAD e absorve o CHECK independente do #Fast da RM-085.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'absorve o CHECK independente' docs/roadmap/RM-077-revisao-independente-pelo-construtor-do-head.md",
+        "grep -q 'construtor do HEAD revisado' docs/roadmap/RM-077-revisao-independente-pelo-construtor-do-head.md"
+      ],
+      "criadoEm": "2026-11-23T14:28:25.977Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C35",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-083-estado-do-roadmap-acompanha-a-entrega.md",
+      "alegacao": "RM-083 foi elevada e exige que o PR de entrega carregue o estado pós-merge.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'prioridade elevada' docs/roadmap/RM-083-estado-do-roadmap-acompanha-a-entrega.md",
+        "grep -q 'estado pós-merge' docs/roadmap/RM-083-estado-do-roadmap-acompanha-a-entrega.md"
+      ],
+      "criadoEm": "2026-11-23T14:28:26.097Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C36",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O README tem uma única tabela de prioridade pelas frentes A a D e um bloco separado de itens estacionados com gatilho de retorno.",
+      "negativa": false,
+      "verificar": [
+        "grep -q '## Prioridade aprovada em 23/11/2026' docs/roadmap/README.md",
+        "grep -q '## Itens estacionados' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-11-23T14:31:34.983Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C37",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-025-company-brain-fundacao.md",
+      "alegacao": "Ciclo SDLC de RM-025 sincronizado como MASTER e fechado.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'fase: MASTER' docs/roadmap/RM-025-company-brain-fundacao.md",
+        "grep -q 'status: fechada' docs/roadmap/RM-025-company-brain-fundacao.md"
+      ],
+      "criadoEm": "2026-11-23T14:32:42.724Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C38",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-031-grafo-de-codigo.md",
+      "alegacao": "Ciclo SDLC de RM-031 sincronizado como MASTER e fechado.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'fase: MASTER' docs/roadmap/RM-031-grafo-de-codigo.md",
+        "grep -q 'status: fechada' docs/roadmap/RM-031-grafo-de-codigo.md"
+      ],
+      "criadoEm": "2026-11-23T14:32:42.821Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C39",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-038-busca-semantica-na-memoria.md",
+      "alegacao": "Ciclo SDLC de RM-038 sincronizado como MASTER e fechado.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'fase: MASTER' docs/roadmap/RM-038-busca-semantica-na-memoria.md",
+        "grep -q 'status: fechada' docs/roadmap/RM-038-busca-semantica-na-memoria.md"
+      ],
+      "criadoEm": "2026-11-23T14:32:42.913Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C40",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-052-projeto-alvo-explicito.md",
+      "alegacao": "Ciclo SDLC de RM-052 sincronizado como MASTER e fechado.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'fase: MASTER' docs/roadmap/RM-052-projeto-alvo-explicito.md",
+        "grep -q 'status: fechada' docs/roadmap/RM-052-projeto-alvo-explicito.md"
+      ],
+      "criadoEm": "2026-11-23T14:32:43.007Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C41",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-067-grok-build-homologado.md",
+      "alegacao": "Ciclo SDLC de RM-067 sincronizado como MASTER e fechado.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'fase: MASTER' docs/roadmap/RM-067-grok-build-homologado.md",
+        "grep -q 'status: fechada' docs/roadmap/RM-067-grok-build-homologado.md"
+      ],
+      "criadoEm": "2026-11-23T14:33:23.757Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C42",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md",
+      "alegacao": "Ciclo SDLC de RM-062 sincronizado como MASTER e fechado.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'fase: MASTER' docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md",
+        "grep -q 'status: fechada' docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md"
+      ],
+      "criadoEm": "2026-11-23T14:33:24.355Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C43",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md",
+      "alegacao": "Ciclo SDLC de RM-074 sincronizado como fechado.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'status: fechada' docs/roadmap/RM-074-agile-check-tres-vezes-mais-rapido.md"
+      ],
+      "criadoEm": "2026-11-23T14:33:24.626Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C44",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-077-revisao-independente-pelo-construtor-do-head.md",
+      "alegacao": "A referência da RM-077 para a RM-085 usa o slug existente no roadmap.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'RM-085-verify-com-escopo-causal-mensagem-de-assercao-e-check-fast.md' docs/roadmap/RM-077-revisao-independente-pelo-construtor-do-head.md"
+      ],
+      "criadoEm": "2026-11-23T14:37:18.719Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C45",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-088-versao-mais-antiga-nunca-vira-a-latest-do-npm.md",
+      "alegacao": "RM-088 registra commit de merge e ciclo SDLC fechado em MASTER.",
+      "negativa": false,
+      "verificar": [
+        "grep -Eq 'commit: [0-9a-f]{7}' docs/roadmap/RM-088-versao-mais-antiga-nunca-vira-a-latest-do-npm.md",
+        "grep -q 'status: fechada' docs/roadmap/RM-088-versao-mais-antiga-nunca-vira-a-latest-do-npm.md"
+      ],
+      "criadoEm": "2026-11-23T14:37:18.818Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C46",
+      "thread": "ork-realinhament",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "Os links Markdown do repositório resolvem sem referência quebrada.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-links.cjs"
+      ],
+      "criadoEm": "2026-11-23T14:38:06.584Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ],
+  "recibo": {
+    "contrato": "ork.recibo-prova/v1",
+    "head": "eb3b2579aad1d19a4064cee92f292ef17c9df42a",
+    "sha256": "a8c2db4e6f856a766b20d50f71270ee87b5745384109a053b7448defed8dc5fa"
+  }
+}
