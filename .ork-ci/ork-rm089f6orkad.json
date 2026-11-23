@@ -2266,7 +2266,7 @@
   ],
   "recibo": {
     "contrato": "ork.recibo-prova/v1",
-    "head": "fb869449c084976dcafdd1563c0d1fde41afd5dc",
-    "sha256": "ba5507992a324fbc00edf7b5885fe6db6010a2f03e52563766a6ef0d89cc153f"
+    "head": "3711b37bdea2650c3b8fdf5ad2ba57f4dedef033",
+    "sha256": "327c99e461ad6f1cbac149eb352d4a1c589e0f94f513dc59f636d8736183c3bb"
   }
 }
