@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-020]
 owner: Julio
-atualizado_em: 2026-10-27T00:50:00-03:00
+atualizado_em: 2026-11-23T11:02:31-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -74,11 +74,11 @@ A conta A (assinatura Claude) esgotou a cota semanal entre 02h03 e 02h12, com vo
 | Frente | O que muda | Prova |
 | --- | --- | --- |
 | T1 Esgotamento é evento da conta | O sensor reconhece o fim de cota dentro da sessão viva (a fala do runtime, o código de erro, os hooks `StopFailure` e de notificação) e grava `runtime.quota-exhausted` com o horário de volta. O perfil fica esgotado até lá, e o ork lista todas as sessões vivas do perfil, em todos os projetos da máquina ([RM-040](RM-040-estado-de-conta-compartilhado.md)) | teste com runtime falso que para no meio da fase com a fala de limite: as sessões do perfil viram `runtime.quota-exhausted`, nenhuma fica "parada com job vivo" |
-| T2 Troca sozinha, dentro da autorização | Para cada thread afetada, o ork encerra a sessão morta e redespacha no próximo destino capaz: outra conta do mesmo runtime, logada e ativa; depois o fallback do bloco; sem destino, fila até o horário de volta. Em #Auto e #Noctum, com a autorização durável da RM-063 F7, sem perguntar; fora dela, um pedido ao dono com a alternativa recomendada já pronta (RM-057) | teste com dois perfis claude-bg e um codex: esgotar o primeiro move as threads para o segundo; esgotar os dois move para o codex; sem destino, fila e um aviso |
+| T2 Troca sozinha, dentro da autorização | Para cada thread afetada, o ork encerra a sessão morta e redespacha no próximo destino capaz: outra conta do mesmo runtime, logada e ativa; depois o fallback do bloco; sem destino, fila até o horário de volta. Em #Auto e #Noctum, usa o contrato de autorização da RM-092; fora dele, um pedido ao dono com a alternativa recomendada já pronta (RM-057) | teste com dois perfis claude-bg e um codex: esgotar o primeiro move as threads para o segundo; esgotar os dois move para o codex; sem destino, fila e um aviso |
 | T3 Retomada, não recomeço | O redespacho no meio de um bloco leva o ponto de parada derivado do ledger e do git (fase, último commit, claims, rodada do CHECK, GO-FIX em curso) numa seção própria do prompt, e não repete GOAL nem PLAN; o prompt original segue gravado com o sha256 | teste: thread parada no CHECK é retomada no CHECK, com o GOAL e o PLAN intactos |
 | T4 Trabalho da sessão mora na thread | Rascunhos, pareceres de revisão e listas de prova vão para a pasta da thread (`.orkastery/threads/<id>/trabalho/`), não só para o diretório do job da conta; na troca, o ork leva o caminho e um resumo limitado do que está lá | teste: o parecer gravado pela sessão A é lido pela sessão B de outra conta |
 | T5 Condução não divide o destino das fases | O passo que reage à cota é o `ork conducao batida` determinístico (RM-063 F7), chamado pela batida da máquina; quando há condutor LLM, o `ork doctor` avisa se ele divide runtime e conta com fases vivas | ensaio: esgotar a conta das fases não para a condução |
-| T6 A rede vê a parada | Máquina sem destino capaz publica as threads paradas na rede ([RM-053](RM-053-orkastery-network.md)); outra máquina com conta livre pode assumir pela reserva ([RM-047](RM-047-fabrica-em-varias-maquinas.md)), e o dono recebe o aviso em até 30 min | teste com duas máquinas falsas: a sem conta publica, a com conta assume pela reserva |
+| T6 A rede devolve a thread | Máquina sem destino capaz publica as threads paradas na rede ([RM-053](RM-053-orkastery-network.md)); outra máquina com conta livre assume pela reserva ([RM-047](RM-047-fabrica-em-varias-maquinas.md)) e retoma a fase no checkpoint, entre runtimes e máquinas | teste com duas máquinas falsas: a sem conta publica, a com conta assume pela reserva e retoma a mesma fase sem duplicar sessão ou efeito |
 | T7 Estado das contas sempre vivo | O `ork accounts check` expira a marcação vencida, distingue limite de sessão, semanal e de gasto definido pelo administrador, mede a cota quando o runtime a expõe e mostra, por conta, o que roda nela e quando volta; runtime sem adaptador instalado não entra como destino capaz | teste: marcação vencida volta a ativa; medida estruturada aparece; fallback sem adaptador é descartado |
 | T8 Estado gravável com privilégio mínimo | O despacho inicial e o redespacho Codex por `ork retry` ou pela escada recebem o MCP do Orkastery vinculado à própria thread e ao despacho, com perfil filho `worktree` e ferramentas de mutação enumeradas; o sandbox continua restrito à worktree e o núcleo valida cada escrita | teste: redespacho simulado contém somente os grants MCP previstos, sem ampliar sandbox nem raiz gravável |
 | T9 Fim visto mesmo sem watcher | O vínculo do sensor é registrado antes da prontidão eventual do runtime. Se o watcher não nascer ou morrer, a batida recompõe a fonte pelo despacho verificado, lê o terminal nativo, grava a resposta final privada em `trabalho/` e emite um único `phase_result`; falha permanente ao recompor a fonte fica diagnosticada e só vira parada tipada depois de dez minutos desde a última observação boa ou o primeiro erro da série atual | teste com controller e rollout simulados: falha transitória não encerra a sessão, a leitura seguinte encontra `task_complete` e vínculo permanentemente divergente termina em `runtime.unavailable` |
@@ -90,8 +90,8 @@ A conta A (assinatura Claude) esgotou a cota semanal entre 02h03 e 02h12, com vo
 ## Plano e decisões
 
 - **Prioridade / método / pontuação / justificativa / data:** P0, pedido do dono de 13/10/2026; o #Noctum (RM-058) roda arcos de horas e não se sustenta se uma conta esgotada para o arco inteiro.
-- **Horizonte / alvo / previsão / confiança / marcos:** fatia 1 (T1, T2, T3); fatia 2 (T4, T5, T7); fatia 3 (T8, T9, T10); T6 permanece como frente própria de rede.
-- **Dependências e bloqueios (ID, owner, próxima revisão):** RM-063 F3, F4 e F7 (prompt gravado, escada e condutor com autorização); RM-056 (perfil por thread); RM-040 (estado de conta entre projetos); RM-059 (Sentinela e Clima de Cota); RM-047 e RM-053 (rede).
+- **Horizonte / alvo / previsão / confiança / marcos:** fatia 1 (T1, T2, T3); fatia 2 (T4, T5, T7); fatia 3 (T8, T9, T10); fatia 4 priorizada (T6), que devolve a thread entre runtimes e máquinas. A ordem da frente C segue o gargalo medido pela RM-071.
+- **Dependências e bloqueios (ID, owner, próxima revisão):** RM-063 F3 e F4 (prompt gravado e escada), RM-092 (autorização), RM-056 (perfil por thread), RM-040 (estado de conta entre projetos), RM-059 (Sentinela e Clima de Cota), RM-047 e RM-053 (rede).
 - **Premissas / riscos / mitigação:** risco de gastar a cota de uma conta que o dono reserva para outro uso; mitigação: só entram na troca as contas do rodízio (`ork accounts`), e o dono tira uma conta do rodízio com `ork accounts remove`. Risco de trocar de runtime no meio de um bloco e perder qualidade; mitigação: outra conta do mesmo runtime vem antes do fallback, e a troca fica no ledger.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):** pedido do dono de 13/10/2026 (esta página). Página própria em vez de fatia da RM-063: a RM-063 trata o despacho que falha e a máquina sem batida; esta trata a conta que acaba com a fase em curso e o destino capaz disponível.
 
@@ -243,13 +243,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-27 | Julio |
-| Documentação | Em revisão | — | 2026-10-27 | Julio |
-| Código | Mesclado | commit `fe590b66` · PR #178 | 2026-10-27 | Julio |
-| Testes | Em execução | — | 2026-10-27 | Julio |
-| Deploy | Produção | release: v0.6.0 (fatias 1, 2 e 3), @orkastery/cli no npm | 2026-10-27 | Julio |
-| Exposição | Parcial | — | 2026-10-27 | Julio |
-| Habilitação | Em andamento | — | 2026-10-27 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-23 | Julio |
+| Documentação | Em revisão | — | 2026-11-23 | Julio |
+| Código | Mesclado | commit `fe590b66` · PR #178 | 2026-11-23 | Julio |
+| Testes | Em execução | — | 2026-11-23 | Julio |
+| Deploy | Produção | release: v0.6.0 (fatias 1, 2 e 3), @orkastery/cli no npm | 2026-11-23 | Julio |
+| Exposição | Parcial | — | 2026-11-23 | Julio |
+| Habilitação | Em andamento | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -257,7 +257,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: condutor da VPS; A: Julio; C: condutor da maquina-b (RM-063); I: —.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** condutor da VPS (#Fast para a página); revisor humano: Julio.
-- **Próxima ação, responsável:** tratar T6 na frente de rede. Responsável: condutor da iniciativa.
+- **Próxima ação, responsável:** construir a fatia 4/T6 na ordem indicada pelo gargalo da RM-071. Responsável: condutor da iniciativa.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -266,3 +266,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-27 | Fatias 1, 2 e 3 em produção na 0.6.0; exposição Parcial e habilitação Em andamento, porque a T6 segue | Tag `v0.6.0`, com os merges `9975486e` (#173), `8d37c75f` (#176) e `fe590b66` (#178) na tag; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |
 | 2026-10-29 | Continuação para a fila pesada observada de outro espaço de PIDs e para pedidos tipados à condução | Incidente da thread `ork-rm061f3erota` e testes focados da thread `ork-asessaonosan`; mudança ainda em “Não publicado” | Agente condutor em #Auto |
 | 2026-10-31 | Fatia 4 proposta: trava de rodízio entre runtimes, histórico de rodízios e contadores | Achados de condução em rede, conferidos contra a 0.6.2 | Julio (pedido de 31/10/2026) |
+| 2026-11-23 | Fatia 4/T6 sobe na frente C para devolver a thread entre runtimes e máquinas | Realinhamento aprovado; ordem final segue o gargalo da RM-071 | Julio |

@@ -6,7 +6,7 @@ categoria: melhoria
 pai: RM-048
 features: []
 owner: Julio
-atualizado_em: 2026-10-21T06:01:38-03:00
+atualizado_em: 2026-11-23T11:11:38-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -17,13 +17,13 @@ estado:
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: 7266df6
+    commit: b16c5be
     pr: 49
 sdlc:
   thread: ork-rm057respost
   modo: "#Auto"
-  fase: GO
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-057 — HITL de condução por alternativas: de 3 a 5 opções, uma recomendada, nunca texto colado
@@ -57,11 +57,11 @@ sdlc:
   - Um pedido do dono que chega como texto colado, pedido pelo próprio fluxo, vale como instrução do dono, dentro da autorização que ele declara.
   - **Requisito de 12/10/2026, linguagem simples:** todo passo que depende do dono chega como pergunta com 3 alternativas e uma recomendada, em linguagem simples, nunca como lista de comandos crus nem com termo técnico sem explicação. O caso que motivou: "o comando da tag v0.5.5" mandado ao dono sem dizer o que é uma tag. A recomendada, quando possível, é a que o dono responde com uma palavra e a fábrica executa o resto com a autorização dele.
   - **Requisito de 20/10/2026, o dono aprova onde estiver:** aprovar não depende de um canal nem de copiar uma linha. Toda pergunta que pede aprovação nasce com um código curto e alternativas, e o dono responde "a", "sim", "1a" ou "autorizo" em qualquer canal com prova de que foi ele: o Telegram (Hermes e OpenClaw), o terminal do Claude Code numa sessão interativa e o diálogo nativo do host. O núcleo resolve a resposta contra a pergunta pendente e, com mais de uma e a resposta ambígua, pergunta qual, sem adivinhar. A sessão que o `ork` despachou nunca vale como dono, e a prova vem da origem da sessão, não do texto. O caso que motivou: duas propostas do piloto do #Noctum venceram em 20/10/2026 porque autorizar exigia copiar `/ork noctum <arco> autorizar <sha256>` no Telegram.
-- **Fora de escopo:** a única exceção ao texto livre é a dependência técnica que a fábrica não consegue resolver sozinha com os runtimes disponíveis e que exige que o maestro humano rode um comando no terminal (um login interativo, por exemplo). Nesse caso o pedido traz o comando exato, pronto para copiar.
+- **Fora de escopo:** transferir ao dono comando ou operação que a fábrica pode executar. Quando uma credencial ou consentimento exige presença humana, o pedido continua no [padrão de interação humana](../padroes/interacao-humana.md), explica a ação sem comando na recomendada e a fábrica retoma a execução depois da resposta.
 - **Entregáveis e critérios de aceite:**
   - Contrato do HITL de condução com 3 a 5 alternativas e um selo "Recomendação" → teste que reprova um pedido com menos de 3 ou mais de 5 opções, ou com nenhuma ou mais de uma recomendada.
   - Lint de prompt e de adaptador → `ork prompt lint` reprova um template que peça confirmação em texto livre ou que o humano cole texto.
-  - Exceção técnica → o pedido em texto só passa com o motivo tipado de dependência técnica e o comando a rodar.
+  - Dependência técnica → o pedido só passa com motivo tipado, de três a cinco alternativas e exatamente uma recomendada, sem comando na alternativa recomendada.
   - Cenário do incidente de 01/10 → um pedido colado com autorização explícita segue sem parar.
 - **Piloto, medição e critérios de expansão/interrupção:** piloto na condução do próprio Orkastery por 7 dias, medindo no ledger o tempo parado por HITL; expande para todos os hosts se nenhum HITL em texto livre passar fora da exceção.
 
@@ -84,7 +84,7 @@ Evidência: `core/test/hitl-curto.test.ts` e `hitl-texto-livre.test.ts` (os test
 
 - **Prioridade / método / pontuação / justificativa / data:** Alta; pedido do dono; uma noite inteira de fábrica parada por um HITL em texto livre; 2026-10-02.
 - **Horizonte / alvo / previsão / confiança / marcos:** próxima versão depois da 0.5.1; marcos: contrato, lint, adaptadores, cenário.
-- **Dependências e bloqueios (ID, owner, próxima revisão):** [RM-048](RM-048-hitl-humano-no-centro.md) (forma do bloco de decisão), [RM-041](RM-041-hitl-invertido.md) (HITL invertido).
+- **Dependências e bloqueios (ID, owner, próxima revisão):** [RM-048](RM-048-hitl-humano-no-centro.md) e o padrão único de interação humana (forma do bloco de decisão), [RM-041](RM-041-hitl-invertido.md) (HITL invertido).
 - **Premissas / riscos / mitigação:** risco de a fábrica decidir sozinha algo irreversível. Mitigação: a alternativa recomendada só é aplicada com a escolha do humano ou dentro da autorização que ele já deu; dúvida dentro da autorização vai para `ork decisao registrar`, sem parar a thread.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):** regra definida por Julio em 2026-10-02.
 
@@ -96,13 +96,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-21 | Julio |
-| Documentação | Em revisão | — | 2026-10-21 | Julio |
-| Código | Mesclado | commit `7266df6` · PR #49 | 2026-10-21 | Julio |
-| Testes | Em execução | — | 2026-10-21 | Julio |
-| Deploy | Não implantado | — | 2026-10-21 | Julio |
-| Exposição | Flag desligada | — | 2026-10-21 | Julio |
-| Habilitação | Pendente | — | 2026-10-21 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-23 | Julio |
+| Documentação | Em revisão | — | 2026-11-23 | Julio |
+| Código | Mesclado | commit `b16c5be` · PR #49 | 2026-11-23 | Julio |
+| Testes | Em execução | — | 2026-11-23 | Julio |
+| Deploy | Não implantado | — | 2026-11-23 | Julio |
+| Exposição | Flag desligada | — | 2026-11-23 | Julio |
+| Habilitação | Pendente | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -126,3 +126,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-21 | Fatia 5 na thread ork-rm057respost: a resposta curta à pergunta do arco do #Noctum em qualquer canal com prova de que foi o dono (o Telegram do Hermes e do OpenClaw com o reply, o código, o número e a palavra solta; o terminal do Claude Code pelo hook `UserPromptSubmit`, com a origem da sessão provada; o diálogo nativo com três alternativas), a pergunta no padrão "responda a, b ou c" e o reply também para os gates no Telegram; o gate pelo terminal fica como a próxima fatia proposta (D1) | Decisões D1 a D13 registradas com `ork decisao registrar` na thread; os formatos do #Noctum seguem sem ratificação | Claude (agente, #Auto), revisão de Julio pendente |
 | 2026-10-21 | GO-FIX 1 da fatia 5, depois do CHECK independente: o terminal só grava o prompt que o dono digitou (`source` igual a `user`), logo depois da pergunta mostrada, só para dizer "a", e com a cadeia de processos nascida do hook; o reply do Telegram só vale para a mensagem em que a pergunta foi entregue, e só para ela; uma mensagem responde a uma pergunta só; o reply a um gate deixa de valer; os limites dos dois canais locais ficam ditos como são | CHECK da thread (achados 1 a 10), testes NP18 a NP23, RC15 a RC25, TM18 a TM27, HK8 e GW10 a GW11, e os mutantes da correção mortos | Claude (agente, #Auto), revisão de Julio pendente |
 | 2026-10-21 | GO-FIX 2 da fatia 5, depois da segunda rodada do CHECK: a palavra solta em reply a uma mensagem que não é a pergunta (a confirmação de um gate, a mensagem de outra pessoa) vai ao núcleo marcada (`resposta:outra`) e é recusada com o porquê; o ingresso do terminal fica desligado até o Claude Code mandar a origem humana do evento, e o hook só diz ao dono por onde responder; as guardas que os mutantes da rodada 2 mostraram sem teste ganham teste | CHECK da thread, rodada 2 (achados R1 a R5), decisões D22 e D23, testes RC26 a RC28, GW12 e GW13, TM28 a TM30, NP24 a NP26, HK9 e HK10, e os mutantes da correção mortos | Claude (agente, #Auto), revisão de Julio pendente |
+| 2026-11-23 | Confirmada como filha da RM-048 e alinhada ao padrão único: decisão humana, execução operacional pela fábrica e nenhuma recomendação com comando | Requisito 005 e realinhamento aprovado | Julio |

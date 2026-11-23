@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-004, FEAT-014, FEAT-020]
 owner: Julio
-atualizado_em: 2026-10-27T00:52:46-03:00
+atualizado_em: 2026-11-23T11:13:58-03:00
 estado:
   ciclo: Piloto
   documentacao: Em revisão
@@ -17,7 +17,7 @@ estado:
   habilitacao: Em andamento
 evidencias:
   codigo:
-    commit: 36def09
+    commit: aa3681f
     pr: 34
     anteriores: "baf065e (PR #28), a61e1e4 (PR #18), 10ca416 (Orkastery 0.3.0)"
   testes:
@@ -42,6 +42,10 @@ sdlc:
 | Piloto | Mesclado | Aprovados | Produção | Parcial |
 
 <!-- ork-docs:relance:fim -->
+
+## Escopo remanescente consolidado
+
+As fatias publicadas continuam registradas nesta página. Em 23/11/2026, as pendências de diagnóstico uniforme, classificação e preservação da evidência em todos os caminhos do verify passaram para a [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md). Trabalho novo nesse recorte não abre outra fatia da RM-037.
 
 - **Features:** [FEAT-004](../produto/FEAT-004-claims-e-verify.md), [FEAT-014](../produto/FEAT-014-monitor-board-e-pulse.md), [FEAT-020](../produto/FEAT-020-mcp-e-adaptadores.md)
 - **Thread:** `ork-rm037defeit2` (a mais recente); antes, `ork-rm037esperas`, `ork-rm037fatia6r`, `ork-rm037fatia5p`, `ork-rm037fatia4t`, `ork-rm037fatia3d`, `ork-rm037noite`, `ork-rm037defeito`, `ork-defeitosdeco`, `ork-i54compilaca` e `ork-verifytimeou`
@@ -164,13 +168,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Piloto | — | 2026-10-27 | Julio |
-| Documentação | Em revisão | — | 2026-10-27 | Julio |
-| Código | Mesclado | commit `36def09` · PR #34 · anteriores: baf065e (PR #28), a61e1e4 (PR #18), 10ca416 (Orkastery 0.3.0) | 2026-10-27 | Julio |
-| Testes | Aprovados | ci: verde no push dos merges (runs 36560460823, 36663174203 e 36725816649) e no da v0.5.0 (run 36815186450) | 2026-10-27 | Julio |
-| Deploy | Produção | release: v0.6.0 (as esperas, a saída completa, os defeitos de 19 e 20/10 e os tipos do motor), v0.5.0 (PR | 2026-10-27 | Julio |
-| Exposição | Parcial | — | 2026-10-27 | Julio |
-| Habilitação | Em andamento | — | 2026-10-27 | Julio |
+| Ciclo do item | Piloto | — | 2026-11-23 | Julio |
+| Documentação | Em revisão | — | 2026-11-23 | Julio |
+| Código | Mesclado | commit `aa3681f` · PR #34 · anteriores: baf065e (PR #28), a61e1e4 (PR #18), 10ca416 (Orkastery 0.3.0) | 2026-11-23 | Julio |
+| Testes | Aprovados | ci: verde no push dos merges (runs 36560460823, 36663174203 e 36725816649) e no da v0.5.0 (run 36815186450) | 2026-11-23 | Julio |
+| Deploy | Produção | release: v0.6.0 (as esperas, a saída completa, os defeitos de 19 e 20/10 e os tipos do motor), v0.5.0 (PR | 2026-11-23 | Julio |
+| Exposição | Parcial | — | 2026-11-23 | Julio |
+| Habilitação | Em andamento | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -203,3 +207,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-20 | defeitos de condução de 19 e 20/10: prazo da baseline, dependências da worktree nova, dois testes herméticos e a sessão ociosa depois do Stop | thread `ork-rm037defeit2`, decisões no ledger, testes `rm037-defeitos2010-*` e mutantes M1 a M17, PR a abrir | Julio |
 | 2026-10-03 | teste instável do lease da sucessora (B-1 de `rm037-baseline-no-despacho`, run 37096532937 no Node 22): corrida com o watcher destacado, reproduzida com atraso injetado e consertada lendo a identidade no lease depois do fim da sessão; 50 rodadas seguidas sob carga na claim | thread `ork-rm037testede`, decisões e claims no ledger | Julio |
 | 2026-10-27 | Esperas, saída completa, testes instáveis, snapshot com sha só de letras, defeitos de 19 e 20/10 e tipos do motor em produção na 0.6.0; o ciclo segue Piloto | Tag `v0.6.0`, com os merges `08cbd5ff` (#158), `927f9daf` (#170), `6abb3ba3`, `f0396f69` (#179), `69f40775` (#182), `aa3681fe` (#185) e `cca7f904` (#195) na tag; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |
+| 2026-11-23 | Pendências de diagnóstico e evidência consolidadas na RM-080; entregas publicadas permanecem nesta página | Realinhamento aprovado pelo dono | Julio |

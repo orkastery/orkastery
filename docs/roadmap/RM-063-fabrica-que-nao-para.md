@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-27T00:50:00-03:00
+atualizado_em: 2026-11-23T11:02:31-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -80,6 +80,8 @@ sdlc:
 | F6 Ociosidade é alerta | Máquina com vaga livre (abaixo de `concurrency.max_parallel_threads`, 5 pela decisão P1.a) e fila de trabalho do roadmap reservada para ela gera o alerta "máquina ociosa" ao dono, com as próximas threads sugeridas | teste: 0 sessões vivas e reserva aberta geram o alerta |
 | F7 Condutor autônomo dentro de autorização durável | `ork conducao autorizar --ate <data> --pode merge,registrar,master,despachar` grava a autorização do dono (como a X1.a); `ork conducao batida` é o passo determinístico que a varredura chama para avançar as threads dentro dela: merge do PR verde e limpo, registro, MASTER por omissão e o despacho com o prompt gravado. A fase que precisa de LLM é despachada como sessão de background, nunca rodada por cron LLM. O merge da main na branch da thread devolve os itens dela a "## Não publicado" do CHANGELOG | teste: autorização expirada recusa com motivo tipado; `gh`, remoto e runtime falsos |
 
+**Fusão aprovada em 23/11/2026:** a F7 continua entregue como estado atual, mas sua próxima evolução não mantém contrato próprio. A autorização durável migra para a [RM-092](RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md), com escopo, validade, canal e prova comuns aos demais consumidores.
+
 ### Frentes nos mods do Claude Code (família da [RM-059](RM-059-conducao-dentro-do-claude-code.md), conduzida pela VPS)
 
 Proposta para a VPS incluir na RM-059 ou conduzir aqui, o que o dono decidir:
@@ -118,13 +120,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-27 | Julio |
-| Documentação | Em revisão | — | 2026-10-27 | Julio |
-| Código | Mesclado | commit `adc973d` · PR #144 | 2026-10-27 | Julio |
-| Testes | Em execução | — | 2026-10-27 | Julio |
-| Deploy | Produção | release: v0.6.0 (F4, F6, F7 e H1 a H4), @orkastery/cli no npm | 2026-10-27 | Julio |
-| Exposição | Parcial | — | 2026-10-27 | Julio |
-| Habilitação | Em andamento | — | 2026-10-27 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-23 | Julio |
+| Documentação | Em revisão | — | 2026-11-23 | Julio |
+| Código | Mesclado | commit `adc973d` · PR #144 | 2026-11-23 | Julio |
+| Testes | Em execução | — | 2026-11-23 | Julio |
+| Deploy | Produção | release: v0.6.0 (F4, F6, F7 e H1 a H4), @orkastery/cli no npm | 2026-11-23 | Julio |
+| Exposição | Parcial | — | 2026-11-23 | Julio |
+| Habilitação | Em andamento | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -132,7 +134,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: condutor do maquina-b (núcleo e hosts) e VPS (mods, se o dono decidir); A: Julio; C: —; I: —.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** condutor do maquina-b (#Auto), merge pela X1.a até 18/10/2026; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** a fatia 3 (F7 e os hosts H1 a H4) já está na `main` e na versão 0.6.0; a thread `ork-rm062fabrica` segue aberta no `sdlc` desta página, com o `ork ship registrar-pr` e o MASTER dela; depois, atos do dono nesta máquina: a autorização durável pelo `ork conducao autorizar --ate <data> --pode merge,registrar,master,despachar`, o canal do dono pelo onboarding (`ork onboarding set maestro` com o `canal`) e a automação de 30 min do OpenClaw (ou o agendador do Hermes) com o `bin/ork-vigia-batida`. Os mods M1 a M5 seguem a decisão do dono sobre quem conduz. Responsável: condutor do maquina-b; prazo: 15/10/2026.
+- **Próxima ação, responsável e prazo:** migrar a autorização durável entregue na F7 para a RM-092. O dono responde à pergunta curta; a fábrica registra a autorização e executa a ativação operacional, sem transferir comando de terminal. Os mods M1 a M5 seguem a decisão registrada sobre quem conduz; sem novo prazo declarado.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -145,3 +147,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-13 | Fatia 3, prova ao vivo no projeto real e merge da `main` feito pelo próprio `ork conducao atualizar`: a batida confere o estado do PR antes da autorização, e o dono só recebe "pronto" do PR que está pronto (o PR sem CHECK chega como `check-pendente`); a sessão despachada que conduz a thread reentra no `ork conducao atualizar` pela identidade de despacho, como no `ork verify` | Testes novos em `core/test/rm063-conducao-batida.test.ts` e `rm063-changelog-reconciliacao.test.ts`, reprovados no código anterior (`faef452c` e `b829673b`) | condutor do maquina-b (#Auto) |
 | 2026-10-12 | Item renumerado de RM-062 para RM-063; a thread segue `ork-rm062fabrica` | A RM-062 "Repositório público sem dado privado" nasceu em paralelo (thread `ork-rm062privado`), sem reserva de nenhuma das duas, e já estava na `main` e na branch da versão 0.5.5; a renumeração desta, ainda sem merge, é a troca barata. Decisão no ledger da thread | condutor do maquina-b (#Auto) |
 | 2026-10-27 | Fatias 2 e 3 em produção na 0.6.0; exposição Parcial e habilitação Em andamento, porque os mods M1 a M5 seguem | Tag `v0.6.0`, com os merges `babe9d48` (#154) e `45ecc51a` (#163) na tag; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |
+| 2026-11-23 | Próxima evolução da autorização durável fundida na RM-092 | Contrato único de escopo, validade, canal e prova aprovado no realinhamento | Julio |

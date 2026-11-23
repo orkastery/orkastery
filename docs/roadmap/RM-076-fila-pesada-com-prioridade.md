@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-31T12:00:00-03:00
+atualizado_em: 2026-11-23T11:18:00-03:00
 estado:
   ciclo: Discovery
   documentacao: Rascunho
@@ -38,9 +38,9 @@ sdlc:
 
 ## Problema e resultado
 
-- **Público e problema/oportunidade:** quem roda várias threads em paralelo numa máquina com vaga pesada (verify, CHECK, bancada). Hoje a vaga escapa da thread prioritária na troca de job e fica horas com uma que nem pode passar.
-- **Evidências e fonte:** Achados de uma rede de três VPS que conduz um roadmap em `#Auto` com o ork 0.5.6 (30 e 31/10/2026), conferidos contra a main da 0.6.2 em 31/10/2026.
-  - Ao terminar um job pesado, a thread dona esperou o próximo ciclo de 60 s, e nesse intervalo outra thread pronta, menos prioritária e sem chance de passar, pegou a vaga por horas.
+- **Público e problema/oportunidade:** quem roda várias threads em paralelo numa máquina com vaga pesada (verify, CHECK, bancada). Hoje a vaga escapa da thread prioritária na troca de job e pode ficar com uma que nem pode passar.
+- **Evidências e fonte:** achados de uma rede de execução que conduz um roadmap em `#Auto`, conferidos contra o comportamento do núcleo.
+  - Ao terminar um job pesado, a thread dona esperou o próximo ciclo, e nesse intervalo outra thread pronta, menos prioritária e sem chance de passar, pegou a vaga.
   - Na 0.6.2, `core/src/fila-pesada.ts` é só ordem de chegada (bilhete): sem prioridade, sem reserva e sem saber o estado da thread. O `comRecursoPesado` solta a vaga no `finally`.
   - A prioridade só existe na fila de trabalho do #Noctum (`noctum-fila.ts`), e o passo do arco repete a cada 60 s. O `pendenciaDoDono` (`parado-no-condutor.ts`) já sabe quando uma thread espera o dono, mas a fila pesada não consulta.
 - **Objetivo/OKR:** a thread prioritária encadeia verify, CHECK e o verify pós-CHECK sem perder a vaga.
@@ -64,9 +64,9 @@ sdlc:
 
 ## Plano e decisões
 
-- **Prioridade / método / pontuação / justificativa / data:** 3ª da fila de achados de condução em rede (31/10/2026). Alta: é onde o paralelismo mais perde tempo.
-- **Horizonte / alvo / previsão / confiança / marcos:** a definir pelo dono.
-- **Dependências e bloqueios (ID, owner, próxima revisão):** fila pesada da [RM-058](RM-058-modo-noctum.md) (N2) e da [RM-064](RM-064-conta-esgotada-nao-para-a-fase.md) (continuação "fila pesada entre host e sandbox").
+- **Prioridade / método / pontuação / justificativa / data:** elevada pelo dono em 23/11/2026; entra depois das habilitações já prontas e sua ordem relativa com RM-064 e RM-077 segue o gargalo medido pela RM-071.
+- **Horizonte / alvo / previsão / confiança / marcos:** desobstrução da frente C; a faixa de prazo será publicada pela RM-071 quando houver amostra suficiente.
+- **Dependências e bloqueios (ID, owner, próxima revisão):** absorve a parte de fila pesada da [RM-058](RM-058-modo-noctum.md) (N2) e se coordena com a [RM-064](RM-064-conta-esgotada-nao-para-a-fase.md); owner: Julio; revisão após a medição inicial da RM-071.
 - **Premissas / riscos / mitigação:** reserva presa por processo morto; mitigação: prazo curto e limpeza pela mesma trava.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):**
   1. Fila por prioridade pura: resolve a ordem, mas não o intervalo entre jobs.
@@ -80,13 +80,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-10-31 | Julio |
-| Documentação | Rascunho | — | 2026-10-31 | Julio |
-| Código | Não iniciado | — | 2026-10-31 | Julio |
-| Testes | Não iniciados | — | 2026-10-31 | Julio |
-| Deploy | Não implantado | — | 2026-10-31 | Julio |
-| Exposição | Flag desligada | — | 2026-10-31 | Julio |
-| Habilitação | Pendente | — | 2026-10-31 | Julio |
+| Ciclo do item | Discovery | — | 2026-11-23 | Julio |
+| Documentação | Rascunho | — | 2026-11-23 | Julio |
+| Código | Não iniciado | — | 2026-11-23 | Julio |
+| Testes | Não iniciados | — | 2026-11-23 | Julio |
+| Deploy | Não implantado | — | 2026-11-23 | Julio |
+| Exposição | Flag desligada | — | 2026-11-23 | Julio |
+| Habilitação | Pendente | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -94,8 +94,9 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: a sessão condutora da thread que pegar o item; A: Julio; C: a definir; I: a definir.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** item aberto pela condução da VPS a pedido do dono, a partir dos achados de outra rede; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** a condução abre a thread pela fila da seção "Achados de condução em rede" do índice do roadmap.
+- **Próxima ação, responsável e prazo:** depois das habilitações da frente C, a condução compara o gargalo semanal da RM-071 e ordena RM-064, RM-076 e RM-077; responsável: Julio.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-31 | Item criado em Discovery | Achados de condução em rede, conferidos contra a 0.6.2 | Julio (pedido de 31/10/2026) |
+| 2026-11-23 | Prioridade elevada e escopo de fila da RM-058 N2 absorvido | Realinhamento aprovado pelo dono; a ordem passa a responder ao gargalo medido pela RM-071 | Julio |

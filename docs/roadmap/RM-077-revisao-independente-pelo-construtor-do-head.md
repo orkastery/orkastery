@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-31T12:00:00-03:00
+atualizado_em: 2026-11-23T11:18:00-03:00
 estado:
   ciclo: Discovery
   documentacao: Rascunho
@@ -39,7 +39,7 @@ sdlc:
 ## Problema e resultado
 
 - **Público e problema/oportunidade:** quem usa vários runtimes na mesma thread, por escolha ou porque o rodízio por cota trocou de runtime. Hoje uma thread com GO nos dois runtimes fica sem revisor elegível.
-- **Evidências e fonte:** Achados de uma rede de três VPS que conduz um roadmap em `#Auto` com o ork 0.5.6 (30 e 31/10/2026), conferidos contra a main da 0.6.2 em 31/10/2026.
+- **Evidências e fonte:** achados de uma rede de execução que conduz um roadmap em `#Auto`, conferidos contra o comportamento do núcleo.
   - Threads com GO em `codex` e em `claude-bg` ficaram sem revisor; foi preciso desligar `exigeRuntimeDiferente` à mão, com aprovação do dono, e vincular o CHECK manual editando o estado do supervisor.
   - Na 0.6.2, `runtimeCruzadoParaDespacho` (`core/src/phase.ts`) junta o runtime de toda sessão de GO da thread e barra o CHECK em qualquer um deles. A trava só se define na criação da thread, e não há comando para registrar exceção.
   - O próprio núcleo já tem um modelo melhor na entrega do #Noctum (`noctum-provas.ts`): a revisão não pode ser de um autor da candidata e precisa ter sido despachada depois do último despacho de autor.
@@ -65,9 +65,9 @@ sdlc:
 
 ## Plano e decisões
 
-- **Prioridade / método / pontuação / justificativa / data:** 2ª da fila de achados de condução em rede (31/10/2026). Alta: trava o CHECK por inteiro e hoje só sai com edição manual de estado.
-- **Horizonte / alvo / previsão / confiança / marcos:** a definir pelo dono.
-- **Dependências e bloqueios (ID, owner, próxima revisão):** revisão independente da [RM-058](RM-058-modo-noctum.md) (D2) e da [RM-012](RM-012-ci-check-independente.md).
+- **Prioridade / método / pontuação / justificativa / data:** elevada pelo dono em 23/11/2026; sua ordem relativa com RM-064 e RM-076 segue o gargalo medido pela RM-071.
+- **Horizonte / alvo / previsão / confiança / marcos:** desobstrução da frente C; a faixa de prazo será publicada pela RM-071 quando houver amostra suficiente.
+- **Dependências e bloqueios (ID, owner, próxima revisão):** revisão independente da [RM-058](RM-058-modo-noctum.md) (D2) e da [RM-012](RM-012-ci-check-independente.md); absorve o CHECK independente no `#Fast` da [RM-085](RM-085-verify-com-escopo-causal-mensagem-de-assercao-e-check-fast.md); owner: Julio; revisão após a medição inicial da RM-071.
 - **Premissas / riscos / mitigação:** commit sem sessão conhecida (feito à mão); mitigação: tratar como construtor desconhecido e pedir exceção.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):**
   1. Pelo último GO: simples, mas erra quando dois GOs construíram o mesmo intervalo.
@@ -81,13 +81,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-10-31 | Julio |
-| Documentação | Rascunho | — | 2026-10-31 | Julio |
-| Código | Não iniciado | — | 2026-10-31 | Julio |
-| Testes | Não iniciados | — | 2026-10-31 | Julio |
-| Deploy | Não implantado | — | 2026-10-31 | Julio |
-| Exposição | Flag desligada | — | 2026-10-31 | Julio |
-| Habilitação | Pendente | — | 2026-10-31 | Julio |
+| Ciclo do item | Discovery | — | 2026-11-23 | Julio |
+| Documentação | Rascunho | — | 2026-11-23 | Julio |
+| Código | Não iniciado | — | 2026-11-23 | Julio |
+| Testes | Não iniciados | — | 2026-11-23 | Julio |
+| Deploy | Não implantado | — | 2026-11-23 | Julio |
+| Exposição | Flag desligada | — | 2026-11-23 | Julio |
+| Habilitação | Pendente | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -95,8 +95,9 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: a sessão condutora da thread que pegar o item; A: Julio; C: a definir; I: a definir.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** item aberto pela condução da VPS a pedido do dono, a partir dos achados de outra rede; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** a condução abre a thread pela fila da seção "Achados de condução em rede" do índice do roadmap.
+- **Próxima ação, responsável e prazo:** depois das habilitações da frente C, a condução compara o gargalo semanal da RM-071 e ordena RM-064, RM-076 e RM-077; responsável: Julio.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-31 | Item criado em Discovery | Achados de condução em rede, conferidos contra a 0.6.2 | Julio (pedido de 31/10/2026) |
+| 2026-11-23 | Prioridade elevada e CHECK independente do `#Fast` absorvido | Realinhamento aprovado pelo dono; elegibilidade considera quem construiu o HEAD revisado | Julio |

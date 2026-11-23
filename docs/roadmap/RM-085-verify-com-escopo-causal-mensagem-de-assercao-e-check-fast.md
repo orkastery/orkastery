@@ -6,9 +6,9 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-08T23:59:18-03:00
+atualizado_em: 2026-11-23T11:02:31-03:00
 estado:
-  ciclo: Discovery
+  ciclo: Descontinuado
   documentacao: Rascunho
   codigo: Não iniciado
   testes: Não iniciados
@@ -32,9 +32,13 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Discovery | Não iniciado | Não iniciados | Não implantado | Flag desligada |
+| Descontinuado | Não iniciado | Não iniciados | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
+
+## Item fundido
+
+Em 23/11/2026, o dono fundiu este item. O escopo causal e a mensagem de asserção passam para a [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md). O CHECK independente no `#Fast` passa para a [RM-077](RM-077-revisao-independente-pelo-construtor-do-head.md). Nenhuma fatia da RM-085 foi implementada antes da fusão.
 
 ## Problema e resultado
 
@@ -80,13 +84,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-11-08 | Julio |
-| Documentação | Rascunho | — | 2026-11-08 | Julio |
-| Código | Não iniciado | — | 2026-11-08 | Julio |
-| Testes | Não iniciados | — | 2026-11-08 | Julio |
-| Deploy | Não implantado | — | 2026-11-08 | Julio |
-| Exposição | Flag desligada | — | 2026-11-08 | Julio |
-| Habilitação | Pendente | — | 2026-11-08 | Julio |
+| Ciclo do item | Descontinuado | — | 2026-11-23 | Julio |
+| Documentação | Rascunho | — | 2026-11-23 | Julio |
+| Código | Não iniciado | — | 2026-11-23 | Julio |
+| Testes | Não iniciados | — | 2026-11-23 | Julio |
+| Deploy | Não implantado | — | 2026-11-23 | Julio |
+| Exposição | Flag desligada | — | 2026-11-23 | Julio |
+| Habilitação | Pendente | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -94,8 +98,9 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: a sessão condutora da thread que pegar o item; A: Julio; C: a definir; I: a definir.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** item aberto pela condução por decisão do dono; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** o dono define a prioridade e a condução planeja as três fronteiras sem misturar seus critérios de aceite.
+- **Próxima ação, responsável e prazo:** nenhuma nesta página; planejar o verify na RM-080 e o CHECK independente na RM-077.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-11-08 | Item criado em Discovery com três lacunas de produto | Bancada M13 e condução de fechamento da RM-074 | Julio (decisão de 08/11/2026) |
+| 2026-11-23 | Item descontinuado por fusão: verify para RM-080 e CHECK independente para RM-077 | Realinhamento aprovado pelo dono | Julio |

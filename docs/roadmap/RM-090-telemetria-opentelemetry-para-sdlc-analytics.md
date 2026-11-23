@@ -6,15 +6,15 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-11T18:15:00-03:00
+atualizado_em: 2026-11-23T11:02:31-03:00
 estado:
-  ciclo: Em desenvolvimento
-  documentacao: Rascunho
-  codigo: Branch criada
-  testes: Em execução
-  deploy: Não implantado
-  exposicao: Flag desligada
-  habilitacao: Pendente
+  ciclo: Concluído
+  documentacao: Aprovada
+  codigo: Mesclado
+  testes: Aprovados
+  deploy: Produção
+  exposicao: Geral
+  habilitacao: Concluída
 evidencias:
   codigo:
     commit: 7346009
@@ -32,7 +32,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
+| Concluído | Mesclado | Aprovados | Produção | Geral |
 
 <!-- ork-docs:relance:fim -->
 
@@ -154,12 +154,14 @@ As [métricas DORA](https://dora.dev/guides/dora-metrics/) só aparecem quando a
 | F4 | Coletor e painéis de referência para Grafana | A configuração recebe OTLP, aplica os processadores e exporta para dois destinos compatíveis trocando somente o exporter; os painéis provisionáveis consultam condução, prompts, correlação, maturidade e saúde |
 | F5 | SDLC Analytics por maestro e por time | Cada indicador mostra fórmula, população, fonte e lacunas; pessoas autorizadas da empresa veem individual e agregado, e cada maestro vê tudo o que a máquina dele envia |
 
-**Estado em 11/11/2026:** F1 está na `main` pelo PR #283, merge `9f1e643`; F2 está na `main` pelo PR #284, merge `7346009`; F3 e F4 estão em fechamento; F5 está em planejamento. O conjunto ainda não foi implantado.
+**Canal da RM-071:** a telemetria publicada recebe os fatos e vínculos do [fluxo da fábrica por item](RM-071-relatorio-da-esteira-do-sdlc.md). Fórmula, janela, cobertura e lacuna continuam definidas na RM-071; a RM-090 transporta e apresenta, sem criar backend ou fórmula concorrente.
+
+**Estado em 23/11/2026:** F1 a F4 foram publicadas na 0.6.9 e F5 na 0.6.10. O item está concluído; novas medidas entram pelos itens de origem e usam este canal de exportação.
 
 ## Plano e decisões
 
 - **Prioridade / método / pontuação / justificativa / data:** Discovery e documentação despachadas em 10/11/2026 a pedido do dono; prioridade de construção a definir pelo dono.
-- **Horizonte / alvo / previsão / confiança / marcos:** meta e piloto: **A definir pelo dono**. Marcos propostos são F1 a F5; não há previsão de implantação nesta Discovery.
+- **Horizonte / alvo / previsão / confiança / marcos:** F1 a F5 publicadas. Evoluções de indicadores pertencem aos itens de origem, como a RM-071; esta iniciativa permanece como canal concluído.
 - **Dependências e bloqueios (ID, owner, próxima revisão):** integrações oficiais de OpenTelemetry dos runtimes; RM-089 somente para distribuição empresarial do endereço do coletor; revisão jurídica, de segurança e de retenção antes do piloto; owner: Julio; próxima revisão no fechamento de F3 e F4.
 - **Premissas / riscos / mitigação:** detalhados abaixo; capacidades não cobertas pelas fontes oficiais permanecem não confirmadas.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):** D1 e D2 foram decididas pelo dono no terminal em 10/11/2026; D3 foi decidida pela condução a partir da resposta de D1 e pode ser revertida pelo dono; D4 e os nomes públicos foram decididos pelo dono em 11/11/2026.
@@ -230,13 +232,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-11-11 | Julio |
-| Documentação | Rascunho | — | 2026-11-11 | Julio |
-| Código | Branch criada | commit `7346009` · PR #284 | 2026-11-11 | Julio |
-| Testes | Em execução | — | 2026-11-11 | Julio |
-| Deploy | Não implantado | — | 2026-11-11 | Julio |
-| Exposição | Flag desligada | — | 2026-11-11 | Julio |
-| Habilitação | Pendente | — | 2026-11-11 | Julio |
+| Ciclo do item | Concluído | — | 2026-11-23 | Julio |
+| Documentação | Aprovada | — | 2026-11-23 | Julio |
+| Código | Mesclado | commit `7346009` · PR #284 | 2026-11-23 | Julio |
+| Testes | Aprovados | — | 2026-11-23 | Julio |
+| Deploy | Produção | — | 2026-11-23 | Julio |
+| Exposição | Geral | — | 2026-11-23 | Julio |
+| Habilitação | Concluída | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -244,10 +246,11 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: equipe Orkastery; A: Julio; C: segurança, privacidade, observabilidade e maestros inscritos; I: times da empresa.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** a sessão GO separou a telemetria da rede coletiva em modo `#Fast`; o dono decidiu D1, D2, D4 e os nomes públicos; a condução decidiu D3 com reversão explícita pelo dono.
-- **Próxima ação, responsável e prazo:** fechar F3 e F4 e planejar F5; responsáveis: threads de construção da RM-090.
+- **Próxima ação, responsável e prazo:** manter a compatibilidade do canal quando a RM-071 acrescentar fatos; responsável: futuras threads dos itens de origem.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-11-10 | Telemetria foi proposta dentro da RM-089, junto com a rede coletiva e a trava empresarial | Pedido do dono no terminal na primeira rodada | Julio |
 | 2026-11-10 | RM-090 criada para logs OpenTelemetry e Grafana, com D1 e D2 respondidas e D3 decidida de forma reversível | Esclarecimento do dono, respostas `"1a (a empresa ve tudo)"` e `"2b"`, e critério de ativação derivado pela condução | Julio em D1 e D2; sessão GO em D3 |
 | 2026-11-11 | Estado atualizado para Em desenvolvimento: F1 e F2 estão na `main`, F3 e F4 estão em fechamento e F5 está em planejamento; D4 e nomes públicos ratificados | PR #283, merge `9f1e643`; PR #284, merge `7346009`; decisões do dono em 11/11/2026 | Julio |
+| 2026-11-23 | Item concluído: F1 a F4 publicadas na 0.6.9 e F5 na 0.6.10; RM-071 passa a usar o canal de exportação | CHANGELOG 0.6.9 e 0.6.10; realinhamento aprovado | Julio |

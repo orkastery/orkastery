@@ -6,7 +6,7 @@ categoria: melhoria
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-29T14:27:00-03:00
+atualizado_em: 2026-11-23T11:32:59-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -17,7 +17,7 @@ estado:
   habilitacao: Em andamento
 evidencias:
   codigo:
-    commit: f5c8db2
+    commit: bde8a73
     pr: null
   testes:
     f1: core/test/dado-privado.test.ts (DP1 a DP19) e core/test/dado-privado-cli.test.ts (DC1 a DC4)
@@ -28,8 +28,8 @@ evidencias:
 sdlc:
   thread: ork-rm062f3ef4no
   modo: "#Auto"
-  fase: GOAL
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-062 — Repositório público sem dado privado
@@ -144,13 +144,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-29 | Julio |
-| Documentação | Em revisão | — | 2026-10-29 | Julio |
-| Código | Mesclado | commit `f5c8db2` | 2026-10-29 | Julio |
-| Testes | Em execução | f1: core/test/dado-privado.test.ts (DP1 a DP19) e core/test/dado-privado-cli.test.ts (DC1 a DC4) · f2: core/test/dado-privado-verify.test.ts (DV1 a DV5 e DB1 a DB7) · f3_f4: core/test/rm062-f3-f4.test.ts | 2026-10-29 | Julio |
-| Deploy | Produção | release: v0.6.0 (F1 e F2), @orkastery/cli no npm | 2026-10-29 | Julio |
-| Exposição | Parcial | — | 2026-10-29 | Julio |
-| Habilitação | Em andamento | — | 2026-10-29 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-23 | Julio |
+| Documentação | Em revisão | — | 2026-11-23 | Julio |
+| Código | Mesclado | commit `bde8a73` | 2026-11-23 | Julio |
+| Testes | Em execução | f1: core/test/dado-privado.test.ts (DP1 a DP19) e core/test/dado-privado-cli.test.ts (DC1 a DC4) · f2: core/test/dado-privado-verify.test.ts (DV1 a DV5 e DB1 a DB7) · f3_f4: core/test/rm062-f3-f4.test.ts | 2026-11-23 | Julio |
+| Deploy | Produção | release: v0.6.0 (F1 e F2), @orkastery/cli no npm | 2026-11-23 | Julio |
+| Exposição | Parcial | — | 2026-11-23 | Julio |
+| Habilitação | Em andamento | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 

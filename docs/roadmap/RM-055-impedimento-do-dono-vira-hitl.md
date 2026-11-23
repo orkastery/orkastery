@@ -6,7 +6,7 @@ categoria: melhoria
 pai: RM-048
 features: []
 owner: Julio
-atualizado_em: 2026-10-10T06:54:46+00:00
+atualizado_em: 2026-11-23T11:11:38-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -17,13 +17,13 @@ estado:
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: 7ab4932
+    commit: 1bc1e29
     pr: null
 sdlc:
   thread: ork-rm055impedi2
   modo: "#Auto"
-  fase: GO
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-055 — Impedimento que só o dono resolve vira pedido a ele
@@ -56,7 +56,7 @@ sdlc:
   - **d)** este item, o CHANGELOG em "Não publicado", a tabela de retry do guia de verificação e a referência da CLI.
   - **e)** continuação (thread `ork-rm055impedi2`, rm055impedim3, 10/10/2026): as frases conferidas contra o claude 2.1.296 e o codex 0.154.0 instalados (o aviso de termos que bloqueia e os portões do `--bg` viram `runtime.consent-pending` com o comando tirado da frase; as variantes que aceitar a confiança não resolve ficam fora), a prova da confiança pela regra observada, a recusa repetida sem gastar tentativa e o impedimento no resumo que chega ao dono, com o comando e na hora.
   - **f)** continuação `ork-asessaonosan` (29/10/2026): o contrato irmão sessão → condução cobre a ação que o sandbox não pode executar. `ork_request_conduction` só existe no servidor filho vinculado ao despacho, aceita dois motivos enumerados e um comando `ork` de uma linha, e não executa, aprova ou assume o dono. O watcher preserva o pedido no lugar de `runtime.unavailable`; retry e pulse aguardam a condução sem gastar tentativa nem mandar o item ao dono.
-- **Fora de escopo:** login ausente e cota esgotada, que já são da rotação de conta (I-33) e só chegam ao dono quando a rotação escala. Também fica fora o re-despacho automático pelo pulse, sem o `ork retry run`: o pulse mostra o comando e a ação continua explícita. Por fim, a seleção de 3 a 5 alternativas em todo HITL, que é da RM-057. Na continuação ficaram fora, como itens seguintes: o consentimento que só aparece depois do despacho, na transcrição da sessão (erro de API `terms_not_accepted`), por falta de amostra real; a prova local do codex (`trust_level` no `config.toml`); transformar o impedimento em pergunta do lote; o retry de `runtime.unavailable` sem prompt gravado; e o rótulo `human.pending` do board na pausa do impedimento.
+- **Fora de escopo:** login ausente e cota esgotada, que já são da rotação de conta (I-33) e só chegam ao dono quando a rotação escala. A ação operacional depois da resposta pertence à fábrica: o pedido não instrui o dono a rodar comando. A forma da pergunta vem do [padrão de interação humana](../padroes/interacao-humana.md). Na continuação ficaram fora, como itens seguintes: o consentimento que só aparece depois do despacho, na transcrição da sessão (erro de API `terms_not_accepted`), por falta de amostra real; a prova local do codex (`trust_level` no `config.toml`); transformar o impedimento em pergunta do lote; o retry de `runtime.unavailable` sem prompt gravado; e o rótulo `human.pending` do board na pausa do impedimento.
 - **Entregáveis e critérios de aceite:**
   - classificação por motivo → `core/test/rm055-impedimento.test.ts` (frases do claude, do codex, de termos, e as que ficam fora);
   - espera do dono no monitor, na fábrica e no pulse, e retry que só re-despacha depois do aceite → o teste de ponta a ponta do mesmo arquivo, com o stub do `claude` repetindo a frase do incidente;
@@ -68,7 +68,7 @@ sdlc:
 
 - **Prioridade / método / pontuação / justificativa / data:** alta, por incidente. Fábrica parada sem aviso é o custo mais caro do modo `#Auto` (01/10/2026).
 - **Horizonte / alvo / previsão / confiança / marcos:** próxima versão depois da 0.5.1. A confiança é alta: o comportamento é local e coberto por teste.
-- **Dependências e bloqueios (ID, owner, próxima revisão):** RM-048 (contrato curto, na main), RM-034 e RM-002 (runtime claude-bg), RM-054 e RM-052 (fábrica e maestro mostram a espera).
+- **Dependências e bloqueios (ID, owner, próxima revisão):** RM-048 e o padrão único de interação humana, RM-034 e RM-002 (runtime claude-bg), RM-054 e RM-052 (fábrica e maestro mostram a espera).
 - **Premissas / riscos / mitigação:** o texto do runtime muda entre versões → frases em lista com teste, e motivo desconhecido continua genérico. A chave `hasTrustDialogAccepted` do `.claude.json` pode mudar → sem arquivo ou sem a chave, a prova vale "não sei", o retry despacha e o runtime decide; se ele recusar de novo, a mesma espera volta.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):**
   - D1, agente condutor, 02/10/2026: o motivo do dono é `gate_blocked` tipado lido como espera do dono, não um `human.pending` genérico, porque o retry precisa do motivo para re-despachar o prompt certo;
@@ -99,13 +99,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-10 | Julio |
-| Documentação | Em revisão | — | 2026-10-10 | Julio |
-| Código | Mesclado | commit `7ab4932` | 2026-10-10 | Julio |
-| Testes | Em execução | — | 2026-10-10 | Julio |
-| Deploy | Não implantado | — | 2026-10-10 | Julio |
-| Exposição | Flag desligada | — | 2026-10-10 | Julio |
-| Habilitação | Pendente | — | 2026-10-10 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-23 | Julio |
+| Documentação | Em revisão | — | 2026-11-23 | Julio |
+| Código | Mesclado | commit `1bc1e29` | 2026-11-23 | Julio |
+| Testes | Em execução | — | 2026-11-23 | Julio |
+| Deploy | Não implantado | — | 2026-11-23 | Julio |
+| Exposição | Flag desligada | — | 2026-11-23 | Julio |
+| Habilitação | Pendente | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -121,3 +121,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-02 | Fatia única: motivos, espera do dono, retry e docs | PR desta thread | Agente condutor |
 | 2026-10-10 | Continuação (thread `ork-rm055impedi2`, rm055impedim3): frases reais do claude 2.1.296, prova da confiança pela regra observada, recusa repetida sem gastar tentativa e impedimento no resumo entregue | Experimentos E1 a E4 com o `claude --bg` 2.1.296 em ambiente isolado e reprodução dos quatro defeitos na base 8248d98d | Agente condutor |
 | 2026-10-29 | Contrato sessão → condução, separado do HITL do dono | Testes focados de `ork_request_conduction`, watcher, retry e pulse na thread `ork-asessaonosan` | Agente condutor em #Auto |
+| 2026-11-23 | Confirmado como filho da RM-048; pedido deixa decisão com o dono e execução operacional com a fábrica | Requisito 005 e padrão único do HITL | Julio |

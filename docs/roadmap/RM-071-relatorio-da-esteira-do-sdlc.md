@@ -1,12 +1,12 @@
 ---
 id: RM-071
 tipo: roadmap
-titulo: Relatório da esteira do SDLC no status do roadmap
+titulo: Fluxo da fábrica por item
 categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-21T11:00:00-03:00
+atualizado_em: 2026-11-23T11:02:31-03:00
 estado:
   ciclo: Discovery
   documentacao: Rascunho
@@ -24,9 +24,9 @@ sdlc:
   modo: null
 ---
 
-# RM-071: Relatório da esteira do SDLC no status do roadmap
+# RM-071 — Fluxo da fábrica por item
 
-> **Em uma frase:** no pedido de status do roadmap, o agente oferece o relatório padrão ou o da esteira do SDLC (tokens, contas, tempo, testes, rodadas e bugs por fase, medidos no ledger); o da esteira também sai toda segunda às 07h.
+> **Em uma frase:** o relatório semanal mostra espera, vazão útil, ritmo, fluidez, qualidade, gargalo, previsão e custo por item com fórmulas reproduzíveis, e exporta os mesmos fatos pela telemetria existente.
 
 <!-- ork-docs:relance:inicio -->
 
@@ -36,94 +36,70 @@ sdlc:
 
 <!-- ork-docs:relance:fim -->
 
-**Pedido do dono (21/10/2026):** uma opção de relatório de roadmap mais robusta que o padrão, que dê visibilidade ao SDLC: quanto token cada fase consome e de quais contas, os ciclos de teste, os tipos de teste de cada thread e item, bugs, correções e o tempo de cada fase.
-
-**Decisão do dono de 21/10/2026 (alternativa a, mais a cadência):** "3.a (e além disso um report semanal toda segunda feira 7h da manhã.)". O relatório da esteira sai quando o dono pede (o agente pergunta "padrão ou esteira?") e também toda segunda-feira às 07h no fuso do dono, no canal dele, sem pedido. A fatia F6 abaixo entrega a segunda-feira, com o critério de aceite verificável.
-
 ## Problema e resultado
 
-- **Público e problema/oportunidade:** o product builder (maestro humano) que conduz várias threads em paralelo. O relatório padrão do `ork roadmap status` ([RM-048](RM-048-hitl-humano-no-centro.md)) diz o que está pronto, em andamento e parado, e o que depende dele. Não diz **como a esteira está andando**: quanto a fábrica gasta, onde ela gira em círculo (rodadas de GO-FIX e de CHECK), o que foi realmente testado e em que fase o tempo vai embora. Sem isso, o dono decide prioridade, conta e modo às cegas.
-- **Evidências e fonte:** o núcleo já grava a maior parte do material, espalhada. O ledger de cada thread tem `phase_dispatch`, `phase_result`, `verify_run`, `go_fix_opened`, `check_reverify`, `gate_blocked`, `ship_done` e `master_done`. O `ork ledger stats` ([RM-007](RM-007-telemetria-economica.md)) soma tokens, tempo de execução e espera humana. A medição do arco da [RM-058](RM-058-modo-noctum.md) (`noctum-medicao.ts`) lê minutos de sessão, tokens das transcrições do Claude Code e dos rollouts do Codex e o percentual da cota. O `ork fix list` e o `ork decisao placar` listam rodadas e decisões. Nenhum canal junta isso numa leitura só, e o status do roadmap não lê nada disso.
-- **Lacuna medida (amostra local de ledgers, 21/10/2026):** dos 150 `phase_result` do `claude-bg` nenhum traz `tokens`; dos 126 do `codex`, 72 trazem `tokens` medido do rollout e 54 não. O relatório da esteira só pode ser honesto se mostrar essa lacuna como lacuna, e a F2 existe para fechá-la.
-- **Objetivo/OKR:** o dono responde "como está a esteira?" com número medido, por item do roadmap e por thread, sem abrir ledger nem somar à mão.
-- **Hipótese:** se o status do roadmap oferecer, por pergunta curta, um relatório da esteira montado só de fatos do ledger e dos runtimes, então o dono passa a ajustar conta, modo e prioridade com base em consumo e retrabalho reais, porque hoje o retrabalho (rodadas, bugs achados no CHECK, quedas de CI) e o consumo por fase só aparecem se ele for atrás.
-- **Métrica principal / linha de base / meta / janela / fonte:** fração dos números do relatório da esteira com fonte medida (campo do ledger ou leitura do runtime), contra lacuna declarada. Linha de base: não medida (o relatório não existe); a lacuna de tokens do `claude-bg` acima é o ponto de partida. Meta: 100% dos números com fonte nomeada, nenhum estimado, e a lacuna de tokens do `claude-bg` fechada para as sessões cujo transcrito existe. Janela: o relatório de cada pedido. Fonte: o próprio relatório e a tabela abaixo.
-- **Métricas de proteção:** o relatório padrão não muda (mesmo texto, mesmos grupos, mesmo custo); a montagem do relatório da esteira é leitura pura (não grava ledger nem abre pedido, e a leitura não toca a rede), e só o envio semanal usa o canal, pelo transporte do pulse; nenhum número estimado aparece como medido; nenhum dado privado (nome de máquina, de conta, caminho) sai do relatório; a pergunta e o envio semanal nunca param a fábrica; nenhum envio semanal duplicado.
+- **Público e problema/oportunidade:** o product builder humano precisa saber quanto a fábrica entrega, onde o fluxo espera e qual recurso limita o paralelismo. O estado atual registra muitos eventos, mas não os reúne por item com fórmula, cobertura e origem.
+- **Evidências e fonte:** requisitos 003 e 004 do realinhamento aprovado em 23/11/2026. O dono determinou medir vazão real, congestionamento, prazo, ritmo, fluidez, qualidade e os limites de decisão humana, máquina, cota e contas.
+- **Objetivo/OKR:** permitir que a prioridade e a capacidade sejam ajustadas pelo gargalo medido, sem confundir atividade com entrega nem ausência de dado com zero.
+- **Hipótese:** se cada item carregar intervalos, entregas e falhas ligados aos fatos do ledger, da forja e do CI, então o relatório semanal identifica o recurso limitante e sustenta uma previsão honesta.
+- **Métrica principal / linha de base / meta / janela / fonte:** vazão útil por janela de relatório, definida como entregas mescladas com recibo e sem reversão na janela de observação. A linha de base será calculada na F2; a fonte é a cadeia item, thread, recibo, merge e eventual reversão.
+- **Métricas de proteção:** toda medida informa fórmula, janela, cobertura e fonte; lacuna nunca vira zero; nenhum dado privado identifica máquina, conta ou pessoa na superfície coletiva; a medição não abre backend novo nem bloqueia a fábrica.
 
 ## Escopo e validação
 
-- **Incluído:**
-  - **A pergunta.** Ao receber o pedido de status do roadmap, o agente pergunta no formato de alternativas da [RM-057](RM-057-hitl-por-alternativas.md), com resposta curta: (1) relatório padrão, (2) relatório com a esteira do SDLC, (3) só a esteira de um item ou de uma thread. Sem resposta, vale o padrão: a pergunta é de leitura e nunca bloqueia thread, pulse ou cron.
-  - **O relatório da esteira**, por item do roadmap e por thread, com:
-    - tokens e minutos de sessão por fase e por conta, no Claude e no Codex, e o percentual da cota onde o runtime a expõe;
-    - rodadas de GO-FIX e de CHECK de cada thread, e o motivo de cada uma;
-    - os tipos de teste de cada thread (unitário, integração, snapshot, mutante, ensaio, suíte inteira) e o resultado;
-    - bugs achados pelo CHECK, por gravidade, e quantos foram corrigidos e reverificados;
-    - tempo de cada fase e tempo de fila;
-    - decisões autônomas e as que o dono revisou;
-    - quedas de CI e a causa;
-    - o que travou esperando o dono, e por quanto tempo.
-  - **Lacuna como lacuna.** Dado que o núcleo ainda não mede aparece como `lacuna: <motivo>`, nunca como zero e nunca como estimativa.
-  - **A entrega semanal.** Toda segunda-feira às 07h no fuso do dono, o `ork` envia o relatório da esteira ao canal do dono, sem pedido, pelo transporte determinístico do pulse (sem chamar modelo). Cobre os últimos sete dias e, havendo relatório anterior, a diferença para ele. Medida incompleta não cancela o envio: a lacuna aparece no corpo, como em qualquer relatório da esteira.
-  - **Contrato** `ork.sdlc-report/v1`, o mesmo pelo CLI, pelo MCP e pelos canais, como o `ork.roadmap-status/v1`.
-- **Fora de escopo:** custo em dinheiro (o `ork ledger stats` só tem tarifa de referência estimada, e o relatório não mostra estimativa); qualquer item que o `ork` não conduz; relatório de produto (uso do produto pelos clientes finais); mudar o relatório padrão; gráficos e painel web; benchmark entre contas ou entre pessoas.
-- **Entregáveis e critérios de aceite:** por fatia, na seção abaixo. O critério do item é que cada número do relatório da esteira aponte para um campo do ledger ou para uma leitura de runtime, e que um teste reprove o relatório que mostre número sem fonte.
-- **Piloto, medição e critérios de expansão/interrupção:** piloto na condução do próprio Orkastery, comparando o relatório de uma thread fechada com o que se soma à mão no ledger dela. Expande para os canais se os totais batem; interrompe se algum número do relatório não puder ser reproduzido pelo ledger ou pelo runtime. O envio semanal entra no piloto na primeira segunda-feira depois da F6, e o dono confere o recibo do canal.
+- **Incluído:** oito fatias de medição; agregação por item; agrupamentos operacionais por máquina, conta e builder com identificadores adequados à superfície; soma na rede da empresa; relatório semanal; exportação pelo canal da [RM-090](RM-090-telemetria-opentelemetry-para-sdlc-analytics.md).
+- **Fora de escopo:** criar painel ou backend; declarar meta sem linha de base; comparar pessoas por ranking; estimar custo monetário sem fonte; usar duração da sessão como entrega; publicar nomes privados de máquinas ou contas.
+- **Entregáveis e critérios de aceite:** cada fatia abaixo produz medida reproduzível a partir de fixtures e aponta as lacunas. O relatório de um item pode ser refeito dos mesmos fatos e chega ao mesmo resultado.
+- **Piloto, medição e critérios de expansão/interrupção:** piloto no próprio roadmap. Expandir quando os vínculos entre item, thread e entrega estiverem cobertos. Interromper uma medida, sem interromper as demais, se a origem não puder ser provada.
 
-### O dado, onde o núcleo já o tem e o que falta medir
+### Fórmulas e regras comuns
 
-| O dado | Onde o núcleo já o tem | O que falta medir |
+| Medida | Fórmula ou regra |
+| --- | --- |
+| Janela | Intervalo fechado no início e aberto no fim, declarado no relatório |
+| Cobertura | fatos válidos usados divididos pelos fatos elegíveis; o denominador ausente vira lacuna |
+| Vazão útil | entregas com merge e recibo, sem reversão na janela de observação, divididas pela janela |
+| Lead time | instante da entrada do item na frente até o recibo da entrega útil; itens sem entrega ficam abertos |
+| Tempo por fase | soma dos intervalos atribuídos à fase, excluindo a espera que recebe motivo próprio |
+| Frequência | entregas úteis divididas pela janela, apresentada junto da distribuição dos intervalos entre entregas |
+| Retrabalho | ciclos adicionais de correção ligados ao mesmo achado ou resultado, divididos pelos ciclos encerrados |
+| Reincidência | achado de mesmo id estável que reaparece dentro de trinta dias depois de fechado |
+| Custo por entrega | tokens medidos e consumo de cota ligados às threads da entrega, divididos pelas entregas úteis |
+
+### Motivos tipados de espera
+
+F1 começa com uma lista fechada: `dono`, `cota`, `vaga pesada`, `CI` e `máquina fora`. A implementação pode acrescentar motivo somente por contrato ratificado e deve conservar uma categoria de lacuna quando o evento não basta para classificar. Intervalos sobrepostos não são somados duas vezes.
+
+### Fatias
+
+| Ordem | Fatia | Resultado e critério de aceite verificável |
 | --- | --- | --- |
-| Tokens por fase | `phase_result.tokens` (`input`, `cachedInput`, `output`, `total`, `fonte`) no `codex`, lido do rollout. `noctum-medicao.ts` lê o `message.usage` das transcrições do Claude Code, uma vez por `message.id`. `ork ledger stats` soma e declara a cobertura. | O `phase_result` do `claude-bg` não grava `tokens` (0 de 150 na amostra local). A leitura da transcrição hoje é por arco, não por fase. Falta a agregação por fase e por conta. |
-| Minutos de sessão por fase e conta | `phase_dispatch` (com `runtime`, `model`, `effort`) até o primeiro `phase_result` da sessão; `phase_result.duracaoMs`; `perfil` no despacho. `noctum-medicao.ts` arredonda para cima por sessão. | Agregação por fase e por conta; sessão em voo sai parcial; despacho sem `perfil` fica sem conta. |
-| Percentual da cota | `rate_limits` do rollout do `codex` e o evento `runtime_quota_detected`. | O Claude Code só mostra a cota dentro da sessão: para `claude-bg` é sempre lacuna. O valor do `codex` é teto superior (inclui outros projetos na janela). |
-| Rodadas de GO-FIX e o motivo | `go_fix_opened` (`rodada`, `motivos`, `correcoes`, `temTipoB`), `ork fix list`. | O motivo é tipado por gate, mas a causa raiz em linguagem do dono não é campo. |
-| Rodadas de CHECK | `check_reverify` (`rodada`, `cobertura`, `veredito`); `phase_result` do CHECK (`veredito`, `eixos`). | A contagem de CHECKs por thread não é um campo único: junta o `phase_result` do CHECK e os `check_reverify`. |
-| Tipos de teste e resultado | `verify_run.comandos` (nome, `ok`, `code`), `baseline`, `regressoes`; `phase_result` do CHECK (`testes`: base e head, `afrouxamento`); as claims da thread, e os mutantes quando registrados como claim. | O **tipo** do teste (unitário, integração, snapshot, mutante, ensaio, suíte inteira) não é campo: hoje sai do nome do comando ou do texto da claim. Falta uma taxonomia tipada na claim e no manifesto. |
-| Bugs achados pelo CHECK, por gravidade | `phase_result.achados` (`total`, `bloqueador`, `aviso`, `sugestao`, `tipoA`, `tipoB`). | O achado não tem id estável: ligar "achado" a "correção" e a "reverificado" hoje é por rodada, não por achado. |
-| Bugs corrigidos | `go_fix_opened.correcoes` e o `veredito` do `check_reverify`. | Vínculo achado, correção e prova por id. |
-| Tempo de cada fase | `phase_dispatch` (instante) e `phase_result` (`duracaoMs`, `duracaoFonte`). | Fase que mudou de sessão no meio (rotação, retry) soma sessões; falta regra única de soma. |
-| Tempo de fila | `lease_queued`, `lease_dequeued`, `slot_refused`, `rate_limit_queued`, `rate_limit_resumed`. | A fila de recurso pesado (`ork.fila-pesada/v1`) não grava a espera no ledger. |
-| Decisões autônomas e revistas | `autonomous_decision`, `ork decisao placar` (decididas, informadas, perguntas, revertidas) e a taxa de reversão. | Decisão que o dono revisou sem reverter não é campo distinto. |
-| Quedas de CI e causa | `verify_run.motivos` e `gate_blocked.motivo`/`detalhe` (verify local e bundle). | A queda do CI **remoto** (runner, job, causa) não vai ao ledger: precisa de leitura da forja e de tipo de causa (código, instabilidade, infraestrutura). |
-| O que travou esperando o dono | `human_gate`, `gate_blocked`, `hitl-tempo-parado.ts` (campo `hitlDeConducao`, mediana contra a meta de 5 min da RM-057), `esperaHumana` do `ork ledger stats`. | Espera por impedimento do dono que não passou por pedido tipado. |
-| Consumo por conta | `ork accounts` e o perfil no despacho; `noctum-medicao.ts` por conta. | Nome da conta é dado privado: o relatório usa rótulo genérico (`conta A`, `conta B`) e o mapa fica fora do relatório. |
-| Custo em dinheiro | `custoReferencia` do `ork ledger stats`, natureza `estimated_reference`. | Fora de escopo: é estimativa, e o relatório só mostra medido. |
+| F1 | Espera por motivo | Reconstrói por item os intervalos de espera por dono, cota, vaga pesada, CI e máquina fora; intervalos sobrepostos têm regra determinística e causa ausente aparece como lacuna |
+| F2 | Vazão útil | Conta merge com recibo e sem reversão, por semana, máquina, conta e builder, e soma na rede da empresa; reversão posterior reapresenta a série sem apagar o fato original |
+| F3 | Ritmo | Calcula lead time e tempo por fase em p50 e p85, além da frequência; amostra insuficiente e item aberto aparecem explicitamente |
+| F4 | Fluidez | Separa intervenções evitáveis e necessárias e mostra a espera por motivo; toda intervenção aponta para o evento que sustenta a classificação |
+| F5 | Qualidade | Mede retrabalho, reincidência em trinta dias e falha evitável, usando id estável de achado para ligar descoberta, correção, reverificação e reaparecimento |
+| F6 | Gargalo semanal | Identifica o recurso que limitou a vazão entre decisão humana, máquina, cota, conta e fila pesada, mostra a evidência e sugere uma ação; empate ou cobertura insuficiente não produz vencedor falso |
+| F7 | Previsão de prazo | Para cada item, apresenta faixa de data com probabilidade e amostra comparável; mudança de escopo, bloqueio novo ou cobertura insuficiente invalida ou alarga a previsão |
+| F8 | Custo por entrega | Liga tokens e consumo de cota às entregas úteis; dado não medido fica fora do numerador e aparece na cobertura, sem conversão monetária inventada |
 
-## Fatias propostas
+### Canais
 
-Cada fatia é um PR com teste hermético e uma linha no `CHANGELOG.md`. Nenhuma começa antes da decisão do dono registrada em "Plano e decisões".
-
-| Fatia | Entrega | Critério de aceite verificável |
-| --- | --- | --- |
-| F1 | A pergunta "padrão ou esteira" e o relatório da esteira no terminal, montado só do que o ledger já grava (fases, minutos, rodadas de GO-FIX e de CHECK, achados por gravidade, decisões, espera do dono). | Teste que, dado um ledger de fixture, reproduz cada número do relatório e reprova o relatório com número sem fonte; teste que prova que sem resposta vale o padrão e que o relatório padrão sai idêntico ao de hoje. |
-| F2 | Tokens, minutos e cota por fase e por conta, com a leitura das transcrições do Claude Code e dos rollouts do Codex reaproveitando a medição da RM-058 e gravando no `phase_result` do `claude-bg`. | Teste com transcrição e rollout de fixture: totais batem com a soma do `message.usage` por `message.id` e com o `total_tokens` do rollout; sessão sem transcrição vira `lacuna` com motivo, nunca zero; rótulo de conta genérico. |
-| F3 | Tipos de teste e ciclos de CHECK por thread: taxonomia tipada na claim e no manifesto, id estável de achado, vínculo achado, correção e reverificação. | Teste que, dada uma thread com 2 rodadas de CHECK e 1 de GO-FIX, lista os tipos de teste rodados, os achados por gravidade e o fechamento de cada um; `ork claims` aceita o tipo e rejeita tipo fora da taxonomia. |
-| F4 | O mesmo relatório nos canais (Telegram e OpenClaw) em páginas curtas, pelo mesmo contrato `ork.sdlc-report/v1`. | Teste de contrato que prova que os três canais transportam o mesmo texto e os mesmos números do CLI, e que a página respeita o limite de tamanho do canal sem cortar número no meio. |
-| F5 | Tendência entre relatórios: a diferença para o relatório anterior (consumo, rodadas, tempo por fase). | Teste com dois retratos de fixture: a variação sai com o sinal certo; sem retrato anterior o relatório diz "sem comparação" e não inventa linha de base. |
-| F6 | A entrega semanal: toda segunda-feira às 07h no fuso do dono, o relatório da esteira vai ao canal do dono sem pedido, pelo transporte determinístico do pulse. Usa o que F1 a F5 já medem; o que ainda não medem sai como lacuna. | Teste com relógio injetado e fuso configurado: segunda-feira às 07h00 gera exatamente um envio e o recibo do canal vai ao ledger; outro dia ou outra hora não envia; reinício do pulse na mesma semana não duplica o envio (chave da semana). Medida incompleta (por exemplo, tokens do `claude-bg` sem transcrito): o relatório sai no horário com `lacuna: <motivo>` no corpo e nunca com zero ou estimativa. Falha total de leitura: sai uma mensagem curta dizendo que o relatório não pôde ser montado e por quê, nunca silêncio. Falha do canal: sem recibo, o ledger registra o envio como não entregue e a janela seguinte do pulse tenta de novo sem duplicar. O envio não bloqueia thread, pulse nem cron. O corpo passa pelo mesmo filtro de dado privado dos outros canais |
+- **Relatório semanal:** apresenta a janela, as oito medidas disponíveis, o gargalo e a ação sugerida. As fatias ainda não entregues aparecem como indisponíveis, nunca como zero.
+- **Telemetria da RM-090:** exporta os mesmos fatos e fórmulas para o canal já existente, com os vínculos de item, thread e entrega e as lacunas correspondentes.
+- **Sem backend novo:** armazenamento, transporte e visualização reutilizam ledger, forja, CI, rede coletiva e telemetria existentes.
 
 ## Plano e decisões
 
-- **Prioridade / método / pontuação / justificativa / data:** pedido direto do dono, sem pontuação RICE; 21/10/2026.
-- **Horizonte / alvo / previsão / confiança / marcos:** F1 a F6 em ordem; a F6 depende de F1 e do contrato de canal de F4, e usa F2 e F5 quando já estiverem prontas. Sem previsão de entrega: o item está em Discovery e nada de código foi iniciado.
-- **Dependências e bloqueios (ID, owner, próxima revisão):** [RM-048](RM-048-hitl-humano-no-centro.md) (formato único do status), [RM-057](RM-057-hitl-por-alternativas.md) (a pergunta por alternativas), [RM-007](RM-007-telemetria-economica.md) (telemetria do ledger), [RM-058](RM-058-modo-noctum.md) (medição de consumo; a F2 reaproveita a leitura, sem depender de o modo existir), [RM-037](RM-037-verify-rapido-e-confiavel.md) (verify, baseline e suíte, de onde vêm os tipos de teste), [RM-062](RM-062-repositorio-publico-sem-dado-privado.md) (o que não pode sair do relatório). Nenhum bloqueio aberto.
-- **Premissas / riscos / mitigação:**
-  - Risco: ler transcrições grandes é caro. Mitigação: leitura incremental por sessão com cache do total já lido, e prazo por relatório; passando o prazo, o número sai como `lacuna: leitura parcial`, nunca truncado em silêncio.
-  - Risco: dado privado no relatório (nome de máquina, de conta, caminho). Mitigação: rótulos genéricos, caminhos relativos ao projeto, e o relatório passa pelo mesmo filtro da [RM-062](RM-062-repositorio-publico-sem-dado-privado.md) antes de sair por qualquer canal; um teste procura nome de conta, de máquina e caminho absoluto na saída.
-  - Risco: o relatório parecer mais exato do que é. Mitigação: cada número leva a fonte e a cobertura (medidas contra sem medida), e a lacuna aparece no corpo, não em nota de rodapé.
-  - Risco: o envio semanal falhar em silêncio ou chegar duplicado. Mitigação: um envio por semana, com chave da semana no ledger, recibo do canal gravado e nova tentativa na janela seguinte do pulse sem duplicar; falha sem recibo aparece no ledger, nunca vira "enviado".
-  - Risco: a pergunta virar atrito a cada status. Mitigação: resposta curta de uma palavra, padrão sem resposta, e a decisão do dono abaixo diz com que frequência perguntar.
-- **Decisões, alternativas e ADRs (ID, decisor, data, link):**
-  - **Decisão do dono de 21/10/2026: como o relatório da esteira chega.** Escolheu a alternativa 1 (só quando pedido) e acrescentou: "3.a (e além disso um report semanal toda segunda feira 7h da manhã.)". Resultado: o status padrão segue padrão, o agente pergunta no pedido de status, e o relatório da esteira também sai toda segunda-feira às 07h, sem pedido (F6). A alternativa 3 original dependia de F2 e F5 prontas; a decisão do dono não impõe essa espera, e a F6 envia com a lacuna declarada (registrado no ledger como decisão desta thread). Alternativas como foram propostas:
-    1. **Só quando pedido (escolhida, com a cadência semanal do dono por cima).** O status padrão segue padrão; o agente pergunta no pedido de status e o relatório da esteira só sai quando o dono escolhe. Custo mínimo (nenhuma leitura de transcrição sem pedido), nenhuma mudança no que ele já recebe e a lacuna de tokens fica visível só para quem pediu.
-    2. **Por padrão.** Todo status de roadmap já traz a esteira. Dá visibilidade sempre, mas aumenta o custo de cada status (leitura de transcrições) e o tamanho da mensagem nos canais curtos, e esconde o relatório padrão que o dono aprovou.
-    3. **Numa cadência (o dono pediu a semanal, por cima da alternativa 1).** Além da pergunta, o `ork pulse` envia a esteira em dia fixo (por exemplo, semanal). Cria o hábito e dá tendência (F5), mas depende de F2 e F5 prontas e de o dono querer receber sem pedir.
-  - Registrada por esta thread, sem pergunta ao dono: a pergunta usa o formato de alternativas da RM-057 e, sem resposta, vale o padrão (a leitura não é gate); o relatório só mostra número medido; a lacuna é parte do relatório.
+- **Prioridade / método / pontuação / justificativa / data:** frente B do realinhamento. F1 e F2 avançam em paralelo com a frente A; F3 a F6 vêm em seguida; F7 e F8 fecham a frente D. Decisão do dono em 23/11/2026.
+- **Horizonte / alvo / previsão / confiança / marcos:** Discovery; marcos F1 a F8 na ordem de dependência acima. A própria F7 produzirá previsão quando houver amostra; esta página não antecipa data.
+- **Dependências e bloqueios (ID, owner, próxima revisão):** [RM-076](RM-076-fila-pesada-com-prioridade.md) para vaga pesada; [RM-077](RM-077-revisao-independente-pelo-construtor-do-head.md) para revisão; [RM-089](RM-089-orkastery-network-coletiva-da-empresa.md) para soma coletiva; [RM-090](RM-090-telemetria-opentelemetry-para-sdlc-analytics.md) para exportação; [RM-095](RM-095-resultado-de-producao-vira-proposta.md) para deploy e incidente. Owner: Julio; revisão antes do PLAN.
+- **Premissas / riscos / mitigação:** merge pode ser revertido depois da janela; a série conserva o evento e reapresenta a entrega. Percentis com amostra pequena parecem precisos; o relatório mostra tamanho e cobertura da amostra. Gargalo pode mudar por item; F6 não generaliza sem janela e agrupamento. Identificador operacional pode expor dado privado; a superfície coletiva usa pseudônimo estável e mantém o mapa fora do relatório.
+- **Decisões, alternativas e ADRs (ID, decisor, data, link):** o dono substituiu o relatório anterior pelo fluxo em oito fatias e determinou relatório semanal e RM-090 como canais, sem backend novo, em 23/11/2026.
 
 ## Estado com evidências
 
-O item está em Discovery: só esta página existe. Não há código, teste nem PR de implementação.
+O item está em Discovery. A reformulação documental não declara fatia implementada.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -131,23 +107,23 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-10-21 | Julio |
-| Documentação | Rascunho | — | 2026-10-21 | Julio |
-| Código | Não iniciado | — | 2026-10-21 | Julio |
-| Testes | Não iniciados | — | 2026-10-21 | Julio |
-| Deploy | Não implantado | — | 2026-10-21 | Julio |
-| Exposição | Flag desligada | — | 2026-10-21 | Julio |
-| Habilitação | Pendente | — | 2026-10-21 | Julio |
+| Ciclo do item | Discovery | — | 2026-11-23 | Julio |
+| Documentação | Rascunho | — | 2026-11-23 | Julio |
+| Código | Não iniciado | — | 2026-11-23 | Julio |
+| Testes | Não iniciados | — | 2026-11-23 | Julio |
+| Deploy | Não implantado | — | 2026-11-23 | Julio |
+| Exposição | Flag desligada | — | 2026-11-23 | Julio |
+| Habilitação | Pendente | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
 ## Responsabilidades e histórico
 
-- **RACI (R / A / C / I):** R: agente de condução do Orkastery; A: Julio; C: nenhum; I: nenhum.
-- **Agentes envolvidos, atuação, autonomia e revisor humano:** agente de código na redação desta página, em `#Fast`; revisor humano: Julio, no PR.
-- **Próxima ação, responsável e prazo:** Julio decide a posição do item no índice de prioridade; a decisão de como o relatório chega está tomada (21/10/2026); sem prazo.
+- **RACI (R / A / C / I):** R: futuras threads das fatias; A: Julio; C: produto, telemetria, CI, forja e rede coletiva; I: builders e times da empresa.
+- **Agentes envolvidos, atuação, autonomia e revisor humano:** a sessão GO do realinhamento reformulou somente a documentação aprovada; fórmulas públicas e contratos de implementação serão ratificados no PLAN correspondente.
+- **Próxima ação, responsável e prazo:** planejar F1 e F2; responsável: futuras threads da frente B; sem data declarada.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
-| 2026-10-21 | Item criado em Discovery | Pedido do dono de uma opção de relatório de roadmap com a esteira do SDLC; thread `ork-relatoriosdl` | Julio |
-| 2026-10-21 | Decisão registrada: relatório da esteira sob pedido (alternativa 1) mais o envio semanal toda segunda-feira às 07h no fuso e no canal do dono; entra a fatia F6 com critério de aceite verificável | Resposta do dono no terminal ao resumo das 07h: "3.a (e além disso um report semanal toda segunda feira 7h da manhã.)". O item segue em Discovery; thread `ork-decisoes0700` | Julio |
+| 2026-10-21 | Item criado como relatório da esteira do SDLC | Pedido do dono por visibilidade do consumo e dos ciclos da fábrica | Julio |
+| 2026-11-23 | Item reformulado como fluxo da fábrica por item, em oito fatias | Requisitos 003 e 004 e realinhamento aprovado | Julio aprovou o resultado; sessão GO estruturou as fórmulas |

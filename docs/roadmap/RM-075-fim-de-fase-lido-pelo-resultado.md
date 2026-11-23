@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-03T17:30:00-03:00
+atualizado_em: 2026-11-23T11:02:31-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -37,6 +37,10 @@ sdlc:
 | Em desenvolvimento | Mesclado | Em execução | Produção | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
+
+## Habilitação e medição
+
+O código está mesclado e em produção, mas a exposição continua com flag desligada. Falta habilitar com retrato antes e depois. A medida é a razão entre fins de fase elegíveis que viram espera humana indevida e todos os fins de fase elegíveis; a proteção é a razão de perguntas humanas reais preservadas. Nenhum ganho é declarado antes dos dois retratos.
 
 ## Problema e resultado
 
@@ -97,13 +101,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-11-03 | Julio |
-| Documentação | Em revisão | — | 2026-11-03 | Julio |
-| Código | Mesclado | commit `7fd2b66` | 2026-11-03 | Julio |
-| Testes | Em execução | — | 2026-11-03 | Julio |
-| Deploy | Produção | — | 2026-11-03 | Julio |
-| Exposição | Flag desligada | — | 2026-11-03 | Julio |
-| Habilitação | Pendente | — | 2026-11-03 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-23 | Julio |
+| Documentação | Em revisão | — | 2026-11-23 | Julio |
+| Código | Mesclado | commit `7fd2b66` | 2026-11-23 | Julio |
+| Testes | Em execução | — | 2026-11-23 | Julio |
+| Deploy | Produção | — | 2026-11-23 | Julio |
+| Exposição | Flag desligada | — | 2026-11-23 | Julio |
+| Habilitação | Pendente | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -111,10 +115,11 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: a sessão condutora da thread que pegar o item; A: Julio; C: a definir; I: a definir.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** item aberto pela condução da VPS a pedido do dono, a partir dos achados de outra rede; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** a condução abre a thread pela fila da seção "Achados de condução em rede" do índice do roadmap.
+- **Próxima ação, responsável e prazo:** frente C habilita a fatia e registra os retratos antes e depois pelas fórmulas desta página; responsável: futura thread de habilitação; sem prazo declarado.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-31 | Item criado em Discovery | Achados de condução em rede, conferidos contra a 0.6.2 | Julio (pedido de 31/10/2026) |
 | 2026-11-02 | Codex incluído no escopo e implementação iniciada | `task_complete` foi perdido sob `SESSION_STATE_SPLIT` e a escada redespachou a fase concluída | Condução `#Auto`, decisão registrada na thread |
 | 2026-11-03 | Em produção na 0.6.5 | Merge `7fd2b66` (PR #257) e tag `v0.6.5` publicada no npm | Julio |
+| 2026-11-23 | Ligação priorizada com medição antes e depois; estado de exposição permanece verdadeiro | Realinhamento aprovado; flag ainda desligada | Julio |

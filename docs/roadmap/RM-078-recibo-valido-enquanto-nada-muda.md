@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-07T05:36:54-03:00
+atualizado_em: 2026-11-23T11:02:31-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -37,6 +37,10 @@ sdlc:
 | Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
+
+## Habilitação e medição
+
+O código está mesclado, mas ainda não foi implantado e a exposição segue com flag desligada. Falta habilitar com retrato antes e depois. A medida é a razão entre verifies ou revisões repetidos sem mudança de HEAD, claims ou plano e os turnos elegíveis; a proteção é a razão de reusos recusados quando conteúdo ou dependência externa mudou. Nenhum ganho é declarado antes dos dois retratos.
 
 ## Problema e resultado
 
@@ -104,13 +108,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-11-07 | Julio |
-| Documentação | Em revisão | — | 2026-11-07 | Julio |
-| Código | Mesclado | commit `bf89470` | 2026-11-07 | Julio |
-| Testes | Em execução | — | 2026-11-07 | Julio |
-| Deploy | Não implantado | — | 2026-11-07 | Julio |
-| Exposição | Flag desligada | — | 2026-11-07 | Julio |
-| Habilitação | Pendente | — | 2026-11-07 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-23 | Julio |
+| Documentação | Em revisão | — | 2026-11-23 | Julio |
+| Código | Mesclado | commit `bf89470` | 2026-11-23 | Julio |
+| Testes | Em execução | — | 2026-11-23 | Julio |
+| Deploy | Não implantado | — | 2026-11-23 | Julio |
+| Exposição | Flag desligada | — | 2026-11-23 | Julio |
+| Habilitação | Pendente | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -118,10 +122,11 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: a sessão condutora da thread que pegar o item; A: Julio; C: a definir; I: a definir.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** item aberto pela condução da VPS a pedido do dono, a partir dos achados de outra rede; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** a condução abre a thread pela fila da seção "Achados de condução em rede" do índice do roadmap.
+- **Próxima ação, responsável e prazo:** frente C implanta, habilita e registra os retratos antes e depois pelas fórmulas desta página; responsável: futura thread de habilitação; sem prazo declarado.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-31 | Item criado em Discovery | Achados de condução em rede, conferidos contra a 0.6.2 | Julio (pedido de 31/10/2026) |
 | 2026-11-06 | Implementação e testes focados em andamento | Thread `ork-rm078recibod`, commits atômicos até `f9685ef` | Codex, modo `#Auto` |
 | 2026-11-06 | GO-FIX corrige o F2b e, em separado, atualiza M15 para autoria por commit confirmado na cadeia | Tentativa insuficiente em `6c3ea33f`; correção do F2b em `f51f33a5`, com `--date=`, conferência das datas, teste focado e mutante, e em `dd570a0e`, com formato UTC e verify verde; correção do M15 em `b771cfa0` | Codex, modo `#Auto` |
+| 2026-11-23 | Implantação e habilitação priorizadas com medição antes e depois; estado permanece não implantado e flag desligada | Realinhamento aprovado; falta prova de deploy e exposição | Julio |

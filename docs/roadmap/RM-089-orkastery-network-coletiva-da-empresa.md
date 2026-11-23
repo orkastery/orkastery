@@ -6,15 +6,15 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-11T18:15:00-03:00
+atualizado_em: 2026-11-23T11:02:31-03:00
 estado:
   ciclo: Em desenvolvimento
-  documentacao: Rascunho
-  codigo: Branch criada
+  documentacao: Em revisão
+  codigo: Mesclado
   testes: Em execução
-  deploy: Não implantado
-  exposicao: Flag desligada
-  habilitacao: Pendente
+  deploy: Produção
+  exposicao: Parcial
+  habilitacao: Em andamento
 evidencias:
   codigo:
     commit: 3673d07
@@ -32,7 +32,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Em execução | Produção | Parcial |
 
 <!-- ork-docs:relance:fim -->
 
@@ -130,9 +130,9 @@ Um hotfix urgente pode usar uma exceção auditável autorizada pela política. 
 | F4 | Política e `exigir` no `ork ci run`, com GitHub e GitLab | PRs de branches `ork/*` e externas produzem o mesmo resultado em cada nível; em `exigir`, recibo ausente, inválido ou de outro HEAD reprova o check obrigatório nas duas forjas |
 | F5 | Recibo básico em qualquer branch | O CI reexecuta claims e verify da thread e aceita somente o recibo ligado ao HEAD do PR |
 | F6 | `ork adotar`, aviso no terminal e exceção auditável | Uma branch externa entra em thread sem perder commits; a sessão fora de thread recebe as duas ações; a exceção autorizada aparece no ledger e no relatório, e a não autorizada não libera o merge |
-| F7 | Recibo forte da fábrica da empresa | O CI aceita assinatura da fábrica para o mesmo SHA e rejeita chave, emissor ou SHA divergente; o recibo contém veredito e CHECK de conta diferente da construtora |
+| F7 | Recibo forte da fábrica da empresa | O CI aceita assinatura da fábrica para o mesmo SHA e rejeita chave, emissor ou SHA divergente; o recibo contém veredito e CHECK de conta diferente da construtora e transporta a prova da exceção autorizada da produção até o runner do CI |
 
-**Estado em 11/11/2026:** F4 está na `main` pelo PR #282, merge `4c196ae`; F1 está na `main` pelo PR #285, merge `3673d07`; F2 está em construção; F3, F5, F6 e F7 estão planejadas. O conjunto ainda não foi implantado e sai na 0.6.9.
+**Estado em 23/11/2026:** F1 a F4 foram publicadas na 0.6.9 e F5 na 0.6.10. F6 foi mesclada na `main` pelo PR #298. F7 está em planejamento e recebe o transporte da prova da exceção autorizada da produção até o runner do CI.
 
 ## Plano e decisões
 
@@ -192,13 +192,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-11-11 | Julio |
-| Documentação | Rascunho | — | 2026-11-11 | Julio |
-| Código | Branch criada | commit `3673d07` · PR #285 | 2026-11-11 | Julio |
-| Testes | Em execução | — | 2026-11-11 | Julio |
-| Deploy | Não implantado | — | 2026-11-11 | Julio |
-| Exposição | Flag desligada | — | 2026-11-11 | Julio |
-| Habilitação | Pendente | — | 2026-11-11 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-23 | Julio |
+| Documentação | Em revisão | — | 2026-11-23 | Julio |
+| Código | Mesclado | commit `3673d07` · PR #285 | 2026-11-23 | Julio |
+| Testes | Em execução | — | 2026-11-23 | Julio |
+| Deploy | Produção | — | 2026-11-23 | Julio |
+| Exposição | Parcial | — | 2026-11-23 | Julio |
+| Habilitação | Em andamento | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -206,10 +206,12 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: equipe Orkastery; A: Julio; C: segurança, administradores das forjas e builders inscritos; I: times da empresa.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** a sessão GO separou as duas evoluções em modo `#Fast`; o dono decidiu D1 e D2 e esclareceu o conjunto sincronizado; revisão humana ocorrerá na condução e no planejamento da construção.
-- **Próxima ação, responsável e prazo:** dono define a prioridade de construção e o piloto; prazo a definir pelo dono.
+- **Próxima ação, responsável e prazo:** construir a F7 com o transporte da prova até o runner; responsável: thread da F7.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-11-10 | RM-089 aberta em Discovery com política empresarial, rede coletiva e telemetria na mesma página | Pedidos do dono no terminal e fontes oficiais da primeira rodada | Dono definiu o problema; sessão GO organizou a proposta |
 | 2026-11-10 | Telemetria saiu para a RM-090; RM-089 ficou com a rede coletiva, a prevenção de duplicidade, a ajuda nos merges e a trava no Git; D1 e D2 foram decididas | Esclarecimento do dono e respostas `"1a 2a"` no terminal | Julio |
 | 2026-11-11 | Estado atualizado para Em desenvolvimento: F4 e F1 estão na `main`, F2 está em construção e as demais fatias estão planejadas; nomes públicos ratificados e decisões de indisponibilidade e atestado registradas | PR #282, merge `4c196ae`; PR #285, merge `3673d07`; decisões de 11/11/2026 | Julio nos nomes; condução nas decisões reversíveis |
+| 2026-11-23 | Estado corrigido: F1 a F4 publicadas na 0.6.9, F5 na 0.6.10, F6 em merge e F7 a construir com transporte da prova de exceção | CHANGELOG 0.6.9 e 0.6.10; decisão do dono de 23/11/2026 para F7 | Julio |
+| 2026-11-23 | F6 mesclada na `main`; F7 em planejamento | PR #298 | Julio |
