@@ -2263,5 +2263,10 @@
       "name": "security_scan",
       "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
     }
-  ]
+  ],
+  "recibo": {
+    "contrato": "ork.recibo-prova/v1",
+    "head": "fb869449c084976dcafdd1563c0d1fde41afd5dc",
+    "sha256": "ba5507992a324fbc00edf7b5885fe6db6010a2f03e52563766a6ef0d89cc153f"
+  }
 }
