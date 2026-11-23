@@ -6,7 +6,7 @@ categoria: melhoria
 pai: null
 features: [FEAT-011, FEAT-014, FEAT-015, FEAT-021]
 owner: Julio
-atualizado_em: 2026-10-01T02:24:38-03:00
+atualizado_em: 2026-11-23T11:02:31-03:00
 estado:
   ciclo: Em validação
   documentacao: Em revisão
@@ -56,22 +56,25 @@ sdlc:
 
 ## Escopo e validação
 
+O [padrão de interação humana](../padroes/interacao-humana.md) é a fonte única da forma pública do HITL. Ele exige de três a cinco alternativas, exatamente uma recomendada, linguagem simples, perguntas dependentes em sequência, perguntas independentes em lote, aprofundamento em três camadas e status sem mudança em uma linha.
+
 - **Incluído:**
-  1. **Contrato único de apresentação, canal-agnóstico:** resumo em uma frase, o que trava, há quanto tempo/custo, no máximo quatro opções rotuladas (a, b, c, d), **uma** marcada como recomendada com o porquê em uma linha, e uma última linha dizendo exatamente como responder.
+  1. **Contrato único de apresentação, canal-agnóstico:** resumo em uma frase, o que trava, de três a cinco opções rotuladas, **uma** marcada como recomendada com o porquê em uma linha, e uma última linha dizendo exatamente como responder.
   2. **Resposta em linguagem natural registra:** "aprovar", "sim", "pode seguir", "a", "1", "B", "1. B, 2. A" casam o pedido vigente quando não houver ambiguidade. Ambíguo volta como pergunta, com as opções reais, nunca como veredito chutado.
   3. **Fim da dependência de código/UUID rotativo:** identificador estável por pedido, ou resolução automática pelo pedido vigente da thread, para que a linha recebida não vença em uma hora.
   4. **Teto de tamanho:** pedido curto por padrão; o detalhe profundo (artefato, claims, riscos, diff) fica a um pedido de distância.
   5. **Formatação por canal:** ícones e tópicos padronizados em Telegram, terminal e OpenClaw, com o mesmo conteúdo essencial em todos.
   6. **Separação explícita do que é do humano e do que é do orquestrador**, para o dono não ser chamado a decidir impedimento técnico.
   7. **Status report único do roadmap:** um comando do núcleo gera o relatório no formato aprovado pelo dono em 27/09/2026 (grupos com ícones, um item por linha, `#HITL` no que depende dele, e o fecho com o que precisa dele e o que vem a seguir), e todo canal chama esse comando em vez de escrever o próprio.
-  8. **Nota do MASTER com prova de origem humana:** ferramenta de host que grava nota em nome de uma pessoa (hoje a `ork_master` recebe o nome como parâmetro) passa pela mesma prova de canal que o gate já exige.
+  8. **Autorização única:** nota do MASTER, ratificação de contrato, autorização durável e envelope do #Noctum usam o escopo, a validade, o canal e a prova definidos na [RM-092](RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md).
+  9. **Execução pela fábrica:** a pergunta nunca transfere ao humano o comando ou a operação que a fábrica pode fazer; a [RM-093](RM-093-acao-do-dono-executada-pela-fabrica.md) executa a ação reservada depois da resposta autenticada.
 - **Fora de escopo:** exclusividade de um canal; a cadência do resumo ([RM-039](RM-039-cadencia-do-pulse-por-tag.md)); o tamanho da fila e o teto da varredura ([RM-045](RM-045-pulse-enxuto.md)); a camada de atenção já entregue em `FEAT-011` ([FEAT-011](../produto/FEAT-011-hitl-em-camadas.md)).
-- **Entregáveis e critérios de aceite:** (a) um pedido real respondido em prosa pelo dono é registrado no ledger sem ele reescrever nada, nos quatro hosts; (b) todo pedido de gate e de sessão sai no formato único, com recomendação e com o "como responder" em uma linha; (c) nenhum pedido passa de 15 linhas por padrão; (d) pedido ambíguo devolve pergunta, nunca aprovação.
+- **Entregáveis e critérios de aceite:** (a) um pedido real respondido em prosa pelo dono é registrado no ledger sem ele reescrever nada, nos quatro hosts; (b) todo pedido de gate e de sessão segue o padrão único; (c) perguntas dependentes chegam em sequência e independentes em lote; (d) pedido ambíguo devolve pergunta, nunca aprovação; (e) a alternativa recomendada não contém comando.
 - **Piloto, medição e critérios de expansão/interrupção:** piloto no canal Telegram desta máquina, por uma semana, medindo erro humano e tempo até a decisão; expande se o registro em prosa funcionar sem abrir exceção na defesa do ingresso; interrompe se algum veredito for registrado sem prova de canal.
 
 ## Plano e decisões
 
-- **Prioridade / método / pontuação / justificativa / data:** alta. É o caminho pelo qual todo o resto do produto é aprovado; cada erro de formato aqui custa dias de thread parada. Pedido do dono em 27/09/2026.
+- **Prioridade / método / pontuação / justificativa / data:** frente A do realinhamento. É o guarda-chuva do HITL; RM-055, RM-057 e RM-092 são itens filhos. Pedido original em 27/09/2026 e reformulação aprovada em 23/11/2026.
 - **Dependências e bloqueios (ID, owner, próxima revisão):** depende do ingresso HITL do núcleo ([RM-003](RM-003-hitl-bidirecional-telegram.md)) e da camada de atenção ([FEAT-011](../produto/FEAT-011-hitl-em-camadas.md)); precisa de decisão do dono sobre aceitar linguagem natural como resposta válida (classe 1).
 - **Premissas / riscos / mitigação:** premissa, é possível decidir ambiguidade sem heurística frágil; risco, aceitar prosa abrir caminho para o agente "interpretar" o dono; mitigação, quando houver mais de um pedido aberto na mesma thread, a resposta em prosa é recusada e a pergunta volta com as opções.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):** registrada a decisão de evoluir o HITL para humano no centro (Julio, 27/09/2026). Alternativa descartada: manter a gramática atual e apenas documentá-la melhor.
@@ -88,13 +91,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em validação | — | 2026-10-01 | Julio |
-| Documentação | Em revisão | — | 2026-10-01 | Julio |
-| Código | Mesclado | commit `8d47740` · PR #19 | 2026-10-01 | Julio |
-| Testes | Aprovados | ci: verde no push do merge (run 36562093369) e no da v0.5.0 (run 36815186450) | 2026-10-01 | Julio |
-| Deploy | Produção | release: v0.5.0, @orkastery/cli 0.5.0 no npm | 2026-10-01 | Julio |
-| Exposição | Flag desligada | — | 2026-10-01 | Julio |
-| Habilitação | Pendente | — | 2026-10-01 | Julio |
+| Ciclo do item | Em validação | — | 2026-11-23 | Julio |
+| Documentação | Em revisão | — | 2026-11-23 | Julio |
+| Código | Mesclado | commit `8d47740` · PR #19 | 2026-11-23 | Julio |
+| Testes | Aprovados | ci: verde no push do merge (run 36562093369) e no da v0.5.0 (run 36815186450) | 2026-11-23 | Julio |
+| Deploy | Produção | release: v0.5.0, @orkastery/cli 0.5.0 no npm | 2026-11-23 | Julio |
+| Exposição | Flag desligada | — | 2026-11-23 | Julio |
+| Habilitação | Pendente | — | 2026-11-23 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -111,3 +114,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-28 | os 8 itens entregues na branch da thread (contrato `ork.hitl-curto/v1`, texto livre, linha estável, "Conosco", `ork roadmap status`, `ork master pedir`) | thread `ork-hitlhumanono`, #Auto, decisões D3 a D9 no ledger | agente condutor; decisão final de Julio |
 | 2026-09-29 | os 8 itens mesclados na `main` | PR #19, merge `8d47740` | Julio |
 | 2026-10-01 | em produção na versão 0.5.0; o piloto segue em aberto | tag `v0.5.0` (PR #36), `@orkastery/cli` 0.5.0 no npm | Julio |
+| 2026-11-23 | Reformulada como guarda-chuva do HITL, com padrão único e RM-055, RM-057 e RM-092 como filhos | Requisito 005 e realinhamento aprovado | Julio |
