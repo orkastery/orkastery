@@ -176,3 +176,19 @@ test('RM-068 registra a fonte e o fora de escopo da fatia da issue 302', () => {
   assert.match(roadmap, /issue #302/);
   assert.match(roadmap, /Runtime Podman real fica fora/);
 });
+
+test('documentacao publica diz que cobertura ausente sai 1 por padrao', () => {
+  const raiz = path.resolve(__dirname, '../../..');
+  const fontes = {
+    cli: fs.readFileSync(path.join(raiz, 'docs/referencia/cli.md'), 'utf8'),
+    cliEn: fs.readFileSync(path.join(raiz, 'docs/referencia/cli.en.md'), 'utf8'),
+    guia: fs.readFileSync(path.join(raiz, 'docs/guias/verificacao.md'), 'utf8'),
+    feat: fs.readFileSync(path.join(raiz, 'docs/produto/FEAT-041-security-scan-no-check.md'), 'utf8'),
+    skillEn: fs.readFileSync(path.join(raiz, 'core/assets/skills-en/phases/check-quality/SKILL.md'), 'utf8'),
+  };
+  assert.match(fontes.cli, /unavailable` ou `failed` também sai 1 por\s+padrão/);
+  assert.match(fontes.cliEn, /`unavailable` or `failed` also exits 1\s+by default/);
+  assert.match(fontes.guia, /ferramenta de categoria do laço `unavailable` ou `failed`[^|]+\| 1 \|/);
+  assert.match(fontes.feat, /comando sai 1 com a variável ausente, igual a `ORK_SECURITY_SCAN_REQUIRED=1`/);
+  assert.match(fontes.skillEn, /it makes the scan exit 1 by default/);
+});

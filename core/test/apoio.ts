@@ -126,8 +126,9 @@ export function dirTemporario(nome: string): string {
 /**
  * Isola somente as fontes globais de configuração do Git para um arquivo de teste que chama o MCP real.
  * Cada arquivo do `node --test` roda em processo próprio; a pasta vive até a saída desse processo para
- * também cobrir workers filhos. Overrides de arquivo global ou de sistema não atravessam a fronteira;
- * configuração local continua sendo parte explícita de cada fixture.
+ * também cobrir workers filhos. O próprio processo de teste deixa de herdar overrides de arquivo
+ * global ou de sistema; o worker MCP já recebe o ambiente mínimo sem nenhuma variável `GIT_*`.
+ * Configuração local continua sendo parte explícita de cada fixture.
  */
 export function isolarConfiguracaoGlobalDoGit(nome: string): void {
   const home = dirTemporario(`${nome}-git-home`);
