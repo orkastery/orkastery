@@ -1,9 +1,7 @@
 name: Transporte autenticado da excecao
 
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
+  workflow_call:
 
 permissions: {}
 
@@ -11,21 +9,20 @@ jobs:
   ork-excecao-transporte:
     name: ork-excecao-transporte
     if: >-
-      github.event.workflow_run.event == 'pull_request' &&
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_repository.full_name == github.repository &&
-      github.event.workflow_run.pull_requests[0].base.sha != ''
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.base.sha != ''
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
     steps:
-      # O workflow_run nasce da target. A origem do PR nunca e executada neste job.
+      # A policy da organização referencia este workflow na target protegida. A origem do PR nunca e executada aqui.
       - name: obter policy da target protegida
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 1
-          ref: ${{ github.event.workflow_run.pull_requests[0].base.sha }}
+          ref: ${{ github.event.pull_request.base.sha }}
           path: .ork-protected-target
           persist-credentials: false
 

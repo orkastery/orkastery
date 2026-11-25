@@ -180,18 +180,19 @@ async function identidadeOidcDoLauncher(forja: 'github' | 'gitlab', env: NodeJS.
 
 export function localizadoresDoLauncher(env: NodeJS.ProcessEnv): LocalizadoresDoTransporteCi {
   if (env.GITHUB_ACTIONS === 'true') {
-    type PullRequest = { head?: { sha?: unknown; ref?: unknown }; base?: { ref?: unknown; sha?: unknown } };
-    let evento: { pull_request?: PullRequest; workflow_run?: { head_sha?: unknown; head_branch?: unknown;
-      actor?: { id?: unknown }; pull_requests?: PullRequest[] } } = {};
+    type PullRequest = { head?: { sha?: unknown; ref?: unknown }; base?: { ref?: unknown; sha?: unknown };
+      user?: { id?: unknown } };
+    let evento: { pull_request?: PullRequest } = {};
     try {
       const bruto = env.GITHUB_EVENT_PATH ? fs.readFileSync(env.GITHUB_EVENT_PATH, 'utf8') : '{}';
       evento = JSON.parse(bruto) as typeof evento;
     } catch { /* os campos ausentes são recusados abaixo */ }
-    const execucao = evento.workflow_run, pullRequest = execucao?.pull_requests?.[0] ?? evento.pull_request;
-    const head = execucao?.head_sha ?? pullRequest?.head?.sha;
-    const source = execucao?.head_branch ?? pullRequest?.head?.ref;
+    const pullRequest = evento.pull_request;
+    const head = pullRequest?.head?.sha;
+    const source = pullRequest?.head?.ref;
     const target = pullRequest?.base?.ref ?? env.GITHUB_REF_NAME;
-    const construtor = execucao?.actor?.id === undefined ? env.GITHUB_ACTOR_ID : String(execucao.actor.id);
+    const construtor = typeof pullRequest?.user?.id === 'number' || typeof pullRequest?.user?.id === 'string'
+      ? String(pullRequest.user.id) : env.GITHUB_ACTOR_ID;
     const valores = [env.GITHUB_REPOSITORY, source, target, head, env.GITHUB_RUN_ID, construtor];
     if (valores.some((valor) => typeof valor !== 'string' || !valor)) throw new Error('ci.excecao.transporte-contexto-ausente');
     return { forja: 'github', project: env.GITHUB_REPOSITORY!, source: source as string, target: target as string,
