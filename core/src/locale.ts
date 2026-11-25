@@ -747,6 +747,12 @@ const PT_BR = {
           'rode `ork verify` e `ork ci prepare` de novo, ou adote a branch quando `ork adotar` estiver disponivel',
         reciboShaDivergente: (branch: string) => `ci.recibo.sha-divergente: a branch ${branch} mudou fora de .ork-ci/ depois do verify; ` +
           'rode `ork verify` e `ork ci prepare` de novo',
+        transporteExcecao: {
+          invalido: 'ci.excecao.transporte-invalido: o wrapper, a prova ou a capacidade não corresponde ao contexto reobtido',
+          indisponivel: 'ci.excecao.transporte-indisponivel: a fábrica não respondeu à consulta protegida',
+          prazoExcedido: 'ci.excecao.transporte-prazo-excedido: a consulta protegida não terminou no prazo da policy',
+          reciboForteInvalido: 'ci.recibo-forte.assinatura-invalida: a assinatura não confere com o recibo, o CHECK e o HEAD reobtidos',
+        },
         degradacaoReplay: {
           'projecao-acima-do-limite': {
             mensagem: 'A projeção de replay excede o limite do bundle.',
@@ -1292,6 +1298,12 @@ const EN: Mensagens = {
           'run `ork verify` and `ork ci prepare` again, or adopt the branch when `ork adotar` becomes available',
         reciboShaDivergente: (branch) => `ci.recibo.sha-divergente: branch ${branch} changed outside .ork-ci/ after verify; ` +
           'run `ork verify` and `ork ci prepare` again',
+        transporteExcecao: {
+          invalido: 'ci.excecao.transporte-invalido: the wrapper, proof, or capability does not match the re-fetched context',
+          indisponivel: 'ci.excecao.transporte-indisponivel: the factory did not answer the protected request',
+          prazoExcedido: 'ci.excecao.transporte-prazo-excedido: the protected request did not finish within the policy deadline',
+          reciboForteInvalido: 'ci.recibo-forte.assinatura-invalida: the signature does not match the re-fetched receipt, CHECK, and HEAD',
+        },
         degradacaoReplay: {
           'projecao-acima-do-limite': {
             mensagem: 'The replay projection exceeds the bundle limit.',

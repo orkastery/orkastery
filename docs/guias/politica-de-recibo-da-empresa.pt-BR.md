@@ -12,6 +12,13 @@ No `orkastery.yaml`, escolha um nível:
 ci:
   context: ork-verify
   politica_recibo: exigir
+  transporte_excecao:
+    contrato: ork.excecao-transporte-runner/v1
+    origem: https://fabrica.exemplo.invalid/ci
+    audiencia: urn:orkastery:fabrica:ci
+    cliente:
+      versao: versao-publicada
+      sha256: digest-da-target-com-64-caracteres-hexadecimais
 ```
 
 | Nível | Resultado do check | Diagnóstico |
@@ -76,7 +83,9 @@ A porta gerida usa três contratos separados:
 
 A ordem é pedido, recibo, validação, append durável e exposição do par. Falha de append não expõe a exceção. Depois do append, a mesma chave de idempotência devolve o par sem reenviar nem criar evento. Antes do append, a porta idempotente precisa devolver o mesmo recibo. O recibo assinado prova a resposta `delivered` do emissor para o pedido exato; não prova leitura humana.
 
-O transporte protegido da execução entrega ao runner o recibo, o envelope e uma capacidade limitada ao par. Esta versão ainda não traz esse transporte de produção; ele fica para a F7 da RM-089, junto do recibo forte da fábrica. Até lá, o runner não aplica exceção, e `exigir` continua pedindo o recibo da F5. Nada disso é aceito do bundle ou do checkout do builder. O runner revalida policy, assinatura, hashes, IDs, horário, destinatário, branches e HEAD e projeta `exception` em `ork.ci-run/v1`, além da anotação e do relatório. Ele não envia a notificação e não escreve no ledger ou na forja. A exceção dispensa somente o recibo da F5: falha real de preparo, claim ou comando continua reprovando. Sem capacidade, par correspondente ou HEAD exato, `exigir` falha fechado.
+O transporte protegido `ork.excecao-transporte-runner/v1` entrega ao validador a `proof` F6 integral e a `capability` limitada ao par. O launcher vem da target protegida e é conferido por versão e digest; no GitHub, a receita protegida usa OIDC do job, e no GitLab uma policy protegida injeta o ID token. A audiência é exatamente `urn:orkastery:fabrica:ci`. A fábrica usa o pedido apenas como localizador e reobtém projeto, origem, destino, HEAD, proteção, execução e produtor antes de entregar a capacidade. Nada é aceito do bundle, de argumento, de ambiente controlável pelo PR/MR ou do checkout do builder. Token, prova e capacidade brutos permanecem no validador, e o job recebe somente `ork.excecao-transporte-resultado/v1` sanitizado.
+
+Ausência determinística usa `ci.recibo.ausente`; indisponibilidade usa `ci.excecao.transporte-indisponivel`; prazo excedido usa `ci.excecao.transporte-prazo-excedido`; wrapper apresentado e inválido usa `ci.excecao.transporte-invalido`. `observar` diagnostica, `avisar` também anota e `exigir` falha fechado sem recibo forte válido. Um recibo forte já válido encerra o caminho antes da consulta. A exceção dispensa somente a ausência do recibo básico: falha real de preparo, claim ou comando continua reprovando.
 
 ## Limite de confiança do nível básico
 
@@ -92,11 +101,12 @@ ancorados, reprova qualquer falha atual e emite o recibo do HEAD que acabou de e
 Não usa ancestralidade nem diff posterior para transformar um HEAD antigo em presente. Isso detecta divergência operacional, mas não prova a autoria
 do bundle nem do código.
 
-Esta fatia não fornece recibo de verify assinado: o campo `assinatura` do recibo de saída continua reservado e ausente.
-A assinatura do recibo de **notificação** descrito acima prova apenas a resposta do emissor ao pedido exato; não prova
-autoria do bundle, do código, do workflow ou do verify. Uma capacidade futura teria de definir sua própria autoridade
-e seu próprio contrato; nenhuma entrega F7 é prometida aqui. A proteção administrativa da forja reduz quem pode alterar
-manifesto, workflow e bundle, mas não transforma o recibo básico em prova criptográfica.
+O campo `assinatura` usa `ork.ci-recibo-forte-assinatura/v1`. A pré-imagem canônica ancora o `sha256` do recibo básico
+ao HEAD, à thread, à tag de condução, ao veredito, à rodada, ao CHECK e ao principal nativo. A fábrica verifica emissor,
+chave, validade, revogação e material público; chave privada não integra o produto. No GitHub o produtor é
+`check_run.app.id`; no GitLab é o `user_id` do job, sempre distinto do construtor. Alteração de campo, HEAD, evidência,
+emissor ou chave invalida a assinatura. A assinatura da notificação F6 continua provando somente a resposta ao pedido
+exato e não substitui o recibo forte F7.
 
 ## Tornar o check obrigatório
 

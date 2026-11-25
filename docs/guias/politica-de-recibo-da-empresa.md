@@ -12,6 +12,13 @@ Choose a level in `orkastery.yaml`:
 ci:
   context: ork-verify
   politica_recibo: exigir
+  transporte_excecao:
+    contrato: ork.excecao-transporte-runner/v1
+    origem: https://factory.example.invalid/ci
+    audiencia: urn:orkastery:fabrica:ci
+    cliente:
+      versao: published-version
+      sha256: target-digest-with-64-lowercase-hex-characters
 ```
 
 | Level | Check result | Diagnostic |
@@ -77,7 +84,9 @@ The managed port uses three separate contracts:
 
 The order is request, receipt, validation, durable append, then exposure of the pair. An append failure does not expose the exception. After append, the same idempotency key returns the pair without sending again or creating an event. Before append, the idempotent port must return the same receipt. The signed receipt proves the issuer's `delivered` response for that exact request; it does not prove that a person read it.
 
-Protected execution transport gives the runner the receipt, envelope, and a capability limited to that exact pair. This version does not yet ship that production transport; it is left for RM-089 F7, together with the strong factory receipt. Until then, the runner applies no exception, and `exigir` still requires the F5 receipt. None is accepted from the builder's bundle or checkout. The runner revalidates policy, signature, hashes, identifiers, timestamp, recipient, branches, and HEAD and projects `exception` into `ork.ci-run/v1`, its annotation, and its report. It does not send the notification or write to the ledger or forge. The exception waives only the F5 receipt: a real preparation, claim, or command failure still fails. Without the capability, matching pair, or exact HEAD, `exigir` fails closed.
+Protected transport `ork.excecao-transporte-runner/v1` gives the validator the complete F6 `proof` and the pair-limited `capability`. The launcher comes from the protected target and is checked by version and digest. GitHub uses the protected job's OIDC identity; a protected GitLab policy injects the ID token. The audience is exactly `urn:orkastery:fabrica:ci`. The factory treats the request only as a locator and re-fetches project, source, target, HEAD, protection, execution, and producer before issuing a capability. Nothing is accepted from the bundle, arguments, PR/MR-controlled environment, or builder checkout. Raw token, proof, and capability remain inside the validator; the job receives only a sanitized `ork.excecao-transporte-resultado/v1`.
+
+Deterministic absence uses `ci.recibo.ausente`; unavailability uses `ci.excecao.transporte-indisponivel`; deadline expiration uses `ci.excecao.transporte-prazo-excedido`; a presented invalid wrapper uses `ci.excecao.transporte-invalido`. `observar` diagnoses, `avisar` also annotates, and `exigir` fails closed without a valid strong receipt. A valid strong receipt short-circuits before transport lookup. The exception waives only the missing basic receipt: a real preparation, claim, or command failure still fails.
 
 ## Basic-level trust boundary
 
@@ -92,11 +101,12 @@ basic level, it reruns protected preparation and the anchored claims and command
 failure, then emits a receipt for the HEAD it just executed. It does not use ancestry or a later diff
 to turn an older HEAD into a present receipt. This detects operational divergence, but it does not prove who authored the bundle or code.
 
-This slice does not provide a signed verify receipt: the output receipt's `assinatura` field remains reserved and absent.
-The **notification** receipt signature described above proves only the issuer's response to the exact request; it does
-not prove authorship of the bundle, code, workflow, or verify. A future capability would need its own authority and
-contract; no F7 delivery is promised here. Forge administration limits who can change the manifest, workflow, and
-bundle, but it does not turn the basic receipt into cryptographic proof.
+The `assinatura` field uses `ork.ci-recibo-forte-assinatura/v1`. Its canonical preimage anchors the basic receipt's
+`sha256` to the HEAD, thread, conduction tag, verdict, round, CHECK, and native principal. The factory checks issuer,
+key, validity, revocation, and public material; no private key is part of the product. The producer is
+`check_run.app.id` on GitHub and the job's `user_id` on GitLab, always distinct from the builder. Changing a field,
+HEAD, evidence, issuer, or key invalidates the signature. The F6 notification signature still proves only the response
+to its exact request and never replaces the F7 strong receipt.
 
 ## Make the check mandatory
 

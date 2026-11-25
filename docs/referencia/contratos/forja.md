@@ -104,7 +104,7 @@ prova F5. O guia
 
 O runner valida a projeção, reexecuta preparo, claims e comandos pelo julgamento compartilhado com o verify e emite
 `ork.ci-recibo-runner/v1` no resultado `ork.ci-run/v1`. A saída leva `contrato`, `head`, `thread`, `claimsSha256`,
-`rodadaSha256`, `check`, `resultado`, `sha256` e reserva `assinatura` para a F7. `presente` exige
+`rodadaSha256`, `check`, `resultado`, `sha256` e a assinatura F7 opcional. `presente` exige
 `resultado.recibo.head === resultado.commit === HEAD`, ao menos uma claim, comandos idênticos aos comandos de `verify`
 e preparo idêntico ao `verify.preparo` do manifesto da branch de destino e rodada integral verde. Preparo ausente,
 acrescentado ou trocado pelo PR invalida a receita. A ref ou o manifesto de destino ilegível falha fechado. Branch externa e fork não ganham
@@ -125,8 +125,12 @@ baseline projetada não é uma fonte confiável e não participa do julgamento d
 claim ou comando reprova nos três níveis, sem exceção de dívida preexistente. O nível básico somente reexecuta preparo,
 claims e comandos ancorados no HEAD; não usa ancestralidade nem diff posterior para aceitar outro HEAD.
 Isso não prova completude ou autenticidade das claims, autoria do bundle, integridade do código/workflow nem autoria criptográfica.
-O campo `assinatura` do recibo de verify permanece reservado e ausente. A assinatura do recibo de notificação descrita
-abaixo prova somente a resposta do emissor ao pedido exato. Nenhuma entrega F7 é prometida por este contrato.
+`assinatura`, quando presente, usa `ork.ci-recibo-forte-assinatura/v1`. O payload canônico ancora o `sha256` do recibo
+ao HEAD, à thread, à tag de condução, ao veredito, à rodada, ao CHECK e ao principal nativo. A política pública fecha
+emissor, chave Ed25519, validade, revogação e material público. O produto não carrega chave privada. No GitHub,
+`check_run.app.id` identifica o produtor; no GitLab, vale o `user_id` do job. O produtor precisa ser nativo, existir e
+ser distinto do construtor. A assinatura da notificação abaixo continua provando somente a resposta ao pedido exato e
+não cria nem substitui o recibo forte.
 
 ## Exceção auditável do recibo
 
@@ -164,8 +168,28 @@ O runner revalida schema, policy, assinatura, hashes, idempotência, horário, d
 `ork.ci-exception/v1` em `ork.ci-run/v1`, na anotação e no relatório. Ele não notifica, não escreve ledger ou forja e
 não recebe capacidade de escrita. A exceção dispensa apenas a ausência do recibo F5; falha de preparo, claim, comando
 ou replay continua decidindo `ok: false`. O recibo assinado prova entrega pelo emissor e não prova leitura humana.
-O transporte de produção que leva a prova e a capacidade da fábrica ao runner ainda não existe; ele fica para a F7
-da RM-089, junto do recibo forte da fábrica. Até lá, o runner não aplica exceção.
+### Transporte autenticado da fábrica
+
+`ork.excecao-transporte-runner/v1` contém exatamente `contrato`, `proof` e `capability`. `proof` preserva integralmente
+policy, pedido, recibo e evento F6; a capacidade permanece irmã e limitada ao mesmo projeto, source, target, HEAD,
+operação, evento, recibo e validade. O wrapper evolui em `/v1` próprio sem mudar os contratos F6 internos.
+
+A configuração pública `ci.transporte_excecao` vem somente da target protegida e fixa origem HTTPS, audiência
+`urn:orkastery:fabrica:ci`, versão e SHA-256 do cliente. A receita do GitHub separa o replay não confiável do launcher
+OIDC da target; no GitLab, uma policy protegida injeta o componente e o ID token fora da definição do MR. O launcher
+não recebe prova ou capacidade por argumento, checkout, bundle ou ambiente controlável pelo PR/MR. Token, resposta
+bruta e capacidade permanecem no validador; o job recebe apenas `ork.excecao-transporte-resultado/v1`.
+
+A fábrica valida a identidade nativa e reobtém na forja projeto, origem, destino, HEAD, proteção, execução, workflow ou
+configuração, produtor e operação antes de entregar a exceção. Fork, target não protegida, produtor ausente ou igual ao
+construtor, audiência divergente e contexto divergente encerram antes da porta sensível. A operação de transporte é
+separada de `assinar-recibo-forte` e não entrega capacidade de assinatura.
+
+Ausência determinística usa `ci.recibo.ausente`; serviço indisponível usa
+`ci.excecao.transporte-indisponivel`; prazo excedido usa `ci.excecao.transporte-prazo-excedido`; wrapper apresentado e
+inválido usa `ci.excecao.transporte-invalido`. `observar` diagnostica, `avisar` também anota e `exigir` reprova fechado
+sem recibo forte válido. Um recibo forte válido evita a consulta. A exceção F6 dispensa somente a ausência do recibo
+básico e nunca muda uma falha real de preparo, claim, comando ou replay.
 
 ## Preflight coletivo e credencial do CI
 

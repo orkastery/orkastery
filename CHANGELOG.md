@@ -8,11 +8,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Recibo forte e transporte autenticado — F7 (RM-089):** a fábrica assina o hash canônico do recibo do runner e o liga a thread, condução, rodada, CHECK independente e HEAD reobtidos. GitHub e GitLab separam replay não confiável do launcher protegido, usam identidade OIDC com audiência exata e cliente da target conferido por digest, e entregam ao job somente o resultado sanitizado. Ausência, indisponibilidade e prazo excedido permanecem causas públicas distintas; a exceção F6 não cria nem substitui o recibo forte.
+
 - **Adoção de trabalho existente — F6 (RM-089):** `ork adotar` cria a thread e a worktree canônicas no commit da origem sem reescrever a história, preserva os objetos exclusivos, retoma pelo último estado durável e só conclui depois de verify, CHECK independente e recibo do runner no mesmo HEAD.
 
 - **Orientação única de sessão — F6 (RM-089):** Claude Code, Codex, Hermes e OpenClaw consultam a mesma decisão read-only do núcleo quando uma sessão começa fora de thread; cada adapter apenas transporta pelas superfícies que comprova, e instalação, habilitação, confiança e entrega não comprovadas permanecem `não confirmado`.
 
-- **Exceção auditável do recibo — F6 (RM-089):** a dispensa da F5 é separada da exceção coletiva da F2, exige autorização opaca, atores independentes, policy protegida e notificação `delivered`; o recibo assinado não contém metadados do ledger, o núcleo anexa um envelope ligado por ID e hash, e o runner só projeta o par para o HEAD exato por capacidade protegida. O transporte de produção desse par até o runner fica para a F7 da RM-089; até lá, `exigir` continua pedindo o recibo da F5.
+- **Exceção auditável do recibo — F6 (RM-089):** a dispensa da F5 é separada da exceção coletiva da F2, exige autorização opaca, atores independentes, policy protegida e notificação `delivered`; o recibo assinado não contém metadados do ledger, o núcleo anexa um envelope ligado por ID e hash, e o transporte F7 projeta o par para o HEAD exato por capacidade protegida.
 
 ### Alterado
 
