@@ -169,6 +169,11 @@ test('ambiente do worker do SHIP: nada de GIT_SSH, askpass, TLS desligado ou con
   assert.deepEqual(Object.keys(comAutoridadePublica).sort(), [...PERMITIDAS, ENV_HITL_VERIFIERS].sort());
   assert.ok(comAutoridadePublica[ENV_HITL_VERIFIERS]);
   assert.equal(comAutoridadePublica.ORK_HITL_INGRESS_KEY, undefined);
+  for (const invalido of ['x', JSON.stringify({ schema: 'outro' })]) {
+    const fechado = ambienteDoWorkerShip({ ...sujo, [ENV_HITL_VERIFIERS]: invalido });
+    assert.deepEqual(Object.keys(fechado).sort(), PERMITIDAS, 'verificador inválido é descartado sem derrubar o perfil');
+    assert.equal(fechado[ENV_HITL_VERIFIERS], undefined);
+  }
   const SEM_PERGUNTA = ['GIT_ASKPASS', 'GIT_TERMINAL_PROMPT', 'SSH_ASKPASS_REQUIRE'];
   for (const t of ['forja-ssh', 'forja-https'] as const) {
     const env = ambienteDoWorkerDoTransporte(t, sujo, 'glab');

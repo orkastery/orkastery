@@ -457,7 +457,10 @@ export function ambienteDoTransporte(t: TransporteFixado, env: NodeJS.ProcessEnv
  * verificador publico dos recibos que o servidor ja autenticou; as chaves de ingresso nunca entram no worker.
  */
 export function ambienteDoWorkerShip(origem: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  const verificadores = publicHitlVerifiers(origem);
+  // Conjunto herdado inválido não ganha autoridade e não tira o perfil do ar. As chaves privadas
+  // continuam ausentes do worker; sem verificador público válido, a autorização falha fechada.
+  let verificadores: string | undefined;
+  try { verificadores = publicHitlVerifiers(origem); } catch { verificadores = undefined; }
   return { HOME: origem.HOME, USER: origem.USER, LOGNAME: origem.LOGNAME, XDG_CONFIG_HOME: origem.XDG_CONFIG_HOME,
     SSH_AUTH_SOCK: origem.SSH_AUTH_SOCK, PATH: '/usr/bin:/bin', LANG: 'C.UTF-8', TMPDIR: '/tmp',
     ...(verificadores ? { [ENV_HITL_VERIFIERS]: verificadores } : {}) };
