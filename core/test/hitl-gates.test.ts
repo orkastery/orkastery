@@ -3,7 +3,8 @@ import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { abrirPedidoGate, assinaturaDaResposta, responderGate, RespostaHumana, registrarPedidoHitl } from '../src/hitl-gates';
+import { abrirPedidoGate, assinaturaDaResposta, responderGate, RespostaHumana, registrarPedidoHitl,
+  MOTIVOS_DE_ESCALACAO_HUMANA, PARECERES_QUE_PEDEM_REVISAO } from '../src/hitl-gates';
 import { ehV2, escolhasDoPedido, motivoDoPedido, prazoDoPedido, recomendacaoDoPedido,
   textoDoPedido } from '../src/hitl-contract';
 import { aprovarGateHumano, aprovacoesHumanas } from '../src/gates';
@@ -23,6 +24,25 @@ function resposta(thread: string, pedido: string, alteracao: Partial<RespostaHum
   const r = { resposta: '1', origem: 'telegram' as const, por: 'telegram:42', mensagem: 'telegram:-7:8', recebidoEm: quando, ...alteracao };
   return { ...r, prova: assinaturaDaResposta(thread, pedido, r, chave) };
 }
+
+test('security.scan-unscanned abre escalada com as duas saídas reais e permanece nas listas fechadas', () => {
+  assert.ok(MOTIVOS_DE_ESCALACAO_HUMANA.includes('security.scan-unscanned'));
+  assert.ok(PARECERES_QUE_PEDEM_REVISAO.includes('security.scan-unscanned'));
+  const p = projetoTemporario('hitl-scan-unscanned');
+  try {
+    const { thread: t } = novaThread(p.carregado, { nome: 'scan sem cobertura', modo: 'auto' });
+    registrar(dirThread(p.dir, t.id), t.id, 'gate_blocked',
+      { fase: t.faseAtual, gate: 'verify', motivo: 'security.scan-unscanned' });
+    const pedido = abrirPedidoGate(p.dir, t.id, 'security.scan-unscanned', quando);
+    const escolhas = escolhasDoPedido(pedido);
+    assert.deepEqual(escolhas.map(e => e.texto), [
+      'Instalar a cobertura indicada e rodar o verify novamente',
+      'Autorizar nominalmente o SHIP sem varredura',
+      'Continuar esperando',
+    ]);
+    assert.match(recomendacaoDoPedido(pedido), /^a\).*preserva a verificação/);
+  } finally { p.limpar(); }
+});
 
 test('gate simulado: assinatura, correlação, idempotência e recibo sem conteúdo', () => {
   const p = projetoTemporario('hitl-gate'), restaurar = ambiente();

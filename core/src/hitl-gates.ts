@@ -274,11 +274,16 @@ export function prepararPedidoGate(raiz: string, id: string, motivo = 'human.pen
   const primeira = semConclusao ? 'Aprovar sem conclusão provada (conferi a entrega)'
     : motivo === 'human.pending' ? 'Aprovar com as evidências apresentadas' : 'Reconhecer e encaminhar a correção';
   const recomendada = recomendadaDoGate(motivo, semConclusao, parecerNegativo);
-  const alternativas: AlternativaHitlV2[] = ([
+  const opcoes = motivo === 'security.scan-unscanned' ? [
+    ['Instalar a cobertura indicada e rodar o verify novamente', 'responder'],
+    ['Autorizar nominalmente o SHIP sem varredura', 'responder'],
+    ['Continuar esperando', 'esperar'],
+  ] as const : [
     [primeira, motivo === 'human.pending' ? 'aprovar' : 'responder'],
     ['Solicitar revisão', 'recusar'],
     ['Continuar esperando', 'esperar'],
-  ] as const).map(([texto, acao], i) => {
+  ] as const;
+  const alternativas: AlternativaHitlV2[] = opcoes.map(([texto, acao], i) => {
     const letra = LETRAS_DO_GATE[i];
     return { letra, texto, acao, consequencia: CONSEQUENCIA_DA_ACAO[acao],
       ...(letra === recomendada.letra ? { recomendada: true as const, porque: recomendada.porque } : {}) };
@@ -387,7 +392,7 @@ const linhaDoCorpo = (texto: string): string => texto.slice(0, TETOS_HITL_V2.cor
  * deles abre a pausa (I-34/D7), e recomendar "aprovar" em cima dele seria recomendar aprovar
  * uma fase que o proprio produto reprovou.
  */
-const PARECERES_QUE_PEDEM_REVISAO: readonly string[] =
+export const PARECERES_QUE_PEDEM_REVISAO: readonly string[] =
   ['claims.failed', 'claims.unverifiable', 'verify.failed', 'verify.regression', 'security.scan-unscanned',
     'verify.timeout', 'verify.sem-veredito', 'ci.failed'];
 
@@ -401,6 +406,9 @@ const PARECERES_QUE_PEDEM_REVISAO: readonly string[] =
  */
 function recomendadaDoGate(motivo: string, semConclusao: string | null, parecer: string):
   { letra: LetraDeAlternativa; porque: string } {
+  if (motivo === 'security.scan-unscanned') {
+    return { letra: 'a', porque: 'repor a cobertura preserva a verificação antes de decidir sobre o SHIP' };
+  }
   if (motivo !== 'human.pending') {
     return { letra: 'a', porque: `escalação tipada ${motivo}: reconhecer encaminha a correção dirigida` };
   }
