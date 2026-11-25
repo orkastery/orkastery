@@ -4,17 +4,17 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.10",
-  "publicadoEm": "2026-11-25T04:00:03.806Z",
+  "publicadoEm": "2026-11-25T04:02:56.839Z",
   "threads": [
     {
       "id": "ork-macosportave",
       "nome": "macos portavel 303 304",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "GO",
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-macosportave-full",
-      "atualizadaEm": "2026-11-25T03:58:46.893Z",
+      "atualizadaEm": "2026-11-25T04:02:56.213Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -23,9 +23,9 @@
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
       "sessao": {
-        "viva": false,
-        "desdeEm": "2026-11-25T03:37:02.656Z",
-        "motivo": "sessão 01a21098 caiu (runtime.unavailable)"
+        "viva": true,
+        "desdeEm": null,
+        "motivo": null
       }
     },
     {
