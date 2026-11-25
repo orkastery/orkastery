@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.10",
-  "publicadoEm": "2026-11-25T14:52:50.466Z",
+  "publicadoEm": "2026-11-25T15:42:25.611Z",
   "threads": [
     {
       "id": "ork-macosportave",
@@ -14,7 +14,7 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-macosportave-full",
-      "atualizadaEm": "2026-11-25T14:28:52.631Z",
+      "atualizadaEm": "2026-11-25T15:38:39.465Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -23,9 +23,9 @@
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-11-25T15:42:15.232Z",
+        "motivo": "sessão 01a212f9 encerrada (completed)"
       }
     },
     {
@@ -54,18 +54,18 @@
       "id": "ork-podmangitine",
       "nome": "podman git inerte 302 299",
       "modo": "#Auto",
-      "fase": "CHECK",
+      "fase": "GO",
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-podmangitine-full",
-      "atualizadaEm": "2026-11-25T14:33:04.167Z",
+      "atualizadaEm": "2026-11-25T15:42:25.023Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "max",
+      "runtime": "codex",
+      "modelo": "gpt-5.6-sol",
+      "esforco": "xhigh",
       "sessao": {
         "viva": true,
         "desdeEm": null,
@@ -89,9 +89,9 @@
       "modelo": "opus",
       "esforco": "max",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-11-25T15:42:31.020Z",
+        "motivo": "sessão d0b62f4b encerrada (done)"
       }
     }
   ]
