@@ -54,7 +54,9 @@ test('contrato da forja fixa par, capacidade, runner puro e limite da assinatura
   assert.match(text, /não prova.*leitura humana/);
   assert.match(text, /ork\.excecao-transporte-runner\/v1/);
   assert.match(text, /proof.*capability/s);
-  assert.match(text, /OIDC.*target/s);
+  assert.match(text, /target protegida/);
+  assert.match(text, /job_workflow_ref.*job_workflow_sha/s);
+  assert.match(text, /ci_config_ref_uri.*ci_config_sha/s);
 });
 
 test('caminhos documentados dos adapters existem e conservam suas superfícies nativas', () => {

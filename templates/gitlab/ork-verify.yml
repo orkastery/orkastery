@@ -2,6 +2,13 @@
 # Com opt-in, uma policy protegida fixa ORK_VERSAO, ORK_CLIENTE_SHA256 e ORK_TRANSPORTE_HABILITADO=true.
 # A configuração do transporte é reobtida da target protegida; nenhum artefato de replay entra no launcher.
 # `dist/ci-fabrica-transporte.js` e `ork ci run --branch` compartilham o mesmo launcher protegido.
+# O projeto pode evitar pipeline duplicada de branch e MR com a regra de topo abaixo:
+# workflow:
+#   rules:
+#     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+#     - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+#       when: never
+#     - if: '$CI_COMMIT_BRANCH'
 
 ork-cliente-protegido:
   stage: test
