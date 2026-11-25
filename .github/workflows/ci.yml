@@ -132,6 +132,25 @@ jobs:
       - name: grafo no pacote instalado
         run: node core/scripts/provar-grafo-instalado.cjs
 
+  portabilidade-macos:
+    name: pacote instalado e quickstart no macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: instalar dependencias do pacote
+        run: npm ci
+        working-directory: core
+
+      - name: provar tarball, demo e primeira thread
+        run: node core/scripts/provar-macos-instalado.cjs
+
   # RM-059 (T0.9): os mods do Claude Code (adapters/claude-code/mods). O Claude Code vem fixado do
   # registro do npm, sem credencial nem chave de API: `claude plugin validate` e `claude plugin test`
   # rodam sem login e sem rede. O cenario procura no binario cada evento e chamada que os mods usam;
