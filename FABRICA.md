@@ -5,9 +5,9 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado | Sessão |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| vps | ork-macosportave | #Auto | CHECK | claude-bg opus/max | — | — | 25/11 09:46 | viva |
-| vps | ork-orkauditestr | #Auto | GOAL | claude-bg claude-fable-5-2/max | — | — | 25/11 09:46 | parada desde 13/11 13:00: sessão 53359ba0 encerrada (done) |
-| vps | ork-podmangitine | #Auto | GO | codex gpt-5.6-sol/xhigh | — | — | 25/11 09:46 | viva |
-| vps | ork-rm089f7recib | #Auto | PLAN | codex gpt-5.6-sol/xhigh | — | — | 25/11 09:46 | viva |
+| vps | ork-macosportave | #Auto | CHECK | claude-bg opus/max | — | — | 25/11 10:00 | parada desde 09:54: sessão 8946eff5 encerrada (done) |
+| vps | ork-orkauditestr | #Auto | GOAL | claude-bg claude-fable-5-2/max | — | — | 25/11 10:00 | parada desde 13/11 13:00: sessão 53359ba0 encerrada (done) |
+| vps | ork-podmangitine | #Auto | GO | codex gpt-5.6-sol/xhigh | — | — | 25/11 10:00 | viva |
+| vps | ork-rm089f7recib | #Auto | PLAN | codex gpt-5.6-sol/xhigh | — | — | 25/11 10:00 | viva |
 
 Horários de Brasília.
