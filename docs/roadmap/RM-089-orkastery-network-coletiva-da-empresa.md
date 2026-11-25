@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-23T11:02:31-03:00
+atualizado_em: 2026-11-25T02:30:00-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -132,7 +132,7 @@ Um hotfix urgente pode usar uma exceção auditável autorizada pela política. 
 | F6 | `ork adotar`, aviso no terminal e exceção auditável | Uma branch externa entra em thread sem perder commits; a sessão fora de thread recebe as duas ações; a exceção autorizada aparece no ledger e no relatório, e a não autorizada não libera o merge |
 | F7 | Recibo forte da fábrica da empresa | O CI aceita assinatura da fábrica para o mesmo SHA e rejeita chave, emissor ou SHA divergente; o recibo contém veredito e CHECK de conta diferente da construtora e transporta a prova da exceção autorizada da produção até o runner do CI |
 
-**Estado em 23/11/2026:** F1 a F4 foram publicadas na 0.6.9 e F5 na 0.6.10. F6 foi mesclada na `main` pelo PR #298. F7 está em planejamento e recebe o transporte da prova da exceção autorizada da produção até o runner do CI.
+**Estado em 25/11/2026:** F1 a F4 foram publicadas na 0.6.9 e F5 na 0.6.10. F6 foi mesclada na `main` pelo PR #298. A F7 foi construída na branch `ork/ork-rm089f7recib-full` e está em revisão; ainda não foi mesclada nem publicada.
 
 ## Plano e decisões
 
@@ -206,7 +206,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: equipe Orkastery; A: Julio; C: segurança, administradores das forjas e builders inscritos; I: times da empresa.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** a sessão GO separou as duas evoluções em modo `#Fast`; o dono decidiu D1 e D2 e esclareceu o conjunto sincronizado; revisão humana ocorrerá na condução e no planejamento da construção.
-- **Próxima ação, responsável e prazo:** construir a F7 com o transporte da prova até o runner; responsável: thread da F7.
+- **Próxima ação, responsável e prazo:** revisar e verificar a F7 antes da integração; responsável: thread da F7.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -215,3 +215,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-11-11 | Estado atualizado para Em desenvolvimento: F4 e F1 estão na `main`, F2 está em construção e as demais fatias estão planejadas; nomes públicos ratificados e decisões de indisponibilidade e atestado registradas | PR #282, merge `4c196ae`; PR #285, merge `3673d07`; decisões de 11/11/2026 | Julio nos nomes; condução nas decisões reversíveis |
 | 2026-11-23 | Estado corrigido: F1 a F4 publicadas na 0.6.9, F5 na 0.6.10, F6 em merge e F7 a construir com transporte da prova de exceção | CHANGELOG 0.6.9 e 0.6.10; decisão do dono de 23/11/2026 para F7 | Julio |
 | 2026-11-23 | F6 mesclada na `main`; F7 em planejamento | PR #298 | Julio |
+| 2026-11-25 | F7 construída na branch da thread e em revisão, sem declarar merge ou publicação | Commits atômicos e matriz hermética da thread `ork-rm089f7recib` | Condução #Auto, conforme o pedido do dono |
