@@ -26,7 +26,7 @@ sdlc:
 
 # RM-096 — Núcleo portátil no macOS
 
-> **Em uma frase:** quem instala o pacote no macOS percorre o primeiro ciclo com a mesma exclusão mútua e o mesmo rigor de evidência do Linux, e o doctor mede essa capacidade antes de declarar prontidão.
+> **Em uma frase:** o CI instala o pacote, cria uma worktree, registra uma claim e roda o verify no macOS, e a publicação só prossegue com essa prova verde.
 
 <!-- ork-docs:relance:inicio -->
 
@@ -50,7 +50,7 @@ sdlc:
 - **Incluído:** trava portátil de criação, HITL, condução e fila pesada; resolução determinística do Bash; recibo de caminho e versão; doctor; causa `verify.sem-veredito`; auditoria que exige evidência executada; job com o pacote do commit; documentação pública.
 - **Fora de escopo:** Windows; #Noctum fora do Linux; shells arbitrários; dependência nativa; comentário público nas issues; publicação, push ou merge nesta thread.
 - **Entregáveis e critérios de aceite:** candidatos únicos garantem exclusão, recuperação após morte e prazo tipado; verify e CHECK paralelo compartilham o shell controlado; doctor bloqueia infraestrutura indisponível; o pacote instalado conclui demo e a primeira thread em `macos-latest`.
-- **Piloto, medição e critérios de expansão/interrupção:** o job de macOS é o piloto e a fronteira da promessa. Expandir a documentação apenas após o verde do CI. Interromper se houver posse tomada por relógio, executor vindo do ambiente ou caminho do quickstart que não rode pelo pacote.
+- **Piloto, medição e critérios de expansão/interrupção:** o job de macOS é o piloto e o requisito para publicar. Expandir a documentação apenas após o verde do CI. Interromper se houver posse tomada por relógio, executor vindo do ambiente ou caminho do quickstart que não rode pelo pacote.
 
 ### Fatias
 
@@ -59,7 +59,7 @@ sdlc:
 | F1 | Trava portátil | criação, HITL, condução e fila pesada preservam exclusão e liberam candidato de processo comprovadamente morto |
 | F2 | Evidência portátil | shell absoluto e versionado atende verify e CHECK paralelo; indisponibilidade vira `verify.sem-veredito` |
 | F3 | Diagnóstico honesto | doctor exercita trava e shell antes do veredito; auditoria exige claim executada para aprovar |
-| F4 | Pacote provado | job `macos-latest` empacota o commit, instala o tarball e percorre demonstração, inicialização, doctor e criação de thread |
+| F4 | Pacote provado | jobs Linux e macOS empacotam o commit, instalam o tarball e percorrem demonstração, inicialização, doctor, worktree, `ork claims add` e `ork verify`; publicar exige o job macOS |
 | F5 | Narrativa | requisitos, limites e changelog refletem apenas o que o CI prova |
 
 ## Plano e decisões
@@ -68,11 +68,12 @@ sdlc:
 - **Horizonte / alvo / previsão / confiança / marcos:** implementação na thread `ork-macosportave`; suporte público condicionado ao job macOS verde; sem previsão temporal declarada.
 - **Dependências e bloqueios (ID, owner, próxima revisão):** fatia de causa e executor em [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md); CI do repositório; revisão independente no CHECK. Owner: Julio; revisão na integração desta thread.
 - **Premissas / riscos / mitigação:** sistema de arquivos deve oferecer criação exclusiva e rename atômico; candidato de identidade incerta não é removido. Bash antigo continua compatível e aparece como aviso. #Noctum preserva o gate Linux tipado.
+- **Dívida aceita do GO-FIX:** a fila portátil ainda não publica idade, artefato, ordem e batida equivalentes ao protocolo Linux; as sondas repetem consulta de processo e medição de Bash; concorrentes sem espera podem ambos recusar aquisição. Corrigir isso exige alterar protocolo ou introduzir cache com invalidação, fora dos bloqueadores desta entrega; fica nesta iniciativa para uma fatia própria, sem ampliar a promessa atual.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):** D1–D6 no ledger da thread escolhem nome público, código existente, ausência de override, saída geral, candidatos por identidade e domicílio dividido com RM-080. O modo #Auto autorizou seguir as recomendações registradas.
 
 ## Estado com evidências
 
-A implementação local e seus testes focados existem na thread `ork-macosportave`. O item permanece não implantado e não habilitado; o suporte público depende do CHECK, do job `macos-latest` e do merge.
+A implementação local, os testes focados e os jobs obrigatórios existem na thread `ork-macosportave`. O item permanece não implantado e não habilitado; o suporte público depende do CHECK, do job `macos-latest` verde e do merge.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 

@@ -83,6 +83,11 @@ runtime despacha pelo ambiente do processo, como antes da I-33. A superfície MC
 não existe neste ciclo: o `add` é interativo e local, e a leitura de estado já vem do
 `ork_observe`. Nos hosts de superfície CLI (Hermes, OpenClaw), a paridade é por estes comandos.
 
+Os checks "trava portátil" e "shell do verify" também são gates. No Linux, o primeiro adquire e
+libera `flock`, que é o mecanismo usado pelo núcleo; no macOS, adquire e libera a trava por
+identidade de processo. O segundo mede Bash somente em `/bin/bash` ou `/usr/bin/bash`. Mecanismo
+de trava ausente ou nenhum desses shells disponível reprova o doctor.
+
 A troca automática entre perfis do **mesmo** runtime obedece ao bloco `runtime_profiles` do
 `orkastery.yaml` (D14, D16). Só booleano vale direto (N2): texto ou número que diz sim ou não
 sem ambiguidade (`off`, `"false"`, `0`, `"no"`, `nao`, `on`, `"true"`, `1`, `sim`) vale o que

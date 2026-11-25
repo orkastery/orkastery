@@ -85,7 +85,7 @@ O CHECK independente no `#Fast`, antes parte da RM-085, passa para a [RM-077](RM
 ## Plano e decisões
 
 - **Prioridade / método / pontuação / justificativa / data:** frente C, com F0 promovida à ordem zero das issues de usuários em 24/11/2026. A consolidação reduz filas que diagnosticavam a mesma rodada por contratos diferentes.
-- **Horizonte / alvo / previsão / confiança / marcos:** Discovery; F1 a F6. Previsão será definida no PLAN.
+- **Horizonte / alvo / previsão / confiança / marcos:** Discovery; F0 a F6. Previsão será definida no PLAN.
 - **Dependências e bloqueios (ID, owner, próxima revisão):** [RM-037](RM-037-verify-rapido-e-confiavel.md), [RM-072](RM-072-check-cinco-vezes-mais-rapido.md), [RM-079](RM-079-claims-que-a-correcao-passa.md) e [RM-077](RM-077-revisao-independente-pelo-construtor-do-head.md). Owner: Julio; revisão antes do PLAN.
 - **Premissas / riscos / mitigação:** log pode ocupar espaço; F6 limita e limpa. Redação pode retirar contexto; F4 conserva estrutura e marca o que foi redigido. Executor único pode alterar ordenação ou códigos; testes de equivalência fixam veredito, causa e artefato antes da migração. Plataforma pode não provar hierarquia; F5 responde com lacuna tipada.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):** em 23/11/2026 o dono aprovou fundir RM-080, a parte de verify da RM-085 e as pendências da RM-037; o CHECK independente foi direcionado à RM-077.

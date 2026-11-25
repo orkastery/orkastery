@@ -82,6 +82,11 @@ runtime dispatches through the process environment, as before I-33. There is no 
 `accounts` in this cycle: `add` is interactive and local, and state reads already come from
 `ork_observe`. On hosts with a CLI surface (Hermes, OpenClaw), parity comes through these commands.
 
+The "portable lock" and "verify shell" checks are gates too. On Linux, the first one acquires and
+releases `flock`, the mechanism used by the core; on macOS it acquires and releases the
+process-identity lock. The second measures Bash only at `/bin/bash` or `/usr/bin/bash`. A missing
+platform lock mechanism or the absence of both controlled shells fails the doctor.
+
 Automatic switching between profiles of the **same** runtime follows the `runtime_profiles` block of
 `orkastery.yaml` (D14, D16). Only a boolean counts as is (N2): text or a number that says yes or no
 unambiguously (`off`, `"false"`, `0`, `"no"`, `nao`, `on`, `"true"`, `1`, `sim`) counts as what it
