@@ -11,7 +11,7 @@ você já usa, pela sua assinatura, pelo canal oficial dele.
 
 | O que | Por que |
 | --- | --- |
-| Node | No Linux, o pacote declara Node 20 ou mais novo; o job do quickstart instalado roda no macOS com Node 24, e a publicação repete e exige essa prova; a instalação vem com nove dependências de runtime |
+| Node | No Linux, o pacote declara Node 20 ou mais novo; o grafo de código (`ork grafo`) pede Node 20.19, 22.12 ou mais novo; o job do quickstart instalado roda no macOS com Node 24, e a publicação repete e exige essa prova; a instalação vem com nove dependências de runtime |
 | `git` | Worktree por thread, base carimbada, merge serializado e push provado |
 | Linux ou macOS em sistema de arquivos local | Linux usa `flock`; macOS usa a trava por identidade de processo; Windows ainda não faz parte da matriz do CI |
 | Bash em `/bin/bash` ou `/usr/bin/bash` | Verify e CHECK usam um caminho absoluto controlado e registram sua versão; `PATH`, Homebrew e variável de ambiente não escolhem o executor |
