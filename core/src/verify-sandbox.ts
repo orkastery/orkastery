@@ -77,6 +77,10 @@ export interface OpcoesExecutorSandbox {
   worktree: string;
   /** Somente configuração interna. Nunca argumentos de ferramenta. */
   timeoutMs?: number;
+  /** Injeções determinísticas de teste; a produção mede o shell e executa o supervisor local. */
+  shellDoVerify?: ShellDoVerify | null;
+  executarSupervisor?: (entrada: { bin: string; args: string[]; cwd: string; env: Record<string, string>;
+    timeoutMs: number; maxOutput: number }) => { status: number | null; stdout: string; stderr: string; error?: Error };
 }
 export interface ResultadoSandbox extends ResultadoDeComando {
   stdout: string;
@@ -114,7 +118,7 @@ export function criarExecutorSandbox(opcoes: OpcoesExecutorSandbox): { executar:
   // Binário local aprovado da instalação; não procuramos executável fornecido pela claim.
   const bin = fs.realpathSync('/usr/bin/codex');
   const binStat = fs.statSync(bin);
-  const shell = exigirShellDoVerify();
+  const shell = exigirShellDoVerify(opcoes.shellDoVerify);
   const isolamento = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-verify-config-'));
   if (fs.realpathSync(isolamento) === worktree || fs.realpathSync(isolamento).startsWith(worktree + path.sep)) {
     fs.rmdirSync(isolamento);throw Error('scratch VERIFY deve ficar fora da worktree');
@@ -167,11 +171,12 @@ export function criarExecutorSandbox(opcoes: OpcoesExecutorSandbox): { executar:
         XDG_CACHE_HOME: path.join(home, '.cache'), npm_config_cache: path.join(home, '.npm') };
       const args = argumentosDoExecutorSandbox(estadoSandbox(worktree, scratch), shell, comando);
       consumidoresEncerrados=false;
-      const r = spawnSync('/usr/bin/python3', ['-c', SUPERVISOR], {
-        input: JSON.stringify({ bin, args, cwd: worktree, env, timeoutMs, maxOutput: MAX_OUTPUT }),
-        cwd: isolamento, env, encoding: 'utf8', maxBuffer: 4 * MAX_OUTPUT,
-        timeout: timeoutMs + 5_000, killSignal: 'SIGTERM',
-      });
+      const entrada = { bin, args, cwd: worktree, env, timeoutMs, maxOutput: MAX_OUTPUT };
+      const r = opcoes.executarSupervisor ? opcoes.executarSupervisor(entrada)
+        : spawnSync('/usr/bin/python3', ['-c', SUPERVISOR], {
+          input: JSON.stringify(entrada), cwd: isolamento, env, encoding: 'utf8', maxBuffer: 4 * MAX_OUTPUT,
+          timeout: timeoutMs + 5_000, killSignal: 'SIGTERM',
+        });
       let resultado: { code: number; stdout: string; stderr: string; failure: string | null; cleanupComplete:boolean };
       try {
         if (r.error || r.status !== 0) throw new Error(r.error?.message ?? `supervisor saiu ${r.status}`);
