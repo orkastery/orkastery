@@ -16,6 +16,7 @@ const CONTRATO = 'ork.trava-portatil/v1';
 const MAX_BYTES = 4096;
 const ESPERA_PADRAO_MS = 5000;
 const PASSO_DE_ESPERA_MS = 20;
+const MAX_RELEITURAS_INCONSISTENTES = 4;
 
 interface Candidato {
   contrato: typeof CONTRATO;
@@ -88,6 +89,7 @@ function validarCandidato(valor: unknown): Candidato {
 }
 
 function lerCandidato(arquivo: string): { valor: Candidato; stat: fs.Stats } {
+  let releiturasInconsistentes = 0;
   for (;;) {
     let fd: number | undefined;
     try {
@@ -102,6 +104,10 @@ function lerCandidato(arquivo: string): { valor: Candidato; stat: fs.Stats } {
         fs.closeSync(fd);
         fd = undefined;
         fs.lstatSync(arquivo);
+        releiturasInconsistentes++;
+        if (releiturasInconsistentes >= MAX_RELEITURAS_INCONSISTENTES) {
+          throw new ErroDaTravaPortatil('trava.portatil.insegura', 'candidato permaneceu vazio ou instável');
+        }
         continue;
       }
       if (!stat.isFile() || stat.nlink !== 1 || stat.size > MAX_BYTES || (uid !== null && stat.uid !== uid) || (stat.mode & 0o077) !== 0) {

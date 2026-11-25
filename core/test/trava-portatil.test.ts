@@ -139,6 +139,19 @@ test('rename do candidato durante a leitura conserva o dono com menor token', ()
   } finally { f.limpar(); }
 });
 
+test('candidato vazio termina com falha tipada em vez de ignorar o prazo da aquisição', () => {
+  const f = fixture();
+  try {
+    const dir = `${f.alvo}.ork-lock`;
+    fs.mkdirSync(dir, { mode: 0o700 });
+    fs.writeFileSync(path.join(dir, '00000000-0000-4000-8000-0000000000aa.json'), '', { mode: 0o600 });
+    const inicio = Date.now();
+    assert.throws(() => adquirirTravaPortatil(f.alvo, 'após candidato vazio', { esperarMs: 30 }),
+      /trava\.portatil\.insegura: candidato permaneceu vazio ou instável/);
+    assert.ok(Date.now() - inicio < 1000);
+  } finally { f.limpar(); }
+});
+
 test('ticket zero só aparece no nome final depois de conteúdo e fsync', () => {
   const f = fixture();
   const escrever = fs.writeFileSync;
