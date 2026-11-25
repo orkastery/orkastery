@@ -7,6 +7,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import * as os from 'node:os';
 import * as adapter from './adapters/claude-bg';
 import * as codexAdapter from './adapters/codex';
 import { carregarManifesto, configDeEmbedding, DIR_ESTADO, LIMITE_MANIFESTO_BYTES, NOME_MANIFESTO } from './manifest';
@@ -39,8 +40,36 @@ import { COMANDO_CONFIRMAR_WORKTREE, recusaDePastaDasWorktrees } from './worktre
 import { avisoDaFabricaPedida, nomeDaMaquina } from './maquina';
 import { checarRede } from './doctor-rede';
 import { msg, nomeDoCheck } from './locale';
+import { comTravaPortatil } from './trava-portatil';
+import { resolverShellDoVerify } from './shell-do-verify';
+import type { ShellDoVerify } from './types';
 
 const real = (dir: string): string => { try { return fs.realpathSync(dir); } catch { return path.resolve(dir); } };
+
+export function checarTravaPortatil(sondar: () => void = () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-doctor-trava-'));
+  try { comTravaPortatil(path.join(dir, 'sonda'), 'doctor', () => undefined, { esperarMs: 1000 }); }
+  finally { fs.rmSync(dir, { recursive: true, force: true }); }
+}): Check {
+  try {
+    sondar();
+    return { nome: 'trava portátil', nivel: 'ok', detalhe: msg().doctor.travaPortatilOk };
+  } catch (e) {
+    return { nome: 'trava portátil', nivel: 'fail', detalhe: msg().doctor.travaPortatilFalhou((e as Error).message),
+      correcao: msg().doctor.travaPortatilCorrecao };
+  }
+}
+
+export function checarShellDoVerify(resolver: () => ShellDoVerify | null = resolverShellDoVerify): Check {
+  const shell = resolver();
+  if (!shell) return { nome: 'shell do verify', nivel: 'fail', detalhe: msg().doctor.shellVerifyAusente,
+    correcao: msg().doctor.shellVerifyCorrecao };
+  const major = Number(/^\d+/.exec(shell.versao)?.[0]);
+  return { nome: 'shell do verify', nivel: Number.isFinite(major) && major < 4 ? 'warn' : 'ok',
+    detalhe: Number.isFinite(major) && major < 4 ? msg().doctor.shellVerifyAntigo(shell.caminho, shell.versao)
+      : msg().doctor.shellVerifyOk(shell.caminho, shell.versao),
+    correcao: Number.isFinite(major) && major < 4 ? msg().doctor.shellVerifyAtualizar : undefined };
+}
 
 /**
  * RM-064 T5: avisa quando o LLM que roda o doctor usa a mesma conta das fases vivas. Sessão de fase
@@ -453,6 +482,8 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
     detalhe: `v${process.versions.node}`,
     correcao: major >= 20 ? undefined : msg().doctor.instaleNode,
   });
+  checks.push(checarTravaPortatil());
+  checks.push(checarShellDoVerify());
   if (analisadores) checks.push(analisadores());
 
   const git = noPath('git');
