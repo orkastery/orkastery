@@ -89,10 +89,7 @@ Os motivos tipados do `ork` fazem o veredito parar de ser conversa: `claims.fail
 `verify.regression`, `verify.failed`, `security.scan-unscanned`, `policy.violation`, `cost.violation`, `tree.blocked`,
 `lease.busy`, `runtime.rate-limited`. Todos reprovam em qualquer modo, porque **o modo afrouxa
 a pausa, nunca a verificacao**. Cada um deles tem uma acao de retry deterministica em
-`ork retry policy`, e `cost.violation` e o unico que NUNCA recebe retry automatico.
-
-`security.scan-unscanned` nomeia o comando e as categorias sem cobertura e escala ao humano. Ele
-nao abre GO-FIX automatico: codigo nao instala Docker nem autoriza entrega sem varredura.
+`ork retry policy`; `security.scan-unscanned` nomeia o comando e as categorias sem cobertura, escala ao humano e nao abre GO-FIX automatico; `cost.violation` e o unico que NUNCA recebe retry automatico.
 
 ## Racionalizacoes comuns
 
