@@ -32,6 +32,8 @@ import {
   Thread,
   EventoLedger,
 } from './types';
+import { resolverShellDoVerify } from './shell-do-verify';
+import type { ShellDoVerify } from './types';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import { existsSync, readFileSync } from 'node:fs';
@@ -235,15 +237,22 @@ export function executorDoManifesto(manifesto: Manifesto, ambienteDaRodada?: Rec
  * O estouro continua saindo como `code: -1`, o contrato de antes.
  */
 export function executar(nome: string, comando: string, cwd: string,
-  tetoMs = TIMEOUT_VERIFY_MS, ambienteExtra?: Record<string, string>, ambienteBase?: NodeJS.ProcessEnv): ResultadoDeComando {
+  tetoMs = TIMEOUT_VERIFY_MS, ambienteExtra?: Record<string, string>, ambienteBase?: NodeJS.ProcessEnv,
+  shellInformado?: ShellDoVerify | null): ResultadoDeComando {
   const comGrupo = existsSync(TIMEOUT_BIN);
   const inicio = Date.now();
   const ambiente = { ...(ambienteBase ?? ambienteDoVerify()), ...ambienteExtra };
+  const shell = shellInformado === undefined ? resolverShellDoVerify() : shellInformado;
+  if (!shell) {
+    return resultadoDoProcesso(nome, comando, { ok: false, code: -1, stdout: '',
+      stderr: 'shell do verify não encontrado nos caminhos controlados: /bin/bash, /usr/bin/bash', error: 'ENOENT' },
+    comGrupo, Date.now() - inicio, tetoMs);
+  }
   const r = comGrupo
-    ? exec(TIMEOUT_BIN, ['--kill-after=15', `${Math.ceil(tetoMs / 1000)}`, '/usr/bin/bash', '--noprofile', '--norc', '-c', comando],
+    ? exec(TIMEOUT_BIN, ['--kill-after=15', `${Math.ceil(tetoMs / 1000)}`, shell.caminho, '--noprofile', '--norc', '-c', comando],
       cwd, tetoMs + 30_000, ambiente)
-    : exec('/usr/bin/bash', ['--noprofile', '--norc', '-c', comando], cwd, tetoMs, ambiente);
-  return resultadoDoProcesso(nome, comando, r, comGrupo, Date.now() - inicio, tetoMs);
+    : exec(shell.caminho, ['--noprofile', '--norc', '-c', comando], cwd, tetoMs, ambiente);
+  return { ...resultadoDoProcesso(nome, comando, r, comGrupo, Date.now() - inicio, tetoMs), shell };
 }
 
 /**
@@ -390,6 +399,7 @@ export function comandoNoLedger(c: ResultadoDeComando): Record<string, unknown> 
   // RM-072 (D2): a duracao vai tambem no comando que passa, para a meta do CHECK ser medida pelo ledger. RM-072 (D4, D5):
   // no Agile, o uso do preparo e as lanes; o Classic nao tem esses campos.
   const doAgile = { ...(seguro.preparo ? { preparo: seguro.preparo } : {}),
+    ...(seguro.shell ? { shell: seguro.shell } : {}),
     ...(seguro.agendamento ? { agendamento: seguro.agendamento } : {}),
     ...(seguro.lane ? { lane: seguro.lane } : {}),
     ...(lanes ? { lanes } : {}),
@@ -719,7 +729,8 @@ function executorDoGrupo(manifesto: Manifesto, ambienteDaRodada: Record<string, 
     }
     const stealPct = janela.fechar();
     return processos.map((p, k) => {
-      let r: ResultadoDeComando = { ...resultadoDoProcesso(itens[k].nome, itens[k].comando, p, p.comGrupo, p.duracaoMs, prazos[k]), stealPct };
+      let r: ResultadoDeComando = { ...resultadoDoProcesso(itens[k].nome, itens[k].comando, p, p.comGrupo, p.duracaoMs, prazos[k]),
+        ...(p.shell ? { shell: p.shell } : {}), stealPct };
       if (relatorios[k]) r = anexarRelatorioJUnit(r, relatorios[k]!, marcacaoDeRelogioDoComando(manifesto, itens[k].nome));
       // S1 do CHECK: o auxiliar que morreu sem gravar o resultado deixa o comando sem veredito, nunca uma regressao.
       if (p.semResultado) r.executado = false;
