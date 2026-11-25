@@ -1173,9 +1173,9 @@ entregue, a reescrita do histórico dela.
 | --- | --- |
 | achado `new` no laço | 1 |
 | dispensa sem `reason` ou `decisionRef`, ou config inválida em `.ork-security/` (a mensagem nomeia a entrada; nada é varrido) | 1 |
-| `ORK_SECURITY_SCAN_REQUIRED=1` e ferramenta de categoria do laço `unavailable` ou `failed` (salvo "nada a varrer", abaixo) | 1 |
+| ferramenta de categoria do laço `unavailable` ou `failed` (salvo "nada a varrer", abaixo); `ORK_SECURITY_SCAN_REQUIRED=1` é só marcador compatível | 1 |
 | opção desconhecida | 2 |
-| qualquer outro caso, inclusive sem Docker nem binário (o relatório diz `unavailable`) | 0 |
+| nenhum achado do laço e todas as categorias varridas ou dispensadas pelos motivos tipados abaixo | 0 |
 
 **Nada a varrer.** Dois motivos ficam declarados no relatório como `unavailable`, mas não contam como categoria não
 varrida, nem no código de saída com `ORK_SECURITY_SCAN_REQUIRED=1` nem no gate do SHIP: `unsupported-ci` (o projeto tem
@@ -1197,8 +1197,10 @@ Nada nela é obrigatório; a pasta nasce na primeira dispensa ou exclusão.
 
 ### Sem Docker: o gate do SHIP
 
-Sem Docker nem binário, o scan local sai 0 com a ferramenta `unavailable`, e o `ork doctor` já avisou antes (`warn`,
-nunca `fail`). Isso não vira "limpo" no SHIP. Com `verify.security_scan` declarado e **sem** `ci.required_for_ship`, se
+Sem Docker nem binário, o scan local sai 1 quando uma ferramenta não dispensada do laço fica `unavailable`; o
+`ork doctor` também avisa antes. No verify, a falha atual do `security_scan` continua listada como pré-existente quando
+a baseline já tinha a mesma falha, mas ainda acrescenta `verify.failed`: dívida comparativa não vira aprovação. O gate
+do SHIP permanece como uma segunda guarda. Com `verify.security_scan` declarado e **sem** `ci.required_for_ship`, se
 alguma categoria do laço não foi varrida no SHA da candidata (ferramenta `unavailable` ou `failed`, salvo "nada a
 varrer", ou nenhum relatório), o `ork ship` para com `human.pending` antes de qualquer push e diz quais categorias. A entrega só segue com
 autorização de uma pessoa:

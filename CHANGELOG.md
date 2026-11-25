@@ -20,7 +20,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
-- **Security scan e configuração Git local (RM-068 e RM-084; issues #302 e #299):** a sonda do daemon funciona com Docker e Podman, uma varredura sem ferramenta executada deixa de aprovar, e `ork_git_status`/`ork_git_commit` aceitam apenas configurações passivas limitadas enquanto recusas informam chave mascarada e escopo sem expor valores; operações de rede permanecem estritas e os testes MCP-real isolam a configuração global da máquina.
+- **Security scan e configuração Git local (RM-068 e RM-084; issues #302 e #299):** a sonda do daemon usa `docker info` sem template específico, com cobertura por Docker e por CLI compatível simulado; ferramenta não dispensada do laço em `unavailable` ou `failed` faz o comando sair 1 e a falha atual bloqueia o verify mesmo quando a baseline registra a mesma dívida. `ork_git_status` e `ork_git_commit` aceitam somente configurações passivas limitadas; recusas informam chave mascarada e escopo sem expor valores, operações de rede permanecem estritas e os testes MCP-real isolam a configuração global do Git.
 
 ## [0.6.10] - 2026-11-12
 

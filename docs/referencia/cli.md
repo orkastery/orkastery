@@ -311,9 +311,9 @@ há, `1` quando o runtime não respondeu).
 
 Sai 1 quando há achado `new` no laço (todo segredo novo; dependência, SAST, IaC e workflow novos em `high` ou
 `critical`; qualidade e licença nunca entram) e quando uma dispensa ou a config de `.ork-security/` é inválida (a
-mensagem nomeia a entrada; nada é varrido). Com `ORK_SECURITY_SCAN_REQUIRED=1`, ferramenta de categoria do laço
-`unavailable` ou `failed` também sai 1; sem ela, só aparece no relatório. Ferramenta indisponível ou que falhou nunca
-conta como limpa. Dois motivos são declarados no relatório sem contar como categoria não varrida, nem aqui nem no gate do
+mensagem nomeia a entrada; nada é varrido). Ferramenta de categoria do laço `unavailable` ou `failed` também sai 1 por
+padrão. `ORK_SECURITY_SCAN_REQUIRED=1` continua aceito como marcador de compatibilidade, sem mudar essa regra segura.
+Ferramenta indisponível ou que falhou nunca conta como limpa. Dois motivos são declarados no relatório sem contar como categoria não varrida, nem aqui nem no gate do
 `ork ship`: `unsupported-ci` (`.gitlab-ci.yml` sem workflow do GitHub Actions: o GitLab CI fica sem varredura, só
 declarado) e `no-requirements-file` (o `pip-audit` sem `requirements*.txt`), este só quando outra ferramenta da mesma
 categoria rodou. `ORK_SECURITY_SCAN_DEADLINE_MS` limita a rodada inteira (cada ferramenta recebe o que resta do prazo);
@@ -329,6 +329,20 @@ nível `error` deixa a ferramenta `failed`.
 No manifesto, `verify.security_scan` declara o comando que o `ork verify` roda (por exemplo `ork security-scan`), e
 `verify.timeout_ms_por_comando.security_scan` dá o prazo dele (o `ork init` grava 900000 junto da chave), que vale
 também para a claim cujo `--verificar` é esse mesmo comando. Sem `verify.security_scan`, nada muda.
+
+### Configuração Git aceita pelo MCP local
+
+`ork_git_status` e `ork_git_commit` mantêm uma lista positiva. Além dos metadados passivos já aceitos pelo perfil,
+o modo local aceita `branch.<nome>.vscode-merge-base` com texto sem controle, `core.compression` entre `-1` e `9` e
+`pull.rebase` com `true`, `false` ou `merges`. Como essas duas operações não abrem transporte HTTP, elas também
+aceitam `http.postBuffer` como inteiro não negativo, com sufixo opcional `k`, `m` ou `g`;
+`http.lowSpeedLimit` e `http.lowSpeedTime` como inteiros não negativos; e `http.version` como `HTTP/1.1` ou
+`HTTP/2`. O perfil do SHIP continua estrito e recusa essas chaves HTTP.
+
+Configuração fora da lista, valor fora do domínio e chave sem valor usam a recusa
+`mcp.git.execution-profile.unsupported: configuracao preservada (<chave-mascarada>, <escopo>)`. A chave sem
+subseção conserva seção e variável; com subseção, o formato é `secao.<subsecao>.variavel`. A subseção e o valor
+nunca aparecem, inclusive quando a chave é longa. O escopo é `system`, `global`, `local`, `worktree` ou `command`.
 
 ## Verdade: claims, verify e gates
 

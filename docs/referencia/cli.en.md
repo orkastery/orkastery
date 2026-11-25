@@ -312,9 +312,9 @@ is nothing, `1` when the runtime did not respond).
 
 Exits 1 when there is a `new` finding in the loop (every new secret; new dependency, SAST, IaC and workflow findings at
 `high` or `critical`; quality and license never enter) and when a dismissal or the `.ork-security/` config is invalid
-(the message names the entry; nothing is scanned). With `ORK_SECURITY_SCAN_REQUIRED=1`, a loop-category tool that is
-`unavailable` or `failed` also exits 1; without it, it only shows in the report. An unavailable or failed tool never
-counts as clean. Two reasons are declared in the report without counting as an unscanned category, here or in the
+(the message names the entry; nothing is scanned). A loop-category tool that is `unavailable` or `failed` also exits 1
+by default. `ORK_SECURITY_SCAN_REQUIRED=1` remains accepted as a compatibility marker and does not change this safe
+rule. An unavailable or failed tool never counts as clean. Two reasons are declared in the report without counting as an unscanned category, here or in the
 `ork ship` gate: `unsupported-ci` (`.gitlab-ci.yml` with no GitHub Actions workflow: GitLab CI is left unscanned, only
 declared) and `no-requirements-file` (`pip-audit` without `requirements*.txt`), the latter only when another tool of the
 same category ran. `ORK_SECURITY_SCAN_DEADLINE_MS` bounds the whole round (each tool gets what is left of the budget);
@@ -330,6 +330,20 @@ the count in the reason: check the reason before treating the `sast` category as
 In the manifest, `verify.security_scan` declares the command `ork verify` runs (for example `ork security-scan`), and
 `verify.timeout_ms_por_comando.security_scan` gives its time limit (`ork init` writes 900000 next to the key), which
 also applies to a claim whose `--verificar` is that same command. Without `verify.security_scan`, nothing changes.
+
+### Git configuration accepted by the local MCP
+
+`ork_git_status` and `ork_git_commit` keep a positive list. In addition to passive metadata already accepted by the
+profile, local mode accepts `branch.<name>.vscode-merge-base` with control-free text, `core.compression` from `-1`
+through `9`, and `pull.rebase` with `true`, `false`, or `merges`. Because these two operations do not open HTTP
+transport, they also accept `http.postBuffer` as a non-negative integer with an optional `k`, `m`, or `g` suffix;
+`http.lowSpeedLimit` and `http.lowSpeedTime` as non-negative integers; and `http.version` as `HTTP/1.1` or
+`HTTP/2`. The SHIP profile remains strict and rejects these HTTP keys.
+
+Configuration outside the list, an out-of-domain value, and a key with no value use the refusal
+`mcp.git.execution-profile.unsupported: configuracao preservada (<masked-key>, <scope>)`. A key with no subsection
+keeps its section and variable; with a subsection, the format is `section.<subsecao>.variable`. The subsection and
+value never appear, including for a long key. Scope is `system`, `global`, `local`, `worktree`, or `command`.
 
 ## Truth: claims, verify and gates
 
