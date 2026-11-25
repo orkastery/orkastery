@@ -6,7 +6,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { lerYaml, ValorYaml } from './yaml';
-import { ConfigDeEmbedding, ConfigDoAgile, Manifesto, MarcacaoDeRelogio, Modo, PoliticaDeReciboCi, SelecaoNativa } from './types';
+import { ConfigDeEmbedding, ConfigDoAgile, Manifesto, MarcacaoDeRelogio, Modo, PoliticaDeReciboCi, SelecaoNativa,
+  type ConfiguracaoPublicaDoTransporteCi } from './types';
 import { modoAposentado, ORDEM_DOS_MODOS, parseModo, substitutosVivos } from './modos';
 import { ORDEM_DOS_RUNTIMES, RUNTIME_PADRAO, runtimeConhecido, runtimeDoManifesto } from './runtimes';
 import { SANDBOX_PADRAO, SANDBOXES_DO_CODEX } from './adapters/codex';
@@ -641,6 +642,36 @@ function lerContextos(v: ValorYaml | undefined, erros: string[]): string[] | und
   return saida.length === v.length ? saida : undefined;
 }
 
+/** D13-D19: contrato fechado; qualquer chave ou valor divergente recusa o manifesto protegido. */
+function lerTransporteDaExcecao(v: ValorYaml | undefined,
+  erros: string[]): ConfiguracaoPublicaDoTransporteCi | undefined {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== 'object' || Array.isArray(v)) {
+    erros.push('ci.transporte_excecao precisa ser um mapa');
+    return undefined;
+  }
+  for (const chave of Object.keys(v)) {
+    if (!['contrato', 'origem', 'audiencia', 'cliente'].includes(chave)) {
+      erros.push(`ci.transporte_excecao.${chave} desconhecida`);
+    }
+  }
+  const cliente = mapa(v.cliente);
+  for (const chave of Object.keys(cliente)) {
+    if (!['versao', 'sha256'].includes(chave)) erros.push(`ci.transporte_excecao.cliente.${chave} desconhecida`);
+  }
+  const contrato = texto(v.contrato, ''), origem = texto(v.origem, ''), audiencia = texto(v.audiencia, '');
+  const versao = texto(cliente.versao, ''), sha256 = texto(cliente.sha256, '');
+  if (contrato !== 'ork.excecao-transporte-runner/v1') erros.push('ci.transporte_excecao.contrato precisa ser ork.excecao-transporte-runner/v1');
+  if (!/^https:\/\/(?![^/]*@)[^\s]+$/.test(origem)) erros.push('ci.transporte_excecao.origem precisa ser uma URL https sem credencial');
+  if (audiencia !== 'urn:orkastery:fabrica:ci') erros.push('ci.transporte_excecao.audiencia precisa ser urn:orkastery:fabrica:ci');
+  if (!/^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$/.test(versao)) erros.push('ci.transporte_excecao.cliente.versao invalida');
+  if (!/^[a-f0-9]{64}$/.test(sha256)) erros.push('ci.transporte_excecao.cliente.sha256 precisa ter 64 caracteres hexadecimais');
+  return contrato === 'ork.excecao-transporte-runner/v1' && /^https:\/\/(?![^/]*@)[^\s]+$/.test(origem)
+    && audiencia === 'urn:orkastery:fabrica:ci' && /^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$/.test(versao)
+    && /^[a-f0-9]{64}$/.test(sha256)
+    ? { contrato, origem, audiencia, cliente: { versao, sha256 } } : undefined;
+}
+
 /** Mesmo contrato na leitura do YAML e nos consumidores de manifesto em memoria. */
 export function validarOptInPlaybook(valor: unknown): boolean {
   if (valor === undefined) return false;
@@ -839,6 +870,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
   const forja = lerBlocoForja(dados.forja, erros, avisos);
   const produtores = lerProdutores(ci.produtor, erros);
   const contextos = lerContextos(ci.contexts, erros);
+  const transporteDaExcecao = lerTransporteDaExcecao(ci.transporte_excecao, erros);
   let politicaDeRecibo: PoliticaDeReciboCi | undefined;
   if (ci.politica_recibo !== undefined && ci.politica_recibo !== null) {
     const valor = typeof ci.politica_recibo === 'string' ? ci.politica_recibo.trim() : '';
@@ -1043,6 +1075,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
       required_for_ship: booleano(ci.required_for_ship, false),
       context: texto(ci.context, 'ork-verify'),
       ...(politicaDeRecibo ? { politica_recibo: politicaDeRecibo } : {}),
+      ...(transporteDaExcecao ? { transporte_excecao: transporteDaExcecao } : {}),
       ...(contextos ? { contexts: contextos } : {}),
       command: ci.command === null || ci.command === undefined ? undefined : texto(ci.command, ''),
       external_repositories: repositoriosExternos(ci.external_repositories, erros),
@@ -1136,6 +1169,7 @@ export interface ComandosDoManifesto {
   ciCommand: string | undefined;
   /** RM-089 F6: documento bruto lido somente da ref de destino protegida; o checkout fonte nunca o fornece. */
   excecaoRecibo: Record<string, ValorYaml> | undefined;
+  transporteExcecao: ConfiguracaoPublicaDoTransporteCi | undefined;
 }
 
 /**
@@ -1156,16 +1190,23 @@ export function comandosDoTextoDoManifesto(bruto: string): ComandosDoManifesto |
   const opcional = (v: ValorYaml | undefined): string | undefined => (v === null || v === undefined ? undefined : texto(v, ''));
   const excecaoRecibo = ci.excecao_recibo !== null && typeof ci.excecao_recibo === 'object' && !Array.isArray(ci.excecao_recibo)
     ? mapa(ci.excecao_recibo) : undefined;
+  const transporteExcecao = lerTransporteDaExcecao(ci.transporte_excecao, erros);
+  if (erros.length > 0) return null;
   return { typecheck: opcional(verify.typecheck), build: opcional(verify.build), test: opcional(verify.test),
     securityScan: opcional(verify.security_scan), preparo: opcional(verify.preparo),
     timeoutMs: prazos.timeout_ms, timeoutMsPorComando: prazos.timeout_ms_por_comando,
     checkMode: resolverModo(check?.mode).modo,
-    ciCommand: opcional(ci.command), excecaoRecibo };
+    ciCommand: opcional(ci.command), excecaoRecibo, transporteExcecao };
 }
 
 /** Documento da policy F6 vindo do manifesto da target; a validação fechada mora em excecao-recibo.ts. */
 export function excecaoDeReciboDoTextoDoManifesto(bruto: string): Record<string, ValorYaml> | null {
   return comandosDoTextoDoManifesto(bruto)?.excecaoRecibo ?? null;
+}
+
+/** Configuração F7 da target protegida; `null` mantém ausência distinta de documento inválido. */
+export function transporteDaExcecaoDoTextoDoManifesto(bruto: string): ConfiguracaoPublicaDoTransporteCi | null {
+  return comandosDoTextoDoManifesto(bruto)?.transporteExcecao ?? null;
 }
 
 /** Carrega o manifesto ou encerra com mensagem acionavel (uso nos subcomandos). */

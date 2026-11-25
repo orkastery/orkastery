@@ -173,6 +173,14 @@ export interface RegistroDaSelecaoNativa {
 /** RM-089 F1: intensidade opt-in da política empresarial de recibo no CI. */
 export type PoliticaDeReciboCi = 'observar' | 'avisar' | 'exigir';
 
+/** RM-089 F7: configuração pública do cliente, lida somente da target protegida. */
+export interface ConfiguracaoPublicaDoTransporteCi {
+  contrato: 'ork.excecao-transporte-runner/v1';
+  origem: string;
+  audiencia: 'urn:orkastery:fabrica:ci';
+  cliente: { versao: string; sha256: string };
+}
+
 /** Manifesto do projeto (`orkastery.yaml`), na fatia v1 do bloco B0. */
 export interface Manifesto {
   project: {
@@ -255,6 +263,8 @@ export interface Manifesto {
     context: string;
     /** Ausente preserva integralmente o comportamento anterior do `ork ci run`. */
     politica_recibo?: PoliticaDeReciboCi;
+    /** Ausente mantém a lacuna de transporte explícita; nunca lê configuração do checkout do PR/MR. */
+    transporte_excecao?: ConfiguracaoPublicaDoTransporteCi;
     /**
      * RM-058, integração (T6, D10 da ork-rm058integra): os contextos que a proteção da base exige, todos verdes no SHA fonte
      * para a prova do CI da entrega do arco #Noctum. Ausente, vale `[context]`. O `ork ship` segue lendo só o `context`.
