@@ -175,8 +175,8 @@ policy, pedido, recibo e evento F6; a capacidade permanece irmã e limitada ao m
 operação, evento, recibo e validade. O wrapper evolui em `/v1` próprio sem mudar os contratos F6 internos.
 
 A configuração pública `ci.transporte_excecao` vem somente da target protegida e fixa origem HTTPS, audiência
-`urn:orkastery:fabrica:ci`, versão e SHA-256 do cliente. A receita do GitHub separa o replay não confiável do launcher
-OIDC da target; no GitLab, uma policy protegida injeta o componente e o ID token fora da definição do MR. O launcher
+`urn:orkastery:fabrica:ci`, versão e SHA-256 do cliente. A receita do GitHub separa o replay não confiável de um
+`workflow_run` OIDC da target protegida; no GitLab, uma policy protegida injeta o componente e o ID token fora da definição do MR. O launcher
 não recebe prova ou capacidade por argumento, checkout, bundle ou ambiente controlável pelo PR/MR. Token, resposta
 bruta e capacidade permanecem no validador; o job recebe apenas `ork.excecao-transporte-resultado/v1`.
 

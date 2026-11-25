@@ -33,7 +33,10 @@ test('guias distinguem orientação por host, exceção F2 e exceção de recibo
     assert.match(text, /ledgerEventId/);
     assert.match(text, /recordedAt/);
     assert.match(text, /não prova leitura humana|does not prove that a person read it/);
-    assert.match(text, /nenhuma entrega F7 é prometida|no F7 delivery is promised/i);
+    assert.match(text, /ork\.excecao-transporte-runner\/v1/);
+    assert.match(text, /proof/);
+    assert.match(text, /capability/);
+    assert.match(text, /urn:orkastery:fabrica:ci/);
     assert.doesNotMatch(text, /próximo passo da RM-089|next RM-089 step/);
   }
 });
@@ -49,7 +52,9 @@ test('contrato da forja fixa par, capacidade, runner puro e limite da assinatura
   assert.match(text, /pedido → recibo → validação → append durável → exposição/);
   assert.match(text, /não notifica, não escreve ledger ou forja/);
   assert.match(text, /não prova.*leitura humana/);
-  assert.match(text, /Nenhuma entrega F7 é prometida/);
+  assert.match(text, /ork\.excecao-transporte-runner\/v1/);
+  assert.match(text, /proof.*capability/s);
+  assert.match(text, /OIDC.*target/s);
 });
 
 test('caminhos documentados dos adapters existem e conservam suas superfícies nativas', () => {

@@ -258,18 +258,21 @@ test('referências públicas fixam níveis, estados e a fronteira de confiança 
   assert.match(guiaPt, /bundle e o `sha256`.*próprio PR\/MR.*podem ser forjados/s);
   assert.match(guiaPt, /runner não consulta nem confere.*ledger/s);
   assert.match(guiaPt, /reexecuta no HEAD.*claims.*comandos.*Não usa ancestralidade nem diff posterior/s);
-  assert.match(guiaPt, /não fornece recibo de verify assinado.*recibo de \*\*notificação\*\*.*não prova.*nenhuma entrega F7 é prometida/s);
+  assert.match(guiaPt, /ork\.excecao-transporte-runner\/v1.*proof.*capability.*OIDC.*urn:orkastery:fabrica:ci/s);
+  assert.match(guiaPt, /ork\.ci-recibo-forte-assinatura\/v1.*HEAD.*thread.*CHECK.*principal nativo/s);
 
   const guiaEn = ler('docs/guias/politica-de-recibo-da-empresa.md');
   assert.match(guiaEn, /bundle and the receipt's `sha256`.*PR\/MR itself.*forge them/s);
   assert.match(guiaEn, /runner does not query.*ledger.*compare the projection/s);
   assert.match(guiaEn, /reruns.*claims and commands on the HEAD.*does\s+not use ancestry or a later diff/s);
-  assert.match(guiaEn, /does not provide a signed verify receipt.*\*\*notification\*\* receipt signature.*does\s+not prove.*no F7 delivery is promised/s);
+  assert.match(guiaEn, /ork\.excecao-transporte-runner\/v1.*proof.*capability.*OIDC.*urn:orkastery:fabrica:ci/s);
+  assert.match(guiaEn, /ork\.ci-recibo-forte-assinatura\/v1.*HEAD.*thread.*CHECK.*native principal/s);
 
   const forja = ler('docs/referencia/contratos/forja.md');
   assert.match(forja, /bundle e o `sha256`.*próprio PR\/MR.*podem ser forjados/s);
   assert.match(forja, /não consulta nem.*ledger.*somente reexecuta.*claims.*comandos.*HEAD.*ancestralidade.*diff/s);
-  assert.match(forja, /assinatura.*recibo de verify permanece reservado e ausente.*recibo de notificação.*Nenhuma entrega F7 é prometida/s);
+  assert.match(forja, /ork\.ci-recibo-forte-assinatura\/v1.*HEAD.*thread.*CHECK.*principal nativo/s);
+  assert.match(forja, /ork\.excecao-transporte-runner\/v1.*proof.*capability.*urn:orkastery:fabrica:ci/s);
 });
 
 test('ci prepare projeta somente o recibo do verify verde integral mais recente', () => {
