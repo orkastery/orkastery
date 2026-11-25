@@ -1726,7 +1726,8 @@ function verificarSobConducao(
                 : motivo === 'security.scan-unscanned'
                   ? `rode \`${securityScanSemCobertura!.comando}\` com cobertura para ` +
                     `${securityScanSemCobertura!.categorias.join(', ')}; se o SHIP precisar seguir sem varredura, ` +
-                    'use a autorizacao humana nominal `--allow-unscanned`'
+                    'abra o pedido tipado com `ork gate request <thread>` e o dono responde b; no CLI, ' +
+                    '`--allow-unscanned "<quem>"` e a forma equivalente'
                 : 'corrija a regressao, ou grave a baseline antes do GO com `ork verify <thread> --baseline`',
     });
   }

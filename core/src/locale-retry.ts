@@ -54,7 +54,7 @@ export const RETRY_PT_BR = {
     },
     'security.scan-unscanned': {
       porque: 'o security scan terminou sem cobrir categorias do laco: repetir GO-FIX nao instala Docker nem binarios e nao pode autorizar entrega sem varredura',
-      correcao: 'instale a cobertura indicada pelo gate; para o SHIP seguir sem ela, uma pessoa nomeada usa --allow-unscanned',
+      correcao: 'instale a cobertura indicada pelo gate; para o SHIP seguir sem ela, abra o pedido com ork gate request <thread> e o dono responde b; --allow-unscanned e a forma equivalente no CLI',
     },
     'verify.timeout': {
       porque: 'o prazo estourou antes de o comando terminar: a prova nao chegou ao fim, e carga de maquina nao e defeito. A reexecucao e completa, e o limite de escalacao do manifesto impede repetir para sempre',
@@ -360,7 +360,7 @@ export const RETRY_EN: typeof RETRY_PT_BR = {
     },
     'security.scan-unscanned': {
       porque: 'the security scan finished without covering loop categories: rerunning GO-FIX installs neither Docker nor binaries and cannot authorize an unscanned delivery',
-      correcao: 'install the coverage named by the gate; for SHIP to proceed without it, a named person uses --allow-unscanned',
+      correcao: 'install the coverage named by the gate; for SHIP to proceed without it, open the typed request with ork gate request <thread> and the owner answers b; --allow-unscanned is the CLI equivalent',
     },
     'verify.timeout': {
       porque: 'the deadline ran out before the command finished: the proof did not reach the end, and machine load is not a defect. The rerun is complete, and the manifest escalation limit keeps it from repeating forever',

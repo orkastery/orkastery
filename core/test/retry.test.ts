@@ -28,7 +28,7 @@ import {
   tabelaDaPolitica,
 } from '../src/retry';
 import { adicionarClaim } from '../src/claims';
-import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
+import { dirThread, lerThread, novaThread } from '../src/thread';
 import { AcaoDeRetry, MotivoGate } from '../src/types';
 import { verificar } from '../src/verify';
 import { ajustarManifesto, projetoTemporario, runtimeFalso } from './apoio';
@@ -105,7 +105,8 @@ test('security.scan-unscanned escala ao humano em vez de abrir GO-FIX automatico
   assert.equal(politica.acao, 'escalar-humano');
   assert.equal(politica.automatica, false);
   assert.match(politica.porque, /sem cobrir categorias/);
-  assert.match(politica.correcao, /allow-unscanned/);
+  assert.match(politica.correcao, /ork gate request <thread>.*responde b/);
+  assert.match(politica.correcao, /allow-unscanned.*equivalente no CLI/);
 });
 
 test('retry espera o pedido da condução e o lease indeterminado sem redespachar', (t) => {
@@ -175,7 +176,6 @@ test('o modo afrouxa a pausa e nunca a politica: #Default espera, #Maestro anda'
 
   // #Default: o bloco GO-CHECK pausa sobre evidencias, entao o retry fica planejado.
   const padrao = novaThread(p.carregado, { nome: 'modo default', modo: 'classic' }).thread;
-  padrao.faseAtual = 'CHECK'; gravarThread(p.dir, padrao);
   adicionarClaim(p.dir, padrao.id, { ...claim, fase: 'CHECK' });
   verificar(p.carregado, padrao.id);
   const planoDefault = planejarRetry(p.carregado, padrao.id);
@@ -197,7 +197,6 @@ test('o modo afrouxa a pausa e nunca a politica: #Default espera, #Maestro anda'
 
   // #Maestro: o bloco GO-CHECK-SHIP nao pausa, e o mesmo motivo anda sozinho.
   const maestro = novaThread(p.carregado, { nome: 'modo maestro', modo: 'maestro' }).thread;
-  maestro.faseAtual = 'CHECK'; gravarThread(p.dir, maestro);
   gravarParecerPassou(p.dir, maestro.id);
   adicionarClaim(p.dir, maestro.id, { ...claim, fase: 'CHECK' });
   verificar(p.carregado, maestro.id);
