@@ -45,6 +45,7 @@ import { guardaDaThread, MotivoDaGuarda } from './noctum-guarda';
 import { CONTRATO_DO_RECIBO_DE_PROVA } from './recibo-prova';
 import type { ResultadoPreflightEmpresa } from './rede-empresa-preflight';
 import { motivoDoPedido, PedidoHitlQualquer, validarPedidoHitl } from './hitl-contract';
+import { evidenciaDoPedidoSemScan } from './hitl-gates';
 
 export interface OpcoesShip {
   /** Revalidação interna confiável; nunca exposta pela CLI/MCP como argumento. */
@@ -523,23 +524,20 @@ function autorizacaoRespondidaSemScan(
   categorias: readonly Category[]
 ): { por: string; pedidoId: string } | null {
   const eventos = lerLedger(dirThread(raiz, threadId));
-  for (const evento of [...eventos].reverse()) {
-    if (evento.tipo !== TIPOS_DE_EVENTO.pausaHumana || evento.sobre !== 'escalacao:security.scan-unscanned' ||
-        evento.opcao !== 2 || evento.source !== 'human' || typeof evento.pedidoId !== 'string' ||
-        typeof evento.autorizadoPor !== 'string' || !reciboHumanoConfere(raiz, threadId, evento)) continue;
-    const solicitado = eventos.find(e => e.tipo === 'hitl_requested' &&
-      (e.pedido as { id?: unknown } | undefined)?.id === evento.pedidoId);
-    const pedido = solicitado?.pedido as PedidoHitlQualquer | undefined;
-    try { validarPedidoHitl(pedido); } catch { continue; }
-    if (motivoDoPedido(pedido!) !== 'security.scan-unscanned') continue;
-    const corpo = (pedido as { corpo?: unknown }).corpo;
-    if (!Array.isArray(corpo) || !corpo.every(linha => typeof linha === 'string')) continue;
-    const texto = corpo.join('\n');
-    if (!texto.includes(`Candidata verificada: ${sha}`) ||
-        !texto.includes(`Categorias sem cobertura: ${[...categorias].sort().join(', ')}`)) continue;
-    return { por: evento.autorizadoPor.trim(), pedidoId: evento.pedidoId };
-  }
-  return null;
+  const solicitado = eventos.filter(e => e.tipo === 'hitl_requested' &&
+    motivoDoPedido(e.pedido as PedidoHitlQualquer) === 'security.scan-unscanned').at(-1);
+  const pedido = solicitado?.pedido as PedidoHitlQualquer | undefined;
+  try { validarPedidoHitl(pedido); } catch { return null; }
+  const evidencia = evidenciaDoPedidoSemScan(pedido!);
+  const esperadas = [...categorias].sort();
+  if (!evidencia || evidencia.sha !== sha || evidencia.categorias.length !== esperadas.length ||
+      !evidencia.categorias.every((categoria, i) => categoria === esperadas[i])) return null;
+  const evento = eventos.filter(e => e.tipo === TIPOS_DE_EVENTO.pausaHumana &&
+    e.pedidoId === pedido!.id).at(-1);
+  if (!evento || evento.sobre !== 'escalacao:security.scan-unscanned' || evento.opcao !== 2 ||
+      evento.source !== 'human' || typeof evento.autorizadoPor !== 'string' ||
+      !reciboHumanoConfere(raiz, threadId, evento)) return null;
+  return { por: evento.autorizadoPor.trim(), pedidoId: pedido!.id };
 }
 
 /**

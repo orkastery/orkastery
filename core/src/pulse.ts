@@ -37,6 +37,7 @@ import { linhaDoParadoNoCondutor } from './hitl-resumo';
 import { HitlDeConducaoAgora, linhaDaPerguntaParada, lerHitlDeConducaoAgora, textoDaMediana } from './hitl-tempo-parado';
 import { avisarForjaSemLeitura, EntregasDoProjeto, entregasDoProjeto, esquecerForjaSemLeitura, ExecutorDoGh, gravarRetratoDePrs,
   LeituraDePrs, lerPrsDaForja, ParadoNoCondutor, sessaoSemPergunta } from './parado-no-condutor';
+import { prepararPedidoGate } from './hitl-gates';
 
 export const CONTRATO_PULSE = 'ork.pulse/v1';
 export interface ItemPulse {
@@ -200,6 +201,10 @@ export function comporPulse(carregado: ManifestoCarregado, entrada: {
   const VERIFICACAO = ['claims.failed', 'claims.unverifiable', 'verify.failed', 'verify.regression', 'verify.timeout', 'verify.sem-veredito', 'ci.failed'];
   for (const l of monitor.linhas) for (const p of l.paradas) {
     if (VERIFICACAO.includes(p.motivo) && jaMesclada(l.thread)) continue;
+    if (p.motivo === 'security.scan-unscanned') {
+      try { prepararPedidoGate(carregado.raiz, l.thread, p.motivo, quando); }
+      catch { continue; }
+    }
     // RM-037 (fatia 4): o `human.pending` que o observador grava no fim de turno sem pergunta nao e do dono.
     if (p.motivo === 'human.pending' && p.fonte === 'ledger' && entregas?.doCondutor.gates.has(`${l.thread}|${p.fase}`)) continue;
     if (ehRegistro(l.thread)) {

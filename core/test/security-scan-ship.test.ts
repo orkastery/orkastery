@@ -1,11 +1,12 @@
 /** `ork ship`: a loop category not scanned for the candidate SHA is a `human.pending` gate (spec section 11.2). */
 
 import { strict as assert } from 'node:assert';
+import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { lerLedger } from '../src/ledger';
+import { lerLedger, registrar } from '../src/ledger';
 import type { ManifestoCarregado } from '../src/manifest';
 import { raizDoEstado } from '../src/estado-thread';
 import { writeReport } from '../src/security-scan/report';
@@ -15,7 +16,7 @@ import { dirThread, novaThread } from '../src/thread';
 import { gravarBaseline, verificar } from '../src/verify';
 import { exec } from '../src/util';
 import { commitar, projetoTemporario, ProjetoDeTeste, shaDaBranch, shaNoRemotoDeTeste } from './apoio';
-import { abrirPedidoGate, assinaturaDaResposta, responderGate } from '../src/hitl-gates';
+import { abrirPedidoGate, assinaturaDaResposta, responderGate, registrarPedidoHitl } from '../src/hitl-gates';
 import { ehV2 } from '../src/hitl-contract';
 import { ENV_HITL_VERIFIERS, publicHitlVerifiers } from '../src/hitl-public-receipt';
 
@@ -59,6 +60,29 @@ function ambienteHitlSimulado() {
   process.env.ORK_HITL_TELEGRAM_USERS = '42';
   process.env.ORK_HITL_TELEGRAM_CHATS = '-7';
   return () => nomes.forEach((nome, i) => antigos[i] === undefined ? delete process.env[nome] : process.env[nome] = antigos[i]);
+}
+
+function abrirPedidoSemScan(p: ProjetoDeTeste, thread: string, fase: string, sha: string, categorias: string[]) {
+  const dir = dirThread(p.dir, thread);
+  registrar(dir, thread, 'verify_run', { motivos: ['security.scan-unscanned'], veredito: 'reprovado' });
+  registrar(dir, thread, 'gate_blocked', { gate: 'verify', motivo: 'security.scan-unscanned',
+    detalhe: `security_scan sem cobertura: comando \`scan\`; categorias: ${[...categorias].sort().join(', ')}`,
+    evidencia: `reexecucao no HEAD ${sha}`, fase });
+  return abrirPedidoGate(p.dir, thread, 'security.scan-unscanned', new Date().toISOString());
+}
+
+function repetirPedido(p: ProjetoDeTeste, pedido: ReturnType<typeof abrirPedidoGate>) {
+  assert.ok(ehV2(pedido) && pedido.classe === 'pergunta');
+  return registrarPedidoHitl(p.dir, { ...pedido, id: randomUUID(), codigo: 'Z9Y8',
+    criadoEm: new Date(Date.parse(pedido.criadoEm) + 1).toISOString(),
+    prazo: new Date(Date.parse(pedido.prazo) + 1).toISOString() });
+}
+
+function responder(p: ProjetoDeTeste, thread: string, pedido: ReturnType<typeof abrirPedidoGate>, letra: 'a' | 'b', mensagem: string) {
+  const recebidoEm = new Date().toISOString();
+  const base = { resposta: letra, origem: 'telegram' as const, por: 'telegram:42', mensagem, recebidoEm };
+  responderGate(p.dir, thread, pedido.id, { ...base,
+    prova: assinaturaDaResposta(thread, pedido.id, base, process.env.ORK_HITL_INGRESS_KEY!) }, recebidoEm);
 }
 
 type CenarioDaRodada = 'achado-depois-de-baseline-sem-cobertura' | 'achado-e-cobertura-sem-baseline' |
@@ -281,6 +305,28 @@ test('gate, pedido, resposta b e SHIP usam a autorização nominal autenticada',
     assert.equal(autorizado.origem, 'resposta-b');
   } finally { restaurar(); p.limpar(); }
 });
+
+for (const cenario of ['b-antiga-depois-a', 'b-antiga-com-pedido-novo-aberto', 'categorias-a-menos'] as const) {
+  test(`SHIP recusa resposta b que não corresponde ao pedido atual: ${cenario}`, () => {
+    const p = projetoTemporario(`ss-ship-neg-${cenario}`, true), restaurar = ambienteHitlSimulado();
+    try {
+      const carregado = comScan(p, {}), { thread, sha } = entrega(p);
+      const atuais = cenario === 'categorias-a-menos' ? ['dependency'] as Category[] : ['sast'] as Category[];
+      gravar(p, sha, atuais.map(categoria => run(categoria === 'dependency' ? 'npm-audit' : 'semgrep', categoria, 'unavailable')));
+      const pedidas = cenario === 'categorias-a-menos' ? ['dependency', 'iac', 'sast'] : ['sast'];
+      const primeiro = abrirPedidoSemScan(p, thread.id, thread.faseAtual, sha, pedidas);
+      responder(p, thread.id, primeiro, 'b', `telegram:-7:${cenario}-1`);
+      if (cenario !== 'categorias-a-menos') {
+        const segundo = repetirPedido(p, primeiro);
+        if (cenario === 'b-antiga-depois-a') responder(p, thread.id, segundo, 'a', `telegram:-7:${cenario}-2`);
+      }
+      const r = ship(carregado, thread.id, { para: 'main' });
+      assert.equal(r.ok, false);
+      assert.equal(r.motivo, 'human.pending');
+      assert.equal(lerLedger(dirThread(p.dir, thread.id)).some(e => e.tipo === 'ship_unscanned_authorized'), false);
+    } finally { restaurar(); p.limpar(); }
+  });
+}
 
 test('o comentário do SHIP identifica o mock de leases que omite motivos', () => {
   const fonte = fs.readFileSync(path.resolve(__dirname, '../../src/ship.ts'), 'utf8');

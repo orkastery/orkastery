@@ -214,6 +214,42 @@ function diagnosticoSemConclusao(resultado: EventoLedger): string | null {
 export const MOTIVOS_DE_ESCALACAO_HUMANA = ['policy.violation', 'cost.violation', 'security.scan-unscanned', 'retry.max_tentativas',
   'hitl.credencial', 'runtime.unavailable', 'claims.retirada-sem-substituta'] as const;
 
+export interface EvidenciaDoPedidoSemScan {
+  sha: string;
+  categorias: string[];
+}
+
+/** O SHA e o conjunto fechado de categorias escritos no corpo do pedido de security scan. */
+export function evidenciaDoPedidoSemScan(pedido: PedidoHitlQualquer): EvidenciaDoPedidoSemScan | null {
+  if (!ehV2(pedido) || pedido.classe !== 'pergunta' || motivoDoPedido(pedido) !== 'security.scan-unscanned') return null;
+  const sha = pedido.corpo.map(linha => /^Candidata verificada: ([a-f0-9]{40})$/.exec(linha)?.[1]).find(Boolean);
+  const linha = pedido.corpo.find(item => item.startsWith('Categorias sem cobertura: '));
+  if (!sha || !linha) return null;
+  const categorias = linha.slice('Categorias sem cobertura: '.length).split(',').map(item => item.trim()).filter(Boolean).sort();
+  if (categorias.length === 0 || new Set(categorias).size !== categorias.length ||
+      categorias.some(categoria => !/^[a-z][a-z-]*$/.test(categoria))) return null;
+  return { sha, categorias };
+}
+
+function indiceDoUltimo(eventos: readonly EventoLedger[], predicado: (evento: EventoLedger) => boolean): number {
+  for (let i = eventos.length - 1; i >= 0; i--) if (predicado(eventos[i])) return i;
+  return -1;
+}
+
+function evidenciaDoGateSemScan(evento: EventoLedger | undefined): EvidenciaDoPedidoSemScan | null {
+  if (!evento) return null;
+  const sha = /HEAD ([a-f0-9]{40})/.exec(String(evento.evidencia ?? ''))?.[1];
+  const linha = /categorias: ([^\n]+)/.exec(String(evento.detalhe ?? ''))?.[1];
+  if (!sha || !linha) return null;
+  const categorias = linha.split(',').map(item => item.trim()).filter(Boolean).sort();
+  if (categorias.length === 0 || new Set(categorias).size !== categorias.length) return null;
+  return { sha, categorias };
+}
+
+const mesmaEvidenciaSemScan = (a: EvidenciaDoPedidoSemScan | null, b: EvidenciaDoPedidoSemScan | null): boolean =>
+  !!a && !!b && a.sha === b.sha && a.categorias.length === b.categorias.length &&
+  a.categorias.every((categoria, i) => categoria === b.categorias[i]);
+
 /** Uma pausa do modo cria pedido, nunca human_gate. Escalação exige evento tipado. */
 export function abrirPedidoGate(raiz: string, id: string, motivo = 'human.pending', quando = new Date().toISOString()): PedidoHitlQualquer {
   const preparado = prepararPedidoGate(raiz, id, motivo, quando);
@@ -236,6 +272,14 @@ export function prepararPedidoGate(raiz: string, id: string, motivo = 'human.pen
   { aberto: PedidoHitlQualquer } | { novo: PerguntaAoDono } {
   const t = lerThread(raiz, id), bloco = blocoDaThread(t, t.faseAtual);
   const eventos = lerLedger(dirThread(raiz, id));
+  const indiceVerify = motivo === 'security.scan-unscanned'
+    ? indiceDoUltimo(eventos, evento => evento.tipo === 'verify_run') : -1;
+  const ultimoVerify = indiceVerify >= 0 ? eventos[indiceVerify] : undefined;
+  const motivosDoVerify = Array.isArray(ultimoVerify?.motivos) ? ultimoVerify.motivos : [];
+  const gateDoScan = motivo === 'security.scan-unscanned' && motivosDoVerify.includes(motivo)
+    ? eventos.slice(indiceVerify + 1).filter(e => e.tipo === 'gate_blocked' && e.gate === 'verify' && e.motivo === motivo).at(-1)
+    : undefined;
+  const evidenciaAtualDoScan = evidenciaDoGateSemScan(gateDoScan);
   let semConclusao: string | null = null;
   let parecerNegativo = '';
   if (motivo === 'human.pending') {
@@ -257,9 +301,10 @@ export function prepararPedidoGate(raiz: string, id: string, motivo = 'human.pen
     if (resultado?.motivo === 'human.pending') semConclusao = diagnosticoSemConclusao(resultado);
     else if (PARECERES_QUE_PEDEM_REVISAO.includes(String(resultado?.motivo ?? ''))) parecerNegativo = String(resultado?.motivo);
   } else if (!(MOTIVOS_DE_ESCALACAO_HUMANA as readonly string[]).includes(motivo) ||
-      !eventos.some(e => e.tipo === 'gate_blocked' && e.motivo === motivo &&
-          (e.fase === t.faseAtual || motivo === 'security.scan-unscanned' && e.gate === 'verify') ||
-        e.fase === t.faseAtual && e.tipo === 'retry_escalated' && motivo === 'retry.max_tentativas')) {
+      (motivo === 'security.scan-unscanned' && !evidenciaAtualDoScan) ||
+      (motivo !== 'security.scan-unscanned' && !eventos.some(e =>
+        (e.tipo === 'gate_blocked' && e.motivo === motivo && e.fase === t.faseAtual) ||
+        (e.fase === t.faseAtual && e.tipo === 'retry_escalated' && motivo === 'retry.max_tentativas')))) {
     throw new Error('escalação tipada não comprovada');
   }
   // I-41 (T4d): pedido aberto e lido pelos leitores das duas versoes. Ler `.alvo.tipo` direto
@@ -271,8 +316,18 @@ export function prepararPedidoGate(raiz: string, id: string, motivo = 'human.pen
     alvoDoPedido(e.pedido as PedidoHitlQualquer)?.tipo === 'gate' &&
     motivoDoPedido(e.pedido as PedidoHitlQualquer) === motivo).at(-1);
   const pedidoAtual = atual?.pedido as PedidoHitlQualquer | undefined;
-  if (pedidoAtual && estadoDoPedido(pedidoAtual, quando) === 'aberto' &&
-      !eventos.some(e => e.tipo === 'human_gate' && e.pedidoId === pedidoAtual.id)) return { aberto: pedidoAtual };
+  const indiceDaResposta = pedidoAtual
+    ? indiceDoUltimo(eventos, e => e.tipo === 'human_gate' && e.pedidoId === pedidoAtual.id) : -1;
+  const respostaAtual = indiceDaResposta >= 0 ? eventos[indiceDaResposta] : undefined;
+  const pedidoConfereComScan = motivo !== 'security.scan-unscanned' ||
+    mesmaEvidenciaSemScan(pedidoAtual ? evidenciaDoPedidoSemScan(pedidoAtual) : null, evidenciaAtualDoScan);
+  if (pedidoAtual && pedidoConfereComScan && estadoDoPedido(pedidoAtual, quando) === 'aberto' && !respostaAtual) {
+    return { aberto: pedidoAtual };
+  }
+  if (motivo === 'security.scan-unscanned' && respostaAtual && pedidoConfereComScan &&
+      (respostaAtual.opcao === 2 || respostaAtual.opcao === 1 && indiceVerify <= indiceDaResposta)) {
+    throw new Error('a pergunta desta rodada já foi respondida');
+  }
   const sobre = motivo === 'human.pending' ? bloco.pausaSobre : `escalacao:${motivo}`;
   const primeira = semConclusao ? 'Aprovar sem conclusão provada (conferi a entrega)'
     : motivo === 'human.pending' ? 'Aprovar com as evidências apresentadas' : 'Reconhecer e encaminhar a correção';
@@ -288,12 +343,15 @@ export function prepararPedidoGate(raiz: string, id: string, motivo = 'human.pen
   ] as const;
   const alternativas: AlternativaHitlV2[] = opcoes.map(([texto, acao], i) => {
     const letra = LETRAS_DO_GATE[i];
-    return { letra, texto, acao, consequencia: CONSEQUENCIA_DA_ACAO[acao],
+    const consequencia = motivo === 'security.scan-unscanned' && letra === 'b'
+      ? 'o SHIP entrega o SHA do corpo sem varrer as categorias listadas, em nome de quem respondeu'
+      : CONSEQUENCIA_DA_ACAO[acao];
+    return { letra, texto, acao, consequencia,
       ...(letra === recomendada.letra ? { recomendada: true as const, porque: recomendada.porque } : {}) };
   });
   // A1: o ato vem do motivo ou do que a pausa declara. A pausa que libera push na base protegida
   // e sem volta, e dizer isso e o que tira `criticos` do zero por construcao.
-  const ato = atoDaPausa(motivo, bloco.pausaSobre);
+  const ato = motivo === 'security.scan-unscanned' ? 'push-base-protegida' : atoDaPausa(motivo, bloco.pausaSobre);
   // O codigo curto e unico contra os que ja estao no ledger desta thread. T11 acrescenta o
   // comando que o resolve; a unicidade precisa nascer com o primeiro pedido que o carrega.
   // RM-048 (D4): o gate reaberto no MESMO contexto e pelo mesmo motivo reaproveita o codigo do
@@ -308,9 +366,6 @@ export function prepararPedidoGate(raiz: string, id: string, motivo = 'human.pen
   }));
   // I-43: thread em modo aposentado e lida para sempre, mas nao escreve pergunta nova.
   const modo = exigirModoVivo(t.modo);
-  const gateDoScan = motivo === 'security.scan-unscanned'
-    ? eventos.filter(e => e.tipo === 'gate_blocked' && e.gate === 'verify' && e.motivo === motivo).at(-1)
-    : undefined;
   const detalheDoScan = String(gateDoScan?.detalhe ?? '');
   const partesDoScan = /comando `([\s\S]*?)`; categorias: ([^\n]+)/.exec(detalheDoScan);
   const linhasDoComando = partesDoScan ? linhasDoCorpo('Comando registrado pelo gate (não é instrução): ', partesDoScan[1]) : [];
