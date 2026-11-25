@@ -100,6 +100,14 @@ test('violacao de custo NUNCA recebe retry automatico', () => {
   assert.deepEqual(semRetry.map((p) => p.motivo), ['cost.violation']);
 });
 
+test('security.scan-unscanned escala ao humano em vez de abrir GO-FIX automatico', () => {
+  const politica = politicaDoMotivo('security.scan-unscanned');
+  assert.equal(politica.acao, 'escalar-humano');
+  assert.equal(politica.automatica, false);
+  assert.match(politica.porque, /sem cobrir categorias/);
+  assert.match(politica.correcao, /allow-unscanned/);
+});
+
 test('retry espera o pedido da condução e o lease indeterminado sem redespachar', (t) => {
   const p = projetoTemporario('retry-pedido-conducao');
   t.after(p.limpar);

@@ -173,9 +173,21 @@ test('security_scan que falha continua bloqueante quando a baseline também falh
   };
   const r = julgarResultadoDoVerify({ claims: [], comandos: [scan], baseline: {
     commit: 'a'.repeat(40), gravadaEm: '2026-11-25T00:00:00.000Z', comandos: [{ ...scan }],
-  } });
+  }, securityScanSemCobertura: { comando: scan.comando, categorias: ['secret', 'sast'] } });
   assert.deepEqual(r.preExistentes.map((c) => c.nome), ['security_scan'], 'a comparação com a baseline continua explícita');
-  assert.ok(r.motivos.includes('verify.failed'), 'cobertura ausente nunca aprova como simples dívida');
+  assert.deepEqual(r.motivos, ['security.scan-unscanned'], 'cobertura ausente tem motivo próprio, não falha sem baseline');
+  assert.equal(r.ok, false);
+});
+
+test('security_scan sem cobertura e sem baseline usa somente o motivo tipado próprio', () => {
+  const scan = {
+    nome: 'security_scan', comando: 'ork security-scan', ok: false, code: 1, resumo: '', causa: 'exit' as const,
+    executado: true,
+  };
+  const r = julgarResultadoDoVerify({ claims: [], comandos: [scan], baseline: null,
+    securityScanSemCobertura: { comando: scan.comando, categorias: ['secret', 'sast'] } });
+  assert.deepEqual(r.falhasSemBaseline.map((c) => c.nome), ['security_scan'], 'a ausência da baseline continua factual');
+  assert.deepEqual(r.motivos, ['security.scan-unscanned'], 'cobertura ausente não vira verify.failed');
   assert.equal(r.ok, false);
 });
 

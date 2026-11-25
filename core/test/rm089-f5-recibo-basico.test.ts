@@ -19,6 +19,7 @@ import { executarCiDaBranchComContexto, publicarAvisoDaPolitica, receitaConfiave
 import { comLocale, msg } from '../src/locale';
 import type { ManifestoCarregado } from '../src/manifest';
 import type { Claim, Manifesto, ResultadoDeComando } from '../src/types';
+import { writeReport } from '../src/security-scan/report';
 
 const HEAD_A = 'a'.repeat(40), HEAD_B = 'b'.repeat(40);
 
@@ -166,6 +167,29 @@ test('R2: baseline projetada não transforma falha atual em dívida preexistente
   assert.equal(replay.julgamento?.ok, false);
   assert.ok(replay.julgamento?.motivos.includes('verify.failed'));
   assert.equal(replay.recibo?.resultado.ok, false);
+});
+
+test('o replay tipa cobertura ausente do security scan sem acrescentar verify.failed', () => {
+  const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-rm089-scan-'));
+  const entrada = projecao({ commands: [{ name: 'security_scan', command: 'ork security-scan' }] });
+  try {
+    const severidades = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+    writeReport(raiz, {
+      schema: 'ork.security-scan/v1', base: HEAD_B, head: HEAD_A, generatedAt: '2026-11-25T00:00:00.000Z',
+      stacks: ['js'], excluded: [], findings: [], tools: [{
+        name: 'gitleaks', category: 'secret', version: '1', executor: null, state: 'unavailable',
+        reason: 'docker-missing', counts: { new: { ...severidades }, existing: { ...severidades }, dismissed: { ...severidades } },
+      }],
+    });
+    const replay = reexecutarProjecaoReplayCi(entrada, {
+      raiz, manifesto, head: HEAD_A, casaEfemera: path.join(raiz, 'casa'),
+      identidadeProduto: () => 'produto-estavel', hermeticidade: () => null,
+      receitaConfiavel: { commands: entrada.commands, check: 'agile' },
+      executor: ({ nome, comando }) => resultado(nome, comando, nome !== 'security_scan'),
+    });
+    assert.deepEqual(replay.julgamento?.motivos, ['security.scan-unscanned']);
+    assert.equal(replay.recibo?.resultado.ok, false);
+  } finally { fs.rmSync(raiz, { recursive: true, force: true }); }
 });
 
 function carregado(raiz: string, nivel?: 'observar' | 'avisar' | 'exigir'): ManifestoCarregado {

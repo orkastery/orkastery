@@ -11,6 +11,7 @@ import { writeReport } from '../src/security-scan/report';
 import type { Category, ScanReport, ToolRun, ToolState } from '../src/security-scan/types';
 import { ship, unscannedCategories } from '../src/ship';
 import { dirThread, novaThread } from '../src/thread';
+import { gravarBaseline } from '../src/verify';
 import { commitar, projetoTemporario, ProjetoDeTeste, shaDaBranch, shaNoRemotoDeTeste } from './apoio';
 
 /** The declared command is `true`: the ship runs verify first, and only the key matters to the gate. */
@@ -88,6 +89,32 @@ test('allowUnscanned entrega e grava ship_unscanned_authorized', () => {
     assert.equal(ev.por, 'paschoal');
     assert.deepEqual(ev.categorias, ['dependency', 'secret']);
     assert.equal(ev.sha, sha);
+  } finally { p.limpar(); }
+});
+
+test('allowUnscanned atravessa somente security.scan-unscanned e preserva o verify vermelho no ledger', () => {
+  const p = projetoTemporario('ss-ship-verify-vermelho', true);
+  try {
+    const base = comScan(p, {});
+    const carregado = { ...base, manifesto: { ...base.manifesto,
+      verify: { ...base.manifesto.verify, security_scan: 'exit 1' } } };
+    const { thread } = novaThread(carregado, { nome: 'scan sem cobertura', modo: 'auto', criarWorktree: true });
+    gravarBaseline(carregado, thread.id);
+    const sha = commitar(thread.worktree as string, 'entrega.md', '# x\n', `feat: ${thread.id}`);
+    const r = ship(carregado, thread.id, { para: 'main', allowUnscanned: 'responsavel' });
+    assert.equal(r.ok, true, r.detalhe);
+
+    const eventos = lerLedger(dirThread(p.dir, thread.id));
+    const verify = eventos.filter(e => e.tipo === 'verify_run').at(-1)!;
+    assert.equal(verify.veredito, 'reprovado');
+    assert.deepEqual(verify.motivos, ['security.scan-unscanned']);
+    const gate = eventos.find(e => e.tipo === 'gate_blocked' && e.motivo === 'security.scan-unscanned')!;
+    assert.match(String(gate.detalhe), /`exit 1`/);
+    assert.match(String(gate.detalhe), /secret/);
+    assert.match(String(gate.detalhe), /workflow/);
+    const autorizado = eventos.find(e => e.tipo === 'ship_unscanned_authorized')!;
+    assert.equal(autorizado.por, 'responsavel');
+    assert.equal(autorizado.sha, sha);
   } finally { p.limpar(); }
 });
 
