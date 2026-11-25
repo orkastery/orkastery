@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.10",
-  "publicadoEm": "2026-11-25T11:15:04.203Z",
+  "publicadoEm": "2026-11-25T11:23:33.300Z",
   "threads": [
     {
       "id": "ork-macosportave",
@@ -54,33 +54,11 @@
       "id": "ork-podmangitine",
       "nome": "podman git inerte 302 299",
       "modo": "#Auto",
-      "fase": "CHECK",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-podmangitine-full",
-      "atualizadaEm": "2026-11-25T08:20:18.946Z",
-      "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "max",
-      "sessao": {
-        "viva": false,
-        "desdeEm": "2026-11-25T09:13:06.284Z",
-        "motivo": "sessão b890bc26 encerrada (done)"
-      }
-    },
-    {
-      "id": "ork-rm089f7recib",
-      "nome": "ork-rm089f7recib",
-      "modo": "#Auto",
       "fase": "GO",
       "status": "aberta",
       "roadmap": null,
-      "branch": "ork/ork-rm089f7recib-full",
-      "atualizadaEm": "2026-11-25T11:02:11.783Z",
+      "branch": "ork/ork-podmangitine-full",
+      "atualizadaEm": "2026-11-25T11:23:32.624Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -92,6 +70,28 @@
         "viva": true,
         "desdeEm": null,
         "motivo": null
+      }
+    },
+    {
+      "id": "ork-rm089f7recib",
+      "nome": "ork-rm089f7recib",
+      "modo": "#Auto",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-rm089f7recib-full",
+      "atualizadaEm": "2026-11-25T11:21:38.052Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": "codex",
+      "modelo": "gpt-5.6-sol",
+      "esforco": "xhigh",
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-11-25T11:22:50.015Z",
+        "motivo": "sessão 01a211cf caiu (runtime.unavailable)"
       }
     }
   ]
