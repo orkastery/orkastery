@@ -698,8 +698,9 @@ export function verificarRodada(
 
   const motivos: MotivoDeAuditoria[] = [];
   // Estado terminal no board fecha a dívida, mas não cria evidência executada. Nenhuma
-  // rodada pode anunciar sustentação quando zero claims chegaram a rodar.
-  if (resultados.length === 0) motivos.push('verify.sem-veredito');
+  // rodada pode anunciar sustentação quando nenhum comando chegou a rodar.
+  const houveComandoExecutado = resultados.some((r) => r.execucoes.some((e) => e.executado === true));
+  if (!houveComandoExecutado) motivos.push('verify.sem-veredito');
   if (resultados.some((r) => r.motivo === 'claims.failed')) motivos.push('claims.failed');
   if (resultados.some((r) => r.motivo === 'claims.unverifiable')) motivos.push('claims.unverifiable');
   // `claims.unverifiable` avisa e nao bloqueia, igual ao gate do B1.
@@ -738,7 +739,7 @@ export function verificarRodada(
 export type EstadoDoVereditoDeAuditoria = 'sustentado' | 'reprovado' | 'sem-veredito';
 
 export function estadoDoVereditoDeAuditoria(v: VereditoDeAuditoria): EstadoDoVereditoDeAuditoria {
-  if (v.resultados.length === 0 && v.motivos.includes('verify.sem-veredito')) return 'sem-veredito';
+  if (!v.resultados.some((r) => r.execucoes.some((e) => e.executado === true)) && v.motivos.includes('verify.sem-veredito')) return 'sem-veredito';
   return v.ok ? 'sustentado' : 'reprovado';
 }
 

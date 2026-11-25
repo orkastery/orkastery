@@ -31,6 +31,35 @@ test('mensagem pareada e fixture pública não anunciam sustentação sem evidê
   assert.doesNotMatch(saida, /ACHADOS SUSTENTADOS/);
 });
 
+test('achado aberto sem comando termina sem veredito e não sustenta a auditoria', () => {
+  const p = projetoTemporario('audit-achado-sem-comando');
+  try {
+    const rodada = rodarAuditoria(p.carregado, 'clean-code', {
+      quando: new Date(2026, 8, 3, 2, 30), dryRun: true,
+    });
+    registrarAchadoDaRodada(p.carregado, rodada.id, {
+      regra: 'CC1', severidade: 'menor', titulo: 'achado sem comando', arquivo: 'README.md:1',
+      alegacao: 'o README tem um problema', verificar: [], impacto: 'fixture', fix: 'nenhum', irreversivel: 'nenhum', estimativa: 'pequena',
+    });
+    const veredito = verificarRodada(p.carregado, rodada.id);
+    assert.equal(veredito.resultados.length, 1);
+    assert.equal(veredito.resultados[0].execucoes.length, 0);
+    assert.equal(veredito.ok, false);
+    assert.deepEqual(veredito.motivos, ['verify.sem-veredito', 'claims.unverifiable']);
+    const cwd = process.cwd(), linhas: string[] = [], log = console.log;
+    let codigo: number;
+    try {
+      process.chdir(p.dir);
+      console.log = (...args: unknown[]) => { linhas.push(args.map(String).join(' ')); };
+      codigo = main(['audit', 'verify', rodada.id]);
+    } finally { console.log = log; process.chdir(cwd); }
+    const saida = linhas.join('\n');
+    assert.equal(codigo!, 1, saida);
+    assert.match(saida, /Veredito: SEM VEREDITO/);
+    assert.doesNotMatch(saida, /ACHADOS SUSTENTADOS/);
+  } finally { p.limpar(); }
+});
+
 for (const estado of ['resolvido', 'descartado'] as const) {
   test(`audit verify sai sem veredito quando o único achado está ${estado}`, () => {
     const p = projetoTemporario(`audit-sem-claims-${estado}`);
