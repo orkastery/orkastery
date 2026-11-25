@@ -35,7 +35,9 @@ ork doctor          # what holds on this machine right now (exits != 0 when some
 
 The verify executor uses only the controlled Bash paths above, records the selected path and
 version, and does not consult `PATH`, Homebrew or an environment override. `ork doctor` checks
-the portable lock and this shell before it reports readiness.
+`flock` on Linux, the process-identity lock on macOS, and this shell before it reports readiness.
+Required CI jobs install the package tarball and run worktree creation, `ork claims add`, and
+`ork verify` on Linux and macOS; npm publication also requires that macOS proof.
 
 The package ships the product catalog too (skills, references, eval and host adapters), so
 `ork eval` and `ork adapter install` work from the global install.
