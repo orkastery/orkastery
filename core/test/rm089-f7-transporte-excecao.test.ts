@@ -2,13 +2,15 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { AUDIENCIA_FABRICA_CI, CONTRATO_TRANSPORTE_EXCECAO_RUNNER,
-  configuracaoPublicaDoTransporteValida, projetarResultadoDoTransporte } from '../src/ci-fabrica-transporte';
+  atenderTransporteNaFabrica, configuracaoPublicaDoTransporteValida, executarClienteProtegidoDoTransporte,
+  projetarResultadoDoTransporte, type FatosReobtidosDaForjaCi,
+  type LocalizadoresDoTransporteCi } from '../src/ci-fabrica-transporte';
 import { comandosDoTextoDoManifesto } from '../src/manifest';
 
 const CONFIG = { contrato: CONTRATO_TRANSPORTE_EXCECAO_RUNNER, origem: 'https://fabrica.invalid/ci',
   audiencia: AUDIENCIA_FABRICA_CI, cliente: { versao: '0.6.10', sha256: 'a'.repeat(64) } };
 const ESPERADO = { project: 'projeto-fixture', source: 'feature/fixture', target: 'main', head: 'b'.repeat(40),
-  operation: 'ci.run' };
+  operation: 'ci.run' as const };
 
 test('a configuração pública v1 exige audiência exata e cliente pinado', () => {
   assert.equal(configuracaoPublicaDoTransporteValida(CONFIG), true);
@@ -52,4 +54,47 @@ test('wrapper adulterado nunca promove confiança e a saída não contém prova 
   if (!resultado.aplicado) assert.equal(resultado.code, 'ci.excecao.transporte-invalido');
   assert.equal(JSON.stringify(resultado).includes('proof'), false);
   assert.equal(JSON.stringify(resultado).includes('capability'), false);
+});
+
+test('a fábrica reobtém contexto antes de entregar e não compartilha a porta de assinatura', () => {
+  for (const forja of ['github', 'gitlab'] as const) {
+    const localizadores: LocalizadoresDoTransporteCi = { ...ESPERADO, forja, execucaoId: `${forja}:execucao`,
+      construtor: `${forja}:builder` };
+    const fatos: FatosReobtidosDaForjaCi = { ...localizadores, destinoProtegido: true, fork: false,
+      principalNativo: `${forja}:check`, componenteProtegido: true };
+    const chamadas: string[] = [];
+    const resposta = atenderTransporteNaFabrica('token-opaco', localizadores, {
+      autenticar: (token, audiencia) => { chamadas.push(`autenticar:${token}`); return {
+        forja, audiencia, execucaoId: localizadores.execucaoId, principalNativo: fatos.principalNativo }; },
+      reobter: () => { chamadas.push('reobter'); return fatos; },
+      entregar: () => { chamadas.push('entregar-excecao'); return { estado: 'ausente' }; },
+    });
+    assert.deepEqual(resposta, { estado: 'ausente' });
+    assert.deepEqual(chamadas, ['autenticar:token-opaco', 'reobter', 'entregar-excecao']);
+
+    chamadas.length = 0;
+    atenderTransporteNaFabrica('token-opaco', localizadores, {
+      autenticar: (_token, audiencia) => ({ forja, audiencia, execucaoId: localizadores.execucaoId,
+        principalNativo: fatos.principalNativo }),
+      reobter: () => ({ ...fatos, fork: true }),
+      entregar: () => { chamadas.push('entregar-excecao'); return { estado: 'ausente' }; },
+    });
+    assert.deepEqual(chamadas, [], `${forja}: fork é recusado antes da entrega`);
+  }
+});
+
+test('o cliente protegido confina token e resposta bruta e devolve só resultado sanitizado', () => {
+  const localizadores: LocalizadoresDoTransporteCi = { ...ESPERADO, forja: 'github',
+    execucaoId: 'github:execucao', construtor: 'github:builder' };
+  const resultado = executarClienteProtegidoDoTransporte(CONFIG, localizadores, 'avisar',
+    '2026-11-25T00:00:00.000Z', { obter: (audiencia) => {
+      assert.equal(audiencia, AUDIENCIA_FABRICA_CI); return 'token-secreto-fixture';
+    } }, { consultar: (token, recebidos) => {
+      assert.equal(token, 'token-secreto-fixture'); assert.deepEqual(recebidos, localizadores);
+      return { estado: 'indisponivel' };
+    } });
+  const serializado = JSON.stringify(resultado);
+  assert.doesNotMatch(serializado, /token-secreto-fixture|proof|capability/);
+  assert.equal(resultado.aplicado, false);
+  if (!resultado.aplicado) assert.equal(resultado.code, 'ci.excecao.transporte-indisponivel');
 });

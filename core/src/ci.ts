@@ -40,6 +40,7 @@ import { CONTRATO_PROVA_NOTIFICACAO_EXCECAO, registrarNotificacaoAuditavel, vali
   type CapacidadeDaNotificacaoDaExcecao, type CapacidadeDoRunnerParaExcecao,
   type PortaGeridaDaNotificacaoDaExcecao, type ProvaProtegidaDaNotificacao } from './excecao-notificacao';
 import { resolverExcecaoDeRecibo, type FonteProtegidaDaExcecao } from './excecao-recibo';
+import { projetarResultadoDoTransporte, type ResultadoSanitizadoDoTransporte } from './ci-fabrica-transporte';
 
 export type EstadoCi = 'disabled' | 'success' | 'pending' | 'failure' | 'missing' | 'unavailable';
 
@@ -123,6 +124,8 @@ export interface ContextoDaPoliticaCi {
   lerManifestoDestino?: (ref: string, arquivo: string) => string | null;
   /** Prova entregue ao runner por transporte protegido; nunca é lida do bundle ou do checkout do builder. */
   excecao?: { prova: ProvaProtegidaDaNotificacao | unknown; capacidade: CapacidadeDoRunnerParaExcecao | unknown };
+  /** Cliente pinado executado pelo launcher protegido; a resposta bruta não integra o resultado do runner. */
+  transporteProtegido?: { consultar(): unknown; agora: string };
   /** Operação `ci run` gerida pelo núcleo; só a referência opaca vem do pedido. */
   excecaoGerida?: {
     threadId: string;
@@ -770,18 +773,24 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
       : estadoDoReciboRunnerCi(replay.recibo, head)
       : estadoDoReciboCi(carregado.raiz, entrada, head, achado?.arquivo);
   const protegida = carregado.manifesto.worktree.base_branch;
+  const esperadoDaExcecao = { project: carregado.manifesto.project?.name ?? '', source: branch, target: destino ?? '', head,
+    operation: 'ci.run' };
   const gerida = contexto.excecaoGerida ? executarExcecaoGerida(contexto.excecaoGerida) : null;
   const transporteDaExcecao = contexto.excecao ?? (gerida?.ok ? { prova: gerida.prova, capacidade: gerida.capacidade } : null);
   const provaDaExcecao = transporteDaExcecao
-    ? validarProvaDaExcecaoNoRunner(transporteDaExcecao.prova, transporteDaExcecao.capacidade, {
-      project: carregado.manifesto.project.name,
-      source: branch,
-      target: destino ?? '',
-      head,
-      operation: 'ci.run',
-    })
+    ? validarProvaDaExcecaoNoRunner(transporteDaExcecao.prova, transporteDaExcecao.capacidade, esperadoDaExcecao)
     : null;
-  const excecaoAplicada = recibo !== 'presente' && provaDaExcecao?.ok === true;
+  let resultadoDoTransporte: ResultadoSanitizadoDoTransporte | null = null;
+  if (recibo !== 'presente' && contexto.transporteProtegido) {
+    let bruto: unknown;
+    try { bruto = contexto.transporteProtegido.consultar(); }
+    catch (erro) { bruto = (erro as Error).name === 'TimeoutError' ? { estado: 'timeout' } : { estado: 'indisponivel' }; }
+    resultadoDoTransporte = projetarResultadoDoTransporte(bruto, nivel, esperadoDaExcecao,
+      contexto.transporteProtegido.agora);
+  }
+  const excecaoSanitizada = resultadoDoTransporte?.aplicado ? resultadoDoTransporte.exception
+    : provaDaExcecao?.ok ? provaDaExcecao.exception : null;
+  const excecaoAplicada = recibo !== 'presente' && excecaoSanitizada !== null;
   const degradacao = replay?.degradacao ? diagnosticoDaDegradacaoReplay(replay.degradacao) : null;
   const mensagem = excecaoAplicada ? null : degradacao ? `${degradacao.message} ${degradacao.action}` : recibo === 'presente'
     ? null : mensagemDoRecibo(recibo, branch);
@@ -796,7 +805,10 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
   const erroDaOperacaoGerida = gerida && !gerida.ok
     ? { code: gerida.code, message: gerida.code, action: gerida.code }
     : null;
-  const erroDaExcecao = erroDaOperacaoGerida ?? (transporteDaExcecao && recibo !== 'presente'
+  const erroDoTransporte = resultadoDoTransporte && !resultadoDoTransporte.aplicado
+    ? { code: resultadoDoTransporte.code, message: resultadoDoTransporte.code, action: resultadoDoTransporte.code }
+    : null;
+  const erroDaExcecao = erroDoTransporte ?? erroDaOperacaoGerida ?? (transporteDaExcecao && recibo !== 'presente'
     && provaDaExcecao && !provaDaExcecao.ok
     ? { code: provaDaExcecao.code, message: provaDaExcecao.code, action: provaDaExcecao.code }
     : null);
@@ -817,7 +829,8 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
       ? degradacao!
       : replay.invalida ? { code: 'ci.recibo.invalido', message: mensagemDoRecibo('invalido', branch),
         action: mensagemDoRecibo('invalido', branch) } : null;
-    const defeitoDoReciboReprova = nivel === 'exigir' && pullRequest && destino === protegida && recibo !== 'presente';
+    const defeitoDoReciboReprova = nivel === 'exigir' && pullRequest && destino === protegida
+      && recibo !== 'presente' && !excecaoAplicada;
     // Observar e avisar não transformam sozinhos um diagnóstico de recibo em reprovação.
     const medicaoOk = replay.ok;
     return {
@@ -830,7 +843,7 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
       commands: replay.commands,
       ...(replay.julgamento ? { verify: replay.julgamento } : {}),
       ...(replay.recibo ? { recibo: replay.recibo } : {}),
-      ...(excecaoAplicada && provaDaExcecao?.ok ? { exception: provaDaExcecao.exception } : {}),
+      ...(excecaoAplicada && excecaoSanitizada ? { exception: excecaoSanitizada } : {}),
       branch,
       bundle: achado?.arquivo ?? null,
       policy,
@@ -841,7 +854,7 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
   const error = erroDoRecibo ?? erroDaExcecao;
   return { ...executado, ok: executado.ok && !erroDoRecibo, ...(achado ? {} : { thread: null }), branch,
     bundle: achado?.arquivo ?? null, policy,
-    ...(excecaoAplicada && provaDaExcecao?.ok ? { exception: provaDaExcecao.exception } : {}),
+    ...(excecaoAplicada && excecaoSanitizada ? { exception: excecaoSanitizada } : {}),
     ...(error ? { error } : {}) };
 }
 

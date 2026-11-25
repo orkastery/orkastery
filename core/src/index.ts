@@ -2510,7 +2510,8 @@ function comandoCi(args: Args): number {
     if (branch) {
       const runner = ambienteDeCi();
       const result = executarCiDaBranch(carregado, branch,
-        { destino: runner?.targetBranch ?? null, pullRequest: runner?.targetBranch !== null && runner?.targetBranch !== undefined });
+        { destino: runner?.targetBranch ?? null, pullRequest: runner?.targetBranch !== null && runner?.targetBranch !== undefined,
+          env: process.env });
       registrarReciboRunnerDaAdocao(carregado, result);
       publicarAvisoDaPolitica(result);
       console.log(JSON.stringify(result, null, 2));

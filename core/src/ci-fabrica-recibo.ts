@@ -27,6 +27,8 @@ export interface PoliticaDoReciboForteCi {
 /** A implementação real pertence ao plano de controle; o produto conhece somente esta porta. */
 export interface PortaDeAssinaturaDoReciboForteCi {
   contrato: typeof CONTRATO_PORTA_ASSINATURA_RECIBO_FORTE_CI;
+  /** Operação única do contrato v1; ausente somente em adaptadores F7 anteriores à separação explícita. */
+  operacao?: 'assinar-recibo-forte';
   emissor: string;
   chaveId: string;
   exclusiva: true;
@@ -78,6 +80,7 @@ function politicaValida(politica: PoliticaDoReciboForteCi): boolean {
 export function assinarReciboForteNaFabrica(recibo: ReciboRunnerCi, contexto: ContextoDoReciboForteCi,
   politica: PoliticaDoReciboForteCi, porta: PortaDeAssinaturaDoReciboForteCi | null): ResultadoDoReciboForteCi {
   if (!politicaValida(politica) || !porta || porta.contrato !== CONTRATO_PORTA_ASSINATURA_RECIBO_FORTE_CI
+      || (porta.operacao !== undefined && porta.operacao !== 'assinar-recibo-forte')
       || porta.exclusiva !== true || porta.emissor !== politica.emissor) {
     return { ok: false, code: 'ci.recibo-forte.emissor-invalido' };
   }

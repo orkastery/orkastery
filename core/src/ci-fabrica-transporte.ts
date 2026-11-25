@@ -34,6 +34,45 @@ export type ResultadoSanitizadoDoTransporte = {
   avisar: boolean;
 };
 
+export interface LocalizadoresDoTransporteCi {
+  forja: 'github' | 'gitlab';
+  project: string;
+  source: string;
+  target: string;
+  head: string;
+  operation: 'ci.run';
+  execucaoId: string;
+  construtor: string;
+}
+
+export interface IdentidadeNativaAutenticadaCi {
+  forja: 'github' | 'gitlab';
+  audiencia: typeof AUDIENCIA_FABRICA_CI;
+  execucaoId: string;
+  principalNativo: string;
+}
+
+export interface FatosReobtidosDaForjaCi extends LocalizadoresDoTransporteCi {
+  destinoProtegido: boolean;
+  fork: boolean;
+  principalNativo: string;
+  componenteProtegido: boolean;
+}
+
+export interface PortasDoServicoDeTransporteCi {
+  autenticar(token: string, audiencia: typeof AUDIENCIA_FABRICA_CI): IdentidadeNativaAutenticadaCi | null;
+  reobter(identidade: IdentidadeNativaAutenticadaCi): FatosReobtidosDaForjaCi | null;
+  entregar(fatos: FatosReobtidosDaForjaCi): RespostaBrutaDoTransporte;
+}
+
+export interface PortaDaIdentidadeNativaCi {
+  obter(audiencia: typeof AUDIENCIA_FABRICA_CI): string;
+}
+
+export interface PortaDoServicoDaFabricaCi {
+  consultar(token: string, localizadores: LocalizadoresDoTransporteCi): RespostaBrutaDoTransporte;
+}
+
 const CHAVES_TRANSPORTE = ['contrato', 'proof', 'capability'] as const;
 const objeto = (valor: unknown): valor is Record<string, unknown> =>
   !!valor && typeof valor === 'object' && !Array.isArray(valor);
@@ -77,4 +116,41 @@ export function projetarResultadoDoTransporte(resposta: unknown, nivel: Politica
     ? { contrato: CONTRATO_RESULTADO_TRANSPORTE_EXCECAO, aplicado: true, exception: validado.exception }
     : { contrato: CONTRATO_RESULTADO_TRANSPORTE_EXCECAO, aplicado: false,
       code: 'ci.excecao.transporte-invalido', reprova: nivel === 'exigir', avisar: nivel === 'avisar' };
+}
+
+/** O serviço usa o pedido só como localizador e autoriza exclusivamente com fatos reobtidos. */
+export function atenderTransporteNaFabrica(token: string, localizadores: LocalizadoresDoTransporteCi,
+  portas: PortasDoServicoDeTransporteCi): RespostaBrutaDoTransporte {
+  let identidade: IdentidadeNativaAutenticadaCi | null, fatos: FatosReobtidosDaForjaCi | null;
+  try {
+    identidade = portas.autenticar(token, AUDIENCIA_FABRICA_CI);
+    fatos = identidade ? portas.reobter(identidade) : null;
+  } catch { return { estado: 'indisponivel' }; }
+  if (!identidade || !fatos || identidade.audiencia !== AUDIENCIA_FABRICA_CI
+      || identidade.forja !== localizadores.forja || identidade.execucaoId !== localizadores.execucaoId
+      || fatos.forja !== identidade.forja || fatos.execucaoId !== identidade.execucaoId
+      || fatos.principalNativo !== identidade.principalNativo || fatos.principalNativo === fatos.construtor
+      || fatos.project !== localizadores.project || fatos.source !== localizadores.source
+      || fatos.target !== localizadores.target || fatos.head !== localizadores.head
+      || fatos.operation !== 'ci.run' || localizadores.operation !== 'ci.run'
+      || fatos.fork || !fatos.destinoProtegido || !fatos.componenteProtegido) return { estado: 'ausente' };
+  try { return portas.entregar(fatos); }
+  catch { return { estado: 'indisponivel' }; }
+}
+
+/** Token e resposta bruta vivem somente neste quadro; a API devolve apenas a projeção sanitizada. */
+export function executarClienteProtegidoDoTransporte(config: ConfiguracaoPublicaDoTransporteCi,
+  localizadores: LocalizadoresDoTransporteCi, nivel: PoliticaDeReciboCi, agora: string,
+  identidade: PortaDaIdentidadeNativaCi, fabrica: PortaDoServicoDaFabricaCi): ResultadoSanitizadoDoTransporte {
+  if (!configuracaoPublicaDoTransporteValida(config)) {
+    return projetarResultadoDoTransporte({}, nivel, localizadores, agora);
+  }
+  let resposta: RespostaBrutaDoTransporte;
+  try {
+    const token = identidade.obter(AUDIENCIA_FABRICA_CI);
+    resposta = fabrica.consultar(token, localizadores);
+  } catch (erro) {
+    resposta = (erro as Error).name === 'TimeoutError' ? { estado: 'timeout' } : { estado: 'indisponivel' };
+  }
+  return projetarResultadoDoTransporte(resposta, nivel, localizadores, agora);
 }
