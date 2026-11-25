@@ -54,12 +54,12 @@ sdlc:
 - **Incluído:**
   - **Motor** (`core/src/security-scan/`): catálogo de 13 ferramentas com imagem por digest, detecção de JS/TS, Python e Go, executor Docker, nativo ou indisponível, normalização, comparação por impressão digital e relatório `ork.security-scan/v1` por SHA.
   - **Comando e manifesto:** `ork security-scan`, `verify.security_scan` com prazo próprio, `ork init` que grava a chave, `.ork-security/` para exclusões e dispensas.
-  - **Gate do SHIP:** sem Docker nem binário e sem CHECK independente exigido, o `ork ship` para com `human.pending`; `--allow-unscanned "<quem>"` entrega e registra `ship_unscanned_authorized`. `unsupported-ci` e `no-requirements-file` (com outra ferramenta da categoria rodando) são declarados e não param o SHIP nem reprovam com `REQUIRED=1`.
+  - **Gate do SHIP:** sem Docker nem binário e sem CHECK independente exigido, o `ork ship` para com `human.pending`; a resposta b autenticada do pedido tipado ou `--allow-unscanned "<quem>"` entrega e registra `ship_unscanned_authorized`. O `ork_ship` lê a mesma resposta, sem argumento de autorização. `unsupported-ci` e `no-requirements-file` (com outra ferramenta da categoria rodando) são declarados e não param o SHIP nem reprovam com `REQUIRED=1`.
   - **CI:** o `security_scan` entra no bundle com `ORK_SECURITY_SCAN_REQUIRED=1`.
   - **`ork doctor`:** o check "security scan".
   - **Skills:** `security-auditor` e `check-quality` ajustadas, `security-remediation` nova e `go-implementation` apontando para ela.
   - **O próprio Orkastery** declara o scan, com as fixtures vulneráveis excluídas.
-- **Fora de escopo:** CodeQL, SBOM e DAST; `workflow` para GitLab CI (sai `unavailable` com `unsupported-ci`, declarado e não contado como não varrido); stacks além das três; a recorrência de achado `warn` entre threads no estágio `maduro`; autorização antecipada do `#Classic` para entrega sem varredura; troca de versão de ferramenta pela config.
+- **Fora de escopo:** CodeQL, SBOM e DAST; `workflow` para GitLab CI (sai `unavailable` com `unsupported-ci`, declarado e não contado como não varrido); stacks além das três; a recorrência de achado `warn` entre threads no estágio `maduro`; autorização antecipada do `#Classic` sem pedido tipado para entrega sem varredura; troca de versão de ferramenta pela config.
 - **Entregáveis e critérios de aceite:** cada comportamento com teste hermético (saídas reais gravadas de cada ferramenta e um `docker` falso no `PATH`), um teste de integração com Docker real por stack, o scan do próprio repositório contra a base real e a página [FEAT-041](../produto/FEAT-041-security-scan-no-check.md). O critério do item é a prova ponta a ponta: numa thread `#Classic` real, o verify reprova, o CHECK atesta um segredo real e um falso positivo, o GO-FIX corrige, a dispensa é registrada e o reverify passa.
 - **Piloto, medição e critérios de expansão/interrupção:** piloto numa app de teste em JavaScript (abaixo). Expande por stack pelo catálogo; interrompe se algum caminho de falha da ferramenta aprovar o gate ou se um valor de segredo aparecer numa saída.
 
@@ -71,7 +71,7 @@ sdlc:
 | Scan do Orkastery no HEAD da branch contra a base real (`f5c8db22`, com e sem `REQUIRED=1`) | saída 0; 0 no laço; 472 novos, todos `quality` do ESLint (fora do laço), e 22484 `existing`; as 9 ferramentas `ran`, Semgrep com `partial-parsing: 1`; 499 s com o cache da base frio e 200 s com ele quente |
 | Integração com Docker real, 3 stacks | 4 de 4 (277 s antes do rebase, 486 s depois dele, com as imagens já baixadas); as 9 ferramentas rodam em cada stack |
 | Ponta a ponta, thread `#Classic` real | 2 rodadas do laço; segredo real e falso positivo atestados; dispensa registrada; reverify passa |
-| Sem Docker | ferramentas do laço `unavailable`, saída 1 com ou sem `REQUIRED=1`; verify registra `security.scan-unscanned`; `ork ship` para com `human.pending`; com `--allow-unscanned`, entrega e registra |
+| Sem Docker | ferramentas do laço `unavailable`, saída 1 com ou sem `REQUIRED=1`; verify registra `security.scan-unscanned`; `ork ship` para com `human.pending`; com resposta b autenticada ou `--allow-unscanned`, entrega e registra |
 
 ### Mudanças de comportamento que o mantenedor precisa saber
 
@@ -92,7 +92,7 @@ sdlc:
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):**
   - O scan é comando do `verify` e achado novo segue pela triagem do CHECK e pelo GO-FIX. Somente o relatório atual sem achado novo e com cobertura ausente usa `security.scan-unscanned`, com comando e categorias, e escala ao humano em vez de abrir GO-FIX do scan; a ausência de cobertura não vira regressão contra baseline verde.
   - Relatório por SHA em `.orkastery/security-scan/<sha>/`, e não por thread: o verify não passa a thread ao comando.
-  - Só `--allow-unscanned`, sem autorização antecipada no `#Classic`, na primeira versão.
+  - Resposta b autenticada e `--allow-unscanned` são autorizações nominais equivalentes; não há autorização antecipada no `#Classic` sem pedido tipado.
   - Sem recorrência de `warn` no `maduro`: ligar o scan ao board de auditoria é uma entrega própria.
   - Semgrep roda na worktree da base, e não com `--baseline-commit`, porque o baseline nativo pede `git reset --hard` e a montagem é só leitura.
 
@@ -106,7 +106,7 @@ O código está na `main` desde o PR #186 (merge `6d9c0f5d`, cabeça da branch `
 - **Resultado incluído:** a sonda consulta `docker info` sem template; ferramenta não dispensada das categorias do laço em `unavailable` ou `failed` faz o comando sair 1 tanto no uso direto quanto no verify e no CI.
 - **Estado da fatia: em implementação** na thread `ork-podmangitine`; código, testes e integração ainda não estão mesclados nem publicados.
 - **Proteções:** as dispensas `unsupported-ci` e `no-requirements-file` preservam a regra existente; ferramentas de `quality` e `license` continuam fora do laço; `ORK_SECURITY_SCAN_REQUIRED` permanece aceito por compatibilidade, sem criar opt-out.
-- **Fora de escopo:** Runtime Podman real fica fora da suíte hermética; não mudam catálogo, versões, categorias, SHIP, dispensa humana nem ferramentas suportadas.
+- **Fora de escopo:** Runtime Podman real fica fora da suíte hermética; não mudam catálogo, versões, categorias, ferramentas suportadas nem o requisito de autorização humana para o SHIP.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
