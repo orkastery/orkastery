@@ -15,7 +15,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/trava-portatil.test.js"
       ],
       "criadoEm": "2026-11-25T03:02:30.260Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -41,7 +41,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/trava-portatil.test.js"
       ],
       "criadoEm": "2026-11-25T03:02:30.334Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -67,7 +67,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/macos-locks.test.js"
       ],
       "criadoEm": "2026-11-25T03:07:49.299Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -93,7 +93,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/macos-locks.test.js"
       ],
       "criadoEm": "2026-11-25T03:07:49.339Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -119,7 +119,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/macos-locks.test.js"
       ],
       "criadoEm": "2026-11-25T03:07:49.383Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -145,7 +145,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/macos-locks.test.js"
       ],
       "criadoEm": "2026-11-25T03:12:20.448Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -171,7 +171,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/macos-locks.test.js"
       ],
       "criadoEm": "2026-11-25T03:12:20.528Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -197,7 +197,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/macos-locks.test.js"
       ],
       "criadoEm": "2026-11-25T03:12:20.618Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -223,7 +223,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/shell-do-verify.test.js"
       ],
       "criadoEm": "2026-11-25T03:15:19.548Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -249,7 +249,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/shell-do-verify.test.js"
       ],
       "criadoEm": "2026-11-25T03:15:19.855Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -275,7 +275,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/shell-do-verify.test.js"
       ],
       "criadoEm": "2026-11-25T03:15:20.011Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -301,7 +301,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/shell-do-verify.test.js"
       ],
       "criadoEm": "2026-11-25T03:15:20.112Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -327,7 +327,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/shell-do-verify.test.js"
       ],
       "criadoEm": "2026-11-25T03:15:20.203Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -353,7 +353,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/shell-do-verify.test.js"
       ],
       "criadoEm": "2026-11-25T03:15:31.552Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -379,7 +379,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js"
       ],
       "criadoEm": "2026-11-25T03:16:55.374Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -405,7 +405,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/auditrun-sem-claims.test.js"
       ],
       "criadoEm": "2026-11-25T03:20:42.262Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -431,7 +431,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/auditrun-sem-claims.test.js"
       ],
       "criadoEm": "2026-11-25T03:20:42.341Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -457,7 +457,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/auditrun-sem-claims.test.js"
       ],
       "criadoEm": "2026-11-25T03:20:42.421Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -483,7 +483,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/auditrun-sem-claims.test.js"
       ],
       "criadoEm": "2026-11-25T03:20:42.516Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -509,7 +509,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/doctor-portabilidade.test.js"
       ],
       "criadoEm": "2026-11-25T03:22:59.332Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -535,7 +535,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/doctor-portabilidade.test.js"
       ],
       "criadoEm": "2026-11-25T03:22:59.451Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -561,7 +561,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/doctor-portabilidade.test.js"
       ],
       "criadoEm": "2026-11-25T03:22:59.547Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -587,7 +587,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/ci-macos.test.js"
       ],
       "criadoEm": "2026-11-25T03:29:02.180Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -613,7 +613,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/ci-macos.test.js"
       ],
       "criadoEm": "2026-11-25T03:29:02.331Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -639,7 +639,7 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/ci-macos.test.js"
       ],
       "criadoEm": "2026-11-25T03:29:02.456Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -665,7 +665,7 @@
         "node core/dist/index.js docs verificar --pr"
       ],
       "criadoEm": "2026-11-25T03:33:53.973Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -691,7 +691,7 @@
         "node core/dist/index.js docs verificar --pr"
       ],
       "criadoEm": "2026-11-25T03:33:54.068Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -717,7 +717,7 @@
         "node core/dist/index.js docs verificar --pr"
       ],
       "criadoEm": "2026-11-25T03:33:54.189Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -743,7 +743,7 @@
         "node core/dist/index.js docs verificar --pr"
       ],
       "criadoEm": "2026-11-25T03:34:06.280Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -769,7 +769,7 @@
         "node core/dist/index.js docs verificar --pr"
       ],
       "criadoEm": "2026-11-25T03:34:20.652Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -795,7 +795,7 @@
         "node core/dist/index.js docs verificar --pr"
       ],
       "criadoEm": "2026-11-25T03:34:20.743Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -821,7 +821,7 @@
         "node core/dist/index.js docs verificar --pr"
       ],
       "criadoEm": "2026-11-25T03:34:20.817Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -847,7 +847,7 @@
         "node core/dist/index.js docs verificar --pr"
       ],
       "criadoEm": "2026-11-25T03:34:20.883Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -873,7 +873,189 @@
         "node core/dist/index.js docs verificar --pr"
       ],
       "criadoEm": "2026-11-25T03:34:20.942Z",
-      "estado": "pendente",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C35",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/company-brain-cli.ts",
+      "alegacao": "A validação da operação do Company Brain usa uma lista de strings tipada e não introduz any no acesso ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/company-brain-cli.test.js"
+      ],
+      "criadoEm": "2026-11-25T04:38:12.171Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C36",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/assets/security-scan/tools.json",
+      "alegacao": "O ESLint type-aware instala uma versão exata dos tipos de Node para resolver as APIs do worktree destacado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/security-scan-tools.test.js core/dist-test/test/check-classic-intacto.test.js"
+      ],
+      "criadoEm": "2026-11-25T04:38:12.255Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C37",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/classic-retrato-b16c5be8.json",
+      "alegacao": "O retrato do Classic continua exato e registra somente a dependência tipada adicional no comando do ESLint.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/check-classic-intacto.test.js"
+      ],
+      "criadoEm": "2026-11-25T04:38:12.358Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C39",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f2a-casos.ts",
+      "alegacao": "O snapshot F2a normaliza apenas a versão variável do Bash e conserva os demais bytes da saída.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/locale-f2a-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-25T04:38:12.508Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C40",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f2a-pt-BR.json",
+      "alegacao": "A saída pt-BR do doctor mantém analisadores após Node e publica trava portátil e shell do verify nas duas linhas seguintes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/locale-f2a-snapshot.test.js core/dist-test/test/doctor-portabilidade.test.js core/dist-test/test/rm031-grafo-no-pacote.test.js"
+      ],
+      "criadoEm": "2026-11-25T04:38:12.566Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C41",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/tsconfig.json",
+      "alegacao": "O projeto TypeScript dos testes é reconhecido a partir da raiz e valida a árvore completa sem emitir artefatos.",
+      "negativa": false,
+      "verificar": [
+        "./core/node_modules/.bin/tsc --project core/test/tsconfig.json --noEmit"
+      ],
+      "criadoEm": "2026-11-25T04:39:01.604Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C42",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-macosportave.json",
+      "alegacao": "O bundle da thread é regenerado pelo comando canônico a partir do manifesto e das claims ativas.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js ci prepare ork-macosportave"
+      ],
+      "criadoEm": "2026-11-25T06:15:26.602Z",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -899,5 +1081,10 @@
       "name": "security_scan",
       "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
     }
-  ]
+  ],
+  "recibo": {
+    "contrato": "ork.recibo-prova/v1",
+    "head": "0c03111c3805368aa58d32d34565d5b3089e6051",
+    "sha256": "f0d71a3535fcb395c928cc057395a7c9169cd0049f13622c0a67d3a47ee8d6bd"
+  }
 }
