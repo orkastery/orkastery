@@ -255,10 +255,7 @@ function perfil(wt: string, comum: string, gitdir: string,id:string,selecionados
       }
     }
   }
-  // Um valor local inválido de `core.compression` pode impedir o próprio `git config` de listar
-  // o inventário. A sobreposição vale apenas para esta leitura: a entrada local continua na saída,
-  // com seu escopo, e é recusada pela lista positiva abaixo.
-  const raw=git(wt,['-c','core.compression=-1','config','--null','--show-scope','--list']);
+  const raw=git(wt,['config','--null','--show-scope','--list']);
   for(const item of inventarioDaConfiguracao(raw)) {
     if(!configPassiva(item.chave,item.valor,true,hooksDaOperacao.configuracaoDeRedeInerte===true))
       falha(`execution-profile.unsupported: configuracao preservada (${rotuloDaConfiguracao(item.chave)}, ${item.escopo})`);

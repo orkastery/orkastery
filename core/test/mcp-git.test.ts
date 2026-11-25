@@ -313,7 +313,7 @@ test('issue 299: chave HTTP continua recusada pelo perfil estrito do SHIP', asyn
 }));
 
 for (const [chave, valor, rotulo] of [
-  ['core.compression', '10', 'core.compression'],
+  ['core.compression', '01', 'core.compression'],
   ['pull.rebase', 'interactive', 'pull.rebase'],
   ['alias.commit', 'COMANDO_NAO_EXECUTAR_FIXTURE', 'alias.commit'],
   ['http.https://privado.example/repo.extraHeader', 'cabecalho-confidencial-fixture', 'http.<subsecao>.extraheader'],
