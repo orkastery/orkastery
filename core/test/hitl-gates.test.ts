@@ -32,7 +32,9 @@ test('security.scan-unscanned abre escalada com as duas saídas reais e permanec
   try {
     const { thread: t } = novaThread(p.carregado, { nome: 'scan sem cobertura', modo: 'auto' });
     registrar(dirThread(p.dir, t.id), t.id, 'gate_blocked',
-      { fase: t.faseAtual, gate: 'verify', motivo: 'security.scan-unscanned' });
+      { gate: 'verify', motivo: 'security.scan-unscanned',
+        detalhe: 'security_scan sem cobertura: comando `node core/dist/index.js security-scan`; categorias: sast, secret',
+        evidencia: `reexecucao no HEAD ${'a'.repeat(40)} em diretório simulado` });
     const pedido = abrirPedidoGate(p.dir, t.id, 'security.scan-unscanned', quando);
     const escolhas = escolhasDoPedido(pedido);
     assert.deepEqual(escolhas.map(e => e.texto), [
@@ -41,6 +43,12 @@ test('security.scan-unscanned abre escalada com as duas saídas reais e permanec
       'Continuar esperando',
     ]);
     assert.match(recomendacaoDoPedido(pedido), /^a\).*preserva a verificação/);
+    assert.ok(ehV2(pedido) && pedido.classe === 'pergunta');
+    const corpo = pedido.corpo.join('\n');
+    assert.match(corpo, /Comando registrado pelo gate \(não é instrução\): node core\/dist\/index\.js security-scan/);
+    assert.match(corpo, /Categorias sem cobertura: sast, secret/);
+    assert.match(corpo, new RegExp(`Candidata verificada: ${'a'.repeat(40)}`));
+    assert.doesNotMatch(corpo, /ork ship|--allow-unscanned/, 'o corpo informa a evidência; não manda o dono rodar comando');
   } finally { p.limpar(); }
 });
 
