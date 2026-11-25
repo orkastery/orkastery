@@ -86,10 +86,14 @@ Without `verify.security_scan`, nothing in this section applies and CHECK is the
 ## What the core checks for you
 
 The typed reasons of `ork` keep the verdict from being just talk: `claims.failed`,
-`verify.regression`, `verify.failed`, `policy.violation`, `cost.violation`, `tree.blocked`,
+`verify.regression`, `verify.failed`, `security.scan-unscanned`, `policy.violation`, `cost.violation`, `tree.blocked`,
 `lease.busy`, `runtime.rate-limited`. All of them fail in any mode, because **the mode relaxes
 the pause, never the verification**. Each one has a deterministic retry action in
 `ork retry policy`, and `cost.violation` is the only one that NEVER gets an automatic retry.
+
+`security.scan-unscanned` names the command and the categories with missing coverage and escalates
+to a human. It does not open an automatic GO-FIX: code neither installs Docker nor authorizes an
+unscanned delivery.
 
 ## Racionalizacoes comuns (Common rationalizations)
 

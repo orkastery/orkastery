@@ -86,10 +86,13 @@ Sem `verify.security_scan`, nada desta secao vale e o CHECK e o de sempre. Com a
 ## O que o nucleo verifica por voce
 
 Os motivos tipados do `ork` fazem o veredito parar de ser conversa: `claims.failed`,
-`verify.regression`, `verify.failed`, `policy.violation`, `cost.violation`, `tree.blocked`,
+`verify.regression`, `verify.failed`, `security.scan-unscanned`, `policy.violation`, `cost.violation`, `tree.blocked`,
 `lease.busy`, `runtime.rate-limited`. Todos reprovam em qualquer modo, porque **o modo afrouxa
 a pausa, nunca a verificacao**. Cada um deles tem uma acao de retry deterministica em
 `ork retry policy`, e `cost.violation` e o unico que NUNCA recebe retry automatico.
+
+`security.scan-unscanned` nomeia o comando e as categorias sem cobertura e escala ao humano. Ele
+nao abre GO-FIX automatico: codigo nao instala Docker nem autoriza entrega sem varredura.
 
 ## Racionalizacoes comuns
 
