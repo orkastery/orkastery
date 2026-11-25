@@ -9,6 +9,7 @@ test('doctor bloqueia quando a trava portátil não pode ser exercitada', () => 
   assert.equal(falha.nivel, 'fail'); assert.match(falha.detalhe, /fixture/); assert.ok(falha.correcao);
   const semFlock = checarTravaPortatil(() => sondarTravaDoNucleo('linux', () => false));
   assert.equal(semFlock.nivel, 'fail'); assert.match(semFlock.detalhe, /flock ausente/);
+  assert.match(semFlock.correcao ?? '', /instale \/usr\/bin\/flock/);
   assert.equal(checarTravaPortatil(() => sondarTravaDoNucleo('darwin')).nivel, 'ok');
 });
 

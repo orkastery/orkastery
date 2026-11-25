@@ -313,7 +313,9 @@ const PT_BR = {
     instaleNode: 'instale Node 20 ou superior',
     travaPortatilOk: 'mecanismo de trava da plataforma adquirido e liberado',
     travaPortatilFalhou: (detalhe: string) => `a trava do nucleo nao foi adquirida: ${detalhe}`,
-    travaPortatilCorrecao: 'use Linux ou macOS com sistema de arquivos local e identificacao de processos disponivel',
+    travaPortatilCorrecao: (plataforma: NodeJS.Platform): string => plataforma === 'linux'
+      ? 'instale /usr/bin/flock (pacote util-linux)'
+      : 'use macOS com sistema de arquivos local e identificacao de processos disponivel',
     shellVerifyAusente: 'nenhum shell controlado executavel em /bin/bash ou /usr/bin/bash',
     shellVerifyCorrecao: 'instale o Bash em /bin/bash ou /usr/bin/bash; PATH e ORK_BASH nao alteram o executor',
     shellVerifyOk: (caminho: string, versao: string) => `${caminho} (Bash ${versao})`,
@@ -885,7 +887,9 @@ const EN: Mensagens = {
     instaleNode: 'install Node 20 or later',
     travaPortatilOk: 'platform lock mechanism acquired and released',
     travaPortatilFalhou: (detalhe) => `the core lock could not be acquired: ${detalhe}`,
-    travaPortatilCorrecao: 'use Linux or macOS with a local file system and process identification available',
+    travaPortatilCorrecao: (platform) => platform === 'linux'
+      ? 'install /usr/bin/flock (the util-linux package)'
+      : 'use macOS with a local file system and process identification available',
     shellVerifyAusente: 'no controlled executable shell at /bin/bash or /usr/bin/bash',
     shellVerifyCorrecao: 'install Bash at /bin/bash or /usr/bin/bash; PATH and ORK_BASH do not change the executor',
     shellVerifyOk: (caminho, versao) => `${caminho} (Bash ${versao})`,

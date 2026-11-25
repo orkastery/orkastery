@@ -77,7 +77,7 @@ export function checarTravaPortatil(sondar: () => void = sondarTravaDoNucleo): C
     return { nome: 'trava portátil', nivel: 'ok', detalhe: msg().doctor.travaPortatilOk };
   } catch (e) {
     return { nome: 'trava portátil', nivel: 'fail', detalhe: msg().doctor.travaPortatilFalhou((e as Error).message),
-      correcao: msg().doctor.travaPortatilCorrecao };
+      correcao: msg().doctor.travaPortatilCorrecao(process.platform) };
   }
 }
 

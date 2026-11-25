@@ -300,7 +300,9 @@ function tentarTrava(raiz: string, threadId: string): TravaDaConducao | null {
     const trava = adquirirTravaPortatil(arquivo, `conducao:${threadId}`, { esperarMs: 0 });
     return trava ? { liberar: () => trava.liberar() } : null;
   }
-  if (!kernelDisponivel()) throw new Error(`runtime.unavailable: condução sem trava portátil em ${process.platform}`);
+  if (!kernelDisponivel()) throw new Error(process.platform === 'linux'
+    ? 'runtime.unavailable: condução sem /usr/bin/flock em linux'
+    : `runtime.unavailable: condução sem mecanismo de trava em ${process.platform}`);
   const fd = fs.openSync(arquivo, fs.constants.O_RDWR | fs.constants.O_CREAT | fs.constants.O_NOFOLLOW, 0o600);
   const r = spawnSync(FLOCK, ['--exclusive', '--nonblock', '3'], { stdio: ['ignore', 'ignore', 'ignore', fd], timeout: 5000 });
   if (r.status === 0 && !r.error) return { liberar: () => fs.closeSync(fd) };
