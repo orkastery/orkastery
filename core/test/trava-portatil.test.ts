@@ -4,7 +4,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
-import { adquirirTravaPortatil, comTravaPortatil, donosDaTravaPortatil } from '../src/trava-portatil';
+import { adquirirTravaPortatil, comTravaPortatil, donosDaTravaPortatil, identidadeDoProcesso } from '../src/trava-portatil';
 
 function fixture(): { dir: string; alvo: string; limpar: () => void } {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-trava-portatil-'));
@@ -107,6 +107,35 @@ test('saída 1 do ps sem stdout não prova a morte de um processo vivo', () => {
     ].join('');
     const r = spawnSync(process.execPath, ['-e', script, modulo], { encoding: 'utf8', timeout: 3000 });
     assert.equal(r.status, 0, r.stderr); assert.equal(r.stdout, 'true');
+  } finally { f.limpar(); }
+});
+
+test('rename do candidato durante a leitura conserva o dono com menor token', () => {
+  const f = fixture();
+  try {
+    const dir = `${f.alvo}.ork-lock`;
+    const token = '00000000-0000-4000-8000-000000000001';
+    const arquivo = path.join(dir, `${token}.json`);
+    const identidade = identidadeDoProcesso(process.pid);
+    assert.ok(identidade);
+    const candidato = (ticket: number) => JSON.stringify({ contrato: 'ork.trava-portatil/v1', token,
+      pid: process.pid, uid: process.getuid?.() ?? null, identidade, ticket, operacao: 'B', criadoEm: new Date().toISOString() });
+    fs.mkdirSync(dir, { mode: 0o700 });
+    fs.writeFileSync(arquivo, candidato(0), { mode: 0o600 });
+    const proximo = path.join(dir, '.b1.tmp');
+    fs.writeFileSync(proximo, candidato(1), { mode: 0o600 });
+    const abrir = fs.openSync;
+    let leituras = 0, trocou = false;
+    const fsMutavel = require('node:fs') as { openSync: (...args: unknown[]) => number };
+    fsMutavel.openSync = (...args) => {
+      const fd = Reflect.apply(abrir, fsMutavel, args) as number;
+      if (args[0] === arquivo && ++leituras === 4 && !trocou) { fs.renameSync(proximo, arquivo); trocou = true; }
+      return fd;
+    };
+    try { assert.equal(adquirirTravaPortatil(f.alvo, 'A', { esperarMs: 0 }), null); }
+    finally { fsMutavel.openSync = abrir as unknown as (...args: unknown[]) => number; }
+    assert.equal(trocou, true);
+    assert.equal(JSON.parse(fs.readFileSync(arquivo, 'utf8')).ticket, 1);
   } finally { f.limpar(); }
 });
 

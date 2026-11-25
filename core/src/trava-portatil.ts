@@ -88,27 +88,32 @@ function validarCandidato(valor: unknown): Candidato {
 }
 
 function lerCandidato(arquivo: string): { valor: Candidato; stat: fs.Stats } {
-  let fd: number | undefined;
-  try {
-    fd = fs.openSync(arquivo, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
-    const stat = fs.fstatSync(fd);
-    const uid = uidAtual();
-    // Entre o open e o fstat o dono pode remover o próprio candidato. O descritor
-    // continua legível, mas nlink=0 significa somente que o candidato já saiu.
-    // Um arquivo vazio também pode vir de uma versão anterior que ainda publicava
-    // antes de escrever: nenhum dos dois é evidência de ambiente inseguro.
-    if (stat.nlink === 0 || stat.size === 0) {
-      throw Object.assign(new Error('candidato saiu durante a leitura'), { code: 'ENOENT' });
-    }
-    if (!stat.isFile() || stat.nlink !== 1 || stat.size > MAX_BYTES || (uid !== null && stat.uid !== uid) || (stat.mode & 0o077) !== 0) {
-      throw new ErroDaTravaPortatil('trava.portatil.insegura', 'arquivo de candidato não é privado');
-    }
-    return { valor: validarCandidato(JSON.parse(fs.readFileSync(fd, 'utf8'))), stat };
-  } catch (e) {
-    if ((e as NodeJS.ErrnoException).code === 'ENOENT') throw e;
-    if (e instanceof ErroDaTravaPortatil) throw e;
-    throw new ErroDaTravaPortatil('trava.portatil.insegura', 'candidato não pôde ser lido');
-  } finally { if (fd !== undefined) fs.closeSync(fd); }
+  for (;;) {
+    let fd: number | undefined;
+    try {
+      fd = fs.openSync(arquivo, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+      const stat = fs.fstatSync(fd);
+      const uid = uidAtual();
+      // nlink=0 descreve o descritor que foi aberto, não o nome atual: o dono pode
+      // ter publicado outro ticket por rename entre open e fstat. Conteúdo vazio
+      // tem a mesma leitura conservadora para versões que ainda publicavam antes
+      // de escrever. Fechar e reabrir o nome separa candidato removido de trocado.
+      if (stat.nlink === 0 || stat.size === 0) {
+        fs.closeSync(fd);
+        fd = undefined;
+        fs.lstatSync(arquivo);
+        continue;
+      }
+      if (!stat.isFile() || stat.nlink !== 1 || stat.size > MAX_BYTES || (uid !== null && stat.uid !== uid) || (stat.mode & 0o077) !== 0) {
+        throw new ErroDaTravaPortatil('trava.portatil.insegura', 'arquivo de candidato não é privado');
+      }
+      return { valor: validarCandidato(JSON.parse(fs.readFileSync(fd, 'utf8'))), stat };
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') throw e;
+      if (e instanceof ErroDaTravaPortatil) throw e;
+      throw new ErroDaTravaPortatil('trava.portatil.insegura', 'candidato não pôde ser lido');
+    } finally { if (fd !== undefined) fs.closeSync(fd); }
+  }
 }
 
 function gravarNovo(arquivo: string, valor: Candidato): void {
