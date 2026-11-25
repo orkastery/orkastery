@@ -5,240 +5,6 @@
   "base": "main",
   "claims": [
     {
-      "id": "C1",
-      "thread": "ork-podmangitine",
-      "fase": "GOAL",
-      "arquivo": "core/src/security-scan/executor.ts",
-      "alegacao": "A sonda do daemon aceita a interface comum de Docker e Podman sem consultar campo específico de fornecedor.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && node --test core/dist-test/test/security-scan-run.test.js core/dist-test/test/security-scan-report.test.js"
-      ],
-      "criadoEm": "2026-11-25T02:46:01.675Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C2",
-      "thread": "ork-podmangitine",
-      "fase": "GOAL",
-      "arquivo": "core/src/security-scan/report.ts",
-      "alegacao": "Ferramenta não dispensada do laço que não roda reprova o security scan por padrão.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && node --test core/dist-test/test/security-scan-run.test.js core/dist-test/test/security-scan-report.test.js"
-      ],
-      "criadoEm": "2026-11-25T02:46:01.995Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C3",
-      "thread": "ork-podmangitine",
-      "fase": "GOAL",
-      "arquivo": "core/test/security-scan-run.test.ts",
-      "alegacao": "A suíte hermética reproduz o CLI compatível com Podman que recusa o template antigo e aceita docker info.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && node --test core/dist-test/test/security-scan-run.test.js core/dist-test/test/security-scan-report.test.js"
-      ],
-      "criadoEm": "2026-11-25T02:46:02.106Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C4",
-      "thread": "ork-podmangitine",
-      "fase": "GOAL",
-      "arquivo": "core/test/security-scan-report.test.ts",
-      "alegacao": "A suíte prova falha fechada com e sem ORK_SECURITY_SCAN_REQUIRED e preserva categorias e dispensas fora do gate.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && node --test core/dist-test/test/security-scan-run.test.js core/dist-test/test/security-scan-report.test.js"
-      ],
-      "criadoEm": "2026-11-25T02:46:02.245Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C5",
-      "thread": "ork-podmangitine",
-      "fase": "GOAL",
-      "arquivo": "docs/roadmap/RM-068-security-scan-no-check.md",
-      "alegacao": "RM-068 registra a fonte, o estado verdadeiro e o fora de escopo da fatia da issue 302.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && node --test core/dist-test/test/security-scan-run.test.js core/dist-test/test/security-scan-report.test.js"
-      ],
-      "criadoEm": "2026-11-25T02:46:02.329Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C8",
-      "thread": "ork-podmangitine",
-      "fase": "GOAL",
-      "arquivo": "core/test/apoio.ts",
-      "alegacao": "O apoio de testes oferece isolamento reutilizável de HOME e XDG_CONFIG_HOME para cenários de Git sem herdar configuração global da máquina.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm036-watcher-longo.test.js"
-      ],
-      "criadoEm": "2026-11-25T02:51:41.237Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C9",
-      "thread": "ork-podmangitine",
-      "fase": "GOAL",
-      "arquivo": "core/test/rm036-watcher-longo.test.ts",
-      "alegacao": "Os cenários MCP-real da sessão contínua executam com configuração global do Git isolada.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm036-watcher-longo.test.js"
-      ],
-      "criadoEm": "2026-11-25T02:51:41.288Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C10",
-      "thread": "ork-podmangitine",
-      "fase": "GOAL",
-      "arquivo": "docs/roadmap/RM-084-sessao-continua-com-muitos-objetos-soltos-do-git.md",
-      "alegacao": "O item RM-084 registra a issue #299 como fonte, delimita a fatia implementada e preserva a recusa de configuração capaz de transportar credencial.",
-      "negativa": false,
-      "verificar": [
-        "node -e \"const s=require('node:fs').readFileSync('docs/roadmap/RM-084-sessao-continua-com-muitos-objetos-soltos-do-git.md','utf8');if(!s.includes('issue #299')||!s.includes('extraHeader')||!s.includes('continua recusada'))process.exit(1)\""
-      ],
-      "criadoEm": "2026-11-25T02:51:41.339Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C11",
-      "thread": "ork-podmangitine",
-      "fase": "GOAL",
-      "arquivo": "CHANGELOG.md",
-      "alegacao": "A próxima versão registra as correções das issues #302 e #299 com seus itens de roadmap e as garantias preservadas.",
-      "negativa": false,
-      "verificar": [
-        "node -e \"const s=require('node:fs').readFileSync('CHANGELOG.md','utf8');if(!s.includes('#302')||!s.includes('#299'))process.exit(1)\""
-      ],
-      "criadoEm": "2026-11-25T02:52:11.325Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C12",
       "thread": "ork-podmangitine",
       "fase": "GOAL",
@@ -263,6 +29,631 @@
         "artefato-de-fechamento",
         "ref-local-do-ramo-base"
       ]
+    },
+    {
+      "id": "C13",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/src/security-scan/executor.ts",
+      "alegacao": "A sonda do daemon usa a interface comum sem template específico e a suíte reproduz um CLI compatível simulado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/security-scan-run.test.js core/dist-test/test/security-scan-report.test.js"
+      ],
+      "criadoEm": "2026-11-25T07:15:11.738Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C14",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/src/security-scan/report.ts",
+      "alegacao": "Ferramenta não dispensada do laço em unavailable ou failed faz o security scan sair 1 sem depender de variável de opt-in.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/security-scan-run.test.js core/dist-test/test/security-scan-report.test.js"
+      ],
+      "criadoEm": "2026-11-25T07:15:11.814Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C15",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-run.test.ts",
+      "alegacao": "A suíte hermética prova a sonda comum e a falha fechada do security scan.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/security-scan-run.test.js core/dist-test/test/security-scan-report.test.js"
+      ],
+      "criadoEm": "2026-11-25T07:15:11.897Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C16",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-report.test.ts",
+      "alegacao": "A suíte prova códigos de saída seguros, dispensas tipadas e documentação de roadmap sem depender de estado transitório.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/security-scan-run.test.js core/dist-test/test/security-scan-report.test.js"
+      ],
+      "criadoEm": "2026-11-25T07:15:11.943Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C17",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-068-security-scan-no-check.md",
+      "alegacao": "RM-068 registra a fonte e o fora de escopo da fatia 302 com tabelas sincronizadas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/security-scan-run.test.js core/dist-test/test/security-scan-report.test.js",
+        "npm --prefix core run build && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-25T07:15:12.027Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C18",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/test/apoio.ts",
+      "alegacao": "O helper isola HOME, XDG_CONFIG_HOME e overrides globais ou de sistema do Git diante de um ambiente hostil.",
+      "negativa": false,
+      "verificar": [
+        "h=$(mktemp -d) && trap 'rm -r \"$h\"' EXIT && printf '[alias]\\n\\tst = status\\n' > \"$h/.gitconfig\" && printf '[alias]\\n\\tst = status\\n' > \"$h/global\" && printf '[alias]\\n\\tst = status\\n' > \"$h/system\" && npm --prefix core run build && npm --prefix core run build:test && HOME=\"$h\" XDG_CONFIG_HOME=\"$h/xdg\" GIT_CONFIG_GLOBAL=\"$h/global\" GIT_CONFIG_SYSTEM=\"$h/system\" GIT_CONFIG_NOSYSTEM=1 node --test core/dist-test/test/rm036-watcher-longo.test.js"
+      ],
+      "criadoEm": "2026-11-25T07:15:12.097Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C19",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/test/rm036-watcher-longo.test.ts",
+      "alegacao": "Os cenários MCP-real da sessão contínua passam com HOME e overrides Git hostis porque usam o isolamento comum.",
+      "negativa": false,
+      "verificar": [
+        "h=$(mktemp -d) && trap 'rm -r \"$h\"' EXIT && printf '[alias]\\n\\tst = status\\n' > \"$h/.gitconfig\" && printf '[alias]\\n\\tst = status\\n' > \"$h/global\" && printf '[alias]\\n\\tst = status\\n' > \"$h/system\" && npm --prefix core run build && npm --prefix core run build:test && HOME=\"$h\" XDG_CONFIG_HOME=\"$h/xdg\" GIT_CONFIG_GLOBAL=\"$h/global\" GIT_CONFIG_SYSTEM=\"$h/system\" GIT_CONFIG_NOSYSTEM=1 node --test core/dist-test/test/rm036-watcher-longo.test.js"
+      ],
+      "criadoEm": "2026-11-25T07:15:12.162Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C21",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A seção Não publicado descreve as correções 302 e 299 sem afirmar runtime Podman real e explicita quando scan e verify reprovam.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const s=require('node:fs').readFileSync('CHANGELOG.md','utf8');const u=s.split('## Não publicado')[1]?.split('\\n## ')[0]??'';if(!u.includes('issues #302 e #299')||!u.includes('CLI compatível simulado')||!u.includes('bloqueia o verify'))process.exit(1)\""
+      ],
+      "criadoEm": "2026-11-25T07:15:12.333Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C22",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/src/security-scan/cli.ts",
+      "alegacao": "O CLI mantém ORK_SECURITY_SCAN_REQUIRED como marcador compatível e aplica a regra segura em um único domicílio.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/security-scan-run.test.js core/dist-test/test/security-scan-report.test.js"
+      ],
+      "criadoEm": "2026-11-25T07:15:12.396Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C23",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "Falha atual de security_scan bloqueia o verify mesmo quando a baseline registra a mesma falha como pré-existente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/verify.test.js"
+      ],
+      "criadoEm": "2026-11-25T07:15:12.464Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C24",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/test/verify.test.ts",
+      "alegacao": "A suíte prova que dívida comparativa do security_scan não produz veredito verde.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/verify.test.js"
+      ],
+      "criadoEm": "2026-11-25T07:15:12.536Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C25",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/test/ambiente-de-teste.ts",
+      "alegacao": "A sonda de Docker da suíte usa a mesma chamada docker info sem template que o produto.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ambiente-de-teste.test.js core/dist-test/test/security-scan-run.test.js"
+      ],
+      "criadoEm": "2026-11-25T07:15:12.627Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C26",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referência pt-BR documenta a falha fechada do scan, as chaves Git locais aceitas e o formato mascarado da recusa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-25T07:15:12.716Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C27",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "A referência em inglês documenta a falha fechada do scan, as chaves Git locais aceitas e o formato mascarado da recusa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-25T07:15:12.790Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C28",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "docs/guias/verificacao.md",
+      "alegacao": "O guia explica que scan sem cobertura sai 1 e que a dívida comparativa continua bloqueante no verify.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-25T07:15:12.842Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C29",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "docs/produto/FEAT-041-security-scan-no-check.md",
+      "alegacao": "A página de produto descreve a regra segura padrão e a variável apenas como marcador compatível.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-25T07:15:12.890Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C30",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "skills/phases/check-quality/SKILL.md",
+      "alegacao": "A skill do CHECK ensina que ferramenta não dispensada do laço em unavailable ou failed reprova o scan por padrão.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js eval --skill check-quality && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-11-25T07:15:12.943Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C31",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "eval/casos/check-quality.json",
+      "alegacao": "O eval da skill exige a regra de falha fechada sem opt-in.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js eval --skill check-quality && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-11-25T07:15:12.988Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C32",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "marketplaces/codex/orkastery/skills/phases/check-quality/SKILL.md",
+      "alegacao": "A cópia Codex gerada da skill do CHECK coincide com a fonte e passa no eval.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js eval --skill check-quality && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-11-25T07:15:13.050Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C33",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "marketplaces/claude-code/orkastery/skills/phases/check-quality/SKILL.md",
+      "alegacao": "A cópia Claude Code gerada da skill do CHECK coincide com a fonte e passa no eval.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js eval --skill check-quality && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-11-25T07:15:13.119Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C34",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice do roadmap está sincronizado com RM-068 e RM-084.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-25T07:15:13.195Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C35",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/assets/skills-en/phases/check-quality/SKILL.md",
+      "alegacao": "A variante inglesa da skill do CHECK preserva a estrutura da fonte e descreve a falha fechada do scan.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f3b-snapshot.test.js core/dist-test/test/locale-skills.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:00:27.152Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C36",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/variantes-en.json",
+      "alegacao": "A fixture de variantes registra o hash atual da fonte da skill do CHECK depois da tradução correspondente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f3b-snapshot.test.js core/dist-test/test/locale-skills.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:00:27.273Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C37",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "O retrato pt-BR dos recibos de instalação referencia o hash atual da skill do CHECK.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f3b-snapshot.test.js core/dist-test/test/locale-skills.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:00:27.355Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
     }
   ],
   "deferredClaims": [
@@ -272,6 +663,10 @@
     },
     {
       "id": "C7",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C20",
       "reason": "local-integration-required"
     }
   ],
@@ -287,7 +682,7 @@
   ],
   "recibo": {
     "contrato": "ork.recibo-prova/v1",
-    "head": "092b6d03c39f8dcb762d4ffe84dac3da70d8f7fa",
-    "sha256": "5479274aa91854287dc0fa654d8dcff3b15b469119a64eee8ca348c5231b7ba8"
+    "head": "97dcdd765b9f7ec861d11dca8f1dd2b7828fdea4",
+    "sha256": "4dcdb35d3561ce89ee4f98789fbcd10b88c2293a50d4dafeef02190e0dc0937a"
   }
 }
