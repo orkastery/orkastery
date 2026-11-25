@@ -118,7 +118,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-086](RM-086-kimi-code-homologado.md) | Kimi Code homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-087](RM-087-opencode-homologado.md) | OpenCode homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-088](RM-088-versao-mais-antiga-nunca-vira-a-latest-do-npm.md) | Versão mais antiga nunca vira a latest do npm | Concluído | Mesclado | Aprovados | Produção | 2026-11-23 |
-| [RM-089](RM-089-orkastery-network-coletiva-da-empresa.md) | Orkastery Network coletiva da empresa, com uso obrigatório | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-23 |
+| [RM-089](RM-089-orkastery-network-coletiva-da-empresa.md) | Orkastery Network coletiva da empresa, com uso obrigatório | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-25 |
 | [RM-090](RM-090-telemetria-opentelemetry-para-sdlc-analytics.md) | Telemetria compatível com OpenTelemetry e Grafana para SDLC Analytics | Concluído | Mesclado | Aprovados | Produção | 2026-11-23 |
 | [RM-091](RM-091-ork-mesh-no-site-para-empresas-e-times.md) | Ork Mesh no site, para empresas e times | Em desenvolvimento | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-092](RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md) | Autorização autenticada com escopo, validade, canal e prova | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |

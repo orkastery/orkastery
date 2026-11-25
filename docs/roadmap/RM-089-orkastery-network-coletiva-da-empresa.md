@@ -192,13 +192,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-11-23 | Julio |
-| Documentação | Em revisão | — | 2026-11-23 | Julio |
-| Código | Mesclado | commit `3673d07` · PR #285 | 2026-11-23 | Julio |
-| Testes | Em execução | — | 2026-11-23 | Julio |
-| Deploy | Produção | — | 2026-11-23 | Julio |
-| Exposição | Parcial | — | 2026-11-23 | Julio |
-| Habilitação | Em andamento | — | 2026-11-23 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-25 | Julio |
+| Documentação | Em revisão | — | 2026-11-25 | Julio |
+| Código | Mesclado | commit `3673d07` · PR #285 | 2026-11-25 | Julio |
+| Testes | Em execução | — | 2026-11-25 | Julio |
+| Deploy | Produção | — | 2026-11-25 | Julio |
+| Exposição | Parcial | — | 2026-11-25 | Julio |
+| Habilitação | Em andamento | — | 2026-11-25 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
