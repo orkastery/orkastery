@@ -90,7 +90,7 @@ sdlc:
   - Risco: o scan parecer limpo sem ter varrido. Mitigação: `unavailable` e `failed` nunca contam como limpos; no CI, `REQUIRED=1`; no SHIP, `human.pending`.
   - Risco: valor de segredo vazar. Mitigação: só o hash entra na impressão digital; testes procuram o valor em toda saída.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):**
-  - O scan é comando do `verify` e achado novo segue pela triagem do CHECK e pelo GO-FIX. Cobertura ausente usa `security.scan-unscanned`, com comando e categorias, e escala ao humano em vez de abrir correção vazia.
+  - O scan é comando do `verify` e achado novo segue pela triagem do CHECK e pelo GO-FIX. Somente o relatório atual sem achado novo e com cobertura ausente usa `security.scan-unscanned`, com comando e categorias, e escala ao humano em vez de abrir GO-FIX do scan; a ausência de cobertura não vira regressão contra baseline verde.
   - Relatório por SHA em `.orkastery/security-scan/<sha>/`, e não por thread: o verify não passa a thread ao comando.
   - Só `--allow-unscanned`, sem autorização antecipada no `#Classic`, na primeira versão.
   - Sem recorrência de `warn` no `maduro`: ligar o scan ao board de auditoria é uma entrega própria.

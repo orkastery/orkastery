@@ -1199,13 +1199,15 @@ Nada nela é obrigatório; a pasta nasce na primeira dispensa ou exclusão.
 ### Sem Docker: o gate do SHIP
 
 Sem Docker nem binário, o scan local sai 1 quando uma ferramenta não dispensada do laço fica `unavailable`; o
-`ork doctor` também avisa antes. No verify, a falha atual do `security_scan` continua listada como pré-existente quando
-a baseline já tinha a mesma falha, mas ainda acrescenta `security.scan-unscanned`, com o comando e as categorias no
-detalhe. A política escala ao humano em vez de abrir GO-FIX sem correção de código. O gate do SHIP permanece como uma
-segunda guarda. Com `verify.security_scan` declarado e **sem** `ci.required_for_ship`, se
-alguma categoria do laço não foi varrida no SHA da candidata (ferramenta `unavailable` ou `failed`, salvo "nada a
-varrer", ou nenhum relatório), o `ork ship` para com `human.pending` antes de qualquer push e diz quais categorias. A entrega só segue com
-autorização de uma pessoa:
+`ork doctor` também avisa antes. O verify só emite `security.scan-unscanned` quando o relatório produzido pela própria
+rodada, para o SHA verificado, prova cobertura ausente e não contém achado `new` do laço. Achado novo continua em
+`verify.failed` ou `verify.regression`; saída diferente de zero sem relatório atual também permanece `verify.failed`.
+Cobertura ausente não vira regressão contra uma baseline verde. A política abre a escalada com duas saídas: instalar a
+cobertura indicada e rodar o verify novamente, ou autorizar nominalmente o SHIP sem varredura; ela não abre GO-FIX do
+scan. O gate do SHIP permanece como uma segunda guarda. Com `verify.security_scan` declarado e **sem**
+`ci.required_for_ship`, se alguma categoria do laço não foi varrida no relatório atual da candidata (ferramenta
+`unavailable` ou `failed`, salvo "nada a varrer"), o `ork ship` para com `human.pending` antes de qualquer push e diz
+quais categorias. A entrega só segue quando `security.scan-unscanned` é o único bloqueio e uma pessoa a autoriza:
 
 ```bash
 ork ship <thread> --para main --allow-unscanned "<quem autoriza>"
