@@ -71,7 +71,7 @@ sdlc:
 | Scan do Orkastery no HEAD da branch contra a base real (`f5c8db22`, com e sem `REQUIRED=1`) | saída 0; 0 no laço; 472 novos, todos `quality` do ESLint (fora do laço), e 22484 `existing`; as 9 ferramentas `ran`, Semgrep com `partial-parsing: 1`; 499 s com o cache da base frio e 200 s com ele quente |
 | Integração com Docker real, 3 stacks | 4 de 4 (277 s antes do rebase, 486 s depois dele, com as imagens já baixadas); as 9 ferramentas rodam em cada stack |
 | Ponta a ponta, thread `#Classic` real | 2 rodadas do laço; segredo real e falso positivo atestados; dispensa registrada; reverify passa |
-| Sem Docker | 9 ferramentas `unavailable`, saída 0 (1 com `REQUIRED=1`); `ork ship` para com `human.pending`; com `--allow-unscanned`, entrega e registra |
+| Sem Docker | ferramentas do laço `unavailable`, saída 1 com ou sem `REQUIRED=1`; verify registra `security.scan-unscanned`; `ork ship` para com `human.pending`; com `--allow-unscanned`, entrega e registra |
 
 ### Mudanças de comportamento que o mantenedor precisa saber
 
@@ -90,7 +90,7 @@ sdlc:
   - Risco: o scan parecer limpo sem ter varrido. Mitigação: `unavailable` e `failed` nunca contam como limpos; no CI, `REQUIRED=1`; no SHIP, `human.pending`.
   - Risco: valor de segredo vazar. Mitigação: só o hash entra na impressão digital; testes procuram o valor em toda saída.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):**
-  - O scan é comando do `verify`, a triagem é o CHECK, a correção é o GO-FIX, sem motivo tipado novo (decisão do mantenedor, 16 a 19/10/2026).
+  - O scan é comando do `verify` e achado novo segue pela triagem do CHECK e pelo GO-FIX. Cobertura ausente usa `security.scan-unscanned`, com comando e categorias, e escala ao humano em vez de abrir correção vazia.
   - Relatório por SHA em `.orkastery/security-scan/<sha>/`, e não por thread: o verify não passa a thread ao comando.
   - Só `--allow-unscanned`, sem autorização antecipada no `#Classic`, na primeira versão.
   - Sem recorrência de `warn` no `maduro`: ligar o scan ao board de auditoria é uma entrega própria.

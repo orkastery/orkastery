@@ -572,6 +572,7 @@ não compila sem política).
 | `claims.unverifiable` | corrigir-dirigido | sim | Alegação sem comando vira correção tipo A: anexar o comando é uma linha |
 | `verify.regression` | corrigir-dirigido | sim | Passava na baseline e falha agora: defeito desta thread, com alvo conhecido |
 | `verify.failed` | corrigir-dirigido | sim | Falha sem baseline: a correção conserta ou grava a baseline, mas não chuta a culpa |
+| `security.scan-unscanned` | escalar-humano | **não** | O scan nomeia comando e categorias sem cobertura; repetir GO-FIX não instala a ferramenta nem autoriza entrega sem varredura |
 | `verify.timeout` | reexecutar | sim | O prazo estourou antes de o comando terminar: a prova não chegou ao fim, e carga de máquina não é defeito |
 | `verify.sem-veredito` | reexecutar | sim | Um comando não chegou a rodar, ou o produto mudou entre o preparo e o fim da rodada: não há veredito, e a prova certa é rodar de novo, inteira |
 | `hitl.formato` | corrigir-dirigido | sim | O pedido HITL saiu fora do formato: quem errou foi o emissor, que reemite com alternativas e uma recomendada |
@@ -1199,8 +1200,9 @@ Nada nela é obrigatório; a pasta nasce na primeira dispensa ou exclusão.
 
 Sem Docker nem binário, o scan local sai 1 quando uma ferramenta não dispensada do laço fica `unavailable`; o
 `ork doctor` também avisa antes. No verify, a falha atual do `security_scan` continua listada como pré-existente quando
-a baseline já tinha a mesma falha, mas ainda acrescenta `verify.failed`: dívida comparativa não vira aprovação. O gate
-do SHIP permanece como uma segunda guarda. Com `verify.security_scan` declarado e **sem** `ci.required_for_ship`, se
+a baseline já tinha a mesma falha, mas ainda acrescenta `security.scan-unscanned`, com o comando e as categorias no
+detalhe. A política escala ao humano em vez de abrir GO-FIX sem correção de código. O gate do SHIP permanece como uma
+segunda guarda. Com `verify.security_scan` declarado e **sem** `ci.required_for_ship`, se
 alguma categoria do laço não foi varrida no SHA da candidata (ferramenta `unavailable` ou `failed`, salvo "nada a
 varrer", ou nenhum relatório), o `ork ship` para com `human.pending` antes de qualquer push e diz quais categorias. A entrega só segue com
 autorização de uma pessoa:

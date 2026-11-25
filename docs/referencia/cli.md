@@ -339,9 +339,10 @@ aceitam `http.postBuffer` como inteiro não negativo, com sufixo opcional `k`, `
 `http.lowSpeedLimit` e `http.lowSpeedTime` como inteiros não negativos; e `http.version` como `HTTP/1.1` ou
 `HTTP/2`. O perfil do SHIP continua estrito e recusa essas chaves HTTP.
 
-Configuração fora da lista, valor fora do domínio e chave sem valor usam a recusa
-`mcp.git.execution-profile.unsupported: configuracao preservada (<chave-mascarada>, <escopo>)`. A chave sem
-subseção conserva seção e variável; com subseção, o formato é `secao.<subsecao>.variavel`. A subseção e o valor
+Configuração fora da lista e valor fora do domínio usam a recusa
+`mcp.git.execution-profile.unsupported: configuracao preservada (<chave-mascarada>, <escopo>)`. Chave sem valor
+segue a mesma lista positiva: é aceita quando a classe documentada admite o valor vazio e recusada fora dela. A chave
+sem subseção conserva seção e variável; com subseção, o formato é `secao.<subsecao>.variavel`. A subseção e o valor
 nunca aparecem, inclusive quando a chave é longa. O escopo é `system`, `global`, `local`, `worktree` ou `command`.
 
 ## Verdade: claims, verify e gates

@@ -340,10 +340,12 @@ transport, they also accept `http.postBuffer` as a non-negative integer with an 
 `http.lowSpeedLimit` and `http.lowSpeedTime` as non-negative integers; and `http.version` as `HTTP/1.1` or
 `HTTP/2`. The SHIP profile remains strict and rejects these HTTP keys.
 
-Configuration outside the list, an out-of-domain value, and a key with no value use the refusal
-`mcp.git.execution-profile.unsupported: configuracao preservada (<masked-key>, <scope>)`. A key with no subsection
-keeps its section and variable; with a subsection, the format is `section.<subsecao>.variable`. The subsection and
-value never appear, including for a long key. Scope is `system`, `global`, `local`, `worktree`, or `command`.
+Configuration outside the list and an out-of-domain value use the refusal
+`mcp.git.execution-profile.unsupported: configuracao preservada (<masked-key>, <scope>)`. A key with no value follows
+the same positive list: it is accepted when the documented class admits an empty value and rejected outside it. A key
+with no subsection keeps its section and variable; with a subsection, the format is `section.<subsecao>.variable`.
+The subsection and value never appear, including for a long key. Scope is `system`, `global`, `local`, `worktree`, or
+`command`.
 
 ## Truth: claims, verify and gates
 

@@ -100,6 +100,7 @@ fontes:
   - Ferramenta que passa do prazo: `failed` com `timeout`; `ORK_SECURITY_SCAN_DEADLINE_MS` limita a rodada inteira e um vigia desfaz as worktrees e os contêineres se o processo morrer. O `ork verify` e o `ork ci run` exportam a variável com o prazo do `security_scan` menos `min(300 s, prazo/4)`, e a claim cujo comando é o do scan roda com esse prazo.
   - Nada a varrer: `unsupported-ci` (GitLab CI sem analisador) e `no-requirements-file` (com outra ferramenta da categoria rodando) ficam declarados como `unavailable`, sem contar como categoria não varrida.
   - Sem Docker nem binário: ferramenta não dispensada do laço fica `unavailable` e a saída é 1. O gate do SHIP continua como segunda guarda (abaixo).
+  - No verify, cobertura ausente grava `security.scan-unscanned` com o comando e as categorias; a política escala ao humano, sem abrir GO-FIX vazio.
   - Dispensa sem `reason` ou `decisionRef`, ou config inválida: saída 1, com a entrada nomeada e nada varrido.
   - Laço esgotado em `retry.max_tentativas` ou veredito inconclusivo: sobe ao humano, como qualquer correção.
 - **Pós-condições:** o relatório por SHA em `.orkastery/security-scan/<sha>/`; `ship_unscanned_authorized` no ledger quando a entrega segue sem varredura, com quem, o SHA e as categorias. Nada é escrito fora do checkout, exceto o cache da base em `$XDG_CACHE_HOME/orkastery/security-scan/`.
@@ -108,6 +109,7 @@ fontes:
   - BR-040-02: `unavailable` e `failed` nunca contam como limpo e, em categoria do laço, a saída é 1. `ORK_SECURITY_SCAN_REQUIRED=1` continua aceito como marcador compatível, sem alterar a regra. Exceção: `unsupported-ci`, e `no-requirements-file` quando outra ferramenta da mesma categoria rodou, são declarados e não contam, aqui nem no SHIP.
   - BR-040-03: o valor de um segredo nunca vai ao relatório, ao stdout nem ao ledger; só o hash entra na impressão digital.
   - BR-040-04: com `verify.security_scan` e sem `ci.required_for_ship`, categoria do laço sem varredura no SHA da candidata (ferramenta `unavailable` ou `failed`, salvo a exceção de BR-040-02, ou nenhum relatório) para o `ork ship` com `human.pending` antes de qualquer push. O `--dry-run` não grava a autorização.
+  - BR-040-07: `security.scan-unscanned` mantém o verify vermelho e não impede a autorização humana nominal de BR-040-04; outro motivo do verify continua bloqueando o SHIP.
   - BR-040-05: caminho excluído em `config.json` não gera achado e é listado no relatório.
   - BR-040-06: o relatório vale pelo SHA; mudança não commitada não é varrida.
 - **Critérios de aceite e testes:**
