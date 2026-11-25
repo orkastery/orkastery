@@ -115,6 +115,11 @@
           "tipo": "contem",
           "valor": "aviso registrado",
           "porque": "o warn nao e descartado"
+        },
+        {
+          "tipo": "contem",
+          "valor": "ela faz o scan sair 1 por padrao",
+          "porque": "cobertura ausente do laco reprova sem depender de opt-in"
         }
       ]
     },
