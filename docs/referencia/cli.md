@@ -767,7 +767,7 @@ Sai diferente de zero em qualquer falha. Cenários: `fx-happy`, `fx-hallucinatio
 | `ork audit finding add <rodada> --regra R --titulo T` | Registra um achado com evidência, claim e proposta |
 | ↳ opções | `--arquivo caminho:linha --impacto I --fix F --estimativa E` |
 | ↳ opções | `[--severidade critico\|maior\|menor] [--irreversivel "<passo>"] [--verificar "<comando>"]` |
-| `ork audit verify <rodada>` | Reexecuta as claims dos achados. **Auditor sem self-report** |
+| `ork audit verify <rodada>` | Reexecuta as claims dos achados. Sem comando executado, inclusive com achado aberto sem comando, imprime `SEM VEREDITO` e sai 1; o achado sem comando avisa, mas não sustenta a rodada. **Auditor sem self-report** |
 | `ork audit report <rodada> [--publicar]` | Relatório com o bloco **obrigatório** de propostas |
 | `ork audit divida [--pack P] [--todos]` | O board de dívida: propostas abertas e recorrência |
 | `ork audit finding estado <id> <estado>` | Carimba o achado: `aberto`, `adiado`, `resolvido`, `descartado` |

@@ -768,7 +768,7 @@ Exits non-zero on any failure. Scenarios: `fx-happy`, `fx-hallucination`,
 | `ork audit finding add <rodada> --regra R --titulo T` | Records a finding with evidence, claim and proposal |
 | ↳ options | `--arquivo caminho:linha --impacto I --fix F --estimativa E` |
 | ↳ options | `[--severidade critico\|maior\|menor] [--irreversivel "<passo>"] [--verificar "<comando>"]` |
-| `ork audit verify <rodada>` | Reruns the claims of the findings. **No auditor self-report** |
+| `ork audit verify <rodada>` | Reruns the claims of the findings. With no command executed, including an open finding without a command, it prints `NO VERDICT` and exits 1; a finding without a command remains a warning but does not sustain the run. **No auditor self-report** |
 | `ork audit report <rodada> [--publicar]` | Report with the **mandatory** proposals block |
 | `ork audit divida [--pack P] [--todos]` | The debt board: open proposals and recurrence |
 | `ork audit finding estado <id> <estado>` | Stamps the finding: `aberto`, `adiado`, `resolvido`, `descartado` |
