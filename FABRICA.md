@@ -8,6 +8,6 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | vps | ork-macosportave | #Auto | GO | codex gpt-5.6-sol/xhigh | — | — | 25/11 10:05 | viva |
 | vps | ork-orkauditestr | #Auto | GOAL | claude-bg claude-fable-5-2/max | — | — | 25/11 10:05 | parada desde 13/11 13:00: sessão 53359ba0 encerrada (done) |
 | vps | ork-podmangitine | #Auto | GO | codex gpt-5.6-sol/xhigh | — | — | 25/11 10:05 | viva |
-| vps | ork-rm089f7recib | #Auto | PLAN | codex gpt-5.6-sol/xhigh | — | — | 25/11 10:05 | parada desde 10:04: sessão 01a212be encerrada (completed) |
+| vps | ork-rm089f7recib | #Auto | CHECK | claude-bg opus/max | — | — | 25/11 10:05 | viva |
 
 Horários de Brasília.
