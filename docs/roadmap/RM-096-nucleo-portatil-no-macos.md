@@ -68,12 +68,16 @@ sdlc:
 - **Horizonte / alvo / previsão / confiança / marcos:** implementação na thread `ork-macosportave`; suporte público condicionado ao job macOS verde; sem previsão temporal declarada.
 - **Dependências e bloqueios (ID, owner, próxima revisão):** fatia de causa e executor em [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md); CI do repositório; revisão independente no CHECK. Owner: Julio; revisão na integração desta thread.
 - **Premissas / riscos / mitigação:** sistema de arquivos deve oferecer criação exclusiva e rename atômico; candidato de identidade incerta não é removido. Bash antigo continua compatível e aparece como aviso. #Noctum preserva o gate Linux tipado.
-- **Dívida aceita do GO-FIX:** a fila portátil ainda não publica idade, artefato, ordem e batida equivalentes ao protocolo Linux; as sondas repetem consulta de processo e medição de Bash; concorrentes sem espera podem ambos recusar aquisição. Corrigir isso exige alterar protocolo ou introduzir cache com invalidação, fora dos bloqueadores desta entrega; fica nesta iniciativa para uma fatia própria, sem ampliar a promessa atual.
+- **Dívida aceita do GO-FIX — observabilidade da fila:** a fila portátil ainda não publica idade, artefato, ordem e batida equivalentes ao protocolo Linux. Corrigir exige ampliar o protocolo persistido e seus consumidores; fica para uma fatia própria, sem ampliar a promessa atual.
+- **Dívida aceita do GO-FIX — custo das sondas:** esperas repetem consulta de processo e medição de Bash. Corrigir exige cache com invalidação por identidade e por binário; fica para uma fatia própria.
+- **Dívida aceita do GO-FIX — contenção sem espera:** concorrentes com espera zero podem ambos recusar aquisição, sem violar exclusão. Corrigir exige uma tentativa coordenada adicional e muda a semântica de latência; fica para uma fatia própria.
+- **Dívida aceita do GO-FIX — temporário órfão:** encerramento abrupto entre a criação e o rename pode deixar arquivo `.tmp` ignorado na pasta de candidatos. Remoção segura exige identidade verificável também no nome temporário; fica para uma fatia própria.
+- **Dívida aceita do GO-FIX — nome do script:** `provar-macos-instalado.cjs` também roda no Linux. Renomeá-lo agora espalharia troca mecânica por workflows e claims sem mudar a prova; fica para uma fatia documental do CI. Os jobs de CI e publicação já têm nomes distintos e os testes recusam `continue-on-error`.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):** D1–D6 no ledger da thread escolhem nome público, código existente, ausência de override, saída geral, candidatos por identidade e domicílio dividido com RM-080. O modo #Auto autorizou seguir as recomendações registradas.
 
 ## Estado com evidências
 
-A implementação local, os testes focados e os jobs obrigatórios existem na thread `ork-macosportave`. O item permanece não implantado e não habilitado; o suporte público depende do CHECK, do job `macos-latest` verde e do merge.
+A implementação local, os testes focados e os jobs de portabilidade existem na thread `ork-macosportave`; a proteção atual da `main` não os exige. O item permanece não implantado e não habilitado; o suporte público depende do CHECK, do job `macos-latest` verde e do merge, e a publicação no npm exige essa prova.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
