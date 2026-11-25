@@ -9,18 +9,21 @@
 > **Em uma frase:** o `ork` conduz agentes de IA (Claude Code e Codex) em threads paralelas de seis fases, confere cada afirmação contra o repositório antes de ela valer e só chama você quando a decisão é de fato sua.
 
 - **Estado:** em uso diário · no npm como [`@orkastery/cli`](https://www.npmjs.com/package/@orkastery/cli), com as [mudanças por versão](CHANGELOG.md) · revisado em 27/09/2026
+- **Plataformas:** o quickstart do pacote instalado é conferido no Linux e no macOS. Windows não está coberto. O #Noctum permanece restrito ao Linux enquanto está em desenvolvimento.
 - **Prova:** CI no GitHub em todo PR: 2.733 testes do núcleo, 24 cenários e 20 skills com 199 asserções, zero falhas (CI da `main` no PR #74, run 37102089623, 03/10/2026)
 - **Produto e roadmap:** [`docs/produto/`](docs/produto/README.md) e [`docs/roadmap/`](docs/roadmap/README.md), conferidos contra o código por `ork docs verificar`
 - **Idioma:** a página canônica é a [versão em inglês](README.md), e esta a espelha em português; os docs estão em português do Brasil (a [referência do CLI](docs/referencia/cli.en.md) também em inglês), e o CLI também, exceto `ork doctor`, `ork init`, `ork onboarding`, `ork experiencia show`, `ork thread` (fora `thread new --from-finding`), `ork phase list`, `ork phase run`, `ork verify`, `ork ship`, `ork pulse`, `ork master`, `ork retry plan`, `ork retry run`, `ork roadmap` (status e reservas), `ork worktree`, `ork claims`, `ork decisao placar`, `ork accounts`, `ork network` (fora `network roadmap`), `ork docs`, `ork adapter` e a ajuda, que saem em inglês quando `owner.language` ou o locale pedem `en`; também os comentários do `orkastery.yaml`, os blocos do `AGENTS.md` e do `CLAUDE.md`, os modelos do `ork docs init` e as skills, checklists, comandos e subagentes que o `ork adapter install` copia
 
 ```bash
 npm install -g @orkastery/cli
-ork demo          # 30 segundos: uma afirmação falsa reprovada e a corrigida aceita, sem conta nem modelo
+ork demo          # uma afirmação falsa reprovada e a corrigida aceita, sem conta nem modelo
 ork doctor        # o que vale nesta máquina agora; sai != 0 se estiver bloqueado
 ork init          # gera o orkastery.yaml; rode na raiz de um repositório git com pelo menos um commit
 ork modos         # os quatro modos de condução
 ork docs init     # documentação de produto e roadmap no padrão, com lint
 ```
+
+O núcleo exige Bash em `/bin/bash` ou `/usr/bin/bash`. Ele não escolhe shell pelo `PATH`, Homebrew ou variável de ambiente; o `ork doctor` mostra o caminho e a versão usados e bloqueia quando o executor controlado está indisponível.
 
 ## A primeira thread
 

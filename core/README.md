@@ -23,14 +23,19 @@ The CLI and the docs are in Brazilian Portuguese today.
 
 ## Install
 
-Requires Node.js 20 or newer, git and at least one runtime logged in to your subscription
-(`claude` or `codex`).
+Requires Node.js 20 or newer, git, Linux or macOS, Bash at `/bin/bash` or `/usr/bin/bash`,
+and at least one runtime logged in to your subscription (`claude` or `codex`). Windows is
+not covered. #Noctum remains Linux-only while it is in development.
 
 ```bash
 npm install -g @orkastery/cli
-ork demo            # 30 seconds: a false claim rejected, the fixed one accepted; no account, no model
+ork demo            # a false claim rejected, the fixed one accepted; no account, no model
 ork doctor          # what holds on this machine right now (exits != 0 when something blocks)
 ```
+
+The verify executor uses only the controlled Bash paths above, records the selected path and
+version, and does not consult `PATH`, Homebrew or an environment override. `ork doctor` checks
+the portable lock and this shell before it reports readiness.
 
 The package ships the product catalog too (skills, references, eval and host adapters), so
 `ork eval` and `ork adapter install` work from the global install.
