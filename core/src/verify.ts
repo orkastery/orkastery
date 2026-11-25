@@ -68,6 +68,8 @@ import { chaveDoReciboDeProva } from './recibo-prova';
 import { ENV_TMPDIR_DA_RODADA, selecionarTemporario } from './temporario-das-lanes';
 import { ambienteFuncionalDosTestes, ENV_PATH_FUNCIONAL_DA_RODADA,
   transporteDoAmbienteFuncional } from './ambiente-funcional';
+import { readReport, unscannedLoopTools } from './security-scan/report';
+import { LOOP_CATEGORIES, type Category } from './security-scan/types';
 
 /** Teto de tempo de um comando de verificacao (build e suite completa cabem). */
 export const TIMEOUT_VERIFY_MS = 10 * 60 * 1000;
@@ -1057,6 +1059,8 @@ export interface EntradaDoJulgamentoVerify {
   claims: ResultadoDeClaim[];
   comandos: ResultadoDeComando[];
   baseline: Baseline | null;
+  /** Cobertura ausente comprovada pelo relatorio do SHA, ou por sua ausencia. */
+  securityScanSemCobertura?: CoberturaAusenteDoSecurityScan | null;
   preparo?: ResultadoDeComando | null;
   produtoAlterado?: boolean;
   policyViolada?: boolean;
@@ -1074,6 +1078,31 @@ export interface JulgamentoVerify {
   motivos: MotivoGate[];
   bloqueantes: MotivoGate[];
   ok: boolean;
+}
+
+export interface CoberturaAusenteDoSecurityScan {
+  comando: string;
+  categorias: Category[];
+}
+
+/**
+ * O comando do scan pode sair 1 por achado ou por falta de cobertura. So a segunda causa recebe o
+ * motivo `security.scan-unscanned`: o relatorio do SHA nomeia as categorias; sem relatorio, nenhuma
+ * categoria do laco tem evidencia de varredura.
+ */
+export function coberturaAusenteDoSecurityScan(
+  raiz: string,
+  commit: string,
+  comandos: readonly ResultadoDeComando[]
+): CoberturaAusenteDoSecurityScan | null {
+  const comando = comandos.find((resultado) => resultado.nome === 'security_scan' &&
+    resultado.executado !== false && !resultado.ok && !semVereditoPorTempo(resultado));
+  if (!comando) return null;
+  const relatorio = readReport(raizDoEstado(raiz), commit);
+  const categorias = relatorio
+    ? [...new Set(unscannedLoopTools(relatorio).map((ferramenta) => ferramenta.category))].sort() as Category[]
+    : [...LOOP_CATEGORIES];
+  return categorias.length > 0 ? { comando: comando.comando, categorias } : null;
 }
 
 /**
@@ -1118,12 +1147,13 @@ export function julgarResultadoDoVerify(entrada: EntradaDoJulgamentoVerify): Jul
   if (claims.some((claim) => claim.motivo === 'claims.failed')) motivos.push('claims.failed');
   if (claims.some((claim) => claim.motivo === 'claims.unverifiable')) motivos.push('claims.unverifiable');
   if (regressoes.length > 0) motivos.push('verify.regression');
-  // A9 da thread ork-podmangitine: cobertura ausente do scan nunca aprova. A comparação com a
-  // baseline continua visível em `preExistentes`, mas a falha atual do comando é bloqueante mesmo
-  // quando a baseline também falhou. O gate do SHIP é uma segunda guarda, não substitui o verify.
-  const securityScanFalhou = comandos.some((comando) => comando.nome === 'security_scan' &&
-    comando.executado !== false && !comando.ok && !semVereditoPorTempo(comando));
-  if (falhasSemBaseline.length > 0 || preparoFalhou || securityScanFalhou) motivos.push('verify.failed');
+  const falhasSemBaselineSemScan = entrada.securityScanSemCobertura
+    ? falhasSemBaseline.filter((resultado) => resultado.nome !== 'security_scan')
+    : falhasSemBaseline;
+  if (falhasSemBaselineSemScan.length > 0 || preparoFalhou) motivos.push('verify.failed');
+  // A20 da thread ork-podmangitine: cobertura ausente nao e "falha sem baseline". O motivo proprio
+  // preserva a comparacao em `preExistentes` e escala a falta de ferramenta ao humano.
+  if (entrada.securityScanSemCobertura) motivos.push('security.scan-unscanned');
   if (estouros.length > 0 || preparoSemVeredito || claims.some((claim) => claim.motivo === 'verify.timeout')) {
     motivos.push('verify.timeout');
   }
@@ -1517,7 +1547,8 @@ function verificarSobConducao(
   const baseline = thread.baseline ?? null;
   const identidadeFinal = preparo ? identidadeDoProduto(cwd) : null;
   const produtoAlterado = !!preparo && identidadeFinal !== preparo.identidade;
-  const julgamento = julgarResultadoDoVerify({ claims, comandos, baseline,
+  const securityScanSemCobertura = coberturaAusenteDoSecurityScan(raiz, commit, comandos);
+  const julgamento = julgarResultadoDoVerify({ claims, comandos, baseline, securityScanSemCobertura,
     preparo: preparo?.resultado ?? null, produtoAlterado, policyViolada: dadoPrivadoBloqueia.length > 0 });
   const { regressoes, preExistentes, falhasSemBaseline, comparacoes, estouros, naoExecutados,
     baselineSemVeredito, motivos, bloqueantes, ok } = julgamento;
@@ -1566,6 +1597,7 @@ function verificarSobConducao(
     falhasSemBaseline: falhasSemBaseline.map((r) => r.nome),
     comparacoes,
     ...(baselineSemVeredito.length > 0 ? { baselineSemVeredito } : {}),
+    ...(securityScanSemCobertura ? { securityScanSemCobertura } : {}),
     estouros: estouros.map((r) => r.nome),
     prazoMs: manifesto.verify.timeout_ms ?? TIMEOUT_VERIFY_MS,
     steal,
@@ -1622,8 +1654,11 @@ function verificarSobConducao(
                   ...naoExecutados.map((c) => porQueDasLanes(c) ? `${c.nome} sem veredito (${porQueDasLanes(c)})` : `${c.nome} nao foi executado`),
                   ...claims.filter((c) => c.motivo === 'verify.sem-veredito').map((c) => `${c.claim.id}: ${c.detalhe}`)]
                   .filter(Boolean).join('; ')
-                : motivo === 'policy.violation'
+              : motivo === 'policy.violation'
                   ? dadoPrivadoBloqueia.map((v) => `policy ${v.policy}: ${v.detalhe}`).join('; ')
+                  : motivo === 'security.scan-unscanned'
+                    ? `security_scan sem cobertura: comando \`${securityScanSemCobertura!.comando}\`; categorias: ` +
+                      securityScanSemCobertura!.categorias.join(', ')
                   : `falha sem baseline em: ${falhasSemBaseline.map((r) => r.nome).join(', ')}` + (falhasSemBaseline
                     .some((r) => baselineSemVeredito.includes(r.nome))
                     ? `; a baseline nao teve veredito de ${falhasSemBaseline.filter((r) => baselineSemVeredito.includes(r.nome))
@@ -1639,6 +1674,10 @@ function verificarSobConducao(
               ? 'rode `ork verify` de novo, sem editar a worktree durante a rodada'
               : motivo === 'policy.violation'
                 ? dadoPrivadoBloqueia.map((v) => v.correcao).join('; ')
+                : motivo === 'security.scan-unscanned'
+                  ? `rode \`${securityScanSemCobertura!.comando}\` com cobertura para ` +
+                    `${securityScanSemCobertura!.categorias.join(', ')}; se o SHIP precisar seguir sem varredura, ` +
+                    'use a autorizacao humana nominal `--allow-unscanned`'
                 : 'corrija a regressao, ou grave a baseline antes do GO com `ork verify <thread> --baseline`',
     });
   }

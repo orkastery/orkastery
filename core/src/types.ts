@@ -636,6 +636,11 @@ export type MotivoGate =
   | 'verify.regression'
   | 'verify.failed'
   /**
+   * A rodada atual do security scan nao cobriu uma ou mais categorias do laco. O comando e as
+   * categorias ficam no detalhe do gate; retry automatico nao instala a cobertura ausente.
+   */
+  | 'security.scan-unscanned'
+  /**
    * I-37 (D1): o comando de verificacao estourou o prazo antes de terminar. Nao e reprovacao:
    * a prova nao chegou ao fim, e carga de maquina nao e defeito. Motivo proprio para o retry
    * reexecutar em vez de abrir GO-FIX, e para o veredito nunca dizer "falhou" do que nao rodou.

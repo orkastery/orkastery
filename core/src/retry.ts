@@ -179,6 +179,12 @@ export const POLITICA_DE_RETRY: Readonly<Record<MotivoGate, PoliticaDeRetry>> = 
     automatica: true,
     ...TEXTOS_DA_POLITICA['verify.failed'],
   },
+  'security.scan-unscanned': {
+    motivo: 'security.scan-unscanned',
+    acao: 'escalar-humano',
+    automatica: false,
+    ...TEXTOS_DA_POLITICA['security.scan-unscanned'],
+  },
   'verify.timeout': {
     motivo: 'verify.timeout',
     acao: 'reexecutar',
