@@ -18,7 +18,7 @@
 # Resultado mesclado e merge train (Premium): o job roda num commit temporario; o ork o liga ao head do MR pelo pai
 # desse commit. Merge train com squash apaga esse vinculo, e o ork responde ci.merged-results-sem-vinculo.
 
-ork-verify:
+ork-replay:
   stage: test
   image: node:22
   variables:
@@ -34,3 +34,22 @@ ork-verify:
     - npm install --global --no-audit --no-fund "@orkastery/cli@${ORK_VERSAO}"
     # A branch do MR (ou a do push): o ork acha o .ork-ci/<thread>.json da thread por ela.
     - ork ci run --branch "${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:-$CI_COMMIT_REF_NAME}"
+
+# Este job deve ser injetado por policy protegida, fora do .gitlab-ci.yml do MR. A policy fixa ORK_VERSAO e
+# ORK_CLIENTE_SHA256; o workspace do MR não é clonado e a única saída do launcher é o resultado sanitizado.
+ork-verify:
+  stage: test
+  image: node:22
+  needs: [ork-replay]
+  variables:
+    GIT_STRATEGY: "none"
+  id_tokens:
+    ORK_FABRICA_ID_TOKEN:
+      aud: "urn:orkastery:fabrica:ci"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script:
+    - PACOTE="$(npm pack "@orkastery/cli@${ORK_VERSAO}" --silent)"
+    - echo "${ORK_CLIENTE_SHA256}  ${PACOTE}" | sha256sum --check --strict
+    - npm install --prefix /tmp/ork-protected-client --no-audit --no-fund "./${PACOTE}"
+    - node /tmp/ork-protected-client/node_modules/@orkastery/cli/dist/ci-fabrica-transporte.js

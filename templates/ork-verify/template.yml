@@ -21,8 +21,11 @@ spec:
       description: "A versao do @orkastery/cli que roda o CHECK (a que traz o suporte a GitLab e a proxima publicada, no minimo)"
       default: "0.6.10"
       regex: ^\d+\.\d+\.\d+$
+    sha256_do_ork:
+      description: "SHA-256 do tarball do cliente, declarado pela policy protegida"
+      regex: ^[a-f0-9]{64}$
 ---
-"$[[ inputs.contexto ]]":
+"$[[ inputs.contexto ]]-replay":
   stage: $[[ inputs.stage ]]
   image: $[[ inputs.imagem ]]
   variables:
@@ -33,3 +36,20 @@ spec:
   script:
     - npm install --global --no-audit --no-fund "@orkastery/cli@$[[ inputs.versao_do_ork ]]"
     - ork ci run --branch "${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:-$CI_COMMIT_REF_NAME}"
+
+"$[[ inputs.contexto ]]":
+  stage: $[[ inputs.stage ]]
+  image: $[[ inputs.imagem ]]
+  needs: ["$[[ inputs.contexto ]]-replay"]
+  variables:
+    GIT_STRATEGY: "none"
+  id_tokens:
+    ORK_FABRICA_ID_TOKEN:
+      aud: "urn:orkastery:fabrica:ci"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script:
+    - PACOTE="$(npm pack "@orkastery/cli@$[[ inputs.versao_do_ork ]]" --silent)"
+    - echo "$[[ inputs.sha256_do_ork ]]  ${PACOTE}" | sha256sum --check --strict
+    - npm install --prefix /tmp/ork-protected-client --no-audit --no-fund "./${PACOTE}"
+    - node /tmp/ork-protected-client/node_modules/@orkastery/cli/dist/ci-fabrica-transporte.js

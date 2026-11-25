@@ -154,3 +154,76 @@ export function executarClienteProtegidoDoTransporte(config: ConfiguracaoPublica
   }
   return projetarResultadoDoTransporte(resposta, nivel, localizadores, agora);
 }
+
+async function identidadeOidcDoLauncher(forja: 'github' | 'gitlab', env: NodeJS.ProcessEnv): Promise<string> {
+  if (forja === 'gitlab') {
+    const token = env.ORK_FABRICA_ID_TOKEN;
+    delete env.ORK_FABRICA_ID_TOKEN;
+    if (!token) throw new Error('ci.excecao.transporte-identidade-ausente');
+    return token;
+  }
+  const endereco = env.ACTIONS_ID_TOKEN_REQUEST_URL, credencial = env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
+  delete env.ACTIONS_ID_TOKEN_REQUEST_URL;
+  delete env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
+  if (!endereco || !credencial) throw new Error('ci.excecao.transporte-identidade-ausente');
+  const url = new URL(endereco);
+  url.searchParams.set('audience', AUDIENCIA_FABRICA_CI);
+  const resposta = await fetch(url, { headers: { authorization: `bearer ${credencial}` } });
+  if (!resposta.ok) throw new Error('ci.excecao.transporte-identidade-invalida');
+  const corpo = await resposta.json() as { value?: unknown };
+  if (typeof corpo.value !== 'string' || !corpo.value) throw new Error('ci.excecao.transporte-identidade-invalida');
+  return corpo.value;
+}
+
+function localizadoresDoLauncher(env: NodeJS.ProcessEnv): LocalizadoresDoTransporteCi {
+  if (env.GITHUB_ACTIONS === 'true') {
+    let evento: { pull_request?: { head?: { sha?: unknown; ref?: unknown }; base?: { ref?: unknown } } } = {};
+    try {
+      const bruto = env.GITHUB_EVENT_PATH ? require('node:fs').readFileSync(env.GITHUB_EVENT_PATH, 'utf8') : '{}';
+      evento = JSON.parse(bruto) as typeof evento;
+    } catch { /* os campos ausentes são recusados abaixo */ }
+    const head = evento.pull_request?.head?.sha, source = evento.pull_request?.head?.ref;
+    const target = evento.pull_request?.base?.ref ?? env.GITHUB_REF_NAME;
+    const valores = [env.GITHUB_REPOSITORY, source, target, head, env.GITHUB_RUN_ID, env.GITHUB_ACTOR_ID];
+    if (valores.some((valor) => typeof valor !== 'string' || !valor)) throw new Error('ci.excecao.transporte-contexto-ausente');
+    return { forja: 'github', project: env.GITHUB_REPOSITORY!, source: source as string, target: target as string,
+      head: head as string, operation: 'ci.run', execucaoId: env.GITHUB_RUN_ID!, construtor: env.GITHUB_ACTOR_ID! };
+  }
+  const valores = [env.CI_PROJECT_PATH, env.CI_MERGE_REQUEST_SOURCE_BRANCH_NAME,
+    env.CI_MERGE_REQUEST_TARGET_BRANCH_NAME, env.CI_MERGE_REQUEST_SOURCE_BRANCH_SHA, env.CI_JOB_ID, env.GITLAB_USER_ID];
+  if (env.GITLAB_CI !== 'true' || valores.some((valor) => typeof valor !== 'string' || !valor)) {
+    throw new Error('ci.excecao.transporte-contexto-ausente');
+  }
+  return { forja: 'gitlab', project: env.CI_PROJECT_PATH!, source: env.CI_MERGE_REQUEST_SOURCE_BRANCH_NAME!,
+    target: env.CI_MERGE_REQUEST_TARGET_BRANCH_NAME!, head: env.CI_MERGE_REQUEST_SOURCE_BRANCH_SHA!,
+    operation: 'ci.run', execucaoId: env.CI_JOB_ID!, construtor: env.GITLAB_USER_ID! };
+}
+
+/** Entrada executável do launcher pinado; não recebe token, proof ou capability por argumento. */
+export async function executarLauncherNativoDoTransporte(env: NodeJS.ProcessEnv = process.env): Promise<number> {
+  const { exigirManifesto } = await import('./manifest');
+  const manifesto = exigirManifesto(process.cwd()).manifesto;
+  const config = manifesto.ci.transporte_excecao;
+  if (!config || !configuracaoPublicaDoTransporteValida(config)) throw new Error('ci.excecao.transporte-configuracao-ausente');
+  const localizadores = localizadoresDoLauncher(env);
+  let resultado: ResultadoSanitizadoDoTransporte;
+  try {
+    const token = await identidadeOidcDoLauncher(localizadores.forja, env);
+    const resposta = await fetch(config.origem, { method: 'POST', headers: {
+      authorization: `bearer ${token}`, 'content-type': 'application/json', accept: 'application/json',
+    }, body: JSON.stringify(localizadores) });
+    const bruto = resposta.ok ? await resposta.json() : { estado: resposta.status === 408 ? 'timeout' : 'indisponivel' };
+    resultado = projetarResultadoDoTransporte(bruto, manifesto.ci.politica_recibo ?? 'observar', localizadores,
+      new Date().toISOString());
+  } catch (erro) {
+    resultado = projetarResultadoDoTransporte({ estado: (erro as Error).name === 'TimeoutError' ? 'timeout' : 'indisponivel' },
+      manifesto.ci.politica_recibo ?? 'observar', localizadores, new Date().toISOString());
+  }
+  process.stdout.write(`${JSON.stringify(resultado)}\n`);
+  return resultado.aplicado || !resultado.reprova ? 0 : 1;
+}
+
+if (require.main === module) {
+  void executarLauncherNativoDoTransporte().then((codigo) => { process.exitCode = codigo; })
+    .catch(() => { process.exitCode = 1; });
+}

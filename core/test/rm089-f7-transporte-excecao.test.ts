@@ -98,3 +98,21 @@ test('o cliente protegido confina token e resposta bruta e devolve só resultado
   assert.equal(resultado.aplicado, false);
   if (!resultado.aplicado) assert.equal(resultado.code, 'ci.excecao.transporte-indisponivel');
 });
+
+test('as receitas das duas forjas separam replay e launcher pinado', () => {
+  const fs = require('node:fs') as typeof import('node:fs');
+  const github = fs.readFileSync('.github/workflows/ci.yml', 'utf8');
+  assert.match(github, /pull_request_target/);
+  assert.match(github, /ork-replay:[\s\S]*permissions:[\s\S]*contents: read/);
+  assert.match(github, /ork-verify:[\s\S]*id-token: write/);
+  assert.match(github, /pull_request\.base\.sha/);
+  const componente = fs.readFileSync('templates/ork-verify/template.yml', 'utf8');
+  const gitlab = fs.readFileSync('templates/gitlab/ork-verify.yml', 'utf8');
+  for (const receita of [componente, gitlab]) {
+    assert.match(receita, /ORK_FABRICA_ID_TOKEN/);
+    assert.match(receita, /urn:orkastery:fabrica:ci/);
+    assert.match(receita, /sha256sum --check --strict/);
+    assert.match(receita, /GIT_STRATEGY: "none"/);
+    assert.match(receita, /ci-fabrica-transporte\.js/);
+  }
+});
