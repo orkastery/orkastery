@@ -438,7 +438,8 @@ test('grafo no pacote: workflow: o publicar.yml so publica depois da prova, que 
   assert.match(prova, /\n {4}permissions:\n {6}contents: read\n/, 'o job da prova so le');
   assert.doesNotMatch(prova, /id-token/, 'a prova nunca ve a credencial de publicacao');
   assert.match(prova, /\n {6}- uses: actions\/checkout@v6\n {8}with:\n {10}persist-credentials: false\n/, 'o checkout da prova nao guarda credenciais');
-  assert.match(publicar, /\n {4}needs: provar-grafo\n/, 'o publicar espera a prova');
+  assert.match(publicar, /\n {4}needs: \[provar-grafo, provar-portabilidade-macos\]\n/,
+    'o publicar espera as provas do grafo e da portabilidade no macOS');
   assert.doesNotMatch(publicar, /^\s+(?:-\s+)?(?:if|'if'|"if")\s*:/m, 'nenhum if pode publicar com a prova reprovada');
   assert.ok(!publicar.includes(PASSO_DA_PROVA), 'a prova nao roda no job que publica');
   const onde = (trecho: string): number => {

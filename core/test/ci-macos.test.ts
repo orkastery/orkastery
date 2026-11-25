@@ -23,6 +23,7 @@ test('jobs Linux e macOS percorrem o quickstart instalado e publicação exige a
   assert.doesNotMatch(script, /--sem-worktree|dist', 'verify\.js'/);
   assert.doesNotMatch(script, /node core\/dist\/index\.js/);
   assert.match(publicar, /provar-portabilidade-macos:[\s\S]*runs-on: macos-latest[\s\S]*provar-macos-instalado\.cjs/);
+  assert.match(publicar, /provar-portabilidade-macos:[\s\S]*package-manager-cache: false/);
   assert.match(publicar, /needs: \[provar-grafo, provar-portabilidade-macos\]/);
   assert.match(manifesto, /- "pacote instalado e quickstart no Linux"/);
   assert.match(manifesto, /- "pacote instalado e quickstart no macOS"/);
