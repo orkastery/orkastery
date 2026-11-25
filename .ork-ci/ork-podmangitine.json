@@ -1642,6 +1642,136 @@
         "artefato-de-fechamento",
         "ref-local-do-ramo-base"
       ]
+    },
+    {
+      "id": "C108",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "Falha do security_scan sem explicação no relatório da própria rodada permanece verify.failed com ou sem baseline e nunca vira dívida pré-existente.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/verify.test.js core/dist-test/test/security-scan-ship.test.js core/dist-test/test/rm089-f5-recibo-basico.test.js"
+      ],
+      "criadoEm": "2026-11-25T20:46:19.307Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C109",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-ship.test.ts",
+      "alegacao": "A suíte prova as linhas D1, F e G e o caminho gate, pedido, resposta b autenticada por verificador público e SHIP sem a flag.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/security-scan-ship.test.js"
+      ],
+      "criadoEm": "2026-11-25T20:46:19.425Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C110",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/src/hitl-gates.ts",
+      "alegacao": "O pedido security.scan-unscanned aceita o gate tipado sem fase, informa comando, categorias e SHA sem instruir o dono a executar comando, enquanto os demais gates preservam a fase exigida.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/hitl-gates.test.js core/dist-test/test/retry.test.js"
+      ],
+      "criadoEm": "2026-11-25T20:46:19.810Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C114",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/test/mcp-install-transporte.test.ts",
+      "alegacao": "A suíte prova que a allowlist do worker transporta o verificador público e exclui a chave privada de ingresso.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/mcp-install-transporte.test.js"
+      ],
+      "criadoEm": "2026-11-25T20:46:20.348Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C115",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/assets/skills-en/phases/check-quality/SKILL.md",
+      "alegacao": "A skill inglesa contém a frase normativa completa que declara unavailable e failed no veredito, nunca como limpo, e faz o scan do laço sair 1 por padrão.",
+      "negativa": true,
+      "verificar": [
+        "node -e \"const f=require('node:fs'),q=String.fromCharCode(96),s=f.readFileSync('core/assets/skills-en/phases/check-quality/SKILL.md','utf8'),p='A tool '+q+'unavailable'+q+' or '+q+'failed'+q+' is declared in the verdict and never counts as clean; in a loop category, it makes the scan exit 1 by default.';if(!s.includes(p))process.exit(1)\""
+      ],
+      "criadoEm": "2026-11-25T20:46:20.456Z",
+      "estado": "pendente",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
     }
   ],
   "deferredClaims": [
@@ -1663,6 +1793,18 @@
     },
     {
       "id": "C86",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C111",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C112",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C113",
       "reason": "local-integration-required"
     }
   ],
