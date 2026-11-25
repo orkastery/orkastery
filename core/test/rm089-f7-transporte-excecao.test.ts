@@ -329,16 +329,18 @@ test('o transporte integrado altera o veredito real e nunca encobre projeção i
       baseline: null, commands: [] });
     fs.writeFileSync(arquivo, JSON.stringify({ schema: 'ork.ci-bundle/v1', thread: 'ork-rm089f7fixture',
       branch, base: 'main', claims: [], commands: [], recibo: projecaoInvalida }));
-    consultas = 0;
-    const invalido = executarCiDaBranchComContexto(carregadoDoCi(raiz), branch, {
-      destino: ESPERADO.target, project: ESPERADO.project, pullRequest: true, preflightEmpresa: null,
-      head: ESPERADO.head, receitaConfiavel: { commands: [], check: 'agile' },
-      transporteProtegido: { agora: AGORA, consultar: () => { consultas++; return transporteValido(); } },
-    }) as { ok: boolean; policy: { receipt: string }; error: { code: string } };
-    assert.equal(invalido.ok, false);
-    assert.equal(invalido.policy.receipt, 'invalido');
-    assert.equal(invalido.error.code, 'ci.recibo.invalido');
-    assert.equal(consultas, 0, 'a exceção só se aplica à ausência');
+    for (const nivel of ['observar', 'avisar', 'exigir'] as const) {
+      consultas = 0;
+      const invalido = executarCiDaBranchComContexto(carregadoDoCi(raiz, nivel), branch, {
+        destino: ESPERADO.target, project: ESPERADO.project, pullRequest: true, preflightEmpresa: null,
+        head: ESPERADO.head, receitaConfiavel: { commands: [], check: 'agile' },
+        transporteProtegido: { agora: AGORA, consultar: () => { consultas++; return transporteValido(); } },
+      }) as { ok: boolean; policy: { receipt: string }; error: { code: string } };
+      assert.equal(invalido.ok, false, `${nivel}: projeção inválida sempre reprova`);
+      assert.equal(invalido.policy.receipt, 'invalido');
+      assert.equal(invalido.error.code, 'ci.recibo.invalido');
+      assert.equal(consultas, 0, `${nivel}: a exceção só se aplica à ausência`);
+    }
   } finally { fs.rmSync(raiz, { recursive: true, force: true }); }
 });
 
