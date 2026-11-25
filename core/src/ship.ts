@@ -19,7 +19,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { aprovacoesHumanas, registrarGateBloqueado, registrarGateLiberado } from './gates';
+import { aprovacoesHumanas, reciboHumanoConfere, registrarGateBloqueado, registrarGateLiberado } from './gates';
 import { adquirirRegiao, esperandoPor, liberar, leasesColidentes, LEASE_MAIN_TREE } from './leases';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { dirEstado, ManifestoCarregado } from './manifest';
@@ -44,6 +44,7 @@ import { ErroDoCatalogo, Mensagens, msg, remontar, textoDoCatalogo } from './loc
 import { guardaDaThread, MotivoDaGuarda } from './noctum-guarda';
 import { CONTRATO_DO_RECIBO_DE_PROVA } from './recibo-prova';
 import type { ResultadoPreflightEmpresa } from './rede-empresa-preflight';
+import { motivoDoPedido, PedidoHitlQualquer, validarPedidoHitl } from './hitl-contract';
 
 export interface OpcoesShip {
   /** Revalidação interna confiável; nunca exposta pela CLI/MCP como argumento. */
@@ -514,6 +515,33 @@ export function unscannedCategories(carregado: ManifestoCarregado, sha: string):
   return [...new Set(missing)].sort();
 }
 
+/** A resposta b do pedido tipado vale como a autorização nominal do mesmo SHA e categorias. */
+function autorizacaoRespondidaSemScan(
+  raiz: string,
+  threadId: string,
+  sha: string,
+  categorias: readonly Category[]
+): { por: string; pedidoId: string } | null {
+  const eventos = lerLedger(dirThread(raiz, threadId));
+  for (const evento of [...eventos].reverse()) {
+    if (evento.tipo !== TIPOS_DE_EVENTO.pausaHumana || evento.sobre !== 'escalacao:security.scan-unscanned' ||
+        evento.opcao !== 2 || evento.source !== 'human' || typeof evento.pedidoId !== 'string' ||
+        typeof evento.autorizadoPor !== 'string' || !reciboHumanoConfere(raiz, threadId, evento)) continue;
+    const solicitado = eventos.find(e => e.tipo === 'hitl_requested' &&
+      (e.pedido as { id?: unknown } | undefined)?.id === evento.pedidoId);
+    const pedido = solicitado?.pedido as PedidoHitlQualquer | undefined;
+    try { validarPedidoHitl(pedido); } catch { continue; }
+    if (motivoDoPedido(pedido!) !== 'security.scan-unscanned') continue;
+    const corpo = (pedido as { corpo?: unknown }).corpo;
+    if (!Array.isArray(corpo) || !corpo.every(linha => typeof linha === 'string')) continue;
+    const texto = corpo.join('\n');
+    if (!texto.includes(`Candidata verificada: ${sha}`) ||
+        !texto.includes(`Categorias sem cobertura: ${[...categorias].sort().join(', ')}`)) continue;
+    return { por: evento.autorizadoPor.trim(), pedidoId: evento.pedidoId };
+  }
+  return null;
+}
+
 /**
  * Grava `rollback_done` quando a reversao e nova, e devolve o que encontrou.
  *
@@ -746,7 +774,9 @@ export function ship(
   const naoVarridas = unscannedCategories(carregado, shaDe);
   let autorizariaSemScan: string | null = null;
   if (naoVarridas.length > 0) {
-    const quem = opcoes.allowUnscanned?.trim();
+    const respondida = autorizacaoRespondidaSemScan(raiz, threadId, shaDe, naoVarridas);
+    const pelaFlag = opcoes.allowUnscanned?.trim();
+    const quem = pelaFlag || respondida?.por;
     if (!quem) {
       return bloquear(
         'human.pending',
@@ -756,7 +786,8 @@ export function ship(
     }
     // O ensaio nao grava a autorizacao: so diz, nos passos, o que o ship real gravaria.
     if (r.dryRun) autorizariaSemScan = textoDoCatalogo((m) => m.ship.passoAutorizariaSemScan(quem, naoVarridas.join(', '), shaDe));
-    else registrar(dir, threadId, TIPOS_DE_EVENTO.entregaSemScanAutorizada, { por: quem, categorias: naoVarridas, sha: shaDe });
+    else registrar(dir, threadId, TIPOS_DE_EVENTO.entregaSemScanAutorizada, { por: quem, categorias: naoVarridas, sha: shaDe,
+      ...(pelaFlag ? { origem: 'flag' } : { pedidoId: respondida!.pedidoId, origem: 'resposta-b' }) });
   }
 
   // 4. Lease `main-tree`: so uma thread mergeia por vez.

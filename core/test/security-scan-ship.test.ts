@@ -12,9 +12,12 @@ import { writeReport } from '../src/security-scan/report';
 import type { Category, ScanReport, ToolRun, ToolState } from '../src/security-scan/types';
 import { ship, unscannedCategories } from '../src/ship';
 import { dirThread, novaThread } from '../src/thread';
-import { gravarBaseline } from '../src/verify';
+import { gravarBaseline, verificar } from '../src/verify';
 import { exec } from '../src/util';
 import { commitar, projetoTemporario, ProjetoDeTeste, shaDaBranch, shaNoRemotoDeTeste } from './apoio';
+import { abrirPedidoGate, assinaturaDaResposta, responderGate } from '../src/hitl-gates';
+import { ehV2 } from '../src/hitl-contract';
+import { ENV_HITL_VERIFIERS, publicHitlVerifiers } from '../src/hitl-public-receipt';
 
 /** The declared command is `true`: the ship runs verify first, and only the key matters to the gate. */
 function comScan(p: ProjetoDeTeste, opts: { chave?: boolean; exigeCi?: boolean }): ManifestoCarregado {
@@ -41,6 +44,21 @@ function entrega(p: ProjetoDeTeste) {
   const { thread } = novaThread(p.carregado, { nome: 'scan gate', modo: 'auto', criarWorktree: true });
   const sha = commitar(thread.worktree as string, 'entrega.md', '# x\n', `feat: ${thread.id}`);
   return { thread, sha };
+}
+
+function comFalhaSemRelatorio(p: ProjetoDeTeste): ManifestoCarregado {
+  const b = p.carregado;
+  return { ...b, manifesto: { ...b.manifesto, check: { ...b.manifesto.check, mode: 'classic' },
+    verify: { test: 'true', security_scan: 'false' }, ci: { ...b.manifesto.ci, required_for_ship: false } } };
+}
+
+function ambienteHitlSimulado() {
+  const nomes = ['ORK_HITL_INGRESS_KEY', 'ORK_HITL_TELEGRAM_USERS', 'ORK_HITL_TELEGRAM_CHATS', ENV_HITL_VERIFIERS];
+  const antigos = nomes.map(nome => process.env[nome]);
+  process.env.ORK_HITL_INGRESS_KEY = 'chave-simulada-security-scan-ship-000';
+  process.env.ORK_HITL_TELEGRAM_USERS = '42';
+  process.env.ORK_HITL_TELEGRAM_CHATS = '-7';
+  return () => nomes.forEach((nome, i) => antigos[i] === undefined ? delete process.env[nome] : process.env[nome] = antigos[i]);
 }
 
 type CenarioDaRodada = 'achado-depois-de-baseline-sem-cobertura' | 'achado-e-cobertura-sem-baseline' |
@@ -184,13 +202,89 @@ test('linha C: baseline verde e cobertura ausente permitem somente a autorizacao
     assert.equal(r.ok, true, r.detalhe);
     const eventos = lerLedger(dirThread(p.dir, thread.id));
     assert.deepEqual(eventos.filter(e => e.tipo === 'verify_run').at(-1)!.motivos, ['security.scan-unscanned']);
-    assert.equal(eventos.find(e => e.tipo === 'gate_blocked' && e.motivo === 'security.scan-unscanned')!.fase,
-      thread.faseAtual);
+    const gate = eventos.find(e => e.tipo === 'gate_blocked' && e.motivo === 'security.scan-unscanned')!;
+    assert.equal(gate.fase, undefined, 'o gate genérico do verify preserva o retry anterior');
+    assert.match(String(gate.detalhe), new RegExp(carregado.manifesto.verify.security_scan!.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(String(gate.detalhe), /categorias: sast/);
     const autorizado = eventos.find(e => e.tipo === 'ship_unscanned_authorized')!;
     assert.equal(autorizado.por, 'responsavel');
     assert.equal(autorizado.sha, sha);
     assert.deepEqual(autorizado.categorias, ['sast']);
   } finally { p.limpar(); }
+});
+
+test('linhas D1 e G: falha sem relatório da rodada nunca vira dívida nem atravessa allowUnscanned', () => {
+  for (const linha of ['D1', 'G'] as const) {
+    const p = projetoTemporario(`ss-ship-${linha.toLowerCase()}`, true);
+    try {
+      if (linha === 'G') commitar(p.dir, '.ork-security/dismissals.json', '[{"fingerprint":"x"}]\n', 'dispensa inválida na main');
+      const carregado = comFalhaSemRelatorio(p);
+      const { thread } = novaThread(carregado, { nome: `linha ${linha}`, modo: 'auto', criarWorktree: true });
+      gravarBaseline(carregado, thread.id);
+      commitar(thread.worktree as string, 'entrega.md', '# x\n', `feat: ${thread.id}`);
+      const r = ship(carregado, thread.id, { para: 'main', allowUnscanned: 'responsavel' });
+      assert.equal(r.ok, false, linha);
+      assert.equal(r.motivo, 'verify.failed', linha);
+      const eventos = lerLedger(dirThread(p.dir, thread.id));
+      const rodada = eventos.filter(e => e.tipo === 'verify_run').at(-1)!;
+      assert.deepEqual(rodada.motivos, ['verify.failed'], linha);
+      assert.deepEqual(rodada.preExistentes, [], linha);
+      assert.equal(eventos.some(e => e.tipo === 'ship_unscanned_authorized'), false, linha);
+    } finally { p.limpar(); }
+  }
+});
+
+test('linha F: relatório limpo anterior do mesmo SHA não explica falha da rodada do SHIP', () => {
+  const p = projetoTemporario('ss-ship-linha-f', true);
+  try {
+    const carregado = comFalhaSemRelatorio(p);
+    const { thread } = novaThread(carregado, { nome: 'linha F', modo: 'auto', criarWorktree: true });
+    gravarBaseline(carregado, thread.id);
+    const sha = commitar(thread.worktree as string, 'entrega.md', '# x\n', `feat: ${thread.id}`);
+    gravar(p, sha, [run('gitleaks', 'secret', 'ran'), run('semgrep', 'sast', 'ran')]);
+    const r = ship(carregado, thread.id, { para: 'main' });
+    assert.equal(r.ok, false);
+    assert.equal(r.motivo, 'verify.failed');
+    const rodada = lerLedger(dirThread(p.dir, thread.id)).filter(e => e.tipo === 'verify_run').at(-1)!;
+    assert.deepEqual(rodada.motivos, ['verify.failed']);
+    assert.deepEqual(rodada.preExistentes, []);
+  } finally { p.limpar(); }
+});
+
+test('gate, pedido, resposta b e SHIP usam a autorização nominal autenticada', () => {
+  const p = projetoTemporario('ss-ship-resposta-b', true), restaurar = ambienteHitlSimulado();
+  try {
+    const carregado = comScanDaRodada(p, 'cobertura-depois-de-baseline-verde');
+    const { thread } = novaThread(carregado, { nome: 'resposta b', modo: 'auto', criarWorktree: true });
+    gravarBaseline(carregado, thread.id);
+    const sha = commitar(thread.worktree as string, 'entrega.md', '# x\n', `feat: ${thread.id}`);
+    const verificado = verificar(carregado, thread.id);
+    assert.deepEqual(verificado.motivos, ['security.scan-unscanned']);
+    const quando = new Date().toISOString();
+    const pedido = abrirPedidoGate(p.dir, thread.id, 'security.scan-unscanned', quando);
+    assert.ok(ehV2(pedido) && pedido.classe === 'pergunta');
+    const corpo = pedido.corpo.join('\n');
+    assert.match(corpo, /Categorias sem cobertura: sast/);
+    assert.match(corpo, new RegExp(`Candidata verificada: ${sha}`));
+    assert.doesNotMatch(corpo, /ork ship|--allow-unscanned/);
+    const base = { resposta: 'b', origem: 'telegram' as const, por: 'telegram:42', mensagem: 'telegram:-7:scan-b', recebidoEm: quando };
+    const resposta = { ...base, prova: assinaturaDaResposta(thread.id, pedido.id, base, process.env.ORK_HITL_INGRESS_KEY!) };
+    assert.equal(responderGate(p.dir, thread.id, pedido.id, resposta, quando).estado, 'aguardando');
+    process.env[ENV_HITL_VERIFIERS] = publicHitlVerifiers(process.env)!;
+    delete process.env.ORK_HITL_INGRESS_KEY;
+
+    const r = ship(carregado, thread.id, { para: 'main' });
+    assert.equal(r.ok, true, r.detalhe);
+    const autorizado = lerLedger(dirThread(p.dir, thread.id)).find(e => e.tipo === 'ship_unscanned_authorized')!;
+    assert.equal(autorizado.por, 'telegram:42');
+    assert.equal(autorizado.pedidoId, pedido.id);
+    assert.equal(autorizado.origem, 'resposta-b');
+  } finally { restaurar(); p.limpar(); }
+});
+
+test('o comentário do SHIP identifica o mock de leases que omite motivos', () => {
+  const fonte = fs.readFileSync(path.resolve(__dirname, '../../src/ship.ts'), 'utf8');
+  assert.match(fonte, /mock de teste dos leases devolve apenas `\{ ok \}`/);
 });
 
 test('allowUnscanned nao atravessa cobertura ausente acompanhada de outro bloqueio', () => {

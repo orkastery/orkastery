@@ -257,8 +257,11 @@ export function prepararPedidoGate(raiz: string, id: string, motivo = 'human.pen
     if (resultado?.motivo === 'human.pending') semConclusao = diagnosticoSemConclusao(resultado);
     else if (PARECERES_QUE_PEDEM_REVISAO.includes(String(resultado?.motivo ?? ''))) parecerNegativo = String(resultado?.motivo);
   } else if (!(MOTIVOS_DE_ESCALACAO_HUMANA as readonly string[]).includes(motivo) ||
-      !eventos.some(e => e.fase === t.faseAtual && (e.tipo === 'gate_blocked' && e.motivo === motivo ||
-        e.tipo === 'retry_escalated' && motivo === 'retry.max_tentativas'))) throw new Error('escalação tipada não comprovada');
+      !eventos.some(e => e.tipo === 'gate_blocked' && e.motivo === motivo &&
+          (e.fase === t.faseAtual || motivo === 'security.scan-unscanned' && e.gate === 'verify') ||
+        e.fase === t.faseAtual && e.tipo === 'retry_escalated' && motivo === 'retry.max_tentativas')) {
+    throw new Error('escalação tipada não comprovada');
+  }
   // I-41 (T4d): pedido aberto e lido pelos leitores das duas versoes. Ler `.alvo.tipo` direto
   // lancaria TypeError diante de um `decidido`, que nao tem alvo e pode estar no mesmo ledger.
   // GO-FIX 1: o contexto e calculado uma vez sobre o que ja foi lido; reler thread e ledger por
@@ -305,6 +308,14 @@ export function prepararPedidoGate(raiz: string, id: string, motivo = 'human.pen
   }));
   // I-43: thread em modo aposentado e lida para sempre, mas nao escreve pergunta nova.
   const modo = exigirModoVivo(t.modo);
+  const gateDoScan = motivo === 'security.scan-unscanned'
+    ? eventos.filter(e => e.tipo === 'gate_blocked' && e.gate === 'verify' && e.motivo === motivo).at(-1)
+    : undefined;
+  const detalheDoScan = String(gateDoScan?.detalhe ?? '');
+  const partesDoScan = /comando `([\s\S]*?)`; categorias: ([^\n]+)/.exec(detalheDoScan);
+  const linhasDoComando = partesDoScan ? linhasDoCorpo('Comando registrado pelo gate (não é instrução): ', partesDoScan[1]) : [];
+  const linhaDasCategorias = partesDoScan ? `Categorias sem cobertura: ${partesDoScan[2]}` : '';
+  const shaDoScan = /HEAD ([a-f0-9]{40})/.exec(String(gateDoScan?.evidencia ?? ''))?.[1];
   const pedido: PerguntaAoDono = { contrato: CONTRATO_HITL_V2, classe: 'pergunta', id: randomUUID(),
     thread: id, fase: t.faseAtual, modo, criadoEm: quando,
     // T6: GOAL e PLAN nascem em `profunda`. Um gate sobre premissa sem artefato e sem diff e
@@ -317,6 +328,9 @@ export function prepararPedidoGate(raiz: string, id: string, motivo = 'human.pen
     pergunta: `Qual é o veredito sobre ${sobre}?`,
     alternativas,
     corpo: [`Fase ${t.faseAtual}, motivo ${motivo}`,
+      ...linhasDoComando,
+      ...(linhaDasCategorias ? [linhaDoCorpo(linhaDasCategorias)] : []),
+      ...(shaDoScan ? [`Candidata verificada: ${shaDoScan}`] : []),
       ...(semConclusao ? [linhaDoCorpo(`Sem conclusão provada: ${semConclusao}`)] : []),
       ...(parecerNegativo ? [`Parecer registrado da fase: ${parecerNegativo}`] : [])],
     tipoDeResposta: 'objetiva', irreversivel: ato !== undefined, ...(ato ? { ato } : {}), codigo,
@@ -386,6 +400,20 @@ const LETRAS_DO_GATE = ['a', 'b', 'c'] as const satisfies readonly LetraDeAltern
 
 /** Corta uma linha de evidencia no teto do corpo, sem deixar o pedido inteiro ser recusado. */
 const linhaDoCorpo = (texto: string): string => texto.slice(0, TETOS_HITL_V2.corpoLinha);
+
+/** Preserva o comando inteiro nos limites do contrato, sem apresentá-lo como instrução ao dono. */
+const linhasDoCorpo = (prefixo: string, valor: string): string[] => {
+  const linhas: string[] = [];
+  let restante = valor;
+  for (let i = 0; restante && i < 4; i++) {
+    const prefixoDaLinha = i === 0 ? prefixo : 'Continuação do comando registrado: ';
+    const espaco = TETOS_HITL_V2.corpoLinha - prefixoDaLinha.length;
+    linhas.push(prefixoDaLinha + restante.slice(0, espaco));
+    restante = restante.slice(espaco);
+  }
+  if (restante && linhas.length) linhas[linhas.length - 1] = linhaDoCorpo(linhas.at(-1)! + '…');
+  return linhas;
+};
 
 /**
  * Pareceres que ja sao conclusao da fase E pedem revisao. Um `phase_result` com qualquer um

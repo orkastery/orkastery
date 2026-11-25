@@ -1063,6 +1063,8 @@ export interface EntradaDoJulgamentoVerify {
   securityScanSemCobertura?: CoberturaAusenteDoSecurityScan | null;
   /** O relatorio produzido nesta rodada tem achado `new` do laco. */
   securityScanComAchadoNovo?: boolean;
+  /** A falha do scan tem um relatorio do mesmo SHA produzido dentro desta rodada. */
+  securityScanRelatorioDaRodada?: boolean;
   preparo?: ResultadoDeComando | null;
   produtoAlterado?: boolean;
   policyViolada?: boolean;
@@ -1120,15 +1122,6 @@ export function evidenciaDoSecurityScan(
   };
 }
 
-export function coberturaAusenteDoSecurityScan(
-  raiz: string,
-  commit: string,
-  comandos: readonly ResultadoDeComando[],
-  inicioDaRodadaMs = 0
-): CoberturaAusenteDoSecurityScan | null {
-  return evidenciaDoSecurityScan(raiz, commit, comandos, inicioDaRodadaMs).coberturaAusente;
-}
-
 /**
  * Julga os resultados já executados. O adaptador local persiste o resultado; o runner usa a mesma
  * decisão em memória e nunca recebe ledger ou diretório de estado.
@@ -1167,6 +1160,15 @@ export function julgarResultadoDoVerify(entrada: EntradaDoJulgamentoVerify): Jul
         if (comparacao) comparacoes.push(comparacao);
         preExistentes.push(atual);
       }
+      continue;
+    }
+    // A34: baseline vermelha nao explica a falha atual do scan. Sem relatorio desta rodada, ou
+    // com relatorio atual que nao traz nem achado novo do laco nem categoria sem cobertura, a
+    // falha fica no bucket bloqueante de `verify.failed` e nunca vira divida pre-existente.
+    if (atual.nome === 'security_scan' && !atual.ok &&
+        (!entrada.securityScanRelatorioDaRodada ||
+          (!entrada.securityScanComAchadoNovo && !entrada.securityScanSemCobertura))) {
+      falhasSemBaseline.push(atual);
       continue;
     }
     if (!antes || vereditoDaBaseline(antes) === 'sem-veredito') {
@@ -1595,6 +1597,7 @@ function verificarSobConducao(
   const securityScanSemCobertura = evidenciaSecurityScan.coberturaAusente;
   const julgamento = julgarResultadoDoVerify({ claims, comandos, baseline, securityScanSemCobertura,
     securityScanComAchadoNovo: evidenciaSecurityScan.achadoNovoNoLaco,
+    securityScanRelatorioDaRodada: evidenciaSecurityScan.relatorioDaRodada,
     preparo: preparo?.resultado ?? null, produtoAlterado, policyViolada: dadoPrivadoBloqueia.length > 0 });
   const { regressoes, preExistentes, falhasSemBaseline, comparacoes, estouros, naoExecutados,
     baselineSemVeredito, motivos, bloqueantes, ok } = julgamento;
@@ -1679,7 +1682,6 @@ function verificarSobConducao(
       gate: 'verify',
       motivo,
       modo: thread.modo,
-      fase: thread.faseAtual,
       detalhe:
         motivo === 'claims.failed'
           ? claims

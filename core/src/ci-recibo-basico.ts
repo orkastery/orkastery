@@ -406,6 +406,7 @@ export function reexecutarProjecaoReplayCi(valor: unknown, opcoes: OpcoesReplayC
     const securityScanSemCobertura = evidenciaSecurityScan.coberturaAusente;
     const julgamento = julgarResultadoDoVerify({ claims, comandos: commands, baseline: null,
       securityScanSemCobertura, securityScanComAchadoNovo: evidenciaSecurityScan.achadoNovoNoLaco,
+      securityScanRelatorioDaRodada: evidenciaSecurityScan.relatorioDaRodada,
       preparo, produtoAlterado });
     const falhaReal = preparo?.ok === false || claims.some((claim) => !claim.verificado) || commands.some((command) => !command.ok);
     if (degradacao) return { ok: !falhaReal, thread: projecao.thread, commit: opcoes.head, preparo, claims, commands,
