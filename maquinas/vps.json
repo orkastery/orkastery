@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.10",
-  "publicadoEm": "2026-11-25T02:00:52.173Z",
+  "publicadoEm": "2026-11-25T02:15:04.144Z",
   "threads": [
     {
       "id": "ork-macosportave",
@@ -24,7 +24,7 @@
       "esforco": null,
       "sessao": {
         "viva": false,
-        "desdeEm": "2026-11-25T02:00:41.107Z",
+        "desdeEm": "2026-11-25T02:13:42.190Z",
         "motivo": "nenhuma sessão despachada na fase GOAL"
       }
     },
@@ -68,7 +68,7 @@
       "esforco": null,
       "sessao": {
         "viva": false,
-        "desdeEm": "2026-11-25T02:00:51.589Z",
+        "desdeEm": "2026-11-25T02:04:37.661Z",
         "motivo": "nenhuma sessão despachada na fase GOAL"
       }
     },
