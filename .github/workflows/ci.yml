@@ -148,6 +148,9 @@ jobs:
         run: npm ci
         working-directory: core
 
+      - name: testar trava portátil com dois processos
+        run: npm --prefix core run build:test && node --test core/dist-test/test/trava-portatil.test.js core/dist-test/test/macos-locks.test.js
+
       - name: provar tarball, demo e primeira thread
         run: node core/scripts/provar-macos-instalado.cjs
 

@@ -43,7 +43,7 @@ jobs:
         run: node core/scripts/provar-grafo-instalado.cjs
 
   provar-portabilidade-macos:
-    name: pacote instalado e quickstart no macOS
+    name: prova de publicação do pacote no macOS
     runs-on: macos-latest
     permissions:
       contents: read
@@ -58,6 +58,8 @@ jobs:
       - name: instalar e compilar
         run: npm ci && npm run build
         working-directory: core
+      - name: testar trava portátil com dois processos
+        run: npm --prefix core run build:test && node --test core/dist-test/test/trava-portatil.test.js core/dist-test/test/macos-locks.test.js
       - name: provar tarball, worktree, claim e verify
         run: node core/scripts/provar-macos-instalado.cjs
 
