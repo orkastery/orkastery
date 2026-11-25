@@ -345,8 +345,7 @@ for (const [chave, rotulo, trechoPrivado] of [
 }
 
 test('issue 299: chave sem valor é recusada com nome e escopo', async () => fixture(async f => {
-  const gitdir = path.resolve(f.wt, /^gitdir: (.+)\s*$/.exec(fs.readFileSync(path.join(f.wt, '.git'), 'utf8'))![1].trim());
-  fs.appendFileSync(path.join(gitdir, 'config'), '[pull]\n\trebase\n');
+  fs.appendFileSync(path.join(f.raiz, '.git', 'config'), '[pull]\n\trebase\n');
   const r = await commitMcp(f.raiz, f.pedido);
   assert.equal(r.ok, false);
   assert.equal(r.erro, 'mcp.git.execution-profile.unsupported: configuracao preservada (pull.rebase, local)');
