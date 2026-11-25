@@ -32,6 +32,27 @@ const ESPERADO = { project: 'projeto-fixture', source: 'feature/fixture', target
 const AGORA = '2026-11-25T00:00:00.000Z', EXPIRA = '2026-12-01T00:00:00.000Z';
 const RAIZ = path.resolve(__dirname, '../../..');
 const ler = (arquivo: string): string => fs.readFileSync(path.join(RAIZ, arquivo), 'utf8');
+const yaml = require('js-yaml') as { loadAll(texto: string): unknown[] };
+type Mapa = Record<string, unknown>;
+const mapa = (valor: unknown): Mapa => valor as Mapa;
+const lista = (valor: unknown): Mapa[] => valor as Mapa[];
+
+function documentosYaml(arquivo: string): Mapa[] {
+  return yaml.loadAll(ler(arquivo)).filter((valor): valor is Mapa => !!valor && typeof valor === 'object');
+}
+
+function passoPorAcao(job: Mapa, acao: string): Mapa {
+  const passo = lista(job.steps).find((item) => typeof item.uses === 'string' && item.uses.startsWith(acao));
+  assert.ok(passo, `${acao} precisa existir`);
+  return passo;
+}
+
+function refResolvidaDoCheckout(passo: Mapa, evento: { base: string; head: string }): string {
+  const ref = mapa(passo.with).ref;
+  if (ref === '${{ github.event.pull_request.base.sha }}') return evento.base;
+  if (ref === '${{ github.event.pull_request.head.sha }}') return evento.head;
+  return String(ref ?? '');
+}
 
 function carregadoDoCi(raiz: string, nivel: 'observar' | 'avisar' | 'exigir' = 'exigir'): ManifestoCarregado {
   return { raiz, caminho: path.join(raiz, 'orkastery.yaml'), legado: false, bytes: 0, erros: [], avisos: [], manifesto: {
@@ -194,28 +215,54 @@ test('o cliente protegido confina token e resposta bruta e devolve só resultado
   if (!resultado.aplicado) assert.equal(resultado.code, 'ci.excecao.transporte-indisponivel');
 });
 
-test('as receitas das duas forjas separam replay e launcher pinado', () => {
-  const github = ler('.github/workflows/ci.yml');
-  assert.match(github, /pull_request:/);
-  assert.doesNotMatch(github, /pull_request_target|id-token/);
-  assert.match(github, /ork-verify:[\s\S]*persist-credentials: false/);
-  const protegido = ler('.github/workflows/ork-excecao-transporte.yml');
-  assert.match(protegido, /workflow_call:/);
-  assert.match(protegido, /id-token: write/);
-  assert.match(protegido, /pull_request\.base\.sha/);
-  assert.match(protegido, /sha256sum --check --strict/);
-  assert.match(protegido, /actions\/checkout@[a-f0-9]{40}/);
-  assert.match(protegido, /actions\/setup-node@[a-f0-9]{40}/);
-  assert.doesNotMatch(protegido, /pull_request_target/);
-  const componente = ler('templates/ork-verify/template.yml');
-  const gitlab = ler('templates/gitlab/ork-verify.yml');
-  for (const receita of [componente, gitlab]) {
-    assert.match(receita, /ORK_FABRICA_ID_TOKEN/);
-    assert.match(receita, /urn:orkastery:fabrica:ci/);
-    assert.match(receita, /sha256sum --check --strict/);
-    assert.match(receita, /GIT_STRATEGY: "none"/);
-    assert.match(receita, /ci-fabrica-transporte\.js/);
-  }
+test('receitas executam fonte, configuração, cliente e credencial em fronteiras distintas', () => {
+  const ci = documentosYaml('.github/workflows/ci.yml')[0];
+  const orkVerify = mapa(mapa(ci.jobs)['ork-verify']);
+  const checkoutDoReplay = passoPorAcao(orkVerify, 'actions/checkout@');
+  assert.equal(mapa(checkoutDoReplay.with)['persist-credentials'] ?? true, false,
+    'o checkout do replay não persiste credencial');
+
+  const protegido = documentosYaml('.github/workflows/ork-excecao-transporte.yml')[0];
+  const jobsGithub = mapa(protegido.jobs);
+  const preparar = mapa(jobsGithub['preparar-cliente']);
+  const privilegiado = mapa(jobsGithub['ork-excecao-transporte']);
+  assert.equal('id-token' in mapa(preparar.permissions), false, 'preparação não recebe OIDC');
+  assert.equal(mapa(privilegiado.permissions)['id-token'], 'write');
+  const checkoutDaTarget = passoPorAcao(preparar, 'actions/checkout@');
+  assert.equal(refResolvidaDoCheckout(checkoutDaTarget, { base: 'base-protegida', head: 'head-do-pr' }),
+    'base-protegida', 'a configuração e o pino vêm da base');
+  const checkoutDaFonte = passoPorAcao(privilegiado, 'actions/checkout@');
+  assert.equal(refResolvidaDoCheckout(checkoutDaFonte, { base: 'base-protegida', head: 'head-do-pr' }), 'head-do-pr');
+  assert.equal(mapa(checkoutDaFonte.with)['persist-credentials'] ?? true, false);
+  const comandosPrivilegiados = lista(privilegiado.steps).flatMap((passo) =>
+    typeof passo.run === 'string' ? [passo.run] : []).join('\n');
+  assert.doesNotMatch(comandosPrivilegiados, /npm\s+(?:ci|install|pack)/,
+    'o job com OIDC não obtém nem instala pacote');
+  assert.match(comandosPrivilegiados, /dist\/index\.js" ci run --branch/);
+
+  const pacote = JSON.parse(ler('core/package.json')) as { bundleDependencies?: unknown };
+  assert.equal(pacote.bundleDependencies, true, 'o digest do tarball cobre a árvore de produção embutida');
+
+  const [spec, jobsComponente] = documentosYaml('templates/ork-verify/template.yml');
+  assert.equal(mapa(mapa(mapa(spec.spec).inputs).transporte_habilitado).default, false,
+    'sem opt-in o componente continua válido');
+  const prepararComponente = mapa(jobsComponente['$[[ inputs.contexto ]]-preparar-cliente']);
+  const finalComponente = mapa(jobsComponente['$[[ inputs.contexto ]]']);
+  assert.equal('id_tokens' in prepararComponente, false);
+  const scriptComponente = (finalComponente.script as string[]).join('\n');
+  assert.ok(scriptComponente.indexOf('unset ORK_FABRICA_ID_TOKEN') < scriptComponente.indexOf('npm install'),
+    'sem opt-in o token sai antes da instalação');
+  assert.match(scriptComponente, /--ignore-scripts/);
+  assert.match(scriptComponente, /ORK_TARGET_PROTEGIDA_DIR/);
+
+  const jobsGitlab = documentosYaml('templates/gitlab/ork-verify.yml')[0];
+  const prepararGitlab = mapa(jobsGitlab['ork-cliente-protegido']);
+  const finalGitlab = mapa(jobsGitlab['ork-verify']);
+  assert.equal('id_tokens' in prepararGitlab, false);
+  const scriptGitlab = (finalGitlab.script as string[]).join('\n');
+  assert.ok(scriptGitlab.indexOf('unset ORK_FABRICA_ID_TOKEN') < scriptGitlab.indexOf('npm install'));
+  assert.match(scriptGitlab, /--ignore-scripts/);
+  assert.match(scriptGitlab, /ORK_TARGET_PROTEGIDA_DIR/);
 });
 
 test('launcher reutilizável usa o PR original só como localizador', () => {
