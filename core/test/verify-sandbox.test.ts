@@ -5,7 +5,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { criarExecutorSandbox, ResultadoSandbox } from '../src/verify-sandbox';
+import { argumentosDoExecutorSandbox, criarExecutorSandbox, ResultadoSandbox } from '../src/verify-sandbox';
 import { executar, gravarBaseline, verificar } from '../src/verify';
 import { adicionarClaim } from '../src/claims';
 import { ship } from '../src/ship';
@@ -15,6 +15,13 @@ import { commitar, projetoTemporario } from './apoio';
 import { semCodexSandbox } from './ambiente-de-teste';
 
 const q = (s: string) => "'" + s.replace(/'/g, "'\\''") + "'";
+
+test('argumentos do sandbox usam o shell controlado medido', () => {
+  const args = argumentosDoExecutorSandbox({ fixture: true }, { caminho: '/usr/bin/bash', versao: '5.3.0-rc1' }, 'true');
+  assert.deepEqual(args.slice(-3), ['/usr/bin/bash', '-c', 'true']);
+  assert.equal(args.includes('/bin/bash'), false);
+});
+
 function fixture() {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-test-sandbox-'));
   const wt = path.join(base, 'wt'); fs.mkdirSync(wt); fs.mkdirSync(path.join(wt, '.git'));
@@ -29,6 +36,7 @@ test('sandbox real permite WT, bloqueia externo, symlink, Git e rede, preservand
   try {
     const positivo = f.e.executar('ok', 'echo real-output; echo gravado > local.txt', f.wt) as ResultadoSandbox;
     assert.equal(positivo.ok, true, positivo.resumo); assert.match(positivo.stdout, /real-output/);
+    assert.ok(positivo.shell?.caminho === '/bin/bash' || positivo.shell?.caminho === '/usr/bin/bash');
     assert.equal(fs.readFileSync(path.join(f.wt, 'local.txt'), 'utf8'), 'gravado\n');
     fs.symlinkSync(f.externo, path.join(f.wt, 'atalho'));
     for (const comando of [`echo fuga > ${q(f.externo)}`, 'echo fuga > atalho', 'echo fuga > .git/sentinel']) {

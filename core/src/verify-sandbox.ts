@@ -9,8 +9,15 @@ import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { ResultadoDeComando } from './types';
 import { ExecutorVerify, TIMEOUT_VERIFY_MS } from './verify';
+import { exigirShellDoVerify } from './shell-do-verify';
+import type { ShellDoVerify } from './types';
 
 const MAX_OUTPUT = 1024 * 1024;
+
+export function argumentosDoExecutorSandbox(estado: object, shell: ShellDoVerify, comando: string): string[] {
+  return ['sandbox', '--sandbox-state-json', JSON.stringify(estado), '--sandbox-state-disable-network',
+    shell.caminho, '-c', comando];
+}
 /** Supervisor Linux fixo: subreaper recolhe também daemons/setsid.
  * Nunca executa código de claim fora do sandbox. Python é infraestrutura local, sem pacotes. */
 const SUPERVISOR = String.raw`
@@ -107,6 +114,7 @@ export function criarExecutorSandbox(opcoes: OpcoesExecutorSandbox): { executar:
   // Binário local aprovado da instalação; não procuramos executável fornecido pela claim.
   const bin = fs.realpathSync('/usr/bin/codex');
   const binStat = fs.statSync(bin);
+  const shell = exigirShellDoVerify();
   const isolamento = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-verify-config-'));
   if (fs.realpathSync(isolamento) === worktree || fs.realpathSync(isolamento).startsWith(worktree + path.sep)) {
     fs.rmdirSync(isolamento);throw Error('scratch VERIFY deve ficar fora da worktree');
@@ -157,8 +165,7 @@ export function criarExecutorSandbox(opcoes: OpcoesExecutorSandbox): { executar:
       const env = { PATH: '/usr/local/bin:/usr/bin:/bin', HOME: home, CODEX_HOME: codexHome,
         TMPDIR: tmp, TMP: tmp, TEMP: tmp, LANG: 'C.UTF-8', CI: '1',
         XDG_CACHE_HOME: path.join(home, '.cache'), npm_config_cache: path.join(home, '.npm') };
-      const args = ['sandbox', '--sandbox-state-json', JSON.stringify(estadoSandbox(worktree,scratch)),
-        '--sandbox-state-disable-network', '/bin/bash', '-c', comando];
+      const args = argumentosDoExecutorSandbox(estadoSandbox(worktree, scratch), shell, comando);
       consumidoresEncerrados=false;
       const r = spawnSync('/usr/bin/python3', ['-c', SUPERVISOR], {
         input: JSON.stringify({ bin, args, cwd: worktree, env, timeoutMs, maxOutput: MAX_OUTPUT }),
@@ -181,7 +188,7 @@ export function criarExecutorSandbox(opcoes: OpcoesExecutorSandbox): { executar:
       const stderr = resultado.stderr + (resultado.failure ? '\n' + resultado.failure : '');
       const resumo = (resultado.stdout + '\n' + stderr).trim().split('\n').slice(-10).join('\n').slice(-800);
       return { nome, comando, ok: resultado.code === 0 && !resultado.failure, code: resultado.code,
-        resumo, stdout: resultado.stdout, stderr, executor: 'codex-sandbox' };
+        resumo, stdout: resultado.stdout, stderr, executor: 'codex-sandbox', shell };
     } finally {
       if(!consumidoresEncerrados) {
         erroCleanup='cleanup incompleto: consumidores não comprovadamente encerrados; temporários preservados: '+isolamento;

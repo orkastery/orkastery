@@ -1558,6 +1558,7 @@ function verificarSobConducao(
         duracaoMs: c.execucoes.reduce((t, e) => t + (e.duracaoMs ?? 0), 0),
         // RM-072 (D5): no Agile, o que a guarda fez com cada comando da claim.
         ...(execucoesSeguras.some((e) => e.preparo) ? { preparo: execucoesSeguras.map((e) => e.preparo ?? null) } : {}),
+        ...(execucoesSeguras.some((e) => e.shell) ? { shell: execucoesSeguras.map((e) => e.shell ?? null) } : {}),
         ...(c.execucoes.some((e) => e.agendamento) ? { agendamento: c.execucoes.map((e) => e.agendamento ?? null) } : {}),
         ...(c.execucoes.some((e) => e.lane) ? { lane: c.execucoes.map((e) => e.lane ?? null) } : {}),
         ...(falhou ? { execucao: comandoNoLedger(falhou) } : {}),
