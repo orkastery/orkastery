@@ -482,9 +482,11 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
     detalhe: `v${process.versions.node}`,
     correcao: major >= 20 ? undefined : msg().doctor.instaleNode,
   });
+  if (analisadores) checks.push(analisadores());
+  // O grafo é aberto pelo index.ts e seu check permanece imediatamente após Node (KG1/RM-031).
+  // As capacidades transversais novas vêm em seguida, sem esconder nem deslocar essa fronteira.
   checks.push(checarTravaPortatil());
   checks.push(checarShellDoVerify());
-  if (analisadores) checks.push(analisadores());
 
   const git = noPath('git');
   checks.push({
