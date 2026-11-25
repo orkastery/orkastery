@@ -8,8 +8,9 @@
  */
 import * as fsSemTipo from 'node:fs';
 import * as pathSemTipo from 'node:path';
+import * as osSemTipo from 'node:os';
 import { createHash as createHashSemTipo, randomUUID as randomUUIDSemTipo } from 'node:crypto';
-import { spawnSync as spawnSyncSemTipo } from 'node:child_process';
+import { spawn as spawnSemTipo, spawnSync as spawnSyncSemTipo } from 'node:child_process';
 import { performance as performanceSemTipo } from 'node:perf_hooks';
 import { Worker as WorkerSemTipo } from 'node:worker_threads';
 
@@ -22,6 +23,7 @@ export interface EstatisticaDeArquivo {
   readonly mode: number;
   readonly nlink: number;
   readonly uid: number;
+  readonly gid: number;
   readonly size: number;
   readonly mtimeMs: number;
   isDirectory(): boolean;
@@ -41,20 +43,25 @@ interface ConstantesDeArquivo {
 
 interface SistemaDeArquivos {
   readonly constants: ConstantesDeArquivo;
+  appendFileSync(caminho: string, dados: string, opcoes?: unknown): void;
   closeSync(fd: number): void;
   existsSync(caminho: string): boolean;
   fstatSync(fd: number): EstatisticaDeArquivo;
   fsyncSync(fd: number): void;
   ftruncateSync(fd: number, tamanho?: number): void;
   lstatSync(caminho: string): EstatisticaDeArquivo;
+  lstatSync(caminho: string, opcoes: { throwIfNoEntry: false }): EstatisticaDeArquivo | undefined;
   mkdirSync(caminho: string, opcoes: { recursive: true; mode: number }): string | undefined;
+  mkdtempSync(prefixo: string): string;
   openSync(caminho: string, flags: string | number, mode?: number): number;
   readFileSync(caminho: string | number, codificacao: 'utf8'): string;
   readdirSync(caminho: string): string[];
   readlinkSync(caminho: string): string;
   realpathSync(caminho: string): string;
   renameSync(origem: string, destino: string): void;
-  rmSync(caminho: string, opcoes: { force: true }): void;
+  rmdirSync(caminho: string): void;
+  rmSync(caminho: string, opcoes: { recursive?: boolean; force: boolean }): void;
+  statSync(caminho: string): EstatisticaDeArquivo;
   statSync(caminho: string, opcoes: { throwIfNoEntry: false }): EstatisticaDeArquivo | undefined;
   unlinkSync(caminho: string): void;
   writeFileSync(caminho: string | number, dados: string | Uint8Array, opcoes?: unknown): void;
@@ -67,13 +74,25 @@ interface Caminhos {
   dirname(caminho: string): string;
   isAbsolute(caminho: string): boolean;
   join(...partes: string[]): string;
+  parse(caminho: string): { root: string };
+  relative(de: string, para: string): string;
   resolve(...partes: string[]): string;
+  readonly sep: string;
+}
+
+interface SistemaOperacional {
+  availableParallelism(): number;
+  tmpdir(): string;
 }
 
 type EntradaStdio = 'ignore' | 'pipe' | 'inherit' | number;
 
 interface OpcoesDeProcessoFilho {
+  cwd?: string;
   encoding?: 'utf8';
+  input?: string;
+  killSignal?: string;
+  maxBuffer?: number;
   timeout?: number;
   stdio?: EntradaStdio | readonly EntradaStdio[];
   env?: Record<string, string | undefined>;
@@ -84,6 +103,22 @@ interface ResultadoDeProcessoFilho {
   readonly status: number | null;
   readonly stdout: string;
   readonly stderr: string;
+}
+
+export interface ErroDeProcessoFilho extends Error { readonly code?: string }
+
+interface ProcessoFilhoTipado {
+  readonly pid?: number;
+  on(evento: 'error', listener: (erro: ErroDeProcessoFilho) => void): ProcessoFilhoTipado;
+  on(evento: 'close', listener: (codigo: number | null, sinal: string | null) => void): ProcessoFilhoTipado;
+}
+
+interface OpcoesDeSpawn {
+  cwd?: string;
+  env?: Record<string, string | undefined>;
+  stdio?: readonly EntradaStdio[];
+  timeout?: number;
+  killSignal?: string;
 }
 
 interface HashTipado {
@@ -108,6 +143,7 @@ export interface ProcessoTipado {
   readonly ppid: number;
   readonly platform: PlataformaNode;
   readonly env: Record<string, string | undefined>;
+  readonly execPath: string;
   cwd(): string;
   getuid?: () => number;
   kill(pid: number, sinal: 0): boolean;
@@ -117,10 +153,13 @@ interface BufferTipado { from(valor: string, codificacao: 'utf8'): Uint8Array }
 
 export const fs = fsSemTipo as unknown as SistemaDeArquivos;
 export const path = pathSemTipo as unknown as Caminhos;
+export const os = osSemTipo as unknown as SistemaOperacional;
 export const randomUUID = randomUUIDSemTipo as unknown as () => string;
 export const createHash = createHashSemTipo as unknown as (algoritmo: 'sha256') => HashTipado;
 export const spawnSync = spawnSyncSemTipo as unknown as
   (comando: string, argumentos: string[], opcoes: OpcoesDeProcessoFilho) => ResultadoDeProcessoFilho;
+export const spawn = spawnSemTipo as unknown as
+  (comando: string, argumentos: string[], opcoes: OpcoesDeSpawn) => ProcessoFilhoTipado;
 export const performance = performanceSemTipo as unknown as PerformanceTipada;
 export const Worker = WorkerSemTipo as unknown as ConstrutorDeWorker;
 export const processo = (globalThis as unknown as { process: ProcessoTipado }).process;

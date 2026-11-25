@@ -9,7 +9,7 @@
  * relatorio do CHECK, o prazo interno do scan). O item que nomeia outros em `apos` so comeca quando eles terminam (a lane
  * de integracao depois da varredura), e `maxParalelo` limita quantos rodam ao mesmo tempo.
  */
-import { spawn, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -22,12 +22,17 @@ import { TESTES_DE_INTEGRACAO_LOCAL } from './integracoes-locais';
 import { ambienteFuncionalDosTestes } from './ambiente-funcional';
 import { exigirShellDoVerify, resolverShellDoVerify, ShellDoVerifyIndisponivel } from './shell-do-verify';
 import type { ShellDoVerify } from './types';
+import {
+  type ErroDeProcessoFilho, fs as fsTipado, os as osTipado, path as pathTipado, processo, spawn,
+} from './node-portavel';
 
 const TIMEOUT_BIN = '/usr/bin/timeout';
 const NICE_BIN = '/usr/bin/nice';
 const TIME_BIN = '/usr/bin/time';
 const CONTRATO_PERFIL_INTEGRACAO = 'ork.check.cpu-integracao/v2';
 const INTERVALO_CPU_MS = 100;
+const ambienteFuncionalTipado = ambienteFuncionalDosTestes as unknown as
+  (base: Record<string, string | undefined>, extra: Record<string, string>) => Record<string, string | undefined>;
 
 /** Um comando do grupo. */
 export interface ItemParalelo {
@@ -395,9 +400,9 @@ function sondarCpuDaIntegracao(pid: number, registro: string, cpus: number): { a
  * lado das saidas.
  */
 async function rodarEspecificacao(esp: Especificacao): Promise<void> {
-  const comGrupo = fs.existsSync(TIMEOUT_BIN);
+  const comGrupo = fsTipado.existsSync(TIMEOUT_BIN);
   const usaAgendador = esp.itens.some((i) => i.papelCpu === 'hermetica');
-  const cpus = esp.cpus ?? os.availableParallelism();
+  const cpus = esp.cpus ?? osTipado.availableParallelism();
   const chaveDoPerfil = usaAgendador ? chaveDoPerfilIntegracao(esp.itens, cpus) : null;
   const perfil = esp.medicaoCpu?.cpusIntegracao === undefined ? lerPerfilIntegracao(chaveDoPerfil, cpus) : null;
   const medicao = esp.medicaoCpu ?? await medirCpuDoGrupo();
@@ -407,7 +412,7 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
   const cadeiasDeClaims = esp.itens.filter((i) => i.papelCpu === 'claim'
     && !(i.apos ?? []).some((nome) => nomesDasClaims.has(nome))).length;
   const plano = usaAgendador ? planejarCpuDoGrupo(cpus, medicao, { cadeiasDeClaims }) : undefined;
-  const sinalDaReserva = plano && !plano.saturado ? path.join(esp.dir, 'reserva-devolvida.json') : undefined;
+  const sinalDaReserva = plano && !plano.saturado ? pathTipado.join(esp.dir, 'reserva-devolvida.json') : undefined;
   const itens = plano ? aplicarPlanoCpu(esp.itens, plano, sinalDaReserva) : esp.itens;
   const tetoInformado = esp.maxParalelo && esp.maxParalelo > 0 ? esp.maxParalelo : itens.length;
   const limite = limiteDeVagas(Math.max(1, Math.min(tetoInformado, workersDaReserva(cpus))));
@@ -452,7 +457,7 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
       await Promise.all(pecas.map((item) => vezDoItem(item, indice.get(item.nome)!)));
       const registro = aplicarDevolucaoDaReserva(vagas, plano!.capacidadeEfetiva, origem, devolucoes[origem], new Date().toISOString());
       vagas = registro.vagas;
-      fs.appendFileSync(sinalDaReserva, JSON.stringify(registro) + '\n', { mode: 0o600 });
+      fsTipado.appendFileSync(sinalDaReserva, JSON.stringify(registro) + '\n', { mode: 0o600 });
     };
     const devolverInfraestrutura = plano!.integracaoEmParalelo
       ? Promise.all([degrau('varredura', varreduras), degrau('integracao', integracoes)])
@@ -475,29 +480,30 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
     const cotas = terminados.flatMap((t) => t.cotaDocker ? [t.cotaDocker] : []);
     plano.cotaDosContainersDaIntegracao = cotas.find((x) => x.estado === 'fallback') ?? cotas.at(-1);
   }
-  fs.writeFileSync(path.join(esp.dir, 'resultado.json'), JSON.stringify({ terminados, ...(plano ? { agendamentoCpu: plano } : {}) }), { mode: 0o600 });
+  fsTipado.writeFileSync(pathTipado.join(esp.dir, 'resultado.json'),
+    JSON.stringify({ terminados, ...(plano ? { agendamentoCpu: plano } : {}) }), { mode: 0o600 });
 
   function lancar(item: ItemParalelo, i: number): Promise<Terminado> {
     return new Promise<Terminado>((resolve) => {
-      const saida = fs.openSync(path.join(esp.dir, `${i}.out`), 'w', 0o600);
-      const erro = fs.openSync(path.join(esp.dir, `${i}.err`), 'w', 0o600);
+      const saida = fsTipado.openSync(pathTipado.join(esp.dir, `${i}.out`), 'w', 0o600);
+      const erro = fsTipado.openSync(pathTipado.join(esp.dir, `${i}.err`), 'w', 0o600);
       const inicio = Date.now();
       const medirIntegracao = item.papelCpu === 'integracao';
-      const registro = path.join(esp.dir, `${i}.containers.jsonl`);
-      const tempo = path.join(esp.dir, `${i}.tempo`);
-      if (medirIntegracao) fs.writeFileSync(registro, '', { mode: 0o600 });
+      const registro = pathTipado.join(esp.dir, `${i}.containers.jsonl`);
+      const tempo = pathTipado.join(esp.dir, `${i}.tempo`);
+      if (medirIntegracao) fsTipado.writeFileSync(registro, '', { mode: 0o600 });
       const shell = item.argv?.length ? null
         : esp.shellDoVerify === undefined ? resolverShellDoVerify() : esp.shellDoVerify;
       let base: string[];
-      try { base = argvDoItem(item, comGrupo, fs.existsSync(NICE_BIN), shell); }
+      try { base = argvDoItem(item, comGrupo, fsTipado.existsSync(NICE_BIN), shell); }
       catch (e) {
-        fs.closeSync(saida); fs.closeSync(erro);
+        fsTipado.closeSync(saida); fsTipado.closeSync(erro);
         const erroDoShell = e instanceof ShellDoVerifyIndisponivel ? e.code : (e as Error).message;
         resolve({ nome: item.nome, code: null, signal: null, error: erroDoShell,
           duracaoMs: Date.now() - inicio, comGrupo });
         return;
       }
-      const medido = medirIntegracao && fs.existsSync(TIME_BIN)
+      const medido = medirIntegracao && fsTipado.existsSync(TIME_BIN)
         ? [TIME_BIN, '-f', '%U %S', '-o', tempo, ...base] : base;
       const [bin, ...args] = medido;
       let fim: Terminado | null = null;
@@ -508,21 +514,21 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
         if (relogio) clearInterval(relogio);
         let arvoreMs = 0;
         if (medirIntegracao) {
-          try { const [user, sys] = fs.readFileSync(tempo, 'utf8').trim().split(/\s+/).map(Number); arvoreMs = (user + sys) * 1000; }
+          try { const [user, sys] = fsTipado.readFileSync(tempo, 'utf8').trim().split(/\s+/).map(Number); arvoreMs = (user + sys) * 1000; }
           catch { /* medida incompleta abaixo */ }
         }
         const medicaoCpu = medirIntegracao && sonda ? sonda.fechar(arvoreMs, t.duracaoMs) : undefined;
         const cotaDocker = medirIntegracao ? evidenciaDaCotaDocker(registro) : undefined;
         fim = { ...t, ...(shell ? { shell } : {}), ...(medicaoCpu ? { medicaoCpu } : {}), ...(cotaDocker ? { cotaDocker } : {}) };
-        fs.closeSync(saida);
-        fs.closeSync(erro);
+        fsTipado.closeSync(saida);
+        fsTipado.closeSync(erro);
         resolve(fim);
       };
       // Sem o `timeout(1)`, o proprio auxiliar mata pelo prazo, como o `spawnSync` do `exec` faria.
       const workers = workersDaLane(item, plano, cpus, totalDeLanes);
       const baseDoFilho = item.ambienteFuncional
-        ? ambienteFuncionalDosTestes(process.env, item.ambiente ?? {})
-        : { ...process.env, ...item.ambiente };
+        ? ambienteFuncionalTipado(processo.env, item.ambiente ?? {})
+        : { ...processo.env, ...item.ambiente };
       const ambiente = { ...baseDoFilho, ...(workers === null ? {} : { [ENV_WORKERS]: String(workers) }),
         ...(medirIntegracao ? { [ENV_CONTAINERS_DA_LANE]: registro } : {}) };
       const filho = spawn(bin, args, { cwd: item.cwd, env: ambiente, stdio: ['ignore', saida, erro],
@@ -532,7 +538,7 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
         sonda.amostrar();
         relogio = setInterval(sonda.amostrar, INTERVALO_CPU_MS);
       }
-      filho.on('error', (e: NodeJS.ErrnoException) => encerrar({ nome: item.nome, code: null, signal: null,
+      filho.on('error', (e: ErroDeProcessoFilho) => encerrar({ nome: item.nome, code: null, signal: null,
         error: e.code ?? e.message, duracaoMs: Date.now() - inicio, comGrupo }));
       filho.on('close', (code, signal) => encerrar({ nome: item.nome, code, signal,
         ...(!comGrupo && signal && Date.now() - inicio >= item.prazoMs ? { error: 'ETIMEDOUT' } : {}),

@@ -36,7 +36,7 @@ import { resolverShellDoVerify } from './shell-do-verify';
 import type { ShellDoVerify } from './types';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -70,6 +70,7 @@ import { chaveDoReciboDeProva } from './recibo-prova';
 import { ENV_TMPDIR_DA_RODADA, selecionarTemporario } from './temporario-das-lanes';
 import { ambienteFuncionalDosTestes, ENV_PATH_FUNCIONAL_DA_RODADA,
   transporteDoAmbienteFuncional } from './ambiente-funcional';
+import { fs as fsTipado } from './node-portavel';
 
 /** Teto de tempo de um comando de verificacao (build e suite completa cabem). */
 export const TIMEOUT_VERIFY_MS = 10 * 60 * 1000;
@@ -239,7 +240,7 @@ export function executorDoManifesto(manifesto: Manifesto, ambienteDaRodada?: Rec
 export function executar(nome: string, comando: string, cwd: string,
   tetoMs = TIMEOUT_VERIFY_MS, ambienteExtra?: Record<string, string>, ambienteBase?: NodeJS.ProcessEnv,
   shellInformado?: ShellDoVerify | null): ResultadoDeComando {
-  const comGrupo = existsSync(TIMEOUT_BIN);
+  const comGrupo = fsTipado.existsSync(TIMEOUT_BIN);
   const inicio = Date.now();
   const ambiente = { ...(ambienteBase ?? ambienteDoVerify()), ...ambienteExtra };
   const shell = shellInformado === undefined ? resolverShellDoVerify() : shellInformado;
