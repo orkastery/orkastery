@@ -4,6 +4,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { resolverModo, type ModoDoCheck } from './check-modo';
+import type { AssinaturaDoReciboForteCi } from './ci-recibo-forte';
 import type { Manifesto } from './types';
 import type { Claim, CausaDoComando, DependenciaExternaDaClaim, ResultadoDeClaim, ResultadoDeComando } from './types';
 import { executar, identidadeDoProduto, julgarResultadoDoVerify, prazoDoComando, verificarClaim,
@@ -86,7 +87,7 @@ export interface ReciboRunnerCi {
   resultado: { ok: boolean; motivos: string[] };
   sha256: string;
   /** Reservado para a F7; a F5 nunca preenche nem eleva confiança. */
-  assinatura?: unknown;
+  assinatura?: AssinaturaDoReciboForteCi;
 }
 
 export interface ResultadoReplayCi {
