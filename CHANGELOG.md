@@ -8,7 +8,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
-- **Recibo forte e transporte autenticado — F7 (RM-089):** a fábrica assina o hash canônico do recibo do runner e o liga a thread, condução, rodada, CHECK independente e HEAD reobtidos. GitHub e GitLab separam replay não confiável do launcher protegido, usam identidade OIDC com audiência exata e cliente da target conferido por digest, e entregam ao job somente o resultado sanitizado. Ausência, indisponibilidade e prazo excedido permanecem causas públicas distintas; a exceção F6 não cria nem substitui o recibo forte.
+- **Recibo forte e transporte autenticado — F7 (RM-089):** os contratos da fábrica ligam a assinatura do hash canônico do recibo à thread, condução, rodada, CHECK independente e HEAD reobtidos. GitHub e GitLab leem a configuração da target protegida, executam o transporte no `ork ci run --branch` real e mantêm token, prova e capacidade fora do resultado. O pacote publicado passa a embutir a árvore de dependências de produção; as receitas conferem o digest, não executam scripts de instalação e retiram o ID token antes do caminho sem opt-in. Ausência, indisponibilidade e prazo excedido permanecem causas públicas distintas; a exceção F6 não cria nem substitui o recibo forte.
 
 - **Adoção de trabalho existente — F6 (RM-089):** `ork adotar` cria a thread e a worktree canônicas no commit da origem sem reescrever a história, preserva os objetos exclusivos, retoma pelo último estado durável e só conclui depois de verify, CHECK independente e recibo do runner no mesmo HEAD.
 

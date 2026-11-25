@@ -174,11 +174,20 @@ ou replay continua decidindo `ok: false`. O recibo assinado prova entrega pelo e
 policy, pedido, recibo e evento F6; a capacidade permanece irmã e limitada ao mesmo projeto, source, target, HEAD,
 operação, evento, recibo e validade. O wrapper evolui em `/v1` próprio sem mudar os contratos F6 internos.
 
-A configuração pública `ci.transporte_excecao` vem somente da target protegida e fixa origem HTTPS, audiência
-`urn:orkastery:fabrica:ci`, versão e SHA-256 do cliente. A receita do GitHub separa o replay não confiável pelo
-`workflow_call` OIDC que a policy da organização referencia na target protegida; no GitLab, uma policy protegida injeta o componente e o ID token fora da definição do MR. O launcher
-não recebe prova ou capacidade por argumento, checkout, bundle ou ambiente controlável pelo PR/MR. Token, resposta
-bruta e capacidade permanecem no validador; o job recebe apenas `ork.excecao-transporte-resultado/v1`.
+A configuração pública `ci.transporte_excecao` é lida da target protegida e fixa origem HTTPS, audiência
+`urn:orkastery:fabrica:ci`, versão e SHA-256 do cliente. No GitHub, o `workflow_call` confere que a target é `main`
+antes de qualquer job com `id-token: write`; no GitLab, a receita busca o manifesto pela API na target do MR. O
+tarball publicado inclui a árvore de dependências de produção, é conferido pelo digest e é aberto sem scripts de
+instalação no caminho autenticado. O ID token não existe nos passos que obtêm ou instalam o cliente: sem opt-in, o
+GitLab o remove antes da instalação; com opt-in, as duas forjas usam o tarball já preparado. Sem opt-in, o replay
+anterior continua sendo executado.
+
+A fábrica aceita o token do GitHub somente com `iss`, `aud`, `repository`, `run_id`, `job_workflow_ref` e
+`job_workflow_sha` compatíveis com o workflow allowlisted; no GitLab, usa `iss`, `aud`, `project_path`, `pipeline_id`,
+`job_id`, `user_id`, `sha`, `ci_config_ref_uri` e `ci_config_sha` compatíveis com a configuração allowlisted. Esses
+claims e o pedido são localizadores: a fábrica ainda reobtém os fatos canônicos na API da forja. O launcher não
+recebe prova ou capacidade por argumento, checkout, bundle ou ambiente controlável pelo PR/MR. Token, resposta bruta,
+prova e capacidade permanecem no validador; somente o resultado sanitizado interno é integrado ao `ork ci run --branch`.
 
 A fábrica valida a identidade nativa e reobtém na forja projeto, origem, destino, HEAD, proteção, execução, workflow ou
 configuração, produtor e operação antes de entregar a exceção. Fork, target não protegida, produtor ausente ou igual ao
@@ -188,8 +197,8 @@ separada de `assinar-recibo-forte` e não entrega capacidade de assinatura.
 Ausência determinística usa `ci.recibo.ausente`; serviço indisponível usa
 `ci.excecao.transporte-indisponivel`; prazo excedido usa `ci.excecao.transporte-prazo-excedido`; wrapper apresentado e
 inválido usa `ci.excecao.transporte-invalido`. `observar` diagnostica, `avisar` também anota e `exigir` reprova fechado
-sem recibo forte válido. Um recibo forte válido evita a consulta. A exceção F6 dispensa somente a ausência do recibo
-básico e nunca muda uma falha real de preparo, claim, comando ou replay.
+quando o recibo do runner está ausente. Um recibo do runner já presente evita a consulta. A exceção F6 dispensa somente
+essa ausência: projeção inválida ou falha real de preparo, claim, comando ou replay continua decidindo `ok: false`.
 
 ## Preflight coletivo e credencial do CI
 
