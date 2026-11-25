@@ -696,10 +696,11 @@ export function verificarRodada(
   }
 
   const motivos: MotivoDeAuditoria[] = [];
+  if (resultados.length === 0) motivos.push('verify.sem-veredito');
   if (resultados.some((r) => r.motivo === 'claims.failed')) motivos.push('claims.failed');
   if (resultados.some((r) => r.motivo === 'claims.unverifiable')) motivos.push('claims.unverifiable');
   // `claims.unverifiable` avisa e nao bloqueia, igual ao gate do B1.
-  const ok = !motivos.includes('claims.failed');
+  const ok = !motivos.includes('claims.failed') && !motivos.includes('verify.sem-veredito');
 
   const veredito: VereditoDeAuditoria = {
     rodada: rodadaId,
