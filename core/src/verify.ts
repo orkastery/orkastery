@@ -1118,7 +1118,12 @@ export function julgarResultadoDoVerify(entrada: EntradaDoJulgamentoVerify): Jul
   if (claims.some((claim) => claim.motivo === 'claims.failed')) motivos.push('claims.failed');
   if (claims.some((claim) => claim.motivo === 'claims.unverifiable')) motivos.push('claims.unverifiable');
   if (regressoes.length > 0) motivos.push('verify.regression');
-  if (falhasSemBaseline.length > 0 || preparoFalhou) motivos.push('verify.failed');
+  // A9 da thread ork-podmangitine: cobertura ausente do scan nunca aprova. A comparação com a
+  // baseline continua visível em `preExistentes`, mas a falha atual do comando é bloqueante mesmo
+  // quando a baseline também falhou. O gate do SHIP é uma segunda guarda, não substitui o verify.
+  const securityScanFalhou = comandos.some((comando) => comando.nome === 'security_scan' &&
+    comando.executado !== false && !comando.ok && !semVereditoPorTempo(comando));
+  if (falhasSemBaseline.length > 0 || preparoFalhou || securityScanFalhou) motivos.push('verify.failed');
   if (estouros.length > 0 || preparoSemVeredito || claims.some((claim) => claim.motivo === 'verify.timeout')) {
     motivos.push('verify.timeout');
   }

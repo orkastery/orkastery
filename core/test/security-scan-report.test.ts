@@ -47,39 +47,37 @@ const tmp = (name: string): string => { const d = dirTemporario(name); cleanups.
 
 test('exitCodeOf: new loop finding is 1, warn only is 0', () => {
   const t = [toolRun('semgrep', 'sast', 'ran')];
-  assert.equal(exitCodeOf(report(t, [finding({})]), false), 1);
-  assert.equal(exitCodeOf(report(t, [finding({ loop: false, severity: 'medium' })]), false), 0);
-  assert.equal(exitCodeOf(report(t, [finding({ status: 'existing' }), finding({ status: 'dismissed' })]), true), 0);
+  assert.equal(exitCodeOf(report(t, [finding({})])), 1);
+  assert.equal(exitCodeOf(report(t, [finding({ loop: false, severity: 'medium' })])), 0);
+  assert.equal(exitCodeOf(report(t, [finding({ status: 'existing' }), finding({ status: 'dismissed' })])), 0);
 });
 
 test('exitCodeOf: unavailable or failed loop-category tool is always 1; quality and license never', () => {
   const secret = report([toolRun('gitleaks', 'secret', 'unavailable', 'no-docker')]);
-  assert.equal(exitCodeOf(secret, false), 1);
-  assert.equal(exitCodeOf(secret, true), 1);
-  assert.equal(exitCodeOf(report([toolRun('semgrep', 'sast', 'failed', 'timeout')]), false), 1);
-  assert.equal(exitCodeOf(report([toolRun('semgrep', 'sast', 'failed', 'timeout')]), true), 1);
-  assert.equal(exitCodeOf(report([toolRun('eslint', 'quality', 'unavailable'), toolRun('trivy-license', 'license', 'failed')]), true), 0);
-  assert.equal(exitCodeOf(report([toolRun('gitleaks', 'secret', 'ran')]), true), 0);
+  assert.equal(exitCodeOf(secret), 1);
+  assert.equal(exitCodeOf(report([toolRun('semgrep', 'sast', 'failed', 'timeout')])), 1);
+  assert.equal(exitCodeOf(report([toolRun('eslint', 'quality', 'unavailable'), toolRun('trivy-license', 'license', 'failed')])), 0);
+  assert.equal(exitCodeOf(report([toolRun('gitleaks', 'secret', 'ran')])), 0);
 });
 
 test('exitCodeOf: unsupported-ci and no-requirements-file are declared, not counted, under REQUIRED', () => {
   // GitLab CI without a GitHub workflow: no analyzer for it, declared only.
   const gitlab = report([toolRun('gitleaks', 'secret', 'ran'), toolRun('actionlint', 'workflow', 'unavailable', 'unsupported-ci'),
     toolRun('zizmor', 'workflow', 'unavailable', 'unsupported-ci')]);
-  assert.equal(exitCodeOf(gitlab, true), 0);
+  assert.equal(exitCodeOf(gitlab), 0);
   assert.deepEqual(unscannedLoopTools(gitlab), []);
   assert.equal(gitlab.tools.filter(t => t.reason === 'unsupported-ci').length, 2, 'still declared in the report');
   // pip-audit without requirements*.txt: excused only when another dependency tool ran.
   const pipComTrivy = report([toolRun('pip-audit', 'dependency', 'unavailable', 'no-requirements-file'), toolRun('trivy-vuln', 'dependency', 'ran')]);
-  assert.equal(exitCodeOf(pipComTrivy, true), 0);
+  assert.equal(exitCodeOf(pipComTrivy), 0);
   const pipSozinho = report([toolRun('pip-audit', 'dependency', 'unavailable', 'no-requirements-file'), toolRun('trivy-vuln', 'dependency', 'failed', 'timeout')]);
-  assert.equal(exitCodeOf(pipSozinho, true), 1);
+  assert.equal(exitCodeOf(pipSozinho), 1);
   assert.deepEqual(unscannedLoopTools(pipSozinho).map(t => t.name), ['pip-audit', 'trivy-vuln']);
-  assert.equal(exitCodeOf(report([toolRun('pip-audit', 'dependency', 'unavailable', 'no-requirements-file')]), true), 1);
+  assert.equal(exitCodeOf(report([toolRun('pip-audit', 'dependency', 'unavailable', 'no-requirements-file')])), 1);
   // Any other reason, or the same token on the base side, still counts.
   assert.equal(exitCodeOf(report([toolRun('pip-audit', 'dependency', 'unavailable', 'base-no-requirements-file'),
-    toolRun('trivy-vuln', 'dependency', 'ran')]), true), 1);
-  assert.equal(exitCodeOf(report([toolRun('actionlint', 'workflow', 'failed', 'unsupported-ci')]), true), 1, 'only unavailable is excused');
+    toolRun('trivy-vuln', 'dependency', 'ran')])), 1);
+  assert.equal(exitCodeOf(report([toolRun('actionlint', 'workflow', 'failed', 'unsupported-ci')])), 1, 'only unavailable is excused');
 });
 
 test('writeReport and readReport round trip under <state>/security-scan/<sha>; unknown sha is null', () => {
@@ -173,9 +171,8 @@ test('invalid dismissal exits 1 naming the entry, without a report', () => {
   assert.ok(!fs.existsSync(path.join(dir, '.orkastery', 'security-scan')));
 });
 
-test('RM-068 registra a fatia da issue 302 com o estado e o fora de escopo', () => {
+test('RM-068 registra a fonte e o fora de escopo da fatia da issue 302', () => {
   const roadmap = fs.readFileSync(path.resolve(__dirname, '../../../docs/roadmap/RM-068-security-scan-no-check.md'), 'utf8');
   assert.match(roadmap, /issue #302/);
-  assert.match(roadmap, /Estado da fatia: em implementação/);
   assert.match(roadmap, /Runtime Podman real fica fora/);
 });
