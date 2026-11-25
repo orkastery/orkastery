@@ -374,7 +374,7 @@ export function ocupantesDaFilaPesada(raiz: string): OcupanteDaFila[] {
   return ocupantes;
 }
 
-function recusaDaFila(pedido: PedidoDeRecursoPesado, esperouMs: number, ocupantes: OcupanteDaFila[]): RecusaDaFilaPesada {
+export function recusaDaFila(pedido: PedidoDeRecursoPesado, esperouMs: number, ocupantes: OcupanteDaFila[]): RecusaDaFilaPesada {
   const indeterminado = ocupantes.some(o => o.vida === 'desconhecido');
   const motivo = indeterminado ? 'concurrency.lease-indeterminado' : 'fila-pesada.ocupada';
   const espera = esperouMs < 60000 ? `${Math.round(esperouMs / 1000)} s` : `${Math.round(esperouMs / 60000)} min`;
@@ -383,7 +383,7 @@ function recusaDaFila(pedido: PedidoDeRecursoPesado, esperouMs: number, ocupante
       `e a fila de recursos pesados não liberou a vez (até ${pedido.slots} ao mesmo tempo, concurrency.max_parallel_heavy). ` +
       'Verify e build juntos nesta máquina dão regressão falsa.',
     ...(ocupantes.length ? ocupantes.map(o => `  Quem ocupa: ${o.operacao}${o.thread ? ` da thread ${o.thread}` : ''}, ` +
-      `desde ${formatarDesde(o.desde)}, processo ${o.pid}${o.vida === 'desconhecido' ? '; vida indeterminada' : ''}.`) :
+      `${o.desde ? `desde ${formatarDesde(o.desde)}, ` : ''}processo ${o.pid}${o.vida === 'desconhecido' ? '; vida indeterminada' : ''}.`) :
       ['  Quem ocupa: a vez é de outro pedido que chegou antes e ainda espera.']),
     ...(indeterminado ? ['A vida do lease não pôde ser comprovada deste ambiente; “não sei” nunca é órfão. ' +
       'Espere com --esperar ou devolva à condução com concurrency.lease-indeterminado.'] : []),
