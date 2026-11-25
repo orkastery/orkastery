@@ -72,7 +72,7 @@ export function normalizar(texto: string): string {
     .replace(/(pedido )[0-9a-f]{8}\b/g, '$1<ID>')
     .replace(/\bv\d+\.\d+\.\d+\b/g, 'v<NODE>')
     .replace(/\bnode\.\d+\.\d+\.\d+/g, 'node.<NODE>')
-    .replace(/\(Bash [^)]+\)(?:-release)?/g, '(Bash <BASH>)')
+    .replace(/\(Bash [^()\n]+(?:\([^()\n]*\))?(?:-release)?\)/g, '(Bash <BASH>)')
     .replace(/\bunicode [\d.]+/g, 'unicode <UNICODE>')
     .replace(/\b\d+ entradas de \.git\b/g, '<N> entradas de .git')
     .replace(/\buid \d+/g, 'uid <UID>')
