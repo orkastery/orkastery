@@ -78,7 +78,8 @@ test('MCP mantém reserva ativa entre conexões e callback encerrado perde a sel
 
 for (const state of ['abandoned', 'sending', 'unproven'] as const) test(`MCP após crash: ${state}, recovery exige reserva liberada e ausência de envio`, async () => {
   const p = projetoTemporario('channel-crash');
-  const ingress = criarIngressoLocal(p.dir, { host: 'claude-code', connectionId: 'replacement' }, async () => ({ action: 'accept', content: { opcao: '1' } }));
+  const ingress = criarIngressoLocal(p.dir, { host: 'claude-code', connectionId: 'replacement' },
+    async () => ({ action: 'accept', content: { opcao: '1' } }), { plataforma: 'darwin' });
   try {
     const t = novaThread(p.carregado, { nome: 'Crash de MCP', modo: 'classic' }).thread;
     registrar(dirThread(p.dir, t.id), t.id, 'phase_result', { fase: 'GOAL' });
@@ -96,7 +97,7 @@ for (const state of ['abandoned', 'sending', 'unproven'] as const) test(`MCP ap�
       assert.equal((await ingress.solicitar(t.id, q.id)).estado, 'aprovado');
       const after = lerLedger(dirThread(p.dir, t.id));
       const release = after.find(e => e.tipo === 'hitl_channel_released');
-      assert.equal(release?.reason, 'abandoned-dialogue'); assert.equal(release?.evidence, 'kernel-exclusive-lock');
+      assert.equal(release?.reason, 'abandoned-dialogue'); assert.equal(release?.evidence, 'process-identity-lock');
       assert.equal(release?.requestId, selected.requestId);
       assert.equal(after.filter(e => e.tipo === 'human_gate').length, 1);
       assert.throws(() => conferirCanalSelecionado(after, q.id, 'codex', 'mcp-local', 'abandoned', String(selected.requestId)), /selection-mismatch/);
