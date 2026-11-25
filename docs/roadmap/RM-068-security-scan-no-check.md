@@ -100,7 +100,7 @@ sdlc:
 
 O código está na `main` desde o PR #186 (merge `6d9c0f5d`, cabeça da branch `34f019b1`) e em produção na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026). A suíte, o scan do próprio repositório, a integração com Docker real e a prova ponta a ponta estão resumidos em [Evidências](#evidências).
 
-### Fatia da issue #302 — sonda compatível e falha fechada
+### Fatia da issue #302: sonda compatível e falha fechada
 
 - **Fonte e evidência:** [issue #302](https://github.com/orkastery/orkastery/issues/302), triada no código em 24/11/2026. A sonda usava o campo específico `ServerVersion`, o verify local não ativava o modo obrigatório e o bundle do CI já o ativava.
 - **Resultado incluído:** a sonda consulta `docker info` sem template; ferramenta não dispensada das categorias do laço em `unavailable` ou `failed` faz o comando sair 1 tanto no uso direto quanto no verify e no CI.
@@ -114,13 +114,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Disponível | — | 2026-10-27 | Paschoal |
-| Documentação | Em revisão | — | 2026-10-27 | Paschoal |
-| Código | Mesclado | commit `6d9c0f5d` · PR #186 | 2026-10-27 | Paschoal |
-| Testes | Aprovados | — | 2026-10-27 | Paschoal |
-| Deploy | Produção | release: v0.6.0, @orkastery/cli no npm (ork security-scan e verify.security_scan) | 2026-10-27 | Paschoal |
-| Exposição | Geral | — | 2026-10-27 | Paschoal |
-| Habilitação | Concluída | — | 2026-10-27 | Paschoal |
+| Ciclo do item | Disponível | — | 2026-11-24 | Paschoal |
+| Documentação | Em revisão | — | 2026-11-24 | Paschoal |
+| Código | Mesclado | commit `6d9c0f5d` · PR #186 | 2026-11-24 | Paschoal |
+| Testes | Aprovados | — | 2026-11-24 | Paschoal |
+| Deploy | Produção | release: v0.6.0, @orkastery/cli no npm (ork security-scan e verify.security_scan) | 2026-11-24 | Paschoal |
+| Exposição | Geral | — | 2026-11-24 | Paschoal |
+| Habilitação | Concluída | — | 2026-11-24 | Paschoal |
 
 <!-- ork-docs:estado:fim -->
 

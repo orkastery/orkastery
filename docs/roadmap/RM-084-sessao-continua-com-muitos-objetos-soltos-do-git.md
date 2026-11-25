@@ -77,7 +77,7 @@ sdlc:
 
 ## Estado com evidências
 
-### Fatia da issue #299 — configuração local segura e diagnosticável
+### Fatia da issue #299: configuração local segura e diagnosticável
 
 - **Fonte e evidência:** [issue #299](https://github.com/orkastery/orkastery/issues/299), triada em 24/11/2026. O perfil de `core/src/mcp-git.ts` recusava qualquer chave fora da lista positiva e devolvia uma mensagem sem chave ou escopo.
 - **Resultado incluído:** status e commit locais aceitam `branch.<b>.vscode-merge-base`, `core.compression` no domínio `-1..9`, `pull.rebase` não interativo e quatro opções de transporte HTTP que a operação local não usa. A recusa preserva o código atual e acrescenta chave mascarada e escopo.
@@ -91,13 +91,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-11-07 | Julio |
-| Documentação | Rascunho | — | 2026-11-07 | Julio |
-| Código | Não iniciado | — | 2026-11-07 | Julio |
-| Testes | Não iniciados | — | 2026-11-07 | Julio |
-| Deploy | Não implantado | — | 2026-11-07 | Julio |
-| Exposição | Flag desligada | — | 2026-11-07 | Julio |
-| Habilitação | Pendente | — | 2026-11-07 | Julio |
+| Ciclo do item | Discovery | — | 2026-11-24 | Julio |
+| Documentação | Rascunho | — | 2026-11-24 | Julio |
+| Código | Não iniciado | — | 2026-11-24 | Julio |
+| Testes | Não iniciados | — | 2026-11-24 | Julio |
+| Deploy | Não implantado | — | 2026-11-24 | Julio |
+| Exposição | Flag desligada | — | 2026-11-24 | Julio |
+| Habilitação | Pendente | — | 2026-11-24 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
