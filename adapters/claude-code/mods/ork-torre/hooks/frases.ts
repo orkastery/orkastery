@@ -14,6 +14,7 @@ export const FRASE_DO_MOTIVO: Readonly<Record<string, string>> = {
   'runtime.autoconferencia': 'o CHECK caiu no mesmo runtime do GO',
   'verify.regression': 'um teste que passava na baseline caiu',
   'verify.failed': 'a verificação falhou, sem baseline para comparar',
+  'security.scan-unscanned': 'o security scan ficou sem cobertura',
   'verify.timeout': 'a verificação estourou o prazo',
   'verify.sem-veredito': 'a verificação terminou sem veredito',
   'ci.failed': 'o CI independente não está verde',
@@ -37,7 +38,7 @@ export const FRASE_DO_MOTIVO: Readonly<Record<string, string>> = {
 
 /** Os motivos que so o dono resolve (D6): a linha fica em "espera voce", nao em "parada". */
 export const MOTIVOS_DO_DONO: readonly string[] = ['human.pending', 'runtime.workspace-untrusted', 'runtime.consent-pending',
-  'runtime.auth-missing', 'claims.retirada-sem-substituta']
+  'runtime.auth-missing', 'claims.retirada-sem-substituta', 'security.scan-unscanned']
 
 /** A frase do motivo; motivo que a tabela nao conhece aparece cru, nunca some. */
 export function fraseDoMotivo(motivo: string): string {
