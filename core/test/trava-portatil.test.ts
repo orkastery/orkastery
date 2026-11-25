@@ -139,6 +139,26 @@ test('rename do candidato durante a leitura conserva o dono com menor token', ()
   } finally { f.limpar(); }
 });
 
+test('ticket zero só aparece no nome final depois de conteúdo e fsync', () => {
+  const f = fixture();
+  const escrever = fs.writeFileSync;
+  const fsMutavel = require('node:fs') as { writeFileSync: (...args: unknown[]) => void };
+  let finalVazioFicouVisivel = false;
+  fsMutavel.writeFileSync = (...args) => {
+    const valor = typeof args[1] === 'string' ? args[1] : '';
+    if (valor.includes('"ticket":0')) {
+      const dir = `${f.alvo}.ork-lock`;
+      finalVazioFicouVisivel = fs.readdirSync(dir).some((nome) => /^[a-f0-9-]{36}\.json$/.test(nome));
+    }
+    Reflect.apply(escrever, fsMutavel, args);
+  };
+  try {
+    const trava = adquirirTravaPortatil(f.alvo, 'publicação atômica');
+    assert.ok(trava); trava.liberar();
+    assert.equal(finalVazioFicouVisivel, false);
+  } finally { fsMutavel.writeFileSync = escrever as unknown as (...args: unknown[]) => void; f.limpar(); }
+});
+
 test('contenção entre dois processos não vira trava.portatil.insegura', async () => {
   const f = fixture();
   try {
