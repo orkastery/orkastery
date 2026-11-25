@@ -35,7 +35,9 @@ function ork(usuario: string, cwd: string, args: string[], env: Record<string, s
   const base = { ...envPtBr(process.env) };
   delete base.ORK_PROJETO; delete base.ORK_PROJETO_EXPLICITO; delete base.ORK_FABRICA_COMPARTILHADA;
   const r = spawnSync(process.execPath, [ORK, ...args], {
-    cwd, encoding: 'utf8', timeout: 60000, env: { ...base, ORK_USUARIO_DIR: usuario, ...env },
+    // A fronteira continua em processo real; o prazo acompanha os demais testes de locale para que a contenção da
+    // lane hermética não encerre o filho antes de as asserções conferirem a resposta pública.
+    cwd, encoding: 'utf8', timeout: 120000, env: { ...base, ORK_USUARIO_DIR: usuario, ...env },
   });
   assert.equal(r.status, 0, r.stdout + r.stderr);
   return r.stdout;
