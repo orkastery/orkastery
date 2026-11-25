@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.10",
-  "publicadoEm": "2026-11-25T03:30:05.598Z",
+  "publicadoEm": "2026-11-25T03:42:21.870Z",
   "threads": [
     {
       "id": "ork-macosportave",
@@ -14,7 +14,7 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-macosportave-full",
-      "atualizadaEm": "2026-11-25T03:29:02.456Z",
+      "atualizadaEm": "2026-11-25T03:34:20.943Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -23,9 +23,9 @@
       "modelo": "gpt-5.6-sol",
       "esforco": "xhigh",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-11-25T03:37:02.656Z",
+        "motivo": "sessão 01a21098 caiu (runtime.unavailable)"
       }
     },
     {
@@ -58,7 +58,29 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-podmangitine-full",
-      "atualizadaEm": "2026-11-25T03:24:43.572Z",
+      "atualizadaEm": "2026-11-25T03:39:45.013Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": "codex",
+      "modelo": "gpt-5.6-sol",
+      "esforco": "xhigh",
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-11-25T03:41:23.632Z",
+        "motivo": "sessão 01a2108c encerrada (completed)"
+      }
+    },
+    {
+      "id": "ork-rm089f7recib",
+      "nome": "ork-rm089f7recib",
+      "modo": "#Auto",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-rm089f7recib-full",
+      "atualizadaEm": "2026-11-25T03:42:21.347Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -70,28 +92,6 @@
         "viva": true,
         "desdeEm": null,
         "motivo": null
-      }
-    },
-    {
-      "id": "ork-rm089f7recib",
-      "nome": "ork-rm089f7recib",
-      "modo": "#Auto",
-      "fase": "CHECK",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-rm089f7recib-full",
-      "atualizadaEm": "2026-11-23T17:02:48.998Z",
-      "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh",
-      "sessao": {
-        "viva": false,
-        "desdeEm": "2026-11-23T17:08:28.193Z",
-        "motivo": "sessão 01a2095c encerrada (completed)"
       }
     }
   ]
