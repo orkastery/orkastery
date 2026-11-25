@@ -25,7 +25,7 @@ The CLI and the docs are in Brazilian Portuguese today.
 
 Requires Node.js 20 or newer on Linux, git, Bash at `/bin/bash` or `/usr/bin/bash`, and at
 least one runtime logged in to your subscription (`claude` or `codex`). The installed-package
-quickstart proves macOS on Node.js 22; npm publication repeats that proof on Node.js 24. Windows
+installed-package quickstart job runs on macOS with Node.js 24; npm publication repeats and requires that proof. Windows
 is not covered. #Noctum remains Linux-only while it is in development.
 
 ```bash

@@ -22,7 +22,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **Núcleo portátil no macOS ([#303](https://github.com/orkastery/orkastery/issues/303), RM-096):** criação, HITL, condução e fila pesada ganham uma trava portátil baseada em identidade de processo, sem tomada por TTL; o doctor sonda `flock` no Linux e a trava portátil no macOS, e falha fechado quando o mecanismo usado pela plataforma falta. O CI percorre worktree, `ork claims add` e `ork verify` pelo tarball no Linux e no macOS, sem que a proteção atual da `main` exija esses jobs; a publicação no npm depende da prova do macOS. No Linux sem `flock`, condução e doctor falham com a correção de instalar o utilitário. #Noctum continua restrito ao Linux enquanto está em desenvolvimento.
 
-- **Shell e veredito do verify ([#304](https://github.com/orkastery/orkastery/issues/304), RM-080 F0):** verify e CHECK paralelo resolvem Bash por caminhos absolutos controlados, registram caminho e versão e classificam executor indisponível como `verify.sem-veredito`; auditoria sem claim executada não produz veredito, enquanto achado resolvido ou descartado permanece fechado.
+- **Shell e veredito do verify ([#304](https://github.com/orkastery/orkastery/issues/304), RM-080 F0):** verify e CHECK paralelo resolvem Bash por caminhos absolutos controlados, registram caminho e versão e classificam executor indisponível como `verify.sem-veredito`; a sonda da versão e os comandos do verify não repassam `BASH_ENV` nem `ENV`; auditoria sem claim executada não produz veredito, enquanto achado resolvido ou descartado permanece fechado.
 
 ## [0.6.10] - 2026-11-12
 
