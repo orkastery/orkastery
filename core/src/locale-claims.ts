@@ -15,6 +15,8 @@ const ERROS_DO_SANDBOX_EN: ReadonlyArray<[RegExp, (...g: string[]) => string]> =
   [/^worktree deve ser absoluta$/, () => 'the worktree must be an absolute path'],
   [/^worktree inválida$/, () => 'invalid worktree'],
   [/^timeout sandbox fora do limite$/, () => 'sandbox timeout out of bounds'],
+  [/^binário do executor sandbox deve ser absoluto$/, () => 'the sandbox executor binary must be an absolute path'],
+  [/^binário do executor sandbox não é executável$/, () => 'the sandbox executor binary is not executable'],
   [/^executor sandbox fechado$/, () => 'sandbox executor closed'],
   [/^escopo\/binário do executor sandbox mudou$/, () => 'the sandbox executor scope or binary changed'],
   [/^scratch VERIFY deve ficar fora da worktree$/, () => 'the VERIFY scratch must stay outside the worktree'],
