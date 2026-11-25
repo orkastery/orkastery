@@ -93,6 +93,13 @@ function lerCandidato(arquivo: string): { valor: Candidato; stat: fs.Stats } {
     fd = fs.openSync(arquivo, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
     const stat = fs.fstatSync(fd);
     const uid = uidAtual();
+    // Entre o open e o fstat o dono pode remover o próprio candidato. O descritor
+    // continua legível, mas nlink=0 significa somente que o candidato já saiu.
+    // Um arquivo vazio também pode vir de uma versão anterior que ainda publicava
+    // antes de escrever: nenhum dos dois é evidência de ambiente inseguro.
+    if (stat.nlink === 0 || stat.size === 0) {
+      throw Object.assign(new Error('candidato saiu durante a leitura'), { code: 'ENOENT' });
+    }
     if (!stat.isFile() || stat.nlink !== 1 || stat.size > MAX_BYTES || (uid !== null && stat.uid !== uid) || (stat.mode & 0o077) !== 0) {
       throw new ErroDaTravaPortatil('trava.portatil.insegura', 'arquivo de candidato não é privado');
     }
@@ -138,13 +145,27 @@ function identidadeLinux(pid: number): string | null | undefined {
 
 function identidadePorPs(pid: number): string | null | undefined {
   if (!fs.existsSync('/bin/ps')) return undefined;
+  const existe = processoExiste(pid);
+  if (existe === false) return null;
   const r = spawnSync('/bin/ps', ['-p', String(pid), '-o', 'lstart='], {
     encoding: 'utf8', timeout: 2000, stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, LC_ALL: 'C', LANG: 'C', TZ: 'UTC0' },
   });
-  if (r.error) return undefined;
-  if (r.status === 1 && !r.stdout.trim()) return null;
+  if (r.error || r.status !== 0) return processoExiste(pid) === false ? null : undefined;
   const inicio = r.status === 0 ? r.stdout.trim().replace(/\s+/g, ' ') : '';
-  return inicio ? `ps:${inicio}` : undefined;
+  if (inicio) return `ps:${inicio}`;
+  return processoExiste(pid) === false ? null : undefined;
+}
+
+/** `false` prova ESRCH; falta de permissão prova que o PID existe. */
+function processoExiste(pid: number): boolean | undefined {
+  try { process.kill(pid, 0); return true; }
+  catch (e) {
+    const codigo = (e as NodeJS.ErrnoException).code;
+    if (codigo === 'ESRCH') return false;
+    if (codigo === 'EPERM') return true;
+    return undefined;
+  }
 }
 
 /** Identidade da encarnação do PID; `null` prova ausência, `undefined` não prova nada. */
@@ -215,8 +236,9 @@ export function adquirirTravaPortatil(alvo: string, operacao: string,
     contrato: CONTRATO, token, pid: process.pid, uid: uidAtual(), identidade,
     ticket: 0, operacao: operacao.trim(), criadoEm: new Date().toISOString(),
   };
-  gravarNovo(arquivo, candidato);
-  sincronizarDiretorio(dir);
+  // O nome final só aparece depois de conteúdo, fsync e fechamento. Leitores
+  // nunca observam o intervalo normal entre O_EXCL e a primeira escrita.
+  substituir(arquivo, candidato);
   let publicado = true;
   try {
     const existentes = limparMortos(dir, token, consultar);

@@ -66,6 +66,76 @@ test('dois processos não ocupam a região crítica ao mesmo tempo', async () =>
   } finally { f.limpar(); }
 });
 
+test('caminho darwin fixa fuso e locale ao comparar a identidade do dono', () => {
+  const f = fixture();
+  try {
+    const modulo = require.resolve('../src/trava-portatil');
+    const filho = [
+      `Object.defineProperty(process,'platform',{value:'darwin'});`,
+      `const fs=require('node:fs'),t=require(process.argv[1]);`,
+      `const x=t.adquirirTravaPortatil(process.argv[2],process.argv[3],{esperarMs:Number(process.argv[4])});`,
+      `if(process.argv[3]==='dono'){if(!x)process.exit(2);fs.writeFileSync(1,'pronto\\n');`,
+      `Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,500);x.liberar();}`,
+      `else{fs.writeFileSync(1,JSON.stringify({adquiriu:!!x}));if(x)x.liberar();}`,
+    ].join('');
+    const coordenador = [
+      `const cp=require('node:child_process');const [filho,modulo,alvo]=process.argv.slice(1);`,
+      `const rodar=(papel,prazo,env)=>{const p=cp.spawn(process.execPath,['-e',filho,modulo,alvo,papel,prazo],`,
+      `{env:{...process.env,...env},stdio:['ignore','pipe','pipe']});let out='',err='';`,
+      `p.stdout.on('data',d=>{out+=d});p.stderr.on('data',d=>{err+=d});`,
+      `return {p,feito:new Promise((resolve,reject)=>p.on('close',code=>code===0?resolve(out):reject(Error(err))))};};`,
+      `const a=rodar('dono','1000',{TZ:'UTC0',LC_ALL:'C'});`,
+      `a.p.stdout.once('data',()=>{const b=rodar('concorrente','120',{TZ:'America/Sao_Paulo',LC_ALL:'POSIX'});`,
+      `Promise.all([a.feito,b.feito]).then(([,saida])=>require('node:fs').writeFileSync(1,saida)).catch(e=>{console.error(e);process.exitCode=1;});});`,
+    ].join('');
+    const r = spawnSync(process.execPath, ['-e', coordenador, filho, modulo, f.alvo], { encoding: 'utf8', timeout: 5000 });
+    assert.equal(r.status, 0, r.stderr);
+    assert.deepEqual(JSON.parse(r.stdout), { adquiriu: false });
+  } finally { f.limpar(); }
+});
+
+test('saída 1 do ps sem stdout não prova a morte de um processo vivo', () => {
+  const f = fixture();
+  try {
+    const modulo = require.resolve('../src/trava-portatil');
+    const script = [
+      `Object.defineProperty(process,'platform',{value:'darwin'});`,
+      `const cp=require('node:child_process');`,
+      `cp.spawnSync=()=>({status:1,stdout:'',stderr:'falha',error:undefined});`,
+      `const r=require(process.argv[1]).identidadeDoProcesso(process.pid);`,
+      `require('node:fs').writeFileSync(1,String(r===undefined));`,
+    ].join('');
+    const r = spawnSync(process.execPath, ['-e', script, modulo], { encoding: 'utf8', timeout: 3000 });
+    assert.equal(r.status, 0, r.stderr); assert.equal(r.stdout, 'true');
+  } finally { f.limpar(); }
+});
+
+test('contenção entre dois processos não vira trava.portatil.insegura', async () => {
+  const f = fixture();
+  try {
+    const modulo = require.resolve('../src/trava-portatil');
+    const marca = path.join(f.dir, 'dentro');
+    const script = [
+      `const fs=require('node:fs'),t=require(process.argv[1]);let ok=0,violacoes=0;const erros=[];`,
+      `for(let i=0;i<100;i++){try{t.comTravaPortatil(process.argv[2],'estresse',()=>{let fd;`,
+      `try{fd=fs.openSync(process.argv[3],'wx');}catch(e){if(e.code==='EEXIST')violacoes++;else throw e;}`,
+      `Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,1);`,
+      `if(fd!==undefined){fs.closeSync(fd);fs.unlinkSync(process.argv[3]);}},{esperarMs:5000});ok++;}`,
+      `catch(e){erros.push(String(e.message));}}fs.writeFileSync(1,JSON.stringify({ok,violacoes,erros}));`,
+    ].join('');
+    const rodar = () => spawn(process.execPath, ['-e', script, modulo, f.alvo, marca], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const ler = (p: ReturnType<typeof spawn>) => new Promise<{ ok: number; violacoes: number; erros: string[] }>((resolve, reject) => {
+      let out = '', err = ''; p.stdout!.on('data', (d) => { out += d; }); p.stderr!.on('data', (d) => { err += d; });
+      p.once('error', reject); p.once('close', (code) => code === 0 ? resolve(JSON.parse(out)) : reject(Error(err)));
+    });
+    const resultados = await Promise.all([ler(rodar()), ler(rodar())]);
+    for (const r of resultados) {
+      assert.equal(r.ok, 100); assert.equal(r.violacoes, 0);
+      assert.equal(r.erros.some((e) => e.includes('trava.portatil.insegura')), false, r.erros.join('\n'));
+    }
+  } finally { f.limpar(); }
+});
+
 test('identidade desconhecida conserva candidato; identidade divergente permite limpeza', () => {
   const f = fixture();
   try {
