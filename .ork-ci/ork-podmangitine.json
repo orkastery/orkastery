@@ -1654,7 +1654,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/verify.test.js core/dist-test/test/security-scan-ship.test.js core/dist-test/test/rm089-f5-recibo-basico.test.js"
       ],
       "criadoEm": "2026-11-25T20:46:19.307Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -1680,7 +1680,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/security-scan-ship.test.js"
       ],
       "criadoEm": "2026-11-25T20:46:19.425Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -1706,7 +1706,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/hitl-gates.test.js core/dist-test/test/retry.test.js"
       ],
       "criadoEm": "2026-11-25T20:46:19.810Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -1732,7 +1732,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/mcp-install-transporte.test.js"
       ],
       "criadoEm": "2026-11-25T20:46:20.348Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -1758,7 +1758,7 @@
         "node -e \"const f=require('node:fs'),q=String.fromCharCode(96),s=f.readFileSync('core/assets/skills-en/phases/check-quality/SKILL.md','utf8'),p='A tool '+q+'unavailable'+q+' or '+q+'failed'+q+' is declared in the verdict and never counts as clean; in a loop category, it makes the scan exit 1 by default.';if(!s.includes(p))process.exit(1)\""
       ],
       "criadoEm": "2026-11-25T20:46:20.456Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
         "suite-inteira",
@@ -1820,7 +1820,7 @@
   ],
   "recibo": {
     "contrato": "ork.recibo-prova/v1",
-    "head": "7d7daffc95003dbd1ffae28221667d31e5db32d8",
-    "sha256": "8f1ceabdeedd8debe33645c0997863429fbe7f76a69df76ab965c7b09f3c9daa"
+    "head": "86a5b25bb0761c868c1c64c9d1d038e98d41d751",
+    "sha256": "38008d4ade2bf2a7caecd0110742234dbceccd8899d9fe0c5d0ba9df91091bc7"
   }
 }
