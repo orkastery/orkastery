@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { projetoTemporario, dirTemporario } from './apoio';
+import { projetoTemporario, isolarConfiguracaoGlobalDoGit } from './apoio';
 import { novaThread, gravarThread, dirThread } from '../src/thread';
 import { adicionarClaim } from '../src/claims';
 import { auditarEstado, comEstadoParaGit } from '../src/estado-thread';
@@ -11,6 +11,8 @@ import { adquirirRegiao, lerLease, liberar } from '../src/leases';
 import { exec } from '../src/util';
 import { lerLedger } from '../src/ledger';
 import { ambienteGitMcp, commitMcp, PedidoCommitMcp, estadoGitMcp } from '../src/mcp-git';
+
+isolarConfiguracaoGlobalDoGit('mcp-git');
 
 test('Git MCP: ambiente mínimo elimina overrides Git do ingresso',()=>{
   const env=ambienteGitMcp({HOME:'/fixture',USER:'teste',GIT_PAGER:'cat',GIT_DIR:'/fora',
@@ -20,8 +22,6 @@ test('Git MCP: ambiente mínimo elimina overrides Git do ingresso',()=>{
 });
 
 async function fixture(fn: (f: {raiz:string; wt:string; id:string; pedido:PedidoCommitMcp; git:(args:string[])=>string})=>Promise<void>) {
-  const home=dirTemporario('mcp-git-home'),anterior=process.env.HOME,xdg=process.env.XDG_CONFIG_HOME;
-  process.env.HOME=home;process.env.XDG_CONFIG_HOME=path.join(home,'xdg');
   const p=projetoTemporario('mcp-git');
   try {
     const t=novaThread(p.carregado,{nome:'commit delimitado',modo:'auto',criarWorktree:true}).thread;
@@ -33,8 +33,7 @@ async function fixture(fn: (f: {raiz:string; wt:string; id:string; pedido:Pedido
     adicionarClaim(p.dir,t.id,{arquivo,alegacao:'fixture de commit delimitado',fase:'PLAN',verificar:['node -e "process.exit(0)"']});
     const pedido={threadId:t.id,expectedHead:git(['rev-parse','HEAD']).trim(),paths:[arquivo],mensagem:'commit da fixture'};
     await fn({raiz:p.dir,wt,id:t.id,pedido,git});
-  } finally {p.limpar();if(anterior===undefined)delete process.env.HOME;else process.env.HOME=anterior;
-    if(xdg===undefined)delete process.env.XDG_CONFIG_HOME;else process.env.XDG_CONFIG_HOME=xdg;fs.rmSync(home,{recursive:true,force:true});}
+  } finally {p.limpar();}
 }
 
 test('Git MCP: commit passivo exato audita estado e libera somente leases próprios',async()=>fixture(async f=>{
@@ -205,8 +204,6 @@ test('Git MCP: consulta recusa marcador Git redirecionado e ID externo',async()=
 test('Git MCP: thread #Fast nao commita contrato publico; a mesma thread commita arquivo comum',async()=>{
   // I-42 (D7): a fronteira e do ciclo sem PLAN nem CHECK, nao do arquivo. A recusa sai antes
   // de qualquer efeito: HEAD, indice e leases ficam como estavam.
-  const home=dirTemporario('mcp-git-fast-home'),anterior=process.env.HOME,xdg=process.env.XDG_CONFIG_HOME;
-  process.env.HOME=home;process.env.XDG_CONFIG_HOME=path.join(home,'xdg');
   const p=projetoTemporario('mcp-git-fast');
   try {
     const t=novaThread(p.carregado,{nome:'ajuste rapido',modo:'fast',criarWorktree:true}).thread;
@@ -224,8 +221,7 @@ test('Git MCP: thread #Fast nao commita contrato publico; a mesma thread commita
     assert.equal(lerLease(p.dir,`worktree-write:${t.id}`),null);
     const ok=await commitMcp(p.dir,{threadId:t.id,expectedHead:head,paths:[comum],mensagem:'nota comum'});
     assert.equal(ok.ok,true,ok.erro??'');
-  } finally {p.limpar();if(anterior===undefined)delete process.env.HOME;else process.env.HOME=anterior;
-    if(xdg===undefined)delete process.env.XDG_CONFIG_HOME;else process.env.XDG_CONFIG_HOME=xdg;fs.rmSync(home,{recursive:true,force:true});}
+  } finally {p.limpar();}
 });
 
 // ---------------------------------------------------------------------------
@@ -286,6 +282,69 @@ test('defeitosdeco D-3: fora da secao orkastery, chave desconhecida continua rec
   assert.equal(r.ok, false);
   assert.match(r.erro!, /configuracao preservada/);
 }));
+
+const CONFIGURACOES_LOCAIS_SEGURAS = [
+  ['branch.main.vscode-merge-base', 'origin/main'],
+  ['core.compression', '9'],
+  ['pull.rebase', 'false'],
+  ['http.postBuffer', '524288000'],
+  ['http.lowSpeedLimit', '1'],
+  ['http.lowSpeedTime', '1'],
+  ['http.version', 'HTTP/1.1'],
+] as const;
+
+for (const [chave, valor] of CONFIGURACOES_LOCAIS_SEGURAS) {
+  test(`issue 299: status e commit locais aceitam ${chave} sem alterar a configuração`, async () => fixture(async f => {
+    f.git(['config', chave, valor]);
+    const antes = fs.readFileSync(path.join(f.raiz, '.git/config'));
+    assert.equal(estadoGitMcp(f.raiz, f.id).source.head, f.pedido.expectedHead);
+    const r = await commitMcp(f.raiz, f.pedido);
+    assert.equal(r.ok, true, r.erro ?? '');
+    assert.deepEqual(fs.readFileSync(path.join(f.raiz, '.git/config')), antes);
+  }));
+}
+
+test('issue 299: chave HTTP continua recusada pelo perfil estrito do SHIP', async () => fixture(async f => {
+  f.git(['config', 'http.postBuffer', '524288000']);
+  const gitdir = path.resolve(f.wt, /^gitdir: (.+)\s*$/.exec(fs.readFileSync(path.join(f.wt, '.git'), 'utf8'))![1].trim());
+  assert.throws(() => perfilGitMcp(f.wt, path.join(f.raiz, '.git'), gitdir, f.id, []),
+    /configuracao preservada \(http\.postbuffer, local\)/);
+  assert.match(perfilGitMcp(f.wt, path.join(f.raiz, '.git'), gitdir, f.id, [], HOOKS_DO_COMMIT), /^[a-f0-9]{64}$/);
+}));
+
+for (const [chave, valor, rotulo] of [
+  ['core.compression', '10', 'core.compression'],
+  ['pull.rebase', 'interactive', 'pull.rebase'],
+  ['alias.commit', 'COMANDO_NAO_EXECUTAR_FIXTURE', 'alias.commit'],
+  ['http.https://privado.example/repo.extraHeader', 'cabecalho-confidencial-fixture', 'http.<subsecao>.extraheader'],
+] as const) {
+  test(`issue 299: ${chave} inválida ou sensível continua recusada com diagnóstico redigido`, async () => fixture(async f => {
+    f.git(['config', chave, valor]);
+    const r = await commitMcp(f.raiz, f.pedido);
+    assert.equal(r.ok, false);
+    assert.equal(r.erro, `mcp.git.execution-profile.unsupported: configuracao preservada (${rotulo}, local)`);
+    assert.ok(!r.erro!.includes(valor));
+    assert.ok(!r.erro!.includes('privado.example'));
+    assert.equal(f.git(['rev-parse', 'HEAD']).trim(), f.pedido.expectedHead);
+  }));
+}
+
+test('issue 299: a recusa identifica o escopo global sem herdar a configuração da máquina', async () => fixture(async f => {
+  f.git(['config', '--global', 'produto.qualquer', 'valor-fixture']);
+  try {
+    assert.throws(() => estadoGitMcp(f.raiz, f.id),
+      /mcp\.git\.execution-profile\.unsupported: configuracao preservada \(produto\.qualquer, global\)/);
+  } finally {
+    f.git(['config', '--global', '--unset-all', 'produto.qualquer']);
+  }
+}));
+
+test('RM-084 registra a fatia da issue 299 com garantia e fora de escopo', () => {
+  const roadmap = fs.readFileSync(path.resolve(__dirname, '../../../docs/roadmap/RM-084-sessao-continua-com-muitos-objetos-soltos-do-git.md'), 'utf8');
+  assert.match(roadmap, /issue #299/);
+  assert.match(roadmap, /Estado da fatia: em implementação/);
+  assert.match(roadmap, /extraHeader.*continua recusada/);
+});
 
 // Fatia 2 do ensaio da 0.5.0 (P8): a regra `fontes/` do `.git/info/exclude` local (para os clones em
 // `fontes/<repo>`) casa tambem `marketplaces/fontes/`. O `git add` do arquivo rastreado ali indexava e

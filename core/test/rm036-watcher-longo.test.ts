@@ -4,7 +4,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { projetoTemporario } from './apoio';
+import { isolarConfiguracaoGlobalDoGit, projetoTemporario } from './apoio';
 import { novaThread, gravarThread, dirThread } from '../src/thread';
 import { lerLedger, registrar } from '../src/ledger';
 import { identidadeDoProcesso } from '../src/adapters/codex-controller';
@@ -16,6 +16,8 @@ import { commitMcp, estadoGitMcp } from '../src/mcp-git';
 import { comEstadoParaGit } from '../src/estado-thread';
 import { nomeDaMaquina } from '../src/maquina';
 import { acompanharSessao, observarSessao, LIMITE_MORTE_MS, MAX_ESPERA_ERRO_WATCH_MS, MAX_FALHAS_WATCH } from '../src/session-watcher';
+
+isolarConfiguracaoGlobalDoGit('rm036-watcher-longo');
 
 const BASE = Date.parse('2026-01-01T00:00:00.000Z');
 const SID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
