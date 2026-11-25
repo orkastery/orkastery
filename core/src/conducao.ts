@@ -17,7 +17,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
 import { estadoProcesso, identidadeProcesso, IdentidadeProcesso } from './adapters/codex-runner';
 import { conducaoDoLease, quemConduz, linhaDeConducao, NOME_DA_OPERACAO } from './conducao-texto';
 
@@ -36,6 +35,7 @@ import {
   CanalDeConducao, ConducaoAtual, DadosDaConducao, DonoDaConducao, EventoLedger, Fase, Lease, OperacaoDeConducao,
 } from './types';
 import { adquirirTravaPortatil } from './trava-portatil';
+import { fs as fsTipado, path as pathTipado, processo, spawnSync as spawnSyncTipado } from './node-portavel';
 
 // ---------------------------------------------------------------------------
 // Canais (D5, D6): registro fechado, declarado pela borda.
@@ -280,11 +280,11 @@ export function dormir(ms: number): void {
 
 /** Arquivo da trava de kernel da thread: nunca apagado, como o lock HITL. */
 function caminhoDaTrava(raiz: string, threadId: string): string {
-  return path.join(dirThread(raiz, threadId), '.conducao.lock');
+  return pathTipado.join(dirThread(raiz, threadId), '.conducao.lock');
 }
 
 function kernelDisponivel(): boolean {
-  return process.platform === 'linux' && fs.existsSync(FLOCK);
+  return processo.platform === 'linux' && fsTipado.existsSync(FLOCK);
 }
 
 interface TravaDaConducao { liberar(): void }
@@ -296,17 +296,19 @@ interface TravaDaConducao { liberar(): void }
  */
 function tentarTrava(raiz: string, threadId: string): TravaDaConducao | null {
   const arquivo = caminhoDaTrava(raiz, threadId);
-  if (process.platform === 'darwin') {
+  if (processo.platform === 'darwin') {
     const trava = adquirirTravaPortatil(arquivo, `conducao:${threadId}`, { esperarMs: 0 });
     return trava ? { liberar: () => trava.liberar() } : null;
   }
-  if (!kernelDisponivel()) throw new Error(process.platform === 'linux'
+  if (!kernelDisponivel()) throw new Error(processo.platform === 'linux'
     ? 'runtime.unavailable: condução sem /usr/bin/flock em linux'
-    : `runtime.unavailable: condução sem mecanismo de trava em ${process.platform}`);
-  const fd = fs.openSync(arquivo, fs.constants.O_RDWR | fs.constants.O_CREAT | fs.constants.O_NOFOLLOW, 0o600);
-  const r = spawnSync(FLOCK, ['--exclusive', '--nonblock', '3'], { stdio: ['ignore', 'ignore', 'ignore', fd], timeout: 5000 });
-  if (r.status === 0 && !r.error) return { liberar: () => fs.closeSync(fd) };
-  fs.closeSync(fd);
+    : `runtime.unavailable: condução sem mecanismo de trava em ${processo.platform}`);
+  const fd = fsTipado.openSync(arquivo,
+    fsTipado.constants.O_RDWR | fsTipado.constants.O_CREAT | fsTipado.constants.O_NOFOLLOW, 0o600);
+  const r = spawnSyncTipado(FLOCK, ['--exclusive', '--nonblock', '3'],
+    { stdio: ['ignore', 'ignore', 'ignore', fd], timeout: 5000 });
+  if (r.status === 0 && !r.error) return { liberar: () => fsTipado.closeSync(fd) };
+  fsTipado.closeSync(fd);
   return null;
 }
 
@@ -319,8 +321,8 @@ export function vidaDoProcesso(raiz: string, threadId: string, lease: Lease): Vi
   const dono = lease.conducao?.dono;
   if (!dono || dono.tipo !== 'processo') return 'desconhecido';
   if (dono.maquina !== nomeDaMaquina()) return 'desconhecido';
-  if (!kernelDisponivel() && process.platform !== 'darwin') {
-    try { process.kill(dono.pid, 0); } catch { return 'morto'; }
+  if (!kernelDisponivel() && processo.platform !== 'darwin') {
+    try { processo.kill(dono.pid, 0); } catch { return 'morto'; }
     const atual = identidadeProcesso(dono.pid);
     return atual && atual.inicio === dono.inicio ? 'vivo' : 'desconhecido';
   }
@@ -500,7 +502,7 @@ function dadosDoPedido(pedido: PedidoDeConducao, identidade: string, dono: DonoD
 }
 
 function donoProcesso(): DonoDaConducao {
-  const id = process.platform === 'linux' ? identidadeProcesso(process.pid) : null;
+  const id = processo.platform === 'linux' ? identidadeProcesso(processo.pid) : null;
   return { tipo: 'processo', pid: process.pid, inicio: id?.inicio ?? '', bootId: id?.boot ?? '', maquina: nomeDaMaquina() };
 }
 

@@ -13,10 +13,11 @@ import { selecaoDeCanal } from './hitl-canais';
 import { reservarDialogoHitl } from './hitl-lock';
 import { dirThread, lerThread } from './thread';
 import { descartarAtestadoLocal, hashPedidoLocal, registrarAtestadoLocal } from './hitl-local-atestado';
+import { processo } from './node-portavel';
 export { consumirAtestadoLocal, hashPedidoLocal, reciboDoAtestado } from './hitl-local-atestado';
 export type { AtestacaoLocal } from './hitl-local-receipt';
 
-export function evidenciaDaReservaHitl(plataforma = process.platform): 'kernel-exclusive-lock' | 'process-identity-lock' {
+export function evidenciaDaReservaHitl(plataforma = processo.platform): 'kernel-exclusive-lock' | 'process-identity-lock' {
   return plataforma === 'linux' ? 'kernel-exclusive-lock' : 'process-identity-lock';
 }
 
