@@ -1,5 +1,6 @@
 /** RM-089 F7: transporte autenticado da exceção nas duas forjas. */
 import { strict as assert } from 'node:assert';
+import { createPublicKey, generateKeyPairSync, sign } from 'node:crypto';
 import { test } from 'node:test';
 import { AUDIENCIA_FABRICA_CI, CONTRATO_TRANSPORTE_EXCECAO_RUNNER,
   atenderTransporteNaFabrica, configuracaoPublicaDoTransporteValida, executarClienteProtegidoDoTransporte,
@@ -9,11 +10,72 @@ import { comandosDoTextoDoManifesto } from '../src/manifest';
 import { evidenciaCanonicaDoGithub } from '../src/forja/github/ci';
 import { evidenciaCanonicaDoGitlab } from '../src/forja/gitlab/ci';
 import { identidadeNativaDoAmbienteCi } from '../src/forja/ambiente-de-ci';
+import { CONTRATO_CAPACIDADE_RUNNER_EXCECAO, CONTRATO_PORTA_NOTIFICACAO_EXCECAO,
+  CONTRATO_PROVA_NOTIFICACAO_EXCECAO, CONTRATO_RECIBO_NOTIFICACAO_EXCECAO,
+  hashDoReciboDeNotificacao, registrarNotificacaoAuditavel, type CapacidadeDoRunnerParaExcecao,
+  type PedidoDeNotificacaoDaExcecao, type ProvaProtegidaDaNotificacao,
+  type ReciboDeNotificacaoDaExcecao } from '../src/excecao-notificacao';
+import { CONTRATO_EXCECAO_RECIBO, CONTRATO_POLITICA_EXCECAO_RECIBO, hashDaPoliticaDeExcecao,
+  type ExcecaoDeRecibo, type PoliticaDaExcecaoDeRecibo } from '../src/excecao-recibo';
 
 const CONFIG = { contrato: CONTRATO_TRANSPORTE_EXCECAO_RUNNER, origem: 'https://fabrica.invalid/ci',
   audiencia: AUDIENCIA_FABRICA_CI, cliente: { versao: '0.6.10', sha256: 'a'.repeat(64) } };
 const ESPERADO = { project: 'projeto-fixture', source: 'feature/fixture', target: 'main', head: 'b'.repeat(40),
   operation: 'ci.run' as const };
+const AGORA = '2026-11-25T00:00:00.000Z', EXPIRA = '2026-12-01T00:00:00.000Z';
+
+function transporteValido() {
+  const chaves = generateKeyPairSync('ed25519');
+  const publica = createPublicKey(chaves.privateKey).export({ format: 'der', type: 'spki' }).toString('base64');
+  const policy: PoliticaDaExcecaoDeRecibo = { schema: CONTRATO_POLITICA_EXCECAO_RECIBO,
+    version: 'policy-f7', level: 'exigir', project: ESPERADO.project, target: ESPERADO.target,
+    recipientRef: 'responsible:release', maxValidityMs: null,
+    notificationPort: { id: 'managed-f7', issuerId: 'notifier-f7', timeoutMs: 1000 },
+    actors: [{ principalRef: 'account:builder', actorId: 'actor:builder', authorityId: null, groups: ['builder'] },
+      { principalRef: 'account:approver', actorId: 'actor:approver', authorityId: null, groups: ['approver'] }],
+    issuers: [{ id: 'notifier-f7', keyId: 'notifier-key-f7', publicKey: publica }] };
+  const policySha256 = hashDaPoliticaDeExcecao(policy);
+  const exception: ExcecaoDeRecibo = { schema: CONTRATO_EXCECAO_RECIBO, exceptionId: 'exception-f7',
+    authorizationRef: 'auth_0123456789abcdefghijkl', justification: 'Autorização protegida.',
+    scope: ['ci.receipt', 'source-head'], waivedReceipt: 'ork.ci-recibo-runner/v1', ...ESPERADO,
+    policyVersion: policy.version, policySha256,
+    policyOrigin: { type: 'protected-target', referenceHash: '1'.repeat(64) },
+    builder: { principalHash: '2'.repeat(64), identityHash: '3'.repeat(64), groupsHash: '4'.repeat(64) },
+    authorizer: { principalHash: '5'.repeat(64), identityHash: '6'.repeat(64), groupsHash: '7'.repeat(64) },
+    responsibleRef: policy.recipientRef, issuedAt: AGORA, expiresAt: EXPIRA,
+    review: { reference: 'review:f7', responsibleRef: policy.recipientRef, dueAt: EXPIRA },
+    decision: 'waived', reason: 'Continuidade auditada.',
+    notification: { state: 'pending', receiptId: null, receiptHash: null } };
+  const recibo = (pedido: PedidoDeNotificacaoDaExcecao): ReciboDeNotificacaoDaExcecao => {
+    const base: Omit<ReciboDeNotificacaoDaExcecao, 'receiptHash' | 'signature'> = {
+      schema: CONTRATO_RECIBO_NOTIFICACAO_EXCECAO, receiptId: 'receipt-f7', requestId: pedido.requestId,
+      requestHash: pedido.requestHash, idempotencyKey: pedido.idempotencyKey,
+      issuer: { id: 'notifier-f7', keyId: 'notifier-key-f7' }, authorizationRef: pedido.authorizationRef,
+      policyVersion: pedido.policyVersion, policySha256: pedido.policySha256, project: pedido.project,
+      source: pedido.source, target: pedido.target, head: pedido.head, operation: pedido.operation,
+      recipientRef: pedido.recipientRef, requestedAt: pedido.requestedAt, attemptedAt: AGORA,
+      issuedAt: AGORA, deliveredAt: AGORA, result: 'delivered', providerProofRef: 'provider:f7',
+      providerProofHash: '8'.repeat(64) };
+    const receiptHash = hashDoReciboDeNotificacao(base);
+    return { ...base, receiptHash,
+      signature: sign(null, Buffer.from(receiptHash, 'utf8'), chaves.privateKey).toString('base64') };
+  };
+  const registrado = registrarNotificacaoAuditavel(exception, policy, 'ork-rm089f7recib', '/tmp/nao-usado', {
+    schema: CONTRATO_PORTA_NOTIFICACAO_EXCECAO, id: policy.notificationPort.id,
+    issuerId: policy.notificationPort.issuerId, independent: true, send: recibo,
+  }, { schema: 'ork.excecao-notificacao-capability/v1', portId: policy.notificationPort.id,
+    policySha256, operation: 'notify-receipt-exception', expiresAt: EXPIRA, verified: true },
+  { agora: AGORA, registro: { uuid: () => 'event-f7', agora: () => AGORA, append: () => undefined } });
+  assert.equal(registrado.ok, true);
+  if (!registrado.ok) throw new Error('fixture inválida');
+  const proof: ProvaProtegidaDaNotificacao = { schema: CONTRATO_PROVA_NOTIFICACAO_EXCECAO, policy,
+    request: registrado.request, receipt: registrado.receipt, event: registrado.event };
+  const capability: CapacidadeDoRunnerParaExcecao = { schema: CONTRATO_CAPACIDADE_RUNNER_EXCECAO,
+    capabilityId: 'runner-capability-f7', policySha256, ledgerEventId: proof.event.ledgerEventId,
+    recordedAt: proof.event.recordedAt, receiptHash: proof.receipt.receiptHash, ...ESPERADO,
+    expiresAt: EXPIRA, verified: true };
+  return { contrato: CONTRATO_TRANSPORTE_EXCECAO_RUNNER, proof, capability } as const;
+}
 
 test('a configuração pública v1 exige audiência exata e cliente pinado', () => {
   assert.equal(configuracaoPublicaDoTransporteValida(CONFIG), true);
@@ -166,4 +228,69 @@ test('GitLab reobtém user_id do job, pipeline, configuração, target e HEAD an
   assert.equal(evidenciaCanonicaDoGitlab(bruto, { ...esperado, construtor: 'gitlab-user:102' }), null);
   assert.deepEqual(identidadeNativaDoAmbienteCi({ GITLAB_CI: 'true', CI_JOB_ID: '72', CI_PIPELINE_ID: '82',
     GITLAB_USER_ID: '902' }), { forja: 'gitlab', execucaoId: '72', iniciadorId: '902', pipelineId: '82' });
+});
+
+test('matriz hermética: entrega, reentrada, escopo, expiração, emissor e fontes não confiáveis', () => {
+  for (const forja of ['github', 'gitlab'] as const) {
+    const transporte = transporteValido();
+    const valido = projetarResultadoDoTransporte(transporte, 'exigir', ESPERADO, AGORA);
+    assert.equal(valido.aplicado, true, `${forja}: entrega válida`);
+    assert.deepEqual(projetarResultadoDoTransporte(transporte, 'exigir', ESPERADO, AGORA), valido,
+      `${forja}: reentrada exata é idempotente`);
+
+    const casos: Array<[string, unknown, typeof ESPERADO, string]> = [
+      ['outro HEAD', transporte, { ...ESPERADO, head: 'c'.repeat(40) }, AGORA],
+      ['capacidade vencida', { ...transporte, capability: { ...transporte.capability,
+        expiresAt: '2026-11-24T00:00:00.000Z' } }, ESPERADO, AGORA],
+      ['emissor divergente', { ...transporte, proof: { ...transporte.proof,
+        receipt: { ...transporte.proof.receipt, issuer: { id: 'outro', keyId: 'outra' } } } }, ESPERADO, AGORA],
+      ['proof adulterada', { ...transporte, proof: { ...transporte.proof,
+        request: { ...transporte.proof.request, source: 'outra' } } }, ESPERADO, AGORA],
+      ['capability adulterada', { ...transporte, capability: { ...transporte.capability,
+        receiptHash: '9'.repeat(64) } }, ESPERADO, AGORA],
+      ['campo extra', { ...transporte, extra: true }, ESPERADO, AGORA],
+    ];
+    for (const [nome, entrada, esperado, agora] of casos) {
+      const resultado = projetarResultadoDoTransporte(entrada, 'exigir', esperado, agora);
+      assert.equal(resultado.aplicado, false, `${forja}: ${nome}`);
+      if (!resultado.aplicado) assert.equal(resultado.code, 'ci.excecao.transporte-invalido', `${forja}: ${nome}`);
+    }
+
+    for (const fonte of ['argv', 'environment', 'checkout', 'bundle'] as const) {
+      const fabricado = { contrato: CONTRATO_TRANSPORTE_EXCECAO_RUNNER, proof: transporte.proof,
+        capability: transporte.capability, [fonte]: true };
+      const resultado = projetarResultadoDoTransporte(fabricado, 'exigir', ESPERADO, AGORA);
+      assert.equal(resultado.aplicado, false, `${forja}: ${fonte}`);
+      assert.doesNotMatch(JSON.stringify(resultado), /proof|capability|token/, `${forja}: ${fonte}`);
+    }
+
+    const localizadores: LocalizadoresDoTransporteCi = { ...ESPERADO, forja,
+      execucaoId: `${forja}:execucao-matriz`, construtor: forja === 'github' ? 'github-user:900' : 'gitlab-user:900' };
+    const sanitizado = executarClienteProtegidoDoTransporte(CONFIG, localizadores, 'exigir', AGORA,
+      { obter: () => `token-${forja}` }, { consultar: () => transporte });
+    assert.equal(sanitizado.aplicado, true, `${forja}: launcher aplica`);
+    assert.doesNotMatch(JSON.stringify(sanitizado), new RegExp(`token-${forja}|proof|capability`),
+      `${forja}: launcher só devolve resultado sanitizado`);
+  }
+});
+
+test('fork, target não protegida, principal inválido e identidade divergente param antes da entrega', () => {
+  for (const forja of ['github', 'gitlab'] as const) {
+    const localizadores: LocalizadoresDoTransporteCi = { ...ESPERADO, forja, execucaoId: `${forja}:execucao`,
+      construtor: forja === 'github' ? 'github-user:900' : 'gitlab-user:900' };
+    const base: FatosReobtidosDaForjaCi = { ...localizadores, destinoProtegido: true, fork: false,
+      principalNativo: forja === 'github' ? 'github-app:101' : 'gitlab-user:101', componenteProtegido: true };
+    for (const fatos of [{ ...base, fork: true }, { ...base, destinoProtegido: false },
+      { ...base, componenteProtegido: false }, { ...base, principalNativo: localizadores.construtor },
+      { ...base, principalNativo: 'builder' }]) {
+      let entregas = 0;
+      const resposta = atenderTransporteNaFabrica('token-opaco', localizadores, {
+        autenticar: (_token, audiencia) => ({ forja, audiencia, execucaoId: localizadores.execucaoId,
+          principalNativo: fatos.principalNativo }), reobter: () => fatos,
+        entregar: () => { entregas++; return transporteValido(); },
+      });
+      assert.deepEqual(resposta, { estado: 'ausente' }, `${forja}: recusa tipada`);
+      assert.equal(entregas, 0, `${forja}: zero chamada sensível`);
+    }
+  }
 });
