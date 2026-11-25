@@ -80,9 +80,9 @@ sdlc:
 ### Fatia da issue #299: configuração local segura e diagnosticável
 
 - **Fonte e evidência:** [issue #299](https://github.com/orkastery/orkastery/issues/299), triada em 24/11/2026. O perfil de `core/src/mcp-git.ts` recusava qualquer chave fora da lista positiva e devolvia uma mensagem sem chave ou escopo.
-- **Resultado incluído:** status e commit locais aceitam `branch.<b>.vscode-merge-base`, `core.compression` no domínio `-1..9`, `pull.rebase` não interativo e quatro opções de transporte HTTP que a operação local não usa. A recusa preserva o código atual e acrescenta chave mascarada e escopo.
+- **Resultado incluído:** configuração local passiva de status e commit aceita `branch.<b>.vscode-merge-base`, `core.compression` no domínio `-1..9`, `pull.rebase` não interativo e quatro opções de transporte HTTP que a operação local não usa. A recusa preserva o código atual e acrescenta chave mascarada e escopo.
 - **Estado da fatia: em implementação** na thread `ork-podmangitine`; ainda não foi mesclada nem publicada. O estado Discovery da iniciativa de manutenção de objetos permanece verdadeiro e independente desta fatia.
-- **Proteções:** todos os escopos continuam lidos; alias, hooks, filtros efetivos e valores fora do domínio continuam recusados; SHIP e consultas de rede usam o perfil estrito; `http.<url>.extraHeader` continua recusada e aparece como `http.<subsecao>.extraheader`, sem URL ou valor.
+- **Proteções:** todos os escopos continuam lidos; alias, hooks, filtros efetivos e valores fora do domínio continuam recusados; transporte de credencial, SHIP e consultas de rede usam o perfil estrito; `http.<url>.extraHeader` continua recusada e aparece como `http.<subsecao>.extraheader`, sem URL ou valor.
 - **Fora de escopo:** ignorar configuração global, aceitar classes abertas, mudar o transporte do SHIP, executar Git pelo agente ou resolver a manutenção preventiva de objetos desta iniciativa.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
