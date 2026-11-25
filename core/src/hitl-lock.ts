@@ -33,7 +33,9 @@ export function reservarDialogoHitl(dir: string, requestId: string, connectionId
     try {
       const metadata = JSON.stringify({ contrato: 'ork.hitl-dialogue/v1', requestId, connectionId });
       const flags = fs.constants.O_RDWR | fs.constants.O_NOFOLLOW | (recuperar ? 0 : fs.constants.O_CREAT | fs.constants.O_EXCL);
-      const fd = fs.openSync(file, flags, 0o600);
+      let fd: number;
+      try { fd = fs.openSync(file, flags, 0o600); }
+      catch { throw Error('hitl.channel.recovery-unproven'); }
       try {
         const st = fs.fstatSync(fd);
         if (!st.isFile() || st.uid !== process.getuid?.() || (st.mode & 0o777) !== 0o600 || st.nlink !== 1 || st.size > 1024)

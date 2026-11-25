@@ -5,12 +5,17 @@ import { dirThread, novaThread } from '../src/thread';
 import { prazoDoPedido } from '../src/hitl-contract';
 import { lerLedger, registrar } from '../src/ledger';
 import { abrirPedidoGate, assinaturaDaResposta, contextoDoPedidoNativo, responderGate, RespostaHumana } from '../src/hitl-gates';
-import { criarIngressoLocal, RespostaElicitation } from '../src/hitl-local';
+import { criarIngressoLocal, evidenciaDaReservaHitl, RespostaElicitation } from '../src/hitl-local';
 import { conferirCanalSelecionado } from '../src/hitl-canais';
 import { nativeMessage } from '../src/hitl-native';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
+
+test('evidência da recuperação identifica o mecanismo da plataforma', () => {
+  assert.equal(evidenciaDaReservaHitl('linux'), 'kernel-exclusive-lock');
+  assert.equal(evidenciaDaReservaHitl('darwin'), 'process-identity-lock');
+});
 
 for (const transport of ['telegram', 'native'] as const) test(`${transport} autenticado assume após cancelamento MCP, nunca durante conflito ativo`, async () => {
   const p = projetoTemporario('channel-release'), old = { ...process.env };

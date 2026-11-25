@@ -16,6 +16,10 @@ import { descartarAtestadoLocal, hashPedidoLocal, registrarAtestadoLocal } from 
 export { consumirAtestadoLocal, hashPedidoLocal, reciboDoAtestado } from './hitl-local-atestado';
 export type { AtestacaoLocal } from './hitl-local-receipt';
 
+export function evidenciaDaReservaHitl(plataforma = process.platform): 'kernel-exclusive-lock' | 'process-identity-lock' {
+  return plataforma === 'linux' ? 'kernel-exclusive-lock' : 'process-identity-lock';
+}
+
 export interface RespostaElicitation {
   action: 'accept' | 'decline' | 'cancel';
   content?: { opcao: string };
@@ -89,7 +93,7 @@ export function criarIngressoLocal(
           const release = reservarDialogoHitl(dirThread(raiz, threadId), selected.requestId, selected.connectionId, true);
           try {
             registrar(dirThread(raiz, threadId), threadId, 'hitl_channel_released', { pedidoId, requestId: selected.requestId,
-              reason: 'abandoned-dialogue', evidence: 'kernel-exclusive-lock', connectionId: conexao.connectionId });
+              reason: 'abandoned-dialogue', evidence: evidenciaDaReservaHitl(), connectionId: conexao.connectionId });
           } finally { release(); }
         }
         liberarReserva = reservarDialogoHitl(dirThread(raiz, threadId), requestId, conexao.connectionId);

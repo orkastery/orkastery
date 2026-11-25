@@ -27,6 +27,8 @@ test('macOS usa trava portátil para lock inspecionável e reserva recuperável'
       assert.throws(() => comLockInspecionavel(dir, 'concorrente', () => assert.fail(), 'darwin'), /ocupado/);
     }, 'darwin');
     const requestId = randomUUID(), connectionId = 'fixture';
+    assert.throws(() => reservarDialogoHitl(dir, requestId, connectionId, true, 'darwin'),
+      (erro: Error) => erro.message === 'hitl.channel.recovery-unproven');
     const soltar = reservarDialogoHitl(dir, requestId, connectionId, false, 'darwin');
     assert.throws(() => reservarDialogoHitl(dir, requestId, connectionId, true, 'darwin'), /in-use/);
     soltar();
