@@ -8,9 +8,20 @@ const cp = require('node:child_process');
 
 const repo = path.resolve(__dirname, '..', '..');
 const core = path.join(repo, 'core');
+const fixtureDoProjeto = path.join(core, 'test', 'fixtures', 'pacote-portatil');
 
 const CATEGORIAS_DO_LACO = new Set(['secret', 'dependency', 'sast', 'iac', 'workflow']);
 const FALTA_DE_RUNTIME_DE_CONTAINER = new Set(['docker-missing', 'docker-daemon-down']);
+
+function dispensadaPeloScan(item, ferramentas) {
+  const saidas = [
+    path.join(core, 'dist', 'security-scan', 'report.js'),
+    path.join(core, 'dist-test', 'src', 'security-scan', 'report.js'),
+  ];
+  const modulo = saidas.find((arquivo) => fs.existsSync(arquivo));
+  if (!modulo) throw Error('classificador de dispensas do security scan não foi compilado');
+  return require(modulo).isExcusedUnscanned(item, ferramentas);
+}
 
 function classificarSecurityScan(relatorio, codigo) {
   if (!relatorio || relatorio.schema !== 'ork.security-scan/v1' || !Array.isArray(relatorio.tools) || !Array.isArray(relatorio.findings)) {
@@ -21,7 +32,7 @@ function classificarSecurityScan(relatorio, codigo) {
   if (relatorio.findings.some((item) => item.status === 'new' && item.loop === true)) {
     throw Error('security scan encontrou achado novo no laço');
   }
-  const semExecucao = ferramentas.filter((item) => item.state !== 'ran');
+  const semExecucao = ferramentas.filter((item) => item.state !== 'ran' && !dispensadaPeloScan(item, relatorio.tools));
   if (semExecucao.length === 0) {
     if (codigo !== 0) throw Error(`security scan coberto saiu com código ${codigo}`);
     return { estado: 'coberto', ferramentas: ferramentas.map((item) => item.name) };
@@ -89,11 +100,8 @@ function principal() {
     executar('git', ['init', '-q'], projeto);
     executar('git', ['config', 'user.name', 'Ork CI'], projeto);
     executar('git', ['config', 'user.email', 'ork-ci@example.invalid'], projeto);
-    fs.writeFileSync(path.join(projeto, 'package.json'), JSON.stringify({
-      name: 'portable-package-proof', private: true,
-      scripts: { build: 'node -e "process.exit(0)"', test: 'node -e "process.exit(0)"' },
-    }, null, 2) + '\n');
-    executar('git', ['add', '--', 'package.json'], projeto);
+    fs.cpSync(fixtureDoProjeto, projeto, { recursive: true });
+    executar('git', ['add', '--', 'package.json', 'package-lock.json'], projeto);
     executar('git', ['commit', '-qm', 'inicio'], projeto);
 
     executar('ork', ['demo'], projeto);

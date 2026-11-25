@@ -22,10 +22,13 @@ test('jobs Linux e macOS percorrem o quickstart instalado e publicação exige a
   const manifesto = fs.readFileSync(path.join(raiz, 'orkastery.yaml'), 'utf8');
   const script = fs.readFileSync(path.join(raiz, 'core/scripts/provar-macos-instalado.cjs'), 'utf8');
   assert.match(workflow, /portabilidade-macos:[\s\S]*runs-on: macos-latest/);
+  assert.match(workflow, /portabilidade-macos:[\s\S]*node-version: '24'/);
   assert.match(workflow, /portabilidade-linux:[\s\S]*runs-on: ubuntu-latest/);
   assert.equal(workflow.match(/node core\/scripts\/provar-macos-instalado\.cjs/g)?.length, 2);
   assert.match(script, /npm', \['pack'/);
   assert.match(script, /npm', \['install', '-g', '--prefix'/);
+  assert.match(script, /fixtureDoProjeto/);
+  assert.match(script, /package-lock\.json/);
   assert.match(script, /binDoPrefixo/);
   assert.match(script, /HOME: home/);
   assert.match(script, /resolverNoPath\('ork', ambiente\)/);
@@ -67,4 +70,9 @@ test('classificação do scan aceita cobertura real ou falta de contêiner, sem 
   assert.throws(() => prova.classificarSecurityScan(relatorio([
     ferramenta('gitleaks', 'secret', 'failed', 'exit-127: comando não encontrado'),
   ]), 1), /não cobriu gitleaks/);
+  const comDispensa = relatorio([
+    ferramenta('gitleaks', 'secret', 'ran'),
+    ferramenta('zizmor', 'workflow', 'unavailable', 'unsupported-ci'),
+  ]);
+  assert.equal(prova.classificarSecurityScan(comDispensa, 0).estado, 'coberto');
 });
