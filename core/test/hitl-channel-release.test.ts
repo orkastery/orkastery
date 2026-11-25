@@ -110,8 +110,8 @@ for (const state of ['abandoned', 'sending', 'unproven'] as const) test(`MCP ap�
   } finally { ingress.fechar(); p.limpar(); }
 });
 
-test('MCP após crash na fiação Linux padrão registra a trava de kernel usada na recuperação', async () => {
-  if (process.platform !== 'linux') return;
+test('MCP após crash na fiação Linux padrão registra a trava de kernel usada na recuperação',
+  { skip: process.platform !== 'linux' }, async () => {
   const p = projetoTemporario('channel-crash-linux');
   const ingress = criarIngressoLocal(p.dir, { host: 'claude-code', connectionId: 'replacement-linux' },
     async () => ({ action: 'accept', content: { opcao: '1' } }));

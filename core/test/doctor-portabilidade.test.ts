@@ -31,8 +31,8 @@ test('nomes dos checks novos têm paridade em inglês', () => {
   });
 });
 
-test('tomarConducao no Linux sem flock falha fechada com a causa do mecanismo ausente', (t) => {
-  if (process.platform !== 'linux') return;
+test('tomarConducao no Linux sem flock falha fechada com a causa do mecanismo ausente',
+  { skip: process.platform !== 'linux' }, (t) => {
   const p = projetoTemporario('conducao-sem-flock');
   const thread = novaThread(p.carregado, { nome: 'Condução sem flock', modo: 'fast' }).thread;
   const sistema = require('node:fs') as typeof import('node:fs');

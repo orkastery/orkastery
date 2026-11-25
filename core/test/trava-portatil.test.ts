@@ -75,18 +75,19 @@ test('caminho darwin fixa fuso e locale ao comparar a identidade do dono', () =>
       `const fs=require('node:fs'),t=require(process.argv[1]);`,
       `const x=t.adquirirTravaPortatil(process.argv[2],process.argv[3],{esperarMs:Number(process.argv[4])});`,
       `if(process.argv[3]==='dono'){if(!x)process.exit(2);fs.writeFileSync(1,'pronto\\n');`,
-      `Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,500);x.liberar();}`,
+      `fs.readFileSync(0,'utf8');x.liberar();}`,
       `else{fs.writeFileSync(1,JSON.stringify({adquiriu:!!x}));if(x)x.liberar();}`,
     ].join('');
     const coordenador = [
       `const cp=require('node:child_process');const [filho,modulo,alvo]=process.argv.slice(1);`,
       `const rodar=(papel,prazo,env)=>{const p=cp.spawn(process.execPath,['-e',filho,modulo,alvo,papel,prazo],`,
-      `{env:{...process.env,...env},stdio:['ignore','pipe','pipe']});let out='',err='';`,
+      `{env:{...process.env,...env},stdio:[papel==='dono'?'pipe':'ignore','pipe','pipe']});let out='',err='';`,
       `p.stdout.on('data',d=>{out+=d});p.stderr.on('data',d=>{err+=d});`,
       `return {p,feito:new Promise((resolve,reject)=>p.on('close',code=>code===0?resolve(out):reject(Error(err))))};};`,
       `const a=rodar('dono','1000',{TZ:'UTC0',LC_ALL:'C'});`,
-      `a.p.stdout.once('data',()=>{const b=rodar('concorrente','120',{TZ:'America/Sao_Paulo',LC_ALL:'POSIX'});`,
-      `Promise.all([a.feito,b.feito]).then(([,saida])=>require('node:fs').writeFileSync(1,saida)).catch(e=>{console.error(e);process.exitCode=1;});});`,
+      `a.p.stdout.once('data',()=>{const b=rodar('concorrente','0',{TZ:'America/Sao_Paulo',LC_ALL:'POSIX'});`,
+      `b.feito.then(saida=>{a.p.stdin.end();return a.feito.then(()=>saida);})`,
+      `.then(saida=>require('node:fs').writeFileSync(1,saida)).catch(e=>{a.p.stdin.end();console.error(e);process.exitCode=1;});});`,
     ].join('');
     const r = spawnSync(process.execPath, ['-e', coordenador, filho, modulo, f.alvo], { encoding: 'utf8', timeout: 5000 });
     assert.equal(r.status, 0, r.stderr);

@@ -12,7 +12,7 @@ test('executor sandbox usa na execução e no recibo o shell medido', () => {
   const binarioSandbox = path.join(base, 'codex-fixture');
   fs.writeFileSync(binarioSandbox, '', { mode: 0o700 });
   const shell = { caminho: '/usr/bin/bash', versao: '5.3.0-rc1' };
-  let entrada: { args: string[] } | undefined;
+  let entrada: { bin: string; args: string[] } | undefined;
   const executor = criarExecutorSandbox({
     worktree: wt,
     binarioSandbox,
@@ -28,6 +28,7 @@ test('executor sandbox usa na execução e no recibo o shell medido', () => {
   });
   try {
     const resultado = executor.executar('fixture', 'true', wt) as ResultadoSandbox;
+    assert.equal(entrada?.bin, fs.realpathSync(binarioSandbox));
     assert.deepEqual(entrada?.args.slice(-3), ['/usr/bin/bash', '-c', 'true']);
     assert.deepEqual(resultado.shell, shell);
   } finally {
