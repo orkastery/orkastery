@@ -51,7 +51,9 @@ test('default configs exist and the catalog matches the decisions', () => {
   for (const f of ['gitleaks.toml', 'eslint.config.mjs', 'ruff.toml', '.golangci.yml'])
     assert.ok(fs.existsSync(path.join(defaults, f)), f);
   assert.match(fs.readFileSync(path.join(defaults, 'gitleaks.toml'), 'utf8'), /useDefault = true/);
-  assert.match(fs.readFileSync(path.join(defaults, 'eslint.config.mjs'), 'utf8'), /recommendedTypeChecked/);
+  const eslintConfig = fs.readFileSync(path.join(defaults, 'eslint.config.mjs'), 'utf8');
+  assert.match(eslintConfig, /recommendedTypeChecked/);
+  assert.match(eslintConfig, /['"]\*\*\/test\/\*\*['"]/, 'o scan não analisa a árvore de testes');
   const by = Object.fromEntries(loadTools().map(t => [t.name, t]));
   for (const n of ['gitleaks', 'actionlint', 'zizmor', 'ruff']) assert.equal(by[n].network, 'none', n);
   for (const n of ['eslint', 'golangci-lint', 'semgrep', 'trivy-vuln', 'npm-audit', 'pip-audit', 'govulncheck']) assert.equal(by[n].network, 'default', n);

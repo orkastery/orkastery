@@ -2,7 +2,7 @@
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['**/node_modules/**', '**/dist/**', '**/build/**', '**/coverage/**'] },
+  { ignores: ['**/node_modules/**', '**/dist/**', '**/build/**', '**/coverage/**', '**/test/**'] },
   {
     files: ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts'],
     extends: [tseslint.configs.recommendedTypeChecked],
