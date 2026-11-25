@@ -41,6 +41,8 @@ export const AUDIT_PT_BR = {
     nenhumAchado: '    (nenhum achado registrado nesta rodada ainda)',
     claims: (ok: boolean, motivos: string, head: string) =>
       `  Claims do auditor: ${ok ? 'SUSTENTADAS' : 'REPROVADAS'} (motivos: ${motivos || 'nenhum'}) no HEAD ${head}`,
+    claimsSemVeredito: (motivos: string, head: string) =>
+      `  Claims do auditor: SEM VEREDITO (motivos: ${motivos}) no HEAD ${head}`,
     claimsPendentes: (id: string) => `  Claims do auditor: NAO verificadas. Rode: ork audit verify ${id}`,
     relatorio: (id: string) => `  Relatorio com o bloco de propostas: ork audit report ${id}`,
     ledgerVazio: (id: string) => `Ledger vazio para a rodada ${id}.`,
@@ -105,6 +107,7 @@ export const AUDIT_PT_BR = {
     arquivo: (v: string) => `      arquivo: ${v}`, comandos: (v: string) => `      comando(s): ${v}`,
     semComando: '      sem comando de verificacao', motivoDetalhe: (m: string, d: string) => `      motivo tipado: ${m} (${d})`,
     vereditoOk: 'Veredito: ACHADOS SUSTENTADOS (o auditor provou o que alegou).',
+    vereditoSemVeredito: (m: string) => `Veredito: SEM VEREDITO. Motivos tipados: ${m}`,
     vereditoRuim: (m: string) => `Veredito: REPROVADO. Motivos tipados: ${m}`,
     unverifiable: '  aviso: achado sem comando de verificacao avisa e nao bloqueia (regra do gate do B1).',
     relatorio: (caminho: string) => `(relatorio gravado em ${caminho})`, publicado: (caminho: string) => `(publicado em ${caminho})`,
@@ -142,6 +145,7 @@ export const AUDIT_EN: typeof AUDIT_PT_BR = {
     superficieResumo: (registered, confirm, frameworks) => `registered ${registered}, to confirm ${confirm}, frameworks: ${frameworks}`,
     nenhumFramework: '(none recognized)', achados: (n) => `  Findings (${n}):`, nenhumAchado: '    (no finding recorded in this run yet)',
     claims: (ok, reasons, head) => `  Auditor claims: ${ok ? 'SUSTAINED' : 'FAILED'} (reasons: ${reasons || 'none'}) at HEAD ${head}`,
+    claimsSemVeredito: (reasons, head) => `  Auditor claims: NO VERDICT (reasons: ${reasons}) at HEAD ${head}`,
     claimsPendentes: (id) => `  Auditor claims: NOT verified. Run: ork audit verify ${id}`,
     relatorio: (id) => `  Report with the proposals block: ork audit report ${id}`,
     ledgerVazio: (id) => `Empty ledger for run ${id}.`, ledgerCabecalho: ['WHEN', 'EVENT', 'DETAIL'],
@@ -192,6 +196,7 @@ export const AUDIT_EN: typeof AUDIT_PT_BR = {
     verifyVazio: '  (no open finding; no evidence was executed)', verifyClaim: (id, ok, claim) => `  ${id}  verified: ${ok ? 'yes' : 'NO'}  ${claim}`,
     arquivo: (v) => `      file: ${v}`, comandos: (v) => `      command(s): ${v}`, semComando: '      no verification command', motivoDetalhe: (m, d) => `      typed reason: ${m} (${d})`,
     vereditoOk: 'Verdict: FINDINGS SUSTAINED (the auditor proved its claims).', vereditoRuim: (m) => `Verdict: FAILED. Typed reasons: ${m}`,
+    vereditoSemVeredito: (m) => `Verdict: NO VERDICT. Typed reasons: ${m}`,
     unverifiable: '  warning: a finding without a verification command warns and does not block (B1 gate rule).',
     relatorio: (path) => `(report written to ${path})`, publicado: (path) => `(published to ${path})`,
     rodadaRegistrada: (id, n) => `Run ${id}: ${n} finding(s) recorded in the debt board.`, jaRegistrados: (ids) => `  already recorded in this run: ${ids}`,

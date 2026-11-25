@@ -697,10 +697,9 @@ export function verificarRodada(
   }
 
   const motivos: MotivoDeAuditoria[] = [];
-  // Rodada que nunca teve achado não pode anunciar sustentação sem executar evidência.
-  // Achados resolvidos/descartados, porém, já têm um estado terminal explícito no board e
-  // continuam fora da reexecução: tratá-los como rodada vazia reabriria dívida encerrada.
-  if (resultados.length === 0 && achadosDaRodadaInteira.length === 0) motivos.push('verify.sem-veredito');
+  // Estado terminal no board fecha a dívida, mas não cria evidência executada. Nenhuma
+  // rodada pode anunciar sustentação quando zero claims chegaram a rodar.
+  if (resultados.length === 0) motivos.push('verify.sem-veredito');
   if (resultados.some((r) => r.motivo === 'claims.failed')) motivos.push('claims.failed');
   if (resultados.some((r) => r.motivo === 'claims.unverifiable')) motivos.push('claims.unverifiable');
   // `claims.unverifiable` avisa e nao bloqueia, igual ao gate do B1.
@@ -729,9 +728,18 @@ export function verificarRodada(
       detalhe: r.detalhe,
     })),
     motivos,
-    veredito: ok ? 'achados sustentados' : 'reprovado',
+    veredito: estadoDoVereditoDeAuditoria(veredito) === 'sem-veredito'
+      ? 'sem veredito'
+      : ok ? 'achados sustentados' : 'reprovado',
   });
   return veredito;
+}
+
+export type EstadoDoVereditoDeAuditoria = 'sustentado' | 'reprovado' | 'sem-veredito';
+
+export function estadoDoVereditoDeAuditoria(v: VereditoDeAuditoria): EstadoDoVereditoDeAuditoria {
+  if (v.resultados.length === 0 && v.motivos.includes('verify.sem-veredito')) return 'sem-veredito';
+  return v.ok ? 'sustentado' : 'reprovado';
 }
 
 // ---------------------------------------------------------------------------
@@ -887,7 +895,8 @@ export function relatorioDaRodada(
     const v = rodada.veredito;
     L.push(`- HEAD real: ${v.commit}`);
     L.push(`- verificado em: ${formatarDataHoraRotulada(v.verificadoEm)}`);
-    L.push(`- veredito: ${v.ok ? 'ACHADOS SUSTENTADOS' : 'REPROVADO'}`);
+    const estado = estadoDoVereditoDeAuditoria(v);
+    L.push(`- veredito: ${estado === 'sustentado' ? 'ACHADOS SUSTENTADOS' : estado === 'sem-veredito' ? 'SEM VEREDITO' : 'REPROVADO'}`);
     L.push(`- motivos tipados: ${v.motivos.length > 0 ? v.motivos.join(', ') : '(nenhum)'}`);
     L.push('');
     for (const r of v.resultados) {
@@ -944,7 +953,8 @@ export function tabelaDeRodadas(raiz: string): string {
       r.status,
       r.motivo ?? '-',
       String(r.achados.length),
-      r.veredito ? (r.veredito.ok ? m.sustentado : m.reprovado) : m.naoVerificado,
+      r.veredito ? (estadoDoVereditoDeAuditoria(r.veredito) === 'sustentado' ? m.sustentado
+        : estadoDoVereditoDeAuditoria(r.veredito) === 'sem-veredito' ? m.naoVerificado : m.reprovado) : m.naoVerificado,
       r.escopo.since ?? 'total',
     ];
   });
@@ -983,9 +993,10 @@ export function textoDaRodada(raiz: string, id: string): string {
   for (const a of achados) L.push(textoDoAchado(a));
   L.push('');
   if (r.veredito) {
-    L.push(
-      m.claims(r.veredito.ok, r.veredito.motivos.join(', '), shaCurto(r.veredito.commit))
-    );
+    const estado = estadoDoVereditoDeAuditoria(r.veredito);
+    L.push(estado === 'sem-veredito'
+      ? m.claimsSemVeredito(r.veredito.motivos.join(', '), shaCurto(r.veredito.commit))
+      : m.claims(r.veredito.ok, r.veredito.motivos.join(', '), shaCurto(r.veredito.commit)));
   } else {
     L.push(m.claimsPendentes(r.id));
   }
