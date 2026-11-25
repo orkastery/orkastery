@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.10",
-  "publicadoEm": "2026-11-25T23:15:03.114Z",
+  "publicadoEm": "2026-11-25T23:30:03.405Z",
   "threads": [
     {
       "id": "ork-macosportave",
@@ -14,7 +14,7 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-macosportave-full",
-      "atualizadaEm": "2026-11-25T23:14:08.832Z",
+      "atualizadaEm": "2026-11-25T23:29:02.629Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -58,7 +58,7 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-podmangitine-full",
-      "atualizadaEm": "2026-11-25T22:49:46.378Z",
+      "atualizadaEm": "2026-11-25T23:18:48.770Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
