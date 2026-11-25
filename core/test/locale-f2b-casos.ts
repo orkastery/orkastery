@@ -411,6 +411,7 @@ function casosDoRetry(casos: Record<string, string>): void {
   const repo = projeto('retry', 'rty', amb);
   ork(repo, amb, 'thread', 'new', 'Falha', '--modo', 'auto', '--sem-worktree');
   ork(repo, amb, 'claims', 'add', 'rty-falha', 'README.md', '--claim', 'reprova sempre', '--verificar', 'false');
+  const falha = lerThread(repo, 'rty-falha'); falha.faseAtual = 'CHECK'; gravarThread(repo, falha);
   ork(repo, amb, 'thread', 'new', 'Limpa', '--modo', 'auto', '--sem-worktree');
   const docsDoRetry = path.join(repo, '.orkastery', 'threads', 'rty-falha', 'docs');
   fs.mkdirSync(docsDoRetry, { recursive: true });
