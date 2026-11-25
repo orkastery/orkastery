@@ -191,6 +191,33 @@ test('security_scan sem cobertura e sem baseline usa somente o motivo tipado pr�
   assert.equal(r.ok, false);
 });
 
+test('security_scan sem cobertura depois de baseline verde não vira regressão', () => {
+  const scan = {
+    nome: 'security_scan', comando: 'ork security-scan', ok: false, code: 1, resumo: '', causa: 'exit' as const,
+    executado: true,
+  };
+  const r = julgarResultadoDoVerify({ claims: [], comandos: [scan], baseline: {
+    commit: 'a'.repeat(40), gravadaEm: '2026-11-25T00:00:00.000Z', comandos: [{ ...scan, ok: true, code: 0 }],
+  }, securityScanSemCobertura: { comando: scan.comando, categorias: ['sast'] } });
+  assert.deepEqual(r.regressoes, []);
+  assert.deepEqual(r.motivos, ['security.scan-unscanned']);
+  assert.equal(r.ok, false);
+});
+
+test('achado novo do security_scan nunca vira dívida preexistente', () => {
+  const scan = {
+    nome: 'security_scan', comando: 'ork security-scan', ok: false, code: 1, resumo: '', causa: 'exit' as const,
+    executado: true,
+  };
+  const r = julgarResultadoDoVerify({ claims: [], comandos: [scan], baseline: {
+    commit: 'a'.repeat(40), gravadaEm: '2026-11-25T00:00:00.000Z', comandos: [{ ...scan }],
+  }, securityScanComAchadoNovo: true });
+  assert.deepEqual(r.preExistentes, []);
+  assert.deepEqual(r.regressoes.map((c) => c.nome), ['security_scan']);
+  assert.deepEqual(r.motivos, ['verify.regression']);
+  assert.equal(r.ok, false);
+});
+
 test('baseline recusa comando inexistente em vez de grava-lo como divida pre-existente', () => {
   const projeto = projetoTemporario('verify-baseline-127');
   try {

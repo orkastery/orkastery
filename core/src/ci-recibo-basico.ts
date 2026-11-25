@@ -6,7 +6,7 @@ import * as path from 'node:path';
 import { resolverModo, type ModoDoCheck } from './check-modo';
 import type { Manifesto } from './types';
 import type { Claim, CausaDoComando, DependenciaExternaDaClaim, ResultadoDeClaim, ResultadoDeComando } from './types';
-import { coberturaAusenteDoSecurityScan, executar, identidadeDoProduto, julgarResultadoDoVerify, prazoDoComando, verificarClaim,
+import { evidenciaDoSecurityScan, executar, identidadeDoProduto, julgarResultadoDoVerify, prazoDoComando, verificarClaim,
   type ExecutorVerify, type JulgamentoVerify } from './verify';
 
 export const CONTRATO_PROJECAO_REPLAY_CI = 'ork.ci-projecao-replay/v1' as const;
@@ -365,6 +365,7 @@ export function reexecutarProjecaoReplayCi(valor: unknown, opcoes: OpcoesReplayC
       julgamento: null, degradacao: 'runner-sem-capacidade' };
   }
   try {
+    const inicioDaRodada = Date.now();
     // rodada.check pertence à projeção não confiável e fica apenas no vínculo/hash do contrato v1.
     // O modo funcional vem do manifesto protegido, ou do manifesto do próprio checkout fora de PR/MR.
     const check = opcoes.receitaConfiavel === undefined
@@ -401,9 +402,11 @@ export function reexecutarProjecaoReplayCi(valor: unknown, opcoes: OpcoesReplayC
     const degradacao = causaDaExecucao(todos) ?? (produtoAlterado ? 'produto-alterado' : null);
     // A baseline projetada continua no contrato de entrada para compatibilidade, mas não tem autoridade no runner:
     // ela vem do PR/MR. Sem fonte externa confiável, toda falha atual é julgada sem baseline e reprova.
-    const securityScanSemCobertura = coberturaAusenteDoSecurityScan(opcoes.raiz, opcoes.head, commands);
+    const evidenciaSecurityScan = evidenciaDoSecurityScan(opcoes.raiz, opcoes.head, commands, inicioDaRodada);
+    const securityScanSemCobertura = evidenciaSecurityScan.coberturaAusente;
     const julgamento = julgarResultadoDoVerify({ claims, comandos: commands, baseline: null,
-      securityScanSemCobertura, preparo, produtoAlterado });
+      securityScanSemCobertura, securityScanComAchadoNovo: evidenciaSecurityScan.achadoNovoNoLaco,
+      preparo, produtoAlterado });
     const falhaReal = preparo?.ok === false || claims.some((claim) => !claim.verificado) || commands.some((command) => !command.ok);
     if (degradacao) return { ok: !falhaReal, thread: projecao.thread, commit: opcoes.head, preparo, claims, commands,
       julgamento, degradacao };

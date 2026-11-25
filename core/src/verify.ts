@@ -69,7 +69,7 @@ import { ENV_TMPDIR_DA_RODADA, selecionarTemporario } from './temporario-das-lan
 import { ambienteFuncionalDosTestes, ENV_PATH_FUNCIONAL_DA_RODADA,
   transporteDoAmbienteFuncional } from './ambiente-funcional';
 import { readReport, unscannedLoopTools } from './security-scan/report';
-import { LOOP_CATEGORIES, type Category } from './security-scan/types';
+import { type Category } from './security-scan/types';
 
 /** Teto de tempo de um comando de verificacao (build e suite completa cabem). */
 export const TIMEOUT_VERIFY_MS = 10 * 60 * 1000;
@@ -1059,8 +1059,10 @@ export interface EntradaDoJulgamentoVerify {
   claims: ResultadoDeClaim[];
   comandos: ResultadoDeComando[];
   baseline: Baseline | null;
-  /** Cobertura ausente comprovada pelo relatorio do SHA, ou por sua ausencia. */
+  /** Cobertura ausente comprovada pelo relatorio produzido nesta rodada para o SHA. */
   securityScanSemCobertura?: CoberturaAusenteDoSecurityScan | null;
+  /** O relatorio produzido nesta rodada tem achado `new` do laco. */
+  securityScanComAchadoNovo?: boolean;
   preparo?: ResultadoDeComando | null;
   produtoAlterado?: boolean;
   policyViolada?: boolean;
@@ -1085,24 +1087,46 @@ export interface CoberturaAusenteDoSecurityScan {
   categorias: Category[];
 }
 
+export interface EvidenciaDoSecurityScan {
+  coberturaAusente: CoberturaAusenteDoSecurityScan | null;
+  achadoNovoNoLaco: boolean;
+  relatorioDaRodada: boolean;
+}
+
 /**
  * O comando do scan pode sair 1 por achado ou por falta de cobertura. So a segunda causa recebe o
- * motivo `security.scan-unscanned`: o relatorio do SHA nomeia as categorias; sem relatorio, nenhuma
- * categoria do laco tem evidencia de varredura.
+ * motivo `security.scan-unscanned`: o relatorio produzido nesta rodada nomeia as categorias e nao
+ * pode conter achado novo do laco. Sem relatorio novo, a falha continua `verify.failed`.
  */
+export function evidenciaDoSecurityScan(
+  raiz: string,
+  commit: string,
+  comandos: readonly ResultadoDeComando[],
+  inicioDaRodadaMs: number
+): EvidenciaDoSecurityScan {
+  const vazia = { coberturaAusente: null, achadoNovoNoLaco: false, relatorioDaRodada: false };
+  const comando = comandos.find((resultado) => resultado.nome === 'security_scan' &&
+    resultado.executado !== false && !resultado.ok && !semVereditoPorTempo(resultado));
+  if (!comando) return vazia;
+  const relatorio = readReport(raizDoEstado(raiz), commit);
+  const geradoEm = relatorio ? Date.parse(relatorio.generatedAt) : Number.NaN;
+  if (!relatorio || relatorio.head !== commit || !Number.isFinite(geradoEm) || geradoEm < inicioDaRodadaMs) return vazia;
+  const achadoNovoNoLaco = relatorio.findings.some((achado) => achado.status === 'new' && achado.loop);
+  const categorias = [...new Set(unscannedLoopTools(relatorio).map((ferramenta) => ferramenta.category))].sort() as Category[];
+  return {
+    coberturaAusente: !achadoNovoNoLaco && categorias.length > 0 ? { comando: comando.comando, categorias } : null,
+    achadoNovoNoLaco,
+    relatorioDaRodada: true,
+  };
+}
+
 export function coberturaAusenteDoSecurityScan(
   raiz: string,
   commit: string,
-  comandos: readonly ResultadoDeComando[]
+  comandos: readonly ResultadoDeComando[],
+  inicioDaRodadaMs = 0
 ): CoberturaAusenteDoSecurityScan | null {
-  const comando = comandos.find((resultado) => resultado.nome === 'security_scan' &&
-    resultado.executado !== false && !resultado.ok && !semVereditoPorTempo(resultado));
-  if (!comando) return null;
-  const relatorio = readReport(raizDoEstado(raiz), commit);
-  const categorias = relatorio
-    ? [...new Set(unscannedLoopTools(relatorio).map((ferramenta) => ferramenta.category))].sort() as Category[]
-    : [...LOOP_CATEGORIES];
-  return categorias.length > 0 ? { comando: comando.comando, categorias } : null;
+  return evidenciaDoSecurityScan(raiz, commit, comandos, inicioDaRodadaMs).coberturaAusente;
 }
 
 /**
@@ -1125,6 +1149,26 @@ export function julgarResultadoDoVerify(entrada: EntradaDoJulgamentoVerify): Jul
       continue;
     }
     const antes = baseline?.comandos.find((comando) => comando.nome === atual.nome);
+    if (atual.nome === 'security_scan' && entrada.securityScanComAchadoNovo) {
+      if (!antes || vereditoDaBaseline(antes) === 'sem-veredito') falhasSemBaseline.push(atual);
+      else {
+        const comparacao = compararComBaseline(atual, antes);
+        if (comparacao) comparacoes.push(comparacao.granularidade === 'comando'
+          ? { ...comparacao, classificacaoDoComando: 'regressao' }
+          : comparacao);
+        regressoes.push(atual);
+      }
+      continue;
+    }
+    if (atual.nome === 'security_scan' && entrada.securityScanSemCobertura) {
+      if (!antes || vereditoDaBaseline(antes) === 'sem-veredito') falhasSemBaseline.push(atual);
+      else if (!antes.ok) {
+        const comparacao = compararComBaseline(atual, antes);
+        if (comparacao) comparacoes.push(comparacao);
+        preExistentes.push(atual);
+      }
+      continue;
+    }
     if (!antes || vereditoDaBaseline(antes) === 'sem-veredito') {
       if (!atual.ok) falhasSemBaseline.push(atual);
       continue;
@@ -1547,8 +1591,10 @@ function verificarSobConducao(
   const baseline = thread.baseline ?? null;
   const identidadeFinal = preparo ? identidadeDoProduto(cwd) : null;
   const produtoAlterado = !!preparo && identidadeFinal !== preparo.identidade;
-  const securityScanSemCobertura = coberturaAusenteDoSecurityScan(raiz, commit, comandos);
+  const evidenciaSecurityScan = evidenciaDoSecurityScan(raiz, commit, comandos, inicioDaRodada);
+  const securityScanSemCobertura = evidenciaSecurityScan.coberturaAusente;
   const julgamento = julgarResultadoDoVerify({ claims, comandos, baseline, securityScanSemCobertura,
+    securityScanComAchadoNovo: evidenciaSecurityScan.achadoNovoNoLaco,
     preparo: preparo?.resultado ?? null, produtoAlterado, policyViolada: dadoPrivadoBloqueia.length > 0 });
   const { regressoes, preExistentes, falhasSemBaseline, comparacoes, estouros, naoExecutados,
     baselineSemVeredito, motivos, bloqueantes, ok } = julgamento;
@@ -1633,6 +1679,7 @@ function verificarSobConducao(
       gate: 'verify',
       motivo,
       modo: thread.modo,
+      fase: thread.faseAtual,
       detalhe:
         motivo === 'claims.failed'
           ? claims

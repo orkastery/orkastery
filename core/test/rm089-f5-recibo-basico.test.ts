@@ -185,7 +185,16 @@ test('o replay tipa cobertura ausente do security scan sem acrescentar verify.fa
       raiz, manifesto, head: HEAD_A, casaEfemera: path.join(raiz, 'casa'),
       identidadeProduto: () => 'produto-estavel', hermeticidade: () => null,
       receitaConfiavel: { commands: entrada.commands, check: 'agile' },
-      executor: ({ nome, comando }) => resultado(nome, comando, nome !== 'security_scan'),
+      executor: ({ nome, comando }) => {
+        if (nome === 'security_scan') writeReport(raiz, {
+          schema: 'ork.security-scan/v1', base: HEAD_B, head: HEAD_A, generatedAt: new Date().toISOString(),
+          stacks: ['js'], excluded: [], findings: [], tools: [{
+            name: 'gitleaks', category: 'secret', version: '1', executor: null, state: 'unavailable',
+            reason: 'docker-missing', counts: { new: { ...severidades }, existing: { ...severidades }, dismissed: { ...severidades } },
+          }],
+        });
+        return resultado(nome, comando, nome !== 'security_scan');
+      },
     });
     assert.deepEqual(replay.julgamento?.motivos, ['security.scan-unscanned']);
     assert.equal(replay.recibo?.resultado.ok, false);
