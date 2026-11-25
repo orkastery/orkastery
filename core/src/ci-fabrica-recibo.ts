@@ -2,7 +2,8 @@
 import { createPublicKey, verify } from 'node:crypto';
 import type { ReciboRunnerCi } from './ci-recibo-basico';
 import { CONTRATO_ASSINATURA_RECIBO_FORTE_CI, criarPayloadDoReciboForteCi,
-  payloadDoReciboForteCiValido, preImagemDoReciboForteCi, type AssinaturaDoReciboForteCi,
+  payloadDoReciboForteCiValido, preImagemDoReciboForteCi, principalNativoDoReciboForteCiValido,
+  type AssinaturaDoReciboForteCi,
   type ContextoDoReciboForteCi } from './ci-recibo-forte';
 
 export const CONTRATO_POLITICA_RECIBO_FORTE_CI = 'ork.ci-recibo-forte-politica/v1' as const;
@@ -27,8 +28,7 @@ export interface PoliticaDoReciboForteCi {
 /** A implementação real pertence ao plano de controle; o produto conhece somente esta porta. */
 export interface PortaDeAssinaturaDoReciboForteCi {
   contrato: typeof CONTRATO_PORTA_ASSINATURA_RECIBO_FORTE_CI;
-  /** Operação única do contrato v1; ausente somente em adaptadores F7 anteriores à separação explícita. */
-  operacao?: 'assinar-recibo-forte';
+  operacao: 'assinar-recibo-forte';
   emissor: string;
   chaveId: string;
   exclusiva: true;
@@ -45,6 +45,17 @@ export type CodigoDoReciboForteCi = 'ci.recibo-forte.contexto-invalido'
 
 export type ResultadoDoReciboForteCi = { ok: true; recibo: ReciboRunnerCi } |
   { ok: false; code: CodigoDoReciboForteCi };
+
+/** Somente a projeção canônica reobtida da forja pode abrir a porta de assinatura. */
+export interface EvidenciaCanonicaParaAssinaturaDoReciboForteCi {
+  forja: ContextoDoReciboForteCi['forja'];
+  head: string;
+  operation: 'ci.run';
+  execucaoId: string;
+  principalNativo: string;
+  construtor: string;
+  veredito: 'PASSOU';
+}
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/;
 const objeto = (valor: unknown): valor is Record<string, unknown> =>
@@ -79,8 +90,12 @@ function politicaValida(politica: PoliticaDoReciboForteCi): boolean {
 
 export function assinarReciboForteNaFabrica(recibo: ReciboRunnerCi, contexto: ContextoDoReciboForteCi,
   politica: PoliticaDoReciboForteCi, porta: PortaDeAssinaturaDoReciboForteCi | null): ResultadoDoReciboForteCi {
+  if (!principalNativoDoReciboForteCiValido(contexto.forja, contexto.principalNativo)
+      || contexto.principalNativo === contexto.construtor) {
+    return { ok: false, code: 'ci.recibo-forte.contexto-invalido' };
+  }
   if (!politicaValida(politica) || !porta || porta.contrato !== CONTRATO_PORTA_ASSINATURA_RECIBO_FORTE_CI
-      || (porta.operacao !== undefined && porta.operacao !== 'assinar-recibo-forte')
+      || porta.operacao !== 'assinar-recibo-forte'
       || porta.exclusiva !== true || porta.emissor !== politica.emissor) {
     return { ok: false, code: 'ci.recibo-forte.emissor-invalido' };
   }
@@ -98,9 +113,22 @@ export function assinarReciboForteNaFabrica(recibo: ReciboRunnerCi, contexto: Co
     payload, emissor: politica.emissor, chaveId: porta.chaveId, algoritmo: 'Ed25519', assinatura } } };
 }
 
+export function assinarReciboForteComEvidenciaCanonica(recibo: ReciboRunnerCi, contexto: ContextoDoReciboForteCi,
+  evidencia: EvidenciaCanonicaParaAssinaturaDoReciboForteCi | null,
+  politica: PoliticaDoReciboForteCi, porta: PortaDeAssinaturaDoReciboForteCi | null): ResultadoDoReciboForteCi {
+  if (!evidencia || evidencia.veredito !== 'PASSOU' || evidencia.operation !== 'ci.run'
+      || evidencia.forja !== contexto.forja || evidencia.head !== recibo.head
+      || evidencia.execucaoId !== contexto.execucaoId || evidencia.principalNativo !== contexto.principalNativo
+      || evidencia.construtor !== contexto.construtor) {
+    return { ok: false, code: 'ci.recibo-forte.contexto-invalido' };
+  }
+  return assinarReciboForteNaFabrica(recibo, contexto, politica, porta);
+}
+
 export function verificarReciboForteDaFabrica(recibo: ReciboRunnerCi, politica: PoliticaDoReciboForteCi | null,
   esperado: ContextoDoReciboForteCi, agora = esperado.emitidoEm): ResultadoDoReciboForteCi {
   const assinatura = recibo.assinatura as AssinaturaDoReciboForteCi | undefined;
+  if (!iso(agora)) return { ok: false, code: 'ci.recibo-forte.contexto-invalido' };
   if (!politica || !politicaValida(politica)) return { ok: false, code: 'ci.recibo-forte.material-publico-indisponivel' };
   if (!objeto(assinatura) || !exatas(assinatura, CHAVES_ASSINATURA)
       || assinatura.contrato !== CONTRATO_ASSINATURA_RECIBO_FORTE_CI || assinatura.algoritmo !== 'Ed25519'
@@ -120,6 +148,7 @@ export function verificarReciboForteDaFabrica(recibo: ReciboRunnerCi, politica: 
   if (estado) return { ok: false, code: estado };
   try {
     const publica = createPublicKey(chave!.materialPublicoPem!);
+    if (publica.asymmetricKeyType !== 'ed25519') return { ok: false, code: 'ci.recibo-forte.assinatura-invalida' };
     const ok = verify(null, Buffer.from(preImagemDoReciboForteCi(assinatura.payload), 'utf8'), publica,
       Buffer.from(assinatura.assinatura, 'base64'));
     return ok ? { ok: true, recibo } : { ok: false, code: 'ci.recibo-forte.assinatura-invalida' };
