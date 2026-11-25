@@ -1,10 +1,13 @@
 /** RM-089 F7: transporte autenticado da exceção nas duas forjas. */
 import { strict as assert } from 'node:assert';
 import { createPublicKey, generateKeyPairSync, sign } from 'node:crypto';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { test } from 'node:test';
 import { AUDIENCIA_FABRICA_CI, CONTRATO_TRANSPORTE_EXCECAO_RUNNER,
   atenderTransporteNaFabrica, configuracaoPublicaDoTransporteValida, executarClienteProtegidoDoTransporte,
-  projetarResultadoDoTransporte, type FatosReobtidosDaForjaCi,
+  localizadoresDoLauncher, projetarResultadoDoTransporte, type FatosReobtidosDaForjaCi,
   type LocalizadoresDoTransporteCi } from '../src/ci-fabrica-transporte';
 import { comandosDoTextoDoManifesto } from '../src/manifest';
 import { evidenciaCanonicaDoGithub } from '../src/forja/github/ci';
@@ -165,12 +168,18 @@ test('o cliente protegido confina token e resposta bruta e devolve só resultado
 });
 
 test('as receitas das duas forjas separam replay e launcher pinado', () => {
-  const fs = require('node:fs') as typeof import('node:fs');
   const github = fs.readFileSync('.github/workflows/ci.yml', 'utf8');
-  assert.match(github, /pull_request_target/);
-  assert.match(github, /ork-replay:[\s\S]*permissions:[\s\S]*contents: read/);
-  assert.match(github, /ork-verify:[\s\S]*id-token: write/);
-  assert.match(github, /pull_request\.base\.sha/);
+  assert.match(github, /pull_request:/);
+  assert.doesNotMatch(github, /pull_request_target|id-token/);
+  assert.match(github, /ork-verify:[\s\S]*persist-credentials: false/);
+  const protegido = fs.readFileSync('.github/workflows/ork-excecao-transporte.yml', 'utf8');
+  assert.match(protegido, /workflow_run:/);
+  assert.match(protegido, /id-token: write/);
+  assert.match(protegido, /pull_requests\[0\]\.base\.sha/);
+  assert.match(protegido, /sha256sum --check --strict/);
+  assert.match(protegido, /actions\/checkout@[a-f0-9]{40}/);
+  assert.match(protegido, /actions\/setup-node@[a-f0-9]{40}/);
+  assert.doesNotMatch(protegido, /pull_request_target/);
   const componente = fs.readFileSync('templates/ork-verify/template.yml', 'utf8');
   const gitlab = fs.readFileSync('templates/gitlab/ork-verify.yml', 'utf8');
   for (const receita of [componente, gitlab]) {
@@ -180,6 +189,20 @@ test('as receitas das duas forjas separam replay e launcher pinado', () => {
     assert.match(receita, /GIT_STRATEGY: "none"/);
     assert.match(receita, /ci-fabrica-transporte\.js/);
   }
+});
+
+test('launcher do workflow_run usa o PR original só como localizador', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-f7-workflow-run-'));
+  try {
+    const evento = path.join(dir, 'evento.json');
+    fs.writeFileSync(evento, JSON.stringify({ workflow_run: { head_sha: 'd'.repeat(40),
+      head_branch: 'feature/segura', actor: { id: 901 }, pull_requests: [{ base: { ref: 'main' } }] } }));
+    assert.deepEqual(localizadoresDoLauncher({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_PATH: evento,
+      GITHUB_REPOSITORY: 'org/projeto', GITHUB_RUN_ID: '71', GITHUB_ACTOR_ID: '999' }), {
+      forja: 'github', project: 'org/projeto', source: 'feature/segura', target: 'main', head: 'd'.repeat(40),
+      operation: 'ci.run', execucaoId: '71', construtor: '901',
+    });
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('GitHub reobtém app nativo, execução, workflow, target e HEAD antes da entrega', () => {

@@ -3,22 +3,21 @@ name: CI
 on:
   push:
     branches: [main]
-  pull_request_target:
+  pull_request:
 
 permissions:
   contents: read
 
 jobs:
-  ork-replay:
-    name: ork-replay (sem identidade privilegiada)
+  ork-verify:
+    name: ork-verify
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
@@ -30,40 +29,6 @@ jobs:
       # destino do PR de GITHUB_BASE_REF; no push da branch protegida essa variavel nao existe.
       - name: CHECK independente
         run: node core/dist/index.js ci run --branch "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
-
-  # F7: este job nasce da receita da target (`pull_request_target`), nunca carrega o checkout do PR e só recebe o
-  # resultado do replay anterior. A identidade OIDC e a resposta bruta existem somente dentro do launcher compilado
-  # da target. Sem opt-in `ci.transporte_excecao`, ele preserva o comportamento anterior.
-  ork-verify:
-    name: ork-verify
-    needs: ork-replay
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - name: obter cliente da target protegida
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
-          ref: ${{ github.event.pull_request.base.sha || github.sha }}
-          path: .ork-protected-client
-          persist-credentials: false
-      - name: compilar cliente pinado pelo SHA da target
-        run: npm ci --prefix .ork-protected-client/core && npm --prefix .ork-protected-client/core run build
-      - name: detectar opt-in protegido
-        id: transporte
-        working-directory: .ork-protected-client
-        run: |
-          if node -e "const m=require('./core/dist/manifest');const c=m.exigirManifesto(process.cwd()).manifesto.ci;process.exit(c.transporte_excecao?0:1)"; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-          fi
-      - name: validar pela fabrica com saida sanitizada
-        if: steps.transporte.outputs.enabled == 'true'
-        working-directory: .ork-protected-client
-        run: node core/dist/ci-fabrica-transporte.js
 
   # I-44: documentacao de produto e roadmap como codigo. O markdownlint cobre a FORMA do
   # Markdown; o `ork docs verificar` cobre frontmatter, leitura, referencias e paridade com o
