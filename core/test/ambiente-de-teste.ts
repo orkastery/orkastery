@@ -50,6 +50,10 @@ function postgresDaFixture(): boolean {
   return r.status === 0 && /^sha256:[a-f0-9]{64}$/.test(r.stdout.trim());
 }
 
+/**
+ * O caso `sonda do Docker aceita CLI compativel` executa `semAmbiente(['docker'])` com um CLI
+ * simulado cujo template falha e cujo `docker info` simples passa.
+ */
 function dockerComDaemon(): boolean {
   const r = spawnSync('docker', ['info'],
     { encoding: 'utf8', timeout: 20_000, env: { PATH: process.env.PATH, HOME: process.env.HOME } });
