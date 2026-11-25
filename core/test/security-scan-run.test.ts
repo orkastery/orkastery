@@ -75,6 +75,27 @@ test('chooseExecutor: Docker first, then the native binary with the accepted ver
   assert.equal(pipAudit.native, undefined, 'a tool that installs packages has no native entry');
 });
 
+test('defaultProbe: um Docker compatível com Podman não depende do campo ServerVersion', () => {
+  const dir = dirTemporario('secscan-podman-probe');
+  const docker = path.join(dir, 'docker');
+  const anterior = process.env.PATH;
+  fs.writeFileSync(docker, `#!/bin/sh
+if [ "$1" = "--version" ]; then exit 0; fi
+if [ "$1" = "info" ] && [ "$2" = "--format" ]; then exit 125; fi
+if [ "$1" = "info" ] && [ "$#" = "1" ]; then exit 0; fi
+exit 1
+`, { mode: 0o755 });
+  process.env.PATH = dir;
+  try {
+    const probe = defaultProbe();
+    assert.equal(probe.dockerCli(), true);
+    assert.equal(probe.dockerDaemon(), true);
+  } finally {
+    if (anterior === undefined) delete process.env.PATH; else process.env.PATH = anterior;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('CPU limit: o Docker do grupo Agile recebe --cpus e o Classic sem cota preserva o argv', () => {
   assert.deepEqual(argumentosDeCpuDoDocker({ [ENV_CPUS_DOCKER]: '1' }), ['--cpus', '1']);
   assert.deepEqual(argumentosDeCpuDoDocker({ [ENV_CPUS_DOCKER]: '0.5' }), ['--cpus', '0.5']);

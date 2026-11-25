@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-041]
 owner: Paschoal
-atualizado_em: 2026-10-27T00:50:00-03:00
+atualizado_em: 2026-11-24T23:45:00-03:00
 estado:
   ciclo: Disponível
   documentacao: Em revisão
@@ -100,6 +100,14 @@ sdlc:
 
 O código está na `main` desde o PR #186 (merge `6d9c0f5d`, cabeça da branch `34f019b1`) e em produção na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026). A suíte, o scan do próprio repositório, a integração com Docker real e a prova ponta a ponta estão resumidos em [Evidências](#evidências).
 
+### Fatia da issue #302 — sonda compatível e falha fechada
+
+- **Fonte e evidência:** [issue #302](https://github.com/orkastery/orkastery/issues/302), triada no código em 24/11/2026. A sonda usava o campo específico `ServerVersion`, o verify local não ativava o modo obrigatório e o bundle do CI já o ativava.
+- **Resultado incluído:** a sonda consulta `docker info` sem template; ferramenta não dispensada das categorias do laço em `unavailable` ou `failed` faz o comando sair 1 tanto no uso direto quanto no verify e no CI.
+- **Estado da fatia: em implementação** na thread `ork-podmangitine`; código, testes e integração ainda não estão mesclados nem publicados.
+- **Proteções:** as dispensas `unsupported-ci` e `no-requirements-file` preservam a regra existente; ferramentas de `quality` e `license` continuam fora do laço; `ORK_SECURITY_SCAN_REQUIRED` permanece aceito por compatibilidade, sem criar opt-out.
+- **Fora de escopo:** Runtime Podman real fica fora da suíte hermética; não mudam catálogo, versões, categorias, SHIP, dispensa humana nem ferramentas suportadas.
+
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
 <!-- ork-docs:estado:inicio -->
@@ -127,3 +135,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-20 | Item criado com o scan implementado na branch | Pedido do mantenedor; suíte, integração real e prova ponta a ponta em [Evidências](#evidências) | Paschoal |
 | 2026-10-20 | Mesclado na main pelo PR #186 | Merge `6d9c0f5d` (cabeça da branch `34f019b1`); sem release no npm: a publicação espera a aceitação dos pilotos do #Noctum | Paschoal |
 | 2026-10-27 | Em produção na 0.6.0: ciclo Disponível, exposição Geral (o scan roda em todo projeto com `verify.security_scan`) e habilitação Concluída (o guia de verificação e a referência do CLI saíram com a versão) | Tag `v0.6.0`, com o merge `6d9c0f5d` (PR #186) na tag; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |
+| 2026-11-24 | Fatia da issue #302 em implementação: sonda sem template específico e scan reprovado quando a cobertura do laço não roda | Triagem da issue e reprodução hermética registradas na thread `ork-podmangitine` | sessão da thread, por decisão D1–D3 registrada no ledger |

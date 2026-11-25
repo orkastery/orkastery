@@ -29,7 +29,8 @@ export function defaultProbe(): Probe {
   };
   return {
     dockerCli: () => once('cli', () => ok('docker', ['--version'])),
-    dockerDaemon: () => once('daemon', () => ok('docker', ['info', '--format', '{{.ServerVersion}}'])),
+    // `info` sem template prova o acesso ao servidor sem depender do esquema do Docker ou do Podman.
+    dockerDaemon: () => once('daemon', () => ok('docker', ['info'])),
     nativeVersion: (bin, args) => once(`native:${bin} ${args.join(' ')}`, () => {
       const r = spawnSync(bin, args, { encoding: 'utf8', timeout: PROBE_TIMEOUT_MS });
       return r.error || r.status !== 0 ? null : `${r.stdout ?? ''}${r.stderr ?? ''}`;

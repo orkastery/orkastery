@@ -52,10 +52,11 @@ test('exitCodeOf: new loop finding is 1, warn only is 0', () => {
   assert.equal(exitCodeOf(report(t, [finding({ status: 'existing' }), finding({ status: 'dismissed' })]), true), 0);
 });
 
-test('exitCodeOf: unavailable or failed loop-category tool is 1 only when required; quality and license never', () => {
+test('exitCodeOf: unavailable or failed loop-category tool is always 1; quality and license never', () => {
   const secret = report([toolRun('gitleaks', 'secret', 'unavailable', 'no-docker')]);
-  assert.equal(exitCodeOf(secret, false), 0);
+  assert.equal(exitCodeOf(secret, false), 1);
   assert.equal(exitCodeOf(secret, true), 1);
+  assert.equal(exitCodeOf(report([toolRun('semgrep', 'sast', 'failed', 'timeout')]), false), 1);
   assert.equal(exitCodeOf(report([toolRun('semgrep', 'sast', 'failed', 'timeout')]), true), 1);
   assert.equal(exitCodeOf(report([toolRun('eslint', 'quality', 'unavailable'), toolRun('trivy-license', 'license', 'failed')]), true), 0);
   assert.equal(exitCodeOf(report([toolRun('gitleaks', 'secret', 'ran')]), true), 0);
@@ -170,4 +171,11 @@ test('invalid dismissal exits 1 naming the entry, without a report', () => {
   assert.equal(code, 1);
   assert.match(seen.join('\n'), /security-scan\.dismissal-invalid: abc123/);
   assert.ok(!fs.existsSync(path.join(dir, '.orkastery', 'security-scan')));
+});
+
+test('RM-068 registra a fatia da issue 302 com o estado e o fora de escopo', () => {
+  const roadmap = fs.readFileSync(path.resolve(__dirname, '../../../docs/roadmap/RM-068-security-scan-no-check.md'), 'utf8');
+  assert.match(roadmap, /issue #302/);
+  assert.match(roadmap, /Estado da fatia: em implementação/);
+  assert.match(roadmap, /Runtime Podman real fica fora/);
 });

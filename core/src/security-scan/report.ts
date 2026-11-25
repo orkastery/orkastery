@@ -59,13 +59,14 @@ export function unscannedLoopTools(report: ScanReport): ToolRun[] {
 }
 
 /**
- * 1 when a `new` finding is in the loop, or when `required` and a tool of a loop category (secret, dependency, sast, iac,
- * workflow) is unavailable or failed (never clean), unless excused by `isExcusedUnscanned`; `quality` and `license`
- * tools never drive the code. Invalid dismissals or config never reach a report: the command fails before.
+ * 1 when a `new` finding is in the loop, or when a tool of a loop category (secret, dependency, sast, iac, workflow) is
+ * unavailable or failed (never clean), unless excused by `isExcusedUnscanned`; `quality` and `license` tools never drive
+ * the code. `required` remains in the internal signature for compatibility with bundles generated before this rule became
+ * the safe default. Invalid dismissals or config never reach a report: the command fails before.
  */
-export function exitCodeOf(report: ScanReport, required: boolean): 0 | 1 {
+export function exitCodeOf(report: ScanReport, _required: boolean): 0 | 1 {
   if (report.findings.some(f => f.status === 'new' && f.loop)) return 1;
-  if (required && unscannedLoopTools(report).length > 0) return 1;
+  if (unscannedLoopTools(report).length > 0) return 1;
   return 0;
 }
 
