@@ -3,18 +3,27 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-test('job macOS executa a prova do pacote instalado', () => {
+test('jobs Linux e macOS percorrem o quickstart instalado e publicação exige a prova macOS', () => {
   const raiz = path.resolve(__dirname, '..', '..', '..');
   const workflow = fs.readFileSync(path.join(raiz, '.github/workflows/ci.yml'), 'utf8');
+  const publicar = fs.readFileSync(path.join(raiz, '.github/workflows/publicar.yml'), 'utf8');
+  const manifesto = fs.readFileSync(path.join(raiz, 'orkastery.yaml'), 'utf8');
   const script = fs.readFileSync(path.join(raiz, 'core/scripts/provar-macos-instalado.cjs'), 'utf8');
   assert.match(workflow, /portabilidade-macos:[\s\S]*runs-on: macos-latest/);
-  assert.match(workflow, /node core\/scripts\/provar-macos-instalado\.cjs/);
+  assert.match(workflow, /portabilidade-linux:[\s\S]*runs-on: ubuntu-latest/);
+  assert.equal(workflow.match(/node core\/scripts\/provar-macos-instalado\.cjs/g)?.length, 2);
   assert.match(script, /npm', \['pack'/);
   assert.match(script, /npm', \['install'/);
   assert.match(script, /node_modules', '\.bin'/);
   assert.match(script, /\['demo'\]/);
   assert.match(script, /'thread', 'new'/);
   assert.match(script, /'doctor', '--json'/);
-  assert.match(script, /dist', 'verify\.js'/);
+  assert.match(script, /'claims', 'add'/);
+  assert.match(script, /'verify', threadId/);
+  assert.doesNotMatch(script, /--sem-worktree|dist', 'verify\.js'/);
   assert.doesNotMatch(script, /node core\/dist\/index\.js/);
+  assert.match(publicar, /provar-portabilidade-macos:[\s\S]*runs-on: macos-latest[\s\S]*provar-macos-instalado\.cjs/);
+  assert.match(publicar, /needs: \[provar-grafo, provar-portabilidade-macos\]/);
+  assert.match(manifesto, /- "pacote instalado e quickstart no Linux"/);
+  assert.match(manifesto, /- "pacote instalado e quickstart no macOS"/);
 });

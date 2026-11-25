@@ -8,7 +8,7 @@ const cp = require('node:child_process');
 
 const repo = path.resolve(__dirname, '..', '..');
 const core = path.join(repo, 'core');
-const temporario = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-pacote-macos-'));
+const temporario = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-pacote-portatil-'));
 const pacotes = path.join(temporario, 'pacotes');
 const prefixo = path.join(temporario, 'instalado');
 const projeto = path.join(temporario, 'projeto');
@@ -45,12 +45,15 @@ try {
   executar('git', ['init', '-q'], projeto);
   executar('git', ['config', 'user.name', 'Ork CI'], projeto);
   executar('git', ['config', 'user.email', 'ork-ci@example.invalid'], projeto);
-  fs.writeFileSync(path.join(projeto, 'package.json'), '{"name":"macos-package-proof","private":true}\n');
+  fs.writeFileSync(path.join(projeto, 'package.json'), JSON.stringify({
+    name: 'portable-package-proof', private: true,
+    scripts: { build: 'node -e "process.exit(0)"', test: 'node -e "process.exit(0)"' },
+  }, null, 2) + '\n');
   executar('git', ['add', '--', 'package.json'], projeto);
   executar('git', ['commit', '-qm', 'inicio'], projeto);
 
   executar(ork, ['demo'], projeto);
-  executar(ork, ['init', '--name', 'macos-package-proof', '--abbrev', 'mac'], projeto);
+  executar(ork, ['init', '--name', 'portable-package-proof', '--abbrev', 'prt'], projeto);
   executar('git', ['add', '--all'], projeto);
   executar('git', ['commit', '-qm', 'ork init'], projeto);
 
@@ -64,17 +67,19 @@ try {
     if (!check || check.nivel === 'fail') throw Error(`doctor reprovou ${nomeDoCheck}`);
   }
 
-  executar(ork, ['thread', 'new', 'primeira thread no macOS', '--modo', 'fast', '--sem-worktree'], projeto);
+  const criada = executar(ork, ['thread', 'new', 'primeira thread portátil', '--modo', 'fast'], projeto, { capturar: true });
+  const threadId = /^\s*id\s+(\S+)\s*$/m.exec(criada)?.[1];
+  const worktreeBruta = /^\s*worktree\s+(.+?)\s*$/m.exec(criada)?.[1];
+  if (!threadId || !worktreeBruta) throw Error('thread new não informou id e worktree');
+  const worktree = path.resolve(projeto, worktreeBruta);
+  if (!fs.statSync(worktree).isDirectory() || worktree === projeto) throw Error('thread new não criou worktree isolada');
 
-  const verifyInstalado = path.join(prefixo, 'node_modules', '@orkastery', 'cli', 'dist', 'verify.js');
-  executar(process.execPath, ['-e', [
-    "const v=require(process.argv[1]);",
-    "const r=v.executar('pacote','true',process.argv[2],5000);",
-    "if(!r.ok||r.executado===false||r.shell?.caminho!=='/bin/bash')throw Error(JSON.stringify(r));",
-  ].join(''), verifyInstalado, projeto], projeto);
+  executar(ork, ['claims', 'add', threadId, 'package.json', '--claim', 'o pacote da fixture tem script de teste',
+    '--verificar', 'test -f package.json'], worktree);
+  executar(ork, ['verify', threadId], worktree);
 
-  process.stdout.write(JSON.stringify({ contrato: 'ork.prova-macos-pacote/v1', pacote: nome,
-    demo: 'ok', init: 'ok', doctor: 'capacidades-ok', threadNew: 'ok', verify: 'ok' }) + '\n');
+  process.stdout.write(JSON.stringify({ contrato: 'ork.prova-pacote-portatil/v1', plataforma: process.platform, pacote: nome,
+    demo: 'ok', init: 'ok', doctor: 'capacidades-ok', worktree: 'ok', claimsAdd: 'ok', verify: 'ok' }) + '\n');
 } finally {
   fs.rmSync(temporario, { recursive: true, force: true });
 }

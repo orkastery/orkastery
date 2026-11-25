@@ -42,9 +42,27 @@ jobs:
       - name: grafo no pacote instalado
         run: node core/scripts/provar-grafo-instalado.cjs
 
+  provar-portabilidade-macos:
+    name: pacote instalado e quickstart no macOS
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: '24'
+      - name: instalar e compilar
+        run: npm ci && npm run build
+        working-directory: core
+      - name: provar tarball, worktree, claim e verify
+        run: node core/scripts/provar-macos-instalado.cjs
+
   publicar:
     name: publicar @orkastery/cli
-    needs: provar-grafo
+    needs: [provar-grafo, provar-portabilidade-macos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
