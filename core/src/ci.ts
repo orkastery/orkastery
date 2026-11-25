@@ -869,7 +869,9 @@ export function integrarResultadoDoTransporteNoCi(resultado: unknown,
   const policy = base.policy;
   if (!policy || typeof policy !== 'object' || Array.isArray(policy)
       || (policy as { receipt?: unknown }).receipt !== 'ausente') return resultado;
-  const { message: _mensagemAnterior, exception: _excecaoAnterior, ...policyBase } = policy as Record<string, unknown>;
+  const policyBase = { ...policy as Record<string, unknown> };
+  delete policyBase.message;
+  delete policyBase.exception;
   if (!transporte.aplicado) {
     const error = { code: transporte.code, message: transporte.code, action: transporte.code };
     return { ...base, ok: base.ok === true && !transporte.reprova,
@@ -880,7 +882,8 @@ export function integrarResultadoDoTransporteNoCi(resultado: unknown,
     ? (julgamento as { ok?: unknown }).ok === true
     : Array.isArray(base.commands) && base.commands.every((c) => !!c && typeof c === 'object'
       && (c as { ok?: unknown }).ok === true);
-  const { error: _erroDoRecibo, ...semErroDoRecibo } = base;
+  const semErroDoRecibo = { ...base };
+  delete semErroDoRecibo.error;
   return { ...semErroDoRecibo, ok: medicaoOk, exception: transporte.exception,
     policy: { ...policyBase, exception: 'applied' } };
 }

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return -- A worktree limpa do scanner não instala os tipos nativos; o build estrito continua sendo a autoridade de tipos. */
 /** RM-089 F7: âncora canônica do recibo forte emitido pela fábrica. */
 import { createHash } from 'node:crypto';
 import { estadoDoReciboRunnerCi, type ReciboRunnerCi } from './ci-recibo-basico';

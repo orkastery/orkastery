@@ -1,9 +1,9 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- A worktree limpa do scanner não instala os tipos nativos; o build estrito continua sendo a autoridade de tipos. */
 /** RM-089 F7: porta exclusiva da fábrica para assinar e verificar o recibo forte. */
 import { createPublicKey, verify } from 'node:crypto';
 import type { ReciboRunnerCi } from './ci-recibo-basico';
 import { CONTRATO_ASSINATURA_RECIBO_FORTE_CI, criarPayloadDoReciboForteCi,
   payloadDoReciboForteCiValido, preImagemDoReciboForteCi, principalNativoDoReciboForteCiValido,
-  type AssinaturaDoReciboForteCi,
   type ContextoDoReciboForteCi } from './ci-recibo-forte';
 
 export const CONTRATO_POLITICA_RECIBO_FORTE_CI = 'ork.ci-recibo-forte-politica/v1' as const;
@@ -127,7 +127,7 @@ export function assinarReciboForteComEvidenciaCanonica(recibo: ReciboRunnerCi, c
 
 export function verificarReciboForteDaFabrica(recibo: ReciboRunnerCi, politica: PoliticaDoReciboForteCi | null,
   esperado: ContextoDoReciboForteCi, agora = esperado.emitidoEm): ResultadoDoReciboForteCi {
-  const assinatura = recibo.assinatura as AssinaturaDoReciboForteCi | undefined;
+  const assinatura = recibo.assinatura;
   if (!iso(agora)) return { ok: false, code: 'ci.recibo-forte.contexto-invalido' };
   if (!politica || !politicaValida(politica)) return { ok: false, code: 'ci.recibo-forte.material-publico-indisponivel' };
   if (!objeto(assinatura) || !exatas(assinatura, CHAVES_ASSINATURA)

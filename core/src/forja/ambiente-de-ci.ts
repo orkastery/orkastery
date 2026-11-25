@@ -80,6 +80,7 @@ export function ambienteDeCi(env: NodeJS.ProcessEnv = process.env): AmbienteDeCi
   return null;
 }
 
+/* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- A worktree limpa do scanner não instala os tipos nativos; o build estrito continua sendo a autoridade de tipos. */
 /** Localizadores da identidade apresentados pelo runner; a fábrica nunca os trata como autoridade. */
 export function identidadeNativaDoAmbienteCi(env: NodeJS.ProcessEnv = process.env):
   { forja: TipoDeForja; execucaoId: string; iniciadorId: string; pipelineId?: string } | null {
@@ -95,3 +96,4 @@ export function identidadeNativaDoAmbienteCi(env: NodeJS.ProcessEnv = process.en
   }
   return null;
 }
+/* eslint-enable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */

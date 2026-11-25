@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return -- A worktree limpa do scanner não instala os tipos nativos; o build estrito continua sendo a autoridade de tipos. */
 /** RM-089 F7: contrato do transporte autenticado e projeção sanitizada para o runner. */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -213,7 +214,7 @@ export interface DependenciasDoLauncherDoTransporte {
   agora?: () => string;
   prazoMs?: number;
   executarReplay?: (entrada: { branch: string; raizFonte: string; raizProtegida: string;
-    localizadores: LocalizadoresDoTransporteCi; env: NodeJS.ProcessEnv }) => unknown | Promise<unknown>;
+    localizadores: LocalizadoresDoTransporteCi; env: NodeJS.ProcessEnv }) => unknown;
   escrever?: (texto: string) => void;
   avisar?: (resultado: unknown, env: NodeJS.ProcessEnv) => void;
 }
