@@ -5,6 +5,21 @@ import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { adquirirTravaPortatil, comTravaPortatil, ErroDaTravaPortatil } from './trava-portatil';
 
+interface LockHitlGravado {
+  contrato: 'ork.hitl-lock/v1';
+  token: unknown;
+  dono: unknown;
+  estado: unknown;
+}
+
+function lockHitlGravado(valor: unknown): LockHitlGravado | null {
+  if (!valor || typeof valor !== 'object') return null;
+  const candidato = valor as Record<string, unknown>;
+  return candidato.contrato === 'ork.hitl-lock/v1'
+    ? { contrato: candidato.contrato, token: candidato.token, dono: candidato.dono, estado: candidato.estado }
+    : null;
+}
+
 /** Reserva por apresentação. Só o kernel prova abandono; PID e prazo não liberam. */
 export function reservarDialogoHitl(dir: string, requestId: string, connectionId: string, recuperar = false,
   plataforma = process.platform): () => void {
@@ -28,7 +43,8 @@ export function reservarDialogoHitl(dir: string, requestId: string, connectionId
         } else { fs.writeFileSync(fd, metadata); fs.fsyncSync(fd); }
       } finally { fs.closeSync(fd); }
       let aberta = true;
-      return () => { if (aberta) { aberta = false; trava!.liberar(); } };
+      const travaAdquirida = trava;
+      return () => { if (aberta) { aberta = false; travaAdquirida.liberar(); } };
     } catch (e) { trava.liberar(); throw e; }
   }
   if (plataforma !== 'linux') throw Error('hitl.channel.recovery-unproven');
@@ -65,8 +81,9 @@ export function comLockInspecionavel<T>(dir: string, operacao: string, executar:
           let anterior: unknown = null;
           const raw = fs.readFileSync(fd, 'utf8');
           if (raw !== '') {
-            let v: any; try { v = JSON.parse(raw); } catch { /* legado ambíguo permanece preservado */ }
-            if (v?.contrato !== 'ork.hitl-lock/v1') throw new Error('HITL ocupado; lock legado exige inspeção e migração coordenada');
+            let v: LockHitlGravado | null = null;
+            try { v = lockHitlGravado(JSON.parse(raw) as unknown); } catch { /* legado ambíguo permanece preservado */ }
+            if (!v) throw new Error('HITL ocupado; lock legado exige inspeção e migração coordenada');
             anterior = { token: v.token, dono: v.dono, estado: v.estado };
           }
           const info = { contrato: 'ork.hitl-lock/v1', token: randomUUID(), operacao, estado: 'ocupado', adquiridoEm: new Date().toISOString(),
@@ -100,8 +117,9 @@ export function comLockInspecionavel<T>(dir: string, operacao: string, executar:
     let anterior: unknown = null;
     const raw = fs.readFileSync(fd, 'utf8');
     if (raw !== '') {
-      let v: any; try { v = JSON.parse(raw); } catch { /* legado ambíguo permanece preservado */ }
-      if (v?.contrato !== 'ork.hitl-lock/v1') throw new Error('HITL ocupado; lock legado exige inspeção e migração coordenada');
+      let v: LockHitlGravado | null = null;
+      try { v = lockHitlGravado(JSON.parse(raw) as unknown); } catch { /* legado ambíguo permanece preservado */ }
+      if (!v) throw new Error('HITL ocupado; lock legado exige inspeção e migração coordenada');
       anterior = { token: v.token, dono: v.dono, estado: v.estado };
     }
     const stat = fs.readFileSync('/proc/self/stat', 'utf8');
