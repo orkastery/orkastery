@@ -54,7 +54,7 @@ export const RETRY_PT_BR = {
     },
     'security.scan-unscanned': {
       porque: 'o security scan terminou sem cobrir categorias do laco: repetir GO-FIX nao instala Docker nem binarios e nao pode autorizar entrega sem varredura',
-      correcao: 'instale a cobertura indicada pelo gate; para o SHIP seguir sem ela, abra o pedido com ork gate request <thread> e o dono responde b; --allow-unscanned e a forma equivalente no CLI',
+      correcao: 'instale a cobertura indicada pelo gate; para o SHIP seguir sem ela, abra o pedido tipado com ork gate request <thread> e o dono responde b; --allow-unscanned e a forma equivalente no CLI',
     },
     'verify.timeout': {
       porque: 'o prazo estourou antes de o comando terminar: a prova nao chegou ao fim, e carga de maquina nao e defeito. A reexecucao e completa, e o limite de escalacao do manifesto impede repetir para sempre',
