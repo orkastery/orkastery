@@ -24,6 +24,10 @@ test('auditoria sem claim executada termina sem veredito e não aprova', () => {
 test('mensagem pareada e fixture pública não anunciam sustentação sem evidência', () => {
   assert.match(AUDIT_PT_BR.cli.verifyVazio, /nenhuma evidência foi executada/);
   assert.match(AUDIT_EN.cli.verifyVazio, /no evidence was executed/);
+  assert.match(AUDIT_PT_BR.cli.depois('fixture'), /verify fixture; em seguida, ork audit report fixture/);
+  assert.match(AUDIT_EN.cli.depois('fixture'), /verify fixture; then ork audit report fixture/);
+  assert.doesNotMatch(AUDIT_PT_BR.cli.depois('fixture'), /&&/);
+  assert.doesNotMatch(AUDIT_EN.cli.depois('fixture'), /&&/);
   const fixture = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../test/fixtures/locale-f3d-pt-BR.json'), 'utf8')) as { audit: Record<string, string> };
   const saida = fixture.audit['cli audit: verify sem achado aberto'];
   assert.match(saida, /^\[saida 1\]/);
