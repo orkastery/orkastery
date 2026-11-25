@@ -1,9 +1,6 @@
 /** Linux flock(2): o descritor do dono mantém a exclusão, inclusive após o helper sair. */
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { spawnSync } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
 import { adquirirTravaPortatil, comTravaPortatil, ErroDaTravaPortatil } from './trava-portatil';
+import { fs, interpretarJson, path, processo, randomUUID, spawnSync } from './node-portavel';
 
 interface LockHitlGravado {
   contrato: 'ork.hitl-lock/v1';
@@ -22,7 +19,7 @@ function lockHitlGravado(valor: unknown): LockHitlGravado | null {
 
 /** Reserva por apresentação. Só o kernel prova abandono; PID e prazo não liberam. */
 export function reservarDialogoHitl(dir: string, requestId: string, connectionId: string, recuperar = false,
-  plataforma = process.platform): () => void {
+  plataforma = processo.platform): () => void {
   if (!/^[a-f0-9-]{36}$/.test(requestId)) throw Error('hitl.channel.recovery-unproven');
   const file = path.join(dir, `.hitl-dialogue-${requestId}.lock`);
   if (plataforma === 'darwin') {
@@ -38,7 +35,7 @@ export function reservarDialogoHitl(dir: string, requestId: string, connectionId
       catch { throw Error('hitl.channel.recovery-unproven'); }
       try {
         const st = fs.fstatSync(fd);
-        if (!st.isFile() || st.uid !== process.getuid?.() || (st.mode & 0o777) !== 0o600 || st.nlink !== 1 || st.size > 1024)
+        if (!st.isFile() || st.uid !== processo.getuid?.() || (st.mode & 0o777) !== 0o600 || st.nlink !== 1 || st.size > 1024)
           throw Error('hitl.channel.recovery-unproven');
         if (recuperar) {
           if (fs.readFileSync(fd, 'utf8') !== metadata) throw Error('hitl.channel.recovery-unproven');
@@ -56,7 +53,7 @@ export function reservarDialogoHitl(dir: string, requestId: string, connectionId
   try { fd = fs.openSync(file, flags, 0o600); } catch { throw Error('hitl.channel.recovery-unproven'); }
   try {
     const st = fs.fstatSync(fd);
-    if (!st.isFile() || st.uid !== process.getuid?.() || (st.mode & 0o777) !== 0o600 || st.nlink !== 1 || st.size > 1024)
+    if (!st.isFile() || st.uid !== processo.getuid?.() || (st.mode & 0o777) !== 0o600 || st.nlink !== 1 || st.size > 1024)
       throw Error('hitl.channel.recovery-unproven');
     const r = spawnSync('/usr/bin/flock', ['--exclusive', '--nonblock', '3'], { stdio: ['ignore', 'pipe', 'pipe', fd], timeout: 2000 });
     if (r.status !== 0 || r.error) throw Error('hitl.channel.in-use: apresentação ainda reservada pelo kernel');
@@ -69,7 +66,7 @@ export function reservarDialogoHitl(dir: string, requestId: string, connectionId
     return () => fs.closeSync(fd); // o inode permanece; nunca libera uma reserva por unlink
   } catch (e) { fs.closeSync(fd); throw e; }
 }
-export function comLockInspecionavel<T>(dir: string, operacao: string, executar: () => T, plataforma = process.platform): T {
+export function comLockInspecionavel<T>(dir: string, operacao: string, executar: () => T, plataforma = processo.platform): T {
   // Mesmo inode/nome do protocolo legado: writer wx antigo também recusa enquanto existir.
   const file = path.join(dir, '.hitl.lock');
   if (plataforma === 'darwin') {
@@ -78,18 +75,18 @@ export function comLockInspecionavel<T>(dir: string, operacao: string, executar:
         const fd = fs.openSync(file, fs.constants.O_RDWR | fs.constants.O_CREAT | fs.constants.O_NOFOLLOW, 0o600);
         try {
           const st = fs.fstatSync(fd);
-          if (!st.isFile() || st.uid !== process.getuid?.() || st.mode & 0o077 || st.nlink !== 1)
+          if (!st.isFile() || st.uid !== processo.getuid?.() || st.mode & 0o077 || st.nlink !== 1)
             throw new Error('HITL lock exige arquivo privado do uid');
           let anterior: unknown = null;
           const raw = fs.readFileSync(fd, 'utf8');
           if (raw !== '') {
             let v: LockHitlGravado | null = null;
-            try { v = lockHitlGravado(JSON.parse(raw) as unknown); } catch { /* legado ambíguo permanece preservado */ }
+            try { v = lockHitlGravado(interpretarJson(raw)); } catch { /* legado ambíguo permanece preservado */ }
             if (!v) throw new Error('HITL ocupado; lock legado exige inspeção e migração coordenada');
             anterior = { token: v.token, dono: v.dono, estado: v.estado };
           }
           const info = { contrato: 'ork.hitl-lock/v1', token: randomUUID(), operacao, estado: 'ocupado', adquiridoEm: new Date().toISOString(),
-            dono: { pid: process.pid, uid: process.getuid?.() ?? null }, anterior,
+            dono: { pid: processo.pid, uid: processo.getuid?.() ?? null }, anterior,
             evidencia: 'trava portátil por candidato e identidade de processo; PID/TTL não transferem propriedade' };
           const salvar = () => { fs.ftruncateSync(fd, 0); fs.writeSync(fd, JSON.stringify(info), 0, 'utf8'); fs.fsyncSync(fd); };
           salvar();
@@ -110,7 +107,7 @@ export function comLockInspecionavel<T>(dir: string, operacao: string, executar:
   const fd = fs.openSync(file, fs.constants.O_RDWR | fs.constants.O_CREAT | fs.constants.O_NOFOLLOW, 0o600);
   try {
     const st = fs.fstatSync(fd);
-    if (!st.isFile() || st.uid !== process.getuid?.() || st.mode & 0o077 || st.nlink !== 1) throw new Error('HITL lock exige arquivo privado do uid');
+    if (!st.isFile() || st.uid !== processo.getuid?.() || st.mode & 0o077 || st.nlink !== 1) throw new Error('HITL lock exige arquivo privado do uid');
     const r = spawnSync('/usr/bin/flock', ['--exclusive', '--nonblock', '3'], { stdio: ['ignore', 'pipe', 'pipe', fd], timeout: 2000 });
     if (r.status !== 0) throw new Error('HITL ocupado; exclusão do kernel não adquirida');
     // fd 3 no helper é dup do mesmo open file description. Fechar o helper não libera fd no dono.
@@ -120,14 +117,14 @@ export function comLockInspecionavel<T>(dir: string, operacao: string, executar:
     const raw = fs.readFileSync(fd, 'utf8');
     if (raw !== '') {
       let v: LockHitlGravado | null = null;
-      try { v = lockHitlGravado(JSON.parse(raw) as unknown); } catch { /* legado ambíguo permanece preservado */ }
+      try { v = lockHitlGravado(interpretarJson(raw)); } catch { /* legado ambíguo permanece preservado */ }
       if (!v) throw new Error('HITL ocupado; lock legado exige inspeção e migração coordenada');
       anterior = { token: v.token, dono: v.dono, estado: v.estado };
     }
     const stat = fs.readFileSync('/proc/self/stat', 'utf8');
     const info = { contrato: 'ork.hitl-lock/v1', token: randomUUID(), operacao, estado: 'ocupado', adquiridoEm: new Date().toISOString(),
-      dono: { pid: process.pid, uid: process.getuid!(), bootId: fs.readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim(),
-        inicio: stat.slice(stat.lastIndexOf(')') + 2).split(' ')[19], executavel: fs.readlinkSync('/proc/self/exe'), cwd: process.cwd() },
+      dono: { pid: processo.pid, uid: processo.getuid?.() ?? null, bootId: fs.readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim(),
+        inicio: stat.slice(stat.lastIndexOf(')') + 2).split(' ')[19], executavel: fs.readlinkSync('/proc/self/exe'), cwd: processo.cwd() },
       anterior, evidencia: 'flock exclusivo adquirido pelo kernel; PID/TTL são somente metadados' };
     const salvar = () => { fs.ftruncateSync(fd, 0); fs.writeSync(fd, JSON.stringify(info), 0, 'utf8'); fs.fsyncSync(fd); };
     salvar();

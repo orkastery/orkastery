@@ -21,14 +21,13 @@
  * vaga que diz, com o identificador da posse que gravou nela: marca copiada para fora dessa árvore de processos, ou
  * guardada de uma vez anterior do mesmo dono, não pula a fila.
  */
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { createHash, randomUUID } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
-import { Worker } from 'node:worker_threads';
 import { exigirEstadoSemLink, raizDoEstado } from './estado-thread';
 import { formatarDesde } from './horario';
 import { adquirirTravaPortatil, donosDaTravaPortatil, identidadeDoProcesso, TravaPortatil } from './trava-portatil';
+import {
+  buffer, createHash, fs, interpretarJson, path, type PlataformaNode, processo, randomUUID, spawnSync, Worker,
+  type WorkerTipado,
+} from './node-portavel';
 
 export const CONTRATO_FILA_PESADA = 'ork.fila-pesada/v1' as const;
 /** A marca da posse que o dono da vez passa aos processos filhos. */
@@ -62,7 +61,7 @@ export interface DependenciasDaFilaPesada {
   agora?: () => number;
   pausar?: (ms: number) => void;
   /** Injeção hermética do transporte; produção sempre usa `process.platform`. */
-  plataforma?: NodeJS.Platform;
+  plataforma?: PlataformaNode;
 }
 
 /** Quem segura uma vaga agora, como ele mesmo gravou ao pegá-la. */
@@ -133,10 +132,10 @@ export class ErroDaFilaPesada extends Error {
 }
 
 export function kernelDisponivel(): boolean {
-  return process.platform === 'linux' && fs.existsSync(FLOCK);
+  return processo.platform === 'linux' && fs.existsSync(FLOCK);
 }
 
-export function travaPortatilDisponivel(plataforma: NodeJS.Platform = process.platform): boolean {
+export function travaPortatilDisponivel(plataforma: PlataformaNode = processo.platform): boolean {
   return plataforma === 'darwin';
 }
 
@@ -156,7 +155,7 @@ function trancar(fd: number): boolean { return observarTrava(fd) === 'adquirida'
 function abrirTrava(arquivo: string, criar: boolean): number {
   const fd = fs.openSync(arquivo, fs.constants.O_RDWR | fs.constants.O_NOFOLLOW | (criar ? fs.constants.O_CREAT : 0), 0o600);
   const st = fs.fstatSync(fd);
-  if (!st.isFile() || st.uid !== process.getuid?.()) {
+  if (!st.isFile() || st.uid !== processo.getuid?.()) {
     fs.closeSync(fd);
     throw new Error(`fila-pesada: ${path.basename(arquivo)} não é arquivo de trava do núcleo`);
   }
@@ -197,7 +196,7 @@ interface Senha { nome: string; fd: number }
  * tomá-la por senha de processo morto. O nome começa pelo instante, com zeros: a ordem dos nomes é a de chegada.
  */
 function tirarSenha(dir: string): Senha {
-  const marca = `${String(Date.now()).padStart(15, '0')}-${String(process.pid).padStart(10, '0')}-${randomUUID().slice(0, 8)}`;
+  const marca = `${String(Date.now()).padStart(15, '0')}-${String(processo.pid).padStart(10, '0')}-${randomUUID().slice(0, 8)}`;
   const provisorio = path.join(dir, `.senha-${marca}.tmp`);
   const fd = abrirTrava(provisorio, true);
   if (!trancar(fd)) { fs.closeSync(fd); fs.rmSync(provisorio, { force: true }); throw new Error('fila-pesada: a senha nova não trancou'); }
@@ -255,11 +254,11 @@ function identidadeDaMaquina(): IdentidadeDaMaquina {
 /** `id`: o identificador desta posse, gravado na vaga e na marca que os filhos herdam. */
 interface Posse {
   fdArtefato: number; fdVaga: number; slot: number; id: string;
-  batida: Worker | null; arquivoDaBatida: string | null;
+  batida: WorkerTipado | null; arquivoDaBatida: string | null;
 }
 
 function gravarDono(fd: number, dono: OcupanteDaFila, posse: string): void {
-  const bytes = Buffer.from(JSON.stringify({ contrato: CONTRATO_FILA_PESADA, ...dono, posse }) + '\n', 'utf8');
+  const bytes = buffer.from(JSON.stringify({ contrato: CONTRATO_FILA_PESADA, ...dono, posse }) + '\n', 'utf8');
   fs.ftruncateSync(fd, 0);
   fs.writeSync(fd, bytes, 0, bytes.length, 0);
 }
@@ -269,7 +268,7 @@ function arquivoDaBatida(dir: string, slot: number, posse: string): string {
 }
 
 /** Worker nativo: a batida continua enquanto o verify sincrono bloqueia a thread JS, sem processo shell perdido. */
-function iniciarBatida(dir: string, slot: number, posse: string): { worker: Worker; arquivo: string } | null {
+function iniciarBatida(dir: string, slot: number, posse: string): { worker: WorkerTipado; arquivo: string } | null {
   const arquivo = arquivoDaBatida(dir, slot, posse);
   try {
     const worker = new Worker(`
@@ -305,7 +304,7 @@ function tentarVaga(dir: string, pedido: PedidoDeRecursoPesado): Posse | null {
     const id = randomUUID();
     const identidade = identidadeDaMaquina();
     const dono: OcupanteDaFila = { slot, operacao: pedido.operacao, thread: pedido.thread, artefato: path.resolve(pedido.artefato),
-      pid: process.pid, desde: new Date().toISOString(), inicio: inicioDoProcesso(process.pid), ...identidade };
+      pid: processo.pid, desde: new Date().toISOString(), inicio: inicioDoProcesso(processo.pid), ...identidade };
     gravarDono(fdVaga, dono, id);
     gravarDono(fdArtefato, dono, id);
     const batida = iniciarBatida(dir, slot, id);
@@ -345,11 +344,12 @@ export function ocupantesDaFilaPesada(raiz: string): OcupanteDaFila[] {
       if (trava === 'adquirida') continue;
       const slot = Number(/^vaga-(\d+)\.lock$/.exec(nome)![1]);
       let dono: Partial<OcupanteDaFila> & { posse?: unknown } = {};
-      try { dono = JSON.parse(fs.readFileSync(path.join(dir, nome), 'utf8')) as typeof dono; } catch { /* dono ainda gravando */ }
+      try { dono = interpretarJson(fs.readFileSync(path.join(dir, nome), 'utf8')) as typeof dono; } catch { /* dono ainda gravando */ }
       let batidaExpiraEm: string | null = null;
       if (typeof dono.posse === 'string') {
         try {
-          const batida = JSON.parse(fs.readFileSync(arquivoDaBatida(dir, slot, dono.posse), 'utf8')) as { posse?: unknown; expiraEm?: unknown };
+          const batida = interpretarJson(fs.readFileSync(arquivoDaBatida(dir, slot, dono.posse), 'utf8')) as
+            { posse?: unknown; expiraEm?: unknown };
           if (batida.posse === dono.posse && typeof batida.expiraEm === 'string') batidaExpiraEm = batida.expiraEm;
         } catch { /* batida ausente, vencida ou ainda sendo publicada */ }
       }
@@ -406,7 +406,7 @@ const emCurso = new Map<string, { slot: number | null }>();
 
 /** O campo 22 do `/proc/<pid>/stat` (instante de início em ticks): com o pid, identifica o processo sem reuso. */
 function inicioDoProcesso(pid: number): string | null {
-  if (process.platform === 'darwin') return identidadeDoProcesso(pid) ?? null;
+  if (processo.platform === 'darwin') return identidadeDoProcesso(pid) ?? null;
   try {
     const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
     return stat.slice(stat.lastIndexOf(')') + 2).split(' ')[19] ?? null;
@@ -414,7 +414,7 @@ function inicioDoProcesso(pid: number): string | null {
 }
 
 function paiDe(pid: number): number | null {
-  if (process.platform === 'darwin') {
+  if (processo.platform === 'darwin') {
     const r = spawnSync('/bin/ps', ['-p', String(pid), '-o', 'ppid='], { encoding: 'utf8', timeout: 2000 });
     const pai = r.status === 0 ? Number(r.stdout.trim()) : NaN;
     return Number.isSafeInteger(pai) && pai > 0 ? pai : null;
@@ -428,7 +428,7 @@ function paiDe(pid: number): number | null {
 
 /** O processo é ancestral deste? Sobe pela cadeia de pais, no máximo 64 degraus. */
 function ancestral(pid: number): boolean {
-  let atual: number | null = process.ppid;
+  let atual: number | null = processo.ppid;
   for (let i = 0; i < 64 && atual !== null && atual > 1; i++) {
     if (atual === pid) return true;
     atual = paiDe(atual);
@@ -442,22 +442,23 @@ function ancestral(pid: number): boolean {
  * a de uma vez anterior dele (o identificador da posse gravado na vaga é outro).
  */
 function vagaDoAncestral(chave: string, dir: string): number | null {
-  const bruto = process.env[ENV_DONO_DA_FILA];
+  const bruto = processo.env[ENV_DONO_DA_FILA];
   if (!bruto) return null;
   let marca: { raiz?: unknown; pid?: unknown; inicio?: unknown; slot?: unknown; posse?: unknown };
-  try { marca = JSON.parse(bruto) as typeof marca; } catch { return null; }
+  try { marca = interpretarJson(bruto) as typeof marca; } catch { return null; }
   const { pid, slot } = marca;
-  if (marca.raiz !== chave || typeof pid !== 'number' || !Number.isSafeInteger(pid) || pid <= 1 || pid === process.pid ||
+  if (marca.raiz !== chave || typeof pid !== 'number' || !Number.isSafeInteger(pid) || pid <= 1 || pid === processo.pid ||
       typeof slot !== 'number' || !Number.isSafeInteger(slot) || slot < 0 || typeof marca.posse !== 'string') return null;
+  const posseMarcada = marca.posse;
   if (inicioDoProcesso(pid) !== marca.inicio || !ancestral(pid)) return null;
-  if (process.platform === 'darwin') {
+  if (processo.platform === 'darwin') {
     const donos = donosDaTravaPortatil(path.join(dir, `vaga-${slot}`));
-    return donos.some((d) => d.pid === pid && d.operacao.endsWith(`:${marca.posse}`)) ? slot : null;
+    return donos.some((d) => d.pid === pid && d.operacao.endsWith(`:${posseMarcada}`)) ? slot : null;
   }
   const arquivo = path.join(dir, `vaga-${slot}.lock`);
   try {
-    const gravado = JSON.parse(fs.readFileSync(arquivo, 'utf8')) as { pid?: unknown; posse?: unknown };
-    if (gravado.pid !== pid || gravado.posse !== marca.posse) return null;
+    const gravado = interpretarJson(fs.readFileSync(arquivo, 'utf8')) as { pid?: unknown; posse?: unknown };
+    if (gravado.pid !== pid || gravado.posse !== posseMarcada) return null;
   } catch { return null; }
   let fd: number;
   try { fd = abrirTrava(arquivo, false); } catch { return null; }
@@ -510,12 +511,12 @@ function comRecursoPesadoPortatil<T>(raiz: string, pedido: PedidoDeRecursoPesado
     const posse = tentarVagaPortatil(dir, pedido);
     if (posse) {
       emCurso.set(chave, { slot: posse.slot });
-      const marcaAnterior = process.env[ENV_DONO_DA_FILA];
-      process.env[ENV_DONO_DA_FILA] = JSON.stringify({ raiz: chave, pid: process.pid, inicio: inicioDoProcesso(process.pid),
+      const marcaAnterior = processo.env[ENV_DONO_DA_FILA];
+      processo.env[ENV_DONO_DA_FILA] = JSON.stringify({ raiz: chave, pid: processo.pid, inicio: inicioDoProcesso(processo.pid),
         slot: posse.slot, posse: posse.id });
       try { return executar({ situacao: 'adquirida', slot: posse.slot, esperouMs: agora() - inicio }); }
       finally {
-        if (marcaAnterior === undefined) delete process.env[ENV_DONO_DA_FILA]; else process.env[ENV_DONO_DA_FILA] = marcaAnterior;
+        if (marcaAnterior === undefined) delete processo.env[ENV_DONO_DA_FILA]; else processo.env[ENV_DONO_DA_FILA] = marcaAnterior;
         emCurso.delete(chave);
         posse.vaga.liberar(); posse.artefato.liberar();
       }
@@ -538,7 +539,7 @@ export function comRecursoPesado<T>(raiz: string, pedido: PedidoDeRecursoPesado,
   const chave = path.resolve(raizDoEstado(raiz));
   const atual = emCurso.get(chave);
   if (atual) return executar({ situacao: 'reentrada', slot: atual.slot, esperouMs: 0 });
-  const plataforma = dependencias.plataforma ?? process.platform;
+  const plataforma = dependencias.plataforma ?? processo.platform;
   if (travaPortatilDisponivel(plataforma)) return comRecursoPesadoPortatil(raiz, pedido, executar, dependencias);
   if (!kernelDisponivel()) {
     return executar({ situacao: 'sem-kernel', slot: null, esperouMs: 0 });
@@ -554,19 +555,19 @@ export function comRecursoPesado<T>(raiz: string, pedido: PedidoDeRecursoPesado,
   let avisou = false;
   try {
     for (;;) {
-      const posse = minhaVez(dir, senha!) ? tentarVaga(dir, pedido) : null;
+      const posse = minhaVez(dir, senha) ? tentarVaga(dir, pedido) : null;
       if (posse) {
         // Com a vaga na mão, a senha sai: quem vem depois disputa a próxima vaga livre.
         devolverSenha(dir, senha);
         senha = null;
         emCurso.set(chave, { slot: posse.slot });
         // Os comandos que rodam dentro da vez herdam a marca da posse: o verify aninhado neles é reentrada.
-        const marcaAnterior = process.env[ENV_DONO_DA_FILA];
-        process.env[ENV_DONO_DA_FILA] = JSON.stringify({ raiz: chave, pid: process.pid, inicio: inicioDoProcesso(process.pid), slot: posse.slot,
+        const marcaAnterior = processo.env[ENV_DONO_DA_FILA];
+        processo.env[ENV_DONO_DA_FILA] = JSON.stringify({ raiz: chave, pid: processo.pid, inicio: inicioDoProcesso(processo.pid), slot: posse.slot,
           posse: posse.id });
         try { return executar({ situacao: 'adquirida', slot: posse.slot, esperouMs: agora() - inicio }); }
         finally {
-          if (marcaAnterior === undefined) delete process.env[ENV_DONO_DA_FILA]; else process.env[ENV_DONO_DA_FILA] = marcaAnterior;
+          if (marcaAnterior === undefined) delete processo.env[ENV_DONO_DA_FILA]; else processo.env[ENV_DONO_DA_FILA] = marcaAnterior;
           emCurso.delete(chave);
           soltar(posse);
         }
