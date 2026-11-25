@@ -6,19 +6,21 @@ on:
 permissions: {}
 
 jobs:
-  ork-excecao-transporte:
-    name: ork-excecao-transporte
+  preparar-cliente:
+    name: preparar cliente protegido
     if: >-
       github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.base.ref == 'main' &&
       github.event.pull_request.base.sha != ''
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write
+    outputs:
+      enabled: ${{ steps.transporte.outputs.enabled }}
     steps:
-      # A policy da organização referencia este workflow na target protegida. A origem do PR nunca e executada aqui.
-      - name: obter policy da target protegida
+      # A policy referencia este workflow na target protegida. A configuracao e lida desse SHA, nunca do PR.
+      - name: obter target protegida
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 1
@@ -26,40 +28,76 @@ jobs:
           path: .ork-protected-target
           persist-credentials: false
 
-      - name: preparar Node da policy protegida
+      - name: preparar Node sem OIDC
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '22'
 
-      - name: compilar leitor da target
-        run: npm ci --prefix .ork-protected-target/core && npm --prefix .ork-protected-target/core run build
-
-      - name: ler opt-in e pino da policy protegida
+      - name: ler opt-in e pino da target
         id: transporte
         working-directory: .ork-protected-target
         run: |
+          npm ci --prefix core --ignore-scripts
+          npm --prefix core run build
           node <<'NODE' >> "$GITHUB_OUTPUT"
           const { exigirManifesto } = require('./core/dist/manifest');
           const config = exigirManifesto(process.cwd()).manifesto.ci.transporte_excecao;
-          if (!config) {
-            process.stdout.write('enabled=false\n');
-          } else {
-            process.stdout.write(`enabled=true\nversion=${config.cliente.versao}\nsha256=${config.cliente.sha256}\n`);
-          }
+          if (!config) process.stdout.write('enabled=false\n');
+          else process.stdout.write(`enabled=true\nversion=${config.cliente.versao}\nsha256=${config.cliente.sha256}\n`);
           NODE
 
-      - name: instalar cliente conferido por digest
+      - name: obter arvore integral pinada
         if: steps.transporte.outputs.enabled == 'true'
         working-directory: .ork-protected-target
         env:
           ORK_CLIENT_VERSION: ${{ steps.transporte.outputs.version }}
           ORK_CLIENT_SHA256: ${{ steps.transporte.outputs.sha256 }}
         run: |
+          mkdir -p "$RUNNER_TEMP/ork-protected-input/target"
           PACOTE="$(npm pack "@orkastery/cli@${ORK_CLIENT_VERSION}" --silent)"
           echo "${ORK_CLIENT_SHA256}  ${PACOTE}" | sha256sum --check --strict
-          npm install --prefix "$RUNNER_TEMP/ork-protected-client" --no-audit --no-fund "./${PACOTE}"
+          mv "${PACOTE}" "$RUNNER_TEMP/ork-protected-input/cliente.tgz"
+          cp orkastery.yaml "$RUNNER_TEMP/ork-protected-input/target/orkastery.yaml"
 
-      - name: consultar fabrica e expor somente resultado sanitizado
+      - name: transferir cliente e configuracao protegidos
         if: steps.transporte.outputs.enabled == 'true'
-        working-directory: .ork-protected-target
-        run: node "$RUNNER_TEMP/ork-protected-client/node_modules/@orkastery/cli/dist/ci-fabrica-transporte.js"
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ork-protected-input
+          path: ${{ runner.temp }}/ork-protected-input
+          if-no-files-found: error
+
+  ork-excecao-transporte:
+    name: ork-excecao-transporte
+    needs: preparar-cliente
+    if: >-
+      needs.preparar-cliente.outputs.enabled == 'true' &&
+      github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: obter somente a fonte nao confiavel
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: .ork-untrusted-source
+          persist-credentials: false
+
+      - name: receber cliente integralmente pinado
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ork-protected-input
+          path: ${{ runner.temp }}/ork-protected-input
+
+      - name: consultar fabrica e concluir ork ci run
+        env:
+          ORK_TRANSPORTE_PROTEGIDO: '1'
+          ORK_TARGET_PROTEGIDA_DIR: ${{ runner.temp }}/ork-protected-input/target
+          ORK_FONTE_NAO_CONFIAVEL_DIR: ${{ github.workspace }}/.ork-untrusted-source
+        run: |
+          mkdir -p "$RUNNER_TEMP/ork-protected-client"
+          tar -xzf "$RUNNER_TEMP/ork-protected-input/cliente.tgz" -C "$RUNNER_TEMP/ork-protected-client"
+          node "$RUNNER_TEMP/ork-protected-client/package/dist/index.js" ci run --branch "$GITHUB_HEAD_REF"
