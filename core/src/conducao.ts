@@ -35,6 +35,7 @@ import { AMBIENTE_SEM_PROJETO_HERDADO } from './projeto-alvo';
 import {
   CanalDeConducao, ConducaoAtual, DadosDaConducao, DonoDaConducao, EventoLedger, Fase, Lease, OperacaoDeConducao,
 } from './types';
+import { adquirirTravaPortatil } from './trava-portatil';
 
 // ---------------------------------------------------------------------------
 // Canais (D5, D6): registro fechado, declarado pela borda.
@@ -286,17 +287,23 @@ function kernelDisponivel(): boolean {
   return process.platform === 'linux' && fs.existsSync(FLOCK);
 }
 
+interface TravaDaConducao { liberar(): void }
+
 /**
  * Tenta a trava exclusiva do kernel. O `flock` ajudante tranca a descricao de arquivo que este
  * processo segura; ao sair, a trava continua do processo, e morre com ele. Devolve o descritor, ou
  * null quando outro processo vivo segura a trava.
  */
-function tentarTrava(raiz: string, threadId: string): number | null {
+function tentarTrava(raiz: string, threadId: string): TravaDaConducao | null {
   const arquivo = caminhoDaTrava(raiz, threadId);
+  if (process.platform === 'darwin') {
+    const trava = adquirirTravaPortatil(arquivo, `conducao:${threadId}`, { esperarMs: 0 });
+    return trava ? { liberar: () => trava.liberar() } : null;
+  }
+  if (!kernelDisponivel()) throw new Error(`runtime.unavailable: condução sem trava portátil em ${process.platform}`);
   const fd = fs.openSync(arquivo, fs.constants.O_RDWR | fs.constants.O_CREAT | fs.constants.O_NOFOLLOW, 0o600);
-  if (!kernelDisponivel()) return fd;
   const r = spawnSync(FLOCK, ['--exclusive', '--nonblock', '3'], { stdio: ['ignore', 'ignore', 'ignore', fd], timeout: 5000 });
-  if (r.status === 0 && !r.error) return fd;
+  if (r.status === 0 && !r.error) return { liberar: () => fs.closeSync(fd) };
   fs.closeSync(fd);
   return null;
 }
@@ -310,15 +317,15 @@ export function vidaDoProcesso(raiz: string, threadId: string, lease: Lease): Vi
   const dono = lease.conducao?.dono;
   if (!dono || dono.tipo !== 'processo') return 'desconhecido';
   if (dono.maquina !== nomeDaMaquina()) return 'desconhecido';
-  if (!kernelDisponivel()) {
+  if (!kernelDisponivel() && process.platform !== 'darwin') {
     try { process.kill(dono.pid, 0); } catch { return 'morto'; }
     const atual = identidadeProcesso(dono.pid);
     return atual && atual.inicio === dono.inicio ? 'vivo' : 'desconhecido';
   }
-  let fd: number | null = null;
-  try { fd = tentarTrava(raiz, threadId); } catch { return 'desconhecido'; }
-  if (fd === null) return 'vivo';
-  fs.closeSync(fd);
+  let trava: TravaDaConducao | null = null;
+  try { trava = tentarTrava(raiz, threadId); } catch { return 'desconhecido'; }
+  if (trava === null) return 'vivo';
+  trava.liberar();
   return 'morto';
 }
 
@@ -383,7 +390,7 @@ export interface ConducaoOcupada {
 
 export type TomadaDeConducao = ConducaoTomada | ConducaoOcupada;
 
-interface EmCurso { identidade: string; profundidade: number; lease: Lease; fd: number; convertida: boolean; substituido?: Lease;
+interface EmCurso { identidade: string; profundidade: number; lease: Lease; trava: TravaDaConducao; convertida: boolean; substituido?: Lease;
   /** A consulta ao runtime do pedido que tomou (os testes injetam); sem ela, o controle nativo. */
   consultarSessao?: ConsultaDeSessao;
   /** O descritor ja foi fechado: fechar de novo poderia fechar outro arquivo que reusou o numero. */
@@ -394,7 +401,7 @@ function encerrar(k: string, estado: EmCurso): void {
   if (estado.encerrada) return;
   estado.encerrada = true;
   if (emCurso.get(k) === estado) emCurso.delete(k);
-  try { fs.closeSync(estado.fd); } catch { /* ja fechado */ }
+  try { estado.trava.liberar(); } catch { /* ja liberada */ }
 }
 /** Conducoes que ESTE processo segura, pela chave canonica: a reentrada no mesmo processo. */
 const emCurso = new Map<string, EmCurso>();
@@ -590,12 +597,12 @@ export function tomarConducao(raiz: string, threadId: string, pedido: PedidoDeCo
   if (pedido.identidade && existente?.conducao?.identidade === pedido.identidade) {
     return reentrada(pedido.identidade, () => undefined);
   }
-  let fd: number | null = null;
-  for (let tentativa = 0; tentativa < 3 && fd === null; tentativa++) {
-    fd = tentarTrava(raiz, threadId);
-    if (fd === null) dormir(150);
+  let trava: TravaDaConducao | null = null;
+  for (let tentativa = 0; tentativa < 3 && trava === null; tentativa++) {
+    trava = tentarTrava(raiz, threadId);
+    if (trava === null) dormir(150);
   }
-  if (fd === null) {
+  if (trava === null) {
     // Um processo vivo segura a trava: ou conduz, ou esta gravando o lease agora mesmo.
     let atual: ConducaoAtual | null = null;
     for (let i = 0; i < 5 && !atual; i++) {
@@ -608,7 +615,7 @@ export function tomarConducao(raiz: string, threadId: string, pedido: PedidoDeCo
   try {
     const saida: { substituido?: Lease } = {};
     const ocupada = avaliarComTrava(raiz, threadId, pedido, undefined, saida);
-    if (ocupada) { fs.closeSync(fd); return ocupada; }
+    if (ocupada) { trava.liberar(); return ocupada; }
     const identidade = pedido.identidade ?? randomUUID();
     const lease: Lease = {
       nome: nomeDaConducao(threadId),
@@ -620,7 +627,7 @@ export function tomarConducao(raiz: string, threadId: string, pedido: PedidoDeCo
       conducao: dadosDoPedido(pedido, identidade, donoProcesso()),
     };
     regravarLease(raiz, lease);
-    const estado: EmCurso = { identidade, profundidade: 0, lease, fd, convertida: false, ...(saida.substituido ? { substituido: saida.substituido } : {}),
+    const estado: EmCurso = { identidade, profundidade: 0, lease, trava, convertida: false, ...(saida.substituido ? { substituido: saida.substituido } : {}),
       ...(pedido.consultarSessao ? { consultarSessao: pedido.consultarSessao } : {}) };
     emCurso.set(k, estado);
     return {
@@ -634,7 +641,7 @@ export function tomarConducao(raiz: string, threadId: string, pedido: PedidoDeCo
       sucessaoAindaVale: () => sucessaoAindaVale(raiz, threadId, estado),
     };
   } catch (e) {
-    try { fs.closeSync(fd); } catch { /* ja fechado */ }
+    try { trava.liberar(); } catch { /* ja liberada */ }
     throw e;
   }
 }
@@ -893,12 +900,12 @@ export function liberarSeOrfa(raiz: string, threadId: string,
   opcoes: Pick<PedidoDeConducao, 'consultarRuntime' | 'consultarSessao'> = {}): { liberada: boolean; detalhe: string } {
   const antes = lerLease(raiz, nomeDaConducao(threadId));
   if (!antes) return { liberada: false, detalhe: 'nenhuma conducao registrada' };
-  const fd = tentarTrava(raiz, threadId);
-  if (fd === null) return { liberada: false, detalhe: 'um processo vivo segura a conducao' };
+  const trava = tentarTrava(raiz, threadId);
+  if (trava === null) return { liberada: false, detalhe: 'um processo vivo segura a conducao' };
   try {
     const ocupada = avaliarComTrava(raiz, threadId, { canal: 'cli', operacao: 'verify', prazoMs: 0, ...opcoes }, { usarReserva: false });
     return ocupada ? { liberada: false, detalhe: 'a conducao tem dono vivo' } : { liberada: true, detalhe: 'conducao sem dono liberada, com prova no ledger' };
-  } finally { fs.closeSync(fd); }
+  } finally { trava.liberar(); }
 }
 
 export interface ResultadoDoHandoff {
@@ -1001,8 +1008,8 @@ export function assumirConducao(raiz: string, threadId: string,
   lerThread(raiz, threadId);
   // A prova local vem antes de qualquer consulta ao runtime; ledger ainda libera sessões terminadas.
   liberarSeOrfa(raiz, threadId, { consultarRuntime: false });
-  const fd = tentarTrava(raiz, threadId);
-  if (fd === null) {
+  const trava = tentarTrava(raiz, threadId);
+  if (trava === null) {
     const atual = conducaoDaThread(raiz, threadId);
     return { ok: false, thread: threadId, anterior: atual, mecanismo: 'nenhum',
       detalhe: `a conducao atual e um processo local vivo (${atual ? quemConduz(atual) : 'gravando o lease'}), que termina sozinho. ` +
@@ -1068,7 +1075,7 @@ export function assumirConducao(raiz: string, threadId: string,
     });
     return { ok: true, thread: threadId, anterior, mecanismo,
       detalhe: msg().conducao.cli.detalheAssumida(por, opcoes.canal, formatarDataHoraRotulada(reserva.expiraEm)) };
-  } finally { fs.closeSync(fd); }
+  } finally { trava.liberar(); }
 }
 
 /** Texto de `ork conducao status`. */

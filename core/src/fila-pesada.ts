@@ -28,6 +28,7 @@ import { spawnSync } from 'node:child_process';
 import { Worker } from 'node:worker_threads';
 import { exigirEstadoSemLink, raizDoEstado } from './estado-thread';
 import { formatarDesde } from './horario';
+import { adquirirTravaPortatil, donosDaTravaPortatil, identidadeDoProcesso, TravaPortatil } from './trava-portatil';
 
 export const CONTRATO_FILA_PESADA = 'ork.fila-pesada/v1' as const;
 /** A marca da posse que o dono da vez passa aos processos filhos. */
@@ -60,6 +61,8 @@ export interface PedidoDeRecursoPesado {
 export interface DependenciasDaFilaPesada {
   agora?: () => number;
   pausar?: (ms: number) => void;
+  /** Injeção hermética do transporte; produção sempre usa `process.platform`. */
+  plataforma?: NodeJS.Platform;
 }
 
 /** Quem segura uma vaga agora, como ele mesmo gravou ao pegá-la. */
@@ -131,6 +134,10 @@ export class ErroDaFilaPesada extends Error {
 
 export function kernelDisponivel(): boolean {
   return process.platform === 'linux' && fs.existsSync(FLOCK);
+}
+
+export function travaPortatilDisponivel(plataforma: NodeJS.Platform = process.platform): boolean {
+  return plataforma === 'darwin';
 }
 
 type ObservacaoDaTrava = 'adquirida' | 'ocupada' | 'desconhecida';
@@ -322,8 +329,13 @@ function soltar(posse: Posse): void {
  * solta em seguida. Vaga trancada sem dono legível ainda conta, como ocupada por desconhecido.
  */
 export function ocupantesDaFilaPesada(raiz: string): OcupanteDaFila[] {
-  if (!kernelDisponivel()) return [];
   const dir = dirDaFilaPesada(raiz);
+  if (!kernelDisponivel()) {
+    if (!travaPortatilDisponivel()) return [];
+    const slots = fs.readdirSync(dir).map((nome) => /^vaga-(\d+)\.ork-lock$/.exec(nome))
+      .filter((m): m is RegExpExecArray => m !== null).reduce((n, m) => Math.max(n, Number(m[1]) + 1), 0);
+    return ocupantesPortateis(dir, slots);
+  }
   const ocupantes: OcupanteDaFila[] = [];
   for (const nome of fs.readdirSync(dir).filter(n => /^vaga-\d+\.lock$/.test(n)).sort()) {
     let fd: number;
@@ -394,6 +406,7 @@ const emCurso = new Map<string, { slot: number | null }>();
 
 /** O campo 22 do `/proc/<pid>/stat` (instante de início em ticks): com o pid, identifica o processo sem reuso. */
 function inicioDoProcesso(pid: number): string | null {
+  if (process.platform === 'darwin') return identidadeDoProcesso(pid) ?? null;
   try {
     const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
     return stat.slice(stat.lastIndexOf(')') + 2).split(' ')[19] ?? null;
@@ -401,6 +414,11 @@ function inicioDoProcesso(pid: number): string | null {
 }
 
 function paiDe(pid: number): number | null {
+  if (process.platform === 'darwin') {
+    const r = spawnSync('/bin/ps', ['-p', String(pid), '-o', 'ppid='], { encoding: 'utf8', timeout: 2000 });
+    const pai = r.status === 0 ? Number(r.stdout.trim()) : NaN;
+    return Number.isSafeInteger(pai) && pai > 0 ? pai : null;
+  }
   try {
     const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
     const pai = Number(stat.slice(stat.lastIndexOf(')') + 2).split(' ')[1]);
@@ -432,6 +450,10 @@ function vagaDoAncestral(chave: string, dir: string): number | null {
   if (marca.raiz !== chave || typeof pid !== 'number' || !Number.isSafeInteger(pid) || pid <= 1 || pid === process.pid ||
       typeof slot !== 'number' || !Number.isSafeInteger(slot) || slot < 0 || typeof marca.posse !== 'string') return null;
   if (inicioDoProcesso(pid) !== marca.inicio || !ancestral(pid)) return null;
+  if (process.platform === 'darwin') {
+    const donos = donosDaTravaPortatil(path.join(dir, `vaga-${slot}`));
+    return donos.some((d) => d.pid === pid && d.operacao.endsWith(`:${marca.posse}`)) ? slot : null;
+  }
   const arquivo = path.join(dir, `vaga-${slot}.lock`);
   try {
     const gravado = JSON.parse(fs.readFileSync(arquivo, 'utf8')) as { pid?: unknown; posse?: unknown };
@@ -440,6 +462,69 @@ function vagaDoAncestral(chave: string, dir: string): number | null {
   let fd: number;
   try { fd = abrirTrava(arquivo, false); } catch { return null; }
   try { return trancar(fd) ? null : slot; } finally { fs.closeSync(fd); }
+}
+
+interface PossePortatil {
+  artefato: TravaPortatil;
+  vaga: TravaPortatil;
+  slot: number;
+  id: string;
+}
+
+function tentarVagaPortatil(dir: string, pedido: PedidoDeRecursoPesado): PossePortatil | null {
+  const id = randomUUID();
+  const rotulo = `fila:${pedido.operacao}:${pedido.thread ?? '-'}:${id}`;
+  const artefato = adquirirTravaPortatil(path.join(dir, `artefato-${chaveDoArtefato(pedido.artefato)}`), rotulo, { esperarMs: 0 });
+  if (!artefato) return null;
+  for (let slot = 0; slot < pedido.slots; slot++) {
+    const vaga = adquirirTravaPortatil(path.join(dir, `vaga-${slot}`), rotulo, { esperarMs: 0 });
+    if (vaga) return { artefato, vaga, slot, id };
+  }
+  artefato.liberar();
+  return null;
+}
+
+function ocupantesPortateis(dir: string, slots: number): OcupanteDaFila[] {
+  const ocupantes: OcupanteDaFila[] = [];
+  for (let slot = 0; slot < slots; slot++) {
+    for (const dono of donosDaTravaPortatil(path.join(dir, `vaga-${slot}`))) {
+      const partes = dono.operacao.split(':');
+      ocupantes.push({ slot, operacao: partes[1] || 'desconhecida', thread: partes[2] && partes[2] !== '-' ? partes[2] : null,
+        artefato: '', pid: dono.pid, desde: '', vida: 'vivo', prova: 'processo' });
+    }
+  }
+  return ocupantes;
+}
+
+function comRecursoPesadoPortatil<T>(raiz: string, pedido: PedidoDeRecursoPesado, executar: (uso: UsoDaFilaPesada) => T,
+  dependencias: DependenciasDaFilaPesada): T {
+  const chave = path.resolve(raizDoEstado(raiz));
+  const dir = dirDaFilaPesada(raiz);
+  const doAncestral = vagaDoAncestral(chave, dir);
+  if (doAncestral !== null) return executar({ situacao: 'reentrada', slot: doAncestral, esperouMs: 0 });
+  const agora = dependencias.agora ?? Date.now;
+  const pausar = dependencias.pausar ?? dormir;
+  const inicio = agora(), prazo = inicio + Math.max(0, pedido.esperarMs);
+  let avisou = false;
+  for (;;) {
+    const posse = tentarVagaPortatil(dir, pedido);
+    if (posse) {
+      emCurso.set(chave, { slot: posse.slot });
+      const marcaAnterior = process.env[ENV_DONO_DA_FILA];
+      process.env[ENV_DONO_DA_FILA] = JSON.stringify({ raiz: chave, pid: process.pid, inicio: inicioDoProcesso(process.pid),
+        slot: posse.slot, posse: posse.id });
+      try { return executar({ situacao: 'adquirida', slot: posse.slot, esperouMs: agora() - inicio }); }
+      finally {
+        if (marcaAnterior === undefined) delete process.env[ENV_DONO_DA_FILA]; else process.env[ENV_DONO_DA_FILA] = marcaAnterior;
+        emCurso.delete(chave);
+        posse.vaga.liberar(); posse.artefato.liberar();
+      }
+    }
+    const ocupantes = ocupantesPortateis(dir, pedido.slots);
+    if (agora() >= prazo) throw new ErroDaFilaPesada(recusaDaFila(pedido, agora() - inicio, ocupantes));
+    if (!avisou) { avisou = true; try { pedido.aoEsperar?.(ocupantes); } catch { /* aviso não derruba espera */ } }
+    pausar(Math.min(PAUSA_MS, prazo - agora()));
+  }
 }
 
 /**
@@ -453,7 +538,11 @@ export function comRecursoPesado<T>(raiz: string, pedido: PedidoDeRecursoPesado,
   const chave = path.resolve(raizDoEstado(raiz));
   const atual = emCurso.get(chave);
   if (atual) return executar({ situacao: 'reentrada', slot: atual.slot, esperouMs: 0 });
-  if (!kernelDisponivel()) return executar({ situacao: 'sem-kernel', slot: null, esperouMs: 0 });
+  const plataforma = dependencias.plataforma ?? process.platform;
+  if (travaPortatilDisponivel(plataforma)) return comRecursoPesadoPortatil(raiz, pedido, executar, dependencias);
+  if (!kernelDisponivel()) {
+    return executar({ situacao: 'sem-kernel', slot: null, esperouMs: 0 });
+  }
   const dir = dirDaFilaPesada(raiz);
   const doAncestral = vagaDoAncestral(chave, dir);
   if (doAncestral !== null) return executar({ situacao: 'reentrada', slot: doAncestral, esperouMs: 0 });
