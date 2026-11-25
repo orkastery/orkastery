@@ -20,6 +20,7 @@ import { resolverForja, type SondasDaForja } from './forja/resolver';
 import { gitPassivoMcp } from './mcp-git';
 import { acharBinario, helperDeCredencialDaCli } from './rede-forja';
 import { ErroDoCatalogo, msg } from './locale';
+import { ENV_HITL_VERIFIERS, publicHitlVerifiers } from './hitl-public-receipt';
 import type { Manifesto } from './types';
 import { ehTransporteFixado, type TransporteFixado, type TransporteShipMcp } from './mcp-transportes';
 
@@ -452,11 +453,14 @@ export function ambienteDoTransporte(t: TransporteFixado, env: NodeJS.ProcessEnv
 
 /**
  * O ambiente do worker do SHIP, por lista fechada: nada de `GIT_SSH*`, `GIT_ASKPASS`, `GIT_SSL_NO_VERIFY` ou
- * `GIT_CONFIG_*` de quem iniciou o servidor chega ao git do push.
+ * `GIT_CONFIG_*` de quem iniciou o servidor chega ao git do push. A unica autoridade HITL transportada e o
+ * verificador publico dos recibos que o servidor ja autenticou; as chaves de ingresso nunca entram no worker.
  */
 export function ambienteDoWorkerShip(origem: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const verificadores = publicHitlVerifiers(origem);
   return { HOME: origem.HOME, USER: origem.USER, LOGNAME: origem.LOGNAME, XDG_CONFIG_HOME: origem.XDG_CONFIG_HOME,
-    SSH_AUTH_SOCK: origem.SSH_AUTH_SOCK, PATH: '/usr/bin:/bin', LANG: 'C.UTF-8', TMPDIR: '/tmp' };
+    SSH_AUTH_SOCK: origem.SSH_AUTH_SOCK, PATH: '/usr/bin:/bin', LANG: 'C.UTF-8', TMPDIR: '/tmp',
+    ...(verificadores ? { [ENV_HITL_VERIFIERS]: verificadores } : {}) };
 }
 /**
  * O ambiente do worker para cada transporte: a lista fechada de `ambienteDoWorkerShip` e, nos transportes fixados,

@@ -13,6 +13,7 @@ import { contextoDoProjeto, validarContextoRuntime } from '../src/runtime-contex
 import { instalarAdaptador } from '../src/hosts';
 import { novaThread } from '../src/thread';
 import { exec } from '../src/util';
+import { ENV_HITL_VERIFIERS } from '../src/hitl-public-receipt';
 
 semAutoridadeHitlNoAmbiente();
 const SSH = 'ssh://git@gitlab.empresa.com:2222/g/p.git';
@@ -164,6 +165,10 @@ test('ambiente do worker do SHIP: nada de GIT_SSH, askpass, TLS desligado ou con
   assert.deepEqual(Object.keys(base).sort(), PERMITIDAS);
   assert.deepEqual({ PATH: base.PATH, LANG: base.LANG, TMPDIR: base.TMPDIR }, { PATH: '/usr/bin:/bin', LANG: 'C.UTF-8', TMPDIR: '/tmp' });
   for (const t of ['github-ssh', 'bare-local'] as const) assert.deepEqual(ambienteDoWorkerDoTransporte(t, sujo), base, t);
+  const comAutoridadePublica = ambienteDoWorkerShip({ ...sujo, ORK_HITL_INGRESS_KEY: 'chave-simulada-do-ingresso-para-worker-000000000000' });
+  assert.deepEqual(Object.keys(comAutoridadePublica).sort(), [...PERMITIDAS, ENV_HITL_VERIFIERS].sort());
+  assert.ok(comAutoridadePublica[ENV_HITL_VERIFIERS]);
+  assert.equal(comAutoridadePublica.ORK_HITL_INGRESS_KEY, undefined);
   const SEM_PERGUNTA = ['GIT_ASKPASS', 'GIT_TERMINAL_PROMPT', 'SSH_ASKPASS_REQUIRE'];
   for (const t of ['forja-ssh', 'forja-https'] as const) {
     const env = ambienteDoWorkerDoTransporte(t, sujo, 'glab');
