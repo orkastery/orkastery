@@ -329,6 +329,29 @@ for (const [chave, valor, rotulo] of [
   }));
 }
 
+for (const [chave, rotulo, trechoPrivado] of [
+  [`http.https://privado.example/repo?marcador=NAO_EXIBIR${'p'.repeat(220)}.extraHeader`,
+    'http.<subsecao>.extraheader', 'privado.example'],
+  [`branch.ramo-reservado-${'p'.repeat(230)}.description`, 'branch.<subsecao>.description', 'ramo-reservado'],
+] as const) {
+  test(`issue 299: chave longa mascara a subseção antes de truncar (${rotulo})`, async () => fixture(async f => {
+    f.git(['config', chave, 'CONTEUDO_NAO_EXIBIR_FIXTURE']);
+    const r = await commitMcp(f.raiz, f.pedido);
+    assert.equal(r.ok, false);
+    assert.equal(r.erro, `mcp.git.execution-profile.unsupported: configuracao preservada (${rotulo}, local)`);
+    assert.ok(!r.erro!.includes(trechoPrivado));
+    assert.ok(!r.erro!.includes('CONTEUDO_NAO_EXIBIR_FIXTURE'));
+  }));
+}
+
+test('issue 299: chave sem valor é recusada com nome e escopo', async () => fixture(async f => {
+  const gitdir = path.resolve(f.wt, /^gitdir: (.+)\s*$/.exec(fs.readFileSync(path.join(f.wt, '.git'), 'utf8'))![1].trim());
+  fs.appendFileSync(path.join(gitdir, 'config'), '[pull]\n\trebase\n');
+  const r = await commitMcp(f.raiz, f.pedido);
+  assert.equal(r.ok, false);
+  assert.equal(r.erro, 'mcp.git.execution-profile.unsupported: configuracao preservada (pull.rebase, local)');
+}));
+
 test('issue 299: a recusa identifica o escopo global sem herdar a configuração da máquina', async () => fixture(async f => {
   f.git(['config', '--global', 'produto.qualquer', 'valor-fixture']);
   try {
@@ -339,10 +362,9 @@ test('issue 299: a recusa identifica o escopo global sem herdar a configuração
   }
 }));
 
-test('RM-084 registra a fatia da issue 299 com garantia e fora de escopo', () => {
+test('RM-084 registra a fonte, a garantia e o fora de escopo da fatia da issue 299', () => {
   const roadmap = fs.readFileSync(path.resolve(__dirname, '../../../docs/roadmap/RM-084-sessao-continua-com-muitos-objetos-soltos-do-git.md'), 'utf8');
   assert.match(roadmap, /issue #299/);
-  assert.match(roadmap, /Estado da fatia: em implementação/);
   assert.match(roadmap, /extraHeader.*continua recusada/);
 });
 

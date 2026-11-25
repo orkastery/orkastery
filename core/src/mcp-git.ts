@@ -208,26 +208,29 @@ type EscopoDaConfiguracao = 'system'|'global'|'local'|'worktree'|'command';
 interface ConfiguracaoDoGit { escopo: EscopoDaConfiguracao; chave: string; valor: string }
 const ESCOPOS_DA_CONFIGURACAO = new Set<EscopoDaConfiguracao>(['system','global','local','worktree','command']);
 
-/** `--null --show-scope --list`: pares `escopo\0chave\nvalor\0`, sem ambiguidade por quebra de linha no valor. */
+/** `--null --show-scope --list`: pares `escopo\0chave[\nvalor]\0`, sem ambiguidade por quebra de linha no valor. */
 function inventarioDaConfiguracao(raw: string): ConfiguracaoDoGit[] {
   const partes=raw.split('\0');
   if(partes.pop()!=='' || partes.length%2!==0)falha('execution-profile.unsupported: configuracao preservada (inventario inconclusivo)');
   const resultado:ConfiguracaoDoGit[]=[];
   for(let i=0;i<partes.length;i+=2) {
     const escopo=partes[i] as EscopoDaConfiguracao,item=partes[i+1],separador=item.indexOf('\n');
-    if(!ESCOPOS_DA_CONFIGURACAO.has(escopo) || separador<1)
+    const chave=(separador<0?item:item.slice(0,separador)).toLowerCase();
+    if(!ESCOPOS_DA_CONFIGURACAO.has(escopo) || !chave)
       falha('execution-profile.unsupported: configuracao preservada (inventario inconclusivo)');
-    resultado.push({escopo,chave:item.slice(0,separador).toLowerCase(),valor:item.slice(separador+1)});
+    resultado.push({escopo,chave,valor:separador<0?'':item.slice(separador+1)});
   }
   return resultado;
 }
 
 /** Nunca expõe subseção: ela pode conter nome de branch, URL, login ou outro identificador privado. */
 function rotuloDaConfiguracao(chave: string): string {
-  const segura=chave.toLowerCase().replace(/[^a-z0-9._-]/g,'?').slice(0,200);
-  const primeiro=segura.indexOf('.'),ultimo=segura.lastIndexOf('.');
+  const normalizada=chave.toLowerCase(),primeiro=normalizada.indexOf('.'),ultimo=normalizada.lastIndexOf('.');
+  const segura=(parte:string)=>parte.replace(/[^a-z0-9_-]/g,'?').slice(0,96);
   if(primeiro<=0)return 'chave-invalida';
-  return primeiro===ultimo?segura:`${segura.slice(0,primeiro)}.<subsecao>.${segura.slice(ultimo+1)}`;
+  const secao=segura(normalizada.slice(0,primeiro)),variavel=segura(normalizada.slice(ultimo+1));
+  if(!secao || !variavel)return 'chave-invalida';
+  return primeiro===ultimo?`${secao}.${variavel}`:`${secao}.<subsecao>.${variavel}`;
 }
 
 function perfil(wt: string, comum: string, gitdir: string,id:string,selecionados:string[],hooksDaOperacao:HooksDaOperacao=HOOKS_ESTRITOS): string {

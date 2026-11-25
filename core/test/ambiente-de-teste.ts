@@ -51,9 +51,9 @@ function postgresDaFixture(): boolean {
 }
 
 function dockerComDaemon(): boolean {
-  const r = spawnSync('docker', ['info', '--format', '{{.ServerVersion}}'],
+  const r = spawnSync('docker', ['info'],
     { encoding: 'utf8', timeout: 20_000, env: { PATH: process.env.PATH, HOME: process.env.HOME } });
-  return r.status === 0 && r.stdout.trim() !== '';
+  return r.status === 0;
 }
 
 /** O mesmo lançador que o teste usa aplica uma regra sem pasta gravável e executa `/bin/true`. */

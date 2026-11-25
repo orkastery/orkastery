@@ -1,5 +1,6 @@
 /**
- * RM-072 (D2 do dono, item 7; T2 da ork-check5x): o Classic Check segue o CHECK de sempre. O retrato do Classic desta
+ * RM-072 (D2 do dono, item 7; T2 da ork-check5x): o Classic Check segue o CHECK de sempre. A decisão autônoma
+ * e4c43eb9-db06-43ba-bb53-adc70699ae42 registra a exceção estreita da sonda portátil. O retrato do Classic desta
  * arvore (`scripts/retrato-do-classic.cjs`: os comandos que o verify roda e as chamadas ao Docker que a varredura faz)
  * e o mesmo da base `b16c5be8`, gerado uma vez sobre a arvore da base compilada e guardado em
  * `test/fixtures/classic-retrato-b16c5be8.json`: mesma lista, mesma ordem. O mutante de prova inverte a ordem dos
