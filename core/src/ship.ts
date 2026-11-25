@@ -679,8 +679,8 @@ export function ship(
   const verificacao = verificar(carregado, threadId, { executor: opcoes.executorVerify,
     conducao: { filaPesada: { ...opcoes.avisoDaFilaPesada, esperarMs: opcoes.esperarFilaPesadaMs } } });
   r.verificacao = resultadoVerifyRedigido(verificacao);
-  // Alguns executores injetados por integracoes antigas devolvem apenas `{ ok }`; trate a ausencia como a lista
-  // vazia que um verify verde produziria, sem afrouxar nenhum motivo presente no resultado real.
+  // O mock de teste dos leases devolve apenas `{ ok }`; trate a ausência como a lista vazia que um
+  // verify verde produziria, sem afrouxar nenhum motivo presente no resultado real.
   const motivosDoVerify = verificacao.motivos ?? [];
   const motivosBloqueantesDoVerify = motivosDoVerify.filter((motivo) => motivo !== 'claims.unverifiable');
   // A19: o verify continua vermelho e registrado. Somente a falta de cobertura segue ate a segunda
