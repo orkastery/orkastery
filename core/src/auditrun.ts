@@ -678,7 +678,8 @@ export function verificarRodada(
   // Achado descartado (nao procedia) e achado resolvido (divida paga) saem da reexecucao:
   // no primeiro caso nao ha o que provar, e no segundo a claim REPROVARIA justamente porque
   // o defeito foi corrigido, o que seria o veredito errado sobre o auditor.
-  const achados = achadosDaRodada(raiz, rodadaId).filter(
+  const achadosDaRodadaInteira = achadosDaRodada(raiz, rodadaId);
+  const achados = achadosDaRodadaInteira.filter(
     (a) => a.estado !== 'descartado' && a.estado !== 'resolvido'
   );
   const resultados: ResultadoDeClaim[] = achados.map((a) => verificarClaim(a.claim, cwd));
@@ -696,7 +697,10 @@ export function verificarRodada(
   }
 
   const motivos: MotivoDeAuditoria[] = [];
-  if (resultados.length === 0) motivos.push('verify.sem-veredito');
+  // Rodada que nunca teve achado não pode anunciar sustentação sem executar evidência.
+  // Achados resolvidos/descartados, porém, já têm um estado terminal explícito no board e
+  // continuam fora da reexecução: tratá-los como rodada vazia reabriria dívida encerrada.
+  if (resultados.length === 0 && achadosDaRodadaInteira.length === 0) motivos.push('verify.sem-veredito');
   if (resultados.some((r) => r.motivo === 'claims.failed')) motivos.push('claims.failed');
   if (resultados.some((r) => r.motivo === 'claims.unverifiable')) motivos.push('claims.unverifiable');
   // `claims.unverifiable` avisa e nao bloqueia, igual ao gate do B1.
