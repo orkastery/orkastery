@@ -172,7 +172,7 @@ const VARIAVEIS_DA_RODADA: ReadonlySet<string> = new Set([
 
 export function ambienteDoVerify(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   return Object.fromEntries(Object.entries(base).filter(([chave]) => !chave.startsWith(PREFIXO_BLOQUEADO_NO_VERIFY)
-    && !VARIAVEIS_DA_RODADA.has(chave)));
+    && !VARIAVEIS_DA_RODADA.has(chave) && chave !== 'BASH_ENV' && chave !== 'ENV'));
 }
 
 /** I-37 (D2): o prazo de um comando, resolvido uma vez por rodada (D3). */

@@ -25,8 +25,10 @@ export function versaoDoBashValida(versao: string): boolean {
 }
 
 function medirVersao(caminho: string): string | null {
+  const env = { ...process.env };
+  delete env.BASH_ENV; delete env.ENV;
   const r = spawnSync(caminho, ['--noprofile', '--norc', '-c', 'printf %s "$BASH_VERSION"'], {
-    encoding: 'utf8', timeout: 2000, stdio: ['ignore', 'pipe', 'pipe'],
+    encoding: 'utf8', timeout: 2000, stdio: ['ignore', 'pipe', 'pipe'], env,
   });
   const versao = r.status === 0 && !r.error ? r.stdout.trim() : '';
   return versaoDoBashValida(versao) ? versao : null;

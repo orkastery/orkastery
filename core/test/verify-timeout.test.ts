@@ -71,8 +71,10 @@ test('o comando de verificacao nunca herda a autoridade HITL, e o resto do ambie
   process.env.ORK_HITL_INGRESS_KEY = 'chave-SIMULADA-de-teste';
   process.env.ORK_HITL_TELEGRAM_USERS = '42';
   process.env.ORK_HITL_INGRESS_KEY_OPENCLAW = 'chave-SIMULADA-openclaw';
+  process.env.BASH_ENV = '/nao/executar'; process.env.ENV = '/nao/executar';
   try {
     assert.equal(Object.keys(ambienteDoVerify()).some((k) => k.startsWith('ORK_HITL_')), false);
+    assert.equal(ambienteDoVerify().BASH_ENV, undefined); assert.equal(ambienteDoVerify().ENV, undefined);
     const r = executar('ambiente', 'test -z "$ORK_HITL_INGRESS_KEY$ORK_HITL_TELEGRAM_USERS$ORK_HITL_INGRESS_KEY_OPENCLAW" && test -n "$PATH" && test -n "$HOME"',
       process.cwd(), 10_000);
     assert.equal(r.ok, true, r.resumo);
