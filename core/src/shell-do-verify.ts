@@ -20,12 +20,16 @@ function candidatoSeguro(caminho: string): boolean {
   } catch { return false; }
 }
 
+export function versaoDoBashValida(versao: string): boolean {
+  return /^\d+\.\d+(?:\.\d+)?(?:\([^)]+\))?(?:-[A-Za-z0-9][A-Za-z0-9._-]*)?$/.test(versao);
+}
+
 function medirVersao(caminho: string): string | null {
   const r = spawnSync(caminho, ['--noprofile', '--norc', '-c', 'printf %s "$BASH_VERSION"'], {
     encoding: 'utf8', timeout: 2000, stdio: ['ignore', 'pipe', 'pipe'],
   });
   const versao = r.status === 0 && !r.error ? r.stdout.trim() : '';
-  return /^\d+\.\d+(?:\.\d+)?(?:\([^)]+\))?(?:-release)?$/.test(versao) ? versao : null;
+  return versaoDoBashValida(versao) ? versao : null;
 }
 
 export interface OpcoesDoShellDoVerify {

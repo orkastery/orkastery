@@ -79,6 +79,8 @@ interface Especificacao {
   cpus?: number;
   /** Injecao deterministica dos testes; em producao a sonda le `/proc`. */
   medicaoCpu?: MedicaoCpuDoGrupo;
+  /** Injeção de teste: `null` prova a falha fechada sem shell controlado. */
+  shellDoVerify?: ShellDoVerify | null;
 }
 interface Terminado { nome: string; code: number | null; signal: string | null; error?: string; duracaoMs: number; comGrupo: boolean;
   shell?: ShellDoVerify;
@@ -484,7 +486,8 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
       const registro = path.join(esp.dir, `${i}.containers.jsonl`);
       const tempo = path.join(esp.dir, `${i}.tempo`);
       if (medirIntegracao) fs.writeFileSync(registro, '', { mode: 0o600 });
-      const shell = item.argv?.length ? null : resolverShellDoVerify();
+      const shell = item.argv?.length ? null
+        : esp.shellDoVerify === undefined ? resolverShellDoVerify() : esp.shellDoVerify;
       let base: string[];
       try { base = argvDoItem(item, comGrupo, fs.existsSync(NICE_BIN), shell); }
       catch (e) {
@@ -629,13 +632,15 @@ export function esperaDoGrupo(itens: ItemParalelo[], maxParalelo?: number): numb
  * (`esperaDoGrupo`), com folga para o `--kill-after` e para o auxiliar gravar; o diretorio das saidas some no fim.
  */
 export function rodarEmParalelo(itens: ItemParalelo[], ambiente: NodeJS.ProcessEnv = process.env,
-  opcoes: { maxParalelo?: number; cpus?: number; medicaoCpu?: MedicaoCpuDoGrupo } = {}): ProcessosDoGrupo {
+  opcoes: { maxParalelo?: number; cpus?: number; medicaoCpu?: MedicaoCpuDoGrupo;
+    shellDoVerify?: ShellDoVerify | null } = {}): ProcessosDoGrupo {
   if (itens.length === 0) return [] as ProcessosDoGrupo;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-check-paralelo-'));
   try {
     const especificacao = path.join(dir, 'especificacao.json');
     const esp: Especificacao = { itens, dir, ...(opcoes.maxParalelo ? { maxParalelo: opcoes.maxParalelo } : {}),
-      ...(opcoes.cpus ? { cpus: opcoes.cpus } : {}), ...(opcoes.medicaoCpu ? { medicaoCpu: opcoes.medicaoCpu } : {}) };
+      ...(opcoes.cpus ? { cpus: opcoes.cpus } : {}), ...(opcoes.medicaoCpu ? { medicaoCpu: opcoes.medicaoCpu } : {}),
+      ...(opcoes.shellDoVerify !== undefined ? { shellDoVerify: opcoes.shellDoVerify } : {}) };
     fs.writeFileSync(especificacao, JSON.stringify(esp), { mode: 0o600 });
     const prazo = esperaDoGrupo(itens, opcoes.maxParalelo) + 60_000;
     const ambienteDoAuxiliar = { ...ambiente };

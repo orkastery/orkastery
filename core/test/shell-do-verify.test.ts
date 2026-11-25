@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { argvDoItem } from '../src/check-paralelo';
-import { resolverShellDoVerify } from '../src/shell-do-verify';
+import { argvDoItem, rodarEmParalelo } from '../src/check-paralelo';
+import { resolverShellDoVerify, versaoDoBashValida } from '../src/shell-do-verify';
 import { executar, verificarClaim } from '../src/verify';
 import type { Claim } from '../src/types';
 
@@ -16,6 +16,13 @@ test('resolver escolhe caminho absoluto fixo sem consultar PATH ou override', ()
     if (antigoPath === undefined) delete process.env.PATH; else process.env.PATH = antigoPath;
     if (antigoOverride === undefined) delete process.env.ORK_BASH; else process.env.ORK_BASH = antigoOverride;
   }
+});
+
+test('versão aceita sufixos oficiais do Bash sem aceitar texto livre', () => {
+  for (const versao of ['5.3.0(1)-rc1', '5.2.37(1)-release', '5.2.37-maint'])
+    assert.equal(versaoDoBashValida(versao), true, versao);
+  for (const versao of ['5.2.37 texto', 'bash 5.2.37', '5.2.37;id'])
+    assert.equal(versaoDoBashValida(versao), false, versao);
 });
 
 test('executor registra shell e o grupo paralelo usa o mesmo caminho', () => {
@@ -35,4 +42,8 @@ test('shell ausente deixa a claim sem veredito, nunca claims.failed', () => {
   assert.equal(veredito.execucoes[0].executado, false); assert.equal(veredito.execucoes[0].causa, 'nao-encontrado');
   assert.throws(() => argvDoItem({ nome: 'fixture', comando: 'true', cwd: process.cwd(), prazoMs: 5000 }, false, false, null),
     /shell do verify/);
+  const [paralelo] = rodarEmParalelo([
+    { nome: 'sem-shell', comando: 'true', cwd: process.cwd(), prazoMs: 5000 },
+  ], process.env, { shellDoVerify: null });
+  assert.equal(paralelo.ok, false); assert.equal(paralelo.error, 'ENOENT');
 });
