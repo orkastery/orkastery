@@ -1,12 +1,15 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { checarShellDoVerify, checarTravaPortatil } from '../src/doctor';
+import { checarShellDoVerify, checarTravaPortatil, sondarTravaDoNucleo } from '../src/doctor';
 import { comLocale, nomeDoCheck } from '../src/locale';
 
 test('doctor bloqueia quando a trava portátil não pode ser exercitada', () => {
   assert.equal(checarTravaPortatil().nivel, 'ok');
   const falha = checarTravaPortatil(() => { throw Error('fixture'); });
   assert.equal(falha.nivel, 'fail'); assert.match(falha.detalhe, /fixture/); assert.ok(falha.correcao);
+  const semFlock = checarTravaPortatil(() => sondarTravaDoNucleo('linux', () => false));
+  assert.equal(semFlock.nivel, 'fail'); assert.match(semFlock.detalhe, /flock ausente/);
+  assert.equal(checarTravaPortatil(() => sondarTravaDoNucleo('darwin')).nivel, 'ok');
 });
 
 test('doctor bloqueia shell ausente, avisa Bash antigo e aprova Bash atual', () => {

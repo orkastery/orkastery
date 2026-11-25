@@ -311,7 +311,7 @@ const PT_BR = {
     /** Nome de cada check como aparece no texto; o `Check.nome` gravado nao muda. */
     nomes: {} as Record<string, string>,
     instaleNode: 'instale Node 20 ou superior',
-    travaPortatilOk: 'exclusao mutua, identidade do dono e liberacao exercitadas',
+    travaPortatilOk: 'mecanismo de trava da plataforma adquirido e liberado',
     travaPortatilFalhou: (detalhe: string) => `a trava do nucleo nao foi adquirida: ${detalhe}`,
     travaPortatilCorrecao: 'use Linux ou macOS com sistema de arquivos local e identificacao de processos disponivel',
     shellVerifyAusente: 'nenhum shell controlado executavel em /bin/bash ou /usr/bin/bash',
@@ -883,7 +883,7 @@ const EN: Mensagens = {
       'forja capacidades': 'forge capabilities',
     },
     instaleNode: 'install Node 20 or later',
-    travaPortatilOk: 'mutual exclusion, owner identity, and release exercised',
+    travaPortatilOk: 'platform lock mechanism acquired and released',
     travaPortatilFalhou: (detalhe) => `the core lock could not be acquired: ${detalhe}`,
     travaPortatilCorrecao: 'use Linux or macOS with a local file system and process identification available',
     shellVerifyAusente: 'no controlled executable shell at /bin/bash or /usr/bin/bash',

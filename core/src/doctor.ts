@@ -8,6 +8,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { spawnSync } from 'node:child_process';
 import * as adapter from './adapters/claude-bg';
 import * as codexAdapter from './adapters/codex';
 import { carregarManifesto, configDeEmbedding, DIR_ESTADO, LIMITE_MANIFESTO_BYTES, NOME_MANIFESTO } from './manifest';
@@ -46,11 +47,31 @@ import type { ShellDoVerify } from './types';
 
 const real = (dir: string): string => { try { return fs.realpathSync(dir); } catch { return path.resolve(dir); } };
 
-export function checarTravaPortatil(sondar: () => void = () => {
+export function sondarTravaDoNucleo(plataforma = process.platform,
+  existe: (arquivo: string) => boolean = fs.existsSync): void {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-doctor-trava-'));
-  try { comTravaPortatil(path.join(dir, 'sonda'), 'doctor', () => undefined, { esperarMs: 1000 }); }
+  try {
+    const arquivo = path.join(dir, 'sonda');
+    if (plataforma === 'linux') {
+      if (!existe('/usr/bin/flock')) throw new Error('/usr/bin/flock ausente');
+      const fd = fs.openSync(arquivo, fs.constants.O_RDWR | fs.constants.O_CREAT | fs.constants.O_NOFOLLOW, 0o600);
+      try {
+        const r = spawnSync('/usr/bin/flock', ['--exclusive', '--nonblock', '3'],
+          { stdio: ['ignore', 'pipe', 'pipe', fd], timeout: 2000 });
+        if (r.error || r.status !== 0) throw new Error(r.error?.message ?? `flock saiu ${r.status}`);
+      } finally { fs.closeSync(fd); }
+      return;
+    }
+    if (plataforma === 'darwin') {
+      comTravaPortatil(arquivo, 'doctor', () => undefined, { esperarMs: 1000 });
+      return;
+    }
+    throw new Error(`plataforma sem mecanismo de trava: ${plataforma}`);
+  }
   finally { fs.rmSync(dir, { recursive: true, force: true }); }
-}): Check {
+}
+
+export function checarTravaPortatil(sondar: () => void = sondarTravaDoNucleo): Check {
   try {
     sondar();
     return { nome: 'trava portátil', nivel: 'ok', detalhe: msg().doctor.travaPortatilOk };
