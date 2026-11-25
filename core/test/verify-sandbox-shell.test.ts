@@ -9,10 +9,13 @@ test('executor sandbox usa na execução e no recibo o shell medido', () => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-sandbox-shell-'));
   const wt = path.join(base, 'wt');
   fs.mkdirSync(wt);
+  const binarioSandbox = path.join(base, 'codex-fixture');
+  fs.writeFileSync(binarioSandbox, '', { mode: 0o700 });
   const shell = { caminho: '/usr/bin/bash', versao: '5.3.0-rc1' };
   let entrada: { args: string[] } | undefined;
   const executor = criarExecutorSandbox({
     worktree: wt,
+    binarioSandbox,
     shellDoVerify: shell,
     executarSupervisor: (recebida) => {
       entrada = recebida;

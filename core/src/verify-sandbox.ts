@@ -79,6 +79,8 @@ export interface OpcoesExecutorSandbox {
   timeoutMs?: number;
   /** Injeções determinísticas de teste; a produção mede o shell e executa o supervisor local. */
   shellDoVerify?: ShellDoVerify | null;
+  /** Binário do executor injetado somente por testes; produção usa o caminho fixo da instalação. */
+  binarioSandbox?: string;
   executarSupervisor?: (entrada: { bin: string; args: string[]; cwd: string; env: Record<string, string>;
     timeoutMs: number; maxOutput: number }) => { status: number | null; stdout: string; stderr: string; error?: Error };
 }
@@ -115,9 +117,12 @@ export function criarExecutorSandbox(opcoes: OpcoesExecutorSandbox): { executar:
   const original = fs.statSync(worktree);
   const timeoutMs = opcoes.timeoutMs ?? 60_000;
   if (!Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > TIMEOUT_VERIFY_MS) throw new Error('timeout sandbox fora do limite');
-  // Binário local aprovado da instalação; não procuramos executável fornecido pela claim.
-  const bin = fs.realpathSync('/usr/bin/codex');
+  // Binário local aprovado da instalação; a injeção existe só na API interna de teste e nunca vem da claim ou de tool args.
+  const binInformado = opcoes.binarioSandbox ?? '/usr/bin/codex';
+  if (!path.isAbsolute(binInformado)) throw new Error('binário do executor sandbox deve ser absoluto');
+  const bin = fs.realpathSync(binInformado);
   const binStat = fs.statSync(bin);
+  if (!binStat.isFile() || (binStat.mode & 0o111) === 0) throw new Error('binário do executor sandbox não é executável');
   const shell = exigirShellDoVerify(opcoes.shellDoVerify);
   const isolamento = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-verify-config-'));
   if (fs.realpathSync(isolamento) === worktree || fs.realpathSync(isolamento).startsWith(worktree + path.sep)) {
