@@ -1,0 +1,860 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm089f7recib",
+  "branch": "ork/ork-rm089f7recib-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm089f7recib",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm089-f7-recibo-forte.test.ts",
+      "alegacao": "Nas duas forjas, assinatura válida da fábrica sobre o recibo F5 do mesmo HEAD contém thread, tag de condução, veredito, rodada e CHECK; alteração de campo ou SHA é rejeitada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f7-recibo-forte.test.js"
+      ],
+      "criadoEm": "2026-11-12T18:56:09.654Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm089f7recib",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm089-f7-recibo-forte.test.ts",
+      "alegacao": "Nas duas forjas, chave errada, emissor errado, chave revogada, chave pública ausente ou emissor indispensável indisponível não produzem recibo forte e reprovam em exigir com causa tipada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f7-recibo-forte.test.js"
+      ],
+      "criadoEm": "2026-11-12T18:56:10.078Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm089f7recib",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm089-f7-recibo-forte.test.ts",
+      "alegacao": "Nas duas forjas, fatos nativos de fork ou configuração não protegida, mesma conta, ID ausente, execução do CHECK ou SHA divergente fazem o Ork rejeitar a solicitação sem invocar a porta de assinatura.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f7-recibo-forte.test.js"
+      ],
+      "criadoEm": "2026-11-12T19:11:18.740Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm089f7recib",
+      "fase": "PLAN",
+      "arquivo": "core/test/rm089-f7-transporte-excecao.test.ts",
+      "alegacao": "Em GitHub e GitLab, entrega válida e reentrada funcionam; outro HEAD, expiração, emissor divergente e adulteração falham fechados; ausência, indisponibilidade e timeout seguem observar, avisar e exigir, e falha real do replay continua bloqueante.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f7-transporte-excecao.test.js core/dist-test/test/rm089-f6-ci-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-23T16:41:49.626Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm089f7recib",
+      "fase": "PLAN",
+      "arquivo": "core/test/rm089-f7-transporte-excecao.test.ts",
+      "alegacao": "Em GitHub e GitLab, inclusive PR ou MR interno não fork, o bootstrap privilegiado usa cliente pinado da target protegida e job ou componente não sobrescrevível; código não confiável que altera checkout ou cliente e tenta usar a identidade nativa válida do runner ou interceptar a resposta recebe só resultado sanitizado, com zero chamada de assinatura e zero capacidade bruta entregue.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f7-transporte-excecao.test.js core/dist-test/test/rm089-f6-ci-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-23T16:55:56.480Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "core/src/ci-recibo-forte.ts",
+      "alegacao": "O payload público v1 ancora o sha256 do recibo F5 verde ao HEAD, thread, tag de condução, veredito, rodada, CHECK e principal nativo nas duas forjas, com pré-imagem canônica.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f7-recibo-forte.test.js"
+      ],
+      "criadoEm": "2026-11-25T04:41:52.185Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "core/src/ci-recibo-basico.ts",
+      "alegacao": "O contrato F5 reserva a assinatura F7 tipada sem incluí-la nem incluir o próprio sha256 na pré-imagem do recibo básico.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f7-recibo-forte.test.js",
+        "node --test core/dist-test/test/rm089-f5-recibo-basico.test.js"
+      ],
+      "criadoEm": "2026-11-25T04:41:52.244Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "core/src/ci-fabrica-recibo.ts",
+      "alegacao": "A fábrica assina o payload do recibo forte por porta exclusiva e o runner verifica Ed25519, emissor, chave, validade, revogação e material público sem carregar chave privada no produto.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f7-recibo-forte.test.js"
+      ],
+      "criadoEm": "2026-11-25T04:44:12.686Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "core/src/ci-fabrica-transporte.ts",
+      "alegacao": "O transporte público v1 exige proof F6 íntegra e capability irmã, rejeita campos extras e projeta somente resultado sanitizado, com ausência, indisponibilidade e timeout distintos nos três níveis.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f7-transporte-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-25T04:47:06.000Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "A configuração do transporte F7 é lida de forma fechada do manifesto protegido, com contrato v1, origem HTTPS sem credencial, audiência exata e cliente pinado por versão e digest.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f7-transporte-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-25T04:47:06.072Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "O Manifesto tipa a configuração pública do transporte da exceção sem tornar o bloco obrigatório para projetos que ainda não aderiram.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f7-transporte-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-25T04:47:06.167Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "core/src/ci.ts",
+      "alegacao": "O caminho da política consome o transporte protegido somente quando o recibo não está presente e inclui na saída apenas a exceção sanitizada; falha real do replay continua bloqueante.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f7-transporte-excecao.test.js core/dist-test/test/rm089-f6-ci-excecao.test.js core/dist-test/test/rm089-f5-recibo-basico.test.js"
+      ],
+      "criadoEm": "2026-11-25T04:51:35.014Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "A entrada real de ork ci run --branch repassa o ambiente do runner ao validador sem aceitar proof ou capability por argumento.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f7-transporte-excecao.test.js core/dist-test/test/rm089-f5-recibo-basico.test.js"
+      ],
+      "criadoEm": "2026-11-25T04:51:35.073Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "templates/ork-verify/template.yml",
+      "alegacao": "O componente GitLab separa replay e launcher protegido, solicita ID token com audiência exata e instala o cliente somente após conferir o SHA-256 declarado pela policy.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f7-transporte-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-25T04:55:18.866Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "templates/gitlab/ork-verify.yml",
+      "alegacao": "A receita GitLab reserva o launcher para injeção por policy protegida, sem checkout do MR, com ID token nativo e cliente conferido por digest.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f7-transporte-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-25T04:55:18.910Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "core/src/forja/github/ci.ts",
+      "alegacao": "A projeção canônica do GitHub exige check-run verde no HEAD, app.id nativo, run e workflow protegidos, target protegida, mesmo repositório e principal distinto do construtor.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f7-recibo-forte.test.js core/dist-test/test/rm089-f7-transporte-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-25T05:00:50.283Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "core/src/forja/ambiente-de-ci.ts",
+      "alegacao": "O runner expõe somente localizadores nativos de execução e iniciador; esses valores continuam sem autoridade até a reobtenção da fábrica.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f7-transporte-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-25T05:00:50.384Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "core/src/forja/gitlab/ci.ts",
+      "alegacao": "A projeção canônica do GitLab exige job verde no HEAD, user_id nativo, pipeline e configuração protegidos, target protegida, mesmo projeto e principal distinto do construtor.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f7-recibo-forte.test.js core/dist-test/test/rm089-f7-transporte-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-25T05:03:07.456Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "Os códigos públicos do transporte inválido, serviço indisponível, prazo excedido e assinatura forte inválida têm mensagens em pt-BR e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f7-transporte-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-25T05:07:52.461Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/forja.md",
+      "alegacao": "A referência pública documenta recibo forte, wrapper proof mais capability, OIDC, reobtenção, confinamento e semântica das quatro falhas sem declarar a lacuna F6.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-25T05:07:52.567Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "docs/guias/politica-de-recibo-da-empresa.pt-BR.md",
+      "alegacao": "O guia pt-BR descreve a configuração protegida F7, a separação das duas forjas, o recibo forte e as causas por nível.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-25T05:07:52.643Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "docs/guias/politica-de-recibo-da-empresa.md",
+      "alegacao": "O guia em inglês mantém paridade pública com o guia pt-BR para o recibo forte e o transporte autenticado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-25T05:07:52.713Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A seção Não publicado registra a F7 sem declarar merge ou publicação e atualiza a entrada F6 para o transporte entregue.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-11-25T05:07:57.498Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-089-orkastery-network-coletiva-da-empresa.md",
+      "alegacao": "A página pública da RM-089 registra a F7 como construída e em revisão, sem declarar merge ou publicação.",
+      "negativa": false,
+      "verificar": [
+        "grep -E \"F7 foi construída na branch .* e está em revisão; ainda não foi mesclada nem publicada|F7 construída na branch da thread e em revisão, sem declarar merge ou publicação\" docs/roadmap/RM-089-orkastery-network-coletiva-da-empresa.md"
+      ],
+      "criadoEm": "2026-11-25T05:12:47.820Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": ".github/workflows/ci.yml",
+      "alegacao": "A CI principal continua em pull_request; o job ork-verify executa o HEAD do PR sem OIDC e sem persistir a credencial do checkout.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/forja-workflow.test.js core/dist-test/test/rm089-f7-transporte-excecao.test.js core/dist-test/test/tsgo-paridade.test.js core/dist-test/test/rm031-grafo-no-pacote.test.js"
+      ],
+      "criadoEm": "2026-11-25T06:02:29.355Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "core/test/horario-entradas.test.ts",
+      "alegacao": "A entrada executável do transporte F7 declara que sua saída JSON sanitizada não apresenta horário a uma pessoa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/horario-entradas.test.js"
+      ],
+      "criadoEm": "2026-11-25T06:02:29.700Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f1-politica-ci.test.ts",
+      "alegacao": "O contrato público bilíngue é testado contra o recibo forte e o transporte autenticado F7, sem manter a antiga declaração de lacuna.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f1-politica-ci.test.js"
+      ],
+      "criadoEm": "2026-11-25T06:02:29.821Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-contrato.test.ts",
+      "alegacao": "A prova de narrativa F6 reconhece o wrapper proof mais capability e a audiência autenticada entregues pela F7.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm089-f6-contrato.test.js"
+      ],
+      "criadoEm": "2026-11-25T06:02:29.970Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice do roadmap permanece gerado de forma coerente com o frontmatter atualizado da RM-089.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-25T06:02:30.099Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": ".github/workflows/ork-excecao-transporte.yml",
+      "alegacao": "A target protegida do GitHub expõe um workflow_call para PR interno, concede OIDC apenas ao job privilegiado, lê a política na base protegida e executa o cliente pinado por digest.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f7-transporte-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-25T06:42:20.532Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "core/src/ci-fabrica-transporte.ts",
+      "alegacao": "O launcher reutilizável trata o evento pull_request apenas como localizador, identifica o builder pelo autor do PR e remete a decisão à fábrica autenticada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm089-f7-transporte-excecao.test.js"
+      ],
+      "criadoEm": "2026-11-25T06:42:24.202Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ],
+  "recibo": {
+    "contrato": "ork.recibo-prova/v1",
+    "head": "d554d2d6a58be2c2133c3fd8cd93aa69b93638fb",
+    "sha256": "4bf59c501969801bf3d3a188a9fa5b303b0028ac58511f00af7c9b8959ea62b4"
+  }
+}
