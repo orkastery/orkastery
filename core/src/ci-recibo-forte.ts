@@ -9,6 +9,10 @@ export const CONTRATO_ASSINATURA_RECIBO_FORTE_CI = 'ork.ci-recibo-forte-assinatu
 export type ForjaDoReciboForteCi = 'github' | 'gitlab';
 export type VereditoDoReciboForteCi = 'PASSOU';
 
+export function principalNativoDoReciboForteCi(forja: ForjaDoReciboForteCi, id: string | number): string {
+  return forja === 'github' ? `github-app:${id}` : `gitlab-user:${id}`;
+}
+
 export interface ContextoDoReciboForteCi {
   tagConducao: string;
   rodadaId: string;

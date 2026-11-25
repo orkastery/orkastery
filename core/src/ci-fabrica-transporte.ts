@@ -130,6 +130,7 @@ export function atenderTransporteNaFabrica(token: string, localizadores: Localiz
       || identidade.forja !== localizadores.forja || identidade.execucaoId !== localizadores.execucaoId
       || fatos.forja !== identidade.forja || fatos.execucaoId !== identidade.execucaoId
       || fatos.principalNativo !== identidade.principalNativo || fatos.principalNativo === fatos.construtor
+      || (fatos.forja === 'github' && !/^github-app:\d+$/.test(fatos.principalNativo))
       || fatos.project !== localizadores.project || fatos.source !== localizadores.source
       || fatos.target !== localizadores.target || fatos.head !== localizadores.head
       || fatos.operation !== 'ci.run' || localizadores.operation !== 'ci.run'

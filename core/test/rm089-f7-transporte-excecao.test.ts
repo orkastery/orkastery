@@ -6,6 +6,8 @@ import { AUDIENCIA_FABRICA_CI, CONTRATO_TRANSPORTE_EXCECAO_RUNNER,
   projetarResultadoDoTransporte, type FatosReobtidosDaForjaCi,
   type LocalizadoresDoTransporteCi } from '../src/ci-fabrica-transporte';
 import { comandosDoTextoDoManifesto } from '../src/manifest';
+import { evidenciaCanonicaDoGithub } from '../src/forja/github/ci';
+import { identidadeNativaDoAmbienteCi } from '../src/forja/ambiente-de-ci';
 
 const CONFIG = { contrato: CONTRATO_TRANSPORTE_EXCECAO_RUNNER, origem: 'https://fabrica.invalid/ci',
   audiencia: AUDIENCIA_FABRICA_CI, cliente: { versao: '0.6.10', sha256: 'a'.repeat(64) } };
@@ -61,7 +63,7 @@ test('a fábrica reobtém contexto antes de entregar e não compartilha a porta 
     const localizadores: LocalizadoresDoTransporteCi = { ...ESPERADO, forja, execucaoId: `${forja}:execucao`,
       construtor: `${forja}:builder` };
     const fatos: FatosReobtidosDaForjaCi = { ...localizadores, destinoProtegido: true, fork: false,
-      principalNativo: `${forja}:check`, componenteProtegido: true };
+      principalNativo: forja === 'github' ? 'github-app:101' : 'gitlab:check', componenteProtegido: true };
     const chamadas: string[] = [];
     const resposta = atenderTransporteNaFabrica('token-opaco', localizadores, {
       autenticar: (token, audiencia) => { chamadas.push(`autenticar:${token}`); return {
@@ -115,4 +117,28 @@ test('as receitas das duas forjas separam replay e launcher pinado', () => {
     assert.match(receita, /GIT_STRATEGY: "none"/);
     assert.match(receita, /ci-fabrica-transporte\.js/);
   }
+});
+
+test('GitHub reobtém app nativo, execução, workflow, target e HEAD antes da entrega', () => {
+  const esperado = { project: 'org/projeto', source: 'feature/segura', target: 'main', head: 'c'.repeat(40),
+    context: 'ork-replay', execucaoId: '71', construtor: 'github-user:900' };
+  const bruto = { check: { id: 81, name: esperado.context, status: 'completed', conclusion: 'success',
+    head_sha: esperado.head, app: { id: 101, slug: 'github-actions' } },
+  run: { id: 71, head_sha: esperado.head, head_branch: esperado.source, event: 'pull_request', workflow_id: 91,
+    actor: { id: 901 }, repository: { full_name: esperado.project } },
+  workflow: { id: 91, protected: true }, target: { name: esperado.target, protected: true },
+  sourceRepository: esperado.project, targetRepository: esperado.project };
+  const evidencia = evidenciaCanonicaDoGithub(bruto, esperado);
+  assert.equal(evidencia?.principalNativo, 'github-app:101');
+  assert.equal(evidencia?.iniciador, 'github-user:901');
+  for (const invalido of [
+    { ...bruto, check: { ...bruto.check, app: {} } },
+    { ...bruto, check: { ...bruto.check, head_sha: 'd'.repeat(40) } },
+    { ...bruto, workflow: { ...bruto.workflow, protected: false } },
+    { ...bruto, target: { ...bruto.target, protected: false } },
+    { ...bruto, sourceRepository: 'fork/projeto' },
+  ]) assert.equal(evidenciaCanonicaDoGithub(invalido, esperado), null);
+  assert.equal(evidenciaCanonicaDoGithub(bruto, { ...esperado, construtor: 'github-app:101' }), null);
+  assert.deepEqual(identidadeNativaDoAmbienteCi({ GITHUB_ACTIONS: 'true', GITHUB_RUN_ID: '71',
+    GITHUB_ACTOR_ID: '901' }), { forja: 'github', execucaoId: '71', iniciadorId: '901' });
 });
