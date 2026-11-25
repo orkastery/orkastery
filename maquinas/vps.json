@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.10",
-  "publicadoEm": "2026-11-25T15:43:10.879Z",
+  "publicadoEm": "2026-11-25T15:45:03.479Z",
   "threads": [
     {
       "id": "ork-macosportave",
@@ -90,7 +90,7 @@
       "esforco": "max",
       "sessao": {
         "viva": false,
-        "desdeEm": "2026-11-25T15:42:31.020Z",
+        "desdeEm": "2026-11-25T15:43:28.056Z",
         "motivo": "sessão d0b62f4b encerrada (done)"
       }
     }
