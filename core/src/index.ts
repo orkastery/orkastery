@@ -232,6 +232,7 @@ import { comandoDeAttach, limparFantasmas, logsDaSessao, pararSessao, textoDaLim
 import { exec, shaCurto, tabela } from './util';
 import { executarShipAposPreflight, ship, textoDoShip } from './ship';
 import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi, publicarAvisoDaPolitica } from './ci';
+import { executarLauncherNativoDoTransporte } from './ci-fabrica-transporte';
 import { ambienteDeCi } from './forja/ambiente-de-ci';
 import { contextoDaVarredura, mergeBase, relatorioDoDadoPrivado, varrerArvore, varrerDiff } from './dado-privado';
 import { avisoDaWorktree, avisoDeThreadSemBase, avisoDeWorktreeQueFalharia, caminhoThread, canalDaSessao, dirThread, exigirFase, lerThread,
@@ -2475,9 +2476,16 @@ function comandoObjective(args: Args): number {
 
 
 function comandoCi(args: Args): number {
-  const carregado = exigirManifesto();
   const sub = args.posicionais[1] ?? 'status';
   const m = msg().operacao.produto.ci;
+  const branchProtegida = sub === 'run' ? texto(args.opcoes.branch) : undefined;
+  if (branchProtegida && process.env.ORK_TRANSPORTE_PROTEGIDO === '1') {
+    void executarLauncherNativoDoTransporte(branchProtegida, process.env)
+      .then((codigo) => { process.exitCode = codigo; })
+      .catch(() => { console.error('ci.excecao.transporte-indisponivel'); process.exitCode = 1; });
+    return 0;
+  }
+  const carregado = exigirManifesto();
   if (sub === 'prepare') {
     const thread = args.posicionais[2];
     if (!thread) {

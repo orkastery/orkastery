@@ -118,6 +118,8 @@ export interface ContextoDaPoliticaCi {
   replay?: Omit<OpcoesReplayCi, 'raiz' | 'manifesto' | 'head' | 'ambiente'>;
   /** HEAD já resolvido pelo adaptador; ausente, lê o checkout uma vez. */
   head?: string;
+  /** Projeto nativo da forja; ausente preserva o nome histórico do manifesto. */
+  project?: string;
   /** Injeção pura dos testes; produção lê a receita da ref protegida de destino. */
   receitaConfiavel?: ReceitaConfiavelReplayCi | null;
   /** Leitor hermético dos testes; produção usa `git show` fora do checkout do PR/MR. */
@@ -773,7 +775,8 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
       : estadoDoReciboRunnerCi(replay.recibo, head)
       : estadoDoReciboCi(carregado.raiz, entrada, head, achado?.arquivo);
   const protegida = carregado.manifesto.worktree.base_branch;
-  const esperadoDaExcecao = { project: carregado.manifesto.project?.name ?? '', source: branch, target: destino ?? '', head,
+  const esperadoDaExcecao = { project: contexto.project ?? carregado.manifesto.project?.name ?? '',
+    source: branch, target: destino ?? '', head,
     operation: 'ci.run' };
   const gerida = contexto.excecaoGerida ? executarExcecaoGerida(contexto.excecaoGerida) : null;
   const transporteDaExcecao = contexto.excecao ?? (gerida?.ok ? { prova: gerida.prova, capacidade: gerida.capacidade } : null);
@@ -781,7 +784,7 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
     ? validarProvaDaExcecaoNoRunner(transporteDaExcecao.prova, transporteDaExcecao.capacidade, esperadoDaExcecao)
     : null;
   let resultadoDoTransporte: ResultadoSanitizadoDoTransporte | null = null;
-  if (recibo !== 'presente' && contexto.transporteProtegido) {
+  if (recibo === 'ausente' && contexto.transporteProtegido) {
     let bruto: unknown;
     try { bruto = contexto.transporteProtegido.consultar(); }
     catch (erro) { bruto = (erro as Error).name === 'TimeoutError' ? { estado: 'timeout' } : { estado: 'indisponivel' }; }
@@ -790,7 +793,7 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
   }
   const excecaoSanitizada = resultadoDoTransporte?.aplicado ? resultadoDoTransporte.exception
     : provaDaExcecao?.ok ? provaDaExcecao.exception : null;
-  const excecaoAplicada = recibo !== 'presente' && excecaoSanitizada !== null;
+  const excecaoAplicada = recibo === 'ausente' && excecaoSanitizada !== null;
   const degradacao = replay?.degradacao ? diagnosticoDaDegradacaoReplay(replay.degradacao) : null;
   const mensagem = excecaoAplicada ? null : degradacao ? `${degradacao.message} ${degradacao.action}` : recibo === 'presente'
     ? null : mensagemDoRecibo(recibo, branch);
@@ -829,8 +832,8 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
       ? degradacao!
       : replay.invalida ? { code: 'ci.recibo.invalido', message: mensagemDoRecibo('invalido', branch),
         action: mensagemDoRecibo('invalido', branch) } : null;
-    const defeitoDoReciboReprova = nivel === 'exigir' && pullRequest && destino === protegida
-      && recibo !== 'presente' && !excecaoAplicada;
+    const defeitoDoReciboReprova = replay.invalida === true || (nivel === 'exigir' && pullRequest
+      && destino === protegida && recibo !== 'presente' && !excecaoAplicada);
     // Observar e avisar não transformam sozinhos um diagnóstico de recibo em reprovação.
     const medicaoOk = replay.ok;
     return {
@@ -856,6 +859,30 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
     bundle: achado?.arquivo ?? null, policy,
     ...(excecaoAplicada && excecaoSanitizada ? { exception: excecaoSanitizada } : {}),
     ...(error ? { error } : {}) };
+}
+
+/** Liga a projeção interna do launcher ao mesmo veredito público de `ork ci run --branch`. */
+export function integrarResultadoDoTransporteNoCi(resultado: unknown,
+  transporte: ResultadoSanitizadoDoTransporte): unknown {
+  if (!resultado || typeof resultado !== 'object' || Array.isArray(resultado)) return resultado;
+  const base = resultado as Record<string, unknown>;
+  const policy = base.policy;
+  if (!policy || typeof policy !== 'object' || Array.isArray(policy)
+      || (policy as { receipt?: unknown }).receipt !== 'ausente') return resultado;
+  const { message: _mensagemAnterior, exception: _excecaoAnterior, ...policyBase } = policy as Record<string, unknown>;
+  if (!transporte.aplicado) {
+    const error = { code: transporte.code, message: transporte.code, action: transporte.code };
+    return { ...base, ok: base.ok === true && !transporte.reprova,
+      policy: { ...policyBase, message: transporte.code }, error };
+  }
+  const julgamento = base.verify;
+  const medicaoOk = !!julgamento && typeof julgamento === 'object' && !Array.isArray(julgamento)
+    ? (julgamento as { ok?: unknown }).ok === true
+    : Array.isArray(base.commands) && base.commands.every((c) => !!c && typeof c === 'object'
+      && (c as { ok?: unknown }).ok === true);
+  const { error: _erroDoRecibo, ...semErroDoRecibo } = base;
+  return { ...semErroDoRecibo, ok: medicaoOk, exception: transporte.exception,
+    policy: { ...policyBase, exception: 'applied' } };
 }
 
 function diagnosticoDaDegradacaoReplay(causa: keyof typeof CODIGO_DA_DEGRADACAO_REPLAY_CI):

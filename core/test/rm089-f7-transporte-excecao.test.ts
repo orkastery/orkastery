@@ -7,9 +7,12 @@ import * as path from 'node:path';
 import { test } from 'node:test';
 import { AUDIENCIA_FABRICA_CI, CONTRATO_TRANSPORTE_EXCECAO_RUNNER,
   atenderTransporteNaFabrica, configuracaoPublicaDoTransporteValida, executarClienteProtegidoDoTransporte,
-  localizadoresDoLauncher, projetarResultadoDoTransporte, type FatosReobtidosDaForjaCi,
+  executarLauncherNativoDoTransporte, identidadeOidcDoLauncher, localizadoresDoLauncher,
+  projetarResultadoDoTransporte, type FatosReobtidosDaForjaCi,
   type LocalizadoresDoTransporteCi } from '../src/ci-fabrica-transporte';
-import { comandosDoTextoDoManifesto } from '../src/manifest';
+import { comandosDoTextoDoManifesto, type ManifestoCarregado } from '../src/manifest';
+import { executarCiDaBranchComContexto, publicarAvisoDaPolitica } from '../src/ci';
+import { criarProjecaoReplayCi } from '../src/ci-recibo-basico';
 import { evidenciaCanonicaDoGithub } from '../src/forja/github/ci';
 import { evidenciaCanonicaDoGitlab } from '../src/forja/gitlab/ci';
 import { identidadeNativaDoAmbienteCi } from '../src/forja/ambiente-de-ci';
@@ -20,6 +23,7 @@ import { CONTRATO_CAPACIDADE_RUNNER_EXCECAO, CONTRATO_PORTA_NOTIFICACAO_EXCECAO,
   type ReciboDeNotificacaoDaExcecao } from '../src/excecao-notificacao';
 import { CONTRATO_EXCECAO_RECIBO, CONTRATO_POLITICA_EXCECAO_RECIBO, hashDaPoliticaDeExcecao,
   type ExcecaoDeRecibo, type PoliticaDaExcecaoDeRecibo } from '../src/excecao-recibo';
+import type { Manifesto } from '../src/types';
 
 const CONFIG = { contrato: CONTRATO_TRANSPORTE_EXCECAO_RUNNER, origem: 'https://fabrica.invalid/ci',
   audiencia: AUDIENCIA_FABRICA_CI, cliente: { versao: '0.6.10', sha256: 'a'.repeat(64) } };
@@ -28,6 +32,27 @@ const ESPERADO = { project: 'projeto-fixture', source: 'feature/fixture', target
 const AGORA = '2026-11-25T00:00:00.000Z', EXPIRA = '2026-12-01T00:00:00.000Z';
 const RAIZ = path.resolve(__dirname, '../../..');
 const ler = (arquivo: string): string => fs.readFileSync(path.join(RAIZ, arquivo), 'utf8');
+
+function carregadoDoCi(raiz: string, nivel: 'observar' | 'avisar' | 'exigir' = 'exigir'): ManifestoCarregado {
+  return { raiz, caminho: path.join(raiz, 'orkastery.yaml'), legado: false, bytes: 0, erros: [], avisos: [], manifesto: {
+    project: { name: ESPERADO.project, abbrev: 'fix', stage: 'nascente' },
+    worktree: { base_branch: 'main', dir: '.worktrees', por_thread: true },
+    verify: { timeout_ms: 1000, timeout_ms_por_comando: {} },
+    ci: { required_for_ship: false, context: 'ork-verify', external_repositories: {}, politica_recibo: nivel },
+  } as unknown as Manifesto };
+}
+
+function escreverManifestoProtegido(raiz: string, nivel: 'observar' | 'avisar' | 'exigir' = 'exigir'): void {
+  fs.writeFileSync(path.join(raiz, 'orkastery.yaml'), [
+    'project:', `  name: ${ESPERADO.project}`, '  abbrev: fix', 'ci:', `  politica_recibo: ${nivel}`,
+    '  transporte_excecao:', `    contrato: ${CONFIG.contrato}`, `    origem: ${CONFIG.origem}`,
+    `    audiencia: ${CONFIG.audiencia}`, '    cliente:', `      versao: ${CONFIG.cliente.versao}`,
+    `      sha256: ${CONFIG.cliente.sha256}`, '',
+  ].join('\n'));
+}
+
+const resposta = (corpo: unknown, status = 200): Response => ({ ok: status >= 200 && status < 300, status,
+  json: async () => corpo } as Response);
 
 function transporteValido() {
   const chaves = generateKeyPairSync('ed25519');
@@ -205,6 +230,106 @@ test('launcher reutilizável usa o PR original só como localizador', () => {
       operation: 'ci.run', execucaoId: '71', construtor: '901',
     });
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('pipeline GitLab comum usa CI_COMMIT_SHA e nunca sai silencioso por SHA ausente', () => {
+  assert.deepEqual(localizadoresDoLauncher({ GITLAB_CI: 'true', CI_PROJECT_PATH: ESPERADO.project,
+    CI_MERGE_REQUEST_SOURCE_BRANCH_NAME: ESPERADO.source, CI_MERGE_REQUEST_TARGET_BRANCH_NAME: ESPERADO.target,
+    CI_MERGE_REQUEST_SOURCE_BRANCH_SHA: '', CI_COMMIT_SHA: ESPERADO.head, CI_JOB_ID: '72', GITLAB_USER_ID: '902' }), {
+    ...ESPERADO, forja: 'gitlab', execucaoId: '72', construtor: '902',
+  });
+});
+
+test('identidade OIDC é retirada do ambiente antes de qualquer passo não confiável', async () => {
+  const gitlab = { ORK_FABRICA_ID_TOKEN: 'token-gitlab' };
+  assert.equal(await identidadeOidcDoLauncher('gitlab', gitlab), 'token-gitlab');
+  assert.equal(gitlab.ORK_FABRICA_ID_TOKEN, undefined);
+  const github: NodeJS.ProcessEnv = { ACTIONS_ID_TOKEN_REQUEST_URL: 'https://oidc.invalid/token',
+    ACTIONS_ID_TOKEN_REQUEST_TOKEN: 'credencial-github' };
+  const token = await identidadeOidcDoLauncher('github', github, (async (_url, init) => {
+    assert.equal((init?.headers as Record<string, string>).authorization, 'bearer credencial-github');
+    return resposta({ value: 'token-github' });
+  }) as typeof fetch);
+  assert.equal(token, 'token-github');
+  assert.equal(github.ACTIONS_ID_TOKEN_REQUEST_URL, undefined);
+  assert.equal(github.ACTIONS_ID_TOKEN_REQUEST_TOKEN, undefined);
+});
+
+test('o transporte integrado altera o veredito real e nunca encobre projeção inválida', () => {
+  const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-f7-ci-integrado-'));
+  const branch = ESPERADO.source;
+  try {
+    fs.mkdirSync(path.join(raiz, '.ork-ci'));
+    const arquivo = path.join(raiz, '.ork-ci/ork-rm089f7fixture.json');
+    fs.writeFileSync(arquivo, JSON.stringify({ schema: 'ork.ci-bundle/v1', thread: 'ork-rm089f7fixture',
+      branch, base: 'main', claims: [], commands: [] }));
+    let consultas = 0;
+    const aplicado = executarCiDaBranchComContexto(carregadoDoCi(raiz), branch, {
+      destino: ESPERADO.target, project: ESPERADO.project, pullRequest: true, preflightEmpresa: null,
+      head: ESPERADO.head, transporteProtegido: { agora: AGORA, consultar: () => { consultas++; return transporteValido(); } },
+    }) as { ok: boolean; policy: { exception?: string }; exception?: unknown };
+    assert.equal(aplicado.ok, true);
+    assert.equal(aplicado.policy.exception, 'applied');
+    assert.ok(aplicado.exception);
+    assert.equal(consultas, 1);
+
+    const projecaoInvalida = criarProjecaoReplayCi({ thread: 'ork-rm089f7fixture', claims: [], check: 'agile',
+      baseline: null, commands: [] });
+    fs.writeFileSync(arquivo, JSON.stringify({ schema: 'ork.ci-bundle/v1', thread: 'ork-rm089f7fixture',
+      branch, base: 'main', claims: [], commands: [], recibo: projecaoInvalida }));
+    consultas = 0;
+    const invalido = executarCiDaBranchComContexto(carregadoDoCi(raiz), branch, {
+      destino: ESPERADO.target, project: ESPERADO.project, pullRequest: true, preflightEmpresa: null,
+      head: ESPERADO.head, receitaConfiavel: { commands: [], check: 'agile' },
+      transporteProtegido: { agora: AGORA, consultar: () => { consultas++; return transporteValido(); } },
+    }) as { ok: boolean; policy: { receipt: string }; error: { code: string } };
+    assert.equal(invalido.ok, false);
+    assert.equal(invalido.policy.receipt, 'invalido');
+    assert.equal(invalido.error.code, 'ci.recibo.invalido');
+    assert.equal(consultas, 0, 'a exceção só se aplica à ausência');
+  } finally { fs.rmSync(raiz, { recursive: true, force: true }); }
+});
+
+test('launcher usa target explícita, liga o resultado ao ci run e separa rede de timeout', async () => {
+  const raizProtegida = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-f7-target-'));
+  const raizFonte = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-f7-source-'));
+  try {
+    escreverManifestoProtegido(raizProtegida, 'avisar');
+    fs.writeFileSync(path.join(raizFonte, 'orkastery.yaml'), 'ci:\n  transporte_excecao:\n    origem: https://coletor.invalid/token\n');
+    const env: NodeJS.ProcessEnv = { GITLAB_CI: 'true', CI_PROJECT_PATH: ESPERADO.project,
+      CI_MERGE_REQUEST_SOURCE_BRANCH_NAME: ESPERADO.source, CI_MERGE_REQUEST_TARGET_BRANCH_NAME: ESPERADO.target,
+      CI_COMMIT_SHA: ESPERADO.head, CI_JOB_ID: '72', GITLAB_USER_ID: '902', ORK_FABRICA_ID_TOKEN: 'token-protegido',
+      ORK_TARGET_PROTEGIDA_DIR: raizProtegida, ORK_FONTE_NAO_CONFIAVEL_DIR: raizFonte };
+    const linhas: string[] = [], saidas: string[] = [], origens: string[] = [];
+    const codigo = await executarLauncherNativoDoTransporte(ESPERADO.source, env, {
+      agora: () => AGORA, executarReplay: ({ env: ambiente }) => {
+        assert.equal(ambiente.ORK_FABRICA_ID_TOKEN, undefined);
+        return { schema: 'ork.ci-run/v1', ok: true, verify: { ok: true }, claims: [], commands: [],
+          policy: { level: 'avisar', receipt: 'ausente', message: 'ci.recibo.ausente' },
+          error: { code: 'ci.recibo.ausente' } };
+      },
+      buscar: (async (url) => { origens.push(String(url)); const erro = new Error('prazo'); erro.name = 'TimeoutError'; throw erro; }) as typeof fetch,
+      avisar: (resultado, ambiente) => { publicarAvisoDaPolitica(resultado, ambiente, (linha) => linhas.push(linha)); },
+      escrever: (texto) => { saidas.push(texto); },
+    });
+    assert.equal(codigo, 0);
+    assert.deepEqual(origens, [CONFIG.origem]);
+    assert.ok(linhas.some((linha) => linha === 'WARNING: ci.excecao.transporte-prazo-excedido'));
+    assert.match(saidas.join(''), /ci\.excecao\.transporte-prazo-excedido/);
+
+    const semConsulta: string[] = [];
+    const codigoComRecibo = await executarLauncherNativoDoTransporte(ESPERADO.source,
+      { ...env, ORK_FABRICA_ID_TOKEN: 'outro-token' }, {
+        executarReplay: () => ({ schema: 'ork.ci-run/v1', ok: true, policy: { level: 'exigir', receipt: 'presente' } }),
+        buscar: (async (url) => { semConsulta.push(String(url)); return resposta({ estado: 'ausente' }); }) as typeof fetch,
+        avisar: () => undefined, escrever: () => undefined,
+      });
+    assert.equal(codigoComRecibo, 0);
+    assert.deepEqual(semConsulta, [], 'recibo válido encerra antes da fábrica');
+  } finally {
+    fs.rmSync(raizProtegida, { recursive: true, force: true });
+    fs.rmSync(raizFonte, { recursive: true, force: true });
+  }
 });
 
 test('GitHub reobtém app nativo, execução, workflow, target e HEAD antes da entrega', () => {

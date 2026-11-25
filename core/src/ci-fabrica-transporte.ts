@@ -1,5 +1,6 @@
 /** RM-089 F7: contrato do transporte autenticado e projeção sanitizada para o runner. */
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { CONTRATO_CAPACIDADE_RUNNER_EXCECAO, CONTRATO_PROVA_NOTIFICACAO_EXCECAO,
   validarProvaDaExcecaoNoRunner, type BlocoDaExcecaoNoRunner, type CapacidadeDoRunnerParaExcecao,
   type ProvaProtegidaDaNotificacao } from './excecao-notificacao';
@@ -7,7 +8,6 @@ import type { ConfiguracaoPublicaDoTransporteCi, PoliticaDeReciboCi } from './ty
 import { principalNativoDoReciboForteCiValido } from './ci-recibo-forte';
 
 export const CONTRATO_TRANSPORTE_EXCECAO_RUNNER = 'ork.excecao-transporte-runner/v1' as const;
-export const CONTRATO_RESULTADO_TRANSPORTE_EXCECAO = 'ork.excecao-transporte-resultado/v1' as const;
 export const AUDIENCIA_FABRICA_CI = 'urn:orkastery:fabrica:ci' as const;
 
 export interface TransporteDaExcecaoDoRunner {
@@ -25,11 +25,9 @@ export type CodigoDoTransporteDaExcecao = 'ci.excecao.transporte-invalido'
 export type RespostaBrutaDoTransporte = { estado: CausaDeConsultaDoTransporte } | TransporteDaExcecaoDoRunner;
 
 export type ResultadoSanitizadoDoTransporte = {
-  contrato: typeof CONTRATO_RESULTADO_TRANSPORTE_EXCECAO;
   aplicado: true;
   exception: BlocoDaExcecaoNoRunner;
 } | {
-  contrato: typeof CONTRATO_RESULTADO_TRANSPORTE_EXCECAO;
   aplicado: false;
   code: CodigoDoTransporteDaExcecao;
   reprova: boolean;
@@ -103,20 +101,20 @@ export function projetarResultadoDoTransporte(resposta: unknown, nivel: Politica
   agora: string): ResultadoSanitizadoDoTransporte {
   if (objeto(resposta) && exatas(resposta, ['estado'])
       && (resposta.estado === 'ausente' || resposta.estado === 'indisponivel' || resposta.estado === 'timeout')) {
-    return { contrato: CONTRATO_RESULTADO_TRANSPORTE_EXCECAO, aplicado: false,
+    return { aplicado: false,
       code: codigoDaCausa(resposta.estado), reprova: nivel === 'exigir', avisar: nivel === 'avisar' };
   }
   if (!objeto(resposta) || !exatas(resposta, CHAVES_TRANSPORTE)
       || resposta.contrato !== CONTRATO_TRANSPORTE_EXCECAO_RUNNER || !objeto(resposta.proof)
       || resposta.proof.schema !== CONTRATO_PROVA_NOTIFICACAO_EXCECAO || !objeto(resposta.capability)
       || resposta.capability.schema !== CONTRATO_CAPACIDADE_RUNNER_EXCECAO) {
-    return { contrato: CONTRATO_RESULTADO_TRANSPORTE_EXCECAO, aplicado: false,
+    return { aplicado: false,
       code: 'ci.excecao.transporte-invalido', reprova: nivel === 'exigir', avisar: nivel === 'avisar' };
   }
   const validado = validarProvaDaExcecaoNoRunner(resposta.proof, resposta.capability, esperado, agora);
   return validado.ok
-    ? { contrato: CONTRATO_RESULTADO_TRANSPORTE_EXCECAO, aplicado: true, exception: validado.exception }
-    : { contrato: CONTRATO_RESULTADO_TRANSPORTE_EXCECAO, aplicado: false,
+    ? { aplicado: true, exception: validado.exception }
+    : { aplicado: false,
       code: 'ci.excecao.transporte-invalido', reprova: nivel === 'exigir', avisar: nivel === 'avisar' };
 }
 
@@ -158,7 +156,8 @@ export function executarClienteProtegidoDoTransporte(config: ConfiguracaoPublica
   return projetarResultadoDoTransporte(resposta, nivel, localizadores, agora);
 }
 
-async function identidadeOidcDoLauncher(forja: 'github' | 'gitlab', env: NodeJS.ProcessEnv): Promise<string> {
+export async function identidadeOidcDoLauncher(forja: 'github' | 'gitlab', env: NodeJS.ProcessEnv,
+  buscar: typeof fetch = fetch): Promise<string> {
   if (forja === 'gitlab') {
     const token = env.ORK_FABRICA_ID_TOKEN;
     delete env.ORK_FABRICA_ID_TOKEN;
@@ -171,7 +170,7 @@ async function identidadeOidcDoLauncher(forja: 'github' | 'gitlab', env: NodeJS.
   if (!endereco || !credencial) throw new Error('ci.excecao.transporte-identidade-ausente');
   const url = new URL(endereco);
   url.searchParams.set('audience', AUDIENCIA_FABRICA_CI);
-  const resposta = await fetch(url, { headers: { authorization: `bearer ${credencial}` } });
+  const resposta = await buscar(url, { headers: { authorization: `bearer ${credencial}` } });
   if (!resposta.ok) throw new Error('ci.excecao.transporte-identidade-invalida');
   const corpo = await resposta.json() as { value?: unknown };
   if (typeof corpo.value !== 'string' || !corpo.value) throw new Error('ci.excecao.transporte-identidade-invalida');
@@ -198,41 +197,90 @@ export function localizadoresDoLauncher(env: NodeJS.ProcessEnv): LocalizadoresDo
     return { forja: 'github', project: env.GITHUB_REPOSITORY!, source: source as string, target: target as string,
       head: head as string, operation: 'ci.run', execucaoId: env.GITHUB_RUN_ID!, construtor: construtor as string };
   }
+  const head = env.CI_MERGE_REQUEST_SOURCE_BRANCH_SHA || env.CI_COMMIT_SHA;
   const valores = [env.CI_PROJECT_PATH, env.CI_MERGE_REQUEST_SOURCE_BRANCH_NAME,
-    env.CI_MERGE_REQUEST_TARGET_BRANCH_NAME, env.CI_MERGE_REQUEST_SOURCE_BRANCH_SHA, env.CI_JOB_ID, env.GITLAB_USER_ID];
+    env.CI_MERGE_REQUEST_TARGET_BRANCH_NAME, head, env.CI_JOB_ID, env.GITLAB_USER_ID];
   if (env.GITLAB_CI !== 'true' || valores.some((valor) => typeof valor !== 'string' || !valor)) {
     throw new Error('ci.excecao.transporte-contexto-ausente');
   }
   return { forja: 'gitlab', project: env.CI_PROJECT_PATH!, source: env.CI_MERGE_REQUEST_SOURCE_BRANCH_NAME!,
-    target: env.CI_MERGE_REQUEST_TARGET_BRANCH_NAME!, head: env.CI_MERGE_REQUEST_SOURCE_BRANCH_SHA!,
+    target: env.CI_MERGE_REQUEST_TARGET_BRANCH_NAME!, head: head!,
     operation: 'ci.run', execucaoId: env.CI_JOB_ID!, construtor: env.GITLAB_USER_ID! };
 }
 
-/** Entrada executável do launcher pinado; não recebe token, proof ou capability por argumento. */
-export async function executarLauncherNativoDoTransporte(env: NodeJS.ProcessEnv = process.env): Promise<number> {
+export interface DependenciasDoLauncherDoTransporte {
+  buscar?: typeof fetch;
+  agora?: () => string;
+  prazoMs?: number;
+  executarReplay?: (entrada: { branch: string; raizFonte: string; raizProtegida: string;
+    localizadores: LocalizadoresDoTransporteCi; env: NodeJS.ProcessEnv }) => unknown | Promise<unknown>;
+  escrever?: (texto: string) => void;
+  avisar?: (resultado: unknown, env: NodeJS.ProcessEnv) => void;
+}
+
+const limparCredencialOidc = (env: NodeJS.ProcessEnv): void => {
+  delete env.ORK_FABRICA_ID_TOKEN;
+  delete env.ACTIONS_ID_TOKEN_REQUEST_URL;
+  delete env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
+};
+
+/** Entrada protegida do `ork ci run --branch`; configuração vem só da target explícita. */
+export async function executarLauncherNativoDoTransporte(branch?: string, env: NodeJS.ProcessEnv = process.env,
+  dependencias: DependenciasDoLauncherDoTransporte = {}): Promise<number> {
   const { exigirManifesto } = await import('./manifest');
-  const manifesto = exigirManifesto(process.cwd()).manifesto;
-  const config = manifesto.ci.transporte_excecao;
-  if (!config || !configuracaoPublicaDoTransporteValida(config)) throw new Error('ci.excecao.transporte-configuracao-ausente');
-  const localizadores = localizadoresDoLauncher(env);
-  let resultado: ResultadoSanitizadoDoTransporte;
-  try {
-    const token = await identidadeOidcDoLauncher(localizadores.forja, env);
-    const resposta = await fetch(config.origem, { method: 'POST', headers: {
-      authorization: `bearer ${token}`, 'content-type': 'application/json', accept: 'application/json',
-    }, body: JSON.stringify(localizadores) });
-    const bruto = resposta.ok ? await resposta.json() : { estado: resposta.status === 408 ? 'timeout' : 'indisponivel' };
-    resultado = projetarResultadoDoTransporte(bruto, manifesto.ci.politica_recibo ?? 'observar', localizadores,
-      new Date().toISOString());
-  } catch (erro) {
-    resultado = projetarResultadoDoTransporte({ estado: (erro as Error).name === 'TimeoutError' ? 'timeout' : 'indisponivel' },
-      manifesto.ci.politica_recibo ?? 'observar', localizadores, new Date().toISOString());
+  const raizProtegida = env.ORK_TARGET_PROTEGIDA_DIR, raizFonte = env.ORK_FONTE_NAO_CONFIAVEL_DIR;
+  if (!raizProtegida || !raizFonte || !path.isAbsolute(raizProtegida) || !path.isAbsolute(raizFonte)) {
+    throw new Error('ci.excecao.transporte-contexto-ausente');
   }
-  process.stdout.write(`${JSON.stringify(resultado)}\n`);
-  return resultado.aplicado || !resultado.reprova ? 0 : 1;
+  const carregadoProtegido = exigirManifesto(raizProtegida);
+  const manifesto = carregadoProtegido.manifesto;
+  const config = manifesto.ci.transporte_excecao;
+  const localizadores = localizadoresDoLauncher(env);
+  let token: string | null = null;
+  let falhaDaIdentidade = false;
+  if (config && configuracaoPublicaDoTransporteValida(config)) {
+    try { token = await identidadeOidcDoLauncher(localizadores.forja, env, dependencias.buscar); }
+    catch { falhaDaIdentidade = true; limparCredencialOidc(env); }
+  } else limparCredencialOidc(env);
+
+  const executarReplay = dependencias.executarReplay ?? (async () => {
+    const { executarCiDaBranchComContexto } = await import('./ci');
+    return executarCiDaBranchComContexto({ ...carregadoProtegido, raiz: raizFonte,
+      caminho: path.join(raizProtegida, path.basename(carregadoProtegido.caminho)) }, branch ?? localizadores.source, {
+      destino: localizadores.target, pullRequest: true, head: localizadores.head, project: localizadores.project,
+      env, preflightEmpresa: null,
+    });
+  });
+  const base = await executarReplay({ branch: branch ?? localizadores.source, raizFonte, raizProtegida,
+    localizadores, env });
+  const receipt = base && typeof base === 'object' && !Array.isArray(base)
+    ? ((base as { policy?: { receipt?: unknown } }).policy?.receipt ?? null) : null;
+  let final = base;
+  if (receipt === 'ausente' && config && configuracaoPublicaDoTransporteValida(config)) {
+    let bruto: unknown = { estado: 'indisponivel' };
+    if (!falhaDaIdentidade && token) {
+      try {
+        const resposta = await (dependencias.buscar ?? fetch)(config.origem, { method: 'POST', headers: {
+          authorization: `bearer ${token}`, 'content-type': 'application/json', accept: 'application/json',
+        }, body: JSON.stringify(localizadores), signal: AbortSignal.timeout(dependencias.prazoMs ?? 15_000) });
+        bruto = resposta.ok ? await resposta.json() : { estado: resposta.status === 408 ? 'timeout' : 'indisponivel' };
+      } catch (erro) {
+        bruto = (erro as Error).name === 'TimeoutError' || (erro as Error).name === 'AbortError'
+          ? { estado: 'timeout' } : { estado: 'indisponivel' };
+      }
+    }
+    const resultado = projetarResultadoDoTransporte(bruto, manifesto.ci.politica_recibo ?? 'observar', localizadores,
+      (dependencias.agora ?? (() => new Date().toISOString()))());
+    const { integrarResultadoDoTransporteNoCi } = await import('./ci');
+    final = integrarResultadoDoTransporteNoCi(base, resultado);
+  }
+  const { publicarAvisoDaPolitica } = await import('./ci');
+  (dependencias.avisar ?? ((resultado, ambiente) => { publicarAvisoDaPolitica(resultado, ambiente); }))(final, env);
+  (dependencias.escrever ?? ((texto) => { process.stdout.write(texto); }))(`${JSON.stringify(final, null, 2)}\n`);
+  return final && typeof final === 'object' && !Array.isArray(final) && (final as { ok?: unknown }).ok === true ? 0 : 1;
 }
 
 if (require.main === module) {
-  void executarLauncherNativoDoTransporte().then((codigo) => { process.exitCode = codigo; })
-    .catch(() => { process.exitCode = 1; });
+  void executarLauncherNativoDoTransporte(undefined, process.env).then((codigo) => { process.exitCode = codigo; })
+    .catch(() => { process.stderr.write('ci.excecao.transporte-indisponivel\n'); process.exitCode = 1; });
 }
