@@ -82,14 +82,16 @@ export function ambienteDeCi(env: NodeJS.ProcessEnv = process.env): AmbienteDeCi
 
 /** Localizadores da identidade apresentados pelo runner; a fábrica nunca os trata como autoridade. */
 export function identidadeNativaDoAmbienteCi(env: NodeJS.ProcessEnv = process.env):
-  { forja: TipoDeForja; execucaoId: string; iniciadorId: string } | null {
+  { forja: TipoDeForja; execucaoId: string; iniciadorId: string; pipelineId?: string } | null {
   if (env.GITHUB_ACTIONS === 'true') {
     const execucaoId = valor(env.GITHUB_RUN_ID, NUMERO), iniciadorId = valor(env.GITHUB_ACTOR_ID, NUMERO);
     return execucaoId && iniciadorId ? { forja: 'github', execucaoId, iniciadorId } : null;
   }
   if (env.GITLAB_CI === 'true') {
     const execucaoId = valor(env.CI_JOB_ID, NUMERO), iniciadorId = valor(env.GITLAB_USER_ID, NUMERO);
-    return execucaoId && iniciadorId ? { forja: 'gitlab', execucaoId, iniciadorId } : null;
+    const pipelineId = valor(env.CI_PIPELINE_ID, NUMERO);
+    return execucaoId && iniciadorId ? { forja: 'gitlab', execucaoId, iniciadorId,
+      ...(pipelineId ? { pipelineId } : {}) } : null;
   }
   return null;
 }

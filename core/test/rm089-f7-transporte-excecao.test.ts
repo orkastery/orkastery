@@ -7,6 +7,7 @@ import { AUDIENCIA_FABRICA_CI, CONTRATO_TRANSPORTE_EXCECAO_RUNNER,
   type LocalizadoresDoTransporteCi } from '../src/ci-fabrica-transporte';
 import { comandosDoTextoDoManifesto } from '../src/manifest';
 import { evidenciaCanonicaDoGithub } from '../src/forja/github/ci';
+import { evidenciaCanonicaDoGitlab } from '../src/forja/gitlab/ci';
 import { identidadeNativaDoAmbienteCi } from '../src/forja/ambiente-de-ci';
 
 const CONFIG = { contrato: CONTRATO_TRANSPORTE_EXCECAO_RUNNER, origem: 'https://fabrica.invalid/ci',
@@ -63,7 +64,7 @@ test('a fábrica reobtém contexto antes de entregar e não compartilha a porta 
     const localizadores: LocalizadoresDoTransporteCi = { ...ESPERADO, forja, execucaoId: `${forja}:execucao`,
       construtor: `${forja}:builder` };
     const fatos: FatosReobtidosDaForjaCi = { ...localizadores, destinoProtegido: true, fork: false,
-      principalNativo: forja === 'github' ? 'github-app:101' : 'gitlab:check', componenteProtegido: true };
+      principalNativo: forja === 'github' ? 'github-app:101' : 'gitlab-user:101', componenteProtegido: true };
     const chamadas: string[] = [];
     const resposta = atenderTransporteNaFabrica('token-opaco', localizadores, {
       autenticar: (token, audiencia) => { chamadas.push(`autenticar:${token}`); return {
@@ -141,4 +142,28 @@ test('GitHub reobtém app nativo, execução, workflow, target e HEAD antes da e
   assert.equal(evidenciaCanonicaDoGithub(bruto, { ...esperado, construtor: 'github-app:101' }), null);
   assert.deepEqual(identidadeNativaDoAmbienteCi({ GITHUB_ACTIONS: 'true', GITHUB_RUN_ID: '71',
     GITHUB_ACTOR_ID: '901' }), { forja: 'github', execucaoId: '71', iniciadorId: '901' });
+});
+
+test('GitLab reobtém user_id do job, pipeline, configuração, target e HEAD antes da entrega', () => {
+  const esperado = { project: 'grupo/projeto', source: 'feature/segura', target: 'main', head: 'e'.repeat(40),
+    context: 'ork-replay', execucaoId: '72', construtor: 'gitlab-user:900' };
+  const bruto = { job: { id: 72, name: esperado.context, status: 'success', user: { id: 102 },
+    pipeline: { id: 82, project_id: 92, sha: esperado.head } },
+  pipeline: { id: 82, project_id: 92, sha: esperado.head, source: 'merge_request_event', user: { id: 902 } },
+  project: { id: 92, path_with_namespace: esperado.project }, mergeRequest: { source_branch: esperado.source,
+    target_branch: esperado.target, sha: esperado.head, source_project_id: 92, target_project_id: 92 },
+  target: { protected: true }, configuration: { protected: true } };
+  const evidencia = evidenciaCanonicaDoGitlab(bruto, esperado);
+  assert.equal(evidencia?.principalNativo, 'gitlab-user:102');
+  assert.equal(evidencia?.iniciador, 'gitlab-user:902');
+  for (const invalido of [
+    { ...bruto, job: { ...bruto.job, user: {} } },
+    { ...bruto, pipeline: { ...bruto.pipeline, sha: 'f'.repeat(40) } },
+    { ...bruto, target: { protected: false } },
+    { ...bruto, configuration: { protected: false } },
+    { ...bruto, mergeRequest: { ...bruto.mergeRequest, source_project_id: 93 } },
+  ]) assert.equal(evidenciaCanonicaDoGitlab(invalido, esperado), null);
+  assert.equal(evidenciaCanonicaDoGitlab(bruto, { ...esperado, construtor: 'gitlab-user:102' }), null);
+  assert.deepEqual(identidadeNativaDoAmbienteCi({ GITLAB_CI: 'true', CI_JOB_ID: '72', CI_PIPELINE_ID: '82',
+    GITLAB_USER_ID: '902' }), { forja: 'gitlab', execucaoId: '72', iniciadorId: '902', pipelineId: '82' });
 });

@@ -3,6 +3,7 @@ import { CONTRATO_CAPACIDADE_RUNNER_EXCECAO, CONTRATO_PROVA_NOTIFICACAO_EXCECAO,
   validarProvaDaExcecaoNoRunner, type BlocoDaExcecaoNoRunner, type CapacidadeDoRunnerParaExcecao,
   type ProvaProtegidaDaNotificacao } from './excecao-notificacao';
 import type { ConfiguracaoPublicaDoTransporteCi, PoliticaDeReciboCi } from './types';
+import { principalNativoDoReciboForteCiValido } from './ci-recibo-forte';
 
 export const CONTRATO_TRANSPORTE_EXCECAO_RUNNER = 'ork.excecao-transporte-runner/v1' as const;
 export const CONTRATO_RESULTADO_TRANSPORTE_EXCECAO = 'ork.excecao-transporte-resultado/v1' as const;
@@ -130,7 +131,7 @@ export function atenderTransporteNaFabrica(token: string, localizadores: Localiz
       || identidade.forja !== localizadores.forja || identidade.execucaoId !== localizadores.execucaoId
       || fatos.forja !== identidade.forja || fatos.execucaoId !== identidade.execucaoId
       || fatos.principalNativo !== identidade.principalNativo || fatos.principalNativo === fatos.construtor
-      || (fatos.forja === 'github' && !/^github-app:\d+$/.test(fatos.principalNativo))
+      || !principalNativoDoReciboForteCiValido(fatos.forja, fatos.principalNativo)
       || fatos.project !== localizadores.project || fatos.source !== localizadores.source
       || fatos.target !== localizadores.target || fatos.head !== localizadores.head
       || fatos.operation !== 'ci.run' || localizadores.operation !== 'ci.run'

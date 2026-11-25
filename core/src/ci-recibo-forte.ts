@@ -13,6 +13,10 @@ export function principalNativoDoReciboForteCi(forja: ForjaDoReciboForteCi, id: 
   return forja === 'github' ? `github-app:${id}` : `gitlab-user:${id}`;
 }
 
+export function principalNativoDoReciboForteCiValido(forja: ForjaDoReciboForteCi, principal: string): boolean {
+  return forja === 'github' ? /^github-app:\d+$/.test(principal) : /^gitlab-user:\d+$/.test(principal);
+}
+
 export interface ContextoDoReciboForteCi {
   tagConducao: string;
   rodadaId: string;
