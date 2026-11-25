@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { z } from 'zod';
 import { dirEstado } from './manifest';
 import { MODOS_LEGADOS } from './modos';
+import { comTravaPortatil, ErroDaTravaPortatil } from './trava-portatil';
 
 const entityId = z.string().regex(/^(prod|proj|init)-[a-z0-9][a-z0-9-]{2,47}$/);
 const version = z.number().int().positive();
@@ -90,12 +91,22 @@ function ensureDirectory(dir: string): void {
 }
 
 /** Stable inode and kernel ownership: process death releases the lock without a TTL race. */
-export function withCreationLock<T>(root: string, name: string, run: () => T): T {
+export function withCreationLock<T>(root: string, name: string, run: () => T, plataforma = process.platform): T {
   if (!/^[a-z0-9-]+$/.test(name)) throw new Error('creation.lock: nome inválido');
-  if (process.platform !== 'linux') throw new Error('runtime.unavailable: journal exige flock Linux');
   const dir = path.join(directory(root), 'locks');
   ensureDirectory(dir);
   const target = path.join(dir, name);
+  if (plataforma === 'darwin') {
+    try { return comTravaPortatil(target, `creation:${name}`, run, { esperarMs: 5000 }); }
+    catch (e) {
+      if (e instanceof ErroDaTravaPortatil && e.codigo === 'trava.portatil.ocupada') {
+        throw new Error('creation.busy: exclusão portátil não adquirida');
+      }
+      if (e instanceof ErroDaTravaPortatil) throw new Error(`runtime.unavailable: journal sem trava portátil (${e.codigo})`);
+      throw e;
+    }
+  }
+  if (plataforma !== 'linux') throw new Error(`runtime.unavailable: journal sem trava portátil em ${plataforma}`);
   const fd = fs.openSync(target, fs.constants.O_RDWR | fs.constants.O_CREAT | fs.constants.O_NOFOLLOW, 0o600);
   try {
     const stat = fs.fstatSync(fd);
