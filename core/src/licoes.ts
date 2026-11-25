@@ -61,6 +61,7 @@ export const DICA_DO_MOTIVO: Readonly<Record<string, string>> = {
   'claims.failed': 'rode o comando da claim antes de registra-la; claim sem prova local volta como GO-FIX',
   'verify.regression': 'grave a baseline antes do GO (`ork verify <thread> --baseline`) e rode os testes focados antes do CHECK',
   'verify.failed': 'grave a baseline antes do GO, para a falha ter com que ser comparada',
+  'security.scan-unscanned': 'instale Docker ou os binarios nativos indicados; no SHIP, falta de cobertura exige autorizacao humana nominal',
   'verify.timeout': 'divida o comando lento ou suba `verify.timeout_ms` no manifesto',
   'runtime.unavailable': 'declare a ordem de fallback do bloco (`ork setup <modo> --bloco N --fallback runtime:modelo`)',
   'runtime.quota-exhausted': 'tenha um segundo perfil da conta (`ork accounts add`) ou fallback no bloco',

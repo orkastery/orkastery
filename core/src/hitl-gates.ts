@@ -211,7 +211,7 @@ function diagnosticoSemConclusao(resultado: EventoLedger): string | null {
  * As escalacoes tipadas que abrem gate para o dono. Lista fechada, domicilio unico: quem abre o
  * gate e quem pergunta se um gate ainda espera o dono leem a mesma.
  */
-export const MOTIVOS_DE_ESCALACAO_HUMANA = ['policy.violation', 'cost.violation', 'retry.max_tentativas',
+export const MOTIVOS_DE_ESCALACAO_HUMANA = ['policy.violation', 'cost.violation', 'security.scan-unscanned', 'retry.max_tentativas',
   'hitl.credencial', 'runtime.unavailable', 'claims.retirada-sem-substituta'] as const;
 
 /** Uma pausa do modo cria pedido, nunca human_gate. Escalação exige evento tipado. */
@@ -388,7 +388,8 @@ const linhaDoCorpo = (texto: string): string => texto.slice(0, TETOS_HITL_V2.cor
  * uma fase que o proprio produto reprovou.
  */
 const PARECERES_QUE_PEDEM_REVISAO: readonly string[] =
-  ['claims.failed', 'claims.unverifiable', 'verify.failed', 'verify.regression', 'verify.timeout', 'verify.sem-veredito', 'ci.failed'];
+  ['claims.failed', 'claims.unverifiable', 'verify.failed', 'verify.regression', 'security.scan-unscanned',
+    'verify.timeout', 'verify.sem-veredito', 'ci.failed'];
 
 /**
  * Qual alternativa o nucleo recomenda neste gate, e por que, em uma linha.

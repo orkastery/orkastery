@@ -679,7 +679,12 @@ export function ship(
   const verificacao = verificar(carregado, threadId, { executor: opcoes.executorVerify,
     conducao: { filaPesada: { ...opcoes.avisoDaFilaPesada, esperarMs: opcoes.esperarFilaPesadaMs } } });
   r.verificacao = resultadoVerifyRedigido(verificacao);
-  if (!verificacaoCompletaParaShip(verificacao)) {
+  const motivosBloqueantesDoVerify = verificacao.motivos.filter((motivo) => motivo !== 'claims.unverifiable');
+  // A19: o verify continua vermelho e registrado. Somente a falta de cobertura segue ate a segunda
+  // guarda do SHIP, que exige `--allow-unscanned` e grava quem autorizou; qualquer outro motivo para aqui.
+  const somenteCoberturaAusente = !verificacao.parcial && motivosBloqueantesDoVerify.length === 1 &&
+    motivosBloqueantesDoVerify[0] === 'security.scan-unscanned';
+  if (!verificacaoCompletaParaShip(verificacao) && !somenteCoberturaAusente) {
     const motivo = (verificacao.parcial ? 'verify.failed'
       : verificacao.motivos.find((m) => m !== 'claims.unverifiable')) as MotivoGate;
     return bloquear(
