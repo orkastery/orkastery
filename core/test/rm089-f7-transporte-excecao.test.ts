@@ -217,10 +217,15 @@ test('o cliente protegido confina token e resposta bruta e devolve só resultado
 
 test('receitas executam fonte, configuração, cliente e credencial em fronteiras distintas', () => {
   const ci = documentosYaml('.github/workflows/ci.yml')[0];
-  const orkVerify = mapa(mapa(ci.jobs)['ork-verify']);
+  const jobsCi = mapa(ci.jobs);
+  const orkVerify = mapa(jobsCi['ork-verify']);
   const checkoutDoReplay = passoPorAcao(orkVerify, 'actions/checkout@');
   assert.equal(mapa(checkoutDoReplay.with)['persist-credentials'] ?? true, false,
     'o checkout do replay não persiste credencial');
+  for (const nome of ['documentacao', 'nucleo', 'mods']) {
+    const checkoutPadrao = passoPorAcao(mapa(jobsCi[nome]), 'actions/checkout@');
+    assert.equal(mapa(checkoutPadrao.with).ref, undefined, `${nome} usa o checkout padrão do evento`);
+  }
 
   const protegido = documentosYaml('.github/workflows/ork-excecao-transporte.yml')[0];
   const jobsGithub = mapa(protegido.jobs);
@@ -340,8 +345,12 @@ test('o transporte integrado altera o veredito real e nunca encobre projeção i
 test('launcher usa target explícita, liga o resultado ao ci run e separa rede de timeout', async () => {
   const raizProtegida = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-f7-target-'));
   const raizFonte = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-f7-source-'));
+  const raizSemOptIn = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-f7-sem-opt-in-'));
   try {
     escreverManifestoProtegido(raizProtegida, 'avisar');
+    fs.writeFileSync(path.join(raizSemOptIn, 'orkastery.yaml'), [
+      'project:', `  name: ${ESPERADO.project}`, '  abbrev: fix', 'ci:', '  politica_recibo: exigir', '',
+    ].join('\n'));
     fs.writeFileSync(path.join(raizFonte, 'orkastery.yaml'), 'ci:\n  transporte_excecao:\n    origem: https://coletor.invalid/token\n');
     const env: NodeJS.ProcessEnv = { GITLAB_CI: 'true', CI_PROJECT_PATH: ESPERADO.project,
       CI_MERGE_REQUEST_SOURCE_BRANCH_NAME: ESPERADO.source, CI_MERGE_REQUEST_TARGET_BRANCH_NAME: ESPERADO.target,
@@ -364,6 +373,20 @@ test('launcher usa target explícita, liga o resultado ao ci run e separa rede d
     assert.ok(linhas.some((linha) => linha === 'WARNING: ci.excecao.transporte-prazo-excedido'));
     assert.match(saidas.join(''), /ci\.excecao\.transporte-prazo-excedido/);
 
+    const saidaDeRede: string[] = [];
+    const codigoDeRede = await executarLauncherNativoDoTransporte(ESPERADO.source,
+      { ...env, ORK_FABRICA_ID_TOKEN: 'token-de-rede' }, {
+        agora: () => AGORA,
+        executarReplay: () => ({ schema: 'ork.ci-run/v1', ok: true, verify: { ok: true }, claims: [], commands: [],
+          policy: { level: 'exigir', receipt: 'ausente', message: 'ci.recibo.ausente' },
+          error: { code: 'ci.recibo.ausente' } }),
+        buscar: (async () => { throw new TypeError('rede indisponível'); }) as typeof fetch,
+        avisar: () => undefined, escrever: (texto) => { saidaDeRede.push(texto); },
+      });
+    assert.equal(codigoDeRede, 0, 'avisar anota a falha de rede sem reprovar');
+    assert.match(saidaDeRede.join(''), /ci\.excecao\.transporte-indisponivel/);
+    assert.doesNotMatch(saidaDeRede.join(''), /ci\.excecao\.transporte-prazo-excedido/);
+
     const semConsulta: string[] = [];
     const codigoComRecibo = await executarLauncherNativoDoTransporte(ESPERADO.source,
       { ...env, ORK_FABRICA_ID_TOKEN: 'outro-token' }, {
@@ -373,9 +396,24 @@ test('launcher usa target explícita, liga o resultado ao ci run e separa rede d
       });
     assert.equal(codigoComRecibo, 0);
     assert.deepEqual(semConsulta, [], 'recibo válido encerra antes da fábrica');
+
+    const consultasSemOptIn: string[] = [];
+    const envSemOptIn: NodeJS.ProcessEnv = { ...env, ORK_TARGET_PROTEGIDA_DIR: raizSemOptIn,
+      ORK_FABRICA_ID_TOKEN: 'token-que-nao-pode-sobrar' };
+    const codigoSemOptIn = await executarLauncherNativoDoTransporte(ESPERADO.source, envSemOptIn, {
+      executarReplay: ({ env: ambiente }) => {
+        assert.equal(ambiente.ORK_FABRICA_ID_TOKEN, undefined);
+        return { schema: 'ork.ci-run/v1', ok: true, policy: { level: 'exigir', receipt: 'ausente' } };
+      },
+      buscar: (async (url) => { consultasSemOptIn.push(String(url)); return resposta({ estado: 'ausente' }); }) as typeof fetch,
+      avisar: () => undefined, escrever: () => undefined,
+    });
+    assert.equal(codigoSemOptIn, 0, 'sem opt-in preserva o replay anterior');
+    assert.deepEqual(consultasSemOptIn, []);
   } finally {
     fs.rmSync(raizProtegida, { recursive: true, force: true });
     fs.rmSync(raizFonte, { recursive: true, force: true });
+    fs.rmSync(raizSemOptIn, { recursive: true, force: true });
   }
 });
 
