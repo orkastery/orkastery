@@ -31,10 +31,13 @@ test('CL1: o Classic roda no verify a mesma lista de comandos da base, na mesma 
   assert.deepEqual(DA_BASE.verify.map(([nome]) => nome), ['preparo', 'C1.1', 'C1.2', 'C2.1', 'typecheck', 'build', 'test', 'security_scan']);
 });
 
-test('CL2: o Classic chama o Docker igual a base: as mesmas ferramentas, opcoes e argumentos, na mesma ordem', () => {
+test('CL2: o Classic preserva a base, exceto pela sonda portátil do daemon', () => {
   const scan = retrato(CORE, ['--so', 'scan'],
     { ...process.env, ORK_CHECK_CPUS_DA_LANE: '7', ORK_CHECK_CPUS_DOCKER: '1' }).scan!;
-  assert.deepEqual(scan, DA_BASE.scan);
+  const esperado = DA_BASE.scan.map(comando => comando.length === 4 && comando[0] === 'docker' &&
+    comando[1] === 'info' && comando[2] === '--format' && comando[3] === '{{.ServerVersion}}'
+    ? ['docker', 'info'] : comando);
+  assert.deepEqual(scan, esperado);
   const ferramentas = [...new Set(scan.filter((c) => c[1] === 'run').map((c) => /ork-security-scan-([a-z-]+)-<N>/.exec(c.join(' '))?.[1]))];
   assert.deepEqual(ferramentas, ['gitleaks', 'semgrep', 'trivy-vuln', 'npm-audit', 'trivy-config', 'zizmor', 'actionlint', 'eslint', 'trivy-license']);
 });
