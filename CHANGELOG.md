@@ -18,6 +18,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **Padrão de documentação:** o padrão que o `ork` instala, os READMEs e o `ork docs verificar` descrevem o leitor humano pelo modo de leitura (resposta primeiro, uma ideia por linha, pouco tempo); as regras e os limites não mudam.
 
+### Corrigido
+
+- **Security scan e configuração Git local (RM-068 e RM-084; issues #302 e #299):** a sonda do daemon funciona com Docker e Podman, uma varredura sem ferramenta executada deixa de aprovar, e `ork_git_status`/`ork_git_commit` aceitam apenas configurações passivas limitadas enquanto recusas informam chave mascarada e escopo sem expor valores; operações de rede permanecem estritas e os testes MCP-real isolam a configuração global da máquina.
+
 ## [0.6.10] - 2026-11-12
 
 A rede coletiva da empresa avisa antes do merge quando threads de builders diferentes tocam o mesmo item ou os mesmos arquivos, com uma ordem sugerida (RM-089, F3). O CI emite o recibo básico do verify para o HEAD executado, com a receita ancorada na branch de destino (RM-089, F5). O SDLC Analytics calcula seis indicadores agênticos por maestro e por time, com o evento ratificado e o painel de referência (RM-090, F5).
