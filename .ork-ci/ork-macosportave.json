@@ -2811,6 +2811,110 @@
         "artefato-de-fechamento",
         "ref-local-do-ramo-base"
       ]
+    },
+    {
+      "id": "C155",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/README.md",
+      "alegacao": "O README do pacote exige Node.js 20 ou mais novo no Linux.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- 'Requires Node.js 20 or newer on Linux' core/README.md"
+      ],
+      "criadoEm": "2026-11-25T20:14:19.466Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C156",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/README.md",
+      "alegacao": "O README do pacote informa que a proteção atual da main não exige os jobs de quickstart instalado.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- 'the current `main` branch protection does not require those jobs.' core/README.md"
+      ],
+      "criadoEm": "2026-11-25T20:14:19.550Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C157",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "docs/comecar/quickstart.md",
+      "alegacao": "O quickstart informa que o pacote declara Node 20 ou mais novo no Linux.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- 'No Linux, o pacote declara Node 20 ou mais novo' docs/comecar/quickstart.md"
+      ],
+      "criadoEm": "2026-11-25T20:14:19.749Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C158",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "docs/comecar/quickstart.md",
+      "alegacao": "O quickstart informa que os jobs não são exigidos pela proteção atual da main.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- 'eles não são exigidos pela proteção atual da `main`.' docs/comecar/quickstart.md"
+      ],
+      "criadoEm": "2026-11-25T20:14:19.893Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
     }
   ],
   "deferredClaims": [],
@@ -2826,7 +2930,7 @@
   ],
   "recibo": {
     "contrato": "ork.recibo-prova/v1",
-    "head": "2ef7e52d7fa60e08f876a39a0e11cb85b3640096",
-    "sha256": "ec014f9f8d9b731a2b307a244cdd70216665d583ffa02a06cd5f33948a440c56"
+    "head": "1034685f54072280d7b954f1b876303dcb474759",
+    "sha256": "0f29fc614ccb69d558f7759ee9aa9025d2bb053da47eb111ec5f2de0815202ae"
   }
 }
