@@ -9,15 +9,19 @@ import { executar, verificarClaim } from '../src/verify';
 import type { Claim } from '../src/types';
 
 test('resolver escolhe caminho absoluto fixo sem consultar PATH ou override', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-shell-hostil-'));
+  const bashForaDaLista = path.join(dir, 'bash-fora-da-lista');
+  fs.copyFileSync('/bin/bash', bashForaDaLista); fs.chmodSync(bashForaDaLista, 0o700);
   const antigoPath = process.env.PATH, antigoOverride = process.env.ORK_BASH;
-  process.env.PATH = '/caminho/hostil'; process.env.ORK_BASH = '/fora/da/fabrica/bash';
+  process.env.PATH = dir; process.env.ORK_BASH = bashForaDaLista;
   try {
     const shell = resolverShellDoVerify();
     assert.ok(shell); assert.equal(['/bin/bash', '/usr/bin/bash'].includes(shell.caminho), true);
-    assert.notEqual(shell.caminho, process.env.ORK_BASH);
+    assert.notEqual(shell.caminho, bashForaDaLista);
   } finally {
     if (antigoPath === undefined) delete process.env.PATH; else process.env.PATH = antigoPath;
     if (antigoOverride === undefined) delete process.env.ORK_BASH; else process.env.ORK_BASH = antigoOverride;
+    fs.rmSync(dir, { recursive: true, force: true });
   }
 });
 

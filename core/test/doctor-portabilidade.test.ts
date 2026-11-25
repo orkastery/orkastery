@@ -2,6 +2,9 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { checarShellDoVerify, checarTravaPortatil, sondarTravaDoNucleo } from '../src/doctor';
 import { comLocale, nomeDoCheck } from '../src/locale';
+import { tomarConducao } from '../src/conducao';
+import { novaThread } from '../src/thread';
+import { projetoTemporario } from './apoio';
 
 test('doctor bloqueia quando a trava portátil não pode ser exercitada', () => {
   assert.equal(checarTravaPortatil().nivel, 'ok');
@@ -26,4 +29,19 @@ test('nomes dos checks novos têm paridade em inglês', () => {
     assert.equal(nomeDoCheck('trava portátil'), 'portable lock');
     assert.equal(nomeDoCheck('shell do verify'), 'verify shell');
   });
+});
+
+test('tomarConducao no Linux sem flock falha fechada com a causa do mecanismo ausente', (t) => {
+  if (process.platform !== 'linux') return;
+  const p = projetoTemporario('conducao-sem-flock');
+  const thread = novaThread(p.carregado, { nome: 'Condução sem flock', modo: 'fast' }).thread;
+  const sistema = require('node:fs') as typeof import('node:fs');
+  const existe = sistema.existsSync.bind(sistema);
+  t.mock.method(sistema, 'existsSync', (arquivo: import('node:fs').PathLike) =>
+    String(arquivo) === '/usr/bin/flock' ? false : existe(arquivo));
+  try {
+    assert.throws(() => tomarConducao(p.dir, thread.id,
+      { canal: 'cli', operacao: 'verify', prazoMs: 60_000 }),
+    /runtime\.unavailable: condução sem \/usr\/bin\/flock em linux/);
+  } finally { p.limpar(); }
 });
