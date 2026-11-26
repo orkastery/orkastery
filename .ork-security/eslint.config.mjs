@@ -8,9 +8,4 @@ export default tseslint.config(
     extends: [tseslint.configs.recommendedTypeChecked],
     languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: process.cwd() } },
   },
-  {
-    files: ['test/rm089-f7-recibo-forte.test.ts', 'test/rm089-f7-transporte-excecao.test.ts'],
-    extends: [tseslint.configs.disableTypeChecked],
-    rules: { '@typescript-eslint/no-require-imports': 'off' },
-  },
 );

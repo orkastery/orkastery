@@ -13,3 +13,12 @@ test('o runtime retirado não deixa módulo, tipo, ambiente ou entrada executáv
   assert.doesNotMatch(ler('core/src/ci.ts'), /integrarResultadoDoTransporteNoCi|transporteProtegido/);
   assert.doesNotMatch(ler('core/test/horario-entradas.test.ts'), /ci-fabrica-transporte/);
 });
+
+test('o resultado forte anterior não permanece no recibo F5 nem na configuração de análise', () => {
+  for (const arquivo of ['core/src/ci-fabrica-recibo.ts', 'core/src/ci-recibo-forte.ts',
+    'core/test/rm089-f7-recibo-forte.test.ts']) {
+    assert.equal(fs.existsSync(path.join(RAIZ, arquivo)), false, arquivo);
+  }
+  assert.doesNotMatch(ler('core/src/ci-recibo-basico.ts'), /AssinaturaDoReciboForteCi|assinatura\?:/);
+  assert.doesNotMatch(ler('.ork-security/eslint.config.mjs'), /rm089-f7-recibo-forte|rm089-f7-transporte-excecao/);
+});
