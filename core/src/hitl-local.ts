@@ -16,6 +16,10 @@ import { descartarAtestadoLocal, hashPedidoLocal, registrarAtestadoLocal } from 
 export { consumirAtestadoLocal, hashPedidoLocal, reciboDoAtestado } from './hitl-local-atestado';
 export type { AtestacaoLocal } from './hitl-local-receipt';
 
+export function evidenciaDaReservaHitl(plataforma = process.platform): 'kernel-exclusive-lock' | 'process-identity-lock' {
+  return plataforma === 'linux' ? 'kernel-exclusive-lock' : 'process-identity-lock';
+}
+
 export interface RespostaElicitation {
   action: 'accept' | 'decline' | 'cancel';
   content?: { opcao: string };
@@ -38,7 +42,7 @@ export function criarIngressoLocal(
    *  de injecao que `responderSessao` ja tem; ausente, vale o controle nativo do runtime.
    *  RM-059 (F9): a `caixa` de saida do servidor do dono, por onde a resposta a uma sessao
    *  `claude-bg` sai para o Mensageiro de Sessoes; sem ela, essa resposta e recusada antes do dialogo. */
-  opcoes: { controle?: ControleSessao; caixa?: CaixaDeSaida | null } = {}
+  opcoes: { controle?: ControleSessao; caixa?: CaixaDeSaida | null; plataforma?: NodeJS.Platform } = {}
 ): { solicitar: (threadId: string, pedidoId: string, signal?: AbortSignal) => Promise<ResultadoIngressoLocal>; fechar: () => void } {
   if (!['claude-code', 'codex'].includes(origem.host) || !idValido(origem.connectionId)) throw new Error('hitl.local.origem-invalida');
   const conexao = { ...origem }, ativos = new Map<string, AbortController>();
@@ -89,7 +93,7 @@ export function criarIngressoLocal(
           const release = reservarDialogoHitl(dirThread(raiz, threadId), selected.requestId, selected.connectionId, true);
           try {
             registrar(dirThread(raiz, threadId), threadId, 'hitl_channel_released', { pedidoId, requestId: selected.requestId,
-              reason: 'abandoned-dialogue', evidence: 'kernel-exclusive-lock', connectionId: conexao.connectionId });
+              reason: 'abandoned-dialogue', evidence: evidenciaDaReservaHitl(opcoes.plataforma), connectionId: conexao.connectionId });
           } finally { release(); }
         }
         liberarReserva = reservarDialogoHitl(dirThread(raiz, threadId), requestId, conexao.connectionId);

@@ -311,6 +311,16 @@ const PT_BR = {
     /** Nome de cada check como aparece no texto; o `Check.nome` gravado nao muda. */
     nomes: {} as Record<string, string>,
     instaleNode: 'instale Node 20 ou superior',
+    travaPortatilOk: 'mecanismo de trava da plataforma adquirido e liberado',
+    travaPortatilFalhou: (detalhe: string) => `a trava do nucleo nao foi adquirida: ${detalhe}`,
+    travaPortatilCorrecao: (plataforma: NodeJS.Platform): string => plataforma === 'linux'
+      ? 'instale /usr/bin/flock (pacote util-linux)'
+      : 'use macOS com sistema de arquivos local e identificacao de processos disponivel',
+    shellVerifyAusente: 'nenhum shell controlado executavel em /bin/bash ou /usr/bin/bash',
+    shellVerifyCorrecao: 'instale o Bash em /bin/bash ou /usr/bin/bash; PATH e ORK_BASH nao alteram o executor',
+    shellVerifyOk: (caminho: string, versao: string) => `${caminho} (Bash ${versao})`,
+    shellVerifyAntigo: (caminho: string, versao: string) => `${caminho} (Bash ${versao}); compativel, mas antigo`,
+    shellVerifyAtualizar: 'atualize o Bash do sistema quando possivel; o verify usa somente sintaxe compativel',
     gitAusente: 'nao encontrado no PATH',
     instaleGit: 'instale o git',
     securityScanDocker: 'Docker disponivel: as ferramentas do security scan rodam em container',
@@ -855,6 +865,8 @@ const EN: Mensagens = {
       'onboarding fuso': 'onboarding time zone',
       'rede': 'network',
       'sandbox do codex': 'codex sandbox',
+      'trava portátil': 'portable lock',
+      'shell do verify': 'verify shell',
       'permissoes do estado': 'state permissions',
       'pasta privada': 'private folder',
       'cadencia do pulse no cron': 'pulse cron cadence',
@@ -873,6 +885,16 @@ const EN: Mensagens = {
       'forja capacidades': 'forge capabilities',
     },
     instaleNode: 'install Node 20 or later',
+    travaPortatilOk: 'platform lock mechanism acquired and released',
+    travaPortatilFalhou: (detalhe) => `the core lock could not be acquired: ${detalhe}`,
+    travaPortatilCorrecao: (platform) => platform === 'linux'
+      ? 'install /usr/bin/flock (the util-linux package)'
+      : 'use macOS with a local file system and process identification available',
+    shellVerifyAusente: 'no controlled executable shell at /bin/bash or /usr/bin/bash',
+    shellVerifyCorrecao: 'install Bash at /bin/bash or /usr/bin/bash; PATH and ORK_BASH do not change the executor',
+    shellVerifyOk: (caminho, versao) => `${caminho} (Bash ${versao})`,
+    shellVerifyAntigo: (caminho, versao) => `${caminho} (Bash ${versao}); compatible, but old`,
+    shellVerifyAtualizar: 'update the system Bash when possible; verify uses compatible syntax only',
     gitAusente: 'not found on PATH',
     instaleGit: 'install git',
     securityScanDocker: 'Docker available: the security scan tools run in containers',

@@ -9,8 +9,15 @@ import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { ResultadoDeComando } from './types';
 import { ExecutorVerify, TIMEOUT_VERIFY_MS } from './verify';
+import { exigirShellDoVerify } from './shell-do-verify';
+import type { ShellDoVerify } from './types';
 
 const MAX_OUTPUT = 1024 * 1024;
+
+export function argumentosDoExecutorSandbox(estado: object, shell: ShellDoVerify, comando: string): string[] {
+  return ['sandbox', '--sandbox-state-json', JSON.stringify(estado), '--sandbox-state-disable-network',
+    shell.caminho, '-c', comando];
+}
 /** Supervisor Linux fixo: subreaper recolhe também daemons/setsid.
  * Nunca executa código de claim fora do sandbox. Python é infraestrutura local, sem pacotes. */
 const SUPERVISOR = String.raw`
@@ -70,6 +77,12 @@ export interface OpcoesExecutorSandbox {
   worktree: string;
   /** Somente configuração interna. Nunca argumentos de ferramenta. */
   timeoutMs?: number;
+  /** Injeções determinísticas de teste; a produção mede o shell e executa o supervisor local. */
+  shellDoVerify?: ShellDoVerify | null;
+  /** Binário do executor injetado somente por testes; produção usa o caminho fixo da instalação. */
+  binarioSandbox?: string;
+  executarSupervisor?: (entrada: { bin: string; args: string[]; cwd: string; env: Record<string, string>;
+    timeoutMs: number; maxOutput: number }) => { status: number | null; stdout: string; stderr: string; error?: Error };
 }
 export interface ResultadoSandbox extends ResultadoDeComando {
   stdout: string;
@@ -104,9 +117,13 @@ export function criarExecutorSandbox(opcoes: OpcoesExecutorSandbox): { executar:
   const original = fs.statSync(worktree);
   const timeoutMs = opcoes.timeoutMs ?? 60_000;
   if (!Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > TIMEOUT_VERIFY_MS) throw new Error('timeout sandbox fora do limite');
-  // Binário local aprovado da instalação; não procuramos executável fornecido pela claim.
-  const bin = fs.realpathSync('/usr/bin/codex');
+  // Binário local aprovado da instalação; a injeção existe só na API interna de teste e nunca vem da claim ou de tool args.
+  const binInformado = opcoes.binarioSandbox ?? '/usr/bin/codex';
+  if (!path.isAbsolute(binInformado)) throw new Error('binário do executor sandbox deve ser absoluto');
+  const bin = fs.realpathSync(binInformado);
   const binStat = fs.statSync(bin);
+  if (!binStat.isFile() || (binStat.mode & 0o111) === 0) throw new Error('binário do executor sandbox não é executável');
+  const shell = exigirShellDoVerify(opcoes.shellDoVerify);
   const isolamento = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-verify-config-'));
   if (fs.realpathSync(isolamento) === worktree || fs.realpathSync(isolamento).startsWith(worktree + path.sep)) {
     fs.rmdirSync(isolamento);throw Error('scratch VERIFY deve ficar fora da worktree');
@@ -157,14 +174,14 @@ export function criarExecutorSandbox(opcoes: OpcoesExecutorSandbox): { executar:
       const env = { PATH: '/usr/local/bin:/usr/bin:/bin', HOME: home, CODEX_HOME: codexHome,
         TMPDIR: tmp, TMP: tmp, TEMP: tmp, LANG: 'C.UTF-8', CI: '1',
         XDG_CACHE_HOME: path.join(home, '.cache'), npm_config_cache: path.join(home, '.npm') };
-      const args = ['sandbox', '--sandbox-state-json', JSON.stringify(estadoSandbox(worktree,scratch)),
-        '--sandbox-state-disable-network', '/bin/bash', '-c', comando];
+      const args = argumentosDoExecutorSandbox(estadoSandbox(worktree, scratch), shell, comando);
       consumidoresEncerrados=false;
-      const r = spawnSync('/usr/bin/python3', ['-c', SUPERVISOR], {
-        input: JSON.stringify({ bin, args, cwd: worktree, env, timeoutMs, maxOutput: MAX_OUTPUT }),
-        cwd: isolamento, env, encoding: 'utf8', maxBuffer: 4 * MAX_OUTPUT,
-        timeout: timeoutMs + 5_000, killSignal: 'SIGTERM',
-      });
+      const entrada = { bin, args, cwd: worktree, env, timeoutMs, maxOutput: MAX_OUTPUT };
+      const r = opcoes.executarSupervisor ? opcoes.executarSupervisor(entrada)
+        : spawnSync('/usr/bin/python3', ['-c', SUPERVISOR], {
+          input: JSON.stringify(entrada), cwd: isolamento, env, encoding: 'utf8', maxBuffer: 4 * MAX_OUTPUT,
+          timeout: timeoutMs + 5_000, killSignal: 'SIGTERM',
+        });
       let resultado: { code: number; stdout: string; stderr: string; failure: string | null; cleanupComplete:boolean };
       try {
         if (r.error || r.status !== 0) throw new Error(r.error?.message ?? `supervisor saiu ${r.status}`);
@@ -181,7 +198,7 @@ export function criarExecutorSandbox(opcoes: OpcoesExecutorSandbox): { executar:
       const stderr = resultado.stderr + (resultado.failure ? '\n' + resultado.failure : '');
       const resumo = (resultado.stdout + '\n' + stderr).trim().split('\n').slice(-10).join('\n').slice(-800);
       return { nome, comando, ok: resultado.code === 0 && !resultado.failure, code: resultado.code,
-        resumo, stdout: resultado.stdout, stderr, executor: 'codex-sandbox' };
+        resumo, stdout: resultado.stdout, stderr, executor: 'codex-sandbox', shell };
     } finally {
       if(!consumidoresEncerrados) {
         erroCleanup='cleanup incompleto: consumidores não comprovadamente encerrados; temporários preservados: '+isolamento;

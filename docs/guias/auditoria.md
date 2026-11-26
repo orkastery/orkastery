@@ -33,6 +33,9 @@ ork audit verify <rodada>     # reexecuta as claims dos achados
 ```
 
 Um achado cuja claim não sobrevive a reexecucao não entra no board como verdade.
+Se nenhum comando for executado, inclusive quando o único achado aberto não tem comando, o
+resultado é `SEM VEREDITO` e a saída é 1. Achado sem comando continua como aviso, mas não sustenta
+a rodada. Gere o relatório em um passo separado; não encadeie `audit report` com `&&`.
 
 ---
 

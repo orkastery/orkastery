@@ -9,18 +9,21 @@
 > **In one sentence:** `ork` conducts AI coding agents (Claude Code and Codex) through parallel six-phase threads, checks every claim against the repository before it counts, and only calls you when the decision is really yours.
 
 - **Status:** in daily use · on npm as [`@orkastery/cli`](https://www.npmjs.com/package/@orkastery/cli), with [changes per version](CHANGELOG.md) · reviewed on 2026-09-27
+- **Platforms:** CI runs the installed-package quickstart on Linux and macOS, and npm publication requires the macOS proof. Those jobs are not required by the current `main` branch protection. Windows is not covered. #Noctum remains Linux-only while it is in development.
 - **Proof:** GitHub CI on every PR: 2,733 core tests, 24 scenarios and 20 skills with 199 assertions, zero failures (CI of the `main` at PR #74, run 37102089623, 2026-10-03)
 - **Product and roadmap:** [`docs/produto/`](docs/produto/README.md) and [`docs/roadmap/`](docs/roadmap/README.md), checked against the code by `ork docs verificar`
 - **Language:** this page is the canonical entry point, mirrored in [Portuguese](README.pt-BR.md). The pages under `docs/` are in Brazilian Portuguese, and the [CLI reference](docs/referencia/cli.en.md) is also in English. The CLI prints Brazilian Portuguese too, except `ork doctor`, `ork init`, `ork onboarding`, `ork experiencia show`, `ork thread` (except `thread new --from-finding`), `ork phase list`, `ork phase run`, `ork verify`, `ork ship`, `ork pulse`, `ork master`, `ork retry plan`, `ork retry run`, `ork roadmap` (status and reservations), `ork worktree`, `ork claims`, `ork decisao placar`, `ork accounts`, `ork network` (except `network roadmap`), `ork docs`, `ork adapter` and the help, which print English when `owner.language` or your locale asks for `en`; so do the `orkastery.yaml` comments, the `AGENTS.md` and `CLAUDE.md` blocks, the `ork docs init` templates and the skills, checklists, commands and subagents that `ork adapter install` copies; in English, read the [quickstart on orkastery.com](https://orkastery.com/en/docs/comecar/) and the [glossary of what the CLI prints](#reading-the-cli-in-english)
 
 ```bash
 npm install -g @orkastery/cli
-ork demo          # 30 seconds: a false claim rejected, the fixed one accepted; no account, no model
+ork demo          # a false claim rejected, the fixed one accepted; no account, no model
 ork doctor        # what holds on this machine right now; exits != 0 when blocked
 ork init          # writes the orkastery.yaml; run it at the root of a git repository with at least one commit
 ork modos         # the four conduction modes
 ork docs init     # product docs and roadmap in the standard, with lint
 ```
+
+The core needs Bash at `/bin/bash` or `/usr/bin/bash`. It does not select a shell from `PATH`, Homebrew or an environment override; `ork doctor` reports the path and version it will use and blocks when the controlled executor is unavailable.
 
 ## Your first thread
 

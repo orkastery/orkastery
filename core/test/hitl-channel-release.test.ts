@@ -5,12 +5,17 @@ import { dirThread, novaThread } from '../src/thread';
 import { prazoDoPedido } from '../src/hitl-contract';
 import { lerLedger, registrar } from '../src/ledger';
 import { abrirPedidoGate, assinaturaDaResposta, contextoDoPedidoNativo, responderGate, RespostaHumana } from '../src/hitl-gates';
-import { criarIngressoLocal, RespostaElicitation } from '../src/hitl-local';
+import { criarIngressoLocal, evidenciaDaReservaHitl, RespostaElicitation } from '../src/hitl-local';
 import { conferirCanalSelecionado } from '../src/hitl-canais';
 import { nativeMessage } from '../src/hitl-native';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
+
+test('evidência da recuperação identifica o mecanismo da plataforma', () => {
+  assert.equal(evidenciaDaReservaHitl('linux'), 'kernel-exclusive-lock');
+  assert.equal(evidenciaDaReservaHitl('darwin'), 'process-identity-lock');
+});
 
 for (const transport of ['telegram', 'native'] as const) test(`${transport} autenticado assume após cancelamento MCP, nunca durante conflito ativo`, async () => {
   const p = projetoTemporario('channel-release'), old = { ...process.env };
@@ -73,7 +78,8 @@ test('MCP mantém reserva ativa entre conexões e callback encerrado perde a sel
 
 for (const state of ['abandoned', 'sending', 'unproven'] as const) test(`MCP após crash: ${state}, recovery exige reserva liberada e ausência de envio`, async () => {
   const p = projetoTemporario('channel-crash');
-  const ingress = criarIngressoLocal(p.dir, { host: 'claude-code', connectionId: 'replacement' }, async () => ({ action: 'accept', content: { opcao: '1' } }));
+  const ingress = criarIngressoLocal(p.dir, { host: 'claude-code', connectionId: 'replacement' },
+    async () => ({ action: 'accept', content: { opcao: '1' } }), { plataforma: 'darwin' });
   try {
     const t = novaThread(p.carregado, { nome: 'Crash de MCP', modo: 'classic' }).thread;
     registrar(dirThread(p.dir, t.id), t.id, 'phase_result', { fase: 'GOAL' });
@@ -91,7 +97,7 @@ for (const state of ['abandoned', 'sending', 'unproven'] as const) test(`MCP ap�
       assert.equal((await ingress.solicitar(t.id, q.id)).estado, 'aprovado');
       const after = lerLedger(dirThread(p.dir, t.id));
       const release = after.find(e => e.tipo === 'hitl_channel_released');
-      assert.equal(release?.reason, 'abandoned-dialogue'); assert.equal(release?.evidence, 'kernel-exclusive-lock');
+      assert.equal(release?.reason, 'abandoned-dialogue'); assert.equal(release?.evidence, 'process-identity-lock');
       assert.equal(release?.requestId, selected.requestId);
       assert.equal(after.filter(e => e.tipo === 'human_gate').length, 1);
       assert.throws(() => conferirCanalSelecionado(after, q.id, 'codex', 'mcp-local', 'abandoned', String(selected.requestId)), /selection-mismatch/);
@@ -101,5 +107,27 @@ for (const state of ['abandoned', 'sending', 'unproven'] as const) test(`MCP ap�
       assert.equal(lerLedger(dirThread(p.dir, t.id)).some(e => e.tipo === 'human_gate'), false);
     }
     assert.equal(fs.statSync(reservation).ino, inode);
+  } finally { ingress.fechar(); p.limpar(); }
+});
+
+test('MCP após crash na fiação Linux padrão registra a trava de kernel usada na recuperação',
+  { skip: process.platform !== 'linux' }, async () => {
+  const p = projetoTemporario('channel-crash-linux');
+  const ingress = criarIngressoLocal(p.dir, { host: 'claude-code', connectionId: 'replacement-linux' },
+    async () => ({ action: 'accept', content: { opcao: '1' } }));
+  try {
+    const t = novaThread(p.carregado, { nome: 'Crash de MCP no Linux', modo: 'classic' }).thread;
+    registrar(dirThread(p.dir, t.id), t.id, 'phase_result', { fase: 'GOAL' });
+    const q = abrirPedidoGate(p.dir, t.id);
+    const child = spawnSync(process.execPath, ['-e', `require(process.argv[1]).criarIngressoLocal(process.argv[2],
+      {host:'codex',connectionId:'abandoned-linux'},()=>process.exit(19)).solicitar(process.argv[3],process.argv[4]);`,
+      require.resolve('../src/hitl-local'), p.dir, t.id, q.id], { encoding: 'utf8', timeout: 10000 });
+    assert.equal(child.status, 19, child.stderr);
+    const selected = lerLedger(dirThread(p.dir, t.id)).find(e => e.tipo === 'hitl_channel_selected')!;
+    assert.ok(selected);
+    assert.equal((await ingress.solicitar(t.id, q.id)).estado, 'aprovado');
+    const release = lerLedger(dirThread(p.dir, t.id)).find(e =>
+      e.tipo === 'hitl_channel_released' && e.reason === 'abandoned-dialogue');
+    assert.equal(release?.evidence, 'kernel-exclusive-lock');
   } finally { ingress.fechar(); p.limpar(); }
 });

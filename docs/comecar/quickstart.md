@@ -11,13 +11,21 @@ você já usa, pela sua assinatura, pelo canal oficial dele.
 
 | O que | Por que |
 | --- | --- |
-| Node 20 ou mais novo | O núcleo é TypeScript compilado para CommonJS, com nove dependências de runtime; o grafo de código (`ork grafo`) pede Node 20.19, 22.12 ou mais novo |
+| Node | No Linux, o pacote declara Node 20 ou mais novo; o grafo de código (`ork grafo`) pede Node 20.19, 22.12 ou mais novo; o job do quickstart instalado roda no macOS com Node 24, e a publicação repete e exige essa prova; a instalação vem com nove dependências de runtime |
 | `git` | Worktree por thread, base carimbada, merge serializado e push provado |
+| Linux ou macOS em sistema de arquivos local | Linux usa `flock`; macOS usa a trava por identidade de processo; Windows ainda não faz parte da matriz do CI |
+| Bash em `/bin/bash` ou `/usr/bin/bash` | Verify e CHECK usam um caminho absoluto controlado e registram sua versão; `PATH`, Homebrew e variável de ambiente não escolhem o executor |
 | Um repositório git com pelo menos um commit | O `ork` conduz trabalho dentro de um repositório, nunca solto no disco; a thread parte do commit da base, e sem commit ela nasce sem base |
 | Um runtime de agente | O adapter `claude-bg` (o binário `claude`, despachado com `--bg`), que é o padrão, ou o Codex CLI (`codex`) |
 
 O runtime é opcional para os passos 1 a 4. Sem ele, você ainda cria threads, registra claims,
 roda `verify`, fecha MASTER e usa todo o resto. O que você não consegue é **despachar fase**.
+
+O `ork doctor` adquire e libera o mecanismo de trava da plataforma e mostra o Bash usado antes de
+declarar prontidão. Bash antigo aparece como aviso; shell ausente ou trava indisponível bloqueiam.
+Jobs do CI instalam o tarball e percorrem worktree, `ork claims add` e `ork verify` no Linux e no
+macOS; eles não são exigidos pela proteção atual da `main`. A publicação no npm exige a prova do macOS. O #Noctum continua em
+desenvolvimento e restrito ao Linux; o suporte descrito aqui cobre o núcleo do quickstart.
 
 Só com o Codex: o setup padrão despacha todo bloco pelo `claude-bg`, e o `ork doctor` reprova a
 falta do `claude` enquanto algum bloco de modo permitido despachar por ele. Depois do `ork init`,
@@ -37,7 +45,7 @@ npm install -g @orkastery/cli
 ork doctor
 ```
 
-Antes de apontar o `ork` para o seu projeto, veja a promessa em trinta segundos:
+Antes de apontar o `ork` para o seu projeto, veja a promessa executável:
 
 ```bash
 ork demo
