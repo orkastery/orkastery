@@ -18,6 +18,21 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { ajustarManifesto, projetoTemporario } from './apoio';
 
+test('executor usa o grupo do timeout quando o auxiliar está disponível', () => {
+  let programa = '', argumentos: string[] = [];
+  const resultado = executar('grupo', 'true', process.cwd(), 1_000, undefined, undefined,
+    { caminho: '/bin/bash', versao: '5.2.0' }, {
+      existe: () => true,
+      executar: (binario, args) => {
+        programa = binario; argumentos = args;
+        return { ok: true, code: 0, stdout: '', stderr: '' };
+      },
+    });
+  assert.equal(resultado.ok, true);
+  assert.equal(programa, '/usr/bin/timeout');
+  assert.deepEqual(argumentos.slice(0, 3), ['--kill-after=15', '1', '/bin/bash']);
+});
+
 test('a causa separa estouro de prazo, falha, comando ausente e morte por sinal', () => {
   const estouro = executar('lento', 'sleep 5', process.cwd(), 1000);
   assert.equal(estouro.ok, false);

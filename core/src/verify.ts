@@ -238,8 +238,9 @@ export function executorDoManifesto(manifesto: Manifesto, ambienteDaRodada?: Rec
  */
 export function executar(nome: string, comando: string, cwd: string,
   tetoMs = TIMEOUT_VERIFY_MS, ambienteExtra?: Record<string, string>, ambienteBase?: NodeJS.ProcessEnv,
-  shellInformado?: ShellDoVerify | null): ResultadoDeComando {
-  const comGrupo = fs.existsSync(TIMEOUT_BIN);
+  shellInformado?: ShellDoVerify | null,
+  dependencias: { existe?: (arquivo: string) => boolean; executar?: typeof exec } = {}): ResultadoDeComando {
+  const comGrupo = (dependencias.existe ?? fs.existsSync)(TIMEOUT_BIN);
   const inicio = Date.now();
   const ambiente = { ...(ambienteBase ?? ambienteDoVerify()), ...ambienteExtra };
   const shell = shellInformado === undefined ? resolverShellDoVerify() : shellInformado;
@@ -248,10 +249,11 @@ export function executar(nome: string, comando: string, cwd: string,
       stderr: 'shell do verify não encontrado nos caminhos controlados: /bin/bash, /usr/bin/bash', error: 'ENOENT' },
     comGrupo, Date.now() - inicio, tetoMs);
   }
+  const executarProcesso = dependencias.executar ?? exec;
   const r = comGrupo
-    ? exec(TIMEOUT_BIN, ['--kill-after=15', `${Math.ceil(tetoMs / 1000)}`, shell.caminho, '--noprofile', '--norc', '-c', comando],
+    ? executarProcesso(TIMEOUT_BIN, ['--kill-after=15', `${Math.ceil(tetoMs / 1000)}`, shell.caminho, '--noprofile', '--norc', '-c', comando],
       cwd, tetoMs + 30_000, ambiente)
-    : exec(shell.caminho, ['--noprofile', '--norc', '-c', comando], cwd, tetoMs, ambiente);
+    : executarProcesso(shell.caminho, ['--noprofile', '--norc', '-c', comando], cwd, tetoMs, ambiente);
   return { ...resultadoDoProcesso(nome, comando, r, comGrupo, Date.now() - inicio, tetoMs), shell };
 }
 

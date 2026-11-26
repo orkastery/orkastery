@@ -22,6 +22,33 @@ test('argumentos do sandbox usam o shell controlado medido', () => {
   assert.equal(args.includes('/bin/bash'), false);
 });
 
+test('executor recusa binário sem execução e detecta troca de identidade antes do lançamento', () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-sandbox-bin-'));
+  const wt = path.join(base, 'wt'); fs.mkdirSync(wt);
+  const bin = path.join(base, 'executor');
+  const shell = { caminho: '/bin/bash', versao: '5.2.0' };
+  let indevido: ReturnType<typeof criarExecutorSandbox> | undefined;
+  try {
+    fs.writeFileSync(bin, '#!/bin/sh\n', { mode: 0o600 });
+    try {
+      assert.throws(() => { indevido = criarExecutorSandbox({ worktree: wt, binarioSandbox: bin, shellDoVerify: shell }); },
+        /não é executável/);
+    } finally { indevido?.fechar(); }
+
+    fs.chmodSync(bin, 0o700);
+    const executor = criarExecutorSandbox({
+      worktree: wt, binarioSandbox: bin, shellDoVerify: shell,
+      executarSupervisor: () => ({ status: 0,
+        stdout: JSON.stringify({ code: 0, stdout: '', stderr: '', failure: null, cleanupComplete: true }), stderr: '' }),
+    });
+    try {
+      fs.renameSync(bin, bin + '.original');
+      fs.writeFileSync(bin, '#!/bin/sh\n', { mode: 0o700 });
+      assert.throws(() => executor.executar('identidade', 'true', wt), /binário do executor sandbox mudou/);
+    } finally { executor.fechar(); }
+  } finally { fs.rmSync(base, { recursive: true, force: true }); }
+});
+
 function fixture() {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-test-sandbox-'));
   const wt = path.join(base, 'wt'); fs.mkdirSync(wt); fs.mkdirSync(path.join(wt, '.git'));

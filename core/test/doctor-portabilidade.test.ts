@@ -1,5 +1,6 @@
 import { strict as assert } from 'node:assert';
-import { test } from 'node:test';
+import { mock, test } from 'node:test';
+const childProcess: typeof import('node:child_process') = require('node:child_process');
 import { checarShellDoVerify, checarTravaPortatil, sondarTravaDoNucleo } from '../src/doctor';
 import { comLocale, nomeDoCheck } from '../src/locale';
 import { tomarConducao } from '../src/conducao';
@@ -14,6 +15,15 @@ test('doctor bloqueia quando a trava portátil não pode ser exercitada', () => 
   assert.equal(semFlock.nivel, 'fail'); assert.match(semFlock.detalhe, /flock ausente/);
   assert.match(semFlock.correcao ?? '', /instale \/usr\/bin\/flock/);
   assert.equal(checarTravaPortatil(() => sondarTravaDoNucleo('darwin')).nivel, 'ok');
+});
+
+test('sonda Linux executa o flock antes de declarar a trava pronta', () => {
+  const chamada = mock.method(childProcess, 'spawnSync', () => ({ pid: 1, output: [null, Buffer.alloc(0), Buffer.alloc(0)],
+    stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), status: 17, signal: null, error: undefined }));
+  try {
+    assert.throws(() => sondarTravaDoNucleo('linux', () => true), /flock saiu 17/);
+    assert.equal(chamada.mock.callCount(), 1);
+  } finally { chamada.mock.restore(); }
 });
 
 test('doctor bloqueia shell ausente, avisa Bash antigo e aprova Bash atual', () => {
