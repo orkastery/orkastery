@@ -1,0 +1,294 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-achados0611",
+  "branch": "ork/ork-achados0611-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-achados0611",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-040-estado-de-conta-compartilhado.md",
+      "alegacao": "A RM-040 registra o achado de autenticação de 26/11/2026 e permanece citada no índice.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "grep -F '[RM-040](RM-040-estado-de-conta-compartilhado.md)' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-11-26T12:55:56.936Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C2",
+      "thread": "ork-achados0611",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-058-modo-noctum.md",
+      "alegacao": "A RM-058 descreve o arco como ausência longa, sem duração na frase ou no público, e permanece não anunciada e indexada.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "grep -F '[RM-058](RM-058-modo-noctum.md)' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-11-26T12:55:57.042Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C3",
+      "thread": "ork-achados0611",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-063-fabrica-que-nao-para.md",
+      "alegacao": "A RM-063 incorpora o encerramento do sandbox e impede recomendação prematura de SHIP, com evidência datada e índice.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "grep -F '[RM-063](RM-063-fabrica-que-nao-para.md)' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-11-26T12:55:57.133Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C4",
+      "thread": "ork-achados0611",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-075-fim-de-fase-lido-pelo-resultado.md",
+      "alegacao": "A RM-075 incorpora a classificação por ledger e artefato e a recusa de retry superado, com evidência datada e índice.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "grep -F '[RM-075](RM-075-fim-de-fase-lido-pelo-resultado.md)' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-11-26T12:55:57.266Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C5",
+      "thread": "ork-achados0611",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-077-revisao-independente-pelo-construtor-do-head.md",
+      "alegacao": "A RM-077 exige parecer de GO ou GO-FIX no SHA revisado e CHECK somente leitura, com dependência da RM-089 F7 e índice.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "grep -F '[RM-077](RM-077-revisao-independente-pelo-construtor-do-head.md)' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-11-26T12:55:57.408Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C6",
+      "thread": "ork-achados0611",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-079-claims-que-a-correcao-passa.md",
+      "alegacao": "A RM-079 incorpora veredito canônico, pedido contextual de retirada e autoria efetiva, com evidência datada e índice.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "grep -F '[RM-079](RM-079-claims-que-a-correcao-passa.md)' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-11-26T12:55:57.482Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C7",
+      "thread": "ork-achados0611",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md",
+      "alegacao": "A RM-092 prende o consumo da autorização ao efeito e preserva o achado anterior do mesmo SHA, com evidência datada e índice.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "grep -F '[RM-092](RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md)' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-11-26T12:55:57.550Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C8",
+      "thread": "ork-achados0611",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-101-commit-do-bundle-de-ci-pelo-mcp.md",
+      "alegacao": "A RM-101 registra em Discovery o commit do bundle de CI pelo MCP, com owner da RM-097, evidência datada e índice.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "grep -F '[RM-101](RM-101-commit-do-bundle-de-ci-pelo-mcp.md)' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-11-26T12:55:57.647Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C9",
+      "thread": "ork-achados0611",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-102-security-scan-estavel-com-relatorio-grande.md",
+      "alegacao": "A RM-102 registra em Discovery a estabilidade do security scan sem duplicar a resolução de tipos da RM-097, com evidência datada e índice.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "grep -F '[RM-102](RM-102-security-scan-estavel-com-relatorio-grande.md)' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-11-26T12:55:57.717Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C10",
+      "thread": "ork-achados0611",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice do roadmap reflete as datas dos itens atualizados e inclui RM-101 e RM-102 com seus estados iniciais.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "grep -E '\\[RM-10[12]\\]' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-11-26T12:56:14.197Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ],
+  "recibo": {
+    "contrato": "ork.recibo-prova/v1",
+    "head": "3ca3387dbe97a8b51cefd11c5afb6dc821bcfee0",
+    "sha256": "7681aa7852876af59f06d3fe92cabf9aa6c70feab8db0bdfb8d693d4cf4aaa98"
+  }
+}
