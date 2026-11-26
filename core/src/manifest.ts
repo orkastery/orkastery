@@ -7,7 +7,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { lerYaml, ValorYaml } from './yaml';
 import { ConfigDeEmbedding, ConfigDoAgile, Manifesto, MarcacaoDeRelogio, Modo, PoliticaDeReciboCi, SelecaoNativa,
-  type ConfiguracaoPublicaDoTransporteCi } from './types';
+  type ConfiguracaoDaFabricaCi, type ConfiguracaoPublicaDoTransporteCi } from './types';
 import { modoAposentado, ORDEM_DOS_MODOS, parseModo, substitutosVivos } from './modos';
 import { ORDEM_DOS_RUNTIMES, RUNTIME_PADRAO, runtimeConhecido, runtimeDoManifesto } from './runtimes';
 import { SANDBOX_PADRAO, SANDBOXES_DO_CODEX } from './adapters/codex';
@@ -672,6 +672,31 @@ function lerTransporteDaExcecao(v: ValorYaml | undefined,
     ? { contrato, origem, audiencia, cliente: { versao, sha256 } } : undefined;
 }
 
+/** D55: bloco público fechado, sem origem, token ou qualquer outro segredo. */
+function lerFabricaCi(v: ValorYaml | undefined, erros: string[]): ConfiguracaoDaFabricaCi | undefined {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== 'object' || Array.isArray(v)) {
+    erros.push('ci.fabrica precisa ser um mapa');
+    return undefined;
+  }
+  const permitidas = ['github_app_id', 'gitlab_user_id'];
+  for (const chave of Object.keys(v)) if (!permitidas.includes(chave)) erros.push(`ci.fabrica.${chave} desconhecida`);
+  const inteiro = (chave: 'github_app_id' | 'gitlab_user_id'): number | undefined => {
+    const valor = v[chave];
+    if (valor === undefined || valor === null) return undefined;
+    if (typeof valor !== 'number' || !Number.isSafeInteger(valor) || valor <= 0) {
+      erros.push(`ci.fabrica.${chave} precisa ser um inteiro positivo`);
+      return undefined;
+    }
+    return valor;
+  };
+  const github = inteiro('github_app_id'), gitlab = inteiro('gitlab_user_id');
+  if (github === undefined && gitlab === undefined) erros.push('ci.fabrica precisa declarar github_app_id ou gitlab_user_id');
+  if (Object.keys(v).some((chave) => !permitidas.includes(chave)) || (github === undefined && gitlab === undefined)) return undefined;
+  return { ...(github === undefined ? {} : { github_app_id: github }),
+    ...(gitlab === undefined ? {} : { gitlab_user_id: gitlab }) };
+}
+
 /** Mesmo contrato na leitura do YAML e nos consumidores de manifesto em memoria. */
 export function validarOptInPlaybook(valor: unknown): boolean {
   if (valor === undefined) return false;
@@ -871,6 +896,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
   const produtores = lerProdutores(ci.produtor, erros);
   const contextos = lerContextos(ci.contexts, erros);
   const transporteDaExcecao = lerTransporteDaExcecao(ci.transporte_excecao, erros);
+  const fabricaCi = lerFabricaCi(ci.fabrica, erros);
   let politicaDeRecibo: PoliticaDeReciboCi | undefined;
   if (ci.politica_recibo !== undefined && ci.politica_recibo !== null) {
     const valor = typeof ci.politica_recibo === 'string' ? ci.politica_recibo.trim() : '';
@@ -1075,6 +1101,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
       required_for_ship: booleano(ci.required_for_ship, false),
       context: texto(ci.context, 'ork-verify'),
       ...(politicaDeRecibo ? { politica_recibo: politicaDeRecibo } : {}),
+      ...(fabricaCi ? { fabrica: fabricaCi } : {}),
       ...(transporteDaExcecao ? { transporte_excecao: transporteDaExcecao } : {}),
       ...(contextos ? { contexts: contextos } : {}),
       command: ci.command === null || ci.command === undefined ? undefined : texto(ci.command, ''),
@@ -1170,6 +1197,7 @@ export interface ComandosDoManifesto {
   /** RM-089 F6: documento bruto lido somente da ref de destino protegida; o checkout fonte nunca o fornece. */
   excecaoRecibo: Record<string, ValorYaml> | undefined;
   transporteExcecao: ConfiguracaoPublicaDoTransporteCi | undefined;
+  fabricaCi: ConfiguracaoDaFabricaCi | undefined;
 }
 
 /**
@@ -1191,12 +1219,13 @@ export function comandosDoTextoDoManifesto(bruto: string): ComandosDoManifesto |
   const excecaoRecibo = ci.excecao_recibo !== null && typeof ci.excecao_recibo === 'object' && !Array.isArray(ci.excecao_recibo)
     ? mapa(ci.excecao_recibo) : undefined;
   const transporteExcecao = lerTransporteDaExcecao(ci.transporte_excecao, erros);
+  const fabricaCi = lerFabricaCi(ci.fabrica, erros);
   if (erros.length > 0) return null;
   return { typecheck: opcional(verify.typecheck), build: opcional(verify.build), test: opcional(verify.test),
     securityScan: opcional(verify.security_scan), preparo: opcional(verify.preparo),
     timeoutMs: prazos.timeout_ms, timeoutMsPorComando: prazos.timeout_ms_por_comando,
     checkMode: resolverModo(check?.mode).modo,
-    ciCommand: opcional(ci.command), excecaoRecibo, transporteExcecao };
+    ciCommand: opcional(ci.command), excecaoRecibo, transporteExcecao, fabricaCi };
 }
 
 /** Documento da policy F6 vindo do manifesto da target; a validação fechada mora em excecao-recibo.ts. */
@@ -1207,6 +1236,11 @@ export function excecaoDeReciboDoTextoDoManifesto(bruto: string): Record<string,
 /** Configuração F7 da target protegida; `null` mantém ausência distinta de documento inválido. */
 export function transporteDaExcecaoDoTextoDoManifesto(bruto: string): ConfiguracaoPublicaDoTransporteCi | null {
   return comandosDoTextoDoManifesto(bruto)?.transporteExcecao ?? null;
+}
+
+/** Configuração da fábrica lida do texto da branch de destino, nunca do checkout fonte. */
+export function fabricaCiDoTextoDoManifesto(bruto: string): ConfiguracaoDaFabricaCi | null {
+  return comandosDoTextoDoManifesto(bruto)?.fabricaCi ?? null;
 }
 
 /** Carrega o manifesto ou encerra com mensagem acionavel (uso nos subcomandos). */

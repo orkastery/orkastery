@@ -173,6 +173,12 @@ export interface RegistroDaSelecaoNativa {
 /** RM-089 F1: intensidade opt-in da política empresarial de recibo no CI. */
 export type PoliticaDeReciboCi = 'observar' | 'avisar' | 'exigir';
 
+/** RM-089 F7: identidade pública da fábrica. Segredos não pertencem ao manifesto. */
+export interface ConfiguracaoDaFabricaCi {
+  github_app_id?: number;
+  gitlab_user_id?: number;
+}
+
 /** RM-089 F7: configuração pública do cliente, lida somente da target protegida. */
 export interface ConfiguracaoPublicaDoTransporteCi {
   contrato: 'ork.excecao-transporte-runner/v1';
@@ -263,6 +269,8 @@ export interface Manifesto {
     context: string;
     /** Ausente preserva integralmente o comportamento anterior do `ork ci run`. */
     politica_recibo?: PoliticaDeReciboCi;
+    /** Lida somente do manifesto da branch de destino pela porta da fábrica. */
+    fabrica?: ConfiguracaoDaFabricaCi;
     /** Ausente mantém a lacuna de transporte explícita; nunca lê configuração do checkout do PR/MR. */
     transporte_excecao?: ConfiguracaoPublicaDoTransporteCi;
     /**
