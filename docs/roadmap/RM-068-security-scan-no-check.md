@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-041]
 owner: Paschoal
-atualizado_em: 2026-11-26T01:06:12-03:00
+atualizado_em: 2026-11-24T23:45:00-03:00
 estado:
   ciclo: Disponível
   documentacao: Em revisão
