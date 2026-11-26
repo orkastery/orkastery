@@ -4,26 +4,8 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.10",
-  "publicadoEm": "2026-11-26T05:54:14.127Z",
+  "publicadoEm": "2026-11-26T05:54:23.596Z",
   "threads": [
-    {
-      "id": "ork-macosportave",
-      "nome": "macos portavel 303 304",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-macosportave-full",
-      "atualizadaEm": "2026-11-26T05:54:13.649Z",
-      "entregue": "854f9ca",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "max",
-      "sessao": null
-    },
     {
       "id": "ork-orkauditestr",
       "nome": "ork-auditestrategv2",
