@@ -18,6 +18,11 @@ test('C128 relê MR com divergência, membros efetivos e mescla com sha', () => 
   const r = avaliarGateGitlabFree(base());
   assert.equal(r.ok, true);
   if (r.ok) assert.deepEqual(r.pedidoDeMerge?.corpo, { sha: H });
+  const corrida = base(); let leituras = 0;
+  Object.defineProperty(corrida, 'head', { get: () => (++leituras < 3 ? H : 'd'.repeat(40)) });
+  const relido = avaliarGateGitlabFree(corrida);
+  assert.equal(relido.ok, true);
+  if (relido.ok) assert.deepEqual(relido.pedidoDeMerge?.corpo, { sha: H });
 });
 
 test('commit status e external status check positivos não autorizam o gate', () => {

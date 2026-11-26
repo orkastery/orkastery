@@ -61,7 +61,7 @@ export function avaliarGateGitlabFree(e: EntradaGitlabFree): ResultadoGateGitlab
   if (e.nivel !== 'exigir') return { ok: true, mesclar: false, diagnosticos, pedidoDeMerge: null };
   if (e.mergeAceito === false) return falha('ci.fabrica.publicacao-recusada', diagnosticos);
   return { ok: true, mesclar: true, diagnosticos,
-    pedidoDeMerge: pedidoDeMergeDaFabricaGitlab(e.projeto, e.iid, e.head) };
+    pedidoDeMerge: pedidoDeMergeDaFabricaGitlab(e.projeto, e.iid, e.headRelido) };
 }
 
 export interface EntradaGitlabPago extends EntradaGitlabFree {
