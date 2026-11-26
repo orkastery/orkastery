@@ -1,0 +1,440 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-orkversao061",
+  "branch": "ork/ork-orkversao061-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-orkversao061",
+      "fase": "GO",
+      "arquivo": "core/package.json",
+      "alegacao": "O pacote @orkastery/cli declara a versão 0.6.11.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const p=require(\"./core/package.json\");if(p.name!==\"@orkastery/cli\"||p.version!==\"0.6.11\")process.exit(1)'"
+      ],
+      "criadoEm": "2026-11-26T08:08:08.491Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C2",
+      "thread": "ork-orkversao061",
+      "fase": "GO",
+      "arquivo": "core/package-lock.json",
+      "alegacao": "O lockfile do core declara 0.6.11 no documento e no pacote raiz.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const p=require(\"./core/package-lock.json\");if(p.version!==\"0.6.11\"||p.packages[\"\"]?.version!==\"0.6.11\")process.exit(1)'"
+      ],
+      "criadoEm": "2026-11-26T08:08:08.538Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C3",
+      "thread": "ork-orkversao061",
+      "fase": "GO",
+      "arquivo": "adapters/openclaw/package.json",
+      "alegacao": "O pacote do adaptador OpenClaw declara a versão 0.6.11.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'if(require(\"./adapters/openclaw/package.json\").version!==\"0.6.11\")process.exit(1)'"
+      ],
+      "criadoEm": "2026-11-26T08:08:08.581Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C4",
+      "thread": "ork-orkversao061",
+      "fase": "GO",
+      "arquivo": "adapters/openclaw/openclaw.plugin.json",
+      "alegacao": "O manifesto do adaptador OpenClaw declara a versão 0.6.11.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'if(require(\"./adapters/openclaw/openclaw.plugin.json\").version!==\"0.6.11\")process.exit(1)'"
+      ],
+      "criadoEm": "2026-11-26T08:08:08.620Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C5",
+      "thread": "ork-orkversao061",
+      "fase": "GO",
+      "arquivo": "marketplaces/claude-code/orkastery/.claude-plugin/plugin.json",
+      "alegacao": "O manifesto do marketplace Claude Code declara a versão 0.6.11.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'if(require(\"./marketplaces/claude-code/orkastery/.claude-plugin/plugin.json\").version!==\"0.6.11\")process.exit(1)'"
+      ],
+      "criadoEm": "2026-11-26T08:08:08.659Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C6",
+      "thread": "ork-orkversao061",
+      "fase": "GO",
+      "arquivo": "marketplaces/codex/orkastery/.codex-plugin/plugin.json",
+      "alegacao": "O manifesto do marketplace Codex declara a versão 0.6.11.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'if(require(\"./marketplaces/codex/orkastery/.codex-plugin/plugin.json\").version!==\"0.6.11\")process.exit(1)'"
+      ],
+      "criadoEm": "2026-11-26T08:08:08.697Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C7",
+      "thread": "ork-orkversao061",
+      "fase": "GO",
+      "arquivo": "templates/gitlab/ork-verify.yml",
+      "alegacao": "O template GitLab usa a versão 0.6.11 do Orkastery.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const s=require(\"node:fs\").readFileSync(\"templates/gitlab/ork-verify.yml\",\"utf8\");if(!s.includes(\"ORK_VERSAO: \\\"0.6.11\\\"\"))process.exit(1)'"
+      ],
+      "criadoEm": "2026-11-26T08:08:08.738Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C8",
+      "thread": "ork-orkversao061",
+      "fase": "GO",
+      "arquivo": "templates/ork-verify/template.yml",
+      "alegacao": "O componente ork-verify oferece 0.6.11 como versão padrão.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const s=require(\"node:fs\").readFileSync(\"templates/ork-verify/template.yml\",\"utf8\");if(!s.includes(\"default: \\\"0.6.11\\\"\"))process.exit(1)'"
+      ],
+      "criadoEm": "2026-11-26T08:08:08.779Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C9",
+      "thread": "ork-orkversao061",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3b-pt-BR.json",
+      "alegacao": "A fixture locale pt-BR F3b acompanha a 0.6.11 nos recibos do adapter install.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/locale-f3b-snapshot.test.js core/dist-test/test/rm089-f6-contrato.test.js"
+      ],
+      "criadoEm": "2026-11-26T08:08:08.820Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C10",
+      "thread": "ork-orkversao061",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG abre a 0.6.11 em 2026-11-26 abaixo de um Não publicado vazio, cobre #302, #299, #303, #304 e a F6 da RM-089, e mantém o #Noctum em desenvolvimento.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const t=require(\"node:fs\").readFileSync(\"CHANGELOG.md\",\"utf8\"),u=t.indexOf(\"## Não publicado\"),r=t.indexOf(\"## [0.6.11] - 2026-11-26\"),p=t.indexOf(\"## [0.6.10]\");const s=t.slice(r,p);if(u<0||r<u||p<r||t.slice(u+\"## Não publicado\".length,r).trim()!==\"\"||![\"#302\",\"#299\",\"#303\",\"#304\",\"F6 da RM-089\",\"O #Noctum segue **em desenvolvimento, não anunciado**.\"].every(x=>s.includes(x)))process.exit(1)'"
+      ],
+      "criadoEm": "2026-11-26T08:08:08.862Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C11",
+      "thread": "ork-orkversao061",
+      "fase": "GO",
+      "arquivo": "core/test/rm089-f6-contrato.test.ts",
+      "alegacao": "O teste da F6 localiza a própria entrada no CHANGELOG mesmo depois da publicação.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/locale-f3b-snapshot.test.js core/dist-test/test/rm089-f6-contrato.test.js"
+      ],
+      "criadoEm": "2026-11-26T08:08:08.913Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C12",
+      "thread": "ork-orkversao061",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-080-saida-completa-e-causa-tipada-no-verify.md",
+      "alegacao": "A RM-080 registra código mesclado no commit do PR #306 e a thread fechada em MASTER.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const s=require(\"node:fs\").readFileSync(\"docs/roadmap/RM-080-saida-completa-e-causa-tipada-no-verify.md\",\"utf8\");if(!s.includes(\"codigo: Mesclado\")||!s.includes(\"commit: 854f9ca\")||!s.includes(\"fase: MASTER\")||!s.includes(\"status: fechada\"))process.exit(1)'"
+      ],
+      "criadoEm": "2026-11-26T08:08:08.956Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C13",
+      "thread": "ork-orkversao061",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-096-nucleo-portatil-no-macos.md",
+      "alegacao": "A RM-096 registra código mesclado no commit do PR #306 e a thread fechada em MASTER.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const s=require(\"node:fs\").readFileSync(\"docs/roadmap/RM-096-nucleo-portatil-no-macos.md\",\"utf8\");if(!s.includes(\"codigo: Mesclado\")||!s.includes(\"commit: 854f9ca\")||!s.includes(\"fase: MASTER\")||!s.includes(\"status: fechada\"))process.exit(1)'"
+      ],
+      "criadoEm": "2026-11-26T08:08:09.006Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C14",
+      "thread": "ork-orkversao061",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-068-security-scan-no-check.md",
+      "alegacao": "A RM-068 preserva o estado publicado do item e registra a fatia da issue #302 entregue pelo PR #305.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const s=require(\"node:fs\").readFileSync(\"docs/roadmap/RM-068-security-scan-no-check.md\",\"utf8\");if(!s.includes(\"codigo: Mesclado\")||!s.includes(\"deploy: Produção\")||!s.includes(\"issue #302\")||!s.includes(\"ork-podmangitine\"))process.exit(1)'"
+      ],
+      "criadoEm": "2026-11-26T08:08:09.061Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C15",
+      "thread": "ork-orkversao061",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-084-sessao-continua-com-muitos-objetos-soltos-do-git.md",
+      "alegacao": "A RM-084 preserva o estado Discovery da iniciativa e registra separadamente a fatia da issue #299 entregue pelo PR #305.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const s=require(\"node:fs\").readFileSync(\"docs/roadmap/RM-084-sessao-continua-com-muitos-objetos-soltos-do-git.md\",\"utf8\");if(!s.includes(\"ciclo: Discovery\")||!s.includes(\"codigo: Não iniciado\")||!s.includes(\"issue #299\")||!s.includes(\"ork-podmangitine\"))process.exit(1)'"
+      ],
+      "criadoEm": "2026-11-26T08:08:09.115Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C16",
+      "thread": "ork-orkversao061",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice do roadmap reflete os estados canônicos de RM-080, RM-096, RM-068 e RM-084.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const s=require(\"node:fs\").readFileSync(\"docs/roadmap/README.md\",\"utf8\");for(const x of [\"RM-080-saida-completa-e-causa-tipada-no-verify.md) | Verify diz a causa e guarda a saída inteira | Em desenvolvimento | Mesclado\",\"RM-096-nucleo-portatil-no-macos.md) | Núcleo portátil no macOS | Em desenvolvimento | Mesclado\",\"RM-068-security-scan-no-check.md) | Security scan no CHECK | Disponível | Mesclado\",\"RM-084-sessao-continua-com-muitos-objetos-soltos-do-git.md) | Sessão continua com muitos objetos soltos do Git | Discovery | Não iniciado\"])if(!s.includes(x))process.exit(1)'"
+      ],
+      "criadoEm": "2026-11-26T08:08:09.156Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ],
+  "recibo": {
+    "contrato": "ork.recibo-prova/v1",
+    "head": "b3ffb251170ec55727a89634bd0f49bc1628e6d6",
+    "sha256": "5fb16eb254eab27721a09a3dc52dc9874ad7a4aeffd6d52193ba5875fe8f0f28"
+  }
+}

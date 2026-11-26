@@ -123,6 +123,23 @@ export function dirTemporario(nome: string): string {
   return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `ork-test-${nome}-`)));
 }
 
+/**
+ * Isola somente as fontes globais de configuração do Git para um arquivo de teste que chama o MCP real.
+ * Cada arquivo do `node --test` roda em processo próprio; a pasta vive até a saída desse processo para
+ * também cobrir workers filhos. O próprio processo de teste deixa de herdar overrides de arquivo
+ * global ou de sistema; o worker MCP já recebe o ambiente mínimo sem nenhuma variável `GIT_*`.
+ * Configuração local continua sendo parte explícita de cada fixture.
+ */
+export function isolarConfiguracaoGlobalDoGit(nome: string): void {
+  const home = dirTemporario(`${nome}-git-home`);
+  process.env.HOME = home;
+  process.env.XDG_CONFIG_HOME = path.join(home, 'xdg');
+  delete process.env.GIT_CONFIG_GLOBAL;
+  delete process.env.GIT_CONFIG_SYSTEM;
+  delete process.env.GIT_CONFIG_NOSYSTEM;
+  process.once('exit', () => fs.rmSync(home, { recursive: true, force: true }));
+}
+
 function configurarGit(dir: string): void {
   exec('git', ['config', 'user.email', 'teste@orkastery.local'], dir);
   exec('git', ['config', 'user.name', 'Teste Orkastery'], dir);

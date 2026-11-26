@@ -52,7 +52,7 @@ ork-verify:
     - if: $CI_COMMIT_BRANCH
   script:
     - |
-      ORK_VERSAO="${ORK_VERSAO:-0.6.10}"
+      ORK_VERSAO="${ORK_VERSAO:-0.6.11}"
       ORK_TRANSPORTE_HABILITADO="${ORK_TRANSPORTE_HABILITADO:-false}"
       if [ "$ORK_TRANSPORTE_HABILITADO" != "true" ]; then
         unset ORK_FABRICA_ID_TOKEN

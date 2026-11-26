@@ -10,15 +10,31 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **Recibo forte e transporte autenticado — F7 (RM-089):** os contratos da fábrica ligam a assinatura do hash canônico do recibo à thread, condução, rodada, CHECK independente e HEAD reobtidos. GitHub e GitLab leem a configuração da target protegida, executam o transporte no `ork ci run --branch` real e mantêm token, prova e capacidade fora do resultado. O pacote publicado passa a embutir a árvore de dependências de produção; as receitas conferem o digest, não executam scripts de instalação e retiram o ID token antes do caminho sem opt-in. Ausência, indisponibilidade e prazo excedido permanecem causas públicas distintas; a exceção F6 não cria nem substitui o recibo forte.
 
+## [0.6.11] - 2026-11-26
+
+A 0.6.11 corrige o security scan e o commit do MCP com configuração Git local (#302 e #299), torna o núcleo portátil no macOS com prova no CI (#303 e #304) e entrega a F6 da RM-089.
+
+O #Noctum segue **em desenvolvimento, não anunciado**.
+
+### Adicionado
+
 - **Adoção de trabalho existente — F6 (RM-089):** `ork adotar` cria a thread e a worktree canônicas no commit da origem sem reescrever a história, preserva os objetos exclusivos, retoma pelo último estado durável e só conclui depois de verify, CHECK independente e recibo do runner no mesmo HEAD.
 
 - **Orientação única de sessão — F6 (RM-089):** Claude Code, Codex, Hermes e OpenClaw consultam a mesma decisão read-only do núcleo quando uma sessão começa fora de thread; cada adapter apenas transporta pelas superfícies que comprova, e instalação, habilitação, confiança e entrega não comprovadas permanecem `não confirmado`.
 
-- **Exceção auditável do recibo — F6 (RM-089):** a dispensa da F5 é separada da exceção coletiva da F2, exige autorização opaca, atores independentes, policy protegida e notificação `delivered`; o recibo assinado não contém metadados do ledger, o núcleo anexa um envelope ligado por ID e hash, e o transporte F7 projeta o par para o HEAD exato por capacidade protegida.
+- **Exceção auditável do recibo — F6 (RM-089):** a dispensa da F5 é separada da exceção coletiva da F2, exige autorização opaca, atores independentes, policy protegida e notificação `delivered`; o recibo assinado não contém metadados do ledger, o núcleo anexa um envelope ligado por ID e hash, e o runner só projeta o par para o HEAD exato por capacidade protegida. O transporte de produção desse par até o runner fica para a F7 da RM-089; até lá, `exigir` continua pedindo o recibo da F5.
 
 ### Alterado
 
 - **Padrão de documentação:** o padrão que o `ork` instala, os READMEs e o `ork docs verificar` descrevem o leitor humano pelo modo de leitura (resposta primeiro, uma ideia por linha, pouco tempo); as regras e os limites não mudam.
+
+### Corrigido
+
+- **Núcleo portátil no macOS ([#303](https://github.com/orkastery/orkastery/issues/303), RM-096):** criação, HITL, condução e fila pesada ganham uma trava portátil baseada em identidade de processo, sem tomada por TTL; o doctor sonda `flock` no Linux e a trava portátil no macOS, e falha fechado quando o mecanismo usado pela plataforma falta. O CI percorre worktree, `ork claims add` e `ork verify` pelo tarball no Linux e no macOS, sem que a proteção atual da `main` exija esses jobs; a publicação no npm depende da prova do macOS. No Linux sem `flock`, condução e doctor falham com a correção de instalar o utilitário. #Noctum continua restrito ao Linux enquanto está em desenvolvimento.
+
+- **Shell e veredito do verify ([#304](https://github.com/orkastery/orkastery/issues/304), RM-080 F0):** verify e CHECK paralelo resolvem Bash por caminhos absolutos controlados, registram caminho e versão e classificam executor indisponível como `verify.sem-veredito`; a sonda da versão e os comandos do verify não repassam `BASH_ENV` nem `ENV`; auditoria sem claim executada não produz veredito, enquanto achado resolvido ou descartado permanece fechado.
+
+- **Security scan e configuração Git local (RM-068 e RM-084; issues #302 e #299):** a sonda do daemon usa `docker info` sem template específico, com cobertura por Docker e por CLI compatível simulado. O relatório produzido pela própria rodada separa achado novo de cobertura ausente: achado ou erro sem relatório atual continua em `verify.failed` ou `verify.regression`, qualquer que seja a baseline; somente cobertura ausente emite `security.scan-unscanned`, não vira regressão contra baseline verde e só admite autorização nominal do SHIP quando é o único bloqueio. A resposta b do pedido tipado vale como autorização nominal no CLI e no `ork_ship`, vinculada ao SHA e às categorias apresentadas. `ork_git_status` e `ork_git_commit` aceitam somente configurações passivas limitadas; recusas informam chave mascarada e escopo sem expor valores, operações de rede permanecem estritas e os testes MCP-real isolam a configuração global do Git.
 
 ## [0.6.10] - 2026-11-12
 

@@ -1382,7 +1382,7 @@ test('AG43: o item do grupo com argv roda sem shell: o argumento chega literal, 
   assert.deepEqual(argvDoItem(comArgv, false, false), comArgv.argv);
   assert.ok(!argvDoItem(comArgv, true, false).includes('-c'), 'sem shell');
   assert.deepEqual(argvDoItem({ nome: 'c', comando: 'echo x', cwd: os.tmpdir(), prazoMs: 1000 }, false, false),
-    ['/usr/bin/bash', '--noprofile', '--norc', '-c', 'echo x']);
+    ['/bin/bash', '--noprofile', '--norc', '-c', 'echo x']);
   const [r, c] = rodarEmParalelo([comArgv, { nome: 'shell', comando: 'echo $((1 + 1))', cwd: os.tmpdir(), prazoMs: 30_000 }]);
   assert.equal(r.ok, true, r.stderr);
   assert.equal(r.stdout, literal, 'nada expandido nem quebrado pelo shell');

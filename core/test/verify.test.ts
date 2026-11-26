@@ -20,8 +20,10 @@ import { lerLedger } from '../src/ledger';
 import { rodarFase } from '../src/phase';
 import { avaliarPolicies, policiesDesconhecidas } from '../src/policies';
 import { dirThread, lerThread, novaThread } from '../src/thread';
-import { gravarBaseline, verificar } from '../src/verify';
+import { evidenciaDoSecurityScan, gravarBaseline, julgarResultadoDoVerify, verificar } from '../src/verify';
 import { projetoTemporario } from './apoio';
+import { raizDoEstado } from '../src/estado-thread';
+import { reportDir, writeReport } from '../src/security-scan/report';
 
 test('claim verdadeira passa e claim falsa reprova, com motivo tipado', () => {
   const projeto = projetoTemporario('verify-claims');
@@ -164,6 +166,99 @@ test('a baseline separa regressao de divida pre-existente', () => {
   assert.equal(limpo.ok, true);
 
   projeto.limpar();
+});
+
+test('A9: security_scan sem explicação da rodada fica em verify.failed mesmo com baseline vermelha', () => {
+  const scan = {
+    nome: 'security_scan', comando: 'ork security-scan', ok: false, code: 1, resumo: '', causa: 'exit' as const,
+    executado: true,
+  };
+  const r = julgarResultadoDoVerify({ claims: [], comandos: [scan], baseline: {
+    commit: 'a'.repeat(40), gravadaEm: '2026-11-25T00:00:00.000Z', comandos: [{ ...scan }],
+  } });
+  assert.deepEqual(r.preExistentes, []);
+  assert.deepEqual(r.falhasSemBaseline.map((c) => c.nome), ['security_scan']);
+  assert.deepEqual(r.motivos, ['verify.failed']);
+  assert.equal(r.ok, false);
+});
+
+test('security_scan com cobertura ausente provada preserva o motivo tipado com baseline vermelha', () => {
+  const scan = {
+    nome: 'security_scan', comando: 'ork security-scan', ok: false, code: 1, resumo: '', causa: 'exit' as const,
+    executado: true,
+  };
+  const r = julgarResultadoDoVerify({ claims: [], comandos: [scan], baseline: {
+    commit: 'a'.repeat(40), gravadaEm: '2026-11-25T00:00:00.000Z', comandos: [{ ...scan }],
+  }, securityScanSemCobertura: { comando: scan.comando, categorias: ['secret', 'sast'] },
+  securityScanRelatorioDaRodada: true });
+  assert.deepEqual(r.preExistentes.map((c) => c.nome), ['security_scan']);
+  assert.deepEqual(r.motivos, ['security.scan-unscanned']);
+  assert.equal(r.ok, false);
+});
+
+test('security_scan sem cobertura e sem baseline usa somente o motivo tipado próprio', () => {
+  const scan = {
+    nome: 'security_scan', comando: 'ork security-scan', ok: false, code: 1, resumo: '', causa: 'exit' as const,
+    executado: true,
+  };
+  const r = julgarResultadoDoVerify({ claims: [], comandos: [scan], baseline: null,
+    securityScanSemCobertura: { comando: scan.comando, categorias: ['secret', 'sast'] } });
+  assert.deepEqual(r.falhasSemBaseline.map((c) => c.nome), ['security_scan'], 'a ausência da baseline continua factual');
+  assert.deepEqual(r.motivos, ['security.scan-unscanned'], 'cobertura ausente não vira verify.failed');
+  assert.equal(r.ok, false);
+});
+
+test('evidência do scan ignora relatório anterior do mesmo SHA e relatório com head diferente', () => {
+  const projeto = projetoTemporario('verify-scan-relatorio-da-rodada');
+  const esperado = 'a'.repeat(40), outro = 'b'.repeat(40);
+  const scan = { nome: 'security_scan', comando: 'ork security-scan', ok: false, code: 1, resumo: '',
+    causa: 'exit' as const, executado: true };
+  const severidades = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+  const relatorio = (head: string, generatedAt: string) => ({
+    schema: 'ork.security-scan/v1' as const, base: outro, head, generatedAt, stacks: ['js' as const], excluded: [], findings: [],
+    tools: [{ name: 'gitleaks', category: 'secret' as const, version: '1', executor: null, state: 'unavailable' as const,
+      reason: 'docker-missing', counts: { new: { ...severidades }, existing: { ...severidades }, dismissed: { ...severidades } } }],
+  });
+  try {
+    const estado = raizDoEstado(projeto.dir);
+    writeReport(estado, relatorio(esperado, '2026-11-25T00:00:00.000Z'));
+    const anterior = evidenciaDoSecurityScan(projeto.dir, esperado, [scan], Date.parse('2026-11-25T01:00:00.000Z'));
+    assert.deepEqual(anterior, { coberturaAusente: null, achadoNovoNoLaco: false, relatorioDaRodada: false });
+
+    const divergente = writeReport(estado, relatorio(outro, '2099-11-25T00:00:00.000Z'));
+    const destino = reportDir(estado, esperado);
+    fs.mkdirSync(destino, { recursive: true });
+    fs.copyFileSync(divergente.json, path.join(destino, 'report.json'));
+    const deOutroHead = evidenciaDoSecurityScan(projeto.dir, esperado, [scan], 0);
+    assert.deepEqual(deOutroHead, { coberturaAusente: null, achadoNovoNoLaco: false, relatorioDaRodada: false });
+  } finally { projeto.limpar(); }
+});
+
+test('security_scan sem cobertura depois de baseline verde não vira regressão', () => {
+  const scan = {
+    nome: 'security_scan', comando: 'ork security-scan', ok: false, code: 1, resumo: '', causa: 'exit' as const,
+    executado: true,
+  };
+  const r = julgarResultadoDoVerify({ claims: [], comandos: [scan], baseline: {
+    commit: 'a'.repeat(40), gravadaEm: '2026-11-25T00:00:00.000Z', comandos: [{ ...scan, ok: true, code: 0 }],
+  }, securityScanSemCobertura: { comando: scan.comando, categorias: ['sast'] } });
+  assert.deepEqual(r.regressoes, []);
+  assert.deepEqual(r.motivos, ['security.scan-unscanned']);
+  assert.equal(r.ok, false);
+});
+
+test('achado novo do security_scan nunca vira dívida preexistente', () => {
+  const scan = {
+    nome: 'security_scan', comando: 'ork security-scan', ok: false, code: 1, resumo: '', causa: 'exit' as const,
+    executado: true,
+  };
+  const r = julgarResultadoDoVerify({ claims: [], comandos: [scan], baseline: {
+    commit: 'a'.repeat(40), gravadaEm: '2026-11-25T00:00:00.000Z', comandos: [{ ...scan }],
+  }, securityScanComAchadoNovo: true });
+  assert.deepEqual(r.preExistentes, []);
+  assert.deepEqual(r.regressoes.map((c) => c.nome), ['security_scan']);
+  assert.deepEqual(r.motivos, ['verify.regression']);
+  assert.equal(r.ok, false);
 });
 
 test('baseline recusa comando inexistente em vez de grava-lo como divida pre-existente', () => {

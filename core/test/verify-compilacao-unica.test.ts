@@ -48,6 +48,19 @@ test('o preparo roda UMA vez para N claims, e cada claim ainda roda o proprio co
   } finally { c.limpar(); p.limpar(); }
 });
 
+test('recibo de claim sustentada identifica o shell que executou cada comando', () => {
+  const p = projetoTemporario('verify-shell-recibo');
+  try {
+    const { thread: t } = novaThread(p.carregado, { nome: 'shell no recibo', modo: 'auto' });
+    adicionarClaim(p.dir, t.id, { arquivo: 'README.md', alegacao: 'README existe', verificar: ['test -f README.md'] });
+    const r = verificar(p.carregado, t.id, { soClaims: true });
+    assert.equal(r.ok, true, r.motivos.join(','));
+    const evento = lerLedger(dirThread(p.dir, t.id)).filter((e) => e.tipo === 'verify_run').at(-1)!;
+    const claim = (evento.claims as Array<Record<string, unknown>>)[0];
+    assert.deepEqual(claim.shell, [r.claims[0].execucoes[0].shell]);
+  } finally { p.limpar(); }
+});
+
 test('produto alterado entre o preparo e o fim da rodada invalida o veredito, mesmo com toda claim passando', () => {
   const p = projetoTemporario('verify-preparo-alterado');
   try {

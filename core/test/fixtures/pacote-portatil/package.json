@@ -1,0 +1,8 @@
+{
+  "name": "portable-package-proof",
+  "private": true,
+  "scripts": {
+    "build": "node -e \"process.exit(0)\"",
+    "test": "node -e \"process.exit(0)\""
+  }
+}

@@ -193,7 +193,8 @@ test('PN14: workflow preserva as guardas e publica somente com a saída validada
   assert.doesNotMatch(job.slice(comandoDaDecisao, publish), /latest|\|\||\?\?/, 'não existe fallback para latest');
   assert.match(workflow, /tags: \['v\*'\]/, 'o gatilho v* permanece');
   assert.match(workflow, /permissions:\n  contents: read\n  id-token: write/, 'o Trusted Publishing permanece');
-  assert.match(job, /needs: provar-grafo/, 'a prova do grafo permanece como dependência');
+  assert.match(job, /needs: \[provar-grafo, provar-portabilidade-macos\]/,
+    'as provas do grafo e da portabilidade no macOS permanecem como dependências');
   assert.match(job, /registry-url: 'https:\/\/registry\.npmjs\.org'/, 'o registry permanece');
   assert.match(job, /run: npm install -g npm@latest/, 'npm@latest permanece');
   assert.match(job, /run: git merge-base --is-ancestor "\$GITHUB_SHA" origin\/main/, 'a tag continua presa à main');

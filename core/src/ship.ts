@@ -19,7 +19,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { aprovacoesHumanas, registrarGateBloqueado, registrarGateLiberado } from './gates';
+import { aprovacoesHumanas, reciboHumanoConfere, registrarGateBloqueado, registrarGateLiberado } from './gates';
 import { adquirirRegiao, esperandoPor, liberar, leasesColidentes, LEASE_MAIN_TREE } from './leases';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { dirEstado, ManifestoCarregado } from './manifest';
@@ -44,6 +44,8 @@ import { ErroDoCatalogo, Mensagens, msg, remontar, textoDoCatalogo } from './loc
 import { guardaDaThread, MotivoDaGuarda } from './noctum-guarda';
 import { CONTRATO_DO_RECIBO_DE_PROVA } from './recibo-prova';
 import type { ResultadoPreflightEmpresa } from './rede-empresa-preflight';
+import { motivoDoPedido, PedidoHitlQualquer, validarPedidoHitl } from './hitl-contract';
+import { evidenciaDoPedidoSemScan, respostaBSemScanAindaVale } from './hitl-gates';
 
 export interface OpcoesShip {
   /** Revalidação interna confiável; nunca exposta pela CLI/MCP como argumento. */
@@ -177,7 +179,7 @@ export function commitQueIncorporou(raiz: string, shaDe: string, ponta: string, 
   if (shaDe === ponta) return shaDe;
   // `passos` recebe os comandos que de fato rodaram, na ordem: e a evidencia do ship (sugestao da conferencia da rodada 2).
   const curto = (sha: string) => sha.slice(0, 8);
-  // As listas crescem com o historico entre a branch e a ponta: o buffer vai alem do 1 MiB padrao do spawnSync.
+  // As listas crescem com o historico entre a branch e a ponta; o buffer explicito preserva historicos longos.
   const listar = (args: string[]): string[] | null => {
     passos.push(`git ${args.map((a) => a.replace(/^([0-9a-f]{40,64})\.\.([0-9a-f]{40,64})$/, (_, x, y) => `${curto(x)}..${curto(y)}`)).join(' ')}`);
     const r = spawnSync('git', args, { cwd: raiz, encoding: 'utf8', timeout: 120000, maxBuffer: 256 * 1024 * 1024 });
@@ -514,6 +516,30 @@ export function unscannedCategories(carregado: ManifestoCarregado, sha: string):
   return [...new Set(missing)].sort();
 }
 
+/** A resposta b do pedido tipado vale como a autorização nominal do mesmo SHA e categorias. */
+function autorizacaoRespondidaSemScan(
+  raiz: string,
+  threadId: string,
+  sha: string,
+  categorias: readonly Category[]
+): { por: string; pedidoId: string } | null {
+  const eventos = lerLedger(dirThread(raiz, threadId));
+  const solicitado = eventos.filter(e => e.tipo === 'hitl_requested' &&
+    motivoDoPedido(e.pedido as PedidoHitlQualquer) === 'security.scan-unscanned').at(-1);
+  const pedido = solicitado?.pedido as PedidoHitlQualquer | undefined;
+  try { validarPedidoHitl(pedido); } catch { return null; }
+  const evidencia = evidenciaDoPedidoSemScan(pedido);
+  const esperadas = [...categorias].sort();
+  if (!evidencia || evidencia.sha !== sha || evidencia.categorias.length !== esperadas.length ||
+      !evidencia.categorias.every((categoria, i) => categoria === esperadas[i])) return null;
+  const evento = eventos.filter(e => e.tipo === TIPOS_DE_EVENTO.pausaHumana &&
+    e.pedidoId === pedido.id).at(-1);
+  if (!evento || evento.sobre !== 'escalacao:security.scan-unscanned' || evento.opcao !== 2 ||
+      evento.source !== 'human' || typeof evento.autorizadoPor !== 'string' ||
+      !reciboHumanoConfere(raiz, threadId, evento) || !respostaBSemScanAindaVale(eventos, pedido)) return null;
+  return { por: evento.autorizadoPor.trim(), pedidoId: pedido.id };
+}
+
 /**
  * Grava `rollback_done` quando a reversao e nova, e devolve o que encontrou.
  *
@@ -679,13 +705,21 @@ export function ship(
   const verificacao = verificar(carregado, threadId, { executor: opcoes.executorVerify,
     conducao: { filaPesada: { ...opcoes.avisoDaFilaPesada, esperarMs: opcoes.esperarFilaPesadaMs } } });
   r.verificacao = resultadoVerifyRedigido(verificacao);
-  if (!verificacaoCompletaParaShip(verificacao)) {
+  // O mock de teste dos leases devolve apenas `{ ok }`; trate a ausência como a lista vazia que um
+  // verify verde produziria, sem afrouxar nenhum motivo presente no resultado real.
+  const motivosDoVerify = verificacao.motivos ?? [];
+  const motivosBloqueantesDoVerify = motivosDoVerify.filter((motivo) => motivo !== 'claims.unverifiable');
+  // A19: o verify continua vermelho e registrado. Somente a falta de cobertura segue ate a segunda
+  // guarda do SHIP, que exige `--allow-unscanned` e grava quem autorizou; qualquer outro motivo para aqui.
+  const somenteCoberturaAusente = !verificacao.parcial && motivosBloqueantesDoVerify.length === 1 &&
+    motivosBloqueantesDoVerify[0] === 'security.scan-unscanned';
+  if (!verificacaoCompletaParaShip(verificacao) && !somenteCoberturaAusente) {
     const motivo = (verificacao.parcial ? 'verify.failed'
-      : verificacao.motivos.find((m) => m !== 'claims.unverifiable')) as MotivoGate;
+      : motivosDoVerify.find((m) => m !== 'claims.unverifiable')) as MotivoGate;
     return bloquear(
       motivo,
       textoDoCatalogo((m) => m.ship.verificacaoReprovou(verificacao.commit,
-        verificacao.parcial ? 'verify.parcial' : verificacao.motivos.join(', '))),
+        verificacao.parcial ? 'verify.parcial' : motivosDoVerify.join(', '))),
       textoDoCatalogo((m) => m.ship.rodeVerify(threadId))
     );
   }
@@ -738,7 +772,9 @@ export function ship(
   const naoVarridas = unscannedCategories(carregado, shaDe);
   let autorizariaSemScan: string | null = null;
   if (naoVarridas.length > 0) {
-    const quem = opcoes.allowUnscanned?.trim();
+    const respondida = autorizacaoRespondidaSemScan(raiz, threadId, shaDe, naoVarridas);
+    const pelaFlag = opcoes.allowUnscanned?.trim();
+    const quem = pelaFlag || respondida?.por;
     if (!quem) {
       return bloquear(
         'human.pending',
@@ -748,7 +784,8 @@ export function ship(
     }
     // O ensaio nao grava a autorizacao: so diz, nos passos, o que o ship real gravaria.
     if (r.dryRun) autorizariaSemScan = textoDoCatalogo((m) => m.ship.passoAutorizariaSemScan(quem, naoVarridas.join(', '), shaDe));
-    else registrar(dir, threadId, TIPOS_DE_EVENTO.entregaSemScanAutorizada, { por: quem, categorias: naoVarridas, sha: shaDe });
+    else registrar(dir, threadId, TIPOS_DE_EVENTO.entregaSemScanAutorizada, { por: quem, categorias: naoVarridas, sha: shaDe,
+      ...(pelaFlag ? { origem: 'flag' } : { pedidoId: respondida!.pedidoId, origem: 'resposta-b' }) });
   }
 
   // 4. Lease `main-tree`: so uma thread mergeia por vez.

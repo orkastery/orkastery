@@ -83,6 +83,11 @@ runtime despacha pelo ambiente do processo, como antes da I-33. A superfície MC
 não existe neste ciclo: o `add` é interativo e local, e a leitura de estado já vem do
 `ork_observe`. Nos hosts de superfície CLI (Hermes, OpenClaw), a paridade é por estes comandos.
 
+Os checks "trava portátil" e "shell do verify" também são gates. No Linux, o primeiro adquire e
+libera `flock`, que é o mecanismo usado pelo núcleo; no macOS, adquire e libera a trava por
+identidade de processo. O segundo mede Bash somente em `/bin/bash` ou `/usr/bin/bash`. Mecanismo
+de trava ausente ou nenhum desses shells disponível reprova o doctor.
+
 A troca automática entre perfis do **mesmo** runtime obedece ao bloco `runtime_profiles` do
 `orkastery.yaml` (D14, D16). Só booleano vale direto (N2): texto ou número que diz sim ou não
 sem ambiguidade (`off`, `"false"`, `0`, `"no"`, `nao`, `on`, `"true"`, `1`, `sim`) vale o que
@@ -311,9 +316,9 @@ há, `1` quando o runtime não respondeu).
 
 Sai 1 quando há achado `new` no laço (todo segredo novo; dependência, SAST, IaC e workflow novos em `high` ou
 `critical`; qualidade e licença nunca entram) e quando uma dispensa ou a config de `.ork-security/` é inválida (a
-mensagem nomeia a entrada; nada é varrido). Com `ORK_SECURITY_SCAN_REQUIRED=1`, ferramenta de categoria do laço
-`unavailable` ou `failed` também sai 1; sem ela, só aparece no relatório. Ferramenta indisponível ou que falhou nunca
-conta como limpa. Dois motivos são declarados no relatório sem contar como categoria não varrida, nem aqui nem no gate do
+mensagem nomeia a entrada; nada é varrido). Ferramenta de categoria do laço `unavailable` ou `failed` também sai 1 por
+padrão. `ORK_SECURITY_SCAN_REQUIRED=1` continua aceito como marcador de compatibilidade, sem mudar essa regra segura.
+Ferramenta indisponível ou que falhou nunca conta como limpa. Dois motivos são declarados no relatório sem contar como categoria não varrida, nem aqui nem no gate do
 `ork ship`: `unsupported-ci` (`.gitlab-ci.yml` sem workflow do GitHub Actions: o GitLab CI fica sem varredura, só
 declarado) e `no-requirements-file` (o `pip-audit` sem `requirements*.txt`), este só quando outra ferramenta da mesma
 categoria rodou. `ORK_SECURITY_SCAN_DEADLINE_MS` limita a rodada inteira (cada ferramenta recebe o que resta do prazo);
@@ -329,6 +334,21 @@ nível `error` deixa a ferramenta `failed`.
 No manifesto, `verify.security_scan` declara o comando que o `ork verify` roda (por exemplo `ork security-scan`), e
 `verify.timeout_ms_por_comando.security_scan` dá o prazo dele (o `ork init` grava 900000 junto da chave), que vale
 também para a claim cujo `--verificar` é esse mesmo comando. Sem `verify.security_scan`, nada muda.
+
+### Configuração Git aceita pelo MCP local
+
+`ork_git_status` e `ork_git_commit` mantêm uma lista positiva. Além dos metadados passivos já aceitos pelo perfil,
+o modo local aceita `branch.<nome>.vscode-merge-base` com texto sem controle, `core.compression` entre `-1` e `9` e
+`pull.rebase` com `true`, `false` ou `merges`. Como essas duas operações não abrem transporte HTTP, elas também
+aceitam `http.postBuffer` como inteiro não negativo, com sufixo opcional `k`, `m` ou `g`;
+`http.lowSpeedLimit` e `http.lowSpeedTime` como inteiros não negativos; e `http.version` como `HTTP/1.1` ou
+`HTTP/2`. O perfil do SHIP continua estrito e recusa essas chaves HTTP.
+
+Configuração fora da lista e valor fora do domínio usam a recusa
+`mcp.git.execution-profile.unsupported: configuracao preservada (<chave-mascarada>, <escopo>)`. Chave sem valor
+segue a mesma lista positiva: é aceita quando a classe documentada admite o valor vazio e recusada fora dela. A chave
+sem subseção conserva seção e variável; com subseção, o formato é `secao.<subsecao>.variavel`. A subseção e o valor
+nunca aparecem, inclusive quando a chave é longa. O escopo é `system`, `global`, `local`, `worktree` ou `command`.
 
 ## Verdade: claims, verify e gates
 
@@ -762,7 +782,7 @@ Sai diferente de zero em qualquer falha. Cenários: `fx-happy`, `fx-hallucinatio
 | `ork audit finding add <rodada> --regra R --titulo T` | Registra um achado com evidência, claim e proposta |
 | ↳ opções | `--arquivo caminho:linha --impacto I --fix F --estimativa E` |
 | ↳ opções | `[--severidade critico\|maior\|menor] [--irreversivel "<passo>"] [--verificar "<comando>"]` |
-| `ork audit verify <rodada>` | Reexecuta as claims dos achados. **Auditor sem self-report** |
+| `ork audit verify <rodada>` | Reexecuta as claims dos achados. Sem comando executado, inclusive com achado aberto sem comando, imprime `SEM VEREDITO` e sai 1; o achado sem comando avisa, mas não sustenta a rodada. **Auditor sem self-report** |
 | `ork audit report <rodada> [--publicar]` | Relatório com o bloco **obrigatório** de propostas |
 | `ork audit divida [--pack P] [--todos]` | O board de dívida: propostas abertas e recorrência |
 | `ork audit finding estado <id> <estado>` | Carimba o achado: `aberto`, `adiado`, `resolvido`, `descartado` |

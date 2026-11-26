@@ -6,7 +6,9 @@
  */
 
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import * as adapter from './adapters/claude-bg';
 import * as codexAdapter from './adapters/codex';
 import { carregarManifesto, configDeEmbedding, DIR_ESTADO, LIMITE_MANIFESTO_BYTES, NOME_MANIFESTO } from './manifest';
@@ -39,8 +41,57 @@ import { COMANDO_CONFIRMAR_WORKTREE, recusaDePastaDasWorktrees } from './worktre
 import { avisoDaFabricaPedida, nomeDaMaquina } from './maquina';
 import { checarRede } from './doctor-rede';
 import { msg, nomeDoCheck } from './locale';
+import { comTravaPortatil } from './trava-portatil';
+import { resolverShellDoVerify } from './shell-do-verify';
+import type { ShellDoVerify } from './types';
 
 const real = (dir: string): string => { try { return fs.realpathSync(dir); } catch { return path.resolve(dir); } };
+
+export function sondarTravaDoNucleo(plataforma = process.platform,
+  existe: (arquivo: string) => boolean = (arquivo) => fs.existsSync(arquivo)): void {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-doctor-trava-'));
+  try {
+    const arquivo = path.join(dir, 'sonda');
+    if (plataforma === 'linux') {
+      if (!existe('/usr/bin/flock')) throw new Error('/usr/bin/flock ausente');
+      const fd = fs.openSync(arquivo,
+        fs.constants.O_RDWR | fs.constants.O_CREAT | fs.constants.O_NOFOLLOW, 0o600);
+      try {
+        const r = spawnSync('/usr/bin/flock', ['--exclusive', '--nonblock', '3'],
+          { stdio: ['ignore', 'pipe', 'pipe', fd], timeout: 2000 });
+        if (r.error || r.status !== 0) throw new Error(r.error?.message ?? `flock saiu ${r.status}`);
+      } finally { fs.closeSync(fd); }
+      return;
+    }
+    if (plataforma === 'darwin') {
+      comTravaPortatil(arquivo, 'doctor', () => undefined, { esperarMs: 1000 });
+      return;
+    }
+    throw new Error(`plataforma sem mecanismo de trava: ${plataforma}`);
+  }
+  finally { fs.rmSync(dir, { recursive: true, force: true }); }
+}
+
+export function checarTravaPortatil(sondar: () => void = sondarTravaDoNucleo): Check {
+  try {
+    sondar();
+    return { nome: 'trava portátil', nivel: 'ok', detalhe: msg().doctor.travaPortatilOk };
+  } catch (e) {
+    return { nome: 'trava portátil', nivel: 'fail', detalhe: msg().doctor.travaPortatilFalhou((e as Error).message),
+      correcao: msg().doctor.travaPortatilCorrecao(process.platform) };
+  }
+}
+
+export function checarShellDoVerify(resolver: () => ShellDoVerify | null = resolverShellDoVerify): Check {
+  const shell = resolver();
+  if (!shell) return { nome: 'shell do verify', nivel: 'fail', detalhe: msg().doctor.shellVerifyAusente,
+    correcao: msg().doctor.shellVerifyCorrecao };
+  const major = Number(/^\d+/.exec(shell.versao)?.[0]);
+  return { nome: 'shell do verify', nivel: Number.isFinite(major) && major < 4 ? 'warn' : 'ok',
+    detalhe: Number.isFinite(major) && major < 4 ? msg().doctor.shellVerifyAntigo(shell.caminho, shell.versao)
+      : msg().doctor.shellVerifyOk(shell.caminho, shell.versao),
+    correcao: Number.isFinite(major) && major < 4 ? msg().doctor.shellVerifyAtualizar : undefined };
+}
 
 /**
  * RM-064 T5: avisa quando o LLM que roda o doctor usa a mesma conta das fases vivas. Sessão de fase
@@ -454,6 +505,10 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
     correcao: major >= 20 ? undefined : msg().doctor.instaleNode,
   });
   if (analisadores) checks.push(analisadores());
+  // O grafo é aberto pelo index.ts e seu check permanece imediatamente após Node (KG1/RM-031).
+  // As capacidades transversais novas vêm em seguida, sem esconder nem deslocar essa fronteira.
+  checks.push(checarTravaPortatil());
+  checks.push(checarShellDoVerify());
 
   const git = noPath('git');
   checks.push({

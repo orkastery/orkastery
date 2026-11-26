@@ -7,6 +7,7 @@ import { dirTemporario } from './apoio';
 import { repositorioSecurityScan, totalDeModelosSecurityScan, type OpcoesRepoSecurityScan, type RepoSecurityScan } from './security-scan-repo-fixture';
 import { installFakeTools, type FakeTools } from './security-scan-docker-falso';
 import { argumentosDeCpuDoDocker, chooseExecutor, defaultProbe, opcoesDoPrazo, type Probe } from '../src/security-scan/executor';
+import { executarSecurityScan } from '../src/security-scan/cli';
 import { runScan } from '../src/security-scan/run';
 import { loadTools } from '../src/security-scan/tools';
 import type { ScanReport, ToolSpec } from '../src/security-scan/types';
@@ -73,6 +74,52 @@ test('chooseExecutor: Docker first, then the native binary with the accepted ver
   assert.deepEqual(chooseExecutor(eslint, probe({ dockerCli: () => true })), { kind: 'unavailable', reason: 'docker-daemon-down' });
   const pipAudit = loadTools().find(t => t.name === 'pip-audit')!;
   assert.equal(pipAudit.native, undefined, 'a tool that installs packages has no native entry');
+});
+
+test('defaultProbe: um Docker compatível com Podman não depende do campo ServerVersion', () => {
+  const dir = dirTemporario('secscan-podman-probe');
+  const docker = path.join(dir, 'docker');
+  const anterior = process.env.PATH;
+  fs.writeFileSync(docker, `#!/bin/sh
+if [ "$1" = "--version" ]; then exit 0; fi
+if [ "$1" = "info" ] && [ "$2" = "--format" ]; then exit 125; fi
+if [ "$1" = "info" ] && [ "$#" = "1" ]; then exit 0; fi
+exit 1
+`, { mode: 0o755 });
+  process.env.PATH = dir;
+  try {
+    const probe = defaultProbe();
+    assert.equal(probe.dockerCli(), true);
+    assert.equal(probe.dockerDaemon(), true);
+  } finally {
+    if (anterior === undefined) delete process.env.PATH; else process.env.PATH = anterior;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('CLI: daemon inacessivel e variavel ausente fazem o security scan sair 1', () => {
+  const r = repo('secscan-cli-daemon-inacessivel', { origin: true });
+  const dir = dirTemporario('secscan-cli-daemon-inacessivel');
+  const docker = path.join(dir, 'docker');
+  const pathAnterior = process.env.PATH;
+  const requiredAnterior = process.env.ORK_SECURITY_SCAN_REQUIRED;
+  fs.writeFileSync(docker, `#!/bin/sh
+if [ "$1" = "--version" ]; then exit 0; fi
+if [ "$1" = "info" ]; then exit 1; fi
+exit 1
+`, { mode: 0o755 });
+  process.env.PATH = `${dir}${path.delimiter}${pathAnterior ?? ''}`;
+  delete process.env.ORK_SECURITY_SCAN_REQUIRED;
+  try {
+    const code = executarSecurityScan(['--base', 'main', '--check', 'classic'],
+      { raiz: r.dir, estado: r.dir, escrever: () => {} });
+    assert.equal(code, 1);
+  } finally {
+    if (pathAnterior === undefined) delete process.env.PATH; else process.env.PATH = pathAnterior;
+    if (requiredAnterior === undefined) delete process.env.ORK_SECURITY_SCAN_REQUIRED;
+    else process.env.ORK_SECURITY_SCAN_REQUIRED = requiredAnterior;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('CPU limit: o Docker do grupo Agile recebe --cpus e o Classic sem cota preserva o argv', () => {

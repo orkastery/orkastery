@@ -32,9 +32,11 @@ import {
   Thread,
   EventoLedger,
 } from './types';
+import { resolverShellDoVerify } from './shell-do-verify';
+import type { ShellDoVerify } from './types';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -68,6 +70,8 @@ import { chaveDoReciboDeProva } from './recibo-prova';
 import { ENV_TMPDIR_DA_RODADA, selecionarTemporario } from './temporario-das-lanes';
 import { ambienteFuncionalDosTestes, ENV_PATH_FUNCIONAL_DA_RODADA,
   transporteDoAmbienteFuncional } from './ambiente-funcional';
+import { readReport, unscannedLoopTools } from './security-scan/report';
+import { type Category } from './security-scan/types';
 
 /** Teto de tempo de um comando de verificacao (build e suite completa cabem). */
 export const TIMEOUT_VERIFY_MS = 10 * 60 * 1000;
@@ -170,7 +174,7 @@ const VARIAVEIS_DA_RODADA: ReadonlySet<string> = new Set([
 
 export function ambienteDoVerify(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   return Object.fromEntries(Object.entries(base).filter(([chave]) => !chave.startsWith(PREFIXO_BLOQUEADO_NO_VERIFY)
-    && !VARIAVEIS_DA_RODADA.has(chave)));
+    && !VARIAVEIS_DA_RODADA.has(chave) && chave !== 'BASH_ENV' && chave !== 'ENV'));
 }
 
 /** I-37 (D2): o prazo de um comando, resolvido uma vez por rodada (D3). */
@@ -235,15 +239,24 @@ export function executorDoManifesto(manifesto: Manifesto, ambienteDaRodada?: Rec
  * O estouro continua saindo como `code: -1`, o contrato de antes.
  */
 export function executar(nome: string, comando: string, cwd: string,
-  tetoMs = TIMEOUT_VERIFY_MS, ambienteExtra?: Record<string, string>, ambienteBase?: NodeJS.ProcessEnv): ResultadoDeComando {
-  const comGrupo = existsSync(TIMEOUT_BIN);
+  tetoMs = TIMEOUT_VERIFY_MS, ambienteExtra?: Record<string, string>, ambienteBase?: NodeJS.ProcessEnv,
+  shellInformado?: ShellDoVerify | null,
+  dependencias: { existe?: (arquivo: string) => boolean; executar?: typeof exec } = {}): ResultadoDeComando {
+  const comGrupo = (dependencias.existe ?? fs.existsSync)(TIMEOUT_BIN);
   const inicio = Date.now();
   const ambiente = { ...(ambienteBase ?? ambienteDoVerify()), ...ambienteExtra };
+  const shell = shellInformado === undefined ? resolverShellDoVerify() : shellInformado;
+  if (!shell) {
+    return resultadoDoProcesso(nome, comando, { ok: false, code: -1, stdout: '',
+      stderr: 'shell do verify não encontrado nos caminhos controlados: /bin/bash, /usr/bin/bash', error: 'ENOENT' },
+    comGrupo, Date.now() - inicio, tetoMs);
+  }
+  const executarProcesso = dependencias.executar ?? exec;
   const r = comGrupo
-    ? exec(TIMEOUT_BIN, ['--kill-after=15', `${Math.ceil(tetoMs / 1000)}`, '/usr/bin/bash', '--noprofile', '--norc', '-c', comando],
+    ? executarProcesso(TIMEOUT_BIN, ['--kill-after=15', `${Math.ceil(tetoMs / 1000)}`, shell.caminho, '--noprofile', '--norc', '-c', comando],
       cwd, tetoMs + 30_000, ambiente)
-    : exec('/usr/bin/bash', ['--noprofile', '--norc', '-c', comando], cwd, tetoMs, ambiente);
-  return resultadoDoProcesso(nome, comando, r, comGrupo, Date.now() - inicio, tetoMs);
+    : executarProcesso(shell.caminho, ['--noprofile', '--norc', '-c', comando], cwd, tetoMs, ambiente);
+  return { ...resultadoDoProcesso(nome, comando, r, comGrupo, Date.now() - inicio, tetoMs), shell };
 }
 
 /**
@@ -390,6 +403,7 @@ export function comandoNoLedger(c: ResultadoDeComando): Record<string, unknown> 
   // RM-072 (D2): a duracao vai tambem no comando que passa, para a meta do CHECK ser medida pelo ledger. RM-072 (D4, D5):
   // no Agile, o uso do preparo e as lanes; o Classic nao tem esses campos.
   const doAgile = { ...(seguro.preparo ? { preparo: seguro.preparo } : {}),
+    ...(seguro.shell ? { shell: seguro.shell } : {}),
     ...(seguro.agendamento ? { agendamento: seguro.agendamento } : {}),
     ...(seguro.lane ? { lane: seguro.lane } : {}),
     ...(lanes ? { lanes } : {}),
@@ -719,7 +733,8 @@ function executorDoGrupo(manifesto: Manifesto, ambienteDaRodada: Record<string, 
     }
     const stealPct = janela.fechar();
     return processos.map((p, k) => {
-      let r: ResultadoDeComando = { ...resultadoDoProcesso(itens[k].nome, itens[k].comando, p, p.comGrupo, p.duracaoMs, prazos[k]), stealPct };
+      let r: ResultadoDeComando = { ...resultadoDoProcesso(itens[k].nome, itens[k].comando, p, p.comGrupo, p.duracaoMs, prazos[k]),
+        ...(p.shell ? { shell: p.shell } : {}), stealPct };
       if (relatorios[k]) r = anexarRelatorioJUnit(r, relatorios[k]!, marcacaoDeRelogioDoComando(manifesto, itens[k].nome));
       // S1 do CHECK: o auxiliar que morreu sem gravar o resultado deixa o comando sem veredito, nunca uma regressao.
       if (p.semResultado) r.executado = false;
@@ -1057,6 +1072,12 @@ export interface EntradaDoJulgamentoVerify {
   claims: ResultadoDeClaim[];
   comandos: ResultadoDeComando[];
   baseline: Baseline | null;
+  /** Cobertura ausente comprovada pelo relatorio produzido nesta rodada para o SHA. */
+  securityScanSemCobertura?: CoberturaAusenteDoSecurityScan | null;
+  /** O relatorio produzido nesta rodada tem achado `new` do laco. */
+  securityScanComAchadoNovo?: boolean;
+  /** A falha do scan tem um relatorio do mesmo SHA produzido dentro desta rodada. */
+  securityScanRelatorioDaRodada?: boolean;
   preparo?: ResultadoDeComando | null;
   produtoAlterado?: boolean;
   policyViolada?: boolean;
@@ -1074,6 +1095,44 @@ export interface JulgamentoVerify {
   motivos: MotivoGate[];
   bloqueantes: MotivoGate[];
   ok: boolean;
+}
+
+export interface CoberturaAusenteDoSecurityScan {
+  comando: string;
+  categorias: Category[];
+}
+
+export interface EvidenciaDoSecurityScan {
+  coberturaAusente: CoberturaAusenteDoSecurityScan | null;
+  achadoNovoNoLaco: boolean;
+  relatorioDaRodada: boolean;
+}
+
+/**
+ * O comando do scan pode sair 1 por achado ou por falta de cobertura. So a segunda causa recebe o
+ * motivo `security.scan-unscanned`: o relatorio produzido nesta rodada nomeia as categorias e nao
+ * pode conter achado novo do laco. Sem relatorio novo, a falha continua `verify.failed`.
+ */
+export function evidenciaDoSecurityScan(
+  raiz: string,
+  commit: string,
+  comandos: readonly ResultadoDeComando[],
+  inicioDaRodadaMs: number
+): EvidenciaDoSecurityScan {
+  const vazia = { coberturaAusente: null, achadoNovoNoLaco: false, relatorioDaRodada: false };
+  const comando = comandos.find((resultado) => resultado.nome === 'security_scan' &&
+    resultado.executado !== false && !resultado.ok && !semVereditoPorTempo(resultado));
+  if (!comando) return vazia;
+  const relatorio = readReport(raizDoEstado(raiz), commit);
+  const geradoEm = relatorio ? Date.parse(relatorio.generatedAt) : Number.NaN;
+  if (!relatorio || relatorio.head !== commit || !Number.isFinite(geradoEm) || geradoEm < inicioDaRodadaMs) return vazia;
+  const achadoNovoNoLaco = relatorio.findings.some((achado) => achado.status === 'new' && achado.loop);
+  const categorias = [...new Set(unscannedLoopTools(relatorio).map((ferramenta) => ferramenta.category))].sort();
+  return {
+    coberturaAusente: !achadoNovoNoLaco && categorias.length > 0 ? { comando: comando.comando, categorias } : null,
+    achadoNovoNoLaco,
+    relatorioDaRodada: true,
+  };
 }
 
 /**
@@ -1096,6 +1155,35 @@ export function julgarResultadoDoVerify(entrada: EntradaDoJulgamentoVerify): Jul
       continue;
     }
     const antes = baseline?.comandos.find((comando) => comando.nome === atual.nome);
+    if (atual.nome === 'security_scan' && entrada.securityScanComAchadoNovo) {
+      if (!antes || vereditoDaBaseline(antes) === 'sem-veredito') falhasSemBaseline.push(atual);
+      else {
+        const comparacao = compararComBaseline(atual, antes);
+        if (comparacao) comparacoes.push(comparacao.granularidade === 'comando'
+          ? { ...comparacao, classificacaoDoComando: 'regressao' }
+          : comparacao);
+        regressoes.push(atual);
+      }
+      continue;
+    }
+    if (atual.nome === 'security_scan' && entrada.securityScanSemCobertura) {
+      if (!antes || vereditoDaBaseline(antes) === 'sem-veredito') falhasSemBaseline.push(atual);
+      else if (!antes.ok) {
+        const comparacao = compararComBaseline(atual, antes);
+        if (comparacao) comparacoes.push(comparacao);
+        preExistentes.push(atual);
+      }
+      continue;
+    }
+    // A34: baseline vermelha nao explica a falha atual do scan. Sem relatorio desta rodada, ou
+    // com relatorio atual que nao traz nem achado novo do laco nem categoria sem cobertura, a
+    // falha fica no bucket bloqueante de `verify.failed` e nunca vira divida pre-existente.
+    if (atual.nome === 'security_scan' && !atual.ok &&
+        (!entrada.securityScanRelatorioDaRodada ||
+          (!entrada.securityScanComAchadoNovo && !entrada.securityScanSemCobertura))) {
+      falhasSemBaseline.push(atual);
+      continue;
+    }
     if (!antes || vereditoDaBaseline(antes) === 'sem-veredito') {
       if (!atual.ok) falhasSemBaseline.push(atual);
       continue;
@@ -1118,7 +1206,13 @@ export function julgarResultadoDoVerify(entrada: EntradaDoJulgamentoVerify): Jul
   if (claims.some((claim) => claim.motivo === 'claims.failed')) motivos.push('claims.failed');
   if (claims.some((claim) => claim.motivo === 'claims.unverifiable')) motivos.push('claims.unverifiable');
   if (regressoes.length > 0) motivos.push('verify.regression');
-  if (falhasSemBaseline.length > 0 || preparoFalhou) motivos.push('verify.failed');
+  const falhasSemBaselineSemScan = entrada.securityScanSemCobertura
+    ? falhasSemBaseline.filter((resultado) => resultado.nome !== 'security_scan')
+    : falhasSemBaseline;
+  if (falhasSemBaselineSemScan.length > 0 || preparoFalhou) motivos.push('verify.failed');
+  // A20 da thread ork-podmangitine: cobertura ausente nao e "falha sem baseline". O motivo proprio
+  // preserva a comparacao em `preExistentes` e escala a falta de ferramenta ao humano.
+  if (entrada.securityScanSemCobertura) motivos.push('security.scan-unscanned');
   if (estouros.length > 0 || preparoSemVeredito || claims.some((claim) => claim.motivo === 'verify.timeout')) {
     motivos.push('verify.timeout');
   }
@@ -1512,7 +1606,11 @@ function verificarSobConducao(
   const baseline = thread.baseline ?? null;
   const identidadeFinal = preparo ? identidadeDoProduto(cwd) : null;
   const produtoAlterado = !!preparo && identidadeFinal !== preparo.identidade;
-  const julgamento = julgarResultadoDoVerify({ claims, comandos, baseline,
+  const evidenciaSecurityScan = evidenciaDoSecurityScan(raiz, commit, comandos, inicioDaRodada);
+  const securityScanSemCobertura = evidenciaSecurityScan.coberturaAusente;
+  const julgamento = julgarResultadoDoVerify({ claims, comandos, baseline, securityScanSemCobertura,
+    securityScanComAchadoNovo: evidenciaSecurityScan.achadoNovoNoLaco,
+    securityScanRelatorioDaRodada: evidenciaSecurityScan.relatorioDaRodada,
     preparo: preparo?.resultado ?? null, produtoAlterado, policyViolada: dadoPrivadoBloqueia.length > 0 });
   const { regressoes, preExistentes, falhasSemBaseline, comparacoes, estouros, naoExecutados,
     baselineSemVeredito, motivos, bloqueantes, ok } = julgamento;
@@ -1547,6 +1645,7 @@ function verificarSobConducao(
         duracaoMs: c.execucoes.reduce((t, e) => t + (e.duracaoMs ?? 0), 0),
         // RM-072 (D5): no Agile, o que a guarda fez com cada comando da claim.
         ...(execucoesSeguras.some((e) => e.preparo) ? { preparo: execucoesSeguras.map((e) => e.preparo ?? null) } : {}),
+        ...(execucoesSeguras.some((e) => e.shell) ? { shell: execucoesSeguras.map((e) => e.shell ?? null) } : {}),
         ...(c.execucoes.some((e) => e.agendamento) ? { agendamento: c.execucoes.map((e) => e.agendamento ?? null) } : {}),
         ...(c.execucoes.some((e) => e.lane) ? { lane: c.execucoes.map((e) => e.lane ?? null) } : {}),
         ...(falhou ? { execucao: comandoNoLedger(falhou) } : {}),
@@ -1561,6 +1660,7 @@ function verificarSobConducao(
     falhasSemBaseline: falhasSemBaseline.map((r) => r.nome),
     comparacoes,
     ...(baselineSemVeredito.length > 0 ? { baselineSemVeredito } : {}),
+    ...(securityScanSemCobertura ? { securityScanSemCobertura } : {}),
     estouros: estouros.map((r) => r.nome),
     prazoMs: manifesto.verify.timeout_ms ?? TIMEOUT_VERIFY_MS,
     steal,
@@ -1617,8 +1717,11 @@ function verificarSobConducao(
                   ...naoExecutados.map((c) => porQueDasLanes(c) ? `${c.nome} sem veredito (${porQueDasLanes(c)})` : `${c.nome} nao foi executado`),
                   ...claims.filter((c) => c.motivo === 'verify.sem-veredito').map((c) => `${c.claim.id}: ${c.detalhe}`)]
                   .filter(Boolean).join('; ')
-                : motivo === 'policy.violation'
+              : motivo === 'policy.violation'
                   ? dadoPrivadoBloqueia.map((v) => `policy ${v.policy}: ${v.detalhe}`).join('; ')
+                  : motivo === 'security.scan-unscanned'
+                    ? `security_scan sem cobertura: comando \`${securityScanSemCobertura!.comando}\`; categorias: ` +
+                      securityScanSemCobertura!.categorias.join(', ')
                   : `falha sem baseline em: ${falhasSemBaseline.map((r) => r.nome).join(', ')}` + (falhasSemBaseline
                     .some((r) => baselineSemVeredito.includes(r.nome))
                     ? `; a baseline nao teve veredito de ${falhasSemBaseline.filter((r) => baselineSemVeredito.includes(r.nome))
@@ -1634,6 +1737,11 @@ function verificarSobConducao(
               ? 'rode `ork verify` de novo, sem editar a worktree durante a rodada'
               : motivo === 'policy.violation'
                 ? dadoPrivadoBloqueia.map((v) => v.correcao).join('; ')
+                : motivo === 'security.scan-unscanned'
+                  ? `rode \`${securityScanSemCobertura!.comando}\` com cobertura para ` +
+                    `${securityScanSemCobertura!.categorias.join(', ')}; se o SHIP precisar seguir sem varredura, ` +
+                    'abra o pedido tipado com `ork gate request <thread>` e o dono responde b; no CLI, ' +
+                    '`--allow-unscanned "<quem>"` e a forma equivalente'
                 : 'corrija a regressao, ou grave a baseline antes do GO com `ork verify <thread> --baseline`',
     });
   }

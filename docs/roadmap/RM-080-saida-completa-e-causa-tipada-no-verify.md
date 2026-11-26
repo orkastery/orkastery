@@ -6,22 +6,24 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-23T11:02:31-03:00
+atualizado_em: 2026-11-26T05:06:19-03:00
 estado:
-  ciclo: Discovery
-  documentacao: Rascunho
-  codigo: Não iniciado
-  testes: Não iniciados
+  ciclo: Em desenvolvimento
+  documentacao: Em revisão
+  codigo: Mesclado
+  testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
+    commit: 854f9ca
     pr: null
 sdlc:
-  thread: null
-  modo: null
+  thread: ork-macosportave
+  modo: auto
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-080 — Verify diz a causa e guarda a saída inteira
@@ -32,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Discovery | Não iniciado | Não iniciados | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -49,7 +51,7 @@ O CHECK independente no `#Fast`, antes parte da RM-085, passa para a [RM-077](RM
 ## Problema e resultado
 
 - **Público e problema/oportunidade:** quem corrige uma rodada pode receber somente o fim da saída, uma causa incorreta, uma asserção sem detalhe ou uma medida que não cobre os processos criados pelo próprio verify.
-- **Evidências e fonte:** achados de condução da RM-080, pendências da RM-037 e bancada da RM-085. Os casos observados incluem limite de saída confundido com sinal, logs temporários removidos, caminhos de execução com diagnósticos diferentes, mensagem de asserção ausente e descendentes fora do escopo causal da rodada.
+- **Evidências e fonte:** achados de condução da RM-080, pendências da RM-037, bancada da RM-085 e [issue #304](https://github.com/orkastery/orkastery/issues/304). Os casos observados incluem limite de saída confundido com sinal, logs temporários removidos, caminhos de execução com diagnósticos diferentes, mensagem de asserção ausente, shell fixo confundido com claim falsa e descendentes fora do escopo causal da rodada.
 - **Objetivo/OKR:** uma falha pode ser diagnosticada a partir do recibo e do log preservado, sem reprodução obrigatória e sem atribuição causal maior do que a prova disponível.
 - **Hipótese:** se execução, classificação, persistência e apresentação usarem o mesmo contrato, então o GO-FIX recebe causa e evidência suficientes e o verify deixa de mascarar limite próprio como falha do produto.
 - **Métrica principal / linha de base / meta / janela / fonte:** razão entre comandos reprovados com causa tipada, saída completa redigida e vínculo causal conferido. A linha de base será calculada no piloto; a fonte é o recibo da rodada e o artefato de saída.
@@ -66,6 +68,7 @@ O CHECK independente no `#Fast`, antes parte da RM-085, passa para a [RM-077](RM
 
 | Ordem | Fatia | Critério de aceite verificável |
 | --- | --- | --- |
+| F0 | Shell portátil e causa ambiental | verify e CHECK paralelo usam o mesmo caminho absoluto versionado; ausência do shell deixa a evidência não executada com `verify.sem-veredito`; o recibo identifica o executor |
 | F1 | Executor e saída únicos | Classic, Agile, preparo, claims, baseline, GO-FIX, CI e MCP guardam stdout e stderr pelo mesmo caminho, sem buffer que mude o resultado |
 | F2 | Causa tipada | Limite de saída, sinal, prazo, saída normal e falha de infraestrutura recebem causas distintas; o erro bruto não substitui a causa |
 | F3 | Artefato íntegro e redigido | O ledger guarda referência e impressão da saída completa já redigida; alteração do arquivo, referência ausente e redação incompleta são detectadas |
@@ -83,15 +86,15 @@ O CHECK independente no `#Fast`, antes parte da RM-085, passa para a [RM-077](RM
 
 ## Plano e decisões
 
-- **Prioridade / método / pontuação / justificativa / data:** frente C, na desobstrução do verify. A consolidação reduz três filas que diagnosticavam a mesma rodada por contratos diferentes. Decisão do dono em 23/11/2026.
-- **Horizonte / alvo / previsão / confiança / marcos:** Discovery; F1 a F6. Previsão será definida no PLAN.
+- **Prioridade / método / pontuação / justificativa / data:** frente C, com F0 promovida à ordem zero das issues de usuários em 24/11/2026. A consolidação reduz filas que diagnosticavam a mesma rodada por contratos diferentes.
+- **Horizonte / alvo / previsão / confiança / marcos:** Discovery; F0 a F6. Previsão será definida no PLAN.
 - **Dependências e bloqueios (ID, owner, próxima revisão):** [RM-037](RM-037-verify-rapido-e-confiavel.md), [RM-072](RM-072-check-cinco-vezes-mais-rapido.md), [RM-079](RM-079-claims-que-a-correcao-passa.md) e [RM-077](RM-077-revisao-independente-pelo-construtor-do-head.md). Owner: Julio; revisão antes do PLAN.
 - **Premissas / riscos / mitigação:** log pode ocupar espaço; F6 limita e limpa. Redação pode retirar contexto; F4 conserva estrutura e marca o que foi redigido. Executor único pode alterar ordenação ou códigos; testes de equivalência fixam veredito, causa e artefato antes da migração. Plataforma pode não provar hierarquia; F5 responde com lacuna tipada.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):** em 23/11/2026 o dono aprovou fundir RM-080, a parte de verify da RM-085 e as pendências da RM-037; o CHECK independente foi direcionado à RM-077.
 
 ## Estado com evidências
 
-O item está em Discovery. O que a RM-037 já publicou continua registrado nela e não é rebaixado por esta consolidação.
+O item entrou em desenvolvimento pela F0 da thread `ork-macosportave`. As demais fatias continuam planejadas; o que a RM-037 já publicou permanece registrado nela.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -99,13 +102,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-11-23 | Julio |
-| Documentação | Rascunho | — | 2026-11-23 | Julio |
-| Código | Não iniciado | — | 2026-11-23 | Julio |
-| Testes | Não iniciados | — | 2026-11-23 | Julio |
-| Deploy | Não implantado | — | 2026-11-23 | Julio |
-| Exposição | Flag desligada | — | 2026-11-23 | Julio |
-| Habilitação | Pendente | — | 2026-11-23 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-26 | Julio |
+| Documentação | Em revisão | — | 2026-11-26 | Julio |
+| Código | Mesclado | commit `854f9ca` | 2026-11-26 | Julio |
+| Testes | Em execução | — | 2026-11-26 | Julio |
+| Deploy | Não implantado | — | 2026-11-26 | Julio |
+| Exposição | Flag desligada | — | 2026-11-26 | Julio |
+| Habilitação | Pendente | — | 2026-11-26 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -119,3 +122,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- |
 | 2026-10-31 | RM-080 criada para saída completa e causa tipada | Achados de condução em rede | Julio |
 | 2026-11-23 | RM-080 absorveu verify da RM-085 e pendências da RM-037; CHECK independente foi para RM-077 | Realinhamento aprovado | Julio |
+| 2026-11-25 | F0 recebeu resolução determinística do shell, recibo e causa ambiental | Issue #304 e thread `ork-macosportave` | Sessão #Auto, por delegação do dono |

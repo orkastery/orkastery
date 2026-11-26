@@ -5,6 +5,7 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { DependenciaDeTeste, MOTIVO_DA_FALTA, semAmbiente, VARIAVEL_EXIGE_AMBIENTE } from './ambiente-de-teste';
 import { TESTES_DE_INTEGRACAO_LOCAL } from '../src/integracoes-locais';
@@ -29,6 +30,23 @@ test('RM-037: ORK_TESTE_EXIGE_AMBIENTE=1 nunca pula, nem sem nenhuma dependênci
   assert.equal(sondou, false, 'exigido, o teste roda sem sondar e reprova pela falta real');
   for (const valor of ['0', 'true', '', undefined])
     assert.match(String(semAmbiente(['orkmind'], { sonda, env: { ORK_TESTE_EXIGE_AMBIENTE: valor } })), /^skip: /);
+});
+
+test('sonda do Docker aceita CLI compativel cujo info simples funciona', () => {
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ork-docker-compativel-')));
+  const docker = path.join(dir, 'docker');
+  const anterior = process.env.PATH;
+  fs.writeFileSync(docker, `#!/bin/sh
+if [ "$1" = "info" ] && [ "$2" = "--format" ]; then exit 125; fi
+if [ "$1" = "info" ] && [ "$#" = "1" ]; then exit 0; fi
+exit 1
+`, { mode: 0o755 });
+  process.env.PATH = dir;
+  try { assert.equal(semAmbiente(['docker']), false); }
+  finally {
+    if (anterior === undefined) delete process.env.PATH; else process.env.PATH = anterior;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('RM-037: só arquivo de integração local usa o skip de ambiente, então nenhum teste com ele roda no CI hermético', () => {

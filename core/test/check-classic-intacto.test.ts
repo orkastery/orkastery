@@ -1,5 +1,6 @@
 /**
- * RM-072 (D2 do dono, item 7; T2 da ork-check5x): o Classic Check segue o CHECK de sempre. O retrato do Classic desta
+ * RM-072 (D2 do dono, item 7; T2 da ork-check5x): o Classic Check segue o CHECK de sempre. A decisão autônoma
+ * e4c43eb9-db06-43ba-bb53-adc70699ae42 registra a exceção estreita da sonda portátil. O retrato do Classic desta
  * arvore (`scripts/retrato-do-classic.cjs`: os comandos que o verify roda e as chamadas ao Docker que a varredura faz)
  * e o mesmo da base `b16c5be8`, gerado uma vez sobre a arvore da base compilada e guardado em
  * `test/fixtures/classic-retrato-b16c5be8.json`: mesma lista, mesma ordem. O mutante de prova inverte a ordem dos
@@ -11,6 +12,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 
 const CORE = path.resolve(__dirname, '../..');
 const SCRIPT = path.join(CORE, 'scripts', 'retrato-do-classic.cjs');
@@ -31,12 +33,19 @@ test('CL1: o Classic roda no verify a mesma lista de comandos da base, na mesma 
   assert.deepEqual(DA_BASE.verify.map(([nome]) => nome), ['preparo', 'C1.1', 'C1.2', 'C2.1', 'typecheck', 'build', 'test', 'security_scan']);
 });
 
-test('CL2: o Classic chama o Docker igual a base: as mesmas ferramentas, opcoes e argumentos, na mesma ordem', () => {
+test('CL2: o Classic preserva a base, exceto pela sonda portátil do daemon', () => {
   const scan = retrato(CORE, ['--so', 'scan'],
     { ...process.env, ORK_CHECK_CPUS_DA_LANE: '7', ORK_CHECK_CPUS_DOCKER: '1' }).scan!;
-  assert.deepEqual(scan, DA_BASE.scan);
+  const esperado = DA_BASE.scan.map(comando => comando.length === 4 && comando[0] === 'docker' &&
+    comando[1] === 'info' && comando[2] === '--format' && comando[3] === '{{.ServerVersion}}'
+    ? ['docker', 'info'] : comando);
+  assert.deepEqual(scan, esperado);
   const ferramentas = [...new Set(scan.filter((c) => c[1] === 'run').map((c) => /ork-security-scan-([a-z-]+)-<N>/.exec(c.join(' '))?.[1]))];
   assert.deepEqual(ferramentas, ['gitleaks', 'semgrep', 'trivy-vuln', 'npm-audit', 'trivy-config', 'zizmor', 'actionlint', 'eslint', 'trivy-license']);
+  const defaults = path.join(CORE, 'assets', 'security-scan', 'defaults');
+  const digest = (nome: string): string => createHash('sha256').update(fs.readFileSync(path.join(defaults, nome))).digest('hex');
+  assert.equal(digest('gitleaks.toml'), '3c770c989c6e0bbb2f6e38603725be17a0f37d862f55a90f601970d2628c3b36');
+  assert.equal(digest('eslint.config.mjs'), '1a0698d610f68bfbce3810f6a3db0b79333b50c6f64b82ab1afa37d927874707');
 });
 
 test('CL3: mutante de prova: com a ordem dos comandos do manifesto invertida numa copia compilada, o retrato acusa', () => {

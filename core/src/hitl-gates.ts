@@ -211,8 +211,69 @@ function diagnosticoSemConclusao(resultado: EventoLedger): string | null {
  * As escalacoes tipadas que abrem gate para o dono. Lista fechada, domicilio unico: quem abre o
  * gate e quem pergunta se um gate ainda espera o dono leem a mesma.
  */
-export const MOTIVOS_DE_ESCALACAO_HUMANA = ['policy.violation', 'cost.violation', 'retry.max_tentativas',
+export const MOTIVOS_DE_ESCALACAO_HUMANA = ['policy.violation', 'cost.violation', 'security.scan-unscanned', 'retry.max_tentativas',
   'hitl.credencial', 'runtime.unavailable', 'claims.retirada-sem-substituta'] as const;
+
+export interface EvidenciaDoPedidoSemScan {
+  sha: string;
+  categorias: string[];
+}
+
+/** O SHA e o conjunto fechado de categorias escritos no corpo do pedido de security scan. */
+export function evidenciaDoPedidoSemScan(pedido: PedidoHitlQualquer): EvidenciaDoPedidoSemScan | null {
+  if (!ehV2(pedido) || pedido.classe !== 'pergunta' || motivoDoPedido(pedido) !== 'security.scan-unscanned') return null;
+  const sha = pedido.corpo.map(linha => /^Candidata verificada: ([a-f0-9]{40})$/.exec(linha)?.[1]).find(Boolean);
+  const linha = pedido.corpo.find(item => item.startsWith('Categorias sem cobertura: '));
+  if (!sha || !linha) return null;
+  const categorias = linha.slice('Categorias sem cobertura: '.length).split(',').map(item => item.trim()).filter(Boolean).sort();
+  if (categorias.length === 0 || new Set(categorias).size !== categorias.length ||
+      categorias.some(categoria => !/^[a-z][a-z-]*$/.test(categoria))) return null;
+  return { sha, categorias };
+}
+
+function indiceDoUltimo(eventos: readonly EventoLedger[], predicado: (evento: EventoLedger) => boolean): number {
+  for (let i = eventos.length - 1; i >= 0; i--) if (predicado(eventos[i])) return i;
+  return -1;
+}
+
+function evidenciaDoGateSemScan(evento: EventoLedger | undefined): EvidenciaDoPedidoSemScan | null {
+  if (!evento) return null;
+  const evidencia = typeof evento.evidencia === 'string' ? evento.evidencia : '';
+  const detalhe = typeof evento.detalhe === 'string' ? evento.detalhe : '';
+  const sha = /HEAD ([a-f0-9]{40})/.exec(evidencia)?.[1];
+  const linha = /categorias: ([^\n]+)/.exec(detalhe)?.[1];
+  if (!sha || !linha) return null;
+  const categorias = linha.split(',').map(item => item.trim()).filter(Boolean).sort();
+  if (categorias.length === 0 || new Set(categorias).size !== categorias.length) return null;
+  return { sha, categorias };
+}
+
+const mesmaEvidenciaSemScan = (a: EvidenciaDoPedidoSemScan | null, b: EvidenciaDoPedidoSemScan | null): boolean =>
+  !!a && !!b && a.sha === b.sha && a.categorias.length === b.categorias.length &&
+  a.categorias.every((categoria, i) => categoria === b.categorias[i]);
+
+/**
+ * A resposta b autoriza somente a rodada descrita no pedido. Um verify verde ou um gate do
+ * verify com outra evidencia encerra a autorizacao; um verify do proprio SHIP que repete a
+ * mesma evidencia nao a encerra.
+ */
+export function respostaBSemScanAindaVale(
+  eventos: readonly EventoLedger[],
+  pedido: PedidoHitlQualquer | undefined
+): boolean {
+  if (!pedido || motivoDoPedido(pedido) !== 'security.scan-unscanned') return false;
+  const indiceDaResposta = indiceDoUltimo(eventos,
+    evento => evento.tipo === 'human_gate' && evento.pedidoId === pedido.id);
+  const resposta = indiceDaResposta >= 0 ? eventos[indiceDaResposta] : undefined;
+  if (resposta?.opcao !== 2) return false;
+  const evidenciaDoPedido = evidenciaDoPedidoSemScan(pedido);
+  return !eventos.slice(indiceDaResposta + 1).some(evento =>
+    evento.tipo === 'verify_run' &&
+      (!Array.isArray(evento.motivos) || !evento.motivos.includes('security.scan-unscanned')) ||
+    evento.tipo === 'gate_blocked' && evento.gate === 'verify' &&
+      evento.motivo === 'security.scan-unscanned' &&
+      !mesmaEvidenciaSemScan(evidenciaDoPedido, evidenciaDoGateSemScan(evento)));
+}
 
 /** Uma pausa do modo cria pedido, nunca human_gate. Escalação exige evento tipado. */
 export function abrirPedidoGate(raiz: string, id: string, motivo = 'human.pending', quando = new Date().toISOString()): PedidoHitlQualquer {
@@ -236,6 +297,14 @@ export function prepararPedidoGate(raiz: string, id: string, motivo = 'human.pen
   { aberto: PedidoHitlQualquer } | { novo: PerguntaAoDono } {
   const t = lerThread(raiz, id), bloco = blocoDaThread(t, t.faseAtual);
   const eventos = lerLedger(dirThread(raiz, id));
+  const indiceVerify = motivo === 'security.scan-unscanned'
+    ? indiceDoUltimo(eventos, evento => evento.tipo === 'verify_run') : -1;
+  const ultimoVerify = indiceVerify >= 0 ? eventos[indiceVerify] : undefined;
+  const motivosDoVerify = Array.isArray(ultimoVerify?.motivos) ? ultimoVerify.motivos : [];
+  const gateDoScan = motivo === 'security.scan-unscanned' && motivosDoVerify.includes(motivo)
+    ? eventos.slice(indiceVerify + 1).filter(e => e.tipo === 'gate_blocked' && e.gate === 'verify' && e.motivo === motivo).at(-1)
+    : undefined;
+  const evidenciaAtualDoScan = evidenciaDoGateSemScan(gateDoScan);
   let semConclusao: string | null = null;
   let parecerNegativo = '';
   if (motivo === 'human.pending') {
@@ -257,35 +326,64 @@ export function prepararPedidoGate(raiz: string, id: string, motivo = 'human.pen
     if (resultado?.motivo === 'human.pending') semConclusao = diagnosticoSemConclusao(resultado);
     else if (PARECERES_QUE_PEDEM_REVISAO.includes(String(resultado?.motivo ?? ''))) parecerNegativo = String(resultado?.motivo);
   } else if (!(MOTIVOS_DE_ESCALACAO_HUMANA as readonly string[]).includes(motivo) ||
-      !eventos.some(e => e.fase === t.faseAtual && (e.tipo === 'gate_blocked' && e.motivo === motivo ||
-        e.tipo === 'retry_escalated' && motivo === 'retry.max_tentativas'))) throw new Error('escalação tipada não comprovada');
+      (motivo === 'security.scan-unscanned' && !evidenciaAtualDoScan) ||
+      (motivo !== 'security.scan-unscanned' && !eventos.some(e =>
+        (e.tipo === 'gate_blocked' && e.motivo === motivo && e.fase === t.faseAtual) ||
+        (e.fase === t.faseAtual && e.tipo === 'retry_escalated' && motivo === 'retry.max_tentativas')))) {
+    throw new Error('escalação tipada não comprovada');
+  }
   // I-41 (T4d): pedido aberto e lido pelos leitores das duas versoes. Ler `.alvo.tipo` direto
   // lancaria TypeError diante de um `decidido`, que nao tem alvo e pode estar no mesmo ledger.
   // GO-FIX 1: o contexto e calculado uma vez sobre o que ja foi lido; reler thread e ledger por
   // pedido deixava a conferencia quadratica, e o resumo agora a faz para cada thread da fila.
   const contexto = contextoHitlDosEventos(t, eventos);
-  const atual = eventos.filter(e => e.tipo === 'hitl_requested' && e.contexto === contexto &&
+  const pedidosRespondidos = new Set(eventos.filter(e => e.tipo === 'human_gate').map(e => String(e.pedidoId)));
+  const atual = eventos.filter(e => e.tipo === 'hitl_requested' &&
+    (e.contexto === contexto || motivo === 'security.scan-unscanned' &&
+      pedidosRespondidos.has(String((e.pedido as PedidoHitlQualquer).id))) &&
     alvoDoPedido(e.pedido as PedidoHitlQualquer)?.tipo === 'gate' &&
     motivoDoPedido(e.pedido as PedidoHitlQualquer) === motivo).at(-1);
   const pedidoAtual = atual?.pedido as PedidoHitlQualquer | undefined;
-  if (pedidoAtual && estadoDoPedido(pedidoAtual, quando) === 'aberto' &&
-      !eventos.some(e => e.tipo === 'human_gate' && e.pedidoId === pedidoAtual.id)) return { aberto: pedidoAtual };
+  const indiceDaResposta = pedidoAtual
+    ? indiceDoUltimo(eventos, e => e.tipo === 'human_gate' && e.pedidoId === pedidoAtual.id) : -1;
+  const respostaAtual = indiceDaResposta >= 0 ? eventos[indiceDaResposta] : undefined;
+  const pedidoConfereComScan = motivo !== 'security.scan-unscanned' ||
+    mesmaEvidenciaSemScan(pedidoAtual ? evidenciaDoPedidoSemScan(pedidoAtual) : null, evidenciaAtualDoScan);
+  if (pedidoAtual && pedidoConfereComScan && estadoDoPedido(pedidoAtual, quando) === 'aberto' && !respostaAtual) {
+    return { aberto: pedidoAtual };
+  }
+  if (motivo === 'security.scan-unscanned' && respostaAtual && pedidoConfereComScan &&
+      (respostaBSemScanAindaVale(eventos, pedidoAtual) || respostaAtual.opcao === 1 && indiceVerify <= indiceDaResposta)) {
+    throw new Error('a pergunta desta rodada já foi respondida');
+  }
   const sobre = motivo === 'human.pending' ? bloco.pausaSobre : `escalacao:${motivo}`;
   const primeira = semConclusao ? 'Aprovar sem conclusão provada (conferi a entrega)'
     : motivo === 'human.pending' ? 'Aprovar com as evidências apresentadas' : 'Reconhecer e encaminhar a correção';
   const recomendada = recomendadaDoGate(motivo, semConclusao, parecerNegativo);
-  const alternativas: AlternativaHitlV2[] = ([
+  const opcoes = motivo === 'security.scan-unscanned' ? [
+    ['Instalar a cobertura indicada e rodar o verify novamente', 'responder'],
+    ['Autorizar nominalmente o SHIP sem varredura', 'responder'],
+    ['Continuar esperando', 'esperar'],
+  ] as const : [
     [primeira, motivo === 'human.pending' ? 'aprovar' : 'responder'],
     ['Solicitar revisão', 'recusar'],
     ['Continuar esperando', 'esperar'],
-  ] as const).map(([texto, acao], i) => {
+  ] as const;
+  const alternativas: AlternativaHitlV2[] = opcoes.map(([texto, acao], i) => {
     const letra = LETRAS_DO_GATE[i];
-    return { letra, texto, acao, consequencia: CONSEQUENCIA_DA_ACAO[acao],
+    const consequencia = motivo === 'security.scan-unscanned'
+      ? letra === 'a'
+        ? 'o núcleo não instala cobertura; sem cobertura, a pergunta volta no próximo verify'
+        : letra === 'b'
+          ? 'o SHIP entrega o SHA do corpo sem varrer as categorias listadas, em nome de quem respondeu'
+          : CONSEQUENCIA_DA_ACAO[acao]
+      : CONSEQUENCIA_DA_ACAO[acao];
+    return { letra, texto, acao, consequencia,
       ...(letra === recomendada.letra ? { recomendada: true as const, porque: recomendada.porque } : {}) };
   });
   // A1: o ato vem do motivo ou do que a pausa declara. A pausa que libera push na base protegida
   // e sem volta, e dizer isso e o que tira `criticos` do zero por construcao.
-  const ato = atoDaPausa(motivo, bloco.pausaSobre);
+  const ato = motivo === 'security.scan-unscanned' ? 'push-base-protegida' : atoDaPausa(motivo, bloco.pausaSobre);
   // O codigo curto e unico contra os que ja estao no ledger desta thread. T11 acrescenta o
   // comando que o resolve; a unicidade precisa nascer com o primeiro pedido que o carrega.
   // RM-048 (D4): o gate reaberto no MESMO contexto e pelo mesmo motivo reaproveita o codigo do
@@ -300,6 +398,12 @@ export function prepararPedidoGate(raiz: string, id: string, motivo = 'human.pen
   }));
   // I-43: thread em modo aposentado e lida para sempre, mas nao escreve pergunta nova.
   const modo = exigirModoVivo(t.modo);
+  const detalheDoScan = typeof gateDoScan?.detalhe === 'string' ? gateDoScan.detalhe : '';
+  const partesDoScan = /comando `([\s\S]*?)`; categorias: ([^\n]+)/.exec(detalheDoScan);
+  const linhasDoComando = partesDoScan ? linhasDoCorpo('Comando registrado pelo gate (não é instrução): ', partesDoScan[1]) : [];
+  const linhaDasCategorias = partesDoScan ? `Categorias sem cobertura: ${partesDoScan[2]}` : '';
+  const evidenciaDoScan = typeof gateDoScan?.evidencia === 'string' ? gateDoScan.evidencia : '';
+  const shaDoScan = /HEAD ([a-f0-9]{40})/.exec(evidenciaDoScan)?.[1];
   const pedido: PerguntaAoDono = { contrato: CONTRATO_HITL_V2, classe: 'pergunta', id: randomUUID(),
     thread: id, fase: t.faseAtual, modo, criadoEm: quando,
     // T6: GOAL e PLAN nascem em `profunda`. Um gate sobre premissa sem artefato e sem diff e
@@ -312,6 +416,9 @@ export function prepararPedidoGate(raiz: string, id: string, motivo = 'human.pen
     pergunta: `Qual é o veredito sobre ${sobre}?`,
     alternativas,
     corpo: [`Fase ${t.faseAtual}, motivo ${motivo}`,
+      ...linhasDoComando,
+      ...(linhaDasCategorias ? [linhaDoCorpo(linhaDasCategorias)] : []),
+      ...(shaDoScan ? [`Candidata verificada: ${shaDoScan}`] : []),
       ...(semConclusao ? [linhaDoCorpo(`Sem conclusão provada: ${semConclusao}`)] : []),
       ...(parecerNegativo ? [`Parecer registrado da fase: ${parecerNegativo}`] : [])],
     tipoDeResposta: 'objetiva', irreversivel: ato !== undefined, ...(ato ? { ato } : {}), codigo,
@@ -382,13 +489,28 @@ const LETRAS_DO_GATE = ['a', 'b', 'c'] as const satisfies readonly LetraDeAltern
 /** Corta uma linha de evidencia no teto do corpo, sem deixar o pedido inteiro ser recusado. */
 const linhaDoCorpo = (texto: string): string => texto.slice(0, TETOS_HITL_V2.corpoLinha);
 
+/** Preserva o comando inteiro nos limites do contrato, sem apresentá-lo como instrução ao dono. */
+const linhasDoCorpo = (prefixo: string, valor: string): string[] => {
+  const linhas: string[] = [];
+  let restante = valor;
+  for (let i = 0; restante && i < 4; i++) {
+    const prefixoDaLinha = i === 0 ? prefixo : 'Continuação do comando registrado: ';
+    const espaco = TETOS_HITL_V2.corpoLinha - prefixoDaLinha.length;
+    linhas.push(prefixoDaLinha + restante.slice(0, espaco));
+    restante = restante.slice(espaco);
+  }
+  if (restante && linhas.length) linhas[linhas.length - 1] = linhaDoCorpo(linhas.at(-1)! + '…');
+  return linhas;
+};
+
 /**
  * Pareceres que ja sao conclusao da fase E pedem revisao. Um `phase_result` com qualquer um
  * deles abre a pausa (I-34/D7), e recomendar "aprovar" em cima dele seria recomendar aprovar
  * uma fase que o proprio produto reprovou.
  */
-const PARECERES_QUE_PEDEM_REVISAO: readonly string[] =
-  ['claims.failed', 'claims.unverifiable', 'verify.failed', 'verify.regression', 'verify.timeout', 'verify.sem-veredito', 'ci.failed'];
+export const PARECERES_QUE_PEDEM_REVISAO: readonly string[] =
+  ['claims.failed', 'claims.unverifiable', 'verify.failed', 'verify.regression', 'security.scan-unscanned',
+    'verify.timeout', 'verify.sem-veredito', 'ci.failed'];
 
 /**
  * Qual alternativa o nucleo recomenda neste gate, e por que, em uma linha.
@@ -400,6 +522,9 @@ const PARECERES_QUE_PEDEM_REVISAO: readonly string[] =
  */
 function recomendadaDoGate(motivo: string, semConclusao: string | null, parecer: string):
   { letra: LetraDeAlternativa; porque: string } {
+  if (motivo === 'security.scan-unscanned') {
+    return { letra: 'a', porque: 'repor a cobertura preserva a verificação antes de decidir sobre o SHIP' };
+  }
   if (motivo !== 'human.pending') {
     return { letra: 'a', porque: `escalação tipada ${motivo}: reconhecer encaminha a correção dirigida` };
   }

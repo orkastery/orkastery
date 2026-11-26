@@ -265,6 +265,7 @@ export function derivarCorrecoes(
   }
 
   for (const cmd of resultado.regressoes) {
+    if (cmd.nome === 'security_scan' && resultado.motivos.includes('security.scan-unscanned')) continue;
     nascer(
       'verify.regression',
       `comando ${cmd.nome}`,
@@ -277,6 +278,7 @@ export function derivarCorrecoes(
   }
 
   for (const cmd of resultado.falhasSemBaseline) {
+    if (cmd.nome === 'security_scan' && resultado.motivos.includes('security.scan-unscanned')) continue;
     nascer(
       'verify.failed',
       `comando ${cmd.nome}`,

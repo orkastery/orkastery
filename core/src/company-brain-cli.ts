@@ -16,9 +16,10 @@ import { buildContext } from './company-brain-context';
 import { buildDossie } from './company-brain-dossie';
 export const BRAIN_READ=['status','inventory','get','query','receipts','reconcile','context','dossie'] as const;
 export const BRAIN_WRITE=['sync','apply','rollback','bind'] as const;
+const BRAIN_OPERATIONS: readonly string[]=[...BRAIN_READ,...BRAIN_WRITE];
 export function runBrain(c:ManifestoCarregado,sub:string,options:Record<string,string|boolean>,positionals:string[]=[],transport?:BrainTransport):any{
   const context=memoryState(c);c=context.loaded;const config=c.manifesto.memory;
-  if(!([...BRAIN_READ,...BRAIN_WRITE] as readonly string[]).includes(sub))throw Error('brain.operation.invalid');
+  if(!BRAIN_OPERATIONS.includes(sub))throw Error('brain.operation.invalid');
   const allowed=new Set(['thread','json','id','ids','kinds','workspaces','limit','offset','batch','dry-run','plan','expected-sha256','project','initiatives','decisao']);
   if(Object.keys(options).some(k=>!allowed.has(k)))throw Error('brain.argument.invalid');
   const value=(name:string)=>typeof options[name]==='string'?options[name] as string:undefined;

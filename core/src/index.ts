@@ -64,6 +64,7 @@ import {
 } from './auditoria';
 import {
   abrirThreadDoAchado,
+  estadoDoVereditoDeAuditoria,
   ingerirAchados,
   registrarAchadoDaRodada,
   relatorioDaRodada,
@@ -4037,11 +4038,10 @@ function comandoAudit(args: Args): number {
       if (!r.verificado) console.log(m.cli.motivoDetalhe(String(r.motivo), r.detalhe));
     }
     console.log('');
-    console.log(
-      v.ok
-        ? m.cli.vereditoOk
-        : m.cli.vereditoRuim(v.motivos.join(', '))
-    );
+    const estado = estadoDoVereditoDeAuditoria(v);
+    console.log(estado === 'sustentado' ? m.cli.vereditoOk
+      : estado === 'sem-veredito' ? m.cli.vereditoSemVeredito(v.motivos.join(', '))
+        : m.cli.vereditoRuim(v.motivos.join(', ')));
     if (v.motivos.includes('claims.unverifiable')) {
       console.log(m.cli.unverifiable);
     }

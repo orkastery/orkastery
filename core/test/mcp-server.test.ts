@@ -268,6 +268,18 @@ test('MCP gate_request usa pausa real do nucleo e Auto sem gate continua sem ped
   const before=lerLedger(dirThread(p.dir,auto.id)).length;
   const denied=await call(c,'ork_gate_request',{threadId:auto.id});assert.equal(denied.error,true);
   assert.equal(lerLedger(dirThread(p.dir,auto.id)).length,before);
+  const autoDir=dirThread(p.dir,auto.id),sha='a'.repeat(40);
+  registrar(autoDir,auto.id,'verify_run',{motivos:['security.scan-unscanned'],veredito:'reprovado'});
+  registrar(autoDir,auto.id,'gate_blocked',
+    {fase:auto.faseAtual,gate:'verify',motivo:'security.scan-unscanned',
+      detalhe:'security_scan sem cobertura: comando `scan`; categorias: sast',evidencia:`reexecucao no HEAD ${sha}`});
+  const scan=await call(c,'ork_gate_request',{threadId:auto.id,motivo:'security.scan-unscanned'});
+  assert.equal(scan.error,false,scan.text);
+  assert.deepEqual(scan.data().alternativas.map((a:{texto:string})=>a.texto),[
+    'Instalar a cobertura indicada e rodar o verify novamente',
+    'Autorizar nominalmente o SHIP sem varredura',
+    'Continuar esperando',
+  ]);
   const t=novaThread(p.carregado,{nome:'pausa real',modo:'classic'}).thread;
   t.faseAtual='PLAN';gravarThread(p.dir,t);
   registrar(dirThread(p.dir,t.id),t.id,'phase_result',{fase:'PLAN',classificacao:'concluida',fonte:'fixture sintetica'});

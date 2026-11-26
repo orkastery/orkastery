@@ -572,6 +572,7 @@ não compila sem política).
 | `claims.unverifiable` | corrigir-dirigido | sim | Alegação sem comando vira correção tipo A: anexar o comando é uma linha |
 | `verify.regression` | corrigir-dirigido | sim | Passava na baseline e falha agora: defeito desta thread, com alvo conhecido |
 | `verify.failed` | corrigir-dirigido | sim | Falha sem baseline: a correção conserta ou grava a baseline, mas não chuta a culpa |
+| `security.scan-unscanned` | escalar-humano | **não** | O scan nomeia comando e categorias sem cobertura; repetir GO-FIX não instala a ferramenta nem autoriza entrega sem varredura |
 | `verify.timeout` | reexecutar | sim | O prazo estourou antes de o comando terminar: a prova não chegou ao fim, e carga de máquina não é defeito |
 | `verify.sem-veredito` | reexecutar | sim | Um comando não chegou a rodar, ou o produto mudou entre o preparo e o fim da rodada: não há veredito, e a prova certa é rodar de novo, inteira |
 | `hitl.formato` | corrigir-dirigido | sim | O pedido HITL saiu fora do formato: quem errou foi o emissor, que reemite com alternativas e uma recomendada |
@@ -1173,9 +1174,9 @@ entregue, a reescrita do histórico dela.
 | --- | --- |
 | achado `new` no laço | 1 |
 | dispensa sem `reason` ou `decisionRef`, ou config inválida em `.ork-security/` (a mensagem nomeia a entrada; nada é varrido) | 1 |
-| `ORK_SECURITY_SCAN_REQUIRED=1` e ferramenta de categoria do laço `unavailable` ou `failed` (salvo "nada a varrer", abaixo) | 1 |
+| ferramenta de categoria do laço `unavailable` ou `failed` (salvo "nada a varrer", abaixo); `ORK_SECURITY_SCAN_REQUIRED=1` é só marcador compatível | 1 |
 | opção desconhecida | 2 |
-| qualquer outro caso, inclusive sem Docker nem binário (o relatório diz `unavailable`) | 0 |
+| nenhum achado do laço e todas as categorias varridas ou dispensadas pelos motivos tipados abaixo | 0 |
 
 **Nada a varrer.** Dois motivos ficam declarados no relatório como `unavailable`, mas não contam como categoria não
 varrida, nem no código de saída com `ORK_SECURITY_SCAN_REQUIRED=1` nem no gate do SHIP: `unsupported-ci` (o projeto tem
@@ -1197,11 +1198,19 @@ Nada nela é obrigatório; a pasta nasce na primeira dispensa ou exclusão.
 
 ### Sem Docker: o gate do SHIP
 
-Sem Docker nem binário, o scan local sai 0 com a ferramenta `unavailable`, e o `ork doctor` já avisou antes (`warn`,
-nunca `fail`). Isso não vira "limpo" no SHIP. Com `verify.security_scan` declarado e **sem** `ci.required_for_ship`, se
-alguma categoria do laço não foi varrida no SHA da candidata (ferramenta `unavailable` ou `failed`, salvo "nada a
-varrer", ou nenhum relatório), o `ork ship` para com `human.pending` antes de qualquer push e diz quais categorias. A entrega só segue com
-autorização de uma pessoa:
+Sem Docker nem binário, o scan local sai 1 quando uma ferramenta não dispensada do laço fica `unavailable`; o
+`ork doctor` também avisa antes. O verify só emite `security.scan-unscanned` quando o relatório produzido pela própria
+rodada, para o SHA verificado, prova cobertura ausente e não contém achado `new` do laço. Achado novo continua em
+`verify.failed` ou `verify.regression`; saída diferente de zero sem relatório atual também permanece `verify.failed`.
+Cobertura ausente não vira regressão contra uma baseline verde. A política abre a escalada com duas saídas: instalar a
+cobertura indicada e rodar o verify novamente, ou autorizar nominalmente o SHIP sem varredura; ela não abre GO-FIX do
+scan. O pedido mostra o comando registrado e as categorias, sem mandar o dono executar comando. A resposta b vira a
+autorização nominal, com a identidade autenticada de quem respondeu, tanto no CLI quanto no `ork_ship`. O gate do SHIP
+permanece como uma segunda guarda. Com `verify.security_scan` declarado e **sem**
+`ci.required_for_ship`, se alguma categoria do laço não foi varrida no relatório atual da candidata (ferramenta
+`unavailable` ou `failed`, salvo "nada a varrer"), o `ork ship` para com `human.pending` antes de qualquer push e diz
+quais categorias. A entrega só segue quando `security.scan-unscanned` é o único bloqueio e uma pessoa a autoriza pela
+resposta b; no uso direto do CLI, a flag continua sendo a forma equivalente:
 
 ```bash
 ork ship <thread> --para main --allow-unscanned "<quem autoriza>"

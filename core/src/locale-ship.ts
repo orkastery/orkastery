@@ -66,7 +66,7 @@ export const SHIP_PT_BR = {
     `ensaio: o ship real gravaria ship_unscanned_authorized por ${quem} para ${categorias} no commit ${sha}`,
   allowUnscannedSemValor: 'erro: --allow-unscanned pede quem autoriza: ork ship <thread> --para <branch> --allow-unscanned "<quem>"',
   scanNaoVarridoCorrecao: (thread: string) =>
-    `rode ork security-scan com Docker ou os binarios nativos e repita o SHIP; para entregar sem varredura, autorize: ork ship ${thread} --para <branch> --allow-unscanned "<quem>"`,
+    `rode ork security-scan com Docker ou os binarios nativos e repita o SHIP; para entregar sem varredura, abra o pedido com ork gate request ${thread} e o dono responde b; no CLI, --allow-unscanned "<quem>" e equivalente`,
   arvoreDona: (dona: string, para: string, suja: boolean) =>
     `${dona} (arvore que tem ${para} em check-out; ${suja ? 'SUJA, o ship reprovaria com tree.blocked' : 'limpa'})`,
   arvoreTemporaria: (dir: string, para: string) => `worktree temporaria em ${dir} (ninguem tem ${para} em check-out)`,
@@ -403,7 +403,7 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
     `dry run: the real ship would record ship_unscanned_authorized by ${quem} for ${categorias} at commit ${sha}`,
   allowUnscannedSemValor: 'error: --allow-unscanned needs who authorizes: ork ship <thread> --para <branch> --allow-unscanned "<who>"',
   scanNaoVarridoCorrecao: (thread) =>
-    `run ork security-scan with Docker or the native binaries and run SHIP again; to ship unscanned, authorize it: ork ship ${thread} --para <branch> --allow-unscanned "<who>"`,
+    `run ork security-scan with Docker or the native binaries and run SHIP again; to ship unscanned, open the typed request with ork gate request ${thread} and the owner answers b; on the CLI, --allow-unscanned "<who>" is equivalent`,
   arvoreDona: (dona, para, suja) =>
     `${dona} (the tree with ${para} checked out; ${suja ? 'DIRTY, ship would fail with tree.blocked' : 'clean'})`,
   arvoreTemporaria: (dir, para) => `temporary worktree at ${dir} (nobody has ${para} checked out)`,

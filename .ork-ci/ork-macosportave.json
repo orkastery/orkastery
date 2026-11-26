@@ -1,0 +1,3231 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-macosportave",
+  "branch": "ork/ork-macosportave-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C2",
+      "thread": "ork-macosportave",
+      "fase": "GOAL",
+      "arquivo": "core/test/trava-portatil.test.ts",
+      "alegacao": "A suíte cobre concorrente vivo, morte real do dono, exclusão entre processos e identidade inconclusiva da trava portável.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/trava-portatil.test.js"
+      ],
+      "criadoEm": "2026-11-25T03:02:30.334Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C5",
+      "thread": "ork-macosportave",
+      "fase": "GOAL",
+      "arquivo": "core/test/macos-locks.test.ts",
+      "alegacao": "A suíte prova aquisição, liberação, exclusão HITL e recuperação de diálogo nos caminhos macOS.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/macos-locks.test.js"
+      ],
+      "criadoEm": "2026-11-25T03:07:49.383Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C8",
+      "thread": "ork-macosportave",
+      "fase": "GOAL",
+      "arquivo": "core/test/macos-locks.test.ts",
+      "alegacao": "A suíte cobre locks de criação e HITL, fila pesada e tomada de condução pelo caminho macOS.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/macos-locks.test.js"
+      ],
+      "criadoEm": "2026-11-25T03:12:20.618Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C10",
+      "thread": "ork-macosportave",
+      "fase": "GOAL",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "O verify registra caminho e versão do shell; ausência deixa a evidência não executada e sem veredito.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/shell-do-verify.test.js"
+      ],
+      "criadoEm": "2026-11-25T03:15:19.855Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C13",
+      "thread": "ork-macosportave",
+      "fase": "GOAL",
+      "arquivo": "core/test/shell-do-verify.test.ts",
+      "alegacao": "A suíte prova ordem fixa, independência de PATH/override, recibo e causa sem veredito.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/shell-do-verify.test.js"
+      ],
+      "criadoEm": "2026-11-25T03:15:20.203Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C14",
+      "thread": "ork-macosportave",
+      "fase": "GOAL",
+      "arquivo": "core/src/check-paralelo.ts",
+      "alegacao": "O CHECK paralelo executa comandos pelo mesmo shell absoluto e tipado usado pelo verify.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/shell-do-verify.test.js"
+      ],
+      "criadoEm": "2026-11-25T03:15:31.552Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C15",
+      "thread": "ork-macosportave",
+      "fase": "GOAL",
+      "arquivo": "core/test/check-agil.test.ts",
+      "alegacao": "A suíte do Agile Check espera o caminho controlado prioritário e preserva argv direto para itens sem shell.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js"
+      ],
+      "criadoEm": "2026-11-25T03:16:55.374Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C18",
+      "thread": "ork-macosportave",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f3d-pt-BR.json",
+      "alegacao": "A fixture pública registra saída 1 e o motivo `verify.sem-veredito` para a rodada sem achado aberto.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/auditrun-sem-claims.test.js"
+      ],
+      "criadoEm": "2026-11-25T03:20:42.421Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C19",
+      "thread": "ork-macosportave",
+      "fase": "GOAL",
+      "arquivo": "core/test/auditrun-sem-claims.test.ts",
+      "alegacao": "A suíte prova o requisito de evidência executada, a mensagem pareada e a saída pública tipada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/auditrun-sem-claims.test.js"
+      ],
+      "criadoEm": "2026-11-25T03:20:42.516Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C21",
+      "thread": "ork-macosportave",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "Os checks de trava portátil e shell do verify têm mensagens e nomes pareados em português e inglês.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/doctor-portabilidade.test.js"
+      ],
+      "criadoEm": "2026-11-25T03:22:59.451Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C22",
+      "thread": "ork-macosportave",
+      "fase": "GOAL",
+      "arquivo": "core/test/doctor-portabilidade.test.ts",
+      "alegacao": "A suíte prova bloqueio de infraestrutura, aviso de versão antiga, aprovação de shell atual e paridade dos nomes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/doctor-portabilidade.test.js"
+      ],
+      "criadoEm": "2026-11-25T03:22:59.547Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C23",
+      "thread": "ork-macosportave",
+      "fase": "GOAL",
+      "arquivo": ".github/workflows/ci.yml",
+      "alegacao": "O CI possui um job `macos-latest` dedicado à prova do pacote instalado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/ci-macos.test.js"
+      ],
+      "criadoEm": "2026-11-25T03:29:02.180Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C25",
+      "thread": "ork-macosportave",
+      "fase": "GOAL",
+      "arquivo": "core/test/ci-macos.test.ts",
+      "alegacao": "A suíte estrutural vincula o job macOS ao tarball instalado e impede substituição pela execução direta do checkout.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/ci-macos.test.js"
+      ],
+      "criadoEm": "2026-11-25T03:29:02.456Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C35",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/company-brain-cli.ts",
+      "alegacao": "A validação da operação do Company Brain usa uma lista de strings tipada e não introduz any no acesso ao catálogo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/company-brain-cli.test.js"
+      ],
+      "criadoEm": "2026-11-25T04:38:12.171Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C39",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f2a-casos.ts",
+      "alegacao": "O snapshot F2a normaliza apenas a versão variável do Bash e conserva os demais bytes da saída.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/locale-f2a-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-25T04:38:12.508Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C40",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f2a-pt-BR.json",
+      "alegacao": "A saída pt-BR do doctor mantém analisadores após Node e publica trava portátil e shell do verify nas duas linhas seguintes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/locale-f2a-snapshot.test.js core/dist-test/test/doctor-portabilidade.test.js core/dist-test/test/rm031-grafo-no-pacote.test.js"
+      ],
+      "criadoEm": "2026-11-25T04:38:12.566Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C43",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/trava-portatil.ts",
+      "alegacao": "No caminho darwin, a identidade do processo independe do TZ e do locale do chamador, saída 1 do ps não prova morte sem ESRCH e o candidato é publicado atomicamente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/trava-portatil.test.js"
+      ],
+      "criadoEm": "2026-11-25T07:57:59.382Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C44",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/trava-portatil.test.ts",
+      "alegacao": "A suíte cobre dois processos com TZ e LC_ALL distintos, ps inconclusivo e contenção sem violação nem trava.portatil.insegura.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/trava-portatil.test.js"
+      ],
+      "criadoEm": "2026-11-25T07:57:59.433Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C45",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/auditrun.ts",
+      "alegacao": "Auditoria com zero claims executadas fica sem veredito e não aprova, inclusive com achados resolvidos ou descartados.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/auditrun-sem-claims.test.js core/dist-test/test/auditoria.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:02:05.427Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C46",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "O CLI audit verify sai 1 e imprime SEM VEREDITO, sem anunciar sustentação nem reprovação, quando nenhuma claim foi executada.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/auditrun-sem-claims.test.js core/dist-test/test/auditoria.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:02:05.502Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C47",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/locale-audit.ts",
+      "alegacao": "As mensagens em português e inglês distinguem sem veredito de sustentação e reprovação.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/auditrun-sem-claims.test.js core/dist-test/test/auditoria.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:02:05.567Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C48",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/auditoria.test.ts",
+      "alegacao": "A suíte preserva achado resolvido fora da reexecução e exige sem veredito quando nenhuma evidência roda.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/auditrun-sem-claims.test.js core/dist-test/test/auditoria.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:02:05.634Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C49",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/auditrun-sem-claims.test.ts",
+      "alegacao": "A suíte exercita o CLI com rodada vazia e com o único achado resolvido ou descartado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/auditrun-sem-claims.test.js core/dist-test/test/auditoria.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:02:05.698Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C50",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/hitl-local.ts",
+      "alegacao": "A recuperação HITL registra evidência do mecanismo usado pela plataforma.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/hitl-channel-release.test.js core/dist-test/test/macos-locks.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:09:19.675Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C51",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/hitl-lock.ts",
+      "alegacao": "A reserva HITL no macOS converte falha de abertura em hitl.channel.recovery-unproven.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/hitl-channel-release.test.js core/dist-test/test/macos-locks.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:09:19.782Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C52",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/hitl-channel-release.test.ts",
+      "alegacao": "O teste distingue a evidência de recuperação HITL no Linux e no macOS.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/hitl-channel-release.test.js core/dist-test/test/macos-locks.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:09:19.866Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C53",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/macos-locks.test.ts",
+      "alegacao": "O teste exercita a falha tipada ao recuperar reserva HITL ausente no macOS.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/hitl-channel-release.test.js core/dist-test/test/macos-locks.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:09:19.930Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C58",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/scripts/provar-macos-instalado.cjs",
+      "alegacao": "O script do pacote instalado cria worktree e invoca claims add e verify pelo binário instalado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/ci-macos.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:19:44.689Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C60",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": ".github/workflows/ci.yml",
+      "alegacao": "O CI declara jobs Linux e macOS que executam o mesmo script do pacote instalado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/ci-macos.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:19:44.810Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C61",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": ".github/workflows/publicar.yml",
+      "alegacao": "O job de publicação depende da prova do pacote instalado no macOS.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/ci-macos.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:19:44.864Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C65",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "docs/comecar/quickstart.md",
+      "alegacao": "O quickstart documenta o mecanismo de trava de cada plataforma.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- '| Linux usa `flock`; macOS usa a trava por identidade de processo;' docs/comecar/quickstart.md"
+      ],
+      "criadoEm": "2026-11-25T08:20:40.140Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C67",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O changelog registra que a publicação depende da prova do macOS.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- 'a publicação no npm depende da prova do macOS.' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-11-25T08:20:40.233Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C71",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-080-saida-completa-e-causa-tipada-no-verify.md",
+      "alegacao": "A RM-080 inclui F0 a F6 no horizonte.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- '**Horizonte / alvo / previsão / confiança / marcos:** Discovery; F0 a F6.' docs/roadmap/RM-080-saida-completa-e-causa-tipada-no-verify.md"
+      ],
+      "criadoEm": "2026-11-25T08:21:27.377Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C72",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f2a-pt-BR.json",
+      "alegacao": "O snapshot do doctor usa a mensagem de aquisição e liberação do mecanismo da plataforma.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- 'mecanismo de trava da plataforma adquirido e liberado' core/test/fixtures/locale-f2a-pt-BR.json"
+      ],
+      "criadoEm": "2026-11-25T08:30:51.387Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C73",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/doctor.ts",
+      "alegacao": "O doctor sonda flock no Linux, a trava portátil no macOS e reprova quando o mecanismo falta.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/doctor-portabilidade.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:31:27.174Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C74",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/check-paralelo.ts",
+      "alegacao": "O executor paralelo falha fechado quando não existe shell controlado.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/shell-do-verify.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:31:27.258Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C75",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "A mensagem do doctor afirma apenas aquisição e liberação do mecanismo da plataforma.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/doctor-portabilidade.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:31:27.353Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C76",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/shell-do-verify.test.ts",
+      "alegacao": "O teste exercita rodarEmParalelo sem shell e recebe ENOENT.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/shell-do-verify.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:31:27.466Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C77",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/shell-do-verify.ts",
+      "alegacao": "O resolvedor aceita sufixos controlados de versão do Bash sem aceitar texto livre.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/shell-do-verify.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:31:27.563Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C78",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/doctor-portabilidade.test.ts",
+      "alegacao": "O teste do doctor cobre flock ausente no Linux e a sonda portátil no macOS.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/doctor-portabilidade.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:31:27.654Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C79",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/shell-do-verify.test.ts",
+      "alegacao": "rodarEmParalelo devolve ENOENT tipado ao receber shellDoVerify nulo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/shell-do-verify.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:31:33.886Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C80",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "A tabela de prioridade contém a linha exata da frente de issues de usuários com RM-096 e RM-080 F0.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- '| 0 | Issues de usuários (ordem do dono em 24/11/2026) | [RM-096](RM-096-nucleo-portatil-no-macos.md) e [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md) F0 | O pacote instalado percorre o primeiro ciclo no macOS; infraestrutura ausente produz diagnóstico tipado e nunca um verde falso |' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-11-25T08:32:17.369Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C81",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/creation-operation-store.ts",
+      "alegacao": "No caminho darwin, o journal de criação conclui aquisições consecutivas da trava portátil.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/macos-locks.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:32:40.441Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C82",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/conducao.ts",
+      "alegacao": "No caminho darwin, a condução adquire, libera e readquire a trava da thread.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/macos-locks.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:32:40.527Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C83",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "ResultadoDeComando admite a identidade opcional ShellDoVerify.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- 'export interface ShellDoVerify { caminho: string; versao: string }' core/src/types.ts && grep -F -- '  shell?: ShellDoVerify;' core/src/types.ts"
+      ],
+      "criadoEm": "2026-11-25T08:32:40.649Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C84",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/fila-pesada.ts",
+      "alegacao": "No caminho darwin, a fila recusa vaga ocupada e permite reentrada depois da liberação.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/macos-locks.test.js"
+      ],
+      "criadoEm": "2026-11-25T08:32:40.751Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C90",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3d-pt-BR.json",
+      "alegacao": "O snapshot público de auditoria coincide byte a byte com as saídas atuais do catálogo em português.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node -e \"const fs=require('node:fs');const {casosDoGrupo}=require('./core/dist-test/test/locale-f3d-casos.js');const e=JSON.parse(fs.readFileSync('./core/test/fixtures/locale-f3d-pt-BR.json','utf8')).audit;const a=casosDoGrupo('audit');const ks=Object.keys(e).filter(k=>a[k]!==e[k]);for(const k of ks){const x=e[k],y=a[k];let i=0;while(i<x.length&&i<y.length&&x[i]===y[i])i++;console.log(JSON.stringify({caso:k,pos:i,lenEsperado:x.length,lenObtido:y.length,esperado:x.slice(Math.max(0,i-120),i+500),obtido:y.slice(Math.max(0,i-120),i+500)}));}process.exit(ks.length?1:0)\""
+      ],
+      "criadoEm": "2026-11-25T10:04:49.369Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C91",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/trava-portatil.ts",
+      "alegacao": "A trava portátil relê o nome do candidato após nlink=0 ou conteúdo vazio e conserva o candidato trocado por rename enquanto ele tem precedência.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/trava-portatil.test.js"
+      ],
+      "criadoEm": "2026-11-25T13:46:18.542Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C94",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/auditrun.ts",
+      "alegacao": "Na ausência de comandos executados, a auditoria retorna SEM VEREDITO com código 1, inclusive para achado aberto sem comando de verificação.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/auditrun-sem-claims.test.js"
+      ],
+      "criadoEm": "2026-11-25T13:48:26.760Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C95",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/scripts/provar-macos-instalado.cjs",
+      "alegacao": "A prova instala o tarball globalmente sob prefixo isolado, antepõe seu bin ao PATH, isola HOME, confere a origem do ork e só aceita scan coberto ou indisponível por falta de runtime de contêiner.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/ci-macos.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:49.820Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C96",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/ci-macos.test.ts",
+      "alegacao": "A suíte estrutural cobre instalação global com prefixo, origem do ork, HOME isolado, ordem de build e teste antes do scan, estados válidos do relatório e ausência de continue-on-error.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/ci-macos.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:49.894Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C97",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": ".github/workflows/ci.yml",
+      "alegacao": "Os jobs Linux e macOS executam a prova do tarball e o job macOS roda os testes multiprocesso da trava, sem continue-on-error.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/ci-macos.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:49.961Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C98",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": ".github/workflows/publicar.yml",
+      "alegacao": "A publicação depende da prova do pacote no macOS, cujo nome é distinto do job de CI e não usa continue-on-error.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/ci-macos.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:50.023Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C99",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "orkastery.yaml",
+      "alegacao": "O manifesto lista os contextos de quickstart instalado no Linux e no macOS sem afirmar que a proteção atual da branch os exige.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/ci-macos.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:50.133Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C100",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/shell-do-verify.ts",
+      "alegacao": "Sem candidatos injetados, o resolvedor usa apenas caminhos absolutos controlados e mede a versão sem BASH_ENV nem ENV.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/shell-do-verify.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:50.217Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C101",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "O ambiente dos comandos do verify remove BASH_ENV e ENV e preserva o recibo do shell usado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/shell-do-verify.test.js core/dist-test/test/verify-timeout.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:50.294Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C102",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/shell-do-verify.test.ts",
+      "alegacao": "A suíte exercita o resolvedor sem candidatos injetados, PATH e override hostis, o CHECK paralelo padrão e BASH_ENV e ENV hostis.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/shell-do-verify.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:50.376Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C103",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/verify-timeout.test.ts",
+      "alegacao": "A suíte confere que o ambiente funcional do verify não contém BASH_ENV, ENV nem variáveis HITL.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/verify-timeout.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:50.451Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C104",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "O recibo de uma claim sustentada registra o shell de cada comando executado sem depender de filtro por nome de teste.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/verify-compilacao-unica.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:50.532Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C105",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/verify-compilacao-unica.test.ts",
+      "alegacao": "A suíte completa confere o shell no recibo da claim sustentada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/verify-compilacao-unica.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:50.621Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C106",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/verify-sandbox.ts",
+      "alegacao": "O executor sandbox usa o shell medido tanto no argv entregue ao supervisor quanto no recibo retornado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/verify-sandbox-shell.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:50.706Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C107",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/verify-sandbox-shell.test.ts",
+      "alegacao": "A suíte determinística cria o executor sandbox, captura o argv real do supervisor e confere o mesmo shell no recibo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/verify-sandbox-shell.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:50.769Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C108",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/hitl-local.ts",
+      "alegacao": "A recuperação de diálogo HITL grava a evidência do mecanismo da plataforma efetivamente selecionada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/hitl-channel-release.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:50.848Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C109",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/hitl-channel-release.test.ts",
+      "alegacao": "A suíte percorre a recuperação de diálogo no caminho darwin e confere process-identity-lock no evento gravado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/hitl-channel-release.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:50.937Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C110",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/fila-pesada.ts",
+      "alegacao": "A recusa da fila portátil omite o trecho desde quando o dono não publica uma data.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/fila-pesada-recusa.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:51.019Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C111",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/fila-pesada-recusa.test.ts",
+      "alegacao": "A suíte confere que uma ocupação portátil sem data não produz desde vazio na recusa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/fila-pesada-recusa.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:51.083Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C112",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/conducao.ts",
+      "alegacao": "No Linux sem flock, a condução falha fechada com motivo que identifica a ausência do mecanismo Linux.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/doctor-portabilidade.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:51.167Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C113",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "A correção do doctor no Linux sem flock orienta instalar o utilitário que fornece /usr/bin/flock.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/doctor-portabilidade.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:51.240Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C114",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/doctor.ts",
+      "alegacao": "O doctor seleciona flock no Linux e a trava por identidade no macOS e usa a correção correspondente à plataforma.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/doctor-portabilidade.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:51.333Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C115",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/doctor-portabilidade.test.ts",
+      "alegacao": "A suíte cobre a correção de instalação do flock no Linux e a sonda portátil no macOS.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/doctor-portabilidade.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:51.445Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C116",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/trava-portatil.test.ts",
+      "alegacao": "A suíte impede que o nome final do ticket zero fique visível antes de seu conteúdo completo.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/trava-portatil.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:51.522Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C117",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "README.md",
+      "alegacao": "The README states that CI runs the installed-package quickstart, npm publication requires the macOS proof, and current main branch protection does not require those jobs.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- 'CI runs the installed-package quickstart on Linux and macOS, and npm publication requires the macOS proof. Those jobs are not required by the current `main` branch protection.' README.md"
+      ],
+      "criadoEm": "2026-11-25T14:28:51.607Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C118",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "README.pt-BR.md",
+      "alegacao": "O README informa que o CI roda o quickstart instalado, a publicação exige a prova do macOS e a proteção atual da main não exige esses jobs.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- 'o CI roda o quickstart do pacote instalado no Linux e no macOS, e a publicação no npm exige a prova do macOS. Esses jobs não são exigidos pela proteção atual da `main`.' README.pt-BR.md"
+      ],
+      "criadoEm": "2026-11-25T14:28:51.681Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C121",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O changelog liga as issues 303 e 304 às correções e registra flock ausente, jobs fora da proteção atual e publicação dependente da prova macOS.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- '[#303](https://github.com/orkastery/orkastery/issues/303)' CHANGELOG.md && grep -F -- '[#304](https://github.com/orkastery/orkastery/issues/304)' CHANGELOG.md && grep -F -- 'sem que a proteção atual da `main` exija esses jobs; a publicação no npm depende da prova do macOS.' CHANGELOG.md && grep -F -- 'No Linux sem `flock`, condução e doctor falham com a correção de instalar o utilitário.' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-11-25T14:28:51.914Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C122",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-096-nucleo-portatil-no-macos.md",
+      "alegacao": "A RM-096 registra separadamente as dívidas de observabilidade, custo das sondas e contenção sem espera, além das fontes 303 e 304.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- '[issue #303](https://github.com/orkastery/orkastery/issues/303)' docs/roadmap/RM-096-nucleo-portatil-no-macos.md && grep -F -- '[issue #304](https://github.com/orkastery/orkastery/issues/304)' docs/roadmap/RM-096-nucleo-portatil-no-macos.md && grep -F -- 'Dívida aceita do GO-FIX — observabilidade da fila' docs/roadmap/RM-096-nucleo-portatil-no-macos.md && grep -F -- 'Dívida aceita do GO-FIX — custo das sondas' docs/roadmap/RM-096-nucleo-portatil-no-macos.md && grep -F -- 'Dívida aceita do GO-FIX — contenção sem espera' docs/roadmap/RM-096-nucleo-portatil-no-macos.md"
+      ],
+      "criadoEm": "2026-11-25T14:28:51.978Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C123",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "docs/guias/auditoria.md",
+      "alegacao": "O guia informa saída 1 e SEM VEREDITO quando nenhum comando roda e orienta gerar o relatório em passo separado.",
+      "negativa": true,
+      "verificar": [
+        "grep -F -- 'resultado é `SEM VEREDITO` e a saída é 1.' docs/guias/auditoria.md && grep -F -- 'Gere o relatório em um passo separado; não encadeie `audit report` com `&&`.' docs/guias/auditoria.md"
+      ],
+      "criadoEm": "2026-11-25T14:28:52.057Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C124",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referência em português descreve flock no Linux e SEM VEREDITO com saída 1 quando nenhum comando de auditoria é executado.",
+      "negativa": true,
+      "verificar": [
+        "grep -F -- 'libera `flock`, que é o mecanismo usado pelo núcleo' docs/referencia/cli.md && grep -F -- 'Sem comando executado, inclusive com achado aberto sem comando, imprime `SEM VEREDITO` e sai 1' docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-11-25T14:28:52.147Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C125",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.en.md",
+      "alegacao": "A referência em inglês descreve flock no Linux e NO VERDICT com saída 1 quando nenhum comando de auditoria é executado.",
+      "negativa": true,
+      "verificar": [
+        "grep -F -- 'releases `flock`, the mechanism used by the core' docs/referencia/cli.en.md && grep -F -- 'With no command executed, including an open finding without a command, it prints `NO VERDICT` and exits 1' docs/referencia/cli.en.md"
+      ],
+      "criadoEm": "2026-11-25T14:28:52.244Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C126",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/locale-audit.ts",
+      "alegacao": "As mensagens em português e inglês apresentam audit verify e audit report como passos separados.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/auditrun-sem-claims.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:52.310Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C127",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/auditrun-sem-claims.test.ts",
+      "alegacao": "A suíte prova SEM VEREDITO sem comando e confere que as mensagens pareadas não encadeiam verify e report com operador condicional.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/auditrun-sem-claims.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:52.378Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C128",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/locale-f3d-pt-BR.json",
+      "alegacao": "A fixture pública representa a rodada vazia com SEM VEREDITO e apresenta verify e report como passos separados.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/auditrun-sem-claims.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:52.440Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C130",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/publicacao-npm.test.ts",
+      "alegacao": "A suíte completa confere que a publicação exige as provas do grafo e do pacote no macOS.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/publicacao-npm.test.js"
+      ],
+      "criadoEm": "2026-11-25T14:28:52.560Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C132",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/scripts/provar-macos-instalado.cjs",
+      "alegacao": "A prova do pacote copia a fixture versionada com lockfile e exclui da falta de cobertura somente as dispensas reconhecidas pelo classificador do security scan.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/ci-macos.test.js"
+      ],
+      "criadoEm": "2026-11-25T16:51:25.105Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C133",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/ci-macos.test.ts",
+      "alegacao": "A suíte estrutural exige Node 24 no job macOS, o lockfile da fixture e a aceitação de ferramenta dispensada pelo scan.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/ci-macos.test.js"
+      ],
+      "criadoEm": "2026-11-25T16:51:25.336Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C134",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": ".github/workflows/ci.yml",
+      "alegacao": "O job de portabilidade do macOS usa Node 24 e executa a prova do pacote instalado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/ci-macos.test.js"
+      ],
+      "criadoEm": "2026-11-25T16:51:25.605Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C135",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/pacote-portatil/package.json",
+      "alegacao": "A fixture versionada do quickstart declara scripts executáveis de build e teste.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const p=require('./core/test/fixtures/pacote-portatil/package.json');process.exit(typeof p.scripts?.build==='string'&&typeof p.scripts?.test==='string'?0:1)\""
+      ],
+      "criadoEm": "2026-11-25T16:51:25.740Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C136",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/pacote-portatil/package-lock.json",
+      "alegacao": "A fixture versionada do quickstart tem lockfile npm v3 cujo pacote raiz corresponde ao package.json.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const p=require('./core/test/fixtures/pacote-portatil/package.json');const l=require('./core/test/fixtures/pacote-portatil/package-lock.json');process.exit(l.lockfileVersion===3&&l.packages?.['']?.name===p.name?0:1)\""
+      ],
+      "criadoEm": "2026-11-25T16:51:25.899Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C137",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/verify-sandbox.ts",
+      "alegacao": "O executor sandbox aceita uma fixture executável interna sem consultar /usr/bin/codex, mantendo o caminho fixo como padrão de produção.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/verify-sandbox-shell.test.js"
+      ],
+      "criadoEm": "2026-11-25T16:51:26.060Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C138",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/verify-sandbox-shell.test.ts",
+      "alegacao": "A suíte do sandbox injeta o binário do executor e prova o shell no argv e no recibo sem depender do codex instalado no host.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/verify-sandbox-shell.test.js"
+      ],
+      "criadoEm": "2026-11-25T16:51:26.227Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C139",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/trava-portatil.ts",
+      "alegacao": "Candidato vazio persistente encerra a aquisição com trava.portatil.insegura em vez de manter uma releitura sem limite.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/trava-portatil.test.js"
+      ],
+      "criadoEm": "2026-11-25T16:51:26.391Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C140",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/trava-portatil.test.ts",
+      "alegacao": "A suíte cobre deterministicamente candidato vazio com prazo curto e exige a falha tipada da trava portátil.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/trava-portatil.test.js"
+      ],
+      "criadoEm": "2026-11-25T16:51:26.648Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C141",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/shell-do-verify.test.ts",
+      "alegacao": "A suíte aponta PATH e ORK_BASH para uma cópia executável real do Bash fora da lista fixa e exige que o resolvedor a ignore.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/shell-do-verify.test.js"
+      ],
+      "criadoEm": "2026-11-25T16:51:26.920Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C142",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/doctor-portabilidade.test.ts",
+      "alegacao": "A suíte chama tomarConducao no Linux sem flock e exige a causa runtime.unavailable que nomeia o mecanismo ausente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/doctor-portabilidade.test.js"
+      ],
+      "criadoEm": "2026-11-25T16:51:27.253Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C143",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/hitl-channel-release.test.ts",
+      "alegacao": "A recuperação HITL de ponta a ponta pela fiação Linux padrão registra kernel-exclusive-lock.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/hitl-channel-release.test.js"
+      ],
+      "criadoEm": "2026-11-25T16:51:27.469Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C144",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "README.md",
+      "alegacao": "The README states that #Noctum remains Linux-only while it is in development.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- '#Noctum remains Linux-only while it is in development.' README.md"
+      ],
+      "criadoEm": "2026-11-25T16:51:27.600Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C145",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "README.md",
+      "alegacao": "The README states that the core uses Bash only at /bin/bash or /usr/bin/bash.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- 'The core needs Bash at `/bin/bash` or `/usr/bin/bash`.' README.md"
+      ],
+      "criadoEm": "2026-11-25T16:51:27.747Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C146",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "README.pt-BR.md",
+      "alegacao": "O README em português informa que o #Noctum permanece restrito ao Linux enquanto está em desenvolvimento.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- 'O #Noctum permanece restrito ao Linux enquanto está em desenvolvimento.' README.pt-BR.md"
+      ],
+      "criadoEm": "2026-11-25T16:51:27.926Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C147",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "README.pt-BR.md",
+      "alegacao": "O README em português informa que o núcleo exige Bash em /bin/bash ou /usr/bin/bash.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- 'O núcleo exige Bash em `/bin/bash` ou `/usr/bin/bash`.' README.pt-BR.md"
+      ],
+      "criadoEm": "2026-11-25T16:51:28.104Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C148",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/README.md",
+      "alegacao": "O README do pacote declara Bash em /bin/bash ou /usr/bin/bash como requisito.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- 'Bash at `/bin/bash` or `/usr/bin/bash`' core/README.md"
+      ],
+      "criadoEm": "2026-11-25T16:51:28.245Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C149",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/README.md",
+      "alegacao": "O README do pacote informa que o #Noctum permanece restrito ao Linux enquanto está em desenvolvimento.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- '#Noctum remains Linux-only while it is in development.' core/README.md"
+      ],
+      "criadoEm": "2026-11-25T16:51:28.485Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C150",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/README.md",
+      "alegacao": "O README do pacote informa que os jobs instalam o tarball e percorrem worktree, claims add e verify no Linux e no macOS.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- 'CI jobs install the package tarball and run worktree creation, `ork claims add`, and `ork verify`' core/README.md && grep -F -- 'on Linux and macOS' core/README.md"
+      ],
+      "criadoEm": "2026-11-25T16:51:28.724Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C151",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/README.md",
+      "alegacao": "O README do pacote informa que o job do quickstart instalado roda no macOS com Node 24 e que a publicação repete e exige a prova.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- 'installed-package quickstart job runs on macOS with Node.js 24; npm publication repeats and requires that proof.' core/README.md"
+      ],
+      "criadoEm": "2026-11-25T16:51:28.940Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C152",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "docs/comecar/quickstart.md",
+      "alegacao": "O quickstart informa que o job instalado roda no macOS com Node 24 e que a publicação repete e exige a prova.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- 'o job do quickstart instalado roda no macOS com Node 24, e a publicação repete e exige essa prova' docs/comecar/quickstart.md"
+      ],
+      "criadoEm": "2026-11-25T16:51:29.053Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C153",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O changelog registra que a sonda do Bash e os comandos do verify não repassam BASH_ENV nem ENV.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- 'a sonda da versão e os comandos do verify não repassam `BASH_ENV` nem `ENV`' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-11-25T16:51:29.207Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C154",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/locale-claims.ts",
+      "alegacao": "O catálogo inglês traduz as mensagens que validam o caminho absoluto e a executabilidade do binário injetado no executor sandbox.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/locale-frases.test.js"
+      ],
+      "criadoEm": "2026-11-25T17:28:29.061Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C155",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/README.md",
+      "alegacao": "O README do pacote exige Node.js 20 ou mais novo no Linux.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- 'Requires Node.js 20 or newer on Linux' core/README.md"
+      ],
+      "criadoEm": "2026-11-25T20:14:19.466Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C156",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/README.md",
+      "alegacao": "O README do pacote informa que a proteção atual da main não exige os jobs de quickstart instalado.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- 'the current `main` branch protection does not require those jobs.' core/README.md"
+      ],
+      "criadoEm": "2026-11-25T20:14:19.550Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C157",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "docs/comecar/quickstart.md",
+      "alegacao": "O quickstart informa que o pacote declara Node 20 ou mais novo no Linux.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- 'No Linux, o pacote declara Node 20 ou mais novo' docs/comecar/quickstart.md"
+      ],
+      "criadoEm": "2026-11-25T20:14:19.749Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C158",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "docs/comecar/quickstart.md",
+      "alegacao": "O quickstart informa que os jobs não são exigidos pela proteção atual da main.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- 'eles não são exigidos pela proteção atual da `main`.' docs/comecar/quickstart.md"
+      ],
+      "criadoEm": "2026-11-25T20:14:19.893Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C162",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/classic-retrato-b16c5be8.json",
+      "alegacao": "CL1, CL2 e CL3 preservam o retrato congelado do Classic com os mesmos comandos, ferramentas e argumentos da base.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/check-classic-intacto.test.js"
+      ],
+      "criadoEm": "2026-11-25T22:41:17.293Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C164",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "docs/comecar/quickstart.md",
+      "alegacao": "O quickstart informa que o grafo de código exige Node 20.19, 22.12 ou mais novo.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- 'o grafo de código (`ork grafo`) pede Node 20.19, 22.12 ou mais novo' docs/comecar/quickstart.md"
+      ],
+      "criadoEm": "2026-11-25T22:41:47.744Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C167",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/check-paralelo.ts",
+      "alegacao": "O lançamento paralelo usa as superfícies tipadas do runtime e preserva shell, ambiente, descritores e término das lanes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js core/dist-test/test/shell-do-verify.test.js"
+      ],
+      "criadoEm": "2026-11-25T23:29:01.357Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C171",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/hitl-local.ts",
+      "alegacao": "A evidência da reserva HITL seleciona o mecanismo pelo valor tipado da plataforma sem alterar o contrato público.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/hitl-channel-release.test.js"
+      ],
+      "criadoEm": "2026-11-25T23:29:02.030Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C172",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/shell-do-verify.ts",
+      "alegacao": "A seleção e a medição do shell controlado usam arquivo, ambiente e processo tipados e preservam a falha fechada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/shell-do-verify.test.js"
+      ],
+      "criadoEm": "2026-11-25T23:29:02.332Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C175",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/check-classic-intacto.test.ts",
+      "alegacao": "A configuração padrão do ESLint e o conteúdo das configs montadas pelo Classic correspondem ao retrato congelado da base, sem excluir a árvore de testes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/security-scan-tools.test.js core/dist-test/test/check-classic-intacto.test.js"
+      ],
+      "criadoEm": "2026-11-26T01:20:57.200Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C176",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/creation-operation-store.test.ts",
+      "alegacao": "A leitura do journal rejeita estado persistido que não valida o schema antes de devolver a operação.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/creation-operation-store.test.js"
+      ],
+      "criadoEm": "2026-11-26T01:33:01.299Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C177",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/doctor-portabilidade.test.ts",
+      "alegacao": "A sonda Linux do doctor executa o flock e reprova quando a aquisição da trava falha.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/doctor-portabilidade.test.js core/dist-test/test/trava-portatil.test.js"
+      ],
+      "criadoEm": "2026-11-26T01:33:01.468Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C179",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/verify-timeout.test.ts",
+      "alegacao": "O verify usa o auxiliar de prazo e o grupo de processos quando o binário controlado está disponível.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/verify-timeout.test.js"
+      ],
+      "criadoEm": "2026-11-26T01:33:01.966Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C184",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/conducao.ts",
+      "alegacao": "A condução no Linux mantém a exclusão pelo flock e falha fechada quando o mecanismo não está disponível.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/conducao-lease.test.js core/dist-test/test/conducao-handoff.test.js core/dist-test/test/rm037-esperas.test.js core/dist-test/test/rm037-limite-de-sessoes.test.js core/dist-test/test/doctor-portabilidade.test.js"
+      ],
+      "criadoEm": "2026-11-26T03:02:25.985Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C185",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-097-resolucao-de-tipos-no-security-scan.md",
+      "alegacao": "A RM-097 registra a resolução de tipos do security scan como proposta em Discovery, com código não iniciado e sem ignore novo de fonte ou teste.",
+      "negativa": false,
+      "verificar": [
+        "grep -F -- '> **Em uma frase:** o lint type-aware resolve os tipos reais do projeto no worktree destacado, sem mudar o Classic nem exigir fachadas tipadas à mão no produto.' docs/roadmap/RM-097-resolucao-de-tipos-no-security-scan.md && grep -F -- '| Discovery | Não iniciado | Não iniciados | Não implantado | Flag desligada |' docs/roadmap/RM-097-resolucao-de-tipos-no-security-scan.md && grep -F -- '- **Métricas de proteção:** nenhum ignore novo de fonte ou teste;' docs/roadmap/RM-097-resolucao-de-tipos-no-security-scan.md"
+      ],
+      "criadoEm": "2026-11-26T03:02:26.077Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C186",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "A fachada node-portavel não existe e os testes preservam as travas portáteis, o shell controlado e as guardas do verify.",
+      "negativa": true,
+      "verificar": [
+        "test ! -e core/src/node-portavel.ts && npm --prefix core run build:test && node --test core/dist-test/test/trava-portatil.test.js core/dist-test/test/hitl-lock.test.js core/dist-test/test/fila-pesada-recusa.test.js core/dist-test/test/doctor-portabilidade.test.js core/dist-test/test/shell-do-verify.test.js core/dist-test/test/verify-timeout.test.js"
+      ],
+      "criadoEm": "2026-11-26T03:02:26.147Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C187",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/creation-operation-store.ts",
+      "alegacao": "listCreationOperations atribui a saída validada do schema diretamente ao tipo CreationOperation.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && grep -F -- 'const parsed: CreationOperation = creationOperationSchema.parse' core/src/creation-operation-store.ts"
+      ],
+      "criadoEm": "2026-11-26T03:02:26.216Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C188",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/shell-do-verify.test.ts",
+      "alegacao": "O teste do shell troca a função de processo depois da carga do módulo e prova que a medição usa a implementação disponível na chamada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/shell-do-verify.test.js"
+      ],
+      "criadoEm": "2026-11-26T03:02:26.287Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C178",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C183",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ],
+  "recibo": {
+    "contrato": "ork.recibo-prova/v1",
+    "head": "a9bf1584df49936fa5c632a0ccad6aba111fd4f4",
+    "sha256": "23503fa3c432619b769c098ea923b7c57800b202cb48850957c5ec98c5b63625"
+  }
+}

@@ -556,7 +556,7 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     });
   registrarTool('ork_gate_request',{description:'Abre pedido de gate somente quando pausa ou escalacao tipada esta comprovada no nucleo; nao aprova.',
     inputSchema:daThread.extend({motivo:z.enum(['human.pending','policy.violation','cost.violation',
-      'retry.max_tentativas','hitl.credencial','runtime.unavailable']).optional()}).strict(),
+      'security.scan-unscanned','retry.max_tentativas','hitl.credencial','runtime.unavailable']).optional()}).strict(),
     annotations:{readOnlyHint:false,destructiveHint:false}},async({threadId,motivo})=>{
       thread(threadId); livre(threadId); return resposta(abrirPedidoGate(raiz,threadId,motivo));
     });

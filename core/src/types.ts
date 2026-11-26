@@ -646,6 +646,11 @@ export type MotivoGate =
   | 'verify.regression'
   | 'verify.failed'
   /**
+   * A rodada atual do security scan nao cobriu uma ou mais categorias do laco. O comando e as
+   * categorias ficam no detalhe do gate; retry automatico nao instala a cobertura ausente.
+   */
+  | 'security.scan-unscanned'
+  /**
    * I-37 (D1): o comando de verificacao estourou o prazo antes de terminar. Nao e reprovacao:
    * a prova nao chegou ao fim, e carga de maquina nao e defeito. Motivo proprio para o retry
    * reexecutar em vez de abrir GO-FIX, e para o veredito nunca dizer "falhou" do que nao rodou.
@@ -760,6 +765,9 @@ export type DependenciaExternaDaClaim = 'rede' | 'relogio';
 /** I-37 (D8): por que o comando terminou. Separa "nao rodou ate o fim" de "rodou e falhou". */
 export type CausaDoComando = 'exit' | 'timeout' | 'nao-encontrado' | 'sinal';
 
+/** Executor controlado usado para reexecutar evidência; aparece no recibo da rodada. */
+export interface ShellDoVerify { caminho: string; versao: string }
+
 /** RM-081 F2: resultado diagnostico da segunda passagem isolada dos testes de relogio. */
 export interface RetesteDeRelogio {
   testes: string[];
@@ -804,6 +812,7 @@ export interface ResultadoDeComando {
   /** Prazo aplicado a este comando, resolvido uma vez por rodada (D3). */
   prazoMs?: number;
   duracaoMs?: number;
+  shell?: ShellDoVerify;
   /** Testes reprovados: ate 10 da saida legada; todos os nomes persistiveis de JUnit. So em comando que falha. */
   testeQueCaiu?: string[];
   /** RM-081 F1: evidencia estruturada do relatorio JUnit declarado para este comando. */
