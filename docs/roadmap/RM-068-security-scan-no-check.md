@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-041]
 owner: Paschoal
-atualizado_em: 2026-11-24T23:45:00-03:00
+atualizado_em: 2026-11-26T01:06:12-03:00
 estado:
   ciclo: Disponível
   documentacao: Em revisão
@@ -98,6 +98,10 @@ sdlc:
 
 ## Estado com evidências
 
+### Dívida proposta pelo CHECK
+
+- **Impressão digital estável do ESLint:** o normalizador usa a mensagem inteira no `snippet`, e regras como `no-unsafe-argument` podem imprimir a mesma união de tipos em ordens diferentes. A proposta é normalizar essa parte variável sem colidir achados distintos. Origem: A56 da rodada 7 do CHECK independente da thread `ork-podmangitine`. Estado: proposta sem prioridade; fora do escopo das correções das issues #302 e #299.
+
 O código está na `main` desde o PR #186 (merge `6d9c0f5d`, cabeça da branch `34f019b1`) e em produção na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026). A suíte, o scan do próprio repositório, a integração com Docker real e a prova ponta a ponta estão resumidos em [Evidências](#evidências).
 
 ### Fatia da issue #302: sonda compatível e falha fechada
@@ -136,3 +140,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-20 | Mesclado na main pelo PR #186 | Merge `6d9c0f5d` (cabeça da branch `34f019b1`); sem release no npm: a publicação espera a aceitação dos pilotos do #Noctum | Paschoal |
 | 2026-10-27 | Em produção na 0.6.0: ciclo Disponível, exposição Geral (o scan roda em todo projeto com `verify.security_scan`) e habilitação Concluída (o guia de verificação e a referência do CLI saíram com a versão) | Tag `v0.6.0`, com o merge `6d9c0f5d` (PR #186) na tag; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |
 | 2026-11-24 | Fatia da issue #302 em implementação: sonda sem template específico e scan reprovado quando a cobertura do laço não roda | Triagem da issue e reprodução hermética registradas na thread `ork-podmangitine` | sessão da thread, por decisão D1–D3 registrada no ledger |
+| 2026-11-26 | Proposta de estabilizar a impressão digital do ESLint sem depender da ordem textual de uniões de tipos | A56 da rodada 7 do CHECK independente; dívida da base, fora do escopo da thread `ork-podmangitine` | sessão GO da thread, por encaminhamento do builder |
