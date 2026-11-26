@@ -24,6 +24,7 @@ export interface EntradaDoGateGithub {
   destino: string;
   baseDoPedido: string;
   head: string;
+  commitDaPublicacao: string;
   appIdEsperado: number;
   evento: 'pull_request' | 'pull_request.edited' | 'merge_group';
   fork: boolean;
@@ -55,7 +56,10 @@ export function avaliarGateGithub(entrada: EntradaDoGateGithub): ResultadoDoGate
   const nome = decisorio ? nomeDecisorioGithub(entrada.destino) : nomeDiagnosticoGithub(entrada.destino);
   const falha = (codigo: CodigoDoGateGithub): ResultadoDoGateGithub => ({ ok: false, codigo, nome });
   if (!entrada.destino || entrada.evento === 'merge_group' || entrada.fork || entrada.baseDoPedido !== entrada.destino
-      || !/^[a-f0-9]{40}$/.test(entrada.head) || !entrada.listaCompleta) return falha('ci.fabrica.prova-ausente');
+      || !/^[a-f0-9]{40}$/.test(entrada.head) || entrada.commitDaPublicacao !== entrada.head
+      || !entrada.listaCompleta || (entrada.relacaoComDestino !== 'ahead' && entrada.relacaoComDestino !== 'identical')) {
+    return falha('ci.fabrica.prova-ausente');
+  }
   if (entrada.nomesExistentes?.some((existente) => existente.toLocaleLowerCase('en-US') === nome.toLocaleLowerCase('en-US')
       && existente !== nome)) return falha('ci.fabrica.nome-colidente');
   if (entrada.publicacaoAceita === false) return falha('ci.fabrica.publicacao-recusada');
@@ -67,11 +71,11 @@ export function avaliarGateGithub(entrada: EntradaDoGateGithub): ResultadoDoGate
     const regraPropria = classica || rulesets.length > 0;
     const exigeDiagnostico = (classica && exigeNome(entrada.protecaoClassica!.checks, diagnostico))
       || rulesets.some((r) => exigeNome(r.checks, diagnostico));
-    const fonteEstrita = (classica && entrada.protecaoClassica!.strict
-        && exige(entrada.protecaoClassica!.checks, nome, entrada.appIdEsperado))
-      || rulesets.some((r) => r.strict && r.checks.length > 0 && exige(r.checks, nome, entrada.appIdEsperado));
-    if (!regraPropria || exigeDiagnostico || !fonteEstrita
-        || (entrada.relacaoComDestino !== 'ahead' && entrada.relacaoComDestino !== 'identical')) {
+    const fonteFixaApp = (classica && exige(entrada.protecaoClassica!.checks, nome, entrada.appIdEsperado))
+      || rulesets.some((r) => exige(r.checks, nome, entrada.appIdEsperado));
+    const fonteEstrita = (classica && entrada.protecaoClassica!.strict && exigeNome(entrada.protecaoClassica!.checks, nome))
+      || rulesets.some((r) => r.strict && exigeNome(r.checks, nome));
+    if (!regraPropria || exigeDiagnostico || !fonteFixaApp || !fonteEstrita) {
       return falha('ci.fabrica.regra-destino-invalida');
     }
   }

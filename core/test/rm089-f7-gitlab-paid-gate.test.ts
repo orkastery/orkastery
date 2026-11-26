@@ -9,7 +9,7 @@ const base = (): EntradaGitlabPago => ({ nivel: 'exigir', plano: 'premium', proj
   divergencia: 0, destinoProtegido: true, mergeNivel: 40, pushNivel: 0, forcePush: false, contaDaFabrica: 42,
   escopoDoToken: ['api'], contaRestritaAosProjetos: true, membrosCompletos: true, membros: [{ id: 42, nivel: 40 }],
   comparacaoCompleta: true, compareTimeout: false, baseDeMerge: V, commitDoVerify: V,
-  destinoNaPrimeiraLeitura: D, destinoAntesDoEfeito: D, limiteDeOwnerDeclarado: true,
+  destinoNaPrimeiraLeitura: D, destinoAntesDoEfeito: D, statusDoCommit: null, statusExterno: null,
   resetAprovacoesNoPush: true, regraDeAprovacaoEditavelNoMr: false, impedirAprovacaoPeloAutor: true,
   aprovacoesExigidas: 2, aprovacoesValidas: 2, mergeTrainAtivo: false, configuracaoCompleta: true });
 

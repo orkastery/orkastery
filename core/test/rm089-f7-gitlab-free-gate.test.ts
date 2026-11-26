@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { avaliarGateGitlabFree, statusPositivoAutorizaGateGitlab,
-  type EntradaGitlabFree } from '../src/ci-fabrica-gitlab';
+import { avaliarGateGitlabFree, type EntradaGitlabFree } from '../src/ci-fabrica-gitlab';
 import { caminhoDoMrDaFabricaGitlab, caminhoDosMembrosEfetivosGitlab } from '../src/forja/gitlab/consultas';
 
 const H = 'a'.repeat(40), V = 'b'.repeat(40), D = 'c'.repeat(40);
@@ -10,7 +9,8 @@ const base = (): EntradaGitlabFree => ({ nivel: 'exigir', projeto: 'grupo/projet
   destinoProtegido: true, mergeNivel: 40, pushNivel: 0, forcePush: false, contaDaFabrica: 42,
   escopoDoToken: ['api'], contaRestritaAosProjetos: true, membrosCompletos: true,
   membros: [{ id: 42, nivel: 40 }], comparacaoCompleta: true, compareTimeout: false, baseDeMerge: V,
-  commitDoVerify: V, destinoNaPrimeiraLeitura: D, destinoAntesDoEfeito: D, limiteDeOwnerDeclarado: true });
+  commitDoVerify: V, destinoNaPrimeiraLeitura: D, destinoAntesDoEfeito: D,
+  statusDoCommit: null, statusExterno: null });
 
 test('C128 relê MR com divergência, membros efetivos e mescla com sha', () => {
   assert.match(caminhoDoMrDaFabricaGitlab('grupo/projeto', 7), /include_diverged_commits_count=true/);
@@ -20,7 +20,11 @@ test('C128 relê MR com divergência, membros efetivos e mescla com sha', () => 
   if (r.ok) assert.deepEqual(r.pedidoDeMerge?.corpo, { sha: H });
 });
 
-test('commit status positivo nunca autoriza', () => assert.equal(statusPositivoAutorizaGateGitlab(), false));
+test('commit status e external status check positivos não autorizam o gate', () => {
+  const e = base(); e.statusDoCommit = 'success'; e.statusExterno = 'passed'; e.divergencia = 1;
+  const r = avaliarGateGitlabFree(e); assert.equal(r.ok, false);
+  if (!r.ok) assert.equal(r.codigo, 'ci.fabrica.prova-ausente');
+});
 
 test('outro Maintainer efetivo só diagnostica em todos os níveis e Owner fica como limite declarado', () => {
   for (const nivel of ['observar', 'avisar', 'exigir'] as const) {
@@ -42,6 +46,14 @@ test('MR atrás do destino, corrida do destino, lista truncada, fork e conta amp
     (e: EntradaGitlabFree) => { e.compareTimeout = true; },
   ];
   for (const mudar of casos) { const e = base(); mudar(e); assert.equal(avaliarGateGitlabFree(e).ok, false); }
+});
+
+test('atraso, fork e compare_timeout usam prova ausente, não regra do destino', () => {
+  for (const mudar of [(e: EntradaGitlabFree) => { e.divergencia = 1; },
+    (e: EntradaGitlabFree) => { e.projetoOrigem = 2; }, (e: EntradaGitlabFree) => { e.compareTimeout = true; }]) {
+    const e = base(); mudar(e); const r = avaliarGateGitlabFree(e);
+    assert.equal(r.ok, false); if (!r.ok) assert.equal(r.codigo, 'ci.fabrica.prova-ausente');
+  }
 });
 
 test('observar e avisar não mesclam e recusa do merge em exigir tem código próprio', () => {

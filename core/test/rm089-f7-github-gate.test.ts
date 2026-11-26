@@ -6,7 +6,7 @@ import { localizadorDoEventoDaFabricaGithub } from '../src/forja/github/pedidos'
 
 const H = 'a'.repeat(40);
 const base = (): EntradaDoGateGithub => ({ nivel: 'exigir', repositorio: 'grupo/projeto', destino: 'main',
-  baseDoPedido: 'main', head: H, appIdEsperado: 42, evento: 'pull_request', fork: false,
+  baseDoPedido: 'main', head: H, commitDaPublicacao: H, appIdEsperado: 42, evento: 'pull_request', fork: false,
   relacaoComDestino: 'ahead', listaCompleta: true, protecaoClassica: { padrao: 'main', strict: true,
     checks: [{ nome: nomeDecisorioGithub('main'), appId: 42 }] }, rulesets: [] });
 
@@ -26,17 +26,20 @@ test('uma fonte estrita própria basta e fonte paralela sem App não a enfraquec
   e.protecaoClassica!.strict = false;
   assert.equal(avaliarGateGithub(e).ok, false);
   e.rulesets[0].strict = true;
+  assert.equal(avaliarGateGithub(e).ok, true, 'uma fonte fixa o App e outra fonte própria fornece strict');
   e.rulesets[0].checks = [];
-  assert.equal(avaliarGateGithub(e).ok, false, 'ruleset estrito sem check não conta');
+  assert.equal(avaliarGateGithub(e).ok, false, 'fonte estrita sem o nome não conta');
 });
 
 test('regra ampla, padrão, diagnóstico exigido, App divergente e destino desatualizado falham fechado', () => {
   const casos = [
     (e: EntradaDoGateGithub) => { e.protecaoClassica!.padrao = '*'; },
+    (e: EntradaDoGateGithub) => { e.protecaoClassica!.padrao = 'release'; },
     (e: EntradaDoGateGithub) => { e.protecaoClassica!.checks[0].nome = nomeDiagnosticoGithub('main'); },
     (e: EntradaDoGateGithub) => { e.protecaoClassica!.checks[0].appId = 7; },
     (e: EntradaDoGateGithub) => { e.relacaoComDestino = 'behind'; },
     (e: EntradaDoGateGithub) => { e.listaCompleta = false; },
+    (e: EntradaDoGateGithub) => { e.commitDaPublicacao = 'b'.repeat(40); },
   ];
   for (const mudar of casos) { const e = base(); mudar(e); assert.equal(avaliarGateGithub(e).ok, false); }
   const e = base(); e.protecaoClassica = undefined;
@@ -62,6 +65,14 @@ test('troca de base aciona releitura, outro destino ganha outro nome e merge_gro
   assert.notEqual(nomeDecisorioGithub('main'), nomeDecisorioGithub('release'));
   const e = base(); e.baseDoPedido = 'release';
   assert.equal(avaliarGateGithub(e).ok, false);
+});
+
+test('fork e pedido atrás do destino seguem prova ausente, sem código público de regra', () => {
+  for (const mudar of [(e: EntradaDoGateGithub) => { e.fork = true; },
+    (e: EntradaDoGateGithub) => { e.relacaoComDestino = 'behind'; }]) {
+    const e = base(); mudar(e); const r = avaliarGateGithub(e);
+    assert.equal(r.ok, false); if (!r.ok) assert.equal(r.codigo, 'ci.fabrica.prova-ausente');
+  }
 });
 
 test('colisão sem caixa e recusa da API têm códigos próprios', () => {
