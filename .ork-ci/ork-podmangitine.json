@@ -2058,6 +2058,32 @@
         "artefato-de-fechamento",
         "ref-local-do-ramo-base"
       ]
+    },
+    {
+      "id": "C139",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-068-security-scan-no-check.md",
+      "alegacao": "O roadmap registra A56 como dívida proposta, com origem no CHECK e fora do escopo desta thread.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const f=require(\"node:fs\"),q=String.fromCharCode(96),s=f.readFileSync(\"docs/roadmap/RM-068-security-scan-no-check.md\",\"utf8\");if(!s.includes(\"A56 da rodada 7\")||!s.includes(\"fora do escopo da thread \"+q+\"ork-podmangitine\"+q))process.exit(1)'"
+      ],
+      "criadoEm": "2026-11-26T04:07:09.821Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
     }
   ],
   "deferredClaims": [
@@ -2104,6 +2130,26 @@
     {
       "id": "C129",
       "reason": "local-integration-required"
+    },
+    {
+      "id": "C134",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C135",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C136",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C137",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C138",
+      "reason": "local-integration-required"
     }
   ],
   "commands": [
@@ -2118,7 +2164,7 @@
   ],
   "recibo": {
     "contrato": "ork.recibo-prova/v1",
-    "head": "00f349cbb5fe3b347561cee9506be07991ff1d4c",
-    "sha256": "0aa1338442d1e0e259ab3def6a0bf355d13d53741b49c20eed0fbc11f91617de"
+    "head": "82b4ad63c9ead71b58b3440c9f20fecd5caab84b",
+    "sha256": "99f73cf21e0be4a0ef402b0365597cf9adb376ddb774f3df50cc1b2b87e0b24a"
   }
 }
