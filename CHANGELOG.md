@@ -6,6 +6,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+## [0.6.11] - 2026-11-26
+
+A 0.6.11 corrige o security scan e o commit do MCP com configuração Git local (#302 e #299), torna o núcleo portátil no macOS com prova no CI (#303 e #304) e entrega a F6 da RM-089.
+
+O #Noctum segue **em desenvolvimento, não anunciado**.
+
 ### Adicionado
 
 - **Adoção de trabalho existente — F6 (RM-089):** `ork adotar` cria a thread e a worktree canônicas no commit da origem sem reescrever a história, preserva os objetos exclusivos, retoma pelo último estado durável e só conclui depois de verify, CHECK independente e recibo do runner no mesmo HEAD.

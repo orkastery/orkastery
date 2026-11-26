@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-041]
 owner: Paschoal
-atualizado_em: 2026-11-24T23:45:00-03:00
+atualizado_em: 2026-11-26T05:09:09-03:00
 estado:
   ciclo: Disponível
   documentacao: Em revisão
@@ -110,7 +110,7 @@ O código está na `main` desde o PR #186 (merge `6d9c0f5d`, cabeça da branch `
 
 - **Fonte e evidência:** [issue #302](https://github.com/orkastery/orkastery/issues/302), triada no código em 24/11/2026. A sonda usava o campo específico `ServerVersion`, o verify local não ativava o modo obrigatório e o bundle do CI já o ativava.
 - **Resultado incluído:** a sonda consulta `docker info` sem template; ferramenta não dispensada das categorias do laço em `unavailable` ou `failed` faz o comando sair 1 tanto no uso direto quanto no verify e no CI.
-- **Estado da fatia: em implementação** na thread `ork-podmangitine`; código, testes e integração ainda não estão mesclados nem publicados.
+- **Estado da fatia: mesclada na `main`** pelo PR #305 (merge `884b090a`); a publicação da correção aguarda a 0.6.11.
 - **Proteções:** as dispensas `unsupported-ci` e `no-requirements-file` preservam a regra existente; ferramentas de `quality` e `license` continuam fora do laço; `ORK_SECURITY_SCAN_REQUIRED` permanece aceito por compatibilidade, sem criar opt-out.
 - **Fora de escopo:** Runtime Podman real fica fora da suíte hermética; não mudam catálogo, versões, categorias, ferramentas suportadas nem o requisito de autorização humana para o SHIP.
 
@@ -120,13 +120,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Disponível | — | 2026-11-24 | Paschoal |
-| Documentação | Em revisão | — | 2026-11-24 | Paschoal |
-| Código | Mesclado | commit `6d9c0f5d` · PR #186 | 2026-11-24 | Paschoal |
-| Testes | Aprovados | — | 2026-11-24 | Paschoal |
-| Deploy | Produção | release: v0.6.0, @orkastery/cli no npm (ork security-scan e verify.security_scan) | 2026-11-24 | Paschoal |
-| Exposição | Geral | — | 2026-11-24 | Paschoal |
-| Habilitação | Concluída | — | 2026-11-24 | Paschoal |
+| Ciclo do item | Disponível | — | 2026-11-26 | Paschoal |
+| Documentação | Em revisão | — | 2026-11-26 | Paschoal |
+| Código | Mesclado | commit `6d9c0f5d` · PR #186 | 2026-11-26 | Paschoal |
+| Testes | Aprovados | — | 2026-11-26 | Paschoal |
+| Deploy | Produção | release: v0.6.0, @orkastery/cli no npm (ork security-scan e verify.security_scan) | 2026-11-26 | Paschoal |
+| Exposição | Geral | — | 2026-11-26 | Paschoal |
+| Habilitação | Concluída | — | 2026-11-26 | Paschoal |
 
 <!-- ork-docs:estado:fim -->
 
@@ -143,3 +143,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-27 | Em produção na 0.6.0: ciclo Disponível, exposição Geral (o scan roda em todo projeto com `verify.security_scan`) e habilitação Concluída (o guia de verificação e a referência do CLI saíram com a versão) | Tag `v0.6.0`, com o merge `6d9c0f5d` (PR #186) na tag; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |
 | 2026-11-24 | Fatia da issue #302 em implementação: sonda sem template específico e scan reprovado quando a cobertura do laço não roda | Triagem da issue e reprodução hermética registradas na thread `ork-podmangitine` | sessão da thread, por decisão D1–D3 registrada no ledger |
 | 2026-11-26 | Proposta de estabilizar a impressão digital do ESLint sem depender da ordem textual de uniões de tipos | A56 da rodada 7 do CHECK independente; dívida da base, fora do escopo da thread `ork-podmangitine` | sessão GO da thread, por encaminhamento do builder |
+| 2026-11-26 | Fatia da issue #302 mesclada na `main` pelo PR #305 | Merge `884b090a`; a publicação da correção fica para a 0.6.11 | thread `ork-podmangitine` |

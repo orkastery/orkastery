@@ -66,10 +66,12 @@ test('caminhos documentados dos adapters existem e conservam suas superfícies n
   assert.match(read('adapters/openclaw/src/index.ts'), /agent:bootstrap/);
 });
 
-test('Não publicado anuncia adoção, orientação e exceção sem prometer ganho', () => {
-  const unpublished = read('CHANGELOG.md').split(/^## \[0\.6\.9\]/m)[0];
-  assert.match(unpublished, /Adoção de trabalho existente/);
-  assert.match(unpublished, /Orientação única de sessão/);
-  assert.match(unpublished, /Exceção auditável do recibo/);
-  assert.doesNotMatch(unpublished, /\b(?:[0-9]+(?:[.,][0-9]+)?x|[0-9]+%)\b/);
+test('CHANGELOG anuncia adoção, orientação e exceção sem prometer ganho', () => {
+  const sections = read('CHANGELOG.md').split(/\n## /).slice(1);
+  const release = sections.find((section) => section.includes('**Adoção de trabalho existente — F6 (RM-089):**')) ?? '';
+  assert.match(release, /^(?:Não publicado|\[\d+\.\d+\.\d+\] - \d{4}-\d{2}-\d{2})\n/);
+  assert.match(release, /Adoção de trabalho existente/);
+  assert.match(release, /Orientação única de sessão/);
+  assert.match(release, /Exceção auditável do recibo/);
+  assert.doesNotMatch(release, /\b(?:[0-9]+(?:[.,][0-9]+)?x|[0-9]+%)\b/);
 });

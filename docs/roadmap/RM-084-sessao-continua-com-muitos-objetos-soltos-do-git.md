@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-24T23:50:00-03:00
+atualizado_em: 2026-11-26T05:09:09-03:00
 estado:
   ciclo: Discovery
   documentacao: Rascunho
@@ -81,7 +81,7 @@ sdlc:
 
 - **Fonte e evidência:** [issue #299](https://github.com/orkastery/orkastery/issues/299), triada em 24/11/2026. O perfil de `core/src/mcp-git.ts` recusava qualquer chave fora da lista positiva e devolvia uma mensagem sem chave ou escopo.
 - **Resultado incluído:** configuração local passiva de status e commit aceita `branch.<b>.vscode-merge-base`, `core.compression` no domínio `-1..9`, `pull.rebase` não interativo e quatro opções de transporte HTTP que a operação local não usa. A recusa preserva o código atual e acrescenta chave mascarada e escopo.
-- **Estado da fatia: em implementação** na thread `ork-podmangitine`; ainda não foi mesclada nem publicada. O estado Discovery da iniciativa de manutenção de objetos permanece verdadeiro e independente desta fatia.
+- **Estado da fatia: mesclada na `main`** pelo PR #305 (merge `884b090a`); a publicação da correção aguarda a 0.6.11. O estado Discovery da iniciativa de manutenção de objetos permanece verdadeiro e independente desta fatia.
 - **Proteções:** todos os escopos continuam lidos; alias, hooks, filtros efetivos e valores fora do domínio continuam recusados; transporte de credencial, SHIP e consultas de rede usam o perfil estrito; `http.<url>.extraHeader` continua recusada e aparece como `http.<subsecao>.extraheader`, sem URL ou valor.
 - **Fora de escopo:** ignorar configuração global, aceitar classes abertas, mudar o transporte do SHIP, executar Git pelo agente ou resolver a manutenção preventiva de objetos desta iniciativa.
 
@@ -91,13 +91,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-11-24 | Julio |
-| Documentação | Rascunho | — | 2026-11-24 | Julio |
-| Código | Não iniciado | — | 2026-11-24 | Julio |
-| Testes | Não iniciados | — | 2026-11-24 | Julio |
-| Deploy | Não implantado | — | 2026-11-24 | Julio |
-| Exposição | Flag desligada | — | 2026-11-24 | Julio |
-| Habilitação | Pendente | — | 2026-11-24 | Julio |
+| Ciclo do item | Discovery | — | 2026-11-26 | Julio |
+| Documentação | Rascunho | — | 2026-11-26 | Julio |
+| Código | Não iniciado | — | 2026-11-26 | Julio |
+| Testes | Não iniciados | — | 2026-11-26 | Julio |
+| Deploy | Não implantado | — | 2026-11-26 | Julio |
+| Exposição | Flag desligada | — | 2026-11-26 | Julio |
+| Habilitação | Pendente | — | 2026-11-26 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -111,3 +111,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- |
 | 2026-11-07 | Item criado em Discovery | `ork_git_status` recusou o excesso de entradas em `.git/objects` e a sessão não podia executar a receita segura | Builder (pedido de 07/11/2026) |
 | 2026-11-24 | Fatia da issue #299 em implementação, sem alterar o estado da manutenção preventiva | O código confirmou a lista positiva genérica e a mensagem sem diagnóstico; a documentação do Git separa configuração de dados, pull e transporte | sessão da thread `ork-podmangitine`, por decisões D4–D8 registradas no ledger |
+| 2026-11-26 | Fatia da issue #299 mesclada na `main` pelo PR #305, sem alterar o estado da manutenção preventiva | Merge `884b090a`; a publicação da correção fica para a 0.6.11 | thread `ork-podmangitine` |

@@ -6,22 +6,24 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-25T00:00:00-03:00
+atualizado_em: 2026-11-26T05:06:19-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
-  codigo: Branch criada
+  codigo: Mesclado
   testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
+    commit: 854f9ca
     pr: null
 sdlc:
   thread: ork-macosportave
   modo: auto
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-096 — Núcleo portátil no macOS
@@ -32,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -85,13 +87,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-11-25 | Julio |
-| Documentação | Em revisão | — | 2026-11-25 | Julio |
-| Código | Branch criada | — | 2026-11-25 | Julio |
-| Testes | Em execução | — | 2026-11-25 | Julio |
-| Deploy | Não implantado | — | 2026-11-25 | Julio |
-| Exposição | Flag desligada | — | 2026-11-25 | Julio |
-| Habilitação | Pendente | — | 2026-11-25 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-26 | Julio |
+| Documentação | Em revisão | — | 2026-11-26 | Julio |
+| Código | Mesclado | commit `854f9ca` | 2026-11-26 | Julio |
+| Testes | Em execução | — | 2026-11-26 | Julio |
+| Deploy | Não implantado | — | 2026-11-26 | Julio |
+| Exposição | Flag desligada | — | 2026-11-26 | Julio |
+| Habilitação | Pendente | — | 2026-11-26 | Julio |
 
 <!-- ork-docs:estado:fim -->
 

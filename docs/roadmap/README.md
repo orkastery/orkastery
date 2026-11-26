@@ -98,7 +98,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-065](RM-065-gitlab-com-paridade-ao-github.md) | GitLab com paridade ao GitHub | Disponível | Mesclado | Aprovados | Produção | 2026-10-27 |
 | [RM-066](RM-066-google-antigravity-homologado.md) | Google Antigravity homologado ao lado de Codex e Claude Code | Backlog | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-067](RM-067-grok-build-homologado.md) | Grok Build homologado ao lado de Codex e Claude Code | Em desenvolvimento | Mesclado | Aprovados | Não implantado | 2026-11-23 |
-| [RM-068](RM-068-security-scan-no-check.md) | Security scan no CHECK | Disponível | Mesclado | Aprovados | Produção | 2026-11-24 |
+| [RM-068](RM-068-security-scan-no-check.md) | Security scan no CHECK | Disponível | Mesclado | Aprovados | Produção | 2026-11-26 |
 | [RM-069](RM-069-dsn-fora-do-ambiente-dos-agentes.md) | DSN com senha fora do ambiente dos agentes | Disponível | Mesclado | Aprovados | Produção | 2026-10-27 |
 | [RM-070](RM-070-grok-bot-como-camada-de-conducao.md) | Grok Bot como camada de condução do Orkastery | Backlog | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-071](RM-071-relatorio-da-esteira-do-sdlc.md) | Fluxo da fábrica por item | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
@@ -110,11 +110,11 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-077](RM-077-revisao-independente-pelo-construtor-do-head.md) | Revisão independente medida pelo construtor do HEAD | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-078](RM-078-recibo-valido-enquanto-nada-muda.md) | Recibo de verify e de revisão válido enquanto HEAD, claims e plano não mudam | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-23 |
 | [RM-079](RM-079-claims-que-a-correcao-passa.md) | Claims de revisão que a correção passa e retirada tipada com substituta | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-07 |
-| [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md) | Verify diz a causa e guarda a saída inteira | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-11-25 |
+| [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md) | Verify diz a causa e guarda a saída inteira | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-26 |
 | [RM-081](RM-081-check-por-qualquer-runner.md) | CHECK que entende qualquer runner de teste e só roda de novo o necessário | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-23 |
 | [RM-082](RM-082-credenciais-redigidas-em-toda-superficie.md) | Credenciais redigidas em toda superfície de comando, motivo e detalhe | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-07 |
 | [RM-083](RM-083-estado-do-roadmap-acompanha-a-entrega.md) | Estado do roadmap acompanha a entrega | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
-| [RM-084](RM-084-sessao-continua-com-muitos-objetos-soltos-do-git.md) | Sessão continua com muitos objetos soltos do Git | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-24 |
+| [RM-084](RM-084-sessao-continua-com-muitos-objetos-soltos-do-git.md) | Sessão continua com muitos objetos soltos do Git | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-26 |
 | [RM-085](RM-085-verify-com-escopo-causal-mensagem-de-assercao-e-check-fast.md) | Verify com escopo causal, mensagem de asserção e CHECK independente no #Fast | Descontinuado | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-086](RM-086-kimi-code-homologado.md) | Kimi Code homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-087](RM-087-opencode-homologado.md) | OpenCode homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
@@ -126,7 +126,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-093](RM-093-acao-do-dono-executada-pela-fabrica.md) | Ação do dono executada pela fábrica | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-094](RM-094-caixa-de-intencoes.md) | Caixa de intenções | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-095](RM-095-resultado-de-producao-vira-proposta.md) | Resultado de produção vira proposta | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
-| [RM-096](RM-096-nucleo-portatil-no-macos.md) | Núcleo portátil no macOS | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-11-25 |
+| [RM-096](RM-096-nucleo-portatil-no-macos.md) | Núcleo portátil no macOS | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-26 |
 | [RM-097](RM-097-resolucao-de-tipos-no-security-scan.md) | Resolução de tipos no worktree do security scan | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-25 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
