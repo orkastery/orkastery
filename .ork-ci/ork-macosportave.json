@@ -2839,84 +2839,6 @@
       ]
     },
     {
-      "id": "C159",
-      "thread": "ork-macosportave",
-      "fase": "GO",
-      "arquivo": "core/src/node-portavel.ts",
-      "alegacao": "A fachada tipada do runtime Node preserva a trava portátil, o lock HITL e a recusa da fila pesada sem depender de any implícito.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/trava-portatil.test.js core/dist-test/test/hitl-lock.test.js core/dist-test/test/fila-pesada-recusa.test.js"
-      ],
-      "criadoEm": "2026-11-25T22:38:02.805Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C160",
-      "thread": "ork-macosportave",
-      "fase": "GO",
-      "arquivo": "core/assets/security-scan/tools.json",
-      "alegacao": "O ESLint do security scan usa o install congelado do Classic e analisa a fonte sem depender de tipos adicionais instalados fora do projeto.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/security-scan-tools.test.js core/dist-test/test/check-classic-intacto.test.js"
-      ],
-      "criadoEm": "2026-11-25T22:41:17.188Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C161",
-      "thread": "ork-macosportave",
-      "fase": "GO",
-      "arquivo": "core/assets/security-scan/defaults/eslint.config.mjs",
-      "alegacao": "O ESLint type-aware mantém a análise da fonte e exclui a árvore de testes do security scan.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/security-scan-tools.test.js"
-      ],
-      "criadoEm": "2026-11-25T22:41:17.243Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C162",
       "thread": "ork-macosportave",
       "fase": "GO",
@@ -2927,32 +2849,6 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/check-classic-intacto.test.js"
       ],
       "criadoEm": "2026-11-25T22:41:17.293Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C163",
-      "thread": "ork-macosportave",
-      "fase": "GO",
-      "arquivo": "core/test/security-scan-tools.test.ts",
-      "alegacao": "A suíte do catálogo exige que o ESLint ignore a árvore de testes e mantenha a configuração type-aware.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/security-scan-tools.test.js"
-      ],
-      "criadoEm": "2026-11-25T22:41:30.854Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
@@ -2995,32 +2891,6 @@
       ]
     },
     {
-      "id": "C166",
-      "thread": "ork-macosportave",
-      "fase": "GO",
-      "arquivo": "core/src/node-portavel.ts",
-      "alegacao": "A fachada tipada cobre as operações de arquivo, caminho, sistema e processo usadas pelos consumidores do security scan sem alterar o comportamento do runtime.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js core/dist-test/test/doctor-portabilidade.test.js core/dist-test/test/shell-do-verify.test.js"
-      ],
-      "criadoEm": "2026-11-25T23:29:01.207Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C167",
       "thread": "ork-macosportave",
       "fase": "GO",
@@ -3031,84 +2901,6 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js core/dist-test/test/shell-do-verify.test.js"
       ],
       "criadoEm": "2026-11-25T23:29:01.357Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C168",
-      "thread": "ork-macosportave",
-      "fase": "GO",
-      "arquivo": "core/src/conducao.ts",
-      "alegacao": "A condução preserva a trava portátil no macOS e o flock no Linux usando operações de runtime explicitamente tipadas.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/macos-locks.test.js core/dist-test/test/doctor-portabilidade.test.js"
-      ],
-      "criadoEm": "2026-11-25T23:29:01.506Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C169",
-      "thread": "ork-macosportave",
-      "fase": "GO",
-      "arquivo": "core/src/creation-operation-store.ts",
-      "alegacao": "O journal mantém pedidos e operações com tipos explícitos após a validação do schema e preserva as travas por plataforma.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/macos-locks.test.js"
-      ],
-      "criadoEm": "2026-11-25T23:29:01.645Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C170",
-      "thread": "ork-macosportave",
-      "fase": "GO",
-      "arquivo": "core/src/doctor.ts",
-      "alegacao": "O doctor executa a sonda da trava e as verificações portáteis por uma superfície de runtime explicitamente tipada.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/doctor-portabilidade.test.js"
-      ],
-      "criadoEm": "2026-11-25T23:29:01.795Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
@@ -3177,16 +2969,16 @@
       ]
     },
     {
-      "id": "C173",
+      "id": "C175",
       "thread": "ork-macosportave",
       "fase": "GO",
-      "arquivo": "core/src/verify-sandbox.ts",
-      "alegacao": "O executor sandbox valida binário e limpeza pelos acessos tipados sem afrouxar identidade ou executabilidade.",
+      "arquivo": "core/test/check-classic-intacto.test.ts",
+      "alegacao": "A configuração padrão do ESLint e o conteúdo das configs montadas pelo Classic correspondem ao retrato congelado da base, sem excluir a árvore de testes.",
       "negativa": false,
       "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/verify-sandbox-shell.test.js"
+        "npm --prefix core run build:test && node --test core/dist-test/test/security-scan-tools.test.js core/dist-test/test/check-classic-intacto.test.js"
       ],
-      "criadoEm": "2026-11-25T23:29:02.500Z",
+      "criadoEm": "2026-11-26T01:20:57.200Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
@@ -3203,16 +2995,146 @@
       ]
     },
     {
-      "id": "C174",
+      "id": "C176",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/creation-operation-store.test.ts",
+      "alegacao": "A leitura do journal rejeita estado persistido que não valida o schema antes de devolver a operação.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/creation-operation-store.test.js"
+      ],
+      "criadoEm": "2026-11-26T01:33:01.299Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C177",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/doctor-portabilidade.test.ts",
+      "alegacao": "A sonda Linux do doctor executa o flock e reprova quando a aquisição da trava falha.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/doctor-portabilidade.test.js core/dist-test/test/trava-portatil.test.js"
+      ],
+      "criadoEm": "2026-11-26T01:33:01.468Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C179",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/verify-timeout.test.ts",
+      "alegacao": "O verify usa o auxiliar de prazo e o grupo de processos quando o binário controlado está disponível.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/verify-timeout.test.js"
+      ],
+      "criadoEm": "2026-11-26T01:33:01.966Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C180",
       "thread": "ork-macosportave",
       "fase": "GO",
       "arquivo": "core/src/verify.ts",
-      "alegacao": "O verify detecta o auxiliar de prazo por acesso tipado e preserva a execução com e sem grupo de processos.",
+      "alegacao": "Os consumidores do runtime usam as APIs do Node diretamente e preservam as travas portáteis, o shell controlado e as guardas do verify sem a fachada removida.",
       "negativa": false,
       "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/check-agil.test.js core/dist-test/test/shell-do-verify.test.js"
+        "test ! -e core/src/node-portavel.ts && npm --prefix core run build:test && node --test core/dist-test/test/trava-portatil.test.js core/dist-test/test/hitl-lock.test.js core/dist-test/test/fila-pesada-recusa.test.js core/dist-test/test/doctor-portabilidade.test.js core/dist-test/test/shell-do-verify.test.js core/dist-test/test/verify-timeout.test.js"
       ],
-      "criadoEm": "2026-11-25T23:29:02.629Z",
+      "criadoEm": "2026-11-26T01:33:02.115Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C181",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/conducao.ts",
+      "alegacao": "A condução no Linux mantém a exclusão pelo flock e falha fechada quando o mecanismo não está disponível.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/conducao-lease.test.js core/dist-test/test/conducao-handoff.test.js core/dist-test/test/rm037-esperas.test.js core/dist-test/test/rm037-limite-de-sessoes.test.js"
+      ],
+      "criadoEm": "2026-11-26T01:33:02.250Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C182",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-097-resolucao-de-tipos-no-security-scan.md",
+      "alegacao": "O roadmap registra a resolução de tipos do worktree do security scan como proposta própria, com origem, escopo, proteções e estado não iniciado.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-26T01:34:32.429Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
@@ -3233,6 +3155,10 @@
     {
       "id": "C165",
       "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C178",
+      "reason": "local-integration-required"
     }
   ],
   "commands": [
@@ -3247,7 +3173,7 @@
   ],
   "recibo": {
     "contrato": "ork.recibo-prova/v1",
-    "head": "3d1a1395e887eb53c1fb8b8480d48719d737fc24",
-    "sha256": "77bcf6d517f179c3f7ae1809b0193270fc6868ad0ed990065d72c86be96abe1c"
+    "head": "59371c0ce0b9ce0007e91334374308882f9a8242",
+    "sha256": "7d17a7be8be0f6362694fea1b8ec7201fab3d4d370800a275da40e060f764bad"
   }
 }
